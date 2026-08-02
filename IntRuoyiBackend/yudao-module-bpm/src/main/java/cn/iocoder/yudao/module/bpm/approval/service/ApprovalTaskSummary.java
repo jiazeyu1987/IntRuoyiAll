@@ -12,6 +12,7 @@ import lombok.experimental.Accessors;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -37,6 +38,8 @@ public class ApprovalTaskSummary {
     private String businessCode;
 
     private String businessStatus;
+
+    private List<String> businessContextTags;
 
     private Boolean businessDeleted;
 

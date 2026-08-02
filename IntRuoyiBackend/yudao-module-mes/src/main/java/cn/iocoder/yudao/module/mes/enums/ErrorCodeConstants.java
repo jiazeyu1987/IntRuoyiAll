@@ -530,6 +530,12 @@ public interface ErrorCodeConstants {
             "PQC 简化模板只允许检测成功或检测失败");
     ErrorCode PRO_FRONTLINE_TEMPLATE_SUBMIT_TIME_FORBIDDEN = new ErrorCode(1_040_506_105,
             "一线固定模板不允许前端录入提交时间");
+    ErrorCode PRO_FRONTLINE_PQC_REGULATION_REQUIRED = new ErrorCode(1_040_506_106,
+            "当前工序缺少已发布 QA 检验规程，activeOrderId={}，routeProcessId={}，processId={}");
+    ErrorCode PRO_FRONTLINE_PQC_TASK_REQUIRED = new ErrorCode(1_040_506_107,
+            "当前工序缺少待执行 PQC 检验任务，activeOrderId={}，routeProcessId={}，processId={}");
+    ErrorCode PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH = new ErrorCode(1_040_506_108,
+            "PQC 检验任务身份与提交上下文不一致：{}");
 
     // ========== MES 生产管理-生产流转卡（1-040-507-000） ==========
     ErrorCode PRO_CARD_NOT_EXISTS = new ErrorCode(1_040_507_000, "生产流转卡不存在");
@@ -1104,6 +1110,8 @@ public interface ErrorCodeConstants {
             "P6 只读核验缺少订单工序完成记录，workOrderId={}，routeProcessId={}，processId={}");
     ErrorCode PRO_PROCESS_POOL_BATCH_RECORD_TRACE_REQUIRED = new ErrorCode(1_040_760_323,
             "P6 只读核验缺少正式批记录回填证据，workOrderId={}，routeProcessId={}，processId={}");
+    ErrorCode PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED = new ErrorCode(1_040_760_324,
+            "活跃订单缺少当前工序生产系数和目标数量快照：{}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

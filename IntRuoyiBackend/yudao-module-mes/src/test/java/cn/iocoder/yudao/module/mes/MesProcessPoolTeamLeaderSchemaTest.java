@@ -31,6 +31,50 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class MesProcessPoolTeamLeaderSchemaTest {
 
     @Test
+    void activeOrderAuthoritySchemaMustFreezeRouteVersionQuantityStatusAndOptimisticLock() throws Exception {
+        assertField(MesProcessPoolActiveOrderDO.class, "routeId", Long.class);
+        assertField(MesProcessPoolActiveOrderDO.class, "routeVersionId", Long.class);
+        assertField(MesProcessPoolActiveOrderDO.class, "erpFixedQuantitySnapshot", BigDecimal.class);
+        assertField(MesProcessPoolActiveOrderDO.class, "businessStatus", String.class);
+        assertField(MesProcessPoolActiveOrderDO.class, "version", Integer.class);
+
+        String sql = Files.readString(resolveBackendPath(
+                "sql/mysql/20260802_mes_process_pool_active_order_authority.sql"), StandardCharsets.UTF_8);
+        assertTrue(sql.contains("dependsOn=20260801_mes_process_pool_team_leader_p4_order_completion_backfill"));
+        assertTrue(sql.contains("`route_id` bigint NOT NULL COMMENT '正式工艺路线ID'"));
+        assertTrue(sql.contains("`route_version_id` bigint NOT NULL COMMENT '正式工艺路线版本ID'"));
+        assertTrue(sql.contains("`erp_fixed_quantity_snapshot` decimal(24,6) NOT NULL COMMENT 'ERP固定生产数量快照'"));
+        assertTrue(sql.contains("`business_status` varchar(32) NOT NULL COMMENT '跨角色活跃订单业务状态：ACTIVE/REMOVED/TERMINATED/COMPLETED'"));
+        assertTrue(sql.contains("`version` int NOT NULL DEFAULT 0 COMMENT '乐观锁版本'"));
+        assertTrue(sql.contains("UNIQUE KEY `uk_mes_pp_active_order` (`tenant_id`, `work_order_id`, `route_id`, `route_version_id`, `deleted`)"));
+        assertFalse(sql.contains("UNIQUE KEY `uk_mes_pp_active_order` (`tenant_id`, `leader_user_id`, `work_order_id`, `deleted`)"));
+    }
+
+    @Test
+    void activeOrderProcessSnapshotSchemaMustFreezePerProcessProductionTarget() throws Exception {
+        Class<?> snapshotClass = Class.forName(
+                "cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO");
+        assertEquals("mes_pro_process_pool_active_order_process_snapshot", tableName(snapshotClass));
+        assertField(snapshotClass, "activeOrderId", Long.class);
+        assertField(snapshotClass, "workOrderId", Long.class);
+        assertField(snapshotClass, "routeId", Long.class);
+        assertField(snapshotClass, "routeVersionId", Long.class);
+        assertField(snapshotClass, "routeProcessId", Long.class);
+        assertField(snapshotClass, "processId", Long.class);
+        assertField(snapshotClass, "erpFixedQuantitySnapshot", BigDecimal.class);
+        assertField(snapshotClass, "productionQuantityFactorSnapshot", BigDecimal.class);
+        assertField(snapshotClass, "plannedQuantitySnapshot", BigDecimal.class);
+
+        String sql = Files.readString(resolveBackendPath(
+                "sql/mysql/20260802_mes_process_pool_active_order_process_snapshot.sql"), StandardCharsets.UTF_8);
+        assertTrue(sql.contains("dependsOn=20260802_mes_process_pool_active_order_authority"));
+        assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_active_order_process_snapshot`"));
+        assertTrue(sql.contains("`production_quantity_factor_snapshot` decimal(24,6) NOT NULL COMMENT '生产数量系数快照'"));
+        assertTrue(sql.contains("`planned_quantity_snapshot` decimal(24,6) NOT NULL COMMENT '工序目标数量快照'"));
+        assertTrue(sql.contains("UNIQUE KEY `uk_mes_pp_active_order_process_snapshot` (`tenant_id`, `active_order_id`, `route_process_id`, `process_id`, `deleted`)"));
+    }
+
+    @Test
     void shouldCreateTeamLeaderWorkbenchAndMaintenanceTables() throws Exception {
         assertEquals("mes_pro_process_pool_team_leader_scope", tableName(MesProcessPoolTeamLeaderScopeDO.class));
         assertEquals("mes_pro_process_pool_submission_review", tableName(MesProcessPoolSubmissionReviewDO.class));

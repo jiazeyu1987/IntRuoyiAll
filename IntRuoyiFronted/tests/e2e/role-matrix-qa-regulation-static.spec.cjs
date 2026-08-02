@@ -7,10 +7,14 @@ const frontendRoot = path.resolve(workspaceRoot, 'IntRuoyiFronted')
 const backendRoot = path.resolve(workspaceRoot, 'IntRuoyiBackend')
 
 const panelPath = path.join(frontendRoot, 'src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue')
-const schemaPath = path.join(backendRoot, 'sql/mysql/20260512_mes_base_schema.sql')
+const schemaPaths = [
+  path.join(backendRoot, 'sql/mysql/20260512_mes_base_schema.sql'),
+  path.join(backendRoot, 'sql/mysql/20260802_mes_qa_inspection_regulation.sql'),
+  path.join(backendRoot, 'sql/mysql/20260802_mes_pqc_inspection_task.sql')
+]
 
 const panelSource = fs.readFileSync(panelPath, 'utf8')
-const schemaSource = fs.readFileSync(schemaPath, 'utf8')
+const schemaSource = schemaPaths.map((schemaPath) => fs.readFileSync(schemaPath, 'utf8')).join('\\n')
 
 assert.match(
   schemaSource,

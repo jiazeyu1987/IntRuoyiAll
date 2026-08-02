@@ -166,8 +166,6 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     private static final String OPERATION_REPLAN_APPLY = "REPLAN_APPLY";
     private static final String REPLAN_TRIGGER_MANUAL = "MANUAL";
     private static final String REPLAN_TRIGGER_NIGHTLY = "NIGHTLY";
-    private static final BigDecimal DEFAULT_PRODUCTION_QUANTITY_FACTOR = new BigDecimal("1.000000");
-
     @Resource
     private MesProWorkOrderService workOrderService;
     @Resource
@@ -1164,7 +1162,8 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     private BigDecimal resolveProductionQuantityFactor(MesProRouteProcessDO routeProcess,
                                                        MesProRouteFlowProcessConfigDO scheduleRouteFlowConfig) {
         if (scheduleRouteFlowConfig == null || scheduleRouteFlowConfig.getProductionQuantityFactor() == null) {
-            return DEFAULT_PRODUCTION_QUANTITY_FACTOR;
+            Long routeProcessId = routeProcess == null ? null : routeProcess.getId();
+            throw exception(PRO_ROUTE_FLOW_CONFIG_PRODUCTION_QUANTITY_FACTOR_INVALID, routeProcessId);
         }
         BigDecimal factor = scheduleRouteFlowConfig.getProductionQuantityFactor();
         if (factor.compareTo(BigDecimal.ZERO) <= 0) {
@@ -1177,9 +1176,10 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     private BigDecimal calculateLatestPlannedQuantity(MesProScheduleOrderDO scheduleOrder,
                                                       BigDecimal productionQuantityFactor) {
         BigDecimal baseQuantity = normalizeProcessQuantity(scheduleOrder == null ? null : scheduleOrder.getQuantity());
-        return baseQuantity.multiply(productionQuantityFactor == null
-                        ? DEFAULT_PRODUCTION_QUANTITY_FACTOR
-                        : productionQuantityFactor)
+        if (productionQuantityFactor == null || productionQuantityFactor.compareTo(BigDecimal.ZERO) <= 0) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_PRODUCTION_QUANTITY_FACTOR_INVALID, null);
+        }
+        return baseQuantity.multiply(productionQuantityFactor)
                 .setScale(6, RoundingMode.HALF_UP);
     }
 

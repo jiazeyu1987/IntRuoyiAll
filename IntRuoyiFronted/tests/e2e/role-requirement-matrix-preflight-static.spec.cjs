@@ -1,11 +1,20 @@
-const assert = require('node:assert/strict')
+﻿const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 
 const frontendRoot = path.resolve(__dirname, '../..')
+const workspaceRoot = path.resolve(frontendRoot, '..')
+const backendRoot = path.join(workspaceRoot, 'IntRuoyiBackend')
 const packageJsonPath = path.join(frontendRoot, 'package.json')
 const realFlowPath = path.join(frontendRoot, 'tests/e2e/role-requirement-matrix-real-flow.e2e.js')
-
+const activeOrderAuthorityMigrationPath = path.join(
+  backendRoot,
+  'sql/mysql/20260802_mes_process_pool_active_order_authority.sql'
+)
+const activeOrderProcessSnapshotMigrationPath = path.join(
+  backendRoot,
+  'sql/mysql/20260802_mes_process_pool_active_order_process_snapshot.sql'
+)
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
 const scripts = packageJson.scripts || {}
 const plannedStaticScripts = {
@@ -32,7 +41,14 @@ assert.equal(
 )
 
 assert.ok(fs.existsSync(realFlowPath), 'role-requirement-matrix real Playwright E2E script must exist.')
-
+assert.ok(
+  fs.existsSync(activeOrderAuthorityMigrationPath),
+  'M1 active-order authority migration must exist before the real source blocker check can clear RRM-BLK-006.'
+)
+assert.ok(
+  fs.existsSync(activeOrderProcessSnapshotMigrationPath),
+  'M2 active-order process snapshot migration must exist before the production coefficient blockers can clear.'
+)
 for (const [scriptName, relativeFile] of Object.entries(plannedStaticScripts)) {
   assert.equal(
     scripts[scriptName],
@@ -73,6 +89,10 @@ for (const token of [
   'collectPqcFrontendBlockers',
   'collectProductionCoefficientBlockers',
   'collectBatchRecordBindingBlockers',
+  'ACTIVE_ORDER_AUTHORITY_SQL',
+  '20260802_mes_process_pool_active_order_authority.sql',
+  'ACTIVE_ORDER_PROCESS_SNAPSHOT_SQL',
+  '20260802_mes_process_pool_active_order_process_snapshot.sql',
   'USER_APPROVED_YUDAO_SOURCE_20260802',
   'processPoolMapper.selectActiveList',
   'selectActiveByWorkOrderRouteProcess',

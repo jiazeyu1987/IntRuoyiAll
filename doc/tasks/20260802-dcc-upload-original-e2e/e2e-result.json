@@ -1,0 +1,124 @@
+{
+  "runId": "20260802014434",
+  "fileNumber": "CODX-DCC-ORG-20260802-20260802014434",
+  "fileName": "Codex DCC 原版上传链路 20260802014434",
+  "baseUrl": "http://127.0.0.1:8081",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "v1FilePath": "E:\\IntRuoyi\\resource\\批记录节点-解析样本.docx",
+  "stampedPdfPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-upload-revision-e2e\\stamped-approval-sample.pdf",
+  "startedAt": "2026-08-02T01:44:34.968Z",
+  "phases": [
+    {
+      "phase": "upload-V1.0",
+      "username": "pengyunfeng",
+      "controlledFileId": "2054545668044070262",
+      "previewFileName": "批记录节点-解析样本.docx",
+      "previewKind": "OFFICE"
+    },
+    {
+      "phase": "approve-V1.0",
+      "username": "zhaohaichen",
+      "role": "文控审核",
+      "userId": 376
+    },
+    {
+      "phase": "approve-V1.0",
+      "username": "zhaojie",
+      "role": "会签审核",
+      "userId": 1074
+    },
+    {
+      "phase": "approve-V1.0",
+      "username": "zhaomingyu",
+      "role": "会签批准",
+      "userId": 424
+    },
+    {
+      "phase": "approve-V1.0",
+      "username": "wangsiyu",
+      "role": "文控批准",
+      "userId": 910250
+    },
+    {
+      "phase": "final-db-verification",
+      "v1Status": "ACTIVE",
+      "v1ChangeType": "NEW",
+      "v1VersionNo": "V1.0",
+      "currentActiveControlledFileId": "2054545668044070262",
+      "uploadApprovalTaskCount": 4
+    }
+  ],
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "accountProfiles": {
+    "uploader": {
+      "id": 151,
+      "nickname": "彭云凤",
+      "username": "pengyunfeng"
+    },
+    "publishApplicant": {
+      "username": "wangsiyu",
+      "userId": 910250,
+      "nickname": "王思雨"
+    },
+    "approvers": [
+      {
+        "username": "zhaohaichen",
+        "role": "文控审核",
+        "userId": 376,
+        "nickname": "赵海辰"
+      },
+      {
+        "username": "zhaojie",
+        "role": "会签审核",
+        "userId": 1074,
+        "nickname": "赵杰"
+      },
+      {
+        "username": "zhaomingyu",
+        "role": "会签批准",
+        "userId": 424,
+        "nickname": "赵明玉"
+      },
+      {
+        "username": "wangsiyu",
+        "role": "文控批准",
+        "userId": 910250,
+        "nickname": "王思雨"
+      }
+    ]
+  },
+  "fileSizes": {
+    "v1": 37680,
+    "stampedPdf": 658
+  },
+  "databaseState": {
+    "files": [
+      {
+        "id": "2054545668044070262",
+        "status": "ACTIVE",
+        "masterId": "2054545668044062874",
+        "versionNo": "V1.0",
+        "changeType": "NEW",
+        "fileNumber": "CODX-DCC-ORG-20260802-20260802014434",
+        "approvedTime": "2026-08-02 09:45:28",
+        "publishedTime": "2026-08-02 09:45:28",
+        "stampedFileId": "9198354916360",
+        "publishedFileId": "9198354916360",
+        "processInstanceId": "beff4899-8e13-11f1-a451-00155d9fd668"
+      }
+    ],
+    "master": {
+      "id": "2054545668044062874",
+      "status": "ACTIVE_CHAIN",
+      "fileNumber": "CODX-DCC-ORG-20260802-20260802014434",
+      "currentActiveControlledFileId": "2054545668044070262"
+    },
+    "revisionFileCount": 0,
+    "uploadApprovalTaskCount": 4
+  },
+  "v1ControlledFileId": "2054545668044070262",
+  "finishedAt": "2026-08-02T01:45:29.538Z",
+  "status": "PASS"
+}

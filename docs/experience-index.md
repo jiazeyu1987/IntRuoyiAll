@@ -63,7 +63,7 @@
 - Keywords: PowerShell 字面管道字符, TypeScript 类型联合, command string pipe, apply_patch ACL, 文件长度变 0, PowerShell 写入超时截断, Set-Content 写源码, 反引号 r n 字面量, import 追加非法字符 -> `docs/powershell-memory.md#powershell-命令文本管道字符门禁`
 - Keywords: 静态合同缩进定位, Vue SFC 弹框块定位, el-dialog class 回找, CRLF LF, source.indexOf 精确缩进失败 -> `docs/e2e-rules.md#windows-换行与脚本行为同步`
 - Keywords: pnpm test:e2e 缺失, ERR_PNPM_NO_SCRIPT, named target unknown, process-pool-review-copy-and-revision.spec.ts, E2E 脚本入口缺失, 静态合同不能冒充真实 E2E, 写入型用户路径页面入口缺失, 只有 API wrapper 不能算页面验收 -> `docs/e2e-rules.md#e2e-脚本入口存在性门禁`
-- Keywords: DCC 文控审批, DCC 上传升版, DccControlledFileDetail, viewer=1, 只读 viewer, PROCESS_IN_MODULE, approve-task, approval-center moduleCode DCC, BPM 原生审批 403, 非 viewer 重定向受控浏览 -> `docs/e2e-rules.md#dcc-文控审批处理入口门禁`
+- Keywords: DCC 文控审批, DCC 原版上传, DCC 新文件上传, DCC 上传升版, DccControlledFileDetail, viewer=1, 只读 viewer, PROCESS_IN_MODULE, approve-task, approval-center moduleCode DCC, BPM 原生审批 403, 非 viewer 重定向受控浏览, DCC_PUBLISH, 发布申请, form:instance:create, form:instance:submit, system:user:query, UserSelectV2, APPROVE_USER_SELECT, 下一个任务的审批人未配置 -> `docs/e2e-rules.md#dcc-文控审批处理入口门禁`
 - Keywords: Playwright Executable doesn't exist, npx playwright install, PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, Chrome 可执行文件, Edge 可执行文件, 浏览器缓存缺失, login-preflight 浏览器路径 -> `docs/e2e-rules.md#playwright-浏览器可执行文件门禁`
 - Keywords: Playwright 外部头像 502, 外部资源异常, 非目标链路异常, targetBadResponseCount, target write request count, requestfailed 归因, 目标链路错误数, DCC 写请求为 0 -> `docs/e2e-rules.md#playwright-目标链路与外部资源异常归因门禁`
 - Keywords: Playwright CLI daemon residual, cliDaemon.js, .playwright-cli page snapshot, page-*.yml, output/playwright task directory lock, 登录页预填字段快照, stop task-owned daemon only -> `docs/e2e-rules.md#playwright-快照与-daemon-收尾门禁`
@@ -137,6 +137,7 @@
 - Keywords: 真实 E2E 阶段归因, full-chain 后续阶段失败, 目标阶段已保存, adminSave, 后续路线绑定断言失败, 不宣称 full-chain PASS, 阶段性证据字段 -> `docs/e2e-rules.md#真实-e2e-阶段归因门禁`
 - Keywords: 真实 E2E 页面加载判据, 批次执行详情, 页面批号等待超时, 内部执行号, 生产批号, 接口命中目标 ID, 工序组渲染, 样式 class 颜色断言, 无 MES 写请求 -> `docs/e2e-rules.md#真实-e2e-页面加载判据门禁`
 - Keywords: worktree E2E 成对 URL, int_main 主端口 E2E, 8081 48081, EDHR_RELEASE_DOSSIER_E2E_BASE_URL, EDHR_RELEASE_DOSSIER_E2E_BACKEND_URL, 同一 runtime slot, 48081 旧 jar, 8086 48086 -> `docs/e2e-rules.md#worktree--int_main-运行态-url-门禁`
+- Keywords: 主工作区端口被并行任务占用, 48081 被无关任务占用, 旧 Jar 不能作为修复验证, 成对 worktree 运行态, 8090 48090, reserve-worktree-slot, 前后端 PID 归属, 第三方报工真实 E2E -> `docs/worktree-memory.md#主工作区端口被并行任务占用时的成对运行态门禁`
 - Keywords: Execution context was destroyed, Playwright 登录导航竞争, page.evaluate localStorage.clear, 全新 browser.newContext, 登录页自动重定向, 二次导航登录, fresh context storage -> `docs/e2e-rules.md#playwright-全新上下文登录导航竞争门禁`
 - Keywords: worktree 真实 E2E env, .env.local, VITE_APP_CAPTCHA_ENABLE=false, 登录页验证码已开启, slot 前端代理后端端口, 8088 48088 -> `docs/worktree-memory.md#worktree-真实-e2e-运行产物门禁`
 - Keywords: worktree 前端 vite 缺失, Command "vite" not found, cross-env is not recognized, node_modules .bin vite, node_modules .bin cross-env, pnpm ts:check worktree 依赖, pnpm install --frozen-lockfile, 不复制 node_modules -> `docs/worktree-memory.md#worktree-前端依赖启动门禁`

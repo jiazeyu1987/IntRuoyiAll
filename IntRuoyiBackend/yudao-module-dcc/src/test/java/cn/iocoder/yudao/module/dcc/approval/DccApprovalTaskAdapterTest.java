@@ -10,7 +10,9 @@ import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskPageReqV
 import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowService;
 import org.flowable.engine.history.HistoricProcessInstance;
@@ -50,6 +52,8 @@ class DccApprovalTaskAdapterTest {
     private DccControlledFileWorkflowService workflowService;
     @Mock
     private DccControlledFileMapper controlledFileMapper;
+    @Mock
+    private DccFileCategoryMapper fileCategoryMapper;
     @InjectMocks
     private DccApprovalTaskAdapter adapter;
 
@@ -75,9 +79,15 @@ class DccApprovalTaskAdapterTest {
         file.setTitle("DCC-SOP-001");
         file.setFileNumber("SOP-001");
         file.setVersionNo("A");
+        file.setCategoryId(7001L);
         file.setStatus("PENDING_DOC_CONTROL_REVIEW");
         file.setProcessInstanceId("pi-1");
         when(workflowService.getControlledFile(6001L)).thenReturn(file);
+        when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder()
+                .id(7001L)
+                .name("SOP 文件")
+                .distributionRequired(Boolean.TRUE)
+                .build());
 
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, "SOP", 1, 10));
@@ -91,6 +101,14 @@ class DccApprovalTaskAdapterTest {
         assertEquals("DCC-SOP-001", summary.getBusinessTitle());
         assertEquals("SOP-001", summary.getBusinessCode());
         assertEquals("PENDING_DOC_CONTROL_REVIEW", summary.getBusinessStatus());
+        assertEquals(List.of(
+                "文件编号：SOP-001",
+                "版本：A",
+                "分类：SOP 文件",
+                "当前节点：文控审核",
+                "盖章：需要",
+                "分发：需要"
+        ), summary.getBusinessContextTags());
         assertEquals(Boolean.FALSE, summary.getBusinessDeleted());
         assertEquals(Boolean.TRUE, summary.getRequiresSignature());
         assertEquals("/dcc/controlled-file/detail/6001", summary.getDetailRoute());
@@ -171,8 +189,15 @@ class DccApprovalTaskAdapterTest {
         file.setId(6001L);
         file.setTitle("DCC-SOP-001");
         file.setFileNumber("SOP-001");
+        file.setVersionNo("A");
+        file.setCategoryId(7001L);
         file.setStatus("PENDING_DOC_CONTROL_REVIEW");
         when(workflowService.getControlledFile(6001L)).thenReturn(file);
+        when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder()
+                .id(7001L)
+                .name("SOP 文件")
+                .distributionRequired(Boolean.TRUE)
+                .build());
 
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 10));
@@ -206,11 +231,19 @@ class DccApprovalTaskAdapterTest {
                 .id(6002L)
                 .title("撤回后的历史文件")
                 .fileNumber("DCC-6002")
+                .versionNo("V1.0")
+                .categoryId(7002L)
+                .stampedFileId(9002L)
                 .status("WITHDRAWN")
                 .processInstanceId("historic-pi-1")
                 .build();
         file.setDeleted(Boolean.TRUE);
         when(controlledFileMapper.selectByIdIncludingDeleted(6002L)).thenReturn(file);
+        when(fileCategoryMapper.selectById(7002L)).thenReturn(DccFileCategoryDO.builder()
+                .id(7002L)
+                .name("质量手册")
+                .distributionRequired(Boolean.FALSE)
+                .build());
 
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.DONE, ApprovalModuleCode.DCC, null, 1, 10));
@@ -222,6 +255,14 @@ class DccApprovalTaskAdapterTest {
         assertEquals("撤回后的历史文件", summary.getBusinessTitle());
         assertEquals("DCC-6002", summary.getBusinessCode());
         assertEquals("WITHDRAWN", summary.getBusinessStatus());
+        assertEquals(List.of(
+                "文件编号：DCC-6002",
+                "版本：V1.0",
+                "分类：质量手册",
+                "当前节点：文控审核",
+                "盖章：已生成",
+                "分发：不需要"
+        ), summary.getBusinessContextTags());
         assertEquals(Boolean.TRUE, summary.getBusinessDeleted());
         assertEquals(ApprovalTaskReviewResult.APPROVE, summary.getApprovalResult());
         assertEquals(Boolean.TRUE, summary.getRequiresSignature());
@@ -332,6 +373,8 @@ class DccApprovalTaskAdapterTest {
                 .id(6002L)
                 .title("历史文控文件")
                 .fileNumber("DCC-6002")
+                .versionNo("A")
+                .categoryId(7002L)
                 .status("APPROVED")
                 .processInstanceId("historic-pi-dcc")
                 .build();
@@ -367,8 +410,15 @@ class DccApprovalTaskAdapterTest {
         file.setId(6010L);
         file.setTitle("DCC-SOP-010");
         file.setFileNumber("SOP-010");
+        file.setVersionNo("A");
+        file.setCategoryId(7001L);
         file.setStatus("PENDING_DOC_CONTROL_REVIEW");
         when(workflowService.getControlledFile(6010L)).thenReturn(file);
+        when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder()
+                .id(7001L)
+                .name("SOP 文件")
+                .distributionRequired(Boolean.TRUE)
+                .build());
 
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 10, true));

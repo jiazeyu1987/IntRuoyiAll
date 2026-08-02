@@ -80,6 +80,20 @@
                     <el-tag v-if="row.businessDeleted" size="small" type="danger" effect="plain">已删除</el-tag>
                   </div>
                   <div class="approval-center__muted">{{ row.businessCode || row.businessKey || row.sourceTaskId || '--' }}</div>
+                  <div
+                    v-if="row.moduleCode === 'DCC' && row.businessContextTags?.length"
+                    class="approval-center__dcc-context"
+                    data-testid="approval-center-dcc-business-context"
+                  >
+                    <el-tag
+                      v-for="tag in row.businessContextTags"
+                      :key="tag"
+                      size="small"
+                      effect="plain"
+                    >
+                      {{ tag }}
+                    </el-tag>
+                  </div>
                 </template>
               </el-table-column>
               <el-table-column
@@ -1120,6 +1134,13 @@ watch(
   color: #64748b;
   font-size: 12px;
   line-height: 18px;
+}
+
+.approval-center__dcc-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 .approval-center__remark {

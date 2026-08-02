@@ -50,6 +50,8 @@ class MesTeamLeaderReportConfirmationServiceTest {
     @Mock
     private MesProcessPoolReportAllocationMapper allocationMapper;
     @Mock
+    private MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
+    @Mock
     private MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService;
 
     private MesTeamLeaderReportConfirmationService service;
@@ -57,9 +59,11 @@ class MesTeamLeaderReportConfirmationServiceTest {
     @BeforeEach
     void setUp() {
         MesTeamLeaderFifoAllocationService fifoAllocationService =
-                new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper);
+                new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
+                        orderProcessTargetService);
         service = new MesTeamLeaderReportConfirmationServiceImpl(scopeService, eventMapper, activeOrderMapper,
-                workOrderMapper, reviewMapper, allocationMapper, fifoAllocationService, orderProcessCompletionService);
+                workOrderMapper, reviewMapper, allocationMapper, fifoAllocationService, orderProcessTargetService,
+                orderProcessCompletionService);
     }
 
     @Test
@@ -74,6 +78,10 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 workOrder(9002L, "WO-9002", "200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L, 9002L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(9001L, "160"), allocation(9002L, "160")));
+        when(orderProcessTargetService.requireTarget(activeOrder(8101L, 9001L, "2026-07-31T08:00:00"),
+                5001L, 6001L)).thenReturn(target("600"));
+        when(orderProcessTargetService.requireTarget(activeOrder(8102L, 9002L, "2026-07-31T09:00:00"),
+                5001L, 6001L)).thenReturn(target("600"));
         when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7001L);
             return 1;
@@ -137,6 +145,8 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 workOrder(9001L, "WO-9001", "200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(List.of());
+        when(orderProcessTargetService.requireTarget(activeOrder(8101L, 9001L, "2026-07-31T08:00:00"),
+                5001L, 6001L)).thenReturn(target("600"));
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.confirmSubmission(
                 MesTeamLeaderReportConfirmationReqBO.builder()
@@ -171,6 +181,36 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, 2001L);
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(allocationMapper, never()).insertBatch(anyCollection());
+    }
+
+    @Test
+    void shouldConfirmManualAllocationAgainstPerProcessSnapshotTargetInsteadOfErpQuantity() {
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":300}"));
+        when(allocationMapper.selectListByEventId(1001L)).thenReturn(List.of());
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(8101L, 9001L, "2026-07-31T08:00:00");
+        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(activeOrder));
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(
+                workOrder(9001L, "WO-9001", "300")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of(allocation(9001L, "600")));
+        when(orderProcessTargetService.requireTarget(activeOrder, 5001L, 6001L)).thenReturn(target("900"));
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7002L);
+            return 1;
+        });
+        when(allocationMapper.insertBatch(anyCollection())).thenReturn(Boolean.TRUE);
+
+        Long reviewId = service.confirmSubmission(MesTeamLeaderReportConfirmationReqBO.builder()
+                .eventId(1001L)
+                .leaderUserId(3001L)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
+                .allocations(List.of(line(8101L, "300")))
+                .build());
+
+        assertEquals(7002L, reviewId);
+        verify(orderProcessTargetService).requireTarget(activeOrder, 5001L, 6001L);
+        verify(allocationMapper).insertBatch(anyCollection());
     }
 
     private static MesTeamLeaderReportAllocationLineReqBO line(Long activeOrderId, String quantity) {
@@ -212,11 +252,17 @@ class MesTeamLeaderReportConfirmationServiceTest {
 
     private static MesProcessPoolReportAllocationDO allocation(Long workOrderId, String quantity) {
         return MesProcessPoolReportAllocationDO.builder()
+                .activeOrderId(workOrderId.equals(9001L) ? 8101L : 8102L)
                 .workOrderId(workOrderId)
                 .routeProcessId(5001L)
                 .processId(6001L)
                 .allocatedQuantity(new BigDecimal(quantity))
                 .build();
+    }
+
+    private static MesTeamLeaderOrderProcessTarget target(String plannedQuantity) {
+        return new MesTeamLeaderOrderProcessTarget(5001L, 6001L, new BigDecimal("300"),
+                new BigDecimal("3.000000"), new BigDecimal(plannedQuantity));
     }
 
     private static void assertSavedLine(MesProcessPoolReportAllocationDO line, Long reviewId, Long activeOrderId,

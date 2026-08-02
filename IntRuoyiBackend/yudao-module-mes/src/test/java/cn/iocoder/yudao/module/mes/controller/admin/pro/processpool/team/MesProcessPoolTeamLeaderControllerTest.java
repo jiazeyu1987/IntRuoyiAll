@@ -207,15 +207,22 @@ class MesProcessPoolTeamLeaderControllerTest {
                 .id(8101L)
                 .leaderUserId(3001L)
                 .workOrderId(9001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .erpFixedQuantitySnapshot(new BigDecimal("200"))
                 .activeStatus("ACTIVE")
+                .businessStatus("ACTIVE")
                 .joinedAt(LocalDateTime.of(2026, 7, 31, 8, 30))
+                .version(0)
                 .build()));
 
         CommonResult<List<MesTeamLeaderActiveOrderRespVO>> listResponse;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(3001L);
             assertEquals(8101L, controller.addActiveOrder(new MesTeamLeaderActiveOrderAddReqVO()
-                    .setWorkOrderId(9001L)).getData());
+                    .setWorkOrderId(9001L)
+                    .setRouteId(922119L)
+                    .setRouteVersionId(448L)).getData());
             controller.removeActiveOrder(new MesTeamLeaderActiveOrderRemoveReqVO().setActiveOrderId(8101L));
             listResponse = controller.getActiveOrderList();
         }
@@ -225,6 +232,8 @@ class MesProcessPoolTeamLeaderControllerTest {
         verify(activeOrderService).addActiveOrder(addCaptor.capture());
         assertEquals(3001L, addCaptor.getValue().getLeaderUserId());
         assertEquals(9001L, addCaptor.getValue().getWorkOrderId());
+        assertEquals(922119L, addCaptor.getValue().getRouteId());
+        assertEquals(448L, addCaptor.getValue().getRouteVersionId());
 
         ArgumentCaptor<MesTeamLeaderActiveOrderRemoveReqBO> removeCaptor =
                 ArgumentCaptor.forClass(MesTeamLeaderActiveOrderRemoveReqBO.class);
@@ -234,7 +243,12 @@ class MesProcessPoolTeamLeaderControllerTest {
 
         assertEquals(1, listResponse.getData().size());
         assertEquals(9001L, listResponse.getData().get(0).getWorkOrderId());
+        assertEquals(922119L, listResponse.getData().get(0).getRouteId());
+        assertEquals(448L, listResponse.getData().get(0).getRouteVersionId());
+        assertEquals(new BigDecimal("200"), listResponse.getData().get(0).getErpFixedQuantitySnapshot());
         assertEquals("ACTIVE", listResponse.getData().get(0).getActiveStatus());
+        assertEquals("ACTIVE", listResponse.getData().get(0).getBusinessStatus());
+        assertEquals(0, listResponse.getData().get(0).getVersion());
     }
 
     @Test

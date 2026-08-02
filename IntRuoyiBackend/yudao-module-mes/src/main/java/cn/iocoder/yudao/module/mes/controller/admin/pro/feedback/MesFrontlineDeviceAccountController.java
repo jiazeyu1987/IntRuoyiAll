@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwi
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwitchResult;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwitchService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcContextService;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcInspectionItem;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcSubmitCommand;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConfig;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConfigService;
@@ -145,10 +146,18 @@ public class MesFrontlineDeviceAccountController {
     public CommonResult<Long> submitPqcInspection(@Valid @RequestBody MesFrontlinePqcSubmitReqVO reqVO) {
         return success(pqcContextService.submitPqcInspection(getLoginUserId(),
                 MesFrontlinePqcSubmitCommand.builder()
+                        .activeOrderId(reqVO.getActiveOrderId())
+                        .pqcTaskId(reqVO.getPqcTaskId())
+                        .regulationVersionId(reqVO.getRegulationVersionId())
                         .workOrderId(reqVO.getWorkOrderId())
                         .routeId(reqVO.getRouteId())
                         .routeProcessId(reqVO.getRouteProcessId())
                         .processId(reqVO.getProcessId())
+                        .inspectionType(reqVO.getInspectionType())
+                        .businessDate(reqVO.getBusinessDate())
+                        .shiftCode(reqVO.getShiftCode())
+                        .roundNo(reqVO.getRoundNo())
+                        .actualInspectionQuantity(reqVO.getActualInspectionQuantity())
                         .actualEmployeeId(reqVO.getActualEmployeeId())
                         .signatureId(reqVO.getSignatureId())
                         .signatureEmployeeId(reqVO.getSignatureEmployeeId())
@@ -191,6 +200,29 @@ public class MesFrontlineDeviceAccountController {
         respVO.setWorkstationId(candidate.workstationId());
         respVO.setWorkstationCode(candidate.workstationCode());
         respVO.setWorkstationName(candidate.workstationName());
+        respVO.setActiveOrderId(candidate.activeOrderId());
+        respVO.setPqcTaskId(candidate.pqcTaskId());
+        respVO.setRegulationVersionId(candidate.regulationVersionId());
+        respVO.setInspectionType(candidate.inspectionType());
+        respVO.setBusinessDate(candidate.businessDate());
+        respVO.setShiftCode(candidate.shiftCode());
+        respVO.setRoundNo(candidate.roundNo());
+        respVO.setPlannedInspectionQuantity(candidate.plannedInspectionQuantity());
+        respVO.setInspectionItems(candidate.inspectionItems().stream()
+                .map(MesFrontlineDeviceAccountController::toPqcInspectionItemRespVO)
+                .toList());
+        return respVO;
+    }
+
+    private static MesFrontlineRouteProcessRespVO.PqcInspectionItem toPqcInspectionItemRespVO(
+            MesFrontlinePqcInspectionItem item) {
+        MesFrontlineRouteProcessRespVO.PqcInspectionItem respVO =
+                new MesFrontlineRouteProcessRespVO.PqcInspectionItem();
+        respVO.setItemCode(item.itemCode());
+        respVO.setItemName(item.itemName());
+        respVO.setInspectionMethod(item.inspectionMethod());
+        respVO.setStandardText(item.standardText());
+        respVO.setResultType(item.resultType());
         return respVO;
     }
 

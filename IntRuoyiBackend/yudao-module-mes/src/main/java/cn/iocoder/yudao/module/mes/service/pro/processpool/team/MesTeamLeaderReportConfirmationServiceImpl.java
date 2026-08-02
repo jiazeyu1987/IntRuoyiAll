@@ -48,6 +48,7 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
     private final MesProcessPoolSubmissionReviewMapper reviewMapper;
     private final MesProcessPoolReportAllocationMapper allocationMapper;
     private final MesTeamLeaderFifoAllocationService fifoAllocationService;
+    private final MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
     private final MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService;
 
     public MesTeamLeaderReportConfirmationServiceImpl(MesTeamLeaderScopeService scopeService,
@@ -57,6 +58,7 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
                                                       MesProcessPoolSubmissionReviewMapper reviewMapper,
                                                       MesProcessPoolReportAllocationMapper allocationMapper,
                                                       MesTeamLeaderFifoAllocationService fifoAllocationService,
+                                                      MesTeamLeaderOrderProcessTargetService orderProcessTargetService,
                                                       MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService) {
         this.scopeService = scopeService;
         this.eventMapper = eventMapper;
@@ -65,6 +67,7 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
         this.reviewMapper = reviewMapper;
         this.allocationMapper = allocationMapper;
         this.fifoAllocationService = fifoAllocationService;
+        this.orderProcessTargetService = orderProcessTargetService;
         this.orderProcessCompletionService = orderProcessCompletionService;
     }
 
@@ -210,7 +213,8 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
             MesTeamLeaderReportAllocationLineReqBO line = requestedActiveLine.line();
             MesProcessPoolActiveOrderDO activeOrder = requestedActiveLine.activeOrder();
             MesProWorkOrderDO workOrder = workOrderMap.get(activeOrder.getWorkOrderId());
-            BigDecimal remaining = remainingQuantity(activeOrder, workOrder, existingAllocated);
+            BigDecimal remaining = remainingQuantity(activeOrder, workOrder, existingAllocated,
+                    event.getRouteProcessId(), event.getProcessId());
             BigDecimal requestedForOrder = requestedByWorkOrder.merge(activeOrder.getWorkOrderId(),
                     line.getAllocatedQuantity(), BigDecimal::add);
             if (requestedForOrder.compareTo(remaining) > 0) {
@@ -227,12 +231,15 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
     }
 
     private BigDecimal remainingQuantity(MesProcessPoolActiveOrderDO activeOrder, MesProWorkOrderDO workOrder,
-                                         Map<Long, BigDecimal> existingAllocated) {
+                                         Map<Long, BigDecimal> existingAllocated,
+                                         Long routeProcessId,
+                                         Long processId) {
         if (workOrder == null || workOrder.getQuantity() == null
                 || workOrder.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED, activeOrder.getWorkOrderId());
         }
-        return workOrder.getQuantity()
+        return orderProcessTargetService.requireTarget(activeOrder, routeProcessId, processId)
+                .plannedQuantity()
                 .subtract(existingAllocated.getOrDefault(activeOrder.getWorkOrderId(), BigDecimal.ZERO));
     }
 

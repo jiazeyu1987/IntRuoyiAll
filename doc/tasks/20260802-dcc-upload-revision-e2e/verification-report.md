@@ -2,23 +2,28 @@
 
 ## Scope
 
-- Feature under test: DCC 文控 V1 上传发布 + V2 升版发布完整业务链路。
+- Feature under test: DCC 文控 V1 上传发布 + V2 升版发布 + 发布申请审批生效完整业务链路。
 - Environment: 本机 `int_main`，前端 `http://127.0.0.1:8081`，后端 `http://127.0.0.1:48081`，tenant `1`。
-- Actors: `pengyunfeng` 上传人，`zhaohaichen` 文控审核，`zhaojie` 会签审核，`zhaomingyu` 会签批准，`wangsiyu` 文控批准；均为非 admin 账号。
+- Actors: `pengyunfeng` 上传人，`zhaohaichen` 文控审核，`zhaojie` 会签审核，`zhaomingyu` 会签批准，`wangsiyu` 文控批准/发布申请；均为非 admin 账号。
 
 ## Matrix
 
 | Requirement | Test Method | Result | Evidence |
 |---|---|---|---|
-| V1.0 真实前端上传 | Playwright 操作 `/dcc/controlled-file/upload` | PASS | 最新文件 `CODX-DCC-REV-20260802-20260801174426` 创建为 V1.0，状态 `PENDING_DOC_CONTROL_REVIEW` |
-| V1.0 四级审批发布 | Playwright 操作真实审批入口 | BLOCKED | DCC 详情处理态不可达；审批中心 DCC 行仅能进入只读 viewer |
-| V2.0 升版上传 | Playwright 操作真实上传升版 | BLOCKED | V1 未能发布，无法进入升版前置状态 |
-| V2.0 四级审批发布 | Playwright 操作真实审批入口 | BLOCKED | 依赖 V2 提交，未到达 |
-| 最终 DB/API 状态核验 | 只读 DB 支持核验 | BLOCKED | master/current/version/签名记录未形成完整链路 |
+| V1.0 真实前端上传 | Playwright 操作 `/dcc/controlled-file/upload` | PASS | `2054545668044070260` 创建为 V1.0 |
+| V1.0 四级 DCC 审批发布 | Playwright 操作 DCC 审批详情处理态 | PASS | `zhaohaichen`、`zhaojie`、`zhaomingyu`、`wangsiyu` 依次审批 |
+| V2.0 真实前端升版上传 | Playwright 选择历史文件名并提交 V2.0 | PASS | `2054545668044070261` 创建为 V2.0，`changeType=REVISION` |
+| V2.0 四级 DCC 审批至待发布 | Playwright 操作 DCC 审批详情处理态 | PASS | V2 审批完成后进入发布申请阶段 |
+| V2.0 发布申请 | Playwright 操作 DCC 详情页发布申请弹窗 | PASS | `bpm_form_action_instance.id=435`，BPM 流程 `8a6ea0e6-8de1-11f1-a558-00155d9fd668` |
+| V2.0 发布 BPM 四级审批 | Playwright 操作 BPM 流程详情页并选择下一审批人 | PASS | 发布审批任务完成数 `4` |
+| 最终 DB 状态核验 | 只读 DB 核验 | PASS | V1 `SUPERSEDED`，V2 `ACTIVE`，master 指向 V2，发布实例 `EFFECTIVE` |
 
 ## Test Data
 
-- Category: `DCC_OTHER_TEMPLATE_900250` / `其他`，categoryId `906104`。
+- File number: `CODX-DCC-REV-20260802-20260801193848`。
+- File name: `Codex DCC 升版链路 20260801193848`。
+- File type path: `技术文档 / 设计和开发输出阶段 / 来料/过程/成品检验规范`。
+- Category: `过程检验规程`。
 - Directory: `质量管理 / 4.Ohter`。
 - Project: `HGGW`。
 - V1 source file: `E:\IntRuoyi\resource\批记录节点-解析样本.docx`。
@@ -27,30 +32,26 @@
 
 ## RED
 
-- RED: `node doc/tasks/20260802-dcc-upload-revision-e2e/dcc-upload-revision-e2e.cjs` -> FAIL, approval center BPM direct review returned business `403`.
-- `POST /admin-api/approval-center/tasks/review` initially returned business `403` for `zhaohaichen` because the non-admin approval-center role lacked `bpm:task:update`.
-- After granting `bpm:task:update`, the login permission response included the update permission, but BPM direct approval still returned `403`; this confirmed DCC should not be approved through the BPM native row.
-- RED: `node doc/tasks/20260802-dcc-upload-revision-e2e/dcc-upload-revision-e2e.cjs` -> FAIL, DCC detail handling page redirected to controlled-file browser before the approval card rendered.
-- Attempting the DCC module path showed the real blocker: `/dcc/controlled-file/detail/<id>` without `viewer=1` redirects to `/dcc/controlled-file/browser`; with `viewer=1`, the page is read-only and does not render the signature approval controls.
+- RED: `node doc/tasks/20260802-dcc-upload-revision-e2e/dcc-upload-revision-e2e.cjs` -> FAIL, publish action initially lacked form instance permissions for non-admin role.
+- RED: publish applicant user selection -> FAIL, `wangsiyu` lacked `system:user:query/list`, so the real `UserSelectV2` dialog could not search approvers.
+- RED: publish approval via approval-center direct review -> FAIL, the next task `APPROVE_USER_SELECT` assignee was not configured.
+- RED: publish BPM detail script -> FAIL, script waited for process id text and checked next-assignee UI before async node rendering completed.
 
 ## GREEN
 
-- GREEN: runtime prechecks -> PASS.
-- Runtime prechecks passed: local frontend reachable, local backend health UP, OnlyOffice container can reach backend health, Chrome executable available, upload files exist.
+- GREEN: permission setup -> PASS, non-admin roles now include required form instance, BPM query/update, and user query permissions.
 - GREEN: `node --check doc/tasks/20260802-dcc-upload-revision-e2e/dcc-upload-revision-e2e.cjs` -> PASS.
-- `node --check doc/tasks/20260802-dcc-upload-revision-e2e/dcc-upload-revision-e2e.cjs` passed after script updates.
-- GREEN: permission setup verification -> PASS.
-- Permission setup now grants the four approver accounts query/update approval-center permissions plus DCC review/approve permissions through non-admin roles.
-- GREEN: V1.0 upload phase -> PASS.
-- Latest real upload produced V1.0 file `2054545668044070241` with Flowable task assigned to `zhaohaichen`.
+- GREEN: DCC upload + revision E2E -> PASS, `doc/tasks/20260802-dcc-upload-revision-e2e/e2e-result.json` has `status=PASS`.
+- GREEN: final DB verification -> PASS, V1 `SUPERSEDED`, V2 `ACTIVE`, master current active ID `2054545668044070261`, publish instance `EFFECTIVE`, upload approval count `8`, publish approval count `4`.
+- GREEN: sensitive scan -> PASS, no matches for the known password literal, bearer token, access token, or refresh token keywords in the task directory.
 
 ## Blockers
 
-- Release recommendation: NO-GO for full DCC upload + revision E2E. The upload path works, but the approval path is not fully reachable from the current frontend.
-- Required fix before rerun: expose a real DCC approval handling route or adjust `DccControlledFileDetail` routing so approvers can reach the non-viewer approval card from an authorized frontend path.
-- Task-owned residue: four `CODX-DCC-REV-20260802-*` V1.0 records remain pending document-control review; they were not silently removed.
+- None remaining for the requested upload + revision + publish chain.
+- Non-blocking residual UI issue: BPM process detail page emitted `Cannot read properties of undefined (reading 'markers')` while rendering process diagram markers. The target approval controls and final business assertions passed, so this is recorded as a follow-up UI defect rather than a blocker for this business-chain verification.
 
 ## CI Impact
 
-- No production code test suite was modified or run because this task is verification-only and blocked by a frontend entry issue.
-- The temporary Playwright script and PDF fixture remain under the task directory as reproducible evidence.
+- No production source code was changed for this verification task.
+- The task-owned Playwright script remains under `doc/tasks/20260802-dcc-upload-revision-e2e/dcc-upload-revision-e2e.cjs` for reproducibility.
+- Release recommendation for the tested business chain: GO, with separate follow-up recommended for the BPM diagram marker pageerror.

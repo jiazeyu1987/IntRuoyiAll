@@ -328,6 +328,27 @@
           </div>
         </el-form-item>
       </section>
+
+          <section class="upload-section upload-section--preflight" data-testid="dcc-upload-preflight-panel">
+        <div class="upload-section__title">提交前校验</div>
+        <div class="upload-preflight-legend">文件编号/版本 · 分类上传权限 · 审批人链路 · 受控浏览目录</div>
+        <div class="upload-preflight-grid">
+          <div
+            v-for="check in uploadPreflightChecks"
+            :key="check.key"
+            class="upload-preflight-card"
+            :class="{ 'is-ok': check.ok, 'is-warning': check.warning, 'is-error': !check.ok && !check.warning }"
+          >
+            <div class="upload-preflight-card__header">
+              <span>{{ check.label }}</span>
+              <el-tag size="small" :type="check.ok ? 'success' : check.warning ? 'warning' : 'danger'">
+                {{ check.status }}
+              </el-tag>
+            </div>
+            <div class="upload-preflight-card__description">{{ check.description }}</div>
+          </div>
+        </div>
+      </section>
         </div>
 
         <section class="upload-submit-bar" data-testid="dcc-upload-section-submit">
@@ -930,6 +951,104 @@ const selectedUploadDirectoryPath = computed(() => {
   return uploadDirectoryPathMap.value.get(formData.directoryId) || ''
 })
 
+interface UploadPreflightCheck {
+  key: string
+  label: string
+  status: string
+  description: string
+  ok: boolean
+  warning?: boolean
+}
+
+const normalizePreflightVersionNo = (value?: string | null) => String(value || '').trim().toUpperCase()
+
+const isRequestedVersionDuplicate = computed(() => {
+  const currentVersionNo = normalizePreflightVersionNo(currentVersionInfo.value?.currentVersionNo)
+  const requestedVersionNo = normalizePreflightVersionNo(formData.versionNo)
+  return Boolean(currentVersionInfo.value?.matched && currentVersionNo && requestedVersionNo && currentVersionNo === requestedVersionNo)
+})
+
+const approvalChainPreflightText = computed(() => {
+  const approvalPositionIds = selectedCategory.value?.approvalPositionIds || []
+  const signoffPositionIds = selectedCategory.value?.signoffPositionIds || []
+  if (!selectedCategory.value) {
+    return '请选择文件类别后检查审批人链路'
+  }
+  if (!approvalPositionIds.length || !signoffPositionIds.length) {
+    return `审批岗位 ${approvalPositionIds.length} 个，会签/签核岗位 ${signoffPositionIds.length} 个，请先补齐分类审批链路`
+  }
+  return `审批岗位 ${approvalPositionIds.length} 个，会签/签核岗位 ${signoffPositionIds.length} 个，审批人链路已具备`
+})
+
+const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
+  const categoryCanUpload = selectedCategory.value?.canUpload !== false
+  const approvalPositionIds = selectedCategory.value?.approvalPositionIds || []
+  const signoffPositionIds = selectedCategory.value?.signoffPositionIds || []
+  const hasApprovalChain = Boolean(selectedCategory.value && approvalPositionIds.length && signoffPositionIds.length)
+  const hasDirectoryLanding = Boolean(selectedUploadDirectoryPath.value)
+  const versionReady = Boolean(formData.fileNumber.trim() && formData.versionNo.trim())
+  const versionDescription = currentVersionLookupLoading.value
+    ? '正在校验文件编号和版本，请等待结果后再提交。'
+    : isRequestedVersionDuplicate.value
+      ? `文件编号 ${formData.fileNumber.trim()} 的版本 ${formData.versionNo.trim()} 已存在，请调整升版版本号。`
+      : currentVersionProjectionBlockReason.value
+        ? currentVersionProjectionBlockReason.value
+        : currentVersionInfo.value?.modifying
+          ? '同编号文件已有未完成流程，当前不可重复提交。'
+          : currentVersionInfo.value?.matched
+            ? `现行版本 ${currentVersionInfo.value.currentVersionNo || '-'}，本次提交版本 ${formData.versionNo || '-'}。`
+            : versionReady
+              ? '未发现同编号现行版本，将按新建编号继续校验。'
+              : '请输入文件编号和版本号后检查是否重复。'
+
+  return [
+    {
+      key: 'file-version',
+      label: '文件编号/版本',
+      status: currentVersionLookupLoading.value
+        ? '检查中'
+        : isRequestedVersionDuplicate.value || currentVersionProjectionBlockReason.value || currentVersionInfo.value?.modifying
+          ? '需处理'
+          : versionReady
+            ? '可提交'
+            : '待填写',
+      description: versionDescription,
+      ok: versionReady && !currentVersionLookupLoading.value && !isRequestedVersionDuplicate.value && !currentVersionProjectionBlockReason.value && !currentVersionInfo.value?.modifying,
+      warning: !versionReady || currentVersionLookupLoading.value
+    },
+    {
+      key: 'category-upload',
+      label: '分类上传权限',
+      status: selectedCategory.value ? (categoryCanUpload ? '可上传' : '无权限') : '待选择',
+      description: selectedCategory.value
+        ? categoryCanUpload
+          ? `当前分类 ${selectedCategory.value.name} 允许上传。`
+          : categoryUploadPermissionMessage
+        : '请选择文件类别后检查当前账号是否有上传权限。',
+      ok: Boolean(selectedCategory.value && categoryCanUpload),
+      warning: !selectedCategory.value
+    },
+    {
+      key: 'approval-chain',
+      label: '审批人链路',
+      status: selectedCategory.value ? (hasApprovalChain ? '已配置' : '不完整') : '待选择',
+      description: approvalChainPreflightText.value,
+      ok: hasApprovalChain,
+      warning: !selectedCategory.value
+    },
+    {
+      key: 'controlled-browser-directory',
+      label: '受控浏览目录',
+      status: hasDirectoryLanding ? '可落位' : '待落位',
+      description: hasDirectoryLanding
+        ? `最终受控浏览目录：${selectedUploadDirectoryPath.value}`
+        : '请选择最终提交目录，确保发布后可以落位到受控浏览目录。',
+      ok: hasDirectoryLanding,
+      warning: !formData.categoryId
+    }
+  ]
+})
+
 const loadCurrentVersionByFileNumber = async () => {
   const fileNumber = formData.fileNumber.trim()
   const requestSeq = ++currentVersionLookupSeq
@@ -1292,7 +1411,8 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-areas:
     'scope approval'
-    'file attachment';
+    'file attachment'
+    'preflight preflight';
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px 16px;
   align-items: start;
@@ -1323,6 +1443,10 @@ onBeforeUnmount(() => {
   grid-area: attachment;
 }
 
+.upload-section--preflight {
+  grid-area: preflight;
+}
+
 .upload-section__title {
   margin-bottom: 10px;
   color: #172033;
@@ -1338,6 +1462,57 @@ onBeforeUnmount(() => {
   border: 1px solid #dbe3ef;
   border-radius: 8px;
   background: #f7f9fc;
+}
+
+.upload-preflight-legend {
+  margin-bottom: 10px;
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.upload-preflight-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.upload-preflight-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #f1b8b8;
+  border-radius: 8px;
+  background: #fffafa;
+}
+
+.upload-preflight-card.is-ok {
+  border-color: #b7dfc7;
+  background: #f7fcf8;
+}
+
+.upload-preflight-card.is-warning {
+  border-color: #f0d49a;
+  background: #fffaf0;
+}
+
+.upload-preflight-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #172033;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.upload-preflight-card__description {
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 18px;
+  word-break: break-word;
 }
 
 .upload-preview-panel {
@@ -1393,7 +1568,18 @@ onBeforeUnmount(() => {
       'scope'
       'file'
       'approval'
-      'attachment';
+      'attachment'
+      'preflight';
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .upload-preflight-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .upload-preflight-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

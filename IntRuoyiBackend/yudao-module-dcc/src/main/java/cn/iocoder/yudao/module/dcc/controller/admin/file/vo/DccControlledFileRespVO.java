@@ -18,6 +18,10 @@ public class DccControlledFileRespVO {
     private String contentType;
     private String previewKind;
     private String fileNumber;
+    private Long sourceFileId;
+    private Long originalFileId;
+    private Long publishedFileId;
+    private Long stampedFileId;
     private Long productMasterId;
     private String productCode;
     private String productName;

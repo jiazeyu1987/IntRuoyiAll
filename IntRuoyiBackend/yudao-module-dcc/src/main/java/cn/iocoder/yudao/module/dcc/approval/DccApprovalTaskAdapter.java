@@ -17,7 +17,9 @@ import cn.iocoder.yudao.module.bpm.framework.flowable.core.util.FlowableUtils;
 import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowService;
 import org.flowable.engine.history.HistoricProcessInstance;
@@ -61,15 +63,18 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private final BpmProcessInstanceService processInstanceService;
     private final DccControlledFileWorkflowService workflowService;
     private final DccControlledFileMapper controlledFileMapper;
+    private final DccFileCategoryMapper fileCategoryMapper;
 
     public DccApprovalTaskAdapter(BpmTaskService bpmTaskService,
                                   BpmProcessInstanceService processInstanceService,
                                   DccControlledFileWorkflowService workflowService,
-                                  DccControlledFileMapper controlledFileMapper) {
+                                  DccControlledFileMapper controlledFileMapper,
+                                  DccFileCategoryMapper fileCategoryMapper) {
         this.bpmTaskService = bpmTaskService;
         this.processInstanceService = processInstanceService;
         this.workflowService = workflowService;
         this.controlledFileMapper = controlledFileMapper;
+        this.fileCategoryMapper = fileCategoryMapper;
     }
 
     @Override
@@ -200,6 +205,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 .businessTitle(file.getTitle())
                 .businessCode(file.getFileNumber())
                 .businessStatus(file.getStatus())
+                .businessContextTags(buildDccBusinessContextTags(file, task.getName()))
                 .businessDeleted(Boolean.FALSE)
                 .currentNodeCode(task.getTaskDefinitionKey())
                 .currentNodeName(task.getName())
@@ -233,6 +239,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 .businessTitle(file.getTitle())
                 .businessCode(file.getFileNumber())
                 .businessStatus(file.getStatus())
+                .businessContextTags(buildDccBusinessContextTags(file, task.getName()))
                 .businessDeleted(Boolean.TRUE.equals(file.getDeleted()))
                 .currentNodeCode(task.getTaskDefinitionKey())
                 .currentNodeName(task.getName())
@@ -264,6 +271,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 .businessTitle("已删除文控文件")
                 .businessCode(businessKey)
                 .businessStatus("DELETED")
+                .businessContextTags(buildDeletedDccBusinessContextTags(businessKey, task.getName()))
                 .businessDeleted(Boolean.TRUE)
                 .currentNodeCode(task.getTaskDefinitionKey())
                 .currentNodeName(task.getName())
@@ -298,6 +306,60 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
         query.put("taskId", requireText(task.getId(),
                 "APPROVAL_TASK_ID_REQUIRED: DCC handling route requires task id"));
         return query;
+    }
+
+    private List<String> buildDccBusinessContextTags(DccControlledFileRespVO file, String currentNodeName) {
+        DccFileCategoryDO category = resolveCategory(file.getCategoryId());
+        return buildDccBusinessContextTags(file.getFileNumber(), file.getVersionNo(),
+                resolveCategoryLabel(category, file.getCategoryId()), currentNodeName, file.getStampedFileId(),
+                category == null ? null : category.getDistributionRequired());
+    }
+
+    private List<String> buildDccBusinessContextTags(DccControlledFileDO file, String currentNodeName) {
+        DccFileCategoryDO category = resolveCategory(file.getCategoryId());
+        return buildDccBusinessContextTags(file.getFileNumber(), file.getVersionNo(),
+                resolveCategoryLabel(category, file.getCategoryId()), currentNodeName, file.getStampedFileId(),
+                category == null ? null : category.getDistributionRequired());
+    }
+
+    private List<String> buildDeletedDccBusinessContextTags(String businessKey, String currentNodeName) {
+        return List.of(
+                "文件编号：" + requireText(businessKey, "APPROVAL_BUSINESS_KEY_REQUIRED: DCC deleted business key"),
+                "版本：-",
+                "分类：已删除记录",
+                "当前节点：" + requireText(currentNodeName, "APPROVAL_TASK_NAME_REQUIRED: DCC deleted task name"),
+                "盖章：记录已删除",
+                "分发：记录已删除");
+    }
+
+    private List<String> buildDccBusinessContextTags(String fileNumber,
+                                                     String versionNo,
+                                                     String categoryLabel,
+                                                     String currentNodeName,
+                                                     Long stampedFileId,
+                                                     Boolean distributionRequired) {
+        return List.of(
+                "文件编号：" + requireText(fileNumber,
+                        "APPROVAL_BUSINESS_CODE_REQUIRED: DCC controlled file number is required"),
+                "版本：" + requireText(versionNo,
+                        "APPROVAL_BUSINESS_VERSION_REQUIRED: DCC controlled file version is required"),
+                "分类：" + requireText(categoryLabel,
+                        "APPROVAL_BUSINESS_CATEGORY_REQUIRED: DCC controlled file category is required"),
+                "当前节点：" + requireText(currentNodeName,
+                        "APPROVAL_TASK_NAME_REQUIRED: DCC task name is required"),
+                stampedFileId == null ? "盖章：需要" : "盖章：已生成",
+                Boolean.TRUE.equals(distributionRequired) ? "分发：需要" : "分发：不需要");
+    }
+
+    private DccFileCategoryDO resolveCategory(Long categoryId) {
+        return categoryId == null ? null : fileCategoryMapper.selectById(categoryId);
+    }
+
+    private String resolveCategoryLabel(DccFileCategoryDO category, Long categoryId) {
+        if (category != null && category.getName() != null && !category.getName().isBlank()) {
+            return category.getName();
+        }
+        return categoryId == null ? null : "缺失类别#" + categoryId;
     }
 
     private ApprovalTaskTimelineEntry toTimelineEntry(HistoricTaskInstance task, String businessKey) {

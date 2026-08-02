@@ -341,6 +341,39 @@
       />
     </ContentWrap>
 
+    <ContentWrap data-testid="dcc-detail-controlled-browser-linkage" class="mt-16px">
+      <div class="detail-table-header mb-12px">
+        <div>
+          <div class="text-15px font-600">受控浏览入口</div>
+          <div class="mt-4px text-12px text-[var(--el-text-color-secondary)]">
+            原版审批生效后展示最终受控浏览目录、发布文件和盖章文件落位。
+          </div>
+        </div>
+        <el-button type="primary" plain :disabled="!fileDetail" @click="openControlledBrowserLocation">
+          <Icon icon="ep:position" class="mr-5px" />
+          跳转受控浏览
+        </el-button>
+      </div>
+      <div class="controlled-browser-linkage-grid">
+        <div class="controlled-browser-linkage-card">
+          <div class="controlled-browser-linkage-card__label">最终目录路径</div>
+          <div class="controlled-browser-linkage-card__value">{{ controlledBrowserDirectoryPath }}</div>
+        </div>
+        <div class="controlled-browser-linkage-card">
+          <div class="controlled-browser-linkage-card__label">publishedFileId</div>
+          <div class="controlled-browser-linkage-card__value">{{ fileDetail?.publishedFileId || '-' }}</div>
+        </div>
+        <div class="controlled-browser-linkage-card">
+          <div class="controlled-browser-linkage-card__label">stampedFileId</div>
+          <div class="controlled-browser-linkage-card__value">{{ fileDetail?.stampedFileId || '-' }}</div>
+        </div>
+        <div class="controlled-browser-linkage-card">
+          <div class="controlled-browser-linkage-card__label">master 当前生效版本</div>
+          <div class="controlled-browser-linkage-card__value">{{ fileDetail?.currentActiveVersionNo || '-' }}</div>
+        </div>
+      </div>
+    </ContentWrap>
+
     <ContentWrap v-loading="approvalLoading" class="mt-16px">
       <div class="mb-12px flex items-center justify-between gap-12px">
         <div class="text-15px font-600">审批阶段进度</div>
@@ -732,6 +765,36 @@
       </el-table>
     </ContentWrap>
 
+    <ContentWrap data-testid="dcc-detail-signature-trace-section" data-source="fileDetail?.signatureSummaries">
+      <div class="detail-table-header mb-12px">
+        <div>
+          <div class="text-15px font-600">签核追溯</div>
+          <div class="mt-4px text-12px text-[var(--el-text-color-secondary)]">
+            汇总上传人、四级审批人、签名时间、签名方式、证据状态、文件哈希和盖章文件。
+          </div>
+        </div>
+        <div class="detail-signature-tools">
+          <el-button plain :disabled="!signatureTraceRows.length" @click="exportSignatureTrace">
+            <Icon icon="ep:download" class="mr-5px" />
+            导出
+          </el-button>
+          <el-button plain :disabled="!signatureTraceRows.length" @click="printSignatureTrace">
+            <Icon icon="ep:printer" class="mr-5px" />
+            打印
+          </el-button>
+        </div>
+      </div>
+      <el-table :data="signatureTraceRows" empty-text="暂无签核追溯记录">
+        <el-table-column label="角色" min-width="120" prop="traceRole" />
+        <el-table-column label="上传人 / 四级审批人" min-width="220" prop="actorName" show-overflow-tooltip />
+        <el-table-column label="签名时间" align="center" width="180" prop="signedAtText" />
+        <el-table-column label="签名方式" align="center" width="140" prop="signatureModeText" />
+        <el-table-column label="证据状态" align="center" width="140" prop="evidenceStatusText" />
+        <el-table-column label="文件哈希" min-width="160" prop="fileHashText" show-overflow-tooltip />
+        <el-table-column label="盖章文件" min-width="160" prop="stampedFileText" show-overflow-tooltip />
+      </el-table>
+    </ContentWrap>
+
     <ContentWrap data-testid="dcc-detail-signature-section">
       <div class="detail-table-header mb-12px">
         <div>
@@ -776,6 +839,14 @@
           </el-radio-group>
         </div>
       </div>
+      <el-alert
+        v-if="dccSignatureEvidenceError"
+        class="mb-12px"
+        type="warning"
+        show-icon
+        :closable="false"
+        :title="dccSignatureEvidenceError"
+      />
       <el-table
         v-loading="dccSignatureEvidenceLoading"
         data-user-table-column-explicit
@@ -1663,6 +1734,7 @@ import {
   type ControlledFileRouteSnapshotVO,
   type ControlledFileUploadDirectoryNodeVO,
   type ControlledFileUploadRespVO,
+  type ControlledFileSignatureSummaryVO,
   type ControlledFileVersionHistoryVO,
   type ControlledFileVO
 } from '@/api/dcc/controlledFile/workflow'
@@ -1698,6 +1770,7 @@ import {
   DCC_APPROVAL_WRONG_PASSWORD_MESSAGE,
   getDccApprovalActionLabels,
   getDccApprovalSignatureMeaningPreview,
+  resolveDccApprovalSignatureErrorMessage,
   submitDccApprovalAction,
   type DccApprovalActionMode
 } from './approval-actions'
@@ -1800,6 +1873,7 @@ const previewInfoDialogs = reactive({
 const approvalLoading = ref(false)
 const categoryNameMap = ref(new Map<number, string>())
 const directoryNameMap = ref(new Map<number, string>())
+const directoryPathMap = ref(new Map<number, string>())
 const userNameMap = ref(new Map<number, string>())
 const deptNameMap = ref(new Map<number, string>())
 const departmentList = ref<DeptVO[]>([])
@@ -1810,6 +1884,7 @@ const paperDistributionRecords = ref<ControlledFilePaperDistributionRecordVO[]>(
 const dccSignatureEvidenceLoading = ref(false)
 const dccSignatureEvidenceList = ref<DccElectronicSignatureVO[]>([])
 const dccSignatureEvidenceTotal = ref(0)
+const dccSignatureEvidenceError = ref('')
 const dccSignatureEvidenceQueryParams = reactive({
   pageNo: 1,
   pageSize: 10,
@@ -2235,6 +2310,60 @@ const detailDangerActionLoading = computed(
 )
 const currentStage = computed(() => stageProgressList.value.find((item) => item.isCurrent))
 const currentStageLabel = computed(() => currentStage.value?.stageName || '-')
+const controlledBrowserDirectoryPath = computed(() => {
+  const directoryId = fileDetail.value?.directoryId
+  if (!directoryId) {
+    return '-'
+  }
+  return directoryPathMap.value.get(directoryId) || directoryNameMap.value.get(directoryId) || '-'
+})
+const openControlledBrowserLocation = () => {
+  if (!fileDetail.value) {
+    return
+  }
+  window.open(buildControlledFileViewerPath(controlledFileId.value, 'controlled-browser', route.fullPath), '_blank')
+}
+
+interface SignatureTraceRow {
+  traceRole: string
+  actorName: string
+  signedAtText: string
+  signatureModeText: string
+  evidenceStatusText: string
+  fileHashText: string
+  stampedFileText: string
+}
+
+const buildSignatureTraceRow = (signature: ControlledFileSignatureSummaryVO): SignatureTraceRow => ({
+  traceRole: '四级审批人',
+  actorName: getSignatureActorSummary(signature, userNameMap.value),
+  signedAtText: formatControlledFileDateTime(signature.signedAt),
+  signatureModeText: signature.signatureMode || signature.authenticationMethod || '-',
+  evidenceStatusText: getSignatureEvidenceStatusLabel(signature.evidenceStatus),
+  fileHashText: signature.controlledCopyHashShort || signature.sourceFileHashShort || signature.evidenceHashShort || '-',
+  stampedFileText: fileDetail.value?.stampedFileId ? String(fileDetail.value.stampedFileId) : '-'
+})
+
+const signatureTraceRows = computed<SignatureTraceRow[]>(() => {
+  const file = fileDetail.value
+  if (!file) {
+    return []
+  }
+  const rows: SignatureTraceRow[] = []
+  if (file.requesterId) {
+    rows.push({
+      traceRole: '上传人',
+      actorName: userNameMap.value.get(file.requesterId) || `用户#${file.requesterId}`,
+      signedAtText: formatControlledFileDateTime(file.submittedTime),
+      signatureModeText: '上传提交',
+      evidenceStatusText: '-',
+      fileHashText: '-',
+      stampedFileText: file.stampedFileId ? String(file.stampedFileId) : '-'
+    })
+  }
+  rows.push(...(fileDetail.value?.signatureSummaries || []).map(buildSignatureTraceRow))
+  return rows
+})
 const currentStageSameLayerHint = computed(() =>
   currentStage.value
     ? `${currentStage.value.completionText} 已完成，${currentStage.value.sameLayerHint}`
@@ -2627,6 +2756,9 @@ const loadData = async () => {
   directoryNameMap.value = new Map(
     flattenTree(directoryTree).map((item) => [item.id as number, item.name])
   )
+  directoryPathMap.value = new Map(
+    flattenTree(directoryTree).map((item) => [item.id as number, item.directoryPath || item.name])
+  )
   userNameMap.value = new Map(
     users.map((item: UserVO) => {
       const displayName = buildDetailUserDisplayName(item)
@@ -2638,12 +2770,20 @@ const loadData = async () => {
 }
 
 const loadDccSignatureEvidenceList = async () => {
+  dccSignatureEvidenceError.value = ''
   if (viewerMode.value) {
     dccSignatureEvidenceList.value = []
     dccSignatureEvidenceTotal.value = 0
     return
   }
   if (!controlledFileId.value) {
+    dccSignatureEvidenceList.value = []
+    dccSignatureEvidenceTotal.value = 0
+    return
+  }
+  if (!checkPermi(['dcc:controlled-file:signature:manage'])) {
+    dccSignatureEvidenceError.value =
+      '当前账号缺少 DCC 电子签名管理权限，签名留痕无法加载；审批任务加载不受影响。'
     dccSignatureEvidenceList.value = []
     dccSignatureEvidenceTotal.value = 0
     return
@@ -2658,6 +2798,13 @@ const loadDccSignatureEvidenceList = async () => {
     })
     dccSignatureEvidenceList.value = data.list || []
     dccSignatureEvidenceTotal.value = data.total || 0
+  } catch (error) {
+    dccSignatureEvidenceList.value = []
+    dccSignatureEvidenceTotal.value = 0
+    dccSignatureEvidenceError.value = resolveReadSideErrorMessage(
+      error,
+      '签名留痕加载失败；审批任务加载不受影响，请根据后端错误提示修正权限后重试。'
+    )
   } finally {
     dccSignatureEvidenceLoading.value = false
   }
@@ -2696,8 +2843,10 @@ const findCurrentUserTodoTask = (taskList: DccTaskLike[]) => {
   return (
     taskList.find((task) => {
       const taskAssigneeId = toNumericUserId(task.assigneeUser?.id)
+      const taskAssigneeUserId = toNumericUserId(task.assigneeUserId)
+      const taskAssignee = toNumericUserId(task.assignee)
       return (
-        taskAssigneeId === userId &&
+        (taskAssigneeId === userId || taskAssigneeUserId === userId || taskAssignee === userId) &&
         (task.status === DCC_BPM_TASK_STATUS.RUNNING ||
           task.status === DCC_BPM_TASK_STATUS.APPROVING)
       )
@@ -3797,10 +3946,8 @@ const submitElectronicReceiptDialog = async () => {
       electronicReceiptDialog.fieldErrors = {
         password: DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
       }
-      electronicReceiptDialog.inlineError = DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
-      return
     }
-    electronicReceiptDialog.inlineError = resolveReadSideErrorMessage(
+    electronicReceiptDialog.inlineError = resolveDccApprovalSignatureErrorMessage(
       error,
       '电子发放签收失败，请查看错误提示后重试。'
     )
@@ -3881,10 +4028,8 @@ const submitDistributionSignDialog = async () => {
       distributionSignDialog.fieldErrors = {
         password: DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
       }
-      distributionSignDialog.inlineError = DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
-      return
     }
-    distributionSignDialog.inlineError = resolveReadSideErrorMessage(
+    distributionSignDialog.inlineError = resolveDccApprovalSignatureErrorMessage(
       error,
       '接收人加签失败，请查看错误提示后重试。'
     )
@@ -3910,6 +4055,97 @@ const buildDistributionReceiptRows = () => {
 const escapeCsvCell = (value: unknown) => {
   const text = String(value ?? '')
   return `"${text.replace(/"/g, '""')}"`
+}
+
+const exportSignatureTrace = () => {
+  if (!signatureTraceRows.value.length) {
+    message.warning('当前文件暂无可导出的签核追溯')
+    return
+  }
+  const headers = ['角色', '上传人/四级审批人', '签名时间', '签名方式', '证据状态', '文件哈希', '盖章文件']
+  const csvRows = [
+    headers,
+    ...signatureTraceRows.value.map((row) => [
+      row.traceRole,
+      row.actorName,
+      row.signedAtText,
+      row.signatureModeText,
+      row.evidenceStatusText,
+      row.fileHashText,
+      row.stampedFileText
+    ])
+  ]
+  const csv = csvRows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n')
+  downloadByData(
+    csv,
+    `DCC签核追溯-${fileDetail.value?.fileNumber || controlledFileId.value}.csv`,
+    'text/csv;charset=utf-8',
+    '\ufeff'
+  )
+}
+
+const buildSignatureTracePrintHtml = () => {
+  const rows = signatureTraceRows.value
+    .map(
+      (row) => `<tr>
+        <td>${escapeReceiptHtml(row.traceRole)}</td>
+        <td>${escapeReceiptHtml(row.actorName)}</td>
+        <td>${escapeReceiptHtml(row.signedAtText)}</td>
+        <td>${escapeReceiptHtml(row.signatureModeText)}</td>
+        <td>${escapeReceiptHtml(row.evidenceStatusText)}</td>
+        <td>${escapeReceiptHtml(row.fileHashText)}</td>
+        <td>${escapeReceiptHtml(row.stampedFileText)}</td>
+      </tr>`
+    )
+    .join('')
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>DCC签核追溯</title>
+  <style>
+    body { font-family: Arial, "Microsoft YaHei", sans-serif; color: #1f2329; margin: 24px; }
+    h1 { font-size: 20px; margin: 0 0 16px; }
+    table { border-collapse: collapse; width: 100%; font-size: 12px; }
+    th, td { border: 1px solid #333; padding: 6px 8px; text-align: left; vertical-align: top; }
+    th { background: #f3f4f6; }
+  </style>
+</head>
+<body>
+  <h1>DCC签核追溯</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>角色</th>
+        <th>上传人 / 四级审批人</th>
+        <th>签名时间</th>
+        <th>签名方式</th>
+        <th>证据状态</th>
+        <th>文件哈希</th>
+        <th>盖章文件</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+</body>
+</html>`
+}
+
+const printSignatureTrace = () => {
+  if (!signatureTraceRows.value.length) {
+    message.warning('当前文件暂无可打印的签核追溯')
+    return
+  }
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    message.error('打印窗口打开失败，请检查浏览器弹窗拦截设置。')
+    return
+  }
+  printWindow.document.open()
+  printWindow.document.write(buildSignatureTracePrintHtml())
+  printWindow.document.close()
+  printWindow.focus()
+  printWindow.print()
 }
 
 const handleExportDistributionReceipts = () => {
@@ -4281,10 +4517,8 @@ const submitActionDialog = async () => {
       actionDialog.fieldErrors = {
         password: DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
       }
-      actionDialog.inlineError = DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
-      return
     }
-    actionDialog.inlineError = resolveReadSideErrorMessage(
+    actionDialog.inlineError = resolveDccApprovalSignatureErrorMessage(
       error,
       '签名提交失败，请查看错误提示后重试。'
     )
@@ -4401,10 +4635,8 @@ const submitTaskActionDialog = async () => {
       taskActionDialog.fieldErrors = {
         password: DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
       }
-      taskActionDialog.inlineError = DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
-      return
     }
-    taskActionDialog.inlineError = resolveReadSideErrorMessage(
+    taskActionDialog.inlineError = resolveDccApprovalSignatureErrorMessage(
       error,
       '流程动作提交失败，请查看错误提示后重试。'
     )
@@ -4516,6 +4748,37 @@ watch(
 
 .detail-handling-summary__value--blocker {
   color: var(--el-color-danger);
+}
+
+.controlled-browser-linkage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.controlled-browser-linkage-card {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #fafcff;
+}
+
+.controlled-browser-linkage-card__label {
+  margin-bottom: 4px;
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.controlled-browser-linkage-card__value {
+  overflow: hidden;
+  color: #172033;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .detail-access-explanation {
@@ -4814,6 +5077,7 @@ watch(
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .controlled-browser-linkage-grid,
   .detail-access-explanation__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

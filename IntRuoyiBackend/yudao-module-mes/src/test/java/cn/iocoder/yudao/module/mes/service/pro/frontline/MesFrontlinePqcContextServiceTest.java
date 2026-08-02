@@ -4,20 +4,30 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamLeaderScopeMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
@@ -31,7 +41,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,6 +54,8 @@ import static cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.Me
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -54,9 +68,14 @@ class MesFrontlinePqcContextServiceTest {
     private static final Long PRODUCT_ID = 3001L;
     private static final Long ROUTE_PROCESS_ID = 4001L;
     private static final Long PROCESS_ID = 5001L;
+    private static final Long ACTIVE_ORDER_ID = 6001L;
+    private static final Long PQC_TASK_ID = 7001L;
+    private static final Long REGULATION_VERSION_ID = 8001L;
 
     @Mock
     private MesProProcessPoolMapper processPoolMapper;
+    @Mock
+    private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Mock
     private MesProProcessPoolEventMapper processPoolEventMapper;
     @Mock
@@ -67,6 +86,14 @@ class MesFrontlinePqcContextServiceTest {
     private MesProRouteProductMapper routeProductMapper;
     @Mock
     private MesProRouteProcessMapper routeProcessMapper;
+    @Mock
+    private MesQaInspectionRegulationMapper regulationMapper;
+    @Mock
+    private MesQaInspectionRegulationItemMapper regulationItemMapper;
+    @Mock
+    private MesPqcInspectionTaskMapper pqcTaskMapper;
+    @Mock
+    private MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper;
     @Mock
     private MesProProcessService processService;
     @Mock
@@ -84,22 +111,23 @@ class MesFrontlinePqcContextServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new MesFrontlinePqcContextServiceImpl(processPoolMapper, workOrderMapper, routeMapper,
-                routeProductMapper, routeProcessMapper, processService, itemService, scopeMapper,
-                processPoolEventMapper, processPoolEventService, adminUserApi, templateResolver);
+        service = new MesFrontlinePqcContextServiceImpl(activeOrderMapper, workOrderMapper, routeMapper,
+                routeProductMapper, routeProcessMapper, regulationMapper, regulationItemMapper, pqcTaskMapper,
+                pqcPieceDetailMapper, processService, itemService, scopeMapper, adminUserApi, templateResolver);
     }
 
     @Test
-    void shouldListActiveOrdersFromCurrentActiveProcessPools() {
-        when(processPoolMapper.selectActiveList()).thenReturn(List.of(
-                activePool(WORK_ORDER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID,
+    void shouldListActiveOrdersFromUnifiedActiveOrderAuthority() {
+        when(activeOrderMapper.selectActiveList()).thenReturn(List.of(
+                activeOrder(WORK_ORDER_ID, ROUTE_ID,
                         LocalDateTime.of(2026, 8, 1, 8, 0)),
-                activePool(WORK_ORDER_ID, ROUTE_ID, 4002L, 5002L,
+                activeOrder(WORK_ORDER_ID, ROUTE_ID,
                         LocalDateTime.of(2026, 8, 1, 9, 0))));
         givenWorkOrderProductAndRoute();
 
         List<MesFrontlineActiveOrderCandidate> orders = service.listActiveOrders();
 
+        verify(processPoolMapper, never()).selectActiveList();
         assertEquals(1, orders.size());
         assertEquals(WORK_ORDER_ID, orders.get(0).workOrderId());
         assertEquals("WO-PQC-001", orders.get(0).workOrderCode());
@@ -110,8 +138,8 @@ class MesFrontlinePqcContextServiceTest {
 
     @Test
     void shouldLoadProcessesFromSelectedActiveOrderProductRoute() {
-        when(processPoolMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
-                .thenReturn(activePool(WORK_ORDER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID,
+        when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
                         LocalDateTime.of(2026, 8, 1, 8, 0)));
         when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID, PRODUCT_ID));
         when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, PRODUCT_ID))
@@ -123,6 +151,8 @@ class MesFrontlinePqcContextServiceTest {
         when(processService.getProcessMap(Set.of(PROCESS_ID, 5002L))).thenReturn(Map.of(
                 PROCESS_ID, process(PROCESS_ID, "P-1", "首工序"),
                 5002L, process(5002L, "P-2", "末工序")));
+        givenPqcTaskContext(ROUTE_PROCESS_ID, PROCESS_ID, PQC_TASK_ID, REGULATION_VERSION_ID);
+        givenPqcTaskContext(4002L, 5002L, 7002L, 8002L);
 
         List<MesFrontlineRouteProcessCandidate> processes =
                 service.listProcessesByActiveOrder(WORK_ORDER_ID, ROUTE_ID);
@@ -153,15 +183,15 @@ class MesFrontlinePqcContextServiceTest {
 
     @Test
     void shouldFailFastWhenSelectedOrderIsNotActive() {
-        when(processPoolMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID)).thenReturn(null);
+        when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID)).thenReturn(null);
 
         assertThrows(ServiceException.class, () -> service.listProcessesByActiveOrder(WORK_ORDER_ID, ROUTE_ID));
     }
 
     @Test
     void shouldSwitchPqcEmployeeOnlyAfterActiveOrderProcessAndPersonnelValidation() {
-        when(processPoolMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
-                .thenReturn(activePool(WORK_ORDER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID,
+        when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
                         LocalDateTime.of(2026, 8, 1, 8, 0)));
         when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID, PRODUCT_ID));
         when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, PRODUCT_ID))
@@ -171,6 +201,7 @@ class MesFrontlinePqcContextServiceTest {
                 routeProcess(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10)));
         when(processService.getProcessMap(Set.of(PROCESS_ID))).thenReturn(Map.of(
                 PROCESS_ID, process(PROCESS_ID, "P-1", "首工序")));
+        givenPqcTaskContext(ROUTE_PROCESS_ID, PROCESS_ID, PQC_TASK_ID, REGULATION_VERSION_ID);
         when(scopeMapper.selectActiveScopesByLeaderType(LEADER_TYPE_PQC)).thenReturn(List.of(
                 scope(7001L, SCOPE_TYPE_EMPLOYEE, 8001L)));
         when(adminUserApi.getUserList(Set.of(7001L, 8001L))).thenReturn(List.of(
@@ -188,9 +219,9 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     @Test
-    void shouldSubmitPqcInspectionFromActivePoolLatestEventSource() {
-        when(processPoolMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
-                .thenReturn(activePool(WORK_ORDER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID,
+    void shouldSubmitPqcInspectionFromQaRegulationTaskSource() {
+        when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
                         LocalDateTime.of(2026, 8, 1, 8, 0)));
         when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID, PRODUCT_ID));
         when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, PRODUCT_ID))
@@ -200,22 +231,28 @@ class MesFrontlinePqcContextServiceTest {
                 routeProcess(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10)));
         when(processService.getProcessMap(Set.of(PROCESS_ID))).thenReturn(Map.of(
                 PROCESS_ID, process(PROCESS_ID, "P-1", "首工序")));
+        givenPqcTaskContext(ROUTE_PROCESS_ID, PROCESS_ID, PQC_TASK_ID, REGULATION_VERSION_ID);
         when(scopeMapper.selectActiveScopesByLeaderType(LEADER_TYPE_PQC)).thenReturn(List.of(
                 scope(7001L, SCOPE_TYPE_EMPLOYEE, 8001L)));
         when(adminUserApi.getUserList(Set.of(7001L, 8001L))).thenReturn(List.of(
                 enabledUser(7001L, "pqc-leader-a", "PQC组长A"),
                 enabledUser(8001L, "pqc-employee-a", "PQC员工A")));
-        when(processPoolMapper.selectActiveByWorkOrderRouteProcess(WORK_ORDER_ID, ROUTE_ID,
-                ROUTE_PROCESS_ID, PROCESS_ID)).thenReturn(activePoolWithSourceEvent());
-        when(processPoolEventMapper.selectById(9101L)).thenReturn(sourceEvent());
-        when(processPoolEventService.createPqcInspectionEvent(any(MesProcessPoolCreatePqcInspectionReqDTO.class)))
-                .thenReturn(9601L);
+        when(pqcTaskMapper.selectById(PQC_TASK_ID)).thenReturn(pqcTask(PQC_TASK_ID, ROUTE_PROCESS_ID,
+                PROCESS_ID, REGULATION_VERSION_ID));
 
-        Long eventId = service.submitPqcInspection(LOGIN_USER_ID, MesFrontlinePqcSubmitCommand.builder()
+        Long taskId = service.submitPqcInspection(LOGIN_USER_ID, MesFrontlinePqcSubmitCommand.builder()
+                .activeOrderId(ACTIVE_ORDER_ID)
+                .pqcTaskId(PQC_TASK_ID)
+                .regulationVersionId(REGULATION_VERSION_ID)
                 .workOrderId(WORK_ORDER_ID)
                 .routeId(ROUTE_ID)
                 .routeProcessId(ROUTE_PROCESS_ID)
                 .processId(PROCESS_ID)
+                .inspectionType("PATROL")
+                .businessDate(LocalDate.of(2026, 8, 1))
+                .shiftCode("DAY")
+                .roundNo(1)
+                .actualInspectionQuantity(2)
                 .actualEmployeeId(8001L)
                 .signatureId(8801L)
                 .signatureEmployeeId(8001L)
@@ -223,34 +260,29 @@ class MesFrontlinePqcContextServiceTest {
                 .inspectionResult("DETECTION_SUCCESS")
                 .rawPayload(Map.of(
                         "pqcDraft", Map.of("inspectionType", "PATROL", "inspectionQuantity", 30),
-                        "pqcPieceValues", Map.of("length", List.of("32.5", "32.6"))))
+                        "pqcPieceValues", Map.of(
+                                "pressure", List.of("0.8", "0.9"),
+                                "appearance", List.of("合格", "合格"))))
                 .clientSubmitTime(LocalDateTime.of(2026, 8, 1, 9, 0))
                 .build());
 
-        assertEquals(9601L, eventId);
-        ArgumentCaptor<MesProcessPoolCreatePqcInspectionReqDTO> captor =
-                ArgumentCaptor.forClass(MesProcessPoolCreatePqcInspectionReqDTO.class);
-        verify(processPoolEventService).createPqcInspectionEvent(captor.capture());
-        MesProcessPoolCreatePqcInspectionReqDTO req = captor.getValue();
-        assertEquals(WORK_ORDER_ID, req.getWorkOrderId());
-        assertEquals(ROUTE_ID, req.getRouteId());
-        assertEquals(ROUTE_PROCESS_ID, req.getRouteProcessId());
-        assertEquals(PROCESS_ID, req.getProcessId());
-        assertEquals(8001L, req.getActualEmployeeId());
-        assertEquals(9201L, req.getDeviceAccountId());
-        assertEquals(9301L, req.getDeviceId());
-        assertEquals(6001L, req.getWorkstationId());
-        assertEquals("PQC_SIMPLIFIED", req.getTemplateType());
-        assertEquals("MES_PRO_FEEDBACK", req.getFeedbackSourceType());
-        assertEquals(9401L, req.getFeedbackSourceId());
-        assertEquals("MES_PRO_EDHR_RECORD_BOOK_EVENT", req.getRecordbookSourceType());
-        assertEquals(9501L, req.getRecordbookSourceId());
-        assertEquals("SUCCESS", req.getInspectionResult());
-        assertEquals(8801L, req.getSignatureId());
-        assertEquals(8001L, req.getSignatureUserId());
-        org.assertj.core.api.Assertions.assertThat(req.getRawPayload())
-                .contains("pqcDraft")
-                .contains("pqcPieceValues");
+        assertEquals(PQC_TASK_ID, taskId);
+        verify(processPoolEventService, never()).createPqcInspectionEvent(any(MesProcessPoolCreatePqcInspectionReqDTO.class));
+        ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcTaskMapper).updateById(taskCaptor.capture());
+        assertEquals("SUBMITTED", taskCaptor.getValue().getTaskStatus());
+        assertEquals(2, taskCaptor.getValue().getActualInspectionQuantity());
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Collection<MesPqcInspectionPieceDetailDO>> detailCaptor =
+                ArgumentCaptor.forClass(Collection.class);
+        verify(pqcPieceDetailMapper).insertBatch(detailCaptor.capture());
+        List<MesPqcInspectionPieceDetailDO> details = detailCaptor.getValue().stream().toList();
+        assertEquals(4, details.size());
+        assertEquals(PQC_TASK_ID, details.get(0).getTaskId());
+        assertEquals("pressure", details.get(0).getItemCode());
+        assertEquals(1, details.get(0).getSampleNo());
+        assertEquals("测压", details.get(0).getInspectionMethod());
     }
 
     private void givenWorkOrderProductAndRoute() {
@@ -262,6 +294,16 @@ class MesFrontlinePqcContextServiceTest {
                 .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
     }
 
+    private void givenPqcTaskContext(Long routeProcessId, Long processId, Long taskId, Long regulationVersionId) {
+        when(regulationMapper.selectPublishedByRouteProcess(PRODUCT_ID, ROUTE_ID, 448L, routeProcessId, processId))
+                .thenReturn(regulation(regulationVersionId));
+        when(pqcTaskMapper.selectPendingByActiveOrderProcess(ACTIVE_ORDER_ID, routeProcessId, processId))
+                .thenReturn(pqcTask(taskId, routeProcessId, processId, regulationVersionId));
+        when(regulationItemMapper.selectListByVersionId(regulationVersionId)).thenReturn(List.of(
+                regulationItem(regulationVersionId, "pressure", "压力", "NUMBER", "测压"),
+                regulationItem(regulationVersionId, "appearance", "外观", "CHOICE", "目视")));
+    }
+
     private static MesProProcessPoolDO activePool(Long workOrderId, Long routeId, Long routeProcessId, Long processId,
                                                   LocalDateTime latestSubmitTime) {
         return MesProProcessPoolDO.builder()
@@ -271,6 +313,66 @@ class MesFrontlinePqcContextServiceTest {
                 .processId(processId)
                 .poolStatus(MesProProcessPoolDO.STATUS_ACTIVE)
                 .latestSubmitTime(latestSubmitTime)
+                .build();
+    }
+
+    private static MesProcessPoolActiveOrderDO activeOrder(Long workOrderId, Long routeId,
+                                                           LocalDateTime joinedAt) {
+        return MesProcessPoolActiveOrderDO.builder()
+                .id(ACTIVE_ORDER_ID)
+                .workOrderId(workOrderId)
+                .routeId(routeId)
+                .routeVersionId(448L)
+                .activeStatus("ACTIVE")
+                .businessStatus("ACTIVE")
+                .joinedAt(joinedAt)
+                .build();
+    }
+
+    private static MesQaInspectionRegulationDO regulation(Long regulationVersionId) {
+        return MesQaInspectionRegulationDO.builder()
+                .id(8101L)
+                .productId(PRODUCT_ID)
+                .routeId(ROUTE_ID)
+                .routeVersionId(448L)
+                .routeProcessId(ROUTE_PROCESS_ID)
+                .processId(PROCESS_ID)
+                .lifecycleStatus("PUBLISHED")
+                .currentVersionId(regulationVersionId)
+                .build();
+    }
+
+    private static MesPqcInspectionTaskDO pqcTask(Long taskId, Long routeProcessId, Long processId,
+                                                  Long regulationVersionId) {
+        return MesPqcInspectionTaskDO.builder()
+                .id(taskId)
+                .activeOrderId(ACTIVE_ORDER_ID)
+                .workOrderId(WORK_ORDER_ID)
+                .routeId(ROUTE_ID)
+                .routeVersionId(448L)
+                .routeProcessId(routeProcessId)
+                .processId(processId)
+                .regulationVersionId(regulationVersionId)
+                .inspectionType("PATROL")
+                .businessDate(LocalDate.of(2026, 8, 1))
+                .shiftCode("DAY")
+                .roundNo(1)
+                .plannedInspectionQuantity(2)
+                .taskStatus("PENDING")
+                .build();
+    }
+
+    private static MesQaInspectionRegulationItemDO regulationItem(Long regulationVersionId, String itemCode,
+                                                                  String itemName, String resultType,
+                                                                  String inspectionMethod) {
+        return MesQaInspectionRegulationItemDO.builder()
+                .regulationVersionId(regulationVersionId)
+                .inspectionType("PATROL")
+                .itemCode(itemCode)
+                .itemName(itemName)
+                .inspectionMethod(inspectionMethod)
+                .standardText("按压力泵工艺路线过程检验记录标准")
+                .resultType(resultType)
                 .build();
     }
 

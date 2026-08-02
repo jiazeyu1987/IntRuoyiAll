@@ -1,6 +1,6 @@
 {
-  "status": "blocked",
-  "currentMilestone": "M0",
+  "status": "in_progress",
+  "currentMilestone": "M4",
   "deliveryPolicy": {
     "gitPushRequired": false,
     "overrideDate": "2026-08-01",
@@ -25,47 +25,93 @@
     {
       "id": "M0",
       "title": "契约、术语、权威来源和 E2E 前置冻结",
-      "status": "blocked",
-      "blockingPrereqs": [
-        "Unified activeOrderId service/schema is not available yet.",
-        "PQC still reads mes_pro_process_pool active rows.",
-        "PQC submit still depends on selectActiveByWorkOrderRouteProcess and the frontend still hardcodes PQC items/defaults.",
-        "ERP transfer/shipment/replenishment/return/batch source relation is not confirmed.",
-        "QA regulation ownership and PQC task model are not confirmed.",
-        "role-requirement-matrix real E2E preflight script exists and now reports 31 SOURCE blockers; authorized local tenant/accounts/signatures/sample fixtures are present with no ENV/RUNTIME blocker."
+      "status": "accepted",
+      "acceptedAt": "2026-08-02",
+      "gateDecision": "User-approved revised M0 gate: M0 only identifies, structures, freezes, and assigns SOURCE blockers; M0 does not require clearing SOURCE blockers that belong to M1-M5 implementation.",
+      "evidence": [
+        "31 SOURCE blockers are structured in blocker-inventory.md with blocker id, milestone/AC/TC, blocked source/code path, failing command, expected reason, impact, required formal solution, downstream continuation, status, and date.",
+        "latest real:check has 31 SOURCE blockers, 0 ENV blockers, and 0 RUNTIME blockers.",
+        "RRM-BLK-032 backendHealth runtime blocker is RESOLVED_VERIFIED.",
+        "Authorized local tenant/accounts/signatures/pressure-pump route/work order/transfer fixtures and derived temporary QA regulation fixture are documented without plaintext passwords."
       ]
     },
     {
       "id": "M1",
       "title": "权威活跃订单与增量模型",
-      "status": "blocked",
-      "blockedBy": [
-        "M0"
+      "status": "accepted",
+      "acceptedAt": "2026-08-02",
+      "activeSlice": "M1 activeOrderId authority",
+      "sourceBlockersToResolve": [
+        "RRM-BLK-001",
+        "RRM-BLK-002",
+        "RRM-BLK-003",
+        "RRM-BLK-004",
+        "RRM-BLK-005",
+        "RRM-BLK-006",
+        "RRM-BLK-007"
+      ],
+      "evidence": [
+        "M1 RED captured missing activeOrder authority schema and PQC source switch contracts.",
+        "M1 GREEN targeted Maven suite passed: MesProcessPoolTeamLeaderSchemaTest, MesTeamLeaderActiveOrderServiceTest, MesProcessPoolTeamLeaderControllerTest, MesFrontlinePqcContextServiceTest.",
+        "real:check dropped from 31 SOURCE blockers to 24 SOURCE blockers, clearing RRM-BLK-001..007 with no ENV/RUNTIME blockers."
       ]
     },
     {
       "id": "M2",
       "title": "生产事实、系数分配与正式批记录",
-      "status": "blocked",
-      "blockedBy": [
-        "M1"
+      "status": "accepted",
+      "acceptedAt": "2026-08-02",
+      "activeSlice": "M2 production coefficient and planned quantity snapshots",
+      "sourceBlockersToResolve": [
+        "RRM-BLK-026",
+        "RRM-BLK-027",
+        "RRM-BLK-028"
+      ],
+      "evidence": [
+        "M2 RED captured missing active order process snapshot schema, target service, and fail-fast auto schedule contract.",
+        "M2 GREEN targeted Maven suite passed: MesProcessPoolTeamLeaderSchemaTest, MesTeamLeaderActiveOrderServiceTest, MesTeamLeaderFifoAllocationServiceTest, MesTeamLeaderReportConfirmationServiceTest, MesTeamLeaderOrderProcessCompletionServiceTest, MesProAutoScheduleContractTest.",
+        "real:check dropped from 24 SOURCE blockers to 21 SOURCE blockers, clearing RRM-BLK-026..028 with no ENV/RUNTIME blockers."
       ]
     },
     {
       "id": "M3",
       "title": "QA 规程与 PQC 闭环",
-      "status": "blocked",
-      "blockedBy": [
-        "M1"
+      "status": "accepted",
+      "acceptedAt": "2026-08-02",
+      "activeSlice": "M3 QA regulation and PQC source model",
+      "sourceBlockersToResolve": [
+        "RRM-BLK-017",
+        "RRM-BLK-018",
+        "RRM-BLK-019",
+        "RRM-BLK-020",
+        "RRM-BLK-021",
+        "RRM-BLK-022",
+        "RRM-BLK-023",
+        "RRM-BLK-024",
+        "RRM-BLK-025"
+      ],
+      "evidence": [
+        "M3 RED captured missing QA regulation schema/version/task/piece detail source model and frontend default/hardcoded PQC source blockers.",
+        "M3 GREEN targeted Maven suite passed: MesQaPqcSchemaTest and MesFrontlinePqcContextServiceTest, 8 tests, 0 failures/errors.",
+        "M3 frontend/static regression passed: ts:check, role-matrix QA regulation static, PQC dynamic form static, preflight static, and real-flow script syntax.",
+        "Authorized real:check dropped from 21 SOURCE blockers to 12 SOURCE blockers, clearing RRM-BLK-017..025 with no ENV/RUNTIME blockers."
       ]
     },
     {
       "id": "M4",
       "title": "调拨、异常、完整性与放行",
-      "status": "blocked",
-      "blockedBy": [
-        "M2",
-        "M3"
+      "status": "in_progress",
+      "activeSlice": "M4 transfer/release source model",
+      "sourceBlockersToResolve": [
+        "RRM-BLK-008",
+        "RRM-BLK-009",
+        "RRM-BLK-010",
+        "RRM-BLK-011",
+        "RRM-BLK-012",
+        "RRM-BLK-013",
+        "RRM-BLK-014",
+        "RRM-BLK-015",
+        "RRM-BLK-016"
       ]
     },
     {
@@ -87,16 +133,18 @@
   ],
   "acceptance": {
     "total": 62,
-    "accepted": 0,
-    "blocked": 62
+    "accepted": 19,
+    "blocked": 12,
+    "pending": 31
   },
   "blockers": [
-    "M0 source map is BLOCKED because active order is still leader-scoped and PQC still reads mes_pro_process_pool active rows.",
-    "PQC submit still depends on the latest mes_pro_process_pool production event and the PQC frontend still hardcodes inspection items, PATROL, and quantity 30.",
-    "Formal ERP transfer/shipment/replenishment/return/batch relation source is not confirmed.",
-    "QA regulation ownership, PQC task/regulation version/piece detail model, and eDHR release source adapters are not confirmed.",
-    "role-requirement-matrix real E2E preflight script exists and reports 31 SOURCE blockers, including ERP relation, QA/PQC model gaps, PQC submit event dependency, frontend hardcoded PQC defaults, activeOrder production coefficient snapshot gaps, batch-record MAIN slot default risks, and eDHR release source gaps; M3/M4/M5 planned static scripts now exist and currently fail with business RED.",
-    "Authorized local tenant, six role accounts, permissions, electronic signatures, pressure pump route, work order/transfer fixtures, and QC/IPQC fixture data are confirmed for M0 preflight; these fixtures do not solve formal activeOrderId or QA regulation source models."
+    "12 SOURCE blockers remain open and must be cleared by their owner milestones M4-M5; M0, M1, M2, and M3 source gates are accepted under the current task gate.",
+    "M1 activeOrderId authority blockers RRM-BLK-001..007 are RESOLVED_VERIFIED by targeted Maven tests and authorized real:check.",
+    "M2 production coefficient / planned quantity blockers RRM-BLK-026..028 are RESOLVED_VERIFIED by targeted Maven tests, static preflight, and authorized real:check.",
+    "M3 QA/PQC blockers RRM-BLK-017..025 are RESOLVED_VERIFIED by targeted Maven tests, frontend static/type checks, and authorized real:check.",
+    "M4 is now the current milestone and owns transfer, shipment, replenishment/return, batch trace, and release source blockers RRM-BLK-008..016; this state update does not start M4 implementation.",
+    "M5 remains blocked by M4 and owns route configuration separation blockers RRM-BLK-029..031 plus later daily close / scope work.",
+    "Authorized local tenant, six role accounts, permissions, electronic signatures, pressure pump route, work order/transfer fixtures, QC/IPQC fixture data, and derived temporary QA regulation fixture are confirmed for M0 preflight; these fixtures do not solve formal activeOrderId or QA regulation source models."
   ],
   "artifacts": {
     "task": "doc/tasks/20260801-role-requirement-matrix-implementation/task.md",
@@ -105,6 +153,9 @@
     "sourceMap": "doc/tasks/20260801-role-requirement-matrix-implementation/source-map.md",
     "m0Preflight": "doc/tasks/20260801-role-requirement-matrix-implementation/m0-preflight.md",
     "m0TestData": "doc/tasks/20260801-role-requirement-matrix-implementation/m0-test-data.md",
+    "m0DerivedQaRegulation": "doc/tasks/20260801-role-requirement-matrix-implementation/m0-derived-qa-regulation.md",
+    "blockerInventory": "doc/tasks/20260801-role-requirement-matrix-implementation/blocker-inventory.md",
+    "m0GateAudit": "doc/tasks/20260801-role-requirement-matrix-implementation/m0-gate-audit.md",
     "testReport": "doc/tasks/20260801-role-requirement-matrix-implementation/test-report.md",
     "databaseSchemaEvidence": "doc/tasks/20260801-role-requirement-matrix-implementation/database-schema-evidence.md",
     "realE2eEvidence": "doc/tasks/20260801-role-requirement-matrix-implementation/role-requirement-matrix-real-e2e-evidence.md",

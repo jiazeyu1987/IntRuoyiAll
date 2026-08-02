@@ -217,6 +217,8 @@ public class MesProcessPoolTeamLeaderController {
         return success(activeOrderService.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
                 .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
                 .workOrderId(reqVO.getWorkOrderId())
+                .routeId(reqVO.getRouteId())
+                .routeVersionId(reqVO.getRouteVersionId())
                 .build()));
     }
 
@@ -407,9 +409,14 @@ public class MesProcessPoolTeamLeaderController {
         return new MesTeamLeaderActiveOrderRespVO()
                 .setId(activeOrder.getId())
                 .setWorkOrderId(activeOrder.getWorkOrderId())
+                .setRouteId(activeOrder.getRouteId())
+                .setRouteVersionId(activeOrder.getRouteVersionId())
+                .setErpFixedQuantitySnapshot(activeOrder.getErpFixedQuantitySnapshot())
                 .setActiveStatus(activeOrder.getActiveStatus())
+                .setBusinessStatus(activeOrder.getBusinessStatus())
                 .setJoinedAt(activeOrder.getJoinedAt())
-                .setRemovedAt(activeOrder.getRemovedAt());
+                .setRemovedAt(activeOrder.getRemovedAt())
+                .setVersion(activeOrder.getVersion());
     }
 
     private static MesTeamLeaderReportAllocationLineReqBO toReportAllocationLineReqBO(

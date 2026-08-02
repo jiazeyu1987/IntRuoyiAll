@@ -11,4 +11,6 @@ public class MesTeamLeaderActiveOrderAddReqBO {
 
     private Long leaderUserId;
     private Long workOrderId;
+    private Long routeId;
+    private Long routeVersionId;
 }

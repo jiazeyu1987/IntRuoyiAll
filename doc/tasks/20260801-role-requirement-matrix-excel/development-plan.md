@@ -341,7 +341,9 @@
 - 测试合同：62 个 AC、62 个唯一 `TC-*`、正向断言和失败/边界断言全部显式存在。
 - `bdd-tdd-acceptance-planner` 验证四份 `docs/acceptance/` 文档通过。
 - 静态搜索确认计划没有把 `formBindings`、`MAIN` 或 `工序开始` 写成正式批记录替代来源。
-- source map 中任何未知正式来源必须保持 blocker。
+- source map 中任何未知正式来源必须保持 blocker，并结构化记录 blocker id、归属里程碑、AC/TC、阻塞代码路径、失败命令、影响、正式解决方案和后续可否继续。
+- M0 只负责识别并结构化冻结 SOURCE blocker；不要求在 M0 清零属于 M1-M5 正式实现范围的 SOURCE blocker。
+- M0 准出要求 `real:check` 无 ENV/RUNTIME blocker，且所有 SOURCE blocker 已在 `blocker-inventory.md` 映射到 M1-M5 的 BDD/TDD 解决计划；后续里程碑必须按各自 RED/GREEN/REGRESSION/E2E 门禁正式清零对应 SOURCE blocker。
 
 ### M1 Gate
 

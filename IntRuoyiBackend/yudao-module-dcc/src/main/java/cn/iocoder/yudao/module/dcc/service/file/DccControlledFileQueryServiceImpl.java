@@ -1346,6 +1346,10 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setPreviewKind(previewFile == null ? null
                 : DccControlledFilePreviewKindEnum.resolve(previewFile.getName(), previewFile.getType()).getCode());
         respVO.setFileNumber(file.getFileNumber());
+        respVO.setSourceFileId(file.getSourceFileId());
+        respVO.setOriginalFileId(file.getOriginalFileId());
+        respVO.setPublishedFileId(file.getPublishedFileId());
+        respVO.setStampedFileId(file.getStampedFileId());
         respVO.setProductMasterId(file.getProductMasterId());
         respVO.setProductCode(file.getProductCode());
         respVO.setProductName(file.getProductName());

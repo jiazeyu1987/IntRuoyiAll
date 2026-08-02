@@ -1,6 +1,6 @@
 {
   "status": "planned",
-  "currentMilestone": "M0",
+  "currentMilestone": "M2",
   "planningPackageStatus": "completed",
   "testPlanningStatus": "completed",
   "strictTdd": {
@@ -34,6 +34,15 @@
     "overrideDate": "2026-08-01",
     "overrideReason": "User explicitly requested: 这次不用推送git"
   },
+  "gateOverrides": [
+    {
+      "id": "20260802-M0-SOURCE-freeze",
+      "date": "2026-08-02",
+      "source": "User explicitly approved revised M0 gate",
+      "decision": "M0 only identifies, structures, freezes, and assigns SOURCE blockers; M0 does not require clearing SOURCE blockers that belong to M1-M5 implementation.",
+      "implementationTask": "doc/tasks/20260801-role-requirement-matrix-implementation"
+    }
+  ],
   "sourceWorkbook": "C:/Users/BJB110/Desktop/文档/职责/岗位需求分解矩阵.xlsx",
   "baselineTask": "doc/tasks/20260731-team-leader-workbench-prd-plan",
   "branch": "int_main",
@@ -41,13 +50,16 @@
     {
       "id": "M0",
       "title": "契约、术语和权威来源冻结",
-      "status": "pending",
-      "dependencies": []
+      "status": "accepted",
+      "dependencies": [],
+      "acceptedAt": "2026-08-02",
+      "acceptedByGateOverride": "20260802-M0-SOURCE-freeze"
     },
     {
       "id": "M1",
       "title": "权威活跃订单与增量模型",
-      "status": "pending",
+      "status": "accepted",
+      "acceptedAt": "2026-08-02",
       "dependencies": [
         "M0"
       ]
@@ -55,7 +67,7 @@
     {
       "id": "M2",
       "title": "生产事实、系数分配与正式批记录",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "M1"
       ]
@@ -556,5 +568,5 @@
     "executionLog": "doc/tasks/20260801-role-requirement-matrix-excel/execution-log.md",
     "verificationReport": "doc/tasks/20260801-role-requirement-matrix-excel/verification-report.md"
   },
-  "updatedAt": "2026-08-01"
+  "updatedAt": "2026-08-02"
 }

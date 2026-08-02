@@ -533,6 +533,10 @@ export interface ControlledFileVO {
   contentType?: string
   previewKind?: ControlledFilePreviewKind
   fileNumber?: string
+  sourceFileId?: number | null
+  originalFileId?: number | null
+  publishedFileId?: number | null
+  stampedFileId?: number | null
   versionNo: string
   effectiveDate?: string
   remark?: string

@@ -13,4 +13,12 @@ public class MesTeamLeaderActiveOrderAddReqVO {
     @Schema(description = "生产订单编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "9001")
     @NotNull
     private Long workOrderId;
+
+    @Schema(description = "正式工艺路线编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "922119")
+    @NotNull
+    private Long routeId;
+
+    @Schema(description = "正式工艺路线版本编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "448")
+    @NotNull
+    private Long routeVersionId;
 }

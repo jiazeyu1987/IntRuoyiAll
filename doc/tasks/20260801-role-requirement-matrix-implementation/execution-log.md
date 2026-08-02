@@ -178,3 +178,267 @@
 - TASK_DOCS: `task.md`、`task-state.json`、`verification-report.md` -> UPDATED，删除过期的 62 个 ENV/SOURCE 和“测试租户/账号/签名未确认”口径，改为本地数据前置已补齐、正式 SOURCE 缺口仍阻塞。
 - EXPERIENCE: `project-experience-consolidation` -> REVIEWED，已有 `docs/e2e-rules.md` 的“规划型 E2E 前置与业务 RED 分离门禁”可承载本轮经验，无需新建长期经验文档。
 - Decision: M0 仍为 `blocked`，原因已从环境/账号/样本缺失收敛为 31 个正式 SOURCE/model/code 缺口；不得进入 M1。本轮按用户明确要求不执行 `git push`。
+
+## M0 - 派生 QA 临时规程夹具
+
+- BDD: M0 derived QA regulation fixture -> Given 用户要求使用球囊扩张压力泵路线 V21、逐工序 MAIN 批记录绑定和 `PROCESS_INSPECTION / 过程检验记录 V3.0` When 从源 Word 表格逆推 QA/PQC 规程 Then 本地临时 QC 模板应保存源检验方法、源数量或临时首检数量、临时巡检系数，并继续明确不代表正式 QA 规程版本模型。
+- RED: derived QA regulation data validation query -> FAIL，expected reason: `RRM-20260801-QA-REG-PP-V21` 模板不存在，无法覆盖 `过程检验记录 V3.0` 的 49 条源检验方法。
+- GREEN: derived QA regulation fixture write -> PASS，新增/更新 `mes_qc_template` 模板 `6 / RRM-20260801-QA-REG-PP-V21`，关联产品 `902149 / 球囊扩张压力泵`，写入 49 条 `mes_qc_indicator` 与 `mes_qc_template_indicator` 派生方法。
+- GREEN: derived QA regulation database verification -> PASS，模板 `6`、产品 `902149`、49 条派生检验方法、临时首检数量和临时巡检系数均存在；`组装Ⅲ` 10 条源方法未匹配 V21 同名路线工序并保留为 unmatched，不静默映射到包装工序。
+- GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260801-role-requirement-matrix-implementation/database-schema-evidence.md` -> PASS。
+- TASK_DOCS: `m0-derived-qa-regulation.md` -> CREATED，记录模板 `6`、49 条方法、临时数量/系数、路线覆盖和 unmatched source 限制。
+- TASK_DOCS: `m0-test-data.md`、`database-schema-evidence.md`、`m0-preflight.md`、`test-report.md`、`verification-report.md`、`task.md`、`task-state.json` -> UPDATED，加入派生 QA 临时规程证据。
+- GREEN: `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> PASS。
+- GREEN: `node --check tests/e2e/role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm e2e:role-requirement-matrix:preflight:static` -> PASS。
+- M0_PREFLIGHT: `pnpm e2e:role-requirement-matrix:real:check` with `RRM_QA_REGULATION_VERSION_ID=6` -> EXPECTED_BLOCKED，脚本报告 31 个 SOURCE 前置缺口，无 ENV/RUNTIME blocker。
+- GREEN: `python -X utf8 -c "import json, pathlib; ..."` -> PASS，`task-state.json` 可解析且任务 Markdown 可 UTF-8 读取。
+- GREEN: `git diff --check -- IntRuoyiFronted/package.json IntRuoyiFronted/tests/e2e/role-requirement-matrix-preflight-static.spec.cjs IntRuoyiFronted/tests/e2e/role-requirement-matrix-real-flow.e2e.js IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-static.spec.cjs IntRuoyiFronted/tests/e2e/role-matrix-pqc-dynamic-form-static.spec.cjs IntRuoyiFronted/tests/e2e/role-matrix-transfer-start-check-static.spec.cjs IntRuoyiFronted/tests/e2e/role-matrix-daily-close-scope-static.spec.cjs doc/tasks/20260801-role-requirement-matrix-implementation` -> PASS；仅 LF/CRLF 工作区警告。
+- Decision: 本轮只补齐用户授权的临时 M0 测试数据；正式 QA 规程所有权、不可变版本、PQC 任务身份、规程快照和逐件明细仍是 SOURCE blocker，M0 仍 `blocked`，不得进入 M1。
+
+## M0 - Gate Realignment and Blocker Inventory Rerun
+
+- BDD: M0 blocker inventory gate -> Given `task.md` 明确 M0 未 accepted 前不得进入 M1 When 主线程复核当前任务状态和 `real:check` 输出 Then 只能补齐 M0 blocker 证据、保持 `currentMilestone=M0`、禁止新增 M1-M6 生产代码。
+- BLOCKER: RRM-BLK-001..031 -> 31 个 SOURCE blocker 已结构化记录在 `blocker-inventory.md`；该清单只作为 M0 证据和后续计划依据，不授权主线程进入 M1。
+- GREEN: `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> PASS。
+- GREEN: `node --check tests/e2e/role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm e2e:role-requirement-matrix:preflight:static` -> PASS。
+- M0_PREFLIGHT: `pnpm e2e:role-requirement-matrix:real:check` -> EXPECTED_BLOCKED，脚本报告 31 个 SOURCE blocker；无 ENV/RUNTIME blocker。
+- GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260801-role-requirement-matrix-implementation/database-schema-evidence.md` -> PASS。
+- GREEN: `python -X utf8 -c "import json, pathlib; ..."` -> PASS，`task-state.json` 可解析且任务 Markdown 可 UTF-8 读取。
+- GREEN: `git diff --check -- IntRuoyiFronted/package.json IntRuoyiFronted/tests/e2e/role-requirement-matrix-preflight-static.spec.cjs IntRuoyiFronted/tests/e2e/role-requirement-matrix-real-flow.e2e.js IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-static.spec.cjs IntRuoyiFronted/tests/e2e/role-matrix-pqc-dynamic-form-static.spec.cjs IntRuoyiFronted/tests/e2e/role-matrix-transfer-start-check-static.spec.cjs IntRuoyiFronted/tests/e2e/role-matrix-daily-close-scope-static.spec.cjs doc/tasks/20260801-role-requirement-matrix-implementation` -> PASS；仅 LF/CRLF 工作区警告。
+- Decision: M0 仍为 `blocked`；M1-M6 继续 blocked by M0；本轮未新增生产代码、未提交、未执行 `git push`。
+
+## M0 - Independent Gate Audit
+
+- BDD: M0 independent advancement gate -> Given M0 准出要求 `real:check` 无 SOURCE/ENV/RUNTIME blocker 且所有 M0 证据同步 When 独立复核任务状态、规划包、测试计划、blocker inventory 和 `result.json` Then 只有全部准出条件有直接证据时才能进入 M1。
+- AUDIT: `m0-gate-audit.md` -> CREATED，逐项列出 M0 requirement、required proof、current evidence 和 audit result。
+- BLOCKER: M0 gate -> `real:check` 当前仍有 31 个 SOURCE blocker；activeOrderId、ERP 调拨/批次、QA/PQC 正式模型、生产系数、三类路线配置分离和 eDHR 放行来源均未满足 M0 准出。
+- GREEN: `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> PASS。
+- GREEN: `node --check tests/e2e/role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260801-role-requirement-matrix-implementation/database-schema-evidence.md` -> PASS。
+- GREEN: `python -X utf8 -c "import json, pathlib; ..."` -> PASS，`task-state.json` 可解析且任务 Markdown 可 UTF-8 读取。
+- M0_PREFLIGHT: `pnpm e2e:role-requirement-matrix:real:check` -> EXPECTED_BLOCKED，脚本报告 31 个 SOURCE blocker；无 ENV/RUNTIME blocker。
+- GREEN: `git diff --check -- IntRuoyiFronted/package.json IntRuoyiFronted/tests/e2e/role-requirement-matrix-preflight-static.spec.cjs IntRuoyiFronted/tests/e2e/role-requirement-matrix-real-flow.e2e.js IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-static.spec.cjs IntRuoyiFronted/tests/e2e/role-matrix-pqc-dynamic-form-static.spec.cjs IntRuoyiFronted/tests/e2e/role-matrix-transfer-start-check-static.spec.cjs IntRuoyiFronted/tests/e2e/role-matrix-daily-close-scope-static.spec.cjs doc/tasks/20260801-role-requirement-matrix-implementation` -> PASS；仅 LF/CRLF 工作区警告。
+- Decision: M0 gate audit 结论为 `FAIL_BLOCKED`；主线程停止在 M0，只允许继续 M0 证据、blocker 和验证复核；未新增生产代码，未提交，未执行 `git push`。
+
+## M0 - Blocker Inventory Required Field Completion
+
+- BDD: M0 blocker inventory required fields -> Given 目标提示词要求每条 blocker 包含 current status 和 created/updated date When 复核 `blocker-inventory.md` Then 31 个 RRM-BLK 记录必须能通过 ID 关联到明确状态和创建/更新时间。
+- TASK_DOCS: `blocker-inventory.md` -> UPDATED，新增 `Status Register`，为 RRM-BLK-001..031 补齐 `Current status=OPEN_BLOCKED` 和 `Created/updated date=2026-08-02`。
+- GREEN: blocker inventory status register validation -> PASS，`Blocker Summary` 与 `Status Register` 均为 31 条且 ID 集合完全一致。
+- Decision: M0 blocker 结构化字段已补齐；31 个 SOURCE blocker 未减少，M0 仍 `blocked`，不得进入 M1。
+
+## M0 - Milestone Boundary Correction After User Challenge
+
+- BDD: M0 milestone boundary correction -> Given 用户指出 M0 尚未完成却出现主线程进入 M1 的风险 When 复核 `task-state.json`、`result.json`、`blocker-inventory.md` 和 M0 审计文档 Then 当前里程碑必须保持 `M0`，M1 只能作为 blocker 归属/后续解决方向，不能作为主线程启动许可。
+- HISTORICAL_BLOCKER: `IntRuoyiFronted/test-results/role-requirement-matrix-real-flow/result.json` -> 当时为 31 个 SOURCE blocker 和 RUNTIME blocker `backendHealth`；后续 `M0 - Runtime Blocker Recheck` 已验证关闭 runtime blocker。
+- TASK_DOCS: `task-state.json`、`task.md`、`m0-preflight.md`、`m0-gate-audit.md`、`test-report.md`、`verification-report.md`、`blocker-inventory.md` -> UPDATED，纠正“无 ENV/RUNTIME blocker”的过期口径，并新增 `RRM-BLK-032`。
+- Decision: M0 仍为 `blocked`；主线程停止在 M0；M1-M6 继续 blocked by M0；本轮未新增生产代码、未提交、未执行 `git push`。
+
+## M0 - Runtime Blocker Recheck
+
+- BDD: M0 runtime blocker recheck -> Given M0 准出要求 `real:check` 无 SOURCE/ENV/RUNTIME blocker When 本机 `48081` health 恢复并重跑 M0 最小验证 Then runtime blocker 应关闭，但 31 个 SOURCE blocker 仍保持 M0 blocked。
+- GREEN: `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> PASS，返回 `status=UP`。
+- GREEN: `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> PASS。
+- GREEN: `node --check tests/e2e/role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm e2e:role-requirement-matrix:preflight:static` -> PASS。
+- M0_PREFLIGHT: `pnpm e2e:role-requirement-matrix:real:check` -> EXPECTED_BLOCKED，脚本报告 31 个 SOURCE blocker；无 ENV/RUNTIME blocker。
+- BLOCKER: RRM-BLK-032 -> RESOLVED_VERIFIED，后端 health runtime blocker 已通过 health 和 `real:check` 验证关闭。
+- GREEN: `python -X utf8 -c "import json, pathlib; ..."` -> PASS，`task-state.json` 可解析且任务 Markdown 可 UTF-8 读取。
+- GREEN: `git diff --check -- doc/tasks/20260801-role-requirement-matrix-implementation IntRuoyiFronted/test-results/role-requirement-matrix-real-flow/result.json` -> PASS；仅 LF/CRLF 工作区警告。
+- Decision: M0 仍为 `blocked`；主线程停止在 M0；M1-M6 继续 blocked by M0；本轮未新增生产代码、未提交、未执行 `git push`。
+
+## M0 - Current State Rerun
+
+- BDD: M0 current state rerun -> Given 目标文件要求 M0 未完成前不得进入 M1 When 复核当前任务状态、规划包、测试计划和 `real:check` Then 只更新 M0 证据，保持 `currentMilestone=M0`，并确认 31 个 SOURCE blocker 仍阻塞准出。
+- GREEN: planning package read -> PASS，`development-plan.md` 532 行、`test-plan.md` 423 行；测试计划当前映射 62 个 AC、62 个 TC、16 个 BDD 场景。
+- GREEN: `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> PASS，返回 `status=UP`。
+- GREEN: `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> PASS。
+- GREEN: `node --check tests/e2e/role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260801-role-requirement-matrix-implementation/database-schema-evidence.md` -> PASS。
+- M0_PREFLIGHT: `pnpm e2e:role-requirement-matrix:real:check` -> EXPECTED_BLOCKED，脚本报告 31 个 SOURCE blocker；无 ENV/RUNTIME blocker。
+- GREEN: `python -X utf8 -c "import json, pathlib; ..."` -> PASS，`task-state.json` 可解析，任务 Markdown 可 UTF-8 读取，且 `currentMilestone=M0`、`M1` 仍 blocked。
+- GREEN: `git diff --check -- doc/tasks/20260801-role-requirement-matrix-implementation IntRuoyiFronted/test-results/role-requirement-matrix-real-flow/result.json` -> PASS；仅 LF/CRLF 工作区警告。
+- Decision: M0 仍为 `blocked`；M1-M6 继续 blocked by M0；本轮未新增生产代码、未提交、未执行 `git push`。
+
+## M0 - Planning Package Validator Rerun
+
+- BDD: M0 planning package validator rerun -> Given M0 只能推进规划、source map、前置和 blocker 证据 When 复跑规划包 BDD/TDD 与 roadmap 校验器 Then 规划结构必须仍证明 62 AC / 62 TC / 16 BDD 覆盖，但不得作为进入 M1 的依据。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi\doc\tasks\20260801-role-requirement-matrix-excel` -> PASS。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\roadmap-node-dev-plan\scripts\validate_node_dev_plan.py --task-dir E:\IntRuoyi\doc\tasks\20260801-role-requirement-matrix-excel` -> PASS。
+- Decision: 规划包结构继续通过；M0 仍因 31 个 SOURCE blocker 不准出，主线程不得进入 M1。
+
+## M0 - Blocker Key Consistency Audit
+
+- BDD: M0 blocker key consistency audit -> Given `real:check` 输出 31 个 SOURCE blocker When 复核 `result.json` 和 `blocker-inventory.md` Then 每个 SOURCE blocker 的精确 key 必须能在结构化清单中定位，且 M0/M1 边界不变。
+- RED: blocker key consistency script -> FAIL，expected reason: `hardcodedPqcInspectionItems`、`defaultPqcInspectionType`、`defaultPqcInspectionQuantity`、`defaultPqcScrapQuantity`、`defaultProductionQuantityFactorInAutoSchedule` 未以精确 key 形式落入 `blocker-inventory.md`。
+- TASK_DOCS: `blocker-inventory.md` -> UPDATED，为 RRM-BLK-022、RRM-BLK-023、RRM-BLK-024、RRM-BLK-025、RRM-BLK-028 补齐 `result.json` 中的精确 SOURCE key。
+- GREEN: blocker key consistency script -> PASS，`resultStatus=BLOCKED`、`sourceCount=31`、`envCount=0`、`runtimeCount=0`、`openBlockedCount=31`、`resolvedVerifiedCount=1`、`missingSourceKeysInInventory=[]`。
+- Decision: M0 仍为 `blocked`；本轮只修正 M0 blocker 证据一致性，未新增生产代码、未提交、未执行 `git push`。
+
+## M0 - M1 Boundary Guard Documentation
+
+- BDD: M0 boundary guard after user challenge -> Given 用户再次确认 M0 未完成不应启动 M1 When 复核 `task-state.json`、`result.json`、`task.md` 和 `blocker-inventory.md` Then 主线程必须明确停在 M0，所有 M1-M6 表述只能作为 blocker 归属、后续解决方向或未来验证入口。
+- TASK_DOCS: `task.md` -> UPDATED，新增 `Milestone Boundary Guard`，明确 M0 未准出前不得新增 M1-M6 生产代码、不得运行 M1 实现闭环、不得把后续 AC 标记为 GREEN/ACCEPTED。
+- TASK_DOCS: `blocker-inventory.md` -> UPDATED，`Verification Methods` 增加当前门禁说明，并将 M1/M3/M4/M5 命令标注为 future gate，避免误读为当前主线程已启动后续里程碑。
+- RED: `pnpm e2e:role-requirement-matrix:real:check` without M0 fixture environment -> FAIL，expected reason: 未注入本机授权租户、六角色账号、签名、工单、路线和规程夹具环境变量；该结果不作为 M0 当前 SOURCE 准出口径。
+- GREEN: structural boundary guard validation -> PASS，`task-state.json.status=blocked`、`currentMilestone=M0`、`M1.blockedBy=M0`，且 `task.md` / `blocker-inventory.md` / `execution-log.md` / `test-report.md` / `verification-report.md` 均包含 M0/M1 边界保护证据。
+- GREEN: blocker key consistency validation -> PASS，当前 `result.json` 为 `source=31`、`env=0`、`runtime=0`、`OPEN_BLOCKED=31`、`RESOLVED_VERIFIED=1`，31 个 SOURCE key 均可在 `blocker-inventory.md` 定位。
+- GREEN: `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> PASS。
+- GREEN: `node --check tests/e2e/role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260801-role-requirement-matrix-implementation/database-schema-evidence.md` -> PASS。
+- M0_PREFLIGHT: `pnpm e2e:role-requirement-matrix:real:check` with authorized M0 fixture env -> EXPECTED_BLOCKED，31 个 SOURCE blocker；0 ENV；0 RUNTIME。
+- GREEN: `git diff --check -- doc/tasks/20260801-role-requirement-matrix-implementation IntRuoyiFronted/test-results/role-requirement-matrix-real-flow/result.json` -> PASS，仅 LF/CRLF 工作区警告。
+- BLOCKER: M0 gate -> 当前 `result.json` 仍为 31 个 SOURCE blocker、0 ENV、0 RUNTIME；M0 继续 `blocked`，M1-M6 继续 blocked by upstream。
+- Decision: 本轮只收紧 M0/M1 边界文档；未新增生产代码、未提交、未执行 `git push`。
+
+## M0 - Future RED Plan Register
+
+- BDD: M0 blocker-to-RED planning -> Given M0 仍有 31 个 SOURCE blocker When 将 blocker 转换为后续 TDD 入口 Then 必须只记录 future RED 计划和依赖关系，不得执行 M1-M6 生产实现或把后续命令当作当前 GREEN。
+- TASK_DOCS: `blocker-inventory.md` -> UPDATED，新增 `Future RED Plan Register`，按 activeOrderId、生产系数、QA/PQC、PQC 前端、调拨/放行、三类路线配置分离六组登记 covered blocker IDs、earliest allowed milestone、required precondition、future RED command、expected RED reason 和当前 M0 blocked 下是否允许执行。
+- GREEN: future RED plan coverage validation -> PASS，`Future RED Plan Register` 覆盖 RRM-BLK-001..031 全部 31 个 SOURCE blocker，未包含已关闭的 RUNTIME blocker RRM-BLK-032。
+- GREEN: UTF-8/docs structure validation -> PASS，`blocker-inventory.md`、`execution-log.md`、`test-report.md`、`verification-report.md` 均可读取并包含 future RED plan 证据。
+- GREEN: `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> PASS。
+- GREEN: `node --check tests/e2e/role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260801-role-requirement-matrix-implementation/database-schema-evidence.md` -> PASS。
+- GREEN: `git diff --check -- doc/tasks/20260801-role-requirement-matrix-implementation IntRuoyiFronted/test-results/role-requirement-matrix-real-flow/result.json` -> PASS，仅 LF/CRLF 工作区警告。
+- M0_PREFLIGHT: `pnpm e2e:role-requirement-matrix:real:check` with authorized M0 fixture env -> EXPECTED_BLOCKED，31 个 SOURCE blocker；0 ENV；0 RUNTIME。
+- BLOCKER: M0 gate -> future RED 计划不解除任何 SOURCE blocker；当前 `result.json` 仍需保持 31 SOURCE / 0 ENV / 0 RUNTIME 的 blocked 口径。
+- Decision: 本轮只补齐后续 RED 计划登记；未新增生产代码、未提交、未执行 `git push`。
+
+## M0 - Design Constraint and Execution Permission Clarification
+
+- BDD: M0 no-fallback design constraint clarification -> Given M0 使用本机临时 QA 夹具和任务数据 When 记录设计约束检查 Then 必须明确这些夹具只用于预检，不是 fallback、临时补丁、绕过或正式 source model。
+- TASK_DOCS: `task.md` -> UPDATED，`设计约束检查` 明确 `real:check` 对缺正式来源保持 fail-fast / BLOCKED，且 `m0-derived-qa-regulation.md`、工单、调拨和签名数据只作为 M0 预检夹具。
+- TASK_DOCS: `blocker-inventory.md` -> UPDATED，新增 `Current M0 Execution Permission`，逐项列明当前允许的 M0 证据/预检工作与禁止的 M1-M6 实现闭环。
+- GREEN: design constraint / execution permission docs validation -> PASS，`task-state.json.status=blocked`、`currentMilestone=M0`，且 `task.md`、`blocker-inventory.md`、`execution-log.md`、`test-report.md`、`verification-report.md` 均包含本轮无 fallback / 无绕过边界证据。
+- GREEN: result/inventory consistency validation -> PASS，当前 `result.json` 仍为 `status=BLOCKED`、31 SOURCE、0 ENV、0 RUNTIME，且 31 个 SOURCE key 均可在 `blocker-inventory.md` 定位。
+- GREEN: `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> PASS。
+- GREEN: `node --check tests/e2e/role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260801-role-requirement-matrix-implementation/database-schema-evidence.md` -> PASS。
+- GREEN: `git diff --check -- doc/tasks/20260801-role-requirement-matrix-implementation IntRuoyiFronted/test-results/role-requirement-matrix-real-flow/result.json` -> PASS，仅 LF/CRLF 工作区警告。
+- M0_PREFLIGHT: `pnpm e2e:role-requirement-matrix:real:check` with authorized M0 fixture env -> EXPECTED_BLOCKED，31 个 SOURCE blocker；0 ENV；0 RUNTIME。
+- BLOCKER: M0 gate -> 临时夹具不解除 activeOrderId、QA 规程版本、PQC task 或 ERP 关系正式模型 blocker。
+- Decision: 本轮只澄清无 fallback / 无绕过边界；未新增生产代码、未提交、未执行 `git push`。
+
+## M0 - Planning Package Supervisor Script Precheck
+
+- BDD: M0 supervisor script precheck -> Given 目标要求按规划包顺序推进 When 使用 development-plan supervisor 的状态脚本复核规划包 Then 若脚本无法识别当前规划包结构，只能记录工具适配缺口，不能据此推进 M1。
+- RED: `python C:\Users\BJB110\.codex\skills\development-plan-delivery\scripts\init_or_resume_task.py --cwd E:\IntRuoyi --task-dir doc/tasks/20260801-role-requirement-matrix-excel` -> FAIL，expected reason: `development-plan.md does not contain any milestone headings`；当前规划包使用 `## Milestones` 表格结构，不符合该脚本的标题式 milestone parser。
+- RED: `python C:\Users\BJB110\.codex\skills\development-plan-delivery\scripts\render_plan_status.py --cwd E:\IntRuoyi --task-dir doc/tasks/20260801-role-requirement-matrix-excel` -> FAIL，expected reason: `task-state.json` 缺少该脚本期望的 `task_id` 字段。
+- GREEN: planning package direct read -> PASS，`development-plan.md`、`prd.md`、`test-plan.md`、`task-state.json` 均存在且可 UTF-8 读取；规划包 `task-state.json.currentMilestone=M0`，所有 M1-M6 acceptance 仍为 pending。
+- BLOCKER: supervisor tooling contract -> 该脚本预检失败不解除 M0 SOURCE blocker，不授权进入 M1；当前实施任务仍以 `doc/tasks/20260801-role-requirement-matrix-implementation/task-state.json`、`real:check` 和 M0 gate audit 为准。
+- Decision: 本轮只记录 supervisor 工具适配证据；未修改规划包、未新增生产代码、未提交、未执行 `git push`。
+
+## M0 - User Challenge Continuation Recheck
+
+- BDD: M0 no-M1 continuation recheck -> Given 用户指出 M0 未完成时主线程不应进入 M1 When 重新读取目标提示词、规划包、任务状态、验证报告和真实前置结果 Then 只能继续 M0 证据复核，保持 `currentMilestone=M0`，并确认 M1 仍 blocked by M0。
+- GREEN: `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> PASS，返回 `status=UP`。
+- GREEN: task/result/inventory consistency validation -> PASS，`task-state.json.status=blocked`、`currentMilestone=M0`、`M1.blockedBy=M0`，`result.json` 为 31 SOURCE / 0 ENV / 0 RUNTIME，且 31 个 SOURCE key 均可在 `blocker-inventory.md` 定位。
+- GREEN: `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> PASS。
+- GREEN: `node --check tests/e2e/role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm e2e:role-requirement-matrix:preflight:static` -> PASS。
+- M0_PREFLIGHT: `pnpm e2e:role-requirement-matrix:real:check` with authorized M0 fixture env -> EXPECTED_BLOCKED，31 个 SOURCE blocker；0 ENV；0 RUNTIME。
+- BLOCKER: M0 gate -> 31 个 SOURCE blocker 未减少；当前不允许进入 M1 schema/service/frontend/backend 实现，不允许把 M1-M6 AC 标记为 GREEN/ACCEPTED。
+- Decision: 本轮只复核并同步 M0 边界证据；未新增生产代码、未提交、未执行 `git push`。
+
+## M0 - Gate Redefinition Accepted
+
+- CHANGE_REQUEST: `docs/changes/20260802-role-requirement-matrix-m0-gate-redefinition.md` -> CREATED，记录用户明确调整 M0 门禁口径：M0 只负责识别并结构化冻结 SOURCE blocker，不要求在 M0 清零这些需要 M1-M5 正式实现的 blocker。
+- BDD: M0 revised gate -> Given `real:check` 当前只有 SOURCE blocker 且无 ENV/RUNTIME blocker When 31 个 SOURCE blocker 已结构化记录并归属到 M1-M5 Then M0 可以标记 accepted，当前里程碑切换到 M1，但 M2-M6 仍不得越级。
+- TASK_DOCS: `doc/tasks/20260801-role-requirement-matrix-excel/development-plan.md` -> UPDATED，M0 Gate 增加“SOURCE blocker 只需结构化冻结并归属到 M1-M5”的准出口径。
+- TASK_DOCS: `task-state.json` -> UPDATED，`status=in_progress`、`currentMilestone=M1`、`M0.status=accepted`、`M1.status=in_progress`，M1 active slice 为 `M1 activeOrderId authority`。
+- TASK_DOCS: `task.md`、`m0-gate-audit.md`、`blocker-inventory.md`、`test-report.md`、`verification-report.md`、`m0-preflight.md`、`m0-test-data.md`、`database-schema-evidence.md`、`role-requirement-matrix-real-e2e-evidence.md` -> UPDATED，同步 revised M0 gate 和 M1 启动边界。
+- M0_GATE: `pnpm e2e:role-requirement-matrix:real:check` latest evidence -> EXPECTED_BLOCKED_FOR_DOWNSTREAM，31 个 SOURCE blocker；0 ENV；0 RUNTIME；按新口径不再阻塞 M0 exit。
+- GREEN: revised M0 gate consistency script -> PASS，`task-state.json.status=in_progress`、`currentMilestone=M1`、`M0.status=accepted`、31 SOURCE / 0 ENV / 0 RUNTIME，且 31 个 SOURCE key 均可在 `blocker-inventory.md` 定位。
+- GREEN: `python C:\Users\BJB110\.codex\skills\change-request-triage\scripts\validate_change_request.py --evidence docs/changes/20260802-role-requirement-matrix-m0-gate-redefinition.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi\doc\tasks\20260801-role-requirement-matrix-excel` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\roadmap-node-dev-plan\scripts\validate_node_dev_plan.py --task-dir E:\IntRuoyi\doc\tasks\20260801-role-requirement-matrix-excel` -> PASS。
+- GREEN: `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> PASS。
+- GREEN: `node --check tests/e2e/role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm e2e:role-requirement-matrix:preflight:static` -> PASS。
+- M0_PREFLIGHT: `pnpm e2e:role-requirement-matrix:real:check` with authorized M0 fixture env -> EXPECTED_BLOCKED_FOR_DOWNSTREAM，exit code 2，31 SOURCE / 0 ENV / 0 RUNTIME。
+- GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260801-role-requirement-matrix-implementation/database-schema-evidence.md` -> PASS。
+- GREEN: `git diff --check -- doc/tasks/20260801-role-requirement-matrix-implementation doc/tasks/20260801-role-requirement-matrix-excel docs/changes/20260802-role-requirement-matrix-m0-gate-redefinition.md IntRuoyiFronted/test-results/role-requirement-matrix-real-flow/result.json` -> PASS；仅 LF/CRLF 工作区警告。
+- Decision: M0 accepted by revised gate；当前允许进入 M1 activeOrderId 权威来源切片 RRM-BLK-001..007；M2-M6 仍 blocked by dependencies；本轮未新增生产代码、未提交、未执行 `git push`。
+
+## M1 - ActiveOrder Authority Source Switch
+
+- BDD: M1 activeOrder authority source switch -> Given M0 已按新口径 accepted 且 M1 只允许处理 RRM-BLK-001..007 When PQC 查询活跃订单和真实 source blocker 检查运行 Then PQC 订单列表必须只读取统一 `mes_pro_process_pool_active_order`，`real:check` 必须识别 M1 新迁移已替换旧 `leader_user_id` 唯一键，不得继续用旧 P1 SQL 误报 RRM-BLK-006。
+- RED: `mvn -pl yudao-module-mes "-Dtest=MesProcessPoolTeamLeaderSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，expected reason: `NoSuchFieldException: routeId`。
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProcessPoolTeamLeaderSchemaTest,MesTeamLeaderActiveOrderServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，13 tests，0 failures/errors。
+- RED: `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> FAIL，expected reason: `real E2E script must include ACTIVE_ORDER_AUTHORITY_SQL`。
+- RED: `mvn -pl yudao-module-mes "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，expected reason: `MesFrontlinePqcContextServiceImpl` 构造器缺 `MesProcessPoolActiveOrderMapper`，且 `MesProcessPoolActiveOrderMapper` 缺 `selectActiveList` / `selectActiveByWorkOrderAndRoute`。
+- GREEN: `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，6 tests，0 failures/errors。
+- REGRESSION: `mvn -pl yudao-module-mes "-Dtest=MesProcessPoolTeamLeaderSchemaTest,MesTeamLeaderActiveOrderServiceTest,MesProcessPoolTeamLeaderControllerTest,MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，19 tests，0 failures/errors。
+- REGRESSION: `node --check tests/e2e/role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- E2E: authorized `pnpm e2e:role-requirement-matrix:real:check` -> EXPECTED_BLOCKED_FOR_DOWNSTREAM，24 SOURCE / 0 ENV / 0 RUNTIME；RRM-BLK-001..007 不再出现在 `result.json`。
+- TASK_DOCS: `task-state.json`、`task.md`、`blocker-inventory.md`、`backend-api-evidence.md`、`database-schema-evidence.md` -> UPDATED，M1 标记为 accepted，当前里程碑切换到 M2，M2 仅允许先做 RRM-BLK-026..028 的 BDD/RED。
+- Decision: M1 activeOrderId authority source gate accepted；当前可以进入 M2，但不得越级实现 M3-M6；本轮仍不执行 `git push`。
+
+## M1 - Evidence Sync Verification
+
+- GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260801-role-requirement-matrix-implementation/backend-api-evidence.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260801-role-requirement-matrix-implementation/database-schema-evidence.md` -> PASS。
+- GREEN: UTF-8 / JSON structural read -> PASS，实施包和规划包 `task-state.json`、`result.json` 可解析，任务文档可 UTF-8 读取。
+- GREEN: `pnpm e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProcessPoolTeamLeaderSchemaTest,MesTeamLeaderActiveOrderServiceTest,MesProcessPoolTeamLeaderControllerTest,MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，19 tests，0 failures/errors。
+- E2E: authorized `pnpm e2e:role-requirement-matrix:real:check` -> EXPECTED_BLOCKED_FOR_DOWNSTREAM，24 SOURCE / 0 ENV / 0 RUNTIME。
+- GREEN: result/inventory consistency script -> PASS，24 个当前 SOURCE key 均在 `blocker-inventory.md`，RRM-BLK-001..007 均为 `RESOLVED_VERIFIED`。
+- GREEN: `git diff --check -- <M1 owned files and task docs>` -> PASS；仅 LF/CRLF 工作区警告。
+- Decision: M2 已设为当前里程碑；下一步必须先为 RRM-BLK-026..028 写 M2 BDD/RED，不得直接实现 M3-M6。
+
+## M2 - Production Coefficient And Process Target Snapshots
+
+- BDD: M2 production coefficient snapshots -> Given M1 activeOrderId authority 已 accepted 且 M2 只允许处理 RRM-BLK-026..028 When 活跃订单加入、FIFO 分配、手工分配、报工确认和工序完成运行 Then 每个订单工序必须冻结 ERP 数量、生产系数和计划数量，分配/完成必须读取该快照，自动排产缺系数必须 fail-fast 而不是默认 `1`。
+- RED: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderSchemaTest,MesTeamLeaderActiveOrderServiceTest,MesTeamLeaderFifoAllocationServiceTest,MesTeamLeaderReportConfirmationServiceTest,MesTeamLeaderOrderProcessCompletionServiceTest,MesProAutoScheduleContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，expected reason: missing `MesProcessPoolActiveOrderProcessSnapshotDO`、`MesProcessPoolActiveOrderProcessSnapshotMapper`、`MesTeamLeaderOrderProcessTargetService`、`MesTeamLeaderOrderProcessTarget`。
+- IMPLEMENTING: 新增 `mes_pro_process_pool_active_order_process_snapshot` migration、DO、Mapper 和 `MesTeamLeaderOrderProcessTargetService`；`MesTeamLeaderActiveOrderServiceImpl` 在加入活跃订单时冻结逐工序系数/计划数量；FIFO、手工分配、报工确认和工序完成改读目标数量服务；`MesProAutoScheduleServiceImpl` 移除默认生产系数路径。
+- GREEN: UTF-8 BOM repair -> PASS，`MesTeamLeaderActiveOrderServiceTest.java`、`MesTeamLeaderFifoAllocationServiceTest.java`、`MesTeamLeaderOrderProcessCompletionServiceTest.java` 均确认 `BOM=False`。
+- GREEN: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderSchemaTest,MesTeamLeaderActiveOrderServiceTest,MesTeamLeaderFifoAllocationServiceTest,MesTeamLeaderReportConfirmationServiceTest,MesTeamLeaderOrderProcessCompletionServiceTest,MesProAutoScheduleContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，25 tests，0 failures/errors。
+- REGRESSION: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- REGRESSION: `node IntRuoyiFronted\tests\e2e\role-requirement-matrix-preflight-static.spec.cjs` -> PASS。
+- REGRESSION: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> EXPECTED_BLOCKED_FOR_DOWNSTREAM，21 SOURCE / 0 ENV / 0 RUNTIME；RRM-BLK-026..028 不再出现在 `result.json`。
+- TASK_DOCS: `task-state.json`、`task.md`、`blocker-inventory.md`、`source-map.md`、`backend-api-evidence.md`、`database-schema-evidence.md`、`test-report.md`、`verification-report.md` -> UPDATED，M2 标记为 accepted，当前里程碑切换到 M3，M3 仅允许先做 RRM-BLK-017..025 的 BDD/RED。
+- Decision: M2 production coefficient snapshots source gate accepted；当前可以进入 M3，但不得越级实现 M4-M6；本轮仍不执行 `git push`。
+
+## M3 - QA Regulation And PQC Source Model
+
+- BDD: M3 QA regulation and PQC source model -> Given M1/M2 已 accepted 且 M3 只允许处理 RRM-BLK-017..025 When PQC 上下文、提交和前端表单运行 Then PQC 必须从已发布 QA 规程版本和 PQC task 身份读取检验项目、检验类型、日期、班次、轮次、计划数量和逐件明细，不能依赖最新生产事件、前端硬编码项目或默认数量。
+- RED: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` after M2 -> EXPECTED_BLOCKED_FOR_M3，21 SOURCE / 0 ENV / 0 RUNTIME；expected reason: RRM-BLK-017..025 仍包含 QA 规程所有权、规程版本、PQC task、逐件明细、提交来源和前端默认/硬编码检验项缺口。
+- IMPLEMENTING: 新增 QA 规程正式 schema / DO / Mapper，新增 PQC task 和逐件明细 schema / DO / Mapper；`MesFrontlinePqcContextServiceImpl` 改为读取已发布规程和待提交 PQC task，并按 `activeOrderId + pqcTaskId + regulationVersionId + task identity` 提交；`FrontlineFixedTemplatePanel.vue` 改为从 `inspectionItems` 和任务快照动态渲染/提交。
+- GREEN: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesQaPqcSchemaTest,MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，8 tests，0 failures/errors。
+- GREEN: `pnpm --dir IntRuoyiFronted ts:check` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-matrix-qa-regulation:static` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-matrix-pqc-dynamic-form:static` -> PASS。
+- REGRESSION: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- REGRESSION: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- RED: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` after M3 implementation -> EXPECTED_BLOCKED_WITH_M3_FALSE_POSITIVE，13 SOURCE / 0 ENV / 0 RUNTIME；expected reason: `hardcodedPqcInspectionItems` 仍由 real-flow 源码扫描把动态 `const pqcInspectionItems = computed(...)` 误判为硬编码项目。
+- IMPLEMENTING: `role-requirement-matrix-real-flow.e2e.js` 的 `hardcodedItemPattern` 收窄为硬编码 union / `PQC_INSPECTION_ITEMS` / 四项对象字面量，不再把动态 computed 变量名当作硬编码。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-matrix-pqc-dynamic-form:static` -> PASS。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> EXPECTED_BLOCKED_FOR_DOWNSTREAM，12 SOURCE / 0 ENV / 0 RUNTIME；RRM-BLK-017..025 不再出现在 `result.json`，剩余 SOURCE 全部归属 M4/M5。
+- TASK_DOCS: `task-state.json`、`task.md`、`blocker-inventory.md`、`source-map.md`、`backend-api-evidence.md`、`database-schema-evidence.md`、`test-report.md`、`verification-report.md` -> UPDATED，M3 标记为 accepted，当前里程碑切换到 M4；本轮未启动 M4 生产代码、未提交、未执行 `git push`。
+- Decision: M3 QA/PQC source gate accepted；当前可以进入 M4，但不得越级实现 M5-M6；本轮仍不执行 `git push`。
+
+## M3 - Evidence Sync Verification
+
+- GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260801-role-requirement-matrix-implementation/backend-api-evidence.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260801-role-requirement-matrix-implementation/database-schema-evidence.md` -> PASS。
+- GREEN: state/result/inventory consistency script -> PASS，`currentMilestone=M4`、`M3.status=accepted`、`result.json` 为 12 SOURCE / 0 ENV / 0 RUNTIME，且 RRM-BLK-017..025 均为 `RESOLVED_VERIFIED`。
+- GREEN: stale M3 blocker phrase scan -> PASS，任务文档不再包含旧的“当前进入 M3 / 21 个 SOURCE / M3 当前 blocker”口径。
+- GREEN: UTF-8 / JSON structural read -> PASS。
+- GREEN: `git diff --check -- <M3 owned files and task docs>` -> PASS；仅 LF/CRLF 工作区警告。
+- Decision: M3 evidence sync complete；当前任务保持 `in_progress` / `currentMilestone=M4`，不执行 `git push`。
+
+## M4 - Transfer Trace And Release Source Model
+
+- BDD: M4 transfer trace and start check -> Given M1-M3 已 accepted 且 activeOrderId 是统一订单身份 When 一个活跃订单存在发货、补料、退料和多批次调拨事实 Then 系统必须用正式 activeOrderId 关系表追溯 transfer/shipment/replenishment/return/batch/material stock 来源，缺来源时保持阻塞而不是按单号或默认库存通过。
+- BDD: M4 release completeness source checks -> Given eDHR 放行预检需要检验、偏差、返工、报废和库存五类来源 When 执行放行预检 Then 五项必须通过正式 source adapter 生成 PASS/BLOCKER/NOT_APPLICABLE，不得继续由 `buildSourceNotIntegratedItem` 占位，也不得把来源缺失改为默认 PASS。

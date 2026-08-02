@@ -31,13 +31,16 @@ public class MesTeamLeaderFifoAllocationService {
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProWorkOrderMapper workOrderMapper;
     private final MesProcessPoolReportAllocationMapper allocationMapper;
+    private final MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
 
     public MesTeamLeaderFifoAllocationService(MesProcessPoolActiveOrderMapper activeOrderMapper,
                                               MesProWorkOrderMapper workOrderMapper,
-                                              MesProcessPoolReportAllocationMapper allocationMapper) {
+                                              MesProcessPoolReportAllocationMapper allocationMapper,
+                                              MesTeamLeaderOrderProcessTargetService orderProcessTargetService) {
         this.activeOrderMapper = activeOrderMapper;
         this.workOrderMapper = workOrderMapper;
         this.allocationMapper = allocationMapper;
+        this.orderProcessTargetService = orderProcessTargetService;
     }
 
     public MesTeamLeaderReportAllocationPreview previewFifoAllocation(MesTeamLeaderFifoAllocationReqBO reqBO) {
@@ -63,7 +66,8 @@ public class MesTeamLeaderFifoAllocationService {
                 break;
             }
             MesProWorkOrderDO workOrder = workOrderMap.get(activeOrder.getWorkOrderId());
-            BigDecimal remaining = remainingQuantity(activeOrder, workOrder, allocatedByWorkOrder);
+            BigDecimal remaining = remainingQuantity(activeOrder, workOrder, allocatedByWorkOrder,
+                    reqBO.getRouteProcessId(), reqBO.getProcessId());
             if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
@@ -113,13 +117,17 @@ public class MesTeamLeaderFifoAllocationService {
     }
 
     private BigDecimal remainingQuantity(MesProcessPoolActiveOrderDO activeOrder, MesProWorkOrderDO workOrder,
-                                         Map<Long, BigDecimal> allocatedByWorkOrder) {
+                                         Map<Long, BigDecimal> allocatedByWorkOrder,
+                                         Long routeProcessId,
+                                         Long processId) {
         if (workOrder == null || workOrder.getQuantity() == null
                 || workOrder.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED, activeOrder.getWorkOrderId());
         }
         BigDecimal alreadyAllocated = allocatedByWorkOrder.getOrDefault(activeOrder.getWorkOrderId(), BigDecimal.ZERO);
-        return workOrder.getQuantity().subtract(alreadyAllocated);
+        return orderProcessTargetService.requireTarget(activeOrder, routeProcessId, processId)
+                .plannedQuantity()
+                .subtract(alreadyAllocated);
     }
 
     private void validateReq(MesTeamLeaderFifoAllocationReqBO reqBO) {

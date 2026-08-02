@@ -32,6 +32,7 @@ export interface ApprovalTaskSummaryVO {
   businessTitle: string
   businessCode?: string
   businessStatus?: string
+  businessContextTags?: string[]
   businessDeleted?: boolean
   currentNodeCode?: string
   currentNodeName?: string

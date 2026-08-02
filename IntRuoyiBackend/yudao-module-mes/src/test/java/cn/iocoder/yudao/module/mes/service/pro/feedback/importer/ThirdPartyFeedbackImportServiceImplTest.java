@@ -506,7 +506,93 @@ class ThirdPartyFeedbackImportServiceImplTest {
     }
 
     @Test
-    void importDirectWorkReportWorkbook_whenSameSourceRowImportedTwice_shouldAccumulateProgressAgain() throws Exception {
+    void importDirectWorkReportWorkbook_shouldUseUniqueProcessWorkstationWhenTaskWorkstationMissing() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "李萍.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buildLiPingWorkbook());
+        MesProWorkOrderDO workOrder = MesProWorkOrderDO.builder()
+                .id(100L).code("881MO093613").productId(1000L).build();
+        MesMdItemDO item = MesMdItemDO.builder().id(1000L).code("3020110069").name("外鞘管组件").build();
+        MesProTaskDO task = MesProTaskDO.builder()
+                .id(300L)
+                .code("PT-50072")
+                .workOrderId(100L)
+                .workstationId(null)
+                .routeId(500L)
+                .processId(2000L)
+                .itemId(1000L)
+                .quantity(new BigDecimal("1000"))
+                .status(MesProTaskStatusEnum.IN_PROGRESS.getStatus())
+                .build();
+        MesProScheduleOrderDO scheduleOrder = MesProScheduleOrderDO.builder()
+                .id(10L)
+                .code("SO-001")
+                .workOrderId(100L)
+                .routeId(500L)
+                .quantity(new BigDecimal("1000"))
+                .status(MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .build();
+        MesProScheduleOrderProcessDO scheduleOrderProcess = MesProScheduleOrderProcessDO.builder()
+                .id(20L)
+                .scheduleOrderId(10L)
+                .routeProcessId(600L)
+                .processId(2000L)
+                .processCode("Z2570")
+                .processName("外鞘管组件包装")
+                .enabled(true)
+                .plannedQuantity(new BigDecimal("1000"))
+                .reportedQuantity(BigDecimal.ZERO.setScale(6))
+                .remainingQuantity(new BigDecimal("1000.000000"))
+                .progressPercent(BigDecimal.ZERO.setScale(6))
+                .build();
+        MesProProcessDO process = MesProProcessDO.builder().id(2000L).code("Z2570").name("外鞘管组件包装").build();
+        MesMdWorkstationDO workstation = MesMdWorkstationDO.builder()
+                .id(400L).code("WS-400").name("外鞘管组件包装工作站").processId(2000L).build();
+        AdminUserDO feedbackUser = AdminUserDO.builder().id(1L).username("A2020002").nickname("李萍").build();
+        AdminUserDO approveUser = AdminUserDO.builder().id(2L).username("approval_liping").nickname("李萍").build();
+
+        when(workOrderMapper.selectListByCodes(List.of("881MO093613"))).thenReturn(List.of(workOrder));
+        when(itemMapper.selectListByIds(List.of(1000L))).thenReturn(List.of(item));
+        lenient().when(adminUserMapper.selectByUsername("A2020002")).thenReturn(feedbackUser);
+        lenient().when(adminUserMapper.selectByUsername("李萍")).thenReturn(null);
+        lenient().when(adminUserMapper.selectListByNicknamesExact(List.of("李萍"))).thenReturn(List.of(approveUser));
+        when(scheduleOrderMapper.selectEffectiveListByWorkOrderIds(List.of(100L))).thenReturn(List.of(scheduleOrder));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(List.of(10L))).thenReturn(List.of(scheduleOrderProcess));
+        when(processMapper.selectListByIds(List.of(2000L))).thenReturn(List.of(process));
+        lenient().when(taskScheduleExtMapper.selectListByScheduleOrderProcessIds(List.of(20L)))
+                .thenReturn(List.of(MesProTaskScheduleExtDO.builder().taskId(300L).scheduleOrderProcessId(20L).build()));
+        lenient().when(taskMapper.selectListByIds(List.of(300L))).thenReturn(List.of(task));
+        when(workstationMapper.selectListByProcessIds(List.of(2000L))).thenReturn(List.of(workstation));
+        lenient().when(autoCodeRecordService.generateAutoCode(MesMdAutoCodeRuleCodeEnum.PRO_FEEDBACK_CODE.getCode()))
+                .thenReturn("FB-001");
+        doAnswer(invocation -> {
+            MesProFeedbackImportRecordDO record = invocation.getArgument(0);
+            record.setId(700L);
+            return 1;
+        }).when(importRecordMapper).insert(any(MesProFeedbackImportRecordDO.class));
+        lenient().when(feedbackService.createFeedbackWithScheduleSnapshot(any(MesProFeedbackSaveReqVO.class))).thenReturn(900L);
+        lenient().when(feedbackMapper.selectProgressListByScheduleOrderId(10L)).thenReturn(List.of(
+                MesProFeedbackDO.builder()
+                        .id(900L)
+                        .scheduleOrderId(10L)
+                        .scheduleOrderProcessId(20L)
+                        .feedbackQuantity(new BigDecimal("213"))
+                        .status(MesProFeedbackStatusEnum.APPROVING.getStatus())
+                        .build()));
+
+        ThirdPartyFeedbackImportResult result = service.importDirectWorkReportWorkbook(file);
+
+        assertEquals(1, result.getImportedCount());
+        assertEquals(1, result.getSubmittedCount());
+        ArgumentCaptor<MesProFeedbackSaveReqVO> reqCaptor = ArgumentCaptor.forClass(MesProFeedbackSaveReqVO.class);
+        verify(feedbackService).createFeedbackWithScheduleSnapshot(reqCaptor.capture());
+        assertEquals(300L, reqCaptor.getValue().getTaskId());
+        assertEquals(400L, reqCaptor.getValue().getWorkstationId());
+        assertEquals(20L, reqCaptor.getValue().getScheduleOrderProcessId());
+        verify(feedbackService).submitFeedback(900L, true);
+    }
+
+    @Test
+    void importDirectWorkReportWorkbook_whenSameSourceRowImportedTwice_shouldAccumulateFormalFeedbackOnly() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "李萍.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buildLiPingWorkbook());
         MesProWorkOrderDO workOrder = MesProWorkOrderDO.builder()
@@ -584,7 +670,14 @@ class ThirdPartyFeedbackImportServiceImplTest {
                             .build());
                     return feedbackId;
                 });
-        when(importRecordMapper.selectAppliedDirectProgressListByScheduleOrderId(10L)).thenReturn(List.of());
+        lenient().when(importRecordMapper.selectAppliedDirectProgressListByScheduleOrderId(10L)).thenReturn(List.of(
+                MesProFeedbackImportRecordDO.builder()
+                        .id(800L)
+                        .scheduleOrderId(10L)
+                        .scheduleOrderProcessId(20L)
+                        .progressSourceType(MesProFeedbackImportRecordDO.PROGRESS_SOURCE_TYPE_DIRECT_WORK_REPORT)
+                        .progressQuantity(new BigDecimal("120.000000"))
+                        .build()));
         when(feedbackMapper.selectProgressListByScheduleOrderId(10L))
                 .thenAnswer(invocation -> List.copyOf(formalFeedbacks));
 
@@ -601,6 +694,7 @@ class ThirdPartyFeedbackImportServiceImplTest {
                 first.getDirectWorkReportDetails().get(0).getAfterReportedQuantity());
         assertEquals(new BigDecimal("426.000000"),
                 second.getDirectWorkReportDetails().get(0).getAfterReportedQuantity());
+        verify(importRecordMapper, never()).selectAppliedDirectProgressListByScheduleOrderId(10L);
         verify(feedbackService, times(2)).createFeedbackWithScheduleSnapshot(any(MesProFeedbackSaveReqVO.class));
         verify(feedbackService).submitFeedback(900L, true);
         verify(feedbackService).submitFeedback(901L, true);

@@ -69,10 +69,17 @@
 | Indicator | `6` / `RRM-20260801-IPQC-JINGXI-CLEAN` | 精洗工序清洁确认 |
 | Indicator | `7` / `RRM-20260801-IPQC-PRESSURE-FUNC` | 压力泵功能确认 |
 | Template item | `10` | Links template `5` to pressure pump item `902149` |
+| Derived QA template | `6` / `RRM-20260801-QA-REG-PP-V21` | Temporary QA/PQC regulation fixture reverse-derived from `过程检验记录 V3.0`; 49 inspection method rows |
+| Derived source template | `28 / 32` | `过程检验记录 / V3.0`, source file `过程检验记录.docx` |
+| Temporary first-inspection quantity | source quantity or `5` | Stored in `mes_qc_template_indicator.check_method`; user-authorized temporary value |
+| Temporary patrol coefficient | `0.05` | Stored in `mes_qc_template_indicator.check_method` and `remark`; user-authorized temporary value |
+
+Derived QA fixture coverage is documented in `m0-derived-qa-regulation.md`. Source row `组装Ⅲ` does not have an exact V21 route process match and is retained as an unmatched source item rather than silently mapped to packaging.
 
 ## Remaining Source Limits
 
 - The QC template fixture is not a formal QA regulation/version/published snapshot model.
+- The derived QA template fixture is not a formal QA regulation/version/published snapshot model; it only provides local M0 preflight data.
 - The work order and transfer rows do not create an activeOrderId relation.
 - The pressure pump route V21 is used as-is; production coefficients were not modified.
-- M0 remains blocked until formal source models and production code gates are implemented by later milestones.
+- M0 is accepted under the revised 2026-08-02 gate because formal source gaps are structured and assigned to M1-M5; those owner milestones remain blocked until their formal source models and production code gates pass.

@@ -12,8 +12,8 @@
 | 前置 | 结果 | 证据 |
 |---|---|---|
 | 前端 8081 | `PASS` | `node/vite` 监听 `8081`，命令行归属 `E:\IntRuoyi\IntRuoyiFronted`。 |
-| 后端 48081 | `PASS` | `java` 监听 `48081`，运行 jar 位于 `E:\IntRuoyi\output\runtime\int_main`，repo-root 指向 `E:\IntRuoyi\IntRuoyiBackend`；命令行已在本文档中省略凭据。 |
-| 后端 health | `PASS` | `http://127.0.0.1:48081/actuator/health` 返回 HTTP 200。 |
+| 后端 48081 | `PASS_CURRENT` | 最新本机端口复核发现 `48081` 监听进程 PID `29052`。 |
+| 后端 health | `PASS_CURRENT` | `http://127.0.0.1:48081/actuator/health` 返回 `UP`；最新 `real:check` 无 RUNTIME blocker。 |
 | 前端登录页 | `PASS` | `http://127.0.0.1:8081/login?redirect=/index` 返回 HTTP 200。 |
 | MySQL/Redis 端口 | `PASS_PARTIAL` | `23306`、`26379` 监听；仅确认本地依赖端口存在，未记录账号或连接密钥。 |
 | 浏览器 | `PASS` | Chrome 和 Edge 可执行文件存在。 |
@@ -46,17 +46,18 @@
 | 电子签名 | `PASS_LOCAL_TEST` | 六个账号已启用本地电子签名授权，签名图片 ID 为 `22,23,24,25,26,27`。 |
 | ERP 候选订单/调拨/发货/批次样本 | `PASS_LOCAL_FIXTURE` | 已创建 `RRM-20260801-PP-MO-001` 工单、两条调拨 `1,2` 和对应批次/库存；这些不是 ERP/activeOrder 正式来源。 |
 | 正式路线/系数/SOP/逐工序批记录绑定 | `PASS_PARTIAL` | 使用压力泵路线 `922119` 最新 ACTIVE 版本 `448/V21`；粗洗/精洗存在正式批记录和 `PROCESS_INSPECTION` 绑定；未改生产系数。 |
-| QA 规程样本 | `PASS_LOCAL_FIXTURE` | 已创建 QC/IPQC 模板 `5` 和指标 `5,6,7`；正式 QA 规程版本模型仍是 SOURCE blocker。 |
+| QA 规程样本 | `PASS_LOCAL_FIXTURE` | 已创建 QC/IPQC 模板 `5` 和从 `过程检验记录 V3.0` 逆推的临时 QA 模板 `6 / RRM-20260801-QA-REG-PP-V21`，含 49 条派生检验方法；正式 QA 规程版本模型仍是 SOURCE blocker。 |
 
 ## M0 Gate Decision
 
-`M0 = BLOCKED`。可以确认规划文档结构符合 BDD/TDD 与 62 项测试覆盖要求，且 `role-requirement-matrix` 真实 E2E 前置脚本和 M3/M4/M5 规划静态脚本入口已具备 fail-fast/RED 能力；本轮已补齐用户授权的本机租户、六角色账号、权限、签名、压力泵路线、工单/调拨和 QC/IPQC 夹具，但正式 SOURCE 缺口仍剩 31 项，不能进入 M1。
+`M0 = ACCEPTED_BY_REVISED_GATE`。可以确认规划文档结构符合 BDD/TDD 与 62 项测试覆盖要求，且 `role-requirement-matrix` 真实 E2E 前置脚本和 M3/M4/M5 规划静态脚本入口已具备 fail-fast/RED 能力；本轮已补齐用户授权的本机租户、六角色账号、权限、签名、压力泵路线、工单/调拨、QC/IPQC 夹具和派生 QA 临时规程，当前 ENV/RUNTIME 前置通过。正式 SOURCE 缺口仍剩 31 项，但已结构化冻结并归属到 M1-M5，按 2026-08-02 用户批准的新口径允许进入 M1。
 
 ## Generated Evidence
 
-- `IntRuoyiFronted/test-results/role-requirement-matrix-real-flow/result.json`：`BLOCKED`，31 个 SOURCE 前置缺口。
+- `IntRuoyiFronted/test-results/role-requirement-matrix-real-flow/result.json`：`BLOCKED`，31 个 SOURCE 前置缺口，无 ENV/RUNTIME 前置缺口。
 - `doc/tasks/20260801-role-requirement-matrix-implementation/role-requirement-matrix-real-e2e-evidence.md`：真实 E2E 前置 Markdown 证据。
 - `doc/tasks/20260801-role-requirement-matrix-implementation/m0-test-data.md`：本机租户/账号/路线/签名/QC 夹具证据。
+- `doc/tasks/20260801-role-requirement-matrix-implementation/m0-derived-qa-regulation.md`：从 `过程检验记录 V3.0` 逆推的临时 QA/PQC 规程证据。
 - `doc/tasks/20260801-role-requirement-matrix-implementation/database-schema-evidence.md`：数据库夹具变更证据。
 
 ## Source Gate Expansion

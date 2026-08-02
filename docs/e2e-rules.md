@@ -35,12 +35,12 @@
 
 ### DCC 文控审批处理入口门禁
 
-- Trigger: 验证 DCC 文控上传、上传审批、电子签名审批、升版发布、`DccControlledFileDetail`、`/approval-center?moduleCode=DCC`、`PROCESS_IN_MODULE` 或 `approve-task` 链路。
-- Preflight check: 浏览器审批前必须证明审批账号能从真实页面进入非只读处理态，并看到“审批阶段进度”、当前 `approvalTodoTask` 对应的签名按钮和目标写接口；同时核对 `DccControlledFileDetail.beforeEnter` 不会把非 viewer 处理态重定向到受控浏览。
-- Blocker: DCC 审批中心行只能打开 `viewer=1` 只读预览、非 viewer 详情被路由守卫重定向、页面未渲染签名按钮、只有 `approve-task` API wrapper 但无页面入口、或 BPM 原生行直接审批返回业务 `403` 时必须停止并记录 E2E BLOCKED。
-- Verification: 证据需包含审批中心 DCC 行、跳转后的实际 URL、详情页处理态控件、签名弹窗、`/dcc/controlled-files/{id}/approve-task` 响应、Flowable 当前任务和 DCC 文件状态；若 blocked，记录路由守卫源码行、页面实际落点和任务自有残留数据。
-- Forbidden action: 禁止用 BPM 原生审批行、直接 API、SQL 改状态、移除断言、绕开路由守卫或只读 viewer 截图冒充 DCC 审批完成。
-- Evidence: `doc/tasks/20260802-dcc-upload-revision-e2e/verification-report.md`，上传 V1 成功后发现 DCC 详情非 viewer 被重定向到受控浏览，viewer 模式不渲染审批卡片，完整上传升版 E2E 阻塞。
+- Trigger: 验证 DCC 文控上传、原版上传、上传审批、电子签名审批、升版发布、发布申请、`DccControlledFileDetail`、`/approval-center?moduleCode=DCC`、`PROCESS_IN_MODULE`、`approve-task`、`DCC_PUBLISH` 或 `APPROVE_USER_SELECT` 链路。
+- Preflight check: 浏览器审批前必须证明审批账号能从真实页面进入非只读处理态，并看到“审批阶段进度”、当前 `approvalTodoTask` 对应的签名按钮和目标写接口；同时核对 `DccControlledFileDetail.beforeEnter` 不会把非 viewer 处理态重定向到受控浏览。发布申请前还必须核对发布申请人拥有 `form:instance:create`、`form:instance:submit`、`system:user:query` 和用户选择弹窗所需的用户查询权限；发布 BPM 审批如果后续节点是 `APPROVE_USER_SELECT`，必须在 BPM 流程详情页等待 `/bpm/process-instance/get-next-approval-nodes` 返回并选择下一节点审批人。
+- Blocker: DCC 审批中心行只能打开 `viewer=1` 只读预览、非 viewer 详情被路由守卫重定向、页面未渲染签名按钮、只有 `approve-task` API wrapper 但无页面入口、BPM 原生行直接审批返回业务 `403`、发布申请弹窗提示缺审批人、用户选择弹窗因缺 `system:user:query` 报无权限、或 BPM 发布审批返回“下一个任务的审批人未配置”时必须停止并记录 E2E BLOCKED。
+- Verification: 证据需包含审批中心 DCC 行、跳转后的实际 URL、详情页处理态控件、签名弹窗、`/dcc/controlled-files/{id}/approve-task` 响应、Flowable 当前任务和 DCC 文件状态；原版上传链路还需包含同一 `file_number` 仅一条 V1.0 `NEW` 文件、状态 `ACTIVE`、master 当前生效版本指向该 V1.0、上传审批完成任务数不少于 4，且不存在升版/修订行；发布链路还需包含 `bpm_form_action_instance.status=EFFECTIVE`、发布 BPM 完成任务数、V1 `SUPERSEDED`、V2 `ACTIVE`、master 当前生效版本指向 V2。若 blocked，记录路由守卫源码行、页面实际落点和任务自有残留数据。
+- Forbidden action: 禁止用 BPM 原生审批行替代 DCC 上传审批、直接 API、SQL 改状态、移除断言、绕开路由守卫、只读 viewer 截图、跳过发布申请审批人选择、或把发布 BPM 审批人的 `APPROVE_USER_SELECT` 通过默认值/空值冒充配置完成。
+- Evidence: `doc/tasks/20260802-dcc-upload-revision-e2e/verification-report.md`，DCC 上传升版 E2E 先暴露处理态、发布申请权限和 BPM 下一审批人选择缺口，补齐非 admin 角色权限并改为真实 DCC/BPM 页面路径后完成完整链路验证；`doc/tasks/20260802-dcc-upload-original-e2e/verification-report.md`，DCC 原版上传 E2E 验证 V1.0 `NEW` 文件审批后直接 `ACTIVE`，master 指向原版且无升版行。
 
 ### 规划型 E2E 前置与业务 RED 分离门禁
 

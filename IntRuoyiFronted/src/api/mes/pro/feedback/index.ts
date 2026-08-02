@@ -154,6 +154,23 @@ export interface FrontlineDeviceRouteProcessVO {
   workstationId?: number | null
   workstationCode?: string
   workstationName?: string
+  activeOrderId?: number
+  pqcTaskId?: number
+  regulationVersionId?: number
+  inspectionType?: string
+  businessDate?: string
+  shiftCode?: string
+  roundNo?: number
+  plannedInspectionQuantity?: number
+  inspectionItems?: FrontlinePqcInspectionItemVO[]
+}
+
+export interface FrontlinePqcInspectionItemVO {
+  itemCode: string
+  itemName?: string
+  inspectionMethod?: string
+  standardText?: string
+  resultType?: string
 }
 
 export interface FrontlineActiveOrderVO {
@@ -200,10 +217,18 @@ export interface FrontlinePqcSwitchActualEmployeeReqVO extends FrontlineSwitchAc
 }
 
 export interface FrontlinePqcInspectionSubmitReqVO {
+  activeOrderId: number
+  pqcTaskId: number
+  regulationVersionId: number
   workOrderId: number
   routeId: number
   routeProcessId: number
   processId: number
+  inspectionType: string
+  businessDate: string
+  shiftCode: string
+  roundNo: number
+  actualInspectionQuantity: number
   actualEmployeeId: number
   signatureId: number
   signatureEmployeeId: number

@@ -104,101 +104,57 @@
         >
           <h3>检验内容</h3>
           <div class="frontline-pqc-inspection-list">
-            <button
-              class="frontline-pqc-content-item"
-              type="button"
-              data-pqc-inspection-entry="length"
-              aria-label="长度（厘米）逐件检验"
-              @click="openPqcPieceInspection('length')"
-            >
-              <span>长度</span>
-              <em>{{ getPqcProgressText('length') }}</em>
-              <strong aria-hidden="true">&gt;</strong>
-            </button>
+            <template v-for="item in pqcInspectionItems" :key="item.key">
+              <button
+                v-if="item.type === 'number'"
+                class="frontline-pqc-content-item"
+                type="button"
+                :data-pqc-inspection-entry="item.key"
+                :aria-label="`${item.label}逐件检验`"
+                @click="openPqcPieceInspection(item.key)"
+              >
+                <span>{{ item.label }}</span>
+                <em>{{ getPqcProgressText(item.key) }}</em>
+                <strong aria-hidden="true">&gt;</strong>
+              </button>
 
-            <div
-              class="frontline-pqc-choice-item"
-              data-pqc-inspection-entry="appearance"
-              data-pqc-inspection-group="appearance"
-            >
-              <div class="frontline-pqc-choice-title">外观</div>
-              <div class="frontline-pqc-choice-actions">
-                <button
-                  type="button"
-                  class="pass"
-                  :class="{ active: isPqcBulkChoiceActive('appearance', '合格') }"
-                  @click="applyPqcBulkChoice('appearance', '合格')"
-                >
-                  全部合格
-                </button>
-                <button
-                  type="button"
-                  class="fail"
-                  :class="{ active: isPqcBulkChoiceActive('appearance', '不合格') }"
-                  @click="applyPqcBulkChoice('appearance', '不合格')"
-                >
-                  全部不良
-                </button>
-                <button
-                  type="button"
-                  class="manual"
-                  :class="{ active: isPqcManualChoiceActive('appearance') }"
-                  @click="openPqcPieceInspection('appearance')"
-                >
-                  <span>逐件选择</span>
-                  <em>{{ getPqcProgressText('appearance') }}</em>
-                  <strong aria-hidden="true">&gt;</strong>
-                </button>
+              <div
+                v-else
+                class="frontline-pqc-choice-item"
+                :data-pqc-inspection-entry="item.key"
+                :data-pqc-inspection-group="item.key"
+              >
+                <div class="frontline-pqc-choice-title">{{ item.label }}</div>
+                <div class="frontline-pqc-choice-actions">
+                  <button
+                    type="button"
+                    class="pass"
+                    :class="{ active: isPqcBulkChoiceActive(item.key, '合格') }"
+                    @click="applyPqcBulkChoice(item.key, '合格')"
+                  >
+                    全部合格
+                  </button>
+                  <button
+                    type="button"
+                    class="fail"
+                    :class="{ active: isPqcBulkChoiceActive(item.key, '不合格') }"
+                    @click="applyPqcBulkChoice(item.key, '不合格')"
+                  >
+                    全部不良
+                  </button>
+                  <button
+                    type="button"
+                    class="manual"
+                    :class="{ active: isPqcManualChoiceActive(item.key) }"
+                    @click="openPqcPieceInspection(item.key)"
+                  >
+                    <span>逐件选择</span>
+                    <em>{{ getPqcProgressText(item.key) }}</em>
+                    <strong aria-hidden="true">&gt;</strong>
+                  </button>
+                </div>
               </div>
-            </div>
-
-            <div
-              class="frontline-pqc-choice-item"
-              data-pqc-inspection-entry="seal"
-              data-pqc-inspection-group="seal"
-            >
-              <div class="frontline-pqc-choice-title">密封</div>
-              <div class="frontline-pqc-choice-actions">
-                <button
-                  type="button"
-                  class="pass"
-                  :class="{ active: isPqcBulkChoiceActive('seal', '合格') }"
-                  @click="applyPqcBulkChoice('seal', '合格')"
-                >
-                  全部合格
-                </button>
-                <button
-                  type="button"
-                  class="fail"
-                  :class="{ active: isPqcBulkChoiceActive('seal', '不合格') }"
-                  @click="applyPqcBulkChoice('seal', '不合格')"
-                >
-                  全部不良
-                </button>
-                <button
-                  type="button"
-                  class="manual"
-                  :class="{ active: isPqcManualChoiceActive('seal') }"
-                  @click="openPqcPieceInspection('seal')"
-                >
-                  <span>逐件选择</span>
-                  <em>{{ getPqcProgressText('seal') }}</em>
-                  <strong aria-hidden="true">&gt;</strong>
-                </button>
-              </div>
-            </div>
-
-            <button
-              class="frontline-pqc-content-item"
-              type="button"
-              data-pqc-inspection-entry="pressure"
-              aria-label="压力（MPa）逐件检验"
-              @click="openPqcPieceInspection('pressure')"
-            >
-              <span>压力</span>
-              <em>{{ getPqcProgressText('pressure') }}</em>
-              <strong aria-hidden="true">&gt;</strong>
-            </button>
+            </template>
           </div>
         </section>
 
@@ -580,7 +536,7 @@ import {
 
 type PickerType = 'order' | 'process' | 'employee'
 type InspectionType = 'FIRST' | 'PATROL' | 'FINAL'
-type PqcInspectionItemKey = 'length' | 'appearance' | 'seal' | 'pressure'
+type PqcInspectionItemKey = string
 type PqcChoiceResult = '合格' | '不合格'
 type PqcQuantityField = 'inspectionQuantity' | 'scrapQuantity'
 type ProductionDefectKey = string
@@ -599,6 +555,7 @@ interface ProductionDeviceCard {
 }
 
 interface PqcInspectionItem {
+  key: PqcInspectionItemKey
   label: string
   type: 'number' | 'choice'
   unit: string
@@ -606,38 +563,17 @@ interface PqcInspectionItem {
   step: number
 }
 
-const pqcInspectionItems: Record<PqcInspectionItemKey, PqcInspectionItem> = {
-  length: {
-    label: '长度',
-    type: 'number',
-    unit: '厘米',
-    defaultValue: '32.5',
-    step: 0.1
-  },
-  appearance: {
-    label: '外观',
-    type: 'choice',
-    unit: '',
-    defaultValue: '',
-    step: 0
-  },
-  seal: {
-    label: '密封',
-    type: 'choice',
-    unit: '',
-    defaultValue: '',
-    step: 0
-  },
-  pressure: {
-    label: '压力',
-    type: 'number',
-    unit: 'MPa',
-    defaultValue: '50',
-    step: 1
-  }
+type FrontlinePqcTaskProcess = FrontlineDeviceRouteProcessVO & {
+  activeOrderId: number
+  pqcTaskId: number
+  regulationVersionId: number
+  inspectionType: string
+  businessDate: string
+  shiftCode: string
+  roundNo: number
+  plannedInspectionQuantity: number
+  inspectionItems: NonNullable<FrontlineDeviceRouteProcessVO['inspectionItems']>
 }
-
-const pqcInspectionItemKeys = Object.keys(pqcInspectionItems) as PqcInspectionItemKey[]
 
 const props = withDefaults(defineProps<{ mode?: 'production' | 'pqc' }>(), {
   mode: 'production'
@@ -679,10 +615,10 @@ const selectedProductionDeviceKey = ref<string>()
 const deviceParameterDraft = reactive<Record<string, ProductionDeviceParameterDraft>>({})
 
 const pqcDraft = reactive({
-  inspectionType: 'PATROL' as InspectionType,
-  patrolRound: 1,
-  inspectionQuantity: 30 as number | undefined,
-  scrapQuantity: 1 as number | undefined
+  inspectionType: undefined as InspectionType | undefined,
+  patrolRound: undefined as number | undefined,
+  inspectionQuantity: undefined as number | undefined,
+  scrapQuantity: undefined as number | undefined
 })
 
 const activePqcInspectionKey = ref<PqcInspectionItemKey>()
@@ -715,23 +651,45 @@ const pqcInspectionQuantity = computed(() =>
   normalizePqcQuantity(pqcDraft.inspectionQuantity)
 )
 
+const pqcInspectionItems = computed<PqcInspectionItem[]>(() =>
+  (deviceState.selectedProcess?.inspectionItems || []).map((item) => ({
+    key: item.itemCode,
+    label: item.itemName || item.itemCode,
+    type: isPqcNumericResultType(item.resultType) ? 'number' : 'choice',
+    unit: '',
+    defaultValue: '',
+    step: isPqcNumericResultType(item.resultType) ? 1 : 0
+  }))
+)
+
+const pqcInspectionItemMap = computed<Record<PqcInspectionItemKey, PqcInspectionItem>>(() =>
+  pqcInspectionItems.value.reduce<Record<PqcInspectionItemKey, PqcInspectionItem>>((items, item) => {
+    items[item.key] = item
+    return items
+  }, {})
+)
+
+const pqcInspectionItemKeys = computed<PqcInspectionItemKey[]>(() =>
+  pqcInspectionItems.value.map((item) => item.key)
+)
+
 const activePqcInspectionItem = computed(() =>
   activePqcInspectionKey.value
-    ? pqcInspectionItems[activePqcInspectionKey.value]
+    ? pqcInspectionItemMap.value[activePqcInspectionKey.value]
     : undefined
 )
 
 const pqcVisibleRounds = computed(() => {
+  if (!pqcDraft.inspectionType || !pqcDraft.patrolRound) {
+    return []
+  }
   if (pqcDraft.inspectionType === 'FIRST') {
-    return [{ value: 1, label: '首检' }]
+    return [{ value: pqcDraft.patrolRound, label: '首检' }]
   }
   if (pqcDraft.inspectionType === 'FINAL') {
-    return [{ value: 1, label: '末检' }]
+    return [{ value: pqcDraft.patrolRound, label: '末检' }]
   }
-  return [1, 2, 3].map((round) => ({
-    value: round,
-    label: `第 ${round} 次`
-  }))
+  return [{ value: pqcDraft.patrolRound, label: `第 ${pqcDraft.patrolRound} 次` }]
 })
 
 const templateModeMismatch = computed(() =>
@@ -747,6 +705,7 @@ const isSubmitBlocked = computed(() =>
   templateModeMismatch.value ||
   templateBindingMissing.value ||
   (isPqcMode.value && !deviceState.selectedActiveOrder) ||
+  (isPqcMode.value && !hasPqcTaskSnapshot(deviceState.selectedProcess)) ||
   (isPqcMode.value && !pqcSignatureId.value) ||
   !deviceState.selectedProcess ||
   !deviceState.selectedEmployee
@@ -761,6 +720,9 @@ const statusText = computed(() => {
   }
   if (!deviceState.selectedProcess) {
     return '请选择工序'
+  }
+  if (isPqcMode.value && !hasPqcTaskSnapshot(deviceState.selectedProcess)) {
+    return '当前工序缺少PQC任务或QA规程快照'
   }
   if (!deviceState.selectedEmployee) {
     return '请选择员工'
@@ -1035,19 +997,65 @@ const normalizePqcQuantity = (value?: number) => {
   return Math.max(0, Math.trunc(Number(value)))
 }
 
+const isPqcNumericResultType = (resultType?: string) => {
+  const normalized = String(resultType || '').toUpperCase()
+  return ['NUMBER', 'NUMERIC', 'DECIMAL', 'MEASURE', 'MEASURED_VALUE'].includes(normalized)
+}
+
+const hasPqcTaskSnapshot = (
+  process?: FrontlineDeviceRouteProcessVO
+): process is FrontlinePqcTaskProcess => Boolean(
+  process?.activeOrderId &&
+  process?.pqcTaskId &&
+  process?.regulationVersionId &&
+  process?.inspectionType &&
+  process?.businessDate &&
+  process?.shiftCode &&
+  process?.roundNo &&
+  process?.plannedInspectionQuantity &&
+  process?.inspectionItems?.length
+)
+
+const resolvePqcInspectionType = (inspectionType?: string): InspectionType => {
+  if (inspectionType === 'FIRST' || inspectionType === 'PATROL' || inspectionType === 'FINAL') {
+    return inspectionType
+  }
+  throw new Error(`PQC任务检验类型${inspectionType || '空'}无效。`)
+}
+
+const clearPqcPieceValues = () => {
+  for (const key of Object.keys(pqcPieceValues)) {
+    delete pqcPieceValues[key]
+  }
+  activePqcInspectionKey.value = undefined
+  pqcPieceDraftValues.value = []
+}
+
+const applyPqcTaskSnapshotToDraft = (process: FrontlineDeviceRouteProcessVO) => {
+  if (!hasPqcTaskSnapshot(process)) {
+    throw new Error('当前工序缺少PQC任务或QA规程快照。')
+  }
+  pqcDraft.inspectionType = resolvePqcInspectionType(process.inspectionType)
+  pqcDraft.patrolRound = process.roundNo
+  pqcDraft.inspectionQuantity = process.plannedInspectionQuantity
+  pqcDraft.scrapQuantity = undefined
+  clearPqcPieceValues()
+}
+
 const getPqcPieceStateKey = (itemKey: PqcInspectionItemKey) => {
   const process = deviceState.selectedProcess
-  if (!process) {
+  if (!process || !pqcDraft.inspectionType || !pqcDraft.patrolRound) {
     return undefined
   }
-  const inspectionType = pqcDraft.inspectionType
-  const patrolRound = pqcDraft.patrolRound
   return [
+    process.activeOrderId,
+    process.pqcTaskId,
+    process.regulationVersionId,
     process.routeId,
     process.routeProcessId,
     process.processId,
-    inspectionType,
-    patrolRound,
+    pqcDraft.inspectionType,
+    pqcDraft.patrolRound,
     itemKey
   ].join(':')
 }
@@ -1057,7 +1065,10 @@ const getPqcStoredPieceValues = (itemKey: PqcInspectionItemKey) => {
   if (!stateKey) {
     return []
   }
-  const item = pqcInspectionItems[itemKey]
+  const item = pqcInspectionItemMap.value[itemKey]
+  if (!item) {
+    throw new Error(`PQC检验项目${itemKey}不在当前QA规程快照中。`)
+  }
   const quantity = pqcInspectionQuantity.value
   const values = pqcPieceValues[stateKey] || []
   while (values.length < quantity) {
@@ -1075,18 +1086,18 @@ const getPqcCompletedCount = (itemKey: PqcInspectionItemKey) =>
 const getPqcProgressText = (itemKey: PqcInspectionItemKey) =>
   `已填 ${getPqcCompletedCount(itemKey)}/${pqcInspectionQuantity.value}`
 
-const getPqcCurrentChoiceValues = (itemKey: 'appearance' | 'seal') =>
+const getPqcCurrentChoiceValues = (itemKey: PqcInspectionItemKey) =>
   getPqcStoredPieceValues(itemKey).slice(0, pqcInspectionQuantity.value)
 
 const isPqcBulkChoiceActive = (
-  itemKey: 'appearance' | 'seal',
+  itemKey: PqcInspectionItemKey,
   result: PqcChoiceResult
 ) => {
   const values = getPqcCurrentChoiceValues(itemKey)
   return values.length > 0 && values.every((value) => value === result)
 }
 
-const isPqcManualChoiceActive = (itemKey: 'appearance' | 'seal') => {
+const isPqcManualChoiceActive = (itemKey: PqcInspectionItemKey) => {
   const values = getPqcCurrentChoiceValues(itemKey)
   const completed = values.filter((value) => value.trim().length > 0).length
   const allPass = values.length > 0 && values.every((value) => value === '合格')
@@ -1097,6 +1108,11 @@ const isPqcManualChoiceActive = (itemKey: 'appearance' | 'seal') => {
 const assertPqcPieceContext = () => {
   if (!deviceState.selectedProcess) {
     const error = new Error('请先选择工序，再填写逐件检验。')
+    message.error(error.message)
+    throw error
+  }
+  if (!hasPqcTaskSnapshot(deviceState.selectedProcess)) {
+    const error = new Error('当前工序缺少PQC任务或QA规程快照，无法填写逐件检验。')
     message.error(error.message)
     throw error
   }
@@ -1129,7 +1145,7 @@ const closePqcPieceInspection = (saveChanges: boolean) => {
 }
 
 const applyPqcBulkChoice = (
-  itemKey: 'appearance' | 'seal',
+  itemKey: PqcInspectionItemKey,
   result: PqcChoiceResult
 ) => {
   assertPqcPieceContext()
@@ -1158,8 +1174,15 @@ const updatePqcPieceDraftValue = (index: number, event: Event) => {
 }
 
 const selectPqcInspectionType = (inspectionType: InspectionType) => {
+  if (isPqcMode.value && deviceState.selectedProcess?.inspectionType) {
+    const taskInspectionType = resolvePqcInspectionType(deviceState.selectedProcess.inspectionType)
+    if (inspectionType !== taskInspectionType) {
+      message.error('PQC检验类型来自任务快照，不能在前端切换。')
+      return
+    }
+  }
   pqcDraft.inspectionType = inspectionType
-  pqcDraft.patrolRound = 1
+  pqcDraft.patrolRound = deviceState.selectedProcess?.roundNo || 1
 }
 
 const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {
@@ -1183,7 +1206,7 @@ const adjustPqcQuantity = (field: PqcQuantityField, delta: number) => {
 }
 
 const handleResetPqc = () => {
-  for (const itemKey of pqcInspectionItemKeys) {
+  for (const itemKey of pqcInspectionItemKeys.value) {
     const stateKey = getPqcPieceStateKey(itemKey)
     if (stateKey) {
       delete pqcPieceValues[stateKey]
@@ -1492,7 +1515,7 @@ const buildPqcFieldValues = () => ({
 
 const buildPqcPieceValuesPayload = () => {
   const values: Record<string, string[]> = {}
-  for (const itemKey of pqcInspectionItemKeys) {
+  for (const itemKey of pqcInspectionItemKeys.value) {
     values[itemKey] = getPqcStoredPieceValues(itemKey).slice(0, pqcInspectionQuantity.value)
   }
   for (const [stateKey, stateValues] of Object.entries(pqcPieceValues)) {
@@ -1509,15 +1532,24 @@ const buildPqcInspectionSubmitPayload = (
   const employee = deviceState.selectedEmployee
   const actualEmployeeId = context.actualEmployeeId
   const signatureId = pqcSignatureId.value
-  if (!activeOrder || !process || !employee || !actualEmployeeId || !signatureId) {
+  if (!activeOrder || !process || !employee || !actualEmployeeId || !signatureId ||
+    !hasPqcTaskSnapshot(process) || !pqcDraft.inspectionType || !pqcDraft.patrolRound) {
     throw new Error('缺少PQC正式提交上下文，无法提交。')
   }
   const inspectionResult = resolvePqcResult()
   return {
+    activeOrderId: process.activeOrderId,
+    pqcTaskId: process.pqcTaskId,
+    regulationVersionId: process.regulationVersionId,
     workOrderId: activeOrder.workOrderId,
     routeId: process.routeId,
     routeProcessId: process.routeProcessId,
     processId: process.processId,
+    inspectionType: pqcDraft.inspectionType,
+    businessDate: process.businessDate,
+    shiftCode: process.shiftCode,
+    roundNo: pqcDraft.patrolRound,
+    actualInspectionQuantity: pqcInspectionQuantity.value,
     actualEmployeeId,
     signatureId,
     signatureEmployeeId: actualEmployeeId,
@@ -1562,7 +1594,7 @@ const resolvePqcResult = () => {
   if (normalizePqcQuantity(pqcDraft.scrapQuantity) > 0) {
     return FRONTLINE_PQC_RESULTS.DETECTION_FAILED
   }
-  for (const itemKey of pqcInspectionItemKeys) {
+  for (const itemKey of pqcInspectionItemKeys.value) {
     const values = getPqcStoredPieceValues(itemKey).slice(0, pqcInspectionQuantity.value)
     if (values.some((value) => value === '不合格')) {
       return FRONTLINE_PQC_RESULTS.DETECTION_FAILED
@@ -1580,6 +1612,9 @@ const applyProcessToContext = (process: FrontlineDeviceRouteProcessVO) => {
   context.routeId = process.routeId
   context.routeProcessId = process.routeProcessId
   context.processId = process.processId
+  if (isPqcMode.value) {
+    applyPqcTaskSnapshotToDraft(process)
+  }
 }
 
 const hydrateContextFromRoute = () => {

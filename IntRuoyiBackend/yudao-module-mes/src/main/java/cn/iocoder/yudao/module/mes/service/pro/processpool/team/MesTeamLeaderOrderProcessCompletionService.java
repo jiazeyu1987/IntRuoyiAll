@@ -29,15 +29,18 @@ public class MesTeamLeaderOrderProcessCompletionService {
     private final MesProcessPoolReportAllocationMapper allocationMapper;
     private final MesProWorkOrderMapper workOrderMapper;
     private final MesProcessPoolOrderProcessCompletionMapper completionMapper;
+    private final MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
     private final MesTeamLeaderBatchRecordBackfillService backfillService;
 
     public MesTeamLeaderOrderProcessCompletionService(MesProcessPoolReportAllocationMapper allocationMapper,
                                                       MesProWorkOrderMapper workOrderMapper,
                                                       MesProcessPoolOrderProcessCompletionMapper completionMapper,
+                                                      MesTeamLeaderOrderProcessTargetService orderProcessTargetService,
                                                       MesTeamLeaderBatchRecordBackfillService backfillService) {
         this.allocationMapper = allocationMapper;
         this.workOrderMapper = workOrderMapper;
         this.completionMapper = completionMapper;
+        this.orderProcessTargetService = orderProcessTargetService;
         this.backfillService = backfillService;
     }
 
@@ -70,6 +73,10 @@ public class MesTeamLeaderOrderProcessCompletionService {
 
         for (Long workOrderId : workOrderIds) {
             MesProWorkOrderDO workOrder = requireWorkOrder(workOrderId, workOrderMap);
+            MesProcessPoolReportAllocationDO representativeAllocation = representativeAllocations.get(workOrderId);
+            MesTeamLeaderOrderProcessTarget target = orderProcessTargetService.requireTarget(
+                    representativeAllocation.getActiveOrderId(), workOrderId, event.getRouteProcessId(),
+                    event.getProcessId());
             BigDecimal confirmedQuantity = confirmedByWorkOrder.getOrDefault(workOrderId, BigDecimal.ZERO);
             MesProcessPoolOrderProcessCompletionDO completion =
                     completionMapper.selectByWorkOrderAndProcessForUpdate(workOrderId, event.getRouteProcessId(),
@@ -80,15 +87,15 @@ public class MesTeamLeaderOrderProcessCompletionService {
             completion.setWorkOrderId(workOrderId)
                     .setRouteProcessId(event.getRouteProcessId())
                     .setProcessId(event.getProcessId())
-                    .setTargetQuantity(workOrder.getQuantity())
+                    .setTargetQuantity(target.plannedQuantity())
                     .setConfirmedQuantity(confirmedQuantity)
                     .setLastEventId(event.getId())
-                    .setLastReviewId(representativeAllocations.get(workOrderId).getReviewId());
-            if (confirmedQuantity.compareTo(workOrder.getQuantity()) >= 0) {
+                    .setLastReviewId(representativeAllocation.getReviewId());
+            if (confirmedQuantity.compareTo(target.plannedQuantity()) >= 0) {
                 if (isCompletedAndBackfilled(completion)) {
                     completion.setCompletionStatus(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED);
                 } else {
-                    completeAndBackfill(event, representativeAllocations.get(workOrderId), workOrder, completion);
+                    completeAndBackfill(event, representativeAllocation, workOrder, completion);
                 }
             } else {
                 completion.setCompletionStatus(MesProcessPoolOrderProcessCompletionDO.STATUS_IN_PROGRESS)

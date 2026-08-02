@@ -34,6 +34,8 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     @Mock
     private MesProcessPoolOrderProcessCompletionMapper completionMapper;
     @Mock
+    private MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
+    @Mock
     private MesTeamLeaderBatchRecordBackfillService backfillService;
 
     private MesTeamLeaderOrderProcessCompletionService service;
@@ -41,7 +43,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderOrderProcessCompletionService(allocationMapper, workOrderMapper,
-                completionMapper, backfillService);
+                completionMapper, orderProcessTargetService, backfillService);
     }
 
     @Test
@@ -51,6 +53,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(9001L, "120"), confirmedLine));
+        when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
         when(backfillService.backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class)))
                 .thenReturn(new MesTeamLeaderBatchRecordBackfillResult()
@@ -86,6 +89,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(9001L, "120"), confirmedLine));
+        when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
 
         service.applyConfirmedAllocations(event, List.of(confirmedLine));
@@ -118,6 +122,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(9001L, "200"), confirmedLine));
+        when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L))
                 .thenReturn(existingCompletion);
 
@@ -132,6 +137,32 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         assertEquals(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_SUCCESS, saved.getBackfillStatus());
         assertEquals(8801L, saved.getBackfillExecutionId());
         verify(backfillService, never()).backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class));
+    }
+
+    @Test
+    void shouldWaitForPerProcessSnapshotTargetBeforeBackfill() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "300");
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("300")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of(allocation(9001L, "300"), allocation(9001L, "300"), confirmedLine));
+        when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("900"));
+        when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
+        when(backfillService.backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class)))
+                .thenReturn(new MesTeamLeaderBatchRecordBackfillResult()
+                        .setExecutionId(8802L)
+                        .setAppliedFieldCount(2));
+
+        service.applyConfirmedAllocations(event, List.of(confirmedLine));
+
+        ArgumentCaptor<MesProcessPoolOrderProcessCompletionDO> completionCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolOrderProcessCompletionDO.class);
+        verify(completionMapper).insert(completionCaptor.capture());
+        MesProcessPoolOrderProcessCompletionDO saved = completionCaptor.getValue();
+        assertAmount("900", saved.getTargetQuantity());
+        assertAmount("900", saved.getConfirmedQuantity());
+        assertEquals(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED, saved.getCompletionStatus());
+        verify(backfillService).backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class));
     }
 
     private static MesProProcessPoolEventDO event() {
@@ -171,5 +202,10 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
 
     private static void assertAmount(String expected, BigDecimal actual) {
         assertEquals(0, new BigDecimal(expected).compareTo(actual));
+    }
+
+    private static MesTeamLeaderOrderProcessTarget target(String plannedQuantity) {
+        return new MesTeamLeaderOrderProcessTarget(5001L, 6001L, new BigDecimal("300"),
+                new BigDecimal("3.000000"), new BigDecimal(plannedQuantity));
     }
 }

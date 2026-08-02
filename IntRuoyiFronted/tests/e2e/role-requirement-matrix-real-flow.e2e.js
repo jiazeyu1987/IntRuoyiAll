@@ -1,4 +1,4 @@
-const fs = require('node:fs')
+﻿const fs = require('node:fs')
 const path = require('node:path')
 const assert = require('node:assert/strict')
 
@@ -18,6 +18,18 @@ const ACTIVE_ORDER_DO = path.resolve(
 const ACTIVE_ORDER_SQL = path.resolve(
   BACKEND_ROOT,
   'sql/mysql/20260731_mes_process_pool_team_leader_p1_runtime_config.sql'
+)
+const ACTIVE_ORDER_AUTHORITY_SQL = path.resolve(
+  BACKEND_ROOT,
+  'sql/mysql/20260802_mes_process_pool_active_order_authority.sql'
+)
+const ACTIVE_ORDER_PROCESS_SNAPSHOT_DO = path.resolve(
+  BACKEND_ROOT,
+  'yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolActiveOrderProcessSnapshotDO.java'
+)
+const ACTIVE_ORDER_PROCESS_SNAPSHOT_SQL = path.resolve(
+  BACKEND_ROOT,
+  'sql/mysql/20260802_mes_process_pool_active_order_process_snapshot.sql'
 )
 const PQC_CONTEXT_SERVICE = path.resolve(
   BACKEND_ROOT,
@@ -243,6 +255,7 @@ function collectSourceBlockers() {
   const blockers = []
   const activeOrderSource = readText(ACTIVE_ORDER_DO)
   const activeOrderSql = readText(ACTIVE_ORDER_SQL)
+  const activeOrderAuthoritySql = readText(ACTIVE_ORDER_AUTHORITY_SQL)
   const pqcSource = readText(PQC_CONTEXT_SERVICE)
   const releaseSource = readText(RELEASE_SERVICE)
 
@@ -262,7 +275,14 @@ function collectSourceBlockers() {
       })
     }
   }
-  if (/UNIQUE KEY `uk_mes_pp_active_order` \(`tenant_id`, `leader_user_id`, `work_order_id`, `deleted`\)/.test(activeOrderSql)) {
+  const oldLeaderScopedActiveOrderKey =
+    /UNIQUE KEY `uk_mes_pp_active_order` \(`tenant_id`, `leader_user_id`, `work_order_id`, `deleted`\)/
+  const newRouteVersionActiveOrderKey =
+    /UNIQUE KEY `uk_mes_pp_active_order` \(`tenant_id`, `work_order_id`, `route_id`, `route_version_id`, `deleted`\)/
+  const dropsOldActiveOrderKey = /DROP INDEX `uk_mes_pp_active_order`/
+  if (oldLeaderScopedActiveOrderKey.test(activeOrderSql)
+    && (!newRouteVersionActiveOrderKey.test(activeOrderAuthoritySql)
+      || !dropsOldActiveOrderKey.test(activeOrderAuthoritySql))) {
     blockers.push({
       key: 'uk_mes_pp_active_order',
       category: 'SOURCE',
@@ -387,7 +407,8 @@ function collectPqcSubmissionBlockers() {
 function collectPqcFrontendBlockers() {
   const blockers = []
   const frontendSource = readText(FRONTLINE_FIXED_TEMPLATE_PANEL)
-  const hardcodedItemPattern = /type\s+PqcInspectionItemKey\s*=\s*'length'\s*\|\s*'appearance'\s*\|\s*'seal'\s*\|\s*'pressure'|const\s+pqcInspectionItems/
+  const hardcodedItemPattern =
+    /type\s+PqcInspectionItemKey\s*=\s*'length'\s*\|\s*'appearance'\s*\|\s*'seal'\s*\|\s*'pressure'|PQC_INSPECTION_ITEMS\s*=\s*\{|length:\s*\{|appearance:\s*\{|seal:\s*\{|pressure:\s*\{/
   if (hardcodedItemPattern.test(frontendSource)) {
     blockers.push({
       key: 'hardcodedPqcInspectionItems',
@@ -425,6 +446,8 @@ function collectProductionCoefficientBlockers() {
   const scheduleOrderProcessSource = readText(SCHEDULE_ORDER_PROCESS_DO)
   const activeOrderSource = readText(ACTIVE_ORDER_DO)
   const activeOrderSql = readText(ACTIVE_ORDER_SQL)
+  const activeOrderProcessSnapshotSource = readText(ACTIVE_ORDER_PROCESS_SNAPSHOT_DO)
+  const activeOrderProcessSnapshotSql = readText(ACTIVE_ORDER_PROCESS_SNAPSHOT_SQL)
   const scheduleOrderServiceSource = readText(SCHEDULE_ORDER_SERVICE)
   const autoScheduleServiceSource = readText(AUTO_SCHEDULE_SERVICE)
 
@@ -442,14 +465,15 @@ function collectProductionCoefficientBlockers() {
       description: '排产工序快照缺少生产系数或计划数量字段，无法证明系数分配已冻结。'
     })
   }
-  if (!/productionQuantityFactor|production_quantity_factor/.test(activeOrderSource + activeOrderSql)) {
+  const activeOrderTargetSnapshotSource = activeOrderSource + activeOrderSql + activeOrderProcessSnapshotSource + activeOrderProcessSnapshotSql
+  if (!/productionQuantityFactor|production_quantity_factor/.test(activeOrderTargetSnapshotSource)) {
     blockers.push({
       key: 'activeOrderProductionQuantityFactorSnapshot',
       category: 'SOURCE',
       description: '统一 activeOrderId 模型未保存生产系数快照，后续分配/完成/PQC 无法以同一订单身份复核系数。'
     })
   }
-  if (!/plannedQuantity|planned_quantity/.test(activeOrderSource + activeOrderSql)) {
+  if (!/plannedQuantity|planned_quantity/.test(activeOrderTargetSnapshotSource)) {
     blockers.push({
       key: 'activeOrderPlannedQuantitySnapshot',
       category: 'SOURCE',

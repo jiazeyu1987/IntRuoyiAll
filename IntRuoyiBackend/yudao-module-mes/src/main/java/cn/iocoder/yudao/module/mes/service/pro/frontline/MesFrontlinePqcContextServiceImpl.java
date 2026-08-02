@@ -6,30 +6,35 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamLeaderScopeMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.template.FrontlinePqcResults;
-import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
-import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreatePqcInspectionReqDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -52,7 +57,10 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_ACTIVE_ORDER_ROUTE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_PERSONNEL_EMPTY;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_REGULATION_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_ROUTE_PROCESS_EMPTY;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_TASK_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_SIGNATURE_EMPLOYEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PQC_RESULT_INVALID;
@@ -61,66 +69,72 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Validated
 public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContextService {
 
-    private final MesProProcessPoolMapper processPoolMapper;
+    private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProWorkOrderMapper workOrderMapper;
     private final MesProRouteMapper routeMapper;
     private final MesProRouteProductMapper routeProductMapper;
     private final MesProRouteProcessMapper routeProcessMapper;
+    private final MesQaInspectionRegulationMapper regulationMapper;
+    private final MesQaInspectionRegulationItemMapper regulationItemMapper;
+    private final MesPqcInspectionTaskMapper pqcTaskMapper;
+    private final MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper;
     private final MesProProcessService processService;
     private final MesMdItemService itemService;
     private final MesProcessPoolTeamLeaderScopeMapper scopeMapper;
-    private final MesProProcessPoolEventMapper processPoolEventMapper;
-    private final MesProcessPoolEventService processPoolEventService;
     private final AdminUserApi adminUserApi;
     private final MesFrontlineTemplateResolver templateResolver;
 
-    public MesFrontlinePqcContextServiceImpl(MesProProcessPoolMapper processPoolMapper,
+    public MesFrontlinePqcContextServiceImpl(MesProcessPoolActiveOrderMapper activeOrderMapper,
                                              MesProWorkOrderMapper workOrderMapper,
                                              MesProRouteMapper routeMapper,
                                              MesProRouteProductMapper routeProductMapper,
                                              MesProRouteProcessMapper routeProcessMapper,
+                                             MesQaInspectionRegulationMapper regulationMapper,
+                                             MesQaInspectionRegulationItemMapper regulationItemMapper,
+                                             MesPqcInspectionTaskMapper pqcTaskMapper,
+                                             MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper,
                                              MesProProcessService processService,
                                              MesMdItemService itemService,
                                              MesProcessPoolTeamLeaderScopeMapper scopeMapper,
-                                             MesProProcessPoolEventMapper processPoolEventMapper,
-                                             MesProcessPoolEventService processPoolEventService,
                                              AdminUserApi adminUserApi,
                                              MesFrontlineTemplateResolver templateResolver) {
-        this.processPoolMapper = processPoolMapper;
+        this.activeOrderMapper = activeOrderMapper;
         this.workOrderMapper = workOrderMapper;
         this.routeMapper = routeMapper;
         this.routeProductMapper = routeProductMapper;
         this.routeProcessMapper = routeProcessMapper;
+        this.regulationMapper = regulationMapper;
+        this.regulationItemMapper = regulationItemMapper;
+        this.pqcTaskMapper = pqcTaskMapper;
+        this.pqcPieceDetailMapper = pqcPieceDetailMapper;
         this.processService = processService;
         this.itemService = itemService;
         this.scopeMapper = scopeMapper;
-        this.processPoolEventMapper = processPoolEventMapper;
-        this.processPoolEventService = processPoolEventService;
         this.adminUserApi = adminUserApi;
         this.templateResolver = templateResolver;
     }
 
     @Override
     public List<MesFrontlineActiveOrderCandidate> listActiveOrders() {
-        List<MesProProcessPoolDO> activePools = processPoolMapper.selectActiveList();
-        if (CollUtil.isEmpty(activePools)) {
+        List<MesProcessPoolActiveOrderDO> activeOrders = activeOrderMapper.selectActiveList();
+        if (CollUtil.isEmpty(activeOrders)) {
             throw exception(PRO_FRONTLINE_PQC_ACTIVE_ORDER_EMPTY);
         }
 
-        Map<ActiveOrderKey, LocalDateTime> latestSubmitTimeByOrder = new LinkedHashMap<>();
-        for (MesProProcessPoolDO pool : activePools) {
-            requireActivePoolIdentity(pool);
-            ActiveOrderKey key = new ActiveOrderKey(pool.getWorkOrderId(), pool.getRouteId());
-            LocalDateTime current = latestSubmitTimeByOrder.get(key);
-            if (current == null || isAfter(pool.getLatestSubmitTime(), current)) {
-                latestSubmitTimeByOrder.put(key, pool.getLatestSubmitTime());
+        Map<ActiveOrderKey, LocalDateTime> latestActiveTimeByOrder = new LinkedHashMap<>();
+        for (MesProcessPoolActiveOrderDO activeOrder : activeOrders) {
+            requireActiveOrderIdentity(activeOrder);
+            ActiveOrderKey key = new ActiveOrderKey(activeOrder.getWorkOrderId(), activeOrder.getRouteId());
+            LocalDateTime current = latestActiveTimeByOrder.get(key);
+            if (current == null || isAfter(activeOrder.getJoinedAt(), current)) {
+                latestActiveTimeByOrder.put(key, activeOrder.getJoinedAt());
             }
         }
 
-        Set<Long> workOrderIds = latestSubmitTimeByOrder.keySet().stream()
+        Set<Long> workOrderIds = latestActiveTimeByOrder.keySet().stream()
                 .map(ActiveOrderKey::workOrderId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        Set<Long> routeIds = latestSubmitTimeByOrder.keySet().stream()
+        Set<Long> routeIds = latestActiveTimeByOrder.keySet().stream()
                 .map(ActiveOrderKey::routeId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         Map<Long, MesProWorkOrderDO> workOrderMap = mapById(workOrderMapper.selectListByIds(workOrderIds),
@@ -134,7 +148,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         Map<Long, MesMdItemDO> itemMap = productIds.isEmpty() ? Map.of() : itemService.getItemMap(productIds);
 
         List<MesFrontlineActiveOrderCandidate> candidates = new ArrayList<>();
-        for (Map.Entry<ActiveOrderKey, LocalDateTime> entry : latestSubmitTimeByOrder.entrySet()) {
+        for (Map.Entry<ActiveOrderKey, LocalDateTime> entry : latestActiveTimeByOrder.entrySet()) {
             ActiveOrderKey key = entry.getKey();
             MesProWorkOrderDO workOrder = requireWorkOrder(workOrderMap, key.workOrderId());
             MesProRouteDO route = requireRoute(routeMap, key.routeId());
@@ -153,7 +167,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
 
     @Override
     public List<MesFrontlineRouteProcessCandidate> listProcessesByActiveOrder(Long workOrderId, Long routeId) {
-        requireActiveOrder(workOrderId, routeId);
+        MesProcessPoolActiveOrderDO activeOrder = requireActiveOrder(workOrderId, routeId);
         MesProWorkOrderDO workOrder = requireWorkOrder(workOrderId);
         requireProductRoute(workOrder, routeId);
         MesProRouteDO route = requireRoute(routeId);
@@ -176,9 +190,14 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
                         "processId=" + routeProcess.getProcessId());
             }
+            MesFrontlinePqcTaskContext taskContext = requirePqcTaskContext(activeOrder, workOrder, routeProcess);
             candidates.add(new MesFrontlineRouteProcessCandidate(route.getId(), route.getCode(), route.getName(),
                     routeProcess.getId(), routeProcess.getProcessId(), process.getCode(), process.getName(),
-                    routeProcess.getSort(), null, null, null, routeProcess.getWorkstationId(), null, null));
+                    routeProcess.getSort(), null, null, null, routeProcess.getWorkstationId(), null, null,
+                    activeOrder.getId(), taskContext.task().getId(), taskContext.task().getRegulationVersionId(),
+                    taskContext.task().getInspectionType(), taskContext.task().getBusinessDate(),
+                    taskContext.task().getShiftCode(), taskContext.task().getRoundNo(),
+                    taskContext.task().getPlannedInspectionQuantity(), taskContext.inspectionItems()));
         }
         return candidates.stream()
                 .sorted(Comparator
@@ -275,46 +294,36 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             throw exception(PRO_FRONTLINE_SIGNATURE_EMPLOYEE_MISMATCH,
                     command.getActualEmployeeId(), command.getSignatureEmployeeId());
         }
+        MesPqcInspectionTaskDO task = pqcTaskMapper.selectById(command.getPqcTaskId());
+        requirePqcTaskIdentity(task, command, process);
+        List<MesPqcInspectionPieceDetailDO> pieceDetails = buildPieceDetails(task.getId(), command,
+                process.inspectionItems());
 
-        MesProProcessPoolDO activePool = processPoolMapper.selectActiveByWorkOrderRouteProcess(
-                command.getWorkOrderId(), process.routeId(), process.routeProcessId(), process.processId());
-        if (activePool == null || activePool.getLatestEventId() == null) {
-            throw exception(PRO_FRONTLINE_PQC_ACTIVE_ORDER_REQUIRED, command.getWorkOrderId(), command.getRouteId());
-        }
-        MesProProcessPoolEventDO sourceEvent = processPoolEventMapper.selectById(activePool.getLatestEventId());
-        requireSourceEventContext(sourceEvent, command);
-
-        return processPoolEventService.createPqcInspectionEvent(MesProcessPoolCreatePqcInspectionReqDTO.builder()
-                .workOrderId(command.getWorkOrderId())
-                .routeId(process.routeId())
-                .routeProcessId(process.routeProcessId())
-                .processId(process.processId())
-                .actualEmployeeId(command.getActualEmployeeId())
-                .deviceAccountId(sourceEvent.getDeviceAccountId())
-                .deviceId(sourceEvent.getDeviceId())
-                .workstationId(sourceEvent.getWorkstationId())
-                .templateType(command.getTemplateType())
-                .feedbackSourceType(sourceEvent.getFeedbackSourceType())
-                .feedbackSourceId(sourceEvent.getFeedbackSourceId())
-                .recordbookSourceType(sourceEvent.getRecordbookSourceType())
-                .recordbookSourceId(sourceEvent.getRecordbookSourceId())
-                .inspectionResult(resolvePqcInspectionResult(command.getInspectionResult()))
-                .rawPayload(JsonUtils.toJsonString(command.getRawPayload()))
-                .clientSubmitTime(command.getClientSubmitTime())
-                .signatureId(command.getSignatureId())
-                .signatureUserId(command.getSignatureEmployeeId())
-                .signatureSnapshot(command.getSignatureSnapshot())
-                .build());
+        task.setActualInspectionQuantity(command.getActualInspectionQuantity());
+        task.setTaskStatus("SUBMITTED");
+        pqcTaskMapper.updateById(task);
+        pqcPieceDetailMapper.insertBatch(pieceDetails);
+        resolvePqcInspectionResult(command.getInspectionResult());
+        JsonUtils.toJsonString(command.getRawPayload());
+        return task.getId();
     }
 
     private void requirePqcSubmitCommand(MesFrontlinePqcSubmitCommand command) {
         if (command == null) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "request");
         }
+        requirePositive(command.getActiveOrderId(), "activeOrderId");
+        requirePositive(command.getPqcTaskId(), "pqcTaskId");
+        requirePositive(command.getRegulationVersionId(), "regulationVersionId");
         requirePositive(command.getWorkOrderId(), "workOrderId");
         requirePositive(command.getRouteId(), "routeId");
         requirePositive(command.getRouteProcessId(), "routeProcessId");
         requirePositive(command.getProcessId(), "processId");
+        requireText(command.getInspectionType(), "inspectionType");
+        requireValue(command.getBusinessDate(), "businessDate");
+        requireText(command.getShiftCode(), "shiftCode");
+        requireValue(command.getRoundNo(), "roundNo");
+        requireValue(command.getActualInspectionQuantity(), "actualInspectionQuantity");
         requirePositive(command.getActualEmployeeId(), "actualEmployeeId");
         requirePositive(command.getSignatureId(), "signatureId");
         requirePositive(command.getSignatureEmployeeId(), "signatureEmployeeId");
@@ -323,26 +332,6 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         if (CollUtil.isEmpty(command.getRawPayload())) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "rawPayload");
         }
-    }
-
-    private void requireSourceEventContext(MesProProcessPoolEventDO sourceEvent,
-                                           MesFrontlinePqcSubmitCommand command) {
-        if (sourceEvent == null) {
-            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "latestEvent");
-        }
-        if (!Objects.equals(sourceEvent.getWorkOrderId(), command.getWorkOrderId())
-                || !Objects.equals(sourceEvent.getRouteId(), command.getRouteId())
-                || !Objects.equals(sourceEvent.getRouteProcessId(), command.getRouteProcessId())
-                || !Objects.equals(sourceEvent.getProcessId(), command.getProcessId())) {
-            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID, "latestEventContext");
-        }
-        requirePositive(sourceEvent.getDeviceAccountId(), "latestEvent.deviceAccountId");
-        requirePositive(sourceEvent.getDeviceId(), "latestEvent.deviceId");
-        requirePositive(sourceEvent.getWorkstationId(), "latestEvent.workstationId");
-        requireText(sourceEvent.getFeedbackSourceType(), "latestEvent.feedbackSourceType");
-        requirePositive(sourceEvent.getFeedbackSourceId(), "latestEvent.feedbackSourceId");
-        requireText(sourceEvent.getRecordbookSourceType(), "latestEvent.recordbookSourceType");
-        requirePositive(sourceEvent.getRecordbookSourceId(), "latestEvent.recordbookSourceId");
     }
 
     private String resolvePqcInspectionResult(String inspectionResult) {
@@ -357,12 +346,128 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         throw exception(PRO_PROCESS_POOL_PQC_RESULT_INVALID, inspectionResult);
     }
 
-    private void requireActiveOrder(Long workOrderId, Long routeId) {
+    private MesProcessPoolActiveOrderDO requireActiveOrder(Long workOrderId, Long routeId) {
         requireValue(workOrderId, "workOrderId");
         requireValue(routeId, "routeId");
-        if (processPoolMapper.selectActiveByWorkOrderAndRoute(workOrderId, routeId) == null) {
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectActiveByWorkOrderAndRoute(workOrderId, routeId);
+        if (activeOrder == null) {
             throw exception(PRO_FRONTLINE_PQC_ACTIVE_ORDER_REQUIRED, workOrderId, routeId);
         }
+        requirePositive(activeOrder.getId(), "activeOrderId");
+        requirePositive(activeOrder.getRouteVersionId(), "activeOrder.routeVersionId");
+        return activeOrder;
+    }
+
+    private MesFrontlinePqcTaskContext requirePqcTaskContext(MesProcessPoolActiveOrderDO activeOrder,
+                                                             MesProWorkOrderDO workOrder,
+                                                             MesProRouteProcessDO routeProcess) {
+        MesQaInspectionRegulationDO regulation = regulationMapper.selectPublishedByRouteProcess(
+                workOrder.getProductId(), activeOrder.getRouteId(), activeOrder.getRouteVersionId(),
+                routeProcess.getId(), routeProcess.getProcessId());
+        if (regulation == null || regulation.getCurrentVersionId() == null) {
+            throw exception(PRO_FRONTLINE_PQC_REGULATION_REQUIRED,
+                    activeOrder.getId(), routeProcess.getId(), routeProcess.getProcessId());
+        }
+        MesPqcInspectionTaskDO task = pqcTaskMapper.selectPendingByActiveOrderProcess(
+                activeOrder.getId(), routeProcess.getId(), routeProcess.getProcessId());
+        if (task == null || !Objects.equals(task.getRegulationVersionId(), regulation.getCurrentVersionId())) {
+            throw exception(PRO_FRONTLINE_PQC_TASK_REQUIRED,
+                    activeOrder.getId(), routeProcess.getId(), routeProcess.getProcessId());
+        }
+        List<MesFrontlinePqcInspectionItem> items = regulationItemMapper
+                .selectListByVersionId(task.getRegulationVersionId())
+                .stream()
+                .filter(item -> item != null && Objects.equals(item.getInspectionType(), task.getInspectionType()))
+                .map(MesFrontlinePqcContextServiceImpl::toInspectionItem)
+                .toList();
+        if (items.isEmpty()) {
+            throw exception(PRO_FRONTLINE_PQC_REGULATION_REQUIRED,
+                    activeOrder.getId(), routeProcess.getId(), routeProcess.getProcessId());
+        }
+        return new MesFrontlinePqcTaskContext(task, items);
+    }
+
+    private static MesFrontlinePqcInspectionItem toInspectionItem(MesQaInspectionRegulationItemDO item) {
+        if (item == null) {
+            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "inspectionItem");
+        }
+        return new MesFrontlinePqcInspectionItem(item.getItemCode(), item.getItemName(),
+                item.getInspectionMethod(), item.getStandardText(), item.getResultType());
+    }
+
+    private void requirePqcTaskIdentity(MesPqcInspectionTaskDO task, MesFrontlinePqcSubmitCommand command,
+                                        MesFrontlineRouteProcessCandidate process) {
+        if (task == null) {
+            throw exception(PRO_FRONTLINE_PQC_TASK_REQUIRED,
+                    command.getActiveOrderId(), command.getRouteProcessId(), command.getProcessId());
+        }
+        if (!Objects.equals(task.getId(), command.getPqcTaskId())
+                || !Objects.equals(task.getActiveOrderId(), command.getActiveOrderId())
+                || !Objects.equals(task.getWorkOrderId(), command.getWorkOrderId())
+                || !Objects.equals(task.getRouteId(), process.routeId())
+                || !Objects.equals(task.getRouteProcessId(), process.routeProcessId())
+                || !Objects.equals(task.getProcessId(), process.processId())
+                || !Objects.equals(task.getRegulationVersionId(), command.getRegulationVersionId())
+                || !Objects.equals(task.getInspectionType(), command.getInspectionType())
+                || !Objects.equals(task.getBusinessDate(), command.getBusinessDate())
+                || !Objects.equals(task.getShiftCode(), command.getShiftCode())
+                || !Objects.equals(task.getRoundNo(), command.getRoundNo())) {
+            throw exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH, command.getPqcTaskId());
+        }
+    }
+
+    private List<MesPqcInspectionPieceDetailDO> buildPieceDetails(Long taskId, MesFrontlinePqcSubmitCommand command,
+                                                                  List<MesFrontlinePqcInspectionItem> inspectionItems) {
+        Object rawPieceValues = command.getRawPayload().get("pqcPieceValues");
+        if (!(rawPieceValues instanceof Map<?, ?> pieceValueMap)) {
+            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "pqcPieceValues");
+        }
+        List<MesPqcInspectionPieceDetailDO> details = new ArrayList<>();
+        for (MesFrontlinePqcInspectionItem item : inspectionItems) {
+            requireText(item.itemCode(), "inspectionItem.itemCode");
+            Object rawValues = pieceValueMap.get(item.itemCode());
+            if (!(rawValues instanceof List<?> values)
+                    || values.size() < command.getActualInspectionQuantity()) {
+                throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "pqcPieceValues." + item.itemCode());
+            }
+            for (int sampleIndex = 0; sampleIndex < command.getActualInspectionQuantity(); sampleIndex += 1) {
+                String value = Objects.toString(values.get(sampleIndex), "").trim();
+                if (StrUtil.isBlank(value)) {
+                    throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED,
+                            "pqcPieceValues." + item.itemCode() + "[" + sampleIndex + "]");
+                }
+                details.add(MesPqcInspectionPieceDetailDO.builder()
+                        .taskId(taskId)
+                        .sampleNo(sampleIndex + 1)
+                        .itemCode(item.itemCode())
+                        .itemName(item.itemName())
+                        .inspectionMethod(item.inspectionMethod())
+                        .standardText(item.standardText())
+                        .resultType(item.resultType())
+                        .itemResult(value)
+                        .measuredValue(value)
+                        .judgement(resolvePieceJudgement(value, command.getInspectionResult()))
+                        .build());
+            }
+        }
+        if (details.isEmpty()) {
+            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "pqcPieceDetails");
+        }
+        return details;
+    }
+
+    private String resolvePieceJudgement(String value, String overallInspectionResult) {
+        if ("不合格".equals(value)
+                || FrontlinePqcResults.DETECTION_FAILED.equals(overallInspectionResult)
+                || MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE.equals(overallInspectionResult)) {
+            return MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE;
+        }
+        if ("合格".equals(value)
+                || FrontlinePqcResults.DETECTION_SUCCESS.equals(overallInspectionResult)
+                || MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS.equals(overallInspectionResult)) {
+            return MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS;
+        }
+        throw exception(PRO_PROCESS_POOL_PQC_RESULT_INVALID, overallInspectionResult);
     }
 
     private MesProWorkOrderDO requireWorkOrder(Long workOrderId) {
@@ -413,9 +518,9 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         return item;
     }
 
-    private static void requireActivePoolIdentity(MesProProcessPoolDO pool) {
-        if (pool == null || pool.getWorkOrderId() == null || pool.getRouteId() == null) {
-            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID, "active process pool");
+    private static void requireActiveOrderIdentity(MesProcessPoolActiveOrderDO activeOrder) {
+        if (activeOrder == null || activeOrder.getWorkOrderId() == null || activeOrder.getRouteId() == null) {
+            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID, "active order");
         }
     }
 
@@ -475,5 +580,9 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
     }
 
     private record ActiveOrderKey(Long workOrderId, Long routeId) {
+    }
+
+    private record MesFrontlinePqcTaskContext(MesPqcInspectionTaskDO task,
+                                              List<MesFrontlinePqcInspectionItem> inspectionItems) {
     }
 }
