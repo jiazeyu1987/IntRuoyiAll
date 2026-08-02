@@ -127,11 +127,11 @@
 ### 真实 E2E 主链路与扩展诊断产物隔离门禁
 
 - Trigger: 同一任务目录内同时运行主验收链路、resume 复核、权限负向验证、traceability/viewer linkage/诊断脚本，或多个脚本默认写同一个 `e2e-result.json`、`verification-report.md`、`final-readonly-db-verification.json`。
-- Preflight check: 运行前必须明确本轮用户要求的主链路范围与可选扩展断言边界；主链路结果文件、扩展诊断结果文件和固定最终证据文件必须使用不同路径，或在脚本启动前确认无同任务目录写入进程会覆盖默认结果。扩展断言必须通过显式 opt-in 环境变量开启，默认不得影响主链路验收结论。
-- Blocker: 若扩展诊断脚本仍在运行、默认结果文件被其它进程改写、可选断言失败覆盖主链路 PASS、报告中的文件号/状态与最新主链路结果不一致，必须停止收尾并恢复到清晰的主链路证据；不得把被扩展诊断覆盖的 `BLOCKED` 或旧文件号当作当前验收结论。
-- Verification: 收尾前延迟复查一次结果文件和任务文档，记录无当前任务脚本进程、默认结果和固定最终结果均为预期状态，且 `verification-report.md`、`task.md`、`execution-log.md` 的文件编号、文件 ID、master ID、状态和浏览路径一致。
+- Preflight check: 运行前必须明确本轮用户要求的主链路范围与可选扩展断言边界；主链路结果文件、扩展诊断结果文件和固定最终证据文件必须使用不同路径，或在脚本启动前确认无同任务目录写入进程会覆盖默认结果。扩展断言必须通过显式 opt-in 环境变量开启，默认不得影响主链路验收结论。若最终追溯复验需要引用错误密码、缺授权或权限负向诊断，必须显式传入包含该诊断阶段的任务自有结果文件；默认源文件若已经是 `ACTIVE` 且没有待签名按钮，只能记录为诊断源不适用，不能作为最终失败诊断 PASS 证据。
+- Blocker: 若扩展诊断脚本仍在运行、默认结果文件被其它进程改写、可选断言失败覆盖主链路 PASS、报告中的文件号/状态与最新主链路结果不一致，必须停止收尾并恢复到清晰的主链路证据；不得把被扩展诊断覆盖的 `BLOCKED` 或旧文件号当作当前验收结论。若签名失败诊断复验源不含真实失败阶段，且当前文件已无待办签名按钮，必须重新绑定已有任务自有诊断结果或另建真实页面待签名样本；不得用静态合同、只读 ACTIVE 文件或 API-only 响应冒充失败诊断已验证。
+- Verification: 收尾前延迟复查一次结果文件和任务文档，记录无当前任务脚本进程、默认结果和固定最终结果均为预期状态，且 `verification-report.md`、`task.md`、`execution-log.md` 的文件编号、文件 ID、master ID、状态和浏览路径一致。若引用扩展诊断源，还必须记录 source result 路径、诊断阶段状态、最终 result 中的诊断状态、目标写请求数和页面证据截图/导出文件，证明诊断证据来自真实页面链路且没有覆盖主链路。
 - Forbidden action: 禁止多个并行 Playwright 脚本共享同一个最终结果路径；禁止扩展诊断失败后直接改口主场景 BLOCKED 或 PASS；禁止用旧 resume 结果覆盖新建任务文件；禁止把可选 viewer linkage、签核追溯、权限负向验证混入用户明确限定的主验收范围。
-- Evidence: `doc/tasks/20260802-dcc-original-release-e2e-current/execution-log.md`，DCC 原版发布主链路 PASS 后，可选 viewer linkage / traceability 诊断多次覆盖默认结果和报告，最终通过显式关闭扩展断言、固定主链路结果文件并延迟复查结果稳定性收口。
+- Evidence: `doc/tasks/20260802-dcc-original-release-e2e-current/execution-log.md`，DCC 原版发布主链路 PASS 后，可选 viewer linkage / traceability 诊断多次覆盖默认结果和报告，最终通过显式关闭扩展断言、固定主链路结果文件并延迟复查结果稳定性收口；`doc/tasks/20260802-dcc-traceability-ux-fixes/verification-report.md`，签核追溯 UX 复验先识别默认 ACTIVE 源缺待签名按钮导致错误密码诊断不适用，再显式绑定任务自有 wrong-password 结果文件，最终同时证明五项页面 UX、只读一致性和 `dccWriteRequests=[]`。
 
 ### 真实 E2E 页面加载判据门禁
 

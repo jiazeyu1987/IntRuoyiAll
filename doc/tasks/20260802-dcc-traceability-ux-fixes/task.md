@@ -82,7 +82,7 @@ completed
 
 ## Experience Consolidation
 
-已按 `project-experience-consolidation` 技能复核。本次可复用经验已由现有 `docs/e2e-rules.md` 中“主链路与扩展诊断产物隔离”“DCC 文控审批处理入口门禁”覆盖；没有新增长期经验文档，避免记录一次性文件 ID 或临时账号状态。
+已按 `project-experience-consolidation` 技能复核并合并到现有 `docs/e2e-rules.md` 的“真实 E2E 主链路与扩展诊断产物隔离门禁”：追溯复验若需要证明错误密码/缺授权等扩展诊断，必须显式绑定包含真实诊断阶段的任务自有结果文件；默认 `ACTIVE` 源无待签名按钮时只能记录诊断源不适用，不能作为最终诊断 PASS 证据。未新增长期经验文档，避免记录一次性文件 ID 或临时账号状态。
 
 ## 设计约束检查
 

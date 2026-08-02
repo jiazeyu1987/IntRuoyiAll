@@ -113,6 +113,12 @@
 - GREEN: `git -c http.https://github.com.proxy= push origin int_main` -> PASS，`7d847126e..a88d00bda int_main -> int_main`。未修改全局 Git 配置。
 - Note: 工作区仍保留其它任务未提交产物和 PID 文件；本任务证据、脚本和报告已随 `a88d00bda` 推送。
 
+## Experience Consolidation
+
+- GREEN: 使用 `project-experience-consolidation` 技能复核本任务经验归宿；已有 `docs/e2e-rules.md` 适合作为长期规则归宿，无需新建经验文档。
+- GREEN: `docs/e2e-rules.md` 已在“真实 E2E 主链路与扩展诊断产物隔离门禁”中补充：最终追溯复验需要证明错误密码/缺授权等扩展诊断时，必须显式绑定包含真实诊断阶段的任务自有结果文件；默认 `ACTIVE` 源无待签名按钮时只能记录诊断源不适用，不能作为最终诊断 PASS 证据。
+- Verification: 本次沉淀只记录通用 E2E 诊断源绑定规则，不记录一次性文件 ID、临时账号状态或业务完成事实。
+
 ## Current Status
 
 completed
