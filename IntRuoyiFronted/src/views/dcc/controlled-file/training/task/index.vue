@@ -14,24 +14,32 @@
           <span>来源部门：{{ buildDepartmentNames(task?.departmentIds, deptNameMap) }}</span>
         </div>
       </div>
-      <div class="flex flex-wrap gap-8px">
-        <el-button @click="router.back()">
-          <Icon icon="ep:back" class="mr-5px" />
-          返回
-        </el-button>
-        <el-button type="primary" plain @click="openDetail">
-          <Icon icon="ep:document" class="mr-5px" />
-          文件详情
-        </el-button>
-        <el-button
-          type="success"
-          :disabled="!task?.eligibleToAcknowledge"
-          :loading="ackLoading"
-          @click="handleAcknowledge"
+      <div class="training-task-action-panel">
+        <div class="flex flex-wrap justify-end gap-8px">
+          <el-button @click="router.back()">
+            <Icon icon="ep:back" class="mr-5px" />
+            返回
+          </el-button>
+          <el-button type="primary" plain @click="openDetail">
+            <Icon icon="ep:document" class="mr-5px" />
+            文件详情
+          </el-button>
+          <el-button
+            type="success"
+            :disabled="!task?.eligibleToAcknowledge"
+            :loading="ackLoading"
+            @click="handleAcknowledge"
+          >
+            <Icon icon="ep:select" class="mr-5px" />
+            确认培训完成
+          </el-button>
+        </div>
+        <div
+          class="training-task-action-panel__reason"
+          data-testid="dcc-training-task-acknowledge-reason"
         >
-          <Icon icon="ep:select" class="mr-5px" />
-          确认培训完成
-        </el-button>
+          {{ acknowledgeDisabledReason }}
+        </div>
       </div>
     </div>
   </ContentWrap>
@@ -44,8 +52,11 @@
           仅在培训预览页位于前台且窗口聚焦时累计时长，达到 10 分钟后才可确认完成。
         </div>
       </div>
-      <div class="text-13px text-[var(--el-text-color-secondary)]">
-        当前会话：{{ sessionActive ? '计时中' : '未计时' }}
+      <div class="training-task-countability-state" data-testid="dcc-training-task-countability-state">
+        <el-tag :type="trainingCountabilityState.tagType">
+          {{ trainingCountabilityState.label }}
+        </el-tag>
+        <span>{{ trainingCountabilityState.description }}</span>
       </div>
     </div>
 
@@ -53,6 +64,15 @@
       :percentage="progressPercent"
       :stroke-width="18"
       :status="task?.eligibleToAcknowledge ? 'success' : undefined"
+    />
+
+    <el-alert
+      class="mt-12px"
+      :type="trainingCountabilityState.alertType"
+      :closable="false"
+      show-icon
+      :title="trainingCountabilityState.title"
+      :description="acknowledgeDisabledReason"
     />
 
     <div class="mt-12px training-task-metrics">
@@ -72,6 +92,12 @@
         <div class="training-task-metric__label">剩余时长</div>
         <div class="training-task-metric__value">
           {{ formatTrainingSeconds(remainingSeconds) }}
+        </div>
+      </div>
+      <div class="training-task-metric">
+        <div class="training-task-metric__label">计时状态</div>
+        <div class="training-task-metric__value training-task-metric__value--status">
+          {{ trainingCountabilityState.label }}
         </div>
       </div>
     </div>
@@ -131,6 +157,8 @@ const departments = ref<DeptVO[]>([])
 const loadError = ref('')
 const ackLoading = ref(false)
 const sessionActive = ref(false)
+const documentVisible = ref(document.visibilityState === 'visible')
+const windowFocused = ref(window.document.hasFocus())
 
 let heartbeatTimer: number | undefined
 let activeClientSessionId = ''
@@ -147,6 +175,79 @@ const remainingSeconds = computed(() =>
   )
 )
 
+const updateBrowserAttentionState = () => {
+  documentVisible.value = document.visibilityState === 'visible'
+  windowFocused.value = window.document.hasFocus()
+}
+
+const acknowledgeDisabledReason = computed(() => {
+  if (!task.value) {
+    return '培训任务加载中，暂不能确认。'
+  }
+  if (task.value.acknowledgedAt) {
+    return `已于 ${task.value.acknowledgedAt} 确认完成。`
+  }
+  if (!previewBlob.value) {
+    return '文件预览未加载完成，加载成功后才开始计时。'
+  }
+  if (!documentVisible.value || !windowFocused.value) {
+    return '页面不在前台或窗口未聚焦，培训计时已暂停。'
+  }
+  if (remainingSeconds.value > 0) {
+    return `还需阅读 ${formatTrainingSeconds(remainingSeconds.value)} 后才可确认。`
+  }
+  if (!task.value.eligibleToAcknowledge) {
+    return '阅读时长已达标，服务器状态刷新后即可确认。'
+  }
+  return '已达标，可确认培训完成。'
+})
+
+const trainingCountabilityState = computed(() => {
+  if (task.value?.acknowledgedAt) {
+    return {
+      label: '已完成',
+      title: '培训确认已完成',
+      description: '该培训任务已有确认时间。',
+      tagType: 'success' as const,
+      alertType: 'success' as const
+    }
+  }
+  if (!previewBlob.value) {
+    return {
+      label: '等待预览',
+      title: '文件预览未加载完成',
+      description: '预览加载成功后才会开始累计阅读时长。',
+      tagType: 'info' as const,
+      alertType: 'info' as const
+    }
+  }
+  if (!documentVisible.value || !windowFocused.value) {
+    return {
+      label: '暂停计时',
+      title: '页面不在前台或窗口未聚焦',
+      description: '回到当前页并保持窗口聚焦后继续计时。',
+      tagType: 'warning' as const,
+      alertType: 'warning' as const
+    }
+  }
+  if (task.value?.eligibleToAcknowledge) {
+    return {
+      label: '可确认',
+      title: '已达标，可确认培训完成',
+      description: '阅读时长已满足当前文件培训要求。',
+      tagType: 'success' as const,
+      alertType: 'success' as const
+    }
+  }
+  return {
+    label: sessionActive.value ? '计时中' : '准备计时',
+    title: sessionActive.value ? '当前会话正在计时' : '等待培训计时启动',
+    description: `还需阅读 ${formatTrainingSeconds(remainingSeconds.value)}。`,
+    tagType: sessionActive.value ? ('success' as const) : ('info' as const),
+    alertType: 'info' as const
+  }
+})
+
 const clearHeartbeatTimer = () => {
   if (heartbeatTimer) {
     window.clearInterval(heartbeatTimer)
@@ -158,8 +259,8 @@ const isSessionCountable = () =>
   Boolean(previewBlob.value) &&
   Boolean(task.value) &&
   !task.value?.acknowledgedAt &&
-  document.visibilityState === 'visible' &&
-  window.document.hasFocus()
+  documentVisible.value &&
+  windowFocused.value
 
 const loadBaseData = async () => {
   departments.value = await getSimpleDeptList()
@@ -235,6 +336,7 @@ const stopSession = async (useKeepalive = false) => {
 }
 
 const syncSessionState = async (useKeepalive = false) => {
+  updateBrowserAttentionState()
   if (isSessionCountable()) {
     await startSessionIfNeeded()
     return
@@ -255,6 +357,7 @@ const handleWindowBlur = async () => {
 }
 
 const handlePageHide = () => {
+  updateBrowserAttentionState()
   void syncSessionState(true)
 }
 
@@ -279,6 +382,7 @@ const handleAcknowledge = async () => {
 
 onMounted(async () => {
   try {
+    updateBrowserAttentionState()
     await loadBaseData()
     await refreshTask()
     await loadPreview()
@@ -311,6 +415,30 @@ onBeforeUnmount(() => {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
+.training-task-action-panel {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
+.training-task-action-panel__reason {
+  max-width: 360px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 18px;
+  text-align: right;
+}
+
+.training-task-countability-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
 .training-task-metric {
   padding: 14px 16px;
   border: 1px solid var(--el-border-color);
@@ -330,5 +458,10 @@ onBeforeUnmount(() => {
   font-size: 20px;
   font-weight: 700;
   line-height: 28px;
+}
+
+.training-task-metric__value--status {
+  color: #1677ff;
+  font-size: 18px;
 }
 </style>

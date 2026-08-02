@@ -344,6 +344,9 @@ export interface ControlledFileVersionHistoryVO {
   fileNumber: string
   versionNo: string
   status: string
+  publishedFileId?: number | null
+  stampedFileId?: number | null
+  currentActiveVersionNo?: string | null
   effectiveDate?: string
   publishedTime?: string
   obsoletedTime?: string

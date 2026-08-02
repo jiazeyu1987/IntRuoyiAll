@@ -8,6 +8,15 @@
       :title="errorMessage"
     />
 
+    <el-alert
+      class="mb-12px"
+      data-testid="dcc-training-rule-permission-precheck"
+      type="info"
+      :closable="false"
+      title="发布前权限预检"
+      description="保存培训部门规则后，请确认展开到的培训对象均拥有 dcc:controlled-file:training:mine 菜单权限；否则文件发布后对象无法进入我的培训完成阅读确认。"
+    />
+
     <UnifiedListTemplate
       class="category-rule-list-template"
       table-key="dcc.controlledFile.permission.trainingRules"

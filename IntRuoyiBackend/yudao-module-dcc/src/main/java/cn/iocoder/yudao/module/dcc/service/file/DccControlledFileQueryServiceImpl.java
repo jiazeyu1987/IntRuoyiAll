@@ -1459,6 +1459,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setTitle(file.getTitle());
         respVO.setFileName(file.getFileName());
         respVO.setFileNumber(file.getFileNumber());
+        respVO.setPublishedFileId(file.getPublishedFileId());
+        respVO.setStampedFileId(file.getStampedFileId());
         respVO.setProductCode(file.getProductCode());
         respVO.setProductName(file.getProductName());
         respVO.setDccProjectCodeId(file.getDccProjectCodeId());
@@ -1816,6 +1818,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (file.getMasterId() == null) {
             return List.of();
         }
+        String currentActiveVersionNo = resolveCurrentActiveVersionNo(file, chainFiles);
         return chainFiles.stream()
                 .filter(history -> !DccControlledFileStatusEnum.OBSOLETE.getStatus().equals(history.getStatus()) || canSeeObsolete(userId, history))
                 .sorted(Comparator.comparing((DccControlledFileDO history) -> DccControlledFileVersion.parse(history.getVersionNo()),
@@ -1829,6 +1832,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     respVO.setFileNumber(history.getFileNumber());
                     respVO.setVersionNo(history.getVersionNo());
                     respVO.setStatus(history.getStatus());
+                    respVO.setPublishedFileId(history.getPublishedFileId());
+                    respVO.setStampedFileId(history.getStampedFileId());
+                    respVO.setCurrentActiveVersionNo(currentActiveVersionNo);
                     respVO.setEffectiveDate(history.getEffectiveDate());
                     respVO.setPublishedTime(history.getPublishedTime());
                     respVO.setObsoletedTime(history.getObsoletedTime());

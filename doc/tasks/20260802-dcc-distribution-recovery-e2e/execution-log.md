@@ -60,3 +60,30 @@ BDD: DCC controlled file distribution and old-version recovery -> Given a non-ad
 - E2E BLOCKED: current task-owned category `过程检验规程` / `907233` lacks an active `DISTRIBUTE` permission rule, so non-admin DCC user `wangsiyu` cannot execute the real page paper issue action even though the button is visible.
 - Impact: cannot complete paper recipient responsibility, V1 recovery responsibility, recovery timestamp, or final PASS for both “分发”和“回收”; rows `4323` / `4324` remain `PENDING`.
 - Safety boundary: no admin fallback, no API-only substitute, no SQL/API status insert/update, no direct permission data repair, and no product-code changes outside this scenario.
+
+## Resume 2026-08-02 21:09
+
+- User changed direction to use a category that has distribution permission rules, then asked to continue.
+- Re-read required execution rules and Playwright skill: `AGENTS.md`, `docs/e2e-rules.md`, `docs/login-access.md`, `docs/frontend-development.md`, `docs/database-rules.md`, `docs/local-runtime.md`, `docs/worktree-restrictions.md`, `docs/branch-runtime-ports.md`, `docs/powershell-encoding.md`, `docs/task-closeout-rules.md`, and `C:\Users\BJB110\.codex\skills\playwright\SKILL.md`.
+- Runtime check: frontend `http://127.0.0.1:8081/` returned HTTP 200 and is owned by `E:\IntRuoyi\IntRuoyiFronted` Vite; backend `http://127.0.0.1:48081/actuator/health` refused connection and port `48081` is not listening.
+- Runtime check: observed active `yudao-server` Maven package processes under `E:\IntRuoyi\IntRuoyiBackend`; waited 120 seconds and processes remained, with new package processes appearing. No process was killed.
+- Restart evidence from existing logs remains blocked by unrelated MES mapper parse failure: `MesProProcessPoolTimelineReadMapper.xml` -> `SAXParseException: 前言中不允许有内容。`
+- Read-only DB scan: tenant `芋道源码` category `906104 / 其他` has distribution rule `106` and non-admin `wangsiyu` has `DISTRIBUTE` via role `910431`, but `APPROVE` is only granted to user ID `1`; current file `CODX-DCC-DIST-906104-DISTTENANT120260802195305` has V1 `ACTIVE`, V2 `READY_TO_PUBLISH`, distributions `4341` and `4344` still `PENDING`.
+- Read-only DB scan: tenant `122` category `900347 / Codex Local DCC Category` has non-admin `aoteman` with `APPROVE / DISTRIBUTE / UPLOAD` and distribution rule, but no published DCC `PUBLISH / READY_TO_PUBLISH` business approval policy.
+- Read-only DB scan: split-user full candidate count is `0`; no existing category satisfies published publish policy + active distribution rule + non-admin APPROVE + non-admin DISTRIBUTE without changing permissions/policies.
+- E2E BLOCKED: cannot continue real page publish/distribution/recovery. This run did not use admin, did not use API-only as a substitute, and did not insert/update SQL/API records or permission rules.
+- Evidence: `tenant1-current-blocked-readonly-db-verification.json`; `candidate-permission-scan-20260802-210906.json`; `verification-report.md`.
+
+## Resume 2026-08-02 21:25
+
+- User reported backend has started and asked to continue.
+- Runtime check: backend `http://127.0.0.1:48081/actuator/health` returned `UP`; port `48081` owned by Java process running `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260802-170535.jar`; frontend `8081` returned HTTP 200.
+- GREEN: V1 paper distribution real page -> PASS. Ran `dcc-distribution-recovery-e2e.cjs` with `DCC_E2E_DISTRIBUTION_RECOVERY_MODE=ack-v1-only`, tenant `芋道源码`, non-admin actor `wangsiyu`, recipient `panhaitao`, password injected through `DCC_E2E_PASSWORD`.
+- Real page path: `http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070297?traceability=1&from=browser&returnTo=/dcc/controlled-file/browser`.
+- Page evidence before action: V1 distribution table showed `质量体系部 / 待分发 / 纸质发放 / 确认纸质发放`.
+- Page evidence after action: V1 distribution table showed `潘海涛 (panhaitao) / 已确认 / 纸质发放 / 发放：王思雨 (wangsiyu) / 时间：2026-08-02 21:25:23 / 确认回收`.
+- Read-only DB verification: distribution `4341` moved to `ACKNOWLEDGED`, `acknowledged_by=910250 / wangsiyu`, recipient row `46820` points to user `173 / panhaitao`; V2 distribution `4344` remains `PENDING`; no recovery fields exist.
+- RED: V2 publish real page after backend restore -> FAIL. Reran `dcc-paper-chain-prepare-e2e.cjs` with existing V1/V2 IDs; page loaded but `发布申请` button did not become visible within 30 seconds.
+- Read-only DB permission verification: category `906104` `APPROVE` remains assigned only to user ID `1`; `wangsiyu` only has `DISTRIBUTE` via role `dcc_distribute_e2e`.
+- E2E BLOCKED: recovery must not be clicked while V1 is still `ACTIVE`; V2 is still `READY_TO_PUBLISH`, so old-version recovery/non-misuse cannot be completed through the required real page path.
+- Evidence: `paper-issue-recovery-final-result.json`; `tenant1-post-v1-ack-readonly-db-verification.json`; `publish-blocked-after-backend-up.json`; `verification-report.md`.

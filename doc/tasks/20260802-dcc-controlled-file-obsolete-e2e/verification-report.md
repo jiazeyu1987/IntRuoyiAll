@@ -2,9 +2,9 @@
 
 ## Result
 
-Latest full fresh E2E rerun is **PASS**.
+Latest requested full fresh E2E rerun is **PASS**.
 
-The clarified DCC “作废/废止” path was verified as requested: no manual obsolete approval was used. A task-owned V1 controlled file was released first, then a V2 revision was uploaded, approved, signed, and published. The old V1 automatically became `SUPERSEDED`, the new V2 became `ACTIVE`, master current active version switched to V2, and controlled browsing no longer exposes V1 as the current effective file.
+Run `20260802222723` completed the clarified DCC “作废/废止” path by real Playwright UI flow: V1 was released, V2 was uploaded and approved, V2 publish approval completed, V1 automatically became `SUPERSEDED`, V2 became `ACTIVE`, master switched to V2, and controlled browsing no longer exposed V1 as a current effective file. Historical run `20260802212823` remains recorded as a superseded blocker after a publish approval HTTP `500`, but it is no longer the latest result.
 
 ## Scope
 
@@ -12,7 +12,8 @@ The clarified DCC “作废/废止” path was verified as requested: no manual 
 - Required path: V1.0 original release -> V2.0 revision upload -> non-admin approval/signature -> publish approval -> V1.0 `SUPERSEDED` -> V2.0 `ACTIVE` -> master current active V2 -> controlled browser and traceability verification.
 - Environment: local `int_main`, frontend `http://127.0.0.1:8081`, backend `http://127.0.0.1:48081`, Chrome `C:\Program Files\Google\Chrome\Application\chrome.exe`, MinIO ready on `http://127.0.0.1:9000/minio/health/ready`.
 - Credential handling: password was injected only through the approved `DCC_E2E_PASSWORD` PowerShell expression; no plaintext password is recorded.
-- Result JSON: `E:\IntRuoyi\doc\tasks\20260802-dcc-controlled-file-obsolete-e2e\full-rerun-e2e-result-20260802201023.json`.
+- Latest result JSON: `E:\IntRuoyi\doc\tasks\20260802-dcc-controlled-file-obsolete-e2e\full-rerun-e2e-result-20260802222723.json`.
+- Previous blocked result JSON: `E:\IntRuoyi\doc\tasks\20260802-dcc-controlled-file-obsolete-e2e\full-rerun-e2e-result-20260802212823.json`.
 - Chain JSON: `E:\IntRuoyi\doc\tasks\20260802-dcc-revision-publish-real-e2e\chain-result.json`.
 
 ## Fix Verification
@@ -26,7 +27,7 @@ The clarified DCC “作废/废止” path was verified as requested: no manual 
 | Adjacent approval contract | `node tests/e2e/dcc-detail-approval-own-task-without-process-query-static.spec.js` -> PASS |
 | Adjacent handling summary contract | `pnpm e2e:dcc:detail-handling-summary:static` -> PASS |
 | Type check | `pnpm ts:check` -> PASS |
-| Full real E2E | `full-rerun-e2e-result-20260802201023.json` -> PASS |
+| Full real E2E | `full-rerun-e2e-result-20260802222723.json` -> PASS |
 
 The focused contract locks the previous approval detail rendering failure: no `})const openControlledBrowserLocation` glue remains, the real approver anchor `审批阶段进度` remains present, and every detail dialog `*.visible` v-model, including `controlledPrintDialog.visible`, has initialized reactive state.
 
@@ -34,26 +35,31 @@ The focused contract locks the previous approval detail rendering failure: no `}
 
 | Field | Evidence |
 | --- | --- |
-| Run ID | `20260802201023` |
-| File number | `CODX-DCC-REV-FULL-20260802-20260802201023` |
+| Run ID | `20260802222723` |
+| File number | `CODX-DCC-REV-FULL-20260802-20260802222723` |
 | Result | `PASS`, command exit code `0` |
+| V1 controlled file | `2054545668044070307`, `V1.0`, change type `NEW`, final status `SUPERSEDED` |
+| V2 controlled file | `2054545668044070308`, `V2.0`, change type `REVISION`, final status `ACTIVE` |
+| Master | `2054545668044062911`, `ACTIVE_CHAIN`, current active version `2054545668044070308` |
+| V1 successor | `2054545668044070308` |
+| Publish form instance | `442`, status `EFFECTIVE`, object `2054545668044070308`, version `V2.0` |
+| Publish BPM process | `76f6dfd2-8e7e-11f1-aa29-00155d2984a0` |
+| Published/stamped file | `9198354916370` |
+| Revision reason | `升版 E2E 20260802222723` |
 | Target errors | wrapper and chain `targetNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]` |
-| V1 controlled file | `2054545668044070300`, `V1.0`, change type `NEW`, final status `SUPERSEDED` |
-| V2 controlled file | `2054545668044070301`, `V2.0`, change type `REVISION`, final status `ACTIVE` |
-| Master | `2054545668044062907`, `ACTIVE_CHAIN`, current active version `2054545668044070301` |
-| V1 successor | `2054545668044070301` |
-| Publish form instance | `440`, status `EFFECTIVE`, object `2054545668044070301`, version `V2.0` |
-| Publish BPM process | `53fbed5f-8e6b-11f1-93ff-00155d2984a0` |
-| Published/stamped file | `9198354916368` |
-| Revision reason | `升版 E2E 20260802201023` |
+| Final read-only DB verification | PASS: V1 `SUPERSEDED`, V2 `ACTIVE`, master points to V2, publish instance `EFFECTIVE`, DCC signatures valid |
+
+## Historical Blocker
+
+Run `20260802212823` is retained as historical evidence only: it created task-owned V1 `2054545668044070305` and V2 `2054545668044070306`, then blocked at publish approval node `zhaojie` with `/admin-api/bpm/task/approve` HTTP `500`. No API-only, SQL mutation, deletion, or admin workaround was used. This blocker was superseded by the successful full rerun `20260802222723`.
 
 ## Browser Evidence
 
 - Browser user: non-admin `wangsiyu`.
-- Controlled browser path: `/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-REV-FULL-20260802-20260802201023&status=ACTIVE&pageNo=1&pageSize=10`.
-- Controlled browser current row: ID `2054545668044070301`, version `V2.0`, status `ACTIVE`; old V1 ID `2054545668044070300` was not returned as a current active row.
-- Detail opened from browser: `/dcc/controlled-file/detail/2054545668044070301?traceability=1&from=browser...`.
-- Traceability detail: page loaded V2 `ACTIVE`, version history contained V1 `SUPERSEDED` and V2 `ACTIVE`, and revision reason `升版 E2E 20260802201023` was visible.
+- Controlled browser path: `/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-REV-FULL-20260802-20260802222723&status=ACTIVE&pageNo=1&pageSize=10`.
+- Controlled browser current row: ID `2054545668044070308`, version `V2.0`, status `ACTIVE`; old V1 ID `2054545668044070307` was not returned as a current active row.
+- Detail opened from browser: `/dcc/controlled-file/detail/2054545668044070308?traceability=1&from=browser...`.
+- Traceability detail: page loaded V2 `ACTIVE`, version history contained V1 `SUPERSEDED` and V2 `ACTIVE`, and revision reason `升版 E2E 20260802222723` was visible.
 - Screenshots: `E:\IntRuoyi\doc\tasks\20260802-dcc-revision-publish-real-e2e\browser-current-v2.png` and `E:\IntRuoyi\doc\tasks\20260802-dcc-revision-publish-real-e2e\detail-version-history.png`.
 
 ## Approval And Signature Evidence
@@ -61,7 +67,7 @@ The focused contract locks the previous approval detail rendering failure: no `}
 - V1 original release approvals: 4 completed DCC tasks by non-admin users `zhaohaichen` / `zhaojie` / `zhaomingyu` / `wangsiyu`.
 - V2 revision approvals: 4 completed DCC tasks by non-admin users `zhaohaichen` / `zhaojie` / `zhaomingyu` / `wangsiyu`.
 - DCC electronic signatures: 8 records across V1/V2, all `signatureMode=PASSWORD`, `passwordVerified=1`, `evidenceStatus=VALID`.
-- Publish approval: 4 completed BPM tasks in process `53fbed5f-8e6b-11f1-93ff-00155d2984a0` by assignees `376`, `1074`, `424`, `910250`.
+- Publish approval: 4 completed BPM tasks in process `76f6dfd2-8e7e-11f1-aa29-00155d2984a0` by assignees `376`, `1074`, `424`, `910250`.
 - Publish approver selection evidence: first three publish nodes selected the next non-admin approver explicitly; final node completed without next approver.
 
 ## Acceptance Status
@@ -70,8 +76,9 @@ The focused contract locks the previous approval detail rendering failure: no `}
 - PASS: no manual obsolete approval was used for this clarified path.
 - PASS: no admin account was used.
 - PASS: no API-only or SQL mutation was used to change status, approvals, signatures, master pointer, or files.
-- PASS: controlled browser final effect was verified from the real page.
-- PASS: final read-only DB verification confirms V1 `SUPERSEDED`, V2 `ACTIVE`, master current V2, publish instance `EFFECTIVE`, approval tasks, and signature evidence.
+- PASS: latest requested fresh rerun completed publish approval to final effective state.
+- PASS: controlled browser final effect was verified; V1 is not returned as current effective and V2 is opened as current active.
+- PASS: final read-only DB verification completed for file status, master pointer, approval tasks, signatures, and controlled-browser result.
 
 ## Manual Obsolete Note
 

@@ -49,8 +49,13 @@ assert.match(
 )
 assert.match(
   sql,
-  /FROM\s+`mes_pro_route_flow_process_batch_record`[\s\S]+`batch_record_report_id`\s+IS\s+NULL/i,
-  'M6 migration preflight must fail on missing formal per-process batch record bindings.'
+  /FROM\s+`mes_pro_route_flow_process_batch_record`[\s\S]+`form_slot_type`\s*=\s*'MAIN'[\s\S]+`record_category`\s*=\s*'BATCH_RECORD'[\s\S]+`batch_record_report_id`\s+IS\s+NULL/i,
+  'M6 migration preflight must fail only on missing formal MAIN/BATCH_RECORD per-process batch record bindings.'
+)
+assert.doesNotMatch(
+  sql,
+  /WHERE\s+`deleted`\s*=\s*b'0'\s+AND\s+\(\s*`batch_record_report_id`\s+IS\s+NULL/i,
+  'M6 migration preflight must not treat INTERNAL_RECORD form slots as missing formal batch record bindings.'
 )
 
 console.log('PASS role-matrix M6 migration preflight static contract')

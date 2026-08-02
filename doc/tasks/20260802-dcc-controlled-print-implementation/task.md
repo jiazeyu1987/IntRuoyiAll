@@ -10,6 +10,7 @@
 - 不修复其它 DCC 上传、升版、发布、审批、OnlyOffice、MES/eDHR 或非受控打印场景。
 - 不使用 admin 账号完成业务 E2E，不用 API-only/SQL 创建打印记录，不 mock 上传或打印成功。
 - 当前系统未发现独立受控打印审批链路；本任务按“直接受控打印 + 权限 + 水印 + 记录”补齐。若后续产品要求打印审批，需另立审批策略任务。
+- 2026-08-02 用户已授权处理阻塞 DCC 受控打印 E2E 的 SHOWROOM 审批适配器运行态注册问题；该修复仅限恢复当前本机 `int_main` 最新 jar 启动，不扩大到其它 SHOWROOM 业务场景。
 
 ## Milestones
 
@@ -18,8 +19,9 @@
 3. 写 RED：后端/数据库/前端最小契约证明缺少受控打印表、API、页面入口和字段。
 4. 实现最小正式链路：数据库记录、后端 API、权限、前端按钮/表单/记录展示/打印件受控信息。
 5. 运行 GREEN：后端定向测试、数据库/前端契约、类型检查或局部静态验证。
-6. 恢复本机运行态后跑真实 Playwright E2E：有权限打印、无权限阻断、只读 API/DB 核验。
-7. 更新 verification-report.md，并按 closeout 规则清理任务自有临时产物。
+6. 修复并验证 SHOWROOM 审批适配器运行态注册阻塞，使包含受控打印功能的新 jar 可在 `48081` 启动。
+7. 恢复本机运行态后跑真实 Playwright E2E：有权限打印、无权限阻断、只读 API/DB 核验。
+8. 更新 verification-report.md，并按 closeout 规则清理任务自有临时产物。
 
 ## BDD Scenarios
 
@@ -32,6 +34,8 @@ BDD: 必填信息缺失时不能生成打印记录 -> Given 用户打开受控�
 BDD: 无打印权限用户被阻断 -> Given 用户可登录但没有受控打印权限 When 用户进入同一 ACTIVE 文件的受控浏览或详情页 Then 受控打印入口不可用、隐藏或点击后明确权限拒绝 And 不生成打印记录。
 
 BDD: 打印动作可追溯 -> Given 用户已完成一次受控打印 When 审计人员查看打印记录或只读核验接口/数据库 Then 可看到打印记录 ID、文件编号、版本、份数、打印人、打印时间、审批状态或直接打印状态。
+
+BDD: SHOWROOM 审批适配器必须被正式注册 -> Given BPM 统一审批平台声明 SHOWROOM 模块必须接入 When 本机 `int_main` 后端启动并构建 `ApprovalTaskProviderRegistry` Then Spring 必须发现并注册 `ShowroomApprovalTaskAdapter` And `ApprovalModuleIntegrationGuard` 不再抛出 `APPROVAL_ADAPTER_DECLARED_BUT_NOT_REGISTERED: SHOWROOM`。
 
 ## Expected Verification
 
@@ -53,7 +57,14 @@ BDD: 打印动作可追溯 -> Given 用户已完成一次受控打印 When 审�
 
 ## Current Status
 
-in_progress
+blocked
+
+## Current Blocker
+
+- 2026-08-02 21:32，本任务最新 `yudao-server-exec.jar` 已包含 DCC 受控打印代码并完成生产打包，但加载到 `48081` 时被既有跨模块运行态校验阻断：`APPROVAL_ADAPTER_DECLARED_BUT_NOT_REGISTERED: SHOWROOM`。
+- 影响：当前无法在 `48081` 运行包含受控打印新入口/API 的后端 jar，因此不能继续执行真实 Playwright 受控打印 E2E；不得用旧 jar、API-only、SQL 或 admin 账号冒充受控打印通过。
+- 本机后台已恢复到旧可运行 jar `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260802-170535.jar`，`/actuator/health` 为 `UP`，但该旧 jar 不能作为本任务受控打印功能 E2E PASS 证据。
+- 2026-08-02 追加授权：允许在最小范围内修复 SHOWROOM 审批适配器注册/打包/启动根因，解除 DCC 受控打印 E2E 运行态阻塞。
 
 ## 设计约束检查
 

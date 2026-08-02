@@ -338,6 +338,16 @@
         title="发布动作状态加载失败"
         :description="activePublishActionError"
       />
+      <el-alert
+        v-if="manualReleasePermissionGapVisible"
+        class="mt-12px"
+        data-testid="dcc-manual-release-permission-gap"
+        :closable="false"
+        show-icon
+        type="warning"
+        title="待正式下发：当前账号缺少正式下发权限"
+        description="当前版本已进入待正式下发，但页面没有可用的正式下发动作。请为当前文控角色配置该文件类别的 DISTRIBUTE 分发规则和正式下发权限后再操作。"
+      />
       <div
         v-if="fileAccessExplanation"
         class="detail-access-explanation"
@@ -939,6 +949,27 @@
         <el-tag v-if="pendingTrainingAssignments.length" type="warning">
           当前用户待确认 {{ pendingTrainingAssignments.length }} 项
         </el-tag>
+      </div>
+      <div class="detail-training-overview" data-testid="dcc-detail-training-completion-overview">
+        <div class="detail-training-overview__item">
+          <div class="detail-training-overview__label">完成进度</div>
+          <div class="detail-training-overview__value">{{ trainingCompletionSummary.completionText }}</div>
+        </div>
+        <div class="detail-training-overview__item">
+          <div class="detail-training-overview__label">最近确认时间</div>
+          <div class="detail-training-overview__value">
+            {{ trainingCompletionSummary.latestAcknowledgedAtText }}
+          </div>
+        </div>
+        <div
+          class="detail-training-overview__item detail-training-overview__item--wide"
+          data-testid="dcc-detail-training-pending-users"
+        >
+          <div class="detail-training-overview__label">未完成人员</div>
+          <div class="detail-training-overview__value">
+            {{ trainingCompletionSummary.pendingNamesText }}
+          </div>
+        </div>
       </div>
       <el-table :data="flattenedTrainingAssignments" empty-text="当前版本暂无培训记录">
         <el-table-column label="部门" min-width="180">
@@ -2126,6 +2157,7 @@ import {
   getDetailStatusTagType,
   getDistributionRecipientSummary,
   getDistributionStatusLabel,
+  getDetailTrainingCompletionSummary,
   getDetailTrainingAssignmentSummary,
   getPendingTrainingAssignments,
   getControlledCopyHashStatusLabel,
@@ -3204,6 +3236,12 @@ const pendingTrainingAssignments = computed(() =>
 )
 const flattenedTrainingAssignments = computed(() =>
   flattenTrainingAssignments(fileDetail.value?.trainingStatuses)
+)
+const trainingCompletionSummary = computed(() =>
+  getDetailTrainingCompletionSummary(flattenedTrainingAssignments.value, userNameMap.value)
+)
+const manualReleasePermissionGapVisible = computed(
+  () => fileStatus.value === 'PENDING_MANUAL_DISTRIBUTION' && !detailActionState.value.canManualRelease
 )
 const distributionReceiptRows = computed(() =>
   paperDistributionRecords.value
@@ -5785,6 +5823,48 @@ watch(
   display: grid;
   gap: 6px;
   min-width: 0;
+}
+
+.detail-training-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.detail-training-overview__item {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.detail-training-overview__item--wide {
+  grid-column: span 2;
+}
+
+.detail-training-overview__label {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.detail-training-overview__value {
+  margin-top: 4px;
+  overflow: hidden;
+  color: #172033;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .detail-training-overview__item--wide {
+    grid-column: span 1;
+  }
 }
 
 .detail-training-summary__line {

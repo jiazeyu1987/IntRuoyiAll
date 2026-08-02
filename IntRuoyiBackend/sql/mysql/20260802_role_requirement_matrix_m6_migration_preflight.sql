@@ -71,6 +71,8 @@ BEGIN
         SELECT 1
         FROM `mes_pro_route_flow_process_batch_record`
         WHERE `deleted` = b'0'
+          AND `form_slot_type` = 'MAIN'
+          AND `record_category` = 'BATCH_RECORD'
           AND (`batch_record_report_id` IS NULL OR `batch_record_report_id` = '')
     ) THEN
         SIGNAL SQLSTATE '45000'

@@ -21,9 +21,9 @@
 
 ## Current Status
 
-test_server_replan_applied_code_release_pending
+test_server_replan_after_binding_verified
 
-用户已明确授权本轮绑定测试服路线工序并进行重排；仍不发布代码到服务器。写入范围限定为芋道源码租户下已核对可唯一匹配工作站的 `ROUTE-XLSX-00002` 路线工序。测试服真实后端重排接口已应用成功，6 个目标排产工单计划时间已更新，任务资源均落到有效工作站；但当前测试服工作站班时仍全部为 `10.50` 小时，未执行 7 小时 / 14 小时对照验收。
+用户再次要求绑定测试服当前 `ROUTE-XLSX-00002` 路线工序并执行重排。2026-08-02 21:10 只读复核显示该路线当前 26 道工序又全部处于未绑定工作站状态，且每道工序均可按相同 `process_id` 唯一匹配到一个有效工作站；候选工作站班时均为 `15.00` 小时。本轮仍不发布代码，写入范围限定为芋道源码租户 `tenant_id=1`、`ROUTE-XLSX-00002` 的 26 条未绑定路线工序。2026-08-02 21:13 已完成绑定并复核 `null_ws_count=0`、`distinct_ws_count=26`、`invalid_binding=0`；2026-08-02 21:26 已通过真实后端 `replan/preview` + `replan/apply` 执行重排，6 个目标排产工单完成时间均已提前，排产工单工序班时快照已刷新为 `15.00`。
 
 ## 设计约束检查
 
@@ -37,6 +37,7 @@ test_server_replan_applied_code_release_pending
 - 测试服验证必须通过真实页面或真实接口路径，不用 API-only 代替最终行为验收。
 - 涉及 SQL 前必须核对 schema 和目标租户，只读/写入结果均需记录证据。
 - 测试服数据写入前必须先备份待更新行，使用事务内精确行数断言；`ROUTE-XLSX-00001` 无可匹配工作站，不纳入本次绑定。
+- 本轮重复绑定前必须重新核对当前测试服真实数据，不复用历史“已绑定”结论；若候选工作站不是 26 个唯一匹配或班时缺失，则停止写入。
 
 ## Static Analysis Result
 
@@ -57,6 +58,7 @@ test_server_replan_applied_code_release_pending
 
 - 重排接口：`POST /admin-api/mes/pro/auto-schedule/replan/preview` 后携带 `calendarContextToken` 调用 `POST /admin-api/mes/pro/auto-schedule/replan/apply`。
 - 请求范围：排产工单 `127,128,129,130,131,136`，起始时间 `2026-08-03T00:00:00`，产能基准 `PLANNED`，保留手工/锁定任务。
-- 应用结果：`applied=true`，生成任务 640 个，删除旧任务 472 个，保留任务 4 个，阻塞问题 0 个，缺料提示 164 个。
-- 数据库复核：6 个目标排产工单计划开始/完成时间已更新；`mes_pro_task_schedule_ext` 关联任务全部有有效工作站，`null_task_ws_count=0`，`invalid_task_ws_count=0`，每个目标工单覆盖 26 个工作站。
-- 注意：`mes_pro_schedule_order_process` 的历史快照仍存在空/旧工作站字段，当前测试服已部署代码没有把路线工作站绑定回写到该快照表；真实排产任务已使用有效工作站。
+- 19:32 历史应用结果：`applied=true`，生成任务 640 个，删除旧任务 472 个，保留任务 4 个，阻塞问题 0 个，缺料提示 164 个。
+- 21:26 本轮应用结果：`applied=true`，生成任务 373 个，删除旧任务 472 个，保留任务 4 个，阻塞问题 0 个，预警 169 个。
+- 数据库复核：6 个目标排产工单计划开始/完成时间已更新；`mes_pro_schedule_order_process.shift_hours` 156 行已全部刷新为 `15.00`；`mes_pro_task_schedule_ext` 关联任务 377 个，任务工作站 `null_ws_count=0`。
+- 注意：`mes_pro_schedule_order_process` 的历史工作站快照仍存在空/旧工作站字段，当前测试服已部署代码没有把路线工作站绑定回写到该快照表；真实排产任务已使用有效工作站，计划完成时间已变化。

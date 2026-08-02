@@ -670,3 +670,69 @@
 - IMPLEMENTING: release-migration metadata 改为允许的 `type=config`，并显式依赖 `20260802_mes_pqc_inspection_task`、`20260802_mes_process_pool_active_order_transfer_trace`、`20260802_mes_process_pool_team_leader_scope_extended`，覆盖 M3/M4/M5 后置边界。
 - GREEN: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --sql-file <14-file M6 chain> --output doc\tasks\20260801-role-requirement-matrix-implementation\m6-migration-policy-gate.json` -> PASS，`migrationCount=14`，最后迁移为 `20260802_role_requirement_matrix_m6_migration_preflight`。
 - Decision: M6 迁移预检静态和 release policy gate 已 GREEN；真实数据库执行该预检仍属于 M6 后续验收，不在本切片标记为完成。
+
+## M6 - Migration Gate Report Sync Verification
+
+- IMPLEMENTING: 同步 `task-state.json`、`task.md`、`test-report.md` 和 `verification-report.md` 当前迁移预检结论：M6 migration static/policy gate 为 PARTIAL_GREEN，真实运行库预检执行仍待后续 M6 验收。
+- GREEN: JSON parse check -> PASS，`task-state.json`、`package.json`、`m6-migration-policy-gate.json` 和 `result.json` 均可 UTF-8 JSON 解析；policy gate 输出 `status=passed`，真实 E2E 结果仍为结构化 `BLOCKED`。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-matrix-migration-preflight:static` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: scoped `git diff --check` on M6 touched files -> PASS，仅输出 LF/CRLF 工作区提示，无 whitespace error。
+- Decision: 本切片不执行 `git push`，M6 继续保持 `in_progress`。
+
+## M6 - Migration Runtime Preflight Formal Batch-record Scope Fix
+
+- BDD: M6 migration preflight must separate formal batch records from form slots -> Given 路线工序同时存在正式批记录 MAIN/BATCH_RECORD 和 INTERNAL_RECORD 表单槽位 When M6 迁移预检检查批记录绑定 Then 只允许把 MAIN/BATCH_RECORD 的空 `batch_record_report_id` 作为正式批记录缺口，不能把 LOSS_REPORT / PROCESS_INSPECTION 内部记录槽位当成正式批记录缺失。
+- TEST_ADDED: `IntRuoyiFronted/tests/e2e/role-matrix-migration-preflight-static.spec.cjs` -> 增加 MAIN/BATCH_RECORD-only 正向断言和禁止全表空 `batch_record_report_id` 口径的负向断言。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-matrix-migration-preflight:static` -> FAIL，expected reason: 临时撤掉 SQL 的 `form_slot_type='MAIN'` / `record_category='BATCH_RECORD'` 过滤后，静态合同拒绝过宽批记录绑定预检口径。
+- RUNTIME_RED: authorized local DB execution of `20260802_role_requirement_matrix_m6_migration_preflight.sql` -> FAIL，expected reason: 真实运行库有 528 行空 `batch_record_report_id`，但只读诊断证明它们全部是 `LOSS_REPORT` / `PROCESS_INSPECTION` + `INTERNAL_RECORD` 表单槽位，不是正式 MAIN/BATCH_RECORD 批记录绑定缺失。
+- IMPLEMENTING: `20260802_role_requirement_matrix_m6_migration_preflight.sql` 将空 `batch_record_report_id` 检查收窄到 `form_slot_type='MAIN'` 且 `record_category='BATCH_RECORD'`；重复绑定检查原本已是正式口径，保持不变。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-matrix-migration-preflight:static` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: authorized local DB SQL preflight via `int-ruoyi-mysql` -> PASS，`leftover_procedure_count=0`，临时 `/tmp/rrm_m6_preflight.sql` 已清理。
+- GREEN: `run-release-migration-policy-gate.py` on the 14-file M6 migration chain -> PASS，`migrationCount=14`，`20260802_role_requirement_matrix_m6_migration_preflight` sha256 refreshed to `a4b225a7ef96e4281c63b90d344cb0ea1989ce6c9112a1f591a4d453d48f65bc`。
+- Decision: M6 迁移预检从 PARTIAL_GREEN 升级为 runtime GREEN；M6 仍保持 `in_progress`，因为 PQC personnel、activeOrder cleanup、并发、性能、全量真实 E2E 和 launch gate 尚未完成；本轮仍不执行 `git push`。
+
+## M6 - PQC Employee Scope Fixture And Actual Employee PASS
+
+- BDD: PQC actual employee source uses formal EMPLOYEE scope -> Given PQC 检验员使用共享账号 `shangmengying` 登录芋道源码 tenant 1 When `/pqc/personnel` 读取 PQC 员工/组长来源并在页面切换实际检验人 Then 候选必须来自正式 `mes_pro_process_pool_team_leader_scope`，`actualEmployeeId` 必须可切换到不同于登录人的正式候选，不能默认使用登录用户。
+- RED: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` before fixture -> STRUCTURED_BLOCKED，expected reason: `pqcActualEmployeeSelected=BLOCKED/E2E_PQC_PERSONNEL`，`/pqc/personnel` 返回业务码 `1040760117`，PQC 员工和 PQC 组长来源为空。
+- SCHEMA_EVIDENCE: `mes_pro_process_pool_team_leader_scope` confirmed fields `leader_user_id / leader_type / scope_type / employee_user_id / enabled / tenant_id / deleted`; `MesFrontlinePqcContextServiceImpl#listPqcEmployeeCandidates` reads `leader_type=PQC` scopes and includes both leader user ids and `EMPLOYEE` employee user ids.
+- IMPLEMENTING: 新增并执行 `m6-pqc-employee-scope-local-seed.sql`，只在授权本地 tenant 1 写入 task-owned scope：`leaderUserId=512 (huzonggang)`、`scopeType=EMPLOYEE`、`employeeUserId=659 (shangmengying)`，remark 标记 `RRM M6 local E2E fixture`。
+- GREEN: local DB seed execution -> PASS，最终行 `id=980013 / tenant_id=1 / leader_type=PQC / scope_type=EMPLOYEE / employee_user_id=659 / enabled=1`，临时容器 SQL 文件已清理，`leftover_seed_procedure_count=0`。
+- GREEN: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> PASS，0 SOURCE / 0 ENV / 0 RUNTIME blocker after setting required QA regulation version env and restoring 48081 health.
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` -> STRUCTURED_BLOCKED，exit 2；`pqcActualEmployeeSelected=PASS`，`loginUserId=659`、`actualEmployeeId=512`、`candidateCount=2`、`employeeLabel=胡宗港`，overall blockers reduced from 64 to 63 and only cleanup/coverage blockers remain.
+- RUNTIME_NOTE: latest `backend-runtime-control-20260802-205036.jar` was not used because startup failed on unrelated corrupted `MesProProcessPoolTimelineReadMapper.xml` package resource (`前言中不允许有内容`); 48081 verification used previously M6-verified `backend-runtime-control-20260802-170535.jar`, and no backend code changed in this slice.
+- Decision: D25 `E2E_PQC_PERSONNEL` blocker is resolved; M6 remains `in_progress` because `activeOrderCleanupDeferred` plus full AC coverage, concurrency, performance and launch gates remain open;本轮仍不执行 `git push`。
+
+## M6 - Concurrency And Performance Gate Ledger
+
+- BDD: M6 concurrency and performance gates must be explicit -> Given M6 still has CONC/PERF acceptance rows after AC-M04 partial proof When full real E2E cannot yet complete every concurrent terminal state or pagination/index proof Then the script must derive CONC/PERF rows from the 62 AC matrix and emit explicit gate blockers, not hide them inside generic coverage blockers or mark them accepted.
+- TEST_ADDED: `role-requirement-matrix-preflight-static.spec.cjs` -> requires `buildM6ConcurrencyPerformanceGateEvidence`, `buildGateBlockers`, `m6ConcurrencyGateDeferred`, `m6PerformanceGateDeferred`, `E2E_CONCURRENCY`, `E2E_PERFORMANCE`, and `gateEvidence`.
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> FAIL，expected reason: `role-requirement-matrix-real-flow.e2e.js` lacked `buildM6ConcurrencyPerformanceGateEvidence`.
+- IMPLEMENTING: `role-requirement-matrix-real-flow.e2e.js` now derives CONC/PERF acceptance IDs from `test-plan.md`, writes `gateEvidence`, maps gate blockers separately from action blockers, and records `m6ConcurrencyGateDeferred` / `m6PerformanceGateDeferred`; PQC cross-role read-only verification was stabilized to use the real logged-in page context plus formal read-only endpoints after two transient network wait REDs.
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS.
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS.
+- RED_RUNTIME: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` first retry -> STRUCTURED_BLOCKED，expected reason: current shell initially lacked `RRM_*` env and then full run hit transient login/list wait timeouts; direct backend health, frontend login page, and releaseOwner API login diagnostics passed, so this was not recorded as production-code completion evidence.
+- GREEN: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` with task-owned env -> PASS，0 SOURCE / 0 ENV / 0 RUNTIME.
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` after concurrency/performance gate ledger -> STRUCTURED_BLOCKED，exit 2；`phaseEvidence=6`、`actionEvidence=7`、`gateEvidence=2`、`actionObserved=8`、`surfaceObserved=33`、`uncovered=21`、`pending=62`、`blockers=65`；`m6ConcurrencyGateDeferred` covers 12 CONC AC and `m6PerformanceGateDeferred` covers 4 PERF AC.
+- Decision: M6 gate blockers are now explicit and auditable; M6 remains `in_progress` because cleanup, all 62 AC full real actions/failure paths, the 12 CONC AC and 4 PERF AC still require formal proof;本轮仍不执行 `git push`。
+
+## M6 - AC-D27 PQC Piece Detail Quantity Evidence
+
+- BDD: AC-D27 PQC piece detail quantity from planned task -> Given PQC 页面已按同一 activeOrderId 读取正式 QA 规程和 PQC task plannedInspectionQuantity When 检验员打开逐件检验弹窗 Then 页面必须准备与正式计划检验数量一致的逐件行，不能使用默认 30、空行或整批结果替代逐件明细。
+- TEST_ADDED: `role-requirement-matrix-preflight-static.spec.cjs` -> 要求真实 E2E 脚本包含 `verifyPqcPieceDetailQuantityPrepared` 和 `pqcPieceDetailQuantityPrepared`，防止 AC-D27 只停留在 PQC 页面入口观察。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> FAIL，expected reason: `role-requirement-matrix-real-flow.e2e.js` 缺少 `verifyPqcPieceDetailQuantityPrepared`。
+- IMPLEMENTING: `role-requirement-matrix-real-flow.e2e.js` 新增只读页面动作 `verifyPqcPieceDetailQuantityPrepared`；该动作复用 `pqcRegulationItemsRendered` 的计划数量证据，打开真实 PQC 逐件弹窗，断言检验数量输入值来自 plannedInspectionQuantity，弹窗标题和 `.frontline-pqc-piece-row` 行数均等于该数量，不提交 PQC 数据。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> PASS，0 SOURCE / 0 ENV / 0 RUNTIME。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` after AC-D27 piece detail action -> STRUCTURED_BLOCKED，exit 2；`phaseEvidence=6`、`actionEvidence=8`、`gateEvidence=2`、`actionObserved=9`、`surfaceObserved=32`、`uncovered=21`、`pending=62`、`blockers=65`；`pqcPieceDetailQuantityPrepared=PASS`，`plannedQuantities=[15]`，`uiQuantity=15`，`pieceRowCount=15`，`m6PerformanceGateDeferred` 已记录 observed PERF AC=`AC-D27`。
+- Decision: AC-D27 已新增真实页面逐件数量动作证据，但仍未 `ACCEPTED`；还缺逐件提交后的只读明细还原、失败路径、签名/复核、完整 N+1/查询计数证明和 M6 清理/上线门禁。本轮仍不执行 `git push`。
+
+## M6 - AC-D32 PQC Leader Submission Filter And Pagination
+
+- BDD: AC-D32 PQC leader submission filtering and pagination consistency -> Given PQC 组长在芋道源码 tenant 1 打开球囊扩张压力泵 V21 提交看板 When 按订单、产品、工序、检验类型、轮次、人员、日期和复核状态筛选并翻页 Then 列表只返回匹配行，分页 total 与 page 明细使用同一主提交事件口径，不能因一对多 PQC task/review JOIN 出现重复行、总数漂移或越权数据。
+- TEST_ADDED: `role-requirement-matrix-preflight-static.spec.cjs` -> 要求真实 E2E 脚本包含 `verifyPqcLeaderSubmissionFilterPaginationConsistency` 和 `pqcLeaderSubmissionFilterPaginationConsistent`，防止 AC-D32 只停留在看板入口观察。
+- TEST_ADDED: `process-pool-timeline-mapper-static.spec.cjs` -> 要求提交看板 mapper 读取产品和 PQC task 正式字段，且使用 `pqcTaskId` 精确关联，避免粗粒度一对多 JOIN 放大分页。
+- TEST_ADDED: `ProcessPoolTimelineFilterTest` -> 新增 AC-D32 过滤分页单测，使用 pageSize=1 验证 total 与第 1/2 页明细一致。

@@ -67,6 +67,15 @@ export interface DetailTrainingAssignmentSummary {
   acknowledgedAtText: string
 }
 
+export interface DetailTrainingCompletionSummary {
+  totalCount: number
+  completedCount: number
+  pendingCount: number
+  completionText: string
+  pendingNamesText: string
+  latestAcknowledgedAtText: string
+}
+
 interface DetailLifecycleTimelineContext {
   userNameMap: Map<number, string>
   deptNameMap: Map<number, string>
@@ -397,6 +406,31 @@ export const getTrainingAssignmentUserSummary = (
   userNameMap: Map<number, string>
 ) => {
   return userNameMap.get(assignment.userId) || `用户#${assignment.userId}`
+}
+
+export const getDetailTrainingCompletionSummary = (
+  rows: TrainingAssignmentRow[],
+  userNameMap: Map<number, string>
+): DetailTrainingCompletionSummary => {
+  const totalCount = rows.length
+  const completedRows = rows.filter((row) => row.status === 'ACKNOWLEDGED' || Boolean(row.acknowledgedAt))
+  const pendingRows = rows.filter((row) => row.status !== 'ACKNOWLEDGED' && !row.acknowledgedAt)
+  const latestAcknowledgedAt = completedRows
+    .map((row) => getDetailDateSortValue(row.acknowledgedAt))
+    .filter((value): value is number => value !== undefined)
+    .sort((left, right) => right - left)[0]
+  return {
+    totalCount,
+    completedCount: completedRows.length,
+    pendingCount: pendingRows.length,
+    completionText: totalCount ? `${completedRows.length}/${totalCount} 已完成` : '暂无培训对象',
+    pendingNamesText: pendingRows.length
+      ? pendingRows.map((row) => getTrainingAssignmentUserSummary(row, userNameMap)).join('、')
+      : '无未完成人员',
+    latestAcknowledgedAtText: latestAcknowledgedAt
+      ? formatControlledFileDateTime(latestAcknowledgedAt)
+      : '-'
+  }
 }
 
 export const getSignatureActorSummary = (

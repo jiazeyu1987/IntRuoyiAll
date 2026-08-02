@@ -135,6 +135,7 @@
     "e2e:dcc:detail-signature-view-mode:static": "node tests/e2e/dcc-detail-signature-view-mode-static.spec.js",
     "e2e:dcc:detail-distribution-summary:static": "node tests/e2e/dcc-detail-distribution-summary-static.spec.js",
     "e2e:dcc:detail-training-summary:static": "node tests/e2e/dcc-detail-training-summary-static.spec.js",
+    "e2e:dcc:training-ux-prechecks:static": "node tests/e2e/dcc-training-ux-prechecks-static.spec.cjs",
     "e2e:dcc:access-rule-permission-summary:static": "node tests/e2e/dcc-access-rule-permission-summary-static.spec.js",
     "e2e:dcc:access-rule-bound-directory-list:static": "node tests/e2e/dcc-access-rule-bound-directory-list-static.spec.js",
     "e2e:dcc:access-rule-menu-retire:static": "node tests/e2e/dcc-access-rule-menu-retire-static.spec.js",

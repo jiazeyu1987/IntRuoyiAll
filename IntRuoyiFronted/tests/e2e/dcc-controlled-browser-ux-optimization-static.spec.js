@@ -3,9 +3,10 @@ const path = require('node:path')
 const assert = require('node:assert/strict')
 
 const repoRoot = path.resolve(__dirname, '..', '..')
+const workspaceRoot = path.resolve(repoRoot, '..')
 
-const readSource = (relativePath) => {
-  const absolutePath = path.join(repoRoot, relativePath)
+const readSource = (relativePath, root = repoRoot) => {
+  const absolutePath = path.join(root, relativePath)
   assert.equal(fs.existsSync(absolutePath), true, `missing required file: ${relativePath}`)
   return fs.readFileSync(absolutePath, 'utf8').replace(/\r\n/g, '\n')
 }
@@ -22,6 +23,10 @@ const browserPage = readSource('src/views/dcc/controlled-file/browser/index.vue'
 const browserPresentation = readSource('src/views/dcc/controlled-file/browser/presentation.ts')
 const detailPage = readSource('src/views/dcc/controlled-file/detail/index.vue')
 const uploadPage = readSource('src/views/dcc/controlled-file/upload/index.vue')
+const queryService = readSource(
+  'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java',
+  workspaceRoot
+)
 
 for (const token of [
   'data-testid="dcc-controlled-browser-filter-summary"',
@@ -44,6 +49,19 @@ for (const token of [
 }
 for (const actionLabel of ['预览当前有效版', '查看版本追溯', '查看签核证据']) {
   assert.match(tableTemplate, new RegExp(actionLabel), `browser row action must use explicit label: ${actionLabel}`)
+}
+const fileNumberColumn = extractBetween(
+  browserPage,
+  'prop="fileNumber"',
+  '<el-table-column\n            v-if="isDccBrowserColumnVisible(\'directory\')"',
+  'browser file number column'
+)
+for (const token of ['版本号', '目录路径', '发布文件', '盖章文件', 'currentVersionSource']) {
+  assert.match(
+    fileNumberColumn,
+    new RegExp(token),
+    `file number column must keep current-active metadata visible when optional columns are hidden: ${token}`
+  )
 }
 assert.match(
   browserPresentation,
@@ -76,6 +94,32 @@ assert.match(
   /getBrowserCurrentVersionSourceText\(selectedVersion\)/,
   'browser current active row summary must read current version source from selected current version'
 )
+const currentVersionOptionBlock = extractBetween(
+  browserPage,
+  'const buildCurrentVersionOption = (row: ControlledFileVO): ControlledFileBrowserVersion => ({',
+  'const getVersionOptions',
+  'browser current version option'
+)
+for (const field of ['publishedFileId', 'stampedFileId', 'currentActiveVersionNo']) {
+  assert.match(
+    currentVersionOptionBlock,
+    new RegExp(`${field}: row\\.${field}`),
+    `browser current version option must carry ${field} from browser-page row`
+  )
+}
+const browserRespBlock = extractBetween(
+  queryService,
+  'private DccControlledFileRespVO toBrowserRespVO(Long userId, DccControlledFileDO file,',
+  'private DccControlledFileActionProjectionRespVO buildActionProjection',
+  'backend controlled browser response projection'
+)
+for (const field of ['PublishedFileId', 'StampedFileId', 'CurrentActiveVersionNo']) {
+  assert.match(
+    browserRespBlock,
+    new RegExp(`respVO\\.set${field}\\(`),
+    `backend browser-page response must project ${field}`
+  )
+}
 assert.match(
   browserPage,
   /data-testid="dcc-browser-permission-empty-state"/,

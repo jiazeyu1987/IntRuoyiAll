@@ -13,6 +13,9 @@ public class DccControlledFileVersionHistoryRespVO {
     private String fileNumber;
     private String versionNo;
     private String status;
+    private Long publishedFileId;
+    private Long stampedFileId;
+    private String currentActiveVersionNo;
     private LocalDate effectiveDate;
     private LocalDateTime publishedTime;
     private LocalDateTime obsoletedTime;

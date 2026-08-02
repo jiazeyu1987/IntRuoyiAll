@@ -1,18 +1,18 @@
 {
-  "runId": "20260802202300",
-  "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802202300",
-  "fileName": "Codex DCC 升版发布全链路 20260802202300",
+  "runId": "20260802222723",
+  "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802222723",
+  "fileName": "Codex DCC 升版发布全链路 20260802222723",
   "baseUrl": "http://127.0.0.1:8081",
   "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "v1FilePath": "E:\\IntRuoyi\\resource\\批记录节点-解析样本.docx",
   "v2FilePath": "E:\\IntRuoyi\\resource\\过程检验记录.docx",
   "stampedPdfPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-revision-publish-real-e2e\\stamped-approval-sample.pdf",
-  "startedAt": "2026-08-02T12:23:01.251Z",
+  "startedAt": "2026-08-02T14:27:24.165Z",
   "phases": [
     {
       "phase": "upload-V1.0",
       "username": "pengyunfeng",
-      "controlledFileId": "2054545668044070303",
+      "controlledFileId": "2054545668044070307",
       "previewFileName": "批记录节点-解析样本.docx",
       "previewKind": "OFFICE"
     },
@@ -21,6 +21,122 @@
       "username": "zhaohaichen",
       "role": "文控审核",
       "userId": 376
+    },
+    {
+      "phase": "approve-V1.0",
+      "username": "zhaojie",
+      "role": "会签审核",
+      "userId": 1074
+    },
+    {
+      "phase": "approve-V1.0",
+      "username": "zhaomingyu",
+      "role": "会签批准",
+      "userId": 424
+    },
+    {
+      "phase": "approve-V1.0",
+      "username": "wangsiyu",
+      "role": "文控批准",
+      "userId": 910250
+    },
+    {
+      "phase": "upload-V2.0",
+      "username": "pengyunfeng",
+      "controlledFileId": "2054545668044070308",
+      "previewFileName": "过程检验记录.docx",
+      "previewKind": "OFFICE"
+    },
+    {
+      "phase": "approve-V2.0",
+      "username": "zhaohaichen",
+      "role": "文控审核",
+      "userId": 376
+    },
+    {
+      "phase": "approve-V2.0",
+      "username": "zhaojie",
+      "role": "会签审核",
+      "userId": 1074
+    },
+    {
+      "phase": "approve-V2.0",
+      "username": "zhaomingyu",
+      "role": "会签批准",
+      "userId": 424
+    },
+    {
+      "phase": "approve-V2.0",
+      "username": "wangsiyu",
+      "role": "文控批准",
+      "userId": 910250
+    },
+    {
+      "phase": "publish-submit",
+      "username": "wangsiyu",
+      "userId": 910250,
+      "controlledFileId": "2054545668044070308",
+      "formInstanceId": "442",
+      "bpmProcessInstanceId": "76f6dfd2-8e7e-11f1-aa29-00155d2984a0"
+    },
+    {
+      "phase": "publish-approve",
+      "username": "zhaohaichen",
+      "role": "文控审核",
+      "userId": 376,
+      "bpmProcessInstanceId": "76f6dfd2-8e7e-11f1-aa29-00155d2984a0",
+      "bpmTaskId": "76f70700-8e7e-11f1-aa29-00155d2984a0",
+      "selectedNextApprover": {
+        "username": "zhaojie",
+        "userId": 1074,
+        "nickname": "赵杰"
+      },
+      "bpmSignatureUploaded": false
+    },
+    {
+      "phase": "publish-approve",
+      "username": "zhaojie",
+      "role": "会签审核",
+      "userId": 1074,
+      "bpmProcessInstanceId": "76f6dfd2-8e7e-11f1-aa29-00155d2984a0",
+      "bpmTaskId": "7dc51fc3-8e7e-11f1-aa29-00155d2984a0",
+      "selectedNextApprover": {
+        "username": "zhaomingyu",
+        "userId": 424,
+        "nickname": "赵明玉"
+      },
+      "bpmSignatureUploaded": false
+    },
+    {
+      "phase": "publish-approve",
+      "username": "zhaomingyu",
+      "role": "会签批准",
+      "userId": 424,
+      "bpmProcessInstanceId": "76f6dfd2-8e7e-11f1-aa29-00155d2984a0",
+      "bpmTaskId": "96521043-8e7e-11f1-aa29-00155d2984a0",
+      "selectedNextApprover": {
+        "username": "wangsiyu",
+        "userId": 910250,
+        "nickname": "王思雨"
+      },
+      "bpmSignatureUploaded": false
+    },
+    {
+      "phase": "publish-approve",
+      "username": "wangsiyu",
+      "role": "文控批准",
+      "userId": 910250,
+      "bpmProcessInstanceId": "76f6dfd2-8e7e-11f1-aa29-00155d2984a0",
+      "bpmTaskId": "aeb95149-8e7e-11f1-aa29-00155d2984a0",
+      "selectedNextApprover": null,
+      "bpmSignatureUploaded": false
+    },
+    {
+      "phase": "final-db-verification",
+      "v1Status": "SUPERSEDED",
+      "v2Status": "ACTIVE",
+      "currentActiveControlledFileId": "2054545668044070308",
+      "publishInstanceStatus": "EFFECTIVE"
     }
   ],
   "targetNetworkFailures": [],
@@ -69,7 +185,56 @@
     "v2": 74170,
     "stampedPdf": 658
   },
-  "finishedAt": "2026-08-02T12:24:35.664Z",
-  "status": "BLOCKED",
-  "blocker": "response.text: Protocol error (Network.getResponseBody): No resource with given identifier found"
+  "databaseState": {
+    "files": [
+      {
+        "id": "2054545668044070307",
+        "status": "SUPERSEDED",
+        "masterId": "2054545668044062911",
+        "versionNo": "V1.0",
+        "changeType": "NEW",
+        "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802222723",
+        "approvedTime": "2026-08-02 22:28:00",
+        "publishedTime": "2026-08-02 22:28:00",
+        "stampedFileId": "9198354916370",
+        "publishedFileId": "9198354916370",
+        "processInstanceId": "4d0a25b0-8e7e-11f1-aa29-00155d2984a0"
+      },
+      {
+        "id": "2054545668044070308",
+        "status": "ACTIVE",
+        "masterId": "2054545668044062911",
+        "versionNo": "V2.0",
+        "changeType": "REVISION",
+        "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802222723",
+        "approvedTime": "2026-08-02 22:31:27",
+        "publishedTime": "2026-08-02 22:31:27",
+        "stampedFileId": "9198354916370",
+        "publishedFileId": "9198354916370",
+        "processInstanceId": "6354eeb1-8e7e-11f1-aa29-00155d2984a0"
+      }
+    ],
+    "master": {
+      "id": "2054545668044062911",
+      "status": "ACTIVE_CHAIN",
+      "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802222723",
+      "currentActiveControlledFileId": "2054545668044070308"
+    },
+    "publishInstance": {
+      "id": "442",
+      "status": "EFFECTIVE",
+      "objectId": "2054545668044070308",
+      "instanceCode": "FCI-1-1785680923772",
+      "objectVersion": "V2.0",
+      "bpmProcessInstanceId": "76f6dfd2-8e7e-11f1-aa29-00155d2984a0"
+    },
+    "uploadApprovalTaskCount": 8,
+    "publishApprovalTaskCount": 4
+  },
+  "v1ControlledFileId": "2054545668044070307",
+  "v2ControlledFileId": "2054545668044070308",
+  "publishFormInstanceId": "442",
+  "publishBpmProcessInstanceId": "76f6dfd2-8e7e-11f1-aa29-00155d2984a0",
+  "finishedAt": "2026-08-02T14:31:57.155Z",
+  "status": "PASS"
 }

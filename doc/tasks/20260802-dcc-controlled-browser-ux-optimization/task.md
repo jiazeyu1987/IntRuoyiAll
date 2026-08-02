@@ -13,10 +13,10 @@
 ## Milestones
 
 1. `completed` - 读取项目规则、技能规则、经验索引和适用门禁。
-2. `in_progress` - 建立 BDD/TDD 任务记录并冻结 RED 静态契约。
-3. `pending` - 实现受控浏览列表、预览、无权限反馈、路径定位、入口文案和上传/审批闭环提示。
-4. `pending` - 运行定向静态合同、类型检查和真实 Playwright E2E。
-5. `pending` - 更新验证报告、记录 PASS/BLOCKED 和收尾状态。
+2. `completed` - 建立 BDD/TDD 任务记录并冻结 RED 静态契约。
+3. `completed` - 实现受控浏览列表、预览、无权限反馈、路径定位、入口文案和上传/审批闭环提示。
+4. `blocked` - 运行定向静态合同、类型检查和真实 Playwright E2E；静态合同与类型检查 PASS，真实 E2E 被后端运行态阻塞。
+5. `completed` - 更新验证报告、记录 PASS/BLOCKED 和收尾状态。
 
 ## Expected Verification
 
@@ -44,4 +44,8 @@
 
 ## Current Status
 
-`in_progress`
+`blocked`
+
+## Current Blocker
+
+- `2026-08-02 21:35 +08:00`: 前端优化和定向静态/类型验证已完成，但重新加载新构建后端 jar 后，`48081` 启动失败并退出，日志报 `APPROVAL_ADAPTER_DECLARED_BUT_NOT_REGISTERED: SHOWROOM`。该 blocker 属于非 DCC 受控浏览场景的后端运行态问题；按用户要求未使用旧 jar、admin、API-only 或 SQL 改状态绕过，因此真实 Playwright E2E 只能记录 BLOCKED。

@@ -287,34 +287,49 @@
             v-bind="sortColumnAttrs('fileNumber')"
           >
             <template #default="{ row }">
-              <div
-                v-if="getSelectedVersion(row).fileNumber"
-                class="browser-file-number-cell"
-              >
-                <el-tooltip :content="`查看版本追溯：${getSelectedVersion(row).fileNumber}`" placement="top">
-                  <el-button
-                    class="browser-file-number browser-file-number--link"
-                    data-testid="dcc-browser-file-number-detail-link"
-                    link
-                    type="primary"
-                    @click="openDetail(getSelectedVersion(row).id)"
-                  >
-                    {{ getSelectedVersion(row).fileNumber }}
-                  </el-button>
-                </el-tooltip>
-                <el-tooltip content="复制文件编号" placement="top">
-                  <el-button
-                    class="browser-file-number-copy"
-                    data-testid="dcc-browser-file-number-copy"
-                    link
-                    type="primary"
-                    @click.stop="copyFileNumber(getSelectedVersion(row).fileNumber)"
-                  >
-                    <Icon icon="ep:copy-document" />
-                  </el-button>
-                </el-tooltip>
+              <div class="browser-file-number-wrapper">
+                <div
+                  v-if="getSelectedVersion(row).fileNumber"
+                  class="browser-file-number-cell"
+                >
+                  <el-tooltip :content="`查看版本追溯：${getSelectedVersion(row).fileNumber}`" placement="top">
+                    <el-button
+                      class="browser-file-number browser-file-number--link"
+                      data-testid="dcc-browser-file-number-detail-link"
+                      link
+                      type="primary"
+                      @click="openDetail(getSelectedVersion(row).id)"
+                    >
+                      {{ getSelectedVersion(row).fileNumber }}
+                    </el-button>
+                  </el-tooltip>
+                  <el-tooltip content="复制文件编号" placement="top">
+                    <el-button
+                      class="browser-file-number-copy"
+                      data-testid="dcc-browser-file-number-copy"
+                      link
+                      type="primary"
+                      @click.stop="copyFileNumber(getSelectedVersion(row).fileNumber)"
+                    >
+                      <Icon icon="ep:copy-document" />
+                    </el-button>
+                  </el-tooltip>
+                </div>
+                <span v-else class="browser-file-number">-</span>
+                <div
+                  v-for="metadata in [getBrowserCurrentActiveRowSummary(row)]"
+                  :key="`file-number-${metadata.versionNo}-${metadata.directoryPath}`"
+                  class="browser-current-active-row-summary browser-current-active-row-summary--file-number"
+                  data-testid="dcc-browser-file-number-current-active-summary"
+                >
+                  <el-tag size="small" type="success" effect="dark">当前有效版</el-tag>
+                  <span>版本号：{{ metadata.versionNo }}</span>
+                  <span>目录路径：{{ metadata.directoryPath }}</span>
+                  <span>发布文件：{{ metadata.publishedFileStatus }}</span>
+                  <span>盖章文件：{{ metadata.stampedFileStatus }}</span>
+                  <span>{{ metadata.currentVersionSource }}</span>
+                </div>
               </div>
-              <span v-else class="browser-file-number">-</span>
             </template>
           </el-table-column>
           <el-table-column
@@ -993,7 +1008,7 @@ const dccBrowserDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'directory', label: '所在目录', minWidth: 220, visible: false },
   { key: 'productName', label: '产品名称', minWidth: 150, visible: false },
   { key: 'category', label: '类别', minWidth: 160, visible: false },
-  { key: 'versionSummary', label: '版本摘要', minWidth: 310, visible: false },
+  { key: 'versionSummary', label: '版本摘要', minWidth: 310 },
   { key: 'remark', label: '备注', minWidth: 220, visible: false },
   { key: 'operation', label: '操作', width: 320, hideable: false, business: false }
 ]
@@ -1119,7 +1134,16 @@ type ControlledFileBrowserRow = ControlledFileVO & {
 }
 
 type ControlledFileBrowserVersion = ControlledFileVersionHistoryVO &
-  Pick<ControlledFileVO, 'actionProjection' | 'canPreview' | 'canDownload' | 'canPrint'>
+  Pick<
+    ControlledFileVO,
+    | 'actionProjection'
+    | 'canPreview'
+    | 'canDownload'
+    | 'canPrint'
+    | 'publishedFileId'
+    | 'stampedFileId'
+    | 'currentActiveVersionNo'
+  >
 
 type ControlledFileDirectoryNode = ControlledFileDirectoryVO & {
   leaf?: boolean
@@ -1352,6 +1376,9 @@ const buildCurrentVersionOption = (row: ControlledFileVO): ControlledFileBrowser
   fileNumber: row.fileNumber || '',
   versionNo: row.versionNo,
   status: row.status,
+  publishedFileId: row.publishedFileId,
+  stampedFileId: row.stampedFileId,
+  currentActiveVersionNo: row.currentActiveVersionNo,
   effectiveDate: row.effectiveDate,
   publishedTime: row.publishedTime,
   obsoletedTime: row.obsoletedTime,
@@ -1416,7 +1443,7 @@ const getBrowserCurrentActiveRowSummary = (row: ControlledFileBrowserRow) => {
   const selectedVersion = getSelectedVersion(row)
   return {
     versionNo: selectedVersion.versionNo || row.versionNo || '-',
-    directoryPath: getBrowserDirectoryPath(selectedVersion.directoryId || row.directoryId),
+    directoryPath: getBrowserDirectoryPath(row.directoryId),
     publishedFileStatus: getBrowserPublishedFileStatusText(selectedVersion),
     stampedFileStatus: getBrowserStampedFileStatusText(selectedVersion),
     currentVersionSource: getBrowserCurrentVersionSourceText(selectedVersion)
@@ -3127,6 +3154,14 @@ onBeforeUnmount(() => {
   gap: 4px;
 }
 
+.browser-file-number-wrapper {
+  display: flex;
+  max-width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .browser-file-number {
   display: inline-block;
   max-width: 100%;
@@ -3143,6 +3178,10 @@ onBeforeUnmount(() => {
 .browser-file-number-copy {
   flex: 0 0 auto;
   padding: 0 2px;
+}
+
+.browser-current-active-row-summary--file-number {
+  margin-top: 0;
 }
 
 .browser-version-summary {

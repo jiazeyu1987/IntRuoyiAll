@@ -961,6 +961,62 @@ function buildActionBlockers(actionEvidence) {
     }))
 }
 
+function acceptanceIdsByLayer(acceptanceMatrix, layer) {
+  return acceptanceMatrix
+    .filter((row) => row.layers.split('、').map((item) => item.trim()).includes(layer))
+    .map((row) => row.ac)
+}
+
+function buildM6ConcurrencyPerformanceGateEvidence(acceptanceMatrix, actionEvidence) {
+  const concurrencyAcceptanceIds = acceptanceIdsByLayer(acceptanceMatrix, 'CONC')
+  const performanceAcceptanceIds = acceptanceIdsByLayer(acceptanceMatrix, 'PERF')
+  const activeOrderActionKeys = actionEvidence
+    .filter((action) => action.status === 'PASS'
+      && ['joinActiveOrder', 'activeOrderConflictRouteRejected', 'activeOrderCrossRoleReadOnly'].includes(action.key))
+    .map((action) => action.key)
+  const performanceActions = actionEvidence
+    .filter((action) => action.status === 'PASS'
+      && (action.acceptanceIds || []).some((ac) => performanceAcceptanceIds.includes(ac)))
+  const performanceActionKeys = performanceActions.map((action) => action.key)
+  const observedPerformanceAcceptanceIds = [
+    ...new Set(performanceActions.flatMap((action) => action.acceptanceIds || []))
+  ].filter((ac) => performanceAcceptanceIds.includes(ac))
+
+  return [
+    {
+      key: 'm6ConcurrencyGateDeferred',
+      label: 'M6 并发门禁结构化',
+      roleKey: 'system',
+      status: 'BLOCKED',
+      category: 'E2E_CONCURRENCY',
+      acceptanceIds: concurrencyAcceptanceIds,
+      observedActionKeys: activeOrderActionKeys,
+      description: `测试矩阵中 ${concurrencyAcceptanceIds.length} 个 CONC AC 仍需逐项完成真实并发或服务级并发证据；当前仅 AC-M04 已有活跃订单重复/冲突/跨角色动作和后端唯一键并发回归，不能替代报工分配、PQC 提交/确认、过程检验、放行和批记录回填并发门禁。`
+    },
+    {
+      key: 'm6PerformanceGateDeferred',
+      label: 'M6 性能门禁结构化',
+      roleKey: 'system',
+      status: 'BLOCKED',
+      category: 'E2E_PERFORMANCE',
+      acceptanceIds: performanceAcceptanceIds,
+      observedActionKeys: performanceActionKeys,
+      observedAcceptanceIds: observedPerformanceAcceptanceIds,
+      description: `测试矩阵中 ${performanceAcceptanceIds.length} 个 PERF AC 仍需分页总数、索引或查询计数证据；当前已观察 ${observedPerformanceAcceptanceIds.length} 个 PERF AC（${observedPerformanceAcceptanceIds.join(', ') || '无'}），尚未完成日结、PQC 列表和逐件明细的完整 N+1 或分页漂移证明。`
+    }
+  ]
+}
+
+function buildGateBlockers(gateEvidence) {
+  return gateEvidence
+    .filter((gate) => gate.status === 'BLOCKED')
+    .map((gate) => ({
+      key: gate.key,
+      category: gate.category,
+      description: gate.description
+    }))
+}
+
 function redactConfig(config) {
   const redacted = {
     frontendUrl: config.frontendUrl,
@@ -1024,6 +1080,12 @@ function writeEvidence(result) {
     lines.push('', '## Action Evidence', '')
     for (const action of result.actionEvidence) {
       lines.push(`- ${action.status}: ${action.key} -> ${action.label}; role=${action.roleKey}; acceptance=${action.acceptanceIds.join(', ')}`)
+    }
+  }
+  if (Array.isArray(result.gateEvidence) && result.gateEvidence.length) {
+    lines.push('', '## Gate Evidence', '')
+    for (const gate of result.gateEvidence) {
+      lines.push(`- ${gate.status}: ${gate.key} -> ${gate.label}; category=${gate.category}; acceptance=${gate.acceptanceIds.join(', ') || '--'}`)
     }
   }
   if (result.acceptanceCoverage) {
@@ -1357,40 +1419,14 @@ async function verifyPqcActiveOrderReadOnly(page, config, actionEvidence) {
   const targetUrl = new URL('/mes/pro/feedback/edhr-batch-pqc-fill', config.frontendUrl)
   targetUrl.searchParams.set('workOrderId', String(config.workOrderId))
   targetUrl.searchParams.set('routeId', String(config.routeId))
-  const activeOrdersResponsePromise = page.waitForResponse((response) =>
-    response.url().includes('/mes/pro/feedback/frontline/device-account/pqc/active-orders')
-      && response.request().method() === 'GET'
-  , { timeout: 60000 }).catch((error) => ({ pqcActiveOrderResponseError: error }))
-  const processResponsePromise = page.waitForResponse((response) =>
-    response.url().includes('/mes/pro/feedback/frontline/device-account/pqc/active-order/processes')
-      && response.request().method() === 'GET'
-      && response.url().includes(`workOrderId=${config.workOrderId}`)
-      && response.url().includes(`routeId=${config.routeId}`)
-  , { timeout: 60000 }).catch((error) => ({ pqcProcessResponseError: error }))
   await page.goto(targetUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 90000 })
   await page.locator('[data-frontline-pqc-operator]').first().waitFor({ state: 'visible', timeout: 60000 })
-  const activeOrdersResponse = await activeOrdersResponsePromise
-  if (activeOrdersResponse.pqcActiveOrderResponseError) {
-    failFast(`PQC 页面未读取活跃订单只读列表：${activeOrdersResponse.pqcActiveOrderResponseError.message}`, [{
-      key: 'activeOrderCrossRoleReadOnly',
-      category: 'E2E',
-      description: 'PQC 检验员页面必须通过真实只读接口读取活跃订单，不能用 API-only 或默认空列表替代。'
-    }])
-  }
-  const activeOrders = await parseJsonResponse(activeOrdersResponse, 'PQC 活跃订单只读列表')
+  const activeOrders = await loadPqcActiveOrdersViaAuth(page, 'PQC 活跃订单只读列表')
   assert.ok(Array.isArray(activeOrders), 'PQC 活跃订单只读列表必须返回数组。')
   const activeOrder = findTargetActiveOrder(activeOrders, config)
   assert.ok(activeOrder, 'PQC 活跃订单只读列表必须包含生产组长加入的同一工单和路线。')
 
-  const processResponse = await processResponsePromise
-  if (processResponse.pqcProcessResponseError) {
-    failFast(`PQC 页面未读取目标活跃订单工序只读列表：${processResponse.pqcProcessResponseError.message}`, [{
-      key: 'activeOrderCrossRoleReadOnly',
-      category: 'E2E',
-      description: 'PQC 检验员页面必须按目标工单和路线读取工序快照，并返回同一 activeOrderId。'
-    }])
-  }
-  const processes = await parseJsonResponse(processResponse, 'PQC 活跃订单工序只读列表')
+  const processes = await loadPqcProcessesViaAuth(page, config, 'PQC 活跃订单工序只读列表')
   assert.ok(Array.isArray(processes), 'PQC 活跃订单工序只读列表必须返回数组。')
   assert.ok(
     processes.some((process) => Number(process.activeOrderId) === Number(joinEvidence.activeOrderId)),
@@ -1408,6 +1444,14 @@ async function verifyPqcActiveOrderReadOnly(page, config, actionEvidence) {
     routeId: config.routeId,
     sourceActionKey: joinEvidence.key
   }
+}
+
+async function loadPqcActiveOrdersViaAuth(page, label) {
+  const result = await fetchWithPageAuth(page, '/admin-api/mes/pro/feedback/frontline/device-account/pqc/active-orders')
+  assert.ok(result.ok, `${label} HTTP 失败：${result.status}`)
+  assert.equal(result.body?.code, 0, `${label} 业务失败：${responseMessage(result.body)}`)
+  assert.ok(Array.isArray(result.body.data), `${label} 必须返回数组。`)
+  return result.body.data
 }
 
 async function loadPqcProcessesViaAuth(page, config, label) {
@@ -1487,6 +1531,99 @@ async function verifyPqcRegulationItemsRendered(page, config, actionEvidence) {
     configuredVersionId,
     configuredVersionObserved,
     plannedQuantities
+  }
+}
+
+async function verifyPqcPieceDetailQuantityPrepared(page, config, actionEvidence) {
+  const joinEvidence = actionEvidence.find((item) => item.key === 'joinActiveOrder' && item.status === 'PASS')
+  const regulationEvidence = actionEvidence.find((item) => item.key === 'pqcRegulationItemsRendered' && item.status === 'PASS')
+  if (!joinEvidence?.activeOrderId || !regulationEvidence) {
+    return {
+      key: 'pqcPieceDetailQuantityPrepared',
+      label: 'PQC 逐件明细数量按计划数量准备',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_PIECE_DETAIL',
+      acceptanceIds: ['AC-D27'],
+      description: '逐件明细数量核验前缺少 activeOrder 或正式 QA 规程项目动作证据，不能证明逐件行来源于正式 PQC task plannedInspectionQuantity。'
+    }
+  }
+
+  const plannedQuantities = [...new Set((regulationEvidence.plannedQuantities || [])
+    .map((quantity) => Number(quantity))
+    .filter((quantity) => Number.isFinite(quantity) && quantity > 0))]
+  if (!plannedQuantities.length) {
+    return {
+      key: 'pqcPieceDetailQuantityPrepared',
+      label: 'PQC 逐件明细数量按计划数量准备',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_PIECE_DETAIL',
+      acceptanceIds: ['AC-D27'],
+      activeOrderId: joinEvidence.activeOrderId,
+      description: 'PQC 规程动作证据没有计划检验数量，不能证明逐件明细数量来源。'
+    }
+  }
+
+  await page.locator('[data-frontline-pqc-inspection-content]').first().waitFor({
+    state: 'visible',
+    timeout: 30000
+  })
+  const quantityInput = page.locator('#frontlinePqcInspectionQuantity').first()
+  await quantityInput.waitFor({ state: 'visible', timeout: 30000 })
+  const uiQuantity = Number(await quantityInput.inputValue())
+  assert.ok(
+    plannedQuantities.includes(uiQuantity),
+    `PQC 页面检验数量 ${uiQuantity} 必须来自正式 task plannedInspectionQuantity：${plannedQuantities.join(', ')}。`
+  )
+
+  const firstEntry = page.locator('.frontline-pqc-content-item, .frontline-pqc-choice-item .manual').first()
+  if (await firstEntry.count() === 0) {
+    return {
+      key: 'pqcPieceDetailQuantityPrepared',
+      label: 'PQC 逐件明细数量按计划数量准备',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_PIECE_DETAIL',
+      acceptanceIds: ['AC-D27'],
+      activeOrderId: joinEvidence.activeOrderId,
+      plannedQuantities,
+      uiQuantity,
+      description: 'PQC 页面没有可打开的逐件检验项目，不能证明计划数量对应完整逐件明细。'
+    }
+  }
+  const entryLabel = (await firstEntry.innerText()).replace(/\s+/g, ' ').trim()
+  await firstEntry.click()
+  const modal = page.locator('[data-pqc-piece-modal]').first()
+  await modal.waitFor({ state: 'visible', timeout: 30000 })
+  await modal.locator('.frontline-pqc-piece-row').nth(uiQuantity - 1).waitFor({
+    state: 'visible',
+    timeout: 30000
+  })
+  const rowCount = await modal.locator('.frontline-pqc-piece-row').count()
+  assert.equal(rowCount, uiQuantity, 'PQC 逐件弹窗行数必须等于页面计划检验数量。')
+  const modalTitle = (await modal.locator('h3').first().innerText()).replace(/\s+/g, ' ').trim()
+  assert.ok(
+    modalTitle.includes(`（${uiQuantity}件）`),
+    `PQC 逐件弹窗标题必须展示计划数量 ${uiQuantity} 件。`
+  )
+  await modal.getByRole('button', { name: '返回' }).click()
+  await modal.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
+
+  return {
+    key: 'pqcPieceDetailQuantityPrepared',
+    label: 'PQC 逐件明细数量按计划数量准备',
+    roleKey: 'pqcInspector',
+    status: 'PASS',
+    acceptanceIds: ['AC-D27'],
+    activeOrderId: joinEvidence.activeOrderId,
+    workOrderId: config.workOrderId,
+    routeId: config.routeId,
+    plannedQuantities,
+    uiQuantity,
+    pieceRowCount: rowCount,
+    inspectionEntry: entryLabel,
+    sourceActionKey: regulationEvidence.key
   }
 }
 
@@ -1839,12 +1976,18 @@ async function runPhaseAction(page, config, phase, actionEvidence) {
   if (phase.actionKey === 'verifyPqcActiveOrderReadOnly') {
     const readOnlyEvidence = await verifyPqcActiveOrderReadOnly(page, config, actionEvidence)
     const regulationEvidence = await verifyPqcRegulationItemsRendered(page, config, [...actionEvidence, readOnlyEvidence])
-    const employeeEvidence = await verifyPqcActualEmployeeSwitch(page, config, [
+    const pieceDetailEvidence = await verifyPqcPieceDetailQuantityPrepared(page, config, [
       ...actionEvidence,
       readOnlyEvidence,
       regulationEvidence
     ])
-    return [readOnlyEvidence, regulationEvidence, employeeEvidence]
+    const employeeEvidence = await verifyPqcActualEmployeeSwitch(page, config, [
+      ...actionEvidence,
+      readOnlyEvidence,
+      regulationEvidence,
+      pieceDetailEvidence
+    ])
+    return [readOnlyEvidence, regulationEvidence, pieceDetailEvidence, employeeEvidence]
   }
   if (phase.actionKey === 'verifyActiveOrderUnauthorizedMutationBlocked') {
     return verifyActiveOrderUnauthorizedMutationBlocked(page, config, actionEvidence)
@@ -1910,14 +2053,17 @@ async function runRealFlow(config) {
   const acceptanceCoverage = buildAcceptanceCoverage(acceptanceMatrix, phaseEvidence, actionEvidence)
   const coverageBlockers = assertAcceptanceCoverage(acceptanceCoverage)
   const actionBlockers = buildActionBlockers(actionEvidence)
+  const gateEvidence = buildM6ConcurrencyPerformanceGateEvidence(acceptanceMatrix, actionEvidence)
+  const gateBlockers = buildGateBlockers(gateEvidence)
   const result = {
-    status: coverageBlockers.length || actionBlockers.length ? 'BLOCKED' : 'PASS',
+    status: coverageBlockers.length || actionBlockers.length || gateBlockers.length ? 'BLOCKED' : 'PASS',
     mode: 'real',
     config: redactConfig(config),
     phaseEvidence,
     actionEvidence,
+    gateEvidence,
     acceptanceCoverage,
-    blockers: [...actionBlockers, ...coverageBlockers]
+    blockers: [...actionBlockers, ...gateBlockers, ...coverageBlockers]
   }
   writeEvidence(result)
   if (result.blockers.length) {

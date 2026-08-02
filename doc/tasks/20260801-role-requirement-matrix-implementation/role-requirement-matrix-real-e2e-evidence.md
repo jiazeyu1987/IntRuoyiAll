@@ -1,7 +1,7 @@
 # 岗位需求分解矩阵真实 E2E 前置证据
 
 - Task ID: `20260801-role-requirement-matrix-implementation`
-- Generated At: `2026-08-02T12:05:28.263Z`
+- Generated At: `2026-08-02T14:15:06.061Z`
 - Status: `BLOCKED`
 - Frontend: `http://127.0.0.1:8081`
 - Backend: `http://127.0.0.1:48081`
@@ -10,9 +10,10 @@
 
 ## Result
 
-- BLOCKED: 64 blockers remain.
+- BLOCKED: 65 blockers remain.
 - E2E_CLEANUP:activeOrderCleanupDeferred -> 本轮 activeOrderId 仍是 M6 后续真实 E2E 共享夹具；直接移除会破坏 PQC、放行、日结和后续验证链路。需要一次性可重建夹具或明确清理窗口后再执行删除验证。
-- E2E_PQC_PERSONNEL:pqcActualEmployeeSelected -> PQC 人员范围 业务失败：PQC 员工和 PQC 组长来源为空，无法切换填写员工；需要在本机测试租户补齐正式 PQC 组长/员工 EMPLOYEE scope 后，才能证明 actualEmployeeId 不默认登录人。
+- E2E_CONCURRENCY:m6ConcurrencyGateDeferred -> 测试矩阵中 12 个 CONC AC 仍需逐项完成真实并发或服务级并发证据；当前仅 AC-M04 已有活跃订单重复/冲突/跨角色动作和后端唯一键并发回归，不能替代报工分配、PQC 提交/确认、过程检验、放行和批记录回填并发门禁。
+- E2E_PERFORMANCE:m6PerformanceGateDeferred -> 测试矩阵中 4 个 PERF AC 仍需分页总数、索引或查询计数证据；当前已观察 1 个 PERF AC（AC-D27），尚未完成日结、PQC 列表和逐件明细的完整 N+1 或分页漂移证明。
 - E2E_COVERAGE:AC-M01 -> TC-M01 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
 - E2E_COVERAGE:AC-M02 -> TC-M02 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
 - E2E_COVERAGE:AC-M03 -> TC-M03 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
@@ -60,13 +61,13 @@
 - E2E_COVERAGE:AC-D22 -> TC-D22 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：qaRegulationEntry。
 - E2E_COVERAGE:AC-D23 -> TC-D23 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：qaRegulationEntry。
 - E2E_COVERAGE:AC-D24 -> TC-D24 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry；已执行真实动作：activeOrderCrossRoleReadOnly, pqcRegulationItemsRendered。
-- E2E_COVERAGE:AC-D25 -> TC-D25 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
+- E2E_COVERAGE:AC-D25 -> TC-D25 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry；已执行真实动作：pqcActualEmployeeSelected。
 - E2E_COVERAGE:AC-D26 -> TC-D26 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
-- E2E_COVERAGE:AC-D27 -> TC-D27 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
+- E2E_COVERAGE:AC-D27 -> TC-D27 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry；已执行真实动作：pqcPieceDetailQuantityPrepared。
 - E2E_COVERAGE:AC-D28 -> TC-D28 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
 - E2E_COVERAGE:AC-D29 -> TC-D29 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
 - E2E_COVERAGE:AC-D30 -> TC-D30 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
-- E2E_COVERAGE:AC-D31 -> TC-D31 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry；已执行真实动作：pqcRegulationItemsRendered。
+- E2E_COVERAGE:AC-D31 -> TC-D31 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry；已执行真实动作：pqcRegulationItemsRendered, pqcActualEmployeeSelected。
 - E2E_COVERAGE:AC-D32 -> TC-D32 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
 - E2E_COVERAGE:AC-D33 -> TC-D33 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
 - E2E_COVERAGE:AC-D34 -> TC-D34 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
@@ -92,15 +93,21 @@
 - BLOCKED: activeOrderCleanupDeferred -> 活跃订单清理闭环风险记录; role=productionLeader; acceptance=AC-M04
 - PASS: activeOrderCrossRoleReadOnly -> PQC 检验员通过真实页面只读同一 activeOrderId; role=pqcInspector; acceptance=AC-M04, AC-D13, AC-D24
 - PASS: pqcRegulationItemsRendered -> PQC 页面按已发布 QA 规程渲染检验项目; role=pqcInspector; acceptance=AC-D17, AC-D19, AC-D24, AC-D31
-- BLOCKED: pqcActualEmployeeSelected -> 共享账号下选择实际 PQC 检验人员; role=pqcInspector; acceptance=AC-D25, AC-D31
+- PASS: pqcPieceDetailQuantityPrepared -> PQC 逐件明细数量按计划数量准备; role=pqcInspector; acceptance=AC-D27
+- PASS: pqcActualEmployeeSelected -> 共享账号下选择实际 PQC 检验人员; role=pqcInspector; acceptance=AC-D25, AC-D31
 - PASS: activeOrderUnauthorizedMutationBlocked -> 错误角色活跃订单写入权限隔离; role=unauthorizedActor; acceptance=AC-M04, AC-D09, AC-D13
+
+## Gate Evidence
+
+- BLOCKED: m6ConcurrencyGateDeferred -> M6 并发门禁结构化; category=E2E_CONCURRENCY; acceptance=AC-M04, AC-M07, AC-M16, AC-M17, AC-M18, AC-M19, AC-M20, AC-M21, AC-M23, AC-D29, AC-D34, AC-D37
+- BLOCKED: m6PerformanceGateDeferred -> M6 性能门禁结构化; category=E2E_PERFORMANCE; acceptance=AC-D12, AC-D27, AC-D32, AC-D38
 
 ## Acceptance Coverage
 
 - Total: 62
 - Accepted: 0
-- Action Observed: 7
-- Surface Observed: 34
+- Action Observed: 9
+- Surface Observed: 32
 - Uncovered: 21
 - Pending: 62
 - AC-M01/TC-M01: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
@@ -150,13 +157,13 @@
 - AC-D22/TC-D22: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=qaRegulationEntry; actions=--
 - AC-D23/TC-D23: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=qaRegulationEntry; actions=--
 - AC-D24/TC-D24: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcInspectorEntry; actions=activeOrderCrossRoleReadOnly, pqcRegulationItemsRendered
-- AC-D25/TC-D25: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
+- AC-D25/TC-D25: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcInspectorEntry; actions=pqcActualEmployeeSelected
 - AC-D26/TC-D26: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
-- AC-D27/TC-D27: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
+- AC-D27/TC-D27: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcInspectorEntry; actions=pqcPieceDetailQuantityPrepared
 - AC-D28/TC-D28: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
 - AC-D29/TC-D29: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
 - AC-D30/TC-D30: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
-- AC-D31/TC-D31: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcInspectorEntry; actions=pqcRegulationItemsRendered
+- AC-D31/TC-D31: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcInspectorEntry; actions=pqcRegulationItemsRendered, pqcActualEmployeeSelected
 - AC-D32/TC-D32: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
 - AC-D33/TC-D33: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
 - AC-D34/TC-D34: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--

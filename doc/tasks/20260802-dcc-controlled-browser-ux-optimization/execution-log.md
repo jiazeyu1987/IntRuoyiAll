@@ -15,10 +15,18 @@
 
 ## RED/GREEN Evidence
 
-- RED: pending -> 创建本任务专用静态合同后先运行失败，证明当前页面缺少目标 UX 文案/结构。
-- GREEN: pending -> 实现后运行本任务专用静态合同通过。
-- GREEN: pending -> 真实 Playwright E2E 覆盖有权限和低权限非 admin 账号。
+- RED: `node tests\e2e\dcc-controlled-browser-ux-optimization-static.spec.js` -> FAIL, expected reason: 文件编号列缺少当前有效版元信息，真实 E2E 在用户列配置/固定列场景下无法确认 `发布文件：已生成`。
+- GREEN: `node tests\e2e\dcc-controlled-browser-ux-optimization-static.spec.js` -> PASS after adding current-effective metadata to the file-number visible column.
+- GREEN: `node tests\e2e\dcc-browser-version-summary-static.spec.js` -> PASS.
+- GREEN: `node tests\e2e\dcc-controlled-browser-viewer-linkage-static.spec.js` -> PASS.
+- GREEN: `node tests\e2e\dcc-upload-governance-ux-static.spec.js` -> PASS.
+- GREEN: `pnpm ts:check` -> PASS.
+- GREEN: `mvn -pl yudao-server -am -DskipTests package` -> PASS; rebuilt target jar to recover the earlier MES mapper artifact corruption.
+- BLOCKED: real Playwright E2E -> BLOCKED before completing authorized/limited-account verification because the rebuilt backend runtime exited during startup with `APPROVAL_ADAPTER_DECLARED_BUT_NOT_REGISTERED: SHOWROOM`.
+- Experience consolidation: merged the durable lesson into `docs\frontend-development.md#前端列表跨账号默认列布局统一门禁`: critical list-row acceptance information must not live only in hideable/fixed/scrolled columns and needs a stable visible summary column.
 
 ## Blockers
 
-- None at task start.
+- Runtime blocker at `2026-08-02 21:35 +08:00`: after copying the newly built backend jar into `output\runtime\int_main`, `48081` failed to stay up. Backend log `output\runtime\int_main\logs\yudao-server.log` reports `java.lang.IllegalStateException: APPROVAL_ADAPTER_DECLARED_BUT_NOT_REGISTERED: SHOWROOM`.
+- Impact: real Playwright E2E cannot complete the required authorized `wangsiyu` and lower-permission `pengyunfeng` browser paths. The last E2E result JSON records read-only DB target verification PASS, `targetNetworkFailures=[]`, `dccMutationRequests=[]`, and non-target tenant lookup failures caused by the backend runtime outage.
+- Decision: did not use admin, API-only validation, SQL mutation, or an old backend jar to bypass this runtime blocker.

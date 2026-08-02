@@ -1,5 +1,5 @@
 {
-  "startedAt": "2026-08-02T12:23:05.989Z",
+  "startedAt": "2026-08-02T14:50:00.747Z",
   "baseUrl": "http://127.0.0.1:8081",
   "browserExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "target": {
@@ -39,17 +39,9 @@
     }
   ],
   "targetNetworkFailures": [],
+  "nonTargetNetworkFailures": [],
   "consoleErrors": [],
-  "pageErrors": [
-    {
-      "label": "authorized-wangsiyu",
-      "text": "AxiosError"
-    },
-    {
-      "label": "authorized-wangsiyu",
-      "text": "AxiosError"
-    }
-  ],
+  "pageErrors": [],
   "dccNonGetRequests": [],
   "dccMutationRequests": [],
   "databaseState": {
@@ -87,5 +79,5 @@
   },
   "status": "BLOCKED",
   "blocker": "authorized row missing visible text: 发布文件：已生成",
-  "finishedAt": "2026-08-02T12:23:49.383Z"
+  "finishedAt": "2026-08-02T14:50:06.131Z"
 }

@@ -198,7 +198,7 @@
     {
       "migrationId": "20260802_role_requirement_matrix_m6_migration_preflight",
       "file": "sql/mysql/20260802_role_requirement_matrix_m6_migration_preflight.sql",
-      "sha256": "71a47dc897923372e71e0e33d3a5b5ff75702431be3d6119bee7d1e5785e7dd9",
+      "sha256": "a4b225a7ef96e4281c63b90d344cb0ea1989ce6c9112a1f591a4d453d48f65bc",
       "type": "config",
       "allowedEnvironments": [
         "test",

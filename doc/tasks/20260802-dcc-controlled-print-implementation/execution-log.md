@@ -45,12 +45,30 @@ BDD: 打印动作可追溯 -> Given 用户已完成一次受控打印 When 审�
 
 ## RED
 
-_pending_
+- RED: `node tests\e2e\dcc-controlled-print-static.spec.js` -> FAIL, expected reason before implementation was missing controlled print page entry/form/record contract.
+- RED: `node script\tests\dcc_controlled_print_contract.test.mjs` -> FAIL, expected reason before implementation was missing controlled print backend API/table/menu contract.
+- RED: `mvn.cmd -pl yudao-module-dcc -am "-Dtest=DccControlledPrintContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason before implementation was missing controlled print service/API contract.
 
 ## GREEN
 
-_pending_
+- GREEN: `node tests\e2e\dcc-controlled-print-static.spec.js` -> PASS, frontend controlled print static contract passed.
+- GREEN: `pnpm ts:check` -> PASS, frontend type check passed.
+- GREEN: `node script\tests\dcc_controlled_print_contract.test.mjs` -> PASS, backend static contract passed.
+- GREEN: `mvn.cmd -pl yudao-module-dcc -am "-Dtest=DccControlledPrintContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, DCC controlled print contract test passed.
+- GREEN: `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql` -> PASS, release migration policy gate passed for SQL root after controlled print migration metadata correction.
+- GREEN: local DB migration applied read-only verification -> PASS, `dcc_controlled_file_print_record` exists and `dcc:controlled-file:print` menu permission exists as `system_menu.id=990240`.
+- GREEN: `mvn.cmd -pl yudao-server -am "-Dmaven.test.skip=true" package` -> PASS, backend production jar packaged after generated target XML repair; prior `clean package` exposed unrelated Maven/testcompile blockers and is not counted as DCC functional failure.
+
+## Runtime Evidence
+
+- 2026-08-02 20:30: copied `yudao-server\target\yudao-server-exec.jar` to `output\runtime\int_main\backend-runtime-control-20260802-203014.jar`, stopped confirmed old `48081` PID `48412`, but new jar failed before listening because generated `yudao-module-mes\target\classes\mapper\pro\processpool\MesProProcessPoolTimelineReadMapper.xml` contained null bytes while source XML was valid.
+- 2026-08-02 20:37-21:20: repaired generated artifact by copying valid source XML to target output and rebuilding production jar. `mvn.cmd -pl yudao-server -am "-DskipTests" clean package` was blocked by existing clean-build dependency/testcompile issues; final production packaging with `-Dmaven.test.skip=true` succeeded.
+- 2026-08-02 21:28: detected generated `yudao-module-showroom` jar omitted classes present in `target\classes` (`133` vs `480` classes). Updated generated module jar and nested server exec jar from `target\classes`, then copied to `output\runtime\int_main\backend-runtime-control-20260802-213049.jar`.
+- 2026-08-02 21:31-21:32: latest jar `backend-runtime-control-20260802-213049.jar` started, passed earlier missing-class point, but Spring context failed with `APPROVAL_ADAPTER_DECLARED_BUT_NOT_REGISTERED: SHOWROOM`.
+- 2026-08-02 21:38: stopped failed new Java process and restored old known-good runtime jar `backend-runtime-control-20260802-170535.jar`; health check returned `UP` on PID `64208`. This restores local background service only and is not a DCC print E2E pass.
 
 ## Blockers
 
-_none currently_
+- E2E BLOCKED: latest backend jar containing DCC受控打印功能 cannot run on `48081` because unrelated SHOWROOM approval adapter integration guard fails at startup: `APPROVAL_ADAPTER_DECLARED_BUT_NOT_REGISTERED: SHOWROOM`.
+- Impact: cannot complete real Playwright controlled print flow, cannot generate a page-created print record, cannot verify watermark/print number/record traceability on the new implementation.
+- Not performed: no admin business login, no API-only print record creation, no SQL-created print record, no old-jar PASS claim.

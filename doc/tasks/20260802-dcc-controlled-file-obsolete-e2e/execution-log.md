@@ -7,6 +7,8 @@
 - 用户后续明确变更验收口径：`作废先不走审批, 文件升版本的时候老的版本自动作废, 走这条链路`。
 - 当前任务按最新口径验证“升版发布后旧版本自动失效/SUPERSEDED”，不再把手动作废审批作为完成门禁。
 - 2026-08-02 19:30:25 +08:00：用户要求“进行一次完整的修改之后的作废链路 E2E 验证”，本轮将跑全新任务自有文件的原版上传、四级审批/签名、升版发布、旧版自动失效、受控浏览和只读 DB 核验。
+- 2026-08-02 21:28:23 +08:00：用户再次要求“进行一次完整的 E2E 验证”，本轮继续按最新口径执行全新任务自有文件的升版自动失效链路，不复用旧链路结果。
+- 2026-08-02 22:27:23 +08:00：用户确认后端已连上后继续执行全新任务自有文件完整链路，并以该轮作为最新验收结果。
 
 ## Preconditions Read
 
@@ -14,6 +16,8 @@
 - 2026-08-02：已补充读取 `docs/database-rules.md`、`docs/local-runtime.md`、`docs/powershell-encoding.md`。
 - 2026-08-02：已读取 Playwright 技能 `C:\Users\BJB110\.codex\skills\playwright\SKILL.md`。
 - 2026-08-02：`npx --version` 返回 `11.6.2`，满足 Playwright CLI 技能前置。
+- 2026-08-02 21:25 +08:00：本轮复验前重新读取 `AGENTS.md`、`docs/e2e-rules.md`、`docs/login-access.md`、`docs/frontend-development.md`、`docs/task-closeout-rules.md`，并按运行态/数据库/编码触发补读 `docs/local-runtime.md`、`docs/database-rules.md`、`docs/powershell-encoding.md`、`docs/worktree-restrictions.md`、`docs/backend-development.md`、`docs/branch-runtime-ports.md`。
+- 2026-08-02 22:27 +08:00：继续前再次复核必读规则与 Playwright 技能；本轮仅验证 DCC 升版自动失效作废链路，不扩展其它 DCC 场景。
 
 ## BDD
 
@@ -43,6 +47,13 @@
 - GREEN: `pnpm e2e:dcc:detail-handling-summary:static` -> PASS.
 - GREEN: `pnpm ts:check` -> PASS.
 - GREEN: full fresh real Playwright rerun with new task-owned file `CODX-DCC-REV-FULL-20260802-20260802201023` -> PASS, V1 `2054545668044070300` became `SUPERSEDED`, V2 `2054545668044070301` became `ACTIVE`, master `2054545668044062907` points to V2, controlled browser current row is V2, traceability history shows V1/V2 and revision reason, and both wrapper and chain results have `targetNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- RED: runtime preflight for fresh rerun `20260802212823` -> FAIL, expected reason: backend `48081` initially refused connection after prior restart attempt, blocking real Playwright login/API calls.
+- GREEN: runtime artifact diagnosis -> PASS, source `MesProProcessPoolTimelineReadMapper.xml` started with valid XML header, but generated `target/classes` copy started with null bytes; jar rebuilt later contained mapper size `10894` and XML header `3C 3F 78 6D ...`.
+- RED: `mvn.cmd -pl yudao-server -am "-DskipTests" package` -> FAIL, expected reason: unrelated MDM testCompile references missing test symbols (`MdmProductImportExcelVO`, `MdmProductSaveReqVO`, import mappers), so runtime packaging could not complete with test source compilation.
+- GREEN: `mvn.cmd -pl yudao-server -am "-Dmaven.test.skip=true" package` -> PASS, runtime jar packaging completed with reactor modules and current MES mapper embedded; this was used only to restore local runtime, not as product regression evidence.
+- RED: full fresh real Playwright rerun with new task-owned file `CODX-DCC-REV-FULL-20260802-20260802212823` -> BLOCKED, expected reason: V1/V2 upload and DCC approvals completed, but publish approval second node `zhaojie` hit HTTP `500` on `/admin-api/bpm/task/approve`; wrapper result `full-rerun-e2e-result-20260802212823.json` and chain result are `BLOCKED`.
+- RED: post-blocker backend health -> FAIL, expected reason: after reactor runtime rebuild, backend startup failed with `APPROVAL_ADAPTER_DECLARED_BUT_NOT_REGISTERED: SHOWROOM`; `http://127.0.0.1:48081/actuator/health` refused connection, so no further real E2E could safely proceed.
+- GREEN: full fresh real Playwright rerun with new task-owned file `CODX-DCC-REV-FULL-20260802-20260802222723` -> PASS, V1 `2054545668044070307` became `SUPERSEDED`, V2 `2054545668044070308` became `ACTIVE`, master `2054545668044062911` points to V2, controlled browser current row is V2, traceability history shows V1/V2 and revision reason, final read-only DB verification passed, and both wrapper and chain results have `targetNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 
 ## Milestone Updates
 
@@ -52,6 +63,7 @@
 - 2026-08-02：修正验证脚本对当前页面的等待锚点：受控浏览详情入口当前是 `traceability=1&from=browser`，详情页使用内嵌“版本历史”表，而非 viewer 弹窗。
 - 2026-08-02：真实 Playwright 复验 PASS：非 admin `wangsiyu` 登录，受控浏览 `status=ACTIVE` 当前行是 V2，V1 不作为当前有效行返回；从受控浏览打开 V2 追溯详情，页面可见版本历史和升版原因。
 - 2026-08-02：只读 DB 复验 PASS：V1 `SUPERSEDED`、V2 `ACTIVE`、master 当前有效版本 `2054545668044070272`、发布 BPM 和 DCC 电子签名证据完整。
+- 2026-08-02 22:27:23 +08:00：最新全新真实 Playwright 链路 PASS：非 admin 账号完成 V1/V2 上传审批签名、发布审批和最终只读核验；V1 `2054545668044070307` 自动 `SUPERSEDED`，V2 `2054545668044070308` 为 `ACTIVE`，master `2054545668044062911` 当前有效版本为 V2，受控浏览不再把 V1 作为当前有效行返回。
 
 ## Commands / Evidence
 
@@ -60,7 +72,11 @@
 - Result JSON: `E:\IntRuoyi\doc\tasks\20260802-dcc-controlled-file-obsolete-e2e\revision-auto-obsolete-e2e-result.json`.
 - Screenshots: `E:\IntRuoyi\doc\tasks\20260802-dcc-revision-publish-real-e2e\browser-current-v2.png`, `E:\IntRuoyi\doc\tasks\20260802-dcc-revision-publish-real-e2e\detail-version-history.png`.
 - Source PASS evidence reused and revalidated: `E:\IntRuoyi\doc\tasks\20260802-dcc-revision-publish-real-e2e\e2e-result.json`.
+- Latest full fresh PASS result JSON: `E:\IntRuoyi\doc\tasks\20260802-dcc-controlled-file-obsolete-e2e\full-rerun-e2e-result-20260802222723.json`.
+- Latest full fresh chain result JSON: `E:\IntRuoyi\doc\tasks\20260802-dcc-revision-publish-real-e2e\chain-result.json`.
+- Latest full fresh screenshots: `E:\IntRuoyi\doc\tasks\20260802-dcc-revision-publish-real-e2e\browser-current-v2.png`, `E:\IntRuoyi\doc\tasks\20260802-dcc-revision-publish-real-e2e\detail-version-history.png`.
 - Secret scan: checked for plaintext passwords and quoted `DCC_E2E_PASSWORD` assignments in task evidence directories -> PASS, no matches.
+- Final secret scan after report update: `SECRET_SCAN_PASS`; no plaintext password or quoted `DCC_E2E_PASSWORD` assignment found in current DCC task evidence directories.
 
 ## Full Fresh Rerun 2026-08-02
 
@@ -69,7 +85,9 @@
 - 2026-08-02 19:31:42 +08:00: business-state run completed with result `PASS` for file number `CODX-DCC-REV-FULL-20260802-20260802193142`; evidence showed V1 `2054545668044070293` -> `SUPERSEDED`, V2 `2054545668044070294` -> `ACTIVE`, master `2054545668044062902` -> V2,受控浏览当前有效行为 V2。但底层链路 `chain-result.json` 记录 publish approval pageerrors `Cannot read properties of null (reading 'nextSibling')`，因此未作为干净 E2E 放行结论。
 - 2026-08-02 19:40:27 +08:00: reran the full chain with password injected by `DCC_E2E_PASSWORD` PowerShell expression and without `DCC_E2E_USE_EXISTING_CHAIN`; command exited `1`. Result path: `E:\IntRuoyi\doc\tasks\20260802-dcc-controlled-file-obsolete-e2e\full-rerun-e2e-result-20260802194027.json`; blocker: `locator.waitFor: Timeout 30000ms exceeded` waiting for `text=审批阶段进度`; chain pageerrors: `Cannot read properties of undefined (reading 'visible')` in `src/views/dcc/controlled-file/detail/index.vue`.
 - 2026-08-02 20:10:23 +08:00: reran the full chain with password injected by `DCC_E2E_PASSWORD` PowerShell expression and without `DCC_E2E_USE_EXISTING_CHAIN`; command exited `0`. Result path: `E:\IntRuoyi\doc\tasks\20260802-dcc-controlled-file-obsolete-e2e\full-rerun-e2e-result-20260802201023.json`; chain result path: `E:\IntRuoyi\doc\tasks\20260802-dcc-revision-publish-real-e2e\chain-result.json`; status `PASS`; target errors all empty.
-- Latest status: PASS for the clarified revision-auto-obsolete path. Per user instruction, no API-only, SQL status update, admin account, or delete workaround was used.
+- 2026-08-02 21:28:23 +08:00: reran the full chain with password injected by `DCC_E2E_PASSWORD` PowerShell expression and without `DCC_E2E_USE_EXISTING_CHAIN`; command exited `1`. Result path: `E:\IntRuoyi\doc\tasks\20260802-dcc-controlled-file-obsolete-e2e\full-rerun-e2e-result-20260802212823.json`; chain result path: `E:\IntRuoyi\doc\tasks\20260802-dcc-revision-publish-real-e2e\chain-result.json`; status `BLOCKED`; blocker `approve publish zhaojie HTTP failed, status=500`.
+- 2026-08-02 22:27:23 +08:00: reran the full chain with password injected by `DCC_E2E_PASSWORD` PowerShell expression and without `DCC_E2E_USE_EXISTING_CHAIN`; command exited `0`. Result path: `E:\IntRuoyi\doc\tasks\20260802-dcc-controlled-file-obsolete-e2e\full-rerun-e2e-result-20260802222723.json`; chain result path: `E:\IntRuoyi\doc\tasks\20260802-dcc-revision-publish-real-e2e\chain-result.json`; status `PASS`; target errors all empty.
+- Latest status: PASS for the latest requested fresh rerun `20260802222723`. The historical `20260802212823` blocker remains recorded for traceability but is superseded by the backend-recovered full rerun. Per user instruction, no API-only, SQL status update, admin account, or delete workaround was used.
 
 ## Manual Obsolete Blocker Record
 

@@ -6,7 +6,7 @@
 
 ## Current Result
 
-`IN_PROGRESS / currentMilestone=M6`。M0-M5 已 accepted；M5 static gates、backend target Maven 和最新授权 `real:check` 均通过，0 SOURCE / 0 ENV / 0 RUNTIME。M6 真实 E2E 已补齐 62 AC coverage ledger、六角色入口阶段证据、AC-M04 `joinActiveOrder`、`activeOrderConflictRouteRejected`、`activeOrderCrossRoleReadOnly`、`activeOrderUnauthorizedMutationBlocked` PASS 动作证据，以及 PQC `pqcRegulationItemsRendered` PASS 动作证据；权限隔离动作已由专用错误角色 `aoteman` 独立登录态真实验证通过，PQC 实际检验人切换动作 `pqcActualEmployeeSelected` 因 PQC 员工/组长来源为空结构化为 `E2E_PQC_PERSONNEL` blocker，清理追溯动作 `activeOrderCleanupDeferred` 仍结构化为 `E2E_CLEANUP` blocker。后端已覆盖 AC-M04 重复加入、并发唯一键和冲突路线前置拒绝，PQC 页面已读取 14 个工序的 32 个正式 QA 规程项目，但仍需完成每个 AC 的完整真实页面失败路径、权限隔离、只读核验、迁移、并发、性能、清理和上线验收。
+`IN_PROGRESS / currentMilestone=M6`。M0-M5 已 accepted；M5 static gates、backend target Maven 和最新授权 `real:check` 均通过，0 SOURCE / 0 ENV / 0 RUNTIME。M6 真实 E2E 已补齐 62 AC coverage ledger、六角色入口阶段证据、AC-M04 `joinActiveOrder`、`activeOrderConflictRouteRejected`、`activeOrderCrossRoleReadOnly`、`activeOrderUnauthorizedMutationBlocked` PASS 动作证据，以及 PQC `pqcRegulationItemsRendered`、`pqcPieceDetailQuantityPrepared`、`pqcActualEmployeeSelected` PASS 动作证据；权限隔离动作已由专用错误角色 `aoteman` 独立登录态真实验证通过，PQC 逐件数量动作证明 `plannedQuantities=[15]`、`uiQuantity=15`、`pieceRowCount=15`，PQC 实际检验人切换动作已通过 task-owned PQC `EMPLOYEE` scope 夹具证明 `actualEmployeeId=512` 不默认登录人 `659`，清理追溯动作 `activeOrderCleanupDeferred` 仍结构化为 `E2E_CLEANUP` blocker。M6 还新增 `m6ConcurrencyGateDeferred` 与 `m6PerformanceGateDeferred` 两个 gate evidence，把 12 个 CONC AC 和 4 个 PERF AC 明确归入后续门禁，且性能门禁已观察 `AC-D27`。后端已覆盖 AC-M04 重复加入、并发唯一键和冲突路线前置拒绝，PQC 页面已读取 14 个工序的 32 个正式 QA 规程项目，但仍需完成每个 AC 的完整真实页面失败路径、权限隔离、只读核验、迁移、并发、性能、清理和上线验收。
 
 ## Verification Evidence
 
@@ -26,8 +26,11 @@
 | Runtime preflight | PASS_CURRENT：最新 `result.json` 无 SOURCE/ENV/RUNTIME blocker |
 | M6 AC-M04 active-order join/conflict/read-only/cleanup | PARTIAL_ACTION_AND_BACKEND_FAILURE_PASS：`joinActiveOrder` action evidence PASS，`activeOrderId=12`；`activeOrderConflictRouteRejected` action evidence PASS，错误路线被真实页面 fail-fast 拒绝且未新增错误 activeOrder；`activeOrderCrossRoleReadOnly` action evidence PASS，PQC 只读读取同一 activeOrderId；`activeOrderCleanupDeferred` 已重新定位同一 activeOrderId 后记录共享夹具清理 blocker；后端重复加入、并发唯一键和冲突路线前置拒绝 GREEN；仍缺正式清理窗口/可重建夹具和 M6 迁移/性能/上线门禁 |
 | M6 AC-M04 permission isolation | PASS_ACTION：`activeOrderUnauthorizedMutationBlocked` action evidence 已使用专用错误角色 `aoteman` 独立浏览器上下文完成；后端写入接口返回 `code=403`、`message=没有该操作权限`，`E2E_PERMISSION` blocker 已清除 |
-| M6 PQC actual employee switch | STRUCTURED_BLOCKED：`pqcActualEmployeeSelected` 已接入正式 PQC 人员来源和 switch-employee 路径；当前 `/pqc/personnel` 返回业务码 `1040760117`，PQC 员工和 PQC 组长来源为空，需要补齐正式 `EMPLOYEE` scope 后才能继续证明 actualEmployeeId 不默认登录人 |
-| M6 real E2E coverage ledger | STRUCTURED_BLOCKED：6 phase evidence，7 action evidence（5 PASS + 2 BLOCKED），34 surfaceObserved，21 uncovered，62 pending，64 blockers |
+| M6 AC-D27 PQC piece detail quantity | PASS_ACTION：`pqcPieceDetailQuantityPrepared` action evidence 已通过真实 PQC 页面打开逐件弹窗；`plannedQuantities=[15]`、`uiQuantity=15`、`pieceRowCount=15`，但仍缺提交后明细只读还原、失败路径、签名/复核和完整性能证明 |
+| M6 PQC actual employee switch | PASS_ACTION：`pqcActualEmployeeSelected` 已接入正式 PQC 人员来源和 switch-employee 路径；本机 tenant 1 task-owned PQC `EMPLOYEE` scope row id 980013 已验证，full real E2E 证明 `actualEmployeeId=512` 不默认登录人 `659` |
+| M6 migration preflight static/policy/runtime | PASS_RUNTIME_PREFLIGHT：只读 SQL 预检、静态合同、14 文件 release policy gate 和授权本地运行库 SQL 执行均已通过；预检现在只按 MAIN/BATCH_RECORD 正式批记录口径检查空报表 ID，不误判 INTERNAL_RECORD 表单槽位 |
+| M6 concurrency/performance gate ledger | STRUCTURED_BLOCKED：2 gate evidence；`m6ConcurrencyGateDeferred` 覆盖 12 个 CONC AC，`m6PerformanceGateDeferred` 覆盖 4 个 PERF AC 且已观察 `AC-D27` |
+| M6 real E2E coverage ledger | STRUCTURED_BLOCKED：6 phase evidence，8 action evidence（7 PASS + 1 BLOCKED），2 gate evidence，pqcPieceDetailQuantityPrepared 和 pqcActualEmployeeSelected 已 PASS，剩余 65 cleanup/gate/coverage blockers |
 
 ## Latest Local Verification
 
@@ -67,10 +70,26 @@
 | `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` after permission isolation implementation | PASS |
 | authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` after permission isolation implementation | PASS，0 SOURCE / 0 ENV / 0 RUNTIME |
 | authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` after permission isolation implementation | STRUCTURED_BLOCKED，6 phase evidence / 4 action evidence / 38 surfaceObserved / 21 uncovered / 62 pending / 63 blockers；`activeOrderUnauthorizedMutationBlocked` action BLOCKED，原因是 `releaseOwner` 仍有活跃订单维护权限 |
-| authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` after cleanup traceability implementation | STRUCTURED_BLOCKED，6 phase evidence / 5 action evidence / 38 surfaceObserved / 21 uncovered / 62 pending / 64 blockers；`activeOrderCleanupDeferred` action BLOCKED，原因是 activeOrderId 仍是后续 M6 共享夹具；`activeOrderUnauthorizedMutationBlocked` 仍为权限夹具 blocker |
+| authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` after cleanup traceability implementation | STRUCTURED_BLOCKED，6 phase evidence / 5 action evidence / 38 surfaceObserved / 21 uncovered / 62 pending / 63 blockers；`activeOrderCleanupDeferred` action BLOCKED，原因是 activeOrderId 仍是后续 M6 共享夹具；`activeOrderUnauthorizedMutationBlocked` 仍为权限夹具 blocker |
 | authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` with `RRM_UNAUTHORIZED_USERNAME=aoteman` | STRUCTURED_BLOCKED，6 phase evidence / 5 action evidence / 37 surfaceObserved / 21 uncovered / 62 pending / 63 blockers；`activeOrderUnauthorizedMutationBlocked` action PASS，`activeOrderCleanupDeferred` 仍为 `E2E_CLEANUP` blocker |
 | authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` after PQC regulation render slice | STRUCTURED_BLOCKED，6 phase evidence / 6 action evidence / 34 surfaceObserved / 21 uncovered / 62 pending / 63 blockers；`pqcRegulationItemsRendered` action PASS，覆盖 14 个工序、32 个正式 QA 规程项目和发布版本 ID 16..29 |
-| authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` after PQC actual employee switch gate | STRUCTURED_BLOCKED，6 phase evidence / 7 action evidence / 34 surfaceObserved / 21 uncovered / 62 pending / 64 blockers；`pqcActualEmployeeSelected` action BLOCKED，业务原因是 PQC 员工和 PQC 组长来源为空 |
+| authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` after PQC actual employee switch gate | STRUCTURED_BLOCKED，6 phase evidence / 7 action evidence / 34 surfaceObserved / 21 uncovered / 62 pending / 63 blockers；`pqcActualEmployeeSelected` action PASS，`actualEmployeeId=512` 不默认登录人 `659`，剩余 blocker 为清理/coverage 闭环 |
+| `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` M6 concurrency/performance gate RED | FAIL，expected reason：真实 E2E 脚本缺少 `buildM6ConcurrencyPerformanceGateEvidence` |
+| `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` after concurrency/performance gate | PASS |
+| `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` after concurrency/performance gate | PASS |
+| authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` after concurrency/performance gate | PASS，0 SOURCE / 0 ENV / 0 RUNTIME |
+| authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` after concurrency/performance gate | STRUCTURED_BLOCKED，6 phase evidence / 7 action evidence / 2 gate evidence / 33 surfaceObserved / 8 actionObserved / 21 uncovered / 62 pending / 65 blockers；新增 `m6ConcurrencyGateDeferred` 和 `m6PerformanceGateDeferred` |
+| `pnpm --dir IntRuoyiFronted e2e:role-matrix-migration-preflight:static` | PASS，M6 迁移预检静态合同通过 |
+| `run-release-migration-policy-gate.py` on 14-file M6 migration chain | PASS，`m6-migration-policy-gate.json` 写出 `status=passed`、`migrationCount=14` |
+| `pnpm --dir IntRuoyiFronted e2e:role-matrix-migration-preflight:static` M6 formal batch-record scope RED | FAIL，expected reason：临时撤掉 MAIN/BATCH_RECORD 过滤后，静态合同拒绝过宽批记录绑定预检口径 |
+| `pnpm --dir IntRuoyiFronted e2e:role-matrix-migration-preflight:static` after SQL scope fix | PASS，M6 迁移预检静态合同通过 |
+| authorized local DB execution of `20260802_role_requirement_matrix_m6_migration_preflight.sql` | PASS，`leftover_procedure_count=0`，临时 SQL 文件已清理 |
+| `run-release-migration-policy-gate.py` on 14-file M6 migration chain after SQL scope fix | PASS，`migrationCount=14`，预检 SQL sha256=`a4b225a7ef96e4281c63b90d344cb0ea1989ce6c9112a1f591a4d453d48f65bc` |
+| `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` AC-D27 piece detail RED | FAIL，expected reason：真实 E2E 脚本缺少 `verifyPqcPieceDetailQuantityPrepared` |
+| `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` after AC-D27 piece detail | PASS |
+| `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` after AC-D27 piece detail | PASS |
+| authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` after AC-D27 piece detail | PASS，0 SOURCE / 0 ENV / 0 RUNTIME |
+| authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` after AC-D27 piece detail | STRUCTURED_BLOCKED，6 phase evidence / 8 action evidence / 2 gate evidence / 32 surfaceObserved / 9 actionObserved / 21 uncovered / 62 pending / 65 blockers；`pqcPieceDetailQuantityPrepared` PASS，`plannedQuantities=[15]`、`uiQuantity=15`、`pieceRowCount=15`，`m6PerformanceGateDeferred` observed AC-D27 |
 
 ## Resolved M5 Detail
 
@@ -84,7 +103,7 @@
 
 - M5 后端目标 Maven verification blocker 已关闭。
 - 迁移、并发、性能、全量真实 E2E 和收尾/上线验收仍在 M6 中推进。
-- 当前 M6 blocker：`role-requirement-matrix-real-flow.e2e.js` 已移除泛化未实现占位，改为从测试计划加载 62 AC 并输出逐项 `E2E_COVERAGE` blocker；当前已完成六角色入口/页面阶段观察、AC-M04 `joinActiveOrder`、`activeOrderConflictRouteRejected`、`activeOrderCrossRoleReadOnly`、`activeOrderUnauthorizedMutationBlocked` 真实动作观察、PQC `pqcRegulationItemsRendered` 正式规程项目渲染动作观察、`pqcActualEmployeeSelected` 正式人员来源结构化 blocker，以及 AC-M04 后端重复/并发/冲突路线失败路径。权限隔离已由专用错误角色 `aoteman` 真实验证通过；清理追溯脚本已能重新定位 activeOrderId，但当前 activeOrderId 仍是后续 M6 共享夹具，需要正式清理窗口或可重建夹具后才能清理；PQC 员工/组长 `EMPLOYEE` scope 为空，需要补齐后才能证明 actualEmployeeId 不默认登录人；尚未完成 62 AC 的完整真实页面失败路径、权限隔离、并发/性能证据和清理闭环。
+- 当前 M6 blocker：`role-requirement-matrix-real-flow.e2e.js` 已移除泛化未实现占位，改为从测试计划加载 62 AC 并输出逐项 `E2E_COVERAGE` blocker；当前已完成六角色入口/页面阶段观察、AC-M04 `joinActiveOrder`、`activeOrderConflictRouteRejected`、`activeOrderCrossRoleReadOnly`、`activeOrderUnauthorizedMutationBlocked` 真实动作观察、PQC `pqcRegulationItemsRendered` 正式规程项目渲染、`pqcPieceDetailQuantityPrepared` 逐件数量和 `pqcActualEmployeeSelected` 正式人员来源 PASS 动作证据、M6 迁移预检静态/策略/运行库门禁 PASS_RUNTIME_PREFLIGHT，以及 AC-M04 后端重复/并发/冲突路线失败路径。权限隔离已由专用错误角色 `aoteman` 真实验证通过；清理追溯脚本已能重新定位 activeOrderId，但当前 activeOrderId 仍是后续 M6 共享夹具，需要正式清理窗口或可重建夹具后才能清理；并发/性能已显式结构化为 12 个 CONC AC 与 4 个 PERF AC 的 gate blocker，其中 `AC-D27` 已有逐件数量页面观察但未完成完整性能证明；尚未完成 62 AC 的完整真实页面失败路径、权限隔离、并发/性能证据和清理闭环。
 - 62 项 AC 不能在 M5/M6 验收前标记为全部完成。
 - 本轮按用户要求不执行 `git push`；后续如需提交，也只能本地提交并保留 no-push 记录，除非用户另行授权。
 

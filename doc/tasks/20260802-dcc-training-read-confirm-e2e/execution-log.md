@@ -89,3 +89,25 @@
 - BDD: Full rerun proves completed and pending states -> Given 至少两个培训对象收到任务, When 第一名对象完成确认且其他对象暂未确认, Then 管理视图和只读 DB 同时显示已完成对象、确认时间和未完成名单。
 - BDD: Full rerun completes all real-page acknowledgements and release -> Given 所有对象均通过真实培训任务页打开目标文件, When 阅读计时满足后逐一点击确认并由非 admin 文控账号正式下发, Then 文件为 `ACTIVE`、master 指向本轮文件、所有 progress 均有 `acknowledged_at`。
 - Planned result isolation: use a new `DCC_E2E_RUN_ID`, `DCC_E2E_FILE_NUMBER`, `DCC_E2E_RESULT_PATH`, and `DCC_E2E_ARTIFACT_PREFIX` so this rerun does not overwrite prior PASS evidence.
+
+
+## Full Rerun BLOCKED - 2026-08-02 21:02:33 +08:00
+
+- RED: `Full rerun training/read confirmation continuation` -> FAIL, after creating task-owned file `2054545668044070298 / CODX-DCC-TRAIN-RERUN-20260802195426 / V1.0`, backend `http://127.0.0.1:48081` became unreachable (`connection refused`) and did not recover within the 4-minute health wait.
+- Completed before blocker: real Playwright upload/approval chain created the rerun file with `need_training=1`, status `TRAINING_IN_PROGRESS`, and 9 generated training progress rows.
+- Real page evidence before blocker: `rerun-20260802195426-training-open-zhaomingyu-CODX-DCC-TRAIN-RERUN-20260802195426.png`, `rerun-20260802195426-continuation-training-open-zhaojie-CODX-DCC-TRAIN-RERUN-20260802195426.png`, `rerun-20260802195426-continuation-training-open-zhaomingyu-CODX-DCC-TRAIN-RERUN-20260802195426.png`.
+- Pending state at blocker: all 9 recipients remain without `acknowledged_at`; accumulated seconds were partial only (`zhaomingyu=540/600`, `zhaojie=305/600`, others about `271-285/600`).
+- Runtime blocker evidence: frontend `8081` remained HTTP 200, backend health and tenant API on `48081` returned connection refused, and `Get-NetTCPConnection` showed only `FinWait1` remnants rather than a healthy listener.
+- Guardrail confirmation: no admin login was used; no API-only acknowledgement/release was used; no SQL updated training progress, confirmation time, file status, or release status.
+
+## Full Rerun PASS After Runtime Resume - 2026-08-02 22:18:56 +08:00
+
+- GREEN: `Backend runtime resume gate` -> PASS, user confirmed backend was restarted; frontend `8081` returned HTTP `200`, backend health `48081` returned `UP`.
+- GREEN: `Playwright real first completed and pending proof` -> PASS, `zhaomingyu` completed from the real training task page at `2026-08-02 21:29:21`; manager evidence then showed completed and uncompleted recipients before all objects were finished.
+- GREEN: `Playwright real remaining acknowledgements` -> PASS, `chenchen`, `sunrongrong`, `liuru`, `zhaojie`, `xuejianxia`, `tengweihua`, `shihaisong`, and `malingling` each opened `/dcc/controlled-file/training-task/<progressId>` through Playwright, verified file number `CODX-DCC-TRAIN-RERUN-20260802195426`, version `V1.0`, and title `Codex DCC 培训阅读确认复跑 20260802195426`, reached the required `600` seconds, then clicked “确认培训完成” on the page.
+- GREEN: `Playwright real manual release after training completion` -> PASS, after all training departments became `ACKNOWLEDGED` and the file moved to `PENDING_MANUAL_DISTRIBUTION`, non-admin `wangsiyu` opened the real DCC detail page and clicked “正式下发”; the file became `ACTIVE`.
+- GREEN: `Final read-only DB verification for rerun` -> PASS, file `2054545668044070298` is `ACTIVE`, `need_training=1`, `published_time=2026-08-02 22:18:55`, master `2054545668044062905.current_active_controlled_file_id=2054545668044070298`, two training departments are `ACKNOWLEDGED`, and all 9 progress rows have `acknowledged_at`.
+- GREEN: `Secret hygiene scan` -> PASS, scanning the task directory for the literal password string returned no matches after report redaction.
+- Final rerun recipients: `chenchen=2026-08-02 21:43:46`, `sunrongrong=2026-08-02 21:47:34`, `liuru=2026-08-02 21:53:35`, `zhaojie=2026-08-02 21:55:46`, `xuejianxia=2026-08-02 21:58:26`, `tengweihua=2026-08-02 22:01:46`, `shihaisong=2026-08-02 22:14:38`, `malingling=2026-08-02 22:18:41`, `zhaomingyu=2026-08-02 21:29:21`.
+- Final rerun evidence: `rerun-20260802195426-remaining-retry-real-page-result.json`, `rerun-20260802195426-remaining-retry-real-page-final-db-verification.json`, `rerun-20260802195426-remaining-retry-real-page-manager-after-all-ack-CODX-DCC-TRAIN-RERUN-20260802195426.png`, `rerun-20260802195426-remaining-retry-real-page-manual-release-before-CODX-DCC-TRAIN-RERUN-20260802195426.png`, `rerun-20260802195426-remaining-retry-real-page-manual-release-after-CODX-DCC-TRAIN-RERUN-20260802195426.png`, and per-recipient `training-open` / `training-ack` screenshots.
+- Guardrail confirmation: no admin account was used; no API-only acknowledgement, API-only release, SQL completion update, SQL acknowledgement-time update, SQL file-status update, or SQL release-state update was used.
