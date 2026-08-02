@@ -442,8 +442,11 @@ def test_build_release_writes_frontend_release_info_before_docker_context() -> N
     assert "release-info.json" in release_info_body
     assert "New-ReleaseSourceRepoManifestEntries" in release_info_body
     assert "releaseTag = $PackageTag" in release_info_body
+    assert "changeSet = Get-ReleaseChangeSetForManifest" in release_info_body
+    assert "gitChanges = @($gitChangeSummary.items)" in text
     assert "publishScope = if ($SkipDatabaseSync -and $SkipMinioSync) { 'code-only' } else { 'with-data' }" in release_info_body
-    assert "includeOnlyOffice = [bool]$IncludeOnlyOffice" in release_info_body
+    assert "includeOnlyOffice = [bool]$IncludeOnlyOffice" in text
+    assert 'summary = "Release package $packageDirectoryName"' not in release_info_body
     assert "[System.IO.File]::WriteAllText($releaseInfoPath, $releaseInfoJson, [System.Text.UTF8Encoding]::new($false))" in release_info_body
 
     write_release_info_index = text.index("Write-FrontendReleaseInfo -PackageTag $ReleaseTag")

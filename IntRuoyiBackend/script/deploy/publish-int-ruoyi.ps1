@@ -3503,6 +3503,7 @@ function Write-FrontendReleaseInfo {
         Fail "Frontend build output missing before writing release-info.json: $distDir"
     }
 
+    $changeSet = Get-ReleaseChangeSetForManifest
     $releaseInfo = [ordered]@{
         manifestVersion = '1.0'
         packageId = $packageDirectoryName
@@ -3510,12 +3511,7 @@ function Write-FrontendReleaseInfo {
         createdAt = Get-ReleaseManifestCreatedAt
         createdBy = $OperatorName
         sourceRepos = New-ReleaseSourceRepoManifestEntries
-        changeSet = [ordered]@{
-            summary = "Release package $packageDirectoryName"
-            component = $Component
-            includeShowroomBuildPackage = [bool]$publishWebsite
-            includeOnlyOffice = [bool]$IncludeOnlyOffice
-        }
+        changeSet = $changeSet
         publishScope = if ($SkipDatabaseSync -and $SkipMinioSync) { 'code-only' } else { 'with-data' }
         components = Get-ReleaseComponentManifestNames
     }
