@@ -1,610 +1,105 @@
 {
-  "runId": "20260802193142",
-  "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802193142",
-  "fileName": "Codex DCC 升版发布全链路 20260802193142",
+  "runId": "20260802194027",
+  "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802194027",
+  "fileName": "Codex DCC 升版发布全链路 20260802194027",
   "baseUrl": "http://127.0.0.1:8081",
   "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "v1FilePath": "E:\\IntRuoyi\\resource\\批记录节点-解析样本.docx",
   "v2FilePath": "E:\\IntRuoyi\\resource\\过程检验记录.docx",
   "stampedPdfPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-revision-publish-real-e2e\\stamped-approval-sample.pdf",
-  "startedAt": "2026-08-02T11:31:43.456Z",
+  "startedAt": "2026-08-02T11:40:27.726Z",
   "phases": [
     {
       "phase": "upload-V1.0",
       "username": "pengyunfeng",
-      "controlledFileId": "2054545668044070293",
+      "controlledFileId": "2054545668044070296",
       "previewFileName": "批记录节点-解析样本.docx",
       "previewKind": "OFFICE"
-    },
-    {
-      "phase": "approve-V1.0",
-      "username": "zhaohaichen",
-      "role": "文控审核",
-      "userId": 376
-    },
-    {
-      "phase": "approve-V1.0",
-      "username": "zhaojie",
-      "role": "会签审核",
-      "userId": 1074
-    },
-    {
-      "phase": "approve-V1.0",
-      "username": "zhaomingyu",
-      "role": "会签批准",
-      "userId": 424
-    },
-    {
-      "phase": "approve-V1.0",
-      "username": "wangsiyu",
-      "role": "文控批准",
-      "userId": 910250
-    },
-    {
-      "phase": "upload-V2.0",
-      "username": "pengyunfeng",
-      "controlledFileId": "2054545668044070294",
-      "previewFileName": "过程检验记录.docx",
-      "previewKind": "OFFICE"
-    },
-    {
-      "phase": "approve-V2.0",
-      "username": "zhaohaichen",
-      "role": "文控审核",
-      "userId": 376
-    },
-    {
-      "phase": "approve-V2.0",
-      "username": "zhaojie",
-      "role": "会签审核",
-      "userId": 1074
-    },
-    {
-      "phase": "approve-V2.0",
-      "username": "zhaomingyu",
-      "role": "会签批准",
-      "userId": 424
-    },
-    {
-      "phase": "approve-V2.0",
-      "username": "wangsiyu",
-      "role": "文控批准",
-      "userId": 910250
-    },
-    {
-      "phase": "publish-submit",
-      "username": "wangsiyu",
-      "userId": 910250,
-      "controlledFileId": "2054545668044070294",
-      "formInstanceId": "439",
-      "bpmProcessInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0"
-    },
-    {
-      "phase": "publish-approve",
-      "username": "zhaohaichen",
-      "role": "文控审核",
-      "userId": 376,
-      "bpmProcessInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0",
-      "bpmTaskId": "e9f192b8-8e65-11f1-93ff-00155d2984a0",
-      "selectedNextApprover": {
-        "username": "zhaojie",
-        "userId": 1074,
-        "nickname": "赵杰"
-      },
-      "bpmSignatureUploaded": false
-    },
-    {
-      "phase": "publish-approve",
-      "username": "zhaojie",
-      "role": "会签审核",
-      "userId": 1074,
-      "bpmProcessInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0",
-      "bpmTaskId": "f08317ab-8e65-11f1-93ff-00155d2984a0",
-      "selectedNextApprover": {
-        "username": "zhaomingyu",
-        "userId": 424,
-        "nickname": "赵明玉"
-      },
-      "bpmSignatureUploaded": false
-    },
-    {
-      "phase": "publish-approve",
-      "username": "zhaomingyu",
-      "role": "会签批准",
-      "userId": 424,
-      "bpmProcessInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0",
-      "bpmTaskId": "095faecb-8e66-11f1-93ff-00155d2984a0",
-      "selectedNextApprover": {
-        "username": "wangsiyu",
-        "userId": 910250,
-        "nickname": "王思雨"
-      },
-      "bpmSignatureUploaded": false
-    },
-    {
-      "phase": "publish-approve",
-      "username": "wangsiyu",
-      "role": "文控批准",
-      "userId": 910250,
-      "bpmProcessInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0",
-      "bpmTaskId": "316bc247-8e66-11f1-93ff-00155d2984a0",
-      "selectedNextApprover": null,
-      "bpmSignatureUploaded": false
-    },
-    {
-      "phase": "final-db-verification",
-      "v1Status": "SUPERSEDED",
-      "v2Status": "ACTIVE",
-      "currentActiveControlledFileId": "2054545668044070294",
-      "publishInstanceStatus": "EFFECTIVE"
     }
   ],
   "targetNetworkFailures": [],
-  "consoleErrors": [],
+  "consoleErrors": [
+    {
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "TypeError: Cannot read properties of undefined (reading 'visible')\n    at Proxy._sfc_render (http://127.0.0.1:8081/src/views/dcc/controlled-file/detail/index.vue?t=1785670838132:7688:48)\n    at renderComponentRoot (http://127.0.0.1:8081/node_modules/.vite-env-local-8081/deps/chunk-XVG5X3YQ.js?v=465b068f:7756:17)\n    at ReactiveEffect.componentUpdateFn [as fn] (http://127.0.0.1:8081/node_modules/.vite-env-local-8081/deps/chunk-XVG5X3YQ.js?v=465b068f:6591:46)\n    at ReactiveEffect.run (http://127."
+    }
+  ],
   "pageErrors": [
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     },
     {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
-    },
-    {
-      "label": "publish-approve-wangsiyu",
-      "text": "Cannot read properties of null (reading 'nextSibling')"
+      "label": "approve-V1.0-zhaohaichen",
+      "text": "Cannot read properties of undefined (reading 'visible')"
     }
   ],
   "accountProfiles": {
@@ -650,56 +145,7 @@
     "v2": 74170,
     "stampedPdf": 658
   },
-  "databaseState": {
-    "files": [
-      {
-        "id": "2054545668044070293",
-        "status": "SUPERSEDED",
-        "masterId": "2054545668044062902",
-        "versionNo": "V1.0",
-        "changeType": "NEW",
-        "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802193142",
-        "approvedTime": "2026-08-02 19:32:18",
-        "publishedTime": "2026-08-02 19:32:18",
-        "stampedFileId": "9198354916366",
-        "publishedFileId": "9198354916366",
-        "processInstanceId": "c234fee8-8e65-11f1-93ff-00155d2984a0"
-      },
-      {
-        "id": "2054545668044070294",
-        "status": "ACTIVE",
-        "masterId": "2054545668044062902",
-        "versionNo": "V2.0",
-        "changeType": "REVISION",
-        "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802193142",
-        "approvedTime": "2026-08-02 19:36:10",
-        "publishedTime": "2026-08-02 19:36:10",
-        "stampedFileId": "9198354916366",
-        "publishedFileId": "9198354916366",
-        "processInstanceId": "d6c87af9-8e65-11f1-93ff-00155d2984a0"
-      }
-    ],
-    "master": {
-      "id": "2054545668044062902",
-      "status": "ACTIVE_CHAIN",
-      "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802193142",
-      "currentActiveControlledFileId": "2054545668044070294"
-    },
-    "publishInstance": {
-      "id": "439",
-      "status": "EFFECTIVE",
-      "objectId": "2054545668044070294",
-      "instanceCode": "FCI-1-1785670379245",
-      "objectVersion": "V2.0",
-      "bpmProcessInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0"
-    },
-    "uploadApprovalTaskCount": 8,
-    "publishApprovalTaskCount": 4
-  },
-  "v1ControlledFileId": "2054545668044070293",
-  "v2ControlledFileId": "2054545668044070294",
-  "publishFormInstanceId": "439",
-  "publishBpmProcessInstanceId": "e9f1447a-8e65-11f1-93ff-00155d2984a0",
-  "finishedAt": "2026-08-02T11:36:41.140Z",
-  "status": "PASS"
+  "finishedAt": "2026-08-02T11:41:13.215Z",
+  "status": "BLOCKED",
+  "blocker": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=审批阶段进度') to be visible\u001b[22m\n"
 }

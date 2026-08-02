@@ -22,7 +22,7 @@
 
 ## Current Status
 
-blocked
+completed
 
 ## 设计约束检查
 
@@ -53,3 +53,5 @@ doc/tasks/20260802-dcc-training-read-confirm-e2e/dcc-training-read-confirm-e2e.c
 2026-08-02 permission fix：按用户要求新增并授权角色 `dcc_training_mine_e2e`（ID `910430`），绑定菜单权限 `dcc:controlled-file:training:mine`（菜单 ID `980121`），并赋予 `chenchen`、`sunrongrong`、`liuru`、`xuejianxia`、`tengweihua`、`shihaisong`、`malingling`。仅刷新权限缓存键，未修改培训进度、确认时间、文件状态或发布状态。
 
 2026-08-02 final state：9 名培训对象均通过真实培训任务页完成确认，两个培训部门状态均为 `ACKNOWLEDGED`，文件进入 `PENDING_MANUAL_DISTRIBUTION`。最终 `ACTIVE`/正式下发仍 BLOCKED：本地类别 `906104 / 其他` 的 `DISTRIBUTE` 类别权限仅授予 `USER=1`（admin），非 admin 文控账号 `wangsiyu` 详情页无“正式下发”按钮；按用户要求未使用 admin、未 API-only 下发、未 SQL 修改状态。
+
+2026-08-02 distribute fix：按用户要求新增并授权角色 `dcc_distribute_e2e`（ID `910431`），为类别 `906104 / 其他` 绑定 `DISTRIBUTE` 规则（ID `2623`），并赋予非 admin 文控账号 `wangsiyu`。刷新 `wangsiyu` 相关权限缓存后，`wangsiyu` 通过真实页面看到并点击“正式下发”，接口返回 `code=0`，只读 DB 核验文件进入 `ACTIVE`，master 当前有效版本指向 `2054545668044070281`。

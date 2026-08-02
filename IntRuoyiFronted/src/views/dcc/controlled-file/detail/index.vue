@@ -1920,6 +1920,69 @@
     </el-table>
   </el-dialog>
 
+  <el-dialog
+    v-model="controlledPrintDialog.visible"
+    title="受控打印"
+    data-testid="dcc-controlled-print-dialog"
+    width="560px"
+    destroy-on-close
+  >
+    <el-alert
+      v-if="controlledPrintDialog.inlineError"
+      type="error"
+      :title="controlledPrintDialog.inlineError"
+      show-icon
+      :closable="false"
+      class="mb-12px"
+    />
+    <el-form label-width="96px" :model="controlledPrintDialog.form">
+      <el-form-item label="打印用途" :error="controlledPrintDialog.fieldErrors.purpose">
+        <el-input
+          v-model="controlledPrintDialog.form.purpose"
+          type="textarea"
+          :rows="3"
+          maxlength="255"
+          show-word-limit
+          placeholder="请输入本次受控打印用途"
+        />
+      </el-form-item>
+      <el-form-item label="份数" :error="controlledPrintDialog.fieldErrors.copies">
+        <el-input-number
+          v-model="controlledPrintDialog.form.copies"
+          :min="1"
+          :max="999"
+          :precision="0"
+          controls-position="right"
+          class="w-100%"
+        />
+      </el-form-item>
+      <el-form-item label="接收部门" :error="controlledPrintDialog.fieldErrors.receivingDepartment">
+        <el-input
+          v-model="controlledPrintDialog.form.receivingDepartment"
+          maxlength="128"
+          placeholder="请输入接收部门"
+        />
+      </el-form-item>
+      <el-form-item label="使用位置" :error="controlledPrintDialog.fieldErrors.useLocation">
+        <el-input
+          v-model="controlledPrintDialog.form.useLocation"
+          maxlength="128"
+          placeholder="请输入使用位置"
+        />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="closeControlledPrintDialog">取消</el-button>
+      <el-button
+        type="primary"
+        :loading="controlledPrintDialog.submitting"
+        @click="submitControlledPrint"
+      >
+        生成受控打印件
+      </el-button>
+    </template>
+  </el-dialog>
+
   <ControlledFileMetadataDialog
     v-model="metadataDialogVisible"
     :file="fileDetail"
@@ -2105,6 +2168,9 @@ const resubmitWithdrawnLoading = ref(false)
 const retryStampLoading = ref(false)
 const processPrintLoading = ref(false)
 const processExportLoading = ref(false)
+const controlledPrintRecordsLoading = ref(false)
+const controlledPrintRecordsError = ref('')
+const controlledPrintRecords = ref<ControlledFilePrintRecordVO[]>([])
 const projectCodeRecognitionLoading = ref(false)
 const trainingAckLoading = ref(false)
 const manualReleaseLoading = ref(false)
@@ -2357,6 +2423,19 @@ const distributionSignDialog = reactive({
     userIds: [] as number[],
     password: '',
     comment: ''
+  }
+})
+
+const controlledPrintDialog = reactive({
+  visible: false,
+  submitting: false,
+  inlineError: '',
+  fieldErrors: {} as Record<string, string>,
+  form: {
+    purpose: '',
+    copies: 1,
+    receivingDepartment: '',
+    useLocation: ''
   }
 })
 

@@ -26,7 +26,28 @@ interface BrowserVersionSummarySource {
   status?: string
   effectiveDate?: string
   publishedTime?: string
+  publishedFileId?: number | null
+  stampedFileId?: number | null
+  currentActiveVersionNo?: string | null
   modifying?: boolean
+}
+
+export const getBrowserPublishedFileStatusText = (file?: BrowserVersionSummarySource | null) =>
+  file?.publishedFileId ? '发布文件：已生成' : '发布文件：未生成'
+
+export const getBrowserStampedFileStatusText = (file?: BrowserVersionSummarySource | null) =>
+  file?.stampedFileId ? '盖章文件：已生成' : '盖章文件：未生成'
+
+export const getBrowserCurrentVersionSourceText = (file?: BrowserVersionSummarySource | null) => {
+  const currentActiveVersionNo = String(file?.currentActiveVersionNo || '').trim()
+  const versionNo = String(file?.versionNo || '').trim()
+  if (file?.status === 'ACTIVE' && currentActiveVersionNo && currentActiveVersionNo === versionNo) {
+    return `当前有效版来源：master 当前生效版本 ${versionNo}`
+  }
+  if (file?.status === 'ACTIVE' && !currentActiveVersionNo) {
+    return `当前有效版来源：当前列表 ACTIVE 版本 ${versionNo || '-'}`
+  }
+  return '当前有效版来源：非当前有效版'
 }
 
 export const getBrowserStatusLabel = (status: string | undefined) =>
@@ -58,7 +79,10 @@ export const getBrowserVersionSummary = (
     isCurrentActiveVersion,
     modifying: Boolean(isSelectedVersionModifying || version.modifying),
     effectiveText: `生效：${version.effectiveDate || '-'}`,
-    publishedText: `发布：${version.publishedTime || '-'}`
+    publishedText: `发布：${version.publishedTime || '-'}`,
+    publishedFileStatusText: getBrowserPublishedFileStatusText(version),
+    stampedFileStatusText: getBrowserStampedFileStatusText(version),
+    currentVersionSourceText: getBrowserCurrentVersionSourceText(version)
   }
 }
 

@@ -1,13 +1,16 @@
 {
-  "status": "PASS_WITH_ACTIVE_RELEASE_BLOCKED",
-  "finishedAt": "2026-08-02T11:34:11.057Z",
+  "status": "PASS",
+  "finishedAt": "2026-08-02T11:40:33.019Z",
   "fileId": "2054545668044070281",
   "fileNumber": "CODX-DCC-TRAIN-20260802093955",
   "versionNo": "V1.0",
   "trainingReadConfirmation": "PASS",
-  "finalActiveRelease": "BLOCKED",
-  "currentFileStatus": "PENDING_MANUAL_DISTRIBUTION",
+  "finalActiveRelease": "PASS",
+  "currentFileStatus": "ACTIVE",
+  "currentActiveControlledFileId": "2054545668044070281",
   "needTraining": 1,
+  "publishedFileId": "9198354916366",
+  "stampedFileId": "9198354916366",
   "trainingRecipients": [
     {
       "username": "chenchen",
@@ -88,24 +91,44 @@
       "departmentName": "质量体系部"
     }
   ],
-  "activeReleaseBlocker": {
-    "reason": "non-admin DCC account lacks category DISTRIBUTE permission",
-    "candidateAccount": "wangsiyu",
-    "distributeRules": [
-      {
-        "id": "2546",
-        "active": 1,
-        "scopeType": "GLOBAL",
-        "subjectId": "1",
-        "actionType": "DISTRIBUTE",
-        "subjectType": "USER"
-      }
-    ],
-    "manualReleaseButtonVisible": false
+  "distributePermission": {
+    "role": {
+      "id": "910431",
+      "code": "dcc_distribute_e2e",
+      "name": "DCC Distribute E2E",
+      "status": 0,
+      "tenantId": "1"
+    },
+    "rule": {
+      "id": "2623",
+      "active": 1,
+      "scopeType": "GLOBAL",
+      "subjectId": "910431",
+      "actionType": "DISTRIBUTE",
+      "categoryId": "906104",
+      "subjectType": "ROLE"
+    },
+    "wangsiyuRole": true
+  },
+  "manualReleaseEvidence": {
+    "status": "PASS",
+    "checkedAt": "2026-08-02T11:39:33.469Z",
+    "account": "wangsiyu",
+    "role": "dcc_distribute_e2e",
+    "roleId": "910431",
+    "controlledFileId": "2054545668044070281",
+    "fileNumber": "CODX-DCC-TRAIN-20260802093955",
+    "releasePayload": {
+      "code": 0,
+      "msg": "",
+      "data": true
+    },
+    "beforeScreenshot": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\manual-release-after-role-before-CODX-DCC-TRAIN-20260802093955.png",
+    "afterScreenshot": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\manual-release-after-role-after-CODX-DCC-TRAIN-20260802093955.png"
   },
   "evidence": {
-    "finalDb": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\final-readonly-db-verification-after-permission-grant.json",
-    "managerPage": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\manager-after-all-ack-page-evidence.json",
+    "finalDb": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\final-readonly-db-verification-after-distribute-role.json",
+    "manualReleasePage": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\manual-release-after-distribute-role-page-evidence.json",
     "verificationReport": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\verification-report.md"
   }
 }
