@@ -111,3 +111,11 @@ ready_for_closeout
 ## Final Status
 
 completed
+### M6 Push Evidence
+
+- `GREEN: pending blob size scan -> PASS`；待推送最大 blob 约 217309 bytes，无 100MB 以上对象。
+- 首次 `git push origin int_main` 失败：全局 GitHub 精确代理 `http.https://github.com.proxy=http://127.0.0.1:7890` 指向未监听端口。
+- `Test-NetConnection github.com -Port 443`：PASS。
+- `Test-NetConnection 127.0.0.1 -Port 7890`：FAIL。
+- `GREEN: git push -> PASS`；使用一次性覆盖 `git -c http.https://github.com.proxy= push origin int_main`，未修改全局 Git 配置。
+- 推送结果：`bc9f3de47..31fcb457d  int_main -> int_main`。
