@@ -71,6 +71,15 @@
 - Forbidden action: 禁止用 `git add doc docs scripts` 或 `git add -A` 代替候选清单；禁止为了修正暂存区而回滚、删除或覆盖工作区改动。
 - Evidence: 2026-07-28 文档目录加入 Git 前，复核发现前端源码/测试误在暂存区，使用 `git restore --staged` 保留工作区内容并只留下 `doc`、`docs` 文档文件。
 
+### 批量暂存脚本被拦截时的显式路径门禁
+
+- Trigger: 准备提交大量前后端、文档和证据文件，复杂 PowerShell 脚本或 `pathspec-from-file` 暂存命令被 Codex/终端策略拦截。
+- Preflight check: 不继续扩大脚本权限；改用明确目录和文件路径分批 `git add -- <paths>`，随后用 `git restore --staged -- <paths>` 移出当前任务记录、`.pid`、`diff --check` 失败文件和明显临时产物。
+- Blocker: 无法列出明确路径、暂存区混入当前任务收尾记录、PID、超大文件、敏感文件、`git diff --cached --check` 失败项，或提交后仍有同一源码文件持续被并行任务写入且无法稳定归属。
+- Verification: 每批暂存后运行 `git diff --cached --name-status` 和 `git diff --cached --check`；每次提交后运行 `git status --short --branch` 与 `git diff --name-status`，直到只剩明确不可提交项或当前任务收尾文件。
+- Forbidden action: 禁止因批量脚本被拦截就改用宽泛 `git add -A`；禁止为了通过 `diff --check` 修改无关任务证据文件或 PDF；禁止把 `.pid` 运行态文件混入提交。
+- Evidence: `doc/tasks/20260802-commit-current-frontend-backend-code/execution-log.md`，批量 pathspec 暂存被策略拦截后改用显式路径、移出 PID 和 `diff --check` 失败证据文件，并对多轮提交后残余改动逐轮复扫提交。
+
 ### 提交后残余改动复扫门禁
 
 - Trigger: 执行基线提交、实现提交或收尾提交后，准备继续下一步提交或推送前。
