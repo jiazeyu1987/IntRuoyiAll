@@ -3109,11 +3109,27 @@ function Resolve-ReleaseChangeSummaryCodexCliCommand {
     } else {
         $ConfiguredCommand.Trim()
     }
-    $command = Get-Command -Name $commandName -ErrorAction SilentlyContinue
-    if ($null -eq $command) {
+    $commands = @(Get-Command -Name $commandName -All -ErrorAction SilentlyContinue)
+    if ($commands.Count -eq 0) {
         Fail "Codex CLI is required to generate release change summary but was not found: $commandName"
     }
-    return $command.Source
+
+    $nativeCommand = @($commands | Where-Object { $_.CommandType -eq 'Application' } | Select-Object -First 1)
+    if ($nativeCommand.Count -gt 0) {
+        return $nativeCommand[0].Source
+    }
+
+    $firstCommand = $commands[0]
+    $scriptPath = [string]$firstCommand.Source
+    if ($firstCommand.CommandType -eq 'ExternalScript' -and [System.IO.Path]::GetExtension($scriptPath).Equals('.ps1', [System.StringComparison]::OrdinalIgnoreCase)) {
+        $cmdShimPath = [System.IO.Path]::ChangeExtension($scriptPath, '.cmd')
+        if (Test-Path -LiteralPath $cmdShimPath -PathType Leaf) {
+            return $cmdShimPath
+        }
+        Fail "Codex CLI command resolved to a PowerShell shim but no native .cmd shim was found: $scriptPath"
+    }
+
+    return $scriptPath
 }
 
 function ConvertTo-WindowsProcessArgument {

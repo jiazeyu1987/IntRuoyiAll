@@ -2887,3 +2887,4 @@
 2026-08-02T14:05:00+08:00	20260802-commit-feedback-fix-test-release	REQUEST	用户在 Codex 重启后要求继续：提交 `E:\IntRuoyi` 前后端代码，确认第三方报工修复进入下一次发布 worktree，并仅发布到测试服务器。
 2026-08-02T14:05:00+08:00	20260802-commit-feedback-fix-test-release	COMMAND_INTENT	接续既有任务文档，复核 dirty 主工作区、已冻结提交、release worktree 和 `r260802c-r1/r2/r3` 失败证据；只修复发布脚本 manifest sourceRepos 读取问题，不暂存并发脏文件。
 2026-08-02T14:12:00+08:00	20260802-commit-feedback-fix-test-release	RESULT	RED/GREEN: 新增发布脚本合同测试复现 `[ordered]` sourceRepo 无法读取 `pathRole` 的失败；修复 `Get-ReleaseObjectPropertyText` 支持 `System.Collections.IDictionary` 后，`source_repo_identity` 与 manifest/release-info 相关 pytest 通过。下一步提交推送后用新 clean worktree 和新 releaseTag 重建。
+2026-08-02T14:25:00+08:00	20260802-commit-feedback-fix-test-release	RESULT	RED/GREEN: `r260802d-r1` 后端/前端构建完成后在 Codex 变更说明阶段失败，原因是 `Get-Command codex` 先返回 `codex.ps1`，不能被 `ProcessStartInfo` 直接执行；已修复 resolver 优先 `.cmd/.exe` 并通过目标 pytest，下一步提交推送后重建新 releaseTag。
