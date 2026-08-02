@@ -13,7 +13,8 @@
 - Real Playwright E2E: PASS for task-owned original upload, wrong-password diagnostic, four-level approval/signature, publish ACTIVE, low-permission prompt, and traceability.
 - DCC write requests during final E2E: 0
 - Password literal scan: `NO_PASSWORD_LITERAL_FOUND`
-- Closeout cleanup: PASS for task-owned duplicate evidence cleanup; commit/push remains BLOCKED by shared dirty worktree.
+- Closeout cleanup: PASS for task-owned duplicate evidence cleanup.
+- Git closeout: PASS, commit `a88d00bda` pushed to `origin/int_main`.
 
 ## Evidence Matrix
 
@@ -61,3 +62,4 @@
 - `node doc/tasks/20260802-dcc-traceability-ux-fixes/dcc-original-release-with-wrong-password-e2e.cjs` -> PASS
 - `node doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-real-e2e.cjs` -> PASS (`traceability-ux-real-e2e-result-20260802120622.json`)
 - `task-closeout-cleanup --mode preview/apply` -> PASS, `blocked=<none>`, `warnings=<none>`，仅清理旧轮次重复证据。
+- `git -c http.https://github.com.proxy= push origin int_main` -> PASS, `a88d00bda` pushed.

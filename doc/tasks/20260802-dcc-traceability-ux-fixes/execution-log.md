@@ -82,8 +82,13 @@
 - GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260802-dcc-traceability-ux-fixes --mode apply` -> PASS，删除旧轮次重复截图/CSV/JSON 和已归档 `frontend-feature-evidence.md`，保留最终 E2E 脚本、最终 JSON、截图、CSV、`task.md`、`execution-log.md`、`verification-report.md`。
 - GREEN: post-cleanup password literal scan -> `NO_PASSWORD_LITERAL_FOUND`。
 - GREEN: scoped `git diff --check` for task implementation, tests, and task records -> PASS。
-- BLOCKED: commit/push closeout is not executed because the shared `E:\IntRuoyi` worktree contains many non-task dirty changes; current task remains `ready_for_closeout` until shared worktree commit policy is handled.
+- GREEN: staged pre-commit checks -> `git diff --cached --check` PASS, staged password literal scan `NO_PASSWORD_LITERAL_FOUND_IN_STAGED`, staged large-file scan `NO_STAGED_FILE_OVER_50MB`。
+- GREEN: `powershell -ExecutionPolicy Bypass -File E:\IntRuoyi\scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main/int_main: frontend 8081, backend 48081`。
+- GREEN: `git commit -m "任务: 提交当前前后端代码续跑"` -> commit `a88d00bda`，59 files changed。
+- GREEN: initial `git push origin int_main` failed because global GitHub-specific proxy `http.https://github.com.proxy=http://127.0.0.1:7890` pointed to an inactive local proxy；read-only diagnostics showed `127.0.0.1:7890` failed and `github.com:443` direct TCP succeeded。
+- GREEN: `git -c http.https://github.com.proxy= push origin int_main` -> PASS，`7d847126e..a88d00bda int_main -> int_main`。未修改全局 Git 配置。
+- Note: 工作区仍保留其它任务未提交产物和 PID 文件；本任务证据、脚本和报告已随 `a88d00bda` 推送。
 
 ## Current Status
 
-ready_for_closeout
+completed
