@@ -620,3 +620,16 @@
 - GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
 - GREEN: `git diff --check -- <M6 touched files>` -> PASS，仅输出 LF/CRLF 工作区提示，无 whitespace error。
 - BLOCKER_RECORDED: `development-plan-delivery` 脚本不适配当前实现任务目录；该目录没有 `development-plan.md/prd.md/test-plan.md`，当前任务继续以 `task.md/task-state.json/execution-log.md` 为 M0-M6 执行来源，不跳过 M6 gate。
+
+## M6 - PQC Regulation Items Rendered Action Evidence
+
+- BDD: PQC regulation items rendered from published QA regulation -> Given 生产组长已加入球囊扩张压力泵 V21 活跃订单且正式 QA 规程版本和 PQC 任务已发布 When PQC 检验员通过真实页面打开 PQC 填写入口 Then 页面必须按 activeOrderId、路线工序、PQC task 和发布规程版本返回检验项目、方法、标准和计划检验数量，不能使用硬编码项目、默认合格或固定 PATROL/30 成功。
+- TEST_ADDED: `role-requirement-matrix-preflight-static.spec.cjs` -> 要求真实 E2E 脚本包含 `verifyPqcRegulationItemsRendered` 和 `pqcRegulationItemsRendered`，防止只观察 PQC 页面入口而未证明规程项目动态渲染。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> FAIL，expected reason: `role-requirement-matrix-real-flow.e2e.js` 缺少 `verifyPqcRegulationItemsRendered`。
+- IMPLEMENTING: `role-requirement-matrix-real-flow.e2e.js` 新增 `qaRegulationVersionId` 脱敏配置、`loadPqcProcessesViaAuth(...)` 和 `verifyPqcRegulationItemsRendered(...)`；PQC 阶段现在先验证同一 activeOrderId 只读列表，再用当前 PQC 页面登录态读取 `/pqc/active-order/processes`，断言 `regulationVersionId`、`pqcTaskId`、`inspectionItems`、项目编码、名称、方法、标准、结果类型和计划检验数量。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- RED: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` first PQC regulation run -> STRUCTURED_BLOCKED，expected reason: 旧 `RRM_QA_REGULATION_VERSION_ID=6` 是单版本锚点，但当前 V21 14 个路线工序实际读取发布版本 ID 16..29。
+- IMPLEMENTING: 将 `RRM_QA_REGULATION_VERSION_ID` 调整为观测字段；正式验收以当前 activeOrderId 返回的 14 个工序 `regulationVersionId/pqcTaskId/inspectionItems` 为来源，不用单一旧版本号阻塞多工序规程集。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` after PQC regulation render slice -> STRUCTURED_BLOCKED；pnpm lifecycle non-zero wrapping script exit 2；`phaseEvidence=6`、`actionEvidence=6`、`pqcRegulationItemsRendered=PASS`、`activeOrderCleanupDeferred=BLOCKED/E2E_CLEANUP`、`actionObserved=7`、`surfaceObserved=34`、`uncovered=21`、`pending=62`、`blockers=63`；PQC 返回 14 个工序、32 个正式 QA 规程项目、发布版本 ID 16..29、计划巡检数量均为 15。
+- Decision: PQC 动态规程项目渲染已有真实动作证据并覆盖 AC-D17/D19/D24/D31 的正向观察，但仍不是 `ACCEPTED`；仍缺失败路径、签名/逐件提交、复核、清理、并发/性能和上线门禁。本轮仍不执行 `git push`。

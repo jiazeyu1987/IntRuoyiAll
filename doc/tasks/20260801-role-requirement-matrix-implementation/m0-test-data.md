@@ -85,6 +85,20 @@
 
 Derived QA fixture coverage is documented in `m0-derived-qa-regulation.md`. Source row `组装Ⅲ` does not have an exact V21 route process match and is retained as an unmatched source item rather than silently mapped to packaging.
 
+## M6 Formal QA / PQC Runtime Fixture
+
+| Fixture | Value | Notes |
+|---|---|---|
+| Formal QA regulation source | `mes_qa_inspection_regulation` | Created by M3/M6 formal fixture, not the M0 `mes_qc_template` placeholder |
+| Route/process coverage | 14 route processes | Covers pressure pump route `922119` / version `448` |
+| Published regulation version IDs | `16..29` | One published version per V21 route process in the current local runtime |
+| PQC action evidence | `pqcRegulationItemsRendered` | Real E2E observed 14 processes and 32 formal QA regulation items through the PQC page login state |
+| Inspection type observed | `PATROL` | Current M6 fixture uses patrol tasks for all 14 route processes |
+| Planned inspection quantity observed | `15` per process | Derived from current local work order quantity and temporary patrol coefficient in the fixture |
+
+- `RRM_QA_REGULATION_VERSION_ID=6` is retained only as a legacy M0 derived-template anchor in older command examples; it is not the current formal per-process published version set.
+- M6 real E2E uses the active-order PQC process response as source of truth for `regulationVersionId`, `pqcTaskId`, `inspectionItems`, method, standard and planned quantity.
+
 ## Remaining Source Limits
 
 - The QC template fixture is not a formal QA regulation/version/published snapshot model.

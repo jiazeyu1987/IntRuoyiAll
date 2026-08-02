@@ -406,7 +406,23 @@
                   type="primary"
                   @click="openPreview(getSelectedVersion(row).id)"
                 >
-                  预览
+                  预览当前有效版
+                </el-button>
+                <el-button
+                  v-if="getSelectedVersion(row).id"
+                  link
+                  type="primary"
+                  @click="openDetail(getSelectedVersion(row).id)"
+                >
+                  查看版本追溯
+                </el-button>
+                <el-button
+                  v-if="getSelectedVersion(row).id"
+                  link
+                  type="primary"
+                  @click="openSignatureEvidence(getSelectedVersion(row).id)"
+                >
+                  查看签核证据
                 </el-button>
                 <el-button
                   v-if="getBrowserRowActionState(getSelectedVersion(row)).canDownload"
