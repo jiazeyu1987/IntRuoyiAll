@@ -22,7 +22,7 @@
 
 ## Current Status
 
-in_progress
+blocked
 
 ## Current Verification State
 
@@ -40,6 +40,9 @@ in_progress
 - 2026-08-02 19:30:25 +08:00：按用户要求进行一次“修改之后”的完整真实 Playwright E2E，不复用旧链路结果。
 - 本轮范围：新建任务自有 V1 原版文件、完成四级审批/签名、发布/升版为 V2、再次完成四级审批/签名与发布审批、验证 V1 自动 `SUPERSEDED`、V2 `ACTIVE`、master 指向 V2、受控浏览不再返回 V1 当前有效行。
 - 约束：不使用 admin，不走手动作废审批，不通过 API-only/SQL 改状态，不删除文件；API/DB 只用于最终只读核验。
+- 2026-08-02 19:31:42 +08:00：完整业务状态链路跑通，结果 `full-rerun-e2e-result.json` 为 `PASS`，新建任务自有文件号 `CODX-DCC-REV-FULL-20260802-20260802193142`，V1 `2054545668044070293` 自动 `SUPERSEDED`，V2 `2054545668044070294` 为 `ACTIVE`，master `2054545668044062902` 指向 V2，受控浏览只返回 V2 当前有效行。但底层链路结果 `doc/tasks/20260802-dcc-revision-publish-real-e2e/chain-result.json` 仍记录审批页 `pageErrors`：`Cannot read properties of null (reading 'nextSibling')`，不满足本任务“全链路 pageErrors=0”干净门禁。
+- 2026-08-02 19:40:27 +08:00：再次执行全新任务自有文件完整链路并显式检查底层链路错误。结果 `full-rerun-e2e-result-20260802194027.json` 为 `BLOCKED`，脚本退出码 `1`；底层链路在 V1 首个非 admin 审批账号 `zhaohaichen` 的真实审批详情页阻塞，页面抛出 `Cannot read properties of undefined (reading 'visible')`，`text=审批阶段进度` 未出现并超时。
+- 最新阻塞影响：本轮新建 V1 `2054545668044070296` 当前停在 `PENDING_DOC_CONTROL_REVIEW`，待办任务为 `DOC_CONTROL_REVIEW`、assignee `376`；尚未进入 V2 升版、发布审批、旧版自动 `SUPERSEDED` 或受控浏览最终验证。未使用 API/SQL/admin 绕过，也未删除文件。
 
 ## 经验门禁
 

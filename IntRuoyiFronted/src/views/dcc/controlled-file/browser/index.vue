@@ -66,6 +66,28 @@
 
     <el-col :span="18">
       <ContentWrap class="browser-list-wrap">
+        <div
+          class="browser-filter-summary"
+          data-testid="dcc-controlled-browser-filter-summary"
+        >
+          <div class="browser-filter-summary__header">
+            <span>当前筛选条件</span>
+            <el-tag type="success" effect="plain">普通受控浏览默认仅展示当前有效版</el-tag>
+          </div>
+          <div class="browser-filter-summary__items">
+            <div
+              v-for="item in browserFilterSummaryItems"
+              :key="item.label"
+              class="browser-filter-summary__item"
+            >
+              <span class="browser-filter-summary__label">{{ item.label }}</span>
+              <span class="browser-filter-summary__value">{{ item.value }}</span>
+            </div>
+          </div>
+          <div class="browser-filter-summary__hint">
+            草稿/历史失效版不会在受控浏览默认入口展示；如需核对历史或签核证据，请使用“查看版本追溯”。
+          </div>
+        </div>
         <UnifiedListTemplate
           class="browser-list-template"
           :table-key="DCC_BROWSER_COLUMN_TABLE_KEY"
@@ -208,6 +230,12 @@
           @header-dragend="handleDccBrowserHeaderDragend"
           @sort-change="handleTemplateSortChange"
         >
+          <template #empty>
+            <div class="browser-permission-empty-state" data-testid="dcc-browser-permission-empty-state">
+              <div class="browser-permission-empty-state__title">{{ tableEmptyText }}</div>
+              <div class="browser-permission-empty-state__description">{{ tableEmptyHint }}</div>
+            </div>
+          </template>
           <el-table-column
             v-if="isDccBrowserColumnVisible('fileName')"
             label="文件名称"
@@ -236,6 +264,19 @@
                   </span>
                 </span>
               </el-tooltip>
+              <div
+                v-for="metadata in [getBrowserCurrentActiveRowSummary(row)]"
+                :key="`${metadata.versionNo}-${metadata.directoryPath}`"
+                class="browser-current-active-row-summary"
+                data-testid="dcc-browser-current-active-row-summary"
+              >
+                <el-tag size="small" type="success" effect="dark">当前有效版</el-tag>
+                <span>版本号：{{ metadata.versionNo }}</span>
+                <span>目录路径：{{ metadata.directoryPath }}</span>
+                <span>{{ metadata.publishedFileStatus }}</span>
+                <span>{{ metadata.stampedFileStatus }}</span>
+                <span>{{ metadata.currentVersionSource }}</span>
+              </div>
             </template>
           </el-table-column>
           <el-table-column
@@ -250,7 +291,7 @@
                 v-if="getSelectedVersion(row).fileNumber"
                 class="browser-file-number-cell"
               >
-                <el-tooltip :content="getSelectedVersion(row).fileNumber" placement="top">
+                <el-tooltip :content="`查看版本追溯：${getSelectedVersion(row).fileNumber}`" placement="top">
                   <el-button
                     class="browser-file-number browser-file-number--link"
                     data-testid="dcc-browser-file-number-detail-link"

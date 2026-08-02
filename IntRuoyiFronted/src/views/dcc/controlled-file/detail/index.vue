@@ -3163,6 +3163,16 @@ const distributionReceiptRows = computed(() =>
   paperDistributionRecords.value
 )
 
+const getControlledPrintStatusLabel = (status: string | undefined) => {
+  const statusMap: Record<string, string> = {
+    DIRECT_PRINTED: '已直接打印',
+    APPROVED: '已审批',
+    PENDING_APPROVAL: '待审批',
+    REJECTED: '已驳回'
+  }
+  return status ? statusMap[status] || status : '-'
+}
+
 const buildObsoleteBusinessActionContext = (
   detail: ControlledFileVO | undefined,
   reason = '作废当前版本'

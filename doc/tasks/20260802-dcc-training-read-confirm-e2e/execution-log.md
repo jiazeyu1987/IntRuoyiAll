@@ -73,3 +73,11 @@
 - Resolved blocker: 7 名培训对象缺少 `dcc:controlled-file:training:mine` 已按用户授权补齐为角色授权，并用 `chenchen` 真实培训任务页验证通过。
 - 按用户要求未采取的绕过：未使用 admin 账号，未直接调用 API 完成确认，未 SQL 修改培训进度/确认时间，未 SQL 修改文件状态/发布状态，未使用历史任务数据冒充本轮任务自有文件。
 - Current blocker: 正式下发/转 `ACTIVE` 仍缺非 admin 类别 `DISTRIBUTE` 权限。当前类别 `906104 / 其他` 的 `DISTRIBUTE` 规则仅授予 `USER=1`（admin），`wangsiyu` 详情页无“正式下发”按钮。影响：培训确认场景已完成，但文件停留在 `PENDING_MANUAL_DISTRIBUTION`，不能在不使用 admin 或额外授权的前提下完成 ACTIVE/受控浏览最终验收。
+
+## Final Resume - Distribute Role Fix
+
+- GREEN: `DISTRIBUTE permission role grant` -> PASS, 新增 `910431 / dcc_distribute_e2e`，为类别 `906104 / 其他` 增加 `DISTRIBUTE` 规则 `2623`，并赋给非 admin 文控账号 `wangsiyu`。
+- GREEN: `Playwright real manual release after distribute role` -> PASS, `wangsiyu` 登录真实详情页，看到“正式下发”按钮，点击确认后 `/admin-api/dcc/controlled-files/2054545668044070281/manual-release` 返回 `code=0`。
+- GREEN: `Final read-only DB active verification` -> PASS, 文件状态 `ACTIVE`，master `current_active_controlled_file_id=2054545668044070281`，9/9 培训对象均有 `acknowledged_at`。
+- Final evidence: `manual-release-after-distribute-role-page-evidence.json`, `manual-release-after-role-before-CODX-DCC-TRAIN-20260802093955.png`, `manual-release-after-role-after-CODX-DCC-TRAIN-20260802093955.png`, `final-readonly-db-verification-after-distribute-role.json`, `e2e-result.json`, `verification-report.md`。
+- Final result: Training/read confirmation PASS; current effective ACTIVE release PASS. 未使用 admin、未 API-only 确认/下发、未 SQL 修改培训完成状态或文件状态。
