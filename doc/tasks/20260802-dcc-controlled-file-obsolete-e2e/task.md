@@ -28,12 +28,11 @@ blocked
 
 - 用户明确变更验收口径：`作废先不走审批, 文件升版本的时候老的版本自动作废, 走这条链路`。
 - 手动作废审批链路保留为前置记录：真实页面可打开“作废当前版本”弹窗，但运行态缺少 `DCC / DCC / CONTROLLED_FILE / OBSOLETE` 发布策略，无法继续；该路径已不作为当前验收链路。
-- 当前验收链路 PASS：复用任务自有升版发布数据 `CODX-DCC-REV-FULL-20260802-20260802091213`，并重新运行真实 Playwright 受控浏览/追溯详情验证。
-- 结果文件：`doc/tasks/20260802-dcc-controlled-file-obsolete-e2e/revision-auto-obsolete-e2e-result.json`，状态 `PASS`。
-- 关键文件：V1 `2054545668044070271` / `V1.0` / `SUPERSEDED`；V2 `2054545668044070272` / `V2.0` / `ACTIVE`；master `2054545668044062882` 当前有效版本 `2054545668044070272`。
-- 受控浏览：`status=ACTIVE` 搜索当前文件号只返回/打开 V2，未将 V1 作为当前有效行返回。
-- 追溯详情：从受控浏览打开 V2 详情 URL `traceability=1&from=browser`，版本历史包含 V1/V2，升版原因 `升版 E2E 20260802091213` 可见。
-- 审批/签名：V1 和 V2 上传/升版审批共 8 个 DCC 完成任务；V2 DCC 电子签名人为 `zhaohaichen`、`zhaojie`、`zhaomingyu`、`wangsiyu`，均为 `PASSWORD`、`passwordVerified=1`、`evidenceStatus=VALID`；发布 BPM 实例 `6f007746-8e52-11f1-ada6-00155d2984a0` 已完成 4 个非 admin 审批任务。
+- 历史业务状态证据：复用任务自有升版发布数据 `CODX-DCC-REV-FULL-20260802-20260802091213` 曾完成真实 Playwright 受控浏览/追溯详情验证，结果文件 `revision-auto-obsolete-e2e-result.json` 为 `PASS`。
+- 历史关键文件：V1 `2054545668044070271` / `V1.0` / `SUPERSEDED`；V2 `2054545668044070272` / `V2.0` / `ACTIVE`；master `2054545668044062882` 当前有效版本 `2054545668044070272`。
+- 历史受控浏览：`status=ACTIVE` 搜索当前文件号只返回/打开 V2，未将 V1 作为当前有效行返回；追溯详情版本历史包含 V1/V2，升版原因 `升版 E2E 20260802091213` 可见。
+- 历史审批/签名：V1 和 V2 上传/升版审批共 8 个 DCC 完成任务；V2 DCC 电子签名人为 `zhaohaichen`、`zhaojie`、`zhaomingyu`、`wangsiyu`，均为 `PASSWORD`、`passwordVerified=1`、`evidenceStatus=VALID`；发布 BPM 实例 `6f007746-8e52-11f1-ada6-00155d2984a0` 已完成 4 个非 admin 审批任务。
+- 最新完整复跑结论以 `## Current Rerun` 为准：当前为 `blocked`，原因是真实 DCC 审批详情页运行时错误导致处理态控件未出现，尚未形成本轮干净完整 E2E PASS。
 
 ## Current Rerun
 

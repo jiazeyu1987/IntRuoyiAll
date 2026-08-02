@@ -968,7 +968,10 @@ import {
 import {
   BROWSER_STATUS_FILTER_OPTIONS,
   getBrowserVersionSummary,
-  getBrowserRowActionState
+  getBrowserRowActionState,
+  getBrowserPublishedFileStatusText,
+  getBrowserStampedFileStatusText,
+  getBrowserCurrentVersionSourceText
 } from './presentation'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
 
@@ -1212,13 +1215,53 @@ const isGlobalSearch = computed(() => searchScope.value === BROWSER_SEARCH_SCOPE
 const isQueryDisabled = computed(() => isCurrentDirectorySearch.value && !selectedDirectoryId.value)
 const tableEmptyText = computed(() => {
   if (isCurrentDirectorySearch.value && !selectedDirectoryId.value) {
-    return '请先选择目录'
+    return '请先选择受控浏览目录'
   }
-  return queryParams.keyword ? '暂无匹配受控文件' : '暂无受控文件'
+  return '无权限或无匹配当前有效文件'
 })
 const selectedDirectoryPath = computed(
   () => selectedDirectory.value?.directoryPath || selectedDirectory.value?.name || ''
 )
+const browserDirectoryScopeText = computed(() => {
+  if (isGlobalSearch.value) {
+    return '全域受控浏览'
+  }
+  return selectedDirectoryPath.value || '未选择目录'
+})
+const browserKeywordText = computed(() => normalizeKeyword(queryParams.keyword) || '未设置')
+const browserStatusText = computed(
+  () => BROWSER_STATUS_FILTER_OPTIONS.find((item) => item.value === queryParams.status)?.label || '全部状态'
+)
+const browserCategoryText = computed(() => {
+  if (!queryParams.categoryId) {
+    return '全部类别'
+  }
+  return categoryNameMap.value.get(queryParams.categoryId) || `类别 #${queryParams.categoryId}`
+})
+const browserFilterSummaryItems = computed(() => [
+  {
+    label: '受控浏览目录路径',
+    value: browserDirectoryScopeText.value
+  },
+  {
+    label: '分类',
+    value: browserCategoryText.value
+  },
+  {
+    label: '项目代码/文件编号关键字',
+    value: browserKeywordText.value
+  },
+  {
+    label: '当前有效状态',
+    value: browserStatusText.value
+  }
+])
+const tableEmptyHint = computed(() => {
+  if (isCurrentDirectorySearch.value && !selectedDirectoryId.value) {
+    return '请选择左侧目录后再按目录/分类/项目代码定位当前有效文件。'
+  }
+  return `当前筛选条件：目录 ${browserDirectoryScopeText.value}；分类 ${browserCategoryText.value}；关键字 ${browserKeywordText.value}。若目标 ACTIVE 文件已发布但不可见，通常表示当前账号无权限或筛选条件下无匹配当前有效文件。`
+})
 const batchRecognitionScopeLabel = computed(() =>
   isCurrentDirectorySearch.value ? '当前目录 + 子目录' : '全域'
 )
