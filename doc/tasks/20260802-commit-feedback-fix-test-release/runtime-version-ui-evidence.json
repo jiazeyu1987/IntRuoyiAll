@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://172.30.30.58:8081",
+  "tenant": "测试租户",
+  "username": "aoteman",
+  "releaseTag": "release-20260802-feedback-fix-test-r260802h-r1",
+  "changeNote": "修正了前端版本更新说明的生成问题，让发布时的变更说明能够正常整理出来。",
+  "consoleErrors": []
+}
