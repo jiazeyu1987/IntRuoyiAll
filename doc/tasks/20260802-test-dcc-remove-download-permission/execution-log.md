@@ -25,6 +25,9 @@
 - 2026-08-02：运行 `task_closeout.py --task-id 20260802-test-dcc-remove-download-permission --mode preview`；preview 保留三份核心任务记录、无 delete 项，blocked 为主工作区 `E:\IntRuoyi` 脏状态，不能接收 ff-only merge。
 - 2026-08-03 00:12:29 +08:00：任务审计记录提交 `b07378ca9 docs: record test DCC download permission removal` 已推送到 `origin/codex/20260802-test-dcc-download-permission`；远端 refs 确认为 `b07378ca94bba9f22652500eb69f92578cb5f95d`。
 - 2026-08-03 00:12:29 +08:00：首次普通 `git push` 被全局 GitHub 代理 `http://127.0.0.1:7890` 阻塞；已按门禁确认直连 `github.com:443` 可达，并仅用命令级 `git -c "http.https://github.com.proxy=" push ...` 完成本分支推送，未修改全局 Git 配置。
+- 2026-08-03 00:17:19 +08:00：按用户“进行验证”要求重新只读验证测试服；后端健康检查 `HTTP 200 {"status":"UP"}`，Redis 目标用户角色缓存 key 存在数 `0`。
+- GREEN: repeat target permission verification SQL -> PASS, `admin effective_can_download=1`，`zhaohaichen effective_can_download=0`，`wangsiyu effective_can_download=0`；三条目标绑定 `deleted_hex=1` 且 `updater=codex-20260802-dcc-download`。
+- GREEN: repeat full effective account SQL -> PASS, 当前剩余可下载账号为 `admin`、`aoteman`、`showroomeditor`、`showroomsupervisor`、`showroomviewer`、`yingtai`，目标账号不在清单中。
 
 ## Blockers
 
