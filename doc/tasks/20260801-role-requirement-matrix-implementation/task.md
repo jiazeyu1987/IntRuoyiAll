@@ -60,6 +60,7 @@ M6
 - M6 当前进行中：只允许处理迁移、并发、性能、全量真实 E2E、任务数据清理和上线/readiness gate；不得把 M6 未验证项提前标记为 ACCEPTED。
 - M6 AC-M04 当前只达到部分动作和后端失败路径证据：真实页面 `joinActiveOrder` 已返回 `activeOrderId=12`，真实页面 `activeOrderConflictRouteRejected` 已证明错误路线 fail-fast 且不新增错误 activeOrder，真实页面 `activeOrderCrossRoleReadOnly` 已证明 PQC 只读读取同一 activeOrderId，专用错误角色 `aoteman` 已证明活跃订单写入被拒绝，清理追溯门禁已结构化为 `activeOrderCleanupDeferred`，后端重复加入、并发唯一键和冲突路线前置拒绝单测已 GREEN；但 activeOrderId 仍是后续 M6 共享夹具，AC-M04 仍缺正式清理窗口/可重建夹具和 M6 迁移/性能/上线门禁，不得标记为 `ACCEPTED`。
 - M6 PQC 规程动态渲染已有真实动作证据：`pqcRegulationItemsRendered` 已通过 PQC 检验员页面登录态读取同一 activeOrderId 的 14 个路线工序、32 个正式 QA 规程项目、发布版本 ID 16..29 和计划巡检数量；但 D17/D19/D24/D31 仍缺失败路径和完整验收闭环，不得标记为 `ACCEPTED`。
+- M6 PQC 实际检验人切换门禁已结构化：`pqcActualEmployeeSelected` 已接入正式 `/pqc/personnel` 和 `/pqc/switch-employee` 路径，但当前本机测试租户返回 `1040760117`，原因是 PQC 员工和 PQC 组长 `EMPLOYEE` scope 为空；在补齐正式 PQC 人员范围前，不得用登录人默认值替代 actualEmployeeId，也不得把 AC-D25/D31 标记为 `ACCEPTED`。
 - `blocker-inventory.md`、`source-map.md`、`verification-report.md` 中出现的 M6 只表示当前待验收范围，不表示 Excel 全量目标已完成。
 - 在 M6 未达到 GREEN/REGRESSION/E2E/launch gate 证据前，不得把 62 项 AC 或最终 Excel 目标标记为完成。
 
@@ -73,7 +74,7 @@ M6
 - M5 子项已验证关闭：RRM-BLK-029..031 已通过正式批记录绑定与 `formBindings` / 默认 `MAIN` / `工序开始` 分离代码、静态合同、后端 compile 和 `real:check` 清零。
 - M5 日结/范围静态已验证：`pnpm --dir IntRuoyiFronted e2e:role-matrix-daily-close-scope:static` PASS。
 - M5 后端目标 Maven 已验证：`mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderScopeServiceTest,MesProcessPoolTeamLeaderSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` PASS，7 tests、0 failures/errors、BUILD SUCCESS。
-- M6 当前待办：迁移、并发、性能、全量真实 E2E、清理和上线验收门禁仍未完成；AC-M04 已有 `joinActiveOrder`、`activeOrderConflictRouteRejected`、`activeOrderCrossRoleReadOnly`、`activeOrderUnauthorizedMutationBlocked` 四个真实 PASS 动作证据和 `activeOrderCleanupDeferred` 清理 BLOCKED 证据，PQC 已有 `pqcRegulationItemsRendered` 动态规程渲染 PASS 证据，后端重复/并发/冲突路线单测 GREEN，但仍不能宣称 Excel 全量目标完成。
+- M6 当前待办：迁移、并发、性能、全量真实 E2E、清理和上线验收门禁仍未完成；AC-M04 已有 `joinActiveOrder`、`activeOrderConflictRouteRejected`、`activeOrderCrossRoleReadOnly`、`activeOrderUnauthorizedMutationBlocked` 四个真实 PASS 动作证据和 `activeOrderCleanupDeferred` 清理 BLOCKED 证据，PQC 已有 `pqcRegulationItemsRendered` 动态规程渲染 PASS 证据，`pqcActualEmployeeSelected` 已因 PQC 员工/组长来源为空结构化为 `E2E_PQC_PERSONNEL` blocker，后端重复/并发/冲突路线单测 GREEN，但仍不能宣称 Excel 全量目标完成。
 - 本地 M0 夹具不等于正式来源实现：QC/IPQC 模板和从 `过程检验记录 V3.0` 逆推的临时 QA 模板不是正式 QA 规程版本模型，工单/调拨夹具不是 activeOrderId 关系源。
 
 ## M0 Evidence

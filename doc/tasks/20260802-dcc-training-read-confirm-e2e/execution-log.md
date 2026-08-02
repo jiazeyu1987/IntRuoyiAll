@@ -81,3 +81,11 @@
 - GREEN: `Final read-only DB active verification` -> PASS, 文件状态 `ACTIVE`，master `current_active_controlled_file_id=2054545668044070281`，9/9 培训对象均有 `acknowledged_at`。
 - Final evidence: `manual-release-after-distribute-role-page-evidence.json`, `manual-release-after-role-before-CODX-DCC-TRAIN-20260802093955.png`, `manual-release-after-role-after-CODX-DCC-TRAIN-20260802093955.png`, `final-readonly-db-verification-after-distribute-role.json`, `e2e-result.json`, `verification-report.md`。
 - Final result: Training/read confirmation PASS; current effective ACTIVE release PASS. 未使用 admin、未 API-only 确认/下发、未 SQL 修改培训完成状态或文件状态。
+
+## Full Rerun - 2026-08-02 19:48 +08:00
+
+- User request: 重新完整复跑 DCC 文控培训/阅读确认真实 Playwright E2E。
+- BDD: Full rerun creates a new task-owned training file -> Given 非 admin 上传/DCC 账号通过真实页面上传并开启培训要求, When 该 V1.0 文件通过四级审批、申请人培训记录和文控批准, Then 系统生成来自该当前版本的培训/阅读确认任务。
+- BDD: Full rerun proves completed and pending states -> Given 至少两个培训对象收到任务, When 第一名对象完成确认且其他对象暂未确认, Then 管理视图和只读 DB 同时显示已完成对象、确认时间和未完成名单。
+- BDD: Full rerun completes all real-page acknowledgements and release -> Given 所有对象均通过真实培训任务页打开目标文件, When 阅读计时满足后逐一点击确认并由非 admin 文控账号正式下发, Then 文件为 `ACTIVE`、master 指向本轮文件、所有 progress 均有 `acknowledged_at`。
+- Planned result isolation: use a new `DCC_E2E_RUN_ID`, `DCC_E2E_FILE_NUMBER`, `DCC_E2E_RESULT_PATH`, and `DCC_E2E_ARTIFACT_PREFIX` so this rerun does not overwrite prior PASS evidence.

@@ -35,6 +35,14 @@
 - RED: full fresh clean-gate inspection for run `20260802193142` -> FAIL, expected reason: wrapper result `full-rerun-e2e-result.json` records business state `PASS`, but underlying full chain result `doc/tasks/20260802-dcc-revision-publish-real-e2e/chain-result.json` contains repeated pageerrors on publish approval page: `Cannot read properties of null (reading 'nextSibling')`; this does not satisfy the current task gate requiring target DCC/approval chain `pageErrors=0`.
 - RED: full fresh real Playwright rerun with new task-owned file `CODX-DCC-REV-FULL-20260802-20260802194027` -> FAIL/BLOCKED, expected reason: V1 upload succeeded but the first V1 approval page for non-admin `zhaohaichen` threw `Cannot read properties of undefined (reading 'visible')`; the real page never rendered `审批阶段进度`, causing `locator.waitFor('text=审批阶段进度')` timeout.
 - GREEN: read-only DB blocker impact check for run `20260802194027` -> PASS, no SQL/API mutation; V1 `2054545668044070296` remains `PENDING_DOC_CONTROL_REVIEW`, process `fa9edf24-8e66-11f1-93ff-00155d2984a0` has one unfinished `DOC_CONTROL_REVIEW` task assigned to `376`, and no V2/current-active switch was created.
+- RED: `node tests/e2e/dcc-detail-approval-render-safety-static.spec.js` -> FAIL, expected reason: focused regression contract did not exist yet, so the approval detail render-safety gap was not locked.
+- GREEN: `node tests/e2e/dcc-detail-approval-render-safety-static.spec.js` -> PASS, detail page has no `})const openControlledBrowserLocation` glue, keeps `审批阶段进度`, and all dialog `*.visible` v-models including `controlledPrintDialog` have initialized reactive state.
+- GREEN: `node --check tests/e2e/dcc-detail-approval-render-safety-static.spec.js` -> PASS.
+- GREEN: `pnpm e2e:dcc:detail-approval-render-safety:static` -> PASS.
+- GREEN: `node tests/e2e/dcc-detail-approval-own-task-without-process-query-static.spec.js` -> PASS.
+- GREEN: `pnpm e2e:dcc:detail-handling-summary:static` -> PASS.
+- GREEN: `pnpm ts:check` -> PASS.
+- GREEN: full fresh real Playwright rerun with new task-owned file `CODX-DCC-REV-FULL-20260802-20260802201023` -> PASS, V1 `2054545668044070300` became `SUPERSEDED`, V2 `2054545668044070301` became `ACTIVE`, master `2054545668044062907` points to V2, controlled browser current row is V2, traceability history shows V1/V2 and revision reason, and both wrapper and chain results have `targetNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 
 ## Milestone Updates
 
@@ -52,7 +60,7 @@
 - Result JSON: `E:\IntRuoyi\doc\tasks\20260802-dcc-controlled-file-obsolete-e2e\revision-auto-obsolete-e2e-result.json`.
 - Screenshots: `E:\IntRuoyi\doc\tasks\20260802-dcc-revision-publish-real-e2e\browser-current-v2.png`, `E:\IntRuoyi\doc\tasks\20260802-dcc-revision-publish-real-e2e\detail-version-history.png`.
 - Source PASS evidence reused and revalidated: `E:\IntRuoyi\doc\tasks\20260802-dcc-revision-publish-real-e2e\e2e-result.json`.
-- Secret scan: `rg -n "111111|admin123|password\s*=\s*['\"]|DCC_E2E_PASSWORD\s*=\s*['\"]" ...` -> PASS, no matches.
+- Secret scan: checked for plaintext passwords and quoted `DCC_E2E_PASSWORD` assignments in task evidence directories -> PASS, no matches.
 
 ## Full Fresh Rerun 2026-08-02
 
@@ -60,7 +68,8 @@
 - Planned result path: `E:\IntRuoyi\doc\tasks\20260802-dcc-controlled-file-obsolete-e2e\full-rerun-e2e-result.json`.
 - 2026-08-02 19:31:42 +08:00: business-state run completed with result `PASS` for file number `CODX-DCC-REV-FULL-20260802-20260802193142`; evidence showed V1 `2054545668044070293` -> `SUPERSEDED`, V2 `2054545668044070294` -> `ACTIVE`, master `2054545668044062902` -> V2,受控浏览当前有效行为 V2。但底层链路 `chain-result.json` 记录 publish approval pageerrors `Cannot read properties of null (reading 'nextSibling')`，因此未作为干净 E2E 放行结论。
 - 2026-08-02 19:40:27 +08:00: reran the full chain with password injected by `DCC_E2E_PASSWORD` PowerShell expression and without `DCC_E2E_USE_EXISTING_CHAIN`; command exited `1`. Result path: `E:\IntRuoyi\doc\tasks\20260802-dcc-controlled-file-obsolete-e2e\full-rerun-e2e-result-20260802194027.json`; blocker: `locator.waitFor: Timeout 30000ms exceeded` waiting for `text=审批阶段进度`; chain pageerrors: `Cannot read properties of undefined (reading 'visible')` in `src/views/dcc/controlled-file/detail/index.vue`.
-- Latest status: BLOCKED on real DCC approval detail page runtime error before V1 approval. Per user instruction, no API-only, SQL status update, admin account, or delete workaround was used.
+- 2026-08-02 20:10:23 +08:00: reran the full chain with password injected by `DCC_E2E_PASSWORD` PowerShell expression and without `DCC_E2E_USE_EXISTING_CHAIN`; command exited `0`. Result path: `E:\IntRuoyi\doc\tasks\20260802-dcc-controlled-file-obsolete-e2e\full-rerun-e2e-result-20260802201023.json`; chain result path: `E:\IntRuoyi\doc\tasks\20260802-dcc-revision-publish-real-e2e\chain-result.json`; status `PASS`; target errors all empty.
+- Latest status: PASS for the clarified revision-auto-obsolete path. Per user instruction, no API-only, SQL status update, admin account, or delete workaround was used.
 
 ## Manual Obsolete Blocker Record
 
@@ -72,3 +81,4 @@
 - 2026-08-02：按用户要求将 DCC “作废/废止”口径写入长期经验：后续遇到 DCC 作废/废止必须先区分“手动作废审批 `OBSOLETE`”与“升版后旧版自动失效 `SUPERSEDED`”；用户明确说“不走审批、升版本老版本自动作废/失效”时，验收口径应为 V1 `SUPERSEDED`、V2 `ACTIVE`、master 指向 V2、受控浏览不再返回 V1 当前有效行。
 - Updated: `docs/e2e-rules.md#dcc-文控审批处理入口门禁`。
 - Updated: `docs/experience-index.md` DCC 文控审批关键词路由。
+- 2026-08-02 20:15 +08:00：按 `project-experience-consolidation` 技能复查长期经验归宿；`docs/e2e-rules.md#dcc-文控审批处理入口门禁` 与 `docs/experience-index.md` 已覆盖“DCC 作废/废止按升版自动失效验收”的可复用规则，本次无需新建长期经验文档。

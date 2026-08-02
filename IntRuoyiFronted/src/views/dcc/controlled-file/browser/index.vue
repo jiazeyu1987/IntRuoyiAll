@@ -273,8 +273,8 @@
                 <el-tag size="small" type="success" effect="dark">当前有效版</el-tag>
                 <span>版本号：{{ metadata.versionNo }}</span>
                 <span>目录路径：{{ metadata.directoryPath }}</span>
-                <span>{{ metadata.publishedFileStatus }}</span>
-                <span>{{ metadata.stampedFileStatus }}</span>
+                <span>发布文件：{{ metadata.publishedFileStatus }}</span>
+                <span>盖章文件：{{ metadata.stampedFileStatus }}</span>
                 <span>{{ metadata.currentVersionSource }}</span>
               </div>
             </template>
@@ -1412,6 +1412,17 @@ const getBrowserFileNameTooltip = (row: ControlledFileBrowserRow) => {
   return displayName
 }
 
+const getBrowserCurrentActiveRowSummary = (row: ControlledFileBrowserRow) => {
+  const selectedVersion = getSelectedVersion(row)
+  return {
+    versionNo: selectedVersion.versionNo || row.versionNo || '-',
+    directoryPath: getBrowserDirectoryPath(selectedVersion.directoryId || row.directoryId),
+    publishedFileStatus: getBrowserPublishedFileStatusText(selectedVersion),
+    stampedFileStatus: getBrowserStampedFileStatusText(selectedVersion),
+    currentVersionSource: getBrowserCurrentVersionSourceText(selectedVersion)
+  }
+}
+
 const hasBrowserMoreActions = (row: ControlledFileBrowserRow) =>
   canEditMetadata.value &&
   isLatestVersionSelected(row) &&
@@ -1420,7 +1431,13 @@ const hasBrowserMoreActions = (row: ControlledFileBrowserRow) =>
 
 const hasBrowserRowActions = (row: ControlledFileBrowserRow) => {
   const actionState = getBrowserRowActionState(getSelectedVersion(row))
-  return actionState.canPreview || actionState.canDownload || actionState.canPrint || hasBrowserMoreActions(row)
+  return Boolean(
+    actionState.canPreview ||
+      actionState.canDownload ||
+      actionState.canPrint ||
+      getSelectedVersion(row).id ||
+      hasBrowserMoreActions(row)
+  )
 }
 
 const getBrowserRowActionBlockReason = (row: ControlledFileBrowserRow) => {
@@ -2685,6 +2702,10 @@ const openDetail = (id: number | string) => {
   openControlledFileTraceability(router, route, id, 'browser')
 }
 
+const openSignatureEvidence = (id: number | string) => {
+  openControlledFileTraceability(router, route, id, 'browser')
+}
+
 const openControlledPrintDialog = (file: ControlledFileBrowserVersion) => {
   const normalizedId = String(file?.id || '').trim()
   if (!normalizedId) {
@@ -2868,7 +2889,8 @@ onBeforeUnmount(() => {
 
 .browser-list-template {
   display: flex;
-  height: 100%;
+  flex: 1 1 auto;
+  height: auto;
   min-height: 0;
   flex-direction: column;
 }
@@ -2886,6 +2908,88 @@ onBeforeUnmount(() => {
 
 .browser-list-template :deep(.unified-list-template__table-shell .el-table) {
   height: 100%;
+}
+
+.browser-filter-summary {
+  flex: 0 0 auto;
+  margin-bottom: 10px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 10px 12px;
+}
+
+.browser-filter-summary__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #172033;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.browser-filter-summary__items {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.browser-filter-summary__item {
+  min-width: 0;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+}
+
+.browser-filter-summary__label {
+  display: block;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.browser-filter-summary__value {
+  display: block;
+  overflow: hidden;
+  margin-top: 3px;
+  color: #172033;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-filter-summary__hint {
+  margin-top: 8px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.browser-permission-empty-state {
+  display: grid;
+  gap: 8px;
+  padding: 42px 24px;
+  text-align: center;
+}
+
+.browser-permission-empty-state__title {
+  color: #172033;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.browser-permission-empty-state__description {
+  max-width: 620px;
+  margin: 0 auto;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .browser-directory-scroll {
@@ -2995,6 +3099,24 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.browser-current-active-row-summary {
+  display: flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 6px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.browser-current-active-row-summary span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .browser-file-number-cell {

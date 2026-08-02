@@ -104,9 +104,9 @@
 ### MES 三页签跨环境同步完整性门禁
 
 - Trigger: 将工序设置、工艺流程、排产工单等 MES 页面数据从本机、其它租户或其它环境同步到测试服/正式服，且用户要求“只同步这些页签、其它不同步”。
-- Preflight check: 写入前必须先生成白名单表清单和显式列清单，只读核对源/目标 schema、源数据父子范围、依赖闭包、目标同 ID 业务身份、以及所有白名单外活动引用；排产配置按当前路线工序身份收敛，排产工单按 `scheduleOrderId + routeProcessId` 快照身份收敛；工序设置批记录表单必须按 `batch_record_report_id -> mes_pro_batch_record_report.report_id` 核对正式报表元数据，并继续核对其 `batch_record_definition_id`、`batch_record_version_id` 是否在目标租户可解析。
+- Preflight check: 写入前必须先生成白名单表清单和显式列清单，只读核对源/目标 schema、源数据父子范围、依赖闭包、目标同 ID 业务身份、以及所有白名单外活动引用；排产配置按当前路线工序身份收敛，排产工单按 `scheduleOrderId + routeProcessId` 快照身份收敛；工序设置批记录表单必须按 `batch_record_report_id -> mes_pro_batch_record_report.report_id` 核对正式报表元数据，并继续核对其 `batch_record_definition_id`、`batch_record_version_id` 是否在目标租户可解析；对齐路线工序时必须区分页面可见的有效路线范围与挂在已删除路线下的孤儿历史行，比较口径应使用 `rp.deleted=b'0'` 且 JOIN `mes_pro_route.deleted=b'0'` 的有效路线工序集合。
 - Blocker: 目标 schema 不能承载源数据、目标缺正式依赖、同 ID 业务身份不一致、目标白名单外存在活动引用、源数据存在孤儿子记录或删除历史混入范围、或工序设置页面所需批记录报表元数据缺失时，必须停止；不得删除或改写目标数据。
-- Verification: 记录源/目标租户、白名单逐表行数、缺失/不一致依赖、白名单外引用表列计数、源关键快照容量、目标 schema 列类型、批记录报表元数据缺失数、备份恢复路径和零写入/事务回滚证据；写入后还必须比对行数、主键集合、业务键和显式列 hash，并用真实页面验证三页签列表接口不再返回 `系统异常`。
+- Verification: 记录源/目标租户、白名单逐表行数、缺失/不一致依赖、白名单外引用表列计数、源关键快照容量、目标 schema 列类型、批记录报表元数据缺失数、备份恢复路径和零写入/事务回滚证据；写入后还必须比对行数、主键集合、业务键和显式列 hash，并单独记录有效路线工序集合与全部 active 路线工序的差异原因；用真实页面验证三页签列表接口不再返回 `系统异常`。
 - Forbidden action: 禁止用表单槽位 `formBindings` 补批记录表单、用当前路线重建历史排产快照、自动补默认日历/产能/用户/物料、随机重映射 ID、关闭外键、全库重置、API-only 伪验证或把依赖数据偷偷纳入“页签同步”。
 - Evidence: `doc/tasks/20260731-mes-three-tab-test-sync/verification-report.md`。
 

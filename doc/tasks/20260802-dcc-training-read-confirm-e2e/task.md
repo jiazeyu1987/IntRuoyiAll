@@ -22,7 +22,7 @@
 
 ## Current Status
 
-completed
+in_progress - full rerun requested on 2026-08-02 19:48 +08:00
 
 ## 设计约束检查
 
@@ -47,6 +47,8 @@ doc/tasks/20260802-dcc-training-read-confirm-e2e/verification-report.md
 doc/tasks/20260802-dcc-training-read-confirm-e2e/dcc-training-read-confirm-e2e.cjs
 
 ## Current Run Notes
+
+2026-08-02 full rerun：用户要求“重新完整的走一遍E2E验证流程”。本轮将生成新的任务自有文件编号，复跑真实页面上传、四级审批/签名、申请人培训记录、培训任务领取与确认、未完成名单证明、正式下发、受控当前有效版和只读 DB 核验；仍禁止 admin、API-only/SQL 改培训完成或文件状态。
 
 2026-08-02 resume：用户已提供安全的 PowerShell 环境变量注入方式，原“非 admin 密码环境变量缺失”阻塞解除。本轮通过真实 Playwright 页面完成任务自有文件上传、申请人培训记录上传、第四级文控批准、培训任务生成、`zhaomingyu` 首个培训确认，以及后续所有培训对象确认。
 

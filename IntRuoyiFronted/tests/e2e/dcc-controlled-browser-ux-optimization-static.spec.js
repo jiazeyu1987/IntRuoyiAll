@@ -55,6 +55,27 @@ assert.match(
   /getBrowserStampedFileStatusText/,
   'browser presentation helper must provide business-readable stamped file status'
 )
+const currentActiveSummaryBlock = extractBetween(
+  browserPage,
+  'const getBrowserCurrentActiveRowSummary = (row: ControlledFileBrowserRow) => {',
+  'const hasBrowserMoreActions',
+  'browser current active row summary'
+)
+assert.match(
+  currentActiveSummaryBlock,
+  /getBrowserPublishedFileStatusText\(selectedVersion\)/,
+  'browser current active row summary must read published file status from selected current version'
+)
+assert.match(
+  currentActiveSummaryBlock,
+  /getBrowserStampedFileStatusText\(selectedVersion\)/,
+  'browser current active row summary must read stamped file status from selected current version'
+)
+assert.match(
+  currentActiveSummaryBlock,
+  /getBrowserCurrentVersionSourceText\(selectedVersion\)/,
+  'browser current active row summary must read current version source from selected current version'
+)
 assert.match(
   browserPage,
   /data-testid="dcc-browser-permission-empty-state"/,

@@ -21,7 +21,8 @@ const plannedStaticScripts = {
   'e2e:role-matrix-qa-regulation:static': 'tests/e2e/role-matrix-qa-regulation-static.spec.cjs',
   'e2e:role-matrix-pqc-dynamic-form:static': 'tests/e2e/role-matrix-pqc-dynamic-form-static.spec.cjs',
   'e2e:role-matrix-transfer-start-check:static': 'tests/e2e/role-matrix-transfer-start-check-static.spec.cjs',
-  'e2e:role-matrix-daily-close-scope:static': 'tests/e2e/role-matrix-daily-close-scope-static.spec.cjs'
+  'e2e:role-matrix-daily-close-scope:static': 'tests/e2e/role-matrix-daily-close-scope-static.spec.cjs',
+  'e2e:role-matrix-migration-preflight:static': 'tests/e2e/role-matrix-migration-preflight-static.spec.cjs'
 }
 
 assert.equal(
@@ -132,6 +133,8 @@ for (const token of [
   'activeOrderCrossRoleReadOnly',
   'verifyPqcRegulationItemsRendered',
   'pqcRegulationItemsRendered',
+  'verifyPqcActualEmployeeSwitch',
+  'pqcActualEmployeeSelected',
   'verifyActiveOrderUnauthorizedMutationBlocked',
   'activeOrderUnauthorizedMutationBlocked',
   'unauthorizedActor',
@@ -151,6 +154,8 @@ for (const token of [
   '/mes/pro/feedback/edhr-batch-pqc-fill',
   '/mes/pro/feedback/frontline/device-account/pqc/active-orders',
   '/mes/pro/feedback/frontline/device-account/pqc/active-order/processes',
+  '/mes/pro/feedback/frontline/device-account/pqc/personnel',
+  '/mes/pro/feedback/frontline/device-account/pqc/switch-employee',
   'writeEvidence',
   'failFast'
 ]) {

@@ -10,14 +10,15 @@
 2. [x] 修复受控文件详情页签核追溯与签名失败提示。
 3. [x] 修复文控操作日志页目标文件空态说明。
 4. [x] 运行静态合同、类型检查和相关回归。
-5. [x] 通过真实 Playwright 页面路径验证已有任务自有受控文件追溯显示，并记录 PASS/BLOCKED 证据。
+5. [x] 通过真实 Playwright 页面路径验证已有任务自有受控文件追溯显示，并记录 PASS 证据。
+6. [x] 按用户授权创建新的任务自有原版文件，完成错误密码诊断、四级审批/签名、发布生效和低权限提示复验。
 
 ## Expected Verification
 
 - `node tests/e2e/dcc-traceability-ux-static.spec.js` -> PASS
 - `pnpm ts:check` -> PASS
 - DCC 相关静态回归 -> PASS
-- 真实 Playwright E2E -> 主查看链路 PASS；权限提示低权限触发和错误密码诊断为受控 BLOCKED，原因见报告。
+- 真实 Playwright E2E -> 新任务自有文件原版上传、四级审批/签名、发布生效、低权限提示、错误密码诊断均 PASS。
 
 ## Current Status
 
@@ -28,8 +29,13 @@ ready_for_closeout
 - Static RED: `node tests/e2e/dcc-traceability-ux-static.spec.js` -> FAIL，原因为权限提示未业务化。
 - Static GREEN: `node tests/e2e/dcc-traceability-ux-static.spec.js` -> PASS。
 - Type check: `pnpm ts:check` -> PASS。
-- Regression: 文控日志、受控浏览详情入口、详情退休路由、签核追溯 UX 静态合同 -> PASS。
-- Real E2E: `traceability-ux-real-e2e-result-20260802112712.json` -> status PASS，`dccWriteRequests=[]`。
+- Regression: 文控日志、受控浏览详情入口、详情退休路由、签核追溯 UX 静态合同、详情页渲染安全静态合同 -> PASS。
+- Real E2E create/sign/publish: `dcc-original-release-wrong-password-20260802115503.json` -> status PASS。
+- Real E2E traceability: `traceability-ux-real-e2e-result-20260802120622.json` -> status PASS，`dccWriteRequests=[]`。
+- Closeout cleanup: preview/apply -> PASS，`blocked=<none>`，`warnings=<none>`，仅清理旧轮次重复证据并保留最终脚本/JSON/截图/CSV。
+- Task-owned controlled file: `CODX-DCC-TRACE-DIAG-20260802115503` / `2054545668044070299` / `V1.0` / `ACTIVE`。
+- Low-permission prompt: non-admin `zhaojie` sees target row and page shows “当前可查看签核追溯摘要；高级签名留痕需 DCC 电子签名管理权限。”
+- Wrong-password diagnostic: non-admin `zhaohaichen` first approval node returned `1080000022` and page showed reason, handling suggestion, and responsibility entry; correct password then completed the chain.
 - Secret scan: `NO_PASSWORD_LITERAL_FOUND`。
 
 ## Applicable Gates
@@ -41,9 +47,20 @@ ready_for_closeout
 
 ## Blockers
 
-- 低权限上传人账号在受控浏览入口看不到目标文件行，无法真实触发“高级签名留痕需额外权限”的页面提示；代码和静态合同已验证文案，E2E 记录为 BLOCKED。
-- 复用文件已 ACTIVE，页面无待办签名按钮；为避免破坏主链路，未创建新审批任务做错误密码写入型诊断，E2E 记录为 BLOCKED。
-- 仓库存在大量非本任务脏改，未执行提交/推送；本任务代码和证据已完成，收尾集成需先处理共享工作区状态。
+- 原 E2E 缺口已解除：使用任务自有新文件完成错误密码诊断，并使用可见目标文件但无高级签名管理权限的非 admin 账号完成权限提示复验。
+- 仓库存在大量非本任务脏改，未执行提交/推送；本任务功能验证和 cleanup 已完成，最终 `completed` 与集成提交需先处理共享工作区状态。
+
+## Cleanup Keep
+
+- doc/tasks/20260802-dcc-traceability-ux-fixes/dcc-original-release-with-wrong-password-e2e.cjs
+- doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-real-e2e.cjs
+- doc/tasks/20260802-dcc-traceability-ux-fixes/dcc-original-release-wrong-password-20260802115503.json
+- doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-real-e2e-result-20260802120622.json
+- doc/tasks/20260802-dcc-traceability-ux-fixes/signature-trace-ux-export-20260802120622.csv
+- doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-detail-20260802120622.png
+- doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-file-evidence-viewer-20260802120622.png
+- doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-operation-logs-20260802120622.png
+- doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-permission-prompt-20260802120622.png
 
 ## Experience Consolidation
 

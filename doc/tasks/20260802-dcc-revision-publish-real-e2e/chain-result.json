@@ -1,107 +1,31 @@
 {
-  "runId": "20260802194027",
-  "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802194027",
-  "fileName": "Codex DCC 升版发布全链路 20260802194027",
+  "runId": "20260802202300",
+  "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802202300",
+  "fileName": "Codex DCC 升版发布全链路 20260802202300",
   "baseUrl": "http://127.0.0.1:8081",
   "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "v1FilePath": "E:\\IntRuoyi\\resource\\批记录节点-解析样本.docx",
   "v2FilePath": "E:\\IntRuoyi\\resource\\过程检验记录.docx",
   "stampedPdfPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-revision-publish-real-e2e\\stamped-approval-sample.pdf",
-  "startedAt": "2026-08-02T11:40:27.726Z",
+  "startedAt": "2026-08-02T12:23:01.251Z",
   "phases": [
     {
       "phase": "upload-V1.0",
       "username": "pengyunfeng",
-      "controlledFileId": "2054545668044070296",
+      "controlledFileId": "2054545668044070303",
       "previewFileName": "批记录节点-解析样本.docx",
       "previewKind": "OFFICE"
+    },
+    {
+      "phase": "approve-V1.0",
+      "username": "zhaohaichen",
+      "role": "文控审核",
+      "userId": 376
     }
   ],
   "targetNetworkFailures": [],
-  "consoleErrors": [
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "TypeError: Cannot read properties of undefined (reading 'visible')\n    at Proxy._sfc_render (http://127.0.0.1:8081/src/views/dcc/controlled-file/detail/index.vue?t=1785670838132:7688:48)\n    at renderComponentRoot (http://127.0.0.1:8081/node_modules/.vite-env-local-8081/deps/chunk-XVG5X3YQ.js?v=465b068f:7756:17)\n    at ReactiveEffect.componentUpdateFn [as fn] (http://127.0.0.1:8081/node_modules/.vite-env-local-8081/deps/chunk-XVG5X3YQ.js?v=465b068f:6591:46)\n    at ReactiveEffect.run (http://127."
-    }
-  ],
-  "pageErrors": [
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    },
-    {
-      "label": "approve-V1.0-zhaohaichen",
-      "text": "Cannot read properties of undefined (reading 'visible')"
-    }
-  ],
+  "consoleErrors": [],
+  "pageErrors": [],
   "accountProfiles": {
     "uploader": {
       "id": 151,
@@ -145,7 +69,7 @@
     "v2": 74170,
     "stampedPdf": 658
   },
-  "finishedAt": "2026-08-02T11:41:13.215Z",
+  "finishedAt": "2026-08-02T12:24:35.664Z",
   "status": "BLOCKED",
-  "blocker": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=审批阶段进度') to be visible\u001b[22m\n"
+  "blocker": "response.text: Protocol error (Network.getResponseBody): No resource with given identifier found"
 }

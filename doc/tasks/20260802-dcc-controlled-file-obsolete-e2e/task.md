@@ -22,17 +22,17 @@
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
 ## Current Verification State
 
 - 用户明确变更验收口径：`作废先不走审批, 文件升版本的时候老的版本自动作废, 走这条链路`。
 - 手动作废审批链路保留为前置记录：真实页面可打开“作废当前版本”弹窗，但运行态缺少 `DCC / DCC / CONTROLLED_FILE / OBSOLETE` 发布策略，无法继续；该路径已不作为当前验收链路。
-- 历史业务状态证据：复用任务自有升版发布数据 `CODX-DCC-REV-FULL-20260802-20260802091213` 曾完成真实 Playwright 受控浏览/追溯详情验证，结果文件 `revision-auto-obsolete-e2e-result.json` 为 `PASS`。
-- 历史关键文件：V1 `2054545668044070271` / `V1.0` / `SUPERSEDED`；V2 `2054545668044070272` / `V2.0` / `ACTIVE`；master `2054545668044062882` 当前有效版本 `2054545668044070272`。
-- 历史受控浏览：`status=ACTIVE` 搜索当前文件号只返回/打开 V2，未将 V1 作为当前有效行返回；追溯详情版本历史包含 V1/V2，升版原因 `升版 E2E 20260802091213` 可见。
-- 历史审批/签名：V1 和 V2 上传/升版审批共 8 个 DCC 完成任务；V2 DCC 电子签名人为 `zhaohaichen`、`zhaojie`、`zhaomingyu`、`wangsiyu`，均为 `PASSWORD`、`passwordVerified=1`、`evidenceStatus=VALID`；发布 BPM 实例 `6f007746-8e52-11f1-ada6-00155d2984a0` 已完成 4 个非 admin 审批任务。
-- 最新完整复跑结论以 `## Current Rerun` 为准：当前为 `blocked`，原因是真实 DCC 审批详情页运行时错误导致处理态控件未出现，尚未形成本轮干净完整 E2E PASS。
+- 最新完整复跑结论：`PASS`。本轮新建任务自有文件 `CODX-DCC-REV-FULL-20260802-20260802201023`，通过真实 Playwright 完成 V1 原版上传、V1 四级审批/签名、V2 升版上传、V2 四级审批/签名、发布申请与四级发布审批。
+- 最新关键文件：V1 `2054545668044070300` / `V1.0` / `SUPERSEDED`；V2 `2054545668044070301` / `V2.0` / `ACTIVE`；master `2054545668044062907` 当前有效版本 `2054545668044070301`。
+- 最新受控浏览：`status=ACTIVE` 搜索当前文件号只返回/打开 V2，未将 V1 作为当前有效行返回；追溯详情版本历史包含 V1/V2，升版原因 `升版 E2E 20260802201023` 可见。
+- 最新审批/签名：V1 和 V2 上传/升版审批共 8 个 DCC 完成任务；V1/V2 DCC 电子签名人为 `zhaohaichen`、`zhaojie`、`zhaomingyu`、`wangsiyu`，均为 `PASSWORD`、`passwordVerified=1`、`evidenceStatus=VALID`；发布 BPM 实例 `53fbed5f-8e6b-11f1-93ff-00155d2984a0` 已完成 4 个非 admin 审批任务。
+- 干净门禁：包装层 `full-rerun-e2e-result-20260802201023.json` 与底层 `chain-result.json` 均为 `PASS`，`targetNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`。
 
 ## Current Rerun
 
@@ -42,6 +42,7 @@ blocked
 - 2026-08-02 19:31:42 +08:00：完整业务状态链路跑通，结果 `full-rerun-e2e-result.json` 为 `PASS`，新建任务自有文件号 `CODX-DCC-REV-FULL-20260802-20260802193142`，V1 `2054545668044070293` 自动 `SUPERSEDED`，V2 `2054545668044070294` 为 `ACTIVE`，master `2054545668044062902` 指向 V2，受控浏览只返回 V2 当前有效行。但底层链路结果 `doc/tasks/20260802-dcc-revision-publish-real-e2e/chain-result.json` 仍记录审批页 `pageErrors`：`Cannot read properties of null (reading 'nextSibling')`，不满足本任务“全链路 pageErrors=0”干净门禁。
 - 2026-08-02 19:40:27 +08:00：再次执行全新任务自有文件完整链路并显式检查底层链路错误。结果 `full-rerun-e2e-result-20260802194027.json` 为 `BLOCKED`，脚本退出码 `1`；底层链路在 V1 首个非 admin 审批账号 `zhaohaichen` 的真实审批详情页阻塞，页面抛出 `Cannot read properties of undefined (reading 'visible')`，`text=审批阶段进度` 未出现并超时。
 - 最新阻塞影响：本轮新建 V1 `2054545668044070296` 当前停在 `PENDING_DOC_CONTROL_REVIEW`，待办任务为 `DOC_CONTROL_REVIEW`、assignee `376`；尚未进入 V2 升版、发布审批、旧版自动 `SUPERSEDED` 或受控浏览最终验证。未使用 API/SQL/admin 绕过，也未删除文件。
+- 2026-08-02 20:10:23 +08:00：完成修复后全新执行完整真实 Playwright 链路。结果 `full-rerun-e2e-result-20260802201023.json` 为 `PASS`；底层链路 `chain-result.json` 为 `PASS`；V1 `2054545668044070300` 自动 `SUPERSEDED`，V2 `2054545668044070301` 为 `ACTIVE`，master `2054545668044062907` 指向 V2，受控浏览当前有效行为 V2，追溯详情版本历史包含 V1/V2 与升版原因；`targetNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`。
 
 ## 经验门禁
 

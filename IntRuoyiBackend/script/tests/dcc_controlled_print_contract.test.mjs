@@ -38,6 +38,23 @@ assertControlledPrintSchema(
   'test schema'
 )
 
+const controlledPrintMigration = readSource('sql/mysql/20260802_dcc_controlled_print_record.sql')
+assert.match(
+  controlledPrintMigration,
+  /@dcc_controlled_print_preferred_menu_id_blocked/,
+  'controlled print migration must detect occupied preferred menu id'
+)
+assert.match(
+  controlledPrintMigration,
+  /COALESCE\(MAX\(`id`\), 0\) \+ 1 FROM `system_menu`/,
+  'controlled print migration must allocate a safe menu id when the preferred id is occupied'
+)
+assert.doesNotMatch(
+  controlledPrintMigration,
+  /SELECT\s+6813,\s*[\s\S]{0,200}'dcc:controlled-file:print'/,
+  'controlled print migration must not rely on occupied legacy menu id 6813'
+)
+
 const controller = readSource(
   'yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java'
 )

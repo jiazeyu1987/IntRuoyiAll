@@ -24,6 +24,7 @@
 - GREEN: `node tests/e2e/dcc-browser-file-number-detail-entry-static.spec.js` -> PASS。
 - GREEN: `node tests/e2e/dcc-controlled-file-detail-retired-static.spec.js` -> PASS。
 - GREEN: `node tests/e2e/dcc-traceability-ux-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/dcc-detail-approval-render-safety-static.spec.js` -> PASS。
 
 ## Implementation Evidence
 
@@ -53,15 +54,35 @@
   - 文件 ID、文件编号、版本、状态、`publishedFileId`、`stampedFileId`、签名数量、审批意见均与只读详情响应一致。
   - `dccWriteRequests=[]`，未产生 DCC 写请求。
 
-## BLOCKED Evidence
+## Resumed E2E Blocker Resolution
 
-- 签名失败诊断真实错误密码：BLOCKED。复用文件已 ACTIVE，页面无待办签名按钮；为避免破坏主链路，未创建新审批任务做错误密码写入型诊断。静态合同已覆盖文案。
-- 低权限权限提示真实触发：BLOCKED。`pengyunfeng` 在受控浏览入口未看到目标文件行，无法进入详情触发提示；当前主查看账号 `wangsiyu` 有高级访问能力，因此签名留痕区不展示权限提示。静态合同已覆盖文案且旧误导文案已移除。
+- BDD: 低权限签名留痕提示真实触发 -> Given 非 admin `zhaojie` 可以在受控浏览看到任务自有 ACTIVE 文件且没有 `dcc:controlled-file:signature:manage` When 打开文件编号追溯详情 Then 页面展示“当前可查看签核追溯摘要；高级签名留痕需 DCC 电子签名管理权限。”
+- BDD: 错误密码签名失败诊断真实触发 -> Given 任务自有原版文件处于首个待审批签名节点 When `zhaohaichen` 输入错误签名密码 Then 页面展示签名失败原因、处理建议、责任入口，且流程不推进；随后输入正确密码继续四级审批到 ACTIVE。
+- GREEN: `node --check doc/tasks/20260802-dcc-traceability-ux-fixes/dcc-original-release-with-wrong-password-e2e.cjs` -> PASS。
+- GREEN: `node --check doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-real-e2e.cjs` -> PASS。
+- GREEN: `node tests/e2e/dcc-traceability-ux-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `node doc/tasks/20260802-dcc-traceability-ux-fixes/dcc-original-release-with-wrong-password-e2e.cjs` -> PASS；真实页面创建 `CODX-DCC-TRACE-DIAG-20260802115503` / `2054545668044070299`，先错误密码诊断，再四级审批签名至 `ACTIVE`。
+- GREEN: `node doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-real-e2e.cjs` -> `traceability-ux-real-e2e-result-20260802120622.json` PASS；`dccWriteRequests=[]`，低权限提示 PASS，错误密码诊断来源 PASS。
+- Runtime fix: `IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue` 原有 `})const openControlledBrowserLocation` 语法错误导致 Vite 动态模块 500，已做最小换行修复；复验 `http://127.0.0.1:8081/src/views/dcc/controlled-file/detail/index.vue` -> 200。
+
+## Former E2E Gaps Resolved
+
+- 签名失败诊断真实错误密码：PASS。`zhaohaichen` 首节点错误密码响应 `1080000022`，页面显示“签名失败原因 / 当前密码错误 / 处理建议 / 责任入口”，随后正确密码继续主链路。
+- 低权限权限提示真实触发：PASS。`zhaojie` 无高级签名管理权限，能看到目标文件并进入追溯详情，页面显示业务化权限提示且旧误导文案不可见。
 
 ## Secret Handling
 
 - Password injection command used environment variable only.
 - Secret scan result: `NO_PASSWORD_LITERAL_FOUND`。
+
+## Closeout Cleanup
+
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260802-dcc-traceability-ux-fixes --mode preview` -> PASS，`status=ready`，`blocked=<none>`，`warnings=<none>`。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260802-dcc-traceability-ux-fixes --mode apply` -> PASS，删除旧轮次重复截图/CSV/JSON 和已归档 `frontend-feature-evidence.md`，保留最终 E2E 脚本、最终 JSON、截图、CSV、`task.md`、`execution-log.md`、`verification-report.md`。
+- GREEN: post-cleanup password literal scan -> `NO_PASSWORD_LITERAL_FOUND`。
+- GREEN: scoped `git diff --check` for task implementation, tests, and task records -> PASS。
+- BLOCKED: commit/push closeout is not executed because the shared `E:\IntRuoyi` worktree contains many non-task dirty changes; current task remains `ready_for_closeout` until shared worktree commit policy is handled.
 
 ## Current Status
 

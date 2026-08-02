@@ -1490,6 +1490,191 @@ async function verifyPqcRegulationItemsRendered(page, config, actionEvidence) {
   }
 }
 
+function resolveCurrentUserId(permissionInfo) {
+  const candidates = [
+    permissionInfo?.user?.id,
+    permissionInfo?.user?.userId,
+    permissionInfo?.userId,
+    permissionInfo?.id
+  ]
+  for (const candidate of candidates) {
+    const value = Number(candidate)
+    if (Number.isFinite(value) && value > 0) return value
+  }
+  return undefined
+}
+
+function formatPqcPersonnelLabel(candidate) {
+  return candidate?.nickname || candidate?.employeeName || candidate?.username ||
+    candidate?.employeeCode || String(candidate?.userId || '')
+}
+
+async function loadPqcPersonnelViaAuth(page, label) {
+  const result = await fetchWithPageAuth(
+    page,
+    '/admin-api/mes/pro/feedback/frontline/device-account/pqc/personnel'
+  )
+  if (!result.ok) {
+    return {
+      blocked: true,
+      description: `${label} HTTP 失败：${result.status}`
+    }
+  }
+  if (result.body?.code !== 0) {
+    return {
+      blocked: true,
+      responseCode: result.body?.code,
+      responseMessage: responseMessage(result.body),
+      description: `${label} 业务失败：${responseMessage(result.body)}`
+    }
+  }
+  if (!Array.isArray(result.body.data)) {
+    return {
+      blocked: true,
+      description: `${label} 必须返回数组。`
+    }
+  }
+  return {
+    blocked: false,
+    candidates: result.body.data
+  }
+}
+
+async function verifyPqcActualEmployeeSwitch(page, config, actionEvidence) {
+  const joinEvidence = actionEvidence.find((item) => item.key === 'joinActiveOrder' && item.status === 'PASS')
+  const readOnlyEvidence = actionEvidence.find((item) => item.key === 'activeOrderCrossRoleReadOnly' && item.status === 'PASS')
+  if (!joinEvidence?.activeOrderId || !readOnlyEvidence) {
+    return {
+      key: 'pqcActualEmployeeSelected',
+      label: '共享账号下选择实际 PQC 检验人员',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_PERSONNEL',
+      acceptanceIds: ['AC-D25', 'AC-D31'],
+      description: 'PQC 实际检验人选择前缺少同一 activeOrderId 的页面只读证据，不能证明人员选择绑定到正式活跃订单。'
+    }
+  }
+
+  const permissionInfo = await getCurrentPermissionInfo(page)
+  const loginUserId = resolveCurrentUserId(permissionInfo)
+  const personnelResult = await loadPqcPersonnelViaAuth(page, 'PQC 人员范围')
+  if (personnelResult.blocked) {
+    return {
+      key: 'pqcActualEmployeeSelected',
+      label: '共享账号下选择实际 PQC 检验人员',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_PERSONNEL',
+      acceptanceIds: ['AC-D25', 'AC-D31'],
+      activeOrderId: joinEvidence.activeOrderId,
+      loginUserId,
+      responseCode: personnelResult.responseCode,
+      responseMessage: personnelResult.responseMessage,
+      description: `${personnelResult.description}；需要在本机测试租户补齐正式 PQC 组长/员工 EMPLOYEE scope 后，才能证明 actualEmployeeId 不默认登录人。`
+    }
+  }
+  const candidates = personnelResult.candidates
+  const selectableCandidates = candidates
+    .map((candidate) => ({
+      ...candidate,
+      userId: Number(candidate.userId),
+      label: formatPqcPersonnelLabel(candidate)
+    }))
+    .filter((candidate) => Number.isFinite(candidate.userId) && candidate.userId > 0 && candidate.label)
+  if (!selectableCandidates.length) {
+    return {
+      key: 'pqcActualEmployeeSelected',
+      label: '共享账号下选择实际 PQC 检验人员',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_PERSONNEL',
+      acceptanceIds: ['AC-D25', 'AC-D31'],
+      activeOrderId: joinEvidence.activeOrderId,
+      description: 'PQC 人员范围接口没有返回可选择人员，不能证明共享账号下实际检验人来源。'
+    }
+  }
+  const targetCandidate = selectableCandidates.find((candidate) => candidate.userId !== loginUserId) ||
+    selectableCandidates[0]
+  if (loginUserId && targetCandidate.userId === loginUserId) {
+    return {
+      key: 'pqcActualEmployeeSelected',
+      label: '共享账号下选择实际 PQC 检验人员',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_PERSONNEL',
+      acceptanceIds: ['AC-D25', 'AC-D31'],
+      activeOrderId: joinEvidence.activeOrderId,
+      loginUserId,
+      candidateCount: selectableCandidates.length,
+      description: 'PQC 人员范围只返回当前登录账号，不能证明 actualEmployeeId 不默认等于登录人。'
+    }
+  }
+
+  const employeeCard = page
+    .locator('.frontline-operator-top.is-pqc .frontline-top-card')
+    .filter({ hasText: '员工' })
+    .first()
+  await employeeCard.waitFor({ state: 'visible', timeout: 30000 })
+  await employeeCard.click()
+  const targetOption = page
+    .locator('.frontline-picker__options button')
+    .filter({ hasText: targetCandidate.label })
+    .first()
+  await targetOption.waitFor({ state: 'visible', timeout: 30000 })
+  const switchResponsePromise = page.waitForResponse((response) =>
+    response.url().includes('/mes/pro/feedback/frontline/device-account/pqc/switch-employee')
+      && response.request().method() === 'POST'
+  , { timeout: 30000 }).catch((error) => ({ pqcSwitchEmployeeResponseError: error }))
+  await targetOption.click()
+  const switchResponse = await switchResponsePromise
+  if (switchResponse.pqcSwitchEmployeeResponseError) {
+    return {
+      key: 'pqcActualEmployeeSelected',
+      label: '共享账号下选择实际 PQC 检验人员',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_PERSONNEL',
+      acceptanceIds: ['AC-D25', 'AC-D31'],
+      activeOrderId: joinEvidence.activeOrderId,
+      actualEmployeeId: targetCandidate.userId,
+      description: `页面点击实际 PQC 人员后未捕获 switch-employee 响应：${switchResponse.pqcSwitchEmployeeResponseError.message}`
+    }
+  }
+  assert.ok(switchResponse.ok(), `PQC 实际人员切换 HTTP 失败：${switchResponse.status()}`)
+  const switchBody = await switchResponse.json()
+  assert.equal(switchBody.code, 0, `PQC 实际人员切换业务失败：${responseMessage(switchBody)}`)
+  assert.equal(
+    Number(switchBody.data?.actualEmployeeId),
+    targetCandidate.userId,
+    'PQC 实际人员切换响应必须保存页面选择的 actualEmployeeId。'
+  )
+  if (loginUserId) {
+    assert.notEqual(
+      Number(switchBody.data?.actualEmployeeId),
+      loginUserId,
+      '共享账号 PQC 实际检验人不能默认等于当前登录用户。'
+    )
+  }
+  await employeeCard.filter({ hasText: targetCandidate.label }).waitFor({ state: 'visible', timeout: 30000 })
+
+  return {
+    key: 'pqcActualEmployeeSelected',
+    label: '共享账号下选择实际 PQC 检验人员',
+    roleKey: 'pqcInspector',
+    status: 'PASS',
+    acceptanceIds: ['AC-D25', 'AC-D31'],
+    activeOrderId: joinEvidence.activeOrderId,
+    workOrderId: config.workOrderId,
+    routeId: config.routeId,
+    loginUserId,
+    actualEmployeeId: targetCandidate.userId,
+    candidateCount: selectableCandidates.length,
+    employeeLabel: targetCandidate.label,
+    templateNo: switchBody.data?.template?.templateNo,
+    sourceActionKey: readOnlyEvidence.key
+  }
+}
+
 async function verifyActiveOrderUnauthorizedMutationBlocked(page, config, actionEvidence) {
   const joinEvidence = actionEvidence.find((item) => item.key === 'joinActiveOrder' && item.status === 'PASS')
   if (!joinEvidence?.activeOrderId) {
@@ -1654,7 +1839,12 @@ async function runPhaseAction(page, config, phase, actionEvidence) {
   if (phase.actionKey === 'verifyPqcActiveOrderReadOnly') {
     const readOnlyEvidence = await verifyPqcActiveOrderReadOnly(page, config, actionEvidence)
     const regulationEvidence = await verifyPqcRegulationItemsRendered(page, config, [...actionEvidence, readOnlyEvidence])
-    return [readOnlyEvidence, regulationEvidence]
+    const employeeEvidence = await verifyPqcActualEmployeeSwitch(page, config, [
+      ...actionEvidence,
+      readOnlyEvidence,
+      regulationEvidence
+    ])
+    return [readOnlyEvidence, regulationEvidence, employeeEvidence]
   }
   if (phase.actionKey === 'verifyActiveOrderUnauthorizedMutationBlocked') {
     return verifyActiveOrderUnauthorizedMutationBlocked(page, config, actionEvidence)

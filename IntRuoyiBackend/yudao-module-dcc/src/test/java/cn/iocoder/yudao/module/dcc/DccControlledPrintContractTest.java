@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DccControlledPrintContractTest {
 
-    private static final Path BACKEND_ROOT = Path.of("").toAbsolutePath();
+    private static final Path BACKEND_ROOT = resolveBackendRoot(Path.of("").toAbsolutePath());
     private static final Path REPO_ROOT = BACKEND_ROOT.getParent();
 
     @Test
@@ -28,9 +28,9 @@ class DccControlledPrintContractTest {
                 "controller must use a formal controlled print service");
         assertTrue(controller.contains("dcc:controlled-file:print"),
                 "controlled print write endpoints must require dcc:controlled-file:print");
-        assertTrue(controller.contains("/{id:\\d+}/controlled-print"),
+        assertTrue(controller.contains("/{id:\\\\d+}/controlled-print"),
                 "controller must expose controlled print creation endpoint under the controlled file");
-        assertTrue(controller.contains("/{id:\\d+}/controlled-print/records"),
+        assertTrue(controller.contains("/{id:\\\\d+}/controlled-print/records"),
                 "controller must expose controlled print records endpoint under the controlled file");
         assertTrue(controller.contains("controlled-print/print-html"),
                 "controller must expose generated controlled print HTML with watermarked metadata");
@@ -77,6 +77,18 @@ class DccControlledPrintContractTest {
 
     private static String readBackend(String relativePath) throws Exception {
         return Files.readString(BACKEND_ROOT.resolve(relativePath), StandardCharsets.UTF_8);
+    }
+
+    private static Path resolveBackendRoot(Path start) {
+        Path current = start;
+        while (current != null) {
+            if (Files.exists(current.resolve("sql/mysql/20260513_dcc_base_schema.sql"))
+                    && Files.exists(current.resolve("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Cannot resolve IntRuoyi backend root from " + start);
     }
 
     @SuppressWarnings("unused")

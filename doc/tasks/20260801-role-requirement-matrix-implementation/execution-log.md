@@ -634,3 +634,39 @@
 - E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` after PQC regulation render slice -> STRUCTURED_BLOCKED；pnpm lifecycle non-zero wrapping script exit 2；`phaseEvidence=6`、`actionEvidence=6`、`pqcRegulationItemsRendered=PASS`、`activeOrderCleanupDeferred=BLOCKED/E2E_CLEANUP`、`actionObserved=7`、`surfaceObserved=34`、`uncovered=21`、`pending=62`、`blockers=63`；PQC 返回 14 个工序、32 个正式 QA 规程项目、发布版本 ID 16..29、计划巡检数量均为 15。
 - Decision: PQC 动态规程项目渲染已有真实动作证据并覆盖 AC-D17/D19/D24/D31 的正向观察，但仍不是 `ACCEPTED`；仍缺失败路径、签名/逐件提交、复核、清理、并发/性能和上线门禁。本轮仍不执行 `git push`。
 - GREEN: final structural check -> `task-state.json` and `result.json` parse as UTF-8 JSON; `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` PASS; `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` PASS; scoped `git diff --check` PASS。
+
+## M6 - PQC Actual Employee Switch Gate
+
+- BDD: PQC actual employee selection under shared login account -> Given PQC 检验员使用共享登录账号进入球囊扩张压力泵 V21 的 PQC 填写路径 When 选择实际检验员工并调用正式 `pqc/switch-employee` Then 运行态必须写入独立 `actualEmployeeId`，不得默认使用登录人，也不得在人员来源为空时返回默认成功。
+- TEST_ADDED: `role-requirement-matrix-preflight-static.spec.cjs` -> 要求真实 E2E 脚本包含 `verifyPqcActualEmployeeSwitch`、`pqcActualEmployeeSelected`、`/pqc/personnel` 和 `/pqc/switch-employee`，防止共享账号实际检验人只停留在页面入口观察。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> FAIL，expected reason: `role-requirement-matrix-real-flow.e2e.js` 缺少 `verifyPqcActualEmployeeSwitch` 和 `pqcActualEmployeeSelected`。
+- IMPLEMENTING: `role-requirement-matrix-real-flow.e2e.js` 新增 PQC 人员范围读取、候选人筛选、正式 switch-employee 调用和 `E2E_PQC_PERSONNEL` 结构化 blocker；若 PQC 员工/组长来源为空，脚本记录 blocker 并继续输出后续 coverage ledger，不把登录人当作实际检验员工。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` after PQC actual employee switch gate -> STRUCTURED_BLOCKED；pnpm lifecycle non-zero wrapping script exit 2；`phaseEvidence=6`、`actionEvidence=7`、`pqcActualEmployeeSelected=BLOCKED/E2E_PQC_PERSONNEL`、`activeOrderCleanupDeferred=BLOCKED/E2E_CLEANUP`、`actionObserved=7`、`surfaceObserved=34`、`uncovered=21`、`pending=62`、`blockers=64`。
+- BLOCKER: `pqcActualEmployeeSelected` -> PQC 人员范围返回业务码 `1040760117`，原因是“PQC 员工和 PQC 组长来源为空，无法切换填写员工”；需要在本机测试租户补齐正式 PQC 组长/员工 `EMPLOYEE` scope 后，才能证明 `actualEmployeeId` 不默认登录人。
+- Decision: D25 现在具备可执行真实 E2E 门禁和结构化数据 blocker；按用户要求先记录 blocker 并继续 M6 后续切片，不执行 `git push`。
+
+## M6 - D25 Report Sync And Structural Verification
+
+- IMPLEMENTING: 同步 `task-state.json`、`task.md`、`test-report.md` 和 `verification-report.md` 当前 D25 结论：`pqcActualEmployeeSelected=BLOCKED/E2E_PQC_PERSONNEL`、`actionEvidence=7`、`actionObserved=7`、`surfaceObserved=34`、`pending=62`、`blockers=64`。
+- GREEN: `python -X utf8 -c "...json.loads(...task-state.json/result.json)..."` -> PASS，`task-state.json` 与 `result.json` 均可 UTF-8 JSON 解析；`result.json` 当前为 `BLOCKED` 且 blocker 数量为 64。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: scoped `git diff --check` on M6 touched files -> PASS，仅输出 LF/CRLF 工作区提示，无 whitespace error。
+
+## M6 - Migration Preflight Static Gate
+
+- BDD: M6 migration preflight before full acceptance -> Given M1-M5 已引入 activeOrder、生产系数快照、QA/PQC 规程、调拨追溯和范围迁移 When 进入 M6 全量真实验收前 Then 必须有可重复执行的迁移预检，明确阻塞双活跃来源冲突、开放订单缺路线版本或系数、开放 PQC 缺任务身份或规程版本、正式批记录绑定缺失或冲突，且不能通过默认成功或人工 checklist 替代。
+- TEST_ADDED: `role-matrix-migration-preflight-static.spec.cjs` -> 新增 M6 迁移预检静态合同，要求 `20260802_role_requirement_matrix_m6_migration_preflight.sql` 存在、包含 release-migration 元数据、四个 fail-fast procedure、`SIGNAL SQLSTATE` 和正式来源缺口中文错误。
+- RED: `node IntRuoyiFronted\tests\e2e\role-matrix-migration-preflight-static.spec.cjs` -> FAIL，expected reason: 缺少 `20260802_role_requirement_matrix_m6_migration_preflight.sql`。
+- IMPLEMENTING: 新增只读迁移预检 SQL `IntRuoyiBackend\sql\mysql\20260802_role_requirement_matrix_m6_migration_preflight.sql`；通过临时 stored procedure 检查双活跃来源冲突、开放 activeOrder 权威字段、开放 PQC task 权威字段和正式批记录绑定冲突，失败时 `SIGNAL SQLSTATE '45000'`；不执行业务数据 UPDATE/DELETE/INSERT。
+- IMPLEMENTING: `package.json` 新增 `e2e:role-matrix-migration-preflight:static`；总 preflight 静态合同将该脚本纳入 planned static scripts。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-matrix-migration-preflight:static` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-matrix-migration-preflight-static.spec.cjs` -> PASS。
+- GREEN: `node -e "JSON.parse(...package.json...)"` -> PASS。
+- RED_RETRY: `run-release-migration-policy-gate.py` first targeted run -> FAIL，expected reason: migration metadata used unsupported `type=preflight`。
+- IMPLEMENTING: release-migration metadata 改为允许的 `type=config`，并显式依赖 `20260802_mes_pqc_inspection_task`、`20260802_mes_process_pool_active_order_transfer_trace`、`20260802_mes_process_pool_team_leader_scope_extended`，覆盖 M3/M4/M5 后置边界。
+- GREEN: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --sql-file <14-file M6 chain> --output doc\tasks\20260801-role-requirement-matrix-implementation\m6-migration-policy-gate.json` -> PASS，`migrationCount=14`，最后迁移为 `20260802_role_requirement_matrix_m6_migration_preflight`。
+- Decision: M6 迁移预检静态和 release policy gate 已 GREEN；真实数据库执行该预检仍属于 M6 后续验收，不在本切片标记为完成。

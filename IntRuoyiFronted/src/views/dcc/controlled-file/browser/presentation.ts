@@ -33,10 +33,10 @@ interface BrowserVersionSummarySource {
 }
 
 export const getBrowserPublishedFileStatusText = (file?: BrowserVersionSummarySource | null) =>
-  file?.publishedFileId ? '发布文件：已生成' : '发布文件：未生成'
+  file?.publishedFileId ? '已生成' : '未生成'
 
 export const getBrowserStampedFileStatusText = (file?: BrowserVersionSummarySource | null) =>
-  file?.stampedFileId ? '盖章文件：已生成' : '盖章文件：未生成'
+  file?.stampedFileId ? '已生成' : '未生成'
 
 export const getBrowserCurrentVersionSourceText = (file?: BrowserVersionSummarySource | null) => {
   const currentActiveVersionNo = String(file?.currentActiveVersionNo || '').trim()

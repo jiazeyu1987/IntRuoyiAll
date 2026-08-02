@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260513_dcc_base_schema; type=schema,menu; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260513_dcc_base_schema; type=schema; riskLevel=medium
 -- DCC controlled print record and menu permission. Idempotent and non-destructive.
 
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_print_record` (
@@ -29,9 +29,29 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_print_record` (
   KEY `idx_dcc_controlled_print_file` (`tenant_id`, `controlled_file_id`, `print_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC controlled file print record';
 
+SET @dcc_controlled_print_existing_menu_id := (
+  SELECT `id`
+  FROM `system_menu`
+  WHERE `permission` = 'dcc:controlled-file:print'
+  LIMIT 1
+);
+
+SET @dcc_controlled_print_preferred_menu_id_blocked := (
+  SELECT COUNT(*)
+  FROM `system_menu`
+  WHERE `id` = 990240
+    AND `permission` <> 'dcc:controlled-file:print'
+);
+
+SET @dcc_controlled_print_menu_id := IF(
+  @dcc_controlled_print_existing_menu_id IS NOT NULL,
+  @dcc_controlled_print_existing_menu_id,
+  IF(@dcc_controlled_print_preferred_menu_id_blocked = 0, 990240, (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `system_menu`))
+);
+
 INSERT INTO `system_menu`
 (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`)
-SELECT 6813,
+SELECT @dcc_controlled_print_menu_id,
        CONVERT(UNHEX('444343E58F97E68EA7E68993E58DB0') USING utf8mb4),
        'dcc:controlled-file:print',
        3,
@@ -50,4 +70,4 @@ SELECT 6813,
        '1',
        NOW(),
        b'0'
-WHERE NOT EXISTS (SELECT 1 FROM `system_menu` WHERE `permission` = 'dcc:controlled-file:print');
+WHERE @dcc_controlled_print_existing_menu_id IS NULL;

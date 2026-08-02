@@ -1,7 +1,7 @@
 # 岗位需求分解矩阵真实 E2E 前置证据
 
 - Task ID: `20260801-role-requirement-matrix-implementation`
-- Generated At: `2026-08-02T11:39:39.475Z`
+- Generated At: `2026-08-02T12:05:28.263Z`
 - Status: `BLOCKED`
 - Frontend: `http://127.0.0.1:8081`
 - Backend: `http://127.0.0.1:48081`
@@ -10,8 +10,9 @@
 
 ## Result
 
-- BLOCKED: 63 blockers remain.
+- BLOCKED: 64 blockers remain.
 - E2E_CLEANUP:activeOrderCleanupDeferred -> 本轮 activeOrderId 仍是 M6 后续真实 E2E 共享夹具；直接移除会破坏 PQC、放行、日结和后续验证链路。需要一次性可重建夹具或明确清理窗口后再执行删除验证。
+- E2E_PQC_PERSONNEL:pqcActualEmployeeSelected -> PQC 人员范围 业务失败：PQC 员工和 PQC 组长来源为空，无法切换填写员工；需要在本机测试租户补齐正式 PQC 组长/员工 EMPLOYEE scope 后，才能证明 actualEmployeeId 不默认登录人。
 - E2E_COVERAGE:AC-M01 -> TC-M01 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
 - E2E_COVERAGE:AC-M02 -> TC-M02 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
 - E2E_COVERAGE:AC-M03 -> TC-M03 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
@@ -91,6 +92,7 @@
 - BLOCKED: activeOrderCleanupDeferred -> 活跃订单清理闭环风险记录; role=productionLeader; acceptance=AC-M04
 - PASS: activeOrderCrossRoleReadOnly -> PQC 检验员通过真实页面只读同一 activeOrderId; role=pqcInspector; acceptance=AC-M04, AC-D13, AC-D24
 - PASS: pqcRegulationItemsRendered -> PQC 页面按已发布 QA 规程渲染检验项目; role=pqcInspector; acceptance=AC-D17, AC-D19, AC-D24, AC-D31
+- BLOCKED: pqcActualEmployeeSelected -> 共享账号下选择实际 PQC 检验人员; role=pqcInspector; acceptance=AC-D25, AC-D31
 - PASS: activeOrderUnauthorizedMutationBlocked -> 错误角色活跃订单写入权限隔离; role=unauthorizedActor; acceptance=AC-M04, AC-D09, AC-D13
 
 ## Acceptance Coverage

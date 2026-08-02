@@ -67,16 +67,19 @@
                 <div class="controlled-browser-linkage-card__value">{{ controlledBrowserDirectoryPath }}</div>
               </div>
               <div class="controlled-browser-linkage-card">
-                <div class="controlled-browser-linkage-card__label">publishedFileId</div>
-                <div class="controlled-browser-linkage-card__value">{{ fileDetail?.publishedFileId || '-' }}</div>
+                <div class="controlled-browser-linkage-card__label">发布文件</div>
+                <div class="controlled-browser-linkage-card__value">{{ publishedFileBusinessText }}</div>
+                <div class="controlled-browser-linkage-card__meta">高级信息：publishedFileId {{ fileDetail?.publishedFileId || '-' }}</div>
               </div>
               <div class="controlled-browser-linkage-card">
-                <div class="controlled-browser-linkage-card__label">stampedFileId</div>
-                <div class="controlled-browser-linkage-card__value">{{ fileDetail?.stampedFileId || '-' }}</div>
+                <div class="controlled-browser-linkage-card__label">盖章文件</div>
+                <div class="controlled-browser-linkage-card__value">{{ stampedFileBusinessText }}</div>
+                <div class="controlled-browser-linkage-card__meta">高级信息：stampedFileId {{ fileDetail?.stampedFileId || '-' }}</div>
               </div>
               <div class="controlled-browser-linkage-card">
-                <div class="controlled-browser-linkage-card__label">master 当前生效版本</div>
-                <div class="controlled-browser-linkage-card__value">{{ fileDetail?.currentActiveVersionNo || '-' }}</div>
+                <div class="controlled-browser-linkage-card__label">当前有效版来源（master 当前生效版本）</div>
+                <div class="controlled-browser-linkage-card__value">{{ currentActiveVersionSourceText }}</div>
+                <div class="controlled-browser-linkage-card__meta">高级信息：currentActiveVersionNo {{ fileDetail?.currentActiveVersionNo || '-' }}</div>
               </div>
             </div>
           </section>
@@ -462,16 +465,19 @@
           <div class="controlled-browser-linkage-card__value">{{ controlledBrowserDirectoryPath }}</div>
         </div>
         <div class="controlled-browser-linkage-card">
-          <div class="controlled-browser-linkage-card__label">publishedFileId</div>
-          <div class="controlled-browser-linkage-card__value">{{ fileDetail?.publishedFileId || '-' }}</div>
+          <div class="controlled-browser-linkage-card__label">发布文件</div>
+          <div class="controlled-browser-linkage-card__value">{{ publishedFileBusinessText }}</div>
+          <div class="controlled-browser-linkage-card__meta">高级信息：publishedFileId {{ fileDetail?.publishedFileId || '-' }}</div>
         </div>
         <div class="controlled-browser-linkage-card">
-          <div class="controlled-browser-linkage-card__label">stampedFileId</div>
-          <div class="controlled-browser-linkage-card__value">{{ fileDetail?.stampedFileId || '-' }}</div>
+          <div class="controlled-browser-linkage-card__label">盖章文件</div>
+          <div class="controlled-browser-linkage-card__value">{{ stampedFileBusinessText }}</div>
+          <div class="controlled-browser-linkage-card__meta">高级信息：stampedFileId {{ fileDetail?.stampedFileId || '-' }}</div>
         </div>
         <div class="controlled-browser-linkage-card">
-          <div class="controlled-browser-linkage-card__label">master 当前生效版本</div>
-          <div class="controlled-browser-linkage-card__value">{{ fileDetail?.currentActiveVersionNo || '-' }}</div>
+          <div class="controlled-browser-linkage-card__label">当前有效版来源（master 当前生效版本）</div>
+          <div class="controlled-browser-linkage-card__value">{{ currentActiveVersionSourceText }}</div>
+                <div class="controlled-browser-linkage-card__meta">高级信息：currentActiveVersionNo {{ fileDetail?.currentActiveVersionNo || '-' }}</div>
         </div>
       </div>
     </ContentWrap>
@@ -485,7 +491,7 @@
         <div>
           <div class="text-15px font-600">发布完成结果</div>
           <div class="mt-4px text-12px text-[var(--el-text-color-secondary)]">
-            新版 ACTIVE · 旧版 SUPERSEDED · master 当前生效版本 · 受控浏览落位
+            新版 ACTIVE · 旧版 SUPERSEDED · master 当前生效版本 · 受控浏览落位 · 可见范围说明
           </div>
         </div>
         <el-button type="primary" plain :disabled="!fileDetail" @click="openControlledBrowserLocation">
@@ -1000,7 +1006,7 @@
         <el-table-column label="签名方式" align="center" width="140" prop="signatureModeText" />
         <el-table-column label="证据状态" align="center" width="140" prop="evidenceStatusText" />
         <el-table-column label="文件哈希" min-width="160" prop="fileHashText" show-overflow-tooltip />
-        <el-table-column label="文件证据" min-width="260" prop="fileEvidenceText" show-overflow-tooltip>
+        <el-table-column label="盖章文件 / 发布文件证据" min-width="260" prop="fileEvidenceText" show-overflow-tooltip>
           <template #default="{ row }">
             <div class="trace-file-evidence">
               <span>{{ row.fileEvidenceText }}</span>
@@ -2171,6 +2177,7 @@ const processExportLoading = ref(false)
 const controlledPrintRecordsLoading = ref(false)
 const controlledPrintRecordsError = ref('')
 const controlledPrintRecords = ref<ControlledFilePrintRecordVO[]>([])
+const controlledPrintAutoOpenKey = ref('')
 const projectCodeRecognitionLoading = ref(false)
 const trainingAckLoading = ref(false)
 const manualReleaseLoading = ref(false)
@@ -2747,7 +2754,7 @@ const formatDetailPath = (items: Array<string | null | undefined>) => {
 }
 const currentDccProjectCodeText = computed(() =>
   formatDetailPath([fileDetail.value?.productName, fileDetail.value?.productCode])
-)
+);
 const currentFileTypeTaxonomyText = computed(() =>
   formatDetailPath([
     fileDetail.value?.fileTypeLevel1,
@@ -2756,14 +2763,46 @@ const currentFileTypeTaxonomyText = computed(() =>
     fileDetail.value?.fileTypeLevel4,
     fileDetail.value?.fileTypeLevel5
   ])
-)
+);
 const controlledBrowserDirectoryPath = computed(() => {
   const directoryId = fileDetail.value?.directoryId
   if (!directoryId) {
     return '-'
   }
   return directoryPathMap.value.get(directoryId) || directoryNameMap.value.get(directoryId) || '-'
-})
+});
+const publishedFileBusinessText = computed(() =>
+  fileDetail.value?.publishedFileId ? '发布文件：已生成并可用于受控预览' : '发布文件：未生成或未返回'
+);
+const stampedFileBusinessText = computed(() =>
+  fileDetail.value?.stampedFileId ? '盖章文件：已生成，预览优先打开盖章版本' : '盖章文件：未生成或未返回'
+);
+const currentActiveVersionSourceText = computed(() => {
+  const file = fileDetail.value
+  if (!file) {
+    return '-'
+  }
+  const activeVersionNo = String(file.currentActiveVersionNo || '').trim()
+  const currentVersionNo = String(file.versionNo || '').trim()
+  if (file.status === 'ACTIVE' && activeVersionNo && activeVersionNo === currentVersionNo) {
+    return `master 当前生效版本 ${currentVersionNo}`
+  }
+  if (file.status === 'ACTIVE' && !activeVersionNo) {
+    return `当前详情 ACTIVE 版本 ${currentVersionNo || '-'}`
+  }
+  return `非受控浏览当前有效版：${getDetailStatusLabel(file.status)}`
+});
+const publishVisibilityScopeText = computed(() => {
+  const file = fileDetail.value
+  if (!file) {
+    return '-'
+  }
+  const categoryText = categoryNameMap.value.get(file.categoryId) || `类别 #${file.categoryId}`
+  const directoryText = controlledBrowserDirectoryPath.value
+  const projectText = currentDccProjectCodeText.value
+  return `类别：${categoryText}；目录：${directoryText}；项目：${projectText}；可见范围以受控浏览 VIEW 权限矩阵为准。`
+});
+
 const openControlledBrowserLocation = () => {
   if (!fileDetail.value) {
     return
@@ -2959,6 +2998,13 @@ const publishCompletionSummaryItems = computed(() => {
       value: `目录：${controlledBrowserDirectoryPath.value}；publishedFileId：${file.publishedFileId || '-'}；stampedFileId：${file.stampedFileId || '-'}`,
       description: '受控浏览最终目录、发布文件和盖章文件已在详情页可追溯。',
       ok: browserLanded
+    },
+    {
+      key: 'visibility-scope',
+      label: '可见范围说明',
+      value: publishVisibilityScopeText.value,
+      description: '发布完成后按分类、目录、项目代码和 VIEW 权限矩阵决定可见人员。',
+      ok: true
     }
   ]
 })
@@ -3173,6 +3219,30 @@ const getControlledPrintStatusLabel = (status: string | undefined) => {
   return status ? statusMap[status] || status : '-'
 }
 
+const shouldLoadControlledPrintRecords = () =>
+  Boolean(controlledFileId.value) && checkPermi(['dcc:controlled-file:print'])
+
+const loadControlledPrintRecords = async () => {
+  controlledPrintRecordsError.value = ''
+  if (!shouldLoadControlledPrintRecords()) {
+    controlledPrintRecords.value = []
+    return
+  }
+  controlledPrintRecordsLoading.value = true
+  try {
+    controlledPrintRecords.value = await getControlledFilePrintRecords(controlledFileId.value)
+  } catch (error) {
+    controlledPrintRecords.value = []
+    controlledPrintRecordsError.value = resolveReadSideErrorMessage(
+      error,
+      '受控打印记录加载失败，请查看后端错误后重试。'
+    )
+    throw error
+  } finally {
+    controlledPrintRecordsLoading.value = false
+  }
+}
+
 const buildObsoleteBusinessActionContext = (
   detail: ControlledFileVO | undefined,
   reason = '作废当前版本'
@@ -3310,6 +3380,7 @@ const loadData = async () => {
   directories.value = directoryTree
   activeApprovalPrintTemplate.value = approvalPrintTemplate
   paperDistributionRecords.value = paperRecords || []
+  await loadControlledPrintRecords()
   categoryNameMap.value = new Map(categoryList.map((item) => [item.id as number, item.name]))
   directoryNameMap.value = new Map(
     flattenTree(directoryTree).map((item) => [item.id as number, item.name])
@@ -3453,6 +3524,7 @@ const reloadAll = async () => {
     await loadData()
     await loadDccSignatureEvidenceList()
     await loadApprovalDetail()
+    await openControlledPrintDialogFromRoute()
   } catch (error) {
     await loadAccessExplanationOnly()
     const errorMessage = resolveReadSideErrorMessage(error, '受控文件详情加载失败，请查看权限说明后重试。')
@@ -4861,6 +4933,105 @@ const handlePrintDistributionReceipts = () => {
   printWindow.print()
 }
 
+const resetControlledPrintDialog = () => {
+  controlledPrintDialog.inlineError = ''
+  controlledPrintDialog.fieldErrors = {}
+  controlledPrintDialog.form.purpose = ''
+  controlledPrintDialog.form.copies = 1
+  controlledPrintDialog.form.receivingDepartment = ''
+  controlledPrintDialog.form.useLocation = ''
+}
+
+const openControlledPrintDialog = () => {
+  if (!detailActionState.value.canPrint || !checkPermi(['dcc:controlled-file:print'])) {
+    message.error('当前用户没有受控打印权限，或该文件不是当前有效受控版本。')
+    return
+  }
+  controlledPrintDialog.visible = true
+  controlledPrintDialog.inlineError = ''
+  controlledPrintDialog.fieldErrors = {}
+}
+
+const closeControlledPrintDialog = () => {
+  controlledPrintDialog.visible = false
+  resetControlledPrintDialog()
+}
+
+const validateControlledPrintForm = (): ControlledFilePrintCreateReqVO | null => {
+  const form = controlledPrintDialog.form
+  const errors: Record<string, string> = {}
+  const purpose = form.purpose.trim()
+  const copies = Number(form.copies)
+  const receivingDepartment = form.receivingDepartment.trim()
+  const useLocation = form.useLocation.trim()
+  if (!purpose) {
+    errors.purpose = '请输入打印用途'
+  }
+  if (!Number.isFinite(copies) || copies <= 0) {
+    errors.copies = '请输入大于 0 的打印份数'
+  }
+  if (!receivingDepartment) {
+    errors.receivingDepartment = '请输入接收部门'
+  }
+  if (!useLocation) {
+    errors.useLocation = '请输入使用位置'
+  }
+  controlledPrintDialog.fieldErrors = errors
+  controlledPrintDialog.inlineError = Object.values(errors)[0] || ''
+  if (controlledPrintDialog.inlineError) {
+    return null
+  }
+  return { purpose, copies, receivingDepartment, useLocation }
+}
+
+const submitControlledPrint = async () => {
+  const data = validateControlledPrintForm()
+  if (!data) {
+    return
+  }
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    message.error('受控打印窗口打开失败，请检查浏览器弹窗拦截设置。')
+    return
+  }
+  controlledPrintDialog.submitting = true
+  controlledPrintDialog.inlineError = ''
+  try {
+    const record = await createControlledFilePrintRecord(controlledFileId.value, data)
+    const printHtml = await getControlledFilePrintHtml(controlledFileId.value, record.id)
+    printWindow.document.open()
+    printWindow.document.write(printHtml.html)
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
+    message.success('受控打印记录已生成：' + record.printNo)
+    controlledPrintDialog.visible = false
+    resetControlledPrintDialog()
+    await loadControlledPrintRecords()
+  } catch (error) {
+    printWindow.close()
+    controlledPrintDialog.inlineError = resolveReadSideErrorMessage(
+      error,
+      '受控打印失败，请查看后端错误后重试。'
+    )
+    message.error(controlledPrintDialog.inlineError)
+  } finally {
+    controlledPrintDialog.submitting = false
+  }
+}
+
+const openControlledPrintDialogFromRoute = async () => {
+  if (String(route.query.controlledPrint || '') !== '1') {
+    return
+  }
+  const autoOpenKey = controlledFileId.value + ':' + route.fullPath
+  if (controlledPrintAutoOpenKey.value === autoOpenKey) {
+    return
+  }
+  controlledPrintAutoOpenKey.value = autoOpenKey
+  openControlledPrintDialog()
+}
+
 const getProcessInstanceId = () => String(fileDetail.value?.processInstanceId || '')
 
 const buildProcessPrintHtml = (printData: unknown) => {
@@ -5415,6 +5586,16 @@ watch(
   font-size: 14px;
   font-weight: 600;
   line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.controlled-browser-linkage-card__meta {
+  overflow: hidden;
+  margin-top: 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

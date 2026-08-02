@@ -374,7 +374,7 @@
 
           <section class="upload-section upload-section--preflight" data-testid="dcc-upload-preflight-panel">
         <div class="upload-section__title">提交前校验</div>
-        <div class="upload-preflight-legend">文件编号/版本 · 分类上传权限 · 审批人链路 · 受控浏览目录</div>
+        <div class="upload-preflight-legend">文件编号/版本 · 分类上传权限 · 审批人链路 · 受控浏览目录 · 浏览权限范围</div>
         <div class="upload-preflight-grid">
           <div
             v-for="check in uploadPreflightChecks"
@@ -1028,7 +1028,12 @@ const selectedUploadDirectoryPath = computed(() => {
   }
   return uploadDirectoryPathMap.value.get(formData.directoryId) || ''
 })
-
+const controlledBrowserPermissionScopeText = computed(() => {
+  const categoryName = selectedCategory.value?.name || '未选择文件类别'
+  const directoryPath = selectedUploadDirectoryPath.value || '未选择受控浏览目录'
+  const projectCode = selectedProjectCode.value?.projectCode || formData.productCode || '未选择项目代码'
+  return `浏览权限范围：分类 ${categoryName}；目录 ${directoryPath}；项目代码 ${projectCode}；发布后按正式 VIEW 权限矩阵控制可见人员。`
+})
 interface UploadPreflightCheck {
   key: string
   label: string
@@ -1132,6 +1137,14 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
         : '请选择最终提交目录，确保发布后可以落位到受控浏览目录。',
       ok: hasDirectoryLanding,
       warning: !formData.categoryId
+    },
+    {
+      key: 'controlled-browser-permission-scope',
+      label: '浏览权限范围',
+      status: selectedCategory.value && hasDirectoryLanding ? '按矩阵生效' : '待确认',
+      description: controlledBrowserPermissionScopeText.value,
+      ok: Boolean(selectedCategory.value && hasDirectoryLanding),
+      warning: !selectedCategory.value || !hasDirectoryLanding
     }
   ]
 })

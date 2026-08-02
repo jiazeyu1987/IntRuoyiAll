@@ -36,11 +36,11 @@ export interface DccApprovalActionSubmitResult {
 export const DCC_APPROVAL_WRONG_PASSWORD_MESSAGE =
   '签名失败原因：当前密码错误。处理建议：请重新输入当前账号密码；如仍失败，请联系文控或系统管理员确认账号状态。责任入口：当前签名人 / 文控负责人。'
 const DCC_APPROVAL_SIGNATURE_AUTH_MESSAGE =
-  '签名失败原因：当前账号缺少该节点电子签名授权或授权策略未生效。处理建议：请联系文控负责人开通当前节点电子签名授权，或由流程管理员确认审批候选人配置。责任入口：DCC 电子签名管理 / 文控负责人。'
+  '签名失败原因：电子签名未授权，当前账号缺少该节点电子签名授权或授权策略未生效。处理建议：请联系文控负责人开通当前节点电子签名授权，或由流程管理员确认审批候选人配置。责任入口：DCC 电子签名管理 / 文控负责人。'
 const DCC_APPROVAL_SIGNATURE_IMAGE_MESSAGE =
-  '签名失败原因：当前账号签名图片缺失、停用或校验失败。处理建议：请在 DCC 电子签名管理中重新维护签名图片后再提交。责任入口：DCC 电子签名管理 / 文控负责人。'
+  '签名失败原因：签名图片失效，当前账号签名图片缺失、停用或校验失败。处理建议：请在 DCC 电子签名管理中重新维护签名图片后再提交。责任入口：DCC 电子签名管理 / 文控负责人。'
 const DCC_APPROVAL_SIGNATURE_EVIDENCE_MESSAGE =
-  '签名失败原因：电子签名证据、哈希或快照生成失败，本次审批不会推进。处理建议：请联系文控负责人确认文件证据和签名服务状态后重试。责任入口：DCC 电子签名管理 / 文控负责人。'
+  '签名失败原因：证据快照失败，电子签名证据、哈希或快照生成失败，本次审批不会推进。处理建议：请联系文控负责人确认文件证据和签名服务状态后重试。责任入口：DCC 电子签名管理 / 文控负责人。'
 
 const appendDccApprovalErrorDetail = (message: string, detail: string) => {
   const normalizedDetail = detail.trim()

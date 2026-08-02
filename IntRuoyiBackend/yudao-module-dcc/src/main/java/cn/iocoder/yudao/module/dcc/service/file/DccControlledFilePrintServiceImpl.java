@@ -18,7 +18,7 @@ import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.HtmlUtils;
+import org.springframework.web.util.HtmlUtils;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
