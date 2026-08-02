@@ -9,7 +9,7 @@
 - [x] 创建任务目录与最小任务文档。
 - [x] 记录 Git 预检、经验门禁和当前脏工作区范围。
 - [x] 暂存并提交可提交改动，排除无法安全归属或明显临时/损坏产物。
-- [ ] 执行提交后复扫、推送到 `origin/int_main`，并记录最终状态。
+- [x] 执行提交后复扫、推送到 `origin/int_main`，并记录最终状态。
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
