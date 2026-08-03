@@ -1,4 +1,4 @@
-# DCC 受控文件下载入口收敛
+﻿# DCC 受控文件下载入口收敛
 
 ## Task Goal
 
@@ -19,7 +19,7 @@
 
 ## Current Status
 
-blocked
+completed
 
 ## Verification Summary
 
@@ -34,7 +34,7 @@ blocked
 
 - 前端代码提交：`72712e92d chore: baseline concurrent download entry updates`。
 - 收尾文档提交：`fa4ba2225 docs: close DCC download entry task`。
-- 推送阻塞：`git push origin int_main` 先因 GitHub 代理 `127.0.0.1:7890` 不可用失败；清空本次命令代理后，GitHub 直连 443 随后也失败/连接重置。当前本地 `int_main` 仍领先 `origin/int_main`，不得标记 completed。
+- 推送结果：首次推送因 GitHub 代理 `127.0.0.1:7890` 不可用和直连重置失败；网络恢复后使用命令级清空代理成功推送 `int_main`，远端更新 `d8c30162b..57d1345d1`。最终复查 `git status --short --branch` 显示本地分支不再领先 `origin/int_main`。
 
 ## 设计约束检查
 
