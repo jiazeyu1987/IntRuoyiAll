@@ -268,3 +268,19 @@
 - REGRESSION: controller and M17-M23 service regression passed with Tests run 19, Failures 0, Errors 0, Skipped 0.
 - Evidence validation: backend API evidence validator PASS, acceptance plan validator PASS, UTF-8/trailing whitespace check PASS, and scoped `git diff --check` PASS for M23 task/backend files.
 - Boundary: controlled-file creation, ACTIVE NAS source mapping and already-archived replay protection remain blocked until a formal archive metadata source is designed, stored and verified in M24.
+
+## M25 Frontend Static Contract Slice
+
+- Scope: completed static frontend contract and minimal NAS management page/API integration for downloading selected uncontrolled files into a user-authorized local directory.
+- Contract: `src/api/system/nas/index.ts` exposes files page, recognize, import-selected, content binary download and local-write-result wrappers; `ControlledFileNasTransferSourceType` now includes `NAS_UNCONTROLLED_IMPORT`.
+- UI behavior: completed audit tasks show uncontrolled file rows, matched rows are selectable, `UNCLASSIFIED_PENDING/AMBIGUOUS` remain visible as “未分类/待处理/待确认”, and `ARCHIVE_METADATA_REQUIRED` is shown as “归档元数据待补齐”.
+- Local directory gate: page uses `showDirectoryPicker`; validates backend `expectedLocalRelativePath` for backslashes, absolute paths, drive letters, `.`, and `..`; creates import-selected only after directory authorization and path validation; does not store or send local absolute paths.
+- Local write sequence: page downloads content Blob by import task/audit file/source signature/local relative path snapshot, writes through `getDirectoryHandle/getFileHandle/createWritable/write/close`, posts `LOCAL_WRITTEN` only after `close()`, and posts `LOCAL_WRITE_FAILED` with explicit error details if local write fails.
+- RED: `node tests/e2e/dcc-nas-uncontrolled-local-import-static.spec.js` failed before implementation because the package script and NAS local import contract were missing.
+- GREEN: `node tests/e2e/dcc-nas-uncontrolled-local-import-static.spec.js` -> PASS.
+- GREEN: `pnpm e2e:dcc:nas-uncontrolled-local-import:static` -> PASS.
+- GREEN: `node tests/e2e/nas-control-audit-static.spec.js` -> PASS.
+- GREEN: UTF-8/trailing whitespace check -> PASS, `contains_replacement=[]`, `trailing_whitespace=[]`.
+- GREEN: scoped `git diff --check` for M25 frontend files -> PASS, only LF-to-CRLF warnings.
+- GREEN: `pnpm ts:check` -> PASS, current frontend workspace type check completed successfully.
+- Boundary: real Playwright E2E and formal archive success path remain pending; this slice does not implement ZIP fallback, browser default download fallback, controlled-file creation, workflow submit, or ACTIVE NAS source mapping.

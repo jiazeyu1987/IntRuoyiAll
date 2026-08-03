@@ -17,6 +17,9 @@
 - `node tests/e2e/edhr-batch-record-leader-tabs-static.spec.js`
 - `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js`
 - `node tests/e2e/team-leader-workbench-static.spec.cjs`
+- `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs`
+- `node tests/e2e/edhr-frontline-pqc-html-alignment-static.spec.cjs`
+- `node tests/e2e/mes-frontline-pqc-active-order-switching-static.spec.js`
 - `pnpm ts:check`
 - 前端功能证据校验已在 cleanup 前通过；临时 `frontend-feature-evidence.md` 已按 closeout 清理，摘要保留在 `verification-report.md`。
 
@@ -27,9 +30,10 @@ blocked
 - 已读取前端开发、E2E、数据库/权限、登录访问、PowerShell 编码、任务收尾和前端交付技能规则。
 - 发现工作区已有非本任务脏改动与暂存改动；本任务仅修改 EDHR 批记录相关前端、目标静态合同和本任务文档。
 - 目标功能已实现并通过任务专用静态合同、页面关系图合同、组长工作台合同和 diff 检查。
-- 全量 `pnpm ts:check` 与旧相邻一线填写合同存在非本任务阻塞，已记录在验证报告。
+- 旧相邻 PQC 静态合同已更新为正式 QA/PQC 任务快照驱动口径，不再要求硬编码“长度/外观/密封/压力”或旧占位 fail-fast。
+- 全量 `pnpm ts:check`、eDHR 一线填写合同、PQC HTML 对齐合同和 PQC 活跃订单切换合同均已通过。
 - cleanup preview/apply 已完成，仅删除本任务临时 `frontend-feature-evidence.md`。
-- 最终提交/推送未执行：当前 `int_main` 已 ahead 6，且工作区存在多项非本任务 staged/unstaged/untracked 改动；为避免混入并行任务，本任务在 Git closeout 门禁处阻塞。
+- 最终提交/推送未执行：当前 `int_main` 仍处于 ahead 状态，且工作区存在多项非本任务 staged/unstaged/untracked 改动；为避免混入并行任务，本任务在 Git closeout 门禁处阻塞。
 
 ## 设计约束检查
 

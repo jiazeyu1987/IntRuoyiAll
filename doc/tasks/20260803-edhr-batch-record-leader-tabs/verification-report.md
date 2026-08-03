@@ -11,18 +11,26 @@
 - `node tests/e2e/edhr-batch-record-leader-tabs-static.spec.js` -> PASS。
 - `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js` -> PASS。
 - `node tests/e2e/team-leader-workbench-static.spec.cjs` -> PASS。
+- `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- `node tests/e2e/edhr-frontline-pqc-html-alignment-static.spec.cjs` -> PASS。
+- `node tests/e2e/mes-frontline-pqc-active-order-switching-static.spec.js` -> PASS。
+- `pnpm ts:check` -> PASS。
 - `git diff --check -- <本任务文件>` -> PASS，无 whitespace error。
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260803-edhr-batch-record-leader-tabs/frontend-feature-evidence.md` -> PASS，已在 cleanup 前完成；临时 evidence 文件随后被 cleanup 删除。
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-edhr-batch-record-leader-tabs --mode preview` -> PASS，仅计划删除临时 evidence。
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-edhr-batch-record-leader-tabs --mode apply` -> PASS，仅删除临时 evidence。
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-edhr-batch-record-leader-tabs --mode preview` -> PASS，最终预览 delete/blocked/warnings 均为 none。
+
+## Regression Fix
+
+- 旧相邻 PQC 静态合同仍断言硬编码“长度 / 外观 / 密封 / 压力”和旧占位 fail-fast；已改为断言正式 QA/PQC 任务快照 `selectedProcess.inspectionItems`、动态 `item.key`、缺快照显式 fail-fast、正式 `submitFrontlinePqcInspection` payload。
+- 未修改 `FrontlineFixedTemplatePanel.vue` 生产逻辑，避免恢复硬编码 PQC 检验项或默认伪数据。
 
 ## Blocked / Unrelated Checks
 
-- `pnpm ts:check` -> FAIL，当前失败位于 `src/views/dcc/controlled-file/upload/index.vue` 与 `src/views/system/nas/index.vue` 的既有 DCC/NAS 类型错误，不属于本任务修改文件。
-- `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> FAIL，当前失败位于 `FrontlineFixedTemplatePanel.vue` PQC 文案断言“长度”，不属于本任务修改文件。
+- Git closeout 未完成：当前 `int_main` 仍处于 ahead 状态且存在多项非本任务工作区改动；为避免混入并行任务，本任务未提交/推送。
 
 ## Final Result
 
-- 当前功能目标已由任务专用静态合同和相邻组长/关系图合同验证通过。
-- 全量类型检查与一个旧相邻合同存在非本任务阻塞，任务不能记录为全量回归完全通过。
-- Git closeout 未完成：当前 `int_main` 已 ahead 6 且存在多项非本任务工作区改动；为避免混入并行任务，本任务未提交/推送。
+- 当前功能目标已由任务专用静态合同、相邻组长/关系图合同、PQC 相邻合同和 `pnpm ts:check` 验证通过。
+- Git closeout 仍被非本任务脏改动与分支 ahead 状态阻塞，任务不能标记为 completed。

@@ -385,3 +385,33 @@ BDD: Archive metadata missing is visible -> Given a matched file is LOCAL_WRITTE
 - GREEN: UTF-8/trailing whitespace check for M23 task/evidence/backend files -> PASS, `contains_replacement=[]`, `trailing_whitespace=[]`.
 - GREEN: `git diff --check -- <M23 task evidence and backend files>` -> PASS, only Git LF-to-CRLF warnings.
 - Remaining: formal archive success metadata source, controlled-file creation, ACTIVE NAS source mapping, frontend static contract and real E2E remain in progress; task-owned closeout/commit remains blocked by mixed concurrent workspace state.
+
+### M25
+
+- Status: completed for frontend static contract and minimal UI/API integration slice.
+- BDD: Browser directory authorization gates import-selected -> Given a completed NAS uncontrolled audit task and selected matched files When the user chooses to download to a local directory Then the page obtains `showDirectoryPicker` authorization and validates each backend `expectedLocalRelativePath` before calling `/import-selected`.
+- BDD: Local write success is reported only after close -> Given an import-selected task and selected audit-file snapshot When content Blob is downloaded and local writable stream closes successfully Then the page posts `LOCAL_WRITTEN` with the same source signature and local relative path snapshot.
+- BDD: Local write failure remains visible -> Given the local file write fails after content download When file handle or writable stream throws Then the page posts `LOCAL_WRITE_FAILED` with explicit error code/message and displays the failure instead of claiming import success.
+- BDD: Unrecognized files remain pending -> Given audit rows are `UNCLASSIFIED_PENDING` or `AMBIGUOUS` When the user opens completed audit task details Then those rows remain visible as “未分类/待处理” or “待确认” and are not selectable for automatic local import.
+- BDD: Archive metadata blocker is explicit -> Given a matched file reaches local write success but backend returns `ARCHIVE_METADATA_REQUIRED` When the page reloads audit-file rows Then the page displays “归档元数据待补齐” instead of archive success.
+- Completed: added static contract `dcc-nas-uncontrolled-local-import-static.spec.js` and package script `e2e:dcc:nas-uncontrolled-local-import:static`.
+- Completed: extended NAS API wrapper with files page, recognize, import-selected, content binary download and local-write-result calls, using `auditFileId/sourceSignature/expectedLocalRelativePath` snapshots.
+- Completed: extended NAS management page with completed-audit file table, recognition refresh, matched-row-only selection, `showDirectoryPicker`, nested local directory/file creation, Blob write/close, `LOCAL_WRITTEN` after close, `LOCAL_WRITE_FAILED` on write failure, and visible `ARCHIVE_METADATA_REQUIRED`/未分类待处理 states.
+- Boundary: this frontend slice does not implement formal archive success, controlled-file creation, ACTIVE NAS source mapping, real local filesystem E2E, or fallback ZIP/default download behavior.
+- RED: `node tests/e2e/dcc-nas-uncontrolled-local-import-static.spec.js` -> FAIL, expected reason: `package.json` lacked `e2e:dcc:nas-uncontrolled-local-import:static`, and NAS page/API lacked the local directory import contract.
+- GREEN: `node tests/e2e/dcc-nas-uncontrolled-local-import-static.spec.js` -> PASS.
+- GREEN: `pnpm e2e:dcc:nas-uncontrolled-local-import:static` -> PASS.
+- GREEN: `node tests/e2e/nas-control-audit-static.spec.js` -> PASS.
+- GREEN: `pnpm ts:check` -> PASS, current frontend workspace type check completed successfully.
+- GREEN: UTF-8/trailing whitespace check for M25 frontend files -> PASS, `contains_replacement=[]`, `trailing_whitespace=[]`.
+- GREEN: `git diff --check -- IntRuoyiFronted/package.json IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts IntRuoyiFronted/src/api/system/nas/index.ts IntRuoyiFronted/src/views/system/nas/index.vue IntRuoyiFronted/tests/e2e/dcc-nas-uncontrolled-local-import-static.spec.js` -> PASS, only Git LF-to-CRLF warnings.
+- Remaining: formal archive success metadata source, controlled-file creation, ACTIVE NAS source mapping and real Playwright E2E remain in progress; final closeout/commit/push remains blocked by mixed concurrent workspace state.
+
+### M26
+
+- Status: completed for M24 archive metadata precondition hardening.
+- BDD: Formal archive metadata snapshot is required -> Given a matched audit file reaches `LOCAL_WRITTEN` but the import task item only has recognition snapshots, local relative path, `matchedProjectCodeId`, `matchedFileTypeTaxonomyId`, or candidate JSON When backend evaluates formal DCC archive Then it must keep the visible `ARCHIVE_METADATA_REQUIRED` blocker and must not read NAS bytes, upload original file, submit workflow, create a controlled file, or insert ACTIVE NAS source mapping.
+- Completed: rechecked the current M24 precondition against `DccControlledFileNasTransferTaskItemDO`, `DccNasControlAuditFileDO`, `DccControlledFileSubmitReqVO`, and `recordUncontrolledImportLocalWriteResult(...)`; current schema does not persist a processing-item-level formal archive metadata snapshot for `categoryId`, `directoryId`, `dccProjectCodeId`, `fileTypeTaxonomyId`, `changeType`, `fileNumber`, `versionNo`, `effectiveDate`, and source remark.
+- Completed: updated `design.md`, `docs/acceptance/bdd-scenarios.md`, `docs/acceptance/tdd-plan.md`, `task.md`, and `verification-report.md` so future M24 development must first add RED/schema/VO/service evidence for the formal metadata source before enabling successful archive creation.
+- BLOCKER: M24 formal archive success path -> FAIL, missing processing-item-level formal archive metadata source; impact: controlled-file creation and ACTIVE NAS source mapping must remain blocked by `ARCHIVE_METADATA_REQUIRED` instead of using legacy task defaults, current date, empty template, or `classificationCandidatesJson`.
+- Verification: document-only hardening; no production code, NAS file, local directory, database data, workflow submit, controlled-file creation, or ACTIVE NAS source mapping was modified.
