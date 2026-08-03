@@ -2,7 +2,7 @@
 
 ## Summary
 
-已完成 DCC 未受控文件本地下载与自动归类的文档设计、BDD 场景、严格 TDD 顺序、真实 E2E 计划、测试数据设计、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片、M16 后续实现门禁加固、M17 import-selected 服务契约/legacy processor 隔离切片、M18 服务级 import-selected 原子创建和 M19 服务级幂等并发保护。设计复用当前 NAS 管理、未受控统计、NAS transfer、DCC 项目代码、文件分类树和分类规则能力；无法唯一识别项目代码、item 或分类时，统一进入正式 `未分类/待处理` 状态，不引入默认归类或降级路径。M17 补齐无旧字段请求 VO、服务入口签名和 `NAS_UNCONTROLLED_IMPORT` waiting processor 跳过逻辑；M18 补齐服务级 import-selected 原子创建、task/item 快照和 audit 绑定；M19 补齐 canonical request hash 复用/冲突、重复 audit id 前置拒绝和事务内二次幂等检查；不代表 controller、content、local-write-result、归档、前端或真实 E2E 已实现。
+已完成 DCC 未受控文件本地下载与自动归类的文档设计、BDD 场景、严格 TDD 顺序、真实 E2E 计划、测试数据设计、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片、M16 后续实现门禁加固、M17 import-selected 服务契约/legacy processor 隔离切片、M18 服务级 import-selected 原子创建、M19 服务级幂等并发保护和 M20 import-selected controller 契约。设计复用当前 NAS 管理、未受控统计、NAS transfer、DCC 项目代码、文件分类树和分类规则能力；无法唯一识别项目代码、item 或分类时，统一进入正式 `未分类/待处理` 状态，不引入默认归类或降级路径。M17 补齐无旧字段请求 VO、服务入口签名和 `NAS_UNCONTROLLED_IMPORT` waiting processor 跳过逻辑；M18 补齐服务级 import-selected 原子创建、task/item 快照和 audit 绑定；M19 补齐 canonical request hash 复用/冲突、重复 audit id 前置拒绝和事务内二次幂等检查；M20 补齐 `/import-selected` 路由、写权限组合和 `@Valid @RequestBody` 请求体；不代表 content、local-write-result、归档、前端或真实 E2E 已实现。
 
 ## Files Verified
 
@@ -28,6 +28,8 @@
 - `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNasControlAuditServiceImplTest.java`
 - `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/DccBaseSchemaTest.java`
 - `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccNasUncontrolledImportSelectedReqVO.java`
+- `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccNasControlAuditController.java`
+- `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccNasControlAuditControllerTest.java`
 - `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNasTransferService.java`
 - `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNasTransferServiceImpl.java`
 - `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNasTransferServiceTest.java`
