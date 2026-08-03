@@ -35,11 +35,30 @@ const queryService = readSource(
 
 for (const token of [
   'data-testid="dcc-controlled-browser-filter-summary"',
-  '当前筛选条件',
+  '<span>当前筛选条件</span>',
   '受控浏览目录路径',
   '普通受控浏览默认仅展示当前有效版'
 ]) {
-  assert.match(browserPage, new RegExp(token), `browser page must show filter/path summary: ${token}`)
+  assert.doesNotMatch(browserPage, new RegExp(token), `browser page must not render removed filter summary: ${token}`)
+}
+const unifiedListTemplateBlock = extractBetween(
+  browserPage,
+  '<UnifiedListTemplate',
+  '<el-table',
+  'browser unified list controls'
+)
+for (const token of [
+  ':filter-definitions="dccBrowserQuickFilterDefinitions"',
+  ':quick-filter-state="dccBrowserQuickFilter.state"',
+  '@quick-filter-query="dccBrowserQuickFilter.applyQuickFilter"',
+  'browserSearchScopeOptions',
+  '@column-change="saveDccBrowserColumnConfig"'
+]) {
+  assert.match(
+    unifiedListTemplateBlock,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `browser page must keep list control after removing filter summary: ${token}`
+  )
 }
 
 const tableTemplate = extractBetween(browserPage, '<el-table', '</el-table>', 'browser table')

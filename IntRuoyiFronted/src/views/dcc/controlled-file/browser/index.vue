@@ -66,28 +66,6 @@
 
     <el-col :span="18">
       <ContentWrap class="browser-list-wrap">
-        <div
-          class="browser-filter-summary"
-          data-testid="dcc-controlled-browser-filter-summary"
-        >
-          <div class="browser-filter-summary__header">
-            <span>当前筛选条件</span>
-            <el-tag type="success" effect="plain">普通受控浏览默认仅展示当前有效版</el-tag>
-          </div>
-          <div class="browser-filter-summary__items">
-            <div
-              v-for="item in browserFilterSummaryItems"
-              :key="item.label"
-              class="browser-filter-summary__item"
-            >
-              <span class="browser-filter-summary__label">{{ item.label }}</span>
-              <span class="browser-filter-summary__value">{{ item.value }}</span>
-            </div>
-          </div>
-          <div class="browser-filter-summary__hint">
-            草稿/历史失效版不会在受控浏览默认入口展示；如需核对历史或签核证据，请使用“追溯”。
-          </div>
-        </div>
         <UnifiedListTemplate
           class="browser-list-template"
           :table-key="DCC_BROWSER_COLUMN_TABLE_KEY"
@@ -292,17 +270,9 @@
                   v-if="getSelectedVersion(row).fileNumber"
                   class="browser-file-number-cell"
                 >
-                  <el-tooltip :content="`追溯：${getSelectedVersion(row).fileNumber}`" placement="top">
-                    <el-button
-                      class="browser-file-number browser-file-number--link"
-                      data-testid="dcc-browser-file-number-detail-link"
-                      link
-                      type="primary"
-                      @click="openDetail(getSelectedVersion(row).id)"
-                    >
-                      {{ getSelectedVersion(row).fileNumber }}
-                    </el-button>
-                  </el-tooltip>
+                  <span class="browser-file-number">
+                    {{ getSelectedVersion(row).fileNumber }}
+                  </span>
                   <el-tooltip content="复制文件编号" placement="top">
                     <el-button
                       class="browser-file-number-copy"
@@ -425,6 +395,7 @@
                 </el-button>
                 <el-button
                   v-if="getSelectedVersion(row).id"
+                  data-testid="dcc-browser-row-traceability"
                   link
                   type="primary"
                   @click="openDetail(getSelectedVersion(row).id)"
@@ -1253,33 +1224,12 @@ const browserDirectoryScopeText = computed(() => {
   return selectedDirectoryPath.value || '未选择目录'
 })
 const browserKeywordText = computed(() => normalizeKeyword(queryParams.keyword) || '未设置')
-const browserStatusText = computed(
-  () => BROWSER_STATUS_FILTER_OPTIONS.find((item) => item.value === queryParams.status)?.label || '全部状态'
-)
 const browserCategoryText = computed(() => {
   if (!queryParams.categoryId) {
     return '全部类别'
   }
   return categoryNameMap.value.get(queryParams.categoryId) || `类别 #${queryParams.categoryId}`
 })
-const browserFilterSummaryItems = computed(() => [
-  {
-    label: '受控浏览目录路径',
-    value: browserDirectoryScopeText.value
-  },
-  {
-    label: '分类',
-    value: browserCategoryText.value
-  },
-  {
-    label: '项目代码/文件编号关键字',
-    value: browserKeywordText.value
-  },
-  {
-    label: '当前有效状态',
-    value: browserStatusText.value
-  }
-])
 const tableEmptyHint = computed(() => {
   if (isCurrentDirectorySearch.value && !selectedDirectoryId.value) {
     return '请选择左侧目录后再按目录/分类/项目代码定位当前有效文件。'
@@ -2954,66 +2904,6 @@ onBeforeUnmount(() => {
 
 .browser-list-template :deep(.unified-list-template__table-shell .el-table) {
   height: 100%;
-}
-
-.browser-filter-summary {
-  flex: 0 0 auto;
-  margin-bottom: 10px;
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 10px;
-  background: #f8fbff;
-  padding: 10px 12px;
-}
-
-.browser-filter-summary__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  color: #172033;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 20px;
-}
-
-.browser-filter-summary__items {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.browser-filter-summary__item {
-  min-width: 0;
-  border-radius: 8px;
-  background: #fff;
-  padding: 8px;
-}
-
-.browser-filter-summary__label {
-  display: block;
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-  line-height: 16px;
-}
-
-.browser-filter-summary__value {
-  display: block;
-  overflow: hidden;
-  margin-top: 3px;
-  color: #172033;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 18px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.browser-filter-summary__hint {
-  margin-top: 8px;
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-  line-height: 18px;
 }
 
 .browser-permission-empty-state {
