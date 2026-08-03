@@ -17,14 +17,38 @@ assert.equal(
 
 assert.match(
   uploadPage,
-  /const selectedFileTypeTaxonomyCategoryIds = computed/,
-  'upload page must derive DCC category candidates from the selected file taxonomy'
+  /const selectedFileTypeTaxonomyLeafName = computed/,
+  'upload page must derive the readonly file category display from the selected file taxonomy leaf'
 )
 
 assert.match(
   uploadPage,
-  /selectedFileTypeTaxonomyCategoryIds\.value\.has\(category\.fileTypeTaxonomyId\)/,
-  'upload category options must only include categories bound to the selected file taxonomy'
+  /<el-form-item v-else label="文件类别" prop="categoryId">[\s\S]*data-testid="dcc-upload-category-leaf-display"[\s\S]*selectedFileTypeTaxonomyLeafName/,
+  'controlled-file upload category must be a readonly taxonomy leaf display, not a user-editable select'
+)
+
+assert.match(
+  uploadPage,
+  /<el-form-item v-if="isExternalReview" label="文件类别" prop="categoryId">[\s\S]*<el-select[\s\S]*v-model="formData\.categoryId"/,
+  'external review must keep the legacy formal category select'
+)
+
+assert.match(
+  uploadPage,
+  /category\.fileTypeTaxonomyId === Number\(formData\.fileTypeTaxonomyId\)/,
+  'controlled-file upload must resolve the formal DCC category by exact selected taxonomy leaf id'
+)
+
+assert.match(
+  uploadPage,
+  /const selectedFileTypeTaxonomyAutoCategory = computed/,
+  'upload page must compute the unique auto-resolved formal category for the selected taxonomy leaf'
+)
+
+assert.match(
+  uploadPage,
+  /const syncAutoCategoryFromSelectedFileTypeTaxonomy = async \(\) => \{[\s\S]*formData\.categoryId = selectedFileTypeTaxonomyAutoCategory\.value\?\.id \|\| null[\s\S]*await loadUploadDirectoryTree\(formData\.categoryId\)/,
+  'taxonomy change must auto-write categoryId only from the unique formal category and load its directory tree'
 )
 
 assert.match(
@@ -35,8 +59,8 @@ assert.match(
 
 assert.match(
   uploadPage,
-  /const handleFileTypeTaxonomyChange = async \(\) => \{[\s\S]*resetCategorySelectionForFileTypeTaxonomyChange\(\)[\s\S]*validateField\?\.\('fileTypeTaxonomyId'\)/,
-  'file taxonomy change handler must reset dependent category context before validating taxonomy'
+  /const handleFileTypeTaxonomyChange = async \(\) => \{[\s\S]*resetCategorySelectionForFileTypeTaxonomyChange\(\)[\s\S]*validateField\?\.\('fileTypeTaxonomyId'\)[\s\S]*await syncAutoCategoryFromSelectedFileTypeTaxonomy\(\)/,
+  'file taxonomy change handler must reset dependent context and then auto-sync category from the taxonomy leaf'
 )
 
 assert.doesNotMatch(

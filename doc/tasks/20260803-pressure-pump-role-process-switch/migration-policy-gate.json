@@ -1,0 +1,19 @@
+{
+  "status": "passed",
+  "migrationCount": 1,
+  "migrations": [
+    {
+      "migrationId": "20260803_mes_frontline_pressure_pump_all_process_permission",
+      "file": "sql/mysql/20260803_mes_frontline_pressure_pump_all_process_permission.sql",
+      "sha256": "4ff6ac8bc5cf101d1a4bdb453451860b39735773191cb790d29dd253b1d2bf46",
+      "type": "permission",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "low"
+    }
+  ]
+}

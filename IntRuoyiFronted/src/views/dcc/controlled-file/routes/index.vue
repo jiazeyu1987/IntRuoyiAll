@@ -363,6 +363,7 @@ const handleQuery = async (resetPage = true) => {
   }
   loading.value = true
   try {
+    await loadRouteSubjectLookups()
     const pageResult = await getApprovalRoutePage(queryParams)
     routes.value = pageResult.list ?? []
     routeTotal.value = pageResult.total ?? 0

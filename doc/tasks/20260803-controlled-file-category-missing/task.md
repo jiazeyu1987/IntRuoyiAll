@@ -2,7 +2,7 @@
 
 ## Task Goal
 
-修复受控文件提交页在选择文件分类时出现 `Controlled file category does not exist` 的问题，保证文件分类下拉选择使用正式分类数据链路，不引入 fallback、默认成功或吞异常。
+修复受控文件提交页在选择文件分类时出现 `Controlled file category does not exist` 的问题，并按用户确认将“文件类别”改为自动显示文件分类叶子节点，不再允许用户手工选择。后端提交仍必须使用正式 DCC 类别 `categoryId`，不能把 taxonomy id 当作 category id，不引入 fallback、默认成功或吞异常。
 
 ## Milestones
 
@@ -11,11 +11,15 @@
 - [x] 实施最小正式修复，保持文件分类数据契约清晰。
 - [x] 运行定向 GREEN 与相关回归验证。
 - [x] 更新任务证据、收尾状态和最终验证结论。
+- [ ] 按用户确认将文件类别改为只读叶子节点显示，并自动解析唯一正式 DCC 类别。
+- [ ] 补充 RED/GREEN 静态契约与前端类型检查。
 
 ## Expected Verification
 
 - BDD 场景记录在 `execution-log.md`。
 - RED/GREEN 证据覆盖“选择文件分类不会把不存在分类 ID 提交给后端”。
+- RED/GREEN 证据覆盖“文件类别只读显示文件分类叶子节点，不再出现可手选下拉”。
+- RED/GREEN 证据覆盖“前端只在叶子节点唯一绑定可上传正式类别时自动写入 `categoryId` 并加载提交目录；缺失或多绑定时明确阻塞”。
 - 定向前端/后端契约或单元测试通过。
 - 如本地运行态前置齐备，再通过真实页面路径验证；若缺少运行态、账号或数据，按项目规则记录 blocker，不用 API-only 冒充 E2E。
 
@@ -33,11 +37,11 @@
 
 ## Current Status
 
-blocked
+in_progress
 
 用户提供截图后复查发现：文件分类切换后仍会立即触发辅助性的历史文件名称预加载，若运行态后端或旧接口返回 `Controlled file category does not exist`，会在尚未选择“文件类别”时弹出全局错误。当前补充修复为：文件分类/项目切换只清理上下文，不再主动预加载历史文件名称；历史名称候选改为文件名称下拉聚焦/查询时按需加载，保留后端正式 fail-fast，不引入默认成功。
 
-实现和定向验证已完成；任务关闭仍阻塞在共享分支状态：当前工作区存在非本任务脏改动，且分支已领先 `origin/int_main`，不能安全执行独立任务提交和推送。
+用户进一步确认：文件类别应直接取文件分类路径的叶子节点，只显示、不让用户填写。本轮将实现该前端行为，并保持正式 DCC `categoryId` 自动解析与 fail-fast 校验。
 
 ## Cleanup Keep
 

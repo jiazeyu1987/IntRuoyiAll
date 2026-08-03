@@ -6,8 +6,13 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstatio
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
+import cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryService;
+import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationMachineService;
+import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationWorkerService;
 import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteService;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +63,16 @@ class MesFrontlineEmployeeSwitchServiceTest {
     private AdminUserApi adminUserApi;
     @Mock
     private MesFrontlineRuntimeConfigService runtimeConfigService;
+    @Mock
+    private PermissionApi permissionApi;
+    @Mock
+    private MesProRouteService routeService;
+    @Mock
+    private MesMdWorkstationService workstationService;
+    @Mock
+    private MesMdWorkstationMachineService workstationMachineService;
+    @Mock
+    private MesDvMachineryService machineryService;
 
     private MesFrontlineDeviceAccountContextServiceImpl contextService;
     private MesFrontlineEmployeeSwitchServiceImpl employeeSwitchService;
@@ -65,7 +80,8 @@ class MesFrontlineEmployeeSwitchServiceTest {
     @BeforeEach
     void setUp() {
         contextService = new MesFrontlineDeviceAccountContextServiceImpl(routeBindingSourceProvider, routeProcessMapper,
-                processService, workstationWorkerService, adminUserApi);
+                processService, workstationWorkerService, adminUserApi, permissionApi, routeService, workstationService,
+                workstationMachineService, machineryService);
         MesFrontlineTemplateResolverImpl templateResolver = new MesFrontlineTemplateResolverImpl(templateBindingSourceProvider);
         employeeSwitchService = new MesFrontlineEmployeeSwitchServiceImpl(contextService, templateResolver,
                 runtimeConfigService);

@@ -2,7 +2,7 @@
 
 ## Summary
 
-已完成 DCC 未受控文件本地下载与自动归类的文档设计、BDD 场景、严格 TDD 顺序、真实 E2E 计划、测试数据设计、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片、M16 后续实现门禁加固、M17 import-selected 服务契约/legacy processor 隔离切片、M18 服务级 import-selected 原子创建、M19 服务级幂等并发保护、M20 import-selected controller 契约、M21 content binary download 和 M22 local-write-result。M21 在隔离 worktree `D:\IntRuoyiWorktree\dcc-uncontrolled-import-m21-verify-20260803` 完成 targeted GREEN 与相邻回归，验证内容包括二进制 `ResponseEntity<byte[]>` controller、content 快照绑定、跨任务/过期签名拒绝和不变更 local-write/archive 状态。M22 在主工作区完成 targeted GREEN 与 M17-M22 相邻回归，验证内容包括 `local-write-result` controller、`@Valid @RequestBody` 快照体、`LOCAL_WRITTEN` 状态回写、重复成功回放幂等、冲突终态拒绝和不触发 NAS 读取/归档/ACTIVE NAS source 写入。设计复用当前 NAS 管理、未受控统计、NAS transfer、DCC 项目代码、文件分类树和分类规则能力；无法唯一识别项目代码、item 或分类时，统一进入正式 `未分类/待处理` 状态，不引入默认归类或降级路径。M17 补齐无旧字段请求 VO、服务入口签名和 `NAS_UNCONTROLLED_IMPORT` waiting processor 跳过逻辑；M18 补齐服务级 import-selected 原子创建、task/item 快照和 audit 绑定；M19 补齐 canonical request hash 复用/冲突、重复 audit id 前置拒绝和事务内二次幂等检查；M20 补齐 `/import-selected` 路由、写权限组合和 `@Valid @RequestBody` 请求体；M21 补齐内容下载快照绑定服务和二进制 controller 实现入口；M22 补齐本地写入结果快照回写入口；不代表正式归档、前端或真实 E2E 已实现。
+已完成 DCC 未受控文件本地下载与自动归类的文档设计、BDD 场景、严格 TDD 顺序、真实 E2E 计划、测试数据设计、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片、M16 后续实现门禁加固、M17 import-selected 服务契约/legacy processor 隔离切片、M18 服务级 import-selected 原子创建、M19 服务级幂等并发保护、M20 import-selected controller 契约、M21 content binary download、M22 local-write-result 和 M23 归档元数据缺失显式阻塞。M21 在隔离 worktree `D:\IntRuoyiWorktree\dcc-uncontrolled-import-m21-verify-20260803` 完成 targeted GREEN 与相邻回归，验证内容包括二进制 `ResponseEntity<byte[]>` controller、content 快照绑定、跨任务/过期签名拒绝和不变更 local-write/archive 状态。M22 在主工作区完成 targeted GREEN 与 M17-M22 相邻回归，验证内容包括 `local-write-result` controller、`@Valid @RequestBody` 快照体、`LOCAL_WRITTEN` 状态回写、重复成功回放幂等和冲突终态拒绝。M23 在主工作区完成 targeted RED/GREEN 与 M17-M23 相邻回归，验证内容包括 `MATCHED + LOCAL_WRITTEN` 缺正式归档元数据时写入 `archiveStatus=FAILED`、`archiveErrorCode=ARCHIVE_METADATA_REQUIRED`，且不触发 NAS 读取、原始文件上传、workflow submit、受控文件创建或 ACTIVE NAS source 写入。设计复用当前 NAS 管理、未受控统计、NAS transfer、DCC 项目代码、文件分类树和分类规则能力；无法唯一识别项目代码、item 或分类时，统一进入正式 `未分类/待处理` 状态，不引入默认归类或降级路径。M17 补齐无旧字段请求 VO、服务入口签名和 `NAS_UNCONTROLLED_IMPORT` waiting processor 跳过逻辑；M18 补齐服务级 import-selected 原子创建、task/item 快照和 audit 绑定；M19 补齐 canonical request hash 复用/冲突、重复 audit id 前置拒绝和事务内二次幂等检查；M20 补齐 `/import-selected` 路由、写权限组合和 `@Valid @RequestBody` 请求体；M21 补齐内容下载快照绑定服务和二进制 controller 实现入口；M22 补齐本地写入结果快照回写入口；M23 补齐缺元数据归档阻塞入口；不代表正式归档成功路径、前端或真实 E2E 已实现。
 
 ## Files Verified
 
@@ -256,3 +256,15 @@
 - Evidence: local write success updates audit/task item state only; replayed `LOCAL_WRITTEN` is idempotent; conflicting terminal result is rejected; NAS read, workflow submit, controlled-file archive and ACTIVE NAS source insert are not called.
 - Evidence validation: backend API evidence validator PASS, acceptance plan validator PASS, UTF-8/trailing whitespace check PASS, and scoped `git diff --check` PASS for M22 task/backend files.
 - Boundary: formal archive execution, archive metadata required/blocked state, frontend static contract and real E2E remain in progress.
+
+## M23 Backend Archive Metadata Blocker Slice
+
+- Scope: completed the explicit archive metadata required blocker after matched uncontrolled import files reach `LOCAL_WRITTEN`.
+- Service behavior: `recordUncontrolledImportLocalWriteResult(...)` now marks matched files as `downloadStatus=LOCAL_WRITTEN`, `archiveStatus=FAILED`, and `archiveErrorCode=ARCHIVE_METADATA_REQUIRED` when no formal archive metadata source exists; it does not use current date, legacy task defaults, empty template/category metadata, or any silent fallback.
+- Side effects: targeted tests verify no NAS read, no `fileService.createFileAndReturnId(...)`, no `workflowService.submitControlledFileWithoutApproval(...)`, no controlled file id, and no ACTIVE NAS source insert on the metadata blocker path.
+- RED: targeted service test failed because the previous implementation left `archiveStatus=NOT_STARTED` after `LOCAL_WRITTEN`.
+- GREEN: targeted metadata blocker test passed with Tests run 1, Failures 0, Errors 0, Skipped 0.
+- GREEN: local-write-result controller/service adjacent set passed with Tests run 5, Failures 0, Errors 0, Skipped 0.
+- REGRESSION: controller and M17-M23 service regression passed with Tests run 19, Failures 0, Errors 0, Skipped 0.
+- Evidence validation: backend API evidence validator PASS, acceptance plan validator PASS, UTF-8/trailing whitespace check PASS, and scoped `git diff --check` PASS for M23 task/backend files.
+- Boundary: controlled-file creation, ACTIVE NAS source mapping and already-archived replay protection remain blocked until a formal archive metadata source is designed, stored and verified in M24.
