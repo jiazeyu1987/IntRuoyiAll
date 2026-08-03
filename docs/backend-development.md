@@ -30,6 +30,17 @@
 - 涉及 API 行为时，验证成功路径和失败路径。
 - 涉及前端调用时，最后通过真实前端路径或已批准的 E2E 核对接口结果。
 
+## MES 一线设备账号权限门禁
+
+### 权限角色授权必须走登录用户标准权限解析
+
+- Trigger: 一线生产填写、设备账号切换工序、压力泵全工序授权、`post workstation binding loginUserId=... postIds=...`、`hasAnyPermissionsInRoles`、权限角色已配置但仍落到岗位/工作站绑定。
+- Preflight check: 修改设备账号、岗位、工作站或特殊全工序授权前，先区分“系统标准权限”与“岗位/工作站绑定”两条链路；凡需求口径是“拥有权限角色/权限即可授权”，后端判定必须从 `loginUserId` 调用标准 `PermissionApi.hasAnyPermissions(userId, permission)`，不得先取角色 ID 再做显式角色权限判断。
+- Blocker: 拥有目标权限的登录用户仍进入岗位/工作站绑定链路、超级管理员或动态授权语义被绕过、无权限普通用户被扩大到全工序、或错误信息只能看到岗位 ID 无法说明权限链路是否命中时，必须停止并补齐回归测试。
+- Verification: 后端回归必须同时覆盖“有权限用户获得压力泵全部工序”“无权限用户仍按岗位/工作站绑定”“旧显式角色检查会复现岗位绑定缺失错误”，并复跑一线员工切换和工作站岗位绑定相邻测试。
+- Forbidden action: 禁止硬编码账号 ID、岗位 ID、角色 ID；禁止把岗位/工作站绑定失败当作权限角色授权的 fallback；禁止用前端放行、空列表成功或默认路线掩盖权限链路未命中。
+- Evidence: `doc/tasks/20260803-pressure-pump-role-process-switch/verification-report.md`，运行时错误 `设备账号上下文不完整或不一致：post workstation binding loginUserId=1, postIds=[14]`。
+
 ## eDHR 详情回填门禁
 
 ### 路线配置有值但详情接口为空
