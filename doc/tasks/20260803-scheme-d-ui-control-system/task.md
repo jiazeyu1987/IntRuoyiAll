@@ -34,9 +34,9 @@ Out of scope for this first phase:
 
 ## Current Status
 
-blocked
+completed
 
-Implementation, scoped verification, cleanup, and selective task commits are complete for the first 基础数据 phase. Final remote completion is blocked because `git push origin int_main` cannot reach GitHub: the configured GitHub HTTPS proxy `http://127.0.0.1:7890` is not listening, one-shot direct HTTPS is reset, and SSH over port 443 is reachable but the local key is not accepted by GitHub. Impact: local commits exist but cannot be pushed to `origin`, so the task cannot be marked completed under project policy.
+Implementation, scoped verification, cleanup, selective task commits, and remote push are complete for the first 基础数据 phase. The earlier GitHub push blocker was cleared by retrying `git push origin int_main`, which successfully updated `origin/int_main` to `6b1fd19eb`.
 
 ## Design Constraints Check
 
@@ -65,6 +65,7 @@ Implementation, scoped verification, cleanup, and selective task commits are com
 
 - 740149060 feat: finish scheme d controls for basic data pages
 - 1cdfd5b71 chore: close scheme d ui control task
+- fe25101f1 chore: record scheme d push blocker
 
 ## Implementation Summary
 

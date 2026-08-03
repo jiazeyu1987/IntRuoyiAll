@@ -39,4 +39,4 @@ First phase Scheme D UI control unification for 基础数据 child pages:
 
 ## Final Status
 
-Blocked on remote push. Implementation and scoped verification are complete, cleanup apply removed only temporary evidence files, and the task-owned changes were committed locally in `740149060` and `1cdfd5b71`. `git push origin int_main` fails because GitHub HTTPS is routed through `127.0.0.1:7890`, that proxy port is not listening, direct HTTPS receives a connection reset, and SSH over port 443 is not authorized for the local key. The worktree still contains unrelated concurrent dirty changes that were intentionally left untouched.
+Completed. Implementation and scoped verification are complete, cleanup apply removed only temporary evidence files, task-owned changes were committed locally, and `git push origin int_main` later succeeded, updating `origin/int_main` to `6b1fd19eb`. The earlier GitHub proxy failure was transient or externally corrected; no Git proxy configuration change was required. The worktree still contains unrelated concurrent dirty changes that were intentionally left untouched.
