@@ -92,11 +92,16 @@ for (const nodeName of [
   'FIFO分配',
   'EDHR审核副本',
   '正式批记录',
-  '归档',
-  'MES工序/班组设置'
+  '归档'
 ]) {
   assert.match(page, new RegExp(nodeName), `page graph must include node ${nodeName}.`)
 }
+
+assert.doesNotMatch(
+  page,
+  /title:\s*'MES工序\/班组设置'/,
+  'page graph must not collapse route start, batch-record form, and form-slot responsibilities into one generic MES settings node.'
+)
 
 for (const edgeLabel of [
   '仅决定开始节点动作和附件责任',

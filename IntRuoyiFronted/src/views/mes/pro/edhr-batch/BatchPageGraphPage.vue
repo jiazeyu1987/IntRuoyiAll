@@ -8,7 +8,7 @@
           <p class="edhr-page-graph-page__eyebrow">页面关系图</p>
           <h2>批记录页面关系图</h2>
           <p class="edhr-page-graph-page__description">
-            每个节点代表一个页面或业务入口，箭头表达报工、记录本、工序池、FIFO、审核副本与正式批记录之间的数据流向；这里不是工艺路线流转关系图，不写回 MES 工艺路线配置。
+            每个节点代表一个页面或业务入口，箭头表达工序开始、批记录表单、表单槽位、报工、工序池、FIFO、审核副本与正式批记录之间的职责边界；这里不是工艺路线流转关系图，不写回 MES 工艺路线配置。
           </p>
         </div>
       </header>
@@ -172,113 +172,135 @@ const flowLanes: FlowLane[] = [
 
 const graphNodes: PageNode[] = [
   {
-    id: 'mes-settings',
+    id: 'route-start',
     order: '01',
-    title: 'MES工序/班组设置',
-    description: '维护账号可切换工序、员工绑定关系和页面模板关系。',
-    kind: '配置页',
+    title: '工序开始',
+    description: '只决定开始节点动作、上传人和附件责任，不提供需要展示或填写的表单内容。',
+    kind: '开始节点配置',
     isDisabled: true,
     x: 70,
-    y: 120,
+    y: 82,
+    tone: 'setup'
+  },
+  {
+    id: 'batch-record-form-config',
+    order: '02',
+    title: '批记录表单',
+    description: '只来自工序设置逐工序正式绑定，驱动正式生产批记录查看、填写和审核。',
+    kind: '正式绑定配置',
+    isDisabled: true,
+    x: 70,
+    y: 255,
+    tone: 'setup'
+  },
+  {
+    id: 'form-slot-binding',
+    order: '03',
+    title: '表单槽位',
+    description: '只按 formBindings 承载补充特殊表单或动态表单中心模板，不得替代正式批记录。',
+    kind: '补充表单配置',
+    isDisabled: true,
+    x: 70,
+    y: 428,
     tone: 'setup'
   },
   {
     id: 'work-order',
-    order: '02',
+    order: '04',
     title: '生产工单',
     description: '生产工单按计划开始时间进入 FIFO 满足顺序。',
     kind: '业务入口',
     isDisabled: true,
     x: 70,
-    y: 430,
+    y: 625,
     tone: 'setup'
   },
   {
     id: 'production-fill',
-    order: '03',
+    order: '05',
     title: '生产填写',
-    description: '一线员工从报工入口提交输入数量、设备参数、输出数量和损耗数量。',
+    description: '一线员工从报工入口提交数量、设备参数和正式批记录或补充槽位填写动作。',
     kind: '报工页',
     route: '/mes/pro/feedback/edhr-batch-production-fill',
     isDisabled: false,
     x: 312,
-    y: 118,
+    y: 135,
     tone: 'input'
   },
   {
     id: 'pqc-fill',
-    order: '04',
+    order: '06',
     title: 'PQC填写',
     description: 'PQC 简化录入检验结果、检验数量和损耗数量。',
     kind: '质检页',
     route: '/mes/pro/feedback/edhr-batch-pqc-fill',
     isDisabled: false,
     x: 312,
-    y: 430,
+    y: 485,
     tone: 'input'
   },
   {
     id: 'process-pool',
-    order: '05',
+    order: '07',
     title: '工序池',
     description: '接收原始报工和记录本事件，作为订单取数资源池。',
     kind: '数据池',
     isDisabled: true,
     x: 542,
-    y: 250,
+    y: 282,
     tone: 'pool'
   },
   {
     id: 'fifo-allocation',
-    order: '06',
+    order: '08',
     title: 'FIFO分配',
     description: '按生产工单计划开始时间排序，先排的工单先满足。',
     kind: '分配逻辑',
     isDisabled: true,
     x: 542,
-    y: 495,
+    y: 585,
     tone: 'pool'
   },
   {
     id: 'team-lead-review',
-    order: '07',
+    order: '09',
     title: '班组长复核',
     description: '复核一线原始数据、员工切换和异常记录。',
     kind: '复核页',
     isDisabled: true,
     x: 772,
-    y: 118,
+    y: 122,
     tone: 'review'
   },
   {
     id: 'review-copy',
-    order: '08',
+    order: '10',
     title: 'EDHR审核副本',
     description: '生成最接近限制范围的审核副本，原始值和修正值同时保留。',
     kind: '审核页',
     route: '/mes/pro/process-pool/review-copy',
     isDisabled: false,
     x: 772,
-    y: 335,
+    y: 345,
     tone: 'review'
   },
   {
     id: 'event-revision',
-    order: '09',
+    order: '11',
     title: '原始记录修改',
     description: '原始记录提交后允许修改，但必须保留修改日志。',
     kind: '日志页',
     route: '/mes/pro/process-pool/event-revision',
     isDisabled: false,
     x: 772,
-    y: 540,
+    y: 595,
     tone: 'review'
   },
   {
     id: 'formal-record',
-    order: '10',
+    order: '12',
     title: '正式批记录',
-    description: '按工序设置绑定的正式批记录表单查看、填写和审核。',
+    description: '按逐工序正式批记录表单绑定查看、打开、填写和形成生产批记录。',
     kind: '批记录页',
     route: '/mes/pro/feedback/edhr-batch-execution',
     isDisabled: false,
@@ -288,32 +310,33 @@ const graphNodes: PageNode[] = [
   },
   {
     id: 'history-record',
-    order: '11',
+    order: '13',
     title: '历史批记录',
     description: '查看已形成的历史批记录和追溯记录。',
     kind: '查询页',
     route: '/mes/pro/feedback/edhr-batch-history',
     isDisabled: false,
     x: 1002,
-    y: 425,
+    y: 455,
     tone: 'record'
   },
   {
     id: 'archive',
-    order: '12',
+    order: '14',
     title: '归档',
     description: '记录审核完成后的归档状态和追溯入口。',
     kind: '归档页',
     isDisabled: true,
     x: 1002,
-    y: 575,
+    y: 642,
     tone: 'record'
   }
 ]
 
 const pageEdges: PageEdge[] = [
-  { from: 'mes-settings', to: 'production-fill', label: '控制工序和员工可切换范围' },
-  { from: 'mes-settings', to: 'pqc-fill', label: '控制 PQC 模板和绑定员工' },
+  { from: 'route-start', to: 'production-fill', label: '仅决定开始节点动作和附件责任' },
+  { from: 'batch-record-form-config', to: 'formal-record', label: '按工序设置逐工序正式绑定' },
+  { from: 'form-slot-binding', to: 'production-fill', label: '仅提供补充表单槽位' },
   { from: 'work-order', to: 'fifo-allocation', label: '提供工单计划开始时间' },
   { from: 'production-fill', to: 'process-pool', label: '提交报工和批记录原始事件' },
   { from: 'pqc-fill', to: 'process-pool', label: '提交质检原始事件' },
@@ -437,7 +460,7 @@ const handleOpenNode = async (node: PageNode) => {
 .edhr-page-graph-page__canvas {
   position: relative;
   min-width: 1200px;
-  height: 680px;
+  height: 790px;
   overflow: hidden;
   background: #f7f9fc;
 }
@@ -706,7 +729,7 @@ const handleOpenNode = async (node: PageNode) => {
 
   .edhr-page-graph-page__canvas {
     min-width: 1120px;
-    height: 660px;
+    height: 780px;
   }
 }
 </style>
