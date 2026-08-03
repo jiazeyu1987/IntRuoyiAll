@@ -1,0 +1,52 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://127.0.0.1:8094",
+  "backendUrl": "http://127.0.0.1:48094",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "batchExecutionId": 900000000910,
+  "batchExecutionCode": "EDHRB-1785294372825",
+  "batchCode": "CODEX-SWITCH-EXTRA-1785294366393",
+  "task": {
+    "id": 7234,
+    "processName": "粗洗工序",
+    "formSlotType": "PROCESS_INSPECTION",
+    "formTemplateId": 28,
+    "formTemplateName": "过程检验记录",
+    "formTemplateVersionId": 32,
+    "formTemplateVersionNo": "V3.0",
+    "formCenterInstanceId": 432,
+    "activeWorkTaskId": 2301,
+    "allowedActions": [],
+    "status": 0
+  },
+  "ui": {
+    "targetUrl": "http://127.0.0.1:8094/mes/pro/feedback/edhr-batch-execution/detail?id=900000000910&batchTaskId=7234&workTaskId=2301",
+    "mode": "admin-readonly-drawer",
+    "actionText": "查看表单",
+    "expectedRuntimeBlocker": "动态表单运行态缺少 openTask 模板快照，无法渲染。",
+    "targetTask": {
+      "id": 7234,
+      "processName": "粗洗工序",
+      "formSlotType": "PROCESS_INSPECTION",
+      "formTemplateId": 28,
+      "formTemplateName": "过程检验记录",
+      "formTemplateVersionId": 32,
+      "formTemplateVersionNo": "V3.0",
+      "formCenterInstanceId": 432,
+      "activeWorkTaskId": 2301,
+      "allowedActions": [],
+      "status": 0
+    },
+    "network": {
+      "forbiddenTemplateVersionRequests": [],
+      "exactForbiddenRequests": [],
+      "routeMissingResponses": [],
+      "targetFormCenterResponses": [],
+      "failedLocalResponses": []
+    },
+    "consoleErrorCount": 0,
+    "pageErrors": [],
+    "screenshotPath": "D:\\IntRuoyiWorktree\\form-center-route-missing-20260803\\doc\\tasks\\20260803-form-center-route-missing-e2e\\real-e2e-output\\form-center-route-missing-real-e2e.png"
+  }
+}
