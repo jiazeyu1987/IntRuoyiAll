@@ -34,9 +34,9 @@ Out of scope for this first phase:
 
 ## Current Status
 
-completed
+blocked
 
-Implementation, scoped verification, cleanup, and selective task commit are complete for the first 基础数据 phase. The shared `int_main` worktree still has concurrent unrelated dirty changes, including a later non-Scheme-D product onboarding edit in `ProjectCodeTabPanel.vue`; those changes were not staged or committed by this task closeout.
+Implementation, scoped verification, cleanup, and selective task commits are complete for the first 基础数据 phase. Final remote completion is blocked because `git push origin int_main` cannot reach GitHub: the configured GitHub HTTPS proxy `http://127.0.0.1:7890` is not listening, one-shot direct HTTPS is reset, and SSH over port 443 is reachable but the local key is not accepted by GitHub. Impact: local commits exist but cannot be pushed to `origin`, so the task cannot be marked completed under project policy.
 
 ## Design Constraints Check
 
@@ -64,6 +64,7 @@ Implementation, scoped verification, cleanup, and selective task commit are comp
 ## Task Commits
 
 - 740149060 feat: finish scheme d controls for basic data pages
+- 1cdfd5b71 chore: close scheme d ui control task
 
 ## Implementation Summary
 
