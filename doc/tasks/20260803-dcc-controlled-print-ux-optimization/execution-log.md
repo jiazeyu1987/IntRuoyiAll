@@ -72,3 +72,13 @@ BDD: 预览态不被打印记录辅助接口阻断 -> Given 有受控文件预�
 - IMPLEMENTATION COMMIT: `08454fdf7` (`fix: prevent controlled preview print records request`) -> files: `IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue`, `IntRuoyiFronted/tests/e2e/dcc-controlled-print-static.spec.js`, `docs/e2e-rules.md`, `docs/experience-index.md`.
 - CLOSEOUT COMMIT: `a6b691396` (`chore: close controlled print preview fix task`) -> files: bug regression evidence added, `frontend-feature-evidence.md` cleanup deletion, and task/execution/verification closeout records.
 - CONCURRENT COMMIT NOTE: `740149060` (`feat: finish scheme d controls for basic data pages`) landed between implementation and closeout commits; it was not staged or modified by this task.
+- COMMIT EVIDENCE COMMIT: `bc1a52562` (`chore: record controlled print preview commit evidence`) -> files: `execution-log.md` commit evidence only.
+
+## Push Blocker
+
+- FAIL: `git push origin int_main` -> `Failed to connect to github.com port 443 via 127.0.0.1 after 2106 ms: Could not connect to server`.
+- DIAG: `git config --list --show-origin | Select-String -Pattern 'proxy|insteadOf|sslVerify|http.version'` -> global `http.https://github.com.proxy=http://127.0.0.1:7890`.
+- DIAG: `Test-NetConnection 127.0.0.1 -Port 7890` -> `TcpTestSucceeded=False`.
+- DIAG: `Test-NetConnection github.com -Port 443` -> `TcpTestSucceeded=False`.
+- DIAG: `Test-NetConnection ssh.github.com -Port 443` -> `TcpTestSucceeded=True`; `ssh -T -o BatchMode=yes git@ssh.github.com -p 443` -> `Permission denied (publickey)`.
+- IMPACT: Current task implementation and closeout commits are local only; branch remains ahead of `origin/int_main`, so task status is `blocked` until push succeeds.

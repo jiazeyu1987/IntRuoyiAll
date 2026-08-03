@@ -51,7 +51,7 @@ BDD: 预览态不被打印记录辅助接口阻断 -> Given 有受控文件预�
 
 ## Current Status
 
-completed
+blocked
 
 ## Follow-up Bug: Preview Requests Missing Print Records Route
 
@@ -71,6 +71,7 @@ completed
 - 只读 API/DB 证明：打印记录、份数、打印人、文件编号、版本和 `DIRECT_PRINTED` 状态与页面一致。
 - 回归验证：任务静态契约、前端受控打印静态契约、受控浏览静态契约、`pnpm ts:check`、后端 `DccControlledPrintContractTest` 均通过。
 - Cleanup：`task-closeout-cleanup` preview/apply 均通过，删除旧截图、临时 `frontend-feature-evidence.md` 和 `runtime-jar-inspect` jar 检查产物；保留 task/execution/verification、bug regression 证据、真实 E2E 脚本/结果和最终截图。
+- Push Blocker：`git push origin int_main` 因 GitHub HTTPS 443 代理连接失败被阻塞；本地分支仍 ahead，按项目规则任务不能标记 completed。
 
 ## 设计约束检查
 
@@ -92,3 +93,11 @@ completed
 
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-controlled-print-ux-optimization --mode preview` -> PASS, no blocked paths or warnings.
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-controlled-print-ux-optimization --mode apply` -> PASS, deleted only cleanup-classified task-local temporary artifacts.
+
+## Push Blocker
+
+- `git push origin int_main` -> FAIL, `Failed to connect to github.com port 443 via 127.0.0.1`.
+- Git proxy evidence: `http.https://github.com.proxy=http://127.0.0.1:7890`.
+- Network evidence: `Test-NetConnection 127.0.0.1 -Port 7890` -> `TcpTestSucceeded=False`; `Test-NetConnection github.com -Port 443` -> `TcpTestSucceeded=False`.
+- SSH fallback check: `Test-NetConnection ssh.github.com -Port 443` -> `True`, but `ssh -T -o BatchMode=yes git@ssh.github.com -p 443` -> `Permission denied (publickey)`, so SSH push is not authorized.
+- Impact: local commits are complete but not pushed; unblock by starting/fixing the configured GitHub proxy on `127.0.0.1:7890`, enabling GitHub HTTPS direct 443, or authorizing an SSH key for GitHub.

@@ -76,4 +76,5 @@ Follow-up 预览缺陷已修复：`viewer=1` 只读预览态不再请求未渲�
 - 本轮最终验收以打印记录 ID `9` 为准；调试期间产生的记录均来自真实页面路径。
 - Follow-up 修复未改后端接口、权限或打印记录数据契约；只修正前端详情页的预览态辅助请求边界。
 - Cleanup preview/apply 均通过；删除范围仅限当前任务旧截图、临时 frontend evidence 和 runtime jar inspect 产物。
-- 当前任务已完成实现、验证和 cleanup，状态为 `completed`。
+- Push 阻塞：`git push origin int_main` 因 GitHub HTTPS 代理 `127.0.0.1:7890` 未监听、直连 GitHub 443 不通而失败；SSH 443 网络可达但当前 SSH key 未授权。
+- 当前任务已完成实现、验证和 cleanup，但因本地提交未能推送到 `origin/int_main`，状态为 `blocked`。
