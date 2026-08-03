@@ -21,3 +21,19 @@
 ## Command Log
 
 - Command intent: `git status --short --branch` -> workspace already has unrelated DCC dirty files and branch is ahead of origin; current task must not stage or revert unrelated files.
+- RED: `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest,MesFrontlineWorkstationPostRouteBindingSourceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected before implementation because pressure-pump permission dependencies and constant were not yet implemented.
+- GREEN: `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest,MesFrontlineWorkstationPostRouteBindingSourceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 7 tests, 0 failures, 0 errors, 0 skipped.
+- GREEN: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --sql-file IntRuoyiBackend\sql\mysql\20260803_mes_frontline_pressure_pump_all_process_permission.sql --output doc\tasks\20260803-pressure-pump-role-process-switch\migration-policy-gate.json` -> PASS, 1 permission migration.
+
+## Milestone Updates
+
+- Chain inspection -> PASS: confirmed one-line production switching uses `MesFrontlineDeviceAccountContextServiceImpl` and existing workstation/post binding source for ordinary accounts.
+- BDD and RED -> PASS: tests cover pressure-pump permission success, ordinary binding regression, and missing pressure-pump route-process fail-fast.
+- Implementation -> PASS: pressure-pump all-process role permission uses explicit permission API and enabled route/process/master-data services; it is not a fallback after binding failure.
+- Migration -> PASS: permission menu migration adds `mes:pro-feedback:frontline-pressure-pump:all-processes` with fail-fast preconditions and UTF-8 hex menu name.
+- Verification -> PASS: MES targeted JUnit and release migration policy gate passed.
+
+## Verification Evidence
+
+- Backend tests: `MesFrontlineDeviceAccountContextServiceTest` 5 tests PASS; `MesFrontlineWorkstationPostRouteBindingSourceTest` 2 tests PASS.
+- Migration policy gate: `status=passed`, `migrationCount=1`, migration id `20260803_mes_frontline_pressure_pump_all_process_permission`.

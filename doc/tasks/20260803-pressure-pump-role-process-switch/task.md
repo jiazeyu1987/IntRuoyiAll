@@ -6,16 +6,17 @@
 
 ## Milestones
 
-- [ ] 核对现有一线生产填写前后端调用链路与角色/权限 API。
-- [ ] 记录需求变更边界和 BDD 场景。
-- [ ] 编写 RED 回归测试覆盖“有权限可看压力泵全部工序”和“无权限仍按岗位链路”。
-- [ ] 实施最小后端正式授权链路，不引入默认路线或空成功。
-- [ ] 运行 GREEN、相邻回归和 evidence 校验。
+- [x] 核对现有一线生产填写前后端调用链路与角色/权限 API。
+- [x] 记录需求变更边界和 BDD 场景。
+- [x] 编写 RED 回归测试覆盖“有权限可看压力泵全部工序”和“无权限仍按岗位链路”。
+- [x] 实施最小后端正式授权链路，不引入默认路线或空成功。
+- [x] 运行 GREEN、相邻回归和 evidence 校验。
 
 ## Expected Verification
 
 - `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest,MesFrontlineWorkstationPostRouteBindingSourceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - backend-api evidence validator: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260803-pressure-pump-role-process-switch/backend-api-evidence.md`
+- database-schema evidence validator: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260803-pressure-pump-role-process-switch/database-schema-evidence.md`
 
 ## Applicable Gates
 
@@ -31,6 +32,18 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-- 已创建任务目录，正在核对现有一线生产填写和角色权限链路。
+- 已完成压力泵全工序权限服务链路、权限迁移 SQL、定向 JUnit、release migration policy gate 和 evidence validator；等待当前主线融合任务统一提交与后续收尾。
+
+## Completed Work
+
+- `MesFrontlineDeviceAccountContextServiceImpl` 增加正式权限 `mes:pro-feedback:frontline-pressure-pump:all-processes`，拥有该权限的角色按启用压力泵路线读取全部有效工序。
+- 普通账号仍走既有岗位、工作站、工艺路线工序工作站绑定链路；压力泵权限链路不会在岗位链路失败后兜底。
+- 缺少启用压力泵路线、有效路线工序、启用工序、启用工作站或设备主数据时均 fail fast。
+- `20260803_mes_frontline_pressure_pump_all_process_permission.sql` 增加可分配权限菜单并合并到已有包含父菜单的租户套餐和租户管理员角色。
+
+## Verification Evidence
+
+- GREEN: `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest,MesFrontlineWorkstationPostRouteBindingSourceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 7 tests.
+- GREEN: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --sql-file IntRuoyiBackend\sql\mysql\20260803_mes_frontline_pressure_pump_all_process_permission.sql --output doc\tasks\20260803-pressure-pump-role-process-switch\migration-policy-gate.json` -> PASS, 1 migration, sha256 `4ff6ac8bc5cf101d1a4bdb453451860b39735773191cb790d29dd253b1d2bf46`.
