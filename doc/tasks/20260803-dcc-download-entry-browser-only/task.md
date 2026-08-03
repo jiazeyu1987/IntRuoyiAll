@@ -6,10 +6,10 @@
 
 ## Milestones
 
-- [ ] 定位现有下载入口和受影响前端组件。
-- [ ] 增加静态契约，先证明详情页仍存在下载入口。
-- [ ] 移除非列表行操作列的直接下载入口。
-- [ ] 运行定向静态验证并记录结果。
+- [x] 定位现有下载入口和受影响前端组件。
+- [x] 增加静态契约，先证明详情页仍存在下载入口。
+- [x] 移除非列表行操作列的直接下载入口。
+- [x] 运行定向静态验证并记录结果。
 
 ## Expected Verification
 
@@ -19,7 +19,22 @@
 
 ## Current Status
 
-in_progress
+blocked
+
+## Verification Summary
+
+- `node tests/e2e/dcc-download-entry-browser-only-static.spec.js`：RED 后 GREEN。
+- `pnpm e2e:dcc:download-entry:static`：PASS。
+- `node tests/e2e/dcc-list-detail-entry-static.spec.js`：PASS，已同步现有受控浏览操作列 visibility-gated 标记。
+- `pnpm ts:check`：PASS。
+- `task_closeout.py --mode preview/apply`：PASS，仅删除临时 `frontend-feature-evidence.md`，保留核心任务报告。
+- 前端代码已进入提交 `72712e92d chore: baseline concurrent download entry updates`，该提交包含详情页下载入口移除、新增静态契约和相邻 list-detail 契约标记修正。
+
+## Closeout Result
+
+- 前端代码提交：`72712e92d chore: baseline concurrent download entry updates`。
+- 收尾文档提交：`fa4ba2225 docs: close DCC download entry task`。
+- 推送阻塞：`git push origin int_main` 先因 GitHub 代理 `127.0.0.1:7890` 不可用失败；清空本次命令代理后，GitHub 直连 443 随后也失败/连接重置。当前本地 `int_main` 仍领先 `origin/int_main`，不得标记 completed。
 
 ## 设计约束检查
 
