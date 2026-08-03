@@ -1,7 +1,7 @@
 # 岗位需求分解矩阵真实 E2E 前置证据
 
 - Task ID: `20260801-role-requirement-matrix-implementation`
-- Generated At: `2026-08-03T04:58:00.867Z`
+- Generated At: `2026-08-03T05:29:13.192Z`
 - Status: `BLOCKED`
 - Frontend: `http://127.0.0.1:8081`
 - Backend: `http://127.0.0.1:48081`
@@ -10,9 +10,8 @@
 
 ## Result
 
-- BLOCKED: 66 blockers remain.
+- BLOCKED: 65 blockers remain.
 - E2E_CLEANUP:activeOrderCleanupDeferred -> 本轮 activeOrderId 仍是 M6 后续真实 E2E 共享夹具；直接移除会破坏 PQC、放行、日结和后续验证链路。需要一次性可重建夹具或明确清理窗口后再执行删除验证。
-- E2E_PQC_SUBMISSION_DATA:pqcLeaderSubmissionFilterPaginationConsistent -> 当前筛选条件只命中 1 条正式 PQC 提交，无法通过真实数据证明第 1/2 页 total 稳定；需要至少两条同条件提交夹具完成分页漂移验收。
 - E2E_CONCURRENCY:m6ConcurrencyGateDeferred -> 测试矩阵中 12 个 CONC AC 仍需逐项完成真实并发或服务级并发证据；当前仅 AC-M04 已有活跃订单重复/冲突/跨角色动作和后端唯一键并发回归，不能替代报工分配、PQC 提交/确认、过程检验、放行和批记录回填并发门禁。
 - E2E_PERFORMANCE:m6PerformanceGateDeferred -> 测试矩阵中 4 个 PERF AC 仍需分页总数、索引或查询计数证据；当前已观察 2 个 PERF AC（AC-D27, AC-D32），尚未完成日结、PQC 列表和逐件明细的完整 N+1 或分页漂移证明。
 - E2E_COVERAGE:AC-M01 -> TC-M01 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
@@ -69,7 +68,7 @@
 - E2E_COVERAGE:AC-D29 -> TC-D29 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry；已执行真实动作：pqcFormalSubmissionCreated。
 - E2E_COVERAGE:AC-D30 -> TC-D30 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
 - E2E_COVERAGE:AC-D31 -> TC-D31 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry；已执行真实动作：pqcRegulationItemsRendered, pqcActualEmployeeSelected。
-- E2E_COVERAGE:AC-D32 -> TC-D32 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench；已执行真实动作：pqcFormalSubmissionCreated。
+- E2E_COVERAGE:AC-D32 -> TC-D32 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench；已执行真实动作：pqcFormalSubmissionCreated, pqcLeaderSubmissionFilterPaginationConsistent。
 - E2E_COVERAGE:AC-D33 -> TC-D33 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
 - E2E_COVERAGE:AC-D34 -> TC-D34 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
 - E2E_COVERAGE:AC-D35 -> TC-D35 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
@@ -97,7 +96,7 @@
 - PASS: pqcPieceDetailQuantityPrepared -> PQC 逐件明细数量按计划数量准备; role=pqcInspector; acceptance=AC-D27
 - PASS: pqcActualEmployeeSelected -> 共享账号下选择实际 PQC 检验人员; role=pqcInspector; acceptance=AC-D25, AC-D31
 - PASS: pqcFormalSubmissionCreated -> PQC 正式提交生成过程池检验事件; role=pqcInspector; acceptance=AC-D29, AC-D32
-- BLOCKED: pqcLeaderSubmissionFilterPaginationConsistent -> PQC 组长提交看板筛选分页一致性; role=pqcLeader; acceptance=AC-D32
+- PASS: pqcLeaderSubmissionFilterPaginationConsistent -> PQC 组长提交看板筛选分页一致性; role=pqcLeader; acceptance=AC-D32
 - PASS: activeOrderUnauthorizedMutationBlocked -> 错误角色活跃订单写入权限隔离; role=unauthorizedActor; acceptance=AC-M04, AC-D09, AC-D13
 
 ## Gate Evidence
@@ -167,7 +166,7 @@
 - AC-D29/TC-D29: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcInspectorEntry; actions=pqcFormalSubmissionCreated
 - AC-D30/TC-D30: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
 - AC-D31/TC-D31: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcInspectorEntry; actions=pqcRegulationItemsRendered, pqcActualEmployeeSelected
-- AC-D32/TC-D32: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcLeaderWorkbench; actions=pqcFormalSubmissionCreated
+- AC-D32/TC-D32: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcLeaderWorkbench; actions=pqcFormalSubmissionCreated, pqcLeaderSubmissionFilterPaginationConsistent
 - AC-D33/TC-D33: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
 - AC-D34/TC-D34: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
 - AC-D35/TC-D35: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
