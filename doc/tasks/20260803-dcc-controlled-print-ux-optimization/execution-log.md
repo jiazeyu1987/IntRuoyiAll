@@ -5,6 +5,7 @@
 - 用户要求基于受控打印 E2E 后提出的 6 项优化进行实现，并完成真实 E2E 验证。
 - 优化项：打印完成反馈、最新记录高亮、无权限提示、结构化接收部门/使用位置、多份副本编号、审批策略显性化。
 - Follow-up bug：用户反馈受控文件点击预览时提示 `请求地址不存在:admin-api/dcc/controlled-files/2054545668044052098/controlled-print/records`。
+- Similar follow-up：用户追问“还有没有类似的问题”并要求继续后，排查同一 viewer 初始化链路，发现纸质分发记录和流程打印模板也属于预览态未渲染辅助数据。
 
 ## Skill Reads
 
@@ -13,11 +14,14 @@
 - `behavior-driven-development`
 - `playwright`
 - `project-experience-consolidation`
+- `bug-regression-fix-loop`
+- `task-closeout-cleanup`
 
 ## Experience Consolidation
 
 - GREEN: experience-preflight -> PASS, 本次经验已合并到现有 `docs/e2e-rules.md#DCC 受控打印门禁`，并同步 `docs/experience-index.md` 的 DCC 受控打印关键词；没有创建新的长期经验文档。
 - GREEN: experience-preflight -> PASS, follow-up 预览态辅助接口边界已合并到现有 `docs/e2e-rules.md#DCC 受控打印门禁`，并同步 `docs/experience-index.md` 增补 `viewer=1` 与 `controlled-print/records` 关键词；没有创建新的长期经验文档。
+- GREEN: experience-preflight -> PASS, similar follow-up 已继续合并到现有 `docs/e2e-rules.md#DCC 受控打印门禁`，并同步 `docs/experience-index.md` 增补 `paperDistributionRecords`、`getActiveApprovalPrintTemplate` 和流程打印模板关键词；没有创建新的长期经验文档。
 
 ## BDD
 
@@ -33,6 +37,8 @@ BDD: 多份打印显示逐份副本编号 -> Given 用户打印份数大于 1 Wh
 
 BDD: 预览态不被打印记录辅助接口阻断 -> Given 有受控文件预览权限的用户从受控文件列表点击预览 When 详情页以 `viewer=1` 只读预览态初始化 Then 页面加载受控文件预览和基础详情 And 不请求未渲染的受控打印记录接口 And 非预览追溯详情中的打印记录接口失败只在记录区显示真实错误，不阻断整页详情。
 
+BDD: 预览态不加载未渲染的分发和流程打印辅助数据 -> Given 有受控文件预览权限的用户从受控文件列表点击预览 When 详情页以 `viewer=1` 只读预览态初始化 Then 页面不请求纸质分发记录 And 不请求流程打印模板数据 And 非预览详情仍保留对应功能区的数据加载。
+
 ## RED / GREEN / REGRESSION
 
 - BASELINE: `6073d6e4d` -> PASS, dirty-worktree baseline commit before this follow-up fix; staged files included pre-existing backend/frontend/task documentation changes and no current follow-up implementation.
@@ -44,6 +50,8 @@ BDD: 预览态不被打印记录辅助接口阻断 -> Given 有受控文件预�
 - GREEN: `pnpm ts:check` in `IntRuoyiFronted` -> PASS.
 - RED: `node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> FAIL, follow-up preview regression expected failure: `shouldLoadControlledPrintRecords` lacked `!viewerMode.value`, so viewer preview mode could request the unrendered `controlled-print/records` auxiliary endpoint.
 - GREEN: `node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> PASS, viewer preview mode skips controlled print records while non-viewer traceability keeps the records section.
+- RED: `node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> FAIL, similar preview regression expected failure: viewer preview mode still requested `getPaperDistributionRecords(controlledFileId.value)` and `getActiveApprovalPrintTemplate()` even though paper distribution and process-print actions are not rendered in viewer mode.
+- GREEN: `node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> PASS, viewer preview mode resolves paper distribution records to `[]` and process-print template to `null`, while non-viewer detail pages keep the real requests.
 - GREEN: `node doc\tasks\20260803-dcc-controlled-print-ux-optimization\dcc-controlled-print-ux-static.spec.cjs` -> PASS, adjacent controlled print UX contract still passes.
 - REGRESSION: `node IntRuoyiFronted\tests\e2e\dcc-controlled-browser-ux-optimization-static.spec.js` -> PASS, controlled browser preview/traceability contract still passes.
 - REGRESSION: `pnpm ts:check` in `IntRuoyiFronted` -> PASS.
@@ -73,6 +81,7 @@ BDD: 预览态不被打印记录辅助接口阻断 -> Given 有受控文件预�
 - CLOSEOUT COMMIT: `a6b691396` (`chore: close controlled print preview fix task`) -> files: bug regression evidence added, `frontend-feature-evidence.md` cleanup deletion, and task/execution/verification closeout records.
 - CONCURRENT COMMIT NOTE: `740149060` (`feat: finish scheme d controls for basic data pages`) landed between implementation and closeout commits; it was not staged or modified by this task.
 - COMMIT EVIDENCE COMMIT: `bc1a52562` (`chore: record controlled print preview commit evidence`) -> files: `execution-log.md` commit evidence only.
+- SIMILAR ISSUE COMMIT NOTE: `03646727b` (`chore: baseline main worktree before form center merge`) already contains the source/test changes for skipping `getPaperDistributionRecords` and `getActiveApprovalPrintTemplate` in viewer mode; history was not amended or rewritten.
 
 ## Push Blocker
 

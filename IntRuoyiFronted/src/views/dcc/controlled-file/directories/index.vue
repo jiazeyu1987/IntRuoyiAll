@@ -116,6 +116,7 @@
           >
             <span
               class="directory-folder-toggle"
+              :class="resolveDirectoryFolderBorderClass(row)"
               aria-hidden="true"
             >
               <Icon icon="ep:folder" />
@@ -286,6 +287,11 @@ const resolveDirectoryChildLoadError = (row: ControlledFileDirectoryVO) =>
 
 const isDirectoryExpandable = (row: ControlledFileDirectoryVO) =>
   Boolean(row.hasChildren || row.children?.length)
+
+const resolveDirectoryFolderBorderClass = (row: ControlledFileDirectoryVO) =>
+  isDirectoryExpandable(row)
+    ? 'directory-folder-toggle--has-children'
+    : 'directory-folder-toggle--no-children'
 
 const toggleDirectoryRow = (row: ControlledFileDirectoryVO) => {
   if (!isDirectoryExpandable(row)) {
@@ -529,8 +535,15 @@ onMounted(() => {
   padding: 0;
   border: 0;
   background: transparent;
-  color: #1677ff;
   cursor: default;
+}
+
+.directory-folder-toggle--has-children {
+  color: #16a34a;
+}
+
+.directory-folder-toggle--no-children {
+  color: #111827;
 }
 
 .directory-folder-toggle :deep(svg) {

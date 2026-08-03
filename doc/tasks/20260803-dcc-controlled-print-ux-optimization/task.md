@@ -34,6 +34,8 @@ BDD: 多份打印显示逐份副本编号 -> Given 用户打印份数大于 1 Wh
 
 BDD: 预览态不被打印记录辅助接口阻断 -> Given 有受控文件预览权限的用户从受控文件列表点击预览 When 详情页以 `viewer=1` 只读预览态初始化 Then 页面加载受控文件预览和基础详情 And 不请求未渲染的受控打印记录接口 And 非预览追溯详情中的打印记录接口失败只在记录区显示真实错误，不阻断整页详情。
 
+BDD: 预览态不加载未渲染的分发和流程打印辅助数据 -> Given 有受控文件预览权限的用户从受控文件列表点击预览 When 详情页以 `viewer=1` 只读预览态初始化 Then 页面不请求纸质分发记录 And 不请求流程打印模板数据 And 非预览详情仍保留对应功能区的数据加载。
+
 ## Expected Verification
 
 - 前端静态契约先 RED 后 GREEN。
@@ -53,17 +55,19 @@ BDD: 预览态不被打印记录辅助接口阻断 -> Given 有受控文件预�
 
 blocked
 
-## Follow-up Bug: Preview Requests Missing Print Records Route
+## Follow-up Bug: Preview Requests Unrendered Auxiliary Routes
 
 - Symptom: 用户在受控文件中点击预览时，页面提示 `请求地址不存在:admin-api/dcc/controlled-files/2054545668044052098/controlled-print/records`。
-- Expected: 只读预览态只加载预览和基础追溯信息，不应请求未渲染的受控打印记录区；非预览追溯详情仍按打印权限加载打印记录，并在记录区展示真实加载错误。
+- Similar issue: 继续排查发现 `viewer=1` 初始化仍会请求纸质分发记录和流程打印模板数据，但预览态不渲染纸质分发弹窗和流程打印动作。
+- Expected: 只读预览态只加载预览和基础追溯信息，不应请求未渲染的受控打印记录区、纸质分发记录或流程打印模板；非预览追溯详情仍按功能区加载对应数据，并在对应区域展示真实加载错误。
 - Scope: 仅修正 DCC 受控文件详情页初始化加载边界和静态契约；不改后端接口契约、不新增 fallback、不隐藏真实错误。
 
 ## Verification Summary
 
-- Follow-up bug 修复：viewer 只读预览态不再请求未渲染的 `controlled-print/records` 辅助接口；非 viewer 详情/追溯页仍加载打印记录，记录接口错误只显示在记录区，不阻断文件详情或预览初始化。
+- Follow-up bug 修复：viewer 只读预览态不再请求未渲染的 `controlled-print/records`、纸质分发记录和流程打印模板辅助数据；非 viewer 详情/追溯页仍加载对应功能区数据，记录接口错误只显示在记录区，不阻断文件详情或预览初始化。
 - Follow-up RED：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> FAIL，旧逻辑缺少 `!viewerMode.value` 加载门禁。
-- Follow-up GREEN/REGRESSION：受控打印静态契约、受控打印 UX 静态契约、受控浏览静态契约和 `pnpm ts:check` 均通过。
+- Similar RED：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> FAIL，旧逻辑在 viewer 预览态仍会请求 `getPaperDistributionRecords` 和 `getActiveApprovalPrintTemplate`。
+- Follow-up GREEN/REGRESSION：受控打印静态契约、受控打印 UX 静态契约、受控浏览静态契约和 `pnpm ts:check` 均通过；相似问题源码/测试改动已由并发基线提交 `03646727b` 纳入历史，当前任务记录不改写历史。
 - 真实 Playwright E2E：`node doc\tasks\20260803-dcc-controlled-print-ux-optimization\dcc-controlled-print-ux-real.e2e.cjs` -> PASS，最终打印记录 ID `9`，打印编号 `DCCP-20260803024527-7C69A88D`。
 - 当前有效版证明：目标文件 `2054545668044070287` / `CODX-DCC-ORIG-20260802101521` / `V1.0` 为 `ACTIVE`，master 当前有效指针为 `2054545668044070287`。
 - 正向 UX 证明：成功弹窗展示打印编号、副本编号、份数、打印人和直接打印策略；“查看打印记录”定位并高亮本次记录。
@@ -76,7 +80,7 @@ blocked
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
-- `是否从根因和长期维护角度解决`：是；成功反馈、记录定位、权限说明、副本编号和直接打印策略均通过正式页面/API 字段验证；follow-up 从页面渲染边界修复预览态错误请求，不改接口、不降级。
+- `是否从根因和长期维护角度解决`：是；成功反馈、记录定位、权限说明、副本编号和直接打印策略均通过正式页面/API 字段验证；follow-up 从页面渲染边界修复预览态错误请求，覆盖打印记录、纸质分发记录和流程打印模板，不改接口、不降级。
 - `是否存在临时补丁或绕过`：否；业务打印记录由真实页面路径创建，API/DB 仅用于只读核验。
 
 ## Cleanup Keep

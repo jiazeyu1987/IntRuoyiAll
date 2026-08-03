@@ -154,6 +154,7 @@
     "e2e:dcc:directory-summary:static": "node tests/e2e/dcc-directory-summary-static.spec.js",
     "e2e:dcc:directory-lazy-loading:static": "node tests/e2e/dcc-directory-lazy-loading-static.spec.js",
     "e2e:dcc:directory-folder-icon-inline:static": "node tests/e2e/dcc-directory-folder-icon-inline-static.spec.js",
+    "e2e:dcc:directory-folder-border:static": "node tests/e2e/dcc-directory-folder-border-static.spec.js",
     "e2e:dcc:project-code-recognition:static": "node tests/e2e/dcc-project-code-recognition-static.spec.js",
     "e2e:dcc:project-code-associated-three-column:static": "node tests/e2e/dcc-project-code-associated-three-column-static.spec.js",
     "e2e:dcc:project-code-associated-unclassified-auto-classify:static": "node tests/e2e/dcc-project-code-associated-unclassified-auto-classify-static.spec.js",

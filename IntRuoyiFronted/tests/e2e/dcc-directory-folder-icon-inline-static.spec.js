@@ -144,8 +144,8 @@ assert.match(
 )
 assert.match(
   styles,
-  /\.directory-folder-toggle\s*\{[\s\S]*display:\s*inline-flex;[\s\S]*align-items:\s*center;[\s\S]*color:\s*#1677ff;/,
-  'folder icon control must match the blue operational icon style'
+  /\.directory-folder-toggle\s*\{[\s\S]*display:\s*inline-flex;[\s\S]*width:\s*18px;[\s\S]*height:\s*18px;[\s\S]*align-items:\s*center;/,
+  'folder icon control must keep the compact inline operational layout'
 )
 assert.match(
   styles,

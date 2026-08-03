@@ -8,7 +8,7 @@ PASS
 
 DCC 文控“受控打印”UX 优化已完成真实 Playwright E2E 验证：非 admin 打印人从受控浏览真实发起受控打印，页面展示成功结果弹窗、直接打印策略、副本编号和“查看打印记录”入口；记录区自动定位并高亮本次记录；无打印权限账号可进入同一文件追溯详情但看不到打印入口，并看到“无受控打印权限”说明。打印记录通过页面、只读 API 和只读 DB 完成追溯核验。
 
-Follow-up 预览缺陷已修复：`viewer=1` 只读预览态不再请求未渲染的受控打印记录接口，避免点击预览时被 `/controlled-print/records` 辅助接口 404 阻断；非预览详情/追溯页仍加载打印记录并保留局部错误提示。
+Follow-up 预览缺陷已修复：`viewer=1` 只读预览态不再请求未渲染的受控打印记录接口，避免点击预览时被 `/controlled-print/records` 辅助接口 404 阻断；继续排查的相似问题也已修复，预览态不再请求纸质分发记录和流程打印模板数据；非预览详情/追溯页仍加载对应功能区数据并保留局部错误提示。
 
 ## Scope Compliance
 
@@ -54,6 +54,8 @@ Follow-up 预览缺陷已修复：`viewer=1` 只读预览态不再请求未渲�
 - 前端类型检查：`pnpm ts:check` in `IntRuoyiFronted` -> PASS。
 - Follow-up RED：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> FAIL，旧逻辑缺少 `!viewerMode.value`，viewer 预览态会进入打印记录加载门禁。
 - Follow-up GREEN：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> PASS。
+- Similar RED：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> FAIL，旧逻辑在 viewer 预览态仍请求 `getPaperDistributionRecords` 和 `getActiveApprovalPrintTemplate`。
+- Similar GREEN：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> PASS，viewer 预览态跳过纸质分发记录和流程打印模板数据，非 viewer 详情仍保留正式请求。
 - Follow-up REGRESSION：`node doc\tasks\20260803-dcc-controlled-print-ux-optimization\dcc-controlled-print-ux-static.spec.cjs` -> PASS；`node IntRuoyiFronted\tests\e2e\dcc-controlled-browser-ux-optimization-static.spec.js` -> PASS；`pnpm ts:check` -> PASS。
 - 后端定向契约：`mvn -pl yudao-module-dcc -am "-Dtest=DccControlledPrintContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`Tests run: 4, Failures: 0, Errors: 0, Skipped: 0`。
 - 前端证据校验：`python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260803-dcc-controlled-print-ux-optimization/frontend-feature-evidence.md` -> PASS。
@@ -74,7 +76,8 @@ Follow-up 预览缺陷已修复：`viewer=1` 只读预览态不再请求未渲�
 ## Notes
 
 - 本轮最终验收以打印记录 ID `9` 为准；调试期间产生的记录均来自真实页面路径。
-- Follow-up 修复未改后端接口、权限或打印记录数据契约；只修正前端详情页的预览态辅助请求边界。
+- Follow-up 修复未改后端接口、权限、打印记录、分发记录或流程打印模板数据契约；只修正前端详情页的预览态辅助请求边界。
+- 相似问题的源码/测试改动已在并发基线提交 `03646727b` 中落地；本轮仅补齐任务证据和长期门禁，不改写历史。
 - Cleanup preview/apply 均通过；删除范围仅限当前任务旧截图、临时 frontend evidence 和 runtime jar inspect 产物。
 - Push 阻塞：`git push origin int_main` 因 GitHub HTTPS 代理 `127.0.0.1:7890` 未监听、直连 GitHub 443 不通而失败；SSH 443 网络可达但当前 SSH key 未授权。
 - 当前任务已完成实现、验证和 cleanup，但因本地提交未能推送到 `origin/int_main`，状态为 `blocked`。
