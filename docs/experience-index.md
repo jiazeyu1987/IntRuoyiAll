@@ -92,6 +92,7 @@
 - release-migration dependsOn 缺失 / SQL 元数据依赖不存在 / migration policy gate：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
 - DCC 分类 lifecycle_stage / NOT NULL 迁移 / required SQL 空值 / deleted=1 历史归档行：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
 - Keywords: DCC 项目代码文件分类, dcc_file_category_match_rule, OQ/PQ, 零配件图纸, 文件类别规则 seed, AMBIGUOUS, UNCLASSIFIED, seed 插入 0 行, 直接 SQL 修 dcc_controlled_file 禁止 -> `docs/database-rules.md#dcc-文件类别规则种子门禁`
+- Keywords: DCC upload size policy is missing or invalid, DCC 上传大小策略, dcc_controlled_file_upload_policy, upload-preview, SOURCE 上传大小策略缺失, DRAWING_PDF, TRAINING_RECORD, EXTERNAL_REVIEW_OUTPUT, DCC_UPLOAD_DEFAULT_SOURCE_V1, 上传大小策略 seed -> `docs/database-rules.md#dcc-上传大小策略默认种子门禁`
 - Keywords: DCC 产品立项, 产品建档申请, DCC 项目代码 MDM 产品绑定, dcc_product_onboarding_request, dcc_project_code.product_master_id, productMasterId, MDM 产品主数据, 受控文件提交按项目代码带出产品主数据 -> `docs/database-rules.md#dcc-项目代码-mdm-产品建档绑定门禁`
 - Keywords: DCC 升版发布 UX, 版本历史, 版本信息, 升版原因, 变更说明, 发布完成结果, V1 已失效, V2 已生效, master 已切换, 受控浏览已落位, publishedFileId, stampedFileId, BPM markers pageerror, 只读复验目标写请求为 0 -> `docs/e2e-rules.md#dcc-升版发布-ux-闭环门禁`
 - 测试服远端 MySQL 查询 / ruoyi-vue-pro 业务库 / 容器内 MYSQL_ROOT_PASSWORD / SSH 多层引号：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
