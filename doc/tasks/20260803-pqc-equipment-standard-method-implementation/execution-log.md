@@ -48,6 +48,7 @@
 - 2026-08-03: cleanup preview/apply 使用 `--worktree-closeout off`，仅删除本任务临时 evidence 文件和 `migration-policy-gate.json`，保留 `task.md`、`execution-log.md`、`verification-report.md`。
 - 2026-08-03: GitHub 推送预检发现用户级 Git 配置 `http.https://github.com.proxy=http://127.0.0.1:7890`，但 `127.0.0.1:7890` 未监听；`Test-NetConnection github.com -Port 443` 直连成功，使用单次命令参数 `-c http.https://github.com.proxy=` 临时清空该代理后 `git ls-remote origin HEAD` PASS。SSH 443 网络可达但当前 key 未授权，未切换 remote。
 - 2026-08-03: GitHub 大文件预检 `git rev-list --objects origin/int_main..HEAD` 最大对象约 `101437` bytes，低于 100 MB 限制。
+- 2026-08-03: `git -c http.https://github.com.proxy= push -u origin codex/20260803_pqf` -> PASS，远端分支 `origin/codex/20260803_pqf` 创建并跟踪；`git ls-remote origin refs/heads/codex/20260803_pqf` 返回 `b9059f37d152fef05044ac1f14a001e0ebe565d0`，`git status --short --branch` 显示不再 ahead。
 
 ## Verification Evidence
 
