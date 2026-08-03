@@ -79,6 +79,28 @@ assert.match(
   'use location must support common selections and controlled free-entry'
 )
 assert.match(detailPage, /data-testid="dcc-controlled-print-records"/, 'detail page must show controlled print records')
+const shouldLoadControlledPrintRecordsBlock = extractBetween(
+  detailPage,
+  'const shouldLoadControlledPrintRecords = () =>',
+  'const loadControlledPrintRecords = async () =>',
+  'controlled print records load gate'
+)
+assert.match(
+  shouldLoadControlledPrintRecordsBlock,
+  /!viewerMode\.value/,
+  'viewer preview mode must not request controlled print records because that records section is not rendered'
+)
+const loadControlledPrintRecordsCatch = extractBetween(
+  detailPage,
+  '  } catch (error) {\n    controlledPrintRecords.value = []',
+  '  } finally {\n    controlledPrintRecordsLoading.value = false',
+  'controlled print records local error handling'
+)
+assert.doesNotMatch(
+  loadControlledPrintRecordsCatch,
+  /throw error/,
+  'controlled print records auxiliary load errors must stay visible in the records section instead of failing the whole detail/preview page'
+)
 assert.match(
   detailPage,
   /data-testid="dcc-controlled-print-permission-hint"/,

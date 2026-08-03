@@ -3487,7 +3487,9 @@ const handleViewLatestControlledPrintRecord = async () => {
 }
 
 const shouldLoadControlledPrintRecords = () =>
-  Boolean(controlledFileId.value) && checkPermi(['dcc:controlled-file:print'])
+  Boolean(controlledFileId.value) &&
+  !viewerMode.value &&
+  checkPermi(['dcc:controlled-file:print'])
 
 const loadControlledPrintRecords = async () => {
   controlledPrintRecordsError.value = ''
@@ -3504,7 +3506,6 @@ const loadControlledPrintRecords = async () => {
       error,
       '受控打印记录加载失败，请查看后端错误后重试。'
     )
-    throw error
   } finally {
     controlledPrintRecordsLoading.value = false
   }
