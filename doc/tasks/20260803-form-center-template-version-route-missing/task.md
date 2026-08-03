@@ -22,7 +22,7 @@ Fix the user-visible error `请求地址不存在:admin-api/form-center/template
 
 ready_for_closeout
 
-Verification passed in the current checkout and live local runtime. Final commit/push is blocked because the Git index currently contains unrelated staged DCC/header task files; this task must not mix those changes.
+Verification passed in the current checkout and live local runtime. A scoped task-log commit is safe, but full branch push/clean closeout is blocked by unrelated ahead commits and unrelated dirty DCC task files in the shared workspace.
 
 ## Experience Gates
 

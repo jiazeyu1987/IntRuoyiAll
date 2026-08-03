@@ -26,7 +26,10 @@
 
 - completed: Current source already contains the FormCenter route-missing fix in the recent merge; no production source edits were needed in this turn.
 - completed: Verified the current local backend process on PID `45524` is listening on `48081`, health is `UP`, and the target URL now reaches authentication instead of request-address-not-found.
-- blocker: Commit/push was not attempted because the index contains unrelated staged files from concurrent DCC/header tasks. Mixing those files into this task commit would violate task ownership.
+- completed: `task_closeout.py --task-id 20260803-form-center-template-version-route-missing --mode preview` -> PASS, keep task records, delete none, blocked none.
+- completed: `task_closeout.py --task-id 20260803-form-center-template-version-route-missing --mode apply` -> PASS, deleted none.
+- note: Concurrent baseline commit `61d406ca6` landed during this turn and already included `task.md`, `verification-report.md`, and earlier `execution-log.md` content for this task. This follow-up log delta records cleanup evidence and the no-mixed-commit decision only.
+- blocker: Full branch push/clean closeout is still not task-owned because the branch has unrelated ahead commits and unrelated dirty DCC task files. This task's remaining log update can be committed separately, but broad cleanup or push must not mix those unrelated changes without user coordination.
 
 ## Experience Consolidation
 
