@@ -56,6 +56,7 @@ Follow-up 预览缺陷已修复：`viewer=1` 只读预览态不再请求未渲�
 - Follow-up GREEN：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> PASS。
 - Similar RED：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> FAIL，旧逻辑在 viewer 预览态仍请求 `getPaperDistributionRecords` 和 `getActiveApprovalPrintTemplate`。
 - Similar GREEN：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> PASS，viewer 预览态跳过纸质分发记录和流程打印模板数据，非 viewer 详情仍保留正式请求。
+- Continuation GREEN：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> PASS；`validate_bug_regression.py --evidence doc\tasks\20260803-dcc-controlled-print-ux-optimization\bug-regression-evidence.md` -> PASS；`task_closeout.py --task-id 20260803-dcc-controlled-print-ux-optimization --mode preview` -> PASS。
 - Follow-up REGRESSION：`node doc\tasks\20260803-dcc-controlled-print-ux-optimization\dcc-controlled-print-ux-static.spec.cjs` -> PASS；`node IntRuoyiFronted\tests\e2e\dcc-controlled-browser-ux-optimization-static.spec.js` -> PASS；`pnpm ts:check` -> PASS。
 - 后端定向契约：`mvn -pl yudao-module-dcc -am "-Dtest=DccControlledPrintContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`Tests run: 4, Failures: 0, Errors: 0, Skipped: 0`。
 - 前端证据校验：`python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260803-dcc-controlled-print-ux-optimization/frontend-feature-evidence.md` -> PASS。
@@ -79,5 +80,6 @@ Follow-up 预览缺陷已修复：`viewer=1` 只读预览态不再请求未渲�
 - Follow-up 修复未改后端接口、权限、打印记录、分发记录或流程打印模板数据契约；只修正前端详情页的预览态辅助请求边界。
 - 相似问题的源码/测试改动已在并发基线提交 `03646727b` 中落地；本轮仅补齐任务证据和长期门禁，不改写历史。
 - Cleanup preview/apply 均通过；删除范围仅限当前任务旧截图、临时 frontend evidence 和 runtime jar inspect 产物。
+- Continuation cleanup preview 显示 delete/blocked/warnings 均为 none，当前补充证据全部保留。
 - Push 阻塞：`git push origin int_main` 因 GitHub HTTPS 代理 `127.0.0.1:7890` 未监听、直连 GitHub 443 不通而失败；SSH 443 网络可达但当前 SSH key 未授权。
 - 当前任务已完成实现、验证和 cleanup，但因本地提交未能推送到 `origin/int_main`，状态为 `blocked`。

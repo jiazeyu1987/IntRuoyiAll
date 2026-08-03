@@ -33,6 +33,7 @@
 - The fix keeps non-viewer records API failures visible through `controlledPrintRecordsError` without converting them into a whole-page preview/detail load failure.
 - The similar fix uses viewer-mode gated promises for paper distribution records and process-print template data, so preview mode resolves to empty local values without requesting unrendered auxiliary endpoints.
 - No backend endpoint, permission, route, or data contract was changed.
+- Continuation verification: static contract, bug-regression validator, and cleanup preview all passed after adding the similar-risk evidence and long-term gates.
 
 ## Risk And Scope
 

@@ -68,6 +68,7 @@ blocked
 - Follow-up RED：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> FAIL，旧逻辑缺少 `!viewerMode.value` 加载门禁。
 - Similar RED：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> FAIL，旧逻辑在 viewer 预览态仍会请求 `getPaperDistributionRecords` 和 `getActiveApprovalPrintTemplate`。
 - Follow-up GREEN/REGRESSION：受控打印静态契约、受控打印 UX 静态契约、受控浏览静态契约和 `pnpm ts:check` 均通过；相似问题源码/测试改动已由并发基线提交 `03646727b` 纳入历史，当前任务记录不改写历史。
+- Continuation evidence：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js`、`validate_bug_regression.py` 和 `task_closeout.py --mode preview` 均 PASS，确认补充证据和长期门禁可保留。
 - 真实 Playwright E2E：`node doc\tasks\20260803-dcc-controlled-print-ux-optimization\dcc-controlled-print-ux-real.e2e.cjs` -> PASS，最终打印记录 ID `9`，打印编号 `DCCP-20260803024527-7C69A88D`。
 - 当前有效版证明：目标文件 `2054545668044070287` / `CODX-DCC-ORIG-20260802101521` / `V1.0` 为 `ACTIVE`，master 当前有效指针为 `2054545668044070287`。
 - 正向 UX 证明：成功弹窗展示打印编号、副本编号、份数、打印人和直接打印策略；“查看打印记录”定位并高亮本次记录。

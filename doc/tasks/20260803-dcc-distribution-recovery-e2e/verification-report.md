@@ -8,7 +8,7 @@ PASS for the available real-page DCC distribution/recovery chain. The separate c
 
 - Target scenario: DCC 文控“文件分发/旧版回收”真实 Playwright E2E。
 - Required path: non-admin user, real page distribution/receipt/recovery actions, V1 -> V2 version transition, V2 current effective use, V1 non-misuse, final read-only API/DB reconciliation.
-- Business rule clarified by user: do not search for another paper-distribution-rule entry. The `文控权限 > 分发规则` tab is the distribution rule source; its department is also the paper distribution department.
+- Business rule clarified by user: do not search for separate paper or online distribution-rule entries. The `文控权限 > 分发规则` tab is the unified distribution rule source; its department is the distribution department for paper and online/electronic controlled copies.
 - Safety boundary: no admin account, no API-only substitute, no direct SQL/API insert/update for distribution, receipt, recovery, version state, approval state, or publish state.
 
 ## Rule Reads
@@ -21,7 +21,7 @@ PASS for the available real-page DCC distribution/recovery chain. The separate c
 - Tenant: `芋道源码` / tenant ID `1`.
 - Browser: Playwright used local Chrome at `C:\Program Files\Google\Chrome\Application\chrome.exe`.
 - Password handling: password was injected through `DCC_E2E_PASSWORD`; no plaintext password is written in task artifacts.
-- Current verification command: `node doc/tasks/20260803-dcc-distribution-recovery-e2e/dcc-rule-trace-current-verify.cjs` with PowerShell environment-variable password injection.
+- Current verification command: `node doc/tasks/20260803-dcc-distribution-recovery-e2e/dcc-rule-trace-current-verify.cjs` with PowerShell environment-variable password injection and `DCC_E2E_RESULT_PATH=doc/tasks/20260803-dcc-distribution-recovery-e2e/repeat-full-e2e-verification.json`.
 
 ## Distribution Rule Source
 
@@ -39,7 +39,18 @@ PASS for the available real-page DCC distribution/recovery chain. The separate c
 - V2: controlled file ID `2054545668044070302`, version `V2.0`, final status `ACTIVE`.
 - Master: `2054545668044062904`, status `ACTIVE_CHAIN`, `currentActiveControlledFileId=2054545668044070302`.
 - Source action evidence from real Playwright page chain: `doc/tasks/20260802-dcc-distribution-recovery-e2e/paper-chain-tenant1-result.json`, `paper-chain-tenant1-training-resume.json`, `paper-issue-recovery-final-result.json`, and `final-pass-readonly-db-verification.json`.
-- Current traceability re-verification evidence: `current-rule-trace-verification.json` and screenshots `current-v2-distribution-trace.png`, `current-v1-recovery-trace.png`, `current-controlled-browser-v2-only.png`.
+- Current traceability re-verification evidence: `repeat-full-e2e-verification.json`, historical `current-rule-trace-verification.json`, and screenshots `current-v2-distribution-trace.png`, `current-v1-recovery-trace.png`, `current-controlled-browser-v2-only.png`.
+
+## Repeat Full E2E Verification 2026-08-03
+
+- Result: PASS, started `2026-08-03 11:24:58 +08:00`, finished `2026-08-03 11:25:46 +08:00`.
+- Evidence file: `repeat-full-e2e-verification.json`.
+- Non-admin actor: `wangsiyu`; tenant: `芋道源码`.
+- Real pages opened: `/dcc/controlled-file/categories?tab=distribution-rules`, V2 traceability detail, V1 recovery traceability detail, and controlled browser current-effective search.
+- Page assertions: V2 distribution row still shows `纸质发放` / `已确认`; V1 recovery row still shows `纸质发放` / `已回收`.
+- Old-version non-misuse assertion: controlled browser returned total `1`, V2 ID `2054545668044070302` only; V1 ID `2054545668044070297` was not visible.
+- Final read-only DB reconciliation: V1 distribution `4341` remained `RECOVERED`, V2 distribution `4344` remained `ACKNOWLEDGED`, master still pointed to V2.
+- Runtime quality: `targetNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 
 ## Page Evidence
 
@@ -69,7 +80,7 @@ PASS for the available real-page DCC distribution/recovery chain. The separate c
 
 ## Read-Only Reconciliation
 
-- Evidence file: `current-rule-trace-verification.json`.
+- Evidence file: `repeat-full-e2e-verification.json`.
 - Final read-only DB confirmed category rule ID `106`, department ID `253`, V1/V2 statuses, master current pointer, V1 recovered paper distribution `4341`, V2 acknowledged paper distribution `4344`, issuer/recoverer usernames, recipient usernames, and timestamps.
 - No target network failures, console errors, or page errors occurred in the final PASS run.
 

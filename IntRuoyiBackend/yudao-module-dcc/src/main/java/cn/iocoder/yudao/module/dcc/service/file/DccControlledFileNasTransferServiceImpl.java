@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileLoc
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNasTransferReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNasTransferRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportSelectedReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccCategoryDirectoryBindingDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDistributionRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
@@ -111,6 +112,7 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     public static final String ITEM_TYPE_FILE = "FILE";
     public static final String SOURCE_TYPE_NAS = "NAS";
     public static final String SOURCE_TYPE_LOCAL_FOLDER = "LOCAL_FOLDER";
+    public static final String SOURCE_TYPE_NAS_UNCONTROLLED_IMPORT = "NAS_UNCONTROLLED_IMPORT";
     public static final String CHUNK_STATUS_COMPLETED = "COMPLETED";
     static final String OUTCOME_CREATED = "CREATED";
     static final String OUTCOME_REUSED = "REUSED";
@@ -402,6 +404,9 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
         }
         try {
             for (DccControlledFileNasTransferTaskDO task : taskMapper.selectWaitingTasks(LocalDateTime.now())) {
+                if (isNasUncontrolledImportTask(task)) {
+                    continue;
+                }
                 try {
                     executeTask(task.getId());
                 } catch (RuntimeException exception) {
@@ -412,6 +417,12 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
         } finally {
             schedulerLock.unlock();
         }
+    }
+
+    @Override
+    public DccControlledFileNasTransferRespVO createUncontrolledImportTask(
+            Long userId, Long auditTaskId, DccNasUncontrolledImportSelectedReqVO reqVO) {
+        throw new UnsupportedOperationException("NAS uncontrolled import task creation is not implemented yet");
     }
 
     private Long createTask(Long userId, DccControlledFileNasTransferReqVO reqVO, List<String> collapsedRoots,
@@ -1544,6 +1555,10 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
 
     private boolean isLocalFolderTask(DccControlledFileNasTransferTaskDO task) {
         return SOURCE_TYPE_LOCAL_FOLDER.equals(sourceTypeOf(task));
+    }
+
+    private boolean isNasUncontrolledImportTask(DccControlledFileNasTransferTaskDO task) {
+        return SOURCE_TYPE_NAS_UNCONTROLLED_IMPORT.equals(sourceTypeOf(task));
     }
 
     private String sourceTypeOf(DccControlledFileNasTransferTaskDO task) {

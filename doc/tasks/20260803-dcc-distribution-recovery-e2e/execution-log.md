@@ -111,3 +111,13 @@ BDD: DCC controlled-copy distribution and old-version recovery -> Given a non-ad
 
 - User clarified that both paper distribution and online/electronic distribution use the same rule source: `文控权限 > 分发规则`; the department configured there is the distribution department for the corresponding controlled copy.
 - GREEN: project-experience-consolidation -> PASS, updated existing long-term memory in `docs/e2e-rules.md` and `docs/experience-index.md`; no new memory document was created.
+
+## Repeat Full E2E Verification 2026-08-03 11:25 +08:00
+
+- Command intent: rerun complete real-page DCC distribution/recovery verification with non-admin `wangsiyu`; password injected through `DCC_E2E_PASSWORD`; output written to `repeat-full-e2e-verification.json`.
+- GREEN: runtime preflight -> PASS, `npx=11.6.2`, backend `http://127.0.0.1:48081/actuator/health` returned `UP`, frontend `http://127.0.0.1:8081/` returned `200`.
+- GREEN: `node doc/tasks/20260803-dcc-distribution-recovery-e2e/dcc-rule-trace-current-verify.cjs` -> PASS; started `2026-08-03 11:24:58 +08:00`, finished `2026-08-03 11:25:46 +08:00`.
+- PASS evidence: `repeat-full-e2e-verification.json` records real page visits to distribution rules, V2 distribution traceability, V1 recovery traceability, controlled browser current-effective search, plus final read-only DB reconciliation.
+- PASS assertions: V1 `2054545668044070297` remains `SUPERSEDED` with paper distribution `4341` `RECOVERED`; V2 `2054545668044070302` remains `ACTIVE` with paper distribution `4344` `ACKNOWLEDGED`; master points to V2.
+- Old-version non-misuse evidence: controlled browser returned total `1`, V2 visible and V1 not visible.
+- Safety: no admin account, no API/SQL inserted or updated distribution, recipient, recovery, approval, publish, or version state; final DB usage was read-only.

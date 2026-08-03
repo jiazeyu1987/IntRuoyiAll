@@ -29,7 +29,7 @@ completed
 - PASS chain: `CODX-DCC-DIST-906104-DISTTENANT120260802195305`，V1 `2054545668044070297` 为 `SUPERSEDED`，V2 `2054545668044070302` 为 `ACTIVE`，master 当前有效版本指向 V2。
 - 分发规则来源按用户确认口径固定为 `文控权限 > 分发规则`；真实页面 `/dcc/controlled-file/categories?tab=distribution-rules` 显示类别 `DCC_OTHER_TEMPLATE_900250 / 其他` 的分发部门为 `质量体系部`，只读响应记录规则 ID `106`、部门 ID `253`。
 - 分发与回收：V1 纸质分发记录 `4341` 已 `RECOVERED`，接收人 `panhaitao`，发放/回收责任人 `wangsiyu`；V2 纸质分发记录 `4344` 已 `ACKNOWLEDGED`，接收人 `panhaitao`，发放责任人 `wangsiyu`。
-- 当前复验脚本 `dcc-rule-trace-current-verify.cjs` 通过真实页面打开分发规则页、V2 分发追溯页、V1 回收追溯页和受控浏览页，并用只读 DB 完成对账；证据为 `current-rule-trace-verification.json`。
+- 当前复验脚本 `dcc-rule-trace-current-verify.cjs` 通过真实页面打开分发规则页、V2 分发追溯页、V1 回收追溯页和受控浏览页，并用只读 DB 完成对账；最新复验证据为 `repeat-full-e2e-verification.json`，历史复验证据为 `current-rule-trace-verification.json`。
 - 未使用 admin，未通过 SQL/API 插入或更新分发、接收、回收、审批、发布或版本状态。
 
 ## Blocked Candidate Summary
@@ -63,6 +63,7 @@ completed
 ## Cleanup Keep
 
 - doc/tasks/20260803-dcc-distribution-recovery-e2e/current-rule-trace-verification.json
+- doc/tasks/20260803-dcc-distribution-recovery-e2e/repeat-full-e2e-verification.json
 - doc/tasks/20260803-dcc-distribution-recovery-e2e/dcc-rule-trace-current-verify.cjs
 - doc/tasks/20260803-dcc-distribution-recovery-e2e/dcc-paper-chain-prepare-e2e.cjs
 - doc/tasks/20260803-dcc-distribution-recovery-e2e/dcc-distribution-recovery-e2e.cjs
