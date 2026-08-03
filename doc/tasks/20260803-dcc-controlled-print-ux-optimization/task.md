@@ -32,6 +32,8 @@ BDD: 打印表单结构化减少追溯歧义 -> Given 用户打开受控打印�
 
 BDD: 多份打印显示逐份副本编号 -> Given 用户打印份数大于 1 When 打印件、成功弹窗和记录区展示打印结果 Then 每份副本都有可见副本编号或编号范围，用于后续盘点追溯。
 
+BDD: 预览态不被打印记录辅助接口阻断 -> Given 有受控文件预览权限的用户从受控文件列表点击预览 When 详情页以 `viewer=1` 只读预览态初始化 Then 页面加载受控文件预览和基础详情 And 不请求未渲染的受控打印记录接口 And 非预览追溯详情中的打印记录接口失败只在记录区显示真实错误，不阻断整页详情。
+
 ## Expected Verification
 
 - 前端静态契约先 RED 后 GREEN。
@@ -49,28 +51,44 @@ BDD: 多份打印显示逐份副本编号 -> Given 用户打印份数大于 1 Wh
 
 ## Current Status
 
-ready_for_closeout
+completed
+
+## Follow-up Bug: Preview Requests Missing Print Records Route
+
+- Symptom: 用户在受控文件中点击预览时，页面提示 `请求地址不存在:admin-api/dcc/controlled-files/2054545668044052098/controlled-print/records`。
+- Expected: 只读预览态只加载预览和基础追溯信息，不应请求未渲染的受控打印记录区；非预览追溯详情仍按打印权限加载打印记录，并在记录区展示真实加载错误。
+- Scope: 仅修正 DCC 受控文件详情页初始化加载边界和静态契约；不改后端接口契约、不新增 fallback、不隐藏真实错误。
 
 ## Verification Summary
 
+- Follow-up bug 修复：viewer 只读预览态不再请求未渲染的 `controlled-print/records` 辅助接口；非 viewer 详情/追溯页仍加载打印记录，记录接口错误只显示在记录区，不阻断文件详情或预览初始化。
+- Follow-up RED：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> FAIL，旧逻辑缺少 `!viewerMode.value` 加载门禁。
+- Follow-up GREEN/REGRESSION：受控打印静态契约、受控打印 UX 静态契约、受控浏览静态契约和 `pnpm ts:check` 均通过。
 - 真实 Playwright E2E：`node doc\tasks\20260803-dcc-controlled-print-ux-optimization\dcc-controlled-print-ux-real.e2e.cjs` -> PASS，最终打印记录 ID `9`，打印编号 `DCCP-20260803024527-7C69A88D`。
 - 当前有效版证明：目标文件 `2054545668044070287` / `CODX-DCC-ORIG-20260802101521` / `V1.0` 为 `ACTIVE`，master 当前有效指针为 `2054545668044070287`。
 - 正向 UX 证明：成功弹窗展示打印编号、副本编号、份数、打印人和直接打印策略；“查看打印记录”定位并高亮本次记录。
 - 负向 UX 证明：`zhangkeying` 可从受控浏览进入同一文件追溯详情，但浏览页与详情页 `visiblePrintButtonCount=0`，详情页显示“无受控打印权限”说明。
 - 只读 API/DB 证明：打印记录、份数、打印人、文件编号、版本和 `DIRECT_PRINTED` 状态与页面一致。
 - 回归验证：任务静态契约、前端受控打印静态契约、受控浏览静态契约、`pnpm ts:check`、后端 `DccControlledPrintContractTest` 均通过。
+- Cleanup：`task-closeout-cleanup` preview/apply 均通过，删除旧截图、临时 `frontend-feature-evidence.md` 和 `runtime-jar-inspect` jar 检查产物；保留 task/execution/verification、bug regression 证据、真实 E2E 脚本/结果和最终截图。
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
-- `是否从根因和长期维护角度解决`：是；成功反馈、记录定位、权限说明、副本编号和直接打印策略均通过正式页面/API 字段验证。
+- `是否从根因和长期维护角度解决`：是；成功反馈、记录定位、权限说明、副本编号和直接打印策略均通过正式页面/API 字段验证；follow-up 从页面渲染边界修复预览态错误请求，不改接口、不降级。
 - `是否存在临时补丁或绕过`：否；业务打印记录由真实页面路径创建，API/DB 仅用于只读核验。
 
 ## Cleanup Keep
 
+- doc/tasks/20260803-dcc-controlled-print-ux-optimization/bug-regression-evidence.md
 - doc/tasks/20260803-dcc-controlled-print-ux-optimization/dcc-controlled-print-ux-real.e2e.cjs
 - doc/tasks/20260803-dcc-controlled-print-ux-optimization/dcc-controlled-print-ux-real-e2e-result.json
 - doc/tasks/20260803-dcc-controlled-print-ux-optimization/dcc-controlled-print-ux-static.spec.cjs
 - doc/tasks/20260803-dcc-controlled-print-ux-optimization/controlled-print-ux-window-20260802184519.png
 - doc/tasks/20260803-dcc-controlled-print-ux-optimization/controlled-print-ux-records-20260802184519.png
 - doc/tasks/20260803-dcc-controlled-print-ux-optimization/controlled-print-ux-negative-20260802184519.png
+
+## Cleanup Result
+
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-controlled-print-ux-optimization --mode preview` -> PASS, no blocked paths or warnings.
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-controlled-print-ux-optimization --mode apply` -> PASS, deleted only cleanup-classified task-local temporary artifacts.

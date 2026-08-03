@@ -8,6 +8,8 @@ PASS
 
 DCC 文控“受控打印”UX 优化已完成真实 Playwright E2E 验证：非 admin 打印人从受控浏览真实发起受控打印，页面展示成功结果弹窗、直接打印策略、副本编号和“查看打印记录”入口；记录区自动定位并高亮本次记录；无打印权限账号可进入同一文件追溯详情但看不到打印入口，并看到“无受控打印权限”说明。打印记录通过页面、只读 API 和只读 DB 完成追溯核验。
 
+Follow-up 预览缺陷已修复：`viewer=1` 只读预览态不再请求未渲染的受控打印记录接口，避免点击预览时被 `/controlled-print/records` 辅助接口 404 阻断；非预览详情/追溯页仍加载打印记录并保留局部错误提示。
+
 ## Scope Compliance
 
 - 非 admin 正向账号：`wangsiyu`，密码通过 `DCC_E2E_PASSWORD` 环境变量注入，未写入日志或报告。
@@ -50,6 +52,9 @@ DCC 文控“受控打印”UX 优化已完成真实 Playwright E2E 验证：非
 - 受控打印静态回归：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> PASS。
 - 受控浏览静态回归：`node IntRuoyiFronted\tests\e2e\dcc-controlled-browser-ux-optimization-static.spec.js` -> PASS。
 - 前端类型检查：`pnpm ts:check` in `IntRuoyiFronted` -> PASS。
+- Follow-up RED：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> FAIL，旧逻辑缺少 `!viewerMode.value`，viewer 预览态会进入打印记录加载门禁。
+- Follow-up GREEN：`node IntRuoyiFronted\tests\e2e\dcc-controlled-print-static.spec.js` -> PASS。
+- Follow-up REGRESSION：`node doc\tasks\20260803-dcc-controlled-print-ux-optimization\dcc-controlled-print-ux-static.spec.cjs` -> PASS；`node IntRuoyiFronted\tests\e2e\dcc-controlled-browser-ux-optimization-static.spec.js` -> PASS；`pnpm ts:check` -> PASS。
 - 后端定向契约：`mvn -pl yudao-module-dcc -am "-Dtest=DccControlledPrintContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`Tests run: 4, Failures: 0, Errors: 0, Skipped: 0`。
 - 前端证据校验：`python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260803-dcc-controlled-print-ux-optimization/frontend-feature-evidence.md` -> PASS。
 - 真实 E2E：`node doc\tasks\20260803-dcc-controlled-print-ux-optimization\dcc-controlled-print-ux-real.e2e.cjs` -> PASS，退出码 `0`。
@@ -69,4 +74,6 @@ DCC 文控“受控打印”UX 优化已完成真实 Playwright E2E 验证：非
 ## Notes
 
 - 本轮最终验收以打印记录 ID `9` 为准；调试期间产生的记录均来自真实页面路径。
-- 当前任务已完成实现和验证，状态为 `ready_for_closeout`。后续如需提交/推送，应先处理共享 `int_main` 工作区中与本任务无关的既有脏改动边界。
+- Follow-up 修复未改后端接口、权限或打印记录数据契约；只修正前端详情页的预览态辅助请求边界。
+- Cleanup preview/apply 均通过；删除范围仅限当前任务旧截图、临时 frontend evidence 和 runtime jar inspect 产物。
+- 当前任务已完成实现、验证和 cleanup，状态为 `completed`。
