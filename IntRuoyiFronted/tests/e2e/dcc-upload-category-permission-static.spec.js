@@ -17,14 +17,14 @@ assert.match(
 
 assert.match(
   uploadPageSource,
-  /const availableCategories = computed\(\(\) =>[\s\S]*categories\.value\.filter\(\(category\) => \{[\s\S]*category\.canUpload === false[\s\S]*return false/,
-  'DCC upload page must hide categories where current user lacks category UPLOAD permission'
+  /const availableCategories = computed\(\(\) =>[\s\S]*selectedFileTypeTaxonomyBoundCategories\.value\.filter\(\(category\) => \{[\s\S]*category\.canUpload === false[\s\S]*return false/,
+  'DCC upload page must hide auto-resolved categories where current user lacks category UPLOAD permission'
 )
 
 assert.match(
   uploadPageSource,
   /const availableCategories = computed\(\(\) =>[\s\S]*Boolean\(category\.directoryId\)/,
-  'DCC upload page must still hide categories without a bound upload directory'
+  'DCC upload page must still reject auto-resolved categories without a bound upload directory'
 )
 
 assert.match(

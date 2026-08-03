@@ -13,8 +13,11 @@ DCC “文件上传”和“受控浏览”两个正式菜单页签已在动态�
 - `pnpm e2e:dcc:browser-cache-write-failure:static` -> PASS.
 - `pnpm ts:check` -> PASS.
 - `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue IntRuoyiFronted/tests/e2e/dcc-browser-tab-return-no-reload-static.spec.js IntRuoyiFronted/package.json doc/tasks/20260803-dcc-upload-browser-tab-cache` -> PASS.
+- `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue IntRuoyiFronted/tests/e2e/dcc-browser-tab-return-no-reload-static.spec.js IntRuoyiFronted/package.json docs/frontend-development.md docs/experience-index.md doc/tasks/20260803-dcc-upload-browser-tab-cache` -> PASS with CRLF working-copy warnings only.
 - `task_closeout.py --task-id 20260803-dcc-upload-browser-tab-cache --mode preview` -> PASS.
 - `task_closeout.py --task-id 20260803-dcc-upload-browser-tab-cache --mode apply` -> PASS.
+- `task_closeout.py --task-id 20260803-dcc-upload-browser-tab-cache --mode preview` -> PASS, delete `<none>`, blocked `<none>`.
+- `task_closeout.py --task-id 20260803-dcc-upload-browser-tab-cache --mode apply` -> PASS, deleted_paths `<none>`.
 
 ## Changed Scope
 
@@ -23,7 +26,7 @@ DCC “文件上传”和“受控浏览”两个正式菜单页签已在动态�
 - `IntRuoyiFronted/tests/e2e/dcc-upload-browser-tab-cache-static.spec.js`: adds regression contract for the no-repeat-load tab behavior.
 - `IntRuoyiFronted/tests/e2e/dcc-browser-tab-return-no-reload-static.spec.js`: adds regression contract for the internal same-state return no-reload guard.
 - `IntRuoyiFronted/package.json`: adds scripts for the new contract and the existing browser single-tab contract.
-- `docs/frontend-development.md` and `docs/experience-index.md`: archive the reusable TagsView cache gate for future dynamic-menu tab issues.
+- `docs/frontend-development.md` and `docs/experience-index.md`: archive the reusable TagsView cache plus page-local route watcher guard for future dynamic-menu tab issues.
 
 ## Closeout Blocker
 

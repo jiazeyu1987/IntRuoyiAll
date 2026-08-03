@@ -422,7 +422,7 @@
     <el-dialog
       v-model="controlAuditDialog.visible"
       title="统计未受控文件"
-      width="720px"
+      width="1080px"
       destroy-on-close
     >
       <el-alert
@@ -434,7 +434,8 @@
         :closable="false"
         class="mb-16px"
       />
-      <div v-if="controlAuditDialog.result" class="rounded-[6px] border border-[#dbe3ef] bg-[#fafcff] p-12px">
+      <template v-if="controlAuditDialog.result">
+      <div class="rounded-[6px] border border-[#dbe3ef] bg-[#fafcff] p-12px">
         <div class="mb-10px flex items-center justify-between gap-12px">
           <div class="text-[14px] font-600 text-[#172033]">NAS 受控状态统计任务</div>
           <el-tag :type="resolveControlAuditStatusType(controlAuditDialog.result.status)">
@@ -458,6 +459,96 @@
           <div>遇到无权限子目录会跳过该目录及其子树，并在报告“跳过目录”工作表记录。</div>
         </div>
       </div>
+      <div
+        v-if="controlAuditDialog.result.status === 'COMPLETED'"
+        class="mt-14px rounded-[6px] border border-[#dbe3ef] bg-white p-12px"
+      >
+        <el-alert
+          v-if="controlAuditFiles.errorMessage"
+          type="error"
+          title="未受控文件下载失败"
+          :description="controlAuditFiles.errorMessage"
+          show-icon
+          :closable="false"
+          class="mb-12px"
+        />
+        <div class="mb-10px flex flex-wrap items-center justify-between gap-10px">
+          <div>
+            <div class="text-[14px] font-600 text-[#172033]">未受控文件下载与归类</div>
+            <div class="mt-4px text-[12px] text-[#6b7280]">
+              仅自动处理已唯一匹配项目代码、item 和文件分类的文件；无法唯一识别的文件保持“未分类/待处理”。
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-8px">
+            <el-button
+              :loading="controlAuditFiles.recognizing"
+              @click="handleRecognizeNasUncontrolledFiles"
+            >
+              识别并刷新
+            </el-button>
+            <el-button
+              type="success"
+              :loading="controlAuditFiles.importing"
+              :disabled="!canImportNasUncontrolledSelectedFiles"
+              @click="handleDownloadSelectedNasUncontrolledFilesToLocal"
+            >
+              下载选中文件到本地并归类
+            </el-button>
+          </div>
+        </div>
+        <el-table
+          v-loading="controlAuditFiles.loading"
+          :data="controlAuditFiles.rows"
+          row-key="auditFileId"
+          max-height="360"
+          @selection-change="handleNasUncontrolledFileSelectionChange"
+        >
+          <el-table-column
+            type="selection"
+            width="46"
+            :selectable="isNasUncontrolledFileImportSelectable"
+          />
+          <el-table-column label="NAS 相对路径" min-width="240" show-overflow-tooltip>
+            <template #default="{ row }">
+              {{ row.normalizedRelativePath || row.fileName }}
+            </template>
+          </el-table-column>
+          <el-table-column label="识别状态" width="150">
+            <template #default="{ row }">
+              <el-tag :type="resolveNasUncontrolledClassificationTagType(row.classificationStatus)">
+                {{ resolveNasUncontrolledClassificationLabel(row.classificationStatus) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="本地目标相对路径" min-width="220" show-overflow-tooltip>
+            <template #default="{ row }">
+              {{ row.expectedLocalRelativePath || '未分类/待处理' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="本地写入" width="120">
+            <template #default="{ row }">
+              {{ resolveNasUncontrolledDownloadStatusLabel(row.downloadStatus) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="归档状态" min-width="150">
+            <template #default="{ row }">
+              <el-tag
+                v-if="row.archiveErrorCode === 'ARCHIVE_METADATA_REQUIRED'"
+                type="warning"
+              >
+                归档元数据待补齐
+              </el-tag>
+              <span v-else>{{ resolveNasUncontrolledArchiveStatusLabel(row.archiveStatus) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="原因" min-width="220" show-overflow-tooltip>
+            <template #default="{ row }">
+              {{ row.archiveError || row.localWriteError || row.classificationReason || '-' }}
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      </template>
       <el-empty v-else description="尚未创建统计任务" />
       <template #footer>
         <el-button @click="controlAuditDialog.visible = false">关闭</el-button>
@@ -503,12 +594,18 @@ import {
   listNasFiles,
   startNasControlAudit,
   getNasControlAuditTask,
+  getNasControlAuditFiles,
+  recognizeNasControlAuditFiles,
+  importSelectedNasUncontrolledFiles,
+  downloadNasUncontrolledImportContent,
+  recordNasUncontrolledImportLocalWriteResult,
   downloadNasControlAuditReport,
   testNasConfig,
   type NasConfigVO,
   type NasFileItemVO,
   type NasDirectoryTreeSkippedVO,
-  type NasControlAuditTaskRespVO
+  type NasControlAuditTaskRespVO,
+  type DccNasControlAuditFileRespVO
 } from '@/api/system/nas'
 import { checkPermi } from '@/utils/permission'
 
@@ -530,6 +627,28 @@ interface LocalFolderSelection {
   rootDirectoryName: string
   totalSize: number
 }
+
+interface NasUncontrolledFileSystemWritableFileStream {
+  write(data: Blob): Promise<void>
+  close(): Promise<void>
+}
+
+interface NasUncontrolledFileSystemFileHandle {
+  createWritable(): Promise<NasUncontrolledFileSystemWritableFileStream>
+}
+
+interface NasUncontrolledFileSystemDirectoryHandle {
+  getDirectoryHandle(
+    name: string,
+    options?: { create?: boolean }
+  ): Promise<NasUncontrolledFileSystemDirectoryHandle>
+  getFileHandle(name: string, options?: { create?: boolean }): Promise<NasUncontrolledFileSystemFileHandle>
+}
+
+type NasUncontrolledWindow = Window &
+  typeof globalThis & {
+    showDirectoryPicker?: () => Promise<NasUncontrolledFileSystemDirectoryHandle>
+  }
 
 const formLoading = ref(false)
 const saveLoading = ref(false)
@@ -634,6 +753,27 @@ const controlAuditDialog = reactive<{
   errorMessage: '',
   result: null
 })
+const controlAuditFiles = reactive<{
+  loading: boolean
+  recognizing: boolean
+  importing: boolean
+  errorMessage: string
+  rows: DccNasControlAuditFileRespVO[]
+  selectedRows: DccNasControlAuditFileRespVO[]
+  pageNo: number
+  pageSize: number
+  total: number
+}>({
+  loading: false,
+  recognizing: false,
+  importing: false,
+  errorMessage: '',
+  rows: [],
+  selectedRows: [],
+  pageNo: 1,
+  pageSize: 50,
+  total: 0
+})
 let transferTaskPollingTimer: number | undefined
 let controlAuditPollingTimer: number | undefined
 const autoDownloadedControlAuditTaskIds = new Set<number>()
@@ -691,6 +831,13 @@ const canSubmitTransfer = computed(
   () =>
     selectedTransferPaths.value.length > 0 &&
     (!hasActiveTransferTask.value || canResumeLocalFolderUpload.value)
+)
+const canImportNasUncontrolledSelectedFiles = computed(
+  () =>
+    canTransferPermission.value &&
+    controlAuditDialog.result?.status === 'COMPLETED' &&
+    controlAuditFiles.selectedRows.some((row) => isNasUncontrolledFileImportSelectable(row)) &&
+    !controlAuditFiles.importing
 )
 const selectedTransferCategory = computed(() =>
   transferDialog.categoryOptions.find((item) => item.id === transferDialog.form.templateCategoryId)
@@ -874,6 +1021,57 @@ const validateLocalFolderFiles = (files: File[]): LocalFolderSelection => {
     rootDirectoryName,
     totalSize
   }
+}
+
+const requestNasUncontrolledDirectoryHandle = async () => {
+  const showDirectoryPicker = (window as NasUncontrolledWindow).showDirectoryPicker
+  if (typeof showDirectoryPicker !== 'function') {
+    throw new Error('当前浏览器不支持 showDirectoryPicker，无法下载未受控文件到指定本地目录')
+  }
+  return await showDirectoryPicker.call(window)
+}
+
+const validateNasUncontrolledLocalRelativePath = (relativePath: string) => {
+  if (
+    !relativePath ||
+    relativePath.includes('\\') ||
+    relativePath.startsWith('/') ||
+    /^[A-Za-z]:/.test(relativePath) ||
+    relativePath.endsWith('/')
+  ) {
+    throw new Error('未受控文件本地相对路径不合法，无法创建导入任务')
+  }
+  const segments = relativePath.split('/')
+  if (segments.some((segment) => !segment || segment === '.' || segment === '..')) {
+    throw new Error('未受控文件本地相对路径包含非法目录段，无法创建导入任务')
+  }
+  return segments
+}
+
+const getNasUncontrolledLocalTargetFileHandle = async (
+  directoryHandle: NasUncontrolledFileSystemDirectoryHandle,
+  relativePath: string
+) => {
+  const segments = validateNasUncontrolledLocalRelativePath(relativePath)
+  const fileName = segments[segments.length - 1]
+  let currentDirectoryHandle = directoryHandle
+  for (const directoryName of segments.slice(0, -1)) {
+    currentDirectoryHandle = await currentDirectoryHandle.getDirectoryHandle(directoryName, {
+      create: true
+    })
+  }
+  return await currentDirectoryHandle.getFileHandle(fileName, { create: true })
+}
+
+const writeNasUncontrolledBlobToLocalFile = async (
+  directoryHandle: NasUncontrolledFileSystemDirectoryHandle,
+  relativePath: string,
+  blob: Blob
+) => {
+  const fileHandle = await getNasUncontrolledLocalTargetFileHandle(directoryHandle, relativePath)
+  const writable = await fileHandle.createWritable()
+  await writable.write(blob)
+  await writable.close()
 }
 
 const buildLocalFolderImportSessionPayload = (): ControlledFileLocalFolderImportSessionCreateReqVO => ({
@@ -1187,15 +1385,42 @@ const clearStaleNasTransferTask = () => {
   transferDialog.result = null
 }
 
+const resetNasControlAuditFiles = () => {
+  controlAuditFiles.rows = []
+  controlAuditFiles.selectedRows = []
+  controlAuditFiles.total = 0
+  controlAuditFiles.errorMessage = ''
+}
+
 const clearStaleControlAuditTask = () => {
   clearControlAuditPolling()
   clearLastControlAuditTaskId()
   controlAuditDialog.result = null
+  resetNasControlAuditFiles()
+}
+
+const loadNasControlAuditFilePage = async (taskId = controlAuditDialog.result?.taskId) => {
+  if (!taskId) return
+  controlAuditFiles.loading = true
+  controlAuditFiles.errorMessage = ''
+  try {
+    const data = await getNasControlAuditFiles(taskId, {
+      pageNo: controlAuditFiles.pageNo,
+      pageSize: controlAuditFiles.pageSize
+    })
+    controlAuditFiles.rows = data.list || []
+    controlAuditFiles.total = data.total || 0
+    controlAuditFiles.selectedRows = []
+  } catch (error: any) {
+    controlAuditFiles.errorMessage = error?.message || '未受控文件明细加载失败'
+  } finally {
+    controlAuditFiles.loading = false
+  }
 }
 
 const applyTransferTaskResult = (result: ControlledFileNasTransferRespVO) => {
   persistLastTransferTaskId(result.taskId)
-  transferDialog.sourceType = result.sourceType || 'NAS'
+  transferDialog.sourceType = result.sourceType === 'LOCAL_FOLDER' ? 'LOCAL_FOLDER' : 'NAS'
   transferDialog.result = result
   transferDialog.errorMessage = ''
 }
@@ -1221,6 +1446,11 @@ const applyControlAuditTaskResult = (result: NasControlAuditTaskRespVO) => {
   controlAuditDialog.result = result
   controlAuditDialog.errorMessage =
     result.status === 'FAILED' ? result.failureReason || 'NAS 受控状态统计任务失败' : ''
+  if (result.status === 'COMPLETED') {
+    void loadNasControlAuditFilePage(result.taskId)
+  } else {
+    resetNasControlAuditFiles()
+  }
 }
 
 const resolveControlAuditStatusLabel = (status?: string | null) => {
@@ -1235,6 +1465,160 @@ const resolveControlAuditStatusType = (status?: string | null) => {
   if (status === 'COMPLETED') return 'success'
   if (status === 'FAILED') return 'danger'
   return 'warning'
+}
+
+const resolveNasUncontrolledClassificationLabel = (status?: string | null) => {
+  if (status === 'MATCHED') return '已匹配'
+  if (status === 'UNCLASSIFIED_PENDING') return '未分类/待处理'
+  if (status === 'AMBIGUOUS') return '待确认'
+  if (status === 'PENDING_RECOGNITION') return '待识别'
+  return status || '未知'
+}
+
+const resolveNasUncontrolledClassificationTagType = (status?: string | null) => {
+  if (status === 'MATCHED') return 'success'
+  if (status === 'UNCLASSIFIED_PENDING') return 'warning'
+  if (status === 'AMBIGUOUS') return 'warning'
+  return 'info'
+}
+
+const resolveNasUncontrolledDownloadStatusLabel = (status?: string | null) => {
+  if (status === 'SELECTED') return '已选择'
+  if (status === 'LOCAL_WRITTEN') return '已写入'
+  if (status === 'LOCAL_WRITE_FAILED') return '写入失败'
+  return '未下载'
+}
+
+const resolveNasUncontrolledArchiveStatusLabel = (status?: string | null) => {
+  if (status === 'ARCHIVED') return '已归档'
+  if (status === 'FAILED') return '归档失败'
+  if (status === 'NOT_STARTED') return '未开始'
+  return status || '未开始'
+}
+
+const isNasUncontrolledFileImportSelectable = (row: DccNasControlAuditFileRespVO) =>
+  row.classificationStatus === 'MATCHED' &&
+  Boolean(row.auditFileId && row.sourceSignature?.trim() && row.expectedLocalRelativePath?.trim()) &&
+  row.downloadStatus !== 'LOCAL_WRITTEN' &&
+  row.archiveStatus !== 'ARCHIVED'
+
+const handleNasUncontrolledFileSelectionChange = (rows: DccNasControlAuditFileRespVO[]) => {
+  controlAuditFiles.selectedRows = rows.filter((row) => isNasUncontrolledFileImportSelectable(row))
+}
+
+const handleRecognizeNasUncontrolledFiles = async () => {
+  const taskId = controlAuditDialog.result?.taskId
+  if (!taskId) return
+  controlAuditFiles.recognizing = true
+  controlAuditFiles.errorMessage = ''
+  try {
+    const result = await recognizeNasControlAuditFiles(taskId)
+    await loadNasControlAuditFilePage(taskId)
+    message.success(
+      `识别完成：已匹配 ${result.matchedCount}，未分类/待处理 ${result.unclassifiedPendingCount}，待确认 ${result.ambiguousCount}`
+    )
+  } catch (error: any) {
+    controlAuditFiles.errorMessage = error?.message || '未受控文件识别失败'
+  } finally {
+    controlAuditFiles.recognizing = false
+  }
+}
+
+const createNasUncontrolledImportIdempotencyKey = () => {
+  if (typeof globalThis.crypto?.randomUUID !== 'function') {
+    throw new Error('当前浏览器不支持 crypto.randomUUID，无法创建未受控文件导入任务')
+  }
+  return globalThis.crypto.randomUUID()
+}
+
+const buildNasUncontrolledImportSelectedFiles = () => {
+  const selectedRows = controlAuditFiles.selectedRows.filter((row) =>
+    isNasUncontrolledFileImportSelectable(row)
+  )
+  if (!selectedRows.length) {
+    throw new Error('请先选择已唯一匹配的未受控文件')
+  }
+  return selectedRows.map((row) => {
+    const localRelativePath = row.expectedLocalRelativePath?.trim() || ''
+    validateNasUncontrolledLocalRelativePath(localRelativePath)
+    return {
+      auditFileId: row.auditFileId,
+      sourceSignature: row.sourceSignature.trim(),
+      localRelativePath
+    }
+  })
+}
+
+const handleDownloadSelectedNasUncontrolledFilesToLocal = async () => {
+  const auditTaskId = controlAuditDialog.result?.taskId
+  if (!auditTaskId) return
+  controlAuditFiles.importing = true
+  controlAuditFiles.errorMessage = ''
+  try {
+    const selectedFiles = buildNasUncontrolledImportSelectedFiles()
+    const directoryHandle = await requestNasUncontrolledDirectoryHandle()
+    const importTask = await importSelectedNasUncontrolledFiles(auditTaskId, {
+      selectionScope: 'EXPLICIT_SELECTED',
+      idempotencyKey: createNasUncontrolledImportIdempotencyKey(),
+      selectedFiles
+    })
+
+    let latestTask = importTask
+    for (const selectedFile of selectedFiles) {
+      const blob = await downloadNasUncontrolledImportContent(
+        latestTask.taskId,
+        selectedFile.auditFileId,
+        selectedFile.sourceSignature,
+        selectedFile.localRelativePath
+      )
+      try {
+        await writeNasUncontrolledBlobToLocalFile(
+          directoryHandle,
+          selectedFile.localRelativePath,
+          blob
+        )
+        latestTask = await recordNasUncontrolledImportLocalWriteResult(
+          latestTask.taskId,
+          selectedFile.auditFileId,
+          {
+            sourceSignature: selectedFile.sourceSignature,
+            localRelativePath: selectedFile.localRelativePath,
+            localWriteStatus: 'LOCAL_WRITTEN'
+          }
+        )
+      } catch (error: any) {
+        await recordNasUncontrolledImportLocalWriteResult(
+          latestTask.taskId,
+          selectedFile.auditFileId,
+          {
+            sourceSignature: selectedFile.sourceSignature,
+            localRelativePath: selectedFile.localRelativePath,
+            localWriteStatus: 'LOCAL_WRITE_FAILED',
+            localWriteErrorCode: 'LOCAL_WRITE_FAILED',
+            localWriteError: error?.message || '本地写入失败'
+          }
+        )
+        throw error
+      }
+    }
+
+    await loadNasControlAuditFilePage(auditTaskId)
+    const metadataBlocked = controlAuditFiles.rows.some(
+      (row) => row.archiveErrorCode === 'ARCHIVE_METADATA_REQUIRED'
+    )
+    if (metadataBlocked) {
+      message.warning('文件已写入本地，部分文件缺少正式归档元数据，已标记为归档元数据待补齐')
+    } else {
+      message.success('未受控文件已下载到本地并完成归类回写')
+    }
+  } catch (error: any) {
+    controlAuditFiles.errorMessage =
+      error?.name === 'AbortError'
+        ? '已取消本地目录选择，未创建未受控文件导入任务'
+        : error?.message || '未受控文件下载到本地失败'
+  } finally {
+    controlAuditFiles.importing = false
+  }
 }
 
 const handleDownloadControlAuditReport = async (showSuccessMessage = true) => {

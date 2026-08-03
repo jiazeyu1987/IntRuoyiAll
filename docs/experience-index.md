@@ -92,6 +92,7 @@
 - release-migration dependsOn 缺失 / SQL 元数据依赖不存在 / migration policy gate：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
 - DCC 分类 lifecycle_stage / NOT NULL 迁移 / required SQL 空值 / deleted=1 历史归档行：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
 - Keywords: DCC 项目代码文件分类, dcc_file_category_match_rule, OQ/PQ, 零配件图纸, 文件类别规则 seed, AMBIGUOUS, UNCLASSIFIED, seed 插入 0 行, 直接 SQL 修 dcc_controlled_file 禁止 -> `docs/database-rules.md#dcc-文件类别规则种子门禁`
+- Keywords: DCC upload size policy is missing or invalid, DCC 上传大小策略, dcc_controlled_file_upload_policy, upload-preview, SOURCE 上传大小策略缺失, DRAWING_PDF, TRAINING_RECORD, EXTERNAL_REVIEW_OUTPUT, DCC_UPLOAD_DEFAULT_SOURCE_V1, 上传大小策略 seed -> `docs/database-rules.md#dcc-上传大小策略默认种子门禁`
 - Keywords: DCC 产品立项, 产品建档申请, DCC 项目代码 MDM 产品绑定, dcc_product_onboarding_request, dcc_project_code.product_master_id, productMasterId, MDM 产品主数据, 受控文件提交按项目代码带出产品主数据 -> `docs/database-rules.md#dcc-项目代码-mdm-产品建档绑定门禁`
 - Keywords: DCC 升版发布 UX, 版本历史, 版本信息, 升版原因, 变更说明, 发布完成结果, V1 已失效, V2 已生效, master 已切换, 受控浏览已落位, publishedFileId, stampedFileId, BPM markers pageerror, 只读复验目标写请求为 0 -> `docs/e2e-rules.md#dcc-升版发布-ux-闭环门禁`
 - 测试服远端 MySQL 查询 / ruoyi-vue-pro 业务库 / 容器内 MYSQL_ROOT_PASSWORD / SSH 多层引号：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
@@ -117,7 +118,7 @@
 - Keywords: 主结果弹窗失败原因, result-dialog, 提交失败只显示状态, 保存失败原因可见, 发布失败原因可见, 大号结果弹框, failureReasonText, showFillActionResultDialog, toast 有原因但弹窗无原因 -> `docs/frontend-development.md#前端主结果弹窗失败原因可见门禁`
 - Keywords: 列表首屏成功后系统异常, 延迟辅助加载, 行级权限加载失败, listErrorMessage, permissionRuleErrorMessage, 批记录表单填写人规则加载失败, 辅助查询错误归属 -> `docs/frontend-development.md#前端延迟辅助加载错误归属门禁`
 - Keywords: 主查询重复系统异常, 重复 toast, Axios 全局错误提示, 页面 catch message.error, loadError, ignoreErrorMessage, 文控日志 系统异常重复 -> `docs/frontend-development.md#前端主查询错误重复提示门禁`
-- Keywords: 页签首屏慢, 首次进入加载慢, tab 首次进入, el-tab-pane lazy, loadedTabNames, isTabPaneMounted, 分发规则 N+1, 培训规则 N+1, visibleCategoryIds, 加载中 不误判未配置, 顶部页签切回重复加载, TagsView keep-alive, 动态菜单 keepAlive, meta.noCache, componentName defineOptions, DCC 文件上传 受控浏览 切回缓存 -> `docs/frontend-development.md#前端页签首屏按需挂载门禁`
+- Keywords: 页签首屏慢, 首次进入加载慢, tab 首次进入, el-tab-pane lazy, loadedTabNames, isTabPaneMounted, 分发规则 N+1, 培训规则 N+1, visibleCategoryIds, 加载中 不误判未配置, 顶部页签切回重复加载, TagsView keep-alive, 动态菜单 keepAlive, meta.noCache, componentName defineOptions, route.fullPath watcher, effective route state, 同状态切回, loadDirectories, getList, DCC 文件上传 受控浏览 切回缓存 -> `docs/frontend-development.md#前端页签首屏按需挂载门禁`
 - Keywords: DCC 上传类别权限, canUpload, Current user cannot access this controlled file, Controlled file category does not exist, upload-preview, 文件分类 fileTypeTaxonomyId, 文件类别 categoryId, 文件类别下拉无上传权限, taxonomy 分支过滤类别, stale categoryId 清理, 类别级 UPLOAD 权限, DccControlledFileCategoryPermissionSupport -> `docs/frontend-development.md#dcc-上传类别权限投影门禁`
 - Keywords: DCC 预览不可用, previewUnavailableReason, ProtectedPdfViewer, previewOnlineFileWithWatermark, previewControlledFileWithWatermark, resolvePreviewBlob, PDF IMAGE VIDEO AUDIO TEXT OFFICE DOWNLOAD_ONLY, 预览产物缺失, 预览二进制请求短路, OnlyOffice unavailable-reason -> `docs/frontend-development.md#dcc-预览不可用原因短路门禁`
 - Keywords: DCC 上传项目代码提示, DHF/DMR 红字, 产品编号已带出, 已自动绑定 DCC 项目代码, dccProjectCodeId, productCode, 选择 DCC 项目后仍红色提示, 项目代码提示状态 -> `docs/frontend-development.md#dcc-上传项目代码提示状态门禁`
@@ -257,6 +258,7 @@
 - Keywords: health UP 但 API 挂起, Logback OutputStreamAppender lock, stdout stderr 未消费, SQL DEBUG, MyBatis mapper debug, logging.file.name, output/runtime logs, task-closeout 日志锁, 共享后端活动连接 -> `docs/local-runtime.md#2026-07-27-本地后端标准输出阻塞与日志目录门禁`
 - Keywords: target Jar 运行中被 Maven 覆盖, NoClassDefFoundError, ChainedPersistenceExceptionTranslator, ExceptionUtil, RequestUtil, JimuReportDao_update.sql, TemplateLoaderUtils, 稳定运行 Jar 副本 -> `docs/local-runtime.md#2026-07-27-本地后端运行-jar-不可变门禁`
 - Keywords: Element Plus el-table, 表格行复选框, 表头全选误点, indeterminate checkbox, Playwright body-wrapper row selection, 手动重排选中集合断言 -> `docs/e2e-rules.md#element-plus-表格选择门禁`
+- Keywords: Element Plus 同名列表行, 同名类别, 类别名重复, 按类别名误配, 只读表格单元格断言, API 行与 DOM 行对应, API DOM 行顺序核验 -> `docs/e2e-rules.md#表格行定位`
 - Keywords: 手动重排数据包, 导出全部数据包, 导入全部数据包, manualReplanDataPackage, scheduler-manual-replan-data, 排产工单快照导入, 任务扩展导入, 日历产能导入 -> `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md#手动重排数据包门禁`
 - Keywords: edhr-batch-execution-real-flow.e2e.js, int-ruoyi-mysql, 数据库夹具, LOCAL_DATABASE_FIXTURE, 芋道源码/admin, 真实 E2E 前置条件缺失, 覆盖历史 E2E 证据 -> `docs/e2e-rules.md#edhr-批次执行数据库夹具与证据文件门禁`
 - Keywords: edhr-work-task-process-advance-real.e2e.js, FormCenter 动态表单夹具, batch_record_report_id 为空, form_binding_key, form_center_instance_id, 生产工单不存在, 当前工艺路线工序未配置默认批记录报表, eDHR 批次工序任务被阻塞, EDHR-ADV, 工作台处理按钮目标行 -> `docs/e2e-rules.md#edhr-工作任务-formcenter-动态表单夹具门禁`

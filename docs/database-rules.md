@@ -56,6 +56,15 @@
 - Forbidden action: 禁止直接 SQL 修 `dcc_controlled_file` 分类、禁止循环单文件 API 打补丁、禁止 seed 静默插入 0 行、禁止把 `AMBIGUOUS` / `UNCLASSIFIED` 当成功、禁止用硬编码 fallback 掩盖类别规则缺口。
 - Evidence: `doc/tasks/20260731-dcc-file-category-rules/verification-report.md`。
 
+### DCC 上传大小策略默认种子门禁
+
+- Trigger: DCC 上传、`upload-preview`、`DCC upload size policy is missing or invalid`、`dcc_controlled_file_upload_policy`、上传大小策略 seed、`SOURCE` / `DRAWING_PDF` / `TRAINING_RECORD` / `EXTERNAL_REVIEW_OUTPUT`。
+- Preflight check: 修复上传大小策略缺失时，先核对 `dcc_controlled_file_upload_policy` 和 `dcc_file_category` 当前迁移结构；正式方案应补可发布的目的级或全局策略种子，不得放宽 `DccUploadSizePolicyService` 的 fail-fast 校验。种子必须幂等、按租户写入、只在缺有效 `GLOBAL` 或同目的 `PURPOSE` 策略时插入，并通过存储过程或等价机制在表缺失或插入不完整时 fail fast。
+- Blocker: 上传路径靠 catch、默认成功、默认 maxBytes、前端隐藏错误或临时 API-only 配置消除提示；SQL 缺 release-migration 元数据；策略 seed 覆盖/删除用户已有策略；或没有覆盖全部受支持上传 purpose 时必须停止。
+- Verification: 运行 `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_dcc_upload_size_policy_seed_sql.py`、`python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --output <task-dir>\migration-policy-gate.json`，并复跑 DCC 上传大小策略服务/上传预览目标 JUnit。
+- Forbidden action: 禁止把缺策略改成运行时 fallback，禁止直接改远端库不留迁移，禁止扩大为无上限上传，禁止更新或删除既有策略来绕过唯一键，禁止用类别级上传权限证明大小策略正确。
+- Evidence: `doc/tasks/20260803-dcc-upload-size-policy-fix/verification-report.md`。
+
 ### DCC 项目代码 MDM 产品建档绑定门禁
 
 - Trigger: DCC 产品立项、产品建档申请、`dcc_product_onboarding_request`、`dcc_project_code.product_master_id`、MDM 产品绑定、受控文件提交需要按项目代码带出产品主数据。

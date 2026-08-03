@@ -113,12 +113,21 @@
 - `local-write-result` 必须是处理项级幂等操作；重复 `LOCAL_WRITTEN` 不得重复调用归档链路，重复 `LOCAL_WRITE_FAILED` 只能返回既有失败状态，成功后再提交失败或失败后再提交成功必须按显式 retry 规则处理，首版直接返回冲突。
 - `NAS_UNCONTROLLED_IMPORT` 任务创建成功后仍不得进入现有 waiting processor 的自动处理队列；任务状态若复用旧枚举，必须用 source type 分支保证旧 processor 跳过该任务，并由 content/local-write-result 驱动后续状态。
 
+### 正式归档元数据来源门禁
+
+- 当前代码复核结论：`dcc_nas_control_audit_file` 和 `dcc_controlled_file_nas_transfer_task_item` 只持久化识别快照、本地相对路径、本地写入状态和归档状态，未持久化可直接提交 DCC 的正式归档元数据快照。
+- `matched_file_type_taxonomy_id` 不是 `DccControlledFileSubmitReqVO.categoryId`；`classification_candidates_json` 只允许作候选审计，不得作为归档事实来源；`task.template_category_id`、`task.effective_date`、`task.dcc_project_code_id` 对 `NAS_UNCONTROLLED_IMPORT` 必须允许为空且不得被当作旧默认值复用。
+- 正式成功归档前必须存在处理项级、可审计、可重放校验的元数据来源，至少覆盖 `categoryId`、`directoryId`、`dccProjectCodeId`、`fileTypeTaxonomyId`、`changeType`、`fileName`、`fileNumber`、`versionNo`、`effectiveDate`、`remark/source`，以及是否需要 `processType`、`needTraining`、`sourceFileId/drawingPdfFileId` 等现有提交链路要求的字段。
+- 上述字段可以来自新增归档元数据快照列、独立归档元数据表、或显式 UI/服务端配置生成的快照；但必须先有 schema/VO/service 测试证明来源明确、租户隔离、与 `auditFileId + sourceSignature + localRelativePath` 绑定，并且不会因后续分类规则或项目代码变化被静默改写。
+- 若任一必需元数据缺失、字段来源无法审计、分类只能从候选 JSON 解析、目录只能从旧任务头推断，`LOCAL_WRITTEN` 后必须保持 `download_status=LOCAL_WRITTEN`，并写入 `archive_status=FAILED`、`archive_error_code=ARCHIVE_METADATA_REQUIRED`；不得读取 NAS 原件、上传原始文件、提交 workflow、创建受控文件或写 ACTIVE NAS 来源映射。
+- M24 成功路径开发前必须先新增 RED：`archiveAfterLocalWritten_archivesOnlyFromFormalMetadataSnapshot`，断言只有正式元数据快照存在时才调用 `fileService.createFileAndReturnId(...)`、`submitControlledFileWithoutApproval(...)` 和 `nasSourceMapper.insert(...)`；缺失时继续通过 `ARCHIVE_METADATA_REQUIRED` 阻塞测试。
+
 ### 分类与归档矩阵
 
 | 项目代码 item | 文件分类 | 分类状态 | 本地目录 | DCC 归档 |
 | --- | --- | --- | --- | --- |
 | 未执行识别 | 未执行识别 | `PENDING_RECOGNITION` | 不生成 | 不创建，必须先 recognize |
-| 唯一命中 | 唯一命中 | `MATCHED` | `<项目代码>/<阶段>/<文件类型>/<原 NAS 相对路径>` | 仅在 `LOCAL_WRITTEN` 后创建受控文件 |
+| 唯一命中 | 唯一命中 | `MATCHED` | `<项目代码>/<阶段>/<文件类型>/<原 NAS 相对路径>` | 仅在 `LOCAL_WRITTEN` 且正式归档元数据快照存在后创建受控文件；缺失时 `ARCHIVE_METADATA_REQUIRED` |
 | 未命中 | 任意 | `UNCLASSIFIED_PENDING` | `_未分类待处理/<原 NAS 相对路径>` | 不创建，`archive_status=PENDING_MANUAL_REVIEW` |
 | 多候选 | 任意 | `AMBIGUOUS` | `_未分类待处理/<原 NAS 相对路径>` | 不创建，展示候选和歧义原因 |
 | 唯一命中 | 未命中或多候选 | `UNCLASSIFIED_PENDING` 或 `AMBIGUOUS` | `_未分类待处理/<原 NAS 相对路径>` | 不创建，等待人工处理 |

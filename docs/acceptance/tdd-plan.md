@@ -94,9 +94,11 @@
 11. RED：新增 `localWriteResultIsIdempotentAndDoesNotArchiveTwice`，断言相同处理项重复 `LOCAL_WRITTEN` 只返回既有状态，不重复创建受控文件或 ACTIVE NAS 来源映射。
 12. RED：新增 `localWriteResultRejectsConflictingResultAfterTerminalState`，断言成功后提交失败或失败后提交成功返回明确冲突，除非另有显式 retry 入口。
 13. RED：新增 `archiveAfterLocalWritten_requiresFormalArchiveMetadata`，断言正式 DCC 归档所需模板分类、生效日期、变更原因或等价元数据缺少正式来源时返回 `ARCHIVE_METADATA_REQUIRED` 或明确失败状态，不得使用当前日期、旧 transfer 任务值、空模板或默认模板继续归档。
-14. GREEN：实现内容下载、本地写入结果回写、后置归档触发和路径校验 API。
-15. GREEN：把正式归档元数据来源建模为明确入参、配置或快照；缺失时只记录可见阻塞，不创建 DCC 受控文件。
-16. REGRESSION：运行 `DccControlledFileControllerTest` 或新增专用 Controller 测试。
+14. RED：新增 `archiveAfterLocalWritten_archivesOnlyFromFormalMetadataSnapshot`，断言只有处理项级正式归档元数据快照存在时才允许读取 NAS 原件、上传原始文件、提交 workflow、创建受控文件和写 ACTIVE NAS 来源映射；若只存在 `matchedProjectCodeId/matchedFileTypeTaxonomyId/classificationCandidatesJson`，测试必须失败。
+15. RED：新增 schema/VO 合同断言正式归档快照至少包含 `categoryId`、`directoryId`、`dccProjectCodeId`、`fileTypeTaxonomyId`、`changeType`、`fileName`、`fileNumber`、`versionNo`、`effectiveDate`、`remark/source`，并与 `auditFileId + sourceSignature + localRelativePath` 绑定。
+16. GREEN：实现内容下载、本地写入结果回写、后置归档触发和路径校验 API。
+17. GREEN：先把正式归档元数据来源建模为明确入参、配置或处理项快照；缺失时只记录可见阻塞，不创建 DCC 受控文件。
+18. REGRESSION：运行 `DccControlledFileControllerTest` 或新增专用 Controller 测试。
 
 ### M6 前端静态合同
 
@@ -203,4 +205,4 @@
 - Missing test NAS share or sample files blocks real E2E but not unit/static tests.
 - Missing writable test tenant, DCC project code, file classification tree, category match rules or cleanup authorization blocks write E2E.
 - Browser without File System Access API blocks local-directory write E2E; this is a product precondition, not a reason to switch to ZIP.
-- Undefined formal archive metadata source blocks successful DCC归档路径；只能验证本地写入和待处理路径，不得用旧 NAS 转移默认值替代。
+- Undefined formal archive metadata source blocks successful DCC 归档路径；当前 `dcc_nas_control_audit_file` 与 `dcc_controlled_file_nas_transfer_task_item` 未保存可直接提交的 `categoryId/directoryId/effectiveDate/versionNo/changeType/fileNumber` 等快照时，只能验证本地写入和 `ARCHIVE_METADATA_REQUIRED` 阻塞路径，不得用旧 NAS 转移默认值、候选 JSON、当前日期或空模板替代。

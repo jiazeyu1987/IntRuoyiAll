@@ -10,13 +10,14 @@
 - [x] 记录需求变更边界和 BDD 场景。
 - [x] 编写 RED 回归测试覆盖“有权限可看压力泵全部工序”和“无权限仍按岗位链路”。
 - [x] 实施最小后端正式授权链路，不引入默认路线或空成功。
-- [x] 运行 GREEN、相邻回归和 evidence 校验。
+- [x] 运行 GREEN、相邻回归、迁移门禁和 evidence 校验。
 
 ## Expected Verification
 
-- `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest,MesFrontlineWorkstationPostRouteBindingSourceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
-- backend-api evidence validator: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260803-pressure-pump-role-process-switch/backend-api-evidence.md`
-- database-schema evidence validator: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260803-pressure-pump-role-process-switch/database-schema-evidence.md`
+- `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineEmployeeSwitchServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+- `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --sql-file IntRuoyiBackend\sql\mysql\20260803_mes_frontline_pressure_pump_all_process_permission.sql --output doc\tasks\20260803-pressure-pump-role-process-switch\migration-policy-gate.json`
+- `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260803-pressure-pump-role-process-switch/backend-api-evidence.md`
+- `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260803-pressure-pump-role-process-switch/database-schema-evidence.md`
 
 ## Applicable Gates
 
@@ -34,7 +35,8 @@
 
 ready_for_closeout
 
-- 已完成压力泵全工序权限服务链路、权限迁移 SQL、定向 JUnit、release migration policy gate 和 evidence validator；等待当前主线融合任务统一提交与后续收尾。
+- 已完成压力泵全工序权限服务链路、权限迁移 SQL、定向 JUnit、release migration policy gate、backend evidence validator、database evidence validator 和 task-closeout-cleanup apply。
+- 待收尾事项：分支仍有本地 ahead 提交，且工作区存在非本任务未跟踪 evidence 文件；未执行最终 push，避免将并行任务内容作为本任务收尾混入。
 
 ## Completed Work
 
@@ -45,5 +47,7 @@ ready_for_closeout
 
 ## Verification Evidence
 
-- GREEN: `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest,MesFrontlineWorkstationPostRouteBindingSourceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 7 tests.
-- GREEN: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --sql-file IntRuoyiBackend\sql\mysql\20260803_mes_frontline_pressure_pump_all_process_permission.sql --output doc\tasks\20260803-pressure-pump-role-process-switch\migration-policy-gate.json` -> PASS, 1 migration, sha256 `4ff6ac8bc5cf101d1a4bdb453451860b39735773191cb790d29dd253b1d2bf46`.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineEmployeeSwitchServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 11 tests.
+- GREEN: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --sql-file IntRuoyiBackend\sql\mysql\20260803_mes_frontline_pressure_pump_all_process_permission.sql --output doc\tasks\20260803-pressure-pump-role-process-switch\migration-policy-gate.json` -> PASS, 1 migration, sha256 `4ff6ac8bc5cf101d1a4bdb453451860b39735773191cb790d29dd253b1d2bf46`。
+- GREEN: backend API evidence validator -> PASS。
+- GREEN: database schema evidence validator -> PASS。

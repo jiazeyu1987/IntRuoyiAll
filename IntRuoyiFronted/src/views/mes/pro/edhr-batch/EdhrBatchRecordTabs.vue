@@ -9,6 +9,7 @@
     <el-tab-pane label="历史批记录" name="history" />
     <el-tab-pane label="生产填写" name="production" />
     <el-tab-pane label="PQC填写" name="pqc" />
+    <el-tab-pane label="组长工作台" name="teamLeader" />
     <el-tab-pane label="批记录页面关系图" name="pageGraph" />
   </el-tabs>
 </template>
@@ -16,7 +17,13 @@
 <script setup lang="ts">
 defineOptions({ name: 'MesProEdhrBatchRecordTabs' })
 
-type EdhrBatchRecordTab = 'execution' | 'history' | 'production' | 'pqc' | 'pageGraph'
+type EdhrBatchRecordTab =
+  | 'execution'
+  | 'history'
+  | 'production'
+  | 'pqc'
+  | 'teamLeader'
+  | 'pageGraph'
 type EdhrBatchTabPane = {
   props?: {
     name?: string | number
@@ -34,6 +41,7 @@ const routeByTab: Record<EdhrBatchRecordTab, string> = {
   history: '/mes/pro/feedback/edhr-batch-history',
   production: '/mes/pro/feedback/edhr-batch-production-fill',
   pqc: '/mes/pro/feedback/edhr-batch-pqc-fill',
+  teamLeader: '/mes/pro/feedback/edhr-batch-team-leader',
   pageGraph: '/mes/pro/feedback/edhr-batch-page-graph'
 }
 

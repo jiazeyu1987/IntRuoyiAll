@@ -265,9 +265,10 @@ const graphNodes: PageNode[] = [
     id: 'team-lead-review',
     order: '09',
     title: '班组长复核',
-    description: '复核一线原始数据、员工切换和异常记录。',
+    description: '生产组长和 PQC 组长复核一线原始数据、员工切换和异常记录。',
     kind: '复核页',
-    isDisabled: true,
+    route: '/mes/pro/feedback/edhr-batch-team-leader',
+    isDisabled: false,
     x: 772,
     y: 122,
     tone: 'review'

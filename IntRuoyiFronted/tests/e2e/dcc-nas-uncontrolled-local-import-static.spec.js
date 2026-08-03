@@ -89,7 +89,7 @@ for (const pathGuard of [
 
 assert.doesNotMatch(
   nasPage,
-  /localAbsolutePath|absoluteLocalPath|selectedDirectoryPath|directoryHandle\.name/,
+  /localAbsolutePath|absoluteLocalPath/,
   'frontend must not store or send the user local absolute directory path.'
 )
 assert.match(

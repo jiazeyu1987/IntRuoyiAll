@@ -90,9 +90,39 @@ assert.doesNotMatch(frontlinePanel, /frontline-no-device/, 'production UI must n
 
 const pqcTemplate = frontlinePanel.match(/data-frontline-pqc-operator[\s\S]*?<footer class="frontline-pqc-submit-bar">/)
 assert.ok(pqcTemplate, 'PQC operator block must exist.')
-for (const required of ['生产订单', '工序', '员工', '主页', '长度', '厘米', '外观', '密封', '压力', 'MPa', '首检', '巡检', '末检', '检验数量', '损耗数量']) {
+for (const required of ['生产订单', '工序', '员工', '主页', '检验内容', '首检', '巡检', '末检', '检验数量', '损耗数量', '签名编号', '全部合格', '全部不良', '逐件选择']) {
   assert.match(pqcTemplate[0], new RegExp(required), `PQC UI must include ${required}.`)
 }
+assert.match(
+  pqcTemplate[0],
+  /v-for="item in pqcInspectionItems"[\s\S]*:data-pqc-inspection-entry="item\.key"/,
+  'PQC UI must render inspection entries from the formal QA/PQC task snapshot.'
+)
+assert.match(
+  pqcTemplate[0],
+  /:data-pqc-inspection-group="item\.key"/,
+  'PQC choice layout must preserve stable data attributes for every dynamic inspection item.'
+)
+assert.match(
+  pqcTemplate[0],
+  /{{ item\.label }}/,
+  'PQC UI must display the formal inspection item label instead of fixed labels.'
+)
+assert.match(
+  frontlinePanel,
+  /const pqcInspectionItems = computed<PqcInspectionItem\[\]>\(\(\) =>\s*\(deviceState\.selectedProcess\?\.inspectionItems \|\| \[\]\)\.map/,
+  'PQC inspection items must come from selectedProcess.inspectionItems.'
+)
+assert.match(
+  frontlinePanel,
+  /key: item\.itemCode[\s\S]*label: item\.itemName \|\| item\.itemCode[\s\S]*type: isPqcNumericResultType\(item\.resultType\) \? 'number' : 'choice'/,
+  'PQC inspection item labels and types must use the formal QA snapshot fields.'
+)
+assert.match(
+  frontlinePanel,
+  /hasPqcTaskSnapshot[\s\S]*process\?\.inspectionItems\?\.length/,
+  'PQC mode must fail fast when the formal QA/PQC inspection item snapshot is missing.'
+)
 for (const forbidden of ['检验方法', '成功', '失败', '巡检摘要']) {
   assert.doesNotMatch(pqcTemplate[0], new RegExp(forbidden), `PQC UI must not show ${forbidden}.`)
 }
