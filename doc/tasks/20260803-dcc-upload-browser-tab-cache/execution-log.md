@@ -25,6 +25,14 @@
 - CLEANUP: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-upload-browser-tab-cache --mode apply` -> PASS, deleted temporary `bug-regression-evidence.md`.
 - USER-FEEDBACK: 切回受控浏览仍会先加载红框目录树，再加载黄框列表区；任务状态从 `ready_for_closeout` 恢复为 `in_progress`。
 - RED-PENDING: `pnpm e2e:dcc:browser-tab-return-no-reload:static` -> expected FAIL before fix because `restoreBrowserDirectoryTreeAndList()` still unconditionally calls `loadDirectories()` and `getList()` after route restore.
+- RED: `pnpm e2e:dcc:browser-tab-return-no-reload:static` -> FAIL, expected reason: browser page did not yet record successful directory/list load state and same-state tab return guard.
+- GREEN: `pnpm e2e:dcc:browser-tab-return-no-reload:static` -> PASS.
+- REGRESSION: `pnpm e2e:dcc:upload-browser-tab-cache:static` -> PASS.
+- REGRESSION: `pnpm e2e:dcc:browser-single-tab:static` -> PASS.
+- REGRESSION: `pnpm e2e:dcc:redbox-first-open-performance:static` -> PASS.
+- REGRESSION: `pnpm e2e:dcc:browser-cache-write-failure:static` -> PASS.
+- REGRESSION: `pnpm ts:check` -> PASS.
+- CHECK: `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue IntRuoyiFronted/tests/e2e/dcc-browser-tab-return-no-reload-static.spec.js IntRuoyiFronted/package.json doc/tasks/20260803-dcc-upload-browser-tab-cache` -> PASS.
 
 ## Milestone Updates
 
@@ -33,15 +41,17 @@
 - Implementation -> PASS: `routerHelper.ts` now treats `controlled-file/upload` and `controlled-file/browser` as formal cacheable DCC menu routes.
 - Verification -> PASS: targeted static contracts and TypeScript check passed.
 - Cleanup -> PASS: preview/apply kept core task records and removed only archived temporary evidence.
-- Follow-up bug -> IN_PROGRESS: user confirmed route-level cache is not enough; browser page must skip same-state restore loading after returning to an already initialized tab.
+- Follow-up bug -> PASS: browser page now skips same-state route restore loading after returning to an already initialized tab, while preserving reload when the effective route state changes.
 
 ## Verification Evidence
 
 - `pnpm e2e:dcc:upload-browser-tab-cache:static` PASS.
+- `pnpm e2e:dcc:browser-tab-return-no-reload:static` PASS.
 - `pnpm e2e:dcc:browser-single-tab:static` PASS.
 - `pnpm e2e:dcc:redbox-first-open-performance:static` PASS.
+- `pnpm e2e:dcc:browser-cache-write-failure:static` PASS.
 - `pnpm ts:check` PASS.
 
 ## Remaining Blockers
 
-- 提交/推送前需处理任务开始前已存在的无关脏工作区和本地 ahead 状态。
+- 当前分支仍有本任务外的本地 ahead/历史状态需要确认后才能安全推送；本任务保持 `ready_for_closeout`。
