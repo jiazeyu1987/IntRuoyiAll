@@ -83,4 +83,7 @@
 - PASS: post-latest-local-main-merge static contract `node tests\e2e\dcc-project-code-product-onboarding-static.spec.js` returned exit code `0`.
 - PASS: post-latest-local-main-merge DCC JUnit `mvn.cmd -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest,DccControlledFileWorkflowServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> Tests run: 107, Failures: 0, Errors: 0, Skipped: 0.
 - BLOCKED: latest cleanup preview still blocks final apply/merge only because main worktree `E:\IntRuoyi` is dirty and cannot receive ff-only merge safely.
-- PENDING: integration still requires a clean or explicitly baselined main worktree, merging back to local `int_main`, and pushing if GitHub HTTPS proxy/network permit.
+- PASS: after user-requested main workspace commits, main worktree returned to a clean status; worktree merged latest local `int_main` again with merge commit `f1c78e92b`, branch runtime port guard passed, and `git rev-list --left-right --count int_main...codex/dcc-product-onboarding-flow-20260803` returned `0 10`.
+- PASS: final pre-merge static contract `node IntRuoyiFronted\tests\e2e\dcc-project-code-product-onboarding-static.spec.js` returned exit code `0`.
+- PASS: final pre-merge DCC JUnit `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest,DccControlledFileWorkflowServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> Tests run: 107, Failures: 0, Errors: 0, Skipped: 0.
+- PENDING: integration still requires committing this latest evidence, merging back to local `int_main`, and pushing if GitHub HTTPS proxy/network permit.
