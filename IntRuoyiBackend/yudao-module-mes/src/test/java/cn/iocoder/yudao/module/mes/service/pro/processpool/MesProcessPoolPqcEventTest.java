@@ -63,6 +63,7 @@ class MesProcessPoolPqcEventTest extends BaseDbUnitTest {
         MesProcessPoolCreatePqcInspectionReqDTO req = validPqcReq();
         req.setDeviceAccountId(null);
         req.setDeviceId(null);
+        req.setWorkstationId(null);
         req.setFeedbackSourceType("MES_PQC_INSPECTION_TASK");
         req.setFeedbackSourceId(7001L);
         req.setRecordbookSourceType("MES_PQC_INSPECTION_TASK");
@@ -74,7 +75,7 @@ class MesProcessPoolPqcEventTest extends BaseDbUnitTest {
         assertEquals("PQC_INSPECTION", event.getEventType());
         assertNull(event.getDeviceAccountId());
         assertNull(event.getDeviceId());
-        assertEquals(req.getWorkstationId(), event.getWorkstationId());
+        assertNull(event.getWorkstationId());
         assertEquals("MES_PQC_INSPECTION_TASK", event.getFeedbackSourceType());
         assertEquals(7001L, event.getFeedbackSourceId());
         assertEquals("MES_PQC_INSPECTION_TASK", event.getRecordbookSourceType());

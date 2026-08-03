@@ -199,7 +199,7 @@ class MesFrontlinePqcContextServiceTest {
                 .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
         when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route(ROUTE_ID));
         when(routeProcessMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
-                routeProcess(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10)));
+                routeProcessWithoutWorkstation(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10)));
         when(processService.getProcessMap(Set.of(PROCESS_ID))).thenReturn(Map.of(
                 PROCESS_ID, process(PROCESS_ID, "P-1", "首工序")));
         givenPqcTaskContext(ROUTE_PROCESS_ID, PROCESS_ID, PQC_TASK_ID, REGULATION_VERSION_ID);
@@ -395,7 +395,7 @@ class MesFrontlinePqcContextServiceTest {
         MesProcessPoolCreatePqcInspectionReqDTO eventRequest = eventCaptor.getValue();
         assertNull(eventRequest.getDeviceAccountId());
         assertNull(eventRequest.getDeviceId());
-        assertEquals(6001L, eventRequest.getWorkstationId());
+        assertNull(eventRequest.getWorkstationId());
         assertEquals("MES_PQC_INSPECTION_TASK", eventRequest.getFeedbackSourceType());
         assertEquals(PQC_TASK_ID, eventRequest.getFeedbackSourceId());
         assertEquals("MES_PQC_INSPECTION_TASK", eventRequest.getRecordbookSourceType());
@@ -506,6 +506,17 @@ class MesFrontlinePqcContextServiceTest {
                 .routeId(routeId)
                 .processId(processId)
                 .workstationId(6001L)
+                .sort(sort)
+                .build();
+    }
+
+    private static MesProRouteProcessDO routeProcessWithoutWorkstation(Long routeProcessId, Long routeId,
+                                                                       Long processId, Integer sort) {
+        return MesProRouteProcessDO.builder()
+                .id(routeProcessId)
+                .routeId(routeId)
+                .processId(processId)
+                .workstationId(null)
                 .sort(sort)
                 .build();
     }
