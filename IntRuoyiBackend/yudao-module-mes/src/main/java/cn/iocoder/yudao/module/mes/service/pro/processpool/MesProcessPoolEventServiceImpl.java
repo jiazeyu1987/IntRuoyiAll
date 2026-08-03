@@ -117,7 +117,6 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
         requirePositive(reqDTO.getRouteProcessId(), "routeProcessId");
         requirePositive(reqDTO.getProcessId(), "processId");
         requirePositive(reqDTO.getActualEmployeeId(), "actualEmployeeId");
-        requirePositive(reqDTO.getWorkstationId(), "workstationId");
         requireNotBlank(reqDTO.getTemplateType(), "templateType");
         requireNotBlank(reqDTO.getFeedbackSourceType(), "feedbackSourceType");
         requirePositive(reqDTO.getFeedbackSourceId(), "feedbackSourceId");
@@ -129,6 +128,7 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
         if (!MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(reqDTO.getEventType())) {
             requirePositive(reqDTO.getDeviceAccountId(), "deviceAccountId");
             requirePositive(reqDTO.getDeviceId(), "deviceId");
+            requirePositive(reqDTO.getWorkstationId(), "workstationId");
         }
         validateQuantityFragments(reqDTO);
     }

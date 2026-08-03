@@ -320,7 +320,6 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         requirePqcTaskIdentity(task, command, process);
         List<MesPqcInspectionPieceDetailDO> pieceDetails = buildPieceDetails(task.getId(), command,
                 process.inspectionItems());
-        requirePositive(process.workstationId(), "routeProcess.workstationId");
         String inspectionResult = resolvePqcInspectionResult(command.getInspectionResult());
         String rawPayload = buildPqcInspectionEventRawPayload(command, pieceDetails);
 
@@ -336,7 +335,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 .actualEmployeeId(command.getActualEmployeeId())
                 .deviceAccountId(null)
                 .deviceId(null)
-                .workstationId(process.workstationId())
+                .workstationId(null)
                 .templateType(command.getTemplateType())
                 .feedbackSourceType(PQC_INSPECTION_TASK_SOURCE_TYPE)
                 .feedbackSourceId(task.getId())

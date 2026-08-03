@@ -308,7 +308,7 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals(8001L, eventRequest.getActualEmployeeId());
         assertNull(eventRequest.getDeviceAccountId());
         assertNull(eventRequest.getDeviceId());
-        assertEquals(6001L, eventRequest.getWorkstationId());
+        assertNull(eventRequest.getWorkstationId());
         assertEquals("PQC_SIMPLIFIED", eventRequest.getTemplateType());
         assertEquals("MES_PQC_INSPECTION_TASK", eventRequest.getFeedbackSourceType());
         assertEquals(PQC_TASK_ID, eventRequest.getFeedbackSourceId());
@@ -347,7 +347,7 @@ class MesFrontlinePqcContextServiceTest {
                 .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
         when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route(ROUTE_ID));
         when(routeProcessMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
-                routeProcess(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10)));
+                routeProcessWithoutWorkstation(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10)));
         when(processService.getProcessMap(Set.of(PROCESS_ID))).thenReturn(Map.of(
                 PROCESS_ID, process(PROCESS_ID, "P-1", "首工序")));
         givenPqcTaskContext(ROUTE_PROCESS_ID, PROCESS_ID, PQC_TASK_ID, REGULATION_VERSION_ID);
