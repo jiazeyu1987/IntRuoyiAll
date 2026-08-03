@@ -37,7 +37,7 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260803-pressure-pump-role-process-switch/database-schema-evidence.md` -> PASS.
 - Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-pressure-pump-role-process-switch --mode preview` -> READY, keep task/execution/verification reports, delete temporary evidence files, no blocked paths.
 - Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-pressure-pump-role-process-switch --mode apply` -> APPLIED, deleted `backend-api-evidence.md`, `database-schema-evidence.md`, and `migration-policy-gate.json`.
-- Experience consolidation check: read `project-experience-consolidation`; existing long-term memory docs are PowerShell/worktree focused, no suitable domain-memory destination was found for the pressure-pump permission-vs-post rule, so no new long-term document was created without explicit user authorization.
+- Experience consolidation check: read `project-experience-consolidation`; merged the reusable permission-vs-post binding rule into `docs/backend-development.md#MES 一线设备账号权限门禁` and added search routing in `docs/experience-index.md`.
 - Runtime bug follow-up: user reported `设备账号上下文不完整或不一致：post workstation binding loginUserId=1, postIds=[14]`; confirmed account 1 is the login user id and post 14 is the岗位 ID seen by the fallback post/workstation binding path.
 - Root cause follow-up: pressure-pump all-process authorization previously used explicit role-id permission checks, which bypassed standard login-user permission semantics.
 - RED: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest#shouldListAllPressurePumpProcessesWhenRoleHasPressurePumpAllProcessPermission" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: old explicit-role-only permission check falls back to post/workstation binding and raises `PRO_FRONTLINE_DEVICE_ACCOUNT_BINDING_SOURCE_MISSING`.
@@ -46,6 +46,9 @@
 - Command intent: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260803-pressure-pump-role-process-switch/bug-regression-evidence.md` -> FAIL, expected documentation-format issue: evidence file missed literal `RED:`, `GREEN:`, and `Verification` markers required by validator.
 - GREEN: rerun `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineEmployeeSwitchServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 11 tests, 0 failures, 0 errors, 0 skipped.
 - GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260803-pressure-pump-role-process-switch/bug-regression-evidence.md` -> PASS, `Bug regression evidence is valid.`
+- Cleanup preview follow-up: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-pressure-pump-role-process-switch --mode preview` -> READY, keep task/execution/verification reports, delete `bug-regression-evidence.md`, no blocked paths.
+- Cleanup apply follow-up: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-pressure-pump-role-process-switch --mode apply` -> APPLIED, deleted `bug-regression-evidence.md`, no blocked paths.
+- Experience index verification: `rg -n "post workstation binding|hasAnyPermissionsInRoles|MES 一线设备账号权限门禁" docs\backend-development.md docs\experience-index.md` -> PASS.
 
 ## Milestone Updates
 
@@ -57,6 +60,7 @@
 - Verification -> PASS: MES targeted JUnit, release migration policy gate, backend evidence validator, and database evidence validator passed.
 - Bug regression evidence -> PASS: validator accepted the follow-up evidence after required marker format was added.
 - Cleanup -> PASS: task-closeout-cleanup apply removed only current task temporary evidence files and preserved `task.md`, `execution-log.md`, and `verification-report.md`.
+- Experience consolidation -> PASS: reusable authorization gate was added to existing backend rules and indexed by error text and API names.
 
 ## Verification Evidence
 
@@ -67,4 +71,4 @@
 ## Blockers
 
 - Previous blocker changed by user authorization: user confirmed current branch local commits can be pushed together.
-- Current remaining action: validate bug regression evidence, run cleanup preview/apply for the new temporary evidence file, commit closeout records, and push `int_main`.
+- Current remaining action: commit final closeout records and push `int_main`; unrelated dirty files under `docs/acceptance/` are not task-owned and must not be staged by this task.

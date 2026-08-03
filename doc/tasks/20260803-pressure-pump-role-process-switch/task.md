@@ -37,7 +37,8 @@ ready_for_closeout
 
 - 已完成压力泵全工序权限服务链路、权限迁移 SQL、定向 JUnit、release migration policy gate、backend evidence validator、database evidence validator 和 task-closeout-cleanup apply。
 - 追加修复运行时错误：`设备账号上下文不完整或不一致：post workstation binding loginUserId=1, postIds=[14]` 的根因是压力泵权限判定曾走显式角色 ID 检查，现已改为标准登录用户权限检查。
-- 待收尾事项：补充 bug regression evidence、复验目标 JUnit、执行 task-closeout-cleanup，并推送当前分支全部本地提交。
+- 已补充 bug regression evidence、复验目标 JUnit、执行 task-closeout-cleanup，并将权限判定经验沉淀到 `docs/backend-development.md` 与 `docs/experience-index.md`。
+- 待收尾事项：提交本任务最终收尾记录，并推送当前分支全部本地提交。
 
 ## Completed Work
 
@@ -55,3 +56,4 @@ ready_for_closeout
 - GREEN: database schema evidence validator -> PASS。
 - RED: 旧显式角色 ID 权限检查下，`MesFrontlineDeviceAccountContextServiceTest#shouldListAllPressurePumpProcessesWhenRoleHasPressurePumpAllProcessPermission` 失败并落到 `PRO_FRONTLINE_DEVICE_ACCOUNT_BINDING_SOURCE_MISSING`，复现账号 1 / 岗位 14 的岗位绑定链路误判。
 - GREEN: 改为 `permissionApi.hasAnyPermissions(loginUserId, PRESSURE_PUMP_ALL_PROCESS_PERMISSION)` 后，`MesFrontlineDeviceAccountContextServiceTest` -> PASS, 5 tests；相邻三类目标测试 -> PASS, 11 tests。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260803-pressure-pump-role-process-switch/bug-regression-evidence.md` -> PASS；随后 cleanup apply 删除临时 evidence 文件并保留核心任务记录。
