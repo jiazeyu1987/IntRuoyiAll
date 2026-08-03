@@ -5,33 +5,33 @@
   "tenant": "测试租户",
   "username": "aoteman",
   "runData": {
-    "runId": "20260803074144",
-    "productCode": "CODX-MDM-ONB-20260803074144",
-    "dccProductCode": "C0260803074144",
-    "productNameCn": "Codex建档产品20260803074144",
-    "productNameEn": "Codex Onboarding Product 20260803074144",
-    "modelSpecification": "CODX-SPEC-074144",
+    "runId": "20260803074622",
+    "productCode": "CODX-MDM-ONB-20260803074622",
+    "dccProductCode": "C0260803074622",
+    "productNameCn": "Codex建档产品20260803074622",
+    "productNameEn": "Codex Onboarding Product 20260803074622",
+    "modelSpecification": "CODX-SPEC-074622",
     "productCategory": "Codex E2E",
-    "docControlNo": "CODX-DOC-074144",
-    "projectName": "Codex建档项目20260803074144",
-    "projectCode": "CODXONB03074144",
+    "docControlNo": "CODX-DOC-074622",
+    "projectName": "Codex建档项目20260803074622",
+    "projectCode": "CODXONB03074622",
     "category": "Codex E2E",
     "projectLeader": "Codex",
     "projectEngineer": "Codex",
     "storageLocation": "Codex E2E",
     "priority": "P2"
   },
-  "requestId": 6,
-  "generatedProjectCodeId": 260,
-  "productMasterId": 334,
+  "requestId": 7,
+  "generatedProjectCodeId": 261,
+  "productMasterId": 335,
   "targetWriteRequests": [
     "POST http://127.0.0.1:8096/admin-api/dcc/product-onboarding-requests/create",
-    "POST http://127.0.0.1:8096/admin-api/dcc/product-onboarding-requests/6/approve"
+    "POST http://127.0.0.1:8096/admin-api/dcc/product-onboarding-requests/7/approve"
   ],
   "targetNetworkFailures": [
     {
       "method": "GET",
-      "url": "http://127.0.0.1:8096/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "url": "http://127.0.0.1:8096/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
       "failure": "net::ERR_ABORTED"
     },
     {
@@ -41,7 +41,7 @@
     },
     {
       "method": "GET",
-      "url": "http://127.0.0.1:8096/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
+      "url": "http://127.0.0.1:8096/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
       "failure": "net::ERR_ABORTED"
     }
   ],
@@ -49,11 +49,11 @@
   "consoleErrors": [],
   "pageErrors": [],
   "verifiedProjectCode": {
-    "id": 260,
-    "productMasterId": 334,
-    "docControlNo": "CODX-DOC-074144",
-    "projectName": "Codex建档项目20260803074144",
-    "projectCode": "CODXONB03074144",
+    "id": 261,
+    "productMasterId": 335,
+    "docControlNo": "CODX-DOC-074622",
+    "projectName": "Codex建档项目20260803074622",
+    "projectCode": "CODXONB03074622",
     "category": "Codex E2E",
     "commissionedProduction": null,
     "projectLeader": "Codex",
@@ -62,19 +62,19 @@
     "priority": "P2",
     "status": "ENABLE",
     "associatedFileCount": null,
-    "createTime": 1785742912000,
-    "updateTime": 1785742912000
+    "createTime": 1785743189000,
+    "updateTime": 1785743189000
   },
   "verifiedMdmProduct": {
-    "id": 334,
-    "productCode": "CODX-MDM-ONB-20260803074144",
-    "dccProductCode": "C0260803074144",
-    "nameCn": "Codex建档产品20260803074144",
-    "nameEn": "Codex Onboarding Product 20260803074144",
-    "modelSpecification": "CODX-SPEC-074144",
+    "id": 335,
+    "productCode": "CODX-MDM-ONB-20260803074622",
+    "dccProductCode": "C0260803074622",
+    "nameCn": "Codex建档产品20260803074622",
+    "nameEn": "Codex Onboarding Product 20260803074622",
+    "modelSpecification": "CODX-SPEC-074622",
     "category": "Codex E2E",
     "status": "ENABLE",
-    "createTime": 1785742912000,
-    "updateTime": 1785742912000
+    "createTime": 1785743189000,
+    "updateTime": 1785743189000
   }
 }

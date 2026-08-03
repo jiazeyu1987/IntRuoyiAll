@@ -143,4 +143,8 @@
 - GREEN: post-merge `node tests\e2e\dcc-project-code-product-onboarding-static.spec.js` -> PASS.
 - GREEN: post-merge runtime checks -> backend `48096` health `UP`, frontend `8096` HTTP `200`.
 - GREEN/E2E: post-merge real Playwright E2E through `http://127.0.0.1:8096/mdm/project-code` with local Chrome -> PASS: `requestId=6`, `projectCodeId=260`, `productMasterId=334`, `projectCode=CODXONB03074144`; result JSON records `criticalNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
-- Current merge boundary: worktree branch is now updated with latest local `origin/int_main`; merge back to local `int_main` remains blocked by the dirty main worktree `E:\IntRuoyi` until unrelated changes are cleaned, committed, or explicitly baselined by their owning tasks.
+- Merge local main: `git merge --no-edit int_main` on `codex/dcc-product-onboarding-flow-20260803` -> PASS, merge commit created; branch runtime port guard passed during merge hooks. This brought already committed local `int_main` changes into the worktree branch without touching uncommitted main-workspace files.
+- GREEN: post-local-main-merge `node tests\e2e\dcc-project-code-product-onboarding-static.spec.js` -> PASS.
+- GREEN: post-local-main-merge runtime checks -> backend `48096` health `UP`, frontend `8096` HTTP `200`.
+- GREEN/E2E: post-local-main-merge real Playwright E2E through `http://127.0.0.1:8096/mdm/project-code` with local Chrome -> PASS: `requestId=7`, `projectCodeId=261`, `productMasterId=335`, `projectCode=CODXONB03074622`; result JSON records `criticalNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- Current merge boundary: worktree branch now contains latest local `origin/int_main` and local `int_main` committed history; merge back to local `int_main` remains blocked by the dirty main worktree `E:\IntRuoyi` until unrelated changes are cleaned, committed, or explicitly baselined by their owning tasks.

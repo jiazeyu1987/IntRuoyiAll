@@ -73,4 +73,7 @@
 - PASS: merged latest local `origin/int_main` into the worktree branch; branch runtime port guard passed.
 - PASS: post-merge static contract `node tests\e2e\dcc-project-code-product-onboarding-static.spec.js`.
 - PASS: post-merge real Playwright E2E through `http://127.0.0.1:8096/mdm/project-code` with local Chrome -> `requestId=6`, `projectCodeId=260`, `productMasterId=334`, `projectCode=CODXONB03074144`, `criticalNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
-- PENDING: integration still requires committing post-merge evidence, merging back to local `int_main`, and pushing if the dirty main workspace and GitHub HTTPS proxy/network permit.
+- PASS: merged local `int_main` committed history into the worktree branch; branch runtime port guard passed.
+- PASS: post-local-main-merge static contract `node tests\e2e\dcc-project-code-product-onboarding-static.spec.js`.
+- PASS: post-local-main-merge real Playwright E2E through `http://127.0.0.1:8096/mdm/project-code` with local Chrome -> `requestId=7`, `projectCodeId=261`, `productMasterId=335`, `projectCode=CODXONB03074622`, `criticalNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- PENDING: integration still requires committing final evidence, merging back to local `int_main`, and pushing if the dirty main workspace and GitHub HTTPS proxy/network permit.
