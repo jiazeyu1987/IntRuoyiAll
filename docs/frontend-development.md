@@ -148,6 +148,17 @@
 - Forbidden action: 禁止吞掉辅助接口错误、把真实失败改成空配置/未配置、关闭 axios 错误、或只隐藏全局 alert 而不展示错误归属。
 - Evidence: 任务 `doc/tasks/20260727-edhr-batch-record-list-system-exception/`，批记录表单列表中填写人规则延迟加载失败曾在列表已成功渲染后污染全局 `listErrorMessage`。
 
+## 前端页签首屏按需挂载门禁
+
+### 首屏页签懒挂载与可见行查询
+
+- Trigger: 多页签页面首次进入慢、红框页签首屏卡顿、`el-tab-pane` 默认挂载多个重组件、页签内列表按类别或行执行 N+1 辅助请求。
+- Preflight check: 先定位默认激活页签、未激活页签组件、父页面 `onMounted` 请求和子页签行级辅助请求；未激活页签必须用 `lazy` 加显式已访问集合控制挂载，行级辅助数据只为当前可见页或当前操作对象加载。
+- Blocker: 未激活页签仍首屏 mount，父页面为非默认页签无条件拉取默认页签列表，子页签首次加载对全量类别/全量行发起 N+1 请求，或辅助数据未加载时直接显示“未配置”造成误判时必须停止。
+- Verification: 新增聚焦静态合同断言 `el-tab-pane lazy`、`loadedTabNames`/`isTabPaneMounted` 挂载边界、父页面非目标页签不调用默认列表加载、可见行 ID 集合驱动辅助请求，并复跑相邻页签/菜单合同与 `pnpm ts:check`。
+- Forbidden action: 禁止用延时器、空数据、mock、关闭错误提示、隐藏页签、删除功能入口或把未加载状态伪装成未配置来冒充首屏优化。
+- Evidence: 任务 `doc/tasks/20260803-dcc-category-tabs-first-load/`，DCC 文控权限 6 个配置页签改为首次激活才挂载，分发/培训规则只加载当前可见类别行规则。
+
 ## DCC 上传类别权限投影门禁
 
 - Trigger: DCC 受控文件上传页、外来文件评审页、文件类别下拉、`upload-preview`、`Current user cannot access this controlled file`、类别级 `UPLOAD` 权限。

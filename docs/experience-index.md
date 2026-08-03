@@ -113,6 +113,7 @@
 - Keywords: 保存系统异常重复提示, axios 自动错误提示, ignoreErrorMessage, 子组件 rethrow 前 toast, 父组件统一 toast, save error single toast, RouteFlowGraphDesigner, RouteFormContent -> `docs/frontend-development.md#前端保存链路重复错误提示门禁`
 - Keywords: 主结果弹窗失败原因, result-dialog, 提交失败只显示状态, 保存失败原因可见, 发布失败原因可见, 大号结果弹框, failureReasonText, showFillActionResultDialog, toast 有原因但弹窗无原因 -> `docs/frontend-development.md#前端主结果弹窗失败原因可见门禁`
 - Keywords: 列表首屏成功后系统异常, 延迟辅助加载, 行级权限加载失败, listErrorMessage, permissionRuleErrorMessage, 批记录表单填写人规则加载失败, 辅助查询错误归属 -> `docs/frontend-development.md#前端延迟辅助加载错误归属门禁`
+- Keywords: 页签首屏慢, 首次进入加载慢, tab 首次进入, el-tab-pane lazy, loadedTabNames, isTabPaneMounted, 分发规则 N+1, 培训规则 N+1, visibleCategoryIds, 加载中 不误判未配置 -> `docs/frontend-development.md#前端页签首屏按需挂载门禁`
 - Keywords: DCC 上传类别权限, canUpload, Current user cannot access this controlled file, upload-preview, 文件类别下拉无上传权限, 类别级 UPLOAD 权限, DccControlledFileCategoryPermissionSupport -> `docs/frontend-development.md#dcc-上传类别权限投影门禁`
 - Keywords: DCC 基础条目关联文档, DCC项目代码关联文档, 三栏导航文件类型, fileTypeTaxonomyId, fileTypeLevel3, DCC 文件分类树, 技术文档阶段展开, 未分类文件类型, 按文件名归类未分类, 未分类自动归类, 列表页按文件名批量归类, 未加载分页, 受控文件元数据修改, Only doc control can update controlled file metadata, user_role_ids 角色缓存, doc_control 缓存刷新 -> `docs/frontend-development.md#dcc-基础条目关联文档分类树门禁`
 - Keywords: 草稿保存后仍可修改, 保存草稿不提交发布, 保存后不可继续编辑, 立即提交发布弹窗, submit-publish, DRAFT 被保存推进审批, RouteEditPage handleSaved, promptRouteVersionSubmit -> `docs/frontend-development.md#前端草稿保存与提交发布解耦门禁`
