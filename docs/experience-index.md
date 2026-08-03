@@ -77,6 +77,7 @@
 - Keywords: IncrementalBuildHelper.beforeRebuildExecution, WinNTFileSystem.delete0, Windows Maven 增量输出删除卡住, Maven 无 surefire 报告, 仅停止任务自有 Maven PID -> `docs/backend-development.md#2026-07-27-windows-maven-增量输出删除卡住门禁`
 - Keywords: target classes NoSuchFileException, Maven target cleanup stuck, WinNTFileSystem.delete0, getBooleanAttributes0, 同模块类大量缺失, DCC target 损坏, 不叠加 Maven 命令 -> `docs/powershell-memory.md#maven-目标目录文件系统异常门禁`
 - Keywords: detached verification worktree, isolated Maven target, git worktree add --detach, 主工作区 Maven target 冲突, 共享 target 并发 Maven, DCC target 隔离验证, 不启动服务不登记端口 -> `docs/worktree-memory.md#主工作区-maven-target-冲突时的隔离验证-worktree-门禁`
+- Keywords: No worktree port registry entry is registered, worktree port registry entry, 附加 worktree 提交钩子, branch-runtime-port-guard, reserve-worktree-slot, 不启动服务但提交失败, slot frontendPort backendPort -> `docs/worktree-memory.md#worktree-端口段与原子槽位门禁`
 - Keywords: 共享分支并发基线提交, concurrent baseline commit, 最近提交不是当前任务, git show --name-status -1 包含当前任务文件, 当前任务改动被基线吞入, 严格任务独立提交 -> `docs/powershell-memory.md#共享分支并发基线提交门禁`
 - Keywords: 同文件并行改动, mixed hunks, selective staging, git apply --cached, 选择性暂存, 本任务 hunks, 并行改动未混入 -> `docs/powershell-memory.md#同文件并行改动选择性暂存门禁`
 - Keywords: 批量暂存脚本被拦截, pathspec-from-file 被拦截, 显式路径暂存, PID 文件移出暂存区, diff --cached --check 失败证据文件, 提交当前可提交代码 -> `docs/powershell-memory.md#批量暂存脚本被拦截时的显式路径门禁`
