@@ -424,5 +424,6 @@ BDD: Archive metadata missing is visible -> Given a matched file is LOCAL_WRITTE
 - Completed: updated `docs/acceptance/tdd-plan.md` to state that unresolvable project code/item/category must remain official `未分类/待处理`, and updated `docs/acceptance/test-data.md` to bind local-directory samples to `showDirectoryPicker` and `NAS_UNCONTROLLED_IMPORT`.
 - GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
 - GREEN: `node -e "<doc consistency marker scan>"` -> PASS, `DOC_CONSISTENCY_PASS files=8 markers=5`.
-- GREEN: `git diff --check -- docs/acceptance/tdd-plan.md docs/acceptance/test-data.md` -> PASS, only Git LF-to-CRLF warnings.
+- GREEN: `node -e "<utf8/trailing whitespace check>"` -> PASS, `UTF8_TRAILING_CHECK_PASS files=5`.
+- GREEN: `git diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md docs/acceptance/tdd-plan.md docs/acceptance/test-data.md` -> PASS, only Git LF-to-CRLF warnings.
 - Boundary: documentation-only consistency hardening; no production code, NAS file, local directory, database data, workflow submit, controlled-file creation, or ACTIVE NAS source mapping was modified.

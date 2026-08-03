@@ -41,7 +41,8 @@
 
 - `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，`BDD/TDD acceptance plan validation passed.`
 - `node -e "<doc consistency marker scan>"` -> PASS，8 个任务/验收核心文档均包含 `ARCHIVE_METADATA_REQUIRED`、`未分类/待处理`、`showDirectoryPicker`、`LOCAL_WRITTEN` 和 `NAS_UNCONTROLLED_IMPORT`。
-- `git diff --check -- docs/acceptance/tdd-plan.md docs/acceptance/test-data.md` -> PASS，仅存在 Git 行尾转换 warning，无 whitespace error。
+- `node -e "<utf8/trailing whitespace check>"` -> PASS，`UTF8_TRAILING_CHECK_PASS files=5`。
+- `git diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md docs/acceptance/tdd-plan.md docs/acceptance/test-data.md` -> PASS，仅存在 Git 行尾转换 warning，无 whitespace error。
 - `node -e "<utf8 read check>"` -> PASS，任务文档、验收文档和经验文档均可按 UTF-8 读取，`contains_replacement=false`。
 - `git -C E:\IntRuoyi diff --check -- docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md docs/task-closeout-rules.md docs/experience-index.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md` -> PASS，仅存在 Git 行尾转换 warning，无 whitespace error。
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260802-dcc-uncontrolled-file-local-import-design --mode preview` -> PASS，delete/blocked/warnings 均为 none。
@@ -305,5 +306,6 @@
 - Fix: updated `docs/acceptance/tdd-plan.md` to explicitly require official `未分类/待处理` behavior for unresolved files, and updated `docs/acceptance/test-data.md` to bind local-directory samples to `showDirectoryPicker` and `NAS_UNCONTROLLED_IMPORT`.
 - GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
 - GREEN: `node -e "<doc consistency marker scan>"` -> PASS, `DOC_CONSISTENCY_PASS files=8 markers=5`.
-- GREEN: `git diff --check -- docs/acceptance/tdd-plan.md docs/acceptance/test-data.md` -> PASS, only Git LF-to-CRLF warnings.
+- GREEN: `node -e "<utf8/trailing whitespace check>"` -> PASS, `UTF8_TRAILING_CHECK_PASS files=5`.
+- GREEN: `git diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md docs/acceptance/tdd-plan.md docs/acceptance/test-data.md` -> PASS, only Git LF-to-CRLF warnings.
 - Boundary: documentation-only hardening; no production code, NAS file, local directory, database data, workflow submit, controlled-file creation, or ACTIVE NAS source mapping was modified.
