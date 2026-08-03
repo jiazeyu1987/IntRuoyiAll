@@ -1296,8 +1296,8 @@ SELECT 6811, 'DCC受控下载', 'dcc:controlled-file:download', 3, 2, 6807, '', 
 WHERE NOT EXISTS (SELECT 1 FROM `system_menu` WHERE `permission` = 'dcc:controlled-file:download');
 
 INSERT INTO `system_menu`
-(`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`)
-SELECT 6813, 'DCC受控打印', 'dcc:controlled-file:print', 3, 4, 6807, '', '', '', '', 0, b'1', b'1', b'1', '1', NOW(), '1', NOW(), b'0'
+(`name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`)
+SELECT 'DCC受控打印', 'dcc:controlled-file:print', 3, 4, 6807, '', '', '', '', 0, b'1', b'1', b'1', '1', NOW(), '1', NOW(), b'0'
 WHERE NOT EXISTS (SELECT 1 FROM `system_menu` WHERE `permission` = 'dcc:controlled-file:print');
 
 INSERT INTO `system_menu`
