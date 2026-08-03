@@ -44,4 +44,11 @@
 - During verification, concurrent workspace changes appeared in unrelated backend, docs, and task files. This task only owns the DCC browser page, the focused static contract, and `doc/tasks/20260803-dcc-browser-action-labels/`.
 - Recent concurrent baseline commit `a52a46a94` included some workspace changes before this task's final implementation commit; current task commit must stage explicit task-owned paths only.
 
-## Cleanup Evi
+## Cleanup Evidence
+
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-browser-action-labels --mode preview` -> ready; kept `task.md`, `execution-log.md`, `verification-report.md`; deleted candidate `frontend-feature-evidence.md`; blocked none.
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-browser-action-labels --mode apply` -> applied; deleted `doc/tasks/20260803-dcc-browser-action-labels/frontend-feature-evidence.md`; blocked none.
+
+## Blockers
+
+- None currently.
