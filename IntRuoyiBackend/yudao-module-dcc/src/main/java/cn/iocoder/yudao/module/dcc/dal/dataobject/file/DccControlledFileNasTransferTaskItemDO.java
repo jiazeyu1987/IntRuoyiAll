@@ -26,6 +26,8 @@ public class DccControlledFileNasTransferTaskItemDO extends BaseDO {
 
     private Long taskId;
 
+    private Long auditFileId;
+
     private Long parentItemId;
 
     private String itemType;
@@ -35,6 +37,42 @@ public class DccControlledFileNasTransferTaskItemDO extends BaseDO {
     private String itemName;
 
     private Long sourceFileId;
+
+    private String sourceSignature;
+
+    private String classificationStatusSnapshot;
+
+    private Long matchedProjectCodeIdSnapshot;
+
+    private Long matchedFileTypeTaxonomyIdSnapshot;
+
+    private String matchedFileTypeLevel1Snapshot;
+
+    private String matchedFileTypeLevel2Snapshot;
+
+    private String matchedFileTypeLevel3Snapshot;
+
+    private String matchedFileTypeLevel4Snapshot;
+
+    private String matchedFileTypeLevel5Snapshot;
+
+    private String classificationReasonSnapshot;
+
+    private String classificationCandidatesJsonSnapshot;
+
+    private String localRelativePath;
+
+    private String localWriteStatus;
+
+    private String localWriteErrorCode;
+
+    private String localWriteError;
+
+    private String archiveStatus;
+
+    private String archiveErrorCode;
+
+    private String archiveError;
 
     private String status;
 

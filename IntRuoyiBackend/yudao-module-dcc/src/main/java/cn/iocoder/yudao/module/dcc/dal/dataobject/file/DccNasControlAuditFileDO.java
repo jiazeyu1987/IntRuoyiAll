@@ -70,6 +70,10 @@ public class DccNasControlAuditFileDO extends BaseDO {
 
     private String archiveStatus;
 
+    private Long selectedImportTaskId;
+
+    private Long selectedImportTaskItemId;
+
     private String localRelativePath;
 
     private String localWriteErrorCode;
