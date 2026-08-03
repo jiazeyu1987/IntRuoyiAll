@@ -2,7 +2,7 @@
 
 ## Summary
 
-已完成 DCC 未受控文件本地下载与自动归类的文档设计、BDD 场景、严格 TDD 顺序、真实 E2E 计划、测试数据设计、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化和 M15 import-selected 任务快照 schema 切片。设计复用当前 NAS 管理、未受控统计、NAS transfer、DCC 项目代码、文件分类树和分类规则能力；无法唯一识别项目代码、item 或分类时，统一进入正式 `未分类/待处理` 状态，不引入默认归类或降级路径。本轮 M15 仅完成 schema/DO/test schema/SQL contract 支撑，不代表 import-selected 服务/API、content 或 local-write-result 已实现。
+已完成 DCC 未受控文件本地下载与自动归类的文档设计、BDD 场景、严格 TDD 顺序、真实 E2E 计划、测试数据设计、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片和 M16 后续实现门禁加固。设计复用当前 NAS 管理、未受控统计、NAS transfer、DCC 项目代码、文件分类树和分类规则能力；无法唯一识别项目代码、item 或分类时，统一进入正式 `未分类/待处理` 状态，不引入默认归类或降级路径。M16 补齐旧 NAS transfer 必填字段隔离、legacy processor 跳过、幂等并发锁和正式归档元数据来源验证；不代表 import-selected 服务/API、content、local-write-result、前端或真实 E2E 已实现。
 
 ## Files Verified
 
@@ -68,6 +68,9 @@
 - UTF-8 read check for M15 task/evidence files -> PASS，全部 `contains_replacement=False`。
 - Scoped `git diff --check` for M15 tracked files -> PASS，无 whitespace error。
 - Trailing whitespace check for new SQL contract file -> PASS。
+- `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，M16 文档加固后 `BDD/TDD acceptance plan validation passed.`
+- UTF-8 read check for M16 task and acceptance docs -> PASS，8 个文档全部 `contains_replacement=False`。
+- `git -C E:\IntRuoyi diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md` -> PASS，仅存在 Git LF-to-CRLF warning。
 
 ## Design Checks
 
@@ -101,10 +104,14 @@
 - Import binding ready: 文档要求 audit 明细与 import task/item 绑定可查询，活动绑定重复提交必须拒绝。
 - Local write replay ready: 文档要求相同 local-write-result 重放幂等返回且不重复归档，冲突终态回写必须拒绝。
 - Import snapshot schema ready: transfer task 已具备 `audit_task_id/idempotency_key/request_hash`，task item 已具备 audit file、source signature、识别快照、本地相对路径、本地写入和归档状态字段，audit 明细已具备 import task/item 绑定字段，并通过 JUnit 与 SQL contract 验证。
+- Legacy field isolation ready: `NAS_UNCONTROLLED_IMPORT` 不得要求或伪造任务级 `templateCategoryId/effectiveDate/dccProjectCodeId` 等旧 NAS 转移全局目标字段，旧 `NAS` / `LOCAL_FOLDER` 入口仍需 fail fast 校验必填输入。
+- Processor isolation ready: import-selected 只创建任务快照，不得由旧 waiting processor 自动读取 NAS、调用 DCC submit 或写 ACTIVE NAS 来源映射。
+- Archive metadata gate ready: `LOCAL_WRITTEN` 后正式归档仍必须具备模板分类、生效日期、变更原因或等价正式来源；缺失时进入 `ARCHIVE_METADATA_REQUIRED` 或明确失败/阻塞状态。
+- Idempotency concurrency ready: 后续实现必须以唯一约束或等价事务锁保护 `tenant + operator + idempotencyKey`，不能只依赖普通索引或前端防抖。
 
 ## Blockers
 
-- Closeout Git blocker: 当前 `int_main` 已 ahead 2，且工作区存在任务开始前的其它任务改动和未跟踪目录。本任务未执行 baseline commit、implementation commit 或 push，避免把并发任务资产混入本任务收尾。
+- Closeout Git blocker: 当前 `int_main` 已 ahead 7，且工作区存在任务开始前和其它并发任务改动及未跟踪目录。本任务未执行 baseline commit、implementation commit 或 push，避免把并发任务资产混入本任务收尾。
 - Implementation blocker for future coding: 当前证据未确认独立 DCC item 表；后续实现前必须再次检索正式 item 模型。若存在独立 item 表，需先更新设计与测试，不得临时映射。
 
 ## M11 Backend API Slice
@@ -141,3 +148,11 @@
 - GREEN: SQL static contracts passed with 4 tests.
 - Evidence: database schema validator and BDD/TDD acceptance plan validator passed after evidence updates.
 - Boundary: schema/persistence contract only; import-selected service/API, content binary download, local-write-result, frontend and real E2E remain in progress.
+
+## M16 Documentation Gate
+
+- Scope: optimized design, BDD, TDD, E2E, test data, task and verification evidence for import-selected implementation readiness beyond schema.
+- Added gates: legacy transfer field isolation, processor isolation before content/local-write, idempotency concurrency lock, stable audit row locking, and formal archive metadata source validation.
+- Verification: acceptance validator PASS, UTF-8 read check PASS, scoped git diff --check PASS.
+- Boundary: documentation-only update; no production code, NAS files, local folders, runtime services or business data were modified.
+- Remaining: backend import-selected service/API, content binary download, local-write-result, frontend static contract and real E2E still require strict RED/GREEN implementation.

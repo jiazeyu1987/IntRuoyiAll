@@ -997,6 +997,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
 
     private DccProjectCodeDO buildProjectCodeDO(DccProjectCodeSaveReqVO reqVO, Long lastImportBatchId) {
         return DccProjectCodeDO.builder()
+                .productMasterId(reqVO.getProductMasterId())
                 .docControlNo(reqVO.getDocControlNo())
                 .projectName(reqVO.getProjectName())
                 .projectCode(reqVO.getProjectCode())
@@ -1024,6 +1025,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
                 .set(DccProjectCodeDO::getStorageLocation, reqVO.getStorageLocation())
                 .set(DccProjectCodeDO::getPriority, reqVO.getPriority())
                 .set(DccProjectCodeDO::getStatus, reqVO.getStatus())
+                .set(lastImportBatchId == null, DccProjectCodeDO::getProductMasterId, reqVO.getProductMasterId())
                 .set(lastImportBatchId != null, DccProjectCodeDO::getLastImportBatchId, lastImportBatchId));
     }
 

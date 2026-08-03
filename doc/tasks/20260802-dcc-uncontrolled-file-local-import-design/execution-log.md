@@ -17,6 +17,7 @@
 - 当前继续按已生成开发文档执行实现与验证，优先推进 schema 明细表切片；本轮只修改迁移、测试 schema、DO/Mapper、测试与任务证据，不操作真实 NAS 或真实业务数据库。
 - 按用户要求继续优化开发文档，补齐大文件传输、本地路径可写性、状态机、并发和 content 权限门禁，确保按文档开发时能被测试验证拦住潜在问题。
 - 本轮继续优化 import-selected 和 local-write-result 文档门禁，只修改设计、BDD/TDD/E2E、测试数据和任务证据，不新增生产代码、不操作真实 NAS、本地目录或业务数据库。
+- 本轮继续加固 import-selected 后续实现文档门禁，只修改设计、BDD/TDD/E2E、测试数据和任务证据，补齐旧 NAS transfer 必填字段隔离、legacy processor 跳过、幂等并发保护和正式归档元数据来源验证。
 
 ## BDD Evidence
 
@@ -50,6 +51,12 @@ BDD: Import request hash is canonical -> Given the same selected audit files are
 BDD: Local write result replay is idempotent -> Given a matched audit file has already completed LOCAL_WRITTEN and archive When the same local-write-result is replayed Then backend returns current state without creating another controlled file or ACTIVE NAS source mapping; conflicting terminal results are rejected.
 
 BDD: Import-selected task snapshots are schema-backed -> Given selected audit files will be locked into an import task When the backend creates `NAS_UNCONTROLLED_IMPORT` Then task header stores audit task, idempotency key and canonical request hash, task items store audit file/source signature/recognition/local path snapshots, and audit files expose current import task/item binding for duplicate-selection checks.
+
+BDD: Import-selected does not reuse legacy NAS transfer defaults -> Given NAS_UNCONTROLLED_IMPORT reuses the transfer task table When import-selected creates a task Then task-level template/effective date/project defaults are not required or fabricated, and old NAS/LOCAL_FOLDER flows still keep their required-input validation.
+
+BDD: Legacy processor skips uncontrolled import tasks -> Given a NAS_UNCONTROLLED_IMPORT task exists When existing NAS transfer processors run before content and LOCAL_WRITTEN Then they skip the task and do not read NAS content, submit DCC files, or write ACTIVE NAS source mappings.
+
+BDD: Archive metadata missing is visible -> Given a matched file is LOCAL_WRITTEN but formal DCC archive metadata source is missing When backend attempts archive Then it records ARCHIVE_METADATA_REQUIRED or an explicit blocked/failed state instead of using current date, empty template, or old task defaults.
 
 ## Milestone Log
 
@@ -236,3 +243,17 @@ BDD: Import-selected task snapshots are schema-backed -> Given selected audit fi
 - GREEN: UTF-8 read check for M15 task/evidence files -> PASS, all `contains_replacement=False`.
 - GREEN: scoped `git diff --check` for M15 tracked files -> PASS, no whitespace errors.
 - GREEN: trailing whitespace check for new SQL contract file -> PASS.
+
+### M16
+
+- Status: completed
+- Completed: strengthened executable docs for legacy NAS transfer field isolation, `NAS_UNCONTROLLED_IMPORT` processor isolation, idempotency/concurrency locking, stable audit-row locking, and formal archive metadata source requirements.
+- Scope: documentation and task evidence only; no production code, NAS files, local folders, runtime services or business data were modified.
+- Verification: acceptance validator PASS, UTF-8 read check PASS, scoped git diff --check PASS.
+- Blockers: none for documentation; import-selected service/API, content binary download, local-write-result, frontend static contract and real E2E remain implementation work.
+
+## M16 Verification Evidence
+
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8 read check for `task.md`, `execution-log.md`, `design.md`, `verification-report.md`, `bdd-scenarios.md`, `tdd-plan.md`, `e2e-plan.md`, and `test-data.md` -> PASS, all `contains_replacement=False`.
+- GREEN: `git -C E:\IntRuoyi diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md` -> PASS, only Git LF-to-CRLF warnings.

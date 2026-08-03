@@ -3637,8 +3637,8 @@ const loadData = async () => {
     getDirectoryTree(),
     getSimpleUserList(),
     getSimpleDeptList(),
-    getPaperDistributionRecords(controlledFileId.value),
-    getActiveApprovalPrintTemplate()
+    viewerMode.value ? Promise.resolve([]) : getPaperDistributionRecords(controlledFileId.value),
+    viewerMode.value ? Promise.resolve(null) : getActiveApprovalPrintTemplate()
   ])
   fileDetail.value = detail
   await loadActiveObsoleteAction(detail)

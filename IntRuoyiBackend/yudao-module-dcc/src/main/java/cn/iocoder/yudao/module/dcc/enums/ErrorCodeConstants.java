@@ -174,6 +174,16 @@ public interface ErrorCodeConstants {
     ErrorCode PROJECT_CODE_DELETE_REFERENCED = new ErrorCode(1_080_000_141,
             "DCC project code cannot be deleted because DCC files still reference it");
     ErrorCode PROJECT_CODE_STATUS_INVALID = new ErrorCode(1_080_000_142, "DCC project code status is invalid");
+    ErrorCode PRODUCT_ONBOARDING_NOT_EXISTS = new ErrorCode(1_080_000_191,
+            "DCC product onboarding request does not exist");
+    ErrorCode PRODUCT_ONBOARDING_DUPLICATE_PROJECT_CODE = new ErrorCode(1_080_000_192,
+            "DCC product onboarding project code already exists or is pending");
+    ErrorCode PRODUCT_ONBOARDING_STATUS_INVALID = new ErrorCode(1_080_000_193,
+            "DCC product onboarding request status is invalid");
+    ErrorCode PRODUCT_ONBOARDING_MDM_PRODUCT_INVALID = new ErrorCode(1_080_000_194,
+            "DCC product onboarding MDM product is invalid: {}");
+    ErrorCode PRODUCT_ONBOARDING_REQUIRED_FIELD_MISSING = new ErrorCode(1_080_000_195,
+            "DCC product onboarding required field is missing: {}");
     ErrorCode DCC_PRODUCT_CATALOG_ROW_KEY_INVALID = new ErrorCode(1_080_000_148,
             "DCC product catalog row key is invalid: {}");
     ErrorCode DCC_PRODUCT_CATALOG_DATA_SOURCE_INVALID = new ErrorCode(1_080_000_149,

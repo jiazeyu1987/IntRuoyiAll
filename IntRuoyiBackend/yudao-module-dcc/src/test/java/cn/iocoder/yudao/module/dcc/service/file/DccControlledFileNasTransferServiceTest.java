@@ -160,6 +160,45 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs() throws Exception {
+        Class<?> requestType = Class.forName("cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportSelectedReqVO");
+        Method method = DccControlledFileNasTransferService.class
+                .getMethod("createUncontrolledImportTask", Long.class, Long.class, requestType);
+
+        assertEquals(DccControlledFileNasTransferRespVO.class, method.getReturnType());
+        for (Method requestMethod : requestType.getMethods()) {
+            String methodName = requestMethod.getName();
+            assertTrue(!methodName.contains("TemplateCategoryId")
+                            && !methodName.contains("EffectiveDate")
+                            && !methodName.contains("DccProjectCodeId"),
+                    "NAS uncontrolled import request must not expose legacy transfer target field: " + methodName);
+        }
+    }
+
+    @Test
+    void processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten() {
+        DccControlledFileNasTransferTaskDO importTask = DccControlledFileNasTransferTaskDO.builder()
+                .id(77L)
+                .auditTaskId(7001L)
+                .operatorUserId(99L)
+                .sourceType("NAS_UNCONTROLLED_IMPORT")
+                .status(DccControlledFileNasTransferServiceImpl.TASK_STATUS_WAITING)
+                .idempotencyKey("idem-import-77")
+                .requestHash("a".repeat(64))
+                .build();
+        when(taskMapper.selectWaitingTasks(any(LocalDateTime.class))).thenReturn(List.of(importTask));
+        when(taskMapper.selectById(77L)).thenReturn(importTask);
+
+        transferService.processWaitingTasks();
+
+        verify(taskMapper, never()).claimWaitingTask(eq(77L), any(LocalDateTime.class));
+        verify(nasBrowserService, never()).listFiles(any());
+        verify(nasBrowserService, never()).readFile(any());
+        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
     void transfer_createsAsyncTaskWithoutImmediateNasTraversal() {
         ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
         TenantContextHolder.setTenantId(1L);

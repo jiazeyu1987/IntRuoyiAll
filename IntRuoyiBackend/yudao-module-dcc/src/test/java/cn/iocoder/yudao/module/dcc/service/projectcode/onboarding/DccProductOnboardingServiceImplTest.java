@@ -105,8 +105,8 @@ class DccProductOnboardingServiceImplTest extends BaseMockitoUnitTest {
         verify(projectCodeMapper).insert(projectCodeCaptor.capture());
         DccProjectCodeDO projectCode = projectCodeCaptor.getValue();
         assertEquals(5000L, projectCode.getProductMasterId());
-        assertEquals("正式产品", projectCode.getProjectName());
-        assertEquals("A1234567890123", projectCode.getProjectCode());
+        assertEquals("新产品 DCC 项目", projectCode.getProjectName());
+        assertEquals("DCC-NEW-001", projectCode.getProjectCode());
         assertEquals(DccProjectCodeStatusConstants.ENABLE, projectCode.getStatus());
         assertEquals(DccProductOnboardingStatusConstants.APPROVED, approved.getStatus());
         assertEquals(99L, approved.getApproverUserId());
@@ -122,7 +122,7 @@ class DccProductOnboardingServiceImplTest extends BaseMockitoUnitTest {
                 .thenThrow(new IllegalStateException("MDM_PRODUCT_DISABLED: 产品主数据已停用"));
 
         assertServiceException(() -> onboardingService.approveRequest(99L, 100L),
-                PRODUCT_ONBOARDING_MDM_PRODUCT_INVALID);
+                PRODUCT_ONBOARDING_MDM_PRODUCT_INVALID, "MDM_PRODUCT_DISABLED: 产品主数据已停用");
 
         verify(projectCodeMapper, never()).insert(any(DccProjectCodeDO.class));
         verify(requestMapper, never()).updateById(any(DccProductOnboardingRequestDO.class));

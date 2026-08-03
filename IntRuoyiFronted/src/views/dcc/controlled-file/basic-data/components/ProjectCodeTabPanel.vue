@@ -1257,6 +1257,36 @@ const importFileList = ref<any[]>([])
 const importFile = ref<File | null>(null)
 const previewResult = ref<DccProjectCodeImportPreviewRespVO | null>(null)
 const importRows = computed<DccProjectCodeImportRowRespVO[]>(() => previewResult.value?.rows || [])
+const productOnboardingVisible = ref(false)
+const productOnboardingLoading = ref(false)
+const productOnboardingSubmitting = ref(false)
+const productOnboardingApproving = ref(false)
+const productOnboardingProductLoading = ref(false)
+const productOnboardingCreatedRequestId = ref<number | null>(null)
+const productOnboardingFormRef = ref()
+const productOnboardingProducts = ref<MdmProductSimpleRespVO[]>([])
+const productOnboardingFormData = reactive<ProductOnboardingFormData>({
+  productMasterId: undefined,
+  productCode: '',
+  dccProductCode: '',
+  productNameCn: '',
+  productNameEn: '',
+  modelSpecification: '',
+  productCategory: '',
+  docControlNo: '',
+  projectName: '',
+  projectCode: '',
+  category: '',
+  commissionedProduction: '',
+  projectLeader: '',
+  projectEngineer: '',
+  storageLocation: '',
+  priority: ''
+})
+const productOnboardingFormRules = reactive<FormRules>({
+  projectName: [{ required: true, message: '目标项目名称不能为空', trigger: 'blur' }],
+  projectCode: [{ required: true, message: '目标项目代码不能为空', trigger: 'blur' }]
+})
 const assignmentForm = reactive<{
   assigneeUserId?: number
   scopeMode: DccProjectCodeAssignmentCreateReqVO['scopeMode']
@@ -1739,6 +1769,7 @@ const applyAssociatedRouteFocus = () => {
 }
 const formData = ref<DccProjectCodeUpdateReqVO>({
   id: 0,
+  productMasterId: undefined,
   docControlNo: '',
   projectName: '',
   projectCode: '',
@@ -1794,6 +1825,7 @@ const resolveQueryAssociatedTaxonomyId = () => {
 const resetFormData = () => {
   formData.value = {
     id: 0,
+    productMasterId: undefined,
     docControlNo: '',
     projectName: '',
     projectCode: '',
@@ -1911,6 +1943,7 @@ const openForm = (type: 'create' | 'update', row?: DccProjectCodeRespVO) => {
   if (type === 'update' && row) {
     formData.value = {
       id: row.id,
+      productMasterId: row.productMasterId,
       docControlNo: row.docControlNo || '',
       projectName: row.projectName,
       projectCode: row.projectCode || '',
@@ -1926,6 +1959,7 @@ const openForm = (type: 'create' | 'update', row?: DccProjectCodeRespVO) => {
 }
 
 const buildSavePayload = (): DccProjectCodeSaveReqVO => ({
+  productMasterId: formData.value.productMasterId,
   docControlNo: formData.value.docControlNo,
   projectName: formData.value.projectName,
   projectCode: formData.value.projectCode,
@@ -1959,6 +1993,105 @@ const submitForm = async () => {
     await getList()
   } finally {
     formLoading.value = false
+  }
+}
+
+const resetProductOnboardingFormData = () => {
+  Object.assign(productOnboardingFormData, {
+    productMasterId: undefined,
+    productCode: '',
+    dccProductCode: '',
+    productNameCn: '',
+    productNameEn: '',
+    modelSpecification: '',
+    productCategory: '',
+    docControlNo: '',
+    projectName: '',
+    projectCode: '',
+    category: '',
+    commissionedProduction: '',
+    projectLeader: '',
+    projectEngineer: '',
+    storageLocation: '',
+    priority: ''
+  })
+  productOnboardingCreatedRequestId.value = null
+  productOnboardingFormRef.value?.resetFields()
+}
+
+const loadProductOnboardingProducts = async () => {
+  productOnboardingProductLoading.value = true
+  try {
+    productOnboardingProducts.value = await getProductSimpleList({
+      status: MDM_PRODUCT_STATUS_ENABLE,
+      requireDccProductCode: true
+    })
+  } finally {
+    productOnboardingProductLoading.value = false
+  }
+}
+
+const openProductOnboardingDialog = async () => {
+  productOnboardingVisible.value = true
+  productOnboardingLoading.value = true
+  resetProductOnboardingFormData()
+  try {
+    await loadProductOnboardingProducts()
+  } finally {
+    productOnboardingLoading.value = false
+  }
+}
+
+const handleProductOnboardingMdmProductChange = (productId?: number | string) => {
+  const selectedProduct = productOnboardingProducts.value.find(
+    (product) => Number(product.id) === Number(productId)
+  )
+  if (!selectedProduct) {
+    return
+  }
+  productOnboardingFormData.productCode = selectedProduct.productCode
+  productOnboardingFormData.dccProductCode = selectedProduct.dccProductCode || ''
+  productOnboardingFormData.productNameCn = selectedProduct.nameCn
+  productOnboardingFormData.productNameEn = selectedProduct.nameEn || ''
+  productOnboardingFormData.modelSpecification = selectedProduct.modelSpecification || ''
+  productOnboardingFormData.productCategory = selectedProduct.category || ''
+  if (!productOnboardingFormData.projectName) {
+    productOnboardingFormData.projectName = selectedProduct.nameCn
+  }
+  if (!productOnboardingFormData.projectCode && selectedProduct.dccProductCode) {
+    productOnboardingFormData.projectCode = selectedProduct.dccProductCode
+  }
+}
+
+const submitProductOnboardingRequest = async () => {
+  const valid = await productOnboardingFormRef.value?.validate()
+  if (!valid) {
+    return
+  }
+  productOnboardingSubmitting.value = true
+  try {
+    productOnboardingCreatedRequestId.value = await createProductOnboardingRequest({
+      ...productOnboardingFormData,
+      productMasterId: productOnboardingFormData.productMasterId || undefined
+    })
+    message.success('产品建档申请已提交')
+  } finally {
+    productOnboardingSubmitting.value = false
+  }
+}
+
+const approveProductOnboardingCreatedRequest = async () => {
+  if (!productOnboardingCreatedRequestId.value) {
+    return
+  }
+  productOnboardingApproving.value = true
+  try {
+    await approveProductOnboardingRequest(productOnboardingCreatedRequestId.value)
+    message.success('产品建档申请已审批通过')
+    productOnboardingVisible.value = false
+    await getList()
+  } finally {
+    productOnboardingApproving.value = false
   }
 }
 

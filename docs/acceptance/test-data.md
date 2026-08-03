@@ -37,6 +37,13 @@
 - 需要记录每个识别样本的预期 `classificationReason`、候选摘要条数和 `expectedLocalRelativePath`；候选摘要只记录候选 id、代码/名称、规则 id 和匹配依据，不记录文件内容或凭据。
 - 规则、分类树和项目代码创建完成后必须记录任务自有 run id；若缺少正式分类树，只能验证待处理路径，不得临时硬编码扩展名分类。
 
+### DCC 归档元数据
+
+- 成功归档路径必须准备正式来源的模板分类、生效日期、变更原因或当前 DCC submit 所需等价元数据，并记录其来源、id 和 run id。
+- 元数据缺失样本必须故意不提供上述正式来源，用于验证 `ARCHIVE_METADATA_REQUIRED` 或等价稳定错误码。
+- 不得把旧 NAS 转移任务的 `templateCategoryId`、`effectiveDate`、任务级项目代码、当前日期或空模板作为未受控导入的测试默认值。
+- 旧 `NAS` / `LOCAL_FOLDER` 回归样本仍必须覆盖其原有必填字段缺失时 fail fast，证明 nullable schema 没有放松旧入口。
+
 ### NAS 样本文件
 
 - 成功归档样本：`1. QMS documents/CODEx-UCF-<id>/OQ/CODEx-UCF-<id>-OQ-report.pdf`
@@ -55,6 +62,8 @@
 - 本地路径篡改样本：把后端预览的 `expectedLocalRelativePath` 改成其它项目代码、其它分类、错误 `_未分类待处理` 前缀或本地绝对路径，用于验证后端拒绝 `import-selected`。
 - 混合无效选择样本：同一请求同时包含一个合法 audit file 和一个跨 task、未识别、签名过期、已绑定或已归档 audit file，用于验证 `import-selected` 整体拒绝且合法文件也不进入 `SELECTED`。
 - local-write-result 重放样本：复用已成功本地写入并归档的任务自有 audit file，重复提交相同 `LOCAL_WRITTEN` 回写并提交一次冲突终态，用于验证不重复归档且冲突不覆盖。
+- legacy processor 隔离样本：复用一个可匹配 audit file，只执行到 `import-selected` 成功并暂停 content 下载，用于验证旧 NAS transfer processor 不会自动推进 `CONTENT_READY`、`LOCAL_WRITTEN` 或 `ARCHIVED`。
+- 归档元数据缺失样本：复用一个可匹配 audit file，完成 content 和本地写入成功后故意缺少正式归档元数据，用于验证 `archiveStatus=FAILED` 或明确阻塞且错误码为 `ARCHIVE_METADATA_REQUIRED` 或等价稳定值。
 - 分页显式选择样本：准备超过一页的未受控明细，记录第一页被勾选的 audit file ids 和未勾选页 ids，用于验证首版只处理显式 ids。
 - 取消目录选择样本：使用任一未受控明细即可，验证取消后无 import task、无 content 请求、无 local-write-result 回写，且后端 audit 明细状态保持不变。
 - 所有样本路径必须包含 task id 或唯一时间戳。
@@ -71,6 +80,8 @@
 - 未创建 import task 的取消、浏览器不支持和本地路径预检失败路径只记录前端观察证据，不记录伪造的 `importTaskId`。
 - 混合无效选择整体拒绝路径必须记录请求前后的 audit 明细状态、import 任务数量、content 请求数和 DCC 写请求数；合法文件不得因为同批存在无效文件而留下 `SELECTED` 或 import 绑定。
 - local-write-result 重放路径必须记录第一次和第二次回写后的受控文件 id、ACTIVE NAS 来源映射数量和归档请求数量；重复回写不得产生新 id。
+- legacy processor 隔离路径必须记录 `importTaskId` 创建时间、content 请求前等待窗口、处理项状态、受控文件数量和 ACTIVE NAS 来源映射数量。
+- 归档元数据缺失路径必须记录正式元数据缺项、`LOCAL_WRITTEN` 证据、归档错误码和未创建受控文件证据。
 - E2E 完成后删除本任务本地测试目录。
 
 ## Reset Procedure
@@ -85,6 +96,7 @@
 8. 清理报告必须列出 `auditTaskId`、`importTaskId`、项目代码、NAS 样本路径和本地测试目录；取消目录选择、浏览器不支持和预检失败路径应记录“无 importTaskId”。
 9. 对跨任务、签名失效、混合无效选择、local-write-result 重放和已归档重复提交样本，只清理本任务自有数据；不得删除其它任务或其它租户的 audit/import 证据。
 10. 若重复回写测试已经创建受控文件，只通过正式清理入口清理该一个任务自有受控文件；不得直接删除用于证明幂等的历史 audit/import 证据，除非清理授权明确要求。
+11. 对 legacy processor 隔离和归档元数据缺失样本，清理时必须先确认没有受控文件和 ACTIVE NAS 来源映射被误创建；若误创建，按缺陷处理并保留审计证据，不得直接删除掩盖问题。
 
 ## Data Ownership
 
@@ -98,4 +110,5 @@
 - NAS share 不可写、样本目录无法创建、权限不足或文件写入后扫描不可见时，真实写入路径阻塞。
 - DCC 文件分类树缺少正式目标分类时，成功归档路径阻塞；待处理路径仍可验证。
 - 项目代码导入或创建权限缺失时，成功归档路径阻塞。
+- 正式 DCC 归档元数据来源缺失时，成功归档路径阻塞；只能验证本地写入成功后的显式归档阻塞，不得用默认元数据替代。
 - 无法保证测试数据清理时，不得执行写入型 E2E。

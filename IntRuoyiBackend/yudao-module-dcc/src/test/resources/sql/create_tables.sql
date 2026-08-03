@@ -1296,6 +1296,7 @@ CREATE TABLE IF NOT EXISTS `dcc_nas_acl_restore_log` (
 
 CREATE TABLE IF NOT EXISTS `dcc_project_code` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `product_master_id` BIGINT NULL,
   `doc_control_no` VARCHAR(64) NULL,
   `project_name` VARCHAR(255) NOT NULL,
   `project_code` VARCHAR(64) NOT NULL DEFAULT '',
@@ -1316,6 +1317,40 @@ CREATE TABLE IF NOT EXISTS `dcc_project_code` (
   `deleted` TINYINT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   CONSTRAINT `uk_dcc_project_code_tenant_project` UNIQUE (`tenant_id`, `project_name`, `project_code`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_product_onboarding_request` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `product_master_id` BIGINT NULL,
+  `product_code` VARCHAR(64) NULL,
+  `dcc_product_code` VARCHAR(14) NULL,
+  `product_name_cn` VARCHAR(255) NULL,
+  `product_name_en` VARCHAR(255) NULL,
+  `model_specification` VARCHAR(255) NULL,
+  `product_category` VARCHAR(128) NULL,
+  `doc_control_no` VARCHAR(64) NULL,
+  `project_name` VARCHAR(255) NOT NULL,
+  `project_code` VARCHAR(64) NOT NULL DEFAULT '',
+  `category` VARCHAR(128) NULL,
+  `commissioned_production` VARCHAR(128) NULL,
+  `project_leader` VARCHAR(128) NULL,
+  `project_engineer` VARCHAR(128) NULL,
+  `storage_location` VARCHAR(128) NULL,
+  `priority` VARCHAR(64) NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `applicant_user_id` BIGINT NOT NULL,
+  `approver_user_id` BIGINT NULL,
+  `approved_time` DATETIME NULL,
+  `generated_project_code_id` BIGINT NULL,
+  `reject_reason` VARCHAR(512) NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `uk_dcc_product_onboarding_pending_project` UNIQUE (`tenant_id`, `project_name`, `project_code`, `status`, `deleted`)
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_project_code_alias_mapping` (

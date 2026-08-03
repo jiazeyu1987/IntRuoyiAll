@@ -926,6 +926,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_download_record` (
 
 CREATE TABLE IF NOT EXISTS `dcc_project_code` (
   `id` bigint NOT NULL AUTO_INCREMENT,
+  `product_master_id` bigint DEFAULT NULL COMMENT 'MDM product master id',
   `doc_control_no` varchar(64) DEFAULT NULL,
   `project_name` varchar(255) NOT NULL,
   `project_code` varchar(64) NOT NULL DEFAULT '',
@@ -946,10 +947,48 @@ CREATE TABLE IF NOT EXISTS `dcc_project_code` (
   `deleted` tinyint NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_dcc_project_code_tenant_project` (`tenant_id`, `project_name`, `project_code`),
+  KEY `idx_dcc_project_code_product` (`tenant_id`, `product_master_id`),
   KEY `idx_dcc_project_code_status` (`tenant_id`, `status`),
   KEY `idx_dcc_project_code_category` (`tenant_id`, `category`),
   KEY `idx_dcc_project_code_priority` (`tenant_id`, `priority`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC project code basic data';
+
+CREATE TABLE IF NOT EXISTS `dcc_product_onboarding_request` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `product_master_id` bigint DEFAULT NULL COMMENT 'Existing or generated MDM product id',
+  `product_code` varchar(64) DEFAULT NULL COMMENT 'MDM product code snapshot',
+  `dcc_product_code` varchar(14) DEFAULT NULL COMMENT 'DCC product code snapshot',
+  `product_name_cn` varchar(255) DEFAULT NULL COMMENT 'Chinese product name snapshot',
+  `product_name_en` varchar(255) DEFAULT NULL COMMENT 'English product name snapshot',
+  `model_specification` varchar(255) DEFAULT NULL COMMENT 'Model/specification snapshot',
+  `product_category` varchar(128) DEFAULT NULL COMMENT 'MDM product category snapshot',
+  `doc_control_no` varchar(64) DEFAULT NULL,
+  `project_name` varchar(255) NOT NULL,
+  `project_code` varchar(64) NOT NULL DEFAULT '',
+  `category` varchar(128) DEFAULT NULL,
+  `commissioned_production` varchar(128) DEFAULT NULL,
+  `project_leader` varchar(128) DEFAULT NULL,
+  `project_engineer` varchar(128) DEFAULT NULL,
+  `storage_location` varchar(128) DEFAULT NULL,
+  `priority` varchar(64) DEFAULT NULL,
+  `status` varchar(32) NOT NULL,
+  `applicant_user_id` bigint NOT NULL,
+  `approver_user_id` bigint DEFAULT NULL,
+  `approved_time` datetime DEFAULT NULL,
+  `generated_project_code_id` bigint DEFAULT NULL,
+  `reject_reason` varchar(512) DEFAULT NULL,
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  `create_time` datetime DEFAULT NULL,
+  `update_time` datetime DEFAULT NULL,
+  `creator` varchar(64) DEFAULT NULL,
+  `updater` varchar(64) DEFAULT NULL,
+  `deleted` tinyint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_product_onboarding_pending_project` (`tenant_id`, `project_name`, `project_code`, `status`, `deleted`),
+  KEY `idx_dcc_product_onboarding_status` (`tenant_id`, `status`, `deleted`),
+  KEY `idx_dcc_product_onboarding_product` (`tenant_id`, `product_master_id`, `deleted`),
+  KEY `idx_dcc_product_onboarding_generated` (`tenant_id`, `generated_project_code_id`, `deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DCC product onboarding request';
 
 CREATE TABLE IF NOT EXISTS `dcc_project_code_alias_mapping` (
   `id` bigint NOT NULL AUTO_INCREMENT,

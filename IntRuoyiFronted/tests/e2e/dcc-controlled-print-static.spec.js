@@ -101,6 +101,22 @@ assert.doesNotMatch(
   /throw error/,
   'controlled print records auxiliary load errors must stay visible in the records section instead of failing the whole detail/preview page'
 )
+const loadDataBlock = extractBetween(
+  detailPage,
+  'const loadData = async () =>',
+  'const loadDccSignatureEvidenceList = async () =>',
+  'controlled file detail loadData'
+)
+assert.match(
+  loadDataBlock,
+  /viewerMode\.value\s*\?\s*Promise\.resolve\(\[\]\)\s*:\s*getPaperDistributionRecords\(controlledFileId\.value\)/,
+  'viewer preview mode must not request paper distribution records because preview distribution dialog uses file detail snapshots'
+)
+assert.match(
+  loadDataBlock,
+  /viewerMode\.value\s*\?\s*Promise\.resolve\(null\)\s*:\s*getActiveApprovalPrintTemplate\(\)/,
+  'viewer preview mode must not request process-print template data because process print actions are not rendered in viewer mode'
+)
 assert.match(
   detailPage,
   /data-testid="dcc-controlled-print-permission-hint"/,

@@ -56,6 +56,15 @@
 - Forbidden action: 禁止直接 SQL 修 `dcc_controlled_file` 分类、禁止循环单文件 API 打补丁、禁止 seed 静默插入 0 行、禁止把 `AMBIGUOUS` / `UNCLASSIFIED` 当成功、禁止用硬编码 fallback 掩盖类别规则缺口。
 - Evidence: `doc/tasks/20260731-dcc-file-category-rules/verification-report.md`。
 
+### DCC 项目代码 MDM 产品建档绑定门禁
+
+- Trigger: DCC 产品立项、产品建档申请、`dcc_product_onboarding_request`、`dcc_project_code.product_master_id`、MDM 产品绑定、受控文件提交需要按项目代码带出产品主数据。
+- Preflight check: 修改 schema、服务或页面前，必须同时核对 DCC 项目代码表、MDM 产品主数据、建档申请状态机、受控文件提交来源和 DCC 测试 fixture；审批通过生成项目代码时，`productMasterId` 必须来自启用 MDM 产品或审批阶段正式创建的 MDM 产品。
+- Blocker: 缺申请表、缺项目代码 MDM 绑定字段、目标项目代码已存在、待审批申请重复、MDM 产品禁用或缺正式 DCC 产品编号、受控文件提交只能从前端 payload/项目名/空值推断产品时必须停止。
+- Verification: 至少运行产品建档服务测试、受控文件提交 MDM 绑定测试、聚焦 schema 测试、前端静态契约和 backend/database/frontend evidence validator；真实写入 E2E 只有在确认本机运行态、测试租户/账号和可清理任务数据后执行。
+- Forbidden action: 禁止用 DCC 产品目录、`formBindings`、默认项目代码、前端文案、空 `productMasterId`、直接 SQL 补字段、API-only 审批或 mock MDM 产品替代正式建档审批和 MDM 主数据绑定。
+- Evidence: `doc/tasks/20260803-dcc-product-onboarding-flow/verification-report.md`。
+
 ### 中文菜单名称 ASCII 安全迁移门禁
 
 - Trigger: 菜单、权限、租户套餐或动态路由 SQL 需要写入中文入口名称，尤其通过 MySQL 客户端、Docker `mysql < file.sql`、PowerShell/stdin 或发布迁移执行 `system_menu.name` 更新。

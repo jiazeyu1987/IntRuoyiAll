@@ -212,6 +212,22 @@ And 不再次调用正式 DCC 归档链路
 And 不创建第二个受控文件、不创建第二条 ACTIVE NAS 来源映射
 And 若已有 `LOCAL_WRITTEN` 后又提交 `LOCAL_WRITE_FAILED` 或已有失败后提交成功，后端返回明确冲突，除非另有显式 retry 入口和测试覆盖
 
+### Scenario 11F: Import task 不复用旧 NAS 转移默认输入
+
+Given 系统复用 `dcc_controlled_file_nas_transfer_task` 承载 `NAS_UNCONTROLLED_IMPORT`
+When 用户通过 `import-selected` 创建未受控文件导入任务
+Then 后端不得要求或写入任务级 `templateCategoryId`、`effectiveDate`、`dccProjectCodeId` 或其它旧 NAS 转移全局目标字段来绕过表约束
+And 每个文件的项目代码、item、分类和本地相对路径只能来自该处理项锁定的 audit 识别快照
+And 旧 `NAS` / `LOCAL_FOLDER` 转移入口仍必须保持原有必填校验，不得因为 import 任务需要 nullable 字段而被放松
+
+### Scenario 11G: Import task 创建后不触发旧转移处理器
+
+Given 用户已创建合法 `NAS_UNCONTROLLED_IMPORT` 任务
+When 后端已有旧 NAS transfer 轮询、waiting processor 或文件处理器运行
+Then 这些 legacy processor 必须跳过该 source type
+And 在 content 下载和 `LOCAL_WRITTEN` 回写之前，不读取 NAS 文件内容、不调用 `submitControlledFileWithoutApproval`、不创建受控文件、不写 ACTIVE NAS 来源映射
+And 若归档所需模板分类、生效日期或变更原因没有正式来源，文件进入明确阻塞或失败状态，不得用旧任务默认值伪造成功
+
 ### Scenario 11A: 不同幂等键不能重复归档同一 audit file
 
 Given 某 audit file 已在任一 import task 中完成 `ARCHIVED`
@@ -261,3 +277,4 @@ And 安全日志不得泄露 NAS 服务器凭据、本地绝对路径或其它�
 - 缺少可写测试租户、账号、NAS 样本目录或清理授权时，写入型真实 E2E 阻塞。
 - 本机前端 `8081`、后端 `48081`、NAS 连接、Redis、数据库或 MinIO 不可用时，真实路径 E2E 阻塞。
 - DCC 文件分类树、项目代码、分类规则或项目代码别名数据缺失时，归档成功路径测试阻塞；待处理路径仍可通过合成数据验证。
+- 正式 DCC 归档入口所需模板分类、生效日期、变更原因等元数据来源未确定时，归档成功路径阻塞；不得用旧 NAS 转移默认值或当前日期替代。

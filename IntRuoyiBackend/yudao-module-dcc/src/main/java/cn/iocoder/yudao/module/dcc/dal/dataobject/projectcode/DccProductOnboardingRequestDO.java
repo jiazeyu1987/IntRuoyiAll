@@ -1,7 +1,6 @@
 package cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode;
 
 import cn.iocoder.yudao.framework.tenant.core.db.TenantBaseDO;
-import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.AllArgsConstructor;
@@ -11,18 +10,26 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 
-@TableName("dcc_project_code")
+import java.time.LocalDateTime;
+
+@TableName("dcc_product_onboarding_request")
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class DccProjectCodeDO extends TenantBaseDO {
+public class DccProductOnboardingRequestDO extends TenantBaseDO {
 
     @TableId
     private Long id;
     private Long productMasterId;
+    private String productCode;
+    private String dccProductCode;
+    private String productNameCn;
+    private String productNameEn;
+    private String modelSpecification;
+    private String productCategory;
     private String docControlNo;
     private String projectName;
     private String projectCode;
@@ -33,7 +40,9 @@ public class DccProjectCodeDO extends TenantBaseDO {
     private String storageLocation;
     private String priority;
     private String status;
-    private Long lastImportBatchId;
-    @TableField(exist = false)
-    private Long associatedFileCount;
+    private Long applicantUserId;
+    private Long approverUserId;
+    private LocalDateTime approvedTime;
+    private Long generatedProjectCodeId;
+    private String rejectReason;
 }

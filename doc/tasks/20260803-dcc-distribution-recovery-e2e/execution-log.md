@@ -81,9 +81,28 @@ BDD: DCC controlled-copy distribution and old-version recovery -> Given a non-ad
 - Tenant `芋道源码` category `907233 / 过程检验规程` has many files, including V2 `ACTIVE` chains such as `CODX-DCC-REV-FULL-20260802-20260802201023` (`V1 SUPERSEDED / V2 ACTIVE`) and `CODX-DCC-DIST-REC-DISTREC20260802173908` (`V1 SUPERSEDED / V2 ACTIVE`). Current category actions are `APPROVE,DOWNLOAD,PRINT,UPLOAD,VIEW`; missing `DISTRIBUTE`, and active category distribution rules are empty, so paper distribution/recovery remains blocked until formal distribution permission/rule is configured.
 - Tenant `测试租户` category `900347 / Codex Local DCC Category` has file `CODX-DCC-DIST-900347-DIST90034720260802185602` with `V1 ACTIVE / V2 READY_TO_PUBLISH` and `PAPER` distribution rows. Current category actions include `DISTRIBUTE`, but publish is blocked by missing published `PUBLISH` business approval policy.
 
+## Final Verification After Distribution-Rule Clarification 2026-08-03
+
+- User clarified that `文控权限 > 分发规则` is the source of the paper distribution department and that no separate paper-distribution-rule entrance should be used.
+- GREEN: `node --check doc/tasks/20260803-dcc-distribution-recovery-e2e/dcc-rule-trace-current-verify.cjs` -> PASS.
+- RED: first `dcc-rule-trace-current-verify.cjs` run -> FAIL, script selected a hidden quick-filter from the inactive category tab; no business write occurred.
+- RED: second `dcc-rule-trace-current-verify.cjs` run -> FAIL, the quick-filter control kept the target value visible but emitted page error `Cannot read properties of undefined (reading 'trim')` and did not filter; no business write occurred.
+- GREEN: final `dcc-rule-trace-current-verify.cjs` run -> PASS, script used real page list-size preference to show the target category row instead of relying on the quick-filter control.
+- PASS evidence: `current-rule-trace-verification.json` records real-page visits to `/dcc/controlled-file/categories?tab=distribution-rules`, V2 traceability detail, V1 traceability detail, controlled browser, and final read-only DB reconciliation.
+- PASS chain: `CODX-DCC-DIST-906104-DISTTENANT120260802195305`; V1 `2054545668044070297` is `SUPERSEDED`, V2 `2054545668044070302` is `ACTIVE`, master points to V2.
+- Distribution rule page evidence: row `DCC_OTHER_TEMPLATE_900250 / 其他 / 必须 / 质量体系部（公盘目录） / 启用 1 条`; read-only page response for category `906104` returned rule ID `106`, department ID `253`.
+- Distribution/recovery evidence: V1 paper distribution `4341` is `RECOVERED` with recipient `panhaitao`, issuer `wangsiyu`, recoverer `wangsiyu`; V2 paper distribution `4344` is `ACKNOWLEDGED` with recipient `panhaitao` and issuer `wangsiyu`.
+- Old-version non-misuse evidence: controlled browser current-effective query returned total `1`, V2 only; V1 was not visible as current effective.
+- Safety: no admin account, no SQL/API inserted or updated distribution, recipient, recovery, approval, publish, or version state.
+
 ## Closeout Checks
 
-- GREEN: `node --check` -> PASS for `dcc-paper-chain-prepare-e2e.cjs` and `dcc-distribution-recovery-e2e.cjs`.
-- GREEN: JSON evidence parse -> PASS, `JSON_OK 6`.
+- GREEN: final re-run with PowerShell environment-variable password injection -> PASS, `current-rule-trace-verification.json` refreshed at `2026-08-03 11:07:02 +08:00`; controlled browser total `1`, V2 visible, V1 not visible.
+- GREEN: `node --check` -> PASS for `dcc-rule-trace-current-verify.cjs`, `dcc-paper-chain-prepare-e2e.cjs`, and `dcc-distribution-recovery-e2e.cjs`.
+- GREEN: JSON evidence parse -> PASS, `JSON_OK 7`.
 - GREEN: task secret scan -> PASS, plaintext password not found in task directory.
 - GREEN: `git diff --check -- doc/tasks/20260803-dcc-distribution-recovery-e2e` -> PASS.
+- GREEN: task-closeout-cleanup preview/apply -> PASS, all task E2E scripts, JSON evidence, screenshots, `task.md`, `execution-log.md`, and `verification-report.md` kept; delete `<none>`, blocked `<none>`, warnings `<none>`.
+- GREEN: project-experience-consolidation -> PASS, merged the reusable rule into existing `docs/e2e-rules.md` and `docs/experience-index.md`: paper distribution department rule uses `文控权限 > 分发规则`; no new long-term document was created.
+- Note: `git check-ignore` confirms task `.cjs` scripts and screenshot `.png` files match repository ignore rules; they are retained in the workspace via `Cleanup Keep`. If this task evidence is committed later, add those evidence files intentionally with `git add -f`.
+- GREEN: final format/secret check -> PASS for task directory plus `docs/e2e-rules.md` and `docs/experience-index.md`.

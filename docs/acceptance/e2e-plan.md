@@ -143,6 +143,22 @@
 4. 验证后端返回当前状态，不创建第二个受控文件、不新增第二条 ACTIVE NAS 来源映射。
 5. 再提交冲突的 local-write-result，例如已成功后提交 `LOCAL_WRITE_FAILED`，验证返回明确冲突且原归档状态不变。
 
+### Path N: Import task 创建后旧处理器不得自动归档
+
+1. 使用任务自有可匹配样本完成统计、识别、本地目录授权和 `import-selected`。
+2. 在调用 content 下载前等待一个旧 NAS transfer 轮询周期或显式触发任务状态刷新。
+3. 验证 audit file 仍为 `downloadStatus=SELECTED`，处理项未进入 `CONTENT_READY/LOCAL_WRITTEN/ARCHIVED`。
+4. 验证后端未读取该文件内容、未调用 DCC submit、未创建受控文件、未写入 ACTIVE NAS 来源映射。
+5. 再继续 content 下载和 `LOCAL_WRITTEN`，验证只有回写后才允许进入正式归档链路。
+
+### Path O: 归档元数据缺失时可见阻塞
+
+1. 准备可匹配样本，但故意不配置正式 DCC 归档所需模板分类、生效日期、变更原因或等价元数据来源。
+2. 完成统计、识别、目录授权、content 下载和本地写入成功回写。
+3. 验证本地状态保持 `LOCAL_WRITTEN`，归档状态进入 `FAILED` 或明确阻塞状态，错误码为 `ARCHIVE_METADATA_REQUIRED` 或等价稳定错误码。
+4. 验证系统未使用当前日期、旧 NAS transfer 任务值、空模板或默认模板创建 DCC 受控文件。
+5. 补齐正式元数据来源后才允许通过显式重试或后续设计路径继续归档。
+
 ## Browser or Client Steps
 
 - 使用 Chromium 或 Edge 执行本地目录写入路径。
@@ -155,9 +171,11 @@
 - 本地相对路径断言必须覆盖 `/` 分隔、禁止 `..`、禁止盘符、禁止非法字符、禁止 Windows 保留名和规范化冲突。
 - 本地相对路径断言必须覆盖目标文件已存在和路径过长；验证不覆盖、不截断、不自动改名。
 - 请求顺序必须断言：目录授权和相对路径校验成功之前不得调用 `import-selected`；`LOCAL_WRITTEN` 回写之前不得出现正式 DCC 归档请求。
+- `import-selected` 创建任务后、content 下载前必须有观察点断言旧 NAS transfer 轮询或 waiting processor 不会自动处理 `NAS_UNCONTROLLED_IMPORT`。
 - 取消目录选择、浏览器不支持和本地路径预检失败必须断言后端状态不变化；这些路径不得用 `LOCAL_WRITE_FAILED` 冒充已创建处理任务后的失败。
 - import task 创建后因目标文件并发出现或最终写入句柄失败时，才允许调用 local-write-result 回写 `LOCAL_WRITE_FAILED`；E2E 必须区分“创建前预检失败”和“创建后写入失败”。
 - 成功归档路径必须先观察 `local-write-result=LOCAL_WRITTEN`，再观察 DCC 归档请求；不得只以最终列表出现文件证明时序正确。
+- 归档路径必须验证正式 DCC submit 元数据来源；缺少模板分类、生效日期、变更原因或等价元数据时，只能看到可见阻塞或失败，不能看到默认成功。
 - `import-selected` 混合合法与非法选择时必须断言整体无状态变化；不得把部分成功当作通过。
 - 相同合法选择仅 `selectedFiles` 顺序不同必须断言返回原 import task；重复 id 必须断言失败而不是被前端或后端静默去重。
 - local-write-result 重放必须断言 DCC 归档请求不会再次出现，且冲突结果不会覆盖既有终态。
@@ -170,7 +188,9 @@
 - `POST /admin-api/dcc/controlled-files/nas-control-audit/{auditTaskId}/import-selected`：核验未识别、重复 auditFileId、跨 task/tenant、签名不匹配或已归档明细均被拒绝。
 - `POST /admin-api/dcc/controlled-files/nas-control-audit/{auditTaskId}/import-selected`：核验相同 `idempotencyKey` 但请求哈希不同会冲突，且客户端提交的 `localRelativePath` 必须与后端识别快照生成的期望路径一致。
 - `POST /admin-api/dcc/controlled-files/nas-control-audit/{auditTaskId}/import-selected`：核验任一选中项无效时整个请求无状态变化，且同一合法选择不同顺序返回原任务。
+- `POST /admin-api/dcc/controlled-files/nas-control-audit/{auditTaskId}/import-selected`：核验响应和落库任务不要求旧 NAS transfer 的任务级 `templateCategoryId`、`effectiveDate`、任务级项目代码或分类字段。
 - `GET /admin-api/dcc/controlled-files/nas-uncontrolled-import/tasks/{importTaskId}`：核验处理任务完成、待处理和失败数量。
+- `GET /admin-api/dcc/controlled-files/nas-uncontrolled-import/tasks/{importTaskId}`：在 content 前核验 import task 未被旧 processor 推进到内容下载、本地写入或归档状态。
 - local-write-result API：核验只保存相对路径、写入状态和错误原因，不保存本地绝对路径；回写必须匹配 import task 快照和 `sourceSignature`。
 - local-write-result API：核验相同终态结果重复回写幂等、冲突终态结果被拒绝，且不会重复触发归档。
 - content API：核验当前用户、租户、import task、audit file 和 source signature 绑定；禁止跨任务、跨租户或猜测 ID 下载 NAS 文件。
@@ -184,7 +204,9 @@
 - 本机前端、后端和 DCC 目标链路 HTTP 错误必须为 0。
 - 外部头像、CDN 或非目标资源异常可单独记录，但不能影响目标控件和断言。
 - DCC 写请求数量必须与路径期望一致：只读路径为 0，取消/仅查看路径为 0，待处理路径不创建受控文件，本地写入失败路径为 0，成功归档路径只创建任务自有文件。
+- 在 Path N 的 content 前等待窗口内，DCC 写请求和 ACTIVE NAS 来源映射新增数量必须为 0。
 - 后端日志不得出现被吞掉的 NAS 读取失败、分类失败或本地写入结果失败。
+- 后端日志不得出现 `NAS_UNCONTROLLED_IMPORT` 被旧 NAS transfer processor 自动处理的记录。
 
 ## Test Blockers
 
@@ -192,3 +214,4 @@
 - 本地浏览器不支持目录写入能力时，成功下载到目录路径阻塞；可执行 fail-fast 路径验收。
 - 缺少任务自有 NAS 样本、可写测试租户、项目代码、分类规则或清理授权时，写入型 E2E 阻塞。
 - 如果 Playwright 无法真实驱动本地目录授权，必须记录浏览器能力阻塞，不能改用 API-only 或 ZIP 下载冒充通过。
+- 正式归档元数据来源未配置时，成功归档路径阻塞；此时只能验证 `LOCAL_WRITTEN` 后的 `ARCHIVE_METADATA_REQUIRED` 或等价阻塞状态。

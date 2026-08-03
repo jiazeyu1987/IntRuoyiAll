@@ -59,20 +59,25 @@
 ### M4 选中文件处理任务
 
 1. RED：新增 schema/DO 合同 `mysqlSchemaShouldSupportNasUncontrolledImportTaskSnapshots`，断言 transfer task 具备 `audit_task_id`、`idempotency_key`、`request_hash`，task item 具备 `audit_file_id`、`source_signature`、识别快照、本地相对路径、本地写入/归档状态字段，audit 明细或等价关联可查询当前 import task/item 绑定。
-2. RED：新增 `DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_requiresCompletedAuditSelectedFileIdsAndLocalRelativePaths`。
-3. RED：新增 `createUncontrolledImportTask_snapshotsRecognitionSourceSignatureAndLocalRelativePath`，断言处理项锁定 `auditFileId`、`source_signature`、识别结果快照、`local_relative_path` 和 `idempotencyKey`。
-4. RED：新增 `createUncontrolledImportTask_rejectsPendingRecognitionDuplicateIdsAndSignatureMismatch`，断言未识别、重复 id、跨 task/tenant、签名不匹配或已绑定任务均不能创建 import task。
-5. RED：新增 `createUncontrolledImportTask_rejectsInvalidSelectionAtomically`，断言同一请求中任一选中项无效时整个请求失败，不创建任务头/任务项，不把任何 audit 明细推进到 `SELECTED`。
-6. RED：新增 `createUncontrolledImportTask_usesCanonicalRequestHashIndependentOfSelectionOrder`，断言相同 `idempotencyKey`、相同选中文件但不同 `selectedFiles` 顺序返回原任务，重复 id 必须在 hash 前失败。
-7. RED：新增 `processUncontrolledMatchedFile_waitsForLocalWrittenBeforeArchive`，断言 `MATCHED` 文件在 `LOCAL_WRITTEN` 之前不调用 `submitControlledFileWithoutApproval`。
-8. RED：新增 `processUncontrolledPendingFile_doesNotCreateControlledFile`，断言待处理文件不调用 submit。
-9. RED：新增 `createUncontrolledImportTask_reusesSameIdempotencyKeyAndRejectsArchivedAuditFileWithDifferentKey`，断言重复 key 返回原任务，已归档 audit file 不会因不同 key 创建第二个受控文件。
-10. RED：新增 `createUncontrolledImportTask_concurrentDifferentKeysOnlyOneArchiveAllowed`，断言同一 `auditFileId` 并发提交时事务内只能创建一个可处理绑定，另一个返回冲突或已处理。
-11. RED：新增 `createUncontrolledImportTask_rejectsSameIdempotencyKeyWithDifferentRequestHash`，断言同 key 不同 `auditFileId/sourceSignature/localRelativePath` 返回明确冲突。
-12. RED：新增 `createUncontrolledImportTask_rejectsClientLocalRelativePathMismatch`，断言后端重新生成期望相对路径并拒绝被篡改的项目、分类、待处理前缀或本地绝对路径。
-13. RED：新增 `createUncontrolledImportTask_requiresExplicitIdsSelectionScope`，断言首版只接受 `selectionScope=EXPLICIT_IDS`，不得把分页筛选条件隐式扩大为全量处理。
-14. GREEN：扩展 `sourceType=NAS_UNCONTROLLED_IMPORT`，处理项绑定 `auditFileId`、识别快照、本地写入状态、错误码、归档状态、幂等键和规范化 `request_hash`，并在事务内检查状态流转。
-15. REGRESSION：运行 `DccControlledFileNasTransferServiceTest` 全类。
+2. RED：扩展同一 schema/SQL 合同，断言 `dcc_controlled_file_nas_transfer_task.template_category_id` 与 `effective_date` 在 migration 和 test schema 中允许 `NULL`，确保 `NAS_UNCONTROLLED_IMPORT` 不需要伪造旧 NAS 转移输入；同时补服务测试保证旧 `NAS` / `LOCAL_FOLDER` 创建入口仍要求其正式必填字段。
+3. RED：新增 `DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_requiresCompletedAuditSelectedFileIdsAndLocalRelativePaths`。
+4. RED：新增 `createUncontrolledImportTask_snapshotsRecognitionSourceSignatureAndLocalRelativePath`，断言处理项锁定 `auditFileId`、`source_signature`、识别结果快照、`local_relative_path` 和 `idempotencyKey`。
+5. RED：新增 `createUncontrolledImportTask_rejectsPendingRecognitionDuplicateIdsAndSignatureMismatch`，断言未识别、重复 id、跨 task/tenant、签名不匹配或已绑定任务均不能创建 import task。
+6. RED：新增 `createUncontrolledImportTask_rejectsInvalidSelectionAtomically`，断言同一请求中任一选中项无效时整个请求失败，不创建任务头/任务项，不把任何 audit 明细推进到 `SELECTED`。
+7. RED：新增 `createUncontrolledImportTask_usesCanonicalRequestHashIndependentOfSelectionOrder`，断言相同 `idempotencyKey`、相同选中文件但不同 `selectedFiles` 顺序返回原任务，重复 id 必须在 hash 前失败。
+8. RED：新增 `createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs`，断言请求 VO 不接受也不需要任务级 `templateCategoryId`、`effectiveDate`、任务级项目代码或任务级分类；创建出的 import task 这些旧字段为空，item 快照才是事实来源。
+9. RED：新增 `processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten`，断言现有 `processWaitingTasks()` 或旧文件处理器遇到 `sourceType=NAS_UNCONTROLLED_IMPORT` 时不读取 NAS、不调用 `submitControlledFileWithoutApproval`、不写 ACTIVE 来源映射。
+10. RED：新增 `createUncontrolledImportTask_requiresUniqueIdempotencyOrTransactionalLock`，断言同一操作者同一 `idempotencyKey` 的并发请求只产生一个任务；同 key 不同 hash 必须冲突，不能因普通索引或前端防抖产生双任务。
+11. RED：新增 `processUncontrolledMatchedFile_waitsForLocalWrittenBeforeArchive`，断言 `MATCHED` 文件在 `LOCAL_WRITTEN` 之前不调用 `submitControlledFileWithoutApproval`。
+12. RED：新增 `processUncontrolledPendingFile_doesNotCreateControlledFile`，断言待处理文件不调用 submit。
+13. RED：新增 `createUncontrolledImportTask_reusesSameIdempotencyKeyAndRejectsArchivedAuditFileWithDifferentKey`，断言重复 key 返回原任务，已归档 audit file 不会因不同 key 创建第二个受控文件。
+14. RED：新增 `createUncontrolledImportTask_concurrentDifferentKeysOnlyOneArchiveAllowed`，断言同一 `auditFileId` 并发提交时事务内只能创建一个可处理绑定，另一个返回冲突或已处理。
+15. RED：新增 `createUncontrolledImportTask_rejectsSameIdempotencyKeyWithDifferentRequestHash`，断言同 key 不同 `auditFileId/sourceSignature/localRelativePath` 返回明确冲突。
+16. RED：新增 `createUncontrolledImportTask_rejectsClientLocalRelativePathMismatch`，断言后端重新生成期望相对路径并拒绝被篡改的项目、分类、待处理前缀或本地绝对路径。
+17. RED：新增 `createUncontrolledImportTask_requiresExplicitIdsSelectionScope`，断言首版只接受 `selectionScope=EXPLICIT_IDS`，不得把分页筛选条件隐式扩大为全量处理。
+18. GREEN：扩展 `sourceType=NAS_UNCONTROLLED_IMPORT`，处理项绑定 `auditFileId`、识别快照、本地写入状态、错误码、归档状态、幂等键和规范化 `request_hash`，并在事务内检查状态流转。
+19. GREEN：保留旧 `NAS` / `LOCAL_FOLDER` 入口的服务层必填校验，仅让 `NAS_UNCONTROLLED_IMPORT` 在 schema 和服务创建路径上不要求旧任务头目标字段。
+20. REGRESSION：运行 `DccControlledFileNasTransferServiceTest` 全类。
 
 ### M5 本地下载确认
 
@@ -88,8 +93,10 @@
 10. RED：新增 `localPrecheckFailureBeforeImportTaskDoesNotMutateBackendState`，断言目录授权后、`import-selected` 前发现目标存在、路径过长或规范化冲突时无 import task、无 content、无 local-write-result、audit 状态不变。
 11. RED：新增 `localWriteResultIsIdempotentAndDoesNotArchiveTwice`，断言相同处理项重复 `LOCAL_WRITTEN` 只返回既有状态，不重复创建受控文件或 ACTIVE NAS 来源映射。
 12. RED：新增 `localWriteResultRejectsConflictingResultAfterTerminalState`，断言成功后提交失败或失败后提交成功返回明确冲突，除非另有显式 retry 入口。
-13. GREEN：实现内容下载、本地写入结果回写、后置归档触发和路径校验 API。
-14. REGRESSION：运行 `DccControlledFileControllerTest` 或新增专用 Controller 测试。
+13. RED：新增 `archiveAfterLocalWritten_requiresFormalArchiveMetadata`，断言正式 DCC 归档所需模板分类、生效日期、变更原因或等价元数据缺少正式来源时返回 `ARCHIVE_METADATA_REQUIRED` 或明确失败状态，不得使用当前日期、旧 transfer 任务值、空模板或默认模板继续归档。
+14. GREEN：实现内容下载、本地写入结果回写、后置归档触发和路径校验 API。
+15. GREEN：把正式归档元数据来源建模为明确入参、配置或快照；缺失时只记录可见阻塞，不创建 DCC 受控文件。
+16. REGRESSION：运行 `DccControlledFileControllerTest` 或新增专用 Controller 测试。
 
 ### M6 前端静态合同
 
@@ -113,6 +120,8 @@
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileDetails" test`
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileRecognitionSnapshot" test`
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditServiceImplTest" test`
+- `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportNasUncontrolledImportTaskSnapshots" test`
+- `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten" test`
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#processUncontrolledMatchedFile_waitsForLocalWrittenBeforeArchive" test`
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#processUncontrolledPendingFile_doesNotCreateControlledFile" test`
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#localWriteFailed_doesNotArchiveMatchedFile" test`
@@ -127,11 +136,15 @@
 - Recognition RED fails because current logic does not persist per-uncontrolled-file project/category target snapshots.
 - Recognition snapshot RED fails if candidate summaries are only returned transiently or logged instead of being persisted in audit/import snapshot fields.
 - Transfer RED fails because current NAS transfer takes one selected `dccProjectCodeId` and category context for all files, not per audit file classification or per-item source signature.
+- Legacy-field RED fails if `NAS_UNCONTROLLED_IMPORT` still requires or fills task-level `templateCategoryId` / `effectiveDate` / global target fields, or if old `NAS` / `LOCAL_FOLDER` required-input validation was accidentally loosened.
+- Processor isolation RED fails if existing waiting task processors automatically read NAS content or call DCC submit for `NAS_UNCONTROLLED_IMPORT` before content download and `LOCAL_WRITTEN`.
 - Import idempotency RED fails if the same `idempotencyKey` can be reused for a different selected-file payload, or if the backend trusts a client-mutated local relative path.
+- Idempotency concurrency RED fails if there is no unique constraint or transactional lock protecting `tenant + operator + idempotencyKey`, allowing concurrent duplicate import tasks.
 - Import atomicity RED fails if one invalid selected file can leave a partially created import task, task item, audit import binding, or `download_status=SELECTED`.
 - Canonical hash RED fails if the same selected files in a different order produce a different `request_hash`, or if duplicate ids are silently deduplicated before validation.
 - Local write RED fails because there is no local-write-result API, no path-hash guarded content endpoint for audit files, and no rule that archives only after `LOCAL_WRITTEN`.
 - Local-write idempotency RED fails if browser/network retries can trigger a second archive or overwrite a terminal write result.
+- Archive metadata RED fails if formal DCC submit can proceed by using current date, empty template, stale transfer task values or other implicit defaults when required archive metadata has no formal source.
 - Import task RED fails if pending-recognition files, signature mismatch, duplicate audit ids or cross-task ids can create a processing task.
 - Content authorization RED fails if a guessed auditFileId, cross-task binding or cross-tenant binding can download NAS content.
 - Path safety RED fails because current uncontrolled import flow has no target local relative-path validator, target-exists check, path-length check or collision gate.
@@ -155,6 +168,8 @@
 - Recognition service exposes explicit reasons for `UNCLASSIFIED_PENDING` and `AMBIGUOUS`.
 - Existing NAS report download remains compatible.
 - Existing NAS transfer and local folder import still pass current tests.
+- `NAS_UNCONTROLLED_IMPORT` may allow nullable old task header fields, but old `NAS` and `LOCAL_FOLDER` flows still fail fast when their required template category, effective date or selected target metadata is missing.
+- Existing waiting processors explicitly skip `NAS_UNCONTROLLED_IMPORT`; import-selected task creation alone never downloads content, submits DCC files or writes NAS source mappings.
 - Existing DCC project-code associated-file classification still uses formal DCC taxonomy tree.
 - Browser local directory write failures are visible and do not mark backend status as written.
 - Browser unsupported/cancel paths do not mutate backend status and do not create import tasks.
@@ -167,6 +182,7 @@
 - Backend regenerates expected local relative paths from persisted recognition snapshots and rejects client path drift.
 - First implementation only processes explicit selected audit ids; all-filter/all-pages processing requires a separate server selection snapshot design.
 - Backend never creates a controlled file before a matched item has `LOCAL_WRITTEN`.
+- Backend never creates a controlled file without a formal source for required archive metadata; missing template category/effective date/change reason produces visible blocked or failed state, not default-success.
 - Content and local-write-result endpoints are bound to current user, tenant, import task, audit file, source signature and local relative path snapshot.
 - Local-write-result is idempotent for identical terminal results and conflict-safe for contradictory terminal results; archive creation remains one-time per audit file.
 - Illegal local relative paths, existing local targets, path-too-long cases and normalized collisions fail fast without overwrite, truncation, auto-rename or default success.
@@ -187,3 +203,4 @@
 - Missing test NAS share or sample files blocks real E2E but not unit/static tests.
 - Missing writable test tenant, DCC project code, file classification tree, category match rules or cleanup authorization blocks write E2E.
 - Browser without File System Access API blocks local-directory write E2E; this is a product precondition, not a reason to switch to ZIP.
+- Undefined formal archive metadata source blocks successful DCC归档路径；只能验证本地写入和待处理路径，不得用旧 NAS 转移默认值替代。

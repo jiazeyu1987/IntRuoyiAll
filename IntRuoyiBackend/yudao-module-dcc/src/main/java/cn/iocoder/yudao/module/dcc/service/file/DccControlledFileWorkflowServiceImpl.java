@@ -73,6 +73,8 @@ import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
+import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -205,6 +207,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     private DccControlledFileQueryService queryService;
     @Resource
     private DccControlledContentAdapter platformAdapter;
+    @Resource
+    private MdmProductApi mdmProductApi;
     @Resource
     private DccControlledFileApprovalRouteAssigneeResolver approvalRouteAssigneeResolver;
 
@@ -1257,7 +1261,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .fileName(context.reqVO().getFileName())
                 .title(context.reqVO().getFileName())
                 .fileNumber(context.reqVO().getFileNumber())
-                .productMasterId(null)
+                .productMasterId(context.dccProduct().id())
                 .productCode(context.dccProduct().dccProductCode())
                 .productName(context.dccProduct().nameCn())
                 .dccProjectCodeId(context.projectCode() == null ? null : context.projectCode().getId())
@@ -1451,6 +1455,16 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         if (projectCode == null || StrUtil.isBlank(projectCode.getProjectCode())
                 || StrUtil.isBlank(projectCode.getProjectName())) {
             throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
+        }
+        if (projectCode.getProductMasterId() != null) {
+            MdmProductRespDTO product = mdmProductApi.getEnabledDccProduct(projectCode.getProductMasterId());
+            if (product == null || product.getId() == null || StrUtil.isBlank(product.getDccProductCode())
+                    || StrUtil.isBlank(product.getNameCn())) {
+                throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
+            }
+            return new ResolvedDccProduct(product.getId(),
+                    StrUtil.trimToNull(product.getDccProductCode()),
+                    StrUtil.trimToNull(product.getNameCn()));
         }
         return new ResolvedDccProduct(null,
                 StrUtil.trimToNull(projectCode.getProjectCode()),

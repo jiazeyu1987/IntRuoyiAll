@@ -237,20 +237,20 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void shouldListOnlyCurrentLeaderActiveOrdersInFifoOrder() {
+    void shouldListUnifiedActiveOrdersAcrossLeadersInFifoOrder() {
         List<MesProcessPoolActiveOrderDO> expected = List.of(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L)
-                .leaderUserId(3001L)
+                .leaderUserId(4001L)
                 .workOrderId(9001L)
                 .activeStatus("ACTIVE")
                 .joinedAt(LocalDateTime.of(2026, 7, 31, 8, 30))
                 .build());
-        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(expected);
+        when(activeOrderMapper.selectActiveList()).thenReturn(expected);
 
         List<MesProcessPoolActiveOrderDO> activeOrders = service.listActiveOrders(3001L);
 
         assertEquals(expected, activeOrders);
-        verify(activeOrderMapper).selectActiveListByLeader(3001L);
+        verify(activeOrderMapper).selectActiveList();
     }
 
     private static MesProScheduleOrderProcessDO scheduleProcess(Long routeProcessId, Long processId, String factor,

@@ -16,6 +16,7 @@ export interface DccProjectCodePageReqVO extends PageParam {
 
 export interface DccProjectCodeRespVO {
   id: number
+  productMasterId?: number | null
   docControlNo?: string | null
   projectName: string
   projectCode: string
@@ -32,6 +33,7 @@ export interface DccProjectCodeRespVO {
 }
 
 export interface DccProjectCodeSaveReqVO {
+  productMasterId?: number | null
   docControlNo?: string | null
   projectName: string
   projectCode?: string
@@ -91,6 +93,37 @@ export interface DccProjectCodeImportPreviewRespVO {
   unchangedCount: number
   failureCount: number
   rows: DccProjectCodeImportRowRespVO[]
+}
+
+export interface DccProductOnboardingCreateReqVO {
+  productMasterId?: number | null
+  productCode?: string | null
+  dccProductCode?: string | null
+  productNameCn?: string | null
+  productNameEn?: string | null
+  modelSpecification?: string | null
+  productCategory?: string | null
+  docControlNo?: string | null
+  projectName: string
+  projectCode: string
+  category?: string | null
+  commissionedProduction?: string | null
+  projectLeader?: string | null
+  projectEngineer?: string | null
+  storageLocation?: string | null
+  priority?: string | null
+}
+
+export interface DccProductOnboardingRespVO extends DccProductOnboardingCreateReqVO {
+  id: number
+  status: string
+  applicantUserId?: number | null
+  approverUserId?: number | null
+  approvedTime?: string | null
+  generatedProjectCodeId?: number | null
+  rejectReason?: string | null
+  createTime?: string
+  updateTime?: string
 }
 
 interface UploadCommonResult<T> {
@@ -163,4 +196,16 @@ export const importProjectCodeConfirm = async (
   batchId: number
 ): Promise<DccProjectCodeImportPreviewRespVO> => {
   return await request.post({ url: "/dcc/project-codes/import-confirm", data: { batchId } })
+}
+
+export const createProductOnboardingRequest = async (
+  data: DccProductOnboardingCreateReqVO
+): Promise<number> => {
+  return await request.post({ url: '/dcc/product-onboarding-requests/create', data })
+}
+
+export const approveProductOnboardingRequest = async (
+  id: number | string
+): Promise<DccProductOnboardingRespVO> => {
+  return await request.post({ url: `/dcc/product-onboarding-requests/${id}/approve` })
 }

@@ -26,6 +26,7 @@
 - [x] M13：按严格 TDD 完成确定性预识别后端切片，新增 `/files/recognize` 服务实现、候选摘要、原因码、期望本地相对路径和相邻回归验证。
 - [x] M14：优化 import-selected 与本地回写开发文档，补齐整体原子拒绝、规范化请求哈希、audit/import 绑定、重复 local-write-result 幂等和冲突终态门禁。
 - [x] M15：按严格 TDD 完成 import-selected 任务快照 schema 切片，新增 transfer task/task item/audit file 绑定字段、DO 字段、测试 schema 和 SQL 静态合同。
+- [x] M16：优化 import-selected 后续实现门禁，补齐旧 NAS transfer 必填字段隔离、legacy processor 跳过、幂等并发锁和正式归档元数据来源验证。
 
 ## Expected Verification
 
@@ -43,6 +44,9 @@
 - 核对规范化 `request_hash` 对 `selectedFiles` 顺序不敏感，重复 `auditFileId` 在 hash 前失败。
 - 核对 audit 明细与 import task/item 绑定可查询，重复活动绑定被拒绝。
 - 核对重复 local-write-result 幂等返回且不重复触发 DCC 归档，冲突终态回写被拒绝。
+- 核对 `NAS_UNCONTROLLED_IMPORT` 不依赖旧 NAS 转移任务级 `templateCategoryId/effectiveDate/dccProjectCodeId` 默认值，旧 `NAS` / `LOCAL_FOLDER` 入口仍保留必填校验。
+- 核对 `NAS_UNCONTROLLED_IMPORT` 不会被现有 waiting processor 自动读取 NAS、提交 DCC 或写 ACTIVE NAS 来源映射。
+- 核对正式归档元数据缺失时进入 `ARCHIVE_METADATA_REQUIRED` 或明确失败/阻塞状态，不使用当前日期、空模板或旧任务值默认成功。
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileDetails" test`
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileDetails,DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileRecognitionSnapshot,DccNasControlAuditControllerTest,DccNasControlAuditServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportNasUncontrolledImportTaskSnapshots" "-Dsurefire.failIfNoSpecifiedTests=false" test`
@@ -54,7 +58,7 @@
 
 in_progress
 
-设计文档、BDD/TDD/E2E 验收文档、潜在问题优化、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化和 M15 import-selected 任务快照 schema 切片已完成验证。当前已具备处理任务头幂等字段、处理项识别/本地路径快照、audit 明细 import 绑定和对应 SQL/JUnit 门禁。后续仍需按文档继续实现 import-selected 服务/API、本地写入回写、content 二进制下载、前端和真实 E2E。最终 `completed` 状态暂不标记：当前工作区存在任务开始前的并发脏文件且分支 `int_main` 已 ahead 2，按项目 Git/closeout 规则需要先单独处理脏工作区基线和 push 阻塞，不能把本任务与其它并发任务资产混在一个收尾提交里。
+设计文档、BDD/TDD/E2E 验收文档、潜在问题优化、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片和 M16 import-selected 后续实现门禁加固已完成验证。当前已具备处理任务头幂等字段、处理项识别/本地路径快照、audit 明细 import 绑定、旧 transfer 字段隔离、legacy processor 跳过和归档元数据阻塞的可执行验证入口。后续仍需按文档继续实现 import-selected 服务/API、本地写入回写、content 二进制下载、前端和真实 E2E。最终 `completed` 状态暂不标记：当前工作区存在任务开始前及其它并发任务脏文件且分支 `int_main` 已 ahead 7，按项目 Git/closeout 规则需要先单独处理脏工作区基线和 push 阻塞，不能把本任务与其它并发任务资产混在一个收尾提交里。
 
 ## 设计约束检查
 

@@ -1,16 +1,20 @@
-package cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo;
+package cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.onboarding;
 
-import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import java.time.LocalDateTime;
 
-@Schema(description = "管理后台 - DCC 项目代码 Response VO")
 @Data
-public class DccProjectCodeRespVO {
+public class DccProductOnboardingRespVO {
 
     private Long id;
     private Long productMasterId;
+    private String productCode;
+    private String dccProductCode;
+    private String productNameCn;
+    private String productNameEn;
+    private String modelSpecification;
+    private String productCategory;
     private String docControlNo;
     private String projectName;
     private String projectCode;
@@ -21,7 +25,11 @@ public class DccProjectCodeRespVO {
     private String storageLocation;
     private String priority;
     private String status;
-    private Long associatedFileCount;
+    private Long applicantUserId;
+    private Long approverUserId;
+    private LocalDateTime approvedTime;
+    private Long generatedProjectCodeId;
+    private String rejectReason;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

@@ -128,7 +128,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (leaderUserId == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrderList");
         }
-        return activeOrderMapper.selectActiveListByLeader(leaderUserId);
+        return activeOrderMapper.selectActiveList();
     }
 
     private MesProScheduleOrderDO requireMatchingScheduleOrder(MesTeamLeaderActiveOrderAddReqBO reqBO) {

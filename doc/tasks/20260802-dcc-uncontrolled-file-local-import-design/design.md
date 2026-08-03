@@ -37,8 +37,11 @@
 - 实施前必须确认新增 audit 明细和 import 处理项均带 `tenant_id`、`audit_file_id`、`path_hash` 与文件签名快照；没有这些字段不得进入编码。
 - 实施 `recognize` 前必须确认 audit 明细或等价快照表具备可持久化的识别候选摘要字段；推荐字段为 `classification_candidates_json`。若当前已落地 migration 缺少该字段，必须用追加 migration 和 schema 测试补齐，不得只把候选摘要放在内存、日志或一次性响应里。
 - 实施 `import-selected` 前必须确认处理任务和处理项具备 `idempotency_key`、规范化 `request_hash`、`audit_file_id`、`source_signature`、识别结果快照、本地相对路径快照，以及 audit 明细与 import task/item 的可查询绑定关系；缺字段时必须先补 migration/DO/Mapper/Test schema。
+- 若复用 `dcc_controlled_file_nas_transfer_task`，`template_category_id`、`effective_date`、任务级 `dcc_project_code_id` 或同类旧 NAS 转移输入不得成为 `NAS_UNCONTROLLED_IMPORT` 创建任务的必填字段，也不得填入 `0`、当前日期、旧页面选择项或任意默认值来绕过约束；旧 `NAS` / `LOCAL_FOLDER` 入口仍必须在服务层保持原有必填校验。
+- 实施 `import-selected` 前必须确认 `NAS_UNCONTROLLED_IMPORT` 不会被现有 `processWaitingTasks()`、`processFileItem()`、旧 NAS transfer 异步轮询或同类 legacy processor 自动读取 NAS 内容、提交 DCC 或写入 NAS 来源映射；该 source type 只能由 content 下载和 `local-write-result` 后置归档驱动。
 - 实施 `import-selected` 前必须明确请求原子性：任一选中明细不合法时拒绝整个请求，不创建部分 import task，不把部分 audit 明细推进到 `SELECTED`。
 - 实施 `local-write-result` 前必须明确重复回写幂等：相同处理项、相同签名、相同相对路径和相同结果的重复请求返回当前状态；冲突结果必须拒绝，且 `LOCAL_WRITTEN` 不得重复触发第二次归档。
+- 实施正式归档前必须明确 DCC 提交所需模板分类、生效日期、变更原因等元数据的正式来源；缺少正式来源时该文件只能进入明确阻塞状态，例如 `ARCHIVE_METADATA_REQUIRED`，不得用当前日期、历史 transfer 任务值、空模板或默认模板伪造归档成功。
 - 实施前必须确认测试命令的工作目录：Maven 命令从 `IntRuoyiBackend` 或使用 `-f IntRuoyiBackend/pom.xml` 执行；SQL 静态测试放在 `IntRuoyiBackend/script/tests/`；前端静态/E2E 命令从 `IntRuoyiFronted` 或使用 `pnpm --dir IntRuoyiFronted` 执行。
 - 代码检索必须限定到 DCC、NAS、项目代码、分类和验收文档相关目录，避免被无关模块的损坏 `target` 目录或并发任务产物误阻塞。
 - 实施前必须确认浏览器写入方案不把文件二进制转成 JSON/base64 大字段；大文件应使用二进制响应、流式读取或明确的分块方案，防止前端内存峰值被误判为业务失败。
@@ -96,8 +99,11 @@
 新增轻量处理任务表或复用 `dcc_controlled_file_nas_transfer_task` 扩展 `sourceType`：
 
 - 推荐扩展 `dcc_controlled_file_nas_transfer_task.sourceType = NAS_UNCONTROLLED_IMPORT`，复用任务轮询、失败列表和 item 处理结构。
+- 若复用该表，`NAS_UNCONTROLLED_IMPORT` 的事实来源只能是 task item 的 audit/识别/本地路径快照；任务头上的 `template_category_id`、`effective_date`、`dcc_project_code_id`、`product_master_id` 或旧 NAS 转移全局选择值必须允许为空且不得参与目标项目、item、分类判断。
+- 旧 NAS 转移和本地文件夹导入仍必须通过服务校验要求其业务必填字段；不能因为 import 任务需要 nullable schema 而放松原入口的正式入参校验。
 - 处理项必须绑定 `audit_file_id`，防止用户选择后 NAS 文件变化或重复处理。
 - 任务头必须保存 `audit_task_id`、`source_type=NAS_UNCONTROLLED_IMPORT`、`operator_user_id`、`idempotency_key`、`request_hash` 和统计计数；相同 `tenant_id + operator_user_id + idempotency_key + request_hash` 返回原任务，相同 key 但 `request_hash` 不同必须返回明确冲突，不得复用或覆盖原任务。
+- `tenant_id + operator_user_id + idempotency_key + deleted` 必须有唯一约束或等价事务锁保护；若因历史数据无法立即加唯一约束，服务测试必须证明同 key 并发只产生一个任务且不同 `request_hash` 返回冲突，不能仅依赖普通索引或前端防抖。
 - `request_hash` 必须由规范化请求生成：先校验 `selectionScope=EXPLICIT_IDS`、非空、无重复 `auditFileId`，再按 `auditFileId ASC` 对 `selectedFiles` 排序，使用 `auditTaskId + selectionScope + auditFileId + sourceSignature + localRelativePath` 的稳定 UTF-8 JSON 计算 SHA-256；同一选择仅提交顺序不同不得产生不同 hash。
 - 每个处理项必须保存 `audit_file_id`、`source_signature`、`classification_status_snapshot`、`matched_project_code_id_snapshot`、`matched_file_type_taxonomy_id_snapshot`、`matched_file_type_level1-5_snapshot`、`classification_reason_snapshot`、`classification_candidates_json_snapshot`、`local_relative_path` 和状态字段，后续重跑不得因为分类规则变化或前端重试悄悄改变目标。
 - 若复用 `dcc_controlled_file_nas_transfer_task_item`，必须以新增字段表达 `audit_file_id` 和上述快照；不得把 `source_file_id`、`nas_path` 或 `item_name` 复用成 audit 绑定事实来源。
@@ -105,6 +111,7 @@
 - 同一租户下 `idempotency_key` 必须幂等返回原 import task；不同 key 处理已归档 audit file 必须返回冲突或已处理状态，不得创建第二个受控文件。
 - 本地写入结果是浏览器端用户授权目录写入后的回执，必须记录操作者、时间、audit file、相对路径和错误码；后端不得据此保存或推断本地绝对路径。
 - `local-write-result` 必须是处理项级幂等操作；重复 `LOCAL_WRITTEN` 不得重复调用归档链路，重复 `LOCAL_WRITE_FAILED` 只能返回既有失败状态，成功后再提交失败或失败后再提交成功必须按显式 retry 规则处理，首版直接返回冲突。
+- `NAS_UNCONTROLLED_IMPORT` 任务创建成功后仍不得进入现有 waiting processor 的自动处理队列；任务状态若复用旧枚举，必须用 source type 分支保证旧 processor 跳过该任务，并由 content/local-write-result 驱动后续状态。
 
 ### 分类与归档矩阵
 
@@ -186,6 +193,7 @@
 5. 前端基于后端返回的相对路径预览做本地相对路径校验、规范化冲突校验和目标文件存在性检查；任一阻塞必须显示明细，不得覆盖、自动改名或继续归档。
 6. 本地目录授权和相对路径校验通过后，`import-selected` 创建处理任务并锁定 `auditFileIds + source_signature + recognition snapshot + local_relative_path + idempotencyKey`。
    - `import-selected` 必须先完成全量校验再写库；空选择、重复 id、跨任务/租户、签名不匹配、未识别、已归档、已有活动 import 绑定、相对路径不匹配或幂等冲突中任一项存在时，整个请求失败且 audit 明细状态保持不变。
+   - `import-selected` 只创建可审计任务和快照，不读取 NAS 文件内容、不调用旧 NAS transfer processor、不调用 `submitControlledFileWithoutApproval`、不写入 `dcc_controlled_file_nas_source`。
 7. 前端逐个调用 `content` 下载文件内容；后端每次读取前必须复核 `path_hash + file_size + modified_at + source_signature`，通过后才可将对应处理项推进到 `CONTENT_READY`，且响应必须使用二进制流或明确分块，不得把文件内容包装进 JSON/base64。
 8. 前端先写入本地目录；写入失败时回写 `LOCAL_WRITE_FAILED`，匹配文件也不得进入 DCC 归档。
 9. 只有 `classification_status=MATCHED` 且 `local-write-result=LOCAL_WRITTEN` 的文件，后端才调用正式 DCC 归档链路。
@@ -200,6 +208,7 @@
 - `UNCLASSIFIED_PENDING` 和 `AMBIGUOUS` 的 `archive_status` 应进入 `PENDING_MANUAL_REVIEW`，除非用户后续通过正式人工处理入口重新识别并发起新的归档证据。
 - 并发处理同一 `audit_file_id` 时，后端必须在事务内检查当前状态、幂等键和已归档标记；并发冲突必须返回明确错误，不得依赖前端按钮禁用作为唯一保护。
 - `import-selected` 必须以事务包住任务头、任务项和 audit 明细状态更新；不得先写入部分 `SELECTED` 再因后续选中文件失败而留下半成品状态。
+- 事务内必须按稳定顺序锁定选中 audit 明细，例如按 `auditFileId ASC`；更新 audit 明细 import 绑定时必须带上当前 `download_status`、`archive_status`、`selected_import_task_id IS NULL` 或等价条件，并校验影响行数等于选中数量，防止并发双任务各自认为成功。
 
 ## 接口设计
 
@@ -230,6 +239,7 @@
 - `POST /dcc/controlled-files/nas-control-audit/{taskId}/import-selected`
   - 其中 `{taskId}` 明确为 `auditTaskId`。
   - 入参：`selectionScope=EXPLICIT_IDS`、`selectedFiles[{auditFileId, sourceSignature, localRelativePath}]`、`idempotencyKey`。不下载/仅查看不调用该接口。
+  - 入参不得包含本地绝对路径、任务级项目代码、任务级分类、`templateCategoryId`、`effectiveDate` 或旧 NAS transfer 的全局选择字段；若正式归档需要这些元数据，必须通过另一个明确的归档元数据设计和 TDD 提供来源。
   - 后端按当前任务、选中明细、签名和本地相对路径生成规范化 `request_hash`；相同幂等键但请求哈希不同必须返回冲突；仅 `selectedFiles` 顺序不同必须返回原任务。
   - 后端只接受已完成统计任务的未受控明细。
   - 后端重新校验每个 `localRelativePath`，不接收本地绝对路径。
@@ -292,6 +302,7 @@
 - import task 的规范化请求哈希必须对选择顺序不敏感、对选择内容敏感；重复 id 必须在 hash 前被拒绝，不能通过排序去重后静默成功。
 - 任一 `import-selected` 校验失败都不得留下半创建任务、半更新 audit 明细或部分 `SELECTED` 状态。
 - local-write-result 和后置归档必须具备处理项级幂等保护；同一 audit file 不得因为浏览器重试、本地回写重放或后端归档重试创建重复受控文件。
+- 任何 `NAS_UNCONTROLLED_IMPORT` 处理项在 `LOCAL_WRITTEN` 前都不得触发 DCC submit；归档所需元数据缺失时必须可见阻塞或失败，不得通过旧任务头默认值绕过。
 
 ## 权限要求
 
