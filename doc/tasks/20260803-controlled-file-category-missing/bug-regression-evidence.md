@@ -4,9 +4,13 @@
 
 受控文件提交页选择“文件分类”后，继续选择文件类别或触发目录加载时可能报错 `Controlled file category does not exist`。
 
+2026-08-03 复现补充：截图显示用户仅选择“文件分类”taxonomy 后，“文件类别”尚未选择且下拉为空，此时右上角仍出现 `Controlled file category does not exist`。因此除 stale `categoryId` 外，辅助历史文件名称预加载也必须从文件分类切换事件中移除。
+
 ## Expected
 
 前端必须区分“文件分类”`fileTypeTaxonomyId` 和 DCC 正式“文件类别”`categoryId`。文件类别下拉只能使用当前 taxonomy 分支下可上传且已绑定目录的正式类别；文件分类切换后必须清空旧类别和目录上下文，不得把 stale 或跨分类 ID 发送给后端。
+
+文件分类或 DCC 项目切换时不得主动调用历史文件名称候选接口；历史文件名称是可选辅助信息，只能在用户聚焦/查询“文件名称”时按需加载，避免分类选择动作弹出无关的 category 错误。
 
 ## Reproduction
 
@@ -19,6 +23,7 @@
 ## RED
 
 - RED: `node tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js` -> FAIL, expected reason: 缺少 `selectedFileTypeTaxonomyCategoryIds`、`availableCategories` taxonomy 过滤、以及 `handleFileTypeTaxonomyChange()` 的类别/目录/预览清理。
+- RED: `node tests/e2e/dcc-upload-name-version-autofill-static.spec.js` -> FAIL, expected reason: 旧契约仍要求 `handleFileTypeTaxonomyChange()` 主动刷新历史文件名称选项，无法证明截图中的文件分类切换不会触发辅助接口 toast。
 
 ## GREEN
 

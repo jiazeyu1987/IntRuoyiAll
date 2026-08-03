@@ -1,4 +1,4 @@
-# 岗位需求分解矩阵实现任务验证报告
+﻿# 岗位需求分解矩阵实现任务验证报告
 
 ## Scope
 
@@ -130,6 +130,9 @@
 | current runtime probe | PASS，48081 listener PID `43876` 为 `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`；backend health `UP`，frontend 8081 HTTP `200` |
 | authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` after D29/D32 | PASS，0 SOURCE / 0 ENV / 0 RUNTIME |
 | authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` after D29/D32 | STRUCTURED_BLOCKED，6 phase evidence / 10 action evidence / 2 gate evidence / 65 blockers；`pqcFormalSubmissionCreated=PASS`，`submittedTaskId=31`，`eventId=26`，`signatureId=23`；`pqcLeaderSubmissionFilterPaginationConsistent=PASS`，`total=2`，`firstEventId=24`，`secondEventId=26` |
+| M6 AC-D29 duplicate-submit status guard target Maven | BLOCKED，standard target command stalled before tests and non-incremental target command failed before tests on missing generated `LineDetailItemBuilder` class in shared `target\classes`; code change is not accepted and no GREEN is claimed |
+| M6 AC-D29 duplicate-submit authorized cleanup/retry | BLOCKED，authorized same-root MES Maven blockers were stopped, but Maven clean stalled in Windows deletion and retry remained in javac class writing for 20+ minutes without current surefire reports; code change remains unaccepted |
+| M6 AC-D29 duplicate-submit target Maven after target isolation | PASS，residual `target` moved to `target\rrm_m6_blocked_20260803_151631`; `MesFrontlinePqcContextServiceTest` passed with 10 tests, 0 failures/errors |
 
 ## Resolved M5 Detail
 
@@ -143,7 +146,7 @@
 
 - M5 后端目标 Maven verification blocker 已关闭。
 - 迁移、并发、性能、全量真实 E2E 和收尾/上线验收仍在 M6 中推进。
-- 当前 M6 blocker：`role-requirement-matrix-real-flow.e2e.js` 已移除泛化未实现占位，改为从测试计划加载 62 AC 并输出逐项 `E2E_COVERAGE` blocker；当前已完成六角色入口/页面阶段观察、AC-M04 `joinActiveOrder`、`activeOrderConflictRouteRejected`、`activeOrderCrossRoleReadOnly`、`activeOrderUnauthorizedMutationBlocked` 真实动作观察、PQC `pqcRegulationItemsRendered` 正式规程项目渲染（含 AC-D17 页面可见方法/标准/判定元信息）、`pqcPieceDetailQuantityPrepared` 逐件数量、`pqcActualEmployeeSelected` 正式人员来源、`pqcFormalSubmissionCreated` 正式提交事件、`pqcLeaderSubmissionFilterPaginationConsistent` 同筛选分页 PASS 动作证据、M6 迁移预检静态/策略/运行库门禁 PASS_RUNTIME_PREFLIGHT，以及 AC-M04 后端重复/并发/冲突路线失败路径。权限隔离已由专用错误角色 `aoteman` 真实验证通过；清理追溯脚本已能重新定位 activeOrderId，但当前 activeOrderId 仍是后续 M6 共享夹具，需要正式清理窗口或可重建夹具后才能清理；并发/性能已显式结构化为 12 个 CONC AC 与 4 个 PERF AC 的 gate blocker，其中 `AC-D27` 与 `AC-D32` 已有页面观察，但日结、PQC 列表和逐件明细仍缺完整 N+1 / paging drift proof；尚未完成 62 AC 的完整真实页面失败路径、权限隔离、并发/性能证据和清理闭环。
+- 当前 M6 blocker：`role-requirement-matrix-real-flow.e2e.js` 已移除泛化未实现占位，改为从测试计划加载 62 AC 并输出逐项 `E2E_COVERAGE` blocker；当前已完成六角色入口/页面阶段观察、AC-M04 `joinActiveOrder`、`activeOrderConflictRouteRejected`、`activeOrderCrossRoleReadOnly`、`activeOrderUnauthorizedMutationBlocked` 真实动作观察、PQC `pqcRegulationItemsRendered` 正式规程项目渲染（含 AC-D17 页面可见方法/标准/判定元信息）、`pqcPieceDetailQuantityPrepared` 逐件数量、`pqcActualEmployeeSelected` 正式人员来源、`pqcFormalSubmissionCreated` 正式提交事件、`pqcLeaderSubmissionFilterPaginationConsistent` 同筛选分页 PASS 动作证据、M6 迁移预检静态/策略/运行库门禁 PASS_RUNTIME_PREFLIGHT，以及 AC-M04 后端重复/并发/冲突路线失败路径。AC-D29 duplicate-submit 状态守卫已补充并通过 `MesFrontlinePqcContextServiceTest` target GREEN；权限隔离已由专用错误角色 `aoteman` 真实验证通过；清理追溯脚本已能重新定位 activeOrderId，但当前 activeOrderId 仍是后续 M6 共享夹具，需要正式清理窗口或可重建夹具后才能清理；并发/性能已显式结构化为 12 个 CONC AC 与 4 个 PERF AC 的 gate blocker，其中 `AC-D27` 与 `AC-D32` 已有页面观察，但日结、PQC 列表和逐件明细仍缺完整 N+1 / paging drift proof；尚未完成 62 AC 的完整真实页面失败路径、权限隔离、并发/性能证据和清理闭环。
 - 62 项 AC 不能在 M5/M6 验收前标记为全部完成。
 - 本轮按用户要求不执行 `git push`；后续如需提交，也只能本地提交并保留 no-push 记录，除非用户另行授权。
 

@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileLoc
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileLocalFolderImportUploadStateRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNasTransferReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNasTransferRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportLocalWriteResultReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportSelectedReqVO;
 
 public interface DccControlledFileNasTransferService {
@@ -21,6 +22,10 @@ public interface DccControlledFileNasTransferService {
 
     DccControlledFileBinary readUncontrolledImportContent(
             Long userId, Long importTaskId, Long auditFileId, String sourceSignature, String localRelativePath);
+
+    DccControlledFileNasTransferRespVO recordUncontrolledImportLocalWriteResult(
+            Long userId, Long importTaskId, Long auditFileId,
+            DccNasUncontrolledImportLocalWriteResultReqVO reqVO);
 
     DccControlledFileNasTransferRespVO createLocalFolderImportSession(
             Long userId, DccControlledFileLocalFolderImportSessionCreateReqVO reqVO);

@@ -164,8 +164,8 @@ assert.match(
 )
 assert.match(
   dccReadonlyE2e,
-  /data-testid="dcc-browser-file-number-detail-link"/,
-  '受控内容状态真实 E2E 必须通过页面详情入口进入详情页。'
+  /data-testid="dcc-browser-row-traceability"/,
+  '受控内容状态真实 E2E 必须通过受控浏览操作列追溯入口进入详情页。'
 )
 assert.match(
   dccReadonlyE2e,

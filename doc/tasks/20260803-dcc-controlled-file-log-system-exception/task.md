@@ -7,17 +7,18 @@
 ## Milestones
 
 - [x] 建立任务记录并补齐适用门禁
-- [ ] 复现文控日志主查询异常并定位根因
-- [ ] 增加失败优先的回归测试
-- [ ] 实施最小正式修复
-- [ ] 执行目标验证并记录结果
+- [x] 复现文控日志重复系统异常提示并定位根因
+- [x] 增加失败优先的回归测试
+- [x] 实施最小正式修复
+- [x] 执行目标验证并记录结果
+- [x] 沉淀可复用经验
 - [ ] 收尾、提交并推送
 
 ## Expected Verification
 
 - `node tests/e2e/dcc-controlled-file-logs-static.spec.js`
-- 目标后端 JUnit：`DccControlledFileLogQueryServiceTest`
-- 如本机运行态满足登录前置，再执行 `node tests/e2e/dcc-controlled-file-logs-real.e2e.js`
+- 目标后端 JUnit：`DccControlledFileLogQueryServiceTest` / `DccControlledFileLogControllerTest`（若编译前置可用）
+- 如本机 Playwright 浏览器缓存满足前置，再执行 `node tests/e2e/dcc-controlled-file-logs-real.e2e.js`
 
 ## Applied Experience Gates
 
@@ -25,6 +26,7 @@
 - `docs/frontend-development.md#前端延迟辅助加载错误归属门禁`：文控日志主查询失败才允许全局错误；不得吞异常、默认空数据或隐藏真实后端错误。
 - `docs/powershell-memory.md#git-indexlock-陈旧锁恢复门禁`：处理 `.git/index.lock` 前必须确认锁文件状态与活动 Git 进程。
 - `docs/powershell-memory.md#提交后残余改动复扫门禁`：共享分支存在并发改动时，提交后必须复扫并记录残余归属。
+- `docs/frontend-development.md#前端主查询错误重复提示门禁`：页面拥有错误展示归属时，API wrapper 必须设置 `ignoreErrorMessage: true`。
 
 ## Design Constraint Check
 
@@ -34,6 +36,6 @@
 
 ## Current Status
 
-in_progress
+blocked
 
-已完成任务记录和前置门禁读取；下一步复现并定位文控日志主查询系统异常。
+已修复文控日志请求的重复系统异常提示；实现与验证完成，但共享分支上存在非本任务 `git add -A` 进程占用 `.git/index.lock`，且该进程同时包含本任务文件和多个无关任务文件。为避免混入或中断并发任务，当前阻塞在收尾提交/推送。

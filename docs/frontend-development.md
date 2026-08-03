@@ -148,6 +148,15 @@
 - Forbidden action: 禁止吞掉辅助接口错误、把真实失败改成空配置/未配置、关闭 axios 错误、或只隐藏全局 alert 而不展示错误归属。
 - Evidence: 任务 `doc/tasks/20260727-edhr-batch-record-list-system-exception/`，批记录表单列表中填写人规则延迟加载失败曾在列表已成功渲染后污染全局 `listErrorMessage`。
 
+## 前端主查询错误重复提示门禁
+
+- Trigger: 页面主查询在 `catch` 中设置 `loadError`、结果弹窗或 `message.error`，同时请求走统一 Axios response interceptor，截图出现重复 `系统异常` toast 或同一错误既由全局提示又由页面提示。
+- Preflight check: 先确认错误归属由全局 Axios 还是页面本身负责；若页面需要保留行内错误条、结果弹窗或定制提示，则该请求必须显式设置 `ignoreErrorMessage: true`，并由页面 catch 统一展示真实错误文本。
+- Blocker: 同一失败出现 2 条及以上相同错误提示、页面隐藏真实错误只剩默认空数据、或静态合同无法证明 `ignoreErrorMessage` 与页面错误展示同时存在时必须停止。
+- Verification: 聚焦静态合同断言目标 API wrapper 设置 `ignoreErrorMessage: true`，页面仍设置可见错误归属；再运行相邻页面静态合同和 `pnpm ts:check`。
+- Forbidden action: 禁止关闭全局错误处理、吞异常、删除页面错误条、返回默认成功/空数据或仅改文案来消除重复提示。
+- Evidence: 任务 `doc/tasks/20260803-dcc-controlled-file-log-system-exception/`，文控日志主查询失败时 Axios 与页面 catch 重复弹出“系统异常”，修复为页面拥有错误提示归属。
+
 ## 前端页签首屏按需挂载门禁
 
 ### 首屏页签懒挂载与可见行查询

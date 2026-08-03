@@ -144,6 +144,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private static final String DOWNLOAD_ENCRYPTION_STATUS_FAILED = "FAILED";
     private static final String FAILURE_SOURCE_READ_FAILED = "SOURCE_READ_FAILED";
     private static final String FAILURE_AUDIT_RECORD_FAILED = "AUDIT_RECORD_FAILED";
+    private static final String PREVIEW_UNAVAILABLE_CONTENT_TYPE = "application/octet-stream";
     private static final long PREVIEW_VIEWER_TOKEN_TTL_SECONDS = 900L;
     private static final DateTimeFormatter DOWNLOAD_EVENT_CODE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
             .withZone(ZoneOffset.UTC);
@@ -487,10 +488,13 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (!canReadBinary(userId, file, DccAccessTypeEnum.PREVIEW)) {
             throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         }
-        FileDO binaryFile = resolveBinaryFileRecord(file, DccAccessTypeEnum.PREVIEW);
+        Long binaryFileId = resolveBinaryFileId(file, DccAccessTypeEnum.PREVIEW);
+        FileDO binaryFile = binaryFileId == null ? null : fileMapper.selectById(binaryFileId);
+        String previewFileName = resolvePreviewFileName(file, binaryFile);
+        String previewContentType = binaryFile == null ? PREVIEW_UNAVAILABLE_CONTENT_TYPE : binaryFile.getType();
         DccControlledFilePreviewMetadataRespVO respVO = new DccControlledFilePreviewMetadataRespVO();
         DccControlledFilePreviewKindEnum previewKind =
-                DccControlledFilePreviewKindEnum.resolve(binaryFile.getName(), binaryFile.getType());
+                DccControlledFilePreviewKindEnum.resolve(previewFileName, previewContentType);
         DccPreviewAccessResult accessResult = previewAccessService.prepareAccess(new DccPreviewAccessRequest(
                 TenantContextHolder.getRequiredTenantId(),
                 userId,
@@ -511,14 +515,18 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 requiredAuditContext.requireRequestId("preview metadata")));
         requirePreviewAccessResult(accessResult);
         respVO.setPreviewKind(previewKind.getCode());
-        respVO.setFileName(binaryFile.getName());
-        respVO.setContentType(binaryFile.getType());
+        respVO.setFileName(previewFileName);
+        respVO.setContentType(previewContentType);
         respVO.setViewerToken(accessResult.viewerToken());
         respVO.setViewerTokenId(accessResult.viewerTokenId());
         respVO.setViewerTokenNonce(accessResult.viewerTokenNonce());
         respVO.setAccessEventCode(accessResult.accessEventCode());
         respVO.setWatermarkTraceCode(accessResult.watermarkTraceCode());
-        respVO.setWatermark(watermarkService.build(userId, "preview", binaryFile.getName()));
+        respVO.setWatermark(watermarkService.build(userId, "preview", previewFileName));
+        if (binaryFile == null) {
+            respVO.setPreviewUnavailableReason(buildPreviewArtifactMissingReason(file, binaryFileId));
+            return respVO;
+        }
         if (previewKind == DccControlledFilePreviewKindEnum.OFFICE) {
             applyOnlyOfficePreview(respVO, userId, file, accessResult);
         }
@@ -2025,6 +2033,20 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private FileDO resolvePreviewFileForSummary(DccControlledFileDO file) {
         Long previewFileId = resolveBinaryFileId(file, DccAccessTypeEnum.PREVIEW);
         return previewFileId == null ? null : fileMapper.selectById(previewFileId);
+    }
+
+    private String resolvePreviewFileName(DccControlledFileDO file, FileDO binaryFile) {
+        if (binaryFile != null && StrUtil.isNotBlank(binaryFile.getName())) {
+            return binaryFile.getName();
+        }
+        String controlledFileName = StrUtil.blankToDefault(file.getFileName(), file.getTitle());
+        return StrUtil.blankToDefault(controlledFileName, "controlled-file-" + file.getId());
+    }
+
+    private String buildPreviewArtifactMissingReason(DccControlledFileDO file, Long binaryFileId) {
+        String artifactField = isPendingPreviewStatus(file.getStatus()) ? "originalFileId" : "publishedFileId";
+        return "Controlled file preview artifact is missing: " + artifactField + "="
+                + (binaryFileId == null ? "null" : binaryFileId);
     }
 
     private void applyOnlyOfficePreview(DccControlledFilePreviewMetadataRespVO respVO, Long userId,

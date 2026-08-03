@@ -1,4 +1,4 @@
-# Verification Report
+﻿# Verification Report
 
 ## Summary
 
@@ -23,4 +23,4 @@
 
 - `node tests/e2e/dcc-browser-file-number-detail-entry-static.spec.js` -> FAIL on existing assertion that browser operation column must not route to detail; current browser operation column intentionally contains “追溯”.
 - `dcc-browser-file-number-detail-entry-static.spec.js` remains isolated to an older assertion about the browser operation-column detail route and is not introduced by the detail-page download removal.
-- Push is blocked: configured GitHub proxy `127.0.0.1:7890` is not listening, and direct GitHub 443 later failed/reset. Local `int_main` remains ahead of `origin/int_main`; task cannot be marked completed until push succeeds.
+- Push partially succeeded: code and prior closeout records reached remote through `57d1345d1`. Final completion commit `baad4eb0f` remains local because the final push retried with proxy cleared but failed with GitHub 443 reset/unreachable. Local `int_main` remains ahead of `origin/int_main` by 1 commit until network recovers.

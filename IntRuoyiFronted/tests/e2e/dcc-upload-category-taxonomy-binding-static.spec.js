@@ -35,8 +35,14 @@ assert.match(
 
 assert.match(
   uploadPage,
-  /const handleFileTypeTaxonomyChange = async \(\) => \{[\s\S]*resetCategorySelectionForFileTypeTaxonomyChange\(\)[\s\S]*await refreshUploadNameOptionsForProjectTaxonomy\(\)/,
-  'file taxonomy change handler must reset dependent category context before refreshing name options'
+  /const handleFileTypeTaxonomyChange = async \(\) => \{[\s\S]*resetCategorySelectionForFileTypeTaxonomyChange\(\)[\s\S]*validateField\?\.\('fileTypeTaxonomyId'\)/,
+  'file taxonomy change handler must reset dependent category context before validating taxonomy'
+)
+
+assert.doesNotMatch(
+  uploadPage,
+  /const handleFileTypeTaxonomyChange = async \(\) => \{[\s\S]*refreshUploadNameOptionsForProjectTaxonomy\(\)/,
+  'file taxonomy change must not eagerly call upload-name-options before the user opens file name suggestions'
 )
 
 console.log('PASS: DCC upload category taxonomy binding static contract')

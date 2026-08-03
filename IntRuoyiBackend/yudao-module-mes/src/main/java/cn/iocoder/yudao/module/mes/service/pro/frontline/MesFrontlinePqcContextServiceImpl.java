@@ -70,6 +70,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_ROUTE_PROCESS_EMPTY;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_TASK_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_TASK_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_SIGNATURE_EMPLOYEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PQC_RESULT_INVALID;
@@ -79,6 +80,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContextService {
 
     private static final String PQC_INSPECTION_TASK_SOURCE_TYPE = "MES_PQC_INSPECTION_TASK";
+    private static final String PQC_TASK_STATUS_PENDING = "PENDING";
     private static final String PQC_TASK_STATUS_SUBMITTED = "SUBMITTED";
 
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
@@ -334,7 +336,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         String rawPayload = buildPqcInspectionEventRawPayload(command, pieceDetails);
 
         task.setActualInspectionQuantity(command.getActualInspectionQuantity());
-        task.setTaskStatus("SUBMITTED");
+        task.setTaskStatus(PQC_TASK_STATUS_SUBMITTED);
         pqcTaskMapper.updateById(task);
         pqcPieceDetailMapper.insertBatch(pieceDetails);
         processPoolEventService.createPqcInspectionEvent(MesProcessPoolCreatePqcInspectionReqDTO.builder()
@@ -494,6 +496,9 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         if (task == null) {
             throw exception(PRO_FRONTLINE_PQC_TASK_REQUIRED,
                     command.getActiveOrderId(), command.getRouteProcessId(), command.getProcessId());
+        }
+        if (!PQC_TASK_STATUS_PENDING.equals(task.getTaskStatus())) {
+            throw exception(PRO_FRONTLINE_PQC_TASK_STATUS_INVALID, task.getId(), task.getTaskStatus());
         }
         if (!Objects.equals(task.getId(), command.getPqcTaskId())
                 || !Objects.equals(task.getActiveOrderId(), command.getActiveOrderId())

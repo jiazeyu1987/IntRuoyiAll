@@ -425,7 +425,7 @@ class MesFrontlinePqcContextServiceTest {
                         .build()));
 
         assertEquals(PRO_FRONTLINE_PQC_TASK_STATUS_INVALID.getCode(), exception.getCode());
-        verify(pqcTaskMapper, never()).updateById(any());
+        verify(pqcTaskMapper, never()).updateById(any(MesPqcInspectionTaskDO.class));
         verify(pqcPieceDetailMapper, never()).insertBatch(anyCollection());
         verify(processPoolEventService, never()).createPqcInspectionEvent(any());
     }

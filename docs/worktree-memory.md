@@ -9,6 +9,15 @@
 - Forbidden action: 禁止手工猜测槽位、并发直接改写登记表、使用 `slot >= 20`、基准工作区借用 worktree 槽位、冲突时随机换端口或按分支名猜测歧义 profile。
 - Evidence: `doc/tasks/20260726-harden-worktree-port-slot-allocation/verification-report.md`。
 
+## 主工作区 Maven Target 冲突时的隔离验证 Worktree 门禁
+
+- Trigger: 主工作区目标模块 `target` 已损坏、`mvn clean` 卡在 `WinNTFileSystem.delete0`、存在其它任务 Maven 正在写同一模块输出目录，但当前任务仍需要运行定向 Maven 回归。
+- Preflight check: 先读取 `docs\worktree-restrictions.md` 并确认目标路径是 `D:\IntRuoyiWorktree\` 子路径；只创建 task-owned detached worktree（`git worktree add --detach`），不启动前后端服务时不登记端口；把当前任务的最小源码 diff 精确应用到该 worktree，并用 `git diff -- <path>` 复核。
+- Blocker: 目标路径不在 `D:\IntRuoyiWorktree\`、需要启动服务但未登记 slot、无法证明 applied diff 只含当前任务改动、或 isolated Maven 仍无法到达目标 Surefire 时必须停止；不得继续清理主工作区共享 `target`。
+- Verification: 记录 detached worktree 路径、HEAD、applied diff、目标 Maven PASS 摘要、未启动服务/未使用端口的说明；验证后从主工作区执行 `git worktree remove --force <path>`，并确认 `Test-Path <path>` 为 false。
+- Forbidden action: 禁止强杀其它任务 Maven/Java 进程、删除共享模块 `target`、改用随机 Maven 输出目录、把 isolated worktree 未验证 diff 的结果当作主工作区验证、或遗漏 worktree 删除记录。
+- Evidence: `doc/tasks/20260803-dcc-docx-preview-system-exception/verification-report.md`，主工作区 DCC target 与并发 Maven 冲突时，创建 detached verification worktree、应用单个 service diff、通过 focused/adjacent preview Maven 测试后删除 worktree。
+
 ## 多 Worktree 批量融合门禁
 
 - Trigger: 将 `D:\IntRuoyiWorktree\` 下多个功能分支批量合入 `int_main`，尤其是 worktree 存在 dirty 状态、多个分支修改同一服务/API/测试文件，或合并后需要立即删除 worktree。

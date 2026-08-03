@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNasTransferReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNasTransferRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportLocalWriteResultReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportSelectedReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccCategoryDirectoryBindingDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.directory.DccDirectoryAccessRuleDO;
@@ -441,6 +442,103 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
         verify(nasBrowserService, never()).readFile(anyString());
         verify(auditFileMapper, never()).updateById(any(DccNasControlAuditFileDO.class));
         verify(taskItemMapper, never()).updateById(any(DccControlledFileNasTransferTaskItemDO.class));
+    }
+
+    @Test
+    void recordUncontrolledImportLocalWriteResult_marksLocalWrittenWithoutArchiveSideEffects() {
+        ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileNasTransferTaskDO task = uncontrolledImportTask(
+                8203L, 99L, 7001L, "idem-local-write-001", "e".repeat(64));
+        DccNasControlAuditFileDO auditFile = matchedAuditFile(703L, "QMS/PRJ-20260728/local.pdf",
+                "sig-local", "PRJ-20260728/Design/local.pdf", 6L);
+        auditFile.setDownloadStatus(DccControlledFileNasTransferServiceImpl.AUDIT_FILE_DOWNLOAD_STATUS_SELECTED);
+        auditFile.setSelectedImportTaskId(8203L);
+        auditFile.setSelectedImportTaskItemId(9303L);
+        auditFile.setLocalRelativePath("PRJ-20260728/Design/local.pdf");
+        DccControlledFileNasTransferTaskItemDO item = uncontrolledImportItem(9303L, task, auditFile);
+        when(taskMapper.selectById(8203L)).thenReturn(task);
+        when(auditFileMapper.selectById(703L)).thenReturn(auditFile);
+        when(taskItemMapper.selectById(9303L)).thenReturn(item);
+        stubAggregatedTaskItemSummary(() -> List.of(item));
+
+        DccControlledFileNasTransferRespVO response = transferService.recordUncontrolledImportLocalWriteResult(
+                99L, 8203L, 703L, localWriteResultReq("sig-local",
+                        "PRJ-20260728/Design/local.pdf", "LOCAL_WRITTEN", null, null));
+
+        assertEquals(8203L, response.getTaskId());
+        ArgumentCaptor<DccNasControlAuditFileDO> auditCaptor =
+                ArgumentCaptor.forClass(DccNasControlAuditFileDO.class);
+        verify(auditFileMapper).updateById(auditCaptor.capture());
+        assertEquals("LOCAL_WRITTEN", auditCaptor.getValue().getDownloadStatus());
+        assertEquals("NOT_STARTED", auditCaptor.getValue().getArchiveStatus());
+        ArgumentCaptor<DccControlledFileNasTransferTaskItemDO> itemCaptor =
+                ArgumentCaptor.forClass(DccControlledFileNasTransferTaskItemDO.class);
+        verify(taskItemMapper).updateById(itemCaptor.capture());
+        assertEquals("LOCAL_WRITTEN", itemCaptor.getValue().getLocalWriteStatus());
+        assertEquals("NOT_STARTED", itemCaptor.getValue().getArchiveStatus());
+        verify(nasBrowserService, never()).readFile(anyString());
+        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
+    void recordUncontrolledImportLocalWriteResult_replaysSameSuccessWithoutMutatingOrArchivingAgain() {
+        ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileNasTransferTaskDO task = uncontrolledImportTask(
+                8204L, 99L, 7001L, "idem-local-write-002", "f".repeat(64));
+        DccNasControlAuditFileDO auditFile = matchedAuditFile(704L, "QMS/PRJ-20260728/replay.pdf",
+                "sig-replay", "PRJ-20260728/Design/replay.pdf", 8L);
+        auditFile.setDownloadStatus("LOCAL_WRITTEN");
+        auditFile.setSelectedImportTaskId(8204L);
+        auditFile.setSelectedImportTaskItemId(9304L);
+        auditFile.setLocalRelativePath("PRJ-20260728/Design/replay.pdf");
+        DccControlledFileNasTransferTaskItemDO item = uncontrolledImportItem(9304L, task, auditFile);
+        item.setLocalWriteStatus("LOCAL_WRITTEN");
+        when(taskMapper.selectById(8204L)).thenReturn(task);
+        when(auditFileMapper.selectById(704L)).thenReturn(auditFile);
+        when(taskItemMapper.selectById(9304L)).thenReturn(item);
+        stubAggregatedTaskItemSummary(() -> List.of(item));
+
+        DccControlledFileNasTransferRespVO response = transferService.recordUncontrolledImportLocalWriteResult(
+                99L, 8204L, 704L, localWriteResultReq("sig-replay",
+                        "PRJ-20260728/Design/replay.pdf", "LOCAL_WRITTEN", null, null));
+
+        assertEquals(8204L, response.getTaskId());
+        verify(auditFileMapper, never()).updateById(any(DccNasControlAuditFileDO.class));
+        verify(taskItemMapper, never()).updateById(any(DccControlledFileNasTransferTaskItemDO.class));
+        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
+    void recordUncontrolledImportLocalWriteResult_rejectsConflictingTerminalResultWithoutArchive() {
+        ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileNasTransferTaskDO task = uncontrolledImportTask(
+                8205L, 99L, 7001L, "idem-local-write-003", "a".repeat(64));
+        DccNasControlAuditFileDO auditFile = matchedAuditFile(705L, "QMS/PRJ-20260728/conflict.pdf",
+                "sig-conflict", "PRJ-20260728/Design/conflict.pdf", 5L);
+        auditFile.setDownloadStatus("LOCAL_WRITTEN");
+        auditFile.setSelectedImportTaskId(8205L);
+        auditFile.setSelectedImportTaskItemId(9305L);
+        auditFile.setLocalRelativePath("PRJ-20260728/Design/conflict.pdf");
+        DccControlledFileNasTransferTaskItemDO item = uncontrolledImportItem(9305L, task, auditFile);
+        item.setLocalWriteStatus("LOCAL_WRITTEN");
+        when(taskMapper.selectById(8205L)).thenReturn(task);
+        when(auditFileMapper.selectById(705L)).thenReturn(auditFile);
+        when(taskItemMapper.selectById(9305L)).thenReturn(item);
+
+        assertThrows(IllegalStateException.class, () -> transferService.recordUncontrolledImportLocalWriteResult(
+                99L, 8205L, 705L, localWriteResultReq("sig-conflict",
+                        "PRJ-20260728/Design/conflict.pdf", "LOCAL_WRITE_FAILED",
+                        "LOCAL_PATH_COLLISION", "target already exists")));
+
+        verify(auditFileMapper, never()).updateById(any(DccNasControlAuditFileDO.class));
+        verify(taskItemMapper, never()).updateById(any(DccControlledFileNasTransferTaskItemDO.class));
+        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
     }
 
     @Test
@@ -2406,6 +2504,17 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
         selectedFile.setSourceSignature(sourceSignature);
         selectedFile.setLocalRelativePath(localRelativePath);
         return selectedFile;
+    }
+
+    private static DccNasUncontrolledImportLocalWriteResultReqVO localWriteResultReq(
+            String sourceSignature, String localRelativePath, String status, String errorCode, String errorMessage) {
+        DccNasUncontrolledImportLocalWriteResultReqVO reqVO = new DccNasUncontrolledImportLocalWriteResultReqVO();
+        reqVO.setSourceSignature(sourceSignature);
+        reqVO.setLocalRelativePath(localRelativePath);
+        reqVO.setLocalWriteStatus(status);
+        reqVO.setLocalWriteErrorCode(errorCode);
+        reqVO.setLocalWriteError(errorMessage);
+        return reqVO;
     }
 
     private static DccNasControlAuditFileDO matchedAuditFile(Long id,
