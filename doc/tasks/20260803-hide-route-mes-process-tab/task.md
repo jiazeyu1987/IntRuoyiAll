@@ -20,7 +20,7 @@
 
 ## Current Status
 
-completed
+blocked
 
 ## 设计约束检查
 
@@ -38,6 +38,8 @@ completed
 - GREEN: `pnpm ts:check` -> PASS。
 - GREEN: `task-closeout-cleanup preview/apply` -> PASS，keep 三份核心记录、无删除、无阻塞。
 - Implementation commit: `4b5f152f4 fix: hide route mes process tab`。
+- Closeout commit: `206846e2b docs: close out hide route mes process tab`。
+- BLOCKER: `git push origin int_main` -> FAIL，GitHub HTTPS 通过 `127.0.0.1:7890` 失败；`127.0.0.1:7890` 未监听，GitHub 直连 443 不通，SSH 443 可达但当前 key 未授权。
 - BLOCKER: `node tests/e2e/mes-route-product-standard-list-static.spec.js` 仍断言旧 `@request-submit="submitForm"`，但当前实现使用既有 `handleSubmitRequest`；非本任务改动。
 - BLOCKER: `node tests/e2e/mes-route-resource-tab-static.spec.js` 引用不存在的 `RouteProcessList.vue`；非本任务改动。
 

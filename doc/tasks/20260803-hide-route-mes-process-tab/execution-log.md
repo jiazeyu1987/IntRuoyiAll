@@ -39,6 +39,10 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-hide-route-mes-process-tab --mode apply` -> PASS，linked=False，未删除文件。
 - GREEN: implementation commit -> PASS, `4b5f152f4 fix: hide route mes process tab`。
 - completed: cleanup 已通过，任务状态更新为 `completed`，准备提交最终收尾记录。
+- GREEN: closeout commit -> PASS, `206846e2b docs: close out hide route mes process tab`。
+- BLOCKER: `git push origin int_main` -> FAIL, `Failed to connect to github.com port 443 via 127.0.0.1 after 2059 ms: Could not connect to server`。
+- BLOCKER: GitHub proxy diagnostics -> `git config --show-origin --get-regexp proxy` shows `http.https://github.com.proxy http://127.0.0.1:7890`; `Test-NetConnection 127.0.0.1 -Port 7890` -> TcpTestSucceeded False; `Test-NetConnection github.com -Port 443` -> TcpTestSucceeded False; `Test-NetConnection ssh.github.com -Port 443` -> True; `ssh -T -o BatchMode=yes git@ssh.github.com -p 443` -> Permission denied (publickey).
+- blocked: 实现与本地验证完成，但 origin push 前置网络/凭据不满足，按项目规则不得标记最终完成。
 
 ## Changed Files
 

@@ -2,7 +2,7 @@
 
 ## Result
 
-- Status: completed
+- Status: blocked
 - Scope: 前端工艺路线详情/编辑内容页隐藏 `MES 工序` tab，并拒绝旧 `?tab=mesProcess` 入口。
 - No fallback: 未引入降级、默认成功、吞异常或 CSS 遮挡；直接移除 tab 渲染和组件挂载。
 
@@ -17,6 +17,8 @@
 - GREEN: `git diff --check -- <task-owned paths>` -> PASS。
 - GREEN: `task-closeout-cleanup preview/apply` -> PASS，未删除文件。
 - Implementation commit: `4b5f152f4 fix: hide route mes process tab`。
+- Closeout commit: `206846e2b docs: close out hide route mes process tab`。
+- BLOCKER: `git push origin int_main` -> FAIL，GitHub HTTPS 代理端口未监听且 SSH key 未授权，无法完成项目要求的远端推送。
 
 ## Residual Blockers
 
