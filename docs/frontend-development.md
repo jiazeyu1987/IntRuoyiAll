@@ -40,6 +40,15 @@
 - Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
 - Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。
 
+## 前端 LocalDateTime 响应契约门禁
+
+- Trigger: 前端 API wrapper、静态合同或页面报 `DCC response field has invalid type`、`cleanupTime`、`expireTime`、后端响应 VO 使用 `LocalDateTime`，或涉及 `TimestampLocalDateTimeSerializer`。
+- Preflight check: 先核对后端 Jackson/JsonUtils 的 `LocalDateTime` 序列化口径；当前项目默认响应序列化为 epoch millis 数字时，前端类型和 parser 必须声明/校验 `number`，不得凭字段名假定字符串日期。
+- Blocker: 前端仍用 `readOptionalString`、`string` 类型或字符串格式断言接收后端 `LocalDateTime` 数字时间戳，或为了通过页面临时做 string/number 双路兼容、空值吞错、默认当前时间时必须停止。
+- Verification: 新增或更新聚焦静态合同，同时断言后端源字段类型、前端响应类型、显式数字 timestamp decoder、parser 调用和旧 string decoder 不再用于目标字段；涉及引用方时再运行 `pnpm ts:check`。
+- Forbidden action: 禁止把后端全局序列化器返回的数字时间戳改成前端局部字符串兜底；禁止为掩盖合同不一致添加 fallback coercion 或吞异常。
+- Evidence: 任务 `doc/tasks/20260803-dcc-cleanup-time-response-type/`，`cleanupTime`/`expireTime` 由 `LocalDateTime` 经全局 serializer 输出数字时间戳，前端旧 string parser 触发 `DCC response field has invalid type: cleanupTime`。
+
 ## Vue SFC 泛型箭头函数解析门禁
 
 - Trigger: Vite 或 `vite-plugin-eslint` 在 `.vue` 文件中报 `Parsing error: Unexpected token. Did you mean {'>'} or &gt;?`，且报错行是 `<script setup lang="ts">` 内的 `<T>`、`<K, V>` 等泛型箭头函数。

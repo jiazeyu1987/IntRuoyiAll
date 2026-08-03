@@ -105,6 +105,7 @@
 - 前端页面 / 表格 / 样式：`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
 - Keywords: Vite import-analysis Failed to resolve import / controlled-file/logs/index.vue / 前端源码 logs 目录被 .gitignore logs/ 忽略 / git check-ignore -> `docs/frontend-development.md#前端源码目录与-gitignore-门禁`
 - Keywords: 既有大契约先失败, 最小静态契约, 专用 static.spec.js, 当前需求 RED/GREEN, 无关 ts:check blocker -> `docs/frontend-development.md#前端静态契约隔离门禁`
+- Keywords: DCC response field has invalid type, cleanupTime, expireTime, LocalDateTime, TimestampLocalDateTimeSerializer, epoch millis, numeric timestamp, readOptionalString 时间字段误判 -> `docs/frontend-development.md#前端-localdatetime-响应契约门禁`
 - Keywords: vite-plugin-eslint Parsing error Unexpected token Did you mean {'>'} or &gt;, Vue SFC 泛型箭头函数, script setup lang ts, const fn = <T>, getPagedDetailRows -> `docs/frontend-development.md#vue-sfc-泛型箭头函数解析门禁`
 - Keywords: BPMN marker, BPM marker, canvas.addMarker, canvas.removeMarker, elementRegistry.get, Cannot read properties of undefined reading markers, 流程图高亮不完整, 审批流程图节点缺失 -> `docs/frontend-development.md#前端-bpmn-marker-高亮完整性门禁`
 - Keywords: 表头排序, Element Plus sort-change, UnifiedListTemplate sortState, sortColumnAttrs, 服务端分页排序, sortField, sortOrder, 空单元格排序, 降序空值最后, Mapper 白名单排序, 空值标记表达式 -> `docs/frontend-development.md#前端服务端分页排序链路门禁`

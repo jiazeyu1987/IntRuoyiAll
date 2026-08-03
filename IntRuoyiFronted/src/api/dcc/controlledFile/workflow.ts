@@ -147,10 +147,10 @@ export interface ControlledFileUploadTemporaryStatusRespVO {
   sessionId?: string
   purpose?: string
   status?: string
-  expireTime?: string
+  expireTime?: number
   cleanupStatus?: string
   cleanupReason?: string
-  cleanupTime?: string
+  cleanupTime?: number
   cleanedCount?: number
 }
 
@@ -1128,6 +1128,17 @@ const readOptionalString = (payload: Record<string, unknown>, field: string): st
   return value.trim()
 }
 
+const readOptionalTimestamp = (payload: Record<string, unknown>, field: string): number | undefined => {
+  const value = payload[field]
+  if (value === undefined || value === null) {
+    return undefined
+  }
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new DccControlledFileContractError(`DCC response field has invalid type: ${field}`)
+  }
+  return value
+}
+
 const readOptionalNullableString = (
   payload: Record<string, unknown>,
   field: string
@@ -1204,10 +1215,10 @@ export const parseControlledFileUploadTemporaryStatusResp = (
     sessionId: readOptionalString(payload, 'sessionId'),
     purpose: readOptionalString(payload, 'purpose'),
     status: readOptionalString(payload, 'status'),
-    expireTime: readOptionalString(payload, 'expireTime'),
+    expireTime: readOptionalTimestamp(payload, 'expireTime'),
     cleanupStatus: readOptionalString(payload, 'cleanupStatus'),
     cleanupReason: readOptionalString(payload, 'cleanupReason'),
-    cleanupTime: readOptionalString(payload, 'cleanupTime'),
+    cleanupTime: readOptionalTimestamp(payload, 'cleanupTime'),
     cleanedCount:
       payload.cleanedCount === undefined || payload.cleanedCount === null
         ? undefined
