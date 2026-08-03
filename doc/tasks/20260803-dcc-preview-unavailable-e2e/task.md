@@ -7,9 +7,11 @@
 ## Milestones
 
 - [x] 建立任务记录并确认适用门禁
-- [ ] 确认本机前后端运行态与 Playwright 前置
-- [ ] 运行真实前端路径 E2E 验证
-- [ ] 回填验证报告、收尾清理、提交并推送
+- [x] 确认本机前后端运行态与 Playwright 前置
+- [x] 运行真实前端路径 E2E 验证
+- [x] 回填验证报告
+- [x] 收尾清理
+- [ ] 提交并推送
 
 ## Expected Verification
 
@@ -37,7 +39,10 @@
 
 ## Current Status
 
-in_progress
+completed
 
 - 已按项目规则先保存既有脏改动基线提交：`e44ae6ba6 chore: baseline docs before DCC preview E2E validation`。
-- 本次任务正在准备真实 E2E 前置和验证脚本。
+- 本次 E2E 脚本和初始任务文档被并行基线提交 `0fada3212 chore: baseline current main workspace before upload policy fix` 带入历史，后续只选择性提交本任务收尾记录。
+- 真实前端路径 E2E 已通过：7 类预览类型均显示 `previewUnavailableReason`，目标二进制预览请求数为 0。
+- cleanup preview/apply 已通过，仅删除本任务临时 JSON 和截图，保留 `task.md`、`execution-log.md`、`verification-report.md`。
+- 待提交并推送当前分支。
