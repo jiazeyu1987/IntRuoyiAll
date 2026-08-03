@@ -24,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -164,7 +165,7 @@ class MesFrontlineDeviceAccountContextServiceTest {
                 candidates.stream().map(MesFrontlineRouteProcessCandidate::routeProcessId).toList());
         assertEquals(List.of(202L, 201L, 201L),
                 candidates.stream().map(MesFrontlineRouteProcessCandidate::processId).toList());
-        assertEquals(List.of(null, 501L, 502L),
+        assertEquals(Arrays.asList(null, 501L, 502L),
                 candidates.stream().map(MesFrontlineRouteProcessCandidate::deviceId).toList());
         verify(routeBindingSourceProvider, never()).getIfAvailable();
     }

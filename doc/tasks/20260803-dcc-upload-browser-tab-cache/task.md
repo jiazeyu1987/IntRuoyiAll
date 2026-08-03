@@ -2,19 +2,22 @@
 
 ## Task Goal
 
-修复 DCC 顶部页签在“文件上传”和“受控浏览”之间切换时，受控浏览页签被重新挂载并重复加载的问题。正式行为应是两个菜单页签进入后保留在 `keep-alive` 缓存中，切回已打开页签不重新执行首屏 `onMounted` 加载。
+修复 DCC 顶部页签在“文件上传”和“受控浏览”之间切换时，受控浏览页签被重新挂载或同状态切回仍重复加载的问题。正式行为应是两个菜单页签进入后保留在 `keep-alive` 缓存中，切回已打开且筛选/目录/分页状态未变化的受控浏览页签不重新执行目录树和列表加载。
 
 ## Milestones
 
 - [x] 建立任务文档、BDD 场景和适用门禁。
 - [x] 增加 RED 静态合同，证明动态菜单路由必须强制缓存文件上传与受控浏览。
 - [x] 修复动态路由元数据覆盖，确保两个正式页签不受菜单 `keepAlive` 异常值影响。
-- [x] 运行定向静态合同和相邻回归验证。
+- [ ] 增加 RED 静态合同，证明受控浏览同一有效路由状态切回时跳过目录树和列表恢复加载。
+- [ ] 修复受控浏览路由恢复逻辑，保留已加载树/列表并只在有效状态变化时重载。
+- [ ] 运行定向静态合同和相邻回归验证。
 - [ ] 收尾状态、验证报告、清理和提交推送。
 
 ## Expected Verification
 
 - `pnpm e2e:dcc:upload-browser-tab-cache:static`
+- `pnpm e2e:dcc:browser-tab-return-no-reload:static`
 - `pnpm e2e:dcc:browser-single-tab:static`
 - `pnpm e2e:dcc:redbox-first-open-performance:static`
 - `pnpm ts:check`
@@ -27,7 +30,7 @@
 
 ## Current Status
 
-ready_for_closeout
+in_progress
 
 ## Completed Work
 
@@ -37,6 +40,7 @@ ready_for_closeout
 - 已在 `src/utils/routerHelper.ts` 增加文件上传/受控浏览正式缓存路径与组件集合，并在动态路由覆盖中强制 `tagsViewKeyMode='path'` 与 `noCache=false`。
 - 已补齐既有 `dcc-browser-single-tab-static.spec.js` 的 package 脚本入口，避免相邻回归命令缺失。
 - 已运行 task-closeout-cleanup preview/apply；已将 bug evidence 的 RED/GREEN/验证摘要归档到 `execution-log.md` 和 `verification-report.md`，并删除临时 `bug-regression-evidence.md`。
+- 用户补充反馈：切回受控浏览仍会先加载红框目录树，再加载黄框列表区；当前继续修复受控浏览页内部同状态路由恢复导致的重复加载。
 
 ## Verification Evidence
 

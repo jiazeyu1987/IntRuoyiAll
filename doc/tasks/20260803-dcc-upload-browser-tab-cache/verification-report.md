@@ -2,11 +2,12 @@
 
 ## Summary
 
-DCC “文件上传”和“受控浏览”两个正式菜单页签已在动态路由层强制可缓存。即使后端菜单 `keepAlive` 配置缺失或异常，前端也会生成 `noCache=false` 并进入 TagsView / AppView 的 `keep-alive` 缓存，避免切回受控浏览时重新挂载首屏。
+DCC “文件上传”和“受控浏览”两个正式菜单页签已在动态路由层强制可缓存。用户补充确认切回受控浏览时仍存在页内同状态恢复加载，当前报告恢复为待更新状态，需补充受控浏览内部“不重载红框目录树 / 黄框列表”的验证证据后再收尾。
 
 ## Commands
 
 - `pnpm e2e:dcc:upload-browser-tab-cache:static` -> PASS.
+- `pnpm e2e:dcc:browser-tab-return-no-reload:static` -> PENDING.
 - `pnpm e2e:dcc:browser-single-tab:static` -> PASS.
 - `pnpm e2e:dcc:redbox-first-open-performance:static` -> PASS.
 - `pnpm ts:check` -> PASS.
