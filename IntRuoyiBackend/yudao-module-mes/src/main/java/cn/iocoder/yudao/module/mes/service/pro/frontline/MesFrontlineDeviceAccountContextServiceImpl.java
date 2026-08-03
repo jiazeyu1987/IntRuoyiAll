@@ -88,7 +88,7 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
     @Override
     public List<MesFrontlineRouteProcessCandidate> listSwitchableProcesses(Long loginUserId) {
         requireValue(loginUserId, "loginUserId");
-        if (hasPressurePumpAllProcessRolePermission(loginUserId)) {
+        if (hasPressurePumpAllProcessPermission(loginUserId)) {
             return listPressurePumpSwitchableProcesses(loginUserId);
         }
         return listPostBoundSwitchableProcesses(loginUserId);
@@ -320,12 +320,8 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
         return new RouteBindingContext(routeIds, bindingsByRouteWorkstation);
     }
 
-    private boolean hasPressurePumpAllProcessRolePermission(Long loginUserId) {
-        Set<Long> roleIds = permissionApi.getUserRoleIdListByUserId(loginUserId);
-        if (CollUtil.isEmpty(roleIds)) {
-            return false;
-        }
-        return permissionApi.hasAnyPermissionsInRoles(roleIds, PRESSURE_PUMP_ALL_PROCESS_PERMISSION);
+    private boolean hasPressurePumpAllProcessPermission(Long loginUserId) {
+        return permissionApi.hasAnyPermissions(loginUserId, PRESSURE_PUMP_ALL_PROCESS_PERMISSION);
     }
 
     private Map<Long, MesProRouteDO> listEnabledPressurePumpRouteMap() {

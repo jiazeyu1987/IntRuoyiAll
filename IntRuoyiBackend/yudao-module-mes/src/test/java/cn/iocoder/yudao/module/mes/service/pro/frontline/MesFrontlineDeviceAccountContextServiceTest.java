@@ -31,8 +31,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -134,9 +134,8 @@ class MesFrontlineDeviceAccountContextServiceTest {
     }
 
     @Test
-    void shouldListAllPressurePumpProcessesWhenRoleHasPressurePumpAllProcessPermission() {
-        when(permissionApi.getUserRoleIdListByUserId(LOGIN_USER_ID)).thenReturn(Set.of(8801L));
-        when(permissionApi.hasAnyPermissionsInRoles(eq(Set.of(8801L)),
+    void shouldListAllPressurePumpProcessesWhenUserHasPressurePumpAllProcessPermission() {
+        when(permissionApi.hasAnyPermissions(eq(LOGIN_USER_ID),
                 eq(MesFrontlineDeviceAccountContextServiceImpl.PRESSURE_PUMP_ALL_PROCESS_PERMISSION)))
                 .thenReturn(true);
         when(routeService.getRouteListByStatus(CommonStatusEnum.ENABLE.getStatus())).thenReturn(List.of(
@@ -171,9 +170,8 @@ class MesFrontlineDeviceAccountContextServiceTest {
     }
 
     @Test
-    void shouldFailFastWhenPressurePumpRoleHasNoPressurePumpRouteProcesses() {
-        when(permissionApi.getUserRoleIdListByUserId(LOGIN_USER_ID)).thenReturn(Set.of(8801L));
-        when(permissionApi.hasAnyPermissionsInRoles(eq(Set.of(8801L)),
+    void shouldFailFastWhenPressurePumpUserPermissionHasNoPressurePumpRouteProcesses() {
+        when(permissionApi.hasAnyPermissions(eq(LOGIN_USER_ID),
                 eq(MesFrontlineDeviceAccountContextServiceImpl.PRESSURE_PUMP_ALL_PROCESS_PERMISSION)))
                 .thenReturn(true);
         when(routeService.getRouteListByStatus(CommonStatusEnum.ENABLE.getStatus())).thenReturn(List.of(

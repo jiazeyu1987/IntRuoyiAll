@@ -37,6 +37,8 @@
 - GREEN: `project-experience-consolidation` -> PASS，已有 `docs/frontend-development.md#前端权限页签正向授权门禁` 覆盖本次经验，不新增长期经验文档。
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-hide-route-mes-process-tab --mode preview` -> PASS，keep 仅包含 `task.md`、`execution-log.md`、`verification-report.md`，无 delete/blocked/warnings。
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-hide-route-mes-process-tab --mode apply` -> PASS，linked=False，未删除文件。
+- GREEN: implementation commit -> PASS, `4b5f152f4 fix: hide route mes process tab`。
+- completed: cleanup 已通过，任务状态更新为 `completed`，准备提交最终收尾记录。
 
 ## Changed Files
 

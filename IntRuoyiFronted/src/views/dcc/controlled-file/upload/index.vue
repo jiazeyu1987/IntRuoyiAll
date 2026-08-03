@@ -919,7 +919,7 @@ const cleanupCurrentUploadSession = async (showSuccess = false) => {
 
 const buildUploadPreviewContext = () => {
   if (!formData.categoryId) {
-    throw new Error('请先选择文件类别')
+    throw new Error(isExternalReview.value ? '请先选择文件类别' : categoryPermissionPreflightMessage.value || '文件分类尚未自动匹配可上传文件类别')
   }
   return {
     categoryId: formData.categoryId,
@@ -1204,7 +1204,7 @@ const approvalChainPreflightText = computed(() => {
   const approvalPositionIds = selectedCategory.value?.approvalPositionIds || []
   const signoffPositionIds = selectedCategory.value?.signoffPositionIds || []
   if (!selectedCategory.value) {
-    return '请选择文件类别后检查审批人链路'
+    return isExternalReview.value ? '请选择文件类别后检查审批人链路' : '请先完成文件分类的文件类别自动匹配后检查审批人链路'
   }
   if (!approvalPositionIds.length || !signoffPositionIds.length) {
     return `审批岗位 ${approvalPositionIds.length} 个，会签/签核岗位 ${signoffPositionIds.length} 个，请先补齐分类审批链路`
@@ -1251,19 +1251,19 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
     {
       key: 'category-upload',
       label: '分类上传权限',
-      status: selectedCategory.value ? (categoryCanUpload ? '可上传' : '无权限') : '待选择',
+      status: selectedCategory.value ? (categoryCanUpload ? '可上传' : '无权限') : (isExternalReview.value ? '待选择' : '待匹配'),
       description: selectedCategory.value
         ? categoryCanUpload
           ? `当前分类 ${selectedCategory.value.name} 允许上传。`
           : categoryUploadPermissionMessage
-        : '请选择文件类别后检查当前账号是否有上传权限。',
+        : isExternalReview.value ? '请选择文件类别后检查当前账号是否有上传权限。' : '选择文件分类后将自动匹配正式文件类别并检查当前账号上传权限。',
       ok: Boolean(selectedCategory.value && categoryCanUpload),
       warning: !selectedCategory.value
     },
     {
       key: 'approval-chain',
       label: '审批人链路',
-      status: selectedCategory.value ? (hasApprovalChain ? '已配置' : '不完整') : '待选择',
+      status: selectedCategory.value ? (hasApprovalChain ? '已配置' : '不完整') : (isExternalReview.value ? '待选择' : '待匹配'),
       description: approvalChainPreflightText.value,
       ok: hasApprovalChain,
       warning: !selectedCategory.value
@@ -1534,7 +1534,7 @@ const submitForm = async () => {
     return
   }
   if (!uploadDirectoryTree.value) {
-    message.warning('请先选择文件类别并完成目录加载')
+    message.warning(isExternalReview.value ? '请先选择文件类别并完成目录加载' : categoryPermissionPreflightMessage.value || '请先选择文件分类并完成目录加载')
     return
   }
   if (!formData.directoryId) {

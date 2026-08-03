@@ -2,7 +2,7 @@
 
 ## Result
 
-- Status: ready_for_closeout
+- Status: completed
 - Scope: 前端工艺路线详情/编辑内容页隐藏 `MES 工序` tab，并拒绝旧 `?tab=mesProcess` 入口。
 - No fallback: 未引入降级、默认成功、吞异常或 CSS 遮挡；直接移除 tab 渲染和组件挂载。
 
@@ -15,6 +15,8 @@
 - GREEN: `node tests/e2e/mes-route-flow-entry-readonly-static.spec.js` -> PASS。
 - GREEN: `pnpm ts:check` -> PASS。
 - GREEN: `git diff --check -- <task-owned paths>` -> PASS。
+- GREEN: `task-closeout-cleanup preview/apply` -> PASS，未删除文件。
+- Implementation commit: `4b5f152f4 fix: hide route mes process tab`。
 
 ## Residual Blockers
 

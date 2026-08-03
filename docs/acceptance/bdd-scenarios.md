@@ -35,6 +35,7 @@ When 用户勾选这些文件并点击 `下载并归类`
 Then 页面显示每个文件的项目代码、item、文件分类和本地相对目录预览
 And 用户选择本地根目录且相对路径校验通过后，后端才创建 `NAS_UNCONTROLLED_IMPORT` 任务
 And 浏览器将文件写入对应相对目录并回写 `LOCAL_WRITTEN`
+And 处理项存在正式归档元数据快照，覆盖 DCC 提交所需 `categoryId`、`directoryId`、`dccProjectCodeId`、`fileTypeTaxonomyId`、`changeType`、`fileNumber`、`versionNo` 和 `effectiveDate`
 And 后端复用正式 DCC/NAS 写入链路创建受控文件、写入 `dccProjectCodeId`、文件分类路径和 NAS 来源映射
 And 处理结果显示本地写入成功、DCC 归档成功和新受控文件编号
 
@@ -227,6 +228,15 @@ When 后端已有旧 NAS transfer 轮询、waiting processor 或文件处理器�
 Then 这些 legacy processor 必须跳过该 source type
 And 在 content 下载和 `LOCAL_WRITTEN` 回写之前，不读取 NAS 文件内容、不调用 `submitControlledFileWithoutApproval`、不创建受控文件、不写 ACTIVE NAS 来源映射
 And 若归档所需模板分类、生效日期或变更原因没有正式来源，文件进入明确阻塞或失败状态，不得用旧任务默认值伪造成功
+
+### Scenario 11H: 缺少正式归档元数据快照时阻塞成功归档
+
+Given 某个 `MATCHED` audit file 已完成本地写入并回写 `LOCAL_WRITTEN`
+And 处理项只有识别快照、本地相对路径、`matchedProjectCodeId`、`matchedFileTypeTaxonomyId` 或候选摘要
+When 后端尝试进入正式 DCC 归档
+Then 后端记录 `archiveStatus=FAILED` 和 `archiveErrorCode=ARCHIVE_METADATA_REQUIRED`
+And 不读取 NAS 原件、不上传原始文件、不调用 `submitControlledFileWithoutApproval`
+And 不创建受控文件、不写 ACTIVE NAS 来源映射、不把当前日期、旧任务头字段或候选 JSON 当作归档元数据
 
 ### Scenario 11A: 不同幂等键不能重复归档同一 audit file
 

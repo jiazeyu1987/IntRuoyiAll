@@ -62,6 +62,12 @@
 - Evidence: login used local `.env` default identity label `芋道源码/admin`; target path `/dcc/controlled-file/routes`; route total `64`; visible rows `20`; DCC write requests `0`; page errors `0`.
 - Evidence: node2 row checks matched approval position names, including `编制人直接主管、QA、QMS、注册、文档管理员` and `编制人直接主管、QA、QMS`; no `审批角色#ID`, `doc-control`, or `matrix-review` technical labels were visible in node2.
 
+## Experience Consolidation
+
+- `GREEN: experience-preflight -> PASS`
+- Updated `docs/e2e-rules.md#表格行定位` with the read-only table assertion rule: use stable unique keys first; do not match duplicate category/name rows with first `find`; only use API/DOM row order after confirming no local sorting/filtering/virtual reordering and no write action.
+- Updated `docs/experience-index.md` with keywords for duplicate Element Plus table row labels and API/DOM row matching.
+
 ## Blockers
 
 - No implementation or verification blocker remains for the local main workspace patch.
