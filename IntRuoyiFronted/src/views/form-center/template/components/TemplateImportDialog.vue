@@ -1,5 +1,5 @@
 <template>
-  <Dialog v-model="dialogVisible" title="导入表单模板" width="520">
+  <Dialog v-model="dialogVisible" class="scheme-d-form-control" title="导入表单模板" width="520">
     <el-form ref="formRef" :model="formData" :rules="formRules" label-width="96px">
       <el-form-item label="模板名称" prop="templateName">
         <el-autocomplete
@@ -48,8 +48,23 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button :disabled="loading" @click="dialogVisible = false">取消</el-button>
-      <el-button :loading="loading" type="primary" @click="submitForm">导入</el-button>
+      <div class="scheme-d-dialog-footer">
+        <el-button
+          class="scheme-d-btn scheme-d-btn--neutral"
+          :disabled="loading"
+          @click="dialogVisible = false"
+        >
+          取消
+        </el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--primary"
+          :loading="loading"
+          type="primary"
+          @click="submitForm"
+        >
+          导入
+        </el-button>
+      </div>
     </template>
   </Dialog>
 </template>

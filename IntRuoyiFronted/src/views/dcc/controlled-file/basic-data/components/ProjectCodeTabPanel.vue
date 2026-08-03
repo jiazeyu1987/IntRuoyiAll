@@ -37,6 +37,18 @@
           新增项目代码
         </el-button>
         <el-button
+          class="scheme-d-btn scheme-d-btn--primary"
+          type="primary"
+          plain
+          data-testid="dcc-product-onboarding-open"
+          :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
+          @click="openProductOnboardingDialog"
+          v-hasPermi="['dcc:project-code:create']"
+        >
+          <Icon icon="ep:connection" class="mr-5px" />
+          产品建档申请
+        </el-button>
+        <el-button
           v-if="canRunProjectCodeListNameAutoClassify"
           class="scheme-d-btn scheme-d-btn--primary"
           type="primary"
@@ -133,7 +145,7 @@
               </span>
               <el-button
                 link
-                class="dcc-project-code-batch-ai-category-progress-close scheme-d-row-action scheme-d-row-action--danger scheme-d-icon-button"
+                class="dcc-project-code-batch-ai-category-progress-close scheme-d-btn scheme-d-btn--danger scheme-d-row-action scheme-d-row-action--danger scheme-d-icon-button"
                 data-testid="dcc-project-code-batch-ai-category-progress-close"
                 aria-label="关闭批量AI分类进度"
                 @click="handleCloseBatchAiCategoryProgress"
@@ -555,6 +567,115 @@
     </template>
   </Dialog>
 
+  <Dialog
+    v-model="productOnboardingVisible"
+    class="scheme-d-form-control"
+    title="产品建档申请"
+    width="820px"
+  >
+    <el-alert
+      class="mb-12px"
+      type="info"
+      :closable="false"
+      title="审批通过后生成 DCC 项目代码并绑定 MDM 产品"
+      show-icon
+    />
+    <el-form
+      ref="productOnboardingFormRef"
+      v-loading="productOnboardingLoading"
+      :model="productOnboardingFormData"
+      :rules="productOnboardingFormRules"
+      label-width="130px"
+    >
+      <el-form-item label="关联 MDM 产品" prop="productMasterId">
+        <el-select
+          v-model="productOnboardingFormData.productMasterId"
+          class="!w-full"
+          filterable
+          clearable
+          :loading="productOnboardingProductLoading"
+          placeholder="可选择已有 MDM 产品；未选择时填写下方产品信息"
+          @change="handleProductOnboardingMdmProductChange"
+        >
+          <el-option
+            v-for="product in productOnboardingProducts"
+            :key="product.id"
+            :label="`${product.nameCn} / ${product.dccProductCode || product.productCode}`"
+            :value="product.id"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="产品编码" prop="productCode">
+        <el-input v-model="productOnboardingFormData.productCode" placeholder="请输入 MDM 产品编码" />
+      </el-form-item>
+      <el-form-item label="DCC 产品编号" prop="dccProductCode">
+        <el-input v-model="productOnboardingFormData.dccProductCode" placeholder="14 位字母或数字" />
+      </el-form-item>
+      <el-form-item label="产品中文名" prop="productNameCn">
+        <el-input v-model="productOnboardingFormData.productNameCn" placeholder="请输入产品中文名" />
+      </el-form-item>
+      <el-form-item label="产品英文名" prop="productNameEn">
+        <el-input v-model="productOnboardingFormData.productNameEn" placeholder="请输入产品英文名" />
+      </el-form-item>
+      <el-form-item label="型号规格" prop="modelSpecification">
+        <el-input v-model="productOnboardingFormData.modelSpecification" placeholder="请输入型号规格" />
+      </el-form-item>
+      <el-form-item label="产品类别" prop="productCategory">
+        <el-input v-model="productOnboardingFormData.productCategory" placeholder="请输入产品类别" />
+      </el-form-item>
+      <el-form-item label="文控" prop="docControlNo">
+        <el-input v-model="productOnboardingFormData.docControlNo" placeholder="请输入文控" />
+      </el-form-item>
+      <el-form-item label="目标项目名称" prop="projectName">
+        <el-input v-model="productOnboardingFormData.projectName" placeholder="审批通过后生成的项目名称" />
+      </el-form-item>
+      <el-form-item label="目标项目代码" prop="projectCode">
+        <el-input v-model="productOnboardingFormData.projectCode" placeholder="审批通过后生成的项目代码" />
+      </el-form-item>
+      <el-form-item label="DCC 类别" prop="category">
+        <el-input v-model="productOnboardingFormData.category" placeholder="请输入 DCC 类别" />
+      </el-form-item>
+      <el-form-item label="项目组负责人" prop="projectLeader">
+        <el-input v-model="productOnboardingFormData.projectLeader" placeholder="请输入项目组负责人" />
+      </el-form-item>
+      <el-form-item label="项目工程师" prop="projectEngineer">
+        <el-input v-model="productOnboardingFormData.projectEngineer" placeholder="请输入项目工程师" />
+      </el-form-item>
+      <el-form-item label="存放位置" prop="storageLocation">
+        <el-input v-model="productOnboardingFormData.storageLocation" placeholder="请输入存放位置" />
+      </el-form-item>
+      <el-form-item label="优先级" prop="priority">
+        <el-input v-model="productOnboardingFormData.priority" placeholder="请输入优先级" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <div class="scheme-d-dialog-footer">
+        <el-button class="scheme-d-btn scheme-d-btn--neutral" @click="productOnboardingVisible = false">
+          取消
+        </el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--primary"
+          type="primary"
+          data-testid="dcc-product-onboarding-submit"
+          :loading="productOnboardingSubmitting"
+          @click="submitProductOnboardingRequest"
+        >
+          提交申请
+        </el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--success"
+          type="success"
+          data-testid="dcc-product-onboarding-approve"
+          :disabled="!productOnboardingCreatedRequestId"
+          :loading="productOnboardingApproving"
+          @click="approveProductOnboardingCreatedRequest"
+        >
+          审批通过
+        </el-button>
+      </div>
+    </template>
+  </Dialog>
+
   <el-drawer
     v-model="detailDrawerVisible"
     class="scheme-d-basic-data-page scheme-d-basic-data-page--dcc-project-code scheme-d-form-control"
@@ -933,11 +1054,14 @@ import type {
   DccProjectCodePageReqVO,
   DccProjectCodeRespVO,
   DccProjectCodeSaveReqVO,
-  DccProjectCodeUpdateReqVO
+  DccProjectCodeUpdateReqVO,
+  DccProductOnboardingCreateReqVO
 } from '@/api/dcc/controlledFile/projectCodes'
 import {
+  approveProductOnboardingRequest,
   classifyProjectCodeAssociatedFileByAi,
   createProjectCode,
+  createProductOnboardingRequest,
   DCC_PROJECT_CODE_STATUS_DISABLE,
   DCC_PROJECT_CODE_STATUS_ENABLE,
   deleteProjectCode,
@@ -979,6 +1103,11 @@ import {
   type DccProjectCodeAssignmentCreateReqVO,
   type DccProjectCodeAssignmentRespVO
 } from '@/api/dcc/controlledFile/projectCodeAssignments'
+import {
+  getProductSimpleList,
+  MDM_PRODUCT_STATUS_ENABLE,
+  type MdmProductSimpleRespVO
+} from '@/api/mdm/product'
 
 defineOptions({ name: 'ProjectCodeTabPanel' })
 
@@ -998,6 +1127,8 @@ type AssociatedStageGroup = {
 
 type AssignmentUserOption = Pick<UserVO, 'id' | 'nickname' | 'username'> &
   Partial<Pick<UserVO, 'status' | 'disabled'>>
+
+type ProductOnboardingFormData = DccProductOnboardingCreateReqVO
 
 const DCC_PROJECT_CODE_ASSOCIATED_NAVIGATION_PAGE_SIZE = 200
 const DCC_PROJECT_CODE_LIST_AUTO_CLASSIFY_PAGE_SIZE = 100

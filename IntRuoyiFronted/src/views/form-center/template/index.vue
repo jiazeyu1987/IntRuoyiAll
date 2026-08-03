@@ -329,15 +329,23 @@
 
   <FormTemplateDesignerWrapper
     v-if="isDesignerMode && templateDesignerMode === 'preview'"
-    class="!mb-0 form-template-route-workspace"
+    class="!mb-0 form-template-route-workspace scheme-d-basic-data-page scheme-d-basic-data-page--form-template"
   >
     <div class="form-template-route-workspace__header">
-      <el-button link type="primary" @click="returnToTemplateList">返回表单模板</el-button>
+      <el-button
+        link
+        class="scheme-d-icon-button scheme-d-row-action scheme-d-row-action--primary"
+        type="primary"
+        @click="returnToTemplateList"
+      >
+        <Icon icon="ep:arrow-left" class="mr-4px" />
+        返回表单模板
+      </el-button>
       <div class="form-template-route-workspace__heading">
         <span>查看表单模板</span>
         <strong>{{ selectedTemplate?.templateName || '未加载模板' }}</strong>
       </div>
-      <el-tag type="primary" effect="plain">只读</el-tag>
+      <el-tag class="scheme-d-tag" type="primary" effect="plain">只读</el-tag>
     </div>
     <el-alert
       v-if="templateRouteLoadError"
@@ -376,7 +384,12 @@
     :saving="fillConfigSaving"
     @save="saveSelectedTemplateFillConfig"
   />
-  <Dialog v-model="obsoleteRequestDialogVisible" title="作废表单模板" width="560px">
+  <Dialog
+    v-model="obsoleteRequestDialogVisible"
+    class="scheme-d-form-control"
+    title="作废表单模板"
+    width="560px"
+  >
     <el-alert
       title="提交后进入 BPM 审核，审批通过后才会变为已作废；审批中会锁定普通操作。"
       type="warning"
@@ -408,30 +421,44 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="obsoleteRequestDialogVisible = false">取消</el-button>
-      <el-button
-        type="danger"
-        :loading="obsoleteRequestSubmitting"
-        @click="submitSelectedTemplateObsoleteRequest"
-      >
-        提交作废申请
-      </el-button>
+      <div class="scheme-d-dialog-footer">
+        <el-button
+          class="scheme-d-btn scheme-d-btn--neutral"
+          @click="obsoleteRequestDialogVisible = false"
+        >
+          取消
+        </el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--danger"
+          type="danger"
+          :loading="obsoleteRequestSubmitting"
+          @click="submitSelectedTemplateObsoleteRequest"
+        >
+          提交作废申请
+        </el-button>
+      </div>
     </template>
   </Dialog>
   <ContentWrap
     v-if="isTemplateSimulationMode"
     :body-style="{ padding: '0px' }"
-    class="!mb-0 form-template-route-workspace"
+    class="!mb-0 form-template-route-workspace scheme-d-basic-data-page scheme-d-basic-data-page--form-template"
   >
     <div class="form-template-route-workspace__header">
-      <el-button link type="primary" @click="returnFromTemplateSimulation">
+      <el-button
+        link
+        class="scheme-d-icon-button scheme-d-row-action scheme-d-row-action--primary"
+        type="primary"
+        @click="returnFromTemplateSimulation"
+      >
+        <Icon icon="ep:arrow-left" class="mr-4px" />
         {{ templateSimulationBackLabel }}
       </el-button>
       <div class="form-template-route-workspace__heading">
         <span>模拟填写</span>
         <strong>{{ selectedTemplate?.templateName || '未加载模板' }}</strong>
       </div>
-      <el-tag type="primary">模拟填写</el-tag>
+      <el-tag class="scheme-d-tag" type="primary">模拟填写</el-tag>
     </div>
     <el-alert
       v-if="templateRouteLoadError"
@@ -481,15 +508,27 @@
   </ContentWrap>
   <FormTemplateDesignerWrapper
     v-if="isDesignerMode && templateDesignerMode === 'edit'"
-    class="!mb-0 form-template-route-workspace"
+    class="!mb-0 form-template-route-workspace scheme-d-basic-data-page scheme-d-basic-data-page--form-template"
   >
     <div class="form-template-route-workspace__header">
-      <el-button link type="primary" @click="returnToTemplateList">返回表单模板</el-button>
+      <el-button
+        link
+        class="scheme-d-icon-button scheme-d-row-action scheme-d-row-action--primary"
+        type="primary"
+        @click="returnToTemplateList"
+      >
+        <Icon icon="ep:arrow-left" class="mr-4px" />
+        返回表单模板
+      </el-button>
       <div class="form-template-route-workspace__heading">
         <span>{{ rulesDialogTitle }}</span>
         <strong>{{ selectedTemplate?.templateName || '未加载模板' }}</strong>
       </div>
-      <el-tag :type="selectedTemplate?.status === 'DRAFT' ? 'primary' : 'info'" effect="plain">
+      <el-tag
+        class="scheme-d-tag"
+        :type="selectedTemplate?.status === 'DRAFT' ? 'primary' : 'info'"
+        effect="plain"
+      >
         {{ selectedTemplate?.status === 'DRAFT' ? '编辑' : '只读' }}
       </el-tag>
     </div>
@@ -506,8 +545,12 @@
         <span class="batch-record-cell-rules-editor__name">
           {{ selectedTemplate?.templateName || '-' }}
         </span>
-        <el-tag type="primary" effect="plain">规则 {{ editableTemplateCellRules.length }}</el-tag>
-        <el-tag :type="pendingTemplateRuleCount > 0 ? 'warning' : 'success'" effect="plain">
+        <el-tag class="scheme-d-tag" type="primary" effect="plain">规则 {{ editableTemplateCellRules.length }}</el-tag>
+        <el-tag
+          class="scheme-d-tag"
+          :type="pendingTemplateRuleCount > 0 ? 'warning' : 'success'"
+          effect="plain"
+        >
           待确认 {{ pendingTemplateRuleCount }}
         </el-tag>
         <span class="batch-record-cell-rules-editor__mode">
@@ -522,7 +565,7 @@
               <strong>{{ rulesDialogPreviewTitle }}</strong>
               <p>{{ rulesDialogPreviewTip }}</p>
             </div>
-            <el-tag type="info" effect="plain">只读</el-tag>
+            <el-tag class="scheme-d-tag" type="info" effect="plain">只读</el-tag>
           </div>
           <el-alert
             v-if="editableRulesSheetLayoutError"
@@ -670,10 +713,11 @@
         </aside>
       </section>
     </div>
-    <div class="form-template-route-workspace__actions">
-      <el-button @click="returnToTemplateList">关闭</el-button>
-      <el-button @click="reloadEditableTemplateRules">重新读取</el-button>
+    <div class="form-template-route-workspace__actions scheme-d-dialog-footer">
+      <el-button class="scheme-d-btn scheme-d-btn--danger" @click="returnToTemplateList">关闭</el-button>
+      <el-button class="scheme-d-btn scheme-d-btn--warning" @click="reloadEditableTemplateRules">重新读取</el-button>
       <el-button
+        class="scheme-d-btn scheme-d-btn--success"
         type="primary"
         :loading="rulesSaving"
         :disabled="!canSaveEditableRules"
@@ -685,7 +729,7 @@
   </FormTemplateDesignerWrapper>
   <Dialog
     v-model="signatureDialogVisible"
-    class="form-template-signature-dialog"
+    class="form-template-signature-dialog scheme-d-form-control"
     title="签名位"
     width="720px"
   >
@@ -705,15 +749,23 @@
       <el-table-column label="签名动作" prop="actionType" width="140" />
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
-          <el-tag :type="row.enabled ? 'success' : 'info'" effect="plain">
+          <el-tag class="scheme-d-tag" :type="row.enabled ? 'success' : 'info'" effect="plain">
             {{ row.enabled ? '启用' : '停用' }}
           </el-tag>
         </template>
       </el-table-column>
     </el-table>
     <template #footer>
-      <el-button @click="signatureDialogVisible = false">关闭</el-button>
-      <el-button type="primary" @click="openEditorFromSignatureDialog">去编辑配置</el-button>
+      <div class="scheme-d-dialog-footer">
+        <el-button class="scheme-d-btn scheme-d-btn--danger" @click="signatureDialogVisible = false">关闭</el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--primary"
+          type="primary"
+          @click="openEditorFromSignatureDialog"
+        >
+          去编辑配置
+        </el-button>
+      </div>
     </template>
   </Dialog>
 </template>

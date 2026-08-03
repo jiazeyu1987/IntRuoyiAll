@@ -34,7 +34,9 @@ Out of scope for this first phase:
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+Implementation and scoped verification are complete for the first 基础数据 phase. Closeout remains pending because the shared `int_main` worktree has concurrent unrelated dirty changes and the recent mixed baseline commit `6073d6e4` already absorbed the first batch of this task's implementation files together with other task files. Do not mark `completed` until cleanup/commit/push boundaries are resolved safely.
 
 ## Design Constraints Check
 
@@ -56,3 +58,25 @@ in_progress
 - 15331a1bb chore: baseline residual uncontrolled import migration
 - d1281a93c chore: baseline residual pqc event source changes
 - c8a38a39e chore: baseline residual nas import task metadata
+- efecae435 chore: baseline concurrent task docs before scheme d ui work
+- 6073d6e4 chore: baseline dirty workspace before controlled print preview fix
+
+## Implementation Summary
+
+- Added scoped Scheme D control tokens and classes through `src/styles/scheme-d-controls.scss` and global style import.
+- Applied scoped classes to 基础数据 pages: 展厅主数据, DCC项目代码, DCC产品目录, DCC文件分类 and 表单模板.
+- Standardized toolbar buttons, dialog footer buttons, row actions, dangerous actions, status tags, form-control shells, feedback states and FormCenter back controls.
+- Converted FormCenter route/workspace back controls to icon-style arrow buttons using `ep:arrow-left`.
+- Preserved existing routes, permission directives, API calls, status guards and error propagation.
+
+## Verification Summary
+
+- RED: `node tests/e2e/basic-data-scheme-d-controls-static.spec.js` -> FAIL, expected reason: missing `src/styles/scheme-d-controls.scss`.
+- GREEN: `pnpm e2e:basic-data:scheme-d-controls:static` -> PASS.
+- GREEN: `node tests/e2e/dcc-basic-data-product-catalog-static.spec.js` -> PASS.
+- GREEN: `node tests/e2e/dcc-file-type-taxonomy-basic-data-static.spec.js` -> PASS.
+- GREEN: `node tests/e2e/mdm-product-tab-title-static.spec.js` -> PASS.
+- GREEN: `node tests/e2e/form-center-static.spec.js` -> PASS.
+- GREEN: `pnpm ts:check` -> PASS.
+- GREEN: `git diff --check -- <task-owned frontend files>` -> PASS.
+- BLOCKED unrelated regression precondition: `node tests/e2e/dcc-basic-data-global-submenu-static.spec.js` and `node tests/e2e/dcc-project-code-basic-data-static.spec.js` fail before assertions because `E:\IntRuoyi\ruoyi-vue-pro\sql\mysql\20260513_dcc_base_schema.sql` is missing in the current workspace.

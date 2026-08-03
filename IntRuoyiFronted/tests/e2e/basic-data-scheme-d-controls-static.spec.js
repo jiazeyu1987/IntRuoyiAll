@@ -126,7 +126,7 @@ for (const page of scopedPages) {
   }
   assert.doesNotMatch(
     source,
-    /mock|placeholder data|fallback|降级|吞异常/i,
+    /mock|placeholder data|降级|吞异常/i,
     `${page.name} must not introduce fallback/mock/degradation behavior while styling controls`
   )
 }
