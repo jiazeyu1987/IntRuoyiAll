@@ -121,6 +121,7 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     public static final String AUDIT_FILE_DOWNLOAD_STATUS_SELECTED = "SELECTED";
     public static final String AUDIT_FILE_DOWNLOAD_STATUS_LOCAL_WRITTEN = "LOCAL_WRITTEN";
     public static final String AUDIT_FILE_DOWNLOAD_STATUS_LOCAL_WRITE_FAILED = "LOCAL_WRITE_FAILED";
+    public static final String AUDIT_FILE_ARCHIVE_STATUS_ARCHIVED = "ARCHIVED";
     public static final String AUDIT_FILE_ARCHIVE_STATUS_FAILED = "FAILED";
     public static final String AUDIT_FILE_ARCHIVE_ERROR_CODE_METADATA_REQUIRED = "ARCHIVE_METADATA_REQUIRED";
     static final String OUTCOME_CREATED = "CREATED";
@@ -595,7 +596,7 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
             }
             requireUncontrolledImportLocalWriteNotTerminal(auditFileId, auditFile, item);
             if (IMPORT_LOCAL_WRITE_STATUS_LOCAL_WRITTEN.equals(reqVO.getLocalWriteStatus())) {
-                markUncontrolledImportLocalWritten(auditFile, item);
+                markUncontrolledImportLocalWritten(task, auditFile, item);
             } else {
                 markUncontrolledImportLocalWriteFailed(auditFile, item, reqVO);
             }
@@ -680,6 +681,7 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     }
 
     private void markUncontrolledImportLocalWritten(
+            DccControlledFileNasTransferTaskDO task,
             DccNasControlAuditFileDO auditFile,
             DccControlledFileNasTransferTaskItemDO item) {
         auditFile.setDownloadStatus(AUDIT_FILE_DOWNLOAD_STATUS_LOCAL_WRITTEN);
@@ -688,18 +690,42 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
         item.setLocalWriteStatus(IMPORT_LOCAL_WRITE_STATUS_LOCAL_WRITTEN);
         item.setLocalWriteErrorCode(null);
         item.setLocalWriteError(null);
-        markUncontrolledImportArchiveMetadataRequiredIfMatched(auditFile, item);
+        archiveUncontrolledImportIfMatched(task, auditFile, item);
         auditFileMapper.updateById(auditFile);
         taskItemMapper.updateById(item);
     }
 
-    private void markUncontrolledImportArchiveMetadataRequiredIfMatched(
+    private void archiveUncontrolledImportIfMatched(
+            DccControlledFileNasTransferTaskDO task,
             DccNasControlAuditFileDO auditFile,
             DccControlledFileNasTransferTaskItemDO item) {
         if (!DccNasControlAuditServiceImpl.AUDIT_FILE_CLASSIFICATION_STATUS_MATCHED.equals(
                 item.getClassificationStatusSnapshot())) {
             return;
         }
+        if (!hasCompleteUncontrolledImportArchiveSnapshot(item)) {
+            markUncontrolledImportArchiveMetadataRequired(auditFile, item);
+            return;
+        }
+        archiveUncontrolledImportFromSnapshot(task, auditFile, item);
+    }
+
+    private boolean hasCompleteUncontrolledImportArchiveSnapshot(
+            DccControlledFileNasTransferTaskItemDO item) {
+        return item.getArchiveCategoryIdSnapshot() != null
+                && item.getArchiveDirectoryIdSnapshot() != null
+                && item.getArchiveDccProjectCodeIdSnapshot() != null
+                && item.getArchiveFileTypeTaxonomyIdSnapshot() != null
+                && StrUtil.isNotBlank(item.getArchiveChangeTypeSnapshot())
+                && StrUtil.isNotBlank(item.getArchiveFileNameSnapshot())
+                && StrUtil.isNotBlank(item.getArchiveFileNumberSnapshot())
+                && StrUtil.isNotBlank(item.getArchiveVersionNoSnapshot())
+                && item.getArchiveEffectiveDateSnapshot() != null;
+    }
+
+    private void markUncontrolledImportArchiveMetadataRequired(
+            DccNasControlAuditFileDO auditFile,
+            DccControlledFileNasTransferTaskItemDO item) {
         String errorMessage = "NAS uncontrolled import requires formal archive metadata before DCC archive";
         LocalDateTime now = LocalDateTime.now();
         auditFile.setArchiveStatus(AUDIT_FILE_ARCHIVE_STATUS_FAILED);
@@ -711,6 +737,59 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
         item.setStatus(ITEM_STATUS_FAILED);
         item.setFailureStage("archive");
         item.setLastError(errorMessage);
+        item.setAttemptCount(incrementCount(item.getAttemptCount()));
+        item.setLastAttemptAt(now);
+        item.setCompletedAt(now);
+    }
+
+    private void archiveUncontrolledImportFromSnapshot(
+            DccControlledFileNasTransferTaskDO task,
+            DccNasControlAuditFileDO auditFile,
+            DccControlledFileNasTransferTaskItemDO item) {
+        NasFileReadResult sourceFile = nasBrowserService.readFile(auditFile.getNormalizedRelativePath());
+        if (sourceFile == null || sourceFile.bytes() == null || StrUtil.isBlank(sourceFile.name())) {
+            throw new IllegalStateException("nas uncontrolled import archive source file missing: " + auditFile.getId());
+        }
+        Long originalFileId = fileService.createFileAndReturnId(
+                sourceFile.bytes(), sourceFile.name(), ORIGINAL_DIRECTORY, sourceFile.contentType());
+        DccControlledFileSubmitReqVO submitReqVO = new DccControlledFileSubmitReqVO();
+        submitReqVO.setCategoryId(item.getArchiveCategoryIdSnapshot());
+        submitReqVO.setDirectoryId(item.getArchiveDirectoryIdSnapshot());
+        submitReqVO.setProductMasterId(null);
+        submitReqVO.setDccProjectCodeId(item.getArchiveDccProjectCodeIdSnapshot());
+        submitReqVO.setFileTypeTaxonomyId(item.getArchiveFileTypeTaxonomyIdSnapshot());
+        submitReqVO.setOriginalFileId(originalFileId);
+        submitReqVO.setChangeType(item.getArchiveChangeTypeSnapshot());
+        submitReqVO.setFileName(item.getArchiveFileNameSnapshot());
+        submitReqVO.setFileNumber(item.getArchiveFileNumberSnapshot());
+        submitReqVO.setVersionNo(item.getArchiveVersionNoSnapshot());
+        submitReqVO.setEffectiveDate(item.getArchiveEffectiveDateSnapshot());
+        submitReqVO.setRemark(item.getArchiveRemarkSnapshot());
+        Long controlledFileId = workflowService.submitControlledFileWithoutApproval(
+                task.getOperatorUserId(), submitReqVO);
+        String nasShareName = nasSettingsService.getRequiredNasConfig().share();
+        String normalizedPath = DccNasPathUtils.normalizeRelativePath(auditFile.getNormalizedRelativePath());
+        nasSourceMapper.insert(DccControlledFileNasSourceDO.builder()
+                .controlledFileId(controlledFileId)
+                .nasShareName(nasShareName)
+                .normalizedRelativePath(normalizedPath)
+                .pathHash(DccNasPathUtils.pathHash(nasShareName, normalizedPath))
+                .sourceType(DccNasControlAuditServiceImpl.SOURCE_TYPE_NAS_TRANSFER)
+                .sourceConfidence(DccNasControlAuditServiceImpl.SOURCE_CONFIDENCE_EXACT)
+                .tenantId(TenantContextHolder.getRequiredTenantId())
+                .build());
+
+        LocalDateTime now = LocalDateTime.now();
+        auditFile.setArchiveStatus(AUDIT_FILE_ARCHIVE_STATUS_ARCHIVED);
+        auditFile.setArchiveErrorCode(null);
+        auditFile.setArchiveError(null);
+        auditFile.setControlledFileId(controlledFileId);
+        item.setArchiveStatus(AUDIT_FILE_ARCHIVE_STATUS_ARCHIVED);
+        item.setArchiveErrorCode(null);
+        item.setArchiveError(null);
+        item.setStatus(ITEM_STATUS_COMPLETED);
+        item.setFailureStage(null);
+        item.setLastError(null);
         item.setAttemptCount(incrementCount(item.getAttemptCount()));
         item.setLastAttemptAt(now);
         item.setCompletedAt(now);

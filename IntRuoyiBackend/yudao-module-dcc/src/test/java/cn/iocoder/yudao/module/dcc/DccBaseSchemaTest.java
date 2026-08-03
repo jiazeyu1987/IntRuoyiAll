@@ -1081,7 +1081,12 @@ class DccBaseSchemaTest {
                         "matched_file_type_level5_snapshot", "classification_reason_snapshot",
                         "classification_candidates_json_snapshot", "local_relative_path",
                         "local_write_status", "local_write_error_code", "local_write_error",
-                        "archive_status", "archive_error_code", "archive_error"));
+                        "archive_status", "archive_error_code", "archive_error",
+                        "archive_category_id_snapshot", "archive_directory_id_snapshot",
+                        "archive_dcc_project_code_id_snapshot", "archive_file_type_taxonomy_id_snapshot",
+                        "archive_change_type_snapshot", "archive_file_name_snapshot",
+                        "archive_file_number_snapshot", "archive_version_no_snapshot",
+                        "archive_effective_date_snapshot", "archive_remark_snapshot"));
         assertSchemaHasColumns(migrationSchema, "dcc_nas_control_audit_file",
                 List.of("selected_import_task_id", "selected_import_task_item_id"));
         assertTrue(Pattern.compile("ADD\\s+INDEX\\s+`idx_dcc_nas_transfer_import_idempotency`\\s*"
@@ -1107,7 +1112,12 @@ class DccBaseSchemaTest {
         assertSchemaHasColumns(testSchema, "dcc_controlled_file_nas_transfer_task_item",
                 List.of("audit_file_id", "source_signature", "classification_status_snapshot",
                         "classification_candidates_json_snapshot", "local_relative_path",
-                        "local_write_status", "archive_status"));
+                        "local_write_status", "archive_status",
+                        "archive_category_id_snapshot", "archive_directory_id_snapshot",
+                        "archive_dcc_project_code_id_snapshot", "archive_file_type_taxonomy_id_snapshot",
+                        "archive_change_type_snapshot", "archive_file_name_snapshot",
+                        "archive_file_number_snapshot", "archive_version_no_snapshot",
+                        "archive_effective_date_snapshot", "archive_remark_snapshot"));
         assertSchemaHasColumns(testSchema, "dcc_nas_control_audit_file",
                 List.of("selected_import_task_id", "selected_import_task_item_id"));
 
@@ -1122,6 +1132,26 @@ class DccBaseSchemaTest {
         assertTrue(itemDO.contains("private String localRelativePath;"), "NAS transfer item DO must persist local relative path snapshot");
         assertTrue(itemDO.contains("private String localWriteStatus;"), "NAS transfer item DO must separate local write status");
         assertTrue(itemDO.contains("private String archiveStatus;"), "NAS transfer item DO must separate archive status");
+        assertTrue(itemDO.contains("private Long archiveCategoryIdSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive category id snapshot");
+        assertTrue(itemDO.contains("private Long archiveDirectoryIdSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive directory id snapshot");
+        assertTrue(itemDO.contains("private Long archiveDccProjectCodeIdSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive project code id snapshot");
+        assertTrue(itemDO.contains("private Long archiveFileTypeTaxonomyIdSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive file type taxonomy id snapshot");
+        assertTrue(itemDO.contains("private String archiveChangeTypeSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive change type snapshot");
+        assertTrue(itemDO.contains("private String archiveFileNameSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive file name snapshot");
+        assertTrue(itemDO.contains("private String archiveFileNumberSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive file number snapshot");
+        assertTrue(itemDO.contains("private String archiveVersionNoSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive version snapshot");
+        assertTrue(itemDO.contains("private LocalDate archiveEffectiveDateSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive effective date snapshot");
+        assertTrue(itemDO.contains("private String archiveRemarkSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive remark snapshot");
 
         String auditFileDO = Files.readString(auditFileDOFile);
         assertTrue(auditFileDO.contains("private Long selectedImportTaskId;"),

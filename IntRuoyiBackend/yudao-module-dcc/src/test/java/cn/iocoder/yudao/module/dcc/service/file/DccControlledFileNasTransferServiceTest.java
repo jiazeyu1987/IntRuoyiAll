@@ -591,6 +591,90 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void archiveAfterLocalWritten_archivesOnlyFromFormalMetadataSnapshot() {
+        ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileNasTransferTaskDO task = uncontrolledImportTask(
+                8207L, 99L, 7001L, "idem-local-write-005", "c".repeat(64));
+        DccNasControlAuditFileDO auditFile = matchedAuditFile(707L, "QMS/PRJ-20260728/archive-success.pdf",
+                "sig-archive-success", "PRJ-20260728/Design/archive-success.pdf", 7L);
+        auditFile.setDownloadStatus(DccControlledFileNasTransferServiceImpl.AUDIT_FILE_DOWNLOAD_STATUS_SELECTED);
+        auditFile.setSelectedImportTaskId(8207L);
+        auditFile.setSelectedImportTaskItemId(9307L);
+        auditFile.setLocalRelativePath("PRJ-20260728/Design/archive-success.pdf");
+        DccControlledFileNasTransferTaskItemDO item = uncontrolledImportItem(9307L, task, auditFile);
+        item.setArchiveCategoryIdSnapshot(9101L);
+        item.setArchiveDirectoryIdSnapshot(9201L);
+        item.setArchiveDccProjectCodeIdSnapshot(3000L);
+        item.setArchiveFileTypeTaxonomyIdSnapshot(9100L);
+        item.setArchiveChangeTypeSnapshot("NEW");
+        item.setArchiveFileNameSnapshot("Archive Success.pdf");
+        item.setArchiveFileNumberSnapshot("DCC-UCF-0001");
+        item.setArchiveVersionNoSnapshot("V1.0");
+        item.setArchiveEffectiveDateSnapshot(LocalDate.of(2026, 8, 3));
+        item.setArchiveRemarkSnapshot("NAS uncontrolled import source: QMS/PRJ-20260728/archive-success.pdf");
+        when(taskMapper.selectById(8207L)).thenReturn(task);
+        when(auditFileMapper.selectById(707L)).thenReturn(auditFile);
+        when(taskItemMapper.selectById(9307L)).thenReturn(item);
+        when(nasBrowserService.readFile("QMS/PRJ-20260728/archive-success.pdf"))
+                .thenReturn(new NasFileReadResult("archive-success.pdf",
+                        "QMS/PRJ-20260728/archive-success.pdf",
+                        "application/pdf", "pdf".getBytes(StandardCharsets.UTF_8)));
+        when(fileService.createFileAndReturnId(any(byte[].class), eq("archive-success.pdf"),
+                eq("dcc/original"), eq("application/pdf"))).thenReturn(5107L);
+        when(workflowService.submitControlledFileWithoutApproval(eq(99L), any(DccControlledFileSubmitReqVO.class)))
+                .thenReturn(6107L);
+        stubAggregatedTaskItemSummary(() -> List.of(item));
+
+        DccControlledFileNasTransferRespVO response = transferService.recordUncontrolledImportLocalWriteResult(
+                99L, 8207L, 707L, localWriteResultReq("sig-archive-success",
+                        "PRJ-20260728/Design/archive-success.pdf", "LOCAL_WRITTEN", null, null));
+
+        assertEquals(8207L, response.getTaskId());
+        verify(nasBrowserService).readFile("QMS/PRJ-20260728/archive-success.pdf");
+        verify(fileService).createFileAndReturnId(any(byte[].class), eq("archive-success.pdf"),
+                eq("dcc/original"), eq("application/pdf"));
+        ArgumentCaptor<DccControlledFileSubmitReqVO> submitCaptor =
+                ArgumentCaptor.forClass(DccControlledFileSubmitReqVO.class);
+        verify(workflowService).submitControlledFileWithoutApproval(eq(99L), submitCaptor.capture());
+        DccControlledFileSubmitReqVO submitReqVO = submitCaptor.getValue();
+        assertEquals(9101L, submitReqVO.getCategoryId());
+        assertEquals(9201L, submitReqVO.getDirectoryId());
+        assertEquals(3000L, submitReqVO.getDccProjectCodeId());
+        assertEquals(9100L, submitReqVO.getFileTypeTaxonomyId());
+        assertEquals("NEW", submitReqVO.getChangeType());
+        assertEquals("Archive Success.pdf", submitReqVO.getFileName());
+        assertEquals("DCC-UCF-0001", submitReqVO.getFileNumber());
+        assertEquals("V1.0", submitReqVO.getVersionNo());
+        assertEquals(LocalDate.of(2026, 8, 3), submitReqVO.getEffectiveDate());
+        assertEquals("NAS uncontrolled import source: QMS/PRJ-20260728/archive-success.pdf",
+                submitReqVO.getRemark());
+        assertEquals(5107L, submitReqVO.getOriginalFileId());
+        ArgumentCaptor<DccNasControlAuditFileDO> auditCaptor =
+                ArgumentCaptor.forClass(DccNasControlAuditFileDO.class);
+        verify(auditFileMapper).updateById(auditCaptor.capture());
+        assertEquals("LOCAL_WRITTEN", auditCaptor.getValue().getDownloadStatus());
+        assertEquals("ARCHIVED", auditCaptor.getValue().getArchiveStatus());
+        assertEquals(6107L, auditCaptor.getValue().getControlledFileId());
+        ArgumentCaptor<DccControlledFileNasTransferTaskItemDO> itemCaptor =
+                ArgumentCaptor.forClass(DccControlledFileNasTransferTaskItemDO.class);
+        verify(taskItemMapper).updateById(itemCaptor.capture());
+        assertEquals("LOCAL_WRITTEN", itemCaptor.getValue().getLocalWriteStatus());
+        assertEquals("ARCHIVED", itemCaptor.getValue().getArchiveStatus());
+        assertEquals(DccControlledFileNasTransferServiceImpl.ITEM_STATUS_COMPLETED,
+                itemCaptor.getValue().getStatus());
+        ArgumentCaptor<DccControlledFileNasSourceDO> nasSourceCaptor =
+                ArgumentCaptor.forClass(DccControlledFileNasSourceDO.class);
+        verify(nasSourceMapper).insert(nasSourceCaptor.capture());
+        DccControlledFileNasSourceDO nasSource = nasSourceCaptor.getValue();
+        assertEquals(6107L, nasSource.getControlledFileId());
+        assertEquals("quality", nasSource.getNasShareName());
+        assertEquals("QMS/PRJ-20260728/archive-success.pdf", nasSource.getNormalizedRelativePath());
+        assertEquals(DccNasControlAuditServiceImpl.SOURCE_TYPE_NAS_TRANSFER, nasSource.getSourceType());
+        assertEquals(DccNasControlAuditServiceImpl.SOURCE_CONFIDENCE_EXACT, nasSource.getSourceConfidence());
+    }
+
+    @Test
     void transfer_createsAsyncTaskWithoutImmediateNasTraversal() {
         ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
         TenantContextHolder.setTenantId(1L);
@@ -2968,6 +3052,16 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
                 .archiveStatus(source.getArchiveStatus())
                 .archiveErrorCode(source.getArchiveErrorCode())
                 .archiveError(source.getArchiveError())
+                .archiveCategoryIdSnapshot(source.getArchiveCategoryIdSnapshot())
+                .archiveDirectoryIdSnapshot(source.getArchiveDirectoryIdSnapshot())
+                .archiveDccProjectCodeIdSnapshot(source.getArchiveDccProjectCodeIdSnapshot())
+                .archiveFileTypeTaxonomyIdSnapshot(source.getArchiveFileTypeTaxonomyIdSnapshot())
+                .archiveChangeTypeSnapshot(source.getArchiveChangeTypeSnapshot())
+                .archiveFileNameSnapshot(source.getArchiveFileNameSnapshot())
+                .archiveFileNumberSnapshot(source.getArchiveFileNumberSnapshot())
+                .archiveVersionNoSnapshot(source.getArchiveVersionNoSnapshot())
+                .archiveEffectiveDateSnapshot(source.getArchiveEffectiveDateSnapshot())
+                .archiveRemarkSnapshot(source.getArchiveRemarkSnapshot())
                 .status(source.getStatus())
                 .attemptCount(source.getAttemptCount())
                 .failureStage(source.getFailureStage())

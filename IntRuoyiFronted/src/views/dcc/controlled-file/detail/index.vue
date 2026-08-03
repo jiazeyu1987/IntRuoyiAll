@@ -26,18 +26,7 @@
             :requester-name="userNameMap.get(fileDetail?.requesterId || 0) || ''"
             :column="1"
             compact
-            show-info-actions
-            :show-product-recognition="canEditMetadata && !!fileDetail"
-            :project-code-recognition-loading="projectCodeRecognitionLoading"
-            :show-edit="canEditMetadata && !!fileDetail"
-            edit-button-text="修改"
-            edit-test-id="dcc-controlled-preview-detail-edit"
-            @open-approval-info="openPreviewApprovalDialog"
-            @open-distribution-info="openPreviewDistributionDialog"
-            @open-version-info="openPreviewVersionDialog"
-            @recognize-project-code="handleRecognizeProjectCode"
             @open-dcc-project-code="openDccProjectCode"
-            @edit="openMetadataDialog"
           />
           <section data-testid="dcc-detail-controlled-browser-linkage" class="mt-12px">
             <div class="detail-table-header mb-12px">

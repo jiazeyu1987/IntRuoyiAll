@@ -63,6 +63,10 @@ CALL ensure_dcc_uncontrolled_import_column(
   'ALTER TABLE `dcc_controlled_file_nas_transfer_task` ADD COLUMN `request_hash` char(64) DEFAULT NULL COMMENT ''Canonical selected-files request hash'' AFTER `idempotency_key`'
 );
 
+ALTER TABLE `dcc_controlled_file_nas_transfer_task`
+  MODIFY COLUMN `template_category_id` bigint DEFAULT NULL,
+  MODIFY COLUMN `effective_date` date DEFAULT NULL;
+
 CALL ensure_dcc_uncontrolled_import_column(
   'dcc_controlled_file_nas_transfer_task_item',
   'audit_file_id',
@@ -157,6 +161,56 @@ CALL ensure_dcc_uncontrolled_import_column(
   'dcc_controlled_file_nas_transfer_task_item',
   'archive_error',
   'ALTER TABLE `dcc_controlled_file_nas_transfer_task_item` ADD COLUMN `archive_error` varchar(512) DEFAULT NULL AFTER `archive_error_code`'
+);
+CALL ensure_dcc_uncontrolled_import_column(
+  'dcc_controlled_file_nas_transfer_task_item',
+  'archive_category_id_snapshot',
+  'ALTER TABLE `dcc_controlled_file_nas_transfer_task_item` ADD COLUMN `archive_category_id_snapshot` bigint DEFAULT NULL COMMENT ''Formal DCC category id snapshot for archive submit'' AFTER `archive_error`'
+);
+CALL ensure_dcc_uncontrolled_import_column(
+  'dcc_controlled_file_nas_transfer_task_item',
+  'archive_directory_id_snapshot',
+  'ALTER TABLE `dcc_controlled_file_nas_transfer_task_item` ADD COLUMN `archive_directory_id_snapshot` bigint DEFAULT NULL COMMENT ''Formal DCC directory id snapshot for archive submit'' AFTER `archive_category_id_snapshot`'
+);
+CALL ensure_dcc_uncontrolled_import_column(
+  'dcc_controlled_file_nas_transfer_task_item',
+  'archive_dcc_project_code_id_snapshot',
+  'ALTER TABLE `dcc_controlled_file_nas_transfer_task_item` ADD COLUMN `archive_dcc_project_code_id_snapshot` bigint DEFAULT NULL COMMENT ''Formal DCC project code id snapshot for archive submit'' AFTER `archive_directory_id_snapshot`'
+);
+CALL ensure_dcc_uncontrolled_import_column(
+  'dcc_controlled_file_nas_transfer_task_item',
+  'archive_file_type_taxonomy_id_snapshot',
+  'ALTER TABLE `dcc_controlled_file_nas_transfer_task_item` ADD COLUMN `archive_file_type_taxonomy_id_snapshot` bigint DEFAULT NULL COMMENT ''Formal file type taxonomy id snapshot for archive submit'' AFTER `archive_dcc_project_code_id_snapshot`'
+);
+CALL ensure_dcc_uncontrolled_import_column(
+  'dcc_controlled_file_nas_transfer_task_item',
+  'archive_change_type_snapshot',
+  'ALTER TABLE `dcc_controlled_file_nas_transfer_task_item` ADD COLUMN `archive_change_type_snapshot` varchar(32) DEFAULT NULL COMMENT ''Formal change type snapshot for archive submit'' AFTER `archive_file_type_taxonomy_id_snapshot`'
+);
+CALL ensure_dcc_uncontrolled_import_column(
+  'dcc_controlled_file_nas_transfer_task_item',
+  'archive_file_name_snapshot',
+  'ALTER TABLE `dcc_controlled_file_nas_transfer_task_item` ADD COLUMN `archive_file_name_snapshot` varchar(255) DEFAULT NULL COMMENT ''Formal file name snapshot for archive submit'' AFTER `archive_change_type_snapshot`'
+);
+CALL ensure_dcc_uncontrolled_import_column(
+  'dcc_controlled_file_nas_transfer_task_item',
+  'archive_file_number_snapshot',
+  'ALTER TABLE `dcc_controlled_file_nas_transfer_task_item` ADD COLUMN `archive_file_number_snapshot` varchar(128) DEFAULT NULL COMMENT ''Formal file number snapshot for archive submit'' AFTER `archive_file_name_snapshot`'
+);
+CALL ensure_dcc_uncontrolled_import_column(
+  'dcc_controlled_file_nas_transfer_task_item',
+  'archive_version_no_snapshot',
+  'ALTER TABLE `dcc_controlled_file_nas_transfer_task_item` ADD COLUMN `archive_version_no_snapshot` varchar(32) DEFAULT NULL COMMENT ''Formal version snapshot for archive submit'' AFTER `archive_file_number_snapshot`'
+);
+CALL ensure_dcc_uncontrolled_import_column(
+  'dcc_controlled_file_nas_transfer_task_item',
+  'archive_effective_date_snapshot',
+  'ALTER TABLE `dcc_controlled_file_nas_transfer_task_item` ADD COLUMN `archive_effective_date_snapshot` date DEFAULT NULL COMMENT ''Formal effective date snapshot for archive submit'' AFTER `archive_version_no_snapshot`'
+);
+CALL ensure_dcc_uncontrolled_import_column(
+  'dcc_controlled_file_nas_transfer_task_item',
+  'archive_remark_snapshot',
+  'ALTER TABLE `dcc_controlled_file_nas_transfer_task_item` ADD COLUMN `archive_remark_snapshot` varchar(512) DEFAULT NULL COMMENT ''Formal remark snapshot for archive submit'' AFTER `archive_effective_date_snapshot`'
 );
 
 CALL ensure_dcc_uncontrolled_import_column(

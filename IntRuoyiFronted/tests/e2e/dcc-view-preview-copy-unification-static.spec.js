@@ -34,7 +34,7 @@ const viewMatrixTable = readSource(
   'src/views/dcc/controlled-file/categories/components/CategoryViewMatrixTable.vue'
 )
 const detailPage = readSource('src/views/dcc/controlled-file/detail/index.vue')
-const minePresentation = readSource('src/views/dcc/controlled-file/shared/handlingSummary.ts')
+const handlingSummary = readSource('src/views/dcc/controlled-file/shared/handlingSummary.ts')
 
 assert.ok(viewMatrixLookup.includes('label="已发布查看"'), 'view matrix lookup must show published view wording')
 assert.ok(viewMatrixLookup.includes('label="待审查看"'), 'view matrix lookup must show pending view wording')
