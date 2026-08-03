@@ -6,11 +6,12 @@
 
 ## Milestones
 
-- [ ] 定位设备账号切换工序的后端/前端触发链路和错误来源。
-- [ ] 补充最小失败回归，复现设备账号已有可用正式绑定但仍报未绑定启用路线的场景。
-- [ ] 实施最小正式修复，保持设备账号、工艺路线、工序切换配置来源清晰。
-- [ ] 运行定向 GREEN 和相邻回归验证。
-- [ ] 记录 bug evidence、verification report，并按 closeout 规则收尾。
+- [x] 定位设备账号切换工序的后端/前端触发链路和错误来源。
+- [x] 补充最小失败回归，复现正式岗位缺少工作站绑定时被泛化为未绑定启用路线的场景。
+- [x] 实施最小正式修复，保持设备账号、岗位、工作站、启用工艺路线来源清晰。
+- [x] 运行定向 GREEN 和相邻回归验证。
+- [x] 记录 bug evidence、verification report。
+- [ ] 按 closeout 规则提交、推送并完成收尾。
 
 ## Expected Verification
 
@@ -32,6 +33,10 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-- 已创建任务目录；正在读取经验门禁并定位错误来源。
+- 代码与回归验证已完成：正式岗位存在但无工作站绑定时，后端现在 fail fast 返回 `post workstation binding` 缺失上下文，不再让上层落到泛化的“未绑定启用工艺路线”。
+- 本地只读数据确认：`system_users.id=1` 启用且未删除；`system_user_post` 当前未删除岗位为 `post_id=14`；`mes_md_workstation_worker` 对 `post_id=14` 的未删除绑定数量为 `0`。
+- 实际配置修复动作仍需业务侧补齐：将用户 1 的正式启用岗位 14 绑定到参与启用工艺路线工序的工作站，或将用户 1 的正式岗位关系调整为已绑定工作站的岗位。
+- 当前收尾阻塞：工作区存在无关 DCC 前端改动且分支已 ahead，不能在本任务中提交/推送无关变更。
+- 经验沉淀阻塞：`docs/experience-index.md` 已有无关 DCC 页签缓存 dirty 改动，本任务不混写共享经验索引。

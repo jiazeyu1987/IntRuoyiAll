@@ -6,8 +6,18 @@ import { isUrl } from '@/utils/is'
 
 const modules = import.meta.glob('../views/**/*.{vue,tsx}')
 
+const DCC_UPLOAD_ROUTE_COMPONENT = 'dcc/controlled-file/upload/index'
+const DCC_UPLOAD_ROUTE_PATH = 'controlled-file/upload'
 const DCC_BROWSER_ROUTE_COMPONENT = 'dcc/controlled-file/browser/index'
 const DCC_BROWSER_ROUTE_PATH = 'controlled-file/browser'
+const DCC_UPLOAD_BROWSER_CACHE_ROUTE_COMPONENTS = new Set([
+  DCC_UPLOAD_ROUTE_COMPONENT,
+  DCC_BROWSER_ROUTE_COMPONENT
+])
+const DCC_UPLOAD_BROWSER_CACHE_ROUTE_PATHS = new Set([
+  DCC_UPLOAD_ROUTE_PATH,
+  DCC_BROWSER_ROUTE_PATH
+])
 const DCC_PERMISSION_CATEGORIES_ROUTE_COMPONENT = 'dcc/controlled-file/categories/index'
 const DCC_PERMISSION_CATEGORIES_ROUTE_PATH = 'controlled-file/categories'
 const WORKSTATION_ROUTE_COMPONENTS = new Set(['mes/md/workstation/index', 'mes/md/workstation'])
@@ -70,8 +80,8 @@ const applyRouteMetaOverrides = (
   const routePath = normalizeInternalRoutePath(route.path)
   const componentPath = normalizeInternalComponentPath(route.component)
   if (
-    routePath === DCC_BROWSER_ROUTE_PATH ||
-    componentPath === DCC_BROWSER_ROUTE_COMPONENT ||
+    DCC_UPLOAD_BROWSER_CACHE_ROUTE_PATHS.has(routePath) ||
+    DCC_UPLOAD_BROWSER_CACHE_ROUTE_COMPONENTS.has(componentPath) ||
     routePath === DCC_PERMISSION_CATEGORIES_ROUTE_PATH ||
     componentPath === DCC_PERMISSION_CATEGORIES_ROUTE_COMPONENT ||
     WORKSTATION_ROUTE_PATHS.has(routePath) ||
@@ -82,6 +92,12 @@ const applyRouteMetaOverrides = (
     MES_FEEDBACK_ROUTE_COMPONENTS.has(componentPath)
   ) {
     meta.tagsViewKeyMode = 'path'
+  }
+  if (
+    DCC_UPLOAD_BROWSER_CACHE_ROUTE_PATHS.has(routePath) ||
+    DCC_UPLOAD_BROWSER_CACHE_ROUTE_COMPONENTS.has(componentPath)
+  ) {
+    meta.noCache = false
   }
   if (
     APPROVAL_CENTER_REDIRECT_SHELL_ROUTE_PATHS.has(routePath) ||

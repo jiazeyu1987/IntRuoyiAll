@@ -431,6 +431,61 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     @Test
+    void shouldRejectPqcInspectionWhenPendingTaskWasConsumedConcurrently() {
+        when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
+                        LocalDateTime.of(2026, 8, 1, 8, 0)));
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID, PRODUCT_ID));
+        when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, PRODUCT_ID))
+                .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
+        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route(ROUTE_ID));
+        when(routeProcessMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
+                routeProcessWithoutWorkstation(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10)));
+        when(processService.getProcessMap(Set.of(PROCESS_ID))).thenReturn(Map.of(
+                PROCESS_ID, process(PROCESS_ID, "P-1", "首工序")));
+        givenPqcTaskContext(ROUTE_PROCESS_ID, PROCESS_ID, PQC_TASK_ID, REGULATION_VERSION_ID);
+        when(scopeMapper.selectActiveScopesByLeaderType(LEADER_TYPE_PQC)).thenReturn(List.of(
+                scope(7001L, SCOPE_TYPE_EMPLOYEE, 8001L)));
+        when(adminUserApi.getUserList(Set.of(7001L, 8001L))).thenReturn(List.of(
+                enabledUser(7001L, "pqc-leader-a", "PQC组长A"),
+                enabledUser(8001L, "pqc-employee-a", "PQC员工A")));
+        when(pqcTaskMapper.selectById(PQC_TASK_ID)).thenReturn(pqcTask(PQC_TASK_ID, ROUTE_PROCESS_ID,
+                PROCESS_ID, REGULATION_VERSION_ID));
+        when(pqcTaskMapper.updateById(any(MesPqcInspectionTaskDO.class))).thenReturn(0);
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.submitPqcInspection(LOGIN_USER_ID, MesFrontlinePqcSubmitCommand.builder()
+                        .activeOrderId(ACTIVE_ORDER_ID)
+                        .pqcTaskId(PQC_TASK_ID)
+                        .regulationVersionId(REGULATION_VERSION_ID)
+                        .workOrderId(WORK_ORDER_ID)
+                        .routeId(ROUTE_ID)
+                        .routeProcessId(ROUTE_PROCESS_ID)
+                        .processId(PROCESS_ID)
+                        .inspectionType("PATROL")
+                        .businessDate(LocalDate.of(2026, 8, 1))
+                        .shiftCode("DAY")
+                        .roundNo(1)
+                        .actualInspectionQuantity(2)
+                        .actualEmployeeId(8001L)
+                        .signatureId(8804L)
+                        .signatureEmployeeId(8001L)
+                        .templateType("PQC_SIMPLIFIED")
+                        .inspectionResult("DETECTION_SUCCESS")
+                        .rawPayload(Map.of(
+                                "pqcDraft", Map.of("inspectionType", "PATROL", "inspectionQuantity", 2),
+                                "pqcPieceValues", Map.of(
+                                        "pressure", List.of("0.8", "0.9"),
+                                        "appearance", List.of("合格", "合格"))))
+                        .clientSubmitTime(LocalDateTime.of(2026, 8, 1, 9, 50))
+                        .build()));
+
+        assertEquals(PRO_FRONTLINE_PQC_TASK_STATUS_INVALID.getCode(), exception.getCode());
+        verify(pqcPieceDetailMapper, never()).insertBatch(anyCollection());
+        verify(processPoolEventService, never()).createPqcInspectionEvent(any());
+    }
+
+    @Test
     void shouldSubmitPqcInspectionWithoutProductionSourceEvent() {
         when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
                 .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,

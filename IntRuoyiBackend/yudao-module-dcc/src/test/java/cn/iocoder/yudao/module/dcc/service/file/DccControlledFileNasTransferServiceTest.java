@@ -542,6 +542,48 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void recordUncontrolledImportLocalWriteResult_requiresArchiveMetadataForMatchedLocalWritten() {
+        ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileNasTransferTaskDO task = uncontrolledImportTask(
+                8206L, 99L, 7001L, "idem-local-write-004", "b".repeat(64));
+        DccNasControlAuditFileDO auditFile = matchedAuditFile(706L, "QMS/PRJ-20260728/archive-metadata.pdf",
+                "sig-archive-metadata", "PRJ-20260728/Design/archive-metadata.pdf", 7L);
+        auditFile.setDownloadStatus(DccControlledFileNasTransferServiceImpl.AUDIT_FILE_DOWNLOAD_STATUS_SELECTED);
+        auditFile.setSelectedImportTaskId(8206L);
+        auditFile.setSelectedImportTaskItemId(9306L);
+        auditFile.setLocalRelativePath("PRJ-20260728/Design/archive-metadata.pdf");
+        DccControlledFileNasTransferTaskItemDO item = uncontrolledImportItem(9306L, task, auditFile);
+        when(taskMapper.selectById(8206L)).thenReturn(task);
+        when(auditFileMapper.selectById(706L)).thenReturn(auditFile);
+        when(taskItemMapper.selectById(9306L)).thenReturn(item);
+        stubAggregatedTaskItemSummary(() -> List.of(item));
+
+        DccControlledFileNasTransferRespVO response = transferService.recordUncontrolledImportLocalWriteResult(
+                99L, 8206L, 706L, localWriteResultReq("sig-archive-metadata",
+                        "PRJ-20260728/Design/archive-metadata.pdf", "LOCAL_WRITTEN", null, null));
+
+        assertEquals(8206L, response.getTaskId());
+        ArgumentCaptor<DccNasControlAuditFileDO> auditCaptor =
+                ArgumentCaptor.forClass(DccNasControlAuditFileDO.class);
+        verify(auditFileMapper).updateById(auditCaptor.capture());
+        assertEquals("LOCAL_WRITTEN", auditCaptor.getValue().getDownloadStatus());
+        assertEquals("FAILED", auditCaptor.getValue().getArchiveStatus());
+        assertEquals("ARCHIVE_METADATA_REQUIRED", auditCaptor.getValue().getArchiveErrorCode());
+        assertEquals(null, auditCaptor.getValue().getControlledFileId());
+        ArgumentCaptor<DccControlledFileNasTransferTaskItemDO> itemCaptor =
+                ArgumentCaptor.forClass(DccControlledFileNasTransferTaskItemDO.class);
+        verify(taskItemMapper).updateById(itemCaptor.capture());
+        assertEquals("LOCAL_WRITTEN", itemCaptor.getValue().getLocalWriteStatus());
+        assertEquals("FAILED", itemCaptor.getValue().getArchiveStatus());
+        assertEquals("ARCHIVE_METADATA_REQUIRED", itemCaptor.getValue().getArchiveErrorCode());
+        verify(nasBrowserService, never()).readFile(anyString());
+        verify(fileService, never()).createFileAndReturnId(any(byte[].class), anyString(), anyString(), anyString());
+        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
     void transfer_createsAsyncTaskWithoutImmediateNasTraversal() {
         ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
         TenantContextHolder.setTenantId(1L);
