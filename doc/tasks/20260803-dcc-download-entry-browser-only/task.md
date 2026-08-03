@@ -19,14 +19,20 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Verification Summary
 
 - `node tests/e2e/dcc-download-entry-browser-only-static.spec.js`：RED 后 GREEN。
 - `pnpm e2e:dcc:download-entry:static`：PASS。
+- `node tests/e2e/dcc-list-detail-entry-static.spec.js`：PASS，已同步现有受控浏览操作列 visibility-gated 标记。
 - `pnpm ts:check`：PASS。
-- 相邻旧契约 `dcc-list-detail-entry-static.spec.js` 和 `dcc-browser-file-number-detail-entry-static.spec.js` 当前失败在既有浏览器列表操作列/追溯入口断言，不属于本次详情页下载入口收敛改动。
+- `task_closeout.py --mode preview/apply`：PASS，仅删除临时 `frontend-feature-evidence.md`，保留核心任务报告。
+- 前端代码已进入提交 `72712e92d chore: baseline concurrent download entry updates`，该提交包含详情页下载入口移除、新增静态契约和相邻 list-detail 契约标记修正。
+
+## Closeout Result
+
+- 收尾文档已准备提交；提交后推送 `int_main` 到 `origin`。
 
 ## 设计约束检查
 
