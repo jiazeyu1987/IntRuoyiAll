@@ -75,7 +75,7 @@ ready_for_closeout
 
 worktree 内已完成运行态验证：DCC 定向 JUnit 通过 107 tests；前端静态契约通过；worktree DCC/MDM 相关模块 install 后重新打包 `yudao-server-exec.jar` 通过；后端 `48096` health `UP`；前端 `8096` HTTP `200`；合入最新 `origin/int_main` 和本地 `int_main` 已提交内容后再次复跑真实 Playwright E2E，通过项目代码页面发起产品建档申请并审批生成 DCC 项目代码，结果为 `requestId=7`、`projectCodeId=261`、`productMasterId=335`、`projectCode=CODXONB03074622`，`criticalNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`。
 
-后续本地 `int_main` 又出现并发已提交基线，已在 worktree 再次合入并复跑产品建档前端静态契约与 DCC 定向 JUnit，均通过；当前任务 worktree 运行进程已停止并释放 `8096/48096`。本轮用户要求先提交主工作区前后端/残留记录后再融合，主工作区已清理为可接收状态；worktree 已再次合入最新本地 `int_main`，`git rev-list --left-right --count int_main...codex/dcc-product-onboarding-flow-20260803` 为 `0 10`，前端静态契约和 DCC 定向 JUnit 107 tests 均通过。剩余收尾是按 Git 门禁快进融合回 `int_main` 并尝试 push；若 GitHub HTTPS 代理仍不可用，必须记录 blocker，不能标记 completed。
+后续本地 `int_main` 又出现并发已提交基线，已在 worktree 再次合入并复跑产品建档前端静态契约与 DCC 定向 JUnit，均通过；当前任务 worktree 运行进程已停止并释放 `8096/48096`。本轮用户要求先提交主工作区前后端/残留记录后再融合，主工作区已清理为可接收状态；worktree 已再次合入最新本地 `int_main`，最新 merge commit 为 `e9f52e5c2`，`git rev-list --left-right --count int_main...codex/dcc-product-onboarding-flow-20260803` 为 `0 12`，前端静态契约和 DCC 定向 JUnit 107 tests 均通过。剩余收尾是按 Git 门禁快进融合回 `int_main` 并尝试 push；若 GitHub HTTPS 代理仍不可用，必须记录 blocker，不能标记 completed。
 
 ## 设计约束检查
 

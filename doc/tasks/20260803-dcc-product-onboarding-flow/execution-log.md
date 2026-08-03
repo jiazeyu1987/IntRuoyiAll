@@ -163,3 +163,7 @@
 - Final pre-merge boundary: `git rev-list --left-right --count int_main...codex/dcc-product-onboarding-flow-20260803` -> `0 10`; local `int_main` is an ancestor of the worktree branch and can receive a fast-forward merge.
 - GREEN: final pre-merge `node IntRuoyiFronted\tests\e2e\dcc-project-code-product-onboarding-static.spec.js` in the worktree -> PASS, exit code 0.
 - GREEN: final pre-merge `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest,DccControlledFileWorkflowServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` in the worktree -> PASS, Tests run: 107, Failures: 0, Errors: 0, Skipped: 0.
+- Merge latest local main after main baseline commit: `git merge --no-edit int_main` in `D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803` -> PASS, merge commit `e9f52e5c2`; branch runtime port guard passed.
+- Final pre-ff boundary: `git rev-list --left-right --count int_main...codex/dcc-product-onboarding-flow-20260803` -> `0 12`; local `int_main` is an ancestor of the worktree branch and can receive a fast-forward merge.
+- GREEN: final pre-ff `node IntRuoyiFronted\tests\e2e\dcc-project-code-product-onboarding-static.spec.js` in the worktree -> PASS, exit code 0.
+- GREEN: final pre-ff `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest,DccControlledFileWorkflowServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` in the worktree -> PASS, Tests run: 107, Failures: 0, Errors: 0, Skipped: 0.
