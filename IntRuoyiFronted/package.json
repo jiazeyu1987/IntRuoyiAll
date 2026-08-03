@@ -125,6 +125,7 @@
     "e2e:dcc:upload-project-taxonomy-revision:static": "node tests/e2e/dcc-upload-project-taxonomy-revision-static.spec.js",
     "e2e:dcc:upload-category-taxonomy-binding:static": "node tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js",
     "e2e:dcc:upload-product-autofill:static": "node tests/e2e/dcc-upload-product-autofill-static.spec.js",
+    "e2e:dcc:upload-project-code-hint:static": "node tests/e2e/dcc-upload-project-code-hint-static.spec.js",
     "e2e:dcc:upload-name-version-autofill:static": "node tests/e2e/dcc-upload-name-version-autofill-static.spec.js",
     "e2e:dcc:upload-current-version:static": "node tests/e2e/dcc-upload-current-version-static.spec.js",
     "e2e:dcc:upload-governance-ux:static": "node tests/e2e/dcc-upload-governance-ux-static.spec.js",

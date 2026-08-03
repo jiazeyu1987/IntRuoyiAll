@@ -58,13 +58,13 @@ M6
 - M5 日结/范围静态门禁已 GREEN：班组长工作台提供可见日结待处理面，scope 模型包含工位、生产线、设备和订单范围。
 - M5 后端目标 Maven 已 GREEN：`mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderScopeServiceTest,MesProcessPoolTeamLeaderSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` 通过，7 tests、0 failures/errors、BUILD SUCCESS。
 - M6 当前进行中：只允许处理迁移、并发、性能、全量真实 E2E、任务数据清理和上线/readiness gate；不得把 M6 未验证项提前标记为 ACCEPTED。
-- M6 迁移预检静态门禁已局部 GREEN：新增 `20260802_role_requirement_matrix_m6_migration_preflight.sql`、`e2e:role-matrix-migration-preflight:static` 和 `m6-migration-policy-gate.json`；该 SQL 仅做 fail-fast 检查，真实运行库执行仍属于 M6 后续验收。
+- M6 迁移预检门禁已 GREEN：新增只读 `20260802_role_requirement_matrix_m6_migration_preflight.sql`、`e2e:role-matrix-migration-preflight:static` 和 `m6-migration-policy-gate.json`；静态合同、14 文件 release policy gate 与授权本地运行库 SQL 预检均已通过。
 - M6 AC-M04 当前只达到部分动作和后端失败路径证据：真实页面 `joinActiveOrder` 已返回 `activeOrderId=12`，真实页面 `activeOrderConflictRouteRejected` 已证明错误路线 fail-fast 且不新增错误 activeOrder，真实页面 `activeOrderCrossRoleReadOnly` 已证明 PQC 只读读取同一 activeOrderId，专用错误角色 `aoteman` 已证明活跃订单写入被拒绝，清理追溯门禁已结构化为 `activeOrderCleanupDeferred`，后端重复加入、并发唯一键和冲突路线前置拒绝单测已 GREEN；但 activeOrderId 仍是后续 M6 共享夹具，AC-M04 仍缺正式清理窗口/可重建夹具和 M6 迁移/性能/上线门禁，不得标记为 `ACCEPTED`。
 - M6 PQC 规程动态渲染已有真实动作证据：`pqcRegulationItemsRendered` 已通过 PQC 检验员页面登录态读取同一 activeOrderId 的 14 个路线工序、32 个正式 QA 规程项目、发布版本 ID 16..29 和计划巡检数量；D17 已进一步补强页面可见 `方法/标准/判定` 元信息，真实 E2E 记录 `visibleMetadataCount=1` 和正式 QA 规程快照样例。但 D17/D19/D24/D31 仍缺失败路径、提交/签名/复核和完整验收闭环，不得标记为 `ACCEPTED`。
 - M6 AC-D27 逐件明细数量已有真实页面只读动作证据：`pqcPieceDetailQuantityPrepared` 已打开 PQC 逐件弹窗并证明 `plannedQuantities=[15]`、`uiQuantity=15`、`pieceRowCount=15`；但 AC-D27 仍缺提交后只读明细还原、失败路径、签名/复核、完整 N+1/查询计数和清理/上线门禁，不得标记为 `ACCEPTED`。
 - M6 PQC 实际检验人切换门禁已通过真实动作验证：`pqcActualEmployeeSelected` 已接入正式 `/pqc/personnel` 和 `/pqc/switch-employee` 路径，本机 tenant 1 已写入 task-owned PQC `EMPLOYEE` scope row id 980013；full real E2E 证明 `actualEmployeeId=512` 不默认登录人 `659`。AC-D25/D31 仍不能标记为 `ACCEPTED`，因为还缺完整失败路径、签名/权限/清理和全量 M6 验收闭环。
-- M6 AC-D32 PQC 组长提交看板筛选/分页已有代码和静态门禁证据：提交看板 read-model 已按产品、检验类型、轮次、复核状态和 `pqcTaskId` 精确关联过滤；前端已提供 PQC 组长筛选项和结果列；`node --check`、preflight static、mapper static、`ts:check`、`ProcessPoolTimelineFilterTest` 和授权 `real:check` 已 GREEN。但真实 E2E 因本机租户缺少至少两笔正式 PQC submitted 事件记录 `pqcLeaderSubmissionFilterPaginationConsistent=BLOCKED/E2E_PQC_SUBMISSION_DATA`，AC-D32 不得标记为 `ACCEPTED`。
-- M6 AC-D29 PQC 正式提交事件链路已有代码/单测/静态/构建证据：`submitPqcInspection` 已在正式提交时校验 source event 和 active pool 身份、更新 PQC task、插入逐件明细并调用 `createPqcInspectionEvent`；`MesFrontlinePqcContextServiceTest`、真实 E2E 脚本语法、preflight static、mapper static、`yudao-server` package 均已通过。此前 full real E2E 已推进到 `pqcFormalSubmissionCreated=BLOCKED/E2E_PQC_SUBMISSION_DATA`，原因是固定签名 ID `25` 已被工序池事件占用；本轮已按 RED/GREEN 补齐 `resolveUnusedPqcSignatureId`，从用户提供的正式签名 ID 池中排除已占用签名，不放宽后端签名唯一性。但当前 48081 被无关 `backend-runtime-control-20260803-121411-dcc-product-onboarding.jar` 占用，无法在本任务 M6 RRM runtime 上完成 full real E2E 复验，AC-D29 不得标记为 `ACCEPTED`。
+- M6 AC-D32 PQC 组长提交看板筛选/分页已有真实动作 PASS：提交看板 read-model 已按产品、检验类型、轮次、复核状态和 `pqcTaskId` 精确关联过滤；`m6-pqc-d32-same-filter-local-seed.sql` 已准备同筛选条件下第二个正式 PENDING PQC task；full real E2E 证明筛选条件 `submitDate=2026-08-03 / workOrderCode=RRM-20260801-PP-MO-001 / employeeUserId=512 / processId=922985 / productKeyword=AW.107.02.01.2010 / inspectionType=PATROL / roundNo=1 / submissionReviewStatus=PENDING` 下 `total=2`，第 1/2 页事件分别为 `24`、`26`。AC-D32 仍不得标记为 `ACCEPTED`，因为还缺失败路径、权限/只读隔离、性能门禁、清理和 62 AC 全量准出。
+- M6 AC-D29 PQC 正式提交事件链路已有真实动作 PASS：`submitPqcInspection` 已在正式提交时校验 source event 和 active pool 身份、更新 PQC task、插入逐件明细并调用 `createPqcInspectionEvent`；full real E2E 通过未占用签名池选择 `signatureId=23`，生成 `submittedTaskId=31`、`eventId=26`，候选签名 ID 为 `[25,22,23,24,26,27]`，已占用签名 ID 为 `[25,22]`。AC-D29 仍不得标记为 `ACCEPTED`，因为还缺失败路径、重复/并发提交证明、复核/只读追溯、清理和 62 AC 全量准出。
 - `blocker-inventory.md`、`source-map.md`、`verification-report.md` 中出现的 M6 只表示当前待验收范围，不表示 Excel 全量目标已完成。
 - 在 M6 未达到 GREEN/REGRESSION/E2E/launch gate 证据前，不得把 62 项 AC 或最终 Excel 目标标记为完成。
 
@@ -78,9 +78,9 @@ M6
 - M5 子项已验证关闭：RRM-BLK-029..031 已通过正式批记录绑定与 `formBindings` / 默认 `MAIN` / `工序开始` 分离代码、静态合同、后端 compile 和 `real:check` 清零。
 - M5 日结/范围静态已验证：`pnpm --dir IntRuoyiFronted e2e:role-matrix-daily-close-scope:static` PASS。
 - M5 后端目标 Maven 已验证：`mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderScopeServiceTest,MesProcessPoolTeamLeaderSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` PASS，7 tests、0 failures/errors、BUILD SUCCESS。
-- M6 当前待办：并发、性能、全量真实 E2E、清理和上线验收门禁仍未完成；AC-M04 已有 `joinActiveOrder`、`activeOrderConflictRouteRejected`、`activeOrderCrossRoleReadOnly`、`activeOrderUnauthorizedMutationBlocked` 四个真实 PASS 动作证据和 `activeOrderCleanupDeferred` 清理 BLOCKED 证据，PQC 已有 `pqcRegulationItemsRendered` 动态规程渲染 PASS（含 D17 页面可见方法/标准/判定元信息）、`pqcPieceDetailQuantityPrepared` 逐件数量 PASS、`pqcActualEmployeeSelected` 实际检验人 PASS，AC-D29 已有代码/单测/静态/构建 GREEN 且签名池脚本门禁 GREEN，但 full real E2E 复验被当前无关 DCC runtime 占用 48081 阻塞；AC-D32 已有提交看板筛选分页代码/静态 GREEN 但仍需至少两笔正式 PQC submitted 事件证明分页 total 稳定；M6 迁移预检静态/策略/运行库门禁已 GREEN，后端重复/并发/冲突路线单测 GREEN；仍不能宣称 Excel 全量目标完成。
-- M6 runtime ownership blocker 当前打开：48081 listener PID `5852` 是无关 `backend-runtime-control-20260803-121411-dcc-product-onboarding.jar`。按任务 ownership 和本地运行态规则，本轮未停止该进程、未换端口、未用该运行态冒充 M6 RRM 验证；需要用户明确授权后才能切换回 `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar` 或后续更新的本任务 Jar。
-- M6 AC-D29 signature-pool blocker：固定签名 ID `25` 复用问题已由真实 E2E 脚本门禁解决；若用户提供的签名池全部被占用，脚本会结构化输出 `E2E_PQC_SIGNATURE_POOL`，不得放宽后端 `signature_id` 唯一键。当前剩余 blocker 是 runtime ownership，AC-D29 仍不 `ACCEPTED`。
+- M6 当前待办：并发、性能、全量真实 E2E、清理和上线验收门禁仍未完成；AC-M04 已有 `joinActiveOrder`、`activeOrderConflictRouteRejected`、`activeOrderCrossRoleReadOnly`、`activeOrderUnauthorizedMutationBlocked` 四个真实 PASS 动作证据和 `activeOrderCleanupDeferred` 清理 BLOCKED 证据，PQC 已有 `pqcRegulationItemsRendered`、`pqcPieceDetailQuantityPrepared`、`pqcActualEmployeeSelected`、`pqcFormalSubmissionCreated`、`pqcLeaderSubmissionFilterPaginationConsistent` 五个真实 PASS 动作证据；M6 迁移预检静态/策略/运行库门禁已 GREEN，后端重复/并发/冲突路线单测 GREEN；当前剩余 blocker 为 `activeOrderCleanupDeferred`、`m6ConcurrencyGateDeferred`、`m6PerformanceGateDeferred` 和 62 个 `E2E_COVERAGE`，仍不能宣称 Excel 全量目标完成。
+- M6 runtime ownership blocker 已关闭：当前 48081 listener PID `43876` 是本任务 RRM M6 runtime jar `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`，后端 health 为 `UP`，前端 8081 HTTP `200`，授权 `real:check` 为 PASS，0 SOURCE/ENV/RUNTIME blocker。
+- M6 AC-D29 signature-pool blocker 已由真实页面验证关闭：固定签名 ID `25` 复用问题已由真实 E2E 脚本门禁解决，本轮实际选择未占用 `signatureId=23` 完成正式提交；若用户提供的签名池全部被占用，脚本仍会结构化输出 `E2E_PQC_SIGNATURE_POOL`，不得放宽后端 `signature_id` 唯一键。
 - 本地 M0 夹具不等于正式来源实现：QC/IPQC 模板和从 `过程检验记录 V3.0` 逆推的临时 QA 模板不是正式 QA 规程版本模型，工单/调拨夹具不是 activeOrderId 关系源。
 
 ## M0 Evidence
@@ -149,6 +149,7 @@ M6
 - `role-requirement-matrix-real-e2e-evidence.md`
 - `IntRuoyiFronted/test-results/role-requirement-matrix-real-flow/result.json`
 - `m6-migration-policy-gate.json`
+- `m6-pqc-d32-same-filter-local-seed.sql`
 
 ## Applicable Gate Summary
 
@@ -161,4 +162,4 @@ M6
 
 - `是否引入 fallback/降级/吞异常`：否；`real:check` 对缺正式来源保持 fail-fast / BLOCKED，不返回默认成功。
 - `是否从根因和长期维护角度解决`：是，按规划包先冻结正式来源、source map、真实 E2E 前置和 blocker，再按 AC / TC 逐项进入后续里程碑；M6 仍需完成全量验收门禁。
-- `是否存在临时补丁或绕过`：否；当前 `m0-derived-qa-regulation.md` 和本机工单/调拨/签名数据仅是 M0 预检夹具，明确不替代 activeOrderId、QA 规程版本、PQC 任务或 ERP 关系正式模型。
+- `是否存在临时补丁或绕过`：否；当前 `m0-derived-qa-regulation.md`、本机工单/调拨/签名数据、`m6-pqc-employee-scope-local-seed.sql` 和 `m6-pqc-d32-same-filter-local-seed.sql` 仅是本机真实 E2E 夹具，明确不替代 activeOrderId、QA 规程版本、PQC 任务或 ERP 关系正式模型。

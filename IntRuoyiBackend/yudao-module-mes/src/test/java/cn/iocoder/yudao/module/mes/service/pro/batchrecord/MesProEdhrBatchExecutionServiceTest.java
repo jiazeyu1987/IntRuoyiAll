@@ -679,7 +679,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .routeId(route.getId())
                 .routeVersionId(fixture.routeVersionId())
                 .routeVersionNo(fixture.routeVersionNo())
-                .routeSnapshotJson("{\"configSnapshots\":{\"flowGraph\":{\"nodes\":[]},\"batchUseConfigs\":[]}}")
+                .routeSnapshotJson(incompleteFrozenBatchTaskConfigSnapshotJson())
                 .routeCode(route.getCode())
                 .routeName(route.getName())
                 .status(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CREATED)

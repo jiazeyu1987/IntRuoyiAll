@@ -19,6 +19,9 @@ public interface DccControlledFileNasTransferService {
     DccControlledFileNasTransferRespVO createUncontrolledImportTask(
             Long userId, Long auditTaskId, DccNasUncontrolledImportSelectedReqVO reqVO);
 
+    DccControlledFileBinary readUncontrolledImportContent(
+            Long userId, Long importTaskId, Long auditFileId, String sourceSignature, String localRelativePath);
+
     DccControlledFileNasTransferRespVO createLocalFolderImportSession(
             Long userId, DccControlledFileLocalFolderImportSessionCreateReqVO reqVO);
 

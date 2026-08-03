@@ -226,8 +226,13 @@
             readonly
             placeholder="选择 DCC 项目后自动生成"
           />
-          <div v-if="isProductRequiredForSelectedCategory" class="mt-6px text-12px text-[var(--el-color-danger)]">
-            DHF/DMR 类别必须选择包含项目代码的 DCC 项目
+          <div
+            v-if="isProductRequiredForSelectedCategory"
+            data-testid="dcc-upload-product-code-binding-hint"
+            class="mt-6px text-12px"
+            :class="productCodeBindingHintClass"
+          >
+            {{ productCodeBindingHintText }}
           </div>
           <div v-if="selectedProjectCode" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
             来源：DCC 项目代码 {{ selectedProjectCode.projectName }} / {{ selectedProjectCode.projectCode || '-' }}
@@ -585,6 +590,18 @@ const selectedCategoryDirectoryBound = computed(() => Boolean(selectedCategory.v
 const isProductRequiredForSelectedCategory = computed(() =>
   isDccProductRequiredForCategoryCode(selectedCategory.value?.code)
 )
+const isRequiredProjectCodeBound = computed(() => Boolean(formData.productCode.trim()))
+const productCodeBindingHintText = computed(() => {
+  if (isRequiredProjectCodeBound.value) {
+    return `已自动绑定 DCC 项目代码：${formData.productCode.trim()}`
+  }
+  return 'DHF/DMR 类别必须选择包含项目代码的 DCC 项目'
+})
+const productCodeBindingHintClass = computed(() =>
+  isRequiredProjectCodeBound.value
+    ? 'text-[var(--el-color-success)]'
+    : 'text-[var(--el-color-danger)]'
+)
 
 const uploadSubmitterService = createUploadSubmitterService({
   uploadPreview: uploadControlledFilePreview,
@@ -856,6 +873,14 @@ const resetDrawingPdfUpload = () => {
   drawingPdfFileList.value = []
 }
 
+const resetCategorySelectionForFileTypeTaxonomyChange = () => {
+  formData.categoryId = null
+  resetUploadDirectoryContext()
+  resetSelectedPreview()
+  resetDrawingPdfUpload()
+  clearSubmitFieldErrors(submitFieldErrors)
+}
+
 const hasTemporaryUploadState = () =>
   Boolean(previewUpload.value?.uploadTicket || drawingPdfUpload.value?.uploadTicket)
 
@@ -1062,6 +1087,7 @@ const handleProjectCodeChange = async () => {
 
 const handleFileTypeTaxonomyChange = async () => {
   resetUploadNameContext(true)
+  resetCategorySelectionForFileTypeTaxonomyChange()
   await formRef.value?.validateField?.('fileTypeTaxonomyId').catch(() => undefined)
   await refreshUploadNameOptionsForProjectTaxonomy()
 }
