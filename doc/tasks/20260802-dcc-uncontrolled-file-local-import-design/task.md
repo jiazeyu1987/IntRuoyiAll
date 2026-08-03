@@ -25,6 +25,7 @@
 - [x] M12：优化后续开发潜在问题，补齐识别候选摘要持久化、识别结果写入规则、import 任务快照字段、幂等请求哈希、后端相对路径重算校验和显式选择范围门禁。
 - [x] M13：按严格 TDD 完成确定性预识别后端切片，新增 `/files/recognize` 服务实现、候选摘要、原因码、期望本地相对路径和相邻回归验证。
 - [x] M14：优化 import-selected 与本地回写开发文档，补齐整体原子拒绝、规范化请求哈希、audit/import 绑定、重复 local-write-result 幂等和冲突终态门禁。
+- [x] M15：按严格 TDD 完成 import-selected 任务快照 schema 切片，新增 transfer task/task item/audit file 绑定字段、DO 字段、测试 schema 和 SQL 静态合同。
 
 ## Expected Verification
 
@@ -44,14 +45,16 @@
 - 核对重复 local-write-result 幂等返回且不重复触发 DCC 归档，冲突终态回写被拒绝。
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileDetails" test`
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileDetails,DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileRecognitionSnapshot,DccNasControlAuditControllerTest,DccNasControlAuditServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+- `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportNasUncontrolledImportTaskSnapshots" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q`
+- `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_uncontrolled_import_task_snapshot_sql.py IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q`
 - `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/database-schema-evidence.md`
 
 ## Current Status
 
 in_progress
 
-设计文档、BDD/TDD/E2E 验收文档、潜在问题优化、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片和 M14 import-selected/local-write 文档门禁优化已完成验证；本轮文档补齐了整体原子拒绝、规范化请求哈希、audit/import 绑定和重复回写幂等边界。后续仍需按文档继续实现 import-selected、本地写入回写、content 二进制下载、前端和真实 E2E。最终 `completed` 状态暂不标记：当前工作区存在任务开始前的并发脏文件且分支 `int_main` 已 ahead 2，按项目 Git/closeout 规则需要先单独处理脏工作区基线和 push 阻塞，不能把本任务与其它并发任务资产混在一个收尾提交里。
+设计文档、BDD/TDD/E2E 验收文档、潜在问题优化、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化和 M15 import-selected 任务快照 schema 切片已完成验证。当前已具备处理任务头幂等字段、处理项识别/本地路径快照、audit 明细 import 绑定和对应 SQL/JUnit 门禁。后续仍需按文档继续实现 import-selected 服务/API、本地写入回写、content 二进制下载、前端和真实 E2E。最终 `completed` 状态暂不标记：当前工作区存在任务开始前的并发脏文件且分支 `int_main` 已 ahead 2，按项目 Git/closeout 规则需要先单独处理脏工作区基线和 push 阻塞，不能把本任务与其它并发任务资产混在一个收尾提交里。
 
 ## 设计约束检查
 

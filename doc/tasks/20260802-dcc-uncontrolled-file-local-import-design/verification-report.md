@@ -2,7 +2,7 @@
 
 ## Summary
 
-已完成 DCC 未受控文件本地下载与自动归类的文档设计、BDD 场景、严格 TDD 顺序、真实 E2E 计划、测试数据设计、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片和 M14 import-selected/local-write 文档门禁优化。设计复用当前 NAS 管理、未受控统计、NAS transfer、DCC 项目代码、文件分类树和分类规则能力；无法唯一识别项目代码、item 或分类时，统一进入正式 `未分类/待处理` 状态，不引入默认归类或降级路径。本轮 M14 仅优化文档和验收门禁，新增整体原子拒绝、规范化请求哈希、audit/import 绑定、重复 local-write-result 幂等和冲突终态拒绝要求；不代表 import-selected、content 或 local-write-result 已实现。
+已完成 DCC 未受控文件本地下载与自动归类的文档设计、BDD 场景、严格 TDD 顺序、真实 E2E 计划、测试数据设计、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化和 M15 import-selected 任务快照 schema 切片。设计复用当前 NAS 管理、未受控统计、NAS transfer、DCC 项目代码、文件分类树和分类规则能力；无法唯一识别项目代码、item 或分类时，统一进入正式 `未分类/待处理` 状态，不引入默认归类或降级路径。本轮 M15 仅完成 schema/DO/test schema/SQL contract 支撑，不代表 import-selected 服务/API、content 或 local-write-result 已实现。
 
 ## Files Verified
 
@@ -18,6 +18,12 @@
 - `docs/experience-index.md`
 - `doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/database-schema-evidence.md`
 - `doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/backend-api-evidence.md`
+- `IntRuoyiBackend/sql/mysql/20260803_dcc_nas_uncontrolled_import_task_snapshot.sql`
+- `IntRuoyiBackend/script/tests/test_dcc_nas_uncontrolled_import_task_snapshot_sql.py`
+- `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileNasTransferTaskDO.java`
+- `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileNasTransferTaskItemDO.java`
+- `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccNasControlAuditFileDO.java`
+- `IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/create_tables.sql`
 - `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccNasControlAuditServiceImpl.java`
 - `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNasControlAuditServiceImplTest.java`
 - `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/DccBaseSchemaTest.java`
@@ -55,6 +61,8 @@
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksProjectAndCategoryWhenUnique,DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksPendingWhenProjectOrCategoryMissing,DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksAmbiguousWhenProjectOrCategoryHasMultipleCandidates,DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_doesNotRewriteImportedOrArchivedSnapshots" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 4, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS。
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileDetails,DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileRecognitionSnapshot,DccNasControlAuditControllerTest,DccNasControlAuditServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 9, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS。
 - `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q` -> PASS，2 passed in 0.17s。
+- `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportNasUncontrolledImportTaskSnapshots" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 1, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS。
+- `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_uncontrolled_import_task_snapshot_sql.py IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q` -> PASS，4 passed in 1.49s。
 
 ## Design Checks
 
@@ -87,6 +95,7 @@
 - Selection scope ready: 首版只处理显式勾选的 `auditFileId` 列表；全筛选结果处理必须另有服务端 selection snapshot/token 和 TDD。
 - Import binding ready: 文档要求 audit 明细与 import task/item 绑定可查询，活动绑定重复提交必须拒绝。
 - Local write replay ready: 文档要求相同 local-write-result 重放幂等返回且不重复归档，冲突终态回写必须拒绝。
+- Import snapshot schema ready: transfer task 已具备 `audit_task_id/idempotency_key/request_hash`，task item 已具备 audit file、source signature、识别快照、本地相对路径、本地写入和归档状态字段，audit 明细已具备 import task/item 绑定字段，并通过 JUnit 与 SQL contract 验证。
 
 ## Blockers
 
@@ -118,3 +127,11 @@
 - Added gates: import-selected whole-request atomicity, canonical request hash, audit/import binding visibility, duplicate active binding rejection, local-write-result replay idempotency and conflicting terminal result rejection.
 - Boundary: documentation-only update; no production code, NAS files, local folders, runtime services or business data were modified.
 - Remaining: backend import-selected schema/service/controller, content binary download, local-write-result, frontend static contract and real E2E still require strict RED/GREEN implementation.
+
+## M15 Schema Slice
+
+- Scope: implemented additive schema support for `NAS_UNCONTROLLED_IMPORT` task snapshots and audit/import binding.
+- Contract: task header stores audit task id, idempotency key and canonical request hash; task item stores audit file id, source signature, recognition snapshot, local relative path, local-write status/error and archive status/error; audit file stores selected import task/item binding.
+- GREEN: targeted schema JUnit passed with Tests run 1, Failures 0, Errors 0, Skipped 0.
+- GREEN: SQL static contracts passed with 4 tests.
+- Boundary: schema/persistence contract only; import-selected service/API, content binary download, local-write-result, frontend and real E2E remain in progress.

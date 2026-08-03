@@ -49,6 +49,8 @@ BDD: Import request hash is canonical -> Given the same selected audit files are
 
 BDD: Local write result replay is idempotent -> Given a matched audit file has already completed LOCAL_WRITTEN and archive When the same local-write-result is replayed Then backend returns current state without creating another controlled file or ACTIVE NAS source mapping; conflicting terminal results are rejected.
 
+BDD: Import-selected task snapshots are schema-backed -> Given selected audit files will be locked into an import task When the backend creates `NAS_UNCONTROLLED_IMPORT` Then task header stores audit task, idempotency key and canonical request hash, task items store audit file/source signature/recognition/local path snapshots, and audit files expose current import task/item binding for duplicate-selection checks.
+
 ## Milestone Log
 
 ### M1
@@ -215,3 +217,17 @@ BDD: Local write result replay is idempotent -> Given a matched audit file has a
 - GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
 - GREEN: UTF-8 read check for `task.md`, `execution-log.md`, `design.md`, `verification-report.md`, `bdd-scenarios.md`, `tdd-plan.md`, `e2e-plan.md`, and `test-data.md` -> PASS, all `contains_replacement=False`.
 - GREEN: `git -C E:\IntRuoyi diff --check -- <M14 task and acceptance docs>` -> PASS, only Git LF-to-CRLF warnings for acceptance docs.
+
+### M15
+
+- Status: completed
+- Completed: implemented import-selected task snapshot schema slice for `NAS_UNCONTROLLED_IMPORT`, including additive migration fields on `dcc_controlled_file_nas_transfer_task`, `dcc_controlled_file_nas_transfer_task_item`, and `dcc_nas_control_audit_file`; synced DO fields, DCC test schema, JUnit schema contract and SQL static contract.
+- Scope: schema/persistence contract only; no import-selected service/API behavior, content download, local-write-result, NAS files, local folders or business data were modified.
+- Diagnostic: the targeted Maven run initially had a stale surefire report from the RED phase and briefly showed the known Windows Maven `WinNTFileSystem.delete0` cleanup stack; final command output completed with `BUILD SUCCESS`.
+- Blockers: none for this schema slice; import-selected service/API, content binary download, local-write-result, frontend static contract and real E2E remain implementation work.
+
+## M15 Verification Evidence
+
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportNasUncontrolledImportTaskSnapshots" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: `DCC NAS uncontrolled import task snapshot migration must exist`.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportNasUncontrolledImportTaskSnapshots" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_uncontrolled_import_task_snapshot_sql.py IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q` -> PASS, 4 passed in 1.49s.
