@@ -106,3 +106,8 @@ BDD: DCC controlled-copy distribution and old-version recovery -> Given a non-ad
 - GREEN: project-experience-consolidation -> PASS, merged the reusable rule into existing `docs/e2e-rules.md` and `docs/experience-index.md`: paper distribution department rule uses `文控权限 > 分发规则`; no new long-term document was created.
 - Note: `git check-ignore` confirms task `.cjs` scripts and screenshot `.png` files match repository ignore rules; they are retained in the workspace via `Cleanup Keep`. If this task evidence is committed later, add those evidence files intentionally with `git add -f`.
 - GREEN: final format/secret check -> PASS for task directory plus `docs/e2e-rules.md` and `docs/experience-index.md`.
+
+## Long-Term Memory Update 2026-08-03
+
+- User clarified that both paper distribution and online/electronic distribution use the same rule source: `文控权限 > 分发规则`; the department configured there is the distribution department for the corresponding controlled copy.
+- GREEN: project-experience-consolidation -> PASS, updated existing long-term memory in `docs/e2e-rules.md` and `docs/experience-index.md`; no new memory document was created.

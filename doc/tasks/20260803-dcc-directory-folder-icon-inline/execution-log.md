@@ -27,3 +27,12 @@
 - GREEN: `git diff --check -- <本任务文件>` -> PASS，仅提示 `package.json` 与目录页面下次 Git 触碰会由 LF 转 CRLF。
 - GIT BLOCKER: `git status --short --branch` 最后复扫显示 `int_main...origin/int_main [ahead 12]` 且存在大量并发脏改；本任务未提交/推送，避免混入非任务文件。
 - USER REFINEMENT: 用户补充要求单击红框中的整个目录名称列范围即可展开，不是只有点击图标时才展开。
+- RED: `pnpm e2e:dcc:directory-folder-icon-inline:static` -> FAIL，预期失败：当前实现仍由文件夹图标 `@click.stop` 独占展开点击，目录名称 cell wrapper 缺少整格点击状态、click 和键盘展开契约。
+- CHANGE：目录名称 cell wrapper 改为整格 `role="button"` 点击区域，加入 `@click`、Enter/Space 键盘展开、`width: 100%` 和 `.is-expandable` pointer 样式；文件夹图标改为纯展示图标，不再独占点击。
+- CHANGE：修正 `dcc-directory-expand-actions-toolbar-static.spec.js` 中已过期的 `useTreeTableExpand(true)` 断言，对齐当前懒加载默认折叠契约 `useTreeTableExpand(false)`。
+- GREEN: `pnpm e2e:dcc:directory-folder-icon-inline:static` -> PASS，覆盖整格点击展开契约。
+- GREEN: `pnpm e2e:dcc:directory-summary:static` -> PASS。
+- GREEN: `pnpm e2e:dcc:directory-lazy-loading:static` -> PASS。
+- GREEN: `node tests/e2e/dcc-directory-expand-actions-toolbar-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GIT NOTE: `git show --name-status --oneline -1 -- <本任务文件>` 显示本任务文件已被最新基线提交 `03646727b chore: baseline main worktree before form center merge` 纳入；该提交同时包含大量非本任务文件，因此未改写历史或追加伪任务实现提交。

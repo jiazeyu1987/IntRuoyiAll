@@ -55,6 +55,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -162,6 +163,40 @@ class MesFrontlinePqcContextServiceTest {
                 processes.stream().map(MesFrontlineRouteProcessCandidate::routeProcessId).toList());
         assertEquals(List.of("首工序", "末工序"),
                 processes.stream().map(MesFrontlineRouteProcessCandidate::processName).toList());
+    }
+
+    @Test
+    void shouldSkipSubmittedPqcTaskAndKeepRemainingPendingProcesses() {
+        when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
+                        LocalDateTime.of(2026, 8, 1, 8, 0)));
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID, PRODUCT_ID));
+        when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, PRODUCT_ID))
+                .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
+        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route(ROUTE_ID));
+        when(routeProcessMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
+                routeProcess(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10),
+                routeProcess(4002L, ROUTE_ID, 5002L, 20)));
+        when(processService.getProcessMap(Set.of(PROCESS_ID, 5002L))).thenReturn(Map.of(
+                PROCESS_ID, process(PROCESS_ID, "P-1", "首工序"),
+                5002L, process(5002L, "P-2", "末工序")));
+        when(regulationMapper.selectPublishedByRouteProcess(PRODUCT_ID, ROUTE_ID, 448L,
+                ROUTE_PROCESS_ID, PROCESS_ID)).thenReturn(regulation(REGULATION_VERSION_ID));
+        when(pqcTaskMapper.selectPendingByActiveOrderProcess(ACTIVE_ORDER_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(null);
+        lenient().when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
+                pqcTask(PQC_TASK_ID, ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID)
+                        .setTaskStatus("SUBMITTED"),
+                pqcTask(7002L, 4002L, 5002L, 8002L)));
+        givenPqcTaskContext(4002L, 5002L, 7002L, 8002L);
+
+        List<MesFrontlineRouteProcessCandidate> processes =
+                service.listProcessesByActiveOrder(WORK_ORDER_ID, ROUTE_ID);
+
+        assertEquals(List.of(4002L), processes.stream()
+                .map(MesFrontlineRouteProcessCandidate::routeProcessId).toList());
+        assertEquals(List.of("末工序"), processes.stream()
+                .map(MesFrontlineRouteProcessCandidate::processName).toList());
     }
 
     @Test

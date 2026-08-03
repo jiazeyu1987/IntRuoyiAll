@@ -2,7 +2,7 @@
 
 ## Feature Goal And Non-Goals
 
-- Goal: 文控中心文档目录表格用文件夹图标替代默认三角视觉，并让图标与目录文字同行。
+- Goal: 文控中心文档目录表格用文件夹图标替代默认三角视觉，让图标与目录文字同行，并支持点击目录名称列整格范围展开。
 - Non-goals: 不改后端接口、请求参数、响应 schema、权限、菜单、目录数据或业务操作。
 
 ## Requirements And Acceptance IDs
@@ -34,27 +34,28 @@
 ## RED Command And Expected Failure
 
 - RED: `pnpm e2e:dcc:directory-folder-icon-inline:static` -> FAIL，缺少表格 ref、文件夹图标和同行布局契约。
+- RED: `pnpm e2e:dcc:directory-folder-icon-inline:static` -> FAIL，用户补充整格点击后，旧实现仍由文件夹图标 `@click.stop` 独占展开点击，目录名称 cell wrapper 缺少整格点击契约。
 
 ## GREEN Command And Passing Result
 
 - GREEN: `pnpm e2e:dcc:directory-folder-icon-inline:static` -> PASS。
 - GREEN: `pnpm e2e:dcc:directory-summary:static` -> PASS。
 - GREEN: `pnpm e2e:dcc:directory-lazy-loading:static` -> PASS。
+- GREEN: `node tests/e2e/dcc-directory-expand-actions-toolbar-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
 
 ## Responsive, Accessibility, Loading, Empty, Error, And Permission Checks
 
-- Responsive: 目录文本使用 ellipsis-safe inline 元素，避免图标加入后换行。
-- Accessibility: 文件夹按钮提供行名相关 `aria-label`；不可展开行禁用展开按钮但仍显示文件夹图标。
+- Responsive: 目录名称 cell 使用 `width: 100%` 和 ellipsis-safe 文本，图标、名称和错误标签同行，整格区域可点击。
+- Accessibility: 目录名称 cell 使用 `role="button"`、行名相关 `aria-label`、Enter/Space 键盘展开；不可展开行不进入 tab 顺序但仍显示文件夹图标。
 - Loading/Error: 懒加载接口与子目录加载失败标签保留。
 - Permission: 行操作权限指令未改。
 
 ## E2E Or Component Verification Path
 
 - Static verification completed through Node contracts.
-- Real browser screenshot not executed because existing adjacent contract and `ts:check` blockers prevented clean closeout.
+- Real browser screenshot not executed; static directory contracts and type checking passed.
 
 ## Blockers And Follow-Up Skills
 
-- Existing adjacent contract blocker: `dcc-directory-expand-actions-toolbar-static.spec.js` still expects `useTreeTableExpand(true)`.
-- Existing typecheck blocker: `ProjectCodeTabPanel.vue` product onboarding methods are missing.
-- Git closeout blocker: shared branch is ahead of `origin` with concurrent dirty changes; no safe task-only commit/push performed.
+- Git closeout blocker: latest baseline commit `03646727b` includes this task and many unrelated files together; no safe task-only implementation commit/push was performed.
