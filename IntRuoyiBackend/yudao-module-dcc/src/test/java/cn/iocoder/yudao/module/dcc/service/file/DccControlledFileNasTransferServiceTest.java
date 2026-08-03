@@ -445,7 +445,7 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void recordUncontrolledImportLocalWriteResult_marksLocalWrittenWithoutArchiveSideEffects() {
+    void recordUncontrolledImportLocalWriteResult_marksLocalWrittenAndArchiveMetadataBlockWithoutSideEffects() {
         ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
         TenantContextHolder.setTenantId(1L);
         DccControlledFileNasTransferTaskDO task = uncontrolledImportTask(
@@ -471,12 +471,14 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
                 ArgumentCaptor.forClass(DccNasControlAuditFileDO.class);
         verify(auditFileMapper).updateById(auditCaptor.capture());
         assertEquals("LOCAL_WRITTEN", auditCaptor.getValue().getDownloadStatus());
-        assertEquals("NOT_STARTED", auditCaptor.getValue().getArchiveStatus());
+        assertEquals("FAILED", auditCaptor.getValue().getArchiveStatus());
+        assertEquals("ARCHIVE_METADATA_REQUIRED", auditCaptor.getValue().getArchiveErrorCode());
         ArgumentCaptor<DccControlledFileNasTransferTaskItemDO> itemCaptor =
                 ArgumentCaptor.forClass(DccControlledFileNasTransferTaskItemDO.class);
         verify(taskItemMapper).updateById(itemCaptor.capture());
         assertEquals("LOCAL_WRITTEN", itemCaptor.getValue().getLocalWriteStatus());
-        assertEquals("NOT_STARTED", itemCaptor.getValue().getArchiveStatus());
+        assertEquals("FAILED", itemCaptor.getValue().getArchiveStatus());
+        assertEquals("ARCHIVE_METADATA_REQUIRED", itemCaptor.getValue().getArchiveErrorCode());
         verify(nasBrowserService, never()).readFile(anyString());
         verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
         verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
@@ -491,11 +493,16 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
         DccNasControlAuditFileDO auditFile = matchedAuditFile(704L, "QMS/PRJ-20260728/replay.pdf",
                 "sig-replay", "PRJ-20260728/Design/replay.pdf", 8L);
         auditFile.setDownloadStatus("LOCAL_WRITTEN");
+        auditFile.setArchiveStatus("FAILED");
+        auditFile.setArchiveErrorCode("ARCHIVE_METADATA_REQUIRED");
         auditFile.setSelectedImportTaskId(8204L);
         auditFile.setSelectedImportTaskItemId(9304L);
         auditFile.setLocalRelativePath("PRJ-20260728/Design/replay.pdf");
         DccControlledFileNasTransferTaskItemDO item = uncontrolledImportItem(9304L, task, auditFile);
         item.setLocalWriteStatus("LOCAL_WRITTEN");
+        item.setArchiveStatus("FAILED");
+        item.setArchiveErrorCode("ARCHIVE_METADATA_REQUIRED");
+        item.setStatus(DccControlledFileNasTransferServiceImpl.ITEM_STATUS_FAILED);
         when(taskMapper.selectById(8204L)).thenReturn(task);
         when(auditFileMapper.selectById(704L)).thenReturn(auditFile);
         when(taskItemMapper.selectById(9304L)).thenReturn(item);
