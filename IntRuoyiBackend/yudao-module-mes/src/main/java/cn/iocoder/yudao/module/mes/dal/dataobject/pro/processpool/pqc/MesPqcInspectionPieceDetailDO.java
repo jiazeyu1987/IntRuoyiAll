@@ -12,6 +12,8 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.experimental.Accessors;
 
+import java.math.BigDecimal;
+
 @TableName("mes_pqc_inspection_piece_detail")
 @KeySequence("mes_pqc_inspection_piece_detail_seq")
 @Data
@@ -32,6 +34,14 @@ public class MesPqcInspectionPieceDetailDO extends TenantBaseDO {
     private String itemName;
     private String inspectionMethod;
     private String standardText;
+    private Long selectedEquipmentId;
+    private String selectedEquipmentCode;
+    private String selectedEquipmentName;
+    private String selectedEquipmentNumber;
+    private BigDecimal standardLowerLimit;
+    private BigDecimal standardUpperLimit;
+    private String standardUnit;
+    private Integer standardPrecision;
     private String resultType;
     private String itemResult;
     private String measuredValue;

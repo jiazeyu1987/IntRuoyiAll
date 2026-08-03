@@ -7,6 +7,7 @@ import lombok.Data;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Schema(description = "管理后台 - MES PQC 检验提交 Request VO")
@@ -84,10 +85,35 @@ public class MesFrontlinePqcSubmitReqVO {
     @NotBlank(message = "PQC 检验结果不能为空")
     private String inspectionResult;
 
+    @Schema(description = "PQC 项目级正式检验结果", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "PQC 项目级检验结果不能为空")
+    private List<ItemResult> itemResults;
+
     @Schema(description = "PQC 原始提交内容", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "PQC 原始提交内容不能为空")
     private Map<String, Object> rawPayload;
 
     @Schema(description = "客户端提交时间")
     private LocalDateTime clientSubmitTime;
+
+    @Schema(description = "PQC 项目级检验结果")
+    @Data
+    public static class ItemResult {
+
+        @Schema(description = "检验项目编码", requiredMode = Schema.RequiredMode.REQUIRED)
+        @NotBlank(message = "检验项目编码不能为空")
+        private String itemCode;
+
+        @Schema(description = "实际检验设备ID", requiredMode = Schema.RequiredMode.REQUIRED)
+        @NotNull(message = "检验设备不能为空")
+        private Long selectedEquipmentId;
+
+        @Schema(description = "实际检验设备编号", requiredMode = Schema.RequiredMode.REQUIRED)
+        @NotBlank(message = "检验设备编号不能为空")
+        private String selectedEquipmentNumber;
+
+        @Schema(description = "逐件样本值", requiredMode = Schema.RequiredMode.REQUIRED)
+        @NotNull(message = "逐件样本值不能为空")
+        private List<String> sampleValues;
+    }
 }

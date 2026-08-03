@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -108,6 +109,82 @@ class MesQaPqcSchemaTest {
         assertTrue(sql.contains("`sample_no` int NOT NULL COMMENT '逐件样本序号'"));
     }
 
+    @Test
+    void qaRegulationItemSchemaMustProvideEquipmentAndNumericStandardSnapshot() throws Exception {
+        Class<?> itemClass = Class.forName(
+                "cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO");
+        assertField(itemClass, "standardLowerLimit", BigDecimal.class);
+        assertField(itemClass, "standardUpperLimit", BigDecimal.class);
+        assertField(itemClass, "standardUnit", String.class);
+        assertField(itemClass, "standardPrecision", Integer.class);
+        assertField(itemClass, "equipmentRequired", Boolean.class);
+
+        Class<?> equipmentClass = Class.forName(
+                "cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO");
+        assertEquals("mes_qa_inspection_regulation_item_equipment", tableName(equipmentClass));
+        assertField(equipmentClass, "regulationVersionId", Long.class);
+        assertField(equipmentClass, "inspectionType", String.class);
+        assertField(equipmentClass, "itemCode", String.class);
+        assertField(equipmentClass, "equipmentId", Long.class);
+        assertField(equipmentClass, "equipmentCode", String.class);
+        assertField(equipmentClass, "equipmentName", String.class);
+        assertField(equipmentClass, "equipmentNumber", String.class);
+        assertField(equipmentClass, "defaultFlag", Boolean.class);
+        assertField(equipmentClass, "sort", Integer.class);
+
+        String sql = readBackendSql("sql/mysql/20260802_mes_qa_inspection_regulation.sql",
+                "sql/mysql/20260803_mes_pqc_item_equipment_standard_snapshot.sql");
+        assertTrue(sql.contains("`standard_lower_limit` decimal(18,6) DEFAULT NULL COMMENT '接收标准下限'"));
+        assertTrue(sql.contains("`standard_upper_limit` decimal(18,6) DEFAULT NULL COMMENT '接收标准上限'"));
+        assertTrue(sql.contains("`standard_unit` varchar(32) DEFAULT NULL COMMENT '接收标准单位'"));
+        assertTrue(sql.contains("`equipment_required` bit(1) NOT NULL DEFAULT b'1' COMMENT '是否必须选择检验设备'"));
+        assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_qa_inspection_regulation_item_equipment`"));
+        assertTrue(sql.contains("`equipment_id` bigint NOT NULL COMMENT 'MES设备台账ID'"));
+        assertTrue(sql.contains("`equipment_number` varchar(64) NOT NULL COMMENT '设备编号/出厂编号/台账编码快照'"));
+        assertTrue(sql.contains("UNIQUE KEY `uk_mes_qa_regulation_item_equipment`"));
+    }
+
+    @Test
+    void pqcSubmitContractAndPieceSchemaMustFreezeItemEquipmentStandardSnapshot() throws Exception {
+        Class<?> detailClass = Class.forName(
+                "cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO");
+        assertField(detailClass, "selectedEquipmentId", Long.class);
+        assertField(detailClass, "selectedEquipmentCode", String.class);
+        assertField(detailClass, "selectedEquipmentName", String.class);
+        assertField(detailClass, "selectedEquipmentNumber", String.class);
+        assertField(detailClass, "standardLowerLimit", BigDecimal.class);
+        assertField(detailClass, "standardUpperLimit", BigDecimal.class);
+        assertField(detailClass, "standardUnit", String.class);
+        assertField(detailClass, "standardPrecision", Integer.class);
+
+        Class<?> reqClass = Class.forName(
+                "cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcSubmitReqVO");
+        assertField(reqClass, "itemResults", List.class);
+        Class<?> reqItemClass = Class.forName(
+                "cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcSubmitReqVO$ItemResult");
+        assertField(reqItemClass, "itemCode", String.class);
+        assertField(reqItemClass, "selectedEquipmentId", Long.class);
+        assertField(reqItemClass, "selectedEquipmentNumber", String.class);
+        assertField(reqItemClass, "sampleValues", List.class);
+
+        Class<?> commandClass = Class.forName(
+                "cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcSubmitCommand");
+        assertField(commandClass, "itemResults", List.class);
+        Class<?> commandItemClass = Class.forName(
+                "cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcSubmitCommand$ItemResult");
+        assertField(commandItemClass, "itemCode", String.class);
+        assertField(commandItemClass, "selectedEquipmentId", Long.class);
+        assertField(commandItemClass, "selectedEquipmentNumber", String.class);
+        assertField(commandItemClass, "sampleValues", List.class);
+
+        String sql = readBackendSql("sql/mysql/20260802_mes_pqc_inspection_task.sql",
+                "sql/mysql/20260803_mes_pqc_item_equipment_standard_snapshot.sql");
+        assertTrue(sql.contains("`selected_equipment_id` bigint NOT NULL COMMENT '实际检验设备ID快照'"));
+        assertTrue(sql.contains("`selected_equipment_number` varchar(64) NOT NULL COMMENT '实际检验设备编号快照'"));
+        assertTrue(sql.contains("`standard_lower_limit` decimal(18,6) DEFAULT NULL COMMENT '提交时接收标准下限快照'"));
+        assertTrue(sql.contains("`standard_upper_limit` decimal(18,6) DEFAULT NULL COMMENT '提交时接收标准上限快照'"));
+    }
+
     private static String tableName(Class<?> clazz) {
         return clazz.getAnnotation(TableName.class).value();
     }
@@ -115,6 +192,14 @@ class MesQaPqcSchemaTest {
     private static void assertField(Class<?> clazz, String name, Class<?> type) throws Exception {
         Field field = clazz.getDeclaredField(name);
         assertEquals(type, field.getType(), clazz.getSimpleName() + "." + name);
+    }
+
+    private static String readBackendSql(String... relatives) throws Exception {
+        StringBuilder sql = new StringBuilder();
+        for (String relative : relatives) {
+            sql.append(Files.readString(resolveBackendPath(relative), StandardCharsets.UTF_8)).append('\n');
+        }
+        return sql.toString();
     }
 
     private static Path resolveBackendPath(String relative) {

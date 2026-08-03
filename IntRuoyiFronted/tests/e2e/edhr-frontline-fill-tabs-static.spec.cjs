@@ -123,7 +123,7 @@ assert.match(
   /hasPqcTaskSnapshot[\s\S]*process\?\.inspectionItems\?\.length/,
   'PQC mode must fail fast when the formal QA/PQC inspection item snapshot is missing.'
 )
-for (const forbidden of ['检验方法', '成功', '失败', '巡检摘要']) {
+for (const forbidden of ['成功', '失败', '巡检摘要']) {
   assert.doesNotMatch(pqcTemplate[0], new RegExp(forbidden), `PQC UI must not show ${forbidden}.`)
 }
 

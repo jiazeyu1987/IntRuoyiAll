@@ -97,6 +97,60 @@
         </section>
       </div>
 
+      <div
+        v-if="activePqcStandardItem"
+        class="frontline-pqc-fact-dialog"
+        data-pqc-standard-dialog
+        role="dialog"
+        aria-modal="true"
+        :aria-label="`${activePqcStandardItem.label}接收标准`"
+        @click.self="closePqcStandardDialog"
+      >
+        <section>
+          <h3>{{ activePqcStandardItem.label }}接收标准</h3>
+          <p>{{ activePqcStandardItem.standardText || '未配置接收标准说明' }}</p>
+          <dl>
+            <dt>下限</dt>
+            <dd>
+              {{
+                formatPqcStandardBound(
+                  activePqcStandardItem.standardLowerLimit,
+                  activePqcStandardItem.standardUnit
+                )
+              }}
+            </dd>
+            <dt>上限</dt>
+            <dd>
+              {{
+                formatPqcStandardBound(
+                  activePqcStandardItem.standardUpperLimit,
+                  activePqcStandardItem.standardUnit
+                )
+              }}
+            </dd>
+            <dt>单位</dt>
+            <dd>{{ activePqcStandardItem.standardUnit || '未配置' }}</dd>
+          </dl>
+          <button type="button" @click="closePqcStandardDialog">关闭</button>
+        </section>
+      </div>
+
+      <div
+        v-if="activePqcMethodItem"
+        class="frontline-pqc-fact-dialog"
+        data-pqc-method-dialog
+        role="dialog"
+        aria-modal="true"
+        :aria-label="`${activePqcMethodItem.label}检验方法`"
+        @click.self="closePqcMethodDialog"
+      >
+        <section>
+          <h3>{{ activePqcMethodItem.label }}检验方法</h3>
+          <p>{{ activePqcMethodItem.inspectionMethod || '未配置检验方法' }}</p>
+          <button type="button" @click="closePqcMethodDialog">关闭</button>
+        </section>
+      </div>
+
       <main class="frontline-operator-main is-pqc">
         <section
           class="frontline-work-panel frontline-pqc-content-panel"
@@ -105,21 +159,60 @@
           <h3>检验内容</h3>
           <div class="frontline-pqc-inspection-list">
             <template v-for="item in pqcInspectionItems" :key="item.key">
-              <button
+              <article
                 v-if="item.type === 'number'"
                 class="frontline-pqc-content-item"
-                type="button"
                 :data-pqc-inspection-entry="item.key"
                 :aria-label="`${item.label}逐件检验`"
-                @click="openPqcPieceInspection(item.key)"
               >
                 <span class="frontline-pqc-item-title">{{ item.label }}</span>
                 <small class="frontline-pqc-inspection-meta" data-pqc-inspection-meta>
                   {{ formatPqcInspectionMeta(item) }}
                 </small>
                 <em>{{ getPqcProgressText(item.key) }}</em>
-                <strong aria-hidden="true">&gt;</strong>
-              </button>
+                <div class="frontline-pqc-equipment-controls">
+                  <select
+                    :value="getPqcItemSelection(item.key).selectedEquipmentId ?? ''"
+                    data-pqc-equipment-select
+                    @change="updatePqcItemSelectedEquipment(item.key, $event)"
+                  >
+                    <option value="">选择检验设备</option>
+                    <option
+                      v-for="option in getUniquePqcEquipmentOptions(item)"
+                      :key="option.equipmentId"
+                      :value="option.equipmentId"
+                    >
+                      {{ formatPqcEquipmentLabel(option) }}
+                    </option>
+                  </select>
+                  <select
+                    :value="getPqcItemSelection(item.key).selectedEquipmentNumber ?? ''"
+                    data-pqc-equipment-number-select
+                    @change="updatePqcItemSelectedEquipmentNumber(item.key, $event)"
+                  >
+                    <option value="">选择设备编号</option>
+                    <option
+                      v-for="option in getPqcEquipmentNumberOptions(item.key)"
+                      :key="`${option.equipmentId}:${option.equipmentNumber}`"
+                      :value="option.equipmentNumber"
+                    >
+                      {{ option.equipmentNumber }}
+                    </option>
+                  </select>
+                </div>
+                <div class="frontline-pqc-fact-actions">
+                  <button type="button" data-pqc-standard-button @click="openPqcStandardDialog(item.key)">
+                    接收标准
+                  </button>
+                  <button type="button" data-pqc-method-button @click="openPqcMethodDialog(item.key)">
+                    检验方法
+                  </button>
+                  <button type="button" class="manual" @click="openPqcPieceInspection(item.key)">
+                    <span>逐件选择</span>
+                    <strong aria-hidden="true">&gt;</strong>
+                  </button>
+                </div>
+              </article>
 
               <div
                 v-else
@@ -132,6 +225,44 @@
                   <small class="frontline-pqc-inspection-meta" data-pqc-inspection-meta>
                     {{ formatPqcInspectionMeta(item) }}
                   </small>
+                </div>
+                <div class="frontline-pqc-equipment-controls">
+                  <select
+                    :value="getPqcItemSelection(item.key).selectedEquipmentId ?? ''"
+                    data-pqc-equipment-select
+                    @change="updatePqcItemSelectedEquipment(item.key, $event)"
+                  >
+                    <option value="">选择检验设备</option>
+                    <option
+                      v-for="option in getUniquePqcEquipmentOptions(item)"
+                      :key="option.equipmentId"
+                      :value="option.equipmentId"
+                    >
+                      {{ formatPqcEquipmentLabel(option) }}
+                    </option>
+                  </select>
+                  <select
+                    :value="getPqcItemSelection(item.key).selectedEquipmentNumber ?? ''"
+                    data-pqc-equipment-number-select
+                    @change="updatePqcItemSelectedEquipmentNumber(item.key, $event)"
+                  >
+                    <option value="">选择设备编号</option>
+                    <option
+                      v-for="option in getPqcEquipmentNumberOptions(item.key)"
+                      :key="`${option.equipmentId}:${option.equipmentNumber}`"
+                      :value="option.equipmentNumber"
+                    >
+                      {{ option.equipmentNumber }}
+                    </option>
+                  </select>
+                </div>
+                <div class="frontline-pqc-fact-actions">
+                  <button type="button" data-pqc-standard-button @click="openPqcStandardDialog(item.key)">
+                    接收标准
+                  </button>
+                  <button type="button" data-pqc-method-button @click="openPqcMethodDialog(item.key)">
+                    检验方法
+                  </button>
                 </div>
                 <div class="frontline-pqc-choice-actions">
                   <button
@@ -518,6 +649,7 @@ import {
   type FrontlineActiveOrderVO,
   type FrontlineDeviceRouteProcessVO,
   type FrontlineEmployeeCandidateVO,
+  type FrontlinePqcEquipmentOptionVO,
   type FrontlinePqcInspectionSubmitReqVO,
   type FrontlineRuntimeDeviceParameterVO,
   type ProFrontlineFeedbackSubmitReqVO
@@ -569,9 +701,20 @@ interface PqcInspectionItem {
   inspectionMethod: string
   standardText: string
   resultType: string
+  standardLowerLimit?: number | string
+  standardUpperLimit?: number | string
+  standardUnit: string
+  standardPrecision?: number
+  equipmentRequired: boolean
+  equipmentOptions: FrontlinePqcEquipmentOptionVO[]
   unit: string
   defaultValue: string
   step: number
+}
+
+interface PqcItemSelection {
+  selectedEquipmentId?: number
+  selectedEquipmentNumber?: string
 }
 
 type FrontlinePqcTaskProcess = FrontlineDeviceRouteProcessVO & {
@@ -633,8 +776,11 @@ const pqcDraft = reactive({
 })
 
 const activePqcInspectionKey = ref<PqcInspectionItemKey>()
+const activePqcStandardKey = ref<PqcInspectionItemKey>()
+const activePqcMethodKey = ref<PqcInspectionItemKey>()
 const pqcPieceDraftValues = ref<string[]>([])
 const pqcPieceValues = reactive<Record<string, string[]>>({})
+const pqcItemSelections = reactive<Record<PqcInspectionItemKey, PqcItemSelection>>({})
 const pqcSignatureId = ref<number>()
 
 const isPqcMode = computed(() => props.mode === 'pqc')
@@ -670,9 +816,17 @@ const pqcInspectionItems = computed<PqcInspectionItem[]>(() =>
     inspectionMethod: item.inspectionMethod || '',
     standardText: item.standardText || '',
     resultType: item.resultType || '',
-    unit: '',
-    defaultValue: '',
-    step: isPqcNumericResultType(item.resultType) ? 1 : 0
+    standardLowerLimit: item.standardLowerLimit,
+    standardUpperLimit: item.standardUpperLimit,
+    standardUnit: item.standardUnit || '',
+    standardPrecision: item.standardPrecision,
+    equipmentRequired: item.equipmentRequired !== false,
+    equipmentOptions: item.equipmentOptions || [],
+    unit: item.standardUnit || '',
+    defaultValue: item.standardLowerLimit === undefined || item.standardLowerLimit === null
+      ? ''
+      : String(item.standardLowerLimit),
+    step: resolvePqcNumericStep(item.standardPrecision, item.resultType)
   }))
 )
 
@@ -690,6 +844,18 @@ const pqcInspectionItemKeys = computed<PqcInspectionItemKey[]>(() =>
 const activePqcInspectionItem = computed(() =>
   activePqcInspectionKey.value
     ? pqcInspectionItemMap.value[activePqcInspectionKey.value]
+    : undefined
+)
+
+const activePqcStandardItem = computed(() =>
+  activePqcStandardKey.value
+    ? pqcInspectionItemMap.value[activePqcStandardKey.value]
+    : undefined
+)
+
+const activePqcMethodItem = computed(() =>
+  activePqcMethodKey.value
+    ? pqcInspectionItemMap.value[activePqcMethodKey.value]
     : undefined
 )
 
@@ -1016,6 +1182,16 @@ const isPqcNumericResultType = (resultType?: string) => {
   return ['NUMBER', 'NUMERIC', 'DECIMAL', 'MEASURE', 'MEASURED_VALUE'].includes(normalized)
 }
 
+const resolvePqcNumericStep = (precision?: number, resultType?: string) => {
+  if (!isPqcNumericResultType(resultType)) {
+    return 0
+  }
+  if (precision && precision > 0) {
+    return Number(`0.${'0'.repeat(Math.max(0, precision - 1))}1`)
+  }
+  return 1
+}
+
 const hasPqcTaskSnapshot = (
   process?: FrontlineDeviceRouteProcessVO
 ): process is FrontlinePqcTaskProcess => Boolean(
@@ -1041,8 +1217,84 @@ const clearPqcPieceValues = () => {
   for (const key of Object.keys(pqcPieceValues)) {
     delete pqcPieceValues[key]
   }
+  for (const key of Object.keys(pqcItemSelections)) {
+    delete pqcItemSelections[key]
+  }
   activePqcInspectionKey.value = undefined
+  activePqcStandardKey.value = undefined
+  activePqcMethodKey.value = undefined
   pqcPieceDraftValues.value = []
+}
+
+const getPqcItemSelection = (itemKey: PqcInspectionItemKey) => {
+  if (!pqcItemSelections[itemKey]) {
+    pqcItemSelections[itemKey] = {}
+  }
+  return pqcItemSelections[itemKey]
+}
+
+const getUniquePqcEquipmentOptions = (item: PqcInspectionItem) => {
+  const seen = new Set<number>()
+  return item.equipmentOptions.filter((option) => {
+    if (!option.equipmentId || seen.has(option.equipmentId)) {
+      return false
+    }
+    seen.add(option.equipmentId)
+    return true
+  })
+}
+
+const formatPqcEquipmentLabel = (option: FrontlinePqcEquipmentOptionVO) =>
+  [
+    option.equipmentName || option.equipmentCode || `设备${option.equipmentId}`,
+    option.equipmentCode
+  ].filter(Boolean).join(' / ')
+
+const getPqcEquipmentNumberOptions = (itemKey: PqcInspectionItemKey) => {
+  const item = pqcInspectionItemMap.value[itemKey]
+  if (!item) {
+    return []
+  }
+  const selectedEquipmentId = getPqcItemSelection(itemKey).selectedEquipmentId
+  return item.equipmentOptions.filter((option) =>
+    selectedEquipmentId ? option.equipmentId === selectedEquipmentId : true
+  )
+}
+
+const updatePqcItemSelectedEquipment = (itemKey: PqcInspectionItemKey, event: Event) => {
+  const value = (event.target as HTMLSelectElement).value
+  const selection = getPqcItemSelection(itemKey)
+  selection.selectedEquipmentId = value ? Number(value) : undefined
+  const firstNumber = getPqcEquipmentNumberOptions(itemKey)[0]?.equipmentNumber
+  selection.selectedEquipmentNumber = firstNumber || undefined
+}
+
+const updatePqcItemSelectedEquipmentNumber = (itemKey: PqcInspectionItemKey, event: Event) => {
+  const selection = getPqcItemSelection(itemKey)
+  selection.selectedEquipmentNumber = (event.target as HTMLSelectElement).value || undefined
+}
+
+const openPqcStandardDialog = (itemKey: PqcInspectionItemKey) => {
+  activePqcStandardKey.value = itemKey
+}
+
+const openPqcMethodDialog = (itemKey: PqcInspectionItemKey) => {
+  activePqcMethodKey.value = itemKey
+}
+
+const closePqcStandardDialog = () => {
+  activePqcStandardKey.value = undefined
+}
+
+const closePqcMethodDialog = () => {
+  activePqcMethodKey.value = undefined
+}
+
+const formatPqcStandardBound = (value?: number | string, unit?: string) => {
+  if (value === undefined || value === null || value === '') {
+    return '未配置'
+  }
+  return `${value}${unit || ''}`
 }
 
 const applyPqcTaskSnapshotToDraft = (process: FrontlineDeviceRouteProcessVO) => {
@@ -1113,10 +1365,60 @@ const formatPqcResultType = (resultType: string) => {
 
 const formatPqcInspectionMeta = (item: PqcInspectionItem) =>
   [
-    `方法: ${item.inspectionMethod || '未配置'}`,
-    `标准: ${item.standardText || '未配置'}`,
-    `判定: ${formatPqcResultType(item.resultType)}`
-  ].join(' / ')
+    `判定: ${formatPqcResultType(item.resultType)}`,
+    item.standardUnit ? `单位: ${item.standardUnit}` : '',
+    `设备: ${item.equipmentOptions.length}项`
+  ].filter(Boolean).join(' / ')
+
+const requirePqcItemSelection = (item: PqcInspectionItem) => {
+  const selection = getPqcItemSelection(item.key)
+  if (item.equipmentRequired && !selection.selectedEquipmentId) {
+    throw new Error(`${item.label}未选择检验设备。`)
+  }
+  if (item.equipmentRequired && !selection.selectedEquipmentNumber) {
+    throw new Error(`${item.label}未选择设备编号。`)
+  }
+  const selectedOption = item.equipmentOptions.find((option) =>
+    option.equipmentId === selection.selectedEquipmentId &&
+    option.equipmentNumber === selection.selectedEquipmentNumber
+  )
+  if (item.equipmentRequired && !selectedOption) {
+    throw new Error(`${item.label}设备编号不属于所选检验设备。`)
+  }
+  return { selection, selectedOption }
+}
+
+const buildPqcItemResultsPayload = () =>
+  pqcInspectionItems.value.map((item) => {
+    const { selection } = requirePqcItemSelection(item)
+    return {
+      itemCode: item.key,
+      selectedEquipmentId: selection.selectedEquipmentId!,
+      selectedEquipmentNumber: selection.selectedEquipmentNumber!,
+      sampleValues: getPqcStoredPieceValues(item.key).slice(0, pqcInspectionQuantity.value)
+    }
+  })
+
+const buildPqcItemDetailsPayload = () =>
+  pqcInspectionItems.value.map((item) => {
+    const { selection, selectedOption } = requirePqcItemSelection(item)
+    return {
+      itemCode: item.key,
+      itemName: item.label,
+      selectedEquipmentId: selection.selectedEquipmentId,
+      selectedEquipmentCode: selectedOption?.equipmentCode,
+      selectedEquipmentName: selectedOption?.equipmentName,
+      selectedEquipmentNumber: selection.selectedEquipmentNumber,
+      standardText: item.standardText,
+      standardLowerLimit: item.standardLowerLimit,
+      standardUpperLimit: item.standardUpperLimit,
+      standardUnit: item.standardUnit,
+      standardPrecision: item.standardPrecision,
+      inspectionMethod: item.inspectionMethod,
+      resultType: item.resultType,
+      sampleValues: getPqcStoredPieceValues(item.key).slice(0, pqcInspectionQuantity.value)
+    }
+  })
 
 const getPqcCurrentChoiceValues = (itemKey: PqcInspectionItemKey) =>
   getPqcStoredPieceValues(itemKey).slice(0, pqcInspectionQuantity.value)
@@ -1569,6 +1871,8 @@ const buildPqcInspectionSubmitPayload = (
     throw new Error('缺少PQC正式提交上下文，无法提交。')
   }
   const inspectionResult = resolvePqcResult()
+  const itemResults = buildPqcItemResultsPayload()
+  const pqcItemDetails = buildPqcItemDetailsPayload()
   return {
     activeOrderId: process.activeOrderId,
     pqcTaskId: process.pqcTaskId,
@@ -1590,6 +1894,7 @@ const buildPqcInspectionSubmitPayload = (
       context.templateCode ||
       expectedTemplateCode.value,
     inspectionResult,
+    itemResults: buildPqcItemResultsPayload(),
     rawPayload: {
       pqcDraft: {
         inspectionType: pqcDraft.inspectionType,
@@ -1598,6 +1903,8 @@ const buildPqcInspectionSubmitPayload = (
         scrapQuantity: normalizePqcQuantity(pqcDraft.scrapQuantity)
       },
       pqcPieceValues: buildPqcPieceValuesPayload(),
+      pqcItemDetails,
+      itemResults,
       fieldValues: { ...draft.fieldValues },
       inspectionResult,
       selectedActiveOrder: { ...activeOrder },

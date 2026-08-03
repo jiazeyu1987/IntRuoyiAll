@@ -164,6 +164,9 @@ public class MesFrontlineDeviceAccountController {
                         .signatureSnapshot(reqVO.getSignatureSnapshot())
                         .templateType(reqVO.getTemplateType())
                         .inspectionResult(reqVO.getInspectionResult())
+                        .itemResults(reqVO.getItemResults().stream()
+                                .map(MesFrontlineDeviceAccountController::toPqcItemResultCommand)
+                                .toList())
                         .rawPayload(reqVO.getRawPayload())
                         .clientSubmitTime(reqVO.getClientSubmitTime())
                         .build()));
@@ -222,8 +225,39 @@ public class MesFrontlineDeviceAccountController {
         respVO.setItemName(item.itemName());
         respVO.setInspectionMethod(item.inspectionMethod());
         respVO.setStandardText(item.standardText());
+        respVO.setStandardLowerLimit(item.standardLowerLimit());
+        respVO.setStandardUpperLimit(item.standardUpperLimit());
+        respVO.setStandardUnit(item.standardUnit());
+        respVO.setStandardPrecision(item.standardPrecision());
+        respVO.setEquipmentRequired(item.equipmentRequired());
         respVO.setResultType(item.resultType());
+        respVO.setEquipmentOptions(item.equipmentOptions().stream()
+                .map(MesFrontlineDeviceAccountController::toPqcEquipmentOptionRespVO)
+                .toList());
         return respVO;
+    }
+
+    private static MesFrontlineRouteProcessRespVO.PqcEquipmentOption toPqcEquipmentOptionRespVO(
+            MesFrontlinePqcInspectionItem.EquipmentOption option) {
+        MesFrontlineRouteProcessRespVO.PqcEquipmentOption respVO =
+                new MesFrontlineRouteProcessRespVO.PqcEquipmentOption();
+        respVO.setEquipmentId(option.equipmentId());
+        respVO.setEquipmentCode(option.equipmentCode());
+        respVO.setEquipmentName(option.equipmentName());
+        respVO.setEquipmentNumber(option.equipmentNumber());
+        respVO.setDefaultFlag(option.defaultFlag());
+        respVO.setSort(option.sort());
+        return respVO;
+    }
+
+    private static MesFrontlinePqcSubmitCommand.ItemResult toPqcItemResultCommand(
+            MesFrontlinePqcSubmitReqVO.ItemResult item) {
+        return MesFrontlinePqcSubmitCommand.ItemResult.builder()
+                .itemCode(item.getItemCode())
+                .selectedEquipmentId(item.getSelectedEquipmentId())
+                .selectedEquipmentNumber(item.getSelectedEquipmentNumber())
+                .sampleValues(item.getSampleValues())
+                .build();
     }
 
     private static MesFrontlineEmployeeCandidateRespVO toEmployeeCandidateRespVO(MesFrontlineEmployeeCandidate candidate) {

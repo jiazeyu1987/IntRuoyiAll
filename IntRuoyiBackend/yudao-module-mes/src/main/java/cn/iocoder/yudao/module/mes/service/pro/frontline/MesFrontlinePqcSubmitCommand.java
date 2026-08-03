@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -33,6 +34,19 @@ public class MesFrontlinePqcSubmitCommand {
     private String signatureSnapshot;
     private String templateType;
     private String inspectionResult;
+    private List<ItemResult> itemResults;
     private Map<String, Object> rawPayload;
     private LocalDateTime clientSubmitTime;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ItemResult {
+
+        private String itemCode;
+        private Long selectedEquipmentId;
+        private String selectedEquipmentNumber;
+        private List<String> sampleValues;
+    }
 }

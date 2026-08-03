@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -68,8 +69,37 @@ public class MesFrontlineRouteProcessRespVO {
         private String inspectionMethod;
         @Schema(description = "合格标准")
         private String standardText;
+        @Schema(description = "接收标准下限")
+        private BigDecimal standardLowerLimit;
+        @Schema(description = "接收标准上限")
+        private BigDecimal standardUpperLimit;
+        @Schema(description = "接收标准单位")
+        private String standardUnit;
+        @Schema(description = "接收标准小数位数")
+        private Integer standardPrecision;
+        @Schema(description = "是否必须选择检验设备")
+        private Boolean equipmentRequired;
         @Schema(description = "结果类型")
         private String resultType;
+        @Schema(description = "检验设备选项")
+        private List<PqcEquipmentOption> equipmentOptions;
+    }
+
+    @Data
+    public static class PqcEquipmentOption {
+
+        @Schema(description = "MES 设备台账ID")
+        private Long equipmentId;
+        @Schema(description = "设备编码")
+        private String equipmentCode;
+        @Schema(description = "设备名称")
+        private String equipmentName;
+        @Schema(description = "设备编号/出厂编号/台账编码快照")
+        private String equipmentNumber;
+        @Schema(description = "是否默认")
+        private Boolean defaultFlag;
+        @Schema(description = "排序")
+        private Integer sort;
     }
 
 }

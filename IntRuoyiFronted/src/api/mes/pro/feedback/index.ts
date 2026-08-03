@@ -165,12 +165,27 @@ export interface FrontlineDeviceRouteProcessVO {
   inspectionItems?: FrontlinePqcInspectionItemVO[]
 }
 
+export interface FrontlinePqcEquipmentOptionVO {
+  equipmentId: number
+  equipmentCode?: string
+  equipmentName?: string
+  equipmentNumber: string
+  defaultFlag?: boolean
+  sort?: number
+}
+
 export interface FrontlinePqcInspectionItemVO {
   itemCode: string
   itemName?: string
   inspectionMethod?: string
   standardText?: string
   resultType?: string
+  standardLowerLimit?: number | string
+  standardUpperLimit?: number | string
+  standardUnit?: string
+  standardPrecision?: number
+  equipmentRequired?: boolean
+  equipmentOptions?: FrontlinePqcEquipmentOptionVO[]
 }
 
 export interface FrontlineActiveOrderVO {
@@ -216,6 +231,13 @@ export interface FrontlinePqcSwitchActualEmployeeReqVO extends FrontlineSwitchAc
   workOrderId: number
 }
 
+export interface FrontlinePqcItemResultSubmitReqVO {
+  itemCode: string
+  selectedEquipmentId: number
+  selectedEquipmentNumber: string
+  sampleValues: string[]
+}
+
 export interface FrontlinePqcInspectionSubmitReqVO {
   activeOrderId: number
   pqcTaskId: number
@@ -235,6 +257,7 @@ export interface FrontlinePqcInspectionSubmitReqVO {
   signatureSnapshot?: string
   templateType: string
   inspectionResult: string
+  itemResults: FrontlinePqcItemResultSubmitReqVO[]
   rawPayload: Record<string, unknown>
   clientSubmitTime?: string
 }
