@@ -36,11 +36,13 @@
 ready_for_closeout
 
 - 已完成压力泵全工序权限服务链路、权限迁移 SQL、定向 JUnit、release migration policy gate、backend evidence validator、database evidence validator 和 task-closeout-cleanup apply。
-- 待收尾事项：分支仍有本地 ahead 提交，且工作区存在非本任务未跟踪 evidence 文件；未执行最终 push，避免将并行任务内容作为本任务收尾混入。
+- 追加修复运行时错误：`设备账号上下文不完整或不一致：post workstation binding loginUserId=1, postIds=[14]` 的根因是压力泵权限判定曾走显式角色 ID 检查，现已改为标准登录用户权限检查。
+- 待收尾事项：补充 bug regression evidence、复验目标 JUnit、执行 task-closeout-cleanup，并推送当前分支全部本地提交。
 
 ## Completed Work
 
 - `MesFrontlineDeviceAccountContextServiceImpl` 增加正式权限 `mes:pro-feedback:frontline-pressure-pump:all-processes`，拥有该权限的角色按启用压力泵路线读取全部有效工序。
+- `MesFrontlineDeviceAccountContextServiceImpl#hasPressurePumpAllProcessPermission` 使用 `permissionApi.hasAnyPermissions(loginUserId, permission)`，保持与系统标准用户权限、动态授权和超级管理员语义一致。
 - 普通账号仍走既有岗位、工作站、工艺路线工序工作站绑定链路；压力泵权限链路不会在岗位链路失败后兜底。
 - 缺少启用压力泵路线、有效路线工序、启用工序、启用工作站或设备主数据时均 fail fast。
 - `20260803_mes_frontline_pressure_pump_all_process_permission.sql` 增加可分配权限菜单并合并到已有包含父菜单的租户套餐和租户管理员角色。
@@ -51,3 +53,5 @@ ready_for_closeout
 - GREEN: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --sql-file IntRuoyiBackend\sql\mysql\20260803_mes_frontline_pressure_pump_all_process_permission.sql --output doc\tasks\20260803-pressure-pump-role-process-switch\migration-policy-gate.json` -> PASS, 1 migration, sha256 `4ff6ac8bc5cf101d1a4bdb453451860b39735773191cb790d29dd253b1d2bf46`。
 - GREEN: backend API evidence validator -> PASS。
 - GREEN: database schema evidence validator -> PASS。
+- RED: 旧显式角色 ID 权限检查下，`MesFrontlineDeviceAccountContextServiceTest#shouldListAllPressurePumpProcessesWhenRoleHasPressurePumpAllProcessPermission` 失败并落到 `PRO_FRONTLINE_DEVICE_ACCOUNT_BINDING_SOURCE_MISSING`，复现账号 1 / 岗位 14 的岗位绑定链路误判。
+- GREEN: 改为 `permissionApi.hasAnyPermissions(loginUserId, PRESSURE_PUMP_ALL_PROCESS_PERMISSION)` 后，`MesFrontlineDeviceAccountContextServiceTest` -> PASS, 5 tests；相邻三类目标测试 -> PASS, 11 tests。

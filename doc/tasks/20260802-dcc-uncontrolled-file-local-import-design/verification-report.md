@@ -2,7 +2,7 @@
 
 ## Summary
 
-已完成 DCC 未受控文件本地下载与自动归类的文档设计、BDD 场景、严格 TDD 顺序、真实 E2E 计划、测试数据设计、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片、M16 后续实现门禁加固、M17 import-selected 服务契约/legacy processor 隔离切片、M18 服务级 import-selected 原子创建、M19 服务级幂等并发保护、M20 import-selected controller 契约、M21 content binary download、M22 local-write-result 和 M23 归档元数据缺失显式阻塞。M21 在隔离 worktree `D:\IntRuoyiWorktree\dcc-uncontrolled-import-m21-verify-20260803` 完成 targeted GREEN 与相邻回归，验证内容包括二进制 `ResponseEntity<byte[]>` controller、content 快照绑定、跨任务/过期签名拒绝和不变更 local-write/archive 状态。M22 在主工作区完成 targeted GREEN 与 M17-M22 相邻回归，验证内容包括 `local-write-result` controller、`@Valid @RequestBody` 快照体、`LOCAL_WRITTEN` 状态回写、重复成功回放幂等和冲突终态拒绝。M23 在主工作区完成 targeted RED/GREEN 与 M17-M23 相邻回归，验证内容包括 `MATCHED + LOCAL_WRITTEN` 缺正式归档元数据时写入 `archiveStatus=FAILED`、`archiveErrorCode=ARCHIVE_METADATA_REQUIRED`，且不触发 NAS 读取、原始文件上传、workflow submit、受控文件创建或 ACTIVE NAS source 写入。设计复用当前 NAS 管理、未受控统计、NAS transfer、DCC 项目代码、文件分类树和分类规则能力；无法唯一识别项目代码、item 或分类时，统一进入正式 `未分类/待处理` 状态，不引入默认归类或降级路径。M17 补齐无旧字段请求 VO、服务入口签名和 `NAS_UNCONTROLLED_IMPORT` waiting processor 跳过逻辑；M18 补齐服务级 import-selected 原子创建、task/item 快照和 audit 绑定；M19 补齐 canonical request hash 复用/冲突、重复 audit id 前置拒绝和事务内二次幂等检查；M20 补齐 `/import-selected` 路由、写权限组合和 `@Valid @RequestBody` 请求体；M21 补齐内容下载快照绑定服务和二进制 controller 实现入口；M22 补齐本地写入结果快照回写入口；M23 补齐缺元数据归档阻塞入口；不代表正式归档成功路径、前端或真实 E2E 已实现。
+已完成 DCC 未受控文件本地下载与自动归类的文档设计、BDD 场景、严格 TDD 顺序、真实 E2E 计划、测试数据设计、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片、M16 后续实现门禁加固、M17 import-selected 服务契约/legacy processor 隔离切片、M18 服务级 import-selected 原子创建、M19 服务级幂等并发保护、M20 import-selected controller 契约、M21 content binary download、M22 local-write-result、M23 归档元数据缺失显式阻塞、M25 前端静态合同/最小 UI/API 集成，以及 M26 正式归档元数据来源阻塞门禁。M21 在隔离 worktree `D:\IntRuoyiWorktree\dcc-uncontrolled-import-m21-verify-20260803` 完成 targeted GREEN 与相邻回归，验证内容包括二进制 `ResponseEntity<byte[]>` controller、content 快照绑定、跨任务/过期签名拒绝和不变更 local-write/archive 状态。M22 在主工作区完成 targeted GREEN 与 M17-M22 相邻回归，验证内容包括 `local-write-result` controller、`@Valid @RequestBody` 快照体、`LOCAL_WRITTEN` 状态回写、重复成功回放幂等和冲突终态拒绝。M23 在主工作区完成 targeted RED/GREEN 与 M17-M23 相邻回归，验证内容包括 `MATCHED + LOCAL_WRITTEN` 缺正式归档元数据时写入 `archiveStatus=FAILED`、`archiveErrorCode=ARCHIVE_METADATA_REQUIRED`，且不触发 NAS 读取、原始文件上传、workflow submit、受控文件创建或 ACTIVE NAS source 写入。设计复用当前 NAS 管理、未受控统计、NAS transfer、DCC 项目代码、文件分类树和分类规则能力；无法唯一识别项目代码、item 或分类时，统一进入正式 `未分类/待处理` 状态，不引入默认归类或降级路径。M17 补齐无旧字段请求 VO、服务入口签名和 `NAS_UNCONTROLLED_IMPORT` waiting processor 跳过逻辑；M18 补齐服务级 import-selected 原子创建、task/item 快照和 audit 绑定；M19 补齐 canonical request hash 复用/冲突、重复 audit id 前置拒绝和事务内二次幂等检查；M20 补齐 `/import-selected` 路由、写权限组合和 `@Valid @RequestBody` 请求体；M21 补齐内容下载快照绑定服务和二进制 controller 实现入口；M22 补齐本地写入结果快照回写入口；M23 补齐缺元数据归档阻塞入口；M25 补齐前端静态合同和最小 UI/API 入口；M26 确认当前 schema/DO/Service 尚无处理项级正式归档元数据快照，并将 M24 成功归档路径前置阻塞固化为 BDD/TDD 门禁。不代表正式归档成功路径或真实 E2E 已实现。
 
 ## Files Verified
 
@@ -153,6 +153,7 @@
 
 - Closeout Git blocker: 当前 `int_main` 仍相对 `origin/int_main` 存在未推送提交，且工作区存在任务开始前和其它并发任务改动及未跟踪目录。本任务未执行 baseline commit、implementation commit 或 push，避免把并发任务资产混入本任务收尾。
 - Implementation blocker for future coding: 当前证据未确认独立 DCC item 表；后续正式归档实现前必须再次检索正式 item 模型。若存在独立 item 表，需先更新设计与测试，不得临时映射。
+- M24 archive metadata blocker: 当前 `dcc_nas_control_audit_file` 与 `dcc_controlled_file_nas_transfer_task_item` 未保存处理项级正式归档元数据快照；正式创建受控文件和 ACTIVE NAS 来源映射前，必须先补 schema/VO/service RED，并证明 `categoryId/directoryId/effectiveDate/versionNo/changeType/fileNumber` 等字段来源可审计。
 
 ## M11 Backend API Slice
 
@@ -284,3 +285,13 @@
 - GREEN: scoped `git diff --check` for M25 frontend files -> PASS, only LF-to-CRLF warnings.
 - GREEN: `pnpm ts:check` -> PASS, current frontend workspace type check completed successfully.
 - Boundary: real Playwright E2E and formal archive success path remain pending; this slice does not implement ZIP fallback, browser default download fallback, controlled-file creation, workflow submit, or ACTIVE NAS source mapping.
+
+## M26 Archive Metadata Precondition Gate
+
+- Scope: completed documentation and verification hardening for the M24 precondition before enabling formal archive success.
+- Code evidence reviewed: `DccControlledFileNasTransferTaskItemDO` and `DccNasControlAuditFileDO` persist audit recognition/local-write/archive status snapshots but not a formal DCC submit metadata snapshot; `DccControlledFileSubmitReqVO` still requires `categoryId`, `directoryId`, `changeType`, `fileName`, `fileNumber`, `versionNo`, and `effectiveDate` for formal submission.
+- Gate added: success archive path must fail RED until a processing-item-level metadata source exists and is bound to `auditFileId + sourceSignature + localRelativePath`; `matchedFileTypeTaxonomyId` and `classificationCandidatesJson` are not accepted as submit metadata facts.
+- Blocker recorded: M24 controlled-file creation, workflow submit, and ACTIVE NAS source mapping remain blocked by missing formal metadata source; current behavior must stay `ARCHIVE_METADATA_REQUIRED` with no archive side effects.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8/trailing whitespace check for M26 verification report -> PASS, `contains_replacement=[]`, `trailing_whitespace=[]`.
+- GREEN: `git diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md` -> PASS, only Git LF-to-CRLF warning.

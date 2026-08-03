@@ -14,6 +14,11 @@
 - Read: `docs\database-rules.md`
 - Read: `docs\powershell-encoding.md`
 - Read: `C:\Users\BJB110\.codex\skills\project-experience-consolidation\SKILL.md`
+- Read: `C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\SKILL.md`
+- Read: `C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\references\bug-contract.md`
+- Read: `C:\Users\BJB110\.codex\skills\task-closeout-cleanup\SKILL.md`
+- Read: `C:\Users\BJB110\.codex\skills\task-closeout-cleanup\references\closeout-rules.md`
+- Read: `docs\powershell-memory.md`
 
 ## BDD
 
@@ -33,14 +38,24 @@
 - Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-pressure-pump-role-process-switch --mode preview` -> READY, keep task/execution/verification reports, delete temporary evidence files, no blocked paths.
 - Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-pressure-pump-role-process-switch --mode apply` -> APPLIED, deleted `backend-api-evidence.md`, `database-schema-evidence.md`, and `migration-policy-gate.json`.
 - Experience consolidation check: read `project-experience-consolidation`; existing long-term memory docs are PowerShell/worktree focused, no suitable domain-memory destination was found for the pressure-pump permission-vs-post rule, so no new long-term document was created without explicit user authorization.
+- Runtime bug follow-up: user reported `设备账号上下文不完整或不一致：post workstation binding loginUserId=1, postIds=[14]`; confirmed account 1 is the login user id and post 14 is the岗位 ID seen by the fallback post/workstation binding path.
+- Root cause follow-up: pressure-pump all-process authorization previously used explicit role-id permission checks, which bypassed standard login-user permission semantics.
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest#shouldListAllPressurePumpProcessesWhenRoleHasPressurePumpAllProcessPermission" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: old explicit-role-only permission check falls back to post/workstation binding and raises `PRO_FRONTLINE_DEVICE_ACCOUNT_BINDING_SOURCE_MISSING`.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 5 tests.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineEmployeeSwitchServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 11 tests.
+- Command intent: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260803-pressure-pump-role-process-switch/bug-regression-evidence.md` -> FAIL, expected documentation-format issue: evidence file missed literal `RED:`, `GREEN:`, and `Verification` markers required by validator.
+- GREEN: rerun `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineEmployeeSwitchServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 11 tests, 0 failures, 0 errors, 0 skipped.
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260803-pressure-pump-role-process-switch/bug-regression-evidence.md` -> PASS, `Bug regression evidence is valid.`
 
 ## Milestone Updates
 
 - Chain inspection -> PASS: confirmed one-line production switching uses `MesFrontlineDeviceAccountContextServiceImpl` and existing workstation/post binding source for ordinary accounts.
 - BDD and RED -> PASS: tests cover pressure-pump permission success, ordinary binding regression, and missing pressure-pump route-process fail-fast.
 - Implementation -> PASS: pressure-pump all-process role permission uses explicit role-permission API and enabled route/process/master-data services; it is not a fallback after binding failure.
+- Runtime bug fix -> PASS: pressure-pump all-process permission now uses standard `permissionApi.hasAnyPermissions(loginUserId, permission)` instead of explicit-role-only checks, so permission-role users do not fall back to岗位 14 binding.
 - Migration -> PASS: permission menu migration adds `mes:pro-feedback:frontline-pressure-pump:all-processes` with fail-fast preconditions and UTF-8 hex menu name.
 - Verification -> PASS: MES targeted JUnit, release migration policy gate, backend evidence validator, and database evidence validator passed.
+- Bug regression evidence -> PASS: validator accepted the follow-up evidence after required marker format was added.
 - Cleanup -> PASS: task-closeout-cleanup apply removed only current task temporary evidence files and preserved `task.md`, `execution-log.md`, and `verification-report.md`.
 
 ## Verification Evidence
@@ -51,4 +66,5 @@
 
 ## Blockers
 
-- Final commit/push not performed because the branch is already ahead of `origin` and pushing would publish all local ahead commits, including unrelated parallel task history. The working tree also has a non-task untracked evidence file: `doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/frontend-feature-evidence.md`.
+- Previous blocker changed by user authorization: user confirmed current branch local commits can be pushed together.
+- Current remaining action: validate bug regression evidence, run cleanup preview/apply for the new temporary evidence file, commit closeout records, and push `int_main`.
