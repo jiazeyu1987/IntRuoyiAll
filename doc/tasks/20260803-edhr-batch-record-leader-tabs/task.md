@@ -6,25 +6,30 @@
 
 ## Milestones
 
-- [ ] 定位现有 eDHR 批记录页签、子页签/路由配置、生产组长和 PQC 组长前端入口。
-- [ ] 先补充最小静态合同，证明旧状态缺少两个子页签入口。
-- [ ] 实现最小前端页签/路由接入，保持现有授权路由边界和组件加载方式。
-- [ ] 运行目标静态合同、相邻前端检查和类型检查；记录无法执行的真实 E2E 前置条件。
-- [ ] 更新任务证据、验证报告和收尾状态。
+- [x] 定位现有 eDHR 批记录页签、子页签/路由配置、生产组长和 PQC 组长前端入口。
+- [x] 先补充最小静态合同，证明旧状态缺少两个子页签入口。
+- [x] 实现最小前端页签/路由接入，保持现有授权路由边界和组件加载方式。
+- [x] 运行目标静态合同、相邻前端检查和类型检查；记录无法执行的真实 E2E 前置条件。
+- [x] 更新任务证据、验证报告和收尾状态。
 
 ## Expected Verification
 
 - `node tests/e2e/edhr-batch-record-leader-tabs-static.spec.js`
-- 相邻 EDHR 批记录页签/路由静态合同（定位后补充具体命令）
+- `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js`
+- `node tests/e2e/team-leader-workbench-static.spec.cjs`
 - `pnpm ts:check`
-- 前端功能证据校验：`python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260803-edhr-batch-record-leader-tabs/frontend-feature-evidence.md`
+- 前端功能证据校验已在 cleanup 前通过；临时 `frontend-feature-evidence.md` 已按 closeout 清理，摘要保留在 `verification-report.md`。
 
 ## Current Status
 
-in_progress
+blocked
 
 - 已读取前端开发、E2E、数据库/权限、登录访问、PowerShell 编码、任务收尾和前端交付技能规则。
 - 发现工作区已有非本任务脏改动与暂存改动；本任务仅修改 EDHR 批记录相关前端、目标静态合同和本任务文档。
+- 目标功能已实现并通过任务专用静态合同、页面关系图合同、组长工作台合同和 diff 检查。
+- 全量 `pnpm ts:check` 与旧相邻一线填写合同存在非本任务阻塞，已记录在验证报告。
+- cleanup preview/apply 已完成，仅删除本任务临时 `frontend-feature-evidence.md`。
+- 最终提交/推送未执行：当前 `int_main` 已 ahead 6，且工作区存在多项非本任务 staged/unstaged/untracked 改动；为避免混入并行任务，本任务在 Git closeout 门禁处阻塞。
 
 ## 设计约束检查
 

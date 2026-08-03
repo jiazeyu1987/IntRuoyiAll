@@ -30,12 +30,28 @@
 - `GREEN: node tests/e2e/dcc-controlled-file-routes-standard-list-template-static.spec.js -> PASS`
 - `GREEN: pnpm ts:check -> PASS`
 
+## Follow-up: Node 2 Blank Regression
+
+- User reported `节点2是空的，以前好像不是空的`.
+- Read-only DB check showed active route stage 2 nodes have real POSITION IDs such as `900834/900847/900859/900860/900844`, whose official names are `编制人直接主管/QA/QMS/注册/文档管理员`.
+- Root cause: route list first load did not call `loadRouteSubjectLookups()` when no category filter was selected, so only fixed hardcoded roles could display; unknown POSITION IDs became `审批角色#ID` and were filtered as technical labels into `-`.
+- `BDD: DCC approval route node2 first-load role names -> Given active approval route node2 contains POSITION candidateSourceIds and no subjectName, When the route list first loads without category filter, Then it loads approval role/user dictionaries before assigning routes and displays official approval role names instead of -。`
+- `RED: node tests/e2e/dcc-controlled-file-routes-role-name-display-static.spec.js -> FAIL, handleQuery did not load approval role/user dictionaries before route page data.`
+- Updated `handleQuery` to call `await loadRouteSubjectLookups()` before `getApprovalRoutePage(queryParams)`.
+- `GREEN: node tests/e2e/dcc-controlled-file-routes-role-name-display-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/dcc-controlled-file-routes-node-columns-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/dcc-controlled-file-routes-list-display-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/dcc-route-summary-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/dcc-controlled-file-routes-standard-list-template-static.spec.js -> PASS`
+- `GREEN: pnpm ts:check -> PASS`
+
 ## Runtime Check
 
 - 8081 frontend process PID `28264` belongs to `E:\IntRuoyi\IntRuoyiFronted`.
 - 48081 backend process PID `43876` belongs to `E:\IntRuoyi\output\runtime`.
 - `Invoke-WebRequest http://127.0.0.1:8081/src/views/dcc/controlled-file/shared/utils.ts` returned source containing `[900332, "文控"]`.
 - `Invoke-WebRequest http://127.0.0.1:8081/src/views/dcc/controlled-file/routes/index.vue` returned source containing `activePositions`, `TECHNICAL_ROUTE_NODE_LABEL_PATTERN`, `resolveRouteNodePositionNames`, and `positions.value = positionList`.
+- Follow-up runtime source check returned `handleQuery` with `await loadRouteSubjectLookups()` before `getApprovalRoutePage(queryParams)`.
 
 ## Blockers
 

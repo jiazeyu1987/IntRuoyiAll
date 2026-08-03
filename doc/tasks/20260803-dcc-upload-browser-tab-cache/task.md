@@ -57,8 +57,11 @@ ready_for_closeout
 - REGRESSION: `pnpm ts:check` -> PASS。
 - CHECK: `git diff --check -- IntRuoyiFronted/src/utils/routerHelper.ts IntRuoyiFronted/tests/e2e/dcc-upload-browser-tab-cache-static.spec.js IntRuoyiFronted/package.json doc/tasks/20260803-dcc-upload-browser-tab-cache` -> PASS；仅输出 CRLF 工作区提示。
 - CHECK: `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue IntRuoyiFronted/tests/e2e/dcc-browser-tab-return-no-reload-static.spec.js IntRuoyiFronted/package.json doc/tasks/20260803-dcc-upload-browser-tab-cache` -> PASS；仅输出 CRLF 工作区提示。
+- CHECK: `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue IntRuoyiFronted/tests/e2e/dcc-browser-tab-return-no-reload-static.spec.js IntRuoyiFronted/package.json docs/frontend-development.md docs/experience-index.md doc/tasks/20260803-dcc-upload-browser-tab-cache` -> PASS；仅输出 CRLF 工作区提示。
 - CLEANUP: `task_closeout.py --task-id 20260803-dcc-upload-browser-tab-cache --mode preview` -> PASS；keep `task.md`、`execution-log.md`、`verification-report.md`，delete 临时 `bug-regression-evidence.md`。
 - CLEANUP: `task_closeout.py --task-id 20260803-dcc-upload-browser-tab-cache --mode apply` -> PASS；已删除临时 `bug-regression-evidence.md`。
+- CLEANUP: `task_closeout.py --task-id 20260803-dcc-upload-browser-tab-cache --mode preview` -> PASS；keep 核心任务记录，delete `<none>`，blocked `<none>`。
+- CLEANUP: `task_closeout.py --task-id 20260803-dcc-upload-browser-tab-cache --mode apply` -> PASS；deleted_paths `<none>`。
 
 ## Blockers
 

@@ -64,12 +64,12 @@
 
 ## Closeout Status
 
-- 实现和验证完成，任务状态为 `ready_for_closeout`。
+- 实现和验证完成，任务状态为 `blocked`，阻塞项仅限最终 closeout 提交/推送。
 - Cleanup Preview: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-trace-signature-scope-split --mode preview` -> `status: ready`，保留 `task.md`、`execution-log.md`、`verification-report.md`，无删除项、阻塞项或警告。
 - Cleanup Apply: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-trace-signature-scope-split --mode apply` -> `status: applied`，无删除项。
 - Evidence Validators: bug regression validator 与 frontend feature validator 均 PASS。
-- 当前共享分支领先 `origin/int_main` 且存在非本任务后端脏改动，按共享分支并发基线门禁未标记 `completed`，未推送。
+- 当前共享分支在收尾期间持续出现非本任务脏改动和并发基线提交，按共享分支并发基线门禁未标记 `completed`。
 
 ## Blockers
 
-- 完成状态和推送被共享分支状态阻塞：当前分支领先 `origin/int_main` 且工作区存在非本任务后端脏改动；未获得明确授权前不能把并发提交作为本任务成果推送。
+- 完成状态和推送被共享分支状态阻塞：多次基线后仍继续出现非本任务改动；为避免误提交或误推送其它任务，最终 completed closeout 需等待工作区稳定后单独执行。

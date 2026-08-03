@@ -46,10 +46,11 @@
 - `a79a8c31d chore: baseline frontend backend DCC preview updates`：包含详情页分面相关后续并发吸收。
 - `4293607a1 chore: baseline residual docs before DCC onboarding merge`：包含相邻静态契约更新。
 - `527dea09f chore: baseline residual concurrent updates before trace split closeout`：收尾前并发残余基线；未作为本任务实现提交声明。
+- `2f91bd7f3 chore: baseline concurrent updates before trace split closeout`：收尾期间先保存一批非本任务并发后端和 DCC 上传任务记录。
+- `39f4b1eda chore: baseline dirty worktree before DCC preview E2E validation`：包含本任务收尾记录、验证报告和前端经验门禁更新；属于共享基线提交，未伪装为独立实现提交。
 - 这些提交均为共享分支基线/并发提交，不能伪装成本任务独立实现提交；本任务记录异常并保留验证证据。
 
 ## Blockers
 
-- 当前工作区仍有非本任务修改：`IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineDeviceAccountContextServiceImpl.java`。
-- 当前分支 `int_main...origin/int_main [ahead 8]`，领先提交含多个共享基线/并发任务提交；未获得明确授权前不能把它们作为本任务推送成果。
-- 因上述共享分支状态，本任务保持 `ready_for_closeout`，不标记 `completed`。
+- 收尾提交/推送阶段共享工作区持续出现非本任务脏改动，并多次由并发流程生成基线提交；无法稳定形成只包含本任务最终 closeout 的提交。
+- 当前任务实现与验证已完成，cleanup apply 已通过；为避免误提交或误推送其它任务，当前任务状态记录为 `blocked` 而非 `completed`。

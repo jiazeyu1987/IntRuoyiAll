@@ -813,7 +813,7 @@ export interface ControlledFileLocalFolderImportUploadStateRespVO {
   files: ControlledFileLocalFolderImportUploadFileStateVO[]
 }
 
-export type ControlledFileNasTransferSourceType = 'NAS' | 'LOCAL_FOLDER'
+export type ControlledFileNasTransferSourceType = 'NAS' | 'LOCAL_FOLDER' | 'NAS_UNCONTROLLED_IMPORT'
 
 export interface ControlledFileNasTransferFailureVO {
   nasPath: string
@@ -824,7 +824,7 @@ export interface ControlledFileNasTransferFailureVO {
 export interface ControlledFileNasTransferRespVO {
   taskId: number
   status: string
-  sourceType: 'NAS' | 'LOCAL_FOLDER'
+  sourceType: ControlledFileNasTransferSourceType
   selectedNasPaths: string[]
   expectedFileCount: number
   expectedTotalBytes: number

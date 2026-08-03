@@ -2,20 +2,20 @@
 
 ## Scope
 
-- Service: `MesFrontlineDeviceAccountContextServiceImpl`
+- Service: `MesFrontlineDeviceAccountContextServiceImpl`.
 - Public behavior: `listSwitchableProcesses(loginUserId)` and dependent authorization checks for one-line production filling.
-- Permission: `mes:pro-feedback:frontline-pressure-pump:all-processes`
+- Permission: `mes:pro-feedback:frontline-pressure-pump:all-processes`.
 
-## API Contract And Data Contract
+## Contract
 
 - Accounts with a role containing `mes:pro-feedback:frontline-pressure-pump:all-processes` can list every valid process under enabled pressure-pump routes.
 - Pressure-pump route detection is limited to enabled routes whose formal route name contains `压力泵`.
 - Returned candidates keep the existing candidate contract: route, route process, process, workstation, optional device, and display metadata.
 - Ordinary accounts without the permission continue to use the existing workstation/post binding source and do not gain pressure-pump-wide visibility.
 
-## Auth, Permissions, Validation, And Error Behavior
+## Validation
 
-- Authorization source is `PermissionApi.getUserRoleIdListByUserId` plus `PermissionApi.hasAnyPermissionsInRoles`.
+- Authorization source is `PermissionApi.getUserRoleIdListByUserId` plus `PermissionApi.hasAnyPermissionsInRoles`, so the capability is granted through role permissions rather than post binding.
 - The pressure-pump permission path is explicit and is not a fallback after workstation binding fails.
 - Missing enabled pressure-pump route throws `PRO_FRONTLINE_PRESSURE_PUMP_ROUTE_EMPTY`.
 - Missing valid pressure-pump route processes throws `PRO_FRONTLINE_PRESSURE_PUMP_ROUTE_PROCESS_EMPTY`.
@@ -25,7 +25,7 @@
 
 - Required services: `PermissionApi`, `MesProRouteService`, `MesProRouteProcessMapper`, `MesProProcessService`, `MesMdWorkstationService`, `MesMdWorkstationMachineService`, `MesDvMachineryService`.
 - Required migration: `IntRuoyiBackend/sql/mysql/20260803_mes_frontline_pressure_pump_all_process_permission.sql`.
-- Required tests: `MesFrontlineDeviceAccountContextServiceTest`, `MesFrontlineWorkstationPostRouteBindingSourceTest`.
+- Required tests: `MesFrontlineDeviceAccountContextServiceTest`, `MesFrontlineWorkstationPostRouteBindingSourceTest`, `MesFrontlineEmployeeSwitchServiceTest`.
 
 ## BDD Scenarios
 
@@ -35,24 +35,27 @@
 
 ## RED
 
-- RED: `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest,MesFrontlineWorkstationPostRouteBindingSourceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected before implementation because the service lacked the pressure-pump permission constructor dependencies and permission constant.
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected before implementation because the service lacked the pressure-pump permission constructor dependencies and permission constant.
 
 ## GREEN
 
-- GREEN: `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest,MesFrontlineWorkstationPostRouteBindingSourceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 7 tests, 0 failures, 0 errors, 0 skipped.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 5 tests, 0 failures, 0 errors, 0 skipped.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineEmployeeSwitchServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 11 tests, 0 failures, 0 errors, 0 skipped.
 
-## Contract Or Integration Verification
+## Verification
 
 - Existing ordinary workstation/post route binding regression remains covered by `MesFrontlineWorkstationPostRouteBindingSourceTest`.
+- Employee switching remains covered by `MesFrontlineEmployeeSwitchServiceTest`.
 - Pressure-pump permission success covers bypassing the route binding source and returning all valid pressure-pump route processes.
 - Pressure-pump missing route-process configuration covers fail-fast behavior and expected business error text.
+- Backend API evidence validator passed.
 
 ## Observability Touchpoints
 
 - Fail-fast ServiceException error codes preserve the existing backend error propagation path.
 - No new fallback, mock success, or default-empty response path was introduced.
 
-## Blockers And Downstream Skill Needs
+## Blockers
 
 - No backend API blocker remains.
-- Database permission migration evidence is recorded separately in `database-schema-evidence.md`.
+- Commit/push remains pending due unrelated dirty workspace ownership concerns recorded in `execution-log.md`.

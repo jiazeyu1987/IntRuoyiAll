@@ -11,6 +11,7 @@
 - [x] M2: 修正主工作区审批角色名称解析逻辑。
 - [x] M3: 运行目标静态合同和 TypeScript 检查。
 - [x] M4: 记录验证与剩余阻塞。
+- [x] M5: 修复节点2首屏因未加载审批角色字典而显示 `-` 的回归。
 
 ## Expected Verification
 
@@ -33,9 +34,11 @@ blocked - 主工作区代码已修复并通过验证，但提交/推送仍被既
 
 - RED: `node tests/e2e/dcc-controlled-file-routes-role-name-display-static.spec.js -> FAIL`，旧主工作区缺少 `900332 -> 文控` 映射。
 - GREEN: `node tests/e2e/dcc-controlled-file-routes-role-name-display-static.spec.js -> PASS`。
+- RED: `node tests/e2e/dcc-controlled-file-routes-role-name-display-static.spec.js -> FAIL`，首屏查询未加载审批角色/用户字典，节点2中 `900834/900847/900859/900860/900844` 等正式审批角色只能退化为 `审批角色#ID` 并被技术标签过滤成 `-`。
+- GREEN: `node tests/e2e/dcc-controlled-file-routes-role-name-display-static.spec.js -> PASS`，`handleQuery` 已在列表赋值前执行 `loadRouteSubjectLookups()`。
 - REGRESSION: DCC 路线相邻静态合同全部通过。
 - TYPECHECK: `pnpm ts:check -> PASS`。
-- Runtime source check: `http://127.0.0.1:8081/src/views/dcc/controlled-file/shared/utils.ts` 和 `routes/index.vue` 已返回新逻辑。
+- Runtime source check: `http://127.0.0.1:8081/src/views/dcc/controlled-file/shared/utils.ts` 和 `routes/index.vue` 已返回新逻辑，且运行态 `handleQuery` 包含 `await loadRouteSubjectLookups()` 后再调用 `getApprovalRoutePage(queryParams)`。
 
 ## Closeout Blockers
 

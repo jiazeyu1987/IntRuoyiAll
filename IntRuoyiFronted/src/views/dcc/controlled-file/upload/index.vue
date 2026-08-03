@@ -72,15 +72,14 @@
             />
           </div>
         </el-form-item>
-        <el-form-item label="文件类别" prop="categoryId">
+        <el-form-item v-if="isExternalReview" label="文件类别" prop="categoryId">
           <div class="w-full">
             <el-select
               v-model="formData.categoryId"
               class="!w-360px"
               clearable
-              :disabled="categorySelectDisabled"
               filterable
-              :placeholder="categorySelectPlaceholder"
+              placeholder="请选择文件类别"
               @change="handleCategoryChange"
             >
               <el-option
@@ -95,6 +94,27 @@
                 </div>
               </template>
             </el-select>
+            <el-alert
+              v-if="categoryPermissionPreflightMessage"
+              class="mt-8px !w-560px"
+              type="warning"
+              :closable="false"
+              show-icon
+              :title="categoryPermissionPreflightMessage"
+            />
+          </div>
+        </el-form-item>
+        <el-form-item v-else label="文件类别" prop="categoryId">
+          <div class="w-full">
+            <div
+              data-testid="dcc-upload-category-leaf-display"
+              class="!w-360px rounded-6px border border-[#dbe3ef] bg-[#f8fafc] px-12px py-9px text-13px text-[#172033]"
+            >
+              {{ selectedFileTypeTaxonomyLeafName || '请先选择文件分类' }}
+            </div>
+            <div v-if="selectedFileTypeTaxonomyPathLabel" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
+              自动取文件分类最后一级：{{ selectedFileTypeTaxonomyPathLabel }}
+            </div>
             <el-alert
               v-if="categoryPermissionPreflightMessage"
               class="mt-8px !w-560px"
@@ -545,45 +565,64 @@ const selectedProjectCode = computed(() =>
   projectCodeOptions.value.find((project) => project.id === formData.dccProjectCodeId)
 )
 const categoryDirectoryBindingMessage = '当前文件类别未绑定提交目录，请先在 DCC 文件类别维护目录绑定'
-const categoryUploadPermissionMessage = '当前用户没有该文件类别的上传权限，请选择有上传权限的文件类别。'
-const categorySelectDisabled = computed(
-  () => !isExternalReview.value && !isFileTypeTaxonomyDepthValid.value
-)
-const categorySelectPlaceholder = computed(() =>
-  categorySelectDisabled.value ? '请先选择至少三级文件分类' : '请选择文件类别'
-)
+const categoryUploadPermissionMessage = '当前用户没有该文件类别的上传权限，请联系文控管理员补齐该类别 UPLOAD 权限。'
 const categorySelectEmptyText = computed(() => {
-  if (categorySelectDisabled.value) {
-    return '请先选择至少三级文件分类'
-  }
-  if (!isExternalReview.value && formData.fileTypeTaxonomyId && !availableCategories.value.length) {
-    return '当前文件分类暂无已绑定提交目录的文件类别'
-  }
   return '当前没有可上传文件类别'
 })
+const selectedFileTypeTaxonomyBoundCategories = computed(() => {
+  if (isExternalReview.value) {
+    return categories.value
+  }
+  if (!formData.fileTypeTaxonomyId || !isFileTypeTaxonomyDepthValid.value) {
+    return []
+  }
+  return categories.value.filter(
+    (category) =>
+      category.active &&
+      category.fileTypeTaxonomyId === Number(formData.fileTypeTaxonomyId)
+  )
+})
 const availableCategories = computed(() =>
-  categories.value.filter((category) => {
+  selectedFileTypeTaxonomyBoundCategories.value.filter((category) => {
     if (!category.active || !Boolean(category.directoryId) || category.canUpload === false) {
       return false
     }
-    if (isExternalReview.value) {
-      return true
-    }
-    return (
-      category.fileTypeTaxonomyId != null &&
-      selectedFileTypeTaxonomyCategoryIds.value.has(category.fileTypeTaxonomyId)
-    )
+    return true
   })
+)
+const selectedFileTypeTaxonomyAutoCategory = computed(() =>
+  !isExternalReview.value && availableCategories.value.length === 1
+    ? availableCategories.value[0]
+    : undefined
 )
 const categoryPermissionPreflightMessage = computed(() => {
   if (categoryOptionsError.value) {
     return categoryOptionsError.value
   }
-  if (categorySelectDisabled.value) {
-    return '请先选择至少三级文件分类，再选择文件类别。'
+  if (isExternalReview.value) {
+    if (!categories.value.length || !availableCategories.value.length) {
+      return '当前没有可上传文件类别：请确认分类已启用、已绑定提交目录，并授予当前账号文件类别 UPLOAD 权限。'
+    }
+    return ''
   }
-  if (!categories.value.length || !availableCategories.value.length) {
-    return '当前没有可上传文件类别：请确认分类已启用、已绑定提交目录，并授予当前账号文件类别 UPLOAD 权限。'
+  if (!formData.fileTypeTaxonomyId) {
+    return '请先选择文件分类，文件类别将自动显示所选分类的最后一级。'
+  }
+  if (!isFileTypeTaxonomyDepthValid.value) {
+    return '请先选择至少三级文件分类，文件类别将自动取最后一级。'
+  }
+  if (!selectedFileTypeTaxonomyBoundCategories.value.length) {
+    return '当前文件分类暂无已绑定提交目录的文件类别，请联系文控管理员配置该叶子节点的正式 DCC 类别。'
+  }
+  if (selectedFileTypeTaxonomyBoundCategories.value.length > 1) {
+    return '当前文件分类叶子节点绑定了多个正式 DCC 类别，请联系文控管理员保留唯一启用类别后再提交。'
+  }
+  const boundCategory = selectedFileTypeTaxonomyBoundCategories.value[0]
+  if (!boundCategory.directoryId) {
+    return categoryDirectoryBindingMessage
+  }
+  if (boundCategory.canUpload === false) {
+    return categoryUploadPermissionMessage
   }
   return ''
 })
@@ -665,30 +704,6 @@ const fileTypeTaxonomyPathMap = computed(() => {
   return pathMap
 })
 
-const fileTypeTaxonomyById = computed(() => {
-  const rowMap = new Map<number, DccFileTypeTaxonomyVO>()
-  activeFileTypeTaxonomyRows.value.forEach((row) => {
-    if (row.id) {
-      rowMap.set(row.id, row)
-    }
-  })
-  return rowMap
-})
-
-const fileTypeTaxonomyChildrenByParentId = computed(() => {
-  const childrenMap = new Map<number, DccFileTypeTaxonomyVO[]>()
-  activeFileTypeTaxonomyRows.value.forEach((row) => {
-    if (!row.id) {
-      return
-    }
-    const parentId = row.parentId || 0
-    const children = childrenMap.get(parentId) || []
-    children.push(row)
-    childrenMap.set(parentId, children)
-  })
-  return childrenMap
-})
-
 const selectedFileTypeTaxonomyPath = computed(() => {
   if (!formData.fileTypeTaxonomyId) {
     return undefined
@@ -700,36 +715,14 @@ const selectedFileTypeTaxonomyPathLabel = computed(
   () => selectedFileTypeTaxonomyPath.value?.names.join(' / ') || ''
 )
 
+const selectedFileTypeTaxonomyLeafName = computed(() => {
+  const names = selectedFileTypeTaxonomyPath.value?.names || []
+  return names.length ? names[names.length - 1] : ''
+})
+
 const isFileTypeTaxonomyDepthValid = computed(
   () => (selectedFileTypeTaxonomyPath.value?.names.length || 0) >= 3
 )
-
-const selectedFileTypeTaxonomyCategoryIds = computed(() => {
-  const selectedId = Number(formData.fileTypeTaxonomyId)
-  const ids = new Set<number>()
-  if (!selectedId || !isFileTypeTaxonomyDepthValid.value) {
-    return ids
-  }
-
-  let currentId: number | undefined = selectedId
-  while (currentId && fileTypeTaxonomyById.value.has(currentId)) {
-    ids.add(currentId)
-    const current = fileTypeTaxonomyById.value.get(currentId)
-    currentId = current?.parentId || undefined
-  }
-
-  const collectDescendants = (parentId: number) => {
-    fileTypeTaxonomyChildrenByParentId.value.get(parentId)?.forEach((child) => {
-      if (!child.id || ids.has(child.id)) {
-        return
-      }
-      ids.add(child.id)
-      collectDescendants(child.id)
-    })
-  }
-  collectDescendants(selectedId)
-  return ids
-})
 
 const canLoadUploadNameOptions = computed(
   () =>

@@ -13,8 +13,11 @@ DCC “文件上传”和“受控浏览”两个正式菜单页签已在动态�
 - `pnpm e2e:dcc:browser-cache-write-failure:static` -> PASS.
 - `pnpm ts:check` -> PASS.
 - `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue IntRuoyiFronted/tests/e2e/dcc-browser-tab-return-no-reload-static.spec.js IntRuoyiFronted/package.json doc/tasks/20260803-dcc-upload-browser-tab-cache` -> PASS.
+- `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue IntRuoyiFronted/tests/e2e/dcc-browser-tab-return-no-reload-static.spec.js IntRuoyiFronted/package.json docs/frontend-development.md docs/experience-index.md doc/tasks/20260803-dcc-upload-browser-tab-cache` -> PASS with CRLF working-copy warnings only.
 - `task_closeout.py --task-id 20260803-dcc-upload-browser-tab-cache --mode preview` -> PASS.
 - `task_closeout.py --task-id 20260803-dcc-upload-browser-tab-cache --mode apply` -> PASS.
+- `task_closeout.py --task-id 20260803-dcc-upload-browser-tab-cache --mode preview` -> PASS, delete `<none>`, blocked `<none>`.
+- `task_closeout.py --task-id 20260803-dcc-upload-browser-tab-cache --mode apply` -> PASS, deleted_paths `<none>`.
 
 ## Changed Scope
 

@@ -1895,6 +1895,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-batch-team-leader',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchTeamLeaderWorkbenchPage.vue'),
+        name: 'MesProEdhrBatchTeamLeaderWorkbench',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '组长工作台',
+          activeMenu: '/mes/pro/feedback/edhr-batch-team-leader',
+          permission: ['mes:pro-process-pool-team-leader:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-batch-page-graph',
         component: () => import('@/views/mes/pro/edhr-batch/BatchPageGraphPage.vue'),
         name: 'MesProEdhrBatchPageGraph',
