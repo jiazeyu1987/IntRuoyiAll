@@ -29,3 +29,6 @@
 - 2026-08-03: 删除 `browser-filter-summary` 模板、仅供该区域使用的计算项和样式；目标静态契约与相邻统一列表契约通过。
 - 2026-08-03: 首次 `pnpm ts:check` 受并行长运行进程影响无法取得独立结果；并行进程结束后重跑 `pnpm ts:check`，结果 PASS。
 - 2026-08-03: 实现和必需验证完成，任务状态进入 `ready_for_closeout`。
+- 2026-08-03: CLEANUP PREVIEW/APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-browser-filter-summary-hide --mode preview/apply` -> PASS，删除临时 `frontend-feature-evidence.md`，保留核心任务记录。
+- 2026-08-03: IMPLEMENTATION COMMIT: `e92e53bbe fix: hide DCC browser filter summary`。
+- 2026-08-03: 当前任务状态更新为 `completed`，等待收尾记录提交与推送。

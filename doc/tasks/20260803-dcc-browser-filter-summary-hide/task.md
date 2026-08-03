@@ -20,9 +20,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-实现和必需验证已完成；等待 cleanup preview/apply、提交与推送。
+实现、验证、cleanup preview/apply 和本任务实现提交已完成；本任务实现提交为 `e92e53bbe`。
 
 ## 设计约束检查
 

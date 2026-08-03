@@ -18,3 +18,9 @@
 ## Blockers
 
 - 无当前阻塞。首次类型检查受并行进程影响未取得独立结果，已在并行进程结束后重跑并通过。
+
+## Closeout
+
+- Cleanup preview/apply：PASS，仅删除临时 `frontend-feature-evidence.md`。
+- Implementation commit：`e92e53bbe fix: hide DCC browser filter summary`。
+- Final status：completed。
