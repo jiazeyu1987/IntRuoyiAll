@@ -78,4 +78,5 @@
 - PASS: post-local-main-merge static contract `node tests\e2e\dcc-project-code-product-onboarding-static.spec.js`.
 - PASS: post-local-main-merge real Playwright E2E through `http://127.0.0.1:8096/mdm/project-code` with local Chrome -> `requestId=7`, `projectCodeId=261`, `productMasterId=335`, `projectCode=CODXONB03074622`, `criticalNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 - PASS: latest branch runtime port guard on `codex/dcc-product-onboarding-flow-20260803` confirmed worktree profile `int_main slot=15`, frontend `8096`, backend `48096`.
+- PASS: stopped task-owned worktree backend PID `63408` and frontend PID `10460` after verifying both command lines belonged to `D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803`; `8096/48096` have no remaining listeners.
 - PENDING: integration still requires committing final evidence, merging back to local `int_main`, and pushing if the dirty main workspace and GitHub HTTPS proxy/network permit.
