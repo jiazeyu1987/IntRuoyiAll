@@ -32,11 +32,15 @@
 
 ## GREEN
 
+- GREEN: `node tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js` -> PASS，补充断言文件分类切换不得主动调用 `refreshUploadNameOptionsForProjectTaxonomy()`。
+- GREEN: `node tests/e2e/dcc-upload-name-version-autofill-static.spec.js` -> PASS，补充断言历史文件名称候选由 `ensureUploadNameOptionsLoaded()` 在用户查询“文件名称”时按需加载。
 - GREEN: `node tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js` -> PASS。
 - GREEN: `node tests/e2e/dcc-upload-category-permission-static.spec.js` -> PASS。
 - GREEN: `node tests/e2e/dcc-upload-project-taxonomy-revision-static.spec.js` -> PASS。
 - GREEN: `node tests/e2e/dcc-upload-name-version-autofill-static.spec.js` -> PASS。
-- GREEN: `pnpm ts:check` -> PASS，进程 `21862` 退出码 0。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260803-controlled-file-category-missing\bug-regression-evidence.md` -> PASS。
+- GREEN: `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue IntRuoyiFronted/tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js IntRuoyiFronted/tests/e2e/dcc-upload-name-version-autofill-static.spec.js doc/tasks/20260803-controlled-file-category-missing` -> PASS。
 - GREEN: `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue IntRuoyiFronted/package.json IntRuoyiFronted/tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js IntRuoyiFronted/tests/e2e/dcc-upload-category-permission-static.spec.js doc/tasks/20260803-controlled-file-category-missing` -> PASS。
 - GREEN: `git diff --check -- docs/frontend-development.md docs/experience-index.md doc/tasks/20260803-controlled-file-category-missing` -> PASS，仅出现 CRLF 提示。
 - Real E2E: 未运行；本轮未确认本地前端/后端运行态、登录账号、测试租户和可写测试数据，不能用 API-only 或未授权真实数据冒充页面 E2E。

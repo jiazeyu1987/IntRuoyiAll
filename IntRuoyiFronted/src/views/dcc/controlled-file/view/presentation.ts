@@ -1,5 +1,7 @@
 import type { ControlledPreviewWatermark } from '@/api/dcc/controlledFile/workflow'
 
+export type ControlledFileTraceabilityScope = 'trace' | 'signature'
+
 export const buildControlledFileViewerPath = (
   id: number | string,
   from?: string,
@@ -19,9 +21,11 @@ export const buildControlledFileViewerPath = (
 export const buildControlledFileTraceabilityPath = (
   id: number | string,
   from?: string,
-  returnTo?: string
+  returnTo?: string,
+  scope: ControlledFileTraceabilityScope = 'trace'
 ) => {
   const query = new URLSearchParams({ traceability: '1' })
+  query.set('traceScope', scope)
   if (from) {
     query.set('from', from)
   }
@@ -34,6 +38,12 @@ export const buildControlledFileTraceabilityPath = (
 
 export const isControlledFileViewerMode = (query: Record<string, unknown>) => {
   return String(query.viewer || '') === '1'
+}
+
+export const resolveControlledFileTraceabilityScope = (
+  query: Record<string, unknown>
+): ControlledFileTraceabilityScope => {
+  return String(query.traceScope || '') === 'signature' ? 'signature' : 'trace'
 }
 
 export const resolveControlledFileViewerReturnTo = (value: unknown) => {

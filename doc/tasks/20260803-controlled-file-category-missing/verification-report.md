@@ -4,15 +4,19 @@
 
 受控文件提交页“文件分类”与“文件类别”链路已修正为正式数据契约：文件类别下拉只展示当前文件分类 taxonomy 分支下、有效、具备目录并允许上传的 DCC 类别；文件分类切换时清空旧 `categoryId`、目录上下文和上传预览状态，避免把 stale 或跨分类 ID 发送给后端 `getUploadDirectoryTree(categoryId)`。
 
+用户补充截图显示：只选择“文件分类”、尚未选择“文件类别”时，页面仍弹出 `Controlled file category does not exist`。复查后确认第二个触发点是文件分类切换时提前调用历史文件名称候选接口 `/dcc/controlled-files/upload-name-options`。当前修复已移除项目/文件分类切换时的主动预加载，历史文件名称只在用户聚焦或输入“文件名称”时按当前项目和文件分类按需加载；异步返回也按请求 key 校验，避免旧请求覆盖新上下文。
+
 ## Verification
 
 - PASS: `node tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js`
 - PASS: `node tests/e2e/dcc-upload-category-permission-static.spec.js`
 - PASS: `node tests/e2e/dcc-upload-project-taxonomy-revision-static.spec.js`
 - PASS: `node tests/e2e/dcc-upload-name-version-autofill-static.spec.js`
-- PASS: `pnpm ts:check`，进程 `21862` 退出码 0。
-- PASS: `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue IntRuoyiFronted/package.json IntRuoyiFronted/tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js IntRuoyiFronted/tests/e2e/dcc-upload-category-permission-static.spec.js doc/tasks/20260803-controlled-file-category-missing`
+- PASS: `pnpm ts:check`
 - PASS: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260803-controlled-file-category-missing\bug-regression-evidence.md`
+- PASS: `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue IntRuoyiFronted/tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js IntRuoyiFronted/tests/e2e/dcc-upload-name-version-autofill-static.spec.js doc/tasks/20260803-controlled-file-category-missing`
+- PASS: targeted status checked for upload page, two static contracts, and `doc/tasks/20260803-controlled-file-category-missing`.
+- Earlier PASS: `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue IntRuoyiFronted/package.json IntRuoyiFronted/tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js IntRuoyiFronted/tests/e2e/dcc-upload-category-permission-static.spec.js doc/tasks/20260803-controlled-file-category-missing`
 - PASS: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-controlled-file-category-missing --mode preview`
 - PASS: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-controlled-file-category-missing --mode apply`
 - PASS: `git diff --check -- docs/frontend-development.md docs/experience-index.md doc/tasks/20260803-controlled-file-category-missing`，仅出现 CRLF 提示。

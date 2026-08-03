@@ -107,7 +107,7 @@
               返回
             </el-button>
             <el-button
-              v-if="canUploadApplicantTrainingRecord"
+              v-if="!isBrowserTraceabilityPage && canUploadApplicantTrainingRecord"
               type="primary"
               plain
               :loading="applicantTrainingRecordDialog.submitting"
@@ -117,7 +117,7 @@
               上传培训记录
             </el-button>
             <el-button
-              v-if="detailActionState.canAcknowledgeTraining"
+              v-if="!isBrowserTraceabilityPage && detailActionState.canAcknowledgeTraining"
               type="success"
               plain
               :loading="trainingAckLoading"
@@ -127,7 +127,7 @@
               确认培训
             </el-button>
             <el-button
-              v-if="detailActionState.canManualRelease"
+              v-if="!isBrowserTraceabilityPage && detailActionState.canManualRelease"
               type="primary"
               plain
               :loading="manualReleaseLoading"
@@ -137,7 +137,7 @@
               正式下发
             </el-button>
             <el-button
-              v-if="canSubmitPublishAction"
+              v-if="!isBrowserTraceabilityPage && canSubmitPublishAction"
               type="primary"
               plain
               :loading="publishDialog.submitting"
@@ -146,12 +146,12 @@
               <Icon icon="ep:promotion" class="mr-5px" />
               发布申请
             </el-button>
-            <el-button v-if="detailActionState.canPreview" type="primary" plain @click="openPreview">
+            <el-button v-if="!isBrowserTraceabilityPage && detailActionState.canPreview" type="primary" plain @click="openPreview">
               <Icon icon="ep:view" class="mr-5px" />
               预览受控文件
             </el-button>
             <el-button
-              v-if="controlledPrintAllowed"
+              v-if="!isBrowserTraceabilityPage && controlledPrintAllowed"
               v-hasPermi="['dcc:controlled-file:print']"
               type="primary"
               plain
@@ -162,7 +162,7 @@
               受控打印
             </el-button>
           </div>
-          <div class="detail-action-group detail-action-group--more" v-if="hasDetailMoreActions">
+          <div class="detail-action-group detail-action-group--more" v-if="!isBrowserTraceabilityPage && hasDetailMoreActions">
             <el-dropdown trigger="click" @command="handleDetailMoreCommand">
               <el-button plain :loading="detailMoreActionLoading">
                 更多
@@ -182,7 +182,7 @@
               </template>
             </el-dropdown>
           </div>
-          <div class="detail-action-group detail-action-group--danger" v-if="hasDetailDangerActions">
+          <div class="detail-action-group detail-action-group--danger" v-if="!isBrowserTraceabilityPage && hasDetailDangerActions">
             <el-dropdown trigger="click" @command="handleDetailDangerCommand">
               <el-button type="danger" plain :loading="detailDangerActionLoading">
                 风险操作
@@ -213,7 +213,7 @@
         </div>
       </div>
       <div
-        v-if="fileDetail"
+        v-if="fileDetail && !isBrowserTraceabilityPage"
         class="detail-handling-summary"
         data-testid="dcc-detail-handling-summary"
       >
@@ -249,7 +249,7 @@
         </div>
       </div>
       <el-alert
-        v-if="detailActionProjectionMessages.length"
+        v-if="!isBrowserTraceabilityPage && detailActionProjectionMessages.length"
         class="mt-12px"
         type="warning"
         :closable="false"
@@ -257,7 +257,7 @@
         :title="detailActionProjectionMessages.join('；')"
       />
       <el-alert
-        v-if="obsoleteActionLocked"
+        v-if="!isBrowserTraceabilityPage && obsoleteActionLocked"
         class="mt-12px"
         data-testid="dcc-obsolete-action-lock"
         :closable="false"
@@ -279,7 +279,7 @@
         </template>
       </el-alert>
       <el-alert
-        v-if="activeObsoleteActionError"
+        v-if="!isBrowserTraceabilityPage && activeObsoleteActionError"
         class="mt-12px"
         data-testid="dcc-obsolete-action-lock-error"
         :closable="false"
@@ -289,7 +289,7 @@
         :description="activeObsoleteActionError"
       />
       <el-alert
-        v-if="publishActionLocked"
+        v-if="!isBrowserTraceabilityPage && publishActionLocked"
         class="mt-12px"
         data-testid="dcc-publish-action-lock"
         :closable="false"
@@ -311,7 +311,7 @@
         </template>
       </el-alert>
       <el-alert
-        v-if="activePublishActionError"
+        v-if="!isBrowserTraceabilityPage && activePublishActionError"
         class="mt-12px"
         data-testid="dcc-publish-action-lock-error"
         :closable="false"
@@ -321,7 +321,7 @@
         :description="activePublishActionError"
       />
       <el-alert
-        v-if="manualReleasePermissionGapVisible"
+        v-if="!isBrowserTraceabilityPage && manualReleasePermissionGapVisible"
         class="mt-12px"
         data-testid="dcc-manual-release-permission-gap"
         :closable="false"
@@ -331,7 +331,7 @@
         description="当前版本已进入待正式下发，但页面没有可用的正式下发动作。请为当前文控角色配置该文件类别的 DISTRIBUTE 分发规则和正式下发权限后再操作。"
       />
       <el-alert
-        v-if="controlledPrintPermissionHintVisible"
+        v-if="!isBrowserTraceabilityPage && controlledPrintPermissionHintVisible"
         class="mt-12px"
         data-testid="dcc-controlled-print-permission-hint"
         :closable="false"
@@ -341,7 +341,7 @@
         :description="controlledPrintPermissionHintDescription"
       />
       <div
-        v-if="fileAccessExplanation"
+        v-if="showLifecycleTraceSections && fileAccessExplanation"
         class="detail-access-explanation"
         data-testid="dcc-detail-access-explanation"
       >
@@ -394,7 +394,7 @@
         </div>
       </div>
       <el-alert
-        v-if="accessExplanationError"
+        v-if="showLifecycleTraceSections && accessExplanationError"
         class="mt-12px"
         :title="accessExplanationError"
         type="warning"
@@ -402,6 +402,7 @@
       />
     </ContentWrap>
 
+    <template v-if="showLifecycleTraceSections">
     <ContentWrap data-testid="dcc-detail-project-code-linkage" class="mt-16px">
       <div class="detail-table-header mb-12px">
         <div>
@@ -520,7 +521,7 @@
       </div>
     </ContentWrap>
 
-    <ContentWrap v-loading="approvalLoading" class="mt-16px">
+    <ContentWrap v-if="!isBrowserTraceabilityPage" v-loading="approvalLoading" class="mt-16px">
       <div class="mb-12px flex items-center justify-between gap-12px">
         <div class="text-15px font-600">审批阶段进度</div>
         <div class="text-13px text-[var(--el-text-color-secondary)]">
@@ -1024,7 +1025,9 @@
         </el-table-column>
       </el-table>
     </ContentWrap>
+    </template>
 
+    <template v-if="showSignatureTraceSections">
     <ContentWrap data-testid="dcc-detail-signature-trace-section" data-source="fileDetail?.signatureSummaries">
       <div class="detail-table-header mb-12px">
         <div>
@@ -1253,6 +1256,7 @@
         @pagination="loadDccSignatureEvidenceList"
       />
     </ContentWrap>
+    </template>
 
     <el-dialog
       v-model="applicantTrainingRecordDialog.visible"
@@ -2239,6 +2243,7 @@ import ProtectedPdfViewer from '../view/index.vue'
 import {
   buildControlledFileViewerPath,
   isControlledFileViewerMode,
+  resolveControlledFileTraceabilityScope,
   resolveControlledFileViewerReturnTo
 } from '../view/presentation'
 import {
@@ -2657,6 +2662,20 @@ const publishActionBlocked = computed(
   () => publishActionLocked.value || Boolean(activePublishActionError.value)
 )
 const viewerMode = computed(() => isControlledFileViewerMode(route.query as Record<string, unknown>))
+const isBrowserTraceabilityPage = computed(
+  () =>
+    String(route.query.traceability || '') === '1' &&
+    String(route.query.from || '') === 'browser'
+)
+const traceabilityScope = computed(() =>
+  resolveControlledFileTraceabilityScope(route.query as Record<string, unknown>)
+)
+const showLifecycleTraceSections = computed(
+  () => !isBrowserTraceabilityPage.value || traceabilityScope.value === 'trace'
+)
+const showSignatureTraceSections = computed(
+  () => !isBrowserTraceabilityPage.value || traceabilityScope.value === 'signature'
+)
 const canRetryStampPermission = computed(() => checkPermi(['dcc:controlled-file:stamp:retry']))
 const canEditMetadata = computed(() => hasMetadataEditorRole(userStore.getRoles))
 const detailActionState = computed(() => getDetailActionState(fileDetail.value))
@@ -3469,6 +3488,7 @@ const handleViewLatestControlledPrintRecord = async () => {
 const shouldLoadControlledPrintRecords = () =>
   Boolean(controlledFileId.value) &&
   !viewerMode.value &&
+  showLifecycleTraceSections.value &&
   checkPermi(['dcc:controlled-file:print'])
 
 const loadControlledPrintRecords = async () => {
@@ -3557,7 +3577,7 @@ const buildPublishBusinessActionContext = (
 const loadActiveObsoleteAction = async (detail: ControlledFileVO) => {
   activeObsoleteAction.value = null
   activeObsoleteActionError.value = ''
-  if (viewerMode.value) {
+  if (viewerMode.value || isBrowserTraceabilityPage.value) {
     return
   }
   if (detail.status !== 'ACTIVE') {
@@ -3581,7 +3601,7 @@ const loadActiveObsoleteAction = async (detail: ControlledFileVO) => {
 const loadActivePublishAction = async (detail: ControlledFileVO) => {
   activePublishAction.value = null
   activePublishActionError.value = ''
-  if (viewerMode.value) {
+  if (viewerMode.value || isBrowserTraceabilityPage.value) {
     return
   }
   if (detail.status !== 'READY_TO_PUBLISH') {
@@ -3617,8 +3637,12 @@ const loadData = async () => {
     getDirectoryTree(),
     getSimpleUserList(),
     getSimpleDeptList(),
-    viewerMode.value ? Promise.resolve([]) : getPaperDistributionRecords(controlledFileId.value),
-    viewerMode.value ? Promise.resolve(null) : getActiveApprovalPrintTemplate()
+    viewerMode.value || !showLifecycleTraceSections.value
+      ? Promise.resolve([])
+      : getPaperDistributionRecords(controlledFileId.value),
+    viewerMode.value || !showLifecycleTraceSections.value
+      ? Promise.resolve(null)
+      : getActiveApprovalPrintTemplate()
   ])
   fileDetail.value = detail
   await loadActiveObsoleteAction(detail)
@@ -3648,7 +3672,7 @@ const loadData = async () => {
 
 const loadDccSignatureEvidenceList = async () => {
   dccSignatureEvidenceError.value = ''
-  if (viewerMode.value) {
+  if (viewerMode.value || !showSignatureTraceSections.value) {
     dccSignatureEvidenceList.value = []
     dccSignatureEvidenceTotal.value = 0
     return

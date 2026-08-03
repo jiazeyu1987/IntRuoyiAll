@@ -13,12 +13,77 @@ const readSource = (relativePath) => {
 const detailPage = readSource('src/views/dcc/controlled-file/detail/index.vue')
 const approvalActions = readSource('src/views/dcc/controlled-file/detail/approval-actions.ts')
 const logsPage = readSource('src/views/dcc/controlled-file/logs/index.vue')
+const browserPage = readSource('src/views/dcc/controlled-file/browser/index.vue')
+const viewerPresentation = readSource('src/views/dcc/controlled-file/view/presentation.ts')
 
 const signatureTraceSection = detailPage.slice(
   detailPage.indexOf('data-testid="dcc-detail-signature-trace-section"'),
-  detailPage.indexOf('<ContentWrap data-testid="dcc-detail-signature-section">')
+  detailPage.indexOf('data-testid="dcc-detail-signature-section"')
 )
 assert.ok(signatureTraceSection.length > 0, '签核追溯区必须存在')
+
+assert.match(
+  viewerPresentation,
+  /type ControlledFileTraceabilityScope\s*=\s*'trace'\s*\|\s*'signature'/,
+  '追溯链接构造必须显式建模 trace/signature 两种页面范围'
+)
+assert.match(
+  viewerPresentation,
+  /query\.set\('traceScope',\s*scope\)/,
+  '追溯链接必须把 traceScope 写入 URL，避免追溯和签核共用同一页面范围'
+)
+assert.match(
+  browserPage,
+  /openControlledFileTraceability\(router,\s*route,\s*id,\s*'browser',\s*'trace'\)/,
+  '受控浏览“追溯”按钮必须进入 trace 范围'
+)
+assert.match(
+  browserPage,
+  /openControlledFileTraceability\(router,\s*route,\s*id,\s*'browser',\s*'signature'\)/,
+  '受控浏览“签核”按钮必须进入 signature 范围'
+)
+assert.match(
+  detailPage,
+  /const isBrowserTraceabilityPage = computed/,
+  '详情页必须识别来自受控浏览的追溯/签核页面'
+)
+assert.match(
+  detailPage,
+  /const showLifecycleTraceSections = computed/,
+  '详情页必须集中控制生命周期追溯区块可见性'
+)
+assert.match(
+  detailPage,
+  /const showSignatureTraceSections = computed/,
+  '详情页必须集中控制签核区块可见性'
+)
+assert.match(
+  detailPage,
+  /<ContentWrap\s+v-if="showSignatureTraceSections"\s+data-testid="dcc-detail-signature-trace-section"/,
+  '签核追溯区只能在签核范围或完整详情中显示'
+)
+assert.match(
+  detailPage,
+  /<ContentWrap\s+v-if="showSignatureTraceSections"\s+data-testid="dcc-detail-signature-section"/,
+  '签名留痕区只能在签核范围或完整详情中显示'
+)
+
+for (const marker of [
+  'data-testid="dcc-detail-project-code-linkage"',
+  'data-testid="dcc-detail-controlled-browser-linkage"',
+  'data-testid="dcc-controlled-print-records"',
+  'data-testid="dcc-detail-training-section"'
+]) {
+  const markerIndex = detailPage.indexOf(marker)
+  assert.notEqual(markerIndex, -1, `追溯详情必须保留区块：${marker}`)
+  const wrapStart = detailPage.lastIndexOf('<ContentWrap', markerIndex)
+  const wrapSource = detailPage.slice(wrapStart, markerIndex)
+  assert.match(
+    wrapSource,
+    /v-if="showLifecycleTraceSections"/,
+    `非签核追溯区块必须在签核范围隐藏：${marker}`
+  )
+}
 
 assert.match(
   detailPage,

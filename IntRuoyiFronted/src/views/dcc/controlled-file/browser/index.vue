@@ -2695,11 +2695,11 @@ const openPreview = (id: number | string) => {
 }
 
 const openDetail = (id: number | string) => {
-  openControlledFileTraceability(router, route, id, 'browser')
+  openControlledFileTraceability(router, route, id, 'browser', 'trace')
 }
 
 const openSignatureEvidence = (id: number | string) => {
-  openControlledFileTraceability(router, route, id, 'browser')
+  openControlledFileTraceability(router, route, id, 'browser', 'signature')
 }
 
 const openControlledPrintDialog = (file: ControlledFileBrowserVersion) => {

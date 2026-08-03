@@ -121,6 +121,8 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     public static final String AUDIT_FILE_DOWNLOAD_STATUS_SELECTED = "SELECTED";
     public static final String AUDIT_FILE_DOWNLOAD_STATUS_LOCAL_WRITTEN = "LOCAL_WRITTEN";
     public static final String AUDIT_FILE_DOWNLOAD_STATUS_LOCAL_WRITE_FAILED = "LOCAL_WRITE_FAILED";
+    public static final String AUDIT_FILE_ARCHIVE_STATUS_FAILED = "FAILED";
+    public static final String AUDIT_FILE_ARCHIVE_ERROR_CODE_METADATA_REQUIRED = "ARCHIVE_METADATA_REQUIRED";
     static final String OUTCOME_CREATED = "CREATED";
     static final String OUTCOME_REUSED = "REUSED";
     private static final String UNCONTROLLED_IMPORT_SELECTION_SCOPE_EXPLICIT = "EXPLICIT_SELECTED_FILES";
@@ -648,9 +650,12 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
                 || !Objects.equals(reqVO.getLocalRelativePath(), item.getLocalRelativePath())) {
             throw new IllegalStateException("nas uncontrolled import localRelativePath mismatch: " + auditFileId);
         }
-        if (!Objects.equals(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED, auditFile.getArchiveStatus())
-                || !Objects.equals(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED, item.getArchiveStatus())
-                || auditFile.getControlledFileId() != null) {
+        boolean archiveFresh = Objects.equals(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED,
+                auditFile.getArchiveStatus())
+                && Objects.equals(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED,
+                item.getArchiveStatus())
+                && auditFile.getControlledFileId() == null;
+        if (!archiveFresh && !isUncontrolledImportLocalWriteSuccessReplay(reqVO, auditFile, item)) {
             throw new IllegalStateException("nas uncontrolled import local-write archive state invalid: " + auditFileId);
         }
     }
@@ -683,8 +688,32 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
         item.setLocalWriteStatus(IMPORT_LOCAL_WRITE_STATUS_LOCAL_WRITTEN);
         item.setLocalWriteErrorCode(null);
         item.setLocalWriteError(null);
+        markUncontrolledImportArchiveMetadataRequiredIfMatched(auditFile, item);
         auditFileMapper.updateById(auditFile);
         taskItemMapper.updateById(item);
+    }
+
+    private void markUncontrolledImportArchiveMetadataRequiredIfMatched(
+            DccNasControlAuditFileDO auditFile,
+            DccControlledFileNasTransferTaskItemDO item) {
+        if (!DccNasControlAuditServiceImpl.AUDIT_FILE_CLASSIFICATION_STATUS_MATCHED.equals(
+                item.getClassificationStatusSnapshot())) {
+            return;
+        }
+        String errorMessage = "NAS uncontrolled import requires formal archive metadata before DCC archive";
+        LocalDateTime now = LocalDateTime.now();
+        auditFile.setArchiveStatus(AUDIT_FILE_ARCHIVE_STATUS_FAILED);
+        auditFile.setArchiveErrorCode(AUDIT_FILE_ARCHIVE_ERROR_CODE_METADATA_REQUIRED);
+        auditFile.setArchiveError(errorMessage);
+        item.setArchiveStatus(AUDIT_FILE_ARCHIVE_STATUS_FAILED);
+        item.setArchiveErrorCode(AUDIT_FILE_ARCHIVE_ERROR_CODE_METADATA_REQUIRED);
+        item.setArchiveError(errorMessage);
+        item.setStatus(ITEM_STATUS_FAILED);
+        item.setFailureStage("archive");
+        item.setLastError(errorMessage);
+        item.setAttemptCount(incrementCount(item.getAttemptCount()));
+        item.setLastAttemptAt(now);
+        item.setCompletedAt(now);
     }
 
     private void markUncontrolledImportLocalWriteFailed(
