@@ -294,7 +294,13 @@ assertIncludes(actionPanel, 'abandonFormInstance')
 assertIncludes(actionPanel, 'buildSubmitPayload')
 assertIncludes(actionPanel, 'actionFormData.value.startUserSelectAssignees')
 assertIncludes(actionPanel, 'EdhrExecutionTemplateEditableForm')
-assertIncludes(actionPanel, 'getTemplateVersion')
+assertIncludes(actionPanel, 'resolveEmbeddedTemplateVersionForActionForm')
+assertIncludes(actionPanel, '动态表单运行态缺少 openTask 模板快照，无法渲染')
+assertNotIncludes(
+  actionPanel,
+  'getTemplateVersion',
+  'ActionFormPanel 运行态不得调用模板管理版本接口'
+)
 assertIncludes(actionPanel, 'applyLatestDraftSnapshotFormData')
 assertIncludes(actionPanel, 'startUserSelectAssignees 必须是对象')
 assertIncludes(actionPanel, 'FORM_POLICY_NOT_FOUND')

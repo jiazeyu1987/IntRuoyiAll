@@ -147,7 +147,6 @@ import {
   type SubmitFormInstanceReqVO
 } from '@/api/form-center/instance'
 import {
-  getTemplateVersion,
   type FormRecognizedFieldVO,
   type FormTemplateListItemVO
 } from '@/api/form-center/template'
@@ -418,7 +417,11 @@ const loadTemplateVersionForActionForm = async (serial: number) => {
     return
   }
   const embeddedTemplate = resolveEmbeddedTemplateVersionForActionForm()
-  const template = embeddedTemplate || await getTemplateVersion(templateId, versionNo)
+  if (!embeddedTemplate) {
+    resetActionPanelTemplate()
+    throw new Error('动态表单运行态缺少 openTask 模板快照，无法渲染。')
+  }
+  const template = embeddedTemplate
   if (serial !== actionFormLoadSerial) return
   const parsedSchema = parseTemplateJimuSchema(template.jimuSchemaJson)
   const recognizedRules = buildRecognizedFieldCellRules(template.recognizedFields || [])
