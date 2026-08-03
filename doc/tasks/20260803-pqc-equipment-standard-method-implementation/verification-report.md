@@ -29,6 +29,7 @@ PQC 项目级检验设备、设备编号、接收标准、检验方法和组长�
 - 前端：PQC 填写页和 PQC 组长页均使用结构化项目明细；缺明细时组长页显示正式阻塞文案。
 - 数据库：新增迁移通过 release migration policy gate，未执行真实库写入。
 - 经验沉淀：新增 `docs/backend-development.md#MES PQC 项目级检验快照门禁` 和 `docs/experience-index.md` PQC 路由，防止后续回退到固定四项或 raw payload。
+- 收尾：实现提交为 `2b8a31d1d feat: add PQC item equipment standard snapshot`；cleanup apply 已删除临时 evidence/json，仅保留三份正式任务记录。
 
 ## Blockers
 

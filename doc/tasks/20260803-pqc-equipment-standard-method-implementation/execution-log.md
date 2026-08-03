@@ -44,6 +44,10 @@
 
 - 2026-08-03: 创建实现 worktree 并登记端口槽位。
 - 2026-08-03: 完成后端 schema/API、PQC 提交流程、前端填写页、PQC 组长动态项目明细和定向验证。
+- 2026-08-03: 创建实现提交 `2b8a31d1d feat: add PQC item equipment standard snapshot`，文件清单已通过 `git show --name-status --oneline -1` 复核。
+- 2026-08-03: cleanup preview/apply 使用 `--worktree-closeout off`，仅删除本任务临时 evidence 文件和 `migration-policy-gate.json`，保留 `task.md`、`execution-log.md`、`verification-report.md`。
+- 2026-08-03: GitHub 推送预检发现用户级 Git 配置 `http.https://github.com.proxy=http://127.0.0.1:7890`，但 `127.0.0.1:7890` 未监听；`Test-NetConnection github.com -Port 443` 直连成功，使用单次命令参数 `-c http.https://github.com.proxy=` 临时清空该代理后 `git ls-remote origin HEAD` PASS。SSH 443 网络可达但当前 key 未授权，未切换 remote。
+- 2026-08-03: GitHub 大文件预检 `git rev-list --objects origin/int_main..HEAD` 最大对象约 `101437` bytes，低于 100 MB 限制。
 
 ## Verification Evidence
 
@@ -61,7 +65,8 @@
 - 2026-08-03 收尾复验：`git diff --check` -> PASS，仅有 LF/CRLF 提示。
 - 2026-08-03 经验沉淀：已在 `docs/backend-development.md#MES PQC 项目级检验快照门禁` 记录项目级 `itemResults`/规程快照长期门禁，并在 `docs/experience-index.md` 增加 PQC 路由；`rg -n "PQC 填写|itemResults|mes-pqc" docs\experience-index.md docs\backend-development.md` -> PASS。
 - 2026-08-03 cleanup preview：默认 `task_closeout.py --mode preview` 识别 keep 为 `task.md`、`execution-log.md`、`verification-report.md`，delete 为临时 evidence 和 `migration-policy-gate.json`；同时因实现尚未提交和主工作区 `E:\IntRuoyi` 脏状态阻塞默认 worktree ff-only 合并。后续先提交已验证实现，再使用 `--worktree-closeout off` 只清理本任务临时证据，保留后续 int_main 融合门禁。
+- 2026-08-03 cleanup apply：`python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-pqc-equipment-standard-method-implementation --mode apply --worktree-closeout off` -> PASS，删除 `backend-api-evidence.md`、`database-schema-evidence.md`、`frontend-feature-evidence.md`、`migration-policy-gate.json`、`qa-evidence.md`。
 
 ## Blockers
 
-- 无当前实现阻塞。
+- 无当前开发验证阻塞。后续 `int_main` 融合未在本轮执行：默认本地 worktree closeout 合并被主工作区 `E:\IntRuoyi` 脏状态阻塞，需按合并门禁单独处理。

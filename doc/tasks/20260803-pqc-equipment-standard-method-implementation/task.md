@@ -12,8 +12,8 @@
 - [x] 实现后端 schema、服务、读模型、校验与快照链路
 - [x] 实现前端 PQC 填写、组长、QA 页面交互与静态合同
 - [x] 完成 GREEN、回归、文档证据和 review 优化
-- [ ] 提交并推送 `codex/20260803_pqf`
-- [ ] 成功后融合进 `int_main`
+- [x] 提交并推送 `codex/20260803_pqf`
+- [ ] 成功后融合进 `int_main`（本轮仅完成 worktree 开发验证与分支推送；本地主工作区 `E:\IntRuoyi` 脏状态阻塞默认 ff-only closeout 合并，后续需按合并门禁单独执行）
 
 ## Expected Verification
 
@@ -25,9 +25,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-后端 JUnit、前端静态合同、`pnpm ts:check` 与 release migration policy gate 均已通过；剩余收尾、提交、推送和后续融合进 `int_main`。
+worktree 开发验证、cleanup、实现提交和分支推送已完成；后续 `int_main` 融合需在主工作区清洁或远端快进门禁满足后单独执行。
 
 ## Applicable Experience Gates
 
