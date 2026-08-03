@@ -4,10 +4,14 @@
 
 用户反馈：受控文件提交页选择“文件分类”时报错 `Controlled file category does not exist`。截图显示页面为“受控文件提交”，提交范围中已选 DCC 项目，文件分类路径显示为“技术文档 / 设计和开发策划阶段 / 注册和临床路径分析报告”，随后文件类别下拉等待选择。
 
+2026-08-03 补充需求：用户确认“技术文档 / 设计和开发输入阶段 / 专利检索与分析报告”中的叶子节点“专利检索与分析报告”就是业务上的文件类别；页面“文件类别”应自动取文件分类叶子节点，只显示，不让用户填写。
+
 ## BDD
 
 - BDD: 受控文件提交选择文件分类 -> Given 用户在受控文件提交页选择一个正式存在的文件分类 When 继续选择文件类别或提交范围 Then 前端发送的分类标识必须能被后端正式分类表识别，页面不得出现 `Controlled file category does not exist`。
 - BDD: 文件分类切换不触发历史名称预加载 -> Given 用户在受控文件提交页已选择 DCC 项目 When 用户只切换“文件分类”taxonomy 且尚未操作“文件名称”下拉 Then 页面不得调用历史文件名称辅助接口并弹出 `Controlled file category does not exist`；历史名称只在用户聚焦/查询文件名称时按需加载。
+- BDD: 文件类别只读显示叶子节点 -> Given 用户选择“技术文档 / 设计和开发输入阶段 / 专利检索与分析报告” When 页面展示“文件类别” Then 文件类别显示“专利检索与分析报告”，不可下拉、不可输入，正式 DCC `categoryId` 由该叶子节点唯一绑定的可上传类别自动解析。
+- BDD: 文件分类缺正式类别绑定 -> Given 用户选择的文件分类叶子节点没有唯一可上传正式 DCC 类别 When 用户准备上传或提交 Then 页面明确提示该文件分类尚未配置唯一可上传文件类别和提交目录，不用其它分类、空值或 taxonomy id 替代。
 
 ## Command And Evidence Log
 
@@ -29,6 +33,7 @@
 ## RED
 
 - RED: `node tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js` -> FAIL, expected reason: 新增静态契约要求存在 `selectedFileTypeTaxonomyCategoryIds`、按 taxonomy 分支过滤类别，并在文件分类切换时清空旧 `categoryId`；修复前上传页缺少该约束。
+- RED: 待运行 `node tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js`，expected reason: 本轮新增契约要求受控文件上传页“文件类别”只读显示 `selectedFileTypeTaxonomyLeafName`，正式 `categoryId` 只从当前叶子节点唯一绑定的可上传类别自动解析；当前旧页面仍显示可手选 `el-select`。
 
 ## GREEN
 
