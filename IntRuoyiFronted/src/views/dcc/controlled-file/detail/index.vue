@@ -10,15 +10,6 @@
         <el-tag v-if="isCurrentActiveVersion" type="success" effect="dark">
           当前有效版 / ACTIVE / {{ fileDetail?.versionNo || '-' }}
         </el-tag>
-        <el-button
-          v-if="detailActionState.canDownload"
-          type="primary"
-          :loading="downloadLoading"
-          @click="openDownload"
-        >
-          <Icon icon="ep:download" class="mr-5px" />
-          下载当前受控副本
-        </el-button>
       </div>
       <div class="detail-viewer-split" data-testid="dcc-controlled-preview-layout">
         <section class="detail-viewer-split__file" data-testid="dcc-controlled-preview-file-pane">
@@ -158,15 +149,6 @@
             <el-button v-if="detailActionState.canPreview" type="primary" plain @click="openPreview">
               <Icon icon="ep:view" class="mr-5px" />
               预览受控文件
-            </el-button>
-            <el-button
-              v-if="detailActionState.canDownload"
-              type="primary"
-              :loading="downloadLoading"
-              @click="openDownload"
-            >
-              <Icon icon="ep:download" class="mr-5px" />
-              下载受控文件
             </el-button>
             <el-button
               v-if="controlledPrintAllowed"
@@ -2181,7 +2163,6 @@ import {
   retryControlledFileStamp,
   returnExternalFileReviewTask,
   returnControlledFileTask,
-  triggerControlledFileDownload,
   transferExternalFileReviewTask,
   transferControlledFileTask,
   uploadControlledFileTrainingRecord,
@@ -2313,7 +2294,6 @@ const activePublishActionError = ref('')
 const categories = ref<ControlledFileCategoryVO[]>([])
 const directories = ref<ControlledFileDirectoryVO[]>([])
 const activeApprovalPrintTemplate = ref<ApprovalPrintTemplateVO | null>(null)
-const downloadLoading = ref(false)
 const withdrawLoading = ref(false)
 const obsoleteCancelLoading = ref(false)
 const publishCancelLoading = ref(false)
@@ -3826,20 +3806,6 @@ const resolveUserNames = (userIds: number[]) => {
 
 const openPreview = () => {
   window.open(buildControlledFileViewerPath(controlledFileId.value, 'detail', route.fullPath), '_blank')
-}
-
-const openDownload = async () => {
-  if (downloadLoading.value) {
-    return
-  }
-  downloadLoading.value = true
-  try {
-    await triggerControlledFileDownload(controlledFileId.value)
-  } catch (error) {
-    message.error(resolveReadSideErrorMessage(error, '下载失败，请查看错误提示后重试。'))
-  } finally {
-    downloadLoading.value = false
-  }
 }
 
 const openMetadataDialog = () => {

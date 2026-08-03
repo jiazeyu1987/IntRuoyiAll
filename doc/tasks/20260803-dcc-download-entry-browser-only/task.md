@@ -6,10 +6,10 @@
 
 ## Milestones
 
-- [ ] 定位现有下载入口和受影响前端组件。
-- [ ] 增加静态契约，先证明详情页仍存在下载入口。
-- [ ] 移除非列表行操作列的直接下载入口。
-- [ ] 运行定向静态验证并记录结果。
+- [x] 定位现有下载入口和受影响前端组件。
+- [x] 增加静态契约，先证明详情页仍存在下载入口。
+- [x] 移除非列表行操作列的直接下载入口。
+- [x] 运行定向静态验证并记录结果。
 
 ## Expected Verification
 
@@ -19,7 +19,14 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Verification Summary
+
+- `node tests/e2e/dcc-download-entry-browser-only-static.spec.js`：RED 后 GREEN。
+- `pnpm e2e:dcc:download-entry:static`：PASS。
+- `pnpm ts:check`：PASS。
+- 相邻旧契约 `dcc-list-detail-entry-static.spec.js` 和 `dcc-browser-file-number-detail-entry-static.spec.js` 当前失败在既有浏览器列表操作列/追溯入口断言，不属于本次详情页下载入口收敛改动。
 
 ## 设计约束检查
 

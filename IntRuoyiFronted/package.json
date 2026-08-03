@@ -98,6 +98,7 @@
     "e2e:dcc:detail-version-successor-summary:static": "node tests/e2e/dcc-detail-version-successor-summary-static.spec.js",
     "e2e:dcc:revision-publish-ux-final:static": "node tests/e2e/dcc-revision-publish-ux-final-static.spec.cjs",
     "e2e:dcc:list-detail-entry:static": "node tests/e2e/dcc-list-detail-entry-static.spec.js",
+    "e2e:dcc:download-entry:static": "node tests/e2e/dcc-download-entry-browser-only-static.spec.js",
     "e2e:dcc:audit-default-usability:static": "node tests/e2e/dcc-audit-default-usability-static.spec.js",
     "e2e:dcc:audit-standard-list:static": "node tests/e2e/dcc-audit-standard-list-template-static.spec.js",
     "e2e:dcc:audit-drawer-file-link:static": "node tests/e2e/dcc-audit-drawer-file-link-static.spec.js",
