@@ -1624,6 +1624,18 @@ const isDefaultEmptyBrowserRememberedState = (state: DccBrowserRememberedState) 
 const resolveRememberedDirectoryId = (rememberedState?: DccBrowserRememberedState) =>
   rememberedState?.lastOpenedDirectoryId || rememberedState?.directoryId
 
+const buildBrowserRestoredRememberedState = (
+  rememberedState: DccBrowserRememberedState
+): DccBrowserRememberedState => {
+  const rememberedDirectoryId = resolveRememberedDirectoryId(rememberedState)
+  return {
+    ...rememberedState,
+    scope: rememberedDirectoryId ? BROWSER_SEARCH_SCOPE_CURRENT : rememberedState.scope,
+    directoryId: rememberedDirectoryId,
+    lastOpenedDirectoryId: rememberedDirectoryId
+  }
+}
+
 const buildBrowserRouteQueryFromRememberedState = (state: DccBrowserRememberedState) => {
   const query: Record<string, string> = {
     pageNo: String(state.pageNo || 1),
@@ -1745,13 +1757,7 @@ const restoreBrowserRouteFromRememberedState = async (
     if (!rememberedState) {
       return false
     }
-    const rememberedDirectoryId = resolveRememberedDirectoryId(rememberedState)
-    const restoredState: DccBrowserRememberedState = {
-      ...rememberedState,
-      scope: rememberedDirectoryId ? BROWSER_SEARCH_SCOPE_CURRENT : rememberedState.scope,
-      directoryId: rememberedDirectoryId,
-      lastOpenedDirectoryId: rememberedDirectoryId
-    }
+    const restoredState = buildBrowserRestoredRememberedState(rememberedState)
     await withBrowserRouteSyncGuard(() =>
       router.replace({
         path: route.path,
@@ -2014,6 +2020,7 @@ const clearSelectedDirectory = () => {
   selectedDirectory.value = undefined
   list.value = []
   total.value = 0
+  clearBrowserLoadedListState()
 }
 
 const parseBrowserSearchScope = (value: unknown): BrowserSearchScope => {
@@ -2033,6 +2040,42 @@ const buildBrowserRouteQuery = () => {
 
 const buildBrowserRouteQueryFromRoute = () =>
   buildBrowserRouteQueryFromRememberedState(buildBrowserRememberedStateFromRoute())
+
+let browserDirectoriesLoaded = false
+let browserLastLoadedRouteStateKey: string | undefined
+
+const buildBrowserRouteStateKey = (query: Record<string, string> = buildBrowserRouteQuery()) =>
+  JSON.stringify(query)
+
+const buildBrowserRouteRestoreQuery = () => {
+  const rememberedState = readBrowserRememberedState()
+  if (hasBrowserRouteQuery()) {
+    return mergeBrowserRouteQueryWithRememberedDirectory(rememberedState)
+  }
+  if (rememberedState) {
+    return buildBrowserRouteQueryFromRememberedState(
+      buildBrowserRestoredRememberedState(rememberedState)
+    )
+  }
+  return buildBrowserRouteQueryFromRoute()
+}
+
+const buildBrowserRouteRestoreStateKey = () =>
+  buildBrowserRouteStateKey(buildBrowserRouteRestoreQuery())
+
+const clearBrowserLoadedListState = () => {
+  browserLastLoadedRouteStateKey = undefined
+}
+
+const markBrowserListLoadedForState = (routeStateKey: string) => {
+  browserLastLoadedRouteStateKey = routeStateKey
+}
+
+const shouldKeepBrowserLoadedStateOnRouteReturn = (targetRouteStateKey: string) =>
+  browserDirectoriesLoaded &&
+  browserLastLoadedRouteStateKey === targetRouteStateKey &&
+  !directoryLoading.value &&
+  !loading.value
 
 let browserRouteSyncing = false
 
@@ -2059,6 +2102,10 @@ const syncRouteFromBrowserState = async () => {
 }
 
 const restoreBrowserDirectoryTreeAndList = async () => {
+  const targetRouteStateKey = buildBrowserRouteRestoreStateKey()
+  if (shouldKeepBrowserLoadedStateOnRouteReturn(targetRouteStateKey)) {
+    return
+  }
   const restoredFromQueryOrCache = await restoreBrowserInitialRouteState()
   await loadDirectories()
   await getList()
@@ -2074,9 +2121,11 @@ const buildBrowserReturnPath = () => {
 }
 
 const getList = async () => {
+  const requestRouteStateKey = buildBrowserRouteStateKey()
   if (isCurrentDirectorySearch.value && !selectedDirectoryId.value) {
     list.value = []
     total.value = 0
+    markBrowserListLoadedForState(requestRouteStateKey)
     return
   }
   loading.value = true
@@ -2087,6 +2136,7 @@ const getList = async () => {
       selectedVersionId: resolveInitialSelectedVersionId(item)
     }))
     total.value = data.total
+    markBrowserListLoadedForState(requestRouteStateKey)
   } finally {
     loading.value = false
   }
@@ -2099,6 +2149,7 @@ const dccBrowserQuickFilter = useTableQuickFilter(
 )
 
 const loadDirectories = async () => {
+  browserDirectoriesLoaded = false
   directoryLoading.value = true
   try {
     restoreBrowserMetadataCache()
@@ -2111,6 +2162,7 @@ const loadDirectories = async () => {
     applyDirectoryTree(rootDirectories)
     await openRememberedDirectoryInTree()
     persistBrowserMetadataCache()
+    browserDirectoriesLoaded = true
   } finally {
     directoryLoading.value = false
   }

@@ -41,6 +41,22 @@ assert.doesNotMatch(
 assert.ok(routePage.includes('const activePositions = computed(() => positions.value.filter((item) => item.active))'))
 assert.ok(routePage.includes('positions: activePositions.value'), '路线编辑弹窗仍应只使用启用审批角色选项。')
 
+const handleQuery = extractBetween(
+  routePage,
+  'const handleQuery = async (resetPage = true) => {',
+  'const handleRoutePagination ='
+)
+const lookupLoadIndex = handleQuery.indexOf('await loadRouteSubjectLookups()')
+const routePageLoadIndex = handleQuery.indexOf('getApprovalRoutePage(queryParams)')
+assert.ok(
+  lookupLoadIndex >= 0,
+  '审批路线首屏查询必须先加载审批角色/用户字典，否则 POSITION 节点会被渲染为 -。'
+)
+assert.ok(
+  lookupLoadIndex < routePageLoadIndex,
+  '审批路线列表赋值前必须完成审批角色/用户字典加载，避免节点2等历史角色短暂或稳定显示为空。'
+)
+
 const formatRouteNodeSubject = extractBetween(
   routePage,
   'const formatRouteNodeSubject = (node: ControlledFileApprovalRouteNodeVO) => {',

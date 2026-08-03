@@ -116,6 +116,7 @@
     "e2e:dcc:training-execution-summary:static": "node tests/e2e/dcc-training-execution-summary-static.spec.js",
     "e2e:dcc:browser-version-summary:static": "node tests/e2e/dcc-browser-version-summary-static.spec.js",
     "e2e:dcc:browser-single-tab:static": "node tests/e2e/dcc-browser-single-tab-static.spec.js",
+    "e2e:dcc:browser-tab-return-no-reload:static": "node tests/e2e/dcc-browser-tab-return-no-reload-static.spec.js",
     "e2e:dcc:browser-search-usability:static": "node tests/e2e/dcc-browser-search-usability-static.spec.js",
     "e2e:dcc:browser-cache-write-failure:static": "node tests/e2e/dcc-browser-cache-write-failure-static.spec.js",
     "e2e:dcc:browser-extension-blacklist:static": "node tests/e2e/dcc-browser-extension-blacklist-static.spec.js",

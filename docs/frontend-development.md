@@ -85,6 +85,15 @@
 - Forbidden action: 禁止把截图症状当作完整需求口径；禁止把“取消的不显示”当成唯一验收项而忽略前半句“只显示已生效的历史版本”；禁止用仅隐藏 `CANCELLED` 的实现替代 effective-only 列表口径。
 - Evidence: 任务 `doc/tasks/20260727-route-version-list-active-history-only/`，首轮只隐藏 `CANCELLED` 后 completion audit 发现 `DRAFT` 仍可显示，最终改为 `ACTIVE/SUPERSEDED` 正向集合并用真实 E2E 证明 `V19 DRAFT` 与取消版本均隐藏。
 
+## 前端同路由多入口分面门禁
+
+- Trigger: 同一详情页、抽屉、弹窗或隐藏路由被多个业务入口复用，但用户要求“只显示/仅展示”某一类内容，尤其入口文案包含“追溯”“签核”“审批”“日志”“记录”“详情”。
+- Preflight check: 先拆出每个入口的正式信息范围和非目标范围；复用同一路由时必须显式建模 mode/scope query、类型定义和解析函数，入口 helper 必须传入明确 scope，不得只依赖按钮文案、来源页面或默认详情状态推断。
+- Blocker: 两个入口仍生成同一 URL/query、详情页只隐藏局部标题但仍加载或渲染非目标区块、scope 缺类型约束、静态合同不能同时证明入口 URL 和区块可见性，或用 CSS 隐藏/空数据冒充信息边界时必须停止。
+- Verification: 聚焦静态合同必须断言入口 helper 参数、URL query、scope 解析、正向显示区块、负向隐藏区块和非当前分面辅助加载短路；涉及 Vue/TS 时运行 `pnpm ts:check`。
+- Forbidden action: 禁止把多个业务入口继续合并成无差别详情页；禁止用默认 `traceability=1`、按钮文案、`from=browser` 或空数组推断分面；禁止吞掉非目标接口错误来掩盖区块仍在加载。
+- Evidence: 任务 `doc/tasks/20260803-dcc-trace-signature-scope-split/`，DCC 受控浏览“追溯”和“签核”原先打开同一追溯详情，最终通过 `traceScope=trace/signature` 与 `showLifecycleTraceSections` / `showSignatureTraceSections` 拆分页面关注范围。
+
 ## 前端列表跨账号默认列布局统一门禁
 
 - Trigger: 同一列表在不同浏览器、账号或租户显示不同字段，页面存在“显示字段”、`useUserTableColumns`、`data-user-table-key`、用户列配置接口，或用户要求统一为 admin 默认布局。

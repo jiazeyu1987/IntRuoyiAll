@@ -108,6 +108,7 @@
 - Keywords: 截图字号调整, 文字大小, 字号, 放大 2 倍, 缩小一半, 卡片内文字, Element Plus 泛选择器, 先改静态契约 RED, 字号静态契约 -> `docs/frontend-development.md#前端截图字号调整静态契约门禁`
 - Keywords: 按钮统一, 返回按钮统一, 返回xxx, 返回列表, 返回上一页, Scheme D 按钮, 图标按钮, 红框里的按钮, 旧长文案扫描, header-return-buttons-static -> `docs/frontend-development.md#前端截图按钮统一静态契约门禁`
 - Keywords: 只显示, 仅展示, 有效历史, 已生效历史版本, 版本列表, 状态列表, 候选版本, 取消的不显示, effective-only, ACTIVE SUPERSEDED, DRAFT CANCELLED, 只排除一个状态, `!== 'CANCELLED'` -> `docs/frontend-development.md#前端列表状态口径完整性门禁`
+- Keywords: 同路由多入口分面, 追溯 签核 同一页面, traceScope, showLifecycleTraceSections, showSignatureTraceSections, 只显示追溯信息, 只显示签核信息, 入口 scope query, 多业务入口复用详情页 -> `docs/frontend-development.md#前端同路由多入口分面门禁`
 - Keywords: 不同浏览器列表显示不同, 不同账号列不同, admin 默认布局, 显示字段, 用户列配置, useUserTableColumns, data-user-table-key, table key 升级, 历史列配置覆盖默认列, 权限按钮差异 -> `docs/frontend-development.md#前端列表跨账号默认列布局统一门禁`
 - Keywords: 普通用户只能看到, 只看到我的签名, 权限页签, 动态菜单默认重定向, hidden static child, permissionStore, activeMenu, 电子签名 我的签名, 签名记录 403 -> `docs/frontend-development.md#前端权限页签正向授权门禁`
 - Keywords: 弹窗上一张下一张, 同集合弹窗导航, 同产品同版本切换, 候选不在当前列表页, selectedReport 候选 fallback, 预览上下文丢失, 导航后未选择表单 -> `docs/frontend-development.md#前端同集合弹窗导航上下文门禁`
