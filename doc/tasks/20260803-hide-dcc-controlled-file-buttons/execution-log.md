@@ -30,6 +30,9 @@
 - 修改 viewer 模板调用，仅移除只读预览态的审批/分发/版本/修改/识别基础信息入口参数，保留 DCC 基础条目链接和普通详情页识别动作。
 - 修正相邻静态契约 `dcc-view-preview-copy-unification-static.spec.js` 中的变量名笔误，使其恢复可运行。
 - 完成目标静态契约、受控浏览相邻契约、预览文案契约和 TypeScript 检查。
+- 技能 evidence validator 通过：`validate_bug_regression.py --evidence doc\tasks\20260803-hide-dcc-controlled-file-buttons\bug-regression-evidence.md` -> PASS。
+- 技能 evidence validator 通过：`validate_frontend_feature.py --evidence doc\tasks\20260803-hide-dcc-controlled-file-buttons\frontend-feature-evidence.md` -> PASS。
+- `git diff --check` -> PASS；仅有既有 CRLF 转换 warning，无空白错误。
 
 ## Blockers
 

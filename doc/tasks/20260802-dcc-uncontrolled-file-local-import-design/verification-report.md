@@ -314,3 +314,13 @@
 - GREEN: `rg -n "doc consistency marker scan|关键业务标记扫描|ARCHIVE_METADATA_REQUIRED" docs\experience-index.md docs\e2e-rules.md` -> PASS.
 - GREEN: long-term docs UTF-8/trailing whitespace check and scoped `git diff --check` for `docs/e2e-rules.md` and `docs/experience-index.md` -> PASS, only Git LF-to-CRLF warnings.
 - Boundary: documentation-only hardening; no production code, NAS file, local directory, database data, workflow submit, controlled-file creation, or ACTIVE NAS source mapping was modified.
+
+## M24 Formal Archive Success Slice
+
+- Scope: completed the formal archive success path after local write using processing-item-level archive metadata snapshots.
+- Service behavior: `MATCHED + LOCAL_WRITTEN` now archives only when `archive*Snapshot` metadata is complete; it reads NAS content, uploads the original file, submits DCC workflow, writes exact ACTIVE NAS source mapping, sets audit/item `ARCHIVED`, and preserves replay idempotency.
+- No-fallback boundary: missing archive metadata remains `ARCHIVE_METADATA_REQUIRED`; no legacy task header, current date, candidate JSON, default category/template, or taxonomy-only match is used to fabricate archive success.
+- Schema behavior: `dcc_controlled_file_nas_transfer_task_item` now stores formal archive snapshot fields, and `NAS_UNCONTROLLED_IMPORT` task header no longer requires legacy `template_category_id/effective_date` defaults.
+- RED/GREEN: M24 service RED failed on missing snapshot setters, then targeted archive success test passed; schema RED failed on incomplete migration contract, then targeted schema JUnit and Python SQL contracts passed.
+- Regression: content/local-write/archive targeted set passed with 7 tests, including metadata blocker, replay, conflict, content snapshot binding, and formal archive success.
+- Remaining: real browser E2E and task closeout/commit/push are still pending due runtime/test-data prerequisites and mixed concurrent workspace state.

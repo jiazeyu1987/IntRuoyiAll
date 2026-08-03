@@ -186,3 +186,12 @@ REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dmaven.re
 
 - Full objective remains in progress: formal archive success metadata source, controlled-file creation, ACTIVE NAS source mapping, frontend, and real E2E are not yet implemented.
 - Final closeout/commit/push remains blocked by pre-existing dirty worktree state, mixed concurrent commits, and concurrent unrelated changes; do not mix those with this task slice.
+
+## M24 Backend Formal Archive Success Slice
+
+- Scope: completed backend service path for `MATCHED + LOCAL_WRITTEN` uncontrolled import items with complete formal archive metadata snapshots.
+- Contract: archive submit metadata must come from processing-item-level `archiveCategoryIdSnapshot`, `archiveDirectoryIdSnapshot`, `archiveDccProjectCodeIdSnapshot`, `archiveFileTypeTaxonomyIdSnapshot`, `archiveChangeTypeSnapshot`, `archiveFileNameSnapshot`, `archiveFileNumberSnapshot`, `archiveVersionNoSnapshot`, `archiveEffectiveDateSnapshot`, and `archiveRemarkSnapshot`.
+- Service behavior: complete snapshot reads NAS, uploads the original, submits controlled file workflow without approval, inserts exact NAS source mapping, marks audit/item `ARCHIVED`, and leaves local write status `LOCAL_WRITTEN` for replay idempotency.
+- Failure boundary: missing formal snapshot metadata still records `ARCHIVE_METADATA_REQUIRED`; the implementation does not use legacy task headers, candidate JSON, current date, empty templates, or taxonomy matches alone as fallback submit metadata.
+- GREEN: M24 archive success targeted service test passed with Tests run 1, Failures 0, Errors 0, Skipped 0.
+- REGRESSION: content/local-write/archive targeted set passed with Tests run 7, Failures 0, Errors 0, Skipped 0.

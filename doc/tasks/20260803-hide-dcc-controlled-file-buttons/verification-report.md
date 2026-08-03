@@ -12,6 +12,9 @@
 - PASS: `node tests\e2e\dcc-controlled-browser-ux-optimization-static.spec.js`
 - PASS: `node tests\e2e\dcc-view-preview-copy-unification-static.spec.js`
 - PASS: `pnpm ts:check`
+- PASS: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260803-hide-dcc-controlled-file-buttons\bug-regression-evidence.md`
+- PASS: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260803-hide-dcc-controlled-file-buttons\frontend-feature-evidence.md`
+- PASS: `git diff --check`；仅有既有 CRLF 转换 warning，无空白错误。
 
 ## Blockers
 
