@@ -18,7 +18,7 @@
 3. completed - 写 RED：后端服务/前端静态契约证明当前缺少产品建档申请、审批通过生成 DCC 项目代码、MDM 绑定和页面入口。
 4. completed - 实现最小正式链路：数据库字段/表、后端 API/服务、唯一性与状态校验、受控文件提交 MDM 绑定、前端入口。
 5. completed - 运行 GREEN：后端定向测试、数据库/前端静态契约和必要类型/编译验证。
-6. completed - 更新验证报告、任务状态和收尾证据；真实页面 E2E 已通过，最终推送受并发本地提交与无关工作区状态阻塞，未标记 completed。
+6. completed - 更新验证报告、任务状态和收尾证据；真实页面 E2E、快进融合、推送、worktree 删除和 slot 释放均已完成。
 
 ## BDD Scenarios
 
@@ -69,15 +69,13 @@ BDD: 页面入口暴露建档申请失败原因 -> Given 用户在 DCC 项目代
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-按用户要求，本任务已切换到独立 worktree `D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803`，登记 `int_main slot=15`，前端端口 `8096`、后端端口 `48096`，未占用主工作区 `8081/48081`。
+按用户要求，本任务已切换到独立 worktree `D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803` 完成开发与验证，并已快进融合回本地 `int_main`。融合后 `int_main` 已推送到 `origin/int_main`，最终 HEAD 与远端一致为 `dd1aa949d`。
 
-worktree 内已完成运行态验证：DCC 定向 JUnit 通过 107 tests；前端静态契约通过；worktree DCC/MDM 相关模块 install 后重新打包 `yudao-server-exec.jar` 通过；后端 `48096` health `UP`；前端 `8096` HTTP `200`；合入最新 `origin/int_main` 和本地 `int_main` 已提交内容后再次复跑真实 Playwright E2E，通过项目代码页面发起产品建档申请并审批生成 DCC 项目代码，结果为 `requestId=7`、`projectCodeId=261`、`productMasterId=335`、`projectCode=CODXONB03074622`，`criticalNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`。
+worktree 内完成运行态验证：DCC 定向 JUnit 通过 107 tests；前端静态契约通过；worktree DCC/MDM 相关模块 install 后重新打包 `yudao-server-exec.jar` 通过；后端 `48096` health `UP`；前端 `8096` HTTP `200`；真实 Playwright E2E 通过项目代码页面发起产品建档申请并审批生成 DCC 项目代码，最终有效证据为 `requestId=7`、`projectCodeId=261`、`productMasterId=335`、`projectCode=CODXONB03074622`，`criticalNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`。
 
-后续本地 `int_main` 又出现并发已提交基线，已在 worktree 再次合入并复跑产品建档前端静态契约与 DCC 定向 JUnit，均通过；当前任务 worktree 运行进程已停止并释放 `8096/48096`。本轮用户要求先提交主工作区前后端/残留记录后再融合，主工作区已清理为可接收状态；worktree 已再次合入最新本地 `int_main`，最新 merge commit 为 `e9f52e5c2`，`git rev-list --left-right --count int_main...codex/dcc-product-onboarding-flow-20260803` 为 `0 12`，前端静态契约和 DCC 定向 JUnit 107 tests 均通过。剩余收尾是按 Git 门禁快进融合回 `int_main` 并尝试 push；若 GitHub HTTPS 代理仍不可用，必须记录 blocker，不能标记 completed。
-
-主工作区提交 `663b55e48` 后，worktree 又合入最新本地 `int_main`，merge commit 为 `afdc074a6`，`git rev-list --left-right --count int_main...codex/dcc-product-onboarding-flow-20260803` 为 `0 15`；最终融合前再次复跑产品建档前端静态契约与 DCC 定向 JUnit 107 tests，均通过。
+收尾已完成：`codex/dcc-product-onboarding-flow-20260803` 已并入 `int_main`，本地任务分支已删除；worktree Git 注册已移除；残留 `node_modules` 空壳按 worktree 删除门禁清理；`D:\IntRuoyiWorktree\.ports\worktree-ports.json` 中 `dcc-product-onboarding-flow-20260803` 已标记 `active=false`，`slot=15`、端口 `8096/48096` 已释放。
 
 ## 设计约束检查
 

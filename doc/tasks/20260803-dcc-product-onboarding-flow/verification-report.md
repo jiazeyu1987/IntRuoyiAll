@@ -3,8 +3,8 @@
 ## Summary
 
 - Result: Targeted backend, schema, frontend static/type, isolated server package, runtime load, and real Playwright E2E verification passed.
-- Completion state: Implementation and required verification are ready for closeout; final commit/push is blocked by pre-existing worktree state outside this task.
-- 2026-08-03 worktree migration update: independent worktree setup and runtime verification passed. The branch `codex/dcc-product-onboarding-flow-20260803` was created under `D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803` and registered as `int_main slot=15` (`8096/48096`). Worktree backend JUnit, frontend static contract, server package, backend health, frontend HTTP, and real Playwright E2E all passed.
+- Completion state: completed; implementation, required verification, fast-forward integration, push, worktree removal, branch cleanup, and slot release all passed.
+- 2026-08-03 worktree migration update: independent worktree setup and runtime verification passed. The branch `codex/dcc-product-onboarding-flow-20260803` was created under `D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803` and registered as `int_main slot=15` (`8096/48096`). Worktree backend JUnit, frontend static contract, server package, backend health, frontend HTTP, and real Playwright E2E all passed; the branch was fast-forward merged into `int_main`, pushed, removed locally, and slot 15 was released.
 
 ## Commands
 
@@ -48,14 +48,15 @@
 - PASS: `task_closeout.py --task-id 20260803-dcc-product-onboarding-flow --mode preview` kept the real E2E script/result and core task reports; no blocked paths or warnings.
 - PASS: `task_closeout.py --task-id 20260803-dcc-product-onboarding-flow --mode apply` deleted temporary backend/database/frontend/bug evidence files after validator PASS was copied here.
 - PASS: rerun cleanup preview/apply after latest evidence update kept the real E2E script/result and core task reports; no deleted paths, blocked paths, or warnings.
-- BLOCKED: 2026-08-03 worktree closeout preview from `D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803` kept only the real E2E script/result and core task reports, but blocked final apply/merge because main worktree `E:\IntRuoyi` is dirty and cannot receive the ff-only merge safely.
+- PASS: 2026-08-03 final closeout removed `D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803`; `git worktree list --porcelain` no longer lists it; `Test-Path D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803` returned `False`.
+- PASS: `D:\IntRuoyiWorktree\.ports\worktree-ports.json` entry `dcc-product-onboarding-flow-20260803` is `active=false` with `slot=15`, frontend `8096`, backend `48096`, and `cleanupTask=20260803-dcc-product-onboarding-flow`.
+- PASS: local branch `codex/dcc-product-onboarding-flow-20260803` was confirmed merged into `int_main` and deleted; no matching remote branch existed.
 
-## Known Non-Goals And Blockers
+## Known Non-Goals
 
-- Standard backend restart blocked: `restart-int-ruoyi-local.ps1 -Component backend` failed because unrelated dirty `DccControlledFileNasTransferServiceImpl.java` currently has compile errors (`requireNonNull`, `SelectedUncontrolledImportFile`, `PreparedUncontrolledImportFile` missing). This unrelated file was not modified or reverted; verification used a clean detached build jar for this task.
-- Current shared runtime scope: `48081` is currently owned by another task jar (`backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`). Product-onboarding E2E has already passed during the controlled temporary switch to the verified jar; rerunning that E2E would require another explicit runtime switch.
+- Shared runtime scope: product-onboarding E2E passed in the isolated worktree runtime on `8096/48096`; this task does not claim the current shared `48081` runtime is still running the product-onboarding verification jar.
 - Full schema suite not claimed: 未将完整 `DccBaseSchemaTest` 作为当前完成门禁；此前已知全量 schema 测试存在与本任务无关的 destructive SQL 检测和 NAS nullable 断言问题。
-- Commit/push blocked: 当前 `int_main` 存在并发产生的未推送本地提交，其中包含本任务证据和其它任务文件；工作区还存在非本任务未跟踪/暂存任务文件。按任务所有权边界，本任务未继续打包、提交或推送这些无关改动。
+- No remaining closeout blocker: final `int_main` and `origin/int_main` both resolved to `dd1aa949d`, and the main worktree had no task-owned diff.
 
 ## Worktree Verification Attempt
 
@@ -92,4 +93,4 @@
 - PASS: after residual baseline commit `663b55e48`, worktree merged local `int_main` again with merge commit `afdc074a6`, branch runtime port guard passed, and `git rev-list --left-right --count int_main...codex/dcc-product-onboarding-flow-20260803` returned `0 15`.
 - PASS: final pre-ff after `663b55e48` static contract `node IntRuoyiFronted\tests\e2e\dcc-project-code-product-onboarding-static.spec.js` returned exit code `0`.
 - PASS: final pre-ff after `663b55e48` DCC JUnit `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest,DccControlledFileWorkflowServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> Tests run: 107, Failures: 0, Errors: 0, Skipped: 0.
-- PENDING: integration still requires committing this latest evidence, merging back to local `int_main`, and pushing if GitHub HTTPS proxy/network permit.
+- PASS: final integration and push completed; final `int_main` / `origin/int_main` HEAD is `dd1aa949d`.

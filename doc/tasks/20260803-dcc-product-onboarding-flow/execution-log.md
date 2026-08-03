@@ -103,9 +103,7 @@
 
 ## Blockers
 
-- Standard restart remains blocked by unrelated dirty DCC NAS import code compile errors in `DccControlledFileNasTransferServiceImpl.java`; product onboarding verification used a clean detached build jar instead of modifying or reverting that unrelated work.
-- Current shared runtime `48081` is healthy but owned by another task jar (`backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`); product-onboarding E2E already passed during the controlled temporary switch to the verified jar, and rerun would require another explicit runtime switch.
-- 最终 push 未执行：当前分支已有并发产生的未推送本地提交，且仍有非本任务未跟踪/暂存任务文件；按任务所有权边界，不能在本任务中继续打包、提交或推送这些无关改动。
+- No remaining closeout blocker. Historical runtime and dirty-worktree blockers were resolved by moving the work to the isolated slot 15 worktree, completing verification there, fast-forward merging back into `int_main`, pushing `int_main`, and removing the task worktree.
 
 ## Worktree Migration Attempt - 2026-08-03
 
@@ -171,3 +169,14 @@
 - Final pre-ff boundary after `663b55e48`: `git rev-list --left-right --count int_main...codex/dcc-product-onboarding-flow-20260803` -> `0 15`; local `int_main` is an ancestor of the worktree branch and can receive a fast-forward merge.
 - GREEN: final pre-ff after `663b55e48` `node IntRuoyiFronted\tests\e2e\dcc-project-code-product-onboarding-static.spec.js` in the worktree -> PASS, exit code 0.
 - GREEN: final pre-ff after `663b55e48` `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest,DccControlledFileWorkflowServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` in the worktree -> PASS, Tests run: 107, Failures: 0, Errors: 0, Skipped: 0.
+
+## Final Closeout - 2026-08-03
+
+- Main fast-forward: local `int_main` received `codex/dcc-product-onboarding-flow-20260803` by `git merge --ff-only`, including final worktree verification commit `46bf8270f`.
+- Push: `git -c http.https://github.com.proxy= -c http.proxy= -c https.proxy= push origin int_main` -> PASS; final `git rev-parse --short HEAD` and `git rev-parse --short origin/int_main` both returned `dd1aa949d`.
+- Main status: `git status --short --branch --untracked-files=all` -> `## int_main...origin/int_main`; only recurring warnings from pre-existing `IntRuoyiBackend/yudao-module-mes/target_corrupt_m4_20260802_1327` were emitted, with no tracked/untracked task diff.
+- Worktree delete preflight: `git -C D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803 status --short --branch --untracked-files=all` -> clean; `git merge-base --is-ancestor codex/dcc-product-onboarding-flow-20260803 int_main` -> PASS; `Get-NetTCPConnection -LocalPort 8096,48096 -State Listen` -> no listeners.
+- Worktree cleanup: initial `git worktree remove D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803` removed Git registration but left ignored `IntRuoyiFronted\node_modules` residuals; per `docs\worktree-memory.md#Worktree 删除门禁`, confirmed no `.git`, no target process, and no `8096/48096` listeners, then cleared only that residual directory.
+- Cleanup verification: `Test-Path D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803` -> `False`; `git worktree list --porcelain` no longer contains `dcc-product-onboarding-flow-20260803`.
+- Slot release: `D:\IntRuoyiWorktree\.ports\worktree-ports.json` entry `dcc-product-onboarding-flow-20260803` updated to `active=false`, `slot=15`, `frontendPort=8096`, `backendPort=48096`, `cleanupTask=20260803-dcc-product-onboarding-flow`.
+- Branch cleanup: local branch `codex/dcc-product-onboarding-flow-20260803` was confirmed merged into `int_main` and deleted with `git branch -d`; no `origin/codex/dcc-product-onboarding-flow-20260803` branch existed.
