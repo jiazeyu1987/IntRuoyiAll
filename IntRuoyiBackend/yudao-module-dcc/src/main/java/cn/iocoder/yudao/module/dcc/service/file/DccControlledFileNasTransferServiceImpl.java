@@ -510,6 +510,74 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
         return getTask(userId, taskId);
     }
 
+    @Override
+    public DccControlledFileBinary readUncontrolledImportContent(Long userId,
+                                                                 Long importTaskId,
+                                                                 Long auditFileId,
+                                                                 String sourceSignature,
+                                                                 String localRelativePath) {
+        requireNonNull(userId, "userId");
+        requireNonNull(importTaskId, "importTaskId");
+        requireNonNull(auditFileId, "auditFileId");
+        if (StrUtil.isBlank(sourceSignature)) {
+            throw new IllegalStateException("nas uncontrolled import sourceSignature is required: " + auditFileId);
+        }
+        if (StrUtil.isBlank(localRelativePath)) {
+            throw new IllegalStateException("nas uncontrolled import localRelativePath is required: " + auditFileId);
+        }
+
+        DccControlledFileNasTransferTaskDO task = taskMapper.selectById(importTaskId);
+        if (task == null
+                || !SOURCE_TYPE_NAS_UNCONTROLLED_IMPORT.equals(task.getSourceType())
+                || !Objects.equals(task.getOperatorUserId(), userId)) {
+            throw new IllegalStateException("nas uncontrolled import task invalid: " + importTaskId);
+        }
+        DccNasControlAuditFileDO auditFile = auditFileMapper.selectById(auditFileId);
+        if (auditFile == null || !Objects.equals(task.getAuditTaskId(), auditFile.getTaskId())) {
+            throw new IllegalStateException("nas uncontrolled import audit file task mismatch: " + auditFileId);
+        }
+        if (!Objects.equals(importTaskId, auditFile.getSelectedImportTaskId())
+                || auditFile.getSelectedImportTaskItemId() == null) {
+            throw new IllegalStateException("nas uncontrolled import audit file not bound to task: " + auditFileId);
+        }
+        DccControlledFileNasTransferTaskItemDO item = taskItemMapper.selectById(auditFile.getSelectedImportTaskItemId());
+        if (item == null
+                || !Objects.equals(item.getTaskId(), importTaskId)
+                || !Objects.equals(item.getAuditFileId(), auditFileId)) {
+            throw new IllegalStateException("nas uncontrolled import task item mismatch: " + auditFileId);
+        }
+        requireUncontrolledImportContentSnapshot(auditFileId, sourceSignature, localRelativePath, auditFile, item);
+
+        NasFileReadResult sourceFile = nasBrowserService.readFile(auditFile.getNormalizedRelativePath());
+        if (sourceFile == null || sourceFile.bytes() == null) {
+            throw new IllegalStateException("nas uncontrolled import content missing: " + auditFileId);
+        }
+        String fileName = StrUtil.blankToDefault(sourceFile.name(), auditFile.getFileName());
+        return new DccControlledFileBinary(fileName, "application/octet-stream", sourceFile.bytes(), null);
+    }
+
+    private void requireUncontrolledImportContentSnapshot(Long auditFileId,
+                                                          String sourceSignature,
+                                                          String localRelativePath,
+                                                          DccNasControlAuditFileDO auditFile,
+                                                          DccControlledFileNasTransferTaskItemDO item) {
+        if (!Objects.equals(sourceSignature, auditFile.getSourceSignature())
+                || !Objects.equals(sourceSignature, item.getSourceSignature())) {
+            throw new IllegalStateException("nas uncontrolled import source signature mismatch: " + auditFileId);
+        }
+        if (!Objects.equals(localRelativePath, auditFile.getLocalRelativePath())
+                || !Objects.equals(localRelativePath, item.getLocalRelativePath())) {
+            throw new IllegalStateException("nas uncontrolled import localRelativePath mismatch: " + auditFileId);
+        }
+        if (!Objects.equals(AUDIT_FILE_DOWNLOAD_STATUS_SELECTED, auditFile.getDownloadStatus())
+                || !Objects.equals(IMPORT_LOCAL_WRITE_STATUS_NOT_STARTED, item.getLocalWriteStatus())
+                || !Objects.equals(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED, auditFile.getArchiveStatus())
+                || !Objects.equals(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED, item.getArchiveStatus())
+                || auditFile.getControlledFileId() != null) {
+            throw new IllegalStateException("nas uncontrolled import content state invalid: " + auditFileId);
+        }
+    }
+
     private DccControlledFileNasTransferTaskDO selectUncontrolledImportIdempotentTask(
             Long userId, Long auditTaskId, String idempotencyKey, boolean forUpdate) {
         return taskMapper.selectOne(new LambdaQueryWrapperX<DccControlledFileNasTransferTaskDO>()

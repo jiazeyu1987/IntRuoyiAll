@@ -6822,6 +6822,16 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         return batchRecordAttachmentOwners("USERS", List.of(10001L));
     }
 
+    private String incompleteFrozenBatchTaskConfigSnapshotJson() {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        Map<String, Object> configSnapshots = new LinkedHashMap<>();
+        configSnapshots.put("flowGraph", Map.of("nodes", List.of(), "edges", List.of()));
+        configSnapshots.put("batchUseConfigs", List.of());
+        configSnapshots.put("batchRecordAttachmentOwners", defaultBatchRecordAttachmentOwners());
+        snapshot.put("configSnapshots", configSnapshots);
+        return JSON.toJSONString(snapshot);
+    }
+
     private List<Map<String, Object>> batchRecordAttachmentOwners(String sourceType, List<Long> sourceIds) {
         return List.of(
                 batchRecordAttachmentOwner(
