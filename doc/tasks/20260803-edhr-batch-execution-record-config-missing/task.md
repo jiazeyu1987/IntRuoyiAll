@@ -6,11 +6,11 @@
 
 ## Milestones
 
-- [ ] 定位触发该错误的后端配置读取链路和现有回归测试。
-- [ ] 先补最小失败回归，证明缺失场景的正式预期。
-- [ ] 实施最小后端修复，保持批记录表单、表单槽位、工序开始三类来源分离。
+- [x] 定位触发该错误的后端配置读取链路和现有回归测试。
+- [x] 先补最小失败回归，证明缺失场景的正式预期。
+- [x] 实施最小后端修复，保持批记录表单、表单槽位、工序开始三类来源分离。
 - [ ] 运行定向 GREEN 和相关回归验证。
-- [ ] 记录 bug evidence、verification report，并按 closeout 规则收尾。
+- [x] 记录 bug evidence、verification report，并按 closeout 规则收尾。
 
 ## Expected Verification
 
@@ -33,6 +33,9 @@
 
 ## Current Status
 
-in_progress
+blocked
 
 - 已创建任务目录并读取 `docs/task-closeout-rules.md`、`docs/backend-development.md`、`docs/frontend-development.md`、`docs/e2e-rules.md`、`docs/experience-index.md` 和 bug-regression-fix-loop 技能门禁。
+- 已实施后端修复：`getReviewTimeline` 在读取任务时间线前执行与详情页一致的 active batch 任务恢复，并在事务内重新读取批次与任务。
+- 已补充回归：`getReviewTimeline_recoversMissingRouteTasksFromCurrentBatchConfigWhenFrozenSnapshotIncomplete` 覆盖冻结快照缺 `flowGraph.nodes` / `batchUseConfigs` 且当前正式 BATCH 配置完整时，时间线读取应恢复正式逐工序批记录任务。
+- 阻塞：本机 Maven/JDK 在 `yudao-module-mes` 编译/clean 阶段反复卡在 Windows 文件系统 native 调用或无诊断退出，未生成新的 Surefire 报告；尚未取得 required GREEN，不能提交或标记完成。

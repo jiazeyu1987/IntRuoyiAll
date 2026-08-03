@@ -1,4 +1,4 @@
-# 岗位需求分解矩阵实现任务执行日志
+﻿# 岗位需求分解矩阵实现任务执行日志
 
 ## Task Start
 
@@ -853,3 +853,20 @@
 - GREEN: `pnpm --dir IntRuoyiFronted e2e:role-matrix-pqc-d32-fixture:static` -> PASS。
 - GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
 - GREEN: scoped `git diff --check` on D29/D32 docs, D32 fixture SQL, package script and static contracts -> PASS。
+
+## M6 - AC-D29 PQC Duplicate Submit Status Guard
+
+- BDD: AC-D29 duplicate PQC task submit must fail fast -> Given a PQC inspection task is already `SUBMITTED` and has generated or may have generated a process-pool PQC event When the frontline PQC submit endpoint is called again with the same `pqcTaskId` Then the service must reject before updating the task, inserting piece details, or creating another process-pool event; only `PENDING` tasks may enter formal submission.
+- TEST_ADDED: `MesFrontlinePqcContextServiceTest#shouldRejectAlreadySubmittedPqcInspectionTask` -> discovered in source and asserts `PRO_FRONTLINE_PQC_TASK_STATUS_INVALID`, no `pqcTaskMapper.updateById`, no `pqcPieceDetailMapper.insertBatch`, and no `processPoolEventService.createPqcInspectionEvent`.
+- RED_BLOCKED: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> BLOCKED, expected business RED could not be reached because the current-task Maven chain stalled before target compile while unrelated DCC/MES Maven processes were also active; current-task PIDs `66460/44116/39272` were stopped only after stack inspection showed no target result.
+- RED_BLOCKED: `mvn -pl yudao-module-mes "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> BLOCKED, expected business RED could not be reached because Maven stalled in `IncrementalBuildHelper.beforeRebuildExecution` / `WinNTFileSystem.delete0`; current-task PIDs `5980/32400/41968` were stopped.
+- RED_BLOCKED: `mvn -pl yudao-module-mes "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-Dmaven.compiler.useIncrementalCompilation=false" test` -> BLOCKED, expected business RED could not be reached because non-incremental MES compile stalled in javac file-attribute scanning under concurrent Maven load; current-task PIDs `50844/51936/34020` were stopped.
+- IMPLEMENTING: Added `PRO_FRONTLINE_PQC_TASK_STATUS_INVALID` error code, introduced `PQC_TASK_STATUS_PENDING`, required `PENDING` in `requirePqcTaskIdentity(...)`, and replaced the submit write literal with `PQC_TASK_STATUS_SUBMITTED`.
+- GREEN_BLOCKED: Standard `mvn -pl yudao-module-mes "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` stalled again in compiler stale-source scanning; current-task PIDs `19476/32184/50924` were stopped after stack inspection.
+- GREEN_BLOCKED: Non-incremental `mvn -pl yudao-module-mes "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-Dmaven.compiler.useIncrementalCompilation=false" test` -> FAIL before target tests, expected reason not reached: shared `target\classes` is missing `MesProScheduleCalendarDayDetailRespVO$LineDetailItem$LineDetailItemBuilder.class` although source `LineDetailItem` is annotated with `@Builder`; another non-current MES Maven PID `57820` is still active in the same backend root, so this task did not clean or rewrite shared `target`.
+- AUTHORIZED_CLEANUP: After user authorization, stopped the blocking same-root MES Maven chain `57820/7728/20224`. A Maven module clean `mvn -pl yudao-module-mes clean` started deleting `yudao-module-mes\target` but stalled in `maven-clean-plugin Cleaner.delete` / `WinNTFileSystem.delete0`; current-task clean PIDs `28552/42884/65452` were stopped, and `target` still had 1081 entries.
+- AUTHORIZED_RETRY: Retried non-incremental target test after partial clean. Additional same-root MES Maven chains auto-appeared and were stopped under the same authorization: `59876/36624/61668`, `57028/29908/51964`, and `31416/31660/21148`. The current target test `47312/66196/41880` then remained in javac `ClassWriter.writeClass` / file close for more than 20 minutes without reaching current surefire reports, so it was stopped to avoid further `target` contention.
+- TARGET_ISOLATION: Moved the remaining partial output directory from `IntRuoyiBackend\yudao-module-mes\target` to `IntRuoyiBackend\yudao-module-mes\target\rrm_m6_blocked_20260803_151631`, allowing Maven to regenerate a clean `target` without deleting the locked residual files.
+- TEST_FIX: Fixed `MesFrontlinePqcContextServiceTest#shouldRejectAlreadySubmittedPqcInspectionTask` Mockito overload ambiguity by changing `updateById(any())` to `updateById(any(MesPqcInspectionTaskDO.class))`; this keeps the same no-write assertion and only makes the test compile.
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 10 tests, 0 failures, 0 errors, BUILD SUCCESS.
+- Decision: AC-D29 duplicate-submit status guard has targeted backend GREEN evidence, but AC-D29 and M6 are not accepted because full M6 failure paths, permissions/read-only evidence, concurrency/performance gates, cleanup, and 62 AC coverage remain open. 本轮仍不执行 `git push`。

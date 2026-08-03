@@ -7,9 +7,12 @@
 ## BDD
 
 - BDD: 受控文件提交选择文件分类 -> Given 用户在受控文件提交页选择一个正式存在的文件分类 When 继续选择文件类别或提交范围 Then 前端发送的分类标识必须能被后端正式分类表识别，页面不得出现 `Controlled file category does not exist`。
+- BDD: 文件分类切换不触发历史名称预加载 -> Given 用户在受控文件提交页已选择 DCC 项目 When 用户只切换“文件分类”taxonomy 且尚未操作“文件名称”下拉 Then 页面不得调用历史文件名称辅助接口并弹出 `Controlled file category does not exist`；历史名称只在用户聚焦/查询文件名称时按需加载。
 
 ## Command And Evidence Log
 
+- 2026-08-03 用户补充截图：页面在“受控文件提交”中选择 `文件分类=技术文档 / 设计和开发策划阶段 / 技术调研报告` 后，`文件类别` 下拉为空并提示当前分类暂无绑定类别，同时页面右上角 toast 仍显示 `Controlled file category does not exist`。
+- Root cause refinement: 第一轮修复已清理 stale `categoryId` 并按 taxonomy 过滤 DCC 正式类别，但 `handleFileTypeTaxonomyChange()` 仍会立即调用 `refreshUploadNameOptionsForProjectTaxonomy()`，触发辅助历史文件名称接口。该接口与当前“文件类别”选择无关，且在用户只切换文件分类时不应弹全局 category 错误。
 - Read task-closeout rules: `Get-Content -Raw -Encoding UTF8 docs\task-closeout-rules.md` -> PASS。
 - Read PowerShell encoding rules: `Get-Content -Raw -Encoding UTF8 docs\powershell-encoding.md` -> PASS。
 - Read frontend/backend trigger rules: `Get-Content -Raw -Encoding UTF8 docs\frontend-development.md`, `Get-Content -Raw -Encoding UTF8 docs\backend-development.md` -> PASS，前端规则输出较长，后续按命中关键词读取精确门禁段落。

@@ -536,6 +536,8 @@ public interface ErrorCodeConstants {
             "当前工序缺少待执行 PQC 检验任务，activeOrderId={}，routeProcessId={}，processId={}");
     ErrorCode PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH = new ErrorCode(1_040_506_108,
             "PQC 检验任务身份与提交上下文不一致：{}");
+    ErrorCode PRO_FRONTLINE_PQC_TASK_STATUS_INVALID = new ErrorCode(1_040_506_109,
+            "PQC 检验任务状态不允许提交：taskId={}，status={}");
 
     // ========== MES 生产管理-生产流转卡（1-040-507-000） ==========
     ErrorCode PRO_CARD_NOT_EXISTS = new ErrorCode(1_040_507_000, "生产流转卡不存在");

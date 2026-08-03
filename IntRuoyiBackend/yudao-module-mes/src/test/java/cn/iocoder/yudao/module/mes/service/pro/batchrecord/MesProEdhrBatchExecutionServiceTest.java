@@ -755,6 +755,49 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void getReviewTimeline_recoversMissingRouteTasksFromCurrentBatchConfigWhenFrozenSnapshotIncomplete() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
+        MesProRouteDO route = routeMapper.selectById(fixture.routeId());
+        MesProEdhrBatchExecutionDO legacyBatch = MesProEdhrBatchExecutionDO.builder()
+                .batchExecutionCode("EDHRB-TIMELINE-CURRENT-CONFIG-RECOVERY")
+                .workOrderId(workOrder.getId())
+                .workOrderCode(workOrder.getCode())
+                .batchCode("BATCH-TIMELINE-CURRENT-CONFIG-RECOVERY")
+                .activeContextKey(workOrder.getId() + "|" + route.getId() + "|BATCH-TIMELINE-CURRENT-CONFIG-RECOVERY")
+                .productId(workOrder.getProductId())
+                .productCode(String.valueOf(workOrder.getProductId()))
+                .productName(workOrder.getName())
+                .routeId(route.getId())
+                .routeVersionId(fixture.routeVersionId())
+                .routeVersionNo(fixture.routeVersionNo())
+                .routeSnapshotJson(incompleteFrozenBatchTaskConfigSnapshotJson())
+                .routeCode(route.getCode())
+                .routeName(route.getName())
+                .status(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CREATED)
+                .taskTotal(4)
+                .taskApprovedCount(0)
+                .blockedCount(0)
+                .build();
+        batchExecutionMapper.insert(legacyBatch);
+        insertLegacySpecialOnlyTasks(legacyBatch.getId());
+
+        EdhrBatchExecutionReviewTimelineRespVO timeline = batchExecutionService.getReviewTimeline(legacyBatch.getId());
+
+        assertEquals(6, timeline.getTaskEvents().size());
+        List<MesProEdhrBatchExecutionTaskDO> persistedRouteTasks =
+                batchTaskMapper.selectListByBatchExecutionId(legacyBatch.getId()).stream()
+                        .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM.equals(task.getNodeType()))
+                        .sorted(Comparator.comparing(MesProEdhrBatchExecutionTaskDO::getRouteProcessSort)
+                                .thenComparing(MesProEdhrBatchExecutionTaskDO::getBatchRecordSort))
+                        .toList();
+        assertEquals(List.of(fixture.reportId1(), fixture.reportId2()), persistedRouteTasks.stream()
+                .map(MesProEdhrBatchExecutionTaskDO::getBatchRecordReportId)
+                .toList());
+        verify(workTaskService).createInitialFillTask(argThat(batch -> Objects.equals(batch.getId(), legacyBatch.getId())));
+    }
+
+    @Test
     void getPage_marksBrokenExistingRouteTaskAsBlockedWithoutFailingWholePage() {
         Fixture fixture = insertRouteFixture(true, true);
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());

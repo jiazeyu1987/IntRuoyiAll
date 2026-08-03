@@ -129,6 +129,9 @@
 | 2026-08-03 | current runtime probe | PASS，48081 listener PID `43876` 为 `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`；backend health `UP`，frontend 8081 HTTP `200` |
 | 2026-08-03 | authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` after D29/D32 | PASS，0 SOURCE / 0 ENV / 0 RUNTIME |
 | 2026-08-03 | authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` after D29/D32 | STRUCTURED_BLOCKED，6 phase evidence / 10 action evidence / 2 gate evidence / 65 blockers；`pqcFormalSubmissionCreated=PASS`，`submittedTaskId=31`，`eventId=26`，`signatureId=23`；`pqcLeaderSubmissionFilterPaginationConsistent=PASS`，`total=2`，`firstEventId=24`，`secondEventId=26` |
+| 2026-08-03 | M6 AC-D29 duplicate-submit status guard target Maven | BLOCKED，standard command stalled before target tests; non-incremental command failed before target tests due missing generated `LineDetailItemBuilder` class in shared `target\classes` while another MES Maven PID `57820` remained active; no GREEN claimed |
+| 2026-08-03 | M6 AC-D29 duplicate-submit status guard authorized cleanup/retry | BLOCKED，authorized blocker PID `57820` and subsequent same-root MES Maven chains were stopped, but `mvn -pl yudao-module-mes clean` stalled in `WinNTFileSystem.delete0`, target still had 1081 entries, and the retry stayed in javac `ClassWriter.writeClass` for 20+ minutes without current surefire reports; no GREEN claimed |
+| 2026-08-03 | M6 AC-D29 duplicate-submit status guard target Maven after target isolation | PASS，`mvn -pl yudao-module-mes "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`，10 tests，0 failures/errors，BUILD SUCCESS |
 
 ## Independent Gate Decision
 

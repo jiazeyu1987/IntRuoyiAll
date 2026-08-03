@@ -19,7 +19,7 @@
 
 ## Current Status
 
-completed
+blocked
 
 ## Verification Summary
 
@@ -34,7 +34,7 @@ completed
 
 - 前端代码提交：`72712e92d chore: baseline concurrent download entry updates`。
 - 收尾文档提交：`fa4ba2225 docs: close DCC download entry task`。
-- 推送结果：首次推送因 GitHub 代理 `127.0.0.1:7890` 不可用和直连重置失败；网络恢复后使用命令级清空代理成功推送 `int_main`，远端更新 `d8c30162b..57d1345d1`。最终复查 `git status --short --branch` 显示本地分支不再领先 `origin/int_main`。
+- 推送结果：前端代码与收尾记录已先成功推送到 `57d1345d1`；最终完成记录提交 `baad4eb0f` 仍在本地，后续推送再次因 GitHub 443 连接重置/不可达失败。当前 `int_main` 仍领先 `origin/int_main` 1 个提交，需网络恢复后重试 `git -c http.https://github.com.proxy= -c http.proxy= -c https.proxy= push origin int_main`。
 
 ## 设计约束检查
 

@@ -143,6 +143,7 @@ M6
 
 ## M6 Evidence
 
+- `backend-api-evidence.md`
 - `execution-log.md`
 - `test-report.md`
 - `verification-report.md`
@@ -150,6 +151,7 @@ M6
 - `IntRuoyiFronted/test-results/role-requirement-matrix-real-flow/result.json`
 - `m6-migration-policy-gate.json`
 - `m6-pqc-d32-same-filter-local-seed.sql`
+- Current AC-D29 duplicate-submit status guard has target backend GREEN after isolating residual `target`; M6 still remains `in_progress` because full real E2E failure paths, permissions/read-only proof, concurrency/performance, cleanup, and 62 AC acceptance remain open.
 
 ## Applicable Gate Summary
 

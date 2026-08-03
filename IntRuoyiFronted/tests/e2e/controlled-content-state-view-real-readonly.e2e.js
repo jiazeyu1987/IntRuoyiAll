@@ -117,14 +117,14 @@ async function main() {
     assert.ok(firstRow.id, 'DCC 浏览页首条记录缺少受控文件 ID，无法进入详情')
     selectedVersionId = firstRow.id
 
-    const detailLink = page.locator('[data-testid="dcc-browser-file-number-detail-link"]:visible').first()
-    await detailLink.waitFor({ state: 'visible' })
+    const traceabilityButton = page.locator('[data-testid="dcc-browser-row-traceability"]:visible').first()
+    await traceabilityButton.waitFor({ state: 'visible' })
 
     const detailResponsePromise = page.waitForResponse(
       (response) => isExactControlledFileDetailResponse(response, selectedVersionId),
       { timeout: 60000 }
     )
-    await detailLink.click()
+    await traceabilityButton.click()
     await page.waitForURL((current) => current.pathname.includes('/dcc/controlled-file/detail/'), {
       timeout: 60000,
       waitUntil: 'commit'

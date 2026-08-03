@@ -502,6 +502,7 @@ const submitLoading = ref(false)
 const uploadPreviewLoading = ref(false)
 const uploadDrawingPdfLoading = ref(false)
 const uploadNameOptionsLoading = ref(false)
+const uploadNameOptionsLoadedKey = ref('')
 const currentVersionLookupLoading = ref(false)
 const projectCodeOptionsLoading = ref(false)
 const fileTypeTaxonomiesLoading = ref(false)
@@ -849,6 +850,7 @@ const resetUploadNameLinkage = (clearVersionNo: boolean) => {
 const resetUploadNameContext = (clearFileName: boolean) => {
   uploadNameOptions.value = []
   uploadNameOptionsLoading.value = false
+  uploadNameOptionsLoadedKey.value = ''
   if (clearFileName) {
     formData.fileName = ''
   }
@@ -1056,23 +1058,47 @@ const loadBaseData = async () => {
   }
 }
 
+const buildUploadNameOptionsKey = () => {
+  if (!canLoadUploadNameOptions.value || !formData.dccProjectCodeId || !formData.fileTypeTaxonomyId) {
+    return ''
+  }
+  return `${formData.dccProjectCodeId}:${formData.fileTypeTaxonomyId}`
+}
+
 const loadUploadNameOptions = async (dccProjectCodeId: number, fileTypeTaxonomyId: number) => {
+  const requestKey = `${dccProjectCodeId}:${fileTypeTaxonomyId}`
   uploadNameOptionsLoading.value = true
   try {
-    uploadNameOptions.value = await getControlledFileUploadNameOptions({
+    const options = await getControlledFileUploadNameOptions({
       dccProjectCodeId,
       fileTypeTaxonomyId
     })
+    if (buildUploadNameOptionsKey() !== requestKey) {
+      return
+    }
+    uploadNameOptions.value = options
+    uploadNameOptionsLoadedKey.value = requestKey
   } catch (error) {
-    uploadNameOptions.value = []
-    message.error(resolveUploadErrorMessage(error, '历史文件名称加载失败，请查看错误提示后重试'))
+    if (buildUploadNameOptionsKey() === requestKey) {
+      uploadNameOptions.value = []
+      uploadNameOptionsLoadedKey.value = ''
+      message.error(resolveUploadErrorMessage(error, '历史文件名称加载失败，请查看错误提示后重试'))
+    }
   } finally {
-    uploadNameOptionsLoading.value = false
+    if (buildUploadNameOptionsKey() === requestKey) {
+      uploadNameOptionsLoading.value = false
+    }
   }
 }
 
-const refreshUploadNameOptionsForProjectTaxonomy = async () => {
-  uploadNameOptions.value = []
+const ensureUploadNameOptionsLoaded = async () => {
+  const optionsKey = buildUploadNameOptionsKey()
+  if (!optionsKey) {
+    return
+  }
+  if (uploadNameOptionsLoadedKey.value === optionsKey) {
+    return
+  }
   if (!canLoadUploadNameOptions.value || !formData.dccProjectCodeId || !formData.fileTypeTaxonomyId) {
     return
   }
@@ -1082,14 +1108,12 @@ const refreshUploadNameOptionsForProjectTaxonomy = async () => {
 const handleProjectCodeChange = async () => {
   applyDccProjectCodeProductNumber()
   resetUploadNameContext(true)
-  await refreshUploadNameOptionsForProjectTaxonomy()
 }
 
 const handleFileTypeTaxonomyChange = async () => {
   resetUploadNameContext(true)
   resetCategorySelectionForFileTypeTaxonomyChange()
   await formRef.value?.validateField?.('fileTypeTaxonomyId').catch(() => undefined)
-  await refreshUploadNameOptionsForProjectTaxonomy()
 }
 
 const loadUploadDirectoryTree = async (categoryId: number) => {
@@ -1286,7 +1310,7 @@ const loadCurrentVersionByFileNumber = async () => {
   }
 }
 
-const queryUploadNameSuggestions = (
+const queryUploadNameSuggestions = async (
   queryString: string,
   callback: (items: UploadNameSuggestionItem[]) => void
 ) => {
@@ -1294,6 +1318,7 @@ const queryUploadNameSuggestions = (
     callback([])
     return
   }
+  await ensureUploadNameOptionsLoaded()
   const keyword = queryString.trim().toLowerCase()
   const suggestions = uploadNameOptions.value
     .filter((item) => !keyword || item.fileName.toLowerCase().includes(keyword))

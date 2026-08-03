@@ -76,7 +76,7 @@ public class MesFrontlineWorkstationPostRouteBindingSource implements MesFrontli
         Set<Long> workstationIds = resolveWorkstationIds(postIds,
                 workstationWorkerService.getWorkstationWorkerListByPostIds(postIds));
         if (workstationIds.isEmpty()) {
-            return List.of();
+            throw invalidContext("post workstation binding loginUserId=" + loginUserId + ", postIds=" + postIds);
         }
         Map<Long, MesMdWorkstationDO> workstationMap = workstationService.getWorkstationMap(workstationIds);
         Set<Long> enabledWorkstationIds = requireEnabledWorkstationIds(workstationIds, workstationMap);

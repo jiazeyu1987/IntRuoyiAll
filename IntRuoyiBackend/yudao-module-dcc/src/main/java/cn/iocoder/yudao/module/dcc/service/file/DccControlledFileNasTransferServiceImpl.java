@@ -15,6 +15,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileLoc
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNasTransferReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNasTransferRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportLocalWriteResultReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportSelectedReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccCategoryDirectoryBindingDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDistributionRuleDO;
@@ -118,10 +119,14 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     public static final String SOURCE_TYPE_NAS_UNCONTROLLED_IMPORT = "NAS_UNCONTROLLED_IMPORT";
     public static final String CHUNK_STATUS_COMPLETED = "COMPLETED";
     public static final String AUDIT_FILE_DOWNLOAD_STATUS_SELECTED = "SELECTED";
+    public static final String AUDIT_FILE_DOWNLOAD_STATUS_LOCAL_WRITTEN = "LOCAL_WRITTEN";
+    public static final String AUDIT_FILE_DOWNLOAD_STATUS_LOCAL_WRITE_FAILED = "LOCAL_WRITE_FAILED";
     static final String OUTCOME_CREATED = "CREATED";
     static final String OUTCOME_REUSED = "REUSED";
     private static final String UNCONTROLLED_IMPORT_SELECTION_SCOPE_EXPLICIT = "EXPLICIT_SELECTED_FILES";
     private static final String IMPORT_LOCAL_WRITE_STATUS_NOT_STARTED = "NOT_STARTED";
+    private static final String IMPORT_LOCAL_WRITE_STATUS_LOCAL_WRITTEN = "LOCAL_WRITTEN";
+    private static final String IMPORT_LOCAL_WRITE_STATUS_LOCAL_WRITE_FAILED = "LOCAL_WRITE_FAILED";
     private static final Set<String> UNCONTROLLED_IMPORT_ALLOWED_CLASSIFICATION_STATUSES = Set.of(
             DccNasControlAuditServiceImpl.AUDIT_FILE_CLASSIFICATION_STATUS_MATCHED,
             DccNasControlAuditServiceImpl.AUDIT_FILE_CLASSIFICATION_STATUS_UNCLASSIFIED_PENDING,
@@ -554,6 +559,146 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
         }
         String fileName = StrUtil.blankToDefault(sourceFile.name(), auditFile.getFileName());
         return new DccControlledFileBinary(fileName, "application/octet-stream", sourceFile.bytes(), null);
+    }
+
+    @Override
+    public DccControlledFileNasTransferRespVO recordUncontrolledImportLocalWriteResult(
+            Long userId, Long importTaskId, Long auditFileId,
+            DccNasUncontrolledImportLocalWriteResultReqVO reqVO) {
+        requireNonNull(userId, "userId");
+        requireNonNull(importTaskId, "importTaskId");
+        requireNonNull(auditFileId, "auditFileId");
+        requireNonNull(reqVO, "reqVO");
+        if (StrUtil.isBlank(reqVO.getSourceSignature())) {
+            throw new IllegalStateException("nas uncontrolled import sourceSignature is required: " + auditFileId);
+        }
+        if (StrUtil.isBlank(reqVO.getLocalRelativePath())) {
+            throw new IllegalStateException("nas uncontrolled import localRelativePath is required: " + auditFileId);
+        }
+        if (!IMPORT_LOCAL_WRITE_STATUS_LOCAL_WRITTEN.equals(reqVO.getLocalWriteStatus())
+                && !IMPORT_LOCAL_WRITE_STATUS_LOCAL_WRITE_FAILED.equals(reqVO.getLocalWriteStatus())) {
+            throw new IllegalStateException("nas uncontrolled import localWriteStatus invalid: " + auditFileId);
+        }
+
+        tx().executeWithoutResult(status -> {
+            DccControlledFileNasTransferTaskDO task = requireUncontrolledImportTask(
+                    userId, importTaskId);
+            DccNasControlAuditFileDO auditFile = requireUncontrolledImportAuditFile(
+                    task, importTaskId, auditFileId);
+            DccControlledFileNasTransferTaskItemDO item = requireUncontrolledImportTaskItem(
+                    importTaskId, auditFileId, auditFile);
+            requireUncontrolledImportLocalWriteSnapshot(auditFileId, reqVO, auditFile, item);
+            if (isUncontrolledImportLocalWriteSuccessReplay(reqVO, auditFile, item)) {
+                return;
+            }
+            requireUncontrolledImportLocalWriteNotTerminal(auditFileId, auditFile, item);
+            if (IMPORT_LOCAL_WRITE_STATUS_LOCAL_WRITTEN.equals(reqVO.getLocalWriteStatus())) {
+                markUncontrolledImportLocalWritten(auditFile, item);
+            } else {
+                markUncontrolledImportLocalWriteFailed(auditFile, item, reqVO);
+            }
+        });
+        return getTask(userId, importTaskId);
+    }
+
+    private DccControlledFileNasTransferTaskDO requireUncontrolledImportTask(Long userId, Long importTaskId) {
+        DccControlledFileNasTransferTaskDO task = taskMapper.selectById(importTaskId);
+        if (task == null
+                || !SOURCE_TYPE_NAS_UNCONTROLLED_IMPORT.equals(task.getSourceType())
+                || !Objects.equals(task.getOperatorUserId(), userId)) {
+            throw new IllegalStateException("nas uncontrolled import task invalid: " + importTaskId);
+        }
+        return task;
+    }
+
+    private DccNasControlAuditFileDO requireUncontrolledImportAuditFile(
+            DccControlledFileNasTransferTaskDO task, Long importTaskId, Long auditFileId) {
+        DccNasControlAuditFileDO auditFile = auditFileMapper.selectById(auditFileId);
+        if (auditFile == null || !Objects.equals(task.getAuditTaskId(), auditFile.getTaskId())) {
+            throw new IllegalStateException("nas uncontrolled import audit file task mismatch: " + auditFileId);
+        }
+        if (!Objects.equals(importTaskId, auditFile.getSelectedImportTaskId())
+                || auditFile.getSelectedImportTaskItemId() == null) {
+            throw new IllegalStateException("nas uncontrolled import audit file not bound to task: " + auditFileId);
+        }
+        return auditFile;
+    }
+
+    private DccControlledFileNasTransferTaskItemDO requireUncontrolledImportTaskItem(
+            Long importTaskId, Long auditFileId, DccNasControlAuditFileDO auditFile) {
+        DccControlledFileNasTransferTaskItemDO item = taskItemMapper.selectById(auditFile.getSelectedImportTaskItemId());
+        if (item == null
+                || !Objects.equals(item.getTaskId(), importTaskId)
+                || !Objects.equals(item.getAuditFileId(), auditFileId)) {
+            throw new IllegalStateException("nas uncontrolled import task item mismatch: " + auditFileId);
+        }
+        return item;
+    }
+
+    private void requireUncontrolledImportLocalWriteSnapshot(
+            Long auditFileId,
+            DccNasUncontrolledImportLocalWriteResultReqVO reqVO,
+            DccNasControlAuditFileDO auditFile,
+            DccControlledFileNasTransferTaskItemDO item) {
+        if (!Objects.equals(reqVO.getSourceSignature(), auditFile.getSourceSignature())
+                || !Objects.equals(reqVO.getSourceSignature(), item.getSourceSignature())) {
+            throw new IllegalStateException("nas uncontrolled import source signature mismatch: " + auditFileId);
+        }
+        if (!Objects.equals(reqVO.getLocalRelativePath(), auditFile.getLocalRelativePath())
+                || !Objects.equals(reqVO.getLocalRelativePath(), item.getLocalRelativePath())) {
+            throw new IllegalStateException("nas uncontrolled import localRelativePath mismatch: " + auditFileId);
+        }
+        if (!Objects.equals(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED, auditFile.getArchiveStatus())
+                || !Objects.equals(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED, item.getArchiveStatus())
+                || auditFile.getControlledFileId() != null) {
+            throw new IllegalStateException("nas uncontrolled import local-write archive state invalid: " + auditFileId);
+        }
+    }
+
+    private boolean isUncontrolledImportLocalWriteSuccessReplay(
+            DccNasUncontrolledImportLocalWriteResultReqVO reqVO,
+            DccNasControlAuditFileDO auditFile,
+            DccControlledFileNasTransferTaskItemDO item) {
+        return IMPORT_LOCAL_WRITE_STATUS_LOCAL_WRITTEN.equals(reqVO.getLocalWriteStatus())
+                && AUDIT_FILE_DOWNLOAD_STATUS_LOCAL_WRITTEN.equals(auditFile.getDownloadStatus())
+                && IMPORT_LOCAL_WRITE_STATUS_LOCAL_WRITTEN.equals(item.getLocalWriteStatus());
+    }
+
+    private void requireUncontrolledImportLocalWriteNotTerminal(
+            Long auditFileId,
+            DccNasControlAuditFileDO auditFile,
+            DccControlledFileNasTransferTaskItemDO item) {
+        if (!Objects.equals(AUDIT_FILE_DOWNLOAD_STATUS_SELECTED, auditFile.getDownloadStatus())
+                || !Objects.equals(IMPORT_LOCAL_WRITE_STATUS_NOT_STARTED, item.getLocalWriteStatus())) {
+            throw new IllegalStateException("nas uncontrolled import local-write terminal conflict: " + auditFileId);
+        }
+    }
+
+    private void markUncontrolledImportLocalWritten(
+            DccNasControlAuditFileDO auditFile,
+            DccControlledFileNasTransferTaskItemDO item) {
+        auditFile.setDownloadStatus(AUDIT_FILE_DOWNLOAD_STATUS_LOCAL_WRITTEN);
+        auditFile.setLocalWriteErrorCode(null);
+        auditFile.setLocalWriteError(null);
+        item.setLocalWriteStatus(IMPORT_LOCAL_WRITE_STATUS_LOCAL_WRITTEN);
+        item.setLocalWriteErrorCode(null);
+        item.setLocalWriteError(null);
+        auditFileMapper.updateById(auditFile);
+        taskItemMapper.updateById(item);
+    }
+
+    private void markUncontrolledImportLocalWriteFailed(
+            DccNasControlAuditFileDO auditFile,
+            DccControlledFileNasTransferTaskItemDO item,
+            DccNasUncontrolledImportLocalWriteResultReqVO reqVO) {
+        auditFile.setDownloadStatus(AUDIT_FILE_DOWNLOAD_STATUS_LOCAL_WRITE_FAILED);
+        auditFile.setLocalWriteErrorCode(StrUtil.trimToNull(reqVO.getLocalWriteErrorCode()));
+        auditFile.setLocalWriteError(fitDatabaseErrorMessage(reqVO.getLocalWriteError()));
+        item.setLocalWriteStatus(IMPORT_LOCAL_WRITE_STATUS_LOCAL_WRITE_FAILED);
+        item.setLocalWriteErrorCode(StrUtil.trimToNull(reqVO.getLocalWriteErrorCode()));
+        item.setLocalWriteError(fitDatabaseErrorMessage(reqVO.getLocalWriteError()));
+        auditFileMapper.updateById(auditFile);
+        taskItemMapper.updateById(item);
     }
 
     private void requireUncontrolledImportContentSnapshot(Long auditFileId,

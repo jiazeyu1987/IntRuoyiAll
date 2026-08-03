@@ -1,4 +1,4 @@
-# Backend API Evidence - M1-M2 ActiveOrder Authority and Process Targets
+﻿# Backend API Evidence - M1-M2 ActiveOrder Authority and Process Targets
 
 ## Scope
 
@@ -197,3 +197,25 @@
 - RRM-BLK-008..016 are resolved by M4 transfer trace schema, source adapter, release service integration, static contract, Maven regression, and real source-gate work.
 - Remaining blockers are downstream: M5 owns RRM-BLK-029..031 route batch-record/formBindings/default MAIN separation.
 - Full real Playwright E2E is still blocked by downstream M5 SOURCE blockers and must not be reported as PASS.
+
+## M6 AC-D29 Duplicate-submit API Scope
+
+- Milestone slice: M6 AC-D29 PQC duplicate-submit / concurrency failure path.
+- Service/API scope: `MesFrontlinePqcContextServiceImpl#submitPqcInspection(...)` status transition guard for formal PQC task submission.
+- Data contract: only `MesPqcInspectionTaskDO.taskStatus=PENDING` may transition to `SUBMITTED`; non-pending statuses fail fast with `PRO_FRONTLINE_PQC_TASK_STATUS_INVALID`.
+- Persistence contract: rejected non-pending submissions must not call `pqcTaskMapper.updateById`, `pqcPieceDetailMapper.insertBatch`, or `processPoolEventService.createPqcInspectionEvent`.
+- Error behavior: task status mismatch is a formal service exception, not a silent idempotent success, fallback, or duplicate event suppression after write.
+- Migration/config impact: none; no schema, seed, permission, or runtime config change.
+- Observability touchpoint: explicit service error code allows frontend/E2E to distinguish duplicate/non-pending task submission from missing task identity and identity mismatch.
+
+## M6 AC-D29 Duplicate-submit BDD / TDD Evidence
+
+- BDD: duplicate PQC task submit is rejected before write -> Given a task has already reached `SUBMITTED` When the same `pqcTaskId` is submitted again Then the service must reject before updating task status, inserting piece details, or creating another process-pool PQC event.
+- TEST_ADDED: `MesFrontlinePqcContextServiceTest#shouldRejectAlreadySubmittedPqcInspectionTask` asserts the formal error code and no persistence/event writes.
+- RED_BLOCKED: Standard and non-incremental Maven target commands could not reach target test execution because the shared Windows Maven output directory stalled or failed before tests; details are in `execution-log.md`.
+- IMPLEMENTING: Added `PRO_FRONTLINE_PQC_TASK_STATUS_INVALID`, `PQC_TASK_STATUS_PENDING`, and the status guard in `requirePqcTaskIdentity(...)`; replaced submit status literal with `PQC_TASK_STATUS_SUBMITTED`.
+- AUTHORIZED_CLEANUP: User authorized stopping the blocking chain and cleaning/rebuilding MES `target`; the task stopped the original blocker `57820/7728/20224`, but Maven `clean` stalled in Windows file deletion with 1081 target entries remaining, and later same-root MES Maven chains kept reappearing.
+- TARGET_ISOLATION: Moved residual `yudao-module-mes\target` to `target\rrm_m6_blocked_20260803_151631` to allow a fresh Maven output directory without deleting locked files.
+- TEST_FIX: Fixed a Mockito overloaded `updateById` matcher in the new failure-path test by using `any(MesPqcInspectionTaskDO.class)`.
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 10 tests, 0 failures, 0 errors, BUILD SUCCESS.
+- Remaining blocker: this backend failure-path slice has target GREEN, but AC-D29 and M6 still require full real E2E failure paths, read-only/permission proof, concurrency/performance gates, cleanup, and coverage acceptance before release acceptance.

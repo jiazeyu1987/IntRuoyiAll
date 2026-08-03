@@ -9,7 +9,9 @@ import org.mockito.Mock;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.lang.annotation.Annotation;
@@ -17,6 +19,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.stream.Stream;
+
+import jakarta.validation.Valid;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -27,6 +31,8 @@ class DccNasUncontrolledImportControllerTest extends BaseMockitoUnitTest {
 
     private static final String CONTENT_PATH =
             "/dcc/controlled-files/nas-uncontrolled-import/tasks/{importTaskId}/files/{auditFileId}/content";
+    private static final String LOCAL_WRITE_RESULT_PATH =
+            "/dcc/controlled-files/nas-uncontrolled-import/tasks/{importTaskId}/files/{auditFileId}/local-write-result";
 
     @Mock
     private DccControlledFileNasTransferService nasTransferService;
@@ -45,6 +51,19 @@ class DccNasUncontrolledImportControllerTest extends BaseMockitoUnitTest {
                 "dcc:controlled-file:category:manage");
         assertRequestParam(content, "sourceSignature", String.class);
         assertRequestParam(content, "localRelativePath", String.class);
+    }
+
+    @Test
+    void nasUncontrolledImport_mapsLocalWriteResultWithSnapshotBodyAndWritePermission() {
+        Method localWriteResult = findMappedMethod(PostMapping.class, LOCAL_WRITE_RESULT_PATH);
+
+        assertEquals(CommonResult.class, localWriteResult.getReturnType());
+        assertPermissionContains(localWriteResult,
+                "dcc:controlled-file:submit",
+                "dcc:controlled-file:directory:manage",
+                "dcc:controlled-file:category:manage");
+        assertRequestBody(localWriteResult,
+                "cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportLocalWriteResultReqVO");
     }
 
     private Method findMappedMethod(Class<? extends Annotation> mappingAnnotationType, String expectedFullPath) {
@@ -100,6 +119,14 @@ class DccNasUncontrolledImportControllerTest extends BaseMockitoUnitTest {
         RequestParam requestParam = parameter.getAnnotation(RequestParam.class);
         return requestParam != null
                 && (expectedName.equals(requestParam.value()) || expectedName.equals(requestParam.name()));
+    }
+
+    private void assertRequestBody(Method method, String expectedTypeName) {
+        boolean found = Arrays.stream(method.getParameters())
+                .filter(parameter -> parameter.getAnnotation(RequestBody.class) != null)
+                .filter(parameter -> parameter.getAnnotation(Valid.class) != null)
+                .anyMatch(parameter -> expectedTypeName.equals(parameter.getType().getName()));
+        assertTrue(found, "Missing @Valid @RequestBody " + expectedTypeName);
     }
 
     private String normalizePath(String path) {

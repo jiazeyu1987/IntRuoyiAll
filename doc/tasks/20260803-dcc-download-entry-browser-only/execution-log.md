@@ -43,3 +43,5 @@
 - PUSH SUCCESS: `git -c http.https://github.com.proxy= -c http.proxy= -c https.proxy= push origin int_main` -> PASS, remote updated `d8c30162b..57d1345d1  int_main -> int_main`。
 - FINAL STATUS: `git status --short --branch` -> `int_main...origin/int_main` with no ahead marker; remaining dirty/staged files are unrelated concurrent task files and were not touched by this closeout.
 - Final state: 代码、定向验证、任务清理、收尾文档提交和推送完成；前端代码已在 `72712e92d`，收尾文档已在 `fa4ba2225`，推送阻塞记录已在 `57d1345d1`。
+
+- FINAL PUSH RETRY FAIL: after commit `baad4eb0f docs: finalize DCC download entry closeout`, `git -c http.https://github.com.proxy= -c http.proxy= -c https.proxy= push origin int_main` -> FAIL, `Recv failure: Connection was reset`; follow-up `Test-NetConnection github.com -Port 443` -> `TcpTestSucceeded: False` and `ls-remote` -> `Could not connect to server`. Local branch remains ahead 1 due the final closeout commit.

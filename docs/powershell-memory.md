@@ -152,6 +152,15 @@
 - Verification: 复跑加引号后的 Maven 命令，记录原失败与复跑 PASS；若上游 reactor 模块不含目标测试类，同时记录 `surefire.failIfNoSpecifiedTests=false` 的依据。
 - Forbidden action: 禁止把 PowerShell 参数拆分错误误判为产品编译失败；禁止移除 `-am` 或改成更宽测试作为绕过。
 - Evidence: `doc\tasks\20260726-codex-test-case-project-column\execution-log.md`，目标 JUnit 首次因 PowerShell 拆分 `-Dsurefire.failIfNoSpecifiedTests=false` 失败，整体加引号后通过；`doc\tasks\20260726-work-order-field-cell-link\execution-log.md`，目标 MES JUnit 需同时整体加引号 `"-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordCellLinkSchemaTest"` 与 `"-Dsurefire.failIfNoSpecifiedTests=false"`，并保留 `-am` 编译依赖模块源码。
+
+### Maven 目标目录文件系统异常门禁
+
+- Trigger: Maven 编译或 `clean` 报 `target\classes` `NoSuchFileException`、同模块类大量缺失、或 `jcmd` 显示 `WinNTFileSystem.delete0` / `getBooleanAttributes0` 长时间停在目标目录。
+- Preflight check: 先枚举同模块 Maven/Java 进程并确认是否属于当前任务；只停止当前任务或同一测试命令的陈旧 PID，停止后复查没有同模块 Maven 正在写 `target`，再尝试一次标准 `-pl <module> -am` 验证。
+- Blocker: `mvn clean` 也卡在 `WinNTFileSystem.delete0`、目标目录无法安全删除、或同模块编译持续报 `target\classes` 缺失时，必须标记验证阻塞；不得继续叠加 Maven 命令、不得用单模块非 `-am` 编译失败替代业务 RED/GREEN。
+- Verification: 记录 PID、`jcmd Thread.print` 关键栈、失败命令、是否停止了任务自有进程、以及后续标准 Maven 命令是否到达 Surefire。
+- Forbidden action: 禁止强杀全部 Java/Maven、禁止删除无关模块 `target`、禁止在目标目录损坏时提交实现、禁止把环境编译失败写成业务测试失败。
+- Evidence: `doc\tasks\20260803-dcc-docx-preview-system-exception\execution-log.md`，DCC 预览任务中同模块 Maven 卡在 `WinNTFileSystem.delete0`，后续 DCC 编译出现大量 `target\classes` `NoSuchFileException`，最终保持 blocked 未提交。
 ## 执行顺序
 
 1. 阶段 1：任务提交/推送预检

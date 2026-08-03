@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationMachineDO;
@@ -27,6 +28,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -94,6 +97,21 @@ class MesFrontlineWorkstationPostRouteBindingSourceTest {
         assertEquals(102L, bindings.get(2).routeId());
         assertEquals(302L, bindings.get(2).workstationId());
         assertNull(bindings.get(2).deviceId());
+    }
+
+    @Test
+    void shouldFailFastWhenFormalPostHasNoWorkstationBinding() {
+        AdminUserRespDTO loginUser = new AdminUserRespDTO();
+        loginUser.setId(LOGIN_USER_ID);
+        loginUser.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        loginUser.setPostIds(Set.of(701L));
+        when(adminUserApi.getUser(LOGIN_USER_ID)).thenReturn(loginUser);
+        when(workstationWorkerService.getWorkstationWorkerListByPostIds(Set.of(701L))).thenReturn(List.of());
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> bindingSource.listEnabledRouteBindings(LOGIN_USER_ID));
+
+        assertTrue(exception.getMessage().contains("post workstation binding"));
     }
 
     private static MesMdWorkstationDO workstation(Long id, String code) {
