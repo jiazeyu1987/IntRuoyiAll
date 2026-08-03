@@ -19,7 +19,7 @@
 
 ## Current Status
 
-completed
+blocked
 
 ## Verification Summary
 
@@ -32,7 +32,9 @@ completed
 
 ## Closeout Result
 
-- 收尾文档已准备提交；提交后推送 `int_main` 到 `origin`。
+- 前端代码提交：`72712e92d chore: baseline concurrent download entry updates`。
+- 收尾文档提交：`fa4ba2225 docs: close DCC download entry task`。
+- 推送阻塞：`git push origin int_main` 先因 GitHub 代理 `127.0.0.1:7890` 不可用失败；清空本次命令代理后，GitHub 直连 443 随后也失败/连接重置。当前本地 `int_main` 仍领先 `origin/int_main`，不得标记 completed。
 
 ## 设计约束检查
 
