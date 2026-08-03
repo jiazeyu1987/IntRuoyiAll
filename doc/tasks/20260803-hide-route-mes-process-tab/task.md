@@ -20,7 +20,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
@@ -36,6 +36,8 @@ ready_for_closeout
 - GREEN: `node tests/e2e/mes-route-edit-default-flow-tab-static.spec.js` -> PASS。
 - GREEN: `node tests/e2e/mes-route-flow-entry-readonly-static.spec.js` -> PASS。
 - GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `task-closeout-cleanup preview/apply` -> PASS，keep 三份核心记录、无删除、无阻塞。
+- Implementation commit: `4b5f152f4 fix: hide route mes process tab`。
 - BLOCKER: `node tests/e2e/mes-route-product-standard-list-static.spec.js` 仍断言旧 `@request-submit="submitForm"`，但当前实现使用既有 `handleSubmitRequest`；非本任务改动。
 - BLOCKER: `node tests/e2e/mes-route-resource-tab-static.spec.js` 引用不存在的 `RouteProcessList.vue`；非本任务改动。
 
