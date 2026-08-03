@@ -18,14 +18,30 @@
 
 ## TDD Evidence
 
-- RED: pending
-- GREEN: pending
-- REGRESSION: pending
+- RED: `node tests/e2e/dcc-controlled-browser-ux-optimization-static.spec.js` -> FAIL, expected reason: current source still used old long action label and failed `browser row primary action must use compact label: 预览`.
+- GREEN: `node tests/e2e/dcc-controlled-browser-ux-optimization-static.spec.js` -> PASS.
+- REGRESSION: `rg -n "预览当前有效版|查看版本追溯|查看签核证据" src/views/dcc/controlled-file/browser` -> no source matches, expected exit code 1 for no matches.
+- REGRESSION: `pnpm ts:check` -> PASS.
+- REGRESSION: `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue IntRuoyiFronted/tests/e2e/dcc-controlled-browser-ux-optimization-static.spec.js doc/tasks/20260803-dcc-browser-action-labels` -> PASS with LF-to-CRLF warnings only.
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260803-dcc-browser-action-labels/frontend-feature-evidence.md` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --self-test` -> PASS.
 
 ## Milestone Updates
 
 - M0 completed: Task docs created and applicable frontend/E2E gates recorded.
+- M1 completed: Static contract updated first and produced RED against the old long button labels.
+- M2 completed: `IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue` now shows `预览`、`追溯`、`签核`、`下载` for the four row actions and preserves the original handlers.
+- M3 completed: Focused static contract, source old-label scan, `pnpm ts:check`, `git diff --check`, and frontend-feature evidence validator passed.
+- M4 completed: Verification report written, cleanup preview/apply passed, and final status recorded.
 
-## Blockers
+## Experience Consolidation
 
-- None currently.
+- Existing `docs/frontend-development.md#前端截图按钮统一静态契约门禁` and `docs/e2e-rules.md#dcc-受控浏览当前有效版与权限隔离门禁` already cover this task pattern.
+- No new durable project experience is needed; no long-term memory document updated.
+
+## Git Notes
+
+- During verification, concurrent workspace changes appeared in unrelated backend, docs, and task files. This task only owns the DCC browser page, the focused static contract, and `doc/tasks/20260803-dcc-browser-action-labels/`.
+- Recent concurrent baseline commit `a52a46a94` included some workspace changes before this task's final implementation commit; current task commit must stage explicit task-owned paths only.
+
+## Cleanup Evi

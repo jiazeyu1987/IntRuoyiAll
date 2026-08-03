@@ -465,6 +465,44 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void getPreviewMetadata_activeOfficeFileWithMissingPublishedArtifactReturnsUnavailableReason() {
+        DccOnlyOfficePreviewProperties properties = new DccOnlyOfficePreviewProperties();
+        properties.setBaseUrl("http://onlyoffice.local");
+        properties.setJwtSecret("secret-demo");
+        properties.setPublicFileBaseUrl("http://127.0.0.1:48081");
+        ReflectionTestUtils.setField(queryService, "onlyOfficePreviewProperties", properties);
+
+        when(controlledFileMapper.selectById(994L)).thenReturn(DccControlledFileDO.builder()
+                .id(994L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .publishedFileId(7004L)
+                .fileName("STM-PM-002（A 0）微粒污染检测操作规程.docx")
+                .title("STM-PM-002（A 0）微粒污染检测操作规程.docx")
+                .versionNo("V1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build());
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.VIEW))
+                .thenReturn(true);
+        when(fileMapper.selectById(7004L)).thenReturn(null);
+        when(watermarkService.build(99L, "preview", "STM-PM-002（A 0）微粒污染检测操作规程.docx"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+
+        DccControlledFilePreviewMetadataRespVO result = queryService.getPreviewMetadata(99L, 994L,
+                auditContext(PREVIEW_REQUEST_ID));
+
+        assertEquals("OFFICE", result.getPreviewKind());
+        assertEquals("STM-PM-002（A 0）微粒污染检测操作规程.docx", result.getFileName());
+        assertEquals("application/octet-stream", result.getContentType());
+        assertEquals("Controlled file preview artifact is missing: publishedFileId=7004",
+                result.getPreviewUnavailableReason());
+        assertNull(result.getOnlyofficeBaseUrl());
+        assertNull(result.getOnlyofficeDocumentUrl());
+        verify(onlyOfficePreviewTokenService, never()).issueControlledFile(anyLong(), anyLong(), anyLong(),
+                anyString(), anyLong(), anyString(), anyLong());
+    }
+
+    @Test
     void getPreviewMetadata_videoFileReturnsVideoKind() {
         when(controlledFileMapper.selectById(991L)).thenReturn(DccControlledFileDO.builder()
                 .id(991L)

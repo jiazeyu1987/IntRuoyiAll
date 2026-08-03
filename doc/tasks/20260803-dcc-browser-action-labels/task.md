@@ -8,17 +8,22 @@
 ## Milestones
 
 - [x] M0: 建立任务文档并记录适用规则。
-- [ ] M1: 更新静态契约并跑出 RED，证明旧长文案不符合新要求。
-- [ ] M2: 最小修改 DCC 受控浏览页面按钮文案。
-- [ ] M3: 运行聚焦静态契约、旧文案扫描、类型检查和 diff 检查。
-- [ ] M4: 完成验证报告与收尾状态更新。
+- [x] M1: 更新静态契约并跑出 RED，证明旧长文案不符合新要求。
+- [x] M2: 最小修改 DCC 受控浏览页面按钮文案。
+- [x] M3: 运行聚焦静态契约、旧文案扫描、类型检查和 diff 检查。
+- [x] M4: 完成验证报告与收尾状态更新。
 
 ## Expected Verification
 
 - `node tests/e2e/dcc-controlled-browser-ux-optimization-static.spec.js`
-- `rg -n "预览当前有效版|查看版本追溯|查看签核证据" src/views/dcc/controlled-file/browser tests/e2e/dcc-controlled-browser-ux-optimization-static.spec.js`
+- `rg -n "预览当前有效版|查看版本追溯|查看签核证据" src/views/dcc/controlled-file/browser`
 - `pnpm ts:check`
 - `git diff --check`
+- Frontend feature evidence validator PASS recorded before cleanup.
+
+## Cleanup Candidates
+
+- doc/tasks/20260803-dcc-browser-action-labels/frontend-feature-evidence.md
 
 ## Applicable Gates
 
@@ -34,4 +39,4 @@
 
 ## Current Status
 
-in_progress
+completed
