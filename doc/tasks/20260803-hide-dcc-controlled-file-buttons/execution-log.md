@@ -33,6 +33,11 @@
 - 技能 evidence validator 通过：`validate_bug_regression.py --evidence doc\tasks\20260803-hide-dcc-controlled-file-buttons\bug-regression-evidence.md` -> PASS。
 - 技能 evidence validator 通过：`validate_frontend_feature.py --evidence doc\tasks\20260803-hide-dcc-controlled-file-buttons\frontend-feature-evidence.md` -> PASS。
 - `git diff --check` -> PASS；仅有既有 CRLF 转换 warning，无空白错误。
+- `task_closeout.py --task-id 20260803-hide-dcc-controlled-file-buttons --mode preview` -> PASS；保留 `task.md`、`execution-log.md`、`verification-report.md`，删除已归档的两个技能 evidence 文件。
+- `task_closeout.py --task-id 20260803-hide-dcc-controlled-file-buttons --mode apply` -> PASS；删除 `bug-regression-evidence.md` 和 `frontend-feature-evidence.md`。
+- 经验沉淀：更新 `docs/frontend-development.md#前端截图按钮统一静态契约门禁` 和 `docs/experience-index.md`，补充“按钮不显示/隐藏按钮”和 `show-info-actions` 等调用方 props 门禁。
+- Git 边界：提交前发现当前共享 `int_main` 已存在并发 baseline 提交；本任务实现、静态契约和 cleanup 记录已被 baseline 提交 `125d640fa` 与 `a611bbd37` 包含。未改动或暂存当前残余后端/其它任务脏文件。
+- 最终状态：completed。
 
 ## Blockers
 

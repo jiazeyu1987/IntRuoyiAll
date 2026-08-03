@@ -15,7 +15,10 @@
 - PASS: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260803-hide-dcc-controlled-file-buttons\bug-regression-evidence.md`
 - PASS: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260803-hide-dcc-controlled-file-buttons\frontend-feature-evidence.md`
 - PASS: `git diff --check`；仅有既有 CRLF 转换 warning，无空白错误。
+- PASS: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-hide-dcc-controlled-file-buttons --mode preview`
+- PASS: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-hide-dcc-controlled-file-buttons --mode apply`
+- PASS: `rg -n "黄框内按钮不显示|show-info-actions" docs\experience-index.md docs\frontend-development.md`
 
 ## Blockers
 
-- 暂无。
+- 暂无。当前共享分支仍存在其它任务/后端残余脏改动，未纳入本任务范围。
