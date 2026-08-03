@@ -66,6 +66,9 @@
 - PASS: scoped `git status --short --branch --untracked-files=all -- doc/tasks/20260803-pqc-equipment-standard-method-design` shows only the five task document files.
 - PASS: Additional worktree registry is active for `D:\IntRuoyiWorktree\20260803_pqcc` under `int_main` profile slot 15, with frontend port 8096 and backend port 48096. No frontend or backend runtime was started.
 - PASS: Project experience consolidation updated existing `docs/worktree-memory.md` and `docs/experience-index.md`; no new long-term experience document was created.
+- PASS: Commit `fb13a6bc6` was pushed to `origin/codex/20260803_pqcc`.
+- PASS: Remote `origin/int_main` fast-forwarded to `fb13a6bc63415e7adc4bc1c6e246446eb4f772e3`, matching `HEAD` and `origin/codex/20260803_pqcc`.
+- BLOCKED: Local `task-closeout-cleanup apply` cannot run because main worktree `E:\IntRuoyi` is dirty with unrelated changes; no local merge, baseline, cleanup, or worktree removal was performed.
 
 ## Remaining Implementation Blockers
 

@@ -22,6 +22,11 @@
 - BLOCKED: `git commit -m "docs: add PQC equipment standard method plan"` -> FAIL, Git 钩子要求 `D:\IntRuoyiWorktree\20260803_pqcc` 存在 worktree port registry active entry。
 - GREEN: `.\\scripts\\runtime\\reserve-worktree-slot.ps1 -Name 20260803_pqcc -Path D:\IntRuoyiWorktree\20260803_pqcc -Branch codex/20260803_pqcc -Profile int_main -AsJson` -> PASS, 已登记 `slot=15`、`frontendPort=8096`、`backendPort=48096`，解除提交钩子前置阻塞。
 - 命令意图：执行 `project-experience-consolidation`，将“附加 worktree 即使不启动服务，提交/推送钩子仍可能要求 port registry active entry”的通用门禁合并到既有 `docs/worktree-memory.md` 与 `docs/experience-index.md`，未新建长期经验文档。
+- GREEN: `git commit -m "docs: add PQC equipment standard method plan"` -> PASS, 提交 `fb13a6bc6`，包含本任务 5 个文档文件和 2 个长期经验门禁文件。
+- BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-pqc-equipment-standard-method-design --mode preview` -> FAIL, preview 保留 5 个任务文件、无删除项，但本地主工作区 `E:\IntRuoyi` 存在无关脏改动，不能接收本地 ff-only merge。
+- GREEN: `git -c http.https://github.com.proxy=http://127.0.0.1:8902 push -u origin codex/20260803_pqcc` -> PASS, 任务分支已推送并跟踪 `origin/codex/20260803_pqcc`。
+- GREEN: `git -c http.https://github.com.proxy=http://127.0.0.1:8902 push origin HEAD:int_main` -> PASS, 远端 `int_main` 从 `41aa32705` 快进到 `fb13a6bc6`。
+- GREEN: `git rev-parse HEAD origin/int_main origin/codex/20260803_pqcc` -> PASS, 三者均为 `fb13a6bc63415e7adc4bc1c6e246446eb4f772e3`。
 
 ## Milestone Updates
 
@@ -34,6 +39,7 @@
 - 2026-08-03: worktree 内文档结构验证通过，确认可进入分支提交阶段。
 - 2026-08-03: 处理 worktree port registry 前置阻塞，按 `int_main` profile 注册 slot 15；本轮不启动服务，仅满足附加 worktree 钩子门禁。
 - 2026-08-03: 完成长期经验沉淀，更新既有 worktree 经验与索引，避免后续附加 worktree 提交时重复遇到同类钩子阻塞。
+- 2026-08-03: 完成任务分支提交和远端快进融合；本地 closeout apply 因主工作区存在无关脏改动而保持阻塞，不回滚、不基线、不混入无关改动。
 
 ## Verification Evidence
 
@@ -49,3 +55,4 @@
 - Implementation Blocker: 当前 QA 规程项目 schema 未发现数值上下限、单位和区间规则字段，后续实现前必须补正式 schema 或确认已有来源。
 - Implementation Blocker: PQC 组长详情需要结构化项目明细读模型，不能继续依赖 raw payload 固定四项。
 - Main Worktree Risk: 主工作区 `E:\IntRuoyi` 有大量既有无关脏改动且 `int_main` 领先 `origin` 4 个提交；本任务必须通过 `D:\IntRuoyiWorktree\20260803_pqcc` 隔离提交，融合时不得混入这些无关改动。
+- Local Closeout Blocker: `task-closeout-cleanup` apply 需要本地主工作区 clean 才能本地 ff-only merge 和删除 linked worktree；当前 `E:\IntRuoyi` 仍有无关脏改动，因此本轮只完成远端快进融合，不执行本地 apply。

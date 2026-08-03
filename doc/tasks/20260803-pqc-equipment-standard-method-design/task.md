@@ -13,8 +13,8 @@
 - [x] 执行文档 review，优化遗漏、歧义、不可测试项和 no-fallback 风险
 - [x] 完成结构校验并记录验证报告
 - [x] 在 `D:\IntRuoyiWorktree\20260803_pqcc` 执行文档开发验证
-- [ ] 验证成功后提交 `codex/20260803_pqcc`
-- [ ] 将验证通过的文档分支融合进 `int_main`
+- [x] 验证成功后提交 `codex/20260803_pqcc`
+- [x] 将验证通过的文档分支快进融合进远端 `int_main`
 
 ## Expected Verification
 
@@ -28,7 +28,7 @@
 
 ready_for_closeout
 
-`D:\IntRuoyiWorktree\20260803_pqcc` 内文档结构验证已通过，`git diff --check` 无错误，当前准备提交 `codex/20260803_pqcc` 并融合进 `int_main`。本任务仍不修改生产代码、不启动运行态、不使用 API-only 冒充真实 E2E。
+`D:\IntRuoyiWorktree\20260803_pqcc` 内文档结构验证、UTF-8 校验、端口守卫和缓存区空白检查已通过；提交 `fb13a6bc6` 已推送到 `origin/codex/20260803_pqcc`，并已通过远端快进推送融合进 `origin/int_main`。本任务仍不修改生产代码、不启动运行态、不使用 API-only 冒充真实 E2E。`task-closeout-cleanup` preview 已确认无删除项且保留交付文档，但本地主工作区 `E:\IntRuoyi` 存在无关脏改动，不能执行本地 ff-only merge/apply。
 
 ## 设计约束检查
 
