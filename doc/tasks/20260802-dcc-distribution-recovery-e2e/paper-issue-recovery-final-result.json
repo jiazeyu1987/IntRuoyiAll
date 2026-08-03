@@ -3,58 +3,95 @@
   "tenantName": "芋道源码",
   "actor": "wangsiyu",
   "paperRecipient": "panhaitao",
-  "runMode": "ack-v1-only",
+  "runMode": "ack-v2-recover-v1",
   "v1ControlledFileId": "2054545668044070297",
   "v2ControlledFileId": "2054545668044070302",
   "baseUrl": "http://127.0.0.1:8081",
   "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-  "startedAt": "2026-08-02T13:25:15.633Z",
+  "startedAt": "2026-08-02T15:29:56.255Z",
   "pagePaths": [
     {
-      "label": "v1-before-ack",
+      "label": "v2-before-ack",
+      "url": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070302?traceability=1&from=browser&returnTo=/dcc/controlled-file/browser"
+    },
+    {
+      "label": "v2-after-ack",
+      "url": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070302?traceability=1&from=browser&returnTo=/dcc/controlled-file/browser"
+    },
+    {
+      "label": "v1-before-recover",
       "url": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070297?traceability=1&from=browser&returnTo=/dcc/controlled-file/browser"
     },
     {
-      "label": "v1-after-ack",
+      "label": "v1-after-recover",
       "url": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070297?traceability=1&from=browser&returnTo=/dcc/controlled-file/browser"
     }
   ],
   "actions": [
     {
-      "action": "v1-acknowledge-paper",
-      "controlledFileId": "2054545668044070297",
-      "distributionId": "4341",
+      "action": "v2-acknowledge-paper",
+      "controlledFileId": "2054545668044070302",
+      "distributionId": "4344",
       "recipientUsername": "panhaitao",
       "responseCode": 0
     },
     {
-      "action": "partial-distribution-only",
-      "reason": "V2 publish is blocked before old-version recovery can be completed",
-      "v1DistributionId": "4341"
+      "action": "v1-recover-paper",
+      "controlledFileId": "2054545668044070297",
+      "distributionId": "4341",
+      "responseCode": 0
+    },
+    {
+      "action": "final-assertions",
+      "v1DistributionId": "4341",
+      "v2DistributionId": "4344",
+      "v1VisibleInControlledBrowser": false,
+      "v2VisibleInControlledBrowser": true
     }
   ],
   "detailApiSnapshots": {
-    "v1-before-ack": {
-      "id": "2054545668044070297",
-      "visibleDistributionSectionText": "部门\n\t\n接收人\n\t\n分发摘要\n\t\n回收摘要\n\t\n操作\n质量体系部\n\t\n-\n\t\n待分发\n纸质发放\n发放：-\n时间：-\n\t\n回收：-\n时间：-\n\t\n确认纸质发放"
+    "v2-before-ack": {
+      "id": "2054545668044070302",
+      "visibleDistributionSectionText": "部门\n\t\n接收人\n\t\n分发摘要\n\t\n回收摘要\n\t\n操作\n部门#253\n\t\n-\n\t\n待分发\n纸质发放\n发放：-\n时间：-\n\t\n回收：-\n时间：-\n\t\n确认纸质发放"
     },
-    "v1-after-ack": {
+    "v2-after-ack": {
+      "id": "2054545668044070302",
+      "visibleDistributionSectionText": "部门\n\t\n接收人\n\t\n分发摘要\n\t\n回收摘要\n\t\n操作\n部门#253\n\t\n用户#173\n\t\n已确认\n纸质发放\n发放：用户#910250\n时间：2026-08-02 23:30:04\n\t\n回收：-\n时间：-\n\t\n确认回收"
+    },
+    "v1-before-recover": {
       "id": "2054545668044070297",
-      "visibleDistributionSectionText": "部门\n\t\n接收人\n\t\n分发摘要\n\t\n回收摘要\n\t\n操作\n质量体系部\n\t\n潘海涛 (panhaitao)\n\t\n已确认\n纸质发放\n发放：王思雨 (wangsiyu)\n时间：2026-08-02 21:25:23\n\t\n回收：-\n时间：-\n\t\n确认回收"
+      "visibleDistributionSectionText": "部门\n\t\n接收人\n\t\n分发摘要\n\t\n回收摘要\n\t\n操作\n部门#253\n\t\n用户#173\n\t\n已确认\n纸质发放\n发放：用户#910250\n时间：2026-08-02 21:25:23\n\t\n回收：-\n时间：-\n\t\n确认回收"
+    },
+    "v1-after-recover": {
+      "id": "2054545668044070297",
+      "visibleDistributionSectionText": "部门\n\t\n接收人\n\t\n分发摘要\n\t\n回收摘要\n\t\n操作\n部门#253\n\t\n用户#173\n\t\n已回收\n纸质发放\n发放：用户#910250\n时间：2026-08-02 21:25:23\n\t\n回收：用户#910250\n时间：2026-08-02 23:30:08\n\t\n-"
     }
   },
-  "browserVerification": null,
+  "browserVerification": {
+    "url": "http://127.0.0.1:8081/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-DIST-906104-DISTTENANT120260802195305&pageNo=1&pageSize=20",
+    "total": 1,
+    "rows": [
+      {
+        "id": "2054545668044070302",
+        "fileNumber": "CODX-DCC-DIST-906104-DISTTENANT120260802195305",
+        "versionNo": "V2.0",
+        "status": "ACTIVE"
+      }
+    ],
+    "v1Visible": false,
+    "v2Visible": true
+  },
   "finalReadonlyDb": {
     "files": [
       {
         "id": "2054545668044070297",
-        "status": "ACTIVE",
+        "status": "SUPERSEDED",
         "masterId": "2054545668044062904",
         "versionNo": "V1.0"
       },
       {
         "id": "2054545668044070302",
-        "status": "READY_TO_PUBLISH",
+        "status": "ACTIVE",
         "masterId": "2054545668044062904",
         "versionNo": "V2.0"
       }
@@ -62,15 +99,15 @@
     "master": {
       "id": "2054545668044062904",
       "status": "ACTIVE_CHAIN",
-      "currentActiveControlledFileId": "2054545668044070297"
+      "currentActiveControlledFileId": "2054545668044070302"
     },
     "fileNumber": "CODX-DCC-DIST-906104-DISTTENANT120260802195305",
     "distributions": [
       {
         "id": "4341",
-        "status": "ACKNOWLEDGED",
+        "status": "RECOVERED",
         "versionNo": "V1.0",
-        "fileStatus": "ACTIVE",
+        "fileStatus": "SUPERSEDED",
         "recipients": [
           {
             "userId": "173",
@@ -79,31 +116,38 @@
             "acknowledgedAt": null
           }
         ],
-        "recoveredAt": null,
-        "recoveredBy": null,
+        "recoveredAt": "2026-08-02 23:30:08",
+        "recoveredBy": "910250",
         "departmentId": 253,
         "acknowledgedAt": "2026-08-02 21:25:23",
         "acknowledgedBy": "910250",
         "controlledFileId": "2054545668044070297",
         "distributionMedium": "PAPER",
-        "recoveredByUsername": null,
+        "recoveredByUsername": "wangsiyu",
         "acknowledgedByUsername": "wangsiyu"
       },
       {
         "id": "4344",
-        "status": "PENDING",
+        "status": "ACKNOWLEDGED",
         "versionNo": "V2.0",
-        "fileStatus": "READY_TO_PUBLISH",
-        "recipients": [],
+        "fileStatus": "ACTIVE",
+        "recipients": [
+          {
+            "userId": "173",
+            "username": "panhaitao",
+            "recipientId": "46865",
+            "acknowledgedAt": null
+          }
+        ],
         "recoveredAt": null,
         "recoveredBy": null,
         "departmentId": 253,
-        "acknowledgedAt": null,
-        "acknowledgedBy": null,
+        "acknowledgedAt": "2026-08-02 23:30:04",
+        "acknowledgedBy": "910250",
         "controlledFileId": "2054545668044070302",
         "distributionMedium": "PAPER",
         "recoveredByUsername": null,
-        "acknowledgedByUsername": null
+        "acknowledgedByUsername": "wangsiyu"
       }
     ]
   },
@@ -112,7 +156,7 @@
       "label": "distribution-recovery",
       "status": "REQUEST_FAILED",
       "method": "GET",
-      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
       "failure": "net::ERR_ABORTED"
     },
     {
@@ -126,7 +170,7 @@
       "label": "distribution-recovery",
       "status": "REQUEST_FAILED",
       "method": "GET",
-      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
       "failure": "net::ERR_ABORTED"
     },
     {
@@ -147,35 +191,7 @@
       "label": "distribution-recovery",
       "status": "REQUEST_FAILED",
       "method": "GET",
-      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070297",
-      "failure": "net::ERR_ABORTED"
-    },
-    {
-      "label": "distribution-recovery",
-      "status": "REQUEST_FAILED",
-      "method": "GET",
-      "url": "http://127.0.0.1:8081/admin-api/dcc/approval-print-template/active",
-      "failure": "net::ERR_ABORTED"
-    },
-    {
-      "label": "distribution-recovery",
-      "status": "REQUEST_FAILED",
-      "method": "GET",
       "url": "http://127.0.0.1:8081/admin-api/dcc/directories/tree",
-      "failure": "net::ERR_ABORTED"
-    },
-    {
-      "label": "distribution-recovery",
-      "status": "REQUEST_FAILED",
-      "method": "GET",
-      "url": "http://127.0.0.1:8081/admin-api/system/user/simple-list",
-      "failure": "net::ERR_ABORTED"
-    },
-    {
-      "label": "distribution-recovery",
-      "status": "REQUEST_FAILED",
-      "method": "GET",
-      "url": "http://127.0.0.1:8081/admin-api/system/user/simple-list",
       "failure": "net::ERR_ABORTED"
     },
     {
@@ -189,13 +205,83 @@
       "label": "distribution-recovery",
       "status": "REQUEST_FAILED",
       "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/user/simple-list",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/approval-print-template/active",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/user/simple-list",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070302/paper-distributions/records",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070302",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/directories/tree",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
       "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070297/paper-distributions/records",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070297",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/user/simple-list",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/approval-print-template/active",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/file-categories",
       "failure": "net::ERR_ABORTED"
     }
   ],
   "consoleErrors": [],
   "pageErrors": [],
   "unhandledRejections": [],
-  "status": "PARTIAL_PASS_BLOCKED_RECOVERY",
-  "finishedAt": "2026-08-02T13:25:25.107Z"
+  "status": "PASS",
+  "finishedAt": "2026-08-02T15:30:12.430Z"
 }

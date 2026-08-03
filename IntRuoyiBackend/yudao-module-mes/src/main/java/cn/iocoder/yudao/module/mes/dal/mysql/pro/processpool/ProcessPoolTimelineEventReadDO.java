@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -36,6 +37,14 @@ public class ProcessPoolTimelineEventReadDO {
     private Long workOrderId;
     private String workOrderCode;
     private String workOrderName;
+    private Long productId;
+    private String productCode;
+    private String productName;
+    private Long pqcTaskId;
+    private String inspectionType;
+    private LocalDate pqcBusinessDate;
+    private String pqcShiftCode;
+    private Integer roundNo;
     private Long sourceFeedbackId;
     private Long sourceRecordbookEntryId;
     private Long sourceRecordbookEventId;

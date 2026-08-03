@@ -261,8 +261,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         }
         long total = visibleFiles.size();
         List<DccControlledFileDO> pageFiles = sliceRows(reqVO, visibleFiles);
+        Map<Long, DccFileDirectoryDO> directoryMap = buildEnabledDirectoryMap();
         List<DccControlledFileRespVO> visibleRows = pageFiles.stream()
-                .map(file -> toRespVO(userId, file, false, hasDirectoryManagementPermission))
+                .map(file -> toRespVO(userId, file, false, hasDirectoryManagementPermission, directoryMap))
                 .toList();
         return new PageResult<>(visibleRows, total);
     }
@@ -278,9 +279,10 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 blacklistedExtensionPatterns, hasDirectoryManagementPermission, true,
                 currentViewMatrixAccessByCategory, activeAssignedControlledFileIds);
         long total = visibleFiles.size();
+        Map<Long, DccFileDirectoryDO> directoryMap = buildEnabledDirectoryMap();
         List<DccControlledFileRespVO> visibleRows = sliceRows(reqVO, visibleFiles).stream()
                 .map(file -> toBrowserRespVO(userId, file, hasDirectoryManagementPermission,
-                        blacklistedExtensionPatterns, currentViewMatrixAccessByCategory))
+                        blacklistedExtensionPatterns, currentViewMatrixAccessByCategory, directoryMap))
                 .toList();
         return new PageResult<>(visibleRows, total);
     }
@@ -1303,6 +1305,20 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         return String.join("/", segments);
     }
 
+    private Map<Long, DccFileDirectoryDO> buildEnabledDirectoryMap() {
+        return directoryMapper.selectEnabledList().stream()
+                .collect(Collectors.toMap(DccFileDirectoryDO::getId, Function.identity(), (left, right) -> left,
+                        LinkedHashMap::new));
+    }
+
+    private String resolveDirectoryPath(Long directoryId, Map<Long, DccFileDirectoryDO> directoryMap) {
+        if (directoryId == null || directoryMap == null || directoryMap.isEmpty()) {
+            return null;
+        }
+        String directoryPath = buildDirectoryPath(directoryId, directoryMap);
+        return StrUtil.isBlank(directoryPath) ? null : directoryPath;
+    }
+
     private List<DccControlledFileUploadDirectoryTreeRespVO.DirectoryNode> buildUploadDirectoryChildren(
             Long parentId, Map<Long, List<DccFileDirectoryDO>> childrenByParentId) {
         return childrenByParentId.getOrDefault(parentId, List.of()).stream()
@@ -1335,11 +1351,19 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
 
     private DccControlledFileRespVO toRespVO(Long userId, DccControlledFileDO file, boolean includeRouteSnapshots,
                                              boolean hasDirectoryManagementPermission) {
+        return toRespVO(userId, file, includeRouteSnapshots, hasDirectoryManagementPermission,
+                buildEnabledDirectoryMap());
+    }
+
+    private DccControlledFileRespVO toRespVO(Long userId, DccControlledFileDO file, boolean includeRouteSnapshots,
+                                             boolean hasDirectoryManagementPermission,
+                                             Map<Long, DccFileDirectoryDO> directoryMap) {
         DccControlledFileRespVO respVO = new DccControlledFileRespVO();
         respVO.setId(file.getId());
         respVO.setMasterId(file.getMasterId());
         respVO.setCategoryId(file.getCategoryId());
         respVO.setDirectoryId(file.getDirectoryId());
+        respVO.setDirectoryPath(resolveDirectoryPath(file.getDirectoryId(), directoryMap));
         respVO.setTitle(file.getTitle());
         respVO.setFileName(file.getFileName());
         FileDO previewFile = resolvePreviewFileForSummary(file);
@@ -1451,11 +1475,21 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                                                     boolean hasDirectoryManagementPermission,
                                                     List<String> blacklistedExtensionPatterns,
                                                     Map<Long, Boolean> currentViewMatrixAccessByCategory) {
+        return toBrowserRespVO(userId, file, hasDirectoryManagementPermission, blacklistedExtensionPatterns,
+                currentViewMatrixAccessByCategory, buildEnabledDirectoryMap());
+    }
+
+    private DccControlledFileRespVO toBrowserRespVO(Long userId, DccControlledFileDO file,
+                                                    boolean hasDirectoryManagementPermission,
+                                                    List<String> blacklistedExtensionPatterns,
+                                                    Map<Long, Boolean> currentViewMatrixAccessByCategory,
+                                                    Map<Long, DccFileDirectoryDO> directoryMap) {
         DccControlledFileRespVO respVO = new DccControlledFileRespVO();
         respVO.setId(file.getId());
         respVO.setMasterId(file.getMasterId());
         respVO.setCategoryId(file.getCategoryId());
         respVO.setDirectoryId(file.getDirectoryId());
+        respVO.setDirectoryPath(resolveDirectoryPath(file.getDirectoryId(), directoryMap));
         respVO.setTitle(file.getTitle());
         respVO.setFileName(file.getFileName());
         respVO.setFileNumber(file.getFileNumber());

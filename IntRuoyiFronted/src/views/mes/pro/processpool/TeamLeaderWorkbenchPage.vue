@@ -86,6 +86,53 @@
             class="!w-220px"
           />
         </el-form-item>
+        <template v-if="activeLeaderTab === 'PQC'">
+          <el-form-item label="产品" prop="productKeyword">
+            <el-input
+              v-model="queryParams.productKeyword"
+              clearable
+              placeholder="产品编码/名称"
+              class="!w-220px"
+              data-pqc-leader-filter-product
+            />
+          </el-form-item>
+          <el-form-item label="检验类型" prop="inspectionType">
+            <el-select
+              v-model="queryParams.inspectionType"
+              clearable
+              placeholder="检验类型"
+              class="!w-160px"
+              data-pqc-leader-filter-inspection-type
+            >
+              <el-option label="首检" value="FIRST" />
+              <el-option label="巡检" value="PATROL" />
+              <el-option label="末检" value="FINAL" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="轮次" prop="roundNo">
+            <el-input-number
+              v-model="queryParams.roundNo"
+              :min="1"
+              :controls="false"
+              placeholder="轮次"
+              class="!w-140px"
+              data-pqc-leader-filter-round
+            />
+          </el-form-item>
+          <el-form-item label="复核状态" prop="submissionReviewStatus">
+            <el-select
+              v-model="queryParams.submissionReviewStatus"
+              clearable
+              placeholder="复核状态"
+              class="!w-160px"
+              data-pqc-leader-filter-review-status
+            >
+              <el-option label="待判定" value="PENDING" />
+              <el-option label="正确" value="APPROVED" />
+              <el-option label="不正确" value="REJECTED" />
+            </el-select>
+          </el-form-item>
+        </template>
         <el-form-item>
           <el-button type="primary" @click="handleQuery">
             <Icon icon="ep:search" class="mr-5px" />
@@ -112,6 +159,20 @@
         </el-table-column>
         <el-table-column label="生产工单" min-width="160">
           <template #default="{ row }">{{ row.workOrderCode || '--' }}</template>
+        </el-table-column>
+        <el-table-column v-if="activeLeaderTab === 'PQC'" label="产品" min-width="180">
+          <template #default="{ row }">
+            <span data-pqc-leader-submission-product>
+              {{ row.productCode || row.productName || '--' }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column v-if="activeLeaderTab === 'PQC'" label="检验类型/轮次" min-width="150">
+          <template #default="{ row }">
+            <span data-pqc-leader-submission-task>
+              {{ resolvePqcInspectionTypeText(row.inspectionType) }} / 第 {{ row.roundNo || '--' }} 轮
+            </span>
+          </template>
         </el-table-column>
         <el-table-column label="PQC" min-width="130">
           <template #default="{ row }">
@@ -901,7 +962,12 @@ const queryParams = reactive<TeamLeaderSubmissionPageReqVO>({
   deviceId: undefined,
   templateType: undefined,
   workOrderId: undefined,
-  workOrderCode: undefined
+  workOrderCode: undefined,
+  productId: undefined,
+  productKeyword: undefined,
+  inspectionType: undefined,
+  roundNo: undefined,
+  submissionReviewStatus: undefined
 })
 
 const reviewForm = reactive({
@@ -1320,7 +1386,12 @@ const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
     deviceId: normalizePositiveNumber(queryParams.deviceId),
     templateType: queryParams.templateType || undefined,
     workOrderId: normalizePositiveNumber(queryParams.workOrderId),
-    workOrderCode: queryParams.workOrderCode?.trim() || undefined
+    workOrderCode: queryParams.workOrderCode?.trim() || undefined,
+    productId: normalizePositiveNumber(queryParams.productId),
+    productKeyword: queryParams.productKeyword?.trim() || undefined,
+    inspectionType: queryParams.inspectionType || undefined,
+    roundNo: normalizePositiveNumber(queryParams.roundNo),
+    submissionReviewStatus: queryParams.submissionReviewStatus || undefined
   }
 }
 
@@ -1353,6 +1424,11 @@ const handleLeaderTypeChange = (value: string | number) => {
     queryParams.templateType = 'PQC_SIMPLIFIED'
   } else if (queryParams.templateType === 'PQC_SIMPLIFIED') {
     queryParams.templateType = undefined
+    queryParams.productId = undefined
+    queryParams.productKeyword = undefined
+    queryParams.inspectionType = undefined
+    queryParams.roundNo = undefined
+    queryParams.submissionReviewStatus = undefined
   }
   if (leaderType === 'PRODUCTION') {
     loadActiveOrders().catch((error) => {
@@ -1370,6 +1446,11 @@ const resetQuery = () => {
   queryParams.leaderType = leaderType
   queryParams.submitDate = new Date().toISOString().slice(0, 10)
   queryParams.templateType = leaderType === 'PQC' ? 'PQC_SIMPLIFIED' : undefined
+  queryParams.productId = undefined
+  queryParams.productKeyword = undefined
+  queryParams.inspectionType = undefined
+  queryParams.roundNo = undefined
+  queryParams.submissionReviewStatus = undefined
   getSubmissionList()
 }
 

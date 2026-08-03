@@ -1,0 +1,286 @@
+{
+  "runId": "DISTTENANT1202608030005",
+  "tenantName": "芋道源码",
+  "fileNumber": "CODX-DCC-DIST-906104-DISTTENANT1202608030005",
+  "fileName": "Codex DCC 分发回收纸质类别 DISTTENANT1202608030005",
+  "baseUrl": "http://127.0.0.1:8081",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "v1FilePath": "E:\\IntRuoyi\\resource\\批记录节点-解析样本.docx",
+  "v2FilePath": "E:\\IntRuoyi\\resource\\过程检验记录.docx",
+  "stampedPdfPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-upload-revision-e2e\\stamped-approval-sample.pdf",
+  "startedAt": "2026-08-02T16:57:51.809Z",
+  "phases": [
+    {
+      "phase": "resume-after-v1-upload-approvals",
+      "v1ControlledFileId": "2054545668044070310"
+    },
+    {
+      "phase": "approval-task-page-loaded",
+      "versionNo": "V1.0",
+      "username": "zhaomingyu",
+      "responseStatus": 200
+    },
+    {
+      "phase": "page-diagnostics",
+      "label": "approve-V1.0-zhaomingyu-button-missing",
+      "url": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070310?handling=approval&from=approval-center&processInstanceId=0599828d-8e8f-11f1-a5cc-00155d2984a0&taskId=0cf42401-8e8f-11f1-a5cc-00155d2984a0",
+      "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260803-dcc-distribution-recovery-e2e\\screenshots\\DISTTENANT1202608030005-approve-V1.0-zhaomingyu-button-missing.png",
+      "formErrors": [],
+      "visibleAlerts": [
+        "受控打印动作投影缺失，已阻止操作，请刷新后重试或联系管理员确认后端投影。",
+        "无受控打印权限 当前账号缺少受控打印菜单权限，或该文件类别未授予 PRINT 打印权限；页面已按只读方式隐藏受控打印入口。",
+        "当前策略：直接受控打印 当前文件类别无需打印审批，提交后直接生成受控打印件，并以 DIRECT_PRINTED 状态写入打印记录。",
+        "当前可查看签核追溯摘要；高级签名留痕需 DCC 电子签名管理权限。"
+      ],
+      "visibleDialogs": [],
+      "buttons": [
+        {
+          "text": "版本信息未生成",
+          "enabled": true
+        },
+        {
+          "text": "返回",
+          "enabled": true
+        },
+        {
+          "text": "预览受控文件",
+          "enabled": true
+        },
+        {
+          "text": "更多",
+          "enabled": true
+        },
+        {
+          "text": "关联文档入口",
+          "enabled": true
+        },
+        {
+          "text": "修正追溯入口",
+          "enabled": true
+        },
+        {
+          "text": "查看受控浏览当前有效版",
+          "enabled": true
+        },
+        {
+          "text": "查看详情",
+          "enabled": true
+        },
+        {
+          "text": "导出回执",
+          "enabled": false
+        },
+        {
+          "text": "打印回执",
+          "enabled": false
+        },
+        {
+          "text": "导出",
+          "enabled": true
+        },
+        {
+          "text": "打印",
+          "enabled": true
+        },
+        {
+          "text": "查询",
+          "enabled": true
+        },
+        {
+          "text": "显示字段",
+          "enabled": true
+        },
+        {
+          "text": "重置列",
+          "enabled": true
+        },
+        {
+          "text": "显示字段",
+          "enabled": true
+        },
+        {
+          "text": "重置",
+          "enabled": true
+        },
+        {
+          "text": "显示字段",
+          "enabled": true
+        },
+        {
+          "text": "重置",
+          "enabled": true
+        },
+        {
+          "text": "显示字段",
+          "enabled": true
+        },
+        {
+          "text": "重置",
+          "enabled": true
+        },
+        {
+          "text": "显示字段",
+          "enabled": true
+        },
+        {
+          "text": "重置",
+          "enabled": true
+        },
+        {
+          "text": "显示字段",
+          "enabled": true
+        },
+        {
+          "text": "重置",
+          "enabled": true
+        },
+        {
+          "text": "显示字段",
+          "enabled": true
+        },
+        {
+          "text": "重置",
+          "enabled": true
+        }
+      ],
+      "bodyTextSample": "瑛泰管理系统 个人中心 3 审批中心 2 电子签名 文控中心 文档目录 文控权限 上传审批 文件上传 受控浏览 文控日志 基础数据 系统管理 版本信息未生成 文控中心 / 受控浏览 请输入菜单内容 赵明玉 审批中心 2 受控文件详情 Codex DCC 分发回收纸质类别 DISTTENANT1202608030005 待会签批准 文件编号：CODX-DCC-DIST-906104-DISTTENANT1202608030005 版本：V1.0 生效日期：2026-08-03 返回 预览受控文件 更多 页面模式 详情查看态 下一步 等待会签批准 责任面 责任：会签批准 当前阶段 - 阻塞原因 - 受控打印动作投影缺失，已阻止操作，请刷新后重试或联系管理员确认后端投影。 无受控打印权限 当前账号缺少受控打印菜单权限，或该文件类别未授予 PRINT 打印权限；页面已按只读方式隐藏受控打印入口。 查阅权限说明 详情 目录管理员：目录管理员 已发布查看 - 待审原件 目录管理员：目录管理员 下载 下载策略：PUBLISHED_FILE_MISSING DCC 项目代码联动 展示当前文件在 DCC 项目代码和文件分类树中的关联文档入口。 关联文档入口 修正追溯入口 当前 DCC 项目 按压式球囊扩充压力泵 / IDI 当前文件分类 技术文档 / 清单 / DHF文件清单 关联文件 ID 2054545668044070310 关联文档定位 可跳转并定位当前文件类型 受控浏览入口 原版审批生效后展示最终受控浏览目录、发布文件和盖章文件落位。 查看受控浏览当前有效版 最终目录路径 4.Ohter 发布文件 发布文件：未生成或未返回 高级信息：publishedFileId - 盖章文件 盖章文件：未生成或未返回 高级信息：stampedFileId - 当前有效版来源（master 当前生效版本） 非受控浏览当前有效版：待会签批准 高级信息：currentActiveVersionNo - 审批阶段进度 当前阶段：- 文控审核 待处理 0/0 待解析审批配置 处理人：赵海辰 (zhaohaichen) 处理时间：- 签名状态：1 条签名证据 会签审核 待处理 0/0 待解析审批配置 处理人：赵杰 (zhaojie) 处理时间：- 签名状态：1 条签名证据 会签批准 待处理 0/0 待解析审批配置 处理人：赵明玉 (zhaomingyu) 处理时间：- 签名状态：待进入节点 文控批准 待处理 0/0 待解析审批配置 处理人：王思雨 (wangsiyu) 处理时间：- 签名状态：待进入节点 文件类别 其他 受控目录 4.Ohter 文件名称 Codex DCC 分发回收纸质类别 DISTTENANT1202608030005 产品编号 IDI 产品名称 按压式球囊扩充压力泵 DCC基础条目 按压式球囊扩充压力泵 / IDI 文件类别 I 技术文档 文件类别 II 清单 文件类别 III DHF文件清单 文件类别 IV - 文件类别 V - 培训要求 无需培训 现行版本 - 流程实例 0599828d-8e8f-11f1-a5cc-00155d2984a0 提交人 彭云凤 (pengyunfeng) 提交时间 2026-08-03 00:27:15 发布时间 - 流程定义 dcc-controlled-file-approval 提交备注 新建 E2E DISTTENANT1202608030005 关键记录时间线 汇总 4 项 电子签名 签名 2026-08-03 00:27:27 会签审核通过 · 审批通过 责任人：赵杰 电子签名 签名 2026-08-03 00:27:21 文控审核通过 · 审批通过 责任人：赵海辰 提交申请 提交 2026-08-03 00:27:15 CODX-DCC-DIST-906104-DISTTENANT1202608030005 版本 V1.0 已提交。 责任人：彭云凤 (pengyunfeng) 版本生效 生效 2026-08-03 版本 V1.0 生效。 审批路线快照 阶段 候选摘要 审批要求 解析审批人 文控审核 版本 4 · 阶段 1 · DOC_CONTROL_REVIEW 指定用户 赵海辰 (zhaohaichen) 来源：指定用户 待处理 任意通过 - 已完成，- 赵海辰 (zhaohaichen) 审核会签 版本 4 · 阶段 2 · MATRIX_REVIEW 指定用户 赵杰 (zhaojie) 来源：指定用户 待处理 全部通过 比例 100% - 已完成，- 赵杰 (zhaojie) 批准 版本 4 · 阶段 3 · MATRIX_APPROVAL 指定用户 赵明玉 (zhaomingyu) 来源：指定用户 待处理 任意通过 - 已完成，- 赵明玉 (zhaomingyu) 文控批准 版本 4 · 阶段 4 · DOC_CONTROL_APPROVAL 指定用户 王思雨 (wangsiyu) 来源：指定用户 待处理 任意通过 - 已完成，- 王思雨 (wangsiyu) 版本历史 标题 文件编号 版本 升版原因/变更说明 发放方式 状态 发布时间 作废时间 后继版本 操作 Codex DCC 分发回收纸质类别 DISTTENANT1202608030005 CODX-DCC-DIST-906104-DISTTENANT1202608030005 V1.0 新建 E2E DISTTENANT1202608030005 - 待会签批准 - - 无后继版本 查看详情 分发状态 导出回执 打印回执 部门 接收人 分发摘要 回收摘要 操作 当前版本暂无分发记录 受控打印记录 仅当前有效版本可登记受控打印，打印件需包含打印编号、文件编号、版本、打印人和打印时间。 当前策略：直接受控打印 当前文件类别无需打印审批，提交后直接生成受控打印件，并以 DIRECT_PRINTED 状态写入打印记录。 打印编号 文件编号 版本 份数 副本编号 打印用途 接收部门 使用位置 打印人 打印时间 审批/打印状态 当前版本暂无受控打印记录 培训状态 完成进度 暂无培训对象 最近确认时间 - 未完成人员 无未完成人员 部门 受训人 培训摘要 当前版本暂无培训记录 签核追溯 汇总上传人、四级审批人、审批意见、签名时间、签名方式、证据状态、文件哈希和盖章/发布文件。 导出 打印 角色 上传人 / 四级审批人 审批意见 签名时间 签名方式 证据状态 文件哈希 盖章文件 / 发布文件证据 上传人 彭云凤 (pengyunfeng) - 2026-08-03 00:27:15 上传提交 - - - 四级审批人 赵海辰 - 2026-08-03 00:27:21 PASSWORD 已校验 b01057b25784 - 四级审批人 赵杰 - 2026-08-03 00:27:27 PASSWORD 已校验 7696497fa635 - 签名留痕 常用视图默认显示签名业务字段，Hash 证据可在高级视图查看。 快速过滤 版本 包含 查询 显示字段 重置列 常用视图 高级视图 当前可查看签核追溯摘要；"
+    }
+  ],
+  "targetNetworkFailures": [
+    {
+      "label": "approve-V1.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/auth/get-permission-info",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "approve-V1.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "approve-V1.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/notify-message/get-unread-count",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "approve-V1.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "approve-V1.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/dict-data/simple-list",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "approve-V1.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/dict-data/simple-list",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "approve-V1.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "approve-V1.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "accountProfiles": {
+    "uploader": {
+      "id": 151,
+      "nickname": "彭云凤",
+      "username": "pengyunfeng"
+    },
+    "publishApplicant": {
+      "username": "wangsiyu",
+      "userId": 910250,
+      "nickname": "王思雨"
+    },
+    "trainingParticipant": {
+      "username": "zhaomingyu",
+      "userId": 424,
+      "nickname": "赵明玉"
+    },
+    "approvers": [
+      {
+        "username": "zhaohaichen",
+        "role": "文控审核",
+        "userId": 376,
+        "nickname": "赵海辰"
+      },
+      {
+        "username": "zhaojie",
+        "role": "会签审核",
+        "userId": 1074,
+        "nickname": "赵杰"
+      },
+      {
+        "username": "zhaomingyu",
+        "role": "会签批准",
+        "userId": 424,
+        "nickname": "赵明玉"
+      },
+      {
+        "username": "wangsiyu",
+        "role": "文控批准",
+        "userId": 910250,
+        "nickname": "王思雨"
+      }
+    ],
+    "publishApprovers": [
+      {
+        "username": "wangsiyu",
+        "role": "发布审批1",
+        "userId": 910250,
+        "nickname": "王思雨"
+      },
+      {
+        "username": "zhaohaichen",
+        "role": "发布审批2",
+        "userId": 376,
+        "nickname": "赵海辰"
+      },
+      {
+        "username": "zhaojie",
+        "role": "发布审批3",
+        "userId": 1074,
+        "nickname": "赵杰"
+      },
+      {
+        "username": "zhaomingyu",
+        "role": "发布审批4",
+        "userId": 424,
+        "nickname": "赵明玉"
+      }
+    ]
+  },
+  "fileSizes": {
+    "v1": 37680,
+    "v2": 74170,
+    "stampedPdf": 658
+  },
+  "finishedAt": "2026-08-02T16:58:13.629Z",
+  "status": "BLOCKED",
+  "blocker": "DCC approval action button missing for V1.0/zhaomingyu; diagnostics={\"url\":\"http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070310?handling=approval&from=approval-center&processInstanceId=0599828d-8e8f-11f1-a5cc-00155d2984a0&taskId=0cf42401-8e8f-11f1-a5cc-00155d2984a0\",\"screenshotPath\":\"E:\\\\IntRuoyi\\\\doc\\\\tasks\\\\20260803-dcc-distribution-recovery-e2e\\\\screenshots\\\\DISTTENANT1202608030005-approve-V1.0-zhaomingyu-button-missing.png\",\"visibleAlerts\":[\"受控打印动作投影缺失，已阻止操作，请刷新后重试或联系管理员确认后端投影。\",\"无受控打印权限 当前账号缺少受控打印菜单权限，或该文件类别未授予 PRINT 打印权限；页面已按只读方式隐藏受控打印入口。\",\"当前策略：直接受控打印 当前文件类别无需打印审批，提交后直接生成受控打印件，并以 DIRECT_PRINTED 状态写入打印记录。\",\"当前可查看签核追溯摘要；高级签名留痕需 DCC 电子签名管理权限。\"],\"buttons\":[{\"text\":\"版本信息未生成\",\"enabled\":true},{\"text\":\"返回\",\"enabled\":true},{\"text\":\"预览受控文件\",\"enabled\":true},{\"text\":\"更多\",\"enabled\":true},{\"text\":\"关联文档入口\",\"enabled\":true},{\"text\":\"修正追溯入口\",\"enabled\":true},{\"text\":\"查看受控浏览当前有效版\",\"enabled\":true},{\"text\":\"查看详情\",\"enabled\":true},{\"text\":\"导出回执\",\"enabled\":false},{\"text\":\"打印回执\",\"enabled\":false},{\"text\":\"导出\",\"enabled\":true},{\"text\":\"打印\",\"enabled\":true},{\"text\":\"查询\",\"enabled\":true},{\"text\":\"显示字段\",\"enabled\":true},{\"text\":\"重置列\",\"enabled\":true},{\"text\":\"显示字段\",\"enabled\":true},{\"text\":\"重置\",\"enabled\":true},{\"text\":\"显示字段\",\"enabled\":true},{\"text\":\"重置\",\"enabled\":true},{\"text\":\"显示字段\",\"enabled\":true},{\"text\":\"重置\",\"enabled\":true},{\"text\":\"显示字段\",\"enabled\":true},{\"text\":\"重置\",\"enabled\":true},{\"text\":\"显示字段\",\"enabled\":true},{\"text\":\"重置\",\"enabled\":true},{\"text\":\"显示字段\",\"enabled\":true},{\"text\":\"重置\",\"enabled\":true}],\"bodyTextSample\":\"瑛泰管理系统 个人中心 3 审批中心 2 电子签名 文控中心 文档目录 文控权限 上传审批 文件上传 受控浏览 文控日志 基础数据 系统管理 版本信息未生成 文控中心 / 受控浏览 请输入菜单内容 赵明玉 审批中心 2 受控文件详情 Codex DCC 分发回收纸质类别 DISTTENANT1202608030005 待会签批准 文件编号：CODX-DCC-DIST-906104-DISTTENANT1202608030005 版本：V1.0 生效日期：2026-08-03 返回 预览受控文件 更多 页面模式 详情查看态 下一步 等待会签批准 责任面 责任：会签批准 当前阶段 - 阻塞原因 - 受控打印动作投影缺失，已阻止操作，请刷新后重试或联系管理员确认后端投影。 无受控打印权限 当前账号缺少受控打印菜单权限，或该文件类别未授予 PRINT 打印权限；页面已按只读方式隐藏受控打印入口。 查阅权限说明 详情 目录管理员：目录管理员 已发布查看 - 待审原件 目录管理员：目录管理员 下载 下载策略：PUBLISHED_FILE_MISSING DCC 项目代码联动 展示当前文件在 DCC 项目代码和文件分类树中的关联文档入口。 关联文档入口 修正追溯入口 当前 DCC 项目 按压式球囊扩充压力泵 / IDI 当前文件分类 技术文档 / 清单 / DHF文件清单 关联文件 ID 2054545668044070310 关联文档定位 可跳转并定位当前文件类型 受控浏览入口 原版审批生效后展示最终受控浏览目录、发布文件和盖章文件落位。 查看受控浏览当前有效版 最终目录路径 4.Ohter 发布文件 发布文件：未生成或未返回 高级信息：publishedFileId - 盖章文件 盖章文件：未生成或未返回 高级信息：stampedFileId - 当前有效版来源（master 当前生效版本） 非受控浏览当前有效版：待会签批准 高级信息：currentActiveVersionNo - 审批阶段进度 当前阶段：- 文控审核 待处理 0/0 待解析审批配置 处理人：赵海辰 (zhaohaichen) 处理时间：- 签名状态：1 条签名证据 会签审核 待处理 0/0 待解析审批配置 处理人：赵杰 (zhaojie) 处理时间：- 签名状态：1 条签名证据 会签批准 待处理 0/0 待解析审批配置 处理人：赵明玉 (zhaomingyu) 处理时间：- 签名状态：待进入节点 文控批准 待处理 0/0 待解析审批配置 处理人：王思雨 (wangsiyu) 处理时间：- 签名状态：待进入节点 文件类别 其他 受控目录 4.Ohter 文件名称 Codex DCC 分发回收纸质类别 DISTTENANT1202608030005 产品编号 IDI 产品名称 按压式球囊扩充压力泵 DCC基础条目 按压式球囊扩充压力泵 / IDI 文件类别 I 技术文档 文件类别 II 清单 文件类别 III DHF文件清单 文件类别 IV - 文件类别 V - 培训要求 无需培训 现行版本 - 流程实例 0599828d-8e8f-11f1-a5cc-00155d2984a0 提交人 彭云凤 (pengyunfeng) 提交时间 2026-08-03 00:27:15 发布时间 - 流程定义 dcc-controlled-file-approval 提交备注 新建 E2E DISTTENANT1202608030005 关键记录时间线 汇总 4 项 电子签名 签名 2026-08-03 00:27:27 会签审核通过 · 审批通过 责任人：赵杰 电子签名 签名 2026-08-03 00:27:21 文控审核通过 · 审批通过 责任人：赵海辰 提交申请 提交 2026-08-03 00:27:15 CODX-DCC-DIST-906104-DISTTENANT1202608030005 版本 V1.0 已提交。 责任人：彭云凤 (pengyunfeng) 版本生效 生效 2026-08-03 版本 V1.0 生效。 审批路线快照 阶段 候选摘要 审批要求 解析审批人 文控审核 版本 4 · 阶段 1 · DOC_CONTROL_REVIEW 指定用户 赵海辰 (zhaohaichen) 来源：指定用户 待处理 任意通过 - 已完成，- 赵海辰 (zhaohaichen) 审核会签 版本 4 · 阶段 2 · MATRIX_REVIEW 指定用户 赵杰 (zhaojie) 来源：指定用户 待处理 全部通过 比例 100% - 已完成，- 赵杰 (zhaojie) 批准 版本 4 · 阶段 3 · MATRIX_APPROVAL 指定用户 赵明玉 (zhaomingyu) 来源：指定用户 待处理 任意通过 - 已完成，- 赵明玉 (zhaomingyu) 文控批准 版本 4 · 阶段 4 · DOC_CONTROL_APPROVAL 指定用户 王思雨 (wangsiyu) 来源：指定用户 待处理 任意通过 - 已完成，- 王思雨 (wangsiyu) 版本历史 标题 文件编号 版本 升版原因/变更说明 发放方式 状态 发布时间 作废时间 后继版本 操作 Codex DCC 分发回收纸质类别 DISTTENANT1202608030005 CODX-DCC-DIST-906104-DISTTENANT1202608030005 V1.0 新建 E2E DISTTENANT1202608030005 - 待会签批准 - - 无后继版本 查看详情 分发状态 导出回执 打印回执 部门 接收人 分发摘要 回收摘要 操作 当前版本暂无分发记录 受控打印记录 仅当前有效版本可登记受控打印，打印件需包含打印编号、文件编号、版本、打印人和打印时间。 当前策略：直接受控打印 当前文件类别无需打印审批，提交后直接生成受控打印件，并以 DIRECT_PRINTED 状态写入打印记录。 打印编号 文件编号 版本 份数 副本编号 打印用途 接收部门 使用位置 打印人 打印时间 审批/打印状态 当前版本暂无受控打印记录 培训状态 完成进度 暂无培训对象 最近确认时间 - 未完成人员 无未完成人员 部门 受训人 培训摘要 当前版本暂无培训记录 签核追溯 汇总上传人、四级审批人、审批意见、签名时间、签名方式、证据状态、文件哈希和盖章/发布文件。 导出 打印 角色 上传人 / 四级审批人 审批意见 签名时间 签名方式 证据状态 文件哈希 盖章文件 / 发布文件证据 上传人 彭云凤 (pengyunfeng) - 2026-08-03 00:27:15 上传提交 - - - 四级审批人 赵海辰 - 2026-08-03 00:27:21 PASSWORD 已校验 b01057b25784 - 四级审批人 赵杰 - 2026-08-03 00:27:27 PASSWORD 已校验 7696497fa635 - 签名留痕 常用视图默认显示签名业务字段，Hash 证据可在高级视图查看。 快速过滤 版本 包含 查询 显示字段 重置列 常用视图 高级视图 当前可查看签核追溯摘要；\"}"
+}

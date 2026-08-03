@@ -44,6 +44,17 @@ class DccControlledPrintContractTest {
     }
 
     @Test
+    void backendPrintHtmlExposesDirectPrintPolicyAndCopyNumbers() throws Exception {
+        String service = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFilePrintServiceImpl.java");
+        assertTrue(service.contains("副本编号"),
+                "generated controlled print HTML must expose per-copy copy numbers");
+        assertTrue(service.contains("buildControlledPrintCopyNumbers"),
+                "copy numbers must be derived consistently from print number and copies");
+        assertTrue(service.contains("直接受控打印"),
+                "generated controlled print HTML must expose the current direct print/no approval policy");
+    }
+
+    @Test
     void backendDefinesFailFastControlledPrintErrors() throws Exception {
         String errors = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/enums/ErrorCodeConstants.java");
         assertTrue(errors.contains("CONTROLLED_FILE_PRINT_NOT_ALLOWED"),

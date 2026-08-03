@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.controller.admin.file;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditTaskRespVO;
 import cn.iocoder.yudao.module.dcc.service.file.DccNasControlAuditService;
@@ -29,6 +30,7 @@ class DccNasControlAuditControllerTest extends BaseMockitoUnitTest {
     private static final String START_PATH = "/dcc/controlled-files/nas-control-audit/start";
     private static final String GET_PATH = "/dcc/controlled-files/nas-control-audit/{taskId}";
     private static final String DOWNLOAD_PATH = "/dcc/controlled-files/nas-control-audit/{taskId}/download";
+    private static final String FILES_PATH = "/dcc/controlled-files/nas-control-audit/{taskId}/files";
 
     @Mock
     private DccNasControlAuditService auditService;
@@ -48,6 +50,15 @@ class DccNasControlAuditControllerTest extends BaseMockitoUnitTest {
         Method download = findMappedMethod(GetMapping.class, DOWNLOAD_PATH);
         assertEquals(ResponseEntity.class, download.getReturnType());
         assertPermission(download);
+    }
+
+    @Test
+    void nasControlAudit_mapsFilesPageWithControlledFileQueryPermission() {
+        Method files = findMappedMethod(GetMapping.class, FILES_PATH);
+
+        assertCommonPageResultType(files,
+                "cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditFileRespVO");
+        assertPermission(files);
     }
 
     private Method findMappedMethod(Class<? extends Annotation> mappingAnnotationType, String expectedFullPath) {
@@ -90,6 +101,18 @@ class DccNasControlAuditControllerTest extends BaseMockitoUnitTest {
         ParameterizedType parameterizedType = (ParameterizedType) genericReturnType;
         assertEquals(CommonResult.class, parameterizedType.getRawType());
         assertEquals(expectedDataType, parameterizedType.getActualTypeArguments()[0]);
+    }
+
+    private void assertCommonPageResultType(Method method, String expectedDataTypeName) {
+        assertEquals(CommonResult.class, method.getReturnType());
+        Type genericReturnType = method.getGenericReturnType();
+        assertTrue(genericReturnType instanceof ParameterizedType);
+        ParameterizedType commonResultType = (ParameterizedType) genericReturnType;
+        assertEquals(CommonResult.class, commonResultType.getRawType());
+        assertTrue(commonResultType.getActualTypeArguments()[0] instanceof ParameterizedType);
+        ParameterizedType pageResultType = (ParameterizedType) commonResultType.getActualTypeArguments()[0];
+        assertEquals(PageResult.class, pageResultType.getRawType());
+        assertEquals(expectedDataTypeName, pageResultType.getActualTypeArguments()[0].getTypeName());
     }
 
     private void assertPermission(Method method) {

@@ -1,7 +1,7 @@
 # 岗位需求分解矩阵真实 E2E 前置证据
 
 - Task ID: `20260801-role-requirement-matrix-implementation`
-- Generated At: `2026-08-02T14:15:06.061Z`
+- Generated At: `2026-08-03T01:32:48.709Z`
 - Status: `BLOCKED`
 - Frontend: `http://127.0.0.1:8081`
 - Backend: `http://127.0.0.1:48081`
@@ -10,8 +10,10 @@
 
 ## Result
 
-- BLOCKED: 65 blockers remain.
+- BLOCKED: 67 blockers remain.
 - E2E_CLEANUP:activeOrderCleanupDeferred -> 本轮 activeOrderId 仍是 M6 后续真实 E2E 共享夹具；直接移除会破坏 PQC、放行、日结和后续验证链路。需要一次性可重建夹具或明确清理窗口后再执行删除验证。
+- E2E_PQC_SUBMISSION_DATA:pqcFormalSubmissionCreated -> PQC 正式提交业务失败：一线提交身份上下文缺少必填字段：routeProcess.workstationId
+- E2E_PQC_SUBMISSION_DATA:pqcLeaderSubmissionFilterPaginationConsistent -> 当前本机租户没有当天球囊扩张压力泵任务的正式 PQC 提交事件，无法通过真实 PQC 组长页面证明多条件筛选和分页 total 一致性；需要先完成至少两笔可筛选的正式 PQC 提交夹具。
 - E2E_CONCURRENCY:m6ConcurrencyGateDeferred -> 测试矩阵中 12 个 CONC AC 仍需逐项完成真实并发或服务级并发证据；当前仅 AC-M04 已有活跃订单重复/冲突/跨角色动作和后端唯一键并发回归，不能替代报工分配、PQC 提交/确认、过程检验、放行和批记录回填并发门禁。
 - E2E_PERFORMANCE:m6PerformanceGateDeferred -> 测试矩阵中 4 个 PERF AC 仍需分页总数、索引或查询计数证据；当前已观察 1 个 PERF AC（AC-D27），尚未完成日结、PQC 列表和逐件明细的完整 N+1 或分页漂移证明。
 - E2E_COVERAGE:AC-M01 -> TC-M01 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
@@ -95,6 +97,8 @@
 - PASS: pqcRegulationItemsRendered -> PQC 页面按已发布 QA 规程渲染检验项目; role=pqcInspector; acceptance=AC-D17, AC-D19, AC-D24, AC-D31
 - PASS: pqcPieceDetailQuantityPrepared -> PQC 逐件明细数量按计划数量准备; role=pqcInspector; acceptance=AC-D27
 - PASS: pqcActualEmployeeSelected -> 共享账号下选择实际 PQC 检验人员; role=pqcInspector; acceptance=AC-D25, AC-D31
+- BLOCKED: pqcFormalSubmissionCreated -> PQC 正式提交生成过程池检验事件; role=pqcInspector; acceptance=AC-D29, AC-D32
+- BLOCKED: pqcLeaderSubmissionFilterPaginationConsistent -> PQC 组长提交看板筛选分页一致性; role=pqcLeader; acceptance=AC-D32
 - PASS: activeOrderUnauthorizedMutationBlocked -> 错误角色活跃订单写入权限隔离; role=unauthorizedActor; acceptance=AC-M04, AC-D09, AC-D13
 
 ## Gate Evidence

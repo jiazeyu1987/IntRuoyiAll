@@ -13,6 +13,7 @@ public class DccControlledFileRespVO {
     private Long masterId;
     private Long categoryId;
     private Long directoryId;
+    private String directoryPath;
     private String title;
     private String fileName;
     private String contentType;

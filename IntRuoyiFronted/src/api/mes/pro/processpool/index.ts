@@ -10,6 +10,11 @@ export interface ProcessPoolTimelinePageReqVO {
   templateType?: string
   workOrderId?: number
   workOrderCode?: string
+  productId?: number
+  productKeyword?: string
+  inspectionType?: string
+  roundNo?: number
+  submissionReviewStatus?: string
 }
 
 export interface ProcessPoolTimelineReadonlyActionsVO {
@@ -46,6 +51,14 @@ export interface ProcessPoolTimelineEventVO {
   workOrderId?: number
   workOrderCode?: string
   workOrderName?: string
+  productId?: number
+  productCode?: string
+  productName?: string
+  pqcTaskId?: number
+  inspectionType?: string
+  pqcBusinessDate?: string
+  pqcShiftCode?: string
+  roundNo?: number
   sourceFeedbackId?: number
   sourceRecordbookEntryId?: number
   sourceRecordbookEventId?: number

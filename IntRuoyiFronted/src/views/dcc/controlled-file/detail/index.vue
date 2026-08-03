@@ -169,7 +169,7 @@
               下载受控文件
             </el-button>
             <el-button
-              v-if="detailActionState.canPrint"
+              v-if="controlledPrintAllowed"
               v-hasPermi="['dcc:controlled-file:print']"
               type="primary"
               plain
@@ -347,6 +347,16 @@
         type="warning"
         title="待正式下发：当前账号缺少正式下发权限"
         description="当前版本已进入待正式下发，但页面没有可用的正式下发动作。请为当前文控角色配置该文件类别的 DISTRIBUTE 分发规则和正式下发权限后再操作。"
+      />
+      <el-alert
+        v-if="controlledPrintPermissionHintVisible"
+        class="mt-12px"
+        data-testid="dcc-controlled-print-permission-hint"
+        :closable="false"
+        show-icon
+        type="info"
+        :title="controlledPrintPermissionHintTitle"
+        :description="controlledPrintPermissionHintDescription"
       />
       <div
         v-if="fileAccessExplanation"
@@ -894,7 +904,7 @@
           </div>
         </div>
         <el-button
-          v-if="detailActionState.canPrint"
+          v-if="controlledPrintAllowed"
           v-hasPermi="['dcc:controlled-file:print']"
           type="primary"
           plain
@@ -906,6 +916,15 @@
         </el-button>
       </div>
       <el-alert
+        class="mb-12px"
+        data-testid="dcc-controlled-print-policy-hint"
+        type="info"
+        title="当前策略：直接受控打印"
+        description="当前文件类别无需打印审批，提交后直接生成受控打印件，并以 DIRECT_PRINTED 状态写入打印记录。"
+        show-icon
+        :closable="false"
+      />
+      <el-alert
         v-if="controlledPrintRecordsError"
         type="error"
         :title="controlledPrintRecordsError"
@@ -914,14 +933,28 @@
         class="mb-12px"
       />
       <el-table
+        ref="controlledPrintRecordsTableRef"
         :data="controlledPrintRecords"
         :loading="controlledPrintRecordsLoading"
+        :row-key="(row: ControlledFilePrintRecordVO) => row.id"
+        :row-class-name="getControlledPrintRecordRowClassName"
         empty-text="当前版本暂无受控打印记录"
       >
-        <el-table-column label="打印编号" min-width="190" prop="printNo" show-overflow-tooltip />
+        <el-table-column label="打印编号" min-width="210" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span :data-controlled-print-record-id="row.id">{{ row.printNo }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="文件编号" min-width="160" prop="fileNumber" show-overflow-tooltip />
         <el-table-column label="版本" align="center" width="100" prop="versionNo" />
         <el-table-column label="份数" align="center" width="90" prop="copies" />
+        <el-table-column label="副本编号" min-width="220" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span data-testid="dcc-controlled-print-record-copy-nos">
+              {{ formatControlledPrintCopyNumberRange(row) }}
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column label="打印用途" min-width="180" prop="purpose" show-overflow-tooltip />
         <el-table-column label="接收部门" min-width="140" prop="receivingDepartment" show-overflow-tooltip />
         <el-table-column label="使用位置" min-width="140" prop="useLocation" show-overflow-tooltip />
@@ -1965,6 +1998,15 @@
     destroy-on-close
   >
     <el-alert
+      class="mb-12px"
+      data-testid="dcc-controlled-print-policy-dialog"
+      type="info"
+      title="当前文件类别无需打印审批"
+      description="提交后将直接生成受控打印件，审批/打印状态记录为 DIRECT_PRINTED。"
+      show-icon
+      :closable="false"
+    />
+    <el-alert
       v-if="controlledPrintDialog.inlineError"
       type="error"
       :title="controlledPrintDialog.inlineError"
@@ -1994,18 +2036,44 @@
         />
       </el-form-item>
       <el-form-item label="接收部门" :error="controlledPrintDialog.fieldErrors.receivingDepartment">
-        <el-input
-          v-model="controlledPrintDialog.form.receivingDepartment"
-          maxlength="128"
-          placeholder="请输入接收部门"
-        />
+        <div class="w-full" data-testid="dcc-controlled-print-receiving-department-select">
+          <el-select
+            v-model="controlledPrintDialog.form.receivingDepartment"
+            class="w-100%"
+            filterable
+            allow-create
+            default-first-option
+            clearable
+            placeholder="请选择或输入接收部门"
+          >
+            <el-option
+              v-for="department in controlledPrintReceivingDepartmentOptions"
+              :key="department"
+              :label="department"
+              :value="department"
+            />
+          </el-select>
+        </div>
       </el-form-item>
       <el-form-item label="使用位置" :error="controlledPrintDialog.fieldErrors.useLocation">
-        <el-input
-          v-model="controlledPrintDialog.form.useLocation"
-          maxlength="128"
-          placeholder="请输入使用位置"
-        />
+        <div class="w-full" data-testid="dcc-controlled-print-use-location-select">
+          <el-select
+            v-model="controlledPrintDialog.form.useLocation"
+            class="w-100%"
+            filterable
+            allow-create
+            default-first-option
+            clearable
+            placeholder="请选择或输入使用位置"
+          >
+            <el-option
+              v-for="location in controlledPrintUseLocationOptions"
+              :key="location"
+              :label="location"
+              :value="location"
+            />
+          </el-select>
+        </div>
       </el-form-item>
     </el-form>
     <template #footer>
@@ -2016,6 +2084,54 @@
         @click="submitControlledPrint"
       >
         生成受控打印件
+      </el-button>
+    </template>
+  </el-dialog>
+
+  <el-dialog
+    v-model="controlledPrintResultDialog.visible"
+    title="受控打印已生成"
+    data-testid="dcc-controlled-print-result-dialog"
+    width="640px"
+  >
+    <el-alert
+      class="mb-12px"
+      type="success"
+      title="本次受控打印已形成可追溯记录"
+      description="以下信息来自本次打印记录，可用于现场核对、审计抽查和后续回收盘点。"
+      show-icon
+      :closable="false"
+    />
+    <el-descriptions v-if="controlledPrintResultDialog.record" :column="2" border>
+      <el-descriptions-item label="打印编号">
+        {{ controlledPrintResultDialog.record.printNo }}
+      </el-descriptions-item>
+      <el-descriptions-item label="份数">
+        {{ controlledPrintResultDialog.record.copies }}
+      </el-descriptions-item>
+      <el-descriptions-item label="打印人">
+        {{
+          controlledPrintResultDialog.record.printUserName ||
+          userNameMap.get(controlledPrintResultDialog.record.printUserId) ||
+          `用户#${controlledPrintResultDialog.record.printUserId}`
+        }}
+      </el-descriptions-item>
+      <el-descriptions-item label="打印时间">
+        {{ formatControlledFileDateTime(controlledPrintResultDialog.record.printTime) }}
+      </el-descriptions-item>
+      <el-descriptions-item label="审批策略" :span="2">
+        直接受控打印（当前文件类别无需打印审批，状态 DIRECT_PRINTED）
+      </el-descriptions-item>
+      <el-descriptions-item label="副本编号" :span="2">
+        <span data-testid="dcc-controlled-print-result-copy-nos">
+          {{ formatControlledPrintCopyNumberList(controlledPrintResultDialog.record) }}
+        </span>
+      </el-descriptions-item>
+    </el-descriptions>
+    <template #footer>
+      <el-button @click="controlledPrintResultDialog.visible = false">关闭</el-button>
+      <el-button type="primary" @click="handleViewLatestControlledPrintRecord">
+        查看打印记录
       </el-button>
     </template>
   </el-dialog>
@@ -2209,7 +2325,11 @@ const processExportLoading = ref(false)
 const controlledPrintRecordsLoading = ref(false)
 const controlledPrintRecordsError = ref('')
 const controlledPrintRecords = ref<ControlledFilePrintRecordVO[]>([])
+const controlledPrintRecordsTableRef = ref()
 const controlledPrintAutoOpenKey = ref('')
+const latestControlledPrintRecordId = ref<number>()
+const controlledPrintHighlightRecordId = ref<number>()
+let controlledPrintHighlightTimer: ReturnType<typeof setTimeout> | undefined
 const projectCodeRecognitionLoading = ref(false)
 const trainingAckLoading = ref(false)
 const manualReleaseLoading = ref(false)
@@ -2382,6 +2502,22 @@ const selectedDistributionDepartmentIds = computed<number[]>({
 })
 
 const departmentTreeOptions = computed(() => buildDepartmentTreeOptions(departmentList.value))
+const controlledPrintReceivingDepartmentOptions = computed(() =>
+  Array.from(
+    new Set(
+      departmentList.value
+        .map((department) => String(department.name || '').trim())
+        .filter(Boolean)
+    )
+  )
+)
+const controlledPrintUseLocationOptions = computed(() => {
+  const options = [
+    ...controlledPrintRecords.value.map((record) => record.useLocation),
+    controlledBrowserDirectoryPath.value === '-' ? '' : controlledBrowserDirectoryPath.value
+  ]
+  return Array.from(new Set(options.map((item) => String(item || '').trim()).filter(Boolean))).slice(0, 20)
+})
 
 const applicantTrainingRecordDialog = reactive({
   visible: false,
@@ -2477,6 +2613,10 @@ const controlledPrintDialog = reactive({
     useLocation: ''
   }
 })
+const controlledPrintResultDialog = reactive({
+  visible: false,
+  record: null as ControlledFilePrintRecordVO | null
+})
 
 const obsoleteDialog = reactive({
   visible: false,
@@ -2540,6 +2680,28 @@ const viewerMode = computed(() => isControlledFileViewerMode(route.query as Reco
 const canRetryStampPermission = computed(() => checkPermi(['dcc:controlled-file:stamp:retry']))
 const canEditMetadata = computed(() => hasMetadataEditorRole(userStore.getRoles))
 const detailActionState = computed(() => getDetailActionState(fileDetail.value))
+const hasControlledPrintMenuPermission = computed(() => checkPermi(['dcc:controlled-file:print']))
+const controlledPrintAllowed = computed(
+  () => detailActionState.value.canPrint && hasControlledPrintMenuPermission.value
+)
+const controlledPrintPermissionHintVisible = computed(
+  () => Boolean(fileDetail.value) && !controlledPrintAllowed.value
+)
+const controlledPrintPermissionHintTitle = computed(() =>
+  hasControlledPrintMenuPermission.value ? '当前文件暂不可受控打印' : '无受控打印权限'
+)
+const controlledPrintPermissionHintDescription = computed(() => {
+  if (!fileDetail.value) {
+    return ''
+  }
+  if (!hasControlledPrintMenuPermission.value) {
+    return '当前账号缺少受控打印菜单权限，或该文件类别未授予 PRINT 打印权限；页面已按只读方式隐藏受控打印入口。'
+  }
+  if (!isCurrentActiveVersion.value) {
+    return '受控打印仅允许当前有效 ACTIVE 版本；历史版、候选版或未生成受控副本的版本不能打印。'
+  }
+  return '后端动作投影未允许本文件受控打印，请核对文件类别 PRINT 权限、受控副本和当前有效版本状态。'
+})
 const buildDccActionProjectionMessage = (
   activeAction: FormInstanceVO | null,
   activeError: string,
@@ -2797,6 +2959,10 @@ const currentFileTypeTaxonomyText = computed(() =>
   ])
 );
 const controlledBrowserDirectoryPath = computed(() => {
+  const formalDirectoryPath = fileDetail.value?.directoryPath?.trim()
+  if (formalDirectoryPath) {
+    return formalDirectoryPath
+  }
   const directoryId = fileDetail.value?.directoryId
   if (!directoryId) {
     return '-'
@@ -3255,6 +3421,69 @@ const getControlledPrintStatusLabel = (status: string | undefined) => {
     REJECTED: '已驳回'
   }
   return status ? statusMap[status] || status : '-'
+}
+
+const buildControlledPrintCopyNumbers = (record?: ControlledFilePrintRecordVO | null) => {
+  if (!record?.printNo) {
+    return []
+  }
+  const copies = Math.max(1, Math.floor(Number(record.copies || 1)))
+  const width = Math.max(2, String(copies).length)
+  return Array.from({ length: copies }, (_, index) => `${record.printNo}-${String(index + 1).padStart(width, '0')}`)
+}
+
+const formatControlledPrintCopyNumberRange = (record?: ControlledFilePrintRecordVO | null) => {
+  const copyNumbers = buildControlledPrintCopyNumbers(record)
+  if (!copyNumbers.length) {
+    return '-'
+  }
+  return copyNumbers.length === 1
+    ? copyNumbers[0]
+    : `${copyNumbers[0]} ~ ${copyNumbers[copyNumbers.length - 1]}`
+}
+
+const formatControlledPrintCopyNumberList = (record?: ControlledFilePrintRecordVO | null) => {
+  const copyNumbers = buildControlledPrintCopyNumbers(record)
+  return copyNumbers.length ? copyNumbers.join('、') : '-'
+}
+
+const clearControlledPrintRecordHighlightTimer = () => {
+  if (controlledPrintHighlightTimer) {
+    clearTimeout(controlledPrintHighlightTimer)
+    controlledPrintHighlightTimer = undefined
+  }
+}
+
+const getControlledPrintRecordRowClassName = ({
+  row
+}: {
+  row: ControlledFilePrintRecordVO
+}) => (row.id === controlledPrintHighlightRecordId.value ? 'controlled-print-record-row--latest' : '')
+
+const focusControlledPrintRecord = async (recordId: number | undefined, shouldScroll = true) => {
+  if (!recordId) {
+    return
+  }
+  latestControlledPrintRecordId.value = recordId
+  controlledPrintHighlightRecordId.value = recordId
+  clearControlledPrintRecordHighlightTimer()
+  await nextTick()
+  if (shouldScroll) {
+    const section = document.querySelector('[data-testid="dcc-controlled-print-records"]')
+    section?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const marker = document.querySelector(`[data-controlled-print-record-id="${recordId}"]`)
+    marker?.closest('tr')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+  controlledPrintHighlightTimer = setTimeout(() => {
+    if (controlledPrintHighlightRecordId.value === recordId) {
+      controlledPrintHighlightRecordId.value = undefined
+    }
+  }, 8000)
+}
+
+const handleViewLatestControlledPrintRecord = async () => {
+  controlledPrintResultDialog.visible = false
+  await focusControlledPrintRecord(latestControlledPrintRecordId.value, true)
 }
 
 const shouldLoadControlledPrintRecords = () =>
@@ -4981,9 +5210,13 @@ const resetControlledPrintDialog = () => {
 }
 
 const openControlledPrintDialog = () => {
-  if (!detailActionState.value.canPrint || !checkPermi(['dcc:controlled-file:print'])) {
+  if (!controlledPrintAllowed.value) {
     message.error('当前用户没有受控打印权限，或该文件不是当前有效受控版本。')
     return
+  }
+  if (!controlledPrintDialog.form.receivingDepartment) {
+    const currentDeptId = Number(userStore.getUser.deptId || 0)
+    controlledPrintDialog.form.receivingDepartment = deptNameMap.value.get(currentDeptId) || ''
   }
   controlledPrintDialog.visible = true
   controlledPrintDialog.inlineError = ''
@@ -5022,6 +5255,23 @@ const validateControlledPrintForm = (): ControlledFilePrintCreateReqVO | null =>
   return { purpose, copies, receivingDepartment, useLocation }
 }
 
+const enhanceControlledPrintHtml = (html: string, record: ControlledFilePrintRecordVO) => {
+  if (html.includes('副本编号') && html.includes('直接受控打印')) {
+    return html
+  }
+  const copyNumberText = escapeReceiptHtml(formatControlledPrintCopyNumberList(record))
+  const policyText = '直接受控打印（当前文件类别无需打印审批）'
+  const insertRows = `
+                      <tr><th>副本编号</th><td>${copyNumberText}</td></tr>
+                      <tr><th>审批策略</th><td>${escapeReceiptHtml(policyText)}</td></tr>`
+  if (html.includes('<tr><th>打印用途</th>')) {
+    return html.replace('<tr><th>打印用途</th>', `${insertRows}
+                      <tr><th>打印用途</th>`)
+  }
+  return html.replace('</tbody>', `${insertRows}
+                    </tbody>`)
+}
+
 const submitControlledPrint = async () => {
   const data = validateControlledPrintForm()
   if (!data) {
@@ -5038,14 +5288,18 @@ const submitControlledPrint = async () => {
     const record = await createControlledFilePrintRecord(controlledFileId.value, data)
     const printHtml = await getControlledFilePrintHtml(controlledFileId.value, record.id)
     printWindow.document.open()
-    printWindow.document.write(printHtml.html)
+    printWindow.document.write(enhanceControlledPrintHtml(printHtml.html, record))
     printWindow.document.close()
     printWindow.focus()
     printWindow.print()
-    message.success('受控打印记录已生成：' + record.printNo)
     controlledPrintDialog.visible = false
     resetControlledPrintDialog()
     await loadControlledPrintRecords()
+    latestControlledPrintRecordId.value = record.id
+    controlledPrintResultDialog.record = record
+    controlledPrintResultDialog.visible = true
+    await focusControlledPrintRecord(record.id, true)
+    message.success('受控打印记录已生成：' + record.printNo)
   } catch (error) {
     printWindow.close()
     controlledPrintDialog.inlineError = resolveReadSideErrorMessage(
@@ -5464,6 +5718,10 @@ onBeforeRouteLeave(async () => {
   return true
 })
 
+onBeforeUnmount(() => {
+  clearControlledPrintRecordHighlightTimer()
+})
+
 onMounted(() => {
   reloadAll()
 })
@@ -5747,6 +6005,12 @@ watch(
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+:deep(.controlled-print-record-row--latest) {
+  --el-table-tr-bg-color: #fff7db;
+  outline: 2px solid var(--el-color-warning);
+  outline-offset: -2px;
 }
 
 .detail-view-mode {

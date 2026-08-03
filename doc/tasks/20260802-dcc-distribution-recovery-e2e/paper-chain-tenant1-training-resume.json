@@ -1,0 +1,468 @@
+{
+  "runId": "DISTTENANT120260802195305",
+  "tenantName": "芋道源码",
+  "fileNumber": "CODX-DCC-DIST-906104-DISTTENANT120260802195305",
+  "fileName": "Codex DCC 分发回收纸质类别 DISTTENANT120260802195305",
+  "baseUrl": "http://127.0.0.1:8081",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "v1FilePath": "E:\\IntRuoyi\\resource\\批记录节点-解析样本.docx",
+  "v2FilePath": "E:\\IntRuoyi\\resource\\过程检验记录.docx",
+  "stampedPdfPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-upload-revision-e2e\\stamped-approval-sample.pdf",
+  "startedAt": "2026-08-02T15:07:31.229Z",
+  "phases": [
+    {
+      "phase": "resume-after-upload-approvals",
+      "v1ControlledFileId": "2054545668044070297",
+      "v2ControlledFileId": "2054545668044070302"
+    },
+    {
+      "phase": "resume-after-publish-submit",
+      "formInstanceId": "443",
+      "bpmProcessInstanceId": "39fb6cce-8e81-11f1-aa29-00155d2984a0"
+    },
+    {
+      "phase": "publish-approval-skipped-by-resume",
+      "reason": "publish BPM approval already completed in a previous real-page run",
+      "formInstanceId": "443",
+      "bpmProcessInstanceId": "39fb6cce-8e81-11f1-aa29-00155d2984a0"
+    },
+    {
+      "phase": "training-progress-snapshot",
+      "versionNo": "V2.0",
+      "elapsedWaitSeconds": 0,
+      "snapshot": {
+        "bodyTextSample": "瑛泰管理系统 个人中心 4 审批中心 0 电子签名 文控中心 基础数据 系统管理 版本信息未生成 文控中心 / 我的培训 请输入菜单内容 赵明玉 我的培训 培训任务 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 待查看 文件编号：CODX-DCC-DIST-906104-DISTTENANT120260802195305 版本：V2.0 来源部门：质量体系部 返回 文件详情 确认培训完成 还需阅读 9分37秒 后才可确认。 培训进度 仅在培训预览页位于前台且窗口聚焦时累计时长，达到 10 分钟后才可确认完成。 准备计时 还需阅读 9分37秒。 4% 等待培训计时启动 还需阅读 9分37秒 后才可确认。 累计时长 0分23秒 达标门槛 10分0秒 剩余时长 9分37秒 计时状态 准备计时 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。 受控预览 禁止截图/外传 Copyright ©2026 瑛泰管理系统",
+        "accumulatedSeconds": 23,
+        "remainingSeconds": 577,
+        "sessionText": ""
+      }
+    },
+    {
+      "phase": "training-progress-snapshot",
+      "versionNo": "V2.0",
+      "elapsedWaitSeconds": 60,
+      "snapshot": {
+        "bodyTextSample": "瑛泰管理系统 个人中心 4 审批中心 0 电子签名 文控中心 基础数据 系统管理 版本信息未生成 文控中心 / 我的培训 请输入菜单内容 赵明玉 我的培训 培训任务 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 待查看 文件编号：CODX-DCC-DIST-906104-DISTTENANT120260802195305 版本：V2.0 来源部门：质量体系部 返回 文件详情 确认培训完成 还需阅读 8分42秒 后才可确认。 培训进度 仅在培训预览页位于前台且窗口聚焦时累计时长，达到 10 分钟后才可确认完成。 计时中 还需阅读 8分42秒。 13% 当前会话正在计时 还需阅读 8分42秒 后才可确认。 累计时长 1分18秒 达标门槛 10分0秒 剩余时长 8分42秒 计时状态 计时中 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。 受控预览 禁止截图/外传 100% / 0° 放大 缩小 旋转 复原 受控预览 禁止截图/外传 zhaomingyu | 2026-08-02 23:07:36 第 1 / 1 页 Copyright ©2026 瑛泰管理系统",
+        "accumulatedSeconds": 78,
+        "remainingSeconds": 522,
+        "sessionText": ""
+      }
+    },
+    {
+      "phase": "training-progress-snapshot",
+      "versionNo": "V2.0",
+      "elapsedWaitSeconds": 120,
+      "snapshot": {
+        "bodyTextSample": "瑛泰管理系统 个人中心 4 审批中心 0 电子签名 文控中心 基础数据 系统管理 版本信息未生成 文控中心 / 我的培训 请输入菜单内容 赵明玉 我的培训 培训任务 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 待查看 文件编号：CODX-DCC-DIST-906104-DISTTENANT120260802195305 版本：V2.0 来源部门：质量体系部 返回 文件详情 确认培训完成 还需阅读 7分37秒 后才可确认。 培训进度 仅在培训预览页位于前台且窗口聚焦时累计时长，达到 10 分钟后才可确认完成。 计时中 还需阅读 7分37秒。 24% 当前会话正在计时 还需阅读 7分37秒 后才可确认。 累计时长 2分23秒 达标门槛 10分0秒 剩余时长 7分37秒 计时状态 计时中 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。 受控预览 禁止截图/外传 100% / 0° 放大 缩小 旋转 复原 受控预览 禁止截图/外传 zhaomingyu | 2026-08-02 23:07:36 第 1 / 1 页 Copyright ©2026 瑛泰管理系统",
+        "accumulatedSeconds": 143,
+        "remainingSeconds": 457,
+        "sessionText": ""
+      }
+    },
+    {
+      "phase": "training-progress-snapshot",
+      "versionNo": "V2.0",
+      "elapsedWaitSeconds": 180,
+      "snapshot": {
+        "bodyTextSample": "瑛泰管理系统 个人中心 4 审批中心 0 电子签名 文控中心 基础数据 系统管理 版本信息未生成 文控中心 / 我的培训 请输入菜单内容 赵明玉 我的培训 培训任务 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 待查看 文件编号：CODX-DCC-DIST-906104-DISTTENANT120260802195305 版本：V2.0 来源部门：质量体系部 返回 文件详情 确认培训完成 还需阅读 6分37秒 后才可确认。 培训进度 仅在培训预览页位于前台且窗口聚焦时累计时长，达到 10 分钟后才可确认完成。 计时中 还需阅读 6分37秒。 34% 当前会话正在计时 还需阅读 6分37秒 后才可确认。 累计时长 3分23秒 达标门槛 10分0秒 剩余时长 6分37秒 计时状态 计时中 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。 受控预览 禁止截图/外传 100% / 0° 放大 缩小 旋转 复原 受控预览 禁止截图/外传 zhaomingyu | 2026-08-02 23:07:36 第 1 / 1 页 Copyright ©2026 瑛泰管理系统",
+        "accumulatedSeconds": 203,
+        "remainingSeconds": 397,
+        "sessionText": ""
+      }
+    },
+    {
+      "phase": "training-progress-snapshot",
+      "versionNo": "V2.0",
+      "elapsedWaitSeconds": 240,
+      "snapshot": {
+        "bodyTextSample": "瑛泰管理系统 个人中心 4 审批中心 0 电子签名 文控中心 基础数据 系统管理 版本信息未生成 文控中心 / 我的培训 请输入菜单内容 赵明玉 我的培训 培训任务 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 待查看 文件编号：CODX-DCC-DIST-906104-DISTTENANT120260802195305 版本：V2.0 来源部门：质量体系部 返回 文件详情 确认培训完成 还需阅读 5分37秒 后才可确认。 培训进度 仅在培训预览页位于前台且窗口聚焦时累计时长，达到 10 分钟后才可确认完成。 计时中 还需阅读 5分37秒。 44% 当前会话正在计时 还需阅读 5分37秒 后才可确认。 累计时长 4分23秒 达标门槛 10分0秒 剩余时长 5分37秒 计时状态 计时中 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。 受控预览 禁止截图/外传 100% / 0° 放大 缩小 旋转 复原 受控预览 禁止截图/外传 zhaomingyu | 2026-08-02 23:07:36 第 1 / 1 页 Copyright ©2026 瑛泰管理系统",
+        "accumulatedSeconds": 263,
+        "remainingSeconds": 337,
+        "sessionText": ""
+      }
+    },
+    {
+      "phase": "training-progress-snapshot",
+      "versionNo": "V2.0",
+      "elapsedWaitSeconds": 300,
+      "snapshot": {
+        "bodyTextSample": "瑛泰管理系统 个人中心 4 审批中心 0 电子签名 文控中心 基础数据 系统管理 版本信息未生成 文控中心 / 我的培训 请输入菜单内容 赵明玉 我的培训 培训任务 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 待查看 文件编号：CODX-DCC-DIST-906104-DISTTENANT120260802195305 版本：V2.0 来源部门：质量体系部 返回 文件详情 确认培训完成 还需阅读 5分2秒 后才可确认。 培训进度 仅在培训预览页位于前台且窗口聚焦时累计时长，达到 10 分钟后才可确认完成。 计时中 还需阅读 5分2秒。 50% 当前会话正在计时 还需阅读 5分2秒 后才可确认。 累计时长 4分58秒 达标门槛 10分0秒 剩余时长 5分2秒 计时状态 计时中 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。 受控预览 禁止截图/外传 100% / 0° 放大 缩小 旋转 复原 受控预览 禁止截图/外传 zhaomingyu | 2026-08-02 23:07:36 第 1 / 1 页 Copyright ©2026 瑛泰管理系统",
+        "accumulatedSeconds": 298,
+        "remainingSeconds": 302,
+        "sessionText": ""
+      }
+    },
+    {
+      "phase": "training-progress-snapshot",
+      "versionNo": "V2.0",
+      "elapsedWaitSeconds": 360,
+      "snapshot": {
+        "bodyTextSample": "瑛泰管理系统 个人中心 4 审批中心 0 电子签名 文控中心 基础数据 系统管理 版本信息未生成 文控中心 / 我的培训 请输入菜单内容 赵明玉 我的培训 培训任务 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 待查看 文件编号：CODX-DCC-DIST-906104-DISTTENANT120260802195305 版本：V2.0 来源部门：质量体系部 返回 文件详情 确认培训完成 还需阅读 5分2秒 后才可确认。 培训进度 仅在培训预览页位于前台且窗口聚焦时累计时长，达到 10 分钟后才可确认完成。 准备计时 还需阅读 5分2秒。 50% 等待培训计时启动 还需阅读 5分2秒 后才可确认。 累计时长 4分58秒 达标门槛 10分0秒 剩余时长 5分2秒 计时状态 准备计时 timeout of 30000ms exceeded Copyright ©2026 瑛泰管理系统",
+        "accumulatedSeconds": 298,
+        "remainingSeconds": 302,
+        "sessionText": ""
+      }
+    },
+    {
+      "phase": "training-page-refresh",
+      "versionNo": "V2.0",
+      "reason": "progress-stalled-or-session-stopped",
+      "before": {
+        "bodyTextSample": "瑛泰管理系统 个人中心 4 审批中心 0 电子签名 文控中心 基础数据 系统管理 版本信息未生成 文控中心 / 我的培训 请输入菜单内容 赵明玉 我的培训 培训任务 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 待查看 文件编号：CODX-DCC-DIST-906104-DISTTENANT120260802195305 版本：V2.0 来源部门：质量体系部 返回 文件详情 确认培训完成 还需阅读 5分2秒 后才可确认。 培训进度 仅在培训预览页位于前台且窗口聚焦时累计时长，达到 10 分钟后才可确认完成。 准备计时 还需阅读 5分2秒。 50% 等待培训计时启动 还需阅读 5分2秒 后才可确认。 累计时长 4分58秒 达标门槛 10分0秒 剩余时长 5分2秒 计时状态 准备计时 timeout of 30000ms exceeded Copyright ©2026 瑛泰管理系统",
+        "accumulatedSeconds": 298,
+        "remainingSeconds": 302,
+        "sessionText": ""
+      }
+    },
+    {
+      "phase": "training-progress-snapshot",
+      "versionNo": "V2.0",
+      "elapsedWaitSeconds": 440,
+      "snapshot": {
+        "bodyTextSample": "瑛泰管理系统 个人中心 4 审批中心 0 电子签名 文控中心 基础数据 系统管理 版本信息未生成 文控中心 / 我的培训 请输入菜单内容 赵明玉 培训任务 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 待查看 文件编号：CODX-DCC-DIST-906104-DISTTENANT120260802195305 版本：V2.0 来源部门：质量体系部 返回 文件详情 确认培训完成 还需阅读 4分24秒 后才可确认。 培训进度 仅在培训预览页位于前台且窗口聚焦时累计时长，达到 10 分钟后才可确认完成。 计时中 还需阅读 4分24秒。 56% 当前会话正在计时 还需阅读 4分24秒 后才可确认。 累计时长 5分36秒 达标门槛 10分0秒 剩余时长 4分24秒 计时状态 计时中 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。 受控预览 禁止截图/外传 100% / 0° 放大 缩小 旋转 复原 受控预览 禁止截图/外传 zhaomingyu | 2026-08-02 23:14:16 第 1 / 1 页 Copyright ©2026 瑛泰管理系统",
+        "accumulatedSeconds": 336,
+        "remainingSeconds": 264,
+        "sessionText": ""
+      }
+    },
+    {
+      "phase": "training-progress-snapshot",
+      "versionNo": "V2.0",
+      "elapsedWaitSeconds": 500,
+      "snapshot": {
+        "bodyTextSample": "瑛泰管理系统 个人中心 4 审批中心 0 电子签名 文控中心 基础数据 系统管理 版本信息未生成 文控中心 / 我的培训 请输入菜单内容 赵明玉 培训任务 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 待查看 文件编号：CODX-DCC-DIST-906104-DISTTENANT120260802195305 版本：V2.0 来源部门：质量体系部 返回 文件详情 确认培训完成 还需阅读 3分22秒 后才可确认。 培训进度 仅在培训预览页位于前台且窗口聚焦时累计时长，达到 10 分钟后才可确认完成。 计时中 还需阅读 3分22秒。 66% 当前会话正在计时 还需阅读 3分22秒 后才可确认。 累计时长 6分38秒 达标门槛 10分0秒 剩余时长 3分22秒 计时状态 计时中 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。 受控预览 禁止截图/外传 100% / 0° 放大 缩小 旋转 复原 受控预览 禁止截图/外传 zhaomingyu | 2026-08-02 23:14:16 第 1 / 1 页 Copyright ©2026 瑛泰管理系统",
+        "accumulatedSeconds": 398,
+        "remainingSeconds": 202,
+        "sessionText": ""
+      }
+    },
+    {
+      "phase": "training-progress-snapshot",
+      "versionNo": "V2.0",
+      "elapsedWaitSeconds": 560,
+      "snapshot": {
+        "bodyTextSample": "瑛泰管理系统 个人中心 4 审批中心 0 电子签名 文控中心 基础数据 系统管理 版本信息未生成 文控中心 / 我的培训 请输入菜单内容 赵明玉 培训任务 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 待查看 文件编号：CODX-DCC-DIST-906104-DISTTENANT120260802195305 版本：V2.0 来源部门：质量体系部 返回 文件详情 确认培训完成 还需阅读 2分47秒 后才可确认。 培训进度 仅在培训预览页位于前台且窗口聚焦时累计时长，达到 10 分钟后才可确认完成。 计时中 还需阅读 2分47秒。 72% 当前会话正在计时 还需阅读 2分47秒 后才可确认。 累计时长 7分13秒 达标门槛 10分0秒 剩余时长 2分47秒 计时状态 计时中 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。 受控预览 禁止截图/外传 100% / 0° 放大 缩小 旋转 复原 受控预览 禁止截图/外传 zhaomingyu | 2026-08-02 23:14:16 第 1 / 1 页 Copyright ©2026 瑛泰管理系统",
+        "accumulatedSeconds": 433,
+        "remainingSeconds": 167,
+        "sessionText": ""
+      }
+    },
+    {
+      "phase": "training-progress-snapshot",
+      "versionNo": "V2.0",
+      "elapsedWaitSeconds": 620,
+      "snapshot": {
+        "bodyTextSample": "瑛泰管理系统 个人中心 4 审批中心 0 电子签名 文控中心 基础数据 系统管理 版本信息未生成 文控中心 / 我的培训 请输入菜单内容 赵明玉 培训任务 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 待查看 文件编号：CODX-DCC-DIST-906104-DISTTENANT120260802195305 版本：V2.0 来源部门：质量体系部 返回 文件详情 确认培训完成 还需阅读 2分1秒 后才可确认。 培训进度 仅在培训预览页位于前台且窗口聚焦时累计时长，达到 10 分钟后才可确认完成。 计时中 还需阅读 2分1秒。 80% 当前会话正在计时 还需阅读 2分1秒 后才可确认。 累计时长 7分59秒 达标门槛 10分0秒 剩余时长 2分1秒 计时状态 计时中 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。 受控预览 禁止截图/外传 100% / 0° 放大 缩小 旋转 复原 受控预览 禁止截图/外传 zhaomingyu | 2026-08-02 23:14:16 第 1 / 1 页 Copyright ©2026 瑛泰管理系统",
+        "accumulatedSeconds": 479,
+        "remainingSeconds": 121,
+        "sessionText": ""
+      }
+    },
+    {
+      "phase": "training-progress-snapshot",
+      "versionNo": "V2.0",
+      "elapsedWaitSeconds": 680,
+      "snapshot": {
+        "bodyTextSample": "瑛泰管理系统 个人中心 4 审批中心 0 电子签名 文控中心 基础数据 系统管理 版本信息未生成 文控中心 / 我的培训 请输入菜单内容 赵明玉 培训任务 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 待查看 文件编号：CODX-DCC-DIST-906104-DISTTENANT120260802195305 版本：V2.0 来源部门：质量体系部 返回 文件详情 确认培训完成 还需阅读 1分36秒 后才可确认。 培训进度 仅在培训预览页位于前台且窗口聚焦时累计时长，达到 10 分钟后才可确认完成。 计时中 还需阅读 1分36秒。 84% 当前会话正在计时 还需阅读 1分36秒 后才可确认。 累计时长 8分24秒 达标门槛 10分0秒 剩余时长 1分36秒 计时状态 计时中 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。 受控预览 禁止截图/外传 100% / 0° 放大 缩小 旋转 复原 受控预览 禁止截图/外传 zhaomingyu | 2026-08-02 23:14:16 第 1 / 1 页 Copyright ©2026 瑛泰管理系统",
+        "accumulatedSeconds": 504,
+        "remainingSeconds": 96,
+        "sessionText": ""
+      }
+    },
+    {
+      "phase": "training-progress-snapshot",
+      "versionNo": "V2.0",
+      "elapsedWaitSeconds": 741,
+      "snapshot": {
+        "bodyTextSample": "瑛泰管理系统 个人中心 4 审批中心 0 电子签名 文控中心 基础数据 系统管理 版本信息未生成 文控中心 / 我的培训 请输入菜单内容 赵明玉 培训任务 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 待查看 文件编号：CODX-DCC-DIST-906104-DISTTENANT120260802195305 版本：V2.0 来源部门：质量体系部 返回 文件详情 确认培训完成 还需阅读 0分35秒 后才可确认。 培训进度 仅在培训预览页位于前台且窗口聚焦时累计时长，达到 10 分钟后才可确认完成。 计时中 还需阅读 0分35秒。 94% 当前会话正在计时 还需阅读 0分35秒 后才可确认。 累计时长 9分25秒 达标门槛 10分0秒 剩余时长 0分35秒 计时状态 计时中 Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。 受控预览 禁止截图/外传 100% / 0° 放大 缩小 旋转 复原 受控预览 禁止截图/外传 zhaomingyu | 2026-08-02 23:14:16 第 1 / 1 页 Copyright ©2026 瑛泰管理系统",
+        "accumulatedSeconds": 565,
+        "remainingSeconds": 35,
+        "sessionText": ""
+      }
+    },
+    {
+      "phase": "training-acknowledge",
+      "controlledFileId": "2054545668044070302",
+      "versionNo": "V2.0",
+      "username": "zhaomingyu",
+      "rowText": "Codex DCC 分发回收纸质类别 DISTTENANT120260802195305 CODX-DCC-DIST-906104-DISTTENANT120260802195305 V2.0 质量体系部 待查看 0分23秒 / 10分0秒 还需 9分37秒 发布：- 进入培训 文件详情",
+      "openScreenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-distribution-recovery-e2e\\screenshots\\DISTTENANT120260802195305-training-open-V2.0.png",
+      "ackScreenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-distribution-recovery-e2e\\screenshots\\DISTTENANT120260802195305-training-ack-V2.0.png"
+    },
+    {
+      "phase": "manual-release-after-training",
+      "controlledFileId": "2054545668044070302",
+      "versionNo": "V2.0",
+      "username": "wangsiyu",
+      "beforeScreenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-distribution-recovery-e2e\\screenshots\\DISTTENANT120260802195305-manual-release-before-V2.0.png",
+      "afterScreenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-distribution-recovery-e2e\\screenshots\\DISTTENANT120260802195305-manual-release-after-V2.0.png"
+    },
+    {
+      "phase": "training-release-state",
+      "controlledFileId": "2054545668044070302",
+      "versionNo": "V2.0",
+      "status": "ACTIVE",
+      "trainingProgressRows": [
+        {
+          "userId": "424",
+          "username": "zhaomingyu",
+          "progressId": "1048",
+          "acknowledgedAt": "2026-08-02 23:20:48",
+          "requiredViewSeconds": 600,
+          "accumulatedViewSeconds": 632
+        }
+      ]
+    },
+    {
+      "phase": "final-db-verification",
+      "v1Status": "SUPERSEDED",
+      "v2Status": "ACTIVE",
+      "currentActiveControlledFileId": "2054545668044070302",
+      "publishInstanceStatus": "EFFECTIVE"
+    }
+  ],
+  "targetNetworkFailures": [
+    {
+      "label": "training-V2.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "training-V2.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/notify-message/get-unread-count",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "training-V2.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "training-V2.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "training-V2.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "training-V2.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "POST",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/1048/view-session/heartbeat",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "training-V2.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "POST",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/1048/view-session/heartbeat",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "training-V2.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "POST",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/1048/view-session/heartbeat",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "training-V2.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "POST",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/1048/view-session/heartbeat",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "training-V2.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "POST",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/1048/view-session/heartbeat",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "training-V2.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "POST",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/1048/view-session/heartbeat",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "training-V2.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "POST",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/1048/view-session/heartbeat",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "training-V2.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "POST",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/1048/view-session/start",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "training-V2.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "POST",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/1048/view-session/heartbeat",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "training-V2.0-zhaomingyu",
+      "status": "REQUEST_FAILED",
+      "method": "POST",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/1048/view-session/heartbeat",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "manual-release-V2.0-wangsiyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/notify-message/get-unread-count",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "manual-release-V2.0-wangsiyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "manual-release-V2.0-wangsiyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "manual-release-V2.0-wangsiyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "manual-release-V2.0-wangsiyu",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "accountProfiles": {
+    "uploader": {
+      "id": 910250,
+      "nickname": "王思雨",
+      "username": "wangsiyu"
+    },
+    "publishApplicant": {
+      "username": "wangsiyu",
+      "userId": 910250,
+      "nickname": "王思雨"
+    },
+    "trainingParticipant": {
+      "username": "zhaomingyu",
+      "userId": 424,
+      "nickname": "赵明玉"
+    },
+    "approvers": [
+      {
+        "username": "wangsiyu",
+        "role": "文控审核",
+        "userId": 910250,
+        "nickname": "王思雨"
+      },
+      {
+        "username": "zhaohaichen",
+        "role": "会签审核",
+        "userId": 376,
+        "nickname": "赵海辰"
+      },
+      {
+        "username": "zhaojie",
+        "role": "会签批准",
+        "userId": 1074,
+        "nickname": "赵杰"
+      },
+      {
+        "username": "zhaomingyu",
+        "role": "文控批准",
+        "userId": 424,
+        "nickname": "赵明玉"
+      }
+    ]
+  },
+  "fileSizes": {
+    "v1": 37680,
+    "v2": 74170,
+    "stampedPdf": 658
+  },
+  "databaseState": {
+    "files": [
+      {
+        "id": "2054545668044070297",
+        "status": "SUPERSEDED",
+        "masterId": "2054545668044062904",
+        "versionNo": "V1.0",
+        "changeType": "NEW",
+        "fileNumber": "CODX-DCC-DIST-906104-DISTTENANT120260802195305",
+        "approvedTime": "2026-08-02 20:19:57",
+        "publishedTime": "2026-08-02 20:19:57",
+        "stampedFileId": "9198354916368",
+        "publishedFileId": "9198354916368",
+        "processInstanceId": "bf32664a-8e68-11f1-93ff-00155d2984a0"
+      },
+      {
+        "id": "2054545668044070302",
+        "status": "ACTIVE",
+        "masterId": "2054545668044062904",
+        "versionNo": "V2.0",
+        "changeType": "REVISION",
+        "fileNumber": "CODX-DCC-DIST-906104-DISTTENANT120260802195305",
+        "approvedTime": "2026-08-02 23:21:52",
+        "publishedTime": "2026-08-02 23:21:52",
+        "stampedFileId": "9198354916370",
+        "publishedFileId": "9198354916370",
+        "processInstanceId": "9315d65b-8e6c-11f1-93ff-00155d2984a0"
+      }
+    ],
+    "master": {
+      "id": "2054545668044062904",
+      "status": "ACTIVE_CHAIN",
+      "fileNumber": "CODX-DCC-DIST-906104-DISTTENANT120260802195305",
+      "currentActiveControlledFileId": "2054545668044070302"
+    },
+    "publishInstance": {
+      "id": "443",
+      "status": "EFFECTIVE",
+      "objectId": "2054545668044070302",
+      "instanceCode": "FCI-1-1785682109960",
+      "objectVersion": "V2.0",
+      "bpmProcessInstanceId": "39fb6cce-8e81-11f1-aa29-00155d2984a0"
+    },
+    "uploadApprovalTaskCount": 8,
+    "publishApprovalTaskCount": 4
+  },
+  "v1ControlledFileId": "2054545668044070297",
+  "v2ControlledFileId": "2054545668044070302",
+  "publishFormInstanceId": "443",
+  "publishBpmProcessInstanceId": "39fb6cce-8e81-11f1-aa29-00155d2984a0",
+  "finishedAt": "2026-08-02T15:21:53.227Z",
+  "status": "PASS"
+}

@@ -1,0 +1,217 @@
+# Execution Log
+
+## User Intent
+
+- 用户要求按照 BDD + 严格 TDD 方式完成文档设计。
+- 设计应尽量复用当前系统。
+- 点击“统计未受控文件”后，用户可选择是否将新的未受控文件下载到本地对应目录。
+- 选中文件下载后，系统依据路径或名称，将文件归入对应 DCC 项目代码下某个 item 的某个文件分类。
+- 无法判断项目代码、item 或分类时，必须标记为“未分类/待处理”。
+
+## Command Intent
+
+- 读取项目任务、后端、前端、数据库、E2E 和编码规则，确保设计符合现有门禁。
+- 读取 `bdd-tdd-acceptance-planner` 技能及验收文档结构。
+- 只读检索现有 DCC/NAS 实现、分类规则、测试和历史任务证据。
+- 生成任务设计与验收文档，不运行生产构建、不修改生产代码、不操作真实 NAS 或数据库。
+- 当前继续按已生成开发文档执行实现与验证，优先推进 schema 明细表切片；本轮只修改迁移、测试 schema、DO/Mapper、测试与任务证据，不操作真实 NAS 或真实业务数据库。
+- 按用户要求继续优化开发文档，补齐大文件传输、本地路径可写性、状态机、并发和 content 权限门禁，确保按文档开发时能被测试验证拦住潜在问题。
+- 本轮继续优化 import-selected 和 local-write-result 文档门禁，只修改设计、BDD/TDD/E2E、测试数据和任务证据，不新增生产代码、不操作真实 NAS、本地目录或业务数据库。
+
+## BDD Evidence
+
+BDD: 扫描并选择下载可识别的未受控文件 -> Given NAS 已连接且文件尚未进入 DCC 管理 When 用户扫描并选择下载 Then 文件进入本地对应目录并归入唯一识别的项目代码、item 与文件分类。
+
+BDD: 无法唯一归类的文件进入待处理 -> Given 未受控文件无法从路径或名称唯一识别项目代码、item 或分类 When 用户选择下载 Then 文件保留可追溯下载结果并标记为“未分类/待处理”，不得默认归类。
+
+BDD: 目录授权前不创建导入任务 -> Given 用户已勾选未受控文件并打开下载归类预览 When 浏览器不支持目录选择或用户取消目录选择 Then 后端不创建 import task、不下载内容、不回写本地成功、不创建 DCC 受控文件。
+
+BDD: 幂等与已归档冲突 -> Given 同一 audit file 已经完成归档 When 用户使用相同或不同 idempotencyKey 重复提交 Then 相同 key 返回原任务，不同 key 返回已处理或冲突状态，不创建第二个受控文件。
+
+BDD: 未受控扫描明细可审计持久化 -> Given NAS audit 扫描发现未受控文件 When 系统保存 audit task Then 每个未受控文件都有 `dcc_nas_control_audit_file` 明细、source signature、初始识别/下载/归档状态和 tenant-scoped path hash 索引。
+
+BDD: 大文件下载使用二进制传输 -> Given 未受控文件超过 JSON/base64 安全承载范围 When 用户选择本地目录并开始下载 Then content 接口使用二进制、流式或明确分块传输，失败回写 `LOCAL_WRITE_FAILED`。
+
+BDD: 本地目标路径不可安全写入时阻塞 -> Given 目标本地路径已存在、过长或规范化冲突 When 用户确认下载 Then 系统记录 `LOCAL_PATH_COLLISION` 或 `LOCAL_PATH_TOO_LONG`，不得覆盖、截断、自动改名或归档。
+
+BDD: 并发处理同一 audit file 只有一个归档结果 -> Given 两个请求同时提交同一 audit file When 后端创建或执行 import task Then 只有一个请求可归档，另一个返回明确冲突或已处理。
+
+
+BDD: Import-selected rejects unrecognized or stale snapshot -> Given audit file is PENDING_RECOGNITION, cross-task, or has stale sourceSignature When import-selected is called Then backend rejects without creating import task, reading NAS content, writing local result, or creating controlled file.
+
+BDD: Content download is task and tenant bound -> Given user knows another task or tenant auditFileId When content is requested through current importTaskId Then backend rejects without returning bytes, moving to CONTENT_READY, local-write-result, or archive.
+
+BDD: Deterministic pre-recognition only updates audit snapshot -> Given audit files are still `PENDING_RECOGNITION` When `/files/recognize` runs Then backend writes `MATCHED / UNCLASSIFIED_PENDING / AMBIGUOUS`, stable reason codes, candidate summary and expected local relative path without reading file bytes or creating DCC controlled files.
+
+BDD: Import-selected is atomic -> Given selected files contain a valid audit file and an invalid audit file When import-selected is called Then backend rejects the whole request without partial task rows, partial SELECTED statuses, content reads, local-write-result, or DCC archive.
+
+BDD: Import request hash is canonical -> Given the same selected audit files are submitted with the same idempotencyKey in a different order When import-selected is called again Then backend returns the original task; duplicate audit ids fail before hashing and are not silently deduplicated.
+
+BDD: Local write result replay is idempotent -> Given a matched audit file has already completed LOCAL_WRITTEN and archive When the same local-write-result is replayed Then backend returns current state without creating another controlled file or ACTIVE NAS source mapping; conflicting terminal results are rejected.
+
+## Milestone Log
+
+### M1
+
+- 状态：`completed`
+- 已完成：读取任务收尾、PowerShell/UTF-8、前后端开发、数据库、E2E 和技术栈路由规则；读取 BDD/TDD 验收规划技能；核对 `docs/experience-index.md` 中 DCC 分类、规则 seed、真实 E2E、no-fallback 相关门禁。
+- 阻塞：无。
+
+### M2
+
+- 状态：`completed`
+- 已完成：形成 `design.md`，明确复用 NAS 管理页、未受控统计任务、NAS transfer 链路、DCC 项目代码、文件分类树和 `dcc_file_category_match_rule`；定义 `未分类/待处理` 为正式业务状态。
+- 阻塞：无。
+
+### M3
+
+- 状态：`completed`
+- 已完成：生成 `docs/acceptance/bdd-scenarios.md`、`docs/acceptance/tdd-plan.md`、`docs/acceptance/e2e-plan.md`、`docs/acceptance/test-data.md`，覆盖可识别归档、待处理、浏览器目录写入 fail-fast、NAS 文件变化、权限不足、重复提交和分页边界。
+- 阻塞：无。
+
+### M4
+
+- 状态：`ready_for_closeout`
+- 已完成：执行验收结构 validator、UTF-8 读取检查和 `git diff --check`；新增 `verification-report.md`；运行 task-closeout-cleanup preview/apply，结果无删除项；按 project-experience-consolidation 将 closeout 状态格式经验合并到 `docs/task-closeout-rules.md` 和 `docs/experience-index.md`。
+- 阻塞：最终 Git 收尾未执行。当前工作区存在任务开始前的其它任务改动和未跟踪目录，且分支 `int_main` 已 ahead 2；按项目规则必须先处理脏工作区基线和 push 阻塞，本任务不能清理、改写或混合提交并发任务资产。
+
+### M5
+
+- 状态：`completed`
+- 已完成：按用户要求优化文档，补强开发前置门禁、两阶段处理时序、`LOCAL_WRITTEN` 后置归档、路径安全校验、路径冲突阻塞、仅查看不下载、本地写入失败不归档、NAS 文件变化复核和归档失败状态分离。
+- 阻塞：无。
+
+### M6
+
+- 状态：`completed`
+- 已完成：继续优化潜在开发问题，补齐 `PENDING_RECOGNITION` 初始识别状态、`local_write_error_code/archive_error_code` 错误码、`source_signature` 生成格式、先目录授权再创建 import task 的请求时序、取消目录选择无后端任务、已归档 audit file 重复提交冲突、`auditTaskId/importTaskId` 命名边界，以及从仓库根目录可执行的后端 Maven、后端 SQL pytest、前端 pnpm 命令。
+- 阻塞：无。
+
+### M7
+
+- 状态：`completed`
+- 已完成：按 `project-experience-consolidation` 收尾门禁，将浏览器本地目录写入的通用 E2E 门禁合并到 `docs/e2e-rules.md#浏览器本地目录写入门禁`，并在 `docs/experience-index.md` 增加关键词索引，避免后续开发把 ZIP、默认下载目录、API-only 下载或目录授权前创建后端任务误写成通过。
+- 阻塞：无。
+
+### M8
+
+- 状态：`completed`
+- 已完成：读取 `database-schema-delivery` 技能和数据库契约；按严格 TDD 完成 `dcc_nas_control_audit_file` schema 切片，新增迁移、test schema、DO、Mapper、JUnit schema 测试和 SQL 静态合同测试；修正 schema 测试的非破坏性断言范围，只扫描本次 migration，不放宽全局非破坏性规则。
+- 验证：Maven schema JUnit PASS，SQL pytest PASS，database-schema-evidence validator PASS。
+- 阻塞：无。
+
+### M9
+
+- 状态：`completed`
+- 已完成：按用户要求优化文档潜在问题，补齐二进制/分块内容下载、content 绑定权限校验、本地目标已存在、路径过长、安全目录段、状态流转终态、并发处理同一 audit file 的事务门禁，并同步更新 BDD、TDD、E2E 和测试数据文档。
+- 阻塞：无。
+
+### M10
+
+- Status: completed
+- Completed: strengthened executable docs for no backend mutation on directory cancel/unsupported browser/precheck failure, files page API contract, UNCLASSIFIED_PENDING vs AMBIGUOUS split, import-selected rejection rules, content/local-write-result snapshot binding, cross-task/signature-invalid E2E, and test-data cleanup boundaries.
+- Verification: acceptance validator PASS, UTF-8 read check PASS, scoped git diff --check PASS.
+- Blockers: none for documentation; implementation remains in progress.
+
+## Verification Evidence
+
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，输出 `BDD/TDD acceptance plan validation passed.`
+- GREEN: `node -e "<utf8 read check>"` -> PASS，10 个本任务、验收和经验文档均 `contains_replacement=false`。
+- GREEN: `git -C E:\IntRuoyi diff --check -- docs/acceptance/... docs/task-closeout-rules.md docs/experience-index.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/...` -> PASS，仅提示 LF 将被 Git 转换为 CRLF，无 trailing whitespace 或 whitespace error。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260802-dcc-uncontrolled-file-local-import-design --mode preview` -> PASS，keep 4 个正式任务文档，delete/blocked/warnings 均为 none。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260802-dcc-uncontrolled-file-local-import-design --mode apply` -> PASS，deleted_paths 为 none。
+- GREEN: `project-experience-consolidation` -> PASS，新增 closeout 状态格式规则，避免 `Current Status` 因反引号或前置说明被 cleanup apply 解析为 `unknown`。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，本轮优化后结构校验仍通过。
+- GREEN: `node -e "<utf8 read check>"` -> PASS，本轮优化触达文档均 `contains_replacement=false`。
+- GREEN: `git -C E:\IntRuoyi diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md` -> PASS，仅提示 LF 将被 Git 转换为 CRLF，无 whitespace error。
+- GREEN: `task_closeout.py --task-id 20260802-dcc-uncontrolled-file-local-import-design --mode preview/apply` -> PASS，本轮优化后 cleanup apply 无删除项、无 blocked、无 warnings。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，本轮二次优化后结构校验仍通过。
+- GREEN: `node -e "<utf8 read check>"` -> PASS，本轮二次优化触达 5 个文档均 `contains_replacement=false`。
+- GREEN: `git -C E:\IntRuoyi diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md` -> PASS，仅提示 LF 将被 Git 转换为 CRLF，无 whitespace error。
+- GREEN: `project-experience-consolidation` -> PASS，浏览器本地目录写入门禁已合并到 `docs/e2e-rules.md`，关键词索引已写入 `docs/experience-index.md`。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，长期经验合并后结构校验仍通过。
+- GREEN: `node -e "<utf8 read check>"` -> PASS，10 个任务、验收和经验文档均 `contains_replacement=false`。
+- GREEN: `git -C E:\IntRuoyi diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/... docs/acceptance/... docs/e2e-rules.md docs/experience-index.md` -> PASS，仅提示 LF 将被 Git 转换为 CRLF，无 whitespace error。
+- Documentation-only verification: 本任务未修改生产代码、数据库、运行环境或真实 NAS 文件；后续实现 RED/GREEN 命令已写入 `docs/acceptance/tdd-plan.md`。
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileDetails" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，初始失败原因为 `dcc_nas_control_audit_file` migration 不存在，符合 schema RED 预期。
+- RED: `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q` -> FAIL，初始失败原因为 SQL 静态合同或 migration 尚未存在，符合 schema RED 预期。
+- FIX: Maven GREEN 首次重跑失败在新增测试把历史 runtime schema 全量执行 `DELETE FROM dcc_` 扫描；已收敛为仅对本次 migration 做非破坏性断言，runtime schema 仅用于验证新表可发现，未放宽全局规则。
+- GREEN: `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q` -> PASS，2 passed in 3.18s。
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileDetails" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 1, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，本轮文档补强后验收结构仍通过。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\database-schema-evidence.md` -> PASS，`Database schema evidence is valid.`
+- GREEN: `node -e "<utf8 read check>"` -> PASS，本任务 9 个任务、验收和 schema 证据文档均 `contains_replacement=false`。
+- GREEN: `git diff --check -- <本任务文档与schema切片文件>` -> PASS，仅存在 Git 行尾转换 warning，无 whitespace error。
+
+- GREEN: python -X utf8 C:/Users/BJB110/.codex/skills/bdd-tdd-acceptance-planner/scripts/validate_acceptance_plan.py --root E:/IntRuoyi -> PASS, M10 doc strengthening after user request.
+- GREEN: python -X utf8 -c utf8_read_check -> PASS, 8 task/acceptance docs contain no replacement characters.
+- GREEN: git diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md -> PASS, only Git LF-to-CRLF warnings.
+
+## Existing Worktree Baseline
+
+- 任务开始时根仓库分支为 `int_main`，相对 `origin/int_main` ahead 2。
+- 工作区存在其它任务改动和未跟踪目录；本任务不得改写或清理这些并发任务资产。
+- 提交前按项目 Git 规则需单独处理任务开始时的脏工作区基线，并记录 commit hash 与文件清单；本轮未执行 baseline commit、implementation commit 或 push，原因是当前任务只应收口文档设计，且不得混合提交其它并发任务资产。
+
+### M11
+
+- Status: completed
+- Completed: implemented backend files page query slice for GET /dcc/controlled-files/nas-control-audit/{taskId}/files, including controller contract, page request/response VOs, service method, mapper filters, and stable id ordering.
+- RED: targeted controller contract failed because the /files endpoint mapping was missing.
+- GREEN: targeted controller contract and adjacent audit service/controller regression passed.
+- Blockers: none for this slice; recognize/import/content/local-write/frontend/E2E remain in progress.
+
+## M11 Verification Evidence
+
+- RED: targeted DccNasControlAuditControllerTest#nasControlAudit_mapsFilesPageWithControlledFileQueryPermission -> FAIL, missing endpoint mapping /dcc/controlled-files/nas-control-audit/{taskId}/files.
+- GREEN: targeted DccNasControlAuditControllerTest#nasControlAudit_mapsFilesPageWithControlledFileQueryPermission -> PASS, Tests run 1, Failures 0, Errors 0, Skipped 0.
+- REGRESSION: DccNasControlAuditControllerTest,DccNasControlAuditServiceImplTest -> PASS, Tests run 3, Failures 0, Errors 0, Skipped 0.
+
+### M12
+
+- Status: completed
+- Completed: optimized development documents for recognition candidate persistence, stable recognition reason codes, import task/item snapshot fields, idempotency request hash conflicts, backend-regenerated local-relative-path verification, pre-import local path precheck boundaries, explicit selected-id scope, and E2E/test-data evidence for those gates.
+- Verification: acceptance validator PASS, UTF-8 read check PASS, scoped git diff --check PASS.
+- Blockers: none for documentation; implementation remains in progress.
+
+## M12 Verification Evidence
+
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: PowerShell UTF-8 read check for `design.md`, `bdd-scenarios.md`, `tdd-plan.md`, `e2e-plan.md`, and `test-data.md` -> PASS, all `contains_replacement=False`.
+- GREEN: `git diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md` -> PASS, only Git LF-to-CRLF warnings.
+
+### M13
+
+- Status: completed
+- Completed: implemented deterministic backend pre-recognition for `POST /dcc/controlled-files/nas-control-audit/{taskId}/files/recognize`; it reuses enabled DCC project codes, active file categories, active category match rules and active taxonomy paths to populate audit-file classification snapshots.
+- Behavior: unique project + unique category writes `MATCHED`; missing project/category writes `UNCLASSIFIED_PENDING`; multiple project/category candidates writes `AMBIGUOUS`; unknown category rule type fails fast instead of silently downgrading.
+- Boundaries: recognition only updates `dcc_nas_control_audit_file` snapshot fields and does not read NAS content, download bytes, create import tasks, write local result, archive files, or create DCC controlled files.
+- Blockers: import-selected, content binary download, local-write-result, frontend static contract and real E2E remain in progress.
+
+## M13 Verification Evidence
+
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileRecognitionSnapshot" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: recognition snapshot columns/fields such as `classification_candidates_json` were missing.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileRecognitionSnapshot" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksProjectAndCategoryWhenUnique" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: recognize VO/service implementation was not present.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksProjectAndCategoryWhenUnique" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksProjectAndCategoryWhenUnique,DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksPendingWhenProjectOrCategoryMissing,DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksAmbiguousWhenProjectOrCategoryHasMultipleCandidates,DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_doesNotRewriteImportedOrArchivedSnapshots" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileDetails,DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileRecognitionSnapshot,DccNasControlAuditControllerTest,DccNasControlAuditServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q` -> PASS, 2 passed in 0.17s.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\backend-api-evidence.md` -> PASS, `Backend API evidence is valid.`
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8 read check for `task.md`, `execution-log.md`, `verification-report.md`, and `backend-api-evidence.md` -> PASS, all `contains_replacement=False`.
+- GREEN: `git -C E:\IntRuoyi diff --check -- <M13 implementation, schema, SQL contract and task evidence files>` -> PASS, only Git LF-to-CRLF warnings.
+
+### M14
+
+- Status: completed
+- Completed: optimized executable development docs for import-selected atomicity, canonical request hash ordering, audit/import binding visibility, active duplicate binding rejection, local-write-result idempotency, and conflicting terminal write-result rejection.
+- Scope: documentation and task evidence only; no production code, NAS files, local folders, runtime services, or business data were modified.
+- Verification: acceptance validator PASS, UTF-8 read check PASS, scoped git diff --check PASS.
+- Blockers: none for documentation; import-selected, content binary download, local-write-result, frontend static contract and real E2E remain implementation work.
+
+## M14 Verification Evidence
+
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8 read check for `task.md`, `execution-log.md`, `design.md`, `verification-report.md`, `bdd-scenarios.md`, `tdd-plan.md`, `e2e-plan.md`, and `test-data.md` -> PASS, all `contains_replacement=False`.
+- GREEN: `git -C E:\IntRuoyi diff --check -- <M14 task and acceptance docs>` -> PASS, only Git LF-to-CRLF warnings for acceptance docs.

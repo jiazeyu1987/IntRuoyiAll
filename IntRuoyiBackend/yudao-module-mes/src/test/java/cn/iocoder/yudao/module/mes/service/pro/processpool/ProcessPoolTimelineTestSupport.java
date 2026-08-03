@@ -131,6 +131,8 @@ final class ProcessPoolTimelineTestSupport {
                     .filter(event -> event.getSubmittedAt().isBefore(reqVO.getSubmittedAtEnd()))
                     .filter(event -> reqVO.getEmployeeUserId() == null
                             || Objects.equals(event.getActualEmployeeUserId(), reqVO.getEmployeeUserId()))
+                    .filter(event -> reqVO.getEmployeeUserIds() == null || reqVO.getEmployeeUserIds().isEmpty()
+                            || reqVO.getEmployeeUserIds().contains(event.getActualEmployeeUserId()))
                     .filter(event -> reqVO.getProcessId() == null
                             || Objects.equals(event.getProcessId(), reqVO.getProcessId()))
                     .filter(event -> reqVO.getDeviceId() == null
@@ -140,7 +142,25 @@ final class ProcessPoolTimelineTestSupport {
                     .filter(event -> reqVO.getWorkOrderId() == null
                             || Objects.equals(event.getWorkOrderId(), reqVO.getWorkOrderId()))
                     .filter(event -> reqVO.getWorkOrderCode() == null
-                            || Objects.equals(event.getWorkOrderCode(), reqVO.getWorkOrderCode()));
+                            || event.getWorkOrderCode().contains(reqVO.getWorkOrderCode()))
+                    .filter(event -> reqVO.getProductId() == null
+                            || Objects.equals(event.getProductId(), reqVO.getProductId()))
+                    .filter(event -> reqVO.getProductKeyword() == null
+                            || containsIgnoreCase(event.getProductCode(), reqVO.getProductKeyword())
+                            || containsIgnoreCase(event.getProductName(), reqVO.getProductKeyword()))
+                    .filter(event -> reqVO.getInspectionType() == null
+                            || Objects.equals(event.getInspectionType(), reqVO.getInspectionType()))
+                    .filter(event -> reqVO.getRoundNo() == null
+                            || Objects.equals(event.getRoundNo(), reqVO.getRoundNo()))
+                    .filter(event -> reqVO.getSubmissionReviewStatus() == null
+                            || Objects.equals(event.getSubmissionReviewStatus(), reqVO.getSubmissionReviewStatus()));
+        }
+
+        private boolean containsIgnoreCase(String source, String keyword) {
+            if (source == null || keyword == null) {
+                return false;
+            }
+            return source.toLowerCase().contains(keyword.toLowerCase());
         }
     }
 }

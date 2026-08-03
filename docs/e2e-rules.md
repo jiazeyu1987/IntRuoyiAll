@@ -33,14 +33,50 @@
 - Forbidden action: 禁止新增虚假 script 包装静态测试冒充真实 E2E，禁止 API-only 替代页面路径，禁止把前端 API wrapper 存在宣称为页面入口已验收。
 - Evidence: `doc/tasks/20260730-process-pool-f5-f6-implementation/execution-log.md`。
 
+### 浏览器本地目录写入门禁
+
+- Trigger: 真实 E2E、静态合同或验收文档涉及 `showDirectoryPicker`、本地目录授权、本地文件写入、浏览器端下载到指定目录、目录句柄、`createWritable`、本地写入结果回写或“下载并归类”类流程。
+- Preflight check: 必须验证浏览器是否支持受控目录写入能力；不支持、用户取消授权或目录句柄异常时，页面必须 fail fast，并且不得创建后端 import/write task、不得调用 content 下载接口、不得回写本地写入成功。
+- Preflight check: 对需要先本地写入再触发后端归档/业务写入的流程，Playwright 必须断言请求顺序：目录授权和相对路径校验成功前不得调用后端写入任务；`LOCAL_WRITTEN` 或等价本地成功回写前不得调用正式业务归档接口。
+- Verification: 证据必须包含 `showDirectoryPicker/getFileHandle/createWritable/write/close` 成功和失败路径、目标写请求计数、取消目录选择路径、非法/冲突相对路径错误码，以及后端只读核验未保存本地绝对路径。
+- Forbidden action: 禁止把 ZIP、浏览器默认下载目录、服务器暂存目录、API-only 下载、自动改名、覆盖已有文件或静默跳过本地写入当作“已下载到本地对应目录”；禁止只用最终业务对象存在证明本地写入时序正确。
+- Evidence: `doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md`。
+
 ### DCC 文控审批处理入口门禁
 
 - Trigger: 验证 DCC 文控上传、原版上传、上传审批、电子签名审批、升版发布、发布申请、文件作废/废止、旧版自动失效、`OBSOLETE`、`SUPERSEDED`、`DccControlledFileDetail`、`/approval-center?moduleCode=DCC`、`PROCESS_IN_MODULE`、`approve-task`、`DCC_PUBLISH` 或 `APPROVE_USER_SELECT` 链路。
-- Preflight check: 浏览器审批前必须证明审批账号能从真实页面进入非只读处理态，并看到“审批阶段进度”、当前 `approvalTodoTask` 对应的签名按钮和目标写接口；同时核对 `DccControlledFileDetail.beforeEnter` 不会把非 viewer 处理态重定向到受控浏览。遇到 DCC “作废/废止”需求时，必须先确认用户要的是手动当前版本作废审批链路，还是升版发布后旧版本自动失效链路；若用户提到“升版本”“老版本自动作废/失效”“不走审批”，验收口径是旧 V1 `SUPERSEDED`、新 V2 `ACTIVE`、master 当前有效版本指向 V2，不要求创建 `OBSOLETE` 审批。发布申请前还必须核对发布申请人拥有 `form:instance:create`、`form:instance:submit`、`system:user:query` 和用户选择弹窗所需的用户查询权限；发布 BPM 审批如果后续节点是 `APPROVE_USER_SELECT`，必须在 BPM 流程详情页等待 `/bpm/process-instance/get-next-approval-nodes` 返回并选择下一节点审批人。受控浏览 viewer 模式的版本追溯入口是 `data-testid="dcc-controlled-preview-version-button"` 打开的版本信息弹窗，变更原因显示在详情基础信息的“提交备注”；受控浏览 traceability 模式是 `/dcc/controlled-file/detail/{id}?traceability=1&from=browser` 的追溯详情页，需验证内嵌“版本历史”表与升版原因；viewer 模式还必须渲染当前有效版的最终目录路径、`publishedFileId`、`stampedFileId` 或等价发布文件信息，不能只在非 viewer 详情路径展示该 linkage 卡片。脚本等待详情接口时必须精确匹配 `/admin-api/dcc/controlled-files/{id}` 的 pathname，避免误抓 `/preview`、`/preview-metadata`、`/access-explanation` 等同 ID 子接口。
+- Preflight check: 浏览器审批前必须证明审批账号能从真实页面进入非只读处理态，并看到“审批阶段进度”、当前 `approvalTodoTask` 对应的签名按钮和目标写接口；同时核对 `DccControlledFileDetail.beforeEnter` 不会把非 viewer 处理态重定向到受控浏览。遇到 DCC “作废/废止”需求时，必须先确认用户要的是手动当前版本作废审批链路，还是升版发布后旧版本自动失效链路；若用户提到“升版本”“老版本自动作废/失效”“不走审批”，验收口径是旧 V1 `SUPERSEDED`、新 V2 `ACTIVE`、master 当前有效版本指向 V2，不要求创建 `OBSOLETE` 审批。发布申请前还必须核对发布申请人拥有 `form:instance:create`、`form:instance:submit`、`system:user:query` 和用户选择弹窗所需的用户查询权限；发布 BPM 审批如果后续节点是 `APPROVE_USER_SELECT`，必须在 BPM 流程详情页等待 `/bpm/process-instance/get-next-approval-nodes` 返回并选择下一节点审批人。受控浏览 viewer 模式的版本追溯入口是 `data-testid="dcc-controlled-preview-version-button"` 打开的版本信息弹窗，变更原因显示在详情基础信息的“提交备注”；受控浏览 traceability 模式是 `/dcc/controlled-file/detail/{id}?traceability=1&from=browser` 的追溯详情页，需验证内嵌“版本历史”表与升版原因；viewer 模式还必须渲染当前有效版的最终目录路径、`publishedFileId`、`stampedFileId` 或等价发布文件信息，不能只在非 viewer 详情路径展示该 linkage 卡片。脚本等待详情接口时必须精确匹配 `/admin-api/dcc/controlled-files/{id}` 的 pathname，避免误抓 `/preview`、`/preview-metadata`、`/access-explanation` 等同 ID 子接口；断言 viewer linkage 时必须等待目标目录路径和发布/盖章 ID 等真实详情数据出现在卡片内，不能只等待容器可见。
 - Blocker: DCC 审批中心行只能打开 `viewer=1` 只读预览、非 viewer 详情被路由守卫重定向、页面未渲染签名按钮、只有 `approve-task` API wrapper 但无页面入口、BPM 原生行直接审批返回业务 `403`、发布申请弹窗提示缺审批人、用户选择弹窗因缺 `system:user:query` 报无权限、或 BPM 发布审批返回“下一个任务的审批人未配置”时必须停止并记录 E2E BLOCKED。若用户明确要求手动作废审批链路但运行态缺少已发布 `DCC / DCC / CONTROLLED_FILE / OBSOLETE` 业务审批策略，也必须记录 BLOCKED；若用户明确要求升版自动失效链路，则缺手动作废策略不能阻塞该链路验收。
 - Verification: 证据需包含审批中心 DCC 行、跳转后的实际 URL、详情页处理态控件、签名弹窗、`/dcc/controlled-files/{id}/approve-task` 响应、Flowable 当前任务和 DCC 文件状态；原版上传链路还需包含同一 `file_number` 仅一条 V1.0 `NEW` 文件、状态 `ACTIVE`、master 当前生效版本指向该 V1.0、上传审批完成任务数不少于 4，且不存在升版/修订行；发布/升版自动失效链路还需包含 `bpm_form_action_instance.status=EFFECTIVE`、发布 BPM 完成任务数、旧版本 V1 `SUPERSEDED`、新版本 V2 `ACTIVE`、master 当前生效版本指向 V2、V1 successor 指向 V2；受控浏览链路还需包含 ACTIVE browser-page 只返回/默认打开 V2、V1 不作为当前有效行返回、viewer 版本信息弹窗或 traceability 详情内嵌版本历史可见 V1/V2、详情提交备注/升版原因可见、viewer 页面可见最终目录路径以及 published/stamped 文件 ID。若 blocked，记录路由守卫源码行、页面实际落点、viewer/traceability 模板缺口和任务自有残留数据。
 - Forbidden action: 禁止用 BPM 原生审批行替代 DCC 上传审批、直接 API、SQL 改状态、移除断言、绕开路由守卫、只读 viewer 截图、跳过发布申请审批人选择、或把发布 BPM 审批人的 `APPROVE_USER_SELECT` 通过默认值/空值冒充配置完成。禁止把升版后的旧版 `SUPERSEDED` 误判为必须走 `OBSOLETE` 审批；禁止在用户明确要求升版自动作废/失效时，继续用缺手动作废审批策略作为当前链路失败结论。
 - Evidence: `doc/tasks/20260802-dcc-upload-revision-e2e/verification-report.md`，DCC 上传升版 E2E 先暴露处理态、发布申请权限和 BPM 下一审批人选择缺口，补齐非 admin 角色权限并改为真实 DCC/BPM 页面路径后完成完整链路验证；`doc/tasks/20260802-dcc-upload-original-e2e/verification-report.md`，DCC 原版上传 E2E 验证 V1.0 `NEW` 文件审批后直接 `ACTIVE`，master 指向原版且无升版行；`doc/tasks/20260802-dcc-controlled-file-obsolete-e2e/verification-report.md`，DCC “作废/废止”需求经用户澄清后按升版自动失效链路验收，真实 Playwright 证明 V1 `SUPERSEDED`、V2 `ACTIVE`、master 指向 V2、受控浏览不再返回 V1 当前有效行，手动作废 OBSOLETE 策略缺失仅作为非当前链路 blocker 记录。
+
+### DCC 受控浏览当前有效版与权限隔离门禁
+
+- Trigger: 验证 DCC 受控浏览、当前有效版、目录/分类/项目代码定位、无权限账号不可见、草稿/历史版隔离、预览当前有效版、发布/盖章预览来源或 `publishedFileId/stampedFileId`。
+- Preflight check: 必须先确定任务自有或已知 `ACTIVE` 目标文件、master 当前有效版本、目录路径、分类/项目代码、发布/盖章文件 ID，并准备至少两个非 admin 账号：一个有目标目录/分类/项目浏览权限，一个无权限或权限较低。Playwright 必须从真实受控浏览页面按目录、分类、项目代码或文件编号定位，不能只打开详情直链；API/DB 只能在页面验证后做只读核验。
+- Blocker: 授权账号只能看到文件名但页面不显示当前有效版、版本号、目录路径、发布/盖章状态或等价业务说明；viewer 打开后没有预览成功、没有最终目录路径、没有发布/盖章来源；低权限账号能看到目标行；无结果状态无法区分“无权限或无匹配当前有效文件”；普通受控浏览默认打开草稿、历史失效版或非 master 当前有效版本时，必须记录 E2E BLOCKED。
+- Verification: 报告必须记录账号标签、权限差异、目标文件 ID、文件编号、版本/状态、目录路径、分类/项目代码、受控浏览实际 URL、viewer 实际 URL、预览类型/文件名、published/stamped 文件 ID 或等价发布文件信息、低权限账号搜索结果、`targetLinkErrorCount`、`targetDccMutationRequestCount`、`consoleErrors/pageErrors` 和只读 API/DB 核验结果。
+- Forbidden action: 禁止用 admin、API-only、SQL/接口改状态、重置用户列配置、只读 DB 状态截图、直接详情 URL、旧 result JSON、隐藏无权限反馈、忽略 target network/page error、或只验证列表存在文件名来冒充受控浏览权限验收通过。
+- Evidence: `doc/tasks/20260802-dcc-controlled-browser-ux-optimization/verification-report.md`，受控浏览 UX 优化后真实 Playwright 使用 `wangsiyu` 和 `pengyunfeng` 两个非 admin 账号证明目标 `ACTIVE` 文件仅授权账号可见并打开发布/盖章 PDF 预览，低权限账号同路径搜索返回 0 且提示“无权限或无匹配当前有效文件”，目标链路错误数和 DCC 写请求数均为 0。
+
+### DCC 分发与旧版回收门禁
+
+- Trigger: 验证 DCC 文件分发、纸质发放、电子副本分发、签收/确认领取、旧版回收、确认回收、分发追溯、回收追溯、受控副本责任人、升版后旧版不可误用。
+- Preflight check: 写入型 E2E 必须先准备或选择任务自有 `ACTIVE` 受控文件，并确认文件类别同时具备当前非 admin 操作者可用的 `DISTRIBUTE` 规则和升版发布所需 `APPROVE`/发布权限；若需验证旧版回收，必须按 V1 `ACTIVE` -> V1 真实分发/确认发放 -> V2 发布为 `ACTIVE` -> V1 `SUPERSEDED` -> V1 真实回收的顺序执行。使用详情页时必须记录实际 traceability/detail 路径、分发表格可见状态、接收人选择方式、份数/用途、发放/签收/回收按钮和目标写接口。
+- Blocker: 页面缺分发/回收入口、按钮仅可见但目标写接口返回类别权限错误、当前文件类别无有效 `DISTRIBUTE` 规则、发布人无法发起升版发布、接收人无法通过真实页面或受控流程确认、V2 未生效导致 V1 仍非旧版、或受控浏览仍把 V1 作为当前有效文件返回时，必须记录 E2E BLOCKED。
+- Verification: 证据必须包含 V1/V2 文件 ID、版本和状态、master 当前有效指针、V1/V2 分发记录 ID、接收人/发放人/回收人、份数、发放/签收/回收时间、页面路径、分发表格状态截图或 JSON、受控浏览只返回 V2 当前有效的页面证据，以及只读 API/DB 对分发、签收/发放、回收和版本状态的核验。
+- Forbidden action: 禁止用 admin、API-only、SQL 或后端接口直接插入/更新分发、接收、回收、审批或版本状态；禁止在 V1 仍 `ACTIVE` 时提前点回收；禁止用无分发权限类别硬跑后把权限错误写成业务 PASS；禁止把补权限前置扩大成业务状态修复。
+- Evidence: `doc/tasks/20260802-dcc-distribution-recovery-e2e/verification-report.md`，DCC 分发/旧版回收 E2E 先因类别缺 `DISTRIBUTE` 和发布人缺 `APPROVE` 前置阻塞，用户授权后仅补齐 `wangsiyu` 现有 E2E 分发角色在类别 `906104` 的 `APPROVE` 前置；真实 Playwright 完成 V1 纸质发放、V2 发布生效、V1 旧版回收和 V2 继续分发，最终只读核验证明 V1 `SUPERSEDED`/分发 `RECOVERED`，V2 `ACTIVE`/分发 `ACKNOWLEDGED`，受控浏览仅返回 V2。
+
+### DCC 受控打印门禁
+
+- Trigger: 验证 DCC 受控打印、打印申请、打印权限、受控打印件水印、打印编号、打印记录、分发记录或操作日志中的打印追溯。
+- Preflight check: 写入型 E2E 必须先确认任务自有受控文件为 master 指向的当前 `ACTIVE` 版本，并确认非 admin 打印人同时具备菜单权限 `dcc:controlled-file:print` 和当前文件类别 `PRINT` 权限；如果产品已配置打印审批，必须走真实审批页面，未配置打印审批时按直接打印状态验收。测试脚本必须通过真实受控浏览或详情页点击入口、填写用途、份数、接收部门/使用位置等必填项，并准备一个无 `PRINT` 权限账号做同文件阻断验证。
+- Blocker: 页面缺“受控打印”入口、入口仅复用普通流程打印、文件不是当前有效版本、类别缺 `PRINT` 权限、打印表单缺必填字段、打印件缺水印/打印编号/文件编号/版本/打印人/打印时间、记录页或只读接口/DB 无本次打印记录、或无权限账号仍能看到/触发打印入口时，必须记录 E2E BLOCKED。
+- Verification: PASS 证据必须包含打印记录 ID、打印编号、文件 ID、文件编号、版本、master 当前有效指针、打印人、份数、用途、接收部门/使用位置、打印状态或审批状态、打印时间、打印件截图、打印记录截图、无权限阻断截图，以及只读 API/DB 对记录、份数、打印人、版本和当前有效性的核验。
+- Forbidden action: 禁止用 admin 完成业务打印；禁止 API-only、SQL 或后端接口直接创建打印记录、改文件状态或冒充审批；禁止把无审批配置写成审批已通过；禁止用非当前 `ACTIVE` 版本、真实业务文件或无水印普通预览冒充受控打印件。
+- Evidence: `doc/tasks/20260802-dcc-controlled-print-implementation/verification-report.md`，DCC 受控打印 E2E 按用户授权仅补齐非 admin 打印人的最小类别 `PRINT` 权限；真实 Playwright 从受控浏览进入当前 `ACTIVE` 文件详情页完成直接受控打印，页面生成受控打印件并在记录页、只读 API 和只读 DB 中形成可追溯记录，同时无打印权限账号同文件入口不可见“受控打印”按钮。
 
 ### DCC 升版发布 UX 闭环门禁
 

@@ -6,8 +6,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
@@ -52,7 +50,9 @@ import static cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.Me
 import static cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE;
 import static cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_PROCESS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.never;
@@ -111,9 +111,10 @@ class MesFrontlinePqcContextServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new MesFrontlinePqcContextServiceImpl(activeOrderMapper, workOrderMapper, routeMapper,
-                routeProductMapper, routeProcessMapper, regulationMapper, regulationItemMapper, pqcTaskMapper,
-                pqcPieceDetailMapper, processService, itemService, scopeMapper, adminUserApi, templateResolver);
+        service = new MesFrontlinePqcContextServiceImpl(activeOrderMapper, processPoolMapper, processPoolEventMapper,
+                workOrderMapper, routeMapper, routeProductMapper, routeProcessMapper, regulationMapper,
+                regulationItemMapper, pqcTaskMapper, pqcPieceDetailMapper, processService, itemService, scopeMapper,
+                adminUserApi, templateResolver, processPoolEventService);
     }
 
     @Test
@@ -207,15 +208,42 @@ class MesFrontlinePqcContextServiceTest {
         when(adminUserApi.getUserList(Set.of(7001L, 8001L))).thenReturn(List.of(
                 enabledUser(7001L, "pqc-leader-a", "PQC组长A"),
                 enabledUser(8001L, "pqc-employee-a", "PQC员工A")));
-        when(templateResolver.resolve(any(MesFrontlineTemplateRequest.class))).thenReturn(
-                new MesFrontlineTemplateDescriptor("PQC_SIMPLIFIED", "PQC", ROUTE_PROCESS_ID, PROCESS_ID, 8001L));
-
         MesFrontlineEmployeeSwitchResult result = service.switchPqcActualEmployee(LOGIN_USER_ID, WORK_ORDER_ID,
                 ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID, 8001L);
 
         assertEquals(LOGIN_USER_ID, result.loginUserId());
         assertEquals(8001L, result.actualEmployeeId());
         assertEquals("PQC_SIMPLIFIED", result.template().templateNo());
+    }
+
+    @Test
+    void shouldReturnPqcTemplateForPqcSwitchEvenWhenRouteProcessUsesProductionTemplate() {
+        when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
+                        LocalDateTime.of(2026, 8, 1, 8, 0)));
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID, PRODUCT_ID));
+        when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, PRODUCT_ID))
+                .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
+        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route(ROUTE_ID));
+        when(routeProcessMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
+                routeProcess(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10)));
+        when(processService.getProcessMap(Set.of(PROCESS_ID))).thenReturn(Map.of(
+                PROCESS_ID, process(PROCESS_ID, "P-1", "首工序")));
+        givenPqcTaskContext(ROUTE_PROCESS_ID, PROCESS_ID, PQC_TASK_ID, REGULATION_VERSION_ID);
+        when(scopeMapper.selectActiveScopesByLeaderType(LEADER_TYPE_PQC)).thenReturn(List.of(
+                scope(7001L, SCOPE_TYPE_EMPLOYEE, 8001L)));
+        when(adminUserApi.getUserList(Set.of(7001L, 8001L))).thenReturn(List.of(
+                enabledUser(7001L, "pqc-leader-a", "PQC组长A"),
+                enabledUser(8001L, "pqc-employee-a", "PQC员工A")));
+
+        MesFrontlineEmployeeSwitchResult result = service.switchPqcActualEmployee(LOGIN_USER_ID, WORK_ORDER_ID,
+                ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID, 8001L);
+
+        assertEquals("PQC_SIMPLIFIED", result.template().templateNo());
+        assertEquals("PQC", result.template().templateType());
+        assertEquals(ROUTE_PROCESS_ID, result.template().routeProcessId());
+        assertEquals(PROCESS_ID, result.template().processId());
+        assertEquals(8001L, result.template().actualEmployeeId());
     }
 
     @Test
@@ -239,6 +267,8 @@ class MesFrontlinePqcContextServiceTest {
                 enabledUser(8001L, "pqc-employee-a", "PQC员工A")));
         when(pqcTaskMapper.selectById(PQC_TASK_ID)).thenReturn(pqcTask(PQC_TASK_ID, ROUTE_PROCESS_ID,
                 PROCESS_ID, REGULATION_VERSION_ID));
+        when(processPoolEventService.createPqcInspectionEvent(any(MesProcessPoolCreatePqcInspectionReqDTO.class)))
+                .thenReturn(9901L);
 
         Long taskId = service.submitPqcInspection(LOGIN_USER_ID, MesFrontlinePqcSubmitCommand.builder()
                 .activeOrderId(ACTIVE_ORDER_ID)
@@ -267,7 +297,29 @@ class MesFrontlinePqcContextServiceTest {
                 .build());
 
         assertEquals(PQC_TASK_ID, taskId);
-        verify(processPoolEventService, never()).createPqcInspectionEvent(any(MesProcessPoolCreatePqcInspectionReqDTO.class));
+        ArgumentCaptor<MesProcessPoolCreatePqcInspectionReqDTO> eventCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolCreatePqcInspectionReqDTO.class);
+        verify(processPoolEventService).createPqcInspectionEvent(eventCaptor.capture());
+        MesProcessPoolCreatePqcInspectionReqDTO eventRequest = eventCaptor.getValue();
+        assertEquals(WORK_ORDER_ID, eventRequest.getWorkOrderId());
+        assertEquals(ROUTE_ID, eventRequest.getRouteId());
+        assertEquals(ROUTE_PROCESS_ID, eventRequest.getRouteProcessId());
+        assertEquals(PROCESS_ID, eventRequest.getProcessId());
+        assertEquals(8001L, eventRequest.getActualEmployeeId());
+        assertNull(eventRequest.getDeviceAccountId());
+        assertNull(eventRequest.getDeviceId());
+        assertEquals(6001L, eventRequest.getWorkstationId());
+        assertEquals("PQC_SIMPLIFIED", eventRequest.getTemplateType());
+        assertEquals("MES_PQC_INSPECTION_TASK", eventRequest.getFeedbackSourceType());
+        assertEquals(PQC_TASK_ID, eventRequest.getFeedbackSourceId());
+        assertEquals("MES_PQC_INSPECTION_TASK", eventRequest.getRecordbookSourceType());
+        assertEquals(PQC_TASK_ID, eventRequest.getRecordbookSourceId());
+        assertEquals("SUCCESS", eventRequest.getInspectionResult());
+        assertEquals(8801L, eventRequest.getSignatureId());
+        assertEquals(8001L, eventRequest.getSignatureUserId());
+        assertEquals(LocalDateTime.of(2026, 8, 1, 9, 0), eventRequest.getClientSubmitTime());
+        assertTrue(eventRequest.getRawPayload().contains("\"pqcTaskId\":7001"));
+        assertTrue(eventRequest.getRawPayload().contains("\"regulationVersionId\":8001"));
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
         verify(pqcTaskMapper).updateById(taskCaptor.capture());
         assertEquals("SUBMITTED", taskCaptor.getValue().getTaskStatus());
@@ -283,6 +335,73 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals("pressure", details.get(0).getItemCode());
         assertEquals(1, details.get(0).getSampleNo());
         assertEquals("测压", details.get(0).getInspectionMethod());
+    }
+
+    @Test
+    void shouldSubmitPqcInspectionWithoutProductionSourceEvent() {
+        when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
+                        LocalDateTime.of(2026, 8, 1, 8, 0)));
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID, PRODUCT_ID));
+        when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, PRODUCT_ID))
+                .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
+        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route(ROUTE_ID));
+        when(routeProcessMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
+                routeProcess(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10)));
+        when(processService.getProcessMap(Set.of(PROCESS_ID))).thenReturn(Map.of(
+                PROCESS_ID, process(PROCESS_ID, "P-1", "首工序")));
+        givenPqcTaskContext(ROUTE_PROCESS_ID, PROCESS_ID, PQC_TASK_ID, REGULATION_VERSION_ID);
+        when(scopeMapper.selectActiveScopesByLeaderType(LEADER_TYPE_PQC)).thenReturn(List.of(
+                scope(7001L, SCOPE_TYPE_EMPLOYEE, 8001L)));
+        when(adminUserApi.getUserList(Set.of(7001L, 8001L))).thenReturn(List.of(
+                enabledUser(7001L, "pqc-leader-a", "PQC组长A"),
+                enabledUser(8001L, "pqc-employee-a", "PQC员工A")));
+        when(pqcTaskMapper.selectById(PQC_TASK_ID)).thenReturn(pqcTask(PQC_TASK_ID, ROUTE_PROCESS_ID,
+                PROCESS_ID, REGULATION_VERSION_ID));
+        when(processPoolEventService.createPqcInspectionEvent(any(MesProcessPoolCreatePqcInspectionReqDTO.class)))
+                .thenReturn(9902L);
+
+        Long taskId = service.submitPqcInspection(LOGIN_USER_ID, MesFrontlinePqcSubmitCommand.builder()
+                .activeOrderId(ACTIVE_ORDER_ID)
+                .pqcTaskId(PQC_TASK_ID)
+                .regulationVersionId(REGULATION_VERSION_ID)
+                .workOrderId(WORK_ORDER_ID)
+                .routeId(ROUTE_ID)
+                .routeProcessId(ROUTE_PROCESS_ID)
+                .processId(PROCESS_ID)
+                .inspectionType("PATROL")
+                .businessDate(LocalDate.of(2026, 8, 1))
+                .shiftCode("DAY")
+                .roundNo(1)
+                .actualInspectionQuantity(2)
+                .actualEmployeeId(8001L)
+                .signatureId(8802L)
+                .signatureEmployeeId(8001L)
+                .templateType("PQC_SIMPLIFIED")
+                .inspectionResult("DETECTION_SUCCESS")
+                .rawPayload(Map.of(
+                        "pqcDraft", Map.of("inspectionType", "PATROL", "inspectionQuantity", 2),
+                        "pqcPieceValues", Map.of(
+                                "pressure", List.of("0.8", "0.9"),
+                                "appearance", List.of("合格", "合格"))))
+                .clientSubmitTime(LocalDateTime.of(2026, 8, 1, 9, 30))
+                .build());
+
+        assertEquals(PQC_TASK_ID, taskId);
+        verify(processPoolEventMapper, never()).selectByIdForUpdate(any());
+        ArgumentCaptor<MesProcessPoolCreatePqcInspectionReqDTO> eventCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolCreatePqcInspectionReqDTO.class);
+        verify(processPoolEventService).createPqcInspectionEvent(eventCaptor.capture());
+        MesProcessPoolCreatePqcInspectionReqDTO eventRequest = eventCaptor.getValue();
+        assertNull(eventRequest.getDeviceAccountId());
+        assertNull(eventRequest.getDeviceId());
+        assertEquals(6001L, eventRequest.getWorkstationId());
+        assertEquals("MES_PQC_INSPECTION_TASK", eventRequest.getFeedbackSourceType());
+        assertEquals(PQC_TASK_ID, eventRequest.getFeedbackSourceId());
+        assertEquals("MES_PQC_INSPECTION_TASK", eventRequest.getRecordbookSourceType());
+        assertEquals(PQC_TASK_ID, eventRequest.getRecordbookSourceId());
+        assertTrue(eventRequest.getRawPayload().contains("\"pqcTaskId\":7001"));
+        assertTrue(eventRequest.getRawPayload().contains("\"pieceDetailCount\":4"));
     }
 
     private void givenWorkOrderProductAndRoute() {
@@ -302,18 +421,6 @@ class MesFrontlinePqcContextServiceTest {
         when(regulationItemMapper.selectListByVersionId(regulationVersionId)).thenReturn(List.of(
                 regulationItem(regulationVersionId, "pressure", "压力", "NUMBER", "测压"),
                 regulationItem(regulationVersionId, "appearance", "外观", "CHOICE", "目视")));
-    }
-
-    private static MesProProcessPoolDO activePool(Long workOrderId, Long routeId, Long routeProcessId, Long processId,
-                                                  LocalDateTime latestSubmitTime) {
-        return MesProProcessPoolDO.builder()
-                .workOrderId(workOrderId)
-                .routeId(routeId)
-                .routeProcessId(routeProcessId)
-                .processId(processId)
-                .poolStatus(MesProProcessPoolDO.STATUS_ACTIVE)
-                .latestSubmitTime(latestSubmitTime)
-                .build();
     }
 
     private static MesProcessPoolActiveOrderDO activeOrder(Long workOrderId, Long routeId,
@@ -373,38 +480,6 @@ class MesFrontlinePqcContextServiceTest {
                 .inspectionMethod(inspectionMethod)
                 .standardText("按压力泵工艺路线过程检验记录标准")
                 .resultType(resultType)
-                .build();
-    }
-
-    private static MesProProcessPoolDO activePoolWithSourceEvent() {
-        return MesProProcessPoolDO.builder()
-                .id(9001L)
-                .workOrderId(WORK_ORDER_ID)
-                .routeId(ROUTE_ID)
-                .routeProcessId(ROUTE_PROCESS_ID)
-                .processId(PROCESS_ID)
-                .deviceId(9301L)
-                .workstationId(6001L)
-                .poolStatus(MesProProcessPoolDO.STATUS_ACTIVE)
-                .latestEventId(9101L)
-                .latestSubmitTime(LocalDateTime.of(2026, 8, 1, 8, 0))
-                .build();
-    }
-
-    private static MesProProcessPoolEventDO sourceEvent() {
-        return MesProProcessPoolEventDO.builder()
-                .id(9101L)
-                .workOrderId(WORK_ORDER_ID)
-                .routeId(ROUTE_ID)
-                .routeProcessId(ROUTE_PROCESS_ID)
-                .processId(PROCESS_ID)
-                .deviceAccountId(9201L)
-                .deviceId(9301L)
-                .workstationId(6001L)
-                .feedbackSourceType("MES_PRO_FEEDBACK")
-                .feedbackSourceId(9401L)
-                .recordbookSourceType("MES_PRO_EDHR_RECORD_BOOK_EVENT")
-                .recordbookSourceId(9501L)
                 .build();
     }
 

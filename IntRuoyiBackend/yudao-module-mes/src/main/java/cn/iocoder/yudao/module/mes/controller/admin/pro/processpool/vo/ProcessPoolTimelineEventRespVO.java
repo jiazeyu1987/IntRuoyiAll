@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Schema(description = "管理后台 - MES 工序池提交事件时间轴 Response VO")
@@ -91,6 +92,30 @@ public class ProcessPoolTimelineEventRespVO {
 
     @Schema(description = "生产工单名称", example = "生产工单")
     private String workOrderName;
+
+    @Schema(description = "产品编号", example = "91001")
+    private Long productId;
+
+    @Schema(description = "产品编码", example = "PP-88")
+    private String productCode;
+
+    @Schema(description = "产品名称", example = "球囊扩张压力泵")
+    private String productName;
+
+    @Schema(description = "PQC 检验任务编号", example = "980001")
+    private Long pqcTaskId;
+
+    @Schema(description = "PQC 检验类型", example = "PATROL")
+    private String inspectionType;
+
+    @Schema(description = "PQC 业务日期")
+    private LocalDate pqcBusinessDate;
+
+    @Schema(description = "PQC 班次编码", example = "DAY")
+    private String pqcShiftCode;
+
+    @Schema(description = "PQC 检验轮次", example = "2")
+    private Integer roundNo;
 
     @Schema(description = "来源报工编号", example = "7001")
     private Long sourceFeedbackId;

@@ -1,5 +1,5 @@
 {
-  "startedAt": "2026-08-02T14:50:00.747Z",
+  "startedAt": "2026-08-02T16:20:59.358Z",
   "baseUrl": "http://127.0.0.1:8081",
   "browserExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "target": {
@@ -36,6 +36,39 @@
       "publishedFileId": "9198354916366",
       "stampedFileId": "9198354916366",
       "viewMatrixRuleCount": 8
+    },
+    {
+      "phase": "authorized-controlled-browser-ux",
+      "username": "wangsiyu",
+      "browserPath": "/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-ORIG-20260802101521&pageNo=1&pageSize=20",
+      "browserNetworkObserved": true,
+      "browserTotal": 1,
+      "visibleVersionNo": "V1.0",
+      "visibleStatus": "ACTIVE",
+      "directoryPath": "4.Ohter",
+      "viewerPath": "/dcc/controlled-file/detail/2054545668044070287?viewer=1&from=browser&returnTo=%252Fdcc%252Fcontrolled-file%252Fbrowser%253FpageNo%253D1%2526pageSize%253D20%2526scope%253Dglobal%2526keyword%253DCODX-DCC-ORIG-20260802101521",
+      "previewLoaded": true,
+      "previewKind": "PDF",
+      "previewFileName": "stamped-approval-sample.pdf",
+      "publishedFileId": "9198354916366",
+      "stampedFileId": "9198354916366",
+      "uxAssertions": [
+        "filter-summary",
+        "current-active-row-summary",
+        "distinct-preview-trace-signature-actions",
+        "viewer-business-linkage",
+        "advanced-published-stamped-ids"
+      ]
+    },
+    {
+      "phase": "limited-controlled-browser-negative-ux",
+      "username": "pengyunfeng",
+      "browserPath": "/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-ORIG-20260802101521&pageNo=1&pageSize=20",
+      "browserNetworkObserved": true,
+      "browserTotal": 0,
+      "visibleTargetCount": 0,
+      "permissionFeedback": "无权限或无匹配当前有效文件",
+      "targetNotRendered": true
     }
   ],
   "targetNetworkFailures": [],
@@ -77,7 +110,8 @@
     },
     "viewMatrixRuleCount": 8
   },
-  "status": "BLOCKED",
-  "blocker": "authorized row missing visible text: 发布文件：已生成",
-  "finishedAt": "2026-08-02T14:50:06.131Z"
+  "targetLinkErrorCount": 0,
+  "targetDccMutationRequestCount": 0,
+  "status": "PASS",
+  "finishedAt": "2026-08-02T16:21:10.913Z"
 }

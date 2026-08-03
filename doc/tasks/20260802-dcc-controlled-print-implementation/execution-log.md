@@ -72,3 +72,27 @@ BDD: 打印动作可追溯 -> Given 用户已完成一次受控打印 When 审�
 - E2E BLOCKED: latest backend jar containing DCC受控打印功能 cannot run on `48081` because unrelated SHOWROOM approval adapter integration guard fails at startup: `APPROVAL_ADAPTER_DECLARED_BUT_NOT_REGISTERED: SHOWROOM`.
 - Impact: cannot complete real Playwright controlled print flow, cannot generate a page-created print record, cannot verify watermark/print number/record traceability on the new implementation.
 - Not performed: no admin business login, no API-only print record creation, no SQL-created print record, no old-jar PASS claim.
+
+## 2026-08-02 Final Resume Evidence
+
+- Rule reread: `AGENTS.md`, `docs/e2e-rules.md`, `docs/login-access.md`, `docs/frontend-development.md`, `docs/backend-development.md`, `docs/local-runtime.md`, `docs/task-closeout-rules.md`, `docs/database-rules.md`, `docs/powershell-encoding.md`, `docs/worktree-restrictions.md`, `docs/branch-runtime-ports.md`, `docs/experience-index.md`.
+- Skill reread: `bug-regression-fix-loop`, `playwright`.
+- Runtime check: `8081` PID `28264` belongs to `E:\IntRuoyi\IntRuoyiFronted` Vite; `48081` PID `43944` belongs to `E:\IntRuoyi\output\runtime\int_main\backend\yudao-server-exec-20260802-220742.jar`; backend health `UP`, frontend HTTP `200`.
+- Permission setup: user authorized selecting an account and granting required permission if missing. Added one minimum category permission rule only: `dcc_file_category_permission_rule.id=2625`, `category_id=907233`, `action_type=PRINT`, `subject_type=USER`, `subject_id=910250`, `scope_type=GLOBAL`. No file status or print record was created by SQL.
+- Script fix: first DB precheck blocked because JavaScript `Number(...)` lost precision for 19-digit IDs; changed task-owned E2E script to keep IDs as decimal strings in SQL. Later read-only API check was changed to reload the real page and capture the authenticated records GET response instead of manually reconstructing frontend token storage.
+- GREEN: `node --check E:\IntRuoyi\doc\tasks\20260802-dcc-controlled-print-implementation\dcc-controlled-print-real.e2e.cjs` -> PASS.
+- GREEN: `node E:\IntRuoyi\doc\tasks\20260802-dcc-controlled-print-implementation\dcc-controlled-print-real.e2e.cjs` with `DCC_E2E_PASSWORD` injected by PowerShell expression -> PASS, exit code `0`.
+- Final result JSON: `doc/tasks/20260802-dcc-controlled-print-implementation/dcc-controlled-print-real-e2e-result.json`, `status=PASS`, `targetNetworkFailures=[]`, `targetBadResponses=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- Final print record: ID `3`, print no `DCCP-20260802235038-09C2EEA9`, file `CODX-DCC-ORIG-20260802101521`, version `V1.0`, printer `王思雨 (wangsiyu)`, copies `2`, status `DIRECT_PRINTED`, print time `2026-08-02 23:50:39`.
+- Current-version proof: DB shows controlled file `2054545668044070287` is `ACTIVE`, master `current_active_controlled_file_id=2054545668044070287`, `publishedFileId=9198354916366`, `stampedFileId=9198354916366`.
+- Traceability proof: page print-record reload and read-only DB both include record ID `3` with matching file number, version, print no, copies, printer, purpose, receiving department, use location, and direct-print status.
+- Negative permission proof: `zhangkeying` logged in through the real page; same ACTIVE file row visible, but `visiblePrintButtonCount=0`.
+- Screenshot evidence: `controlled-print-window-20260802155031.png`, `controlled-print-records-20260802155031.png`, `controlled-print-negative-20260802155031.png`.
+
+## 2026-08-02 Closeout Evidence
+
+- Experience consolidation: updated existing `docs/e2e-rules.md` with `DCC 受控打印门禁` and added the matching `docs/experience-index.md` keyword route; no new long-term experience document was created.
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260802-dcc-controlled-print-implementation --mode preview` -> READY, blocked `<none>`, warnings `<none>`.
+- Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260802-dcc-controlled-print-implementation --mode apply` -> APPLIED, deleted only old task-owned screenshots `controlled-print-negative-20260802152409.png`, `controlled-print-records-20260802151648.png`, `controlled-print-records-20260802152409.png`, `controlled-print-window-20260802151648.png`, `controlled-print-window-20260802152409.png`.
+- Cleanup keep verified by tool output: final E2E script, result JSON, final print-window screenshot, final records screenshot, final negative-permission screenshot, `task.md`, `execution-log.md`, and `verification-report.md` remained in keep.
+- Git closeout blocker: `git status --short --branch --untracked-files=all` shows `int_main...origin/int_main [ahead 2]` plus multiple unrelated dirty task/source files from other workstreams. No broad baseline commit, implementation commit, or push was performed in this resume to avoid mixing this task with unrelated concurrent modifications.

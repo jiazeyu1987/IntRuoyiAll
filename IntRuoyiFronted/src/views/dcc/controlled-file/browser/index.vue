@@ -1391,10 +1391,29 @@ const buildCurrentVersionOption = (row: ControlledFileVO): ControlledFileBrowser
   actionProjection: row.actionProjection
 })
 
+const hydrateCurrentBrowserVersionActionState = (
+  row: ControlledFileBrowserRow,
+  version: ControlledFileBrowserVersion
+): ControlledFileBrowserVersion => {
+  if (String(version.id) !== String(row.id)) {
+    return version
+  }
+  return {
+    ...version,
+    publishedFileId: version.publishedFileId ?? row.publishedFileId,
+    stampedFileId: version.stampedFileId ?? row.stampedFileId,
+    currentActiveVersionNo: version.currentActiveVersionNo ?? row.currentActiveVersionNo,
+    canPreview: version.canPreview ?? row.canPreview,
+    canDownload: version.canDownload ?? row.canDownload,
+    canPrint: version.canPrint ?? row.canPrint,
+    actionProjection: version.actionProjection ?? row.actionProjection
+  }
+}
+
 const getVersionOptions = (row: ControlledFileBrowserRow): ControlledFileBrowserVersion[] => {
-  const historyOptions = (row.versionHistory || []).filter(
-    (item): item is ControlledFileBrowserVersion => isValidBrowserOptionId(item.id)
-  )
+  const historyOptions = (row.versionHistory || [])
+    .filter((item): item is ControlledFileBrowserVersion => isValidBrowserOptionId(item.id))
+    .map((version) => hydrateCurrentBrowserVersionActionState(row, version))
   if (historyOptions.length) {
     return historyOptions
   }

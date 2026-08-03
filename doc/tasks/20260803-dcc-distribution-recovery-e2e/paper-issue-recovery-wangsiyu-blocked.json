@@ -1,0 +1,70 @@
+{
+  "fileNumber": "CODX-DCC-DIST-REC-DISTREC20260802173908",
+  "tenantName": "芋道源码",
+  "actor": "wangsiyu",
+  "paperRecipient": "panhaitao",
+  "runMode": "full",
+  "v1ControlledFileId": "2054545668044070279",
+  "v2ControlledFileId": "2054545668044070280",
+  "baseUrl": "http://127.0.0.1:8081",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "startedAt": "2026-08-02T17:10:29.244Z",
+  "pagePaths": [
+    {
+      "label": "v2-before-ack",
+      "url": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070280?traceability=1&from=browser&returnTo=/dcc/controlled-file/browser"
+    }
+  ],
+  "actions": [],
+  "detailApiSnapshots": {
+    "v2-before-ack": {
+      "id": "2054545668044070280",
+      "visibleDistributionSectionText": "部门\n\t\n接收人\n\t\n分发摘要\n\t\n回收摘要\n\t\n操作\n部门#144\n\t\n-\n\t\n待分发\n纸质发放\n发放：-\n时间：-\n\t\n回收：-\n时间：-\n\t\n确认纸质发放"
+    }
+  },
+  "browserVerification": null,
+  "finalReadonlyDb": null,
+  "targetNetworkFailures": [
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/notify-message/get-unread-count",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "label": "distribution-recovery",
+      "status": "REQUEST_FAILED",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "unhandledRejections": [],
+  "status": "ERROR",
+  "error": "Error: v2 acknowledge paper distribution business failed, code=1080000049, msg=Current user cannot acknowledge this paper distribution\n    at parseCommonResult (E:\\IntRuoyi\\doc\\tasks\\20260803-dcc-distribution-recovery-e2e\\dcc-distribution-recovery-e2e.cjs:119:11)\n    at async waitApi (E:\\IntRuoyi\\doc\\tasks\\20260803-dcc-distribution-recovery-e2e\\dcc-distribution-recovery-e2e.cjs:130:19)\n    at async acknowledgePaperDistributionFromDetail (E:\\IntRuoyi\\doc\\tasks\\20260803-dcc-distribution-recovery-e2e\\dcc-distribution-recovery-e2e.cjs:256:22)\n    at async main (E:\\IntRuoyi\\doc\\tasks\\20260803-dcc-distribution-recovery-e2e\\dcc-distribution-recovery-e2e.cjs:531:30)",
+  "finishedAt": "2026-08-02T17:10:42.329Z"
+}

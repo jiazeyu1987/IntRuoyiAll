@@ -87,3 +87,29 @@ BDD: DCC controlled file distribution and old-version recovery -> Given a non-ad
 - Read-only DB permission verification: category `906104` `APPROVE` remains assigned only to user ID `1`; `wangsiyu` only has `DISTRIBUTE` via role `dcc_distribute_e2e`.
 - E2E BLOCKED: recovery must not be clicked while V1 is still `ACTIVE`; V2 is still `READY_TO_PUBLISH`, so old-version recovery/non-misuse cannot be completed through the required real page path.
 - Evidence: `paper-issue-recovery-final-result.json`; `tenant1-post-v1-ack-readonly-db-verification.json`; `publish-blocked-after-backend-up.json`; `verification-report.md`.
+
+## Resume 2026-08-02 22:45
+
+- User explicitly authorized permission prerequisite setup for `wangsiyu`: if the ability is not visible, add a visible permission role and assign it to `wangsiyu`.
+- Real page visibility probe: `wangsiyu` logged in through Playwright using `DCC_E2E_PASSWORD`; `/dcc/controlled-file/categories?tab=review-matrix` rendered `文控权限 / 审阅矩阵`, and permission info included `dcc:controlled-file:category:manage`. Evidence: `wangsiyu-category-manage-visibility-before.json`.
+- Permission prerequisite setup: existing role `dcc_distribute_e2e` / role ID `910431` was already assigned to `wangsiyu` / user ID `910250`; inserted category `906104` `APPROVE` permission rule ID `2624` for that role. Evidence: `permission-setup-wangsiyu-approve-role.json`.
+- Safety boundary: permission setup touched only role/category permission prerequisite explicitly authorized by the user; no distribution, recipient, recovery, approval-state, or version-state business records were inserted or updated by SQL/API.
+- GREEN: V2 publish application real page -> PASS. `wangsiyu` submitted real `发布申请`, creating form instance `443` and BPM process `39fb6cce-8e81-11f1-aa29-00155d2984a0`. Evidence: `paper-chain-tenant1-after-approve-permission.json`.
+- RED: first publish approval continuation -> FAIL, script initially assumed `zhaohaichen` was current approver but read-only BPM state showed first publish task assigned to `wangsiyu`.
+- GREEN: publish BPM real page approvals -> PASS. Real BPM approval pages completed non-admin chain `wangsiyu -> zhaohaichen -> zhaojie -> zhaomingyu`; publish instance `443` became `EFFECTIVE`, 4 publish tasks completed. Evidence: `paper-chain-tenant1-publish-approval-resume2.json`.
+- GREEN: V2 training and manual release -> PASS. `zhaomingyu` completed real “我的培训” after controlled reading reached `632 / 600` seconds, then `wangsiyu` completed real “正式下发”; V2 became `ACTIVE`, V1 became `SUPERSEDED`, master current active pointed to V2. Evidence: `paper-chain-tenant1-training-resume.json`.
+- GREEN: V2 distribution and V1 recovery real pages -> PASS. `wangsiyu` confirmed V2 paper issue to `panhaitao`, then opened V1 traceability detail and confirmed recovery for old V1 distribution. Evidence: `paper-issue-recovery-final-result.json`.
+- Final page paths: V2 `/dcc/controlled-file/detail/2054545668044070302?traceability=1&from=browser&returnTo=/dcc/controlled-file/browser`; V1 `/dcc/controlled-file/detail/2054545668044070297?traceability=1&from=browser&returnTo=/dcc/controlled-file/browser`.
+- Final records: V1 distribution `4341` final `RECOVERED`, recoveredBy `910250 / wangsiyu`, recoveredAt `2026-08-02 23:30:08`; V2 distribution `4344` final `ACKNOWLEDGED`, acknowledgedBy `910250 / wangsiyu`, acknowledgedAt `2026-08-02 23:30:04`; recipient `panhaitao` / user ID `173` recorded on both.
+- GREEN: controlled-browser-v2-only-current-effective -> PASS. Browser query by file number returned total `1`, only V2 ID `2054545668044070302` / `V2.0` / `ACTIVE`; V1 ID `2054545668044070297` was not visible as current effective file.
+- GREEN: final-readonly-db-verification -> PASS. Read-only DB confirmed V1 `SUPERSEDED`, V2 `ACTIVE`, master `currentActiveControlledFileId=2054545668044070302`, distribution `4341=RECOVERED`, distribution `4344=ACKNOWLEDGED`, and responsibility/timestamps as shown on page. Evidence: `final-pass-readonly-db-verification.json`.
+- Final status: PASS; `verification-report.md` rewritten with final file IDs, V1/V2 status, distribution IDs, recovery ID/status, responsibility, timestamps, page paths, and evidence files.
+
+## Closeout 2026-08-02
+
+- Experience consolidation completed in `docs/e2e-rules.md#dcc-分发与旧版回收门禁`.
+- Experience index route verified by `rg -n "DCC 文件分发|DCC 分发与旧版回收" docs/experience-index.md docs/e2e-rules.md`.
+- GREEN: node script syntax check -> PASS for `dcc-paper-chain-prepare-e2e.cjs` and `dcc-distribution-recovery-e2e.cjs`.
+- GREEN: JSON evidence parse check -> PASS, `JSON_OK 24`.
+- GREEN: task secret scan -> PASS, plaintext password not found in task directory.
+- GREEN: targeted `git diff --check` -> PASS for task docs, task scripts, `docs/e2e-rules.md`, and `docs/experience-index.md`.

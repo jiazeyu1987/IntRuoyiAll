@@ -6,6 +6,8 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
@@ -16,6 +18,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
@@ -28,10 +32,15 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.template.FrontlineTemplateCodes;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.template.FrontlinePqcResults;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.template.FrontlineTemplateTypes;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreatePqcInspectionReqDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDate;
@@ -69,7 +78,11 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Validated
 public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContextService {
 
+    private static final String PQC_INSPECTION_TASK_SOURCE_TYPE = "MES_PQC_INSPECTION_TASK";
+
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
+    private final MesProProcessPoolMapper processPoolMapper;
+    private final MesProProcessPoolEventMapper processPoolEventMapper;
     private final MesProWorkOrderMapper workOrderMapper;
     private final MesProRouteMapper routeMapper;
     private final MesProRouteProductMapper routeProductMapper;
@@ -83,8 +96,11 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
     private final MesProcessPoolTeamLeaderScopeMapper scopeMapper;
     private final AdminUserApi adminUserApi;
     private final MesFrontlineTemplateResolver templateResolver;
+    private final MesProcessPoolEventService processPoolEventService;
 
     public MesFrontlinePqcContextServiceImpl(MesProcessPoolActiveOrderMapper activeOrderMapper,
+                                             MesProProcessPoolMapper processPoolMapper,
+                                             MesProProcessPoolEventMapper processPoolEventMapper,
                                              MesProWorkOrderMapper workOrderMapper,
                                              MesProRouteMapper routeMapper,
                                              MesProRouteProductMapper routeProductMapper,
@@ -97,8 +113,11 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                                              MesMdItemService itemService,
                                              MesProcessPoolTeamLeaderScopeMapper scopeMapper,
                                              AdminUserApi adminUserApi,
-                                             MesFrontlineTemplateResolver templateResolver) {
+                                             MesFrontlineTemplateResolver templateResolver,
+                                             MesProcessPoolEventService processPoolEventService) {
         this.activeOrderMapper = activeOrderMapper;
+        this.processPoolMapper = processPoolMapper;
+        this.processPoolEventMapper = processPoolEventMapper;
         this.workOrderMapper = workOrderMapper;
         this.routeMapper = routeMapper;
         this.routeProductMapper = routeProductMapper;
@@ -112,6 +131,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         this.scopeMapper = scopeMapper;
         this.adminUserApi = adminUserApi;
         this.templateResolver = templateResolver;
+        this.processPoolEventService = processPoolEventService;
     }
 
     @Override
@@ -277,13 +297,15 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         MesFrontlineRouteProcessCandidate process = requireActiveOrderProcess(workOrderId, routeId,
                 routeProcessId, processId);
         requirePqcEmployee(actualEmployeeId);
-        MesFrontlineTemplateDescriptor template = templateResolver.resolve(new MesFrontlineTemplateRequest(
-                loginUserId, actualEmployeeId, process.routeId(), process.routeProcessId(), process.processId()));
+        MesFrontlineTemplateDescriptor template = new MesFrontlineTemplateDescriptor(
+                FrontlineTemplateCodes.PQC_SIMPLIFIED, FrontlineTemplateTypes.PQC,
+                process.routeProcessId(), process.processId(), actualEmployeeId);
         return new MesFrontlineEmployeeSwitchResult(loginUserId, actualEmployeeId, process.routeId(),
                 process.routeProcessId(), process.processId(), false, template);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long submitPqcInspection(Long loginUserId, MesFrontlinePqcSubmitCommand command) {
         requireValue(loginUserId, "loginUserId");
         requirePqcSubmitCommand(command);
@@ -298,14 +320,55 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         requirePqcTaskIdentity(task, command, process);
         List<MesPqcInspectionPieceDetailDO> pieceDetails = buildPieceDetails(task.getId(), command,
                 process.inspectionItems());
+        requirePositive(process.workstationId(), "routeProcess.workstationId");
+        String inspectionResult = resolvePqcInspectionResult(command.getInspectionResult());
+        String rawPayload = buildPqcInspectionEventRawPayload(command, pieceDetails);
 
         task.setActualInspectionQuantity(command.getActualInspectionQuantity());
         task.setTaskStatus("SUBMITTED");
         pqcTaskMapper.updateById(task);
         pqcPieceDetailMapper.insertBatch(pieceDetails);
-        resolvePqcInspectionResult(command.getInspectionResult());
-        JsonUtils.toJsonString(command.getRawPayload());
+        processPoolEventService.createPqcInspectionEvent(MesProcessPoolCreatePqcInspectionReqDTO.builder()
+                .workOrderId(command.getWorkOrderId())
+                .routeId(command.getRouteId())
+                .routeProcessId(command.getRouteProcessId())
+                .processId(command.getProcessId())
+                .actualEmployeeId(command.getActualEmployeeId())
+                .deviceAccountId(null)
+                .deviceId(null)
+                .workstationId(process.workstationId())
+                .templateType(command.getTemplateType())
+                .feedbackSourceType(PQC_INSPECTION_TASK_SOURCE_TYPE)
+                .feedbackSourceId(task.getId())
+                .recordbookSourceType(PQC_INSPECTION_TASK_SOURCE_TYPE)
+                .recordbookSourceId(task.getId())
+                .inspectionResult(inspectionResult)
+                .rawPayload(rawPayload)
+                .clientSubmitTime(command.getClientSubmitTime())
+                .signatureId(command.getSignatureId())
+                .signatureUserId(command.getSignatureEmployeeId())
+                .signatureSnapshot(command.getSignatureSnapshot())
+                .build());
         return task.getId();
+    }
+
+    private String buildPqcInspectionEventRawPayload(MesFrontlinePqcSubmitCommand command,
+                                                     List<MesPqcInspectionPieceDetailDO> pieceDetails) {
+        Map<String, Object> payload = new LinkedHashMap<>(command.getRawPayload());
+        payload.put("activeOrderId", command.getActiveOrderId());
+        payload.put("pqcTaskId", command.getPqcTaskId());
+        payload.put("regulationVersionId", command.getRegulationVersionId());
+        payload.put("workOrderId", command.getWorkOrderId());
+        payload.put("routeId", command.getRouteId());
+        payload.put("routeProcessId", command.getRouteProcessId());
+        payload.put("processId", command.getProcessId());
+        payload.put("inspectionType", command.getInspectionType());
+        payload.put("businessDate", command.getBusinessDate());
+        payload.put("shiftCode", command.getShiftCode());
+        payload.put("roundNo", command.getRoundNo());
+        payload.put("actualInspectionQuantity", command.getActualInspectionQuantity());
+        payload.put("pieceDetailCount", pieceDetails.size());
+        return JsonUtils.toJsonString(payload);
     }
 
     private void requirePqcSubmitCommand(MesFrontlinePqcSubmitCommand command) {

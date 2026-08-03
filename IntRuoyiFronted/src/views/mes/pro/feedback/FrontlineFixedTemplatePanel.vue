@@ -113,7 +113,10 @@
                 :aria-label="`${item.label}逐件检验`"
                 @click="openPqcPieceInspection(item.key)"
               >
-                <span>{{ item.label }}</span>
+                <span class="frontline-pqc-item-title">{{ item.label }}</span>
+                <small class="frontline-pqc-inspection-meta" data-pqc-inspection-meta>
+                  {{ formatPqcInspectionMeta(item) }}
+                </small>
                 <em>{{ getPqcProgressText(item.key) }}</em>
                 <strong aria-hidden="true">&gt;</strong>
               </button>
@@ -124,7 +127,12 @@
                 :data-pqc-inspection-entry="item.key"
                 :data-pqc-inspection-group="item.key"
               >
-                <div class="frontline-pqc-choice-title">{{ item.label }}</div>
+                <div class="frontline-pqc-choice-title">
+                  <span>{{ item.label }}</span>
+                  <small class="frontline-pqc-inspection-meta" data-pqc-inspection-meta>
+                    {{ formatPqcInspectionMeta(item) }}
+                  </small>
+                </div>
                 <div class="frontline-pqc-choice-actions">
                   <button
                     type="button"
@@ -558,6 +566,9 @@ interface PqcInspectionItem {
   key: PqcInspectionItemKey
   label: string
   type: 'number' | 'choice'
+  inspectionMethod: string
+  standardText: string
+  resultType: string
   unit: string
   defaultValue: string
   step: number
@@ -656,6 +667,9 @@ const pqcInspectionItems = computed<PqcInspectionItem[]>(() =>
     key: item.itemCode,
     label: item.itemName || item.itemCode,
     type: isPqcNumericResultType(item.resultType) ? 'number' : 'choice',
+    inspectionMethod: item.inspectionMethod || '',
+    standardText: item.standardText || '',
+    resultType: item.resultType || '',
     unit: '',
     defaultValue: '',
     step: isPqcNumericResultType(item.resultType) ? 1 : 0
@@ -1085,6 +1099,24 @@ const getPqcCompletedCount = (itemKey: PqcInspectionItemKey) =>
 
 const getPqcProgressText = (itemKey: PqcInspectionItemKey) =>
   `已填 ${getPqcCompletedCount(itemKey)}/${pqcInspectionQuantity.value}`
+
+const formatPqcResultType = (resultType: string) => {
+  const normalized = resultType.trim().toUpperCase()
+  if (normalized === 'NUMBER' || normalized === 'NUMERIC') {
+    return '数值'
+  }
+  if (normalized === 'BOOLEAN' || normalized === 'CHOICE' || normalized === 'PASS_FAIL') {
+    return '合格/不合格'
+  }
+  return resultType || '未配置'
+}
+
+const formatPqcInspectionMeta = (item: PqcInspectionItem) =>
+  [
+    `方法: ${item.inspectionMethod || '未配置'}`,
+    `标准: ${item.standardText || '未配置'}`,
+    `判定: ${formatPqcResultType(item.resultType)}`
+  ].join(' / ')
 
 const getPqcCurrentChoiceValues = (itemKey: PqcInspectionItemKey) =>
   getPqcStoredPieceValues(itemKey).slice(0, pqcInspectionQuantity.value)
@@ -2236,7 +2268,8 @@ onMounted(async () => {
 .frontline-pqc-content-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto 48px;
-  gap: 18px;
+  grid-template-rows: auto auto;
+  gap: 8px 18px;
   align-items: center;
   width: 100%;
   min-width: 0;
@@ -2249,12 +2282,23 @@ onMounted(async () => {
   text-align: left;
   cursor: pointer;
 
-  span {
+  .frontline-pqc-item-title {
     font-size: 40px;
     font-weight: 900;
   }
 
+  .frontline-pqc-inspection-meta {
+    grid-column: 1;
+    color: #4b6258;
+    font-size: 20px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
   em {
+    grid-column: 2;
+    grid-row: 1 / span 2;
     color: var(--frontline-muted);
     font-size: 30px;
     font-style: normal;
@@ -2263,6 +2307,8 @@ onMounted(async () => {
   }
 
   strong {
+    grid-column: 3;
+    grid-row: 1 / span 2;
     font-size: 48px;
     line-height: 1;
     text-align: right;
@@ -2283,15 +2329,23 @@ onMounted(async () => {
 }
 
 .frontline-pqc-choice-title {
-  display: flex;
-  align-items: center;
-  height: 48px;
-  padding: 0 18px;
+  display: grid;
+  gap: 4px;
+  min-height: 72px;
+  padding: 8px 18px;
   border-bottom: 3px solid var(--frontline-line);
   background: #ffffff;
   font-size: 32px;
   font-weight: 900;
-  line-height: 1;
+  line-height: 1.1;
+}
+
+.frontline-pqc-inspection-meta {
+  color: #4b6258;
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .frontline-pqc-choice-actions {

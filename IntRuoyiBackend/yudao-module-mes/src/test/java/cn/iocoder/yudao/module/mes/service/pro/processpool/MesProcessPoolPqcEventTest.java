@@ -17,6 +17,7 @@ import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomLongId
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PQC_RESULT_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Import(MesProcessPoolEventServiceImpl.class)
@@ -55,6 +56,30 @@ class MesProcessPoolPqcEventTest extends BaseDbUnitTest {
         assertEquals(req.getSignatureId(), pqcRecord.getSignatureId());
         assertEquals(event.getServerSubmitTime(), pqcRecord.getServerSubmitTime());
         assertEquals(req.getRawPayload(), pqcRecord.getRawPayload());
+    }
+
+    @Test
+    void shouldStorePqcInspectionFromTaskSourceWithoutProductionDeviceContext() {
+        MesProcessPoolCreatePqcInspectionReqDTO req = validPqcReq();
+        req.setDeviceAccountId(null);
+        req.setDeviceId(null);
+        req.setFeedbackSourceType("MES_PQC_INSPECTION_TASK");
+        req.setFeedbackSourceId(7001L);
+        req.setRecordbookSourceType("MES_PQC_INSPECTION_TASK");
+        req.setRecordbookSourceId(7001L);
+
+        Long eventId = processPoolEventService.createPqcInspectionEvent(req);
+
+        MesProProcessPoolEventDO event = processPoolEventMapper.selectById(eventId);
+        assertEquals("PQC_INSPECTION", event.getEventType());
+        assertNull(event.getDeviceAccountId());
+        assertNull(event.getDeviceId());
+        assertEquals(req.getWorkstationId(), event.getWorkstationId());
+        assertEquals("MES_PQC_INSPECTION_TASK", event.getFeedbackSourceType());
+        assertEquals(7001L, event.getFeedbackSourceId());
+        assertEquals("MES_PQC_INSPECTION_TASK", event.getRecordbookSourceType());
+        assertEquals(7001L, event.getRecordbookSourceId());
+        assertNotNull(pqcRecordMapper.selectByEventId(eventId));
     }
 
     @Test

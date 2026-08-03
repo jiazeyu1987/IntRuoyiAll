@@ -135,6 +135,8 @@ for (const token of [
   'pqcRegulationItemsRendered',
   'verifyPqcPieceDetailQuantityPrepared',
   'pqcPieceDetailQuantityPrepared',
+  'verifyPqcFormalSubmissionCreatesEvent',
+  'pqcFormalSubmissionCreated',
   'verifyPqcLeaderSubmissionFilterPaginationConsistency',
   'pqcLeaderSubmissionFilterPaginationConsistent',
   'verifyPqcActualEmployeeSwitch',
@@ -167,6 +169,7 @@ for (const token of [
   '/mes/pro/feedback/frontline/device-account/pqc/active-order/processes',
   '/mes/pro/feedback/frontline/device-account/pqc/personnel',
   '/mes/pro/feedback/frontline/device-account/pqc/switch-employee',
+  '/mes/pro/feedback/frontline/device-account/pqc/submit',
   'writeEvidence',
   'failFast'
 ]) {

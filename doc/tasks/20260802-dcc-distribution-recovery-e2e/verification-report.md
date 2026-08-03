@@ -2,13 +2,13 @@
 
 ## Result
 
-E2E BLOCKED.
+PASS.
 
 ## Scope
 
 - Target scenario: DCC 文控“文件分发/旧版回收”真实 Playwright E2E。
-- Required path: non-admin DCC user, real page distribution/receipt/recovery actions, V1->V2 version transition, V2 current effective use, V1 non-misuse, final read-only API/DB reconciliation.
-- Safety boundary: no admin account, no API-only substitute, no direct SQL/API insert/update for distribution, receipt, recovery, version state, permissions, or approval state.
+- Required path: non-admin DCC user, real page distribution/receipt/recovery actions, V1 -> V2 version transition, V2 current effective use, V1 non-misuse, final read-only API/DB reconciliation.
+- Safety boundary: no admin account, no API-only substitute, no direct SQL/API insert/update for distribution, receipt, recovery, version state, or approval state.
 
 ## Rule Reads
 
@@ -16,68 +16,70 @@ E2E BLOCKED.
 
 ## Runtime
 
-- Frontend: `http://127.0.0.1:8081/` remained owned by the `E:\IntRuoyi\IntRuoyiFronted` Vite process.
-- Backend: after the user reported startup, `http://127.0.0.1:48081/actuator/health` returned `UP`; port `48081` is owned by Java running `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260802-170535.jar`.
-- Earlier blocked restart evidence remains recorded: copied runtime jar `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260802-205036.jar` failed on `MesProProcessPoolTimelineReadMapper.xml` MyBatis XML parse error.
+- Frontend: `http://127.0.0.1:8081/` returned HTTP 200.
+- Backend: `http://127.0.0.1:48081/actuator/health` returned `UP`.
 - Browser: Playwright used local Chrome at `C:\Program Files\Google\Chrome\Application\chrome.exe`.
 - Password handling: password was injected only through `DCC_E2E_PASSWORD`; no plaintext password is written in this report.
+- Runtime note: one retry hit transient tenant lookup 500 during backend runtime switch at 23:26, then `get-id-by-name` returned business code `0` and the real page flow was rerun successfully.
+
+## Permission Prerequisite
+
+- User explicitly authorized adding the missing `wangsiyu` ability: “给 wangsiyu 补上这个能力...然后把这个权限角色赋值给 wangsiyu”.
+- Real page visibility probe showed `wangsiyu` could already see `文控权限 / 审阅矩阵` at `/dcc/controlled-file/categories?tab=review-matrix`; category `906104` was not on the first page, but `category:manage` permission was present. Evidence: `wangsiyu-category-manage-visibility-before.json`.
+- Minimal permission prerequisite added: existing role `dcc_distribute_e2e` / role ID `910431`, already assigned to `wangsiyu` / user ID `910250`, received category `906104` `APPROVE` rule ID `2624`.
+- No business records were inserted or updated by SQL/API: distribution, recipient, recovery, version status, and approval state were changed only through real pages. Evidence: `permission-setup-wangsiyu-approve-role.json`.
 
 ## Current File
 
 - Tenant: `芋道源码` / tenant ID `1`; non-admin users only.
-- Category: `906104` / `其他`; this category has an active distribution rule for `质量体系部` (`department_id=253`) with medium `PUBLIC_FOLDER`, plus category `DISTRIBUTE` permission for role `dcc_distribute_e2e`.
+- Category: `906104` / `其他`; active distribution rule for department `253 / 质量体系部`; `DISTRIBUTE` and task-authorized `APPROVE` available to `wangsiyu` through role `910431`.
 - File number: `CODX-DCC-DIST-906104-DISTTENANT120260802195305`.
-- V1: controlled file ID `2054545668044070297`, version `V1.0`, status `ACTIVE`, published at `2026-08-02 20:19:57`.
-- V2: controlled file ID `2054545668044070302`, version `V2.0`, status `READY_TO_PUBLISH`, approved at `2026-08-02 20:22:48`.
-- Evidence: `paper-chain-tenant1-result.json` and `tenant1-current-blocked-readonly-db-verification.json`.
-
-## Candidate Category Scan
-
-- Read-only DB scan after the user requested a category with distribution permission rules found no existing category that satisfies all required prerequisites at once: published DCC `PUBLISH / READY_TO_PUBLISH` policy, active distribution rule, non-admin `APPROVE`, and non-admin `DISTRIBUTE`.
-- Tenant `芋道源码` category `906104 / 其他` has the published publish policy and distribution rule, but `APPROVE` is only granted to user ID `1`; non-admin `wangsiyu` has `UPLOAD` and `DISTRIBUTE`, not `APPROVE`.
-- Tenant `122` category `900347 / Codex Local DCC Category` has non-admin `aoteman` with `APPROVE / DISTRIBUTE / UPLOAD` and a distribution rule, but no published DCC `PUBLISH / READY_TO_PUBLISH` business approval policy.
-- Evidence: `candidate-permission-scan-20260802-210906.json`.
+- V1: controlled file ID `2054545668044070297`, version `V1.0`, final status `SUPERSEDED`.
+- V2: controlled file ID `2054545668044070302`, version `V2.0`, final status `ACTIVE`.
+- Master: `2054545668044062904`, `currentActiveControlledFileId=2054545668044070302`.
 
 ## Page Evidence
 
-- Real upload/approval/training/release path completed for V1:
-- `wangsiyu` uploaded V1 through the real upload page; four approval steps were completed by `zhaohaichen`, `zhaojie`, `zhaomingyu`, and `wangsiyu`.
-- Training was assigned to and completed by `zhaomingyu` through the real “我的培训” page after the 10-minute controlled viewing threshold.
-- `wangsiyu` completed the real “正式下发” page action, making V1 `ACTIVE`.
-- Real upload/approval path completed for V2:
-- `wangsiyu` uploaded V2 through the real upload page; four approval steps were completed by the same non-admin approvers.
-- V2 reached `READY_TO_PUBLISH`, but the page did not render the “发布申请” button; this was rerun after backend health returned `UP` and still blocked at the same real page control.
-- V1 paper issue path after backend restore:
-- `wangsiyu` opened V1 traceability detail through the real page and clicked “确认纸质发放”.
-- The page selected recipient `panhaitao` through the real user selector and submitted “确认发放”.
-- The V1 distribution section then displayed `潘海涛 (panhaitao)`, status `已确认`, issue owner `王思雨 (wangsiyu)`, issue time `2026-08-02 21:25:23`, and the next action `确认回收`.
+- V1 upload, four-step upload approval, training, and original release were completed through real pages before this continuation; V1 became `ACTIVE`.
+- V1 paper distribution was completed through real detail page by `wangsiyu`; recipient `panhaitao` was selected through the real user selector. Evidence: `paper-issue-recovery-final-result.json` from the V1 partial run.
+- V2 publish prerequisite was unblocked by the authorized permission rule, then real page publish application submitted as `wangsiyu`, producing publish form instance `443` and BPM process `39fb6cce-8e81-11f1-aa29-00155d2984a0`.
+- V2 publish BPM completed through real BPM pages with non-admin users: `wangsiyu -> zhaohaichen -> zhaojie -> zhaomingyu`; publish instance `443` became `EFFECTIVE`.
+- V2 training was completed by `zhaomingyu` through real “我的培训” after controlled reading reached `632 / 600` seconds; `wangsiyu` then performed real “正式下发”, making V2 `ACTIVE` and V1 `SUPERSEDED`. Evidence: `paper-chain-tenant1-training-resume.json`.
+- Final distribution/recovery page paths:
+- V2 distribution page: `/dcc/controlled-file/detail/2054545668044070302?traceability=1&from=browser&returnTo=/dcc/controlled-file/browser`.
+- V1 recovery page: `/dcc/controlled-file/detail/2054545668044070297?traceability=1&from=browser&returnTo=/dcc/controlled-file/browser`.
 
 ## Distribution And Recovery
 
-- V1 distribution record ID: `4341`; medium `PAPER`; status `ACKNOWLEDGED`; recipient `panhaitao`; acknowledgedBy `910250 / wangsiyu`; acknowledgedAt `2026-08-02 21:25:23`; recoveredBy `null`; recoveredAt `null`.
-- V2 distribution record ID: `4344`; medium `PAPER`; status `PENDING`; recipients `[]`; acknowledgedBy `null`; recoveredBy `null`; recoveredAt `null`.
-- Recipient responsibility: recorded through the real page for V1 as `panhaitao` (`user_id=173`, recipient row `46820`).
-- Recovery responsibility: not created; V2 could not be published to `ACTIVE`, so V1 never became `SUPERSEDED` and old-version recovery could not be triggered.
-- Recovery record ID: BLOCKED / not generated.
+- V1 distribution record ID `4341`: medium `PAPER`, final status `RECOVERED`, version `V1.0`, file status `SUPERSEDED`.
+- V1 recipient responsibility: `panhaitao` / user ID `173`, recipient row `46820`.
+- V1 issue responsibility: `wangsiyu` / user ID `910250`, acknowledged at `2026-08-02 21:25:23`.
+- V1 recovery responsibility: `wangsiyu` / user ID `910250`, recovered at `2026-08-02 23:30:08`.
+- V2 distribution record ID `4344`: medium `PAPER`, final status `ACKNOWLEDGED`, version `V2.0`, file status `ACTIVE`.
+- V2 recipient responsibility: `panhaitao` / user ID `173`, recipient row `46865`.
+- V2 issue responsibility: `wangsiyu` / user ID `910250`, acknowledged at `2026-08-02 23:30:04`.
+- Evidence: `paper-issue-recovery-final-result.json` and `final-pass-readonly-db-verification.json`.
 
-## Blockers
+## Old-Version Non-Misuse
 
-- Permission/test-data blocker: category `906104` has `DISTRIBUTE` for `wangsiyu` via role `dcc_distribute_e2e`, but `APPROVE` is only assigned to user ID `1`. Since `DccControlledFileQueryServiceImpl` exposes `canPublish` only when the file is `READY_TO_PUBLISH` and the current user has category `APPROVE`, non-admin `wangsiyu` cannot submit V2 publish from the real page.
-- Existing-data blocker: a full read-only scan found zero existing categories where published DCC publish policy, active distribution rule, non-admin `APPROVE`, and non-admin `DISTRIBUTE` all coexist without changing data.
-- Runtime blocker cleared for this continuation: backend `48081` is `UP`, and V1 distribution was completed.
-- Remaining blocker: V2 publish still cannot be started by non-admin `wangsiyu` because the real page does not render “发布申请”; read-only DB confirms category `906104` `APPROVE` is still only assigned to user ID `1`.
-- Impact: the scenario has real-page “分发” coverage, but cannot complete old-version “回收” or old-version non-misuse for this category chain because V2 is not `ACTIVE` and V1 is not `SUPERSEDED`.
+- Controlled browser query for file number returned total `1`, only V2 ID `2054545668044070302`, version `V2.0`, status `ACTIVE`.
+- V1 ID `2054545668044070297` was not visible as the current effective controlled file.
+- Evidence: `paper-issue-recovery-final-result.json` -> `browserVerification`.
 
 ## Read-Only Reconciliation
 
-- Evidence files: `tenant1-current-blocked-readonly-db-verification.json` and `tenant1-post-v1-ack-readonly-db-verification.json`.
-- Confirmed V1 `ACTIVE`, V2 `READY_TO_PUBLISH`; V1 paper distribution `4341` is now `ACKNOWLEDGED`, V2 paper distribution `4344` remains `PENDING`.
-- Confirmed recipient row `46820` records `panhaitao`; confirmed `acknowledgedBy=wangsiyu`; confirmed no recoveredBy values exist.
-- Confirmed category `906104` has active `DISTRIBUTE` distribution responsibility but lacks non-admin `APPROVE` for the selected publish applicant.
-- Publish retry evidence after backend restore: `publish-blocked-after-backend-up.json`.
+- Final DB/API evidence file: `final-pass-readonly-db-verification.json`.
+- Confirmed V1 `SUPERSEDED`, V2 `ACTIVE`, master current active version points to V2.
+- Confirmed distribution `4341` is `RECOVERED` with recoveredBy `wangsiyu` and recoveredAt `2026-08-02 23:30:08`.
+- Confirmed distribution `4344` is `ACKNOWLEDGED` with acknowledgedBy `wangsiyu` and acknowledgedAt `2026-08-02 23:30:04`.
+- Confirmed publish instance `443` is `EFFECTIVE`, publish BPM completed 4 tasks, and V2 training progress row `1048` acknowledged by `zhaomingyu`.
 
-## Required To Unblock
+## Evidence Files
 
-- Assign or select approved non-admin users through the product's formal configuration path so that one existing category has both category `APPROVE` and `DISTRIBUTE`, an active distribution rule, and a published DCC `PUBLISH / READY_TO_PUBLISH` policy.
-- Keep backend `48081` on a cleanly starting runtime; this continuation used the restored `backend-runtime-control-20260802-170535.jar`.
-- Do not unblock by admin login, API-only issue/recovery, direct SQL status changes, direct permission inserts, or direct insertion of distribution/recipient/recovery records.
+- `permission-setup-wangsiyu-approve-role.json`
+- `wangsiyu-category-manage-visibility-before.json`
+- `paper-chain-tenant1-after-approve-permission.json`
+- `paper-chain-tenant1-publish-approval-resume2.json`
+- `paper-chain-tenant1-training-resume.json`
+- `paper-issue-recovery-final-result.json`
+- `final-pass-readonly-db-verification.json`

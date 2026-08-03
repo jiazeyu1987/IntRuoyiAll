@@ -46,6 +46,21 @@ public class ProcessPoolTimelinePageReqVO extends PageParam {
     @Schema(description = "生产工单编码", example = "WO-20260730001")
     private String workOrderCode;
 
+    @Schema(description = "产品编号", example = "91001")
+    private Long productId;
+
+    @Schema(description = "产品编码或名称关键字", example = "PP-88")
+    private String productKeyword;
+
+    @Schema(description = "PQC 检验类型", example = "PATROL")
+    private String inspectionType;
+
+    @Schema(description = "PQC 检验轮次", example = "2")
+    private Integer roundNo;
+
+    @Schema(description = "提交复核状态", example = "REJECTED")
+    private String submissionReviewStatus;
+
     @Schema(description = "提交时间起点", hidden = true)
     private LocalDateTime submittedAtStart;
 

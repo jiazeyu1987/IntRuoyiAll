@@ -59,14 +59,60 @@ assert.match(browserPage, /openControlledPrintDialog/, 'browser page must open a
 
 assert.match(detailPage, />\s*受控打印\s*</, 'detail page must expose 受控打印')
 assert.match(detailPage, /data-testid="dcc-controlled-print-dialog"/, 'detail page must render controlled print dialog')
+assert.match(
+  detailPage,
+  /data-testid="dcc-controlled-print-policy-dialog"/,
+  'controlled print dialog must expose the current direct-print/no-approval policy'
+)
 assert.match(detailPage, /打印用途/, 'controlled print dialog must require print purpose')
 assert.match(detailPage, /份数/, 'controlled print dialog must require copies')
 assert.match(detailPage, /接收部门/, 'controlled print dialog must require receiving department')
+assert.match(
+  detailPage,
+  /data-testid="dcc-controlled-print-receiving-department-select"[\s\S]{0,300}<el-select[\s\S]{0,300}filterable/,
+  'receiving department must be a structured selectable field'
+)
 assert.match(detailPage, /使用位置/, 'controlled print dialog must require use location')
+assert.match(
+  detailPage,
+  /data-testid="dcc-controlled-print-use-location-select"[\s\S]{0,300}<el-select[\s\S]{0,300}allow-create/,
+  'use location must support common selections and controlled free-entry'
+)
 assert.match(detailPage, /data-testid="dcc-controlled-print-records"/, 'detail page must show controlled print records')
+assert.match(
+  detailPage,
+  /data-testid="dcc-controlled-print-permission-hint"/,
+  'detail page must show a read-only no-print-permission hint when the print action is hidden'
+)
+assert.match(
+  detailPage,
+  /data-testid="dcc-controlled-print-policy-hint"/,
+  'print records section must explain whether the current file prints directly or requires approval'
+)
+assert.match(
+  detailPage,
+  /data-testid="dcc-controlled-print-result-dialog"/,
+  'submitting controlled print must show a durable success result dialog'
+)
+assert.match(
+  detailPage,
+  />\s*查看打印记录\s*</,
+  'success result dialog must provide a direct entry to the created print record'
+)
 assert.match(detailPage, /打印编号/, 'print output/records must show print number')
 assert.match(detailPage, /打印人/, 'print output/records must show print user')
 assert.match(detailPage, /打印时间/, 'print output/records must show print time')
+assert.match(detailPage, /副本编号/, 'print output/records must show per-copy copy numbers')
+assert.match(
+  detailPage,
+  /controlled-print-record-row--latest/,
+  'latest print record must have a dedicated highlight row class'
+)
+assert.match(
+  detailPage,
+  /data-controlled-print-record-id/,
+  'print number cell must expose a stable record id for auto-scroll/highlight'
+)
 assert.doesNotMatch(
   detailPage,
   /openApprovalPrintWindow[\s\S]{0,200}受控打印/,

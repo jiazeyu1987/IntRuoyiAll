@@ -736,3 +736,82 @@
 - TEST_ADDED: `role-requirement-matrix-preflight-static.spec.cjs` -> 要求真实 E2E 脚本包含 `verifyPqcLeaderSubmissionFilterPaginationConsistency` 和 `pqcLeaderSubmissionFilterPaginationConsistent`，防止 AC-D32 只停留在看板入口观察。
 - TEST_ADDED: `process-pool-timeline-mapper-static.spec.cjs` -> 要求提交看板 mapper 读取产品和 PQC task 正式字段，且使用 `pqcTaskId` 精确关联，避免粗粒度一对多 JOIN 放大分页。
 - TEST_ADDED: `ProcessPoolTimelineFilterTest` -> 新增 AC-D32 过滤分页单测，使用 pageSize=1 验证 total 与第 1/2 页明细一致。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> FAIL，expected reason: `role-requirement-matrix-real-flow.e2e.js` 缺少 `verifyPqcLeaderSubmissionFilterPaginationConsistency`。
+- RED: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> FAIL，expected reason: `MesProProcessPoolTimelineReadMapper.xml` 缺少 `work_order.product_id AS productId`、PQC task 精确关联和 AC-D32 筛选字段。
+- RED_PREREQ_BLOCKED: `mvn -pl yudao-module-mes -am "-Dtest=ProcessPoolTimelineFilterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL before target test execution；`MesWmBatchServiceImplTest` testCompile 读取现有 `target\classes\...\MesWmItemConsumeDetailDO$MesWmItemConsumeDetailDOBuilder.class` 时发生 `NoSuchFileException`。该结果只记录为 Maven 增量输出前置 blocker，不作为 AC-D32 业务 RED；目标 JUnit 必须在正式实现后通过隔离/恢复的 Maven 输出重新执行。
+- IMPLEMENTING: `ProcessPoolTimelinePageReqVO`、`ProcessPoolTimelineEventReadDO`、`ProcessPoolTimelineEventRespVO`、`ProcessPoolTimelineServiceImpl`、`MesProProcessPoolTimelineReadMapper.xml` 和 `ProcessPoolTimelineTestSupport` 增加产品、检验类型、轮次、复核状态和 `pqcTaskId` 精确关联筛选；count/page 共用同一正式提交事件口径，避免按工单/工序粗粒度 JOIN 放大。
+- IMPLEMENTING: `TeamLeaderWorkbenchPage.vue` 与 `src/api/mes/pro/processpool/index.ts` 增加 PQC 组长提交看板筛选项和结果列；真实 E2E 增加 `verifyPqcLeaderSubmissionFilterPaginationConsistency`，先操作 PQC 组长真实页面，再用登录态只读 API 校验 page/count 一致性。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted ts:check` -> PASS。
+- GREEN: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> PASS，0 SOURCE / 0 ENV / 0 RUNTIME。
+- BLOCKED: `mvn -pl yudao-module-mes -am "-Dtest=ProcessPoolTimelineFilterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> current-task Maven process hung in `WinNTFileSystem.delete0` / `IncrementalBuildHelper.beforeRebuildExecution`; only task-owned Maven chain PIDs were stopped. No AC-D32 target JUnit GREEN is claimed until Maven output prerequisites are restored.
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` -> STRUCTURED_BLOCKED，exit 2；`phaseEvidence=6`、`actionEvidence=9`、`gateEvidence=2`、`blockers=66`；`pqcLeaderSubmissionFilterPaginationConsistent=BLOCKED/E2E_PQC_SUBMISSION_DATA`，原因是当前本机租户在 `submitDate=2026-08-03`、`workOrderId=980008` 下没有至少两笔正式 PQC submitted 事件，无法证明 PQC 组长筛选分页 total 稳定。
+- Decision: AC-D32 代码、静态合同、类型检查和真实前置已推进到可执行门禁；真实 E2E 因正式 PQC 提交样本缺失保持结构化 blocker，AC-D32 不标记为 `ACCEPTED`。M6 继续保持 `in_progress`，本轮仍不执行 `git push`。
+
+## M6 - AC-D32 Report Sync And Structural Verification
+
+- IMPLEMENTING: 同步 `task-state.json`、`task.md`、`test-report.md` 和 `verification-report.md` 当前 D32 结论：代码/静态/类型/read-model gate 为 GREEN，target Maven JUnit 为前置 blocker，真实 E2E 为 `pqcLeaderSubmissionFilterPaginationConsistent=BLOCKED/E2E_PQC_SUBMISSION_DATA`，M6 仍为 `in_progress`。
+- GREEN: JSON parse check -> PASS，`task-state.json` 为 `in_progress` 且 7 个 milestone 可解析，`result.json` 为 `BLOCKED` 且 actionEvidence=9。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted ts:check` -> PASS。
+- GREEN: scoped `git diff --check` on D32 docs and touched frontend/backend contract files -> PASS，仅输出 LF/CRLF 工作区提示，无 whitespace error。
+
+## M6 - AC-D17 PQC Visible Method Metadata
+
+- BDD: AC-D17 PQC visible QA method metadata -> Given PQC 检验员打开球囊扩张压力泵 V21 的正式 PQC 填写页面 When 页面按已发布 QA 规程渲染检验项目 Then 每个项目必须可见展示检验方法、标准和判定类型，不能只显示项目名称或只在 API 证据里存在。
+- TEST_ADDED: `role-matrix-qa-regulation-static.spec.cjs` -> 要求 `FrontlineFixedTemplatePanel.vue` 存在 `data-pqc-inspection-meta`、`formatPqcInspectionMeta`，且 `PqcInspectionItem` 保留 `inspectionMethod`、`standardText`、`resultType`。
+- RED: `node IntRuoyiFronted\tests\e2e\role-matrix-qa-regulation-static.spec.cjs` -> FAIL，expected reason: PQC 页面未可见渲染 method/standard/result metadata。
+- IMPLEMENTING: `FrontlineFixedTemplatePanel.vue` 扩展 `PqcInspectionItem` 正式规程字段，在数值项和选择项列表中渲染 `方法 / 标准 / 判定` 元信息；不改变提交 payload、任务来源或默认数量逻辑。
+- IMPLEMENTING: `role-requirement-matrix-real-flow.e2e.js` 增强 `pqcRegulationItemsRendered`，从页面 `data-pqc-inspection-meta` 读取可见文本，并与正式 QA 规程快照中的 `inspectionMethod`、`standardText`、`resultType` 对齐。
+- GREEN: `node IntRuoyiFronted\tests\e2e\role-matrix-qa-regulation-static.spec.cjs` -> PASS。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted ts:check` -> PASS。
+- RUNTIME: int_main backend 48081 was not listening; after reading local runtime/worktree rules, restarted the previously M6-verified isolated jar `backend-runtime-control-20260802-170535.jar` on 48081 without rebuilding from the dirty workspace. Health returned `UP`.
+- GREEN: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> PASS，0 SOURCE / 0 ENV / 0 RUNTIME。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` -> STRUCTURED_BLOCKED，exit 2；`phaseEvidence=6`、`actionEvidence=9`、`gateEvidence=2`、`blockers=66`；`pqcRegulationItemsRendered=PASS` now records `visibleMetadataCount=1` plus sample method/standard/result from the formal QA regulation snapshot, while D32 submitted-data, cleanup, coverage, concurrency, and performance blockers remain.
+- Decision: AC-D17 now has visible page metadata proof for method/standard/result on top of the prior formal API snapshot proof, but AC-D17 is still not `ACCEPTED` because failure paths, submission/signature/review, cleanup, and full M6 gates remain open. 本轮仍不执行 `git push`。
+
+## M6 - AC-D17 Report Sync Verification
+
+- IMPLEMENTING: 同步 `test-report.md` 和 `verification-report.md`，补充 AC-D17 页面可见 `方法 / 标准 / 判定` 元信息、`visibleMetadataCount=1`、正式 QA 规程样例，以及 D17 仍不 `ACCEPTED` 的 M6 后续门禁口径。
+- GREEN: JSON parse check -> PASS，`task-state.json` 与 `IntRuoyiFronted/test-results/role-requirement-matrix-real-flow/result.json` 均可 UTF-8 JSON 解析。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `node IntRuoyiFronted\tests\e2e\role-matrix-qa-regulation-static.spec.cjs` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: scoped `git diff --check` on D17 touched files and task reports -> PASS，仅输出 LF/CRLF 工作区提示，无 whitespace error。
+- BLOCKED_UNRELATED: `pnpm --dir IntRuoyiFronted ts:check` -> FAIL，current workspace has unrelated DCC controlled-print type errors in `IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue` (`controlledPrintAllowed`、`controlledPrintPermissionHintVisible`、`controlledPrintResultDialog` 等未定义)。这些文件属于其它 DCC 任务脏改动，不属于本轮 PQC/D17 变更；本轮不回滚、不修复无关 DCC 改动，也不把当前全量 `ts:check` 记录为 D17 GREEN。
+
+## M6 - AC-D29 PQC Formal Submission Event Runtime Reload Gate
+
+- BDD: AC-D29 PQC formal submission creates process-pool event -> Given PQC 检验员已按球囊扩张压力泵 V21 的发布 QA 规程完成逐件明细和实际检验人选择 When 通过真实 PQC 页面执行正式提交 Then 后端必须创建可追溯的工序池 PQC inspection event，并让 PQC 组长提交看板按同一 `pqcTaskId` 可见；不能只把 PQC task 改成 `SUBMITTED` 而不生成待办事件。
+- TEST_ADDED: `role-requirement-matrix-preflight-static.spec.cjs` -> 要求真实 E2E 脚本包含 `verifyPqcFormalSubmissionCreatesEvent`、`pqcFormalSubmissionCreated` 和 `/mes/pro/feedback/frontline/device-account/pqc/submit`，防止 AC-D29 只停留在后端任务状态更新。
+- TEST_ADDED: `MesFrontlinePqcContextServiceTest#shouldSubmitPqcInspectionFromQaRegulationTaskSource` -> 断言 `submitPqcInspection(...)` 读取同一 active order/source event/source pool identity，保存逐件明细后调用 `createPqcInspectionEvent(...)`，并把 `activeOrderId`、`pqcTaskId`、`regulationVersionId`、实际人员、签名和 raw payload 写入事件 DTO。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> FAIL，expected reason：真实 E2E 脚本缺少 `verifyPqcFormalSubmissionCreatesEvent` / `pqcFormalSubmissionCreated` 正式提交事件门禁。
+- IMPLEMENTING: `MesFrontlinePqcContextServiceImpl#submitPqcInspection` 在校验命令、任务、员工、签名和逐件明细后，读取 active pool 的最新 source event、校验 source identity，更新 PQC task 为 `SUBMITTED`，插入逐件明细，并调用 `MesProcessPoolEventService#createPqcInspectionEvent(...)` 生成工序池 PQC inspection event；真实 E2E 新增正式提交动作、PQC 检验员签名 ID 读取、提交接口等待、PQC 组长新上下文看板核验和 `E2E_PQC_SUBMISSION_DATA` blocker。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，6 tests，0 failures/errors，BUILD SUCCESS。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> PASS。
+- GREEN: `mvn -pl yudao-server -am "-DskipTests" package` from `IntRuoyiBackend` -> PASS，reactor BUILD SUCCESS，`yudao-server-exec.jar` SHA256 `200527D05A5C9CC2F1E12A303EF9835BDB90E9775BC75B1D3EC94863693D6D25`。
+- RUNTIME_BLOCKED: 新构建 M6 runtime Jar `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260803-023450-rrm-m6-pqc-submit.jar` 两次启动都未能成为 48081 listener；48081 被无关 DCC patched runtime 自动占用（观测 PID `47592` / `58452`，Jar `backend-runtime-control-20260803-dcc-print-ux-patched.jar`），M6 Jar 日志均显示 `Web server failed to start. Port 48081 was already in use.`。
+- CLEANUP: 仅停止本轮任务自有的失败启动残留 PID `5980` / `33980`；未停止无关 DCC runtime，也未改端口或换 profile。
+- Decision: AC-D29 后端生成 PQC event 的代码、单测、静态门禁和可运行 Jar 构建已 GREEN，但新 Jar 未加载到 48081，因此未运行 `real:check` / full real E2E，不标记 AC-D29、AC-D32 或任一 AC 为 `ACCEPTED`。M6 继续保持 `in_progress`，新增 runtime blocker 等待 48081 回到本任务 M6 Jar 或用户明确授权处理 DCC runtime 冲突；本轮仍不执行 `git push`。
+
+## M6 - AC-D32 Target JUnit Restored
+
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=ProcessPoolTimelineFilterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，2 tests，0 failures/errors，BUILD SUCCESS。
+- Decision: 关闭此前 `ProcessPoolTimelineFilterTest` 被 Windows Maven 增量删除 hang 阻塞的前置 blocker；AC-D32 现在具备 mapper static、preflight static、frontend syntax/type/read-model target JUnit GREEN。AC-D32 仍不 `ACCEPTED`，因为真实 E2E 仍缺至少两笔正式 PQC submitted 事件，且新 M6 Jar 尚未加载到 48081。
+
+## M6 - AC-D29 Authorized Runtime E2E Rerun
+
+- AUTHORIZATION: 用户明确授权处理 48081 runtime 冲突后，已停止无关 DCC patched runtime PID `58452`，并让本任务 M6 runtime Jar `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260803-023450-rrm-m6-pqc-submit.jar` 成为 48081 listener。
+- GREEN: runtime probe -> PASS，48081 listener PID `28744`，命令行为 `backend-runtime-control-20260803-023450-rrm-m6-pqc-submit.jar`，`http://127.0.0.1:48081/actuator/health` 返回 `UP`，`http://127.0.0.1:8081/` 返回 HTTP `200`。
+- GREEN: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> PASS，0 SOURCE / 0 ENV / 0 RUNTIME。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` on the M6 runtime jar -> STRUCTURED_BLOCKED，exit 2；`phaseEvidence=6`、`actionEvidence=10`、`gateEvidence=2`、`actionObserved=9`、`surfaceObserved=32`、`uncovered=21`、`pending=62`、`blockers=67`。
+- BLOCKED: `pqcFormalSubmissionCreated=BLOCKED/E2E_PQC_SUBMISSION_UI`，原因是 PQC 页面提交按钮仍为禁用状态，不能证明签名和正式提交上下文已满足；`pqcLeaderSubmissionFilterPaginationConsistent=BLOCKED/E2E_PQC_SUBMISSION_DATA` 仍因缺少至少两笔正式 PQC submitted 事件无法证明筛选分页 total 一致性。
+- Decision: AC-D29 runtime reload blocker 已关闭，但真实页面正式提交 UI blocker 新增并保留；AC-D29、AC-D32 和 62 个 AC 均不得标记为 `ACCEPTED`。M6 继续保持 `in_progress`，本轮仍不执行 `git push`。

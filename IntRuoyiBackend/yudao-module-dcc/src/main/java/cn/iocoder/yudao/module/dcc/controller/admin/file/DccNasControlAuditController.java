@@ -1,12 +1,17 @@
 package cn.iocoder.yudao.module.dcc.controller.admin.file;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditFilePageReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditFileRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditRecognizeRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditTaskRespVO;
 import cn.iocoder.yudao.module.dcc.service.file.DccNasControlAuditReportFile;
 import cn.iocoder.yudao.module.dcc.service.file.DccNasControlAuditService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -42,6 +47,23 @@ public class DccNasControlAuditController {
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
     public CommonResult<DccNasControlAuditTaskRespVO> getAuditTask(@PathVariable("taskId") Long taskId) {
         return success(auditService.getTask(taskId));
+    }
+
+    @GetMapping("/{taskId}/files")
+    @Operation(summary = "Page NAS uncontrolled audit files")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    public CommonResult<PageResult<DccNasControlAuditFileRespVO>> getAuditFilePage(
+            @PathVariable("taskId") Long taskId,
+            @Valid DccNasControlAuditFilePageReqVO pageReqVO) {
+        return success(auditService.getTaskFilePage(taskId, pageReqVO));
+    }
+
+    @PostMapping("/{taskId}/files/recognize")
+    @Operation(summary = "Recognize NAS uncontrolled audit files")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    public CommonResult<DccNasControlAuditRecognizeRespVO> recognizeAuditFiles(
+            @PathVariable("taskId") Long taskId) {
+        return success(auditService.recognizeTaskFiles(taskId));
     }
 
     @GetMapping("/{taskId}/download")

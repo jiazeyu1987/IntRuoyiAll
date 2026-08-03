@@ -49,6 +49,7 @@ BDD: SHOWROOM 审批适配器必须被正式注册 -> Given BPM 统一审批平�
 
 - `docs/e2e-rules.md#E2E 脚本入口存在性门禁`
 - `docs/e2e-rules.md#DCC 文控审批处理入口门禁`
+- `docs/e2e-rules.md#DCC 受控打印门禁`
 - `docs/e2e-rules.md#真实 E2E 主链路与扩展诊断产物隔离门禁`
 - `docs/e2e-rules.md#Playwright 浏览器可执行文件门禁`
 - `docs/e2e-rules.md#Element Plus 下拉选择门禁`
@@ -57,14 +58,35 @@ BDD: SHOWROOM 审批适配器必须被正式注册 -> Given BPM 统一审批平�
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
-## Current Blocker
+## Verification Summary
 
-- 2026-08-02 21:32，本任务最新 `yudao-server-exec.jar` 已包含 DCC 受控打印代码并完成生产打包，但加载到 `48081` 时被既有跨模块运行态校验阻断：`APPROVAL_ADAPTER_DECLARED_BUT_NOT_REGISTERED: SHOWROOM`。
-- 影响：当前无法在 `48081` 运行包含受控打印新入口/API 的后端 jar，因此不能继续执行真实 Playwright 受控打印 E2E；不得用旧 jar、API-only、SQL 或 admin 账号冒充受控打印通过。
-- 本机后台已恢复到旧可运行 jar `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260802-170535.jar`，`/actuator/health` 为 `UP`，但该旧 jar 不能作为本任务受控打印功能 E2E PASS 证据。
-- 2026-08-02 追加授权：允许在最小范围内修复 SHOWROOM 审批适配器注册/打包/启动根因，解除 DCC 受控打印 E2E 运行态阻塞。
+- 2026-08-02 23:50，真实 Playwright E2E 已在 `8081/48081` 主运行态 PASS，后端 health `UP`，前端 HTTP `200`。
+- 最终打印记录 ID `3`，打印编号 `DCCP-20260802235038-09C2EEA9`，文件 `CODX-DCC-ORIG-20260802101521`，版本 `V1.0`，状态 `DIRECT_PRINTED`，打印人 `王思雨 (wangsiyu)`，份数 `2`。
+- 只读 DB 证明文件 `2054545668044070287` 为 `ACTIVE`，master `current_active_controlled_file_id` 指向该文件，`publishedFileId=9198354916366`，`stampedFileId=9198354916366`。
+- 无打印权限账号 `zhangkeying` 登录同一受控浏览页后可见文件但 `visiblePrintButtonCount=0`，覆盖权限阻断。
+- 当前仍未执行 closeout cleanup、提交和推送；任务状态标记为 `ready_for_closeout`。
+
+## Resolved Blocker
+
+- SHOWROOM 运行态阻塞已解除：当前 `48081` 进程运行 `E:\IntRuoyi\output\runtime\int_main\backend\yudao-server-exec-20260802-220742.jar`，受控打印接口在真实页面链路中成功执行。
+- 为满足正向打印权限，按用户授权新增最小类别级规则 `dcc_file_category_permission_rule.id=2625`：`category_id=907233`、`action_type=PRINT`、`subject_type=USER`、`subject_id=910250`。
+- 未使用 admin、未通过 API-only 或 SQL 创建打印记录、未 SQL 改文件状态。
+
+## Closeout Progress
+
+- `task-closeout-cleanup` preview/apply 已完成，仅删除本任务 5 张旧截图；最终 E2E 脚本、结果 JSON、3 张验收截图、`task.md`、`execution-log.md`、`verification-report.md` 均保留。
+- 已按 `project-experience-consolidation` 将 DCC 受控打印 E2E 门禁沉淀到 `docs/e2e-rules.md#DCC 受控打印门禁`，并在 `docs/experience-index.md` 增加关键词路由。
+- 仍保持 `ready_for_closeout`：当前 `int_main` 工作区存在多个其它任务的未提交改动且分支已 ahead `origin/int_main`，本任务未执行宽泛基线提交、提交或推送，避免混入无关并发任务产物。
+
+## Cleanup Keep
+
+- doc/tasks/20260802-dcc-controlled-print-implementation/dcc-controlled-print-real.e2e.cjs
+- doc/tasks/20260802-dcc-controlled-print-implementation/dcc-controlled-print-real-e2e-result.json
+- doc/tasks/20260802-dcc-controlled-print-implementation/controlled-print-window-20260802155031.png
+- doc/tasks/20260802-dcc-controlled-print-implementation/controlled-print-records-20260802155031.png
+- doc/tasks/20260802-dcc-controlled-print-implementation/controlled-print-negative-20260802155031.png
 
 ## 设计约束检查
 

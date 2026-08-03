@@ -16,12 +16,17 @@
 
 - 静态契约证明培训任务页显示计时状态、按钮禁用原因、聚焦/预览/时长不足提示。
 - 静态契约证明 DCC 详情页显示培训完成汇总、未完成名单，并在不可正式下发但流程待下发时显示权限提示。
+- 静态契约证明培训规则入口显式提醒培训对象需具备 `dcc:controlled-file:training:mine` 权限。
 - 不改变后端接口契约，不新增 fallback，不吞异常，不扩大到其它 DCC 场景。
 - 若现有全量检查被无关历史失败阻塞，记录无关 blocker，并以任务专用静态契约作为当前行为 GREEN 证据。
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+- 功能实现和任务聚焦验证已通过。
+- `task-closeout-cleanup` preview/apply 已通过，保留 5 个正式任务记录，删除 0 个文件。
+- 当前实现位于混合基线提交 `1606947b7`，当前分支还领先 `origin/int_main` 2 个提交且包含其它并行任务内容；为避免把无关改动作为本任务推送，本任务暂不执行提交或推送，收尾集成状态保持阻塞。
 
 ## 设计约束检查
 
@@ -42,3 +47,4 @@ in_progress
 - doc/tasks/20260802-dcc-training-ux-prechecks/execution-log.md
 - doc/tasks/20260802-dcc-training-ux-prechecks/verification-report.md
 - doc/tasks/20260802-dcc-training-ux-prechecks/frontend-feature-evidence.md
+- doc/tasks/20260802-dcc-training-ux-prechecks/bug-regression-evidence.md

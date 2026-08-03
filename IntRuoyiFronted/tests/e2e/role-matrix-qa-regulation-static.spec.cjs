@@ -36,5 +36,20 @@ assert.doesNotMatch(
   /inspectionType:\s*'PATROL'|inspectionQuantity:\s*30/,
   'PQC defaults must come from a task/regulation snapshot, not PATROL/30 literals.'
 )
+assert.match(
+  panelSource,
+  /data-pqc-inspection-meta/,
+  'PQC page must visibly render method/standard/result metadata for each published regulation item.'
+)
+assert.match(
+  panelSource,
+  /formatPqcInspectionMeta/,
+  'PQC regulation item metadata must be formatted from the formal QA regulation snapshot.'
+)
+assert.match(
+  panelSource,
+  /inspectionMethod[\s\S]*standardText[\s\S]*resultType|resultType[\s\S]*inspectionMethod[\s\S]*standardText/,
+  'PQC inspection item model must retain inspection method, standard text, and result type from the formal regulation item.'
+)
 
 console.log('PASS role-matrix QA regulation static contract')

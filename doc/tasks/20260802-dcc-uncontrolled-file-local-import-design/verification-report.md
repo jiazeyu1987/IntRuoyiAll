@@ -1,0 +1,120 @@
+# Verification Report
+
+## Summary
+
+已完成 DCC 未受控文件本地下载与自动归类的文档设计、BDD 场景、严格 TDD 顺序、真实 E2E 计划、测试数据设计、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片和 M14 import-selected/local-write 文档门禁优化。设计复用当前 NAS 管理、未受控统计、NAS transfer、DCC 项目代码、文件分类树和分类规则能力；无法唯一识别项目代码、item 或分类时，统一进入正式 `未分类/待处理` 状态，不引入默认归类或降级路径。本轮 M14 仅优化文档和验收门禁，新增整体原子拒绝、规范化请求哈希、audit/import 绑定、重复 local-write-result 幂等和冲突终态拒绝要求；不代表 import-selected、content 或 local-write-result 已实现。
+
+## Files Verified
+
+- `doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md`
+- `doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md`
+- `doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md`
+- `docs/acceptance/bdd-scenarios.md`
+- `docs/acceptance/tdd-plan.md`
+- `docs/acceptance/e2e-plan.md`
+- `docs/acceptance/test-data.md`
+- `docs/task-closeout-rules.md`
+- `docs/e2e-rules.md`
+- `docs/experience-index.md`
+- `doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/database-schema-evidence.md`
+- `doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/backend-api-evidence.md`
+- `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccNasControlAuditServiceImpl.java`
+- `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNasControlAuditServiceImplTest.java`
+- `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/DccBaseSchemaTest.java`
+
+## Verification Evidence
+
+- `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，`BDD/TDD acceptance plan validation passed.`
+- `node -e "<utf8 read check>"` -> PASS，任务文档、验收文档和经验文档均可按 UTF-8 读取，`contains_replacement=false`。
+- `git -C E:\IntRuoyi diff --check -- docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md docs/task-closeout-rules.md docs/experience-index.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md` -> PASS，仅存在 Git 行尾转换 warning，无 whitespace error。
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260802-dcc-uncontrolled-file-local-import-design --mode preview` -> PASS，delete/blocked/warnings 均为 none。
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260802-dcc-uncontrolled-file-local-import-design --mode apply` -> PASS，deleted_paths 为 none。
+- `project-experience-consolidation` -> PASS，已把 cleanup apply 状态格式经验合并到现有 `docs/task-closeout-rules.md` 和 `docs/experience-index.md`。
+- `task_closeout.py --task-id 20260802-dcc-uncontrolled-file-local-import-design --mode preview/apply` -> PASS，本轮优化后 cleanup apply 无删除项、无 blocked、无 warnings。
+- `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，本轮二次优化后 `BDD/TDD acceptance plan validation passed.`。
+- `node -e "<utf8 read check>"` -> PASS，本轮二次优化触达 5 个文档均可按 UTF-8 读取，`contains_replacement=false`。
+- `git -C E:\IntRuoyi diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md` -> PASS，仅存在 Git 行尾转换 warning，无 whitespace error。
+- `project-experience-consolidation` -> PASS，浏览器本地目录写入门禁已合并到 `docs/e2e-rules.md`，关键词索引已写入 `docs/experience-index.md`。
+- `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，长期经验合并后 `BDD/TDD acceptance plan validation passed.`。
+- `node -e "<utf8 read check>"` -> PASS，10 个任务、验收和经验文档均可按 UTF-8 读取，`contains_replacement=false`。
+- `git -C E:\IntRuoyi diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md docs/e2e-rules.md docs/experience-index.md` -> PASS，仅存在 Git 行尾转换 warning，无 whitespace error。
+- `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q` -> PASS，2 passed in 3.18s。
+- `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileDetails" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 1, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS。
+- `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，本轮文档补强后 `BDD/TDD acceptance plan validation passed.`。
+- `python -X utf8 C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\database-schema-evidence.md` -> PASS，`Database schema evidence is valid.`。
+- `node -e "<utf8 read check>"` -> PASS，本任务 9 个任务、验收和 schema 证据文档均可按 UTF-8 读取，`contains_replacement=false`。
+- `git diff --check -- <本任务文档与schema切片文件>` -> PASS，仅存在 Git 行尾转换 warning，无 whitespace error。
+
+- python -X utf8 C:/Users/BJB110/.codex/skills/bdd-tdd-acceptance-planner/scripts/validate_acceptance_plan.py --root E:/IntRuoyi -> PASS, M10 doc strengthening after user request.
+- python -X utf8 -c utf8_read_check -> PASS, 8 task/acceptance docs contain no replacement characters.
+- git diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md -> PASS, only Git LF-to-CRLF warnings.
+- `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，M12 文档优化后 `BDD/TDD acceptance plan validation passed.`
+- PowerShell UTF-8 read check for `design.md`, `bdd-scenarios.md`, `tdd-plan.md`, `e2e-plan.md`, and `test-data.md` -> PASS，全部 `contains_replacement=False`。
+- `git diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md` -> PASS，仅存在 Git LF-to-CRLF warning。
+- `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksProjectAndCategoryWhenUnique" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 1, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS。
+- `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksProjectAndCategoryWhenUnique,DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksPendingWhenProjectOrCategoryMissing,DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksAmbiguousWhenProjectOrCategoryHasMultipleCandidates,DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_doesNotRewriteImportedOrArchivedSnapshots" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 4, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS。
+- `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileDetails,DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileRecognitionSnapshot,DccNasControlAuditControllerTest,DccNasControlAuditServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 9, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS。
+- `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q` -> PASS，2 passed in 0.17s。
+
+## Design Checks
+
+- No fallback: 未识别文件进入 `未分类/待处理`，不默认项目代码、item、分类或 ZIP 降级。
+- Existing reuse: 方案复用 `统计未受控文件`、NAS audit task、NAS transfer、DCC 项目代码和文件分类规则。
+- TDD ready: 每个生产行为都有 RED 预期失败、GREEN 目标命令和相邻回归命令。
+- E2E ready: 真实路径通过 NAS 管理页面、目录选择、本地写入、DCC 项目代码详情和受控文件详情核验，API 仅作最终只读核验。
+- Closeout preview/apply ready: 当前任务目录只保留 `task.md`、`execution-log.md`、`design.md` 和 `verification-report.md`，没有可清理临时产物。
+- Optimized gate ready: 已补强“先本地写入成功再归档”的两阶段门禁，避免本地写入失败、路径冲突、NAS 文件变化或归档失败被合并展示为成功。
+- Path safety ready: 本地路径必须禁止 `..`、盘符、非法字符、Windows 保留名和规范化冲突；不允许覆盖、自动改名或取第一条。
+- Status model ready: 新增明细以 `PENDING_RECOGNITION / NOT_SELECTED / NOT_STARTED` 作为初始状态；路径冲突和非法路径统一使用 `LOCAL_WRITE_FAILED + localWriteErrorCode`，不扩散下载状态枚举。
+- Sequence ready: 目录授权和相对路径校验通过前不得创建 `NAS_UNCONTROLLED_IMPORT` 任务；取消目录选择和浏览器不支持目录写入时无 import task、无 content 请求、无 local-write-result。
+- Command ready: 后续 RED/GREEN 命令从 `E:\IntRuoyi` 可定位后端 Maven 根、后端 SQL pytest 目录和前端 pnpm 脚本，避免引用不存在的根级 `script/tests`。
+- Idempotency ready: 相同 `idempotencyKey` 返回原任务，已归档 audit file 使用不同 key 重复提交必须返回已处理或冲突，不创建第二个受控文件。
+- Long-term gate ready: `docs/e2e-rules.md#浏览器本地目录写入门禁` 已覆盖 `showDirectoryPicker`、目录授权、请求顺序、取消授权和禁止 ZIP/API-only 降级，后续类似任务可直接复用。
+- Large-file gate ready: content 下载必须使用二进制、流式或明确分块语义，禁止 JSON/base64 文件内容字段。
+- State-machine gate ready: 文档已定义识别、下载和归档状态的允许流转、终态和并发同一 audit file 的事务检查要求。
+- Local-path gate ready: 本地目标已存在、路径过长、非法段和规范化冲突均必须 fail fast，不覆盖、不截断、不自动改名。
+- Schema slice ready: `dcc_nas_control_audit_file` additive migration、test schema、DO、Mapper、JUnit schema test 和 SQL contract 均已建立并通过验证。
+- Recognition backend ready: `/files/recognize` 已复用项目代码、文件分类规则和 taxonomy path，覆盖 `MATCHED / UNCLASSIFIED_PENDING / AMBIGUOUS`、候选摘要、原因码和期望本地相对路径。
+
+- API contract ready: GET /files, recognize, import-selected, content, and local-write-result now have testable fields, permissions, statuses, and error boundaries.
+- No-state-mutation ready: unsupported browser, canceled directory picker, and local precheck failures happen before import task creation and must not mutate backend download status.
+- Snapshot binding ready: content and local-write-result must match user, tenant, import task, audit file, source signature, and local relative path snapshot.
+- Recognition snapshot ready: 文档要求持久化 `classification_candidates_json` 或等价快照、稳定 `classificationReason` 和 `expectedLocalRelativePath`，避免只在响应或日志里临时保存候选。
+- Import idempotency ready: 文档要求保存 `request_hash`，相同 `idempotencyKey` 但选择文件、签名或本地路径变化时必须冲突。
+- Import atomicity ready: 文档要求任一选中项无效时整体拒绝，不创建半成品 import task，不留下部分 `SELECTED` 或 import 绑定。
+- Canonical hash ready: 文档要求 `request_hash` 对 `selectedFiles` 顺序不敏感，重复 `auditFileId` 在 hash 前失败。
+- Local path trust boundary ready: 后端必须根据识别快照重算本地相对路径并拒绝前端篡改，不能把客户端路径当作分类事实来源。
+- Selection scope ready: 首版只处理显式勾选的 `auditFileId` 列表；全筛选结果处理必须另有服务端 selection snapshot/token 和 TDD。
+- Import binding ready: 文档要求 audit 明细与 import task/item 绑定可查询，活动绑定重复提交必须拒绝。
+- Local write replay ready: 文档要求相同 local-write-result 重放幂等返回且不重复归档，冲突终态回写必须拒绝。
+
+## Blockers
+
+- Closeout Git blocker: 当前 `int_main` 已 ahead 2，且工作区存在任务开始前的其它任务改动和未跟踪目录。本任务未执行 baseline commit、implementation commit 或 push，避免把并发任务资产混入本任务收尾。
+- Implementation blocker for future coding: 当前证据未确认独立 DCC item 表；后续实现前必须再次检索正式 item 模型。若存在独立 item 表，需先更新设计与测试，不得临时映射。
+
+## M11 Backend API Slice
+
+- Scope: implemented query-only backend slice for GET /dcc/controlled-files/nas-control-audit/{taskId}/files.
+- Contract: CommonResult<PageResult<DccNasControlAuditFileRespVO>>, permission dcc:controlled-file:query, filters keyword/classificationStatus/downloadStatus/archiveStatus, stable id ASC ordering.
+- RED: targeted controller contract failed on missing /files endpoint.
+- GREEN: targeted controller contract passed with Tests run 1, Failures 0, Errors 0, Skipped 0.
+- REGRESSION: DccNasControlAuditControllerTest and DccNasControlAuditServiceImplTest passed with Tests run 3, Failures 0, Errors 0, Skipped 0.
+- Evidence: backend-api-evidence.md validator PASS.
+- Remaining: import-selected, content, local-write-result, frontend static contract, and real E2E remain in progress.
+
+## M13 Backend Recognition Slice
+
+- Scope: implemented deterministic pre-recognition for `POST /dcc/controlled-files/nas-control-audit/{taskId}/files/recognize`.
+- Contract: `CommonResult<DccNasControlAuditRecognizeRespVO>`, permission `dcc:controlled-file:query`, response counts for matched, pending, ambiguous and skipped rows.
+- Behavior: unique project + category writes `MATCHED`; missing project/category writes `UNCLASSIFIED_PENDING`; multiple candidates writes `AMBIGUOUS`; unknown rule types fail fast.
+- GREEN: targeted service tests passed with 4 recognition scenarios, and adjacent schema/controller/service regression passed with Tests run 9, Failures 0, Errors 0.
+- Boundary: recognition does not read content, create import tasks, write local result, archive, or create controlled files.
+- Remaining: import-selected, content binary download, local-write-result, frontend, and real E2E remain in progress.
+
+## M14 Documentation Gate
+
+- Scope: optimized design, BDD, TDD, E2E, test data, task and verification evidence for import-selected/local-write implementation readiness.
+- Added gates: import-selected whole-request atomicity, canonical request hash, audit/import binding visibility, duplicate active binding rejection, local-write-result replay idempotency and conflicting terminal result rejection.
+- Boundary: documentation-only update; no production code, NAS files, local folders, runtime services or business data were modified.
+- Remaining: backend import-selected schema/service/controller, content binary download, local-write-result, frontend static contract and real E2E still require strict RED/GREEN implementation.

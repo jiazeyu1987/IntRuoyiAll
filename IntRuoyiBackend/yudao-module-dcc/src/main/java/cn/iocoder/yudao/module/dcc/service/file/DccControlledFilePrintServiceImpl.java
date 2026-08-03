@@ -23,6 +23,7 @@ import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -140,6 +141,16 @@ public class DccControlledFilePrintServiceImpl implements DccControlledFilePrint
                 + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
     }
 
+    private List<String> buildControlledPrintCopyNumbers(DccControlledFilePrintRecordDO record) {
+        int copies = Math.max(1, record.getCopies() == null ? 1 : record.getCopies());
+        int width = Math.max(2, String.valueOf(copies).length());
+        List<String> copyNumbers = new ArrayList<>(copies);
+        for (int i = 1; i <= copies; i++) {
+            copyNumbers.add(record.getPrintNo() + "-" + StrUtil.padPre(String.valueOf(i), width, '0'));
+        }
+        return copyNumbers;
+    }
+
     private DccControlledFilePrintRecordRespVO toRespVO(DccControlledFilePrintRecordDO record) {
         return BeanUtils.toBean(record, DccControlledFilePrintRecordRespVO.class);
     }
@@ -159,6 +170,7 @@ public class DccControlledFilePrintServiceImpl implements DccControlledFilePrint
 
     private String buildControlledPrintHtml(DccControlledFilePrintRecordDO record) {
         String printTimeText = record.getPrintTime() == null ? "-" : PRINT_TIME_FORMATTER.format(record.getPrintTime());
+        String copyNumberText = String.join("、", buildControlledPrintCopyNumbers(record));
         return """
                 <!doctype html>
                 <html lang="zh-CN">
@@ -172,6 +184,7 @@ public class DccControlledFilePrintServiceImpl implements DccControlledFilePrint
                     .meta { width: 100%%; border-collapse: collapse; margin-top: 16px; }
                     .meta th, .meta td { border: 1px solid #cbd5e1; padding: 10px 12px; text-align: left; }
                     .meta th { width: 160px; background: #f8fafc; }
+                    .copy-numbers { line-height: 1.8; word-break: break-all; }
                     .notice { margin-top: 18px; padding: 12px; border: 1px solid #93c5fd; background: #eff6ff; color: #1d4ed8; }
                   </style>
                 </head>
@@ -186,13 +199,15 @@ public class DccControlledFilePrintServiceImpl implements DccControlledFilePrint
                       <tr><th>打印人</th><td>%s</td></tr>
                       <tr><th>打印时间</th><td>%s</td></tr>
                       <tr><th>份数</th><td>%s</td></tr>
+                      <tr><th>副本编号</th><td><div class="copy-numbers">%s</div></td></tr>
                       <tr><th>打印用途</th><td>%s</td></tr>
                       <tr><th>接收部门</th><td>%s</td></tr>
                       <tr><th>使用位置</th><td>%s</td></tr>
                       <tr><th>审批/打印状态</th><td>%s</td></tr>
+                      <tr><th>审批策略</th><td>直接受控打印（当前文件类别无需打印审批）</td></tr>
                     </tbody>
                   </table>
-                  <div class="notice">本打印件来自当前有效受控版本，仅限登记用途和使用位置使用，打印记录可追溯。</div>
+                  <div class="notice">本打印件来自当前有效受控版本，按直接受控打印策略生成，仅限登记用途和使用位置使用，打印记录和每份副本编号均可追溯。</div>
                 </body>
                 </html>
                 """.formatted(
@@ -204,6 +219,7 @@ public class DccControlledFilePrintServiceImpl implements DccControlledFilePrint
                 html(record.getPrintUserName()),
                 html(printTimeText),
                 html(record.getCopies()),
+                html(copyNumberText),
                 html(record.getPurpose()),
                 html(record.getReceivingDepartment()),
                 html(record.getUseLocation()),

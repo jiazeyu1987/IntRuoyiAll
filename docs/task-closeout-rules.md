@@ -35,6 +35,7 @@
 ## 收尾规则
 
 - 实现和验证完成后，先将任务状态设为 `ready_for_closeout`。
+- `## Current Status` 下第一条非空文本必须直接以 `ready_for_closeout`、`completed`、`blocked` 或 `in_progress` 开头；不要把状态值包在反引号里，也不要在状态值前添加说明文字，否则 cleanup apply 会解析为 `unknown` 并阻塞。
 - 运行 task-closeout-cleanup preview，确认 keep/delete/blocked/warnings。
 - preview 无异常后运行 apply。
 - apply 通过后再标记 `completed`。

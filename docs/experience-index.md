@@ -63,7 +63,11 @@
 - Keywords: PowerShell 字面管道字符, TypeScript 类型联合, command string pipe, apply_patch ACL, 文件长度变 0, PowerShell 写入超时截断, Set-Content 写源码, 反引号 r n 字面量, import 追加非法字符 -> `docs/powershell-memory.md#powershell-命令文本管道字符门禁`
 - Keywords: 静态合同缩进定位, Vue SFC 弹框块定位, el-dialog class 回找, CRLF LF, source.indexOf 精确缩进失败 -> `docs/e2e-rules.md#windows-换行与脚本行为同步`
 - Keywords: pnpm test:e2e 缺失, ERR_PNPM_NO_SCRIPT, named target unknown, process-pool-review-copy-and-revision.spec.ts, E2E 脚本入口缺失, 静态合同不能冒充真实 E2E, 写入型用户路径页面入口缺失, 只有 API wrapper 不能算页面验收 -> `docs/e2e-rules.md#e2e-脚本入口存在性门禁`
+- Keywords: showDirectoryPicker, 本地目录授权, 浏览器本地目录写入, createWritable, 下载到本地对应目录, 取消目录选择, import task 不应提前创建, LOCAL_WRITTEN 前不得归档, ZIP 降级禁止, 默认下载目录禁止 -> `docs/e2e-rules.md#浏览器本地目录写入门禁`
 - Keywords: DCC 文控审批, DCC 原版上传, DCC 新文件上传, DCC 上传升版, DCC 文件作废, DCC 文件废止, 作废不走审批, 升版本老版本自动作废, 旧版自动失效, OBSOLETE, SUPERSEDED, DccControlledFileDetail, viewer=1, traceability=1, from=browser, 只读 viewer, viewer 发布链路, 最终目录路径, publishedFileId, stampedFileId, PROCESS_IN_MODULE, approve-task, approval-center moduleCode DCC, BPM 原生审批 403, 非 viewer 重定向受控浏览, DCC_PUBLISH, 发布申请, form:instance:create, form:instance:submit, system:user:query, UserSelectV2, APPROVE_USER_SELECT, 下一个任务的审批人未配置 -> `docs/e2e-rules.md#dcc-文控审批处理入口门禁`
+- Keywords: DCC 受控浏览, 当前有效版, 预览当前有效版, 无权限或无匹配当前有效文件, 受控浏览权限隔离, 目录路径, 项目代码定位, 分类定位, publishedFileId, stampedFileId, targetLinkErrorCount, targetDccMutationRequestCount, 低权限账号看不到, 草稿历史版隔离 -> `docs/e2e-rules.md#dcc-受控浏览当前有效版与权限隔离门禁`
+- Keywords: DCC 文件分发, 纸质发放, 电子副本分发, 签收确认, 确认领取, 旧版回收, 确认回收, 分发追溯, 回收追溯, 受控副本责任人, DISTRIBUTE 类别规则, DCC 分发权限, 升版后旧版不可误用, V1 RECOVERED, V2 ACKNOWLEDGED -> `docs/e2e-rules.md#dcc-分发与旧版回收门禁`
+- Keywords: DCC 受控打印, 打印申请, 受控打印件, 打印水印, 打印编号, 打印记录, 打印追溯, PRINT 类别规则, DCC 打印权限, DIRECT_PRINTED, dcc:controlled-file:print, controlled-print -> `docs/e2e-rules.md#dcc-受控打印门禁`
 - Keywords: Playwright Executable doesn't exist, npx playwright install, PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, Chrome 可执行文件, Edge 可执行文件, 浏览器缓存缺失, login-preflight 浏览器路径 -> `docs/e2e-rules.md#playwright-浏览器可执行文件门禁`
 - Keywords: Playwright 外部头像 502, 外部资源异常, 非目标链路异常, targetBadResponseCount, target write request count, requestfailed 归因, 目标链路错误数, DCC 写请求为 0 -> `docs/e2e-rules.md#playwright-目标链路与外部资源异常归因门禁`
 - Keywords: Playwright CLI daemon residual, cliDaemon.js, .playwright-cli page snapshot, page-*.yml, output/playwright task directory lock, 登录页预填字段快照, stop task-owned daemon only -> `docs/e2e-rules.md#playwright-快照与-daemon-收尾门禁`
@@ -274,6 +278,7 @@
 - Keywords: int_shedule local Docker dependencies, 23306, 26379, Docker MySQL Redis, branch local runtime dependency ports -> `docs/local-runtime.md#2026-07-25-分支本地运行复用-docker-依赖门禁`
 - Keywords: DCC upload-preview, DCC 原版上传预览, DCC 上传升版预览, docker-minio-1, MinIO 9000, SdkClientException, Connect to 127.0.0.1:9000 failed, Connection refused, yudao bucket, upload-preview targetNetworkFailures -> `docs/local-runtime.md#2026-08-02-dcc-上传预览本机-minio-前置门禁`
 - Keywords: task-closeout status unknown, Current Status completed, cleanup preview apply, worktree Directory not empty -> `docs/release-build-preflight-lessons.md` and `E:\IntRuoyi\docs\worktree-memory.md`
+- Keywords: task-closeout Current Status 反引号, ready_for_closeout 纯文本, cleanup apply unknown, 状态值前置说明 -> `docs/task-closeout-rules.md#收尾规则`
 - Keywords: task-closeout runtime log lock, PermissionError WinError 32, runtime-control-main err log, long-running process log under task dir -> `docs/release-build-preflight-lessons.md#2026-07-13-task-closeout-长运行进程日志目录门禁`
 - Keywords: 验收范围变更, 完成门禁变更, 取消全量回归, MES 全量测试不作为门禁, 只跑定向测试, 开发文档和测试计划列出的内容, Expected Verification, 不把未运行全量写成通过 -> `docs/task-closeout-rules.md#验收范围变更门禁`
 - Keywords: Cleanup Keep, doc/tasks/**/*.cjs, cleanup keep 反引号, keep 路径内联说明, task_closeout preview delete, 验证脚本保留 -> `docs/task-closeout-rules.md#任务验证脚本保留门禁`

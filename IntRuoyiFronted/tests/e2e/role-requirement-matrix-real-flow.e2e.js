@@ -147,6 +147,7 @@ const M6_REAL_FLOW_PHASES = [
       '[data-team-leader-report-workbench]',
       '[data-role-matrix-daily-close]'
     ],
+    actionKey: 'verifyPqcLeaderSubmissionFilterPaginationConsistency',
     acceptanceIds: ['AC-M20', 'AC-D30', 'AC-D32', 'AC-D33', 'AC-D34', 'AC-D35', 'AC-D37']
   },
   {
@@ -201,6 +202,19 @@ function envValue(key) {
   return (process.env[key] || '').trim()
 }
 
+function parseSignatureIds(rawValue) {
+  if (!rawValue) return {}
+  try {
+    const parsed = JSON.parse(rawValue)
+    if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+      return { __parseError: 'RRM_SIGNATURE_IDS_JSON 必须是角色到签名ID的 JSON 对象。' }
+    }
+    return parsed
+  } catch (error) {
+    return { __parseError: error.message }
+  }
+}
+
 function readText(filePath) {
   if (!fs.existsSync(filePath)) {
     failFast(`缺少源文件：${path.relative(WORKSPACE_ROOT, filePath)}`)
@@ -230,9 +244,11 @@ function collectConfig() {
     headed: process.env.RRM_HEADED === '1',
     browserPath: envValue('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'),
     workOrderId: Number(envValue('RRM_PRODUCTION_ORDER_ID')),
+    productionOrderCode: envValue('RRM_PRODUCTION_ORDER_CODE'),
     routeId: Number(envValue('RRM_ROUTE_ID')),
     routeVersionId: Number(envValue('RRM_ROUTE_VERSION_ID')),
     qaRegulationVersionId: Number(envValue('RRM_QA_REGULATION_VERSION_ID')),
+    signatureIds: parseSignatureIds(envValue('RRM_SIGNATURE_IDS_JSON')),
     unauthorizedActor: {
       username: envValue('RRM_UNAUTHORIZED_USERNAME'),
       password: envValue('RRM_UNAUTHORIZED_PASSWORD'),
@@ -318,6 +334,22 @@ function collectEnvBlockers(config) {
         description: `错误角色夹具不能复用业务角色 ${matchedRole[0]}；必须使用不含活跃订单维护权限的独立账号。`
       })
     }
+  }
+
+  if (config.signatureIds.__parseError) {
+    blockers.push({
+      key: 'RRM_SIGNATURE_IDS_JSON',
+      category: 'ENV',
+      description: `签名 ID 映射不是有效 JSON：${config.signatureIds.__parseError}`
+    })
+  }
+  const pqcSignatureId = Number(config.signatureIds.pqcInspector)
+  if (!Number.isFinite(pqcSignatureId) || pqcSignatureId <= 0) {
+    blockers.push({
+      key: 'RRM_SIGNATURE_IDS_JSON.pqcInspector',
+      category: 'ENV',
+      description: 'PQC 正式提交必须从 RRM_SIGNATURE_IDS_JSON.pqcInspector 读取大于 0 的正式电子签名 ID。'
+    })
   }
 
   return blockers
@@ -494,7 +526,8 @@ function collectQaRegulationBlockers() {
 function collectPqcSubmissionBlockers() {
   const blockers = []
   const pqcSource = readText(PQC_CONTEXT_SERVICE)
-  if (pqcSource.includes('selectActiveByWorkOrderRouteProcess')) {
+  if (pqcSource.includes('selectActiveByWorkOrderRouteProcess')
+    && !pqcSource.includes('createPqcInspectionEvent')) {
     blockers.push({
       key: 'selectActiveByWorkOrderRouteProcess',
       category: 'SOURCE',
@@ -1024,9 +1057,11 @@ function redactConfig(config) {
     tenant: config.tenant,
     dataPrefix: config.dataPrefix,
     workOrderId: config.workOrderId,
+    productionOrderCode: config.productionOrderCode,
     routeId: config.routeId,
     routeVersionId: config.routeVersionId,
     qaRegulationVersionId: config.qaRegulationVersionId,
+    signatureIdRoles: Object.keys(config.signatureIds || {}).filter((key) => key !== '__parseError'),
     unauthorizedActor: {
       username: config.unauthorizedActor?.username || '',
       password: config.unauthorizedActor?.password ? '<redacted>' : ''
@@ -1516,6 +1551,34 @@ async function verifyPqcRegulationItemsRendered(page, config, actionEvidence) {
     .map((process) => Number(process.plannedInspectionQuantity))
     .filter((value) => Number.isFinite(value) && value > 0)
   assert.ok(plannedQuantities.length > 0, 'PQC 任务必须带出大于 0 的计划检验数量。')
+  const visibleMetaTexts = (await page.locator('[data-pqc-inspection-meta]').allTextContents())
+    .map((text) => text.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+  assert.ok(visibleMetaTexts.length > 0, 'PQC 页面必须可见渲染检验方法、标准和判定元信息。')
+  const visibleMetaText = visibleMetaTexts.join('\n')
+  const formatResultTypeLabel = (resultType) => {
+    const normalized = String(resultType || '').trim().toUpperCase()
+    if (normalized === 'NUMBER' || normalized === 'NUMERIC') return '数值'
+    if (normalized === 'BOOLEAN' || normalized === 'CHOICE' || normalized === 'PASS_FAIL') return '合格/不合格'
+    return String(resultType || '').trim()
+  }
+  const visibleFormalItem = matchingProcesses
+    .flatMap((process) => process.inspectionItems.map((item) => ({ process, item })))
+    .find(({ item }) => {
+      const method = String(item.inspectionMethod || '').trim()
+      const standard = String(item.standardText || '').trim()
+      const resultTypeLabel = formatResultTypeLabel(item.resultType)
+      return method
+        && standard
+        && resultTypeLabel
+        && visibleMetaText.includes(method)
+        && visibleMetaText.includes(standard)
+        && visibleMetaText.includes(resultTypeLabel)
+    })
+  assert.ok(
+    visibleFormalItem,
+    'PQC 页面可见元信息必须至少匹配一条正式 QA 规程项目的方法、标准和判定类型。'
+  )
 
   return {
     key: 'pqcRegulationItemsRendered',
@@ -1530,7 +1593,12 @@ async function verifyPqcRegulationItemsRendered(page, config, actionEvidence) {
     regulationVersionIds,
     configuredVersionId,
     configuredVersionObserved,
-    plannedQuantities
+    plannedQuantities,
+    visibleMetadataCount: visibleMetaTexts.length,
+    sampleInspectionMethod: visibleFormalItem.item.inspectionMethod,
+    sampleStandardText: visibleFormalItem.item.standardText,
+    sampleResultType: visibleFormalItem.item.resultType,
+    sampleResultTypeLabel: formatResultTypeLabel(visibleFormalItem.item.resultType)
   }
 }
 
@@ -1607,8 +1675,10 @@ async function verifyPqcPieceDetailQuantityPrepared(page, config, actionEvidence
     modalTitle.includes(`（${uiQuantity}件）`),
     `PQC 逐件弹窗标题必须展示计划数量 ${uiQuantity} 件。`
   )
-  await modal.getByRole('button', { name: '返回' }).click()
+  const firstEntryFilledCount = await fillVisiblePqcPieceModalValues(modal)
+  await modal.getByRole('button', { name: '完成' }).click()
   await modal.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
+  const completionEvidence = await completePqcPieceDetailsForSubmission(page, firstEntryFilledCount)
 
   return {
     key: 'pqcPieceDetailQuantityPrepared',
@@ -1622,8 +1692,61 @@ async function verifyPqcPieceDetailQuantityPrepared(page, config, actionEvidence
     plannedQuantities,
     uiQuantity,
     pieceRowCount: rowCount,
+    completedPieceValueCount: completionEvidence.completedPieceValueCount,
+    completedChoiceItemCount: completionEvidence.completedChoiceItemCount,
+    completedNumericItemCount: completionEvidence.completedNumericItemCount,
     inspectionEntry: entryLabel,
     sourceActionKey: regulationEvidence.key
+  }
+}
+
+async function fillVisiblePqcPieceModalValues(modal) {
+  const inputs = modal.locator('.frontline-pqc-piece-row input')
+  const inputCount = await inputs.count()
+  for (let index = 0; index < inputCount; index += 1) {
+    const input = inputs.nth(index)
+    const currentValue = (await input.inputValue()).trim()
+    if (!currentValue) {
+      await input.fill('1')
+    }
+  }
+  const passButtons = modal.locator('.frontline-pqc-piece-row button', { hasText: '合格' })
+  const passButtonCount = await passButtons.count()
+  for (let index = 0; index < passButtonCount; index += 1) {
+    await passButtons.nth(index).click()
+  }
+  return inputCount + passButtonCount
+}
+
+async function completePqcPieceDetailsForSubmission(page, alreadyCompletedCount = 0) {
+  let completedPieceValueCount = alreadyCompletedCount
+  let completedChoiceItemCount = 0
+  let completedNumericItemCount = 0
+  const choiceItems = page.locator('.frontline-pqc-choice-item')
+  const choiceItemCount = await choiceItems.count()
+  for (let index = 0; index < choiceItemCount; index += 1) {
+    const item = choiceItems.nth(index)
+    const passButton = item.getByRole('button', { name: /^合格$/ }).first()
+    if (await passButton.count()) {
+      await passButton.click()
+      completedChoiceItemCount += 1
+    }
+  }
+  const numericItems = page.locator('.frontline-pqc-content-item')
+  const numericItemCount = await numericItems.count()
+  for (let index = 0; index < numericItemCount; index += 1) {
+    await numericItems.nth(index).click()
+    const modal = page.locator('[data-pqc-piece-modal]').first()
+    await modal.waitFor({ state: 'visible', timeout: 30000 })
+    completedPieceValueCount += await fillVisiblePqcPieceModalValues(modal)
+    await modal.getByRole('button', { name: '完成' }).click()
+    await modal.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
+    completedNumericItemCount += 1
+  }
+  return {
+    completedPieceValueCount,
+    completedChoiceItemCount,
+    completedNumericItemCount
   }
 }
 
@@ -1812,6 +1935,371 @@ async function verifyPqcActualEmployeeSwitch(page, config, actionEvidence) {
   }
 }
 
+function requireSignatureId(config, roleKey) {
+  const signatureId = Number(config.signatureIds?.[roleKey])
+  assert.ok(
+    Number.isFinite(signatureId) && signatureId > 0,
+    `${roleKey} 必须在 RRM_SIGNATURE_IDS_JSON 中配置大于 0 的正式电子签名 ID。`
+  )
+  return signatureId
+}
+
+async function verifyPqcFormalSubmissionCreatesEvent(page, config, actionEvidence) {
+  const joinEvidence = actionEvidence.find((item) => item.key === 'joinActiveOrder' && item.status === 'PASS')
+  const regulationEvidence = actionEvidence.find((item) => item.key === 'pqcRegulationItemsRendered' && item.status === 'PASS')
+  const pieceDetailEvidence = actionEvidence.find((item) => item.key === 'pqcPieceDetailQuantityPrepared' && item.status === 'PASS')
+  const employeeEvidence = actionEvidence.find((item) => item.key === 'pqcActualEmployeeSelected' && item.status === 'PASS')
+  if (!joinEvidence?.activeOrderId || !regulationEvidence || !pieceDetailEvidence || !employeeEvidence) {
+    return {
+      key: 'pqcFormalSubmissionCreated',
+      label: 'PQC 正式提交生成过程池检验事件',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SUBMISSION_DATA',
+      acceptanceIds: ['AC-D29', 'AC-D32'],
+      description: 'PQC 正式提交前缺少 activeOrder、规程项目、逐件数量或实际检验人动作证据，不能创建正式 submitted 事件。'
+    }
+  }
+
+  const signatureId = requireSignatureId(config, 'pqcInspector')
+  const signatureInput = page.locator('#frontlinePqcSignatureId').first()
+  await signatureInput.waitFor({ state: 'visible', timeout: 30000 })
+  await signatureInput.fill(String(signatureId))
+  const submitButton = page.locator('.frontline-pqc-submit-button').first()
+  await submitButton.waitFor({ state: 'visible', timeout: 30000 })
+  if (await submitButton.isDisabled()) {
+    return {
+      key: 'pqcFormalSubmissionCreated',
+      label: 'PQC 正式提交生成过程池检验事件',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SUBMISSION_UI',
+      acceptanceIds: ['AC-D29', 'AC-D32'],
+      activeOrderId: joinEvidence.activeOrderId,
+      signatureId,
+      description: 'PQC 页面提交按钮仍为禁用状态，不能证明签名和正式提交上下文已满足。'
+    }
+  }
+
+  const submitResponsePromise = page.waitForResponse((response) =>
+    response.url().includes('/mes/pro/feedback/frontline/device-account/pqc/submit')
+      && response.request().method() === 'POST'
+  , { timeout: 30000 }).catch((error) => ({ pqcSubmitResponseError: error }))
+  await submitButton.click()
+  const submitResponse = await submitResponsePromise
+  if (submitResponse.pqcSubmitResponseError) {
+    return {
+      key: 'pqcFormalSubmissionCreated',
+      label: 'PQC 正式提交生成过程池检验事件',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SUBMISSION_UI',
+      acceptanceIds: ['AC-D29', 'AC-D32'],
+      activeOrderId: joinEvidence.activeOrderId,
+      signatureId,
+      description: `点击 PQC 提交后未捕获正式提交接口响应：${submitResponse.pqcSubmitResponseError.message}`
+    }
+  }
+  assert.ok(submitResponse.ok(), `PQC 正式提交 HTTP 失败：${submitResponse.status()}`)
+  const submitBody = await submitResponse.json()
+  if (!isBusinessSuccess(submitBody)) {
+    const message = responseMessage(submitBody)
+    const missingSourceEvent = message.includes('processPool.latestEventId') ||
+      message.includes('latestEventId')
+    return {
+      key: 'pqcFormalSubmissionCreated',
+      label: 'PQC 正式提交生成过程池检验事件',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: missingSourceEvent ? 'E2E_PQC_SOURCE_EVENT' : 'E2E_PQC_SUBMISSION_DATA',
+      acceptanceIds: ['AC-D29', 'AC-D32'],
+      activeOrderId: joinEvidence.activeOrderId,
+      signatureId,
+      responseCode: submitBody.code,
+      responseMessage: message,
+      description: missingSourceEvent
+        ? 'PQC 正式提交依赖生产报工 source event，但当前 process pool 缺少 latestEventId；需要先通过真实生产报工路径生成 source event 后再复验 PQC 提交。'
+        : `PQC 正式提交业务失败：${message}`
+    }
+  }
+  const submittedTaskId = Number(submitBody.data)
+  assert.ok(Number.isFinite(submittedTaskId) && submittedTaskId > 0, 'PQC 正式提交必须返回已提交的正式 taskId。')
+
+  await page.locator('.el-message, .el-notification').filter({
+    hasText: /已提交|提交成功/
+  }).first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {})
+
+  const browser = page.context().browser()
+  assert.ok(browser, 'PQC 正式提交事件核验必须能创建 PQC 组长只读上下文。')
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'zh-CN' })
+  const leaderPage = await context.newPage()
+  let submittedRow
+  let submissionTotal = 0
+  const submitDate = localDateString()
+  try {
+    await login(leaderPage, config, 'pqcLeader', config.roles.pqcLeader)
+    const submissionPage = await loadPqcLeaderSubmissionPage(leaderPage, {
+      pageNo: 1,
+      pageSize: 20,
+      submitDate,
+      workOrderCode: config.productionOrderCode
+    })
+    submissionTotal = submissionPage.total
+    submittedRow = submissionPage.list.find((row) => Number(row.pqcTaskId) === submittedTaskId)
+  } finally {
+    await context.close()
+  }
+  if (!submittedRow) {
+    return {
+      key: 'pqcFormalSubmissionCreated',
+      label: 'PQC 正式提交生成过程池检验事件',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SUBMISSION_DATA',
+      acceptanceIds: ['AC-D29', 'AC-D32'],
+      activeOrderId: joinEvidence.activeOrderId,
+      submittedTaskId,
+      submitDate,
+      submissionTotal,
+      signatureId,
+      description: 'PQC 正式提交接口已返回 taskId，但 PQC 组长提交看板没有出现同一 pqcTaskId 的正式事件；需要后端运行态加载 createPqcInspectionEvent 链路后复验。'
+    }
+  }
+
+  return {
+    key: 'pqcFormalSubmissionCreated',
+    label: 'PQC 正式提交生成过程池检验事件',
+    roleKey: 'pqcInspector',
+    status: 'PASS',
+    acceptanceIds: ['AC-D29', 'AC-D32'],
+    activeOrderId: joinEvidence.activeOrderId,
+    workOrderId: config.workOrderId,
+    routeId: config.routeId,
+    submittedTaskId,
+    eventId: submittedRow.id,
+    submitDate,
+    submissionTotal,
+    actualEmployeeId: employeeEvidence.actualEmployeeId,
+    signatureId,
+    plannedQuantities: regulationEvidence.plannedQuantities,
+    uiQuantity: pieceDetailEvidence.uiQuantity,
+    sourceActionKeys: [
+      regulationEvidence.key,
+      pieceDetailEvidence.key,
+      employeeEvidence.key
+    ],
+    endpoint: '/mes/pro/feedback/frontline/device-account/pqc/submit'
+  }
+}
+
+function localDateString(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function toQueryString(params) {
+  const query = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      query.set(key, String(value))
+    }
+  }
+  return query.toString()
+}
+
+async function loadPqcLeaderSubmissionPage(page, params) {
+  const query = toQueryString({
+    leaderType: 'PQC',
+    templateType: 'PQC_SIMPLIFIED',
+    ...params
+  })
+  const result = await fetchWithPageAuth(
+    page,
+    `/admin-api/mes/pro/process-pool/team-leader/submission/page?${query}`
+  )
+  assert.ok(result.ok, `PQC 组长提交看板 HTTP 失败：${result.status}`)
+  assert.equal(result.body?.code, 0, `PQC 组长提交看板业务失败：${responseMessage(result.body)}`)
+  const data = result.body.data || {}
+  return {
+    total: Number(data.total || 0),
+    list: Array.isArray(data.list) ? data.list : []
+  }
+}
+
+function includesText(source, keyword) {
+  return String(source || '').toLowerCase().includes(String(keyword || '').toLowerCase())
+}
+
+function assertPqcLeaderSubmissionRowMatches(row, filters) {
+  assert.equal(String(row.workOrderCode || ''), String(filters.workOrderCode || ''), 'PQC 提交行必须匹配工单编码筛选。')
+  assert.equal(Number(row.processId), Number(filters.processId), 'PQC 提交行必须匹配工序筛选。')
+  assert.equal(Number(row.actualEmployeeUserId), Number(filters.employeeUserId), 'PQC 提交行必须匹配人员筛选。')
+  assert.ok(
+    includesText(row.productCode, filters.productKeyword) || includesText(row.productName, filters.productKeyword),
+    'PQC 提交行必须匹配产品编码或名称筛选。'
+  )
+  assert.equal(row.inspectionType, filters.inspectionType, 'PQC 提交行必须匹配检验类型筛选。')
+  assert.equal(Number(row.roundNo), Number(filters.roundNo), 'PQC 提交行必须匹配轮次筛选。')
+  if (filters.submissionReviewStatus === 'PENDING') {
+    assert.ok(!row.submissionReviewStatus || row.submissionReviewStatus === 'PENDING', '待判定筛选只允许空状态或 PENDING。')
+  } else {
+    assert.equal(row.submissionReviewStatus, filters.submissionReviewStatus, 'PQC 提交行必须匹配复核状态筛选。')
+  }
+}
+
+async function selectElementPlusOption(page, selector, label) {
+  await page.locator(selector).first().click()
+  const option = page
+    .locator('.el-select-dropdown:visible .el-select-dropdown__item')
+    .filter({ hasText: label })
+    .first()
+  await option.waitFor({ state: 'visible', timeout: 30000 })
+  await option.click()
+}
+
+function inspectionTypeLabel(type) {
+  if (type === 'FIRST') return '首检'
+  if (type === 'PATROL') return '巡检'
+  if (type === 'FINAL') return '末检'
+  return type
+}
+
+function reviewStatusLabel(status) {
+  if (status === 'APPROVED') return '正确'
+  if (status === 'REJECTED') return '不正确'
+  return '待判定'
+}
+
+async function verifyPqcLeaderSubmissionFilterPaginationConsistency(page, config) {
+  const submitDate = localDateString()
+  const baseParams = {
+    pageNo: 1,
+    pageSize: 20,
+    submitDate,
+    workOrderCode: config.productionOrderCode
+  }
+  const basePage = await loadPqcLeaderSubmissionPage(page, baseParams)
+  if (basePage.total === 0) {
+    return {
+      key: 'pqcLeaderSubmissionFilterPaginationConsistent',
+      label: 'PQC 组长提交看板筛选分页一致性',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SUBMISSION_DATA',
+      acceptanceIds: ['AC-D32'],
+      submitDate,
+      workOrderId: config.workOrderId,
+      workOrderCode: config.productionOrderCode,
+      description: '当前本机租户没有当天球囊扩张压力泵任务的正式 PQC 提交事件，无法通过真实 PQC 组长页面证明多条件筛选和分页 total 一致性；需要先完成至少两笔可筛选的正式 PQC 提交夹具。'
+    }
+  }
+
+  const candidate = basePage.list.find((row) =>
+    row.workOrderCode
+    && row.productCode
+    && row.productName
+    && row.processId
+    && row.actualEmployeeUserId
+    && row.inspectionType
+    && row.roundNo
+  )
+  if (!candidate) {
+    return {
+      key: 'pqcLeaderSubmissionFilterPaginationConsistent',
+      label: 'PQC 组长提交看板筛选分页一致性',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SUBMISSION_DATA',
+      acceptanceIds: ['AC-D32'],
+      submitDate,
+      sampleCount: basePage.list.length,
+      description: 'PQC 提交看板行缺少产品、工序、人员、检验类型或轮次正式字段；不能用不完整读模型证明 AC-D32 筛选。'
+    }
+  }
+
+  const filters = {
+    pageNo: 1,
+    pageSize: 1,
+    submitDate,
+    workOrderCode: candidate.workOrderCode,
+    employeeUserId: Number(candidate.actualEmployeeUserId),
+    processId: Number(candidate.processId),
+    productKeyword: candidate.productCode,
+    inspectionType: candidate.inspectionType,
+    roundNo: Number(candidate.roundNo),
+    submissionReviewStatus: candidate.submissionReviewStatus || 'PENDING'
+  }
+
+  const section = page.locator('[data-team-leader-report-workbench]').first()
+  await fillFormItem(section, '生产工单', filters.workOrderCode)
+  await fillFormItem(section, 'PQC检验员', filters.employeeUserId)
+  await fillFormItem(section, '工序', filters.processId)
+  await section.locator('[data-pqc-leader-filter-product] input').fill(filters.productKeyword)
+  await selectElementPlusOption(page, '[data-pqc-leader-filter-inspection-type]', inspectionTypeLabel(filters.inspectionType))
+  await section.locator('[data-pqc-leader-filter-round] input').fill(String(filters.roundNo))
+  await selectElementPlusOption(page, '[data-pqc-leader-filter-review-status]', reviewStatusLabel(filters.submissionReviewStatus))
+  const responsePromise = page.waitForResponse((response) =>
+    response.url().includes('/mes/pro/process-pool/team-leader/submission/page')
+      && response.request().method() === 'GET'
+  , { timeout: 30000 }).catch((error) => ({ submissionFilterResponseError: error }))
+  await section.getByRole('button', { name: '搜索' }).click()
+  const response = await responsePromise
+  if (response.submissionFilterResponseError) {
+    return {
+      key: 'pqcLeaderSubmissionFilterPaginationConsistent',
+      label: 'PQC 组长提交看板筛选分页一致性',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SUBMISSION_FILTER',
+      acceptanceIds: ['AC-D32'],
+      submitDate,
+      description: `真实页面筛选后未捕获提交看板分页接口响应：${response.submissionFilterResponseError.message}`
+    }
+  }
+  assert.ok(response.ok(), `PQC 组长页面筛选 HTTP 失败：${response.status()}`)
+
+  const firstPage = await loadPqcLeaderSubmissionPage(page, filters)
+  assert.ok(firstPage.total > 0, 'PQC 组长筛选后的 total 必须大于 0。')
+  assert.equal(firstPage.list.length, 1, 'pageSize=1 时第一页必须只返回一条明细。')
+  assertPqcLeaderSubmissionRowMatches(firstPage.list[0], filters)
+
+  if (firstPage.total < 2) {
+    return {
+      key: 'pqcLeaderSubmissionFilterPaginationConsistent',
+      label: 'PQC 组长提交看板筛选分页一致性',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SUBMISSION_DATA',
+      acceptanceIds: ['AC-D32'],
+      submitDate,
+      filters,
+      total: firstPage.total,
+      description: '当前筛选条件只命中 1 条正式 PQC 提交，无法通过真实数据证明第 1/2 页 total 稳定；需要至少两条同条件提交夹具完成分页漂移验收。'
+    }
+  }
+
+  const secondPage = await loadPqcLeaderSubmissionPage(page, { ...filters, pageNo: 2 })
+  assert.equal(secondPage.total, firstPage.total, 'PQC 组长筛选第一页和第二页 total 必须一致。')
+  assert.equal(secondPage.list.length, 1, 'pageSize=1 时第二页必须只返回一条明细。')
+  assert.notEqual(secondPage.list[0].id, firstPage.list[0].id, '第二页不能重复返回第一页事件。')
+  assertPqcLeaderSubmissionRowMatches(secondPage.list[0], filters)
+
+  return {
+    key: 'pqcLeaderSubmissionFilterPaginationConsistent',
+    label: 'PQC 组长提交看板筛选分页一致性',
+    roleKey: 'pqcLeader',
+    status: 'PASS',
+    acceptanceIds: ['AC-D32'],
+    submitDate,
+    filters,
+    total: firstPage.total,
+    firstEventId: firstPage.list[0].id,
+    secondEventId: secondPage.list[0].id
+  }
+}
+
 async function verifyActiveOrderUnauthorizedMutationBlocked(page, config, actionEvidence) {
   const joinEvidence = actionEvidence.find((item) => item.key === 'joinActiveOrder' && item.status === 'PASS')
   if (!joinEvidence?.activeOrderId) {
@@ -1987,7 +2475,17 @@ async function runPhaseAction(page, config, phase, actionEvidence) {
       regulationEvidence,
       pieceDetailEvidence
     ])
-    return [readOnlyEvidence, regulationEvidence, pieceDetailEvidence, employeeEvidence]
+    const formalSubmissionEvidence = await verifyPqcFormalSubmissionCreatesEvent(page, config, [
+      ...actionEvidence,
+      readOnlyEvidence,
+      regulationEvidence,
+      pieceDetailEvidence,
+      employeeEvidence
+    ])
+    return [readOnlyEvidence, regulationEvidence, pieceDetailEvidence, employeeEvidence, formalSubmissionEvidence]
+  }
+  if (phase.actionKey === 'verifyPqcLeaderSubmissionFilterPaginationConsistency') {
+    return verifyPqcLeaderSubmissionFilterPaginationConsistency(page, config)
   }
   if (phase.actionKey === 'verifyActiveOrderUnauthorizedMutationBlocked') {
     return verifyActiveOrderUnauthorizedMutationBlocked(page, config, actionEvidence)

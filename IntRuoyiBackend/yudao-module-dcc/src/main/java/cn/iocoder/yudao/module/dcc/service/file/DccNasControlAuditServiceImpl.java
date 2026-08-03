@@ -1,16 +1,31 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditRecognizeRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditFilePageReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditFileRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditTaskRespVO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryMatchRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasSourceDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccNasControlAuditFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccNasControlAuditSkippedDirectoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccNasControlAuditTaskDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMatchRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasSourceMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccNasControlAuditFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccNasControlAuditSkippedDirectoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccNasControlAuditTaskMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService;
+import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.infra.service.file.NasConnectionConfig;
@@ -31,16 +46,23 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -61,12 +83,30 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
     public static final String SOURCE_CONFIDENCE_EXACT = "EXACT";
     public static final String SOURCE_CONFIDENCE_LEGACY_EXACT = "LEGACY_EXACT";
     public static final String SOURCE_CONFIDENCE_PENDING_CONFIRMATION = "PENDING_CONFIRMATION";
+    public static final String AUDIT_FILE_CONTROL_STATUS_NOT_CONTROLLED = "NOT_CONTROLLED";
+    public static final String AUDIT_FILE_CLASSIFICATION_STATUS_PENDING_RECOGNITION = "PENDING_RECOGNITION";
+    public static final String AUDIT_FILE_CLASSIFICATION_STATUS_MATCHED = "MATCHED";
+    public static final String AUDIT_FILE_CLASSIFICATION_STATUS_UNCLASSIFIED_PENDING = "UNCLASSIFIED_PENDING";
+    public static final String AUDIT_FILE_CLASSIFICATION_STATUS_AMBIGUOUS = "AMBIGUOUS";
+    public static final String AUDIT_FILE_DOWNLOAD_STATUS_NOT_SELECTED = "NOT_SELECTED";
+    public static final String AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED = "NOT_STARTED";
 
     private static final List<String> FIXED_SCAN_ROOTS = List.of("1. QMS documents", "2.DHF", "3.DMR");
     private static final String REPORT_DIRECTORY = "dcc-nas-control-audit";
     private static final String EXCEL_CONTENT_TYPE =
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     private static final long PROGRESS_FLUSH_INTERVAL = 100L;
+    private static final String CLASSIFICATION_REASON_MATCHED = "MATCHED";
+    private static final String CLASSIFICATION_REASON_PROJECT_CODE_NOT_FOUND = "PROJECT_CODE_NOT_FOUND";
+    private static final String CLASSIFICATION_REASON_PROJECT_CODE_AMBIGUOUS = "PROJECT_CODE_AMBIGUOUS";
+    private static final String CLASSIFICATION_REASON_FILE_CATEGORY_NOT_FOUND = "FILE_CATEGORY_NOT_FOUND";
+    private static final String CLASSIFICATION_REASON_FILE_CATEGORY_AMBIGUOUS = "FILE_CATEGORY_AMBIGUOUS";
+    private static final String CATEGORY_MATCH_TYPE_CONTAINS = "CONTAINS";
+    private static final String CATEGORY_MATCH_TYPE_EXACT = "EXACT";
+    private static final String CATEGORY_MATCH_TYPE_PREFIX = "PREFIX";
+    private static final String CATEGORY_MATCH_TYPE_SUFFIX = "SUFFIX";
+    private static final String CATEGORY_MATCH_TYPE_EXTENSION = "EXTENSION";
+    private static final String UNCLASSIFIED_PENDING_DIRECTORY = "_未分类待处理";
 
     @Resource
     private NasSettingsService nasSettingsService;
@@ -78,6 +118,16 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
     private DccNasControlAuditTaskMapper taskMapper;
     @Resource
     private DccNasControlAuditSkippedDirectoryMapper skippedDirectoryMapper;
+    @Resource
+    private DccNasControlAuditFileMapper auditFileMapper;
+    @Resource
+    private DccProjectCodeMapper projectCodeMapper;
+    @Resource
+    private DccFileCategoryMapper fileCategoryMapper;
+    @Resource
+    private DccFileCategoryMatchRuleMapper categoryMatchRuleMapper;
+    @Resource
+    private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @Resource
     private FileService fileService;
     @Resource
@@ -121,6 +171,43 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
     public DccNasControlAuditTaskRespVO getTask(Long taskId) {
         DccNasControlAuditTaskDO task = requireTask(taskId);
         return toRespVO(task);
+    }
+
+    @Override
+    public PageResult<DccNasControlAuditFileRespVO> getTaskFilePage(Long taskId,
+                                                                    DccNasControlAuditFilePageReqVO reqVO) {
+        requireTask(taskId);
+        PageResult<DccNasControlAuditFileDO> pageResult = auditFileMapper.selectPage(taskId, reqVO);
+        return new PageResult<>(pageResult.getList().stream()
+                .map(this::toAuditFileRespVO)
+                .toList(), pageResult.getTotal());
+    }
+
+    @Override
+    public DccNasControlAuditRecognizeRespVO recognizeTaskFiles(Long taskId) {
+        requireTask(taskId);
+        List<DccNasControlAuditFileDO> files = nullToEmpty(auditFileMapper.selectPendingRecognitionList(taskId));
+        RecognitionCounter counter = new RecognitionCounter();
+        if (files.isEmpty()) {
+            return counter.toRespVO();
+        }
+        List<DccProjectCodeDO> projectCodes = nullToEmpty(projectCodeMapper.selectEnabledList());
+        List<DccFileCategoryDO> activeCategories = nullToEmpty(fileCategoryMapper.selectList()).stream()
+                .filter(category -> Boolean.TRUE.equals(category.getActive()))
+                .filter(category -> category.getFileTypeTaxonomyId() != null)
+                .toList();
+        Map<Long, List<DccFileCategoryMatchRuleDO>> rulesByCategoryId =
+                nullToEmpty(categoryMatchRuleMapper.selectList()).stream()
+                        .filter(rule -> Boolean.TRUE.equals(rule.getActive()))
+                        .filter(rule -> rule.getCategoryId() != null)
+                        .collect(Collectors.groupingBy(DccFileCategoryMatchRuleDO::getCategoryId,
+                                LinkedHashMap::new, Collectors.toList()));
+        for (DccNasControlAuditFileDO file : files) {
+            recognizeTaskFile(file, projectCodes, activeCategories, rulesByCategoryId);
+            auditFileMapper.updateById(file);
+            counter.add(file.getClassificationStatus());
+        }
+        return counter.toRespVO();
     }
 
     @Override
@@ -274,6 +361,7 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
                 sourcesByHash.getOrDefault(pathHash, List.of());
         if (matches.isEmpty()) {
             progress.setNotControlledFileCount(defaultLong(progress.getNotControlledFileCount()) + 1);
+            persistNotControlledAuditFile(progress.getId(), nasShareName, file, normalizedPath, pathHash);
             writer.writeNotControlled(file, "NAS 路径没有对应的当前 ACTIVE 受控文件");
         } else if (matches.size() == 1 && isExactSource(matches.get(0))) {
             progress.setControlledFileCount(defaultLong(progress.getControlledFileCount()) + 1);
@@ -283,6 +371,431 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
                     "同一路径对应多个受控记录或存在待确认来源，不能确认唯一受控文件");
         }
         flushProgress(progress, defaultLong(progress.getScannedFileCount()) % PROGRESS_FLUSH_INTERVAL == 0);
+    }
+
+    private void persistNotControlledAuditFile(Long taskId,
+                                               String nasShareName,
+                                               NasRecursiveScannedFile file,
+                                               String normalizedPath,
+                                               String pathHash) {
+        if (file.size() == null || file.modifiedAt() == null) {
+            throw new IllegalStateException("NAS audit file snapshot missing size or modified time: " + file.path());
+        }
+        auditFileMapper.insert(DccNasControlAuditFileDO.builder()
+                .taskId(taskId)
+                .nasShareName(nasShareName)
+                .rootPath(file.rootPath())
+                .normalizedRelativePath(normalizedPath)
+                .pathHash(pathHash)
+                .fileName(file.name())
+                .fileSize(file.size())
+                .modifiedAt(LocalDateTime.ofInstant(Instant.ofEpochMilli(file.modifiedAt()), ZoneOffset.UTC))
+                .sourceSignature(sourceSignature(pathHash, file.size(), file.modifiedAt()))
+                .controlStatus(AUDIT_FILE_CONTROL_STATUS_NOT_CONTROLLED)
+                .classificationStatus(AUDIT_FILE_CLASSIFICATION_STATUS_PENDING_RECOGNITION)
+                .downloadStatus(AUDIT_FILE_DOWNLOAD_STATUS_NOT_SELECTED)
+                .archiveStatus(AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED)
+                .tenantId(TenantContextHolder.getRequiredTenantId())
+                .build());
+    }
+
+    private void recognizeTaskFile(DccNasControlAuditFileDO file,
+                                   List<DccProjectCodeDO> projectCodes,
+                                   List<DccFileCategoryDO> activeCategories,
+                                   Map<Long, List<DccFileCategoryMatchRuleDO>> rulesByCategoryId) {
+        resetRecognitionResult(file);
+        List<ProjectCandidate> projectCandidates = resolveProjectCandidates(file, projectCodes);
+        if (projectCandidates.isEmpty()) {
+            applyUnclassifiedPending(file, CLASSIFICATION_REASON_PROJECT_CODE_NOT_FOUND,
+                    projectCandidates, List.of());
+            return;
+        }
+        if (projectCandidates.size() > 1) {
+            applyAmbiguous(file, CLASSIFICATION_REASON_PROJECT_CODE_AMBIGUOUS,
+                    projectCandidates, List.of());
+            return;
+        }
+
+        DccProjectCodeDO projectCode = projectCandidates.get(0).projectCode();
+        file.setMatchedProjectCodeId(projectCode.getId());
+        CategoryRecognitionResult categoryResult = resolveCategory(file, activeCategories, rulesByCategoryId);
+        if (categoryResult.candidates().isEmpty()) {
+            applyUnclassifiedPending(file, CLASSIFICATION_REASON_FILE_CATEGORY_NOT_FOUND,
+                    projectCandidates, categoryResult.candidates());
+            return;
+        }
+        if (categoryResult.ambiguous()) {
+            applyAmbiguous(file, CLASSIFICATION_REASON_FILE_CATEGORY_AMBIGUOUS,
+                    projectCandidates, categoryResult.candidates());
+            return;
+        }
+
+        DccFileCategoryDO category = categoryResult.bestCandidate().category();
+        DccFileTypeTaxonomyPath taxonomyPath = fileTypeTaxonomyAdminService.resolveActivePath(
+                category.getFileTypeTaxonomyId());
+        if (taxonomyPath == null || taxonomyPath.id() == null) {
+            throw new IllegalStateException("DCC file type taxonomy path missing: " + category.getFileTypeTaxonomyId());
+        }
+        file.setClassificationStatus(AUDIT_FILE_CLASSIFICATION_STATUS_MATCHED);
+        file.setClassificationReason(CLASSIFICATION_REASON_MATCHED);
+        file.setClassificationCandidatesJson(candidateSnapshotJson(projectCandidates, categoryResult.candidates()));
+        file.setMatchedFileTypeTaxonomyId(taxonomyPath.id());
+        file.setMatchedFileTypeLevel1(taxonomyPath.level1());
+        file.setMatchedFileTypeLevel2(taxonomyPath.level2());
+        file.setMatchedFileTypeLevel3(taxonomyPath.level3());
+        file.setMatchedFileTypeLevel4(taxonomyPath.level4());
+        file.setMatchedFileTypeLevel5(taxonomyPath.level5());
+        file.setExpectedLocalRelativePath(resolveMatchedLocalRelativePath(file, projectCode, taxonomyPath, category));
+    }
+
+    private void resetRecognitionResult(DccNasControlAuditFileDO file) {
+        file.setMatchedProjectCodeId(null);
+        file.setMatchedFileTypeTaxonomyId(null);
+        file.setMatchedFileTypeLevel1(null);
+        file.setMatchedFileTypeLevel2(null);
+        file.setMatchedFileTypeLevel3(null);
+        file.setMatchedFileTypeLevel4(null);
+        file.setMatchedFileTypeLevel5(null);
+        file.setClassificationReason(null);
+        file.setClassificationCandidatesJson(null);
+        file.setExpectedLocalRelativePath(null);
+    }
+
+    private void applyUnclassifiedPending(DccNasControlAuditFileDO file,
+                                          String reason,
+                                          List<ProjectCandidate> projectCandidates,
+                                          List<CategoryCandidate> categoryCandidates) {
+        file.setClassificationStatus(AUDIT_FILE_CLASSIFICATION_STATUS_UNCLASSIFIED_PENDING);
+        file.setClassificationReason(reason);
+        file.setClassificationCandidatesJson(candidateSnapshotJson(projectCandidates, categoryCandidates));
+        file.setExpectedLocalRelativePath(resolvePendingLocalRelativePath(file));
+    }
+
+    private void applyAmbiguous(DccNasControlAuditFileDO file,
+                                String reason,
+                                List<ProjectCandidate> projectCandidates,
+                                List<CategoryCandidate> categoryCandidates) {
+        file.setClassificationStatus(AUDIT_FILE_CLASSIFICATION_STATUS_AMBIGUOUS);
+        file.setClassificationReason(reason);
+        file.setClassificationCandidatesJson(candidateSnapshotJson(projectCandidates, categoryCandidates));
+        file.setExpectedLocalRelativePath(resolvePendingLocalRelativePath(file));
+    }
+
+    private List<ProjectCandidate> resolveProjectCandidates(DccNasControlAuditFileDO file,
+                                                            List<DccProjectCodeDO> projectCodes) {
+        String searchText = projectSearchText(file);
+        return projectCodes.stream()
+                .filter(projectCode -> projectCodeMatches(searchText, projectCode))
+                .map(ProjectCandidate::new)
+                .sorted(Comparator.comparing(candidate -> candidate.projectCode().getId(),
+                        Comparator.nullsLast(Long::compareTo)))
+                .toList();
+    }
+
+    private boolean projectCodeMatches(String searchText, DccProjectCodeDO projectCode) {
+        return containsWithTokenBoundary(searchText, projectCode.getProjectCode())
+                || containsWithTokenBoundary(searchText, projectCode.getProjectName());
+    }
+
+    private String projectSearchText(DccNasControlAuditFileDO file) {
+        String normalizedPath = DccNasPathUtils.normalizeRelativePath(file.getNormalizedRelativePath());
+        return (normalizedPath + "/" + StrUtil.nullToEmpty(file.getFileName())).toLowerCase(Locale.ROOT);
+    }
+
+    private boolean containsWithTokenBoundary(String text, String needle) {
+        String normalizedNeedle = StrUtil.trimToNull(needle);
+        if (normalizedNeedle == null) {
+            return false;
+        }
+        String lowerNeedle = normalizedNeedle.toLowerCase(Locale.ROOT);
+        int fromIndex = 0;
+        while (fromIndex <= text.length() - lowerNeedle.length()) {
+            int index = text.indexOf(lowerNeedle, fromIndex);
+            if (index < 0) {
+                return false;
+            }
+            int end = index + lowerNeedle.length();
+            boolean beforeBoundary = index == 0 || !Character.isLetterOrDigit(text.charAt(index - 1));
+            boolean afterBoundary = end == text.length() || !Character.isLetterOrDigit(text.charAt(end));
+            if (beforeBoundary && afterBoundary) {
+                return true;
+            }
+            fromIndex = index + 1;
+        }
+        return false;
+    }
+
+    private CategoryRecognitionResult resolveCategory(
+            DccNasControlAuditFileDO file,
+            List<DccFileCategoryDO> activeCategories,
+            Map<Long, List<DccFileCategoryMatchRuleDO>> rulesByCategoryId) {
+        List<String> normalizedTexts = resolveAuditFileNormalizedMatchTexts(file);
+        List<String> rawTexts = resolveAuditFileRawMatchTexts(file);
+        List<CategoryCandidate> candidates = activeCategories.stream()
+                .map(category -> new CategoryCandidate(category, categoryMatchScore(
+                        normalizedTexts, rawTexts, category, rulesByCategoryId.getOrDefault(category.getId(), List.of()))))
+                .filter(candidate -> candidate.score() > 0)
+                .sorted(Comparator.comparingInt(CategoryCandidate::score).reversed()
+                        .thenComparing(candidate -> candidate.category().getId(), Comparator.nullsLast(Long::compareTo)))
+                .toList();
+        if (candidates.isEmpty()) {
+            return new CategoryRecognitionResult(candidates, null, false);
+        }
+        int bestScore = candidates.get(0).score();
+        List<CategoryCandidate> bestCandidates = candidates.stream()
+                .filter(candidate -> candidate.score() == bestScore)
+                .toList();
+        return new CategoryRecognitionResult(candidates, bestCandidates.get(0), bestCandidates.size() > 1);
+    }
+
+    private int categoryMatchScore(List<String> normalizedTexts,
+                                   List<String> rawTexts,
+                                   DccFileCategoryDO category,
+                                   List<DccFileCategoryMatchRuleDO> rules) {
+        int categoryNameScore = resolveCategoryMatchNames(category).stream()
+                .filter(matchName -> normalizedTexts.stream().anyMatch(text -> text.contains(matchName)))
+                .mapToInt(String::length)
+                .max()
+                .orElse(0);
+        int ruleScore = rules.stream()
+                .mapToInt(rule -> categoryMatchRuleScore(rule, normalizedTexts, rawTexts))
+                .max()
+                .orElse(0);
+        return Math.max(categoryNameScore, ruleScore);
+    }
+
+    private List<String> resolveCategoryMatchNames(DccFileCategoryDO category) {
+        List<String> names = new ArrayList<>();
+        addNormalizedCategoryMatchName(names, category.getName());
+        addNormalizedCategoryMatchName(names, category.getCode());
+        return names;
+    }
+
+    private void addNormalizedCategoryMatchName(List<String> names, String rawName) {
+        String normalized = normalizeCategoryMatchText(rawName);
+        if (normalized != null && !names.contains(normalized)) {
+            names.add(normalized);
+        }
+    }
+
+    private int categoryMatchRuleScore(DccFileCategoryMatchRuleDO rule,
+                                       List<String> normalizedTexts,
+                                       List<String> rawTexts) {
+        String matchType = StrUtil.trimToNull(rule.getMatchType());
+        if (matchType == null) {
+            throw new IllegalStateException("DCC file category match rule has blank matchType: " + rule.getId());
+        }
+        return switch (matchType.toUpperCase(Locale.ROOT)) {
+            case CATEGORY_MATCH_TYPE_CONTAINS, CATEGORY_MATCH_TYPE_EXACT, CATEGORY_MATCH_TYPE_PREFIX,
+                    CATEGORY_MATCH_TYPE_SUFFIX -> categoryTextRuleScore(rule, normalizedTexts,
+                    matchType.toUpperCase(Locale.ROOT));
+            case CATEGORY_MATCH_TYPE_EXTENSION -> categoryExtensionRuleScore(rule, rawTexts);
+            default -> throw new IllegalStateException(
+                    "Unsupported DCC file category match rule type: " + rule.getMatchType());
+        };
+    }
+
+    private int categoryTextRuleScore(DccFileCategoryMatchRuleDO rule,
+                                      List<String> normalizedTexts,
+                                      String matchType) {
+        String matchText = normalizeCategoryMatchText(rule.getMatchText());
+        if (matchText == null) {
+            throw new IllegalStateException("DCC file category match rule has blank matchText: " + rule.getId());
+        }
+        boolean matched = switch (matchType) {
+            case CATEGORY_MATCH_TYPE_CONTAINS -> normalizedTexts.stream().anyMatch(text -> text.contains(matchText));
+            case CATEGORY_MATCH_TYPE_EXACT -> normalizedTexts.stream().anyMatch(text -> Objects.equals(text, matchText));
+            case CATEGORY_MATCH_TYPE_PREFIX -> normalizedTexts.stream().anyMatch(text -> text.startsWith(matchText));
+            case CATEGORY_MATCH_TYPE_SUFFIX -> normalizedTexts.stream().anyMatch(text -> text.endsWith(matchText));
+            default -> throw new IllegalStateException(
+                    "Unsupported DCC file category text match rule type: " + matchType);
+        };
+        return matched ? categoryMatchRuleBaseScore(rule, matchText) : 0;
+    }
+
+    private int categoryExtensionRuleScore(DccFileCategoryMatchRuleDO rule, List<String> rawTexts) {
+        String extension = normalizeRuleExtension(rule.getMatchText());
+        if (extension == null) {
+            throw new IllegalStateException("DCC file category extension rule has blank matchText: " + rule.getId());
+        }
+        return rawTexts.stream()
+                .map(this::extractFileExtension)
+                .filter(Objects::nonNull)
+                .anyMatch(extension::equals)
+                ? categoryMatchRuleBaseScore(rule, extension)
+                : 0;
+    }
+
+    private int categoryMatchRuleBaseScore(DccFileCategoryMatchRuleDO rule, String normalizedMatchText) {
+        int weight = rule.getWeight() == null ? 0 : rule.getWeight();
+        return weight + normalizedMatchText.length();
+    }
+
+    private String normalizeRuleExtension(String value) {
+        String normalized = StrUtil.trimToNull(value);
+        if (normalized == null) {
+            return null;
+        }
+        if (normalized.startsWith(".")) {
+            normalized = normalized.substring(1);
+        }
+        return StrUtil.trimToNull(normalized.toLowerCase(Locale.ROOT));
+    }
+
+    private String extractFileExtension(String value) {
+        String fileName = StrUtil.trimToNull(value);
+        if (fileName == null) {
+            return null;
+        }
+        int slashIndex = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex <= slashIndex || dotIndex == fileName.length() - 1) {
+            return null;
+        }
+        return fileName.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
+    }
+
+    private List<String> resolveAuditFileNormalizedMatchTexts(DccNasControlAuditFileDO file) {
+        return resolveAuditFileRawMatchTexts(file).stream()
+                .map(this::normalizeCategoryMatchText)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+    }
+
+    private List<String> resolveAuditFileRawMatchTexts(DccNasControlAuditFileDO file) {
+        List<String> texts = new ArrayList<>();
+        String normalizedPath = DccNasPathUtils.normalizeRelativePath(file.getNormalizedRelativePath());
+        addMatchText(texts, normalizedPath);
+        addMatchText(texts, file.getFileName());
+        for (String part : normalizedPath.split("/")) {
+            addMatchText(texts, part);
+        }
+        return texts;
+    }
+
+    private void addMatchText(List<String> texts, String value) {
+        String text = StrUtil.trimToNull(value);
+        if (text != null && !texts.contains(text)) {
+            texts.add(text);
+        }
+    }
+
+    private String normalizeCategoryMatchText(String value) {
+        String normalized = StrUtil.trimToNull(value);
+        if (normalized == null) {
+            return null;
+        }
+        String withoutExtension = normalized.replaceFirst("\\.[^.\\\\/]+$", "");
+        return StrUtil.trimToNull(withoutExtension
+                .replace("（", "(")
+                .replace("）", ")")
+                .replace(" ", "")
+                .replace("\u3000", "")
+                .toLowerCase(Locale.ROOT));
+    }
+
+    private String candidateSnapshotJson(List<ProjectCandidate> projectCandidates,
+                                         List<CategoryCandidate> categoryCandidates) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("projectCandidates", projectCandidates.stream()
+                .map(this::projectCandidateSnapshot)
+                .toList());
+        snapshot.put("categoryCandidates", categoryCandidates.stream()
+                .map(this::categoryCandidateSnapshot)
+                .toList());
+        return JsonUtils.toJsonString(snapshot);
+    }
+
+    private Map<String, Object> projectCandidateSnapshot(ProjectCandidate candidate) {
+        DccProjectCodeDO projectCode = candidate.projectCode();
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("id", projectCode.getId());
+        snapshot.put("projectCode", projectCode.getProjectCode());
+        snapshot.put("projectName", projectCode.getProjectName());
+        return snapshot;
+    }
+
+    private Map<String, Object> categoryCandidateSnapshot(CategoryCandidate candidate) {
+        DccFileCategoryDO category = candidate.category();
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("id", category.getId());
+        snapshot.put("code", category.getCode());
+        snapshot.put("name", category.getName());
+        snapshot.put("fileTypeTaxonomyId", category.getFileTypeTaxonomyId());
+        snapshot.put("score", candidate.score());
+        return snapshot;
+    }
+
+    private String resolveMatchedLocalRelativePath(DccNasControlAuditFileDO file,
+                                                   DccProjectCodeDO projectCode,
+                                                   DccFileTypeTaxonomyPath taxonomyPath,
+                                                   DccFileCategoryDO category) {
+        String projectName = StrUtil.blankToDefault(projectCode.getProjectCode(), projectCode.getProjectName());
+        String projectSegment = safePathSegment(projectName) + "__" + projectCode.getId();
+        String categoryName = firstNonBlank(taxonomyPath.level5(), taxonomyPath.level4(), taxonomyPath.level3(),
+                taxonomyPath.level2(), taxonomyPath.level1(), category.getName());
+        String categorySegment = taxonomyPath.id() + "__" + safePathSegment(categoryName);
+        return projectSegment + "/" + categorySegment + "/" + safeRelativePath(file.getNormalizedRelativePath());
+    }
+
+    private String resolvePendingLocalRelativePath(DccNasControlAuditFileDO file) {
+        return UNCLASSIFIED_PENDING_DIRECTORY + "/" + safeRelativePath(file.getNormalizedRelativePath());
+    }
+
+    private String safeRelativePath(String path) {
+        String normalizedPath = DccNasPathUtils.normalizeRelativePath(path);
+        if (StrUtil.isBlank(normalizedPath)) {
+            normalizedPath = "unnamed";
+        }
+        List<String> safeParts = new ArrayList<>();
+        for (String part : normalizedPath.split("/")) {
+            safeParts.add(safePathSegment(part));
+        }
+        return String.join("/", safeParts);
+    }
+
+    private String safePathSegment(String value) {
+        String raw = StrUtil.trimToNull(value);
+        if (raw == null) {
+            return "_";
+        }
+        StringBuilder builder = new StringBuilder(raw.length());
+        for (int index = 0; index < raw.length(); index++) {
+            char ch = raw.charAt(index);
+            if (ch < 32 || ch == '/' || ch == '\\' || ch == ':' || ch == '*' || ch == '?'
+                    || ch == '"' || ch == '<' || ch == '>' || ch == '|') {
+                builder.append('_');
+            } else {
+                builder.append(ch);
+            }
+        }
+        String safe = StrUtil.trimToNull(builder.toString());
+        return safe == null ? "_" : safe;
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            String candidate = StrUtil.trimToNull(value);
+            if (candidate != null) {
+                return candidate;
+            }
+        }
+        return "_";
+    }
+
+    private <T> List<T> nullToEmpty(List<T> values) {
+        return values == null ? List.of() : values;
+    }
+
+    private String sourceSignature(String pathHash, Long fileSize, Long modifiedAtUtcEpochMillis) {
+        String payload = pathHash + "|" + fileSize + "|" + modifiedAtUtcEpochMillis;
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(payload.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 algorithm unavailable", ex);
+        }
     }
 
     private void writeSourceMissingRows(DccNasControlAuditTaskDO progress,
@@ -382,6 +895,12 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
         return respVO;
     }
 
+    private DccNasControlAuditFileRespVO toAuditFileRespVO(DccNasControlAuditFileDO file) {
+        DccNasControlAuditFileRespVO respVO = BeanUtils.toBean(file, DccNasControlAuditFileRespVO.class);
+        respVO.setAuditFileId(file.getId());
+        return respVO;
+    }
+
     private void flushProgress(DccNasControlAuditTaskDO progress, boolean force) {
         if (!force && defaultLong(progress.getScannedFileCount()) % PROGRESS_FLUSH_INTERVAL != 0) {
             return;
@@ -437,6 +956,46 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
 
     private TransactionTemplate tx() {
         return new TransactionTemplate(transactionManager);
+    }
+
+    private record ProjectCandidate(DccProjectCodeDO projectCode) {
+    }
+
+    private record CategoryCandidate(DccFileCategoryDO category, int score) {
+    }
+
+    private record CategoryRecognitionResult(List<CategoryCandidate> candidates,
+                                             CategoryCandidate bestCandidate,
+                                             boolean ambiguous) {
+    }
+
+    private static final class RecognitionCounter {
+
+        private long matchedCount;
+        private long unclassifiedPendingCount;
+        private long ambiguousCount;
+        private long skippedCount;
+
+        private void add(String classificationStatus) {
+            if (AUDIT_FILE_CLASSIFICATION_STATUS_MATCHED.equals(classificationStatus)) {
+                matchedCount++;
+            } else if (AUDIT_FILE_CLASSIFICATION_STATUS_UNCLASSIFIED_PENDING.equals(classificationStatus)) {
+                unclassifiedPendingCount++;
+            } else if (AUDIT_FILE_CLASSIFICATION_STATUS_AMBIGUOUS.equals(classificationStatus)) {
+                ambiguousCount++;
+            } else {
+                skippedCount++;
+            }
+        }
+
+        private DccNasControlAuditRecognizeRespVO toRespVO() {
+            DccNasControlAuditRecognizeRespVO respVO = new DccNasControlAuditRecognizeRespVO();
+            respVO.setMatchedCount(matchedCount);
+            respVO.setUnclassifiedPendingCount(unclassifiedPendingCount);
+            respVO.setAmbiguousCount(ambiguousCount);
+            respVO.setSkippedCount(skippedCount);
+            return respVO;
+        }
     }
 
     private static final class AuditReportWriter implements AutoCloseable {

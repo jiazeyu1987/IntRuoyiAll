@@ -23,6 +23,11 @@ const browserPage = readSource('src/views/dcc/controlled-file/browser/index.vue'
 const browserPresentation = readSource('src/views/dcc/controlled-file/browser/presentation.ts')
 const detailPage = readSource('src/views/dcc/controlled-file/detail/index.vue')
 const uploadPage = readSource('src/views/dcc/controlled-file/upload/index.vue')
+const workflowApi = readSource('src/api/dcc/controlledFile/workflow.ts')
+const controlledFileRespVo = readSource(
+  'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRespVO.java',
+  workspaceRoot
+)
 const queryService = readSource(
   'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java',
   workspaceRoot
@@ -121,6 +126,32 @@ for (const field of ['PublishedFileId', 'StampedFileId', 'CurrentActiveVersionNo
   )
 }
 assert.match(
+  controlledFileRespVo,
+  /private String directoryPath;/,
+  'controlled file response must expose formal directoryPath for viewer linkage'
+)
+assert.match(
+  workflowApi,
+  /directoryPath\?: string \| null/,
+  'frontend controlled file API type must carry formal directoryPath'
+)
+const detailRespBlock = extractBetween(
+  queryService,
+  'private DccControlledFileRespVO toRespVO(Long userId, DccControlledFileDO file, boolean includeRouteSnapshots,',
+  'private DccControlledFileRespVO toBrowserRespVO(Long userId, DccControlledFileDO file)',
+  'backend controlled file detail response projection'
+)
+for (const block of [
+  ['detail response', detailRespBlock],
+  ['browser response', browserRespBlock]
+]) {
+  assert.match(
+    block[1],
+    /respVO\.setDirectoryPath\(/,
+    `backend ${block[0]} must project directoryPath`
+  )
+}
+assert.match(
   browserPage,
   /data-testid="dcc-browser-permission-empty-state"/,
   'browser empty state must have a stable permission/no-match test id'
@@ -141,11 +172,23 @@ for (const token of [
   '发布文件',
   '盖章文件',
   '当前有效版来源',
+  '最终目录路径',
   '高级信息：publishedFileId',
   '高级信息：stampedFileId'
 ]) {
   assert.match(viewerModeTemplate, new RegExp(token), `viewer metadata must be business-readable: ${token}`)
 }
+const controlledBrowserDirectoryPathBlock = extractBetween(
+  detailPage,
+  'const controlledBrowserDirectoryPath = computed(() => {',
+  'const publishedFileBusinessText',
+  'controlled browser directory path computed'
+)
+assert.match(
+  controlledBrowserDirectoryPathBlock,
+  /fileDetail\.value\?\.directoryPath/,
+  'viewer controlled browser directory path must prefer formal detail directoryPath before tree fallback'
+)
 
 const publishSummaryTemplate = extractBetween(
   detailPage,

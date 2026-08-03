@@ -550,6 +550,7 @@ export interface ControlledFileVO {
   dccProjectCodeId?: number | null
   categoryId: number
   directoryId: number
+  directoryPath?: string | null
   productCode?: string
   productName?: string
   projectCodeRecognitionType?: string | null
