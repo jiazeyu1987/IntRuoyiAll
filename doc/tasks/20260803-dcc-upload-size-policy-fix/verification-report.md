@@ -30,3 +30,4 @@
 - Runtime note: the affected environment must apply `20260803_dcc_upload_size_policy_default_seed.sql` before users stop seeing the missing-policy message.
 - Closeout blocker: linked worktree cleanup/merge is not complete because `E:\IntRuoyi` is dirty and cannot receive the ff-only merge.
 - Git network note: persistent scoped GitHub proxy config points to closed `127.0.0.1:7890`; push succeeded only with one-off proxy clearing after direct `github.com:443` connectivity was verified.
+- Continued closeout blocker: main worktree closeout could not proceed while another `git commit` and multiple Git status/diff processes were active in `E:\IntRuoyi`; no locks were deleted and no unrelated processes were killed.

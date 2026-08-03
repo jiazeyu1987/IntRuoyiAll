@@ -47,3 +47,4 @@ ready_for_closeout
 - Cleanup preview kept `task.md`, `execution-log.md`, and `verification-report.md`; task-owned temporary artifacts were removed after their summaries were copied into retained records.
 - `task-closeout-cleanup --mode apply` cannot run yet because `E:\IntRuoyi` main worktree is dirty and the linked worktree cannot be fast-forward merged into `int_main`.
 - Latest cleanup preview remains blocked with no delete candidates: current branch cannot be ff-only merged into `int_main`, and main worktree `E:\IntRuoyi` is dirty.
+- Continued closeout attempt remains blocked by concurrent Git activity in `E:\IntRuoyi`: another process is running `git commit -m "chore: baseline residual browser task docs"` and multiple background `git status` / `git diff` processes are active, so this task cannot safely write the main worktree index or perform ff-only merge/removal yet.

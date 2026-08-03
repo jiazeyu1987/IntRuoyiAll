@@ -39,6 +39,8 @@
 - Cleanup preview after closeout record commit: blocked; keep list contains only `task.md`, `execution-log.md`, and `verification-report.md`; delete list is empty; blockers are non-fast-forward merge into `int_main` and dirty main worktree `E:\IntRuoyi`.
 - Push preflight: branch runtime port guard passed; GitHub object scan largest blob was `docs/experience-index.md` at `75343` bytes; `git ls-remote origin HEAD` initially failed because scoped Git config `http.https://github.com.proxy` pointed to closed `127.0.0.1:7890`, while direct `github.com:443` TCP connectivity was open.
 - GREEN: `git -c http.https://github.com.proxy= -c http.proxy= -c https.proxy= push origin codex/dcc-upload-size-policy-fix` -> PASS, remote branch created.
+- Continued closeout attempt after user requested `继续`: main worktree `E:\IntRuoyi` had multiple concurrent baseline commits land (`7ac953029 chore: baseline concurrent workspace changes`, `70433e4b9 chore: baseline browser task updates`) and continued to receive new dirty files.
+- Blocked: attempted to save residual main-worktree dirty state for closeout, but `E:\IntRuoyi\.git\index.lock` was repeatedly created by concurrent Git operations. Active process evidence included `git commit -m "chore: baseline residual browser task docs"` plus multiple `git status` / `git diff` processes. Per worktree and Git index-lock rules, this task stopped before deleting locks, killing processes, or merging.
 
 ## Verification Evidence
 
@@ -48,3 +50,4 @@
 
 - Closeout apply / worktree merge remains blocked by dirty main worktree `E:\IntRuoyi` and non-fast-forward merge guard.
 - Main worktree status observed during closeout: `int_main...origin/int_main [ahead 4]` with concurrent task edits under `doc/tasks/20260801-role-requirement-matrix-implementation` and `doc/tasks/20260803-dcc-browser-action-labels`; these are not task-owned and were not modified.
+- Continued blocker: active concurrent Git commit/status/diff processes in `E:\IntRuoyi` prevent safe index writes and prevent making the main worktree clean enough for `task-closeout-cleanup --mode apply`.
