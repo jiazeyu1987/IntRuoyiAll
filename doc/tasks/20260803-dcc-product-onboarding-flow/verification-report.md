@@ -67,7 +67,10 @@
 - PASS: `mvn.cmd -pl yudao-server "-Dmaven.test.skip=true" package` generated a worktree server exec jar after the DCC install; refreshed runtime jar SHA256 `6B26B7B7F09F4CCB6C45D45D7B64AA419B74BA9AEFBC64D6621BE1CFCF496FA5`.
 - PASS: worktree backend `48096` health `UP`, PID `63408`, using `output\runtime\int_main-slot15\backend-runtime-control-20260803-150013-dcc-product-onboarding-worktree.jar`.
 - PASS: `pnpm install --frozen-lockfile` in the worktree frontend; Vite started via `scripts\runtime\start-branch-frontend.ps1 -Slot 15` and `http://127.0.0.1:8096/` returned HTTP `200`.
-- PASS: real Playwright E2E through `http://127.0.0.1:8096/mdm/project-code` with local Chrome -> `requestId=5`, `projectCodeId=259`, `productMasterId=333`, `projectCode=CODXONB03073324`, `criticalNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- PASS: real Playwright E2E through `http://127.0.0.1:8096/mdm/project-code` with local Chrome before origin merge -> `requestId=5`, `projectCodeId=259`, `productMasterId=333`, `projectCode=CODXONB03073324`, `criticalNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 - NOTE: Initial worktree E2E failed with `404 请求地址不存在` because the first server-only package reused a stale local-repository DCC module. This was fixed by installing the worktree DCC module and repackaging the server jar.
 - PASS: Experience consolidation updated `docs/worktree-memory.md#Worktree Server-Only 打包旧本地仓库模块门禁`.
-- PENDING: branch is behind `origin/int_main` by 5 commits after verification; integration still requires updating from latest `origin/int_main`, running branch runtime port guard, committing task-owned evidence, merging back to local `int_main`, and pushing if GitHub HTTPS proxy/network permits.
+- PASS: merged latest local `origin/int_main` into the worktree branch; branch runtime port guard passed.
+- PASS: post-merge static contract `node tests\e2e\dcc-project-code-product-onboarding-static.spec.js`.
+- PASS: post-merge real Playwright E2E through `http://127.0.0.1:8096/mdm/project-code` with local Chrome -> `requestId=6`, `projectCodeId=260`, `productMasterId=334`, `projectCode=CODXONB03074144`, `criticalNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- PENDING: integration still requires committing post-merge evidence, merging back to local `int_main`, and pushing if the dirty main workspace and GitHub HTTPS proxy/network permit.
