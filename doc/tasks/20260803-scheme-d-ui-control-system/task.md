@@ -34,9 +34,9 @@ Out of scope for this first phase:
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-Implementation and scoped verification are complete for the first 基础数据 phase. Closeout remains pending because the shared `int_main` worktree has concurrent unrelated dirty changes and the recent mixed baseline commit `6073d6e4` already absorbed the first batch of this task's implementation files together with other task files. Do not mark `completed` until cleanup/commit/push boundaries are resolved safely.
+Implementation, scoped verification, cleanup, and selective task commit are complete for the first 基础数据 phase. The shared `int_main` worktree still has concurrent unrelated dirty changes, including a later non-Scheme-D product onboarding edit in `ProjectCodeTabPanel.vue`; those changes were not staged or committed by this task closeout.
 
 ## Design Constraints Check
 
@@ -60,6 +60,10 @@ Implementation and scoped verification are complete for the first 基础数据 p
 - c8a38a39e chore: baseline residual nas import task metadata
 - efecae435 chore: baseline concurrent task docs before scheme d ui work
 - 6073d6e4 chore: baseline dirty workspace before controlled print preview fix
+
+## Task Commits
+
+- 740149060 feat: finish scheme d controls for basic data pages
 
 ## Implementation Summary
 

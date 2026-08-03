@@ -39,4 +39,4 @@ First phase Scheme D UI control unification for 基础数据 child pages:
 
 ## Final Status
 
-Implementation and scoped verification are complete. Task remains `ready_for_closeout` until cleanup, selective commit, and push boundaries are resolved.
+Completed. Implementation and scoped verification are complete, cleanup apply removed only temporary evidence files, and the remaining task-owned changes were committed in `740149060`. The worktree still contains unrelated concurrent dirty changes that were intentionally left untouched.

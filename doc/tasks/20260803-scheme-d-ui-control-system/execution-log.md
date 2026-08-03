@@ -89,3 +89,5 @@ REGRESSION: pnpm ts:check or a narrower frontend static check if full type check
 ## Concurrent Worktree Note
 
 - `6073d6e4 chore: baseline dirty workspace before controlled print preview fix` was created while this task was in progress and includes the first batch of Scheme D task files together with unrelated task files. Current closeout must use selective staging only and must not use `git add -A`.
+- COMMIT: `740149060 feat: finish scheme d controls for basic data pages` -> committed remaining Scheme D task files and retained unrelated concurrent worktree changes outside the commit.
+- FINAL STATUS: completed. Post-commit workspace still has unrelated concurrent dirty changes, including a later product onboarding edit in `IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectCodeTabPanel.vue`, which is not part of this Scheme D task.
