@@ -39,3 +39,4 @@
 - Local `int_main` note: the SQL seed and SQL contract test have been applied to `E:\IntRuoyi` and require local verification/commit before this main workspace can be considered fixed.
 - Local release-gate note: latest full migration policy gate in `E:\IntRuoyi` is blocked by an existing unrelated migration missing release metadata: `IntRuoyiBackend/sql/mysql/20260730_mes_process_pool_team_leader.sql`. This does not change the targeted SQL contract result for `20260803_dcc_upload_size_policy_default_seed.sql`.
 - Local `int_main` risk note: DCC upload-size-policy SQL contract is green, but repo-wide release migration gate remains blocked by unrelated migration metadata and must be fixed before full release readiness can be claimed.
+- Local commit note: applied on `int_main` as `4add2d288`; push to `origin/int_main` is blocked by current GitHub HTTPS connectivity failure.

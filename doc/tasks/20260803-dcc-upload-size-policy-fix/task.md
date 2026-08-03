@@ -40,7 +40,7 @@ blocked - local `int_main` has the DCC upload-size-policy SQL/test applied, but 
 - Existing dirty worktree baseline commits created before this task's implementation: `2ddc9b122`, `14da650fd`, `8300af6d6`.
 - Isolated branch/worktree: `codex/dcc-upload-size-policy-fix` at `D:\IntRuoyiWorktree\dcc-upload-size-policy-fix`.
 - Implementation commit: `627951dc7 fix: seed DCC upload size policies`.
-- Local `int_main` application: cherry-picked the implementation changes into `E:\IntRuoyi` after preserving current dirty main-workspace changes in baseline commit `0fada3212`.
+- Local `int_main` application: cherry-picked the implementation changes into `E:\IntRuoyi` after preserving current dirty main-workspace changes in baseline commit `0fada3212`; committed as `4add2d288 fix: seed DCC upload size policies on int_main`.
 - Closeout record commit: `87d49f09a docs: record DCC upload size policy closeout blocker`.
 - Branch push: `codex/dcc-upload-size-policy-fix` pushed to `origin` after one-off clearing of the stale scoped GitHub proxy config for the push command.
 
@@ -52,3 +52,4 @@ blocked - local `int_main` has the DCC upload-size-policy SQL/test applied, but 
 - Continued closeout attempt remains blocked by concurrent Git activity in `E:\IntRuoyi`: another process is running `git commit -m "chore: baseline residual browser task docs"` and multiple background `git status` / `git diff` processes are active, so this task cannot safely write the main worktree index or perform ff-only merge/removal yet.
 - Third closeout attempt remains blocked: `E:\IntRuoyi` received new dirty and staged concurrent changes after previous baseline commits, and another active process was running `git commit -m "docs: close DCC download entry task"` while this task's attempted baseline files were staged. This creates a shared-index ownership conflict, so no ff-only merge or worktree removal is safe.
 - Local `int_main` fix is being applied directly because linked worktree closeout remained blocked by shared main-worktree activity.
+- Push remains blocked: `git push origin int_main` failed because GitHub HTTPS `github.com:443` was not reachable from this machine.

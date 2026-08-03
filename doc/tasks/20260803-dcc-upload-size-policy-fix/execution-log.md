@@ -51,6 +51,8 @@
 - Local release-gate recheck: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --output doc\tasks\20260803-dcc-upload-size-policy-fix\migration-policy-gate.json` -> FAIL, blocked by existing unrelated migration `20260730_mes_process_pool_team_leader.sql` missing release-migration metadata; the new seed's targeted SQL contract still passed.
 - GREEN: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_dcc_upload_size_policy_seed_sql.py` in `E:\IntRuoyi` -> PASS, 3 tests.
 - BLOCKED: `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output %TEMP%\dcc_upload_size_policy_int_main_migration_gate.json` in `E:\IntRuoyi\IntRuoyiBackend` -> FAIL, unrelated current-main gate blocker: `missing release-migration metadata: E:\IntRuoyi\IntRuoyiBackend\sql\mysql\20260730_mes_process_pool_team_leader.sql`.
+- Local implementation commit: `4add2d288 fix: seed DCC upload size policies on int_main`.
+- BLOCKED: `git -c http.https://github.com.proxy= -c http.proxy= -c https.proxy= push origin int_main` -> FAIL, `Failed to connect to github.com port 443`; local branch remains ahead of `origin`.
 
 ## Verification Evidence
 
@@ -63,3 +65,4 @@
 - Continued blocker: active concurrent Git commit/status/diff processes in `E:\IntRuoyi` prevent safe index writes and prevent making the main worktree clean enough for `task-closeout-cleanup --mode apply`.
 - Third attempt blocker: `E:\IntRuoyi` shared index is actively owned by another closeout/commit process, and current staged files are no longer exclusively task-owned by this DCC upload policy closeout.
 - Local verification blocker: release migration policy gate cannot complete on current `int_main` until unrelated `20260730_mes_process_pool_team_leader.sql` metadata is fixed; the DCC upload-size-policy SQL contract itself passed.
+- Push blocker: local `int_main` cannot be pushed while GitHub HTTPS 443 is unreachable.
