@@ -12,6 +12,10 @@ PASS: DCC 文档目录文件夹描边已按子文件夹状态区分，有子文�
 - `node tests/e2e/dcc-directory-summary-static.spec.js` -> PASS.
 - `pnpm e2e:dcc:directory-folder-border:static` -> PASS.
 - `pnpm ts:check` -> PASS.
+- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --self-test` -> PASS.
+- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260803-dcc-directory-folder-border/frontend-feature-evidence.md` -> PASS.
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-directory-folder-border --mode preview` -> PASS.
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-directory-folder-border --mode apply` -> PASS.
 
 ## Scope Checks
 
@@ -19,8 +23,8 @@ PASS: DCC 文档目录文件夹描边已按子文件夹状态区分，有子文�
 - No fallback, mock data, placeholder success, silent downgrade, or swallowed exception added.
 - Existing folder-row expand/collapse behavior remains intact.
 
-## Remaining Closeout
+## Commit Notes
 
-- Need run frontend feature evidence validator.
-- Need run task closeout cleanup preview/apply after validator evidence is copied into retained reports.
-- Need selective staging/commit/push decision because unrelated dirty files and pre-existing ahead commits are present in the shared workspace.
+- Implementation files were absorbed by shared baseline commit `c53c0a1e0`.
+- Temporary evidence was absorbed by shared baseline commit `61d406ca6` and removed by cleanup apply.
+- Final closeout should stage only this task's retained docs and evidence deletion; unrelated dirty files must remain untouched.
