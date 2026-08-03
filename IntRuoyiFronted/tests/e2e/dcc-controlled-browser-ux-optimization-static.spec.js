@@ -52,8 +52,32 @@ for (const token of [
 ]) {
   assert.match(tableTemplate, new RegExp(token), `browser row must show current active metadata: ${token}`)
 }
-for (const actionLabel of ['预览当前有效版', '查看版本追溯', '查看签核证据']) {
-  assert.match(tableTemplate, new RegExp(actionLabel), `browser row action must use explicit label: ${actionLabel}`)
+const browserRowActionBlock = extractBetween(
+  tableTemplate,
+  '<div class="browser-row-actions">',
+  '<el-button\n                  v-if="getBrowserRowActionState(getSelectedVersion(row)).canPrint"',
+  'browser row primary actions'
+)
+const expectedActionLabels = ['预览', '追溯', '签核', '下载']
+let previousActionLabelIndex = -1
+for (const actionLabel of expectedActionLabels) {
+  const actionLabelIndex = browserRowActionBlock.indexOf(`>${actionLabel}\n`)
+  assert.notEqual(actionLabelIndex, -1, `browser row primary action must use compact label: ${actionLabel}`)
+  assert.ok(
+    actionLabelIndex > previousActionLabelIndex,
+    `browser row primary action label order must be ${expectedActionLabels.join(' -> ')}`
+  )
+  previousActionLabelIndex = actionLabelIndex
+}
+for (const forbiddenActionLabel of ['预览当前有效版', '查看版本追溯', '查看签核证据']) {
+  assert.doesNotMatch(
+    browserRowActionBlock,
+    new RegExp(forbiddenActionLabel),
+    `browser row primary action must not keep old long label: ${forbiddenActionLabel}`
+  )
+}
+for (const handlerName of ['openPreview', 'openDetail', 'openSignatureEvidence', 'openDownload']) {
+  assert.match(browserRowActionBlock, new RegExp(`${handlerName}\\(`), `browser row action must keep handler: ${handlerName}`)
 }
 const fileNumberColumn = extractBetween(
   browserPage,

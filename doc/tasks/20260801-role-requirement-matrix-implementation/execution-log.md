@@ -828,3 +828,19 @@
 - RUNTIME_BLOCKED: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` could not prove the signature-pool GREEN path because current 48081 listener PID `5852` is unrelated `backend-runtime-control-20260803-121411-dcc-product-onboarding.jar`; the run failed before D29 at PQC process list with `1040506107 当前工序缺少待执行 PQC 检验任务`, consistent with the wrong runtime not loading the later `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar` behavior.
 - CLEANUP/OWNERSHIP: Did not stop PID `5852`, did not switch ports, and did not claim full E2E PASS because the listener belongs to an unrelated DCC runtime on the shared int_main port.
 - Decision: AC-D29 signature reuse blocker is addressed at the E2E script gate, but full real verification is currently blocked by shared runtime ownership. Need explicit authorization to stop or replace the DCC product-onboarding runtime with the M6 RRM jar before rerunning full real E2E. M6 remains `in_progress`; no `git push` per user instruction.
+
+## M6 - AC-D29 And AC-D32 Real-page PASS Evidence Sync
+
+- BDD: AC-D29/D32 submitted PQC evidence must be real-page sourced -> Given PQC 检验员通过球囊扩张压力泵 V21 正式页面提交过程检验 When PQC 组长使用同一订单、产品、工序、人员、检验类型、轮次、提交日期和复核状态筛选 Then 应能看到同筛选条件下稳定的提交事件分页 total，并且正式提交必须使用未占用签名生成过程池事件。
+- TEST_ADDED: `role-matrix-pqc-d32-fixture-static.spec.cjs` -> 锁定 D32 local fixture 只能准备 formal PENDING PQC task，禁止插入 `mes_pro_process_pool_event` 或直接标记 submitted，防止 API/SQL 伪造真实页面提交。
+- RED: first runtime execution of `m6-pqc-d32-same-filter-local-seed.sql` -> FAIL，expected reason：MySQL `ERROR 1267 Illegal mix of collations`，临时字符串比较未显式匹配目标列排序规则。
+- GREEN: rerun fixed `m6-pqc-d32-same-filter-local-seed.sql` -> PASS，explicit `utf8mb4_unicode_ci` collation applied；local fixture inserted/reused formal PQC task `31` for routeProcessId `928609` / processId `922985` without inserting process-pool event or marking submitted.
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-matrix-pqc-d32-fixture:static` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: runtime probe -> PASS，48081 listener PID `43876` is `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`; backend health `UP`; frontend 8081 HTTP `200`。
+- GREEN: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> PASS，0 SOURCE / 0 ENV / 0 RUNTIME。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` -> STRUCTURED_BLOCKED，exit 2；`phaseEvidence=6`、`actionEvidence=10`、`gateEvidence=2`、`blockers=65`。
+- GREEN: `pqcFormalSubmissionCreated` action evidence -> PASS，`submittedTaskId=31`、`eventId=26`、`signatureId=23`、`candidateSignatureIds=[25,22,23,24,26,27]`、`usedSignatureIds=[25,22]`。
+- GREEN: `pqcLeaderSubmissionFilterPaginationConsistent` action evidence -> PASS，same-filter `total=2`，filters are `submitDate=2026-08-03`、`workOrderCode=RRM-20260801-PP-MO-001`、`employeeUserId=512`、`processId=922985`、`productKeyword=AW.107.02.01.2010`、`inspectionType=PATROL`、`roundNo=1`、`submissionReviewStatus=PENDING`；page 1 event `24` and page 2 event `26`。
+- TASK_DOCS: `task-state.json`、`task.md`、`test-report.md`、`verification-report.md` -> UPDATED，关闭旧 runtime ownership、AC-D29 signature/data blocker 和 AC-D32 submitted-data blocker 叙述；M6 仍 `in_progress`，剩余 blocker 为 `activeOrderCleanupDeferred`、`m6ConcurrencyGateDeferred`、`m6PerformanceGateDeferred` 和 62 个 `E2E_COVERAGE`。
+- Decision: AC-D29 与 AC-D32 已达到真实动作 PASS，但均不得标记为 `ACCEPTED`；仍缺失败路径、权限/只读核验、并发/性能、清理和全量 M6 coverage gate。本轮仍不执行 `git push`。
