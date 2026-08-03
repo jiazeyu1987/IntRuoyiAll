@@ -29,6 +29,7 @@
 - completed: `task_closeout.py --task-id 20260803-form-center-template-version-route-missing --mode preview` -> PASS, keep task records, delete none, blocked none.
 - completed: `task_closeout.py --task-id 20260803-form-center-template-version-route-missing --mode apply` -> PASS, deleted none.
 - note: Concurrent baseline commit `61d406ca6` landed during this turn and already included `task.md`, `verification-report.md`, and earlier `execution-log.md` content for this task. This follow-up log delta records cleanup evidence and the no-mixed-commit decision only.
+- note: Scoped closeout commit `8261fe08d` accidentally included three unrelated DCC controlled-print task docs. Follow-up repair commit `b869579ac` reversed only those DCC doc hunks from the branch, then the saved patch was reapplied to the working tree so the other task's edits remain preserved and unstaged.
 - blocker: Full branch push/clean closeout is still not task-owned because the branch has unrelated ahead commits and unrelated dirty DCC task files. This task's remaining log update can be committed separately, but broad cleanup or push must not mix those unrelated changes without user coordination.
 
 ## Experience Consolidation
