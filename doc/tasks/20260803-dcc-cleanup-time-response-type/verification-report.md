@@ -23,5 +23,6 @@
 
 ## Remaining Integration Risk
 
-- Git branch remains `ahead 1, behind 2`; push/complete status requires resolving remote divergence under project policy.
+- Git branch remains `ahead 2, behind 2`; push/complete status requires resolving remote divergence under project policy.
 - Unrelated concurrent changes in DCC OnlyOffice/NAS task files remain outside this task and must not be staged.
+- `git merge --no-edit origin/int_main` was aborted because remote PQC documentation conflicted add/add with local baseline history in `doc/tasks/20260803-pqc-equipment-standard-method-design/*`; this cleanup-time task is blocked from final `completed` status until that unrelated integration conflict is resolved.

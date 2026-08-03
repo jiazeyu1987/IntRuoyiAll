@@ -10,7 +10,8 @@ Fix the DCC response contract so `cleanupTime` is emitted with the valid API fie
 - [x] Reproduce the invalid `cleanupTime` response type with a deterministic regression test.
 - [x] Fix the DCC response field type at the root contract/source.
 - [x] Run targeted DCC regression verification.
-- [ ] Complete cleanup, commit, and push according to project policy.
+- [x] Complete cleanup and implementation commit.
+- [ ] Push according to project policy after unrelated PQC merge conflict is resolved.
 
 ## Expected Verification
 
@@ -20,7 +21,7 @@ Fix the DCC response contract so `cleanupTime` is emitted with the valid API fie
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
 ## Verification Evidence
 
@@ -41,6 +42,12 @@ ready_for_closeout
 
 - PREVIEW: `task_closeout.py --task-id 20260803-dcc-cleanup-time-response-type --mode preview` kept `task.md`, `execution-log.md`, and `verification-report.md`, and selected only `bug-regression-evidence.md` for deletion.
 - APPLY: `task_closeout.py --task-id 20260803-dcc-cleanup-time-response-type --mode apply` deleted only `bug-regression-evidence.md` with no blocked paths or warnings.
+
+## Integration Blocker
+
+- Implementation commit `5725d8af2 fix: align DCC cleanup time timestamp contract` succeeded locally after branch runtime port guard passed.
+- Required push is blocked because local `int_main` is `ahead 2, behind 2`; `git merge --no-edit origin/int_main` was aborted after unrelated add/add conflicts in `doc/tasks/20260803-pqc-equipment-standard-method-design/*`.
+- This task did not resolve the PQC conflict because it belongs to another task. The cleanup-time fix remains committed locally and verified, but the task cannot be marked `completed` until remote divergence is resolved and `git push origin int_main` succeeds.
 
 ## 设计约束检查
 
