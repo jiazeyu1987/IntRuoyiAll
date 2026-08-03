@@ -71,7 +71,7 @@ BDD: 页面入口暴露建档申请失败原因 -> Given 用户在 DCC 项目代
 
 ready_for_closeout
 
-实现与本任务定向验证、隔离构建加载、真实页面 E2E、task cleanup apply 和恢复后运行态复核已完成；最新真实 E2E 在切回本任务已验证 Jar 后通过，`requestId=4`、`projectCodeId=258`、`productMasterId=332`。当前共享 `48081` 已由外部/其它任务恢复为 `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`，不是本任务产品建档验证 Jar；本任务不再抢占该运行态。最终 commit/push 尚未执行：最新 `git status --short --branch` 显示 `int_main...origin/int_main` 已不再 ahead，但工作区仍存在多项非本任务脏改动；按任务所有权和提交边界，不在本任务中打包、提交或推送这些无关改动。
+实现与本任务定向验证、隔离构建加载、真实页面 E2E、task cleanup apply 和恢复后运行态复核已完成；最新真实 E2E 在切回本任务已验证 Jar 后通过，`requestId=4`、`projectCodeId=258`、`productMasterId=332`。当前共享 `48081` 已由外部/其它任务恢复为 `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`，不是本任务产品建档验证 Jar；本任务不再抢占该运行态。最终 push 未执行：当前 `int_main` 有未推送基线提交 `a653452fc chore: baseline pre-existing worktree changes`，且工作区仍有非本任务未跟踪目录 `doc/tasks/20260803-edhr-batch-execution-record-config-missing/`；按任务所有权和提交边界，不在本任务中继续打包、提交或推送这些无关改动。
 
 ## 设计约束检查
 

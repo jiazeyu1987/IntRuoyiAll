@@ -659,6 +659,14 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         Fixture fixture = insertRouteFixture(true, true);
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
         MesProRouteDO route = routeMapper.selectById(fixture.routeId());
+        routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(route.getId(), "BATCH")
+                .forEach(record -> routeFlowProcessBatchRecordMapper.deleteById(record.getId()));
+        routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(route.getId(), "BATCH")
+                .forEach(config -> routeFlowProcessConfigMapper.deleteById(config.getId()));
+        MesProRouteFlowConfigDO liveFlowConfig = routeFlowConfigMapper.selectByRouteIdAndUseType(route.getId(), "BATCH");
+        if (liveFlowConfig != null) {
+            routeFlowConfigMapper.deleteById(liveFlowConfig.getId());
+        }
         MesProEdhrBatchExecutionDO legacyBatch = MesProEdhrBatchExecutionDO.builder()
                 .batchExecutionCode("EDHRB-PAGE-BROKEN-SNAPSHOT")
                 .workOrderId(workOrder.getId())
@@ -698,6 +706,52 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertTrue(detail.getTasks().isEmpty());
         assertTrue(detail.getCloseBlockers().stream()
                 .anyMatch(blocker -> blocker.contains("工艺流程批记录配置")));
+    }
+
+    @Test
+    void getDetail_recoversMissingRouteTasksFromCurrentBatchConfigWhenFrozenSnapshotIncomplete() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
+        MesProRouteDO route = routeMapper.selectById(fixture.routeId());
+        MesProEdhrBatchExecutionDO legacyBatch = MesProEdhrBatchExecutionDO.builder()
+                .batchExecutionCode("EDHRB-DETAIL-CURRENT-CONFIG-RECOVERY")
+                .workOrderId(workOrder.getId())
+                .workOrderCode(workOrder.getCode())
+                .batchCode("BATCH-DETAIL-CURRENT-CONFIG-RECOVERY")
+                .activeContextKey(workOrder.getId() + "|" + route.getId() + "|BATCH-DETAIL-CURRENT-CONFIG-RECOVERY")
+                .productId(workOrder.getProductId())
+                .productCode(String.valueOf(workOrder.getProductId()))
+                .productName(workOrder.getName())
+                .routeId(route.getId())
+                .routeVersionId(fixture.routeVersionId())
+                .routeVersionNo(fixture.routeVersionNo())
+                .routeSnapshotJson("{\"configSnapshots\":{\"flowGraph\":{\"nodes\":[]},\"batchUseConfigs\":[]}}")
+                .routeCode(route.getCode())
+                .routeName(route.getName())
+                .status(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CREATED)
+                .taskTotal(4)
+                .taskApprovedCount(0)
+                .blockedCount(0)
+                .build();
+        batchExecutionMapper.insert(legacyBatch);
+        insertLegacySpecialOnlyTasks(legacyBatch.getId());
+
+        EdhrBatchExecutionRespVO detail = batchExecutionService.get(legacyBatch.getId());
+
+        assertEquals(6, detail.getTaskTotal());
+        assertEquals(List.of(fixture.reportId1(), fixture.reportId2()), routeTasks(detail).stream()
+                .map(EdhrBatchExecutionTaskRespVO::getBatchRecordReportId)
+                .toList());
+        List<MesProEdhrBatchExecutionTaskDO> persistedRouteTasks =
+                batchTaskMapper.selectListByBatchExecutionId(legacyBatch.getId()).stream()
+                        .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM.equals(task.getNodeType()))
+                        .sorted(Comparator.comparing(MesProEdhrBatchExecutionTaskDO::getRouteProcessSort)
+                                .thenComparing(MesProEdhrBatchExecutionTaskDO::getBatchRecordSort))
+                        .toList();
+        assertEquals(List.of(fixture.reportId1(), fixture.reportId2()), persistedRouteTasks.stream()
+                .map(MesProEdhrBatchExecutionTaskDO::getBatchRecordReportId)
+                .toList());
+        verify(workTaskService).createInitialFillTask(argThat(batch -> Objects.equals(batch.getId(), legacyBatch.getId())));
     }
 
     @Test

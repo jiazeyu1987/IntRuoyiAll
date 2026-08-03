@@ -65,6 +65,7 @@
 - GREEN: rerun real Playwright E2E through `/mdm/project-code` with local Chrome -> PASS: `requestId=4`, `projectCodeId=258`, `productMasterId=332`, `projectCode=CODXONB03045351`; result JSON records `criticalNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 - Experience consolidation check: runtime Jar mismatch was already covered by `docs/local-runtime.md#2026-07-24 隔离构建 Jar 加载门禁`; DCC product onboarding domain rules were already merged into `docs/database-rules.md#DCC 项目代码 MDM 产品建档绑定门禁`, so no new long-term experience document was created.
 - Final runtime boundary check: after the successful product-onboarding E2E, shared `48081` was externally restored to PID `43876` running `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`; health is `UP`, but current shared runtime no longer contains the product-onboarding controller. This task does not stop or replace that unrelated active runtime again.
+- Git boundary: observed HEAD `a653452fc chore: baseline pre-existing worktree changes`, which includes this task's evidence files together with other task files; `origin/int_main` remains at `347e96be1`, so branch is ahead by 1. `git status --short --branch --untracked-files=all` still reports unrelated untracked `doc/tasks/20260803-edhr-batch-execution-record-config-missing/`; this task does not add or push that unrelated task directory.
 
 ## Milestone Status
 
@@ -104,4 +105,4 @@
 
 - Standard restart remains blocked by unrelated dirty DCC NAS import code compile errors in `DccControlledFileNasTransferServiceImpl.java`; product onboarding verification used a clean detached build jar instead of modifying or reverting that unrelated work.
 - Current shared runtime `48081` is healthy but owned by another task jar (`backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`); product-onboarding E2E already passed during the controlled temporary switch to the verified jar, and rerun would require another explicit runtime switch.
-- 最终提交/推送未执行：当前分支已不再 ahead，但工作区含多项无关脏改动/未跟踪产物；按任务所有权边界，不能把无关任务改动打包进本任务提交或推送。
+- 最终 push 未执行：当前分支已有未推送基线提交 `a653452fc`，且仍有非本任务未跟踪目录 `doc/tasks/20260803-edhr-batch-execution-record-config-missing/`；按任务所有权边界，不能在本任务中继续打包、提交或推送这些无关改动。
