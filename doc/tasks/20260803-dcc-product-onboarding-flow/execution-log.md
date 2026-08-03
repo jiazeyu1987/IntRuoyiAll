@@ -38,6 +38,26 @@
 - Verification: `rg -n "DCC 项目代码 MDM 产品建档绑定|dcc_product_onboarding_request|productMasterId" docs\experience-index.md docs\database-rules.md` -> PASS, new route and gate located.
 - Verification: `git diff --check -- <task evidence files and updated docs>` -> PASS, only CRLF conversion warnings, no whitespace errors.
 - REGRESSION NOTE: full `DccBaseSchemaTest` 未作为当前完成门禁复跑；此前已知存在与本任务无关的 destructive SQL 检测和 NAS nullable 断言失败，不写作 PASS。
+- Continuation runtime check: `Invoke-WebRequest http://127.0.0.1:8081/` -> 200；`Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> UP。
+- Runtime schema precondition: prior continuation had applied `IntRuoyiBackend\sql\mysql\20260803_dcc_product_onboarding_flow.sql` to local Docker MySQL and verified `dcc_project_code.product_master_id` / `dcc_product_onboarding_request` exist; no production/test-server data touched.
+- RED: `node ..\doc\tasks\20260803-dcc-product-onboarding-flow\dcc-product-onboarding-real.e2e.cjs` -> FAIL, expected reason: create request succeeded (`requestId=1`) but approve returned `1080000192 DCC product onboarding project code already exists or is pending`; root cause was approval duplicate check counted the current pending request itself.
+- RED: `mvn -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest#approveRequest_shouldIgnoreCurrentPendingRequestWhenCheckingDuplicatePendingProject" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL before fix, expected reason: current pending request was treated as duplicate.
+- Fix: `DccProductOnboardingServiceImpl.validateProjectCodeAvailable` now keeps create-time duplicate blocking unchanged, and approval passes current request id so only other pending requests or existing DCC project codes block approval.
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest#approveRequest_shouldIgnoreCurrentPendingRequestWhenCheckingDuplicatePendingProject" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 1, Failures: 0, Errors: 0, Skipped: 0.
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest,DccControlledFileWorkflowServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 107, Failures: 0, Errors: 0, Skipped: 0.
+- Runtime blocker: standard `.\IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1 -Component backend` failed before startup because unrelated dirty file `DccControlledFileNasTransferServiceImpl.java` does not compile (`requireNonNull`, `SelectedUncontrolledImportFile`, `PreparedUncontrolledImportFile` missing); this blocker is outside the product onboarding task and was not modified.
+- Isolated build: created task-owned detached worktree `D:\IntRuoyiWorktree\dcc-product-onboarding-build-20260803`, applied only this service/test patch, and ran the same focused JUnit -> PASS, Tests run: 1.
+- Isolated package: `mvn -pl yudao-server -am "-DskipTests" package` in the detached worktree -> PASS, BUILD SUCCESS; copied resulting jar to `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260803-121411-dcc-product-onboarding.jar`, SHA256 `0BDB594204E0FF55CCEB2744D7566493643A27231C404D4424B50BA83051F02B`.
+- Runtime recovery: stopped old/conflicting same-profile PIDs `13048` and `58148`; started new jar on `48081` as PID `5852`; health returned UP and listener command line points to the new product-onboarding jar.
+- E2E script check: `node --check ..\doc\tasks\20260803-dcc-product-onboarding-flow\dcc-product-onboarding-real.e2e.cjs` -> PASS.
+- E2E first post-fix pass exposed script-page pagination assumption: create/approve succeeded (`requestId=2`, `projectCodeId=256`, `productMasterId=330`) but script waited for the new project code on the current unfiltered page; patched script to use the page's standard quick filter by `项目代码`.
+- GREEN: `node ..\doc\tasks\20260803-dcc-product-onboarding-flow\dcc-product-onboarding-real.e2e.cjs` in `IntRuoyiFronted` with local Chrome -> PASS: `requestId=3`, `projectCodeId=257`, `productMasterId=331`, `projectCode=CODXONB03042211`; result JSON records `criticalNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- Cleanup: removed task-owned detached worktree `D:\IntRuoyiWorktree\dcc-product-onboarding-build-20260803`; deleted temporary startup helper script; retained real E2E `.cjs` and result JSON via `## Cleanup Keep`.
+- Cleanup preview/apply: `task_closeout.py --task-id 20260803-dcc-product-onboarding-flow --mode preview/apply` -> PASS; kept `task.md`, `execution-log.md`, `verification-report.md`, real E2E script and result JSON; deleted temporary backend/database/frontend/bug evidence files after their PASS results were copied into this log and verification report.
+- Cleanup keep visibility: `git check-ignore -v doc/tasks/20260803-dcc-product-onboarding-flow/dcc-product-onboarding-real.e2e.cjs` -> `.gitignore:99:doc/tasks/**/*.cjs`; if this task is committed later, the retained E2E script must be staged with `git add -f`.
+- Experience consolidation: updated existing `docs/database-rules.md#DCC 项目代码 MDM 产品建档绑定门禁` to include approval duplicate checking that ignores the current pending request but blocks other pending requests.
+- Continue after runtime recovery: `git status --short --branch --untracked-files=all` -> `int_main...origin/int_main`, no ahead marker, but multiple non-task dirty files remain; task-owned changed files remain limited to product onboarding service/test, task evidence, cleanup deletes, real E2E result and `docs/database-rules.md`.
+- Continue after runtime recovery: `Get-NetTCPConnection -LocalPort 48081,8081 -State Listen` -> backend `48081` PID `32276`, frontend `8081` PID `28264`; frontend `Invoke-WebRequest http://127.0.0.1:8081/` -> 200; backend health endpoint returned `UP`.
 
 ## Milestone Status
 
@@ -46,12 +66,13 @@
 - M3 RED 测试：completed。
 - M4 实现：completed。
 - M5 GREEN/回归验证：completed。
-- M6 收尾证据：in_progress，verification report 和 evidence validator 已补齐；最终 cleanup/commit/push 因无关脏工作区和分支 ahead 状态阻塞。
+- M6 收尾证据：completed，verification report、真实 E2E、隔离构建、cleanup 证据和恢复后运行态复核已补齐；最终 commit/push 因无关脏工作区阻塞。
 
 ## Implementation Summary
 
 - Backend API: 新增 `/dcc/product-onboarding-requests/create` 和 `/{id}/approve`，使用 `dcc:project-code:create/update` 权限；建档申请只生成待审批单，审批通过后创建启用 DCC 项目代码并写入 `productMasterId`。
 - Backend service: `DccProductOnboardingServiceImpl` 统一校验目标项目代码唯一性、待审批状态、MDM 产品有效性、14 位 DCC 产品编号；未选择 MDM 时审批阶段正式创建启用 MDM 产品。
+- Backend bug fix: 审批通过的重复项目代码校验排除当前待审批申请自身，避免审批动作被自身 pending 记录阻塞；创建申请仍会拦截任何待审批重复。
 - MDM integration: `MdmProductApi` 增加正式创建产品能力，审批和受控文件提交流程通过 `getEnabledDccProduct` 读取启用 MDM 产品，不用默认值或前端文本替代。
 - Controlled file flow: DCC 项目代码绑定 MDM 产品时，受控文件提交保存正式 MDM `productMasterId`、DCC 产品编号和中文名；旧的未绑定项目代码仍保留项目代码/项目名作为历史兼容数据来源。
 - Database: 基础 schema、迁移和 DCC 测试 fixture 增加 `dcc_project_code.product_master_id`、`dcc_product_onboarding_request`、待审批唯一约束和状态/产品/生成项目索引。
@@ -66,8 +87,13 @@
 - PASS: `mvn -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest,DccControlledFileWorkflowServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`，106 tests。
 - PASS: `mvn -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportProductOnboardingAndProjectMdmBinding" "-Dsurefire.failIfNoSpecifiedTests=false" test`，1 focused schema test。
 - PASS: backend/database/frontend evidence validators。
+- PASS: bug regression evidence validator (`validate_bug_regression.py`) -> Bug regression evidence is valid.
+- PASS: `mvn -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest#approveRequest_shouldIgnoreCurrentPendingRequestWhenCheckingDuplicatePendingProject" "-Dsurefire.failIfNoSpecifiedTests=false" test`，1 focused regression。
+- PASS: `mvn -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest,DccControlledFileWorkflowServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`，107 tests。
+- PASS: isolated `mvn -pl yudao-server -am "-DskipTests" package`，runtime jar SHA256 `0BDB594204E0FF55CCEB2744D7566493643A27231C404D4424B50BA83051F02B`。
+- PASS: real Playwright E2E through `/mdm/project-code` with local Chrome, `requestId=3`, `projectCodeId=257`, `productMasterId=331`, `projectCode=CODXONB03042211`。
 
 ## Blockers
 
-- 真实写入型 Playwright E2E 未执行：本轮未确认本机前后端运行态、测试租户/账号、可写测试 MDM 产品和任务自有 DCC 测试数据；未用 API-only、mock 或直接 SQL 替代真实页面验收。
-- 最终提交/推送未执行：当前分支已有 15 个本地 ahead 提交且工作区含多项无关脏改动/未跟踪产物；按任务所有权边界，不能把无关任务改动打包进本任务提交或推送。
+- Standard restart remains blocked by unrelated dirty DCC NAS import code compile errors in `DccControlledFileNasTransferServiceImpl.java`; product onboarding verification used a clean detached build jar instead of modifying or reverting that unrelated work.
+- 最终提交/推送未执行：当前分支已不再 ahead，但工作区含多项无关脏改动/未跟踪产物；按任务所有权边界，不能把无关任务改动打包进本任务提交或推送。

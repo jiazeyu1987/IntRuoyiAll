@@ -79,7 +79,7 @@ public class DccProductOnboardingServiceImpl implements DccProductOnboardingServ
             throw exception(PRODUCT_ONBOARDING_STATUS_INVALID);
         }
         ProductSnapshot product = resolveEnabledProductForApproval(request);
-        validateProjectCodeAvailable(request.getProjectName(), request.getProjectCode());
+        validateProjectCodeAvailable(request.getProjectName(), request.getProjectCode(), request.getId());
 
         DccProjectCodeDO projectCode = DccProjectCodeDO.builder()
                 .productMasterId(product.productMasterId())
@@ -158,8 +158,17 @@ public class DccProductOnboardingServiceImpl implements DccProductOnboardingServ
     }
 
     private void validateProjectCodeAvailable(String projectName, String projectCode) {
-        if (projectCodeMapper.selectByProjectNameAndProjectCode(projectName, projectCode) != null
-                || requestMapper.selectPendingByProjectNameAndProjectCode(projectName, projectCode) != null) {
+        validateProjectCodeAvailable(projectName, projectCode, null);
+    }
+
+    private void validateProjectCodeAvailable(String projectName, String projectCode, Long ignoredRequestId) {
+        if (projectCodeMapper.selectByProjectNameAndProjectCode(projectName, projectCode) != null) {
+            throw exception(PRODUCT_ONBOARDING_DUPLICATE_PROJECT_CODE);
+        }
+        DccProductOnboardingRequestDO pendingRequest = requestMapper
+                .selectPendingByProjectNameAndProjectCode(projectName, projectCode);
+        if (pendingRequest != null
+                && (ignoredRequestId == null || !ignoredRequestId.equals(pendingRequest.getId()))) {
             throw exception(PRODUCT_ONBOARDING_DUPLICATE_PROJECT_CODE);
         }
     }

@@ -85,12 +85,17 @@ BDD: 预览态不加载未渲染的分发和流程打印辅助数据 -> Given �
 - CONCURRENT COMMIT NOTE: `740149060` (`feat: finish scheme d controls for basic data pages`) landed between implementation and closeout commits; it was not staged or modified by this task.
 - COMMIT EVIDENCE COMMIT: `bc1a52562` (`chore: record controlled print preview commit evidence`) -> files: `execution-log.md` commit evidence only.
 - SIMILAR ISSUE COMMIT NOTE: `03646727b` (`chore: baseline main worktree before form center merge`) already contains the source/test changes for skipping `getPaperDistributionRecords` and `getActiveApprovalPrintTemplate` in viewer mode; history was not amended or rewritten.
+- CONCURRENT BASELINE NOTE: `c53c0a1e0` (`chore: baseline concurrent main worktree updates`) contains the long-term gate updates for `docs/e2e-rules.md`, `docs/experience-index.md`, and task evidence for the similar issue.
+- CONTINUATION BASELINE NOTE: `4f3d7297b` (`chore: baseline dirty workspace before tab load optimization`) contains the continuation evidence updates in this task's task/execution/verification/bug-regression documents.
 
-## Push Blocker
+## Push Result
 
 - FAIL: `git push origin int_main` -> `Failed to connect to github.com port 443 via 127.0.0.1 after 2106 ms: Could not connect to server`.
 - DIAG: `git config --list --show-origin | Select-String -Pattern 'proxy|insteadOf|sslVerify|http.version'` -> global `http.https://github.com.proxy=http://127.0.0.1:7890`.
 - DIAG: `Test-NetConnection 127.0.0.1 -Port 7890` -> `TcpTestSucceeded=False`.
 - DIAG: `Test-NetConnection github.com -Port 443` -> `TcpTestSucceeded=False`.
 - DIAG: `Test-NetConnection ssh.github.com -Port 443` -> `TcpTestSucceeded=True`; `ssh -T -o BatchMode=yes git@ssh.github.com -p 443` -> `Permission denied (publickey)`.
-- IMPACT: Current task implementation and closeout commits are local only; branch remains ahead of `origin/int_main`, so task status is `blocked` until push succeeds.
+- GREEN: `Test-NetConnection 127.0.0.1 -Port 7890` -> `TcpTestSucceeded=True`, proxy listener recovered.
+- GREEN: pending-object scan before push -> largest blob `228033` bytes, no GitHub 100 MB large-file blocker.
+- GREEN: `git push origin int_main` -> PASS, branch runtime port guard passed and remote advanced `f08fa2a2d..61d406ca6`.
+- GREEN: task status updated from `blocked` to `completed` after successful push.

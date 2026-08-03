@@ -18,7 +18,7 @@
 3. completed - 写 RED：后端服务/前端静态契约证明当前缺少产品建档申请、审批通过生成 DCC 项目代码、MDM 绑定和页面入口。
 4. completed - 实现最小正式链路：数据库字段/表、后端 API/服务、唯一性与状态校验、受控文件提交 MDM 绑定、前端入口。
 5. completed - 运行 GREEN：后端定向测试、数据库/前端静态契约和必要类型/编译验证。
-6. in_progress - 更新验证报告、任务状态和收尾证据；最终提交/推送受既有分支 ahead 与无关脏工作区状态阻塞，未标记 completed。
+6. completed - 更新验证报告、任务状态和收尾证据；真实页面 E2E 已通过，最终提交/推送受既有分支 ahead 与无关脏工作区状态阻塞，未标记 completed。
 
 ## BDD Scenarios
 
@@ -40,7 +40,7 @@ BDD: 页面入口暴露建档申请失败原因 -> Given 用户在 DCC 项目代
 - 数据库迁移/Schema 契约证明新增申请表、DCC 项目代码 MDM 绑定字段和关键唯一/索引约束。
 - 前端静态契约证明项目代码基础数据页存在“产品建档申请”入口、表单字段、API 调用和错误暴露。
 - 技能 evidence validator 通过，并将 PASS 结论复制到默认保留的验证报告。
-- 若真实 E2E 受登录/运行态/测试数据前置阻塞，记录精确 blocker，不用 mock 或 API-only 替代真实页面验收。
+- 真实 Playwright E2E 通过项目代码页面发起建档申请、审批通过、页面按项目代码筛选回显，并用只读 API 核验 DCC 项目代码和 MDM 产品绑定。
 
 ## Applicable Gates
 
@@ -58,14 +58,20 @@ BDD: 页面入口暴露建档申请失败原因 -> Given 用户在 DCC 项目代
 
 - DCC 基础条目和项目代码只能使用正式来源，不能用当前关联文件、空值、前端硬编码或 `formBindings` 替代正式主数据。
 - DCC 项目代码与 MDM 产品绑定必须走正式建档申请/审批状态机；审批通过后 `productMasterId` 必须来自启用 MDM 产品或审批阶段正式创建的 MDM 产品。
+- 审批通过时的重复项目校验必须忽略当前待审批申请自身，但继续拦截其它待审批申请和已存在 DCC 项目代码。
 - DCC 审批处理必须有真实处理态入口和失败可见证据；如果缺少正式审批策略或运行态前置，应记录 BLOCKED，不能通过 SQL/API 改状态冒充审批完成。
 - 数据库/schema 改动必须先核对现有迁移、DO、Mapper 和测试夹具，并为新增字段/表提供迁移与回归证据。
+
+## Cleanup Keep
+
+- doc/tasks/20260803-dcc-product-onboarding-flow/dcc-product-onboarding-real.e2e.cjs
+- doc/tasks/20260803-dcc-product-onboarding-flow/dcc-product-onboarding-real-e2e-result.json
 
 ## Current Status
 
 ready_for_closeout
 
-实现与本任务定向验证已完成。最终 cleanup/commit/push 尚未执行：当前 `int_main` 已领先 `origin/int_main` 15 个提交，并存在多个无关脏改动和无关未跟踪任务产物；按任务所有权和提交边界，不在本任务中打包、提交或推送这些无关改动。
+实现与本任务定向验证、隔离构建加载、真实页面 E2E、task cleanup apply 和恢复后运行态复核已完成。最终 commit/push 尚未执行：最新 `git status --short --branch` 显示 `int_main...origin/int_main` 已不再 ahead，但工作区仍存在多项非本任务脏改动；按任务所有权和提交边界，不在本任务中打包、提交或推送这些无关改动。
 
 ## 设计约束检查
 

@@ -48,6 +48,8 @@ BDD: Import-selected is atomic -> Given selected files contain a valid audit fil
 
 BDD: Import request hash is canonical -> Given the same selected audit files are submitted with the same idempotencyKey in a different order When import-selected is called again Then backend returns the original task; duplicate audit ids fail before hashing and are not silently deduplicated.
 
+BDD: Import-selected idempotency is transaction protected -> Given an identical idempotent import task appears after the first lookup but before insert When the backend enters task creation transaction Then it rechecks the key/hash under lock and returns the existing task without task/item/audit writes.
+
 BDD: Local write result replay is idempotent -> Given a matched audit file has already completed LOCAL_WRITTEN and archive When the same local-write-result is replayed Then backend returns current state without creating another controlled file or ACTIVE NAS source mapping; conflicting terminal results are rejected.
 
 BDD: Import-selected task snapshots are schema-backed -> Given selected audit files will be locked into an import task When the backend creates `NAS_UNCONTROLLED_IMPORT` Then task header stores audit task, idempotency key and canonical request hash, task items store audit file/source signature/recognition/local path snapshots, and audit files expose current import task/item binding for duplicate-selection checks.
@@ -257,3 +259,56 @@ BDD: Archive metadata missing is visible -> Given a matched file is LOCAL_WRITTE
 - GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
 - GREEN: UTF-8 read check for `task.md`, `execution-log.md`, `design.md`, `verification-report.md`, `bdd-scenarios.md`, `tdd-plan.md`, `e2e-plan.md`, and `test-data.md` -> PASS, all `contains_replacement=False`.
 - GREEN: `git -C E:\IntRuoyi diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md` -> PASS, only Git LF-to-CRLF warnings.
+
+### M17
+
+- Status: completed
+- Completed: implemented the first import-selected backend contract/isolation slice: added `DccNasUncontrolledImportSelectedReqVO` without legacy transfer target fields, added `createUncontrolledImportTask(Long userId, Long auditTaskId, DccNasUncontrolledImportSelectedReqVO reqVO)` to the transfer service, added `SOURCE_TYPE_NAS_UNCONTROLLED_IMPORT`, and made the legacy waiting processor skip that source type before claiming, reading NAS content, submitting DCC files, or writing ACTIVE NAS source mappings.
+- Boundary: `createUncontrolledImportTask` deliberately fails fast with `UnsupportedOperationException` until the next TDD slice implements atomic validation and persistence; this avoids default success, fallback, or partial import behavior.
+- Diagnostic: the first GREEN attempt failed because the now-skipped task no longer consumed an old `selectById` test stub; the unused stub was removed and the same targeted command passed.
+- Blockers: full import-selected task creation, canonical request hash, audit-file locking/binding, content binary download, local-write-result, archive, frontend static contract and real E2E remain in progress.
+
+## M17 Verification Evidence
+
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: `DccNasUncontrolledImportSelectedReqVO` class missing.
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: legacy processor claimed `sourceType=NAS_UNCONTROLLED_IMPORT` through `taskMapper.claimWaitingTask(77L, ...)`.
+- FIX: same targeted Maven command first failed after implementation with Mockito `UnnecessaryStubbingException` because `taskMapper.selectById(77L)` was no longer used once the processor correctly skipped the import task; removed that obsolete test stub.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\backend-api-evidence.md` -> PASS, `Backend API evidence is valid.`
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8/trailing whitespace check for M17 task/evidence/backend files -> PASS, `contains_replacement=[]`, `trailing_whitespace=[]`.
+- GREEN: `git -C E:\IntRuoyi diff --check -- <M17 tracked task/backend files>` -> PASS, only Git LF-to-CRLF warnings.
+
+### M18
+
+- Status: completed
+- Completed: implemented service-level `createUncontrolledImportTask` persistence for explicit selected audit files: validates the full request before writing, rejects duplicates/stale/non-importable audit files, computes a canonical order-insensitive request hash, inserts `NAS_UNCONTROLLED_IMPORT` task and task-item snapshots without legacy task target fields, and updates audit rows with `downloadStatus=SELECTED` plus import task/item bindings.
+- Boundary: this slice is service-level only; controller route, content download, local-write-result, archive execution, frontend static contract and real E2E remain in progress.
+- Diagnostic: the first GREEN attempt after implementation failed because the test captured two audit updates with two single-invocation verifies; changed the test capture to `times(2)` and reran successfully.
+- Blockers: idempotency conflict/reuse, content binary download, local-write-result idempotency, archive metadata failure path, controller mapping, frontend and real E2E still need subsequent RED/GREEN slices.
+
+## M18 Verification Evidence
+
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: service still threw `UnsupportedOperationException` from the fail-fast M17 stub.
+- FIX: first GREEN attempt failed with Mockito `TooManyActualInvocations` because the test captured two audit row updates using two one-time verifies; changed to `verify(auditFileMapper, times(2)).updateById(...)`.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+
+### M19
+
+- Status: completed
+- Completed: implemented service-level import-selected idempotency hardening: same `idempotencyKey + requestHash` returns the existing task even when selected files arrive in a different order, different request hash throws a conflict before audit reads or writes, duplicate audit ids fail before hashing/writes, and the creation transaction rechecks the idempotency key with `FOR UPDATE` before inserting.
+- Boundary: this slice is still service-level only; controller route, content download, local-write-result, archive execution, frontend static contract and real E2E remain in progress.
+- Diagnostic: RED reproduced the race gap because the service inserted a new task `8202` instead of returning the transaction-visible existing task `8102`; first GREEN run then exposed an obsolete Mockito insert stub after the new guard skipped insertion, and the unused stub was removed.
+- Blockers: content binary download, local-write-result idempotency, archive metadata failure path, controller mapping, frontend and real E2E still need subsequent RED/GREEN slices.
+
+## M19 Verification Evidence
+
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: service returned newly inserted task `8202` instead of existing idempotent task `8102`.
+- FIX: first M19 GREEN attempt failed with Mockito `UnnecessaryStubbingException` because `taskMapper.insert(...)` was no longer used after the transaction recheck correctly returned the existing task; removed the obsolete insert stub.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_returnsExistingTaskForSameIdempotencyHashRegardlessOfOrder,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsSameIdempotencyWithDifferentRequestHash,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsDuplicateAuditIdsBeforeHashingOrWrites" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_returnsExistingTaskForSameIdempotencyHashRegardlessOfOrder,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsSameIdempotencyWithDifferentRequestHash,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsDuplicateAuditIdsBeforeHashingOrWrites" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\backend-api-evidence.md` -> PASS, `Backend API evidence is valid.`
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8/trailing whitespace check for M19 task/evidence/backend files -> PASS, `UTF8_AND_TRAILING_WHITESPACE_CHECK_PASS`.
+- GREEN: `git -C E:\IntRuoyi diff --check -- <M19 tracked task/backend files>` -> PASS, only Git LF-to-CRLF warnings.

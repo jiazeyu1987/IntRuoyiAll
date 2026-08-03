@@ -2,7 +2,7 @@
 
 ## Summary
 
-已完成 DCC 未受控文件本地下载与自动归类的文档设计、BDD 场景、严格 TDD 顺序、真实 E2E 计划、测试数据设计、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片和 M16 后续实现门禁加固。设计复用当前 NAS 管理、未受控统计、NAS transfer、DCC 项目代码、文件分类树和分类规则能力；无法唯一识别项目代码、item 或分类时，统一进入正式 `未分类/待处理` 状态，不引入默认归类或降级路径。M16 补齐旧 NAS transfer 必填字段隔离、legacy processor 跳过、幂等并发锁和正式归档元数据来源验证；不代表 import-selected 服务/API、content、local-write-result、前端或真实 E2E 已实现。
+已完成 DCC 未受控文件本地下载与自动归类的文档设计、BDD 场景、严格 TDD 顺序、真实 E2E 计划、测试数据设计、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片、M16 后续实现门禁加固、M17 import-selected 服务契约/legacy processor 隔离切片、M18 服务级 import-selected 原子创建和 M19 服务级幂等并发保护。设计复用当前 NAS 管理、未受控统计、NAS transfer、DCC 项目代码、文件分类树和分类规则能力；无法唯一识别项目代码、item 或分类时，统一进入正式 `未分类/待处理` 状态，不引入默认归类或降级路径。M17 补齐无旧字段请求 VO、服务入口签名和 `NAS_UNCONTROLLED_IMPORT` waiting processor 跳过逻辑；M18 补齐服务级 import-selected 原子创建、task/item 快照和 audit 绑定；M19 补齐 canonical request hash 复用/冲突、重复 audit id 前置拒绝和事务内二次幂等检查；不代表 controller、content、local-write-result、归档、前端或真实 E2E 已实现。
 
 ## Files Verified
 
@@ -27,6 +27,10 @@
 - `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccNasControlAuditServiceImpl.java`
 - `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNasControlAuditServiceImplTest.java`
 - `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/DccBaseSchemaTest.java`
+- `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccNasUncontrolledImportSelectedReqVO.java`
+- `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNasTransferService.java`
+- `IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNasTransferServiceImpl.java`
+- `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNasTransferServiceTest.java`
 
 ## Verification Evidence
 
@@ -71,6 +75,18 @@
 - `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，M16 文档加固后 `BDD/TDD acceptance plan validation passed.`
 - UTF-8 read check for M16 task and acceptance docs -> PASS，8 个文档全部 `contains_replacement=False`。
 - `git -C E:\IntRuoyi diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md` -> PASS，仅存在 Git LF-to-CRLF warning。
+- `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 2, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS。
+- `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\backend-api-evidence.md` -> PASS，`Backend API evidence is valid.`
+- `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，`BDD/TDD acceptance plan validation passed.`
+- UTF-8/trailing whitespace check for M17 task/evidence/backend files -> PASS，`contains_replacement=[]`，`trailing_whitespace=[]`。
+- `git -C E:\IntRuoyi diff --check -- <M17 tracked task/backend files>` -> PASS，仅存在 Git LF-to-CRLF warning。
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，预期原因为服务返回新插入任务 `8202`，而不是事务内已存在的幂等任务 `8102`。
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_returnsExistingTaskForSameIdempotencyHashRegardlessOfOrder,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsSameIdempotencyWithDifferentRequestHash,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsDuplicateAuditIdsBeforeHashingOrWrites" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 4, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS。
+- REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_returnsExistingTaskForSameIdempotencyHashRegardlessOfOrder,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsSameIdempotencyWithDifferentRequestHash,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsDuplicateAuditIdsBeforeHashingOrWrites" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 8, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS。
+- `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\backend-api-evidence.md` -> PASS，`Backend API evidence is valid.`
+- `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，`BDD/TDD acceptance plan validation passed.`
+- UTF-8/trailing whitespace check for M19 task/evidence/backend files -> PASS，`UTF8_AND_TRAILING_WHITESPACE_CHECK_PASS`。
+- `git -C E:\IntRuoyi diff --check -- <M19 tracked task/backend files>` -> PASS，仅存在 Git LF-to-CRLF warning。
 
 ## Design Checks
 
@@ -106,8 +122,10 @@
 - Import snapshot schema ready: transfer task 已具备 `audit_task_id/idempotency_key/request_hash`，task item 已具备 audit file、source signature、识别快照、本地相对路径、本地写入和归档状态字段，audit 明细已具备 import task/item 绑定字段，并通过 JUnit 与 SQL contract 验证。
 - Legacy field isolation ready: `NAS_UNCONTROLLED_IMPORT` 不得要求或伪造任务级 `templateCategoryId/effectiveDate/dccProjectCodeId` 等旧 NAS 转移全局目标字段，旧 `NAS` / `LOCAL_FOLDER` 入口仍需 fail fast 校验必填输入。
 - Processor isolation ready: import-selected 只创建任务快照，不得由旧 waiting processor 自动读取 NAS、调用 DCC submit 或写 ACTIVE NAS 来源映射。
+- M17 processor isolation verified: `NAS_UNCONTROLLED_IMPORT` waiting task 会在 `processWaitingTasks()` 中被跳过，不会触发 `claimWaitingTask`、NAS 读取、DCC submit 或 ACTIVE NAS source insert。
+- Import-selected service boundary verified: 请求 VO 和服务签名已存在且不暴露旧 NAS transfer 目标字段；服务体已覆盖原子校验、快照持久化、audit 绑定和服务级幂等冲突/复用。
 - Archive metadata gate ready: `LOCAL_WRITTEN` 后正式归档仍必须具备模板分类、生效日期、变更原因或等价正式来源；缺失时进入 `ARCHIVE_METADATA_REQUIRED` 或明确失败/阻塞状态。
-- Idempotency concurrency ready: 后续实现必须以唯一约束或等价事务锁保护 `tenant + operator + idempotencyKey`，不能只依赖普通索引或前端防抖。
+- Idempotency concurrency verified: `createUncontrolledImportTask` 会在事务内使用 `FOR UPDATE` 二次查询 `auditTaskId + operatorUserId + sourceType + idempotencyKey`，相同 hash 复用原任务、不同 hash 冲突、重复 audit id 在 hash/写入前失败。
 
 ## Blockers
 
@@ -156,3 +174,29 @@
 - Verification: acceptance validator PASS, UTF-8 read check PASS, scoped git diff --check PASS.
 - Boundary: documentation-only update; no production code, NAS files, local folders, runtime services or business data were modified.
 - Remaining: backend import-selected service/API, content binary download, local-write-result, frontend static contract and real E2E still require strict RED/GREEN implementation.
+
+## M17 Backend Import Isolation Slice
+
+- Scope: implemented backend service contract and legacy processor isolation for `NAS_UNCONTROLLED_IMPORT`.
+- Contract: `DccNasUncontrolledImportSelectedReqVO` contains selection scope, idempotency key and selected audit-file snapshots, without legacy task-level template category, effective date or project-code defaults.
+- GREEN: targeted transfer service tests passed with Tests run 2, Failures 0, Errors 0, Skipped 0.
+- Evidence: backend API validator, acceptance plan validator, UTF-8/trailing whitespace check and scoped diff-check passed after evidence updates.
+- Boundary: `createUncontrolledImportTask` still fails fast until the next slice implements atomic import-selected validation and persistence.
+- Remaining: import-selected task creation, canonical request hash, content binary download, local-write-result, archive, frontend static contract and real E2E remain in progress.
+
+## M18 Backend Import Creation Slice
+
+- Scope: implemented service-level atomic import-selected creation for explicit selected audit files.
+- Contract: validates selection scope, duplicate audit ids, task ownership, source signature, importable classification status, download/archive status, expected local relative path, prior import binding and controlled-file state before any write.
+- GREEN: targeted creation/rejection tests passed with Tests run 2, Failures 0, Errors 0, Skipped 0.
+- REGRESSION: M17+M18 transfer service target set passed with Tests run 4, Failures 0, Errors 0, Skipped 0.
+- Boundary: controller mapping, content binary download, local-write-result, archive execution, frontend static contract and real E2E remain in progress.
+
+## M19 Backend Import Idempotency Slice
+
+- Scope: implemented service-level idempotency hardening for `NAS_UNCONTROLLED_IMPORT`.
+- Contract: same `idempotencyKey + requestHash` returns the existing task regardless of selected-file order; same key with different hash fails before audit reads or writes; duplicate audit ids fail before hash/persistence.
+- RED: transaction-race test failed because the service inserted task `8202` instead of returning existing task `8102`.
+- GREEN: targeted idempotency/rejection tests passed with Tests run 4, Failures 0, Errors 0, Skipped 0.
+- REGRESSION: M17+M18+M19 transfer service target set passed with Tests run 8, Failures 0, Errors 0, Skipped 0.
+- Boundary: controller mapping, content binary download, local-write-result, archive execution, frontend static contract and real E2E remain in progress.

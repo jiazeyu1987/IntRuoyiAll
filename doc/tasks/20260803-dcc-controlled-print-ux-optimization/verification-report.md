@@ -81,5 +81,6 @@ Follow-up 预览缺陷已修复：`viewer=1` 只读预览态不再请求未渲�
 - 相似问题的源码/测试改动已在并发基线提交 `03646727b` 中落地；本轮仅补齐任务证据和长期门禁，不改写历史。
 - Cleanup preview/apply 均通过；删除范围仅限当前任务旧截图、临时 frontend evidence 和 runtime jar inspect 产物。
 - Continuation cleanup preview 显示 delete/blocked/warnings 均为 none，当前补充证据全部保留。
-- Push 阻塞：`git push origin int_main` 因 GitHub HTTPS 代理 `127.0.0.1:7890` 未监听、直连 GitHub 443 不通而失败；SSH 443 网络可达但当前 SSH key 未授权。
-- 当前任务已完成实现、验证和 cleanup，但因本地提交未能推送到 `origin/int_main`，状态为 `blocked`。
+- Push 复验：`Test-NetConnection 127.0.0.1 -Port 7890` -> `TcpTestSucceeded=True`；待推送最大 blob 约 `228033` bytes，无 GitHub 大文件风险。
+- Final push：`git push origin int_main` -> PASS，远端 `int_main` 更新 `f08fa2a2d..61d406ca6`。
+- 当前任务已完成实现、验证、cleanup 和远端推送，状态为 `completed`。

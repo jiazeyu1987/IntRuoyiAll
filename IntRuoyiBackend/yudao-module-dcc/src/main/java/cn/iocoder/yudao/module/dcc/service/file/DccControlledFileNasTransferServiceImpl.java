@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
@@ -26,6 +27,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasSourc
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileLocalFolderUploadChunkDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasTransferTaskDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasTransferTaskItemDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccNasControlAuditFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteNodeDO;
@@ -40,6 +42,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasSourceMapp
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileLocalFolderUploadChunkMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasTransferTaskItemMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasTransferTaskMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccNasControlAuditFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteNodeMapper;
@@ -114,8 +117,16 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     public static final String SOURCE_TYPE_LOCAL_FOLDER = "LOCAL_FOLDER";
     public static final String SOURCE_TYPE_NAS_UNCONTROLLED_IMPORT = "NAS_UNCONTROLLED_IMPORT";
     public static final String CHUNK_STATUS_COMPLETED = "COMPLETED";
+    public static final String AUDIT_FILE_DOWNLOAD_STATUS_SELECTED = "SELECTED";
     static final String OUTCOME_CREATED = "CREATED";
     static final String OUTCOME_REUSED = "REUSED";
+    private static final String UNCONTROLLED_IMPORT_SELECTION_SCOPE_EXPLICIT = "EXPLICIT_SELECTED_FILES";
+    private static final String IMPORT_LOCAL_WRITE_STATUS_NOT_STARTED = "NOT_STARTED";
+    private static final Set<String> UNCONTROLLED_IMPORT_ALLOWED_CLASSIFICATION_STATUSES = Set.of(
+            DccNasControlAuditServiceImpl.AUDIT_FILE_CLASSIFICATION_STATUS_MATCHED,
+            DccNasControlAuditServiceImpl.AUDIT_FILE_CLASSIFICATION_STATUS_UNCLASSIFIED_PENDING,
+            DccNasControlAuditServiceImpl.AUDIT_FILE_CLASSIFICATION_STATUS_AMBIGUOUS
+    );
     private static final int TASK_RETRY_DELAY_SECONDS = 30;
     private static final String ORIGINAL_DIRECTORY = "dcc/original";
     private static final String LOCAL_FOLDER_UPLOAD_CHUNK_DIRECTORY = "dcc-local-folder-import-chunks";
@@ -160,6 +171,8 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     private DccControlledFileNasTransferTaskItemMapper taskItemMapper;
     @Resource
     private DccControlledFileNasSourceMapper nasSourceMapper;
+    @Resource
+    private DccNasControlAuditFileMapper auditFileMapper;
     @Resource
     private DccProjectCodeMapper projectCodeMapper;
     @Resource
@@ -422,7 +435,225 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     @Override
     public DccControlledFileNasTransferRespVO createUncontrolledImportTask(
             Long userId, Long auditTaskId, DccNasUncontrolledImportSelectedReqVO reqVO) {
-        throw new UnsupportedOperationException("NAS uncontrolled import task creation is not implemented yet");
+        requireNonNull(userId, "userId");
+        requireNonNull(auditTaskId, "auditTaskId");
+        List<SelectedUncontrolledImportFile> selectedFiles = requireSelectedUncontrolledImportFiles(reqVO);
+        String requestHash = uncontrolledImportRequestHash(auditTaskId, selectedFiles);
+        DccControlledFileNasTransferTaskDO existingTask = selectUncontrolledImportIdempotentTask(
+                userId, auditTaskId, reqVO.getIdempotencyKey(), false);
+        if (existingTask != null) {
+            requireSameUncontrolledImportRequestHash(existingTask, requestHash, reqVO.getIdempotencyKey());
+            return getTask(userId, existingTask.getId());
+        }
+
+        Long taskId = tx().execute(status -> {
+            DccControlledFileNasTransferTaskDO existingTaskInTransaction = selectUncontrolledImportIdempotentTask(
+                    userId, auditTaskId, reqVO.getIdempotencyKey(), true);
+            if (existingTaskInTransaction != null) {
+                requireSameUncontrolledImportRequestHash(
+                        existingTaskInTransaction, requestHash, reqVO.getIdempotencyKey());
+                return existingTaskInTransaction.getId();
+            }
+            List<PreparedUncontrolledImportFile> preparedFiles =
+                    prepareUncontrolledImportFiles(auditTaskId, selectedFiles);
+            DccControlledFileNasTransferTaskDO task = DccControlledFileNasTransferTaskDO.builder()
+                    .auditTaskId(auditTaskId)
+                    .operatorUserId(userId)
+                    .selectedNasPathsJson(JsonUtils.toJsonString(
+                            preparedFiles.stream().map(file -> file.auditFile().getNormalizedRelativePath()).toList()))
+                    .sourceType(SOURCE_TYPE_NAS_UNCONTROLLED_IMPORT)
+                    .idempotencyKey(reqVO.getIdempotencyKey())
+                    .requestHash(requestHash)
+                    .status(TASK_STATUS_WAITING)
+                    .expectedFileCount((long) preparedFiles.size())
+                    .expectedTotalBytes(preparedFiles.stream()
+                            .mapToLong(file -> defaultLong(file.auditFile().getFileSize()))
+                            .sum())
+                    .uploadedFileCount(0L)
+                    .uploadedTotalBytes(0L)
+                    .build();
+            taskMapper.insert(task);
+            for (PreparedUncontrolledImportFile preparedFile : preparedFiles) {
+                DccNasControlAuditFileDO auditFile = preparedFile.auditFile();
+                DccControlledFileNasTransferTaskItemDO item = DccControlledFileNasTransferTaskItemDO.builder()
+                        .taskId(task.getId())
+                        .auditFileId(auditFile.getId())
+                        .itemType(ITEM_TYPE_FILE)
+                        .nasPath(auditFile.getNormalizedRelativePath())
+                        .itemName(auditFile.getFileName())
+                        .sourceSignature(auditFile.getSourceSignature())
+                        .classificationStatusSnapshot(auditFile.getClassificationStatus())
+                        .matchedProjectCodeIdSnapshot(auditFile.getMatchedProjectCodeId())
+                        .matchedFileTypeTaxonomyIdSnapshot(auditFile.getMatchedFileTypeTaxonomyId())
+                        .matchedFileTypeLevel1Snapshot(auditFile.getMatchedFileTypeLevel1())
+                        .matchedFileTypeLevel2Snapshot(auditFile.getMatchedFileTypeLevel2())
+                        .matchedFileTypeLevel3Snapshot(auditFile.getMatchedFileTypeLevel3())
+                        .matchedFileTypeLevel4Snapshot(auditFile.getMatchedFileTypeLevel4())
+                        .matchedFileTypeLevel5Snapshot(auditFile.getMatchedFileTypeLevel5())
+                        .classificationReasonSnapshot(auditFile.getClassificationReason())
+                        .classificationCandidatesJsonSnapshot(auditFile.getClassificationCandidatesJson())
+                        .localRelativePath(preparedFile.selectedFile().localRelativePath())
+                        .localWriteStatus(IMPORT_LOCAL_WRITE_STATUS_NOT_STARTED)
+                        .archiveStatus(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED)
+                        .status(ITEM_STATUS_WAITING)
+                        .attemptCount(0)
+                        .build();
+                taskItemMapper.insert(item);
+                auditFile.setDownloadStatus(AUDIT_FILE_DOWNLOAD_STATUS_SELECTED);
+                auditFile.setSelectedImportTaskId(task.getId());
+                auditFile.setSelectedImportTaskItemId(item.getId());
+                auditFile.setLocalRelativePath(preparedFile.selectedFile().localRelativePath());
+                auditFileMapper.updateById(auditFile);
+            }
+            return task.getId();
+        });
+        return getTask(userId, taskId);
+    }
+
+    private DccControlledFileNasTransferTaskDO selectUncontrolledImportIdempotentTask(
+            Long userId, Long auditTaskId, String idempotencyKey, boolean forUpdate) {
+        return taskMapper.selectOne(new LambdaQueryWrapperX<DccControlledFileNasTransferTaskDO>()
+                .eq(DccControlledFileNasTransferTaskDO::getAuditTaskId, auditTaskId)
+                .eq(DccControlledFileNasTransferTaskDO::getOperatorUserId, userId)
+                .eq(DccControlledFileNasTransferTaskDO::getSourceType, SOURCE_TYPE_NAS_UNCONTROLLED_IMPORT)
+                .eq(DccControlledFileNasTransferTaskDO::getIdempotencyKey, idempotencyKey)
+                .orderByDesc(DccControlledFileNasTransferTaskDO::getId)
+                .last(forUpdate ? "LIMIT 1 FOR UPDATE" : "LIMIT 1"));
+    }
+
+    private void requireSameUncontrolledImportRequestHash(DccControlledFileNasTransferTaskDO existingTask,
+                                                          String requestHash,
+                                                          String idempotencyKey) {
+        if (!Objects.equals(existingTask.getRequestHash(), requestHash)) {
+            throw new IllegalStateException("nas uncontrolled import idempotency conflict: " + idempotencyKey);
+        }
+    }
+
+    private List<SelectedUncontrolledImportFile> requireSelectedUncontrolledImportFiles(
+            DccNasUncontrolledImportSelectedReqVO reqVO) {
+        requireNonNull(reqVO, "reqVO");
+        if (!UNCONTROLLED_IMPORT_SELECTION_SCOPE_EXPLICIT.equals(reqVO.getSelectionScope())) {
+            throw new IllegalStateException("nas uncontrolled import selectionScope invalid: "
+                    + reqVO.getSelectionScope());
+        }
+        if (StrUtil.isBlank(reqVO.getIdempotencyKey())) {
+            throw new IllegalStateException("nas uncontrolled import idempotencyKey is required");
+        }
+        List<DccNasUncontrolledImportSelectedReqVO.SelectedFile> selectedFiles = reqVO.getSelectedFiles();
+        if (selectedFiles == null || selectedFiles.isEmpty()) {
+            throw new IllegalStateException("nas uncontrolled import selectedFiles is required");
+        }
+        Map<Long, SelectedUncontrolledImportFile> selectedById = new LinkedHashMap<>();
+        for (DccNasUncontrolledImportSelectedReqVO.SelectedFile selectedFile : selectedFiles) {
+            requireNonNull(selectedFile, "selectedFile");
+            Long auditFileId = selectedFile.getAuditFileId();
+            requireNonNull(auditFileId, "auditFileId");
+            if (selectedById.containsKey(auditFileId)) {
+                throw new IllegalStateException("nas uncontrolled import duplicate auditFileId: " + auditFileId);
+            }
+            if (StrUtil.isBlank(selectedFile.getSourceSignature())) {
+                throw new IllegalStateException("nas uncontrolled import sourceSignature is required: " + auditFileId);
+            }
+            if (StrUtil.isBlank(selectedFile.getLocalRelativePath())) {
+                throw new IllegalStateException("nas uncontrolled import localRelativePath is required: " + auditFileId);
+            }
+            selectedById.put(auditFileId, new SelectedUncontrolledImportFile(
+                    auditFileId, selectedFile.getSourceSignature(), selectedFile.getLocalRelativePath()));
+        }
+        return selectedById.values().stream()
+                .sorted(Comparator.comparing(SelectedUncontrolledImportFile::auditFileId))
+                .toList();
+    }
+
+    private List<PreparedUncontrolledImportFile> prepareUncontrolledImportFiles(
+            Long auditTaskId, List<SelectedUncontrolledImportFile> selectedFiles) {
+        List<Long> auditFileIds = selectedFiles.stream()
+                .map(SelectedUncontrolledImportFile::auditFileId)
+                .toList();
+        List<DccNasControlAuditFileDO> auditFiles = auditFileMapper.selectBatchIds(auditFileIds);
+        Map<Long, DccNasControlAuditFileDO> auditFileById = new LinkedHashMap<>();
+        if (auditFiles != null) {
+            for (DccNasControlAuditFileDO auditFile : auditFiles) {
+                auditFileById.put(auditFile.getId(), auditFile);
+            }
+        }
+        List<PreparedUncontrolledImportFile> preparedFiles = new ArrayList<>();
+        for (SelectedUncontrolledImportFile selectedFile : selectedFiles) {
+            DccNasControlAuditFileDO auditFile = auditFileById.get(selectedFile.auditFileId());
+            if (auditFile == null) {
+                throw new IllegalStateException("nas uncontrolled import audit file not found: "
+                        + selectedFile.auditFileId());
+            }
+            requireImportableAuditFile(auditTaskId, selectedFile, auditFile);
+            preparedFiles.add(new PreparedUncontrolledImportFile(selectedFile, auditFile));
+        }
+        return preparedFiles;
+    }
+
+    private void requireImportableAuditFile(Long auditTaskId,
+                                            SelectedUncontrolledImportFile selectedFile,
+                                            DccNasControlAuditFileDO auditFile) {
+        if (!Objects.equals(auditTaskId, auditFile.getTaskId())) {
+            throw new IllegalStateException("nas uncontrolled import audit file task mismatch: " + auditFile.getId());
+        }
+        if (!Objects.equals(selectedFile.sourceSignature(), auditFile.getSourceSignature())) {
+            throw new IllegalStateException("nas uncontrolled import source signature mismatch: " + auditFile.getId());
+        }
+        if (!UNCONTROLLED_IMPORT_ALLOWED_CLASSIFICATION_STATUSES.contains(auditFile.getClassificationStatus())) {
+            throw new IllegalStateException("nas uncontrolled import classification status invalid: "
+                    + auditFile.getId());
+        }
+        if (!Objects.equals(DccNasControlAuditServiceImpl.AUDIT_FILE_DOWNLOAD_STATUS_NOT_SELECTED,
+                auditFile.getDownloadStatus())) {
+            throw new IllegalStateException("nas uncontrolled import download status invalid: " + auditFile.getId());
+        }
+        if (!Objects.equals(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED,
+                auditFile.getArchiveStatus())) {
+            throw new IllegalStateException("nas uncontrolled import archive status invalid: " + auditFile.getId());
+        }
+        if (auditFile.getSelectedImportTaskId() != null || auditFile.getSelectedImportTaskItemId() != null) {
+            throw new IllegalStateException("nas uncontrolled import audit file already selected: " + auditFile.getId());
+        }
+        if (auditFile.getControlledFileId() != null) {
+            throw new IllegalStateException("nas uncontrolled import audit file already archived: " + auditFile.getId());
+        }
+        if (StrUtil.isBlank(auditFile.getExpectedLocalRelativePath())) {
+            throw new IllegalStateException("nas uncontrolled import expectedLocalRelativePath missing: "
+                    + auditFile.getId());
+        }
+        if (!Objects.equals(selectedFile.localRelativePath(), auditFile.getExpectedLocalRelativePath())) {
+            throw new IllegalStateException("nas uncontrolled import localRelativePath mismatch: " + auditFile.getId());
+        }
+    }
+
+    private String uncontrolledImportRequestHash(Long auditTaskId, List<SelectedUncontrolledImportFile> selectedFiles) {
+        StringBuilder raw = new StringBuilder("DCC_NAS_UNCONTROLLED_IMPORT");
+        appendLengthPrefixed(raw, String.valueOf(auditTaskId));
+        for (SelectedUncontrolledImportFile selectedFile : selectedFiles) {
+            appendLengthPrefixed(raw, String.valueOf(selectedFile.auditFileId()));
+            appendLengthPrefixed(raw, selectedFile.sourceSignature());
+            appendLengthPrefixed(raw, selectedFile.localRelativePath());
+        }
+        return sha256Hex(raw.toString());
+    }
+
+    private void appendLengthPrefixed(StringBuilder builder, String value) {
+        builder.append('|').append(value.length()).append(':').append(value);
+    }
+
+    private String sha256Hex(String raw) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(raw.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 unavailable", ex);
+        }
+    }
+
+    private void requireNonNull(Object value, String fieldName) {
+        if (value == null) {
+            throw new IllegalStateException("nas uncontrolled import " + fieldName + " is required");
+        }
     }
 
     private Long createTask(Long userId, DccControlledFileNasTransferReqVO reqVO, List<String> collapsedRoots,
@@ -1857,6 +2088,15 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     }
 
     private record LocalFolderFileEntry(String relativePath, String fileName, Long sourceFileId, Long fileSize) {
+    }
+
+    private record SelectedUncontrolledImportFile(Long auditFileId,
+                                                  String sourceSignature,
+                                                  String localRelativePath) {
+    }
+
+    private record PreparedUncontrolledImportFile(SelectedUncontrolledImportFile selectedFile,
+                                                  DccNasControlAuditFileDO auditFile) {
     }
 
     private record DirectoryResolution(DccFileDirectoryDO directory, String outcome) {

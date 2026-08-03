@@ -116,6 +116,33 @@ class DccProductOnboardingServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void approveRequest_shouldIgnoreCurrentPendingRequestWhenCheckingDuplicatePendingProject() {
+        DccProductOnboardingRequestDO pending = pendingRequest();
+        when(requestMapper.selectById(100L)).thenReturn(pending);
+        when(requestMapper.selectPendingByProjectNameAndProjectCode("新产品 DCC 项目", "DCC-NEW-001"))
+                .thenReturn(pending);
+        when(mdmProductApi.getEnabledDccProduct(5000L)).thenReturn(MdmProductRespDTO.builder()
+                .id(5000L)
+                .productCode("P-5000")
+                .dccProductCode("A1234567890123")
+                .nameCn("正式产品")
+                .status("ENABLE")
+                .build());
+        doAnswer(invocation -> {
+            DccProjectCodeDO projectCode = invocation.getArgument(0);
+            projectCode.setId(3000L);
+            return 1;
+        }).when(projectCodeMapper).insert(any(DccProjectCodeDO.class));
+
+        DccProductOnboardingRequestDO approved = onboardingService.approveRequest(99L, 100L);
+
+        assertEquals(DccProductOnboardingStatusConstants.APPROVED, approved.getStatus());
+        assertEquals(3000L, approved.getGeneratedProjectCodeId());
+        verify(projectCodeMapper).insert(any(DccProjectCodeDO.class));
+        verify(requestMapper).updateById(any(DccProductOnboardingRequestDO.class));
+    }
+
+    @Test
     void approveRequest_shouldRejectDisabledMdmProductWithoutCreatingProjectCode() {
         when(requestMapper.selectById(100L)).thenReturn(pendingRequest());
         when(mdmProductApi.getEnabledDccProduct(5000L))

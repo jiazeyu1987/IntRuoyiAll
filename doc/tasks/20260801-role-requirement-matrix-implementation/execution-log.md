@@ -813,5 +813,18 @@
 - GREEN: runtime probe -> PASS，48081 listener PID `28744`，命令行为 `backend-runtime-control-20260803-023450-rrm-m6-pqc-submit.jar`，`http://127.0.0.1:48081/actuator/health` 返回 `UP`，`http://127.0.0.1:8081/` 返回 HTTP `200`。
 - GREEN: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> PASS，0 SOURCE / 0 ENV / 0 RUNTIME。
 - E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` on the M6 runtime jar -> STRUCTURED_BLOCKED，exit 2；`phaseEvidence=6`、`actionEvidence=10`、`gateEvidence=2`、`actionObserved=9`、`surfaceObserved=32`、`uncovered=21`、`pending=62`、`blockers=67`。
-- BLOCKED: `pqcFormalSubmissionCreated=BLOCKED/E2E_PQC_SUBMISSION_UI`，原因是 PQC 页面提交按钮仍为禁用状态，不能证明签名和正式提交上下文已满足；`pqcLeaderSubmissionFilterPaginationConsistent=BLOCKED/E2E_PQC_SUBMISSION_DATA` 仍因缺少至少两笔正式 PQC submitted 事件无法证明筛选分页 total 一致性。
-- Decision: AC-D29 runtime reload blocker 已关闭，但真实页面正式提交 UI blocker 新增并保留；AC-D29、AC-D32 和 62 个 AC 均不得标记为 `ACCEPTED`。M6 继续保持 `in_progress`，本轮仍不执行 `git push`。
+- BLOCKED: `pqcFormalSubmissionCreated=BLOCKED/E2E_PQC_SUBMISSION_DATA`，原因是固定签名 ID `25` 已被工序池事件占用；`pqcLeaderSubmissionFilterPaginationConsistent=BLOCKED/E2E_PQC_SUBMISSION_DATA` 仍因缺少至少两笔正式 PQC submitted 事件无法证明筛选分页 total 一致性。
+- Decision: AC-D29 runtime reload blocker 曾关闭，但正式提交仍因签名池数据保持 blocker；本轮后续已新增签名池选择逻辑并保持后端唯一性不变。AC-D29、AC-D32 和 62 个 AC 均不得标记为 `ACCEPTED`。M6 继续保持 `in_progress`，本轮仍不执行 `git push`。
+
+## M6 - AC-D29 Signature Pool And Runtime Ownership Gate
+
+- BDD: AC-D29 must not reuse consumed process-pool signatures -> Given `mes_pro_process_pool_event.signature_id` has a tenant-level unique key and one PQC submission already consumed signature ID `25` When the real E2E prepares another PQC formal submission Then it must choose an unused task-provided formal signature ID, and if all configured IDs are consumed it must emit `E2E_PQC_SIGNATURE_POOL` instead of relaxing backend uniqueness.
+- TEST_ADDED: `role-requirement-matrix-preflight-static.spec.cjs` now requires `resolveUnusedPqcSignatureId`, `collectConfiguredSignatureIds`, and `E2E_PQC_SIGNATURE_POOL`.
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> FAIL，expected reason：真实 E2E 脚本缺少 `resolveUnusedPqcSignatureId`。
+- IMPLEMENTING: `role-requirement-matrix-real-flow.e2e.js` now builds a configured signature ID pool from `RRM_SIGNATURE_IDS_JSON`, logs into a PQC leader read-only context, reads submitted-event signature IDs from the formal submission page, and fills the first unused configured signature ID before clicking PQC submit. It does not change backend `validateUniqueSignature` or create arbitrary fallback IDs.
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> PASS，0 SOURCE / 0 ENV / 0 RUNTIME。
+- RUNTIME_BLOCKED: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` could not prove the signature-pool GREEN path because current 48081 listener PID `5852` is unrelated `backend-runtime-control-20260803-121411-dcc-product-onboarding.jar`; the run failed before D29 at PQC process list with `1040506107 当前工序缺少待执行 PQC 检验任务`, consistent with the wrong runtime not loading the later `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar` behavior.
+- CLEANUP/OWNERSHIP: Did not stop PID `5852`, did not switch ports, and did not claim full E2E PASS because the listener belongs to an unrelated DCC runtime on the shared int_main port.
+- Decision: AC-D29 signature reuse blocker is addressed at the E2E script gate, but full real verification is currently blocked by shared runtime ownership. Need explicit authorization to stop or replace the DCC product-onboarding runtime with the M6 RRM jar before rerunning full real E2E. M6 remains `in_progress`; no `git push` per user instruction.

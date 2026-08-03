@@ -131,12 +131,17 @@ for (const token of [
   'activeOrderConflictRouteRejected',
   'verifyPqcActiveOrderReadOnly',
   'activeOrderCrossRoleReadOnly',
+  'buildPqcProcessSourceBlocker',
+  'E2E_PQC_TASK_SOURCE',
   'verifyPqcRegulationItemsRendered',
   'pqcRegulationItemsRendered',
   'verifyPqcPieceDetailQuantityPrepared',
   'pqcPieceDetailQuantityPrepared',
   'verifyPqcFormalSubmissionCreatesEvent',
   'pqcFormalSubmissionCreated',
+  'resolveUnusedPqcSignatureId',
+  'collectConfiguredSignatureIds',
+  'E2E_PQC_SIGNATURE_POOL',
   'verifyPqcLeaderSubmissionFilterPaginationConsistency',
   'pqcLeaderSubmissionFilterPaginationConsistent',
   'verifyPqcActualEmployeeSwitch',
@@ -193,6 +198,23 @@ assert.match(
   source,
   /activeOrderListResponseError/,
   'active-order join must convert list refresh wait failures into structured E2E evidence.'
+)
+assert.match(
+  source,
+  /async function verifyPqcLeaderSubmissionFilterPaginationConsistency[\s\S]*getByRole\('tab',\s*\{\s*name:\s*'PQC 组长'\s*\}\)\.click\(\)[\s\S]*data-pqc-leader-filter-product/,
+  'PQC leader submission filter E2E must switch to the PQC leader tab before locating PQC-only filters.'
+)
+assert.match(
+  source,
+  /function\s+fillElementPlusInput[\s\S]*input\$\{selector\},\s*\$\{selector\} input/,
+  'PQC leader submission filter E2E must fill Element Plus inputs whether data-* is on the wrapper or the native input.'
+)
+const pqcProcessesLoader = source.match(/async function loadPqcProcessesViaAuth[\s\S]*?\n}\n\nfunction buildPqcProcessSourceBlocker/)
+assert.ok(pqcProcessesLoader, 'real E2E script must keep buildPqcProcessSourceBlocker directly after the PQC process loader for static inspection.')
+assert.doesNotMatch(
+  pqcProcessesLoader[0],
+  /async function loadPqcProcessesViaAuth[\s\S]*assert\.equal\(result\.body\?\.code,\s*0/,
+  'PQC process source API business failures must become structured E2E_PQC_TASK_SOURCE blockers so later M6 gates can continue.'
 )
 
 console.log('PASS role-requirement-matrix preflight static contract')

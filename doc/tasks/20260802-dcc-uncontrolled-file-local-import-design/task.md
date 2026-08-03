@@ -27,6 +27,9 @@
 - [x] M14：优化 import-selected 与本地回写开发文档，补齐整体原子拒绝、规范化请求哈希、audit/import 绑定、重复 local-write-result 幂等和冲突终态门禁。
 - [x] M15：按严格 TDD 完成 import-selected 任务快照 schema 切片，新增 transfer task/task item/audit file 绑定字段、DO 字段、测试 schema 和 SQL 静态合同。
 - [x] M16：优化 import-selected 后续实现门禁，补齐旧 NAS transfer 必填字段隔离、legacy processor 跳过、幂等并发锁和正式归档元数据来源验证。
+- [x] M17：按严格 TDD 完成 import-selected 服务契约和 legacy processor 隔离切片，新增无旧字段请求 VO、服务入口签名和 `NAS_UNCONTROLLED_IMPORT` waiting processor 跳过逻辑。
+- [x] M18: Strict TDD backend service-level import-selected creation slice, adding whole-request validation, canonical request hash, task/item snapshot inserts, audit import bindings, and atomic invalid-selection rejection.
+- [x] M19：按严格 TDD 完成 import-selected 服务级幂等与并发保护切片，覆盖同 key/hash 复用、不同 hash 冲突、重复 audit id 前置拒绝和事务内二次幂等检查。
 
 ## Expected Verification
 
@@ -58,7 +61,7 @@
 
 in_progress
 
-设计文档、BDD/TDD/E2E 验收文档、潜在问题优化、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片和 M16 import-selected 后续实现门禁加固已完成验证。当前已具备处理任务头幂等字段、处理项识别/本地路径快照、audit 明细 import 绑定、旧 transfer 字段隔离、legacy processor 跳过和归档元数据阻塞的可执行验证入口。后续仍需按文档继续实现 import-selected 服务/API、本地写入回写、content 二进制下载、前端和真实 E2E。最终 `completed` 状态暂不标记：当前工作区存在任务开始前及其它并发任务脏文件且分支 `int_main` 已 ahead 7，按项目 Git/closeout 规则需要先单独处理脏工作区基线和 push 阻塞，不能把本任务与其它并发任务资产混在一个收尾提交里。
+设计文档、BDD/TDD/E2E 验收文档、潜在问题优化、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片、M16 import-selected 后续实现门禁加固、M17 import-selected 服务契约/legacy processor 隔离、M18 服务级原子创建和 M19 服务级幂等并发保护均已完成验证。当前已具备处理任务头幂等字段、处理项识别/本地路径快照、audit 明细 import 绑定、旧 transfer 字段隔离、legacy processor 跳过、规范化 request hash、事务内二次幂等检查和归档元数据阻塞的可执行验证入口。M19 已验证相同 `idempotencyKey + requestHash` 复用原任务、相同 key 不同 hash 明确冲突、重复 audit id 在 hash/写入前失败，以及首次查询未命中但事务内已存在相同幂等任务时不会重复插入。The controller endpoint, content binary download, local-write-result, formal archive, frontend and real E2E remain in progress. 最终 `completed` 状态暂不标记：当前工作区存在任务开始前及其它并发任务脏文件且分支 `int_main` 已 ahead 7，按项目 Git/closeout 规则需要先单独处理脏工作区基线和 push 阻塞，不能把本任务与其它并发任务资产混在一个收尾提交里。
 
 ## 设计约束检查
 
