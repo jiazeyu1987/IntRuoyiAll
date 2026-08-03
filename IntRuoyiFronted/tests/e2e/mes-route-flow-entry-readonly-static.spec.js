@@ -46,8 +46,8 @@ assertMatch(
 )
 assertMatch(
   routeEditPage,
-  /!\['flow', 'basic', 'mesProcess', 'product'\]\.includes\(activeRouteTab\)/,
-  '基础信息和 MES 工序页签不得继续显示页面级保存按钮'
+  /!\['flow', 'basic', 'product'\]\.includes\(activeRouteTab\)/,
+  '基础信息、流转关系图和关联产品页签不得继续显示页面级保存按钮'
 )
 
 assertMatch(

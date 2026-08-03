@@ -7,78 +7,51 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'u
 
 const formContent = read('src/views/mes/pro/route/RouteFormContent.vue')
 const editPage = read('src/views/mes/pro/route/RouteEditPage.vue')
-const routeMesProcessListPath = path.join(root, 'src/views/mes/pro/route/RouteMesProcessList.vue')
+const routeList = read('src/views/mes/pro/route/index.vue')
 
-assert.match(
+assert.doesNotMatch(
   formContent,
   /const RouteMesProcessList = defineAsyncComponent\(\(\) => import\('\.\/RouteMesProcessList\.vue'\)\)/,
-  'RouteFormContent must lazy-load the MES process mapping list'
+  'RouteFormContent must not lazy-load the hidden MES process mapping list'
 )
 
 const basicIndex = formContent.indexOf('label="基础信息" name="basic"')
 const mesProcessIndex = formContent.indexOf('label="MES 工序" name="mesProcess"')
 const flowIndex = formContent.indexOf('label="流转关系图" name="flow"')
+const productIndex = formContent.indexOf('label="关联产品" name="product"')
 assert.ok(basicIndex >= 0, 'basic tab must remain visible')
-assert.ok(mesProcessIndex >= 0, 'MES process tab must exist')
+assert.equal(mesProcessIndex, -1, 'MES process tab must not render in route form')
 assert.ok(flowIndex >= 0, 'flow tab must remain visible')
+assert.ok(productIndex >= 0, 'product tab must remain visible')
 assert.ok(
-  basicIndex < mesProcessIndex && mesProcessIndex < flowIndex,
-  'MES process tab must sit between basic/process settings and flow graph'
+  basicIndex < flowIndex && flowIndex < productIndex,
+  'route tabs must keep basic -> flow graph -> product after hiding MES process'
 )
 
 assert.match(
   formContent,
-  /type RouteFormInitialTab =[\s\S]*\| 'basic'[\s\S]*\| 'mesProcess'[\s\S]*\| 'flow'[\s\S]*\| 'product'/,
-  'RouteFormInitialTab must include mesProcess between basic and flow'
+  /type RouteFormInitialTab =[\s\S]*\| 'basic'[\s\S]*\| 'flow'[\s\S]*\| 'product'/,
+  'RouteFormInitialTab must only include the visible tabs'
 )
-assert.match(
+assert.doesNotMatch(
   formContent,
-  /<RouteMesProcessList[\s\S]*:route-id="formData\.id"/,
-  'MES process tab must pass the current route id to the mapping list'
+  /<RouteMesProcessList/,
+  'hidden MES process tab must not mount RouteMesProcessList'
 )
-assert.match(
+assert.doesNotMatch(
   editPage,
   /\['basic', 'mesProcess', 'flow', 'product'\]\.includes\(tab\)/,
-  'edit page must accept ?tab=mesProcess'
+  'edit page must not accept legacy ?tab=mesProcess'
 )
-assert.match(
+assert.doesNotMatch(
   editPage,
   /!\['flow', 'basic', 'mesProcess', 'product'\]\.includes\(activeRouteTab\)/,
-  'MES process tab must not show the page-level save button'
+  'edit page page-level save guard must not whitelist hidden mesProcess tab'
+)
+assert.doesNotMatch(
+  routeList,
+  /type RouteEditTab = 'basic' \| 'mesProcess' \| 'flow' \| 'product'/,
+  'route list edit navigation type must not include hidden mesProcess tab'
 )
 
-assert.ok(fs.existsSync(routeMesProcessListPath), 'RouteMesProcessList component must exist')
-const mesProcessList = fs.readFileSync(routeMesProcessListPath, 'utf8')
-
-for (const columnLabel of [
-  'MES 工序名称',
-  '工序设置工序',
-  '设备编码',
-  '设备名称',
-  '设备数量',
-  '单台产能/h',
-  '批记录工序名称'
-]) {
-  assert.ok(
-    mesProcessList.includes(`label="${columnLabel}"`),
-    `MES process mapping table must include ${columnLabel}`
-  )
-}
-
-assert.match(
-  mesProcessList,
-  /ProRouteProcessApi\.getRouteProcessListByRoute\(props\.routeId\)/,
-  'MES process mapping list must reuse route-process list-by-route API'
-)
-assert.match(
-  mesProcessList,
-  /machineryList/,
-  'MES process mapping list must flatten route process machineryList'
-)
-assert.match(
-  mesProcessList,
-  /batchRecordReportName/,
-  'MES process mapping list must expose the batch-record process/form name from route process data'
-)
-
-console.log('mes-route-mes-process-tab-static PASS')
+console.log('mes-route-hide-mes-process-tab-static PASS')

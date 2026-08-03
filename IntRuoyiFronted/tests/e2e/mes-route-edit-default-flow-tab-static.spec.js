@@ -15,7 +15,7 @@ const assertMatch = (content, pattern, label) => {
 
 assertMatch(
   routeFormContent,
-  /type RouteFormInitialTab =[\s\S]*\| 'basic'[\s\S]*\| 'mesProcess'[\s\S]*\| 'flow'[\s\S]*\| 'product'/,
+  /type RouteFormInitialTab =[\s\S]*\| 'basic'[\s\S]*\| 'flow'[\s\S]*\| 'product'/,
   'route form initial tab union type'
 )
 

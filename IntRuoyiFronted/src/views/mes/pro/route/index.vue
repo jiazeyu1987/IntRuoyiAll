@@ -723,7 +723,7 @@ const openForm = (type: string, id?: number) => {
   formRef.value.open(type, id)
 }
 
-type RouteEditTab = 'basic' | 'mesProcess' | 'flow' | 'product'
+type RouteEditTab = 'basic' | 'flow' | 'product'
 
 const openEditPage = (id?: number, tab?: RouteEditTab) => {
   if (!id) {
