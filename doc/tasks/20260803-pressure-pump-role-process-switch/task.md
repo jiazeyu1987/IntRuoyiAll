@@ -35,8 +35,8 @@
 
 ready_for_closeout
 
-- 已完成压力泵全工序权限服务链路、权限迁移 SQL、定向 JUnit、release migration policy gate、backend evidence validator 和 database evidence validator。
-- 待收尾事项：工作区已有非本任务 DCC 脏改动且分支已 ahead；本任务未提交/推送，避免混入无关文件。
+- 已完成压力泵全工序权限服务链路、权限迁移 SQL、定向 JUnit、release migration policy gate、backend evidence validator、database evidence validator 和 task-closeout-cleanup apply。
+- 待收尾事项：分支仍有本地 ahead 提交，且工作区存在非本任务未跟踪 evidence 文件；未执行最终 push，避免将并行任务内容作为本任务收尾混入。
 
 ## Completed Work
 

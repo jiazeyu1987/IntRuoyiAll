@@ -14,21 +14,26 @@ const pqcEnd = source.indexOf('\n    <div\n      v-else', pqcStart)
 assert.ok(pqcStart >= 0 && pqcEnd > pqcStart, 'PQC template block must exist.')
 const pqcTemplate = source.slice(pqcStart, pqcEnd)
 
-for (const itemKey of ['length', 'appearance', 'seal', 'pressure']) {
-  assert.match(
-    pqcTemplate,
-    new RegExp(`data-pqc-inspection-entry="${itemKey}"`),
-    `PQC target layout must expose ${itemKey} inspection entry.`
-  )
-}
-
-for (const choiceKey of ['appearance', 'seal']) {
-  assert.match(
-    pqcTemplate,
-    new RegExp(`data-pqc-inspection-group="${choiceKey}"`),
-    `${choiceKey} must use the three-action target layout.`
-  )
-}
+assert.match(
+  pqcTemplate,
+  /<template v-for="item in pqcInspectionItems" :key="item\.key">/,
+  'PQC target layout must render formal QA/PQC inspection entries dynamically.'
+)
+assert.match(
+  pqcTemplate,
+  /:data-pqc-inspection-entry="item\.key"/,
+  'PQC target layout must expose a stable entry selector for each formal inspection item.'
+)
+assert.match(
+  pqcTemplate,
+  /:data-pqc-inspection-group="item\.key"/,
+  'PQC choice inspection entries must use the same formal item key for grouped actions.'
+)
+assert.match(
+  pqcTemplate,
+  /{{ item\.label }}/,
+  'PQC target layout must display the formal inspection item label.'
+)
 
 for (const label of ['全部合格', '全部不良', '逐件选择']) {
   assert.match(pqcTemplate, new RegExp(label), `PQC target layout must include ${label}.`)
@@ -40,13 +45,13 @@ assert.match(
 )
 assert.match(
   source,
-  /inspectionQuantity:\s*30\s+as\s+number\s*\|\s*undefined/,
-  'PQC first viewport must match the target patrol default inspection quantity of 30.'
+  /pqcDraft\.inspectionQuantity = process\.plannedInspectionQuantity/,
+  'PQC inspection quantity must come from the formal PQC task snapshot.'
 )
 assert.match(
   source,
-  /scrapQuantity:\s*1\s+as\s+number\s*\|\s*undefined/,
-  'PQC first viewport must match the target patrol default scrap quantity of 1.'
+  /pqcDraft\.scrapQuantity = undefined/,
+  'PQC scrap quantity must start empty instead of using a hard-coded default.'
 )
 assert.match(
   pqcTemplate,
@@ -87,13 +92,23 @@ assert.match(
 
 assert.match(
   source,
-  /length:\s*\{[\s\S]*defaultValue:\s*'32\.5'[\s\S]*step:\s*0\.1/,
-  'Length piece inspection must use the target default and step.'
+  /const pqcInspectionItems = computed<PqcInspectionItem\[\]>\(\(\) =>\s*\(deviceState\.selectedProcess\?\.inspectionItems \|\| \[\]\)\.map/,
+  'PQC inspection item definitions must come from selectedProcess.inspectionItems.'
 )
 assert.match(
   source,
-  /pressure:\s*\{[\s\S]*defaultValue:\s*'50'[\s\S]*step:\s*1/,
-  'Pressure piece inspection must use the target default and step.'
+  /key: item\.itemCode[\s\S]*label: item\.itemName \|\| item\.itemCode[\s\S]*type: isPqcNumericResultType\(item\.resultType\) \? 'number' : 'choice'/,
+  'PQC item key, label, and value type must use the formal QA/PQC snapshot fields.'
+)
+assert.match(
+  source,
+  /inspectionMethod: item\.inspectionMethod \|\| ''[\s\S]*standardText: item\.standardText \|\| ''[\s\S]*resultType: item\.resultType \|\| ''/,
+  'PQC item metadata must display the formal method, standard, and result type snapshot.'
+)
+assert.match(
+  source,
+  /hasPqcTaskSnapshot[\s\S]*process\?\.inspectionItems\?\.length/,
+  'PQC mode must fail fast when the formal inspection item snapshot is missing.'
 )
 assert.match(
   source,
@@ -107,8 +122,18 @@ assert.match(
 )
 assert.match(
   source,
+  /submitFrontlinePqcInspection[\s\S]*buildPqcInspectionSubmitPayload/,
+  'Formal PQC submission must use the dedicated PQC inspection payload contract.'
+)
+assert.doesNotMatch(
+  source,
   /PQC 详细检验内容尚未纳入正式模板字段/,
-  'Formal PQC submission must continue to fail fast until the payload contract exists.'
+  'PQC mode must not keep the obsolete placeholder fail-fast once the formal payload contract exists.'
+)
+assert.doesNotMatch(
+  source,
+  /defaultValue:\s*'32\.5'|defaultValue:\s*'50'|itemKey of \['length', 'appearance', 'seal', 'pressure'\]/,
+  'PQC mode must not restore old hard-coded inspection items or pseudo defaults.'
 )
 
 for (const oldBinding of [

@@ -12,6 +12,7 @@
 - [x] M3: 运行目标静态合同和 TypeScript 检查。
 - [x] M4: 记录验证与剩余阻塞。
 - [x] M5: 修复节点2首屏因未加载审批角色字典而显示 `-` 的回归。
+- [x] M6: 通过本机真实页面只读 E2E 验证节点2显示审批角色名称。
 
 ## Expected Verification
 
@@ -19,10 +20,11 @@
 - `node tests/e2e/dcc-controlled-file-routes-node-columns-static.spec.js`
 - `node tests/e2e/dcc-controlled-file-routes-list-display-static.spec.js`
 - `pnpm ts:check`
+- 本机 8081 真实页面只读 Playwright 校验：`/dcc/controlled-file/routes` 节点2按审批角色字典显示名称，且无 DCC 写请求。
 
 ## Current Status
 
-blocked - 主工作区代码已修复并通过验证，但提交/推送仍被既有并行脏工作区和 GitHub HTTPS 443 网络问题阻塞。
+blocked - 主工作区代码已修复，并通过静态回归、类型检查和本机真实页面只读 E2E；提交/推送仍被既有并行脏工作区和 GitHub HTTPS 443 网络问题阻塞。
 
 ## 设计约束检查
 
@@ -39,6 +41,7 @@ blocked - 主工作区代码已修复并通过验证，但提交/推送仍被既
 - REGRESSION: DCC 路线相邻静态合同全部通过。
 - TYPECHECK: `pnpm ts:check -> PASS`。
 - Runtime source check: `http://127.0.0.1:8081/src/views/dcc/controlled-file/shared/utils.ts` 和 `routes/index.vue` 已返回新逻辑，且运行态 `handleQuery` 包含 `await loadRouteSubjectLookups()` 后再调用 `getApprovalRoutePage(queryParams)`。
+- REAL E2E: 本机 8081 `/dcc/controlled-file/routes` 只读 Playwright 校验 PASS；节点2可见文本逐行匹配审批角色名称，如 `编制人直接主管、QA、QMS、注册、文档管理员`，未出现 `审批角色#ID`、权限编码或整列 `-`，DCC 写请求数为 0。
 
 ## Closeout Blockers
 

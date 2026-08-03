@@ -558,6 +558,82 @@ const resolveProcessTypeByRoute = () =>
 const isExternalReview = computed(() => resolveProcessTypeByRoute() === 'EXTERNAL_REVIEW')
 const pageTitle = computed(() => (isExternalReview.value ? '外来文件评审' : '受控文件提交'))
 const submitButtonText = computed(() => (isExternalReview.value ? '提交评审' : '提交审批'))
+const formData = reactive<UploadFormDraft>({
+  categoryId: null,
+  directoryId: null,
+  fileName: '',
+  fileNumber: '',
+  productMasterId: null,
+  productCode: '',
+  dccProjectCodeId: null,
+  fileTypeTaxonomyId: null,
+  revisionTargetControlledFileId: null,
+  needTraining: false,
+  selectedSignoffUserIds: [],
+  processType: resolveProcessTypeByRoute(),
+  changeType: 'NEW',
+  versionNo: DEFAULT_MANUAL_VERSION_NO,
+  effectiveDate: resolveTodayDate(),
+  remark: ''
+})
+
+interface FileTypeTaxonomyPathInfo {
+  id: number
+  names: string[]
+}
+
+const activeFileTypeTaxonomyRows = computed(() =>
+  fileTypeTaxonomies.value
+    .filter((row) => row.id && row.active)
+    .map((row) => ({ ...row, children: undefined }))
+)
+
+const fileTypeTaxonomyOptions = computed(
+  () => handleTree(activeFileTypeTaxonomyRows.value.map((row) => ({ ...row }))) as DccFileTypeTaxonomyVO[]
+)
+
+const fileTypeTaxonomyPathMap = computed(() => {
+  const pathMap = new Map<number, FileTypeTaxonomyPathInfo>()
+  const sortedRows = [...activeFileTypeTaxonomyRows.value].sort(
+    (left, right) => (left.levelNo || 0) - (right.levelNo || 0)
+  )
+  sortedRows.forEach((row) => {
+    if (!row.id) {
+      return
+    }
+    const parentId = row.parentId || 0
+    const parentPath = parentId > 0 ? pathMap.get(parentId) : undefined
+    if (parentId > 0 && !parentPath) {
+      return
+    }
+    pathMap.set(row.id, {
+      id: row.id,
+      names: [...(parentPath?.names || []), row.name]
+    })
+  })
+  return pathMap
+})
+
+const selectedFileTypeTaxonomyPath = computed(() => {
+  if (!formData.fileTypeTaxonomyId) {
+    return undefined
+  }
+  return fileTypeTaxonomyPathMap.value.get(Number(formData.fileTypeTaxonomyId))
+})
+
+const selectedFileTypeTaxonomyPathLabel = computed(
+  () => selectedFileTypeTaxonomyPath.value?.names.join(' / ') || ''
+)
+
+const selectedFileTypeTaxonomyLeafName = computed(() => {
+  const names = selectedFileTypeTaxonomyPath.value?.names || []
+  return names.length ? names[names.length - 1] : ''
+})
+
+const isFileTypeTaxonomyDepthValid = computed(
+  () => (selectedFileTypeTaxonomyPath.value?.names.length || 0) >= 3
+)
+
 const selectedCategory = computed(() =>
   categories.value.find((category) => category.id === formData.categoryId)
 )
@@ -648,82 +724,6 @@ const uploadSubmitterService = createUploadSubmitterService({
   submit: submitControlledFile
 })
 
-const formData = reactive<UploadFormDraft>({
-  categoryId: null,
-  directoryId: null,
-  fileName: '',
-  fileNumber: '',
-  productMasterId: null,
-  productCode: '',
-  dccProjectCodeId: null,
-  fileTypeTaxonomyId: null,
-  revisionTargetControlledFileId: null,
-  needTraining: false,
-  selectedSignoffUserIds: [],
-  processType: resolveProcessTypeByRoute(),
-  changeType: 'NEW',
-  versionNo: DEFAULT_MANUAL_VERSION_NO,
-  effectiveDate: resolveTodayDate(),
-  remark: ''
-})
-
-interface FileTypeTaxonomyPathInfo {
-  id: number
-  names: string[]
-}
-
-const activeFileTypeTaxonomyRows = computed(() =>
-  fileTypeTaxonomies.value
-    .filter((row) => row.id && row.active)
-    .map((row) => ({ ...row, children: undefined }))
-)
-
-const fileTypeTaxonomyOptions = computed(
-  () => handleTree(activeFileTypeTaxonomyRows.value.map((row) => ({ ...row }))) as DccFileTypeTaxonomyVO[]
-)
-
-const fileTypeTaxonomyPathMap = computed(() => {
-  const pathMap = new Map<number, FileTypeTaxonomyPathInfo>()
-  const sortedRows = [...activeFileTypeTaxonomyRows.value].sort(
-    (left, right) => (left.levelNo || 0) - (right.levelNo || 0)
-  )
-  sortedRows.forEach((row) => {
-    if (!row.id) {
-      return
-    }
-    const parentId = row.parentId || 0
-    const parentPath = parentId > 0 ? pathMap.get(parentId) : undefined
-    if (parentId > 0 && !parentPath) {
-      return
-    }
-    pathMap.set(row.id, {
-      id: row.id,
-      names: [...(parentPath?.names || []), row.name]
-    })
-  })
-  return pathMap
-})
-
-const selectedFileTypeTaxonomyPath = computed(() => {
-  if (!formData.fileTypeTaxonomyId) {
-    return undefined
-  }
-  return fileTypeTaxonomyPathMap.value.get(Number(formData.fileTypeTaxonomyId))
-})
-
-const selectedFileTypeTaxonomyPathLabel = computed(
-  () => selectedFileTypeTaxonomyPath.value?.names.join(' / ') || ''
-)
-
-const selectedFileTypeTaxonomyLeafName = computed(() => {
-  const names = selectedFileTypeTaxonomyPath.value?.names || []
-  return names.length ? names[names.length - 1] : ''
-})
-
-const isFileTypeTaxonomyDepthValid = computed(
-  () => (selectedFileTypeTaxonomyPath.value?.names.length || 0) >= 3
-)
-
 const canLoadUploadNameOptions = computed(
   () =>
     Boolean(formData.dccProjectCodeId) &&
@@ -761,10 +761,14 @@ const formRules = reactive<FormRules>({
     {
       validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
         if (!value) {
-          callback(new Error('请选择文件类别'))
+          callback(new Error(isExternalReview.value ? '请选择文件类别' : categoryPermissionPreflightMessage.value || '文件分类尚未自动匹配可上传文件类别'))
           return
         }
         const category = categories.value.find((item) => item.id === Number(value))
+        if (!isExternalReview.value && category?.fileTypeTaxonomyId !== Number(formData.fileTypeTaxonomyId)) {
+          callback(new Error('文件类别必须来自当前文件分类叶子节点，请重新选择文件分类'))
+          return
+        }
         if (!category?.directoryId) {
           callback(new Error(categoryDirectoryBindingMessage))
           return
@@ -874,6 +878,18 @@ const resetCategorySelectionForFileTypeTaxonomyChange = () => {
   resetSelectedPreview()
   resetDrawingPdfUpload()
   clearSubmitFieldErrors(submitFieldErrors)
+}
+
+const syncAutoCategoryFromSelectedFileTypeTaxonomy = async () => {
+  if (isExternalReview.value) {
+    return
+  }
+  formData.categoryId = selectedFileTypeTaxonomyAutoCategory.value?.id || null
+  if (!formData.categoryId) {
+    return
+  }
+  applyDccProjectCodeProductNumber()
+  await loadUploadDirectoryTree(formData.categoryId)
 }
 
 const hasTemporaryUploadState = () =>
@@ -1107,6 +1123,8 @@ const handleFileTypeTaxonomyChange = async () => {
   resetUploadNameContext(true)
   resetCategorySelectionForFileTypeTaxonomyChange()
   await formRef.value?.validateField?.('fileTypeTaxonomyId').catch(() => undefined)
+  await syncAutoCategoryFromSelectedFileTypeTaxonomy()
+  await formRef.value?.validateField?.('categoryId').catch(() => undefined)
 }
 
 const loadUploadDirectoryTree = async (categoryId: number) => {

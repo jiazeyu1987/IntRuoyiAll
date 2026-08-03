@@ -30,6 +30,9 @@
 - GREEN: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --sql-file IntRuoyiBackend\sql\mysql\20260803_mes_frontline_pressure_pump_all_process_permission.sql --output doc\tasks\20260803-pressure-pump-role-process-switch\migration-policy-gate.json` -> PASS, 1 permission migration.
 - GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260803-pressure-pump-role-process-switch/backend-api-evidence.md` -> PASS.
 - GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260803-pressure-pump-role-process-switch/database-schema-evidence.md` -> PASS.
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-pressure-pump-role-process-switch --mode preview` -> READY, keep task/execution/verification reports, delete temporary evidence files, no blocked paths.
+- Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-pressure-pump-role-process-switch --mode apply` -> APPLIED, deleted `backend-api-evidence.md`, `database-schema-evidence.md`, and `migration-policy-gate.json`.
+- Experience consolidation check: read `project-experience-consolidation`; existing long-term memory docs are PowerShell/worktree focused, no suitable domain-memory destination was found for the pressure-pump permission-vs-post rule, so no new long-term document was created without explicit user authorization.
 
 ## Milestone Updates
 
@@ -38,6 +41,7 @@
 - Implementation -> PASS: pressure-pump all-process role permission uses explicit role-permission API and enabled route/process/master-data services; it is not a fallback after binding failure.
 - Migration -> PASS: permission menu migration adds `mes:pro-feedback:frontline-pressure-pump:all-processes` with fail-fast preconditions and UTF-8 hex menu name.
 - Verification -> PASS: MES targeted JUnit, release migration policy gate, backend evidence validator, and database evidence validator passed.
+- Cleanup -> PASS: task-closeout-cleanup apply removed only current task temporary evidence files and preserved `task.md`, `execution-log.md`, and `verification-report.md`.
 
 ## Verification Evidence
 
@@ -47,4 +51,4 @@
 
 ## Blockers
 
-- Commit/push not performed in this turn because the workspace already contains unrelated DCC dirty changes and the branch is already ahead of `origin`; staging or baseline committing unrelated work would mix task ownership.
+- Final commit/push not performed because the branch is already ahead of `origin` and pushing would publish all local ahead commits, including unrelated parallel task history. The working tree also has a non-task untracked evidence file: `doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/frontend-feature-evidence.md`.
