@@ -35,6 +35,10 @@
 - Implementation commit: `627951dc7 fix: seed DCC upload size policies`.
 - Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-upload-size-policy-fix --mode preview` -> blocked because `E:\IntRuoyi` main worktree is dirty and current branch cannot be fast-forward merged into `int_main`.
 - Cleanup action taken from preview: removed task-owned `bug-regression-evidence.md` and `migration-policy-gate.json` after copying validator and gate summaries into retained records.
+- Closeout record commit: `87d49f09a docs: record DCC upload size policy closeout blocker`.
+- Cleanup preview after closeout record commit: blocked; keep list contains only `task.md`, `execution-log.md`, and `verification-report.md`; delete list is empty; blockers are non-fast-forward merge into `int_main` and dirty main worktree `E:\IntRuoyi`.
+- Push preflight: branch runtime port guard passed; GitHub object scan largest blob was `docs/experience-index.md` at `75343` bytes; `git ls-remote origin HEAD` initially failed because scoped Git config `http.https://github.com.proxy` pointed to closed `127.0.0.1:7890`, while direct `github.com:443` TCP connectivity was open.
+- GREEN: `git -c http.https://github.com.proxy= -c http.proxy= -c https.proxy= push origin codex/dcc-upload-size-policy-fix` -> PASS, remote branch created.
 
 ## Verification Evidence
 
@@ -43,3 +47,4 @@
 ## Blockers
 
 - Closeout apply / worktree merge remains blocked by dirty main worktree `E:\IntRuoyi` and non-fast-forward merge guard.
+- Main worktree status observed during closeout: `int_main...origin/int_main [ahead 4]` with concurrent task edits under `doc/tasks/20260801-role-requirement-matrix-implementation` and `doc/tasks/20260803-dcc-browser-action-labels`; these are not task-owned and were not modified.

@@ -14,6 +14,7 @@
 - GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccUploadSizePolicyServiceTest,DccControlledFileUploadApiTest#uploadPreviewFile_missingSizePolicy_throwsBeforeStorageOrTicket,DccControlledFileUploadApiTest#uploadPreviewFile_sourceDocx_successCreatesTicketAndDoesNotExposeFileId" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 8 tests, `BUILD SUCCESS`.
 - GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260803-dcc-upload-size-policy-fix\bug-regression-evidence.md` -> PASS before cleanup removed the temporary evidence file.
 - GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS for `codex/dcc-upload-size-policy-fix/int_main`, frontend `8095`, backend `48095`.
+- GREEN: `git -c http.https://github.com.proxy= -c http.proxy= -c https.proxy= push origin codex/dcc-upload-size-policy-fix` -> PASS, branch pushed to `origin`.
 
 ## Root Cause
 
@@ -28,3 +29,4 @@
 - Existing policies are not updated or deleted; if the exact seed policy code already exists but is invalid, the migration fails fast instead of silently overriding.
 - Runtime note: the affected environment must apply `20260803_dcc_upload_size_policy_default_seed.sql` before users stop seeing the missing-policy message.
 - Closeout blocker: linked worktree cleanup/merge is not complete because `E:\IntRuoyi` is dirty and cannot receive the ff-only merge.
+- Git network note: persistent scoped GitHub proxy config points to closed `127.0.0.1:7890`; push succeeded only with one-off proxy clearing after direct `github.com:443` connectivity was verified.

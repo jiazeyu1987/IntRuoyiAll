@@ -39,8 +39,11 @@ ready_for_closeout
 - Existing dirty worktree baseline commits created before this task's implementation: `2ddc9b122`, `14da650fd`, `8300af6d6`.
 - Isolated branch/worktree: `codex/dcc-upload-size-policy-fix` at `D:\IntRuoyiWorktree\dcc-upload-size-policy-fix`.
 - Implementation commit: `627951dc7 fix: seed DCC upload size policies`.
+- Closeout record commit: `87d49f09a docs: record DCC upload size policy closeout blocker`.
+- Branch push: `codex/dcc-upload-size-policy-fix` pushed to `origin` after one-off clearing of the stale scoped GitHub proxy config for the push command.
 
 ## Closeout Blockers
 
 - Cleanup preview kept `task.md`, `execution-log.md`, and `verification-report.md`; task-owned temporary artifacts were removed after their summaries were copied into retained records.
 - `task-closeout-cleanup --mode apply` cannot run yet because `E:\IntRuoyi` main worktree is dirty and the linked worktree cannot be fast-forward merged into `int_main`.
+- Latest cleanup preview remains blocked with no delete candidates: current branch cannot be ff-only merged into `int_main`, and main worktree `E:\IntRuoyi` is dirty.
