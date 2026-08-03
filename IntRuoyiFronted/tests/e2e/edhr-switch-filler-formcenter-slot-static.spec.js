@@ -98,10 +98,15 @@ assert.ok(
   loadTemplateBlock.includes('resolveEmbeddedTemplateVersionForActionForm()'),
   'ActionFormPanel 必须优先从业务 openTask 内嵌模板快照构造渲染模板。'
 )
+assert.doesNotMatch(
+  loadTemplateBlock,
+  /getTemplateVersion\(templateId,\s*versionNo\)/,
+  '运行态 FormCenter 抽屉不得调用模板管理查询接口，避免普通填写人命中 403 或请求地址不存在。'
+)
 assert.match(
   loadTemplateBlock,
-  /const template = embeddedTemplate \|\| await getTemplateVersion\(templateId, versionNo\)/,
-  '只有缺少业务内嵌模板快照时，ActionFormPanel 才能调用模板管理查询接口。'
+  /动态表单运行态缺少 openTask 模板快照，无法渲染/,
+  '运行态缺少 openTask 内嵌模板快照时必须可见失败，不能降级请求模板管理接口。'
 )
 
 console.log('edhr-switch-filler-formcenter-slot-static PASS')
