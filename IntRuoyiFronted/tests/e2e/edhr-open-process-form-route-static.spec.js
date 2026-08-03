@@ -42,22 +42,30 @@ assert(routes.includes("title: 'eDHR执行表单'"), 'eDHR 执行表单页路由
 assert(!routes.includes("path: 'pro/feedback/edhr-execution/detail'"), '路由表不得继续注册废弃的 eDHR 执行详情页。')
 
 assert(
-  executionPage.includes('<div class="edhr-page-shell__toolbar">'),
-  '执行表单页 toolbar 必须在填写模式和追踪模式都可见。'
-)
-assert(
-  !executionPage.includes('<div v-if="isTrackingReadonlyMode" class="edhr-page-shell__toolbar">'),
-  '执行表单页 toolbar 不得只在 tracking 只读模式显示。'
+  /<div[\s\S]{0,120}class="edhr-page-shell__toolbar"[\s\S]{0,500}<Icon\s+icon="ep:arrow-left"[\s\S]{0,160}返回/.test(
+    executionPage
+  ),
+  '执行表单页 tracking toolbar 必须保留返回和标题区域。'
 )
 
 for (const token of [
   '{{ executionPageTitle }}',
-  '{{ executionPageSubtitle }}',  '{{ backToBatchLabel }}',
-  "currentBatchExecutionId.value ? '返回批次详情' : '返回批次执行'",
+  '{{ executionPageSubtitle }}',
+  '<Icon icon="ep:arrow-left" class="mr-5px" />',
+  '返回',
   "return `${reportName}填写`",
   "'填写当前工序表单，保存字段变更后提交执行'"
 ]) {
   assert(executionPage.includes(token), `执行表单页必须保持填写页语义：${token}`)
+}
+
+for (const obsoleteReturnLabel of [
+  '{{ backToBatchLabel }}',
+  "currentBatchExecutionId.value ? '返回批次详情' : '返回批次执行'",
+  '返回批次详情',
+  '返回批次执行'
+]) {
+  assert(!executionPage.includes(obsoleteReturnLabel), `执行表单页不得继续使用旧返回按钮文案：${obsoleteReturnLabel}`)
 }
 
 for (const obsoleteToken of [

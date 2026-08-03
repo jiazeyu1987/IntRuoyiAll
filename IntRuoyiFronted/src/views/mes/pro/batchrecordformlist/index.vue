@@ -2193,7 +2193,7 @@ const openSimulate = async (row: BatchRecordReportVO) => {
       reportName: row.reportName,
       batchRecordName: row.batchRecordName,
       returnTo: route.fullPath,
-      returnLabel: '返回批记录表单'
+      returnLabel: '返回'
     }
   })
 }

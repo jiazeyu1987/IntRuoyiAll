@@ -22,7 +22,35 @@
 
 ## Current Status
 
-in_progress
+completed
+
+## Completed Work
+
+- 已新增头部返回按钮静态契约，禁止页面头部继续暴露“返回表单模板 / 返回报表列表 / 返回排产 / 返回批次详情”等长文案。
+- 已统一命中页面的返回控件为 `ep:arrow-left` 图标 + 标准文案“返回”，保留原 click handler、路由 query、权限指令和业务行为。
+- 已同步相邻静态合同与真实 E2E 脚本定位口径，避免测试继续查找旧长文案。
+
+## Verification Evidence
+
+- RED: `node tests/e2e/header-return-buttons-static.spec.js` -> FAIL，预期失败原因为 `src/views/form-center/template/index.vue` 仍暴露“返回表单模板”。
+- GREEN: `node tests/e2e/header-return-buttons-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/form-center-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-batch-template-simulate-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-batch-template-simulate-return-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/electronic-batch-record-master-detail-layout-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-execution-list-removal-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-open-process-form-route-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-pro-route-edit-invalid-id-guard-static.spec.js` -> PASS。
+- GREEN: `pnpm e2e:basic-data:scheme-d-controls:static` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `git diff --check -- <task-owned files>` -> PASS；仅有 CRLF 提示，无 whitespace error。
+
+## Closeout Evidence
+
+- 项目经验沉淀：已将“截图按钮统一静态契约门禁”合并到 `docs/frontend-development.md`，并在 `docs/experience-index.md` 增加关键词路由。
+- 技能证据校验：`validate_frontend_feature.py` 与 `validate_design_system.py` 均 PASS，结论已归档到 `verification-report.md`。
+- cleanup preview/apply：`task-closeout-cleanup` 仅删除临时 `frontend-feature-evidence.md` 与 `design-system-evidence.md`，保留 `task.md`、`execution-log.md`、`verification-report.md`。
+- Git 收尾：需选择性暂存本任务文件并推送；若 push 失败，按 GitHub HTTPS 443 本地代理门禁修复。
 
 ## Design Constraints Check
 

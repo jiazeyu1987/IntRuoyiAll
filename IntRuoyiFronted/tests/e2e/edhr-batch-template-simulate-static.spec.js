@@ -40,7 +40,7 @@ assertIncludes(
   '模板说明页必须跳转到模拟填写路由'
 )
 assertIncludes(templatePage, 'returnTo: route.fullPath', '模板说明页进入模拟填写时必须透传来源页 fullPath')
-assertIncludes(templatePage, "returnLabel: '返回模板说明'", '模板说明页进入模拟填写时必须透传返回文案')
+assertIncludes(templatePage, "returnLabel: '返回'", '模板说明页进入模拟填写时必须透传标准返回文案')
 
 assertIncludes(
   router,
@@ -50,13 +50,15 @@ assertIncludes(
 assertIncludes(router, 'BatchExecutionTemplateSimulatePage.vue', '模拟填写路由必须指向新页面')
 assertIncludes(router, "title: 'eDHR模板模拟填写'", '模拟填写路由标题必须正确')
 
-assertIncludes(simulatePage, 'const batchExecutionId = computed(() => Number(route.query.id))', '模拟页必须校验批次执行 ID')
-assertIncludes(simulatePage, 'const taskId = computed(() => Number(route.query.taskId))', '模拟页必须校验 taskId')
+assertIncludes(simulatePage, 'const batchExecutionId = computed(() => parsePositiveRouteQueryId(route.query.id))', '模拟页必须校验批次执行 ID')
+assertIncludes(simulatePage, 'const taskId = computed(() => parsePositiveRouteQueryId(route.query.taskId))', '模拟页必须校验 taskId')
 assertIncludes(simulatePage, "const directReportId = computed(() => String(route.query.reportId || '').trim())", '模拟页必须支持 reportId 直达模式')
 assertIncludes(simulatePage, "const returnTo = computed(() => String(route.query.returnTo || '').trim())", '模拟页必须支持来源路由返回参数')
-assertIncludes(simulatePage, "const returnLabel = computed(() => String(route.query.returnLabel || '').trim())", '模拟页必须支持来源返回文案参数')
 assertIncludes(simulatePage, '<el-button link type="primary" @click="handleBack">', '模拟页头部必须渲染返回按钮')
-assertIncludes(simulatePage, "const backButtonLabel = computed(() => returnLabel.value || '返回')", '模拟页必须计算返回按钮文案')
+assertIncludes(simulatePage, '<Icon icon="ep:arrow-left" class="mr-5px" />', '模拟页返回按钮必须使用统一左箭头图标')
+assertIncludes(simulatePage, '返回', '模拟页返回按钮必须固定显示标准“返回”文案')
+assertNotIncludes(simulatePage, 'returnLabel.value', '模拟页不应再按来源覆盖返回按钮文案')
+assertNotIncludes(simulatePage, 'backButtonLabel', '模拟页不应再使用动态返回按钮文案')
 assertIncludes(simulatePage, 'await router.push(returnTo.value)', '模拟页返回时必须优先回到来源页')
 assertIncludes(simulatePage, 'if (directReportId.value)', '模拟页必须在 reportId 模式下绕过批次详情加载')
 assertIncludes(simulatePage, 'getEdhrBatchExecution(', '模拟页必须先读取批次详情')

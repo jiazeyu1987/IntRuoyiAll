@@ -6,7 +6,8 @@
       <section v-else-if="currentTask && templateData" class="edhr-batch-template-simulate__panel">
         <div class="edhr-batch-template-simulate__header">
           <el-button link type="primary" @click="handleBack">
-            {{ backButtonLabel }}
+            <Icon icon="ep:arrow-left" class="mr-5px" />
+            返回
           </el-button>
           <el-tag type="primary">模拟填写</el-tag>
         </div>
@@ -98,8 +99,6 @@ const directReportId = computed(() => String(route.query.reportId || '').trim())
 const directReportName = computed(() => String(route.query.reportName || '').trim())
 const directBatchRecordName = computed(() => String(route.query.batchRecordName || '').trim())
 const returnTo = computed(() => String(route.query.returnTo || '').trim())
-const returnLabel = computed(() => String(route.query.returnLabel || '').trim())
-const backButtonLabel = computed(() => returnLabel.value || '返回')
 
 const assertPositiveId = (value: string, label: string) => {
   if (!value) {

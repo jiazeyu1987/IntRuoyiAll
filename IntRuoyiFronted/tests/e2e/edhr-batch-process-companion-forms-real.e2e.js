@@ -423,7 +423,10 @@ async function verifyReturnContext(page, detail, group) {
   )
   assert.equal(await page.locator('.edhr-fill-workspace').count(), 0, '只读追踪模式不得渲染填写工作区')
   await page.getByText('电子批记录表单', { exact: true }).waitFor({ state: 'visible', timeout: 60000 })
-  const backButton = page.getByRole('button', { name: '返回批次详情' }).first()
+  const backButton = page
+    .locator('.edhr-page-shell__toolbar')
+    .getByRole('button', { name: /^返回$/ })
+    .first()
   await backButton.waitFor({ state: 'visible', timeout: 60000 })
   await backButton.click()
   await page.waitForURL(

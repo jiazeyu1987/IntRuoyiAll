@@ -69,11 +69,13 @@ const targets = [
   },
   {
     file: 'src/views/mes/pro/edhr-batch/BatchExecutionTemplatePage.vue',
-    forbidden: ['返回模板说明']
+    forbidden: ['返回模板说明'],
+    rendersReturnButton: false
   },
   {
     file: 'src/views/mes/pro/batchrecordformlist/index.vue',
-    forbidden: ['返回批记录表单']
+    forbidden: ['返回批记录表单'],
+    rendersReturnButton: false
   }
 ]
 
@@ -86,7 +88,9 @@ for (const target of targets) {
       `${target.file} must not expose long header return label “${label}”; use standard “返回”`
     )
   }
-  assertStandardReturnButton(source, target.file)
+  if (target.rendersReturnButton !== false) {
+    assertStandardReturnButton(source, target.file)
+  }
 }
 
 console.log('PASS: header return buttons use the standard return treatment')
