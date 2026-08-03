@@ -186,6 +186,15 @@
 - Forbidden action: 禁止把菜单权限当类别上传权限、禁止前端展示无权限类别再依赖上传失败、禁止 catch/默认成功/默认授权掩盖 `CONTROLLED_FILE_ACCESS_DENIED`。
 - Evidence: 任务 `doc/tasks/20260728-dcc-upload-controlled-file-access/`；任务 `doc/tasks/20260803-controlled-file-category-missing/`，受控文件提交页按当前文件分类 taxonomy 分支过滤正式文件类别并在 taxonomy 切换时清空旧类别/目录/预览状态，避免 `Controlled file category does not exist`。
 
+## DCC 预览不可用原因短路门禁
+
+- Trigger: DCC 受控浏览、受控文件详情预览、统一在线预览、`ProtectedPdfViewer`、`previewUnavailableReason`、`previewOnlineFileWithWatermark`、`previewControlledFileWithWatermark`、`PDF/IMAGE/VIDEO/AUDIO/TEXT/OFFICE/DOWNLOAD_ONLY` 预览类型。
+- Preflight check: 先确认预览元数据接口是否可能返回 `previewUnavailableReason`；前端拿到该字段后必须在任何二进制预览请求前短路。Office 可继续交给 OnlyOffice 只读组件展示不可用原因；PDF、图片、视频、音频、文本和下载型文件必须用通用错误区域显示同一精确原因，不能继续请求 preview binary。
+- Blocker: 元数据已返回 `previewUnavailableReason` 但页面继续调用二进制预览接口、非 Office 类型只显示“受控预览加载失败”等泛化错误、下载型文件用“仅支持下载”覆盖正式不可用原因、或静态合同不能证明短路发生在 `resolvePreviewBlob()` / `previewOnlineFileWithWatermark()` 之前时必须停止。
+- Verification: 新增或更新聚焦静态合同，至少断言 `resolvedPreviewUnavailableReason` 从 metadata 进入 viewer 状态、不可用原因 guard 早于二进制加载、非 Office 类型设置可见错误原因；运行目标静态合同、相邻统一预览合同和 `pnpm ts:check`。
+- Forbidden action: 禁止用 catch 泛化错误、隐藏空状态、默认下载、空 Blob、OnlyOffice token fallback、API-only 断言或后端吞异常来掩盖预览产物缺失。
+- Evidence: 任务 `doc/tasks/20260803-dcc-preview-all-types-unavailable/`，后端元数据已能给出缺失预览产物原因，但前端旧逻辑只让 Office/DownloadOnly 跳过二进制，导致 PDF/图片/视频/音频/文本继续请求 preview binary 并退化为泛化错误。
+
 ## DCC 上传项目代码提示状态门禁
 
 - Trigger: DCC 受控文件上传页、DHF/DMR 类别、产品编号只读自动带出、`dccProjectCodeId`、`productCode`、红色提示误判、项目代码已绑定仍显示错误。

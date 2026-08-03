@@ -51,7 +51,7 @@ assert.match(
 )
 assert.match(
   signatureLoader,
-  /dccSignatureEvidenceError\.value\s*=\s*'当前账号缺少 DCC 电子签名管理权限[\s\S]*dccSignatureEvidenceList\.value\s*=\s*\[\][\s\S]*dccSignatureEvidenceTotal\.value\s*=\s*0/,
+  /dccSignatureEvidenceError\.value\s*=\s*'当前可查看签核追溯摘要；高级签名留痕需 DCC 电子签名管理权限。'[\s\S]*dccSignatureEvidenceList\.value\s*=\s*\[\][\s\S]*dccSignatureEvidenceTotal\.value\s*=\s*0/,
   'missing signature management permission must show an explicit read-side error and clear only the signature table'
 )
 assert.match(

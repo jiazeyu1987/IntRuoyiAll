@@ -84,8 +84,8 @@ assert.match(actionColumn, /暂无可用操作/, 'browser action column must ren
 
 assert.match(
   browserPage,
-  /openControlledFileTraceability\(router,\s*route,\s*id,\s*'browser'\)/,
-  'browser openDetail must route to the shared controlled file traceability helper'
+  /openControlledFileTraceability\(router,\s*route,\s*id,\s*'browser',\s*'trace'\)/,
+  'browser openDetail must route to the shared controlled file traceability helper with trace scope'
 )
 assert.doesNotMatch(browserPage, /name:\s*'DccControlledFileDetail'/, 'browser file number link must not route to the normal detail page')
 assert.doesNotMatch(
