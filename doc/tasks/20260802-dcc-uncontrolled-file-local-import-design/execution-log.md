@@ -50,6 +50,8 @@ BDD: Import request hash is canonical -> Given the same selected audit files are
 
 BDD: Import-selected idempotency is transaction protected -> Given an identical idempotent import task appears after the first lookup but before insert When the backend enters task creation transaction Then it rechecks the key/hash under lock and returns the existing task without task/item/audit writes.
 
+BDD: Import-selected controller is write-permission protected -> Given an authorized user submits selected uncontrolled audit files through the NAS audit task API When `/dcc/controlled-files/nas-control-audit/{taskId}/import-selected` is called Then the controller requires NAS transfer write permissions, validates the request body, binds current login user and audit task id, and delegates to the import-selected service without exposing legacy transfer defaults.
+
 BDD: Local write result replay is idempotent -> Given a matched audit file has already completed LOCAL_WRITTEN and archive When the same local-write-result is replayed Then backend returns current state without creating another controlled file or ACTIVE NAS source mapping; conflicting terminal results are rejected.
 
 BDD: Import-selected task snapshots are schema-backed -> Given selected audit files will be locked into an import task When the backend creates `NAS_UNCONTROLLED_IMPORT` Then task header stores audit task, idempotency key and canonical request hash, task items store audit file/source signature/recognition/local path snapshots, and audit files expose current import task/item binding for duplicate-selection checks.
@@ -312,3 +314,16 @@ BDD: Archive metadata missing is visible -> Given a matched file is LOCAL_WRITTE
 - GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
 - GREEN: UTF-8/trailing whitespace check for M19 task/evidence/backend files -> PASS, `UTF8_AND_TRAILING_WHITESPACE_CHECK_PASS`.
 - GREEN: `git -C E:\IntRuoyi diff --check -- <M19 tracked task/backend files>` -> PASS, only Git LF-to-CRLF warnings.
+
+### M20
+
+- Status: completed
+- Completed: implemented the import-selected controller contract for `POST /dcc/controlled-files/nas-control-audit/{taskId}/import-selected`; the endpoint requires the NAS transfer write permission combination, validates `@RequestBody DccNasUncontrolledImportSelectedReqVO`, binds `getLoginUserId()` and the path `taskId`, and delegates to `DccControlledFileNasTransferService#createUncontrolledImportTask`.
+- Boundary: this slice exposes the already verified service-level import-selected creation/idempotency through the controller only; content binary download, local-write-result, archive execution, frontend static contract and real E2E remain in progress.
+- Blockers: content binary download, local-write-result idempotency, archive metadata failure path, frontend and real E2E still need subsequent RED/GREEN slices.
+
+## M20 Verification Evidence
+
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditControllerTest#nasControlAudit_mapsImportSelectedWithTransferWritePermission" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: missing endpoint mapping `/dcc/controlled-files/nas-control-audit/{taskId}/import-selected`.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditControllerTest#nasControlAudit_mapsImportSelectedWithTransferWritePermission" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditControllerTest,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_returnsExistingTaskForSameIdempotencyHashRegardlessOfOrder,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsSameIdempotencyWithDifferentRequestHash,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsDuplicateAuditIdsBeforeHashingOrWrites" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.

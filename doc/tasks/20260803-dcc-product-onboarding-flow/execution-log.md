@@ -58,6 +58,13 @@
 - Experience consolidation: updated existing `docs/database-rules.md#DCC 项目代码 MDM 产品建档绑定门禁` to include approval duplicate checking that ignores the current pending request but blocks other pending requests.
 - Continue after runtime recovery: `git status --short --branch --untracked-files=all` -> `int_main...origin/int_main`, no ahead marker, but multiple non-task dirty files remain; task-owned changed files remain limited to product onboarding service/test, task evidence, cleanup deletes, real E2E result and `docs/database-rules.md`.
 - Continue after runtime recovery: `Get-NetTCPConnection -LocalPort 48081,8081 -State Listen` -> backend `48081` PID `32276`, frontend `8081` PID `28264`; frontend `Invoke-WebRequest http://127.0.0.1:8081/` -> 200; backend health endpoint returned `UP`.
+- RED: rerun real E2E after user-reported runtime recovery without explicit browser executable -> FAIL, expected reason: Playwright bundled Chromium executable missing at `E:\Int\DevCache\playwright-browsers\chromium_headless_shell-1223\...`; per E2E rules, no browser download was performed.
+- RED: rerun real E2E with local Chrome executable -> FAIL, expected reason: current `48081` was running unrelated `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`, so `/admin-api/dcc/product-onboarding-requests/create` returned `404 请求地址不存在`.
+- Runtime switch: confirmed `48081` owner PID `40500` belonged to `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`; stopped that same-profile runtime and started verified product-onboarding jar `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260803-121411-dcc-product-onboarding.jar` as PID `57996`.
+- GREEN: post-switch runtime check -> backend `48081` PID `57996` command line points to the product-onboarding jar, backend health `UP`, frontend `8081` HTTP `200`.
+- GREEN: rerun real Playwright E2E through `/mdm/project-code` with local Chrome -> PASS: `requestId=4`, `projectCodeId=258`, `productMasterId=332`, `projectCode=CODXONB03045351`; result JSON records `criticalNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- Experience consolidation check: runtime Jar mismatch was already covered by `docs/local-runtime.md#2026-07-24 隔离构建 Jar 加载门禁`; DCC product onboarding domain rules were already merged into `docs/database-rules.md#DCC 项目代码 MDM 产品建档绑定门禁`, so no new long-term experience document was created.
+- Final runtime boundary check: after the successful product-onboarding E2E, shared `48081` was externally restored to PID `43876` running `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`; health is `UP`, but current shared runtime no longer contains the product-onboarding controller. This task does not stop or replace that unrelated active runtime again.
 
 ## Milestone Status
 
@@ -91,9 +98,10 @@
 - PASS: `mvn -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest#approveRequest_shouldIgnoreCurrentPendingRequestWhenCheckingDuplicatePendingProject" "-Dsurefire.failIfNoSpecifiedTests=false" test`，1 focused regression。
 - PASS: `mvn -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest,DccControlledFileWorkflowServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`，107 tests。
 - PASS: isolated `mvn -pl yudao-server -am "-DskipTests" package`，runtime jar SHA256 `0BDB594204E0FF55CCEB2744D7566493643A27231C404D4424B50BA83051F02B`。
-- PASS: real Playwright E2E through `/mdm/project-code` with local Chrome, `requestId=3`, `projectCodeId=257`, `productMasterId=331`, `projectCode=CODXONB03042211`。
+- PASS: real Playwright E2E through `/mdm/project-code` with local Chrome after runtime switch, `requestId=4`, `projectCodeId=258`, `productMasterId=332`, `projectCode=CODXONB03045351`。
 
 ## Blockers
 
 - Standard restart remains blocked by unrelated dirty DCC NAS import code compile errors in `DccControlledFileNasTransferServiceImpl.java`; product onboarding verification used a clean detached build jar instead of modifying or reverting that unrelated work.
+- Current shared runtime `48081` is healthy but owned by another task jar (`backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`); product-onboarding E2E already passed during the controlled temporary switch to the verified jar, and rerun would require another explicit runtime switch.
 - 最终提交/推送未执行：当前分支已不再 ahead，但工作区含多项无关脏改动/未跟踪产物；按任务所有权边界，不能把无关任务改动打包进本任务提交或推送。

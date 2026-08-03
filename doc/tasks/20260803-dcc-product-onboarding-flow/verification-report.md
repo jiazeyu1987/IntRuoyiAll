@@ -16,7 +16,7 @@
 - PASS: `mvn -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest,DccControlledFileWorkflowServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`, Tests run: 107, Failures: 0, Errors: 0, Skipped: 0.
 - PASS: isolated `mvn -pl yudao-server -am "-DskipTests" package`, BUILD SUCCESS.
 - PASS: `node --check ..\doc\tasks\20260803-dcc-product-onboarding-flow\dcc-product-onboarding-real.e2e.cjs`.
-- PASS: real Playwright E2E `node ..\doc\tasks\20260803-dcc-product-onboarding-flow\dcc-product-onboarding-real.e2e.cjs`, `requestId=3`, `projectCodeId=257`, `productMasterId=331`, `projectCode=CODXONB03042211`.
+- PASS: real Playwright E2E `node ..\doc\tasks\20260803-dcc-product-onboarding-flow\dcc-product-onboarding-real.e2e.cjs`, `requestId=4`, `projectCodeId=258`, `productMasterId=332`, `projectCode=CODXONB03045351`.
 
 ## Coverage
 
@@ -24,8 +24,8 @@
 - Database: 基础 schema、迁移文件和 DCC 测试 fixture 包含 `dcc_project_code.product_master_id`、`dcc_product_onboarding_request`、状态索引和待审批唯一约束。
 - Frontend: 项目代码基础数据页暴露产品建档入口、申请/审批按钮、MDM 产品选择、申请表单字段、API 契约和错误不吞掉的静态合同。
 - Compile/type: 后端 DCC 依赖模块 compile 通过；前端 `ts:check` 通过。
-- Runtime/E2E: clean detached build jar copied to `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260803-121411-dcc-product-onboarding.jar` with SHA256 `0BDB594204E0FF55CCEB2744D7566493643A27231C404D4424B50BA83051F02B`; backend served `48081` with health `UP`; frontend `8081` returned HTTP `200`. Latest recovery check confirmed `48081` listener PID `32276`, `8081` listener PID `28264`, frontend HTTP `200`, and backend health `UP`.
-- Real E2E: 页面真实点击“产品建档申请”、提交申请、审批通过、按项目代码 quick filter 回显生成记录；最终只读 API 核验 DCC 项目代码 `productMasterId=331` 且 MDM 产品 `status=ENABLE`。
+- Runtime/E2E: clean detached build jar copied to `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260803-121411-dcc-product-onboarding.jar` with SHA256 `0BDB594204E0FF55CCEB2744D7566493643A27231C404D4424B50BA83051F02B`; during E2E, `48081` was switched to PID `57996` running this product-onboarding jar and health was `UP`; frontend `8081` returned HTTP `200`. After E2E, shared `48081` was externally restored to PID `43876` running `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`, so the current shared runtime is healthy but is not the product-onboarding verification jar.
+- Real E2E: 页面真实点击“产品建档申请”、提交申请、审批通过、按项目代码 quick filter 回显生成记录；最终只读 API 核验 DCC 项目代码 `productMasterId=332` 且 MDM 产品 `status=ENABLE`，`criticalNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`。
 
 ## Validator Evidence
 
@@ -46,9 +46,11 @@
 
 - PASS: `task_closeout.py --task-id 20260803-dcc-product-onboarding-flow --mode preview` kept the real E2E script/result and core task reports; no blocked paths or warnings.
 - PASS: `task_closeout.py --task-id 20260803-dcc-product-onboarding-flow --mode apply` deleted temporary backend/database/frontend/bug evidence files after validator PASS was copied here.
+- PASS: rerun cleanup preview/apply after latest evidence update kept the real E2E script/result and core task reports; no deleted paths, blocked paths, or warnings.
 
 ## Known Non-Goals And Blockers
 
 - Standard backend restart blocked: `restart-int-ruoyi-local.ps1 -Component backend` failed because unrelated dirty `DccControlledFileNasTransferServiceImpl.java` currently has compile errors (`requireNonNull`, `SelectedUncontrolledImportFile`, `PreparedUncontrolledImportFile` missing). This unrelated file was not modified or reverted; verification used a clean detached build jar for this task.
+- Current shared runtime scope: `48081` is currently owned by another task jar (`backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`). Product-onboarding E2E has already passed during the controlled temporary switch to the verified jar; rerunning that E2E would require another explicit runtime switch.
 - Full schema suite not claimed: 未将完整 `DccBaseSchemaTest` 作为当前完成门禁；此前已知全量 schema 测试存在与本任务无关的 destructive SQL 检测和 NAS nullable 断言问题。
 - Commit/push blocked: 最新 `git status --short --branch` 显示 `int_main...origin/int_main` 已不再 ahead，但工作区仍存在多项无关脏改动；按任务所有权边界，本任务未打包、提交或推送这些无关改动。

@@ -2056,8 +2056,9 @@ async function resolveUnusedPqcSignatureId(page, config, preferredRoleKey) {
   try {
     await login(leaderPage, config, 'pqcLeader', config.roles.pqcLeader)
     const pageSize = 100
+    const submitDate = localDateString()
     for (let pageNo = 1; pageNo <= 10; pageNo += 1) {
-      const submissionPage = await loadPqcLeaderSubmissionPage(leaderPage, { pageNo, pageSize })
+      const submissionPage = await loadPqcLeaderSubmissionPage(leaderPage, { pageNo, pageSize, submitDate })
       submissionTotal = Math.max(submissionTotal, submissionPage.total)
       for (const row of submissionPage.list) {
         const signatureId = Number(row.electronicSignatureId ?? row.signatureId)

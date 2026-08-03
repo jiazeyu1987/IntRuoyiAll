@@ -1,23 +1,28 @@
-# Backend API Evidence - DCC NAS Control Audit Files Page, Recognition, And Import Isolation
+# Backend API Evidence - DCC NAS Control Audit Files Page, Recognition, And Import-Selected
 
 ## Scope
 
-Implemented backend slices for DCC NAS uncontrolled audit file details and deterministic pre-recognition:
+Implemented backend slices for DCC NAS uncontrolled audit file details, deterministic pre-recognition, and import-selected:
 
 - `GET /dcc/controlled-files/nas-control-audit/{taskId}/files`
 - `POST /dcc/controlled-files/nas-control-audit/{taskId}/files/recognize`
+- `POST /dcc/controlled-files/nas-control-audit/{taskId}/import-selected`
 - Service-level import-selected persistence: `DccControlledFileNasTransferService#createUncontrolledImportTask(Long userId, Long auditTaskId, DccNasUncontrolledImportSelectedReqVO reqVO)`.
 - Controller contract, service method, mapper page query, request VO, response VO.
 - Recognition reuses enabled DCC project codes, active file categories, active category match rules and active taxonomy paths.
 - Import isolation prevents existing NAS transfer waiting processors from claiming or executing `NAS_UNCONTROLLED_IMPORT` tasks before content download and local-write-result.
 - Import-selected idempotency is service-level protected by canonical request hash comparison and a transaction-time recheck using `FOR UPDATE` before task insertion.
-- Scope does not implement import-selected controller mapping, content, local-write-result, archive execution, frontend behavior, or real E2E.
+- Scope does not implement content, local-write-result, archive execution, frontend behavior, or real E2E.
 
 ## Contract
 
 - Files page endpoint: `GET /dcc/controlled-files/nas-control-audit/{taskId}/files`.
 - Recognition endpoint: `POST /dcc/controlled-files/nas-control-audit/{taskId}/files/recognize`.
-- Permission: `@ss.hasPermission('dcc:controlled-file:query')`.
+- Import-selected endpoint: `POST /dcc/controlled-files/nas-control-audit/{taskId}/import-selected`.
+- Query permission: `@ss.hasPermission('dcc:controlled-file:query')`.
+- Import-selected permission: `@ss.hasPermission('dcc:controlled-file:submit') and @ss.hasPermission('dcc:controlled-file:directory:manage') and @ss.hasPermission('dcc:controlled-file:category:manage')`.
+- Import-selected controller response: `CommonResult<DccControlledFileNasTransferRespVO>`.
+- Import-selected controller request: path `taskId` plus `@Valid @RequestBody DccNasUncontrolledImportSelectedReqVO`.
 - Import-selected service request: `DccNasUncontrolledImportSelectedReqVO` contains `selectionScope`, `idempotencyKey`, and `selectedFiles[auditFileId, sourceSignature, localRelativePath]`; it intentionally does not expose legacy transfer target fields such as task-level template category, effective date, or project code.
 - Import-selected service entry validates all selected audit files before writing; invalid mixed selections fail atomically without task/item inserts or audit row updates.
 - Import-selected idempotency contract: same `idempotencyKey + requestHash` returns the existing task, same key with different request hash throws a conflict before audit reads or writes, and duplicate audit ids fail before hash calculation or persistence.
@@ -39,6 +44,8 @@ Implemented backend slices for DCC NAS uncontrolled audit file details and deter
 - Unknown or blank category match rule type/text fails fast instead of being treated as no-match or default success.
 - `processWaitingTasks()` skips `sourceType=NAS_UNCONTROLLED_IMPORT` before `executeTask`, so legacy NAS transfer code cannot claim the task, read NAS content, call `submitControlledFileWithoutApproval`, or insert ACTIVE NAS source mappings.
 - `createUncontrolledImportTask(...)` performs a non-mutating idempotency lookup before the transaction and repeats the same lookup with `LIMIT 1 FOR UPDATE` inside the transaction before any audit read, task insert, task item insert or audit binding update.
+- The import-selected controller binds the current login user via `getLoginUserId()`, passes the path `taskId` unchanged as `auditTaskId`, and delegates to `DccControlledFileNasTransferService#createUncontrolledImportTask(...)`.
+- The import-selected controller contract test verifies mapping, response type, write permission combination, and `@Valid @RequestBody` on the request VO.
 
 ## BDD Scenarios
 
@@ -58,6 +65,8 @@ BDD: Import-selected creates atomic task snapshots -> Given selected audit files
 
 BDD: Import-selected idempotency is transaction protected -> Given an identical import request races with another request that inserts the same idempotent task When the backend reaches the transaction Then it rechecks the key/hash under lock and returns the existing task without duplicate writes.
 
+BDD: Import-selected controller is write-permission protected -> Given an authorized user submits selected uncontrolled audit files through the NAS audit task API When `/dcc/controlled-files/nas-control-audit/{taskId}/import-selected` is called Then the controller requires NAS transfer write permissions, validates the request body, binds current login user and audit task id, and delegates to the import-selected service without exposing legacy transfer defaults.
+
 ## RED Evidence
 
 RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditControllerTest#nasControlAudit_mapsFilesPageWithControlledFileQueryPermission" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: missing endpoint mapping `/dcc/controlled-files/nas-control-audit/{taskId}/files`.
@@ -73,6 +82,8 @@ RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControl
 RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: service still threw `UnsupportedOperationException` from the fail-fast M17 stub.
 
 RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: service returned newly inserted task `8202` instead of existing idempotent task `8102`.
+
+RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditControllerTest#nasControlAudit_mapsImportSelectedWithTransferWritePermission" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: missing endpoint mapping `/dcc/controlled-files/nas-control-audit/{taskId}/import-selected`.
 
 ## GREEN Evidence
 
@@ -98,16 +109,20 @@ GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccContr
 
 REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_returnsExistingTaskForSameIdempotencyHashRegardlessOfOrder,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsSameIdempotencyWithDifferentRequestHash,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsDuplicateAuditIdsBeforeHashingOrWrites" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
 
+GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditControllerTest#nasControlAudit_mapsImportSelectedWithTransferWritePermission" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+
+REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditControllerTest,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_returnsExistingTaskForSameIdempotencyHashRegardlessOfOrder,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsSameIdempotencyWithDifferentRequestHash,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsDuplicateAuditIdsBeforeHashingOrWrites" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+
 ## Verification
 
-- Controller contract now covers start/get/download, files page and recognize mappings with `dcc:controlled-file:query` permission.
+- Controller contract now covers start/get/download, files page and recognize mappings with `dcc:controlled-file:query` permission, plus import-selected mapping with `submit + directory:manage + category:manage`.
 - DCC module main and test sources compile under the targeted Maven reactor command.
 - Existing audit scan detail persistence test still passes after adding files page and recognition APIs.
 - Service tests cover unique match, pending when category missing, ambiguous when project duplicates, and no rewrite when no pending rows are selected.
 - Transfer service tests cover import-selected request/service signature isolation from legacy transfer fields, legacy waiting processor skip behavior, service-level atomic task/item/audit binding creation, mixed invalid selection rejection, canonical idempotency reuse, request-hash conflict rejection, duplicate audit id rejection and transaction-time duplicate insert prevention for `NAS_UNCONTROLLED_IMPORT`.
-- Backend API evidence validator passed after M19 update: `Backend API evidence is valid.`
+- Backend API evidence validator passed after M20 update: `Backend API evidence is valid.`
 
 ## Blockers
 
-- Full objective remains in progress: import-selected controller mapping, content binary download, local-write-result, archive execution, frontend, and real E2E are not yet implemented.
+- Full objective remains in progress: content binary download, local-write-result, archive execution, frontend, and real E2E are not yet implemented.
 - Final closeout/commit/push remains blocked by the pre-existing dirty worktree and concurrent unrelated changes; do not mix those with this task slice.

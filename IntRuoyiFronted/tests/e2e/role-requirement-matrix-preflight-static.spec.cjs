@@ -209,6 +209,13 @@ assert.match(
   /function\s+fillElementPlusInput[\s\S]*input\$\{selector\},\s*\$\{selector\} input/,
   'PQC leader submission filter E2E must fill Element Plus inputs whether data-* is on the wrapper or the native input.'
 )
+const pqcSignaturePoolScanner = source.match(/async function resolveUnusedPqcSignatureId[\s\S]*?\n}\n\nasync function verifyPqcFormalSubmissionCreatesEvent/)
+assert.ok(pqcSignaturePoolScanner, 'real E2E script must keep resolveUnusedPqcSignatureId before verifyPqcFormalSubmissionCreatesEvent for static inspection.')
+assert.match(
+  pqcSignaturePoolScanner[0],
+  /const\s+submitDate\s*=\s*localDateString\(\)[\s\S]*loadPqcLeaderSubmissionPage\(leaderPage,\s*\{[\s\S]*submitDate/,
+  'PQC signature-pool scan must pass submitDate into the submission page query because the backend timeline requires a formal submit-date window.'
+)
 const pqcProcessesLoader = source.match(/async function loadPqcProcessesViaAuth[\s\S]*?\n}\n\nfunction buildPqcProcessSourceBlocker/)
 assert.ok(pqcProcessesLoader, 'real E2E script must keep buildPqcProcessSourceBlocker directly after the PQC process loader for static inspection.')
 assert.doesNotMatch(
