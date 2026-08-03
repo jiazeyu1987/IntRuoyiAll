@@ -6,15 +6,15 @@
 
 ## Milestones
 
-- [ ] 定位页面关系图入口、组件、既有静态合同和历史验收要求。
-- [ ] 对照要求补充或更新最小 RED 静态合同。
-- [ ] 实施最小前端修正，避免引入 fallback、mock 或坐标点击绕过。
-- [ ] 运行定向 GREEN、相邻回归、证据 validator 和必要的结构验证。
-- [ ] 更新 verification report 与 closeout 状态，选择性提交本任务文件。
+- [x] 定位页面关系图入口、组件、既有静态合同和历史验收要求。
+- [x] 对照要求补充或更新最小 RED 静态合同。
+- [x] 实施最小前端修正，避免引入 fallback、mock 或坐标点击绕过。
+- [x] 运行定向 GREEN、相邻回归、证据 validator 和必要的结构验证。
+- [x] 更新 verification report 与 closeout 状态，选择性提交本任务文件。
 
 ## Expected Verification
 
-- `node tests/e2e/edhr-page-graph-static.spec.js`
+- `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js`
 - 受影响组件的相邻静态合同或最小扫描命令。
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260803-edhr-page-graph-requirement-check/frontend-feature-evidence.md`
 - `git diff --check`
@@ -33,8 +33,10 @@
 
 ## Current Status
 
-in_progress
+completed
 
-- 已读取 `docs/task-closeout-rules.md`、`docs/powershell-encoding.md`、`docs/powershell-memory.md`、`docs/frontend-development.md`、`docs/e2e-rules.md`、`docs/experience-index.md` 和 `frontend-feature-delivery` 技能。
+- 已读取 `docs/task-closeout-rules.md`、`docs/powershell-encoding.md`、`docs/powershell-memory.md`、`docs/frontend-development.md`、`docs/e2e-rules.md`、`docs/experience-index.md`、`frontend-feature-delivery` 技能、`project-experience-consolidation` 技能和 `task-closeout-cleanup` 技能。
 - 已保存任务开始前既有脏改基线提交：`a653452fc`、`ca51198aa`、`a985e2497`。
-- 发现基线后仍有并行任务改动持续出现，本任务后续只选择性暂存页面关系图相关文件。
+- 发现基线后仍有并行任务改动持续出现；本任务只选择性暂存页面关系图相关文件。
+- 已完成本任务定向 GREEN；相邻页签合同失败于既有 PQC “长度”断言，记录为非本任务 blocker。
+- cleanup preview/apply 已通过，仅删除任务临时 `frontend-feature-evidence.md`，保留 `task.md`、`execution-log.md`、`verification-report.md`。

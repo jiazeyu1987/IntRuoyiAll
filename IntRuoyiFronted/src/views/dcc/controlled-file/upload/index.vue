@@ -540,14 +540,41 @@ const selectedProjectCode = computed(() =>
 )
 const categoryDirectoryBindingMessage = '当前文件类别未绑定提交目录，请先在 DCC 文件类别维护目录绑定'
 const categoryUploadPermissionMessage = '当前用户没有该文件类别的上传权限，请选择有上传权限的文件类别。'
+const categorySelectDisabled = computed(
+  () => !isExternalReview.value && !isFileTypeTaxonomyDepthValid.value
+)
+const categorySelectPlaceholder = computed(() =>
+  categorySelectDisabled.value ? '请先选择至少三级文件分类' : '请选择文件类别'
+)
+const categorySelectEmptyText = computed(() => {
+  if (categorySelectDisabled.value) {
+    return '请先选择至少三级文件分类'
+  }
+  if (!isExternalReview.value && formData.fileTypeTaxonomyId && !availableCategories.value.length) {
+    return '当前文件分类暂无已绑定提交目录的文件类别'
+  }
+  return '当前没有可上传文件类别'
+})
 const availableCategories = computed(() =>
-  categories.value.filter(
-    (category) => category.active && Boolean(category.directoryId) && category.canUpload !== false
-  )
+  categories.value.filter((category) => {
+    if (!category.active || !Boolean(category.directoryId) || category.canUpload === false) {
+      return false
+    }
+    if (isExternalReview.value) {
+      return true
+    }
+    return (
+      category.fileTypeTaxonomyId != null &&
+      selectedFileTypeTaxonomyCategoryIds.value.has(category.fileTypeTaxonomyId)
+    )
+  })
 )
 const categoryPermissionPreflightMessage = computed(() => {
   if (categoryOptionsError.value) {
     return categoryOptionsError.value
+  }
+  if (categorySelectDisabled.value) {
+    return '请先选择至少三级文件分类，再选择文件类别。'
   }
   if (!categories.value.length || !availableCategories.value.length) {
     return '当前没有可上传文件类别：请确认分类已启用、已绑定提交目录，并授予当前账号文件类别 UPLOAD 权限。'

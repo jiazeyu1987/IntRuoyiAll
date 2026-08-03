@@ -34,12 +34,21 @@
 
 ## RED
 
-- Pending.
+- RED: `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js` -> FAIL, expected reason: 旧页面关系图未展示独立“工序开始”节点，证明当前图未按三类配置入口拆分。
 
 ## GREEN
 
-- Pending.
+- GREEN: `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260803-edhr-page-graph-requirement-check/frontend-feature-evidence.md` -> PASS, Frontend feature evidence is valid。
+- GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchPageGraphPage.vue IntRuoyiFronted/tests/e2e/edhr-batch-page-graph-tab-static.spec.js doc/tasks/20260803-edhr-page-graph-requirement-check` -> PASS with CRLF warnings only。
+- ADJACENT BLOCKER: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> FAIL at existing PQC “长度” assertion; search confirms the failure is in `edhr-frontline-fill-tabs-static.spec.cjs` / PQC fill component expectations, not the page graph component touched by this task。
+
+## Cleanup
+
+- CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-edhr-page-graph-requirement-check --mode preview` -> PASS, keep `task.md` / `execution-log.md` / `verification-report.md`, delete temporary `frontend-feature-evidence.md`。
+- CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-edhr-page-graph-requirement-check --mode apply` -> PASS, deleted `frontend-feature-evidence.md`。
+- FINAL STATUS: task marked `completed` after cleanup apply.
 
 ## Blockers
 
-- 当前分支已 ahead 3，且存在并行任务在本任务启动后继续写入无关文件；最终提交需选择性暂存本任务文件，推送前如仍有并行脏改需按门禁记录或阻塞。
+- 当前分支已 ahead 6，且存在并行任务在本任务启动后继续写入无关文件；最终提交需选择性暂存本任务文件，推送前如仍有并行脏改需按门禁记录或阻塞。
