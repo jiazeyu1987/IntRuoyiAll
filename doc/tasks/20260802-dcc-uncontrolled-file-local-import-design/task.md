@@ -37,11 +37,13 @@
 - [ ] M24：补齐正式归档元数据来源后，按严格 TDD 完成创建受控文件、ACTIVE NAS 来源映射和已归档重复回写保护（当前阻塞：现有 audit/import 处理项未保存正式归档元数据快照，禁止用旧任务头、候选 JSON 或当前日期归档）。
 - [x] M25：按严格 TDD 完成前端静态契约和最小 UI/API 集成切片，覆盖目录授权前置、相对路径校验、content 下载、本地写入、local-write-result 回写、未分类待处理和 `ARCHIVE_METADATA_REQUIRED` 可见状态。
 - [x] M26：复核 M24 正式归档元数据前置并固化文档门禁，明确缺少处理项级归档元数据快照时必须保持 `ARCHIVE_METADATA_REQUIRED` 阻塞，不得伪造成功归档。
+- [x] M27：完成文档一致性审计并补齐可检索门禁标记，确保 TDD/test-data 文档显式覆盖 `未分类/待处理`、`showDirectoryPicker`、`LOCAL_WRITTEN`、`ARCHIVE_METADATA_REQUIRED` 和 `NAS_UNCONTROLLED_IMPORT`。
 
 ## Expected Verification
 
 - `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi`
 - 使用 UTF-8 重新读取本任务文档，确认无乱码。
+- `node -e "<doc consistency marker scan>"`，确认任务文档和验收文档均包含 `ARCHIVE_METADATA_REQUIRED`、`未分类/待处理`、`showDirectoryPicker`、`LOCAL_WRITTEN` 和 `NAS_UNCONTROLLED_IMPORT`。
 - 核对每个生产行为均有 BDD 场景和 RED/GREEN 实施入口。
 - 核对真实 E2E 通过现有前端入口完成，API 仅用于最终只读核验。
 - 核对“无法唯一识别”始终落到“未分类/待处理”，不存在默认项目、默认 item、默认分类或静默跳过。
@@ -76,7 +78,7 @@
 
 in_progress
 
-设计文档、BDD/TDD/E2E 验收文档、潜在问题优化、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片、M16 import-selected 后续实现门禁加固、M17 import-selected 服务契约/legacy processor 隔离、M18 服务级原子创建、M19 服务级幂等并发保护、M20 controller 契约、M21 content binary download、M22 local-write-result、M23 归档元数据缺失显式阻塞、M25 前端静态契约/最小 UI/API 集成和 M26 正式归档元数据阻塞门禁均已完成验证。M21 已补入 `readUncontrolledImportContent` 服务快照校验和 `/dcc/controlled-files/nas-uncontrolled-import/tasks/{importTaskId}/files/{auditFileId}/content` 二进制 controller 实现，并在隔离 worktree `D:\IntRuoyiWorktree\dcc-uncontrolled-import-m21-verify-20260803` 通过 targeted GREEN 与相邻回归；M22 已在主工作区补入 `recordUncontrolledImportLocalWriteResult` 服务快照校验、`/dcc/controlled-files/nas-uncontrolled-import/tasks/{importTaskId}/files/{auditFileId}/local-write-result` controller、重复成功回放幂等和冲突终态拒绝；M23 已在 `LOCAL_WRITTEN` 后对 `MATCHED` 文件写入 `archiveStatus=FAILED`、`archiveErrorCode=ARCHIVE_METADATA_REQUIRED`，并验证不读取 NAS、不上传原始文件、不调用 workflow、不写 ACTIVE NAS 来源映射；M25 已在 NAS 管理页补齐未受控文件明细、识别刷新、目录授权、本地写入和 local-write-result 回写的静态契约；M26 已复核当前 schema/DO/Service，确认尚无处理项级正式归档元数据快照，已把 M24 成功归档路径前置阻塞写入设计与 BDD/TDD 门禁。当前已具备处理任务头幂等字段、处理项识别/本地路径快照、audit 明细 import 绑定、旧 transfer 字段隔离、legacy processor 跳过、规范化 request hash、事务内二次幂等检查、正式 import-selected 路由、content 下载快照绑定、local-write-result 快照回写、缺元数据归档阻塞入口和前端静态入口。M24 正式归档成功路径和 ACTIVE NAS 来源映射因缺少正式归档元数据快照来源暂时 blocked；real E2E remain in progress. `pnpm ts:check` 已在修复无关 DCC 上传页 computed 暴露顺序问题后通过，可作为当前前端工作区类型检查 GREEN。最终 `completed` 状态暂不标记：当前工作区存在任务开始前及其它并发任务脏文件，且分支相对 `origin/int_main` 仍有未推送提交；按项目 Git/closeout 规则需要先单独处理脏工作区基线、并发提交污染和 push 阻塞，不能把本任务与其它并发任务资产混在一个收尾提交里。
+设计文档、BDD/TDD/E2E 验收文档、潜在问题优化、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片、M16 import-selected 后续实现门禁加固、M17 import-selected 服务契约/legacy processor 隔离、M18 服务级原子创建、M19 服务级幂等并发保护、M20 controller 契约、M21 content binary download、M22 local-write-result、M23 归档元数据缺失显式阻塞、M25 前端静态契约/最小 UI/API 集成、M26 正式归档元数据阻塞门禁和 M27 文档一致性审计均已完成验证。M21 已补入 `readUncontrolledImportContent` 服务快照校验和 `/dcc/controlled-files/nas-uncontrolled-import/tasks/{importTaskId}/files/{auditFileId}/content` 二进制 controller 实现，并在隔离 worktree `D:\IntRuoyiWorktree\dcc-uncontrolled-import-m21-verify-20260803` 通过 targeted GREEN 与相邻回归；M22 已在主工作区补入 `recordUncontrolledImportLocalWriteResult` 服务快照校验、`/dcc/controlled-files/nas-uncontrolled-import/tasks/{importTaskId}/files/{auditFileId}/local-write-result` controller、重复成功回放幂等和冲突终态拒绝；M23 已在 `LOCAL_WRITTEN` 后对 `MATCHED` 文件写入 `archiveStatus=FAILED`、`archiveErrorCode=ARCHIVE_METADATA_REQUIRED`，并验证不读取 NAS、不上传原始文件、不调用 workflow、不写 ACTIVE NAS 来源映射；M25 已在 NAS 管理页补齐未受控文件明细、识别刷新、目录授权、本地写入和 local-write-result 回写的静态契约；M26 已复核当前 schema/DO/Service，确认尚无处理项级正式归档元数据快照，已把 M24 成功归档路径前置阻塞写入设计与 BDD/TDD 门禁；M27 已补齐 TDD/test-data 文档中缺失的关键可检索标记，保证后续实施能按同一组状态和源类型检索到阻塞门禁。当前已具备处理任务头幂等字段、处理项识别/本地路径快照、audit 明细 import 绑定、旧 transfer 字段隔离、legacy processor 跳过、规范化 request hash、事务内二次幂等检查、正式 import-selected 路由、content 下载快照绑定、local-write-result 快照回写、缺元数据归档阻塞入口和前端静态入口。M24 正式归档成功路径和 ACTIVE NAS 来源映射因缺少正式归档元数据快照来源暂时 blocked；real E2E remains pending on real browser/runtime/test-data prerequisites. `pnpm ts:check` 已在修复无关 DCC 上传页 computed 暴露顺序问题后通过，可作为当前前端工作区类型检查 GREEN。最终 `completed` 状态暂不标记：当前工作区存在任务开始前及其它并发任务脏文件，且分支相对 `origin/int_main` 仍有未推送提交；按项目 Git/closeout 规则需要先单独处理脏工作区基线、并发提交污染和 push 阻塞，不能把本任务与其它并发任务资产混在一个收尾提交里。
 
 ## 设计约束检查
 

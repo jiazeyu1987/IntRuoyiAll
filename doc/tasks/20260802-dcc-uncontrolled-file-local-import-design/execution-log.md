@@ -415,3 +415,14 @@ BDD: Archive metadata missing is visible -> Given a matched file is LOCAL_WRITTE
 - Completed: updated `design.md`, `docs/acceptance/bdd-scenarios.md`, `docs/acceptance/tdd-plan.md`, `task.md`, and `verification-report.md` so future M24 development must first add RED/schema/VO/service evidence for the formal metadata source before enabling successful archive creation.
 - BLOCKER: M24 formal archive success path -> FAIL, missing processing-item-level formal archive metadata source; impact: controlled-file creation and ACTIVE NAS source mapping must remain blocked by `ARCHIVE_METADATA_REQUIRED` instead of using legacy task defaults, current date, empty template, or `classificationCandidatesJson`.
 - Verification: document-only hardening; no production code, NAS file, local directory, database data, workflow submit, controlled-file creation, or ACTIVE NAS source mapping was modified.
+
+### M27
+
+- Status: completed for document consistency and implementation-readiness audit.
+- BDD: Documentation markers remain searchable -> Given a future developer follows only this task package and acceptance documents When they search for the critical gates Then each core document exposes the same `ARCHIVE_METADATA_REQUIRED`, `未分类/待处理`, `showDirectoryPicker`, `LOCAL_WRITTEN`, and `NAS_UNCONTROLLED_IMPORT` markers without relying on memory from this chat.
+- RED: `node -e "<doc consistency marker scan>"` -> FAIL, expected reason: `docs/acceptance/tdd-plan.md` did not contain `未分类/待处理`, and `docs/acceptance/test-data.md` did not contain `未分类/待处理`, `showDirectoryPicker`, or `NAS_UNCONTROLLED_IMPORT`.
+- Completed: updated `docs/acceptance/tdd-plan.md` to state that unresolvable project code/item/category must remain official `未分类/待处理`, and updated `docs/acceptance/test-data.md` to bind local-directory samples to `showDirectoryPicker` and `NAS_UNCONTROLLED_IMPORT`.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: `node -e "<doc consistency marker scan>"` -> PASS, `DOC_CONSISTENCY_PASS files=8 markers=5`.
+- GREEN: `git diff --check -- docs/acceptance/tdd-plan.md docs/acceptance/test-data.md` -> PASS, only Git LF-to-CRLF warnings.
+- Boundary: documentation-only consistency hardening; no production code, NAS file, local directory, database data, workflow submit, controlled-file creation, or ACTIVE NAS source mapping was modified.
