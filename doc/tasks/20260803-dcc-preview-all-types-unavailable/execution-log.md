@@ -40,8 +40,13 @@ BDD: 支持预览产物存在时维持原加载链路 -> Given 元数据未返�
 - GREEN: `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/view/index.vue IntRuoyiFronted/tests/e2e/dcc-common-file-preview-source.spec.js IntRuoyiFronted/tests/e2e/dcc-preview-unavailable-reason-static.spec.js doc/tasks/20260803-dcc-preview-all-types-unavailable docs/frontend-development.md docs/experience-index.md` -> PASS。
 - CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-preview-all-types-unavailable --mode preview` -> PASS, keep `task.md` / `execution-log.md` / `verification-report.md`, delete `bug-regression-evidence.md` / `frontend-feature-evidence.md`, blocked `<none>`。
 - CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-preview-all-types-unavailable --mode apply` -> PASS, deleted `bug-regression-evidence.md` and `frontend-feature-evidence.md` after validator results were copied into preserved reports.
+- CONCURRENT BASELINE: `a79a8c31d chore: baseline frontend backend DCC preview updates` -> absorbed this task's implementation files (`view/index.vue`, `dcc-common-file-preview-source.spec.js`, `dcc-preview-unavailable-reason-static.spec.js`) together with unrelated DCC files. No history rewrite or amend performed; remaining dirty files are task records and long-term gate docs.
+- GREEN after concurrent baseline: `node tests/e2e/dcc-preview-unavailable-reason-static.spec.js` -> PASS。
+- GREEN after concurrent baseline: `node tests/e2e/dcc-common-file-preview-source.spec.js` -> PASS。
+- GREEN after concurrent baseline: `node tests/e2e/unified-online-file-preview-static.spec.js` -> PASS。
+- GREEN after concurrent baseline: `pnpm ts:check` -> PASS。
 
 ## Blockers
 
 - 当前无实现阻塞。
-- Git 阶段剩余：选择性暂存本任务文件、提交本任务实现/文档、推送当前 `int_main` 分支，并确认不再 ahead。
+- Git 阶段剩余：选择性暂存本任务文档与长期门禁更新，提交并推送当前 `int_main` 分支，确认不再 ahead。

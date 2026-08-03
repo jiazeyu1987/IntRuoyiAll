@@ -28,7 +28,9 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260803-dcc-preview-all-types-unavailable/bug-regression-evidence.md` -> PASS。
 - GREEN: `rg -n "DCC 预览不可用|previewUnavailableReason|dcc-预览不可用原因短路门禁" docs/experience-index.md docs/frontend-development.md` -> PASS，长期经验已合并进现有文档。
 - GREEN: cleanup preview/apply -> PASS，已删除临时 `bug-regression-evidence.md` 与 `frontend-feature-evidence.md`，保留 `task.md`、`execution-log.md`、`verification-report.md`。
+- GREEN after concurrent baseline `a79a8c31d`: `node tests/e2e/dcc-preview-unavailable-reason-static.spec.js`、`node tests/e2e/dcc-common-file-preview-source.spec.js`、`node tests/e2e/unified-online-file-preview-static.spec.js`、`pnpm ts:check` -> PASS。
 
 ## Regression Notes
 
 - `node tests/e2e/dcc-controlled-file-protection.contract.test.js` 仍失败在历史断言：旧契约要求 viewer 源码直接包含 `previewControlledFileWithWatermark`，但当前 viewer 已通过统一预览 API `previewOnlineFileWithWatermark` 委托。该失败与本次不可用原因短路修复无关。
+- 本任务的源码/测试改动被并发基线提交 `a79a8c31d` 与其它 DCC 改动一起吸收；本任务不改写历史，剩余提交只包含任务记录和长期门禁文档。

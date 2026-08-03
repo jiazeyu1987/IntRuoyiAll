@@ -1050,6 +1050,10 @@ public interface ErrorCodeConstants {
             "PQC 员工和 PQC 组长来源为空，无法切换填写员工");
     ErrorCode PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND = new ErrorCode(1_040_760_118,
             "实际填写员工 {} 不属于 PQC 员工或 PQC 组长");
+    ErrorCode PRO_FRONTLINE_PRESSURE_PUMP_ROUTE_EMPTY = new ErrorCode(1_040_760_119,
+            "压力泵角色授权缺少启用压力泵工艺路线，无法切换工序，loginUserId={}");
+    ErrorCode PRO_FRONTLINE_PRESSURE_PUMP_ROUTE_PROCESS_EMPTY = new ErrorCode(1_040_760_120,
+            "压力泵角色授权缺少有效工艺路线工序，routeIds={}");
 
     // ========== MES 工序池审核副本（1-040-760-200） ==========
     ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_FIELD_MAPPING_REQUIRED = new ErrorCode(1_040_760_200,
