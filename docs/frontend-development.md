@@ -161,12 +161,21 @@
 
 ## DCC 上传类别权限投影门禁
 
-- Trigger: DCC 受控文件上传页、外来文件评审页、文件类别下拉、`upload-preview`、`Current user cannot access this controlled file`、类别级 `UPLOAD` 权限。
-- Preflight check: 先确认类别列表接口返回当前用户类别级 `canUpload` 投影；上传页和外来评审页必须过滤 `canUpload=false` 且表单校验能拦截旧选择，同时后端 `upload-preview` / submit 继续用 `DccControlledFileCategoryPermissionSupport` fail-fast。
-- Blocker: 类别列表缺少 `canUpload`、前端只按 `active/directoryId` 展示类别、上传接口为了消除提示放宽 `UPLOAD` 校验、或静态合同不能证明无权限类别不会进入上传。
-- Verification: 运行 `node tests/e2e/dcc-upload-category-permission-static.spec.js`，并运行 `mvn -pl yudao-module-dcc "-Dtest=DccControlledFileUploadApiTest#uploadPreviewFile_withoutCategoryUploadPermission_deniesBeforePolicyOrStorage,DccFileCategoryControllerConfigPackageContractTest#getCategoryList_projectsCurrentUserUploadPermission,DccFileCategoryControllerConfigPackageContractTest#getCategoryList_withoutLoginUserDoesNotGrantUploadProjection" "-Dsurefire.failIfNoSpecifiedTests=false" test`。
+- Trigger: DCC 受控文件上传页、外来文件评审页、文件分类 `fileTypeTaxonomyId`、文件类别 `categoryId`、文件类别下拉、`upload-preview`、`Controlled file category does not exist`、`Current user cannot access this controlled file`、类别级 `UPLOAD` 权限。
+- Preflight check: 先确认类别列表接口返回当前用户类别级 `canUpload` 投影；上传页和外来评审页必须过滤 `canUpload=false` 且表单校验能拦截旧选择，同时后端 `upload-preview` / submit 继续用 `DccControlledFileCategoryPermissionSupport` fail-fast。受控文件上传页还必须区分“文件分类”taxonomy 与正式 DCC“文件类别”category：文件类别下拉只能展示当前 taxonomy 分支下可上传且绑定目录的正式类别，taxonomy 切换必须清空旧 `categoryId`、目录上下文和上传预览状态。
+- Blocker: 类别列表缺少 `canUpload`、前端只按 `active/directoryId` 展示类别、上传接口为了消除提示放宽 `UPLOAD` 校验、文件类别下拉允许跨 taxonomy 选择或保留 stale `categoryId`、把 `fileTypeTaxonomyId` 当作后端目录查询 `categoryId`、或静态合同不能证明无权限/跨 taxonomy 类别不会进入上传。
+- Verification: 运行 `node tests/e2e/dcc-upload-category-permission-static.spec.js`、`node tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js`，并运行 `mvn -pl yudao-module-dcc "-Dtest=DccControlledFileUploadApiTest#uploadPreviewFile_withoutCategoryUploadPermission_deniesBeforePolicyOrStorage,DccFileCategoryControllerConfigPackageContractTest#getCategoryList_projectsCurrentUserUploadPermission,DccFileCategoryControllerConfigPackageContractTest#getCategoryList_withoutLoginUserDoesNotGrantUploadProjection" "-Dsurefire.failIfNoSpecifiedTests=false" test`。
 - Forbidden action: 禁止把菜单权限当类别上传权限、禁止前端展示无权限类别再依赖上传失败、禁止 catch/默认成功/默认授权掩盖 `CONTROLLED_FILE_ACCESS_DENIED`。
-- Evidence: 任务 `doc/tasks/20260728-dcc-upload-controlled-file-access/`。
+- Evidence: 任务 `doc/tasks/20260728-dcc-upload-controlled-file-access/`；任务 `doc/tasks/20260803-controlled-file-category-missing/`，受控文件提交页按当前文件分类 taxonomy 分支过滤正式文件类别并在 taxonomy 切换时清空旧类别/目录/预览状态，避免 `Controlled file category does not exist`。
+
+## DCC 上传项目代码提示状态门禁
+
+- Trigger: DCC 受控文件上传页、DHF/DMR 类别、产品编号只读自动带出、`dccProjectCodeId`、`productCode`、红色提示误判、项目代码已绑定仍显示错误。
+- Preflight check: 先区分“缺少 DCC 项目代码”的阻断状态和“已从所选 DCC 项目自动带出项目代码”的成功状态；DHF/DMR 类别可以保留必选提示，但提示颜色和文案必须跟随 `productCode` 是否已自动绑定切换，不能只由类别必选布尔值决定。
+- Blocker: 已选择包含项目代码的 DCC 项目且产品编号已带出时仍显示红色错误、产品编号改回可手填、提示文案替代后端绑定校验、或静态合同不能证明成功/缺失两种状态的颜色边界时必须停止。
+- Verification: 运行 `node tests/e2e/dcc-upload-project-code-hint-static.spec.js`、`node tests/e2e/dcc-upload-product-autofill-static.spec.js`、`node tests/e2e/dcc-product-category-rule-static.spec.js` 和 `pnpm ts:check`。
+- Forbidden action: 禁止用隐藏提示、删除 DHF/DMR 必选校验、允许员工手填产品编号、默认项目代码、空 `productMasterId` 或只改文案不改状态颜色来掩盖绑定状态。
+- Evidence: 任务 `doc/tasks/20260803-dcc-upload-project-code-hint/`，上传页旧实现只按 `isProductRequiredForSelectedCategory` 固定显示红字，导致已自动带出 `IDI` 仍被误读为错误；修正为缺失时红色阻断、已绑定时绿色确认。
 
 ## DCC 基础条目关联文档分类树门禁
 

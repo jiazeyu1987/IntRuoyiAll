@@ -432,10 +432,8 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
         auditFile.setSelectedImportTaskId(9999L);
         auditFile.setSelectedImportTaskItemId(9302L);
         auditFile.setLocalRelativePath("PRJ-20260728/Design/stale.pdf");
-        DccControlledFileNasTransferTaskItemDO item = uncontrolledImportItem(9302L, task, auditFile);
         when(taskMapper.selectById(8202L)).thenReturn(task);
         when(auditFileMapper.selectById(702L)).thenReturn(auditFile);
-        when(taskItemMapper.selectById(9302L)).thenReturn(item);
 
         assertThrows(IllegalStateException.class, () -> transferService.readUncontrolledImportContent(
                 99L, 8202L, 702L, "sig-stale", "PRJ-20260728/Design/stale.pdf"));

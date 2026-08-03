@@ -85,7 +85,7 @@
             </div>
           </div>
           <div class="browser-filter-summary__hint">
-            草稿/历史失效版不会在受控浏览默认入口展示；如需核对历史或签核证据，请使用“查看版本追溯”。
+            草稿/历史失效版不会在受控浏览默认入口展示；如需核对历史或签核证据，请使用“追溯”。
           </div>
         </div>
         <UnifiedListTemplate
@@ -292,7 +292,7 @@
                   v-if="getSelectedVersion(row).fileNumber"
                   class="browser-file-number-cell"
                 >
-                  <el-tooltip :content="`查看版本追溯：${getSelectedVersion(row).fileNumber}`" placement="top">
+                  <el-tooltip :content="`追溯：${getSelectedVersion(row).fileNumber}`" placement="top">
                     <el-button
                       class="browser-file-number browser-file-number--link"
                       data-testid="dcc-browser-file-number-detail-link"
@@ -421,7 +421,7 @@
                   type="primary"
                   @click="openPreview(getSelectedVersion(row).id)"
                 >
-                  预览当前有效版
+                  预览
                 </el-button>
                 <el-button
                   v-if="getSelectedVersion(row).id"
@@ -429,7 +429,7 @@
                   type="primary"
                   @click="openDetail(getSelectedVersion(row).id)"
                 >
-                  查看版本追溯
+                  追溯
                 </el-button>
                 <el-button
                   v-if="getSelectedVersion(row).id"
@@ -437,7 +437,7 @@
                   type="primary"
                   @click="openSignatureEvidence(getSelectedVersion(row).id)"
                 >
-                  查看签核证据
+                  签核
                 </el-button>
                 <el-button
                   v-if="getBrowserRowActionState(getSelectedVersion(row)).canDownload"

@@ -844,3 +844,12 @@
 - GREEN: `pqcLeaderSubmissionFilterPaginationConsistent` action evidence -> PASS，same-filter `total=2`，filters are `submitDate=2026-08-03`、`workOrderCode=RRM-20260801-PP-MO-001`、`employeeUserId=512`、`processId=922985`、`productKeyword=AW.107.02.01.2010`、`inspectionType=PATROL`、`roundNo=1`、`submissionReviewStatus=PENDING`；page 1 event `24` and page 2 event `26`。
 - TASK_DOCS: `task-state.json`、`task.md`、`test-report.md`、`verification-report.md` -> UPDATED，关闭旧 runtime ownership、AC-D29 signature/data blocker 和 AC-D32 submitted-data blocker 叙述；M6 仍 `in_progress`，剩余 blocker 为 `activeOrderCleanupDeferred`、`m6ConcurrencyGateDeferred`、`m6PerformanceGateDeferred` 和 62 个 `E2E_COVERAGE`。
 - Decision: AC-D29 与 AC-D32 已达到真实动作 PASS，但均不得标记为 `ACCEPTED`；仍缺失败路径、权限/只读核验、并发/性能、清理和全量 M6 coverage gate。本轮仍不执行 `git push`。
+
+## M6 - D29/D32 Evidence Sync Structural Verification
+
+- NOTE: first parallel verification attempt triggered a PowerShell `System.OutOfMemoryException`; it did not write files. The same checks were rerun serially and are recorded below.
+- GREEN: `python -X utf8 -c "import json, pathlib; json.loads(...task-state.json...)"` -> PASS，`task-state.json` 可解析。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-matrix-pqc-d32-fixture:static` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: scoped `git diff --check` on D29/D32 docs, D32 fixture SQL, package script and static contracts -> PASS。

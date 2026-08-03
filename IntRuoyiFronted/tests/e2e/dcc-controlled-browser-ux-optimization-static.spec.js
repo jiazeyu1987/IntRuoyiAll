@@ -61,8 +61,9 @@ const browserRowActionBlock = extractBetween(
 const expectedActionLabels = ['预览', '追溯', '签核', '下载']
 let previousActionLabelIndex = -1
 for (const actionLabel of expectedActionLabels) {
-  const actionLabelIndex = browserRowActionBlock.indexOf(`>${actionLabel}\n`)
-  assert.notEqual(actionLabelIndex, -1, `browser row primary action must use compact label: ${actionLabel}`)
+  const actionLabelMatch = new RegExp(`>\\s*${actionLabel}\\s*</el-button>`).exec(browserRowActionBlock)
+  assert.notEqual(actionLabelMatch, null, `browser row primary action must use compact label: ${actionLabel}`)
+  const actionLabelIndex = actionLabelMatch.index
   assert.ok(
     actionLabelIndex > previousActionLabelIndex,
     `browser row primary action label order must be ${expectedActionLabels.join(' -> ')}`

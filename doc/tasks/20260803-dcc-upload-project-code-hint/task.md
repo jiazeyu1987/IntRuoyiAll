@@ -7,20 +7,23 @@
 ## Milestones
 
 - [x] M0: 建立任务记录、读取前置规则，并隔离任务前脏工作区基线。
-- [ ] M1: 用静态回归测试复现当前红色提示固定显示的问题。
-- [ ] M2: 最小修改上传页提示逻辑与样式，不改变提交和后端绑定链路。
-- [ ] M3: 运行目标静态测试、相邻回归与必要前端检查。
-- [ ] M4: 更新验证报告、收尾状态和提交记录。
+- [x] M1: 用静态回归测试复现当前红色提示固定显示的问题。
+- [x] M2: 最小修改上传页提示逻辑与样式，不改变提交和后端绑定链路。
+- [x] M3: 运行目标静态测试、相邻回归与必要前端检查。
+- [x] M4: 更新验证报告、收尾状态和提交记录。
 
 ## Expected Verification
 
 - `node tests/e2e/dcc-upload-project-code-hint-static.spec.js`
+- `pnpm e2e:dcc:upload-project-code-hint:static`
+- `node tests/e2e/dcc-product-category-rule-static.spec.js`
+- `node tests/e2e/dcc-upload-product-autofill-static.spec.js`
 - `node tests/e2e/dcc-original-release-ux-improvements-static.spec.js`
 - `pnpm ts:check`（如受现有历史问题阻塞，记录首个阻塞并保留目标静态合同结果）
 
 ## Current Status
 
-in_progress
+completed
 
 ## 设计约束检查
 
@@ -30,5 +33,6 @@ in_progress
 
 ## Experience Gate Summary
 
-- 待读取 `docs/experience-index.md` 后补充适用门禁。
-
+- `docs/frontend-development.md#DCC 上传类别权限投影门禁`：本次不改变类别权限、上传预览或 submit 权限链路；只调整已绑定/未绑定项目代码的提示状态。
+- `docs/database-rules.md#DCC 项目代码 MDM 产品建档绑定门禁`：本次不改 schema、服务或受控文件提交来源；后端仍按 `dccProjectCodeId` 解析 DCC 项目代码/MDM 产品信息。
+- `docs/frontend-development.md#DCC 基础条目关联文档分类树门禁`：本次不改文件分类树、元数据保存或项目代码详情关联文档链路。
