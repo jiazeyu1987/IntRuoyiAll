@@ -48,6 +48,7 @@
 - PASS: `task_closeout.py --task-id 20260803-dcc-product-onboarding-flow --mode preview` kept the real E2E script/result and core task reports; no blocked paths or warnings.
 - PASS: `task_closeout.py --task-id 20260803-dcc-product-onboarding-flow --mode apply` deleted temporary backend/database/frontend/bug evidence files after validator PASS was copied here.
 - PASS: rerun cleanup preview/apply after latest evidence update kept the real E2E script/result and core task reports; no deleted paths, blocked paths, or warnings.
+- BLOCKED: 2026-08-03 worktree closeout preview from `D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803` kept only the real E2E script/result and core task reports, but blocked final apply/merge because main worktree `E:\IntRuoyi` is dirty and cannot receive the ff-only merge safely.
 
 ## Known Non-Goals And Blockers
 
@@ -76,4 +77,5 @@
 - PASS: merged local `int_main` committed history into the worktree branch; branch runtime port guard passed.
 - PASS: post-local-main-merge static contract `node tests\e2e\dcc-project-code-product-onboarding-static.spec.js`.
 - PASS: post-local-main-merge real Playwright E2E through `http://127.0.0.1:8096/mdm/project-code` with local Chrome -> `requestId=7`, `projectCodeId=261`, `productMasterId=335`, `projectCode=CODXONB03074622`, `criticalNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- PASS: latest branch runtime port guard on `codex/dcc-product-onboarding-flow-20260803` confirmed worktree profile `int_main slot=15`, frontend `8096`, backend `48096`.
 - PENDING: integration still requires committing final evidence, merging back to local `int_main`, and pushing if the dirty main workspace and GitHub HTTPS proxy/network permit.
