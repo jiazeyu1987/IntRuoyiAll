@@ -8,6 +8,7 @@
 
 - `docs/database-rules.md#DCC 文件类别规则种子门禁`：类别规则缺失、歧义或插入不完整必须 fail fast。
 - `docs/e2e-rules.md#DCC 文控审批处理入口门禁`：DCC 写入链路必须走真实页面和正式处理入口。
+- `docs/e2e-rules.md#浏览器本地目录写入门禁`：本地写入必须由 `showDirectoryPicker` 授权目录驱动，取消授权、浏览器不支持或预检失败时不得创建 `NAS_UNCONTROLLED_IMPORT` 任务。
 - `docs/e2e-rules.md#Element Plus 表格选择门禁`：写入前必须按可见业务唯一文本核对表格选中集合。
 - `doc/tasks/20260728-dcc-nas-product-code-unified/verification-report.md`：DCC/NAS 写入使用 DCC 项目代码，不再使用产品主数据。
 - `doc/tasks/20260731-dcc-file-category-rules/verification-report.md`：OQ/PQ 和图纸扩展名分类规则已有可维护规则样例。
@@ -46,8 +47,9 @@
 
 ### NAS 样本文件
 
+- 所有选中下载样本的处理任务源类型必须是 `NAS_UNCONTROLLED_IMPORT`，不得复用旧 `NAS` 或 `LOCAL_FOLDER` 任务来证明未受控导入路径。
 - 成功归档样本：`1. QMS documents/CODEx-UCF-<id>/OQ/CODEx-UCF-<id>-OQ-report.pdf`
-- 待处理样本：`1. QMS documents/CODEx-UCF-<id>/unknown/no-project-random-file.pdf`
+- 待处理样本：`1. QMS documents/CODEx-UCF-<id>/unknown/no-project-random-file.pdf`，预期页面和后端证据均显示 `未分类/待处理`。
 - 歧义样本：`2.DHF/CODEx-UCF-<id>/ambiguous/CODEx-UCF-<id>-shared-rule.pdf`
 - 文件变化样本：`2.DHF/CODEx-UCF-<id>/changed/CODEx-UCF-<id>-changed-after-scan.pdf`，统计后必须修改大小或修改时间再执行处理。
 - 签名失效样本：复用文件变化样本或构造旧 `sourceSignature`，用于验证 import-selected/content/local-write-result 拒绝过期快照。
@@ -72,6 +74,7 @@
 ### 本地目录
 
 - 本地测试根目录：`doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/local-download-e2e/<run-id>` 或系统临时目录下任务专用目录。
+- 本地目录授权入口必须通过浏览器 `showDirectoryPicker` 或受控测试 stub 触发；不得把浏览器默认下载目录、ZIP 下载或后端服务器目录作为替代测试数据。
 - 本地写入失败目录句柄：通过 Playwright stub `createWritable/write/close` 抛出受控错误，不使用真实权限破坏或手动锁文件冒充失败。
 - 本地路径校验必须记录预期相对路径清单，并在成功路径完成后核对文件实际存在；失败路径不得留下半写入文件。
 - 不得把本地绝对路径发送给后端。

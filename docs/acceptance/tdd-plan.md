@@ -2,7 +2,7 @@
 
 ## Purpose and Scope
 
-本计划将未受控文件处理设计拆成严格 RED -> GREEN 的实现序列。生产行为必须先有失败测试，再做最小实现，最后运行相邻回归。范围覆盖后端 schema、服务、Controller、前端静态合同、真实 E2E 和不允许 fallback 的错误路径。
+本计划将未受控文件处理设计拆成严格 RED -> GREEN 的实现序列。生产行为必须先有失败测试，再做最小实现，最后运行相邻回归。范围覆盖后端 schema、服务、Controller、前端静态合同、真实 E2E 和不允许 fallback 的错误路径。无法唯一识别项目代码、item 或分类的文件必须作为正式 `未分类/待处理` 业务状态验证，不得用默认项目、默认分类或静默成功替代。
 
 ## Evidence Reviewed
 
@@ -205,4 +205,5 @@
 - Missing test NAS share or sample files blocks real E2E but not unit/static tests.
 - Missing writable test tenant, DCC project code, file classification tree, category match rules or cleanup authorization blocks write E2E.
 - Browser without File System Access API blocks local-directory write E2E; this is a product precondition, not a reason to switch to ZIP.
+- Any `NAS_UNCONTROLLED_IMPORT` item whose project code, item or category cannot be uniquely resolved must remain visible as `未分类/待处理`; this path may verify local write to the pending folder but must not create a controlled file or ACTIVE NAS source mapping.
 - Undefined formal archive metadata source blocks successful DCC 归档路径；当前 `dcc_nas_control_audit_file` 与 `dcc_controlled_file_nas_transfer_task_item` 未保存可直接提交的 `categoryId/directoryId/effectiveDate/versionNo/changeType/fileNumber` 等快照时，只能验证本地写入和 `ARCHIVE_METADATA_REQUIRED` 阻塞路径，不得用旧 NAS 转移默认值、候选 JSON、当前日期或空模板替代。
