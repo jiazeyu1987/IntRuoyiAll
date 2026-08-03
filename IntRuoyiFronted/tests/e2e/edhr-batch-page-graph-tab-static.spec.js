@@ -43,6 +43,24 @@ assert.match(page, /data-edhr-page-node/, 'page graph page must expose stable no
 assert.match(page, /data-edhr-page-edge/, 'page graph page must expose stable edge selectors.')
 assert.match(page, /页面关系图/, 'page must describe itself as a page relationship graph.')
 assert.match(page, /不是工艺路线流转关系图/, 'page must distinguish itself from route process flow graph.')
+assert.match(page, /工序开始/, 'page graph must expose route start as a separate configuration entry.')
+assert.match(page, /批记录表单/, 'page graph must expose formal batch-record forms as a separate configuration entry.')
+assert.match(page, /表单槽位/, 'page graph must expose form slots as a separate configuration entry.')
+assert.match(
+  page,
+  /工序开始[\s\S]*不提供[\s\S]*表单内容/,
+  'route start must be described as an action/attachment owner entry, not a form content source.'
+)
+assert.match(
+  page,
+  /批记录表单[\s\S]*逐工序[\s\S]*正式绑定/,
+  'formal batch-record forms must be sourced from per-process formal bindings.'
+)
+assert.match(
+  page,
+  /表单槽位[\s\S]*formBindings[\s\S]*不得替代正式批记录/,
+  'form slots must be tied to formBindings and explicitly forbidden from replacing formal batch records.'
+)
 assert.match(page, /待接入/, 'page must visibly mark unavailable nodes as pending.')
 assert.match(page, /isDisabled/, 'page must model unavailable nodes as disabled, not fake routes.')
 assert.match(page, /edhr-page-graph-page__canvas/, 'page graph must use a flow-canvas container, not grouped cards.')
@@ -63,6 +81,9 @@ assert.doesNotMatch(page, /resolveEdgePath/, 'page graph must not keep the legac
 assert.doesNotMatch(page, /edhr-page-graph-page__group/, 'page graph must not render the visual relationship as grouped card columns.')
 
 for (const nodeName of [
+  '工序开始',
+  '批记录表单',
+  '表单槽位',
   '生产工单',
   '生产填写',
   'PQC填写',
@@ -75,6 +96,14 @@ for (const nodeName of [
   'MES工序/班组设置'
 ]) {
   assert.match(page, new RegExp(nodeName), `page graph must include node ${nodeName}.`)
+}
+
+for (const edgeLabel of [
+  '仅决定开始节点动作和附件责任',
+  '按工序设置逐工序正式绑定',
+  '仅提供补充表单槽位'
+]) {
+  assert.match(page, new RegExp(edgeLabel), `page graph must include separated edge label ${edgeLabel}.`)
 }
 
 for (const route of [

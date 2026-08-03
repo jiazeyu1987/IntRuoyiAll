@@ -89,6 +89,9 @@
 - `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，`BDD/TDD acceptance plan validation passed.`
 - UTF-8/trailing whitespace check for M19 task/evidence/backend files -> PASS，`UTF8_AND_TRAILING_WHITESPACE_CHECK_PASS`。
 - `git -C E:\IntRuoyi diff --check -- <M19 tracked task/backend files>` -> PASS，仅存在 Git LF-to-CRLF warning。
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditControllerTest#nasControlAudit_mapsImportSelectedWithTransferWritePermission" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，预期原因为缺少 `/dcc/controlled-files/nas-control-audit/{taskId}/import-selected` endpoint mapping。
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditControllerTest#nasControlAudit_mapsImportSelectedWithTransferWritePermission" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 1, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS。
+- REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditControllerTest,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_returnsExistingTaskForSameIdempotencyHashRegardlessOfOrder,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsSameIdempotencyWithDifferentRequestHash,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsDuplicateAuditIdsBeforeHashingOrWrites" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 11, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS。
 
 ## Design Checks
 
@@ -128,6 +131,7 @@
 - Import-selected service boundary verified: 请求 VO 和服务签名已存在且不暴露旧 NAS transfer 目标字段；服务体已覆盖原子校验、快照持久化、audit 绑定和服务级幂等冲突/复用。
 - Archive metadata gate ready: `LOCAL_WRITTEN` 后正式归档仍必须具备模板分类、生效日期、变更原因或等价正式来源；缺失时进入 `ARCHIVE_METADATA_REQUIRED` 或明确失败/阻塞状态。
 - Idempotency concurrency verified: `createUncontrolledImportTask` 会在事务内使用 `FOR UPDATE` 二次查询 `auditTaskId + operatorUserId + sourceType + idempotencyKey`，相同 hash 复用原任务、不同 hash 冲突、重复 audit id 在 hash/写入前失败。
+- Import-selected controller verified: `/import-selected` 已暴露为写入端点，要求 `submit + directory:manage + category:manage` 权限组合，并通过 `@Valid @RequestBody` 绑定无旧 transfer 默认字段的请求 VO。
 
 ## Blockers
 
@@ -192,7 +196,7 @@
 - Contract: validates selection scope, duplicate audit ids, task ownership, source signature, importable classification status, download/archive status, expected local relative path, prior import binding and controlled-file state before any write.
 - GREEN: targeted creation/rejection tests passed with Tests run 2, Failures 0, Errors 0, Skipped 0.
 - REGRESSION: M17+M18 transfer service target set passed with Tests run 4, Failures 0, Errors 0, Skipped 0.
-- Boundary: controller mapping, content binary download, local-write-result, archive execution, frontend static contract and real E2E remain in progress.
+- Boundary: content binary download, local-write-result, archive execution, frontend static contract and real E2E remain in progress.
 
 ## M19 Backend Import Idempotency Slice
 
@@ -201,4 +205,14 @@
 - RED: transaction-race test failed because the service inserted task `8202` instead of returning existing task `8102`.
 - GREEN: targeted idempotency/rejection tests passed with Tests run 4, Failures 0, Errors 0, Skipped 0.
 - REGRESSION: M17+M18+M19 transfer service target set passed with Tests run 8, Failures 0, Errors 0, Skipped 0.
-- Boundary: controller mapping, content binary download, local-write-result, archive execution, frontend static contract and real E2E remain in progress.
+- Boundary: content binary download, local-write-result, archive execution, frontend static contract and real E2E remain in progress.
+
+## M20 Backend Import-Selected Controller Slice
+
+- Scope: implemented controller contract for `POST /dcc/controlled-files/nas-control-audit/{taskId}/import-selected`.
+- Contract: response is `CommonResult<DccControlledFileNasTransferRespVO>`; request uses path `taskId` plus `@Valid @RequestBody DccNasUncontrolledImportSelectedReqVO`; controller passes `getLoginUserId()` and `taskId` into `createUncontrolledImportTask`.
+- Permission: requires `dcc:controlled-file:submit`, `dcc:controlled-file:directory:manage`, and `dcc:controlled-file:category:manage`.
+- RED: targeted controller contract failed on missing `/import-selected` endpoint mapping.
+- GREEN: targeted controller contract passed with Tests run 1, Failures 0, Errors 0, Skipped 0.
+- REGRESSION: controller and M17-M19 import-selected service regression passed with Tests run 11, Failures 0, Errors 0, Skipped 0.
+- Boundary: content binary download, local-write-result, archive execution, frontend static contract and real E2E remain in progress.

@@ -18,7 +18,7 @@
 3. completed - 写 RED：后端服务/前端静态契约证明当前缺少产品建档申请、审批通过生成 DCC 项目代码、MDM 绑定和页面入口。
 4. completed - 实现最小正式链路：数据库字段/表、后端 API/服务、唯一性与状态校验、受控文件提交 MDM 绑定、前端入口。
 5. completed - 运行 GREEN：后端定向测试、数据库/前端静态契约和必要类型/编译验证。
-6. completed - 更新验证报告、任务状态和收尾证据；真实页面 E2E 已通过，最终提交/推送受既有分支 ahead 与无关脏工作区状态阻塞，未标记 completed。
+6. completed - 更新验证报告、任务状态和收尾证据；真实页面 E2E 已通过，最终推送受并发本地提交与无关工作区状态阻塞，未标记 completed。
 
 ## BDD Scenarios
 
@@ -71,7 +71,7 @@ BDD: 页面入口暴露建档申请失败原因 -> Given 用户在 DCC 项目代
 
 ready_for_closeout
 
-实现与本任务定向验证、隔离构建加载、真实页面 E2E、task cleanup apply 和恢复后运行态复核已完成；最新真实 E2E 在切回本任务已验证 Jar 后通过，`requestId=4`、`projectCodeId=258`、`productMasterId=332`。当前共享 `48081` 已由外部/其它任务恢复为 `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`，不是本任务产品建档验证 Jar；本任务不再抢占该运行态。最终 push 未执行：当前 `int_main` 有未推送基线提交 `a653452fc chore: baseline pre-existing worktree changes`，且工作区仍有非本任务未跟踪目录 `doc/tasks/20260803-edhr-batch-execution-record-config-missing/`；按任务所有权和提交边界，不在本任务中继续打包、提交或推送这些无关改动。
+实现与本任务定向验证、隔离构建加载、真实页面 E2E、task cleanup apply 和恢复后运行态复核已完成；最新真实 E2E 在切回本任务已验证 Jar 后通过，`requestId=4`、`projectCodeId=258`、`productMasterId=332`。当前共享 `48081` 已由外部/其它任务恢复为 `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`，不是本任务产品建档验证 Jar；本任务不再抢占该运行态。最终 push 未执行：当前 `int_main` 存在并发产生的未推送本地提交，且工作区仍有非本任务未跟踪/暂存任务文件；按任务所有权和提交边界，不在本任务中继续打包、提交或推送这些无关改动。
 
 ## 设计约束检查
 

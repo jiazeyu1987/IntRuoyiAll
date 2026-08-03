@@ -65,7 +65,7 @@
 - GREEN: rerun real Playwright E2E through `/mdm/project-code` with local Chrome -> PASS: `requestId=4`, `projectCodeId=258`, `productMasterId=332`, `projectCode=CODXONB03045351`; result JSON records `criticalNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 - Experience consolidation check: runtime Jar mismatch was already covered by `docs/local-runtime.md#2026-07-24 隔离构建 Jar 加载门禁`; DCC product onboarding domain rules were already merged into `docs/database-rules.md#DCC 项目代码 MDM 产品建档绑定门禁`, so no new long-term experience document was created.
 - Final runtime boundary check: after the successful product-onboarding E2E, shared `48081` was externally restored to PID `43876` running `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`; health is `UP`, but current shared runtime no longer contains the product-onboarding controller. This task does not stop or replace that unrelated active runtime again.
-- Git boundary: observed HEAD `a653452fc chore: baseline pre-existing worktree changes`, which includes this task's evidence files together with other task files; `origin/int_main` remains at `347e96be1`, so branch is ahead by 1. `git status --short --branch --untracked-files=all` still reports unrelated untracked `doc/tasks/20260803-edhr-batch-execution-record-config-missing/`; this task does not add or push that unrelated task directory.
+- Git boundary: observed concurrent local baseline commits on `int_main` after this task's evidence updates; these commits include this task's evidence files together with other task files. `git status --short --branch --untracked-files=all` is still affected by unrelated task files and corrupt target-directory warnings; this task does not add, commit, or push those unrelated artifacts.
 
 ## Milestone Status
 
@@ -74,7 +74,7 @@
 - M3 RED 测试：completed。
 - M4 实现：completed。
 - M5 GREEN/回归验证：completed。
-- M6 收尾证据：completed，verification report、真实 E2E、隔离构建、cleanup 证据和恢复后运行态复核已补齐；最终 commit/push 因无关脏工作区阻塞。
+- M6 收尾证据：completed，verification report、真实 E2E、隔离构建、cleanup 证据和恢复后运行态复核已补齐；最终 push 因并发本地提交与无关工作区状态阻塞。
 
 ## Implementation Summary
 
@@ -105,4 +105,4 @@
 
 - Standard restart remains blocked by unrelated dirty DCC NAS import code compile errors in `DccControlledFileNasTransferServiceImpl.java`; product onboarding verification used a clean detached build jar instead of modifying or reverting that unrelated work.
 - Current shared runtime `48081` is healthy but owned by another task jar (`backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`); product-onboarding E2E already passed during the controlled temporary switch to the verified jar, and rerun would require another explicit runtime switch.
-- 最终 push 未执行：当前分支已有未推送基线提交 `a653452fc`，且仍有非本任务未跟踪目录 `doc/tasks/20260803-edhr-batch-execution-record-config-missing/`；按任务所有权边界，不能在本任务中继续打包、提交或推送这些无关改动。
+- 最终 push 未执行：当前分支已有并发产生的未推送本地提交，且仍有非本任务未跟踪/暂存任务文件；按任务所有权边界，不能在本任务中继续打包、提交或推送这些无关改动。
