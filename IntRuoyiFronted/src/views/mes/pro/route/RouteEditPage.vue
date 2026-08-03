@@ -12,7 +12,10 @@
       <template #default>
         <div class="route-edit-page__error-content">
           <span>请从工艺流程列表选择有效路线后再进入编辑。</span>
-          <el-button type="primary" link @click="handleBackToList">返回列表</el-button>
+          <el-button type="primary" link @click="handleBackToList">
+            <Icon icon="ep:arrow-left" class="mr-5px" />
+            返回
+          </el-button>
         </div>
       </template>
     </el-alert>

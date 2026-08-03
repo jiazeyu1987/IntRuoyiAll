@@ -35,12 +35,12 @@
 
 ## RED
 
-- `node tests/e2e/dcc-directory-folder-border-static.spec.js` -> FAIL, expected reason: existing directory folder icon wrapper did not bind a row-driven border-color state.
+- RED: `node tests/e2e/dcc-directory-folder-border-static.spec.js` -> FAIL, expected reason: existing directory folder icon wrapper did not bind a row-driven border-color state.
 
 ## GREEN
 
-- `node tests/e2e/dcc-directory-folder-border-static.spec.js` -> PASS.
-- `pnpm e2e:dcc:directory-folder-border:static` -> PASS.
+- GREEN: `node tests/e2e/dcc-directory-folder-border-static.spec.js` -> PASS.
+- GREEN: `pnpm e2e:dcc:directory-folder-border:static` -> PASS.
 
 ## Regression Verification
 

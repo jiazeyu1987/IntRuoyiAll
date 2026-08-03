@@ -339,7 +339,7 @@
         @click="returnToTemplateList"
       >
         <Icon icon="ep:arrow-left" class="mr-4px" />
-        返回表单模板
+        返回
       </el-button>
       <div class="form-template-route-workspace__heading">
         <span>查看表单模板</span>
@@ -452,7 +452,7 @@
         @click="returnFromTemplateSimulation"
       >
         <Icon icon="ep:arrow-left" class="mr-4px" />
-        {{ templateSimulationBackLabel }}
+        返回
       </el-button>
       <div class="form-template-route-workspace__heading">
         <span>模拟填写</span>
@@ -518,7 +518,7 @@
         @click="returnToTemplateList"
       >
         <Icon icon="ep:arrow-left" class="mr-4px" />
-        返回表单模板
+        返回
       </el-button>
       <div class="form-template-route-workspace__heading">
         <span>{{ rulesDialogTitle }}</span>
@@ -846,10 +846,6 @@ const templateDesignerMode = computed<'preview' | 'edit'>(() =>
   route.query.templateMode === 'edit' ? 'edit' : 'preview'
 )
 const isTemplateSimulationMode = computed(() => props.simulationOnly)
-const templateSimulationBackLabel = computed(() => {
-  const value = Array.isArray(route.query.returnLabel) ? route.query.returnLabel[0] : route.query.returnLabel
-  return typeof value === 'string' && value.trim() ? value.trim() : '返回表单模板'
-})
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
@@ -1149,7 +1145,7 @@ const openSelectedTemplateFill = async () => {
       templateId: row.templateId,
       versionNo: row.versionNo,
       returnTo: route.fullPath,
-      returnLabel: '返回表单模板'
+      returnLabel: '返回'
     }
   })
 }
@@ -1163,7 +1159,7 @@ const openSelectedTemplateCellLinks = async () => {
       templateId: row.templateId,
       versionNo: row.versionNo,
       returnTo: route.fullPath,
-      returnLabel: '返回表单模板'
+      returnLabel: '返回'
     }
   })
 }

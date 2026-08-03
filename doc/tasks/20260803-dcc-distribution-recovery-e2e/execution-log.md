@@ -121,3 +121,5 @@ BDD: DCC controlled-copy distribution and old-version recovery -> Given a non-ad
 - PASS assertions: V1 `2054545668044070297` remains `SUPERSEDED` with paper distribution `4341` `RECOVERED`; V2 `2054545668044070302` remains `ACTIVE` with paper distribution `4344` `ACKNOWLEDGED`; master points to V2.
 - Old-version non-misuse evidence: controlled browser returned total `1`, V2 visible and V1 not visible.
 - Safety: no admin account, no API/SQL inserted or updated distribution, recipient, recovery, approval, publish, or version state; final DB usage was read-only.
+- GREEN: closeout verification -> PASS, `node --check` passed for all three task E2E scripts, JSON evidence parse returned `JSON_OK 8`, task secret scan returned `SECRET_SCAN_OK`, and `git diff --check` passed for the task docs plus long-term memory docs.
+- GREEN: task-closeout-cleanup preview -> PASS, `repeat-full-e2e-verification.json` is in keep list; delete `<none>`, blocked `<none>`, warnings `<none>`.

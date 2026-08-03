@@ -6,10 +6,10 @@ Fix the user-visible error `请求地址不存在:admin-api/form-center/template
 
 ## Milestones
 
-- [ ] Reproduce or isolate the missing-route request path.
-- [ ] Add a focused regression test that fails before the fix.
-- [ ] Implement the smallest root-cause fix.
-- [ ] Run targeted verification and record RED/GREEN evidence.
+- [x] Reproduce or isolate the missing-route request path.
+- [x] Add a focused regression test that fails before the fix.
+- [x] Implement the smallest root-cause fix.
+- [x] Run targeted verification and record RED/GREEN evidence.
 - [ ] Complete closeout evidence without touching unrelated concurrent work.
 
 ## Expected Verification
@@ -20,7 +20,9 @@ Fix the user-visible error `请求地址不存在:admin-api/form-center/template
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+Verification passed in the current checkout and live local runtime. Final commit/push is blocked because the Git index currently contains unrelated staged DCC/header task files; this task must not mix those changes.
 
 ## Experience Gates
 
