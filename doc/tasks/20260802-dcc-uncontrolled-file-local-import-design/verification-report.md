@@ -266,4 +266,5 @@
 - GREEN: targeted metadata blocker test passed with Tests run 1, Failures 0, Errors 0, Skipped 0.
 - GREEN: local-write-result controller/service adjacent set passed with Tests run 5, Failures 0, Errors 0, Skipped 0.
 - REGRESSION: controller and M17-M23 service regression passed with Tests run 19, Failures 0, Errors 0, Skipped 0.
+- Evidence validation: backend API evidence validator PASS, acceptance plan validator PASS, UTF-8/trailing whitespace check PASS, and scoped `git diff --check` PASS for M23 task/backend files.
 - Boundary: controlled-file creation, ACTIVE NAS source mapping and already-archived replay protection remain blocked until a formal archive metadata source is designed, stored and verified in M24.

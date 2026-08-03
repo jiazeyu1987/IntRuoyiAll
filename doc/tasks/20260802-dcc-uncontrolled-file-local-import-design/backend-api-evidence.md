@@ -178,8 +178,9 @@ REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dmaven.re
 - Transfer service tests cover import-selected request/service signature isolation from legacy transfer fields, legacy waiting processor skip behavior, service-level atomic task/item/audit binding creation, mixed invalid selection rejection, canonical idempotency reuse, request-hash conflict rejection, duplicate audit id rejection, transaction-time duplicate insert prevention, content binary snapshot binding, local-write-result terminal replay/conflict handling, and explicit `ARCHIVE_METADATA_REQUIRED` blocker handling for `NAS_UNCONTROLLED_IMPORT`.
 - Content controller tests cover binary `ResponseEntity<byte[]>`, snapshot query params and write-permission combination.
 - Local-write-result controller tests cover `CommonResult` response, `@Valid @RequestBody` snapshot body and write-permission combination.
-- Backend API evidence validator passed after M22 update: `Backend API evidence is valid.`
+- Backend API evidence validator passed after M23 update: `Backend API evidence is valid.`
 - M23 contract keeps the existing local-write-result endpoint shape and permissions, changes matched `LOCAL_WRITTEN` service behavior to a visible archive metadata blocker, and does not require migrations or external services.
+- BDD/TDD acceptance validator passed after M23 update: `BDD/TDD acceptance plan validation passed.`
 
 ## Blockers
 
