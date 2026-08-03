@@ -90,6 +90,11 @@ assert.match(
   /!viewerMode\.value/,
   'viewer preview mode must not request controlled print records because that records section is not rendered'
 )
+assert.match(
+  shouldLoadControlledPrintRecordsBlock,
+  /controlledPrintAllowed\.value/,
+  'controlled print records must only load when action projection and menu permission both allow controlled print'
+)
 const loadControlledPrintRecordsCatch = extractBetween(
   detailPage,
   '  } catch (error) {\n    controlledPrintRecords.value = []',
@@ -109,12 +114,12 @@ const loadDataBlock = extractBetween(
 )
 assert.match(
   loadDataBlock,
-  /viewerMode\.value\s*\?\s*Promise\.resolve\(\[\]\)\s*:\s*getPaperDistributionRecords\(controlledFileId\.value\)/,
+  /viewerMode\.value\s*\|\|\s*!showLifecycleTraceSections\.value\s*\?\s*Promise\.resolve\(\[\]\)\s*:\s*getPaperDistributionRecords\(controlledFileId\.value\)/,
   'viewer preview mode must not request paper distribution records because preview distribution dialog uses file detail snapshots'
 )
 assert.match(
   loadDataBlock,
-  /viewerMode\.value\s*\?\s*Promise\.resolve\(null\)\s*:\s*getActiveApprovalPrintTemplate\(\)/,
+  /viewerMode\.value\s*\|\|\s*!showLifecycleTraceSections\.value\s*\?\s*Promise\.resolve\(null\)\s*:\s*getActiveApprovalPrintTemplate\(\)/,
   'viewer preview mode must not request process-print template data because process print actions are not rendered in viewer mode'
 )
 assert.match(

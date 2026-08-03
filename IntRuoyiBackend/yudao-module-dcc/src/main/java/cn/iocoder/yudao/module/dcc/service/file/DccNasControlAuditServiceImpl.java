@@ -90,6 +90,7 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
     public static final String AUDIT_FILE_CLASSIFICATION_STATUS_AMBIGUOUS = "AMBIGUOUS";
     public static final String AUDIT_FILE_DOWNLOAD_STATUS_NOT_SELECTED = "NOT_SELECTED";
     public static final String AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED = "NOT_STARTED";
+    public static final String AUDIT_FILE_ARCHIVE_STATUS_PENDING_MANUAL_REVIEW = "PENDING_MANUAL_REVIEW";
 
     private static final List<String> FIXED_SCAN_ROOTS = List.of("1. QMS documents", "2.DHF", "3.DMR");
     private static final String REPORT_DIRECTORY = "dcc-nas-control-audit";
@@ -469,6 +470,10 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
         file.setClassificationReason(reason);
         file.setClassificationCandidatesJson(candidateSnapshotJson(projectCandidates, categoryCandidates));
         file.setExpectedLocalRelativePath(resolvePendingLocalRelativePath(file));
+        file.setArchiveStatus(AUDIT_FILE_ARCHIVE_STATUS_PENDING_MANUAL_REVIEW);
+        file.setArchiveErrorCode(null);
+        file.setArchiveError(null);
+        file.setControlledFileId(null);
     }
 
     private void applyAmbiguous(DccNasControlAuditFileDO file,
@@ -479,6 +484,10 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
         file.setClassificationReason(reason);
         file.setClassificationCandidatesJson(candidateSnapshotJson(projectCandidates, categoryCandidates));
         file.setExpectedLocalRelativePath(resolvePendingLocalRelativePath(file));
+        file.setArchiveStatus(AUDIT_FILE_ARCHIVE_STATUS_PENDING_MANUAL_REVIEW);
+        file.setArchiveErrorCode(null);
+        file.setArchiveError(null);
+        file.setControlledFileId(null);
     }
 
     private List<ProjectCandidate> resolveProjectCandidates(DccNasControlAuditFileDO file,

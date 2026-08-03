@@ -6,7 +6,6 @@
     @tab-click="handleTabClick"
   >
     <el-tab-pane label="批次执行" name="execution" />
-    <el-tab-pane label="历史批记录" name="history" />
     <el-tab-pane label="生产填写" name="production" />
     <el-tab-pane label="PQC填写" name="pqc" />
     <el-tab-pane label="组长工作台" name="teamLeader" />
@@ -36,9 +35,8 @@ const props = defineProps<{
 
 const router = useRouter()
 
-const routeByTab: Record<EdhrBatchRecordTab, string> = {
+const routeByTab: Partial<Record<EdhrBatchRecordTab, string>> = {
   execution: '/mes/pro/feedback/edhr-batch-execution',
-  history: '/mes/pro/feedback/edhr-batch-history',
   production: '/mes/pro/feedback/edhr-batch-production-fill',
   pqc: '/mes/pro/feedback/edhr-batch-pqc-fill',
   teamLeader: '/mes/pro/feedback/edhr-batch-team-leader',

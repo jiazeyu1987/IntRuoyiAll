@@ -122,7 +122,6 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_AUDIT_RECORD_FAILED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_REQUEST_ID_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_REQUEST_ID_REUSED;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTORY_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAXONOMY_LEVEL_INVALID;
@@ -399,13 +398,13 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     public DccControlledFileUploadDirectoryTreeRespVO getUploadDirectoryTree(Long categoryId) {
         validateCategory(categoryId);
         DccCategoryDirectoryBindingDO binding = categoryDirectoryBindingMapper.selectActiveByCategoryId(categoryId);
-        if (binding == null) {
-            throw exception(FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS);
-        }
         List<DccFileDirectoryDO> directories = directoryMapper.selectEnabledList();
         Map<Long, DccFileDirectoryDO> directoryMap = directories.stream()
                 .collect(Collectors.toMap(DccFileDirectoryDO::getId, Function.identity(), (left, right) -> left, LinkedHashMap::new));
-        DccFileDirectoryDO bindingDirectory = directoryMap.get(binding.getDirectoryId());
+        boolean defaultUnclassified = binding == null;
+        DccFileDirectoryDO bindingDirectory = defaultUnclassified
+                ? DccUploadDirectoryResolver.resolveUnclassifiedUploadDirectory(directories)
+                : directoryMap.get(binding.getDirectoryId());
         if (bindingDirectory == null) {
             throw exception(FILE_DIRECTORY_NOT_EXISTS);
         }
@@ -414,6 +413,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 .bindingDirectoryId(bindingDirectory.getId())
                 .bindingDirectoryPath(buildDirectoryPath(bindingDirectory.getId(), directoryMap))
                 .leafBinding(!childrenByParentId.containsKey(bindingDirectory.getId()))
+                .defaultUnclassified(defaultUnclassified)
                 .children(buildUploadDirectoryChildren(bindingDirectory.getId(), childrenByParentId))
                 .build();
     }
@@ -1651,9 +1651,6 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             return false;
         }
         if (!DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())) {
-            return false;
-        }
-        if (file.getPublishedFileId() == null && file.getStampedFileId() == null) {
             return false;
         }
         if (!permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,

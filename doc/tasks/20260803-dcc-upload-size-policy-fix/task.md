@@ -9,7 +9,7 @@ Fix the DCC upload failure that reports `DCC upload size policy is missing or in
 - [x] M1: Reproduce the upload-size-policy failure with a targeted regression check.
 - [x] M2: Identify and fix the root cause in the formal upload-size-policy path.
 - [x] M3: Run targeted regression verification for the DCC upload policy path.
-- [ ] M4: Record verification evidence and complete closeout. Cleanup preview is blocked by the dirty main worktree.
+- [ ] M4: Record verification evidence and complete closeout. Runtime verification is complete; cleanup/push remain blocked.
 
 ## Expected Verification
 
@@ -17,10 +17,11 @@ Fix the DCC upload failure that reports `DCC upload size policy is missing or in
 - Targeted Maven test for DCC upload-size-policy behavior.
 - Bug regression evidence validator for this task.
 - Local `int_main` SQL contract test and migration policy gate status after applying the fix.
+- Local runtime verification that `芋道源码/admin` can resolve and upload-preview `SOURCE` for screenshot category `907180 / 专利检索与分析报告`.
 
 ## Current Status
 
-blocked - local `int_main` has the DCC upload-size-policy SQL/test applied, but full release migration gate is blocked by unrelated migration metadata in `20260730_mes_process_pool_team_leader.sql`; final push/closeout is not complete.
+blocked - local `int_main` has the DCC upload-size-policy SQL/test applied, local Docker MySQL has the default policies, and runtime upload-preview for `907180 / SOURCE` passes. Full release migration gate is still blocked by unrelated migration metadata in `20260730_mes_process_pool_team_leader.sql`; final push/closeout is not complete.
 
 ## Design Constraint Check
 

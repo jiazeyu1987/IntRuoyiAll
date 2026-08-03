@@ -228,6 +228,7 @@ export interface ControlledFileUploadDirectoryTreeVO {
   bindingDirectoryId: number
   bindingDirectoryPath: string
   leafBinding: boolean
+  defaultUnclassified: boolean
   children: ControlledFileUploadDirectoryNodeVO[]
 }
 

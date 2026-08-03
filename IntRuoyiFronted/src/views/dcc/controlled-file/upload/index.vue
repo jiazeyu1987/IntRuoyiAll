@@ -132,7 +132,11 @@
                 {{ uploadDirectoryTree.bindingDirectoryPath }}
               </div>
               <div class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-                当前绑定目录已经是最后一层目录，将直接提交到该目录。
+                {{
+                  uploadDirectoryTree.defaultUnclassified
+                    ? '当前文件类别未绑定提交目录，系统将自动提交到未分类目录。'
+                    : '当前绑定目录已经是最后一层目录，将直接提交到该目录。'
+                }}
               </div>
             </template>
             <template v-else>
@@ -640,7 +644,7 @@ const selectedCategory = computed(() =>
 const selectedProjectCode = computed(() =>
   projectCodeOptions.value.find((project) => project.id === formData.dccProjectCodeId)
 )
-const categoryDirectoryBindingMessage = '当前文件类别未绑定提交目录，请先在 DCC 文件类别维护目录绑定'
+const categoryDirectoryBindingMessage = '当前文件类别未绑定提交目录，系统将自动落位到未分类目录。'
 const categoryUploadPermissionMessage = '当前用户没有该文件类别的上传权限，请联系文控管理员补齐该类别 UPLOAD 权限。'
 const categorySelectEmptyText = computed(() => {
   return '当前没有可上传文件类别'
@@ -660,7 +664,7 @@ const selectedFileTypeTaxonomyBoundCategories = computed(() => {
 })
 const availableCategories = computed(() =>
   selectedFileTypeTaxonomyBoundCategories.value.filter((category) => {
-    if (!category.active || !Boolean(category.directoryId) || category.canUpload === false) {
+    if (!category.active || category.canUpload === false) {
       return false
     }
     return true
@@ -677,7 +681,7 @@ const categoryPermissionPreflightMessage = computed(() => {
   }
   if (isExternalReview.value) {
     if (!categories.value.length || !availableCategories.value.length) {
-      return '当前没有可上传文件类别：请确认分类已启用、已绑定提交目录，并授予当前账号文件类别 UPLOAD 权限。'
+      return '当前没有可上传文件类别：请确认分类已启用，并授予当前账号文件类别 UPLOAD 权限。'
     }
     return ''
   }
@@ -688,21 +692,20 @@ const categoryPermissionPreflightMessage = computed(() => {
     return '请先选择至少三级文件分类，文件类别将自动取最后一级。'
   }
   if (!selectedFileTypeTaxonomyBoundCategories.value.length) {
-    return '当前文件分类暂无已绑定提交目录的文件类别，请联系文控管理员配置该叶子节点的正式 DCC 类别。'
+    return '当前文件分类暂无可上传文件类别，请联系文控管理员配置该叶子节点的唯一正式 DCC 类别。'
   }
   if (selectedFileTypeTaxonomyBoundCategories.value.length > 1) {
     return '当前文件分类叶子节点绑定了多个正式 DCC 类别，请联系文控管理员保留唯一启用类别后再提交。'
   }
   const boundCategory = selectedFileTypeTaxonomyBoundCategories.value[0]
-  if (!boundCategory.directoryId) {
-    return categoryDirectoryBindingMessage
-  }
   if (boundCategory.canUpload === false) {
     return categoryUploadPermissionMessage
   }
+  if (!boundCategory.directoryId) {
+    return categoryDirectoryBindingMessage
+  }
   return ''
 })
-const selectedCategoryDirectoryBound = computed(() => Boolean(selectedCategory.value?.directoryId))
 const isProductRequiredForSelectedCategory = computed(() =>
   isDccProductRequiredForCategoryCode(selectedCategory.value?.code)
 )
@@ -767,10 +770,6 @@ const formRules = reactive<FormRules>({
         const category = categories.value.find((item) => item.id === Number(value))
         if (!isExternalReview.value && category?.fileTypeTaxonomyId !== Number(formData.fileTypeTaxonomyId)) {
           callback(new Error('文件类别必须来自当前文件分类叶子节点，请重新选择文件分类'))
-          return
-        }
-        if (!category?.directoryId) {
-          callback(new Error(categoryDirectoryBindingMessage))
           return
         }
         if (category.canUpload === false) {
@@ -1352,10 +1351,6 @@ const handleCategoryChange = async () => {
   resetDrawingPdfUpload()
   if (formData.categoryId) {
     applyDccProjectCodeProductNumber()
-    if (!selectedCategoryDirectoryBound.value) {
-      message.warning(categoryDirectoryBindingMessage)
-      return
-    }
     await loadUploadDirectoryTree(formData.categoryId)
   }
 }

@@ -102,19 +102,21 @@
 
 ### M6 前端静态合同
 
-1. RED：新增 `tests/e2e/nas-uncontrolled-import-static.spec.js`，断言 NAS 页面包含未受控明细列表、选择、识别预览、先选择本地目录再创建 import task、`showDirectoryPicker` fail-fast、处理进度和待处理展示。
+1. RED：新增 `tests/e2e/dcc-nas-uncontrolled-local-import-static.spec.js`，断言 NAS 页面包含未受控明细列表、选择、识别预览、先选择本地目录再创建 import task、`showDirectoryPicker` fail-fast、处理进度和待处理展示。
 2. RED：新增 API wrapper 合同，断言新增 files、recognize、import-selected、content、local-write-result 接口存在。
 3. RED：新增本地相对路径静态合同，断言安全目录段、目标文件已存在、路径过长和规范化冲突均阻塞，不调用 `import-selected`。
 4. RED：新增取消目录选择和浏览器不支持路径合同，断言无 import task、无 content、无 local-write-result、无 DCC 写请求。
 5. RED：新增显式选择范围静态合同，断言页面只把已勾选行的 `auditFileId` 发送给后端，分页场景文案显示当前选择数量，不声明“已处理全部筛选结果”。
-6. GREEN：最小改造 `system/nas/index.vue`、`src/api/system/nas/index.ts` 和 `package.json` 新增 `e2e:dcc:nas-uncontrolled-import:static` 脚本。
-7. REGRESSION：运行 `pnpm --dir IntRuoyiFronted e2e:dcc:nas-uncontrolled-import:static`、`node IntRuoyiFronted/tests/e2e/nas-control-audit-static.spec.js`、`node IntRuoyiFronted/scripts/system-nas-management.test.mjs`。
+6. GREEN：最小改造 `system/nas/index.vue`、`src/api/system/nas/index.ts` 和 `package.json` 新增 `e2e:dcc:nas-uncontrolled-local-import:static` 脚本。
+7. REGRESSION：运行 `pnpm --dir IntRuoyiFronted e2e:dcc:nas-uncontrolled-local-import:static`、`node IntRuoyiFronted/tests/e2e/nas-control-audit-static.spec.js`、`node IntRuoyiFronted/scripts/system-nas-management.test.mjs`。
 
 ### M7 真实页面 E2E
 
-1. RED：新增 `tests/e2e/nas-uncontrolled-import-real.e2e.js --check`，先证明入口、脚本、环境变量和目标样本存在。
-2. GREEN：用任务自有 NAS 样本文件、项目代码和分类规则完成一次真实处理。
-3. REGRESSION：复验项目代码详情三栏、受控文件详情和 NAS 来源映射。
+1. RED：新增 `tests/e2e/dcc-nas-uncontrolled-local-import-real.e2e.js --check`，先证明入口、脚本、运行库 schema、浏览器 File System Access API 和目标样本存在。
+2. GREEN：本地测试库迁移与任务自有 audit fixture 准备完成后，`DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID=<id>` 的 `real:check` 必须 PASS；未传样本 ID 时仍 fail fast。
+3. RED：完整真实页面 E2E 在未授权创建/确认任务自有 NAS 源文件时必须 BLOCKED，不得把前置 gate PASS、DB fixture、API-only 或静态合同写成“已下载到本地对应目录”。
+4. GREEN：获得共享 NAS 测试目录授权并确认源文件字节存在后，用真实页面选择本地目录，分别选择 `MATCHED` 与 `UNCLASSIFIED_PENDING/AMBIGUOUS` 文件，下载 content、写入本地目录、回写 `LOCAL_WRITTEN`；其中 `MATCHED` 才可进入正式归档，`UNCLASSIFIED_PENDING/AMBIGUOUS` 必须写入 `_未分类待处理` 并保持 `PENDING_MANUAL_REVIEW`。
+5. REGRESSION：复验项目代码详情三栏、受控文件详情、NAS 来源映射和任务自有 DB/NAS/local 样本清理。
 
 ## RED Commands
 
@@ -128,8 +130,9 @@
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#processUncontrolledPendingFile_doesNotCreateControlledFile" test`
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#localWriteFailed_doesNotArchiveMatchedFile" test`
 - `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q`
-- `pnpm --dir IntRuoyiFronted e2e:dcc:nas-uncontrolled-import:static`
-- `pnpm --dir IntRuoyiFronted e2e:dcc:nas-uncontrolled-import:real:check`
+- `pnpm --dir IntRuoyiFronted e2e:dcc:nas-uncontrolled-local-import:static`
+- `pnpm --dir IntRuoyiFronted e2e:dcc:nas-uncontrolled-local-import:real:check`
+- `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='<task-owned-audit-id>'; pnpm --dir IntRuoyiFronted e2e:dcc:nas-uncontrolled-local-import:real:check`
 
 ## Expected Failures
 
@@ -153,12 +156,14 @@
 - Binary transfer RED fails if the content endpoint attempts to put file bytes into JSON/base64 instead of a binary stream or explicit chunks.
 - Frontend RED fails because the dialog only shows summary and report download, not selectable file details, directory-first import creation, or local directory write flow.
 - Command/script RED fails until the new package script and backend SQL static test file are added in the named project locations.
+- Real precondition RED fails if runtime migrations are not applied, `DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID` is absent, or the task-owned audit fixture lacks matched/pending/archive-blocker rows.
+- Full real page E2E RED/BLOCKED remains expected if the task-owned NAS source files are not present or not authorized for creation under the configured shared NAS path.
 
 ## GREEN Commands
 
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest,DccNasControlAuditControllerTest,DccNasControlAuditServiceImplTest,DccControlledFileNasTransferServiceTest,DccProjectCodeServiceImplTest,DccControlledFileProjectCodeRecognitionServiceTest" test`
 - `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py IntRuoyiBackend/script/tests/test_dcc_file_category_match_rule_sql.py -q`
-- `pnpm --dir IntRuoyiFronted e2e:dcc:nas-uncontrolled-import:static`
+- `pnpm --dir IntRuoyiFronted e2e:dcc:nas-uncontrolled-local-import:static`
 - `pnpm --dir IntRuoyiFronted e2e:dcc:project-code-associated-unclassified-auto-classify:static`
 - `pnpm --dir IntRuoyiFronted e2e:dcc:project-code-list-unclassified-auto-classify:static`
 - `pnpm --dir IntRuoyiFronted ts:check`

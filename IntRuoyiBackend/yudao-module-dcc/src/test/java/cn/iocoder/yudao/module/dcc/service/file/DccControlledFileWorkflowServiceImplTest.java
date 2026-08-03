@@ -126,6 +126,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_WORKFLOW_IN_PROGRESS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.EXTERNAL_FILE_REVIEW_ENDPOINT_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_UNCLASSIFIED_DIRECTORY_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAXONOMY_LEVEL_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.ROUTE_PREVIEW_APPROVER_NOT_FOUND;
@@ -1455,6 +1456,31 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void submitControlledFile_categoryWithoutDirectoryBindingUsesUnclassifiedDirectory() {
+        DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("1.0");
+        reqVO.setDirectoryId(900L);
+        mockCommonSubmitDependencies();
+        when(categoryDirectoryBindingMapper.selectActiveByCategoryId(10L)).thenReturn(null);
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of(
+                directory(900L, 0L, "未分类", "UNCLASSIFIED"),
+                directory(30L, null, "其他根目录")));
+        mockSingleStageRoute();
+        doAnswer(invocation -> {
+            DccControlledFileDO file = invocation.getArgument(0);
+            file.setId(900L);
+            return 1;
+        }).when(controlledFileMapper).insert(any(DccControlledFileDO.class));
+        when(bpmProcessInstanceApi.createProcessInstance(any(Long.class), any())).thenReturn("proc-1");
+
+        Long fileId = workflowService.submitControlledFile(99L, reqVO);
+
+        assertEquals(900L, fileId);
+        ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).insert(fileCaptor.capture());
+        assertEquals(900L, fileCaptor.getValue().getDirectoryId());
+    }
+
+    @Test
     void submitControlledFile_categoryMissing_throwsNotExists() {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("1.0");
         when(categoryMapper.selectById(10L)).thenReturn(null);
@@ -1463,14 +1489,15 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void submitControlledFile_bindingMissing_throwsNotExists() {
+    void submitControlledFile_bindingMissingAndUnclassifiedDirectoryMissing_throwsNotExists() {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("1.0");
         when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
                 .id(10L).active(Boolean.TRUE).source("LOCAL").build());
         when(categoryDirectoryBindingMapper.selectActiveByCategoryId(10L)).thenReturn(null);
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of(directory(30L, null, "其他根目录")));
 
         assertServiceException(() -> workflowService.submitControlledFile(99L, reqVO),
-                FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS);
+                FILE_CATEGORY_UNCLASSIFIED_DIRECTORY_NOT_EXISTS);
     }
 
     @Test
@@ -3386,10 +3413,14 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     }
 
     private DccFileDirectoryDO directory(Long id, Long parentId, String name) {
+        return directory(id, parentId, name, "DIR-" + id);
+    }
+
+    private DccFileDirectoryDO directory(Long id, Long parentId, String name, String code) {
         return DccFileDirectoryDO.builder()
                 .id(id)
                 .parentId(parentId)
-                .code("DIR-" + id)
+                .code(code)
                 .name(name)
                 .active(Boolean.TRUE)
                 .sort(1)

@@ -25,7 +25,7 @@ const signatureSection = extractBetween(
 const signatureLoader = extractBetween(
   detailPage,
   'const loadDccSignatureEvidenceList = async () => {',
-  'const dccSignatureEvidenceQuickFilter = useTableQuickFilter'
+  'const loadAccessExplanationOnly = async () => {'
 )
 const reloadAll = extractBetween(detailPage, 'const reloadAll = async () => {', 'const formatAccessExplanation')
 

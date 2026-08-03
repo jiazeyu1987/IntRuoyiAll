@@ -15,6 +15,7 @@ public interface ErrorCodeConstants {
     ErrorCode APPROVAL_ROUTE_NODE_EMPTY = new ErrorCode(1_080_000_005, "Approval route nodes cannot be empty");
     ErrorCode ROUTE_PREVIEW_APPROVER_NOT_FOUND = new ErrorCode(1_080_000_006, "Route preview failed because a stage has no resolved approver");
     ErrorCode FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS = new ErrorCode(1_080_000_007, "File category is not bound to a directory");
+    ErrorCode FILE_CATEGORY_UNCLASSIFIED_DIRECTORY_NOT_EXISTS = new ErrorCode(1_080_000_196, "Unclassified upload directory does not exist");
     ErrorCode CONTROLLED_FILE_ROUTE_NOT_CONFIGURED = new ErrorCode(1_080_000_008, "Controlled file route is not configured");
     ErrorCode CONTROLLED_FILE_NOT_EXISTS = new ErrorCode(1_080_000_009, "Controlled file does not exist");
     ErrorCode CONTROLLED_FILE_WITHDRAW_NOT_ALLOWED = new ErrorCode(1_080_000_010, "Current controlled file cannot be withdrawn");

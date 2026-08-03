@@ -106,10 +106,16 @@ assert.doesNotMatch(
   '追溯抽屉只能读取证据，不得引入保存、放行、作废、签名或状态变更动作。'
 )
 
+assert.match(fieldAuditPage, /embedded\?:\s*boolean/, '字段审计页必须支持 embedded 嵌入展示。')
 assert.match(
   fieldAuditPage,
-  /embedded\?:\s*boolean[\s\S]*initialExecutionId\?:\s*number[\s\S]*initialView\?:\s*'responsibility' \| 'audit'/,
-  '字段审计页必须支持 embedded + initialExecutionId + initialView，供追溯抽屉直接展示单元责任。'
+  /initialExecutionId\?:\s*string \| number/,
+  '字段审计页必须支持 initialExecutionId，供追溯抽屉指定执行记录。'
+)
+assert.match(
+  fieldAuditPage,
+  /initialView\?:\s*'responsibility' \| 'audit'/,
+  '字段审计页必须支持 initialView=responsibility，供追溯抽屉直接展示单元责任。'
 )
 
 console.log('PASS: form trace batch execution trace actions static contract')

@@ -310,26 +310,14 @@ const graphNodes: PageNode[] = [
     tone: 'record'
   },
   {
-    id: 'history-record',
-    order: '13',
-    title: '历史批记录',
-    description: '查看已形成的历史批记录和追溯记录。',
-    kind: '查询页',
-    route: '/mes/pro/feedback/edhr-batch-history',
-    isDisabled: false,
-    x: 1002,
-    y: 455,
-    tone: 'record'
-  },
-  {
     id: 'archive',
-    order: '14',
+    order: '13',
     title: '归档',
-    description: '记录审核完成后的归档状态和追溯入口。',
+    description: '记录审核完成后的归档状态，历史明细从表单追溯进入。',
     kind: '归档页',
     isDisabled: true,
     x: 1002,
-    y: 642,
+    y: 455,
     tone: 'record'
   }
 ]
@@ -351,14 +339,7 @@ const pageEdges: PageEdge[] = [
   { from: 'process-pool', to: 'team-lead-review', label: '异常与修改日志进入复核' },
   { from: 'fifo-allocation', to: 'review-copy', label: '审核副本按限制范围修正超限值' },
   { from: 'review-copy', to: 'formal-record', label: '形成可审核的正式批记录视图' },
-  { from: 'formal-record', to: 'history-record', label: '审核完成后进入历史查询' },
-  {
-    from: 'history-record',
-    to: 'archive',
-    label: '最终归档与追溯',
-    sourceHandle: 'source-bottom',
-    targetHandle: 'target-top'
-  }
+  { from: 'formal-record', to: 'archive', label: '审核完成后进入归档与表单追溯' }
 ]
 
 const defaultEdgeOptions = {

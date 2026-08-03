@@ -106,6 +106,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_AUDIT_RECORD_FAILED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_REQUEST_ID_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_REQUEST_ID_REUSED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_UNCLASSIFIED_DIRECTORY_NOT_EXISTS;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -332,6 +333,39 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals(21L, result.getChildren().get(0).getId());
         assertEquals(1, result.getChildren().get(0).getChildren().size());
         assertEquals(22L, result.getChildren().get(0).getChildren().get(0).getId());
+    }
+
+    @Test
+    void getUploadDirectoryTree_categoryWithoutBindingReturnsUnclassifiedDirectory() {
+        when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
+                .id(10L)
+                .active(Boolean.TRUE)
+                .build());
+        when(categoryDirectoryBindingMapper.selectActiveByCategoryId(10L)).thenReturn(null);
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of(
+                directory(900L, 0L, "未分类", "UNCLASSIFIED"),
+                directory(30L, null, "其他根目录")));
+
+        DccControlledFileUploadDirectoryTreeRespVO result = queryService.getUploadDirectoryTree(10L);
+
+        assertEquals(900L, result.getBindingDirectoryId());
+        assertEquals("未分类", result.getBindingDirectoryPath());
+        assertTrue(Boolean.TRUE.equals(result.getLeafBinding()));
+        assertTrue(Boolean.TRUE.equals(result.getDefaultUnclassified()));
+        assertTrue(result.getChildren().isEmpty());
+    }
+
+    @Test
+    void getUploadDirectoryTree_categoryWithoutBindingAndUnclassifiedMissingFailsFast() {
+        when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
+                .id(10L)
+                .active(Boolean.TRUE)
+                .build());
+        when(categoryDirectoryBindingMapper.selectActiveByCategoryId(10L)).thenReturn(null);
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of(directory(30L, null, "其他根目录")));
+
+        assertServiceException(() -> queryService.getUploadDirectoryTree(10L),
+                FILE_CATEGORY_UNCLASSIFIED_DIRECTORY_NOT_EXISTS);
     }
 
     @Test
@@ -3166,10 +3200,14 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     }
 
     private DccFileDirectoryDO directory(Long id, Long parentId, String name) {
+        return directory(id, parentId, name, "DIR-" + id);
+    }
+
+    private DccFileDirectoryDO directory(Long id, Long parentId, String name, String code) {
         return DccFileDirectoryDO.builder()
                 .id(id)
                 .parentId(parentId)
-                .code("DIR-" + id)
+                .code(code)
                 .name(name)
                 .active(Boolean.TRUE)
                 .sort(1)

@@ -3158,13 +3158,6 @@ const selectedProcessEvidenceItems = computed<ProcessEvidenceItem[]>(() => {
       disabled: executionRequired
     },
     {
-      key: 'history',
-      label: '历史同工序',
-      description: '同批次/同路线历史批记录参考。',
-      path: '/mes/pro/feedback/edhr-batch-history',
-      query: buildSelectedProcessEvidenceQuery()
-    },
-    {
       key: 'independent-form',
       label: '独立表单',
       description: '与当前工序绑定的独立表单引用。',
@@ -3261,9 +3254,9 @@ const selectedProcessEvidenceGroups = computed<ProcessEvidenceGroup[]>(() => {
     {
       key: 'references',
       label: '关联引用',
-      description: '历史同工序、独立表单和记录本填写。',
-      itemKeys: ['history', 'independent-form', 'recordbook'],
-      items: resolveItems(['history', 'independent-form', 'recordbook'])
+      description: '独立表单和记录本填写；归档表单详情请从表单追溯详情查看。',
+      itemKeys: ['independent-form', 'recordbook'],
+      items: resolveItems(['independent-form', 'recordbook'])
     }
   ]
 })
@@ -4407,23 +4400,6 @@ const submitReexecuteRejectedBatch = async () => {
   } finally {
     reexecuteLoading.value = false
   }
-}
-
-
-const openBatchHistoryPage = async () => {
-  if (!detail.value?.id) {
-    message.error('当前批次不存在，无法查看历史时间线。')
-    return
-  }
-  await router.push({
-    path: '/mes/pro/feedback/edhr-batch-history',
-    query: {
-      batchExecutionId: String(detail.value.id),
-      ...(detail.value.batchExecutionCode ? { batchExecutionCode: detail.value.batchExecutionCode } : {}),
-      ...(detail.value.workOrderCode ? { workOrderCode: detail.value.workOrderCode } : {}),
-      ...(detail.value.batchCode ? { batchCode: detail.value.batchCode } : {})
-    }
-  })
 }
 
 const handleReleasePrecheck = async () => {

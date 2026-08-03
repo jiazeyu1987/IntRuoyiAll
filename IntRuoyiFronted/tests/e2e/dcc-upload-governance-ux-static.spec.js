@@ -102,17 +102,25 @@ const signatureTraceSection = extractBetween(
   '</ContentWrap>',
   'detail signature trace section'
 )
-for (const label of ['签核追溯', '上传人', '四级审批人', '签名时间', '签名方式', '证据状态', '文件哈希', '盖章文件', '导出', '打印']) {
+for (const label of ['上传人', '四级审批人', '签名时间', '签名方式', '证据状态', '文件哈希', '盖章文件']) {
   assert.match(signatureTraceSection, new RegExp(label), `signature trace section must show ${label}`)
+}
+for (const removedLabel of ['导出', '打印', '汇总上传人']) {
+  assert.doesNotMatch(
+    signatureTraceSection,
+    new RegExp(removedLabel),
+    `signature trace yellow-box control must be removed: ${removedLabel}`
+  )
 }
 for (const token of [
   'signatureTraceRows',
   'fileDetail?.signatureSummaries',
-  'fileDetail?.requesterId',
-  'exportSignatureTrace',
-  'printSignatureTrace'
+  'fileDetail?.requesterId'
 ]) {
   assert.match(detailPage, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `signature trace must use ${token}`)
+}
+for (const removedToken of ['exportSignatureTrace', 'printSignatureTrace']) {
+  assert.doesNotMatch(detailPage, new RegExp(removedToken), `signature trace must remove ${removedToken}`)
 }
 
 assert.match(approvalSummary, /private List<String> businessContextTags/, 'approval summary must expose business context tags')

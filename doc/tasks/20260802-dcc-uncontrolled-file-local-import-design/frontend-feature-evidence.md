@@ -12,17 +12,17 @@
 - A2: The page requests `showDirectoryPicker` and validates backend-provided local relative paths before creating `import-selected`; unsupported browser, canceled directory picker, or invalid relative path does not create an import task.
 - A3: The page writes each downloaded Blob through `getDirectoryHandle/getFileHandle/createWritable/write/close` and posts `LOCAL_WRITTEN` only after `close()` succeeds.
 - A4: Local write failure posts `LOCAL_WRITE_FAILED` with explicit error code/message and does not mark the file as successful.
-- A5: The page does not store or send local absolute paths, keeps `UNCLASSIFIED_PENDING/AMBIGUOUS` visible as “未分类/待处理/待确认”, and surfaces `ARCHIVE_METADATA_REQUIRED` as “归档元数据待补齐”.
+- A5: The page does not store or send local absolute paths, keeps `UNCLASSIFIED_PENDING/AMBIGUOUS` visible and selectable only for local `_未分类待处理` download/pending manual review, and surfaces `ARCHIVE_METADATA_REQUIRED` as “归档元数据待补齐”.
 
 ## BDD Scenarios
 
-BDD: Browser directory authorization gates import-selected -> Given a completed NAS uncontrolled audit task and selected matched files When the user chooses to download to a local directory Then the page must obtain `showDirectoryPicker` authorization and validate every `expectedLocalRelativePath` before calling `/import-selected`.
+BDD: Browser directory authorization gates import-selected -> Given a completed NAS uncontrolled audit task and selected downloadable files When the user chooses to download to a local directory Then the page must obtain `showDirectoryPicker` authorization and validate every `expectedLocalRelativePath` before calling `/import-selected`.
 
 BDD: Local write success is reported only after close -> Given an import-selected task and a selected audit-file snapshot When the content Blob is downloaded and the local writable stream closes successfully Then the page posts `LOCAL_WRITTEN` with the same source signature and local relative path snapshot.
 
 BDD: Local write failure remains visible -> Given the local file write fails after content download When the writable stream or file handle throws Then the page posts `LOCAL_WRITE_FAILED` with `LOCAL_WRITE_FAILED` error code and displays the failure instead of treating the file as imported.
 
-BDD: Unrecognized files remain pending -> Given audit rows are `UNCLASSIFIED_PENDING` or `AMBIGUOUS` When the user opens the completed audit task Then those rows remain visible as “未分类/待处理” or “待确认” and are not selectable for automatic local import.
+BDD: Unrecognized files remain pending -> Given audit rows are `UNCLASSIFIED_PENDING` or `AMBIGUOUS` When the user opens the completed audit task Then those rows remain visible as “未分类/待处理” or “待确认”, can be selected for local `_未分类待处理` download, and are not eligible for automatic DCC archive.
 
 BDD: Archive metadata blocker is explicit -> Given a matched file reaches local write success but backend returns `ARCHIVE_METADATA_REQUIRED` When the page reloads audit-file rows Then the page displays “归档元数据待补齐” rather than claiming archive success.
 
@@ -51,7 +51,7 @@ GREEN: `pnpm ts:check` -> PASS after the unrelated DCC upload page computed expo
 - Static contract verifies content download, local write, `writable.close()`, `LOCAL_WRITTEN`, and `LOCAL_WRITE_FAILED` sequencing.
 - Static contract verifies path guards for backslashes, absolute paths, drive letters, `.`, and `..`.
 - Static contract verifies no local absolute path fields are stored or sent by the new flow.
-- Static contract verifies visible handling for `UNCLASSIFIED_PENDING/AMBIGUOUS` and `ARCHIVE_METADATA_REQUIRED`.
+- Static contract verifies visible and selectable local-pending handling for `UNCLASSIFIED_PENDING/AMBIGUOUS`, plus visible `ARCHIVE_METADATA_REQUIRED`.
 - `pnpm ts:check` was rerun after fixing the unrelated DCC upload page computed exposure issue and passed for the current frontend workspace.
 
 ## Blockers

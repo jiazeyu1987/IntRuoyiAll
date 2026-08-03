@@ -24,6 +24,19 @@ const WORKSTATION_ROUTE_COMPONENTS = new Set(['mes/md/workstation/index', 'mes/m
 const WORKSTATION_ROUTE_PATHS = new Set(['mes/md/workstation', 'md/workstation'])
 const MES_PRO_ROUTE_LIST_COMPONENT = 'mes/pro/route/index'
 const MES_PRO_ROUTE_MENU_PATHS = new Set(['mes/pro/route', 'pro/route'])
+const MES_PRO_BATCH_RECORD_FORM_LIST_COMPONENT = 'mes/pro/batchrecordformlist/index'
+const MES_PRO_BATCH_RECORD_FORM_LIST_ROUTE_PATHS = new Set([
+  'mes/pro/batch-record-form-list',
+  'pro/batch-record-form-list'
+])
+const MES_ROUTE_BATCH_RECORD_TAB_CACHE_ROUTE_COMPONENTS = new Set([
+  MES_PRO_ROUTE_LIST_COMPONENT,
+  MES_PRO_BATCH_RECORD_FORM_LIST_COMPONENT
+])
+const MES_ROUTE_BATCH_RECORD_TAB_CACHE_ROUTE_PATHS = new Set([
+  ...MES_PRO_ROUTE_MENU_PATHS,
+  ...MES_PRO_BATCH_RECORD_FORM_LIST_ROUTE_PATHS
+])
 const MES_PRO_WORK_ORDER_ROUTE_COMPONENTS = new Set([
   'mes/pro/workorder/index',
   'mes/pro/workorder'
@@ -82,6 +95,8 @@ const applyRouteMetaOverrides = (
   if (
     DCC_UPLOAD_BROWSER_CACHE_ROUTE_PATHS.has(routePath) ||
     DCC_UPLOAD_BROWSER_CACHE_ROUTE_COMPONENTS.has(componentPath) ||
+    MES_ROUTE_BATCH_RECORD_TAB_CACHE_ROUTE_PATHS.has(routePath) ||
+    MES_ROUTE_BATCH_RECORD_TAB_CACHE_ROUTE_COMPONENTS.has(componentPath) ||
     routePath === DCC_PERMISSION_CATEGORIES_ROUTE_PATH ||
     componentPath === DCC_PERMISSION_CATEGORIES_ROUTE_COMPONENT ||
     WORKSTATION_ROUTE_PATHS.has(routePath) ||
@@ -95,7 +110,9 @@ const applyRouteMetaOverrides = (
   }
   if (
     DCC_UPLOAD_BROWSER_CACHE_ROUTE_PATHS.has(routePath) ||
-    DCC_UPLOAD_BROWSER_CACHE_ROUTE_COMPONENTS.has(componentPath)
+    DCC_UPLOAD_BROWSER_CACHE_ROUTE_COMPONENTS.has(componentPath) ||
+    MES_ROUTE_BATCH_RECORD_TAB_CACHE_ROUTE_PATHS.has(routePath) ||
+    MES_ROUTE_BATCH_RECORD_TAB_CACHE_ROUTE_COMPONENTS.has(componentPath)
   ) {
     meta.noCache = false
   }

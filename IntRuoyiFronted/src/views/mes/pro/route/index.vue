@@ -505,10 +505,24 @@ const message = useMessage() // 消息弹窗
 const { t } = useI18n() // 国际化
 const route = useRoute()
 const router = useRouter()
+const MES_PRO_ROUTE_LIST_PATH = '/mes/pro/route'
+const isMesProRouteListPath = () => route.path === MES_PRO_ROUTE_LIST_PATH
+const buildMesProRouteListStateKey = () =>
+  JSON.stringify({
+    code: typeof route.query.code === 'string' ? route.query.code : '',
+    name: typeof route.query.name === 'string' ? route.query.name : '',
+    openId: typeof route.query.openId === 'string' ? route.query.openId : ''
+  })
 
 const loading = ref(true) // 列表的加载中
 const list = ref<ProRouteVO[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
+const mesProRouteListHasLoadedRouteState = ref(false)
+let mesProRouteListLastLoadedStateKey = ''
+const shouldKeepMesProRouteListLoadedState = (targetStateKey: string) =>
+  mesProRouteListHasLoadedRouteState.value &&
+  mesProRouteListLastLoadedStateKey === targetStateKey &&
+  !loading.value
 const exportLoading = ref(false) // 导出的加载中
 const openedRouteDetailId = ref('')
 const copyDialogVisible = ref(false)
@@ -667,10 +681,13 @@ const routeQuickFilterDefinitions: TableQuickFilterDefinition[] = [
 ]
 
 const loadListFromRoute = async () => {
+  const targetStateKey = buildMesProRouteListStateKey()
   queryParams.code = typeof route.query.code === 'string' ? route.query.code : undefined
   queryParams.name = typeof route.query.name === 'string' ? route.query.name : undefined
   queryParams.pageNo = 1
   await getList()
+  mesProRouteListLastLoadedStateKey = targetStateKey
+  mesProRouteListHasLoadedRouteState.value = true
   const openId = typeof route.query.openId === 'string' ? route.query.openId : ''
   if (!openId) {
     openedRouteDetailId.value = ''
@@ -1327,11 +1344,21 @@ const isUserCancel = (error: unknown) => {
 watch(
   () => [route.query.code, route.query.name, route.query.openId],
   async () => {
+    if (!isMesProRouteListPath()) {
+      return
+    }
+    const targetStateKey = buildMesProRouteListStateKey()
+    if (shouldKeepMesProRouteListLoadedState(targetStateKey)) {
+      return
+    }
     await loadListFromRoute()
   }
 )
 
 onMounted(async () => {
+  if (!isMesProRouteListPath()) {
+    return
+  }
   await loadListFromRoute()
 })
 </script>

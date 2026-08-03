@@ -132,7 +132,6 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_WITHDRAWN_ACTION_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_WORKFLOW_IN_PROGRESS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.EXTERNAL_FILE_REVIEW_ENDPOINT_REQUIRED;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAXONOMY_LEVEL_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_DISABLED;
@@ -789,10 +788,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             throw exception(CONTROLLED_FILE_SUBMIT_DIRECTORY_INVALID);
         }
         DccCategoryDirectoryBindingDO binding = categoryDirectoryBindingMapper.selectActiveByCategoryId(file.getCategoryId());
-        if (binding == null) {
-            throw exception(FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS);
-        }
-        return validateSelectedDirectory(binding.getDirectoryId(), confirmedDirectoryId, true);
+        return validateSelectedDirectory(resolveUploadBindingDirectoryId(binding), confirmedDirectoryId, true);
     }
 
     private void persistDocControlConfirmedDirectory(DccControlledFileDO file, Long confirmedDirectoryId) {
@@ -1144,10 +1140,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             validateScreenshotProductCode(dccProduct);
         }
         DccCategoryDirectoryBindingDO binding = categoryDirectoryBindingMapper.selectActiveByCategoryId(category.getId());
-        if (binding == null) {
-            throw exception(FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS);
-        }
-        Long selectedDirectoryId = validateSelectedDirectory(binding.getDirectoryId(), reqVO.getDirectoryId(), requireLeafDirectory);
+        Long selectedDirectoryId = validateSelectedDirectory(resolveUploadBindingDirectoryId(binding),
+                reqVO.getDirectoryId(), requireLeafDirectory);
         DccControlledFileChangeTypeEnum changeType = validateChangeType(reqVO.getChangeType());
         DccControlledFileMasterDO master = loadOrCreateMaster(reqVO, changeType);
         lockNativeContentMaster(master);
@@ -1162,6 +1156,13 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         }
         return new PreparedSubmitContext(category, master, selectedDirectoryId, reqVO, submitFiles, dccProduct,
                 projectCode, fileTypeTaxonomy, changeType);
+    }
+
+    private Long resolveUploadBindingDirectoryId(DccCategoryDirectoryBindingDO binding) {
+        if (binding != null) {
+            return binding.getDirectoryId();
+        }
+        return DccUploadDirectoryResolver.resolveUnclassifiedUploadDirectory(directoryMapper.selectEnabledList()).getId();
     }
 
     private void lockNativeContentMaster(DccControlledFileMasterDO master) {

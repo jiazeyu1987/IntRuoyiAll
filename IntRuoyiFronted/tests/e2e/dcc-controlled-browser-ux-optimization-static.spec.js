@@ -213,14 +213,29 @@ const viewerModeTemplate = extractBetween(
   'controlled browser viewer template'
 )
 for (const token of [
-  '发布文件',
-  '盖章文件',
-  '当前有效版来源',
-  '最终目录路径',
-  '高级信息：publishedFileId',
-  '高级信息：stampedFileId'
+  'data-testid="dcc-detail-controlled-browser-linkage"',
+  '受控浏览入口',
+  '查看受控浏览当前有效版',
+  'controlled-browser-linkage-grid'
 ]) {
-  assert.match(viewerModeTemplate, new RegExp(token), `viewer metadata must be business-readable: ${token}`)
+  assert.doesNotMatch(
+    viewerModeTemplate,
+    new RegExp(token),
+    `viewer mode must hide controlled-browser linkage block: ${token}`
+  )
+}
+const normalControlledBrowserLinkage = extractBetween(
+  detailPage,
+  '<ContentWrap data-testid="dcc-detail-controlled-browser-linkage"',
+  '</ContentWrap>',
+  'normal controlled browser linkage'
+)
+for (const token of ['发布文件', '盖章文件', '当前有效版来源', '最终目录路径']) {
+  assert.match(
+    normalControlledBrowserLinkage,
+    new RegExp(token),
+    `normal detail metadata must remain business-readable: ${token}`
+  )
 }
 const controlledBrowserDirectoryPathBlock = extractBetween(
   detailPage,
@@ -231,7 +246,7 @@ const controlledBrowserDirectoryPathBlock = extractBetween(
 assert.match(
   controlledBrowserDirectoryPathBlock,
   /fileDetail\.value\?\.directoryPath/,
-  'viewer controlled browser directory path must prefer formal detail directoryPath before tree fallback'
+  'controlled browser directory path must prefer formal detail directoryPath before tree fallback'
 )
 
 const publishSummaryTemplate = extractBetween(

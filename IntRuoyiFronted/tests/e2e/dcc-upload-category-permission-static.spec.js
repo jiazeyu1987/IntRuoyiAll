@@ -21,10 +21,22 @@ assert.match(
   'DCC upload page must hide auto-resolved categories where current user lacks category UPLOAD permission'
 )
 
-assert.match(
+assert.doesNotMatch(
   uploadPageSource,
   /const availableCategories = computed\(\(\) =>[\s\S]*Boolean\(category\.directoryId\)/,
-  'DCC upload page must still reject auto-resolved categories without a bound upload directory'
+  'DCC upload page must not reject otherwise uploadable categories without a bound upload directory; backend resolves them to 未分类'
+)
+
+assert.match(
+  uploadPageSource,
+  /未绑定提交目录[\s\S]*未分类目录/,
+  'DCC upload page must tell users that an unbound category is automatically landed in 未分类 instead of asking them to bind manually'
+)
+
+assert.doesNotMatch(
+  uploadPageSource,
+  /请先在 DCC 文件类别维护目录绑定/,
+  'DCC upload page must not ask submitters to maintain category-directory bindings manually'
 )
 
 assert.match(

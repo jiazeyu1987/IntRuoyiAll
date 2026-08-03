@@ -277,6 +277,7 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_ROLE_CATEGORY_REQUIRED = new ErrorCode(1_040_271_048, "批记录附件默认角色分类 batch-record 不存在或未启用");
     ErrorCode PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_ENABLED_USER_NOT_ENOUGH = new ErrorCode(1_040_271_049, "当前租户启用用户少于 2 人，无法初始化批记录附件上传角色");
     ErrorCode PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID = new ErrorCode(1_040_271_050, "批记录附件负责人配置无效：{}");
+    ErrorCode PRO_ROUTE_FLOW_CONFIG_START_PRODUCTION_LEADER_INVALID = new ErrorCode(1_040_271_051, "工序开始生产组长配置无效：{}");
     ErrorCode PRO_ROUTE_VERSION_STALE = new ErrorCode(1_040_271_029, "工艺路线版本已变更，请刷新后再操作，routeId={}，expectedRouteVersionId={}，activeRouteVersionId={}");
     ErrorCode PRO_ROUTE_VERSION_NOT_EXISTS = new ErrorCode(1_040_271_030, "工艺路线版本不存在，routeVersionId={}");
     ErrorCode PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS = new ErrorCode(1_040_271_031, "工艺路线缺少当前生效版本，routeId={}");

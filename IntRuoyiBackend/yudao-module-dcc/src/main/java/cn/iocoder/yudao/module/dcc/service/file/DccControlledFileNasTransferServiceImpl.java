@@ -502,7 +502,8 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
                         .classificationCandidatesJsonSnapshot(auditFile.getClassificationCandidatesJson())
                         .localRelativePath(preparedFile.selectedFile().localRelativePath())
                         .localWriteStatus(IMPORT_LOCAL_WRITE_STATUS_NOT_STARTED)
-                        .archiveStatus(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED)
+                        .archiveStatus(resolveUncontrolledImportInitialArchiveStatus(
+                                auditFile.getClassificationStatus()))
                         .status(ITEM_STATUS_WAITING)
                         .attemptCount(0)
                         .build();
@@ -511,6 +512,12 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
                 auditFile.setSelectedImportTaskId(task.getId());
                 auditFile.setSelectedImportTaskItemId(item.getId());
                 auditFile.setLocalRelativePath(preparedFile.selectedFile().localRelativePath());
+                if (isUncontrolledImportManualReviewClassification(auditFile.getClassificationStatus())) {
+                    auditFile.setArchiveStatus(
+                            DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_PENDING_MANUAL_REVIEW);
+                    auditFile.setArchiveErrorCode(null);
+                    auditFile.setArchiveError(null);
+                }
                 auditFileMapper.updateById(auditFile);
             }
             return task.getId();
@@ -651,11 +658,7 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
                 || !Objects.equals(reqVO.getLocalRelativePath(), item.getLocalRelativePath())) {
             throw new IllegalStateException("nas uncontrolled import localRelativePath mismatch: " + auditFileId);
         }
-        boolean archiveFresh = Objects.equals(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED,
-                auditFile.getArchiveStatus())
-                && Objects.equals(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED,
-                item.getArchiveStatus())
-                && auditFile.getControlledFileId() == null;
+        boolean archiveFresh = isUncontrolledImportArchiveStateOpen(auditFile, item);
         if (!archiveFresh && !isUncontrolledImportLocalWriteSuccessReplay(reqVO, auditFile, item)) {
             throw new IllegalStateException("nas uncontrolled import local-write archive state invalid: " + auditFileId);
         }
@@ -701,6 +704,7 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
             DccControlledFileNasTransferTaskItemDO item) {
         if (!DccNasControlAuditServiceImpl.AUDIT_FILE_CLASSIFICATION_STATUS_MATCHED.equals(
                 item.getClassificationStatusSnapshot())) {
+            markUncontrolledImportPendingManualReview(auditFile, item);
             return;
         }
         if (!hasCompleteUncontrolledImportArchiveSnapshot(item)) {
@@ -739,6 +743,22 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
         item.setLastError(errorMessage);
         item.setAttemptCount(incrementCount(item.getAttemptCount()));
         item.setLastAttemptAt(now);
+        item.setCompletedAt(now);
+    }
+
+    private void markUncontrolledImportPendingManualReview(
+            DccNasControlAuditFileDO auditFile,
+            DccControlledFileNasTransferTaskItemDO item) {
+        LocalDateTime now = LocalDateTime.now();
+        auditFile.setArchiveStatus(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_PENDING_MANUAL_REVIEW);
+        auditFile.setArchiveErrorCode(null);
+        auditFile.setArchiveError(null);
+        item.setArchiveStatus(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_PENDING_MANUAL_REVIEW);
+        item.setArchiveErrorCode(null);
+        item.setArchiveError(null);
+        item.setStatus(ITEM_STATUS_COMPLETED);
+        item.setFailureStage(null);
+        item.setLastError(null);
         item.setCompletedAt(now);
     }
 
@@ -824,8 +844,7 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
         }
         if (!Objects.equals(AUDIT_FILE_DOWNLOAD_STATUS_SELECTED, auditFile.getDownloadStatus())
                 || !Objects.equals(IMPORT_LOCAL_WRITE_STATUS_NOT_STARTED, item.getLocalWriteStatus())
-                || !Objects.equals(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED, auditFile.getArchiveStatus())
-                || !Objects.equals(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED, item.getArchiveStatus())
+                || !isUncontrolledImportArchiveStateOpen(auditFile, item)
                 || auditFile.getControlledFileId() != null) {
             throw new IllegalStateException("nas uncontrolled import content state invalid: " + auditFileId);
         }
@@ -928,8 +947,8 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
                 auditFile.getDownloadStatus())) {
             throw new IllegalStateException("nas uncontrolled import download status invalid: " + auditFile.getId());
         }
-        if (!Objects.equals(DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED,
-                auditFile.getArchiveStatus())) {
+        if (!isUncontrolledImportArchiveStatusSelectable(
+                auditFile.getClassificationStatus(), auditFile.getArchiveStatus())) {
             throw new IllegalStateException("nas uncontrolled import archive status invalid: " + auditFile.getId());
         }
         if (auditFile.getSelectedImportTaskId() != null || auditFile.getSelectedImportTaskItemId() != null) {
@@ -945,6 +964,41 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
         if (!Objects.equals(selectedFile.localRelativePath(), auditFile.getExpectedLocalRelativePath())) {
             throw new IllegalStateException("nas uncontrolled import localRelativePath mismatch: " + auditFile.getId());
         }
+    }
+
+    private String resolveUncontrolledImportInitialArchiveStatus(String classificationStatus) {
+        if (isUncontrolledImportManualReviewClassification(classificationStatus)) {
+            return DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_PENDING_MANUAL_REVIEW;
+        }
+        return DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED;
+    }
+
+    private boolean isUncontrolledImportManualReviewClassification(String classificationStatus) {
+        return DccNasControlAuditServiceImpl.AUDIT_FILE_CLASSIFICATION_STATUS_UNCLASSIFIED_PENDING.equals(
+                classificationStatus)
+                || DccNasControlAuditServiceImpl.AUDIT_FILE_CLASSIFICATION_STATUS_AMBIGUOUS.equals(
+                classificationStatus);
+    }
+
+    private boolean isUncontrolledImportArchiveStatusSelectable(String classificationStatus, String archiveStatus) {
+        if (DccNasControlAuditServiceImpl.AUDIT_FILE_CLASSIFICATION_STATUS_MATCHED.equals(classificationStatus)) {
+            return DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED.equals(archiveStatus);
+        }
+        if (isUncontrolledImportManualReviewClassification(classificationStatus)) {
+            return DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_NOT_STARTED.equals(archiveStatus)
+                    || DccNasControlAuditServiceImpl.AUDIT_FILE_ARCHIVE_STATUS_PENDING_MANUAL_REVIEW.equals(
+                    archiveStatus);
+        }
+        return false;
+    }
+
+    private boolean isUncontrolledImportArchiveStateOpen(DccNasControlAuditFileDO auditFile,
+                                                         DccControlledFileNasTransferTaskItemDO item) {
+        return auditFile.getControlledFileId() == null
+                && isUncontrolledImportArchiveStatusSelectable(
+                item.getClassificationStatusSnapshot(), auditFile.getArchiveStatus())
+                && isUncontrolledImportArchiveStatusSelectable(
+                item.getClassificationStatusSnapshot(), item.getArchiveStatus());
     }
 
     private String uncontrolledImportRequestHash(Long auditTaskId, List<SelectedUncontrolledImportFile> selectedFiles) {

@@ -212,93 +212,137 @@
       </template>
     </UnifiedListTemplate>
 
-    <Dialog title="电子批记录变更详情" v-model="detailDialogVisible" width="760px">
-      <div class="edhr-form-trace-change__detail-summary">
-        <div class="edhr-form-trace-change__detail-summary-item">
-          <span>变更编号</span>
-          <strong>{{ selectedChange?.changeCode || '--' }}</strong>
-        </div>
-        <div class="edhr-form-trace-change__detail-summary-item">
-          <span>变更对象</span>
-          <strong>{{ resolveTargetScopeLabel(selectedChange?.targetScope) }}</strong>
-        </div>
-        <div class="edhr-form-trace-change__detail-summary-item">
-          <span>状态</span>
-          <strong>{{ resolveChangeStatusLabel(selectedChange?.changeStatus) }}</strong>
-        </div>
-        <div class="edhr-form-trace-change__detail-summary-item">
-          <span>生效时间</span>
-          <strong>{{ formatEdhrDateTime(selectedChange?.effectiveAt) }}</strong>
-        </div>
-      </div>
-
-      <el-descriptions :column="2" border class="edhr-form-trace-change__detail">
-        <el-descriptions-item label="变更类型">{{ resolveChangeTypeLabel(selectedChange?.changeType) }}</el-descriptions-item>
-        <el-descriptions-item label="状态变化">
-          {{ resolveExecutionStatusLabel(selectedChange?.previousStatus) }} ->
-          {{ resolveExecutionStatusLabel(selectedChange?.newStatus) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="批次ID">
-          <el-button
-            v-if="canOpenBatchExecution(selectedChange)"
-            link
-            type="primary"
-            class="edhr-form-trace-change__object-link"
-            @click="openBatchExecution(selectedChange)"
-          >
-            {{ formatObjectId(selectedChange?.batchExecutionId) }}
-          </el-button>
-          <span v-else class="edhr-form-trace-change__object-link--disabled">--</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="执行ID">
-          <el-button
-            v-if="canOpenExecution(selectedChange)"
-            link
-            type="primary"
-            class="edhr-form-trace-change__object-link"
-            @click="openExecution(selectedChange)"
-          >
-            {{ formatObjectId(selectedChange?.executionId) }}
-          </el-button>
-          <span v-else class="edhr-form-trace-change__object-link--disabled">--</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="原因分类">{{ selectedChange?.reasonCategory || '--' }}</el-descriptions-item>
-        <el-descriptions-item label="申请时间">
-          {{ formatEdhrDateTime(selectedChange?.requestedAt) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="原因说明" :span="2">{{ selectedChange?.reasonText || '--' }}</el-descriptions-item>
-      </el-descriptions>
-
-      <el-collapse v-model="detailEvidenceNames" class="edhr-form-trace-change__evidence-collapse">
-        <el-collapse-item title="链路证据" name="chain-evidence">
-          <div class="edhr-form-trace-change__evidence-grid">
-            <div class="edhr-form-trace-change__evidence-item">
-              <span>申请签名</span>
-              <strong>{{ selectedChange?.requestSignatureId || '--' }}</strong>
+    <Dialog title="电子批记录变更详情" v-model="detailDialogVisible" width="860px">
+      <el-tabs v-model="detailActiveTab" class="edhr-form-trace-change__detail-tabs">
+        <el-tab-pane label="批记录表单" name="recordForm">
+          <div class="edhr-form-trace-change__record-card">
+            <div class="edhr-form-trace-change__record-card-header">
+              <div>
+                <div class="edhr-form-trace-change__record-card-title">批记录表单快照</div>
+                <div class="edhr-form-trace-change__muted">
+                  使用表单追溯归档的执行快照打开只读表单，展示方式与批次执行填写页保持一致。
+                </div>
+              </div>
+              <el-button
+                type="primary"
+                :disabled="!canOpenBatchExecution(selectedChange)"
+                @click="openSelectedChangeRecordForm"
+              >
+                查看批记录表单
+              </el-button>
             </div>
-            <div class="edhr-form-trace-change__evidence-item">
-              <span>审批签名</span>
-              <strong>{{ selectedChange?.approvalSignatureId || '--' }}</strong>
+            <el-descriptions :column="2" border class="edhr-form-trace-change__detail">
+              <el-descriptions-item label="变更编号">
+                {{ selectedChange?.changeCode || '--' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="状态">
+                {{ resolveChangeStatusLabel(selectedChange?.changeStatus) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="批次ID">
+                {{ formatObjectId(selectedChange?.batchExecutionId) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="执行ID">
+                {{ formatObjectId(selectedChange?.executionId) }}
+              </el-descriptions-item>
+            </el-descriptions>
+            <el-alert
+              class="edhr-form-trace-change__record-alert"
+              type="info"
+              :closable="false"
+              show-icon
+              title="点击“查看批记录表单”后，将在右侧打开可视化只读表单；不会进入独立历史批记录页面，也不会触发保存、签名或放行。"
+            />
+          </div>
+        </el-tab-pane>
+        <el-tab-pane label="变更详情" name="changeDetail">
+          <div class="edhr-form-trace-change__detail-summary">
+            <div class="edhr-form-trace-change__detail-summary-item">
+              <span>变更编号</span>
+              <strong>{{ selectedChange?.changeCode || '--' }}</strong>
             </div>
-            <div class="edhr-form-trace-change__evidence-item">
-              <span>原链头哈希</span>
-              <strong>{{ selectedChange?.previousHeadHash || '--' }}</strong>
+            <div class="edhr-form-trace-change__detail-summary-item">
+              <span>变更对象</span>
+              <strong>{{ resolveTargetScopeLabel(selectedChange?.targetScope) }}</strong>
             </div>
-            <div class="edhr-form-trace-change__evidence-item">
-              <span>新链头哈希</span>
-              <strong>{{ selectedChange?.newHeadHash || '--' }}</strong>
+            <div class="edhr-form-trace-change__detail-summary-item">
+              <span>状态</span>
+              <strong>{{ resolveChangeStatusLabel(selectedChange?.changeStatus) }}</strong>
             </div>
-            <div class="edhr-form-trace-change__evidence-item">
-              <span>原归档哈希</span>
-              <strong>{{ selectedChange?.previousArchiveHash || '--' }}</strong>
-            </div>
-            <div class="edhr-form-trace-change__evidence-item">
-              <span>新归档哈希</span>
-              <strong>{{ selectedChange?.newArchiveHash || '--' }}</strong>
+            <div class="edhr-form-trace-change__detail-summary-item">
+              <span>生效时间</span>
+              <strong>{{ formatEdhrDateTime(selectedChange?.effectiveAt) }}</strong>
             </div>
           </div>
-        </el-collapse-item>
-      </el-collapse>
+
+          <el-descriptions :column="2" border class="edhr-form-trace-change__detail">
+            <el-descriptions-item label="变更类型">{{ resolveChangeTypeLabel(selectedChange?.changeType) }}</el-descriptions-item>
+            <el-descriptions-item label="状态变化">
+              {{ resolveExecutionStatusLabel(selectedChange?.previousStatus) }} ->
+              {{ resolveExecutionStatusLabel(selectedChange?.newStatus) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="批次ID">
+              <el-button
+                v-if="canOpenBatchExecution(selectedChange)"
+                link
+                type="primary"
+                class="edhr-form-trace-change__object-link"
+                @click="openBatchExecution(selectedChange)"
+              >
+                {{ formatObjectId(selectedChange?.batchExecutionId) }}
+              </el-button>
+              <span v-else class="edhr-form-trace-change__object-link--disabled">--</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="执行ID">
+              <el-button
+                v-if="canOpenExecution(selectedChange)"
+                link
+                type="primary"
+                class="edhr-form-trace-change__object-link"
+                @click="openExecution(selectedChange)"
+              >
+                {{ formatObjectId(selectedChange?.executionId) }}
+              </el-button>
+              <span v-else class="edhr-form-trace-change__object-link--disabled">--</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="原因分类">{{ selectedChange?.reasonCategory || '--' }}</el-descriptions-item>
+            <el-descriptions-item label="申请时间">
+              {{ formatEdhrDateTime(selectedChange?.requestedAt) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="原因说明" :span="2">{{ selectedChange?.reasonText || '--' }}</el-descriptions-item>
+          </el-descriptions>
+
+          <el-collapse v-model="detailEvidenceNames" class="edhr-form-trace-change__evidence-collapse">
+            <el-collapse-item title="链路证据" name="chain-evidence">
+              <div class="edhr-form-trace-change__evidence-grid">
+                <div class="edhr-form-trace-change__evidence-item">
+                  <span>申请签名</span>
+                  <strong>{{ selectedChange?.requestSignatureId || '--' }}</strong>
+                </div>
+                <div class="edhr-form-trace-change__evidence-item">
+                  <span>审批签名</span>
+                  <strong>{{ selectedChange?.approvalSignatureId || '--' }}</strong>
+                </div>
+                <div class="edhr-form-trace-change__evidence-item">
+                  <span>原链头哈希</span>
+                  <strong>{{ selectedChange?.previousHeadHash || '--' }}</strong>
+                </div>
+                <div class="edhr-form-trace-change__evidence-item">
+                  <span>新链头哈希</span>
+                  <strong>{{ selectedChange?.newHeadHash || '--' }}</strong>
+                </div>
+                <div class="edhr-form-trace-change__evidence-item">
+                  <span>原归档哈希</span>
+                  <strong>{{ selectedChange?.previousArchiveHash || '--' }}</strong>
+                </div>
+                <div class="edhr-form-trace-change__evidence-item">
+                  <span>新归档哈希</span>
+                  <strong>{{ selectedChange?.newArchiveHash || '--' }}</strong>
+                </div>
+              </div>
+            </el-collapse-item>
+          </el-collapse>
+        </el-tab-pane>
+      </el-tabs>
     </Dialog>
     <BatchExecutionTraceDrawer
       v-model="traceDrawerVisible"
@@ -358,6 +402,7 @@ const list = ref<EdhrRecordChangeRespVO[]>([])
 const total = ref(0)
 const detailDialogVisible = ref(false)
 const selectedChange = ref<EdhrRecordChangeRespVO>()
+const detailActiveTab = ref<'recordForm' | 'changeDetail'>('recordForm')
 const detailEvidenceNames = ref<string[]>([])
 const traceDrawerVisible = ref(false)
 const traceContext = ref<BatchExecutionTraceContext>()
@@ -581,6 +626,7 @@ const openDetail = async (row: EdhrRecordChangeRespVO) => {
   try {
     selectedChange.value = await getEdhrRecordChange(row.id)
     detailDialogVisible.value = true
+    detailActiveTab.value = 'recordForm'
     detailEvidenceNames.value = []
   } catch (error) {
     message.error(resolveErrorMessage(error, '电子批记录变更详情加载失败。'))
@@ -594,6 +640,18 @@ const openBatchTrace = (row: EdhrRecordChangeRespVO) => {
     sourceTab: 'change'
   }
   traceDrawerVisible.value = true
+}
+
+const openSelectedChangeRecordForm = () => {
+  if (!selectedChange.value) {
+    message.error('当前变更记录未加载，无法打开批记录表单。')
+    return
+  }
+  if (!canOpenBatchExecution(selectedChange.value)) {
+    message.error('当前变更记录缺少批次执行 ID，无法打开批记录表单。')
+    return
+  }
+  openBatchTrace(selectedChange.value)
 }
 
 const openBatchExecution = async (row?: Pick<EdhrRecordChangeRespVO, 'batchExecutionId'>) => {
@@ -724,6 +782,38 @@ defineExpose({ reload: getList })
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 10px;
   margin-bottom: 14px;
+}
+
+.edhr-form-trace-change__detail-tabs {
+  min-height: 0;
+}
+
+.edhr-form-trace-change__record-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.edhr-form-trace-change__record-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.edhr-form-trace-change__record-card-title {
+  margin-bottom: 4px;
+  color: #172033;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.edhr-form-trace-change__record-alert {
+  margin-top: 2px;
 }
 
 .edhr-form-trace-change__evidence-collapse {

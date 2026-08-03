@@ -26,43 +26,12 @@
             :requester-name="userNameMap.get(fileDetail?.requesterId || 0) || ''"
             :column="1"
             compact
+            :show-edit="canEditMetadata && !!fileDetail"
+            edit-button-text="修改"
+            edit-test-id="dcc-controlled-preview-detail-edit"
             @open-dcc-project-code="openDccProjectCode"
+            @edit="openMetadataDialog"
           />
-          <section data-testid="dcc-detail-controlled-browser-linkage" class="mt-12px">
-            <div class="detail-table-header mb-12px">
-              <div>
-                <div class="text-15px font-600">受控浏览入口</div>
-                <div class="mt-4px text-12px text-[var(--el-text-color-secondary)]">
-                  当前预览页展示最终受控浏览目录、发布文件和盖章文件落位。
-                </div>
-              </div>
-              <el-button type="primary" plain :disabled="!fileDetail" @click="openControlledBrowserLocation">
-                <Icon icon="ep:position" class="mr-5px" />
-                查看受控浏览当前有效版
-              </el-button>
-            </div>
-            <div class="controlled-browser-linkage-grid">
-              <div class="controlled-browser-linkage-card">
-                <div class="controlled-browser-linkage-card__label">最终目录路径</div>
-                <div class="controlled-browser-linkage-card__value">{{ controlledBrowserDirectoryPath }}</div>
-              </div>
-              <div class="controlled-browser-linkage-card">
-                <div class="controlled-browser-linkage-card__label">发布文件</div>
-                <div class="controlled-browser-linkage-card__value">{{ publishedFileBusinessText }}</div>
-                <div class="controlled-browser-linkage-card__meta">高级信息：publishedFileId {{ fileDetail?.publishedFileId || '-' }}</div>
-              </div>
-              <div class="controlled-browser-linkage-card">
-                <div class="controlled-browser-linkage-card__label">盖章文件</div>
-                <div class="controlled-browser-linkage-card__value">{{ stampedFileBusinessText }}</div>
-                <div class="controlled-browser-linkage-card__meta">高级信息：stampedFileId {{ fileDetail?.stampedFileId || '-' }}</div>
-              </div>
-              <div class="controlled-browser-linkage-card">
-                <div class="controlled-browser-linkage-card__label">当前有效版来源（master 当前生效版本）</div>
-                <div class="controlled-browser-linkage-card__value">{{ currentActiveVersionSourceText }}</div>
-                <div class="controlled-browser-linkage-card__meta">高级信息：currentActiveVersionNo {{ fileDetail?.currentActiveVersionNo || '-' }}</div>
-              </div>
-            </div>
-          </section>
         </aside>
       </div>
     </div>
@@ -659,9 +628,45 @@
     </ContentWrap>
 
     <ContentWrap data-testid="dcc-detail-route-snapshot-section">
-      <div class="mb-12px text-15px font-600">审批路线快照</div>
-      <el-table :data="routeSnapshotRows" empty-text="暂无路线快照">
-        <el-table-column label="阶段" min-width="240">
+      <UnifiedListTemplate
+        table-key="dcc.controlledFile.detail.routeSnapshot"
+        :query-model="detailListQueryModel"
+        :filter-definitions="detailListFilterDefinitions"
+        :show-quick-filter="false"
+        :quick-filter-state="detailListQuickFilterState"
+        :operator-options="detailListOperatorOptions"
+        :columns="routeSnapshotColumns"
+        :column-saving="routeSnapshotColumnSaving"
+        show-column-reset
+        :total="routeSnapshotRows.length"
+        v-model:page="routeSnapshotListState.pageNo"
+        v-model:limit="routeSnapshotListState.pageSize"
+        @column-change="saveRouteSnapshotColumnConfig"
+        @column-reset="resetRouteSnapshotColumnConfig"
+      >
+        <template #actions>
+          <div class="text-15px font-600">审批路线快照</div>
+        </template>
+        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <el-table
+        data-user-table-column-explicit
+        data-user-table-key="dcc.controlledFile.detail.routeSnapshot"
+        :data="pagedRouteSnapshotRows"
+        border
+        :stripe="true"
+        :show-overflow-tooltip="true"
+        empty-text="暂无路线快照"
+        @header-dragend="handleRouteSnapshotHeaderDragend"
+        @sort-change="handleTemplateSortChange"
+      >
+        <el-table-column
+          v-if="isRouteSnapshotColumnVisible('stageDisplayName')"
+          label="阶段"
+          prop="stageDisplayName"
+          :width="getRouteSnapshotColumnWidthString('stageDisplayName')"
+          :min-width="getRouteSnapshotColumnMinWidthString('stageDisplayName', 240)"
+          v-bind="sortColumnAttrs('stageDisplayName')"
+        >
           <template #default="{ row }">
             <div class="route-snapshot-summary" data-testid="dcc-detail-route-snapshot-stage">
               <div class="route-snapshot-summary__title">{{ row.stageDisplayName }}</div>
@@ -669,7 +674,14 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="候选摘要" min-width="260">
+        <el-table-column
+          v-if="isRouteSnapshotColumnVisible('candidateText')"
+          label="候选摘要"
+          prop="candidateText"
+          :width="getRouteSnapshotColumnWidthString('candidateText')"
+          :min-width="getRouteSnapshotColumnMinWidthString('candidateText', 260)"
+          v-bind="sortColumnAttrs('candidateText')"
+        >
           <template #default="{ row }">
             <div class="route-snapshot-summary" data-testid="dcc-detail-route-snapshot-candidate">
               <div class="route-snapshot-summary__line">
@@ -680,7 +692,14 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="审批要求" min-width="260">
+        <el-table-column
+          v-if="isRouteSnapshotColumnVisible('approvalRequirementText')"
+          label="审批要求"
+          prop="approvalRequirementText"
+          :width="getRouteSnapshotColumnWidthString('approvalRequirementText')"
+          :min-width="getRouteSnapshotColumnMinWidthString('approvalRequirementText', 260)"
+          v-bind="sortColumnAttrs('approvalRequirementText')"
+        >
           <template #default="{ row }">
             <div class="route-snapshot-summary" data-testid="dcc-detail-route-snapshot-requirement">
               <div class="route-snapshot-summary__line">
@@ -696,102 +715,261 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="解析审批人" min-width="260">
+        <el-table-column
+          v-if="isRouteSnapshotColumnVisible('resolvedUserNames')"
+          label="解析审批人"
+          prop="resolvedUserNames"
+          :width="getRouteSnapshotColumnWidthString('resolvedUserNames')"
+          :min-width="getRouteSnapshotColumnMinWidthString('resolvedUserNames', 260)"
+          v-bind="sortColumnAttrs('resolvedUserNames')"
+        >
           <template #default="{ row }">
-            {{ resolveUserNames(row.resolvedUserIds) }}
+            {{ row.resolvedUserNames }}
           </template>
         </el-table-column>
       </el-table>
+        </template>
+      </UnifiedListTemplate>
     </ContentWrap>
 
     <ContentWrap v-if="isVersionHistoryVisibleToReader(fileDetail?.status)">
-      <div class="mb-12px text-15px font-600">版本历史</div>
-      <el-table :data="fileDetail?.versionHistory || []" empty-text="暂无历史版本">
-        <el-table-column label="标题" min-width="220" prop="title" show-overflow-tooltip />
-        <el-table-column label="文件编号" min-width="150" prop="fileNumber" />
-        <el-table-column label="版本" align="center" width="100" prop="versionNo" />
-        <el-table-column label="升版原因/变更说明" min-width="220" show-overflow-tooltip>
+      <UnifiedListTemplate
+        table-key="dcc.controlledFile.detail.versionHistory"
+        :query-model="detailListQueryModel"
+        :filter-definitions="detailListFilterDefinitions"
+        :show-quick-filter="false"
+        :quick-filter-state="detailListQuickFilterState"
+        :operator-options="detailListOperatorOptions"
+        :columns="versionHistoryColumns"
+        :column-saving="versionHistoryColumnSaving"
+        show-column-reset
+        :total="versionHistoryRows.length"
+        v-model:page="versionHistoryListState.pageNo"
+        v-model:limit="versionHistoryListState.pageSize"
+        @column-change="saveVersionHistoryColumnConfig"
+        @column-reset="resetVersionHistoryColumnConfig"
+      >
+        <template #actions>
+          <div class="text-15px font-600">版本历史</div>
+        </template>
+        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <el-table
+        data-user-table-column-explicit
+        data-user-table-key="dcc.controlledFile.detail.versionHistory"
+        :data="pagedVersionHistoryRows"
+        border
+        :stripe="true"
+        :show-overflow-tooltip="true"
+        empty-text="暂无历史版本"
+        @header-dragend="handleVersionHistoryHeaderDragend"
+        @sort-change="handleTemplateSortChange"
+      >
+        <el-table-column
+          v-if="isVersionHistoryColumnVisible('title')"
+          label="标题"
+          prop="title"
+          show-overflow-tooltip
+          :width="getVersionHistoryColumnWidthString('title')"
+          :min-width="getVersionHistoryColumnMinWidthString('title', 220)"
+          v-bind="sortColumnAttrs('title')"
+        />
+        <el-table-column
+          v-if="isVersionHistoryColumnVisible('fileNumber')"
+          label="文件编号"
+          prop="fileNumber"
+          :width="getVersionHistoryColumnWidthString('fileNumber')"
+          :min-width="getVersionHistoryColumnMinWidthString('fileNumber', 150)"
+          v-bind="sortColumnAttrs('fileNumber')"
+        />
+        <el-table-column
+          v-if="isVersionHistoryColumnVisible('versionNo')"
+          label="版本"
+          align="center"
+          prop="versionNo"
+          :width="getVersionHistoryColumnWidthString('versionNo', 100)"
+          v-bind="sortColumnAttrs('versionNo')"
+        />
+        <el-table-column
+          v-if="isVersionHistoryColumnVisible('changeReasonText')"
+          label="升版原因/变更说明"
+          prop="changeReasonText"
+          show-overflow-tooltip
+          :width="getVersionHistoryColumnWidthString('changeReasonText')"
+          :min-width="getVersionHistoryColumnMinWidthString('changeReasonText', 220)"
+          v-bind="sortColumnAttrs('changeReasonText')"
+        >
           <template #default="{ row }">
             <span data-testid="dcc-detail-version-history-change-reason">
-              {{ getVersionChangeReasonText(row) }}
+              {{ row.changeReasonText }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="发放方式" min-width="140">
+        <el-table-column
+          v-if="isVersionHistoryColumnVisible('distributionMedium')"
+          label="发放方式"
+          prop="distributionMedium"
+          :width="getVersionHistoryColumnWidthString('distributionMedium')"
+          :min-width="getVersionHistoryColumnMinWidthString('distributionMedium', 140)"
+          v-bind="sortColumnAttrs('distributionMedium')"
+        >
           <template #default="{ row }">
             {{ getDistributionMediumLabel(row.distributionMedium) }}
           </template>
         </el-table-column>
-        <el-table-column label="状态" align="center" width="120">
+        <el-table-column
+          v-if="isVersionHistoryColumnVisible('status')"
+          label="状态"
+          align="center"
+          prop="status"
+          :width="getVersionHistoryColumnWidthString('status', 120)"
+          v-bind="sortColumnAttrs('status')"
+        >
           <template #default="{ row }">
             <el-tag :type="getDetailStatusTagType(row.status)">
               {{ getDetailStatusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="发布时间" align="center" width="180">
+        <el-table-column
+          v-if="isVersionHistoryColumnVisible('publishedTime')"
+          label="发布时间"
+          align="center"
+          prop="publishedTime"
+          :width="getVersionHistoryColumnWidthString('publishedTime', 180)"
+          v-bind="sortColumnAttrs('publishedTime')"
+        >
           <template #default="{ row }">
             {{ formatControlledFileDateTime(row.publishedTime) }}
           </template>
         </el-table-column>
-        <el-table-column label="作废时间" align="center" width="180">
+        <el-table-column
+          v-if="isVersionHistoryColumnVisible('obsoletedTime')"
+          label="作废时间"
+          align="center"
+          prop="obsoletedTime"
+          :width="getVersionHistoryColumnWidthString('obsoletedTime', 180)"
+          v-bind="sortColumnAttrs('obsoletedTime')"
+        >
           <template #default="{ row }">
             {{ formatControlledFileDateTime(row.obsoletedTime) }}
           </template>
         </el-table-column>
-        <el-table-column label="后继版本" min-width="220" show-overflow-tooltip>
+        <el-table-column
+          v-if="isVersionHistoryColumnVisible('successorVersionSummary')"
+          label="后继版本"
+          prop="successorVersionSummary"
+          show-overflow-tooltip
+          :width="getVersionHistoryColumnWidthString('successorVersionSummary')"
+          :min-width="getVersionHistoryColumnMinWidthString('successorVersionSummary', 220)"
+          v-bind="sortColumnAttrs('successorVersionSummary')"
+        >
           <template #default="{ row }">
             <span data-testid="dcc-detail-version-successor-summary">
               {{ getSuccessorVersionSummary(row) }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" align="center" width="120">
+        <el-table-column
+          v-if="isVersionHistoryColumnVisible('operation')"
+          label="操作"
+          align="center"
+          prop="operation"
+          :width="getVersionHistoryColumnWidthString('operation', 120)"
+        >
           <template #default="{ row }">
             <el-button link type="primary" @click="openHistoryDetail(row.id)">查看详情</el-button>
           </template>
         </el-table-column>
       </el-table>
+        </template>
+      </UnifiedListTemplate>
     </ContentWrap>
 
     <ContentWrap>
-      <div class="mb-12px flex items-center justify-between gap-12px">
-        <div class="text-15px font-600">分发状态</div>
-        <div class="flex flex-wrap gap-8px">
-          <el-button
-            plain
-            :disabled="!distributionReceiptRows.length"
-            @click="handleExportDistributionReceipts"
-          >
-            <Icon icon="ep:download" class="mr-5px" />
-            导出回执
-          </el-button>
-          <el-button
-            plain
-            :disabled="!distributionReceiptRows.length"
-            @click="handlePrintDistributionReceipts"
-          >
-            <Icon icon="ep:printer" class="mr-5px" />
-            打印回执
-          </el-button>
-        </div>
-      </div>
-      <el-table
-        :data="fileDetail?.distributionStatuses || []"
-        data-testid="dcc-detail-distribution-section"
-        empty-text="当前版本暂无分发记录"
+      <UnifiedListTemplate
+        table-key="dcc.controlledFile.detail.distributionStatus"
+        :query-model="detailListQueryModel"
+        :filter-definitions="detailListFilterDefinitions"
+        :show-quick-filter="false"
+        :quick-filter-state="detailListQuickFilterState"
+        :operator-options="detailListOperatorOptions"
+        :columns="distributionStatusColumns"
+        :column-saving="distributionStatusColumnSaving"
+        show-column-reset
+        :total="distributionStatusRows.length"
+        v-model:page="distributionStatusListState.pageNo"
+        v-model:limit="distributionStatusListState.pageSize"
+        @column-change="saveDistributionStatusColumnConfig"
+        @column-reset="resetDistributionStatusColumnConfig"
       >
-        <el-table-column label="部门" min-width="180">
+        <template #actions>
+          <div class="mb-12px flex items-center justify-between gap-12px">
+            <div class="text-15px font-600">分发状态</div>
+            <div class="flex flex-wrap gap-8px">
+              <el-button
+                plain
+                :disabled="!distributionReceiptRows.length"
+                @click="handleExportDistributionReceipts"
+              >
+                <Icon icon="ep:download" class="mr-5px" />
+                导出回执
+              </el-button>
+              <el-button
+                plain
+                :disabled="!distributionReceiptRows.length"
+                @click="handlePrintDistributionReceipts"
+              >
+                <Icon icon="ep:printer" class="mr-5px" />
+                打印回执
+              </el-button>
+            </div>
+          </div>
+        </template>
+        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+      <el-table
+        data-user-table-column-explicit
+        data-user-table-key="dcc.controlledFile.detail.distributionStatus"
+        :data="pagedDistributionStatusRows"
+        data-testid="dcc-detail-distribution-section"
+        border
+        :stripe="true"
+        :show-overflow-tooltip="true"
+        empty-text="当前版本暂无分发记录"
+        @header-dragend="handleDistributionStatusHeaderDragend"
+        @sort-change="handleTemplateSortChange"
+      >
+        <el-table-column
+          v-if="isDistributionStatusColumnVisible('departmentName')"
+          label="部门"
+          prop="departmentName"
+          :width="getDistributionStatusColumnWidthString('departmentName')"
+          :min-width="getDistributionStatusColumnMinWidthString('departmentName', 180)"
+          v-bind="sortColumnAttrs('departmentName')"
+        >
           <template #default="{ row }">
-            {{ deptNameMap.get(row.departmentId) || `部门#${row.departmentId}` }}
+            {{ row.departmentName }}
           </template>
         </el-table-column>
-        <el-table-column label="接收人" min-width="280">
+        <el-table-column
+          v-if="isDistributionStatusColumnVisible('recipientText')"
+          label="接收人"
+          prop="recipientText"
+          :width="getDistributionStatusColumnWidthString('recipientText')"
+          :min-width="getDistributionStatusColumnMinWidthString('recipientText', 280)"
+          v-bind="sortColumnAttrs('recipientText')"
+        >
           <template #default="{ row }">
-            {{ getDistributionRecipientDisplay(row) }}
+            {{ row.recipientText }}
           </template>
         </el-table-column>
-        <el-table-column label="分发摘要" min-width="300">
+        <el-table-column
+          v-if="isDistributionStatusColumnVisible('distributionSummaryText')"
+          label="分发摘要"
+          prop="distributionSummaryText"
+          :width="getDistributionStatusColumnWidthString('distributionSummaryText')"
+          :min-width="getDistributionStatusColumnMinWidthString('distributionSummaryText', 300)"
+          v-bind="sortColumnAttrs('distributionSummaryText')"
+        >
           <template #default="{ row }">
             <div class="detail-distribution-summary" data-testid="dcc-detail-distribution-summary">
               <div class="detail-distribution-summary__line">
@@ -811,7 +989,14 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="回收摘要" min-width="260">
+        <el-table-column
+          v-if="isDistributionStatusColumnVisible('recoverySummaryText')"
+          label="回收摘要"
+          prop="recoverySummaryText"
+          :width="getDistributionStatusColumnWidthString('recoverySummaryText')"
+          :min-width="getDistributionStatusColumnMinWidthString('recoverySummaryText', 260)"
+          v-bind="sortColumnAttrs('recoverySummaryText')"
+        >
           <template #default="{ row }">
             <div class="detail-recovery-summary" data-testid="dcc-detail-recovery-summary">
               <div class="detail-recovery-summary__meta">
@@ -823,7 +1008,13 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" align="center" width="300">
+        <el-table-column
+          v-if="isDistributionStatusColumnVisible('operation')"
+          label="操作"
+          align="center"
+          prop="operation"
+          :width="getDistributionStatusColumnWidthString('operation', 300)"
+        >
           <template #default="{ row }">
             <el-button
               v-if="row.distributionMedium === 'PUBLIC_FOLDER' && getCurrentElectronicReceiptRecipient(row)"
@@ -865,248 +1056,436 @@
           </template>
         </el-table-column>
       </el-table>
+        </template>
+      </UnifiedListTemplate>
     </ContentWrap>
 
     <ContentWrap data-testid="dcc-controlled-print-records">
-      <div class="detail-table-header mb-12px">
-        <div>
-          <div class="text-15px font-600">受控打印记录</div>
-          <div class="mt-4px text-12px text-[var(--el-text-color-secondary)]">
-            仅当前有效版本可登记受控打印，打印件需包含打印编号、文件编号、版本、打印人和打印时间。
-          </div>
-        </div>
-        <el-button
-          v-if="controlledPrintAllowed"
-          v-hasPermi="['dcc:controlled-file:print']"
-          type="primary"
-          plain
-          :loading="controlledPrintDialog.submitting"
-          @click="openControlledPrintDialog"
-        >
-          <Icon icon="ep:printer" class="mr-5px" />
-          受控打印
-        </el-button>
-      </div>
-      <el-alert
-        class="mb-12px"
-        data-testid="dcc-controlled-print-policy-hint"
-        type="info"
-        title="当前策略：直接受控打印"
-        description="当前文件类别无需打印审批，提交后直接生成受控打印件，并以 DIRECT_PRINTED 状态写入打印记录。"
-        show-icon
-        :closable="false"
-      />
-      <el-alert
-        v-if="controlledPrintRecordsError"
-        type="error"
-        :title="controlledPrintRecordsError"
-        show-icon
-        :closable="false"
-        class="mb-12px"
-      />
-      <el-table
-        ref="controlledPrintRecordsTableRef"
-        :data="controlledPrintRecords"
-        :loading="controlledPrintRecordsLoading"
-        :row-key="(row: ControlledFilePrintRecordVO) => row.id"
-        :row-class-name="getControlledPrintRecordRowClassName"
-        empty-text="当前版本暂无受控打印记录"
+      <UnifiedListTemplate
+        table-key="dcc.controlledFile.detail.controlledPrintRecords"
+        :query-model="detailListQueryModel"
+        :filter-definitions="detailListFilterDefinitions"
+        :show-quick-filter="false"
+        :quick-filter-state="detailListQuickFilterState"
+        :operator-options="detailListOperatorOptions"
+        :columns="controlledPrintRecordColumns"
+        :column-saving="controlledPrintRecordColumnSaving"
+        show-column-reset
+        :total="controlledPrintRecordRows.length"
+        v-model:page="controlledPrintRecordListState.pageNo"
+        v-model:limit="controlledPrintRecordListState.pageSize"
+        @column-change="saveControlledPrintRecordColumnConfig"
+        @column-reset="resetControlledPrintRecordColumnConfig"
       >
-        <el-table-column label="打印编号" min-width="210" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span :data-controlled-print-record-id="row.id">{{ row.printNo }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="文件编号" min-width="160" prop="fileNumber" show-overflow-tooltip />
-        <el-table-column label="版本" align="center" width="100" prop="versionNo" />
-        <el-table-column label="份数" align="center" width="90" prop="copies" />
-        <el-table-column label="副本编号" min-width="220" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span data-testid="dcc-controlled-print-record-copy-nos">
-              {{ formatControlledPrintCopyNumberRange(row) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="打印用途" min-width="180" prop="purpose" show-overflow-tooltip />
-        <el-table-column label="接收部门" min-width="140" prop="receivingDepartment" show-overflow-tooltip />
-        <el-table-column label="使用位置" min-width="140" prop="useLocation" show-overflow-tooltip />
-        <el-table-column label="打印人" min-width="180" show-overflow-tooltip>
-          <template #default="{ row }">
-            {{ row.printUserName || userNameMap.get(row.printUserId) || `用户#${row.printUserId}` }}
-          </template>
-        </el-table-column>
-        <el-table-column label="打印时间" align="center" width="180">
-          <template #default="{ row }">
-            {{ formatControlledFileDateTime(row.printTime) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="审批/打印状态" align="center" width="150">
-          <template #default="{ row }">
-            <el-tag type="success">{{ getControlledPrintStatusLabel(row.approvalStatus) }}</el-tag>
-          </template>
-        </el-table-column>
-      </el-table>
+        <template #actions>
+          <div class="detail-table-header">
+            <div>
+              <div class="text-15px font-600">受控打印记录</div>
+              <div class="mt-4px text-12px text-[var(--el-text-color-secondary)]">
+                仅当前有效版本可登记受控打印，打印件需包含打印编号、文件编号、版本、打印人和打印时间。
+              </div>
+            </div>
+            <el-button
+              v-if="controlledPrintAllowed"
+              v-hasPermi="['dcc:controlled-file:print']"
+              type="primary"
+              plain
+              :loading="controlledPrintDialog.submitting"
+              @click="openControlledPrintDialog"
+            >
+              <Icon icon="ep:printer" class="mr-5px" />
+              受控打印
+            </el-button>
+          </div>
+        </template>
+        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+          <el-alert
+            class="mb-12px"
+            data-testid="dcc-controlled-print-policy-hint"
+            type="info"
+            title="当前策略：直接受控打印"
+            description="当前文件类别无需打印审批，提交后直接生成受控打印件，并以 DIRECT_PRINTED 状态写入打印记录。"
+            show-icon
+            :closable="false"
+          />
+          <el-alert
+            v-if="controlledPrintRecordsError"
+            type="error"
+            :title="controlledPrintRecordsError"
+            show-icon
+            :closable="false"
+            class="mb-12px"
+          />
+          <el-table
+            ref="controlledPrintRecordsTableRef"
+            data-user-table-column-explicit
+            data-user-table-key="dcc.controlledFile.detail.controlledPrintRecords"
+            :data="pagedControlledPrintRecordRows"
+            :loading="controlledPrintRecordsLoading"
+            :row-key="(row) => row.id"
+            :row-class-name="getControlledPrintRecordRowClassName"
+            border
+            :stripe="true"
+            :show-overflow-tooltip="true"
+            empty-text="当前版本暂无受控打印记录"
+            @header-dragend="handleControlledPrintRecordHeaderDragend"
+            @sort-change="handleTemplateSortChange"
+          >
+            <el-table-column
+              v-if="isControlledPrintRecordColumnVisible('printNo')"
+              label="打印编号"
+              prop="printNo"
+              show-overflow-tooltip
+              :width="getControlledPrintRecordColumnWidthString('printNo')"
+              :min-width="getControlledPrintRecordColumnMinWidthString('printNo', 210)"
+              v-bind="sortColumnAttrs('printNo')"
+            >
+              <template #default="{ row }">
+                <span :data-controlled-print-record-id="row.id">{{ row.printNo }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isControlledPrintRecordColumnVisible('fileNumber')"
+              label="文件编号"
+              prop="fileNumber"
+              show-overflow-tooltip
+              :width="getControlledPrintRecordColumnWidthString('fileNumber')"
+              :min-width="getControlledPrintRecordColumnMinWidthString('fileNumber', 160)"
+              v-bind="sortColumnAttrs('fileNumber')"
+            />
+            <el-table-column
+              v-if="isControlledPrintRecordColumnVisible('versionNo')"
+              label="版本"
+              align="center"
+              prop="versionNo"
+              :width="getControlledPrintRecordColumnWidthString('versionNo', 100)"
+              v-bind="sortColumnAttrs('versionNo')"
+            />
+            <el-table-column
+              v-if="isControlledPrintRecordColumnVisible('copies')"
+              label="份数"
+              align="center"
+              prop="copies"
+              :width="getControlledPrintRecordColumnWidthString('copies', 90)"
+              v-bind="sortColumnAttrs('copies')"
+            />
+            <el-table-column
+              v-if="isControlledPrintRecordColumnVisible('copyNumbers')"
+              label="副本编号"
+              prop="copyNumbers"
+              show-overflow-tooltip
+              :width="getControlledPrintRecordColumnWidthString('copyNumbers')"
+              :min-width="getControlledPrintRecordColumnMinWidthString('copyNumbers', 220)"
+              v-bind="sortColumnAttrs('copyNumbers')"
+            >
+              <template #default="{ row }">
+                <span data-testid="dcc-controlled-print-record-copy-nos">
+                  {{ row.copyNumbers }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isControlledPrintRecordColumnVisible('purpose')"
+              label="打印用途"
+              prop="purpose"
+              show-overflow-tooltip
+              :width="getControlledPrintRecordColumnWidthString('purpose')"
+              :min-width="getControlledPrintRecordColumnMinWidthString('purpose', 180)"
+              v-bind="sortColumnAttrs('purpose')"
+            />
+            <el-table-column
+              v-if="isControlledPrintRecordColumnVisible('receivingDepartment')"
+              label="接收部门"
+              prop="receivingDepartment"
+              show-overflow-tooltip
+              :width="getControlledPrintRecordColumnWidthString('receivingDepartment')"
+              :min-width="getControlledPrintRecordColumnMinWidthString('receivingDepartment', 140)"
+              v-bind="sortColumnAttrs('receivingDepartment')"
+            />
+            <el-table-column
+              v-if="isControlledPrintRecordColumnVisible('useLocation')"
+              label="使用位置"
+              prop="useLocation"
+              show-overflow-tooltip
+              :width="getControlledPrintRecordColumnWidthString('useLocation')"
+              :min-width="getControlledPrintRecordColumnMinWidthString('useLocation', 140)"
+              v-bind="sortColumnAttrs('useLocation')"
+            />
+            <el-table-column
+              v-if="isControlledPrintRecordColumnVisible('printUserName')"
+              label="打印人"
+              prop="printUserName"
+              show-overflow-tooltip
+              :width="getControlledPrintRecordColumnWidthString('printUserName')"
+              :min-width="getControlledPrintRecordColumnMinWidthString('printUserName', 180)"
+              v-bind="sortColumnAttrs('printUserName')"
+            />
+            <el-table-column
+              v-if="isControlledPrintRecordColumnVisible('printTime')"
+              label="打印时间"
+              align="center"
+              prop="printTime"
+              :width="getControlledPrintRecordColumnWidthString('printTime', 180)"
+              v-bind="sortColumnAttrs('printTime')"
+            >
+              <template #default="{ row }">
+                {{ formatControlledFileDateTime(row.printTime) }}
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isControlledPrintRecordColumnVisible('approvalStatus')"
+              label="审批/打印状态"
+              align="center"
+              prop="approvalStatus"
+              :width="getControlledPrintRecordColumnWidthString('approvalStatus', 150)"
+              v-bind="sortColumnAttrs('approvalStatus')"
+            >
+              <template #default="{ row }">
+                <el-tag type="success">{{ row.approvalStatusText }}</el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </UnifiedListTemplate>
     </ContentWrap>
 
     <ContentWrap data-testid="dcc-detail-training-section">
-      <div class="mb-12px flex items-center justify-between gap-12px">
-        <div class="text-15px font-600">培训状态</div>
-        <el-tag v-if="pendingTrainingAssignments.length" type="warning">
-          当前用户待确认 {{ pendingTrainingAssignments.length }} 项
-        </el-tag>
-      </div>
-      <div class="detail-training-overview" data-testid="dcc-detail-training-completion-overview">
-        <div class="detail-training-overview__item">
-          <div class="detail-training-overview__label">完成进度</div>
-          <div class="detail-training-overview__value">{{ trainingCompletionSummary.completionText }}</div>
-        </div>
-        <div class="detail-training-overview__item">
-          <div class="detail-training-overview__label">最近确认时间</div>
-          <div class="detail-training-overview__value">
-            {{ trainingCompletionSummary.latestAcknowledgedAtText }}
+      <UnifiedListTemplate
+        table-key="dcc.controlledFile.detail.trainingStatus"
+        :query-model="detailListQueryModel"
+        :filter-definitions="detailListFilterDefinitions"
+        :show-quick-filter="false"
+        :quick-filter-state="detailListQuickFilterState"
+        :operator-options="detailListOperatorOptions"
+        :columns="trainingStatusColumns"
+        :column-saving="trainingStatusColumnSaving"
+        show-column-reset
+        :total="trainingStatusRows.length"
+        v-model:page="trainingStatusListState.pageNo"
+        v-model:limit="trainingStatusListState.pageSize"
+        @column-change="saveTrainingStatusColumnConfig"
+        @column-reset="resetTrainingStatusColumnConfig"
+      >
+        <template #actions>
+          <div class="flex items-center gap-12px">
+            <div class="text-15px font-600">培训状态</div>
+            <el-tag v-if="pendingTrainingAssignments.length" type="warning">
+              当前用户待确认 {{ pendingTrainingAssignments.length }} 项
+            </el-tag>
           </div>
-        </div>
-        <div
-          class="detail-training-overview__item detail-training-overview__item--wide"
-          data-testid="dcc-detail-training-pending-users"
-        >
-          <div class="detail-training-overview__label">未完成人员</div>
-          <div class="detail-training-overview__value">
-            {{ trainingCompletionSummary.pendingNamesText }}
-          </div>
-        </div>
-      </div>
-      <el-table :data="flattenedTrainingAssignments" empty-text="当前版本暂无培训记录">
-        <el-table-column label="部门" min-width="180">
-          <template #default="{ row }">
-            {{ deptNameMap.get(row.departmentId) || `部门#${row.departmentId}` }}
-          </template>
-        </el-table-column>
-        <el-table-column label="受训人" min-width="220">
-          <template #default="{ row }">
-            {{ getTrainingAssignmentUserSummary(row, userNameMap) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="培训摘要" min-width="360">
-          <template #default="{ row }">
-            <div class="detail-training-summary">
-              <div class="detail-training-summary__line">
-                <el-tag :type="getDetailTrainingAssignmentSummary(row).statusTagType" size="small">
-                  {{ getDetailTrainingAssignmentSummary(row).statusLabel }}
-                </el-tag>
-                <span class="detail-training-summary__progress">
-                  {{ getDetailTrainingAssignmentSummary(row).progressText }}
-                </span>
-              </div>
-              <div class="detail-training-summary__line">
-                <el-tag :type="getDetailTrainingAssignmentSummary(row).eligibilityTagType" size="small">
-                  {{ getDetailTrainingAssignmentSummary(row).eligibilityLabel }}
-                </el-tag>
-                <el-tag :type="getDetailTrainingAssignmentSummary(row).departmentStatusTagType" size="small">
-                  部门：{{ getDetailTrainingAssignmentSummary(row).departmentStatusLabel }}
-                </el-tag>
-                <span class="detail-training-summary__time">
-                  确认：{{ getDetailTrainingAssignmentSummary(row).acknowledgedAtText }}
-                </span>
+        </template>
+        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+          <div class="detail-training-overview" data-testid="dcc-detail-training-completion-overview">
+            <div class="detail-training-overview__item">
+              <div class="detail-training-overview__label">完成进度</div>
+              <div class="detail-training-overview__value">{{ trainingCompletionSummary.completionText }}</div>
+            </div>
+            <div class="detail-training-overview__item">
+              <div class="detail-training-overview__label">最近确认时间</div>
+              <div class="detail-training-overview__value">
+                {{ trainingCompletionSummary.latestAcknowledgedAtText }}
               </div>
             </div>
-          </template>
-        </el-table-column>
-      </el-table>
+            <div
+              class="detail-training-overview__item detail-training-overview__item--wide"
+              data-testid="dcc-detail-training-pending-users"
+            >
+              <div class="detail-training-overview__label">未完成人员</div>
+              <div class="detail-training-overview__value">
+                {{ trainingCompletionSummary.pendingNamesText }}
+              </div>
+            </div>
+          </div>
+          <el-table
+            data-user-table-column-explicit
+            data-user-table-key="dcc.controlledFile.detail.trainingStatus"
+            :data="pagedTrainingStatusRows"
+            border
+            :stripe="true"
+            :show-overflow-tooltip="true"
+            empty-text="当前版本暂无培训记录"
+            @header-dragend="handleTrainingStatusHeaderDragend"
+            @sort-change="handleTemplateSortChange"
+          >
+            <el-table-column
+              v-if="isTrainingStatusColumnVisible('departmentName')"
+              label="部门"
+              prop="departmentName"
+              :width="getTrainingStatusColumnWidthString('departmentName')"
+              :min-width="getTrainingStatusColumnMinWidthString('departmentName', 180)"
+              v-bind="sortColumnAttrs('departmentName')"
+            >
+              <template #default="{ row }">
+                {{ row.departmentName }}
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isTrainingStatusColumnVisible('traineeName')"
+              label="受训人"
+              prop="traineeName"
+              :width="getTrainingStatusColumnWidthString('traineeName')"
+              :min-width="getTrainingStatusColumnMinWidthString('traineeName', 220)"
+              v-bind="sortColumnAttrs('traineeName')"
+            >
+              <template #default="{ row }">
+                {{ row.traineeName }}
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isTrainingStatusColumnVisible('trainingSummaryText')"
+              label="培训摘要"
+              prop="trainingSummaryText"
+              :width="getTrainingStatusColumnWidthString('trainingSummaryText')"
+              :min-width="getTrainingStatusColumnMinWidthString('trainingSummaryText', 360)"
+              v-bind="sortColumnAttrs('trainingSummaryText')"
+            >
+              <template #default="{ row }">
+                <div class="detail-training-summary">
+                  <div class="detail-training-summary__line">
+                    <el-tag :type="row.trainingSummary.statusTagType" size="small">
+                      {{ row.trainingSummary.statusLabel }}
+                    </el-tag>
+                    <span class="detail-training-summary__progress">
+                      {{ row.trainingSummary.progressText }}
+                    </span>
+                  </div>
+                  <div class="detail-training-summary__line">
+                    <el-tag :type="row.trainingSummary.eligibilityTagType" size="small">
+                      {{ row.trainingSummary.eligibilityLabel }}
+                    </el-tag>
+                    <el-tag :type="row.trainingSummary.departmentStatusTagType" size="small">
+                      部门：{{ row.trainingSummary.departmentStatusLabel }}
+                    </el-tag>
+                    <span class="detail-training-summary__time">
+                      确认：{{ row.trainingSummary.acknowledgedAtText }}
+                    </span>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </UnifiedListTemplate>
     </ContentWrap>
     </template>
 
     <template v-if="showSignatureTraceSections">
     <ContentWrap data-testid="dcc-detail-signature-trace-section" data-source="fileDetail?.signatureSummaries">
-      <div class="detail-table-header mb-12px">
-        <div>
-          <div class="text-15px font-600">签核追溯</div>
-          <div class="mt-4px text-12px text-[var(--el-text-color-secondary)]">
-            汇总上传人、四级审批人、审批意见、签名时间、签名方式、证据状态、文件哈希和盖章/发布文件。
-          </div>
-        </div>
-        <div class="detail-signature-tools">
-          <el-button plain :disabled="!signatureTraceRows.length" @click="exportSignatureTrace">
-            <Icon icon="ep:download" class="mr-5px" />
-            导出
-          </el-button>
-          <el-button plain :disabled="!signatureTraceRows.length" @click="printSignatureTrace">
-            <Icon icon="ep:printer" class="mr-5px" />
-            打印
-          </el-button>
-        </div>
-      </div>
-      <el-table :data="signatureTraceRows" empty-text="暂无签核追溯记录">
-        <el-table-column label="角色" min-width="120" prop="traceRole" />
-        <el-table-column label="上传人 / 四级审批人" min-width="220" prop="actorName" show-overflow-tooltip />
-        <el-table-column label="审批意见" min-width="220" prop="approvalCommentText" show-overflow-tooltip />
-        <el-table-column label="签名时间" align="center" width="180" prop="signedAtText" />
-        <el-table-column label="签名方式" align="center" width="140" prop="signatureModeText" />
-        <el-table-column label="证据状态" align="center" width="140" prop="evidenceStatusText" />
-        <el-table-column label="文件哈希" min-width="160" prop="fileHashText" show-overflow-tooltip />
-        <el-table-column label="盖章文件 / 发布文件证据" min-width="260" prop="fileEvidenceText" show-overflow-tooltip>
-          <template #default="{ row }">
-            <div class="trace-file-evidence">
-              <span>{{ row.fileEvidenceText }}</span>
-              <el-button
-                v-if="row.hasFileEvidence"
-                link
-                type="primary"
-                data-testid="dcc-signature-trace-file-evidence"
-                @click="openTraceFileEvidence(row)"
-              >
-                查看盖章/发布文件
-              </el-button>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
+      <UnifiedListTemplate
+        table-key="dcc.controlledFile.detail.signatureTrace"
+        :query-model="detailListQueryModel"
+        :filter-definitions="detailListFilterDefinitions"
+        :show-query-form="false"
+        :show-quick-filter="false"
+        :quick-filter-state="detailListQuickFilterState"
+        :operator-options="detailListOperatorOptions"
+        :columns="signatureTraceColumns"
+        :total="signatureTraceRows.length"
+        v-model:page="signatureTraceListState.pageNo"
+        v-model:limit="signatureTraceListState.pageSize"
+      >
+        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+          <el-table
+            data-user-table-column-explicit
+            data-user-table-key="dcc.controlledFile.detail.signatureTrace"
+            :data="pagedSignatureTraceRows"
+            border
+            :stripe="true"
+            :show-overflow-tooltip="true"
+            empty-text="暂无签核追溯记录"
+            @header-dragend="handleSignatureTraceHeaderDragend"
+            @sort-change="handleTemplateSortChange"
+          >
+            <el-table-column
+              v-if="isSignatureTraceColumnVisible('traceRole')"
+              label="角色"
+              prop="traceRole"
+              :width="getSignatureTraceColumnWidthString('traceRole')"
+              :min-width="getSignatureTraceColumnMinWidthString('traceRole', 120)"
+              v-bind="sortColumnAttrs('traceRole')"
+            />
+            <el-table-column
+              v-if="isSignatureTraceColumnVisible('actorName')"
+              label="上传人 / 四级审批人"
+              prop="actorName"
+              show-overflow-tooltip
+              :width="getSignatureTraceColumnWidthString('actorName')"
+              :min-width="getSignatureTraceColumnMinWidthString('actorName', 220)"
+              v-bind="sortColumnAttrs('actorName')"
+            />
+            <el-table-column
+              v-if="isSignatureTraceColumnVisible('approvalCommentText')"
+              label="审批意见"
+              prop="approvalCommentText"
+              show-overflow-tooltip
+              :width="getSignatureTraceColumnWidthString('approvalCommentText')"
+              :min-width="getSignatureTraceColumnMinWidthString('approvalCommentText', 220)"
+              v-bind="sortColumnAttrs('approvalCommentText')"
+            />
+            <el-table-column
+              v-if="isSignatureTraceColumnVisible('signedAtText')"
+              label="签名时间"
+              align="center"
+              prop="signedAtText"
+              :width="getSignatureTraceColumnWidthString('signedAtText', 180)"
+              v-bind="sortColumnAttrs('signedAtText')"
+            />
+            <el-table-column
+              v-if="isSignatureTraceColumnVisible('signatureModeText')"
+              label="签名方式"
+              align="center"
+              prop="signatureModeText"
+              :width="getSignatureTraceColumnWidthString('signatureModeText', 140)"
+              v-bind="sortColumnAttrs('signatureModeText')"
+            />
+            <el-table-column
+              v-if="isSignatureTraceColumnVisible('evidenceStatusText')"
+              label="证据状态"
+              align="center"
+              prop="evidenceStatusText"
+              :width="getSignatureTraceColumnWidthString('evidenceStatusText', 140)"
+              v-bind="sortColumnAttrs('evidenceStatusText')"
+            />
+            <el-table-column
+              v-if="isSignatureTraceColumnVisible('fileHashText')"
+              label="文件哈希"
+              prop="fileHashText"
+              show-overflow-tooltip
+              :width="getSignatureTraceColumnWidthString('fileHashText')"
+              :min-width="getSignatureTraceColumnMinWidthString('fileHashText', 160)"
+              v-bind="sortColumnAttrs('fileHashText')"
+            />
+            <el-table-column
+              v-if="isSignatureTraceColumnVisible('fileEvidenceText')"
+              label="盖章文件 / 发布文件证据"
+              prop="fileEvidenceText"
+              show-overflow-tooltip
+              :width="getSignatureTraceColumnWidthString('fileEvidenceText')"
+              :min-width="getSignatureTraceColumnMinWidthString('fileEvidenceText', 260)"
+              v-bind="sortColumnAttrs('fileEvidenceText')"
+            >
+              <template #default="{ row }">
+                <div class="trace-file-evidence">
+                  <span>{{ row.fileEvidenceText }}</span>
+                  <el-button
+                    v-if="row.hasFileEvidence"
+                    link
+                    type="primary"
+                    data-testid="dcc-signature-trace-file-evidence"
+                    @click="openTraceFileEvidence(row)"
+                  >
+                    查看盖章/发布文件
+                  </el-button>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </UnifiedListTemplate>
     </ContentWrap>
 
     <ContentWrap data-testid="dcc-detail-signature-section">
-      <div class="detail-table-header mb-12px">
-        <div>
-          <div class="text-15px font-600">签名留痕</div>
-          <div class="mt-4px text-12px text-[var(--el-text-color-secondary)]">
-            {{
-              signatureEvidenceViewMode === 'advanced'
-                ? '高级视图显示签名方式和 Hash 证据。'
-                : '常用视图默认显示签名业务字段，Hash 证据可在高级视图查看。'
-            }}
-          </div>
-        </div>
-        <div class="detail-signature-tools">
-          <TableQuickFilter
-            table-key="dcc.controlledFile.detail.signatureEvidence"
-            :filter-definitions="dccSignatureEvidenceQuickFilterDefinitions"
-            :state="dccSignatureEvidenceQuickFilter.state"
-            :selected-definition="dccSignatureEvidenceQuickFilter.selectedDefinition.value"
-            :operator-options="dccSignatureEvidenceQuickFilter.operatorOptions.value"
-            @update:state="dccSignatureEvidenceQuickFilter.updateState"
-            @query="dccSignatureEvidenceQuickFilter.applyQuickFilter"
-          />
-          <UserTableColumnSettings
-            :columns="dccSignatureEvidenceColumns"
-            :saving="dccSignatureEvidenceColumnSaving"
-            @change="saveDccSignatureEvidenceColumnConfig"
-            @reset="resetDccSignatureEvidenceColumnConfig"
-          />
-          <el-radio-group
-            v-model="signatureEvidenceViewMode"
-            class="detail-view-mode"
-            size="small"
-            data-testid="dcc-detail-signature-view-mode"
-          >
-          <el-radio-button
-            v-for="option in signatureEvidenceViewModeOptions"
-            :key="option.value"
-            :label="option.value"
-          >
-            {{ option.label }}
-          </el-radio-button>
-          </el-radio-group>
-        </div>
-      </div>
+      <div class="mb-12px text-15px font-600">签名留痕</div>
       <el-alert
         v-if="dccSignatureEvidenceError"
         class="mb-12px"
@@ -1167,7 +1546,7 @@
           </template>
         </el-table-column>
         <el-table-column
-          v-if="signatureEvidenceViewMode === 'advanced' && isDccSignatureEvidenceColumnVisible('authorizationBasis')"
+          v-if="isDccSignatureEvidenceColumnVisible('authorizationBasis')"
           prop="authorizationBasis"
           label="权限依据"
           min-width="240"
@@ -1178,14 +1557,14 @@
           </template>
         </el-table-column>
         <el-table-column
-          v-if="signatureEvidenceViewMode === 'advanced' && isDccSignatureEvidenceColumnVisible('signatureMode')"
+          v-if="isDccSignatureEvidenceColumnVisible('signatureMode')"
           label="签名方式"
           align="center"
           width="120"
           prop="signatureMode"
         />
         <el-table-column
-          v-if="signatureEvidenceViewMode === 'advanced' && isDccSignatureEvidenceColumnVisible('sourceFileHash')"
+          v-if="isDccSignatureEvidenceColumnVisible('sourceFileHash')"
           prop="sourceFileHash"
           label="源文件 hash"
           align="center"
@@ -1203,7 +1582,7 @@
           </template>
         </el-table-column>
         <el-table-column
-          v-if="signatureEvidenceViewMode === 'advanced' && isDccSignatureEvidenceColumnVisible('controlledCopyHash')"
+          v-if="isDccSignatureEvidenceColumnVisible('controlledCopyHash')"
           prop="controlledCopyHash"
           label="副本 hash"
           align="center"
@@ -1221,7 +1600,7 @@
           </template>
         </el-table-column>
         <el-table-column
-          v-if="signatureEvidenceViewMode === 'advanced' && isDccSignatureEvidenceColumnVisible('evidenceHash')"
+          v-if="isDccSignatureEvidenceColumnVisible('evidenceHash')"
           prop="evidenceHash"
           label="证据 hash"
           align="center"
@@ -1862,7 +2241,7 @@
     destroy-on-close
   >
     <el-table
-      :data="fileDetail?.distributionStatuses || []"
+      :data="distributionStatusRows"
       empty-text="当前版本暂无分发记录"
       max-height="520"
     >
@@ -1919,7 +2298,7 @@
     destroy-on-close
   >
     <el-table
-      :data="fileDetail?.versionHistory || []"
+      :data="versionHistoryRows"
       empty-text="当前文件暂无版本历史"
       max-height="520"
     >
@@ -2181,13 +2560,9 @@ import { getSimpleUserList, type UserVO } from '@/api/system/user'
 import { useUserStore } from '@/store/modules/user'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import ActionFormPanel from '@/views/form-center/business-action/ActionFormPanel.vue'
-import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
-import TableQuickFilter from '@/components/TableQuickFilter/index.vue'
-import {
-  useTableQuickFilter,
-  type TableQuickFilterDefinition
-} from '@/hooks/web/useTableQuickFilter'
+import type { TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { checkPermi } from '@/utils/permission'
 import { downloadByData } from '@/utils/filt'
 import { generateUUID } from '@/utils'
@@ -2334,8 +2709,7 @@ const dccSignatureEvidenceTotal = ref(0)
 const dccSignatureEvidenceError = ref('')
 const dccSignatureEvidenceQueryParams = reactive({
   pageNo: 1,
-  pageSize: 10,
-  quickFilter: undefined as any
+  pageSize: 10
 })
 const stampedPdfUploadRef = ref()
 const applicantTrainingRecordUploadRef = ref()
@@ -2350,7 +2724,6 @@ const docControlDirectoryTreeOptions = ref<ControlledFileUploadDirectoryNodeVO[]
 const docControlDirectoryTreeLoading = ref(false)
 
 type DccTaskActionMode = 'return' | 'transfer' | 'sign'
-type SignatureEvidenceViewMode = 'common' | 'advanced'
 
 const dccSignatureEvidenceDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'versionNo', label: '版本', width: 110 },
@@ -2371,35 +2744,151 @@ const dccSignatureEvidenceDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'signedAt', label: '签名时间', width: 180 }
 ]
 const {
-  columns: dccSignatureEvidenceColumns,
-  saving: dccSignatureEvidenceColumnSaving,
   isColumnVisible: isDccSignatureEvidenceColumnVisible,
   getColumnWidthString: getDccSignatureEvidenceColumnWidthString,
   getColumnMinWidthString: getDccSignatureEvidenceColumnMinWidthString,
-  handleHeaderDragend: handleDccSignatureEvidenceHeaderDragend,
-  saveConfig: saveDccSignatureEvidenceColumnConfig,
-  resetConfig: resetDccSignatureEvidenceColumnConfig
+  handleHeaderDragend: handleDccSignatureEvidenceHeaderDragend
 } = useUserTableColumns('dcc.controlledFile.detail.signatureEvidence', dccSignatureEvidenceDefaultColumns)
-const signatureEvidenceViewModeOptions: Array<{ label: string; value: SignatureEvidenceViewMode }> = [
-  { label: '常用视图', value: 'common' },
-  { label: '高级视图', value: 'advanced' }
+
+const detailListQueryModel = reactive({})
+const detailListFilterDefinitions: TableQuickFilterDefinition[] = []
+const detailListQuickFilterState = reactive({})
+const detailListOperatorOptions = []
+const createDetailListState = () => reactive({ pageNo: 1, pageSize: 10 })
+const routeSnapshotListState = createDetailListState()
+const versionHistoryListState = createDetailListState()
+const distributionStatusListState = createDetailListState()
+const controlledPrintRecordListState = createDetailListState()
+const trainingStatusListState = createDetailListState()
+const signatureTraceListState = createDetailListState()
+function getPagedDetailRows<T>(rows: T[], pageNo: number, pageSize: number) {
+  if (!rows.length) {
+    return []
+  }
+  const safePageSize = Math.max(1, Number(pageSize) || 10)
+  const safePageNo = Math.min(
+    Math.max(1, Number(pageNo) || 1),
+    Math.max(1, Math.ceil(rows.length / safePageSize))
+  )
+  const startIndex = (safePageNo - 1) * safePageSize
+  return rows.slice(startIndex, startIndex + safePageSize)
+}
+
+const routeSnapshotDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'stageDisplayName', label: '阶段', minWidth: 240 },
+  { key: 'candidateText', label: '候选摘要', minWidth: 260 },
+  { key: 'approvalRequirementText', label: '审批要求', minWidth: 260 },
+  { key: 'resolvedUserNames', label: '解析审批人', minWidth: 260 }
 ]
-const signatureEvidenceViewMode = ref<'common' | 'advanced'>('common')
-const dccSignatureEvidenceQuickFilterDefinitions: TableQuickFilterDefinition[] = [
-  { key: 'versionNo', label: '版本', type: 'text', placeholder: '请输入版本' },
-  { key: 'signer', label: '签名人', type: 'text', placeholder: '请输入签名人' },
-  { key: 'role', label: '角色', type: 'text', placeholder: '请输入角色' },
-  {
-    key: 'action',
-    label: '动作',
-    type: 'select',
-    options: [
-      { label: '通过', value: 'APPROVED' },
-      { label: '驳回', value: 'REJECTED' }
-    ]
-  },
-  { key: 'signedAt', label: '签名时间', type: 'dateRange' }
+const {
+  columns: routeSnapshotColumns,
+  saving: routeSnapshotColumnSaving,
+  isColumnVisible: isRouteSnapshotColumnVisible,
+  getColumnWidthString: getRouteSnapshotColumnWidthString,
+  getColumnMinWidthString: getRouteSnapshotColumnMinWidthString,
+  handleHeaderDragend: handleRouteSnapshotHeaderDragend,
+  saveConfig: saveRouteSnapshotColumnConfig,
+  resetConfig: resetRouteSnapshotColumnConfig
+} = useUserTableColumns('dcc.controlledFile.detail.routeSnapshot', routeSnapshotDefaultColumns)
+
+const versionHistoryDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'title', label: '标题', minWidth: 220 },
+  { key: 'fileNumber', label: '文件编号', minWidth: 150 },
+  { key: 'versionNo', label: '版本', width: 100 },
+  { key: 'changeReasonText', label: '升版原因/变更说明', minWidth: 220 },
+  { key: 'distributionMedium', label: '发放方式', minWidth: 140 },
+  { key: 'status', label: '状态', width: 120 },
+  { key: 'publishedTime', label: '发布时间', width: 180 },
+  { key: 'obsoletedTime', label: '作废时间', width: 180 },
+  { key: 'successorVersionSummary', label: '后继版本', minWidth: 220 },
+  { key: 'operation', label: '操作', width: 120, hideable: false, business: false, sortable: false }
 ]
+const {
+  columns: versionHistoryColumns,
+  saving: versionHistoryColumnSaving,
+  isColumnVisible: isVersionHistoryColumnVisible,
+  getColumnWidthString: getVersionHistoryColumnWidthString,
+  getColumnMinWidthString: getVersionHistoryColumnMinWidthString,
+  handleHeaderDragend: handleVersionHistoryHeaderDragend,
+  saveConfig: saveVersionHistoryColumnConfig,
+  resetConfig: resetVersionHistoryColumnConfig
+} = useUserTableColumns('dcc.controlledFile.detail.versionHistory', versionHistoryDefaultColumns)
+
+const distributionStatusDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'departmentName', label: '部门', minWidth: 180 },
+  { key: 'recipientText', label: '接收人', minWidth: 280 },
+  { key: 'distributionSummaryText', label: '分发摘要', minWidth: 300 },
+  { key: 'recoverySummaryText', label: '回收摘要', minWidth: 260 },
+  { key: 'operation', label: '操作', width: 300, hideable: false, business: false, sortable: false }
+]
+const {
+  columns: distributionStatusColumns,
+  saving: distributionStatusColumnSaving,
+  isColumnVisible: isDistributionStatusColumnVisible,
+  getColumnWidthString: getDistributionStatusColumnWidthString,
+  getColumnMinWidthString: getDistributionStatusColumnMinWidthString,
+  handleHeaderDragend: handleDistributionStatusHeaderDragend,
+  saveConfig: saveDistributionStatusColumnConfig,
+  resetConfig: resetDistributionStatusColumnConfig
+} = useUserTableColumns('dcc.controlledFile.detail.distributionStatus', distributionStatusDefaultColumns)
+
+const controlledPrintRecordDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'printNo', label: '打印编号', minWidth: 210 },
+  { key: 'fileNumber', label: '文件编号', minWidth: 160 },
+  { key: 'versionNo', label: '版本', width: 100 },
+  { key: 'copies', label: '份数', width: 90 },
+  { key: 'copyNumbers', label: '副本编号', minWidth: 220 },
+  { key: 'purpose', label: '打印用途', minWidth: 180 },
+  { key: 'receivingDepartment', label: '接收部门', minWidth: 140 },
+  { key: 'useLocation', label: '使用位置', minWidth: 140 },
+  { key: 'printUserName', label: '打印人', minWidth: 180 },
+  { key: 'printTime', label: '打印时间', width: 180 },
+  { key: 'approvalStatus', label: '审批/打印状态', width: 150 }
+]
+const {
+  columns: controlledPrintRecordColumns,
+  saving: controlledPrintRecordColumnSaving,
+  isColumnVisible: isControlledPrintRecordColumnVisible,
+  getColumnWidthString: getControlledPrintRecordColumnWidthString,
+  getColumnMinWidthString: getControlledPrintRecordColumnMinWidthString,
+  handleHeaderDragend: handleControlledPrintRecordHeaderDragend,
+  saveConfig: saveControlledPrintRecordColumnConfig,
+  resetConfig: resetControlledPrintRecordColumnConfig
+} = useUserTableColumns('dcc.controlledFile.detail.controlledPrintRecords', controlledPrintRecordDefaultColumns)
+
+const trainingStatusDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'departmentName', label: '部门', minWidth: 180 },
+  { key: 'traineeName', label: '受训人', minWidth: 220 },
+  { key: 'trainingSummaryText', label: '培训摘要', minWidth: 360 }
+]
+const {
+  columns: trainingStatusColumns,
+  saving: trainingStatusColumnSaving,
+  isColumnVisible: isTrainingStatusColumnVisible,
+  getColumnWidthString: getTrainingStatusColumnWidthString,
+  getColumnMinWidthString: getTrainingStatusColumnMinWidthString,
+  handleHeaderDragend: handleTrainingStatusHeaderDragend,
+  saveConfig: saveTrainingStatusColumnConfig,
+  resetConfig: resetTrainingStatusColumnConfig
+} = useUserTableColumns('dcc.controlledFile.detail.trainingStatus', trainingStatusDefaultColumns)
+
+const signatureTraceDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'traceRole', label: '角色', minWidth: 120 },
+  { key: 'actorName', label: '上传人 / 四级审批人', minWidth: 220 },
+  { key: 'approvalCommentText', label: '审批意见', minWidth: 220 },
+  { key: 'signedAtText', label: '签名时间', width: 180 },
+  { key: 'signatureModeText', label: '签名方式', width: 140 },
+  { key: 'evidenceStatusText', label: '证据状态', width: 140 },
+  { key: 'fileHashText', label: '文件哈希', minWidth: 160 },
+  { key: 'fileEvidenceText', label: '盖章文件 / 发布文件证据', minWidth: 260 }
+]
+const {
+  columns: signatureTraceColumns,
+  isColumnVisible: isSignatureTraceColumnVisible,
+  getColumnWidthString: getSignatureTraceColumnWidthString,
+  getColumnMinWidthString: getSignatureTraceColumnMinWidthString,
+  handleHeaderDragend: handleSignatureTraceHeaderDragend
+} = useUserTableColumns('dcc.controlledFile.detail.signatureTrace', signatureTraceDefaultColumns)
 
 const fourthNodeUpload = reactive({
   stampedPdf: undefined as ControlledFileUploadRespVO | undefined,
@@ -2686,9 +3175,9 @@ const controlledPrintPermissionHintDescription = computed(() => {
     return '当前账号缺少受控打印菜单权限，或该文件类别未授予 PRINT 打印权限；页面已按只读方式隐藏受控打印入口。'
   }
   if (!isCurrentActiveVersion.value) {
-    return '受控打印仅允许当前有效 ACTIVE 版本；历史版、候选版或未生成受控副本的版本不能打印。'
+    return '受控打印仅允许 master 指向的当前有效 ACTIVE 版本；历史版或候选版不能打印。'
   }
-  return '后端动作投影未允许本文件受控打印，请核对文件类别 PRINT 权限、受控副本和当前有效版本状态。'
+  return '后端动作投影未允许本文件受控打印，请核对文件类别 PRINT 权限和当前有效版本状态。'
 })
 const buildDccActionProjectionMessage = (
   activeAction: FormInstanceVO | null,
@@ -3067,6 +3556,13 @@ const signatureTraceRows = computed<SignatureTraceRow[]>(() => {
   rows.push(...(fileDetail.value?.signatureSummaries || []).map(buildSignatureTraceRow))
   return rows
 })
+const pagedSignatureTraceRows = computed(() =>
+  getPagedDetailRows(
+    signatureTraceRows.value,
+    signatureTraceListState.pageNo,
+    signatureTraceListState.pageSize
+  )
+)
 const currentStageSameLayerHint = computed(() =>
   currentStage.value
     ? `${currentStage.value.completionText} 已完成，${currentStage.value.sameLayerHint}`
@@ -3121,6 +3617,20 @@ const getSuccessorVersionSummary = (version: ControlledFileVersionHistoryVO) => 
   const successor = versionHistoryById.value.get(successorId)
   return successor ? getVersionHistoryIdentityText(successor) : `后继记录缺失：#${successorId}`
 }
+const versionHistoryRows = computed(() =>
+  (fileDetail.value?.versionHistory || []).map((version) => ({
+    ...version,
+    changeReasonText: getVersionChangeReasonText(version),
+    successorVersionSummary: getSuccessorVersionSummary(version)
+  }))
+)
+const pagedVersionHistoryRows = computed(() =>
+  getPagedDetailRows(
+    versionHistoryRows.value,
+    versionHistoryListState.pageNo,
+    versionHistoryListState.pageSize
+  )
+)
 const supersededPredecessorVersions = computed(() => {
   const currentId = Number(fileDetail.value?.id || 0)
   if (!currentId) {
@@ -3235,6 +3745,14 @@ const routeSnapshotRows = computed(() =>
         snapshot.approveRatio === undefined || snapshot.approveRatio === null
           ? '-'
           : `${snapshot.approveRatio}%`
+      const approveMethodLabel = getOptionLabel(ROUTE_APPROVE_METHOD_OPTIONS, snapshot.approveMethod)
+      const approvalProgressText = progress?.completionText || '-'
+      const approvalHint = progress?.sameLayerHint || '-'
+      const approvalStatusLabel = progress?.isCompleted
+        ? '已完成'
+        : progress?.isCurrent
+          ? '当前阶段'
+          : '待处理'
       return {
         ...snapshot,
         stageDisplayName,
@@ -3243,15 +3761,13 @@ const routeSnapshotRows = computed(() =>
         }`,
         candidateSourceLabel: getOptionLabel(ROUTE_CANDIDATE_SOURCE_OPTIONS, snapshot.candidateSourceType),
         candidateText: getRouteSnapshotCandidateText(snapshot),
-        approveMethodLabel: getOptionLabel(ROUTE_APPROVE_METHOD_OPTIONS, snapshot.approveMethod),
+        approveMethodLabel,
         approveRatioText,
-        approvalProgressText: progress?.completionText || '-',
-        approvalHint: progress?.sameLayerHint || '-',
-        approvalStatusLabel: progress?.isCompleted
-          ? '已完成'
-          : progress?.isCurrent
-            ? '当前阶段'
-            : '待处理',
+        approvalProgressText,
+        approvalHint,
+        approvalStatusLabel,
+        approvalRequirementText: `${approvalStatusLabel} ${approveMethodLabel} ${approveRatioText} ${approvalProgressText} ${approvalHint}`,
+        resolvedUserNames: resolveUserNames(snapshot.resolvedUserIds),
         approvalStatusTagType: progress?.isCompleted
           ? 'success'
           : progress?.isCurrent
@@ -3259,6 +3775,13 @@ const routeSnapshotRows = computed(() =>
             : 'info'
       }
     })
+)
+const pagedRouteSnapshotRows = computed(() =>
+  getPagedDetailRows(
+    routeSnapshotRows.value,
+    routeSnapshotListState.pageNo,
+    routeSnapshotListState.pageSize
+  )
 )
 
 const previewApprovalRows = computed(() =>
@@ -3394,6 +3917,31 @@ const flattenedTrainingAssignments = computed(() =>
 const trainingCompletionSummary = computed(() =>
   getDetailTrainingCompletionSummary(flattenedTrainingAssignments.value, userNameMap.value)
 )
+const trainingStatusRows = computed(() =>
+  flattenedTrainingAssignments.value.map((row) => {
+    const summary = getDetailTrainingAssignmentSummary(row)
+    return {
+      ...row,
+      departmentName: deptNameMap.value.get(row.departmentId) || `部门#${row.departmentId}`,
+      traineeName: getTrainingAssignmentUserSummary(row, userNameMap.value),
+      trainingSummary: summary,
+      trainingSummaryText: [
+        summary.statusLabel,
+        summary.progressText,
+        summary.eligibilityLabel,
+        `部门：${summary.departmentStatusLabel}`,
+        `确认：${summary.acknowledgedAtText}`
+      ].join(' ')
+    }
+  })
+)
+const pagedTrainingStatusRows = computed(() =>
+  getPagedDetailRows(
+    trainingStatusRows.value,
+    trainingStatusListState.pageNo,
+    trainingStatusListState.pageSize
+  )
+)
 const manualReleasePermissionGapVisible = computed(
   () => fileStatus.value === 'PENDING_MANUAL_DISTRIBUTION' && !detailActionState.value.canManualRelease
 )
@@ -3430,6 +3978,22 @@ const formatControlledPrintCopyNumberRange = (record?: ControlledFilePrintRecord
     : `${copyNumbers[0]} ~ ${copyNumbers[copyNumbers.length - 1]}`
 }
 
+const controlledPrintRecordRows = computed(() =>
+  controlledPrintRecords.value.map((record) => ({
+    ...record,
+    copyNumbers: formatControlledPrintCopyNumberRange(record),
+    printUserName: record.printUserName || userNameMap.value.get(record.printUserId) || `用户#${record.printUserId}`,
+    approvalStatusText: getControlledPrintStatusLabel(record.approvalStatus)
+  }))
+)
+const pagedControlledPrintRecordRows = computed(() =>
+  getPagedDetailRows(
+    controlledPrintRecordRows.value,
+    controlledPrintRecordListState.pageNo,
+    controlledPrintRecordListState.pageSize
+  )
+)
+
 const formatControlledPrintCopyNumberList = (record?: ControlledFilePrintRecordVO | null) => {
   const copyNumbers = buildControlledPrintCopyNumbers(record)
   return copyNumbers.length ? copyNumbers.join('、') : '-'
@@ -3455,6 +4019,11 @@ const focusControlledPrintRecord = async (recordId: number | undefined, shouldSc
   latestControlledPrintRecordId.value = recordId
   controlledPrintHighlightRecordId.value = recordId
   clearControlledPrintRecordHighlightTimer()
+  const recordIndex = controlledPrintRecordRows.value.findIndex((row) => row.id === recordId)
+  if (recordIndex >= 0) {
+    const safePageSize = Math.max(1, Number(controlledPrintRecordListState.pageSize) || 10)
+    controlledPrintRecordListState.pageNo = Math.floor(recordIndex / safePageSize) + 1
+  }
   await nextTick()
   if (shouldScroll) {
     const section = document.querySelector('[data-testid="dcc-controlled-print-records"]')
@@ -3478,7 +4047,7 @@ const shouldLoadControlledPrintRecords = () =>
   Boolean(controlledFileId.value) &&
   !viewerMode.value &&
   showLifecycleTraceSections.value &&
-  checkPermi(['dcc:controlled-file:print'])
+  controlledPrintAllowed.value
 
 const loadControlledPrintRecords = async () => {
   controlledPrintRecordsError.value = ''
@@ -3683,8 +4252,7 @@ const loadDccSignatureEvidenceList = async () => {
     const data = await getDccElectronicSignaturePage({
       controlledFileId: controlledFileId.value,
       pageNo: dccSignatureEvidenceQueryParams.pageNo,
-      pageSize: dccSignatureEvidenceQueryParams.pageSize,
-      quickFilter: dccSignatureEvidenceQueryParams.quickFilter
+      pageSize: dccSignatureEvidenceQueryParams.pageSize
     })
     dccSignatureEvidenceList.value = data.list || []
     dccSignatureEvidenceTotal.value = data.total || 0
@@ -3699,13 +4267,6 @@ const loadDccSignatureEvidenceList = async () => {
     dccSignatureEvidenceLoading.value = false
   }
 }
-
-const dccSignatureEvidenceQuickFilter = useTableQuickFilter(
-  'dcc.controlledFile.detail.signatureEvidence',
-  dccSignatureEvidenceQuickFilterDefinitions,
-  dccSignatureEvidenceQueryParams,
-  loadDccSignatureEvidenceList
-)
 
 const loadAccessExplanationOnly = async () => {
   try {
@@ -4787,6 +5348,37 @@ const getDistributionRecoverUserSummary = (distribution: ControlledFileDistribut
   return userNameMap.value.get(distribution.recoveredBy) || `用户#${distribution.recoveredBy}`
 }
 
+const distributionStatusRows = computed(() =>
+  (fileDetail.value?.distributionStatuses || []).map((distribution) => {
+    const departmentName = deptNameMap.value.get(distribution.departmentId) || `部门#${distribution.departmentId}`
+    const recipientText = getDistributionRecipientDisplay(distribution)
+    const distributionSummaryText = [
+      getDistributionStatusLabel(distribution.status),
+      getDistributionMediumLabel(distribution.distributionMedium),
+      getDistributionAckUserSummary(distribution, userNameMap.value),
+      formatControlledFileDateTime(distribution.acknowledgedAt)
+    ].join(' ')
+    const recoverySummaryText = [
+      getDistributionRecoverUserSummary(distribution),
+      formatControlledFileDateTime(distribution.recoveredAt)
+    ].join(' ')
+    return {
+      ...distribution,
+      departmentName,
+      recipientText,
+      distributionSummaryText,
+      recoverySummaryText
+    }
+  })
+)
+const pagedDistributionStatusRows = computed(() =>
+  getPagedDetailRows(
+    distributionStatusRows.value,
+    distributionStatusListState.pageNo,
+    distributionStatusListState.pageSize
+  )
+)
+
 const resetElectronicReceiptDialog = () => {
   electronicReceiptDialog.submitting = false
   electronicReceiptDialog.inlineError = ''
@@ -4962,109 +5554,6 @@ const buildDistributionReceiptRows = () => {
 const escapeCsvCell = (value: unknown) => {
   const text = String(value ?? '')
   return `"${text.replace(/"/g, '""')}"`
-}
-
-const exportSignatureTrace = () => {
-  if (!signatureTraceRows.value.length) {
-    message.warning('当前文件暂无可导出的签核追溯')
-    return
-  }
-  const headers = [
-    '角色',
-    '上传人/四级审批人',
-    '审批意见',
-    '签名时间',
-    '签名方式',
-    '证据状态',
-    '文件哈希',
-    '文件证据'
-  ]
-  const csvRows = [
-    headers,
-    ...signatureTraceRows.value.map((row) => [
-      row.traceRole,
-      row.actorName,
-      row.approvalCommentText,
-      row.signedAtText,
-      row.signatureModeText,
-      row.evidenceStatusText,
-      row.fileHashText,
-      row.fileEvidenceText
-    ])
-  ]
-  const csv = csvRows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n')
-  downloadByData(
-    csv,
-    `DCC签核追溯-${fileDetail.value?.fileNumber || controlledFileId.value}.csv`,
-    'text/csv;charset=utf-8',
-    '\ufeff'
-  )
-}
-
-const buildSignatureTracePrintHtml = () => {
-  const rows = signatureTraceRows.value
-    .map(
-      (row) => `<tr>
-        <td>${escapeReceiptHtml(row.traceRole)}</td>
-        <td>${escapeReceiptHtml(row.actorName)}</td>
-        <td>${escapeReceiptHtml(row.approvalCommentText)}</td>
-        <td>${escapeReceiptHtml(row.signedAtText)}</td>
-        <td>${escapeReceiptHtml(row.signatureModeText)}</td>
-        <td>${escapeReceiptHtml(row.evidenceStatusText)}</td>
-        <td>${escapeReceiptHtml(row.fileHashText)}</td>
-        <td>${escapeReceiptHtml(row.fileEvidenceText)}</td>
-      </tr>`
-    )
-    .join('')
-  return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>DCC签核追溯</title>
-  <style>
-    body { font-family: Arial, "Microsoft YaHei", sans-serif; color: #1f2329; margin: 24px; }
-    h1 { font-size: 20px; margin: 0 0 16px; }
-    table { border-collapse: collapse; width: 100%; font-size: 12px; }
-    th, td { border: 1px solid #333; padding: 6px 8px; text-align: left; vertical-align: top; }
-    th { background: #f3f4f6; }
-  </style>
-</head>
-<body>
-  <h1>DCC签核追溯</h1>
-  <table>
-    <thead>
-      <tr>
-        <th>角色</th>
-        <th>上传人 / 四级审批人</th>
-        <th>审批意见</th>
-        <th>签名时间</th>
-        <th>签名方式</th>
-        <th>证据状态</th>
-        <th>文件哈希</th>
-        <th>文件证据</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>
-</body>
-</html>`
-}
-
-const printSignatureTrace = () => {
-  if (!signatureTraceRows.value.length) {
-    message.warning('当前文件暂无可打印的签核追溯')
-    return
-  }
-  const printWindow = window.open('', '_blank')
-  if (!printWindow) {
-    message.error('打印窗口打开失败，请检查浏览器弹窗拦截设置。')
-    return
-  }
-  printWindow.document.open()
-  printWindow.document.write(buildSignatureTracePrintHtml())
-  printWindow.document.close()
-  printWindow.focus()
-  printWindow.print()
 }
 
 const handleExportDistributionReceipts = () => {
@@ -5991,10 +6480,6 @@ watch(
   --el-table-tr-bg-color: #fff7db;
   outline: 2px solid var(--el-color-warning);
   outline-offset: -2px;
-}
-
-.detail-view-mode {
-  flex: 0 0 auto;
 }
 
 .route-snapshot-summary {

@@ -8,13 +8,16 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstatio
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationMachineService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationWorkerService;
 import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteService;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionLifecycleServiceImpl;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -48,6 +52,8 @@ class MesFrontlineDeviceAccountContextServiceTest {
     private MesFrontlineDeviceAccountRouteBindingSource routeBindingSource;
     @Mock
     private MesProRouteProcessMapper routeProcessMapper;
+    @Mock
+    private MesProRouteVersionMapper routeVersionMapper;
     @Mock
     private MesProProcessService processService;
     @Mock
@@ -70,8 +76,8 @@ class MesFrontlineDeviceAccountContextServiceTest {
     @BeforeEach
     void setUp() {
         contextService = new MesFrontlineDeviceAccountContextServiceImpl(routeBindingSourceProvider, routeProcessMapper,
-                processService, workstationWorkerService, adminUserApi, permissionApi, routeService, workstationService,
-                workstationMachineService, machineryService);
+                routeVersionMapper, processService, workstationWorkerService, adminUserApi, permissionApi,
+                routeService, workstationService, workstationMachineService, machineryService);
     }
 
     @Test
@@ -134,55 +140,135 @@ class MesFrontlineDeviceAccountContextServiceTest {
     }
 
     @Test
-    void shouldListAllPressurePumpProcessesWhenUserHasPressurePumpAllProcessPermission() {
-        when(permissionApi.hasAnyPermissions(eq(LOGIN_USER_ID),
-                eq(MesFrontlineDeviceAccountContextServiceImpl.PRESSURE_PUMP_ALL_PROCESS_PERMISSION)))
-                .thenReturn(true);
-        when(routeService.getRouteListByStatus(CommonStatusEnum.ENABLE.getStatus())).thenReturn(List.of(
-                route(922119L, "RT000028", "球囊扩张压力泵"),
-                route(922200L, "RT000029", "球囊扩张导管")));
-        when(routeProcessMapper.selectListByRouteIds(Set.of(922119L))).thenReturn(List.of(
-                routeProcess(1001L, 922119L, 201L, 301L, 20),
-                routeProcess(1002L, 922119L, 202L, 302L, 10)));
-        when(processService.getProcessMap(Set.of(201L, 202L))).thenReturn(Map.of(
-                201L, enabledProcess(201L, "P-201", "装配"),
-                202L, enabledProcess(202L, "P-202", "检验")));
-        when(workstationService.getWorkstationMap(Set.of(301L, 302L))).thenReturn(Map.of(
-                301L, workstation(301L, "WS-301"),
-                302L, workstation(302L, "WS-302")));
-        when(workstationMachineService.getWorkstationMachineListByWorkstationIds(Set.of(301L, 302L)))
-                .thenReturn(List.of(
-                        MesMdWorkstationMachineDO.builder().id(11L).workstationId(301L).machineryId(501L).build(),
-                        MesMdWorkstationMachineDO.builder().id(12L).workstationId(301L).machineryId(502L).build()));
-        when(machineryService.getMachineryMap(Set.of(501L, 502L))).thenReturn(Map.of(
-                501L, machinery(501L, "D-501"),
-                502L, machinery(502L, "D-502")));
-
-        List<MesFrontlineRouteProcessCandidate> candidates = contextService.listSwitchableProcesses(LOGIN_USER_ID);
-
-        assertEquals(List.of(1002L, 1001L, 1001L),
-                candidates.stream().map(MesFrontlineRouteProcessCandidate::routeProcessId).toList());
-        assertEquals(List.of(202L, 201L, 201L),
-                candidates.stream().map(MesFrontlineRouteProcessCandidate::processId).toList());
-        assertEquals(Arrays.asList(null, 501L, 502L),
-                candidates.stream().map(MesFrontlineRouteProcessCandidate::deviceId).toList());
-        verify(routeBindingSourceProvider, never()).getIfAvailable();
-    }
-
-    @Test
-    void shouldFailFastWhenPressurePumpUserPermissionHasNoPressurePumpRouteProcesses() {
-        when(permissionApi.hasAnyPermissions(eq(LOGIN_USER_ID),
+    void shouldNotGrantPressurePumpProcessesByMenuPermissionWithoutRouteStartLeaderConfig() {
+        lenient().when(permissionApi.hasAnyPermissions(eq(LOGIN_USER_ID),
                 eq(MesFrontlineDeviceAccountContextServiceImpl.PRESSURE_PUMP_ALL_PROCESS_PERMISSION)))
                 .thenReturn(true);
         when(routeService.getRouteListByStatus(CommonStatusEnum.ENABLE.getStatus())).thenReturn(List.of(
                 route(922119L, "RT000028", "球囊扩张压力泵")));
-        when(routeProcessMapper.selectListByRouteIds(Set.of(922119L))).thenReturn(List.of());
+        when(routeVersionMapper.selectListByRouteIds(Set.of(922119L))).thenReturn(List.of(activeRouteVersion(
+                9901L,
+                922119L,
+                """
+                        {
+                          "routeId": 922119,
+                          "configSnapshots": {
+                            "routeStartProductionLeaders": []
+                          }
+                        }
+                        """)));
+        when(routeBindingSourceProvider.getIfAvailable()).thenReturn(routeBindingSource);
+        when(routeBindingSource.listEnabledRouteBindings(LOGIN_USER_ID)).thenReturn(List.of());
 
-        ServiceException exception = assertThrows(ServiceException.class,
-                () -> contextService.listSwitchableProcesses(LOGIN_USER_ID));
+        assertThrows(ServiceException.class, () -> contextService.listSwitchableProcesses(LOGIN_USER_ID));
 
-        assertEquals("压力泵角色授权缺少有效工艺路线工序，routeIds=[922119]",
-                exception.getMessage());
+        verify(routeProcessMapper, never()).selectListByRouteIds(Set.of(922119L));
+    }
+
+    @Test
+    void shouldListRouteStartProductionLeaderProcessesByUserAndRoleProductionLines() {
+        when(routeService.getRouteListByStatus(CommonStatusEnum.ENABLE.getStatus())).thenReturn(List.of(
+                route(101L, "RT-A", "压力泵一线"),
+                route(102L, "RT-B", "压力泵二线")));
+        when(routeVersionMapper.selectListByRouteIds(Set.of(101L, 102L))).thenReturn(List.of(
+                activeRouteVersion(9001L, 101L, """
+                        {
+                          "routeId": 101,
+                          "configSnapshots": {
+                            "routeStartProductionLeaders": [
+                              {
+                                "productionLineId": 7001,
+                                "candidateSourceType": "USERS",
+                                "candidateSourceIds": [9001],
+                                "candidateSourceNames": ["张三"]
+                              },
+                              {
+                                "productionLineId": 7002,
+                                "candidateSourceType": "ROLE",
+                                "candidateSourceIds": [77],
+                                "candidateSourceNames": ["压力泵生产组长"]
+                              }
+                            ]
+                          }
+                        }
+                        """),
+                activeRouteVersion(9002L, 102L, """
+                        {
+                          "routeId": 102,
+                          "configSnapshots": {
+                            "routeStartProductionLeaders": [
+                              {
+                                "productionLineId": 7003,
+                                "candidateSourceType": "ROLE",
+                                "candidateSourceIds": [77],
+                                "candidateSourceNames": ["压力泵生产组长"]
+                              }
+                            ]
+                          }
+                        }
+                        """)));
+        when(permissionApi.getUserRoleIdListByUserId(LOGIN_USER_ID)).thenReturn(Set.of(77L));
+        when(routeProcessMapper.selectListByRouteIds(Set.of(101L, 102L))).thenReturn(List.of(
+                routeProcess(1001L, 101L, 201L, 301L, 10),
+                routeProcess(1002L, 101L, 202L, 302L, 20),
+                routeProcess(1003L, 101L, 203L, 303L, 30),
+                routeProcess(1004L, 102L, 204L, 304L, 40)));
+        when(processService.getProcessMap(Set.of(201L, 202L, 204L))).thenReturn(Map.of(
+                201L, enabledProcess(201L, "P-201", "装配"),
+                202L, enabledProcess(202L, "P-202", "检验"),
+                204L, enabledProcess(204L, "P-204", "包装")));
+        when(workstationService.getWorkstationMap(Set.of(301L, 302L, 303L, 304L))).thenReturn(Map.of(
+                301L, workstation(301L, "WS-301", 7001L),
+                302L, workstation(302L, "WS-302", 7002L),
+                303L, workstation(303L, "WS-303", 7999L),
+                304L, workstation(304L, "WS-304", 7003L)));
+        when(workstationMachineService.getWorkstationMachineListByWorkstationIds(Set.of(301L, 302L, 304L)))
+                .thenReturn(List.of());
+
+        List<MesFrontlineRouteProcessCandidate> candidates = contextService.listSwitchableProcesses(LOGIN_USER_ID);
+
+        assertEquals(List.of(1001L, 1002L, 1004L),
+                candidates.stream().map(MesFrontlineRouteProcessCandidate::routeProcessId).toList());
+        assertEquals(List.of(7001L, 7002L, 7003L), candidates.stream()
+                .map(MesFrontlineRouteProcessCandidate::workstationId)
+                .map(id -> switch (id.intValue()) {
+                    case 301 -> 7001L;
+                    case 302 -> 7002L;
+                    case 304 -> 7003L;
+                    default -> -1L;
+                })
+                .toList());
+        verify(routeBindingSourceProvider, never()).getIfAvailable();
+    }
+
+    @Test
+    void shouldFailWhenRouteStartProductionLeaderLineHasNoRouteProcess() {
+        when(routeService.getRouteListByStatus(CommonStatusEnum.ENABLE.getStatus())).thenReturn(List.of(
+                route(101L, "RT-A", "压力泵一线")));
+        when(routeVersionMapper.selectListByRouteIds(Set.of(101L))).thenReturn(List.of(activeRouteVersion(
+                9001L,
+                101L,
+                """
+                        {
+                          "routeId": 101,
+                          "configSnapshots": {
+                            "routeStartProductionLeaders": [
+                              {
+                                "productionLineId": 7001,
+                                "candidateSourceType": "USERS",
+                                "candidateSourceIds": [9001],
+                                "candidateSourceNames": ["张三"]
+                              }
+                            ]
+                          }
+                        }
+                        """)));
+        when(routeProcessMapper.selectListByRouteIds(Set.of(101L))).thenReturn(List.of(
+                routeProcess(1001L, 101L, 201L, 301L, 10)));
+        when(workstationService.getWorkstationMap(Set.of(301L))).thenReturn(Map.of(
+                301L, workstation(301L, "WS-301", 7999L)));
+
+        assertThrows(ServiceException.class, () -> contextService.listSwitchableProcesses(LOGIN_USER_ID));
     }
 
     private static MesFrontlineDeviceRouteBinding routeBinding(Long routeId, String routeCode, Long workstationId,
@@ -223,11 +309,26 @@ class MesFrontlineDeviceAccountContextServiceTest {
     }
 
     private static MesMdWorkstationDO workstation(Long id, String code) {
+        return workstation(id, code, null);
+    }
+
+    private static MesMdWorkstationDO workstation(Long id, String code, Long productionLineId) {
         return MesMdWorkstationDO.builder()
                 .id(id)
                 .code(code)
                 .name(code + " Name")
+                .productionLineId(productionLineId)
                 .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+    }
+
+    private static MesProRouteVersionDO activeRouteVersion(Long id, Long routeId, String routeSnapshotJson) {
+        return MesProRouteVersionDO.builder()
+                .id(id)
+                .routeId(routeId)
+                .active(Boolean.TRUE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_ACTIVE)
+                .routeSnapshotJson(routeSnapshotJson)
                 .build();
     }
 

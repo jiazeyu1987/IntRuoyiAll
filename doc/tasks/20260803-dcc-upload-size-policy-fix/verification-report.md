@@ -18,6 +18,11 @@
 - GREEN: local main recheck `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_dcc_upload_size_policy_seed_sql.py` -> PASS, 3 tests.
 - GREEN: local main recheck `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-dcc -am "-Dtest=DccUploadSizePolicyServiceTest,DccControlledFileUploadApiTest#uploadPreviewFile_missingSizePolicy_throwsBeforeStorageOrTicket,DccControlledFileUploadApiTest#uploadPreviewFile_sourceDocx_successCreatesTicketAndDoesNotExposeFileId" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 8 tests.
 - GREEN: local `int_main` `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_dcc_upload_size_policy_seed_sql.py` -> PASS, 3 tests.
+- GREEN: local Docker MySQL runtime coverage check -> tenants `0`, `1`, and `122` have effective `PURPOSE` policies for all supported DCC upload purposes; missing-effective-policy query returned no rows.
+- GREEN: real frontend login plus running backend effective-policy check for screenshot category `907180 / 专利检索与分析报告`, `purpose=SOURCE`, `fileSize=1000` -> HTTP `200`, business `code=0`, `policyId=22`, `policyCode=DCC_UPLOAD_DEFAULT_SOURCE_V1`, `maxBytes=10485760`.
+- GREEN: real-page-context upload-preview for `芋道源码/admin`, `categoryId=907180`, `purpose=SOURCE`, `codex-upload-policy-empty.docx` -> upload HTTP `200`, business `code=0`, upload ticket present, cleanup HTTP `200`, cleanup business `code=0`, `cleanedCount=1`.
+- GREEN: Playwright real UI E2E for `/dcc/controlled-file/upload` -> selected `技术文档 / 设计和开发输入阶段 / 专利检索与分析报告（如适用）` through the visible Cascader, uploaded `codex-e2e-upload-policy-empty.docx` through the real file input, received upload-preview HTTP `200` and business `code=0`, saw the preview panel, and did not see `DCC upload size policy is missing or invalid`.
+- GREEN: E2E hygiene check -> previous leftover preview session cleanup `cleanedCount=1`, current E2E preview cleanup `cleanedCount=1`, and DB post-check `active_codex_upload_policy_temp_files=0`.
 - BLOCKED: local `int_main` release migration policy gate fails before judging this migration because unrelated `20260730_mes_process_pool_team_leader.sql` is missing release-migration metadata.
 
 ## Root Cause
@@ -32,6 +37,7 @@
 - The seed only inserts when a tenant lacks an effective global or same-purpose purpose policy.
 - Existing policies are not updated or deleted; if the exact seed policy code already exists but is invalid, the migration fails fast instead of silently overriding.
 - Runtime note: the affected environment must apply `20260803_dcc_upload_size_policy_default_seed.sql` before users stop seeing the missing-policy message.
+- Local runtime note: the current `E:\IntRuoyi` local runtime has the seed data applied and no longer reproduces the missing-policy toast for `907180 / SOURCE`; if a browser still shows the old toast, refresh the page and retry the file selection so the upload-preview request is reissued.
 - Closeout blocker: linked worktree cleanup/merge is not complete because `E:\IntRuoyi` is dirty and cannot receive the ff-only merge.
 - Git network note: persistent scoped GitHub proxy config points to closed `127.0.0.1:7890`; push succeeded only with one-off proxy clearing after direct `github.com:443` connectivity was verified.
 - Continued closeout blocker: main worktree closeout could not proceed while another `git commit` and multiple Git status/diff processes were active in `E:\IntRuoyi`; no locks were deleted and no unrelated processes were killed.

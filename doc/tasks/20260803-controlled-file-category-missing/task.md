@@ -2,7 +2,7 @@
 
 ## Task Goal
 
-修复受控文件提交页在选择文件分类时出现 `Controlled file category does not exist` 的问题，并按用户确认将“文件类别”改为自动显示文件分类叶子节点，不再允许用户手工选择。后端提交仍必须使用正式 DCC 类别 `categoryId`，不能把 taxonomy id 当作 category id，不引入 fallback、默认成功或吞异常。
+修复受控文件提交页在选择文件分类时出现 `Controlled file category does not exist` 的问题，并按用户确认将“文件类别”改为自动显示文件分类叶子节点，不再允许用户手工选择。若正式 DCC 文件类别未绑定提交目录，系统按用户要求自动落位到正式 `UNCLASSIFIED / 未分类` 目录；该目录缺失或不唯一时必须 fail-fast。后端提交仍必须使用正式 DCC 类别 `categoryId`，不能把 taxonomy id 当作 category id，不引入默认成功或吞异常。
 
 ## Milestones
 
@@ -11,8 +11,11 @@
 - [x] 实施最小正式修复，保持文件分类数据契约清晰。
 - [x] 运行定向 GREEN 与相关回归验证。
 - [x] 更新任务证据、收尾状态和最终验证结论。
-- [ ] 按用户确认将文件类别改为只读叶子节点显示，并自动解析唯一正式 DCC 类别。
-- [ ] 补充 RED/GREEN 静态契约与前端类型检查。
+- [x] 按用户确认将文件类别改为只读叶子节点显示，并自动解析唯一正式 DCC 类别。
+- [x] 将未绑定提交目录的正式类别自动落位到正式 `UNCLASSIFIED / 未分类` 目录，并保留缺失/重复目录 fail-fast。
+- [x] 补充 RED/GREEN 静态契约、后端单测和 SQL 种子契约。
+- [x] 执行真实 Playwright E2E，并记录共享运行态未加载后端修复的 blocker。
+- [x] 创建隔离 worktree 运行态，刷新后端 Jar 与前端依赖后完成真实 Playwright E2E 复验。
 
 ## Expected Verification
 
@@ -20,6 +23,7 @@
 - RED/GREEN 证据覆盖“选择文件分类不会把不存在分类 ID 提交给后端”。
 - RED/GREEN 证据覆盖“文件类别只读显示文件分类叶子节点，不再出现可手选下拉”。
 - RED/GREEN 证据覆盖“前端只在叶子节点唯一绑定可上传正式类别时自动写入 `categoryId` 并加载提交目录；缺失或多绑定时明确阻塞”。
+- RED/GREEN 证据覆盖“文件类别缺少提交目录绑定时，后端返回/提交到正式 `UNCLASSIFIED / 未分类` 目录；该目录缺失时明确失败”。
 - 定向前端/后端契约或单元测试通过。
 - 如本地运行态前置齐备，再通过真实页面路径验证；若缺少运行态、账号或数据，按项目规则记录 blocker，不用 API-only 冒充 E2E。
 
@@ -31,18 +35,24 @@
 
 ## 设计约束检查
 
-- `是否引入 fallback/降级/吞异常`：否。
+- `是否引入 fallback/降级/吞异常`：否；“未绑定提交目录 -> 未分类目录”是用户明确要求的正式落位规则，依赖 seeded `UNCLASSIFIED` 目录，目录缺失/重复时仍 fail-fast。
 - `是否从根因和长期维护角度解决`：是；从分类选择契约和后端校验链路定位。
 - `是否存在临时补丁或绕过`：否。
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-用户提供截图后复查发现：文件分类切换后仍会立即触发辅助性的历史文件名称预加载，若运行态后端或旧接口返回 `Controlled file category does not exist`，会在尚未选择“文件类别”时弹出全局错误。当前补充修复为：文件分类/项目切换只清理上下文，不再主动预加载历史文件名称；历史名称候选改为文件名称下拉聚焦/查询时按需加载，保留后端正式 fail-fast，不引入默认成功。
+本轮实现已完成：文件类别只读取文件分类叶子节点；正式 `categoryId` 自动解析；未绑定提交目录的类别通过后端正式解析到 `UNCLASSIFIED / 未分类` 目录，并新增 SQL seed 与 fail-fast 单测。定向前端静态契约、SQL 契约、迁移链门禁和后端方法级测试通过。
 
-用户进一步确认：文件类别应直接取文件分类路径的叶子节点，只显示、不让用户填写。本轮将实现该前端行为，并保持正式 DCC `categoryId` 自动解析与 fail-fast 校验。
+E2E PASS：真实 Playwright E2E 已在隔离 worktree `D:\IntRuoyiWorktree\controlled-file-category-e2e-20260803` 完成复验。后端使用 slot 18 的 `48099`，前端使用 `8099`，构建 Jar SHA256 为 `4f3def41fe02d7b0d565e272821fc26fb00d58fdbd1d5cdbb6342e8f4bd5ca04`，内嵌 DCC 模块包含 `DccUploadDirectoryResolver.class`。本地测试库已执行幂等 `20260803_dcc_unclassified_upload_directory_seed.sql`，生成唯一 active `UNCLASSIFIED / 未分类` 目录。E2E 证据显示真实页面选择未绑定目录的文件分类叶子节点后，目录树返回 `defaultUnclassified=true`、`bindingDirectoryPath=未分类`，页面没有旧阻塞文案，且无 DCC 写请求、无目标网络失败、无 console/page error。证据在 `D:\IntRuoyiWorktree\controlled-file-category-e2e-20260803\output\playwright\20260803-controlled-file-category-missing\dcc-upload-category-leaf-real-evidence.json`。
+
+未标记 `completed`：共享 `48081` 运行态仍是旧 Jar 且主工作区存在多项非本任务脏改动和分支 behind 状态，不能安全重建共享后端、提交或推送；`pnpm ts:check` 当前失败在无关详情页 `src/views/dcc/controlled-file/detail/index.vue` 缺少 `pagedRouteSnapshotRows`、`distributionStatusRows`、`pagedDistributionStatusRows`；全量迁移门禁失败在无关历史 SQL `20260730_mes_process_pool_team_leader.sql` 缺少 release metadata；隔离 worktree、slot 18 登记和 E2E 证据文件保留用于复查，`8099/48099` 任务自有进程已停止并释放端口。
 
 ## Cleanup Keep
 
 - doc/tasks/20260803-controlled-file-category-missing/bug-regression-evidence.md
+- doc/tasks/20260803-controlled-file-category-missing/frontend-feature-evidence.md
+- doc/tasks/20260803-controlled-file-category-missing/backend-api-evidence.md
+- doc/tasks/20260803-controlled-file-category-missing/database-schema-evidence.md
+- doc/tasks/20260803-controlled-file-category-missing/migration-policy-gate-unclassified.json

@@ -1497,7 +1497,7 @@ const resolveNasUncontrolledArchiveStatusLabel = (status?: string | null) => {
 }
 
 const isNasUncontrolledFileImportSelectable = (row: DccNasControlAuditFileRespVO) =>
-  row.classificationStatus === 'MATCHED' &&
+  ['MATCHED', 'UNCLASSIFIED_PENDING', 'AMBIGUOUS'].includes(row.classificationStatus || '') &&
   Boolean(row.auditFileId && row.sourceSignature?.trim() && row.expectedLocalRelativePath?.trim()) &&
   row.downloadStatus !== 'LOCAL_WRITTEN' &&
   row.archiveStatus !== 'ARCHIVED'
@@ -1536,7 +1536,7 @@ const buildNasUncontrolledImportSelectedFiles = () => {
     isNasUncontrolledFileImportSelectable(row)
   )
   if (!selectedRows.length) {
-    throw new Error('请先选择已唯一匹配的未受控文件')
+    throw new Error('请先选择可下载的未受控文件')
   }
   return selectedRows.map((row) => {
     const localRelativePath = row.expectedLocalRelativePath?.trim() || ''

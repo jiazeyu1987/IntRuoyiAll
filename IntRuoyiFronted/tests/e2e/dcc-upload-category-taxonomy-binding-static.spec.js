@@ -45,6 +45,12 @@ assert.match(
   'upload page must compute the unique auto-resolved formal category for the selected taxonomy leaf'
 )
 
+assert.doesNotMatch(
+  uploadPage,
+  /const selectedFileTypeTaxonomyAutoCategory = computed\(\(\) =>[\s\S]*Boolean\(category\.directoryId\)/,
+  'auto-resolved formal categories must not require a category-directory binding because unbound categories land in 未分类'
+)
+
 assert.match(
   uploadPage,
   /const syncAutoCategoryFromSelectedFileTypeTaxonomy = async \(\) => \{[\s\S]*formData\.categoryId = selectedFileTypeTaxonomyAutoCategory\.value\?\.id \|\| null[\s\S]*await loadUploadDirectoryTree\(formData\.categoryId\)/,

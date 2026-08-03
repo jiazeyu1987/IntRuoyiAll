@@ -115,9 +115,6 @@ public class DccControlledFilePrintServiceImpl implements DccControlledFilePrint
         if (master == null || !Objects.equals(master.getCurrentActiveControlledFileId(), file.getId())) {
             throw exception(CONTROLLED_FILE_PRINT_NOT_ALLOWED);
         }
-        if (file.getPublishedFileId() == null && file.getStampedFileId() == null) {
-            throw exception(CONTROLLED_FILE_PRINT_NOT_ALLOWED);
-        }
         if (!permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
                 DccFileCategoryPermissionActionEnum.PRINT)) {
             throw exception(CONTROLLED_FILE_PRINT_NOT_ALLOWED);

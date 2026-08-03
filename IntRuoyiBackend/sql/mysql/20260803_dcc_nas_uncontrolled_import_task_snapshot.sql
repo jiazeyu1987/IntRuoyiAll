@@ -3,6 +3,8 @@
 
 DROP PROCEDURE IF EXISTS ensure_dcc_uncontrolled_import_column;
 
+DELIMITER $$
+
 CREATE PROCEDURE ensure_dcc_uncontrolled_import_column(
   IN target_table VARCHAR(64),
   IN target_column VARCHAR(64),
@@ -22,9 +24,13 @@ BEGIN
     EXECUTE dcc_uncontrolled_import_column_stmt;
     DEALLOCATE PREPARE dcc_uncontrolled_import_column_stmt;
   END IF;
-END;
+END$$
+
+DELIMITER ;
 
 DROP PROCEDURE IF EXISTS ensure_dcc_uncontrolled_import_index;
+
+DELIMITER $$
 
 CREATE PROCEDURE ensure_dcc_uncontrolled_import_index(
   IN target_table VARCHAR(64),
@@ -45,7 +51,9 @@ BEGIN
     EXECUTE dcc_uncontrolled_import_index_stmt;
     DEALLOCATE PREPARE dcc_uncontrolled_import_index_stmt;
   END IF;
-END;
+END$$
+
+DELIMITER ;
 
 CALL ensure_dcc_uncontrolled_import_column(
   'dcc_controlled_file_nas_transfer_task',

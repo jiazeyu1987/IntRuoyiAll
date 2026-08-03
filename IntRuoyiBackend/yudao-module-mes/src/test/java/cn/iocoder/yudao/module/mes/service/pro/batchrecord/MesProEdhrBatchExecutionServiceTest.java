@@ -6195,6 +6195,45 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void getReviewTimeline_returnsPersistedHistoryWhenArchivedRouteGateConfigMissing() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-REVIEW-MISSING-CONFIG")
+                .setRouteId(fixture.routeId()));
+        bindApprovedExecution(routeTask(batch, 0).getId(), 8051L, true, true, true);
+        skipAllSpecialNodes(batch);
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batch.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED)
+                .setRouteSnapshotJson(incompleteFrozenBatchTaskConfigSnapshotJson()));
+        routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(fixture.routeId(), "BATCH")
+                .forEach(record -> routeFlowProcessBatchRecordMapper.deleteById(record.getId()));
+        routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(fixture.routeId(), "BATCH")
+                .forEach(config -> routeFlowProcessConfigMapper.deleteById(config.getId()));
+        MesProRouteFlowConfigDO liveFlowConfig =
+                routeFlowConfigMapper.selectByRouteIdAndUseType(fixture.routeId(), "BATCH");
+        if (liveFlowConfig != null) {
+            routeFlowConfigMapper.deleteById(liveFlowConfig.getId());
+        }
+
+        EdhrBatchExecutionReviewTimelineRespVO timeline = batchExecutionService.getReviewTimeline(batch.getId());
+
+        assertEquals(batch.getId(), timeline.getBatchExecutionId());
+        assertEquals(1, timeline.getBatchEvents().size());
+        assertFalse(timeline.getTaskEvents().isEmpty());
+        assertTrue(timeline.getTaskEvents().stream()
+                .allMatch(event -> Boolean.FALSE.equals(event.getAvailable())));
+        assertTrue(timeline.getTaskEvents().stream()
+                .allMatch(event -> "历史批次只读".equals(event.getGateMessage())));
+        assertEquals(1, timeline.getExecutionReviews().size());
+        assertEquals("BRE-8051", timeline.getExecutionReviews().get(0).getExecutionCode());
+        assertEquals("{\"rows\":{\"0\":{\"cells\":{\"0\":{\"text\":\"产品信息\"}}}}}",
+                timeline.getExecutionReviews().get(0).getFormViewModel().getSheetLayoutJson());
+        assertFalse(timeline.getDossierItems().isEmpty());
+    }
+
+    @Test
     void getReviewTimeline_includesExecutionAttachmentSummaries() {
         Fixture fixture = insertRouteFixture(true, true);
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()

@@ -600,15 +600,29 @@ type RecordFormListRow = BatchRecordReportVO & {
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const BATCH_RECORD_FORM_LIST_PATH = '/mes/pro/batch-record-form-list'
+const isBatchRecordFormListPath = () => route.path === BATCH_RECORD_FORM_LIST_PATH
 const isDesignerMode = computed(() => route.query.mode === 'designer')
 const normalizeRouteQueryText = (value: unknown) => {
   const rawValue = Array.isArray(value) ? value[0] : value
   return typeof rawValue === 'string' && rawValue.trim() ? rawValue.trim() : ''
 }
+const buildBatchRecordFormListRouteStateKey = () =>
+  JSON.stringify({
+    reportId: normalizeRouteQueryText(route.query.reportId),
+    action: normalizeRouteQueryText(route.query.action),
+    mode: normalizeRouteQueryText(route.query.mode)
+  })
 const listLoading = ref(false)
 const listErrorMessage = ref('')
 const list = ref<RecordFormListRow[]>([])
 const total = ref(0)
+const batchRecordFormListHasLoadedRouteState = ref(false)
+let batchRecordFormListLastLoadedRouteStateKey = ''
+const shouldKeepBatchRecordFormListLoadedState = (targetStateKey: string) =>
+  batchRecordFormListHasLoadedRouteState.value &&
+  batchRecordFormListLastLoadedRouteStateKey === targetStateKey &&
+  !listLoading.value
 const selectedReportId = ref('')
 const previewMaximized = ref(false)
 const previewFitMode = ref<'width' | 'height'>('width')
@@ -1329,6 +1343,7 @@ const submitBatchRecordFormPermission = async () => {
 
 const getList = async () => {
   const requestSerial = ++recordFormListRequestSerial
+  const targetRouteStateKey = buildBatchRecordFormListRouteStateKey()
   cancelDeferredRecordFormSecondaryLoad()
   permissionRuleLoadingReportIds.clear()
   listLoading.value = true
@@ -1360,6 +1375,8 @@ const getList = async () => {
       clearTemplatePreview()
     }
     deferRecordFormSecondaryLoad(nextList, nextSelected, requestSerial)
+    batchRecordFormListLastLoadedRouteStateKey = targetRouteStateKey
+    batchRecordFormListHasLoadedRouteState.value = true
   } catch (error) {
     if (isStaleRecordFormListRequest(requestSerial)) return
     list.value = []
@@ -2278,7 +2295,7 @@ const handleDelete = async (row: RecordFormListRow) => {
 }
 
 onMounted(() => {
-  if (!isDesignerMode.value) {
+  if (isBatchRecordFormListPath() && !isDesignerMode.value) {
     getList()
   }
 })
@@ -2302,13 +2319,20 @@ watch(
 )
 
 watch(
-  () => [route.query.reportId, route.query.action] as const,
+  () => [route.query.reportId, route.query.action, route.query.mode] as const,
   async ([reportId]) => {
+    if (!isBatchRecordFormListPath()) {
+      return
+    }
     if (isDesignerMode.value) {
       recordFormListRequestSerial += 1
       cancelDeferredRecordFormSecondaryLoad()
       permissionRuleLoadingReportIds.clear()
       clearTemplatePreview()
+      return
+    }
+    const targetRouteStateKey = buildBatchRecordFormListRouteStateKey()
+    if (shouldKeepBatchRecordFormListLoadedState(targetRouteStateKey)) {
       return
     }
     if (typeof reportId === 'string' && reportId.trim()) {

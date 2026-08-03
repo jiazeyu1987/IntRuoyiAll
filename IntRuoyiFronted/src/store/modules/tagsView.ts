@@ -18,6 +18,24 @@ const TAGS_VIEW_PATH_IDENTITY_PATHS = new Set([
   'pro/batch-record-template'
 ])
 
+const FORCED_CACHED_TAGS_VIEW_ROUTE_NAMES = new Set([
+  'DccControlledFileUpload',
+  'DccControlledFileBrowser',
+  'MesProRoute',
+  'MesProBatchRecordFormList'
+])
+
+const FORCED_CACHED_TAGS_VIEW_ROUTE_PATHS = new Set([
+  'controlled-file/upload',
+  'dcc/controlled-file/upload',
+  'controlled-file/browser',
+  'dcc/controlled-file/browser',
+  'mes/pro/route',
+  'pro/route',
+  'mes/pro/batch-record-form-list',
+  'pro/batch-record-form-list'
+])
+
 const normalizeTagsViewPath = (path: string) =>
   String(path || '')
     .split('?')[0]
@@ -29,6 +47,15 @@ const normalizeTagsViewPath = (path: string) =>
 const resolveActiveMenuPath = (view: RouteLocationNormalizedLoaded) => {
   const activeMenu = normalizeTagsViewPath(String(view.meta?.activeMenu || ''))
   return activeMenu ? `/${activeMenu}` : ''
+}
+
+const shouldForceCacheTagsView = (item: RouteLocationNormalizedLoaded) => {
+  const name = String(item.name || '')
+  const normalizedPath = normalizeTagsViewPath(item.path)
+  return (
+    FORCED_CACHED_TAGS_VIEW_ROUTE_NAMES.has(name) ||
+    FORCED_CACHED_TAGS_VIEW_ROUTE_PATHS.has(normalizedPath)
+  )
 }
 
 export interface TagsViewState {
@@ -153,7 +180,7 @@ export const useTagsViewStore = defineStore('tagsView', {
       const cacheMap: Set<string> = new Set()
       for (const v of this.visitedViews) {
         const item = getRawRoute(v)
-        const needCache = !item.meta?.noCache
+        const needCache = !item.meta?.noCache || shouldForceCacheTagsView(item)
         if (!needCache) {
           continue
         }

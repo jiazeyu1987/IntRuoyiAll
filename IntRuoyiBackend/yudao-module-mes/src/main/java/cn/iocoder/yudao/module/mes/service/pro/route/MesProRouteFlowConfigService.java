@@ -5,6 +5,9 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowConfigSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowProcessConfigRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderProductionLineRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderSaveReqVO;
 import jakarta.validation.Valid;
 
 import java.util.List;
@@ -27,5 +30,12 @@ public interface MesProRouteFlowConfigService {
             @Valid MesProRouteBatchRecordAttachmentOwnerInitReqVO initReqVO);
 
     void saveBatchRecordAttachmentOwners(@Valid MesProRouteBatchRecordAttachmentOwnerSaveReqVO saveReqVO);
+
+    List<MesProRouteStartProductionLeaderProductionLineRespVO> getRouteStartProductionLeaderProductionLines(
+            Long routeId, Long routeVersionId);
+
+    List<MesProRouteStartProductionLeaderRespVO> getRouteStartProductionLeaders(Long routeId, Long routeVersionId);
+
+    void saveRouteStartProductionLeaders(@Valid MesProRouteStartProductionLeaderSaveReqVO saveReqVO);
 
 }

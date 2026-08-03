@@ -37,11 +37,7 @@ const viewerBasicInfoBlock = extractBetween(
 for (const forbidden of [
   'show-info-actions',
   ':show-product-recognition=',
-  ':show-edit=',
-  'edit-button-text="修改"',
-  'edit-test-id="dcc-controlled-preview-detail-edit"',
   '@recognize-project-code=',
-  '@edit='
 ]) {
   assert.doesNotMatch(
     viewerBasicInfoBlock,
@@ -54,13 +50,38 @@ for (const forbiddenText of [
   'data-testid="dcc-controlled-preview-approval-button"',
   'data-testid="dcc-controlled-preview-distribution-button"',
   'data-testid="dcc-controlled-preview-version-button"',
-  'dcc-controlled-preview-detail-edit',
   '识别基础信息'
 ]) {
   assert.doesNotMatch(
     viewerBasicInfoBlock,
     new RegExp(forbiddenText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
     `viewer basic info panel must not directly expose hidden button text/test-id: ${forbiddenText}`
+  )
+}
+
+for (const restoredEditEntry of [
+  ':show-edit="canEditMetadata && !!fileDetail"',
+  'edit-button-text="修改"',
+  'edit-test-id="dcc-controlled-preview-detail-edit"',
+  '@edit="openMetadataDialog"'
+]) {
+  assert.match(
+    viewerBasicInfoBlock,
+    new RegExp(restoredEditEntry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `viewer basic info panel must restore edit button entry: ${restoredEditEntry}`
+  )
+}
+
+for (const hiddenViewerLinkage of [
+  'data-testid="dcc-detail-controlled-browser-linkage"',
+  '受控浏览入口',
+  '查看受控浏览当前有效版',
+  'controlled-browser-linkage-grid'
+]) {
+  assert.doesNotMatch(
+    viewerTemplate,
+    new RegExp(hiddenViewerLinkage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `viewer template must hide controlled-browser linkage block: ${hiddenViewerLinkage}`
   )
 }
 

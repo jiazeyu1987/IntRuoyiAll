@@ -58,6 +58,39 @@ export interface ProRouteBatchRecordAttachmentOwnerInitVO {
   routeVersionId: number
 }
 
+export interface ProRouteStartProductionLeaderVO {
+  productionLineId: number
+  productionLineCode?: string | null
+  productionLineName?: string | null
+  candidateSourceType: EdhrProcessFormCandidateSourceType
+  candidateSourceIds: number[]
+  candidateSourceNames?: string[]
+  sort?: number | null
+  remark?: string | null
+}
+
+export interface ProRouteStartProductionLeaderItemSaveVO {
+  productionLineId: number
+  candidateSourceType: EdhrProcessFormCandidateSourceType
+  candidateSourceIds: number[]
+  candidateSourceNames?: string[]
+  remark?: string | null
+}
+
+export interface ProRouteStartProductionLeaderSaveVO {
+  routeId: number
+  routeVersionId: number
+  items: ProRouteStartProductionLeaderItemSaveVO[]
+}
+
+export interface ProRouteStartProductionLeaderProductionLineVO {
+  productionLineId: number
+  productionLineCode?: string | null
+  productionLineName?: string | null
+  routeProcessIds?: number[]
+  processNames?: string[]
+}
+
 export interface ProRouteFlowFormBindingVO {
   formBindingKey?: string | null
   formSlotType?: ProRouteFlowFormSlotType | null
@@ -225,6 +258,30 @@ export const ProRouteFlowConfigApi = {
   saveBatchRecordAttachmentOwners: async (data: ProRouteBatchRecordAttachmentOwnerSaveVO) => {
     return await request.post({
       url: '/mes/pro/route/flow-config/batch-record-attachment-owners/save',
+      data
+    })
+  },
+
+  getRouteStartProductionLeaderProductionLines: async (
+    routeId: number,
+    routeVersionId?: number
+  ) => {
+    return await request.get<ProRouteStartProductionLeaderProductionLineVO[]>({
+      url: '/mes/pro/route/flow-config/route-start-production-leader-production-lines',
+      params: { routeId, routeVersionId }
+    })
+  },
+
+  getRouteStartProductionLeaders: async (routeId: number, routeVersionId?: number) => {
+    return await request.get<ProRouteStartProductionLeaderVO[]>({
+      url: '/mes/pro/route/flow-config/route-start-production-leaders',
+      params: { routeId, routeVersionId }
+    })
+  },
+
+  saveRouteStartProductionLeaders: async (data: ProRouteStartProductionLeaderSaveVO) => {
+    return await request.post({
+      url: '/mes/pro/route/flow-config/route-start-production-leaders/save',
       data
     })
   }

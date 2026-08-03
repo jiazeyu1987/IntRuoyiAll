@@ -8,12 +8,23 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'u
 const nasPage = read('src/views/system/nas/index.vue')
 const nasApi = read('src/api/system/nas/index.ts')
 const workflowApi = read('src/api/dcc/controlledFile/workflow.ts')
+const realE2E = read('tests/e2e/dcc-nas-uncontrolled-local-import-real.e2e.js')
 const packageJson = JSON.parse(read('package.json'))
 
 assert.equal(
   packageJson.scripts['e2e:dcc:nas-uncontrolled-local-import:static'],
   'node tests/e2e/dcc-nas-uncontrolled-local-import-static.spec.js',
   'package.json must expose the NAS uncontrolled local import static contract.'
+)
+assert.equal(
+  packageJson.scripts['e2e:dcc:nas-uncontrolled-local-import:real:check'],
+  'node tests/e2e/dcc-nas-uncontrolled-local-import-real.e2e.js --check',
+  'package.json must expose the NAS uncontrolled local import real E2E prerequisite gate.'
+)
+assert.equal(
+  packageJson.scripts['e2e:dcc:nas-uncontrolled-local-import:real'],
+  'node tests/e2e/dcc-nas-uncontrolled-local-import-real.e2e.js',
+  'package.json must expose the NAS uncontrolled local import full real E2E command.'
 )
 
 for (const required of [
@@ -101,4 +112,71 @@ assert.match(
   nasPage,
   /未分类\/待处理|UNCLASSIFIED_PENDING|AMBIGUOUS/,
   'page must keep unrecognized files visibly in 未分类/待处理 instead of silently treating them as matched.'
+)
+assert.match(
+  nasPage,
+  /\['MATCHED',\s*'UNCLASSIFIED_PENDING',\s*'AMBIGUOUS'\]\.includes\([\s\S]*classificationStatus/,
+  'page must allow unresolved files with a backend pending local path to be selected for local download.'
+)
+assert.doesNotMatch(
+  nasPage,
+  /请先选择已唯一匹配的未受控文件/,
+  'local download selection prompt must not exclude 未分类/待处理 rows that have a pending local path.'
+)
+
+for (const realGateToken of [
+  'dcc_nas_control_audit_file',
+  'dcc_controlled_file_nas_transfer_task',
+  'dcc_controlled_file_nas_transfer_task_item',
+  'selected_import_task_id',
+  'selected_import_task_item_id',
+  'archive_category_id_snapshot',
+  'archive_effective_date_snapshot',
+  'DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID',
+  'MYSQL_ROOT_PASSWORD',
+  'PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH',
+  'showDirectoryPicker',
+  'FileSystemDirectoryHandle',
+  'FileSystemFileHandle',
+  'MATCHED',
+  'UNCLASSIFIED_PENDING',
+  'AMBIGUOUS',
+  'ARCHIVE_METADATA_REQUIRED',
+  '_未分类待处理',
+  'PENDING_PATH',
+  'DCC_NAS_UNCONTROLLED_IMPORT_LOCAL_DIR',
+  'verifySharedNasSourceFiles',
+  'NAS_EXISTING_FILE_READY',
+  'syncTaskOwnedFixtureToExistingNasFiles',
+  'installDirectoryPickerHarness',
+  'runFullPageFlow',
+  'DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_E2E_PASS'
+]) {
+  assert.match(realE2E, new RegExp(realGateToken), `real E2E prerequisite gate missing token: ${realGateToken}`)
+}
+
+assert.match(
+  realE2E,
+  /process\.exit\(1\)[\s\S]*DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_CHECK_PASS/,
+  'real E2E gate must fail fast on blockers and only print PASS after all preconditions pass.'
+)
+assert.doesNotMatch(
+  realE2E,
+  /full real page flow requires authorized shared NAS source files/,
+  'full real E2E mode must execute the authorized source-file path instead of staying on the old authorization blocker.'
+)
+assert.doesNotMatch(
+  realE2E,
+  /DCC_NAS_UNCONTROLLED_IMPORT_ALLOW_NAS_WRITE|WriteAllBytes|New-Item\s+-ItemType\s+Directory/i,
+  'full real E2E must verify existing shared NAS source files without creating or overwriting NAS files.'
+)
+assert.match(
+  realE2E,
+  /showDirectoryPicker[\s\S]*getDirectoryHandle[\s\S]*getFileHandle[\s\S]*createWritable[\s\S]*write[\s\S]*close/,
+  'full real E2E must drive the browser local-directory write contract through the page harness.'
+)
+assert.doesNotMatch(
+  realE2E,
+  /localAbsolutePath|absoluteLocalPath|zip|default download/i,
+  'real E2E gate must not introduce local absolute path persistence or browser download fallback.'
 )

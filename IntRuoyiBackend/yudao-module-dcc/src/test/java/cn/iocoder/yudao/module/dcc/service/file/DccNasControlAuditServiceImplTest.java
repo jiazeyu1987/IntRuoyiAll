@@ -156,6 +156,7 @@ class DccNasControlAuditServiceImplTest extends BaseMockitoUnitTest {
         assertEquals(200L, updated.getMatchedProjectCodeId());
         assertNull(updated.getMatchedFileTypeTaxonomyId());
         assertTrue(updated.getExpectedLocalRelativePath().startsWith("_未分类待处理/"));
+        assertEquals("PENDING_MANUAL_REVIEW", updated.getArchiveStatus());
     }
 
     @Test
@@ -181,6 +182,8 @@ class DccNasControlAuditServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("AMBIGUOUS", updated.getClassificationStatus());
         assertEquals("PROJECT_CODE_AMBIGUOUS", updated.getClassificationReason());
         assertNull(updated.getMatchedProjectCodeId());
+        assertTrue(updated.getExpectedLocalRelativePath().startsWith("_未分类待处理/"));
+        assertEquals("PENDING_MANUAL_REVIEW", updated.getArchiveStatus());
         assertTrue(updated.getClassificationCandidatesJson().contains("Project A Duplicate"));
     }
 

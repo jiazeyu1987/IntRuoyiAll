@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DccControlledPrintContractTest {
@@ -52,6 +53,17 @@ class DccControlledPrintContractTest {
                 "copy numbers must be derived consistently from print number and copies");
         assertTrue(service.contains("直接受控打印"),
                 "generated controlled print HTML must expose the current direct print/no approval policy");
+    }
+
+    @Test
+    void backendPrintEligibilityDoesNotRequireGeneratedArtifactIds() throws Exception {
+        String forbiddenArtifactGate = "getPublishedFileId() == null && file.getStampedFileId() == null";
+        String printService = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFilePrintServiceImpl.java");
+        String queryService = readBackend("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java");
+        assertFalse(printService.contains(forbiddenArtifactGate),
+                "controlled print creation must not reject the current ACTIVE file only because generated artifact ids are empty");
+        assertFalse(queryService.contains(forbiddenArtifactGate),
+                "action projection must expose PRINT for current ACTIVE files with PRINT permission even if generated artifact ids are empty");
     }
 
     @Test

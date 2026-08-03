@@ -38,6 +38,8 @@
 - Trigger: 真实 E2E、静态合同或验收文档涉及 `showDirectoryPicker`、本地目录授权、本地文件写入、浏览器端下载到指定目录、目录句柄、`createWritable`、本地写入结果回写或“下载并归类”类流程。
 - Preflight check: 必须验证浏览器是否支持受控目录写入能力；不支持、用户取消授权或目录句柄异常时，页面必须 fail fast，并且不得创建后端 import/write task、不得调用 content 下载接口、不得回写本地写入成功。
 - Preflight check: 对需要先本地写入再触发后端归档/业务写入的流程，Playwright 必须断言请求顺序：目录授权和相对路径校验成功前不得调用后端写入任务；`LOCAL_WRITTEN` 或等价本地成功回写前不得调用正式业务归档接口。
+- Preflight check: 若流程依赖共享 NAS 或外部源文件字节，`real:check`、运行库 schema、DB fixture、浏览器能力和静态合同只能证明前置条件；full 真实页面 E2E 还必须先确认任务自有源文件已被授权并真实存在，否则必须 fail fast 并把 blocker 指向缺少授权源文件。
+- Preflight check: 如果 BDD 允许未分类或待处理文件下载到本地待处理目录，静态合同、fixture 和真实 gate 必须覆盖该状态的可选择性、待处理相对路径和无归档副作用；不得只覆盖唯一匹配文件后宣称“下载并归类”范围完整。
 - Verification: 证据必须包含 `showDirectoryPicker/getFileHandle/createWritable/write/close` 成功和失败路径、目标写请求计数、取消目录选择路径、非法/冲突相对路径错误码，以及后端只读核验未保存本地绝对路径。
 - Forbidden action: 禁止把 ZIP、浏览器默认下载目录、服务器暂存目录、API-only 下载、自动改名、覆盖已有文件或静默跳过本地写入当作“已下载到本地对应目录”；禁止只用最终业务对象存在证明本地写入时序正确。
 - Evidence: `doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md`。
@@ -72,7 +74,7 @@
 ### DCC 受控打印门禁
 
 - Trigger: 验证 DCC 受控打印、打印申请、打印权限、受控打印件水印、打印编号、打印记录、分发记录或操作日志中的打印追溯。
-- Preflight check: 写入型 E2E 必须先确认任务自有受控文件为 master 指向的当前 `ACTIVE` 版本，并确认非 admin 打印人同时具备菜单权限 `dcc:controlled-file:print` 和当前文件类别 `PRINT` 权限；如果产品已配置打印审批，必须走真实审批页面，未配置打印审批时按直接打印状态验收。测试脚本必须通过真实受控浏览或详情页点击入口、填写用途、份数、接收部门/使用位置等必填项，并准备一个无 `PRINT` 权限账号做同文件阻断验证。无权限验证优先从受控浏览列表按文件编号定位同一 `ACTIVE` 行，再通过页面可见的追溯/详情入口进入详情断言无权限说明；不得直接打开详情 URL 后把路由重定向或上下文缺失误判为权限提示缺陷。只读预览 `viewer=1` 不渲染受控打印记录区、纸质分发弹窗或流程打印动作时，不得在初始化阶段请求 `controlled-print/records`、纸质分发记录或流程打印模板辅助数据；记录接口错误只能在非预览详情/追溯页的对应功能区显性展示，不能阻断受控文件预览。
+- Preflight check: 写入型 E2E 必须先确认任务自有受控文件为 master 指向的当前 `ACTIVE` 版本，并确认非 admin 打印人同时具备菜单权限 `dcc:controlled-file:print` 和当前文件类别 `PRINT` 权限；如果产品已配置打印审批，必须走真实审批页面，未配置打印审批时按直接打印状态验收。直接受控打印资格不得用 `publishedFileId` / `stampedFileId` 是否已生成来替代当前有效版和 `PRINT` 权限判断，避免把“未生成受控副本”误判为当前文件不可受控打印。测试脚本必须通过真实受控浏览或详情页点击入口、填写用途、份数、接收部门/使用位置等必填项，并准备一个无 `PRINT` 权限账号做同文件阻断验证。无权限验证优先从受控浏览列表按文件编号定位同一 `ACTIVE` 行，再通过页面可见的追溯/详情入口进入详情断言无权限说明；不得直接打开详情 URL 后把路由重定向或上下文缺失误判为权限提示缺陷。只读预览 `viewer=1` 不渲染受控打印记录区、纸质分发弹窗或流程打印动作时，不得在初始化阶段请求 `controlled-print/records`、纸质分发记录或流程打印模板辅助数据；记录接口错误只能在非预览详情/追溯页的对应功能区显性展示，不能阻断受控文件预览。
 - Blocker: 页面缺“受控打印”入口、入口仅复用普通流程打印、文件不是当前有效版本、类别缺 `PRINT` 权限、打印表单缺必填字段、打印件缺水印/打印编号/文件编号/版本/打印人/打印时间、非预览记录页或只读接口/DB 无本次打印记录、预览态因未渲染的打印记录、纸质分发记录或流程打印模板辅助接口失败而中断、无权限账号仍能看到/触发打印入口、或需求要求无权限说明但同文件详情/追溯页不显示“无受控打印权限”等明确提示时，必须记录 E2E BLOCKED。
 - Verification: PASS 证据必须包含打印记录 ID、打印编号、文件 ID、文件编号、版本、master 当前有效指针、打印人、份数、用途、接收部门/使用位置、打印状态或审批状态、打印时间、打印件截图、打印记录截图、无权限阻断截图，以及只读 API/DB 对记录、份数、打印人、版本和当前有效性的核验。若验证打印 UX 优化，还必须断言成功结果弹窗显示打印编号/份数/打印人/打印时间并提供“查看打印记录”，记录表自动定位并高亮本次打印编号，份数大于 1 时展示逐份副本编号或编号范围，并显式显示直接打印或审批策略原因。
 - Forbidden action: 禁止用 admin 完成业务打印；禁止 API-only、SQL 或后端接口直接创建打印记录、改文件状态或冒充审批；禁止把无审批配置写成审批已通过；禁止用非当前 `ACTIVE` 版本、真实业务文件或无水印普通预览冒充受控打印件。
@@ -199,12 +201,12 @@
 
 ### Schema-backed E2E 迁移与字段可选态门禁
 
-- Trigger: 真实 E2E 验证新增 schema 字段支撑的页面能力、工作台上下文字段、单元格链接、字段矩阵、合成来源字段、`source_type`、`source_field_code`、`sourceFields`、或页面接口返回 `Unknown column` / `系统异常`。
-- Preflight check: 浏览器路径前先核对当前后端连接库已应用本任务正式迁移；若页面展示合成字段矩阵，E2E 必须断言可见文本和可交互态同时存在，例如 `.is-source-selectable`、选中态、目标单元格选择和主动作按钮 enabled。
-- Blocker: 缺迁移列、接口 500、字段文字可见但没有可选 class、点击字段后选中态不变、或只读账号需要写入保存才能证明行为时必须停止并记录；不得把“页面看得到字段”当成可选择或可保存通过。
-- Verification: 证据需包含 schema 列核对结果、真实前端入口 URL、租户/用户标签、字段白名单数量、目标页可见断言、可选/选中态断言、主动作按钮状态，以及是否发送 MES 写请求。
+- Trigger: 真实 E2E 验证新增 schema 字段支撑的页面能力、工作台上下文字段、单元格链接、字段矩阵、合成来源字段、导入/归档快照表、`source_type`、`source_field_code`、`sourceFields`、或页面接口返回 `Unknown column` / `系统异常` / 表不存在。
+- Preflight check: 浏览器路径前先核对当前后端连接库已应用本任务正式迁移；核对范围必须覆盖页面路径会访问的正式表和列，不能只用迁移 SQL、测试 schema、JUnit schema 合同或本地源码证明真实运行库已就绪。若页面展示合成字段矩阵，E2E 必须断言可见文本和可交互态同时存在，例如 `.is-source-selectable`、选中态、目标单元格选择和主动作按钮 enabled。
+- Blocker: 缺迁移表、缺迁移列、接口 500、字段文字可见但没有可选 class、点击字段后选中态不变、或只读账号需要写入保存才能证明行为时必须停止并记录；不得把“页面看得到字段”、迁移文件存在、静态合同 PASS 或 schema 单测 PASS 当成真实运行库可验证通过。
+- Verification: 证据需包含当前运行态 PID/后端连接库、schema 表/列核对结果、真实前端入口 URL、租户/用户标签、字段白名单数量、目标页可见断言、可选/选中态断言、主动作按钮状态，以及是否发送写请求。
 - Forbidden action: 禁止用 API-only、mock response、绕过页面直连 URL、忽略 schema 缺列、只断言文本不断言可选态、或在 `芋道源码/admin` 基线数据上保存规则冒充写入 E2E。
-- Evidence: `doc/tasks/20260726-work-order-field-cell-link/verification-report.md`。
+- Evidence: `doc/tasks/20260726-work-order-field-cell-link/verification-report.md`；`doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md`，DCC 未受控文件本地导入真实 E2E 前置审计发现运行库缺少 `dcc_nas_control_audit_file` 表和 import snapshot 列，即使代码、迁移文件、静态合同和测试租户页面入口已就绪，也必须记录 E2E BLOCKED。
 ## 禁止做法
 
 - 禁止 mock 数据冒充真实 E2E。

@@ -40,6 +40,15 @@
 - Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
 - Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。
 
+## Vue SFC 泛型箭头函数解析门禁
+
+- Trigger: Vite 或 `vite-plugin-eslint` 在 `.vue` 文件中报 `Parsing error: Unexpected token. Did you mean {'>'} or &gt;?`，且报错行是 `<script setup lang="ts">` 内的 `<T>`、`<K, V>` 等泛型箭头函数。
+- Preflight check: 先定位报错行是否是 `const fn = <T>(...) =>` 这类 SFC 易歧义写法；修复前新增或更新最小静态契约，让旧写法先 RED。
+- Blocker: 直接关闭 Vite overlay、禁用 ESLint、移除 TypeScript 类型、改成 `any`、或只改测试不改源文件时，必须停止。
+- Verification: 聚焦静态契约必须证明目标 SFC 不再使用歧义泛型箭头写法，并优先改为 `function fn<T>(...) {}`；再运行相邻静态契约或可响应的 ESLint/类型检查。
+- Forbidden action: 禁止用配置降级、parser 替换、忽略规则或隐藏页面来绕过源代码解析错误。
+- Evidence: 任务 `doc/tasks/20260803-dcc-controlled-file-detail-vue-parse/`，`getPagedDetailRows` 的 `const ... = <T>(...) =>` 触发 Vite/ESLint 解析错误，改为命名泛型函数并用静态契约 RED/GREEN 验证。
+
 ## 前端 BPMN marker 高亮完整性门禁
 
 - Trigger: BPMN/BPM 流程图、审批流程图、`canvas.addMarker`、`canvas.removeMarker`、`elementRegistry.get`、`Cannot read properties of undefined (reading 'markers')`、节点高亮、节点缺失。
@@ -93,6 +102,15 @@
 - Verification: 聚焦静态合同必须断言入口 helper 参数、URL query、scope 解析、正向显示区块、负向隐藏区块和非当前分面辅助加载短路；涉及 Vue/TS 时运行 `pnpm ts:check`。
 - Forbidden action: 禁止把多个业务入口继续合并成无差别详情页；禁止用默认 `traceability=1`、按钮文案、`from=browser` 或空数组推断分面；禁止吞掉非目标接口错误来掩盖区块仍在加载。
 - Evidence: 任务 `doc/tasks/20260803-dcc-trace-signature-scope-split/`，DCC 受控浏览“追溯”和“签核”原先打开同一追溯详情，最终通过 `traceScope=trace/signature` 与 `showLifecycleTraceSections` / `showSignatureTraceSections` 拆分页面关注范围。
+
+## eDHR 表单追溯可视化历史详情门禁
+
+- Trigger: eDHR 表单追溯、历史批记录入口隐藏、归档批次详情、`BatchExecutionTraceDrawer`、`review-timeline.executionReviews.formViewModel`、`EdhrExecutionReadonlyForm`、用户要求历史详情像批次执行填写页而不是纯文字。
+- Preflight check: 先区分“独立历史批记录入口”“追溯抽屉”和用户实际点击的“详情”弹窗；若产品口径要求不显示独立历史批记录，必须同时检查页签、隐藏路由、批次详情卡片、页面关系图、详情弹窗和可见文案。可视化详情必须在表单追溯上下文内复用 `review-timeline` 的持久化执行快照、模板布局、单元格值和签名记录，并使用 `EdhrExecutionReadonlyForm` 或同等只读表格组件展示。
+- Blocker: 仍存在可点击独立历史批记录入口、用户点击“详情”后看不到“批记录表单”页签、详情只展示 JSON/纯文字快照、表单追溯重新拉独立历史批次列表、历史详情依赖当前活动 BATCH 配置或当前 Jimu 报表、或为了隐藏入口删除历史数据时，必须停止。
+- Verification: 聚焦静态契约必须同时断言旧入口无可见残留、“电子批记录变更详情”弹窗有“批记录表单”页签、表单追溯抽屉有“批记录表单”页签、存在工序/表单导航、只读表单接收 `formViewModel` 与 `signatureRecords`、并禁止保存/签名/放行/作废动作；涉及 Vue/TS 时运行 `pnpm ts:check`。
+- Forbidden action: 禁止用 CSS 隐藏旧入口、禁止保留可搜索隐藏路由作为正式入口、禁止把 `executionSnapshotJson` 直接渲染成纯文本、禁止用 `formBindings` 或当前路线 BATCH 配置补历史批记录。
+- Evidence: 任务 `doc/tasks/20260803-edhr-trace-visual-record-detail/verification-report.md`。
 
 ## 前端列表跨账号默认列布局统一门禁
 
@@ -189,11 +207,11 @@
 ## DCC 上传类别权限投影门禁
 
 - Trigger: DCC 受控文件上传页、外来文件评审页、文件分类 `fileTypeTaxonomyId`、文件类别 `categoryId`、文件类别下拉、`upload-preview`、`Controlled file category does not exist`、`Current user cannot access this controlled file`、类别级 `UPLOAD` 权限。
-- Preflight check: 先确认类别列表接口返回当前用户类别级 `canUpload` 投影；上传页和外来评审页必须过滤 `canUpload=false` 且表单校验能拦截旧选择，同时后端 `upload-preview` / submit 继续用 `DccControlledFileCategoryPermissionSupport` fail-fast。受控文件上传页还必须区分“文件分类”taxonomy 与正式 DCC“文件类别”category：文件类别下拉只能展示当前 taxonomy 分支下可上传且绑定目录的正式类别，taxonomy 切换必须清空旧 `categoryId`、目录上下文和上传预览状态。
-- Blocker: 类别列表缺少 `canUpload`、前端只按 `active/directoryId` 展示类别、上传接口为了消除提示放宽 `UPLOAD` 校验、文件类别下拉允许跨 taxonomy 选择或保留 stale `categoryId`、把 `fileTypeTaxonomyId` 当作后端目录查询 `categoryId`、或静态合同不能证明无权限/跨 taxonomy 类别不会进入上传。
-- Verification: 运行 `node tests/e2e/dcc-upload-category-permission-static.spec.js`、`node tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js`，并运行 `mvn -pl yudao-module-dcc "-Dtest=DccControlledFileUploadApiTest#uploadPreviewFile_withoutCategoryUploadPermission_deniesBeforePolicyOrStorage,DccFileCategoryControllerConfigPackageContractTest#getCategoryList_projectsCurrentUserUploadPermission,DccFileCategoryControllerConfigPackageContractTest#getCategoryList_withoutLoginUserDoesNotGrantUploadProjection" "-Dsurefire.failIfNoSpecifiedTests=false" test`。
-- Forbidden action: 禁止把菜单权限当类别上传权限、禁止前端展示无权限类别再依赖上传失败、禁止 catch/默认成功/默认授权掩盖 `CONTROLLED_FILE_ACCESS_DENIED`。
-- Evidence: 任务 `doc/tasks/20260728-dcc-upload-controlled-file-access/`；任务 `doc/tasks/20260803-controlled-file-category-missing/`，受控文件提交页按当前文件分类 taxonomy 分支过滤正式文件类别并在 taxonomy 切换时清空旧类别/目录/预览状态，避免 `Controlled file category does not exist`。
+- Preflight check: 先确认类别列表接口返回当前用户类别级 `canUpload` 投影；上传页和外来评审页必须过滤 `canUpload=false` 且表单校验能拦截旧选择，同时后端 `upload-preview` / submit 继续用 `DccControlledFileCategoryPermissionSupport` fail-fast。受控文件上传页还必须区分“文件分类”taxonomy 与正式 DCC“文件类别”category：文件类别只能来自当前 taxonomy 叶子节点唯一可上传正式类别，taxonomy 切换必须清空旧 `categoryId`、目录上下文和上传预览状态；若该正式类别未绑定提交目录，必须由后端解析正式 `UNCLASSIFIED / 未分类` 目录并通过 `defaultUnclassified` 明示，前端不得要求提交人维护绑定。
+- Blocker: 类别列表缺少 `canUpload`、前端只按 `active/directoryId` 展示类别并排除可上传但未绑定目录的正式类别、上传接口为了消除提示放宽 `UPLOAD` 校验、文件类别允许跨 taxonomy 选择或保留 stale `categoryId`、把 `fileTypeTaxonomyId` 当作后端目录查询 `categoryId`、后端缺少唯一启用 `UNCLASSIFIED` 目录却继续提交、或静态合同不能证明无权限/跨 taxonomy 类别不会进入上传。
+- Verification: 运行 `node tests/e2e/dcc-upload-category-permission-static.spec.js`、`node tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js`、`node tests/e2e/dcc-upload-project-taxonomy-revision-static.spec.js`；涉及未绑定提交目录时，还要运行 `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_dcc_unclassified_upload_directory_seed_sql.py -q`、DCC base + unclassified seed 迁移门禁，以及 `getUploadDirectoryTree` / submit 的未分类目录后端单测。真实 E2E 若返回 `1080000196 Unclassified upload directory does not exist`，说明代码已进入正式 fail-fast 分支但本地库缺 seed，应先执行幂等 `20260803_dcc_unclassified_upload_directory_seed.sql` 并核对唯一 active `UNCLASSIFIED / 未分类`，不得改代码绕过。
+- Forbidden action: 禁止把菜单权限当类别上传权限、禁止前端展示无权限类别再依赖上传失败、禁止用 `directoryId` 缺失阻止用户提交、禁止 catch/默认成功/默认授权掩盖 `CONTROLLED_FILE_ACCESS_DENIED` 或缺失 `UNCLASSIFIED` 目录。
+- Evidence: 任务 `doc/tasks/20260728-dcc-upload-controlled-file-access/`；任务 `doc/tasks/20260803-controlled-file-category-missing/`，受控文件提交页按当前文件分类 taxonomy 叶子节点自动解析正式文件类别并清空旧类别/目录/预览状态，未绑定提交目录时后端使用正式 `UNCLASSIFIED / 未分类` 目录，避免 `Controlled file category does not exist` 和提交人手工维护目录绑定。
 
 ## DCC 预览不可用原因短路门禁
 

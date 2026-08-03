@@ -6,6 +6,9 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowConfigSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowProcessConfigRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderProductionLineRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderSaveReqVO;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteFlowConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -90,6 +93,38 @@ public class MesProRouteFlowConfigController {
     public CommonResult<Boolean> saveBatchRecordAttachmentOwners(
             @Valid @RequestBody MesProRouteBatchRecordAttachmentOwnerSaveReqVO saveReqVO) {
         routeFlowConfigService.saveBatchRecordAttachmentOwners(saveReqVO);
+        return success(true);
+    }
+
+    @GetMapping("/route-start-production-leader-production-lines")
+    @Operation(summary = "获得工艺路线工序开始生产组长可负责产线")
+    @Parameter(name = "routeId", description = "工艺路线编号", required = true)
+    @Parameter(name = "routeVersionId", description = "候选路线版本编号")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:batch-record-config:query')")
+    public CommonResult<List<MesProRouteStartProductionLeaderProductionLineRespVO>>
+    getRouteStartProductionLeaderProductionLines(
+            @RequestParam("routeId") Long routeId,
+            @RequestParam(value = "routeVersionId", required = false) Long routeVersionId) {
+        return success(routeFlowConfigService.getRouteStartProductionLeaderProductionLines(routeId, routeVersionId));
+    }
+
+    @GetMapping("/route-start-production-leaders")
+    @Operation(summary = "获得工艺路线工序开始生产组长配置")
+    @Parameter(name = "routeId", description = "工艺路线编号", required = true)
+    @Parameter(name = "routeVersionId", description = "候选路线版本编号")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:batch-record-config:query')")
+    public CommonResult<List<MesProRouteStartProductionLeaderRespVO>> getRouteStartProductionLeaders(
+            @RequestParam("routeId") Long routeId,
+            @RequestParam(value = "routeVersionId", required = false) Long routeVersionId) {
+        return success(routeFlowConfigService.getRouteStartProductionLeaders(routeId, routeVersionId));
+    }
+
+    @PostMapping("/route-start-production-leaders/save")
+    @Operation(summary = "保存工艺路线工序开始生产组长配置")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:batch-record-config:update')")
+    public CommonResult<Boolean> saveRouteStartProductionLeaders(
+            @Valid @RequestBody MesProRouteStartProductionLeaderSaveReqVO saveReqVO) {
+        routeFlowConfigService.saveRouteStartProductionLeaders(saveReqVO);
         return success(true);
     }
 

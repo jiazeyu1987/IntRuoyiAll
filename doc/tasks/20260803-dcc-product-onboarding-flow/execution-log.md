@@ -180,3 +180,13 @@
 - Cleanup verification: `Test-Path D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803` -> `False`; `git worktree list --porcelain` no longer contains `dcc-product-onboarding-flow-20260803`.
 - Slot release: `D:\IntRuoyiWorktree\.ports\worktree-ports.json` entry `dcc-product-onboarding-flow-20260803` updated to `active=false`, `slot=15`, `frontendPort=8096`, `backendPort=48096`, `cleanupTask=20260803-dcc-product-onboarding-flow`.
 - Branch cleanup: local branch `codex/dcc-product-onboarding-flow-20260803` was confirmed merged into `int_main` and deleted with `git branch -d`; no `origin/codex/dcc-product-onboarding-flow-20260803` branch existed.
+
+## Main Runtime E2E Recheck - 2026-08-03
+
+- Rules rechecked before E2E: `docs\e2e-rules.md`, `docs\login-access.md`, `docs\local-runtime.md`, and `C:\Users\BJB110\.codex\skills\playwright\SKILL.md`.
+- Runtime preflight: `http://127.0.0.1:8081/` returned HTTP `200`; `http://127.0.0.1:48081/actuator/health` returned `{"status":"UP"}`.
+- Runtime ownership: frontend PID `28264` command line points to `E:\IntRuoyi\IntRuoyiFronted\node_modules\.bin\..\vite\bin\vite.js --port 8081 --strictPort`; backend PID `42064` command line points to `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260803-int-main-6f5f52814.jar --server.port=48081 --yudao.runtime-control.repo-root=E:\IntRuoyi\IntRuoyiBackend`.
+- RED: `DCC_PRODUCT_ONBOARDING_E2E_BASE_URL=http://127.0.0.1:8081 node doc\tasks\20260803-dcc-product-onboarding-flow\dcc-product-onboarding-real.e2e.cjs` -> FAIL before business flow, expected reason: Playwright bundled Chromium executable missing at `E:\Int\DevCache\playwright-browsers\chromium_headless_shell-1223\chrome-headless-shell-win64\chrome-headless-shell.exe`.
+- GREEN: same real Playwright E2E with `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe` -> PASS, `requestId=8`, `projectCodeId=262`, `productMasterId=336`, `projectCode=CODXONB03120033`.
+- GREEN evidence: `dcc-product-onboarding-real-e2e-result.json` records base URL `http://127.0.0.1:8081`, tenant `测试租户`, username `aoteman`, create and approve write requests, `criticalNetworkFailures=[]`, `consoleErrors=[]`, and `pageErrors=[]`.
+- Read-only final state: generated DCC project code `id=262` is `ENABLE` with `productMasterId=336`; generated MDM product `id=336` is `ENABLE` with product code `CODX-MDM-ONB-20260803120033` and DCC product code `C0260803120033`.

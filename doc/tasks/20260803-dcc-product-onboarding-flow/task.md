@@ -75,6 +75,8 @@ completed
 
 worktree 内完成运行态验证：DCC 定向 JUnit 通过 107 tests；前端静态契约通过；worktree DCC/MDM 相关模块 install 后重新打包 `yudao-server-exec.jar` 通过；后端 `48096` health `UP`；前端 `8096` HTTP `200`；真实 Playwright E2E 通过项目代码页面发起产品建档申请并审批生成 DCC 项目代码，最终有效证据为 `requestId=7`、`projectCodeId=261`、`productMasterId=335`、`projectCode=CODXONB03074622`，`criticalNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`。
 
+用户要求补充 E2E 后，主运行态 `8081/48081` 已复验通过：前端 `8081` HTTP `200`，后端 `48081` health `UP` 且 PID `42064` 运行 `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260803-int-main-6f5f52814.jar`；真实 Playwright 通过 `http://127.0.0.1:8081/mdm/project-code` 发起产品建档申请并审批生成 DCC 项目代码，结果为 `requestId=8`、`projectCodeId=262`、`productMasterId=336`、`projectCode=CODXONB03120033`，`criticalNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`。
+
 收尾已完成：`codex/dcc-product-onboarding-flow-20260803` 已并入 `int_main`，本地任务分支已删除；worktree Git 注册已移除；残留 `node_modules` 空壳按 worktree 删除门禁清理；`D:\IntRuoyiWorktree\.ports\worktree-ports.json` 中 `dcc-product-onboarding-flow-20260803` 已标记 `active=false`，`slot=15`、端口 `8096/48096` 已释放。
 
 ## 设计约束检查

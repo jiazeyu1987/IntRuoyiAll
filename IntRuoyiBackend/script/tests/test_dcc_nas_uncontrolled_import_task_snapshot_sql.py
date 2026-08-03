@@ -19,6 +19,9 @@ def test_dcc_nas_uncontrolled_import_task_snapshot_migration_contract() -> None:
         "dependsOn=20260803_dcc_nas_control_audit_file; type=schema; riskLevel=medium"
     )
     for token in [
+        "DELIMITER $$",
+        "END$$",
+        "DELIMITER ;",
         "CALL ensure_dcc_uncontrolled_import_column(",
         "`dcc_controlled_file_nas_transfer_task` ADD COLUMN `audit_task_id` bigint DEFAULT NULL",
         "`dcc_controlled_file_nas_transfer_task` ADD COLUMN `idempotency_key` varchar(128) DEFAULT NULL",

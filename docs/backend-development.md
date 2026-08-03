@@ -82,6 +82,15 @@
 - Forbidden action: 禁止把发布快照作为通用 fallback；禁止用空绑定、默认 MAIN 或默认成功掩盖当前配置损坏。
 - Evidence: `doc/tasks/merge-jiluben-worktree-20260724/verification-report.md`；`doc/tasks/20260729-edhr-parallel-start-process-highlight/verification-report.md`。
 
+### 历史批记录只读页与活动流转门禁边界
+
+- Trigger: 历史批记录页签、`review-timeline`、已归档批次、`BATCH_STATUS_ARCHIVED`、`routeSnapshotJson` 缺 `flowGraph.nodes` 或 `batchUseConfigs`、当前路线 BATCH 配置已删除、只读批记录预览反查当前 Jimu 报表。
+- Preflight check: 先区分“终态只读历史展示”和“活动批次流转/切换工序门禁”；历史页签应读取已持久化的批次事件、任务事件、执行快照、签名、审批、附件和归档目录，不应为了展示历史而调用活动任务门禁 `buildTaskGateMap` 或重新解析当前 BATCH 流程配置。
+- Blocker: 已归档历史批次因当前/冻结 BATCH 门禁配置缺失导致全部历史信息打不开，或历史执行预览因当前 Jimu 报表/当前报表绑定缺失阻断已保存执行快照展示时，必须修复历史读取边界；不得用清空全部历史、前端隐藏错误或吞异常掩盖。
+- Verification: 后端回归必须同时覆盖“缺失 BATCH 门禁配置仍返回已持久化执行快照并标记只读”和“正常历史批记录仍返回任务、签名、审批、归档内容”；静态契约需防止 `review-timeline` 重新直接调用活动门禁。
+- Forbidden action: 禁止把终态历史只读页签改成当前配置重算结果；禁止历史执行预览在已有 `executionSnapshotJson` / `sheetLayoutJson` 时再强制依赖当前 Jimu 报表；禁止把活动批次缺配置 fail-fast 放宽到默认成功。
+- Evidence: `doc/tasks/20260803-edhr-history-missing-batch-config/verification-report.md`。
+
 ### 草稿 BATCH 快照读写对称边界
 
 - Trigger: 路线草稿/候选版本、`routeSnapshotJson`、`batchUseConfigs`、`formBindings`、表单槽位、`flow-config/batch-record/save`、草稿保存后读回为空或仍报“系统异常”。

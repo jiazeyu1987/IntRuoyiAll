@@ -8,7 +8,7 @@
 
 - 第一阶段已交付需求、系统设计、BDD、严格 TDD、真实 E2E 与测试数据文档。
 - 当前阶段按上述文档推进开发实现与验证，优先完成 `dcc_nas_control_audit_file` 明细 schema、持久化模型和可执行 schema 验证。
-- 本任务不操作真实 NAS 文件、不启动远端环境、不写入真实业务数据库；schema 改动仅通过迁移文件、测试 schema 和静态/单元测试验证。
+- 本任务不操作真实 NAS 文件、不启动远端环境、不写入生产或正式业务数据库；M30 已在本机 Docker 测试库受控应用任务迁移并插入任务自有、可清理的 audit fixture，用于真实 E2E 前置 gate。
 - 设计优先复用当前 DCC 页面、接口、服务、数据模型、分类规则和测试结构。
 
 ## Milestones
@@ -38,6 +38,13 @@
 - [x] M25：按严格 TDD 完成前端静态契约和最小 UI/API 集成切片，覆盖目录授权前置、相对路径校验、content 下载、本地写入、local-write-result 回写、未分类待处理和 `ARCHIVE_METADATA_REQUIRED` 可见状态。
 - [x] M26：复核 M24 正式归档元数据前置并固化文档门禁，明确缺少处理项级归档元数据快照时必须保持 `ARCHIVE_METADATA_REQUIRED` 阻塞，不得伪造成功归档。
 - [x] M27：完成文档一致性审计并补齐可检索门禁标记，确保 TDD/test-data 文档显式覆盖 `未分类/待处理`、`showDirectoryPicker`、`LOCAL_WRITTEN`、`ARCHIVE_METADATA_REQUIRED` 和 `NAS_UNCONTROLLED_IMPORT`。
+- [x] M28：完成真实 E2E 前置审计，确认本机运行态、测试租户页面入口和 Chrome File System Access API 可用，同时阻塞记录运行库缺少 `dcc_nas_control_audit_file` 及 import snapshot 迁移、Playwright bundled Chromium 缺失导致真实 E2E 不可放行。
+- [x] M29：按严格 TDD 补齐真实 E2E 可执行前置门禁 `e2e:dcc:nas-uncontrolled-local-import:real:check`，只读检查本机运行态、运行库 schema、浏览器 File System Access API 和任务自有 audit 样本；缺迁移或缺样本时 fail fast，不声明真实 E2E PASS。
+- [x] M30：按严格 TDD 修复并应用本地测试库迁移，插入任务自有 audit fixture，并验证 `DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID=1` 时真实 E2E 前置 gate PASS；完整页面下载在当时仍阻塞于未授权创建/定位真实 NAS 样本文件。
+- [x] M31：完成独立完成度审计补强，修正 full 真实页面 E2E 非 check 模式阻塞提示，明确未创建/未确认共享 NAS 源文件时必须 fail fast，不能把 `real:check` PASS 误写成完整页面 E2E PASS。
+- [x] M32：按严格 TDD 修正待处理文件本地下载范围，允许 `UNCLASSIFIED_PENDING/AMBIGUOUS` 选择下载到 `_未分类待处理`，并验证仅进入 `PENDING_MANUAL_REVIEW`、不创建受控文件或 ACTIVE NAS 来源映射。
+- [x] M33：复跑授权前可执行验收 gate，确认静态合同、真实前置 gate 和验收计划仍通过，full 真实页面 E2E 当时仍阻塞于未创建/未确认的共享 NAS 源文件字节。
+- [x] M34：按用户授权尝试在共享 NAS 创建/确认 3 个任务源文件并运行 full E2E，确认当前配置 NAS 账号对目标测试目录不可写，full E2E 阻塞于 NAS `UnauthorizedAccessException`。
 
 ## Expected Verification
 
@@ -51,6 +58,7 @@
 - 核对 import task 只能在本地目录授权和相对路径校验成功后创建，取消目录选择或浏览器不支持时无后端处理任务。
 - Check content and local-write-result bind current user, tenant, import task, audit file, source signature, and local relative path snapshot.
 - 核对识别候选摘要必须可持久化，`MATCHED / UNCLASSIFIED_PENDING / AMBIGUOUS` 的原因码、候选摘要和期望本地相对路径均可被测试验证。
+- 核对 `UNCLASSIFIED_PENDING / AMBIGUOUS` 文件可被显式选择下载到 `_未分类待处理` 本地相对路径，但本地写入成功后只能进入 `PENDING_MANUAL_REVIEW`，不得自动归档。
 - 核对 `import-selected` 使用显式 `auditFileId` 列表、后端重算本地相对路径、相同幂等键不同 `request_hash` 返回冲突。
 - 核对 `import-selected` 任一选中项无效时整体拒绝且无部分 `SELECTED`、无半创建任务。
 - 核对规范化 `request_hash` 对 `selectedFiles` 顺序不敏感，重复 `auditFileId` 在 hash 前失败。
@@ -61,6 +69,9 @@
 - 核对正式归档元数据缺失时进入 `ARCHIVE_METADATA_REQUIRED` 或明确失败/阻塞状态，不使用当前日期、空模板或旧任务值默认成功。
 - `node tests/e2e/dcc-nas-uncontrolled-local-import-static.spec.js`
 - `pnpm e2e:dcc:nas-uncontrolled-local-import:static`
+- `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real:check`
+- `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; $env:DCC_NAS_UNCONTROLLED_IMPORT_ALLOW_NAS_WRITE='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real`（full 模式必须使用真实 NAS 源文件和真实浏览器本地目录写入；当前若阻塞，原因必须指向 NAS 测试目录写权限或源文件真实缺失）
+- `pnpm e2e:dcc:nas-uncontrolled-local-import:real:check`（未提供任务自有样本 ID 时仍预期 fail fast，不得声明真实 E2E PASS）
 - `node tests/e2e/nas-control-audit-static.spec.js`
 - `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\frontend-feature-evidence.md`
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasUncontrolledImportControllerTest#nasUncontrolledImport_mapsContentAsBinaryWithSnapshotQueryParamsAndWritePermission,DccControlledFileNasTransferServiceTest#readUncontrolledImportContent_returnsBinaryForBoundTaskWithoutMutatingLocalOrArchiveState,DccControlledFileNasTransferServiceTest#readUncontrolledImportContent_rejectsCrossTaskOrStaleSignatureWithoutReadingNas" "-Dsurefire.failIfNoSpecifiedTests=false" test`
@@ -76,9 +87,9 @@
 
 ## Current Status
 
-in_progress
+blocked
 
-设计文档、BDD/TDD/E2E 验收文档、潜在问题优化、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片、M16 import-selected 后续实现门禁加固、M17 import-selected 服务契约/legacy processor 隔离、M18 服务级原子创建、M19 服务级幂等并发保护、M20 controller 契约、M21 content binary download、M22 local-write-result、M23 归档元数据缺失显式阻塞、M25 前端静态契约/最小 UI/API 集成、M26 正式归档元数据阻塞门禁和 M27 文档一致性审计均已完成验证。M21 已补入 `readUncontrolledImportContent` 服务快照校验和 `/dcc/controlled-files/nas-uncontrolled-import/tasks/{importTaskId}/files/{auditFileId}/content` 二进制 controller 实现，并在隔离 worktree `D:\IntRuoyiWorktree\dcc-uncontrolled-import-m21-verify-20260803` 通过 targeted GREEN 与相邻回归；M22 已在主工作区补入 `recordUncontrolledImportLocalWriteResult` 服务快照校验、`/dcc/controlled-files/nas-uncontrolled-import/tasks/{importTaskId}/files/{auditFileId}/local-write-result` controller、重复成功回放幂等和冲突终态拒绝；M23 已在 `LOCAL_WRITTEN` 后对 `MATCHED` 文件写入 `archiveStatus=FAILED`、`archiveErrorCode=ARCHIVE_METADATA_REQUIRED`，并验证不读取 NAS、不上传原始文件、不调用 workflow、不写 ACTIVE NAS 来源映射；M25 已在 NAS 管理页补齐未受控文件明细、识别刷新、目录授权、本地写入和 local-write-result 回写的静态契约；M26 已复核当前 schema/DO/Service，确认尚无处理项级正式归档元数据快照，已把 M24 成功归档路径前置阻塞写入设计与 BDD/TDD 门禁；M27 已补齐 TDD/test-data 文档中缺失的关键可检索标记，保证后续实施能按同一组状态和源类型检索到阻塞门禁。当前已具备处理任务头幂等字段、处理项识别/本地路径快照、audit 明细 import 绑定、旧 transfer 字段隔离、legacy processor 跳过、规范化 request hash、事务内二次幂等检查、正式 import-selected 路由、content 下载快照绑定、local-write-result 快照回写、缺元数据归档阻塞入口和前端静态入口。M24 已补齐处理项级正式归档元数据快照、成功归档服务路径和 ACTIVE NAS 来源映射；`LOCAL_WRITTEN + MATCHED` 仅在快照完整时读取 NAS、上传原件、提交 workflow 并写 ACTIVE NAS source，快照缺失仍保持 `ARCHIVE_METADATA_REQUIRED`；real E2E remains pending on real browser/runtime/test-data prerequisites. `pnpm ts:check` 已在修复无关 DCC 上传页 computed 暴露顺序问题后通过，可作为当前前端工作区类型检查 GREEN。最终 `completed` 状态暂不标记：当前工作区存在任务开始前及其它并发任务脏文件，且分支相对 `origin/int_main` 仍有未推送提交；按项目 Git/closeout 规则需要先单独处理脏工作区基线、并发提交污染和 push 阻塞，不能把本任务与其它并发任务资产混在一个收尾提交里。
+设计文档、BDD/TDD/E2E 验收文档、潜在问题优化、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片、M16 import-selected 后续实现门禁加固、M17 import-selected 服务契约/legacy processor 隔离、M18 服务级原子创建、M19 服务级幂等并发保护、M20 controller 契约、M21 content binary download、M22 local-write-result、M23 归档元数据缺失显式阻塞、M24 正式归档成功路径、M25 前端静态契约/最小 UI/API 集成、M26 正式归档元数据阻塞门禁、M27 文档一致性审计、M28 真实 E2E 前置审计、M29 可执行真实 E2E 前置门禁、M30 本地测试库迁移/样本前置验证、M31 独立完成度审计补强、M32 待处理文件本地下载范围修正、M33 当前 gate 复核和 M34 授权后 full E2E 尝试均已完成。M34 复跑证明 `pnpm e2e:dcc:nas-uncontrolled-local-import:static` 和 `DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID=1` 的 `real:check` 仍通过；但在用户明确授权共享 NAS 测试文件后，`DCC_NAS_UNCONTROLLED_IMPORT_ALLOW_NAS_WRITE=1` 的 full E2E 仍失败于 `prepareSharedNasSourceFiles failed: New-Item : Access to the path 'codex-dcc-uncontrolled-local-import' is denied`。当前完整真实页面 E2E 必须继续阻塞：运行库 schema、浏览器目录能力、audit 样本和待处理本地路径前置已满足，但配置的 NAS 账号无法在 `\\172.30.30.4\质量体系文件\codex-dcc-uncontrolled-local-import` 创建任务源文件，因此尚未证明真实 NAS 源字节、浏览器本地写入和页面归类全链路。影响：不能把前置 gate PASS、静态合同、API-only 或数据库 fixture 写成“已完成真实下载到本地目录并归类”的页面 E2E PASS。最终 `completed` 状态暂不标记：需要给配置 NAS 账号授予任务测试目录写权限、提供一个已确认可写的共享 NAS 子目录，或由用户手动放置并确认 3 个任务源文件存在后，才能继续 full E2E；当前工作区还存在任务开始前及其它并发任务脏文件，且分支当前相对 `origin/int_main` 为 behind 2，不能把本任务与其它并发任务资产混在一个收尾提交里。
 
 ## 设计约束检查
 
@@ -91,7 +102,7 @@ in_progress
 - `docs/frontend-development.md#DCC 基础条目关联文档分类树门禁`：文件分类必须来自正式 DCC 文件分类树，自动归类不得写回“未分类文件类型”后宣称成功。
 - `docs/database-rules.md#DCC 文件类别规则种子门禁`：`dcc_file_category_match_rule` 缺失、歧义、未知类型或插入不完整必须 fail fast，不得用硬编码 fallback 或直接 SQL 修受控文件分类。
 - `docs/e2e-rules.md#规划型 E2E 前置与业务 RED 分离门禁`：本任务仅输出设计和验收 gate，不提前实现生产代码；后续实施必须先通过前置 RED。
-- `docs/e2e-rules.md#浏览器本地目录写入门禁`：涉及 `showDirectoryPicker`、本地目录授权和本地写入结果回写时，必须验证目录授权前无后端写入任务、`LOCAL_WRITTEN` 前无正式归档、取消授权无 import task。
+- `docs/e2e-rules.md#浏览器本地目录写入门禁`：涉及 `showDirectoryPicker`、本地目录授权和本地写入结果回写时，必须验证目录授权前无后端写入任务、`LOCAL_WRITTEN` 前无正式归档、取消授权无 import task；`real:check`、DB fixture 和静态合同不能替代授权共享 NAS 源文件与 full 页面下载证据。
 - `docs/e2e-rules.md#Element Plus 表格选择门禁` 与真实 E2E 规则：后续写入型验证必须按页面可见业务唯一文本选择文件，API 仅用于最终只读核验。
 - 严格 no-fallback 门禁：无法唯一判断项目代码、item 或分类时进入正式 `未分类/待处理` 状态，不允许默认项目、默认 item、默认分类、ZIP 降级或静默成功。
 

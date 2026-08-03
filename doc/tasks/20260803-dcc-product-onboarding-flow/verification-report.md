@@ -2,9 +2,10 @@
 
 ## Summary
 
-- Result: Targeted backend, schema, frontend static/type, isolated server package, runtime load, and real Playwright E2E verification passed.
+- Result: Targeted backend, schema, frontend static/type, isolated server package, runtime load, isolated worktree E2E, and post-closeout main-runtime Playwright E2E verification passed.
 - Completion state: completed; implementation, required verification, fast-forward integration, push, worktree removal, branch cleanup, and slot release all passed.
 - 2026-08-03 worktree migration update: independent worktree setup and runtime verification passed. The branch `codex/dcc-product-onboarding-flow-20260803` was created under `D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803` and registered as `int_main slot=15` (`8096/48096`). Worktree backend JUnit, frontend static contract, server package, backend health, frontend HTTP, and real Playwright E2E all passed; the branch was fast-forward merged into `int_main`, pushed, removed locally, and slot 15 was released.
+- 2026-08-03 main-runtime recheck: real Playwright E2E passed on `http://127.0.0.1:8081/mdm/project-code` against backend `48081`, producing `requestId=8`, `projectCodeId=262`, `productMasterId=336`, `projectCode=CODXONB03120033`.
 
 ## Commands
 
@@ -18,6 +19,7 @@
 - PASS: isolated `mvn -pl yudao-server -am "-DskipTests" package`, BUILD SUCCESS.
 - PASS: `node --check ..\doc\tasks\20260803-dcc-product-onboarding-flow\dcc-product-onboarding-real.e2e.cjs`.
 - PASS: real Playwright E2E `node ..\doc\tasks\20260803-dcc-product-onboarding-flow\dcc-product-onboarding-real.e2e.cjs`, `requestId=4`, `projectCodeId=258`, `productMasterId=332`, `projectCode=CODXONB03045351`.
+- PASS: post-closeout main-runtime real Playwright E2E `DCC_PRODUCT_ONBOARDING_E2E_BASE_URL=http://127.0.0.1:8081` with local Chrome executable -> `requestId=8`, `projectCodeId=262`, `productMasterId=336`, `projectCode=CODXONB03120033`.
 
 ## Coverage
 
@@ -25,8 +27,9 @@
 - Database: 基础 schema、迁移文件和 DCC 测试 fixture 包含 `dcc_project_code.product_master_id`、`dcc_product_onboarding_request`、状态索引和待审批唯一约束。
 - Frontend: 项目代码基础数据页暴露产品建档入口、申请/审批按钮、MDM 产品选择、申请表单字段、API 契约和错误不吞掉的静态合同。
 - Compile/type: 后端 DCC 依赖模块 compile 通过；前端 `ts:check` 通过。
-- Runtime/E2E: clean detached build jar copied to `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260803-121411-dcc-product-onboarding.jar` with SHA256 `0BDB594204E0FF55CCEB2744D7566493643A27231C404D4424B50BA83051F02B`; during E2E, `48081` was switched to PID `57996` running this product-onboarding jar and health was `UP`; frontend `8081` returned HTTP `200`. After E2E, shared `48081` was externally restored to PID `43876` running `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`, so the current shared runtime is healthy but is not the product-onboarding verification jar.
+- Runtime/E2E: clean detached build jar copied to `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260803-121411-dcc-product-onboarding.jar` with SHA256 `0BDB594204E0FF55CCEB2744D7566493643A27231C404D4424B50BA83051F02B`; during the original main-runtime E2E, `48081` was switched to PID `57996` running this product-onboarding jar and health was `UP`; frontend `8081` returned HTTP `200`. After worktree closeout, post-closeout recheck confirmed frontend PID `28264` on `8081` and backend PID `42064` on `48081` both belong to `E:\IntRuoyi`; backend command line uses `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260803-int-main-6f5f52814.jar` with repo root `E:\IntRuoyi\IntRuoyiBackend`.
 - Real E2E: 页面真实点击“产品建档申请”、提交申请、审批通过、按项目代码 quick filter 回显生成记录；最终只读 API 核验 DCC 项目代码 `productMasterId=332` 且 MDM 产品 `status=ENABLE`，`criticalNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`。
+- Post-closeout real E2E: 主运行态页面真实点击“产品建档申请”、提交申请、审批通过、按项目代码 quick filter 回显生成记录；最终只读 API 核验 DCC 项目代码 `id=262`、`productMasterId=336`、`status=ENABLE`，MDM 产品 `id=336`、`status=ENABLE`，`criticalNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`。
 
 ## Validator Evidence
 
@@ -54,7 +57,7 @@
 
 ## Known Non-Goals
 
-- Shared runtime scope: product-onboarding E2E passed in the isolated worktree runtime on `8096/48096`; this task does not claim the current shared `48081` runtime is still running the product-onboarding verification jar.
+- Shared runtime scope: product-onboarding E2E passed in the isolated worktree runtime on `8096/48096`; post-closeout recheck also passed on the current main runtime `8081/48081` using the currently running `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260803-int-main-6f5f52814.jar`.
 - Full schema suite not claimed: 未将完整 `DccBaseSchemaTest` 作为当前完成门禁；此前已知全量 schema 测试存在与本任务无关的 destructive SQL 检测和 NAS nullable 断言问题。
 - No remaining closeout blocker: final `int_main` and `origin/int_main` both resolved to `dd1aa949d`, and the main worktree had no task-owned diff.
 

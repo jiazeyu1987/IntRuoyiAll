@@ -53,6 +53,17 @@
 - BLOCKED: `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output %TEMP%\dcc_upload_size_policy_int_main_migration_gate.json` in `E:\IntRuoyi\IntRuoyiBackend` -> FAIL, unrelated current-main gate blocker: `missing release-migration metadata: E:\IntRuoyi\IntRuoyiBackend\sql\mysql\20260730_mes_process_pool_team_leader.sql`.
 - Local implementation commit: `4add2d288 fix: seed DCC upload size policies on int_main`.
 - BLOCKED: `git -c http.https://github.com.proxy= -c http.proxy= -c https.proxy= push origin int_main` -> FAIL, `Failed to connect to github.com port 443`; local branch remains ahead of `origin`.
+- User reported a repeated upload-page toast: `DCC upload size policy is missing or invalid`.
+- Runtime datasource verification: local backend config resolves to Docker MySQL `int-ruoyi-mysql`, database `ruoyi-vue-pro`, user `root`; password was not logged.
+- Local DB verification after applying the seed: active DCC category tenants are `0`, `1`, and `122`; all three tenants have effective `PURPOSE` policies for `SOURCE`, `DRAWING_PDF`, `TRAINING_RECORD`, and `EXTERNAL_REVIEW_OUTPUT`; the missing-effective-policy query returned no rows.
+- Screenshot leaf verification: `专利检索与分析报告` maps in tenant `1` to DCC category `907180`, code `DCC_FVM_DHF_006`, file type taxonomy `84`.
+- Runtime effective-policy verification: logged in through real frontend at `http://127.0.0.1:8081` as `芋道源码/admin`; running backend `48081` returned `code=0`, `policyId=22`, `policyCode=DCC_UPLOAD_DEFAULT_SOURCE_V1`, `maxBytes=10485760` for `categoryId=907180`, `purpose=SOURCE`, `fileSize=1000`.
+- Runtime dependency verification: backend health `UP`, frontend `8081` HTTP `200`, `docker-minio-1` healthy, and MinIO ready endpoint returned HTTP `200`.
+- GREEN: real-page-context upload-preview diagnostic for `categoryId=907180`, `purpose=SOURCE`, file `codex-upload-policy-empty.docx` -> upload response HTTP `200`, business `code=0`, upload ticket present, `responsePurpose=SOURCE`, `fileSize=3306`; session cleanup response HTTP `200`, business `code=0`, `cleanedCount=1`.
+- BLOCKED/diagnostic note: existing `pnpm e2e:dcc:upload-policy:readiness` was started for read-only verification but produced no result within the wait window; task-owned Node processes for that run were stopped and replaced with the targeted page-context runtime diagnostic above.
+- GREEN: Playwright real UI E2E for the screenshot path -> logged in at `http://127.0.0.1:8081` as `芋道源码/admin`, opened `/dcc/controlled-file/upload`, selected the file classification by Cascader search `专利检索`, clicked `技术文档 / 设计和开发输入阶段 / 专利检索与分析报告（如适用）`, verified the file category display shows `专利检索与分析报告（如适用）`, then set the real upload input to `codex-e2e-upload-policy-empty.docx`.
+- GREEN: UI E2E upload-preview result -> HTTP `200`, business `code=0`, upload ticket present, `responsePurpose=SOURCE`, `responseFileName=codex-e2e-upload-policy-empty.docx`, `responseFileSize=3306`, preview panel visible, `DCC upload size policy is missing or invalid` not visible, `targetNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- GREEN: UI E2E cleanup -> first cleaned the previous diagnostic leftover session (`cleanedCount=1`), then cleaned the current UI upload session (`cleanedCount=1`); DB follow-up query found `active_codex_upload_policy_temp_files=0` for `codex-e2e-upload-policy-empty.docx`.
 
 ## Verification Evidence
 
