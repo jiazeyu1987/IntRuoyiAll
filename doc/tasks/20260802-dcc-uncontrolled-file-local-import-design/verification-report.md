@@ -43,6 +43,8 @@
 - `node -e "<doc consistency marker scan>"` -> PASS，8 个任务/验收核心文档均包含 `ARCHIVE_METADATA_REQUIRED`、`未分类/待处理`、`showDirectoryPicker`、`LOCAL_WRITTEN` 和 `NAS_UNCONTROLLED_IMPORT`。
 - `node -e "<utf8/trailing whitespace check>"` -> PASS，`UTF8_TRAILING_CHECK_PASS files=5`。
 - `git diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md docs/acceptance/tdd-plan.md docs/acceptance/test-data.md` -> PASS，仅存在 Git 行尾转换 warning，无 whitespace error。
+- `project-experience-consolidation` -> PASS，已将验收文档关键标记扫描门禁合并到 `docs/e2e-rules.md#规划型 E2E 前置与业务 RED 分离门禁`，并在 `docs/experience-index.md` 增加关键词路由。
+- `rg -n "doc consistency marker scan|关键业务标记扫描|ARCHIVE_METADATA_REQUIRED" docs\experience-index.md docs\e2e-rules.md` -> PASS，长期经验索引和目标门禁均可检索。
 - `node -e "<utf8 read check>"` -> PASS，任务文档、验收文档和经验文档均可按 UTF-8 读取，`contains_replacement=false`。
 - `git -C E:\IntRuoyi diff --check -- docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md docs/task-closeout-rules.md docs/experience-index.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md` -> PASS，仅存在 Git 行尾转换 warning，无 whitespace error。
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260802-dcc-uncontrolled-file-local-import-design --mode preview` -> PASS，delete/blocked/warnings 均为 none。
@@ -308,4 +310,7 @@
 - GREEN: `node -e "<doc consistency marker scan>"` -> PASS, `DOC_CONSISTENCY_PASS files=8 markers=5`.
 - GREEN: `node -e "<utf8/trailing whitespace check>"` -> PASS, `UTF8_TRAILING_CHECK_PASS files=5`.
 - GREEN: `git diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md docs/acceptance/tdd-plan.md docs/acceptance/test-data.md` -> PASS, only Git LF-to-CRLF warnings.
+- Experience: merged the marker-scan lesson into `docs/e2e-rules.md#规划型 E2E 前置与业务 RED 分离门禁` and indexed keywords in `docs/experience-index.md`.
+- GREEN: `rg -n "doc consistency marker scan|关键业务标记扫描|ARCHIVE_METADATA_REQUIRED" docs\experience-index.md docs\e2e-rules.md` -> PASS.
+- GREEN: long-term docs UTF-8/trailing whitespace check and scoped `git diff --check` for `docs/e2e-rules.md` and `docs/experience-index.md` -> PASS, only Git LF-to-CRLF warnings.
 - Boundary: documentation-only hardening; no production code, NAS file, local directory, database data, workflow submit, controlled-file creation, or ACTIVE NAS source mapping was modified.

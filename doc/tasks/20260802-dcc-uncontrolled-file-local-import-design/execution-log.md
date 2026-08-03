@@ -426,4 +426,7 @@ BDD: Archive metadata missing is visible -> Given a matched file is LOCAL_WRITTE
 - GREEN: `node -e "<doc consistency marker scan>"` -> PASS, `DOC_CONSISTENCY_PASS files=8 markers=5`.
 - GREEN: `node -e "<utf8/trailing whitespace check>"` -> PASS, `UTF8_TRAILING_CHECK_PASS files=5`.
 - GREEN: `git diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md docs/acceptance/tdd-plan.md docs/acceptance/test-data.md` -> PASS, only Git LF-to-CRLF warnings.
+- Project experience consolidation: merged the reusable marker-scan lesson into `docs/e2e-rules.md#规划型 E2E 前置与业务 RED 分离门禁` and indexed it in `docs/experience-index.md`.
+- GREEN: `rg -n "doc consistency marker scan|关键业务标记扫描|ARCHIVE_METADATA_REQUIRED" docs\experience-index.md docs\e2e-rules.md` -> PASS, index route and target gate are searchable.
+- GREEN: long-term docs UTF-8/trailing whitespace check and scoped `git diff --check` for `docs/e2e-rules.md` and `docs/experience-index.md` -> PASS, only Git LF-to-CRLF warnings.
 - Boundary: documentation-only consistency hardening; no production code, NAS file, local directory, database data, workflow submit, controlled-file creation, or ACTIVE NAS source mapping was modified.

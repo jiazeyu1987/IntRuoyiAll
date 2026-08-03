@@ -91,10 +91,11 @@
 
 - Trigger: 根据 Excel、PRD、开发文档或测试方案落地多里程碑功能，且后续里程碑需要提前建立 BDD/TDD/E2E gate。
 - Preflight check: M0 或首个前置里程碑必须先补齐计划中声明的 script、spec、真实前置检查和证据输出；只有脚本入口、测试文件、工作目录和命令解析均有效后，后续失败才可记录为业务 RED。
-- Blocker: 脚本缺失、测试文件缺失、命令无法解析、真实租户/账号/签名/任务数据缺失、正式 source map 未冻结时，必须记录为前置 blocker；不得把缺入口或缺环境写成业务 RED，也不得进入下一里程碑。
-- Verification: 证据需要同时记录“入口合同 PASS”“真实前置 BLOCKED 及当前缺口数量”“规划静态脚本业务 RED”，并在后续扩展 source gate 后同步清理旧口径，避免任务文档保留过期 blocker 数量或“脚本缺失”结论。
-- Forbidden action: 禁止为了制造 RED 临时写无效脚本、把静态合同当真实 E2E、在 M0 未通过时提前实现 M1-M6 生产代码，或用 API-only/默认值/占位成功绕过正式来源冻结。
-- Evidence: `doc/tasks/20260801-role-requirement-matrix-implementation/execution-log.md`，岗位需求分解矩阵 M0 将脚本缺失前置转为可执行入口合同，并把后续 M3/M4/M5 脚本固定为业务 RED。
+- Preflight check: 对 BDD/TDD/E2E/test-data 等验收文档，结构 validator 通过后还必须按当前需求列出关键业务标记并做可检索扫描；标记至少覆盖核心状态码、sourceType、浏览器能力名、阻塞错误码和用户可见状态，避免后续实现只能依赖聊天记忆或单一文档。
+- Blocker: 脚本缺失、测试文件缺失、命令无法解析、真实租户/账号/签名/任务数据缺失、正式 source map 未冻结、或关键业务标记在任一核心验收文档缺失时，必须记录为前置 blocker；不得把缺入口、缺环境或缺标记写成业务 RED，也不得进入下一里程碑。
+- Verification: 证据需要同时记录“入口合同 PASS”“真实前置 BLOCKED 及当前缺口数量”“规划静态脚本业务 RED”和“关键标记扫描 PASS”；在后续扩展 source gate 后同步清理旧口径，避免任务文档保留过期 blocker 数量或“脚本缺失/标记缺失”结论。
+- Forbidden action: 禁止为了制造 RED 临时写无效脚本、把静态合同当真实 E2E、在 M0 未通过时提前实现 M1-M6 生产代码，或用 API-only/默认值/占位成功绕过正式来源冻结；禁止只跑结构 validator 后忽略关键状态、sourceType 或错误码在验收文档中不可检索的问题。
+- Evidence: `doc/tasks/20260801-role-requirement-matrix-implementation/execution-log.md`，岗位需求分解矩阵 M0 将脚本缺失前置转为可执行入口合同，并把后续 M3/M4/M5 脚本固定为业务 RED；`doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md`，DCC 未受控文件导入 M27 通过 marker scan 补齐 `ARCHIVE_METADATA_REQUIRED`、`未分类/待处理`、`showDirectoryPicker`、`LOCAL_WRITTEN` 和 `NAS_UNCONTROLLED_IMPORT` 等关键标记。
 
 ### Playwright 浏览器可执行文件门禁
 
