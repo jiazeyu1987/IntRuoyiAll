@@ -78,8 +78,9 @@
               v-model="formData.categoryId"
               class="!w-360px"
               clearable
+              :disabled="categorySelectDisabled"
               filterable
-              placeholder="请选择文件类别"
+              :placeholder="categorySelectPlaceholder"
               @change="handleCategoryChange"
             >
               <el-option
@@ -90,7 +91,7 @@
               />
               <template #empty>
                 <div class="px-12px py-8px text-12px text-[var(--el-text-color-secondary)]">
-                  当前没有可上传文件类别
+                  {{ categorySelectEmptyText }}
                 </div>
               </template>
             </el-select>
@@ -619,6 +620,30 @@ const fileTypeTaxonomyPathMap = computed(() => {
   return pathMap
 })
 
+const fileTypeTaxonomyById = computed(() => {
+  const rowMap = new Map<number, DccFileTypeTaxonomyVO>()
+  activeFileTypeTaxonomyRows.value.forEach((row) => {
+    if (row.id) {
+      rowMap.set(row.id, row)
+    }
+  })
+  return rowMap
+})
+
+const fileTypeTaxonomyChildrenByParentId = computed(() => {
+  const childrenMap = new Map<number, DccFileTypeTaxonomyVO[]>()
+  activeFileTypeTaxonomyRows.value.forEach((row) => {
+    if (!row.id) {
+      return
+    }
+    const parentId = row.parentId || 0
+    const children = childrenMap.get(parentId) || []
+    children.push(row)
+    childrenMap.set(parentId, children)
+  })
+  return childrenMap
+})
+
 const selectedFileTypeTaxonomyPath = computed(() => {
   if (!formData.fileTypeTaxonomyId) {
     return undefined
@@ -633,6 +658,33 @@ const selectedFileTypeTaxonomyPathLabel = computed(
 const isFileTypeTaxonomyDepthValid = computed(
   () => (selectedFileTypeTaxonomyPath.value?.names.length || 0) >= 3
 )
+
+const selectedFileTypeTaxonomyCategoryIds = computed(() => {
+  const selectedId = Number(formData.fileTypeTaxonomyId)
+  const ids = new Set<number>()
+  if (!selectedId || !isFileTypeTaxonomyDepthValid.value) {
+    return ids
+  }
+
+  let currentId: number | undefined = selectedId
+  while (currentId && fileTypeTaxonomyById.value.has(currentId)) {
+    ids.add(currentId)
+    const current = fileTypeTaxonomyById.value.get(currentId)
+    currentId = current?.parentId || undefined
+  }
+
+  const collectDescendants = (parentId: number) => {
+    fileTypeTaxonomyChildrenByParentId.value.get(parentId)?.forEach((child) => {
+      if (!child.id || ids.has(child.id)) {
+        return
+      }
+      ids.add(child.id)
+      collectDescendants(child.id)
+    })
+  }
+  collectDescendants(selectedId)
+  return ids
+})
 
 const canLoadUploadNameOptions = computed(
   () =>

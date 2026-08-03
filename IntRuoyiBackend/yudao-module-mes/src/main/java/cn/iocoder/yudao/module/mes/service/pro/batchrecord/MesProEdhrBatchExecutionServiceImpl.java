@@ -4089,6 +4089,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                           MesProRouteDO route,
                                                           List<MesProRouteProcessDO> routeProcesses) {
         if (batch.getRouteVersionId() != null) {
+            if (hasFrozenBatchTaskConfigSnapshot(batch.getRouteSnapshotJson())) {
+                return resolveFrozenBatchTaskConfigs(batch);
+            }
+            if (hasCurrentBatchProcessConfig(route.getId())) {
+                return resolveBatchTaskConfigs(route, routeProcesses);
+            }
             return resolveFrozenBatchTaskConfigs(batch);
         }
         return resolveBatchTaskConfigs(route, routeProcesses);
@@ -4954,6 +4960,15 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private boolean hasBatchFlowConfigContext(Long routeId, String batchUseType) {
         MesProRouteFlowConfigDO flowConfig = routeFlowConfigMapper.selectByRouteIdAndUseType(routeId, batchUseType);
         return flowConfig == null || MesProRouteFlowContextMatcher.isFlowContext(flowConfig, routeId, batchUseType);
+    }
+
+    private boolean hasCurrentBatchProcessConfig(Long routeId) {
+        if (routeId == null) {
+            return false;
+        }
+        return !routeFlowProcessConfigMapper
+                .selectListByRouteIdAndUseType(routeId, MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                .isEmpty();
     }
 
     private boolean isOwnedByEnabledProcessConfig(
