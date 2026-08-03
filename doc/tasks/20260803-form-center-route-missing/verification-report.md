@@ -23,6 +23,7 @@ The runtime FormCenter action panel no longer calls the template management vers
 - CLOSEOUT APPLY: `task_closeout.py --task-id 20260803-form-center-route-missing --mode apply --worktree-closeout off` -> APPLIED.
 - WORKTREE SLOT: reserved `int_main` slot `13`, frontend `8094`, backend `48094`.
 - GUARD: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS after slot reservation.
+- IMPLEMENTATION COMMIT: `a4e9e1eda fix: use embedded FormCenter runtime templates`.
 
 ## Files Verified
 

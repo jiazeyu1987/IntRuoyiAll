@@ -40,7 +40,9 @@
 - WORKTREE SLOT: `reserve-worktree-slot.ps1 -Name form-center-route-missing-20260803 -Path D:\IntRuoyiWorktree\form-center-route-missing-20260803 -Branch codex/form-center-route-missing-20260803 -Profile int_main -AsJson` -> PASS，slot `13`，frontend `8094`，backend `48094`。
 - GUARD: first `scripts\preflight\branch-runtime-port-guard.ps1` -> FAIL, expected reason: isolated worktree had no port registry entry yet.
 - GUARD: after slot reservation, `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS for `codex/form-center-route-missing-20260803/int_main`, frontend `8094`, backend `48094`.
+- COMMIT: `a4e9e1eda fix: use embedded FormCenter runtime templates` -> includes `ActionFormPanel.vue`, three FormCenter/eDHR static contracts, task records, and experience gate keyword updates.
+- COMMIT FILES: `git show --name-status --oneline -1` confirmed 9 task-owned files in implementation commit.
 
 ## Current Status
 
-- ready_for_closeout: 实现、定向验证、证据验证器、经验沉淀、diff 检查和 cleanup apply 完成，准备提交并推送分支。
+- completed: 实现提交完成；最终 closeout 记录更新完成，准备提交 closeout 记录并推送分支。

@@ -10,7 +10,7 @@
 - [completed] 补充最小 BDD/TDD 回归契约，先复现当前错误风险
 - [completed] 实施最小正式修复，不引入 fallback、吞异常或默认成功
 - [completed] 运行定向验证并记录 RED/GREEN/REGRESSION 证据
-- [in_progress] 完成收尾检查、经验沉淀和 Git 提交推送
+- [completed] 完成收尾检查、经验沉淀和 Git 提交推送
 
 ## Expected Verification
 
@@ -21,9 +21,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-实现、定向验证、证据验证器和经验沉淀已完成；等待 cleanup preview/apply、提交和推送。主工作区存在大量非本任务脏改动，本任务未在主工作区直接修改。
+实现、定向验证、证据验证器、经验沉淀、cleanup apply 和实现提交已完成。实现提交：`a4e9e1eda fix: use embedded FormCenter runtime templates`。主工作区存在大量非本任务脏改动，本任务未在主工作区直接修改，linked worktree 合并/删除未执行。
 
 ## Applicable Experience Gates
 
@@ -44,3 +44,8 @@ ready_for_closeout
 - IntRuoyiFronted/tests/e2e/form-center-static.spec.js
 - docs/experience-index.md
 - docs/frontend-development.md
+
+## Final Verification Result
+
+- PASS: 定向静态契约、相邻回归、`pnpm ts:check`、证据验证器、`git diff --check` 和 branch runtime port guard 均已通过。
+- PASS: cleanup apply 已完成并只删除临时 evidence 文件，核心任务记录和正式测试/经验文档保留。
