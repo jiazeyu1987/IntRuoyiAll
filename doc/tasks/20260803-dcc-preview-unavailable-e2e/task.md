@@ -45,4 +45,4 @@ completed
 - 本次 E2E 脚本和初始任务文档被并行基线提交 `0fada3212 chore: baseline current main workspace before upload policy fix` 带入历史，后续只选择性提交本任务收尾记录。
 - 真实前端路径 E2E 已通过：7 类预览类型均显示 `previewUnavailableReason`，目标二进制预览请求数为 0。
 - cleanup preview/apply 已通过，仅删除本任务临时 JSON 和截图，保留 `task.md`、`execution-log.md`、`verification-report.md`。
-- 待提交并推送当前分支。
+- 已创建本任务收尾提交 `4b5e47587 test: record DCC preview unavailable E2E validation`，并已通过 `git -c http.https://github.com.proxy= push origin int_main` 推送当前分支。

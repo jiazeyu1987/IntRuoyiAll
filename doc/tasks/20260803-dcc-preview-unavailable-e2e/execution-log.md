@@ -39,3 +39,11 @@
 ## Blockers
 
 - 暂无。
+
+## Final Git Evidence
+
+- `git commit -m "test: record DCC preview unavailable E2E validation"` -> `4b5e47587`。
+- 首次 `git push origin int_main` -> FAIL，GitHub 443 被本机 `127.0.0.1` 代理阻断。
+- GitHub 443 直连检查 -> PASS；`127.0.0.1:7890` 未监听。
+- `git -c http.https://github.com.proxy= push origin int_main` -> PASS，`0fada3212..4b5e47587 int_main -> int_main`。
+- `git status --short --branch -- doc/tasks/20260803-dcc-preview-unavailable-e2e IntRuoyiFronted/tests/e2e/dcc-preview-unavailable-reason-real.e2e.js` -> `## int_main...origin/int_main`，本任务路径干净。
