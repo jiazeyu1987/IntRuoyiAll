@@ -50,7 +50,7 @@ completed
 - 项目经验沉淀：已将“截图按钮统一静态契约门禁”合并到 `docs/frontend-development.md`，并在 `docs/experience-index.md` 增加关键词路由。
 - 技能证据校验：`validate_frontend_feature.py` 与 `validate_design_system.py` 均 PASS，结论已归档到 `verification-report.md`。
 - cleanup preview/apply：`task-closeout-cleanup` 仅删除临时 `frontend-feature-evidence.md` 与 `design-system-evidence.md`，保留 `task.md`、`execution-log.md`、`verification-report.md`。
-- Git 收尾：需选择性暂存本任务文件并推送；若 push 失败，按 GitHub HTTPS 443 本地代理门禁修复。
+- Git 收尾：已选择性提交本任务文件；推送后以 `git status --short --branch` 不再 ahead 为最终验证。若 push 失败，按 GitHub HTTPS 443 本地代理门禁修复。
 
 ## Design Constraints Check
 

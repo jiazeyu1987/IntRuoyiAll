@@ -50,3 +50,5 @@
 - GREEN: `rg -n "按钮统一|header-return-buttons-static|返回按钮统一" docs\experience-index.md docs\frontend-development.md` -> PASS, experience route points to `docs/frontend-development.md#前端截图按钮统一静态契约门禁`.
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-unify-header-return-buttons --mode preview` -> PASS, delete set only contained temporary skill evidence files.
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-unify-header-return-buttons --mode apply` -> PASS, deleted `frontend-feature-evidence.md` and `design-system-evidence.md`.
+- COMMIT: `3649d56c5 fix: unify header return buttons` -> included only this task's UI, tests, task docs, and experience gate files; commit hook reported `Branch runtime port guard passed for int_main/int_main: frontend 8081, backend 48081`.
+- BOUNDARY: Post-commit status still contained unrelated DCC/backend/package/task-document changes and untracked DCC artifacts; these were left unstaged and unmodified by this task.
