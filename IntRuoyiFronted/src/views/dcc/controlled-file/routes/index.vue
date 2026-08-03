@@ -552,7 +552,6 @@ const resolveErrorMessage = (error: unknown, defaultMessage: string) => {
 
 onMounted(async () => {
   await loadInitialCategoryOptions()
-  await loadRouteSubjectLookups()
   await handleQuery()
 })
 </script>

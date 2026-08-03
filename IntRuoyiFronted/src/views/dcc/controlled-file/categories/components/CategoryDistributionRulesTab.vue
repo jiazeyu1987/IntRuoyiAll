@@ -96,8 +96,8 @@
             v-bind="sortColumnAttrs('ruleStatus')"
           >
             <template #default="{ row }">
-              <el-tag :type="row.activeRuleCount > 0 ? 'success' : 'info'" size="small">
-                {{ row.activeRuleCount > 0 ? `启用 ${row.activeRuleCount} 条` : '未配置' }}
+              <el-tag :type="row.rulesLoaded && row.activeRuleCount > 0 ? 'success' : 'info'" size="small">
+                {{ row.rulesLoaded ? (row.activeRuleCount > 0 ? `启用 ${row.activeRuleCount} 条` : '未配置') : '加载中' }}
               </el-tag>
             </template>
           </el-table-column>
@@ -110,8 +110,8 @@
             :width="getColumnWidthString('actions', 140)"
           >
             <template #default="{ row }">
-              <el-button link type="primary" @click="openRuleDrawer(row, 'edit')">编辑</el-button>
-              <el-button link type="primary" @click="openRuleDrawer(row, 'preview')">预览</el-button>
+              <el-button link type="primary" :disabled="!row.rulesLoaded" @click="openRuleDrawer(row, 'edit')">编辑</el-button>
+              <el-button link type="primary" :disabled="!row.rulesLoaded" @click="openRuleDrawer(row, 'preview')">预览</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -216,6 +216,7 @@ interface RuleListRow {
   activeRuleCount: number
   departmentSummary: string
   rules: CategoryDepartmentRuleDraft[]
+  rulesLoaded: boolean
 }
 
 interface SubjectOption {
@@ -232,6 +233,8 @@ const message = useMessage()
 const loading = ref(false)
 const saving = ref(false)
 const loaded = ref(false)
+const loadedRuleCategoryIds = ref(new Set<number>())
+const loadedCategoryRevision = ref(props.categoryRevision)
 const errorMessage = ref('')
 const drawerErrorMessage = ref('')
 const drawerVisible = ref(false)
@@ -355,6 +358,7 @@ const rows = computed<RuleListRow[]>(() =>
   categories.value
     .filter((category): category is ControlledFileCategoryVO & { id: number } => category.id !== undefined)
     .map((category) => {
+      const rulesLoaded = loadedRuleCategoryIds.value.has(category.id)
       const rules = ruleMap.value.get(category.id) || []
       return {
         categoryId: category.id,
@@ -364,8 +368,9 @@ const rows = computed<RuleListRow[]>(() =>
         required: category.distributionRequired,
         ruleCount: rules.length,
         activeRuleCount: rules.filter((rule) => rule.active).length,
-        departmentSummary: buildDepartmentSummary(rules),
-        rules
+        departmentSummary: rulesLoaded ? buildDepartmentSummary(rules) : '加载中',
+        rules,
+        rulesLoaded
       }
     })
 )
@@ -387,6 +392,7 @@ const paginatedRows = computed(() => {
   const start = (queryParams.pageNo - 1) * queryParams.pageSize
   return filteredRows.value.slice(start, start + queryParams.pageSize)
 })
+const visibleCategoryIds = computed(() => paginatedRows.value.map((row) => row.categoryId))
 
 const drawerTitle = computed(() =>
   selectedCategory.value
@@ -398,7 +404,9 @@ const handleQuery = () => {
   queryParams.pageNo = 1
 }
 
-const handlePagination = () => undefined
+const handlePagination = () => {
+  void ensureVisibleRuleRowsLoaded()
+}
 
 const quickFilter = useTableQuickFilter(
   'dcc.controlledFile.permission.distributionRules',
@@ -412,19 +420,47 @@ const loadData = async () => {
   errorMessage.value = ''
   try {
     const [categoryList, deptList] = await Promise.all([getFileCategoryList(), getSimpleDeptList()])
-    const activeCategories = categoryList.filter(
-      (category): category is ControlledFileCategoryVO & { id: number } => category.id !== undefined
-    )
-    const ruleEntries = await Promise.all(
-      activeCategories.map(async (category) => {
-        const rules = await getCategoryDistributionRules(category.id)
-        return [category.id, mapRulesToDrafts(rules)] as const
-      })
-    )
     categories.value = categoryList
     depts.value = deptList
-    ruleMap.value = new Map(ruleEntries)
+    ruleMap.value = new Map()
+    loadedRuleCategoryIds.value = new Set<number>()
+    loadedCategoryRevision.value = props.categoryRevision
     loaded.value = true
+    await ensureVisibleRuleRowsLoaded()
+  } catch (error) {
+    errorMessage.value = resolveErrorMessage(error, '分发规则加载失败，请查看错误提示后重试。')
+  } finally {
+    loading.value = false
+  }
+}
+
+const ensureVisibleRuleRowsLoaded = async () => {
+  if (!props.active || !loaded.value) {
+    return
+  }
+  const categoryIds = visibleCategoryIds.value.filter((categoryId) => {
+    return !loadedRuleCategoryIds.value.has(categoryId)
+  })
+  if (!categoryIds.length) {
+    return
+  }
+  loading.value = true
+  errorMessage.value = ''
+  try {
+    const ruleEntries = await Promise.all(
+      categoryIds.map(async (categoryId) => {
+        const rules = await getCategoryDistributionRules(categoryId)
+        return [categoryId, mapRulesToDrafts(rules)] as const
+      })
+    )
+    const nextRuleMap = new Map(ruleMap.value)
+    const nextLoadedRuleCategoryIds = new Set(loadedRuleCategoryIds.value)
+    ruleEntries.forEach(([categoryId, rules]) => {
+      nextRuleMap.set(categoryId, rules)
+      nextLoadedRuleCategoryIds.add(categoryId)
+    })
+    ruleMap.value = nextRuleMap
+    loadedRuleCategoryIds.value = nextLoadedRuleCategoryIds
   } catch (error) {
     errorMessage.value = resolveErrorMessage(error, '分发规则加载失败，请查看错误提示后重试。')
   } finally {
@@ -467,6 +503,7 @@ const saveRules = async () => {
       buildDepartmentRulePayload(editingRules.value)
     )
     ruleMap.value = new Map(ruleMap.value).set(selectedCategory.value.id, mapRulesToDrafts(savedRules))
+    loadedRuleCategoryIds.value = new Set(loadedRuleCategoryIds.value).add(selectedCategory.value.id)
     editingRules.value = mapRulesToDrafts(savedRules)
     message.success('分发规则已保存')
   } catch (error) {
@@ -480,8 +517,27 @@ watch(
   () => [props.active, props.categoryRevision] as const,
   async ([active]) => {
     if (active) {
-      await loadData()
+      if (!loaded.value || props.categoryRevision !== loadedCategoryRevision.value) {
+        await loadData()
+        return
+      }
+      await ensureVisibleRuleRowsLoaded()
     }
+  }
+)
+
+watch(
+  () =>
+    [
+      queryParams.pageNo,
+      queryParams.pageSize,
+      queryParams.code,
+      queryParams.name,
+      queryParams.required,
+      queryParams.active
+    ] as const,
+  async () => {
+    await ensureVisibleRuleRowsLoaded()
   }
 )
 

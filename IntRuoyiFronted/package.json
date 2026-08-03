@@ -146,6 +146,7 @@
     "e2e:dcc:permission-redbox:static": "node tests/e2e/dcc-permission-redbox-content-removal-static.spec.js",
     "e2e:dcc:menu-upload-approval-admin-only:static": "node tests/e2e/dcc-menu-upload-approval-admin-only-static.spec.js",
     "e2e:dcc:redbox-first-open-performance:static": "node tests/e2e/dcc-redbox-first-open-performance-static.spec.js",
+    "e2e:dcc:category-tabs-first-load:static": "node tests/e2e/dcc-category-tabs-first-load-static.spec.js",
     "e2e:dcc:permission-deleted-category-sync:static": "node tests/e2e/dcc-permission-deleted-category-sync-static.spec.js",
     "e2e:dcc:category-governance-summary:static": "node tests/e2e/dcc-category-governance-summary-static.spec.js",
     "e2e:dcc:review-matrix-tab:static": "node tests/e2e/dcc-review-matrix-tab-static.spec.js",

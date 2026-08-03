@@ -1,9 +1,10 @@
 <template>
   <ContentWrap>
     <el-tabs v-model="activeTab" class="dcc-category-tabs">
-      <el-tab-pane label="类别列表" name="list">
+      <el-tab-pane label="类别列表" name="list" lazy>
         <div class="category-tab-pane">
           <UnifiedListTemplate
+            v-if="isTabPaneMounted('list')"
             class="category-list-template"
             table-key="dcc.controlledFile.permission.categories"
             :query-model="queryParams"
@@ -184,6 +185,7 @@
 
       <el-tab-pane label="审阅矩阵" name="review-matrix" lazy>
         <CategoryReviewMatrixTable
+          v-if="isTabPaneMounted('review-matrix')"
           :active="activeTab === 'review-matrix'"
           :category-revision="categoryRevision"
         />
@@ -191,6 +193,7 @@
 
       <el-tab-pane label="查看矩阵" name="view-matrix" lazy>
         <CategoryViewMatrixTable
+          v-if="isTabPaneMounted('view-matrix')"
           :active="activeTab === 'view-matrix'"
           :category-revision="categoryRevision"
         />
@@ -198,6 +201,7 @@
 
       <el-tab-pane label="目录授权" name="directory-auth" lazy>
         <DirectoryAuthorizationTabPanel
+          v-if="isTabPaneMounted('directory-auth')"
           :initial-directory-id="currentDirectoryId"
           :active="activeTab === 'directory-auth'"
           :category-revision="categoryRevision"
@@ -206,6 +210,7 @@
 
       <el-tab-pane label="分发规则" name="distribution-rules" lazy>
         <CategoryDistributionRulesTab
+          v-if="isTabPaneMounted('distribution-rules')"
           :active="activeTab === 'distribution-rules'"
           :category-revision="categoryRevision"
         />
@@ -213,6 +218,7 @@
 
       <el-tab-pane label="培训规则" name="training-rules" lazy>
         <CategoryTrainingRulesTab
+          v-if="isTabPaneMounted('training-rules')"
           :active="activeTab === 'training-rules'"
           :category-revision="categoryRevision"
         />
@@ -312,11 +318,13 @@ const resolveActiveTab = (tab: unknown): PermissionTabName => {
 }
 
 const activeTab = ref<PermissionTabName>(resolveActiveTab(route.query.tab))
+const loadedTabNames = ref<Set<PermissionTabName>>(new Set([activeTab.value]))
 const loading = ref(false)
 const formRef = ref()
 const categoryUploadPolicyDialogRef = ref()
 const categoryFormMounted = ref(false)
 const categoryUploadPolicyDialogMounted = ref(false)
+const categoryListLoaded = ref(false)
 const categories = ref<ControlledFileCategoryVO[]>([])
 const categoryRevision = ref(0)
 const directories = ref<ControlledFileDirectoryVO[]>([])
@@ -341,6 +349,15 @@ const queryParams = reactive<{
   pageSize: 10,
   quickFilter: undefined
 })
+
+const markTabPaneMounted = (tab: PermissionTabName) => {
+  if (loadedTabNames.value.has(tab)) {
+    return
+  }
+  loadedTabNames.value = new Set([...loadedTabNames.value, tab])
+}
+
+const isTabPaneMounted = (tab: PermissionTabName) => loadedTabNames.value.has(tab)
 
 const buildDirectoryPathMap = (
   nodes: ControlledFileDirectoryVO[],
@@ -478,11 +495,22 @@ const loadData = async () => {
       getFileTypeTaxonomyList()
     ])
     categories.value = categoryList
+    categoryListLoaded.value = true
     categoryRevision.value += 1
     directories.value = directoryTree
     fileTypeTaxonomies.value = taxonomyList
   } finally {
     loading.value = false
+  }
+}
+
+const ensureActiveTabLoaded = async (tab: PermissionTabName) => {
+  markTabPaneMounted(tab)
+  if (tab !== 'list') {
+    return
+  }
+  if (!categoryListLoaded.value) {
+    await loadData()
   }
 }
 
@@ -566,7 +594,7 @@ const handleDelete = async (row: ControlledFileCategoryVO) => {
 }
 
 onMounted(async () => {
-  await loadData()
+  await ensureActiveTabLoaded(activeTab.value)
 })
 
 watch(
@@ -580,6 +608,7 @@ watch(
 )
 
 watch(activeTab, async (tab) => {
+  await ensureActiveTabLoaded(tab)
   if (route.query.tab === tab) {
     return
   }
