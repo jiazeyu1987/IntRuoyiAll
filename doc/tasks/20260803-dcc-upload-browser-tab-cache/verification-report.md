@@ -23,7 +23,7 @@ DCC “文件上传”和“受控浏览”两个正式菜单页签已在动态�
 - `IntRuoyiFronted/tests/e2e/dcc-upload-browser-tab-cache-static.spec.js`: adds regression contract for the no-repeat-load tab behavior.
 - `IntRuoyiFronted/tests/e2e/dcc-browser-tab-return-no-reload-static.spec.js`: adds regression contract for the internal same-state return no-reload guard.
 - `IntRuoyiFronted/package.json`: adds scripts for the new contract and the existing browser single-tab contract.
-- `docs/frontend-development.md` and `docs/experience-index.md`: archive the reusable TagsView cache gate for future dynamic-menu tab issues.
+- `docs/frontend-development.md` and `docs/experience-index.md`: archive the reusable TagsView cache plus page-local route watcher guard for future dynamic-menu tab issues.
 
 ## Closeout Blocker
 

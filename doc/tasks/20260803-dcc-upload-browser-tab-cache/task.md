@@ -43,6 +43,7 @@ ready_for_closeout
 - 用户补充反馈：切回受控浏览仍会先加载红框目录树，再加载黄框列表区；当前继续修复受控浏览页内部同状态路由恢复导致的重复加载。
 - 已新增 `e2e:dcc:browser-tab-return-no-reload:static` 静态合同，锁定已加载受控浏览在同一有效 route state 切回时必须跳过 `loadDirectories()` 和 `getList()`。
 - 已在 `src/views/dcc/controlled-file/browser/index.vue` 增加目录树成功加载标记、列表成功加载状态 key 和同状态切回跳过判断；仅在目录/筛选/分页等有效状态变化时恢复加载。
+- 已按 `project-experience-consolidation` 将“keep-alive 命中后仍需检查页内 route.fullPath watcher 的同状态恢复加载”合并到 `docs/frontend-development.md` 和 `docs/experience-index.md`。
 
 ## Verification Evidence
 
@@ -55,6 +56,7 @@ ready_for_closeout
 - REGRESSION: `pnpm e2e:dcc:browser-cache-write-failure:static` -> PASS。
 - REGRESSION: `pnpm ts:check` -> PASS。
 - CHECK: `git diff --check -- IntRuoyiFronted/src/utils/routerHelper.ts IntRuoyiFronted/tests/e2e/dcc-upload-browser-tab-cache-static.spec.js IntRuoyiFronted/package.json doc/tasks/20260803-dcc-upload-browser-tab-cache` -> PASS；仅输出 CRLF 工作区提示。
+- CHECK: `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue IntRuoyiFronted/tests/e2e/dcc-browser-tab-return-no-reload-static.spec.js IntRuoyiFronted/package.json doc/tasks/20260803-dcc-upload-browser-tab-cache` -> PASS；仅输出 CRLF 工作区提示。
 - CLEANUP: `task_closeout.py --task-id 20260803-dcc-upload-browser-tab-cache --mode preview` -> PASS；keep `task.md`、`execution-log.md`、`verification-report.md`，delete 临时 `bug-regression-evidence.md`。
 - CLEANUP: `task_closeout.py --task-id 20260803-dcc-upload-browser-tab-cache --mode apply` -> PASS；已删除临时 `bug-regression-evidence.md`。
 

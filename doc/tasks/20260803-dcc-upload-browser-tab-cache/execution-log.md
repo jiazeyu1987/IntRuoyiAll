@@ -33,6 +33,7 @@
 - REGRESSION: `pnpm e2e:dcc:browser-cache-write-failure:static` -> PASS.
 - REGRESSION: `pnpm ts:check` -> PASS.
 - CHECK: `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue IntRuoyiFronted/tests/e2e/dcc-browser-tab-return-no-reload-static.spec.js IntRuoyiFronted/package.json doc/tasks/20260803-dcc-upload-browser-tab-cache` -> PASS.
+- EXPERIENCE: merged same-state tab-return route watcher lesson into `docs/frontend-development.md#前端页签首屏按需挂载门禁` and `docs/experience-index.md`.
 
 ## Milestone Updates
 
@@ -42,6 +43,7 @@
 - Verification -> PASS: targeted static contracts and TypeScript check passed.
 - Cleanup -> PASS: preview/apply kept core task records and removed only archived temporary evidence.
 - Follow-up bug -> PASS: browser page now skips same-state route restore loading after returning to an already initialized tab, while preserving reload when the effective route state changes.
+- Experience consolidation -> PASS: existing frontend tab cache gate now covers keep-alive hits plus page-local `route.fullPath` watchers that can still reload data.
 
 ## Verification Evidence
 
