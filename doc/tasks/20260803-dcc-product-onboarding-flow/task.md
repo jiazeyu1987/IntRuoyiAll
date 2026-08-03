@@ -77,6 +77,8 @@ worktree 内已完成运行态验证：DCC 定向 JUnit 通过 107 tests；前�
 
 后续本地 `int_main` 又出现并发已提交基线，已在 worktree 再次合入并复跑产品建档前端静态契约与 DCC 定向 JUnit，均通过；当前任务 worktree 运行进程已停止并释放 `8096/48096`。本轮用户要求先提交主工作区前后端/残留记录后再融合，主工作区已清理为可接收状态；worktree 已再次合入最新本地 `int_main`，最新 merge commit 为 `e9f52e5c2`，`git rev-list --left-right --count int_main...codex/dcc-product-onboarding-flow-20260803` 为 `0 12`，前端静态契约和 DCC 定向 JUnit 107 tests 均通过。剩余收尾是按 Git 门禁快进融合回 `int_main` 并尝试 push；若 GitHub HTTPS 代理仍不可用，必须记录 blocker，不能标记 completed。
 
+主工作区提交 `663b55e48` 后，worktree 又合入最新本地 `int_main`，merge commit 为 `afdc074a6`，`git rev-list --left-right --count int_main...codex/dcc-product-onboarding-flow-20260803` 为 `0 15`；最终融合前再次复跑产品建档前端静态契约与 DCC 定向 JUnit 107 tests，均通过。
+
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。

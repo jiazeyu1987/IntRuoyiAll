@@ -89,4 +89,7 @@
 - PASS: after the latest main baseline commit, worktree merged local `int_main` again with merge commit `e9f52e5c2`, branch runtime port guard passed, and `git rev-list --left-right --count int_main...codex/dcc-product-onboarding-flow-20260803` returned `0 12`.
 - PASS: final pre-ff static contract `node IntRuoyiFronted\tests\e2e\dcc-project-code-product-onboarding-static.spec.js` returned exit code `0`.
 - PASS: final pre-ff DCC JUnit `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest,DccControlledFileWorkflowServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> Tests run: 107, Failures: 0, Errors: 0, Skipped: 0.
+- PASS: after residual baseline commit `663b55e48`, worktree merged local `int_main` again with merge commit `afdc074a6`, branch runtime port guard passed, and `git rev-list --left-right --count int_main...codex/dcc-product-onboarding-flow-20260803` returned `0 15`.
+- PASS: final pre-ff after `663b55e48` static contract `node IntRuoyiFronted\tests\e2e\dcc-project-code-product-onboarding-static.spec.js` returned exit code `0`.
+- PASS: final pre-ff after `663b55e48` DCC JUnit `mvn.cmd -f IntRuoyiBackend\pom.xml -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest,DccControlledFileWorkflowServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> Tests run: 107, Failures: 0, Errors: 0, Skipped: 0.
 - PENDING: integration still requires committing this latest evidence, merging back to local `int_main`, and pushing if GitHub HTTPS proxy/network permit.
