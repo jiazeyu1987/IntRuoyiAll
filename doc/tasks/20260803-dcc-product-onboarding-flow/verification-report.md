@@ -4,6 +4,7 @@
 
 - Result: Targeted backend, schema, frontend static/type, isolated server package, runtime load, and real Playwright E2E verification passed.
 - Completion state: Implementation and required verification are ready for closeout; final commit/push is blocked by pre-existing worktree state outside this task.
+- 2026-08-03 worktree migration update: independent worktree setup and runtime verification passed. The branch `codex/dcc-product-onboarding-flow-20260803` was created under `D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803` and registered as `int_main slot=15` (`8096/48096`). Worktree backend JUnit, frontend static contract, server package, backend health, frontend HTTP, and real Playwright E2E all passed.
 
 ## Commands
 
@@ -54,3 +55,19 @@
 - Current shared runtime scope: `48081` is currently owned by another task jar (`backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`). Product-onboarding E2E has already passed during the controlled temporary switch to the verified jar; rerunning that E2E would require another explicit runtime switch.
 - Full schema suite not claimed: 未将完整 `DccBaseSchemaTest` 作为当前完成门禁；此前已知全量 schema 测试存在与本任务无关的 destructive SQL 检测和 NAS nullable 断言问题。
 - Commit/push blocked: 当前 `int_main` 存在并发产生的未推送本地提交，其中包含本任务证据和其它任务文件；工作区还存在非本任务未跟踪/暂存任务文件。按任务所有权边界，本任务未继续打包、提交或推送这些无关改动。
+
+## Worktree Verification Attempt
+
+- PASS: `git worktree add -b codex/dcc-product-onboarding-flow-20260803 D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803 origin/int_main`.
+- PASS: `reserve-worktree-slot.ps1` registered `slot=15`, frontend `8096`, backend `48096`; both ports had no listeners before startup.
+- PASS: `scripts\runtime\show-branch-runtime.ps1` in the worktree reported profile `int_main`, slot `15`, frontend URL `http://127.0.0.1:8096`, backend health URL `http://127.0.0.1:48096/actuator/health`.
+- PASS: `node tests\e2e\dcc-project-code-product-onboarding-static.spec.js` in the worktree frontend.
+- PASS: `mvn.cmd -pl yudao-module-dcc -am "-Dtest=DccProductOnboardingServiceImplTest,DccControlledFileWorkflowServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` in the worktree backend -> Tests run: 107, Failures: 0, Errors: 0, Skipped: 0.
+- PASS: `mvn.cmd -pl yudao-module-dcc -am "-Dmaven.test.skip=true" install` installed this worktree's DCC/MDM dependency chain into the local Maven repository.
+- PASS: `mvn.cmd -pl yudao-server "-Dmaven.test.skip=true" package` generated a worktree server exec jar after the DCC install; refreshed runtime jar SHA256 `6B26B7B7F09F4CCB6C45D45D7B64AA419B74BA9AEFBC64D6621BE1CFCF496FA5`.
+- PASS: worktree backend `48096` health `UP`, PID `63408`, using `output\runtime\int_main-slot15\backend-runtime-control-20260803-150013-dcc-product-onboarding-worktree.jar`.
+- PASS: `pnpm install --frozen-lockfile` in the worktree frontend; Vite started via `scripts\runtime\start-branch-frontend.ps1 -Slot 15` and `http://127.0.0.1:8096/` returned HTTP `200`.
+- PASS: real Playwright E2E through `http://127.0.0.1:8096/mdm/project-code` with local Chrome -> `requestId=5`, `projectCodeId=259`, `productMasterId=333`, `projectCode=CODXONB03073324`, `criticalNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- NOTE: Initial worktree E2E failed with `404 请求地址不存在` because the first server-only package reused a stale local-repository DCC module. This was fixed by installing the worktree DCC module and repackaging the server jar.
+- PASS: Experience consolidation updated `docs/worktree-memory.md#Worktree Server-Only 打包旧本地仓库模块门禁`.
+- PENDING: branch is behind `origin/int_main` by 5 commits after verification; integration still requires updating from latest `origin/int_main`, running branch runtime port guard, committing task-owned evidence, merging back to local `int_main`, and pushing if GitHub HTTPS proxy/network permits.

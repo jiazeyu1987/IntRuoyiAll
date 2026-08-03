@@ -71,7 +71,11 @@ BDD: 页面入口暴露建档申请失败原因 -> Given 用户在 DCC 项目代
 
 ready_for_closeout
 
-实现与本任务定向验证、隔离构建加载、真实页面 E2E、task cleanup apply 和恢复后运行态复核已完成；最新真实 E2E 在切回本任务已验证 Jar 后通过，`requestId=4`、`projectCodeId=258`、`productMasterId=332`。当前共享 `48081` 已由外部/其它任务恢复为 `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`，不是本任务产品建档验证 Jar；本任务不再抢占该运行态。最终 push 未执行：当前 `int_main` 存在并发产生的未推送本地提交，且工作区仍有非本任务未跟踪/暂存任务文件；按任务所有权和提交边界，不在本任务中继续打包、提交或推送这些无关改动。
+按用户要求，本任务已切换到独立 worktree `D:\IntRuoyiWorktree\dcc-product-onboarding-flow-20260803`，登记 `int_main slot=15`，前端端口 `8096`、后端端口 `48096`，未占用主工作区 `8081/48081`。
+
+worktree 内已完成运行态验证：DCC 定向 JUnit 通过 107 tests；前端静态契约通过；worktree DCC/MDM 相关模块 install 后重新打包 `yudao-server-exec.jar` 通过；后端 `48096` health `UP`；前端 `8096` HTTP `200`；真实 Playwright E2E 通过项目代码页面发起产品建档申请并审批生成 DCC 项目代码，结果为 `requestId=5`、`projectCodeId=259`、`productMasterId=333`、`projectCode=CODXONB03073324`，`criticalNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`。
+
+剩余收尾：清理当前任务临时脚本/运行产物，提交 worktree 任务证据，复核最新 `origin/int_main` 后再按 Git 门禁融合回 `int_main` 并尝试 push；若 GitHub HTTPS 代理仍不可用，必须记录 blocker，不能标记 completed。
 
 ## 设计约束检查
 

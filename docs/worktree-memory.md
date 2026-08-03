@@ -73,6 +73,15 @@
 - Forbidden action: 禁止随机换端口、改共享 `application-local.yaml`、复用旧 jar、强杀未知 Java 进程、把 `health` 未达 `UP` 当通过、或把超时的 fork 测试静默忽略。
 - Evidence: `doc/tasks/20260726-codex-test-process-route-case/verification-report.md`，slot 1 worktree 后端首次 Java 21 C2 native memory crash，使用当前 jar 与登记端口 48082 加低内存 JVM 参数恢复，真实页面 E2E 写入 4 个测试项后通过。
 
+## Worktree Server-Only 打包旧本地仓库模块门禁
+
+- Trigger: 附加 worktree 中为避开无关模块 `testCompile` 或全 reactor 卡顿，改用 `mvn -pl yudao-server "-Dmaven.test.skip=true" package` 只打 server；运行态 health 为 `UP`，但新接口返回 `404 请求地址不存在`。
+- Preflight check: 如果当前任务改动在业务模块内，server-only 打包前必须先把该 worktree 的业务模块及其 reactor 依赖执行 `mvn -pl <module> -am "-Dmaven.test.skip=true" install`，并用 `jar tf` 或等价方式确认本地仓库模块 jar 含目标 Controller/Service；server fat jar 只需确认嵌入 `BOOT-INF/lib/<module>-*.jar`。
+- Blocker: server-only package 直接复用本机 Maven 仓库旧 SNAPSHOT、目标 Controller 只存在于 worktree `target` 但未 install、未登录或真实 E2E 返回 404、或只看 `/actuator/health=UP` 就宣称运行态加载成功时必须停止。
+- Verification: 记录模块 install 命令、目标类在 installed module jar 中存在、server package PASS、运行 jar SHA256、后端 health、前端 HTTP 200、真实页面 E2E 命中目标写接口且不再 404。
+- Forbidden action: 禁止为了绕过全 reactor 编译失败复用旧本地仓库业务模块；禁止手工解压替换 nested jar、拼混合 jar、复制主工作区旧 jar、或用 API-only/health-only 替代目标页面 E2E。
+- Evidence: `doc/tasks/20260803-dcc-product-onboarding-flow/verification-report.md`，slot 15 worktree 首次 server-only 打包后产品建档接口 404，安装 worktree `yudao-module-dcc`/`yudao-module-mdm` 依赖链并重打 server 后，8096/48096 真实 Playwright E2E 通过。
+
 ## Worktree 真实 E2E 运行产物门禁
 
 - Trigger: 在 `D:\IntRuoyiWorktree\` 下执行真实 Playwright E2E，尤其需要通过登记 slot 启动前端与后端。
