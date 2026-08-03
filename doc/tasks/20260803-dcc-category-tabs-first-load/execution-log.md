@@ -12,6 +12,7 @@
 ## Task Commits
 
 - `c2684a60e`：`fix: optimize dcc category tab first load`，提交 DCC 文控权限页签首屏按需挂载、分发/培训规则可见行加载、上传审批候选延迟加载和静态合同。
+- `c5f7df798`：`docs: record dcc category tab load closeout`，提交任务记录、验证报告和前端首屏页签按需挂载经验门禁。
 
 ## BDD
 
@@ -37,6 +38,7 @@
 - 2026-08-03: `task-closeout-cleanup` preview/apply 通过；仅删除本任务临时 `frontend-feature-evidence.md`，保留 `task.md`、`execution-log.md`、`verification-report.md`。
 - 2026-08-03: `git diff --check -- <task-owned paths>` 通过；仅出现 LF/CRLF 提示，无 whitespace error。
 - 2026-08-03: 实现提交 `c2684a60e` 完成；pre-commit branch runtime port guard 通过 `int_main/int_main: frontend 8081, backend 48081`。
+- 2026-08-03: 收尾提交 `c5f7df798` 完成；`git push origin int_main` 成功推送 `0de7bd93b..c5f7df798`。
 
 ## Verification Evidence
 
@@ -54,8 +56,9 @@
 - PASS: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-category-tabs-first-load --mode preview`。
 - PASS: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-dcc-category-tabs-first-load --mode apply`。
 - PASS: `git diff --check -- <task-owned paths>`。
+- PASS: `git push origin int_main` -> `0de7bd93b..c5f7df798 int_main -> int_main`。
 
 ## Blockers
 
-- 当前任务验证暂无 blocker。
-- 工作区存在并行任务改动和未跟踪产物；本任务提交阶段必须显式路径暂存，禁止 `git add -A` 混入非本任务文件。
+- 当前任务验证、清理、提交和推送暂无 blocker。
+- 工作区仍存在并行任务改动和未跟踪产物；均非本任务暂存/提交范围。
