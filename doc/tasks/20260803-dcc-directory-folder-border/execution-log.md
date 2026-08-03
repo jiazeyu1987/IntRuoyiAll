@@ -32,6 +32,9 @@
 - 2026-08-03: `task-closeout-cleanup --mode apply` -> PASS，已删除本任务临时 `frontend-feature-evidence.md`。
 - 2026-08-03: 共享主工作区并发基线提交 `c53c0a1e0` 已吸收本任务实现文件：`IntRuoyiFronted/package.json`、`src/views/dcc/controlled-file/directories/index.vue`、`tests/e2e/dcc-directory-folder-border-static.spec.js`、`tests/e2e/dcc-directory-folder-icon-inline-static.spec.js`；未回滚或改写该提交。
 - 2026-08-03: 共享主工作区并发基线提交 `61d406ca6` 已吸收本任务临时 evidence 文件；cleanup 后本任务收尾提交只处理保留文档更新和 evidence 删除。
+- 2026-08-03: 收尾提交 `a66039b0d 任务: 收尾DCC目录文件夹边框` 已提交，文件清单：`execution-log.md`、`task.md`、`verification-report.md`、删除 `frontend-feature-evidence.md`。
+- 2026-08-03: `git push origin int_main` -> PASS，`61d406ca6..a66039b0d int_main -> int_main`；推送钩子 branch runtime port guard PASS。
+- 2026-08-03: 推送后 `git status --short --branch --untracked-files=no` 显示 `int_main...origin/int_main` 不再 ahead；仍存在非本任务脏改动，未暂存、未提交、未回滚。
 
 ## Verification Evidence
 

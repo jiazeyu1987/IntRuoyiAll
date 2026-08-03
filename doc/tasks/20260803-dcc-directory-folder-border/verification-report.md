@@ -27,4 +27,6 @@ PASS: DCC 文档目录文件夹描边已按子文件夹状态区分，有子文�
 
 - Implementation files were absorbed by shared baseline commit `c53c0a1e0`.
 - Temporary evidence was absorbed by shared baseline commit `61d406ca6` and removed by cleanup apply.
-- Final closeout should stage only this task's retained docs and evidence deletion; unrelated dirty files must remain untouched.
+- Closeout commit `a66039b0d` staged only retained task docs and evidence deletion.
+- `git push origin int_main` passed and branch is no longer ahead of `origin/int_main`.
+- Unrelated dirty files remain in the shared workspace and were not staged, committed, reverted, or pushed by this task.
