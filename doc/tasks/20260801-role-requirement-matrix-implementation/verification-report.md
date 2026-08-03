@@ -125,6 +125,11 @@
 | authorized runtime conflict handling for `backend-runtime-control-20260803-023450-rrm-m6-pqc-submit.jar` | PASS，停止无关 DCC patched runtime PID `58452` 后，M6 Jar 成为 48081 listener PID `28744`；backend health `UP`，frontend 8081 HTTP `200` |
 | authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` on M6 runtime Jar | PASS，0 SOURCE / 0 ENV / 0 RUNTIME |
 | authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` on M6 runtime Jar | STRUCTURED_BLOCKED，6 phase evidence / 10 action evidence / 2 gate evidence / 67 blockers；`pqcFormalSubmissionCreated=BLOCKED/E2E_PQC_SUBMISSION_DATA`，`pqcLeaderSubmissionFilterPaginationConsistent=BLOCKED/E2E_PQC_SUBMISSION_DATA` |
+| `pnpm --dir IntRuoyiFronted e2e:role-matrix-pqc-d32-fixture:static` | PASS，D32 local fixture 只准备 formal PENDING PQC task，不插入 process-pool event，不标记 submitted |
+| `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` after D32 fixture | PASS |
+| current runtime probe | PASS，48081 listener PID `43876` 为 `backend-runtime-control-20260803-115911-rrm-m6-pqc-skip-submitted.jar`；backend health `UP`，frontend 8081 HTTP `200` |
+| authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` after D29/D32 | PASS，0 SOURCE / 0 ENV / 0 RUNTIME |
+| authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` after D29/D32 | STRUCTURED_BLOCKED，6 phase evidence / 10 action evidence / 2 gate evidence / 65 blockers；`pqcFormalSubmissionCreated=PASS`，`submittedTaskId=31`，`eventId=26`，`signatureId=23`；`pqcLeaderSubmissionFilterPaginationConsistent=PASS`，`total=2`，`firstEventId=24`，`secondEventId=26` |
 
 ## Resolved M5 Detail
 
@@ -138,7 +143,7 @@
 
 - M5 后端目标 Maven verification blocker 已关闭。
 - 迁移、并发、性能、全量真实 E2E 和收尾/上线验收仍在 M6 中推进。
-- 当前 M6 blocker：`role-requirement-matrix-real-flow.e2e.js` 已移除泛化未实现占位，改为从测试计划加载 62 AC 并输出逐项 `E2E_COVERAGE` blocker；当前已完成六角色入口/页面阶段观察、AC-M04 `joinActiveOrder`、`activeOrderConflictRouteRejected`、`activeOrderCrossRoleReadOnly`、`activeOrderUnauthorizedMutationBlocked` 真实动作观察、PQC `pqcRegulationItemsRendered` 正式规程项目渲染（含 AC-D17 页面可见方法/标准/判定元信息）、`pqcPieceDetailQuantityPrepared` 逐件数量、`pqcActualEmployeeSelected` 正式人员来源 PASS 动作证据、AC-D29 `pqcFormalSubmissionCreated` 正式提交事件门禁、AC-D32 `pqcLeaderSubmissionFilterPaginationConsistent` 数据 blocker、M6 迁移预检静态/策略/运行库门禁 PASS_RUNTIME_PREFLIGHT，以及 AC-M04 后端重复/并发/冲突路线失败路径。权限隔离已由专用错误角色 `aoteman` 真实验证通过；清理追溯脚本已能重新定位 activeOrderId，但当前 activeOrderId 仍是后续 M6 共享夹具，需要正式清理窗口或可重建夹具后才能清理；AC-D29 后端代码/单测/静态/构建/运行态已 GREEN，但 full real E2E 在真实页面记录 `pqcFormalSubmissionCreated=BLOCKED/E2E_PQC_SUBMISSION_DATA`，原因是 PQC 页面固定签名 ID 25 已被工序池事件占用；并发/性能已显式结构化为 12 个 CONC AC 与 4 个 PERF AC 的 gate blocker，其中 `AC-D27` 已有逐件数量页面观察，`AC-D32` 因缺正式 submitted 样本未完成分页证明；尚未完成 62 AC 的完整真实页面失败路径、权限隔离、并发/性能证据和清理闭环。
+- 当前 M6 blocker：`role-requirement-matrix-real-flow.e2e.js` 已移除泛化未实现占位，改为从测试计划加载 62 AC 并输出逐项 `E2E_COVERAGE` blocker；当前已完成六角色入口/页面阶段观察、AC-M04 `joinActiveOrder`、`activeOrderConflictRouteRejected`、`activeOrderCrossRoleReadOnly`、`activeOrderUnauthorizedMutationBlocked` 真实动作观察、PQC `pqcRegulationItemsRendered` 正式规程项目渲染（含 AC-D17 页面可见方法/标准/判定元信息）、`pqcPieceDetailQuantityPrepared` 逐件数量、`pqcActualEmployeeSelected` 正式人员来源、`pqcFormalSubmissionCreated` 正式提交事件、`pqcLeaderSubmissionFilterPaginationConsistent` 同筛选分页 PASS 动作证据、M6 迁移预检静态/策略/运行库门禁 PASS_RUNTIME_PREFLIGHT，以及 AC-M04 后端重复/并发/冲突路线失败路径。权限隔离已由专用错误角色 `aoteman` 真实验证通过；清理追溯脚本已能重新定位 activeOrderId，但当前 activeOrderId 仍是后续 M6 共享夹具，需要正式清理窗口或可重建夹具后才能清理；并发/性能已显式结构化为 12 个 CONC AC 与 4 个 PERF AC 的 gate blocker，其中 `AC-D27` 与 `AC-D32` 已有页面观察，但日结、PQC 列表和逐件明细仍缺完整 N+1 / paging drift proof；尚未完成 62 AC 的完整真实页面失败路径、权限隔离、并发/性能证据和清理闭环。
 - 62 项 AC 不能在 M5/M6 验收前标记为全部完成。
 - 本轮按用户要求不执行 `git push`；后续如需提交，也只能本地提交并保留 no-push 记录，除非用户另行授权。
 
