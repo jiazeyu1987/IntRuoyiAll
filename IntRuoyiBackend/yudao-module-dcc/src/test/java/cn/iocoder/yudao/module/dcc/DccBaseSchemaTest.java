@@ -243,6 +243,30 @@ class DccBaseSchemaTest {
     }
 
     @Test
+    void mysqlSchemaShouldSupportProductOnboardingAndProjectMdmBinding() throws Exception {
+        Path projectDir = findProjectDir();
+        String schema = readDccRuntimeSchema(projectDir);
+        String testSchema = Files.readString(projectDir.resolve(
+                "yudao-module-dcc/src/test/resources/sql/create_tables.sql"));
+
+        assertSchemaHasColumns(schema, "dcc_project_code", List.of("product_master_id"));
+        assertNotNull(findCreateBlock(schema, "dcc_product_onboarding_request"),
+                "DCC schema must create product onboarding request table");
+        assertSchemaHasColumns(schema, "dcc_product_onboarding_request", List.of(
+                "product_master_id", "product_code", "dcc_product_code", "product_name_cn",
+                "project_name", "project_code", "status", "applicant_user_id", "approver_user_id",
+                "approved_time", "generated_project_code_id", "reject_reason"));
+        assertTrue(schema.contains("idx_dcc_product_onboarding_status"),
+                "DCC onboarding requests must be queryable by tenant and approval status");
+        assertTrue(schema.contains("uk_dcc_product_onboarding_pending_project"),
+                "DCC onboarding requests must block duplicate pending project codes");
+
+        assertSchemaHasColumns(testSchema, "dcc_project_code", List.of("product_master_id"));
+        assertNotNull(findCreateBlock(testSchema, "dcc_product_onboarding_request"),
+                "DCC test schema must create product onboarding request table");
+    }
+
+    @Test
     void mysqlSchemaShouldCreateProjectCodeAssignmentAuditTablesAndMenus() throws Exception {
         Path projectDir = findProjectDir();
         Path migrationFile = projectDir.resolve("sql/mysql/20260712_dcc_project_code_assignment_audit.sql");
@@ -1043,6 +1067,12 @@ class DccBaseSchemaTest {
         assertSchemaIsNonDestructive(migrationSchema, "NAS uncontrolled import task snapshot");
         assertSchemaHasColumns(migrationSchema, "dcc_controlled_file_nas_transfer_task",
                 List.of("audit_task_id", "idempotency_key", "request_hash"));
+        assertTrue(Pattern.compile("MODIFY\\s+COLUMN\\s+`template_category_id`\\s+bigint\\s+DEFAULT\\s+NULL",
+                        Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(migrationSchema).find(),
+                "NAS uncontrolled import migration must allow task template_category_id to be nullable");
+        assertTrue(Pattern.compile("MODIFY\\s+COLUMN\\s+`effective_date`\\s+date\\s+DEFAULT\\s+NULL",
+                        Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(migrationSchema).find(),
+                "NAS uncontrolled import migration must allow task effective_date to be nullable");
         assertSchemaHasColumns(migrationSchema, "dcc_controlled_file_nas_transfer_task_item",
                 List.of("audit_file_id", "source_signature", "classification_status_snapshot",
                         "matched_project_code_id_snapshot", "matched_file_type_taxonomy_id_snapshot",
@@ -1069,6 +1099,11 @@ class DccBaseSchemaTest {
         String testSchema = Files.readString(testSchemaFile);
         assertSchemaHasColumns(testSchema, "dcc_controlled_file_nas_transfer_task",
                 List.of("audit_task_id", "idempotency_key", "request_hash"));
+        assertColumnNullable(testSchema, "dcc_controlled_file_nas_transfer_task", "template_category_id",
+                "test NAS uncontrolled import task");
+        assertTrue(Pattern.compile("`effective_date`\\s+DATE\\s+NULL",
+                        Pattern.CASE_INSENSITIVE).matcher(testSchema).find(),
+                "DCC test schema must allow nullable dcc_controlled_file_nas_transfer_task.effective_date");
         assertSchemaHasColumns(testSchema, "dcc_controlled_file_nas_transfer_task_item",
                 List.of("audit_file_id", "source_signature", "classification_status_snapshot",
                         "classification_candidates_json_snapshot", "local_relative_path",

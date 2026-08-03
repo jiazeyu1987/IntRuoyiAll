@@ -231,3 +231,8 @@ BDD: Import-selected task snapshots are schema-backed -> Given selected audit fi
 - RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportNasUncontrolledImportTaskSnapshots" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: `DCC NAS uncontrolled import task snapshot migration must exist`.
 - GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportNasUncontrolledImportTaskSnapshots" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
 - GREEN: `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_uncontrolled_import_task_snapshot_sql.py IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q` -> PASS, 4 passed in 1.49s.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\database-schema-evidence.md` -> PASS, `Database schema evidence is valid.`
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8 read check for M15 task/evidence files -> PASS, all `contains_replacement=False`.
+- GREEN: scoped `git diff --check` for M15 tracked files -> PASS, no whitespace errors.
+- GREEN: trailing whitespace check for new SQL contract file -> PASS.

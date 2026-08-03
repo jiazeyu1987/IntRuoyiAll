@@ -77,6 +77,8 @@ import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
+import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -199,6 +201,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     private DccUploadTicketService uploadTicketService;
     @Mock
     private PermissionApi permissionApi;
+    @Mock
+    private MdmProductApi mdmProductApi;
     @Mock
     private DccControlledFileCategoryPermissionSupport permissionSupport;
     @Mock
@@ -998,6 +1002,41 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         assertNull(fileCaptor.getValue().getProductMasterId());
         assertEquals("PRJ-20260719", fileCaptor.getValue().getProductCode());
         assertEquals("验证项目", fileCaptor.getValue().getProductName());
+    }
+
+    @Test
+    void submitControlledFile_projectCodeWithMdmBindingPersistsMdmProduct() {
+        DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("V1.0");
+        mockCommonSubmitDependencies();
+        when(projectCodeMapper.selectById(3000L)).thenReturn(DccProjectCodeDO.builder()
+                .id(3000L)
+                .productMasterId(5000L)
+                .projectName("旧项目文本")
+                .projectCode("OLD-PROJECT-CODE")
+                .status(DccProjectCodeStatusConstants.ENABLE)
+                .build());
+        when(mdmProductApi.getEnabledDccProduct(5000L)).thenReturn(MdmProductRespDTO.builder()
+                .id(5000L)
+                .productCode("P-5000")
+                .dccProductCode("A1234567890123")
+                .nameCn("MDM正式产品")
+                .status("ENABLE")
+                .build());
+        mockSingleStageRoute();
+        doAnswer(invocation -> {
+            DccControlledFileDO file = invocation.getArgument(0);
+            file.setId(908L);
+            return 1;
+        }).when(controlledFileMapper).insert(any(DccControlledFileDO.class));
+
+        Long fileId = workflowService.submitControlledFile(99L, reqVO);
+
+        assertEquals(908L, fileId);
+        ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).insert(fileCaptor.capture());
+        assertEquals(5000L, fileCaptor.getValue().getProductMasterId());
+        assertEquals("A1234567890123", fileCaptor.getValue().getProductCode());
+        assertEquals("MDM正式产品", fileCaptor.getValue().getProductName());
     }
 
     @Test

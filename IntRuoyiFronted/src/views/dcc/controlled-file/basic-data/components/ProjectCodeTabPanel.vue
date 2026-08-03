@@ -1,5 +1,5 @@
 <template>
-  <ContentWrap>
+  <ContentWrap class="scheme-d-basic-data-page scheme-d-basic-data-page--dcc-project-code">
     <div class="mb-16px flex items-center gap-8px">
       <span class="text-18px font-600 text-[var(--el-text-color-primary)]">基础数据 / DCC项目代码</span>
     </div>
@@ -26,6 +26,7 @@
     >
       <template #actions>
         <el-button
+          class="scheme-d-btn scheme-d-btn--success"
           type="primary"
           plain
           :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
@@ -37,6 +38,7 @@
         </el-button>
         <el-button
           v-if="canRunProjectCodeListNameAutoClassify"
+          class="scheme-d-btn scheme-d-btn--primary"
           type="primary"
           plain
           data-testid="dcc-project-code-list-auto-classify-unclassified"
@@ -57,6 +59,7 @@
           按文件名归类未分类
         </el-button>
         <el-button
+          class="scheme-d-btn scheme-d-btn--primary"
           :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
           @click="openImportDialog"
           v-hasPermi="['dcc:project-code:import']"
@@ -65,6 +68,7 @@
           导入
         </el-button>
         <el-button
+          class="scheme-d-btn scheme-d-btn--warning"
           :loading="exportLoading"
           :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
           @click="handleExport"
@@ -75,6 +79,7 @@
         </el-button>
         <el-button
           v-if="canRunBatchAiCategory"
+          class="scheme-d-btn scheme-d-btn--primary"
           type="primary"
           plain
           data-testid="dcc-project-code-batch-ai-category"
@@ -128,7 +133,7 @@
               </span>
               <el-button
                 link
-                class="dcc-project-code-batch-ai-category-progress-close"
+                class="dcc-project-code-batch-ai-category-progress-close scheme-d-row-action scheme-d-row-action--danger scheme-d-icon-button"
                 data-testid="dcc-project-code-batch-ai-category-progress-close"
                 aria-label="关闭批量AI分类进度"
                 @click="handleCloseBatchAiCategoryProgress"
@@ -151,6 +156,7 @@
           >
             <el-button
               link
+              class="scheme-d-row-action scheme-d-row-action--danger"
               type="danger"
               data-testid="dcc-project-code-batch-ai-category-view-failures"
               @click="handleViewBatchAiCategoryFailures"
@@ -159,6 +165,7 @@
             </el-button>
             <el-button
               link
+              class="scheme-d-row-action scheme-d-row-action--warning"
               type="primary"
               data-testid="dcc-project-code-batch-ai-category-export-failures"
               :loading="batchAiCategoryFailureExporting"
@@ -275,6 +282,7 @@
           >
             <template #default="{ row }">
               <el-tag
+                class="scheme-d-tag"
                 effect="plain"
                 :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.routeStatus)"
                 :title="getDccProjectGovernance(row.projectName)?.routeCodes?.join('、') || ''"
@@ -292,6 +300,7 @@
           >
             <template #default="{ row }">
               <el-tag
+                class="scheme-d-tag"
                 effect="plain"
                 :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.mainBatchRecordStatus)"
                 :title="getDccProjectGovernance(row.projectName)?.mainBatchRecordVersionNos?.join('、') || ''"
@@ -309,6 +318,7 @@
           >
             <template #default="{ row }">
               <el-tag
+                class="scheme-d-tag"
                 effect="plain"
                 :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.lossReportStatus)"
                 :title="getDccProjectGovernance(row.projectName)?.lossReportCodes?.join('、') || ''"
@@ -326,6 +336,7 @@
           >
             <template #default="{ row }">
               <el-tag
+                class="scheme-d-tag"
                 effect="plain"
                 :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.processInspectionStatus)"
                 :title="getDccProjectGovernance(row.projectName)?.processInspectionCodes?.join('、') || ''"
@@ -343,6 +354,7 @@
           >
             <template #default="{ row }">
               <el-tag
+                class="scheme-d-tag"
                 effect="plain"
                 :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.parameterRecordStatus)"
                 :title="getDccProjectGovernance(row.projectName)?.parameterRecordCodes?.join('、') || ''"
@@ -369,6 +381,7 @@
             <template #default="{ row }">
               <el-button
                 link
+                class="scheme-d-row-action scheme-d-row-action--primary"
                 type="primary"
                 @click="openForm('update', row)"
                 v-hasPermi="['dcc:project-code:update']"
@@ -377,13 +390,21 @@
               </el-button>
               <el-button
                 link
+                class="scheme-d-row-action scheme-d-row-action--danger"
                 type="danger"
                 @click="handleDelete(row)"
                 v-hasPermi="['dcc:project-code:delete']"
               >
                 删除
               </el-button>
-              <el-button link type="primary" @click="openProjectCodeDetail(row)">详情</el-button>
+              <el-button
+                link
+                class="scheme-d-row-action scheme-d-row-action--primary"
+                type="primary"
+                @click="openProjectCodeDetail(row)"
+              >
+                详情
+              </el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -393,6 +414,7 @@
 
   <el-dialog
     v-model="importVisible"
+    class="scheme-d-form-control"
     title="DCC基础数据导入"
     width="1080px"
     data-testid="dcc-project-code-import-dialog"
@@ -406,20 +428,26 @@
         :on-change="handleImportFileChange"
         :on-remove="handleImportFileRemove"
       >
-        <el-button>
+        <el-button class="scheme-d-btn scheme-d-btn--neutral">
           <Icon icon="ep:folder-opened" class="mr-5px" />
           选择文件
         </el-button>
       </el-upload>
-      <el-button @click="handleDownloadTemplate">
+      <el-button class="scheme-d-btn scheme-d-btn--warning" @click="handleDownloadTemplate">
         <Icon icon="ep:document" class="mr-5px" />
         模板
       </el-button>
-      <el-button type="primary" :loading="previewLoading" @click="handleImportPreview">
+      <el-button
+        class="scheme-d-btn scheme-d-btn--primary"
+        type="primary"
+        :loading="previewLoading"
+        @click="handleImportPreview"
+      >
         <Icon icon="ep:view" class="mr-5px" />
         预览
       </el-button>
       <el-button
+        class="scheme-d-btn scheme-d-btn--success"
         type="success"
         :disabled="!previewResult || previewResult.failureCount > 0"
         :loading="confirmLoading"
@@ -435,12 +463,12 @@
       class="dcc-project-code-import-summary"
       data-testid="dcc-project-code-import-summary"
     >
-      <el-tag>总数 {{ previewResult.totalCount }}</el-tag>
-      <el-tag type="success">新增 {{ previewResult.createCount }}</el-tag>
-      <el-tag type="warning">更新 {{ previewResult.updateCount }}</el-tag>
-      <el-tag type="info">停用 {{ previewResult.disableCount }}</el-tag>
-      <el-tag>不变 {{ previewResult.unchangedCount }}</el-tag>
-      <el-tag :type="previewResult.failureCount > 0 ? 'danger' : 'success'">
+      <el-tag class="scheme-d-tag">总数 {{ previewResult.totalCount }}</el-tag>
+      <el-tag class="scheme-d-tag" type="success">新增 {{ previewResult.createCount }}</el-tag>
+      <el-tag class="scheme-d-tag" type="warning">更新 {{ previewResult.updateCount }}</el-tag>
+      <el-tag class="scheme-d-tag" type="info">停用 {{ previewResult.disableCount }}</el-tag>
+      <el-tag class="scheme-d-tag">不变 {{ previewResult.unchangedCount }}</el-tag>
+      <el-tag class="scheme-d-tag" :type="previewResult.failureCount > 0 ? 'danger' : 'success'">
         失败 {{ previewResult.failureCount }}
       </el-tag>
     </div>
@@ -454,7 +482,7 @@
       <el-table-column label="行号" prop="rowNo" width="80" />
       <el-table-column label="动作" prop="importAction" width="110">
         <template #default="{ row }">
-          <el-tag :type="importActionTagType(row.importAction)">
+          <el-tag class="scheme-d-tag" :type="importActionTagType(row.importAction)">
             {{ formatImportAction(row.importAction) }}
           </el-tag>
         </template>
@@ -470,7 +498,7 @@
     </el-table>
   </el-dialog>
 
-  <Dialog v-model="formVisible" title="项目代码维护" width="760px">
+  <Dialog v-model="formVisible" class="scheme-d-form-control" title="项目代码维护" width="760px">
     <el-form
       ref="formRef"
       v-loading="formLoading"
@@ -513,13 +541,23 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button type="primary" :disabled="formLoading" @click="submitForm">确定</el-button>
-      <el-button @click="formVisible = false">取消</el-button>
+      <div class="scheme-d-dialog-footer">
+        <el-button
+          class="scheme-d-btn scheme-d-btn--success"
+          type="primary"
+          :disabled="formLoading"
+          @click="submitForm"
+        >
+          确定
+        </el-button>
+        <el-button class="scheme-d-btn scheme-d-btn--neutral" @click="formVisible = false">取消</el-button>
+      </div>
     </template>
   </Dialog>
 
   <el-drawer
     v-model="detailDrawerVisible"
+    class="scheme-d-basic-data-page scheme-d-basic-data-page--dcc-project-code scheme-d-form-control"
     title="DCC基础条目"
     size="96%"
     data-testid="dcc-project-code-detail-drawer"
@@ -528,7 +566,7 @@
       <el-descriptions v-if="selectedProjectCode" :column="2" border>
         <el-descriptions-item label="文控">{{ selectedProjectCode.docControlNo || '-' }}</el-descriptions-item>
         <el-descriptions-item label="状态">
-          <el-tag :type="selectedProjectCode.status === 'ENABLE' ? 'success' : 'info'">
+          <el-tag class="scheme-d-tag" :type="selectedProjectCode.status === 'ENABLE' ? 'success' : 'info'">
             {{ formatStatus(selectedProjectCode.status) }}
           </el-tag>
         </el-descriptions-item>
@@ -554,6 +592,7 @@
           </span>
           <el-button
             v-if="canRunAiCategory"
+            class="scheme-d-btn scheme-d-btn--primary"
             data-testid="dcc-project-code-ai-category"
             size="small"
             type="primary"
@@ -571,6 +610,7 @@
           </el-button>
           <el-button
             v-if="canRunAssociatedNameAutoClassify"
+            class="scheme-d-btn scheme-d-btn--primary"
             data-testid="dcc-project-code-auto-classify-unclassified"
             size="small"
             type="primary"
@@ -589,6 +629,7 @@
             按文件名归类未分类
           </el-button>
           <el-button
+            class="scheme-d-btn scheme-d-btn--primary"
             data-testid="dcc-project-code-assignment-open"
             size="small"
             type="primary"
@@ -600,6 +641,7 @@
             分配修正
           </el-button>
           <el-button
+            class="scheme-d-btn scheme-d-btn--neutral"
             data-testid="dcc-project-code-assignment-records"
             size="small"
             plain
@@ -608,7 +650,7 @@
           >
             分配记录
           </el-button>
-          <el-tag size="small" type="info">共 {{ associatedFilesTotal }} 份</el-tag>
+          <el-tag class="scheme-d-tag" size="small" type="info">共 {{ associatedFilesTotal }} 份</el-tag>
         </div>
       </div>
       <div
@@ -633,7 +675,7 @@
                   @click="selectAssociatedStage(stage.key)"
                 >
                   <span class="dcc-project-code-associated-item-label">{{ stage.label }}</span>
-                  <el-tag size="small" type="info">{{ stage.count }} 份</el-tag>
+                  <el-tag class="scheme-d-tag" size="small" type="info">{{ stage.count }} 份</el-tag>
                 </button>
               </div>
             </section>
@@ -654,7 +696,7 @@
                   @click="selectAssociatedType(typeGroup.key)"
                 >
                   <span class="dcc-project-code-associated-item-label">{{ typeGroup.label }}</span>
-                  <el-tag size="small" type="info">{{ typeGroup.files.length }} 份</el-tag>
+                  <el-tag class="scheme-d-tag" size="small" type="info">{{ typeGroup.files.length }} 份</el-tag>
                 </button>
               </div>
               <el-empty v-else description="当前阶段暂无文件类型" :image-size="64" />
@@ -666,7 +708,7 @@
             >
               <div class="dcc-project-code-associated-panel-title">
                 <span>{{ selectedAssociatedTypeGroup?.label || '文件列表' }}</span>
-                <el-tag size="small" type="info">
+                <el-tag class="scheme-d-tag" size="small" type="info">
                   {{ selectedAssociatedFilesTotal }} 份
                 </el-tag>
               </div>
@@ -684,7 +726,7 @@
                     </el-link>
                     <el-tag
                       v-if="isAssociatedRouteFocus(row)"
-                      class="ml-6px"
+                      class="ml-6px scheme-d-tag"
                       data-testid="dcc-project-code-associated-route-focus"
                       size="small"
                       type="success"
@@ -724,7 +766,7 @@
     </div>
   </el-drawer>
 
-  <Dialog v-model="assignmentDialogVisible" title="分配修正任务" width="620px">
+  <Dialog v-model="assignmentDialogVisible" class="scheme-d-form-control" title="分配修正任务" width="620px">
     <el-form label-width="96px">
       <el-form-item label="被分配人">
         <el-select
@@ -781,15 +823,25 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="assignmentDialogVisible = false">取消</el-button>
-      <el-button type="primary" :loading="assignmentSubmitting" @click="submitAssignmentDialog">
-        创建分配
-      </el-button>
+      <div class="scheme-d-dialog-footer">
+        <el-button class="scheme-d-btn scheme-d-btn--neutral" @click="assignmentDialogVisible = false">
+          取消
+        </el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--success"
+          type="primary"
+          :loading="assignmentSubmitting"
+          @click="submitAssignmentDialog"
+        >
+          创建分配
+        </el-button>
+      </div>
     </template>
   </Dialog>
 
   <el-drawer
     v-model="assignmentRecordsVisible"
+    class="scheme-d-basic-data-page scheme-d-basic-data-page--dcc-project-code"
     title="分配记录"
     size="920px"
     data-testid="dcc-project-code-assignment-records-drawer"
@@ -820,6 +872,7 @@
         <template #default="{ row }">
           <el-button
             link
+            class="scheme-d-row-action scheme-d-row-action--primary"
             type="primary"
             @click="goAssignmentAudit(row)"
             v-hasPermi="['dcc:project-code-assignment:audit:query']"
@@ -828,6 +881,7 @@
           </el-button>
           <el-button
             link
+            class="scheme-d-row-action scheme-d-row-action--danger"
             type="danger"
             :disabled="row.status !== 'ACTIVE'"
             @click="handleRevokeAssignment(row)"

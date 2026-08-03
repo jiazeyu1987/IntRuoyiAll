@@ -63,6 +63,11 @@
 - `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q` -> PASS，2 passed in 0.17s。
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportNasUncontrolledImportTaskSnapshots" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 1, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS。
 - `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_uncontrolled_import_task_snapshot_sql.py IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q` -> PASS，4 passed in 1.49s。
+- `python -X utf8 C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\database-schema-evidence.md` -> PASS，`Database schema evidence is valid.`
+- `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，`BDD/TDD acceptance plan validation passed.`
+- UTF-8 read check for M15 task/evidence files -> PASS，全部 `contains_replacement=False`。
+- Scoped `git diff --check` for M15 tracked files -> PASS，无 whitespace error。
+- Trailing whitespace check for new SQL contract file -> PASS。
 
 ## Design Checks
 
@@ -134,4 +139,5 @@
 - Contract: task header stores audit task id, idempotency key and canonical request hash; task item stores audit file id, source signature, recognition snapshot, local relative path, local-write status/error and archive status/error; audit file stores selected import task/item binding.
 - GREEN: targeted schema JUnit passed with Tests run 1, Failures 0, Errors 0, Skipped 0.
 - GREEN: SQL static contracts passed with 4 tests.
+- Evidence: database schema validator and BDD/TDD acceptance plan validator passed after evidence updates.
 - Boundary: schema/persistence contract only; import-selected service/API, content binary download, local-write-result, frontend and real E2E remain in progress.

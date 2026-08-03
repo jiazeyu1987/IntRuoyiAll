@@ -15,7 +15,7 @@
 
 ## Experience Consolidation
 
-- GREEN: experience-preflight -> PASS, 本次经验已由 `docs/e2e-rules.md#DCC 受控打印门禁` 与 `docs/experience-index.md` 的 DCC 受控打印关键词覆盖；没有创建新的长期经验文档。
+- GREEN: experience-preflight -> PASS, 本次经验已合并到现有 `docs/e2e-rules.md#DCC 受控打印门禁`，并同步 `docs/experience-index.md` 的 DCC 受控打印关键词；没有创建新的长期经验文档。
 
 ## BDD
 

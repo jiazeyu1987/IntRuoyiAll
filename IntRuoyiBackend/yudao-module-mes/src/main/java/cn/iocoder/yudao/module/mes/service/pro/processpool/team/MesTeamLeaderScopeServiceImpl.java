@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -30,11 +31,15 @@ public class MesTeamLeaderScopeServiceImpl implements MesTeamLeaderScopeService 
         if (leaderUserId == null) {
             throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "leaderUserId");
         }
-        return activeScopes(leaderUserId, leaderType).stream()
+        Set<Long> employeeIds = activeScopes(leaderUserId, leaderType).stream()
                 .filter(scope -> MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE.equals(scope.getScopeType()))
                 .map(MesProcessPoolTeamLeaderScopeDO::getEmployeeUserId)
                 .filter(Objects::nonNull)
-                .collect(Collectors.toUnmodifiableSet());
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC.equals(leaderType)) {
+            employeeIds.add(leaderUserId);
+        }
+        return Set.copyOf(employeeIds);
     }
 
     @Override

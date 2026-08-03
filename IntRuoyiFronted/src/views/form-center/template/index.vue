@@ -2,7 +2,7 @@
   <ContentWrap
     v-if="!isDesignerMode && !isTemplateSimulationMode"
     :body-style="{ padding: '0px' }"
-    class="!mb-0 form-template-page"
+    class="!mb-0 form-template-page scheme-d-basic-data-page scheme-d-basic-data-page--form-template"
   >
     <div class="form-template-workbench">
       <section class="form-template-workbench__list">
@@ -27,12 +27,13 @@
           @pagination="getList"
         >
           <template #actions>
-            <el-button @click="resetQuery">
+            <el-button class="scheme-d-btn scheme-d-btn--warning" @click="resetQuery">
               <Icon class="mr-5px" icon="ep:refresh" />
               重置
             </el-button>
             <el-button
               v-hasPermi="['form:template:create']"
+              class="scheme-d-btn scheme-d-btn--primary"
               plain
               type="primary"
               @click="openImport"
@@ -94,7 +95,7 @@
                 <template #default="{ row }">
                   <el-tag
                     v-if="isPendingTemplateVersion(row.status)"
-                    class="template-version-tag"
+                    class="template-version-tag scheme-d-tag"
                     :type="pendingVersionTagType(row.status)"
                     effect="plain"
                   >
@@ -112,7 +113,7 @@
                 v-bind="sortColumnAttrs('status')"
               >
                 <template #default="{ row }">
-                  <el-tag :type="statusTagType(row.status)" effect="plain">
+                  <el-tag class="scheme-d-tag" :type="statusTagType(row.status)" effect="plain">
                     {{ statusLabel(row.status) }}
                   </el-tag>
                 </template>
@@ -152,12 +153,27 @@
             </strong>
           </div>
           <div v-if="selectedTemplate" class="form-template-preview__actions">
-            <el-button link type="primary" @click="enterPreviewMaximize">最大化</el-button>
-            <el-button link type="primary" @click="openSelectedTemplate">打开</el-button>
+            <el-button
+              link
+              class="scheme-d-row-action scheme-d-row-action--primary"
+              type="primary"
+              @click="enterPreviewMaximize"
+            >
+              最大化
+            </el-button>
+            <el-button
+              link
+              class="scheme-d-row-action scheme-d-row-action--primary"
+              type="primary"
+              @click="openSelectedTemplate"
+            >
+              打开
+            </el-button>
             <el-button
               v-if="canUseTemplateInteractiveAction(selectedTemplate)"
               v-hasPermi="['form:template:create']"
               link
+              class="scheme-d-row-action scheme-d-row-action--primary"
               type="primary"
               @click="editSelectedTemplate"
             >
@@ -166,6 +182,7 @@
             <el-button
               v-if="canUseTemplateInteractiveAction(selectedTemplate)"
               link
+              class="scheme-d-row-action scheme-d-row-action--primary"
               type="primary"
               @click="openSelectedTemplateFill"
             >
@@ -176,6 +193,7 @@
               @click="openSelectedTemplateFillConfig"
               v-hasPermi="['form:template:update']"
               link
+              class="scheme-d-row-action scheme-d-row-action--primary"
               type="primary"
             >
               填写配置
@@ -183,6 +201,7 @@
             <el-button
               v-if="canUseTemplateInteractiveAction(selectedTemplate)"
               link
+              class="scheme-d-row-action scheme-d-row-action--primary"
               type="primary"
               @click="openSelectedTemplateCellLinks"
             >
@@ -191,6 +210,7 @@
             <el-button
               v-hasPermi="['form:template-source:download']"
               link
+              class="scheme-d-row-action scheme-d-row-action--warning"
               type="primary"
               @click="downloadSelectedTemplateSource"
             >
@@ -200,6 +220,7 @@
               v-if="canPublishTemplate(selectedTemplate)"
               v-hasPermi="['form:template:publish']"
               link
+              class="scheme-d-row-action scheme-d-row-action--success"
               type="primary"
               @click="publishSelectedTemplate"
             >
@@ -209,6 +230,7 @@
               v-if="canDisableTemplate(selectedTemplate)"
               v-hasPermi="['form:template:disable']"
               link
+              class="scheme-d-row-action scheme-d-row-action--warning"
               type="warning"
               @click="disableSelectedTemplate"
             >
@@ -218,6 +240,7 @@
               v-if="canEnableTemplate(selectedTemplate)"
               v-hasPermi="['form:template:disable']"
               link
+              class="scheme-d-row-action scheme-d-row-action--success"
               type="primary"
               @click="enableSelectedTemplate"
             >
@@ -227,6 +250,7 @@
               v-if="resolveTemplateObsoleteOperationState(selectedTemplate) === 'pending-withdrawable'"
               v-hasPermi="['form:template:obsolete']"
               link
+              class="scheme-d-row-action scheme-d-row-action--warning"
               type="warning"
               @click="withdrawSelectedTemplateObsoleteRequest"
             >
@@ -235,6 +259,7 @@
             <el-button
               v-else-if="resolveTemplateObsoleteOperationState(selectedTemplate) === 'pending-readonly'"
               link
+              class="scheme-d-row-action scheme-d-row-action--warning"
               type="warning"
               disabled
             >
@@ -244,6 +269,7 @@
               v-else-if="canObsoleteTemplate(selectedTemplate)"
               v-hasPermi="['form:template:obsolete']"
               link
+              class="scheme-d-row-action scheme-d-row-action--danger"
               type="danger"
               @click="obsoleteSelectedTemplate"
             >
@@ -273,7 +299,14 @@
         <aside class="form-template-focused-preview__control">
           <span>当前模板</span>
           <strong>{{ selectedTemplate?.templateName || '未选择模板' }}</strong>
-          <el-button plain type="primary" @click="restorePreviewLayout">恢复</el-button>
+          <el-button
+            class="scheme-d-btn scheme-d-btn--primary"
+            plain
+            type="primary"
+            @click="restorePreviewLayout"
+          >
+            恢复
+          </el-button>
         </aside>
         <main class="form-template-focused-preview__stage">
           <div class="form-template-focused-preview__body">

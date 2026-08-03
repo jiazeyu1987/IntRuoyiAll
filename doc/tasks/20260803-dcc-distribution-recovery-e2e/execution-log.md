@@ -1,4 +1,4 @@
-# Execution Log
+﻿# Execution Log
 
 ## User Intent
 
@@ -74,6 +74,12 @@ BDD: DCC controlled-copy distribution and old-version recovery -> Given a non-ad
 - RED: tenant `测试租户` candidate `CODX-DCC-DIST-900347-DIST90034720260802185602` as `aoteman` -> FAIL, real publish dialog showed `No published business approval policy matched action PUBLISH`; submit returned `code=500 / 系统异常`; read-only DB confirmed V2 stayed `READY_TO_PUBLISH` and no publish action instance was created.
 - Final blocker impact: current run cannot cover both required actions (`分发` and `回收`) or prove old-version non-misuse through a newly completed V2 `ACTIVE` chain without adding/repairing formal category distribution/print/publish policy prerequisites.
 - Safety boundary maintained: no admin account, no direct SQL/API inserts or updates for distribution, receipt, recovery, approval, publish, or version state.
+
+## Non-Other Category Inventory 2026-08-03
+
+- Read-only DB inventory confirms non-`其他` DCC files exist.
+- Tenant `芋道源码` category `907233 / 过程检验规程` has many files, including V2 `ACTIVE` chains such as `CODX-DCC-REV-FULL-20260802-20260802201023` (`V1 SUPERSEDED / V2 ACTIVE`) and `CODX-DCC-DIST-REC-DISTREC20260802173908` (`V1 SUPERSEDED / V2 ACTIVE`). Current category actions are `APPROVE,DOWNLOAD,PRINT,UPLOAD,VIEW`; missing `DISTRIBUTE`, and active category distribution rules are empty, so paper distribution/recovery remains blocked until formal distribution permission/rule is configured.
+- Tenant `测试租户` category `900347 / Codex Local DCC Category` has file `CODX-DCC-DIST-900347-DIST90034720260802185602` with `V1 ACTIVE / V2 READY_TO_PUBLISH` and `PAPER` distribution rows. Current category actions include `DISTRIBUTE`, but publish is blocked by missing published `PUBLISH` business approval policy.
 
 ## Closeout Checks
 

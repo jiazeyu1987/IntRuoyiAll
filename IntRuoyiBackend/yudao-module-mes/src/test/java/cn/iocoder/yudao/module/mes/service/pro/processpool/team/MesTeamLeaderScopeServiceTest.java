@@ -42,6 +42,17 @@ class MesTeamLeaderScopeServiceTest {
     }
 
     @Test
+    void shouldIncludePqcLeaderSelfInResponsibleEmployeesForSelfInspectionVisibility() {
+        when(scopeMapper.selectActiveScopesByLeader(100L, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC))
+                .thenReturn(List.of(pqcEmployeeScope(2001L)));
+
+        Set<Long> employeeIds = service.listResponsibleEmployeeIds(100L,
+                MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC);
+
+        assertEquals(Set.of(100L, 2001L), employeeIds);
+    }
+
+    @Test
     void shouldRejectOutOfScopeEmployeeAccess() {
         when(scopeMapper.selectActiveScopesByLeader(100L, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION))
                 .thenReturn(List.of(employeeScope(2001L)));
@@ -101,6 +112,16 @@ class MesTeamLeaderScopeServiceTest {
                 .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                 .scopeType(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_PROCESS)
                 .processId(processId)
+                .enabled(Boolean.TRUE)
+                .build();
+    }
+
+    private static MesProcessPoolTeamLeaderScopeDO pqcEmployeeScope(Long employeeUserId) {
+        return MesProcessPoolTeamLeaderScopeDO.builder()
+                .leaderUserId(100L)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC)
+                .scopeType(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE)
+                .employeeUserId(employeeUserId)
                 .enabled(Boolean.TRUE)
                 .build();
     }
