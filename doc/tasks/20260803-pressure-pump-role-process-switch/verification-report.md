@@ -21,6 +21,8 @@ Reusable prevention guidance was added to the backend development rules and inde
 - `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260803-pressure-pump-role-process-switch/bug-regression-evidence.md` -> PASS.
 - Cleanup preview/apply for the follow-up evidence -> PASS, deleted temporary `bug-regression-evidence.md` and preserved `task.md`, `execution-log.md`, `verification-report.md`.
 - `rg -n "post workstation binding|hasAnyPermissionsInRoles|MES 一线设备账号权限门禁" docs\backend-development.md docs\experience-index.md` -> PASS.
+- `git -c http.https://github.com.proxy= push origin int_main` -> PASS; branch synchronization verified before the final completed-status commit.
+- `git status --short --branch --untracked-files=all` -> branch synchronized with `origin/int_main` and no task-owned dirty files remain.
 
 ## Result
 
@@ -32,4 +34,5 @@ Reusable prevention guidance was added to the backend development rules and inde
 - Bug regression evidence validator: PASS.
 - Task cleanup follow-up: PASS.
 - Experience consolidation: PASS.
+- Git commit and push: PASS.
 - No fallback, mock success, silent downgrade, or default-empty success path introduced.

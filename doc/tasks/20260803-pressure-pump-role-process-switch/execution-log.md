@@ -49,6 +49,10 @@
 - Cleanup preview follow-up: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-pressure-pump-role-process-switch --mode preview` -> READY, keep task/execution/verification reports, delete `bug-regression-evidence.md`, no blocked paths.
 - Cleanup apply follow-up: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260803-pressure-pump-role-process-switch --mode apply` -> APPLIED, deleted `bug-regression-evidence.md`, no blocked paths.
 - Experience index verification: `rg -n "post workstation binding|hasAnyPermissionsInRoles|MES 一线设备账号权限门禁" docs\backend-development.md docs\experience-index.md` -> PASS.
+- Commit: `git commit -m "docs: close out pressure pump role switch"` -> PASS, commit `5b41ad2c9`.
+- Push: `git -c http.https://github.com.proxy= push origin int_main` -> PASS, pushed `1e093e684..5b41ad2c9`.
+- Concurrent push follow-up: a parallel DCC docs commit `dd1aa949d` appeared after the first push; user had authorized pushing all current branch local commits, so ran `git -c http.https://github.com.proxy= push origin int_main` again -> PASS, pushed `5b41ad2c9..dd1aa949d`.
+- Pre-final push status: `git status --short --branch --untracked-files=all` -> `## int_main...origin/int_main`; final closeout status is recorded in this completed task update and will be included in the final push.
 
 ## Milestone Updates
 
@@ -70,5 +74,5 @@
 
 ## Blockers
 
-- Previous blocker changed by user authorization: user confirmed current branch local commits can be pushed together.
-- Current remaining action: commit final closeout records and push `int_main`; unrelated dirty files under `docs/acceptance/` are not task-owned and must not be staged by this task.
+- None. Previous blocker changed by user authorization: user confirmed current branch local commits can be pushed together.
+- Note: `git status` still emits warnings for the existing `IntRuoyiBackend/yudao-module-mes/target_corrupt_m4_20260802_1327/...` directory entries, but the branch is synchronized with `origin/int_main`.
