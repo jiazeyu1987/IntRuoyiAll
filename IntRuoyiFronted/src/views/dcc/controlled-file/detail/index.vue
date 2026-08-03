@@ -3766,7 +3766,7 @@ const syncStageProgress = () => {
 const loadApprovalDetail = async () => {
   const processInstanceId = String(route.query.processInstanceId || fileDetail.value?.processInstanceId || '')
   const taskId = String(route.query.taskId || '')
-  if (!processInstanceId) {
+  if (isBrowserTraceabilityPage.value || !processInstanceId) {
     approvalTodoTask.value = null
     approvalTaskList.value = []
     syncStageProgress()

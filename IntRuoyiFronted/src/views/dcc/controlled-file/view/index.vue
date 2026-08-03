@@ -292,7 +292,7 @@
       />
     </template>
 
-    <template v-else-if="resolvedPreviewKind === 'DOWNLOAD_ONLY'">
+    <template v-else-if="resolvedPreviewKind === 'DOWNLOAD_ONLY' && !errorMessage">
       <el-empty description="当前文件类型仅支持下载，不提供在线预览" />
     </template>
 
@@ -651,6 +651,13 @@ const loadPreview = async () => {
       resolvedFileName.value = metadata.fileName || resolvedFileName.value
     } else {
       resolvedPreviewKind.value = normalizePreviewKind(props.previewKind)
+    }
+
+    if (resolvedPreviewUnavailableReason.value) {
+      if (resolvedPreviewKind.value !== 'OFFICE') {
+        errorMessage.value = resolvedPreviewUnavailableReason.value
+      }
+      return
     }
 
     if (resolvedPreviewKind.value === 'OFFICE' || resolvedPreviewKind.value === 'DOWNLOAD_ONLY') {

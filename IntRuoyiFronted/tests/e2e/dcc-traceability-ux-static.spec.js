@@ -59,30 +59,32 @@ assert.match(
 )
 assert.match(
   detailPage,
-  /<ContentWrap\s+v-if="showSignatureTraceSections"\s+data-testid="dcc-detail-signature-trace-section"/,
+  /<template\s+v-if="showSignatureTraceSections">[\s\S]{0,160}<ContentWrap\s+data-testid="dcc-detail-signature-trace-section"/,
   '签核追溯区只能在签核范围或完整详情中显示'
 )
 assert.match(
   detailPage,
-  /<ContentWrap\s+v-if="showSignatureTraceSections"\s+data-testid="dcc-detail-signature-section"/,
+  /<template\s+v-if="showSignatureTraceSections">[\s\S]*<ContentWrap\s+data-testid="dcc-detail-signature-section"/,
   '签名留痕区只能在签核范围或完整详情中显示'
 )
 
+const lifecycleStart = detailPage.indexOf('<template v-if="showLifecycleTraceSections">')
+const signatureStart = detailPage.indexOf('<template v-if="showSignatureTraceSections">')
+assert.notEqual(lifecycleStart, -1, '生命周期追溯区块必须由 showLifecycleTraceSections 分面包裹')
+assert.notEqual(signatureStart, -1, '签核区块必须由 showSignatureTraceSections 分面包裹')
+assert.ok(
+  lifecycleStart < signatureStart,
+  '生命周期追溯分面必须在签核分面前结束，避免签核页混入追溯区块'
+)
+const lifecycleTraceSection = detailPage.slice(lifecycleStart, signatureStart)
 for (const marker of [
   'data-testid="dcc-detail-project-code-linkage"',
   'data-testid="dcc-detail-controlled-browser-linkage"',
   'data-testid="dcc-controlled-print-records"',
   'data-testid="dcc-detail-training-section"'
 ]) {
-  const markerIndex = detailPage.indexOf(marker)
+  const markerIndex = lifecycleTraceSection.indexOf(marker)
   assert.notEqual(markerIndex, -1, `追溯详情必须保留区块：${marker}`)
-  const wrapStart = detailPage.lastIndexOf('<ContentWrap', markerIndex)
-  const wrapSource = detailPage.slice(wrapStart, markerIndex)
-  assert.match(
-    wrapSource,
-    /v-if="showLifecycleTraceSections"/,
-    `非签核追溯区块必须在签核范围隐藏：${marker}`
-  )
 }
 
 assert.match(
