@@ -30,6 +30,11 @@ assert.match(
 )
 assert.match(
   mainListSource,
+  /:show-quick-filter="!showMultiFilter"/,
+  '排产工单启用右侧条件 Tab 多维筛选时，必须关闭左侧旧 quick filter 区域。'
+)
+assert.match(
+  mainListSource,
   /@update:multi-filter-state="emit\('update:multiFilterState', \$event\)"[\s\S]*@multi-filter-query="emit\('multiFilterQuery'\)"[\s\S]*@multi-filter-reset="emit\('multiFilterReset'\)"[\s\S]*@multi-filter-remove="emit\('multiFilterRemove', \$event\)"/,
   '排产工单主列表包装组件必须透传多维筛选查询、重置和单项移除事件。'
 )
@@ -81,6 +86,11 @@ assert.match(
   pageSource,
   /<ScheduleOrderMainList[\s\S]*:show-multi-filter="true"[\s\S]*:multi-filter-definitions="scheduleOrderMultiFilterDefinitions"[\s\S]*:multi-filter-state="scheduleOrderMultiFilter\.state"/,
   '排产工单主列表必须开启多维筛选并绑定状态。'
+)
+assert.doesNotMatch(
+  pageSource,
+  /<ScheduleOrderMainList[\s\S]{0,800}:show-quick-filter="true"/,
+  '排产工单主列表启用多维筛选后不得显式打开旧 quick filter。'
 )
 assert.match(
   pageSource,

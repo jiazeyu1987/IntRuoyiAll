@@ -1,0 +1,56 @@
+# Execution Log
+
+- USER INTENT: 用户要求“提交推送前后端代码”。
+- BDD: push current int_main -> Given 当前 `int_main` 已有本地提交和残余工作区改动, When 按门禁提交残余改动并执行 `git push origin int_main`, Then 推送后 `git status --short --branch` 不再显示 ahead。
+- PREFLIGHT: 已读取 `docs/powershell-memory.md`、`docs/task-closeout-rules.md`、`docs/powershell-encoding.md` 和 `docs/experience-index.md`。
+- PREFLIGHT: 当前分支 `int_main`，远端 `origin https://github.com/jiazeyu1987/IntRuoyiAll.git`。
+- EXISTING COMMIT: `af1bfb191 chore: baseline current frontend backend updates before push` 已创建，包含前序 64 个文件基线。
+- GREEN: `pnpm e2e:dcc:approval-upload-view:static` -> PASS。
+- GREEN: `pnpm e2e:dcc:bpm-approval-detail-title-performance:static` -> PASS。
+- GREEN: `pnpm e2e:mes:md-item-route-selection:static` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProRouteProductServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> PASS, 10 tests, 0 failures, 0 errors。
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
+- PREFLIGHT: GitHub 大文件对象扫描此前已完成，最大对象约 356KB，未发现 100MB 风险。
+- NOTE: 本轮按用户此前指示不重新执行全量真实 E2E。
+- PUSH STATE: `git rev-list --left-right --count HEAD...origin/int_main` -> `0 0`，说明已提交到 `HEAD` 的本地提交当前已与 `origin/int_main` 一致。
+- BLOCKED: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js` -> FAIL，`AssertionError: eDHR batch production leader route must exist.`；当前源码路由被改为 `/mes/pro/feedback/edhr-batch-pqc-leader`。
+- BLOCKED: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-page-graph-tab-static.spec.js` -> FAIL，`AssertionError: page graph must include node 组长工作台.`；当前页面关系图已改成 `班组长复核/PQC组长`，与现有合同的 `组长工作台/生产组长` 口径冲突。
+- BLOCKED: `git diff --name-status` -> 当前工作区仍包含未提交前端源码、静态合同、任务文档和经验文档改动；在两个相反页签口径未统一前不能做残余提交或推送。
+- USER CLARIFICATION: 用户明确“保留 PQC组长 独立页签，保留 生产组长 独立页签”。
+- BDD: dual leader tabs -> Given 用户打开 eDHR 批记录页签栏, When 查看组长相关入口, Then `生产组长` 与 `PQC组长` 必须都是独立页签且都有独立隐藏路由。
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js` -> PASS，顶部页签、路由、生产组长包装页和 PQC 组长包装页均为独立入口。
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-page-graph-tab-static.spec.js` -> PASS，页面关系图同时包含 `组长工作台`、`生产组长` 和 `PQC组长` 节点及正式路由。
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS，相邻组长工作台合同仍通过。
+- GREEN: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS。
+- NOTE: 用户再次明确“保留 PQC组长 独立页签，保留 生产组长 独立页签”；旧的“PQC 不应作为 eDHR 页签”静态断言已判定为过期口径。
+- RED: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js` -> FAIL，expected reason: 旧合同仍断言 `BatchPqcLeaderWorkbenchPage.vue` 不应存在，与用户最新口径冲突。
+- RED: `workdir=IntRuoyiFronted; pnpm ts:check` -> FAIL，expected reason: `remaining.ts` 的 PQC 路由块被并行覆盖后导致 `TS1005` 语法错误。
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js` -> PASS，合同已要求生产组长和 PQC 组长均为独立 eDHR 页签。
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-page-graph-tab-static.spec.js` -> PASS，页面关系图已要求 PQC 节点指向 `/mes/pro/feedback/edhr-batch-pqc-leader`。
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS。
+- GREEN: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS。
+- EXPERIENCE CHECK: 已按 `project-experience-consolidation` 检查长期经验归宿；本轮属于既有“并行改动/提交后残余复扫/静态合同口径”门禁覆盖范围，暂无需要新建长期经验文档的通用规则。
+- PREFLIGHT: `git fetch origin int_main` -> FAIL，`Failed to connect to github.com port 443 via 127.0.0.1 ... Could not connect to server`。
+- NETWORK DIAG: `git config --show-origin --get-regexp ...` -> global `http.version HTTP/1.1` only；`Test-NetConnection 127.0.0.1 -Port 7890` -> `TcpTestSucceeded=False`；`Test-NetConnection github.com -Port 443` -> `TcpTestSucceeded=False`。
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js` -> PASS，复验此前阻塞已解除。
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-page-graph-tab-static.spec.js` -> PASS。
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS。
+- GREEN: `workdir=IntRuoyiFronted; node --check tests\e2e\mes-edhr-qa-menu-real.e2e.js` -> PASS。
+- GREEN: `workdir=IntRuoyiFronted; node --check tests\e2e\dcc-approval-upload-view-real.e2e.js` -> PASS。
+- GREEN: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS。
+- GREEN: `git diff --cached --check` -> PASS，LF/CRLF warning only。
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main` frontend `8081` backend `48081`。
+- COMMIT: `b98d82594 chore: submit current frontend backend updates` -> PASS，32 files changed, 580 insertions, 104 deletions。
+- RESCAN: commit 后又出现新的 staged/unstaged 并行改动，包含 `IntRuoyiBackend/sql/mysql/20260804_mes_edhr_qa_menu.sql`、eDHR 组长页签/路由、P0 E2E、QA 菜单、排产工单、DCC 和多个任务文档；当前不能继续用同一提交混入未归属改动。
+- GREEN: GitHub 大文件对象扫描 `origin/int_main..HEAD` -> PASS，最大 blob 约 87KB，未发现 100MB 风险。
+- BLOCKED: `git push origin int_main` -> FAIL，`Failed to connect to github.com port 443 via 127.0.0.1 ... Could not connect to server`。
+- BLOCKED: remote push 仍受 GitHub HTTPS 443/本机代理不可达阻塞；并行 index 冲突未收敛前也不能安全提交剩余改动。
+
+## Pending Evidence
+
+- `git diff --cached --check`
+- `scripts\preflight\branch-runtime-port-guard.ps1`
+- GitHub 大文件对象扫描
+- `git push origin int_main`
+- 推送后 `git status --short --branch`

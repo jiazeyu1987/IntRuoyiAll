@@ -18,6 +18,7 @@ const RUNTIME_MIGRATION_VERIFIER_SCRIPT = path.resolve(
 )
 
 const TEAM_LEADER_ROUTE = '/mes/pro/process-pool/team-leader'
+const PQC_LEADER_ROUTE = '/mes/pro/process-pool/pqc-leader'
 const PRODUCTION_FILL_ROUTE = '/mes/pro/feedback/edhr-batch-production-fill'
 const PQC_FILL_ROUTE = '/mes/pro/feedback/edhr-batch-pqc-fill'
 const TIMELINE_ROUTE = '/mes/pro/process-pool/timeline'
@@ -1088,7 +1089,12 @@ async function duplicatePqcInspection(page, config, routeSteps, pqcFillUrl, pqcE
 }
 
 async function selectTeamLeaderTab(page, label) {
-  await clickFirst(page, [`[data-team-leader-type-tabs] .el-tabs__item:has-text("${label}")`])
+  const targetRoute = label.includes('PQC') ? PQC_LEADER_ROUTE : TEAM_LEADER_ROUTE
+  await page.goto(new URL(targetRoute, page.url()).toString(), {
+    waitUntil: 'networkidle',
+    timeout: 60000
+  })
+  await waitForVisible(page, ['[data-team-leader-report-workbench]'], `${label}工作台`)
   await page.waitForLoadState('networkidle')
 }
 

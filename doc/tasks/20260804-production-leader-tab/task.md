@@ -48,4 +48,5 @@ blocked
 - PASS: `pnpm ts:check`
 - PASS: frontend feature evidence validator before cleanup.
 - PASS: task-closeout cleanup preview/apply kept `task.md`, `execution-log.md`, `verification-report.md` and deleted only temporary `frontend-feature-evidence.md`.
-- BLOCKED: final re-verification could not remain stable because concurrent edits repeatedly restored the old `PQC组长` route/page-graph/test contract in task-owned files after repair.
+- PASS: resumed on 2026-08-04, re-applied the production-leader split, removed the temporary patch artifact from the worktree, and reran all targeted verification successfully.
+- BLOCKED: 2026-08-04 22:51 final rerun was overwritten again by concurrent edits to `edhr-batch-record-leader-tabs-static.spec.js`, `remaining.ts`, and `EdhrBatchRecordTabs.vue`; do not mark complete until the concurrent writer stops.

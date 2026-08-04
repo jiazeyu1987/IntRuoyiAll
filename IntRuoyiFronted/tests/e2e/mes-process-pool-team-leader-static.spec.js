@@ -7,6 +7,11 @@ const timelineApiPath = path.join(root, 'src/api/mes/pro/processpool/index.ts')
 const apiPath = path.join(root, 'src/api/mes/pro/processpool/teamLeader.ts')
 const eventRevisionApiPath = path.join(root, 'src/api/mes/pro/processpool/eventRevision.ts')
 const pagePath = path.join(root, 'src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue')
+const pqcLeaderPagePath = path.join(root, 'src/views/mes/pro/processpool/PqcLeaderWorkbenchPage.vue')
+const edhrTeamLeaderPagePath = path.join(
+  root,
+  'src/views/mes/pro/edhr-batch/BatchTeamLeaderWorkbenchPage.vue'
+)
 const routePath = path.join(root, 'src/router/modules/remaining.ts')
 
 const read = (file) => fs.readFileSync(file, 'utf8')
@@ -15,11 +20,15 @@ assert(fs.existsSync(apiPath), '班组长工序池必须提供前端 API wrapper
 assert(fs.existsSync(eventRevisionApiPath), '工序池原始记录修订必须提供前端 API wrapper。')
 assert(fs.existsSync(timelineApiPath), '工序池时间轴必须提供前端响应类型。')
 assert(fs.existsSync(pagePath), '班组长工序池必须提供工作台页面。')
+assert(fs.existsSync(pqcLeaderPagePath), 'PQC组长必须提供 QA 下独立页面包装。')
+assert(fs.existsSync(edhrTeamLeaderPagePath), 'eDHR 组长工作台包装页必须存在。')
 
 const timelineApi = read(timelineApiPath)
 const api = read(apiPath)
 const eventRevisionApi = read(eventRevisionApiPath)
 const page = read(pagePath)
+const pqcLeaderPage = read(pqcLeaderPagePath)
+const edhrTeamLeaderPage = read(edhrTeamLeaderPagePath)
 const routes = read(routePath)
 
 for (const endpoint of [
@@ -186,6 +195,24 @@ assert(!page.includes('ignoreErrorMessage: true'), '班组长页面不得静默�
 assert(routes.includes("path: 'pro/process-pool/team-leader'"), 'remaining 路由必须提供班组长工作台入口。')
 assert(routes.includes("path: 'pro/feedback/edhr-batch-production-leader'"), 'remaining 路由必须提供独立 eDHR 生产组长页签入口。')
 assert(routes.includes('BatchProductionLeaderWorkbenchPage.vue'), '生产组长页签必须使用专门包装页，不能显示在组长工作台内。')
+assert(routes.includes("path: 'pro/process-pool/pqc-leader'"), 'remaining 路由必须提供 QA 下独立 PQC组长入口。')
+assert(routes.includes('PqcLeaderWorkbenchPage.vue'), 'PQC组长入口必须使用专门包装页，不能显示在组长工作台内。')
 assert(routes.includes("permission: ['mes:pro-process-pool-team-leader:query']"), '班组长工作台路由必须绑定查询权限。')
+assert(
+  /<TeamLeaderWorkbenchPage[\s\S]*leader-type="PQC"[\s\S]*:show-leader-type-tabs="false"/.test(pqcLeaderPage),
+  'PQC组长独立页必须锁定 PQC 工作台内容并关闭内部切换。'
+)
+assert(
+  !/EdhrBatchRecordTabs|active-tab=/.test(pqcLeaderPage),
+  'PQC组长独立页不得通过 eDHR 内部 tabs 承载。'
+)
+assert(
+  /<TeamLeaderWorkbenchPage[\s\S]*leader-type="PQC"[\s\S]*:show-leader-type-tabs="false"/.test(edhrTeamLeaderPage),
+  '组长工作台包装页必须锁定非生产内容。'
+)
+assert(
+  !/leader-type="PRODUCTION"|生产组长/.test(edhrTeamLeaderPage),
+  '组长工作台包装页不得显示生产组长内容。'
+)
 
 console.log('mes-process-pool-team-leader-static PASS')

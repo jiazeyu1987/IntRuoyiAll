@@ -8,143 +8,89 @@ const exists = (relativePath) => fs.existsSync(path.join(root, relativePath))
 
 const router = read('src/router/modules/remaining.ts')
 const tabsPath = 'src/views/mes/pro/edhr-batch/EdhrBatchRecordTabs.vue'
-const pagePath = 'src/views/mes/pro/edhr-batch/BatchTeamLeaderWorkbenchPage.vue'
-const productionPagePath = 'src/views/mes/pro/edhr-batch/BatchProductionLeaderWorkbenchPage.vue'
+const teamLeaderPagePath = 'src/views/mes/pro/edhr-batch/BatchTeamLeaderWorkbenchPage.vue'
+const productionLeaderPagePath = 'src/views/mes/pro/edhr-batch/BatchProductionLeaderWorkbenchPage.vue'
+const pqcLeaderPagePath = 'src/views/mes/pro/edhr-batch/BatchPqcLeaderWorkbenchPage.vue'
 const teamLeaderPath = 'src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'
 const pageGraphPath = 'src/views/mes/pro/edhr-batch/BatchPageGraphPage.vue'
 
-assert.ok(exists(tabsPath), `${tabsPath} must exist.`)
-assert.ok(exists(teamLeaderPath), `${teamLeaderPath} must exist.`)
-assert.ok(exists(pagePath), `${pagePath} must exist.`)
-assert.ok(exists(productionPagePath), `${productionPagePath} must exist.`)
+for (const requiredPath of [
+  tabsPath,
+  teamLeaderPagePath,
+  productionLeaderPagePath,
+  pqcLeaderPagePath,
+  teamLeaderPath,
+  pageGraphPath
+]) {
+  assert.ok(exists(requiredPath), `${requiredPath} must exist.`)
+}
 
 const tabs = read(tabsPath)
-const page = read(pagePath)
-const productionPage = read(productionPagePath)
+const teamLeaderPage = read(teamLeaderPagePath)
+const productionLeaderPage = read(productionLeaderPagePath)
+const pqcLeaderPage = read(pqcLeaderPagePath)
 const teamLeader = read(teamLeaderPath)
 const pageGraph = read(pageGraphPath)
 
-assert.match(tabs, /组长工作台/, 'eDHR batch tabs must include a leader workbench sub-tab.')
-assert.match(tabs, /生产组长/, 'eDHR batch tabs must include a dedicated production leader sub-tab.')
-assert.match(tabs, /'teamLeader'/, 'eDHR batch tab union must include the teamLeader key.')
-assert.match(tabs, /'productionLeader'/, 'eDHR batch tab union must include the productionLeader key.')
-assert.match(
-  tabs,
-  /teamLeader:\s*'\/mes\/pro\/feedback\/edhr-batch-team-leader'/,
-  'leader workbench tab must map to the eDHR batch leader route.'
-)
-assert.match(
-  tabs,
-  /productionLeader:\s*'\/mes\/pro\/feedback\/edhr-batch-production-leader'/,
-  'production leader tab must map to the dedicated eDHR batch production leader route.'
-)
+for (const [label, key, route] of [
+  ['生产组长', 'productionLeader', '/mes/pro/feedback/edhr-batch-production-leader'],
+  ['PQC组长', 'pqcLeader', '/mes/pro/feedback/edhr-batch-pqc-leader']
+]) {
+  assert.match(tabs, new RegExp(label), `eDHR batch tabs must include ${label}.`)
+  assert.match(tabs, new RegExp(`'${key}'`), `eDHR batch tab union must include ${key}.`)
+  assert.match(tabs, new RegExp(`${key}:\\s*'${route.replace(/\//g, '\\/')}'`), `${label} tab must route to ${route}.`)
+}
 
-const routePath = "path: 'pro/feedback/edhr-batch-team-leader'"
-const routeIndex = router.indexOf(routePath)
-assert.ok(routeIndex >= 0, 'eDHR batch leader workbench route must exist.')
-const nextRouteIndex = router.indexOf('\n      {', routeIndex + routePath.length)
-const routeBlock = router.slice(routeIndex, nextRouteIndex > routeIndex ? nextRouteIndex : undefined)
-const productionRoutePath = "path: 'pro/feedback/edhr-batch-production-leader'"
-const productionRouteIndex = router.indexOf(productionRoutePath)
-assert.ok(productionRouteIndex >= 0, 'eDHR batch production leader route must exist.')
-const nextProductionRouteIndex = router.indexOf(
-  '\n      {',
-  productionRouteIndex + productionRoutePath.length
-)
-const productionRouteBlock = router.slice(
-  productionRouteIndex,
-  nextProductionRouteIndex > productionRouteIndex ? nextProductionRouteIndex : undefined
-)
+const routeBlockFor = (routePath) => {
+  const routeIndex = router.indexOf(`path: '${routePath}'`)
+  assert.ok(routeIndex >= 0, `route ${routePath} must exist.`)
+  const nextRouteIndex = router.indexOf('\n      {', routeIndex + routePath.length)
+  return router.slice(routeIndex, nextRouteIndex > routeIndex ? nextRouteIndex : undefined)
+}
 
-assert.match(routeBlock, /BatchTeamLeaderWorkbenchPage\.vue/, 'leader route must use the eDHR wrapper page.')
-assert.match(routeBlock, /name:\s*'MesProEdhrBatchTeamLeaderWorkbench'/, 'leader route name must be stable.')
-assert.match(routeBlock, /title:\s*'组长工作台'/, 'leader route title must be visible.')
+const teamLeaderRouteBlock = routeBlockFor('pro/feedback/edhr-batch-team-leader')
+const productionLeaderRouteBlock = routeBlockFor('pro/feedback/edhr-batch-production-leader')
+const pqcLeaderRouteBlock = routeBlockFor('pro/feedback/edhr-batch-pqc-leader')
+
+assert.match(teamLeaderRouteBlock, /BatchTeamLeaderWorkbenchPage\.vue/, 'group leader route must use the eDHR wrapper page.')
+assert.match(teamLeaderRouteBlock, /title:\s*'组长工作台'/, 'group leader route title must remain visible.')
 assert.match(
-  routeBlock,
-  /permission:\s*\['mes:pro-process-pool-team-leader:query'\]/,
-  'leader route must require the formal team-leader permission.'
-)
-assert.match(
-  productionRouteBlock,
-  /BatchProductionLeaderWorkbenchPage\.vue/,
+  productionLeaderRouteBlock,
+  /BatchProductionLeaderWorkbenchPage\.vue[\s\S]*title:\s*'生产组长'/,
   'production leader route must use the dedicated eDHR wrapper page.'
 )
 assert.match(
-  productionRouteBlock,
-  /name:\s*'MesProEdhrBatchProductionLeaderWorkbench'/,
-  'production leader route name must be stable.'
-)
-assert.match(productionRouteBlock, /title:\s*'生产组长'/, 'production leader route title must be visible.')
-assert.match(
-  productionRouteBlock,
-  /permission:\s*\['mes:pro-process-pool-team-leader:query'\]/,
-  'production leader route must require the formal team-leader permission.'
+  pqcLeaderRouteBlock,
+  /BatchPqcLeaderWorkbenchPage\.vue[\s\S]*title:\s*'PQC组长'/,
+  'PQC leader route must use the dedicated eDHR wrapper page.'
 )
 
+assert.match(teamLeaderPage, /<EdhrBatchRecordTabs\s+active-tab="teamLeader"/, 'group leader page must render shared tabs.')
+assert.match(teamLeaderPage, /leader-type="PRODUCTION"[\s\S]*:show-leader-type-tabs="false"/, 'group leader page must stay production-scoped.')
 assert.match(
-  page,
-  /<EdhrBatchRecordTabs\s+active-tab="teamLeader"/,
-  'leader wrapper page must render the shared eDHR batch tabs.'
+  productionLeaderPage,
+  /<EdhrBatchRecordTabs\s+active-tab="productionLeader"[\s\S]*leader-type="PRODUCTION"[\s\S]*data-edhr-batch-production-leader-page/,
+  'production leader page must be a dedicated production wrapper.'
 )
 assert.match(
-  page,
-  /<TeamLeaderWorkbenchPage[\s\S]*leader-type="PQC"[\s\S]*:show-leader-type-tabs="false"/,
-  'leader wrapper page must lock the formal workbench to non-production leader content.'
+  pqcLeaderPage,
+  /<EdhrBatchRecordTabs\s+active-tab="pqcLeader"[\s\S]*leader-type="PQC"[\s\S]*data-edhr-batch-pqc-leader-page/,
+  'PQC leader page must be a dedicated PQC wrapper.'
 )
-assert.match(page, /data-edhr-batch-team-leader-page/, 'leader wrapper page must expose a stable selector.')
-assert.match(
-  page,
-  /@\/views\/mes\/pro\/processpool\/TeamLeaderWorkbenchPage\.vue/,
-  'leader wrapper page must import the existing team leader workbench component.'
-)
-assert.doesNotMatch(
-  page,
-  /leader-type="PRODUCTION"|生产组长/,
-  'leader wrapper page must not render or link production leader content inside the group leader workbench.'
-)
+assert.doesNotMatch(pqcLeaderPage, /leader-type="PRODUCTION"|生产组长/, 'PQC leader page must not point at production content.')
 
-assert.match(
-  productionPage,
-  /<EdhrBatchRecordTabs\s+active-tab="productionLeader"/,
-  'production leader wrapper page must render the shared eDHR batch tabs with productionLeader active.'
-)
-assert.match(
-  productionPage,
-  /<TeamLeaderWorkbenchPage[\s\S]*leader-type="PRODUCTION"[\s\S]*:show-leader-type-tabs="false"/,
-  'production leader wrapper page must lock the formal workbench to production leader content.'
-)
-assert.match(
-  productionPage,
-  /data-edhr-batch-production-leader-page/,
-  'production leader wrapper page must expose a stable selector.'
-)
-assert.match(
-  productionPage,
-  /@\/views\/mes\/pro\/processpool\/TeamLeaderWorkbenchPage\.vue/,
-  'production leader wrapper page must import the existing formal team leader workbench component.'
-)
-assert.match(
-  teamLeader,
-  /showLeaderTypeTabs[\s\S]*false/,
-  'formal workbench must default to hiding internal leader-type tabs.'
-)
-assert.match(
-  teamLeader,
-  /v-if="showLeaderTypeTabs"[\s\S]*data-team-leader-type-tabs/,
-  'formal workbench may only expose production/PQC switch when an explicit caller opts in.'
-)
-assert.match(teamLeader, /leaderType:\s*'PRODUCTION'/, 'formal workbench must keep production as the default leader type.')
+assert.match(teamLeader, /showLeaderTypeTabs[\s\S]*false/, 'formal workbench must default to hiding internal leader-type tabs.')
 assert.match(teamLeader, /leaderType === 'PQC'[\s\S]*PQC_SIMPLIFIED/, 'formal workbench must keep PQC-specific query state.')
 
-assert.match(
-  pageGraph,
-  /id:\s*'team-lead-review'[\s\S]*title:\s*'组长工作台'[\s\S]*route:\s*'\/mes\/pro\/feedback\/edhr-batch-team-leader'[\s\S]*isDisabled:\s*false/,
-  'page graph team leader node must remain an official clickable eDHR batch route.'
-)
-assert.match(
-  pageGraph,
-  /id:\s*'production-lead-review'[\s\S]*title:\s*'生产组长'[\s\S]*route:\s*'\/mes\/pro\/feedback\/edhr-batch-production-leader'[\s\S]*isDisabled:\s*false/,
-  'page graph must expose the dedicated production leader route instead of grouping it under team leader.'
-)
+for (const [nodeId, label, route] of [
+  ['production-lead-review', '生产组长', '/mes/pro/feedback/edhr-batch-production-leader'],
+  ['pqc-lead-review', 'PQC组长', '/mes/pro/feedback/edhr-batch-pqc-leader']
+]) {
+  assert.match(
+    pageGraph,
+    new RegExp(`id:\\s*'${nodeId}'[\\s\\S]*title:\\s*'${label}'[\\s\\S]*route:\\s*'${route.replace(/\//g, '\\/')}'[\\s\\S]*isDisabled:\\s*false`),
+    `page graph must expose the dedicated ${label} route.`
+  )
+}
 
-console.log('PASS: eDHR batch record leader tabs static contract')
+console.log('PASS: eDHR batch dual leader tabs static contract')

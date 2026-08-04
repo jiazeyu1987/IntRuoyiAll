@@ -5,6 +5,7 @@
     :query-model="queryModel"
     label-width="88px"
     :filter-definitions="filterDefinitions"
+    :show-quick-filter="!showMultiFilter"
     :show-quick-filter-label="false"
     :quick-filter-state="quickFilterState"
     :selected-filter-definition="selectedFilterDefinition"

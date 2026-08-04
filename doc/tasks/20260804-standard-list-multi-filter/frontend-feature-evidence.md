@@ -9,12 +9,13 @@
 - AC1: 标准列表模板显示条件 Tab 行，支持加号新增和减号删除当前条件。
 - AC2: 当前 Tab 可选择筛选字段、操作符和值，条件 `id` 稳定保留。
 - AC3: 查询时所有已填写 Tab 映射为正式 query 参数；排产工单不得发送临时 `multiFilters`。
-- AC4: 排产工单真实页面保留动作栏、快速过滤、表格和分页，目标写请求数为 0。
+- AC4: 排产工单真实页面保留动作栏、右侧条件 Tab 筛选、表格和分页，不再显示左侧旧 quick filter，目标写请求数为 0。
 
 ## BDD:
 
 - BDD: 条件 Tab 动态增删 -> Given 标准列表模板启用多维筛选 / When 用户点击加号和减号 / Then 组件新增或删除条件 Tab，且字段选择器仍在当前 Tab 内可操作。
 - BDD: 条件 Tab 交集查询 -> Given 用户填写完成状态、排产工单号和来源生产工单号三个条件 Tab / When 点击查询 / Then 列表请求携带 `completionFilter`、`code`、`erpWorkOrderCode` 正式参数且不携带 `multiFilters`。
+- BDD: 只保留右侧条件 Tab 筛选 -> Given 排产工单主列表启用多维筛选 / When 用户进入排产工单页面 / Then 左侧旧 quick filter 不可见，右侧条件 Tab 筛选可见且可查询。
 
 ## RED:
 
@@ -26,14 +27,14 @@
 - GREEN: `node tests/e2e/unified-list-template-multi-filter-static.spec.js` -> PASS.
 - GREEN: `node tests/e2e/schedule-order-main-multi-filter-static.spec.js` -> PASS.
 - GREEN: `node doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs` -> PASS.
+- GREEN: duplicate-filter regression `node doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs` -> PASS, `legacyQuickFilterVisibleCount=0`.
 
 ## Verification
 
 - Static contracts: unified list template multi-filter, schedule order main multi-filter, unified list template, schedule order sync tab, schedule order replan visible filter all passed.
-- Type checks: `pnpm ts:check:schedule` passed; latest full `pnpm ts:check` is blocked by unrelated concurrent `BatchPqcLeaderWorkbenchPage.vue` type error.
-- Real E2E: 排产工单页面 filtered params were `completionFilter=ALL`, `code=SCH-CODEX-FACTOR-20260708093210-20260710-0001`, and `erpWorkOrderCode=CODEX-FACTOR-20260708093210`; reset cleared formal params and `multiFilters`; target write requests were `0`.
+- Type checks: `pnpm ts:check:schedule` and `pnpm ts:check` passed.
+- Real E2E: 排产工单页面 `legacyQuickFilterVisibleCount=0`; filtered params were `completionFilter=ALL`, `code=SCH-CODEX-FACTOR-20260708093210-20260710-0001`, and `erpWorkOrderCode=CODEX-FACTOR-20260708093210`; reset cleared formal params and `multiFilters`; target write requests were `0`.
 
 ## Blockers
 
-- Full `pnpm ts:check` currently fails outside this task at `src/views/mes/pro/edhr-batch/BatchPqcLeaderWorkbenchPage.vue(3,26)`.
 - Commit/push remains blocked by shared branch dirty/ahead concurrent changes; no broad staging or push was performed.

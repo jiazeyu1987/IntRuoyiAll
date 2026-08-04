@@ -2036,6 +2036,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/process-pool/pqc-leader',
+        component: () => import('@/views/mes/pro/processpool/PqcLeaderWorkbenchPage.vue'),
+        name: 'MesProProcessPoolPqcLeaderWorkbench',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: 'PQC组长',
+          activeMenu: '/mes/pro/process-pool/pqc-leader',
+          permission: ['mes:pro-process-pool-team-leader:query']
+        }
+      },
+      {
         path: 'pro/batch-record-cell-link',
         component: () => import('@/views/mes/pro/batchrecordcelllink/index.vue'),
         name: 'MesProBatchRecordCellLink',

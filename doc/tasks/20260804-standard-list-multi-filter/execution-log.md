@@ -14,6 +14,7 @@
 - BDD: 排产工单多维筛选重置 -> Given 排产工单主列表已有多个多维筛选条件 / When 用户点击多维筛选重置 / Then 页面清除筛选条件、回到第一页并通过真实列表接口重新加载。
 - BDD: 条件 Tab 动态增删 -> Given 标准列表模板启用多维筛选 / When 用户点击红框区域右侧加号 / Then 组件新增一个条件 Tab，并在左侧减号点击时删除当前 Tab。
 - BDD: 条件 Tab 交集查询 -> Given 用户在多个已填写条件 Tab 中选择不同筛选字段和值 / When 点击查询 / Then 前端把所有已填写 Tab 条件一起映射为正式 query 参数，作为交集条件提交。
+- BDD: 排产工单只保留右侧条件 Tab 筛选 -> Given 排产工单主列表启用标准列表多维筛选 / When 用户进入排产工单页面 / Then 页面只显示右侧条件 Tab 筛选区域，不再显示左侧旧 quick filter 区域。
 
 ## Command And Evidence Log
 
@@ -70,3 +71,23 @@
 - PROJECT_EXPERIENCE CLOSEOUT: 已按 `project-experience-consolidation` 规则复用 `docs/frontend-development.md#统一列表复合工具栏布局门禁`，补充条件 Tab、稳定 condition id、重复正式参数校验、交集查询和禁止页面级 `maxInlineFilters` 特例；同步更新 `docs/experience-index.md` 关键词。
 - CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode preview` -> PASS，keep 为 `task.md`、`execution-log.md`、`verification-report.md`、`frontend-feature-evidence.md`、真实 E2E 脚本和 `result.json`，delete 仅为旧失败产物 `artifacts/schedule-order-multi-filter-real/error.txt`。
 - CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode apply` -> PASS，已删除旧失败产物 `artifacts/schedule-order-multi-filter-real/error.txt`。
+- USER REQUEST: 用户要求重新进行 E2E 验证。
+- E2E REVERIFY PREFLIGHT: `where.exe npx` -> PASS；`http://127.0.0.1:8081/` -> HTTP 200；`http://127.0.0.1:48081/actuator/health` -> `UP`；`node --check doc\tasks\20260804-standard-list-multi-filter\schedule-order-multi-filter-real.e2e.cjs` -> PASS。
+- E2E REVERIFY LOGIN: `node scripts/preflight/login-preflight.mjs ... --target-path /mes/pro/schedule-order --target-text 排产工单` -> PASS，使用本地 `.env` 默认登录来源且未记录密码。
+- GREEN: `node doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs` -> PASS；三个条件 Tab 再次提交为 `completionFilter=ALL`、`code=SCH-CODEX-FACTOR-20260708093210-20260710-0001`、`erpWorkOrderCode=CODEX-FACTOR-20260708093210`，重置请求清除这些参数，目标写请求数 `0`、目标 HTTP 错误数 `0`、runtime issues `0`。
+- USER BUG REPORT: 用户截图反馈页面存在两块筛选区域，期望只保留右侧条件 Tab 筛选。
+- RED: `node tests\e2e\schedule-order-main-multi-filter-static.spec.js` -> FAIL, expected reason: `排产工单启用右侧条件 Tab 多维筛选时，必须关闭左侧旧 quick filter 区域。`
+- ROOT CAUSE: `ScheduleOrderMainList.vue` 启用 `showMultiFilter` 后仍未向 `UnifiedListTemplate` 传递 `showQuickFilter=false`，导致旧 `TableQuickFilter` 和新 `TableMultiFilter` 同时渲染。
+- GREEN: `node tests\e2e\schedule-order-main-multi-filter-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\unified-list-template-multi-filter-static.spec.js` -> PASS。
+- GREEN: `node --check doc\tasks\20260804-standard-list-multi-filter\schedule-order-multi-filter-real.e2e.cjs` -> PASS。
+- E2E PREFLIGHT: `http://127.0.0.1:8081/` -> HTTP 200；`http://127.0.0.1:48081/actuator/health` -> `UP`；`node scripts/preflight/login-preflight.mjs ... --target-path /mes/pro/schedule-order --target-text 排产工单` -> PASS。
+- GREEN: `node doc\tasks\20260804-standard-list-multi-filter\schedule-order-multi-filter-real.e2e.cjs` -> PASS；`legacyQuickFilterVisibleCount=0`，右侧条件 Tab 交集查询仍提交 `completionFilter=ALL`、`code=SCH-CODEX-FACTOR-20260708093210-20260710-0001`、`erpWorkOrderCode=CODEX-FACTOR-20260708093210`，目标写请求数 `0`、目标 HTTP 错误数 `0`、runtime issues `0`。
+- GREEN: `pnpm ts:check:schedule` -> PASS。
+- GREEN: `node tests\e2e\unified-list-template-static.spec.js`、`node tests\e2e\mes-schedule-order-sync-tab-static.spec.js`、`node tests\e2e\mes-schedule-order-replan-visible-filter-static.spec.js` -> PASS。
+- GREEN: `git diff --check -- <task-owned files>` -> PASS，仅有 Git LF/CRLF 工作副本警告。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-standard-list-multi-filter/frontend-feature-evidence.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260804-standard-list-multi-filter/bug-regression-evidence.md` -> PASS。
+- CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode preview` -> PASS，keep 包含 `bug-regression-evidence.md`、`frontend-feature-evidence.md`、真实 E2E 脚本和 `result.json`，delete 为 `<none>`。
+- CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode apply` -> PASS，delete 为 `<none>`。

@@ -12,6 +12,7 @@
 - [x] 实现后端产品侧查询/保存接口，复用 `MesProRouteProductService`
 - [x] 实现前端 MES 物料产品表单中的工艺路线选择、回显、已启用路线锁定与解除
 - [x] 运行定向 GREEN/REGRESSION 验证并归档证据
+- [x] 运行产品侧工艺路线只读真实页面 E2E 并归档证据
 - [ ] 完成经验沉淀、cleanup、提交和推送
 
 ## Expected Verification
@@ -21,12 +22,17 @@
 - 运行受影响前端静态契约、`pnpm ts:check` 或记录明确阻塞。
 - 运行受影响 MES 后端 Maven 目标测试，必要时使用 `-pl yudao-module-mes -am`。
 - 运行 `frontend-feature-delivery` 与 `backend-api-delivery` evidence validator。
+- 追加真实 Playwright 只读页面验证：从本机前端打开 MES 物料产品，进入产品编辑弹窗的“工艺路线”页签，断言使用 `item-binding-list` 与 `get-by-item`，不调用 `simple-list`，且不发出 MES 写请求。
 
 ## Current Status
 
 blocked
 
-产品侧工艺路线绑定的后端接口、前端入口、静态契约、目标 JUnit、前端类型检查、经验沉淀、cleanup 和提交已完成；最终完成状态提交 `6107745f0` 因 GitHub 443 网络不可达暂未推送。
+产品侧工艺路线绑定的后端接口、前端入口、静态契约、目标 JUnit、前端类型检查、真实页面只读 E2E、经验沉淀、cleanup 和提交已完成；最终完成状态提交 `6107745f0` 及本轮 E2E 文档更新仍需推送，当前阻塞点仍是 GitHub 443 网络不可达。
+
+## Cleanup Keep
+
+- doc/tasks/20260804-mes-item-route-selection/mes-md-item-route-selection-readonly-real.e2e.cjs
 
 ## Applicable Gates
 

@@ -15,6 +15,7 @@
 - [x] M5: 更新任务文档、验证报告和收尾状态。
 - [x] M6: 按用户指定在排产工单真实页面启用多维筛选，并完成静态合同与真实 E2E 验证。
 - [x] M7: 按用户反馈把多维筛选改为可增删条件 Tab，并验证所有已填写 Tab 条件按交集提交。
+- [x] M8: 修复排产工单页面重复筛选区域，只保留右侧条件 Tab 筛选并完成真实 E2E 复验。
 
 ## Expected Verification
 
@@ -35,8 +36,9 @@ ready_for_closeout
 
 - 排产工单真实页面 pilot 已改为可增删条件 Tab，并通过静态合同、`ts:check:schedule` 和真实 Playwright E2E。
 - 真实 E2E 验证了默认完成状态 Tab、排产工单号 Tab、来源生产工单号 Tab 同时提交为 `completionFilter`、`code`、`erpWorkOrderCode` 正式 query 参数交集，目标写请求数为 0。
+- 用户截图反馈的重复筛选区域已修复：排产工单启用右侧条件 Tab 多维筛选时，左侧旧 quick filter 区域不再显示；真实 E2E 记录 `legacyQuickFilterVisibleCount=0`。
 - task-closeout-cleanup preview/apply 已在 Tab 方案复验后通过；仅删除本任务旧失败产物 `artifacts/schedule-order-multi-filter-real/error.txt`，保留本轮 `frontend-feature-evidence.md`、真实 E2E 脚本与 `result.json`。
-- 最新全量 `pnpm ts:check` 被非本任务并行改动阻塞：`src/views/mes/pro/edhr-batch/BatchPqcLeaderWorkbenchPage.vue(3,26)` 的 `pqcLeader` 类型不匹配；本轮不修改该并行任务文件。
+- 最新全量 `pnpm ts:check` 已通过。
 - Full closeout/commit/push 仍被当前仓库已有的 dirty/ahead 并行任务状态阻塞；本轮不会宽泛提交或推送，以避免混入非本任务改动。
 
 ## 设计约束检查
@@ -60,3 +62,4 @@ ready_for_closeout
 - doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs
 - doc/tasks/20260804-standard-list-multi-filter/artifacts/schedule-order-multi-filter-real/result.json
 - doc/tasks/20260804-standard-list-multi-filter/frontend-feature-evidence.md
+- doc/tasks/20260804-standard-list-multi-filter/bug-regression-evidence.md

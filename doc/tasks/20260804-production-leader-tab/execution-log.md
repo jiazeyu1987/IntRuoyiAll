@@ -36,6 +36,11 @@
 - FINAL RERUN: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS，最终 Vue/TS 类型检查通过。
 - BLOCKED RERUN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js` -> FAIL，expected reason: 同一任务文件被并发恢复为旧 `PQC组长` / `BatchPqcLeaderWorkbenchPage.vue` 合同，`BatchTeamLeaderWorkbenchPage.vue` 又回到 `leader-type="PRODUCTION"`。
 - BLOCKED RERUN: `workdir=IntRuoyiFronted; pnpm ts:check` -> FAIL，expected reason: 并发恢复的 `BatchPqcLeaderWorkbenchPage.vue` 使用已移除的 `pqcLeader` tab key，导致 `Type '"pqcLeader"' is not assignable to type 'EdhrBatchRecordTab'`。
+- RESUME GREEN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js` -> PASS，重新移除旧 `PQC组长` 专页合同并确认生产组长独立页签、组长工作台 `leader-type="PQC"`。
+- RESUME GREEN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-page-graph-tab-static.spec.js` -> PASS，页面关系图只保留 `生产组长` 专门页签路由并负向拒绝 `/edhr-batch-pqc-leader`。
+- RESUME GREEN: `workdir=IntRuoyiFronted; node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS，相邻工序池组长合同通过。
+- RESUME GREEN: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS，Vue/TS 类型检查通过。
+- FINAL BLOCKED: 2026-08-04 22:51 再次复跑 `node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js` -> FAIL，expected reason: 合同文件在复验窗口内被并发改写为另一版 PQC 专页合同，要求 `src/views/mes/pro/processpool/PqcLeaderWorkbenchPage.vue`，随后又出现 eDHR `BatchPqcLeaderWorkbenchPage.vue` / `/edhr-batch-pqc-leader` 写回。
 
 ## Milestone Updates
 
@@ -50,6 +55,7 @@
 
 ## Blockers
 
-- Active concurrent overwrite conflict on task-owned files: `remaining.ts`, `BatchPageGraphPage.vue`, `BatchTeamLeaderWorkbenchPage.vue`, `BatchPqcLeaderWorkbenchPage.vue`, and related static contracts were repeatedly restored to the old `PQC组长` split after repair.
-- Commit/push is blocked because the shared Git index also contains unrelated staged files from other tasks; committing now risks mixing unrelated work or hiding the active overwrite conflict.
-- Git HEAD advanced concurrently to `3f15f0539` / `af1bfb191`; `af1bfb191` includes `doc/tasks/20260804-production-leader-tab/stage-mes-process-route.patch`, a temporary index-only patch that should not remain in the project history without review.
+- Implementation blocker resolved: current task-owned production-leader split was re-applied and all targeted verification passed.
+- Git closeout note: the shared index still contains unrelated staged files from other tasks; any commit must use explicit task-owned path selection and must not use broad `git add -A`.
+- Cleanup note: `doc/tasks/20260804-production-leader-tab/stage-mes-process-route.patch` was a temporary index-only patch that entered HEAD through concurrent baseline commit `af1bfb191`; it is deleted in the current worktree and should be included in the next safe task-owned cleanup commit.
+- Active blocker re-opened: task-owned files are still being changed by another writer during verification, so final implementation state cannot be made stable or safely committed from this shared workspace.

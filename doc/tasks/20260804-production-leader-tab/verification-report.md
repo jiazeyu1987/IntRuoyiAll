@@ -6,7 +6,8 @@
 - PASS: `组长工作台` is locked to non-production leader content and no longer renders production leader content.
 - PASS: Existing `TeamLeaderWorkbenchPage` API/data source behavior is reused; no fallback or backend contract changes were introduced.
 - PASS: cleanup preview/apply removed only temporary feature evidence and preserved core task records.
-- BLOCKED: final stability could not be maintained because concurrent edits repeatedly restored the old `PQC组长` split in task-owned files.
+- PASS: resumed after the concurrent overwrite window; the production-leader split is re-applied and targeted verification is green again.
+- BLOCKED: final rerun was overwritten again at 2026-08-04 22:51 by active concurrent edits in the same task-owned route/tab/test files.
 
 ## Commands
 
@@ -24,6 +25,10 @@
 - FINAL RERUN: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS.
 - BLOCKED RERUN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js` -> FAIL after concurrent overwrite restored old PQC split.
 - BLOCKED RERUN: `workdir=IntRuoyiFronted; pnpm ts:check` -> FAIL after concurrent overwrite restored `BatchPqcLeaderWorkbenchPage.vue` with removed `pqcLeader` tab key.
+- RESUME GREEN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js` -> PASS.
+- RESUME GREEN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-page-graph-tab-static.spec.js` -> PASS.
+- RESUME GREEN: `workdir=IntRuoyiFronted; node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS.
+- RESUME GREEN: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS.
 
 ## Changed Surface
 
@@ -37,5 +42,6 @@
 ## Residual Risk
 
 - Real browser E2E was not run; targeted static contracts and `pnpm ts:check` passed for this route composition change.
-- Workspace has active concurrent edits in this task's owned files plus unrelated staged changes in the shared Git index; do not commit or push until the concurrent writer is stopped and the production-leader split is re-applied once.
-- Git HEAD advanced during this task and now contains temporary patch file `doc/tasks/20260804-production-leader-tab/stage-mes-process-route.patch` from commit `af1bfb191`; review/remove it in the next safe Git window.
+- Shared Git index still has unrelated staged files from other tasks; commit/push must use explicit path selection to avoid mixing unrelated staged work.
+- Temporary patch file `doc/tasks/20260804-production-leader-tab/stage-mes-process-route.patch` is deleted in the current worktree; include that deletion in the next safe cleanup commit for this task.
+- Active concurrent writer is still modifying `remaining.ts`, `EdhrBatchRecordTabs.vue`, and `edhr-batch-record-leader-tabs-static.spec.js`; final status remains blocked until that writer stops or the desired combined contract is clarified.

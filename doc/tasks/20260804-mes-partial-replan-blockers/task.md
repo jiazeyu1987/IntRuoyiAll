@@ -19,6 +19,7 @@
 - 后端回归：重排应用、夜间重排和 issue 持久化相关目标测试通过。
 - 前端 RED/GREEN：新增静态合同覆盖不因局部阻断禁用整批应用、阻断行标红和原因可见。
 - 前端回归：相邻重排静态合同通过，`pnpm ts:check` 通过或记录与本任务无关的既有阻塞。
+- 真实页面 E2E：`mes-pro-schedule-order-partial-replan-blockers-real-readonly.e2e.js` 登录本机测试租户或用户明确授权的 `芋道源码/admin`，验证阻断行红色状态和原因；缺少未解决阻断样本时记录 E2E BLOCKED，禁止写入非任务自有工单。
 - Evidence validators：bug、backend、frontend evidence 通过。
 
 ## Applicable Gates
@@ -39,4 +40,4 @@
 
 in_progress
 
-实现和前端验证已完成；后端最终 JUnit 复跑被同模块并发 Maven/Windows class 写入卡顿阻塞，待资源释放后重跑。代码与部分测试已被共享分支并发基线提交吸收，收尾提交/推送暂未完成。
+实现和前端验证已完成；真实页面 E2E 已分别登录本机测试租户和用户授权的 `芋道源码/admin` 并确认无 MES 写请求，但测试租户前 74 条、芋道源码前 47 条排产工单均没有未解决阻断展示行；芋道源码只读 issues 接口 `BLOCKING` 总数=0，阻断红行/原因可见性真实验证仍被数据前置阻塞。后端最终 JUnit 复跑仍被同模块并发 Maven/Windows class 写入卡顿阻塞，待资源释放后重跑。代码与部分测试已被共享分支并发基线提交吸收，收尾提交/推送暂未完成。

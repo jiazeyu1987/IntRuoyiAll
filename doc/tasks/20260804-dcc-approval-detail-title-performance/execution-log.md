@@ -53,3 +53,15 @@
 - CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode apply` -> PASS，deleted本轮 `bug-regression-evidence.md` and `frontend-feature-evidence.md` after validator summaries were copied into retained reports。
 - IMPLEMENTATION_COMMIT: `b0f45a432` -> committed 本轮 task-owned source, test, task report, and experience-rule updates only.
 - STATUS: cleanup complete; task status set to `blocked_on_push` because local verification is complete but remote push remains blocked by GitHub 443 local proxy connectivity.
+- USER_INTENT_UPDATE: 用户要求继续进行真实 E2E 验证。
+- PREFLIGHT: 本轮 E2E 已读取 Playwright 技能、`docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/task-closeout-rules.md`、`docs/powershell-encoding.md`；确认 `npx --version` -> `11.6.2`、前端 `http://127.0.0.1:8081/` -> `200 OK`、后端 `http://127.0.0.1:48081/actuator/health` -> `{"status":"UP"}`。
+- BDD: 真实 BPM/DCC 审批详情复验 -> Given 用户用本机默认身份从审批中心 BPM 待办打开文控流程详情, When BPM 详情页加载完成, Then 页面显示中文标题与精简审核视图，不显示“流程图”“流转记录”，不请求 BPMN 模型视图或流转记录列表，且不产生目标写请求。
+- SCRIPT_FIX: 首次任务目录脚本直接 `require('playwright')` 失败，原因是任务目录不在前端 `node_modules` 解析链路；已改为显式加载 `IntRuoyiFronted/node_modules/playwright`，未改变业务路径或断言。
+- GREEN: `node --check doc\tasks\20260804-dcc-approval-detail-title-performance\bpm-dcc-approval-detail-real.e2e.cjs` -> PASS。
+- GREEN: `node doc\tasks\20260804-dcc-approval-detail-title-performance\bpm-dcc-approval-detail-real.e2e.cjs` -> PASS；真实路径为 `审批中心 / 待办 / moduleCode=BPM` 第 1 行“流程”按钮进入 `/bpm/process-instance/detail?id=c1cd2ae6-8fbf-11f1-a00f-00155d2984a0&taskId=c1d6eef8-8fbf-11f1-a00f-00155d2984a0`。
+- E2E_ASSERTIONS: 页面可见 `文控受控文件审批`、`精简审核视图`、`进入文控审批处理页`；页面不可见 `DCC Controlled File Approval`、`流程图`、`流转记录`；`tabLabels=[]`。
+- E2E_NETWORK: `/admin-api/bpm/process-instance/get-approval-detail` 和 `/admin-api/dcc/controlled-files/2054545668044070311` 均返回业务 `code=0`；`extraLoadRequests=[]`，证明未触发 `/bpm/process-instance/get-bpmn-model-view` 和 `/bpm/task/list-by-process-instance-id`；`targetWriteRequests=[]`，证明本轮只读。
+- E2E_NOTES: 运行中记录到若干审批中心切换期间的 `net::ERR_ABORTED` 和百度统计外部请求中止，均发生在导航切换或非目标链路；目标 BPM/DCC 详情链路无 HTTP 错误、`consoleErrors=[]`、`pageErrors=[]`。
+- E2E_ARTIFACT: JSON 证据 `output\playwright\20260804-dcc-approval-detail-title-performance\bpm-dcc-approval-detail-real-evidence.json`；截图 `output\playwright\20260804-dcc-approval-detail-title-performance\bpm-dcc-approval-detail-real.png`。
+- GREEN: experience-preflight -> PASS；已按 `project-experience-consolidation` 检索既有经验归宿，`docs/e2e-rules.md#playwright-目标链路与外部资源异常归因门禁`、`docs/e2e-rules.md#真实-e2e-页面加载判据门禁` 和 `docs/task-closeout-rules.md#任务验证脚本保留门禁` 已覆盖本轮 E2E 归因与被忽略 `.cjs` 保留要求，无需新建长期经验文档。
+- STATUS: 真实 E2E 已补齐并通过；远端推送仍沿用既有 GitHub 443 本机代理连接 blocker，任务保持 `blocked_on_push`。

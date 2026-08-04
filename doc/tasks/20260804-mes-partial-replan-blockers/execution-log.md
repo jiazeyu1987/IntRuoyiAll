@@ -32,6 +32,7 @@
 - Frontend adjacent GREEN: `node tests/e2e/mes-schedule-order-replan-single-action-static.spec.js` -> PASS.
 - Frontend adjacent GREEN: `node tests/e2e/mes-pro-schedule-order-apply-replan-toast-static.spec.js` -> PASS.
 - Frontend typecheck GREEN: `pnpm.cmd ts:check` -> PASS.
+- Real E2E syntax GREEN: `node --check tests/e2e/mes-pro-schedule-order-partial-replan-blockers-real-readonly.e2e.js` -> PASS.
 
 ## Verification
 
@@ -48,10 +49,14 @@
   - `08fa94cef chore: baseline residual before production leader tab completion` includes the two adjacent static-contract updates for the new partial-apply semantics.
 - Blocked/partial verification:
   - Re-run after final backend preservation-filter patch was attempted with the same target Maven command; it remained in javac `FileDescriptor.close0` / `ClassWriter.writeClass` for more than 10 minutes without Surefire output while other `E:\IntRuoyi\IntRuoyiBackend` Maven processes were active. Only the current task Java PID was stopped; unrelated Maven processes were left running.
+  - Real page E2E: `$env:MES_PARTIAL_REPLAN_E2E_PASSWORD=<local-test-credential>; $env:PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH='C:\Program Files\Google\Chrome\Application\chrome.exe'; node tests\e2e\mes-pro-schedule-order-partial-replan-blockers-real-readonly.e2e.js` -> BLOCKED. Browser logged into `http://127.0.0.1:8081` as `测试租户/aoteman`, used backend `http://127.0.0.1:48081`, and returned `mesWriteRequestCount=0`, `pageErrorCount=0`, `consoleErrorCount=0`. Blocker: 测试租户前 74 条排产工单没有未解决阻断 issue，无法验证阻断工单红行和原因展示。
+  - User-authorized admin real page E2E: same script with `MES_PARTIAL_REPLAN_E2E_TENANT=芋道源码` and `MES_PARTIAL_REPLAN_E2E_USERNAME=admin` -> BLOCKED. Browser logged into `http://127.0.0.1:8081` as `芋道源码/admin`, used backend `http://127.0.0.1:48081`, and returned `mesWriteRequestCount=0`, `pageErrorCount=0`, `consoleErrorCount=0`. Blocker: 排产工单列表 47 条没有未解决阻断展示行；只读 `/mes/pro/auto-schedule/issues?severity=BLOCKING` 返回 `BLOCKING` 总数=0，未解决=0，未解决且 `workOrderId` 非空=0。
+  - Write-type real E2E was not run against `mes-schedule-order-replan-881mo090863-real-flow.e2e.js` because that script can click `开始重排` and apply changes to an existing non-task-owned schedule order. Per `docs/e2e-rules.md`, this requires task-owned traceable data or explicit approval.
   - `node tests/e2e/mes-pro-schedule-order-pool-static.spec.js` -> BLOCKED by unrelated missing file `src/views/mes/pro/route/RouteFlowConfigPanel.vue`.
   - `node tests/e2e/mes-pro-schedule-order-usability-static.spec.js` -> BLOCKED before this task's assertions by unrelated concurrent admission quick-filter assertion.
 
 ## Blockers
 
 - Backend final JUnit re-run pending because `yudao-module-mes` target is concurrently used by other Maven processes and this task's re-run hung in javac class writing without Surefire output.
+- Real E2E red-row verification requires at least one unresolved per-work-order BLOCKING issue in the selected tenant, or an approved task-owned fixture that creates one through a real user path. Current runs found none in `测试租户` first 74 schedule orders and none in `芋道源码/admin` first 47 schedule orders; the admin issue endpoint also reported `BLOCKING` total 0. No data was written.
 - Current shared branch has staged and unstaged unrelated concurrent task changes; do not commit, clean, or push this task until the shared staging state is reconciled.

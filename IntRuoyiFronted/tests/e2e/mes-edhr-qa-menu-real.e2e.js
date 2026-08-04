@@ -247,15 +247,19 @@ async function main() {
 
     const batchRecordForm = visibleMenuItem(page, '批记录表单')
     const qaMenu = visibleMenuItem(page, 'QA')
+    const pqcLeaderMenu = visibleMenuItem(page, 'PQC组长')
     const batchExecution = visibleMenuItem(page, '批次执行')
 
     const batchRecordFormBox = await getBox(batchRecordForm, '批记录表单 menu')
     const qaMenuBox = await getBox(qaMenu, 'QA menu')
+    const pqcLeaderMenuBox = await getBox(pqcLeaderMenu, 'PQC组长 menu')
     const batchExecutionBox = await getBox(batchExecution, '批次执行 menu')
 
     assert.ok(
-      batchRecordFormBox.y < qaMenuBox.y && qaMenuBox.y < batchExecutionBox.y,
-      'QA menu must be visually located between 批记录表单 and 批次执行'
+      batchRecordFormBox.y < qaMenuBox.y &&
+        qaMenuBox.y < pqcLeaderMenuBox.y &&
+        pqcLeaderMenuBox.y < batchExecutionBox.y,
+      'PQC组长 menu must be visually located under QA and before 批次执行'
     )
 
     await qaMenu.click()
@@ -275,7 +279,7 @@ async function main() {
       ok: true,
       baseUrl: BASE_URL,
       actor: `${config.tenant}/${config.username}`,
-      menuOrder: ['批记录表单', 'QA', '批次执行'],
+      menuOrder: ['批记录表单', 'QA', 'PQC组长', '批次执行'],
       targetPath: TARGET_PATH,
       writeRequests,
       consoleErrors,

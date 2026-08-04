@@ -168,7 +168,7 @@ const ROLE_CONFIGS = [
   ['productionEmployee', 'RRM_PRODUCTION_EMPLOYEE_USERNAME', 'RRM_PRODUCTION_EMPLOYEE_PASSWORD', '/index'],
   ['productionLeader', 'RRM_PRODUCTION_LEADER_USERNAME', 'RRM_PRODUCTION_LEADER_PASSWORD', '/mes/pro/process-pool/team-leader'],
   ['pqcInspector', 'RRM_PQC_INSPECTOR_USERNAME', 'RRM_PQC_INSPECTOR_PASSWORD', '/index'],
-  ['pqcLeader', 'RRM_PQC_LEADER_USERNAME', 'RRM_PQC_LEADER_PASSWORD', '/mes/pro/process-pool/team-leader'],
+  ['pqcLeader', 'RRM_PQC_LEADER_USERNAME', 'RRM_PQC_LEADER_PASSWORD', '/mes/pro/process-pool/pqc-leader'],
   ['qa', 'RRM_QA_USERNAME', 'RRM_QA_PASSWORD', '/mes/qc/template'],
   ['releaseOwner', 'RRM_RELEASE_OWNER_USERNAME', 'RRM_RELEASE_OWNER_PASSWORD', '/mes/pro/feedback/edhr-release']
 ]
@@ -192,10 +192,9 @@ const M6_REAL_FLOW_PHASES = [
     key: 'pqcLeaderWorkbench',
     roleKey: 'pqcLeader',
     label: 'PQC 组长复核表面',
-    targetPath: '/mes/pro/process-pool/team-leader',
-    tabText: 'PQC 组长',
+    targetPath: '/mes/pro/process-pool/pqc-leader',
     selectors: [
-      '[data-team-leader-type-tabs]',
+      '[data-pqc-leader-workbench-page]',
       '[data-team-leader-report-workbench]',
       '[data-role-matrix-daily-close]'
     ],
@@ -3186,7 +3185,6 @@ function reviewStatusLabel(status) {
 
 async function searchPqcLeaderSubmissionsOnPage(page, filters) {
   const section = page.locator('[data-team-leader-report-workbench]').first()
-  await page.getByRole('tab', { name: 'PQC 组长' }).click()
   await fillFormItem(section, '提交日期', filters.submitDate)
   await fillFormItem(section, '生产工单', filters.workOrderCode)
   await fillFormItem(section, 'PQC检验员', filters.employeeUserId)

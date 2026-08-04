@@ -15,12 +15,14 @@
 - [ ] M6 推送本地提交到 `origin/int_main`
 - [x] M7 删除审批详情页“流程图”“流转记录”入口和关联前端加载链路
 - [x] M8 复跑目标静态合同、相邻合同和类型检查
+- [x] M9 按用户要求补跑真实浏览器 E2E 验证
 
 ## Expected Verification
 
 - RED：目标静态合同在旧代码下失败，证明英文标题仍可见或 DCC 审批详情仍触发完整详情加载。
 - GREEN：目标静态合同通过，证明页面标题使用中文审批名称，且 BPM 审批详情只加载审批摘要/必要动作入口。
 - GREEN：追加静态合同通过，证明 BPM 审批详情不再渲染“流程图”“流转记录”Tab，不再保留流程图 viewer、任务列表组件、流程图状态或 BPMN 模型视图请求链路。
+- REAL_E2E：使用 Playwright 登录本机 `芋道源码/admin`，从审批中心 BPM 待办真实打开文控流程详情，断言中文标题、精简审核视图、文控正式处理入口、无“流程图/流转记录”、无 BPMN 模型视图/流转记录请求、目标写请求为 0。
 - REGRESSION：运行相邻 BPM/DCC 审批详情静态合同或 `pnpm ts:check`；若全量检查被无关历史问题阻塞，记录隔离门禁和阻塞摘要。
 
 ## Current Status
@@ -62,6 +64,9 @@ blocked_on_push
 - CLEANUP：`task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode preview` -> PASS。
 - CLEANUP：`task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode apply` -> PASS，删除已归档的本轮 evidence 文件。
 - PUSH_BLOCKER：本轮实现完成后仍需推送；历史 GitHub 443 本机代理连接问题尚未解除，任务不能标记为 completed。
+- REAL_E2E_CHECK：`node --check doc\tasks\20260804-dcc-approval-detail-title-performance\bpm-dcc-approval-detail-real.e2e.cjs` -> PASS。
+- REAL_E2E：`node doc\tasks\20260804-dcc-approval-detail-title-performance\bpm-dcc-approval-detail-real.e2e.cjs` -> PASS；从审批中心 BPM TODO 第 1 行打开 `processInstanceId=c1cd2ae6-8fbf-11f1-a00f-00155d2984a0`，详情页可见 `文控受控文件审批`、`精简审核视图` 和 `进入文控审批处理页`；`extraLoadRequests=[]`、`targetWriteRequests=[]`、`pageErrors=[]`，详情可见耗时约 4.8s。
+- REAL_E2E_ARTIFACT：`output\playwright\20260804-dcc-approval-detail-title-performance\bpm-dcc-approval-detail-real-evidence.json`；截图 `output\playwright\20260804-dcc-approval-detail-title-performance\bpm-dcc-approval-detail-real.png`。
 
 ## Baseline Commits
 
@@ -69,3 +74,7 @@ blocked_on_push
 - `ae0cf0d96`：并行残余脏工作区第二基线。
 - `0cb7335da`：本轮删除 Tab 前并行残余脏工作区基线。
 - `46e0670a7`：本轮删除 Tab 前第二个并行残余脏工作区基线。
+
+## Cleanup Keep
+
+- doc/tasks/20260804-dcc-approval-detail-title-performance/bpm-dcc-approval-detail-real.e2e.cjs

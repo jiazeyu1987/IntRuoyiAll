@@ -544,8 +544,13 @@ assert.match(
 )
 assert.match(
   source,
-  /async function searchPqcLeaderSubmissionsOnPage[\s\S]*getByRole\('tab',\s*\{\s*name:\s*'PQC 组长'\s*\}\)\.click\(\)[\s\S]*data-pqc-leader-filter-product/,
-  'PQC leader submission filter E2E must switch to the PQC leader tab before locating PQC-only filters.'
+  /pqcLeader[\s\S]*'\/mes\/pro\/process-pool\/pqc-leader'[\s\S]*async function searchPqcLeaderSubmissionsOnPage[\s\S]*data-pqc-leader-filter-product/,
+  'PQC leader submission filter E2E must open the standalone QA-side PQC leader route before locating PQC-only filters.'
+)
+assert.doesNotMatch(
+  source,
+  /searchPqcLeaderSubmissionsOnPage[\s\S]*getByRole\('tab',\s*\{\s*name:\s*'PQC 组长'\s*\}\)\.click\(\)/,
+  'PQC leader submission filter E2E must not depend on the removed internal PQC leader tab.'
 )
 assert.match(
   source,

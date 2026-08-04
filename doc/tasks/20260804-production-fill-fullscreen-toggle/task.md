@@ -10,10 +10,12 @@
 - [x] M2: 修改生产填写固定面板最大化按钮、全屏状态同步与样式。
 - [x] M3: 更新相邻静态合同并完成 GREEN/REGRESSION 验证。
 - [x] M4: 补齐验证报告和收尾状态。
+- [x] M5: 给非超管账号授予生产组长角色，并完成真实 Playwright E2E。
 
 ## Expected Verification
 
 - `node tests/e2e/edhr-frontline-production-fullscreen-toggle-static.spec.cjs`
+- `node tests/e2e/edhr-frontline-production-fullscreen-toggle-real.e2e.cjs`
 - `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs`（当前因既有页签“历史批记录”缺失先失败，非本任务行为；详见 verification-report）
 - `git diff --check -- src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue tests/e2e/edhr-frontline-production-fullscreen-toggle-static.spec.cjs tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs doc/tasks/20260804-production-fill-fullscreen-toggle/task.md doc/tasks/20260804-production-fill-fullscreen-toggle/execution-log.md doc/tasks/20260804-production-fill-fullscreen-toggle/verification-report.md`
 
@@ -21,7 +23,10 @@
 
 ready_for_closeout
 
-- 实现和定向验证已完成。
+- 实现、定向静态验证和真实生产组长页面 E2E 已完成。
+- 已给 `芋道源码/limin` 授予 `mes_team_leader` 角色，账号仍保留既有其它角色；未使用 admin/default 账号替代生产组长路径。
+- 真实 E2E 使用 `芋道源码/limin` 打开 `/mes/pro/feedback/edhr-batch-production-fill`，验证默认 `最大化`、全屏后 `主页`、点击恢复后再次 `最大化`。
+- E2E PASS 证据：`IntRuoyiFronted/test-results/20260804-production-fill-fullscreen-toggle/result.json`，写请求数 0，目标接口失败 0，pageErrors 0。
 - 当前工作区存在大量本任务开始前已有脏改动，且分支已领先 `origin/int_main`；未执行基线提交、任务提交、push 或 cleanup apply，因此不标记 `completed`。
 
 ## Applicable Gates

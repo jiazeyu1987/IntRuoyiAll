@@ -369,6 +369,16 @@ assert.match(
 )
 assert.match(
   realE2e,
+  /const\s+PQC_LEADER_ROUTE\s*=\s*['"]\/mes\/pro\/process-pool\/pqc-leader['"]/,
+  'P0 real E2E must lock the standalone PQC leader route as a real UI step.'
+)
+assert.doesNotMatch(
+  realE2e,
+  /data-team-leader-type-tabs/,
+  'P0 real E2E must not depend on the removed internal production/PQC leader tabs.'
+)
+assert.match(
+  realE2e,
   /const\s+PRODUCTION_FILL_ROUTE\s*=\s*['"]\/mes\/pro\/feedback\/edhr-batch-production-fill['"]/,
   'P0 real E2E must lock the production fill route as the frontline submit UI step.'
 )

@@ -20,6 +20,7 @@
   "initialTotal": 17,
   "filteredTotal": 1,
   "resetTotal": 47,
+  "legacyQuickFilterVisibleCount": 0,
   "targetWriteRequestCount": 0,
   "targetBadResponseCount": 0,
   "targetAbortedRequestCount": 1,
