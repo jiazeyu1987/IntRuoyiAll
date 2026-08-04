@@ -10,7 +10,7 @@ QA 规程配置中的检验规则必须跟随 DCC 项目正式绑定的 MDM 产�
 - [x] M2：新增产品级规则隔离静态契约并取得 RED。
 - [x] M3：实现按 `productMasterId` 初始化、缓存和切换规则状态。
 - [x] M4：完成聚焦回归、类型检查和技能证据校验。
-- [ ] M5：完成清理、提交、推送和主线集成。
+- [x] M5：完成清理、提交、推送和主线集成。
 
 ## Expected Verification
 
@@ -47,6 +47,6 @@ QA 规程配置中的检验规则必须跟随 DCC 项目正式绑定的 MDM 产�
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-产品级规则隔离、相邻回归、类型检查、技能证据校验和经验沉淀已通过；待清理临时 evidence、提交、推送、远端主线融合和 worktree 删除。
+产品级规则隔离、相邻回归、类型检查、技能证据校验、经验沉淀、临时 evidence 清理、任务分支推送、`origin/int_main` 主线融合、两个任务 worktree 删除及槽位释放均已完成。

@@ -60,6 +60,14 @@
 - POST-MERGE REGRESSION: 产品级规则聚焦合同、QA 页面合同、末检适用性合同、版本发布标题栏合同 -> 全部 PASS。
 - POST-MERGE GREEN: `pnpm ts:check` -> PASS。
 - POST-MERGE GUARD: `branch-runtime-port-guard.ps1` 与 `git diff origin/int_main...HEAD --check` -> PASS。
+- TASK BRANCH PUSH: `origin/codex/qa-regulation-product-rules` -> `bee130fc8`，任务实现、清理和验证记录均已远端保存。
+- MAINLINE PUSH: `origin/int_main` -> `bee130fc8`，确认包含 `d99c2a0a3` 实现、`38db4720c` cleanup、`13224eadd` 主线同步和 `bee130fc8` 验证记录。
+- ORIGINAL WORKTREE REMOVAL: `D:\IntRuoyiWorktree\qa-regulation-product-rules` 的 Git 注册已先行移除；确认无 `.git`、无目标进程、`8084/48084` 无监听后，对残留 `node_modules` 使用任务专用空目录 `robocopy /MIR` 清空，并删除精确目标目录；最终 `Test-Path=False`。
+- ORIGINAL SLOT RELEASE: `qa-regulation-product-rules` 登记项已在物理目录删除后标记 `active=false`，记录 `deletedAt`、`cleanupTask=20260805-qa-regulation-product-specific-rules`。
+- INTEGRATION WORKTREE REMOVAL: `codex/qa-regulation-product-rules-integration` 与 `origin/int_main` 均为 `bee130fc8`，`merge-base --is-ancestor`、未推送提交计数、clean status、端口 guard、`8086/48086` 无监听和目标进程检查均通过；`git worktree remove --force` -> PASS，最终 Git 注册和物理目录均不存在。
+- INTEGRATION SLOT RELEASE: `qa-regulation-product-rules-integration` 登记项已在目录删除后标记 `active=false`，记录 `deletedAt`、`cleanupTask=20260805-qa-regulation-product-specific-rules`。
+- FINAL REGISTRY CHECK: 端口登记表 JSON 解析 -> PASS；两个任务登记项均 inactive，活动项 `profile/slot`、前端端口和后端端口重复数均为 `0`。
+- M5 completed：清理、提交、任务分支推送、远端主线融合、原任务 worktree 残留删除、集成 worktree 删除和两个槽位释放全部完成。
 
 ## Blockers
 
