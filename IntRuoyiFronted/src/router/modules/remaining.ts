@@ -2008,6 +2008,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/process-pool/qa-regulation',
+        component: () => import('@/views/mes/pro/processpool/QaRegulationPage.vue'),
+        name: 'MesProProcessPoolQaRegulation',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: 'QA 规程配置',
+          activeMenu: '/mes/pro/process-pool/qa-regulation',
+          permission: ['mes:pro-process-pool-team-leader:query']
+        }
+      },
+      {
         path: 'pro/batch-record-cell-link',
         component: () => import('@/views/mes/pro/batchrecordcelllink/index.vue'),
         name: 'MesProBatchRecordCellLink',
