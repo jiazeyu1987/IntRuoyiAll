@@ -12,7 +12,7 @@
 
 ## Requirements And Acceptance
 
-- AC1：可直接审核的 DCC 上传审批待办行显示“审批”按钮。
+- AC1：无需模块专属资料的 DCC 上传审批待办行显示“审批”按钮。
 - AC2：点击“审批”打开现有审核确认弹窗。
 - AC3：提交继续调用 `/approval-center/tasks/review`。
 - AC4：现有“处理/打开”详情入口继续保留。
@@ -28,7 +28,7 @@
 
 - 列表：`GET /approval-center/tasks/page`
 - 审核：`POST /approval-center/tasks/review`
-- 状态：待办且任务满足现有 `canReviewTask` 正式条件时允许快速审批；其它状态不显示入口。
+- 状态：待办且任务由后端正式声明 `APPROVE` 与 `REJECT` 时允许快速审批；最终文控批准节点因需模块专属资料而不声明该能力。
 
 ## BDD Scenarios
 
@@ -64,4 +64,3 @@
 ## Blockers And Follow-Up Skills
 
 - 若缺少真实 DCC 上传审批待办或测试账号，真实 E2E 必须记录为 BLOCKED，不能用 API-only 或 mock 替代。
-
