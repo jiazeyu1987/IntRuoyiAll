@@ -113,6 +113,7 @@
     "e2e:dcc:signature-record-summary:static": "node tests/e2e/dcc-signature-record-summary-static.spec.js",
     "e2e:bpm:timeline-current-node-green:static": "node tests/e2e/bpm-process-timeline-current-node-green-static.spec.js",
     "e2e:dcc:bpm-approval-viewer:static": "node tests/e2e/dcc-bpm-dcc-approval-viewer-static.spec.js",
+    "e2e:dcc:bpm-approval-detail-title-performance:static": "node tests/e2e/bpm-dcc-approval-detail-title-performance-static.spec.js",
     "e2e:dcc:approval-center-handling-entry:static": "node tests/e2e/dcc-approval-center-handling-entry-static.spec.js",
     "e2e:dcc:detail-approval-own-task:static": "node tests/e2e/dcc-detail-approval-own-task-without-process-query-static.spec.js",
     "e2e:dcc:detail-signature-evidence-nonblocking:static": "node tests/e2e/dcc-detail-signature-evidence-nonblocking-static.spec.js",

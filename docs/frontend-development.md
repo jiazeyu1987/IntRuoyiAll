@@ -124,11 +124,11 @@
 ## 前端同路由多入口分面门禁
 
 - Trigger: 同一详情页、抽屉、弹窗或隐藏路由被多个业务入口复用，但用户要求“只显示/仅展示”某一类内容，尤其入口文案包含“追溯”“签核”“审批”“日志”“记录”“详情”。
-- Preflight check: 先拆出每个入口的正式信息范围和非目标范围；复用同一路由时必须显式建模 mode/scope query、类型定义和解析函数，入口 helper 必须传入明确 scope，不得只依赖按钮文案、来源页面或默认详情状态推断。BPM 详情页通过 `formCustomViewPath` 嵌入业务详情组件时，也必须先判断审批人是否只需要业务审核摘要；若只需摘要，应在 BPM 层提供专用摘要和正式业务处理入口，不得无条件挂载完整业务详情页。
-- Blocker: 两个入口仍生成同一 URL/query、详情页只隐藏局部标题但仍加载或渲染非目标区块、scope 缺类型约束、BPM 自定义业务表单仍无条件挂载完整业务详情组件、静态合同不能同时证明入口 URL 和区块可见性，或用 CSS 隐藏/空数据冒充信息边界时必须停止。
-- Verification: 聚焦静态合同必须断言入口 helper 参数、URL query、scope 解析、正向显示区块、负向隐藏区块和非当前分面辅助加载短路；BPM 自定义业务表单场景还必须断言审核摘要、当前节点、正式处理入口和完整业务组件的条件挂载；涉及 Vue/TS 时运行 `pnpm ts:check`。
+- Preflight check: 先拆出每个入口的正式信息范围和非目标范围；复用同一路由时必须显式建模 mode/scope query、类型定义和解析函数，入口 helper 必须传入明确 scope，不得只依赖按钮文案、来源页面或默认详情状态推断。BPM 详情页通过 `formCustomViewPath` 嵌入业务详情组件时，也必须先判断审批人是否只需要业务审核摘要；若只需摘要，应在 BPM 层提供专用摘要和正式业务处理入口，不得无条件挂载完整业务详情页。BPM 详情页标题若来自英文流程定义名，必须使用正式中文映射展示，不能只在审批中心列表中文化而让详情页继续直出英文。
+- Blocker: 两个入口仍生成同一 URL/query、详情页只隐藏局部标题但仍加载或渲染非目标区块、scope 缺类型约束、BPM 自定义业务表单仍无条件挂载完整业务详情组件、BPM 详情页标题仍直接渲染英文 `processInstance.name`、审批详情首屏无条件预加载流程图或重型辅助详情接口、静态合同不能同时证明入口 URL 和区块可见性，或用 CSS 隐藏/空数据冒充信息边界时必须停止。
+- Verification: 聚焦静态合同必须断言入口 helper 参数、URL query、scope 解析、正向显示区块、负向隐藏区块和非当前分面辅助加载短路；BPM 自定义业务表单场景还必须断言审核摘要、当前节点、正式处理入口、完整业务组件条件挂载、详情页中文标题映射、流程图按 Tab 懒加载；涉及 Vue/TS 时运行 `pnpm ts:check`。
 - Forbidden action: 禁止把多个业务入口继续合并成无差别详情页；禁止用默认 `traceability=1`、按钮文案、`from=browser` 或空数组推断分面；禁止吞掉非目标接口错误来掩盖区块仍在加载。
-- Evidence: 任务 `doc/tasks/20260803-dcc-trace-signature-scope-split/`，DCC 受控浏览“追溯”和“签核”原先打开同一追溯详情，最终通过 `traceScope=trace/signature` 与 `showLifecycleTraceSections` / `showSignatureTraceSections` 拆分页面关注范围；任务 `doc/tasks/20260804-bpm-dcc-approval-compact-detail/`，BPM 流程详情旧实现通过 `BusinessFormComponent` 无条件嵌入完整 DCC 受控文件详情，导致审核人看到项目代码联动、受控浏览落位和排障信息，最终改为 BPM 层 DCC 审批摘要卡并保留文控处理页入口。
+- Evidence: 任务 `doc/tasks/20260803-dcc-trace-signature-scope-split/`，DCC 受控浏览“追溯”和“签核”原先打开同一追溯详情，最终通过 `traceScope=trace/signature` 与 `showLifecycleTraceSections` / `showSignatureTraceSections` 拆分页面关注范围；任务 `doc/tasks/20260804-bpm-dcc-approval-compact-detail/`，BPM 流程详情旧实现通过 `BusinessFormComponent` 无条件嵌入完整 DCC 受控文件详情，导致审核人看到项目代码联动、受控浏览落位和排障信息，最终改为 BPM 层 DCC 审批摘要卡并保留文控处理页入口；任务 `doc/tasks/20260804-dcc-approval-detail-title-performance/`，BPM 详情页红框标题仍显示 `DCC Controlled File Approval` 且首屏同时请求流程图和 DCC 摘要，最终补中文标题映射、DCC 摘要独立加载和流程图 Tab 懒加载。
 
 ## eDHR 表单追溯可视化历史详情门禁
 

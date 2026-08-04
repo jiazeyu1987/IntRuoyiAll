@@ -14,7 +14,7 @@
         </div>
         <el-divider class="!my-8px" />
         <div class="flex items-center gap-5 mb-10px h-40px">
-          <div class="text-26px font-bold mb-5px">{{ processInstance.name }}</div>
+          <div class="text-26px font-bold mb-5px">{{ processInstanceDisplayName }}</div>
           <dict-tag
             v-if="processInstance.status"
             :type="DICT_TYPE.BPM_PROCESS_INSTANCE_STATUS"
@@ -74,8 +74,8 @@
                               <div class="bpm-dcc-approval-summary__title">
                                 {{
                                   dccApprovalFileDetail?.title ||
-                                  processInstance.name ||
-                                  'DCC 受控文件审批'
+                                  processInstanceDisplayName ||
+                                  '文控受控文件审批'
                                 }}
                               </div>
                               <div class="bpm-dcc-approval-summary__subtitle">
@@ -150,14 +150,14 @@
                 v-show="
                   processDefinition.modelType && processDefinition.modelType === BpmModelType.SIMPLE
                 "
-                :loading="processInstanceLoading"
+                :loading="processInstanceLoading || processModelViewLoading"
                 :model-view="processModelView"
               />
               <ProcessInstanceBpmnViewer
                 v-show="
                   processDefinition.modelType && processDefinition.modelType === BpmModelType.BPMN
                 "
-                :loading="processInstanceLoading"
+                :loading="processInstanceLoading || processModelViewLoading"
                 :model-view="processModelView"
               />
             </div>
@@ -237,6 +237,8 @@ const processInstanceLoading = ref(false) // 流程实例的加载中
 const processInstance = ref<any>({}) // 流程实例
 const processDefinition = ref<any>({}) // 流程定义
 const processModelView = ref<any>({}) // 流程模型视图
+const processModelViewLoaded = ref(false)
+const processModelViewLoading = ref(false)
 const operationButtonRef = ref() // 操作按钮组件 ref
 const auditIconsMap = {
   [TaskStatusEnum.RUNNING]: runningSvg,
@@ -244,6 +246,19 @@ const auditIconsMap = {
   [TaskStatusEnum.REJECT]: rejectSvg,
   [TaskStatusEnum.CANCEL]: cancelSvg
 }
+
+const DCC_APPROVAL_PROCESS_TITLE_LABELS: Record<string, string> = {
+  'DCC Controlled File Approval': '文控受控文件审批'
+}
+
+const resolveProcessInstanceDisplayName = (value?: string) => {
+  const normalized = String(value || '').trim()
+  return normalized ? DCC_APPROVAL_PROCESS_TITLE_LABELS[normalized] || normalized : ''
+}
+
+const processInstanceDisplayName = computed(() =>
+  resolveProcessInstanceDisplayName(processInstance.value?.name)
+)
 
 // ========== 申请信息 ==========
 const fApi = ref<ApiAttrs>() //
@@ -259,8 +274,11 @@ const writableFields: Array<string> = [] // 表单可以编辑的字段
 const getDetail = () => {
   // 获得审批详情
   getApprovalDetail()
-  // 获得流程模型视图
-  getProcessModelView()
+  processModelView.value = {}
+  processModelViewLoaded.value = false
+  if (activeTab.value === 'diagram') {
+    void ensureProcessModelViewLoaded()
+  }
 }
 
 /** 加载流程实例 */
@@ -431,7 +449,7 @@ const getApprovalDetail = async () => {
       })
     } else if (isDccControlledFileCustomForm.value) {
       BusinessFormComponent.value = null
-      await loadDccApprovalFileSummary()
+      void loadDccApprovalFileSummary()
     } else {
       resetDccApprovalFileSummary()
       // 注意：data.processDefinition.formCustomViewPath 是组件的全路径，例如说：/crm/contract/detail/index.vue
@@ -450,16 +468,29 @@ const getApprovalDetail = async () => {
 
 /** 获取流程模型视图*/
 const getProcessModelView = async () => {
-  if (BpmModelType.BPMN === processDefinition.value?.modelType) {
-    // 重置，解决 BPMN 流程图刷新不会重新渲染问题
-    processModelView.value = {
-      bpmnXml: ''
+  processModelViewLoading.value = true
+  try {
+    if (BpmModelType.BPMN === processDefinition.value?.modelType) {
+      // 重置，解决 BPMN 流程图刷新不会重新渲染问题
+      processModelView.value = {
+        bpmnXml: ''
+      }
     }
+    const data = await ProcessInstanceApi.getProcessInstanceBpmnModelView(props.id)
+    if (data) {
+      processModelView.value = data
+    }
+    processModelViewLoaded.value = true
+  } finally {
+    processModelViewLoading.value = false
   }
-  const data = await ProcessInstanceApi.getProcessInstanceBpmnModelView(props.id)
-  if (data) {
-    processModelView.value = data
+}
+
+const ensureProcessModelViewLoaded = async () => {
+  if (processModelViewLoaded.value || processModelViewLoading.value) {
+    return
   }
+  await getProcessModelView()
 }
 
 /** 设置表单权限 */
@@ -494,6 +525,11 @@ const handlePrint = async () => {
 
 /** 当前的 Tab */
 const activeTab = ref('form')
+watch(activeTab, (activeName) => {
+  if (activeName === 'diagram') {
+    void ensureProcessModelViewLoaded()
+  }
+})
 
 /** 初始化 */
 const userOptions = ref<UserApi.UserVO[]>([]) // 用户列表
