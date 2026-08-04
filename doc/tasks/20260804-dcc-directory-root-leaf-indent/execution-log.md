@@ -14,7 +14,15 @@
 - INFO: 技能 -> 已读取 `bug-regression-fix-loop`、`frontend-feature-delivery` 及其 evidence contract。
 - INFO: 规则 -> 已读取 `docs/frontend-development.md`、`docs/powershell-encoding.md`、`docs/task-closeout-rules.md`。
 - INFO: 工作区 -> 当前仓库已有大量无关脏改，本任务只修改 DCC 目录页、相邻静态契约和本任务文档，不回退其它文件。
+- INFO: 经验门禁 -> `docs/experience-index.md` 命中 DCC / frontend / Element Plus / 未分类相关门禁；本任务仅处理 DCC 目录管理页展示缩进，不改后端目录 `parent_id`、正式 `UNCLASSIFIED` seed 或上传类别链路。
+- RED: `node tests/e2e/dcc-directory-folder-icon-inline-static.spec.js` -> FAIL, expected reason: 缺少 `:deep(.dcc-directory-name-column .el-table__placeholder) { display: none; }`，根级叶子目录仍保留 Element Plus 占位缩进。
+- GREEN: `node tests/e2e/dcc-directory-folder-icon-inline-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/dcc-directory-folder-border-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/dcc-directory-lazy-loading-static.spec.js` -> PASS。
+- GREEN: `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/directories/index.vue IntRuoyiFronted/tests/e2e/dcc-directory-folder-icon-inline-static.spec.js doc/tasks/20260804-dcc-directory-root-leaf-indent` -> PASS，只有 CRLF warning，无 whitespace error。
+- INFO: `pnpm ts:check` -> NOT COMPLETED，运行数分钟无输出和无退出；已按命令行精确匹配停止本次任务-owned `vue-tsc` 进程，未将该命令记为通过。
+- BLOCKER: closeout-commit-push -> 当前仓库已有大量预先存在的无关脏改和本地 `int_main...origin/int_main [ahead 11]`，本任务不执行基线提交、实现提交或推送，避免把非本任务变更混入提交。
 
 ## Verification
 
-- pending
+- 聚焦静态契约和相邻目录页回归通过；完整 TypeScript 检查未完成，提交/推送因无关脏工作区阻塞。

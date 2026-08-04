@@ -22,6 +22,15 @@
 
 ## Real Browser E2E
 
-- PENDING: Playwright real browser verification will use local frontend `http://127.0.0.1:8081`, local backend `http://127.0.0.1:48081/admin-api`, and task-owned helper `http://127.0.0.1:18080`.
-- PENDING: Result JSON and screenshots will be written to `output/playwright/20260804-oauth-admin-check-html/`.
+- PASS: Playwright real browser verification used local frontend `http://127.0.0.1:8081`, local backend `http://127.0.0.1:48081/admin-api`, and task-owned helper `http://127.0.0.1:18080`.
+- PASS: The browser opened the helper page, observed the initial not-logged-in state, clicked `授权登录`, used the real IntRuoyi frontend login/SSO path, returned to the helper page, and displayed `管理员权限：有`.
+- PASS: Final result reports identity `芋道源码/admin`, user `admin`, matched role `super_admin`, `permissionsCount=1282`, `consoleErrors=[]`, `pageErrors=[]`, and `requestFailures=[]`.
+- PASS: Result JSON and screenshots are under `output/playwright/20260804-oauth-admin-check-html/`.
+- PASS: Sensitive marker scan over the result JSON and HTML found no token or client-secret markers.
+- PASS: Helper process was stopped; port `18080` had no listening task-owned process after E2E.
 - RED: Real browser OAuth callback produced an authorization code, but helper token exchange failed because `tenant-id` was missing from the server-side token request.
+- GREEN: Helper now requires `INT_TENANT_ID` and sends `tenant-id` on token exchange, refresh-token exchange, and permission-info requests.
+
+## Client Note
+
+- Local runtime does not currently contain `admin-check-prod`; the E2E explicitly used existing seed client `yudao-sso-demo-by-code`, which supports `authorization_code`, `refresh_token`, `user.read`, and the helper callback redirect.

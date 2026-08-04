@@ -41,7 +41,7 @@ assert.match(
 )
 assert.match(
   source,
-  /const resetWorkOrderAdmissionQuery = \(\) => \{[\s\S]*workOrderAdmissionShowAdmitted\.value = false[\s\S]*workOrderAdmissionQueryParams\.admissionStatus = resolveWorkOrderAdmissionStatus\(\)[\s\S]*handleWorkOrderAdmissionQuery\(\)/,
+  /const resetWorkOrderAdmissionQuery = \(\) => \{[\s\S]*workOrderAdmissionShowAdmitted\.value = false[\s\S]*workOrderAdmissionQueryParams\.admissionStatus = DEFAULT_WORK_ORDER_ADMISSION_STATUS[\s\S]*handleWorkOrderAdmissionQuery\(\)/,
   '同步工单重置必须关闭显示已入池订单开关并恢复隐藏已入池订单。'
 )
 assert.match(

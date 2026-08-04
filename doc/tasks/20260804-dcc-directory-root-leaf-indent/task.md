@@ -6,10 +6,10 @@
 
 ## Milestones
 
-1. [in_progress] 建立任务记录、BDD 场景和 RED 静态契约。
-2. [pending] 修复目录名称列的根级叶子占位符缩进。
-3. [pending] 运行聚焦静态契约和相邻目录页回归。
-4. [pending] 记录验证结果与收尾状态。
+1. [completed] 建立任务记录、BDD 场景和 RED 静态契约。
+2. [completed] 修复目录名称列的根级叶子占位符缩进。
+3. [completed] 运行聚焦静态契约和相邻目录页回归。
+4. [completed] 记录验证结果与收尾状态。
 
 ## Expected Verification
 
@@ -19,7 +19,7 @@
 
 ## Current Status
 
-in_progress：正在补充根级叶子目录不缩进的静态契约和最小 CSS 修复。
+ready_for_closeout：实现与聚焦验证已完成；当前仓库存在大量预先已有的无关脏改和本地 ahead 状态，本任务未执行基线提交、实现提交或推送，避免混入非本任务变更。
 
 ## 设计约束检查
 

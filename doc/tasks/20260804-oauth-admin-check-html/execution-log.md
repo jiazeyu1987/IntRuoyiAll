@@ -25,3 +25,10 @@ BDD: production OAuth admin check page -> Given the production helper server exp
 - Added task-owned Playwright script `doc/tasks/20260804-oauth-admin-check-html/oauth-admin-check-real-e2e.cjs`; it reads credentials/secrets only in memory, writes sanitized result JSON under `output/playwright/20260804-oauth-admin-check-html/`, and stops only its helper child process.
 - RED: `node doc\tasks\20260804-oauth-admin-check-html\oauth-admin-check-real-e2e.cjs` with local authorization-code client reached `http://127.0.0.1:18080/oauth/callback?code=...`, then failed token exchange with “请求的租户标识未传递”; expected reason: helper did not send IntRuoyi `tenant-id` to `/system/oauth2/token`.
 - Updated helper service to require `INT_TENANT_ID` and send `tenant-id` on OAuth token exchange, refresh-token exchange, and `/system/auth/get-permission-info`.
+- Verification: local OAuth client check found `admin-check-prod=missing`; it found `yudao-sso-demo-by-code=present` with `authorization_code`, `refresh_token`, `user.read`, and a redirect that allows the helper callback.
+- GREEN: `node --check output\oauth-admin-check-helper-server.mjs` -> PASS.
+- GREEN: `node --check doc\tasks\20260804-oauth-admin-check-html\oauth-admin-check-real-e2e.cjs` -> PASS.
+- GREEN: `node doc\tasks\20260804-oauth-admin-check-html\oauth-admin-check-real-e2e.cjs` -> PASS; result at `output/playwright/20260804-oauth-admin-check-html/result.json`, screenshots at `initial-not-logged-in.png` and `admin-permission-pass.png`.
+- Verification: result JSON reports identity `芋道源码/admin`, user `admin`, `hasAdminPermission=true`, matched role `super_admin`, `permissionsCount=1282`, `consoleErrors=[]`, `pageErrors=[]`, and `requestFailures=[]`.
+- Verification: sensitive marker scan over `result.json` and `oauth-admin-check-production.html` found no `access_token`, `refresh_token`, `client_secret`, `OAUTH_CLIENT_SECRET`, `Bearer`, or `Basic` markers.
+- Verification: after E2E, port `18080` had no listening task-owned helper process.

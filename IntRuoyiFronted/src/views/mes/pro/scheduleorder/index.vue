@@ -3293,7 +3293,7 @@ const resetWorkOrderAdmissionQuery = () => {
   workOrderAdmissionShowAdmitted.value = false
   workOrderAdmissionQueryParams.workOrderCode = undefined
   workOrderAdmissionQueryParams.productCode = undefined
-  workOrderAdmissionQueryParams.admissionStatus = resolveWorkOrderAdmissionStatus()
+  workOrderAdmissionQueryParams.admissionStatus = DEFAULT_WORK_ORDER_ADMISSION_STATUS
   delete workOrderAdmissionQueryParams.quickFilter
   handleWorkOrderAdmissionQuery()
 }
