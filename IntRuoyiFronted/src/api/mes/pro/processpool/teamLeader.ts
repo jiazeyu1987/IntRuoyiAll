@@ -17,6 +17,9 @@ export interface TeamLeaderSubmissionReviewReqVO {
   leaderType: TeamLeaderType
   reviewStatus: SubmissionReviewStatus
   reviewRemark?: string
+  reviewSignatureId: number
+  reviewSignatureEmployeeUserId: number
+  reviewSignatureSnapshotJson?: string
 }
 
 export interface WorkOrderAbnormalReportReqVO {
@@ -129,7 +132,24 @@ export interface TeamLeaderReportAllocationConfirmReqVO {
   leaderType: TeamLeaderType
   allocationMode: 'FIFO' | 'MANUAL'
   reviewRemark?: string
+  reviewSignatureId: number
+  reviewSignatureEmployeeUserId: number
+  reviewSignatureSnapshotJson?: string
   allocations: TeamLeaderReportAllocationLine[]
+}
+
+const requireReviewSignaturePayload = (
+  data: Pick<TeamLeaderSubmissionReviewReqVO, 'reviewSignatureId' | 'reviewSignatureEmployeeUserId'>
+) => {
+  if (!Number.isFinite(Number(data.reviewSignatureId)) || Number(data.reviewSignatureId) <= 0) {
+    throw new Error('复核电子签名不能为空')
+  }
+  if (
+    !Number.isFinite(Number(data.reviewSignatureEmployeeUserId)) ||
+    Number(data.reviewSignatureEmployeeUserId) <= 0
+  ) {
+    throw new Error('复核签名员工不能为空')
+  }
 }
 
 export const getTeamLeaderSubmissionPage = async (params: TeamLeaderSubmissionPageReqVO) => {
@@ -147,6 +167,7 @@ export const getTeamLeaderSubmissionDetail = async (id: number, leaderType: Team
 }
 
 export const reviewTeamLeaderSubmission = async (data: TeamLeaderSubmissionReviewReqVO) => {
+  requireReviewSignaturePayload(data)
   return await request.post<number>({
     url: '/mes/pro/process-pool/team-leader/submission/review',
     data
@@ -269,6 +290,9 @@ export const previewTeamLeaderReportFifoAllocation = async (
 export const confirmTeamLeaderReportAllocation = async (
   data: TeamLeaderReportAllocationConfirmReqVO
 ) => {
+  const reviewSignatureId = data.reviewSignatureId
+  void reviewSignatureId
+  requireReviewSignaturePayload(data)
   return await request.post<number>({
     url: '/mes/pro/process-pool/team-leader/submission/allocation/confirm',
     data

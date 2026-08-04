@@ -30,6 +30,10 @@ public class MesFrontlinePqcSubmitReqVO {
     @NotNull(message = "生产工单编号不能为空")
     private Long workOrderId;
 
+    @Schema(description = "绑定的生产提交工序池事件编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "绑定的生产提交事件不能为空")
+    private Long productionSubmitEventId;
+
     @Schema(description = "工艺路线编号", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "工艺路线编号不能为空")
     private Long routeId;
@@ -65,6 +69,22 @@ public class MesFrontlinePqcSubmitReqVO {
     @Schema(description = "实际填写员工编号", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "实际填写员工不能为空")
     private Long actualEmployeeId;
+
+    @Schema(description = "设备账号编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "设备账号不能为空")
+    private Long deviceAccountId;
+
+    @Schema(description = "设备编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "设备不能为空")
+    private Long deviceId;
+
+    @Schema(description = "工作站编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "工作站不能为空")
+    private Long workstationId;
+
+    @Schema(description = "PQC 提交幂等键", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "PQC 提交幂等键不能为空")
+    private String pqcSubmissionIdempotencyKey;
 
     @Schema(description = "电子签名编号", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "电子签名不能为空")

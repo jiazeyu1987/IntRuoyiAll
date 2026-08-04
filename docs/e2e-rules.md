@@ -33,53 +33,14 @@
 - Forbidden action: 禁止新增虚假 script 包装静态测试冒充真实 E2E，禁止 API-only 替代页面路径，禁止把前端 API wrapper 存在宣称为页面入口已验收。
 - Evidence: `doc/tasks/20260730-process-pool-f5-f6-implementation/execution-log.md`。
 
-### 浏览器本地目录写入门禁
-
-- Trigger: 真实 E2E、静态合同或验收文档涉及 `showDirectoryPicker`、本地目录授权、本地文件写入、浏览器端下载到指定目录、目录句柄、`createWritable`、本地写入结果回写或“下载并归类”类流程。
-- Preflight check: 必须验证浏览器是否支持受控目录写入能力；不支持、用户取消授权或目录句柄异常时，页面必须 fail fast，并且不得创建后端 import/write task、不得调用 content 下载接口、不得回写本地写入成功。
-- Preflight check: 对需要先本地写入再触发后端归档/业务写入的流程，Playwright 必须断言请求顺序：目录授权和相对路径校验成功前不得调用后端写入任务；`LOCAL_WRITTEN` 或等价本地成功回写前不得调用正式业务归档接口。
-- Preflight check: 若流程依赖共享 NAS 或外部源文件字节，`real:check`、运行库 schema、DB fixture、浏览器能力和静态合同只能证明前置条件；full 真实页面 E2E 还必须先确认任务自有源文件已被授权并真实存在，否则必须 fail fast 并把 blocker 指向缺少授权源文件。
-- Preflight check: 当用户要求复用共享 NAS 中已存在文件时，只能只读校验文件存在、长度和源字节 SHA-256；不得按扩展名推断魔数，例如 `.pdf` 文件不一定以 `%PDF` 开头。若通过 PowerShell 临时 PSDrive 访问 NAS，哈希读取应使用 provider 可读的字节读取方式，再与本地写入文件的长度和 SHA-256 做等值断言。
-- Preflight check: 如果 BDD 允许未分类或待处理文件下载到本地待处理目录，静态合同、fixture 和真实 gate 必须覆盖该状态的可选择性、待处理相对路径和无归档副作用；不得只覆盖唯一匹配文件后宣称“下载并归类”范围完整。
-- Verification: 证据必须包含 `showDirectoryPicker/getFileHandle/createWritable/write/close` 成功和失败路径、目标写请求计数、取消目录选择路径、非法/冲突相对路径错误码、源文件与本地文件长度/SHA-256 等值证明，以及后端只读核验未保存本地绝对路径。
-- Forbidden action: 禁止把 ZIP、浏览器默认下载目录、服务器暂存目录、API-only 下载、自动改名、覆盖已有文件或静默跳过本地写入当作“已下载到本地对应目录”；禁止只用最终业务对象存在证明本地写入时序正确。
-- Evidence: `doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md`。
-
 ### DCC 文控审批处理入口门禁
 
 - Trigger: 验证 DCC 文控上传、原版上传、上传审批、电子签名审批、升版发布、发布申请、文件作废/废止、旧版自动失效、`OBSOLETE`、`SUPERSEDED`、`DccControlledFileDetail`、`/approval-center?moduleCode=DCC`、`PROCESS_IN_MODULE`、`approve-task`、`DCC_PUBLISH` 或 `APPROVE_USER_SELECT` 链路。
-- Preflight check: 浏览器审批前必须证明审批账号能从真实页面进入非只读处理态，并看到“审批阶段进度”、当前 `approvalTodoTask` 对应的签名按钮和目标写接口；同时核对 `DccControlledFileDetail.beforeEnter` 不会把非 viewer 处理态重定向到受控浏览。遇到 DCC “作废/废止”需求时，必须先确认用户要的是手动当前版本作废审批链路，还是升版发布后旧版本自动失效链路；若用户提到“升版本”“老版本自动作废/失效”“不走审批”，验收口径是旧 V1 `SUPERSEDED`、新 V2 `ACTIVE`、master 当前有效版本指向 V2，不要求创建 `OBSOLETE` 审批。发布申请前还必须核对发布申请人拥有 `form:instance:create`、`form:instance:submit`、`system:user:query` 和用户选择弹窗所需的用户查询权限；发布 BPM 审批如果后续节点是 `APPROVE_USER_SELECT`，必须在 BPM 流程详情页等待 `/bpm/process-instance/get-next-approval-nodes` 返回并选择下一节点审批人。受控浏览 viewer 模式的版本追溯入口是 `data-testid="dcc-controlled-preview-version-button"` 打开的版本信息弹窗，变更原因显示在详情基础信息的“提交备注”；受控浏览 traceability 模式是 `/dcc/controlled-file/detail/{id}?traceability=1&from=browser` 的追溯详情页，需验证内嵌“版本历史”表与升版原因；viewer 模式还必须渲染当前有效版的最终目录路径、`publishedFileId`、`stampedFileId` 或等价发布文件信息，不能只在非 viewer 详情路径展示该 linkage 卡片。脚本等待详情接口时必须精确匹配 `/admin-api/dcc/controlled-files/{id}` 的 pathname，避免误抓 `/preview`、`/preview-metadata`、`/access-explanation` 等同 ID 子接口；断言 viewer linkage 时必须等待目标目录路径和发布/盖章 ID 等真实详情数据出现在卡片内，不能只等待容器可见。
+- Preflight check: 浏览器审批前必须证明审批账号能从真实页面进入非只读处理态，并看到“审批阶段进度”、当前 `approvalTodoTask` 对应的签名按钮和目标写接口；同时核对 `DccControlledFileDetail.beforeEnter` 不会把非 viewer 处理态重定向到受控浏览。遇到 DCC “作废/废止”需求时，必须先确认用户要的是手动当前版本作废审批链路，还是升版发布后旧版本自动失效链路；若用户提到“升版本”“老版本自动作废/失效”“不走审批”，验收口径是旧 V1 `SUPERSEDED`、新 V2 `ACTIVE`、master 当前有效版本指向 V2，不要求创建 `OBSOLETE` 审批。发布申请前还必须核对发布申请人拥有 `form:instance:create`、`form:instance:submit`、`system:user:query` 和用户选择弹窗所需的用户查询权限；发布 BPM 审批如果后续节点是 `APPROVE_USER_SELECT`，必须在 BPM 流程详情页等待 `/bpm/process-instance/get-next-approval-nodes` 返回并选择下一节点审批人。受控浏览 viewer 模式的版本追溯入口是 `data-testid="dcc-controlled-preview-version-button"` 打开的版本信息弹窗，变更原因显示在详情基础信息的“提交备注”；受控浏览 traceability 模式是 `/dcc/controlled-file/detail/{id}?traceability=1&from=browser` 的追溯详情页，需验证内嵌“版本历史”表与升版原因；viewer 模式还必须渲染当前有效版的最终目录路径、`publishedFileId`、`stampedFileId` 或等价发布文件信息，不能只在非 viewer 详情路径展示该 linkage 卡片。脚本等待详情接口时必须精确匹配 `/admin-api/dcc/controlled-files/{id}` 的 pathname，避免误抓 `/preview`、`/preview-metadata`、`/access-explanation` 等同 ID 子接口。
 - Blocker: DCC 审批中心行只能打开 `viewer=1` 只读预览、非 viewer 详情被路由守卫重定向、页面未渲染签名按钮、只有 `approve-task` API wrapper 但无页面入口、BPM 原生行直接审批返回业务 `403`、发布申请弹窗提示缺审批人、用户选择弹窗因缺 `system:user:query` 报无权限、或 BPM 发布审批返回“下一个任务的审批人未配置”时必须停止并记录 E2E BLOCKED。若用户明确要求手动作废审批链路但运行态缺少已发布 `DCC / DCC / CONTROLLED_FILE / OBSOLETE` 业务审批策略，也必须记录 BLOCKED；若用户明确要求升版自动失效链路，则缺手动作废策略不能阻塞该链路验收。
 - Verification: 证据需包含审批中心 DCC 行、跳转后的实际 URL、详情页处理态控件、签名弹窗、`/dcc/controlled-files/{id}/approve-task` 响应、Flowable 当前任务和 DCC 文件状态；原版上传链路还需包含同一 `file_number` 仅一条 V1.0 `NEW` 文件、状态 `ACTIVE`、master 当前生效版本指向该 V1.0、上传审批完成任务数不少于 4，且不存在升版/修订行；发布/升版自动失效链路还需包含 `bpm_form_action_instance.status=EFFECTIVE`、发布 BPM 完成任务数、旧版本 V1 `SUPERSEDED`、新版本 V2 `ACTIVE`、master 当前生效版本指向 V2、V1 successor 指向 V2；受控浏览链路还需包含 ACTIVE browser-page 只返回/默认打开 V2、V1 不作为当前有效行返回、viewer 版本信息弹窗或 traceability 详情内嵌版本历史可见 V1/V2、详情提交备注/升版原因可见、viewer 页面可见最终目录路径以及 published/stamped 文件 ID。若 blocked，记录路由守卫源码行、页面实际落点、viewer/traceability 模板缺口和任务自有残留数据。
 - Forbidden action: 禁止用 BPM 原生审批行替代 DCC 上传审批、直接 API、SQL 改状态、移除断言、绕开路由守卫、只读 viewer 截图、跳过发布申请审批人选择、或把发布 BPM 审批人的 `APPROVE_USER_SELECT` 通过默认值/空值冒充配置完成。禁止把升版后的旧版 `SUPERSEDED` 误判为必须走 `OBSOLETE` 审批；禁止在用户明确要求升版自动作废/失效时，继续用缺手动作废审批策略作为当前链路失败结论。
 - Evidence: `doc/tasks/20260802-dcc-upload-revision-e2e/verification-report.md`，DCC 上传升版 E2E 先暴露处理态、发布申请权限和 BPM 下一审批人选择缺口，补齐非 admin 角色权限并改为真实 DCC/BPM 页面路径后完成完整链路验证；`doc/tasks/20260802-dcc-upload-original-e2e/verification-report.md`，DCC 原版上传 E2E 验证 V1.0 `NEW` 文件审批后直接 `ACTIVE`，master 指向原版且无升版行；`doc/tasks/20260802-dcc-controlled-file-obsolete-e2e/verification-report.md`，DCC “作废/废止”需求经用户澄清后按升版自动失效链路验收，真实 Playwright 证明 V1 `SUPERSEDED`、V2 `ACTIVE`、master 指向 V2、受控浏览不再返回 V1 当前有效行，手动作废 OBSOLETE 策略缺失仅作为非当前链路 blocker 记录。
-
-### DCC 受控浏览当前有效版与权限隔离门禁
-
-- Trigger: 验证 DCC 受控浏览、当前有效版、目录/分类/项目代码定位、无权限账号不可见、草稿/历史版隔离、预览当前有效版、发布/盖章预览来源或 `publishedFileId/stampedFileId`。
-- Preflight check: 必须先确定任务自有或已知 `ACTIVE` 目标文件、master 当前有效版本、目录路径、分类/项目代码、发布/盖章文件 ID，并准备至少两个非 admin 账号：一个有目标目录/分类/项目浏览权限，一个无权限或权限较低。Playwright 必须从真实受控浏览页面按目录、分类、项目代码或文件编号定位，不能只打开详情直链；API/DB 只能在页面验证后做只读核验。
-- Blocker: 授权账号只能看到文件名但页面不显示当前有效版、版本号、目录路径、发布/盖章状态或等价业务说明；viewer 打开后没有预览成功、没有最终目录路径、没有发布/盖章来源；低权限账号能看到目标行；无结果状态无法区分“无权限或无匹配当前有效文件”；普通受控浏览默认打开草稿、历史失效版或非 master 当前有效版本时，必须记录 E2E BLOCKED。
-- Verification: 报告必须记录账号标签、权限差异、目标文件 ID、文件编号、版本/状态、目录路径、分类/项目代码、受控浏览实际 URL、viewer 实际 URL、预览类型/文件名、published/stamped 文件 ID 或等价发布文件信息、低权限账号搜索结果、`targetLinkErrorCount`、`targetDccMutationRequestCount`、`consoleErrors/pageErrors` 和只读 API/DB 核验结果。
-- Forbidden action: 禁止用 admin、API-only、SQL/接口改状态、重置用户列配置、只读 DB 状态截图、直接详情 URL、旧 result JSON、隐藏无权限反馈、忽略 target network/page error、或只验证列表存在文件名来冒充受控浏览权限验收通过。
-- Evidence: `doc/tasks/20260802-dcc-controlled-browser-ux-optimization/verification-report.md`，受控浏览 UX 优化后真实 Playwright 使用 `wangsiyu` 和 `pengyunfeng` 两个非 admin 账号证明目标 `ACTIVE` 文件仅授权账号可见并打开发布/盖章 PDF 预览，低权限账号同路径搜索返回 0 且提示“无权限或无匹配当前有效文件”，目标链路错误数和 DCC 写请求数均为 0。
-
-### DCC 分发与旧版回收门禁
-
-- Trigger: 验证 DCC 文件分发、纸质发放、电子副本分发、签收/确认领取、旧版回收、确认回收、分发追溯、回收追溯、受控副本责任人、升版后旧版不可误用。
-- Preflight check: 写入型 E2E 必须先准备或选择任务自有 `ACTIVE` 受控文件，并确认文件类别同时具备当前非 admin 操作者可用的 `DISTRIBUTE` 规则和升版发布所需 `APPROVE`/发布权限；纸质分发和线上/电子分发都以 `文控权限 > 分发规则` 页签为统一规则源，页签里的分发部门就是对应受控副本的分发部门，不再另找单独的“纸质分发规则”或“线上分发规则”入口；若该页签数据不足，只能通过真实页面或已授权的正式测试数据准备补齐。若需验证旧版回收，必须按 V1 `ACTIVE` -> V1 真实分发/确认发放 -> V2 发布为 `ACTIVE` -> V1 `SUPERSEDED` -> V1 真实回收的顺序执行。使用详情页时必须记录实际 traceability/detail 路径、分发表格可见状态、接收人选择方式、份数/用途、发放/签收/回收按钮和目标写接口。
-- Blocker: 页面缺分发/回收入口、按钮仅可见但目标写接口返回类别权限错误、当前文件类别无有效 `DISTRIBUTE` 规则、发布人无法发起升版发布、接收人无法通过真实页面或受控流程确认、V2 未生效导致 V1 仍非旧版、或受控浏览仍把 V1 作为当前有效文件返回时，必须记录 E2E BLOCKED。
-- Verification: 证据必须包含 V1/V2 文件 ID、版本和状态、master 当前有效指针、V1/V2 分发记录 ID、接收人/发放人/回收人、份数、发放/签收/回收时间、页面路径、分发表格状态截图或 JSON、受控浏览只返回 V2 当前有效的页面证据，以及只读 API/DB 对分发、签收/发放、回收和版本状态的核验。
-- Forbidden action: 禁止用 admin、API-only、SQL 或后端接口直接插入/更新分发、接收、回收、审批或版本状态；禁止在 V1 仍 `ACTIVE` 时提前点回收；禁止用无分发权限类别硬跑后把权限错误写成业务 PASS；禁止把补权限前置扩大成业务状态修复。
-- Evidence: `doc/tasks/20260802-dcc-distribution-recovery-e2e/verification-report.md`，DCC 分发/旧版回收 E2E 先因类别缺 `DISTRIBUTE` 和发布人缺 `APPROVE` 前置阻塞，用户授权后仅补齐 `wangsiyu` 现有 E2E 分发角色在类别 `906104` 的 `APPROVE` 前置；真实 Playwright 完成 V1 纸质发放、V2 发布生效、V1 旧版回收和 V2 继续分发，最终只读核验证明 V1 `SUPERSEDED`/分发 `RECOVERED`，V2 `ACTIVE`/分发 `ACKNOWLEDGED`，受控浏览仅返回 V2。
-
-### DCC 受控打印门禁
-
-- Trigger: 验证 DCC 受控打印、打印申请、打印权限、受控打印件水印、打印编号、打印记录、分发记录或操作日志中的打印追溯。
-- Preflight check: 写入型 E2E 必须先确认任务自有受控文件为 master 指向的当前 `ACTIVE` 版本，并确认非 admin 打印人同时具备菜单权限 `dcc:controlled-file:print` 和当前文件类别 `PRINT` 权限；如果产品已配置打印审批，必须走真实审批页面，未配置打印审批时按直接打印状态验收。直接受控打印资格不得用 `publishedFileId` / `stampedFileId` 是否已生成来替代当前有效版和 `PRINT` 权限判断，避免把“未生成受控副本”误判为当前文件不可受控打印。测试脚本必须通过真实受控浏览或详情页点击入口、填写用途、份数、接收部门/使用位置等必填项，并准备一个无 `PRINT` 权限账号做同文件阻断验证。无权限验证优先从受控浏览列表按文件编号定位同一 `ACTIVE` 行，再通过页面可见的追溯/详情入口进入详情断言无权限说明；不得直接打开详情 URL 后把路由重定向或上下文缺失误判为权限提示缺陷。只读预览 `viewer=1` 不渲染受控打印记录区、纸质分发弹窗或流程打印动作时，不得在初始化阶段请求 `controlled-print/records`、纸质分发记录或流程打印模板辅助数据；记录接口错误只能在非预览详情/追溯页的对应功能区显性展示，不能阻断受控文件预览。
-- Blocker: 页面缺“受控打印”入口、入口仅复用普通流程打印、文件不是当前有效版本、类别缺 `PRINT` 权限、打印表单缺必填字段、打印件缺水印/打印编号/文件编号/版本/打印人/打印时间、非预览记录页或只读接口/DB 无本次打印记录、预览态因未渲染的打印记录、纸质分发记录或流程打印模板辅助接口失败而中断、无权限账号仍能看到/触发打印入口、或需求要求无权限说明但同文件详情/追溯页不显示“无受控打印权限”等明确提示时，必须记录 E2E BLOCKED。
-- Verification: PASS 证据必须包含打印记录 ID、打印编号、文件 ID、文件编号、版本、master 当前有效指针、打印人、份数、用途、接收部门/使用位置、打印状态或审批状态、打印时间、打印件截图、打印记录截图、无权限阻断截图，以及只读 API/DB 对记录、份数、打印人、版本和当前有效性的核验。若验证打印 UX 优化，还必须断言成功结果弹窗显示打印编号/份数/打印人/打印时间并提供“查看打印记录”，记录表自动定位并高亮本次打印编号，份数大于 1 时展示逐份副本编号或编号范围，并显式显示直接打印或审批策略原因。
-- Forbidden action: 禁止用 admin 完成业务打印；禁止 API-only、SQL 或后端接口直接创建打印记录、改文件状态或冒充审批；禁止把无审批配置写成审批已通过；禁止用非当前 `ACTIVE` 版本、真实业务文件或无水印普通预览冒充受控打印件。
-- Evidence: `doc/tasks/20260802-dcc-controlled-print-implementation/verification-report.md`，DCC 受控打印 E2E 按用户授权仅补齐非 admin 打印人的最小类别 `PRINT` 权限；真实 Playwright 从受控浏览进入当前 `ACTIVE` 文件详情页完成直接受控打印，页面生成受控打印件并在记录页、只读 API 和只读 DB 中形成可追溯记录，同时无打印权限账号同文件入口不可见“受控打印”按钮。`doc/tasks/20260803-dcc-controlled-print-ux-optimization/verification-report.md`，受控打印 UX 复验补充证明成功结果弹窗、“查看打印记录”、最新记录高亮、逐份副本编号、直接打印策略提示和同文件详情“无受控打印权限”提示均通过真实页面路径验证；负向脚本必须从受控浏览行进入追溯详情，避免直链详情上下文造成误判；follow-up 修复证明 `viewer=1` 预览态不得请求未渲染的 `controlled-print/records`、纸质分发记录或流程打印模板辅助数据。
 
 ### DCC 升版发布 UX 闭环门禁
 
@@ -94,11 +55,10 @@
 
 - Trigger: 根据 Excel、PRD、开发文档或测试方案落地多里程碑功能，且后续里程碑需要提前建立 BDD/TDD/E2E gate。
 - Preflight check: M0 或首个前置里程碑必须先补齐计划中声明的 script、spec、真实前置检查和证据输出；只有脚本入口、测试文件、工作目录和命令解析均有效后，后续失败才可记录为业务 RED。
-- Preflight check: 对 BDD/TDD/E2E/test-data 等验收文档，结构 validator 通过后还必须按当前需求列出关键业务标记并做可检索扫描；标记至少覆盖核心状态码、sourceType、浏览器能力名、阻塞错误码和用户可见状态，避免后续实现只能依赖聊天记忆或单一文档。
-- Blocker: 脚本缺失、测试文件缺失、命令无法解析、真实租户/账号/签名/任务数据缺失、正式 source map 未冻结、或关键业务标记在任一核心验收文档缺失时，必须记录为前置 blocker；不得把缺入口、缺环境或缺标记写成业务 RED，也不得进入下一里程碑。
-- Verification: 证据需要同时记录“入口合同 PASS”“真实前置 BLOCKED 及当前缺口数量”“规划静态脚本业务 RED”和“关键标记扫描 PASS”；在后续扩展 source gate 后同步清理旧口径，避免任务文档保留过期 blocker 数量或“脚本缺失/标记缺失”结论。
-- Forbidden action: 禁止为了制造 RED 临时写无效脚本、把静态合同当真实 E2E、在 M0 未通过时提前实现 M1-M6 生产代码，或用 API-only/默认值/占位成功绕过正式来源冻结；禁止只跑结构 validator 后忽略关键状态、sourceType 或错误码在验收文档中不可检索的问题。
-- Evidence: `doc/tasks/20260801-role-requirement-matrix-implementation/execution-log.md`，岗位需求分解矩阵 M0 将脚本缺失前置转为可执行入口合同，并把后续 M3/M4/M5 脚本固定为业务 RED；`doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md`，DCC 未受控文件导入 M27 通过 marker scan 补齐 `ARCHIVE_METADATA_REQUIRED`、`未分类/待处理`、`showDirectoryPicker`、`LOCAL_WRITTEN` 和 `NAS_UNCONTROLLED_IMPORT` 等关键标记。
+- Blocker: 脚本缺失、测试文件缺失、命令无法解析、真实租户/账号/签名/任务数据缺失、正式 source map 未冻结时，必须记录为前置 blocker；不得把缺入口或缺环境写成业务 RED，也不得进入下一里程碑。
+- Verification: 证据需要同时记录“入口合同 PASS”“真实前置 BLOCKED 及当前缺口数量”“规划静态脚本业务 RED”，并在后续扩展 source gate 后同步清理旧口径，避免任务文档保留过期 blocker 数量或“脚本缺失”结论。
+- Forbidden action: 禁止为了制造 RED 临时写无效脚本、把静态合同当真实 E2E、在 M0 未通过时提前实现 M1-M6 生产代码，或用 API-only/默认值/占位成功绕过正式来源冻结。
+- Evidence: `doc/tasks/20260801-role-requirement-matrix-implementation/execution-log.md`，岗位需求分解矩阵 M0 将脚本缺失前置转为可执行入口合同，并把后续 M3/M4/M5 脚本固定为业务 RED。
 
 ### Playwright 浏览器可执行文件门禁
 
@@ -166,12 +126,13 @@
 
 ### 真实 E2E 主链路与扩展诊断产物隔离门禁
 
-- Trigger: 同一任务目录内同时运行主验收链路、resume 复核、权限负向验证、traceability/viewer linkage/诊断脚本，或多个脚本默认写同一个 `e2e-result.json`、`verification-report.md`、`final-readonly-db-verification.json`。
-- Preflight check: 运行前必须明确本轮用户要求的主链路范围与可选扩展断言边界；主链路结果文件、扩展诊断结果文件和固定最终证据文件必须使用不同路径，或在脚本启动前确认无同任务目录写入进程会覆盖默认结果。扩展断言必须通过显式 opt-in 环境变量开启，默认不得影响主链路验收结论。若最终追溯复验需要引用错误密码、缺授权或权限负向诊断，必须显式传入包含该诊断阶段的任务自有结果文件；默认源文件若已经是 `ACTIVE` 且没有待签名按钮，只能记录为诊断源不适用，不能作为最终失败诊断 PASS 证据。
-- Blocker: 若扩展诊断脚本仍在运行、默认结果文件被其它进程改写、可选断言失败覆盖主链路 PASS、报告中的文件号/状态与最新主链路结果不一致，必须停止收尾并恢复到清晰的主链路证据；不得把被扩展诊断覆盖的 `BLOCKED` 或旧文件号当作当前验收结论。若签名失败诊断复验源不含真实失败阶段，且当前文件已无待办签名按钮，必须重新绑定已有任务自有诊断结果或另建真实页面待签名样本；不得用静态合同、只读 ACTIVE 文件或 API-only 响应冒充失败诊断已验证。
-- Verification: 收尾前延迟复查一次结果文件和任务文档，记录无当前任务脚本进程、默认结果和固定最终结果均为预期状态，且 `verification-report.md`、`task.md`、`execution-log.md` 的文件编号、文件 ID、master ID、状态和浏览路径一致。若引用扩展诊断源，还必须记录 source result 路径、诊断阶段状态、最终 result 中的诊断状态、目标写请求数和页面证据截图/导出文件，证明诊断证据来自真实页面链路且没有覆盖主链路。
-- Forbidden action: 禁止多个并行 Playwright 脚本共享同一个最终结果路径；禁止扩展诊断失败后直接改口主场景 BLOCKED 或 PASS；禁止用旧 resume 结果覆盖新建任务文件；禁止把可选 viewer linkage、签核追溯、权限负向验证混入用户明确限定的主验收范围。
-- Evidence: `doc/tasks/20260802-dcc-original-release-e2e-current/execution-log.md`，DCC 原版发布主链路 PASS 后，可选 viewer linkage / traceability 诊断多次覆盖默认结果和报告，最终通过显式关闭扩展断言、固定主链路结果文件并延迟复查结果稳定性收口；`doc/tasks/20260802-dcc-traceability-ux-fixes/verification-report.md`，签核追溯 UX 复验先识别默认 ACTIVE 源缺待签名按钮导致错误密码诊断不适用，再显式绑定任务自有 wrong-password 结果文件，最终同时证明五项页面 UX、只读一致性和 `dccWriteRequests=[]`。
+- Trigger: 同一任务目录内同时运行主验收链路、resume 复核、权限负向验证、traceability/viewer linkage/诊断脚本，或多个脚本默认写同一个 `e2e-result.json`、`result.json`、`verification-report.md`、`final-readonly-db-verification.json`。
+- Preflight check: 运行前必须明确本轮用户要求的主链路范围与可选扩展断言边界；主链路结果文件、扩展诊断结果文件和固定最终证据文件必须使用不同路径，或在脚本启动前确认无同任务目录写入进程会覆盖默认结果。若完成门禁同时读取 Markdown evidence 和 Playwright `result.json`，二者必须来自同一个 task root 和同一轮 run，不能回退读取主工作区、其它 worktree 或历史 run 的同名结果；若 evidence 记录目标请求或响应身份，`result.json.targetRequestEvidenceFlushed` 必须为 `true`，`result.json.targetRequests` 每一项必须是 JSON object，`result.json.targetRequests` 与 Markdown 中的 URL、Method、HTTP Status、Business Code 等关键请求字段必须逐项一致，且每个 `targetRequests[*].label`、`targetRequests[*].url` 与 `targetRequests[*].method` 必须存在并非空，`targetRequests[*].httpStatus` 与 `targetRequests[*].businessCode` 都必须存在并可解析为数字；`result.json.targetResponseIdentities.<LABEL>` 每一项必须是 JSON object，`result.json.targetResponseIdentities.<LABEL>.field` 必须存在且非空，`result.json.targetResponseIdentities.<LABEL>.value` 必须存在且可解析为正整数，`result.json.targetResponseIdentities.<LABEL>.sourceRequestLabel` 必须存在且非空，并绑定回同一个 canonical `<LABEL>`，且 `targetResponseIdentities` key 集合必须等于同一 artifact 内 `targetRequests[].label` 观测集合。扩展断言必须通过显式 opt-in 环境变量开启，默认不得影响主链路验收结论。
+- Blocker: 若扩展诊断脚本仍在运行、默认结果文件被其它进程改写、可选断言失败覆盖主链路 PASS、报告中的文件号/状态与最新主链路结果不一致、Markdown evidence 与 `result.json` 的 status/root ID/关键闭环字段不一致，Markdown 目标请求成功但 `result.json.targetRequestEvidenceFlushed` 不是 true、`result.json.targetRequests` 缺失、`targetRequests[*]` 非 JSON object、指向其它后端、方法/HTTP 状态/业务码不一致、`label` 缺失/为空、`url` 缺失/为空、`method` 缺失/为空、`httpStatus` 缺失/非数字、`businessCode` 缺失/非数字，或 `result.json.targetResponseIdentities.<LABEL>` 非 JSON object、缺少 `field`、缺少可解析正整数 `value`、缺少对应 `sourceRequestLabel`、`sourceRequestLabel` 为空 / 串用其它 label / 与 `targetRequests[].label` 观测集合不一致，必须停止收尾并恢复到清晰的主链路证据；不得把被扩展诊断覆盖的 `BLOCKED`、旧文件号或旧 `result.json` 当作当前验收结论。
+- Verification: 收尾前延迟复查一次结果文件和任务文档，记录无当前任务脚本进程、默认结果和固定最终结果均为预期状态，且 `verification-report.md`、`task.md`、`execution-log.md` 的文件编号、文件 ID、master ID、状态、浏览路径、目标请求以及 Markdown evidence 与 `result.json` 的核心身份字段一致。
+- Forbidden action: 禁止多个并行 Playwright 脚本共享同一个最终结果路径；禁止扩展诊断失败后直接改口主场景 BLOCKED 或 PASS；禁止用旧 resume 结果覆盖新建任务文件；禁止让 completion gate 为了“找得到结果”跨 task root 读取旧 run 或其它 worktree 的 `result.json`；禁止 Markdown 手工写目标请求成功而 `result.json.targetRequests` 指向旧后端、缺少真实请求、缺少实际 label、缺少实际 URL、缺少实际方法、缺少可解析 HTTP 状态或缺少可解析业务码；禁止只用响应身份 key 替代 `field` / `value` 结构化采集，禁止只用响应身份 key、field、value 三元组替代来源请求 label 绑定或跳过请求/响应身份集合一致性；禁止把可选 viewer linkage、签核追溯、权限负向验证混入用户明确限定的主验收范围。
+- Evidence: `doc/tasks/20260802-dcc-original-release-e2e-current/execution-log.md`，DCC 原版发布主链路 PASS 后，可选 viewer linkage / traceability 诊断多次覆盖默认结果和报告，最终通过显式关闭扩展断言、固定主链路结果文件并延迟复查结果稳定性收口。
+- Evidence: `doc/tasks/20260802-dcc-traceability-ux-fixes/verification-report.md`，签核追溯 UX 复验先识别默认 ACTIVE 源缺待签名按钮导致错误密码诊断不适用，再显式绑定任务自有 wrong-password 结果文件，最终同时证明页面 UX、只读一致性和 `dccWriteRequests=[]`。
 
 ### 真实 E2E 页面加载判据门禁
 
@@ -202,12 +163,12 @@
 
 ### Schema-backed E2E 迁移与字段可选态门禁
 
-- Trigger: 真实 E2E 验证新增 schema 字段支撑的页面能力、工作台上下文字段、单元格链接、字段矩阵、合成来源字段、导入/归档快照表、`source_type`、`source_field_code`、`sourceFields`、或页面接口返回 `Unknown column` / `系统异常` / 表不存在。
-- Preflight check: 浏览器路径前先核对当前后端连接库已应用本任务正式迁移；核对范围必须覆盖页面路径会访问的正式表和列，不能只用迁移 SQL、测试 schema、JUnit schema 合同或本地源码证明真实运行库已就绪。若页面展示合成字段矩阵，E2E 必须断言可见文本和可交互态同时存在，例如 `.is-source-selectable`、选中态、目标单元格选择和主动作按钮 enabled。
-- Blocker: 缺迁移表、缺迁移列、接口 500、字段文字可见但没有可选 class、点击字段后选中态不变、或只读账号需要写入保存才能证明行为时必须停止并记录；不得把“页面看得到字段”、迁移文件存在、静态合同 PASS 或 schema 单测 PASS 当成真实运行库可验证通过。
-- Verification: 证据需包含当前运行态 PID/后端连接库、schema 表/列核对结果、真实前端入口 URL、租户/用户标签、字段白名单数量、目标页可见断言、可选/选中态断言、主动作按钮状态，以及是否发送写请求。
+- Trigger: 真实 E2E 验证新增 schema 字段支撑的页面能力、工作台上下文字段、单元格链接、字段矩阵、合成来源字段、`source_type`、`source_field_code`、`sourceFields`、或页面接口返回 `Unknown column` / `系统异常`。
+- Preflight check: 浏览器路径前先核对当前后端连接库已应用本任务正式迁移；若页面展示合成字段矩阵，E2E 必须断言可见文本和可交互态同时存在，例如 `.is-source-selectable`、选中态、目标单元格选择和主动作按钮 enabled。
+- Blocker: 缺迁移列、接口 500、字段文字可见但没有可选 class、点击字段后选中态不变、或只读账号需要写入保存才能证明行为时必须停止并记录；不得把“页面看得到字段”当成可选择或可保存通过。
+- Verification: 证据需包含 schema 列核对结果、真实前端入口 URL、租户/用户标签、字段白名单数量、目标页可见断言、可选/选中态断言、主动作按钮状态，以及是否发送 MES 写请求。
 - Forbidden action: 禁止用 API-only、mock response、绕过页面直连 URL、忽略 schema 缺列、只断言文本不断言可选态、或在 `芋道源码/admin` 基线数据上保存规则冒充写入 E2E。
-- Evidence: `doc/tasks/20260726-work-order-field-cell-link/verification-report.md`；`doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md`，DCC 未受控文件本地导入真实 E2E 前置审计发现运行库缺少 `dcc_nas_control_audit_file` 表和 import snapshot 列，即使代码、迁移文件、静态合同和测试租户页面入口已就绪，也必须记录 E2E BLOCKED。
+- Evidence: `doc/tasks/20260726-work-order-field-cell-link/verification-report.md`。
 ## 禁止做法
 
 - 禁止 mock 数据冒充真实 E2E。
@@ -390,7 +351,6 @@
 
 - 当页面对列表进行本地排序、过滤或虚拟渲染时，Playwright 必须按页面可见的业务唯一文本定位目标行，再操作同一行的复选框或按钮。
 - 不得直接用 API 返回数组下标映射前端表格行；接口排序和页面排序可能不同，会误选冻结行、错误行或无关业务数据。
-- 只读表格单元格断言若需要把 API 行与 DOM 行对应，优先使用页面可见或 DOM 中稳定的业务唯一键；当截图字段或类别名不唯一时，禁止只按名称 `find` 第一行匹配。只有确认无本地排序、过滤、虚拟重排且不执行写操作时，才可按接口返回顺序与可见 body 行顺序逐行比对，并把这个前置条件写入证据。
 - Element Plus `el-table` 存在 header/body/fixed 表格重复 DOM 时，选择行复选框必须限定在可见 `.el-table__body-wrapper tbody tr`，显式排除 `.el-table__header-wrapper` 和 `thead`；点击后必须立即断言已选业务唯一键集合，再进入“确认/应用”等写入动作。
 
 ### Element Plus 表格选择门禁

@@ -15,6 +15,7 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -54,6 +55,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
     @Test
     void shouldCreateFeedbackRecordbookAndProcessPoolEventInSingleCommand() {
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFeedback(any())).thenReturn(501L);
         when(recordbookEntryService.createOriginalEntry(any()))
                 .thenReturn(new MesProFrontlineRecordbookEntryResult(701L, 702L));
@@ -99,12 +101,44 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             return true;
         }));
         inOrder.verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload -> {
+            assertEquals("P0-SUBMIT-F2-20260730-001", payload.getProcessPoolSubmissionIdempotencyKey());
             assertEquals(501L, payload.getFeedbackId());
             assertEquals(701L, payload.getRecordbookEntryId());
             assertEquals(702L, payload.getRecordbookEventId());
             assertEquals(4001L, payload.getSignatureId());
             return true;
         }));
+    }
+
+    @Test
+    void shouldReturnExistingSubmitResultBeforeWritingDuplicateFeedback() {
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any()))
+                .thenReturn(Optional.of(new cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventResult()
+                        .setFeedbackId(501L)
+                        .setRecordbookEntryId(701L)
+                        .setRecordbookEventId(702L)
+                        .setProcessPoolEventId(801L)));
+
+        MesProFrontlineFeedbackSubmitRespVO respVO;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            respVO = submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq());
+        }
+
+        assertEquals(501L, respVO.getFeedbackId());
+        assertEquals(701L, respVO.getRecordbookEntryId());
+        assertEquals(702L, respVO.getRecordbookEventId());
+        assertEquals(801L, respVO.getProcessPoolEventId());
+        verify(processPoolSubmitEventService).findExistingSubmitEvent(argThat(payload -> {
+            assertEquals("P0-SUBMIT-F2-20260730-001", payload.getProcessPoolSubmissionIdempotencyKey());
+            assertEquals(41L, payload.getWorkOrderId());
+            assertEquals(71L, payload.getRouteProcessId());
+            assertEquals(31L, payload.getProcessId());
+            return true;
+        }));
+        verify(feedbackService, never()).createFeedback(any());
+        verifyNoInteractions(recordbookEntryService);
+        verify(processPoolSubmitEventService, never()).createSubmitEvent(any());
     }
 
     @Test

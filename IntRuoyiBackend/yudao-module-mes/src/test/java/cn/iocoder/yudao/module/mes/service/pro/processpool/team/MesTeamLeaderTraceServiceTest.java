@@ -10,8 +10,11 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionFieldAuditItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,6 +34,10 @@ import static org.mockito.Mockito.when;
 class MesTeamLeaderTraceServiceTest {
 
     @Mock
+    private MesProProcessPoolEventMapper eventMapper;
+    @Mock
+    private MesProcessPoolSubmissionReviewMapper reviewMapper;
+    @Mock
     private MesProcessPoolReportAllocationMapper allocationMapper;
     @Mock
     private MesProcessPoolOrderProcessCompletionMapper completionMapper;
@@ -38,13 +45,15 @@ class MesTeamLeaderTraceServiceTest {
     private MesProBatchRecordExecutionMapper executionMapper;
     @Mock
     private MesProBatchRecordExecutionFieldAuditItemMapper auditItemMapper;
+    @Mock
+    private MesProProcessPoolPqcRecordMapper pqcRecordMapper;
 
     private MesTeamLeaderTraceService service;
 
     @BeforeEach
     void setUp() {
-        service = new MesTeamLeaderTraceServiceImpl(allocationMapper, completionMapper, executionMapper,
-                auditItemMapper);
+        service = new MesTeamLeaderTraceServiceImpl(eventMapper, reviewMapper, allocationMapper, completionMapper,
+                executionMapper, auditItemMapper, pqcRecordMapper);
     }
 
     @Test

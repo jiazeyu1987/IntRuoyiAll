@@ -44,6 +44,7 @@ class MesProcessPoolSubmitEventServiceAdapterTest {
 
         Long eventId = submitEventService.createSubmitEvent(new MesProcessPoolSubmitEventCreateReqBO()
                 .setFeedbackId(501L)
+                .setProcessPoolSubmissionIdempotencyKey("P0-SUBMIT-F2-20260730-001")
                 .setRecordbookEntryId(701L)
                 .setRecordbookEventId(702L)
                 .setWorkOrderId(41L)
@@ -70,6 +71,7 @@ class MesProcessPoolSubmitEventServiceAdapterTest {
         verify(eventService).createEvent(captor.capture());
         MesProcessPoolCreateEventReqDTO dto = captor.getValue();
         assertEquals(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT, dto.getEventType());
+        assertEquals("P0-SUBMIT-F2-20260730-001", dto.getEventIdempotencyKey());
         assertEquals(41L, dto.getWorkOrderId());
         assertEquals(21L, dto.getRouteId());
         assertEquals(71L, dto.getRouteProcessId());
@@ -80,6 +82,7 @@ class MesProcessPoolSubmitEventServiceAdapterTest {
         assertEquals(4001L, dto.getSignatureId());
         assertEquals("MES_PRO_FEEDBACK", dto.getFeedbackSourceType());
         assertEquals(501L, dto.getFeedbackSourceId());
+        assertEquals(701L, dto.getRecordbookEntryId());
         assertEquals("MES_PRO_EDHR_RECORD_BOOK_EVENT", dto.getRecordbookSourceType());
         assertEquals(702L, dto.getRecordbookSourceId());
         assertTrue(dto.getRawPayload().contains("\"fieldPressure\""));

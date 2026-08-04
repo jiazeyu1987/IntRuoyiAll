@@ -29,6 +29,7 @@ class MesProcessPoolSchemaTest {
         assertNotEquals("mes_pro_feedback_surplus_pool", tableName(MesProProcessPoolDO.class));
 
         assertField(MesProProcessPoolEventDO.class, "poolId", Long.class);
+        assertField(MesProProcessPoolEventDO.class, "eventIdempotencyKey", String.class);
         assertField(MesProProcessPoolEventDO.class, "workOrderId", Long.class);
         assertField(MesProProcessPoolEventDO.class, "routeId", Long.class);
         assertField(MesProProcessPoolEventDO.class, "routeProcessId", Long.class);
@@ -40,6 +41,7 @@ class MesProcessPoolSchemaTest {
         assertField(MesProProcessPoolEventDO.class, "templateType", String.class);
         assertField(MesProProcessPoolEventDO.class, "feedbackSourceType", String.class);
         assertField(MesProProcessPoolEventDO.class, "feedbackSourceId", Long.class);
+        assertField(MesProProcessPoolEventDO.class, "recordbookEntryId", Long.class);
         assertField(MesProProcessPoolEventDO.class, "recordbookSourceType", String.class);
         assertField(MesProProcessPoolEventDO.class, "recordbookSourceId", Long.class);
         assertField(MesProProcessPoolEventDO.class, "rawPayload", String.class);
@@ -48,6 +50,7 @@ class MesProcessPoolSchemaTest {
         assertField(MesProProcessPoolEventDO.class, "signatureUserId", Long.class);
 
         assertField(MesProProcessPoolQuantityFragmentDO.class, "eventId", Long.class);
+        assertField(MesProProcessPoolQuantityFragmentDO.class, "productionSubmitEventId", Long.class);
         assertField(MesProProcessPoolQuantityFragmentDO.class, "sourceQuantityType", String.class);
         assertField(MesProProcessPoolQuantityFragmentDO.class, "totalQuantity", java.math.BigDecimal.class);
         assertField(MesProProcessPoolQuantityFragmentDO.class, "allocatedQuantity", java.math.BigDecimal.class);
@@ -55,6 +58,7 @@ class MesProcessPoolSchemaTest {
         assertField(MesProProcessPoolQuantityFragmentDO.class, "allocationStatus", String.class);
 
         assertField(MesProProcessPoolPqcRecordDO.class, "eventId", Long.class);
+        assertField(MesProProcessPoolPqcRecordDO.class, "productionSubmitEventId", Long.class);
         assertField(MesProProcessPoolPqcRecordDO.class, "inspectionResult", String.class);
         assertField(MesProProcessPoolPqcRecordDO.class, "actualEmployeeId", Long.class);
         assertField(MesProProcessPoolPqcRecordDO.class, "signatureId", Long.class);
@@ -73,6 +77,28 @@ class MesProcessPoolSchemaTest {
         assertTrue(sql.contains("KEY `idx_mes_pro_process_pool_event_time` (`tenant_id`, `server_submit_time`)"));
         assertFalse(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_feedback_surplus_pool`"),
                 "F1 must not reuse the feedback surplus pool as the process pool table");
+
+        String pqcBindingSql = Files.readString(
+                resolveBackendPath("sql/mysql/20260803_mes_process_pool_pqc_structured_binding.sql"),
+                StandardCharsets.UTF_8);
+        assertTrue(pqcBindingSql.contains("production_submit_event_id"));
+        assertTrue(pqcBindingSql.contains("idx_mes_pro_process_pool_pqc_submit_event"));
+        assertTrue(pqcBindingSql.contains("requires formal production_submit_event_id backfill"));
+
+        String idempotencySql = Files.readString(
+                resolveBackendPath("sql/mysql/20260803_mes_process_pool_event_idempotency.sql"),
+                StandardCharsets.UTF_8);
+        assertTrue(idempotencySql.contains("event_idempotency_key"));
+        assertTrue(idempotencySql.contains("recordbook_entry_id"));
+        assertTrue(idempotencySql.contains("uk_mes_pro_process_pool_event_idem"));
+        assertTrue(idempotencySql.contains("requires formal event_idempotency_key backfill"));
+
+        String quantityFragmentRootSql = Files.readString(resolveBackendPath(
+                        "sql/mysql/20260803_mes_process_pool_quantity_fragment_submit_root.sql"),
+                StandardCharsets.UTF_8);
+        assertTrue(quantityFragmentRootSql.contains("production_submit_event_id"));
+        assertTrue(quantityFragmentRootSql.contains("idx_mes_pro_process_pool_fragment_submit_event"));
+        assertTrue(quantityFragmentRootSql.contains("requires formal PRODUCTION_SUBMIT root event backfill"));
     }
 
     private static String tableName(Class<?> clazz) {

@@ -1866,16 +1866,40 @@ const buildPqcInspectionSubmitPayload = (
   const employee = deviceState.selectedEmployee
   const actualEmployeeId = context.actualEmployeeId
   const signatureId = pqcSignatureId.value
+  const deviceAccountId = Number(userStore.getUser?.id || 0)
+  const deviceId = activeProductionDevice.value?.key
+    ? Number(activeProductionDevice.value.key)
+    : Number(process?.deviceId || 0)
+  const workstationId = Number(process?.workstationId || 0)
+  const productionSubmitEventId = firstRouteQueryNumber(['productionSubmitEventId', 'processPoolEventId'])
+  const missingFormalContext: string[] = []
+  if (!productionSubmitEventId) {
+    missingFormalContext.push('productionSubmitEventId')
+  }
+  if (!deviceAccountId) {
+    missingFormalContext.push('deviceAccountId')
+  }
+  if (!deviceId) {
+    missingFormalContext.push('deviceId')
+  }
+  if (!workstationId) {
+    missingFormalContext.push('workstationId')
+  }
   if (!activeOrder || !process || !employee || !actualEmployeeId || !signatureId ||
-    !hasPqcTaskSnapshot(process) || !pqcDraft.inspectionType || !pqcDraft.patrolRound) {
-    throw new Error('缺少PQC正式提交上下文，无法提交。')
+    !hasPqcTaskSnapshot(process) || !pqcDraft.inspectionType || !pqcDraft.patrolRound ||
+    missingFormalContext.length) {
+    throw new Error(`缺少PQC正式提交上下文：${missingFormalContext.join('、')}，无法提交。`)
   }
   const inspectionResult = resolvePqcResult()
   const itemResults = buildPqcItemResultsPayload()
   const pqcItemDetails = buildPqcItemDetailsPayload()
+  const pqcSubmissionIdempotencyKey =
+    firstRouteQueryText(['pqcSubmissionIdempotencyKey']) ||
+    `pqc-submit-${process.pqcTaskId}-${signatureId}`
   return {
     activeOrderId: process.activeOrderId,
     pqcTaskId: process.pqcTaskId,
+    productionSubmitEventId,
     regulationVersionId: process.regulationVersionId,
     workOrderId: activeOrder.workOrderId,
     routeId: process.routeId,
@@ -1887,8 +1911,13 @@ const buildPqcInspectionSubmitPayload = (
     roundNo: pqcDraft.patrolRound,
     actualInspectionQuantity: pqcInspectionQuantity.value,
     actualEmployeeId,
+    deviceAccountId: deviceAccountId,
+    deviceId: deviceId,
+    workstationId: workstationId,
+    pqcSubmissionIdempotencyKey,
     signatureId,
     signatureEmployeeId: actualEmployeeId,
+    signatureSnapshot: firstRouteQueryText(['pqcSignatureSnapshot', 'signatureSnapshot']),
     templateType: deviceState.template?.templateNo ||
       employeeTemplateCode.value ||
       context.templateCode ||
@@ -1962,6 +1991,7 @@ const hydrateContextFromRoute = () => {
   context.routeProcessId = firstRouteQueryNumber(['routeProcessId']) ?? context.routeProcessId
   context.processId = firstRouteQueryNumber(['processId']) ?? context.processId
   context.actualEmployeeId = firstRouteQueryNumber(['actualEmployeeId']) ?? context.actualEmployeeId
+  productionDraft.outputQuantity = firstRouteQueryNumber(['outputQuantity', 'submitQuantity']) ?? productionDraft.outputQuantity
   pqcSignatureId.value = firstRouteQueryNumber(['signatureId']) ?? pqcSignatureId.value
   const queryTemplateCode = resolveTemplateCode(firstRouteQueryText(['templateCode', 'templateNo']))
   employeeTemplateCode.value = queryTemplateCode

@@ -39,6 +39,7 @@ class MesProcessPoolPqcEventTest extends BaseDbUnitTest {
 
         MesProProcessPoolEventDO event = processPoolEventMapper.selectById(eventId);
         assertEquals("PQC_INSPECTION", event.getEventType());
+        assertEquals(req.getPqcSubmissionIdempotencyKey(), event.getEventIdempotencyKey());
         assertEquals(req.getTemplateType(), event.getTemplateType());
         assertEquals(req.getActualEmployeeId(), event.getSignatureUserId());
         assertNotNull(event.getServerSubmitTime());
@@ -47,6 +48,7 @@ class MesProcessPoolPqcEventTest extends BaseDbUnitTest {
         assertNotNull(pqcRecord);
         assertEquals(event.getId(), pqcRecord.getEventId());
         assertEquals(event.getPoolId(), pqcRecord.getPoolId());
+        assertEquals(req.getProductionSubmitEventId(), pqcRecord.getProductionSubmitEventId());
         assertEquals(req.getWorkOrderId(), pqcRecord.getWorkOrderId());
         assertEquals(req.getRouteId(), pqcRecord.getRouteId());
         assertEquals(req.getRouteProcessId(), pqcRecord.getRouteProcessId());
@@ -84,6 +86,20 @@ class MesProcessPoolPqcEventTest extends BaseDbUnitTest {
     }
 
     @Test
+    void shouldReturnSamePqcInspectionEventForDuplicateIdempotencyKey() {
+        MesProcessPoolCreatePqcInspectionReqDTO req = validPqcReq();
+
+        Long firstEventId = processPoolEventService.createPqcInspectionEvent(req);
+        Long duplicateEventId = processPoolEventService.createPqcInspectionEvent(req);
+
+        assertEquals(firstEventId, duplicateEventId);
+        assertEquals(1L, processPoolEventMapper.selectCount());
+        assertEquals(1L, pqcRecordMapper.selectCount());
+        assertEquals(req.getFeedbackSourceId(),
+                processPoolEventService.findExistingPqcInspectionTaskId(req).orElseThrow());
+    }
+
+    @Test
     void shouldRejectUnsupportedPqcInspectionResult() {
         MesProcessPoolCreatePqcInspectionReqDTO req = validPqcReq();
         req.setInspectionResult("RECHECK");
@@ -100,6 +116,8 @@ class MesProcessPoolPqcEventTest extends BaseDbUnitTest {
         Long actualEmployeeId = randomLongId();
         return MesProcessPoolCreatePqcInspectionReqDTO.builder()
                 .workOrderId(randomLongId())
+                .productionSubmitEventId(randomLongId())
+                .pqcSubmissionIdempotencyKey("P0-PQC-" + randomLongId())
                 .routeId(randomLongId())
                 .routeProcessId(randomLongId())
                 .processId(randomLongId())

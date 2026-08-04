@@ -12,6 +12,7 @@ import java.util.Map;
 public class MesProcessPoolSubmitEventCreateReqBO {
 
     private Long feedbackId;
+    private String processPoolSubmissionIdempotencyKey;
     private Long recordbookEntryId;
     private Long recordbookEventId;
     private Long workOrderId;

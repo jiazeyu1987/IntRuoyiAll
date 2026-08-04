@@ -22,6 +22,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderReportAllocationPreviewRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderSubmissionPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderSubmissionReviewReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesProductionExecutionTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceStatusUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeProfileSaveReqVO;
@@ -130,7 +131,10 @@ class MesProcessPoolTeamLeaderControllerTest {
                 .setEventId(1001L)
                 .setLeaderType("PQC")
                 .setReviewStatus("APPROVED")
-                .setReviewRemark("已复核");
+                .setReviewRemark("已复核")
+                .setReviewSignatureId(9101L)
+                .setReviewSignatureEmployeeUserId(3002L)
+                .setReviewSignatureSnapshotJson("{\"signature\":\"review\"}");
 
         CommonResult<Long> response;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -146,6 +150,9 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEquals("PQC", captor.getValue().getLeaderType());
         assertEquals(1001L, captor.getValue().getEventId());
         assertEquals("APPROVED", captor.getValue().getReviewStatus());
+        assertEquals(9101L, captor.getValue().getReviewSignatureId());
+        assertEquals(3002L, captor.getValue().getReviewSignatureUserId());
+        assertEquals("{\"signature\":\"review\"}", captor.getValue().getReviewSignatureSnapshotJson());
     }
 
     @Test
@@ -274,6 +281,9 @@ class MesProcessPoolTeamLeaderControllerTest {
                             .setLeaderType("PRODUCTION")
                             .setAllocationMode("MANUAL")
                             .setReviewRemark("现场调整")
+                            .setReviewSignatureId(9201L)
+                            .setReviewSignatureEmployeeUserId(3001L)
+                            .setReviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
                             .setAllocations(List.of(new MesTeamLeaderReportAllocationLineReqVO()
                                     .setActiveOrderId(8101L)
                                     .setAllocatedQuantity(new BigDecimal("80")))));
@@ -294,6 +304,9 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEquals(3001L, confirmCaptor.getValue().getLeaderUserId());
         assertEquals("PRODUCTION", confirmCaptor.getValue().getLeaderType());
         assertEquals("MANUAL", confirmCaptor.getValue().getAllocationMode());
+        assertEquals(9201L, confirmCaptor.getValue().getReviewSignatureId());
+        assertEquals(3001L, confirmCaptor.getValue().getReviewSignatureUserId());
+        assertEquals("{\"signature\":\"confirm\"}", confirmCaptor.getValue().getReviewSignatureSnapshotJson());
         assertEquals(1, confirmCaptor.getValue().getAllocations().size());
         MesTeamLeaderReportAllocationLineReqBO line = confirmCaptor.getValue().getAllocations().get(0);
         assertEquals(8101L, line.getActiveOrderId());
@@ -438,6 +451,27 @@ class MesProcessPoolTeamLeaderControllerTest {
     }
 
     @Test
+    void p0ProductionExecutionTraceEndpointDelegatesToUnifiedTraceService() {
+        when(traceService.getProductionExecutionTrace(1001L))
+                .thenReturn(new MesProductionExecutionTraceRespVO()
+                        .setProcessPoolEventId(1001L)
+                        .setComplete(false)
+                        .setSections(List.of(new MesProductionExecutionTraceRespVO.Section()
+                                .setSectionKey("quality")
+                                .setStatus("BLOCKED")
+                                .setBlockers(List.of(new MesProductionExecutionTraceRespVO.Blocker()
+                                        .setCode("PQC_EVENT_MISSING"))))));
+
+        MesProductionExecutionTraceRespVO trace = controller.getProductionExecutionTrace(1001L).getData();
+
+        assertEquals(1001L, trace.getProcessPoolEventId());
+        assertFalse(trace.getComplete());
+        assertEquals("quality", trace.getSections().get(0).getSectionKey());
+        assertEquals("PQC_EVENT_MISSING", trace.getSections().get(0).getBlockers().get(0).getCode());
+        verify(traceService).getProductionExecutionTrace(1001L);
+    }
+
+    @Test
     void mappingsAndPermissions_matchTeamLeaderWorkbenchContract() throws Exception {
         RequestMapping requestMapping = MesProcessPoolTeamLeaderController.class.getAnnotation(RequestMapping.class);
         assertNotNull(requestMapping);
@@ -501,6 +535,8 @@ class MesProcessPoolTeamLeaderControllerTest {
                 new String[]{"/order-process/trace"}, "mes:pro-process-pool-team-leader:query");
         assertEndpoint("getBatchRecordTrace", new Class[]{Long.class, Long.class, Long.class}, GetMapping.class,
                 new String[]{"/batch-record/trace"}, "mes:pro-process-pool-team-leader:query");
+        assertEndpoint("getProductionExecutionTrace", new Class[]{Long.class}, GetMapping.class,
+                new String[]{"/production-execution/trace"}, "mes:pro-process-pool-team-leader:query");
 
         assertNoClientLeaderUserField(MesTeamLeaderSubmissionPageReqVO.class);
         assertNoClientLeaderUserField(MesTeamLeaderSubmissionReviewReqVO.class);

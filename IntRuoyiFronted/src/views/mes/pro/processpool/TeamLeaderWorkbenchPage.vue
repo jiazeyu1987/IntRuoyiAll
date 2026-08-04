@@ -1030,6 +1030,31 @@
         <el-form-item label="复核说明">
           <el-input v-model="reviewForm.reviewRemark" type="textarea" :rows="4" />
         </el-form-item>
+        <el-form-item label="复核签名ID" data-team-leader-review-signature>
+          <el-input-number
+            v-model="reviewForm.reviewSignatureId"
+            :min="1"
+            :controls="false"
+            class="team-leader-workbench__number"
+          />
+        </el-form-item>
+        <el-form-item label="签名员工ID">
+          <el-input-number
+            v-model="reviewForm.reviewSignatureEmployeeUserId"
+            :min="1"
+            :controls="false"
+            class="team-leader-workbench__number"
+          />
+        </el-form-item>
+        <el-form-item label="签名快照">
+          <el-input
+            v-model="reviewForm.reviewSignatureSnapshotJson"
+            type="textarea"
+            :rows="3"
+            resize="vertical"
+            placeholder="请输入电子签名快照 JSON 或签名服务返回引用"
+          />
+        </el-form-item>
       </el-form>
       <div
         v-if="isProductionLeader && reviewForm.reviewStatus === 'APPROVED'"
@@ -1644,7 +1669,10 @@ const queryParams = reactive<TeamLeaderSubmissionPageReqVO>({
 const reviewForm = reactive({
   reviewStatus: 'APPROVED' as 'APPROVED' | 'REJECTED',
   allocationMode: 'FIFO' as 'FIFO' | 'MANUAL',
-  reviewRemark: ''
+  reviewRemark: '',
+  reviewSignatureId: undefined as number | undefined,
+  reviewSignatureEmployeeUserId: undefined as number | undefined,
+  reviewSignatureSnapshotJson: ''
 })
 
 const correctionForm = reactive({
@@ -1828,6 +1856,15 @@ const buildAllocationSubmitLines = (): TeamLeaderReportAllocationLine[] => {
   }
   return lines
 }
+
+const buildReviewSignaturePayload = () => ({
+  reviewSignatureId: requirePositiveNumber(reviewForm.reviewSignatureId, '复核电子签名不能为空'),
+  reviewSignatureEmployeeUserId: requirePositiveNumber(
+    reviewForm.reviewSignatureEmployeeUserId,
+    '复核签名员工不能为空'
+  ),
+  reviewSignatureSnapshotJson: reviewForm.reviewSignatureSnapshotJson.trim() || undefined
+})
 
 function parseJsonField<T>(value: string, label: string): T {
   if (!value || !value.trim()) {
@@ -2230,6 +2267,9 @@ const openReview = async (event: ProcessPoolTimelineEventVO) => {
   reviewForm.reviewStatus = 'APPROVED'
   resetReviewAllocation()
   reviewForm.reviewRemark = ''
+  reviewForm.reviewSignatureId = undefined
+  reviewForm.reviewSignatureEmployeeUserId = undefined
+  reviewForm.reviewSignatureSnapshotJson = ''
   reviewVisible.value = true
   if (isProductionLeader.value) {
     try {
@@ -2246,12 +2286,14 @@ const submitReview = async () => {
   try {
     const leaderType = queryParams.leaderType as TeamLeaderType
     const reviewRemark = reviewForm.reviewRemark.trim() || undefined
+    const reviewSignaturePayload = buildReviewSignaturePayload()
     if (isProductionLeader.value && reviewForm.reviewStatus === 'APPROVED') {
       await confirmTeamLeaderReportAllocation({
         eventId,
         leaderType,
         allocationMode: reviewForm.allocationMode,
         reviewRemark,
+        ...reviewSignaturePayload,
         allocations: buildAllocationSubmitLines()
       })
     } else {
@@ -2259,7 +2301,8 @@ const submitReview = async () => {
         leaderType,
         eventId,
         reviewStatus: reviewForm.reviewStatus,
-        reviewRemark
+        reviewRemark,
+        ...reviewSignaturePayload
       })
     }
     ElMessage.success('复核已提交')

@@ -16,6 +16,7 @@ import org.springframework.validation.annotation.Validated;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
+import java.util.Optional;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_DEVICE_ACCOUNT_MISMATCH;
@@ -61,6 +62,11 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
 
         LocalDateTime submittedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         MesProFrontlineFeedbackSplitPayload splitPayload = payloadSplitter.split(reqVO, loginUserId, submittedAt);
+        Optional<cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventResult> existing =
+                processPoolSubmitEventService.findExistingSubmitEvent(splitPayload.getProcessPoolEventPayload());
+        if (existing.isPresent()) {
+            return toSubmitResp(existing.get());
+        }
 
         Long feedbackId = feedbackService.createFeedback(splitPayload.getFeedbackPayload());
         feedbackService.submitFeedback(feedbackId);
@@ -83,6 +89,15 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                 .setProcessPoolEventId(processPoolEventId);
     }
 
+    private MesProFrontlineFeedbackSubmitRespVO toSubmitResp(
+            cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventResult result) {
+        return new MesProFrontlineFeedbackSubmitRespVO()
+                .setFeedbackId(result.getFeedbackId())
+                .setRecordbookEntryId(result.getRecordbookEntryId())
+                .setRecordbookEventId(result.getRecordbookEventId())
+                .setProcessPoolEventId(result.getProcessPoolEventId());
+    }
+
     private void validateSubmitContext(MesProFrontlineFeedbackSubmitReqVO reqVO) {
         if (reqVO == null) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "request");
@@ -95,6 +110,9 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         }
         if (reqVO.getProcessPoolContext() == null) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "processPoolContext");
+        }
+        if (cn.hutool.core.util.StrUtil.isBlank(reqVO.getProcessPoolSubmissionIdempotencyKey())) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "processPoolSubmissionIdempotencyKey");
         }
         if (reqVO.getRawPayload() == null) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "rawPayload");

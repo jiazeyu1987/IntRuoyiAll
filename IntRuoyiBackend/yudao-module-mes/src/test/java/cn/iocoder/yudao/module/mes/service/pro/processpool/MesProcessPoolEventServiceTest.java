@@ -87,6 +87,7 @@ class MesProcessPoolEventServiceTest extends BaseDbUnitTest {
         Long actualEmployeeId = randomLongId();
         return MesProcessPoolCreateEventReqDTO.builder()
                 .eventType("PRODUCTION_SUBMIT")
+                .eventIdempotencyKey("P0-SUBMIT-" + randomLongId())
                 .workOrderId(randomLongId())
                 .routeId(randomLongId())
                 .routeProcessId(randomLongId())
@@ -98,6 +99,7 @@ class MesProcessPoolEventServiceTest extends BaseDbUnitTest {
                 .templateType("PRODUCTION_SIMPLE")
                 .feedbackSourceType("MES_PRO_FEEDBACK")
                 .feedbackSourceId(randomLongId())
+                .recordbookEntryId(randomLongId())
                 .recordbookSourceType("MES_RECORDBOOK_ENTRY")
                 .recordbookSourceId(randomLongId())
                 .rawPayload("{\"outputQuantity\":10}")

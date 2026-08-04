@@ -17,6 +17,7 @@ import java.util.Map;
 public class MesFrontlinePqcSubmitCommand {
 
     private Long workOrderId;
+    private Long productionSubmitEventId;
     private Long activeOrderId;
     private Long pqcTaskId;
     private Long routeId;
@@ -29,6 +30,10 @@ public class MesFrontlinePqcSubmitCommand {
     private Integer roundNo;
     private Integer actualInspectionQuantity;
     private Long actualEmployeeId;
+    private Long deviceAccountId;
+    private Long deviceId;
+    private Long workstationId;
+    private String pqcSubmissionIdempotencyKey;
     private Long signatureId;
     private Long signatureEmployeeId;
     private String signatureSnapshot;
