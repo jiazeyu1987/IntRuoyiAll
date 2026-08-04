@@ -59,3 +59,24 @@
 - Git closeout note: the shared index still contains unrelated staged files from other tasks; any commit must use explicit task-owned path selection and must not use broad `git add -A`.
 - Cleanup note: `doc/tasks/20260804-production-leader-tab/stage-mes-process-route.patch` was a temporary index-only patch that entered HEAD through concurrent baseline commit `af1bfb191`; it is deleted in the current worktree and should be included in the next safe task-owned cleanup commit.
 - Active blocker re-opened: task-owned files are still being changed by another writer during verification, so final implementation state cannot be made stable or safely committed from this shared workspace.
+
+## 2026-08-05 Isolated Worktree Resume
+
+- USER FINAL CONTRACT: eDHR 顶部必须同时保留 `生产组长` 与 `PQC组长` 两个独立页签；`PQC组长` 使用 `/mes/pro/feedback/edhr-batch-pqc-leader` 与 `BatchPqcLeaderWorkbenchPage.vue`，不得回退为 process-pool 独立路由口径。
+- ISOLATION: 停止继续写入共享 `E:\IntRuoyi` 的 route/tab/static-contract 文件，当前实现只在 `D:\IntRuoyiWorktree\production-leader-tab-20260804` 完成。
+- BDD: eDHR 双组长页签 -> Given 用户打开 eDHR 批记录顶部页签 / When 查看组长入口 / Then 同时存在 `生产组长` 与 `PQC组长` 独立页签并分别进入对应 eDHR route。
+- BDD: 生产组长不在组长工作台 -> Given 用户进入 `组长工作台` / When 页面加载组长工作台包装页 / Then 页面不锁定 `PRODUCTION`，不显示生产组长标题或生产组长页签内容。
+- BDD: PQC 正式链路保留 -> Given 用户进入 `PQC组长` / When 页面加载 / Then 复用正式 `TeamLeaderWorkbenchPage`，锁定 `leader-type="PQC"` 且不显示内部类型切换。
+- RED: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js` -> FAIL，expected reason: `src/views/mes/pro/edhr-batch/BatchPqcLeaderWorkbenchPage.vue must exist.`
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js` -> PASS，双组长 eDHR 页签、route、包装页和 `组长工作台` 非生产边界均满足合同。
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-page-graph-tab-static.spec.js` -> PASS，页面关系图包含 eDHR `PQC组长` route。
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS，相邻工序池合同保留正式 TeamLeaderWorkbenchPage 能力。
+- PRECONDITION: `workdir=IntRuoyiFronted; pnpm ts:check` first failed before compile because isolated worktree had no `node_modules` and `cross-env` was missing.
+- GREEN: `workdir=IntRuoyiFronted; pnpm install --frozen-lockfile` -> PASS，恢复隔离 worktree 前端依赖；未复制其它工作区 `node_modules`，未修改 lockfile。
+- GREEN: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS。
+- EXPERIENCE CONSOLIDATION: Read `project-experience-consolidation` skill and searched existing memory. Existing `docs/worktree-memory.md#Worktree 前端依赖启动门禁` and `docs/powershell-memory.md#共享分支并发基线提交门禁` already cover the reusable lessons, so no new long-term memory file was created.
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-production-leader-tab/frontend-feature-evidence.md` -> PASS，frontend feature evidence structure is valid.
+- CURRENT STATUS: Implementation and required verification are complete in the isolated worktree; cleanup preview/apply remain before final completion.- BLOCKED COMMIT: `git commit -m "feat: restore edhr dual leader tabs"` -> FAIL，expected reason: commit hook requires a worktree port registry entry for `D:\IntRuoyiWorktree\production-leader-tab-20260804`.
+- BLOCKED COMMIT: `pwsh -NoProfile -File scripts\runtime\reserve-worktree-slot.ps1 -Name production-leader-tab-20260804 -Path D:\IntRuoyiWorktree\production-leader-tab-20260804 -Branch codex/production-leader-tab-20260804 -Profile int_main -AsJson` -> FAIL，expected reason: `No available runtime slot for profile 'int_main' in range 1..19.`
+- SLOT AUDIT: `D:\IntRuoyiWorktree\.ports\worktree-ports.json` shows active `int_main` slots 1..19; slots 4, 7, and 12 point to missing physical paths, but they belong to other task registrations and were not modified without explicit authorization.- SLOT RELEASE: After user approval, released stale `int_main` slot 4 for `D:\IntRuoyiWorktree\20260731-dcc-file-category-rules`; preflight confirmed physical path missing and absent from `git worktree list`.
+- SLOT REGISTER: `pwsh -NoProfile -File scripts\runtime\reserve-worktree-slot.ps1 -Name production-leader-tab-20260804 -Path D:\IntRuoyiWorktree\production-leader-tab-20260804 -Branch codex/production-leader-tab-20260804 -Profile int_main -AsJson` -> PASS，registered slot 4 (`frontendPort=8085`, `backendPort=48085`).
