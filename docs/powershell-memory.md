@@ -51,7 +51,7 @@
 - Blocker: 当前任务实现被并发基线提交混入且需要严格任务独立提交、最近提交包含敏感文件/超大产物、或同一文件还有未区分 hunks 时，必须停止并让用户决定是否重建独立提交历史；不得继续用宽泛 `git add -A`。
 - Verification: 若用户允许继续，任务日志必须记录并发提交 hash、混入范围、保留/不触碰的非任务文件、已通过的目标验证和后续只选择性暂存的文件清单。
 - Forbidden action: 禁止把并发基线提交伪装成本任务实现提交；禁止因为 HEAD 已包含代码就跳过验证、任务文档或冲突记录；禁止擅自 amend、reset、force-push 或用新提交覆盖他人并发改动。
-- Evidence: `doc\tasks\20260730-dcc-product-catalog-remove-toolbar-buttons\execution-log.md`，共享分支基线提交曾把 DCC 按钮删除任务文件和其它任务文件一起提交，后续只能记录异常并选择性收尾。
+- Evidence: `doc\tasks\20260730-dcc-product-catalog-remove-toolbar-buttons\execution-log.md`，共享分支基线提交曾把 DCC 按钮删除任务文件和其它任务文件一起提交，后续只能记录异常并选择性收尾；`doc\tasks\20260804-approval-center-applicant-column\execution-log.md`，审批中心申请人列实现被并行基线提交吞入，后续保留验证证据并仅选择性提交收尾记录。
 
 ### 同文件并行改动选择性暂存门禁
 

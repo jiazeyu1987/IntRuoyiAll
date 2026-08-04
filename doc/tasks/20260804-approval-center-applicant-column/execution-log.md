@@ -35,16 +35,31 @@ BDD: 既有用户获得新默认列 -> Given 用户存在旧审批中心列配�
 
 ### M2 RED
 
-- 状态：pending。
+- 状态：completed。
+- RED: `node tests/e2e/approval-center-applicant-column-static.spec.js` -> FAIL，预期原因：旧表格没有 `isApprovalColumnVisible('applicant')` 独立列，申请人仍在 DCC 摘要字段内。
 
 ### M3 GREEN
 
-- 状态：pending。
+- 状态：completed。
+- 实现：在审批中心 Element Plus 表格中将“申请人”作为业务摘要后的独立列渲染，统一通过 `resolveApplicantLabel(row)` 读取正式 `initiatorUserId`。
+- 实现：四个审批中心视图的 table key 升级为 `approval.center.*.applicant.v1`，使既有用户加载包含申请人的新默认列集合。
+- 实现：DCC 关键字段摘要移除重复的“申请人”项，避免同一信息在业务摘要和独立列中重复。
+- 代码归属异常：上述实现与新增聚焦合同已被共享分支并行基线提交 `50bca8e9f` 吞入；标准列表合同 table key 更新被并行基线提交 `7cc9284a1` 吞入。按共享分支并发基线门禁记录，不重写历史、不 amend、不 reset。
 
 ### M4 验证与收尾
 
-- 状态：pending。
+- 状态：completed。
+- GREEN: `node tests/e2e/approval-center-applicant-column-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/approval-center-standard-list-template-static.spec.js` -> PASS，覆盖 TODO/DONE/MY_INITIATED/CC、签名待处理合并和审核人列合同。
+- GREEN: `node tests/e2e/approval-center-chinese-copy-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/approval-center-reviewer-column-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-approval-center-applicant-column/frontend-feature-evidence.md` -> PASS。
+- GREEN: `git diff --check -- <task-owned records>` -> PASS。
+- GREEN: `task-closeout-cleanup --mode preview` -> PASS，keep `task.md`、`execution-log.md`、`verification-report.md`，delete `frontend-feature-evidence.md`，blocked/warnings 均为 `<none>`。
+- GREEN: `task-closeout-cleanup --mode apply` -> PASS，已删除 `frontend-feature-evidence.md`。
 
 ## Blockers
 
 - 当前无产品或接口 blocker。
+- Git closeout 风险：当前共享分支仍有其它任务未提交工作区改动；本任务收尾记录只允许选择性暂存，不能用宽泛 `git add -A`。
