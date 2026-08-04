@@ -34,11 +34,12 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 - 实现和定向静态/类型验证已完成：审批中心页签切回缓存合同、相邻审批中心合同和 `pnpm ts:check` 均通过。
 - 真实 Playwright 用户路径已通过：从 `/approval-center/todo` 点击真实侧边菜单进入 `/user/profile`，再点击审批中心顶部页签返回；首次列表请求 2 次，返回阶段目标列表请求 0 次，`pageErrors=[]`。
-- `task-closeout-cleanup` preview/apply 已通过并清理临时失败截图及临时 evidence 文件；当前仍待选择性提交、推送和最终 `completed` 状态记录。
+- `task-closeout-cleanup` preview/apply 已通过并清理临时失败截图及临时 evidence 文件。
+- 收尾提交 `4c83728ef docs: close approval center tab cache task` 已通过一次性 GitHub proxy `127.0.0.1:8902` 推送到 `origin/int_main`。
 
 ## Cleanup Keep
 

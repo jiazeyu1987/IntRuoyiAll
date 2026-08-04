@@ -60,4 +60,6 @@
 ## Blockers
 
 - 产品实现和验证无 blocker。
-- 仍需完成任务级 cleanup、选择性提交和推送；当前工作区有其它并发任务脏改动，必须避免混入本任务提交。
+- 提交：`4c83728ef docs: close approval center tab cache task`。
+- PUSH: `git -c http.https://github.com.proxy=http://127.0.0.1:8902 push origin int_main` -> PASS，`4c83728ef` 已推送到 `origin/int_main`。
+- 最终状态：completed；工作区仍保留其它并发任务脏改动，均非本任务完成 blocker。

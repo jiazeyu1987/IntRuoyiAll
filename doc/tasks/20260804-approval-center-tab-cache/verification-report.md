@@ -29,4 +29,5 @@
 ## Blockers
 
 - 产品实现和验证无 blocker。
-- 任务仍处于 `ready_for_closeout`，需处理并发脏工作区下的选择性提交与推送后再标记 `completed`。
+- 收尾提交 `4c83728ef docs: close approval center tab cache task` 已推送到 `origin/int_main`。
+- 最终状态：completed；工作区仍有其它并发任务脏改动，未纳入本任务提交。
