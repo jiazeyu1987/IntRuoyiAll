@@ -17,6 +17,11 @@
 - EVIDENCE: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-bpm-dcc-approval-preview-pane/frontend-feature-evidence.md` -> PASS.
 - EVIDENCE: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260804-bpm-dcc-approval-preview-pane/bug-regression-evidence.md` -> PASS.
 - UTF8: `python -X utf8 -c "<read task docs>"` -> PASS.
+- CLEANUP: `task_closeout.py --task-id 20260804-bpm-dcc-approval-preview-pane --mode preview` -> PASS.
+- CLEANUP: `task_closeout.py --task-id 20260804-bpm-dcc-approval-preview-pane --mode apply` -> PASS.
+- COMMIT: `e976d3f8e` -> task-owned implementation commit created.
+- PUSH PREFLIGHT: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
+- PUSH: `git push origin int_main` -> FAIL, GitHub 443 connection through local `127.0.0.1` proxy is unavailable.
 
 ## Acceptance Evidence
 
@@ -31,3 +36,4 @@
 - Real E2E was not run in this pass due ongoing unrelated concurrent workspace writes.
 - Current worktree still contains non-task dirty files; final commit must selectively stage only this task's files.
 - Temporary skill evidence files are validated and may be removed by cleanup because validator PASS and key conclusions are copied into this retained report.
+- Remote delivery is blocked until the configured local Git proxy is listening or GitHub HTTPS connectivity is restored.

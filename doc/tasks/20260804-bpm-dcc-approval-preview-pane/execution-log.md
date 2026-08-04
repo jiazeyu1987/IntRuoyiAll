@@ -32,6 +32,11 @@
 - EVIDENCE: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260804-bpm-dcc-approval-preview-pane/bug-regression-evidence.md` -> PASS.
 - UTF8: `python -X utf8 -c "<read task docs>"` -> PASS.
 - EXPERIENCE: 已按 `project-experience-consolidation` 检索既有经验归宿；`docs/frontend-development.md#前端同路由多入口分面门禁` 与 `docs/frontend-development.md#DCC 预览不可用原因短路门禁` 已覆盖本轮做法，本轮不修改长期经验文件，避免混入并行任务已存在的 `docs/` 改动。
+- CLEANUP: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260804-bpm-dcc-approval-preview-pane --mode preview` -> PASS，仅计划删除本任务两个临时 evidence。
+- CLEANUP: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260804-bpm-dcc-approval-preview-pane --mode apply` -> PASS，保留 `task.md`、`execution-log.md`、`verification-report.md`。
+- IMPLEMENTATION_COMMIT: `e976d3f8e` -> committed task-owned source, test, package script, and retained task records only.
+- PUSH_PREFLIGHT: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
+- PUSH_BLOCKER: `git push origin int_main` -> FAIL, `Failed to connect to github.com port 443 via 127.0.0.1`; impact: local branch remains ahead of `origin/int_main`, task cannot be marked completed.
 
 ## Milestone Updates
 
@@ -40,8 +45,10 @@
 - completed: M2 修改 `BpmProcessInstanceDetail`，DCC 自定义业务表单隐藏通用编号/打印行和旧跳转提示栏，红框区域嵌入 `ProtectedPdfViewer`。
 - completed: M3 聚焦静态合同、相邻回归合同、`pnpm ts:check` 和 `git diff --check` 均通过。
 - completed: M4 保留验证报告已记录技能 validator PASS 和关键验收结论。
-- ready_for_closeout: 等待 cleanup preview/apply、选择性提交和推送。
+- completed_local: cleanup 和实现提交完成。
+- blocked: GitHub 443 本机代理连接失败，等待网络/代理恢复后重新推送。
 
 ## Blockers
 
-- 当前无目标文件冲突；仍有非本任务并行改动留在工作区，本任务将选择性暂存。
+- GitHub 443 经本机 `127.0.0.1` 代理不可达，`git push origin int_main` 失败。
+- 仍有非本任务并行改动留在工作区；本任务提交未混入这些文件。

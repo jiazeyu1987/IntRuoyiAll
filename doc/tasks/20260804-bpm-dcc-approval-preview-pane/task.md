@@ -46,6 +46,6 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
-实现、聚焦验证、相邻回归、类型检查和技能证据校验均已通过；等待 cleanup preview/apply、选择性提交和推送。当前仍有非本任务并行改动，本任务只选择性处理 BPM 审批详情、聚焦静态合同和本任务文档。
+实现、聚焦验证、相邻回归、类型检查、技能证据校验、cleanup 和本地实现提交均已完成。`git push origin int_main` 因本机代理 `127.0.0.1` 无法连接 GitHub 443 失败，本地分支仍领先 `origin/int_main`，按项目规则任务不能标记为 completed。
