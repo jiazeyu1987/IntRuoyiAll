@@ -11,6 +11,8 @@
 - GREEN: `node tests/e2e/dcc-directory-folder-border-static.spec.js` -> PASS。
 - GREEN: `node tests/e2e/dcc-directory-lazy-loading-static.spec.js` -> PASS。
 - GREEN: `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/directories/index.vue IntRuoyiFronted/tests/e2e/dcc-directory-folder-icon-inline-static.spec.js doc/tasks/20260804-dcc-directory-root-leaf-indent` -> PASS，只有 CRLF warning，无 whitespace error。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260804-dcc-directory-root-leaf-indent/bug-regression-evidence.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-dcc-directory-root-leaf-indent/frontend-feature-evidence.md` -> PASS。
 
 ## Incomplete Checks
 
@@ -18,4 +20,4 @@
 
 ## Closeout Blocker
 
-当前仓库存在大量预先已有无关脏改和本地 `int_main...origin/int_main [ahead 11]` 状态。本任务未执行基线提交、实现提交或推送，避免混入非本任务变更。
+当前仓库仍有其它任务无关未提交文件和本地 `int_main...origin/int_main [ahead 1]` 状态；本任务不处理或回退这些无关变更。

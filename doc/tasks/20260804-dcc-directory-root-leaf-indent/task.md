@@ -19,7 +19,7 @@
 
 ## Current Status
 
-ready_for_closeout：实现与聚焦验证已完成；当前仓库存在大量预先已有的无关脏改和本地 ahead 状态，本任务未执行基线提交、实现提交或推送，避免混入非本任务变更。
+ready_for_closeout：实现与聚焦验证已完成；当前仓库仍有其它任务的无关未提交文件和 `int_main...origin/int_main [ahead 1]` 状态，本任务不处理或回退这些无关变更。
 
 ## 设计约束检查
 

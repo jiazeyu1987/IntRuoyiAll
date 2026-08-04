@@ -4,6 +4,7 @@
 
 - 用户要求新增一个 QA 页签，用于设置 PQC 执行的 QA 规则，并结合最开始的压力泵 PDF 内容。
 - 用户明确纠正：QA 是给 PQC 制定规则的，与 DCC 没有任何关系。
+- 用户进一步要求：QA 用一个单独的页签显示，不放在生产/PQC 工作台内部 tab 里。
 
 ## BDD Scenarios
 
@@ -12,6 +13,7 @@
 - BDD: QA/PQC 边界 -> Given PQC 只执行 QA 发布规则 When QA 页签展示配置能力 Then 页面不出现 DCC 文件分类、受控文件上传或文控审批语义。
 - BDD: 发布完整性检查 -> Given QA 规程尚未正式接入发布接口 When 查看页签 Then 页面提示发布前必须完成范围、项目、抽样规则、判定标准和版本冻结检查，不伪造保存成功。
 - BDD: 检验项目原文依据 -> Given QA 查看某条解析后的检验项目 When QA 对照判定标准 Then 页面展示该项目相关的 PDF 页码、项目名、接受标准原文摘录和检验方法原文摘录，而不是整页 OCR 或无来源说明。
+- BDD: QA 独立页面入口 -> Given QA 需要单独工作入口 When QA 打开 `QA 规程配置` Then 页面通过独立路由展示 QA 规则配置，生产/PQC 工作台内部不再存在 `QA 规程` tab。
 
 ## TDD Sequence
 
@@ -22,6 +24,8 @@
 - TDD-05 REVIEW: Validate frontend evidence and document review checklist before closeout.
 - TDD-06 RED: Extend `role-matrix-qa-regulation-tab-static.spec.cjs` to require item-level original-source fields and visible excerpt UI.
 - TDD-07 GREEN: Add source page/item/excerpt/method fields to QA draft items and render them in the inspection-item table.
+- TDD-08 RED: Update `role-matrix-qa-regulation-tab-static.spec.cjs` to require standalone `QaRegulationPage.vue` and route `/mes/pro/process-pool/qa-regulation`, and to forbid `QA 规程` in `TeamLeaderWorkbenchPage.vue` internal tabs.
+- TDD-09 GREEN: Move QA UI/state to the standalone page, remove QA tab residue from the workbench, and update real E2E target path.
 
 ## Command Log
 

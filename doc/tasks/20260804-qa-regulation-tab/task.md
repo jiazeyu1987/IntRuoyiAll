@@ -1,8 +1,8 @@
-# QA 规程页签配置
+# QA 规程独立页面配置
 
 ## Task Goal
 
-在生产组长工作台补充 `QA 规程` 页签，让 QA 可以定义给 PQC 执行的过程检验规则，并用压力泵 PDF 规程信息初始化示例内容。该功能不接入 DCC、不做 DCC 文件分类、不作为受控文件上传入口。
+将 QA 规程配置调整为独立页面入口，让 QA 可以定义给 PQC 执行的过程检验规则，并用压力泵 PDF 规程信息初始化示例内容。该功能不嵌入生产/PQC 工作台内部 tab，不接入 DCC、不做 DCC 文件分类、不作为受控文件上传入口。
 
 ## Milestones
 
@@ -12,6 +12,7 @@
 - [x] 运行定向静态契约和相邻 QA/PQC 回归验证。
 - [x] 记录验证报告和剩余阻塞。
 - [x] 增加检验项目原文依据摘录，让 QA 能看到每条解析标准对应的扫描 PDF 相关原文。
+- [ ] 将 QA 规程从生产/PQC 工作台内部 tab 拆为独立路由页面，并验证原工作台不再出现 `QA 规程` 内部 tab。
 
 ## Expected Verification
 
@@ -24,6 +25,8 @@
 - RED/GREEN: `node IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` must require each QA inspection item to expose relevant original-source fields and short excerpts.
 - REGRESSION: local browser E2E should still open `QA 规程`, show source excerpts, and send no backend write request while formal save/publish API is absent.
 - GREEN: `node IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` must pass against local `8081/48081` and verify visible item-level source excerpts with no backend write requests.
+- RED/GREEN: `node IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` must require standalone route `/mes/pro/process-pool/qa-regulation`, page component `QaRegulationPage.vue`, and no `QA 规程` tab inside `TeamLeaderWorkbenchPage.vue`.
+- REGRESSION: real local browser E2E must open `/mes/pro/process-pool/qa-regulation` directly, verify source excerpts, and send no backend write request.
 
 ## BDD/TDD Acceptance Matrix
 
@@ -34,6 +37,7 @@
 | BDD-QA-003 | Given PQC only executes QA rules, When QA defines rules, Then the QA tab contains no DCC file classification, controlled-file upload, or document-control workflow semantics. | Static contract fails if QA block contains DCC/file-classification/controlled-file terms. | New static contract passes with negative DCC-coupling assertions. |
 | BDD-QA-004 | Given formal save/publish API is not wired, When QA previews or runs publish checks, Then the page exposes missing publishing prerequisites and does not fake backend success. | Static contract fails because the workbench does not show API-not-wired and no-backend-write messaging. | New static contract passes and frontend evidence validator passes. |
 | BDD-QA-005 | Given QA reviews a parsed inspection item, When QA checks its判定标准, Then the item shows only the relevant original PDF excerpt, source page, source item, and method excerpt so QA can compare parsed text with the source. | Static contract fails because item rows only have parsed standard/source notes and no original excerpt fields or UI. | Static contract and real browser E2E verify original-source excerpts are visible in the item model/UI with no backend writes. |
+| BDD-QA-006 | Given QA needs its own workspace entry, When QA opens `QA 规程配置`, Then it loads as a standalone route page and the production/PQC workbench no longer contains an internal `QA 规程` tab. | Static contract fails because QA is still embedded in `TeamLeaderWorkbenchPage.vue` and `QaRegulationPage.vue` does not exist. | Standalone route/page contract passes, real browser opens `/mes/pro/process-pool/qa-regulation` directly, and workbench tab contract forbids QA tab residue. |
 
 ## Test Data
 
@@ -46,20 +50,21 @@
 
 ## E2E / User Path Plan
 
-- Current verified path is a static frontend contract because no local runtime was started and no formal QA save/publish API is exposed in this slice.
-- Future real E2E path: login as QA, open the production/PQC workbench, select `QA 规程`, edit rules, run publish precheck, verify no backend write is sent until the formal API exists.
+- Current verified path is a standalone QA route because no formal QA save/publish API is exposed in this slice.
+- Real E2E path: login as QA, open `/mes/pro/process-pool/qa-regulation`, edit rules, run publish precheck, verify no backend write is sent until the formal API exists.
 - Future PQC integration path: publish a QA regulation through the formal API, login as PQC, verify generated tasks use the published version snapshot and not hardcoded demo items.
 
 ## Current Status
 
-ready_for_closeout
+in_progress
 
-Item-level original-source excerpts are implemented and verified by static QA/PQC contracts, `ts:check`, frontend evidence validation, and real local Chromium E2E on `http://127.0.0.1:8081/mes/pro/process-pool/team-leader`. The 2026-08-04 follow-up E2E rerun logged in with the local default `芋道源码/admin` identity, opened `QA 规程`, verified source excerpts from PDF pages 3/6/7/8, confirmed `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, and `pageErrors=[]`, and captured evidence under `output/playwright/20260804-qa-regulation-tab/`. Cleanup/commit/push closeout remains pending because the broader `int_main` working tree contains unrelated dirty/ahead changes.
+User requested QA to display as a standalone page tab rather than inside the production/PQC workbench internal tab. Static contract is being updated first to fail while QA remains embedded in `TeamLeaderWorkbenchPage.vue`, then implementation will move QA UI to `QaRegulationPage.vue` and route `/mes/pro/process-pool/qa-regulation`.
 
 ## Design Constraints
 
 - QA 是给 PQC 制定规则的角色，PQC 按 QA 发布规程执行。
-- QA 规程页签不得出现 DCC、文件分类、受控文件上传或文控审批含义。
+- QA 规程页面不得出现 DCC、文件分类、受控文件上传或文控审批含义。
+- QA 规程不得嵌入生产/PQC 工作台内部 `el-tabs`；必须作为独立路由页面打开。
 - 页面可以用压力泵 PDF 元数据初始化示例，但不得宣称已完成 DCC 识别或受控文件归档。
 - 每个解析后的检验项目必须能看到与该项目相关的短原文摘录，不展示整页 OCR，也不把看不清或未定位的内容伪装成已确认原文。
 - 如果正式保存/发布 API 未接入，页面必须明确停留在前端配置/发布前检查表达，不得伪造持久化成功。

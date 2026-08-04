@@ -20,8 +20,10 @@
 - GREEN: `node tests/e2e/dcc-directory-folder-border-static.spec.js` -> PASS。
 - GREEN: `node tests/e2e/dcc-directory-lazy-loading-static.spec.js` -> PASS。
 - GREEN: `git diff --check -- IntRuoyiFronted/src/views/dcc/controlled-file/directories/index.vue IntRuoyiFronted/tests/e2e/dcc-directory-folder-icon-inline-static.spec.js doc/tasks/20260804-dcc-directory-root-leaf-indent` -> PASS，只有 CRLF warning，无 whitespace error。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260804-dcc-directory-root-leaf-indent/bug-regression-evidence.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-dcc-directory-root-leaf-indent/frontend-feature-evidence.md` -> PASS。
 - INFO: `pnpm ts:check` -> NOT COMPLETED，运行数分钟无输出和无退出；已按命令行精确匹配停止本次任务-owned `vue-tsc` 进程，未将该命令记为通过。
-- BLOCKER: closeout-commit-push -> 当前仓库已有大量预先存在的无关脏改和本地 `int_main...origin/int_main [ahead 11]`，本任务不执行基线提交、实现提交或推送，避免把非本任务变更混入提交。
+- BLOCKER: closeout-commit-push -> 当前仓库仍有其它任务无关未提交文件和本地 `int_main...origin/int_main [ahead 1]`，本任务不处理或回退这些无关变更。
 
 ## Verification
 

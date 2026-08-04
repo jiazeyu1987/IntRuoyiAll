@@ -7,19 +7,22 @@
 ## Milestones
 
 - [x] M1: 建立任务记录并补充适用经验门禁。
-- [ ] M2: 为默认可开关审批视图补充后端和前端静态契约 RED。
-- [ ] M3: 修改业务审批策略页默认查询参数和后端分页筛选。
-- [ ] M4: 运行定向 GREEN 验证并记录结果。
+- [x] M2: 为默认可开关审批视图补充后端和前端静态契约 RED。
+- [x] M3: 修改业务审批策略页默认查询参数和后端分页筛选。
+- [x] M4: 运行定向 GREEN 验证并记录结果。
 
 ## Expected Verification
 
 - `node tests/e2e/bpm-business-approval-policy-static.spec.js`
 - `mvn -pl yudao-module-bpm -Dtest=BusinessApprovalPolicyMapperTest,BusinessApprovalPolicyControllerContractTest test`
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-bpm-policy-default-bpm-required/frontend-feature-evidence.md`
+- `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260804-bpm-policy-default-bpm-required/backend-api-evidence.md`
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+- 实现和定向验证已完成；提交/推送仍受进入本任务前已存在的大量无关脏改动阻塞，未混入处理。
 
 ## 适用经验门禁
 
@@ -35,3 +38,4 @@ in_progress
 ## Cleanup Keep
 
 - doc/tasks/20260804-bpm-policy-default-bpm-required/frontend-feature-evidence.md
+- doc/tasks/20260804-bpm-policy-default-bpm-required/backend-api-evidence.md

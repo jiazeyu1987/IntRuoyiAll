@@ -2,7 +2,7 @@
 
 ## Feature Goal and Non-Goals
 
-- Goal: Add a `QA 规程` tab in `TeamLeaderWorkbenchPage.vue` so QA can define PQC process-inspection rules from a pressure-pump regulation draft.
+- Goal: Provide a standalone `QA 规程配置` route page so QA can define PQC process-inspection rules from a pressure-pump regulation draft without being embedded in the production/PQC workbench internal tabs.
 - Non-goal: Do not connect QA regulations to DCC classification, controlled-file upload, document-control approval, or any fake save/publish success.
 
 ## Requirements and Acceptance IDs
@@ -13,10 +13,12 @@
 
 ## UI Entry Points, Routes, Components, and Owned Files
 
-- Entry point: Existing production/PQC workbench tabs in `IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue`.
-- New tab: `QA 规程`.
+- Entry point: Standalone route `/mes/pro/process-pool/qa-regulation`.
+- Workbench boundary: `TeamLeaderWorkbenchPage.vue` keeps only `生产组长` and `PQC 组长` internal tabs.
 - Owned frontend files:
   - `IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue`
+  - `IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue`
+  - `IntRuoyiFronted/src/router/modules/remaining.ts`
   - `IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs`
 
 ## API Contracts and Data States
@@ -32,6 +34,7 @@
 - BDD: QA/PQC 边界 -> Given PQC 只执行 QA 发布规则 When QA 页签展示配置能力 Then 页面不出现 DCC 文件分类、受控文件上传或文控审批语义。
 - BDD: 发布完整性检查 -> Given QA 规程尚未正式接入发布接口 When 查看页签 Then 页面提示发布前必须完成范围、项目、抽样规则、判定标准和版本冻结检查，不伪造保存成功。
 - BDD: 检验项目原文依据 -> Given QA 查看解析后的检验项目 When QA 需要复核判定标准 Then 页面展示该项目相关的短原文摘录、页码、原文项目名和检验方法摘录。
+- BDD: QA 独立页面入口 -> Given QA 需要独立工作入口 When QA 打开 `/mes/pro/process-pool/qa-regulation` Then 页面直接展示 QA 规程配置，生产/PQC 工作台内部不再展示 `QA 规程` tab。
 
 ## BDD to TDD Mapping
 
@@ -42,6 +45,7 @@
 | QA/PQC 边界 | QA block could drift into DCC classification or controlled-file language. | Add explicit QA/PQC ownership copy and negative DCC coupling assertions. | Static contract forbids DCC/file-classification terms inside QA block. |
 | 发布完整性检查 | Page could imply successful persistence despite missing formal API. | Show API-not-wired warning, local draft messaging, and publish precheck blockers. | Evidence validator and static contract pass. |
 | 检验项目原文依据 | Item rows only show parsed standards without the corresponding PDF original wording. | Add item-level source page, source item, acceptance-standard excerpt, and method excerpt UI. | Static contract and real browser E2E verify excerpts are present, scoped to the item, and read-only. |
+| QA 独立页面入口 | QA remains embedded as an `el-tab-pane` in `TeamLeaderWorkbenchPage.vue`; no standalone route/page exists. | Add `QaRegulationPage.vue`, route `/mes/pro/process-pool/qa-regulation`, and remove QA from workbench tabs. | Static contract and real browser E2E open the standalone route directly. |
 
 ## RED Command and Expected Failure
 

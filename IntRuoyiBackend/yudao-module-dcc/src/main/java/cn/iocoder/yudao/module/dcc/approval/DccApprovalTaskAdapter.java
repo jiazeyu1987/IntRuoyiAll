@@ -317,7 +317,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
 
     private List<String> buildDccBusinessContextTags(DccControlledFileDO file, String currentNodeName) {
         DccFileCategoryDO category = resolveCategory(file.getCategoryId());
-        return buildDccBusinessContextTags(file.getFileNumber(), file.getVersionNo(),
+        return buildDccBusinessContextTags(file.getFileNumber(), historicalVersionLabel(file.getVersionNo()),
                 resolveCategoryLabel(category, file.getCategoryId()), currentNodeName, file.getStampedFileId(),
                 category == null ? null : category.getDistributionRequired());
     }
@@ -512,6 +512,10 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
             throw new IllegalStateException(message);
         }
         return value;
+    }
+
+    private static String historicalVersionLabel(String versionNo) {
+        return versionNo == null || versionNo.isBlank() ? "-" : versionNo;
     }
 
     private static LocalDateTime toLocalDateTime(Date date) {

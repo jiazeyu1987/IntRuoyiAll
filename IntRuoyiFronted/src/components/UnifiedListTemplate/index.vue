@@ -21,6 +21,20 @@
         />
       </el-form-item>
 
+      <el-form-item v-if="showMultiFilter === true" class="unified-list-template__multi-filter">
+        <TableMultiFilter
+          :table-key="tableKey"
+          :filter-definitions="multiFilterDefinitions"
+          :state="resolvedMultiFilterState"
+          :show-operators="showMultiFilterOperators"
+          :max-inline-filters="multiFilterMaxInlineFilters"
+          @update:state="$emit('update:multiFilterState', $event)"
+          @query="$emit('multi-filter-query')"
+          @reset="$emit('multi-filter-reset')"
+          @remove="$emit('multi-filter-remove', $event)"
+        />
+      </el-form-item>
+
       <slot name="extra-filters"></slot>
 
       <el-form-item class="unified-list-template__toolbar-actions">
@@ -65,7 +79,12 @@
 <script setup lang="ts">
 import { computed, nextTick } from 'vue'
 import TableQuickFilter from '@/components/TableQuickFilter/index.vue'
+import TableMultiFilter from '@/components/TableMultiFilter/index.vue'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
+import type {
+  ListMultiFilterDefinition,
+  ListMultiFilterState
+} from '@/hooks/web/useTableMultiFilter'
 import type {
   TableQuickFilterDefinition,
   TableQuickFilterOperator
@@ -78,6 +97,10 @@ type QuickFilterState = {
   fieldKey?: string
   operator?: TableQuickFilterOperator
   value?: string | number | boolean | Array<string | number>
+}
+
+const EMPTY_MULTI_FILTER_STATE: ListMultiFilterState = {
+  conditions: []
 }
 
 type UnifiedListSortOrder = 'ascending' | 'descending' | null
@@ -122,6 +145,11 @@ const props = withDefaults(defineProps<{
   quickFilterState: QuickFilterState
   selectedFilterDefinition?: TableQuickFilterDefinition
   operatorOptions: TableQuickFilterOperator[]
+  showMultiFilter?: boolean
+  multiFilterDefinitions?: ListMultiFilterDefinition[]
+  multiFilterState?: ListMultiFilterState
+  showMultiFilterOperators?: boolean
+  multiFilterMaxInlineFilters?: number
   columns: UserTableColumnState[]
   columnSaving?: boolean
   showColumnSettings?: boolean
@@ -136,6 +164,10 @@ const props = withDefaults(defineProps<{
   showQueryForm: true,
   showQuickFilter: true,
   showQuickFilterLabel: true,
+  showMultiFilter: false,
+  multiFilterDefinitions: () => [],
+  showMultiFilterOperators: true,
+  multiFilterMaxInlineFilters: 4,
   showColumnSettings: true,
   showColumnReset: false
 })
@@ -143,6 +175,10 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   'update:quickFilterState': [state: QuickFilterState]
   'quick-filter-query': []
+  'update:multiFilterState': [state: ListMultiFilterState]
+  'multi-filter-query': []
+  'multi-filter-reset': []
+  'multi-filter-remove': [key: string]
   'column-change': [columns: UserTableColumnState[]]
   'column-reset': []
   'update:page': [page: number]
@@ -154,6 +190,8 @@ const emit = defineEmits<{
 
 const DEFAULT_COLUMN_SORTABLE = true
 const STANDARD_SORT_ORDERS: UnifiedListSortOrder[] = ['ascending', 'descending', null]
+
+const resolvedMultiFilterState = computed(() => props.multiFilterState || EMPTY_MULTI_FILTER_STATE)
 
 const normalizeSortOrder = (order: unknown): UnifiedListSortOrder =>
   order === 'ascending' || order === 'descending' ? order : null
@@ -289,6 +327,15 @@ const handleQuickFilterStateUpdate = async (state: QuickFilterState) => {
 
 .unified-list-template__quick-filter {
   flex: 0 0 auto;
+}
+
+.unified-list-template__multi-filter {
+  flex: 1 1 720px;
+  min-width: 0;
+}
+
+.unified-list-template__multi-filter :deep(.el-form-item__content) {
+  width: 100%;
 }
 
 .unified-list-template__toolbar-actions {

@@ -3,13 +3,14 @@
 ## Feature Goal And Non-Goals
 
 - Goal: 业务审批策略页面默认列表查询使用“可开关审批策略”视图，覆盖文控、表单、批记录等顶层审批流程。
-- Non-goals: 不修改后端策略查询接口、审批策略执行逻辑、审批开关切换、电子签名校验、数据库数据或菜单权限。
+- Non-goals: 不修改审批策略执行逻辑、审批开关切换、电子签名校验、数据库数据或菜单权限。
 
 ## Requirements And Acceptance
 
 - AC1: 页面首次加载时 `queryParams.approvalSwitchScope` 默认等于 `true`。
 - AC2: 默认视图不强制 `queryParams.policyMode = BPM_REQUIRED`，关闭审批的顶层策略也可显示并被重新开启。
-- AC3: 现有业务审批策略静态契约继续通过。
+- AC3: 前端请求类型显式支持 `approvalSwitchScope?: boolean`。
+- AC4: 现有业务审批策略静态契约继续通过。
 
 ## UI Entry Points
 
@@ -29,11 +30,11 @@
 
 ## RED
 
-RED: `node tests/e2e/bpm-business-approval-policy-static.spec.js` -> FAIL, expected reason: old page initialized `queryParams.policyMode` as `undefined`, so the default list filter did not constrain to `BPM_REQUIRED`.
+RED: `node tests/e2e/bpm-business-approval-policy-static.spec.js` -> FAIL, expected reason: page lacked `approvalSwitchScope: true` and still defaulted `queryParams.policyMode` to `BPM_REQUIRED`, hiding closed top-level policies.
 
 ## GREEN
 
-GREEN: `node tests/e2e/bpm-business-approval-policy-static.spec.js` -> PASS, the business approval policy page now initializes `queryParams.policyMode` to `BPM_REQUIRED`.
+GREEN: `node tests/e2e/bpm-business-approval-policy-static.spec.js` -> PASS, the page request type exposes `approvalSwitchScope?: boolean`, defaults `approvalSwitchScope` to `true`, and leaves `policyMode` unset by default.
 
 ## Responsive Accessibility Loading Empty Error Permission
 
