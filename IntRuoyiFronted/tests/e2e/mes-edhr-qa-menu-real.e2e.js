@@ -114,6 +114,12 @@ function visibleMenuItem(page, text) {
     .first()
 }
 
+async function isVisibleMenuItem(page, text) {
+  return visibleMenuItem(page, text)
+    .isVisible({ timeout: 1000 })
+    .catch(() => false)
+}
+
 async function getBox(locator, label) {
   await locator.waitFor({ state: 'visible' })
   const box = await locator.boundingBox()
@@ -121,22 +127,85 @@ async function getBox(locator, label) {
   return box
 }
 
+async function collectMenuDiagnostics(page) {
+  return page
+    .locator('.el-menu-item, .el-sub-menu__title')
+    .evaluateAll((elements) =>
+      elements.slice(0, 240).map((element) => {
+        const rect = element.getBoundingClientRect()
+        const style = window.getComputedStyle(element)
+        return {
+          text: (element.textContent || '').replace(/\s+/g, ' ').trim(),
+          className:
+            typeof element.className === 'string'
+              ? element.className
+              : String(element.getAttribute('class') || ''),
+          ariaExpanded: element.getAttribute('aria-expanded'),
+          visible:
+            rect.width > 0 &&
+            rect.height > 0 &&
+            style.display !== 'none' &&
+            style.visibility !== 'hidden',
+          rect: {
+            x: Math.round(rect.x),
+            y: Math.round(rect.y),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height)
+          },
+          html: element.textContent && element.textContent.includes('eDHR')
+            ? element.outerHTML.slice(0, 800)
+            : undefined
+        }
+      })
+    )
+}
+
 async function openEdhrMenu(page) {
-  const visibleRoot = visibleMenuItem(page, 'eDHR批记录')
-  try {
-    await visibleRoot.waitFor({ state: 'visible', timeout: 5000 })
-    await visibleRoot.click()
+  if (await isVisibleMenuItem(page, 'QA')) {
     return
-  } catch (error) {
-    const rootSubMenu = page
-      .locator('.el-sub-menu')
-      .filter({ has: page.getByText('eDHR批记录', { exact: true }) })
-      .first()
-    await rootSubMenu.waitFor({ state: 'attached' })
-    const rootTitle = rootSubMenu.locator('.el-sub-menu__title').first()
-    await rootTitle.waitFor({ state: 'visible' })
-    await rootTitle.click()
   }
+  await page.getByText('eDHR批记录', { exact: true }).first().waitFor({
+    state: 'attached',
+    timeout: 60000
+  })
+  const rootSubMenus = page
+    .locator('.el-sub-menu')
+    .filter({ has: page.getByText('eDHR批记录', { exact: true }) })
+  const count = await rootSubMenus.count()
+  assert.ok(count > 0, 'eDHR root menu must exist after login')
+
+  for (let index = 0; index < count; index += 1) {
+    const rootSubMenu = rootSubMenus.nth(index)
+    const rootTitle = rootSubMenu.locator('.el-sub-menu__title').first()
+    if (!(await rootTitle.isVisible())) {
+      continue
+    }
+    await rootTitle.scrollIntoViewIfNeeded()
+    const box = await rootTitle.boundingBox()
+    assert.ok(box, 'visible eDHR root menu title must have a bounding box')
+    await rootTitle.click({ position: { x: Math.max(1, box.width - 16), y: box.height / 2 } })
+    await page.waitForTimeout(500)
+    if (!(await isVisibleMenuItem(page, 'QA'))) {
+      await rootTitle.focus()
+      await page.keyboard.press('Enter')
+      await page.waitForTimeout(500)
+    }
+    return
+  }
+  throw new Error('visible eDHR root menu title was not found')
+}
+
+async function ensureEdhrChildMenusVisible(page) {
+  await openEdhrMenu(page)
+  if (await isVisibleMenuItem(page, '批记录表单')) {
+    return
+  }
+
+  await page.goto(`${BASE_URL}/mes/pro/batch-record-form-list`, {
+    waitUntil: 'domcontentloaded'
+  })
+  await page.waitForTimeout(1000)
+  await openEdhrMenu(page)
 }
 
 async function main() {
@@ -147,9 +216,11 @@ async function main() {
   const writeRequests = []
   let captureWrites = false
 
+  let page
+
   try {
     const context = await browser.newContext({ viewport: { width: 1440, height: 960 } })
-    const page = await context.newPage()
+    page = await context.newPage()
     page.setDefaultTimeout(60000)
     page.setDefaultNavigationTimeout(60000)
 
@@ -172,7 +243,7 @@ async function main() {
     captureWrites = true
 
     await page.goto(`${BASE_URL}/index`, { waitUntil: 'domcontentloaded' })
-    await openEdhrMenu(page)
+    await ensureEdhrChildMenusVisible(page)
 
     const batchRecordForm = visibleMenuItem(page, '批记录表单')
     const qaMenu = visibleMenuItem(page, 'QA')
@@ -214,12 +285,15 @@ async function main() {
     writeResult(result)
     console.log(`PASS eDHR QA menu real E2E ${JSON.stringify(result)}`)
   } catch (error) {
+    const menuDiagnostics = page ? await collectMenuDiagnostics(page).catch(() => []) : []
     writeResult({
       ok: false,
       baseUrl: BASE_URL,
       actor: config.tenant && config.username ? `${config.tenant}/${config.username}` : 'missing-local-default-login',
       targetPath: TARGET_PATH,
+      currentUrl: page ? page.url() : undefined,
       error: error.message,
+      menuDiagnostics,
       writeRequests,
       consoleErrors,
       pageErrors

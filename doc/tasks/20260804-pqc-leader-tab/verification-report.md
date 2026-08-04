@@ -21,7 +21,7 @@
 - `PQC组长` is now a dedicated eDHR top-level tab and route.
 - `组长工作台` is locked to `PRODUCTION` and no longer displays the PQC leader pane.
 - The PQC view reuses the formal workbench with `leaderType='PQC'`, preserving the existing API and project-level item detail parsing.
-- The current workspace also contains an unrelated untracked production leader wrapper; it was not deleted or routed by this task.
+- A concurrent production-leader split touched the same area during closeout; current working-tree verification is based on the restored PQC route/tab state.
 
 ## Not Run
 
@@ -30,3 +30,7 @@
 ## Closeout Blocker
 
 - The shared workspace has unrelated dirty files and the branch is already ahead of `origin`; task-owned commit/push closeout was not performed to avoid mixing unrelated work.
+
+## Closeout Note
+
+- Concurrent commits temporarily overwrote the same files during closeout; the current working tree has been restored to the PQC split and focused contracts/type check pass. Commit/push remains pending Git closeout policy.

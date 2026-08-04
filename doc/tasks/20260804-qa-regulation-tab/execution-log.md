@@ -115,7 +115,11 @@
 - GREEN: frontend feature evidence validator -> PASS, `Frontend feature evidence is valid.`
 - REVIEW: latest UTF-8 read check for task Markdown files -> PASS.
 - REVIEW: latest `git diff --check` for QA menu source/test/task docs -> PASS.
-- BLOCKED: real local menu-click E2E preflight -> backend `48081` refused connection while frontend `8081` was healthy; no frontend-only or API-only substitute was used.
+- RETRY: real local menu-click E2E preflight initially found backend `48081` refused connection while frontend `8081` was healthy; no frontend-only or API-only substitute was used.
+- RETRY: `node IntRuoyiFronted\tests\e2e\mes-edhr-qa-menu-real.e2e.js` first exposed hidden/collapsed eDHR menu timing and expansion behavior; the E2E script was corrected to wait for menu mount, expand the visible eDHR parent with browser interactions, and verify child order before clicking `QA`.
+- GREEN: `node IntRuoyiFronted\tests\e2e\mes-edhr-qa-menu-real.e2e.js` -> PASS; actor `芋道源码/admin`, menu order `批记录表单 -> QA -> 批次执行`, target path `/mes/pro/process-pool/qa-regulation`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- EVIDENCE: `output/playwright/20260804-qa-regulation-tab/edhr-qa-menu-real-e2e.json`.
+- EVIDENCE: `output/playwright/20260804-qa-regulation-tab/edhr-qa-menu-real-e2e.png`.
 - GREEN: latest focused standalone contract rerun `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS.
 - GREEN: latest adjacent PQC static regression `E:\IntRuoyi\IntRuoyiFronted` `pnpm run e2e:role-matrix-pqc-dynamic-form:static` -> PASS.
 - GREEN: latest Vue type check `E:\IntRuoyi\IntRuoyiFronted` `pnpm run ts:check` -> PASS.
@@ -140,4 +144,3 @@
 - Worktree runtime/browser E2E was not started in `D:\IntRuoyiWorktree\2020804_qa` because `reserve-worktree-slot.ps1` reported no available `int_main` slot in range `1..19`; no random port or fallback runtime was used. Local `E:\IntRuoyi` browser E2E on fixed `int_main` ports `8081/48081` passed.
 - Commit/push closeout was not performed because the mandatory branch runtime port guard failed without a worktree registry entry. The registry entry could not be created because all `int_main` slots `1..19` are occupied.
 - `E:\IntRuoyi` remains dirty with unrelated DCC/NAS changes and branch divergence `int_main...origin/int_main [ahead 3, behind 2]`; QA changes are present in the int_main working tree, but a formal commit/push still requires resolving that broader repository state.
-- Real `芋道源码/admin` eDHR menu-click E2E is blocked until local backend `48081` is healthy; frontend `8081`, SQL/static contracts, and local DB bindings are verified, but no real login/menu click was claimed.

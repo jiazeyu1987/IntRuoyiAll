@@ -51,3 +51,22 @@
 - CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode apply` -> PASS，已删除临时 `frontend-feature-evidence.md`。
 - GIT BLOCKER: `git status --short --branch` 显示 `int_main...origin/int_main [ahead 10]` 且存在大量并行任务修改/未跟踪文件；本轮不执行 commit/push，避免将非本任务改动混入标准列表多维筛选收尾。
 - CHANGE REQUEST: 用户反馈原固定多条件栏方式不好，要求改为条件 Tab + 加减号，查询取所有已填写/激活 Tab 的交集；已记录 `docs/changes/20260804-standard-list-multi-filter-condition-tabs.md`，决策为 Accept。
+- RED: `node tests/e2e/unified-list-template-multi-filter-static.spec.js` -> FAIL, expected reason: 旧实现缺少 `table-multi-filter__tabs-row`、`el-tabs`、`addConditionTab` 和当前 Tab 字段选择器。
+- RED: `node tests/e2e/schedule-order-main-multi-filter-static.spec.js` -> FAIL, expected reason: 排产工单 wrapper 仍保留页面级 inline filter 数量特例，默认完成状态条件缺少稳定 `id`。
+- GREEN: `node tests/e2e/unified-list-template-multi-filter-static.spec.js` -> PASS，标准列表多维筛选已改为条件 Tab + 加减号，移除旧“更多筛选” popover 和 chip 摘要。
+- GREEN: `node tests/e2e/schedule-order-main-multi-filter-static.spec.js` -> PASS，排产工单页面不再传页面特例 `multiFilterMaxInlineFilters`，默认完成状态条件使用稳定 `id: 'completionFilter'`。
+- GREEN: `node tests/e2e/unified-list-template-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-schedule-order-sync-tab-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-schedule-order-replan-visible-filter-static.spec.js` -> PASS。
+- E2E PREFLIGHT: `where.exe npx` -> PASS；`http://127.0.0.1:8081/` -> HTTP 200；`http://127.0.0.1:48081/actuator/health` -> `UP`。
+- E2E PREFLIGHT: `node scripts/preflight/login-preflight.mjs ... --target-path /mes/pro/schedule-order --target-text 排产工单` -> PASS，使用本地 `.env` 默认登录来源且未记录密码。
+- GREEN: `node doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs` -> PASS；三个条件 Tab 提交为 `completionFilter=ALL`、`code=SCH-CODEX-FACTOR-20260708093210-20260710-0001`、`erpWorkOrderCode=CODEX-FACTOR-20260708093210`，重置请求清除这些参数，目标写请求数 `0`、目标 HTTP 错误数 `0`、runtime issues `0`。
+- E2E NOTE: 一个首屏 `completionFilter=INCOMPLETE` GET 被后续筛选请求 supersede 并记录为 `net::ERR_ABORTED`，单独归因，不作为目标链路失败。
+- GREEN: `pnpm ts:check:schedule` -> PASS。
+- GREEN: `node --check doc\tasks\20260804-standard-list-multi-filter\schedule-order-multi-filter-real.e2e.cjs` -> PASS。
+- GREEN: `git diff --check -- <task-owned files>` -> PASS，仅有 Git LF/CRLF 工作副本警告。
+- BLOCKED: `pnpm ts:check` -> FAIL before current task files on unrelated concurrent `BatchPqcLeaderWorkbenchPage.vue(3,26)` error: `Type '"pqcLeader"' is not assignable to type 'EdhrBatchRecordTab'`。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-standard-list-multi-filter/frontend-feature-evidence.md` -> PASS。
+- PROJECT_EXPERIENCE CLOSEOUT: 已按 `project-experience-consolidation` 规则复用 `docs/frontend-development.md#统一列表复合工具栏布局门禁`，补充条件 Tab、稳定 condition id、重复正式参数校验、交集查询和禁止页面级 `maxInlineFilters` 特例；同步更新 `docs/experience-index.md` 关键词。
+- CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode preview` -> PASS，keep 为 `task.md`、`execution-log.md`、`verification-report.md`、`frontend-feature-evidence.md`、真实 E2E 脚本和 `result.json`，delete 仅为旧失败产物 `artifacts/schedule-order-multi-filter-real/error.txt`。
+- CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode apply` -> PASS，已删除旧失败产物 `artifacts/schedule-order-multi-filter-real/error.txt`。

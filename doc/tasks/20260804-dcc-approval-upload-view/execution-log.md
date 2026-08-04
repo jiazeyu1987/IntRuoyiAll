@@ -25,6 +25,8 @@
 - Added `IntRuoyiFronted/tests/e2e/dcc-approval-upload-view-static.spec.js` and package script `e2e:dcc:approval-upload-view:static`.
 - Read `project-experience-consolidation`; existing DCC approval / same-route facet / static contract gates already cover this lesson, so no new long-term experience document was created.
 - 2026-08-04：用户后续明确要求“提交推送前后端代码”，本任务旧的 Git closeout blocker 改为按项目脏工作区基线/统一提交规则处理。
+- 2026-08-04：根据用户要求运行真实 E2E 前，修正 `IntRuoyiFronted/tests/e2e/dcc-approval-upload-view-real.e2e.js` 门禁，要求处理区不存在空任务提示且当前任务按钮可见，避免仅凭“审批要求”文案误判通过。
+- 2026-08-04：按 `project-experience-consolidation` 将“DCC 真实 E2E 必须断言当前任务按钮可见”合并到 `docs/e2e-rules.md#DCC 文控审批处理入口门禁`，未新建长期经验文档。
 
 ## RED/GREEN Evidence
 
@@ -35,7 +37,11 @@
 - `GREEN: pnpm e2e:dcc:detail-lifecycle-timeline:static -> PASS`
 - `GREEN: node tests/e2e/dcc-traceability-ux-static.spec.js -> PASS`
 - `GREEN: pnpm ts:check -> PASS`
+- `RED: previous pnpm e2e:dcc:approval-upload-view:real evidence review -> FAIL-equivalent, expected reason: loose script exited 0 while action panel showed 当前没有待处理审批任务 and no current approval buttons.`
+- `GREEN: node --check tests/e2e/dcc-approval-upload-view-real.e2e.js -> PASS`
+- `GREEN: pnpm e2e:dcc:approval-upload-view:real -> PASS, evidence E:\IntRuoyi\output\playwright\20260804-dcc-approval-upload-view\dcc-approval-upload-view-real-evidence.json, screenshot E:\IntRuoyi\output\playwright\20260804-dcc-approval-upload-view\dcc-approval-upload-view-real.png`
+- `GREEN: pnpm e2e:dcc:approval-upload-view:static -> PASS`
 
 ## Blockers
 
-- 当前无实现阻塞；提交推送按本轮用户授权的合并工作区边界执行。
+- 当前无实现或验证阻塞；本轮只执行 E2E 验证和任务证据更新，未提交/推送，工作区仍有多项无关脏改动。

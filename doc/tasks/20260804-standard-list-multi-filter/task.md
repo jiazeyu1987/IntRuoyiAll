@@ -14,7 +14,7 @@
 - [x] M4: 运行定向验证和前端特性证据校验。
 - [x] M5: 更新任务文档、验证报告和收尾状态。
 - [x] M6: 按用户指定在排产工单真实页面启用多维筛选，并完成静态合同与真实 E2E 验证。
-- [ ] M7: 按用户反馈把多维筛选改为可增删条件 Tab，并验证所有已填写 Tab 条件按交集提交。
+- [x] M7: 按用户反馈把多维筛选改为可增删条件 Tab，并验证所有已填写 Tab 条件按交集提交。
 
 ## Expected Verification
 
@@ -31,12 +31,12 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-- 排产工单真实页面 pilot 已启用多维筛选，并通过静态合同、类型检查和真实 Playwright E2E。
-- 真实 E2E 验证了 `code`、`erpWorkOrderCode`、`completionFilter` 正式 query 参数和重置清空参数，目标写请求数为 0。
-- task-closeout-cleanup preview/apply 已通过，删除临时 `frontend-feature-evidence.md`，保留真实 E2E 脚本与 `result.json`。
-- 用户已变更交互方案：改为红框区域条件 Tab + 左右加减号，查询时所有已填写/激活 Tab 条件取交集；当前正在按该方案重构。
+- 排产工单真实页面 pilot 已改为可增删条件 Tab，并通过静态合同、`ts:check:schedule` 和真实 Playwright E2E。
+- 真实 E2E 验证了默认完成状态 Tab、排产工单号 Tab、来源生产工单号 Tab 同时提交为 `completionFilter`、`code`、`erpWorkOrderCode` 正式 query 参数交集，目标写请求数为 0。
+- task-closeout-cleanup preview/apply 已在 Tab 方案复验后通过；仅删除本任务旧失败产物 `artifacts/schedule-order-multi-filter-real/error.txt`，保留本轮 `frontend-feature-evidence.md`、真实 E2E 脚本与 `result.json`。
+- 最新全量 `pnpm ts:check` 被非本任务并行改动阻塞：`src/views/mes/pro/edhr-batch/BatchPqcLeaderWorkbenchPage.vue(3,26)` 的 `pqcLeader` 类型不匹配；本轮不修改该并行任务文件。
 - Full closeout/commit/push 仍被当前仓库已有的 dirty/ahead 并行任务状态阻塞；本轮不会宽泛提交或推送，以避免混入非本任务改动。
 
 ## 设计约束检查
@@ -50,6 +50,7 @@ in_progress
 - 已读取 `docs/experience-index.md`。
 - 适用门禁：`docs/frontend-development.md#前端静态契约隔离门禁`。本任务新增专用最小静态契约先 RED 后 GREEN；当前全量 `pnpm ts:check` 已通过。
 - 已沉淀门禁：`docs/frontend-development.md#统一列表复合工具栏布局门禁`，并在 `docs/experience-index.md` 增加标准列表多维筛选、multi-filter 0 width、正式 query 透传等关键词。
+- 本轮 Tab 方案复验后已补充同一门禁：标准列表多维筛选优先采用可增删条件 Tab、稳定 condition id、重复正式参数校验和交集查询验证，禁止页面级 inline filter 数量特例。
 - 适用门禁：`docs/powershell-memory.md#共享分支并发基线提交门禁`。当前分支已有并行基线提交和未提交改动，本轮只触碰排产工单多维筛选代码、任务专用测试和本任务文档。
 - 已运行真实 Playwright 排产工单多维筛选 E2E；一个首屏 GET 因后续筛选请求被浏览器取消并记录为 `net::ERR_ABORTED`，目标 HTTP 错误数和目标写请求数均为 0。
 - 不适用门禁：真实 E2E 用户列配置与列表可见性门禁；本任务未修改表格列配置或用户列可见性。
@@ -58,3 +59,4 @@ in_progress
 
 - doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs
 - doc/tasks/20260804-standard-list-multi-filter/artifacts/schedule-order-multi-filter-real/result.json
+- doc/tasks/20260804-standard-list-multi-filter/frontend-feature-evidence.md

@@ -34,6 +34,8 @@
 - FINAL RERUN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-page-graph-tab-static.spec.js` -> PASS，修正残留的旧 `PQC组长` 页面关系图断言后通过。
 - FINAL RERUN: `workdir=IntRuoyiFronted; node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS，相邻组长工作台合同仍通过。
 - FINAL RERUN: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS，最终 Vue/TS 类型检查通过。
+- BLOCKED RERUN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js` -> FAIL，expected reason: 同一任务文件被并发恢复为旧 `PQC组长` / `BatchPqcLeaderWorkbenchPage.vue` 合同，`BatchTeamLeaderWorkbenchPage.vue` 又回到 `leader-type="PRODUCTION"`。
+- BLOCKED RERUN: `workdir=IntRuoyiFronted; pnpm ts:check` -> FAIL，expected reason: 并发恢复的 `BatchPqcLeaderWorkbenchPage.vue` 使用已移除的 `pqcLeader` tab key，导致 `Type '"pqcLeader"' is not assignable to type 'EdhrBatchRecordTab'`。
 
 ## Milestone Updates
 
@@ -48,4 +50,6 @@
 
 ## Blockers
 
-- None currently. Unrelated concurrent residual files remain in the workspace and must not be mixed into current task commits.
+- Active concurrent overwrite conflict on task-owned files: `remaining.ts`, `BatchPageGraphPage.vue`, `BatchTeamLeaderWorkbenchPage.vue`, `BatchPqcLeaderWorkbenchPage.vue`, and related static contracts were repeatedly restored to the old `PQC组长` split after repair.
+- Commit/push is blocked because the shared Git index also contains unrelated staged files from other tasks; committing now risks mixing unrelated work or hiding the active overwrite conflict.
+- Git HEAD advanced concurrently to `3f15f0539` / `af1bfb191`; `af1bfb191` includes `doc/tasks/20260804-production-leader-tab/stage-mes-process-route.patch`, a temporary index-only patch that should not remain in the project history without review.

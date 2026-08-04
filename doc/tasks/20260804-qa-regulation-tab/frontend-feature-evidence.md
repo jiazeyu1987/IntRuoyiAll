@@ -103,10 +103,9 @@
 - Static SQL and frontend menu contracts verify that eDHR dynamic menu `QA` is registered between `批记录表单` and `批次执行` and routes to the standalone page.
 - Real browser E2E was not run in `D:\IntRuoyiWorktree\2020804_qa` because runtime slot reservation failed for profile `int_main`: no available slot in range `1..19`.
 - Refreshed local `E:\IntRuoyi` browser E2E for the new source-excerpt column passed on `8081/48081`; it verified PDF page/source item/excerpt/method content, no DCC coupling terms, no backend write requests, and no browser errors.
-- Real local menu-click E2E is blocked at preflight because `http://127.0.0.1:48081/actuator/health` refused connection while frontend `8081` returned HTTP 200; no frontend-only or API-only substitute was claimed.
+- Real local menu-click E2E passed on `8081/48081`: `芋道源码/admin` saw visible menu order `批记录表单 -> QA -> 批次执行`, clicked `QA`, landed on `/mes/pro/process-pool/qa-regulation`, and produced no backend write requests or browser errors.
 
 ## Blockers and Follow-Up Skills
 
 - Formal persistence/publish API is not wired in this UI slice; the standalone page states this explicitly and does not fake backend success.
 - Worktree browser/runtime verification is blocked until an `int_main` worktree slot is released or formally assigned.
-- Local `芋道源码/admin` menu-click E2E is blocked until the shared `int_main` backend on `48081` is healthy; static contracts and local DB verification already prove the menu registration and visibility binding.

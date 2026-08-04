@@ -13,7 +13,7 @@
 - [x] 记录验证报告和剩余阻塞。
 - [x] 增加检验项目原文依据摘录，让 QA 能看到每条解析标准对应的扫描 PDF 相关原文。
 - [x] 将 QA 规程从生产/PQC 工作台内部 tab 拆为独立路由页面，并验证原工作台不再出现 `QA 规程` 内部 tab。
-- [ ] 在 eDHR 左侧动态菜单中将 `QA` 插入到 `批记录表单` 和 `批次执行` 之间，并让本机 `芋道源码/admin` 可见。
+- [x] 在 eDHR 左侧动态菜单中将 `QA` 插入到 `批记录表单` 和 `批次执行` 之间，并让本机 `芋道源码/admin` 可见。
 
 ## Expected Verification
 
@@ -62,9 +62,9 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-QA now displays through the standalone route `/mes/pro/process-pool/qa-regulation`. The eDHR dynamic left-menu item named `QA` has been added between `批记录表单` and `批次执行`, with SQL/static/local DB verification passed; real `芋道源码/admin` menu-click E2E is blocked until local backend `48081` is healthy.
+QA now displays through the standalone route `/mes/pro/process-pool/qa-regulation`. The eDHR dynamic left-menu item named `QA` is verified between `批记录表单` and `批次执行`; real `芋道源码/admin` menu-click E2E passed on local `8081/48081`. Remaining work is closeout-only because commit/push is not performed in this dirty shared workspace state.
 
 ## Design Constraints
 
@@ -127,10 +127,10 @@ QA now displays through the standalone route `/mes/pro/process-pool/qa-regulatio
 - GREEN: eDHR QA menu static route contract `node IntRuoyiFronted\tests\e2e\mes-edhr-qa-menu-static.spec.js` -> PASS.
 - GREEN: eDHR QA real E2E script syntax `node --check IntRuoyiFronted\tests\e2e\mes-edhr-qa-menu-real.e2e.js` -> PASS.
 - GREEN: local Docker MySQL verification -> `QA` menu id `900434` appears between `批记录表单` and `批次执行`; admin role bindings `3`; tenant package bindings `2`.
+- GREEN: real local `芋道源码/admin` menu-click E2E `node IntRuoyiFronted\tests\e2e\mes-edhr-qa-menu-real.e2e.js` -> PASS; menu order `批记录表单 -> QA -> 批次执行`, target `/mes/pro/process-pool/qa-regulation`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 - GREEN: database schema evidence validator -> PASS.
 - GREEN: frontend feature evidence validator -> PASS.
 - REVIEW: latest UTF-8 read and `git diff --check` checks -> PASS.
-- BLOCKED: real local `芋道源码/admin` menu-click E2E -> frontend `8081` is healthy, but backend `48081` refused connection and has no listener; unrelated backend restart/Maven processes are active, so no task-owned stop/restart was performed.
 
 ## Cleanup Keep
 

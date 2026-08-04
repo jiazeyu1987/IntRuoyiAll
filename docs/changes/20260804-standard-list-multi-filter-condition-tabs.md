@@ -38,4 +38,5 @@
 ## Blockers And Next Action
 
 - 当前共享分支仍存在并行 dirty/ahead 状态，提交/推送继续阻塞。
-- 下一步：先更新 BDD/静态合同形成 RED，再实现条件 Tab 和交集查询。
+- 已完成：BDD、静态合同 RED/GREEN、条件 Tab 实现、排产工单真实 E2E 和定向类型检查。
+- 剩余：全量 `pnpm ts:check` 当前被非本任务并行 `BatchPqcLeaderWorkbenchPage.vue` 类型错误阻塞；提交/推送继续受共享分支 dirty/ahead 状态阻塞。

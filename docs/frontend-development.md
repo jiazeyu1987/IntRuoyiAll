@@ -43,11 +43,11 @@
 ## 统一列表复合工具栏布局门禁
 
 - Trigger: 修改 `UnifiedListTemplate`、快速过滤、批量操作栏、标准列表多维筛选、`TableMultiFilter`、或把新筛选控件接入已有业务列表。
-- Preflight check: 先在真实业务列表确认快速过滤、操作栏、额外筛选和新增筛选控件的 flex/grid 关系；可折行控件必须有明确行宽、`min-width` 和静态合同覆盖，不得只在空模板或单控件示例中验证。
-- Blocker: 新控件在真实页面中被快速过滤或操作栏挤压到 `0` 宽、不可见、不可点击，或静态合同只断言组件存在但不断言布局宽度和正式 query 透传时必须停止。
-- Verification: 聚焦静态合同必须覆盖模板布局类、宽度下限、props/events 透传和正式请求参数；真实 E2E 必须打开目标业务页面，断言控件可见可操作、请求不携带临时参数、重置清空正式条件且目标写请求为 0。
-- Forbidden action: 禁止用 API-only、临时测试页、隐藏旧快速筛选、移除业务操作按钮、硬编码当前页面宽度或前端本地过滤来冒充标准列表多维筛选完成。
-- Evidence: 任务 `doc/tasks/20260804-standard-list-multi-filter/verification-report.md`，排产工单真实 E2E 暴露多维筛选在复合工具栏中被挤压为 `0` 宽，最终用模板级全行布局和静态合同锁定。
+- Preflight check: 先在真实业务列表确认快速过滤、操作栏、额外筛选和新增筛选控件的 flex/grid 关系；可折行控件必须有明确行宽、`min-width` 和静态合同覆盖，不得只在空模板或单控件示例中验证。标准列表多维筛选要优先做成可增删条件 Tab 这类通用条件集合，不要靠页面级 `maxInlineFilters`、固定字段横铺或业务页特例控制可见条件。
+- Blocker: 新控件在真实页面中被快速过滤或操作栏挤压到 `0` 宽、不可见、不可点击，静态合同只断言组件存在但不断言布局宽度和正式 query 透传，或同一个正式 query 参数可被多个条件 Tab 覆盖时必须停止。
+- Verification: 聚焦静态合同必须覆盖模板布局类、宽度下限、props/events 透传、条件 Tab 增删、稳定 condition id、重复正式参数校验和正式请求参数；真实 E2E 必须打开目标业务页面，断言控件可见可操作、多个已填写 Tab 按交集提交、请求不携带临时参数、重置清空正式条件且目标写请求为 0。
+- Forbidden action: 禁止用 API-only、临时测试页、隐藏旧快速筛选、移除业务操作按钮、硬编码当前页面宽度、页面级 inline filter 数量特例或前端本地过滤来冒充标准列表多维筛选完成。
+- Evidence: 任务 `doc/tasks/20260804-standard-list-multi-filter/verification-report.md`，排产工单真实 E2E 暴露多维筛选在复合工具栏中被挤压为 `0` 宽，最终用模板级全行布局和静态合同锁定；后续用户反馈固定条件栏复用性差，改为条件 Tab + 加减号，并用真实 E2E 证明多个 Tab 按正式 query 参数交集提交。
 
 ## 前端 LocalDateTime 响应契约门禁
 

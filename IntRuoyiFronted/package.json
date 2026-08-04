@@ -117,6 +117,7 @@
     "e2e:dcc:bpm-approval-detail-title-performance:static": "node tests/e2e/bpm-dcc-approval-detail-title-performance-static.spec.js",
     "e2e:dcc:approval-center-handling-entry:static": "node tests/e2e/dcc-approval-center-handling-entry-static.spec.js",
     "e2e:dcc:approval-upload-view:static": "node tests/e2e/dcc-approval-upload-view-static.spec.js",
+    "e2e:dcc:approval-upload-view:real": "node tests/e2e/dcc-approval-upload-view-real.e2e.js",
     "e2e:dcc:detail-approval-own-task:static": "node tests/e2e/dcc-detail-approval-own-task-without-process-query-static.spec.js",
     "e2e:dcc:detail-signature-evidence-nonblocking:static": "node tests/e2e/dcc-detail-signature-evidence-nonblocking-static.spec.js",
     "e2e:dcc:approval-task-view-mode:static": "node tests/e2e/dcc-approval-task-view-mode-static.spec.js",

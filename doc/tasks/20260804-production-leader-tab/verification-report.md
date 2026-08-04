@@ -6,6 +6,7 @@
 - PASS: `组长工作台` is locked to non-production leader content and no longer renders production leader content.
 - PASS: Existing `TeamLeaderWorkbenchPage` API/data source behavior is reused; no fallback or backend contract changes were introduced.
 - PASS: cleanup preview/apply removed only temporary feature evidence and preserved core task records.
+- BLOCKED: final stability could not be maintained because concurrent edits repeatedly restored the old `PQC组长` split in task-owned files.
 
 ## Commands
 
@@ -21,6 +22,8 @@
 - FINAL RERUN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-page-graph-tab-static.spec.js` -> PASS.
 - FINAL RERUN: `workdir=IntRuoyiFronted; node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS.
 - FINAL RERUN: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS.
+- BLOCKED RERUN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js` -> FAIL after concurrent overwrite restored old PQC split.
+- BLOCKED RERUN: `workdir=IntRuoyiFronted; pnpm ts:check` -> FAIL after concurrent overwrite restored `BatchPqcLeaderWorkbenchPage.vue` with removed `pqcLeader` tab key.
 
 ## Changed Surface
 
@@ -34,4 +37,5 @@
 ## Residual Risk
 
 - Real browser E2E was not run; targeted static contracts and `pnpm ts:check` passed for this route composition change.
-- Workspace still has unrelated concurrent residual changes outside this task; they were not part of the production leader tab implementation.
+- Workspace has active concurrent edits in this task's owned files plus unrelated staged changes in the shared Git index; do not commit or push until the concurrent writer is stopped and the production-leader split is re-applied once.
+- Git HEAD advanced during this task and now contains temporary patch file `doc/tasks/20260804-production-leader-tab/stage-mes-process-route.patch` from commit `af1bfb191`; review/remove it in the next safe Git window.

@@ -144,8 +144,8 @@ assert(
   'PQC 组长列表提交内容不得继续只展示 submittedSummary/pqcSummary 汇总。'
 )
 assert(
-  page.includes('PQC提交内容缺少正式明细'),
-  'PQC 原始逐项明细缺失时必须显式提示，不能用汇总字段冒充。'
+  page.includes('PQC提交内容缺少正式项目明细'),
+  'PQC 原始项目级明细缺失时必须显式提示，不能用汇总字段冒充。'
 )
 assert(page.includes('reviewStatus') && page.includes('reviewRemark'), '提交复核必须包含复核状态和说明。')
 for (const field of [

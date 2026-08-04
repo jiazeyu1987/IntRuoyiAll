@@ -45,10 +45,10 @@
 
 - Static SQL contract covers release metadata, fail-fast guards, menu order, route/component consistency, tenant package binding, and admin role binding.
 - Frontend static contract covers backend menu path and existing `remaining.ts` route agreement.
-- Real browser menu-click E2E script `IntRuoyiFronted/tests/e2e/mes-edhr-qa-menu-real.e2e.js` was added and passes `node --check`.
-- Runtime E2E is currently blocked because local backend `48081` is not listening and the main workspace has concurrent Maven/restart processes; no API-only or frontend-only substitute was claimed.
-- Latest preflight: frontend `8081` returned HTTP `200`, backend `48081` refused connection, and the visible menu order was verified directly in local Docker MySQL.
+- Real browser menu-click E2E script `IntRuoyiFronted/tests/e2e/mes-edhr-qa-menu-real.e2e.js` passes `node --check` and real execution.
+- Runtime E2E passed after local backend `48081` recovered: `芋道源码/admin` saw `QA` between `批记录表单` and `批次执行`, clicked it, and landed on `/mes/pro/process-pool/qa-regulation`.
+- Local Docker MySQL verification also confirms menu order and admin/tenant package bindings.
 
 ## Blockers
 
-- Local `48081` backend startup is blocked by concurrent Maven/restart activity in the shared `E:\IntRuoyi` main workspace. The task-owned restart attempt was stopped after it remained stuck in Maven compilation and no backend health endpoint became available.
+- No database blocker remains for the eDHR QA menu migration. Repository closeout is still governed by the shared worktree/commit state outside this schema slice.

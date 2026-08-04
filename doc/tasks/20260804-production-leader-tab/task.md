@@ -22,7 +22,7 @@
 
 ## Current Status
 
-completed
+blocked
 
 ## 设计约束检查
 
@@ -48,3 +48,4 @@ completed
 - PASS: `pnpm ts:check`
 - PASS: frontend feature evidence validator before cleanup.
 - PASS: task-closeout cleanup preview/apply kept `task.md`, `execution-log.md`, `verification-report.md` and deleted only temporary `frontend-feature-evidence.md`.
+- BLOCKED: final re-verification could not remain stable because concurrent edits repeatedly restored the old `PQC组长` route/page-graph/test contract in task-owned files after repair.

@@ -22,7 +22,7 @@
 
 ready_for_closeout
 
-- 实现与定向验证已完成；最终 cleanup/提交/推送受当前共享工作区既有 dirty 与 ahead 状态影响，暂未标记 completed。
+- 当前工作树已恢复为 PQC 独立页签口径并通过定向验证；最终提交/推送仍需按 Git closeout 规则处理。
 
 ## 设计约束检查
 

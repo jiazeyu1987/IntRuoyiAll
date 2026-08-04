@@ -53,6 +53,7 @@
 - GREEN: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_mes_edhr_qa_menu_sql.py -q` -> PASS, `3 passed`.
 - GREEN: `node IntRuoyiFronted\tests\e2e\mes-edhr-qa-menu-static.spec.js` -> PASS.
 - GREEN: `node --check IntRuoyiFronted\tests\e2e\mes-edhr-qa-menu-real.e2e.js` -> PASS.
+- GREEN: `node IntRuoyiFronted\tests\e2e\mes-edhr-qa-menu-real.e2e.js` -> PASS; verified `芋道源码/admin`, visible menu order `批记录表单 -> QA -> 批次执行`, route `/mes/pro/process-pool/qa-regulation`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 - GREEN: local Docker MySQL menu query -> `批记录表单 sort=0`, `QA sort=1`, `批次执行 sort=2`, `表单追溯 sort=3`, `表单日志 sort=4`; admin role bindings `3`; tenant package bindings `2`.
 - GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\20260804-qa-regulation-tab\database-schema-evidence.md` -> PASS.
 - GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260804-qa-regulation-tab\frontend-feature-evidence.md` -> PASS.
@@ -81,11 +82,10 @@
 - Worktree browser E2E was not started because the worktree could not reserve an `int_main` runtime slot. The task did not randomize ports, reuse `8081/48081` from the worktree, or claim worktree runtime verification as passed.
 - Local `E:\IntRuoyi` browser E2E before the standalone split used the fixed `int_main` runtime ports `8081/48081` and passed. It logged in through the real frontend, opened `/mes/pro/process-pool/team-leader`, clicked the former `QA 规程` tab, verified pressure-pump metadata and QA rule sections, added a local draft item, ran preview/precheck actions, confirmed the visible no-backend-write message, confirmed no DCC coupling terms in the QA panel, and observed no backend write requests.
 - Refreshed local `E:\IntRuoyi` browser E2E for `原文依据` passed and was rerun on 2026-08-04. It logs in through the real frontend, opens `/mes/pro/process-pool/qa-regulation` directly, verifies PDF page/source item/excerpt/method content for five inspection items, confirms no DCC coupling terms, and observes no backend write requests or browser errors.
-- Real local menu-click E2E for `芋道源码/admin` was not executed because preflight failed: frontend `http://127.0.0.1:8081/` returned HTTP `200`, but backend `http://127.0.0.1:48081/actuator/health` refused connection and no `48081` listener exists.
-- The running-process check found an unrelated active backend restart/Maven chain for `doc\tasks\20260804-dcc-approval-upload-view` and another MES test Maven process in `E:\IntRuoyi`; those processes were not stopped or reused.
+- Real local menu-click E2E for `芋道源码/admin` passed after `48081` recovered. It logged in through the real frontend, opened the eDHR left menu, verified visible order `批记录表单 -> QA -> 批次执行`, clicked `QA`, landed on `/mes/pro/process-pool/qa-regulation`, and observed no backend write requests or browser errors.
+- Evidence: `output/playwright/20260804-qa-regulation-tab/edhr-qa-menu-real-e2e.json` and `output/playwright/20260804-qa-regulation-tab/edhr-qa-menu-real-e2e.png`.
 
 ## Commit / Push Blocker
 
 - Commit and push were not performed because the mandatory branch runtime port guard failed before staging. Creating the required registry entry is blocked until an `int_main` slot in `1..19` is released or formally assigned.
 - `E:\IntRuoyi` also has unrelated dirty DCC/NAS changes and branch divergence from `origin/int_main`; this task is synchronized into the working tree, but not committed as an isolated merge commit.
-- Real admin menu-click E2E remains blocked until `48081` is healthy; static SQL, route contract, and local DB verification prove the implemented menu registration while avoiding frontend-only or API-only substitution.

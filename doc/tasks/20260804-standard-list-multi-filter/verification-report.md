@@ -2,10 +2,11 @@
 
 ## Summary
 
-- Implemented optional multi-dimensional filtering for the standard list template and enabled it on the real MES 排产工单 page.
-- 排产工单 pilot maps filters to formal existing query params only: `code`, `erpWorkOrderCode`, `completionFilter`, and `promiseDate`.
+- Implemented reusable condition Tab filtering for the standard list template and enabled it on the real MES 排产工单 page.
+- 排产工单 pilot maps filled Tab conditions to formal existing query params only: `completionFilter`, `code`, `erpWorkOrderCode`, and `promiseDate`.
 - Real Playwright E2E passed on `http://127.0.0.1:8081/mes/pro/schedule-order` against backend `http://127.0.0.1:48081`.
-- Cleanup preview/apply passed and removed only temporary `frontend-feature-evidence.md`.
+- The old fixed inline/more-filter design was replaced with add/remove condition Tabs; query submits the intersection of all filled Tabs.
+- Cleanup preview/apply passed after the Tab redesign; only the old failed E2E `error.txt` artifact was deleted.
 - Task remains `ready_for_closeout`; commit/push is not performed because the shared branch already has unrelated dirty/ahead concurrent changes.
 
 ## Passed
@@ -15,9 +16,9 @@
 - `node tests/e2e/unified-list-template-static.spec.js` -> PASS.
 - `node tests/e2e/mes-schedule-order-sync-tab-static.spec.js` -> PASS.
 - `node tests/e2e/mes-schedule-order-replan-visible-filter-static.spec.js` -> PASS.
-- Target SFC/TS syntax transpile check -> PASS.
 - `pnpm ts:check:schedule` -> PASS.
-- `pnpm ts:check` -> PASS.
+- `node --check doc\tasks\20260804-standard-list-multi-filter\schedule-order-multi-filter-real.e2e.cjs` -> PASS.
+- `git diff --check -- <task-owned files>` -> PASS, with Git LF/CRLF working-copy warnings only.
 - Real E2E `node doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs` -> PASS.
 
 ## E2E Evidence
@@ -32,7 +33,12 @@
 ## Design Verification
 
 - No backend contract change, no mock data, no frontend-only filtering, no storage fallback, and no swallowed exception path was introduced.
-- A real layout issue was found by E2E: multi-filter could shrink to `0` width beside the quick filter and action toolbar; fixed in the standard template CSS by giving multi-filter a full row.
+- Condition Tabs are reusable in `TableMultiFilter`; 排产工单 no longer carries page-specific inline filter count handling.
 - Existing quick filter and 排产工单 actions/table/pagination remain wired; the pilot adds multi-filter without removing the legacy quick-filter contract.
 - Reusable experience was consolidated into `docs/frontend-development.md#统一列表复合工具栏布局门禁` and indexed for future standard-list multi-filter work.
 - Same-file non-task diff exists around 同步工单 quick-filter handling; it was not authored by this task and was not included as task evidence beyond passing adjacent static/type checks.
+
+## Blockers
+
+- Latest `pnpm ts:check` is currently blocked by unrelated concurrent work in `src/views/mes/pro/edhr-batch/BatchPqcLeaderWorkbenchPage.vue(3,26)`: `Type '"pqcLeader"' is not assignable to type 'EdhrBatchRecordTab'`.
+- Full closeout commit/push remains blocked by shared branch `int_main...origin/int_main` being ahead with many unrelated dirty changes; this task did not use broad staging or push.

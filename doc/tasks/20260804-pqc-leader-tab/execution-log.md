@@ -49,3 +49,7 @@ PQC 组长的内容专门做一个页签用来显示，不再显示在组长工�
 
 - Existing workspace contains many unrelated dirty files and branch is already ahead of origin; do not mix unrelated changes into task-owned implementation.
 - Current branch remains ahead of origin and contains unrelated dirty files from concurrent work, so final task-owned commit/push and completed closeout were not performed in this turn.
+
+- RECHECK: after concurrent commits temporarily inverted the same files, restored current working tree to PQC split again; focused contracts and `pnpm ts:check` pass. Final commit/push remains pending Git closeout policy.
+
+- EXPERIENCE: project-experience-consolidation reviewed docs/experience-index.md; existing docs/frontend-development.md static-contract isolation and docs/powershell-memory.md parallel dirty-worktree gates already cover this same-file concurrent overwrite case, so no new long-term experience document was created.
