@@ -375,6 +375,7 @@ const policyEffectExecutorCodeLabels: Record<string, string> = {
   MES_ROUTE_VERSION_PUBLISH: '工艺路线版本发布',
   FORM_TEMPLATE_UPGRADE: '表单模板升版',
   FORM_TEMPLATE_OBSOLETE: '表单模板作废',
+  DCC_UPLOAD: '受控文件上传',
   DCC_PUBLISH: '受控文件发布',
   DCC_OBSOLETE: '受控文件作废',
   BATCH_RECORD_VERSION_PUBLISH: '批记录版本发布',

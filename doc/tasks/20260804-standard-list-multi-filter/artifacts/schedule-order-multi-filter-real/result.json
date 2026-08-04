@@ -1,0 +1,34 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "targetScheduleOrderCode": "SCH-CODEX-FACTOR-20260708093210-20260710-0001",
+  "targetErpWorkOrderCode": "CODEX-FACTOR-20260708093210",
+  "filteredParams": {
+    "pageNo": "1",
+    "pageSize": "20",
+    "code": "SCH-CODEX-FACTOR-20260708093210-20260710-0001",
+    "erpWorkOrderCode": "CODEX-FACTOR-20260708093210",
+    "completionFilter": "ALL"
+  },
+  "resetParams": {
+    "pageNo": "1",
+    "pageSize": "20"
+  },
+  "initialTotal": 17,
+  "filteredTotal": 1,
+  "resetTotal": 47,
+  "targetWriteRequestCount": 0,
+  "targetBadResponseCount": 0,
+  "targetAbortedRequestCount": 1,
+  "targetAbortedRequests": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/schedule-order/page?pageNo=1&pageSize=20&completionFilter=INCOMPLETE",
+      "errorText": "net::ERR_ABORTED"
+    }
+  ],
+  "runtimeIssueCount": 0
+}

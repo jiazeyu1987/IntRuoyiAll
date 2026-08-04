@@ -1,14 +1,14 @@
 # P0 生产执行主闭环真实 E2E 证据
 
 - Task ID: `20260803-p0-production-execution-loop-implementation`
-- Generated At: `2026-08-03T20:55:43.877Z`
+- Generated At: `2026-08-04T11:52:19.131Z`
 - Status: `BLOCKED`
-- Frontend: `--`
-- Backend: `--`
+- Frontend: `http://127.0.0.1:8081`
+- Backend: `http://127.0.0.1:48081`
 - Tenant: `--`
 - User: `--`
-- Run ID: `--`
-- Data Prefix: `P0-EXEC-`
+- Run ID: `int-main-20260804-rerun`
+- Data Prefix: `P0-EXEC-int-main-20260804-rerun`
 - Device Account ID: `--`
 - Batch Record Binding: report=`--`, definition=`--`, version=`--`
 - Schema Migration ID: `--`
@@ -77,9 +77,6 @@
 ## BLOCKED
 
 - E2E: `pnpm --dir IntRuoyiFronted e2e:p0-production-execution-loop:real` -> BLOCKED, 缺少真实写入型 E2E 前置条件。
-- Missing: `P0_FRONTEND_URL` - 真实前端入口，例如当前 worktree http://127.0.0.1:8092。
-- Missing: `P0_BACKEND_URL` - 真实后端入口，例如当前 worktree http://127.0.0.1:48092。
-- Missing: `P0_RUN_ID` - 本次真实 E2E 的任务数据 runId，用于生成 P0-EXEC-<runId> 数据前缀。
 - Missing: `P0_TENANT` - 可写测试租户，禁止生产或 admin 基线租户。
 - Missing: `P0_USERNAME` - 拥有一线提交、PQC、班组长复核和批记录追溯路径权限的测试账号。
 - Missing: `P0_PASSWORD` - 测试账号密码，只能通过进程环境注入。
@@ -143,5 +140,4 @@
 - Missing: `P0_BATCH_RECORD_DEFINITION_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
 - Missing: `P0_BATCH_RECORD_VERSION_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
 - Missing: `P0_RUNTIME_DB_PORT` - 必须是大于 0 的真实数字 ID，不能使用占位值。
-- Missing: `P0_FRONTEND_URL/P0_BACKEND_URL` - 前后端 URL 必须成对使用当前 worktree 8092/48092，或融合后 int_main 8081/48081。
 - Impact: 未执行写入型真实 E2E；没有用静态合同、API-only 或默认成功冒充闭环通过。

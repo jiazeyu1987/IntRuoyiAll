@@ -283,7 +283,7 @@
       />
     </ContentWrap>
 
-    <ContentWrap v-if="activeLeaderTab !== 'QA'" data-role-matrix-daily-close>
+    <ContentWrap data-role-matrix-daily-close>
       <div class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">日结待处理看板</div>
@@ -1044,6 +1044,34 @@ defineOptions({ name: 'MesProProcessPoolTeamLeaderWorkbench' })
 
 type WorkbenchLeaderTab = TeamLeaderType
 
+const queryFormRef = ref()
+const abnormalFormRef = ref()
+const activeLeaderTab = ref<WorkbenchLeaderTab>('PRODUCTION')
+const loading = ref(false)
+const detailLoading = ref(false)
+const reviewSubmitting = ref(false)
+const allocationPreviewLoading = ref(false)
+const abnormalSubmitting = ref(false)
+const maintenanceSubmitting = ref(false)
+const correctionSubmitting = ref(false)
+const detailVisible = ref(false)
+const reviewVisible = ref(false)
+const correctionVisible = ref(false)
+const loadError = ref('')
+const submissionTotal = ref(0)
+const submissionList = ref<ProcessPoolTimelineEventVO[]>([])
+const detail = ref<ProcessPoolTimelineDetailVO>()
+const reviewEvent = ref<ProcessPoolTimelineEventVO>()
+const correctionEvent = ref<ProcessPoolTimelineEventVO>()
+const activeOrderOptions = ref<TeamLeaderActiveOrderRespVO[]>([])
+const activeOrderTransferTraceRows = ref<TeamLeaderActiveOrderTransferTraceRespVO[]>([])
+const activeOrderTransferTraceLoading = ref(false)
+const activeOrderTransferTraceError = ref('')
+const allocationRows = ref<TeamLeaderReportAllocationLine[]>([])
+const configuredDefectReasonOptions = ref<
+  Array<{ reasonType: string; reasonCode: string; reasonName: string }>
+>([])
+
 const isProductionLeader = computed(() => activeLeaderTab.value === 'PRODUCTION')
 const employeeFilterLabel = computed(() =>
   activeLeaderTab.value === 'PQC' ? 'PQC检验员' : '员工'
@@ -1102,120 +1130,6 @@ const dailyCloseSummaryCards = computed(() => [
     hint: loadError.value || '当前看板数据已加载'
   }
 ])
-
-const resolveQaRulePlannedQuantity = (rule: QaInspectionTypeRule) => {
-  if (!rule.required) return 0
-  if (Number.isFinite(Number(rule.fixedQuantity)) && Number(rule.fixedQuantity) > 0) {
-    return Number(rule.fixedQuantity)
-  }
-  if (Number.isFinite(Number(rule.sampleRatio)) && Number(rule.sampleRatio) > 0) {
-    return Math.ceil((qaRegulationDraft.sampleOrderQuantity * Number(rule.sampleRatio)) / 100)
-  }
-  return 0
-}
-
-const formatQaRulePlannedQuantity = (rule: QaInspectionTypeRule) => {
-  if (!rule.required) return '不适用'
-  const quantity = resolveQaRulePlannedQuantity(rule)
-  return quantity > 0 ? `${quantity} 件` : '需补齐'
-}
-
-const qaRegulationCompletenessChecks = computed(() => {
-  const scopeReady = Boolean(
-    qaRegulationDraft.productName.trim() &&
-      qaRegulationDraft.routeVersionName.trim() &&
-      qaRegulationDraft.routeProcessName.trim()
-  )
-  const versionReady = Boolean(
-    qaRegulationDraft.regulationCode.trim() &&
-      qaRegulationDraft.regulationName.trim() &&
-      qaRegulationDraft.versionNo.trim() &&
-      qaRegulationDraft.effectiveDate
-  )
-  const ruleReady = qaInspectionTypeRules.every(
-    (rule) => !rule.required || resolveQaRulePlannedQuantity(rule) > 0
-  )
-  const itemReady =
-    qaRegulationItems.value.length > 0 &&
-    qaRegulationItems.value.every(
-      (item) =>
-        item.itemCode.trim() &&
-        item.itemName.trim() &&
-        item.applicableTypes.length > 0 &&
-        item.inspectionMethod.trim() &&
-        item.inspectionTool.trim() &&
-        item.resultType &&
-        item.standardText.trim() &&
-        item.failureRule.trim()
-    )
-  const numericLimitReady = qaRegulationItems.value.every(
-    (item) =>
-      item.resultType !== 'NUMERIC' ||
-      (Number.isFinite(Number(item.lowerLimit)) && Number.isFinite(Number(item.upperLimit)))
-  )
-  const sourceExcerptReady = qaRegulationItems.value.every(
-    (item) =>
-      Number.isFinite(Number(item.sourceOriginalPage)) &&
-      Boolean(item.sourceOriginalItem?.trim()) &&
-      Boolean(item.sourceOriginalExcerpt?.trim())
-  )
-  return [
-    {
-      key: 'scope',
-      label: '产品/路线/工序范围',
-      passed: scopeReady,
-      detail: scopeReady ? '已指定适用产品、路线版本和路线工序' : '需补齐产品、路线版本和路线工序'
-    },
-    {
-      key: 'version',
-      label: '规程版本信息',
-      passed: versionReady,
-      detail: versionReady ? '编号、名称、版本和生效日期已填写' : '需补齐编号、名称、版本或生效日期'
-    },
-    {
-      key: 'rules',
-      label: '首检/巡检/末检规则',
-      passed: ruleReady,
-      detail: ruleReady ? '适用的检验类型均有数量或比例' : '适用检验类型缺少固定数量或抽样比例'
-    },
-    {
-      key: 'items',
-      label: '检验项目字段',
-      passed: itemReady,
-      detail: itemReady ? '项目、方法、工具、标准和失败规则齐全' : '需补齐检验项目、方法、工具、标准或失败规则'
-    },
-    {
-      key: 'numeric-limits',
-      label: '数值上下限',
-      passed: numericLimitReady,
-      detail: numericLimitReady ? '数值类项目已有上下限' : '数值类项目必须填写上下限'
-    },
-    {
-      key: 'source-excerpts',
-      label: '原文依据摘录',
-      passed: sourceExcerptReady,
-      detail: sourceExcerptReady
-        ? '每个检验项目均已关联 PDF 页码和相关原文摘录'
-        : '每个检验项目都必须补齐对应 PDF 页码、原文项目和相关原文摘录'
-    }
-  ]
-})
-
-const qaPublishBlockers = computed(() =>
-  qaRegulationCompletenessChecks.value.filter((check) => !check.passed)
-)
-
-const qaPqcTaskPreviewRows = computed(() =>
-  qaInspectionTypeRules.map((rule) => ({
-    inspectionTypeText: rule.label.includes('巡检') ? '巡检' : rule.label,
-    roundText: rule.roundLabel,
-    plannedQuantityText: formatQaRulePlannedQuantity(rule),
-    regulationVersionNo: qaRegulationDraft.versionNo || '--',
-    taskIdentity: `${qaRegulationDraft.productName || '--'} / ${
-      qaRegulationDraft.routeProcessName || '--'
-    } / ${rule.key}`
-  }))
-)
 
 const queryParams = reactive<TeamLeaderSubmissionPageReqVO>({
   pageNo: 1,
@@ -1807,9 +1721,6 @@ const handleLeaderTypeChange = (value: string | number) => {
 
 const resetQuery = () => {
   const leaderType = activeLeaderTab.value
-  if (leaderType === 'QA') {
-    return
-  }
   queryFormRef.value?.resetFields()
   queryParams.pageNo = 1
   queryParams.pageSize = 10

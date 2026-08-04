@@ -13,25 +13,28 @@
 - [x] M3: 实现多维筛选类型、状态、模板入口和样式。
 - [x] M4: 运行定向验证和前端特性证据校验。
 - [x] M5: 更新任务文档、验证报告和收尾状态。
+- [x] M6: 按用户指定在排产工单真实页面启用多维筛选，并完成静态合同与真实 E2E 验证。
 
 ## Expected Verification
 
 - `node tests/e2e/unified-list-template-multi-filter-static.spec.js`
+- `node tests/e2e/schedule-order-main-multi-filter-static.spec.js`
 - `node tests/e2e/unified-list-template-static.spec.js`
+- `node tests/e2e/mes-schedule-order-sync-tab-static.spec.js`
+- `node tests/e2e/mes-schedule-order-replan-visible-filter-static.spec.js`
 - `node -e '...'` target TypeScript syntax transpile check for touched hook and SFC script blocks.
-- Real browser login/list regression on `/system/user` with target text `快速过滤`.
-- True multi-filter E2E requires an approved business page with `showMultiFilter` enabled; current source scan shows no such entry.
-- `pnpm ts:check` regression check; current run is blocked by unrelated existing QA template export errors.
+- `node doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs`
+- `pnpm ts:check:schedule`
+- `pnpm ts:check`
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-standard-list-multi-filter/frontend-feature-evidence.md`
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
-- Implementation and target static validation passed.
-- Real browser regression for an existing standard list page passed.
-- True multi-filter interaction E2E is blocked because no real business page currently enables `showMultiFilter` / `multiFilterDefinitions`.
-- Formal full closeout is also blocked by existing unrelated `pnpm ts:check` failures in `src/views/mes/qc/template/index.vue` referencing missing QA inspection regulation exports, and by the repository's pre-existing dirty/ahead state.
+- 排产工单真实页面 pilot 已启用多维筛选，并通过静态合同、类型检查和真实 Playwright E2E。
+- 真实 E2E 验证了 `code`、`erpWorkOrderCode`、`completionFilter` 正式 query 参数和重置清空参数，目标写请求数为 0。
+- Full closeout/commit/push 仍需处理当前仓库已有的 dirty/ahead 并行任务状态；本轮未执行提交以避免混入非本任务改动。
 
 ## 设计约束检查
 
@@ -42,6 +45,13 @@ blocked
 ## Experience Gate
 
 - 已读取 `docs/experience-index.md`。
-- 适用门禁：`docs/frontend-development.md#前端静态契约隔离门禁`。本任务新增专用最小静态契约先 RED 后 GREEN；全量 `pnpm ts:check` 的无关 QA 模板导出失败已记录为 blocker，未作为本任务通过证据。
-- 已运行真实 Playwright 登录前置和 `/system/user` 标准列表只读回归；不作为多维筛选交互通过证据。
+- 适用门禁：`docs/frontend-development.md#前端静态契约隔离门禁`。本任务新增专用最小静态契约先 RED 后 GREEN；当前全量 `pnpm ts:check` 已通过。
+- 已沉淀门禁：`docs/frontend-development.md#统一列表复合工具栏布局门禁`，并在 `docs/experience-index.md` 增加标准列表多维筛选、multi-filter 0 width、正式 query 透传等关键词。
+- 适用门禁：`docs/powershell-memory.md#共享分支并发基线提交门禁`。当前分支已有并行基线提交和未提交改动，本轮只触碰排产工单多维筛选代码、任务专用测试和本任务文档。
+- 已运行真实 Playwright 排产工单多维筛选 E2E；一个首屏 GET 因后续筛选请求被浏览器取消并记录为 `net::ERR_ABORTED`，目标 HTTP 错误数和目标写请求数均为 0。
 - 不适用门禁：真实 E2E 用户列配置与列表可见性门禁；本任务未修改表格列配置或用户列可见性。
+
+## Cleanup Keep
+
+- doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs
+- doc/tasks/20260804-standard-list-multi-filter/artifacts/schedule-order-multi-filter-real/result.json

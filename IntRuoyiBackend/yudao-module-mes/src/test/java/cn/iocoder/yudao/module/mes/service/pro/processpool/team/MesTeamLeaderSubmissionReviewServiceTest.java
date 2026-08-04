@@ -119,7 +119,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     @Test
     void shouldRejectDuplicateTerminalReviewForSameSubmission() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
-        when(reviewMapper.selectOne(any())).thenReturn(existingReview());
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(existingReview());
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
 
@@ -157,6 +157,9 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                 .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_REJECTED)
                 .reviewRemark("压力曲线异常，退回补正")
+                .reviewSignatureId(9102L)
+                .reviewSignatureUserId(3001L)
+                .reviewSignatureSnapshotJson("{\"signature\":\"reject\"}")
                 .build();
     }
 

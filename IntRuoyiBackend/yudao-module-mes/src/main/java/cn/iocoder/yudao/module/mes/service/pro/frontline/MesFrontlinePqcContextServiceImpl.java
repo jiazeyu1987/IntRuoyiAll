@@ -336,13 +336,13 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         if (existingPqcTaskId.isPresent()) {
             return existingPqcTaskId.get();
         }
-        MesFrontlineRouteProcessCandidate process = requireActiveOrderProcess(command.getWorkOrderId(),
-                command.getRouteId(), command.getRouteProcessId(), command.getProcessId());
-        requirePqcEmployee(command.getActualEmployeeId());
         MesPqcInspectionTaskDO task = pqcTaskMapper.selectById(command.getPqcTaskId());
         if (task != null && !PQC_TASK_STATUS_PENDING.equals(task.getTaskStatus())) {
             throw exception(PRO_FRONTLINE_PQC_TASK_STATUS_INVALID, task.getId(), task.getTaskStatus());
         }
+        MesFrontlineRouteProcessCandidate process = requireActiveOrderProcess(command.getWorkOrderId(),
+                command.getRouteId(), command.getRouteProcessId(), command.getProcessId());
+        requirePqcEmployee(command.getActualEmployeeId());
         requirePqcTaskIdentity(task, command, process);
         List<MesPqcInspectionPieceDetailDO> pieceDetails = buildPieceDetails(task.getId(), command,
                 process.inspectionItems());

@@ -18,11 +18,12 @@
 - M2 completed: 新增 `IntRuoyiFronted/tests/e2e/mes-schedule-order-admission-show-admitted-switch-static.spec.js`，覆盖 Switch UI、默认关闭、查询参数切换、重置恢复和禁止本地过滤。
 - M3 completed: `IntRuoyiFronted/src/views/mes/pro/scheduleorder/index.vue` 在同步工单 actions 区增加“显示已入池订单”开关；开关关闭时使用 `READY_TO_ADMIT`，打开时清空直接 `admissionStatus` 查询参数以纳入已入池状态；重置恢复关闭。
 - M4 completed: 定向静态契约、相邻回归和排产定向类型检查已执行。
-- M5 in_progress: 已读取 Playwright、E2E、登录、本地运行和 worktree 规则；已确认 `npx` 可用、8081 前端 HTTP 200、48081 后端 health UP，端口归属为 `E:\IntRuoyi` 的 int_main 前后端运行态。
+- M5 completed: 已使用真实 Playwright 登录本机 `芋道源码/admin`，进入 `/mes/pro/schedule-order` 的“同步工单”页签，验证显示已入池订单开关关闭、打开、再次关闭的请求参数和页面结果；全程目标写请求数为 0。
 
 ## Verification Evidence
 
 - `RED: node tests/e2e/mes-schedule-order-admission-show-admitted-switch-static.spec.js -> FAIL, expected reason: 同步工单 actions 工具栏缺少显示已入池订单开关。`
+- `RED: node tests/e2e/mes-schedule-order-admission-show-admitted-switch-static.spec.js -> FAIL, expected reason: 同步工单快速筛选仍直接调用 workOrderAdmissionQuickFilter.applyQuickFilter，工单编码筛选会删除显示已入池开关控制的 admissionStatus。`
 - `GREEN: node tests/e2e/mes-schedule-order-admission-show-admitted-switch-static.spec.js -> PASS`
 - `GREEN: node tests/e2e/mes-pro-schedule-order-admission-default-static.spec.js -> PASS`
 - `GREEN: node tests/e2e/mes-schedule-order-tab-controls-toolbar-static.spec.js -> PASS`
@@ -30,11 +31,17 @@
 - `GREEN: node tests/e2e/mes-schedule-order-admission-reason-options-static.spec.js -> PASS`
 - `GREEN: pnpm ts:check:schedule -> PASS`
 - `GREEN: python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-schedule-order-admission-visibility-switch/frontend-feature-evidence.md -> PASS`
+- `E2E RED: node doc/tasks/20260804-schedule-order-admission-visibility-switch/real-e2e-admission-switch.cjs -> FAIL, expected reason: 真实页面工单编码快速筛选请求缺少 admissionStatus=READY_TO_ADMIT，已入池样本会重新出现。`
+- `E2E ENV: node doc/tasks/20260804-schedule-order-admission-visibility-switch/real-e2e-admission-switch.cjs -> FAIL, environment reason: 48081 后端一度不可连接导致登录等待超时；确认 8081 前端 HTTP 200，恢复使用 PID 49968 的 int_main 后端后继续验证。`
+- `E2E SCRIPT RED: node doc/tasks/20260804-schedule-order-admission-visibility-switch/real-e2e-admission-switch.cjs -> FAIL, expected reason: Element Plus Switch 的 input[role="switch"] 为隐藏 input，不可直接点击；脚本改为点击可见 .el-switch 并读取 input aria-checked。`
+- `GREEN: node --check doc/tasks/20260804-schedule-order-admission-visibility-switch/real-e2e-admission-switch.cjs -> PASS`
+- `GREEN: node doc/tasks/20260804-schedule-order-admission-visibility-switch/real-e2e-admission-switch.cjs -> PASS, tenant=芋道源码 username=admin sample=RRM-20260801-PP-MO-001 initial READY_TO_ADMIT total=84, hidden READY_TO_ADMIT+workOrderCode total=0, shown admissionStatus cleared total=1, hidden again READY_TO_ADMIT+workOrderCode total=0, targetWriteCount=0, targetBadResponseCount=0, pageErrorCount=0, consoleErrorCount=0.`
 - `REGRESSION: pnpm ts:check -> FAIL, unrelated existing blocker: src/views/mes/qc/template/index.vue imports missing QaInspectionRegulationPublishedVersionVO / QaInspectionRuleVO and calls missing MesQcTemplateApi.getPublishedQaRegulationVersion.`
 - `PROCESS CHECK: Get-CimInstance ... tsconfig.schedule-relaxed / tsconfig.relaxed -> PASS, no remaining vue-tsc validation process after checks completed.`
-- `EXPERIENCE: project-experience-consolidation -> PASS, searched existing docs; current reusable lessons are already covered by docs/frontend-development.md static-contract isolation and docs/e2e-rules.md Element Plus switch display gates, so no new long-term experience document was created.`
+- `EXPERIENCE: project-experience-consolidation -> PASS, merged the reusable Element Plus Switch Playwright lesson into docs/e2e-rules.md; no new long-term experience document was created.`
 - `CLEANUP PREVIEW: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260804-schedule-order-admission-visibility-switch --mode preview -> PASS, delete only doc/tasks/20260804-schedule-order-admission-visibility-switch/frontend-feature-evidence.md.`
 - `CLEANUP APPLY: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260804-schedule-order-admission-visibility-switch --mode apply -> PASS, deleted frontend-feature-evidence.md and kept task.md/execution-log.md/verification-report.md.`
+- `RUNTIME CLEANUP: stopped task-owned duplicate backend PID 38412 after it failed to bind 48081; active 48081 listener remains PID 49968 with command line rooted at E:\IntRuoyi output runtime.`
 - `GIT STATE: git log -1 --stat -- target frontend files -> b59f5baf4 includes frontend source/test path changes in concurrent baseline commit; task closeout docs remain uncommitted because current int_main has unrelated dirty/ahead state.`
 
 ## Blockers

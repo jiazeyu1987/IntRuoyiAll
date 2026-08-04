@@ -330,8 +330,8 @@ const handleQuickFilterStateUpdate = async (state: QuickFilterState) => {
 }
 
 .unified-list-template__multi-filter {
-  flex: 1 1 720px;
-  min-width: 0;
+  flex: 1 1 100%;
+  min-width: min(720px, 100%);
 }
 
 .unified-list-template__multi-filter :deep(.el-form-item__content) {

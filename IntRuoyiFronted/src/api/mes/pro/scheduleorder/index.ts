@@ -27,6 +27,8 @@ export interface MesProScheduleOrderVO {
   progressPercent: number
   diffStatus: number
   riskStatus: number
+  blockingIssueCount?: number
+  latestBlockingIssueMessage?: string
   frozen?: boolean
   frozenTime?: string
   frozenBy?: number

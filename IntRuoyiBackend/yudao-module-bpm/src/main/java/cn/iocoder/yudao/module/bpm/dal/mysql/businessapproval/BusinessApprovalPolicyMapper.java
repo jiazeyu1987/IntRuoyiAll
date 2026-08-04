@@ -11,12 +11,21 @@ import cn.iocoder.yudao.module.bpm.dal.dataobject.businessapproval.BusinessAppro
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
+import java.util.Set;
 
 @Mapper
 public interface BusinessApprovalPolicyMapper extends BaseMapperX<BusinessApprovalPolicyDO> {
 
-    String EDHR_ROUTE_FORM_OBJECT_TYPE = "EDHR_ROUTE_FORM";
-    String MES_EDHR_ROUTE_FORM_FILL_EXECUTOR = "MES_EDHR_ROUTE_FORM_FILL";
+    Set<String> APPROVAL_SWITCH_EFFECT_EXECUTOR_CODES = Set.of(
+            "DCC_UPLOAD",
+            "DCC_PUBLISH",
+            "DCC_OBSOLETE",
+            "FORM_TEMPLATE_UPGRADE",
+            "FORM_TEMPLATE_OBSOLETE",
+            "MES_ROUTE_VERSION_PUBLISH",
+            "MES_BATCH_RECORD_VERSION_PUBLISH",
+            "EDHR_BATCH_EXECUTION_SUBMIT_REVIEW",
+            "EDHR_BATCH_VOID");
 
     String LATEST_POLICY_VERSION_ID_SQL = "SELECT MAX(latest.id) FROM bpm_business_approval_policy latest "
             + "WHERE latest.deleted = FALSE "
@@ -34,10 +43,7 @@ public interface BusinessApprovalPolicyMapper extends BaseMapperX<BusinessApprov
                 .eqIfPresent("policy_mode", reqVO.getPolicyMode())
                 .eqIfPresent("status", reqVO.getStatus());
         if (Boolean.TRUE.equals(reqVO.getApprovalSwitchScope())) {
-            queryWrapper.ne("object_type", EDHR_ROUTE_FORM_OBJECT_TYPE)
-                    .and(wrapper -> wrapper.isNull("effect_executor_code")
-                            .or()
-                            .ne("effect_executor_code", MES_EDHR_ROUTE_FORM_FILL_EXECUTOR));
+            queryWrapper.in("effect_executor_code", APPROVAL_SWITCH_EFFECT_EXECUTOR_CODES);
         }
         if (reqVO.getStatus() == null) {
             queryWrapper.inSql("id", LATEST_POLICY_VERSION_ID_SQL);

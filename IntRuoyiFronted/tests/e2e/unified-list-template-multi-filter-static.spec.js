@@ -27,6 +27,11 @@ assert.match(unifiedListTemplateSource, /@update:state="\$emit\('update:multiFil
 assert.match(unifiedListTemplateSource, /@query="\$emit\('multi-filter-query'\)"/, '标准列表模板必须透传多维度查询事件。')
 assert.match(unifiedListTemplateSource, /@reset="\$emit\('multi-filter-reset'\)"/, '标准列表模板必须透传多维度重置事件。')
 assert.match(unifiedListTemplateSource, /@remove="\$emit\('multi-filter-remove', \$event\)"/, '标准列表模板必须透传单项筛选清除事件。')
+assert.match(
+  unifiedListTemplateSource,
+  /\.unified-list-template__multi-filter\s*\{[\s\S]*flex:\s*1 1 100%;[\s\S]*min-width:\s*min\(720px,\s*100%\);/,
+  '标准列表模板必须防止多维筛选在复杂工具栏页面被压缩成 0 宽。'
+)
 
 assert.match(multiFilterComponentSource, /name:\s*'TableMultiFilter'/, '多维度筛选组件必须声明稳定组件名。')
 assert.match(multiFilterComponentSource, /<el-popover[\s\S]*更多筛选/, '多维度筛选组件必须提供更多筛选入口。')

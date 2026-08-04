@@ -8,10 +8,10 @@
 
 ## BDD Scenarios
 
-- BDD: QA 配置过程检验规程 -> Given QA 进入生产/PQC 工作台 When 打开 `QA 规程` 页签 Then 页面展示规程元数据、适用范围、首检/巡检/末检规则和检验项目配置能力。
+- BDD: QA 配置过程检验规程 -> Given QA 打开 `/mes/pro/process-pool/qa-regulation` When 独立 QA 页面加载 Then 页面展示规程元数据、适用范围、首检/巡检/末检规则和检验项目配置能力。
 - BDD: 压力泵 PDF 初始化 -> Given QA 查看压力泵过程检验规程示例 When 页面加载 Then 能看到 `PQC-IDI-001`、`B/0`、`2026-01-04`、`按压式球囊扩充压力泵组装过程检验规程` 等 PDF 来源信息。
-- BDD: QA/PQC 边界 -> Given PQC 只执行 QA 发布规则 When QA 页签展示配置能力 Then 页面不出现 DCC 文件分类、受控文件上传或文控审批语义。
-- BDD: 发布完整性检查 -> Given QA 规程尚未正式接入发布接口 When 查看页签 Then 页面提示发布前必须完成范围、项目、抽样规则、判定标准和版本冻结检查，不伪造保存成功。
+- BDD: QA/PQC 边界 -> Given PQC 只执行 QA 发布规则 When QA 独立页面展示配置能力 Then 页面不出现 DCC 文件分类、受控文件上传或文控审批语义。
+- BDD: 发布完整性检查 -> Given QA 规程尚未正式接入发布接口 When 查看独立页面 Then 页面提示发布前必须完成范围、项目、抽样规则、判定标准和版本冻结检查，不伪造保存成功。
 - BDD: 检验项目原文依据 -> Given QA 查看某条解析后的检验项目 When QA 对照判定标准 Then 页面展示该项目相关的 PDF 页码、项目名、接受标准原文摘录和检验方法原文摘录，而不是整页 OCR 或无来源说明。
 - BDD: QA 独立页面入口 -> Given QA 需要单独工作入口 When QA 打开 `QA 规程配置` Then 页面通过独立路由展示 QA 规则配置，生产/PQC 工作台内部不再存在 `QA 规程` tab。
 
@@ -44,7 +44,7 @@
 - Synchronized the latest QA task documents and worktree-memory evidence into the `E:\IntRuoyi` `int_main` working tree. Source comparison showed the QA page file matched the worktree ignoring EOL-only differences.
 - Read E2E, login, local runtime, worktree, PowerShell encoding, task closeout, Playwright, and QA evidence gates before local browser validation.
 - Ran local runtime prechecks: `8081` listening, `48081` listening, `http://127.0.0.1:8081/` returned HTTP 200, `http://127.0.0.1:48081/actuator/health` returned `UP`, and `require('playwright')` loaded Chromium.
-- Ran local Chromium E2E against `http://127.0.0.1:8081/mes/pro/process-pool/team-leader`; first attempt reached the QA tab but used a text locator for the newly added item even though the value is inside an input, so the script was corrected to assert input value.
+- Ran local Chromium E2E against `http://127.0.0.1:8081/mes/pro/process-pool/team-leader` before the standalone split; first attempt reached the former QA tab but used a text locator for the newly added item even though the value is inside an input, so the script was corrected to assert input value.
 - Captured local E2E screenshot at `doc/tasks/20260804-qa-regulation-tab/qa-regulation-live-e2e.png`.
 - For the source-excerpt request, read frontend/PDF/task/encoding gates, copied the scanned PDF to `tmp/pdfs/qa-pressure-pump/pressure-pump.pdf`, rendered pages with Poppler `pdftoppm.exe`, and visually inspected pages 2-8 because direct PDF text extraction returned zero text.
 - Identified item-specific excerpts from rendered pages: page 3 cleaning/assembly/no-pressure-drop; page 4 light-cured cover appearance/firmness; page 5 piston assembly; page 6 pump exterior/fit/no-card/firmness; page 7 air tightness negative/high/low pressure and sampling notes; page 8 judgment rule and record reference.
@@ -54,7 +54,8 @@
 - Did not run browser login/path assertions after the backend health gate failed; no mock login, API-only substitute, random port, or frontend-only success was used.
 - Rechecked local runtime on request to perform E2E again; `http://127.0.0.1:48081/actuator/health` returned `UP` and `http://127.0.0.1:8081/` returned HTTP 200.
 - Added task-owned real E2E script `IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` to verify the `原文依据` column through a real login and page path.
-- Ran the script against local `8081/48081`; it logged in with the local default `芋道源码/admin` identity, opened `/mes/pro/process-pool/team-leader`, selected `QA 规程`, verified item-level source excerpts, asserted no DCC terms in the QA panel, and asserted no backend write requests.
+- Ran the script against local `8081/48081` before the standalone split; it logged in with the local default `芋道源码/admin` identity, opened `/mes/pro/process-pool/team-leader`, selected the former `QA 规程` tab, verified item-level source excerpts, asserted no DCC terms in the QA panel, and asserted no backend write requests.
+- Updated the QA implementation to a standalone route page: `QaRegulationPage.vue` owns `data-qa-regulation-page`, `remaining.ts` registers `/mes/pro/process-pool/qa-regulation`, `TeamLeaderWorkbenchPage.vue` keeps only `生产组长` and `PQC 组长` internal tabs, and the real E2E script now opens the standalone route directly.
 
 ## Verification Evidence
 
@@ -78,7 +79,7 @@
 - GREEN: `E:\IntRuoyi` `pnpm --dir IntRuoyiFronted run ts:check` -> PASS.
 - GREEN: `E:\IntRuoyi` `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-qa-regulation-tab/frontend-feature-evidence.md` -> PASS.
 - RETRY: local Chromium E2E first run -> FAIL, expected reason: validation script looked for `QA-ITEM-06` as visible text, but the UI renders item codes as input values.
-- GREEN: local Chromium E2E on `http://127.0.0.1:8081/mes/pro/process-pool/team-leader` -> PASS, assertions covered source/scope/rules/items/completeness/PQC preview, `PQC-IDI-001`, `B/0`, `2026-01-04`, pressure-pump title, `过程检验规程`, `首检/上午巡检/下午巡检/末检`, API-not-wired blocker, local draft item value `QA-ITEM-06`, draft preview message, publish precheck message, no DCC/file-classification/controlled-file/document-control terms in the QA panel, no backend write requests, `consoleErrorCount=0`, `pageErrorCount=0`.
+- GREEN: local Chromium E2E on `http://127.0.0.1:8081/mes/pro/process-pool/team-leader` before the standalone split -> PASS, assertions covered source/scope/rules/items/completeness/PQC preview, `PQC-IDI-001`, `B/0`, `2026-01-04`, pressure-pump title, `过程检验规程`, `首检/上午巡检/下午巡检/末检`, API-not-wired blocker, local draft item value `QA-ITEM-06`, draft preview message, publish precheck message, no DCC/file-classification/controlled-file/document-control terms in the QA panel, no backend write requests, `consoleErrorCount=0`, `pageErrorCount=0`.
 - GREEN: `node IntRuoyiFronted\tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS after local browser E2E.
 - GREEN: `pnpm --dir IntRuoyiFronted run e2e:role-matrix-qa-regulation:static` -> PASS after local browser E2E.
 - RED: `node IntRuoyiFronted\tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL after extending the contract for original-source fields/UI, expected reason: QA item rows did not yet expose `data-qa-regulation-original-excerpt`, `sourceOriginalPage`, `sourceOriginalItem`, `sourceOriginalExcerpt`, and `sourceOriginalMethod`.
@@ -92,6 +93,13 @@
 - GREEN: `E:\IntRuoyi\IntRuoyiFronted` `node --check tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS.
 - GREEN: `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS; result `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 - GREEN: 2026-08-04 follow-up E2E rerun `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS; result `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- GREEN: standalone route static contract -> PASS; route `/mes/pro/process-pool/qa-regulation` loads `QaRegulationPage.vue`, and the workbench no longer contains a `QA 规程` internal tab.
+- GREEN: latest focused standalone contract rerun `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS.
+- GREEN: latest adjacent PQC static regression `E:\IntRuoyi\IntRuoyiFronted` `pnpm run e2e:role-matrix-pqc-dynamic-form:static` -> PASS.
+- GREEN: latest Vue type check `E:\IntRuoyi\IntRuoyiFronted` `pnpm run ts:check` -> PASS.
+- BLOCKED: latest broader QA regulation static regression `E:\IntRuoyi\IntRuoyiFronted` `pnpm run e2e:role-matrix-qa-regulation:static` -> FAIL in pre-existing M6 SQL fixture assertion: `M6 QA/PQC formal fixture must freeze the task-owned PQC task ids before resetting them to PENDING`.
+- RETRY: latest standalone real E2E first run `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> FAIL on login `domcontentloaded` timeout during Vite warm-up; direct HTTP and Playwright route probes then confirmed the login route loaded.
+- GREEN: latest standalone real E2E rerun `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS; opened `/mes/pro/process-pool/qa-regulation`, verified `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 - EVIDENCE: `output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.json`.
 - EVIDENCE: `output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.png`.
 

@@ -196,6 +196,15 @@
 - Forbidden action: 禁止用前端隐藏错误、空列表成功、过滤掉 legacy 已办任务、默认审批结果、或放宽所有未知状态来掩盖历史状态缺失。
 - Evidence: `doc/tasks/20260804-approval-center-done-system-exception/verification-report.md`。
 
+## 统一审批中心 DCC 已办历史快照展示门禁
+
+- Trigger: 审批中心“已办”、`viewType=DONE`、`DccApprovalTaskAdapter`、DCC 历史审批行、受控文件历史归档或软删除数据缺少 `versionNo`、`categoryId`、分类记录或其它只用于展示的历史元数据，页面显示“系统异常”。
+- Preflight check: 先区分当前 TODO/处理态必填业务数据和 DONE 历史展示快照。当前待办或可处理审批必须继续要求正式版本号、分类和业务元数据；历史 DONE 行如果正式业务已完成但展示元数据缺失，只能在上下文标签中用 `-` 表示未知展示值，并保留文件编号、节点、盖章、分发等仍可追溯字段。
+- Blocker: DCC DONE 历史行因缺少纯展示字段抛 `APPROVAL_BUSINESS_VERSION_REQUIRED` / `APPROVAL_BUSINESS_CATEGORY_REQUIRED` 导致整页失败，或为了修复 DONE 而放宽 TODO/当前审批必填校验时必须停止。
+- Verification: 后端回归覆盖历史 `DccControlledFileDO` 缺 `versionNo/categoryId` 时 DONE 摘要返回 `版本：-` 和 `分类：-`；同时复跑 `DccApprovalTaskAdapterTest` 与 `DccApprovalTaskTimelineAdapterTest`，再用真实 `/approval-center/done` E2E 验证 DONE API 成功且页面无“系统异常”。
+- Forbidden action: 禁止用 `formBindings`、默认分类、当前登录人、前端隐藏错误、空列表成功或 catch 吞异常替代正式 DCC 历史快照展示；禁止把历史展示占位扩散到当前待办必填字段。
+- Evidence: `doc/tasks/20260804-approval-center-done-system-exception/verification-report.md`。
+
 ## 统一审批中心待办聚合一致性门禁
 
 - Trigger: 审批中心“待办”、`/approval-center/tasks/page?viewType=TODO`、左侧徽标有数量但列表为空、`ApprovalCenterServiceImpl`、provider `total > 0` 但首屏 `list` 为空、页面显示“暂无审批任务”或“0 个模块”。
@@ -215,6 +224,15 @@
 - Verification: 运行 `mvn -pl yudao-module-bpm "-Dtest=BusinessApprovalPolicyAdministrationServiceTest,FormTemplateUpgradeBusinessApprovalEffectExecutorTest,FormTemplateObsoleteBusinessApprovalEffectExecutorTest" test`、`python -X utf8 -m pytest script/tests/test_form_template_upgrade_bpm_seed.py script/tests/test_form_template_obsolete_bpm_policy_seed.py`，并复验 BPM_REQUIRED orchestrator 相邻测试。
 - Forbidden action: 禁止把 DIRECT 当成降级或绕过强行拦截；禁止把 BPM_REQUIRED 静默直通、默认成功、前端隐藏错误、手工 update 单条数据或 seed 覆盖用户显式策略。
 - Evidence: `doc/tasks/20260727-form-template-approval-mode-respects-policy/verification-report.md`。
+
+### 业务审批策略默认视图必须用顶层开关白名单
+
+- Trigger: 业务审批策略列表、`approvalSwitchScope`、默认显示 102 条、可开关审批业务、文控/表单/批记录审批开关、`policyMode=BPM_REQUIRED` 过滤过窄。
+- Preflight check: 默认“可开关审批业务”视图必须按顶层业务 effect executor 正向白名单过滤，例如 DCC 上传/发布/作废、表单模板升版/作废、工艺路线版本发布、批记录版本发布、eDHR 批次提交审核和批次作废；页面的 `policyMode`、对象类型等筛选只能在该范围内继续过滤。
+- Blocker: 默认视图用 `policyMode=BPM_REQUIRED` 导致关闭审批的 `DIRECT` 策略不可见，或只排除 `EDHR_ROUTE_FORM` 等少量明细导致表单实例、路线附件、路线表单填写等明细策略仍大量出现时必须停止。
+- Verification: 后端 Mapper 回归必须同时插入顶层策略和同对象类型明细策略，断言 `approvalSwitchScope=true` 只返回白名单执行器且保留 `DIRECT`；前端静态契约必须断言默认传 `approvalSwitchScope: true` 且 `policyMode` 不默认等于 `BPM_REQUIRED`。
+- Forbidden action: 禁止用对象类型泛匹配或“排除几个噪声类型”替代顶层执行器白名单；禁止把关闭审批的 DIRECT 策略隐藏；禁止把业务策略列表误当 BPM 流程定义列表。
+- Evidence: `doc/tasks/20260804-bpm-policy-default-bpm-required/verification-report.md`。
 
 ## eDHR 放行负责人来源门禁
 

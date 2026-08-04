@@ -31,10 +31,12 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProScheduleIssueDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesKingdeeProductionMaterialListDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleIssueMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesKingdeeProductionMaterialListMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
@@ -118,6 +120,8 @@ public class MesProScheduleOrderController {
     private MesProWorkOrderService workOrderService;
     @Resource
     private MesKingdeeProductionMaterialListMapper productionMaterialListMapper;
+    @Resource
+    private MesProScheduleIssueMapper scheduleIssueMapper;
     @Resource
     private AdminUserApi adminUserApi;
 
@@ -391,6 +395,7 @@ public class MesProScheduleOrderController {
                         entry -> scheduleOrderService.calculateProcessProgressMetrics(entry.getKey(), entry.getValue())));
         Map<Long, MesProProcessDO> processDefinitionMap = processService.getProcessMap(
                 convertSet(allProcesses, MesProScheduleOrderProcessDO::getProcessId));
+        Map<Long, List<MesProScheduleIssueDO>> blockingIssueMap = buildBlockingIssueMapByWorkOrderId(list);
         return BeanUtils.toBean(list, MesProScheduleOrderRespVO.class, vo -> {
             MesMdItemDO item = vo.getProductId() == null ? null : itemMap.get(vo.getProductId());
             if (item != null) {
@@ -411,7 +416,37 @@ public class MesProScheduleOrderController {
             applyProductionMaterialListSummary(vo, materialListMap.get(vo.getWorkOrderId()));
             applyProcessProgress(vo, processMap.getOrDefault(vo.getId(), Collections.emptyList()),
                     progressMetricsByOrderId.getOrDefault(vo.getId(), Collections.emptyMap()), processDefinitionMap);
+            applyBlockingIssueSummary(vo, blockingIssueMap.get(vo.getWorkOrderId()));
         });
+    }
+
+    private Map<Long, List<MesProScheduleIssueDO>> buildBlockingIssueMapByWorkOrderId(
+            List<MesProScheduleOrderDO> list) {
+        Set<Long> workOrderIds = convertSet(list, MesProScheduleOrderDO::getWorkOrderId);
+        if (CollUtil.isEmpty(workOrderIds)) {
+            return Collections.emptyMap();
+        }
+        return scheduleIssueMapper.selectListByWorkOrderIds(workOrderIds).stream()
+                .filter(issue -> "BLOCKING".equals(issue.getSeverity()))
+                .filter(issue -> !Boolean.TRUE.equals(issue.getResolved()))
+                .filter(issue -> issue.getWorkOrderId() != null)
+                .collect(Collectors.groupingBy(MesProScheduleIssueDO::getWorkOrderId,
+                        LinkedHashMap::new, Collectors.toList()));
+    }
+
+    private void applyBlockingIssueSummary(MesProScheduleOrderRespVO vo, List<MesProScheduleIssueDO> issues) {
+        if (CollUtil.isEmpty(issues)) {
+            vo.setBlockingIssueCount(0);
+            vo.setLatestBlockingIssueMessage(null);
+            return;
+        }
+        vo.setBlockingIssueCount(issues.size());
+        vo.setLatestBlockingIssueMessage(issues.stream()
+                .max(Comparator.comparing(MesProScheduleIssueDO::getId,
+                        Comparator.nullsLast(Long::compareTo)))
+                .map(MesProScheduleIssueDO::getMessage)
+                .filter(message -> message != null && !message.isBlank())
+                .orElse("存在阻断问题"));
     }
 
     private Map<Long, List<MesKingdeeProductionMaterialListDO>> buildMaterialListMapByWorkOrderId(

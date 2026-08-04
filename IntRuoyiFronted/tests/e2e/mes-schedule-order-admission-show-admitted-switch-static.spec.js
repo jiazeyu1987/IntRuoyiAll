@@ -25,6 +25,16 @@ assert.match(
   '同步工单 actions 工具栏必须在重置和入池按钮旁渲染显示已入池订单开关。'
 )
 assert.match(
+  admissionTabSource,
+  /@quick-filter-query="applyWorkOrderAdmissionQuickFilter"/,
+  '同步工单快速筛选必须经过本页处理器，避免共享快速筛选清掉显示已入池订单开关控制的 admissionStatus。'
+)
+assert.doesNotMatch(
+  admissionTabSource,
+  /@quick-filter-query="workOrderAdmissionQuickFilter\.applyQuickFilter"/,
+  '同步工单快速筛选不得直接调用共享 hook，否则筛选工单编码时会删除默认隐藏已入池订单的 admissionStatus。'
+)
+assert.match(
   source,
   /const workOrderAdmissionShowAdmitted = ref\(false\)/,
   '显示已入池订单开关必须默认关闭，默认隐藏已入池订单。'
@@ -38,6 +48,21 @@ assert.match(
   source,
   /const handleWorkOrderAdmissionShowAdmittedChange = \(\) => \{[\s\S]*workOrderAdmissionQueryParams\.admissionStatus = resolveWorkOrderAdmissionStatus\(\)[\s\S]*handleWorkOrderAdmissionQuery\(\)[\s\S]*\}/,
   '切换显示已入池订单时必须更新查询参数并重新查询第一页。'
+)
+assert.match(
+  source,
+  /const reloadWorkOrderAdmissionQuickFilter = async \(\) => \{[\s\S]*workOrderAdmissionQueryParams\.admissionStatus = resolveWorkOrderAdmissionStatus\(\)[\s\S]*await getWorkOrderAdmissionList\(\)[\s\S]*\}/,
+  '同步工单快速筛选 reload 前必须重新套用显示已入池订单开关状态，保证工单编码筛选仍默认隐藏已入池订单。'
+)
+assert.match(
+  source,
+  /const workOrderAdmissionQuickFilter = useTableQuickFilter\([\s\S]*workOrderAdmissionQuickFilterDefinitions,[\s\S]*workOrderAdmissionQueryParams,[\s\S]*reloadWorkOrderAdmissionQuickFilter[\s\S]*\)/,
+  '同步工单快速筛选 hook 必须使用本页 reload 包装器，而不是直接请求列表。'
+)
+assert.match(
+  source,
+  /const applyWorkOrderAdmissionQuickFilter = async \(\) => \{[\s\S]*await workOrderAdmissionQuickFilter\.applyQuickFilter\(\)[\s\S]*\}/,
+  '同步工单快速筛选入口必须显式调用本页处理器，便于锁定开关状态与请求参数的一致性。'
 )
 assert.match(
   source,

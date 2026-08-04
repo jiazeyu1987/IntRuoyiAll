@@ -9,6 +9,9 @@
 - BDD: 多条件筛选配置渲染 -> Given 页面提供多个筛选定义 / When 用户打开标准列表模板 / Then 模板按配置渲染默认可见筛选项和更多筛选入口，不要求页面手写额外筛选布局。
 - BDD: 多条件筛选参数提交 -> Given 用户同时设置文本、下拉和日期范围筛选 / When 点击查询 / Then 前端只提交正式配置映射出的 query params，并将 `pageNo` 重置为 1。
 - BDD: 多条件筛选重置 -> Given 用户已经设置多个筛选条件 / When 点击重置或清除条件 / Then 前端清空所有配置驱动筛选参数并重新加载第一页。
+- BDD: 排产工单真实页启用多维筛选 -> Given 用户打开 MES 排产工单页面 / When 排产工单主列表渲染 / Then 标准列表模板显示多维筛选控件，并保留原动作栏、表格插槽和分页能力。
+- BDD: 排产工单多维筛选提交正式参数 -> Given 用户在排产工单主列表同时填写排产工单号、来源生产工单号和完成筛选 / When 点击多维筛选查询 / Then 列表请求携带正式 `code`、`erpWorkOrderCode`、`completionFilter` 参数且不发送临时 `multiFilters` 参数。
+- BDD: 排产工单多维筛选重置 -> Given 排产工单主列表已有多个多维筛选条件 / When 用户点击多维筛选重置 / Then 页面清除筛选条件、回到第一页并通过真实列表接口重新加载。
 
 ## Command And Evidence Log
 
@@ -27,3 +30,18 @@
 - E2E PREFLIGHT: `8081` 由 `E:\IntRuoyi\IntRuoyiFronted` Vite 进程监听，`48081` 由 `E:\IntRuoyi\output\runtime\int_main` Java 进程监听；前端 HTTP 200，后端 health `UP`。
 - E2E REGRESSION: `node scripts/preflight/login-preflight.mjs --base-url http://127.0.0.1:8081 --target-path /system/user --target-text 快速过滤 ...` -> PASS，使用本地 `.env` 默认登录来源且未记录密码；标准列表真实页面可登录并显示快速过滤。
 - E2E BLOCKED: `rg -n "showMultiFilter|multiFilterDefinitions|useTableMultiFilter|TableMultiFilter" IntRuoyiFronted/src IntRuoyiFronted/tests/e2e` 只命中模板、hook、组件和静态契约；当前没有任何真实业务页面传入 `showMultiFilter` / `multiFilterDefinitions`。按缺入口门禁，不能用静态合同、API-only 或临时测试控件冒充多维筛选真实 E2E 通过。
+- GIT NOTE: 本任务源码文件已被并发基线提交纳入：`71177c0a5` 包含 `TableMultiFilter`、`MultiFilterField`、`useTableMultiFilter` 和 `UnifiedListTemplate` 改动；`b59f5baf4` 包含 `unified-list-template-multi-filter-static.spec.js`。当前工作区仅剩本任务 E2E 证据文档未提交。
+- USER DECISION: 用户指定“排产工单”页面作为多维筛选真实业务页面 pilot，解除此前“无真实启用页”的 E2E 阻塞。
+- PREFLIGHT: 适用经验门禁新增 `docs/powershell-memory.md#共享分支并发基线提交门禁`；本轮只修改排产工单多维筛选、任务专用静态合同和本任务文档，不混入并行任务改动。
+- RED: `node tests/e2e/schedule-order-main-multi-filter-static.spec.js` -> FAIL, expected reason: 排产工单主列表包装组件缺少多维筛选正式类型和模板透传。
+- GREEN: `node tests/e2e/schedule-order-main-multi-filter-static.spec.js` -> PASS，排产工单主列表已开启多维筛选并映射正式 query params。
+- RED: `node doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs` -> FAIL, expected reason: 真实页面中 multi-filter 被快速筛选和操作栏挤压成 `0` 宽不可见。
+- GREEN: 修复 `UnifiedListTemplate` 多维筛选布局后，`node tests/e2e/unified-list-template-multi-filter-static.spec.js` -> PASS，静态合同锁定 multi-filter 不再允许 `0` 宽回归。
+- GREEN: `node tests/e2e/unified-list-template-static.spec.js`、`node tests/e2e/mes-schedule-order-sync-tab-static.spec.js`、`node tests/e2e/mes-schedule-order-replan-visible-filter-static.spec.js` -> PASS。
+- GREEN: target SFC/TS syntax transpile check -> PASS。
+- GREEN: `pnpm ts:check:schedule` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `node doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs` -> PASS；筛选请求含 `code`、`erpWorkOrderCode`、`completionFilter=ALL`，重置请求清除这些参数，目标写请求数 `0`、目标 HTTP 错误数 `0`、runtime issues `0`。
+- E2E NOTE: 一个首屏 `completionFilter=INCOMPLETE` GET 被后续请求 supersede 并记录为 `net::ERR_ABORTED`，单独归因，不作为目标链路失败。
+- GIT NOTE: `IntRuoyiFronted/src/views/mes/pro/scheduleorder/index.vue` 中另有同文件非本任务 diff（同步工单 quick-filter handler），未作为本任务改动或验收结论。
+- PROJECT_EXPERIENCE CLOSEOUT: 已按 `project-experience-consolidation` 规则把真实 E2E 暴露的 multi-filter `0` 宽复合工具栏布局问题沉淀到 `docs/frontend-development.md#统一列表复合工具栏布局门禁`，并更新 `docs/experience-index.md` 关键词。

@@ -6,7 +6,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Milestones
 
@@ -14,7 +14,7 @@ in_progress
 - [x] M2：补充 RED 静态契约，锁定同步工单页签必须存在已入池显示开关及查询参数绑定。
 - [x] M3：实现最小前端开关、请求参数和重置逻辑，不改后端契约、不引入 fallback。
 - [x] M4：运行定向验证与证据校验，记录 GREEN/REGRESSION 结果。
-- [ ] M5：执行真实 Playwright E2E，验证页面开关显示/隐藏已入池订单链路。
+- [x] M5：执行真实 Playwright E2E，验证页面开关显示/隐藏已入池订单链路。
 
 ## Expected Verification
 
@@ -40,17 +40,24 @@ in_progress
 ## Experience Gate
 
 - `前端静态契约隔离门禁`：本任务新增专用最小静态契约，只验证同步工单已入池显示开关，不修改历史大契约来绕过旧失败。
-- `Element Plus 选择框显示门禁`：Switch 文案必须完整可见，不把主标签和状态提示挤入会裁切的窄列。
+- `Element Plus 选择框显示门禁`：Switch 文案必须完整可见，不把主标签和状态提示挤入会裁切的窄列；真实 E2E 点击 Element Plus Switch 时点击可见外壳，状态读取隐藏 input 的 `aria-checked`。
 - `E2E 脚本入口存在性门禁`：本任务仅声明静态契约验证；不把静态测试冒充真实 Playwright 用户路径。
 
 ## Verification Result
 
 - RED：`node tests/e2e/mes-schedule-order-admission-show-admitted-switch-static.spec.js` 先失败于同步工单 actions 工具栏缺少“显示已入池订单”开关。
-- GREEN：专用静态契约通过，确认 Switch、默认关闭、查询参数切换、重置恢复和禁止本地过滤。
+- RED：真实 E2E 发现同步工单快速筛选工单编码时会清掉 `admissionStatus=READY_TO_ADMIT`；已补静态契约锁定本页快速筛选 reload 包装器。
+- GREEN：专用静态契约通过，确认 Switch、默认关闭、查询参数切换、快速筛选保留开关状态、重置恢复和禁止本地过滤。
 - REGRESSION：相邻同步工单默认状态、工具栏布局、批量入池和原因选项静态契约通过。
 - TYPECHECK：`pnpm ts:check:schedule` 通过；全量 `pnpm ts:check` 被无关 `src/views/mes/qc/template/index.vue` 导出缺失阻塞。
+- REAL E2E：`node doc/tasks/20260804-schedule-order-admission-visibility-switch/real-e2e-admission-switch.cjs` 通过；样本工单 `RRM-20260801-PP-MO-001` 在关闭开关时 `READY_TO_ADMIT` 查询 total=0，打开开关时无 `admissionStatus` 且 total=1，再次关闭后 total=0；`targetWriteCount=0`、页面错误和目标异常响应均为 0。
 - EVIDENCE：`frontend-feature-delivery` evidence validator 通过；RED/GREEN 摘要已复制到 `execution-log.md` 和 `verification-report.md`，允许 cleanup 删除临时 evidence 文件。
-- CLEANUP：`task-closeout-cleanup` preview/apply 通过，仅删除本任务临时 `frontend-feature-evidence.md`，保留 `task.md`、`execution-log.md` 和 `verification-report.md`。
+- CLEANUP：`task-closeout-cleanup` preview/apply 曾通过并删除本任务临时 `frontend-feature-evidence.md`；本轮 E2E 脚本和结果作为真实 E2E 证据保留。
+
+## Cleanup Keep
+
+- doc/tasks/20260804-schedule-order-admission-visibility-switch/real-e2e-admission-switch.cjs
+- doc/tasks/20260804-schedule-order-admission-visibility-switch/real-e2e-admission-switch-result.json
 
 ## Remaining Closeout Blockers
 

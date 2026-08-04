@@ -87,6 +87,12 @@ public class MesProScheduleOrderRespVO {
     @Schema(description = "风险状态", example = "0")
     private Integer riskStatus;
 
+    @Schema(description = "未解决阻断问题数量", example = "1")
+    private Integer blockingIssueCount;
+
+    @Schema(description = "最新阻断原因", example = "工单未配置工艺路线")
+    private String latestBlockingIssueMessage;
+
     @Schema(description = "是否冻结", example = "false")
     private Boolean frozen;
 

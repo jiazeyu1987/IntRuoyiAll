@@ -40,6 +40,15 @@
 - Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
 - Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。
 
+## 统一列表复合工具栏布局门禁
+
+- Trigger: 修改 `UnifiedListTemplate`、快速过滤、批量操作栏、标准列表多维筛选、`TableMultiFilter`、或把新筛选控件接入已有业务列表。
+- Preflight check: 先在真实业务列表确认快速过滤、操作栏、额外筛选和新增筛选控件的 flex/grid 关系；可折行控件必须有明确行宽、`min-width` 和静态合同覆盖，不得只在空模板或单控件示例中验证。
+- Blocker: 新控件在真实页面中被快速过滤或操作栏挤压到 `0` 宽、不可见、不可点击，或静态合同只断言组件存在但不断言布局宽度和正式 query 透传时必须停止。
+- Verification: 聚焦静态合同必须覆盖模板布局类、宽度下限、props/events 透传和正式请求参数；真实 E2E 必须打开目标业务页面，断言控件可见可操作、请求不携带临时参数、重置清空正式条件且目标写请求为 0。
+- Forbidden action: 禁止用 API-only、临时测试页、隐藏旧快速筛选、移除业务操作按钮、硬编码当前页面宽度或前端本地过滤来冒充标准列表多维筛选完成。
+- Evidence: 任务 `doc/tasks/20260804-standard-list-multi-filter/verification-report.md`，排产工单真实 E2E 暴露多维筛选在复合工具栏中被挤压为 `0` 宽，最终用模板级全行布局和静态合同锁定。
+
 ## 前端 LocalDateTime 响应契约门禁
 
 - Trigger: 前端 API wrapper、静态合同或页面报 `DCC response field has invalid type`、`cleanupTime`、`expireTime`、后端响应 VO 使用 `LocalDateTime`，或涉及 `TimestampLocalDateTimeSerializer`。

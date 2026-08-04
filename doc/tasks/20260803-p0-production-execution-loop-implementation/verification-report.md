@@ -739,3 +739,36 @@ Continuation update: M6 real E2E result target request 边界封闭门禁已 RED
 | User authorization | RECORDED | 用户明确授权本次“不用 pass，直接融合 int_main，在 int_main 里进行 E2E 测试”。 |
 | Completion gate before fusion | BLOCKED | 最新 `verify_p0_completion_gate.py --task-dir doc\tasks\20260803-p0-production-execution-loop-implementation` 仍 BLOCKED；本次授权仅允许先合入后测，不代表 P0 验收 PASS。 |
 | Main workspace state | BLOCKED-RISK | `E:\IntRuoyi` 当前为 `int_main...origin/int_main [ahead 10]`，且存在 BPM、QA regulation、前端 `package.json` 和任务文档等未提交改动；融合前必须保护主线脏改动边界。 |
+
+## int_main Fusion And E2E Attempt
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| P0 commit contained in int_main | PASS | `git branch --contains ff6768ca1606a62b7c967ad5678adc9a01d252c0` includes `* int_main`; `.git\MERGE_HEAD` is absent, so no merge state remains open. |
+| int_main local runtime availability | PASS | `127.0.0.1:8081` and `127.0.0.1:48081` both listened; frontend HTTP returned `200`; backend `/actuator/health` returned `UP`. |
+| P0 frontend static contract on int_main | PASS | `pnpm e2e:p0-production-execution-loop:static` PASS in `E:\IntRuoyi\IntRuoyiFronted`. |
+| P0 real E2E on int_main ports | BLOCKED | `P0_FRONTEND_URL=http://127.0.0.1:8081 P0_BACKEND_URL=http://127.0.0.1:48081 P0_RUN_ID=int-main-20260804 pnpm e2e:p0-production-execution-loop:real` exited through pnpm lifecycle with inner Node exit `2`; evidence refreshed with the int_main URLs and run ID but no browser write path. |
+| Missing formal E2E prerequisites | BLOCKED | Latest `p0-real-e2e-evidence.md` requires real writable tenant/account/password, task-owned work order, device account/device/workstation, signatures, submit/PQC/confirm idempotency keys, PQC/QA inputs, batch-record report/definition/version, schema migration ID, migration policy evidence, and `P0_RUNTIME_DB_*`. |
+| Completion gate after int_main E2E attempt | BLOCKED | `verify_p0_tdd_evidence_gate.py` PASS; `verify_p0_completion_gate.py` remains BLOCKED with `P0_COMPLETION_REAL_E2E_NOT_PASS`, formal E2E metadata gaps, closure evidence gaps, and `P0_RUNTIME_ENV_MISSING`. |
+
+## Additional Not Yet Verified - int_main Real E2E
+
+- 未执行写入型真实页面闭环；目标请求 `FRONTLINE_SUBMIT_ENDPOINT`、`PQC_SUBMIT_ENDPOINT`、`TEAM_LEADER_REVIEW_ENDPOINT`、`TEAM_LEADER_ALLOCATION_CONFIRM_ENDPOINT` 和 `PRODUCTION_EXECUTION_TRACE_ENDPOINT` 均未命中。
+- 后续必须先补齐正式 E2E 环境变量和运行态迁移/历史修复证据，再复跑 real E2E 和 completion gate；当前不得标记 `ready_for_closeout` 或 `completed`。
+
+## int_main Main-Port E2E Rerun
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| int_main runtime ownership | PASS | `8081` 属于 `E:\IntRuoyi\IntRuoyiFronted` Vite，`48081` 属于 `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260804-approval-done-e2e-category.jar`；前端 HTTP `200`，后端 health `UP`。 |
+| P0 frontend static contract | PASS | `pnpm e2e:p0-production-execution-loop:static` PASS in `E:\IntRuoyi\IntRuoyiFronted`。 |
+| P0 TDD evidence gate | PASS | `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_tdd_evidence_gate.py --task-dir doc\tasks\20260803-p0-production-execution-loop-implementation` PASS，M2 replay RED 已解除 TDD evidence gap。 |
+| P0 real E2E rerun | BLOCKED | `P0_FRONTEND_URL=http://127.0.0.1:8081 P0_BACKEND_URL=http://127.0.0.1:48081 P0_RUN_ID=int-main-20260804-rerun pnpm e2e:p0-production-execution-loop:real` exited through pnpm lifecycle with inner Node exit `2`。 |
+| P0 rerun evidence freshness | BLOCKED | `p0-real-e2e-evidence.md` refreshed with `Generated At=2026-08-04T11:52:19.131Z`, `Run ID=int-main-20260804-rerun`, `Data Prefix=P0-EXEC-int-main-20260804-rerun`, `Frontend=http://127.0.0.1:8081`, `Backend=http://127.0.0.1:48081`。 |
+| P0 target requests | BLOCKED | Browser path did not start: `Browser Preflight=--`, `Route Preflight Steps=0`, and all five target requests remain `Hit=false` with no URL/method/status/business-code evidence. |
+| P0 completion gate after rerun | BLOCKED | `verify_p0_completion_gate.py --task-dir doc\tasks\20260803-p0-production-execution-loop-implementation` remains BLOCKED with task status, real E2E, formal metadata, closure evidence, and runtime DB env blockers. |
+
+## Additional Not Yet Verified - int_main Rerun
+
+- 未证明真实浏览器写入闭环；当前阻塞是正式 E2E 输入、运行态迁移/历史修复证据和 `P0_RUNTIME_DB_*` 缺失，不是静态合同或脚本入口缺失。
+- 后续必须先补齐可写测试租户/账号、任务自有工单、设备/工作站/签名/PQC/批记录绑定、schema migration、migration policy PASS evidence、运行库只读 DB env，以及授权 backfill manifest / 备份 / 回滚 / dry-run 证据，再复跑真实 E2E 与 completion gate。

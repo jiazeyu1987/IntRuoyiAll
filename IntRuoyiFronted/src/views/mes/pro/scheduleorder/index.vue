@@ -17,6 +17,11 @@
         :quick-filter-state="scheduleOrderQuickFilter.state"
         :selected-filter-definition="scheduleOrderQuickFilter.selectedDefinition.value"
         :operator-options="scheduleOrderQuickFilter.operatorOptions.value"
+        :show-multi-filter="true"
+        :multi-filter-definitions="scheduleOrderMultiFilterDefinitions"
+        :multi-filter-state="scheduleOrderMultiFilter.state"
+        :show-multi-filter-operators="false"
+        :multi-filter-max-inline-filters="3"
         :columns="scheduleOrderColumns"
         :column-saving="scheduleOrderColumnSaving"
         :total="scheduleOrderTotal"
@@ -24,6 +29,10 @@
         @update:limit="scheduleOrderQueryParams.pageSize = $event"
         @update:quick-filter-state="scheduleOrderQuickFilter.updateState"
         @quick-filter-query="scheduleOrderQuickFilter.applyQuickFilter"
+        @update:multi-filter-state="scheduleOrderMultiFilter.updateState"
+        @multi-filter-query="scheduleOrderMultiFilter.applyMultiFilter"
+        @multi-filter-reset="scheduleOrderMultiFilter.resetMultiFilter"
+        @multi-filter-remove="scheduleOrderMultiFilter.removeCondition"
         @column-change="saveScheduleOrderColumnConfig"
         @column-reset="resetScheduleOrderColumnConfig"
         @pagination="getScheduleOrderList"
@@ -118,16 +127,28 @@
           v-bind="sortColumnAttrs('erpWorkOrderCode')"
         >
           <template #default="{ row }">
-            <el-button
-              v-if="row.erpWorkOrderCode"
-              link
-              type="primary"
-              class="schedule-order-pool__inline-link"
-              @click="openWorkOrder(row)"
-            >
-              {{ row.erpWorkOrderCode }}
-            </el-button>
-            <span v-else>--</span>
+            <div class="schedule-order-pool__work-order-ref">
+              <el-button
+                v-if="row.erpWorkOrderCode"
+                link
+                type="primary"
+                class="schedule-order-pool__inline-link"
+                @click="openWorkOrder(row)"
+              >
+                {{ row.erpWorkOrderCode }}
+              </el-button>
+              <span v-else>--</span>
+              <el-tooltip
+                v-if="Number(row.blockingIssueCount || 0) > 0"
+                effect="dark"
+                placement="top"
+                :content="row.latestBlockingIssueMessage || '存在阻断问题'"
+              >
+                <span class="schedule-order-pool__blocking-reason">
+                  阻断：{{ row.latestBlockingIssueMessage || '存在阻断问题' }}
+                </span>
+              </el-tooltip>
+            </div>
           </template>
         </el-table-column>
         <el-table-column
@@ -377,7 +398,7 @@
               v-model:page="workOrderAdmissionQueryParams.pageNo"
               v-model:limit="workOrderAdmissionQueryParams.pageSize"
               @update:quick-filter-state="workOrderAdmissionQuickFilter.updateState"
-              @quick-filter-query="workOrderAdmissionQuickFilter.applyQuickFilter"
+              @quick-filter-query="applyWorkOrderAdmissionQuickFilter"
               @column-change="saveWorkOrderAdmissionColumnConfig"
               @column-reset="resetWorkOrderAdmissionColumnConfig"
               @pagination="getWorkOrderAdmissionList"
@@ -1434,7 +1455,7 @@
           <template #title>
             <div class="schedule-order-pool__capacity-alert">
               <span>
-                排产前检查是只读诊断；手动重排会生成变更预览，无阻断才直接应用重排。应用前会再次校验阻断问题，成功后正式排程立即更新。
+                排产前检查是只读诊断；手动重排会生成变更预览。可归因到工单的阻断会跳过该工单，其余可排工单继续应用；全局阻断仍会停止应用。
               </span>
               <span>{{ runtimeCapacityBasisDifferenceText }}</span>
             </div>
@@ -1518,8 +1539,12 @@
           />
           <el-alert
             v-if="preflightHasBlockedIssue"
-            title="存在阻断问题，不能应用重排。"
-            type="error"
+            :title="
+              preflightHasGlobalBlockedIssue
+                ? '存在无法归因到工单的阻断问题，不能应用重排。'
+                : '存在部分工单阻断；应用时将跳过问题工单，其余可排工单可继续重排。'
+            "
+            :type="preflightHasGlobalBlockedIssue ? 'error' : 'warning'"
             :closable="false"
             show-icon
           />
@@ -1613,8 +1638,12 @@
         />
         <el-alert
           v-if="replanPreviewHasBlockedIssue"
-          title="重排预览存在阻断问题，请先处理下方问题列表后再应用重排。"
-          type="error"
+          :title="
+            replanPreviewHasGlobalBlockedIssue
+              ? '重排预览存在无法归因到工单的阻断问题，不能应用重排。'
+              : '重排预览存在部分工单阻断；确认后将仅应用其余可排工单。'
+          "
+          :type="replanPreviewHasGlobalBlockedIssue ? 'error' : 'warning'"
           :closable="false"
           show-icon
         />
@@ -1804,6 +1833,10 @@ import {
   type TableQuickFilterDefinition,
   type TableQuickFilterValue
 } from '@/hooks/web/useTableQuickFilter'
+import {
+  useTableMultiFilter,
+  type ListMultiFilterDefinition
+} from '@/hooks/web/useTableMultiFilter'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import BaseScheduleOrderMainList from './components/ScheduleOrderMainList.vue'
 import ScheduleOrderProcessDetail from './components/ScheduleOrderProcessDetail.vue'
@@ -2052,6 +2085,11 @@ const scheduleOrderQueryParams = reactive({
   promiseDate: undefined as string[] | undefined,
   quickFilter: undefined as any
 })
+const scheduleOrderCompletionFilterOptions = [
+  { label: '未完成', value: 'INCOMPLETE' },
+  { label: '全部', value: 'ALL' },
+  { label: '已完成', value: 'COMPLETED' }
+]
 const scheduleOrderQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   { key: 'code', label: '排产工单号', type: 'text', placeholder: '请输入排产工单号' },
   {
@@ -2059,16 +2097,45 @@ const scheduleOrderQuickFilterDefinitions: TableQuickFilterDefinition[] = [
     label: '完成筛选',
     type: 'select',
     queryParamKey: 'completionFilter',
-    options: [
-      { label: '未完成', value: 'INCOMPLETE' },
-      { label: '全部', value: 'ALL' },
-      { label: '已完成', value: 'COMPLETED' }
-    ]
+    options: scheduleOrderCompletionFilterOptions
   },
   { key: 'erpWorkOrderCode', label: '来源生产工单号', type: 'text', placeholder: '请输入来源生产工单号' },
   { key: 'productName', label: '产品名称', type: 'text', placeholder: '请输入产品名称' },
   { key: 'productSpecification', label: '规格型号', type: 'text', placeholder: '请输入规格型号' },
   { key: 'promiseDate', label: '承诺交期', type: 'dateRange' }
+]
+const scheduleOrderMultiFilterDefinitions: ListMultiFilterDefinition[] = [
+  {
+    key: 'code',
+    label: '排产工单号',
+    type: 'text',
+    queryParamKey: 'code',
+    placeholder: '请输入排产工单号',
+    defaultVisible: true
+  },
+  {
+    key: 'erpWorkOrderCode',
+    label: '来源生产工单号',
+    type: 'text',
+    queryParamKey: 'erpWorkOrderCode',
+    placeholder: '请输入来源生产工单号',
+    defaultVisible: true
+  },
+  {
+    key: 'completionFilter',
+    label: '完成筛选',
+    type: 'select',
+    queryParamKey: 'completionFilter',
+    options: scheduleOrderCompletionFilterOptions,
+    defaultVisible: true
+  },
+  {
+    key: 'promiseDate',
+    label: '承诺交期',
+    type: 'dateRange',
+    queryParamKey: 'promiseDate',
+    defaultVisible: false
+  }
 ]
 
 const processDialogVisible = ref(false)
@@ -2731,6 +2798,17 @@ const scheduleOrderQuickFilter = useTableQuickFilter(
   scheduleOrderQueryParams,
   getScheduleOrderList
 )
+const scheduleOrderMultiFilter = useTableMultiFilter(
+  'mes.pro.scheduleOrder.main',
+  scheduleOrderMultiFilterDefinitions,
+  scheduleOrderQueryParams,
+  getScheduleOrderList
+)
+scheduleOrderMultiFilter.setCondition({
+  key: 'completionFilter',
+  operator: 'eq',
+  value: scheduleOrderQueryParams.completionFilter
+})
 
 const applyProcessRouteQuickFilter = async () => {
   processRouteQuickFilterParams.pageNo = 1
@@ -3267,12 +3345,21 @@ const getWorkOrderAdmissionList = async () => {
   }
 }
 
+const reloadWorkOrderAdmissionQuickFilter = async () => {
+  workOrderAdmissionQueryParams.admissionStatus = resolveWorkOrderAdmissionStatus()
+  await getWorkOrderAdmissionList()
+}
+
 const workOrderAdmissionQuickFilter = useTableQuickFilter(
   'mes.pro.scheduleOrder.admissionDiff',
   workOrderAdmissionQuickFilterDefinitions,
   workOrderAdmissionQueryParams,
-  getWorkOrderAdmissionList
+  reloadWorkOrderAdmissionQuickFilter
 )
+
+const applyWorkOrderAdmissionQuickFilter = async () => {
+  await workOrderAdmissionQuickFilter.applyQuickFilter()
+}
 
 const handleWorkOrderAdmissionQuery = () => {
   workOrderAdmissionQueryParams.pageNo = 1

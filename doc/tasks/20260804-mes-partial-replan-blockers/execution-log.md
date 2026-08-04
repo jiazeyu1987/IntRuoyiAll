@@ -11,7 +11,11 @@
 
 ## Dirty Worktree Baseline
 
-- Pending: create an independent baseline commit for pre-existing dirty files before implementation edits; current task files must stay outside that commit.
+- Concurrent baseline note: commit `ae0cf0d96 chore: baseline concurrent residual before dcc approval detail fix` was created by another task while this task was starting and included this task's initial documentation files. It did not include this task implementation code.
+- Baseline commit: `ebe8833bc chore: baseline residual docs before mes partial replan` captured residual non-task docs before implementation.
+- Concurrent commit observed: `26c72dfa1 docs: record approval center todo verification` adjusted another task while this task was waiting on Git locks.
+- Baseline commit: `0325b3097 chore: baseline residual qa excerpt before mes partial replan` captured the last residual non-task E2E file before implementation.
+- Post-baseline status for target files: clean before RED edits.
 
 ## RED
 

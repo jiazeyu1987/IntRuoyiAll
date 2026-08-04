@@ -318,7 +318,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private List<String> buildDccBusinessContextTags(DccControlledFileDO file, String currentNodeName) {
         DccFileCategoryDO category = resolveCategory(file.getCategoryId());
         return buildDccBusinessContextTags(file.getFileNumber(), historicalVersionLabel(file.getVersionNo()),
-                resolveCategoryLabel(category, file.getCategoryId()), currentNodeName, file.getStampedFileId(),
+                resolveHistoricalCategoryLabel(category, file.getCategoryId()), currentNodeName, file.getStampedFileId(),
                 category == null ? null : category.getDistributionRequired());
     }
 
@@ -360,6 +360,11 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
             return category.getName();
         }
         return categoryId == null ? null : "缺失类别#" + categoryId;
+    }
+
+    private String resolveHistoricalCategoryLabel(DccFileCategoryDO category, Long categoryId) {
+        String categoryLabel = resolveCategoryLabel(category, categoryId);
+        return categoryLabel == null ? "-" : categoryLabel;
     }
 
     private ApprovalTaskTimelineEntry toTimelineEntry(HistoricTaskInstance task, String businessKey) {

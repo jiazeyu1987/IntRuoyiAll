@@ -78,13 +78,16 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     private MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
     @Mock
     private MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService;
+    @Mock
+    private MesPqcProcessInspectionAggregationService processInspectionAggregationService;
 
     private MesTeamLeaderSubmissionReviewService submissionReviewService;
     private MesTeamLeaderReportConfirmationService reportConfirmationService;
 
     @BeforeEach
     void setUp() {
-        submissionReviewService = new MesTeamLeaderSubmissionReviewServiceImpl(scopeService, eventMapper, reviewMapper);
+        submissionReviewService = new MesTeamLeaderSubmissionReviewServiceImpl(scopeService, eventMapper, reviewMapper,
+                processInspectionAggregationService);
         MesTeamLeaderFifoAllocationService fifoAllocationService =
                 new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
                         orderProcessTargetService);
@@ -100,7 +103,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 () -> submissionReviewService.reviewSubmission(unsignedReviewReq()));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
-        verify(eventMapper, never()).selectById(EVENT_ID);
+        verify(eventMapper, never()).selectByIdForUpdate(EVENT_ID);
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
     }
 
@@ -113,7 +116,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 () -> submissionReviewService.reviewSubmission(reqBO));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH.getCode(), ex.getCode());
-        verify(eventMapper, never()).selectById(EVENT_ID);
+        verify(eventMapper, never()).selectByIdForUpdate(EVENT_ID);
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
     }
 
@@ -126,7 +129,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 () -> submissionReviewService.reviewSubmission(reqBO));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
-        verify(eventMapper, never()).selectById(EVENT_ID);
+        verify(eventMapper, never()).selectByIdForUpdate(EVENT_ID);
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
     }
 
@@ -139,13 +142,13 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 () -> submissionReviewService.reviewSubmission(reqBO));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
-        verify(eventMapper, never()).selectById(EVENT_ID);
+        verify(eventMapper, never()).selectByIdForUpdate(EVENT_ID);
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
     }
 
     @Test
     void reviewSubmissionShouldPersistStructuredReviewSignature() {
-        when(eventMapper.selectById(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
+        when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
         when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7001L);
             return 1;

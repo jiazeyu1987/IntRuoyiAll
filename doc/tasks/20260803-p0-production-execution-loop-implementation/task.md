@@ -32,6 +32,13 @@
 - 本次授权只改变“合入前必须完成门禁 PASS”的顺序，不代表 P0 功能验收完成；`verify_p0_completion_gate.py`、真实 Playwright E2E、运行态迁移核验和运行库历史修复证据仍必须在 `int_main` 中继续补齐。
 - 融合后若 `int_main` E2E 或运行态迁移仍 BLOCKED，应保持任务状态为 `in_progress` 或明确记录 blocker，不得标记 `ready_for_closeout` / `completed`。
 
+## Scope Change - 2026-08-04 int_main Fusion Result
+
+- P0 implementation commit `ff6768ca1` 已包含在当前 `int_main`；当前无 `.git\MERGE_HEAD`，说明融合状态未悬挂。
+- 已在 `int_main` 主端口确认 `8081` 前端 HTTP `200`、`48081` 后端 health `UP`，并完成 P0 静态合同 PASS。
+- 已用 `P0_FRONTEND_URL=http://127.0.0.1:8081`、`P0_BACKEND_URL=http://127.0.0.1:48081`、`P0_RUN_ID=int-main-20260804` 运行真实 E2E；结果按设计 BLOCKED，因为缺正式可写租户/账号/密码、任务自有工单、设备/工作站/签名、PQC 与批记录绑定、schema migration、migration policy evidence 和 `P0_RUNTIME_DB_*`。
+- `verify_p0_tdd_evidence_gate.py` 已 PASS；`verify_p0_completion_gate.py` 仍 BLOCKED，因此任务保持 `in_progress`，不得标记完成。
+
 ## Current Status
 
 in_progress - 已完成 P0 文档多轮优化、M1 PQC 入池、M2 复核签名 schema/服务 GREEN、M2 复核签名快照空值与非 JSON 对象 fail-fast GREEN、M2 缺签名原始 RED detached replay 证据补齐且 TDD evidence gate PASS、M3 统一 trace initial GREEN 和 P0-T09A/P0-T09B/P0-T10 trace 成熟度 GREEN、M4 班组长确认写库前 PQC 结构化质量结果与合格数量覆盖门禁 GREEN、M4 / P0-T01 主提交幂等 GREEN、P0-T04 PQC 重复提交唯一性 GREEN、P0-T07 FIFO 来源片段消耗持久化与活跃工单本次确认量 GREEN、P0-T08 工序完成批记录回填字段审计旧值 hash / 来源值 / 单元格位置 / 幂等键 GREEN、并发/重复确认带锁重查边界 GREEN、P0-T10 trace 分配/完工来源事件同源校验与工单/工序 scope 校验 GREEN、P0-T13 后端收口证据包 GREEN、M5 前端 `closureEvidence` 静态合同 GREEN、M5 前端 `pnpm ts:check` GREEN、M5 real E2E Playwright 页面预检、route skeleton、action skeleton、运行态迁移写入前门禁与 task-data hardening GREEN、P0-T00A / P0-T02 命名合同测试 GREEN，以及 P0-T00B 运行态迁移验证器合同与 schema-missing fail-fast GREEN；当前已阻止 PQC 子事件、缺结构化绑定、非 `SUCCESS` PQC 结果、PQC 合格数量不足、重复生产提交、重复 PQC 提交、FIFO 消耗不足、FIFO target 误用目标计划量放大本次消费、批记录回填缺旧值校验、重复确认导致重复写入复核/分配/完工/批记录字段审计、分配或完工来源事件漂移导致 trace 分组假完成、跨工单/跨路线工序/MES工序事实漂移导致 trace 分组假完成、复核签名缺快照或普通字符串快照继续进入写链路、文档引用测试类缺失被假绿，以及九个审计问题缺正式来源时的假完整闭环。M5 真实页面 E2E PASS、真实 MySQL 运行态迁移核验和 M6 收尾仍未完成；真实 E2E 仍因缺真实运行态、运行态 DB 只读核验环境、runId、租户账号、工单、设备账号、设备、工作站、三类幂等键、一线签名员工、PQC 组长复核签名员工、生产组长复核签名员工、签名、正式批记录数据和迁移策略证据保持 BLOCKED；本机 MySQL 可连接，但运行态迁移验证器因目标 schema 缺 7 个正式字段和 4 个索引返回 `P0_RUNTIME_SCHEMA_BLOCKED`，历史断链检查已跳过且不能记为 PASS。
@@ -123,6 +130,8 @@ Continuation update: P0-T00C 运行态迁移 apply-preflight 已 RED 后 GREEN�
 Continuation update: P0-T00D/T00E 运行态 backfill source audit 和 repair plan gate 已 RED 后 GREEN；新增只读 `verify_p0_runtime_backfill_sources.py` 与 `verify_p0_runtime_backfill_repair_plan.py`。最新本机运行库只读结果为 BLOCKED：PQC 无唯一正式生产提交来源 79 行、生产提交幂等键无正式记录本来源 2 行、生产提交 recordbook entry 无正式来源 2 行、数量片段无现有生产提交根事件 5 行，合计 88 行需要授权修复且 88 行当前无法由唯一正式结构化来源直接推导。repair plan 明确 `databaseWriteAllowed=false`，后续必须先取得业务 owner/DBA 授权、行级 manifest、备份、回滚和 dry-run 证据；修复后按 source audit -> apply-preflight -> runtime migration verifier -> real E2E -> completion gate 复验。任务仍保持 `in_progress`，不得标记 ready_for_closeout 或 completed。
 
 Continuation update: P0-T00F 运行态 repair manifest gate 已 RED 后 GREEN；新增只读 `verify_p0_runtime_backfill_repair_manifest.py`，要求真实修复包提供 `authorization`、`backupEvidence`、`rollbackEvidence`、`dryRun` 和逐行 `entries`，并限制目标字段只能是 P0 backfill scope、formal source 类型只能来自正式来源集合。缺 manifest 时输出 `P0_RUNTIME_BACKFILL_REPAIR_MANIFEST_MISSING` / `P0_RUNTIME_BACKFILL_REPAIR_MANIFEST_NO_DB_WRITE` 并 BLOCKED；临时英文 fixture 可 PASS 只证明结构校验可用，不代表真实运行库修复授权已具备。任务仍保持 `in_progress`。
+
+Continuation update: int_main 主端口真实 E2E 已复跑；`8081`/`48081` 归属 `E:\IntRuoyi` 主运行态，前端 HTTP `200`、后端 health `UP`，`pnpm e2e:p0-production-execution-loop:static` PASS，`verify_p0_tdd_evidence_gate.py` PASS。真实 E2E 使用 `P0_RUN_ID=int-main-20260804-rerun` 刷新证据后仍 BLOCKED/exit 2，`Browser Preflight=--`、五个目标请求均未命中，completion gate 仍因任务状态、真实 E2E 未 PASS、正式 metadata/closure evidence 缺失和 `P0_RUNTIME_ENV_MISSING` 阻塞。任务继续保持 `in_progress`，不得标记 `ready_for_closeout` 或 `completed`。
 
 ## Worktree Evidence
 

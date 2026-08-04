@@ -90,6 +90,16 @@ function isApprovalCenterTargetUrl(value) {
   return url.pathname === '/approval-center/done' || url.pathname.startsWith('/admin-api/approval-center/')
 }
 
+function isDoneTargetUrl(value) {
+  const url = tryUrl(value)
+  if (!url || url.origin !== new URL(config.baseUrl).origin) return false
+  if (url.pathname === '/approval-center/done') return true
+  return (
+    url.pathname === '/admin-api/approval-center/tasks/page' &&
+    url.searchParams.get('viewType') === 'DONE'
+  )
+}
+
 function targetPathWithQuery(value) {
   const url = tryUrl(value)
   return url ? `${url.pathname}${url.search}` : value
@@ -193,6 +203,7 @@ async function main() {
   const pageErrors = []
   const consoleErrors = []
   const targetNetworkFailures = []
+  const nonDoneApprovalCenterNetworkFailures = []
   const externalNetworkFailures = []
   const targetBadResponses = []
   const targetWriteRequests = []
@@ -217,14 +228,16 @@ async function main() {
       url: request.url(),
       failure: request.failure()?.errorText || 'unknown'
     }
-    if (isApprovalCenterTargetUrl(request.url())) {
+    if (isDoneTargetUrl(request.url())) {
       targetNetworkFailures.push({ ...entry, url: targetPathWithQuery(request.url()) })
+    } else if (isApprovalCenterTargetUrl(request.url())) {
+      nonDoneApprovalCenterNetworkFailures.push({ ...entry, url: targetPathWithQuery(request.url()) })
     } else {
       externalNetworkFailures.push(entry)
     }
   })
   page.on('response', (response) => {
-    if (!trackTarget || !isApprovalCenterTargetUrl(response.url())) return
+    if (!trackTarget || !isDoneTargetUrl(response.url())) return
     if (response.status() >= 400) {
       targetBadResponses.push({
         status: response.status(),
@@ -293,6 +306,7 @@ async function main() {
       pageErrors,
       consoleErrors,
       targetNetworkFailures,
+      nonDoneApprovalCenterNetworkFailures,
       externalNetworkFailures,
       screenshot: artifacts.screenshot
     }
@@ -311,7 +325,9 @@ Promise.race([
   new Promise((_, reject) => {
     setTimeout(() => reject(new Error(`approval_center_done_e2e_timeout:${currentStage}`)), 180000)
   })
-]).catch((error) => {
+]).then(() => {
+  process.exit(0)
+}).catch((error) => {
   process.stderr.write(`${error.stack || error.message}\n`)
   process.exit(1)
 })

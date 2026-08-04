@@ -11,12 +11,13 @@
 - [x] M3: 实施最小正式修复，不引入 fallback、吞异常或默认成功。
 - [x] M4: 运行定向 GREEN 与相邻回归验证，确认 DONE 页不再触发系统异常。
 - [x] M5: 更新验证报告和收尾状态。
+- [x] M6: 使用真实 Playwright 页面路径复验“审批中心 > 已办”。
 
 ## Expected Verification
 
 - 静态或单元回归测试先 RED 后 GREEN，覆盖 `/approval-center/done` 或 `viewType=DONE`。
 - 运行受影响审批中心前端静态契约或后端定向 Maven 测试。
-- 若本地前后端运行态和登录前置可用，再通过真实页面路径验证“已办”页不显示“系统异常”。
+- 通过真实 Playwright 页面路径验证“已办”页不显示“系统异常”，DONE 接口返回业务成功，且只读路径无目标写请求。
 
 ## 设计约束检查
 
@@ -33,8 +34,10 @@
 ## Cleanup Keep
 
 - doc/tasks/20260804-approval-center-done-system-exception/bug-regression-evidence.md
+- doc/tasks/20260804-approval-center-done-system-exception/approval-center-done-real.e2e.js
+- doc/tasks/20260804-approval-center-done-system-exception/e2e-artifacts/approval-center-done-real-result.json
+- doc/tasks/20260804-approval-center-done-system-exception/e2e-artifacts/approval-center-done-real.png
 
 ## Current Status
 
 ready_for_closeout
-

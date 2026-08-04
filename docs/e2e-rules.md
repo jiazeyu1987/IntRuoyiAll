@@ -71,10 +71,10 @@
 
 ### Playwright 目标链路与外部资源异常归因门禁
 
-- Trigger: Playwright 捕获到 `console error`、`requestfailed` 或非 2xx 响应，且失败 URL 包含外部头像、图片、CDN 或其它非本机资源。
-- Preflight check: 采集失败请求的完整 URL、状态码和资源类型；按本机前端、当前后端、目标业务 API 与目标读写接口定义目标链路。只有在确认外部 URL 不属于目标链路、未造成目标控件缺失且目标行为断言独立通过后，才允许将其单独记录为非目标链路异常；不得用域名白名单批量忽略错误。
-- Blocker: 任一本机或目标业务请求失败、出现未解释的 `pageerror`、外部资源失败导致目标页面或控件不可用、无法确认目标写请求数量，或失败请求归属不明确时必须停止。
-- Verification: 证据必须同时记录目标链路错误数、外部异常 URL 与状态码、`pageerror` 数量、目标 UI 断言和目标写请求数量；只读/取消确认路径必须明确证明写请求为 0。
+- Trigger: Playwright 捕获到 `console error`、`requestfailed` 或非 2xx 响应，且失败 URL 包含外部头像、图片、CDN、非当前页签接口或其它非本轮目标链路资源。
+- Preflight check: 采集失败请求的完整 URL、状态码和资源类型；按本机前端、当前后端、目标业务 API 与目标读写接口定义目标链路。多页签页面必须按当前验收页签精确限定目标接口，例如审批中心“已办”只把 `/approval-center/done` 和 `viewType=DONE` 列为目标链路，页签切换中被浏览器中止的 TODO 请求只能单独记录为非 DONE 审批中心请求，不得冒充 DONE 失败。只有在确认非目标 URL 未造成目标控件缺失且目标行为断言独立通过后，才允许将其单独记录为非目标链路异常；不得用域名白名单批量忽略错误。
+- Blocker: 任一本机目标业务请求失败、出现未解释的 `pageerror`、外部或非目标请求失败导致目标页面或控件不可用、无法确认目标写请求数量，或失败请求归属不明确时必须停止。
+- Verification: 证据必须同时记录目标链路错误数、非目标同域请求或外部异常 URL 与状态码、`pageerror` 数量、目标 UI 断言和目标写请求数量；只读/取消确认路径必须明确证明写请求为 0。
 - Forbidden action: 禁止全局关闭 console/network 断言、忽略全部第三方域名、把页面 HTTP 200 当作目标功能通过，或省略外部异常证据。
 - Evidence: `doc/tasks/20260801-dcc-list-auto-classify-local-e2e/verification-report.md`，DCC 列表只读 E2E 将外部头像 502 与本机/DCC 目标链路分开归因，并证明目标链路错误数和 DCC 写请求数均为 0。
 
@@ -341,7 +341,7 @@
 ### Element Plus 选择框显示门禁
 
 - Trigger: 修改 Element Plus `el-select` 多选字段、`el-input-number` 数字步进控件、`el-switch` 旁状态标签、弹窗内多列配置表单、角色/人员/租户/目标项等较长业务名称的输入或选中标签显示。
-- Preflight check: 先按 `label-width + grid-template-columns + gap` 核算真实输入区宽度；关键字段必须使用专用布局类和静态合同覆盖。`el-input-number` 默认宽度可能大于网格列，必须显式设置 `width: 100%` 收敛到所在列；文本输入列需要 `min-width: 0` 和 `width: 100%`。必要时在 `el-select` 控件作用域内覆盖 `.el-select__tags-text` 默认省略宽度。窄栏里的 Switch 主标签与状态提示不得全部挤在一个可收缩 flex 行内，状态提示较长时应独占行或使用明确 grid 布局，并对关键标签设置不换行；禁用提示不能只用过浅灰色小字，应有足够对比度或明确状态条承载。
+- Preflight check: 先按 `label-width + grid-template-columns + gap` 核算真实输入区宽度；关键字段必须使用专用布局类和静态合同覆盖。`el-input-number` 默认宽度可能大于网格列，必须显式设置 `width: 100%` 收敛到所在列；文本输入列需要 `min-width: 0` 和 `width: 100%`。必要时在 `el-select` 控件作用域内覆盖 `.el-select__tags-text` 默认省略宽度。窄栏里的 Switch 主标签与状态提示不得全部挤在一个可收缩 flex 行内，状态提示较长时应独占行或使用明确 grid 布局，并对关键标签设置不换行；禁用提示不能只用过浅灰色小字，应有足够对比度或明确状态条承载。Playwright 操作 Element Plus Switch 时，不得点击隐藏的 `input[role="switch"]`；应点击可见 `.el-switch` 或 `.el-switch__core`，再读取隐藏 input 的 `aria-checked` 校验状态。
 - Blocker: 若选中值、输入值或 Switch 状态提示在控件内仍显示为 `...`、换行后被裁切、文字对比度过低导致视觉上看不清、数字步进控件溢出挤压相邻输入框、只靠 tooltip 或下拉选项完整展示、或静态合同无法锁定该字段专用布局，必须停止并修复布局。
 - Verification: 静态合同或真实 E2E 必须断言目标控件有专用布局类、关键列宽足够、数字步进控件收敛到当前列、文本输入框可完整占满分配列、选中标签未继续使用默认省略宽度，Switch 状态提示完整可见、不会被窄栏裁切，且颜色对比足够。
 - Forbidden action: 禁止把 `collapse-tags-tooltip`、扩大整页/整弹窗、硬编码当前角色名/目标项名、只验证下拉选项文本、或只调宽一个控件但让相邻控件继续被挤压当成“显示完整”。

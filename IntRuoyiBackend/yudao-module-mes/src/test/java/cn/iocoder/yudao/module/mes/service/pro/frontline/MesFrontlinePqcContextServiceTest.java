@@ -206,6 +206,12 @@ class MesFrontlinePqcContextServiceTest {
                 regulationItem(REGULATION_VERSION_ID, "pressure", "压力", "NUMBER", "测压")));
         when(regulationItemMapper.selectListByVersionId(8002L)).thenReturn(List.of(
                 regulationItem(8002L, "appearance", "外观", "CHOICE", "目视")));
+        when(regulationItemEquipmentMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of(
+                regulationItemEquipment(REGULATION_VERSION_ID, "pressure", 9101L,
+                        "MCH-PQC-001", "压力检验仪", "EQ-P-001")));
+        when(regulationItemEquipmentMapper.selectListByVersionId(8002L)).thenReturn(List.of(
+                regulationItemEquipment(8002L, "appearance", 9102L,
+                        "MCH-PQC-002", "外观灯箱", "EQ-V-002")));
 
         List<MesFrontlineRouteProcessCandidate> processes =
                 service.listProcessesByActiveOrder(WORK_ORDER_ID, ROUTE_ID);

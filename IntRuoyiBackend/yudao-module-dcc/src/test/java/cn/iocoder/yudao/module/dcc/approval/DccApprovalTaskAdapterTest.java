@@ -277,7 +277,7 @@ class DccApprovalTaskAdapterTest {
     }
 
     @Test
-    void pageDoneKeepsLegacyHistoricalSnapshotWhenVersionNoIsMissing() {
+    void pageDoneKeepsLegacyHistoricalSnapshotWhenVersionNoOrCategoryIsMissing() {
         HistoricTaskInstance task = mock(HistoricTaskInstance.class);
         when(task.getId()).thenReturn("historic-task-legacy-version");
         when(task.getName()).thenReturn("文控审核");
@@ -299,16 +299,10 @@ class DccApprovalTaskAdapterTest {
                 .id(6011L)
                 .title("历史缺版本号文件")
                 .fileNumber("DCC-6011")
-                .categoryId(7002L)
                 .status("APPROVED")
                 .processInstanceId("historic-pi-legacy-version")
                 .build();
         when(controlledFileMapper.selectByIdIncludingDeleted(6011L)).thenReturn(file);
-        when(fileCategoryMapper.selectById(7002L)).thenReturn(DccFileCategoryDO.builder()
-                .id(7002L)
-                .name("质量手册")
-                .distributionRequired(Boolean.FALSE)
-                .build());
 
         PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.DONE, ApprovalModuleCode.DCC, null, 1, 10));
@@ -320,7 +314,7 @@ class DccApprovalTaskAdapterTest {
         assertEquals(List.of(
                 "文件编号：DCC-6011",
                 "版本：-",
-                "分类：质量手册",
+                "分类：-",
                 "当前节点：文控审核",
                 "盖章：需要",
                 "分发：不需要"

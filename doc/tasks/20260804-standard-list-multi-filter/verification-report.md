@@ -2,35 +2,36 @@
 
 ## Summary
 
-- Implemented optional multi-dimensional filtering for the standard list template.
-- Target RED/GREEN static verification passed.
-- Existing unified list template static regression passed.
-- Full closeout remains blocked by unrelated repository state and unrelated existing TypeScript errors.
+- Implemented optional multi-dimensional filtering for the standard list template and enabled it on the real MES 排产工单 page.
+- 排产工单 pilot maps filters to formal existing query params only: `code`, `erpWorkOrderCode`, `completionFilter`, and `promiseDate`.
+- Real Playwright E2E passed on `http://127.0.0.1:8081/mes/pro/schedule-order` against backend `http://127.0.0.1:48081`.
+- Task is ready for closeout; commit/push is not performed because the shared branch already has unrelated dirty/ahead concurrent changes.
 
 ## Passed
 
+- `node tests/e2e/schedule-order-main-multi-filter-static.spec.js` -> PASS.
 - `node tests/e2e/unified-list-template-multi-filter-static.spec.js` -> PASS.
 - `node tests/e2e/unified-list-template-static.spec.js` -> PASS.
-- Target TypeScript syntax transpile check -> PASS.
-- `git diff --check` for task-owned files -> PASS with existing LF/CRLF warning on `UnifiedListTemplate/index.vue`.
-- Frontend feature evidence validator -> PASS.
-- Real browser login/list regression -> PASS on `http://127.0.0.1:8081/system/user` with target text `快速过滤`.
+- `node tests/e2e/mes-schedule-order-sync-tab-static.spec.js` -> PASS.
+- `node tests/e2e/mes-schedule-order-replan-visible-filter-static.spec.js` -> PASS.
+- Target SFC/TS syntax transpile check -> PASS.
+- `pnpm ts:check:schedule` -> PASS.
+- `pnpm ts:check` -> PASS.
+- Real E2E `node doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs` -> PASS.
 
-## Blocked
+## E2E Evidence
 
-- `pnpm ts:check` -> FAIL on unrelated existing QA template errors:
-  - `src/views/mes/qc/template/index.vue(217,3): Module "@/api/mes/qc/template" has no exported member "QaInspectionRegulationPublishedVersionVO".`
-  - `src/views/mes/qc/template/index.vue(218,3): Module "@/api/mes/qc/template" has no exported member "QaInspectionRuleVO".`
-  - `src/views/mes/qc/template/index.vue(251,55): Property "getPublishedQaRegulationVersion" does not exist on "@/api/mes/qc/template".`
-- Target `pnpm exec eslint ...` hung with no output and was stopped as a task-owned process.
-- Multi-filter real E2E -> BLOCKED: no current business page enables `showMultiFilter` or passes `multiFilterDefinitions`, so there is no approved real frontend entry to operate the new multi-dimensional filter controls.
-- Repository was dirty and ahead of origin before this task; no commit or push was attempted to avoid mixing unrelated task changes.
+- Tenant/user label: `芋道源码/admin`; password was read from local `.env` and not logged.
+- Target sample: `SCH-CODEX-FACTOR-20260708093210-20260710-0001` / `CODEX-FACTOR-20260708093210`.
+- Filtered request params: `pageNo=1`, `pageSize=20`, `code=<target>`, `erpWorkOrderCode=<target>`, `completionFilter=ALL`.
+- Reset request params: `pageNo=1`, `pageSize=20`; `code`, `erpWorkOrderCode`, `completionFilter`, and `multiFilters` were absent.
+- Result counts: initial `17`, filtered `1`, reset `47`; target write requests `0`, target HTTP errors `0`, runtime issues `0`.
+- One initial GET was recorded as `net::ERR_ABORTED` after a subsequent page/filter request superseded it; it was recorded separately and did not affect target assertions.
 
 ## Design Verification
 
-- Multi-filter hook uses explicit `conditions: ListMultiFilterCondition[]`.
-- Date and number ranges can map to formal `queryParamKeys`.
-- Unmapped configured conditions are preserved in explicit `multiFilters`; they are not silently dropped.
-- Query and reset both set `queryParams.pageNo = 1`.
-- No `localStorage`, `sessionStorage`, mock path, fallback branch, or swallowed exception was introduced.
-- Existing standard list page `/system/user` still loads via real browser and shows the legacy quick filter; this validates runtime availability and standard list regression, not the new multi-filter interaction.
+- No backend contract change, no mock data, no frontend-only filtering, no storage fallback, and no swallowed exception path was introduced.
+- A real layout issue was found by E2E: multi-filter could shrink to `0` width beside the quick filter and action toolbar; fixed in the standard template CSS by giving multi-filter a full row.
+- Existing quick filter and 排产工单 actions/table/pagination remain wired; the pilot adds multi-filter without removing the legacy quick-filter contract.
+- Reusable experience was consolidated into `docs/frontend-development.md#统一列表复合工具栏布局门禁` and indexed for future standard-list multi-filter work.
+- Same-file non-task diff exists around 同步工单 quick-filter handling; it was not authored by this task and was not included as task evidence beyond passing adjacent static/type checks.

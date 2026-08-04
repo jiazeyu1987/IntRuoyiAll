@@ -62,6 +62,7 @@ assert.match(pageSource, /REJECTED:\s*'已驳回'/, 'REJECTED object state must 
 assert.match(pageSource, /READY:\s*'就绪'/, 'READY object state must display as Chinese ready label')
 assert.match(pageSource, /PUBLISHED:\s*'已发布'/, 'PUBLISHED object state must display as Chinese published label')
 assert.match(pageSource, /DISABLED:\s*'已禁用'/, 'DISABLED object state must display as Chinese disabled label')
+assert.match(pageSource, /DCC_UPLOAD:\s*'受控文件上传'/, 'DCC upload executor code must display as Chinese label')
 assert.match(pageSource, /EDHR_BATCH_VOID:\s*'批次执行作废'/, 'EDHR batch void executor code must display as Chinese label')
 assert.match(pageSource, /FORM_TEMPLATE_OBSOLETE:\s*'表单模板作废'/, 'form template obsolete executor code must display as Chinese label')
 assert.match(
