@@ -8,19 +8,23 @@
 ## Reproduction
 
 - 路径：打开审批中心，等待列表加载，切换到其它顶部页签，再切回审批中心。
-- 自动化命令：待 M1 定位后补充。
+- 自动化命令：`pnpm e2e:approval-center:tab-return-no-reload:static`。
 
 ## Root Cause
 
-- 待 M1 定位后补充。
+- 审批中心四个子路由显式禁用缓存。
+- 路由名与共享页面组件名不同，现有 `keep-alive include` 无法用路由名命中组件。
+- 缓存页面的全局 route watcher 未区分当前缓存实例与其它路由，也未记录成功加载的语义 route state。
 
 ## Regression Test
 
-- 待 M1 新增任务专用静态合同。
+- `tests/e2e/approval-center-tab-return-no-reload-static.spec.js`。
+- 覆盖路由缓存元数据、共享组件缓存身份、TagsView 加入/刷新删除、缓存实例路由边界和同状态切回 guard。
 
 ## RED
 
-- 待执行。
+- `pnpm e2e:approval-center:tab-return-no-reload:static` -> FAIL。
+- 预期失败：`ApprovalCenterTodo must enable keep-alive caching`。
 
 ## GREEN
 
@@ -34,4 +38,3 @@
 ## Blockers And Follow-Up
 
 - 当前无 blocker。
-

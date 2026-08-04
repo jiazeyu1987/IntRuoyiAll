@@ -407,7 +407,8 @@ const remainingRouter: AppRouteRecordRaw[] = [
         component: () => import('@/views/approval-center/index.vue'),
         name: 'ApprovalCenterTodo',
         meta: {
-          noCache: true,
+          noCache: false,
+          keepAliveName: 'ApprovalCenterWorkbench',
           canTo: true,
           title: '待办',
           approvalTodoBadge: true,
@@ -422,7 +423,8 @@ const remainingRouter: AppRouteRecordRaw[] = [
         component: () => import('@/views/approval-center/index.vue'),
         name: 'ApprovalCenterDone',
         meta: {
-          noCache: true,
+          noCache: false,
+          keepAliveName: 'ApprovalCenterWorkbench',
           canTo: true,
           title: '已办',
           tagsViewKey: '/approval-center',
@@ -436,7 +438,8 @@ const remainingRouter: AppRouteRecordRaw[] = [
         component: () => import('@/views/approval-center/index.vue'),
         name: 'ApprovalCenterMyInitiated',
         meta: {
-          noCache: true,
+          noCache: false,
+          keepAliveName: 'ApprovalCenterWorkbench',
           canTo: true,
           title: '我发起的',
           tagsViewKey: '/approval-center',
@@ -450,7 +453,8 @@ const remainingRouter: AppRouteRecordRaw[] = [
         component: () => import('@/views/approval-center/index.vue'),
         name: 'ApprovalCenterCc',
         meta: {
-          noCache: true,
+          noCache: false,
+          keepAliveName: 'ApprovalCenterWorkbench',
           canTo: true,
           title: '抄送我的',
           tagsViewKey: '/approval-center',

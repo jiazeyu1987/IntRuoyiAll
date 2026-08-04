@@ -49,6 +49,9 @@ const resolveActiveMenuPath = (view: RouteLocationNormalizedLoaded) => {
   return activeMenu ? `/${activeMenu}` : ''
 }
 
+const resolveCachedViewName = (view: RouteLocationNormalizedLoaded) =>
+  String(view.meta?.keepAliveName || view.name || '')
+
 const shouldForceCacheTagsView = (item: RouteLocationNormalizedLoaded) => {
   const name = String(item.name || '')
   const normalizedPath = normalizeTagsViewPath(item.path)
@@ -184,8 +187,10 @@ export const useTagsViewStore = defineStore('tagsView', {
         if (!needCache) {
           continue
         }
-        const name = item.name as string
-        cacheMap.add(name)
+        const name = resolveCachedViewName(item)
+        if (name) {
+          cacheMap.add(name)
+        }
       }
       if (Array.from(this.cachedViews).sort().toString() === Array.from(cacheMap).sort().toString())
         return
@@ -209,7 +214,8 @@ export const useTagsViewStore = defineStore('tagsView', {
     // 删除缓存
     delCachedView() {
       const route = router.currentRoute.value
-      const index = findIndex<string>(this.getCachedViews, (v) => v === route.name)
+      const cachedViewName = resolveCachedViewName(route)
+      const index = findIndex<string>(this.getCachedViews, (v) => v === cachedViewName)
       // 需要注释，解决“标签页刷新无效”。相关案例：https://github.com/yudaocode/yudao-ui-admin-vue3/issues/180
       // for (const v of this.visitedViews) {
       //   if (v.name === route.name) {

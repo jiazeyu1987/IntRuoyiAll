@@ -4,6 +4,8 @@
 
 PQC 组长的内容专门做一个页签用来显示，不再显示在组长工作台。
 
+- 最新纠正：生产组长和 PQC 组长都必须改成类似“批次执行”的独立主导航页签，不是 eDHR 页面内部 Tab。
+
 ## Preconditions And Rule Reads
 
 - Read `C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md`.
@@ -19,8 +21,10 @@ PQC 组长的内容专门做一个页签用来显示，不再显示在组长工�
 
 ## BDD
 
-- BDD: PQC 组长内容独立页签 -> Given 班组长打开组长工作台, When 默认查看工作台主内容, Then 不直接显示 PQC 组长内容。
-- BDD: PQC 组长内容独立页签 -> Given 班组长打开组长工作台, When 切换到 PQC 专门页签, Then 显示原 PQC 组长内容且不改变原有数据来源。
+- BDD: 两类组长独立主导航页签 -> Given 用户展开 eDHR 主导航, When 查看 QA 与批次执行之间的菜单, Then 依次显示生产组长和 PQC组长两个独立入口。
+- BDD: 生产组长独立页面 -> Given 用户进入生产组长菜单, When 页面加载, Then 仅显示 `leaderType=PRODUCTION` 内容且不显示内部类型切换。
+- BDD: PQC组长独立页面 -> Given 用户进入 PQC组长菜单, When 页面加载, Then 仅显示 `leaderType=PQC` 正式项目级明细且不显示内部类型切换。
+- BDD: eDHR 内部页签清理 -> Given 用户打开批次执行内部页签, When 查看顶部 tabs, Then 不出现组长工作台、生产组长或 PQC组长。
 
 ## RED / GREEN / REGRESSION
 

@@ -15,7 +15,10 @@
 ## UI Entry Points And Owned Files
 
 - 入口：顶部页签“审批中心”。
-- 路由、组件和任务自有文件：待 M1 定位后补充。
+- 路由：`src/router/modules/remaining.ts` 的审批中心四个列表子路由。
+- 页面：`src/views/approval-center/index.vue`。
+- 缓存基础设施：`src/layout/components/AppView.vue`、`src/store/modules/tagsView.ts`、`types/router.d.ts`。
+- 测试：`tests/e2e/approval-center-tab-return-no-reload-static.spec.js`。
 
 ## API Contracts And Data States
 
@@ -29,7 +32,8 @@
 
 ## RED
 
-- 待执行。
+- `pnpm e2e:approval-center:tab-return-no-reload:static` -> FAIL。
+- 预期失败：审批中心路由仍声明 `noCache: true`。
 
 ## GREEN
 
@@ -48,4 +52,3 @@
 ## Blockers And Follow-Up
 
 - 当前无 blocker。
-

@@ -404,6 +404,7 @@ defineOptions({ name: 'ApprovalCenterWorkbench' })
 
 const router = useRouter()
 const route = useRoute()
+const approvalCenterRouteInstanceName = String(route.name || '')
 
 type ApprovalCenterListViewType = ApprovalTaskViewType
 
@@ -529,6 +530,8 @@ const timelineTask = ref<ApprovalTaskSummaryVO>()
 const reviewDialogVisible = ref(false)
 const reviewSubmitting = ref(false)
 const reviewTask = ref<ApprovalTaskSummaryVO>()
+let approvalModulesLoaded = false
+let approvalLastLoadedRouteStateKey: string | undefined
 const approvalTodoBadgeStore = useApprovalTodoBadgeStore()
 const reviewForm = reactive<{
   result: ApprovalTaskReviewResult
@@ -623,8 +626,10 @@ const isUnfilteredTodoQuery = () =>
   queryParams.viewType === 'TODO' && !queryParams.moduleCode && !queryParams.keyword.trim()
 
 const loadModules = async () => {
+  approvalModulesLoaded = false
   try {
     modules.value = await getApprovalCenterModules()
+    approvalModulesLoaded = true
   } catch (error) {
     const message = resolveErrorMessage(error)
     loadError.value = message
@@ -653,6 +658,7 @@ const syncApprovalQuickFilterStateFromQuery = async () => {
 }
 
 const getList = async () => {
+  const requestRouteStateKey = buildApprovalCenterRouteStateKey()
   loading.value = true
   loadError.value = ''
   try {
@@ -661,6 +667,9 @@ const getList = async () => {
     total.value = data.total || 0
     if (isUnfilteredTodoQuery()) {
       approvalTodoBadgeStore.applyTodoTotal(data.total || 0)
+    }
+    if (requestRouteStateKey) {
+      approvalLastLoadedRouteStateKey = requestRouteStateKey
     }
   } catch (error) {
     const message = resolveErrorMessage(error)
@@ -693,6 +702,23 @@ const normalizeRouteQueryValue = (value: unknown) => {
   const rawValue = Array.isArray(value) ? value[0] : value
   return typeof rawValue === 'string' && rawValue.trim() ? rawValue.trim() : undefined
 }
+
+const buildApprovalCenterRouteStateKey = () => {
+  if (String(route.name || '') !== approvalCenterRouteInstanceName) {
+    return undefined
+  }
+  return JSON.stringify({
+    path: route.path.replace(/\/+$/, ''),
+    moduleCode: normalizeRouteQueryValue(route.query.moduleCode) || '',
+    keyword: normalizeRouteQueryValue(route.query.keyword) || ''
+  })
+}
+
+const shouldKeepApprovalCenterLoadedStateOnRouteReturn = (targetRouteStateKey: string) =>
+  approvalModulesLoaded &&
+  approvalLastLoadedRouteStateKey === targetRouteStateKey &&
+  !loading.value &&
+  !loadError.value
 
 const isApprovalTaskViewType = (value: string): value is ApprovalCenterListViewType => {
   return supportedViewTypes.includes(value as ApprovalCenterListViewType)
@@ -788,6 +814,13 @@ const applyRouteQuery = () => {
 }
 
 const applyRouteQueryAndLoad = async () => {
+  const targetRouteStateKey = buildApprovalCenterRouteStateKey()
+  if (!targetRouteStateKey) {
+    return
+  }
+  if (shouldKeepApprovalCenterLoadedStateOnRouteReturn(targetRouteStateKey)) {
+    return
+  }
   try {
     applyRouteQuery()
     syncRouteToCanonicalPath(queryParams.viewType)

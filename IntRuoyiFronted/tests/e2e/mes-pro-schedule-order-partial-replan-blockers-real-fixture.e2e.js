@@ -254,7 +254,8 @@ async function discoverCandidateScheduleOrder(page, auth) {
         const pageData = await apiGet(page, auth, '/admin-api/mes/pro/schedule-order/page', {
           pageNo: 1,
           pageSize: 20,
-          workOrderId
+          workOrderId,
+          completionFilter: 'INCOMPLETE'
         })
         const row = (pageData?.list || []).find(
           (item) =>
@@ -394,15 +395,26 @@ async function searchScheduleOrder(page, code) {
     await searchInput.first().waitFor({ state: 'visible', timeout: 30000 })
   }
   await fillFirstVisible(searchInput, code, 'schedule order search input')
+  await page.waitForTimeout(250)
   const pageResponsePromise = page
     .waitForResponse(
       (response) =>
         response.url().includes('/admin-api/mes/pro/schedule-order/page') && response.status() === 200,
       { timeout: 60000 }
     )
-    .catch(() => null)
   await multiFilter.getByRole('button', { name: '查询' }).click()
-  await pageResponsePromise
+  const pageResponse = await pageResponsePromise
+  const pageBody = await pageResponse.json()
+  assert.equal(
+    pageBody.code,
+    0,
+    `schedule order search business response must succeed: ${pageBody.msg || pageBody.code}`
+  )
+  const returnedCodes = (pageBody.data?.list || []).map((row) => row.code).filter(Boolean)
+  assert.ok(
+    returnedCodes.includes(code),
+    `schedule order search response must contain ${code}, actual=${returnedCodes.join(',')}`
+  )
   await settle(page)
 }
 

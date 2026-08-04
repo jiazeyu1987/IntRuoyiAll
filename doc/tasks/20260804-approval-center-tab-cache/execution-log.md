@@ -22,12 +22,18 @@
 
 ### M1 根因与 RED
 
-- 状态：进行中。
-- 待记录：受影响组件、路由缓存身份、失败测试命令和预期失败原因。
+- 状态：已完成。
+- 根因 1：`ApprovalCenterTodo/Done/MyInitiated/Cc` 均设置 `noCache: true`，切走时页面实例被卸载。
+- 根因 2：四个路由名与共享 SFC 组件名 `ApprovalCenterWorkbench` 不一致，直接改为 `noCache: false` 仍无法命中 `keep-alive include`。
+- 根因 3：共享页面 route watcher 在缓存实例失活期间仍会观察全局路由；若不限定实例路由并比较成功加载状态，切回或切换审批子路由仍会重复请求。
+- RED: `pnpm e2e:approval-center:tab-return-no-reload:static` -> FAIL，预期原因：`ApprovalCenterTodo must enable keep-alive caching`。
 
 ### M2 最小修复
 
-- 状态：未开始。
+- 状态：进行中。
+- 已为审批中心四个路由启用缓存并声明共享 `keepAliveName: 'ApprovalCenterWorkbench'`。
+- 已让 `AppView` 和 `TagsView` 按显式组件缓存身份加入、保留和主动刷新删除缓存。
+- 已让审批中心缓存实例只响应自己的 route name，并仅在模块与列表按同一 route state 成功加载后跳过同状态切回加载。
 
 ### M3 验证与收尾
 
@@ -36,4 +42,3 @@
 ## Blockers
 
 - 当前无本任务 blocker。
-

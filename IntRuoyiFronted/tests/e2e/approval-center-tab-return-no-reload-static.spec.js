@@ -140,10 +140,12 @@ assert.match(
   'only a successful list request may mark the route state as loaded'
 )
 
-const cacheImplementationStart = approvalCenter.indexOf('let approvalModulesLoaded = false')
+const cacheImplementationStart = approvalCenter.indexOf(
+  'const buildApprovalCenterRouteStateKey = () =>'
+)
 const cacheImplementationSnippet = approvalCenter.slice(
   Math.max(0, cacheImplementationStart),
-  cacheImplementationStart + 2200
+  cacheImplementationStart + 1500
 )
 assert.doesNotMatch(
   cacheImplementationSnippet,
@@ -152,4 +154,3 @@ assert.doesNotMatch(
 )
 
 console.log('PASS: approval center tab return no-reload static contract')
-
