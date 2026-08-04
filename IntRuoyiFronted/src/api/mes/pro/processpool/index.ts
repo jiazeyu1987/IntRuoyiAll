@@ -20,6 +20,7 @@ export interface ProcessPoolTimelineReadonlyActionsVO {
 
 export interface ProcessPoolTimelineEventVO {
   id: number
+  processPoolEventId?: number
   processPoolId?: number
   submittedAt?: string | number | Date
   loginUserId?: number
@@ -68,6 +69,77 @@ export interface ProcessPoolTimelineDetailVO extends ProcessPoolTimelineEventVO 
   readonlyActions?: ProcessPoolTimelineReadonlyActionsVO
 }
 
+export interface ProductionExecutionTraceBlockerVO {
+  code: string
+  message: string
+  missingObjectType?: string
+  resolutionHint?: string
+}
+
+export interface ProductionExecutionTraceSourceIdsVO {
+  processPoolEventId?: number
+  productionSubmitEventId?: number
+  pqcEventId?: number
+  reviewId?: number
+  allocationId?: number
+  orderProcessId?: number
+  batchRecordExecutionId?: number
+  fieldAuditBatchId?: number
+}
+
+export interface ProductionExecutionTraceSectionVO {
+  status: 'READY' | 'BLOCKED' | 'SKIPPED'
+  sourceIds: ProductionExecutionTraceSourceIdsVO
+  blockers: ProductionExecutionTraceBlockerVO[]
+  lastUpdatedAt?: string | number | Date
+}
+
+export interface ProductionExecutionReadOnlyVerificationEntryVO {
+  verificationKey: string
+  method: string
+  path: string
+  params: Record<string, unknown>
+}
+
+export interface ProductionExecutionEvidenceAnswerVO {
+  answerKey: string
+  value?: unknown
+  section?: string
+  sameSource?: boolean
+  sourceIds: Record<string, unknown>
+  readOnlyVerificationEntries: ProductionExecutionReadOnlyVerificationEntryVO[]
+  blockers: ProductionExecutionTraceBlockerVO[]
+}
+
+export interface ProductionExecutionSameSourceCheckVO {
+  checkKey: string
+  passed?: boolean
+  sourceIds: Record<string, unknown>
+  message?: string
+}
+
+export interface ProductionExecutionClosureEvidenceVO {
+  processPoolEventId: number
+  complete?: boolean
+  answers: Record<string, ProductionExecutionEvidenceAnswerVO>
+  sameSourceChecks: ProductionExecutionSameSourceCheckVO[]
+  blockers: ProductionExecutionTraceBlockerVO[]
+}
+
+export interface ProductionExecutionTraceVO {
+  processPoolEventId: number
+  complete: boolean
+  submit: ProductionExecutionTraceSectionVO
+  quality: ProductionExecutionTraceSectionVO
+  review: ProductionExecutionTraceSectionVO
+  allocation: ProductionExecutionTraceSectionVO
+  completion: ProductionExecutionTraceSectionVO
+  batchRecord: ProductionExecutionTraceSectionVO
+  blockers: ProductionExecutionTraceBlockerVO[]
+  candidateEvents?: ProcessPoolTimelineEventVO[]
+  closureEvidence?: ProductionExecutionClosureEvidenceVO
+}
+
 export const getProcessPoolTimelinePage = async (params: ProcessPoolTimelinePageReqVO) => {
   return await request.get<PageResult<ProcessPoolTimelineEventVO[]>>({
     url: '/mes/pro/process-pool/timeline/page',
@@ -79,5 +151,12 @@ export const getProcessPoolTimelineDetail = async (id: number) => {
   return await request.get<ProcessPoolTimelineDetailVO>({
     url: '/mes/pro/process-pool/timeline/detail',
     params: { id }
+  })
+}
+
+export const getProductionExecutionTrace = async (processPoolEventId: number) => {
+  return await request.get<ProductionExecutionTraceVO>({
+    url: '/mes/pro/process-pool/team-leader/production-execution/trace',
+    params: { processPoolEventId }
   })
 }

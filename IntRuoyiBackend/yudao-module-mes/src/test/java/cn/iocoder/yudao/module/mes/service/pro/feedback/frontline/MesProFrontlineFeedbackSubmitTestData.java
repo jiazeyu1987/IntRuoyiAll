@@ -30,6 +30,7 @@ final class MesProFrontlineFeedbackSubmitTestData {
         rawPayload.put("routePredecessorStatuses", Map.of("P10", "WAITING"));
 
         return new MesProFrontlineFeedbackSubmitReqVO()
+                .setProcessPoolSubmissionIdempotencyKey("P0-SUBMIT-F2-20260730-001")
                 .setActualEmployeeId(3001L)
                 .setSignatureId(4001L)
                 .setSignatureEmployeeId(3001L)

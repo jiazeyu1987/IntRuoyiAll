@@ -1112,6 +1112,14 @@ public interface ErrorCodeConstants {
             "P6 只读核验缺少正式批记录回填证据，workOrderId={}，routeProcessId={}，processId={}");
     ErrorCode PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED = new ErrorCode(1_040_760_324,
             "活跃订单缺少当前工序生产系数和目标数量快照：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_ROOT_EVENT_REQUIRED = new ErrorCode(1_040_760_325,
+            "报工确认必须以生产提交根事件为来源：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_QUALITY_BINDING_REQUIRED = new ErrorCode(1_040_760_326,
+            "报工确认缺少唯一正式 PQC 结构化绑定，eventId={}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_QUALITY_NOT_ALLOCATABLE = new ErrorCode(1_040_760_327,
+            "报工确认 PQC 结果不可分配，eventId={}，inspectionResult={}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_QUALITY_QUANTITY_MISMATCH = new ErrorCode(1_040_760_328,
+            "报工确认 PQC 合格可分配数量不足，eventId={}，confirmQuantity={}，qualifiedQuantity={}，consumedQuantity={}，allocatableQuantity={}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

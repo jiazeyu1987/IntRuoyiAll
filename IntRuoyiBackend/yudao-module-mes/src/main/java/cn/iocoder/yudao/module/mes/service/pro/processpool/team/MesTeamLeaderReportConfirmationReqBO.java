@@ -16,5 +16,8 @@ public class MesTeamLeaderReportConfirmationReqBO {
     private String leaderType;
     private String allocationMode;
     private String reviewRemark;
+    private Long reviewSignatureId;
+    private Long reviewSignatureUserId;
+    private String reviewSignatureSnapshotJson;
     private List<MesTeamLeaderReportAllocationLineReqBO> allocations;
 }

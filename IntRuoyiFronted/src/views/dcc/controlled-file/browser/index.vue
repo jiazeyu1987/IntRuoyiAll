@@ -1119,6 +1119,7 @@ type ControlledFileBrowserRow = ControlledFileVO & {
 }
 
 type ControlledFileBrowserVersion = ControlledFileVersionHistoryVO &
+  Partial<Pick<ControlledFileVO, 'directoryId'>> &
   Pick<ControlledFileVO, 'actionProjection' | 'canPreview' | 'canDownload' | 'canPrint'>
 
 type ControlledFileDirectoryNode = ControlledFileDirectoryVO & {
@@ -1357,6 +1358,7 @@ const buildCurrentVersionOption = (row: ControlledFileVO): ControlledFileBrowser
   obsoletedTime: row.obsoletedTime,
   supersededByFileId: row.supersededByFileId,
   remark: row.remark,
+  directoryId: row.directoryId,
   canPreview: row.canPreview,
   canDownload: row.canDownload,
   canPrint: row.canPrint,

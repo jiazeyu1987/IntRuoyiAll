@@ -2,17 +2,25 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQuantityFragmentMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAllocationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,6 +32,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -50,6 +59,16 @@ class MesTeamLeaderReportConfirmationServiceTest {
     @Mock
     private MesProcessPoolReportAllocationMapper allocationMapper;
     @Mock
+    private MesProProcessPoolQuantityFragmentMapper quantityFragmentMapper;
+    @Mock
+    private MesProProcessPoolPqcRecordMapper pqcRecordMapper;
+    @Mock
+    private MesPqcInspectionTaskMapper pqcTaskMapper;
+    @Mock
+    private MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper;
+    @Mock
+    private MesProcessPoolFifoAllocationService processPoolFifoAllocationService;
+    @Mock
     private MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
     @Mock
     private MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService;
@@ -62,14 +81,16 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
                         orderProcessTargetService);
         service = new MesTeamLeaderReportConfirmationServiceImpl(scopeService, eventMapper, activeOrderMapper,
-                workOrderMapper, reviewMapper, allocationMapper, fifoAllocationService, orderProcessTargetService,
-                orderProcessCompletionService);
+                workOrderMapper, reviewMapper, allocationMapper, quantityFragmentMapper, pqcRecordMapper,
+                fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper, pqcPieceDetailMapper,
+                orderProcessTargetService, orderProcessCompletionService);
     }
 
     @Test
     void shouldConfirmSubmissionWithManualAllocationsToActiveOrders() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80,\"pressure\":15}"));
-        when(allocationMapper.selectListByEventId(1001L)).thenReturn(List.of());
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
+        givenSuccessPqcBinding(80);
         when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
                 activeOrder(8101L, 9001L, "2026-07-31T08:00:00"),
                 activeOrder(8102L, 9002L, "2026-07-31T09:00:00")));
@@ -94,6 +115,9 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                 .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
                 .reviewRemark("现场调整 O1/O2 各 40")
+                .reviewSignatureId(9101L)
+                .reviewSignatureUserId(3001L)
+                .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
                 .allocations(List.of(line(8101L, "40"), line(8102L, "40")))
                 .build());
 
@@ -116,7 +140,8 @@ class MesTeamLeaderReportConfirmationServiceTest {
     @Test
     void shouldBlockWhenManualAllocationTargetsNonActiveOrder() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
-        when(allocationMapper.selectListByEventId(1001L)).thenReturn(List.of());
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
+        givenSuccessPqcBinding(80);
         when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
                 activeOrder(8101L, 9001L, "2026-07-31T08:00:00")));
 
@@ -126,6 +151,9 @@ class MesTeamLeaderReportConfirmationServiceTest {
                         .leaderUserId(3001L)
                         .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                         .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
+                        .reviewSignatureId(9101L)
+                        .reviewSignatureUserId(3001L)
+                        .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
                         .allocations(List.of(line(9999L, "80")))
                         .build()));
 
@@ -138,7 +166,8 @@ class MesTeamLeaderReportConfirmationServiceTest {
     @Test
     void shouldBlockWhenAllocationTotalDoesNotEqualSubmittedQuantity() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
-        when(allocationMapper.selectListByEventId(1001L)).thenReturn(List.of());
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
+        givenSuccessPqcBinding(80);
         when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
                 activeOrder(8101L, 9001L, "2026-07-31T08:00:00")));
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(
@@ -154,6 +183,9 @@ class MesTeamLeaderReportConfirmationServiceTest {
                         .leaderUserId(3001L)
                         .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                         .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
+                        .reviewSignatureId(9101L)
+                        .reviewSignatureUserId(3001L)
+                        .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
                         .allocations(List.of(line(8101L, "70")))
                         .build()));
 
@@ -165,7 +197,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
     @Test
     void shouldBlockDuplicateConfirmationBeforeCreatingReview() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
-        when(allocationMapper.selectListByEventId(1001L)).thenReturn(List.of(allocation(9001L, "80")));
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(allocation(9001L, "80")));
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.confirmSubmission(
                 MesTeamLeaderReportConfirmationReqBO.builder()
@@ -173,6 +205,9 @@ class MesTeamLeaderReportConfirmationServiceTest {
                         .leaderUserId(3001L)
                         .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                         .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
+                        .reviewSignatureId(9101L)
+                        .reviewSignatureUserId(3001L)
+                        .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
                         .allocations(List.of(line(8101L, "80")))
                         .build()));
 
@@ -186,7 +221,8 @@ class MesTeamLeaderReportConfirmationServiceTest {
     @Test
     void shouldConfirmManualAllocationAgainstPerProcessSnapshotTargetInsteadOfErpQuantity() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":300}"));
-        when(allocationMapper.selectListByEventId(1001L)).thenReturn(List.of());
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
+        givenSuccessPqcBinding(300);
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(8101L, 9001L, "2026-07-31T08:00:00");
         when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(activeOrder));
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(
@@ -205,6 +241,9 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 .leaderUserId(3001L)
                 .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                 .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
+                .reviewSignatureId(9101L)
+                .reviewSignatureUserId(3001L)
+                .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
                 .allocations(List.of(line(8101L, "300")))
                 .build());
 
@@ -224,12 +263,72 @@ class MesTeamLeaderReportConfirmationServiceTest {
         return MesProProcessPoolEventDO.builder()
                 .id(1001L)
                 .poolId(100L)
+                .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .workOrderId(9001L)
+                .routeId(4001L)
                 .routeProcessId(5001L)
                 .processId(6001L)
                 .actualEmployeeId(2001L)
                 .rawPayload(rawPayload)
                 .serverSubmitTime(LocalDateTime.of(2026, 7, 31, 8, 30))
                 .build();
+    }
+
+    private void givenSuccessPqcBinding(int qualifiedQuantity) {
+        when(pqcRecordMapper.selectListByProductionSubmitEventId(1001L))
+                .thenReturn(List.of(pqcRecord(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)));
+        when(eventMapper.selectByIdForUpdate(1101L)).thenReturn(pqcEvent());
+        when(pqcTaskMapper.selectByIdForUpdate(5101L)).thenReturn(pqcTask(qualifiedQuantity));
+        when(pqcPieceDetailMapper.selectListByTaskId(5101L)).thenReturn(successPqcPieces(qualifiedQuantity));
+    }
+
+    private static MesProProcessPoolPqcRecordDO pqcRecord(String inspectionResult) {
+        return MesProProcessPoolPqcRecordDO.builder()
+                .id(1201L)
+                .eventId(1101L)
+                .productionSubmitEventId(1001L)
+                .inspectionResult(inspectionResult)
+                .serverSubmitTime(LocalDateTime.of(2026, 7, 31, 8, 45))
+                .build();
+    }
+
+    private static MesProProcessPoolEventDO pqcEvent() {
+        return MesProProcessPoolEventDO.builder()
+                .id(1101L)
+                .poolId(100L)
+                .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                .workOrderId(9001L)
+                .routeId(4001L)
+                .routeProcessId(5001L)
+                .processId(6001L)
+                .feedbackSourceId(5101L)
+                .rawPayload("{\"inspectionResult\":\"SUCCESS\"}")
+                .serverSubmitTime(LocalDateTime.of(2026, 7, 31, 8, 45))
+                .build();
+    }
+
+    private static MesPqcInspectionTaskDO pqcTask(Integer actualInspectionQuantity) {
+        return MesPqcInspectionTaskDO.builder()
+                .id(5101L)
+                .workOrderId(9001L)
+                .routeId(4001L)
+                .routeProcessId(5001L)
+                .processId(6001L)
+                .actualInspectionQuantity(actualInspectionQuantity)
+                .taskStatus("SUBMITTED")
+                .build();
+    }
+
+    private static List<MesPqcInspectionPieceDetailDO> successPqcPieces(int count) {
+        return IntStream.rangeClosed(1, count)
+                .mapToObj(sampleNo -> MesPqcInspectionPieceDetailDO.builder()
+                        .id(5200L + sampleNo)
+                        .taskId(5101L)
+                        .sampleNo(sampleNo)
+                        .itemCode("PQC-ITEM")
+                        .judgement(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
+                        .build())
+                .toList();
     }
 
     private static MesProcessPoolActiveOrderDO activeOrder(Long id, Long workOrderId, String joinedAt) {

@@ -91,6 +91,9 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                 .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)
                 .reviewRemark("数据和签名一致")
+                .reviewSignatureId(9101L)
+                .reviewSignatureUserId(3001L)
+                .reviewSignatureSnapshotJson("{\"signature\":\"review\"}")
                 .build();
     }
 

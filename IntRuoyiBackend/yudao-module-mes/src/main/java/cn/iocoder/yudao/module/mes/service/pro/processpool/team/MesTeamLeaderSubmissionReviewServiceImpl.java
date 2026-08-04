@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
@@ -13,6 +15,7 @@ import java.util.Set;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_STATUS_INVALID;
 
 @Service
@@ -50,6 +53,9 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
                 .reviewStatus(reqBO.getReviewStatus())
                 .reviewRemark(reqBO.getReviewRemark())
                 .reviewedAt(LocalDateTime.now())
+                .reviewSignatureId(reqBO.getReviewSignatureId())
+                .reviewSignatureUserId(reqBO.getReviewSignatureUserId())
+                .reviewSignatureSnapshotJson(reqBO.getReviewSignatureSnapshotJson())
                 .build();
         reviewMapper.insert(review);
         return review.getId();
@@ -59,8 +65,24 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
         if (reqBO == null || reqBO.getEventId() == null || reqBO.getLeaderUserId() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "submissionReview");
         }
+        validateReviewSignature(reqBO.getLeaderUserId(), reqBO.getReviewSignatureId(),
+                reqBO.getReviewSignatureUserId(), reqBO.getReviewSignatureSnapshotJson(),
+                "submissionReview.reviewSignature");
         if (!VALID_REVIEW_STATUSES.contains(reqBO.getReviewStatus())) {
             throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_STATUS_INVALID, reqBO.getReviewStatus());
+        }
+    }
+
+    private void validateReviewSignature(Long leaderUserId, Long reviewSignatureId, Long reviewSignatureUserId,
+                                         String reviewSignatureSnapshotJson, String context) {
+        if (reviewSignatureId == null || reviewSignatureId <= 0
+                || reviewSignatureUserId == null || reviewSignatureUserId <= 0
+                || StrUtil.isBlank(reviewSignatureSnapshotJson)
+                || !JsonUtils.isJsonObject(reviewSignatureSnapshotJson)) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, context);
+        }
+        if (!leaderUserId.equals(reviewSignatureUserId)) {
+            throw exception(PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH);
         }
     }
 }

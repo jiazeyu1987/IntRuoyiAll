@@ -21,6 +21,16 @@ public interface MesProcessPoolReportAllocationMapper extends BaseMapperX<MesPro
                 .orderByAsc(MesProcessPoolReportAllocationDO::getId));
     }
 
+    default List<MesProcessPoolReportAllocationDO> selectListByEventIdForUpdate(Long eventId) {
+        if (eventId == null) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolReportAllocationDO>()
+                .eq(MesProcessPoolReportAllocationDO::getEventId, eventId)
+                .orderByAsc(MesProcessPoolReportAllocationDO::getId)
+                .last("FOR UPDATE"));
+    }
+
     default List<MesProcessPoolReportAllocationDO> selectListByTrace(Long eventId, Long workOrderId,
                                                                      Long routeProcessId, Long processId) {
         if (eventId == null || workOrderId == null || routeProcessId == null || processId == null) {

@@ -1,0 +1,223 @@
+# Frontend Feature Evidence - P0 前端静态与闭环证据包合同
+
+## Feature
+
+- 本证据覆盖 P0 M1 前端静态合同：PQC 正式提交 payload 必须携带设备账号、设备、工作站、PQC 幂等键和签名上下文，不能只提交质量结果或签名 ID。
+- 本证据覆盖 P0 M5 前端闭环证据包合同：统一 trace 页面必须展示后端 `closureEvidence` 九项审计问题、正式 `sourceIds`、同源校验和只读复验入口；真实 E2E 缺前置时只能 BLOCKED。
+- 本证据覆盖 P0 M5 真实 E2E 页面路径门禁：`real` 脚本不得只做 Node/API 预检，前置齐备后必须启动 Playwright 浏览器并进入真实前端页面；完整主写路径未实现时必须 FAIL。
+- 本证据覆盖 P0 M5 真实 E2E 页面骨架门禁：`real` 脚本必须显式实现登录、班组长工作台、生产填写、PQC 填写和工序池时间轴 Trace 页面步骤，并锁定目标写请求边界。
+- 本证据覆盖 P0 M5 真实 E2E 动作级闭环门禁：`real` 脚本必须从一线生产提交响应动态捕获新的 `processPoolEventId`，再串起 PQC、PQC 组长复核、生产组长 FIFO 分配确认和 trace `closureEvidence` 校验。
+- 本证据覆盖 P0 M5 真实 E2E 运行态迁移门禁：浏览器写入前必须用 `verify_p0_runtime_migration.py` 只读核验真实 MySQL P0 字段、索引和历史断链检查；缺 `P0_RUNTIME_DB_*` 或验证器非 PASS 时必须 BLOCKED。
+- 本证据覆盖 P0 M5 真实 E2E 测试数据闭环门禁：真实 E2E 必须强制 `P0_RUN_ID`、设备账号、生产/PQC/确认幂等键、PQC 组长复核签名、批记录定义/版本和迁移发布策略证据；`P0_PROCESS_POOL_EVENT_ID` 只能作为诊断历史 ID，不能作为写入 PASS 输入。
+- 本证据覆盖 P0 M5 真实 E2E 重复生产提交门禁：真实 E2E 必须从同一个生产填写 URL 重复提交一次，并断言第二次响应返回与首个提交相同的 `processPoolEventId`；缺真实前置时只能在证据中记录 `Duplicate Production Submit Verified=false` 和 BLOCKED。
+- 本证据覆盖 P0 M5 真实 E2E 重复 PQC 提交门禁：真实 E2E 必须从同一个 PQC 填写 URL 重复提交一次，并断言第二次响应返回与首个 PQC 提交相同的 `pqcEventId`；缺真实前置时只能在证据中记录 `Duplicate PQC Submit Verified=false` 和 BLOCKED。
+- 本证据覆盖 P0 M5 真实 E2E 重复 FIFO 确认门禁：真实 E2E 必须从生产组长页面重复执行同一来源事件的 FIFO 确认，并断言后端明确返回 `PRO_PROCESS_POOL_REPORT_ALLOCATION_DUPLICATE`；缺真实前置时只能记录 `Duplicate FIFO Confirm Rejected=false` 和 BLOCKED。
+- 本证据覆盖 P0 M5 / M6 目标请求完成证据门禁：真实 E2E 必须对五个目标请求输出 `Hit`、`URL`、`Method`、`HTTP Status` 和 `Business Code`，completion gate 必须拒绝错后端、错方法、非 2xx 或业务码非 0 的 PASS evidence。
+- 本证据覆盖 P0 M5 / M6 目标响应身份门禁：真实 E2E 必须对五个目标请求输出响应正式 ID，生产提交和 trace 响应 `processPoolEventId` 必须等于本轮根事件，PQC/复核/确认响应必须带正整数 ID。
+- 本证据覆盖 P0 M5 / M6 闭环证据包完整性门禁：真实 E2E 必须拒绝 `closureEvidence.complete !== true`，completion gate 必须拒绝闭环证据包根事件错配、未完成、同源检查不足、blocker 未清零或任何 `Closure Issue` 残留。
+- 本证据覆盖 P0 M6 真实 E2E result artifact 门禁：Markdown PASS 必须由同一 task root 下 `IntRuoyiFronted/test-results/p0-production-execution-loop-real/result.json` 支撑，且 result status、`generatedAt`、`frontendUrl/backendUrl`、根事件、closureEvidence 和 issue 列表必须与 Markdown evidence 一致。
+- 本证据覆盖 M5 前端验证解阻：`pnpm ts:check` 不得继续被 DCC 受控浏览版本选项缺 `directoryId` 类型阻塞；该修复只补类型和当前版本目录投影，不改变 DCC 业务行为。
+- 涉及文件：`src/api/mes/pro/feedback/index.ts`、`src/api/mes/pro/processpool/index.ts`、`src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue`、`src/views/mes/pro/processpool/TimelinePage.vue`、`src/views/dcc/controlled-file/browser/index.vue`、`tests/e2e/p0-production-execution-loop-static.spec.cjs`、`tests/e2e/p0-production-execution-loop-real.e2e.js`。
+
+## Acceptance
+
+- `FrontlinePqcInspectionSubmitReqVO` 必须声明 `deviceAccountId`、`deviceId`、`workstationId`、`pqcSubmissionIdempotencyKey`。
+- `buildPqcInspectionSubmitPayload` 必须提交这些字段，并在缺正式上下文时显示 fail-fast 错误。
+- 静态合同必须验证行为字段，不绑定对象字面量只能使用显式属性或只能使用简写属性的代码风格。
+- `ProductionExecutionTraceVO` 必须声明 `closureEvidence`、`answers`、`sameSourceChecks` 和 `readOnlyVerificationEntries`。
+- Trace 页面必须有 `data-p0-closure-evidence` 可见证据面，逐项展示 `who/device/process/quantity/quality/signature/workOrder/review/batchRecord`。
+- Trace API 必须调用正式班组长路径 `/mes/pro/process-pool/team-leader/production-execution/trace`。
+- DCC 受控浏览版本选项必须允许历史版本没有目录 ID，同时当前版本选项保留行级 `directoryId`，以保证目录路径展示类型安全且不引入默认目录 fallback。
+- 真实 E2E 脚本必须加载 Playwright、启动 Chromium、创建隔离 browser context，并通过 `page.goto` 进入真实前端页面；缺真实 env 时不加载浏览器并保持 BLOCKED。
+- 真实 E2E 脚本必须包含 `TEAM_LEADER_ROUTE`、`PRODUCTION_FILL_ROUTE`、`PQC_FILL_ROUTE`、`TIMELINE_ROUTE`，并实现 `login`、`openTeamLeaderWorkbench`、`openProductionFill`、`openPqcFill`、`openProductionExecutionTrace`。
+- 真实 E2E 登录必须等待 `/system/auth/login` 正式请求，且不得记录密码；目标请求边界必须包含 `FRONTLINE_SUBMIT_ENDPOINT`、`PQC_SUBMIT_ENDPOINT`、`TEAM_LEADER_REVIEW_ENDPOINT`、`TEAM_LEADER_ALLOCATION_CONFIRM_ENDPOINT`、`PRODUCTION_EXECUTION_TRACE_ENDPOINT`。
+- 真实 E2E 必须实现 `submitFrontlineProduction`、`submitPqcInspection`、`reviewTeamLeaderSubmission`、`confirmTeamLeaderAllocation`、`fetchProductionExecutionTrace`、`validateClosureEvidence`，并对每个目标 endpoint 使用 `waitForResponse`。
+- 真实 E2E 不允许读取历史 `P0_PROCESS_POOL_EVENT_ID`；PQC 页面、班组长复核、FIFO 分配和 trace 必须使用本轮一线提交响应返回的新 `processPoolEventId`。
+- 真实 E2E 证据必须包含脱敏 `closureEvidence` 要求；缺真实 run 捕获的新 `processPoolEventId` 时记录 `CLOSURE_EVIDENCE_MISSING_SOURCE` 和 BLOCKED。
+- 真实 E2E 必须要求 `P0_RUNTIME_DB_HOST`、`P0_RUNTIME_DB_PORT`、`P0_RUNTIME_DB_NAME`、`P0_RUNTIME_DB_USER`、`P0_RUNTIME_DB_PASSWORD`，并在任何 Playwright 写入前调用只读运行态迁移验证器；`P0_RUNTIME_SCHEMA_BLOCKED` 不得降级为 PASS。
+- 真实 E2E 必须要求 `P0_RUN_ID` 并生成 `P0-EXEC-<runId>` 数据前缀；不得复用历史固定前缀。
+- 真实 E2E 登录后必须读取 `/system/auth/get-permission-info`，断言当前登录用户 ID 等于 `P0_DEVICE_ACCOUNT_ID`，不得隐式信任登录账号就是设备账号。
+- 真实 E2E 必须分别要求生产提交、PQC 提交和生产组长确认幂等键；PQC 组长复核签名必须与生产组长 FIFO 确认签名分开。
+- 真实 E2E 必须要求 `P0_BATCH_RECORD_REPORT_ID/P0_BATCH_RECORD_DEFINITION_ID/P0_BATCH_RECORD_VERSION_ID` 和 `P0_SCHEMA_MIGRATION_ID/P0_MIGRATION_POLICY_EVIDENCE`，缺任一项不得启动浏览器写入。
+- 真实 E2E 必须实现 `duplicateFrontlineProduction(page, config, routeSteps, productionFillUrl, processPoolEventId)`，重复打开同一生产填写 URL 后再次调用生产提交动作，并断言 `duplicateProcessPoolEventId === processPoolEventId`。
+- 真实 E2E 必须实现 `duplicatePqcInspection(page, executionConfig, routeSteps, pqcFillUrl, pqcEventId)`，重复打开同一 PQC 填写 URL 后再次调用 PQC 提交动作，并断言 `duplicatePqcEventId === pqcEventId`。
+- 真实 E2E 必须实现 `duplicateTeamLeaderAllocationConfirm(page, executionConfig, routeSteps, allocationResponse)`，重复打开生产组长 FIFO 确认路径后断言第二次确认返回 `PRO_PROCESS_POOL_REPORT_ALLOCATION_DUPLICATE`，不能只依赖按钮禁用。
+- 真实 E2E evidence 必须输出每个目标请求的实际 `URL`、`Method`、`HTTP Status` 和 `Business Code`；`Hit=true` 时 URL 必须属于同一个 `Backend`，Method 必须匹配正式 POST/GET 边界，HTTP Status 必须为 2xx，Business Code 必须为 `0`。
+- 真实 E2E evidence 必须输出每个目标请求的响应身份：`FRONTLINE_SUBMIT_ENDPOINT processPoolEventId`、`PQC_SUBMIT_ENDPOINT pqcEventId`、`TEAM_LEADER_REVIEW_ENDPOINT reviewId`、`TEAM_LEADER_ALLOCATION_CONFIRM_ENDPOINT reviewId` 和 `PRODUCTION_EXECUTION_TRACE_ENDPOINT processPoolEventId`。
+
+## BDD:
+
+- Given 一线员工在 PQC 页面选择生产订单、工序、员工、设备并完成签名。
+- When 用户提交 PQC 检验。
+- Then 前端请求必须带正式设备/工作站/签名/幂等上下文；缺上下文时必须阻止提交并暴露缺失字段。
+- Given 后端 trace 返回 `closureEvidence`。
+- When 用户打开工序池时间轴的生产执行闭环 Trace。
+- Then 页面必须展示九项审计问题的业务值、正式来源 ID、同源结果和只读复验入口；如果 trace `complete=true` 但缺 `closureEvidence`，页面必须显示错误，不能当作 P0 PASS。
+- Given 前端全量类型检查覆盖 P0 前端闭环代码。
+- When DCC 受控浏览当前版本摘要读取 `selectedVersion.directoryId || row.directoryId`。
+- Then `ControlledFileBrowserVersion` 必须声明可选目录 ID，当前版本选项必须显式带行级目录 ID，`pnpm ts:check` 不得被该类型缺口阻塞。
+- Given 真实 E2E 前置条件齐备。
+- When 执行 `pnpm e2e:p0-production-execution-loop:real`。
+- Then 脚本必须先通过 Playwright 打开真实前端登录页；如果完整页面主写路径尚未实现，必须返回 FAIL，不能用前后端健康检查冒充 E2E PASS。
+- Given 真实 E2E 前置条件齐备且登录成功。
+- When 脚本继续执行页面路径预检。
+- Then 必须依次打开班组长工作台、生产填写、PQC 填写和工序池时间轴 Trace 页面；任一路由不可达必须 FAIL，不能退回 API-only 或健康检查。
+- Given 真实 E2E 前置条件齐备且一线员工完成生产提交。
+- When 脚本捕获 `FRONTLINE_SUBMIT_ENDPOINT` 响应中的 `processPoolEventId` 后继续提交 PQC、PQC 组长复核、生产组长 FIFO 分配确认并打开 trace。
+- Then 所有后续动作必须使用该新 `processPoolEventId`，并逐项校验九个 `closureEvidence` answer 的正式来源、同源结果和只读复验入口。
+- Given 真实 E2E 的浏览器写入前置数据齐备但运行态 schema 可能未迁移。
+- When 脚本准备打开真实页面执行一线提交。
+- Then 脚本必须先调用只读运行态迁移验证器；缺 `P0_RUNTIME_DB_*`、缺字段/索引或历史断链时记录 BLOCKED，且不得启动浏览器写入。
+- Given 文档要求真实 E2E 证明设备账号、runId、幂等键、四类签名、正式批记录绑定和迁移发布证据。
+- When real 脚本缺任一前置，或把 PQC 生产绑定/历史 `processPoolEventId` 当作写入前输入。
+- Then 静态合同必须 RED；GREEN 后真实 E2E 只能在本轮页面 run 中捕获新 ID，并在缺前置时保持 BLOCKED。
+- Given 一线生产提交已在真实页面返回新的 `processPoolEventId`。
+- When 脚本用同一生产填写 URL 和同一生产提交幂等键重复提交。
+- Then 第二次生产提交必须返回同一个 `processPoolEventId`，真实 E2E 证据必须记录重复提交已验证；缺真实前置时只能记录 `Duplicate Production Submit Verified=false`，不得 PASS。
+- Given PQC 提交已在真实页面返回新的 `pqcEventId` 且绑定本轮 `processPoolEventId`。
+- When 脚本用同一 PQC 填写 URL 和同一 PQC 幂等键重复提交。
+- Then 第二次 PQC 提交必须返回同一个 `pqcEventId`，真实 E2E 证据必须记录重复提交已验证；缺真实前置时只能记录 `Duplicate PQC Submit Verified=false`，不得 PASS。
+- Given 生产组长 FIFO 确认已在真实页面完成并产生首个 `allocationResponse`。
+- When 脚本从生产组长真实页面再次对同一来源事件提交 FIFO 确认。
+- Then 第二次确认必须返回 `PRO_PROCESS_POOL_REPORT_ALLOCATION_DUPLICATE` 明确重复拒绝，真实 E2E 证据必须记录重复确认被拒绝；缺真实前置时只能记录 `Duplicate FIFO Confirm Rejected=false`，不得 PASS。
+- Given 五个目标请求均已在真实页面 run 中命中并返回成功。
+- When 真实 E2E 写出完成证据。
+- Then evidence 必须包含生产提交、PQC、复核、FIFO 确认和 trace 的响应正式 ID；生产提交与 trace 的 `processPoolEventId` 必须等于本轮新捕获根事件，缺失或错配不得 PASS。
+
+## RED:
+
+- `pnpm e2e:p0-production-execution-loop:static` -> FAIL，合同扩展到 PQC payload 后发现静态检查过度绑定 `pqcSubmissionIdempotencyKey:` 显式属性写法，不能识别合法对象简写。
+- `pnpm e2e:p0-production-execution-loop:static` -> FAIL，合同扩展到闭环证据包后失败于缺少 `ProductionExecutionClosureEvidenceVO`、`ProductionExecutionEvidenceAnswerVO`、`ProductionExecutionSameSourceCheckVO`、`ProductionExecutionReadOnlyVerificationEntryVO` 和页面 `data-p0-closure-evidence`。
+- `pnpm ts:check` -> FAIL，`src/views/dcc/controlled-file/browser/index.vue(1419,60): Property 'directoryId' does not exist on type 'ControlledFileBrowserVersion'`，证明前端全量类型检查仍被 DCC 版本选项目录 ID 类型缺口阻塞。
+- `pnpm e2e:p0-production-execution-loop:static` -> FAIL，新增真实 E2E 页面路径门禁后断言失败：`P0 real E2E must load Playwright for a real browser path.`，证明 real 脚本仍只是 Node/API 预检。
+- `pnpm e2e:p0-production-execution-loop:static` -> FAIL，新增真实 E2E 页面骨架门禁后断言失败：`P0 real E2E must lock the team-leader workbench route as a real UI step.`，证明 real 脚本尚未显式覆盖班组长、生产填写、PQC 和时间轴页面步骤。
+- `pnpm e2e:p0-production-execution-loop:static` -> FAIL，新增动作级闭环门禁后断言失败：`P0 real E2E must implement submitFrontlineProduction as an explicit action-level step.`，证明 real 脚本还未进入真实页面提交/PQC/复核/FIFO/trace 主动作链。
+- `pnpm e2e:p0-production-execution-loop:static` -> FAIL，新增运行态迁移门禁后断言失败：`P0 real E2E must fail fast on missing P0_RUNTIME_DB_HOST.`，证明 real 脚本尚未把真实 MySQL 迁移核验作为浏览器写入前置。
+- `pnpm e2e:p0-production-execution-loop:static` -> FAIL，新增真实 E2E 任务数据门禁后断言失败：`P0 real E2E must fail fast on missing P0_SUBMIT_QUANTITY.`，证明 real 脚本尚未按文档要求冻结提交数量、确认数量、PQC 任务、QA 规程、PQC 签名和 PQC 数量前置。
+- `pnpm e2e:p0-production-execution-loop:static` -> FAIL，新增幂等键门禁后断言失败：`P0 real E2E must fail fast on missing P0_SUBMIT_IDEMPOTENCY_KEY.`，证明 real 脚本仍用固定前缀派生幂等键。
+- `pnpm e2e:p0-production-execution-loop:static` -> FAIL，新增设备账号门禁后断言失败：`P0 real E2E must fail fast on missing P0_DEVICE_ACCOUNT_ID.`，证明 real 脚本尚未显式校验当前登录用户等于设备账号。
+- `pnpm e2e:p0-production-execution-loop:static` -> FAIL，新增 runId/批记录/迁移证据门禁后断言失败：`P0 real E2E must fail fast on missing P0_RUN_ID.`，证明 real 脚本尚未强制每轮数据前缀和正式批记录/迁移证据前置。
+- `pnpm e2e:p0-production-execution-loop:static` -> FAIL，新增重复生产提交门禁后断言失败于缺少 `duplicateFrontlineProduction`，证明 real 脚本尚未用同一生产填写 URL 复验一线提交幂等。
+- `pnpm e2e:p0-production-execution-loop:static` -> FAIL，新增重复 PQC 提交门禁后断言失败于缺少 `duplicatePqcInspection`，证明 real 脚本尚未用同一 PQC 填写 URL 复验 PQC 提交幂等。
+- `pnpm e2e:p0-production-execution-loop:static` -> FAIL，新增重复 FIFO 确认门禁后断言失败于缺少 `duplicateTeamLeaderAllocationConfirm`，证明 real 脚本尚未从生产组长页面复验重复确认明确拒绝。
+- `node -e "<static spec evidence-line assertion>"` -> FAIL，`Error: static spec must assert evidence line Duplicate Production Submit Verified`，证明静态合同尚未锁定重复提交/确认的 evidence 输出字段。
+- `python -X utf8 IntRuoyiBackend\script\tests\test_p0_completion_gate.py` -> FAIL，新增目标请求命中 evidence 门禁后 `result.returncode == 2` 断言失败，证明 completion gate 尚未要求生产提交、PQC 提交、班组长复核、FIFO 确认和 trace 五个目标请求真实命中。
+- `python -X utf8 IntRuoyiBackend\script\tests\test_p0_completion_gate.py` -> FAIL，新增浏览器诊断 evidence 门禁后 `result.returncode == 2` 断言失败，证明 completion gate 尚未要求 pageerror、console error 和目标请求失败均为 0。
+- `pnpm e2e:p0-production-execution-loop:static` -> FAIL，静态合同新增 `Target Request ${boundary.label} Business Code` 断言后 real E2E 尚未输出业务码 evidence。
+- `python -X utf8 IntRuoyiBackend\script\tests\test_p0_completion_gate.py` -> FAIL，新增 Business Code completion gate 后 `result.returncode == 2` 断言失败，证明旧门禁会放过 `TEAM_LEADER_REVIEW_ENDPOINT Business Code=500` 的 PASS fixture。
+- `pnpm e2e:p0-production-execution-loop:static` -> FAIL，新增目标响应身份静态合同后断言失败：`P0 real E2E must write target response identity evidence lines.`，证明 real E2E 尚未写出目标响应正式 ID evidence。
+- `python -X utf8 IntRuoyiBackend\script\tests\test_p0_completion_gate.py` -> FAIL，新增响应身份 completion gate 后 `result.returncode == 2` 断言失败，证明旧门禁会放过 `FRONTLINE_SUBMIT_ENDPOINT processPoolEventId=123` 但本轮根事件为 `900001` 的 PASS fixture。
+- `python -X utf8 IntRuoyiBackend\script\tests\test_p0_completion_gate.py` -> FAIL，新增真实 E2E result artifact 门禁后主 PASS fixture 被真实 worktree 旧 BLOCKED `result.json` 污染，证明 completion gate 不得跨 task root 读取旧 Playwright result artifact。
+- `python -X utf8 IntRuoyiBackend\script\tests\test_p0_completion_gate.py` -> FAIL，新增 `result.json.generatedAt` 一致性门禁后旧 completion gate 未拒绝 result artifact 与 Markdown evidence 时间戳不一致，证明旧 run JSON 时间可被误当作本轮 PASS 证据。
+- `python -X utf8 IntRuoyiBackend\script\tests\test_p0_completion_gate.py` -> FAIL，新增 `result.json.frontendUrl/backendUrl` 一致性门禁后旧 completion gate 未拒绝 Markdown `8092/48092` 与 JSON `8081/48081` 漂移，证明跨运行态 result artifact 可被误当作本轮 PASS 证据。
+
+## GREEN:
+
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，合同收窄到 `buildPqcInspectionSubmitPayload` 函数，逐项检查 `deviceAccountId`、`deviceId`、`workstationId`、`pqcSubmissionIdempotencyKey` 和缺上下文 fail-fast。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，闭环证据包合同验证 API 类型、正式班组长 trace 路径、Trace 页面九项答案、同源校验、只读复验入口和真实 E2E 证据字段。
+- `node --check tests/e2e/p0-production-execution-loop-real.e2e.js` -> PASS，真实 E2E 脚本语法有效。
+- `pnpm ts:check` -> PASS，`ControlledFileBrowserVersion` 已允许可选 `directoryId`，当前版本选项显式带 `row.directoryId`，全量前端类型检查通过。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，真实 E2E 脚本已加载 Playwright、启动 Chromium、创建隔离 context，并在前置齐备后通过 `page.goto` 打开真实前端登录页；完整主路径未实现时仍明确 FAIL。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，真实 E2E 脚本已显式锁定班组长工作台、生产填写、PQC 填写、工序池时间轴 Trace、正式登录请求和目标写请求边界。
+- `node --check tests/e2e/p0-production-execution-loop-real.e2e.js` -> PASS，新增页面骨架脚本语法有效。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，真实 E2E 脚本已实现生产提交、PQC、PQC 组长复核、生产组长 FIFO 分配确认、trace 拉取和闭环证据校验；`P0_PROCESS_POOL_EVENT_ID` 被禁止，PQC URL 使用本轮捕获的新 `processPoolEventId`。
+- `node --check tests/e2e/p0-production-execution-loop-real.e2e.js` -> PASS，新增动作级闭环脚本语法有效。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，真实 E2E 脚本已要求 `P0_RUNTIME_DB_*`，声明 `RUNTIME_MIGRATION_VERIFIER_SCRIPT`，通过 child process 调用 `verify_p0_runtime_migration.py`，并把 `runtimeMigration` 写入证据。
+- `node --check tests\e2e\p0-production-execution-loop-real.e2e.js` -> PASS，新增运行态迁移门禁脚本语法有效。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，真实 E2E 脚本已要求 `P0_SUBMIT_QUANTITY`、`P0_CONFIRM_QUANTITY`、`P0_PQC_TASK_ID`、`P0_QA_REGULATION_VERSION_ID`、`P0_PQC_SIGNATURE_ID`、`P0_PQC_SIGNATURE_EMPLOYEE_ID`、`P0_PQC_INSPECTION_QUANTITY`、`P0_PQC_QUALIFIED_QUANTITY` 和 `P0_PQC_ALLOCATABLE_QUANTITY`，并把生产实际员工、生产数量、PQC 实际员工、PQC 签名和 PQC 正式来源写入真实页面 URL。
+- `node --check tests\e2e\p0-production-execution-loop-real.e2e.js` -> PASS，新增任务数据门禁脚本语法有效。
+- `pnpm ts:check` -> PASS，生产填写页可从 route query hydrate `outputQuantity`，不破坏全量前端类型检查。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，真实 E2E 脚本已要求 `P0_SUBMIT_IDEMPOTENCY_KEY/P0_PQC_IDEMPOTENCY_KEY/P0_CONFIRM_IDEMPOTENCY_KEY`，生产和 PQC 页面 URL 使用环境注入幂等键，确认幂等键写入脱敏证据前置。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，真实 E2E 脚本已要求 `P0_DEVICE_ACCOUNT_ID`，登录后读取正式权限信息接口并断言当前用户 ID 与设备账号一致。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，真实 E2E 脚本已要求 `P0_RUN_ID`、PQC 组长复核签名、正式批记录 report/definition/version、schema migration ID 和 migration policy evidence，并保持 `P0_PROCESS_POOL_EVENT_ID` 禁止作为写入输入。
+- `node --check tests\e2e\p0-production-execution-loop-real.e2e.js` -> PASS，新增 runId/设备账号/签名/批记录/迁移证据门禁脚本语法有效。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，真实 E2E 脚本已实现 `duplicateFrontlineProduction`，复用同一 `productionFillUrl` 重复提交并断言第二次响应 `processPoolEventId` 与首个生产提交根事件一致。
+- `node --check tests\e2e\p0-production-execution-loop-real.e2e.js` -> PASS，新增重复生产提交脚本语法有效。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，真实 E2E 脚本已实现 `duplicatePqcInspection`，复用同一 `pqcFillUrl` 重复提交并断言第二次响应 `pqcEventId` 与首个 PQC 提交事件一致。
+- `node --check tests\e2e\p0-production-execution-loop-real.e2e.js` -> PASS，新增重复 PQC 提交脚本语法有效。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，真实 E2E 脚本已实现 `duplicateTeamLeaderAllocationConfirm`，从生产组长页面重复提交 FIFO 确认并断言第二次响应为 `PRO_PROCESS_POOL_REPORT_ALLOCATION_DUPLICATE`。
+- `node --check tests\e2e\p0-production-execution-loop-real.e2e.js` -> PASS，新增重复 FIFO 确认脚本语法有效。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，静态合同已锁定 `Duplicate Production Submit Verified`、`Duplicate PQC Submit Verified` 和 `Duplicate FIFO Confirm Rejected` 三条 evidence 输出字段，防止只执行重复动作不写审计证据。
+- `node -e "<static spec evidence-line assertion>"` -> PASS，`P0_DUPLICATE_EVIDENCE_STATIC_ASSERTIONS_PRESENT`。
+- `python -X utf8 IntRuoyiBackend\script\tests\test_p0_completion_gate.py` -> PASS，completion gate 现要求五个目标请求命中 evidence 均为 true。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，真实 E2E 脚本已声明 `TARGET_REQUEST_BOUNDARIES` 并通过 `buildTargetRequestEvidenceLines` 写出五个 `Target Request ... Hit/URL/Method/HTTP Status/Business Code` 证据行。
+- `node --check tests\e2e\p0-production-execution-loop-real.e2e.js` -> PASS，目标请求 evidence 输出脚本语法有效。
+- `python -X utf8 IntRuoyiBackend\script\tests\test_p0_completion_gate.py` -> PASS，completion gate 现要求五个目标请求 `Business Code=0`，并输出 `realE2e.targetRequestBusinessCodes`。
+- `python -X utf8 IntRuoyiBackend\script\tests\test_p0_completion_gate.py` -> PASS，completion gate 现要求 `Browser Page Errors`、`Browser Console Errors` 和 `Target Request Failures` 均存在且为 0。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，真实 E2E 脚本已监听 `pageerror`、`console` 和 `requestfailed`，并写出浏览器诊断 evidence 行。
+- `node --check tests\e2e\p0-production-execution-loop-real.e2e.js` -> PASS，浏览器诊断采集脚本语法有效。
+- `pnpm e2e:p0-production-execution-loop:static` -> RED 后 GREEN；RED 失败于 real 脚本缺 `validateMigrationPolicyEvidence`，GREEN 后真实 E2E 在浏览器写入前读取 `P0_MIGRATION_POLICY_EVIDENCE` 内容，要求明确 `PASS` 且不得包含 `BLOCKED/FAIL/FAILED`。
+- `$env:P0_MIGRATION_POLICY_EVIDENCE='doc/tasks/20260803-p0-production-execution-loop-implementation/p0-real-e2e-evidence.md'; pnpm e2e:p0-production-execution-loop:real` -> BLOCKED/exit 2；证据刷新后包含 `P0_MIGRATION_POLICY_EVIDENCE_NOT_PASS`、`Browser Preflight=--`、`Route Preflight Steps=0` 和五个目标请求未命中，说明失败迁移策略证据不会进入浏览器写入。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，真实 E2E 脚本已通过 `buildTargetResponseIdentityEvidenceLines` 输出五个目标响应正式 ID evidence；缺真实前置时输出 `--` 并保持 BLOCKED。
+- `python -X utf8 IntRuoyiBackend\script\tests\test_p0_completion_gate.py` -> PASS，completion gate 现在要求响应身份行存在，且生产提交/trace 的 `processPoolEventId` 必须等于本轮根事件。
+- `python -X utf8 IntRuoyiBackend\script\tests\test_p0_completion_gate.py` -> RED 后 GREEN；RED 证明旧 completion gate 会放过 `Closure Evidence Packet processPoolEventId=123`、`complete=false`、`sameSourceChecks=0`、`blockers=1` 的 PASS fixture，GREEN 后强制闭环证据包同源根事件、完成状态、同源检查数量和 blocker 清零。
+- `pnpm e2e:p0-production-execution-loop:static` -> RED 后 GREEN；RED 失败于 real 脚本缺 `closureEvidence.complete !== true` fail-fast，GREEN 后 `validateClosureEvidencePacket` 会把未完成 trace 记录为 `CLOSURE_EVIDENCE_NOT_COMPLETE`。
+- `node --check tests\e2e\p0-production-execution-loop-real.e2e.js` -> PASS，闭环证据包完整性脚本语法有效。
+- `python -X utf8 IntRuoyiBackend\script\tests\test_p0_completion_gate.py` -> PASS，completion gate 现在只读取 task root 下的 `result.json`，并要求 Markdown PASS 与 result status、本轮根事件、`closureEvidence` 完成状态和 `closureEvidenceIssues=[]` 一致；缺真实前置时当前 result status 仍为 `BLOCKED`。
+- `python -X utf8 IntRuoyiBackend\script\tests\test_p0_completion_gate.py` -> PASS，completion gate 现在要求 `result.json.generatedAt` 精确匹配 Markdown `Generated At`，并输出 `realE2e.resultJson.generatedAt`；当前旧 BLOCKED result 缺 `generatedAt` 时保持 BLOCKED。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，真实 E2E 脚本在 `writeEvidence(result)` 中只生成一次 `generatedAt`，并将同一值写入 Markdown `Generated At` 与 `result.json.generatedAt`。
+- `python -X utf8 IntRuoyiBackend\script\tests\test_p0_completion_gate.py` -> PASS，completion gate 现在要求 PASS evidence 的 `result.json.frontendUrl/backendUrl` 精确匹配 Markdown `Frontend/Backend`，防止不同运行态证据拼接。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，真实 E2E 脚本把同一 `result.frontendUrl/backendUrl` 写入 Markdown evidence 和 `result.json`。
+
+## Verification
+
+- 静态合同已覆盖 P0 前端脚本入口、trace DTO、trace UI、闭环证据包、班组长复核签名字段、PQC payload 字段、真实 E2E 前置条件 BLOCKED 语义，以及真实 E2E 必须启动 Playwright 页面路径的门禁。
+- `pnpm e2e:p0-production-execution-loop:real` -> BLOCKED/exit 2，依赖恢复后预检重新生成证据文件，仍写入 `closureEvidenceRequiredAnswers`、`closureEvidence=null` 和 `CLOSURE_EVIDENCE_MISSING_SOURCE`，没有把缺前置伪装为 PASS。
+- `pnpm install --frozen-lockfile` -> PASS，依赖恢复成功，`node_modules`、`node_modules\.bin\cross-env.cmd` 和 `node_modules\vue-tsc\bin\vue-tsc.js` 均存在，`pnpm-lock.yaml` 未产生跟踪改动。
+- `pnpm ts:check` -> RED 后 GREEN；RED 失败于 DCC 受控浏览 `ControlledFileBrowserVersion.directoryId` 类型缺口，GREEN 后全量类型检查通过。
+- `pnpm e2e:p0-production-execution-loop:static` -> PASS，依赖恢复后复跑 P0 静态合同仍通过。
+- `node --check tests/e2e/p0-production-execution-loop-real.e2e.js` -> PASS。
+- `pnpm e2e:p0-production-execution-loop:real` -> BLOCKED/exit 2，本轮复跑仍缺真实 URL、租户、账号、工单、设备、签名、复核签名和正式批记录数据；`p0-real-e2e-evidence.md` 继续记录 `CLOSURE_EVIDENCE_MISSING_SOURCE`，且 `Browser Preflight=--` / `Route Preflight Steps=0` 表明缺 env 时未启动浏览器或页面路径。
+- `pnpm e2e:p0-production-execution-loop:real` -> BLOCKED/Node exit 2，动作级脚本复跑后仍缺真实 URL、可写租户、账号、工单、设备、工作站、一线签名员工、复核签名员工、复核签名和正式批记录数据；证据继续保持 `Browser Preflight=--`、`Route Preflight Steps=0`、`closureEvidence=null` 和 `CLOSURE_EVIDENCE_MISSING_SOURCE`。
+- `pnpm e2e:p0-production-execution-loop:real` -> BLOCKED/Node exit 2，运行态迁移门禁复跑后新增缺 `P0_RUNTIME_DB_HOST/P0_RUNTIME_DB_PORT/P0_RUNTIME_DB_NAME/P0_RUNTIME_DB_USER/P0_RUNTIME_DB_PASSWORD` 证据；`Runtime Migration` 章节记录尚未调用验证器，说明缺 env 时未进入浏览器写入。
+- `pnpm e2e:p0-production-execution-loop:static` -> RED 后 GREEN；RED 失败于缺 `P0_SUBMIT_QUANTITY` 前置，GREEN 后静态合同确认真实 E2E 已要求并传递生产数量、PQC 任务、QA 规程、PQC 签名和 PQC 数量字段。
+- `node --check tests\e2e\p0-production-execution-loop-real.e2e.js` -> PASS。
+- `pnpm ts:check` -> PASS。
+- `pnpm e2e:p0-production-execution-loop:real` -> BLOCKED/Node exit 2，证据刷新后新增缺 `P0_SUBMIT_QUANTITY/P0_CONFIRM_QUANTITY/P0_PQC_TASK_ID/P0_QA_REGULATION_VERSION_ID/P0_PQC_SIGNATURE_ID/P0_PQC_SIGNATURE_EMPLOYEE_ID/P0_PQC_INSPECTION_QUANTITY/P0_PQC_QUALIFIED_QUANTITY/P0_PQC_ALLOCATABLE_QUANTITY`，缺前置时仍未启动浏览器写入。
+- `pnpm e2e:p0-production-execution-loop:real` -> BLOCKED/Node exit 2，经 pnpm lifecycle 报告 exit 2；证据刷新后新增缺 `P0_RUN_ID/P0_DEVICE_ACCOUNT_ID/P0_SUBMIT_IDEMPOTENCY_KEY/P0_PQC_IDEMPOTENCY_KEY/P0_CONFIRM_IDEMPOTENCY_KEY/P0_PQC_REVIEW_SIGNATURE_ID/P0_PQC_REVIEW_SIGNATURE_EMPLOYEE_ID/P0_BATCH_RECORD_DEFINITION_ID/P0_BATCH_RECORD_VERSION_ID/P0_SCHEMA_MIGRATION_ID/P0_MIGRATION_POLICY_EVIDENCE`，缺前置时仍未启动浏览器写入。
+- `pnpm e2e:p0-production-execution-loop:static` -> RED 后 GREEN；RED 失败于缺 `duplicateFrontlineProduction`，GREEN 后静态合同确认真实 E2E 会重复打开同一生产填写 URL 并断言重复响应 `processPoolEventId` 与首个提交一致。
+- `node --check tests\e2e\p0-production-execution-loop-real.e2e.js` -> PASS。
+- `pnpm e2e:p0-production-execution-loop:real` -> BLOCKED/pnpm lifecycle exit 1 with inner Node exit 2，证据刷新后包含 `Duplicate Production Submit Verified=false`，说明缺真实前置时未执行重复提交页面动作，也未把幂等复验伪装为 PASS。
+- `pnpm e2e:p0-production-execution-loop:static` -> RED 后 GREEN；RED 失败于缺 `duplicatePqcInspection`，GREEN 后静态合同确认真实 E2E 会重复打开同一 PQC 填写 URL 并断言重复响应 `pqcEventId` 与首个提交一致。
+- `node --check tests\e2e\p0-production-execution-loop-real.e2e.js` -> PASS。
+- `pnpm e2e:p0-production-execution-loop:real` -> BLOCKED/pnpm lifecycle exit 1 with inner Node exit 2，证据刷新后包含 `Duplicate PQC Submit Verified=false`，说明缺真实前置时未执行重复 PQC 页面动作，也未把 PQC 幂等复验伪装为 PASS。
+- `pnpm e2e:p0-production-execution-loop:static` -> RED 后 GREEN；RED 失败于缺 `duplicateTeamLeaderAllocationConfirm`，GREEN 后静态合同确认真实 E2E 会重复打开生产组长 FIFO 确认路径并要求 `PRO_PROCESS_POOL_REPORT_ALLOCATION_DUPLICATE` 明确拒绝。
+- `node --check tests\e2e\p0-production-execution-loop-real.e2e.js` -> PASS。
+- `pnpm e2e:p0-production-execution-loop:real` -> BLOCKED/pnpm lifecycle exit 1 with inner Node exit 2，证据刷新后包含 `Duplicate FIFO Confirm Rejected=false`，说明缺真实前置时未执行重复确认页面动作，也未把前端按钮禁用或未验证动作伪装为 PASS。
+- duplicate evidence output static gate -> RED 后 GREEN；RED 证明静态合同未锁定三条 evidence 输出字段，GREEN 后 `pnpm e2e:p0-production-execution-loop:static`、`node --check tests\e2e\p0-production-execution-loop-real.e2e.js` 和 `P0_DUPLICATE_EVIDENCE_STATIC_ASSERTIONS_PRESENT` 均 PASS。
+- target request evidence gate -> RED 后 GREEN；RED 证明 completion gate 未要求五个目标请求命中 evidence，GREEN 后 completion gate、前端静态合同和脚本语法均 PASS。
+- `pnpm e2e:p0-production-execution-loop:real` -> BLOCKED/Node exit 2，证据刷新后包含五个 `Target Request ... Hit=false` 以及 `Method/HTTP Status/Business Code=--`，说明缺真实前置时未启动浏览器写入，也未把目标接口命中或成功响应伪装为 true。
+- browser diagnostics evidence gate -> RED 后 GREEN；RED 证明 completion gate 未要求浏览器诊断 evidence，GREEN 后 completion gate、前端静态合同和脚本语法均 PASS。
+- `pnpm e2e:p0-production-execution-loop:real` -> BLOCKED/Node exit 2，证据刷新后包含 `Browser Page Errors=0`、`Browser Console Errors=0`、`Target Request Failures=0`，说明缺真实前置时未启动浏览器写入且没有伪造 PASS。
+- migration policy evidence preflight -> RED 后 GREEN；RED 证明 real 脚本只检查证据文件存在，GREEN 后脚本在浏览器写入前阻塞失败证据内容；blocked run 明确输出 `P0_MIGRATION_POLICY_EVIDENCE_NOT_PASS`。
+- target response identity evidence gate -> RED 后 GREEN；RED 证明 completion gate 与 real E2E 尚未要求目标响应正式 ID，GREEN 后 completion gate、前端静态合同和脚本语法均 PASS。
+- `pnpm e2e:p0-production-execution-loop:real` -> BLOCKED/exit 2，证据刷新后包含五个 `Target Response ...` 身份行为 `--`，说明缺真实前置时未启动浏览器写入且没有伪造响应 ID PASS。
+- closure packet completion gate -> RED 后 GREEN；RED 证明 completion gate 与 real E2E 尚未同时拒绝闭环包未完成和根事件漂移，GREEN 后 completion gate、前端静态合同和脚本语法均 PASS。
+- closure issue residue gate -> RED 后 GREEN；RED 证明带 `Closure Issue` 但 summary counts 正常的 PASS fixture 可误放行，GREEN 后 completion gate 会返回 `P0_COMPLETION_CLOSURE_ISSUE_PRESENT`。
+- result artifact completion gate -> RED 后 GREEN；RED 证明 completion gate 会跨 task root 读取旧 BLOCKED Playwright result，GREEN 后只读取同根 `result.json` 并校验 Markdown/result 一致。
+- result generatedAt consistency gate -> RED 后 GREEN；RED 证明旧 completion gate 未校验 result artifact 与 Markdown evidence 时间戳一致，GREEN 后真实 E2E 共享同一个 `generatedAt`，completion gate 对 `result.json.generatedAt` 与 Markdown `Generated At` 不一致保持 BLOCKED。
+- result runtime URL consistency gate -> RED 后 GREEN；RED 证明旧 completion gate 未校验 result artifact 与 Markdown evidence 的 `Frontend/Backend` 一致，GREEN 后跨运行态 JSON/Markdown 拼接会 BLOCKED。
+- 文档变量差异复核 -> PASS，`test-data.md` 中只有 `P0_PROCESS_POOL_EVENT_ID` 未出现在 real 脚本，且该变量被明确限制为 trace 只读诊断并被静态合同禁止用于写入 PASS。
+- `validate_frontend_feature.py --evidence doc\tasks\20260803-p0-production-execution-loop-implementation\frontend-feature-evidence.md` -> PASS。
+- `validate_acceptance_plan.py --root D:\IntRuoyiWorktree\worktree_20260803_p0` -> PASS。
+- P0 duplicate FIFO confirm docs/scripts trailing whitespace check -> PASS，`NO_TRAILING_WHITESPACE_P0_DUPLICATE_FIFO_CONFIRM`。
+- P0 M5 runtime E2E scoped `git diff --check` -> PASS。
+- 当前没有执行真实写入型页面闭环；缺真实前后端 URL、可写测试租户、账号、任务自有工单、设备、签名、复核签名、PQC 任务、正式批记录绑定和运行态 DB 只读核验环境。
+
+## Blockers
+
+- 真实页面完整闭环仍缺可写测试数据、运行态 URL、账号、工单、设备、工作站、一线签名员工、复核签名员工、签名和正式批记录绑定，不允许把 static PASS 写成真实 E2E PASS。
+- 真实页面完整闭环还缺生产提交数量、生产确认数量、PQC 任务、QA 规程版本、PQC 签名员工和 PQC 数量门禁实参；缺任一项时真实 E2E 只能 BLOCKED。
+- 真实页面完整闭环还缺 runId、设备账号、三类幂等键、PQC 组长复核签名员工、正式批记录定义/版本和迁移发布策略证据；缺任一项时真实 E2E 只能 BLOCKED。
+- 真实页面写入前仍缺 `P0_RUNTIME_DB_*` 运行态核验环境；即使页面前置齐备，只读迁移验证器返回非 PASS 时也必须 BLOCKED。
+- 真实页面写入前还必须提供内容为 PASS 且不含 BLOCKED/FAIL/FAILED 的迁移策略证据文件；文件存在但内容失败时真实 E2E 只能 BLOCKED。
+- 若后续调整 PQC payload 字段命名，必须先更新后端 VO/Command、前端 API 类型、payload builder 和静态合同，不得只改一端。
+- 若后续调整 PQC 重复提交返回结构，必须同时更新 `extractPqcEventIdFromResponse`、`duplicatePqcInspection`、静态合同和真实 E2E 证据字段，不得把第二次提交缺事件 ID 当作 PASS。
+- 若后续调整班组长确认重复处理，必须保持 `duplicateTeamLeaderAllocationConfirm` 通过真实页面触发第二次请求，并继续断言正式重复错误码；不得用按钮禁用、API-only 或 trace 结果倒推替代重复确认动作。
+- 若后续调整真实 E2E 目标请求列表，必须同步 `TARGET_REQUEST_BOUNDARIES`、completion gate required labels、静态合同和 `p0-real-e2e-evidence.md` 输出字段，不能只改脚本内等待逻辑。
+- 若后续调整目标接口返回结构，必须同步 `buildTargetResponseIdentityEvidenceLines`、completion gate `REQUIRED_TARGET_RESPONSE_IDENTITIES`、静态合同和 `p0-real-e2e-evidence.md` 输出字段；不得只看请求成功而不校验响应 ID 同源。
+- 若后续调整 trace `closureEvidence` 字段结构，必须同步 `validateClosureEvidencePacket`、completion gate 闭环包校验、静态合同和 `p0-real-e2e-evidence.md` 输出字段；不得用 answers 行完整替代 `complete=true`、同源检查、blocker 清零和 `Closure Issue` 清空。
+- 若后续调整真实 E2E 页面诊断采集，必须同步 `buildBrowserDiagnosticEvidenceLines`、completion gate diagnostics 校验和静态合同；不得忽略 pageerror、console error 或目标请求失败。
+- 若后续调整真实 E2E result artifact 路径或 JSON 结构，必须同步 `REAL_E2E_RESULT_RELATIVE_PATH`、completion gate result 校验、真实 E2E 写入逻辑和证据文档；不得让 Markdown PASS 依赖旧 run、其它 worktree 或手工 result artifact。
+- 若后续调整 `Generated At` 格式、时区或 result artifact 写入结构，必须同步真实 E2E Markdown/JSON 写入、completion gate `result.json.generatedAt` 校验、静态合同和证据文档；不得允许 Markdown 与 JSON 产生两个独立时间戳。
+- 若后续调整真实 E2E 运行态 URL 字段、环境变量名或 result artifact redaction，必须同步 Markdown `Frontend/Backend`、`result.json.frontendUrl/backendUrl`、completion gate URL 校验和静态合同；不得允许 Markdown 与 JSON 指向不同运行态。

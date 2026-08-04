@@ -30,6 +30,17 @@ public class MesTeamLeaderReportAllocationConfirmReqVO {
     @Schema(description = "复核说明", example = "现场调整")
     private String reviewRemark;
 
+    @Schema(description = "复核电子签名ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "9101")
+    @NotNull
+    private Long reviewSignatureId;
+
+    @Schema(description = "复核电子签名用户ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "3001")
+    @NotNull
+    private Long reviewSignatureEmployeeUserId;
+
+    @Schema(description = "复核电子签名快照JSON")
+    private String reviewSignatureSnapshotJson;
+
     @Schema(description = "分配明细", requiredMode = Schema.RequiredMode.REQUIRED)
     @Valid
     @NotEmpty

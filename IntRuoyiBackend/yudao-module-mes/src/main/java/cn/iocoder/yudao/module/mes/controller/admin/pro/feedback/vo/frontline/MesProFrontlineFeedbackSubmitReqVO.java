@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.experimental.Accessors;
@@ -27,6 +28,10 @@ public class MesProFrontlineFeedbackSubmitReqVO {
     @Valid
     @NotNull(message = "工序池上下文不能为空")
     private MesProFrontlineProcessPoolContextReqVO processPoolContext;
+
+    @Schema(description = "工序池主提交幂等键", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "工序池主提交幂等键不能为空")
+    private String processPoolSubmissionIdempotencyKey;
 
     @Schema(description = "实际操作员工编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "3001")
     @NotNull(message = "实际操作员工不能为空")

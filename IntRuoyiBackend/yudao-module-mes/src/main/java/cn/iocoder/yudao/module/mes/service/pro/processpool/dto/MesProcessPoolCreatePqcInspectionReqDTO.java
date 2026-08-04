@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 public class MesProcessPoolCreatePqcInspectionReqDTO {
 
     private Long workOrderId;
+    private Long productionSubmitEventId;
+    private String pqcSubmissionIdempotencyKey;
     private Long routeId;
     private Long routeProcessId;
     private Long processId;

@@ -14,12 +14,18 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordCe
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditChange;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSaveChangesCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSaveResult;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditValueType;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionService;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.DecimalNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -87,9 +93,10 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
                     event.getRouteProcessId(), binding.getBatchRecordReportId(), "*");
         }
         Map<String, SnapshotField> fields = snapshotFields(execution.getExecutionSnapshotJson());
+        Map<String, JsonNode> currentValues = currentValues(execution.getCellValuesJson());
         JsonNode payload = rawPayload(event);
         List<MesProBatchRecordExecutionFieldAuditChange> changes = rules.stream()
-                .map(rule -> toChange(event, allocation, binding, rule, fields, payload))
+                .map(rule -> toChange(event, allocation, binding, rule, fields, currentValues, payload))
                 .toList();
         MesProBatchRecordExecutionFieldAuditSaveResult saveResult = fieldAuditService.saveSystemCellLinkChanges(
                 new MesProBatchRecordExecutionFieldAuditSaveChangesCommand()
@@ -154,6 +161,7 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
                                                                 MesProRouteFlowProcessBatchRecordDO binding,
                                                                 MesProBatchRecordCellLinkRuleDO rule,
                                                                 Map<String, SnapshotField> fields,
+                                                                Map<String, JsonNode> currentValues,
                                                                 JsonNode payload) {
         if (!SOURCE_TYPE_PROCESS_POOL_REPORT.equals(StrUtil.trim(rule.getSourceType()))
                 || StrUtil.isBlank(rule.getSourceFieldCode())) {
@@ -168,6 +176,7 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         Object value = sourceValue(event, allocation, rule.getSourceFieldCode(), payload);
         MesProBatchRecordExecutionFieldAuditValueType valueType = valueType(rule, field);
         Object normalized = normalizeValue(valueType, value);
+        String cellKey = cellKey(rule.getTargetRowIndex(), rule.getTargetColumnIndex());
         return new MesProBatchRecordExecutionFieldAuditChange()
                 .setFieldPath(field.fieldPath())
                 .setFieldKey(field.fieldKey())
@@ -175,7 +184,8 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
                 .setColumnIndex(rule.getTargetColumnIndex())
                 .setValueType(valueType)
                 .setNewValueJson(normalized)
-                .setNewValueDisplay(displayValue(normalized));
+                .setNewValueDisplay(displayValue(normalized))
+                .setExpectedOldValueHash(oldValueHash(valueType, currentValues.get(cellKey), field.defaultValue()));
     }
 
     private Object sourceValue(MesProProcessPoolEventDO event, MesProcessPoolReportAllocationDO allocation,
@@ -217,18 +227,87 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
             for (JsonNode field : fields) {
                 Integer rowIndex = integer(field, "rowIndex");
                 Integer columnIndex = integer(field, "columnIndex");
-                String fieldPath = text(field, "fieldPath");
-                String fieldKey = text(field, "fieldKey");
-                if (rowIndex != null && columnIndex != null && StrUtil.isNotBlank(fieldPath)
-                        && StrUtil.isNotBlank(fieldKey)) {
-                    result.put(cellKey(rowIndex, columnIndex), new SnapshotField(fieldPath, fieldKey,
-                            valueType(text(field, "valueType"))));
+            String fieldPath = text(field, "fieldPath");
+            String fieldKey = text(field, "fieldKey");
+            if (rowIndex != null && columnIndex != null && StrUtil.isNotBlank(fieldPath)
+                    && StrUtil.isNotBlank(fieldKey)) {
+                result.put(cellKey(rowIndex, columnIndex), new SnapshotField(fieldPath, fieldKey,
+                            valueType(text(field, "valueType")), snapshotDefaultValue(field)));
+            }
+        }
+        return result;
+    } catch (Exception ex) {
+        return result;
+    }
+}
+
+    private Map<String, JsonNode> currentValues(String cellValuesJson) {
+        Map<String, JsonNode> result = new LinkedHashMap<>();
+        if (StrUtil.isBlank(cellValuesJson)) {
+            return result;
+        }
+        try {
+            JsonNode cells = JsonUtils.getObjectMapper().readTree(cellValuesJson);
+            if (!cells.isArray()) {
+                return result;
+            }
+            for (JsonNode cell : cells) {
+                Integer rowIndex = integer(cell, "rowIndex");
+                Integer columnIndex = integer(cell, "columnIndex");
+                if (rowIndex != null && columnIndex != null) {
+                    JsonNode value = cell.get("value");
+                    result.put(cellKey(rowIndex, columnIndex),
+                            value == null || value.isMissingNode() ? NullNode.instance : value.deepCopy());
                 }
             }
             return result;
         } catch (Exception ex) {
             return result;
         }
+    }
+
+    private JsonNode snapshotDefaultValue(JsonNode field) {
+        JsonNode defaultValue = field.get("defaultValue");
+        if (defaultValue != null && !defaultValue.isMissingNode()) {
+            return defaultValue.deepCopy();
+        }
+        JsonNode value = field.get("value");
+        return value == null || value.isMissingNode() ? NullNode.instance : value.deepCopy();
+    }
+
+    private String oldValueHash(MesProBatchRecordExecutionFieldAuditValueType valueType,
+                                JsonNode currentValue,
+                                JsonNode defaultValue) {
+        JsonNode oldValue = oldValueNode(currentValue == null ? defaultValue : currentValue, valueType);
+        String canonical = oldValue == null || oldValue.isNull() || oldValue.isMissingNode()
+                ? "null"
+                : MesProBatchRecordExecutionFieldAuditHasher.canonicalizeTypedValue(valueType, oldValue);
+        return MesProBatchRecordExecutionFieldAuditHasher.hashCanonicalTypedValue(canonical);
+    }
+
+    private JsonNode oldValueNode(JsonNode value, MesProBatchRecordExecutionFieldAuditValueType valueType) {
+        if (value == null || value.isNull() || value.isMissingNode()) {
+            return NullNode.instance;
+        }
+        if (!value.isTextual()) {
+            return value;
+        }
+        String text = value.textValue();
+        if (StrUtil.isBlank(text)
+                && valueType != MesProBatchRecordExecutionFieldAuditValueType.STRING
+                && valueType != MesProBatchRecordExecutionFieldAuditValueType.NULL) {
+            if (valueType == MesProBatchRecordExecutionFieldAuditValueType.BOOLEAN) {
+                return BooleanNode.FALSE;
+            }
+            return NullNode.instance;
+        }
+        if (valueType == MesProBatchRecordExecutionFieldAuditValueType.NUMBER) {
+            return DecimalNode.valueOf(MesProBatchRecordExecutionFieldAuditHasher.normalizeNumber(new BigDecimal(text)));
+        }
+        if (valueType == MesProBatchRecordExecutionFieldAuditValueType.BOOLEAN) {
+            return JsonNodeFactory.instance.booleanNode(Boolean.parseBoolean(text));
+        }
+        return TextNode.valueOf(text);
     }
 
     private MesProBatchRecordExecutionFieldAuditValueType valueType(MesProBatchRecordCellLinkRuleDO rule,
@@ -297,6 +376,7 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
     }
 
     private record SnapshotField(String fieldPath, String fieldKey,
-                                 MesProBatchRecordExecutionFieldAuditValueType valueType) {
+                                 MesProBatchRecordExecutionFieldAuditValueType valueType,
+                                 JsonNode defaultValue) {
     }
 }

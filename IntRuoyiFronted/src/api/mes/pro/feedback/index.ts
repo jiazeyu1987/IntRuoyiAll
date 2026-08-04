@@ -219,6 +219,7 @@ export interface FrontlinePqcSwitchActualEmployeeReqVO extends FrontlineSwitchAc
 export interface FrontlinePqcInspectionSubmitReqVO {
   activeOrderId: number
   pqcTaskId: number
+  productionSubmitEventId: number
   regulationVersionId: number
   workOrderId: number
   routeId: number
@@ -230,6 +231,10 @@ export interface FrontlinePqcInspectionSubmitReqVO {
   roundNo: number
   actualInspectionQuantity: number
   actualEmployeeId: number
+  deviceAccountId: number
+  deviceId: number
+  workstationId: number
+  pqcSubmissionIdempotencyKey: string
   signatureId: number
   signatureEmployeeId: number
   signatureSnapshot?: string

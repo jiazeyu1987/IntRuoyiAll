@@ -36,4 +36,7 @@ public class MesProcessPoolSubmissionReviewDO extends TenantBaseDO {
     private String reviewStatus;
     private String reviewRemark;
     private LocalDateTime reviewedAt;
+    private Long reviewSignatureId;
+    private Long reviewSignatureUserId;
+    private String reviewSignatureSnapshotJson;
 }

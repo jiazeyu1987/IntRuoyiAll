@@ -63,6 +63,7 @@ public class MesProFrontlineFeedbackPayloadSplitter {
 
         Map<String, Object> processPoolRawPayload = buildProcessPoolRawPayload(reqVO, feedback, recordbook);
         MesProcessPoolSubmitEventCreateReqBO eventPayload = new MesProcessPoolSubmitEventCreateReqBO()
+                .setProcessPoolSubmissionIdempotencyKey(reqVO.getProcessPoolSubmissionIdempotencyKey())
                 .setWorkOrderId(context.getWorkOrderId())
                 .setTaskId(context.getTaskId())
                 .setRouteId(context.getRouteId())

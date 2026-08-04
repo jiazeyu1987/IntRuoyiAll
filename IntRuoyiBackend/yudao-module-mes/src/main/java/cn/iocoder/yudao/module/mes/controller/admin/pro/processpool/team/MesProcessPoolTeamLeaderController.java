@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeBindingDisableReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeBindingSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeProfileSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesProductionExecutionTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
@@ -134,6 +135,9 @@ public class MesProcessPoolTeamLeaderController {
                 .leaderType(reqVO.getLeaderType())
                 .reviewStatus(reqVO.getReviewStatus())
                 .reviewRemark(reqVO.getReviewRemark())
+                .reviewSignatureId(reqVO.getReviewSignatureId())
+                .reviewSignatureUserId(reqVO.getReviewSignatureEmployeeUserId())
+                .reviewSignatureSnapshotJson(reqVO.getReviewSignatureSnapshotJson())
                 .build()));
     }
 
@@ -267,6 +271,9 @@ public class MesProcessPoolTeamLeaderController {
                 .leaderType(reqVO.getLeaderType())
                 .allocationMode(reqVO.getAllocationMode())
                 .reviewRemark(reqVO.getReviewRemark())
+                .reviewSignatureId(reqVO.getReviewSignatureId())
+                .reviewSignatureUserId(reqVO.getReviewSignatureEmployeeUserId())
+                .reviewSignatureSnapshotJson(reqVO.getReviewSignatureSnapshotJson())
                 .allocations(reqVO.getAllocations().stream()
                         .map(MesProcessPoolTeamLeaderController::toReportAllocationLineReqBO)
                         .toList())
@@ -403,6 +410,14 @@ public class MesProcessPoolTeamLeaderController {
             @RequestParam("routeProcessId") Long routeProcessId,
             @RequestParam("processId") Long processId) {
         return success(traceService.getBatchRecordTrace(workOrderId, routeProcessId, processId));
+    }
+
+    @GetMapping("/production-execution/trace")
+    @Operation(summary = "P0 生产执行主闭环追溯")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<MesProductionExecutionTraceRespVO> getProductionExecutionTrace(
+            @RequestParam("processPoolEventId") Long processPoolEventId) {
+        return success(traceService.getProductionExecutionTrace(processPoolEventId));
     }
 
     private static MesTeamLeaderActiveOrderRespVO toActiveOrderRespVO(MesProcessPoolActiveOrderDO activeOrder) {

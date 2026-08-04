@@ -15,4 +15,12 @@ public interface MesProProcessPoolQuantityFragmentMapper extends BaseMapperX<Mes
                 .eq(MesProProcessPoolQuantityFragmentDO::getEventId, eventId)
                 .orderByAsc(MesProProcessPoolQuantityFragmentDO::getId));
     }
+
+    default List<MesProProcessPoolQuantityFragmentDO> selectListByProductionSubmitEventIdForUpdate(
+            Long productionSubmitEventId) {
+        return selectList(new LambdaQueryWrapperX<MesProProcessPoolQuantityFragmentDO>()
+                .eq(MesProProcessPoolQuantityFragmentDO::getProductionSubmitEventId, productionSubmitEventId)
+                .orderByAsc(MesProProcessPoolQuantityFragmentDO::getId)
+                .last("FOR UPDATE"));
+    }
 }

@@ -10,6 +10,15 @@ import java.util.List;
 @Mapper
 public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspectionTaskDO> {
 
+    default MesPqcInspectionTaskDO selectByIdForUpdate(Long id) {
+        if (id == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
+                .eq(MesPqcInspectionTaskDO::getId, id)
+                .last("FOR UPDATE"));
+    }
+
     default MesPqcInspectionTaskDO selectPendingByActiveOrderProcess(Long activeOrderId, Long routeProcessId,
                                                                      Long processId) {
         return selectOne(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()

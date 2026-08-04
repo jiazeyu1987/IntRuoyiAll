@@ -15,6 +15,7 @@ import java.util.List;
 public class MesProcessPoolCreateEventReqDTO {
 
     private String eventType;
+    private String eventIdempotencyKey;
     private Long workOrderId;
     private Long routeId;
     private Long routeProcessId;
@@ -26,6 +27,7 @@ public class MesProcessPoolCreateEventReqDTO {
     private String templateType;
     private String feedbackSourceType;
     private Long feedbackSourceId;
+    private Long recordbookEntryId;
     private String recordbookSourceType;
     private Long recordbookSourceId;
     private String rawPayload;
