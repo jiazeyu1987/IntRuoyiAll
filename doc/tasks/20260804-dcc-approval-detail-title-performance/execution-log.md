@@ -51,4 +51,5 @@
 - STATUS: implementation and required verification complete; marked task `ready_for_closeout` pending cleanup preview/apply, selective commit, and push.
 - CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode preview` -> PASS，keep task/execution/verification，delete本轮 evidence files only。
 - CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode apply` -> PASS，deleted本轮 `bug-regression-evidence.md` and `frontend-feature-evidence.md` after validator summaries were copied into retained reports。
+- IMPLEMENTATION_COMMIT: `b0f45a432` -> committed 本轮 task-owned source, test, task report, and experience-rule updates only.
 - STATUS: cleanup complete; task status set to `blocked_on_push` because local verification is complete but remote push remains blocked by GitHub 443 local proxy connectivity.

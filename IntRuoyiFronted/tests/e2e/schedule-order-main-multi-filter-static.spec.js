@@ -33,6 +33,7 @@ assert.match(
   /@update:multi-filter-state="emit\('update:multiFilterState', \$event\)"[\s\S]*@multi-filter-query="emit\('multiFilterQuery'\)"[\s\S]*@multi-filter-reset="emit\('multiFilterReset'\)"[\s\S]*@multi-filter-remove="emit\('multiFilterRemove', \$event\)"/,
   '排产工单主列表包装组件必须透传多维筛选查询、重置和单项移除事件。'
 )
+assert.doesNotMatch(mainListSource, /multiFilterMaxInlineFilters/, '条件 Tab 方案不允许排产工单包装组件保留 inline 可见数量特例。')
 assert.match(mainListSource, /showMultiFilter:\s*\{ type: Boolean/, '包装组件必须显式声明 showMultiFilter。')
 assert.match(mainListSource, /multiFilterDefinitions:\s*\{ type: Array as PropType<ListMultiFilterDefinition\[\]>/, '包装组件必须显式声明 multiFilterDefinitions。')
 assert.match(mainListSource, /multiFilterState:\s*\{[\s\S]*type: Object as PropType<ListMultiFilterState>/, '包装组件必须显式声明 multiFilterState。')
@@ -86,10 +87,11 @@ assert.match(
   /@update:multi-filter-state="scheduleOrderMultiFilter\.updateState"[\s\S]*@multi-filter-query="scheduleOrderMultiFilter\.applyMultiFilter"[\s\S]*@multi-filter-reset="scheduleOrderMultiFilter\.resetMultiFilter"[\s\S]*@multi-filter-remove="scheduleOrderMultiFilter\.removeCondition"/,
   '排产工单页面必须绑定多维筛选状态更新、查询、重置和移除事件。'
 )
+assert.doesNotMatch(pageSource, /multi-filter-max-inline-filters/, '条件 Tab 方案不允许排产工单页面保留 inline 可见数量特例。')
 assert.match(
   pageSource,
-  /scheduleOrderMultiFilter\.setCondition\(\{[\s\S]*key:\s*'completionFilter'[\s\S]*value:\s*scheduleOrderQueryParams\.completionFilter/,
-  '排产工单多维筛选必须把页面默认完成筛选状态显式展示出来。'
+  /scheduleOrderMultiFilter\.setCondition\(\{[\s\S]*id:\s*'completionFilter'[\s\S]*key:\s*'completionFilter'[\s\S]*value:\s*scheduleOrderQueryParams\.completionFilter/,
+  '排产工单多维筛选必须把页面默认完成筛选状态显式展示为稳定条件 Tab。'
 )
 assert.doesNotMatch(
   pageSource,

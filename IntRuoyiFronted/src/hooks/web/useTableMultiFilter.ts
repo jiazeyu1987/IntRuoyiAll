@@ -37,6 +37,7 @@ export interface ListMultiFilterDefinition {
 }
 
 export interface ListMultiFilterCondition {
+  id?: string
   key: string
   operator: ListMultiFilterOperator
   value?: ListMultiFilterValue
@@ -45,6 +46,7 @@ export interface ListMultiFilterCondition {
 
 export interface ListMultiFilterState {
   conditions: ListMultiFilterCondition[]
+  activeConditionId?: string
 }
 
 export type ListMultiFilterQueryParams = Record<string, any> & {
@@ -118,6 +120,7 @@ export const normalizeMultiFilterCondition = (
     const valueEnd = normalizeScalarValue(rawValueEnd)
     if (isEmptyScalarValue(value) || isEmptyScalarValue(valueEnd)) return undefined
     return {
+      id: condition.id,
       key: definition.key,
       operator: 'between',
       value,
@@ -132,6 +135,7 @@ export const normalizeMultiFilterCondition = (
       .filter((item): item is ListMultiFilterScalar => !isEmptyScalarValue(item))
     if (selectedValues.length === 0) return undefined
     return {
+      id: condition.id,
       key: definition.key,
       operator: 'in',
       value: selectedValues
@@ -141,6 +145,7 @@ export const normalizeMultiFilterCondition = (
   const value = normalizeScalarValue(condition.value)
   if (isEmptyScalarValue(value)) return undefined
   return {
+    id: condition.id,
     key: definition.key,
     operator,
     value
@@ -160,7 +165,8 @@ export const useTableMultiFilter = <T extends ListMultiFilterQueryParams>(
 ) => {
   const definitions = computed(() => toValue(filterDefinitions))
   const state = reactive<ListMultiFilterState>({
-    conditions: []
+    conditions: [],
+    activeConditionId: undefined
   })
 
   const definitionMap = computed(() => {
@@ -181,6 +187,29 @@ export const useTableMultiFilter = <T extends ListMultiFilterQueryParams>(
     }
     return conditions
   })
+
+  const getConditionParamIdentity = (definition: ListMultiFilterDefinition) => {
+    if (definition.queryParamKey) return definition.queryParamKey
+    if (definition.queryParamKeys) return definition.queryParamKeys.join('|')
+    return undefined
+  }
+
+  const validateDuplicateMappedConditions = (conditions: ListMultiFilterCondition[]) => {
+    const seenParamKeys = new Map<string, string>()
+    for (const condition of conditions) {
+      const definition = definitionMap.value.get(condition.key)
+      if (!definition) continue
+      const paramIdentity = getConditionParamIdentity(definition)
+      if (!paramIdentity) continue
+      const previousLabel = seenParamKeys.get(paramIdentity)
+      if (previousLabel) {
+        ElMessage.warning(`${definition.label} 已存在筛选条件，请先删除重复条件 Tab。`)
+        return false
+      }
+      seenParamKeys.set(paramIdentity, definition.label)
+    }
+    return true
+  }
 
   const validate = () => {
     if (!tableKey) {
@@ -209,7 +238,7 @@ export const useTableMultiFilter = <T extends ListMultiFilterQueryParams>(
       }
     }
 
-    return true
+    return validateDuplicateMappedConditions(activeConditions.value)
   }
 
   const clearMultiFilterParams = () => {
@@ -264,6 +293,7 @@ export const useTableMultiFilter = <T extends ListMultiFilterQueryParams>(
 
   const resetMultiFilter = async () => {
     state.conditions = []
+    state.activeConditionId = undefined
     clearMultiFilterParams()
     queryParams.pageNo = 1
     await reload()
@@ -273,17 +303,28 @@ export const useTableMultiFilter = <T extends ListMultiFilterQueryParams>(
     if ('conditions' in nextState) {
       state.conditions = [...(nextState.conditions || [])]
     }
+    if ('activeConditionId' in nextState) {
+      state.activeConditionId = nextState.activeConditionId
+    }
   }
 
   const setCondition = (condition: ListMultiFilterCondition) => {
+    const conditionId = condition.id || condition.key
+    const nextCondition = { ...condition, id: conditionId }
     state.conditions = [
-      ...state.conditions.filter((currentCondition) => currentCondition.key !== condition.key),
-      condition
+      ...state.conditions.filter((currentCondition) => (currentCondition.id || currentCondition.key) !== conditionId),
+      nextCondition
     ]
+    state.activeConditionId = conditionId
   }
 
-  const removeCondition = (key: string) => {
-    state.conditions = state.conditions.filter((condition) => condition.key !== key)
+  const removeCondition = (conditionIdOrKey: string) => {
+    state.conditions = state.conditions.filter(
+      (condition) => (condition.id || condition.key) !== conditionIdOrKey && condition.key !== conditionIdOrKey
+    )
+    if (state.activeConditionId === conditionIdOrKey) {
+      state.activeConditionId = state.conditions[0]?.id || state.conditions[0]?.key
+    }
   }
 
   return {

@@ -2,14 +2,15 @@
   <ContentWrap>
     <div class="team-leader-workbench__header">
       <div>
-        <div class="team-leader-workbench__title">工序池班组长工作台</div>
+        <div class="team-leader-workbench__title">{{ pageTitle }}</div>
         <div class="team-leader-workbench__subtitle">
-          负责报工确认、活跃订单分配、异常上报和班组配置中心维护
+          {{ pageSubtitle }}
         </div>
       </div>
     </div>
 
     <el-tabs
+      v-if="showLeaderTypeTabs"
       v-model="activeLeaderTab"
       data-team-leader-type-tabs
       @tab-change="handleLeaderTypeChange"
@@ -1044,9 +1045,24 @@ defineOptions({ name: 'MesProProcessPoolTeamLeaderWorkbench' })
 
 type WorkbenchLeaderTab = TeamLeaderType
 
+const props = withDefaults(
+  defineProps<{
+    leaderType?: TeamLeaderType
+    showLeaderTypeTabs?: boolean
+    title?: string
+    subtitle?: string
+  }>(),
+  {
+    leaderType: 'PRODUCTION',
+    showLeaderTypeTabs: false,
+    title: '工序池班组长工作台',
+    subtitle: '负责生产报工确认、活跃订单分配、异常上报和班组配置中心维护'
+  }
+)
+
 const queryFormRef = ref()
 const abnormalFormRef = ref()
-const activeLeaderTab = ref<WorkbenchLeaderTab>('PRODUCTION')
+const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
 const loading = ref(false)
 const detailLoading = ref(false)
 const reviewSubmitting = ref(false)
@@ -1072,6 +1088,9 @@ const configuredDefectReasonOptions = ref<
   Array<{ reasonType: string; reasonCode: string; reasonName: string }>
 >([])
 
+const showLeaderTypeTabs = computed(() => props.showLeaderTypeTabs)
+const pageTitle = computed(() => props.title)
+const pageSubtitle = computed(() => props.subtitle)
 const isProductionLeader = computed(() => activeLeaderTab.value === 'PRODUCTION')
 const employeeFilterLabel = computed(() =>
   activeLeaderTab.value === 'PQC' ? 'PQC检验员' : '员工'
@@ -1134,12 +1153,12 @@ const dailyCloseSummaryCards = computed(() => [
 const queryParams = reactive<TeamLeaderSubmissionPageReqVO>({
   pageNo: 1,
   pageSize: 10,
-  leaderType: 'PRODUCTION',
+  leaderType: activeLeaderTab.value,
   submitDate: new Date().toISOString().slice(0, 10),
   employeeUserId: undefined,
   processId: undefined,
   deviceId: undefined,
-  templateType: undefined,
+  templateType: activeLeaderTab.value === 'PQC' ? 'PQC_SIMPLIFIED' : undefined,
   workOrderId: undefined,
   workOrderCode: undefined,
   productId: undefined,
@@ -2109,9 +2128,11 @@ const resolvePqcTagType = (pqcResult?: string) => {
 
 onMounted(() => {
   getSubmissionList()
-  loadActiveOrders().catch((error) => {
-    ElMessage.error(resolveErrorMessage(error, '活跃订单调拨库存追溯加载失败'))
-  })
+  if (isProductionLeader.value) {
+    loadActiveOrders().catch((error) => {
+      ElMessage.error(resolveErrorMessage(error, '活跃订单调拨库存追溯加载失败'))
+    })
+  }
 })
 </script>
 

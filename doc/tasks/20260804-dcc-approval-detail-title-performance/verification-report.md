@@ -35,6 +35,7 @@
 - EXPERIENCE: `docs/frontend-development.md` 和 `docs/experience-index.md` 已合并删除 Tab 后不得保留隐藏 pane/组件/API 残留的经验。
 - CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode preview` -> PASS。
 - CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode apply` -> PASS，删除已归档的本轮 evidence 文件。
+- COMMIT: `b0f45a432` -> committed 本轮 task-owned source, test, task report, and experience-rule updates only.
 
 ## Remaining Notes
 

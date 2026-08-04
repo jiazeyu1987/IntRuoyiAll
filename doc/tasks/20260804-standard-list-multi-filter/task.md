@@ -14,6 +14,7 @@
 - [x] M4: 运行定向验证和前端特性证据校验。
 - [x] M5: 更新任务文档、验证报告和收尾状态。
 - [x] M6: 按用户指定在排产工单真实页面启用多维筛选，并完成静态合同与真实 E2E 验证。
+- [ ] M7: 按用户反馈把多维筛选改为可增删条件 Tab，并验证所有已填写 Tab 条件按交集提交。
 
 ## Expected Verification
 
@@ -30,12 +31,13 @@
 
 ## Current Status
 
-ready_for_closeout
+in_progress
 
 - 排产工单真实页面 pilot 已启用多维筛选，并通过静态合同、类型检查和真实 Playwright E2E。
 - 真实 E2E 验证了 `code`、`erpWorkOrderCode`、`completionFilter` 正式 query 参数和重置清空参数，目标写请求数为 0。
 - task-closeout-cleanup preview/apply 已通过，删除临时 `frontend-feature-evidence.md`，保留真实 E2E 脚本与 `result.json`。
-- Full closeout/commit/push 仍被当前仓库已有的 dirty/ahead 并行任务状态阻塞；本轮未执行提交或推送，以避免混入非本任务改动。
+- 用户已变更交互方案：改为红框区域条件 Tab + 左右加减号，查询时所有已填写/激活 Tab 条件取交集；当前正在按该方案重构。
+- Full closeout/commit/push 仍被当前仓库已有的 dirty/ahead 并行任务状态阻塞；本轮不会宽泛提交或推送，以避免混入非本任务改动。
 
 ## 设计约束检查
 

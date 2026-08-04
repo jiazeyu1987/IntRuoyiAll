@@ -98,10 +98,14 @@ assert(!page.includes('label="生产工单ID"'), '异常上报不能要求手工
 assert(!page.includes('label="来源提交ID"'), '异常上报不能要求手工填写来源提交 ID。')
 assert(!page.includes('<template #header>员工工序绑定</template>'), '旧员工绑定卡片必须替换为员工档案与工序员工关系配置。')
 assert(!page.includes('<template #header>设备参数上下限</template>'), '旧设备参数卡片必须替换为设备档案、状态和运行参数配置。')
-assert(page.includes('PQC') && page.includes('PRODUCTION'), '页面必须支持生产班组长和 PQC 班组长切换。')
-assert(page.includes('data-team-leader-type-tabs'), '页面必须提供生产组长和 PQC 组长一级页签。')
-assert(page.includes('label="生产组长" name="PRODUCTION"'), '页面必须提供生产组长页签。')
-assert(page.includes('label="PQC 组长" name="PQC"'), '页面必须提供 PQC 组长页签。')
+assert(page.includes('PQC') && page.includes('PRODUCTION'), '页面必须继续支持生产班组长和 PQC 班组长两类查询。')
+assert(page.includes('leaderType?: TeamLeaderType'), '工作台组件必须允许包装页显式锁定 PRODUCTION/PQC 类型。')
+assert(page.includes('showLeaderTypeTabs?: boolean'), '工作台组件必须允许包装页关闭内部组长类型切换。')
+assert(page.includes('showLeaderTypeTabs: false'), '工作台组件默认不得显示内部生产/PQC 切换页签。')
+assert(
+  /v-if="showLeaderTypeTabs"[\s\S]*data-team-leader-type-tabs/.test(page),
+  '内部生产/PQC 切换页签只能在显式 showLeaderTypeTabs=true 时显示。'
+)
 assert(!page.includes('data-team-leader-pqc-placeholder'), 'PQC 组长页签不能停留在占位内容。')
 assert(!page.includes('PQC 组长功能正在建设中'), 'PQC 组长必须能看到检验员提交内容，不能显示建设中占位。')
 assert(page.includes("if (leaderType === 'PRODUCTION')"), '生产专属活跃订单/配置加载必须与 PQC 提交看板查询区分。')
@@ -121,23 +125,20 @@ assert(
   page.includes('data-pqc-leader-submission-content'),
   'PQC 组长列表必须提供稳定选择器承载逐项提交内容。'
 )
-for (const payloadField of ['pqcPieceValues', 'inspectionType', 'inspectionQuantity', 'scrapQuantity']) {
+for (const payloadField of ['pqcItemDetails', 'itemResults']) {
   assert(
     page.includes(payloadField),
-    `PQC 组长列表必须读取检验员填写 payload 字段: ${payloadField}`
+    `PQC 组长列表必须优先读取正式项目级明细字段: ${payloadField}`
   )
 }
-for (const [key, label] of [
-  ['length', '长度'],
-  ['appearance', '外观'],
-  ['seal', '密封'],
-  ['pressure', '压力']
-]) {
-  assert(
-    page.includes(`key: '${key}'`) && page.includes(`label: '${label}'`),
-    `PQC 组长列表必须展示检验员填写页同一检验项: ${label}`
-  )
-}
+assert(
+  page.includes('resolvePqcItemSnapshotDetails'),
+  'PQC 组长列表必须通过项目级快照解析函数展示检验员逐项填写内容。'
+)
+assert(
+  !/PQC_SUBMISSION_CONTENT_DEFINITIONS[\s\S]*length[\s\S]*appearance[\s\S]*seal[\s\S]*pressure/.test(page),
+  'PQC 组长列表不得继续使用固定 length/appearance/seal/pressure 四项作为正式明细。'
+)
 assert(
   !page.includes('{{ row.submittedSummary || row.pqcSummary || \'--\' }}'),
   'PQC 组长列表提交内容不得继续只展示 submittedSummary/pqcSummary 汇总。'
@@ -183,6 +184,8 @@ assert(page.includes('lowerLimit') && page.includes('upperLimit'), '设备参数
 assert(!page.includes('ignoreErrorMessage: true'), '班组长页面不得静默隐藏后端错误。')
 
 assert(routes.includes("path: 'pro/process-pool/team-leader'"), 'remaining 路由必须提供班组长工作台入口。')
+assert(routes.includes("path: 'pro/feedback/edhr-batch-pqc-leader'"), 'remaining 路由必须提供独立 eDHR PQC 组长页签入口。')
+assert(routes.includes('BatchPqcLeaderWorkbenchPage.vue'), 'PQC 组长页签必须使用专门包装页，不能显示在组长工作台内。')
 assert(routes.includes("permission: ['mes:pro-process-pool-team-leader:query']"), '班组长工作台路由必须绑定查询权限。')
 
 console.log('mes-process-pool-team-leader-static PASS')

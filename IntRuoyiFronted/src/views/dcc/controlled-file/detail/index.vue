@@ -65,7 +65,7 @@
               返回
             </el-button>
             <el-button
-              v-if="!isBrowserTraceabilityPage && canUploadApplicantTrainingRecord"
+              v-if="showDetailManagementActions && canUploadApplicantTrainingRecord"
               type="primary"
               plain
               :loading="applicantTrainingRecordDialog.submitting"
@@ -75,7 +75,7 @@
               上传培训记录
             </el-button>
             <el-button
-              v-if="!isBrowserTraceabilityPage && detailActionState.canAcknowledgeTraining"
+              v-if="showDetailManagementActions && detailActionState.canAcknowledgeTraining"
               type="success"
               plain
               :loading="trainingAckLoading"
@@ -85,7 +85,7 @@
               确认培训
             </el-button>
             <el-button
-              v-if="!isBrowserTraceabilityPage && detailActionState.canManualRelease"
+              v-if="showDetailManagementActions && detailActionState.canManualRelease"
               type="primary"
               plain
               :loading="manualReleaseLoading"
@@ -95,7 +95,7 @@
               正式下发
             </el-button>
             <el-button
-              v-if="!isBrowserTraceabilityPage && canSubmitPublishAction"
+              v-if="showDetailManagementActions && canSubmitPublishAction"
               type="primary"
               plain
               :loading="publishDialog.submitting"
@@ -104,12 +104,12 @@
               <Icon icon="ep:promotion" class="mr-5px" />
               发布申请
             </el-button>
-            <el-button v-if="!isBrowserTraceabilityPage && detailActionState.canPreview" type="primary" plain @click="openPreview">
+            <el-button v-if="showDetailManagementActions && detailActionState.canPreview" type="primary" plain @click="openPreview">
               <Icon icon="ep:view" class="mr-5px" />
               预览受控文件
             </el-button>
             <el-button
-              v-if="!isBrowserTraceabilityPage && controlledPrintAllowed"
+              v-if="showDetailManagementActions && controlledPrintAllowed"
               v-hasPermi="['dcc:controlled-file:print']"
               type="primary"
               plain
@@ -120,7 +120,7 @@
               受控打印
             </el-button>
           </div>
-          <div class="detail-action-group detail-action-group--more" v-if="!isBrowserTraceabilityPage && hasDetailMoreActions">
+          <div class="detail-action-group detail-action-group--more" v-if="showDetailManagementActions && hasDetailMoreActions">
             <el-dropdown trigger="click" @command="handleDetailMoreCommand">
               <el-button plain :loading="detailMoreActionLoading">
                 更多
@@ -140,7 +140,7 @@
               </template>
             </el-dropdown>
           </div>
-          <div class="detail-action-group detail-action-group--danger" v-if="!isBrowserTraceabilityPage && hasDetailDangerActions">
+          <div class="detail-action-group detail-action-group--danger" v-if="showDetailManagementActions && hasDetailDangerActions">
             <el-dropdown trigger="click" @command="handleDetailDangerCommand">
               <el-button type="danger" plain :loading="detailDangerActionLoading">
                 风险操作
@@ -171,7 +171,7 @@
         </div>
       </div>
       <div
-        v-if="fileDetail && !isBrowserTraceabilityPage"
+        v-if="fileDetail && showDetailManagementActions"
         class="detail-handling-summary"
         data-testid="dcc-detail-handling-summary"
       >
@@ -207,7 +207,7 @@
         </div>
       </div>
       <el-alert
-        v-if="!isBrowserTraceabilityPage && detailActionProjectionMessages.length"
+        v-if="showDetailManagementActions && detailActionProjectionMessages.length"
         class="mt-12px"
         type="warning"
         :closable="false"
@@ -215,7 +215,7 @@
         :title="detailActionProjectionMessages.join('；')"
       />
       <el-alert
-        v-if="!isBrowserTraceabilityPage && obsoleteActionLocked"
+        v-if="showDetailManagementActions && obsoleteActionLocked"
         class="mt-12px"
         data-testid="dcc-obsolete-action-lock"
         :closable="false"
@@ -237,7 +237,7 @@
         </template>
       </el-alert>
       <el-alert
-        v-if="!isBrowserTraceabilityPage && activeObsoleteActionError"
+        v-if="showDetailManagementActions && activeObsoleteActionError"
         class="mt-12px"
         data-testid="dcc-obsolete-action-lock-error"
         :closable="false"
@@ -247,7 +247,7 @@
         :description="activeObsoleteActionError"
       />
       <el-alert
-        v-if="!isBrowserTraceabilityPage && publishActionLocked"
+        v-if="showDetailManagementActions && publishActionLocked"
         class="mt-12px"
         data-testid="dcc-publish-action-lock"
         :closable="false"
@@ -269,7 +269,7 @@
         </template>
       </el-alert>
       <el-alert
-        v-if="!isBrowserTraceabilityPage && activePublishActionError"
+        v-if="showDetailManagementActions && activePublishActionError"
         class="mt-12px"
         data-testid="dcc-publish-action-lock-error"
         :closable="false"
@@ -279,7 +279,7 @@
         :description="activePublishActionError"
       />
       <el-alert
-        v-if="!isBrowserTraceabilityPage && manualReleasePermissionGapVisible"
+        v-if="showDetailManagementActions && manualReleasePermissionGapVisible"
         class="mt-12px"
         data-testid="dcc-manual-release-permission-gap"
         :closable="false"
@@ -289,7 +289,7 @@
         description="当前版本已进入待正式下发，但页面没有可用的正式下发动作。请为当前文控角色配置该文件类别的 DISTRIBUTE 分发规则和正式下发权限后再操作。"
       />
       <el-alert
-        v-if="!isBrowserTraceabilityPage && controlledPrintPermissionHintVisible"
+        v-if="showDetailManagementActions && controlledPrintPermissionHintVisible"
         class="mt-12px"
         data-testid="dcc-controlled-print-permission-hint"
         :closable="false"
@@ -359,6 +359,109 @@
         :closable="false"
       />
     </ContentWrap>
+
+    <template v-if="isApprovalUploadHandlingPage">
+      <ContentWrap class="mt-16px" data-testid="dcc-approval-upload-view">
+        <div class="detail-table-header mb-12px">
+          <div>
+            <div class="text-16px font-700">上传提交信息</div>
+            <div
+              class="mt-4px text-13px text-[var(--el-text-color-secondary)]"
+              data-testid="dcc-approval-upload-submission-summary"
+            >
+              提交范围：审批中心上传审批；审批阶段：{{ currentStageLabel }}
+            </div>
+          </div>
+          <el-tag type="warning" effect="plain">审批要求</el-tag>
+        </div>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-descriptions title="文件信息" :column="1" border>
+              <el-descriptions-item label="DCC 项目">
+                {{ currentDccProjectCodeText }}
+              </el-descriptions-item>
+              <el-descriptions-item label="文件分类">
+                {{ categoryNameMap.get(fileDetail?.categoryId || 0) || '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="提交目录">
+                {{ controlledBrowserDirectoryPath }}
+              </el-descriptions-item>
+              <el-descriptions-item label="文件名称">
+                {{ fileDetail?.title || fileDetail?.fileName || '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="文件编号">
+                {{ fileDetail?.fileNumber || '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="产品编号">
+                {{ fileDetail?.productCode || '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="版本号">
+                {{ fileDetail?.versionNo || '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="生效日期">
+                {{ formatControlledFileDate(fileDetail?.effectiveDate) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="提交备注">
+                {{ fileDetail?.remark || '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="培训要求">
+                {{ fileDetail?.needTraining ? '需要培训' : '无需培训' }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-col>
+          <el-col :span="12">
+            <div
+              class="dcc-approval-upload-preview"
+              data-testid="dcc-approval-upload-file-preview"
+            >
+              <div class="mb-10px text-15px font-600">附件预览</div>
+              <ProtectedPdfViewer
+                :controlled-file-id="controlledFileId"
+                :title="fileDetail?.title || '附件预览'"
+              />
+            </div>
+          </el-col>
+        </el-row>
+      </ContentWrap>
+
+      <ContentWrap
+        v-loading="approvalLoading"
+        class="mt-16px"
+        data-testid="dcc-approval-upload-action-panel"
+      >
+        <div class="mb-10px text-15px font-600">审批要求：{{ approvalActionLabels.dialogTitle }}</div>
+        <div v-if="approvalTodoTask" class="rounded-8px border border-solid border-[var(--el-border-color)] p-16px">
+          <div class="text-14px font-600">当前任务：{{ approvalTodoTask.name || '-' }}</div>
+          <div class="mt-6px text-13px text-[var(--el-text-color-secondary)]">
+            {{ currentStageSameLayerHint }}
+          </div>
+          <div v-if="isReturnedApplicantTask" class="mt-6px text-13px text-[var(--el-color-warning)]">
+            有流程回退，需处理；处理后将继续提交原流程。
+          </div>
+          <div class="mt-14px flex flex-wrap gap-8px">
+            <el-button type="primary" @click="openActionDialog('approve')">
+              {{ approvalActionLabels.approveText }}
+            </el-button>
+            <el-button v-if="!isReturnedApplicantTask" type="danger" plain @click="openActionDialog('reject')">
+              {{ approvalActionLabels.rejectText }}
+            </el-button>
+            <el-button v-if="returnTargetOptions.length > 0" plain @click="openTaskActionDialog('return')">
+              <Icon icon="ep:back" class="mr-5px" />
+              回退
+            </el-button>
+            <el-button v-if="!isReturnedApplicantTask" plain @click="openTaskActionDialog('transfer')">
+              <Icon icon="fa:share-square-o" class="mr-5px" />
+              转办
+            </el-button>
+            <el-button v-if="!isReturnedApplicantTask" plain @click="openTaskActionDialog('sign')">
+              <Icon icon="ep:plus" class="mr-5px" />
+              加签
+            </el-button>
+          </div>
+        </div>
+        <el-empty v-else :image-size="72" description="当前没有待处理审批任务" />
+      </ContentWrap>
+    </template>
 
     <template v-if="showLifecycleTraceSections">
     <ContentWrap data-testid="dcc-detail-project-code-linkage" class="mt-16px">
@@ -3145,14 +3248,21 @@ const isBrowserTraceabilityPage = computed(
     String(route.query.traceability || '') === '1' &&
     String(route.query.from || '') === 'browser'
 )
+const isApprovalUploadHandlingPage = computed(
+  () =>
+    String(route.query.handling || '') === 'approval' &&
+    String(route.query.from || '') === 'approval-center'
+)
+const showFullDetailSections = computed(() => !isApprovalUploadHandlingPage.value)
+const showDetailManagementActions = computed(() => !isBrowserTraceabilityPage.value && showFullDetailSections.value)
 const traceabilityScope = computed(() =>
   resolveControlledFileTraceabilityScope(route.query as Record<string, unknown>)
 )
 const showLifecycleTraceSections = computed(
-  () => !isBrowserTraceabilityPage.value || traceabilityScope.value === 'trace'
+  () => showFullDetailSections.value && (!isBrowserTraceabilityPage.value || traceabilityScope.value === 'trace')
 )
 const showSignatureTraceSections = computed(
-  () => !isBrowserTraceabilityPage.value || traceabilityScope.value === 'signature'
+  () => showFullDetailSections.value && (!isBrowserTraceabilityPage.value || traceabilityScope.value === 'signature')
 )
 const canRetryStampPermission = computed(() => checkPermi(['dcc:controlled-file:stamp:retry']))
 const canEditMetadata = computed(() => hasMetadataEditorRole(userStore.getRoles))
@@ -4135,7 +4245,7 @@ const buildPublishBusinessActionContext = (
 const loadActiveObsoleteAction = async (detail: ControlledFileVO) => {
   activeObsoleteAction.value = null
   activeObsoleteActionError.value = ''
-  if (viewerMode.value || isBrowserTraceabilityPage.value) {
+  if (viewerMode.value || !showDetailManagementActions.value) {
     return
   }
   if (detail.status !== 'ACTIVE') {
@@ -4159,7 +4269,7 @@ const loadActiveObsoleteAction = async (detail: ControlledFileVO) => {
 const loadActivePublishAction = async (detail: ControlledFileVO) => {
   activePublishAction.value = null
   activePublishActionError.value = ''
-  if (viewerMode.value || isBrowserTraceabilityPage.value) {
+  if (viewerMode.value || !showDetailManagementActions.value) {
     return
   }
   if (detail.status !== 'READY_TO_PUBLISH') {

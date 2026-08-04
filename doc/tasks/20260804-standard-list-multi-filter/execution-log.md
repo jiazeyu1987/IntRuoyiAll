@@ -12,6 +12,8 @@
 - BDD: 排产工单真实页启用多维筛选 -> Given 用户打开 MES 排产工单页面 / When 排产工单主列表渲染 / Then 标准列表模板显示多维筛选控件，并保留原动作栏、表格插槽和分页能力。
 - BDD: 排产工单多维筛选提交正式参数 -> Given 用户在排产工单主列表同时填写排产工单号、来源生产工单号和完成筛选 / When 点击多维筛选查询 / Then 列表请求携带正式 `code`、`erpWorkOrderCode`、`completionFilter` 参数且不发送临时 `multiFilters` 参数。
 - BDD: 排产工单多维筛选重置 -> Given 排产工单主列表已有多个多维筛选条件 / When 用户点击多维筛选重置 / Then 页面清除筛选条件、回到第一页并通过真实列表接口重新加载。
+- BDD: 条件 Tab 动态增删 -> Given 标准列表模板启用多维筛选 / When 用户点击红框区域右侧加号 / Then 组件新增一个条件 Tab，并在左侧减号点击时删除当前 Tab。
+- BDD: 条件 Tab 交集查询 -> Given 用户在多个已填写条件 Tab 中选择不同筛选字段和值 / When 点击查询 / Then 前端把所有已填写 Tab 条件一起映射为正式 query 参数，作为交集条件提交。
 
 ## Command And Evidence Log
 
@@ -48,3 +50,4 @@
 - CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode preview` -> PASS，keep 为 `task.md`、`execution-log.md`、`verification-report.md`、真实 E2E 脚本和 `result.json`，delete 仅为临时 `frontend-feature-evidence.md`。
 - CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode apply` -> PASS，已删除临时 `frontend-feature-evidence.md`。
 - GIT BLOCKER: `git status --short --branch` 显示 `int_main...origin/int_main [ahead 10]` 且存在大量并行任务修改/未跟踪文件；本轮不执行 commit/push，避免将非本任务改动混入标准列表多维筛选收尾。
+- CHANGE REQUEST: 用户反馈原固定多条件栏方式不好，要求改为条件 Tab + 加减号，查询取所有已填写/激活 Tab 的交集；已记录 `docs/changes/20260804-standard-list-multi-filter-condition-tabs.md`，决策为 Accept。

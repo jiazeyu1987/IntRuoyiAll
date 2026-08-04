@@ -8,6 +8,7 @@
     <el-tab-pane label="批次执行" name="execution" />
     <el-tab-pane label="生产填写" name="production" />
     <el-tab-pane label="PQC填写" name="pqc" />
+    <el-tab-pane label="PQC组长" name="pqcLeader" />
     <el-tab-pane label="组长工作台" name="teamLeader" />
     <el-tab-pane label="批记录页面关系图" name="pageGraph" />
   </el-tabs>
@@ -21,6 +22,7 @@ type EdhrBatchRecordTab =
   | 'history'
   | 'production'
   | 'pqc'
+  | 'pqcLeader'
   | 'teamLeader'
   | 'pageGraph'
 type EdhrBatchTabPane = {
@@ -39,6 +41,7 @@ const routeByTab: Partial<Record<EdhrBatchRecordTab, string>> = {
   execution: '/mes/pro/feedback/edhr-batch-execution',
   production: '/mes/pro/feedback/edhr-batch-production-fill',
   pqc: '/mes/pro/feedback/edhr-batch-pqc-fill',
+  pqcLeader: '/mes/pro/feedback/edhr-batch-pqc-leader',
   teamLeader: '/mes/pro/feedback/edhr-batch-team-leader',
   pageGraph: '/mes/pro/feedback/edhr-batch-page-graph'
 }

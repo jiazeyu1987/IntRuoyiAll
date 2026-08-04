@@ -265,7 +265,7 @@ const graphNodes: PageNode[] = [
     id: 'team-lead-review',
     order: '09',
     title: '班组长复核',
-    description: '生产组长和 PQC 组长复核一线原始数据、员工切换和异常记录。',
+    description: '生产组长复核生产一线原始数据、员工切换、FIFO 分配和异常记录。',
     kind: '复核页',
     route: '/mes/pro/feedback/edhr-batch-team-leader',
     isDisabled: false,
@@ -274,8 +274,20 @@ const graphNodes: PageNode[] = [
     tone: 'review'
   },
   {
-    id: 'review-copy',
+    id: 'pqc-lead-review',
     order: '10',
+    title: 'PQC组长',
+    description: 'PQC 组长专门查看和复核 PQC 检验员提交、项目明细与过程检验汇集状态。',
+    kind: '质检复核页',
+    route: '/mes/pro/feedback/edhr-batch-pqc-leader',
+    isDisabled: false,
+    x: 772,
+    y: 282,
+    tone: 'review'
+  },
+  {
+    id: 'review-copy',
+    order: '11',
     title: 'EDHR审核副本',
     description: '生成最接近限制范围的审核副本，原始值和修正值同时保留。',
     kind: '审核页',
@@ -287,7 +299,7 @@ const graphNodes: PageNode[] = [
   },
   {
     id: 'event-revision',
-    order: '11',
+    order: '12',
     title: '原始记录修改',
     description: '原始记录提交后允许修改，但必须保留修改日志。',
     kind: '日志页',
@@ -299,7 +311,7 @@ const graphNodes: PageNode[] = [
   },
   {
     id: 'formal-record',
-    order: '12',
+    order: '13',
     title: '正式批记录',
     description: '按逐工序正式批记录表单绑定查看、打开、填写和形成生产批记录。',
     kind: '批记录页',
@@ -311,7 +323,7 @@ const graphNodes: PageNode[] = [
   },
   {
     id: 'archive',
-    order: '13',
+    order: '14',
     title: '归档',
     description: '记录审核完成后的归档状态，历史明细从表单追溯进入。',
     kind: '归档页',
@@ -336,7 +348,8 @@ const pageEdges: PageEdge[] = [
     sourceHandle: 'source-bottom',
     targetHandle: 'target-top'
   },
-  { from: 'process-pool', to: 'team-lead-review', label: '异常与修改日志进入复核' },
+  { from: 'process-pool', to: 'team-lead-review', label: '生产异常与修改日志进入复核' },
+  { from: 'process-pool', to: 'pqc-lead-review', label: 'PQC 提交进入专门复核' },
   { from: 'fifo-allocation', to: 'review-copy', label: '审核副本按限制范围修正超限值' },
   { from: 'review-copy', to: 'formal-record', label: '形成可审核的正式批记录视图' },
   { from: 'formal-record', to: 'archive', label: '审核完成后进入归档与表单追溯' }

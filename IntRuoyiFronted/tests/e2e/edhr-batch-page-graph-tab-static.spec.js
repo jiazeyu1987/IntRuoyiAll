@@ -89,6 +89,7 @@ for (const nodeName of [
   'PQC填写',
   '工序池',
   '班组长复核',
+  'PQC组长',
   'FIFO分配',
   'EDHR审核副本',
   '正式批记录',
@@ -115,6 +116,7 @@ for (const route of [
   '/mes/pro/feedback/edhr-batch-execution',
   '/mes/pro/feedback/edhr-batch-production-fill',
   '/mes/pro/feedback/edhr-batch-pqc-fill',
+  '/mes/pro/feedback/edhr-batch-pqc-leader',
   '/mes/pro/process-pool/review-copy'
 ]) {
   assert.match(page, new RegExp(route.replace(/\//g, '\\/')), `page graph must include official route ${route}.`)

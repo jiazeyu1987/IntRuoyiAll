@@ -5,6 +5,7 @@
 - 用户要求新增一个 QA 页签，用于设置 PQC 执行的 QA 规则，并结合最开始的压力泵 PDF 内容。
 - 用户明确纠正：QA 是给 PQC 制定规则的，与 DCC 没有任何关系。
 - 用户进一步要求：QA 用一个单独的页签显示，不放在生产/PQC 工作台内部 tab 里。
+- 用户基于截图进一步要求：在 eDHR 左侧菜单 `批记录表单` 和 `批次执行` 之间增加独立 `QA` 菜单项，点击进入 QA 设置，并且本机 `芋道源码/admin` 可以看到该菜单。
 
 ## BDD Scenarios
 
@@ -14,6 +15,7 @@
 - BDD: 发布完整性检查 -> Given QA 规程尚未正式接入发布接口 When 查看独立页面 Then 页面提示发布前必须完成范围、项目、抽样规则、判定标准和版本冻结检查，不伪造保存成功。
 - BDD: 检验项目原文依据 -> Given QA 查看某条解析后的检验项目 When QA 对照判定标准 Then 页面展示该项目相关的 PDF 页码、项目名、接受标准原文摘录和检验方法原文摘录，而不是整页 OCR 或无来源说明。
 - BDD: QA 独立页面入口 -> Given QA 需要单独工作入口 When QA 打开 `QA 规程配置` Then 页面通过独立路由展示 QA 规则配置，生产/PQC 工作台内部不再存在 `QA 规程` tab。
+- BDD: eDHR 左侧菜单显示 QA -> Given `芋道源码/admin` 打开 eDHR 左侧菜单 When `批记录表单` 和 `批次执行` 已显示 Then `QA` 位于二者之间，点击后进入 `/mes/pro/process-pool/qa-regulation`。
 
 ## TDD Sequence
 
@@ -26,6 +28,9 @@
 - TDD-07 GREEN: Add source page/item/excerpt/method fields to QA draft items and render them in the inspection-item table.
 - TDD-08 RED: Update `role-matrix-qa-regulation-tab-static.spec.cjs` to require standalone `QaRegulationPage.vue` and route `/mes/pro/process-pool/qa-regulation`, and to forbid `QA 规程` in `TeamLeaderWorkbenchPage.vue` internal tabs.
 - TDD-09 GREEN: Move QA UI/state to the standalone page, remove QA tab residue from the workbench, and update real E2E target path.
+- TDD-10 RED: Add `test_mes_edhr_qa_menu_sql.py` before the menu migration. Expected failure: `20260804_mes_edhr_qa_menu.sql` is missing, so no dynamic `QA` eDHR menu exists.
+- TDD-11 GREEN: Add the QA dynamic menu SQL, package/role binding, and static frontend/backend contract so `QA` appears between `批记录表单` and `批次执行`.
+- TDD-12 E2E: Apply the menu migration to local runtime data, login as `芋道源码/admin`, click the eDHR `QA` menu item, and verify the standalone QA page opens.
 
 ## Command Log
 
@@ -56,6 +61,7 @@
 - Added task-owned real E2E script `IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` to verify the `原文依据` column through a real login and page path.
 - Ran the script against local `8081/48081` before the standalone split; it logged in with the local default `芋道源码/admin` identity, opened `/mes/pro/process-pool/team-leader`, selected the former `QA 规程` tab, verified item-level source excerpts, asserted no DCC terms in the QA panel, and asserted no backend write requests.
 - Updated the QA implementation to a standalone route page: `QaRegulationPage.vue` owns `data-qa-regulation-page`, `remaining.ts` registers `/mes/pro/process-pool/qa-regulation`, `TeamLeaderWorkbenchPage.vue` keeps only `生产组长` and `PQC 组长` internal tabs, and the real E2E script now opens the standalone route directly.
+- Started the follow-up dynamic menu slice after the screenshot clarification: re-read frontend/database/login/E2E/local runtime/task rules, confirmed the current QA page already exists as a standalone route, and added the focused RED SQL contract `IntRuoyiBackend/script/tests/test_mes_edhr_qa_menu_sql.py`.
 
 ## Verification Evidence
 
@@ -94,6 +100,7 @@
 - GREEN: `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS; result `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 - GREEN: 2026-08-04 follow-up E2E rerun `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS; result `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 - GREEN: standalone route static contract -> PASS; route `/mes/pro/process-pool/qa-regulation` loads `QaRegulationPage.vue`, and the workbench no longer contains a `QA 规程` internal tab.
+- RED: `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_mes_edhr_qa_menu_sql.py -q` -> FAIL, expected reason: `missing eDHR QA menu SQL migration` because `20260804_mes_edhr_qa_menu.sql` is not present yet.
 - GREEN: latest focused standalone contract rerun `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS.
 - GREEN: latest adjacent PQC static regression `E:\IntRuoyi\IntRuoyiFronted` `pnpm run e2e:role-matrix-pqc-dynamic-form:static` -> PASS.
 - GREEN: latest Vue type check `E:\IntRuoyi\IntRuoyiFronted` `pnpm run ts:check` -> PASS.

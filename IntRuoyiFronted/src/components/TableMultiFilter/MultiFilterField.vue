@@ -1,6 +1,6 @@
 <template>
   <div class="table-multi-filter-field" :data-filter-key="definition.key">
-    <span class="table-multi-filter-field__label">{{ definition.label }}</span>
+    <span v-if="showLabel" class="table-multi-filter-field__label">{{ definition.label }}</span>
     <el-select
       v-if="showOperator && operatorOptions.length > 1"
       :model-value="currentOperator"
@@ -129,8 +129,10 @@ defineOptions({ name: 'TableMultiFilterField' })
 const props = withDefaults(defineProps<{
   definition: ListMultiFilterDefinition
   condition?: Partial<ListMultiFilterCondition>
+  showLabel?: boolean
   showOperator?: boolean
 }>(), {
+  showLabel: true,
   showOperator: true
 })
 
@@ -190,9 +192,9 @@ const getValueTitle = (value: unknown) => {
 
 const emitCondition = (patch: Partial<ListMultiFilterCondition>) => {
   emit('update', {
+    ...props.condition,
     key: props.definition.key,
     operator: currentOperator.value,
-    ...props.condition,
     ...patch
   })
 }

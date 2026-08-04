@@ -7,6 +7,7 @@ import cn.iocoder.yudao.framework.common.util.collection.MapUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductBindFromWorkOrdersReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductBindFromWorkOrdersRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductByItemSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductCopyReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductSaveReqVO;
@@ -85,6 +86,13 @@ public class MesProRouteProductController {
         return success(true);
     }
 
+    @PostMapping("/save-by-item")
+    @Operation(summary = "按产品保存工艺路线绑定")
+    @PreAuthorize("@ss.hasPermission('mes:md-item:update')")
+    public CommonResult<Long> saveRouteProductByItem(@Valid @RequestBody MesProRouteProductByItemSaveReqVO reqVO) {
+        return success(routeProductService.saveRouteProductByItem(reqVO.getItemId(), reqVO.getRouteId()));
+    }
+
     @DeleteMapping("/delete")
     @Operation(summary = "删除工艺路线产品")
     @Parameters({
@@ -104,6 +112,15 @@ public class MesProRouteProductController {
     @PreAuthorize("@ss.hasPermission('mes:pro-route:query')")
     public CommonResult<MesProRouteProductRespVO> getRouteProduct(@RequestParam("id") Long id) {
         MesProRouteProductDO routeProduct = routeProductService.getRouteProduct(id);
+        return success(buildRouteProductRespVO(routeProduct));
+    }
+
+    @GetMapping("/get-by-item")
+    @Operation(summary = "按产品获得工艺路线绑定")
+    @Parameter(name = "itemId", description = "产品物料编号", required = true, example = "1")
+    @PreAuthorize("@ss.hasPermission('mes:md-item:query')")
+    public CommonResult<MesProRouteProductRespVO> getRouteProductByItem(@RequestParam("itemId") Long itemId) {
+        MesProRouteProductDO routeProduct = routeProductService.getRouteProductByItemId(itemId);
         return success(buildRouteProductRespVO(routeProduct));
     }
 

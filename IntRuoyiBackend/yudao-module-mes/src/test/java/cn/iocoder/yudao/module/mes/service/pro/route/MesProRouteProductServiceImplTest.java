@@ -22,6 +22,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -134,6 +135,76 @@ class MesProRouteProductServiceImplTest {
         assertEquals(new BigDecimal("3.00"), productCaptor.getValue().getProductionTime());
         assertEquals("MINUTE", productCaptor.getValue().getTimeUnitType());
         assertEquals("updated product", productCaptor.getValue().getRemark());
+    }
+
+    @Test
+    void saveRouteProductByItem_shouldCreateDefaultBindingWhenProductHasNoRoute() {
+        when(routeProductMapper.selectByItemId(301L)).thenReturn(null);
+        doAnswer(invocation -> {
+            MesProRouteProductDO data = invocation.getArgument(0);
+            data.setId(101L);
+            return 1;
+        }).when(routeProductMapper).insert(any(MesProRouteProductDO.class));
+
+        Long result = routeProductService.saveRouteProductByItem(301L, 200L);
+
+        assertEquals(101L, result);
+        verify(routeService).validateRouteNotEnable(200L);
+        ArgumentCaptor<MesProRouteProductDO> productCaptor = ArgumentCaptor.forClass(MesProRouteProductDO.class);
+        verify(routeProductMapper).insert(productCaptor.capture());
+        MesProRouteProductDO inserted = productCaptor.getValue();
+        assertEquals(200L, inserted.getRouteId());
+        assertEquals(301L, inserted.getItemId());
+        assertEquals(1, inserted.getQuantity());
+        assertEquals(BigDecimal.ONE, inserted.getProductionTime());
+        assertEquals("MINUTE", inserted.getTimeUnitType());
+    }
+
+    @Test
+    void saveRouteProductByItem_shouldMoveExistingBindingAndPreserveRouteSideParameters() {
+        MesProRouteProductDO existing = MesProRouteProductDO.builder()
+                .id(100L)
+                .routeId(199L)
+                .itemId(301L)
+                .quantity(8)
+                .productionTime(new BigDecimal("3.00"))
+                .timeUnitType("HOUR")
+                .remark("keep route side parameters")
+                .build();
+        when(routeProductMapper.selectByItemId(301L)).thenReturn(existing);
+
+        Long result = routeProductService.saveRouteProductByItem(301L, 200L);
+
+        assertEquals(100L, result);
+        verify(routeService).validateRouteNotEnable(199L);
+        verify(routeService).validateRouteNotEnable(200L);
+        ArgumentCaptor<MesProRouteProductDO> productCaptor = ArgumentCaptor.forClass(MesProRouteProductDO.class);
+        verify(routeProductMapper).updateById(productCaptor.capture());
+        MesProRouteProductDO updated = productCaptor.getValue();
+        assertEquals(100L, updated.getId());
+        assertEquals(200L, updated.getRouteId());
+        assertEquals(301L, updated.getItemId());
+        assertEquals(8, updated.getQuantity());
+        assertEquals(new BigDecimal("3.00"), updated.getProductionTime());
+        assertEquals("HOUR", updated.getTimeUnitType());
+        assertEquals("keep route side parameters", updated.getRemark());
+    }
+
+    @Test
+    void saveRouteProductByItem_shouldDeleteExistingBindingWhenRouteCleared() {
+        MesProRouteProductDO existing = MesProRouteProductDO.builder()
+                .id(100L)
+                .routeId(199L)
+                .itemId(301L)
+                .build();
+        when(routeProductMapper.selectByItemId(301L)).thenReturn(existing);
+
+        Long result = routeProductService.saveRouteProductByItem(301L, null);
+
+        assertNull(result);
+        verify(routeService).validateRouteNotEnable(199L);
+        verify(routeProductBomService).deleteRouteProductBomByRouteIdAndProductId(199L, 301L);
+        verify(routeProductMapper).deleteById(100L);
     }
 
     @Test

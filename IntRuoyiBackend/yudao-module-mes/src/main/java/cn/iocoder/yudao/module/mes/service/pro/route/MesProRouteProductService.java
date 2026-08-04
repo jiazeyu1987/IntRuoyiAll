@@ -59,6 +59,15 @@ public interface MesProRouteProductService {
     MesProRouteProductDO getRouteProductByItemId(Long itemId);
 
     /**
+     * 按产品（物料）保存工艺路线绑定
+     *
+     * @param itemId 产品编号
+     * @param routeId 工艺路线编号；为空时解除绑定
+     * @return 工艺路线产品编号；解除绑定时返回 null
+     */
+    Long saveRouteProductByItem(Long itemId, Long routeId);
+
+    /**
      * 按工艺路线获得产品列表
      */
     List<MesProRouteProductDO> getRouteProductListByRouteId(Long routeId);

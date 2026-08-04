@@ -12,12 +12,14 @@
 
 ## Command Log
 
-- Pending.
-
-## RED/GREEN Evidence
-
-- Pending.
-
-## Blockers
-
-- 当前工作区存在与本任务无关的脏改动和 ahead 提交；本任务只选择性修改 DCC 审批相关文件和本任务文档，不触碰并行改动。
+- Read trigger rules and skill contracts:
+  - `docs/task-closeout-rules.md`
+  - `docs/powershell-encoding.md`
+  - `docs/frontend-development.md`
+  - `docs/e2e-rules.md`
+  - `bug-regression-fix-loop`
+  - `frontend-feature-delivery`
+- Checked Git status: workspace is `int_main...origin/int_main [ahead 11]` with unrelated MES/task-doc changes already dirty. Current task will not touch those paths.
+- Read `docs/experience-index.md` and applied DCC approval / same-route facet / static contract gates to `task.md`.
+- Implemented `IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue` approval upload handling facet with `handling=approval&from=approval-center`.
+- Added `IntRuoyiFronted/tests/e2e/dcc-approval-upload-view-

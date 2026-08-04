@@ -101,6 +101,9 @@
       <el-tab-pane label="BOM 组成" name="bom" lazy>
         <MdProductBomForm ref="productBomFormRef" :itemId="formData.id!" :formType="formType" />
       </el-tab-pane>
+      <el-tab-pane label="工艺路线" name="route" lazy v-if="isProductItem">
+        <MdItemRouteForm :itemId="formData.id!" :formType="formType" />
+      </el-tab-pane>
       <el-tab-pane label="批次属性" name="batch" lazy v-if="formData.batchFlag">
         <MdItemBatchConfigForm
           :itemId="formData.id!"
@@ -149,12 +152,13 @@ import { MdProductBomApi } from '@/api/mes/md/item/productBom'
 import { AutoCodeRecordApi } from '@/api/mes/md/autocode/record'
 import MdItemBatchConfigForm from './MdItemBatchConfigForm.vue'
 import MdProductBomForm from './MdProductBomForm.vue'
+import MdItemRouteForm from './MdItemRouteForm.vue'
 import MdProductSopForm from './MdProductSopForm.vue'
 import MdProductSipForm from './MdProductSipForm.vue'
 import MdUnitMeasureSelect from '@/views/mes/md/unitmeasure/components/MdUnitMeasureSelect.vue'
 import MdItemTypeSelect from '@/views/mes/md/item/type/components/MdItemTypeSelect.vue'
 import { CommonStatusEnum } from '@/utils/constants'
-import { MesAutoCodeRuleCode, BarcodeBizTypeEnum } from '@/views/mes/utils/constants'
+import { MesAutoCodeRuleCode, BarcodeBizTypeEnum, MesItemOrProductEnum } from '@/views/mes/utils/constants'
 import { BarcodeDetail } from '@/views/mes/wm/barcode/components'
 
 /** MES 物料产品 表单 */
@@ -202,6 +206,7 @@ const formRules = reactive({
 const formRef = ref() // 表单 Ref
 const barcodeDetailRef = ref() // 条码详情弹窗 Ref
 const currentItemOrProduct = computed(() => formData.value.itemOrProduct || '') // 物料/产品的标签
+const isProductItem = computed(() => currentItemOrProduct.value === MesItemOrProductEnum.PRODUCT.value)
 
 /** 生成物料编码 */
 const generateCode = async () => {

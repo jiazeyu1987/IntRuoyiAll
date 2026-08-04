@@ -13,6 +13,7 @@
 - [x] 记录验证报告和剩余阻塞。
 - [x] 增加检验项目原文依据摘录，让 QA 能看到每条解析标准对应的扫描 PDF 相关原文。
 - [x] 将 QA 规程从生产/PQC 工作台内部 tab 拆为独立路由页面，并验证原工作台不再出现 `QA 规程` 内部 tab。
+- [ ] 在 eDHR 左侧动态菜单中将 `QA` 插入到 `批记录表单` 和 `批次执行` 之间，并让本机 `芋道源码/admin` 可见。
 
 ## Expected Verification
 
@@ -27,6 +28,9 @@
 - GREEN: `node IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` must pass against local `8081/48081` and verify visible item-level source excerpts with no backend write requests.
 - RED/GREEN: `node IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` must require standalone route `/mes/pro/process-pool/qa-regulation`, page component `QaRegulationPage.vue`, and no `QA 规程` tab inside `TeamLeaderWorkbenchPage.vue`.
 - REGRESSION: real local browser E2E must open `/mes/pro/process-pool/qa-regulation` directly, verify source excerpts, and send no backend write request.
+- RED/GREEN: `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_mes_edhr_qa_menu_sql.py -q` must first fail because the QA dynamic menu migration is missing, then pass after adding the formal menu SQL.
+- GREEN: `node IntRuoyiFronted/tests/e2e/mes-edhr-qa-menu-static.spec.js` must pass, proving the backend dynamic menu row and frontend standalone route agree.
+- E2E: local Playwright must login as `芋道源码/admin`, open eDHR left menu, verify visible order `批记录表单` -> `QA` -> `批次执行`, click `QA`, and land on `/mes/pro/process-pool/qa-regulation`.
 
 ## BDD/TDD Acceptance Matrix
 
@@ -38,6 +42,7 @@
 | BDD-QA-004 | Given formal save/publish API is not wired, When QA previews or runs publish checks on the standalone page, Then the page exposes missing publishing prerequisites and does not fake backend success. | Static contract fails because the page does not show API-not-wired and no-backend-write messaging. | New static contract passes and frontend evidence validator passes. |
 | BDD-QA-005 | Given QA reviews a parsed inspection item, When QA checks its判定标准, Then the item shows only the relevant original PDF excerpt, source page, source item, and method excerpt so QA can compare parsed text with the source. | Static contract fails because item rows only have parsed standard/source notes and no original excerpt fields or UI. | Static contract and real browser E2E verify original-source excerpts are visible in the item model/UI with no backend writes. |
 | BDD-QA-006 | Given QA needs its own workspace entry, When QA opens `QA 规程配置`, Then it loads as a standalone route page and the production/PQC workbench no longer contains an internal `QA 规程` tab. | Static contract fails because QA is still embedded in `TeamLeaderWorkbenchPage.vue` and `QaRegulationPage.vue` does not exist. | Standalone route/page contract passes, real browser opens `/mes/pro/process-pool/qa-regulation` directly, and workbench tab contract forbids QA tab residue. |
+| BDD-QA-007 | Given `芋道源码/admin` opens the eDHR left menu, When `批记录表单` and `批次执行` are visible, Then `QA` appears between them and opens `/mes/pro/process-pool/qa-regulation`. | Static SQL contract fails because no QA dynamic menu row is registered under eDHR. | Menu SQL, frontend route contract, and real admin E2E prove `QA` is visible and opens the standalone QA page. |
 
 ## Test Data
 
@@ -52,19 +57,21 @@
 
 - Current verified path is a standalone QA route because no formal QA save/publish API is exposed in this slice.
 - Real E2E path: login as QA, open `/mes/pro/process-pool/qa-regulation`, edit rules, run publish precheck, verify no backend write is sent until the formal API exists.
+- Dynamic menu E2E path: login as `芋道源码/admin`, open eDHR left menu, click the `QA` child item located between `批记录表单` and `批次执行`, and verify the standalone QA page loads.
 - Future PQC integration path: publish a QA regulation through the formal API, login as PQC, verify generated tasks use the published version snapshot and not hardcoded demo items.
 
 ## Current Status
 
-ready_for_closeout
+in_progress
 
-QA now displays through the standalone route `/mes/pro/process-pool/qa-regulation`. The production/PQC workbench keeps only `生产组长` and `PQC 组长` internal tabs. Focused static contract, TypeScript check, PQC adjacent static regression, and real local browser E2E have passed; closeout/commit remains blocked by the broader repository/worktree state recorded below.
+QA now displays through the standalone route `/mes/pro/process-pool/qa-regulation`. The current follow-up adds a formal eDHR dynamic left-menu item named `QA` between `批记录表单` and `批次执行`, with admin visibility and real menu-click verification still in progress.
 
 ## Design Constraints
 
 - QA 是给 PQC 制定规则的角色，PQC 按 QA 发布规程执行。
 - QA 规程页面不得出现 DCC、文件分类、受控文件上传或文控审批含义。
 - QA 规程不得嵌入生产/PQC 工作台内部 `el-tabs`；必须作为独立路由页面打开。
+- eDHR 左侧菜单项名称使用 `QA`，页面标题继续使用 `QA 规程配置`；不得把 QA 放回生产/PQC 工作台内部 tab。
 - 页面可以用压力泵 PDF 元数据初始化示例，但不得宣称已完成 DCC 识别或受控文件归档。
 - 每个解析后的检验项目必须能看到与该项目相关的短原文摘录，不展示整页 OCR，也不把看不清或未定位的内容伪装成已确认原文。
 - 如果正式保存/发布 API 未接入，页面必须明确停留在前端配置/发布前检查表达，不得伪造持久化成功。
