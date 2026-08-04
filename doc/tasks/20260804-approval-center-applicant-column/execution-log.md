@@ -48,7 +48,7 @@ BDD: 既有用户获得新默认列 -> Given 用户存在旧审批中心列配�
 
 ### M4 验证与收尾
 
-- 状态：blocked。
+- 状态：completed。
 - GREEN: `node tests/e2e/approval-center-applicant-column-static.spec.js` -> PASS。
 - GREEN: `node tests/e2e/approval-center-standard-list-template-static.spec.js` -> PASS，覆盖 TODO/DONE/MY_INITIATED/CC、签名待处理合并和审核人列合同。
 - GREEN: `node tests/e2e/approval-center-chinese-copy-static.spec.js` -> PASS。
@@ -61,12 +61,15 @@ BDD: 既有用户获得新默认列 -> Given 用户存在旧审批中心列配�
 - GREEN: `task-closeout-cleanup --mode apply` -> PASS，已删除 `frontend-feature-evidence.md`。
 - 本地收尾提交：`37cc041af docs: close approval center applicant column task`。
 - BLOCKER: `git push origin int_main` -> FAIL，`Failed to connect to github.com port 443 via 127.0.0.1`。
-- 代理复核：Git 配置仅有 `http.version=HTTP/1.1`，未发现显式 Git proxy；`127.0.0.1:7890` 未监听，`Test-NetConnection github.com -Port 443` 直连也失败。
+- 代理复核：第一次窄正则只看到 `http.version=HTTP/1.1`；完整 `git config --show-origin --list` 发现 URL 级代理 `http.https://github.com.proxy=http://127.0.0.1:7890`，但 `127.0.0.1:7890` 未监听，`Test-NetConnection github.com -Port 443` 直连也失败。
 - 2026-08-04 续跑复核：`git ls-remote origin HEAD` -> FAIL，仍为 `Failed to connect to github.com port 443 via 127.0.0.1`；`node tests/e2e/approval-center-reviewer-column-static.spec.js` 与 `node tests/e2e/approval-center-signature-pending-standard-list-static.spec.js` -> PASS。
-- 影响：`int_main` 仍领先 `origin/int_main`；具体领先数会随共享分支并行提交变化，在远端同步成功且不再 ahead 前按项目推送门禁不得把任务标记 completed。
+- 本地合同/阻塞记录提交：`93f935f09 test: align approval center applicant column contracts`。
+- 2026-08-05 代理恢复路径：Windows 用户代理配置为 `127.0.0.1:8902` 且端口监听，`git -c http.https://github.com.proxy=http://127.0.0.1:8902 ls-remote origin HEAD` -> PASS。
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main` 使用前端 `8081`、后端 `48081`。
+- GREEN: `git -c http.https://github.com.proxy=http://127.0.0.1:8902 push origin int_main` -> PASS，`b98d82594..93f935f09  int_main -> int_main`。
+- GREEN: `git status --short --branch` -> `## int_main...origin/int_main`，本任务提交已同步远端；工作区仍保留其它并行任务改动，未触碰。
 
 ## Blockers
 
 - 当前无产品或接口 blocker。
-- Git closeout 风险：当前共享分支仍有其它任务未提交工作区改动；本任务收尾记录只允许选择性暂存，不能用宽泛 `git add -A`。
-- Git push blocker：本机代理不可用且 GitHub 443 直连失败；网络或代理恢复前无法完成远端同步。
+- 当前无本任务 blocker。

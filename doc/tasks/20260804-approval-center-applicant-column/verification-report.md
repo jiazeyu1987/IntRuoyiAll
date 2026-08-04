@@ -2,7 +2,7 @@
 
 ## Result
 
-功能验证 PASS；Git 远端同步 BLOCKED。审批中心已增加独立“申请人”列，DCC 业务摘要不再重复展示申请人，四个审批视图已升级用户列配置 key。
+PASS，审批中心已增加独立“申请人”列，DCC 业务摘要不再重复展示申请人，四个审批视图已升级用户列配置 key；本任务提交已同步到 `origin/int_main`。
 
 ## Scope Verified
 
@@ -25,11 +25,15 @@
 - GREEN: `git diff --check -- <task-owned records>` -> PASS。
 - GREEN: `task-closeout-cleanup --mode preview` -> PASS，计划删除临时 `frontend-feature-evidence.md`，无 blocked/warnings。
 - GREEN: `task-closeout-cleanup --mode apply` -> PASS，已删除临时 `frontend-feature-evidence.md`。
+- GREEN: `git -c http.https://github.com.proxy=http://127.0.0.1:8902 ls-remote origin HEAD` -> PASS。
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
+- GREEN: `git -c http.https://github.com.proxy=http://127.0.0.1:8902 push origin int_main` -> PASS。
+- GREEN: `git status --short --branch` -> `## int_main...origin/int_main`，本任务提交不再 ahead。
 
 ## Git Notes
 
 - 任务前既有脏工作区基线：`e4495a624 Baseline: preserve existing worktree changes before approval center applicant column`。
 - 本任务实现被共享分支并行基线提交 `50bca8e9f` / `7cc9284a1` 吞入；未执行 amend、reset 或历史重写。
 - 本地收尾提交：`37cc041af docs: close approval center applicant column task`。
-- `git push origin int_main` 失败：Git 尝试连接 `github.com:443 via 127.0.0.1`，但 `127.0.0.1:7890` 未监听；GitHub 443 直连测试也失败。
-- 续跑 `git ls-remote origin HEAD` 仍失败；当前 `int_main` 仍领先 `origin/int_main`，任务状态保持 blocked，远端同步成功且不再 ahead 前不得标记 completed。
+- 合同/阻塞记录提交：`93f935f09 test: align approval center applicant column contracts`。
+- GitHub 推送阻塞根因是全局 URL 级代理仍指向未监听的 `127.0.0.1:7890`；本次使用一次性 `-c http.https://github.com.proxy=http://127.0.0.1:8902` 对齐当前系统代理完成远端同步，未修改全局 Git 配置。
