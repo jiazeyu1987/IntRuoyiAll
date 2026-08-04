@@ -68,6 +68,8 @@
 - INTEGRATION SLOT RELEASE: `qa-regulation-product-rules-integration` 登记项已在目录删除后标记 `active=false`，记录 `deletedAt`、`cleanupTask=20260805-qa-regulation-product-specific-rules`。
 - FINAL REGISTRY CHECK: 端口登记表 JSON 解析 -> PASS；两个任务登记项均 inactive，活动项 `profile/slot`、前端端口和后端端口重复数均为 `0`。
 - M5 completed：清理、提交、任务分支推送、远端主线融合、原任务 worktree 残留删除、集成 worktree 删除和两个槽位释放全部完成。
+- FINAL CLOSEOUT RECORD COMMIT: `86333da9a2aed199e331c1184ef8a1fcb8f5f80c docs: complete QA product rule closeout`；仅更新 `task.md`、`execution-log.md`、`verification-report.md`，记录 `completed`、worktree 删除和槽位释放。
+- FINAL CLOSEOUT PUSH: `bee130fc8..86333da9a` -> `origin/int_main`，pre-push branch runtime port guard -> PASS。
 
 ## Blockers
 

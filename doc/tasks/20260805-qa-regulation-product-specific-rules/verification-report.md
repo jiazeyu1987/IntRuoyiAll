@@ -56,7 +56,7 @@ PASS：QA 检验规则已按正式 `productMasterId` 隔离；当前压力泵规
 
 ## Final Closeout
 
-- `origin/codex/qa-regulation-product-rules` 和 `origin/int_main` 均已包含任务实现、cleanup 和验证记录，主线基线为 `bee130fc8`。
+- `origin/codex/qa-regulation-product-rules` 已包含任务实现、cleanup 和验证记录；`origin/int_main` 已包含首个最终收尾记录提交 `86333da9a`。
 - `D:\IntRuoyiWorktree\qa-regulation-product-rules`：Git 注册不存在，残留物理目录已按前端依赖目录清理门禁删除，`8084/48084` 无监听，slot 3 已释放。
 - `D:\IntRuoyiWorktree\qa-regulation-product-rules-integration`：分支提交已包含于 `origin/int_main`，Git worktree 删除成功，物理目录不存在，`8086/48086` 无监听，slot 5 已释放。
 - 端口登记表 JSON 解析和 active 唯一性检查 -> PASS；两个任务登记项均为 `active=false`。
