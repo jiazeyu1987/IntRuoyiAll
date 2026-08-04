@@ -40,6 +40,9 @@
 - PUSH_RECOVERY: `git config --show-origin --get-regexp "^(http|https)\.(proxy|sslVerify|version|postBuffer)|^url\..*\.insteadOf$"` -> found `http.https://github.com.proxy=http://127.0.0.1:7890`; `Test-NetConnection 127.0.0.1 -Port 7890` -> FAIL; `Test-NetConnection github.com -Port 443` -> FAIL for direct TCP 443.
 - PUSH_RECOVERY: `Get-NetTCPConnection -State Listen` -> found `clash-win64` listening on `127.0.0.1:8902`; `git -c http.https://github.com.proxy=http://127.0.0.1:8902 ls-remote origin HEAD` -> PASS, remote HEAD `93f935f093b5e072ee322aca54c5cfa4d48b0b74`.
 - REMOTE_SYNC: `git -c http.https://github.com.proxy=http://127.0.0.1:8902 fetch origin int_main` -> PASS; `git rev-parse HEAD` and `git rev-parse origin/int_main` both returned `93f935f093b5e072ee322aca54c5cfa4d48b0b74`; `git status --short --branch` no longer reports `ahead`.
+- REAL_E2E_SCRIPT: `node --check doc\tasks\20260804-bpm-dcc-approval-preview-pane\bpm-dcc-approval-preview-real.e2e.cjs` -> PASS.
+- REAL_E2E_INITIAL: `node doc\tasks\20260804-bpm-dcc-approval-preview-pane\bpm-dcc-approval-preview-real.e2e.cjs` -> FAIL, false-positive attribution: navigation canceled non-target local background GET requests were initially counted as target failures; page assertions had already proven summary visible, preview pane visible, `ProtectedPdfViewer` shell visible, old technical header hidden, old jump prompt hidden, timeline visible, and target write requests empty.
+- REAL_E2E: `node doc\tasks\20260804-bpm-dcc-approval-preview-pane\bpm-dcc-approval-preview-real.e2e.cjs` -> PASS; artifact `output\playwright\20260804-bpm-dcc-approval-preview-pane\bpm-dcc-approval-preview-real-result.json`, screenshot `output\playwright\20260804-bpm-dcc-approval-preview-pane\bpm-dcc-approval-preview-real.png`; target chain used local frontend/backend, DCC TODO row, BPM detail route, `get-approval-detail`, controlled file detail, and preview metadata; target network failures `[]`, page errors `[]`, console errors `[]`, target write requests `[]`.
 
 ## Milestone Updates
 
@@ -48,6 +51,7 @@
 - completed: M2 修改 `BpmProcessInstanceDetail`，DCC 自定义业务表单隐藏通用编号/打印行和旧跳转提示栏，红框区域嵌入 `ProtectedPdfViewer`。
 - completed: M3 聚焦静态合同、相邻回归合同、`pnpm ts:check` 和 `git diff --check` 均通过。
 - completed: M4 保留验证报告已记录技能 validator PASS 和关键验收结论。
+- completed: M5 真实 Playwright 只读 E2E 已通过，覆盖审批中心 DCC 待办到 BPM 详情页的页面路径。
 - completed_local: cleanup 和实现提交完成。
 - completed: 远端已包含本任务实现提交；通过临时 `127.0.0.1:8902` 代理刷新 `origin/int_main` 后确认本地不再领先远端。
 

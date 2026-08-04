@@ -11,14 +11,20 @@
 - [x] M2: 最小修改 BPM DCC 审批详情模板，隐藏黄框内容并在主区嵌入正式受控文件预览组件。
 - [x] M3: 运行聚焦静态合同、相邻回归合同和类型检查。
 - [x] M4: 更新验证报告、经验归档判断和收尾状态。
+- [x] M5: 使用真实 Playwright 登录本机审批中心，打开 DCC BPM 详情页并验证黄框隐藏、红框预览显示。
 
 ## Expected Verification
 
 - `node tests/e2e/bpm-dcc-approval-preview-pane-static.spec.js`
 - `node tests/e2e/bpm-dcc-approval-detail-title-performance-static.spec.js`
 - `node tests/e2e/dcc-approval-upload-view-static.spec.js`
+- `node doc/tasks/20260804-bpm-dcc-approval-preview-pane/bpm-dcc-approval-preview-real.e2e.cjs`
 - `pnpm ts:check`
 - `git diff --check -- <task-owned files>`
+
+## Cleanup Keep
+
+- doc/tasks/20260804-bpm-dcc-approval-preview-pane/bpm-dcc-approval-preview-real.e2e.cjs
 
 ## Applied Experience Gates
 
@@ -48,4 +54,4 @@
 
 completed
 
-实现、聚焦验证、相邻回归、类型检查、技能证据校验、cleanup、本地实现提交和远端同步确认均已完成。2026-08-05 复核发现 Git 全局 GitHub 专用代理仍指向未监听的 `127.0.0.1:7890`，但本机 `clash-win64` 实际监听 `127.0.0.1:8902`；通过临时代理参数刷新 `origin/int_main` 后确认本地 `HEAD` 与远端跟踪分支一致，本任务可标记为 completed。
+实现、聚焦验证、相邻回归、类型检查、真实只读 E2E、技能证据校验、cleanup、本地实现提交和远端同步确认均已完成。2026-08-05 真实 E2E 使用本机 `http://127.0.0.1:8081` 与 `http://127.0.0.1:48081`，从审批中心 DCC 待办打开 BPM 详情，确认黄框旧编号/跳转提示不显示、红框区域嵌入受控文件预览、右侧时间线和底部审批按钮仍可见。
