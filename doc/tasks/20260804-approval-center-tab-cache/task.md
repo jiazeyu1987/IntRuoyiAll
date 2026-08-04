@@ -6,9 +6,9 @@
 
 ## Milestones
 
-- [ ] M1：定位审批中心路由缓存和页面生命周期的根因，建立失败回归测试。
-- [ ] M2：实现最小正式修复，使审批中心页签切回不重复初始化。
-- [ ] M3：完成定向回归、类型检查、证据校验和任务收尾。
+- [x] M1：定位审批中心路由缓存和页面生命周期的根因，建立失败回归测试。
+- [x] M2：实现最小正式修复，使审批中心页签切回不重复初始化。
+- [x] M3：完成定向回归、类型检查、证据校验并进入任务收尾。
 
 ## Expected Verification
 
@@ -34,8 +34,18 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-- 既有脏工作区已按规则保存为独立基线提交 `0dcee54f8`。
-- 正在定位审批中心页面、路由 keep-alive 身份和初始化请求触发点。
+- 实现和定向静态/类型验证已完成：审批中心页签切回缓存合同、相邻审批中心合同和 `pnpm ts:check` 均通过。
+- 真实 Playwright 用户路径已通过：从 `/approval-center/todo` 点击真实侧边菜单进入 `/user/profile`，再点击审批中心顶部页签返回；首次列表请求 2 次，返回阶段目标列表请求 0 次，`pageErrors=[]`。
+- `task-closeout-cleanup` preview/apply 已通过并清理临时失败截图及临时 evidence 文件；当前仍待选择性提交、推送和最终 `completed` 状态记录。
 
+## Cleanup Keep
+
+- doc/tasks/20260804-approval-center-tab-cache/approval-center-tab-return-no-reload-real.e2e.cjs
+- doc/tasks/20260804-approval-center-tab-cache/approval-center-tab-return-no-reload-result.json
+- doc/tasks/20260804-approval-center-tab-cache/approval-center-tab-return-no-reload.png
+
+## Cleanup Candidates
+
+- doc/tasks/20260804-approval-center-tab-cache/approval-center-tab-return-no-reload-failed.png

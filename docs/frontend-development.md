@@ -243,11 +243,11 @@
 ### 顶部菜单页签切回缓存
 
 - Trigger: 动态菜单页面、顶部 TagsView 页签、红框菜单页签、`keepAlive`、`noCache`、`componentName`、`defineOptions({ name })`、`AppView` `keep-alive`、从一个已打开菜单页签切到另一个再切回时重复执行首屏 `onMounted`，或 keep-alive 已命中但页内 `route.fullPath` watcher 仍恢复加载目录树/列表。
-- Preflight check: 先核对菜单 `componentName` 与 SFC `defineOptions({ name })` 是否一致，再核对 `routerHelper` 动态路由生成的 `meta.noCache`、`tagsViewKeyMode`、`AppView` 的 `keep-alive include` 和 route key；对明确要求切回不重复加载的正式菜单页签，必须在正式路由元数据层固定 `noCache=false`，不能只依赖运行态菜单 `keepAlive` 当前值。若页面自身监听全局 `route.fullPath`，还必须比较正式有效 route state，并记录目录树/列表已成功加载状态；只有 effective state 变化才恢复加载。
+- Preflight check: 先核对菜单 `componentName` 与 SFC `defineOptions({ name })` 是否一致，再核对 `routerHelper` 动态路由生成的 `meta.noCache`、`tagsViewKeyMode`、`AppView` 的 `keep-alive include` 和 route key；多个正式路由复用同一个 SFC 且路由名不等于组件名时，必须在路由元数据声明显式缓存身份（如 `keepAliveName`）并让 `AppView` 与 `TagsView` 同时使用该身份。对明确要求切回不重复加载的正式菜单页签，必须在正式路由元数据层固定 `noCache=false`，不能只依赖运行态菜单 `keepAlive` 当前值。若页面自身监听全局 `route.fullPath`，还必须比较正式有效 route state，并记录目录树/列表已成功加载状态；只有 effective state 变化才恢复加载。
 - Blocker: 页签切回仍重新 mount、动态路由生成 `noCache=true`、组件名不匹配导致 `keep-alive include` 无法命中、route key 使用 `fullPath` 导致 query 变化重建实例、后台页签 watcher 在同一 effective state 切回时仍调用目录树或列表请求，或静态合同不能证明缓存链路从菜单到 AppView 和页内 route restore guard 闭合时必须停止。
 - Verification: 聚焦静态合同必须同时断言菜单 componentName、SFC name、`routerHelper` 正式路径/组件集合、`meta.noCache=false`、`tagsViewKeyMode='path'`、`TagsView` 缓存集合和 `AppView` `keep-alive`；若页面有 `route.fullPath` watcher，还必须断言同状态切回 guard 在 `loadDirectories()`/`getList()` 前返回、列表成功加载状态 key 和目录树成功加载标记；再复跑相邻页签去重合同、首开性能合同和 `pnpm ts:check`。
 - Forbidden action: 禁止用 localStorage、缓存查询结果、延时器、空数据、隐藏 loading、吞请求错误或强制刷新来掩盖页签重新挂载。
-- Evidence: 任务 `doc/tasks/20260803-dcc-upload-browser-tab-cache/`，DCC“文件上传”和“受控浏览”正式菜单页签在 `routerHelper` 中强制 `noCache=false`，并在受控浏览页内按 effective route state 跳过同状态切回恢复加载，避免运行态菜单 `keepAlive` 异常或后台 `route.fullPath` watcher 导致切回受控浏览重复加载。
+- Evidence: 任务 `doc/tasks/20260803-dcc-upload-browser-tab-cache/`，DCC“文件上传”和“受控浏览”正式菜单页签在 `routerHelper` 中强制 `noCache=false`，并在受控浏览页内按 effective route state 跳过同状态切回恢复加载，避免运行态菜单 `keepAlive` 异常或后台 `route.fullPath` watcher 导致切回受控浏览重复加载；任务 `doc/tasks/20260804-approval-center-tab-cache/`，审批中心四个路由复用 `ApprovalCenterWorkbench`，需用显式 `keepAliveName` 对齐共享组件缓存身份，并在页面内用 route name 与成功加载 state 阻止后台实例重复请求。
 
 ## DCC 上传类别权限投影门禁
 
