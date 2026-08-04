@@ -55,8 +55,33 @@ assert.match(
 )
 assert.match(
   qaSource,
+  /data-qa-regulation-dcc-project/,
+  'Standalone QA page must use a DCC project selector as the formal product scope.'
+)
+assert.match(
+  qaSource,
+  /getProjectCodePage[\s\S]*DCC_PROJECT_CODE_STATUS_ENABLE/,
+  'Standalone QA page must load enabled DCC project codes from the formal API.'
+)
+assert.match(
+  qaSource,
+  /data-qa-regulation-project-load-error[\s\S]*retryLoadDccProjectCodes/,
+  'DCC project loading failures must remain visible and retryable.'
+)
+assert.match(
+  qaSource,
+  /PRESSURE_PUMP_PROJECT_CODE\s*=\s*'IDI'/,
+  'The existing pressure-pump draft must be explicitly mapped to DCC project code IDI.'
+)
+assert.match(
+  qaSource,
+  /dccProjectCodeId[\s\S]*selectedDccProjectCode[\s\S]*productMasterId/,
+  'The selected DCC project must drive the displayed product scope.'
+)
+assert.doesNotMatch(
+  qaSource,
   /data-qa-regulation-pressure-pump-source/,
-  'Standalone QA page must show the pressure-pump procedure source used to initialize the draft.'
+  'The standalone page must not keep a pressure-pump-specific source card.'
 )
 assert.doesNotMatch(
   qaSource,
@@ -70,8 +95,12 @@ for (const requiredText of [
   'PQC-IDI-001',
   'B/0',
   '2026-01-04',
+  'IDI',
   '过程检验规程',
   'QA 负责制定 PQC 的首检、巡检、末检和检验项目规则',
+  '请选择 DCC 项目代码',
+  '产品名称由 DCC 项目代码带出',
+  'DCC 项目代码加载失败',
   '正式保存/发布接口未接入',
   '未写入后台'
 ]) {
@@ -80,6 +109,7 @@ for (const requiredText of [
 
 for (const requiredSelector of [
   'data-qa-regulation-scope',
+  'data-qa-regulation-dcc-project',
   'data-qa-regulation-inspection-rules',
   'data-qa-regulation-items',
   'data-qa-regulation-original-excerpt',
@@ -127,8 +157,8 @@ for (const requiredOriginalExcerpt of [
 
 assert.doesNotMatch(
   qaSource,
-  /DCC|文件分类|受控文件|文控|controlled-file|fileTypeTaxonomy/i,
-  'Standalone QA regulation page must not be coupled to document-control classification or controlled files.'
+  /getProjectCodePage\([\s\S]*catch[\s\S]*(PQC-IDI-001|按压式球囊扩充压力泵)/,
+  'DCC project loading failures must not fall back to the pressure-pump draft.'
 )
 
 console.log('PASS role-matrix QA regulation standalone page static contract')

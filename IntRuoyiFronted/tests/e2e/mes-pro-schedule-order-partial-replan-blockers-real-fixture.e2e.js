@@ -12,6 +12,9 @@ const TENANT = process.env.MES_PARTIAL_REPLAN_E2E_TENANT || '芋道源码'
 const USERNAME = process.env.MES_PARTIAL_REPLAN_E2E_USERNAME || 'admin'
 const PASSWORD = process.env.MES_PARTIAL_REPLAN_E2E_PASSWORD || process.env.MES_REPLAN_E2E_PASSWORD || ''
 const EXPECTED_TENANT_ID = '1'
+const CLEANUP_ISSUE_ID = Number(process.env.MES_PARTIAL_REPLAN_E2E_CLEANUP_ISSUE_ID || 0)
+const CLEANUP_WORK_ORDER_ID = Number(process.env.MES_PARTIAL_REPLAN_E2E_CLEANUP_WORK_ORDER_ID || 0)
+const CLEANUP_DATE = process.env.MES_PARTIAL_REPLAN_E2E_CLEANUP_DATE || ''
 const TASK_MARKER = `E2E_PARTIAL_REPLAN_BLOCKER_${new Date()
   .toISOString()
   .replace(/[-:.TZ]/g, '')
@@ -515,6 +518,48 @@ async function main() {
     await login(page)
     const auth = await browserAuth(page)
     assert.equal(String(auth.tenantId), EXPECTED_TENANT_ID, `must stay in 芋道源码 tenant_id=1, actual ${auth.tenantId}`)
+
+    if (CLEANUP_ISSUE_ID > 0) {
+      assert.ok(CLEANUP_WORK_ORDER_ID > 0, 'cleanup-only mode requires MES_PARTIAL_REPLAN_E2E_CLEANUP_WORK_ORDER_ID')
+      assert.match(CLEANUP_DATE, /^\d{4}-\d{2}-\d{2}$/, 'cleanup-only mode requires MES_PARTIAL_REPLAN_E2E_CLEANUP_DATE')
+      candidate = {
+        workOrderId: CLEANUP_WORK_ORDER_ID,
+        date: CLEANUP_DATE
+      }
+      issueId = CLEANUP_ISSUE_ID
+      await resolveIssueViaUi(page, candidate, issueId)
+      await assertIssueResolved(page, auth, issueId, candidate)
+      assert.deepEqual(unexpectedMutations, [], `unexpected MES mutation APIs: ${unexpectedMutations.join(', ')}`)
+      assert.deepEqual(
+        expectedMutations,
+        ['PUT /admin-api/mes/pro/auto-schedule/issues/resolve'],
+        `cleanup-only mode must only resolve one task-owned issue: ${expectedMutations.join(', ')}`
+      )
+      assert.deepEqual(pageErrors, [], `page errors must stay empty: ${pageErrors.join('\n')}`)
+      console.log(
+        JSON.stringify(
+          {
+            status: 'PASS',
+            mode: 'real-page-task-owned-fixture-cleanup',
+            baseUrl: BASE_URL,
+            backendUrl: BACKEND_URL,
+            tenant: TENANT,
+            username: USERNAME,
+            workOrderId: candidate.workOrderId,
+            issueDate: candidate.date,
+            issueId,
+            expectedMesMutationRequests: expectedMutations,
+            unexpectedMesMutationCount: unexpectedMutations.length,
+            pageErrorCount: pageErrors.length,
+            consoleErrorCount: consoleErrors.length,
+            cleanup: 'resolved-via-ui'
+          },
+          null,
+          2
+        )
+      )
+      return
+    }
 
     candidate = await discoverCandidateScheduleOrder(page, auth)
     issueId = await createIssueViaUi(page, candidate)

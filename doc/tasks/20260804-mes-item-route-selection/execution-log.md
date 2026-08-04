@@ -30,6 +30,8 @@
 - `GREEN: git diff --check -- <task-owned files> -> PASS, only LF will be replaced by CRLF warnings.`
 - `GREEN: python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-mes-item-route-selection/frontend-feature-evidence.md -> PASS`
 - `GREEN: python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260804-mes-item-route-selection/backend-api-evidence.md -> PASS`
+- `GREEN: node --check doc\tasks\20260804-mes-item-route-selection\mes-md-item-route-selection-readonly-real.e2e.cjs -> PASS`
+- `GREEN: node doc\tasks\20260804-mes-item-route-selection\mes-md-item-route-selection-readonly-real.e2e.cjs -> PASS, real frontend path /mes/md/item; route options=4; item-binding-list/get-by-item code=0; MES writes=0; simple-list calls=0; target failures=0; page errors=0`
 
 ## Command And Verification Notes
 
@@ -45,6 +47,11 @@
 - 2026-08-04：首次 `git push origin int_main` 因全局 GitHub 代理 `http://127.0.0.1:7890` 未监听失败；`Test-NetConnection github.com -Port 443` 直连成功，`git -c http.https://github.com.proxy= ls-remote origin HEAD` 成功。
 - 2026-08-04：使用一次性代理覆盖执行 `git -c http.https://github.com.proxy= push origin int_main` 成功，远端 `int_main` 更新 `1fd52f05d..3f15f0539`。
 - 2026-08-04：最终完成状态提交 `6107745f0 docs: complete mes item route selection task` 已生成；推送该提交时 GitHub 443 连接失败，当前本地分支仍领先远端 1 个提交。
+- 2026-08-04：读取 Playwright、E2E、登录、本地运行、worktree、PowerShell 编码与 task-closeout 规则；确认 `8081` 归属 `E:\IntRuoyi\IntRuoyiFronted` Vite，`48081` 归属 `E:\IntRuoyi` 的 int_main 后端运行副本，前端 HTTP 200、后端 health `UP`。
+- 2026-08-04：新增任务专用只读真实 E2E 脚本，使用系统 Chrome 和 `芋道源码/admin` 登录，不记录密码；脚本从真实 `/mes/md/item` 页面搜索产品、点击“编辑”、切换“工艺路线”页签并断言产品侧正式接口。
+- 2026-08-04：首轮 E2E 暴露 WebStorageCache 的 `v` 字段需要二次 JSON 解包；修正后登录态只读接口正常。后续补齐登录自动跳转竞态和表单异步加载等待，最终真实页面 E2E PASS。
+- 2026-08-04：最终 artifact 为 `output/playwright/20260804-mes-item-route-selection/mes-md-item-route-selection-readonly-real-result.json` 和同目录截图；选中产品 `A002.09.002.230396`，路线选项 4 条，已启用路线为禁用显示项，无 MES 写请求、无 `simple-list` 请求、无目标网络/HTTP 错误、无控制台或页面错误。
+- 2026-08-04：本轮仅验证只读真实页面链路，未在 admin 基线数据上点击保存。真实写入保存/变更/解除需要已确认测试租户/账号和任务自有可清理数据。
 
 ## Blockers
 

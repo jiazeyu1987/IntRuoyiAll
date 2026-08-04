@@ -20,7 +20,7 @@ assert.match(tabs, /批记录页面关系图/, 'eDHR batch tabs must include pag
 assert.match(tabs, /'pageGraph'/, 'eDHR batch tab union must include pageGraph key.')
 assert.match(tabs, /@tab-click="handleTabClick"/, 'eDHR batch tabs must navigate from the real Element Plus tab click event.')
 assert.doesNotMatch(tabs, /@tab-change="handleTabChange"/, 'eDHR batch tabs must not depend only on tab-change for navigation.')
-assert.doesNotMatch(tabs, /PQC组长|'pqcLeader'|edhr-batch-pqc-leader/, 'PQC组长 must not be modeled as an eDHR batch tab.')
+assert.match(tabs, /PQC组长|'pqcLeader'|edhr-batch-pqc-leader/, 'PQC组长 must remain an eDHR batch tab.')
 assert.match(
   tabs,
   /pageGraph:\s*'\/mes\/pro\/feedback\/edhr-batch-page-graph'/,
@@ -37,10 +37,10 @@ assert.match(routeBlock, /BatchPageGraphPage\.vue/, 'page graph route must use B
 assert.match(routeBlock, /name:\s*'MesProEdhrBatchPageGraph'/, 'page graph route name must be stable.')
 assert.match(routeBlock, /title:\s*'批记录页面关系图'/, 'page graph route title must be visible.')
 assert.match(routeBlock, /permission:\s*\['mes:pro-edhr-batch-execution:query'\]/, 'page graph route must reuse eDHR batch permission.')
-assert.doesNotMatch(
+assert.match(
   router,
-  /pro\/feedback\/edhr-batch-pqc-leader|BatchPqcLeaderWorkbenchPage\.vue|MesProEdhrBatchPqcLeaderWorkbench/,
-  'router must not keep the old eDHR internal PQC leader route.'
+  /pro\/feedback\/edhr-batch-pqc-leader[\s\S]*BatchPqcLeaderWorkbenchPage\.vue[\s\S]*MesProEdhrBatchPqcLeaderWorkbench/,
+  'router must keep the dedicated eDHR PQC leader route.'
 )
 
 assert.match(page, /<EdhrBatchRecordTabs\s+active-tab="pageGraph"/, 'page graph page must render shared tabs.')
@@ -124,7 +124,7 @@ for (const route of [
   '/mes/pro/feedback/edhr-batch-production-fill',
   '/mes/pro/feedback/edhr-batch-pqc-fill',
   '/mes/pro/feedback/edhr-batch-production-leader',
-  '/mes/pro/process-pool/pqc-leader',
+  '/mes/pro/feedback/edhr-batch-pqc-leader',
   '/mes/pro/process-pool/review-copy'
 ]) {
   assert.match(page, new RegExp(route.replace(/\//g, '\\/')), `page graph must include official route ${route}.`)
@@ -132,13 +132,8 @@ for (const route of [
 
 assert.match(
   page,
-  /id:\s*'pqc-lead-review'[\s\S]*title:\s*'PQC组长'[\s\S]*route:\s*'\/mes\/pro\/process-pool\/pqc-leader'[\s\S]*isDisabled:\s*false/,
-  'page graph must show PQC组长 as the standalone QA-side route.'
-)
-assert.doesNotMatch(
-  page,
-  /route:\s*'\/mes\/pro\/feedback\/edhr-batch-pqc-leader'/,
-  'page graph must not keep the old eDHR internal PQC leader route.'
+  /id:\s*'pqc-lead-review'[\s\S]*title:\s*'PQC组长'[\s\S]*route:\s*'\/mes\/pro\/feedback\/edhr-batch-pqc-leader'[\s\S]*isDisabled:\s*false/,
+  'page graph must show PQC组长 as the dedicated eDHR batch route.'
 )
 
 console.log('PASS: eDHR batch page graph tab static contract')

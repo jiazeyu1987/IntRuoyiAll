@@ -69,12 +69,12 @@ assert.match(teamLeaderPage, /<EdhrBatchRecordTabs\s+active-tab="teamLeader"/, '
 assert.match(teamLeaderPage, /leader-type="PRODUCTION"[\s\S]*:show-leader-type-tabs="false"/, 'group leader page must stay production-scoped.')
 assert.match(
   productionLeaderPage,
-  /<EdhrBatchRecordTabs\s+active-tab="productionLeader"[\s\S]*leader-type="PRODUCTION"[\s\S]*data-edhr-batch-production-leader-page/,
+  /data-edhr-batch-production-leader-page[\s\S]*<EdhrBatchRecordTabs\s+active-tab="productionLeader"[\s\S]*leader-type="PRODUCTION"/,
   'production leader page must be a dedicated production wrapper.'
 )
 assert.match(
   pqcLeaderPage,
-  /<EdhrBatchRecordTabs\s+active-tab="pqcLeader"[\s\S]*leader-type="PQC"[\s\S]*data-edhr-batch-pqc-leader-page/,
+  /data-edhr-batch-pqc-leader-page[\s\S]*<EdhrBatchRecordTabs\s+active-tab="pqcLeader"[\s\S]*leader-type="PQC"/,
   'PQC leader page must be a dedicated PQC wrapper.'
 )
 assert.doesNotMatch(pqcLeaderPage, /leader-type="PRODUCTION"|生产组长/, 'PQC leader page must not point at production content.')
