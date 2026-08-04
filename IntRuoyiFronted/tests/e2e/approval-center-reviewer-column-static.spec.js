@@ -30,12 +30,12 @@ assert.match(
 )
 assert.match(
   approvalPage,
-  /return reviewerLabel !== '--' \? `审核人：\$\{reviewerLabel\}` : row\.businessStatus \|\| '--'/,
-  'node sub label must prefer the reviewer name over the raw TODO status.'
+  /return reviewerLabel !== EMPTY_APPROVAL_DISPLAY\s*\?\s*`审核人：\$\{reviewerLabel\}`\s*:\s*resolveMappedApprovalText\(row\.businessStatus,\s*APPROVAL_STATUS_LABELS,\s*'未配置中文状态'\)/,
+  'node sub label must prefer the reviewer name over the localized TODO status.'
 )
 assert.match(
   approvalPage,
-  /row\.assigneeUserName\s*\|\|\s*\(row\.assigneeUserId\s*\?\s*`用户 #\$\{row\.assigneeUserId\}`\s*:\s*'--'\)/,
+  /row\.assigneeUserName\s*\|\|\s*\(row\.assigneeUserId\s*\?\s*`用户 #\$\{row\.assigneeUserId\}`\s*:\s*EMPTY_APPROVAL_DISPLAY\)/,
   'reviewer label must show the resolved name and fail visibly to the user id when name data is absent.'
 )
 

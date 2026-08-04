@@ -48,18 +48,25 @@ BDD: 既有用户获得新默认列 -> Given 用户存在旧审批中心列配�
 
 ### M4 验证与收尾
 
-- 状态：completed。
+- 状态：blocked。
 - GREEN: `node tests/e2e/approval-center-applicant-column-static.spec.js` -> PASS。
 - GREEN: `node tests/e2e/approval-center-standard-list-template-static.spec.js` -> PASS，覆盖 TODO/DONE/MY_INITIATED/CC、签名待处理合并和审核人列合同。
 - GREEN: `node tests/e2e/approval-center-chinese-copy-static.spec.js` -> PASS。
 - GREEN: `node tests/e2e/approval-center-reviewer-column-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/approval-center-signature-pending-standard-list-static.spec.js` -> PASS。
 - GREEN: `pnpm ts:check` -> PASS。
 - GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-approval-center-applicant-column/frontend-feature-evidence.md` -> PASS。
 - GREEN: `git diff --check -- <task-owned records>` -> PASS。
 - GREEN: `task-closeout-cleanup --mode preview` -> PASS，keep `task.md`、`execution-log.md`、`verification-report.md`，delete `frontend-feature-evidence.md`，blocked/warnings 均为 `<none>`。
 - GREEN: `task-closeout-cleanup --mode apply` -> PASS，已删除 `frontend-feature-evidence.md`。
+- 本地收尾提交：`37cc041af docs: close approval center applicant column task`。
+- BLOCKER: `git push origin int_main` -> FAIL，`Failed to connect to github.com port 443 via 127.0.0.1`。
+- 代理复核：Git 配置仅有 `http.version=HTTP/1.1`，未发现显式 Git proxy；`127.0.0.1:7890` 未监听，`Test-NetConnection github.com -Port 443` 直连也失败。
+- 2026-08-04 续跑复核：`git ls-remote origin HEAD` -> FAIL，仍为 `Failed to connect to github.com port 443 via 127.0.0.1`；`node tests/e2e/approval-center-reviewer-column-static.spec.js` 与 `node tests/e2e/approval-center-signature-pending-standard-list-static.spec.js` -> PASS。
+- 影响：`int_main` 仍领先 `origin/int_main`；具体领先数会随共享分支并行提交变化，在远端同步成功且不再 ahead 前按项目推送门禁不得把任务标记 completed。
 
 ## Blockers
 
 - 当前无产品或接口 blocker。
 - Git closeout 风险：当前共享分支仍有其它任务未提交工作区改动；本任务收尾记录只允许选择性暂存，不能用宽泛 `git add -A`。
+- Git push blocker：本机代理不可用且 GitHub 443 直连失败；网络或代理恢复前无法完成远端同步。
