@@ -572,3 +572,37 @@ BDD: Archive metadata missing is visible -> Given a matched file is LOCAL_WRITTE
 - Impact: full real page E2E cannot currently reach the red-box-button user path because source file preparation fails before browser selection/local write; this is a NAS permission precondition, not a static contract, runtime schema, browser capability, or implementation-success failure.
 - Required next precondition: grant the configured NAS account write permission to the task-owned test directory under `\\172.30.30.4\质量体系文件`, provide an existing writable subdirectory and update the fixture/script path accordingly, or manually place and confirm the 3 expected source files before rerunning full E2E.
 - Boundary: M34 did not persist shared NAS test files because directory creation was denied; it did not write browser local files, submit workflow, create controlled files, or write ACTIVE NAS source mappings.
+
+### M35
+
+- Status: completed for the user-updated scope: do not write NAS; select 3 already-existing files under `\\172.30.30.4\质量体系文件` for full verification.
+- BDD: Existing NAS files drive full local import -> Given the NAS share already contains 3 source files and the user clicks the red-box uncontrolled-file download button When the page imports the selected matched and pending-review files Then the browser directory picker writes them into the expected local project/category and `_未分类待处理` paths, reports local-write results, keeps unresolved files in manual review, and creates no ACTIVE NAS source mapping.
+- User scope change: 用户明确要求“不要写了,从\\172.30.30.4\质量体系文件选3个已经存在的文件进行验证”； completion gate was updated from NAS test-file creation to read-only NAS source verification.
+- Runtime fix: `48081` initially ran `backend-runtime-control-20260804-dcc-upload-onlyoffice-document-url.jar`; a task-owned runtime jar `backend-runtime-control-20260804-dcc-nas-uncontrolled-import.jar` was created by injecting only the fixed `NasBrowserServiceImpl*` classes into the old embedded infra jar and writing `BOOT-INF/lib/yudao-module-infra-2026.04-SNAPSHOT.jar` with `jar uf0`.
+- RED: first runtime injection replaced the whole infra jar -> FAIL, expected reason: old runtime DCC code required `FileDirectLinkAccessGuard.class`; restored old backend and changed packaging to preserve the old embedded infra jar while replacing only NAS browser classes.
+- RED: second runtime injection used compressed nested jar -> FAIL, expected reason: Spring Boot nested jars under `BOOT-INF/lib` must remain uncompressed; `python -X utf8 -c "<zip info>"` showed `compress_type=8` versus old jar `compress_type=0`; changed outer update to `jar uf0`.
+- GREEN: runtime switch -> PASS, `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` returned `{"status":"UP"}`, `netstat` showed `48081` listener PID `14800`, and `jps -lv` showed `backend-runtime-control-20260804-dcc-nas-uncontrolled-import.jar`.
+- RED: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real` -> FAIL, expected reason: E2E assumed `.pdf` files start with `%PDF`, but the existing NAS files are valid source bytes whose first bytes are not `%PDF`.
+- GREEN: updated full E2E to hash existing NAS source bytes with PowerShell provider reads plus .NET SHA-256 and compare local output length/hash instead of file extension magic; `node --check tests\e2e\dcc-nas-uncontrolled-local-import-real.e2e.js` -> PASS.
+- GREEN: `pnpm e2e:dcc:nas-uncontrolled-local-import:static` -> PASS, including the no-NAS-write and SHA-256 byte-equality static contracts.
+- GREEN: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real:check` -> PASS, `DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_CHECK_PASS`.
+- GREEN: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real` -> PASS, `DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_E2E_PASS`; summary path `doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\artifacts\local-import-full-e2e\dcc-nas-uncontrolled-local-import-full-summary.json`.
+- GREEN: local file evidence -> PASS, `PTCABC/设计验证方案/2025年质量方针与目标.pdf` length `504442` sha256 `ed996c8069d4e4a8ca13cfce20a2389f6f973c1d34e7fbe78ce5a9cdeb9578c6`; `_未分类待处理/1. QMS documents/0 QM/2026年质量方针与目标(1).pdf` length `487322` sha256 `89de57954568a630dda388f3ad61120c511b5efd7f3c4d5f9d1e551039a191b9`.
+- GREEN: final read-only DB verification -> PASS, audit row `1` is `LOCAL_WRITTEN/FAILED/ARCHIVE_METADATA_REQUIRED` with no controlled file; audit row `2` is `LOCAL_WRITTEN/PENDING_MANUAL_REVIEW`; `NAS_UNCONTROLLED_IMPORT` task count is `1`; local-written item count is `2`; target path `dcc_controlled_file_nas_source` count for `source_type='NAS_UNCONTROLLED_IMPORT'` is `0`.
+- Project experience consolidation: merged the reusable existing-NAS-file SHA-256 verification lesson into `docs/e2e-rules.md#浏览器本地目录写入门禁`, and merged the Spring Boot nested jar `jar uf0` hot-swap lesson into `docs/local-runtime.md#2026-07-24-隔离构建-jar-加载门禁`; indexed both in `docs/experience-index.md`.
+- GREEN: cleanup evidence validators before apply -> PASS, `validate_backend_api.py`, `validate_database_schema.py`, and `validate_frontend_feature.py` all reported valid evidence.
+- GREEN: task-closeout cleanup -> PASS, preview and apply both reported `blocked: <none>` and `warnings: <none>`; post-apply preview reports `delete: <none>`.
+- Commit/push gate: not executed because current `int_main` workspace has unrelated concurrent dirty files and is `ahead 3, behind 2` versus `origin/int_main`; task-owned verification is complete, but final `completed` status remains pending safe commit/push boundary resolution.
+- Boundary: M35 did not create, overwrite or delete shared NAS files. It wrote only browser-harness local files under the task artifact directory, updated task-owned test/script/docs, restarted the local `48081` runtime with a task-owned jar, and mutated task-owned local Docker fixture/import rows required by the real E2E.
+
+### M36
+
+- Status: in progress for commit/merge closeout after user authorization.
+- User authorization: 用户要求“先提交前后端然后融合合并”。
+- GREEN: `git diff --check -- IntRuoyiBackend IntRuoyiFronted` -> PASS, no whitespace errors; only Git LF-to-CRLF warnings were reported in earlier scoped checks.
+- GREEN: `git add -- IntRuoyiBackend IntRuoyiFronted` followed by `git diff --cached --name-status` -> PASS, staged 16 frontend/backend files only.
+- GREEN: `git diff --cached --check` -> PASS.
+- GREEN: `git commit -m "chore: baseline frontend and backend changes before merge"` -> PASS, commit `a564e19cc`.
+- Baseline commit scope: DCC upload/OnlyOffice backend/frontend changes, DCC NAS uncontrolled import frontend/backend/runtime test changes, MES team leader workbench frontend change, and related frontend E2E tests.
+- Merge preflight: `git fetch origin int_main` and `git -c http.proxy= -c https.proxy= fetch origin int_main` both failed with `Failed to connect to github.com port 443 via 127.0.0.1`; `git config --show-origin --get-regexp ...proxy...` showed no Git proxy config, `Test-NetConnection github.com -Port 443` succeeded, and `Test-NetConnection 127.0.0.1 -Port 7890` failed. This indicates a system-level Git proxy interception remains before final push/fetch can complete.
+- Next: commit task closeout/docs evidence, merge currently available local `origin/int_main` tracking commits, then reattempt push or keep push blocker explicit if the system proxy remains unavailable.

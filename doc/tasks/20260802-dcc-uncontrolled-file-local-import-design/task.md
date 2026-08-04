@@ -45,6 +45,7 @@
 - [x] M32：按严格 TDD 修正待处理文件本地下载范围，允许 `UNCLASSIFIED_PENDING/AMBIGUOUS` 选择下载到 `_未分类待处理`，并验证仅进入 `PENDING_MANUAL_REVIEW`、不创建受控文件或 ACTIVE NAS 来源映射。
 - [x] M33：复跑授权前可执行验收 gate，确认静态合同、真实前置 gate 和验收计划仍通过，full 真实页面 E2E 当时仍阻塞于未创建/未确认的共享 NAS 源文件字节。
 - [x] M34：按用户授权尝试在共享 NAS 创建/确认 3 个任务源文件并运行 full E2E，确认当前配置 NAS 账号对目标测试目录不可写，full E2E 阻塞于 NAS `UnauthorizedAccessException`。
+- [x] M35：按用户最新要求停止 NAS 写入，改用 `\\172.30.30.4\质量体系文件` 下 3 个已存在文件完成 full E2E，验证红框按钮路径、浏览器本地目录写入、`_未分类待处理` 分组和无 ACTIVE NAS 来源映射副作用。
 
 ## Expected Verification
 
@@ -70,7 +71,7 @@
 - `node tests/e2e/dcc-nas-uncontrolled-local-import-static.spec.js`
 - `pnpm e2e:dcc:nas-uncontrolled-local-import:static`
 - `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real:check`
-- `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; $env:DCC_NAS_UNCONTROLLED_IMPORT_ALLOW_NAS_WRITE='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real`（full 模式必须使用真实 NAS 源文件和真实浏览器本地目录写入；当前若阻塞，原因必须指向 NAS 测试目录写权限或源文件真实缺失）
+- `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real`（full 模式只读取 `\\172.30.30.4\质量体系文件` 下已存在 NAS 文件，禁止创建或覆盖 NAS 文件；本地写入必须通过真实页面目录授权 harness）
 - `pnpm e2e:dcc:nas-uncontrolled-local-import:real:check`（未提供任务自有样本 ID 时仍预期 fail fast，不得声明真实 E2E PASS）
 - `node tests/e2e/nas-control-audit-static.spec.js`
 - `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\frontend-feature-evidence.md`
@@ -87,9 +88,11 @@
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
-设计文档、BDD/TDD/E2E 验收文档、潜在问题优化、M7 schema 明细切片、M11 files page API 切片、M13 确定性预识别后端切片、M14 import-selected/local-write 文档门禁优化、M15 import-selected 任务快照 schema 切片、M16 import-selected 后续实现门禁加固、M17 import-selected 服务契约/legacy processor 隔离、M18 服务级原子创建、M19 服务级幂等并发保护、M20 controller 契约、M21 content binary download、M22 local-write-result、M23 归档元数据缺失显式阻塞、M24 正式归档成功路径、M25 前端静态契约/最小 UI/API 集成、M26 正式归档元数据阻塞门禁、M27 文档一致性审计、M28 真实 E2E 前置审计、M29 可执行真实 E2E 前置门禁、M30 本地测试库迁移/样本前置验证、M31 独立完成度审计补强、M32 待处理文件本地下载范围修正、M33 当前 gate 复核和 M34 授权后 full E2E 尝试均已完成。M34 复跑证明 `pnpm e2e:dcc:nas-uncontrolled-local-import:static` 和 `DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID=1` 的 `real:check` 仍通过；但在用户明确授权共享 NAS 测试文件后，`DCC_NAS_UNCONTROLLED_IMPORT_ALLOW_NAS_WRITE=1` 的 full E2E 仍失败于 `prepareSharedNasSourceFiles failed: New-Item : Access to the path 'codex-dcc-uncontrolled-local-import' is denied`。当前完整真实页面 E2E 必须继续阻塞：运行库 schema、浏览器目录能力、audit 样本和待处理本地路径前置已满足，但配置的 NAS 账号无法在 `\\172.30.30.4\质量体系文件\codex-dcc-uncontrolled-local-import` 创建任务源文件，因此尚未证明真实 NAS 源字节、浏览器本地写入和页面归类全链路。影响：不能把前置 gate PASS、静态合同、API-only 或数据库 fixture 写成“已完成真实下载到本地目录并归类”的页面 E2E PASS。最终 `completed` 状态暂不标记：需要给配置 NAS 账号授予任务测试目录写权限、提供一个已确认可写的共享 NAS 子目录，或由用户手动放置并确认 3 个任务源文件存在后，才能继续 full E2E；当前工作区还存在任务开始前及其它并发任务脏文件，且分支当前相对 `origin/int_main` 为 behind 2，不能把本任务与其它并发任务资产混在一个收尾提交里。
+M35 已按用户最新范围完成：不再创建或覆盖共享 NAS 文件，改用 `\\172.30.30.4\质量体系文件` 下 3 个已存在文件完成真实页面 full E2E。验证通过 `pnpm e2e:dcc:nas-uncontrolled-local-import:static`、`$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real:check` 和 `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real`；full E2E 生成本地文件 `PTCABC/设计验证方案/2025年质量方针与目标.pdf` 与 `_未分类待处理/1. QMS documents/0 QM/2026年质量方针与目标(1).pdf`，并通过 SHA-256 证明本地字节等于 NAS 源字节。只读 DB 核验证明 audit row 1 为 `LOCAL_WRITTEN/FAILED/ARCHIVE_METADATA_REQUIRED`，audit row 2 为 `LOCAL_WRITTEN/PENDING_MANUAL_REVIEW`，`NAS_UNCONTROLLED_IMPORT` 任务数为 1、local-written items 为 2，目标路径 ACTIVE NAS 来源映射数为 0。
+
+cleanup preview/apply 已完成，复跑 preview 显示 delete/blocked/warnings 均为 `<none>`，核心任务记录、summary 和重启脚本按 `Cleanup Keep` 保留。用户已要求“先提交前后端然后融合合并”，前后端基线提交 `a564e19cc` 已完成；最终 `completed` 仍需等待本任务文档证据提交、`origin/int_main` 融合合并、push 成功并确认分支不再 ahead。当前 fetch/push 还受到本机 GitHub 代理连接 `127.0.0.1` 失败影响，需在后续收尾中继续处理。
 
 ## 设计约束检查
 
@@ -124,3 +127,5 @@ blocked
 - doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/database-schema-evidence.md
 - doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/backend-api-evidence.md
 - doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/frontend-feature-evidence.md
+- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/artifacts/local-import-full-e2e/dcc-nas-uncontrolled-local-import-full-summary.json
+- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/artifacts/restart-backend-with-infra-fix.ps1

@@ -71,7 +71,7 @@
 - Blocker: `pnpm install --frozen-lockfile` 失败、修改 lockfile、依赖目录仍缺目标脚本工具、或目标路径不是当前任务 worktree 时必须停止，不得换端口、复用旧前端进程或把后端/API 验证冒充真实页面 E2E。
 - Verification: 记录 `pnpm install --frozen-lockfile` 退出码、目标 `node_modules\.bin\<tool>.cmd` 存在性、目标前端脚本或前端入口 HTTP 200、Vite 进程命令行指向目标 worktree，以及任务结束后登记端口是否释放。
 - Forbidden action: 禁止复制 `node_modules`、使用主工作区 Vite 进程冒充 worktree 前端、改共享 `.env` 抢端口、或在依赖缺失时切换到 API-only。
-- Evidence: `doc/tasks/20260726-edhr-release-dossier-requirement-switches/execution-log.md`，slot 5 worktree 首次启动前端失败于 `Command "vite" not found`，补跑 `pnpm install --frozen-lockfile` 后 8086 前端真实启动并通过 E2E。
+- Evidence: `doc/tasks/20260726-edhr-release-dossier-requirement-switches/execution-log.md`，slot 5 worktree 首次启动前端失败于 `Command "vite" not found`，补跑 `pnpm install --frozen-lockfile` 后 8086 前端真实启动并通过 E2E；`doc/tasks/20260804-qa-regulation-tab/execution-log.md`，`2020804_qa` worktree 首次 `pnpm ts:check` 失败于 `cross-env` 缺失，确认 worktree 与主工作区锁文件哈希不同后，没有复用主工作区 `node_modules`，改在目标 worktree 执行 `pnpm install --frozen-lockfile` 后类型检查通过。
 
 ## Worktree Java 21 后端低内存启动门禁
 

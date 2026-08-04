@@ -71,9 +71,9 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 ## 2026-07-24 隔离构建 Jar 加载门禁
 
 - Trigger: 主工作区存在并行脏改动，但需要把本任务后端修复加载到 `int_main` 的 `48081` 做真实 E2E；或页面仍提示 `请求地址不存在:<接口>`、返回修复前旧业务错误，怀疑运行中 Jar 未加载新 Controller、Service 或 VO。
-- Preflight check: 先确认 `48081` 监听 PID 的命令行属于预期源码或运行时 worktree、端口为 `48081`、`repo-root` 指向本项目；同时确认新 Jar 来自本次任务已验证的构建产物。对 fat jar 内嵌模块，必须只读检查 `BOOT-INF/lib/<module>.jar` 是否包含本次新增或修改的关键 class，例如新增 Resolver、Controller、VO 字段载体；若本地 `target/classes` 有新 class 但运行 Jar 内嵌模块没有，视为运行态未刷新。若 `48081` 实际运行的是 `D:\IntRuoyiWorktree\...` 下的 runtime jar，必须在该 runtime worktree 内补齐源码、测试、schema 夹具并重建该 Jar，不能只检查 `E:\IntRuoyi` 主工作区源码。
-- Blocker: 如果 PID 归属不明、Jar 来源不明、目标 Jar 哈希与隔离构建 Jar 不一致、运行 Jar 内嵌模块缺少本次关键 class，或主工作区源码混有其他任务改动，必须停止，不得从脏主工作区重新打包冒充本任务运行态。
-- Verification: 记录旧 PID、停止依据、新 PID、Jar SHA256、启动命令、`http://127.0.0.1:48081/actuator/health`、登录态目标接口业务响应、必要 schema 字段核对、内嵌模块关键 class 检查结果，并在 E2E 后记录真实数据库状态。
+- Preflight check: 先确认 `48081` 监听 PID 的命令行属于预期源码或运行时 worktree、端口为 `48081`、`repo-root` 指向本项目；同时确认新 Jar 来自本次任务已验证的构建产物。对 fat jar 内嵌模块，必须只读检查 `BOOT-INF/lib/<module>.jar` 是否包含本次新增或修改的关键 class，例如新增 Resolver、Controller、VO 字段载体；若本地 `target/classes` 有新 class 但运行 Jar 内嵌模块没有，视为运行态未刷新。若只热替换某个内嵌模块，必须以当前运行 Jar 内的旧模块为底保留其它并行任务依赖类，仅替换本任务 class；写回 `BOOT-INF/lib/*.jar` 时必须保持 Spring Boot nested jar 未压缩（例如 `jar uf0`，zip `compress_type=0`），否则运行时可能出现 classpath resource missing。若 `48081` 实际运行的是 `D:\IntRuoyiWorktree\...` 下的 runtime jar，必须在该 runtime worktree 内补齐源码、测试、schema 夹具并重建该 Jar，不能只检查 `E:\IntRuoyi` 主工作区源码。
+- Blocker: 如果 PID 归属不明、Jar 来源不明、目标 Jar 哈希与隔离构建 Jar 不一致、运行 Jar 内嵌模块缺少本次关键 class、热替换内嵌 jar 被压缩写入、或主工作区源码混有其他任务改动，必须停止，不得从脏主工作区重新打包冒充本任务运行态。
+- Verification: 记录旧 PID、停止依据、新 PID、Jar SHA256、启动命令、`http://127.0.0.1:48081/actuator/health`、登录态目标接口业务响应、必要 schema 字段核对、内嵌模块关键 class 检查结果、嵌套 jar 压缩方式（`compress_type=0`），并在 E2E 后记录真实数据库状态。
 - Route check: 目标接口需要登录时，未登录请求返回 `401` 只能证明安全过滤器生效，不能证明 MVC 路由已加载；必须使用本机登录态请求目标接口，业务码为 `0` 或预期业务错误，才可宣称新 Controller 已进入运行态。
 - Forbidden action: 禁止强杀未知进程、随机换端口、用主工作区脏源码重新构建、只看 health 或未登录 `401` 就宣称修复已加载。
 - Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/verification-report.md`；`doc/tasks/20260803-controlled-file-category-missing/verification-report.md`。
@@ -122,6 +122,15 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - Verification: 记录 `docker exec onlyoffice curl http://host.docker.internal:48081/actuator/health` HTTP `200`、旧容器内 `127.0.0.1:48081` 不可达、Jar 内 `application-local.yaml` 目标行、后端 health `UP`，并用静态契约覆盖该默认值。
 - Forbidden action: 禁止把浏览器用的 OnlyOffice `base-url` 改成 `host.docker.internal`；禁止用 API-only 成功或未登录 `401` 冒充 OnlyOffice 容器已能下载文件；禁止修改测试服/生产配置来修复本地 Docker 网络问题。
 - Evidence: `doc/tasks/20260727-local-onlyoffice-download-failed/verification-report.md`。
+
+## 2026-08-04 DCC 上传预览 OnlyOffice 文档地址门禁
+
+- Trigger: DCC 文件上传页、`OnlyOffice 预览地址未准备好`、`upload-preview` 响应、`onlyofficeBaseUrl`、`onlyofficeDocumentUrl`、上传 `.docx/.xlsx` 后提交前预览为空。
+- Preflight check: 上传预览响应契约必须同时包含浏览器加载 OnlyOffice 的 `onlyofficeBaseUrl` 和带签名 token 的临时文件 `onlyofficeDocumentUrl`；`onlyofficeDocumentUrl` 应指向 `/admin-api/dcc/controlled-files/upload-preview/{fileId}/onlyoffice-file?token=...`，且文件类别从文件分类叶子节点自动绑定，不要求用户手填或选择。
+- Blocker: 响应只有 `onlyofficeBaseUrl`、缺 `onlyofficeDocumentUrl`、前端 parser 将 `onlyofficeDocumentUrl` 当成 forbidden raw file capability 拒绝、页面继续显示 `OnlyOffice 预览地址未准备好`、或响应暴露原始 `fileId` 时必须停止验收。
+- Verification: 前端静态合同必须覆盖 response parser、上传页 props 和 viewer props；后端 JUnit 必须覆盖签名文档地址和不暴露 `fileId`；真实 Playwright 必须通过上传页选择正式文件分类叶子节点、上传 `.xlsx/.docx`、断言 `previewKind=OFFICE`、`onlyofficeDocumentUrl` 有 token、页面无 `OnlyOffice 预览地址未准备好`，并清理临时上传 session。
+- Forbidden action: 禁止让用户手工填写文件类别或预览地址；禁止用 API-only 上传、旧历史截图、未登录 `401`、只看 health、隐藏预览区错误或复用未清理临时文件冒充通过。
+- Evidence: `doc/tasks/20260803-dcc-upload-onlyoffice-document-url/verification-report.md`。
 
 ## 2026-08-02 本机 Docker 开机自启门禁
 

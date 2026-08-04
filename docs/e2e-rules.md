@@ -39,8 +39,9 @@
 - Preflight check: 必须验证浏览器是否支持受控目录写入能力；不支持、用户取消授权或目录句柄异常时，页面必须 fail fast，并且不得创建后端 import/write task、不得调用 content 下载接口、不得回写本地写入成功。
 - Preflight check: 对需要先本地写入再触发后端归档/业务写入的流程，Playwright 必须断言请求顺序：目录授权和相对路径校验成功前不得调用后端写入任务；`LOCAL_WRITTEN` 或等价本地成功回写前不得调用正式业务归档接口。
 - Preflight check: 若流程依赖共享 NAS 或外部源文件字节，`real:check`、运行库 schema、DB fixture、浏览器能力和静态合同只能证明前置条件；full 真实页面 E2E 还必须先确认任务自有源文件已被授权并真实存在，否则必须 fail fast 并把 blocker 指向缺少授权源文件。
+- Preflight check: 当用户要求复用共享 NAS 中已存在文件时，只能只读校验文件存在、长度和源字节 SHA-256；不得按扩展名推断魔数，例如 `.pdf` 文件不一定以 `%PDF` 开头。若通过 PowerShell 临时 PSDrive 访问 NAS，哈希读取应使用 provider 可读的字节读取方式，再与本地写入文件的长度和 SHA-256 做等值断言。
 - Preflight check: 如果 BDD 允许未分类或待处理文件下载到本地待处理目录，静态合同、fixture 和真实 gate 必须覆盖该状态的可选择性、待处理相对路径和无归档副作用；不得只覆盖唯一匹配文件后宣称“下载并归类”范围完整。
-- Verification: 证据必须包含 `showDirectoryPicker/getFileHandle/createWritable/write/close` 成功和失败路径、目标写请求计数、取消目录选择路径、非法/冲突相对路径错误码，以及后端只读核验未保存本地绝对路径。
+- Verification: 证据必须包含 `showDirectoryPicker/getFileHandle/createWritable/write/close` 成功和失败路径、目标写请求计数、取消目录选择路径、非法/冲突相对路径错误码、源文件与本地文件长度/SHA-256 等值证明，以及后端只读核验未保存本地绝对路径。
 - Forbidden action: 禁止把 ZIP、浏览器默认下载目录、服务器暂存目录、API-only 下载、自动改名、覆盖已有文件或静默跳过本地写入当作“已下载到本地对应目录”；禁止只用最终业务对象存在证明本地写入时序正确。
 - Evidence: `doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md`。
 
