@@ -22,7 +22,7 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
 ## 设计约束检查
 
@@ -50,5 +50,6 @@ ready_for_closeout
 - PASS: `pnpm ts:check`
 - PASS: frontend feature evidence validator before cleanup.
 - PASS: stale `int_main` slot 4 was released after user approval because its physical path was missing and absent from `git worktree list`; current worktree is registered as slot 4 (`8085/48085`).
-- PENDING: task-closeout cleanup preview/apply.
+- PASS: task-closeout cleanup preview/apply with `--worktree-closeout off` deleted only temporary `frontend-feature-evidence.md` and kept core records.
+- BLOCKED: automatic linked-worktree closeout preview cannot proceed because current branch cannot be fast-forward merged into `int_main`, and main worktree `E:\IntRuoyi` is dirty.
 - NOTE: shared `E:\IntRuoyi` currently contains unrelated/concurrent route-tab changes and remains unsafe for broad staging; this branch is the verified isolated implementation.
