@@ -1,4 +1,4 @@
-# Verification Report
+﻿# Verification Report
 
 ## Scope
 
@@ -29,3 +29,4 @@
 - 经验沉淀：PASS，新增 `docs/backend-development.md#MES 工艺路线产品绑定状态门禁` 并更新 `docs/experience-index.md`。
 - 收尾提交：`3f15f0539 docs: close out mes item route selection`。
 - 推送：`git -c http.https://github.com.proxy= push origin int_main` PASS，远端更新 `1fd52f05d..3f15f0539`。
+- Blocked: 最终完成状态提交 `6107745f0` 本地已生成，但后续推送因 GitHub 443 连接失败未完成；当前分支仍领先远端 1 个提交。

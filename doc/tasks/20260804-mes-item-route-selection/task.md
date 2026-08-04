@@ -1,4 +1,4 @@
-# MES 物料产品选择工艺路线
+﻿# MES 物料产品选择工艺路线
 
 ## Task Goal
 
@@ -12,7 +12,7 @@
 - [x] 实现后端产品侧查询/保存接口，复用 `MesProRouteProductService`
 - [x] 实现前端 MES 物料产品表单中的工艺路线选择、回显、已启用路线锁定与解除
 - [x] 运行定向 GREEN/REGRESSION 验证并归档证据
-- [x] 完成经验沉淀、cleanup、提交和推送
+- [ ] 完成经验沉淀、cleanup、提交和推送
 
 ## Expected Verification
 
@@ -24,9 +24,9 @@
 
 ## Current Status
 
-completed
+blocked
 
-产品侧工艺路线绑定的后端接口、前端入口、静态契约、目标 JUnit、前端类型检查、经验沉淀、cleanup、提交和推送均已完成。
+产品侧工艺路线绑定的后端接口、前端入口、静态契约、目标 JUnit、前端类型检查、经验沉淀、cleanup 和提交已完成；最终完成状态提交 `6107745f0` 因 GitHub 443 网络不可达暂未推送。
 
 ## Applicable Gates
 
