@@ -187,6 +187,15 @@
 - Forbidden action: 禁止只改前端“当前组件”显示文案、禁止直接手工改 Jimu JSON、禁止按模板/产品/文件名硬编码日期格、禁止只把签名日期格退化成 `input-text` 或普通日期展示而丢失电子签名组件语义。
 - Evidence: `doc/tasks/20260727-jimu-signature-date-cell-type/verification-report.md`。
 
+## 统一审批中心 BPM 已办历史状态门禁
+
+- Trigger: 审批中心“已办”、`/approval-center/tasks/page?viewType=DONE`、`BpmNativeApprovalTaskProvider`、`BPM_TASK_DONE`、历史 `HistoricTaskInstance` 缺少 `TASK_STATUS`、页面显示“系统异常”。
+- Preflight check: 先对照标准 BPM `done-page` 行为确认历史任务状态字段是否可为空；统一审批中心 DONE 映射必须保留正式历史任务行，`approvalResult` 可为空表示历史记录未保存审批结果，不得把缺失状态当作整页异常。
+- Blocker: DONE 映射因 `TASK_STATUS=null` 抛 `APPROVAL_RESULT_UNSUPPORTED`、删除历史任务行、返回默认“通过/驳回”、或对非空未知状态吞异常时必须停止。
+- Verification: 新增后端回归覆盖缺少 `TASK_STATUS` 的 `HistoricTaskInstance` 仍返回 `BPM_TASK_DONE` 摘要且 `approvalResult/approvalRemark` 为空；同时复跑 `BpmNativeApprovalTaskProviderTest` 和 `ApprovalCenterServiceImplTest`。
+- Forbidden action: 禁止用前端隐藏错误、空列表成功、过滤掉 legacy 已办任务、默认审批结果、或放宽所有未知状态来掩盖历史状态缺失。
+- Evidence: `doc/tasks/20260804-approval-center-done-system-exception/verification-report.md`。
+
 ## 业务审批策略按配置执行门禁
 
 ### 表单模板升版/作废审批模式以 published 策略为准

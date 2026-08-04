@@ -48,6 +48,9 @@
 - Re-ran `E:\IntRuoyi` local startup with `IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1 -Component full`; Maven package succeeded, frontend `8081` returned HTTP 200, but backend `48081` failed before health.
 - Read latest backend startup logs from `output\runtime\int_main\backend-runtime-control-20260804-153949.out.log`; startup failed in non-QA MES route flow config code: `@Resource annotation requires a single-arg method` on `MesProRouteFlowConfigServiceImpl.getRouteFlowProcessConfigList(Long,String)`.
 - Did not run browser login/path assertions after the backend health gate failed; no mock login, API-only substitute, random port, or frontend-only success was used.
+- Rechecked local runtime on request to perform E2E again; `http://127.0.0.1:48081/actuator/health` returned `UP` and `http://127.0.0.1:8081/` returned HTTP 200.
+- Added task-owned real E2E script `IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` to verify the `原文依据` column through a real login and page path.
+- Ran the script against local `8081/48081`; it logged in with the local default `芋道源码/admin` identity, opened `/mes/pro/process-pool/team-leader`, selected `QA 规程`, verified item-level source excerpts, asserted no DCC terms in the QA panel, and asserted no backend write requests.
 
 ## Verification Evidence
 
@@ -82,7 +85,10 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-qa-regulation-tab/frontend-feature-evidence.md` -> PASS after adding original-source excerpts.
 - REVIEW: `git diff --check -- IntRuoyiFronted\src\views\mes\pro\processpool\TeamLeaderWorkbenchPage.vue IntRuoyiFronted\tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs doc\tasks\20260804-qa-regulation-tab` -> PASS.
 - REVIEW: UTF-8 read check for task Markdown files -> PASS.
-- BLOCKED: local browser E2E refresh for original-source excerpts -> frontend `8081` HTTP 200, but backend `48081` health did not become ready because Spring startup failed in non-QA `mesProRouteFlowConfigController` / `MesProRouteFlowConfigServiceImpl`.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `node --check tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS; result `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- EVIDENCE: `output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.json`.
+- EVIDENCE: `output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.png`.
 
 ## Document Review
 
@@ -99,4 +105,3 @@
 - Worktree runtime/browser E2E was not started in `D:\IntRuoyiWorktree\2020804_qa` because `reserve-worktree-slot.ps1` reported no available `int_main` slot in range `1..19`; no random port or fallback runtime was used. Local `E:\IntRuoyi` browser E2E on fixed `int_main` ports `8081/48081` passed.
 - Commit/push closeout was not performed because the mandatory branch runtime port guard failed without a worktree registry entry. The registry entry could not be created because all `int_main` slots `1..19` are occupied.
 - `E:\IntRuoyi` remains dirty with unrelated DCC/NAS changes and branch divergence `int_main...origin/int_main [ahead 3, behind 2]`; QA changes are present in the int_main working tree, but a formal commit/push still requires resolving that broader repository state.
-- Current local source-excerpt browser E2E is blocked by backend startup failure outside the QA frontend slice: `@Resource annotation requires a single-arg method` on `MesProRouteFlowConfigServiceImpl.getRouteFlowProcessConfigList(Long,String)`.

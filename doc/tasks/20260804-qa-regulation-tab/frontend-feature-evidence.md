@@ -41,7 +41,7 @@
 | 压力泵 PDF 初始化 | Source metadata is absent. | Show title, code, version, effective date, and QA type from reliable PDF filename/cover metadata. | New static contract checks source metadata. |
 | QA/PQC 边界 | QA block could drift into DCC classification or controlled-file language. | Add explicit QA/PQC ownership copy and negative DCC coupling assertions. | Static contract forbids DCC/file-classification terms inside QA block. |
 | 发布完整性检查 | Page could imply successful persistence despite missing formal API. | Show API-not-wired warning, local draft messaging, and publish precheck blockers. | Evidence validator and static contract pass. |
-| 检验项目原文依据 | Item rows only show parsed standards without the corresponding PDF original wording. | Add item-level source page, source item, acceptance-standard excerpt, and method excerpt UI. | Static contract verifies excerpts are present and scoped to the item; browser E2E is blocked by a non-QA backend startup failure. |
+| 检验项目原文依据 | Item rows only show parsed standards without the corresponding PDF original wording. | Add item-level source page, source item, acceptance-standard excerpt, and method excerpt UI. | Static contract and real browser E2E verify excerpts are present, scoped to the item, and read-only. |
 
 ## RED Command and Expected Failure
 
@@ -59,6 +59,8 @@
 - GREEN: `E:\IntRuoyi\IntRuoyiFronted` `pnpm run e2e:role-matrix-qa-regulation:static` -> PASS after adding item-level original-source excerpts.
 - GREEN: `E:\IntRuoyi\IntRuoyiFronted` `pnpm run e2e:role-matrix-pqc-dynamic-form:static` -> PASS after adding item-level original-source excerpts.
 - GREEN: `E:\IntRuoyi\IntRuoyiFronted` `pnpm run ts:check` -> PASS after adding item-level original-source excerpts.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `node --check tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS, `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 
 ## Test Data
 
@@ -81,10 +83,9 @@
 - Static contract verifies the tab structure, pressure-pump source, rule sections, item model fields, publish checks, PQC task preview, and no DCC coupling.
 - Static contract verifies the `原文依据` column, source page/item/excerpt/method fields, and representative source excerpts from scanned PDF pages 3, 6, 7, and 8.
 - Real browser E2E was not run in `D:\IntRuoyiWorktree\2020804_qa` because runtime slot reservation failed for profile `int_main`: no available slot in range `1..19`.
-- Refreshed local `E:\IntRuoyi` browser E2E for the new source-excerpt column is blocked because backend `48081` fails during Spring startup before login; latest log points to non-QA `MesProRouteFlowConfigServiceImpl.getRouteFlowProcessConfigList(Long,String)` being annotated as a resource method with two arguments.
+- Refreshed local `E:\IntRuoyi` browser E2E for the new source-excerpt column passed on `8081/48081`; it verified PDF page/source item/excerpt/method content, no DCC coupling terms, no backend write requests, and no browser errors.
 
 ## Blockers and Follow-Up Skills
 
 - Formal persistence/publish API is not wired in this UI slice; the tab states this explicitly and does not fake backend success.
 - Worktree browser/runtime verification is blocked until an `int_main` worktree slot is released or formally assigned.
-- Current local browser E2E refresh is blocked until the unrelated backend startup failure in MES route flow config is fixed; no mock login, API-only assertion, random port, or frontend-only substitute was used.

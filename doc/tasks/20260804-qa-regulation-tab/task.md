@@ -23,6 +23,7 @@
 - EVIDENCE: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-qa-regulation-tab/frontend-feature-evidence.md` must pass.
 - RED/GREEN: `node IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` must require each QA inspection item to expose relevant original-source fields and short excerpts.
 - REGRESSION: local browser E2E should still open `QA 规程`, show source excerpts, and send no backend write request while formal save/publish API is absent.
+- GREEN: `node IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` must pass against local `8081/48081` and verify visible item-level source excerpts with no backend write requests.
 
 ## BDD/TDD Acceptance Matrix
 
@@ -32,7 +33,7 @@
 | BDD-QA-002 | Given the pressure-pump PDF is the source reference, When the QA tab loads, Then it shows `PQC-IDI-001`, `B/0`, `2026-01-04`, and `按压式球囊扩充压力泵组装过程检验规程`. | Static contract fails because pressure-pump metadata is absent from the workbench. | New static contract passes with source metadata assertions. |
 | BDD-QA-003 | Given PQC only executes QA rules, When QA defines rules, Then the QA tab contains no DCC file classification, controlled-file upload, or document-control workflow semantics. | Static contract fails if QA block contains DCC/file-classification/controlled-file terms. | New static contract passes with negative DCC-coupling assertions. |
 | BDD-QA-004 | Given formal save/publish API is not wired, When QA previews or runs publish checks, Then the page exposes missing publishing prerequisites and does not fake backend success. | Static contract fails because the workbench does not show API-not-wired and no-backend-write messaging. | New static contract passes and frontend evidence validator passes. |
-| BDD-QA-005 | Given QA reviews a parsed inspection item, When QA checks its判定标准, Then the item shows only the relevant original PDF excerpt, source page, source item, and method excerpt so QA can compare parsed text with the source. | Static contract fails because item rows only have parsed standard/source notes and no original excerpt fields or UI. | Static contract verifies original-source excerpts are visible in the item model/UI; local browser E2E is currently blocked by a non-QA backend startup failure. |
+| BDD-QA-005 | Given QA reviews a parsed inspection item, When QA checks its判定标准, Then the item shows only the relevant original PDF excerpt, source page, source item, and method excerpt so QA can compare parsed text with the source. | Static contract fails because item rows only have parsed standard/source notes and no original excerpt fields or UI. | Static contract and real browser E2E verify original-source excerpts are visible in the item model/UI with no backend writes. |
 
 ## Test Data
 
@@ -51,9 +52,9 @@
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
-Item-level original-source excerpts are implemented and covered by static QA/PQC contracts plus `ts:check`. The required local browser E2E refresh for the new excerpt column is blocked because `E:\IntRuoyi` backend startup on `48081` fails before health with `@Resource annotation requires a single-arg method` on non-QA `MesProRouteFlowConfigServiceImpl.getRouteFlowProcessConfigList(Long,String)`. No mock login, API-only substitute, random port, or frontend-only success was used. Previous worktree runtime/browser E2E also remains blocked because `scripts\runtime\reserve-worktree-slot.ps1` reported no available `int_main` slot in `1..19`; commit/push closeout remains blocked by the missing worktree registry entry and broader dirty/ahead repository state.
+Item-level original-source excerpts are implemented and verified by static QA/PQC contracts, `ts:check`, frontend evidence validation, and a real local Chromium E2E on `http://127.0.0.1:8081/mes/pro/process-pool/team-leader`. The E2E logged in with the local default `芋道源码/admin` identity, opened `QA 规程`, verified source excerpts from PDF pages 3/6/7/8, confirmed `writeRequests=[]`, `consoleErrors=[]`, and `pageErrors=[]`, and captured evidence under `output/playwright/20260804-qa-regulation-tab/`. Cleanup/commit/push closeout remains pending because the broader `int_main` working tree contains unrelated dirty/ahead changes.
 
 ## Design Constraints
 
@@ -99,7 +100,10 @@ Item-level original-source excerpts are implemented and covered by static QA/PQC
 - GREEN: `E:\IntRuoyi\IntRuoyiFronted` `pnpm run e2e:role-matrix-qa-regulation:static` -> PASS after adding original-source excerpt UI and fields.
 - GREEN: `E:\IntRuoyi\IntRuoyiFronted` `pnpm run e2e:role-matrix-pqc-dynamic-form:static` -> PASS after adding original-source excerpt UI and fields.
 - GREEN: `E:\IntRuoyi\IntRuoyiFronted` `pnpm run ts:check` -> PASS after adding original-source excerpt UI and fields.
-- BLOCKED: local browser E2E refresh for source excerpts -> backend `48081` failed to start; latest log shows `BeanCreationException` for non-QA `mesProRouteFlowConfigController`, caused by `@Resource annotation requires a single-arg method` on `MesProRouteFlowConfigServiceImpl.getRouteFlowProcessConfigList(Long,String)`.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `node --check tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS; verified `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- Evidence JSON: `output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.json`.
+- Evidence screenshot: `output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.png`.
 
 ## Cleanup Keep
 

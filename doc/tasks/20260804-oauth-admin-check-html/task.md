@@ -11,6 +11,7 @@
 - [x] 验证 HTML 文件存在、UTF-8 可读且包含生产版接口入口。
 - [x] 补齐零依赖 Node 授权辅助服务 `output/oauth-admin-check-helper-server.mjs`。
 - [x] 让 HTML 在 `file://` 直接打开时提示正确启动方式。
+- [ ] 使用真实浏览器完成本机 OAuth 授权码 E2E。
 
 ## Expected Verification
 
@@ -41,3 +42,10 @@ completed
 - 辅助服务文件 `output\oauth-admin-check-helper-server.mjs` 已生成，启动时 fail fast 检查必需环境变量。
 - `node --check output\oauth-admin-check-helper-server.mjs` 通过。
 - `git diff --check -- output\oauth-admin-check-production.html doc\tasks\20260804-oauth-admin-check-html\task.md doc\tasks\20260804-oauth-admin-check-html\execution-log.md` 通过。
+- 使用 Playwright 真实浏览器访问 `http://127.0.0.1:18080`，点击“授权登录”，经本机 `http://127.0.0.1:8081/sso` 和默认本机身份完成授权后返回页面，并断言“管理员权限：有”。
+
+## E2E Verification Scope
+
+- 使用本机前端 `http://127.0.0.1:8081` 与本机后端 `http://127.0.0.1:48081/admin-api`。
+- 使用 `IntRuoyiFronted/.env` 中的默认本机身份，仅记录身份标签，不记录密码或 token。
+- OAuth client secret 仅由 E2E 脚本内存读取并传入 helper 子进程，不写入 HTML、结果 JSON 或任务日志。

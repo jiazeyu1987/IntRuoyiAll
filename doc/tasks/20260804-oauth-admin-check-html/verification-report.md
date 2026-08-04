@@ -19,3 +19,8 @@
 
 - This HTML must be served by the production OAuth helper service that implements `/auth/login`, `/api/me`, and `/auth/logout`.
 - The HTML does not contain the OAuth client secret and does not directly exchange OAuth authorization codes in the browser.
+
+## Real Browser E2E
+
+- PENDING: Playwright real browser verification will use local frontend `http://127.0.0.1:8081`, local backend `http://127.0.0.1:48081/admin-api`, and task-owned helper `http://127.0.0.1:18080`.
+- PENDING: Result JSON and screenshots will be written to `output/playwright/20260804-oauth-admin-check-html/`.

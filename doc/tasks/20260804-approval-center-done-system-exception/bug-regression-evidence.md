@@ -15,19 +15,28 @@
 
 ## Root Cause
 
-- pending.
+- `BpmNativeApprovalTaskProvider.toDoneSummary(...)` 将 legacy historic task 的空 `TASK_STATUS` 直接传入 `ApprovalTaskResultSupport.fromBpmTaskStatus(...)`。标准 BPM `done-page` 会把历史任务状态作为可空字段返回，但统一审批中心将其升级为异常，导致 DONE 视图主查询失败并在页面显示“系统异常”。
 
 ## Regression Test
 
-- pending.
+- `BpmNativeApprovalTaskProviderTest#pageDoneKeepsLegacyHistoricTaskWhenTaskStatusIsMissing` 构造缺少 `TASK_STATUS` 的 `HistoricTaskInstance`，断言统一摘要仍保留 `BPM_TASK_DONE` 行，且 `approvalResult/approvalRemark` 为空。
 
 ## RED
 
-- pending.
+RED: `mvn -pl yudao-module-bpm -am "-Dtest=BpmNativeApprovalTaskProviderTest#pageDoneKeepsLegacyHistoricTaskWhenTaskStatusIsMissing" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, `APPROVAL_RESULT_UNSUPPORTED: BPM done task-done-legacy status=null`。
 
 ## GREEN
 
-- pending.
+GREEN: `mvn -pl yudao-module-bpm -am "-Dtest=BpmNativeApprovalTaskProviderTest#pageDoneKeepsLegacyHistoricTaskWhenTaskStatusIsMissing" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS。
+GREEN: `mvn -pl yudao-module-bpm -am "-Dtest=BpmNativeApprovalTaskProviderTest,ApprovalCenterServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 29 tests.
+GREEN: `node tests/e2e/approval-center-done-standard-list-static.spec.js` -> PASS.
+GREEN: `node tests/e2e/approval-center-done-result-remark-static.spec.js` -> PASS.
+GREEN: `node tests/e2e/approval-center-chinese-copy-static.spec.js` -> PASS.
+
+## Verification
+
+- Backend provider/service regression and approval-center static contracts passed as listed in GREEN.
+- `git diff --check -- <task-owned paths>` -> PASS with line-ending warnings only.
 
 ## Risk And Scope
 
@@ -36,4 +45,3 @@
 ## Blockers And Follow-Up
 
 - 当前工作树已有无关未提交改动和本地分支 ahead 状态，最终提交/推送可能被既有状态阻塞。
-

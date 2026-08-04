@@ -109,6 +109,7 @@
 - Keywords: DCC response field has invalid type, cleanupTime, expireTime, LocalDateTime, TimestampLocalDateTimeSerializer, epoch millis, numeric timestamp, readOptionalString 时间字段误判 -> `docs/frontend-development.md#前端-localdatetime-响应契约门禁`
 - Keywords: vite-plugin-eslint Parsing error Unexpected token Did you mean {'>'} or &gt;, Vue SFC 泛型箭头函数, script setup lang ts, const fn = <T>, getPagedDetailRows -> `docs/frontend-development.md#vue-sfc-泛型箭头函数解析门禁`
 - Keywords: BPMN marker, BPM marker, canvas.addMarker, canvas.removeMarker, elementRegistry.get, Cannot read properties of undefined reading markers, 流程图高亮不完整, 审批流程图节点缺失 -> `docs/frontend-development.md#前端-bpmn-marker-高亮完整性门禁`
+- Keywords: BPM 审批时间轴, ProcessInstanceTimeline, ApprovalNodeInfo.status, 当前节点绿色, 进行中节点绿色, 待审批节点, 审批通过中节点, 时间轴圆点颜色, 头像状态徽标, RUNNING 蓝色 -> `docs/frontend-development.md#前端-bpm-审批时间轴当前节点高亮门禁`
 - Keywords: 表头排序, Element Plus sort-change, UnifiedListTemplate sortState, sortColumnAttrs, 服务端分页排序, sortField, sortOrder, 空单元格排序, 降序空值最后, Mapper 白名单排序, 空值标记表达式 -> `docs/frontend-development.md#前端服务端分页排序链路门禁`
 - Keywords: 截图字号调整, 文字大小, 字号, 放大 2 倍, 缩小一半, 卡片内文字, Element Plus 泛选择器, 先改静态契约 RED, 字号静态契约 -> `docs/frontend-development.md#前端截图字号调整静态契约门禁`
 - Keywords: 按钮统一, 按钮不显示, 隐藏按钮, 返回按钮统一, 返回xxx, 返回列表, 返回上一页, Scheme D 按钮, 图标按钮, 红框里的按钮, 黄框内按钮不显示, show-info-actions, showProductRecognition, showEdit, 旧长文案扫描, header-return-buttons-static -> `docs/frontend-development.md#前端截图按钮统一静态契约门禁`
@@ -176,6 +177,7 @@
 - Keywords: eDHR 右侧表单卡片标题, EDHRB 重复标题, resolveTaskCardDisplayName, EDHR_BATCH_TASK_STATUS_DRAFT, 草稿星号, edhr-batch-detail__rail-execution-code, detail?.batchExecutionCode 卡片标题 -> `docs/e2e-rules.md#edhr-右侧表单卡片标题门禁`
 - Keywords: eDHR 右侧红框元信息, primary-fill-meta, primaryFormFillMetaItems, showPrimaryFormFillMeta, resolvePrimaryFormFillersText, 填写人 提交时间 红框, batchRecordFormNames, selected-field-detail, resolveRecordBindingSlotType, 过程检验记录误入批记录表单 -> `docs/e2e-rules.md#edhr-右侧红框元信息隐藏门禁`
 - Keywords: 表单模板升版审批, Form template upgrade requires BPM approval, FORM_TEMPLATE_UPGRADE, FORM_TEMPLATE_OBSOLETE, form-template-upgrade-v1, 业务审批策略 DIRECT 配置直通, BPM_REQUIRED 必走审批, bpm_business_approval_policy published 策略 -> `docs/backend-development.md#业务审批策略按配置执行门禁`
+- Keywords: 审批中心已办系统异常, approval-center DONE, viewType DONE, BPM_TASK_DONE, HistoricTaskInstance TASK_STATUS null, APPROVAL_RESULT_UNSUPPORTED status=null, 旧历史任务审批结果为空 -> `docs/backend-development.md#统一审批中心-bpm-已办历史状态门禁`
 - Keywords: 放行负责人, 工序结束放行责任人, releaseOwnerLabel, RELEASE_APPROVE, CLOSE 关闭负责人不能放行, stageOwnerRole 执行人兜底, 角色成员均可放行 -> `docs/backend-development.md#edhr-放行负责人来源门禁`
 - 项目错误预防短记忆：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\agent-memory\project-error-prevention.md`
 

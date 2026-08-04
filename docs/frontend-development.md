@@ -67,6 +67,15 @@
 - Forbidden action: 禁止用 try/catch 吞掉 `markers` 异常、禁止隐藏流程图或禁用全部高亮冒充修复、禁止把 BPMN XML 与审批任务节点不一致解释为前端无责任而不提示用户。
 - Evidence: 任务 `doc/tasks/20260802-dcc-revision-ux-final-fixes/`，DCC 升版发布审批页 BPM 流程图 marker 节点缺失需显示“流程图高亮不完整”并避免 pageerror；任务 `doc/tasks/20260804-bpm-process-instance-detail-errors/`，BPM 模型视图后端过滤当前 BPMN XML 不存在的历史任务和连线 marker ID。
 
+## 前端 BPM 审批时间轴当前节点高亮门禁
+
+- Trigger: BPM/Flowable 审批详情、`ProcessInstanceTimeline`、`ApprovalNodeInfo.status`、当前节点、进行中节点、待审批节点、审批通过中节点、时间轴圆点颜色、头像状态徽标、节点标题颜色。
+- Preflight check: 先定位真实时间轴组件里主圆点、节点标题、时间轴状态色和头像小徽标是否各自独立渲染；若用户要求“当前节点/进行中节点用绿色显示”，必须按正式 `WAIT`、`RUNNING`、`APPROVING` 状态集合建模，不能只改截图中一个 CSS 类或一个小徽标。
+- Blocker: 主圆点仍是固定蓝色、`RUNNING` 仍映射蓝色、节点标题未区分当前态、测试只能证明文案存在但不能证明当前态颜色、或改动会影响审批动作/权限/API 时必须停止。
+- Verification: 聚焦静态契约必须同时断言当前态状态集合、主圆点状态感知颜色、节点标题绿色、`RUNNING` 状态徽标/时间轴色不再是蓝色，并运行相邻审批详情契约和 `pnpm ts:check`。
+- Forbidden action: 禁止用全局 Element Plus 主题色、CSS 缩放/覆盖、只隐藏蓝色图标、API-only 断言或把全部节点统一标绿来冒充当前节点高亮。
+- Evidence: 任务 `doc/tasks/20260804-current-node-green-highlight/`，BPM/DCC 审批详情旧时间轴主圆点固定 `bg-#3f73f7` 且 `RUNNING` 为 `#448ef7`，最终用静态契约覆盖当前态集合、主圆点、标题和徽标颜色。
+
 ## 前端服务端分页排序链路门禁
 
 - Trigger: Element Plus 表格、统一列表模板、分页列表、`sort-change`、`sortColumnAttrs`、表头排序按钮、空单元格排序、跨页排序。

@@ -108,6 +108,7 @@
     "e2e:dcc:audit-view-mode:static": "node tests/e2e/dcc-audit-view-mode-static.spec.js",
     "e2e:dcc:signature-view-mode:static": "node tests/e2e/dcc-signature-view-mode-static.spec.js",
     "e2e:dcc:signature-record-summary:static": "node tests/e2e/dcc-signature-record-summary-static.spec.js",
+    "e2e:bpm:timeline-current-node-green:static": "node tests/e2e/bpm-process-timeline-current-node-green-static.spec.js",
     "e2e:dcc:bpm-approval-viewer:static": "node tests/e2e/dcc-bpm-dcc-approval-viewer-static.spec.js",
     "e2e:dcc:approval-center-handling-entry:static": "node tests/e2e/dcc-approval-center-handling-entry-static.spec.js",
     "e2e:dcc:detail-approval-own-task:static": "node tests/e2e/dcc-detail-approval-own-task-without-process-query-static.spec.js",

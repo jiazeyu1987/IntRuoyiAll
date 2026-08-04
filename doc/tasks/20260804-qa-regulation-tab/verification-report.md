@@ -10,7 +10,7 @@
 - Verification was completed in worktree `D:\IntRuoyiWorktree\2020804_qa` on branch `codex/2020804_qa`.
 - The QA source/test/doc updates are synchronized into `E:\IntRuoyi` on `int_main` and targeted validation passed there.
 - Local `int_main` browser E2E passed on `http://127.0.0.1:8081` with backend `48081`, proving the visible QA tab path works in the running frontend.
-- The refreshed local browser E2E for the new original-source excerpt column is blocked because backend `48081` currently fails during Spring startup in unrelated MES route-flow code.
+- The refreshed local browser E2E for the new original-source excerpt column passed on local `8081/48081`; it verified `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, and `pageErrors=[]`.
 
 ## Commands
 
@@ -44,7 +44,10 @@
 - GREEN: frontend evidence validator -> PASS after adding `原文依据` item excerpts.
 - REVIEW: `git diff --check` for QA source/test/task docs -> PASS.
 - REVIEW: UTF-8 read check for task Markdown files -> PASS.
-- BLOCKED: refreshed local browser E2E for the new original-source excerpt column -> frontend `8081` returned HTTP 200, but backend `48081` failed before health with `BeanCreationException` in non-QA `mesProRouteFlowConfigController`, caused by `@Resource annotation requires a single-arg method` on `MesProRouteFlowConfigServiceImpl.getRouteFlowProcessConfigList(Long,String)`.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `node --check tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS; result `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- EVIDENCE: `output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.json`.
+- EVIDENCE: `output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.png`.
 
 ## BDD/TDD Review
 
@@ -65,7 +68,7 @@
 
 - Worktree browser E2E was not started because the worktree could not reserve an `int_main` runtime slot. The task did not randomize ports, reuse `8081/48081` from the worktree, or claim worktree runtime verification as passed.
 - Local `E:\IntRuoyi` browser E2E used the fixed `int_main` runtime ports `8081/48081` and passed. It logged in through the real frontend, opened the hidden route `/mes/pro/process-pool/team-leader`, clicked `QA 规程`, verified pressure-pump metadata and QA rule sections, added a local draft item, ran preview/precheck actions, confirmed the visible no-backend-write message, confirmed no DCC coupling terms in the QA panel, and observed no backend write requests.
-- Current refreshed browser E2E for the newly added `原文依据` column is blocked before login by backend startup failure. The task did not use mock auth, API-only assertions, cached screenshots, random ports, or frontend-only checks as a substitute for real E2E.
+- Refreshed local `E:\IntRuoyi` browser E2E for `原文依据` passed. It logged in through the real frontend, opened `/mes/pro/process-pool/team-leader`, clicked `QA 规程`, verified PDF page/source item/excerpt/method content for five inspection items, confirmed no DCC coupling terms, and observed no backend write requests or browser errors.
 
 ## Commit / Push Blocker
 
