@@ -26,3 +26,4 @@
 - CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode preview` -> PASS，keep task/execution/verification，delete evidence files only。
 - CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode apply` -> PASS，deleted `bug-regression-evidence.md` and `frontend-feature-evidence.md` after validator summaries were copied into retained reports。
 - STATUS: cleanup complete; task status set to `completed` pending selective commit and push.
+- IMPLEMENTATION_COMMIT: `ac2412835` -> committed task-owned source, test, task report, and experience-rule updates only.

@@ -20,6 +20,7 @@
 - QUALITY: `git diff --check -- <task-owned files>` -> PASS，只有 Git LF/CRLF working-copy warnings。
 - CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode preview` -> PASS。
 - CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode apply` -> PASS，删除已归档的 evidence 文件。
+- COMMIT: `ac2412835` -> committed task-owned source, test, task report, and experience-rule updates only.
 
 ## Remaining Notes
 
