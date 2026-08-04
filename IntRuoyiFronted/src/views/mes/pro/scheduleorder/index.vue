@@ -384,6 +384,13 @@
             >
               <template #actions>
                 <div class="schedule-order-pool__admission-actions schedule-order-pool__admission-bar">
+                  <div class="schedule-order-pool__admission-show-admitted">
+                    <span>显示已入池订单</span>
+                    <el-switch
+                      v-model="workOrderAdmissionShowAdmitted"
+                      @change="handleWorkOrderAdmissionShowAdmittedChange"
+                    />
+                  </div>
                   <el-button @click="resetWorkOrderAdmissionQuery">
                     <Icon icon="ep:refresh" class="mr-5px" /> 重置
                   </el-button>
@@ -2138,6 +2145,9 @@ const selectedWorkOrders = ref<MesProScheduleOrderAdmissionDiffRowVO[]>([])
 const workOrderAdmissionTotal = ref(0)
 let workOrderAdmissionRequestSerial = 0
 const DEFAULT_WORK_ORDER_ADMISSION_STATUS = 'READY_TO_ADMIT'
+const workOrderAdmissionShowAdmitted = ref(false)
+const resolveWorkOrderAdmissionStatus = () =>
+  workOrderAdmissionShowAdmitted.value ? undefined : DEFAULT_WORK_ORDER_ADMISSION_STATUS
 const workOrderAdmissionQueryParams = reactive({
   pageNo: 1,
   pageSize: 10,
@@ -3269,15 +3279,21 @@ const handleWorkOrderAdmissionQuery = () => {
   getWorkOrderAdmissionList()
 }
 
+const handleWorkOrderAdmissionShowAdmittedChange = () => {
+  workOrderAdmissionQueryParams.admissionStatus = resolveWorkOrderAdmissionStatus()
+  handleWorkOrderAdmissionQuery()
+}
+
 const resetWorkOrderAdmissionQuery = () => {
   workOrderAdmissionQuickFilter.updateState({
     fieldKey: workOrderAdmissionQuickFilterDefinitions[0]?.key,
     operator: 'contains',
     value: undefined
   })
+  workOrderAdmissionShowAdmitted.value = false
   workOrderAdmissionQueryParams.workOrderCode = undefined
   workOrderAdmissionQueryParams.productCode = undefined
-  workOrderAdmissionQueryParams.admissionStatus = DEFAULT_WORK_ORDER_ADMISSION_STATUS
+  workOrderAdmissionQueryParams.admissionStatus = resolveWorkOrderAdmissionStatus()
   delete workOrderAdmissionQueryParams.quickFilter
   handleWorkOrderAdmissionQuery()
 }
@@ -4894,6 +4910,14 @@ onMounted(async () => {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.schedule-order-pool__admission-show-admitted {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  color: #303133;
 }
 
 .schedule-order-pool :deep(.schedule-order-pool__admission-table__cell--wrap .cell) {

@@ -15,6 +15,9 @@ import java.util.List;
 @Mapper
 public interface BusinessApprovalPolicyMapper extends BaseMapperX<BusinessApprovalPolicyDO> {
 
+    String EDHR_ROUTE_FORM_OBJECT_TYPE = "EDHR_ROUTE_FORM";
+    String MES_EDHR_ROUTE_FORM_FILL_EXECUTOR = "MES_EDHR_ROUTE_FORM_FILL";
+
     String LATEST_POLICY_VERSION_ID_SQL = "SELECT MAX(latest.id) FROM bpm_business_approval_policy latest "
             + "WHERE latest.deleted = FALSE "
             + "GROUP BY latest.tenant_id, latest.data_domain, latest.system_code, latest.object_type, "
@@ -30,6 +33,12 @@ public interface BusinessApprovalPolicyMapper extends BaseMapperX<BusinessApprov
                 .eqIfPresent("object_state", reqVO.getObjectState())
                 .eqIfPresent("policy_mode", reqVO.getPolicyMode())
                 .eqIfPresent("status", reqVO.getStatus());
+        if (Boolean.TRUE.equals(reqVO.getApprovalSwitchScope())) {
+            queryWrapper.ne("object_type", EDHR_ROUTE_FORM_OBJECT_TYPE)
+                    .and(wrapper -> wrapper.isNull("effect_executor_code")
+                            .or()
+                            .ne("effect_executor_code", MES_EDHR_ROUTE_FORM_FILL_EXECUTOR));
+        }
         if (reqVO.getStatus() == null) {
             queryWrapper.inSql("id", LATEST_POLICY_VERSION_ID_SQL);
         }

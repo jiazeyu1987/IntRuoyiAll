@@ -14,6 +14,7 @@ import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class BusinessApprovalPolicyControllerContractTest {
 
@@ -27,6 +28,7 @@ class BusinessApprovalPolicyControllerContractTest {
         assertArrayEquals(new String[]{""}, page.getAnnotation(GetMapping.class).value());
         assertEquals("@ss.hasPermission('bpm:business-approval-policy:query')",
                 page.getAnnotation(PreAuthorize.class).value());
+        assertNotNull(BusinessApprovalPolicyPageReqVO.class.getDeclaredField("approvalSwitchScope"));
 
         Method save = BusinessApprovalPolicyController.class.getDeclaredMethod("savePolicy",
                 BusinessApprovalPolicySaveReqVO.class);

@@ -48,4 +48,8 @@
 
 ## E2E Or Component Verification Path
 
-- 使用任务专用静态契约验证 UI、�
+- 使用任务专用静态契约验证 UI、状态和查询参数链路。
+
+## Blockers And Follow-Up Skills
+
+- Pending verification.

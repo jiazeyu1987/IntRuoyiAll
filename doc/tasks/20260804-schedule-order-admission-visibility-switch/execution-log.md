@@ -11,4 +11,13 @@
 ## Milestone Updates
 
 - M1 completed: 已创建任务文档并记录 BDD/TDD 验收口径。
-- Experience gate: 已读取 `docs/experience-index.md`，命中并采用 `docs/frontend-development.md#前端静态契约隔离门禁`、`docs/e2e-rules.md#Element Plus 选择框显示门禁`、`docs/e2e-rules.md#E2E 脚本入口�
+- Experience gate: 已读取 `docs/experience-index.md`，命中并采用 `docs/frontend-development.md#前端静态契约隔离门禁`、`docs/e2e-rules.md#Element Plus 选择框显示门禁`、`docs/e2e-rules.md#E2E 脚本入口存在性门禁`。
+
+## Verification Evidence
+
+- Pending RED/GREEN.
+
+## Blockers
+
+- 当前工作区已有大量非本任务改动；本任务验证会优先使用定向静态契约，提交/推送收尾需在不混入无关改动的前提下处理。
+- 只读检索 `rg admission-diff... IntRuoyiBackend IntRuoyiFronted/...` 触发历史损坏目录 `IntRuoyiBackend/yudao-module-mes/target_corrupt_m4_20260802_1327/...` OS error 1392；已改用源码文件定向读取，不影响本任务前端实现。

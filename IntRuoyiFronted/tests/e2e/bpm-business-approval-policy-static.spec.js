@@ -24,6 +24,7 @@ assert.match(
 assert.match(apiSource, /BusinessApprovalPolicySwitchModeReqVO/, 'business approval API must expose switch request VO')
 assert.match(apiSource, /signaturePassword\?:\s*string/, 'switch-mode VO must carry electronic signature password')
 assert.match(apiSource, /switchPolicyMode/, 'business approval API must expose one-click switch-mode endpoint')
+assert.match(apiSource, /approvalSwitchScope\?:\s*boolean/, 'page request must support the approval-switch scope flag')
 assert.match(messageSource, /prompt\(content:\s*string,\s*tip:\s*string,\s*options:/, 'message.prompt must support password input options')
 
 assert.match(pageSource, /UnifiedListTemplate/, 'policy page must use the unified list template')

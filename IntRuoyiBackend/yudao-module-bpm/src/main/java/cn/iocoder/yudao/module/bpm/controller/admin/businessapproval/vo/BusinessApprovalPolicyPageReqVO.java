@@ -34,4 +34,7 @@ public class BusinessApprovalPolicyPageReqVO extends PageParam {
     @Schema(description = "状态")
     private String status;
 
+    @Schema(description = "是否只显示可开关审批策略")
+    private Boolean approvalSwitchScope;
+
 }
