@@ -58,6 +58,18 @@
 - Reviewed BDD/TDD skill requirements and mapped each user-visible behavior to Given/When/Then plus RED/GREEN plan.
 - Reviewed no-fallback constraints and added explicit blockers for missing equipment source, missing numeric standard schema and missing QA/leader structured links.
 
+## Worktree Verification
+
+- PASS: worktree path `D:\IntRuoyiWorktree\20260803_pqcc` exists and branch is `codex/20260803_pqcc`.
+- PASS: document structure scan found the main modification sections, 13 BDD scenarios, 10 TDD rows, RED/GREEN markers and review PASS result.
+- PASS: `git diff --check -- doc/tasks/20260803-pqc-equipment-standard-method-design` returned no errors.
+- PASS: scoped `git status --short --branch --untracked-files=all -- doc/tasks/20260803-pqc-equipment-standard-method-design` shows only the five task document files.
+- PASS: Additional worktree registry is active for `D:\IntRuoyiWorktree\20260803_pqcc` under `int_main` profile slot 15, with frontend port 8096 and backend port 48096. No frontend or backend runtime was started.
+- PASS: Project experience consolidation updated existing `docs/worktree-memory.md` and `docs/experience-index.md`; no new long-term experience document was created.
+- PASS: Commit `fb13a6bc6` was pushed to `origin/codex/20260803_pqcc`.
+- PASS: Remote `origin/int_main` fast-forwarded to `fb13a6bc63415e7adc4bc1c6e246446eb4f772e3`, matching `HEAD` and `origin/codex/20260803_pqcc`.
+- BLOCKED: Local `task-closeout-cleanup apply` cannot run because main worktree `E:\IntRuoyi` is dirty with unrelated changes; no local merge, baseline, cleanup, or worktree removal was performed.
+
 ## Remaining Implementation Blockers
 
 - 未确认检验设备与设备编号的唯一正式主数据来源。
@@ -67,6 +79,6 @@
 
 ## Result
 
-PASS for documentation and review optimization.
+PASS for documentation, review optimization and worktree document verification.
 
 Implementation remains BLOCKED until the listed product/technical prerequisites are confirmed and then implemented through the BDD/TDD plan.
