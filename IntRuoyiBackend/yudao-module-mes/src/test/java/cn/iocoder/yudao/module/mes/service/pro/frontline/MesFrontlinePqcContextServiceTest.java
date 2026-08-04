@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolMapper;
@@ -24,6 +25,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemEquipmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
@@ -39,6 +41,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -93,6 +96,8 @@ class MesFrontlinePqcContextServiceTest {
     @Mock
     private MesQaInspectionRegulationItemMapper regulationItemMapper;
     @Mock
+    private MesQaInspectionRegulationItemEquipmentMapper regulationItemEquipmentMapper;
+    @Mock
     private MesPqcInspectionTaskMapper pqcTaskMapper;
     @Mock
     private MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper;
@@ -115,8 +120,8 @@ class MesFrontlinePqcContextServiceTest {
     void setUp() {
         service = new MesFrontlinePqcContextServiceImpl(activeOrderMapper, processPoolMapper, processPoolEventMapper,
                 workOrderMapper, routeMapper, routeProductMapper, routeProcessMapper, regulationMapper,
-                regulationItemMapper, pqcTaskMapper, pqcPieceDetailMapper, processService, itemService, scopeMapper,
-                adminUserApi, templateResolver, processPoolEventService);
+                regulationItemMapper, regulationItemEquipmentMapper, pqcTaskMapper, pqcPieceDetailMapper,
+                processService, itemService, scopeMapper, adminUserApi, templateResolver, processPoolEventService);
     }
 
     @Test
@@ -303,6 +308,7 @@ class MesFrontlinePqcContextServiceTest {
                 enabledUser(8001L, "pqc-employee-a", "PQC员工A")));
         when(pqcTaskMapper.selectById(PQC_TASK_ID)).thenReturn(pqcTask(PQC_TASK_ID, ROUTE_PROCESS_ID,
                 PROCESS_ID, REGULATION_VERSION_ID));
+        when(pqcTaskMapper.updateById(any(MesPqcInspectionTaskDO.class))).thenReturn(1);
         when(processPoolEventService.createPqcInspectionEvent(any(MesProcessPoolCreatePqcInspectionReqDTO.class)))
                 .thenReturn(9901L);
 
@@ -324,11 +330,21 @@ class MesFrontlinePqcContextServiceTest {
                 .signatureEmployeeId(8001L)
                 .templateType("PQC_SIMPLIFIED")
                 .inspectionResult("DETECTION_SUCCESS")
+                .itemResults(List.of(
+                        MesFrontlinePqcSubmitCommand.ItemResult.builder()
+                                .itemCode("pressure")
+                                .selectedEquipmentId(9101L)
+                                .selectedEquipmentNumber("EQ-P-001")
+                                .sampleValues(List.of("0.8", "0.9"))
+                                .build(),
+                        MesFrontlinePqcSubmitCommand.ItemResult.builder()
+                                .itemCode("appearance")
+                                .selectedEquipmentId(9102L)
+                                .selectedEquipmentNumber("EQ-V-002")
+                                .sampleValues(List.of("合格", "合格"))
+                                .build()))
                 .rawPayload(Map.of(
-                        "pqcDraft", Map.of("inspectionType", "PATROL", "inspectionQuantity", 30),
-                        "pqcPieceValues", Map.of(
-                                "pressure", List.of("0.8", "0.9"),
-                                "appearance", List.of("合格", "合格"))))
+                        "pqcDraft", Map.of("inspectionType", "PATROL", "inspectionQuantity", 30)))
                 .clientSubmitTime(LocalDateTime.of(2026, 8, 1, 9, 0))
                 .build());
 
@@ -371,6 +387,16 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals("pressure", details.get(0).getItemCode());
         assertEquals(1, details.get(0).getSampleNo());
         assertEquals("测压", details.get(0).getInspectionMethod());
+        assertEquals(9101L, details.get(0).getSelectedEquipmentId());
+        assertEquals("MCH-PQC-001", details.get(0).getSelectedEquipmentCode());
+        assertEquals("压力检验仪", details.get(0).getSelectedEquipmentName());
+        assertEquals("EQ-P-001", details.get(0).getSelectedEquipmentNumber());
+        assertEquals(0, new BigDecimal("0.700000").compareTo(details.get(0).getStandardLowerLimit()));
+        assertEquals(0, new BigDecimal("1.000000").compareTo(details.get(0).getStandardUpperLimit()));
+        assertEquals("MPa", details.get(0).getStandardUnit());
+        assertEquals(2, details.get(0).getStandardPrecision());
+        assertTrue(eventRequest.getRawPayload().contains("\"pqcItemDetails\""));
+        assertTrue(eventRequest.getRawPayload().contains("\"selectedEquipmentNumber\":\"EQ-P-001\""));
     }
 
     @Test
@@ -472,11 +498,21 @@ class MesFrontlinePqcContextServiceTest {
                         .signatureEmployeeId(8001L)
                         .templateType("PQC_SIMPLIFIED")
                         .inspectionResult("DETECTION_SUCCESS")
+                        .itemResults(List.of(
+                                MesFrontlinePqcSubmitCommand.ItemResult.builder()
+                                        .itemCode("pressure")
+                                        .selectedEquipmentId(9101L)
+                                        .selectedEquipmentNumber("EQ-P-001")
+                                        .sampleValues(List.of("0.8", "0.9"))
+                                        .build(),
+                                MesFrontlinePqcSubmitCommand.ItemResult.builder()
+                                        .itemCode("appearance")
+                                        .selectedEquipmentId(9102L)
+                                        .selectedEquipmentNumber("EQ-V-002")
+                                        .sampleValues(List.of("合格", "合格"))
+                                        .build()))
                         .rawPayload(Map.of(
-                                "pqcDraft", Map.of("inspectionType", "PATROL", "inspectionQuantity", 2),
-                                "pqcPieceValues", Map.of(
-                                        "pressure", List.of("0.8", "0.9"),
-                                        "appearance", List.of("合格", "合格"))))
+                                "pqcDraft", Map.of("inspectionType", "PATROL", "inspectionQuantity", 2)))
                         .clientSubmitTime(LocalDateTime.of(2026, 8, 1, 9, 50))
                         .build()));
 
@@ -506,6 +542,7 @@ class MesFrontlinePqcContextServiceTest {
                 enabledUser(8001L, "pqc-employee-a", "PQC员工A")));
         when(pqcTaskMapper.selectById(PQC_TASK_ID)).thenReturn(pqcTask(PQC_TASK_ID, ROUTE_PROCESS_ID,
                 PROCESS_ID, REGULATION_VERSION_ID));
+        when(pqcTaskMapper.updateById(any(MesPqcInspectionTaskDO.class))).thenReturn(1);
         when(processPoolEventService.createPqcInspectionEvent(any(MesProcessPoolCreatePqcInspectionReqDTO.class)))
                 .thenReturn(9902L);
 
@@ -527,11 +564,21 @@ class MesFrontlinePqcContextServiceTest {
                 .signatureEmployeeId(8001L)
                 .templateType("PQC_SIMPLIFIED")
                 .inspectionResult("DETECTION_SUCCESS")
+                .itemResults(List.of(
+                        MesFrontlinePqcSubmitCommand.ItemResult.builder()
+                                .itemCode("pressure")
+                                .selectedEquipmentId(9101L)
+                                .selectedEquipmentNumber("EQ-P-001")
+                                .sampleValues(List.of("0.8", "0.9"))
+                                .build(),
+                        MesFrontlinePqcSubmitCommand.ItemResult.builder()
+                                .itemCode("appearance")
+                                .selectedEquipmentId(9102L)
+                                .selectedEquipmentNumber("EQ-V-002")
+                                .sampleValues(List.of("合格", "合格"))
+                                .build()))
                 .rawPayload(Map.of(
-                        "pqcDraft", Map.of("inspectionType", "PATROL", "inspectionQuantity", 2),
-                        "pqcPieceValues", Map.of(
-                                "pressure", List.of("0.8", "0.9"),
-                                "appearance", List.of("合格", "合格"))))
+                        "pqcDraft", Map.of("inspectionType", "PATROL", "inspectionQuantity", 2)))
                 .clientSubmitTime(LocalDateTime.of(2026, 8, 1, 9, 30))
                 .build());
 
@@ -569,6 +616,11 @@ class MesFrontlinePqcContextServiceTest {
         when(regulationItemMapper.selectListByVersionId(regulationVersionId)).thenReturn(List.of(
                 regulationItem(regulationVersionId, "pressure", "压力", "NUMBER", "测压"),
                 regulationItem(regulationVersionId, "appearance", "外观", "CHOICE", "目视")));
+        when(regulationItemEquipmentMapper.selectListByVersionId(regulationVersionId)).thenReturn(List.of(
+                regulationItemEquipment(regulationVersionId, "pressure", 9101L,
+                        "MCH-PQC-001", "压力检验仪", "EQ-P-001"),
+                regulationItemEquipment(regulationVersionId, "appearance", 9102L,
+                        "MCH-PQC-002", "外观灯箱", "EQ-V-002")));
     }
 
     private static MesProcessPoolActiveOrderDO activeOrder(Long workOrderId, Long routeId,
@@ -628,6 +680,30 @@ class MesFrontlinePqcContextServiceTest {
                 .inspectionMethod(inspectionMethod)
                 .standardText("按压力泵工艺路线过程检验记录标准")
                 .resultType(resultType)
+                .standardLowerLimit("NUMBER".equals(resultType) ? new BigDecimal("0.700000") : null)
+                .standardUpperLimit("NUMBER".equals(resultType) ? new BigDecimal("1.000000") : null)
+                .standardUnit("NUMBER".equals(resultType) ? "MPa" : null)
+                .standardPrecision("NUMBER".equals(resultType) ? 2 : null)
+                .equipmentRequired(true)
+                .build();
+    }
+
+    private static MesQaInspectionRegulationItemEquipmentDO regulationItemEquipment(Long regulationVersionId,
+                                                                                   String itemCode,
+                                                                                   Long equipmentId,
+                                                                                   String equipmentCode,
+                                                                                   String equipmentName,
+                                                                                   String equipmentNumber) {
+        return MesQaInspectionRegulationItemEquipmentDO.builder()
+                .regulationVersionId(regulationVersionId)
+                .inspectionType("PATROL")
+                .itemCode(itemCode)
+                .equipmentId(equipmentId)
+                .equipmentCode(equipmentCode)
+                .equipmentName(equipmentName)
+                .equipmentNumber(equipmentNumber)
+                .defaultFlag(true)
+                .sort(1)
                 .build();
     }
 

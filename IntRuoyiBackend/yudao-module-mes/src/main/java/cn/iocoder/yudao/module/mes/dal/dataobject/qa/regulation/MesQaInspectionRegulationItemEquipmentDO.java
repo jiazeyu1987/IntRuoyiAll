@@ -12,10 +12,8 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.experimental.Accessors;
 
-import java.math.BigDecimal;
-
-@TableName("mes_qa_inspection_regulation_item")
-@KeySequence("mes_qa_inspection_regulation_item_seq")
+@TableName("mes_qa_inspection_regulation_item_equipment")
+@KeySequence("mes_qa_inspection_regulation_item_equipment_seq")
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
@@ -23,7 +21,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @Accessors(chain = true)
-public class MesQaInspectionRegulationItemDO extends TenantBaseDO {
+public class MesQaInspectionRegulationItemEquipmentDO extends TenantBaseDO {
 
     @TableId
     private Long id;
@@ -31,15 +29,10 @@ public class MesQaInspectionRegulationItemDO extends TenantBaseDO {
     private Long regulationVersionId;
     private String inspectionType;
     private String itemCode;
-    private String itemName;
-    private String inspectionMethod;
-    private String standardText;
-    private BigDecimal standardLowerLimit;
-    private BigDecimal standardUpperLimit;
-    private String standardUnit;
-    private Integer standardPrecision;
-    private Boolean equipmentRequired;
-    private String resultType;
-    private Integer firstInspectionQuantity;
-    private BigDecimal patrolInspectionRatio;
+    private Long equipmentId;
+    private String equipmentCode;
+    private String equipmentName;
+    private String equipmentNumber;
+    private Boolean defaultFlag;
+    private Integer sort;
 }

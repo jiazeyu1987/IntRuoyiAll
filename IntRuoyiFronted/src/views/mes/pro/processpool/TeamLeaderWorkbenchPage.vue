@@ -930,6 +930,35 @@
               {{ detail.pqcSummary || detail.pqcResult }}
             </el-tag>
           </el-descriptions-item>
+          <el-descriptions-item v-if="detail && isPqcSubmissionRow(detail)" label="PQC项目明细">
+            <el-table
+              :data="resolvePqcItemSnapshotDetails(detail)"
+              border
+              size="small"
+              data-pqc-leader-item-snapshot-table
+              empty-text="PQC提交内容缺少正式项目明细"
+            >
+              <el-table-column label="检验项目" min-width="120">
+                <template #default="{ row }">{{ row.itemName || row.itemCode || '--' }}</template>
+              </el-table-column>
+              <el-table-column label="检验设备" min-width="140">
+                <template #default="{ row }">
+                  {{ row.selectedEquipmentName || row.selectedEquipmentCode || '--' }}
+                </template>
+              </el-table-column>
+              <el-table-column label="设备编号" prop="selectedEquipmentNumber" min-width="130" />
+              <el-table-column label="接收标准" min-width="180">
+                <template #default="{ row }">{{ formatPqcSnapshotStandard(row) }}</template>
+              </el-table-column>
+              <el-table-column label="检验方法" prop="inspectionMethod" min-width="180" />
+              <el-table-column label="样本值" min-width="180">
+                <template #default="{ row }">{{ formatPqcSnapshotSampleValues(row) }}</template>
+              </el-table-column>
+              <el-table-column label="判定" min-width="100">
+                <template #default="{ row }">{{ row.judgement || row.itemResult || '--' }}</template>
+              </el-table-column>
+            </el-table>
+          </el-descriptions-item>
           <el-descriptions-item label="结构化报工内容">
             <el-table
               :data="resolveStructuredPayloadItems(detail.originalPayloadJson)"
@@ -1755,13 +1784,7 @@ const normalizePayloadJsonForCorrection = (payloadJson?: string) => {
   }
 }
 
-type PqcSubmissionContentItemKey =
-  | 'inspectionOverview'
-  | 'length'
-  | 'appearance'
-  | 'seal'
-  | 'pressure'
-  | 'missing'
+type PqcSubmissionContentItemKey = string
 
 interface PqcSubmissionContentDefinition {
   key: PqcSubmissionContentItemKey
@@ -1775,18 +1798,30 @@ interface PqcSubmissionContentItem extends PqcSubmissionContentDefinition {
 
 type PqcSubmissionPayloadRecord = Record<string, unknown>
 
-const PQC_SUBMISSION_CONTENT_DEFINITIONS: PqcSubmissionContentDefinition[] = [
-  { key: 'length', label: '长度', unit: '厘米' },
-  { key: 'appearance', label: '外观' },
-  { key: 'seal', label: '密封' },
-  { key: 'pressure', label: '压力', unit: 'MPa' }
-]
+interface PqcItemSnapshotDetail {
+  itemCode?: string
+  itemName?: string
+  selectedEquipmentId?: number
+  selectedEquipmentCode?: string
+  selectedEquipmentName?: string
+  selectedEquipmentNumber?: string
+  standardText?: string
+  standardLowerLimit?: number | string
+  standardUpperLimit?: number | string
+  standardUnit?: string
+  standardPrecision?: number
+  inspectionMethod?: string
+  resultType?: string
+  sampleValues?: string[]
+  itemResult?: string
+  judgement?: string
+}
 
 const PQC_SUBMISSION_CONTENT_MISSING_ITEMS: PqcSubmissionContentItem[] = [
   {
     key: 'missing',
     label: 'PQC明细',
-    valueText: 'PQC提交内容缺少正式明细'
+    valueText: 'PQC提交内容缺少正式项目明细'
   }
 ]
 
@@ -1835,48 +1870,78 @@ const normalizePqcSubmittedValues = (value: unknown): string[] => {
   return text ? [text] : []
 }
 
-const findPqcItemCandidate = (
-  payload: PqcSubmissionPayloadRecord,
-  itemKey: PqcSubmissionContentItemKey
-) => {
-  for (const groupKey of ['pqcInspectionItems', 'pqcInspectionContent', 'inspectionItems']) {
-    const group = payload[groupKey]
-    if (isRecord(group) && group[itemKey] !== undefined) {
-      return group[itemKey]
-    }
+const toPqcItemSnapshotDetail = (value: unknown): PqcItemSnapshotDetail | undefined => {
+  if (!isRecord(value)) {
+    return undefined
   }
-  const directKey = `${itemKey}Values`
-  if (payload[directKey] !== undefined) {
-    return payload[directKey]
+  const detail: PqcItemSnapshotDetail = {
+    itemCode: String(value.itemCode ?? '').trim() || undefined,
+    itemName: String(value.itemName ?? '').trim() || undefined,
+    selectedEquipmentId: Number(value.selectedEquipmentId) || undefined,
+    selectedEquipmentCode: String(value.selectedEquipmentCode ?? '').trim() || undefined,
+    selectedEquipmentName: String(value.selectedEquipmentName ?? '').trim() || undefined,
+    selectedEquipmentNumber: String(value.selectedEquipmentNumber ?? '').trim() || undefined,
+    standardText: String(value.standardText ?? '').trim() || undefined,
+    standardLowerLimit: value.standardLowerLimit as number | string | undefined,
+    standardUpperLimit: value.standardUpperLimit as number | string | undefined,
+    standardUnit: String(value.standardUnit ?? '').trim() || undefined,
+    standardPrecision: Number(value.standardPrecision) || undefined,
+    inspectionMethod: String(value.inspectionMethod ?? '').trim() || undefined,
+    resultType: String(value.resultType ?? '').trim() || undefined,
+    sampleValues: normalizePqcSubmittedValues(
+      value.sampleValues ?? value.samples ?? value.values ?? value.measuredValue
+    ),
+    itemResult: String(value.itemResult ?? '').trim() || undefined,
+    judgement: String(value.judgement ?? '').trim() || undefined
   }
-  if (payload[itemKey] !== undefined) {
-    return payload[itemKey]
-  }
-  const pieceValues = payload.pqcPieceValues
-  if (isRecord(pieceValues)) {
-    for (const [pieceKey, pieceValue] of Object.entries(pieceValues)) {
-      if (pieceKey === itemKey || pieceKey.endsWith(`:${itemKey}`)) {
-        return pieceValue
-      }
-    }
-  }
-  return undefined
+  return detail.itemCode || detail.itemName ? detail : undefined
 }
 
-const formatPqcSubmittedValues = (
-  definition: PqcSubmissionContentDefinition,
-  values: string[]
-) => {
-  if (!values.length) {
-    return '未填写'
+const normalizePqcItemSnapshotDetails = (value: unknown): PqcItemSnapshotDetail[] => {
+  const sourceItems = Array.isArray(value)
+    ? value
+    : isRecord(value)
+      ? Object.values(value)
+      : []
+  return sourceItems
+    .map(toPqcItemSnapshotDetail)
+    .filter((item): item is PqcItemSnapshotDetail => Boolean(item))
+}
+
+const resolvePqcPayloadPair = (row: ProcessPoolTimelineEventVO) => {
+  const payload = parsePqcOriginalPayload(row.originalPayloadJson)
+  const rootPayload = payload && isRecord(payload.rawPayload) ? payload.rawPayload : payload
+  return { payload, rootPayload }
+}
+
+const resolvePqcItemSnapshotDetails = (row: ProcessPoolTimelineEventVO) => {
+  const { payload, rootPayload } = resolvePqcPayloadPair(row)
+  const sources = [
+    rootPayload?.pqcItemDetails,
+    payload?.pqcItemDetails,
+    rootPayload?.itemResults,
+    payload?.itemResults
+  ]
+  for (const source of sources) {
+    const details = normalizePqcItemSnapshotDetails(source)
+    if (details.length) {
+      return details
+    }
   }
-  return values
-    .map((value) =>
-      definition.unit && !value.endsWith(definition.unit)
-        ? `${value}${definition.unit}`
-        : value
-    )
-    .join('、')
+  return []
+}
+
+const formatPqcSnapshotSampleValues = (detail: PqcItemSnapshotDetail) =>
+  detail.sampleValues?.length ? detail.sampleValues.join('、') : '未填写'
+
+const formatPqcSnapshotStandard = (detail: PqcItemSnapshotDetail) => {
+  const lower = detail.standardLowerLimit
+  const upper = detail.standardUpperLimit
+  const unit = detail.standardUnit || ''
+  const range = lower !== undefined || upper !== undefined
+    ? `${lower ?? '--'} ~ ${upper ?? '--'}${unit}`
+    : ''
+  return [detail.standardText, range].filter(Boolean).join('；') || '未配置'
 }
 
 const resolvePqcInspectionTypeText = (value: unknown) => {
@@ -1912,21 +1977,20 @@ const resolvePqcSubmissionOverviewItem = (
 const resolvePqcSubmissionContentItems = (
   row: ProcessPoolTimelineEventVO
 ): PqcSubmissionContentItem[] => {
-  const payload = parsePqcOriginalPayload(row.originalPayloadJson)
-  if (!payload) {
+  const { rootPayload } = resolvePqcPayloadPair(row)
+  const details = resolvePqcItemSnapshotDetails(row)
+  if (!rootPayload || !details.length) {
     return PQC_SUBMISSION_CONTENT_MISSING_ITEMS
   }
-  const rootPayload = isRecord(payload.rawPayload) ? payload.rawPayload : payload
-  const contentItems = PQC_SUBMISSION_CONTENT_DEFINITIONS.map((definition) => {
-    const values = normalizePqcSubmittedValues(findPqcItemCandidate(rootPayload, definition.key))
-    return {
-      ...definition,
-      valueText: formatPqcSubmittedValues(definition, values)
-    }
-  })
-  if (contentItems.every((item) => item.valueText === '未填写')) {
-    return PQC_SUBMISSION_CONTENT_MISSING_ITEMS
-  }
+  const contentItems = details.map((detail, index) => ({
+    key: detail.itemCode || `pqc-item-${index}`,
+    label: detail.itemName || detail.itemCode || '检验项目',
+    valueText: [
+      detail.selectedEquipmentNumber ? `设备编号：${detail.selectedEquipmentNumber}` : '',
+      `样本：${formatPqcSnapshotSampleValues(detail)}`,
+      detail.judgement ? `判定：${detail.judgement}` : ''
+    ].filter(Boolean).join('；')
+  }))
   const overviewItem = resolvePqcSubmissionOverviewItem(rootPayload)
   return overviewItem ? [overviewItem, ...contentItems] : contentItems
 }

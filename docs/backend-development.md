@@ -220,6 +220,17 @@
 - Forbidden action: 禁止用导入记录直接进度、前端假新增、默认成功、空列表刷新或 API-only 结果替代正式报工持久化链路。
 - Evidence: `doc/tasks/20260801-third-party-feedback-import-list-progress/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/verification-report.md`；`doc/tasks/20260802-test-server-replan-shift-hours-duration/verification-report.md`。
 
+## MES PQC 项目级检验快照门禁
+
+### PQC 检验项目事实必须来自发布规程和结构化 itemResults
+
+- Trigger: PQC 填写、PQC 组长复核、QA 检验规程、检验设备、设备编号、接收标准、检验方法、参数上下限、`itemResults`、`rawPayload.pqcPieceValues`、`pqcItemDetails`、固定 `length/appearance/seal/pressure` 字段。
+- Preflight check: 修改 PQC 链路前先核对发布 QA 规程项目、项目级设备表、设备台账编号归属、接收标准上下限、单位和精度字段；提交契约必须以结构化 `itemResults[]` 为业务事实，后端在提交时从发布规程冻结设备、编号、方法、标准、上下限、单位、精度、实测值和判定。
+- Blocker: 客户端提交可改写接收标准或检验方法、后端仍把 `rawPayload.pqcPieceValues` 当权威、组长页仍按固定四项字段展示、设备编号未按项目设备归属校验、缺发布规程项目或设备主数据时默认成功，必须停止。
+- Verification: 后端回归需覆盖 schema、项目设备 mapper、`itemResults` 提交、设备编号归属校验和明细冻结；前端静态或真实路径需覆盖填写页每项目设备/编号/标准/方法入口、组长页读取 `pqcItemDetails/itemResults`，并复跑相邻 eDHR/PQC 布局合同和 `pnpm ts:check`。
+- Forbidden action: 禁止用整单设备替代项目级设备，禁止用固定四项字段、前端文案、默认上下限、空标准、raw payload 或 API-only 展示替代正式项目级快照。
+- Evidence: `doc/tasks/20260803-pqc-equipment-standard-method-implementation/verification-report.md`。
+
 ## 禁止做法
 
 - 禁止跨模块复制业务逻辑来绕过现有服务边界。

@@ -48,9 +48,9 @@ for (const token of ['pqcDraft', 'pqcPieceValues', 'rawPayload']) {
 
 assert(
   leaderPage.includes('resolvePqcSubmissionContentItems') &&
-    leaderPage.includes('pqcDraft') &&
-    leaderPage.includes('pqcPieceValues'),
-  'PQC 组长列表必须按检验员原始提交明细解析展示，不能只展示汇总。'
+    leaderPage.includes('resolvePqcItemSnapshotDetails') &&
+    /pqcItemDetails|itemResults/.test(leaderPage),
+  'PQC 组长列表必须按检验员正式项目级明细解析展示，不能只展示汇总。'
 )
 
 console.log('mes-frontline-pqc-submit-to-leader-chain-static PASS')
