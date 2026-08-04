@@ -69,6 +69,16 @@ BDD: 既有用户获得新默认列 -> Given 用户存在旧审批中心列配�
 - GREEN: `git -c http.https://github.com.proxy=http://127.0.0.1:8902 push origin int_main` -> PASS，`b98d82594..93f935f09  int_main -> int_main`。
 - GREEN: `git status --short --branch` -> `## int_main...origin/int_main`，本任务提交已同步远端；工作区仍保留其它并行任务改动，未触碰。
 
+### M5 真实页面 E2E
+
+- 状态：completed。
+- 2026-08-05：用户要求继续进行 E2E 验证。
+- E2E 前置：已读取 `docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/worktree-restrictions.md` 和 Playwright 技能；`npx --version` -> `11.6.2`；本机 Chrome 可用。
+- 运行态复核：`http://127.0.0.1:8081/` -> HTTP 200；`http://127.0.0.1:48081/actuator/health` -> `{"status":"UP"}`；`int_main` 使用前端 `8081`、后端 `48081`。
+- GREEN: Playwright 真实页面只读 E2E -> PASS，使用本机默认身份标签 `芋道源码/admin` 登录 `http://127.0.0.1:8081`，逐个打开 `/approval-center/todo`、`/approval-center/done`、`/approval-center/my-initiated`、`/approval-center/cc`。
+- E2E 断言：四个视图均命中 `/admin-api/approval-center/tasks/page`；表头顺序均为 `业务摘要 -> 申请人 -> 节点`；TODO/DONE/MY_INITIATED 首行申请人单元格分别匹配正式 `initiatorUserId` 显示 `用户 #1`、`用户 #151`、`用户 #1`；CC 当前 `total=0` 但表头仍显示“申请人”。
+- E2E 安全边界：`pageErrors=[]`、审批中心目标请求失败数 `0`、审批中心写请求数 `0`。
+
 ## Blockers
 
 - 当前无产品或接口 blocker。

@@ -9,6 +9,7 @@ PASS，审批中心已增加独立“申请人”列，DCC 业务摘要不再重
 - 待办、已办、我发起的、抄送列表均通过 `isApprovalColumnVisible('applicant')` 渲染“申请人”列。
 - 申请人列只读取正式 `ApprovalTaskSummaryVO.initiatorUserId`；缺失时沿用审批中心现有空值显示语义。
 - “申请人”列位于“业务摘要”之后、“节点”之前。
+- 真实页面只读 E2E 已验证待办、已办、我发起、抄送四个路由均显示“申请人”表头，且待办、已办、我发起的可见行申请人值匹配正式 `initiatorUserId`。
 - DCC `resolveDccKeyFields` 已移除重复的“申请人”摘要项。
 - 四个表格 key 已升级为 `approval.center.todo.applicant.v1`、`approval.center.done.applicant.v1`、`approval.center.myInitiated.applicant.v1`、`approval.center.cc.applicant.v1`。
 
@@ -29,6 +30,15 @@ PASS，审批中心已增加独立“申请人”列，DCC 业务摘要不再重
 - GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
 - GREEN: `git -c http.https://github.com.proxy=http://127.0.0.1:8902 push origin int_main` -> PASS。
 - GREEN: `git status --short --branch` -> `## int_main...origin/int_main`，本任务提交不再 ahead。
+- GREEN: Playwright 真实页面只读 E2E -> PASS，`http://127.0.0.1:8081` + `芋道源码/admin`，逐个验证 `/approval-center/todo`、`/approval-center/done`、`/approval-center/my-initiated`、`/approval-center/cc`。
+
+## Real E2E Result
+
+- TODO：`total=128`、`rowCount=10`、表头 `来源 | 业务摘要 | 申请人 | 节点 | 审核人 | 能力 | 时间 | 操作`、首行申请人 `用户 #1`。
+- DONE：`total=3222`、`rowCount=20`、表头 `来源 | 业务摘要 | 申请人 | 节点 | 审核人 | 审批结果 | 备注 | 能力`、首行申请人 `用户 #151`。
+- MY_INITIATED：`total=392`、`rowCount=20`、表头 `来源 | 业务摘要 | 申请人 | 节点 | 审核人 | 能力 | 时间 | 操作`、首行申请人 `用户 #1`。
+- CC：`total=0`、`rowCount=0`、表头 `来源 | 业务摘要 | 申请人 | 节点 | 审核人 | 能力 | 时间 | 操作`；空列表仍保留“申请人”列。
+- 页面错误：`0`；审批中心目标请求失败：`0`；审批中心写请求：`0`。
 
 ## Git Notes
 
