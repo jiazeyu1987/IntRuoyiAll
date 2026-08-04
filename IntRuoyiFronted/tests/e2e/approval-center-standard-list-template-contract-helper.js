@@ -119,7 +119,7 @@ const assertApprovalCenterStandardListContract = ({
     'direct review must remain limited to TODO tasks with approve and reject capabilities'
   )
 
-  for (const key of ['source', 'businessSummary', 'node', 'reviewer', 'capabilities', 'time', 'actions']) {
+  for (const key of ['source', 'businessSummary', 'applicant', 'node', 'reviewer', 'capabilities', 'time', 'actions']) {
     assert.match(
       approvalPage,
       new RegExp(`isApprovalColumnVisible\\('${key}'\\)`),

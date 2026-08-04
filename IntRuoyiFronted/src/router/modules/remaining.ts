@@ -1900,34 +1900,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
-        path: 'pro/feedback/edhr-batch-team-leader',
-        component: () => import('@/views/mes/pro/edhr-batch/BatchTeamLeaderWorkbenchPage.vue'),
-        name: 'MesProEdhrBatchTeamLeaderWorkbench',
-        meta: {
-          noCache: true,
-          hidden: true,
-          canTo: true,
-          icon: '',
-          title: '组长工作台',
-          activeMenu: '/mes/pro/feedback/edhr-batch-team-leader',
-          permission: ['mes:pro-process-pool-team-leader:query']
-        }
-      },
-      {
-        path: 'pro/feedback/edhr-batch-production-leader',
-        component: () => import('@/views/mes/pro/edhr-batch/BatchProductionLeaderWorkbenchPage.vue'),
-        name: 'MesProEdhrBatchProductionLeaderWorkbench',
-        meta: {
-          noCache: true,
-          hidden: true,
-          canTo: true,
-          icon: '',
-          title: '生产组长',
-          activeMenu: '/mes/pro/feedback/edhr-batch-production-leader',
-          permission: ['mes:pro-process-pool-team-leader:query']
-        }
-      },
-      {
         path: 'pro/feedback/edhr-batch-page-graph',
         component: () => import('@/views/mes/pro/edhr-batch/BatchPageGraphPage.vue'),
         name: 'MesProEdhrBatchPageGraph',
@@ -1939,20 +1911,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
           title: '批记录页面关系图',
           activeMenu: '/mes/pro/feedback/edhr-batch-page-graph',
           permission: ['mes:pro-edhr-batch-execution:query']
-        }
-      },
-      {
-        path: 'pro/feedback/edhr-batch-pqc-leader',
-        component: () => import('@/views/mes/pro/edhr-batch/BatchPqcLeaderWorkbenchPage.vue'),
-        name: 'MesProEdhrBatchPqcLeaderWorkbench',
-        meta: {
-          noCache: true,
-          hidden: true,
-          canTo: true,
-          icon: '',
-          title: 'PQC组长',
-          activeMenu: '/mes/pro/feedback/edhr-batch-pqc-leader',
-          permission: ['mes:pro-process-pool-team-leader:query']
         }
       },
       {
@@ -2050,6 +2008,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
           icon: '',
           title: 'QA 规程配置',
           activeMenu: '/mes/pro/process-pool/qa-regulation',
+          permission: ['mes:pro-process-pool-team-leader:query']
+        }
+      },
+      {
+        path: 'pro/process-pool/production-leader',
+        component: () => import('@/views/mes/pro/processpool/ProductionLeaderWorkbenchPage.vue'),
+        name: 'MesProProcessPoolProductionLeaderWorkbench',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '生产组长',
+          activeMenu: '/mes/pro/process-pool/production-leader',
           permission: ['mes:pro-process-pool-team-leader:query']
         }
       },

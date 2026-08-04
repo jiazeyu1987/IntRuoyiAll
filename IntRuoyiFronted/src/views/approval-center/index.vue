@@ -109,6 +109,19 @@
                 </template>
               </el-table-column>
               <el-table-column
+                v-if="isApprovalColumnVisible('applicant')"
+                label="申请人"
+                prop="applicant"
+                :width="getApprovalColumnWidthString('applicant', 140)"
+                v-bind="sortColumnAttrs('applicant')"
+              >
+                <template #default="{ row }">
+                  <span class="approval-center__applicant" :title="resolveApplicantLabel(row)">
+                    {{ resolveApplicantLabel(row) }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column
                 v-if="isApprovalColumnVisible('node')"
                 label="节点"
                 prop="node"
@@ -552,15 +565,16 @@ const queryParams = reactive<ApprovalCenterQueryParams>({
 })
 
 const approvalCenterTableKeys: Record<ApprovalCenterListViewType, string> = {
-  TODO: 'approval.center.todo',
-  DONE: 'approval.center.done',
-  MY_INITIATED: 'approval.center.myInitiated',
-  CC: 'approval.center.cc'
+  TODO: 'approval.center.todo.applicant.v1',
+  DONE: 'approval.center.done.applicant.v1',
+  MY_INITIATED: 'approval.center.myInitiated.applicant.v1',
+  CC: 'approval.center.cc.applicant.v1'
 }
 
 const approvalDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'source', label: '来源', width: 150 },
   { key: 'businessSummary', label: '业务摘要', width: 300 },
+  { key: 'applicant', label: '申请人', width: 140 },
   { key: 'node', label: '节点', width: 190 },
   { key: 'reviewer', label: '审核人', width: 140 },
   { key: 'approvalResult', label: '审批结果', width: 120 },
@@ -1162,6 +1176,9 @@ const resolveNodeNameLabel = (row: ApprovalTaskSummaryVO) => {
 const resolveReviewerLabel = (row: ApprovalTaskSummaryVO) =>
   row.assigneeUserName || (row.assigneeUserId ? `用户 #${row.assigneeUserId}` : EMPTY_APPROVAL_DISPLAY)
 
+const resolveApplicantLabel = (row: ApprovalTaskSummaryVO) =>
+  row.initiatorUserId ? `用户 #${row.initiatorUserId}` : EMPTY_APPROVAL_DISPLAY
+
 const resolveBusinessContextValueLabel = (value: string, missingLabel: string) => {
   const text = normalizeApprovalDisplayText(value)
   if (!text) {
@@ -1221,10 +1238,6 @@ const resolveDccKeyFields = (row: ApprovalTaskSummaryVO) => [
   {
     label: '当前审批节点',
     value: resolveNodeNameLabel(row)
-  },
-  {
-    label: '申请人',
-    value: row.initiatorUserId ? `用户 #${row.initiatorUserId}` : EMPTY_APPROVAL_DISPLAY
   }
 ]
 
@@ -1438,6 +1451,7 @@ watch(
   white-space: nowrap;
 }
 
+.approval-center__applicant,
 .approval-center__reviewer {
   display: inline-block;
   max-width: 100%;
