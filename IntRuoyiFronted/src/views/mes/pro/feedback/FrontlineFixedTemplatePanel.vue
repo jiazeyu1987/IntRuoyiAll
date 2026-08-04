@@ -1,5 +1,9 @@
 <template>
-  <section class="frontline-operator-panel">
+  <section
+    ref="frontlinePanelRef"
+    class="frontline-operator-panel"
+    :class="{ 'is-pqc-fullscreen': isPqcFullscreen }"
+  >
     <div
       v-if="isPqcMode"
       class="frontline-operator-screen is-pqc"
@@ -18,7 +22,16 @@
           <span>员工</span>
           <strong>{{ selectedEmployeeLabel }}</strong>
         </button>
-        <button class="frontline-home-button" type="button" @click="handleHome">主页</button>
+        <button
+          class="frontline-home-button frontline-pqc-fullscreen-toggle"
+          type="button"
+          data-pqc-fullscreen-toggle
+          :aria-label="pqcFullscreenActionText"
+          :aria-pressed="isPqcFullscreen"
+          @click="handlePqcFullscreenToggle"
+        >
+          {{ pqcFullscreenActionText }}
+        </button>
       </header>
 
       <div
@@ -426,7 +439,9 @@
 
     <div
       v-else
+      ref="productionScreenRef"
       class="frontline-operator-screen"
+      :class="{ 'is-frontline-fullscreen': isProductionFullscreen }"
       data-frontline-production-operator
     >
       <header class="frontline-operator-top">
@@ -438,7 +453,14 @@
           <span>员工</span>
           <strong>{{ selectedEmployeeLabel }}</strong>
         </button>
-        <button class="frontline-home-button" type="button" @click="handleHome">主页</button>
+        <button
+          class="frontline-home-button frontline-production-fullscreen-button"
+          type="button"
+          :aria-pressed="isProductionFullscreen"
+          @click="handleProductionFullscreenToggle"
+        >
+          {{ productionFullscreenButtonLabel }}
+        </button>
       </header>
 
       <main
@@ -744,6 +766,16 @@ const payloadPreview = ref<FrontlineTemplatePayloadVO>()
 const activePicker = ref<PickerType>()
 const deviceState = reactive(createFrontlineDeviceEmployeeState())
 const employeeTemplateCode = ref<FrontlineTemplateCode>()
+const frontlinePanelRef = ref<HTMLElement>()
+const isPqcFullscreen = ref(false)
+const pqcFullscreenActionText = computed(() =>
+  isPqcFullscreen.value ? '主页' : '最大化'
+)
+const productionScreenRef = ref<HTMLElement>()
+const isProductionFullscreen = ref(false)
+const productionFullscreenButtonLabel = computed(() =>
+  isProductionFullscreen.value ? '主页' : '最大化'
+)
 
 const expectedTemplateCode = computed<FrontlineTemplateCode>(() =>
   props.mode === 'pqc'
@@ -1562,6 +1594,78 @@ const handleHome = () => {
   router.push('/')
 }
 
+const syncPqcFullscreenState = () => {
+  isPqcFullscreen.value = document.fullscreenElement === frontlinePanelRef.value
+}
+
+const syncProductionFullscreenState = () => {
+  isProductionFullscreen.value = document.fullscreenElement === productionScreenRef.value
+}
+
+const enterPqcFullscreen = async () => {
+  const panel = frontlinePanelRef.value
+  if (!panel) {
+    throw new Error('PQC填写最大化区域尚未加载。')
+  }
+  if (typeof panel.requestFullscreen !== 'function') {
+    throw new Error('当前浏览器不支持PQC填写最大化。')
+  }
+  await panel.requestFullscreen()
+  syncPqcFullscreenState()
+}
+
+const exitPqcFullscreen = async () => {
+  if (!document.fullscreenElement) {
+    syncPqcFullscreenState()
+    return
+  }
+  if (typeof document.exitFullscreen !== 'function') {
+    throw new Error('当前浏览器不支持退出PQC填写最大化。')
+  }
+  await document.exitFullscreen()
+  syncPqcFullscreenState()
+}
+
+const handlePqcFullscreenToggle = async () => {
+  try {
+    if (isPqcFullscreen.value) {
+      await exitPqcFullscreen()
+      return
+    }
+    await enterPqcFullscreen()
+  } catch (error) {
+    message.error(resolveErrorMessage(error))
+    throw error
+  }
+}
+
+const handleProductionFullscreenToggle = async () => {
+  if (isProductionFullscreen.value) {
+    if (document.fullscreenElement === productionScreenRef.value) {
+      await document.exitFullscreen()
+    }
+    syncProductionFullscreenState()
+    return
+  }
+
+  const screen = productionScreenRef.value
+  if (!screen) {
+    message.error('生产填写最大化区域尚未加载。')
+    return
+  }
+  if (!screen.requestFullscreen) {
+    message.error('当前浏览器不支持生产填写最大化。')
+    return
+  }
+
+  try {
+    await screen.requestFullscreen()
+    syncProductionFullscreenState()
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '生产填写最大化失败')
+  }
+}
+
 const handleSelectActiveOrder = async (activeOrder: FrontlineActiveOrderVO) => {
   const processes = await selectFrontlinePqcActiveOrder(deviceState, activeOrder)
   applyActiveOrderToContext(activeOrder)
@@ -2094,6 +2198,10 @@ const resolveErrorMessage = (error: unknown) => {
 }
 
 onMounted(async () => {
+  document.addEventListener('fullscreenchange', syncPqcFullscreenState)
+  document.addEventListener('fullscreenchange', syncProductionFullscreenState)
+  syncPqcFullscreenState()
+  syncProductionFullscreenState()
   hydrateContextFromRoute()
   catalog.value = await FrontlineTemplateApi.getCatalog()
   if (isPqcMode.value) {
@@ -2114,6 +2222,14 @@ onMounted(async () => {
     await handleSelectProcess(firstProcess)
   }
   Object.assign(draft.fieldValues, buildProductionFieldValues())
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('fullscreenchange', syncProductionFullscreenState)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('fullscreenchange', syncPqcFullscreenState)
 })
 </script>
 
@@ -2145,6 +2261,110 @@ onMounted(async () => {
     grid-template-rows: 130px minmax(0, 1fr) 126px;
     min-height: 860px;
   }
+}
+
+.frontline-operator-screen:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  box-sizing: border-box;
+  border-radius: 0;
+}
+
+.frontline-operator-screen.is-frontline-fullscreen .frontline-production-fullscreen-button {
+  border-color: var(--frontline-line);
+  background: var(--frontline-dark);
+  color: #ffffff;
+}
+
+.frontline-operator-panel.is-pqc-fullscreen,
+.frontline-operator-panel:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  overflow: hidden;
+  background: #eef3ef;
+}
+
+.frontline-operator-panel.is-pqc-fullscreen .frontline-operator-screen.is-pqc,
+.frontline-operator-panel:fullscreen .frontline-operator-screen.is-pqc {
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+  grid-template-rows: 114px minmax(0, 1fr) 102px;
+  gap: 8px;
+  padding: 16px 18px 8px;
+  border-radius: 0;
+}
+
+.frontline-operator-panel.is-pqc-fullscreen .frontline-operator-top.is-pqc,
+.frontline-operator-panel:fullscreen .frontline-operator-top.is-pqc {
+  grid-template-columns: 304px 416px minmax(0, 1fr) 190px;
+  gap: 16px;
+}
+
+.frontline-operator-panel.is-pqc-fullscreen .frontline-operator-main.is-pqc,
+.frontline-operator-panel:fullscreen .frontline-operator-main.is-pqc {
+  grid-template-columns: 624px minmax(0, 1fr);
+  gap: 22px;
+}
+
+.frontline-operator-panel.is-pqc-fullscreen .frontline-work-panel,
+.frontline-operator-panel:fullscreen .frontline-work-panel {
+  padding: 22px;
+  border-width: 2px;
+  border-radius: 22px;
+
+  h3 {
+    font-size: 42px;
+  }
+}
+
+.frontline-operator-panel.is-pqc-fullscreen .frontline-top-card,
+.frontline-operator-panel.is-pqc-fullscreen .frontline-home-button,
+.frontline-operator-panel:fullscreen .frontline-top-card,
+.frontline-operator-panel:fullscreen .frontline-home-button {
+  border-width: 2px;
+  border-radius: 18px;
+}
+
+.frontline-operator-panel.is-pqc-fullscreen .frontline-top-card,
+.frontline-operator-panel:fullscreen .frontline-top-card {
+  padding: 18px 22px;
+
+  span {
+    font-size: 25px;
+  }
+
+  strong {
+    margin-top: 8px;
+    font-size: 34px;
+  }
+}
+
+.frontline-operator-panel.is-pqc-fullscreen .frontline-top-card__order,
+.frontline-operator-panel:fullscreen .frontline-top-card__order {
+  font-size: 29px !important;
+}
+
+.frontline-operator-panel.is-pqc-fullscreen .frontline-home-button,
+.frontline-operator-panel:fullscreen .frontline-home-button {
+  font-size: 38px;
+}
+
+.frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-submit-bar,
+.frontline-operator-panel:fullscreen .frontline-pqc-submit-bar {
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 20px;
+}
+
+.frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-reset-button,
+.frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-submit-button,
+.frontline-operator-panel:fullscreen .frontline-pqc-reset-button,
+.frontline-operator-panel:fullscreen .frontline-pqc-submit-button {
+  border-radius: 22px;
+  font-size: 42px;
 }
 
 .frontline-operator-top {

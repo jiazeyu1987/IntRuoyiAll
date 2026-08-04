@@ -1910,16 +1910,16 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
-        path: 'pro/feedback/edhr-batch-pqc-leader',
-        component: () => import('@/views/mes/pro/edhr-batch/BatchPqcLeaderWorkbenchPage.vue'),
-        name: 'MesProEdhrBatchPqcLeaderWorkbench',
+        path: 'pro/feedback/edhr-batch-production-leader',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchProductionLeaderWorkbenchPage.vue'),
+        name: 'MesProEdhrBatchProductionLeaderWorkbench',
         meta: {
           noCache: true,
           hidden: true,
           canTo: true,
           icon: '',
-          title: 'PQC组长',
-          activeMenu: '/mes/pro/feedback/edhr-batch-pqc-leader',
+          title: '生产组长',
+          activeMenu: '/mes/pro/feedback/edhr-batch-production-leader',
           permission: ['mes:pro-process-pool-team-leader:query']
         }
       },

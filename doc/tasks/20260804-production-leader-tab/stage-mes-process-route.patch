@@ -1,0 +1,8 @@
+diff --git a/IntRuoyiFronted/tests/e2e/mes-process-pool-team-leader-static.spec.js b/IntRuoyiFronted/tests/e2e/mes-process-pool-team-leader-static.spec.js
+--- a/IntRuoyiFronted/tests/e2e/mes-process-pool-team-leader-static.spec.js
++++ b/IntRuoyiFronted/tests/e2e/mes-process-pool-team-leader-static.spec.js
+@@ -187,2 +187,2 @@
+-assert(routes.includes("path: 'pro/feedback/edhr-batch-pqc-leader'"), 'remaining 路由必须提供独立 eDHR PQC 组长页签入口。')
+-assert(routes.includes('BatchPqcLeaderWorkbenchPage.vue'), 'PQC 组长页签必须使用专门包装页，不能显示在组长工作台内。')
++assert(routes.includes("path: 'pro/feedback/edhr-batch-production-leader'"), 'remaining 路由必须提供独立 eDHR 生产组长页签入口。')
++assert(routes.includes('BatchProductionLeaderWorkbenchPage.vue'), '生产组长页签必须使用专门包装页，不能显示在组长工作台内。')

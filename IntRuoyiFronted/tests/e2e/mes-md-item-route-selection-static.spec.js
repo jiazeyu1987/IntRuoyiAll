@@ -8,6 +8,7 @@ const exists = (file) => fs.existsSync(path.join(root, file))
 
 const itemForm = read('src/views/mes/md/item/MdItemForm.vue')
 const routeProductApi = read('src/api/mes/pro/route/product/index.ts')
+const routeApi = read('src/api/mes/pro/route/index.ts')
 const mdItemApi = read('src/api/mes/md/item/index.ts')
 
 assert(
@@ -36,7 +37,10 @@ assert.match(
 for (const token of [
   'ProRouteProductApi.getRouteProductByItem',
   'ProRouteProductApi.saveRouteProductByItem',
-  'ProRouteApi.getRouteSimpleList',
+  'ProRouteApi.getRouteItemBindingList',
+  'CommonStatusEnum.ENABLE',
+  ':disabled="isRouteOptionDisabled(route)"',
+  '当前工艺路线已启用，不能在产品侧变更或解除',
   'v-model="routeId"',
   'label="工艺路线"',
   'clearable',
@@ -58,6 +62,15 @@ assert.match(
   routeProductApi,
   /saveRouteProductByItem:\s*async \(data: ProRouteProductByItemSaveReqVO\)[\s\S]*\/mes\/pro\/route-product\/save-by-item/,
   'route-product API wrapper 必须提供按 itemId 保存/解除当前绑定。'
+)
+assert.match(
+  routeApi,
+  /getRouteItemBindingList:\s*async \(\)[\s\S]*\/mes\/pro\/route\/item-binding-list/,
+  '产品侧工艺路线下拉必须使用产品维护权限下的专用路线选择接口。'
+)
+assert(
+  !itemRouteForm.includes('getRouteSimpleList'),
+  '产品侧工艺路线下拉不能使用只返回已启用路线的 simple-list，否则会和后端“已启用路线不可维护”校验冲突。'
 )
 
 assert(

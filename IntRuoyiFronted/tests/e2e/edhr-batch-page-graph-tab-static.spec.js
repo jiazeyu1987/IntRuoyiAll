@@ -88,8 +88,8 @@ for (const nodeName of [
   '生产填写',
   'PQC填写',
   '工序池',
-  '班组长复核',
-  'PQC组长',
+  '组长工作台',
+  '生产组长',
   'FIFO分配',
   'EDHR审核副本',
   '正式批记录',
@@ -116,10 +116,16 @@ for (const route of [
   '/mes/pro/feedback/edhr-batch-execution',
   '/mes/pro/feedback/edhr-batch-production-fill',
   '/mes/pro/feedback/edhr-batch-pqc-fill',
-  '/mes/pro/feedback/edhr-batch-pqc-leader',
+  '/mes/pro/feedback/edhr-batch-production-leader',
   '/mes/pro/process-pool/review-copy'
 ]) {
   assert.match(page, new RegExp(route.replace(/\//g, '\\/')), `page graph must include official route ${route}.`)
 }
+
+assert.doesNotMatch(
+  page,
+  /route:\s*'\/mes\/pro\/feedback\/edhr-batch-pqc-leader'/,
+  'page graph must not keep the old dedicated PQC leader route when production leader is split out.'
+)
 
 console.log('PASS: eDHR batch page graph tab static contract')

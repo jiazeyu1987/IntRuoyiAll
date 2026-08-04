@@ -9,25 +9,25 @@ const exists = (relativePath) => fs.existsSync(path.join(root, relativePath))
 const router = read('src/router/modules/remaining.ts')
 const tabsPath = 'src/views/mes/pro/edhr-batch/EdhrBatchRecordTabs.vue'
 const pagePath = 'src/views/mes/pro/edhr-batch/BatchTeamLeaderWorkbenchPage.vue'
-const pqcPagePath = 'src/views/mes/pro/edhr-batch/BatchPqcLeaderWorkbenchPage.vue'
+const productionPagePath = 'src/views/mes/pro/edhr-batch/BatchProductionLeaderWorkbenchPage.vue'
 const teamLeaderPath = 'src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'
 const pageGraphPath = 'src/views/mes/pro/edhr-batch/BatchPageGraphPage.vue'
 
 assert.ok(exists(tabsPath), `${tabsPath} must exist.`)
 assert.ok(exists(teamLeaderPath), `${teamLeaderPath} must exist.`)
 assert.ok(exists(pagePath), `${pagePath} must exist.`)
-assert.ok(exists(pqcPagePath), `${pqcPagePath} must exist.`)
+assert.ok(exists(productionPagePath), `${productionPagePath} must exist.`)
 
 const tabs = read(tabsPath)
 const page = read(pagePath)
-const pqcPage = read(pqcPagePath)
+const productionPage = read(productionPagePath)
 const teamLeader = read(teamLeaderPath)
 const pageGraph = read(pageGraphPath)
 
 assert.match(tabs, /组长工作台/, 'eDHR batch tabs must include a leader workbench sub-tab.')
-assert.match(tabs, /PQC组长/, 'eDHR batch tabs must include a dedicated PQC leader sub-tab.')
+assert.match(tabs, /生产组长/, 'eDHR batch tabs must include a dedicated production leader sub-tab.')
 assert.match(tabs, /'teamLeader'/, 'eDHR batch tab union must include the teamLeader key.')
-assert.match(tabs, /'pqcLeader'/, 'eDHR batch tab union must include the pqcLeader key.')
+assert.match(tabs, /'productionLeader'/, 'eDHR batch tab union must include the productionLeader key.')
 assert.match(
   tabs,
   /teamLeader:\s*'\/mes\/pro\/feedback\/edhr-batch-team-leader'/,
@@ -35,8 +35,8 @@ assert.match(
 )
 assert.match(
   tabs,
-  /pqcLeader:\s*'\/mes\/pro\/feedback\/edhr-batch-pqc-leader'/,
-  'PQC leader tab must map to the dedicated eDHR batch PQC leader route.'
+  /productionLeader:\s*'\/mes\/pro\/feedback\/edhr-batch-production-leader'/,
+  'production leader tab must map to the dedicated eDHR batch production leader route.'
 )
 
 const routePath = "path: 'pro/feedback/edhr-batch-team-leader'"
@@ -44,13 +44,16 @@ const routeIndex = router.indexOf(routePath)
 assert.ok(routeIndex >= 0, 'eDHR batch leader workbench route must exist.')
 const nextRouteIndex = router.indexOf('\n      {', routeIndex + routePath.length)
 const routeBlock = router.slice(routeIndex, nextRouteIndex > routeIndex ? nextRouteIndex : undefined)
-const pqcRoutePath = "path: 'pro/feedback/edhr-batch-pqc-leader'"
-const pqcRouteIndex = router.indexOf(pqcRoutePath)
-assert.ok(pqcRouteIndex >= 0, 'eDHR batch PQC leader route must exist.')
-const nextPqcRouteIndex = router.indexOf('\n      {', pqcRouteIndex + pqcRoutePath.length)
-const pqcRouteBlock = router.slice(
-  pqcRouteIndex,
-  nextPqcRouteIndex > pqcRouteIndex ? nextPqcRouteIndex : undefined
+const productionRoutePath = "path: 'pro/feedback/edhr-batch-production-leader'"
+const productionRouteIndex = router.indexOf(productionRoutePath)
+assert.ok(productionRouteIndex >= 0, 'eDHR batch production leader route must exist.')
+const nextProductionRouteIndex = router.indexOf(
+  '\n      {',
+  productionRouteIndex + productionRoutePath.length
+)
+const productionRouteBlock = router.slice(
+  productionRouteIndex,
+  nextProductionRouteIndex > productionRouteIndex ? nextProductionRouteIndex : undefined
 )
 
 assert.match(routeBlock, /BatchTeamLeaderWorkbenchPage\.vue/, 'leader route must use the eDHR wrapper page.')
@@ -62,20 +65,20 @@ assert.match(
   'leader route must require the formal team-leader permission.'
 )
 assert.match(
-  pqcRouteBlock,
-  /BatchPqcLeaderWorkbenchPage\.vue/,
-  'PQC leader route must use the dedicated eDHR wrapper page.'
+  productionRouteBlock,
+  /BatchProductionLeaderWorkbenchPage\.vue/,
+  'production leader route must use the dedicated eDHR wrapper page.'
 )
 assert.match(
-  pqcRouteBlock,
-  /name:\s*'MesProEdhrBatchPqcLeaderWorkbench'/,
-  'PQC leader route name must be stable.'
+  productionRouteBlock,
+  /name:\s*'MesProEdhrBatchProductionLeaderWorkbench'/,
+  'production leader route name must be stable.'
 )
-assert.match(pqcRouteBlock, /title:\s*'PQC组长'/, 'PQC leader route title must be visible.')
+assert.match(productionRouteBlock, /title:\s*'生产组长'/, 'production leader route title must be visible.')
 assert.match(
-  pqcRouteBlock,
+  productionRouteBlock,
   /permission:\s*\['mes:pro-process-pool-team-leader:query'\]/,
-  'PQC leader route must require the formal team-leader permission.'
+  'production leader route must require the formal team-leader permission.'
 )
 
 assert.match(
@@ -85,8 +88,8 @@ assert.match(
 )
 assert.match(
   page,
-  /<TeamLeaderWorkbenchPage[\s\S]*leader-type="PRODUCTION"[\s\S]*:show-leader-type-tabs="false"/,
-  'leader wrapper page must lock the formal workbench to production leader content.'
+  /<TeamLeaderWorkbenchPage[\s\S]*leader-type="PQC"[\s\S]*:show-leader-type-tabs="false"/,
+  'leader wrapper page must lock the formal workbench to non-production leader content.'
 )
 assert.match(page, /data-edhr-batch-team-leader-page/, 'leader wrapper page must expose a stable selector.')
 assert.match(
@@ -96,25 +99,29 @@ assert.match(
 )
 assert.doesNotMatch(
   page,
-  /leader-type="PQC"|PQC 组长|PQC组长/,
-  'leader wrapper page must not render or link PQC leader content inside the group leader workbench.'
+  /leader-type="PRODUCTION"|生产组长/,
+  'leader wrapper page must not render or link production leader content inside the group leader workbench.'
 )
 
 assert.match(
-  pqcPage,
-  /<EdhrBatchRecordTabs\s+active-tab="pqcLeader"/,
-  'PQC leader wrapper page must render the shared eDHR batch tabs with pqcLeader active.'
+  productionPage,
+  /<EdhrBatchRecordTabs\s+active-tab="productionLeader"/,
+  'production leader wrapper page must render the shared eDHR batch tabs with productionLeader active.'
 )
 assert.match(
-  pqcPage,
-  /<TeamLeaderWorkbenchPage[\s\S]*leader-type="PQC"[\s\S]*:show-leader-type-tabs="false"/,
-  'PQC leader wrapper page must lock the formal workbench to PQC leader content.'
+  productionPage,
+  /<TeamLeaderWorkbenchPage[\s\S]*leader-type="PRODUCTION"[\s\S]*:show-leader-type-tabs="false"/,
+  'production leader wrapper page must lock the formal workbench to production leader content.'
 )
-assert.match(pqcPage, /data-edhr-batch-pqc-leader-page/, 'PQC leader wrapper page must expose a stable selector.')
 assert.match(
-  pqcPage,
+  productionPage,
+  /data-edhr-batch-production-leader-page/,
+  'production leader wrapper page must expose a stable selector.'
+)
+assert.match(
+  productionPage,
   /@\/views\/mes\/pro\/processpool\/TeamLeaderWorkbenchPage\.vue/,
-  'PQC leader wrapper page must import the existing formal team leader workbench component.'
+  'production leader wrapper page must import the existing formal team leader workbench component.'
 )
 assert.match(
   teamLeader,
@@ -131,13 +138,13 @@ assert.match(teamLeader, /leaderType === 'PQC'[\s\S]*PQC_SIMPLIFIED/, 'formal wo
 
 assert.match(
   pageGraph,
-  /id:\s*'team-lead-review'[\s\S]*title:\s*'班组长复核'[\s\S]*route:\s*'\/mes\/pro\/feedback\/edhr-batch-team-leader'[\s\S]*isDisabled:\s*false/,
-  'page graph team leader node must become an official clickable eDHR batch route.'
+  /id:\s*'team-lead-review'[\s\S]*title:\s*'组长工作台'[\s\S]*route:\s*'\/mes\/pro\/feedback\/edhr-batch-team-leader'[\s\S]*isDisabled:\s*false/,
+  'page graph team leader node must remain an official clickable eDHR batch route.'
 )
 assert.match(
   pageGraph,
-  /id:\s*'pqc-lead-review'[\s\S]*title:\s*'PQC组长'[\s\S]*route:\s*'\/mes\/pro\/feedback\/edhr-batch-pqc-leader'[\s\S]*isDisabled:\s*false/,
-  'page graph must expose the dedicated PQC leader review route instead of grouping it under team leader.'
+  /id:\s*'production-lead-review'[\s\S]*title:\s*'生产组长'[\s\S]*route:\s*'\/mes\/pro\/feedback\/edhr-batch-production-leader'[\s\S]*isDisabled:\s*false/,
+  'page graph must expose the dedicated production leader route instead of grouping it under team leader.'
 )
 
 console.log('PASS: eDHR batch record leader tabs static contract')

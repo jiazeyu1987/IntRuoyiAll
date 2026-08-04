@@ -22,4 +22,20 @@
 - Checked Git status: workspace is `int_main...origin/int_main [ahead 11]` with unrelated MES/task-doc changes already dirty. Current task will not touch those paths.
 - Read `docs/experience-index.md` and applied DCC approval / same-route facet / static contract gates to `task.md`.
 - Implemented `IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue` approval upload handling facet with `handling=approval&from=approval-center`.
-- Added `IntRuoyiFronted/tests/e2e/dcc-approval-upload-view-
+- Added `IntRuoyiFronted/tests/e2e/dcc-approval-upload-view-static.spec.js` and package script `e2e:dcc:approval-upload-view:static`.
+- Read `project-experience-consolidation`; existing DCC approval / same-route facet / static contract gates already cover this lesson, so no new long-term experience document was created.
+- 2026-08-04：用户后续明确要求“提交推送前后端代码”，本任务旧的 Git closeout blocker 改为按项目脏工作区基线/统一提交规则处理。
+
+## RED/GREEN Evidence
+
+- `RED: node tests/e2e/dcc-approval-upload-view-static.spec.js -> FAIL, expected reason: DCC detail must explicitly model the approval upload handling page.`
+- `GREEN: node tests/e2e/dcc-approval-upload-view-static.spec.js -> PASS`
+- `GREEN: pnpm e2e:dcc:approval-center-handling-entry:static -> PASS`
+- `GREEN: pnpm e2e:dcc:detail-retired:static -> PASS`
+- `GREEN: pnpm e2e:dcc:detail-lifecycle-timeline:static -> PASS`
+- `GREEN: node tests/e2e/dcc-traceability-ux-static.spec.js -> PASS`
+- `GREEN: pnpm ts:check -> PASS`
+
+## Blockers
+
+- 当前无实现阻塞；提交推送按本轮用户授权的合并工作区边界执行。

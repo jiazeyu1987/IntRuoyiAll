@@ -1050,6 +1050,11 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     }
 
     @Override
+    public List<MesProRouteDO> getRouteList() {
+        return routeMapper.selectList();
+    }
+
+    @Override
     public List<MesProRouteDO> getRouteListByStatus(Integer status) {
         return routeMapper.selectListByStatus(status);
     }

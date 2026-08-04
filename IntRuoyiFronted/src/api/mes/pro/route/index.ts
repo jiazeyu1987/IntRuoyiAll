@@ -277,6 +277,11 @@ export const ProRouteApi = {
     return await request.get({ url: `/mes/pro/route/simple-list` })
   },
 
+  // 查询产品侧工艺路线绑定选择列表
+  getRouteItemBindingList: async () => {
+    return await request.get({ url: `/mes/pro/route/item-binding-list` })
+  },
+
   // 查询工艺路线详情
   getRoute: async (id: number) => {
     return await request.get({ url: `/mes/pro/route/get?id=` + id })

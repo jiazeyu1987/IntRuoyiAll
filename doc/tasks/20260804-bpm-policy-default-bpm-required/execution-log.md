@@ -45,8 +45,12 @@
 - GREEN: `python -X utf8 -c "...read_text(encoding='utf-8')..."` -> PASS，5 个任务文档 UTF-8 可读。
 - PROJECT_EXPERIENCE: 已读取 `project-experience-consolidation`；本次经验已由现有“业务审批策略按配置执行门禁”和前端静态契约隔离门禁覆盖，无需新增长期经验文档。
 - CLOSEOUT_PREVIEW: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260804-bpm-policy-default-bpm-required --mode preview` -> PASS，keep 包含 task.md、execution-log.md、verification-report.md、frontend-feature-evidence.md、backend-api-evidence.md；delete/blocked/warnings 均为 `<none>`。
+- RUNTIME_RESTART: `E:\IntRuoyi\IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1 -Component backend` -> FAIL，Maven package 在 `yudao-module-dcc` testCompile 阶段大量报 `NoSuchFileException` / 找不到 DCC class，后续只读核对发现同仓存在并发 Maven 构建写入同一 `target`。
+- RUNTIME_STATE: `Get-NetTCPConnection -LocalPort 48081 -State Listen` -> `NO_LISTENER_48081`，标准重启失败后本地后端未恢复监听。
+- RUNTIME_BLOCKER: 并发 Maven PID `47680` 命令为 `-pl yudao-server -am -DskipTests package`，线程栈位于 `java.io.WinNTFileSystem.delete0 -> org.apache.maven.shared.incremental.IncrementalBuildHelper.beforeRebuildExecution`；该进程不是本次标准重启命令创建的可确认任务进程，未停止。
 
 ## Blockers
 
 - 当前工作区进入本任务前已有大量其他任务的已暂存、未暂存和未跟踪改动，且分支已领先 `origin/int_main`；本任务只触碰本次页面、现有目标静态契约和本任务文档，未执行提交/推送，避免混入无关并行任务改动。
 - Commit/push closeout remains blocked until the unrelated dirty workspace is reconciled or the user authorizes the required baseline flow.
+- Runtime restart is blocked because another same-workspace Maven package process is stuck in Windows incremental delete while `48081` is already stopped; proceeding requires explicit approval to stop PID `47680` and rerun the standard restart, or explicit approval to use the documented isolated BPM module runtime-jar update path.

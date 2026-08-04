@@ -13,23 +13,33 @@
 
 ## Reproduction
 
-- Pending RED command.
+- RED command: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProAutoScheduleAlgorithmContractTest#apply_shouldPersistBlockedIssueAndContinueSchedulableWorkOrders" "-Dsurefire.failIfNoSpecifiedTests=false" test`.
+- RED result: FAIL, expected reason: existing apply path threw `PRO_AUTO_SCHEDULE_PREFLIGHT_BLOCKED` and aborted the entire apply when selected work order `501` lacked a route, even though another selected work order was schedulable.
 
 ## Root Cause
 
-- Pending.
+- Apply preflight and schedule computation treated any BLOCKING issue as a whole-action blocker. The apply path also deleted/synced by the full requested work-order scope, so it lacked a formal healthy-vs-blocked work-order boundary for persistence and downstream updates.
 
 ## Regression Test
 
-- Pending.
+- Added `MesProAutoScheduleAlgorithmContractTest#apply_shouldPersistBlockedIssueAndContinueSchedulableWorkOrders`.
+- Added `tests/e2e/mes-pro-schedule-order-partial-replan-blockers-static.spec.js` for frontend row red state, visible reason, and partial-apply gating.
 
 ## RED
 
-- Pending.
+- RED: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProAutoScheduleAlgorithmContractTest#apply_shouldPersistBlockedIssueAndContinueSchedulableWorkOrders" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, whole-apply abort on attributable work-order blocker.
+- RED: `node tests/e2e/mes-pro-schedule-order-partial-replan-blockers-static.spec.js` -> FAIL, schedule order row type lacked `blockingIssueCount?: number`.
 
 ## GREEN
 
-- Pending.
+- GREEN: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProAutoScheduleAlgorithmContractTest#apply_shouldPersistBlockedIssueAndContinueSchedulableWorkOrders" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS before final downstream-filter patch, `BUILD SUCCESS`, 1 test, 0 failures.
+- GREEN: `node tests/e2e/mes-pro-schedule-order-partial-replan-blockers-static.spec.js` -> PASS.
+- Frontend adjacent and type checks passed as recorded in `verification-report.md`.
+
+## Verification
+
+- Verification: frontend focused static, adjacent replan static contracts, and `pnpm.cmd ts:check` passed.
+- Verification: final backend JUnit re-run remains blocked by concurrent Maven/Windows javac class-writing hang; see blockers.
 
 ## Risk And Regression Scope
 
@@ -39,4 +49,5 @@
 
 ## Blockers And Follow-Up
 
-- Pending.
+- Final backend JUnit re-run after the downstream filter patch is blocked by concurrent same-module Maven activity and a Windows javac `FileDescriptor.close0` / `ClassWriter.writeClass` hang with no Surefire output.
+- Re-run the target backend test once the shared backend Maven activity is clear.

@@ -178,6 +178,7 @@ class MesProRouteProductServiceImplTest {
         assertEquals(100L, result);
         verify(routeService).validateRouteNotEnable(199L);
         verify(routeService).validateRouteNotEnable(200L);
+        verify(routeProductBomService).deleteRouteProductBomByRouteIdAndProductId(199L, 301L);
         ArgumentCaptor<MesProRouteProductDO> productCaptor = ArgumentCaptor.forClass(MesProRouteProductDO.class);
         verify(routeProductMapper).updateById(productCaptor.capture());
         MesProRouteProductDO updated = productCaptor.getValue();

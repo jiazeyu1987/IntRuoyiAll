@@ -1,5 +1,13 @@
 # Verification Report
 
+## Runtime Restart Update
+
+- Result: BLOCKED for local `48081` runtime refresh.
+- Standard restart command `E:\IntRuoyi\IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1 -Component backend` failed during full Maven package at `yudao-module-dcc` testCompile with missing DCC classes / `NoSuchFileException`.
+- Follow-up inspection found `48081` has no listener, and another same-workspace Maven package process PID `47680` is still running `-pl yudao-server -am -DskipTests package`.
+- Thread snapshot for PID `47680` is stuck at `java.io.WinNTFileSystem.delete0 -> org.apache.maven.shared.incremental.IncrementalBuildHelper.beforeRebuildExecution`, so rerunning the standard restart now risks repeating the same shared `target` corruption.
+- Next safe action needs explicit approval: stop PID `47680` and rerun the standard restart, or use the documented isolated BPM module runtime-jar update path to restore `48081`.
+
 ## Summary
 
 - Result: PASS for corrected approval-switch-scope whitelist implementation.

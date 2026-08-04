@@ -184,8 +184,8 @@ assert(page.includes('lowerLimit') && page.includes('upperLimit'), '设备参数
 assert(!page.includes('ignoreErrorMessage: true'), '班组长页面不得静默隐藏后端错误。')
 
 assert(routes.includes("path: 'pro/process-pool/team-leader'"), 'remaining 路由必须提供班组长工作台入口。')
-assert(routes.includes("path: 'pro/feedback/edhr-batch-pqc-leader'"), 'remaining 路由必须提供独立 eDHR PQC 组长页签入口。')
-assert(routes.includes('BatchPqcLeaderWorkbenchPage.vue'), 'PQC 组长页签必须使用专门包装页，不能显示在组长工作台内。')
+assert(routes.includes("path: 'pro/feedback/edhr-batch-production-leader'"), 'remaining 路由必须提供独立 eDHR 生产组长页签入口。')
+assert(routes.includes('BatchProductionLeaderWorkbenchPage.vue'), '生产组长页签必须使用专门包装页，不能显示在组长工作台内。')
 assert(routes.includes("permission: ['mes:pro-process-pool-team-leader:query']"), '班组长工作台路由必须绑定查询权限。')
 
 console.log('mes-process-pool-team-leader-static PASS')

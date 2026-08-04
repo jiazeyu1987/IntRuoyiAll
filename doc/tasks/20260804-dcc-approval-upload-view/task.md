@@ -25,7 +25,7 @@
 
 ready_for_closeout
 
-Implementation and required verification are complete. Strict Git closeout is not executed in this turn because the workspace already has unrelated dirty files and local commits ahead of `origin/int_main`; committing or pushing from this state would risk mixing parallel task work into this task.
+Implementation and required verification are complete. User later explicitly requested committing and pushing the combined frontend/backend workspace, so the prior Git closeout blocker is resolved for this consolidated push turn.
 
 ## 设计约束检查
 

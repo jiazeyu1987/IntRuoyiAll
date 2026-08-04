@@ -72,9 +72,11 @@ const productionStart = frontlinePanel.indexOf('data-frontline-production-operat
 const productionEnd = frontlinePanel.indexOf('</footer>', productionStart)
 assert.ok(productionStart >= 0 && productionEnd > productionStart, 'production operator block must exist.')
 const productionTemplate = frontlinePanel.slice(productionStart, productionEnd)
-for (const required of ['工序', '员工', '主页', '完成数量', '损耗数量', '不良明细', '填设备', '重填', '提交']) {
+for (const required of ['工序', '员工', 'productionFullscreenButtonLabel', '完成数量', '损耗数量', '不良明细', '填设备', '重填', '提交']) {
   assert.match(productionTemplate, new RegExp(required), `production UI must include ${required}.`)
 }
+assert.match(productionTemplate, /frontline-production-fullscreen-button/, 'production UI must expose the fullscreen toggle button.')
+assert.doesNotMatch(productionTemplate, /@click="handleHome"[\s\S]*主页/, 'production UI must not expose the old Home route button.')
 assert.match(
   productionTemplate,
   /v-for="parameter in activeProductionDevice\.parameters"[\s\S]*parameter\.parameterName \|\| parameter\.parameterCode/,
@@ -90,9 +92,24 @@ assert.doesNotMatch(frontlinePanel, /frontline-no-device/, 'production UI must n
 
 const pqcTemplate = frontlinePanel.match(/data-frontline-pqc-operator[\s\S]*?<footer class="frontline-pqc-submit-bar">/)
 assert.ok(pqcTemplate, 'PQC operator block must exist.')
-for (const required of ['生产订单', '工序', '员工', '主页', '检验内容', '首检', '巡检', '末检', '检验数量', '损耗数量', '签名编号', '全部合格', '全部不良', '逐件选择']) {
+for (const required of ['生产订单', '工序', '员工', '检验内容', '首检', '巡检', '末检', '检验数量', '损耗数量', '签名编号', '全部合格', '全部不良', '逐件选择']) {
   assert.match(pqcTemplate[0], new RegExp(required), `PQC UI must include ${required}.`)
 }
+assert.match(
+  pqcTemplate[0],
+  /data-pqc-fullscreen-toggle[\s\S]*pqcFullscreenActionText/,
+  'PQC UI top action must default to 最大化 and switch to 主页 through fullscreen state.'
+)
+assert.match(
+  frontlinePanel,
+  /const pqcFullscreenActionText = computed\(\(\) =>\s*isPqcFullscreen\.value \? '主页' : '最大化'/,
+  'PQC fullscreen action text must be 最大化 before fullscreen and 主页 while fullscreen.'
+)
+assert.doesNotMatch(
+  pqcTemplate[0],
+  /@click="handleHome">主页<\/button>/,
+  'PQC UI must not show the old hard-coded home button before fullscreen.'
+)
 assert.match(
   pqcTemplate[0],
   /v-for="item in pqcInspectionItems"[\s\S]*:data-pqc-inspection-entry="item\.key"/,

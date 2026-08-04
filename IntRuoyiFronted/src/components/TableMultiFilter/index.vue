@@ -1,40 +1,65 @@
 <template>
   <div class="table-multi-filter" :data-table-key="tableKey">
-    <div class="table-multi-filter__bar">
+    <div class="table-multi-filter__tabs-row">
+      <el-button
+        class="table-multi-filter__tab-action"
+        circle
+        :disabled="conditionTabs.length === 0"
+        aria-label="删除当前筛选条件"
+        @click="removeActiveConditionTab"
+      >
+        <Icon icon="ep:minus" />
+      </el-button>
+
+      <el-tabs
+        v-if="conditionTabs.length > 0"
+        :model-value="activeConditionId"
+        class="table-multi-filter__tabs"
+        type="card"
+        @tab-change="setActiveConditionId"
+      >
+        <el-tab-pane
+          v-for="(condition, index) in conditionTabs"
+          :key="getConditionId(condition, index)"
+          :name="getConditionId(condition, index)"
+          :label="getTabLabel(condition, index)"
+        />
+      </el-tabs>
+      <div v-else class="table-multi-filter__tabs-empty">暂无筛选条件</div>
+
+      <el-button
+        class="table-multi-filter__tab-action"
+        circle
+        aria-label="新增筛选条件"
+        @click="addConditionTab"
+      >
+        <Icon icon="ep:plus" />
+      </el-button>
+    </div>
+
+    <div v-if="activeCondition && activeDefinition" class="table-multi-filter__condition-row">
+      <el-select
+        :model-value="activeCondition.key"
+        class="table-multi-filter__field-select"
+        placeholder="请选择筛选字段"
+        @update:model-value="updateActiveDefinition"
+      >
+        <el-option
+          v-for="definition in availableDefinitionsForActiveTab"
+          :key="definition.key"
+          :label="definition.label"
+          :value="definition.key"
+        />
+      </el-select>
+
       <TableMultiFilterField
-        v-for="definition in visibleDefinitions"
-        :key="definition.key"
-        :definition="definition"
-        :condition="getConditionForDefinition(definition.key)"
+        :definition="activeDefinition"
+        :condition="activeCondition"
+        :show-label="false"
         :show-operator="showOperators"
         @update="updateCondition"
         @query="onQuery"
       />
-
-      <el-popover
-        v-if="hiddenDefinitions.length > 0"
-        placement="bottom-start"
-        width="640"
-        trigger="click"
-        popper-class="table-multi-filter__popover"
-      >
-        <template #reference>
-          <el-button class="table-multi-filter__more-button">
-            更多筛选
-          </el-button>
-        </template>
-        <div class="table-multi-filter__more-panel">
-          <TableMultiFilterField
-            v-for="definition in hiddenDefinitions"
-            :key="definition.key"
-            :definition="definition"
-            :condition="getConditionForDefinition(definition.key)"
-            :show-operator="showOperators"
-            @update="updateCondition"
-            @query="onQuery"
-          />
-        </div>
-      </el-popover>
 
       <el-button type="primary" @click="onQuery">
         <Icon icon="ep:search" class="mr-5px" />
@@ -46,17 +71,8 @@
       </el-button>
     </div>
 
-    <div v-if="activeChips.length > 0" class="table-multi-filter__chips">
-      <el-tag
-        v-for="chip in activeChips"
-        :key="chip.key"
-        class="table-multi-filter__chip"
-        closable
-        @close="removeCondition(chip.key)"
-      >
-        {{ chip.label }}
-      </el-tag>
-      <el-button link type="primary" @click="clearAllConditions">清空筛选</el-button>
+    <div v-else class="table-multi-filter__condition-empty">
+      点击右侧加号新增筛选条件。
     </div>
   </div>
 </template>
@@ -66,6 +82,7 @@ import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import TableMultiFilterField from './MultiFilterField.vue'
 import {
+  getDefaultMultiFilterOperator,
   normalizeMultiFilterCondition,
   type ListMultiFilterCondition,
   type ListMultiFilterDefinition,
@@ -90,53 +107,129 @@ const emit = defineEmits<{
   'update:state': [state: ListMultiFilterState]
   query: []
   reset: []
-  remove: [key: string]
+  remove: [conditionId: string]
 }>()
 
-const visibleDefinitions = computed(() => {
-  const maxInlineFilters = Math.max(1, props.maxInlineFilters)
+const conditionTabs = computed(() => props.state.conditions || [])
+
+const definitionMap = computed(() => {
+  const map = new Map<string, ListMultiFilterDefinition>()
+  props.filterDefinitions.forEach((definition) => map.set(definition.key, definition))
+  return map
+})
+
+const getConditionId = (condition: Partial<ListMultiFilterCondition>, index = 0) =>
+  condition.id || condition.key || `condition-${index + 1}`
+
+const activeConditionId = computed(() =>
+  props.state.activeConditionId ||
+  (conditionTabs.value[0] ? getConditionId(conditionTabs.value[0], 0) : '')
+)
+
+const activeCondition = computed(() =>
+  conditionTabs.value.find(
+    (condition, index) => getConditionId(condition, index) === activeConditionId.value
+  )
+)
+
+const activeDefinition = computed(() =>
+  activeCondition.value ? definitionMap.value.get(activeCondition.value.key) : undefined
+)
+
+const availableDefinitionsForActiveTab = computed(() => {
+  const activeId = activeConditionId.value
+  const usedKeys = new Set(
+    conditionTabs.value
+      .filter((condition, index) => getConditionId(condition, index) !== activeId)
+      .map((condition) => condition.key)
+  )
   return props.filterDefinitions.filter(
-    (definition, index) =>
-      definition.defaultVisible === true ||
-      (definition.defaultVisible !== false && index < maxInlineFilters)
+    (definition) => definition.key === activeCondition.value?.key || !usedKeys.has(definition.key)
   )
 })
 
-const hiddenDefinitions = computed(() => {
-  const visibleKeys = new Set(visibleDefinitions.value.map((definition) => definition.key))
-  return props.filterDefinitions.filter((definition) => !visibleKeys.has(definition.key))
-})
+const emitState = (conditions: ListMultiFilterCondition[], activeId?: string) => {
+  const normalizedActiveId = activeId || conditions[0]?.id || conditions[0]?.key
+  emit('update:state', {
+    conditions,
+    activeConditionId: normalizedActiveId
+  })
+}
 
-const getConditionForDefinition = (key: string) =>
-  props.state.conditions.find((condition) => condition.key === key)
+const createConditionId = () => {
+  const existingIds = new Set(conditionTabs.value.map((condition, index) => getConditionId(condition, index)))
+  let index = conditionTabs.value.length + 1
+  while (existingIds.has(`condition-${index}`)) {
+    index += 1
+  }
+  return `condition-${index}`
+}
 
-const sortConditionsByDefinition = (conditions: ListMultiFilterCondition[]) => {
-  const definitionOrder = new Map<string, number>()
-  props.filterDefinitions.forEach((definition, index) => definitionOrder.set(definition.key, index))
-  return [...conditions].sort(
-    (left, right) =>
-      (definitionOrder.get(left.key) ?? Number.MAX_SAFE_INTEGER) -
-      (definitionOrder.get(right.key) ?? Number.MAX_SAFE_INTEGER)
+const getNextAvailableDefinition = () => {
+  const usedKeys = new Set(conditionTabs.value.map((condition) => condition.key))
+  return props.filterDefinitions.find((definition) => !usedKeys.has(definition.key))
+}
+
+const addConditionTab = () => {
+  const definition = getNextAvailableDefinition()
+  if (!definition) {
+    ElMessage.warning('已添加所有可用筛选字段。')
+    return
+  }
+  const conditionId = createConditionId()
+  emitState(
+    [
+      ...conditionTabs.value,
+      {
+        id: conditionId,
+        key: definition.key,
+        operator: getDefaultMultiFilterOperator(definition)
+      }
+    ],
+    conditionId
   )
+}
+
+const setActiveConditionId = (conditionId: string | number) => {
+  emitState([...conditionTabs.value], String(conditionId))
+}
+
+const removeActiveConditionTab = () => {
+  if (!activeConditionId.value) return
+  const nextConditions = conditionTabs.value.filter(
+    (condition, index) => getConditionId(condition, index) !== activeConditionId.value
+  )
+  emitState(nextConditions, nextConditions[0]?.id || nextConditions[0]?.key)
+  emit('remove', activeConditionId.value)
+}
+
+const updateActiveDefinition = (key: string | number) => {
+  const definition = definitionMap.value.get(String(key))
+  if (!definition || !activeCondition.value) return
+  const conditionId = activeConditionId.value || createConditionId()
+  const nextCondition: ListMultiFilterCondition = {
+    id: conditionId,
+    key: definition.key,
+    operator: getDefaultMultiFilterOperator(definition)
+  }
+  const nextConditions = conditionTabs.value.map((condition, index) =>
+    getConditionId(condition, index) === conditionId ? nextCondition : condition
+  )
+  emitState(nextConditions, conditionId)
 }
 
 const updateCondition = (condition: ListMultiFilterCondition) => {
-  const nextConditions = sortConditionsByDefinition([
-    ...props.state.conditions.filter((currentCondition) => currentCondition.key !== condition.key),
-    condition
-  ])
-  emit('update:state', { conditions: nextConditions })
-}
-
-const removeCondition = (key: string) => {
-  emit('update:state', {
-    conditions: props.state.conditions.filter((condition) => condition.key !== key)
-  })
-  emit('remove', key)
+  const conditionId = condition.id || activeConditionId.value
+  if (!conditionId) return
+  const nextCondition = { ...condition, id: conditionId }
+  const nextConditions = conditionTabs.value.map((currentCondition, index) =>
+    getConditionId(currentCondition, index) === conditionId ? nextCondition : currentCondition
+  )
+  emitState(nextConditions, conditionId)
 }
 
 const clearAllConditions = () => {
-  emit('update:state', { conditions: [] })
+  emit('update:state', { conditions: [], activeConditionId: undefined })
   emit('reset')
 }
 
@@ -169,20 +262,13 @@ const formatConditionValue = (
   return formatOptionValue(definition, condition.value as ListMultiFilterScalar)
 }
 
-const activeChips = computed(() => {
-  const chips: Array<{ key: string; label: string }> = []
-  for (const condition of props.state.conditions) {
-    const definition = props.filterDefinitions.find((item) => item.key === condition.key)
-    if (!definition) continue
-    const normalizedCondition = normalizeMultiFilterCondition(definition, condition)
-    if (!normalizedCondition) continue
-    chips.push({
-      key: condition.key,
-      label: `${definition.label}: ${formatConditionValue(definition, normalizedCondition)}`
-    })
-  }
-  return chips
-})
+const getTabLabel = (condition: ListMultiFilterCondition, index: number) => {
+  const definition = definitionMap.value.get(condition.key)
+  if (!definition) return `条件${index + 1}`
+  const normalizedCondition = normalizeMultiFilterCondition(definition, condition)
+  if (!normalizedCondition) return definition.label
+  return `${definition.label}: ${formatConditionValue(definition, normalizedCondition)}`
+}
 </script>
 
 <style scoped>
@@ -194,37 +280,64 @@ const activeChips = computed(() => {
   gap: 8px;
 }
 
-.table-multi-filter__bar {
+.table-multi-filter__tabs-row {
   display: flex;
-  flex-wrap: wrap;
+  min-width: 0;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
-.table-multi-filter__more-button {
+.table-multi-filter__tab-action {
+  flex: 0 0 auto;
+}
+
+.table-multi-filter__tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.table-multi-filter__tabs :deep(.el-tabs__header) {
+  margin-bottom: 0;
+}
+
+.table-multi-filter__tabs :deep(.el-tabs__nav-wrap) {
+  min-width: 0;
+}
+
+.table-multi-filter__tabs :deep(.el-tabs__item) {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.table-multi-filter__more-panel {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 16px;
+.table-multi-filter__tabs-empty {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 36px;
+  border: 1px dashed #d6deea;
+  border-radius: 6px;
+  color: #7b8794;
+  line-height: 34px;
+  padding: 0 12px;
 }
 
-.table-multi-filter__chips {
+.table-multi-filter__condition-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
-.table-multi-filter__chip {
-  max-width: 360px;
+.table-multi-filter__field-select {
+  flex: 0 0 160px;
+  min-width: 160px;
+  width: 160px;
 }
 
-@media (max-width: 1360px) {
-  .table-multi-filter__more-panel {
-    grid-template-columns: 1fr;
-  }
+.table-multi-filter__condition-empty {
+  color: #7b8794;
+  font-size: 13px;
+  line-height: 32px;
 }
 </style>

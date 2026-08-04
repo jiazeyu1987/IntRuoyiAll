@@ -64,7 +64,7 @@
 
 in_progress
 
-QA now displays through the standalone route `/mes/pro/process-pool/qa-regulation`. The current follow-up adds a formal eDHR dynamic left-menu item named `QA` between `批记录表单` and `批次执行`, with admin visibility and real menu-click verification still in progress.
+QA now displays through the standalone route `/mes/pro/process-pool/qa-regulation`. The eDHR dynamic left-menu item named `QA` has been added between `批记录表单` and `批次执行`, with SQL/static/local DB verification passed; real `芋道源码/admin` menu-click E2E is blocked until local backend `48081` is healthy.
 
 ## Design Constraints
 
@@ -123,6 +123,14 @@ QA now displays through the standalone route `/mes/pro/process-pool/qa-regulatio
 - GREEN: latest standalone real E2E rerun `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS; opened `/mes/pro/process-pool/qa-regulation`, verified `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 - Evidence JSON: `output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.json`.
 - Evidence screenshot: `output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.png`.
+- GREEN: eDHR QA menu SQL contract `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_mes_edhr_qa_menu_sql.py -q` -> PASS, `3 passed`.
+- GREEN: eDHR QA menu static route contract `node IntRuoyiFronted\tests\e2e\mes-edhr-qa-menu-static.spec.js` -> PASS.
+- GREEN: eDHR QA real E2E script syntax `node --check IntRuoyiFronted\tests\e2e\mes-edhr-qa-menu-real.e2e.js` -> PASS.
+- GREEN: local Docker MySQL verification -> `QA` menu id `900434` appears between `批记录表单` and `批次执行`; admin role bindings `3`; tenant package bindings `2`.
+- GREEN: database schema evidence validator -> PASS.
+- GREEN: frontend feature evidence validator -> PASS.
+- REVIEW: latest UTF-8 read and `git diff --check` checks -> PASS.
+- BLOCKED: real local `芋道源码/admin` menu-click E2E -> frontend `8081` is healthy, but backend `48081` refused connection and has no listener; unrelated backend restart/Maven processes are active, so no task-owned stop/restart was performed.
 
 ## Cleanup Keep
 

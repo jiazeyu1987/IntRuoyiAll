@@ -9,9 +9,9 @@
   "filteredParams": {
     "pageNo": "1",
     "pageSize": "20",
+    "completionFilter": "ALL",
     "code": "SCH-CODEX-FACTOR-20260708093210-20260710-0001",
-    "erpWorkOrderCode": "CODEX-FACTOR-20260708093210",
-    "completionFilter": "ALL"
+    "erpWorkOrderCode": "CODEX-FACTOR-20260708093210"
   },
   "resetParams": {
     "pageNo": "1",

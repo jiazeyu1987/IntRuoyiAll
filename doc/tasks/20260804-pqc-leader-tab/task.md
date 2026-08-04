@@ -6,10 +6,10 @@
 
 ## Milestones
 
-- [ ] 定位现有组长工作台与 PQC 组长内容实现边界
-- [ ] 编写最小静态合同，先证明当前 PQC 内容仍混在组长工作台中
-- [ ] 实现专门页签展示 PQC 组长内容，并从默认工作台内容中移除
-- [ ] 运行定向验证并记录 RED/GREEN/REGRESSION 证据
+- [x] 定位现有组长工作台与 PQC 组长内容实现边界
+- [x] 编写最小静态合同，先证明当前 PQC 内容仍混在组长工作台中
+- [x] 实现专门页签展示 PQC 组长内容，并从默认工作台内容中移除
+- [x] 运行定向验证并记录 RED/GREEN/REGRESSION 证据
 - [ ] 完成收尾检查、清理和最终状态记录
 
 ## Expected Verification
@@ -20,7 +20,9 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+- 实现与定向验证已完成；最终 cleanup/提交/推送受当前共享工作区既有 dirty 与 ahead 状态影响，暂未标记 completed。
 
 ## 设计约束检查
 
@@ -30,5 +32,6 @@ in_progress
 
 ## Applicable Experience Gates
 
-- 已读取 `docs/experience-index.md`；命中 PQC/班组长工作台相关经验，待定位代码后补入精确门禁摘要。
-
+- `docs/e2e-rules.md#静态合同与真实 E2E 同步门禁`：静态合同 PASS 与真实 E2E PASS 必须分开记录；本任务执行静态合同和 `pnpm ts:check`，未将静态合同冒充真实 Playwright。
+- `docs/e2e-rules.md#Windows 换行与脚本行为同步`：更新 `tests/e2e/*static.spec.js` 时按稳定文件/组件/路由标记断言，不依赖坐标或截图。
+- `docs/backend-development.md#mes-pqc-项目级检验快照门禁`：PQC 组长页继续读取 `pqcItemDetails/itemResults` 项目级明细，不恢复固定 `length/appearance/seal/pressure` 或 legacy `pqcPieceValues` 作为权威事实。

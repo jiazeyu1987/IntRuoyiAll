@@ -27,7 +27,6 @@
           :filter-definitions="multiFilterDefinitions"
           :state="resolvedMultiFilterState"
           :show-operators="showMultiFilterOperators"
-          :max-inline-filters="multiFilterMaxInlineFilters"
           @update:state="$emit('update:multiFilterState', $event)"
           @query="$emit('multi-filter-query')"
           @reset="$emit('multi-filter-reset')"
@@ -149,7 +148,6 @@ const props = withDefaults(defineProps<{
   multiFilterDefinitions?: ListMultiFilterDefinition[]
   multiFilterState?: ListMultiFilterState
   showMultiFilterOperators?: boolean
-  multiFilterMaxInlineFilters?: number
   columns: UserTableColumnState[]
   columnSaving?: boolean
   showColumnSettings?: boolean
@@ -167,7 +165,6 @@ const props = withDefaults(defineProps<{
   showMultiFilter: false,
   multiFilterDefinitions: () => [],
   showMultiFilterOperators: true,
-  multiFilterMaxInlineFilters: 4,
   showColumnSettings: true,
   showColumnReset: false
 })

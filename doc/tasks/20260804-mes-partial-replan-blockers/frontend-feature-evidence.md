@@ -22,21 +22,42 @@
 
 ## BDD Scenarios
 
-- Mixed replan scope applies healthy orders.
-- Blocked orders visible in list.
+- BDD: Mixed replan scope applies healthy orders -> Given selected rows include schedulable and blocked work orders, When the user confirms apply, Then the UI allows applying the schedulable remainder after confirming skipped rows.
+- BDD: Blocked orders visible in list -> Given a row has unresolved blocking issues, When the schedule order list renders, Then the row is red and exposes the latest blocking reason.
+
+## Acceptance
+
+- Acceptance: local frozen/finished/canceled/no-scope gates remain blocking.
+- Acceptance: global or unattributable replan blockers still disable direct apply.
+- Acceptance: attributable work-order blockers do not disable applying healthy selected work orders.
 
 ## RED
 
-- Pending.
+- RED: `node tests/e2e/mes-pro-schedule-order-partial-replan-blockers-static.spec.js` -> FAIL, expected reason: schedule order API type lacked `blockingIssueCount?: number`.
 
 ## GREEN
 
-- Pending.
+- GREEN: `node tests/e2e/mes-pro-schedule-order-partial-replan-blockers-static.spec.js` -> PASS.
+- GREEN: `node tests/e2e/mes-pro-schedule-order-replan-apply-enabled-static.spec.js` -> PASS.
+- GREEN: `node tests/e2e/mes-pro-schedule-order-replan-skipped-selected-confirm-static.spec.js` -> PASS.
+- GREEN: `node tests/e2e/mes-pro-schedule-order-replan-scope-static.spec.js` -> PASS.
+- GREEN: `node tests/e2e/mes-schedule-order-replan-single-action-static.spec.js` -> PASS.
+- GREEN: `node tests/e2e/mes-pro-schedule-order-apply-replan-toast-static.spec.js` -> PASS.
+- GREEN: `pnpm.cmd ts:check` -> PASS.
 
 ## UI Checks
 
-- Pending.
+- Blocked schedule order rows receive `schedule-order-pool__row--blocked`.
+- Latest blocking reason is visible through `schedule-order-pool__blocking-reason` and tooltip content.
+- Replan action only locks on global/unattributable blockers; attributable blockers continue to `confirmSkippedSelectedReplanRows(freshPreview)` before partial apply.
+- Apply success message includes applied, blocked, and skipped work-order counts when backend summary provides them.
+
+## Verification
+
+- Verification: focused partial-blocker static contract, adjacent replan static contracts, and TypeScript check passed.
+- Verification: broader pool/usability static contracts are blocked by unrelated concurrent changes listed below.
 
 ## Blockers
 
-- Pending.
+- `node tests/e2e/mes-pro-schedule-order-pool-static.spec.js` is blocked by unrelated missing `src/views/mes/pro/route/RouteFlowConfigPanel.vue`.
+- `node tests/e2e/mes-pro-schedule-order-usability-static.spec.js` is blocked before this task's assertions by an unrelated admission quick-filter assertion from concurrent work.

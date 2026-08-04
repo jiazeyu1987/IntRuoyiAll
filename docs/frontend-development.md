@@ -139,6 +139,15 @@
 - Forbidden action: 禁止把多个业务入口继续合并成无差别详情页；禁止用默认 `traceability=1`、按钮文案、`from=browser` 或空数组推断分面；禁止吞掉非目标接口错误来掩盖区块仍在加载。
 - Evidence: 任务 `doc/tasks/20260803-dcc-trace-signature-scope-split/`，DCC 受控浏览“追溯”和“签核”原先打开同一追溯详情，最终通过 `traceScope=trace/signature` 与 `showLifecycleTraceSections` / `showSignatureTraceSections` 拆分页面关注范围；任务 `doc/tasks/20260804-bpm-dcc-approval-compact-detail/`，BPM 流程详情旧实现通过 `BusinessFormComponent` 无条件嵌入完整 DCC 受控文件详情，导致审核人看到项目代码联动、受控浏览落位和排障信息，最终改为 BPM 层 DCC 审批摘要卡并保留文控处理页入口；任务 `doc/tasks/20260804-dcc-approval-detail-title-performance/`，BPM 详情页红框标题仍显示 `DCC Controlled File Approval` 且首屏同时请求流程图和 DCC 摘要，最终补中文标题映射、DCC 摘要独立加载，并在用户追加删除红框 Tab 后彻底移除流程图/流转记录 pane、组件和模型视图请求链路。
 
+## 前端角色内容页签拆分口径门禁
+
+- Trigger: 用户要求“某角色/某类内容专门做一个页签显示，不再显示在某工作台”，尤其涉及 `生产组长`、`PQC组长`、`leaderType`、`TeamLeaderWorkbenchPage`、eDHR 批记录页签或其它角色型工作台拆分。
+- Preflight check: 先从用户原话拆出“要拆出的角色/内容”和“原工作台保留的角色/内容”，再核对现有包装页、路由、页签 key、标题、权限和共享组件 props；若工作区已有相反方向的半成品拆分，必须先用 RED 静态合同锁定当前用户要求，不得沿用旧任务口径。
+- Blocker: 专门页签拆成了错误角色、原工作台仍传入目标角色 props、两个入口同时显示同一角色内容、旧 route/tab key/页面关系图仍指向相反角色、或静态合同只断言“有独立页签”但不验证角色 props 和原工作台负向隐藏时必须停止。
+- Verification: 聚焦静态合同必须同时断言页签 label、tab key、route path、route name/title、包装组件文件、共享组件 `leader-type` 或等价 props、原工作台 `doesNotMatch` 目标角色内容、页面关系图节点和相邻工作台合同；涉及 Vue/TS 时运行 `pnpm ts:check`。
+- Forbidden action: 禁止用 CSS 隐藏、空数据、路由别名、旧页签文案或保留旧反向 wrapper 冒充拆分完成；禁止把“PQC组长拆出去”与“生产组长拆出去”互换处理。
+- Evidence: 任务 `doc/tasks/20260804-production-leader-tab/`，基线中已有相反的 `PQC组长` 独立页签，当前需求要求 `生产组长` 独立页签，最终用静态合同先 RED 再将 `BatchProductionLeaderWorkbenchPage`、`productionLeader` 路由和组长工作台 `leader-type="PQC"` 边界锁定。
+
 ## eDHR 表单追溯可视化历史详情门禁
 
 - Trigger: eDHR 表单追溯、历史批记录入口隐藏、归档批次详情、`BatchExecutionTraceDrawer`、`review-timeline.executionReviews.formViewModel`、`EdhrExecutionReadonlyForm`、用户要求历史详情像批次执行填写页而不是纯文字。

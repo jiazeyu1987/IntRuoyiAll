@@ -62,6 +62,11 @@
 - Ran the script against local `8081/48081` before the standalone split; it logged in with the local default `芋道源码/admin` identity, opened `/mes/pro/process-pool/team-leader`, selected the former `QA 规程` tab, verified item-level source excerpts, asserted no DCC terms in the QA panel, and asserted no backend write requests.
 - Updated the QA implementation to a standalone route page: `QaRegulationPage.vue` owns `data-qa-regulation-page`, `remaining.ts` registers `/mes/pro/process-pool/qa-regulation`, `TeamLeaderWorkbenchPage.vue` keeps only `生产组长` and `PQC 组长` internal tabs, and the real E2E script now opens the standalone route directly.
 - Started the follow-up dynamic menu slice after the screenshot clarification: re-read frontend/database/login/E2E/local runtime/task rules, confirmed the current QA page already exists as a standalone route, and added the focused RED SQL contract `IntRuoyiBackend/script/tests/test_mes_edhr_qa_menu_sql.py`.
+- Re-read frontend/database/QA evidence skill contracts and local runtime/login/worktree/branch port rules for the eDHR dynamic menu follow-up.
+- Inspected `20260804_mes_edhr_qa_menu.sql`, the SQL contract, route-menu static contract, real menu-click E2E script, and `remaining.ts` route wiring.
+- Checked local runtime before real menu-click E2E: frontend `http://127.0.0.1:8081/` returned HTTP `200`; backend `http://127.0.0.1:48081/actuator/health` refused connection and no process was listening on `48081`.
+- Identified unrelated active `E:\IntRuoyi` backend restart/Maven processes for `doc\tasks\20260804-dcc-approval-upload-view` and an MES route test; did not stop them because they are not task-owned.
+- Re-ran focused menu verification contracts and local DB menu-order query after the runtime preflight.
 
 ## Verification Evidence
 
@@ -101,6 +106,16 @@
 - GREEN: 2026-08-04 follow-up E2E rerun `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS; result `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 - GREEN: standalone route static contract -> PASS; route `/mes/pro/process-pool/qa-regulation` loads `QaRegulationPage.vue`, and the workbench no longer contains a `QA 规程` internal tab.
 - RED: `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_mes_edhr_qa_menu_sql.py -q` -> FAIL, expected reason: `missing eDHR QA menu SQL migration` because `20260804_mes_edhr_qa_menu.sql` is not present yet.
+- GREEN: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_mes_edhr_qa_menu_sql.py -q` -> PASS, `3 passed`.
+- GREEN: `node IntRuoyiFronted\tests\e2e\mes-edhr-qa-menu-static.spec.js` -> PASS, `PASS eDHR QA dynamic menu static contract`.
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\mes-edhr-qa-menu-real.e2e.js` -> PASS.
+- GREEN: `node IntRuoyiFronted\tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS, `PASS role-matrix QA regulation standalone page static contract`.
+- GREEN: local Docker MySQL query -> `900365 批记录表单 sort=0`, `900434 QA sort=1`, `900033 批次执行 sort=2`, `admin_role_bindings=3`, `tenant_package_bindings=2`.
+- GREEN: database schema evidence validator -> PASS, `Database schema evidence is valid.`
+- GREEN: frontend feature evidence validator -> PASS, `Frontend feature evidence is valid.`
+- REVIEW: latest UTF-8 read check for task Markdown files -> PASS.
+- REVIEW: latest `git diff --check` for QA menu source/test/task docs -> PASS.
+- BLOCKED: real local menu-click E2E preflight -> backend `48081` refused connection while frontend `8081` was healthy; no frontend-only or API-only substitute was used.
 - GREEN: latest focused standalone contract rerun `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS.
 - GREEN: latest adjacent PQC static regression `E:\IntRuoyi\IntRuoyiFronted` `pnpm run e2e:role-matrix-pqc-dynamic-form:static` -> PASS.
 - GREEN: latest Vue type check `E:\IntRuoyi\IntRuoyiFronted` `pnpm run ts:check` -> PASS.
@@ -125,3 +140,4 @@
 - Worktree runtime/browser E2E was not started in `D:\IntRuoyiWorktree\2020804_qa` because `reserve-worktree-slot.ps1` reported no available `int_main` slot in range `1..19`; no random port or fallback runtime was used. Local `E:\IntRuoyi` browser E2E on fixed `int_main` ports `8081/48081` passed.
 - Commit/push closeout was not performed because the mandatory branch runtime port guard failed without a worktree registry entry. The registry entry could not be created because all `int_main` slots `1..19` are occupied.
 - `E:\IntRuoyi` remains dirty with unrelated DCC/NAS changes and branch divergence `int_main...origin/int_main [ahead 3, behind 2]`; QA changes are present in the int_main working tree, but a formal commit/push still requires resolving that broader repository state.
+- Real `芋道源码/admin` eDHR menu-click E2E is blocked until local backend `48081` is healthy; frontend `8081`, SQL/static contracts, and local DB bindings are verified, but no real login/menu click was claimed.

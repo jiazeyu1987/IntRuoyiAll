@@ -264,8 +264,8 @@ const graphNodes: PageNode[] = [
   {
     id: 'team-lead-review',
     order: '09',
-    title: '班组长复核',
-    description: '生产组长复核生产一线原始数据、员工切换、FIFO 分配和异常记录。',
+    title: '组长工作台',
+    description: 'PQC 组长查看和复核 PQC 检验员提交、项目明细与过程检验汇集状态。',
     kind: '复核页',
     route: '/mes/pro/feedback/edhr-batch-team-leader',
     isDisabled: false,
@@ -274,12 +274,12 @@ const graphNodes: PageNode[] = [
     tone: 'review'
   },
   {
-    id: 'pqc-lead-review',
+    id: 'production-lead-review',
     order: '10',
-    title: 'PQC组长',
-    description: 'PQC 组长专门查看和复核 PQC 检验员提交、项目明细与过程检验汇集状态。',
-    kind: '质检复核页',
-    route: '/mes/pro/feedback/edhr-batch-pqc-leader',
+    title: '生产组长',
+    description: '生产组长专门查看生产一线原始数据、员工切换、FIFO 分配和异常记录。',
+    kind: '生产复核页',
+    route: '/mes/pro/feedback/edhr-batch-production-leader',
     isDisabled: false,
     x: 772,
     y: 282,

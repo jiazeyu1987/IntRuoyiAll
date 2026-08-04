@@ -13,7 +13,6 @@
     :multi-filter-definitions="multiFilterDefinitions"
     :multi-filter-state="multiFilterState"
     :show-multi-filter-operators="showMultiFilterOperators"
-    :multi-filter-max-inline-filters="multiFilterMaxInlineFilters"
     :columns="columns"
     :column-saving="columnSaving"
     :show-column-settings="false"
@@ -130,7 +129,6 @@ defineProps({
     default: () => ({ conditions: [] })
   },
   showMultiFilterOperators: { type: Boolean, default: true },
-  multiFilterMaxInlineFilters: { type: Number, default: 4 },
   columns: { type: Array as PropType<UserTableColumnState[]>, required: true },
   columnSaving: { type: Boolean, required: true },
   total: { type: Number, required: true }

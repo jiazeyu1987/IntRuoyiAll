@@ -21,7 +21,6 @@
         :multi-filter-definitions="scheduleOrderMultiFilterDefinitions"
         :multi-filter-state="scheduleOrderMultiFilter.state"
         :show-multi-filter-operators="false"
-        :multi-filter-max-inline-filters="3"
         :columns="scheduleOrderColumns"
         :column-saving="scheduleOrderColumnSaving"
         :total="scheduleOrderTotal"
@@ -2846,6 +2845,7 @@ const scheduleOrderMultiFilter = useTableMultiFilter(
   getScheduleOrderList
 )
 scheduleOrderMultiFilter.setCondition({
+  id: 'completionFilter',
   key: 'completionFilter',
   operator: 'eq',
   value: scheduleOrderQueryParams.completionFilter
