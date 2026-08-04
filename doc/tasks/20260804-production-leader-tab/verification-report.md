@@ -35,3 +35,7 @@
 - BLOCKED: `git commit -m "feat: restore edhr dual leader tabs"` failed because the linked worktree has no port registry entry.
 - BLOCKED: `reserve-worktree-slot.ps1` cannot allocate an `int_main` slot because active slots 1..19 are full.
 - ACTION NEEDED: free or formally deactivate a stale `int_main` worktree slot, then rerun reserve, commit, cleanup preview/apply, and push.
+## Push Evidence
+
+- PASS: branch `codex/production-leader-tab-20260804` pushed to origin after temporarily clearing the unavailable GitHub proxy for that command.
+- NOTE: global Git proxy config was not changed.
