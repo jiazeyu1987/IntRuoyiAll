@@ -85,6 +85,15 @@
 - Forbidden action: 禁止用前端当前页 `Array.sort` 冒充跨页排序；禁止把任意前端字段直接拼 SQL；禁止用 `.last()` 拼接受用户控制的排序 SQL；禁止依赖数据库默认空值顺序满足用户指定语义；禁止只看表头箭头状态不看接口排序参数。
 - Evidence: 任务 `doc/tasks/20260730-dcc-product-catalog-null-sort/`，DCC 产品目录“项目名称/项目代码”旧实现只触发统一列表内部排序状态，后端仍按 `dataSource/originalRowNo` 固定排序，最终补齐 `sortField/sortOrder` 与 Mapper 白名单排序。
 
+## 审批中心路由筛选可见性门禁
+
+- Trigger: 审批中心待办/已办列表、`/approval-center/todo`、`/approval-center?moduleCode=...`、`keyword`、快速筛选控件、页面控件显示无筛选但列表为空。
+- Preflight check: 列表请求使用 route query、缓存状态或快速筛选状态时，必须把生效的 `moduleCode`、`keyword` 等条件同步到用户可见控件；模块加载失败必须保留错误并抛出，不能被后续列表请求覆盖成有效 0。
+- Blocker: URL/query 中的过滤条件仍会影响请求但页面控件为空、清空筛选未同步 route、模块列表接口异常后页面显示“0 个模块”、或静态合同只能证明接口参数存在但不能证明筛选可见时必须停止。
+- Verification: 聚焦静态合同覆盖 route filter -> quick filter 可见状态，再复跑审批中心分页保页、列表区域和分页 payload 相邻合同；涉及请求/错误链路时同步复跑目标后端 JUnit。
+- Forbidden action: 禁止在前端默认清空 query、吞掉模块错误、只隐藏空态、只改 badge 或用 API-only 证明列表正常。
+- Evidence: `doc/tasks/20260804-approval-center-todo-empty-list/verification-report.md`。
+
 ## 前端截图字号调整静态契约门禁
 
 - Trigger: 用户基于截图要求调整卡片、表格、弹窗或页面局部文字大小，尤其出现“文字大小”“字号”“放大 2 倍”“缩小一半”“卡片内文字”等表述。

@@ -178,6 +178,7 @@
 - Keywords: eDHR 右侧红框元信息, primary-fill-meta, primaryFormFillMetaItems, showPrimaryFormFillMeta, resolvePrimaryFormFillersText, 填写人 提交时间 红框, batchRecordFormNames, selected-field-detail, resolveRecordBindingSlotType, 过程检验记录误入批记录表单 -> `docs/e2e-rules.md#edhr-右侧红框元信息隐藏门禁`
 - Keywords: 表单模板升版审批, Form template upgrade requires BPM approval, FORM_TEMPLATE_UPGRADE, FORM_TEMPLATE_OBSOLETE, form-template-upgrade-v1, 业务审批策略 DIRECT 配置直通, BPM_REQUIRED 必走审批, bpm_business_approval_policy published 策略 -> `docs/backend-development.md#业务审批策略按配置执行门禁`
 - Keywords: 审批中心已办系统异常, approval-center DONE, viewType DONE, BPM_TASK_DONE, HistoricTaskInstance TASK_STATUS null, APPROVAL_RESULT_UNSUPPORTED status=null, 旧历史任务审批结果为空 -> `docs/backend-development.md#统一审批中心-bpm-已办历史状态门禁`
+- Keywords: 审批中心待办为空, approval-center TODO, viewType TODO, 左侧徽标有数量列表为空, ApprovalCenterServiceImpl total 大于 0 list 为空, APPROVAL_ADAPTER_PAGE_INCONSISTENT, moduleCode 隐藏筛选, keyword 隐藏筛选, 0 个模块 -> `docs/backend-development.md#统一审批中心待办聚合一致性门禁` and `docs/frontend-development.md#审批中心路由筛选可见性门禁`
 - Keywords: 放行负责人, 工序结束放行责任人, releaseOwnerLabel, RELEASE_APPROVE, CLOSE 关闭负责人不能放行, stageOwnerRole 执行人兜底, 角色成员均可放行 -> `docs/backend-development.md#edhr-放行负责人来源门禁`
 - 项目错误预防短记忆：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\agent-memory\project-error-prevention.md`
 

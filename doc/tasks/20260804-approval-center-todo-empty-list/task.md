@@ -21,9 +21,9 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
-实现和定向验证已完成。本任务代码和初始任务文档被共享分支基线提交 `1bd808f30 chore: baseline int_main remaining before rrm M6 merge` 带入 HEAD，该提交同时包含其它任务文件，未做历史重写或回滚。为避开主工作区并行改动和 Maven target 卡顿，已创建 task-owned detached verification worktree `D:\IntRuoyiWorktree\approval-center-todo-verify-20260804`，在干净目录通过目标 BPM JUnit 后删除，`Test-Path=False`。当前收尾提交/推送仍需处理 `int_main` 上其它任务的 ahead 提交边界。
+实现、定向验证、cleanup 和经验沉淀已完成。本任务代码和初始任务文档被共享分支基线提交 `1bd808f30 chore: baseline int_main remaining before rrm M6 merge` 带入 HEAD，该提交同时包含其它任务文件，未做历史重写或回滚。为避开主工作区并行改动和 Maven target 卡顿，已创建 task-owned detached verification worktree `D:\IntRuoyiWorktree\approval-center-todo-verify-20260804`，在干净目录通过目标 BPM JUnit 后删除，`Test-Path=False`。最终收尾提交/推送被阻塞：当前 `origin/int_main..HEAD` 包含其它任务 ahead 提交 `b59f5baf4` 和 `e9388400e`，本任务不能擅自推送 unrelated commits。
 
 ## 设计约束检查
 
@@ -37,4 +37,3 @@ ready_for_closeout
 - 适用 `docs/frontend-development.md#前端服务端分页排序链路门禁` 的分页原则：服务端分页列表不得只修当前页视觉状态，必须保证分页请求和后端聚合结果一致。
 - 适用 `docs/powershell-memory.md#共享分支并发基线提交门禁`：当前任务文件被 `1bd808f30` 混入共享基线提交，后续不得 amend/reset，只能记录事实并选择性处理本任务收尾文件。
 - 适用 `docs/worktree-memory.md#主工作区-maven-target-冲突时的隔离验证-worktree-门禁`：主工作区 Maven/Javac 卡顿后，用 task-owned detached worktree 做干净 JUnit 验证，不启动服务、不登记端口，验证后删除。
-

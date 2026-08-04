@@ -196,6 +196,15 @@
 - Forbidden action: 禁止用前端隐藏错误、空列表成功、过滤掉 legacy 已办任务、默认审批结果、或放宽所有未知状态来掩盖历史状态缺失。
 - Evidence: `doc/tasks/20260804-approval-center-done-system-exception/verification-report.md`。
 
+## 统一审批中心待办聚合一致性门禁
+
+- Trigger: 审批中心“待办”、`/approval-center/tasks/page?viewType=TODO`、左侧徽标有数量但列表为空、`ApprovalCenterServiceImpl`、provider `total > 0` 但首屏 `list` 为空、页面显示“暂无审批任务”或“0 个模块”。
+- Preflight check: 同时核对模块徽标统计、统一审批中心 provider 分页响应、全局聚合窗口和前端 route query；首屏 `pageNo=1` 时 provider 返回 `total > 0` 但 `list` 为空必须视为 adapter/query 一致性错误，而不是合法空态。
+- Blocker: 后端把 total/list 不一致返回给前端、前端隐藏查询条件导致用户看不到过滤状态、模块列表接口失败被后续请求覆盖为有效 0、或测试只断言空态文案不核对 provider 总数时必须停止。
+- Verification: 后端回归覆盖 inconsistent provider 首屏 fail-fast，并复跑 `ApprovalCenterServiceImplTest`；前端静态合同覆盖 route `moduleCode` / `keyword` 同步到可见筛选控件，并复跑审批中心分页/列表相邻合同。
+- Forbidden action: 禁止用前端空列表兜底、默认清空筛选、吞模块接口异常、过滤掉 provider 行、或只改徽标数量来掩盖正式待办数据链路不一致。
+- Evidence: `doc/tasks/20260804-approval-center-todo-empty-list/verification-report.md`。
+
 ## 业务审批策略按配置执行门禁
 
 ### 表单模板升版/作废审批模式以 published 策略为准

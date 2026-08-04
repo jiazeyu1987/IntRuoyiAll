@@ -26,6 +26,7 @@
 - GREEN: `node tests/e2e/approval-center-pagination-preserve-page-static.spec.js` -> PASS.
 - GREEN: `node tests/e2e/approval-center-fill-list-area-static.spec.js` -> PASS.
 - GREEN: `node tests/e2e/approval-center-pagination-event-payload-static.spec.js` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260804-approval-center-todo-empty-list/bug-regression-evidence.md` -> PASS, `Bug regression evidence is valid.`
 - BLOCKED: `pnpm exec eslint --ext .js,.ts,.vue src/views/approval-center/index.vue tests/e2e/approval-center-route-filter-visible-static.spec.js` and retry with explicit `--ext=.js --ext=.ts --ext=.vue` both exceeded 60s with no output and had to be stopped by task-owned process chain. This is recorded as a tool/runtime blocker, not a pass.
 
 ## Implementation Notes
@@ -42,7 +43,13 @@
 - Did not start frontend/backend services and did not use ports; no slot registration was required.
 - Removed via `git worktree remove --force D:\IntRuoyiWorktree\approval-center-todo-verify-20260804`; final `Test-Path=False`.
 
+## Cleanup And Experience
+
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260804-approval-center-todo-empty-list --mode preview` -> keep `task.md`, `execution-log.md`, `verification-report.md`; delete `bug-regression-evidence.md`; no blocked paths or warnings.
+- Cleanup apply: same command with `--mode apply` -> deleted `bug-regression-evidence.md`; kept core task records.
+- Experience consolidation: updated `docs/backend-development.md#统一审批中心待办聚合一致性门禁`, `docs/frontend-development.md#审批中心路由筛选可见性门禁`, and `docs/experience-index.md` keyword route.
+- Keyword verification: `rg "审批中心待办为空|统一审批中心待办聚合一致性|审批中心路由筛选可见性" docs` -> found backend gate, frontend gate, and index route.
+
 ## Remaining Blockers
 
 - Commit/push closeout is not yet safe from this task context because `origin/int_main..HEAD` contains unrelated ahead commits `b59f5baf4` and `e9388400e` from other tasks. Pushing now would publish unrelated task work; rewriting/resetting is forbidden.
-
