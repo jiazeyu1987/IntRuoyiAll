@@ -11,7 +11,9 @@
 - [x] 先补充 RED 静态契约覆盖当前节点绿色显示
 - [x] 实现最小前端样式/状态映射修改
 - [x] 运行 GREEN/回归验证并记录证据
-- [ ] 收尾、经验沉淀、提交并推送
+- [x] cleanup preview/apply 和经验沉淀
+- [x] 推送实现提交到 `origin/int_main`
+- [x] 提交并推送最终收尾记录
 
 ## Expected Verification
 
@@ -21,9 +23,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-实现和验证已完成，等待 cleanup preview/apply、经验沉淀、提交和推送。
+实现、验证、cleanup、经验沉淀、提交和推送均已完成。
 
 ## 设计约束检查
 
@@ -37,3 +39,9 @@ ready_for_closeout
 - 前端开发规则：保持现有 Vue/TypeScript/Element Plus 模式，不扩大权限、路由、API 或状态流。
 - DCC 文控审批处理入口门禁：审批处理页必须保留正式 BPM/DCC 入口，不用 viewer、API-only 或隐藏错误替代真实流程状态。
 - 前端静态契约隔离门禁：本任务使用目标静态契约验证当前节点颜色映射，`pnpm ts:check` 已通过。
+- 前端 BPM 审批时间轴当前节点高亮门禁：已沉淀到 `docs/frontend-development.md` 并在 `docs/experience-index.md` 增加关键词路由。
+
+## Final Commit And Push
+
+- 实现和经验沉淀已随并行基线提交 `6f9ed0e83 chore: baseline existing workspace changes` 推送到 `origin/int_main`。
+- 最终收尾记录单独提交并推送，未混入当前工作区其它未提交任务改动。
