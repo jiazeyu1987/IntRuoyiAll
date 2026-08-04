@@ -7,6 +7,41 @@ const workspaceRoot = path.resolve(frontendRoot, '..')
 const backendRoot = path.join(workspaceRoot, 'IntRuoyiBackend')
 const packageJsonPath = path.join(frontendRoot, 'package.json')
 const realFlowPath = path.join(frontendRoot, 'tests/e2e/role-requirement-matrix-real-flow.e2e.js')
+const remainingRouterPath = path.join(frontendRoot, 'src/router/modules/remaining.ts')
+const teamLeaderWorkbenchPath = path.join(
+  frontendRoot,
+  'src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'
+)
+const teamLeaderApiPath = path.join(frontendRoot, 'src/api/mes/pro/processpool/teamLeader.ts')
+const processPoolApiPath = path.join(frontendRoot, 'src/api/mes/pro/processpool/index.ts')
+const timelineFilterTestPath = path.join(
+  backendRoot,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/ProcessPoolTimelineFilterTest.java'
+)
+const activeOrderServiceTestPath = path.join(
+  backendRoot,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderServiceTest.java'
+)
+const activeOrderTransferTraceServiceTestPath = path.join(
+  backendRoot,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesActiveOrderTransferTraceServiceTest.java'
+)
+const teamLeaderOrderProcessCompletionServiceTestPath = path.join(
+  backendRoot,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderOrderProcessCompletionServiceTest.java'
+)
+const teamLeaderBatchRecordBackfillServiceTestPath = path.join(
+  backendRoot,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderBatchRecordBackfillServiceTest.java'
+)
+const edhrReleaseServiceTestPath = path.join(
+  backendRoot,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrReleaseServiceImplTest.java'
+)
+const frontlinePqcContextServiceTestPath = path.join(
+  backendRoot,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlinePqcContextServiceTest.java'
+)
 const activeOrderAuthorityMigrationPath = path.join(
   backendRoot,
   'sql/mysql/20260802_mes_process_pool_active_order_authority.sql'
@@ -23,7 +58,8 @@ const plannedStaticScripts = {
   'e2e:role-matrix-transfer-start-check:static': 'tests/e2e/role-matrix-transfer-start-check-static.spec.cjs',
   'e2e:role-matrix-daily-close-scope:static': 'tests/e2e/role-matrix-daily-close-scope-static.spec.cjs',
   'e2e:role-matrix-migration-preflight:static': 'tests/e2e/role-matrix-migration-preflight-static.spec.cjs',
-  'e2e:role-matrix-pqc-d32-fixture:static': 'tests/e2e/role-matrix-pqc-d32-fixture-static.spec.cjs'
+  'e2e:role-matrix-pqc-d32-fixture:static': 'tests/e2e/role-matrix-pqc-d32-fixture-static.spec.cjs',
+  'e2e:role-matrix-pqc-rerun-fixture:static': 'tests/e2e/role-matrix-pqc-rerun-fixture-static.spec.cjs'
 }
 
 assert.equal(
@@ -43,6 +79,10 @@ assert.equal(
 )
 
 assert.ok(fs.existsSync(realFlowPath), 'role-requirement-matrix real Playwright E2E script must exist.')
+assert.ok(fs.existsSync(remainingRouterPath), 'remaining.ts must exist for hidden real-page routes.')
+assert.ok(fs.existsSync(teamLeaderWorkbenchPath), 'PQC team leader workbench page must exist.')
+assert.ok(fs.existsSync(teamLeaderApiPath), 'team-leader API wrapper must exist.')
+assert.ok(fs.existsSync(processPoolApiPath), 'process-pool timeline API types must exist.')
 assert.ok(
   fs.existsSync(activeOrderAuthorityMigrationPath),
   'M1 active-order authority migration must exist before the real source blocker check can clear RRM-BLK-006.'
@@ -50,6 +90,14 @@ assert.ok(
 assert.ok(
   fs.existsSync(activeOrderProcessSnapshotMigrationPath),
   'M2 active-order process snapshot migration must exist before the production coefficient blockers can clear.'
+)
+assert.ok(
+  fs.existsSync(activeOrderTransferTraceServiceTestPath),
+  'AC-M07 must have a runnable transfer-trace service test, not only schema/static proof.'
+)
+assert.ok(
+  fs.existsSync(edhrReleaseServiceTestPath),
+  'AC-M23 must have a runnable eDHR release service test, not only real-flow catalog text.'
 )
 for (const [scriptName, relativeFile] of Object.entries(plannedStaticScripts)) {
   assert.equal(
@@ -64,6 +112,17 @@ for (const [scriptName, relativeFile] of Object.entries(plannedStaticScripts)) {
 }
 
 const source = fs.readFileSync(realFlowPath, 'utf8')
+const remainingRouterSource = fs.readFileSync(remainingRouterPath, 'utf8')
+const teamLeaderSource = fs.readFileSync(teamLeaderWorkbenchPath, 'utf8')
+const teamLeaderApiSource = fs.readFileSync(teamLeaderApiPath, 'utf8')
+const processPoolApiSource = fs.readFileSync(processPoolApiPath, 'utf8')
+const timelineFilterTestSource = fs.readFileSync(timelineFilterTestPath, 'utf8')
+const activeOrderServiceTestSource = fs.readFileSync(activeOrderServiceTestPath, 'utf8')
+const activeOrderTransferTraceServiceTestSource = fs.readFileSync(activeOrderTransferTraceServiceTestPath, 'utf8')
+const teamLeaderOrderProcessCompletionServiceTestSource = fs.readFileSync(teamLeaderOrderProcessCompletionServiceTestPath, 'utf8')
+const teamLeaderBatchRecordBackfillServiceTestSource = fs.readFileSync(teamLeaderBatchRecordBackfillServiceTestPath, 'utf8')
+const edhrReleaseServiceTestSource = fs.readFileSync(edhrReleaseServiceTestPath, 'utf8')
+const frontlinePqcContextServiceTestSource = fs.readFileSync(frontlinePqcContextServiceTestPath, 'utf8')
 
 for (const token of [
   'RRM_FRONTEND_URL',
@@ -84,6 +143,28 @@ for (const token of [
 ]) {
   assert.match(source, new RegExp(token), `real E2E preflight must require ${token}.`)
 }
+
+assert.match(
+  source,
+  /function readText\(filePath\)[\s\S]*?replace\(\s*\/\\r\\n\/g,\s*['"]\\n['"]\s*\)/,
+  'real E2E source checks must normalize CRLF to LF before regex parsing on Windows.'
+)
+
+assert.match(
+  source,
+  /async function waitForPostLoginNavigationSettled\(page,\s*roleKey\)[\s\S]*?waitForURL\(/,
+  'real E2E login must wait for the post-login SPA redirect before later page.goto calls.'
+)
+assert.match(
+  source,
+  /async function login\(page,\s*config,\s*roleKey,\s*role\)[\s\S]*?waitForPostLoginNavigationSettled\(page,\s*roleKey\)/,
+  'login() must settle post-login navigation so final cleanup page.goto cannot be aborted by a pending redirect.'
+)
+assert.match(
+  source,
+  /async function runFinalActiveOrderCleanup\(browser,\s*config,\s*actionEvidence\)[\s\S]*?return await verifyActiveOrderCleanupTraceability\(page,\s*config,\s*joinEvidence\)/,
+  'runFinalActiveOrderCleanup() must await cleanup verification before closing the Playwright context.'
+)
 
 for (const token of [
   'collectSourceBlockers',
@@ -136,28 +217,80 @@ for (const token of [
   'E2E_PQC_TASK_SOURCE',
   'verifyPqcRegulationItemsRendered',
   'pqcRegulationItemsRendered',
+  'verifyQaRegulationPublishedVersionReadOnly',
+  'qaRegulationPublishedVersionReadOnly',
+  'E2E_QA_REGULATION_PAGE',
   'verifyPqcPieceDetailQuantityPrepared',
   'pqcPieceDetailQuantityPrepared',
   'verifyPqcFormalSubmissionCreatesEvent',
   'pqcFormalSubmissionCreated',
   'resolveUnusedPqcSignatureId',
   'collectConfiguredSignatureIds',
+  'isPqcSignaturePoolRole',
   'E2E_PQC_SIGNATURE_POOL',
   'verifyPqcLeaderSubmissionFilterPaginationConsistency',
   'pqcLeaderSubmissionFilterPaginationConsistent',
+  'verifyPqcLeaderSubmissionDetailTraceability',
+  'pqcLeaderSubmissionDetailTraceable',
+  'verifyPqcLeaderSubmissionDetailUnauthorizedBlocked',
+  'pqcLeaderSubmissionDetailUnauthorizedBlocked',
+  'E2E_PQC_DETAIL_PERMISSION',
+  'verifyPqcLeaderReviewApprovalAggregatesProcessInspection',
+  'pqcLeaderReviewApprovedAndAggregated',
+  'verifyPqcLeaderDuplicateTerminalReviewBlocked',
+  'pqcLeaderDuplicateTerminalReviewBlocked',
+  'E2E_PQC_REVIEW_TERMINAL',
+  'verifyPqcLeaderSelfReviewBlocked',
+  'pqcLeaderSelfReviewBlocked',
+  'PRO_PROCESS_POOL_SUBMISSION_REVIEW_SELF_FORBIDDEN',
+  'E2E_PQC_REVIEW_SELF',
+  'verifyPqcLeaderRejectedCorrectionChain',
+  'pqcLeaderRejectedCorrectionChain',
+  'preparePqcRejectedCorrectionCandidate',
+  'E2E_PQC_REJECT_CORRECTION',
+  '/mes/pro/process-pool/event-revision/update-original',
+  'revisionSignatureId',
+  'modificationHistorySummary',
+  'processInspectionAggregationStatus',
+  'processInspectionReviewId',
+  'processInspectionAggregatedAt',
+  'resolveRoleUserId',
+  'reviewerUserId',
+  'excludedReviewerUserIds',
+  'E2E_PQC_PERSONNEL_REVIEWER',
   'verifyPqcActualEmployeeSwitch',
   'pqcActualEmployeeSelected',
   'verifyActiveOrderUnauthorizedMutationBlocked',
   'activeOrderUnauthorizedMutationBlocked',
   'unauthorizedActor',
   'verifyActiveOrderCleanupTraceability',
-  'activeOrderCleanupDeferred',
+  'runFinalActiveOrderCleanup',
+  'activeOrderCleanupCompleted',
+  'verifyEdhrReleaseTraceabilityReadOnly',
+  'edhrReleaseTraceabilityReadOnly',
+  'prepareEdhrReleaseBatchExecutionViaRealPage',
+  '/mes/pro/feedback/edhr-batch-execution?prefillWorkOrderCode=',
+  '/mes/pro/edhr-batch-execution/open-or-create',
+  '/mes/pro/edhr-release/precheck',
+  '/mes/pro/edhr-release/page',
+  '/mes/pro/edhr-release/check-item/page',
+  '/mes/pro/edhr-release/event/page',
   'buildM6ConcurrencyPerformanceGateEvidence',
+  'collectM6ConcurrencyProofs',
+  'hasCompleteM6ConcurrencyGateEvidence',
+  'concurrencyProofs',
+  'observedConcurrencyAcceptanceIds',
+  'provedConcurrencyAcceptanceIds',
+  'missingConcurrencyAcceptanceIds',
   'buildGateBlockers',
   'm6ConcurrencyGateDeferred',
+  'm6ConcurrencyGateVerified',
   'm6PerformanceGateDeferred',
   'E2E_CONCURRENCY',
   'E2E_PERFORMANCE',
+  'AC-M23',
+  'AC-D12',
+  'AC-D38',
   'gateEvidence',
   '/system/auth/get-permission-info',
   'actionEvidence',
@@ -176,11 +309,220 @@ for (const token of [
   '/mes/pro/feedback/frontline/device-account/pqc/personnel',
   '/mes/pro/feedback/frontline/device-account/pqc/switch-employee',
   '/mes/pro/feedback/frontline/device-account/pqc/submit',
+  '/mes/pro/process-pool/team-leader/submission/review',
   'writeEvidence',
   'failFast'
 ]) {
   assert.match(source, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `real E2E script must include ${token}.`)
 }
+
+assert.match(
+  source,
+  /async function verifyPqcLeaderSubmissionDetailTraceability[\s\S]*\/mes\/pro\/process-pool\/team-leader\/submission\/detail[\s\S]*originalPayloadJson[\s\S]*pqcPieceValues[\s\S]*data-team-leader-structured-detail[\s\S]*data-pqc-submission-log[\s\S]*signatureId/,
+  'real E2E must prove AC-D33 with the real PQC leader detail drawer, team-leader detail API, original payload, piece details, and signature snapshot.'
+)
+assert.match(
+  source,
+  /async function verifyPqcLeaderSubmissionDetailTraceability[\s\S]*detailButtonVisible[\s\S]*detailButton[\s\S]*\.waitFor\(\{ state: 'visible'[\s\S]*\.catch\(\(error\) => \(\{ detailButtonError: error \}\)\)[\s\S]*E2E_PQC_DETAIL_PAGE/,
+  'AC-D33 detail button visibility failures must become structured E2E_PQC_DETAIL_PAGE blockers instead of unstructured locator timeouts.'
+)
+assert.match(
+  source,
+  /async function verifyPqcLeaderSubmissionDetailUnauthorizedBlocked[\s\S]*unauthorizedActor[\s\S]*\/mes\/pro\/process-pool\/team-leader\/submission\/detail[\s\S]*!result\.ok \|\| !isBusinessSuccess\(result\.body\)[\s\S]*E2E_PQC_DETAIL_PERMISSION/,
+  'real E2E must prove AC-D33 detail permission isolation with a dedicated unauthorized actor and the formal team-leader detail endpoint.'
+)
+assert.match(
+  source,
+  /async function completePqcPieceDetailsForSubmission[\s\S]*getByRole\('button',\s*\{\s*name:\s*\/\^全部合格\$\/\s*\}\)/,
+  'real E2E must click the visible 全部合格 bulk button so every choice inspection item receives non-empty pqcPieceValues.'
+)
+assert.match(
+  source,
+  /async function findPqcLeaderSubmissionRowByTaskAndSignature[\s\S]*Number\(item\.pqcTaskId\)\s*===\s*Number\(submittedTaskId\)[\s\S]*Number\(item\.electronicSignatureId\)\s*===\s*Number\(signatureId\)/,
+  'PQC formal-submission E2E must identify the newly-created event by both submitted taskId and configured signatureId, not by reused taskId alone.'
+)
+assert.match(
+  source,
+  /key:\s*'releaseOwnerEntry'[\s\S]*actionKey:\s*'verifyEdhrReleaseTraceabilityReadOnly'[\s\S]*acceptanceIds:\s*\['AC-M22',\s*'AC-M23'\]/,
+  'M6 release owner phase must run a dedicated eDHR release traceability action for AC-M22/AC-M23 instead of borrowing another role action.'
+)
+assert.doesNotMatch(
+  source,
+  /key:\s*'releaseOwnerEntry'[\s\S]*actionKey:\s*'verifyActiveOrderUnauthorizedMutationBlocked'/,
+  'M6 release owner phase must not reuse the active-order unauthorized mutation action as AC-M22/AC-M23 evidence.'
+)
+assert.match(
+  source,
+  /async function verifyEdhrReleaseTraceabilityReadOnly[\s\S]*loadEdhrReleasePage[\s\S]*loadEdhrReleaseCheckItemPage[\s\S]*loadEdhrReleaseEventPage/,
+  'M6 release traceability action must prove the real release page plus release list, check-item, and event read models.'
+)
+assert.match(
+  source,
+  /async function prepareEdhrReleaseBatchExecutionViaRealPage[\s\S]*const dialog = leaderPage\.locator\('\.el-dialog:visible'\)\.filter\(\{ hasText: '打开或创建 eDHR 批次执行' \}\)\.first\(\)[\s\S]*const autoOpenedDialog = await dialog\.waitFor\(\{ state: 'visible', timeout: 5000 \}\)\.then\(\(\) => true\)\.catch\(\(\) => false\)[\s\S]*if \(!autoOpenedDialog\)[\s\S]*getByRole\('button', \{ name: '打开\/创建' \}\)\.first\(\)[\s\S]*await dialog\.waitFor\(\{ state: 'visible', timeout: 30000 \}\)/,
+  'M6 release preparation must reuse the prefill auto-open dialog before clicking the underlying 打开/创建 button, otherwise Element Plus overlay intercepts the real click.'
+)
+assert.match(
+  remainingRouterSource,
+  /path:\s*'pro\/feedback\/edhr-release'[\s\S]*component:\s*\(\)\s*=>\s*import\('@\/views\/mes\/pro\/edhr-release\/ReleasePage\.vue'\)[\s\S]*name:\s*'MesProEdhrReleasePage'[\s\S]*permission:\s*\['mes:pro-edhr-release:query'\]/,
+  'M6 release traceability real-page action requires a hidden remaining route for /mes/pro/feedback/edhr-release using the formal ReleasePage component and query permission.'
+)
+assert.match(
+  source,
+  /if \(phase\.actionKey === 'verifyEdhrReleaseTraceabilityReadOnly'\)[\s\S]*verifyEdhrReleaseTraceabilityReadOnly\(page,\s*config/,
+  'M6 runPhaseAction must dispatch the release owner phase to the dedicated eDHR release action.'
+)
+assert.match(
+  source,
+  /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*verifyActiveOrderTransferTraceReadOnly\(page,\s*config,\s*joinEvidence\)[\s\S]*return \[joinEvidence,\s*conflictRouteEvidence,\s*transferTraceEvidence,\s*dailyCloseEvidence\]/,
+  'Production leader phase must read the active-order transfer/shipment/replenishment/return trace after joining the active order and before daily-close evidence.'
+)
+const activeOrderTransferTraceActionSource = source.match(
+  /async function verifyActiveOrderTransferTraceReadOnly[\s\S]*?async function verifyPqcActiveOrderReadOnly/
+)
+assert.ok(activeOrderTransferTraceActionSource, 'AC-M07 transfer trace real E2E action must exist.')
+for (const token of [
+  'activeOrderTransferTraceReadOnly',
+  'data-team-leader-active-order-transfer-trace',
+  '/mes/pro/process-pool/team-leader/active-order/transfer-trace',
+  'sourceType',
+  'sourceObjectCode',
+  'sourceStatus',
+  'quantity',
+  'materialStockId',
+  'batchId',
+  'idempotencyKey',
+  'mutationRequestCount'
+]) {
+  assert.match(
+    activeOrderTransferTraceActionSource[0],
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `AC-M07 transfer trace real E2E action must prove ${token}.`
+  )
+}
+assert.match(
+  activeOrderTransferTraceActionSource[0],
+  /const acceptanceIds = \['AC-M02',\s*'AC-M05',\s*'AC-M07',\s*'AC-M08'\]/,
+  'active-order transfer trace read-only action must map to ERP transfer/shipment/replenishment/return ACs.'
+)
+assert.match(
+  source,
+  /function parsePositiveIntegerEnvList[\s\S]*transferIds:\s*parsePositiveIntegerEnvList\(envValue\('RRM_TRANSFER_IDS'\),\s*'RRM_TRANSFER_IDS'\)/,
+  'real E2E must parse RRM_TRANSFER_IDS into formal transferIds before joining the active order.'
+)
+assert.match(
+  source,
+  /performActiveOrderJoin[\s\S]*fillFormItemForAction\(section,\s*'加入活跃订单',\s*'调拨单ID列表',\s*config\.transferIds\.join\(','\)\)/,
+  'real E2E must submit formal transferIds through the visible active-order join form.'
+)
+
+for (const token of [
+  'processInspectionAggregationStatus',
+  'processInspectionReviewId',
+  'processInspectionAggregatedAt'
+]) {
+  assert.match(processPoolApiSource, new RegExp(token), `process-pool API type must expose ${token}.`)
+}
+
+assert.match(
+  teamLeaderSource,
+  /data-team-leader-review-event-id/,
+  'PQC review buttons must expose a stable event-id selector for real-page review verification.'
+)
+assert.match(
+  teamLeaderSource,
+  /data-team-leader-detail-event-id/,
+  'PQC detail buttons must expose a stable event-id selector for real-page detail traceability verification.'
+)
+assert.match(
+  teamLeaderSource,
+  /data-team-leader-correction-event-id/,
+  'PQC correction buttons must expose a stable event-id selector for AC-D30 rejected correction verification.'
+)
+assert.match(
+  teamLeaderSource,
+  /data-pqc-submission-signature-id/,
+  'PQC detail drawer must visibly render the submitted signature id for AC-D33 traceability.'
+)
+assert.match(
+  teamLeaderSource,
+  /data-pqc-process-inspection-aggregation/,
+  'PQC team leader page must render process-inspection aggregation status visibly.'
+)
+const teamLeaderTransferTraceApiSource = teamLeaderApiSource.match(
+  /export interface TeamLeaderActiveOrderTransferTraceRespVO[\s\S]*?export interface TeamLeaderReportAllocationLine/
+)
+assert.ok(
+  teamLeaderTransferTraceApiSource,
+  'team-leader API wrapper must type the formal active-order transfer trace response.'
+)
+assert.match(
+  teamLeaderApiSource,
+  /export interface TeamLeaderActiveOrderAddReqVO[\s\S]*transferIds\?: number\[\]/,
+  'team-leader active-order add API payload must carry optional formal transferIds.'
+)
+for (const token of [
+  'sourceType',
+  'sourceObjectCode',
+  'sourceStatus',
+  'quantity',
+  'materialStockId',
+  'batchId',
+  'idempotencyKey'
+]) {
+  assert.match(
+    teamLeaderTransferTraceApiSource[0],
+    new RegExp(token),
+    `team-leader API wrapper must type active-order transfer trace ${token}.`
+  )
+}
+assert.match(
+  teamLeaderApiSource,
+  /getTeamLeaderActiveOrderTransferTrace[\s\S]*\/mes\/pro\/process-pool\/team-leader\/active-order\/transfer-trace[\s\S]*activeOrderId/,
+  'team-leader API wrapper must call the formal read-only active-order transfer trace endpoint.'
+)
+assert.match(
+  teamLeaderSource,
+  /<el-form-item label="调拨单ID列表" data-team-leader-active-order-transfer-ids>[\s\S]*v-model="activeOrderForm\.transferIdsText"/,
+  'team leader workbench must expose a visible formal transferIds field.'
+)
+assert.match(
+  teamLeaderSource,
+  /const parsePositiveIntegerList = \(value: string, label: string\)[\s\S]*Number\.isInteger\(parsed\)[\s\S]*throw new Error\(`\$\{label\}只能包含大于 0 的整数 ID`\)/,
+  'team leader workbench must validate transferIds as positive integer IDs.'
+)
+assert.match(
+  teamLeaderSource,
+  /transferIds:\s*parsePositiveIntegerList\(activeOrderForm\.transferIdsText,\s*'调拨单ID列表'\)/,
+  'team leader workbench must submit visible transferIds as validated transferIds.'
+)
+const teamLeaderTransferTraceViewSource = teamLeaderSource.match(
+  /data-team-leader-active-order-transfer-trace[\s\S]*?<\/el-table>/
+)
+assert.ok(
+  teamLeaderTransferTraceViewSource,
+  'team leader workbench must visibly render a read-only active-order transfer trace table.'
+)
+for (const token of [
+  'activeOrderTransferTraceRows',
+  'sourceType',
+  'sourceObjectCode',
+  'sourceStatus',
+  'quantity',
+  'materialStockId',
+  'batchId',
+  'idempotencyKey'
+]) {
+  assert.match(
+    teamLeaderTransferTraceViewSource[0],
+    new RegExp(token),
+    `team leader workbench transfer trace table must render ${token}.`
+  )
+}
+assert.match(
+  teamLeaderSource,
+  /getTeamLeaderActiveOrderTransferTrace[\s\S]*Promise\.all[\s\S]*activeOrderOptions\.value\.map/,
+  'team leader workbench must load trace rows from active-order ids returned by the formal active-order list.'
+)
 
 const forbiddenSuccessPattern = new RegExp(['mo' + 'ck', 'placeholder suc' + 'cess', 'default suc' + 'cess'].join('|'), 'i')
 assert.doesNotMatch(source, forbiddenSuccessPattern, 'real E2E must not contain fake success paths.')
@@ -202,22 +544,320 @@ assert.match(
 )
 assert.match(
   source,
-  /async function verifyPqcLeaderSubmissionFilterPaginationConsistency[\s\S]*getByRole\('tab',\s*\{\s*name:\s*'PQC 组长'\s*\}\)\.click\(\)[\s\S]*data-pqc-leader-filter-product/,
+  /async function searchPqcLeaderSubmissionsOnPage[\s\S]*getByRole\('tab',\s*\{\s*name:\s*'PQC 组长'\s*\}\)\.click\(\)[\s\S]*data-pqc-leader-filter-product/,
   'PQC leader submission filter E2E must switch to the PQC leader tab before locating PQC-only filters.'
+)
+assert.match(
+  source,
+  /async function searchPqcLeaderSubmissionsOnPage[\s\S]*fillFormItem\(section,\s*'提交日期',\s*filters\.submitDate\)[\s\S]*fillFormItem\(section,\s*'生产工单',\s*filters\.workOrderCode\)/,
+  'PQC leader submission filter E2E must set the page submitDate from the target event instead of relying on the default date.'
 )
 assert.match(
   source,
   /function\s+fillElementPlusInput[\s\S]*input\$\{selector\},\s*\$\{selector\} input/,
   'PQC leader submission filter E2E must fill Element Plus inputs whether data-* is on the wrapper or the native input.'
 )
-const pqcSignaturePoolScanner = source.match(/async function resolveUnusedPqcSignatureId[\s\S]*?\n}\n\nasync function verifyPqcFormalSubmissionCreatesEvent/)
+assert.match(
+  source,
+  /async function verifyPqcLeaderSubmissionFilterPaginationConsistency[\s\S]*candidateWithStablePagination[\s\S]*const inspectCandidate = async[\s\S]*candidatePage\.total >= 2[\s\S]*for \(const candidate of candidates\)[\s\S]*inspectCandidate\(candidate,\s*'base'\)[\s\S]*searchPqcLeaderSubmissionsOnPage/,
+  'PQC leader pagination E2E must choose a candidate whose read-model filter has at least two rows before proving page 1/2 stability.'
+)
+assert.match(
+  source,
+  /async function preparePqcPaginationCandidate[\s\S]*verifyPqcFormalSubmissionCreatesEvent[\s\S]*pqcPaginationCandidatePrepared[\s\S]*async function verifyPqcLeaderSubmissionFilterPaginationConsistency[\s\S]*preparePqcPaginationCandidate\(page,\s*config,\s*actionEvidence\)/,
+  'PQC leader pagination E2E must use the real PQC inspector page to create an additional same-filter submission before declaring D32 data blocked.'
+)
+assert.match(
+  source,
+  /async function verifyPqcLeaderReviewApprovalAggregatesProcessInspection[\s\S]*data-team-leader-review-event-id[\s\S]*\/mes\/pro\/process-pool\/team-leader\/submission\/review[\s\S]*processInspectionAggregationStatus[\s\S]*AGGREGATED/,
+  'PQC leader review E2E must approve a real row from the page and verify process-inspection aggregation in the read model.'
+)
+assert.match(
+  source,
+  /async function verifyPqcLeaderReviewApprovalAggregatesProcessInspection[\s\S]*reviewButtonVisible[\s\S]*reviewButton[\s\S]*\.waitFor\(\{ state: 'visible'[\s\S]*\.catch\(\(error\) => \(\{ reviewButtonError: error \}\)\)[\s\S]*E2E_PQC_REVIEW_PAGE/,
+  'PQC leader approval review button visibility failures must become structured E2E_PQC_REVIEW_PAGE blockers.'
+)
+assert.match(
+  source,
+  /async function verifyPqcLeaderDuplicateTerminalReviewBlocked[\s\S]*pqcLeaderReviewApprovedAndAggregated[\s\S]*PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS[\s\S]*\/mes\/pro\/process-pool\/team-leader\/submission\/review[\s\S]*isBusinessSuccess\(result\.body\)[\s\S]*E2E_PQC_REVIEW_TERMINAL/,
+  'PQC leader review E2E must attempt a second terminal review for the same approved event and prove the backend rejects it.'
+)
+assert.match(
+  source,
+  /async function verifyPqcLeaderSelfReviewBlocked[\s\S]*resolveRoleUserId\(page,\s*config,\s*'pqcLeader'\)[\s\S]*searchPqcLeaderSubmissionsOnPage[\s\S]*PRO_PROCESS_POOL_SUBMISSION_REVIEW_SELF_FORBIDDEN[\s\S]*\/mes\/pro\/process-pool\/team-leader\/submission\/review[\s\S]*E2E_PQC_REVIEW_SELF/,
+  'PQC leader review E2E must observe a pending self-review row in the real page and prove the formal review endpoint rejects it.'
+)
+assert.match(
+  source,
+  /async function preparePqcSelfReviewCandidate[\s\S]*reviewerUserId[\s\S]*verifyPqcFormalSubmissionCreatesEvent[\s\S]*pqcSelfReviewCandidatePrepared[\s\S]*async function verifyPqcLeaderSelfReviewBlocked[\s\S]*preparePqcSelfReviewCandidate\(page,\s*config,\s*actionEvidence,\s*reviewerUserId\)/,
+  'PQC self-review E2E must prepare the missing self-review candidate through the real PQC inspector page path with actualEmployeeUserId equal to the reviewer.'
+)
+assert.match(
+  source,
+  /async function verifyPqcLeaderRejectedCorrectionChain[\s\S]*data-team-leader-correction-event-id[\s\S]*reviewStatus:\s*'REJECTED'[\s\S]*\/mes\/pro\/process-pool\/team-leader\/submission\/review[\s\S]*revisionSignatureId[\s\S]*\/mes\/pro\/process-pool\/event-revision\/update-original[\s\S]*modificationHistorySummary[\s\S]*E2E_PQC_REJECT_CORRECTION/,
+  'PQC rejected-correction E2E must reject a real pending submission, submit the page correction through update-original with a new signature, and prove modification history in the read model.'
+)
+assert.match(
+  source,
+  /async function preparePqcRejectedCorrectionCandidate[\s\S]*login\(pqcPage,\s*config,\s*'pqcInspector'[\s\S]*verifyPqcActiveOrderReadOnly[\s\S]*verifyPqcRegulationItemsRendered[\s\S]*verifyPqcPieceDetailQuantityPrepared[\s\S]*verifyPqcActualEmployeeSwitch[\s\S]*verifyPqcFormalSubmissionCreatesEvent/,
+  'PQC rejected-correction E2E must prepare a missing candidate through the real PQC inspector page path before the leader rejects it.'
+)
+assert.match(
+  source,
+  /async function verifyPqcLeaderRejectedCorrectionChain[\s\S]*preparePqcRejectedCorrectionCandidate\(page,\s*config,\s*actionEvidence\)[\s\S]*loadPqcLeaderSubmissionPage\(page,\s*\{[\s\S]*submissionReviewStatus:\s*'PENDING'/,
+  'PQC rejected-correction E2E must retry the real pending read model after preparing its own PQC submission candidate.'
+)
+assert.match(
+  source,
+  /async function verifyPqcLeaderRejectedCorrectionChain[\s\S]*resolveUnusedPqcSignatureId\(page,\s*config,\s*'pqcInspector'\)[\s\S]*revisionSignatureId\s*=\s*signatureResolution\.signatureId/,
+  'PQC rejected-correction E2E must use the configured unused signature pool for revisionSignatureId, not a generated timestamp.'
+)
+assert.match(
+  source,
+  /async function verifyPqcLeaderRejectedCorrectionChain[\s\S]*reviewButtonVisible[\s\S]*reviewButton[\s\S]*\.waitFor\(\{ state: 'visible'[\s\S]*\.catch\(\(error\) => \(\{ reviewButtonError: error \}\)\)[\s\S]*E2E_PQC_REJECT_CORRECTION/,
+  'AC-D30 rejected-correction review button visibility failures must become structured E2E_PQC_REJECT_CORRECTION blockers.'
+)
+assert.match(
+  source,
+  /async function verifyPqcLeaderRejectedCorrectionChain[\s\S]*correctionButtonVisible[\s\S]*correctionButton[\s\S]*\.waitFor\(\{ state: 'visible'[\s\S]*\.catch\(\(error\) => \(\{ correctionButtonError: error \}\)\)[\s\S]*E2E_PQC_REJECT_CORRECTION/,
+  'AC-D30 correction button visibility failures must become structured E2E_PQC_REJECT_CORRECTION blockers.'
+)
+assert.doesNotMatch(
+  source,
+  /const\s+revisionSignatureId\s*=\s*Date\.now\(\)/,
+  'PQC rejected-correction E2E must not generate revisionSignatureId from Date.now().'
+)
+assert.match(
+  source,
+  /async function verifyPqcProcessInspectionAggregationReadOnly[\s\S]*pqcLeaderReviewApprovedAndAggregated[\s\S]*pqcLeaderSelfReviewBlocked[\s\S]*loadPqcLeaderSubmissionPage[\s\S]*processInspectionAggregationStatus[\s\S]*AGGREGATED[\s\S]*notEqual[\s\S]*AGGREGATED[\s\S]*E2E_PQC_AGGREGATION_READONLY/,
+  'PQC process-inspection aggregation E2E must add a read-only proof that approved events are aggregated while pending/self-review-blocked events are not aggregated.'
+)
+assert.match(
+  source,
+  /key:\s*'qaRegulationEntry'[\s\S]*actionKey:\s*'verifyQaRegulationPublishedVersionReadOnly'[\s\S]*acceptanceIds:\s*\['AC-M09'[\s\S]*'AC-D23'\]/,
+  'QA regulation entry must run a real action instead of only proving the old page shell loads.'
+)
+const qaRegulationActionSource = source.match(/async function verifyQaRegulationPublishedVersionReadOnly[\s\S]*?async function verifyPqcPieceDetailQuantityPrepared/)
+assert.ok(
+  qaRegulationActionSource,
+  'QA regulation real E2E must keep verifyQaRegulationPublishedVersionReadOnly before the next PQC action for static inspection.'
+)
+assert.match(
+  qaRegulationActionSource[0],
+  /qaRegulationPublishedVersionReadOnly/,
+  'QA regulation real E2E action evidence must use a stable qaRegulationPublishedVersionReadOnly key.'
+)
+assert.match(
+  qaRegulationActionSource[0],
+  /AC-M09[\s\S]*AC-D23/,
+  'QA regulation real E2E action evidence must map the full BDD-07 acceptance range.'
+)
+assert.match(
+  qaRegulationActionSource[0],
+  /formalSelectorEvidence[\s\S]*E2E_QA_REGULATION_PAGE/,
+  'QA regulation real E2E must prove a formal published-version page surface or emit a structured E2E_QA_REGULATION_PAGE blocker.'
+)
+assert.match(
+  qaRegulationActionSource[0],
+  /waitForSelector\('\[data-qa-regulation-section\]'[\s\S]*waitForResponse[\s\S]*inspection-regulation\/published-version/,
+  'QA regulation real E2E must wait for the formal QA section and published-version API response before judging the page surface.'
+)
+assert.match(
+  qaRegulationActionSource[0],
+  /apiStatus[\s\S]*apiCode[\s\S]*apiMessage[\s\S]*qaRegulationApiEvidence/,
+  'QA regulation real E2E blockers must include published-version API status/code/message evidence.'
+)
+assert.match(
+  source,
+  /if \(phase\.actionKey === 'verifyQaRegulationPublishedVersionReadOnly'\)[\s\S]*verifyQaRegulationPublishedVersionReadOnly\(page,\s*config\)/,
+  'QA regulation phase action must be wired into runPhaseAction.'
+)
+assert.match(
+  source,
+  /function buildM6ConcurrencyPerformanceGateEvidence[\s\S]*observedConcurrencyAcceptanceIds[\s\S]*observedActionKeys[\s\S]*observedConcurrencyAcceptanceIds/,
+  'M6 concurrency gate evidence must list observed CONC acceptance ids instead of reporting only AC-M04 after later CONC actions have passed.'
+)
+assert.match(
+  source,
+  /function collectM6ConcurrencyProofs[\s\S]*AC-M04[\s\S]*shouldReturnExistingActiveOrderWhenConcurrentInsertHitsUniqueKey[\s\S]*AC-D29[\s\S]*shouldRejectPqcInspectionWhenPendingTaskWasConsumedConcurrently[\s\S]*AC-D34[\s\S]*shouldRejectDuplicateTerminalReviewForSameSubmission[\s\S]*AC-D37[\s\S]*shouldRejectConcurrentDuplicateAggregationWhenPendingWasConsumed/,
+  'M6 concurrency gate must collect per-AC service-level proof instead of relying only on observed real actions.'
+)
+assert.match(
+  source,
+  /ACTIVE_ORDER_TRANSFER_TRACE_SERVICE_TEST[\s\S]*MesActiveOrderTransferTraceServiceTest\.java[\s\S]*function collectM6ConcurrencyProofs[\s\S]*transferTraceServiceTestSource[\s\S]*AC-M07[\s\S]*shouldReturnExistingTransferTraceWhenConcurrentInsertHitsUniqueKey[\s\S]*DuplicateKeyException[\s\S]*selectByIdempotencyKey/,
+  'M6 AC-M07 concurrency proof must read the runnable transfer-trace service test and prove duplicate/concurrent idempotency.'
+)
+assert.match(
+  activeOrderTransferTraceServiceTestSource,
+  /shouldReturnExistingTransferTraceWhenConcurrentInsertHitsUniqueKey[\s\S]*DuplicateKeyException[\s\S]*uk_mes_pp_active_order_transfer_trace[\s\S]*selectByIdempotencyKey/,
+  'AC-M07 transfer-trace service test must prove unique-key race handling reloads the existing trace by idempotency key.'
+)
+assert.match(
+  teamLeaderOrderProcessCompletionServiceTestSource,
+  /shouldPreventOverTargetProgressWhenConcurrentAllocationAlreadyConsumedRemainingQuantity[\s\S]*never\(\)\)\.backfillCompletedProcess/,
+  'AC-M18 order-process completion service test must prove over-target concurrent progress never reaches batch-record backfill.'
+)
+assert.match(
+  source,
+  /AC-M18[\s\S]*never\\\(\\\)\\\)\\\.backfillCompletedProcess[\s\S]*shouldPreventOverTargetProgress/,
+  'M6 AC-M18 concurrency proof must recognize Mockito verify(..., never()).backfillCompletedProcess syntax.'
+)
+assert.match(
+  source,
+  /TEAM_LEADER_BATCH_RECORD_BACKFILL_SERVICE_TEST[\s\S]*MesTeamLeaderBatchRecordBackfillServiceTest\.java[\s\S]*function collectM6ConcurrencyProofs[\s\S]*batchRecordBackfillServiceTestSource[\s\S]*AC-M19[\s\S]*shouldBackfillCompletedProcessOnlyOnceWhenConcurrentAuditAlreadyApplied/,
+  'M6 AC-M19 concurrency proof must read the runnable batch-record backfill service test instead of the order-process completion proxy test.'
+)
+assert.match(
+  teamLeaderBatchRecordBackfillServiceTestSource,
+  /shouldBackfillCompletedProcessOnlyOnceWhenConcurrentAuditAlreadyApplied[\s\S]*PROCESS_POOL_REPORT_BACKFILL:1001:9001:5001[\s\S]*times\(2\)[\s\S]*saveSystemCellLinkChanges/,
+  'AC-M19 batch-record backfill service test must prove repeated/concurrent backfill uses the same idempotency key and delegates duplicate suppression to field audit.'
+)
+assert.match(
+  source,
+  /EDHR_RELEASE_SERVICE_TEST[\s\S]*MesProEdhrReleaseServiceImplTest\.java[\s\S]*function collectM6ConcurrencyProofs[\s\S]*releaseServiceTestSource[\s\S]*AC-M23[\s\S]*shouldRejectConcurrentReleaseTerminalWhenPrecheckWasConsumedUnderForUpdateLock/,
+  'M6 AC-M23 concurrency proof must read the runnable eDHR release service test and prove terminal release state is guarded under row lock.'
+)
+assert.match(
+  edhrReleaseServiceTestSource,
+  /shouldRejectConcurrentReleaseTerminalWhenPrecheckWasConsumedUnderForUpdateLock[\s\S]*STATUS_PRECHECK_PASSED[\s\S]*STATUS_RELEASED[\s\S]*selectByIdForUpdate[\s\S]*PRO_EDHR_RELEASE_PRECHECK_REQUIRED[\s\S]*assertEquals\(1,\s*batchSignatureMapper\.selectListByBatchExecutionId/,
+  'AC-M23 eDHR release service test must prove a consumed precheck cannot create another terminal release signature or event after the locked reread.'
+)
+assert.match(
+  source,
+  /function hasCompleteM6ConcurrencyGateEvidence[\s\S]*missingAcceptanceIds[\s\S]*complete/,
+  'M6 concurrency gate must fail closed until every CONC AC has explicit proof and expose the exact missing list.'
+)
+assert.match(
+  source,
+  /const concurrencyGateStatus = hasCompleteM6ConcurrencyGateEvidence[\s\S]*concurrencyGateStatus \? 'm6ConcurrencyGateVerified' : 'm6ConcurrencyGateDeferred'/,
+  'M6 concurrency gate must switch to PASS only when all required per-AC concurrency proofs are complete.'
+)
+assert.match(
+  source,
+  /missingConcurrencyAcceptanceIds[\s\S]*provedConcurrencyAcceptanceIds[\s\S]*concurrencyProofs/,
+  'M6 concurrency gate evidence must include proved and missing CONC AC lists plus the raw proof flags.'
+)
+assert.match(
+  source,
+  /function collectM6PerformanceProofs[\s\S]*shouldUseCountAndPageQueriesWithoutDetailLookupsForDailyCloseSubmissionSummary[\s\S]*shouldPreparePqcPieceDetailContextWithBulkQueriesOnly[\s\S]*idx_mes_pp_event_timeline_acd32/,
+  'M6 performance gate must collect backend query-count and index proof instead of relying only on page observations.'
+)
+assert.match(
+  source,
+  /function hasCompleteM6PerformanceGateEvidence[\s\S]*dailyClosePerformanceReadOnly[\s\S]*pqcPieceDetailQuantityPrepared[\s\S]*pqcLeaderSubmissionFilterPaginationConsistent/,
+  'M6 performance gate must require all four PERF AC actions before it can pass.'
+)
+assert.match(
+  source,
+  /const performanceGateStatus = hasCompleteM6PerformanceGateEvidence[\s\S]*performanceGateStatus \? 'm6PerformanceGateVerified' : 'm6PerformanceGateDeferred'/,
+  'M6 performance gate must switch to PASS when request-budget, query-count, paging, and index proof are complete.'
+)
+const dailyClosePerformanceActionSource = source.match(/async function verifyDailyClosePerformanceReadOnly[\s\S]*?async function verifyRealFlowPhase/)
+assert.ok(dailyClosePerformanceActionSource, 'M6 daily-close performance evidence action must exist before phase verification.')
+assert.match(dailyClosePerformanceActionSource[0], /data-role-matrix-daily-close-card/, 'M6 daily-close performance evidence must read the real daily-close cards.')
+assert.match(dailyClosePerformanceActionSource[0], /AC-D12/, 'M6 daily-close performance evidence must map to AC-D12.')
+assert.match(dailyClosePerformanceActionSource[0], /AC-D38/, 'M6 daily-close performance evidence must map to AC-D38.')
+assert.match(dailyClosePerformanceActionSource[0], /dailyClosePerformanceReadOnly/, 'M6 daily-close performance evidence must use a stable action key.')
+assert.match(dailyClosePerformanceActionSource[0], /createDailyCloseRequestBudgetTracker/, 'M6 daily-close performance evidence must start a request budget tracker.')
+assert.match(dailyClosePerformanceActionSource[0], /submissionDetailRequests[\s\S]*0/, 'M6 daily-close performance evidence must prove the cards do not trigger per-row submission detail requests.')
+assert.match(dailyClosePerformanceActionSource[0], /requestBudget/, 'M6 daily-close performance evidence must write request budget evidence into the action result.')
+assert.match(
+  source,
+  /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*verifyActiveOrderTransferTraceReadOnly\(page,\s*config,\s*joinEvidence\)[\s\S]*verifyDailyClosePerformanceReadOnly\(page,\s*config,\s*\[[\s\S]*joinEvidence,[\s\S]*conflictRouteEvidence,[\s\S]*transferTraceEvidence[\s\S]*\]\)/,
+  'Production leader phase must collect daily-close performance evidence before final cleanup.'
+)
+assert.doesNotMatch(
+  source,
+  /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*verifyActiveOrderCleanupTraceability\(page,\s*config,\s*joinEvidence\)[\s\S]*return \[joinEvidence,\s*conflictRouteEvidence,\s*cleanupEvidence/,
+  'Active-order cleanup must not run in the production leader phase before downstream PQC/release/day-close actions finish.'
+)
+assert.match(
+  source,
+  /await runFinalActiveOrderCleanup\(browser,\s*config,\s*actionEvidence\)[\s\S]*const acceptanceCoverage = buildAcceptanceCoverage/,
+  'Full real E2E must run final active-order cleanup after all role actions and before building coverage/blocker evidence.'
+)
+const pqcPieceDetailPerformanceActionSource = source.match(/async function verifyPqcPieceDetailQuantityPrepared[\s\S]*?async function fillVisiblePqcPieceModalValues/)
+assert.ok(pqcPieceDetailPerformanceActionSource, 'M6 PQC piece-detail performance evidence action must exist before modal helper functions.')
+assert.match(
+  pqcPieceDetailPerformanceActionSource[0],
+  /createPqcPieceDetailRequestBudgetTracker/,
+  'M6 PQC piece-detail evidence must start a request budget tracker before opening and completing piece-detail modals.'
+)
+assert.match(
+  pqcPieceDetailPerformanceActionSource[0],
+  /pieceDetailRequests[\s\S]*0/,
+  'M6 PQC piece-detail evidence must prove modal completion does not trigger per-item piece-detail requests.'
+)
+assert.match(
+  pqcPieceDetailPerformanceActionSource[0],
+  /requestBudget/,
+  'M6 PQC piece-detail evidence must write request budget evidence into the AC-D27 action result.'
+)
+assert.match(
+  timelineFilterTestSource,
+  /shouldUseCountAndPageQueriesWithoutDetailLookupsForDailyCloseSubmissionSummary[\s\S]*assertEquals\(1,\s*mapper\.getCountQueryCalls\(\)[\s\S]*assertEquals\(1,\s*mapper\.getPageQueryCalls\(\)[\s\S]*assertEquals\(0,\s*mapper\.getDetailQueryCalls\(\)/,
+  'M6 daily-close performance gate must have backend query-count proof for submission summary page reads.'
+)
+assert.match(
+  activeOrderServiceTestSource,
+  /shouldListActiveOrdersWithSingleActiveOrderQueryForDailyClosePerformance[\s\S]*selectActiveList\(\)[\s\S]*never\(\)\)\.selectListByScheduleOrderId[\s\S]*never\(\)\)\.insertBatch/,
+  'M6 daily-close performance gate must prove active-order card reads do not load or rebuild per-process snapshots.'
+)
+assert.match(
+  frontlinePqcContextServiceTestSource,
+  /shouldPreparePqcPieceDetailContextWithBulkQueriesOnly[\s\S]*selectListByRouteId\(ROUTE_ID\)[\s\S]*selectListByActiveOrderId\(ACTIVE_ORDER_ID\)[\s\S]*selectListByVersionId\(REGULATION_VERSION_ID\)[\s\S]*never\(\)\)\.selectPendingByActiveOrderProcess[\s\S]*never\(\)\)\.selectById/,
+  'M6 AC-D27 performance gate must prove PQC piece-detail context preparation uses bulk route/task/regulation reads and no per-process or per-piece task detail queries.'
+)
+const pqcLeaderSubmissionPerformanceActionSource = source.match(/async function verifyPqcLeaderSubmissionFilterPaginationConsistency[\s\S]*?function parseOriginalPayloadJson/)
+assert.ok(pqcLeaderSubmissionPerformanceActionSource, 'M6 PQC leader submission performance evidence action must exist before detail helpers.')
+assert.match(
+  pqcLeaderSubmissionPerformanceActionSource[0],
+  /createPqcLeaderSubmissionListRequestBudgetTracker/,
+  'M6 PQC leader submission pagination evidence must start a request budget tracker around the real list filter and page reads.'
+)
+assert.match(
+  pqcLeaderSubmissionPerformanceActionSource[0],
+  /submissionDetailRequests[\s\S]*0/,
+  'M6 PQC leader submission pagination evidence must prove list paging does not trigger per-row detail requests.'
+)
+assert.match(
+  pqcLeaderSubmissionPerformanceActionSource[0],
+  /requestBudget/,
+  'M6 PQC leader submission pagination evidence must write request budget evidence into the AC-D32 action result.'
+)
+const pqcSignaturePoolScanner = source.match(/async function resolveUnusedPqcSignatureId[\s\S]*?async function verifyPqcFormalSubmissionCreatesEvent/)
 assert.ok(pqcSignaturePoolScanner, 'real E2E script must keep resolveUnusedPqcSignatureId before verifyPqcFormalSubmissionCreatesEvent for static inspection.')
+assert.match(
+  source,
+  /function isPqcSignaturePoolRole\(roleKey,\s*preferredRoleKey\)[\s\S]*roleKey === preferredRoleKey[\s\S]*\^pqcExtra\\d\+\$/,
+  'PQC signature-pool candidates must be limited to the preferred PQC role plus pqcExtra* task-owned IDs.'
+)
+assert.match(
+  source,
+  /function collectConfiguredSignatureIds\(config,\s*preferredRoleKey\)[\s\S]*isPqcSignaturePoolRole\(roleKey,\s*preferredRoleKey\)[\s\S]*pushCandidate\(signatureId\)/,
+  'PQC signature-pool collection must not fall through to unrelated role signature IDs after the preferred PQC ID is consumed.'
+)
 assert.match(
   pqcSignaturePoolScanner[0],
   /const\s+submitDate\s*=\s*localDateString\(\)[\s\S]*loadPqcLeaderSubmissionPage\(leaderPage,\s*\{[\s\S]*submitDate/,
   'PQC signature-pool scan must pass submitDate into the submission page query because the backend timeline requires a formal submit-date window.'
 )
-const pqcProcessesLoader = source.match(/async function loadPqcProcessesViaAuth[\s\S]*?\n}\n\nfunction buildPqcProcessSourceBlocker/)
+const pqcFormalSubmissionSource = source.match(/async function verifyPqcFormalSubmissionCreatesEvent[\s\S]*?function localDateString/)
+assert.ok(
+  pqcFormalSubmissionSource,
+  'real E2E script must keep verifyPqcFormalSubmissionCreatesEvent before localDateString for static inspection.'
+)
+assert.match(
+  pqcFormalSubmissionSource[0],
+  /findPqcLeaderSubmissionRowByTaskAndSignature[\s\S]*submittedTaskId[\s\S]*signatureId/,
+  'PQC formal submission E2E must scan the leader submission pages by pqcTaskId and signatureId; the backend timeline is ascending and new events may not be on page 1.'
+)
+assert.doesNotMatch(
+  pqcFormalSubmissionSource[0],
+  /pageSize:\s*20[\s\S]*submittedRow\s*=\s*submissionPage\.list\.find/,
+  'PQC formal submission E2E must not prove event creation by checking only the first 20 leader submission rows.'
+)
+const pqcProcessesLoader = source.match(/async function loadPqcProcessesViaAuth[\s\S]*?function buildPqcProcessSourceBlocker/)
 assert.ok(pqcProcessesLoader, 'real E2E script must keep buildPqcProcessSourceBlocker directly after the PQC process loader for static inspection.')
 assert.doesNotMatch(
   pqcProcessesLoader[0],

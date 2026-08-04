@@ -39,4 +39,20 @@ class ProcessPoolTimelineQueryTest {
         assertEquals(LocalDateTime.parse("2026-07-30T09:30:00"),
                 page.getList().get(0).getSubmissionReviewedAt());
     }
+
+    @Test
+    void shouldExposePqcProcessInspectionAggregationStatus() {
+        ProcessPoolTimelineTestSupport.InMemoryTimelineReadMapper mapper = mapper(
+                event(2001L, "2026-07-30T08:30:00", 2001L, 6001L, 9001L, "PQC_SIMPLIFIED", 30001L)
+                        .setProcessInspectionAggregationStatus("AGGREGATED")
+                        .setProcessInspectionReviewId(7003L)
+                        .setProcessInspectionAggregatedAt(LocalDateTime.parse("2026-07-30T09:45:00")));
+
+        PageResult<ProcessPoolTimelineEventRespVO> page = service(mapper).getTimelinePage(pageReq());
+
+        assertEquals("AGGREGATED", page.getList().get(0).getProcessInspectionAggregationStatus());
+        assertEquals(7003L, page.getList().get(0).getProcessInspectionReviewId());
+        assertEquals(LocalDateTime.parse("2026-07-30T09:45:00"),
+                page.getList().get(0).getProcessInspectionAggregatedAt());
+    }
 }

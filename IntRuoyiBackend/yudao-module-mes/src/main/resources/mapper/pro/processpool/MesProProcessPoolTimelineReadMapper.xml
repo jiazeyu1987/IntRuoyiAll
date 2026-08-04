@@ -45,6 +45,9 @@
         CAST(pool_event.raw_payload AS CHAR) AS originalPayloadJson,
         pqc.inspection_result AS pqcResult,
         pqc.inspection_result AS pqcSummary,
+        pqc.process_inspection_aggregation_status AS processInspectionAggregationStatus,
+        pqc.process_inspection_review_id AS processInspectionReviewId,
+        pqc.process_inspection_aggregated_at AS processInspectionAggregatedAt,
         NULL AS fifoAllocationStatus,
         NULL AS fifoAllocationSummary,
         COALESCE(review_copy_summary.review_status, 'PENDING') AS auditCopyStatus,
@@ -122,7 +125,7 @@
         LEFT JOIN mes_pqc_inspection_task pqc_task
           ON pqc_task.tenant_id = pool_event.tenant_id
          AND pqc_task.deleted = 0
-         AND pqc_task.id = CAST(JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcTaskId')) AS UNSIGNED)
+         AND pqc_task.id = pool_event.pqc_task_id
     </sql>
 
     <sql id="LatestSubmissionReviewJoin">

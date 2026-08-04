@@ -67,6 +67,9 @@ export interface ProcessPoolTimelineEventVO {
   originalPayloadJson?: string
   pqcResult?: string
   pqcSummary?: string
+  processInspectionAggregationStatus?: string
+  processInspectionReviewId?: number
+  processInspectionAggregatedAt?: string | number | Date
   fifoAllocationStatus?: string
   fifoAllocationSummary?: string
   auditCopyStatus?: string

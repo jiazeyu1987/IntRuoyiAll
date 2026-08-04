@@ -45,10 +45,10 @@ CALL codex_rrm_assert((
       AND work_order_id = @rrm_work_order_id
       AND route_id = @rrm_route_id
       AND route_version_id = @rrm_route_version_id
-      AND active_status = 'ACTIVE'
+      AND active_status IN ('ACTIVE', 'REMOVED')
       AND deleted = b'0'
       AND tenant_id = @rrm_tenant_id
-), 'RRM active order fixture is missing or route version mismatched');
+), 'RRM active order fixture is missing, cleaned up, or route version mismatched');
 
 CALL codex_rrm_assert((
     SELECT COUNT(*) = 14
@@ -71,18 +71,29 @@ CREATE TEMPORARY TABLE tmp_rrm_current_route_process (
     route_process_id bigint NOT NULL PRIMARY KEY,
     process_id bigint NOT NULL,
     process_name varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    product_name varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    route_name varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    route_version_no varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    batch_record_report_id varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    batch_record_report_name varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
     sort_no int NOT NULL,
     source_process varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
     source_mode varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL
 ) ENGINE=Memory DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO tmp_rrm_current_route_process (
-    route_process_id, process_id, process_name, sort_no, source_process, source_mode
+    route_process_id, process_id, process_name, product_name, route_name, route_version_no,
+    batch_record_report_id, batch_record_report_name, sort_no, source_process, source_mode
 )
 SELECT
     rp.id,
     rp.process_id,
     p.name,
+    br.batch_record_name,
+    route.name,
+    route_version.version_no,
+    rp.batch_record_report_id,
+    COALESCE(NULLIF(br.report_name, ''), NULLIF(br.batch_record_name, ''), br.report_id),
     rp.sort,
     CASE p.name
         WHEN '粗洗工序' THEN '清洗'
@@ -110,6 +121,19 @@ JOIN mes_pro_process p
   ON p.id = rp.process_id
  AND p.deleted = b'0'
  AND p.tenant_id = rp.tenant_id
+JOIN mes_pro_route route
+  ON route.id = rp.route_id
+ AND route.deleted = b'0'
+ AND route.tenant_id = rp.tenant_id
+JOIN mes_pro_route_version route_version
+  ON route_version.id = @rrm_route_version_id
+ AND route_version.route_id = rp.route_id
+ AND route_version.deleted = b'0'
+ AND route_version.tenant_id = rp.tenant_id
+JOIN mes_pro_batch_record_report br
+  ON br.report_id = rp.batch_record_report_id
+ AND br.deleted = b'0'
+ AND br.tenant_id = rp.tenant_id
 WHERE rp.route_id = @rrm_route_id
   AND rp.deleted = b'0'
   AND rp.tenant_id = @rrm_tenant_id;
@@ -119,6 +143,13 @@ CALL codex_rrm_assert((
     FROM tmp_rrm_current_route_process
     WHERE source_process <> ''
 ), 'RRM route process to inspection source mapping is incomplete');
+
+CALL codex_rrm_assert((
+    SELECT COUNT(*) = 14
+    FROM tmp_rrm_current_route_process
+    WHERE batch_record_report_id <> ''
+      AND batch_record_report_name <> ''
+), 'Every RRM route process must have a formal batch-record report binding snapshot source');
 
 DROP TEMPORARY TABLE IF EXISTS tmp_rrm_source_method;
 CREATE TEMPORARY TABLE tmp_rrm_source_method (
@@ -237,11 +268,94 @@ SELECT
 FROM tmp_rrm_current_route_process rp
 WHERE rp.source_mode = 'LOCAL_PACKAGING_FIXTURE';
 
+DROP TEMPORARY TABLE IF EXISTS tmp_rrm_missing_first_route_process;
+CREATE TEMPORARY TABLE tmp_rrm_missing_first_route_process
+ENGINE=Memory DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+AS
+SELECT rp.*
+FROM tmp_rrm_current_route_process rp
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM tmp_rrm_method_seed existing
+    WHERE existing.route_process_id = rp.route_process_id
+      AND existing.inspection_type = 'FIRST'
+);
+
+INSERT INTO tmp_rrm_method_seed (
+    route_process_id, process_id, process_name, sort_no, source_mode,
+    item_code, item_name, inspection_type, inspection_method, standard_text,
+    result_type, first_qty, patrol_ratio, source_sort
+)
+SELECT
+    rp.route_process_id,
+    rp.process_id,
+    rp.process_name,
+    rp.sort_no,
+    rp.source_mode,
+    CONCAT('RRM-PPV21-QA-FIRST-', LPAD(rp.sort_no, 2, '0'), '-RP', rp.route_process_id),
+    CONCAT(REPLACE(rp.process_name, '工序', ''), '-默认首检规则'),
+    'FIRST',
+    CONCAT('首检；默认首检数量=', @rrm_default_first_qty,
+           '；来源=V21工序本地测试夹具补齐，正式方法仍来自过程检验记录优先'),
+    '符合/不符合',
+    'CHOICE',
+    @rrm_default_first_qty,
+    NULL,
+    9100 + rp.sort_no
+FROM tmp_rrm_missing_first_route_process rp;
+
+DROP TEMPORARY TABLE IF EXISTS tmp_rrm_missing_final_route_process;
+CREATE TEMPORARY TABLE tmp_rrm_missing_final_route_process
+ENGINE=Memory DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+AS
+SELECT rp.*
+FROM tmp_rrm_current_route_process rp
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM tmp_rrm_method_seed existing
+    WHERE existing.route_process_id = rp.route_process_id
+      AND existing.inspection_type = 'FINAL'
+);
+
+INSERT INTO tmp_rrm_method_seed (
+    route_process_id, process_id, process_name, sort_no, source_mode,
+    item_code, item_name, inspection_type, inspection_method, standard_text,
+    result_type, first_qty, patrol_ratio, source_sort
+)
+SELECT
+    rp.route_process_id,
+    rp.process_id,
+    rp.process_name,
+    rp.sort_no,
+    rp.source_mode,
+    CONCAT('RRM-PPV21-QA-FINAL-', LPAD(rp.sort_no, 2, '0'), '-RP', rp.route_process_id),
+    CONCAT(REPLACE(rp.process_name, '工序', ''), '-末检适用性确认'),
+    'FINAL',
+    CONCAT('末检；适用性=需要；来源=V21工序本地测试夹具补齐，正式发布版本必须显式记录末检规则'),
+    '符合/不符合',
+    'CHOICE',
+    NULL,
+    NULL,
+    9200 + rp.sort_no
+FROM tmp_rrm_missing_final_route_process rp;
+
+CALL codex_rrm_assert((
+    SELECT COUNT(DISTINCT route_process_id) = 14
+    FROM tmp_rrm_method_seed
+    WHERE inspection_type = 'FIRST'
+), 'Every RRM route process must have at least one FIRST QA method');
+
 CALL codex_rrm_assert((
     SELECT COUNT(DISTINCT route_process_id) = 14
     FROM tmp_rrm_method_seed
     WHERE inspection_type = 'PATROL'
 ), 'Every RRM route process must have at least one PATROL QA method');
+
+CALL codex_rrm_assert((
+    SELECT COUNT(DISTINCT route_process_id) = 14
+    FROM tmp_rrm_method_seed
+    WHERE inspection_type = 'FINAL'
+), 'Every RRM route process must have at least one FINAL QA method');
 
 START TRANSACTION;
 
@@ -298,12 +412,22 @@ SELECT
     NOW(),
     JSON_OBJECT(
         'fixture', 'RRM-20260801-M6',
+        'productName', rp.product_name,
         'routeId', @rrm_route_id,
+        'routeName', rp.route_name,
         'routeVersionId', @rrm_route_version_id,
+        'routeVersionNo', rp.route_version_no,
         'routeProcessId', reg.route_process_id,
+        'routeProcessName', rp.process_name,
         'processId', reg.process_id,
         'sourceMode', rp.source_mode,
-        'sourceTemplateId', @rrm_source_template_id
+        'sourceTemplateId', @rrm_source_template_id,
+        'batchRecordReports', JSON_ARRAY(JSON_OBJECT(
+            'batchRecordReportId', rp.batch_record_report_id,
+            'batchRecordReportName', rp.batch_record_report_name,
+            'sourceTable', 'mes_pro_route_process.batch_record_report_id',
+            'routeProcessId', rp.route_process_id
+        ))
     ),
     @rrm_actor,
     @rrm_actor,
@@ -322,8 +446,43 @@ WHERE reg.product_id = @rrm_product_id
       WHERE existing.regulation_id = reg.id
         AND existing.version_no = 'V1'
         AND existing.deleted = b'0'
-        AND existing.tenant_id = @rrm_tenant_id
+      AND existing.tenant_id = @rrm_tenant_id
   );
+
+UPDATE mes_qa_inspection_regulation_version ver
+JOIN mes_qa_inspection_regulation reg
+  ON reg.id = ver.regulation_id
+ AND reg.deleted = b'0'
+ AND reg.tenant_id = ver.tenant_id
+JOIN tmp_rrm_current_route_process rp
+  ON rp.route_process_id = reg.route_process_id
+SET ver.snapshot_json = JSON_OBJECT(
+        'fixture', 'RRM-20260801-M6',
+        'productName', rp.product_name,
+        'routeId', @rrm_route_id,
+        'routeName', rp.route_name,
+        'routeVersionId', @rrm_route_version_id,
+        'routeVersionNo', rp.route_version_no,
+        'routeProcessId', reg.route_process_id,
+        'routeProcessName', rp.process_name,
+        'processId', reg.process_id,
+        'sourceMode', rp.source_mode,
+        'sourceTemplateId', @rrm_source_template_id,
+        'batchRecordReports', JSON_ARRAY(JSON_OBJECT(
+            'batchRecordReportId', rp.batch_record_report_id,
+            'batchRecordReportName', rp.batch_record_report_name,
+            'sourceTable', 'mes_pro_route_process.batch_record_report_id',
+            'routeProcessId', rp.route_process_id
+        ))
+    ),
+    ver.updater = @rrm_actor
+WHERE reg.product_id = @rrm_product_id
+  AND reg.route_id = @rrm_route_id
+  AND reg.route_version_id = @rrm_route_version_id
+  AND ver.version_no = 'V1'
+  AND ver.lifecycle_status = 'PUBLISHED'
+  AND ver.deleted = b'0'
+  AND ver.tenant_id = @rrm_tenant_id;
 
 UPDATE mes_qa_inspection_regulation reg
 JOIN mes_qa_inspection_regulation_version ver
@@ -406,7 +565,16 @@ CALL codex_rrm_assert((
       AND reg.tenant_id = @rrm_tenant_id
 ), 'Every RRM formal QA regulation version must have PATROL items');
 
-INSERT INTO mes_pqc_inspection_task (
+-- Repeatable local E2E seed: keep SUBMITTED history immutable and top up future PENDING slots.
+DROP TEMPORARY TABLE IF EXISTS tmp_rrm_pqc_task_slot;
+CREATE TEMPORARY TABLE tmp_rrm_pqc_task_slot (
+    slot_offset int NOT NULL PRIMARY KEY
+) ENGINE=Memory DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO tmp_rrm_pqc_task_slot (slot_offset)
+VALUES (1), (2), (3), (4), (5), (6), (7), (8);
+
+INSERT IGNORE INTO mes_pqc_inspection_task (
     active_order_id, work_order_id, route_id, route_version_id, route_process_id,
     process_id, regulation_version_id, inspection_type, business_date, shift_code,
     round_no, planned_inspection_quantity, actual_inspection_quantity, task_status,
@@ -421,7 +589,7 @@ SELECT
     reg.process_id,
     reg.current_version_id,
     'PATROL',
-    @rrm_business_date,
+    DATE_ADD(@rrm_business_date, INTERVAL slot.slot_offset DAY),
     @rrm_shift_code,
     @rrm_round_no,
     GREATEST(1, CEIL(wo.quantity * COALESCE(MAX(item.patrol_inspection_ratio), @rrm_default_patrol_ratio))),
@@ -431,6 +599,7 @@ SELECT
     @rrm_actor,
     @rrm_tenant_id
 FROM mes_qa_inspection_regulation reg
+CROSS JOIN tmp_rrm_pqc_task_slot slot
 JOIN mes_pro_work_order wo
   ON wo.id = @rrm_work_order_id
  AND wo.deleted = b'0'
@@ -445,29 +614,62 @@ WHERE reg.product_id = @rrm_product_id
   AND reg.route_version_id = @rrm_route_version_id
   AND reg.deleted = b'0'
   AND reg.tenant_id = @rrm_tenant_id
-GROUP BY reg.route_process_id, reg.process_id, reg.current_version_id, wo.quantity
-ON DUPLICATE KEY UPDATE
-    regulation_version_id = VALUES(regulation_version_id),
-    planned_inspection_quantity = VALUES(planned_inspection_quantity),
-    actual_inspection_quantity = 0,
-    task_status = 'PENDING',
-    updater = @rrm_actor;
+GROUP BY reg.route_process_id, reg.process_id, reg.current_version_id, wo.quantity, slot.slot_offset;
+
+DELETE detail
+FROM mes_pqc_inspection_piece_detail detail
+JOIN mes_pqc_inspection_task task
+  ON task.id = detail.task_id
+ AND task.tenant_id = detail.tenant_id
+WHERE task.active_order_id = @rrm_active_order_id
+  AND task.work_order_id = @rrm_work_order_id
+  AND task.route_id = @rrm_route_id
+  AND task.route_version_id = @rrm_route_version_id
+  AND task.inspection_type = 'PATROL'
+  AND task.business_date > @rrm_business_date
+  AND task.shift_code = @rrm_shift_code
+  AND task.round_no = @rrm_round_no
+  AND task.task_status = 'PENDING'
+  AND task.creator = @rrm_actor
+  AND task.deleted = b'0'
+  AND task.tenant_id = @rrm_tenant_id
+  AND detail.deleted = b'0';
 
 CALL codex_rrm_assert((
-    SELECT COUNT(*) = 14
+    SELECT COUNT(DISTINCT route_process_id) = 14
     FROM mes_pqc_inspection_task
     WHERE active_order_id = @rrm_active_order_id
       AND work_order_id = @rrm_work_order_id
       AND route_id = @rrm_route_id
       AND route_version_id = @rrm_route_version_id
       AND inspection_type = 'PATROL'
-      AND business_date = @rrm_business_date
+      AND business_date > @rrm_business_date
       AND shift_code = @rrm_shift_code
       AND round_no = @rrm_round_no
       AND task_status = 'PENDING'
       AND deleted = b'0'
       AND tenant_id = @rrm_tenant_id
-), 'RRM pending PQC task rows were not created for all 14 processes');
+), 'RRM repeatable pending PQC task rows were not available for all 14 processes');
+
+CALL codex_rrm_assert((
+    SELECT COUNT(*) = 0
+    FROM mes_pqc_inspection_task task
+    JOIN mes_pqc_inspection_piece_detail detail
+      ON detail.task_id = task.id
+     AND detail.deleted = b'0'
+     AND detail.tenant_id = task.tenant_id
+    WHERE task.active_order_id = @rrm_active_order_id
+      AND task.work_order_id = @rrm_work_order_id
+      AND task.route_id = @rrm_route_id
+      AND task.route_version_id = @rrm_route_version_id
+      AND task.inspection_type = 'PATROL'
+      AND task.business_date > @rrm_business_date
+      AND task.shift_code = @rrm_shift_code
+      AND task.round_no = @rrm_round_no
+      AND task.task_status = 'PENDING'
+      AND task.deleted = b'0'
+      AND task.tenant_id = @rrm_tenant_id
+), 'RRM repeatable pending PQC tasks must not retain old piece-detail rows');
 
 CALL codex_rrm_assert((
     SELECT COUNT(*) = 0
@@ -490,6 +692,8 @@ CALL codex_rrm_assert((
 COMMIT;
 
 DROP TEMPORARY TABLE IF EXISTS tmp_rrm_method_seed;
+DROP TEMPORARY TABLE IF EXISTS tmp_rrm_missing_final_route_process;
+DROP TEMPORARY TABLE IF EXISTS tmp_rrm_missing_first_route_process;
 DROP TEMPORARY TABLE IF EXISTS tmp_rrm_source_method;
 DROP TEMPORARY TABLE IF EXISTS tmp_rrm_current_route_process;
 DROP PROCEDURE IF EXISTS codex_rrm_assert;

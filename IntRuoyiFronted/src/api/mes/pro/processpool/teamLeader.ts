@@ -65,6 +65,7 @@ export interface TeamLeaderActiveOrderAddReqVO {
   workOrderId: number
   routeId: number
   routeVersionId: number
+  transferIds?: number[]
 }
 
 export interface TeamLeaderActiveOrderRemoveReqVO {
@@ -107,6 +108,30 @@ export interface TeamLeaderActiveOrderRespVO {
   activeStatus: string
   joinedAt?: string
   removedAt?: string
+}
+
+export interface TeamLeaderActiveOrderTransferTraceRespVO {
+  id: number
+  activeOrderId: number
+  workOrderId: number
+  routeId: number
+  routeVersionId: number
+  sourceType: string
+  direction?: string
+  transferId?: number
+  transferLineId?: number
+  transferDetailId?: number
+  materialStockId?: number
+  batchId?: number
+  itemId?: number
+  quantity: number | string
+  sourceObjectType?: string
+  sourceObjectId?: string
+  sourceObjectCode?: string
+  sourceStatus?: string
+  sourceOccurredAt?: number
+  idempotencyKey: string
+  sourceSnapshotJson?: string
 }
 
 export interface TeamLeaderReportAllocationLine {
@@ -212,6 +237,13 @@ export const saveTeamDeviceParameterRule = async (data: TeamDeviceParameterRuleS
 export const getTeamLeaderActiveOrderList = async () => {
   return await request.get<TeamLeaderActiveOrderRespVO[]>({
     url: '/mes/pro/process-pool/team-leader/active-order/list'
+  })
+}
+
+export const getTeamLeaderActiveOrderTransferTrace = async (activeOrderId: number) => {
+  return await request.get<TeamLeaderActiveOrderTransferTraceRespVO[]>({
+    url: '/mes/pro/process-pool/team-leader/active-order/transfer-trace',
+    params: { activeOrderId }
   })
 }
 

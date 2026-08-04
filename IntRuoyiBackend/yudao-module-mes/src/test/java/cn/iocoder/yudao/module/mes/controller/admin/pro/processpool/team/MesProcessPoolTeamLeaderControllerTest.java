@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderTransferTraceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineEventRespVO;
@@ -13,6 +14,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderTransferTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderAllocationTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderBatchRecordTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderOrderProcessTraceRespVO;
@@ -32,6 +34,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesWorkOrderAbnormalReportReqVO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDefectReasonCatalogService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProcessDeviceParameterRuleService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderTransferTraceService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeBindingService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRemoveReqBO;
@@ -99,6 +102,8 @@ class MesProcessPoolTeamLeaderControllerTest {
     private MesTeamLeaderRuntimeConfigService runtimeConfigService;
     @Mock
     private MesTeamLeaderTraceService traceService;
+    @Mock
+    private MesActiveOrderTransferTraceService activeOrderTransferTraceService;
 
     @InjectMocks
     private MesProcessPoolTeamLeaderController controller;
@@ -229,7 +234,8 @@ class MesProcessPoolTeamLeaderControllerTest {
             assertEquals(8101L, controller.addActiveOrder(new MesTeamLeaderActiveOrderAddReqVO()
                     .setWorkOrderId(9001L)
                     .setRouteId(922119L)
-                    .setRouteVersionId(448L)).getData());
+                    .setRouteVersionId(448L)
+                    .setTransferIds(List.of(5001L, 5002L))).getData());
             controller.removeActiveOrder(new MesTeamLeaderActiveOrderRemoveReqVO().setActiveOrderId(8101L));
             listResponse = controller.getActiveOrderList();
         }
@@ -241,6 +247,7 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEquals(9001L, addCaptor.getValue().getWorkOrderId());
         assertEquals(922119L, addCaptor.getValue().getRouteId());
         assertEquals(448L, addCaptor.getValue().getRouteVersionId());
+        assertEquals(List.of(5001L, 5002L), addCaptor.getValue().getTransferIds());
 
         ArgumentCaptor<MesTeamLeaderActiveOrderRemoveReqBO> removeCaptor =
                 ArgumentCaptor.forClass(MesTeamLeaderActiveOrderRemoveReqBO.class);
@@ -472,6 +479,62 @@ class MesProcessPoolTeamLeaderControllerTest {
     }
 
     @Test
+    void activeOrderTransferTraceEndpointExposesFormalShipmentAndBatchSourcesReadOnly() {
+        when(activeOrderTransferTraceService.listByActiveOrder(8101L)).thenReturn(List.of(
+                MesProcessPoolActiveOrderTransferTraceDO.builder()
+                        .id(7201L)
+                        .activeOrderId(8101L)
+                        .workOrderId(9001L)
+                        .routeId(922119L)
+                        .routeVersionId(448L)
+                        .sourceType(MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_SHIPMENT)
+                        .direction("OUT")
+                        .transferId(5001L)
+                        .transferLineId(5002L)
+                        .transferDetailId(5003L)
+                        .materialStockId(6001L)
+                        .batchId(7001L)
+                        .itemId(8001L)
+                        .quantity(new BigDecimal("15.000000"))
+                        .sourceObjectType("WM_TRANSFER_DETAIL")
+                        .sourceObjectId("5003")
+                        .sourceObjectCode("TR-9001")
+                        .sourceStatus("SHIPPED")
+                        .sourceOccurredAt(LocalDateTime.of(2026, 8, 3, 10, 15))
+                        .idempotencyKey("transfer-9001-line-2-batch-3")
+                        .sourceSnapshotJson("{\"transferNo\":\"TR-9001\"}")
+                        .build()));
+
+        List<MesTeamLeaderActiveOrderTransferTraceRespVO> traces =
+                controller.getActiveOrderTransferTrace(8101L).getData();
+
+        assertEquals(1, traces.size());
+        MesTeamLeaderActiveOrderTransferTraceRespVO trace = traces.get(0);
+        assertEquals(7201L, trace.getId());
+        assertEquals(8101L, trace.getActiveOrderId());
+        assertEquals(9001L, trace.getWorkOrderId());
+        assertEquals(922119L, trace.getRouteId());
+        assertEquals(448L, trace.getRouteVersionId());
+        assertEquals(MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_SHIPMENT, trace.getSourceType());
+        assertEquals("OUT", trace.getDirection());
+        assertEquals(5001L, trace.getTransferId());
+        assertEquals(5002L, trace.getTransferLineId());
+        assertEquals(5003L, trace.getTransferDetailId());
+        assertEquals(6001L, trace.getMaterialStockId());
+        assertEquals(7001L, trace.getBatchId());
+        assertEquals(8001L, trace.getItemId());
+        assertEquals(new BigDecimal("15.000000"), trace.getQuantity());
+        assertEquals("WM_TRANSFER_DETAIL", trace.getSourceObjectType());
+        assertEquals("5003", trace.getSourceObjectId());
+        assertEquals("TR-9001", trace.getSourceObjectCode());
+        assertEquals("SHIPPED", trace.getSourceStatus());
+        assertEquals(LocalDateTime.of(2026, 8, 3, 10, 15), trace.getSourceOccurredAt());
+        assertEquals("transfer-9001-line-2-batch-3", trace.getIdempotencyKey());
+        assertEquals("{\"transferNo\":\"TR-9001\"}", trace.getSourceSnapshotJson());
+        verify(activeOrderTransferTraceService).listByActiveOrder(8101L);
+    }
+
+    @Test
     void mappingsAndPermissions_matchTeamLeaderWorkbenchContract() throws Exception {
         RequestMapping requestMapping = MesProcessPoolTeamLeaderController.class.getAnnotation(RequestMapping.class);
         assertNotNull(requestMapping);
@@ -537,6 +600,8 @@ class MesProcessPoolTeamLeaderControllerTest {
                 new String[]{"/batch-record/trace"}, "mes:pro-process-pool-team-leader:query");
         assertEndpoint("getProductionExecutionTrace", new Class[]{Long.class}, GetMapping.class,
                 new String[]{"/production-execution/trace"}, "mes:pro-process-pool-team-leader:query");
+        assertEndpoint("getActiveOrderTransferTrace", new Class[]{Long.class}, GetMapping.class,
+                new String[]{"/active-order/transfer-trace"}, "mes:pro-process-pool-team-leader:query");
 
         assertNoClientLeaderUserField(MesTeamLeaderSubmissionPageReqVO.class);
         assertNoClientLeaderUserField(MesTeamLeaderSubmissionReviewReqVO.class);

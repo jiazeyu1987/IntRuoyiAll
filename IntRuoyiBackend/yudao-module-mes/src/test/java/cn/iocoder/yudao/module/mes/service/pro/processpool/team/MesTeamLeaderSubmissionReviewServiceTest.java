@@ -35,18 +35,21 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     private MesProProcessPoolEventMapper eventMapper;
     @Mock
     private MesProcessPoolSubmissionReviewMapper reviewMapper;
+    @Mock
+    private MesPqcProcessInspectionAggregationService processInspectionAggregationService;
 
     private MesTeamLeaderSubmissionReviewService service;
 
     @BeforeEach
     void setUp() {
-        service = new MesTeamLeaderSubmissionReviewServiceImpl(scopeService, eventMapper, reviewMapper);
+        service = new MesTeamLeaderSubmissionReviewServiceImpl(scopeService, eventMapper, reviewMapper,
+                processInspectionAggregationService);
     }
 
     @Test
     void shouldReviewResponsibleEmployeeSubmissionWithoutChangingRawEvent() {
         MesProProcessPoolEventDO event = event();
-        when(eventMapper.selectById(1001L)).thenReturn(event);
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
         when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7001L);
             return 1;
@@ -69,11 +72,40 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
         assertEquals("{\"outputQuantity\":10}", event.getRawPayload());
         assertEquals(9001L, event.getSignatureId());
+        verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7001L);
+    }
+
+    @Test
+    void shouldNotAggregateRejectedPqcSubmission() {
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7002L);
+            return 1;
+        });
+
+        Long reviewId = service.reviewSubmission(rejectedReviewReq());
+
+        assertEquals(7002L, reviewId);
+        verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(any(), any());
+    }
+
+    @Test
+    void shouldNotAggregateApprovedProductionSubmission() {
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(productionEvent());
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7003L);
+            return 1;
+        });
+
+        Long reviewId = service.reviewSubmission(reviewReq());
+
+        assertEquals(7003L, reviewId);
+        verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(any(), any());
     }
 
     @Test
     void shouldRejectReviewForOutOfScopeEmployee() {
-        when(eventMapper.selectById(1001L)).thenReturn(event());
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
         doThrow(exception(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED))
                 .when(scopeService).assertCanAccessEmployee(3001L,
                         MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, 2001L);
@@ -81,6 +113,27 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED.getCode(), ex.getCode());
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+    }
+
+    @Test
+    void shouldRejectDuplicateTerminalReviewForSameSubmission() {
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
+        when(reviewMapper.selectOne(any())).thenReturn(existingReview());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS.getCode(), ex.getCode());
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+    }
+
+    @Test
+    void shouldRejectSelfReviewWhenLeaderIsActualInspector() {
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(eventWithActualEmployee(3001L));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_SELF_FORBIDDEN.getCode(), ex.getCode());
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
     }
 
@@ -97,14 +150,45 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 .build();
     }
 
+    private static MesTeamLeaderSubmissionReviewReqBO rejectedReviewReq() {
+        return MesTeamLeaderSubmissionReviewReqBO.builder()
+                .eventId(1001L)
+                .leaderUserId(3001L)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_REJECTED)
+                .reviewRemark("压力曲线异常，退回补正")
+                .build();
+    }
+
     private static MesProProcessPoolEventDO event() {
+        return eventWithActualEmployee(2001L);
+    }
+
+    private static MesProProcessPoolEventDO productionEvent() {
+        return eventWithActualEmployee(2001L)
+                .setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT);
+    }
+
+    private static MesProProcessPoolEventDO eventWithActualEmployee(Long actualEmployeeId) {
         return MesProProcessPoolEventDO.builder()
                 .id(1001L)
-                .actualEmployeeId(2001L)
+                .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                .actualEmployeeId(actualEmployeeId)
                 .rawPayload("{\"outputQuantity\":10}")
                 .serverSubmitTime(LocalDateTime.of(2026, 7, 30, 9, 10))
                 .signatureId(9001L)
-                .signatureUserId(2001L)
+                .signatureUserId(actualEmployeeId)
+                .build();
+    }
+
+    private static MesProcessPoolSubmissionReviewDO existingReview() {
+        return MesProcessPoolSubmissionReviewDO.builder()
+                .id(7000L)
+                .eventId(1001L)
+                .leaderUserId(3002L)
+                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_REJECTED)
+                .reviewRemark("压力曲线异常，已退回")
+                .reviewedAt(LocalDateTime.of(2026, 8, 3, 10, 30))
                 .build();
     }
 }

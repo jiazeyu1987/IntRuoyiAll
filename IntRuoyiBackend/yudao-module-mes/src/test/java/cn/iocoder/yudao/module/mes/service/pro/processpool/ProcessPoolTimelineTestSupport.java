@@ -88,6 +88,9 @@ final class ProcessPoolTimelineTestSupport {
 
         private final List<ProcessPoolTimelineEventReadDO> events;
         private ProcessPoolTimelinePageReqVO lastPageQuery;
+        private int countQueryCalls;
+        private int pageQueryCalls;
+        private int detailQueryCalls;
 
         private InMemoryTimelineReadMapper(List<ProcessPoolTimelineEventReadDO> events) {
             this.events = new ArrayList<>(events);
@@ -97,14 +100,28 @@ final class ProcessPoolTimelineTestSupport {
             return lastPageQuery;
         }
 
+        int getCountQueryCalls() {
+            return countQueryCalls;
+        }
+
+        int getPageQueryCalls() {
+            return pageQueryCalls;
+        }
+
+        int getDetailQueryCalls() {
+            return detailQueryCalls;
+        }
+
         @Override
         public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO) {
+            countQueryCalls++;
             lastPageQuery = reqVO;
             return (long) filter(reqVO).count();
         }
 
         @Override
         public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO) {
+            pageQueryCalls++;
             lastPageQuery = reqVO;
             int pageNo = reqVO.getPageNo() == null ? 1 : reqVO.getPageNo();
             int pageSize = reqVO.getPageSize() == null ? 10 : reqVO.getPageSize();
@@ -119,6 +136,7 @@ final class ProcessPoolTimelineTestSupport {
 
         @Override
         public ProcessPoolTimelineEventReadDO selectTimelineDetailById(Long id) {
+            detailQueryCalls++;
             return events.stream()
                     .filter(event -> Objects.equals(event.getId(), id))
                     .findFirst()

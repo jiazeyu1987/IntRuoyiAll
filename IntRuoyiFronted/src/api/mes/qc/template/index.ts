@@ -10,8 +10,50 @@ export interface QcTemplateVO {
   remark: string // 备注
 }
 
+export interface QaInspectionRuleVO {
+  inspectionType: string
+  itemCode: string
+  itemName: string
+  inspectionMethod: string
+  standardText: string
+  resultType: string
+  firstInspectionQuantity?: number
+  patrolInspectionRatio?: number
+}
+
+export interface QaInspectionRegulationPublishedVersionVO {
+  regulationId: number
+  publishedVersionId: number
+  versionNo: string
+  publishedAt?: string
+  immutable: boolean
+  regulationCode: string
+  regulationName: string
+  productId: number
+  productName?: string
+  routeId: number
+  routeName?: string
+  routeVersionId: number
+  routeVersionNo?: string
+  routeProcessId: number
+  processId: number
+  routeProcessName?: string
+  batchRecordBindingSummary?: string
+  firstInspectionRules: QaInspectionRuleVO[]
+  patrolInspectionRules: QaInspectionRuleVO[]
+  finalInspectionRules: QaInspectionRuleVO[]
+}
+
 // MES 质检方案 API
 export const QcTemplateApi = {
+  // 查询正式 QA 检验规程发布版本只读证据
+  getPublishedQaRegulationVersion: async (versionId?: number) => {
+    return await request.get({
+      url: `/mes/qa/inspection-regulation/published-version`,
+      params: versionId ? { versionId } : undefined
+    })
+  },
+
   // 查询质检方案分页
   getTemplatePage: async (params: any) => {
     return await request.get({ url: `/mes/qc/template/page`, params })

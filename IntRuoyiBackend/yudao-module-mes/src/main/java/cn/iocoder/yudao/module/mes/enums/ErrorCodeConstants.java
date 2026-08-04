@@ -573,6 +573,15 @@ public interface ErrorCodeConstants {
     // ========== MES 质量管理-质检方案产品关联（1-040-600-200） ==========
     ErrorCode QC_TEMPLATE_ITEM_NOT_EXISTS = new ErrorCode(1_040_600_200, "质检方案产品关联不存在");
     ErrorCode QC_TEMPLATE_ITEM_DUPLICATE = new ErrorCode(1_040_600_201, "该产品已关联此质检方案");
+    // ========== MES 质量管理-QA 检验规程（1-040-600-300） ==========
+    ErrorCode QA_INSPECTION_REGULATION_VERSION_NOT_EXISTS =
+            new ErrorCode(1_040_600_300, "QA 检验规程发布版本不存在：{}");
+    ErrorCode QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED =
+            new ErrorCode(1_040_600_301, "QA 检验规程版本不是已发布状态，不能作为发布版本证据：{}");
+    ErrorCode QA_INSPECTION_REGULATION_NOT_EXISTS =
+            new ErrorCode(1_040_600_302, "QA 检验规程不存在：{}");
+    ErrorCode QA_INSPECTION_REGULATION_SNAPSHOT_INVALID =
+            new ErrorCode(1_040_600_303, "QA 检验规程发布快照无效：{}");
 
     // ========== MES 质量管理-质检指标（1-040-601-000） ==========
     ErrorCode QC_INDICATOR_NOT_EXISTS = new ErrorCode(1_040_601_000, "质检指标不存在");
@@ -1127,6 +1136,16 @@ public interface ErrorCodeConstants {
             "报工确认 PQC 结果不可分配，eventId={}，inspectionResult={}");
     ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_QUALITY_QUANTITY_MISMATCH = new ErrorCode(1_040_760_328,
             "报工确认 PQC 合格可分配数量不足，eventId={}，confirmQuantity={}，qualifiedQuantity={}，consumedQuantity={}，allocatableQuantity={}");
+    ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS = new ErrorCode(1_040_760_329,
+            "工序池提交事件已存在复核终态，禁止重复确认或退回：eventId={}，status={}");
+    ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_SELF_FORBIDDEN = new ErrorCode(1_040_760_330,
+            "PQC 提交确认人不能等于实际检验人：eventId={}，actualEmployeeId={}");
+    ErrorCode PRO_PROCESS_POOL_PQC_RECORD_REQUIRED = new ErrorCode(1_040_760_331,
+            "PQC 提交事件缺少可汇集的正式检验记录：eventId={}");
+    ErrorCode PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED = new ErrorCode(1_040_760_332,
+            "PQC 提交事件已汇集为过程检验记录，禁止重复汇集：eventId={}，reviewId={}");
+    ErrorCode PRO_PROCESS_POOL_REVISION_REJECTED_REVIEW_REQUIRED = new ErrorCode(1_040_760_333,
+            "原始记录补正必须基于最新退回复核记录：eventId={}，latestStatus={}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
@@ -39,5 +40,14 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .orderByAsc(MesPqcInspectionTaskDO::getInspectionType)
                 .orderByAsc(MesPqcInspectionTaskDO::getRoundNo)
                 .orderByAsc(MesPqcInspectionTaskDO::getId));
+    }
+
+    default int updateSubmittedIfPending(Long id, Integer actualInspectionQuantity,
+                                         String pendingStatus, String submittedStatus) {
+        return update(null, new LambdaUpdateWrapper<MesPqcInspectionTaskDO>()
+                .set(MesPqcInspectionTaskDO::getActualInspectionQuantity, actualInspectionQuantity)
+                .set(MesPqcInspectionTaskDO::getTaskStatus, submittedStatus)
+                .eq(MesPqcInspectionTaskDO::getId, id)
+                .eq(MesPqcInspectionTaskDO::getTaskStatus, pendingStatus));
     }
 }

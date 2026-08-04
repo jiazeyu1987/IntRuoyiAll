@@ -1852,9 +1852,6 @@ const buildPqcPieceValuesPayload = () => {
   for (const itemKey of pqcInspectionItemKeys.value) {
     values[itemKey] = getPqcStoredPieceValues(itemKey).slice(0, pqcInspectionQuantity.value)
   }
-  for (const [stateKey, stateValues] of Object.entries(pqcPieceValues)) {
-    values[stateKey] = stateValues.slice()
-  }
   return values
 }
 

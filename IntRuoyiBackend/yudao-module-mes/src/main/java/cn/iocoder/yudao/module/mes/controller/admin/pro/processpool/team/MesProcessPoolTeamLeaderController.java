@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderTransferTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderAllocationTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderBatchRecordTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderOrderProcessTraceRespVO;
@@ -30,8 +31,10 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesW
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineEventRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderTransferTraceDO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDefectReasonCatalogService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDefectReasonSaveReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderTransferTraceService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProcessDeviceParameterRuleSaveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProcessDeviceParameterRuleService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeBindingService;
@@ -84,6 +87,7 @@ public class MesProcessPoolTeamLeaderController {
     private final MesTeamLeaderReportConfirmationService reportConfirmationService;
     private final MesTeamLeaderRuntimeConfigService runtimeConfigService;
     private final MesTeamLeaderTraceService traceService;
+    private final MesActiveOrderTransferTraceService activeOrderTransferTraceService;
 
     public MesProcessPoolTeamLeaderController(MesTeamLeaderWorkbenchService workbenchService,
                                               MesTeamLeaderSubmissionReviewService submissionReviewService,
@@ -94,7 +98,8 @@ public class MesProcessPoolTeamLeaderController {
                                               MesTeamLeaderActiveOrderService activeOrderService,
                                               MesTeamLeaderReportConfirmationService reportConfirmationService,
                                               MesTeamLeaderRuntimeConfigService runtimeConfigService,
-                                              MesTeamLeaderTraceService traceService) {
+                                              MesTeamLeaderTraceService traceService,
+                                              MesActiveOrderTransferTraceService activeOrderTransferTraceService) {
         this.workbenchService = workbenchService;
         this.submissionReviewService = submissionReviewService;
         this.abnormalReportService = abnormalReportService;
@@ -105,6 +110,7 @@ public class MesProcessPoolTeamLeaderController {
         this.reportConfirmationService = reportConfirmationService;
         this.runtimeConfigService = runtimeConfigService;
         this.traceService = traceService;
+        this.activeOrderTransferTraceService = activeOrderTransferTraceService;
     }
 
     @GetMapping("/submission/page")
@@ -223,6 +229,7 @@ public class MesProcessPoolTeamLeaderController {
                 .workOrderId(reqVO.getWorkOrderId())
                 .routeId(reqVO.getRouteId())
                 .routeVersionId(reqVO.getRouteVersionId())
+                .transferIds(reqVO.getTransferIds())
                 .build()));
     }
 
@@ -243,6 +250,16 @@ public class MesProcessPoolTeamLeaderController {
     public CommonResult<List<MesTeamLeaderActiveOrderRespVO>> getActiveOrderList() {
         return success(activeOrderService.listActiveOrders(SecurityFrameworkUtils.getLoginUserId()).stream()
                 .map(MesProcessPoolTeamLeaderController::toActiveOrderRespVO)
+                .toList());
+    }
+
+    @GetMapping("/active-order/transfer-trace")
+    @Operation(summary = "只读查询活跃订单调拨/发货/补退料/批次库存追溯")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<List<MesTeamLeaderActiveOrderTransferTraceRespVO>> getActiveOrderTransferTrace(
+            @RequestParam("activeOrderId") Long activeOrderId) {
+        return success(activeOrderTransferTraceService.listByActiveOrder(activeOrderId).stream()
+                .map(MesProcessPoolTeamLeaderController::toActiveOrderTransferTraceRespVO)
                 .toList());
     }
 
@@ -432,6 +449,32 @@ public class MesProcessPoolTeamLeaderController {
                 .setJoinedAt(activeOrder.getJoinedAt())
                 .setRemovedAt(activeOrder.getRemovedAt())
                 .setVersion(activeOrder.getVersion());
+    }
+
+    private static MesTeamLeaderActiveOrderTransferTraceRespVO toActiveOrderTransferTraceRespVO(
+            MesProcessPoolActiveOrderTransferTraceDO trace) {
+        return new MesTeamLeaderActiveOrderTransferTraceRespVO()
+                .setId(trace.getId())
+                .setActiveOrderId(trace.getActiveOrderId())
+                .setWorkOrderId(trace.getWorkOrderId())
+                .setRouteId(trace.getRouteId())
+                .setRouteVersionId(trace.getRouteVersionId())
+                .setSourceType(trace.getSourceType())
+                .setDirection(trace.getDirection())
+                .setTransferId(trace.getTransferId())
+                .setTransferLineId(trace.getTransferLineId())
+                .setTransferDetailId(trace.getTransferDetailId())
+                .setMaterialStockId(trace.getMaterialStockId())
+                .setBatchId(trace.getBatchId())
+                .setItemId(trace.getItemId())
+                .setQuantity(trace.getQuantity())
+                .setSourceObjectType(trace.getSourceObjectType())
+                .setSourceObjectId(trace.getSourceObjectId())
+                .setSourceObjectCode(trace.getSourceObjectCode())
+                .setSourceStatus(trace.getSourceStatus())
+                .setSourceOccurredAt(trace.getSourceOccurredAt())
+                .setIdempotencyKey(trace.getIdempotencyKey())
+                .setSourceSnapshotJson(trace.getSourceSnapshotJson());
     }
 
     private static MesTeamLeaderReportAllocationLineReqBO toReportAllocationLineReqBO(

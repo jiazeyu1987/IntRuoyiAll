@@ -68,7 +68,7 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
         if (!notConfirmed.isEmpty()) {
             return blocker(MesProEdhrReleaseServiceImpl.CHECK_INSPECTION_RESULT, "检验结果检查",
                     "INSPECTION", MODULE_QMS, "PQC_INSPECTION_TASK", String.valueOf(activeOrder.getId()),
-                    String.valueOf(activeOrder.getId()), "存在未确认 PQC 检验任务：" + notConfirmed,
+                    String.valueOf(activeOrder.getId()), summarizeIds("存在未确认 PQC 检验任务", notConfirmed),
                     "PQC 组长确认最终修订后重新预检");
         }
         return pass(MesProEdhrReleaseServiceImpl.CHECK_INSPECTION_RESULT, "检验结果检查",
@@ -87,7 +87,7 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
         if (!open.isEmpty()) {
             return blocker(MesProEdhrReleaseServiceImpl.CHECK_DEVIATION_CLOSED, "偏差关闭检查",
                     "DEVIATION", MODULE_QMS, "QUALITY_ABNORMAL", String.valueOf(batch.getWorkOrderId()),
-                    batch.getWorkOrderCode(), "存在未关闭质量异常/偏差：" + open,
+                    batch.getWorkOrderCode(), summarizeIds("存在未关闭质量异常/偏差", open),
                     "关闭质量异常或记录处置结论后重新预检");
         }
         if (abnormalities.isEmpty()) {
@@ -117,7 +117,7 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
         if (!open.isEmpty()) {
             return blocker(MesProEdhrReleaseServiceImpl.CHECK_REWORK_CLOSED, "返工完成检查",
                     "REWORK", MODULE_MES, "ACTIVE_ORDER_REWORK_TRACE", String.valueOf(activeOrder.getId()),
-                    String.valueOf(activeOrder.getId()), "存在未闭环返工追溯：" + open,
+                    String.valueOf(activeOrder.getId()), summarizeIds("存在未闭环返工追溯", open),
                     "完成返工审批和记录后重新预检");
         }
         if (reworkTraces.isEmpty()) {
@@ -147,7 +147,7 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
         if (!incomplete.isEmpty()) {
             return blocker(MesProEdhrReleaseServiceImpl.CHECK_SCRAP_RECORDED, "报废记录检查",
                     "SCRAP", MODULE_MES, "ACTIVE_ORDER_SCRAP_TRACE", String.valueOf(activeOrder.getId()),
-                    String.valueOf(activeOrder.getId()), "存在未完成报废记录：" + incomplete,
+                    String.valueOf(activeOrder.getId()), summarizeIds("存在未完成报废记录", incomplete),
                     "完成报废记录和库存追溯后重新预检");
         }
         if (scrapTraces.isEmpty()) {
@@ -196,7 +196,7 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
         if (!inconsistentStockIds.isEmpty()) {
             return blocker(MesProEdhrReleaseServiceImpl.CHECK_INVENTORY_CONSISTENCY, "库存一致性检查",
                     "INVENTORY", MODULE_WMS, "MES_WM_MATERIAL_STOCK", String.valueOf(activeOrder.getId()),
-                    String.valueOf(activeOrder.getId()), "存在冻结或负库存台账：" + inconsistentStockIds,
+                    String.valueOf(activeOrder.getId()), summarizeIds("存在冻结或负库存台账", inconsistentStockIds),
                     "修复库存台账状态和数量后重新预检");
         }
         return pass(MesProEdhrReleaseServiceImpl.CHECK_INVENTORY_CONSISTENCY, "库存一致性检查",
@@ -217,16 +217,27 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
     }
 
     private MesOrderReleaseCompletenessCheck activeOrderMissing(String checkCode, String checkName,
-                                                               String category, String module,
-                                                               MesProEdhrBatchExecutionDO batch) {
+                                                                String category, String module,
+                                                                MesProEdhrBatchExecutionDO batch) {
         return blocker(checkCode, checkName, category, module, "ACTIVE_ORDER",
                 String.valueOf(batch.getWorkOrderId()), batch.getWorkOrderCode(),
                 "当前批次缺少可追溯的统一 activeOrderId 来源",
                 "先把生产订单加入统一活跃订单并完成对应来源绑定");
     }
 
+    private String summarizeIds(String prefix, Collection<Long> ids) {
+        if (CollUtil.isEmpty(ids)) {
+            return prefix + "：[]";
+        }
+        List<Long> sample = ids.stream().limit(12).toList();
+        if (ids.size() <= sample.size()) {
+            return prefix + "：" + sample;
+        }
+        return prefix + "：共 " + ids.size() + " 个，示例 " + sample;
+    }
+
     private MesOrderReleaseCompletenessCheck pass(String checkCode, String checkName, String category, String module,
-                                                 String sourceObjectType, String sourceObjectId,
+                                                  String sourceObjectType, String sourceObjectId,
                                                  String sourceObjectCode, String reason) {
         return new MesOrderReleaseCompletenessCheck(checkCode, checkName, category, RESULT_PASS, SEVERITY_INFO, module,
                 sourceObjectType, sourceObjectId, sourceObjectCode, reason, "无需处理");

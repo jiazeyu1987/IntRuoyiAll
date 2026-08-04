@@ -19,4 +19,15 @@ public interface MesProcessPoolSubmissionReviewMapper extends BaseMapperX<MesPro
                 .eq(MesProcessPoolSubmissionReviewDO::getEventId, eventId)
                 .orderByAsc(MesProcessPoolSubmissionReviewDO::getId));
     }
+
+    default MesProcessPoolSubmissionReviewDO selectLatestByEventIdForUpdate(Long eventId) {
+        if (eventId == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolSubmissionReviewDO>()
+                .eq(MesProcessPoolSubmissionReviewDO::getEventId, eventId)
+                .orderByDesc(MesProcessPoolSubmissionReviewDO::getReviewedAt)
+                .orderByDesc(MesProcessPoolSubmissionReviewDO::getId)
+                .last("LIMIT 1 FOR UPDATE"));
+    }
 }

@@ -539,6 +539,29 @@
         <el-table-column label="审核副本" min-width="130">
           <template #default="{ row }">{{ row.auditCopyStatus || '--' }}</template>
         </el-table-column>
+        <el-table-column v-if="activeLeaderTab === 'PQC'" label="过程检验汇集" min-width="180">
+          <template #default="{ row }">
+            <div
+              class="team-leader-workbench__review-log"
+              data-pqc-process-inspection-aggregation
+              :data-pqc-process-inspection-event-id="String(row.id)"
+            >
+              <el-tag
+                :type="resolveProcessInspectionAggregationTagType(row.processInspectionAggregationStatus)"
+                effect="plain"
+              >
+                {{ resolveProcessInspectionAggregationStatusText(row.processInspectionAggregationStatus) }}
+              </el-tag>
+              <span
+                v-if="row.processInspectionReviewId"
+                class="team-leader-workbench__review-meta"
+              >
+                复核 {{ row.processInspectionReviewId }} ·
+                {{ formatDateTime(row.processInspectionAggregatedAt) }}
+              </span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="复核判定" min-width="190">
           <template #default="{ row }">
             <div class="team-leader-workbench__review-log" data-team-leader-review-log>
@@ -557,9 +580,30 @@
         </el-table-column>
         <el-table-column label="操作" width="270" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openDetail(row)">详情</el-button>
-            <el-button link type="success" @click="openReview(row)">复核</el-button>
-            <el-button link type="warning" @click="openCorrection(row)">修正</el-button>
+            <el-button
+              link
+              type="primary"
+              :data-team-leader-detail-event-id="String(row.id)"
+              @click="openDetail(row)"
+            >
+              详情
+            </el-button>
+            <el-button
+              link
+              type="success"
+              :data-team-leader-review-event-id="String(row.id)"
+              @click="openReview(row)"
+            >
+              复核
+            </el-button>
+            <el-button
+              link
+              type="warning"
+              :data-team-leader-correction-event-id="String(row.id)"
+              @click="openCorrection(row)"
+            >
+              修正
+            </el-button>
             <el-button v-if="isProductionLeader" link type="warning" @click="prefillAbnormal(row)">
               标记异常
             </el-button>
@@ -714,6 +758,13 @@
             <el-form-item label="路线版本ID" data-team-leader-active-order-route-version-id>
               <el-input-number v-model="activeOrderForm.routeVersionId" :min="1" :controls="false" />
             </el-form-item>
+            <el-form-item label="调拨单ID列表" data-team-leader-active-order-transfer-ids>
+              <el-input
+                v-model="activeOrderForm.transferIdsText"
+                clearable
+                placeholder="多个 ID 用逗号或空格分隔"
+              />
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" :loading="maintenanceSubmitting" @click="submitAddActiveOrder">
                 加入活跃订单
@@ -743,6 +794,68 @@
           <div class="team-leader-workbench__hint">
             当前活跃订单：{{ activeOrderOptions.length }} 个
           </div>
+          <el-divider>调拨库存追溯</el-divider>
+          <el-alert
+            v-if="activeOrderTransferTraceError"
+            :title="activeOrderTransferTraceError"
+            type="error"
+            :closable="false"
+            show-icon
+            data-team-leader-active-order-transfer-trace-error
+          />
+          <el-table
+            v-else
+            :data="activeOrderTransferTraceRows"
+            v-loading="activeOrderTransferTraceLoading"
+            size="small"
+            border
+            class="team-leader-workbench__transfer-trace"
+            empty-text="暂无正式调拨/发货/补料/退料追溯"
+            data-team-leader-active-order-transfer-trace
+          >
+            <el-table-column label="活跃池" width="76">
+              <template #default="{ row }">
+                <span data-transfer-trace-active-order-id>{{ row.activeOrderId }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="来源类型" min-width="92">
+              <template #default="{ row }">
+                <span data-transfer-trace-source-type>{{ row.sourceType }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="来源单号" min-width="116">
+              <template #default="{ row }">
+                <span data-transfer-trace-source-object-code>
+                  {{ row.sourceObjectCode || row.sourceObjectId || '-' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" min-width="88">
+              <template #default="{ row }">
+                <span data-transfer-trace-source-status>{{ row.sourceStatus || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="数量" min-width="82">
+              <template #default="{ row }">
+                <span data-transfer-trace-quantity>{{ formatTraceQuantity(row.quantity) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="库存ID" min-width="86">
+              <template #default="{ row }">
+                <span data-transfer-trace-material-stock-id>{{ row.materialStockId || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="批次ID" min-width="86">
+              <template #default="{ row }">
+                <span data-transfer-trace-batch-id>{{ row.batchId || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="幂等键" min-width="160">
+              <template #default="{ row }">
+                <span data-transfer-trace-idempotency-key>{{ row.idempotencyKey }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
         </el-card>
 
         <el-card shadow="never" data-team-leader-employee-config>
@@ -1009,8 +1122,13 @@
             <el-descriptions-item label="服务端提交时间">
               {{ formatDateTime(detail.submittedAt) }}
             </el-descriptions-item>
+            <el-descriptions-item label="签名编号">
+              <span data-pqc-submission-signature-id>
+                {{ detail.electronicSignatureId || '--' }}
+              </span>
+            </el-descriptions-item>
             <el-descriptions-item label="原始提交内容">
-              <pre class="team-leader-workbench__payload">{{
+              <pre class="team-leader-workbench__payload" data-pqc-submission-original-payload>{{
                 detail.originalPayloadJson || '--'
               }}</pre>
             </el-descriptions-item>
@@ -1229,6 +1347,7 @@ import {
   createTeamDevice,
   createTeamEmployeeProfile,
   getTeamLeaderActiveOrderList,
+  getTeamLeaderActiveOrderTransferTrace,
   getTeamLeaderSubmissionDetail,
   getTeamLeaderSubmissionPage,
   markAndReportWorkOrderAbnormal,
@@ -1241,6 +1360,7 @@ import {
   saveTeamRuntimeDeviceParameterRule,
   updateTeamDeviceStatus,
   type TeamLeaderActiveOrderRespVO,
+  type TeamLeaderActiveOrderTransferTraceRespVO,
   type TeamLeaderReportAllocationLine,
   type TeamLeaderSubmissionPageReqVO,
   type TeamLeaderType
@@ -1312,6 +1432,9 @@ const detail = ref<ProcessPoolTimelineDetailVO>()
 const reviewEvent = ref<ProcessPoolTimelineEventVO>()
 const correctionEvent = ref<ProcessPoolTimelineEventVO>()
 const activeOrderOptions = ref<TeamLeaderActiveOrderRespVO[]>([])
+const activeOrderTransferTraceRows = ref<TeamLeaderActiveOrderTransferTraceRespVO[]>([])
+const activeOrderTransferTraceLoading = ref(false)
+const activeOrderTransferTraceError = ref('')
 const allocationRows = ref<TeamLeaderReportAllocationLine[]>([])
 const configuredDefectReasonOptions = ref<
   Array<{ reasonType: string; reasonCode: string; reasonName: string }>
@@ -1699,7 +1822,8 @@ const abnormalForm = reactive({
 const activeOrderForm = reactive({
   workOrderId: undefined as number | undefined,
   routeId: undefined as number | undefined,
-  routeVersionId: undefined as number | undefined
+  routeVersionId: undefined as number | undefined,
+  transferIdsText: ''
 })
 
 const activeOrderRemoveForm = reactive({
@@ -1793,8 +1917,26 @@ const requireFiniteNumber = (value: unknown, message: string) => {
   return parsed
 }
 
+const parsePositiveIntegerList = (value: string, label: string) => {
+  const text = value.trim()
+  if (!text) return []
+  return text.split(/[,\s，]+/).filter(Boolean).map((item) => {
+    const parsed = Number(item)
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      throw new Error(`${label}只能包含大于 0 的整数 ID`)
+    }
+    return parsed
+  })
+}
+
 const formatActiveOrderOption = (order: TeamLeaderActiveOrderRespVO) => {
   return `订单 ${order.workOrderId} / 活跃池 ${order.id}`
+}
+
+const formatTraceQuantity = (value: number | string | undefined) => {
+  if (value === undefined || value === null || value === '') return '-'
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed.toFixed(3) : String(value)
 }
 
 const resetReviewAllocation = () => {
@@ -1802,8 +1944,31 @@ const resetReviewAllocation = () => {
   allocationRows.value = []
 }
 
+const loadActiveOrderTransferTraces = async () => {
+  activeOrderTransferTraceError.value = ''
+  activeOrderTransferTraceRows.value = []
+  const activeOrders = activeOrderOptions.value.filter((order) => normalizePositiveNumber(order.id))
+  if (activeOrders.length === 0) {
+    return
+  }
+  activeOrderTransferTraceLoading.value = true
+  try {
+    const traceGroups = await Promise.all(
+      activeOrderOptions.value.map((order) => getTeamLeaderActiveOrderTransferTrace(order.id))
+    )
+    activeOrderTransferTraceRows.value = traceGroups.flat()
+  } catch (error) {
+    activeOrderTransferTraceError.value = resolveErrorMessage(error, '活跃订单调拨库存追溯加载失败')
+    activeOrderTransferTraceRows.value = []
+    throw error
+  } finally {
+    activeOrderTransferTraceLoading.value = false
+  }
+}
+
 const loadActiveOrders = async () => {
   activeOrderOptions.value = await getTeamLeaderActiveOrderList()
+  await loadActiveOrderTransferTraces()
 }
 
 const markManualAllocation = () => {
@@ -2112,6 +2277,18 @@ const resolveSubmissionReviewStatusText = (status?: string) => {
 const resolveSubmissionReviewTagType = (status?: string) => {
   if (status === 'APPROVED') return 'success'
   if (status === 'REJECTED') return 'danger'
+  return 'info'
+}
+
+const resolveProcessInspectionAggregationStatusText = (status?: string) => {
+  if (status === 'AGGREGATED') return '已汇集'
+  if (status === 'FAILED') return '汇集失败'
+  return '待汇集'
+}
+
+const resolveProcessInspectionAggregationTagType = (status?: string) => {
+  if (status === 'AGGREGATED') return 'success'
+  if (status === 'FAILED') return 'danger'
   return 'info'
 }
 
@@ -2450,7 +2627,8 @@ const submitAddActiveOrder = async () => {
     await addTeamLeaderActiveOrder({
       workOrderId: requirePositiveNumber(activeOrderForm.workOrderId, '生产订单ID不能为空'),
       routeId: requirePositiveNumber(activeOrderForm.routeId, '路线ID不能为空'),
-      routeVersionId: requirePositiveNumber(activeOrderForm.routeVersionId, '路线版本ID不能为空')
+      routeVersionId: requirePositiveNumber(activeOrderForm.routeVersionId, '路线版本ID不能为空'),
+      transferIds: parsePositiveIntegerList(activeOrderForm.transferIdsText, '调拨单ID列表')
     })
     ElMessage.success('活跃订单已加入')
     await loadActiveOrders()
@@ -2615,7 +2793,12 @@ const resolvePqcTagType = (pqcResult?: string) => {
   return 'info'
 }
 
-onMounted(() => getSubmissionList())
+onMounted(() => {
+  getSubmissionList()
+  loadActiveOrders().catch((error) => {
+    ElMessage.error(resolveErrorMessage(error, '活跃订单调拨库存追溯加载失败'))
+  })
+})
 </script>
 
 <style scoped>
@@ -2791,6 +2974,11 @@ onMounted(() => getSubmissionList())
   color: #64748b;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.team-leader-workbench__transfer-trace {
+  width: 100%;
+  margin-top: 8px;
 }
 
 .team-leader-workbench__payload {

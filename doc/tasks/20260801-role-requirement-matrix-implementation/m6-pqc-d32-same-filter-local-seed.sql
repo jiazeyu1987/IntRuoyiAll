@@ -15,7 +15,7 @@ BEGIN
     DECLARE v_route_process_id BIGINT DEFAULT 928609;
     DECLARE v_process_id BIGINT DEFAULT 922985;
     DECLARE v_regulation_version_id BIGINT DEFAULT 16;
-    DECLARE v_actual_employee_id BIGINT DEFAULT 512;
+    DECLARE v_actual_employee_id BIGINT DEFAULT 659;
     DECLARE v_inspection_type VARCHAR(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'PATROL';
     DECLARE v_shift_code VARCHAR(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'DAY';
     DECLARE v_round_no INT DEFAULT 1;
@@ -30,8 +30,11 @@ BEGIN
     DECLARE v_existing_today_task_id BIGINT DEFAULT NULL;
     DECLARE v_existing_today_task_status VARCHAR(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL;
     DECLARE v_existing_today_event_count INT DEFAULT 0;
-    DECLARE v_submitted_same_filter_count INT DEFAULT 0;
+    DECLARE v_pending_same_filter_event_count INT DEFAULT 0;
     DECLARE v_pending_same_filter_task_id BIGINT DEFAULT NULL;
+    DECLARE v_pending_same_filter_task_count INT DEFAULT 0;
+    DECLARE v_next_business_date DATE DEFAULT CURDATE();
+    DECLARE v_existing_identity_count INT DEFAULT 0;
 
     SET v_route_process_id = 928609;
     SET v_process_id = 922985;
@@ -128,12 +131,31 @@ BEGIN
             SET MESSAGE_TEXT = 'RRM M6 D32 fixture failed: today same-filter task is SUBMITTED but has no process-pool event';
     END IF;
 
-    SELECT COUNT(*) INTO v_submitted_same_filter_count
+    SELECT COUNT(*) INTO v_pending_same_filter_event_count
     FROM mes_pro_process_pool_event pool_event
     LEFT JOIN mes_pqc_inspection_task pqc_task
       ON pqc_task.tenant_id = pool_event.tenant_id
      AND pqc_task.id = CAST(JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcTaskId')) AS UNSIGNED)
      AND pqc_task.deleted = b'0'
+    LEFT JOIN (
+        SELECT review_log.tenant_id,
+               review_log.event_id,
+               review_log.review_status
+        FROM mes_pro_process_pool_submission_review review_log
+        INNER JOIN (
+            SELECT tenant_id,
+                   event_id,
+                   MAX(id) AS latest_id
+            FROM mes_pro_process_pool_submission_review
+            WHERE deleted = b'0'
+            GROUP BY tenant_id, event_id
+        ) latest_review
+          ON latest_review.tenant_id = review_log.tenant_id
+         AND latest_review.latest_id = review_log.id
+        WHERE review_log.deleted = b'0'
+    ) latest_submission_review
+      ON latest_submission_review.tenant_id = pool_event.tenant_id
+     AND latest_submission_review.event_id = pool_event.id
     WHERE pool_event.tenant_id = v_tenant_id
       AND pool_event.work_order_id = v_work_order_id
       AND pool_event.route_process_id = v_route_process_id
@@ -143,24 +165,61 @@ BEGIN
       AND DATE(pool_event.server_submit_time) = CURDATE()
       AND pqc_task.inspection_type = v_inspection_type
       AND pqc_task.round_no = v_round_no
+      AND COALESCE(
+              latest_submission_review.review_status,
+              CONVERT('PENDING' USING utf8mb4) COLLATE utf8mb4_unicode_ci
+          ) = CONVERT('PENDING' USING utf8mb4) COLLATE utf8mb4_unicode_ci
       AND pool_event.deleted = b'0';
 
-    IF v_submitted_same_filter_count < 2 THEN
-        IF v_existing_today_task_id IS NULL THEN
-            INSERT INTO mes_pqc_inspection_task
-                (active_order_id, work_order_id, route_id, route_version_id, route_process_id, process_id,
-                 regulation_version_id, inspection_type, business_date, shift_code, round_no,
-                 planned_inspection_quantity, actual_inspection_quantity, task_status,
-                 creator, updater, tenant_id)
-            VALUES
-                (v_active_order_id, v_work_order_id, v_route_id, v_route_version_id, v_route_process_id, v_process_id,
-                 v_regulation_version_id, v_inspection_type, CURDATE(), v_shift_code, v_round_no,
-                 v_planned_quantity, 0, 'PENDING',
-                 'codex-rrm-m6-d32', 'codex-rrm-m6-d32', v_tenant_id);
-        END IF;
+    IF v_pending_same_filter_event_count < 2 THEN
+        SELECT COUNT(*), MIN(id) INTO v_pending_same_filter_task_count, v_pending_same_filter_task_id
+        FROM mes_pqc_inspection_task
+        WHERE tenant_id = v_tenant_id
+          AND active_order_id = v_active_order_id
+          AND route_process_id = v_route_process_id
+          AND process_id = v_process_id
+          AND regulation_version_id = v_regulation_version_id
+          AND inspection_type = v_inspection_type
+          AND business_date >= CURDATE()
+          AND shift_code = v_shift_code
+          AND round_no = v_round_no
+          AND planned_inspection_quantity = v_planned_quantity
+          AND task_status = CONVERT('PENDING' USING utf8mb4) COLLATE utf8mb4_unicode_ci
+          AND deleted = b'0';
+
+        WHILE v_pending_same_filter_event_count + v_pending_same_filter_task_count < 2 DO
+            SELECT COUNT(*) INTO v_existing_identity_count
+            FROM mes_pqc_inspection_task
+            WHERE tenant_id = v_tenant_id
+              AND active_order_id = v_active_order_id
+              AND route_process_id = v_route_process_id
+              AND inspection_type = v_inspection_type
+              AND business_date = v_next_business_date
+              AND shift_code = v_shift_code
+              AND round_no = v_round_no
+              AND deleted = b'0';
+
+            IF v_existing_identity_count = 0 THEN
+                INSERT INTO mes_pqc_inspection_task
+                    (active_order_id, work_order_id, route_id, route_version_id, route_process_id, process_id,
+                     regulation_version_id, inspection_type, business_date, shift_code, round_no,
+                     planned_inspection_quantity, actual_inspection_quantity, task_status,
+                     creator, updater, tenant_id)
+                VALUES
+                    (v_active_order_id, v_work_order_id, v_route_id, v_route_version_id, v_route_process_id, v_process_id,
+                     v_regulation_version_id, v_inspection_type, v_next_business_date, v_shift_code, v_round_no,
+                     v_planned_quantity, 0, 'PENDING',
+                     'codex-rrm-m6-d32', 'codex-rrm-m6-d32', v_tenant_id);
+                SET v_pending_same_filter_task_id = LAST_INSERT_ID();
+                SET v_pending_same_filter_task_count = v_pending_same_filter_task_count + 1;
+            ELSE
+                SET v_next_business_date = DATE_ADD(v_next_business_date, INTERVAL 1 DAY);
+            END IF;
+        END WHILE;
+
     END IF;
 
-    SELECT MIN(id) INTO v_pending_same_filter_task_id
+    SELECT COUNT(*), MIN(id) INTO v_pending_same_filter_task_count, v_pending_same_filter_task_id
     FROM mes_pqc_inspection_task
     WHERE tenant_id = v_tenant_id
       AND active_order_id = v_active_order_id
@@ -168,14 +227,14 @@ BEGIN
       AND process_id = v_process_id
       AND regulation_version_id = v_regulation_version_id
       AND inspection_type = v_inspection_type
-      AND business_date = CURDATE()
+      AND business_date >= CURDATE()
       AND shift_code = v_shift_code
       AND round_no = v_round_no
       AND planned_inspection_quantity = v_planned_quantity
       AND task_status = CONVERT('PENDING' USING utf8mb4) COLLATE utf8mb4_unicode_ci
       AND deleted = b'0';
 
-    IF v_submitted_same_filter_count < 2 AND v_pending_same_filter_task_id IS NULL THEN
+    IF v_pending_same_filter_event_count + v_pending_same_filter_task_count < 2 THEN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'RRM M6 D32 fixture failed: no pending same-filter task is available for real UI submission';
     END IF;
@@ -208,7 +267,7 @@ WHERE task.tenant_id = 1
   AND task.route_process_id = 928609
   AND task.process_id = 922985
   AND task.inspection_type = CONVERT('PATROL' USING utf8mb4) COLLATE utf8mb4_unicode_ci
-  AND task.business_date = CURDATE()
+      AND task.business_date >= CURDATE()
   AND task.shift_code = CONVERT('DAY' USING utf8mb4) COLLATE utf8mb4_unicode_ci
   AND task.round_no = 1
   AND task.deleted = b'0'

@@ -9,13 +9,22 @@ const migrationPreflightPath = path.join(
   backendRoot,
   'sql/mysql/20260802_role_requirement_matrix_m6_migration_preflight.sql'
 )
+const pqcPieceDetailReconcilePath = path.join(
+  backendRoot,
+  'sql/mysql/20260804_mes_pqc_piece_detail_legacy_equipment_nullable.sql'
+)
 
 assert.ok(
   fs.existsSync(migrationPreflightPath),
   'M6 migration gate must provide a deterministic SQL preflight before full real E2E acceptance.'
 )
+assert.ok(
+  fs.existsSync(pqcPieceDetailReconcilePath),
+  'M6 migration gate must reconcile legacy PQC piece-detail equipment columns before full real E2E acceptance.'
+)
 
 const sql = fs.readFileSync(migrationPreflightPath, 'utf8')
+const pieceDetailReconcileSql = fs.readFileSync(pqcPieceDetailReconcilePath, 'utf8')
 
 for (const token of [
   'release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260802_mes_pqc_inspection_task,20260802_mes_process_pool_active_order_transfer_trace,20260802_mes_process_pool_team_leader_scope_extended; type=config; riskLevel=medium',
@@ -57,5 +66,23 @@ assert.doesNotMatch(
   /WHERE\s+`deleted`\s*=\s*b'0'\s+AND\s+\(\s*`batch_record_report_id`\s+IS\s+NULL/i,
   'M6 migration preflight must not treat INTERNAL_RECORD form slots as missing formal batch record bindings.'
 )
+
+for (const token of [
+  'release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260802_mes_pqc_inspection_task; type=schema; riskLevel=medium',
+  'selected_equipment_id',
+  'selected_equipment_code',
+  'selected_equipment_name',
+  'selected_equipment_number',
+  'MODIFY COLUMN `selected_equipment_id` bigint NULL',
+  'MODIFY COLUMN `selected_equipment_code` varchar(64) NULL',
+  'MODIFY COLUMN `selected_equipment_name` varchar(128) NULL',
+  'MODIFY COLUMN `selected_equipment_number` varchar(64) NULL'
+]) {
+  assert.match(
+    pieceDetailReconcileSql,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `PQC piece-detail legacy equipment schema reconcile must include ${token}.`
+  )
+}
 
 console.log('PASS role-matrix M6 migration preflight static contract')

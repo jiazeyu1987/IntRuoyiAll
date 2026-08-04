@@ -128,6 +128,8 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
                 .inspectionResult(reqDTO.getInspectionResult())
                 .serverSubmitTime(event.getServerSubmitTime())
                 .rawPayload(reqDTO.getRawPayload())
+                .processInspectionAggregationStatus(
+                        MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_PENDING)
                 .build();
         pqcRecordMapper.insert(pqcRecord);
         return eventId;

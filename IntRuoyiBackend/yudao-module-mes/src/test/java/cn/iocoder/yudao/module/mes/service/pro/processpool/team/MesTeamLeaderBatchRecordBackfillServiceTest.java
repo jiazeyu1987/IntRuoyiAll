@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -109,6 +110,45 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
         assertEquals("report.pressure", changes.get(1).getFieldPath());
         assertEquals("pressure", changes.get(1).getFieldKey());
         assertEquals(new BigDecimal("15"), changes.get(1).getNewValueJson());
+    }
+
+    @Test
+    void shouldBackfillCompletedProcessOnlyOnceWhenConcurrentAuditAlreadyApplied() {
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
+                .thenReturn(List.of(binding()));
+        when(executionService.openOrCreateByContext(any(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class)))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8801L));
+        when(executionMapper.selectById(8801L)).thenReturn(execution());
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(
+                        rule(1L, "outputQuantity", 5, 2, MesProBatchRecordExecutionFieldAuditValueType.NUMBER),
+                        rule(2L, "pressure", 6, 2, MesProBatchRecordExecutionFieldAuditValueType.NUMBER)));
+        when(fieldAuditService.saveSystemCellLinkChanges(any(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class)))
+                .thenReturn(new MesProBatchRecordExecutionFieldAuditSaveResult()
+                                .setAuditBatchId(99001L)
+                                .setFieldAuditRevision(2L)
+                                .setCellValuesHash("after-hash")
+                                .setFieldAuditHeadHash("after-head")
+                                .setChangedFieldCount(2),
+                        new MesProBatchRecordExecutionFieldAuditSaveResult()
+                                .setAuditBatchId(99001L)
+                                .setFieldAuditRevision(2L)
+                                .setCellValuesHash("after-hash")
+                                .setFieldAuditHeadHash("after-head")
+                                .setChangedFieldCount(2));
+
+        MesTeamLeaderBatchRecordBackfillResult first = service.backfillCompletedProcess(command());
+        MesTeamLeaderBatchRecordBackfillResult concurrentReplay = service.backfillCompletedProcess(command());
+
+        assertEquals(2, first.getAppliedFieldCount());
+        assertEquals(2, concurrentReplay.getAppliedFieldCount());
+
+        String expectedIdempotencyKey = "PROCESS_POOL_REPORT_BACKFILL:1001:9001:5001";
+        ArgumentCaptor<MesProBatchRecordExecutionFieldAuditSaveChangesCommand> auditCaptor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
+        verify(fieldAuditService, times(2)).saveSystemCellLinkChanges(auditCaptor.capture());
+        assertEquals(expectedIdempotencyKey, auditCaptor.getAllValues().get(0).getIdempotencyKey());
+        assertEquals(expectedIdempotencyKey, auditCaptor.getAllValues().get(1).getIdempotencyKey());
     }
 
     @Test

@@ -1,10 +1,19 @@
 package cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation;
 
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
 public interface MesQaInspectionRegulationVersionMapper
         extends BaseMapperX<MesQaInspectionRegulationVersionDO> {
+
+    default MesQaInspectionRegulationVersionDO selectLatestPublished() {
+        return selectOne(new LambdaQueryWrapperX<MesQaInspectionRegulationVersionDO>()
+                .eq(MesQaInspectionRegulationVersionDO::getLifecycleStatus, "PUBLISHED")
+                .orderByDesc(MesQaInspectionRegulationVersionDO::getPublishedAt)
+                .orderByDesc(MesQaInspectionRegulationVersionDO::getId)
+                .last("LIMIT 1"));
+    }
 }

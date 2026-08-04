@@ -30,6 +30,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -50,13 +51,15 @@ class MesTeamLeaderActiveOrderServiceTest {
     private MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
     @Mock
     private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
+    @Mock
+    private MesActiveOrderTransferTraceService transferTraceService;
 
     private MesTeamLeaderActiveOrderService service;
 
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, auditMapper,
-                scheduleOrderMapper, scheduleOrderProcessMapper, processSnapshotMapper);
+                scheduleOrderMapper, scheduleOrderProcessMapper, processSnapshotMapper, transferTraceService);
     }
 
     @Test
@@ -209,7 +212,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void shouldRemoveActiveOrderWithoutDeletingHistory() {
+    void shouldRemoveActiveOrderWithExplicitVersionGuardWithoutDeletingHistory() {
         when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L)
                 .leaderUserId(3001L)
@@ -218,21 +221,125 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .businessStatus("ACTIVE")
                 .version(7)
                 .build());
+        when(activeOrderMapper.removeActiveOrder(eq(8101L), eq(7), any(LocalDateTime.class))).thenReturn(1);
 
         service.removeActiveOrder(MesTeamLeaderActiveOrderRemoveReqBO.builder()
                 .leaderUserId(3001L)
                 .activeOrderId(8101L)
                 .build());
 
-        ArgumentCaptor<MesProcessPoolActiveOrderDO> captor =
+        ArgumentCaptor<LocalDateTime> removedAtCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(activeOrderMapper).removeActiveOrder(eq(8101L), eq(7), removedAtCaptor.capture());
+        assertNotNull(removedAtCaptor.getValue());
+        verify(activeOrderMapper, never()).updateById(any(MesProcessPoolActiveOrderDO.class));
+        verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void shouldRecordFormalTransferTraceWhenAddingActiveOrderWithTransferIds() {
+        when(workOrderService.validateWorkOrderExists(9001L)).thenReturn(MesProWorkOrderDO.builder()
+                .id(9001L)
+                .code("WO-9001")
+                .quantity(new BigDecimal("200"))
+                .build());
+        when(activeOrderMapper.insert(any(MesProcessPoolActiveOrderDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolActiveOrderDO.class).setId(8101L);
+            return 1;
+        });
+        when(scheduleOrderMapper.selectEffectiveByWorkOrderId(9001L)).thenReturn(MesProScheduleOrderDO.builder()
+                .id(7701L)
+                .workOrderId(9001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .build());
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderId(7701L)).thenReturn(List.of(
+                scheduleProcess(928609L, 6001L, "3.000000", "600.000000")));
+        when(processSnapshotMapper.insertBatch(any())).thenReturn(Boolean.TRUE);
+
+        Long activeOrderId = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .transferIds(List.of(5001L, 5002L))
+                .build());
+
+        assertEquals(8101L, activeOrderId);
+        ArgumentCaptor<MesProcessPoolActiveOrderDO> activeOrderCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolActiveOrderDO.class);
-        verify(activeOrderMapper).updateById(captor.capture());
-        MesProcessPoolActiveOrderDO update = captor.getValue();
-        assertEquals(8101L, update.getId());
-        assertEquals("REMOVED", update.getActiveStatus());
-        assertEquals("REMOVED", update.getBusinessStatus());
-        assertEquals(7, update.getVersion());
-        assertNotNull(update.getRemovedAt());
+        verify(transferTraceService).recordTransferTracesForActiveOrder(
+                activeOrderCaptor.capture(), eq(List.of(5001L, 5002L)));
+        assertEquals(8101L, activeOrderCaptor.getValue().getId());
+        assertEquals(9001L, activeOrderCaptor.getValue().getWorkOrderId());
+        assertEquals(922119L, activeOrderCaptor.getValue().getRouteId());
+        assertEquals(448L, activeOrderCaptor.getValue().getRouteVersionId());
+    }
+
+    @Test
+    void shouldRejectRemoveWhenVersionGuardCannotUpdateActiveOrder() {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L)
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .activeStatus("ACTIVE")
+                .businessStatus("ACTIVE")
+                .version(7)
+                .build());
+        when(activeOrderMapper.removeActiveOrder(eq(8101L), eq(7), any(LocalDateTime.class))).thenReturn(0);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.removeActiveOrder(
+                MesTeamLeaderActiveOrderRemoveReqBO.builder()
+                        .leaderUserId(3001L)
+                        .activeOrderId(8101L)
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS.getCode(), ex.getCode());
+        verify(activeOrderMapper).removeActiveOrder(eq(8101L), eq(7), any(LocalDateTime.class));
+        verify(activeOrderMapper, never()).updateById(any(MesProcessPoolActiveOrderDO.class));
+        verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void shouldReactivateRemovedActiveOrderWhenSameWorkOrderRouteVersionIsJoinedAgain() {
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(9001L, 922119L, 448L)).thenReturn(null);
+        when(workOrderService.validateWorkOrderExists(9001L)).thenReturn(MesProWorkOrderDO.builder()
+                .id(9001L)
+                .code("WO-9001")
+                .quantity(new BigDecimal("200"))
+                .build());
+        when(scheduleOrderMapper.selectEffectiveByWorkOrderId(9001L)).thenReturn(MesProScheduleOrderDO.builder()
+                .id(7701L)
+                .workOrderId(9001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .build());
+        when(activeOrderMapper.selectRemovedByWorkOrderRouteVersion(9001L, 922119L, 448L))
+                .thenReturn(MesProcessPoolActiveOrderDO.builder()
+                        .id(8101L)
+                        .leaderUserId(3001L)
+                        .workOrderId(9001L)
+                        .routeId(922119L)
+                        .routeVersionId(448L)
+                        .activeStatus("REMOVED")
+                        .businessStatus("REMOVED")
+                        .version(7)
+                        .removedAt(LocalDateTime.of(2026, 8, 4, 10, 30))
+                        .build());
+        when(activeOrderMapper.reactivateRemovedActiveOrder(any(), any(), any(), any())).thenReturn(1);
+
+        Long activeOrderId = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .build());
+
+        assertEquals(8101L, activeOrderId);
+        verify(workOrderService).validateWorkOrderExists(9001L);
+        verify(scheduleOrderMapper).selectEffectiveByWorkOrderId(9001L);
+        verify(activeOrderMapper).reactivateRemovedActiveOrder(any(), any(), any(), any());
+        verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
+        verify(processSnapshotMapper, never()).insertBatch(any());
         verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
     }
 
@@ -251,6 +358,26 @@ class MesTeamLeaderActiveOrderServiceTest {
 
         assertEquals(expected, activeOrders);
         verify(activeOrderMapper).selectActiveList();
+    }
+
+    @Test
+    void shouldListActiveOrdersWithSingleActiveOrderQueryForDailyClosePerformance() {
+        List<MesProcessPoolActiveOrderDO> expected = List.of(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L)
+                .leaderUserId(4001L)
+                .workOrderId(9001L)
+                .activeStatus("ACTIVE")
+                .joinedAt(LocalDateTime.of(2026, 7, 31, 8, 30))
+                .build());
+        when(activeOrderMapper.selectActiveList()).thenReturn(expected);
+
+        List<MesProcessPoolActiveOrderDO> activeOrders = service.listActiveOrders(3001L);
+
+        assertEquals(expected, activeOrders);
+        verify(activeOrderMapper).selectActiveList();
+        verify(scheduleOrderProcessMapper, never()).selectListByScheduleOrderId(any());
+        verify(processSnapshotMapper, never()).insertBatch(any());
+        verify(scheduleOrderMapper, never()).selectEffectiveByWorkOrderId(any());
     }
 
     private static MesProScheduleOrderProcessDO scheduleProcess(Long routeProcessId, Long processId, String factor,

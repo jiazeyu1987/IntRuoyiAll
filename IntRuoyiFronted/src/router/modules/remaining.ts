@@ -1685,6 +1685,21 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-release',
+        component: () => import('@/views/mes/pro/edhr-release/ReleasePage.vue'),
+        name: 'MesProEdhrReleasePage',
+        meta: {
+          noCache: true,
+          tagsViewKeyMode: 'path',
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '放行追溯',
+          activeMenu: '/mes/pro/feedback/edhr-release',
+          permission: ['mes:pro-edhr-release:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-field-audit',
         component: () => import('@/views/mes/pro/edhr/FieldAuditPage.vue'),
         name: 'MesProFeedbackEdhrFieldAudit',

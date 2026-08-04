@@ -25,4 +25,13 @@ public interface MesProEdhrReleaseTransactionMapper extends BaseMapperX<MesProEd
                 .in(MesProEdhrReleaseTransactionDO::getBatchExecutionId, batchExecutionIds)
                 .orderByDesc(MesProEdhrReleaseTransactionDO::getId));
     }
+
+    default MesProEdhrReleaseTransactionDO selectByIdForUpdate(Long id) {
+        if (id == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrReleaseTransactionDO>()
+                .eq(MesProEdhrReleaseTransactionDO::getId, id)
+                .last("FOR UPDATE"));
+    }
 }

@@ -18,6 +18,7 @@ const source = fs.readFileSync(fixturePath, 'utf8')
 
 for (const token of [
   'mes_pqc_inspection_task',
+  'mes_pro_process_pool_submission_review',
   'active_order_id',
   'work_order_id',
   'route_process_id',
@@ -32,6 +33,8 @@ for (const token of [
   'PENDING',
   'PATROL',
   'CURDATE()',
+  'v_pending_same_filter_event_count',
+  'v_pending_same_filter_task_count',
   'RRM M6 D32 same-filter local E2E fixture'
 ]) {
   assert.match(source, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `fixture SQL must include ${token}.`)
@@ -54,8 +57,13 @@ assert.match(
 )
 assert.match(
   source,
-  /IF\s+v_existing_today_task_id\s+IS\s+NULL[\s\S]*INSERT\s+INTO\s+mes_pqc_inspection_task/,
-  'D32 fixture may only insert a missing formal pending PQC task; existing task identities must be preserved.'
+  /COALESCE\(\s*latest_submission_review\.review_status[\s\S]*CONVERT\('PENDING'[\s\S]*=\s*CONVERT\('PENDING'/,
+  'D32 fixture must count only same-filter pending review events; approved or rejected events cannot satisfy pending pagination.'
+)
+assert.match(
+  source,
+  /WHILE\s+v_pending_same_filter_event_count\s*\+\s*v_pending_same_filter_task_count\s+<\s+2\s+DO[\s\S]*INSERT\s+INTO\s+mes_pqc_inspection_task[\s\S]*SET\s+v_pending_same_filter_task_count\s*=\s*v_pending_same_filter_task_count\s*\+\s*1/,
+  'D32 fixture must prepare enough formal pending PQC tasks so real page submissions can reach two same-filter pending events.'
 )
 assert.doesNotMatch(
   source,

@@ -42,12 +42,15 @@ import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomLongId;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_PRECHECK_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_PASSWORD_FAILED;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -418,6 +421,43 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertEquals(10002L, submitted.getSubmittedBy());
         assertEquals(10002L, submitted.getApprovedBy());
         verify(adminUserApi).validatePassword(10002L, "role-owner-sign-secret");
+    }
+
+    @Test
+    void shouldRejectConcurrentReleaseTerminalWhenPrecheckWasConsumedUnderForUpdateLock() throws Exception {
+        MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-CONCURRENT-TERMINAL");
+        insertRouteReleaseOwnerRule(batch.getRouteId(), 10001L);
+        MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7403L);
+        insertCompletedExecution(task.getExecutionId(), true);
+        MesProEdhrReleaseRespVO precheck = precheckAsUser(10001L, batch.getId());
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, precheck.getReleaseStatus());
+
+        MesProEdhrReleaseRespVO released;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            released = releaseService.submit(new MesProEdhrReleaseSubmitReqVO()
+                    .setReleaseTransactionId(precheck.getReleaseTransactionId())
+                    .setIdempotencyKey("submit-ac-m23-primary")
+                    .setPassword("owner-sign-secret"));
+        }
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED, released.getReleaseStatus());
+
+        String releaseServiceSource = Files.readString(Path.of(
+                "src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/"
+                        + "MesProEdhrReleaseServiceImpl.java"));
+        assertTrue(releaseServiceSource.contains("selectByIdForUpdate"),
+                "release terminal transitions must reread the release transaction with selectByIdForUpdate");
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            ServiceException exception = assertThrows(ServiceException.class,
+                    () -> releaseService.submit(new MesProEdhrReleaseSubmitReqVO()
+                            .setReleaseTransactionId(precheck.getReleaseTransactionId())
+                            .setIdempotencyKey("submit-ac-m23-racing-duplicate")
+                            .setPassword("owner-sign-secret")));
+            assertEquals(PRO_EDHR_RELEASE_PRECHECK_REQUIRED.getCode(), exception.getCode());
+        }
+        assertEquals(1, batchSignatureMapper.selectListByBatchExecutionId(batch.getId()).size());
     }
 
     @Test

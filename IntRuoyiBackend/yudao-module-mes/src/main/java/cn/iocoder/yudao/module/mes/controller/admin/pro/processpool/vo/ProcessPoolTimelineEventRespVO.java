@@ -138,6 +138,15 @@ public class ProcessPoolTimelineEventRespVO {
     @Schema(description = "PQC 摘要")
     private String pqcSummary;
 
+    @Schema(description = "过程检验汇集状态", example = "AGGREGATED")
+    private String processInspectionAggregationStatus;
+
+    @Schema(description = "触发过程检验汇集的复核编号", example = "7003")
+    private Long processInspectionReviewId;
+
+    @Schema(description = "过程检验汇集时间")
+    private LocalDateTime processInspectionAggregatedAt;
+
     @Schema(description = "FIFO 分配状态", example = "PARTIAL")
     private String fifoAllocationStatus;
 

@@ -3,8 +3,8 @@ package cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
-import org.apache.ibatis.annotations.Mapper;
-
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -19,5 +19,16 @@ public interface MesProProcessPoolPqcRecordMapper extends BaseMapperX<MesProProc
         return selectList(new LambdaQueryWrapperX<MesProProcessPoolPqcRecordDO>()
                 .eq(MesProProcessPoolPqcRecordDO::getProductionSubmitEventId, productionSubmitEventId)
                 .orderByAsc(MesProProcessPoolPqcRecordDO::getId));
+    }
+
+    default int updateProcessInspectionAggregatedIfPending(Long eventId, Long reviewId, LocalDateTime aggregatedAt) {
+        return update(null, new LambdaUpdateWrapper<MesProProcessPoolPqcRecordDO>()
+                .set(MesProProcessPoolPqcRecordDO::getProcessInspectionAggregationStatus,
+                        MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED)
+                .set(MesProProcessPoolPqcRecordDO::getProcessInspectionReviewId, reviewId)
+                .set(MesProProcessPoolPqcRecordDO::getProcessInspectionAggregatedAt, aggregatedAt)
+                .eq(MesProProcessPoolPqcRecordDO::getEventId, eventId)
+                .eq(MesProProcessPoolPqcRecordDO::getProcessInspectionAggregationStatus,
+                        MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_PENDING));
     }
 }

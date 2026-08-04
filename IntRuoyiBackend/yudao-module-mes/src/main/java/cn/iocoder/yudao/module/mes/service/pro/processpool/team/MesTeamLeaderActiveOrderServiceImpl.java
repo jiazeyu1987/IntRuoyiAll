@@ -39,19 +39,22 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private final MesProScheduleOrderMapper scheduleOrderMapper;
     private final MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
+    private final MesActiveOrderTransferTraceService transferTraceService;
 
     public MesTeamLeaderActiveOrderServiceImpl(MesProcessPoolActiveOrderMapper activeOrderMapper,
                                                MesProWorkOrderService workOrderService,
                                                MesProcessPoolTeamMaintenanceAuditMapper auditMapper,
                                                MesProScheduleOrderMapper scheduleOrderMapper,
                                                MesProScheduleOrderProcessMapper scheduleOrderProcessMapper,
-                                               MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper) {
+                                               MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper,
+                                               MesActiveOrderTransferTraceService transferTraceService) {
         this.activeOrderMapper = activeOrderMapper;
         this.workOrderService = workOrderService;
         this.auditMapper = auditMapper;
         this.scheduleOrderMapper = scheduleOrderMapper;
         this.scheduleOrderProcessMapper = scheduleOrderProcessMapper;
         this.processSnapshotMapper = processSnapshotMapper;
+        this.transferTraceService = transferTraceService;
     }
 
     @Override
@@ -63,6 +66,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
         MesProcessPoolActiveOrderDO existing = selectExistingActiveOrder(reqBO);
         if (existing != null) {
+            recordTransferTracesIfRequested(existing, reqBO.getTransferIds());
             return existing.getId();
         }
         BigDecimal erpFixedQuantity = workOrderService.validateWorkOrderExists(reqBO.getWorkOrderId()).getQuantity();
@@ -70,6 +74,10 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder.erpFixedQuantitySnapshot");
         }
         MesProScheduleOrderDO scheduleOrder = requireMatchingScheduleOrder(reqBO);
+        MesProcessPoolActiveOrderDO removed = selectRemovedActiveOrder(reqBO);
+        if (removed != null) {
+            return reactivateRemovedActiveOrder(reqBO, removed);
+        }
         MesProcessPoolActiveOrderDO activeOrder = MesProcessPoolActiveOrderDO.builder()
                 .leaderUserId(reqBO.getLeaderUserId())
                 .workOrderId(reqBO.getWorkOrderId())
@@ -86,11 +94,17 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         } catch (DuplicateKeyException ex) {
             MesProcessPoolActiveOrderDO concurrentlyAdded = selectExistingActiveOrder(reqBO);
             if (concurrentlyAdded != null) {
+                recordTransferTracesIfRequested(concurrentlyAdded, reqBO.getTransferIds());
                 return concurrentlyAdded.getId();
+            }
+            MesProcessPoolActiveOrderDO concurrentlyRemoved = selectRemovedActiveOrder(reqBO);
+            if (concurrentlyRemoved != null) {
+                return reactivateRemovedActiveOrder(reqBO, concurrentlyRemoved);
             }
             throw ex;
         }
         insertProcessSnapshots(activeOrder, erpFixedQuantity, scheduleOrder);
+        recordTransferTracesIfRequested(activeOrder, reqBO.getTransferIds());
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "ADD_ACTIVE_ORDER",
                 "ACTIVE_ORDER", activeOrder.getId(), null, activeOrder.toString());
         return activeOrder.getId();
@@ -106,14 +120,18 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (activeOrder == null || !Objects.equals(activeOrder.getLeaderUserId(), reqBO.getLeaderUserId())) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, reqBO.getActiveOrderId());
         }
+        LocalDateTime removedAt = LocalDateTime.now();
+        int updated = activeOrderMapper.removeActiveOrder(activeOrder.getId(), activeOrder.getVersion(), removedAt);
+        if (updated <= 0) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, reqBO.getActiveOrderId());
+        }
         MesProcessPoolActiveOrderDO update = MesProcessPoolActiveOrderDO.builder()
                 .id(activeOrder.getId())
                 .activeStatus(STATUS_REMOVED)
                 .businessStatus(STATUS_REMOVED)
-                .removedAt(LocalDateTime.now())
-                .version(activeOrder.getVersion())
+                .removedAt(removedAt)
+                .version(activeOrder.getVersion() == null ? null : activeOrder.getVersion() + 1)
                 .build();
-        activeOrderMapper.updateById(update);
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "REMOVE_ACTIVE_ORDER",
                 "ACTIVE_ORDER", activeOrder.getId(), activeOrder.toString(), update.toString());
     }
@@ -121,6 +139,42 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private MesProcessPoolActiveOrderDO selectExistingActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO) {
         return activeOrderMapper.selectActiveByWorkOrderRouteVersion(reqBO.getWorkOrderId(), reqBO.getRouteId(),
                 reqBO.getRouteVersionId());
+    }
+
+    private MesProcessPoolActiveOrderDO selectRemovedActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO) {
+        return activeOrderMapper.selectRemovedByWorkOrderRouteVersion(reqBO.getWorkOrderId(), reqBO.getRouteId(),
+                reqBO.getRouteVersionId());
+    }
+
+    private Long reactivateRemovedActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO,
+                                              MesProcessPoolActiveOrderDO removed) {
+        LocalDateTime rejoinedAt = LocalDateTime.now();
+        int updated = activeOrderMapper.reactivateRemovedActiveOrder(removed.getId(), reqBO.getLeaderUserId(),
+                removed.getVersion(), rejoinedAt);
+        if (updated > 0) {
+            MesProcessPoolActiveOrderDO after = MesProcessPoolActiveOrderDO.builder()
+                    .id(removed.getId())
+                    .leaderUserId(reqBO.getLeaderUserId())
+                    .workOrderId(removed.getWorkOrderId())
+                    .routeId(removed.getRouteId())
+                    .routeVersionId(removed.getRouteVersionId())
+                    .erpFixedQuantitySnapshot(removed.getErpFixedQuantitySnapshot())
+                    .activeStatus(STATUS_ACTIVE)
+                    .businessStatus(STATUS_ACTIVE)
+                    .joinedAt(rejoinedAt)
+                    .version(removed.getVersion() == null ? null : removed.getVersion() + 1)
+                    .build();
+            TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "REACTIVATE_ACTIVE_ORDER",
+                    "ACTIVE_ORDER", removed.getId(), removed.toString(), after.toString());
+            recordTransferTracesIfRequested(after, reqBO.getTransferIds());
+            return removed.getId();
+        }
+        MesProcessPoolActiveOrderDO concurrentlyAdded = selectExistingActiveOrder(reqBO);
+        if (concurrentlyAdded != null) {
+            recordTransferTracesIfRequested(concurrentlyAdded, reqBO.getTransferIds());
+            return concurrentlyAdded.getId();
+        }
+        throw new IllegalStateException("Failed to reactivate removed active order: " + removed.getId());
     }
 
     @Override
@@ -139,6 +193,13 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, reqBO.getWorkOrderId());
         }
         return scheduleOrder;
+    }
+
+    private void recordTransferTracesIfRequested(MesProcessPoolActiveOrderDO activeOrder, List<Long> transferIds) {
+        if (transferIds == null || transferIds.isEmpty()) {
+            return;
+        }
+        transferTraceService.recordTransferTracesForActiveOrder(activeOrder, transferIds);
     }
 
     private void insertProcessSnapshots(MesProcessPoolActiveOrderDO activeOrder, BigDecimal erpFixedQuantity,

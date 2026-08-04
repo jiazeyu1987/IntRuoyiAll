@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
@@ -19,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -121,7 +124,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 .setBackfillExecutionId(8801L);
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
-                .thenReturn(List.of(allocation(9001L, "200"), confirmedLine));
+                .thenReturn(List.of(allocation(9001L, "200")));
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L))
                 .thenReturn(existingCompletion);
@@ -132,10 +135,29 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 ArgumentCaptor.forClass(MesProcessPoolOrderProcessCompletionDO.class);
         verify(completionMapper).updateById(completionCaptor.capture());
         MesProcessPoolOrderProcessCompletionDO saved = completionCaptor.getValue();
-        assertAmount("220", saved.getConfirmedQuantity());
+        assertAmount("200", saved.getConfirmedQuantity());
         assertEquals(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED, saved.getCompletionStatus());
         assertEquals(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_SUCCESS, saved.getBackfillStatus());
         assertEquals(8801L, saved.getBackfillExecutionId());
+        verify(backfillService, never()).backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class));
+    }
+
+    @Test
+    void shouldPreventOverTargetProgressWhenConcurrentAllocationAlreadyConsumedRemainingQuantity() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "20");
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of(allocation(9001L, "190"), confirmedLine));
+        when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.applyConfirmedAllocations(event, List.of(confirmedLine)));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH.getCode(),
+                ex.getCode());
+        verify(completionMapper, never()).insert(any(MesProcessPoolOrderProcessCompletionDO.class));
+        verify(completionMapper, never()).updateById(any(MesProcessPoolOrderProcessCompletionDO.class));
         verify(backfillService, never()).backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class));
     }
 

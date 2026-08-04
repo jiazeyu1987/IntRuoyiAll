@@ -27,6 +27,8 @@ public class MesProProcessPoolPqcRecordDO extends TenantBaseDO {
 
     public static final String INSPECTION_RESULT_SUCCESS = "SUCCESS";
     public static final String INSPECTION_RESULT_FAILURE = "FAILURE";
+    public static final String PROCESS_INSPECTION_AGGREGATION_STATUS_PENDING = "PENDING";
+    public static final String PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED = "AGGREGATED";
 
     @TableId
     private Long id;
@@ -44,4 +46,7 @@ public class MesProProcessPoolPqcRecordDO extends TenantBaseDO {
     private String inspectionResult;
     private LocalDateTime serverSubmitTime;
     private String rawPayload;
+    private String processInspectionAggregationStatus;
+    private Long processInspectionReviewId;
+    private LocalDateTime processInspectionAggregatedAt;
 }

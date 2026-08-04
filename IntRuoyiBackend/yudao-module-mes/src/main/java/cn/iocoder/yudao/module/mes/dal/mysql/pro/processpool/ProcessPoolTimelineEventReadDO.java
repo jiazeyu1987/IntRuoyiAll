@@ -52,6 +52,9 @@ public class ProcessPoolTimelineEventReadDO {
     private String originalPayloadJson;
     private String pqcResult;
     private String pqcSummary;
+    private String processInspectionAggregationStatus;
+    private Long processInspectionReviewId;
+    private LocalDateTime processInspectionAggregatedAt;
     private String fifoAllocationStatus;
     private String fifoAllocationSummary;
     private String auditCopyStatus;

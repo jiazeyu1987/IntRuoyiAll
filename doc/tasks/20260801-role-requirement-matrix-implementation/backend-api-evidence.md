@@ -219,3 +219,121 @@
 - TEST_FIX: Fixed a Mockito overloaded `updateById` matcher in the new failure-path test by using `any(MesPqcInspectionTaskDO.class)`.
 - GREEN: `mvn -pl yudao-module-mes "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 10 tests, 0 failures, 0 errors, BUILD SUCCESS.
 - Remaining blocker: this backend failure-path slice has target GREEN, but AC-D29 and M6 still require full real E2E failure paths, read-only/permission proof, concurrency/performance gates, cleanup, and coverage acceptance before release acceptance.
+
+## M6 AC-D34 Duplicate Terminal Review API Scope
+
+- Milestone slice: M6 AC-D34 PQC/team-leader submission review duplicate terminal-state guard.
+- Service/API scope: `MesTeamLeaderSubmissionReviewServiceImpl#reviewSubmission(...)` for `APPROVED` / `REJECTED` review creation.
+- Data contract: one process-pool event may have only one active terminal review outcome; a later confirm/reject attempt for the same event must fail fast before inserting another review record.
+- Concurrency contract: review creation must lock the source process-pool event and read the latest review with a current read before inserting, so concurrent requests serialize on the same event identity.
+- Error behavior: duplicate terminal review returns `PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS`; it is not treated as idempotent success and does not silently append another terminal log.
+
+## M6 AC-D34 Duplicate Terminal Review BDD / TDD Evidence
+
+- BDD: duplicate terminal review is rejected before insert -> Given a PQC submission event already has an `APPROVED` or `REJECTED` review When another leader request confirms or rejects the same event Then the service must reject before inserting a second terminal review.
+- TEST_ADDED: `MesTeamLeaderSubmissionReviewServiceTest#shouldRejectDuplicateTerminalReviewForSameSubmission` asserts the formal error code and no duplicate review insert.
+- RED: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderSubmissionReviewServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: duplicate terminal review did not throw; 3 tests, 1 failure, 0 errors.
+- IMPLEMENTING: Added `PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS`; `reviewSubmission(...)` is transactional, locks the event through `selectByIdForUpdate(...)`, checks latest review with `LIMIT 1 FOR UPDATE`, and rejects existing terminal reviews before insert.
+- GREEN: same target Maven command -> PASS, 3 tests, 0 failures/errors, BUILD SUCCESS.
+- REGRESSION: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderSubmissionReviewServiceTest,MesProcessPoolTeamLeaderControllerTest,ProcessPoolTimelineRevisionSummaryTest,ProcessPoolTimelineQueryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 14 tests, 0 failures/errors, BUILD SUCCESS.
+- Remaining blocker: AC-D34 remains not accepted until real page review actions, process-inspection aggregation, cleanup, broader concurrency/performance, and full M6 coverage gates pass.
+
+## M6 AC-D35 Self-review Isolation API Scope
+
+- Milestone slice: M6 AC-D35 PQC/team-leader submission review self-confirm isolation.
+- Service/API scope: `MesTeamLeaderSubmissionReviewServiceImpl#reviewSubmission(...)` for `APPROVED` / `REJECTED` review creation.
+- Data contract: a review request whose `leaderUserId` equals the source process-pool event `actualEmployeeId` must fail fast before reading latest review state for insertion or inserting a review record.
+- Error behavior: self-review returns `PRO_PROCESS_POOL_SUBMISSION_REVIEW_SELF_FORBIDDEN`; it is not left to frontend hiding, shared-account convention, or downstream process-inspection aggregation.
+- Migration/config impact: none; no schema, seed, permission, or runtime config change.
+
+## M6 AC-D35 Self-review Isolation BDD / TDD Evidence
+
+- BDD: self-review is rejected before insert -> Given a PQC submission event was submitted by actual inspector `3001` When a leader review request also uses `leaderUserId=3001` Then the backend must reject and no review row is inserted.
+- TEST_ADDED: `MesTeamLeaderSubmissionReviewServiceTest#shouldRejectSelfReviewWhenLeaderIsActualInspector` asserts the formal error code and no review insert.
+- RED: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderSubmissionReviewServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: self-review did not throw; 4 tests, 1 failure, 0 errors.
+- IMPLEMENTING: Added `PRO_PROCESS_POOL_SUBMISSION_REVIEW_SELF_FORBIDDEN`; `reviewSubmission(...)` checks `leaderUserId == actualEmployeeId` before insert.
+- GREEN: same target Maven command -> PASS, 4 tests, 0 failures/errors, BUILD SUCCESS.
+- REGRESSION: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderSubmissionReviewServiceTest,MesProcessPoolTeamLeaderControllerTest,ProcessPoolTimelineRevisionSummaryTest,ProcessPoolTimelineQueryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 15 tests, 0 failures/errors, BUILD SUCCESS.
+- Remaining blocker: AC-D35 remains not accepted until real-page self-confirm action, permission/read-only proof, cleanup, broader concurrency/performance, and full M6 coverage gates pass.
+
+## M6 AC-M21 / AC-D37 Process-inspection Aggregation API Scope
+
+- Milestone slice: M6 AC-M21 / AC-D37 PQC process-inspection aggregation backend status gate.
+- Service/API scope: `MesTeamLeaderSubmissionReviewServiceImpl#reviewSubmission(...)` and `MesPqcProcessInspectionAggregationService#aggregateApprovedPqcSubmission(...)`.
+- Data contract: `mes_pro_process_pool_pqc_record` starts as `process_inspection_aggregation_status=PENDING`; only an inserted `APPROVED` review can transition the matching event record to `AGGREGATED`.
+- Traceability contract: aggregated records retain `eventId`, process context, `processInspectionReviewId`, and `processInspectionAggregatedAt`; PQC task/round/regulation-version trace remains available through the process-pool event source and raw payload.
+- Exclusion contract: `REJECTED` reviews are recorded but do not aggregate; missing PQC records, already aggregated records, and concurrent zero-row updates fail fast instead of silently counting completion.
+- Error behavior: missing PQC record returns `PRO_PROCESS_POOL_PQC_RECORD_REQUIRED`; duplicate or concurrent aggregation returns `PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED`.
+- Migration/config impact: added `20260803_mes_process_pool_pqc_process_inspection_aggregation.sql`, H2 schema columns, mapper conditional update, and explicit `PENDING` creation in `MesProcessPoolEventServiceImpl#createPqcInspectionEvent`.
+
+## M6 AC-M21 / AC-D37 Process-inspection Aggregation BDD / TDD Evidence
+
+- BDD: approved PQC review aggregates process-inspection evidence -> Given a formal PQC submission event has a `PENDING` process-inspection aggregation status When a team leader approves the submission Then the backend must atomically mark that PQC record as `AGGREGATED` with the review id and aggregation timestamp.
+- TEST_ADDED: `MesTeamLeaderSubmissionReviewServiceTest` asserts `APPROVED` triggers aggregation and `REJECTED` does not.
+- TEST_ADDED: `MesPqcProcessInspectionAggregationServiceTest` covers success, missing record, already aggregated, and concurrent zero-row update paths.
+- TEST_ADDED: `MesProcessPoolSchemaTest` covers aggregation fields and migration file.
+- RED: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderSubmissionReviewServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL at testCompile, expected reason: missing `MesPqcProcessInspectionAggregationService`.
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderSubmissionReviewServiceTest,MesPqcProcessInspectionAggregationServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 9 tests, 0 failures/errors, BUILD SUCCESS.
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProcessPoolPqcEventTest,MesProcessPoolSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 4 tests, 0 failures/errors, BUILD SUCCESS.
+- REGRESSION: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderSubmissionReviewServiceTest,MesPqcProcessInspectionAggregationServiceTest,MesProcessPoolTeamLeaderControllerTest,ProcessPoolTimelineRevisionSummaryTest,ProcessPoolTimelineQueryTest,MesProcessPoolPqcEventTest,MesProcessPoolSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 24 tests, 0 failures/errors, BUILD SUCCESS.
+- Remaining blocker: AC-M21/AC-D37 remain not accepted until real page approval visibility, read-only verification, cleanup, broader concurrency/performance, and full M6 coverage gates pass.
+
+## M6 AC-M21 / AC-D37 Aggregation Event-type Isolation API Scope
+
+- Milestone slice: M6 AC-M21 / AC-D37 process-inspection aggregation event-type isolation.
+- Service/API scope: `MesTeamLeaderSubmissionReviewServiceImpl#reviewSubmission(...)` on the shared `submission/review` endpoint.
+- Data contract: `APPROVED` reviews aggregate only when the locked source process-pool event type is `PQC_INSPECTION`; approved `PRODUCTION_SUBMIT` reviews keep their review record but must not require or mutate a PQC record.
+- Error behavior: production review success must not be converted into `PRO_PROCESS_POOL_PQC_RECORD_REQUIRED`; that error remains scoped to actual PQC aggregation calls.
+- Migration/config impact: none; the existing process-inspection aggregation columns and migration remain unchanged.
+
+## M6 AC-M21 / AC-D37 Aggregation Event-type Isolation BDD / TDD Evidence
+
+- BDD: approved production review does not aggregate PQC process inspection -> Given the shared `submission/review` backend can review production and PQC process-pool events When an `APPROVED` review is inserted for a `PRODUCTION_SUBMIT` event Then the service must not call PQC process-inspection aggregation.
+- TEST_ADDED: `MesTeamLeaderSubmissionReviewServiceTest#shouldNotAggregateApprovedProductionSubmission` asserts an approved production review inserts the review and never calls `aggregateApprovedPqcSubmission(...)`.
+- RED: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderSubmissionReviewServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: approved production review still called PQC aggregation; 6 tests, 1 failure, 0 errors.
+- IMPLEMENTING: `reviewSubmission(...)` now requires both `reviewStatus=APPROVED` and `eventType=PQC_INSPECTION` before calling `MesPqcProcessInspectionAggregationService`.
+- GREEN: same target Maven command -> PASS, 6 tests, 0 failures/errors, BUILD SUCCESS.
+- REGRESSION: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderSubmissionReviewServiceTest,MesPqcProcessInspectionAggregationServiceTest,MesProcessPoolTeamLeaderControllerTest,ProcessPoolTimelineRevisionSummaryTest,ProcessPoolTimelineQueryTest,MesProcessPoolPqcEventTest,MesProcessPoolSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 25 tests, 0 failures/errors, BUILD SUCCESS.
+- Remaining blocker: AC-M21/AC-D37 remain not accepted until real page approval visibility, read-only verification, cleanup, broader concurrency/performance, and full M6 coverage gates pass.
+
+## M6 AC-M21 / AC-D37 Aggregation Read-model API Scope
+
+- Milestone slice: M6 AC-M21 / AC-D37 PQC process-inspection aggregation read-model and page visibility contract.
+- Service/API scope: `MesProProcessPoolTimelineReadMapper.xml`, `ProcessPoolTimelineServiceImpl`, `ProcessPoolTimelineEventRespVO`, and the PQC team-leader submission page API that reuses the timeline read model.
+- Data contract: approved PQC aggregation status must be read from `mes_pro_process_pool_pqc_record` and returned as `processInspectionAggregationStatus`, `processInspectionReviewId`, and `processInspectionAggregatedAt`; frontend code must not infer this state from `submissionReviewStatus`, `formBindings`, or static labels.
+- Page contract: `TeamLeaderWorkbenchPage.vue` renders a PQC-only process-inspection aggregation column and exposes stable event selectors so the real E2E can approve exactly the submitted event and verify the same event returns `AGGREGATED`.
+- Runtime caveat: this slice is GREEN at backend read-model, frontend static/type, and E2E-script contract levels; it is not yet full real E2E accepted because the updated code still needs to be loaded into the task runtime before a live approval/aggregation page run.
+
+## M6 AC-M21 / AC-D37 Aggregation Read-model BDD / TDD Evidence
+
+- BDD: aggregation status is visible after approved PQC review -> Given a PQC process-pool event has an aggregated PQC record When the PQC leader submission read model is queried Then the response and page must expose `AGGREGATED`, the review id, and the aggregation timestamp for the same event.
+- TEST_ADDED: `ProcessPoolTimelineQueryTest#shouldExposePqcProcessInspectionAggregationStatus` asserts timeline service field propagation.
+- TEST_ADDED: `process-pool-timeline-mapper-static.spec.cjs` asserts the mapper selects the three formal `pqc_record` aggregation columns.
+- RED: `mvn -pl yudao-module-mes "-Dtest=ProcessPoolTimelineQueryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL at testCompile, expected reason: missing read/response fields.
+- RED: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> FAIL, expected reason: mapper did not select `process_inspection_aggregation_status`.
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=ProcessPoolTimelineQueryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 2 tests, 0 failures/errors, BUILD SUCCESS.
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> PASS.
+- REGRESSION: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderSubmissionReviewServiceTest,MesPqcProcessInspectionAggregationServiceTest,MesProcessPoolTeamLeaderControllerTest,ProcessPoolTimelineRevisionSummaryTest,ProcessPoolTimelineQueryTest,ProcessPoolTimelineFilterTest,MesProcessPoolPqcEventTest,MesProcessPoolSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 28 tests, 0 failures/errors, BUILD SUCCESS.
+- Frontend verification: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js`, `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static`, and `pnpm --dir IntRuoyiFronted ts:check` all PASS after installing worktree dependencies from the frozen lockfile.
+
+## M6 AC-D12/D38 + AC-D27 Backend Performance API Scope
+
+- Milestone slice: M6 daily-close and PQC piece-detail backend query-count proof.
+- Service/API scope: `ProcessPoolTimelineServiceImpl#getTimelinePage(...)`, `MesTeamLeaderActiveOrderService`, and `MesFrontlinePqcContextServiceImpl#listProcessesByActiveOrder(...)`.
+- Daily-close contract: timeline submission summary and active-order card reads must use bounded count/page or single active-order queries and must not load per-row detail or rebuild per-process snapshots.
+- PQC piece-detail contract: frontline PQC route-process context must reuse the already bulk-loaded active-order PQC task list; it must not call `selectPendingByActiveOrderProcess(...)` for each route process.
+- Status-invalid contract: stale submitted-task submission still fails fast with `PRO_FRONTLINE_PQC_TASK_STATUS_INVALID`; the bulk-list change must not downgrade stale submitted tasks to a generic missing-task error.
+
+## M6 AC-D12/D38 + AC-D27 Backend Performance BDD / TDD Evidence
+
+- BDD: daily-close and piece-detail performance paths do not perform hidden N+1 lookups -> Given the daily-close board and PQC piece-detail modal already have request-budget evidence When backend services assemble their source data Then target tests must prove bounded count/page or bulk reads and zero per-row/per-process task detail queries.
+- TEST_ADDED: `ProcessPoolTimelineFilterTest#shouldUseCountAndPageQueriesWithoutDetailLookupsForDailyCloseSubmissionSummary`.
+- TEST_ADDED: `MesTeamLeaderActiveOrderServiceTest#shouldListActiveOrdersWithSingleActiveOrderQueryForDailyClosePerformance`.
+- TEST_ADDED: `MesFrontlinePqcContextServiceTest#shouldPreparePqcPieceDetailContextWithBulkQueriesOnly`.
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=ProcessPoolTimelineFilterTest,MesTeamLeaderActiveOrderServiceTest,MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: `MesFrontlinePqcContextServiceImpl` still used per-process `selectPendingByActiveOrderProcess`, causing the bulk-query test to throw `PRO_FRONTLINE_PQC_TASK_REQUIRED`.
+- IMPLEMENTING: `resolvePqcTaskContext(...)` now selects pending tasks from the bulk-loaded task list with mapper-equivalent `businessDate / inspectionType / roundNo / id` ordering; `submitPqcInspection(...)` preserves stale submitted-task status validation before active-process lookup.
+- TEST_FIX: existing PQC context unit tests now provide `selectListByActiveOrderId` fixtures instead of per-process pending-task stubs.
+- GREEN: same target Maven command -> PASS, 23 tests, 0 failures/errors, BUILD SUCCESS.
+- Static verification: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS.
+- Syntax verification: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS.
+- Remaining blocker: M6 remains not accepted until full real failure paths, permission/read-only breadth, cleanup, runtime/paging-drift evidence, concurrency/performance gate completion, and 62 AC coverage close.

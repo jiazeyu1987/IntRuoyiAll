@@ -63,6 +63,9 @@ class MesProcessPoolSchemaTest {
         assertField(MesProProcessPoolPqcRecordDO.class, "actualEmployeeId", Long.class);
         assertField(MesProProcessPoolPqcRecordDO.class, "signatureId", Long.class);
         assertField(MesProProcessPoolPqcRecordDO.class, "serverSubmitTime", java.time.LocalDateTime.class);
+        assertField(MesProProcessPoolPqcRecordDO.class, "processInspectionAggregationStatus", String.class);
+        assertField(MesProProcessPoolPqcRecordDO.class, "processInspectionReviewId", Long.class);
+        assertField(MesProProcessPoolPqcRecordDO.class, "processInspectionAggregatedAt", java.time.LocalDateTime.class);
 
         String sql = Files.readString(resolveBackendPath("sql/mysql/20260730_mes_process_pool_foundation.sql"),
                 StandardCharsets.UTF_8);
@@ -99,6 +102,15 @@ class MesProcessPoolSchemaTest {
         assertTrue(quantityFragmentRootSql.contains("production_submit_event_id"));
         assertTrue(quantityFragmentRootSql.contains("idx_mes_pro_process_pool_fragment_submit_event"));
         assertTrue(quantityFragmentRootSql.contains("requires formal PRODUCTION_SUBMIT root event backfill"));
+
+        String pqcAggregationSql = Files.readString(resolveBackendPath(
+                "sql/mysql/20260803_mes_process_pool_pqc_process_inspection_aggregation.sql"),
+                StandardCharsets.UTF_8);
+        assertTrue(pqcAggregationSql.contains("dependsOn=20260803_mes_process_pool_pqc_event_source"));
+        assertTrue(pqcAggregationSql.contains("`process_inspection_aggregation_status` varchar(32) NOT NULL DEFAULT ''PENDING''"));
+        assertTrue(pqcAggregationSql.contains("`process_inspection_review_id` bigint DEFAULT NULL"));
+        assertTrue(pqcAggregationSql.contains("`process_inspection_aggregated_at` datetime DEFAULT NULL"));
+        assertTrue(pqcAggregationSql.contains("KEY `idx_mes_pp_pqc_process_inspection`"));
     }
 
     private static String tableName(Class<?> clazz) {

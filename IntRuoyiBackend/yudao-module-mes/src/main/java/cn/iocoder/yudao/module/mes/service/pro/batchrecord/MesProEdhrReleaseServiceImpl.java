@@ -320,7 +320,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             return get(reqVO.getReleaseTransactionId());
         }
 
-        MesProEdhrReleaseTransactionDO transaction = requireTransaction(reqVO.getReleaseTransactionId());
+        MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(reqVO.getReleaseTransactionId());
         requirePrecheckPassed(transaction);
         requireDossierRequirementConfigHashCurrent(extractDossierRequirementConfigHash(transaction));
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
@@ -365,7 +365,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             return get(reqVO.getReleaseTransactionId());
         }
 
-        MesProEdhrReleaseTransactionDO transaction = requireTransaction(reqVO.getReleaseTransactionId());
+        MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(reqVO.getReleaseTransactionId());
         requirePendingApproval(transaction);
         MesProEdhrWorkTaskDO approvalTask =
                 workTaskService.validateReleaseApprovalTask(null, transaction.getId());
@@ -401,7 +401,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             return get(reqVO.getReleaseTransactionId());
         }
 
-        MesProEdhrReleaseTransactionDO transaction = requireTransaction(reqVO.getReleaseTransactionId());
+        MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(reqVO.getReleaseTransactionId());
         requirePendingApproval(transaction);
         MesProEdhrWorkTaskDO approvalTask =
                 workTaskService.validateReleaseApprovalTask(null, transaction.getId());
@@ -434,7 +434,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             return get(reqVO.getReleaseTransactionId());
         }
 
-        MesProEdhrReleaseTransactionDO transaction = requireTransaction(reqVO.getReleaseTransactionId());
+        MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(reqVO.getReleaseTransactionId());
         requirePendingApproval(transaction);
         String fromStatus = transaction.getReleaseStatus();
         LocalDateTime occurredAt = now();
@@ -519,6 +519,14 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesProEdhrReleaseTransactionDO requireTransaction(Long releaseTransactionId) {
         MesProEdhrReleaseTransactionDO transaction = releaseTransactionId == null
                 ? null : releaseTransactionMapper.selectById(releaseTransactionId);
+        if (transaction == null) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+        }
+        return transaction;
+    }
+
+    private MesProEdhrReleaseTransactionDO requireTransactionForUpdate(Long releaseTransactionId) {
+        MesProEdhrReleaseTransactionDO transaction = releaseTransactionMapper.selectByIdForUpdate(releaseTransactionId);
         if (transaction == null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
         }

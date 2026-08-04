@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH;
 
 @Service
 public class MesTeamLeaderOrderProcessCompletionService {
@@ -78,6 +79,9 @@ public class MesTeamLeaderOrderProcessCompletionService {
                     representativeAllocation.getActiveOrderId(), workOrderId, event.getRouteProcessId(),
                     event.getProcessId());
             BigDecimal confirmedQuantity = confirmedByWorkOrder.getOrDefault(workOrderId, BigDecimal.ZERO);
+            if (confirmedQuantity.compareTo(target.plannedQuantity()) > 0) {
+                throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH, workOrderId);
+            }
             MesProcessPoolOrderProcessCompletionDO completion =
                     completionMapper.selectByWorkOrderAndProcessForUpdate(workOrderId, event.getRouteProcessId(),
                             event.getProcessId());

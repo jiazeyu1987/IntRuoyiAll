@@ -81,6 +81,58 @@ const ROUTE_FLOW_DESIGNER = path.resolve(
 )
 const MES_BASE_SCHEMA = path.resolve(BACKEND_ROOT, 'sql/mysql/20260512_mes_base_schema.sql')
 const KINGDEE_MATERIAL_LIST_SQL = path.resolve(BACKEND_ROOT, 'sql/mysql/20260613_mes_kingdee_production_material_list.sql')
+const PROCESS_POOL_TIMELINE_FILTER_TEST = path.resolve(
+  BACKEND_ROOT,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/ProcessPoolTimelineFilterTest.java'
+)
+const TEAM_LEADER_ACTIVE_ORDER_SERVICE_TEST = path.resolve(
+  BACKEND_ROOT,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderServiceTest.java'
+)
+const FRONTLINE_PQC_CONTEXT_SERVICE_TEST = path.resolve(
+  BACKEND_ROOT,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlinePqcContextServiceTest.java'
+)
+const TEAM_LEADER_REPORT_CONFIRMATION_SERVICE_TEST = path.resolve(
+  BACKEND_ROOT,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderReportConfirmationServiceTest.java'
+)
+const TEAM_LEADER_ORDER_PROCESS_COMPLETION_SERVICE_TEST = path.resolve(
+  BACKEND_ROOT,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderOrderProcessCompletionServiceTest.java'
+)
+const TEAM_LEADER_BATCH_RECORD_BACKFILL_SERVICE_TEST = path.resolve(
+  BACKEND_ROOT,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderBatchRecordBackfillServiceTest.java'
+)
+const TEAM_LEADER_SUBMISSION_REVIEW_SERVICE_TEST = path.resolve(
+  BACKEND_ROOT,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderSubmissionReviewServiceTest.java'
+)
+const PQC_PROCESS_INSPECTION_AGGREGATION_SERVICE_TEST = path.resolve(
+  BACKEND_ROOT,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesPqcProcessInspectionAggregationServiceTest.java'
+)
+const ACTIVE_ORDER_TRANSFER_TRACE_SCHEMA_TEST = path.resolve(
+  BACKEND_ROOT,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/MesActiveOrderTransferTraceSchemaTest.java'
+)
+const ACTIVE_ORDER_TRANSFER_TRACE_SERVICE_TEST = path.resolve(
+  BACKEND_ROOT,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesActiveOrderTransferTraceServiceTest.java'
+)
+const EDHR_RELEASE_SERVICE_TEST = path.resolve(
+  BACKEND_ROOT,
+  'yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrReleaseServiceImplTest.java'
+)
+const PROCESS_POOL_TIMELINE_PERFORMANCE_SQL = path.resolve(
+  BACKEND_ROOT,
+  'sql/mysql/20260804_mes_process_pool_timeline_performance_indexes.sql'
+)
+const PROCESS_POOL_TIMELINE_MAPPER_XML = path.resolve(
+  BACKEND_ROOT,
+  'yudao-module-mes/src/main/resources/mapper/pro/processpool/MesProProcessPoolTimelineReadMapper.xml'
+)
 
 const REQUIRED_ENV = [
   ['RRM_FRONTEND_URL', '真实前端入口，例如 http://127.0.0.1:8081。'],
@@ -115,9 +167,9 @@ const REQUIRED_ENV = [
 const ROLE_CONFIGS = [
   ['productionEmployee', 'RRM_PRODUCTION_EMPLOYEE_USERNAME', 'RRM_PRODUCTION_EMPLOYEE_PASSWORD', '/index'],
   ['productionLeader', 'RRM_PRODUCTION_LEADER_USERNAME', 'RRM_PRODUCTION_LEADER_PASSWORD', '/mes/pro/process-pool/team-leader'],
-  ['qa', 'RRM_QA_USERNAME', 'RRM_QA_PASSWORD', '/mes/qc/template'],
   ['pqcInspector', 'RRM_PQC_INSPECTOR_USERNAME', 'RRM_PQC_INSPECTOR_PASSWORD', '/index'],
   ['pqcLeader', 'RRM_PQC_LEADER_USERNAME', 'RRM_PQC_LEADER_PASSWORD', '/mes/pro/process-pool/team-leader'],
+  ['qa', 'RRM_QA_USERNAME', 'RRM_QA_PASSWORD', '/mes/qc/template'],
   ['releaseOwner', 'RRM_RELEASE_OWNER_USERNAME', 'RRM_RELEASE_OWNER_PASSWORD', '/mes/pro/feedback/edhr-release']
 ]
 
@@ -173,6 +225,7 @@ const M6_REAL_FLOW_PHASES = [
     label: 'QA 规程维护入口',
     targetPath: '/mes/qc/template',
     selectors: ['#app'],
+    actionKey: 'verifyQaRegulationPublishedVersionReadOnly',
     acceptanceIds: ['AC-M09', 'AC-D15', 'AC-D16', 'AC-D17', 'AC-D18', 'AC-D19', 'AC-D20', 'AC-D21', 'AC-D22', 'AC-D23']
   },
   {
@@ -181,7 +234,7 @@ const M6_REAL_FLOW_PHASES = [
     label: '放行负责人入口',
     targetPath: '/mes/pro/feedback/edhr-release',
     selectors: ['#app'],
-    actionKey: 'verifyActiveOrderUnauthorizedMutationBlocked',
+    actionKey: 'verifyEdhrReleaseTraceabilityReadOnly',
     acceptanceIds: ['AC-M22', 'AC-M23']
   }
 ]
@@ -215,11 +268,24 @@ function parseSignatureIds(rawValue) {
   }
 }
 
+function parsePositiveIntegerEnvList(rawValue, key) {
+  if (!rawValue) return []
+  const values = []
+  for (const item of rawValue.split(/[,\s，]+/).filter(Boolean)) {
+    const parsed = Number(item)
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return { __parseError: `${key} 包含非法 ID：${item}` }
+    }
+    values.push(parsed)
+  }
+  return values
+}
+
 function readText(filePath) {
   if (!fs.existsSync(filePath)) {
     failFast(`缺少源文件：${path.relative(WORKSPACE_ROOT, filePath)}`)
   }
-  return fs.readFileSync(filePath, 'utf8')
+  return fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n')
 }
 
 function failFast(message, details = []) {
@@ -247,6 +313,7 @@ function collectConfig() {
     productionOrderCode: envValue('RRM_PRODUCTION_ORDER_CODE'),
     routeId: Number(envValue('RRM_ROUTE_ID')),
     routeVersionId: Number(envValue('RRM_ROUTE_VERSION_ID')),
+    transferIds: parsePositiveIntegerEnvList(envValue('RRM_TRANSFER_IDS'), 'RRM_TRANSFER_IDS'),
     qaRegulationVersionId: Number(envValue('RRM_QA_REGULATION_VERSION_ID')),
     signatureIds: parseSignatureIds(envValue('RRM_SIGNATURE_IDS_JSON')),
     unauthorizedActor: {
@@ -349,6 +416,14 @@ function collectEnvBlockers(config) {
       key: 'RRM_SIGNATURE_IDS_JSON.pqcInspector',
       category: 'ENV',
       description: 'PQC 正式提交必须从 RRM_SIGNATURE_IDS_JSON.pqcInspector 读取大于 0 的正式电子签名 ID。'
+    })
+  }
+
+  if (!Array.isArray(config.transferIds) || config.transferIds.length === 0 || config.transferIds.__parseError) {
+    blockers.push({
+      key: 'RRM_TRANSFER_IDS',
+      category: 'ENV',
+      description: config.transferIds.__parseError || 'RRM_TRANSFER_IDS 必须提供至少一个大于 0 的正式调拨/发货/补料/退料 ID。'
     })
   }
 
@@ -1000,13 +1075,192 @@ function acceptanceIdsByLayer(acceptanceMatrix, layer) {
     .map((row) => row.ac)
 }
 
+function collectM6PerformanceProofs() {
+  const timelineFilterTestSource = readText(PROCESS_POOL_TIMELINE_FILTER_TEST)
+  const activeOrderServiceTestSource = readText(TEAM_LEADER_ACTIVE_ORDER_SERVICE_TEST)
+  const frontlinePqcContextServiceTestSource = readText(FRONTLINE_PQC_CONTEXT_SERVICE_TEST)
+  const timelinePerformanceSql = readText(PROCESS_POOL_TIMELINE_PERFORMANCE_SQL)
+  const timelineMapperXml = readText(PROCESS_POOL_TIMELINE_MAPPER_XML)
+
+  const proofs = {
+    dailyCloseSubmissionQueryCount:
+      /shouldUseCountAndPageQueriesWithoutDetailLookupsForDailyCloseSubmissionSummary[\s\S]*assertEquals\(1,\s*mapper\.getCountQueryCalls\(\)[\s\S]*assertEquals\(1,\s*mapper\.getPageQueryCalls\(\)[\s\S]*assertEquals\(0,\s*mapper\.getDetailQueryCalls\(\)/.test(timelineFilterTestSource),
+    dailyCloseActiveOrderSingleQuery:
+      /shouldListActiveOrdersWithSingleActiveOrderQueryForDailyClosePerformance[\s\S]*selectActiveList\(\)[\s\S]*never\(\)\)\.selectListByScheduleOrderId[\s\S]*never\(\)\)\.insertBatch/.test(activeOrderServiceTestSource),
+    pieceDetailBulkQuery:
+      /shouldPreparePqcPieceDetailContextWithBulkQueriesOnly[\s\S]*selectListByRouteId\(ROUTE_ID\)[\s\S]*selectListByActiveOrderId\(ACTIVE_ORDER_ID\)[\s\S]*selectListByVersionId\(REGULATION_VERSION_ID\)[\s\S]*never\(\)\)\.selectPendingByActiveOrderProcess[\s\S]*never\(\)\)\.selectById/.test(frontlinePqcContextServiceTestSource),
+    d32GeneratedColumnAndIndexes:
+      /pqc_task_id/.test(timelinePerformanceSql)
+      && /idx_mes_pp_event_timeline_acd32/.test(timelinePerformanceSql)
+      && /idx_mes_pqc_task_timeline_acd32/.test(timelinePerformanceSql)
+      && /idx_mes_pp_review_latest_event/.test(timelinePerformanceSql),
+    d32IndexedMapperJoin:
+      /pqc_task\.id\s*=\s*pool_event\.pqc_task_id/.test(timelineMapperXml)
+      && !/JSON_EXTRACT\(pool_event\.raw_payload,\s*'\$\.pqcTaskId'\)/.test(timelineMapperXml),
+    d32TimelineQueryCount:
+      /shouldUseCountAndPageQueriesWithoutPerRowDetailLookupsForPqcPagination[\s\S]*assertEquals\(1,\s*mapper\.getCountQueryCalls\(\)[\s\S]*assertEquals\(1,\s*mapper\.getPageQueryCalls\(\)[\s\S]*assertEquals\(0,\s*mapper\.getDetailQueryCalls\(\)[\s\S]*assertEquals\(2,\s*mapper\.getCountQueryCalls\(\)[\s\S]*assertEquals\(2,\s*mapper\.getPageQueryCalls\(\)[\s\S]*assertEquals\(0,\s*mapper\.getDetailQueryCalls\(\)/.test(timelineFilterTestSource)
+  }
+
+  return {
+    ...proofs,
+    complete: Object.values(proofs).every(Boolean)
+  }
+}
+
+function collectM6ConcurrencyProofs(concurrencyAcceptanceIds) {
+  const activeOrderServiceTestSource = readText(TEAM_LEADER_ACTIVE_ORDER_SERVICE_TEST)
+  const reportConfirmationServiceTestSource = readText(TEAM_LEADER_REPORT_CONFIRMATION_SERVICE_TEST)
+  const orderProcessCompletionServiceTestSource = readText(TEAM_LEADER_ORDER_PROCESS_COMPLETION_SERVICE_TEST)
+  const batchRecordBackfillServiceTestSource = readText(TEAM_LEADER_BATCH_RECORD_BACKFILL_SERVICE_TEST)
+  const frontlinePqcContextServiceTestSource = readText(FRONTLINE_PQC_CONTEXT_SERVICE_TEST)
+  const submissionReviewServiceTestSource = readText(TEAM_LEADER_SUBMISSION_REVIEW_SERVICE_TEST)
+  const processInspectionAggregationServiceTestSource = readText(PQC_PROCESS_INSPECTION_AGGREGATION_SERVICE_TEST)
+  const transferTraceSchemaTestSource = readText(ACTIVE_ORDER_TRANSFER_TRACE_SCHEMA_TEST)
+  const transferTraceServiceTestSource = readText(ACTIVE_ORDER_TRANSFER_TRACE_SERVICE_TEST)
+  const releaseServiceTestSource = readText(EDHR_RELEASE_SERVICE_TEST)
+
+  const proofCatalog = {
+    'AC-M04': {
+      proofKey: 'activeOrderConcurrentJoin',
+      proved: /shouldReturnExistingActiveOrderWhenConcurrentInsertHitsUniqueKey[\s\S]*selectActiveByWorkOrderRouteVersion[\s\S]*DuplicateKeyException[\s\S]*uk_mes_pp_active_order[\s\S]*assertEquals\(8102L,\s*activeOrderId\)/.test(activeOrderServiceTestSource),
+      evidence: 'MesTeamLeaderActiveOrderServiceTest proves duplicate active-order join handles the unique-key race by reloading the existing active order.'
+    },
+    'AC-M07': {
+      proofKey: 'transferTraceConcurrentIdempotency',
+      proved: /idempotencyKey/.test(transferTraceSchemaTestSource)
+        && /UNIQUE KEY `uk_mes_pp_active_order_transfer_trace`/.test(readText(ACTIVE_ORDER_TRANSFER_TRACE_SQL))
+        && /shouldReturnExistingTransferTraceWhenConcurrentInsertHitsUniqueKey[\s\S]*DuplicateKeyException[\s\S]*selectByIdempotencyKey/.test(transferTraceServiceTestSource)
+        && /recordTransferTrace[\s\S]*shouldReturnExistingTransferTraceWhenSameIdempotencyKeyAlreadyRecorded/.test(transferTraceServiceTestSource),
+      evidence: 'MesActiveOrderTransferTraceServiceTest proves duplicate/concurrent transfer-trace recording reloads the existing trace by idempotency key.'
+    },
+    'AC-M16': {
+      proofKey: 'productionReviewDuplicateConfirmationBlocked',
+      proved: /shouldBlockDuplicateConfirmationBeforeCreatingReview[\s\S]*selectByIdForUpdate[\s\S]*PRO_PROCESS_POOL_REPORT_ALLOCATION_DUPLICATE[\s\S]*verify\(reviewMapper,\s*never\(\)\)\.insert/.test(reportConfirmationServiceTestSource),
+      evidence: 'MesTeamLeaderReportConfirmationServiceTest proves duplicate production confirmation is blocked before creating review/allocation rows.'
+    },
+    'AC-M17': {
+      proofKey: 'productionAllocationLockAndTotalGuard',
+      proved: /selectListByWorkOrderIdsAndProcessForUpdate/.test(reportConfirmationServiceTestSource)
+        && /shouldBlockWhenAllocationTotalDoesNotEqualSubmittedQuantity[\s\S]*PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH[\s\S]*verify\(reviewMapper,\s*never\(\)\)\.insert/.test(reportConfirmationServiceTestSource),
+      evidence: 'MesTeamLeaderReportConfirmationServiceTest proves allocation reads existing quantities under lock and rejects mismatched allocation totals.'
+    },
+    'AC-M18': {
+      proofKey: 'orderProgressCompletionLockOnly',
+      proved: /selectByWorkOrderAndProcessForUpdate/.test(orderProcessCompletionServiceTestSource)
+        && /shouldNotBackfillAgainWhenOrderProcessAlreadyCompleted[\s\S]*never\(\)\)\.backfillCompletedProcess/.test(orderProcessCompletionServiceTestSource)
+        && /shouldRejectConcurrentProgressUpdate|shouldBlockConcurrentOrderProcessCompletion|shouldPreventOverTargetProgress/.test(orderProcessCompletionServiceTestSource),
+      evidence: 'MesTeamLeaderOrderProcessCompletionServiceTest proves locked order-process progress reads, duplicate backfill suppression, and over-target concurrent progress rejection.'
+    },
+    'AC-M19': {
+      proofKey: 'batchRecordBackfillConcurrentIdempotency',
+      proved: /shouldBackfillCompletedProcessOnlyOnceWhenConcurrentAuditAlreadyApplied[\s\S]*PROCESS_POOL_REPORT_BACKFILL:1001:9001:5001[\s\S]*times\(2\)[\s\S]*saveSystemCellLinkChanges/.test(batchRecordBackfillServiceTestSource),
+      evidence: 'MesTeamLeaderBatchRecordBackfillServiceTest proves repeated/concurrent batch-record backfill uses the same idempotency key and delegates duplicate suppression to field audit.'
+    },
+    'AC-M20': {
+      proofKey: 'pqcReviewDuplicateTerminalBlocked',
+      proved: /shouldRejectDuplicateTerminalReviewForSameSubmission[\s\S]*selectByIdForUpdate[\s\S]*PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS[\s\S]*verify\(reviewMapper,\s*never\(\)\)\.insert/.test(submissionReviewServiceTestSource),
+      evidence: 'MesTeamLeaderSubmissionReviewServiceTest proves duplicate terminal PQC review is rejected before inserting another terminal review.'
+    },
+    'AC-M21': {
+      proofKey: 'processInspectionAggregationConcurrentDuplicateBlocked',
+      proved: /shouldRejectConcurrentDuplicateAggregationWhenPendingWasConsumed[\s\S]*updateProcessInspectionAggregatedIfPending[\s\S]*thenReturn\(0\)[\s\S]*PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED/.test(processInspectionAggregationServiceTestSource),
+      evidence: 'MesPqcProcessInspectionAggregationServiceTest proves process-inspection aggregation fails when another transaction consumes the pending state.'
+    },
+    'AC-M23': {
+      proofKey: 'releaseTerminalForUpdateConcurrency',
+      proved: /shouldRejectConcurrentReleaseTerminalWhenPrecheckWasConsumedUnderForUpdateLock[\s\S]*STATUS_PRECHECK_PASSED[\s\S]*STATUS_RELEASED[\s\S]*selectByIdForUpdate[\s\S]*PRO_EDHR_RELEASE_PRECHECK_REQUIRED[\s\S]*assertEquals\(1,\s*batchSignatureMapper\.selectListByBatchExecutionId/.test(releaseServiceTestSource),
+      evidence: 'MesProEdhrReleaseServiceImplTest proves duplicate/concurrent release terminal transition rereads the locked transaction and rejects a consumed precheck before another release signature can be created.'
+    },
+    'AC-D29': {
+      proofKey: 'pqcSubmitConsumedPendingTaskBlocked',
+      proved: /shouldRejectPqcInspectionWhenPendingTaskWasConsumedConcurrently[\s\S]*updateSubmittedIfPending[\s\S]*thenReturn\(0\)[\s\S]*PRO_FRONTLINE_PQC_TASK_STATUS_INVALID/.test(frontlinePqcContextServiceTestSource),
+      evidence: 'MesFrontlinePqcContextServiceTest proves a consumed pending PQC task cannot create a second formal PQC event.'
+    },
+    'AC-D34': {
+      proofKey: 'pqcDuplicateTerminalReviewBlocked',
+      proved: /shouldRejectDuplicateTerminalReviewForSameSubmission[\s\S]*PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS[\s\S]*verify\(reviewMapper,\s*never\(\)\)\.insert/.test(submissionReviewServiceTestSource),
+      evidence: 'MesTeamLeaderSubmissionReviewServiceTest proves duplicate terminal review is rejected before insert.'
+    },
+    'AC-D37': {
+      proofKey: 'processInspectionAggregationConcurrentDuplicateBlocked',
+      proved: /shouldRejectConcurrentDuplicateAggregationWhenPendingWasConsumed[\s\S]*PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED/.test(processInspectionAggregationServiceTestSource),
+      evidence: 'MesPqcProcessInspectionAggregationServiceTest proves duplicate process-inspection aggregation is rejected.'
+    }
+  }
+
+  const byAcceptanceId = Object.fromEntries(concurrencyAcceptanceIds.map((ac) => [
+    ac,
+    proofCatalog[ac] || {
+      proofKey: 'missingConcurrencyProof',
+      proved: false,
+      evidence: `No M6 concurrency proof catalog entry exists for ${ac}.`
+    }
+  ]))
+  const provedAcceptanceIds = Object.entries(byAcceptanceId)
+    .filter(([, proof]) => proof.proved)
+    .map(([ac]) => ac)
+  const missingAcceptanceIds = Object.entries(byAcceptanceId)
+    .filter(([, proof]) => !proof.proved)
+    .map(([ac]) => ac)
+
+  return {
+    byAcceptanceId,
+    provedAcceptanceIds,
+    missingAcceptanceIds,
+    complete: missingAcceptanceIds.length === 0
+  }
+}
+
+function getPassedAction(actionEvidence, key) {
+  return actionEvidence.find((action) => action.key === key && action.status === 'PASS')
+}
+
+function hasCompleteM6ConcurrencyGateEvidence(concurrencyProofs) {
+  return concurrencyProofs.complete && concurrencyProofs.missingAcceptanceIds.length === 0
+}
+
+function hasCompleteM6PerformanceGateEvidence(performanceActions, performanceAcceptanceIds, performanceProofs) {
+  const observedAcceptanceIds = new Set(performanceActions.flatMap((action) => action.acceptanceIds || []))
+  if (!performanceAcceptanceIds.every((ac) => observedAcceptanceIds.has(ac))) return false
+  if (!performanceProofs.complete) return false
+
+  const dailyClose = getPassedAction(performanceActions, 'dailyClosePerformanceReadOnly')
+  const pieceDetail = getPassedAction(performanceActions, 'pqcPieceDetailQuantityPrepared')
+  const leaderPagination = getPassedAction(performanceActions, 'pqcLeaderSubmissionFilterPaginationConsistent')
+  if (!dailyClose || !pieceDetail || !leaderPagination) return false
+
+  return dailyClose.requestBudget?.submissionPageRequests === 0
+    && dailyClose.requestBudget?.activeOrderListRequests === 0
+    && dailyClose.requestBudget?.submissionDetailRequests === 0
+    && pieceDetail.requestBudget?.pieceDetailRequests === 0
+    && pieceDetail.requestBudget?.processSnapshotRequests === 0
+    && pieceDetail.requestBudget?.pqcPersonnelRequests === 0
+    && leaderPagination.requestBudget?.submissionPageRequests >= 3
+    && leaderPagination.requestBudget?.submissionPageRequests <= 4
+    && leaderPagination.requestBudget?.submissionDetailRequests === 0
+    && leaderPagination.requestBudget?.activeOrderListRequests === 0
+    && leaderPagination.total >= 2
+    && leaderPagination.firstEventId !== leaderPagination.secondEventId
+}
+
 function buildM6ConcurrencyPerformanceGateEvidence(acceptanceMatrix, actionEvidence) {
   const concurrencyAcceptanceIds = acceptanceIdsByLayer(acceptanceMatrix, 'CONC')
   const performanceAcceptanceIds = acceptanceIdsByLayer(acceptanceMatrix, 'PERF')
-  const activeOrderActionKeys = actionEvidence
+  const observedConcurrencyActionKeys = actionEvidence
     .filter((action) => action.status === 'PASS'
-      && ['joinActiveOrder', 'activeOrderConflictRouteRejected', 'activeOrderCrossRoleReadOnly'].includes(action.key))
+      && (action.acceptanceIds || []).some((ac) => concurrencyAcceptanceIds.includes(ac)))
     .map((action) => action.key)
+  const observedConcurrencyAcceptanceIds = [
+    ...new Set(actionEvidence
+      .filter((action) => action.status === 'PASS')
+      .flatMap((action) => action.acceptanceIds || []))
+  ].filter((ac) => concurrencyAcceptanceIds.includes(ac))
+  const concurrencyProofs = collectM6ConcurrencyProofs(concurrencyAcceptanceIds)
+  const concurrencyGateStatus = hasCompleteM6ConcurrencyGateEvidence(concurrencyProofs)
+  const concurrencyGateKey = concurrencyGateStatus ? 'm6ConcurrencyGateVerified' : 'm6ConcurrencyGateDeferred'
+  const concurrencyGateDescription = concurrencyGateStatus
+    ? `测试矩阵中 ${concurrencyAcceptanceIds.length} 个 CONC AC 已具备逐项服务级并发 proof；已证明 ${concurrencyProofs.provedAcceptanceIds.join(', ')}。AC 接受仍由 E2E_COVERAGE blocker 单独追踪。`
+    : `测试矩阵中 ${concurrencyAcceptanceIds.length} 个 CONC AC 仍需逐项完成真实并发或服务级并发证据；当前已观察 ${observedConcurrencyAcceptanceIds.length} 个 CONC AC（${observedConcurrencyAcceptanceIds.join(', ') || '无'}），已有 proof ${concurrencyProofs.provedAcceptanceIds.join(', ') || '无'}，缺少 proof ${concurrencyProofs.missingAcceptanceIds.join(', ') || '无'}。`
   const performanceActions = actionEvidence
     .filter((action) => action.status === 'PASS'
       && (action.acceptanceIds || []).some((ac) => performanceAcceptanceIds.includes(ac)))
@@ -1014,28 +1268,43 @@ function buildM6ConcurrencyPerformanceGateEvidence(acceptanceMatrix, actionEvide
   const observedPerformanceAcceptanceIds = [
     ...new Set(performanceActions.flatMap((action) => action.acceptanceIds || []))
   ].filter((ac) => performanceAcceptanceIds.includes(ac))
+  const performanceProofs = collectM6PerformanceProofs()
+  const performanceGateStatus = hasCompleteM6PerformanceGateEvidence(
+    performanceActions,
+    performanceAcceptanceIds,
+    performanceProofs
+  )
+  const performanceGateKey = performanceGateStatus ? 'm6PerformanceGateVerified' : 'm6PerformanceGateDeferred'
+  const performanceGateDescription = performanceGateStatus
+    ? `测试矩阵中 ${performanceAcceptanceIds.length} 个 PERF AC 已具备真实页面 request-budget、后端查询计数、索引和分页总数证明；当前已观察 ${observedPerformanceAcceptanceIds.length} 个 PERF AC（${observedPerformanceAcceptanceIds.join(', ') || '无'}）。AC 接受仍由 E2E_COVERAGE blocker 单独追踪。`
+    : `测试矩阵中 ${performanceAcceptanceIds.length} 个 PERF AC 仍需分页总数、索引或查询计数证据；当前已观察 ${observedPerformanceAcceptanceIds.length} 个 PERF AC（${observedPerformanceAcceptanceIds.join(', ') || '无'}），但 request-budget、后端查询计数、索引或分页总数证明尚未全部闭环。`
 
   return [
     {
-      key: 'm6ConcurrencyGateDeferred',
+      key: concurrencyGateKey,
       label: 'M6 并发门禁结构化',
       roleKey: 'system',
-      status: 'BLOCKED',
+      status: concurrencyGateStatus ? 'PASS' : 'BLOCKED',
       category: 'E2E_CONCURRENCY',
       acceptanceIds: concurrencyAcceptanceIds,
-      observedActionKeys: activeOrderActionKeys,
-      description: `测试矩阵中 ${concurrencyAcceptanceIds.length} 个 CONC AC 仍需逐项完成真实并发或服务级并发证据；当前仅 AC-M04 已有活跃订单重复/冲突/跨角色动作和后端唯一键并发回归，不能替代报工分配、PQC 提交/确认、过程检验、放行和批记录回填并发门禁。`
+      observedActionKeys: observedConcurrencyActionKeys,
+      observedAcceptanceIds: observedConcurrencyAcceptanceIds,
+      missingConcurrencyAcceptanceIds: concurrencyProofs.missingAcceptanceIds,
+      provedConcurrencyAcceptanceIds: concurrencyProofs.provedAcceptanceIds,
+      concurrencyProofs,
+      description: concurrencyGateDescription
     },
     {
-      key: 'm6PerformanceGateDeferred',
+      key: performanceGateKey,
       label: 'M6 性能门禁结构化',
       roleKey: 'system',
-      status: 'BLOCKED',
+      status: performanceGateStatus ? 'PASS' : 'BLOCKED',
       category: 'E2E_PERFORMANCE',
       acceptanceIds: performanceAcceptanceIds,
       observedActionKeys: performanceActionKeys,
       observedAcceptanceIds: observedPerformanceAcceptanceIds,
-      description: `测试矩阵中 ${performanceAcceptanceIds.length} 个 PERF AC 仍需分页总数、索引或查询计数证据；当前已观察 ${observedPerformanceAcceptanceIds.length} 个 PERF AC（${observedPerformanceAcceptanceIds.join(', ') || '无'}），尚未完成日结、PQC 列表和逐件明细的完整 N+1 或分页漂移证明。`
+      performanceProofs,
+      description: performanceGateDescription
     }
   ]
 }
@@ -1060,6 +1329,7 @@ function redactConfig(config) {
     productionOrderCode: config.productionOrderCode,
     routeId: config.routeId,
     routeVersionId: config.routeVersionId,
+    transferIds: Array.isArray(config.transferIds) ? config.transferIds : [],
     qaRegulationVersionId: config.qaRegulationVersionId,
     signatureIdRoles: Object.keys(config.signatureIds || {}).filter((key) => key !== '__parseError'),
     unauthorizedActor: {
@@ -1286,6 +1556,22 @@ function hasActiveOrderMaintainPermission(permissions) {
   return permissions.includes('*:*:*') || permissions.includes(ACTIVE_ORDER_MAINTAIN_PERMISSION)
 }
 
+async function waitForPostLoginNavigationSettled(page, roleKey) {
+  const leftLoginPage = await page.waitForURL(
+    (url) => !url.pathname.includes('/login'),
+    { timeout: 60000 }
+  ).then(() => true).catch(() => false)
+  if (!leftLoginPage && page.url().includes('/login')) {
+    failFast(`${roleKey} 登录接口成功后仍停留在登录页，无法进入真实页面路径。`, [{
+      key: 'loginPostRedirectTimeout',
+      category: 'E2E_RUNTIME',
+      description: `${roleKey} 登录接口已返回成功，但 60 秒内未完成前端登录后跳转；后续页面导航可能被登录重定向竞态中断。`
+    }])
+  }
+  await page.locator('#app').waitFor({ state: 'visible', timeout: 60000 })
+  assert.ok(!page.url().includes('/login'), `${roleKey} 登录后仍停留在登录页，不能继续真实 E2E。`)
+}
+
 async function login(page, config, roleKey, role) {
   const loginUrl = new URL('/login', config.frontendUrl)
   loginUrl.searchParams.set('redirect', '/index')
@@ -1321,6 +1607,7 @@ async function login(page, config, roleKey, role) {
   const body = await response.json()
   assert.ok(response.ok(), `${roleKey} 登录 HTTP 失败：${response.status()}`)
   assert.ok(body.code === 0 || body.code === 200, `${roleKey} 登录业务失败：${body.msg || body.code}`)
+  await waitForPostLoginNavigationSettled(page, roleKey)
 }
 
 function findTargetActiveOrder(rows, config) {
@@ -1363,6 +1650,7 @@ async function performActiveOrderJoin(page, config) {
   await fillFormItemForAction(section, '加入活跃订单', '生产订单ID', config.workOrderId)
   await fillFormItemForAction(section, '加入活跃订单', '路线ID', config.routeId)
   await fillFormItemForAction(section, '加入活跃订单', '路线版本ID', config.routeVersionId)
+  await fillFormItemForAction(section, '加入活跃订单', '调拨单ID列表', config.transferIds.join(','))
   const listResponsePromise = page.waitForResponse((response) =>
     response.url().includes('/mes/pro/process-pool/team-leader/active-order/list')
       && response.request().method() === 'GET'
@@ -1397,7 +1685,8 @@ async function performActiveOrderJoin(page, config) {
     activeOrderId,
     workOrderId: config.workOrderId,
     routeId: config.routeId,
-    routeVersionId: config.routeVersionId
+    routeVersionId: config.routeVersionId,
+    transferIds: config.transferIds
   }
 }
 
@@ -1407,6 +1696,7 @@ async function verifyActiveOrderConflictRouteFailure(page, config, joinEvidence)
   await fillFormItemForAction(section, '加入活跃订单', '生产订单ID', config.workOrderId)
   await fillFormItemForAction(section, '加入活跃订单', '路线ID', conflictRouteId)
   await fillFormItemForAction(section, '加入活跃订单', '路线版本ID', config.routeVersionId)
+  await fillFormItemForAction(section, '加入活跃订单', '调拨单ID列表', config.transferIds.join(','))
   const body = await clickButtonAndWaitForBusinessFailure(
     section,
     '加入活跃订单',
@@ -1444,6 +1734,160 @@ async function verifyActiveOrderConflictRouteFailure(page, config, joinEvidence)
     routeVersionId: config.routeVersionId,
     responseCode: body.code,
     responseMessage: messageText
+  }
+}
+
+async function loadActiveOrderTransferTraceViaAuth(page, activeOrderId, label) {
+  const endpoint = `/admin-api/mes/pro/process-pool/team-leader/active-order/transfer-trace?activeOrderId=${encodeURIComponent(activeOrderId)}`
+  const result = await fetchWithPageAuth(page, endpoint)
+  assert.ok(result.ok, `${label} HTTP 失败：${result.status}`)
+  assert.equal(result.body?.code, 0, `${label} 业务失败：${responseMessage(result.body)}`)
+  assert.ok(Array.isArray(result.body.data), `${label} 必须返回数组。`)
+  return result.body.data
+}
+
+function hasFormalTransferTraceSourceFields(row) {
+  return Boolean(
+    row?.sourceType
+      && (row.sourceObjectCode || row.sourceObjectId)
+      && row.sourceStatus
+      && row.quantity !== undefined
+      && row.quantity !== null
+      && row.quantity !== ''
+      && row.materialStockId
+      && row.batchId
+      && row.idempotencyKey
+  )
+}
+
+async function verifyActiveOrderTransferTraceReadOnly(page, config, joinEvidence) {
+  const acceptanceIds = ['AC-M02', 'AC-M05', 'AC-M07', 'AC-M08']
+  const evidenceKey = 'activeOrderTransferTraceReadOnly'
+  if (!joinEvidence?.activeOrderId) {
+    failFast('活跃订单调拨追溯核验前缺少 joinActiveOrder 动作证据。', [{
+      key: 'activeOrderTransferTracePrereq',
+      category: 'E2E_TRANSFER_TRACE_DATA',
+      description: '必须先通过生产组长真实页面加入活跃订单，再读取同一 activeOrderId 的调拨/发货/补料/退料追溯。'
+    }])
+  }
+
+  const mutationRequests = []
+  const trackMutationRequest = (request) => {
+    if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method())) return
+    if (request.url().includes('/mes/pro/process-pool/team-leader/active-order/')) {
+      mutationRequests.push({ method: request.method(), url: request.url() })
+    }
+  }
+  page.on('request', trackMutationRequest)
+  try {
+    const section = page.locator('[data-team-leader-active-order-transfer-trace]').first()
+    await section.waitFor({ state: 'visible', timeout: 60000 })
+    const visibleTraceForActiveOrder = await page
+      .locator('[data-transfer-trace-active-order-id]')
+      .filter({ hasText: String(joinEvidence.activeOrderId) })
+      .first()
+      .waitFor({ state: 'visible', timeout: 15000 })
+      .then(() => true)
+      .catch(() => false)
+
+    const apiRows = await loadActiveOrderTransferTraceViaAuth(
+      page,
+      joinEvidence.activeOrderId,
+      '活跃订单调拨库存追溯只读端点'
+    )
+    const traceRows = apiRows.filter((row) => Number(row.activeOrderId) === Number(joinEvidence.activeOrderId))
+    if (!traceRows.length) {
+      return buildStructuredBlockerEvidence(
+        evidenceKey,
+        '生产组长只读活跃订单调拨/库存追溯',
+        'productionLeader',
+        'E2E_TRANSFER_TRACE_DATA',
+        acceptanceIds,
+        '正式追溯端点未返回当前 activeOrderId 的调拨/发货/补料/退料/批次库存追溯行；需补齐正式来源数据或记录链路。',
+        {
+          activeOrderId: joinEvidence.activeOrderId,
+          endpoint: '/mes/pro/process-pool/team-leader/active-order/transfer-trace',
+          totalTraceRows: apiRows.length
+        }
+      )
+    }
+
+    const missingFormalFields = traceRows.filter((row) => !hasFormalTransferTraceSourceFields(row))
+    if (missingFormalFields.length) {
+      return buildStructuredBlockerEvidence(
+        evidenceKey,
+        '生产组长只读活跃订单调拨/库存追溯',
+        'productionLeader',
+        'E2E_TRANSFER_TRACE_DATA',
+        acceptanceIds,
+        '正式追溯行缺少 sourceType/sourceObjectCode/sourceStatus/quantity/materialStockId/batchId/idempotencyKey 等来源字段。',
+        {
+          activeOrderId: joinEvidence.activeOrderId,
+          missingTraceIds: missingFormalFields.map((row) => row.id).filter(Boolean)
+        }
+      )
+    }
+
+    if (!visibleTraceForActiveOrder) {
+      return buildStructuredBlockerEvidence(
+        evidenceKey,
+        '生产组长只读活跃订单调拨/库存追溯',
+        'productionLeader',
+        'E2E_TRANSFER_TRACE_PAGE',
+        acceptanceIds,
+        '正式追溯端点有数据，但班组长页面没有渲染同一 activeOrderId 的追溯行。',
+        {
+          activeOrderId: joinEvidence.activeOrderId,
+          apiTraceCount: traceRows.length
+        }
+      )
+    }
+
+    const uiRows = await page.locator('[data-team-leader-active-order-transfer-trace]').evaluate((table) => {
+      const readText = (selector) =>
+        Array.from(table.querySelectorAll(selector)).map((node) => node.textContent?.replace(/\s+/g, ' ').trim() || '')
+      return {
+        activeOrderIds: readText('[data-transfer-trace-active-order-id]'),
+        sourceType: readText('[data-transfer-trace-source-type]'),
+        sourceObjectCode: readText('[data-transfer-trace-source-object-code]'),
+        sourceStatus: readText('[data-transfer-trace-source-status]'),
+        quantity: readText('[data-transfer-trace-quantity]'),
+        materialStockId: readText('[data-transfer-trace-material-stock-id]'),
+        batchId: readText('[data-transfer-trace-batch-id]'),
+        idempotencyKey: readText('[data-transfer-trace-idempotency-key]')
+      }
+    })
+    assert.equal(mutationRequests.length, 0, '活跃订单调拨追溯只读核验不得触发写请求。')
+    const observedSourceTypes = [...new Set(traceRows.map((row) => row.sourceType).filter(Boolean))]
+    assert.ok(
+      observedSourceTypes.some((type) => ['TRANSFER', 'SHIPMENT', 'REPLENISHMENT', 'RETURN', 'BATCH_TRACE'].includes(type)),
+      `活跃订单追溯来源类型不属于正式调拨/发货/补料/退料/批次库存集合：${observedSourceTypes.join(',')}`
+    )
+
+    return {
+      key: evidenceKey,
+      label: '生产组长只读活跃订单调拨/库存追溯',
+      roleKey: 'productionLeader',
+      status: 'PASS',
+      category: 'E2E_TRANSFER_TRACE',
+      acceptanceIds,
+      activeOrderId: joinEvidence.activeOrderId,
+      workOrderId: config.workOrderId,
+      routeId: config.routeId,
+      routeVersionId: config.routeVersionId,
+      traceCount: traceRows.length,
+      observedSourceTypes,
+      sourceObjectCodes: [...new Set(traceRows.map((row) => row.sourceObjectCode || row.sourceObjectId).filter(Boolean))],
+      sourceStatuses: [...new Set(traceRows.map((row) => row.sourceStatus).filter(Boolean))],
+      materialStockIds: [...new Set(traceRows.map((row) => row.materialStockId).filter(Boolean))],
+      batchIds: [...new Set(traceRows.map((row) => row.batchId).filter(Boolean))],
+      idempotencyKeys: traceRows.map((row) => row.idempotencyKey).filter(Boolean),
+      uiRows,
+      mutationRequestCount: mutationRequests.length,
+      endpoint: '/mes/pro/process-pool/team-leader/active-order/transfer-trace'
+    }
+  } finally {
+    page.off('request', trackMutationRequest)
   }
 }
 
@@ -1677,6 +2121,113 @@ async function verifyPqcRegulationItemsRendered(page, config, actionEvidence) {
   }
 }
 
+async function verifyQaRegulationPublishedVersionReadOnly(page, config) {
+  const initialQaSectionEvidence = await page.waitForSelector('[data-qa-regulation-section]', {
+    state: 'attached',
+    timeout: 5000
+  }).then(() => ({
+    status: 'ATTACHED'
+  })).catch((error) => ({
+    status: 'MISSING',
+    message: error.message
+  }))
+  const qaRegulationApiPromise = page.waitForResponse((response) =>
+    response.url().includes('inspection-regulation/published-version')
+      && response.request().method() === 'GET'
+  , { timeout: 20000 }).then(async (response) => {
+    let body
+    try {
+      body = await response.json()
+    } catch (error) {
+      body = { jsonParseError: error.message }
+    }
+    return {
+      apiStatus: response.status(),
+      apiCode: body?.code,
+      apiMessage: body?.msg || body?.message || body?.jsonParseError || '',
+      hasData: Boolean(body?.data),
+      publishedVersionId: body?.data?.publishedVersionId,
+      firstInspectionRuleCount: body?.data?.firstInspectionRules?.length || 0,
+      patrolInspectionRuleCount: body?.data?.patrolInspectionRules?.length || 0,
+      finalInspectionRuleCount: body?.data?.finalInspectionRules?.length || 0,
+      batchRecordBindingSummary: body?.data?.batchRecordBindingSummary || ''
+    }
+  }).catch((error) => ({
+    apiStatus: null,
+    apiCode: null,
+    apiMessage: error.message,
+    hasData: false
+  }))
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 }).catch(() => undefined)
+  const refreshedQaSectionEvidence = await page.waitForSelector('[data-qa-regulation-section]', {
+    state: 'attached',
+    timeout: 15000
+  }).then(() => ({
+    status: 'ATTACHED'
+  })).catch((error) => ({
+    status: 'MISSING',
+    message: error.message
+  }))
+  const qaRegulationApiEvidence = await qaRegulationApiPromise
+  const formalSelectorEvidence = []
+  const selectorChecks = [
+    ['publishedVersion', '[data-qa-regulation-published-version]'],
+    ['routeVersion', '[data-qa-regulation-route-version]'],
+    ['routeProcess', '[data-qa-regulation-route-process]'],
+    ['firstInspectionRule', '[data-qa-regulation-first-inspection-rule]'],
+    ['patrolInspectionRule', '[data-qa-regulation-patrol-inspection-rule]'],
+    ['finalInspectionRule', '[data-qa-regulation-final-inspection-rule]'],
+    ['batchRecordBinding', '[data-qa-regulation-batch-record-binding]'],
+    ['immutability', '[data-qa-regulation-version-immutable]']
+  ]
+  for (const [key, selector] of selectorChecks) {
+    const locator = page.locator(selector).first()
+    const visible = await locator.isVisible({ timeout: 1000 }).catch(() => false)
+    if (visible) {
+      formalSelectorEvidence.push({ key, selector })
+    }
+  }
+
+  const pageText = (await page.locator('#app').innerText({ timeout: 5000 }).catch(() => ''))
+    .replace(/\s+/g, ' ')
+    .trim()
+  const visibleFormalTerms = ['产品', '路线', '版本', '工序', 'SOP', '首检', '巡检', '末检', '批记录', '发布']
+    .filter((term) => pageText.includes(term))
+  const acceptanceIds = ['AC-M09', 'AC-D15', 'AC-D16', 'AC-D17', 'AC-D18', 'AC-D19', 'AC-D20', 'AC-D21', 'AC-D22', 'AC-D23']
+  const label = 'QA 规程发布版本维护页面证据'
+  const baseEvidence = {
+    key: 'qaRegulationPublishedVersionReadOnly',
+    label,
+    roleKey: 'qa',
+    category: 'E2E_QA_REGULATION_PAGE',
+    acceptanceIds,
+    targetPath: '/mes/qc/template',
+    currentUrl: page.url(),
+    configuredVersionId: config.qaRegulationVersionId,
+    initialQaSectionEvidence,
+    refreshedQaSectionEvidence,
+    qaRegulationApiEvidence,
+    formalSelectorEvidence,
+    visibleFormalTerms
+  }
+  const hasFormalLifecycleSurface = formalSelectorEvidence.length >= 6
+    && ['产品', '路线', '版本', '工序', '首检', '巡检', '发布'].every((term) => visibleFormalTerms.includes(term))
+
+  if (hasFormalLifecycleSurface) {
+    return {
+      ...baseEvidence,
+      status: 'PASS',
+      description: 'QA 规程入口已在真实页面展示正式发布版本、路线版本、工序规则和发布完整性证据。'
+    }
+  }
+
+  return {
+    ...baseEvidence,
+    status: 'BLOCKED',
+    description: '当前 QA 入口只证明页面 shell 可加载，未在真实页面观察到正式 QA 检验规程发布版本、产品/路线版本/工序、首检/巡检/末检完整性、逐工序批记录绑定和发布不可变证据；不能用旧质检方案页替代 BDD-07。'
+  }
+}
+
 async function verifyPqcPieceDetailQuantityPrepared(page, config, actionEvidence) {
   const joinEvidence = actionEvidence.find((item) => item.key === 'joinActiveOrder' && item.status === 'PASS')
   const regulationEvidence = actionEvidence.find((item) => item.key === 'pqcRegulationItemsRendered' && item.status === 'PASS')
@@ -1708,70 +2259,80 @@ async function verifyPqcPieceDetailQuantityPrepared(page, config, actionEvidence
     }
   }
 
-  await page.locator('[data-frontline-pqc-inspection-content]').first().waitFor({
-    state: 'visible',
-    timeout: 30000
-  })
-  const quantityInput = page.locator('#frontlinePqcInspectionQuantity').first()
-  await quantityInput.waitFor({ state: 'visible', timeout: 30000 })
-  const uiQuantity = Number(await quantityInput.inputValue())
-  assert.ok(
-    plannedQuantities.includes(uiQuantity),
-    `PQC 页面检验数量 ${uiQuantity} 必须来自正式 task plannedInspectionQuantity：${plannedQuantities.join(', ')}。`
-  )
+  const requestBudgetTracker = createPqcPieceDetailRequestBudgetTracker(page)
+  try {
+    await page.locator('[data-frontline-pqc-inspection-content]').first().waitFor({
+      state: 'visible',
+      timeout: 30000
+    })
+    const quantityInput = page.locator('#frontlinePqcInspectionQuantity').first()
+    await quantityInput.waitFor({ state: 'visible', timeout: 30000 })
+    const uiQuantity = Number(await quantityInput.inputValue())
+    assert.ok(
+      plannedQuantities.includes(uiQuantity),
+      `PQC 页面检验数量 ${uiQuantity} 必须来自正式 task plannedInspectionQuantity：${plannedQuantities.join(', ')}。`
+    )
 
-  const firstEntry = page.locator('.frontline-pqc-content-item, .frontline-pqc-choice-item .manual').first()
-  if (await firstEntry.count() === 0) {
+    const firstEntry = page.locator('.frontline-pqc-content-item, .frontline-pqc-choice-item .manual').first()
+    if (await firstEntry.count() === 0) {
+      return {
+        key: 'pqcPieceDetailQuantityPrepared',
+        label: 'PQC 逐件明细数量按计划数量准备',
+        roleKey: 'pqcInspector',
+        status: 'BLOCKED',
+        category: 'E2E_PQC_PIECE_DETAIL',
+        acceptanceIds: ['AC-D27'],
+        activeOrderId: joinEvidence.activeOrderId,
+        plannedQuantities,
+        uiQuantity,
+        requestBudget: requestBudgetTracker.snapshot(),
+        description: 'PQC 页面没有可打开的逐件检验项目，不能证明计划数量对应完整逐件明细。'
+      }
+    }
+    const entryLabel = (await firstEntry.innerText()).replace(/\s+/g, ' ').trim()
+    await firstEntry.click()
+    const modal = page.locator('[data-pqc-piece-modal]').first()
+    await modal.waitFor({ state: 'visible', timeout: 30000 })
+    await modal.locator('.frontline-pqc-piece-row').nth(uiQuantity - 1).waitFor({
+      state: 'visible',
+      timeout: 30000
+    })
+    const rowCount = await modal.locator('.frontline-pqc-piece-row').count()
+    assert.equal(rowCount, uiQuantity, 'PQC 逐件弹窗行数必须等于页面计划检验数量。')
+    const modalTitle = (await modal.locator('h3').first().innerText()).replace(/\s+/g, ' ').trim()
+    assert.ok(
+      modalTitle.includes(`（${uiQuantity}件）`),
+      `PQC 逐件弹窗标题必须展示计划数量 ${uiQuantity} 件。`
+    )
+    const firstEntryFilledCount = await fillVisiblePqcPieceModalValues(modal)
+    await modal.getByRole('button', { name: '完成' }).click()
+    await modal.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
+    const completionEvidence = await completePqcPieceDetailsForSubmission(page, firstEntryFilledCount)
+    const requestBudget = requestBudgetTracker.snapshot()
+    assert.equal(requestBudget.pieceDetailRequests, 0, 'PQC 逐件弹窗打开和填写不得触发逐项明细 GET 请求。')
+    assert.equal(requestBudget.processSnapshotRequests, 0, 'PQC 逐件弹窗填写不得重新加载活跃订单工序快照。')
+
     return {
       key: 'pqcPieceDetailQuantityPrepared',
       label: 'PQC 逐件明细数量按计划数量准备',
       roleKey: 'pqcInspector',
-      status: 'BLOCKED',
-      category: 'E2E_PQC_PIECE_DETAIL',
+      status: 'PASS',
       acceptanceIds: ['AC-D27'],
       activeOrderId: joinEvidence.activeOrderId,
+      workOrderId: config.workOrderId,
+      routeId: config.routeId,
       plannedQuantities,
       uiQuantity,
-      description: 'PQC 页面没有可打开的逐件检验项目，不能证明计划数量对应完整逐件明细。'
+      pieceRowCount: rowCount,
+      completedPieceValueCount: completionEvidence.completedPieceValueCount,
+      completedChoiceItemCount: completionEvidence.completedChoiceItemCount,
+      completedNumericItemCount: completionEvidence.completedNumericItemCount,
+      inspectionEntry: entryLabel,
+      requestBudget,
+      sourceActionKey: regulationEvidence.key
     }
-  }
-  const entryLabel = (await firstEntry.innerText()).replace(/\s+/g, ' ').trim()
-  await firstEntry.click()
-  const modal = page.locator('[data-pqc-piece-modal]').first()
-  await modal.waitFor({ state: 'visible', timeout: 30000 })
-  await modal.locator('.frontline-pqc-piece-row').nth(uiQuantity - 1).waitFor({
-    state: 'visible',
-    timeout: 30000
-  })
-  const rowCount = await modal.locator('.frontline-pqc-piece-row').count()
-  assert.equal(rowCount, uiQuantity, 'PQC 逐件弹窗行数必须等于页面计划检验数量。')
-  const modalTitle = (await modal.locator('h3').first().innerText()).replace(/\s+/g, ' ').trim()
-  assert.ok(
-    modalTitle.includes(`（${uiQuantity}件）`),
-    `PQC 逐件弹窗标题必须展示计划数量 ${uiQuantity} 件。`
-  )
-  const firstEntryFilledCount = await fillVisiblePqcPieceModalValues(modal)
-  await modal.getByRole('button', { name: '完成' }).click()
-  await modal.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
-  const completionEvidence = await completePqcPieceDetailsForSubmission(page, firstEntryFilledCount)
-
-  return {
-    key: 'pqcPieceDetailQuantityPrepared',
-    label: 'PQC 逐件明细数量按计划数量准备',
-    roleKey: 'pqcInspector',
-    status: 'PASS',
-    acceptanceIds: ['AC-D27'],
-    activeOrderId: joinEvidence.activeOrderId,
-    workOrderId: config.workOrderId,
-    routeId: config.routeId,
-    plannedQuantities,
-    uiQuantity,
-    pieceRowCount: rowCount,
-    completedPieceValueCount: completionEvidence.completedPieceValueCount,
-    completedChoiceItemCount: completionEvidence.completedChoiceItemCount,
-    completedNumericItemCount: completionEvidence.completedNumericItemCount,
-    inspectionEntry: entryLabel,
-    sourceActionKey: regulationEvidence.key
+  } finally {
+    requestBudgetTracker.stop()
   }
 }
 
@@ -1801,7 +2362,7 @@ async function completePqcPieceDetailsForSubmission(page, alreadyCompletedCount 
   const choiceItemCount = await choiceItems.count()
   for (let index = 0; index < choiceItemCount; index += 1) {
     const item = choiceItems.nth(index)
-    const passButton = item.getByRole('button', { name: /^合格$/ }).first()
+    const passButton = item.getByRole('button', { name: /^全部合格$/ }).first()
     if (await passButton.count()) {
       await passButton.click()
       completedChoiceItemCount += 1
@@ -1837,6 +2398,41 @@ function resolveCurrentUserId(permissionInfo) {
     if (Number.isFinite(value) && value > 0) return value
   }
   return undefined
+}
+
+async function resolveRoleUserId(page, config, roleKey) {
+  const role = config.roles?.[roleKey]
+  const browser = page.context().browser()
+  if (!role || !browser) {
+    return {
+      status: 'BLOCKED',
+      category: 'E2E_PQC_PERSONNEL_REVIEWER',
+      description: `无法解析 ${roleKey} 用户上下文，不能排除后续复核人自我确认。`
+    }
+  }
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'zh-CN' })
+  const rolePage = await context.newPage()
+  try {
+    await login(rolePage, config, roleKey, role)
+    const permissionInfo = await getCurrentPermissionInfo(rolePage)
+    const userId = resolveCurrentUserId(permissionInfo)
+    if (!userId) {
+      return {
+        status: 'BLOCKED',
+        category: 'E2E_PQC_PERSONNEL_REVIEWER',
+        description: `${roleKey} 权限信息未返回可解析 userId，不能排除后续复核人自我确认。`
+      }
+    }
+    return { status: 'PASS', userId }
+  } catch (error) {
+    return {
+      status: 'BLOCKED',
+      category: 'E2E_PQC_PERSONNEL_REVIEWER',
+      description: `解析 ${roleKey} 用户 ID 失败：${error.message}`
+    }
+  } finally {
+    await context.close()
+  }
 }
 
 function formatPqcPersonnelLabel(candidate) {
@@ -1928,22 +2524,46 @@ async function verifyPqcActualEmployeeSwitch(page, config, actionEvidence) {
       description: 'PQC 人员范围接口没有返回可选择人员，不能证明共享账号下实际检验人来源。'
     }
   }
-  const targetCandidate = selectableCandidates.find((candidate) => candidate.userId !== loginUserId) ||
-    selectableCandidates[0]
-  if (loginUserId && targetCandidate.userId === loginUserId) {
+  const reviewerResolution = await resolveRoleUserId(page, config, 'pqcLeader')
+  if (reviewerResolution.status !== 'PASS') {
     return {
       key: 'pqcActualEmployeeSelected',
       label: '共享账号下选择实际 PQC 检验人员',
       roleKey: 'pqcInspector',
       status: 'BLOCKED',
-      category: 'E2E_PQC_PERSONNEL',
+      category: reviewerResolution.category,
       acceptanceIds: ['AC-D25', 'AC-D31'],
       activeOrderId: joinEvidence.activeOrderId,
       loginUserId,
       candidateCount: selectableCandidates.length,
-      description: 'PQC 人员范围只返回当前登录账号，不能证明 actualEmployeeId 不默认等于登录人。'
+      description: reviewerResolution.description
     }
   }
+  const reviewerUserId = reviewerResolution.userId
+  const excludedReviewerUserIds = [reviewerUserId]
+  const reviewSafeCandidates = selectableCandidates.filter((candidate) =>
+    !excludedReviewerUserIds.includes(candidate.userId))
+  if (!reviewSafeCandidates.length) {
+    return {
+      key: 'pqcActualEmployeeSelected',
+      label: '共享账号下选择实际 PQC 检验人员',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_PERSONNEL_REVIEWER',
+      acceptanceIds: ['AC-D25', 'AC-D31'],
+      activeOrderId: joinEvidence.activeOrderId,
+      loginUserId,
+      reviewerUserId,
+      candidateCount: selectableCandidates.length,
+      excludedReviewerUserIds,
+      description: 'PQC 人员范围只返回后续 PQC 组长复核人，不能创建合法的非自我复核提交。'
+    }
+  }
+  const nonLoginCandidate = loginUserId
+    ? reviewSafeCandidates.find((candidate) => candidate.userId !== loginUserId)
+    : reviewSafeCandidates[0]
+  const targetCandidate = nonLoginCandidate || reviewSafeCandidates[0]
+  const nonLoginCandidateAvailable = Boolean(nonLoginCandidate)
 
   const employeeCard = page
     .locator('.frontline-operator-top.is-pqc .frontline-top-card')
@@ -1983,13 +2603,18 @@ async function verifyPqcActualEmployeeSwitch(page, config, actionEvidence) {
     targetCandidate.userId,
     'PQC 实际人员切换响应必须保存页面选择的 actualEmployeeId。'
   )
-  if (loginUserId) {
+  if (loginUserId && nonLoginCandidateAvailable) {
     assert.notEqual(
       Number(switchBody.data?.actualEmployeeId),
       loginUserId,
       '共享账号 PQC 实际检验人不能默认等于当前登录用户。'
     )
   }
+  assert.notEqual(
+    Number(switchBody.data?.actualEmployeeId),
+    reviewerUserId,
+    'PQC 实际检验人不能等于后续 PQC 组长复核人。'
+  )
   await employeeCard.filter({ hasText: targetCandidate.label }).waitFor({ state: 'visible', timeout: 30000 })
 
   return {
@@ -2002,9 +2627,119 @@ async function verifyPqcActualEmployeeSwitch(page, config, actionEvidence) {
     workOrderId: config.workOrderId,
     routeId: config.routeId,
     loginUserId,
+    reviewerUserId,
     actualEmployeeId: targetCandidate.userId,
     candidateCount: selectableCandidates.length,
+    nonLoginCandidateAvailable,
+    excludedReviewerUserIds,
     employeeLabel: targetCandidate.label,
+    templateNo: switchBody.data?.template?.templateNo,
+    sourceActionKey: readOnlyEvidence.key
+  }
+}
+
+async function switchPqcActualEmployeeToUser(page, config, actionEvidence, targetUserId, evidenceKey, label, acceptanceIds) {
+  const joinEvidence = actionEvidence.find((item) => item.key === 'joinActiveOrder' && item.status === 'PASS')
+  const readOnlyEvidence = actionEvidence.find((item) => item.key === 'activeOrderCrossRoleReadOnly' && item.status === 'PASS')
+  if (!joinEvidence?.activeOrderId || !readOnlyEvidence) {
+    return {
+      key: evidenceKey,
+      label,
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_PERSONNEL',
+      acceptanceIds,
+      description: 'PQC 实际检验人定向选择前缺少同一 activeOrderId 的页面只读证据。'
+    }
+  }
+  const personnelResult = await loadPqcPersonnelViaAuth(page, 'PQC 人员范围')
+  if (personnelResult.blocked) {
+    return {
+      key: evidenceKey,
+      label,
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_PERSONNEL',
+      acceptanceIds,
+      activeOrderId: joinEvidence.activeOrderId,
+      targetUserId,
+      responseCode: personnelResult.responseCode,
+      responseMessage: personnelResult.responseMessage,
+      description: personnelResult.description
+    }
+  }
+  const selectableCandidates = personnelResult.candidates
+    .map((candidate) => ({
+      ...candidate,
+      userId: Number(candidate.userId),
+      label: formatPqcPersonnelLabel(candidate)
+    }))
+    .filter((candidate) => Number.isFinite(candidate.userId) && candidate.userId > 0 && candidate.label)
+  const targetCandidate = selectableCandidates.find((candidate) => candidate.userId === Number(targetUserId))
+  if (!targetCandidate) {
+    return {
+      key: evidenceKey,
+      label,
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_PERSONNEL',
+      acceptanceIds,
+      activeOrderId: joinEvidence.activeOrderId,
+      targetUserId,
+      candidateUserIds: selectableCandidates.map((candidate) => candidate.userId),
+      description: 'PQC 人员范围没有返回目标实际检验人，不能通过真实页面准备该候选。'
+    }
+  }
+
+  const employeeCard = page
+    .locator('.frontline-operator-top.is-pqc .frontline-top-card')
+    .filter({ hasText: '员工' })
+    .first()
+  await employeeCard.waitFor({ state: 'visible', timeout: 30000 })
+  await employeeCard.click()
+  const targetOption = page
+    .locator('.frontline-picker__options button')
+    .filter({ hasText: targetCandidate.label })
+    .first()
+  await targetOption.waitFor({ state: 'visible', timeout: 30000 })
+  const switchResponsePromise = page.waitForResponse((response) =>
+    response.url().includes('/mes/pro/feedback/frontline/device-account/pqc/switch-employee')
+      && response.request().method() === 'POST'
+  , { timeout: 30000 }).catch((error) => ({ pqcSwitchEmployeeResponseError: error }))
+  await targetOption.click()
+  const switchResponse = await switchResponsePromise
+  if (switchResponse.pqcSwitchEmployeeResponseError) {
+    return {
+      key: evidenceKey,
+      label,
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_PERSONNEL',
+      acceptanceIds,
+      activeOrderId: joinEvidence.activeOrderId,
+      targetUserId,
+      description: `页面点击目标 PQC 人员后未捕获 switch-employee 响应：${switchResponse.pqcSwitchEmployeeResponseError.message}`
+    }
+  }
+  assert.ok(switchResponse.ok(), `PQC 目标人员切换 HTTP 失败：${switchResponse.status()}`)
+  const switchBody = await switchResponse.json()
+  assert.equal(switchBody.code, 0, `PQC 目标人员切换业务失败：${responseMessage(switchBody)}`)
+  assert.equal(Number(switchBody.data?.actualEmployeeId), Number(targetUserId), 'PQC 目标人员切换响应必须保存指定 actualEmployeeId。')
+  await employeeCard.filter({ hasText: targetCandidate.label }).waitFor({ state: 'visible', timeout: 30000 })
+
+  return {
+    key: evidenceKey,
+    label,
+    roleKey: 'pqcInspector',
+    status: 'PASS',
+    category: 'E2E_PQC_PERSONNEL',
+    acceptanceIds,
+    activeOrderId: joinEvidence.activeOrderId,
+    workOrderId: config.workOrderId,
+    routeId: config.routeId,
+    actualEmployeeId: Number(targetUserId),
+    employeeLabel: targetCandidate.label,
+    candidateCount: selectableCandidates.length,
     templateNo: switchBody.data?.template?.templateNo,
     sourceActionKey: readOnlyEvidence.key
   }
@@ -2019,6 +2754,10 @@ function requireSignatureId(config, roleKey) {
   return signatureId
 }
 
+function isPqcSignaturePoolRole(roleKey, preferredRoleKey) {
+  return roleKey === preferredRoleKey || /^pqcExtra\d+$/.test(roleKey)
+}
+
 function collectConfiguredSignatureIds(config, preferredRoleKey) {
   const candidates = []
   const pushCandidate = (value) => {
@@ -2029,7 +2768,9 @@ function collectConfiguredSignatureIds(config, preferredRoleKey) {
   }
   pushCandidate(config.signatureIds?.[preferredRoleKey])
   for (const [roleKey, signatureId] of Object.entries(config.signatureIds || {})) {
-    if (roleKey !== '__parseError' && roleKey !== preferredRoleKey) {
+    if (roleKey !== '__parseError'
+      && roleKey !== preferredRoleKey
+      && isPqcSignaturePoolRole(roleKey, preferredRoleKey)) {
       pushCandidate(signatureId)
     }
   }
@@ -2105,7 +2846,9 @@ async function verifyPqcFormalSubmissionCreatesEvent(page, config, actionEvidenc
   const joinEvidence = actionEvidence.find((item) => item.key === 'joinActiveOrder' && item.status === 'PASS')
   const regulationEvidence = actionEvidence.find((item) => item.key === 'pqcRegulationItemsRendered' && item.status === 'PASS')
   const pieceDetailEvidence = actionEvidence.find((item) => item.key === 'pqcPieceDetailQuantityPrepared' && item.status === 'PASS')
-  const employeeEvidence = actionEvidence.find((item) => item.key === 'pqcActualEmployeeSelected' && item.status === 'PASS')
+  const employeeEvidence = [...actionEvidence].reverse().find((item) =>
+    ['pqcActualEmployeeSelected', 'pqcSelfReviewActualEmployeeSelected'].includes(item.key)
+    && item.status === 'PASS')
   if (!joinEvidence?.activeOrderId || !regulationEvidence || !pieceDetailEvidence || !employeeEvidence) {
     return {
       key: 'pqcFormalSubmissionCreated',
@@ -2215,17 +2958,19 @@ async function verifyPqcFormalSubmissionCreatesEvent(page, config, actionEvidenc
   const leaderPage = await context.newPage()
   let submittedRow
   let submissionTotal = 0
+  let submissionPageNo
+  let submissionScannedRows = 0
   const submitDate = localDateString()
   try {
     await login(leaderPage, config, 'pqcLeader', config.roles.pqcLeader)
-    const submissionPage = await loadPqcLeaderSubmissionPage(leaderPage, {
-      pageNo: 1,
-      pageSize: 20,
+    const submissionLookup = await findPqcLeaderSubmissionRowByTaskAndSignature(leaderPage, {
       submitDate,
       workOrderCode: config.productionOrderCode
-    })
-    submissionTotal = submissionPage.total
-    submittedRow = submissionPage.list.find((row) => Number(row.pqcTaskId) === submittedTaskId)
+    }, submittedTaskId, signatureId)
+    submissionTotal = submissionLookup.total
+    submittedRow = submissionLookup.row
+    submissionPageNo = submissionLookup.pageNo
+    submissionScannedRows = submissionLookup.scannedRows
   } finally {
     await context.close()
   }
@@ -2241,10 +2986,11 @@ async function verifyPqcFormalSubmissionCreatesEvent(page, config, actionEvidenc
       submittedTaskId,
       submitDate,
       submissionTotal,
+      submissionScannedRows,
       signatureId,
       candidateSignatureIds: signatureResolution.candidateSignatureIds,
       usedSignatureIds: signatureResolution.usedSignatureIds,
-      description: 'PQC 正式提交接口已返回 taskId，但 PQC 组长提交看板没有出现同一 pqcTaskId 的正式事件；需要后端运行态加载 createPqcInspectionEvent 链路后复验。'
+      description: 'PQC 正式提交接口已返回 taskId，但跨页扫描 PQC 组长提交看板仍没有出现同一 pqcTaskId + signatureId 的正式事件；需要核对后端 createPqcInspectionEvent 链路和读模型来源。'
     }
   }
 
@@ -2259,8 +3005,15 @@ async function verifyPqcFormalSubmissionCreatesEvent(page, config, actionEvidenc
     routeId: config.routeId,
     submittedTaskId,
     eventId: submittedRow.id,
+    processId: Number(submittedRow.processId),
+    productCode: submittedRow.productCode,
+    productName: submittedRow.productName,
+    inspectionType: submittedRow.inspectionType,
+    roundNo: Number(submittedRow.roundNo),
     submitDate,
     submissionTotal,
+    submissionPageNo,
+    submissionScannedRows,
     actualEmployeeId: employeeEvidence.actualEmployeeId,
     signatureId,
     candidateSignatureIds: signatureResolution.candidateSignatureIds,
@@ -2312,8 +3065,83 @@ async function loadPqcLeaderSubmissionPage(page, params) {
   }
 }
 
+async function loadEdhrReleasePage(page, params) {
+  const query = toQueryString(params)
+  const result = await fetchWithPageAuth(
+    page,
+    `/admin-api/mes/pro/edhr-release/page?${query}`
+  )
+  assert.ok(result.ok, `eDHR 放行追溯列表 HTTP 失败：${result.status}`)
+  assert.equal(result.body?.code, 0, `eDHR 放行追溯列表业务失败：${responseMessage(result.body)}`)
+  const data = result.body.data || {}
+  return {
+    total: Number(data.total || 0),
+    list: Array.isArray(data.list) ? data.list : []
+  }
+}
+
+async function loadEdhrReleaseCheckItemPage(page, params) {
+  const query = toQueryString(params)
+  const result = await fetchWithPageAuth(
+    page,
+    `/admin-api/mes/pro/edhr-release/check-item/page?${query}`
+  )
+  assert.ok(result.ok, `eDHR 放行检查项 HTTP 失败：${result.status}`)
+  assert.equal(result.body?.code, 0, `eDHR 放行检查项业务失败：${responseMessage(result.body)}`)
+  const data = result.body.data || {}
+  return {
+    total: Number(data.total || 0),
+    list: Array.isArray(data.list) ? data.list : []
+  }
+}
+
+async function loadEdhrReleaseEventPage(page, params) {
+  const query = toQueryString(params)
+  const result = await fetchWithPageAuth(
+    page,
+    `/admin-api/mes/pro/edhr-release/event/page?${query}`
+  )
+  assert.ok(result.ok, `eDHR 放行事务事件 HTTP 失败：${result.status}`)
+  assert.equal(result.body?.code, 0, `eDHR 放行事务事件业务失败：${responseMessage(result.body)}`)
+  const data = result.body.data || {}
+  return {
+    total: Number(data.total || 0),
+    list: Array.isArray(data.list) ? data.list : []
+  }
+}
+
+async function findPqcLeaderSubmissionRowByTaskAndSignature(page, baseParams, submittedTaskId, signatureId) {
+  const pageSize = 100
+  let total = 0
+  let scannedRows = 0
+  for (let pageNo = 1; pageNo <= 20; pageNo += 1) {
+    const submissionPage = await loadPqcLeaderSubmissionPage(page, {
+      ...baseParams,
+      pageNo,
+      pageSize
+    })
+    total = Math.max(total, submissionPage.total)
+    scannedRows += submissionPage.list.length
+    const row = submissionPage.list.find((item) =>
+      Number(item.pqcTaskId) === Number(submittedTaskId)
+        && Number(item.electronicSignatureId) === Number(signatureId))
+    if (row) {
+      return { row, total, pageNo, scannedRows }
+    }
+    if (submissionPage.list.length === 0 || pageNo * pageSize >= submissionPage.total) {
+      break
+    }
+  }
+  return { row: undefined, total, pageNo: undefined, scannedRows }
+}
+
 function includesText(source, keyword) {
   return String(source || '').toLowerCase().includes(String(keyword || '').toLowerCase())
+}
+
+async function expectTextIncludes(locator, keyword) {
+  const text = await locator.textContent()
+  assert.ok(includesText(text, keyword), `页面文本必须包含 ${keyword}，当前为：${text || ''}`)
 }
 
 function assertPqcLeaderSubmissionRowMatches(row, filters) {
@@ -2356,7 +3184,86 @@ function reviewStatusLabel(status) {
   return '待判定'
 }
 
-async function verifyPqcLeaderSubmissionFilterPaginationConsistency(page, config) {
+async function searchPqcLeaderSubmissionsOnPage(page, filters) {
+  const section = page.locator('[data-team-leader-report-workbench]').first()
+  await page.getByRole('tab', { name: 'PQC 组长' }).click()
+  await fillFormItem(section, '提交日期', filters.submitDate)
+  await fillFormItem(section, '生产工单', filters.workOrderCode)
+  await fillFormItem(section, 'PQC检验员', filters.employeeUserId)
+  await fillFormItem(section, '工序', filters.processId)
+  await fillElementPlusInput(section, '[data-pqc-leader-filter-product]', filters.productKeyword)
+  await selectElementPlusOption(page, '[data-pqc-leader-filter-inspection-type]', inspectionTypeLabel(filters.inspectionType))
+  await fillElementPlusInput(section, '[data-pqc-leader-filter-round]', filters.roundNo)
+  await selectElementPlusOption(page, '[data-pqc-leader-filter-review-status]', reviewStatusLabel(filters.submissionReviewStatus))
+  const responsePromise = page.waitForResponse((response) =>
+    response.url().includes('/mes/pro/process-pool/team-leader/submission/page')
+      && response.request().method() === 'GET'
+  , { timeout: 30000 }).catch((error) => ({ submissionFilterResponseError: error }))
+  await section.getByRole('button', { name: '搜索' }).click()
+  const response = await responsePromise
+  return { section, response }
+}
+
+async function preparePqcPaginationCandidate(page, config, actionEvidence) {
+  const browser = page.context().browser()
+  if (!browser) {
+    return {
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SUBMISSION_DATA',
+      description: '无法创建 PQC 检验员真实页面上下文来准备 D32 同条件分页候选。'
+    }
+  }
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'zh-CN' })
+  const pqcPage = await context.newPage()
+  try {
+    await login(pqcPage, config, 'pqcInspector', config.roles.pqcInspector)
+    const readOnlyEvidence = await verifyPqcActiveOrderReadOnly(pqcPage, config, actionEvidence)
+    if (readOnlyEvidence.status !== 'PASS') return readOnlyEvidence
+    const regulationEvidence = await verifyPqcRegulationItemsRendered(pqcPage, config, [
+      ...actionEvidence,
+      readOnlyEvidence
+    ])
+    if (regulationEvidence.status !== 'PASS') return regulationEvidence
+    const pieceDetailEvidence = await verifyPqcPieceDetailQuantityPrepared(pqcPage, config, [
+      ...actionEvidence,
+      readOnlyEvidence,
+      regulationEvidence
+    ])
+    if (pieceDetailEvidence.status !== 'PASS') return pieceDetailEvidence
+    const employeeEvidence = await verifyPqcActualEmployeeSwitch(pqcPage, config, [
+      ...actionEvidence,
+      readOnlyEvidence,
+      regulationEvidence,
+      pieceDetailEvidence
+    ])
+    if (employeeEvidence.status !== 'PASS') return employeeEvidence
+    const formalSubmissionEvidence = await verifyPqcFormalSubmissionCreatesEvent(pqcPage, config, [
+      ...actionEvidence,
+      readOnlyEvidence,
+      regulationEvidence,
+      pieceDetailEvidence,
+      employeeEvidence
+    ])
+    if (formalSubmissionEvidence.status !== 'PASS') return formalSubmissionEvidence
+    return {
+      ...formalSubmissionEvidence,
+      key: 'pqcPaginationCandidatePrepared',
+      label: 'AC-D32 同条件分页候选准备',
+      acceptanceIds: ['AC-D32'],
+      sourceActionKey: formalSubmissionEvidence.key
+    }
+  } catch (error) {
+    return {
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SUBMISSION_DATA',
+      description: `通过 PQC 检验员真实页面准备 D32 同条件分页候选失败：${error.message}`
+    }
+  } finally {
+    await context.close()
+  }
+}
+
+async function verifyPqcLeaderSubmissionFilterPaginationConsistency(page, config, actionEvidence = []) {
   const submitDate = localDateString()
   const baseParams = {
     pageNo: 1,
@@ -2380,7 +3287,7 @@ async function verifyPqcLeaderSubmissionFilterPaginationConsistency(page, config
     }
   }
 
-  const candidate = basePage.list.find((row) =>
+  const candidates = basePage.list.filter((row) =>
     row.workOrderCode
     && row.productCode
     && row.productName
@@ -2389,7 +3296,7 @@ async function verifyPqcLeaderSubmissionFilterPaginationConsistency(page, config
     && row.inspectionType
     && row.roundNo
   )
-  if (!candidate) {
+  if (candidates.length === 0) {
     return {
       key: 'pqcLeaderSubmissionFilterPaginationConsistent',
       label: 'PQC 组长提交看板筛选分页一致性',
@@ -2403,54 +3310,70 @@ async function verifyPqcLeaderSubmissionFilterPaginationConsistency(page, config
     }
   }
 
-  const filters = {
-    pageNo: 1,
-    pageSize: 1,
-    submitDate,
-    workOrderCode: candidate.workOrderCode,
-    employeeUserId: Number(candidate.actualEmployeeUserId),
-    processId: Number(candidate.processId),
-    productKeyword: candidate.productCode,
-    inspectionType: candidate.inspectionType,
-    roundNo: Number(candidate.roundNo),
-    submissionReviewStatus: candidate.submissionReviewStatus || 'PENDING'
+  let candidateWithStablePagination = null
+  const candidateTotals = []
+  const inspectCandidate = async (candidate, source) => {
+    const candidateFilters = {
+      pageNo: 1,
+      pageSize: 1,
+      submitDate,
+      workOrderCode: candidate.workOrderCode,
+      employeeUserId: Number(candidate.actualEmployeeUserId),
+      processId: Number(candidate.processId),
+      productKeyword: candidate.productCode,
+      inspectionType: candidate.inspectionType,
+      roundNo: Number(candidate.roundNo),
+      submissionReviewStatus: candidate.submissionReviewStatus || 'PENDING'
+    }
+    const candidatePage = await loadPqcLeaderSubmissionPage(page, candidateFilters)
+    candidateTotals.push({
+      source,
+      eventId: candidate.id,
+      processId: candidate.processId,
+      employeeUserId: candidate.actualEmployeeUserId,
+      inspectionType: candidate.inspectionType,
+      roundNo: candidate.roundNo,
+      submissionReviewStatus: candidateFilters.submissionReviewStatus,
+      total: candidatePage.total
+    })
+    if (candidatePage.total >= 2) {
+      assert.equal(candidatePage.list.length, 1, 'pageSize=1 时稳定候选第一页必须只返回一条明细。')
+      assertPqcLeaderSubmissionRowMatches(candidatePage.list[0], candidateFilters)
+      candidateWithStablePagination = { candidate, filters: candidateFilters, firstPage: candidatePage }
+      return true
+    }
+    return false
   }
 
-  const section = page.locator('[data-team-leader-report-workbench]').first()
-  await page.getByRole('tab', { name: 'PQC 组长' }).click()
-  await fillFormItem(section, '生产工单', filters.workOrderCode)
-  await fillFormItem(section, 'PQC检验员', filters.employeeUserId)
-  await fillFormItem(section, '工序', filters.processId)
-  await fillElementPlusInput(section, '[data-pqc-leader-filter-product]', filters.productKeyword)
-  await selectElementPlusOption(page, '[data-pqc-leader-filter-inspection-type]', inspectionTypeLabel(filters.inspectionType))
-  await fillElementPlusInput(section, '[data-pqc-leader-filter-round]', filters.roundNo)
-  await selectElementPlusOption(page, '[data-pqc-leader-filter-review-status]', reviewStatusLabel(filters.submissionReviewStatus))
-  const responsePromise = page.waitForResponse((response) =>
-    response.url().includes('/mes/pro/process-pool/team-leader/submission/page')
-      && response.request().method() === 'GET'
-  , { timeout: 30000 }).catch((error) => ({ submissionFilterResponseError: error }))
-  await section.getByRole('button', { name: '搜索' }).click()
-  const response = await responsePromise
-  if (response.submissionFilterResponseError) {
-    return {
-      key: 'pqcLeaderSubmissionFilterPaginationConsistent',
-      label: 'PQC 组长提交看板筛选分页一致性',
-      roleKey: 'pqcLeader',
-      status: 'BLOCKED',
-      category: 'E2E_PQC_SUBMISSION_FILTER',
-      acceptanceIds: ['AC-D32'],
-      submitDate,
-      description: `真实页面筛选后未捕获提交看板分页接口响应：${response.submissionFilterResponseError.message}`
+  for (const candidate of candidates) {
+    const stableCandidateFound = await inspectCandidate(candidate, 'base')
+    if (stableCandidateFound) break
+    if (candidateWithStablePagination) break
+  }
+
+  let preparedPaginationCandidate = null
+  if (!candidateWithStablePagination) {
+    preparedPaginationCandidate = await preparePqcPaginationCandidate(page, config, actionEvidence)
+    if (preparedPaginationCandidate.status === 'PASS') {
+      const refreshedBasePage = await loadPqcLeaderSubmissionPage(page, baseParams)
+      const refreshedCandidates = refreshedBasePage.list.filter((row) =>
+        row.workOrderCode
+        && row.productCode
+        && row.productName
+        && row.processId
+        && row.actualEmployeeUserId
+        && row.inspectionType
+        && row.roundNo
+      )
+      for (const candidate of refreshedCandidates) {
+        const stableCandidateFound = await inspectCandidate(candidate, 'afterPreparedPaginationCandidate')
+        if (stableCandidateFound) break
+        if (candidateWithStablePagination) break
+      }
     }
   }
-  assert.ok(response.ok(), `PQC 组长页面筛选 HTTP 失败：${response.status()}`)
 
-  const firstPage = await loadPqcLeaderSubmissionPage(page, filters)
-  assert.ok(firstPage.total > 0, 'PQC 组长筛选后的 total 必须大于 0。')
-  assert.equal(firstPage.list.length, 1, 'pageSize=1 时第一页必须只返回一条明细。')
-  assertPqcLeaderSubmissionRowMatches(firstPage.list[0], filters)
-
-  if (firstPage.total < 2) {
+  if (!candidateWithStablePagination) {
     return {
       key: 'pqcLeaderSubmissionFilterPaginationConsistent',
       label: 'PQC 组长提交看板筛选分页一致性',
@@ -2459,29 +3382,1482 @@ async function verifyPqcLeaderSubmissionFilterPaginationConsistency(page, config
       category: 'E2E_PQC_SUBMISSION_DATA',
       acceptanceIds: ['AC-D32'],
       submitDate,
-      filters,
-      total: firstPage.total,
-      description: '当前筛选条件只命中 1 条正式 PQC 提交，无法通过真实数据证明第 1/2 页 total 稳定；需要至少两条同条件提交夹具完成分页漂移验收。'
+      candidateTotals,
+      preparedPaginationCandidate,
+      description: '当前当天 PQC 提交看板存在候选行，但没有任何完整筛选组合命中至少两条正式提交；已尝试通过真实 PQC 页面补充一条同条件提交，仍无法证明第 1/2 页 total 稳定，需要补齐同条件正式 PQC 提交夹具。'
     }
   }
 
-  const secondPage = await loadPqcLeaderSubmissionPage(page, { ...filters, pageNo: 2 })
-  assert.equal(secondPage.total, firstPage.total, 'PQC 组长筛选第一页和第二页 total 必须一致。')
-  assert.equal(secondPage.list.length, 1, 'pageSize=1 时第二页必须只返回一条明细。')
-  assert.notEqual(secondPage.list[0].id, firstPage.list[0].id, '第二页不能重复返回第一页事件。')
-  assertPqcLeaderSubmissionRowMatches(secondPage.list[0], filters)
+  const { filters } = candidateWithStablePagination
+  const requestBudgetTracker = createPqcLeaderSubmissionListRequestBudgetTracker(page)
+  try {
+    const { response } = await searchPqcLeaderSubmissionsOnPage(page, filters)
+    if (response.submissionFilterResponseError) {
+      return {
+        key: 'pqcLeaderSubmissionFilterPaginationConsistent',
+        label: 'PQC 组长提交看板筛选分页一致性',
+        roleKey: 'pqcLeader',
+        status: 'BLOCKED',
+        category: 'E2E_PQC_SUBMISSION_FILTER',
+        acceptanceIds: ['AC-D32'],
+        submitDate,
+        requestBudget: requestBudgetTracker.snapshot(),
+        description: `真实页面筛选后未捕获提交看板分页接口响应：${response.submissionFilterResponseError.message}`
+      }
+    }
+    assert.ok(response.ok(), `PQC 组长页面筛选 HTTP 失败：${response.status()}`)
+
+    const firstPage = await loadPqcLeaderSubmissionPage(page, filters)
+    assert.ok(firstPage.total > 0, 'PQC 组长筛选后的 total 必须大于 0。')
+    assert.equal(firstPage.list.length, 1, 'pageSize=1 时第一页必须只返回一条明细。')
+    assertPqcLeaderSubmissionRowMatches(firstPage.list[0], filters)
+    assert.ok(firstPage.total >= 2, '稳定候选在真实页面筛选后仍必须命中至少两条正式 PQC 提交。')
+
+    const secondPage = await loadPqcLeaderSubmissionPage(page, { ...filters, pageNo: 2 })
+    assert.equal(secondPage.total, firstPage.total, 'PQC 组长筛选第一页和第二页 total 必须一致。')
+    assert.equal(secondPage.list.length, 1, 'pageSize=1 时第二页必须只返回一条明细。')
+    assert.notEqual(secondPage.list[0].id, firstPage.list[0].id, '第二页不能重复返回第一页事件。')
+    assertPqcLeaderSubmissionRowMatches(secondPage.list[0], filters)
+
+    const requestBudget = requestBudgetTracker.snapshot()
+    assert.equal(requestBudget.submissionDetailRequests, 0, 'PQC 组长列表筛选和翻页不得触发逐行提交详情请求。')
+    assert.equal(requestBudget.activeOrderListRequests, 0, 'PQC 组长列表筛选和翻页不得额外读取活跃订单列表。')
+    assert.ok(
+      requestBudget.submissionPageRequests >= 3,
+      'PQC 组长列表筛选和第 1/2 页核验必须至少记录搜索页、第一页和第二页三次分页请求。'
+    )
+    assert.ok(
+      requestBudget.submissionPageRequests <= 4,
+      `PQC 组长列表筛选和第 1/2 页核验分页请求数必须保持有界，当前为 ${requestBudget.submissionPageRequests}。`
+    )
+
+    return {
+      key: 'pqcLeaderSubmissionFilterPaginationConsistent',
+      label: 'PQC 组长提交看板筛选分页一致性',
+      roleKey: 'pqcLeader',
+      status: 'PASS',
+      category: 'E2E_PERFORMANCE',
+      acceptanceIds: ['AC-D32'],
+      submitDate,
+      filters,
+      total: firstPage.total,
+      firstEventId: firstPage.list[0].id,
+      secondEventId: secondPage.list[0].id,
+      requestBudget
+    }
+  } finally {
+    requestBudgetTracker.stop()
+  }
+}
+
+function parseOriginalPayloadJson(rawPayload, label) {
+  assert.ok(rawPayload, `${label} 必须返回 originalPayloadJson。`)
+  try {
+    return JSON.parse(rawPayload)
+  } catch (error) {
+    throw new Error(`${label} originalPayloadJson 不是合法 JSON：${error.message}`)
+  }
+}
+
+function countPqcPieceValueGroups(pqcPieceValues) {
+  if (!pqcPieceValues || typeof pqcPieceValues !== 'object') return 0
+  return Array.isArray(pqcPieceValues) ? pqcPieceValues.length : Object.keys(pqcPieceValues).length
+}
+
+async function verifyPqcLeaderSubmissionDetailTraceability(page, config, actionEvidence) {
+  const formalSubmission = actionEvidence.find((item) =>
+    item.key === 'pqcFormalSubmissionCreated' && item.status === 'PASS')
+  if (!formalSubmission?.eventId || !formalSubmission?.submittedTaskId) {
+    return {
+      key: 'pqcLeaderSubmissionDetailTraceable',
+      label: 'PQC 组长提交详情逐件追溯',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_DETAIL_DATA',
+      acceptanceIds: ['AC-D33'],
+      description: 'PQC 组长详情核验前缺少本轮正式 PQC 提交事件，不能用旧事件证明逐件明细和原始 payload 可追溯。'
+    }
+  }
+
+  const pendingFilters = {
+    pageNo: 1,
+    pageSize: 20,
+    submitDate: formalSubmission.submitDate || localDateString(),
+    workOrderCode: config.productionOrderCode,
+    employeeUserId: Number(formalSubmission.actualEmployeeId),
+    processId: Number(formalSubmission.processId),
+    productKeyword: formalSubmission.productCode,
+    inspectionType: formalSubmission.inspectionType,
+    roundNo: Number(formalSubmission.roundNo),
+    submissionReviewStatus: 'PENDING'
+  }
+  const { section, response } = await searchPqcLeaderSubmissionsOnPage(page, pendingFilters)
+  if (response.submissionFilterResponseError) {
+    return {
+      key: 'pqcLeaderSubmissionDetailTraceable',
+      label: 'PQC 组长提交详情逐件追溯',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_DETAIL_PAGE',
+      acceptanceIds: ['AC-D33'],
+      eventId: formalSubmission.eventId,
+      description: `真实页面定位 PQC 详情行时未捕获提交看板分页接口响应：${response.submissionFilterResponseError.message}`
+    }
+  }
+  assert.ok(response.ok(), `PQC 组长详情前筛选 HTTP 失败：${response.status()}`)
+  const pendingPage = await loadPqcLeaderSubmissionPage(page, pendingFilters)
+  const pendingRow = pendingPage.list.find((row) => Number(row.id) === Number(formalSubmission.eventId))
+  if (!pendingRow) {
+    return {
+      key: 'pqcLeaderSubmissionDetailTraceable',
+      label: 'PQC 组长提交详情逐件追溯',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_DETAIL_DATA',
+      acceptanceIds: ['AC-D33'],
+      eventId: formalSubmission.eventId,
+      pendingTotal: pendingPage.total,
+      description: 'PQC 组长待判定筛选结果中未出现本轮新提交事件，不能打开同一事件详情。'
+    }
+  }
+
+  const detailResponsePromise = page.waitForResponse((detailResponse) =>
+    detailResponse.url().includes('/mes/pro/process-pool/team-leader/submission/detail')
+      && detailResponse.request().method() === 'GET'
+  , { timeout: 30000 }).catch((error) => ({ detailResponseError: error }))
+  const detailButton = section
+    .locator(`[data-team-leader-detail-event-id="${formalSubmission.eventId}"]`)
+    .first()
+  const detailButtonVisible = await detailButton
+    .waitFor({ state: 'visible', timeout: 30000 })
+    .then(() => true)
+    .catch((error) => ({ detailButtonError: error }))
+  if (detailButtonVisible.detailButtonError) {
+    return {
+      key: 'pqcLeaderSubmissionDetailTraceable',
+      label: 'PQC 组长提交详情逐件追溯',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_DETAIL_PAGE',
+      acceptanceIds: ['AC-D33'],
+      eventId: formalSubmission.eventId,
+      pendingTotal: pendingPage.total,
+      processId: pendingRow.processId,
+      productCode: pendingRow.productCode,
+      inspectionType: pendingRow.inspectionType,
+      roundNo: pendingRow.roundNo,
+      description: `PQC 组长待判定读模型包含本轮事件，但真实页面未渲染详情按钮 data-team-leader-detail-event-id=${formalSubmission.eventId}：${detailButtonVisible.detailButtonError.message}`
+    }
+  }
+  await detailButton.click()
+  const detailResponse = await detailResponsePromise
+  if (detailResponse.detailResponseError) {
+    return {
+      key: 'pqcLeaderSubmissionDetailTraceable',
+      label: 'PQC 组长提交详情逐件追溯',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_DETAIL_PAGE',
+      acceptanceIds: ['AC-D33'],
+      eventId: formalSubmission.eventId,
+      description: `打开 PQC 组长详情后未捕获详情接口响应：${detailResponse.detailResponseError.message}`
+    }
+  }
+  assert.ok(detailResponse.ok(), `PQC 组长详情 HTTP 失败：${detailResponse.status()}`)
+  const detailBody = await detailResponse.json()
+  assert.equal(detailBody?.code, 0, `PQC 组长详情业务失败：${responseMessage(detailBody)}`)
+  const detail = detailBody.data || {}
+  assert.equal(Number(detail.id), Number(formalSubmission.eventId), 'PQC 详情必须返回同一提交事件。')
+  assert.equal(Number(detail.pqcTaskId), Number(formalSubmission.submittedTaskId), 'PQC 详情必须绑定同一正式 taskId。')
+  assert.equal(Number(detail.electronicSignatureId), Number(formalSubmission.signatureId), 'PQC 详情必须返回提交签名编号。')
+  assert.equal(Number(detail.actualEmployeeUserId), Number(formalSubmission.actualEmployeeId), 'PQC 详情必须返回实际检验人员。')
+  assert.equal(detail.inspectionType, formalSubmission.inspectionType, 'PQC 详情必须返回检验类型快照。')
+  assert.equal(Number(detail.roundNo), Number(formalSubmission.roundNo), 'PQC 详情必须返回轮次快照。')
+
+  const originalPayload = parseOriginalPayloadJson(detail.originalPayloadJson, 'PQC 组长详情')
+  assert.equal(Number(originalPayload.pqcTaskId), Number(formalSubmission.submittedTaskId), '原始 payload 必须保留 PQC taskId。')
+  assert.equal(Number(originalPayload.workOrderId), Number(config.workOrderId), '原始 payload 必须保留工单 ID。')
+  assert.equal(Number(originalPayload.routeId), Number(config.routeId), '原始 payload 必须保留路线 ID。')
+  assert.ok(Number(originalPayload.regulationVersionId) > 0, '原始 payload 必须保留 QA 规程版本 ID。')
+  assert.ok(Number(originalPayload.pieceDetailCount) > 0, '原始 payload 必须保留逐件明细数量。')
+  const pieceValueGroupCount = countPqcPieceValueGroups(originalPayload.pqcPieceValues)
+  assert.ok(pieceValueGroupCount > 0, '原始 payload 必须保留 pqcPieceValues 逐件明细。')
+
+  const drawer = page.locator('.el-drawer:visible', { hasText: 'PQC检验员提交详情' }).first()
+  await drawer.locator('[data-team-leader-structured-detail]').waitFor({ state: 'visible', timeout: 30000 })
+  await drawer.locator('[data-pqc-submission-log]').waitFor({ state: 'visible', timeout: 30000 })
+  await expectTextIncludes(drawer.locator('[data-pqc-submission-original-payload]').first(), 'pqcPieceValues')
+  await expectTextIncludes(drawer.locator('[data-pqc-submission-signature-id]').first(), String(formalSubmission.signatureId))
+  await drawer.locator('.el-drawer__close-btn').first().click()
+  await drawer.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
 
   return {
-    key: 'pqcLeaderSubmissionFilterPaginationConsistent',
-    label: 'PQC 组长提交看板筛选分页一致性',
+    key: 'pqcLeaderSubmissionDetailTraceable',
+    label: 'PQC 组长提交详情逐件追溯',
     roleKey: 'pqcLeader',
     status: 'PASS',
-    acceptanceIds: ['AC-D32'],
+    acceptanceIds: ['AC-D33'],
+    eventId: formalSubmission.eventId,
+    submittedTaskId: formalSubmission.submittedTaskId,
+    signatureId: formalSubmission.signatureId,
+    actualEmployeeId: formalSubmission.actualEmployeeId,
+    regulationVersionId: Number(originalPayload.regulationVersionId),
+    pieceDetailCount: Number(originalPayload.pieceDetailCount),
+    pieceValueGroupCount,
+    endpoint: '/mes/pro/process-pool/team-leader/submission/detail'
+  }
+}
+
+async function verifyPqcLeaderSubmissionDetailUnauthorizedBlocked(page, config, actionEvidence) {
+  const formalSubmission = actionEvidence.find((item) =>
+    item.key === 'pqcFormalSubmissionCreated' && item.status === 'PASS')
+  if (!formalSubmission?.eventId) {
+    return {
+      key: 'pqcLeaderSubmissionDetailUnauthorizedBlocked',
+      label: 'PQC 组长提交详情权限隔离',
+      roleKey: 'unauthorizedActor',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_DETAIL_PERMISSION',
+      acceptanceIds: ['AC-D33'],
+      description: 'PQC 详情权限隔离核验前缺少本轮正式 PQC 提交事件，不能用旧事件或空事件证明详情读取会被拒绝。'
+    }
+  }
+
+  const unauthorizedActor = config.unauthorizedActor || {}
+  if (!unauthorizedActor.username || !unauthorizedActor.password) {
+    return {
+      key: 'pqcLeaderSubmissionDetailUnauthorizedBlocked',
+      label: 'PQC 组长提交详情权限隔离',
+      roleKey: 'unauthorizedActor',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_DETAIL_PERMISSION',
+      acceptanceIds: ['AC-D33'],
+      eventId: formalSubmission.eventId,
+      description: '缺少 RRM_UNAUTHORIZED_USERNAME / RRM_UNAUTHORIZED_PASSWORD，不能执行错误角色真实登录与详情读取拒绝核验。'
+    }
+  }
+
+  const browser = page.context().browser()
+  assert.ok(browser, 'PQC 详情权限隔离必须能创建独立浏览器上下文。')
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'zh-CN' })
+  const unauthorizedPage = await context.newPage()
+  try {
+    await login(unauthorizedPage, config, 'unauthorizedActor', unauthorizedActor)
+    const targetUrl = new URL('/mes/pro/process-pool/team-leader', config.frontendUrl)
+    await unauthorizedPage.goto(targetUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 90000 })
+    await unauthorizedPage.locator('#app').waitFor({ state: 'visible', timeout: 60000 })
+    assert.equal(
+      await unauthorizedPage.locator(`[data-team-leader-detail-event-id="${formalSubmission.eventId}"]`).count(),
+      0,
+      '错误角色不应在真实页面看到 PQC 提交详情入口。'
+    )
+
+    const result = await fetchWithPageAuth(
+      unauthorizedPage,
+      `/admin-api/mes/pro/process-pool/team-leader/submission/detail?id=${encodeURIComponent(formalSubmission.eventId)}&leaderType=PQC_LEADER`
+    )
+    assert.ok(
+      !result.ok || !isBusinessSuccess(result.body),
+      '错误角色调用 PQC 组长提交详情接口必须被后端拒绝，不能返回业务成功。'
+    )
+    return {
+      key: 'pqcLeaderSubmissionDetailUnauthorizedBlocked',
+      label: 'PQC 组长提交详情权限隔离',
+      roleKey: 'unauthorizedActor',
+      status: 'PASS',
+      category: 'E2E_PQC_DETAIL_PERMISSION',
+      acceptanceIds: ['AC-D33'],
+      eventId: formalSubmission.eventId,
+      username: unauthorizedActor.username,
+      responseStatus: result.status,
+      responseCode: result.body?.code,
+      responseMessage: responseMessage(result.body),
+      endpoint: '/mes/pro/process-pool/team-leader/submission/detail'
+    }
+  } finally {
+    await context.close()
+  }
+}
+
+async function verifyPqcLeaderReviewApprovalAggregatesProcessInspection(page, config, actionEvidence) {
+  const formalSubmission = actionEvidence.find((item) =>
+    item.key === 'pqcFormalSubmissionCreated' && item.status === 'PASS')
+  if (!formalSubmission?.eventId || !formalSubmission?.submittedTaskId) {
+    return {
+      key: 'pqcLeaderReviewApprovedAndAggregated',
+      label: 'PQC 组长确认后汇集过程检验记录',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_DATA',
+      acceptanceIds: ['AC-M20', 'AC-D34', 'AC-D37'],
+      description: 'PQC 组长复核前缺少本轮正式 PQC 提交事件证据，不能用旧数据替代真实复核汇集验证。'
+    }
+  }
+  if (!formalSubmission.processId || !formalSubmission.productCode
+    || !formalSubmission.inspectionType || !formalSubmission.roundNo
+    || !formalSubmission.actualEmployeeId) {
+    return {
+      key: 'pqcLeaderReviewApprovedAndAggregated',
+      label: 'PQC 组长确认后汇集过程检验记录',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_DATA',
+      acceptanceIds: ['AC-M20', 'AC-D34', 'AC-D37'],
+      eventId: formalSubmission.eventId,
+      submittedTaskId: formalSubmission.submittedTaskId,
+      description: 'PQC 正式提交事件缺少 processId、productCode、inspectionType、roundNo 或 actualEmployeeId，无法通过真实页面精确定位同一待复核行。'
+    }
+  }
+
+  const pendingFilters = {
+    pageNo: 1,
+    pageSize: 20,
+    submitDate: formalSubmission.submitDate || localDateString(),
+    workOrderCode: config.productionOrderCode,
+    employeeUserId: Number(formalSubmission.actualEmployeeId),
+    processId: Number(formalSubmission.processId),
+    productKeyword: formalSubmission.productCode,
+    inspectionType: formalSubmission.inspectionType,
+    roundNo: Number(formalSubmission.roundNo),
+    submissionReviewStatus: 'PENDING'
+  }
+  const { section, response } = await searchPqcLeaderSubmissionsOnPage(page, pendingFilters)
+  if (response.submissionFilterResponseError) {
+    return {
+      key: 'pqcLeaderReviewApprovedAndAggregated',
+      label: 'PQC 组长确认后汇集过程检验记录',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_PAGE',
+      acceptanceIds: ['AC-M20', 'AC-D34', 'AC-D37'],
+      eventId: formalSubmission.eventId,
+      description: `真实页面定位待复核 PQC 行时未捕获提交看板分页接口响应：${response.submissionFilterResponseError.message}`
+    }
+  }
+  assert.ok(response.ok(), `PQC 组长复核前筛选 HTTP 失败：${response.status()}`)
+  const pendingPage = await loadPqcLeaderSubmissionPage(page, pendingFilters)
+  const pendingRow = pendingPage.list.find((row) => Number(row.id) === Number(formalSubmission.eventId))
+  if (!pendingRow) {
+    return {
+      key: 'pqcLeaderReviewApprovedAndAggregated',
+      label: 'PQC 组长确认后汇集过程检验记录',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_DATA',
+      acceptanceIds: ['AC-M20', 'AC-D34', 'AC-D37'],
+      eventId: formalSubmission.eventId,
+      submittedTaskId: formalSubmission.submittedTaskId,
+      pendingTotal: pendingPage.total,
+      description: 'PQC 组长待判定筛选结果中未出现本轮新提交事件，不能执行真实页面复核。'
+    }
+  }
+
+  const reviewButton = section
+    .locator(`[data-team-leader-review-event-id="${formalSubmission.eventId}"]`)
+    .first()
+  const reviewButtonVisible = await reviewButton
+    .waitFor({ state: 'visible', timeout: 30000 })
+    .then(() => true)
+    .catch((error) => ({ reviewButtonError: error }))
+  if (reviewButtonVisible.reviewButtonError) {
+    return {
+      key: 'pqcLeaderReviewApprovedAndAggregated',
+      label: 'PQC 组长确认后汇集过程检验记录',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_PAGE',
+      acceptanceIds: ['AC-M20', 'AC-D34', 'AC-D37'],
+      eventId: formalSubmission.eventId,
+      submittedTaskId: formalSubmission.submittedTaskId,
+      pendingTotal: pendingPage.total,
+      processId: pendingRow.processId,
+      productCode: pendingRow.productCode,
+      inspectionType: pendingRow.inspectionType,
+      roundNo: pendingRow.roundNo,
+      description: `PQC 组长待判定读模型包含本轮提交事件，但真实页面未渲染复核按钮 data-team-leader-review-event-id=${formalSubmission.eventId}：${reviewButtonVisible.reviewButtonError.message}`
+    }
+  }
+  await reviewButton.click()
+  const dialog = page.locator('.el-dialog:visible', { hasText: '复核员工提交' }).first()
+  await dialog.waitFor({ state: 'visible', timeout: 30000 })
+  await dialog.locator('textarea').first().fill('M6 AC-D37 real-page approved review aggregates process inspection.')
+  const reviewResponsePromise = page.waitForResponse((reviewResponse) =>
+    reviewResponse.url().includes('/mes/pro/process-pool/team-leader/submission/review')
+      && reviewResponse.request().method() === 'POST'
+  , { timeout: 30000 }).catch((error) => ({ reviewResponseError: error }))
+  await dialog.getByRole('button', { name: '提交复核' }).click()
+  const reviewResponse = await reviewResponsePromise
+  if (reviewResponse.reviewResponseError) {
+    return {
+      key: 'pqcLeaderReviewApprovedAndAggregated',
+      label: 'PQC 组长确认后汇集过程检验记录',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_PAGE',
+      acceptanceIds: ['AC-M20', 'AC-D34', 'AC-D37'],
+      eventId: formalSubmission.eventId,
+      description: `提交 PQC 组长复核后未捕获正式复核接口响应：${reviewResponse.reviewResponseError.message}`
+    }
+  }
+  assert.ok(reviewResponse.ok(), `PQC 组长复核 HTTP 失败：${reviewResponse.status()}`)
+  const reviewBody = await reviewResponse.json()
+  if (!isBusinessSuccess(reviewBody)) {
+    return {
+      key: 'pqcLeaderReviewApprovedAndAggregated',
+      label: 'PQC 组长确认后汇集过程检验记录',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_BUSINESS',
+      acceptanceIds: ['AC-M20', 'AC-D34', 'AC-D37'],
+      eventId: formalSubmission.eventId,
+      responseCode: reviewBody.code,
+      responseMessage: responseMessage(reviewBody),
+      description: `PQC 组长复核接口业务失败：${responseMessage(reviewBody)}`
+    }
+  }
+  const reviewId = Number(reviewBody.data)
+  assert.ok(Number.isFinite(reviewId) && reviewId > 0, 'PQC 组长复核必须返回正式 reviewId。')
+
+  const approvedFilters = {
+    ...pendingFilters,
+    submissionReviewStatus: 'APPROVED'
+  }
+  await searchPqcLeaderSubmissionsOnPage(page, approvedFilters)
+  const approvedPage = await loadPqcLeaderSubmissionPage(page, approvedFilters)
+  const reviewedRow = approvedPage.list.find((row) => Number(row.id) === Number(formalSubmission.eventId))
+  if (!reviewedRow) {
+    return {
+      key: 'pqcLeaderReviewApprovedAndAggregated',
+      label: 'PQC 组长确认后汇集过程检验记录',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_READ_MODEL',
+      acceptanceIds: ['AC-M20', 'AC-D34', 'AC-D37'],
+      eventId: formalSubmission.eventId,
+      reviewId,
+      approvedTotal: approvedPage.total,
+      description: '复核成功后，PQC 组长正确筛选看板未返回同一事件；不能证明最新复核状态进入正式读模型。'
+    }
+  }
+  assert.equal(reviewedRow.submissionReviewStatus, 'APPROVED', 'PQC 复核后读模型必须显示 APPROVED。')
+  assert.equal(
+    reviewedRow.processInspectionAggregationStatus,
+    'AGGREGATED',
+    'PQC 复核后读模型必须显示过程检验汇集状态 AGGREGATED。'
+  )
+  assert.equal(
+    Number(reviewedRow.processInspectionReviewId),
+    reviewId,
+    '过程检验汇集记录必须绑定触发汇集的正式 reviewId。'
+  )
+  assert.ok(reviewedRow.processInspectionAggregatedAt, '过程检验汇集读模型必须返回汇集时间。')
+  const aggregationCell = page
+    .locator(`[data-pqc-process-inspection-aggregation][data-pqc-process-inspection-event-id="${formalSubmission.eventId}"]`)
+    .first()
+  await aggregationCell.waitFor({ state: 'visible', timeout: 30000 })
+  await expectTextIncludes(aggregationCell, '已汇集')
+
+  return {
+    key: 'pqcLeaderReviewApprovedAndAggregated',
+    label: 'PQC 组长确认后汇集过程检验记录',
+    roleKey: 'pqcLeader',
+    status: 'PASS',
+    acceptanceIds: ['AC-M20', 'AC-D34', 'AC-D37'],
+    eventId: formalSubmission.eventId,
+    submittedTaskId: formalSubmission.submittedTaskId,
+    submitDate: formalSubmission.submitDate || localDateString(),
+    reviewId,
+    processInspectionAggregationStatus: reviewedRow.processInspectionAggregationStatus,
+    processInspectionReviewId: reviewedRow.processInspectionReviewId,
+    processInspectionAggregatedAt: reviewedRow.processInspectionAggregatedAt,
+    endpoint: '/mes/pro/process-pool/team-leader/submission/review'
+  }
+}
+
+async function verifyPqcLeaderDuplicateTerminalReviewBlocked(page, config, actionEvidence) {
+  const approvedReview = actionEvidence.find((item) =>
+    item.key === 'pqcLeaderReviewApprovedAndAggregated' && item.status === 'PASS')
+  if (!approvedReview?.eventId || !approvedReview?.reviewId) {
+    return {
+      key: 'pqcLeaderDuplicateTerminalReviewBlocked',
+      label: 'PQC 组长重复终态复核拒绝',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_TERMINAL',
+      acceptanceIds: ['AC-M20', 'AC-D34', 'AC-D37'],
+      description: '重复终态复核失败路径缺少本轮 pqcLeaderReviewApprovedAndAggregated PASS 证据，不能用旧事件替代同事件二次复核验证。'
+    }
+  }
+
+  const expectedErrorKey = 'PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS'
+  const expectedErrorCode = 1040760325
+  const result = await fetchWithPageAuth(
+    page,
+    '/admin-api/mes/pro/process-pool/team-leader/submission/review',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventId: Number(approvedReview.eventId),
+        leaderType: 'PQC',
+        reviewStatus: 'APPROVED',
+        reviewRemark: `M6 AC-D34 duplicate terminal review negative path; expect ${expectedErrorKey}.`
+      })
+    }
+  )
+  if (!result.ok) {
+    return {
+      key: 'pqcLeaderDuplicateTerminalReviewBlocked',
+      label: 'PQC 组长重复终态复核拒绝',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_TERMINAL',
+      acceptanceIds: ['AC-M20', 'AC-D34', 'AC-D37'],
+      eventId: approvedReview.eventId,
+      reviewId: approvedReview.reviewId,
+      expectedErrorKey,
+      responseStatus: result.status,
+      description: `重复终态复核接口 HTTP 非预期失败：${result.status}`
+    }
+  }
+  if (isBusinessSuccess(result.body)) {
+    return {
+      key: 'pqcLeaderDuplicateTerminalReviewBlocked',
+      label: 'PQC 组长重复终态复核拒绝',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_TERMINAL',
+      acceptanceIds: ['AC-M20', 'AC-D34', 'AC-D37'],
+      eventId: approvedReview.eventId,
+      reviewId: approvedReview.reviewId,
+      expectedErrorKey,
+      responseCode: result.body?.code,
+      responseMessage: responseMessage(result.body),
+      description: '重复终态复核不能返回业务成功；否则同一 PQC 提交会生成多个终态复核。'
+    }
+  }
+  const blockedMessage = responseMessage(result.body)
+  if (Number(result.body?.code) !== expectedErrorCode && !blockedMessage.includes('已存在复核终态')) {
+    return {
+      key: 'pqcLeaderDuplicateTerminalReviewBlocked',
+      label: 'PQC 组长重复终态复核拒绝',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_TERMINAL',
+      acceptanceIds: ['AC-M20', 'AC-D34', 'AC-D37'],
+      eventId: approvedReview.eventId,
+      reviewId: approvedReview.reviewId,
+      expectedErrorKey,
+      expectedErrorCode,
+      responseCode: result.body?.code,
+      responseMessage: blockedMessage,
+      description: '重复终态复核虽被拒绝，但错误原因不是正式的重复终态守卫，不能证明 AC-D34 失败路径。'
+    }
+  }
+  return {
+    key: 'pqcLeaderDuplicateTerminalReviewBlocked',
+    label: 'PQC 组长重复终态复核拒绝',
+    roleKey: 'pqcLeader',
+    status: 'PASS',
+    category: 'E2E_PQC_REVIEW_TERMINAL',
+    acceptanceIds: ['AC-M20', 'AC-D34', 'AC-D37'],
+    eventId: approvedReview.eventId,
+    reviewId: approvedReview.reviewId,
+    expectedErrorKey,
+    responseCode: result.body?.code,
+    responseMessage: blockedMessage,
+    endpoint: '/mes/pro/process-pool/team-leader/submission/review'
+  }
+}
+
+async function preparePqcSelfReviewCandidate(page, config, actionEvidence, reviewerUserId) {
+  const browser = page.context().browser()
+  if (!browser) {
+    return {
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_SELF',
+      reviewerUserId,
+      description: '无法创建 PQC 检验员真实页面上下文来准备自我复核候选。'
+    }
+  }
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'zh-CN' })
+  const pqcPage = await context.newPage()
+  try {
+    await login(pqcPage, config, 'pqcInspector', config.roles.pqcInspector)
+    const readOnlyEvidence = await verifyPqcActiveOrderReadOnly(pqcPage, config, actionEvidence)
+    if (readOnlyEvidence.status !== 'PASS') return readOnlyEvidence
+    const regulationEvidence = await verifyPqcRegulationItemsRendered(pqcPage, config, [
+      ...actionEvidence,
+      readOnlyEvidence
+    ])
+    if (regulationEvidence.status !== 'PASS') return regulationEvidence
+    const pieceDetailEvidence = await verifyPqcPieceDetailQuantityPrepared(pqcPage, config, [
+      ...actionEvidence,
+      readOnlyEvidence,
+      regulationEvidence
+    ])
+    if (pieceDetailEvidence.status !== 'PASS') return pieceDetailEvidence
+    const employeeEvidence = await switchPqcActualEmployeeToUser(
+      pqcPage,
+      config,
+      [
+        ...actionEvidence,
+        readOnlyEvidence,
+        regulationEvidence,
+        pieceDetailEvidence
+      ],
+      reviewerUserId,
+      'pqcSelfReviewActualEmployeeSelected',
+      'AC-D35 自我复核候选实际检验人选择',
+      ['AC-D35']
+    )
+    if (employeeEvidence.status !== 'PASS') return employeeEvidence
+    const formalSubmissionEvidence = await verifyPqcFormalSubmissionCreatesEvent(pqcPage, config, [
+      ...actionEvidence,
+      readOnlyEvidence,
+      regulationEvidence,
+      pieceDetailEvidence,
+      employeeEvidence
+    ])
+    if (formalSubmissionEvidence.status !== 'PASS') return formalSubmissionEvidence
+    return {
+      ...formalSubmissionEvidence,
+      key: 'pqcSelfReviewCandidatePrepared',
+      label: 'AC-D35 自我复核候选准备',
+      acceptanceIds: ['AC-D35'],
+      reviewerUserId,
+      actualEmployeeId: Number(reviewerUserId),
+      sourceActionKey: formalSubmissionEvidence.key
+    }
+  } catch (error) {
+    return {
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_SELF',
+      reviewerUserId,
+      description: `通过 PQC 检验员真实页面准备自我复核候选失败：${error.message}`
+    }
+  } finally {
+    await context.close()
+  }
+}
+
+async function verifyPqcLeaderSelfReviewBlocked(page, config, actionEvidence) {
+  const reviewerResolution = await resolveRoleUserId(page, config, 'pqcLeader')
+  if (reviewerResolution.status !== 'PASS') {
+    return {
+      key: 'pqcLeaderSelfReviewBlocked',
+      label: 'PQC 组长自我复核拒绝',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: reviewerResolution.category,
+      acceptanceIds: ['AC-D35'],
+      description: reviewerResolution.description
+    }
+  }
+  const reviewerUserId = Number(reviewerResolution.userId)
+  const submitDate = localDateString()
+  const paginationEvidence = actionEvidence.find((item) =>
+    item.key === 'pqcLeaderSubmissionFilterPaginationConsistent' && item.status === 'PASS')
+  const candidateEventIds = [
+    paginationEvidence?.firstEventId,
+    paginationEvidence?.secondEventId
+  ].map(Number).filter((value) => Number.isFinite(value) && value > 0)
+  let basePage = await loadPqcLeaderSubmissionPage(page, {
+    pageNo: 1,
+    pageSize: 100,
     submitDate,
-    filters,
-    total: firstPage.total,
-    firstEventId: firstPage.list[0].id,
-    secondEventId: secondPage.list[0].id
+    workOrderCode: config.productionOrderCode,
+    employeeUserId: reviewerUserId,
+    submissionReviewStatus: 'PENDING'
+  })
+  const matchesSelfReviewRow = (row) =>
+    Number(row.actualEmployeeUserId) === reviewerUserId
+    && (!row.submissionReviewStatus || row.submissionReviewStatus === 'PENDING')
+    && row.processId
+    && row.productCode
+    && row.inspectionType
+    && row.roundNo
+  const findSelfReviewRow = (rows, preferredEventIds = []) => {
+    const preferredIds = new Set(preferredEventIds
+      .map(Number)
+      .filter((value) => Number.isFinite(value) && value > 0))
+    return rows.find((row) => preferredIds.has(Number(row.id)) && matchesSelfReviewRow(row))
+      || rows.find(matchesSelfReviewRow)
+  }
+  let preparedSelfReviewCandidate
+  let selfReviewRow = findSelfReviewRow(basePage.list, candidateEventIds)
+  if (!selfReviewRow) {
+    preparedSelfReviewCandidate = await preparePqcSelfReviewCandidate(page, config, actionEvidence, reviewerUserId)
+    if (preparedSelfReviewCandidate.status === 'PASS') {
+      basePage = await loadPqcLeaderSubmissionPage(page, {
+        pageNo: 1,
+        pageSize: 100,
+        submitDate,
+        workOrderCode: config.productionOrderCode,
+        employeeUserId: reviewerUserId,
+        submissionReviewStatus: 'PENDING'
+      })
+      selfReviewRow = findSelfReviewRow(basePage.list, [preparedSelfReviewCandidate.eventId, ...candidateEventIds])
+    }
+  }
+  if (!selfReviewRow) {
+    return {
+      key: 'pqcLeaderSelfReviewBlocked',
+      label: 'PQC 组长自我复核拒绝',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_SELF',
+      acceptanceIds: ['AC-D35'],
+      reviewerUserId,
+      submitDate,
+      candidateEventIds,
+      total: basePage.total,
+      preparedSelfReviewCandidate,
+      description: 'PQC 组长提交看板没有待复核且 actualEmployeeUserId 等于当前 PQC 组长的任务自有事件，不能证明自我复核失败路径。'
+    }
+  }
+
+  const filters = {
+    pageNo: 1,
+    pageSize: 20,
+    submitDate,
+    workOrderCode: selfReviewRow.workOrderCode || config.productionOrderCode,
+    employeeUserId: reviewerUserId,
+    processId: Number(selfReviewRow.processId),
+    productKeyword: selfReviewRow.productCode,
+    inspectionType: selfReviewRow.inspectionType,
+    roundNo: Number(selfReviewRow.roundNo),
+    submissionReviewStatus: 'PENDING'
+  }
+  const { response } = await searchPqcLeaderSubmissionsOnPage(page, filters)
+  if (response.submissionFilterResponseError) {
+    return {
+      key: 'pqcLeaderSelfReviewBlocked',
+      label: 'PQC 组长自我复核拒绝',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_SELF',
+      acceptanceIds: ['AC-D35'],
+      eventId: selfReviewRow.id,
+      reviewerUserId,
+      description: `真实页面筛选自我复核待判定行时未捕获提交看板响应：${response.submissionFilterResponseError.message}`
+    }
+  }
+  assert.ok(response.ok(), `PQC 组长自我复核筛选 HTTP 失败：${response.status()}`)
+  const pendingPage = await loadPqcLeaderSubmissionPage(page, filters)
+  const pendingRow = pendingPage.list.find((row) => Number(row.id) === Number(selfReviewRow.id))
+  if (!pendingRow) {
+    return {
+      key: 'pqcLeaderSelfReviewBlocked',
+      label: 'PQC 组长自我复核拒绝',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_SELF',
+      acceptanceIds: ['AC-D35'],
+      eventId: selfReviewRow.id,
+      reviewerUserId,
+      pendingTotal: pendingPage.total,
+      description: '真实页面待判定筛选结果中未出现 actualEmployeeUserId 等于复核人的同一事件，不能执行自我复核失败路径。'
+    }
+  }
+  assert.equal(
+    Number(pendingRow.actualEmployeeUserId),
+    reviewerUserId,
+    '自我复核负向用例必须使用 actualEmployeeUserId 等于当前 PQC 组长的正式事件。'
+  )
+
+  const expectedErrorKey = 'PRO_PROCESS_POOL_SUBMISSION_REVIEW_SELF_FORBIDDEN'
+  const expectedErrorCode = 1040760326
+  const result = await fetchWithPageAuth(
+    page,
+    '/admin-api/mes/pro/process-pool/team-leader/submission/review',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventId: Number(pendingRow.id),
+        leaderType: 'PQC',
+        reviewStatus: 'APPROVED',
+        reviewRemark: `M6 AC-D35 self-review negative path; expect ${expectedErrorKey}.`
+      })
+    }
+  )
+  if (!result.ok) {
+    return {
+      key: 'pqcLeaderSelfReviewBlocked',
+      label: 'PQC 组长自我复核拒绝',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_SELF',
+      acceptanceIds: ['AC-D35'],
+      eventId: pendingRow.id,
+      reviewerUserId,
+      expectedErrorKey,
+      responseStatus: result.status,
+      description: `自我复核接口 HTTP 非预期失败：${result.status}`
+    }
+  }
+  if (isBusinessSuccess(result.body)) {
+    return {
+      key: 'pqcLeaderSelfReviewBlocked',
+      label: 'PQC 组长自我复核拒绝',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_SELF',
+      acceptanceIds: ['AC-D35'],
+      eventId: pendingRow.id,
+      reviewerUserId,
+      expectedErrorKey,
+      responseCode: result.body?.code,
+      responseMessage: responseMessage(result.body),
+      description: '自我复核不能返回业务成功；否则同一实际检验人可以确认自己的 PQC 提交。'
+    }
+  }
+  const blockedMessage = responseMessage(result.body)
+  if (Number(result.body?.code) !== expectedErrorCode && !blockedMessage.includes('禁止自我复核')) {
+    return {
+      key: 'pqcLeaderSelfReviewBlocked',
+      label: 'PQC 组长自我复核拒绝',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_SELF',
+      acceptanceIds: ['AC-D35'],
+      eventId: pendingRow.id,
+      reviewerUserId,
+      expectedErrorKey,
+      expectedErrorCode,
+      responseCode: result.body?.code,
+      responseMessage: blockedMessage,
+      description: '自我复核虽被拒绝，但错误原因不是正式的自我复核守卫，不能证明 AC-D35 失败路径。'
+    }
+  }
+
+  const stillPendingPage = await loadPqcLeaderSubmissionPage(page, filters)
+  const stillPendingRow = stillPendingPage.list.find((row) => Number(row.id) === Number(pendingRow.id))
+  if (!stillPendingRow) {
+    return {
+      key: 'pqcLeaderSelfReviewBlocked',
+      label: 'PQC 组长自我复核拒绝',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_SELF',
+      acceptanceIds: ['AC-D35'],
+      eventId: pendingRow.id,
+      reviewerUserId,
+      responseCode: result.body?.code,
+      responseMessage: blockedMessage,
+      description: '自我复核拒绝后同一事件不再出现在待判定列表，不能证明失败路径未写入终态复核。'
+    }
+  }
+
+  return {
+    key: 'pqcLeaderSelfReviewBlocked',
+    label: 'PQC 组长自我复核拒绝',
+    roleKey: 'pqcLeader',
+    status: 'PASS',
+    category: 'E2E_PQC_REVIEW_SELF',
+    acceptanceIds: ['AC-D35'],
+    eventId: pendingRow.id,
+    reviewerUserId,
+    actualEmployeeId: Number(pendingRow.actualEmployeeUserId),
+    processId: Number(pendingRow.processId),
+    productCode: pendingRow.productCode,
+    inspectionType: pendingRow.inspectionType,
+    roundNo: Number(pendingRow.roundNo),
+    submitDate,
+    expectedErrorKey,
+    responseCode: result.body?.code,
+    responseMessage: blockedMessage,
+    stillPending: true,
+    endpoint: '/mes/pro/process-pool/team-leader/submission/review'
+  }
+}
+
+function buildPqcRejectedCorrectionPayload(row, reviewId) {
+  const beforePayload = parseOriginalPayloadJson(row.originalPayloadJson, 'PQC 退回补正候选')
+  const marker = `M6-AC-D30-${Date.now()}`
+  const afterPayload = {
+    ...beforePayload,
+    m6RejectedCorrectionProof: {
+      marker,
+      sourceEventId: Number(row.id),
+      rejectionReviewId: Number(reviewId),
+      correctedAt: new Date().toISOString()
+    }
+  }
+  const beforeValue = beforePayload.m6RejectedCorrectionProof
+    ? JSON.stringify(beforePayload.m6RejectedCorrectionProof)
+    : 'MISSING'
+  const afterValue = JSON.stringify(afterPayload.m6RejectedCorrectionProof)
+  return {
+    marker,
+    afterPayloadJson: JSON.stringify(afterPayload, null, 2),
+    revisionSignatureSnapshotJson: JSON.stringify({
+      signType: 'PQC_REJECTED_CORRECTION',
+      source: TASK_ID,
+      sourceEventId: Number(row.id),
+      signedAt: new Date().toISOString()
+    }, null, 2),
+    changedFieldsJson: JSON.stringify([{
+      fieldCode: 'm6RejectedCorrectionProof',
+      fieldName: 'M6退回补正证明',
+      beforeValue,
+      afterValue,
+      affectsQuantityFragment: false,
+      originalField: 'REMARK'
+    }], null, 2)
+  }
+}
+
+async function fillDialogFormField(dialog, label, value) {
+  const item = dialog.locator('.el-form-item', { hasText: label }).first()
+  await item.waitFor({ state: 'visible', timeout: 30000 })
+  const control = item.locator('textarea, input').first()
+  await control.waitFor({ state: 'visible', timeout: 30000 })
+  await control.fill(String(value))
+}
+
+function isPqcRejectedCorrectionCandidate(row, excludedEventIds, reviewerUserId) {
+  return !excludedEventIds.has(Number(row.id))
+    && Number(row.actualEmployeeUserId) !== reviewerUserId
+    && row.processId
+    && row.productCode
+    && row.inspectionType
+    && row.roundNo
+    && row.originalPayloadJson
+}
+
+async function preparePqcRejectedCorrectionCandidate(page, config, actionEvidence) {
+  const browser = page.context().browser()
+  if (!browser) {
+    return {
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REJECT_CORRECTION',
+      description: '无法创建 PQC 检验员真实页面上下文来准备退回补正候选。'
+    }
+  }
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'zh-CN' })
+  const pqcPage = await context.newPage()
+  try {
+    await login(pqcPage, config, 'pqcInspector', config.roles.pqcInspector)
+    const readOnlyEvidence = await verifyPqcActiveOrderReadOnly(pqcPage, config, actionEvidence)
+    if (readOnlyEvidence.status !== 'PASS') return readOnlyEvidence
+    const regulationEvidence = await verifyPqcRegulationItemsRendered(pqcPage, config, [
+      ...actionEvidence,
+      readOnlyEvidence
+    ])
+    if (regulationEvidence.status !== 'PASS') return regulationEvidence
+    const pieceDetailEvidence = await verifyPqcPieceDetailQuantityPrepared(pqcPage, config, [
+      ...actionEvidence,
+      readOnlyEvidence,
+      regulationEvidence
+    ])
+    if (pieceDetailEvidence.status !== 'PASS') return pieceDetailEvidence
+    const employeeEvidence = await verifyPqcActualEmployeeSwitch(pqcPage, config, [
+      ...actionEvidence,
+      readOnlyEvidence,
+      regulationEvidence,
+      pieceDetailEvidence
+    ])
+    if (employeeEvidence.status !== 'PASS') return employeeEvidence
+    const formalSubmissionEvidence = await verifyPqcFormalSubmissionCreatesEvent(pqcPage, config, [
+      ...actionEvidence,
+      readOnlyEvidence,
+      regulationEvidence,
+      pieceDetailEvidence,
+      employeeEvidence
+    ])
+    if (formalSubmissionEvidence.status !== 'PASS') return formalSubmissionEvidence
+    return {
+      ...formalSubmissionEvidence,
+      key: 'pqcRejectedCorrectionCandidatePrepared',
+      label: 'AC-D30 退回补正候选准备',
+      acceptanceIds: ['AC-D30'],
+      sourceActionKey: formalSubmissionEvidence.key
+    }
+  } catch (error) {
+    return {
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REJECT_CORRECTION',
+      description: `通过 PQC 检验员真实页面准备退回补正候选失败：${error.message}`
+    }
+  } finally {
+    await context.close()
+  }
+}
+
+async function verifyPqcLeaderRejectedCorrectionChain(page, config, actionEvidence) {
+  const reviewerResolution = await resolveRoleUserId(page, config, 'pqcLeader')
+  if (reviewerResolution.status !== 'PASS') {
+    return {
+      key: 'pqcLeaderRejectedCorrectionChain',
+      label: 'PQC 组长退回后补正修订链',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      acceptanceIds: ['AC-D30'],
+      category: reviewerResolution.category,
+      description: reviewerResolution.description
+    }
+  }
+
+  const reviewerUserId = Number(reviewerResolution.userId)
+  const excludedEventIds = new Set(actionEvidence
+    .filter((item) => [
+      'pqcLeaderReviewApprovedAndAggregated',
+      'pqcLeaderSelfReviewBlocked',
+      'pqcProcessInspectionAggregationReadOnly'
+    ].includes(item.key))
+    .flatMap((item) => [item.eventId, item.approvedEventId, item.pendingEventId])
+    .map(Number)
+    .filter((value) => Number.isFinite(value) && value > 0))
+  const submitDate = localDateString()
+  let basePage = await loadPqcLeaderSubmissionPage(page, {
+    pageNo: 1,
+    pageSize: 100,
+    submitDate,
+    workOrderCode: config.productionOrderCode,
+    submissionReviewStatus: 'PENDING'
+  })
+  let preparedCandidateEvidence
+  let candidate = basePage.list.find((row) =>
+    isPqcRejectedCorrectionCandidate(row, excludedEventIds, reviewerUserId))
+  if (!candidate) {
+    preparedCandidateEvidence = await preparePqcRejectedCorrectionCandidate(page, config, actionEvidence)
+    if (preparedCandidateEvidence.status !== 'PASS') {
+      return {
+        key: 'pqcLeaderRejectedCorrectionChain',
+        label: 'PQC 组长退回后补正修订链',
+        roleKey: 'pqcLeader',
+        status: 'BLOCKED',
+        acceptanceIds: ['AC-D30'],
+        category: preparedCandidateEvidence.category || 'E2E_PQC_REJECT_CORRECTION',
+        reviewerUserId,
+        submitDate,
+        pendingTotal: basePage.total,
+        preparedCandidateStatus: preparedCandidateEvidence.status,
+        preparedCandidateDescription: preparedCandidateEvidence.description,
+        description: `无法通过 PQC 检验员真实页面准备退回补正候选：${preparedCandidateEvidence.description}`
+      }
+    }
+    basePage = await loadPqcLeaderSubmissionPage(page, {
+      pageNo: 1,
+      pageSize: 100,
+      submitDate,
+      workOrderCode: config.productionOrderCode,
+      submissionReviewStatus: 'PENDING'
+    })
+    candidate = basePage.list.find((row) =>
+      Number(row.id) === Number(preparedCandidateEvidence.eventId)
+        && isPqcRejectedCorrectionCandidate(row, excludedEventIds, reviewerUserId))
+  }
+  if (!candidate) {
+    return {
+      key: 'pqcLeaderRejectedCorrectionChain',
+      label: 'PQC 组长退回后补正修订链',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      acceptanceIds: ['AC-D30'],
+      category: 'E2E_PQC_REJECT_CORRECTION',
+      reviewerUserId,
+      submitDate,
+      pendingTotal: basePage.total,
+      excludedEventIds: [...excludedEventIds],
+      preparedEventId: preparedCandidateEvidence?.eventId,
+      preparedSubmittedTaskId: preparedCandidateEvidence?.submittedTaskId,
+      description: 'PQC 组长提交看板没有可用于退回补正的待判定事件；候选必须来自本工单、具备原始 payload，且实际检验人不能等于当前复核人。'
+    }
+  }
+
+  const correctionSelector = `[data-team-leader-correction-event-id="${candidate.id}"]`
+  const pendingFilters = {
+    pageNo: 1,
+    pageSize: 20,
+    submitDate,
+    workOrderCode: candidate.workOrderCode || config.productionOrderCode,
+    employeeUserId: Number(candidate.actualEmployeeUserId),
+    processId: Number(candidate.processId),
+    productKeyword: candidate.productCode,
+    inspectionType: candidate.inspectionType,
+    roundNo: Number(candidate.roundNo),
+    submissionReviewStatus: 'PENDING'
+  }
+  const { section, response } = await searchPqcLeaderSubmissionsOnPage(page, pendingFilters)
+  if (response.submissionFilterResponseError) {
+    return {
+      key: 'pqcLeaderRejectedCorrectionChain',
+      label: 'PQC 组长退回后补正修订链',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      acceptanceIds: ['AC-D30'],
+      category: 'E2E_PQC_REJECT_CORRECTION',
+      eventId: candidate.id,
+      description: `真实页面定位退回补正候选时未捕获提交看板响应：${response.submissionFilterResponseError.message}`
+    }
+  }
+  assert.ok(response.ok(), `PQC 退回补正候选筛选 HTTP 失败：${response.status()}`)
+  const pendingPage = await loadPqcLeaderSubmissionPage(page, pendingFilters)
+  const pendingRow = pendingPage.list.find((row) => Number(row.id) === Number(candidate.id))
+  if (!pendingRow) {
+    return {
+      key: 'pqcLeaderRejectedCorrectionChain',
+      label: 'PQC 组长退回后补正修订链',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      acceptanceIds: ['AC-D30'],
+      category: 'E2E_PQC_REJECT_CORRECTION',
+      eventId: candidate.id,
+      pendingTotal: pendingPage.total,
+      description: '真实页面待判定筛选结果中未出现退回补正候选事件，不能执行退回和页面修正。'
+    }
+  }
+
+  const rejectedReviewPayload = { reviewStatus: 'REJECTED' }
+  const rejectionReason = `M6 AC-D30 rejected correction chain ${Date.now()}`
+  const reviewButton = section.locator(`[data-team-leader-review-event-id="${candidate.id}"]`).first()
+  const reviewButtonVisible = await reviewButton
+    .waitFor({ state: 'visible', timeout: 30000 })
+    .then(() => true)
+    .catch((error) => ({ reviewButtonError: error }))
+  if (reviewButtonVisible.reviewButtonError) {
+    return {
+      key: 'pqcLeaderRejectedCorrectionChain',
+      label: 'PQC 组长退回后补正修订链',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      acceptanceIds: ['AC-D30'],
+      category: 'E2E_PQC_REJECT_CORRECTION',
+      eventId: candidate.id,
+      pendingTotal: pendingPage.total,
+      processId: pendingRow.processId,
+      productCode: pendingRow.productCode,
+      inspectionType: pendingRow.inspectionType,
+      roundNo: pendingRow.roundNo,
+      description: `PQC 组长待判定读模型包含退回候选，但真实页面未渲染复核按钮 data-team-leader-review-event-id=${candidate.id}：${reviewButtonVisible.reviewButtonError.message}`
+    }
+  }
+  await reviewButton.click()
+  const reviewDialog = page.locator('.el-dialog:visible', { hasText: '复核员工提交' }).first()
+  await reviewDialog.waitFor({ state: 'visible', timeout: 30000 })
+  await selectElementPlusOption(page, '.el-dialog:visible .el-select', reviewStatusLabel(rejectedReviewPayload.reviewStatus))
+  await reviewDialog.locator('textarea').first().fill(rejectionReason)
+  const reviewResponsePromise = page.waitForResponse((reviewResponse) =>
+    reviewResponse.url().includes('/mes/pro/process-pool/team-leader/submission/review')
+      && reviewResponse.request().method() === 'POST'
+  , { timeout: 30000 }).catch((error) => ({ reviewResponseError: error }))
+  await reviewDialog.getByRole('button', { name: '提交复核' }).click()
+  const reviewResponse = await reviewResponsePromise
+  if (reviewResponse.reviewResponseError) {
+    return {
+      key: 'pqcLeaderRejectedCorrectionChain',
+      label: 'PQC 组长退回后补正修订链',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      acceptanceIds: ['AC-D30'],
+      category: 'E2E_PQC_REJECT_CORRECTION',
+      eventId: candidate.id,
+      description: `提交 PQC 退回复核后未捕获正式复核接口响应：${reviewResponse.reviewResponseError.message}`
+    }
+  }
+  assert.ok(reviewResponse.ok(), `PQC 退回复核 HTTP 失败：${reviewResponse.status()}`)
+  const reviewBody = await reviewResponse.json()
+  if (!isBusinessSuccess(reviewBody)) {
+    return {
+      key: 'pqcLeaderRejectedCorrectionChain',
+      label: 'PQC 组长退回后补正修订链',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      acceptanceIds: ['AC-D30'],
+      category: 'E2E_PQC_REJECT_CORRECTION',
+      eventId: candidate.id,
+      responseCode: reviewBody.code,
+      responseMessage: responseMessage(reviewBody),
+      description: `PQC 退回复核业务失败：${responseMessage(reviewBody)}`
+    }
+  }
+  const rejectionReviewId = Number(reviewBody.data)
+  assert.ok(Number.isFinite(rejectionReviewId) && rejectionReviewId > 0, 'PQC 退回复核必须返回正式 reviewId。')
+
+  const rejectedFilters = {
+    ...pendingFilters,
+    submissionReviewStatus: 'REJECTED'
+  }
+  await searchPqcLeaderSubmissionsOnPage(page, rejectedFilters)
+  const rejectedPage = await loadPqcLeaderSubmissionPage(page, rejectedFilters)
+  const rejectedRow = rejectedPage.list.find((row) => Number(row.id) === Number(candidate.id))
+  if (!rejectedRow) {
+    return {
+      key: 'pqcLeaderRejectedCorrectionChain',
+      label: 'PQC 组长退回后补正修订链',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      acceptanceIds: ['AC-D30'],
+      category: 'E2E_PQC_REJECT_CORRECTION',
+      eventId: candidate.id,
+      reviewId: rejectionReviewId,
+      rejectedTotal: rejectedPage.total,
+      description: '退回复核成功后同一事件未进入不正确筛选结果，不能证明退回原因留在正式读模型。'
+    }
+  }
+  assert.equal(rejectedRow.submissionReviewStatus, 'REJECTED', '退回后读模型必须显示 REJECTED。')
+  assert.ok(
+    includesText(rejectedRow.submissionReviewRemark, rejectionReason),
+    '退回原因必须保留在 PQC 组长提交看板读模型。'
+  )
+
+  const correctionPayload = buildPqcRejectedCorrectionPayload(rejectedRow, rejectionReviewId)
+  const modifiedByUserId = Number(rejectedRow.actualEmployeeUserId)
+  assert.ok(Number.isFinite(modifiedByUserId) && modifiedByUserId > 0, '退回补正必须记录正式修改人用户 ID。')
+  const signatureResolution = await resolveUnusedPqcSignatureId(page, config, 'pqcInspector')
+  if (signatureResolution.status !== 'PASS') {
+    return {
+      key: 'pqcLeaderRejectedCorrectionChain',
+      label: 'PQC 组长退回后补正修订链',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      acceptanceIds: ['AC-D30'],
+      category: signatureResolution.category,
+      eventId: candidate.id,
+      reviewId: rejectionReviewId,
+      candidateSignatureIds: signatureResolution.candidateSignatureIds,
+      usedSignatureIds: signatureResolution.usedSignatureIds,
+      description: signatureResolution.description
+    }
+  }
+  const revisionSignatureId = signatureResolution.signatureId
+  const correctionButton = section.locator(correctionSelector).first()
+  const correctionButtonVisible = await correctionButton
+    .waitFor({ state: 'visible', timeout: 30000 })
+    .then(() => true)
+    .catch((error) => ({ correctionButtonError: error }))
+  if (correctionButtonVisible.correctionButtonError) {
+    return {
+      key: 'pqcLeaderRejectedCorrectionChain',
+      label: 'PQC 组长退回后补正修订链',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      acceptanceIds: ['AC-D30'],
+      category: 'E2E_PQC_REJECT_CORRECTION',
+      eventId: candidate.id,
+      reviewId: rejectionReviewId,
+      revisionSignatureId,
+      rejectedTotal: rejectedPage.total,
+      description: `PQC 组长不正确读模型包含退回事件，但真实页面未渲染补正按钮 ${correctionSelector}：${correctionButtonVisible.correctionButtonError.message}`
+    }
+  }
+  await correctionButton.click()
+  const correctionDialog = page.locator('.el-dialog:visible', { hasText: '修正不正确内容' }).first()
+  await correctionDialog.waitFor({ state: 'visible', timeout: 30000 })
+  await fillDialogFormField(correctionDialog, '修改原因', `M6 AC-D30 rejected correction: ${correctionPayload.marker}`)
+  await fillDialogFormField(correctionDialog, '修改人用户ID', modifiedByUserId)
+  await fillDialogFormField(correctionDialog, '修正签名ID', revisionSignatureId)
+  await fillDialogFormField(correctionDialog, '签名用户ID', modifiedByUserId)
+  await fillDialogFormField(correctionDialog, '修改后payload JSON', correctionPayload.afterPayloadJson)
+  await fillDialogFormField(correctionDialog, '修正签名快照JSON', correctionPayload.revisionSignatureSnapshotJson)
+  await fillDialogFormField(correctionDialog, '字段变更JSON', correctionPayload.changedFieldsJson)
+
+  const revisionResponsePromise = page.waitForResponse((revisionResponse) =>
+    revisionResponse.url().includes('/mes/pro/process-pool/event-revision/update-original')
+      && revisionResponse.request().method() === 'POST'
+  , { timeout: 30000 }).catch((error) => ({ revisionResponseError: error }))
+  await correctionDialog.getByRole('button', { name: '提交修正并记录日志' }).click()
+  const revisionResponse = await revisionResponsePromise
+  if (revisionResponse.revisionResponseError) {
+    return {
+      key: 'pqcLeaderRejectedCorrectionChain',
+      label: 'PQC 组长退回后补正修订链',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      acceptanceIds: ['AC-D30'],
+      category: 'E2E_PQC_REJECT_CORRECTION',
+      eventId: candidate.id,
+      reviewId: rejectionReviewId,
+      revisionSignatureId,
+      description: `提交退回补正后未捕获 update-original 响应：${revisionResponse.revisionResponseError.message}`
+    }
+  }
+  assert.ok(revisionResponse.ok(), `PQC 退回补正 update-original HTTP 失败：${revisionResponse.status()}`)
+  const revisionBody = await revisionResponse.json()
+  if (!isBusinessSuccess(revisionBody)) {
+    return {
+      key: 'pqcLeaderRejectedCorrectionChain',
+      label: 'PQC 组长退回后补正修订链',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      acceptanceIds: ['AC-D30'],
+      category: 'E2E_PQC_REJECT_CORRECTION',
+      eventId: candidate.id,
+      reviewId: rejectionReviewId,
+      revisionSignatureId,
+      responseCode: revisionBody.code,
+      responseMessage: responseMessage(revisionBody),
+      description: `PQC 退回补正 update-original 业务失败：${responseMessage(revisionBody)}`
+    }
+  }
+  const revisionId = Number(revisionBody.data)
+  assert.ok(Number.isFinite(revisionId) && revisionId > 0, 'PQC 退回补正必须返回正式 revisionId。')
+
+  const correctedPage = await loadPqcLeaderSubmissionPage(page, rejectedFilters)
+  const correctedRow = correctedPage.list.find((row) => Number(row.id) === Number(candidate.id))
+  assert.ok(correctedRow, '退回补正后仍必须能按 REJECTED 读模型查回同一事件。')
+  const correctedPayload = parseOriginalPayloadJson(correctedRow.originalPayloadJson, 'PQC 退回补正后读模型')
+  assert.equal(
+    correctedPayload.m6RejectedCorrectionProof?.marker,
+    correctionPayload.marker,
+    '退回补正后读模型必须返回修正后的 afterPayload。'
+  )
+  assert.ok(
+    includesText(correctedRow.submissionReviewRemark, rejectionReason),
+    '退回补正后仍必须保留原退回原因。'
+  )
+  assert.ok(
+    includesText(correctedRow.modificationHistorySummary, '原始记录已修改'),
+    '退回补正后读模型必须返回 modificationHistorySummary 修改摘要。'
+  )
+
+  return {
+    key: 'pqcLeaderRejectedCorrectionChain',
+    label: 'PQC 组长退回后补正修订链',
+    roleKey: 'pqcLeader',
+    status: 'PASS',
+    acceptanceIds: ['AC-D30'],
+    eventId: candidate.id,
+    reviewId: rejectionReviewId,
+    revisionId,
+    revisionSignatureId,
+    modifiedByUserId,
+    preparedEventId: preparedCandidateEvidence?.eventId,
+    preparedSubmittedTaskId: preparedCandidateEvidence?.submittedTaskId,
+    preparedSignatureId: preparedCandidateEvidence?.signatureId,
+    correctionMarker: correctionPayload.marker,
+    rejectionReason,
+    modificationHistorySummary: correctedRow.modificationHistorySummary,
+    endpoint: '/mes/pro/process-pool/event-revision/update-original',
+    category: 'E2E_PQC_REJECT_CORRECTION'
+  }
+}
+
+async function verifyPqcProcessInspectionAggregationReadOnly(page, config, actionEvidence) {
+  const approvedReview = actionEvidence.find((item) =>
+    item.key === 'pqcLeaderReviewApprovedAndAggregated' && item.status === 'PASS')
+  const selfReview = actionEvidence.find((item) =>
+    item.key === 'pqcLeaderSelfReviewBlocked' && item.status === 'PASS')
+  const formalSubmission = actionEvidence.find((item) =>
+    item.key === 'pqcFormalSubmissionCreated'
+    && item.status === 'PASS'
+    && Number(item.eventId) === Number(approvedReview?.eventId))
+  if (!approvedReview?.eventId || !approvedReview?.reviewId || !formalSubmission) {
+    return {
+      key: 'pqcProcessInspectionAggregationReadOnly',
+      label: '过程检验汇集只读核验',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_AGGREGATION_READONLY',
+      acceptanceIds: ['AC-M21', 'AC-D37'],
+      description: '过程检验汇集只读核验前缺少本轮已确认 PQC 复核和正式提交事件证据，不能用旧数据替代。'
+    }
+  }
+  if (!selfReview?.eventId || !selfReview?.stillPending) {
+    return {
+      key: 'pqcProcessInspectionAggregationReadOnly',
+      label: '过程检验汇集只读核验',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_AGGREGATION_READONLY',
+      acceptanceIds: ['AC-M21', 'AC-D37'],
+      approvedEventId: approvedReview.eventId,
+      reviewId: approvedReview.reviewId,
+      description: '缺少自我复核被拒且保持待判定的真实事件，不能证明未确认事件不会被过程检验汇集。'
+    }
+  }
+
+  const approvedFilters = {
+    pageNo: 1,
+    pageSize: 20,
+    submitDate: approvedReview.submitDate || formalSubmission.submitDate || localDateString(),
+    workOrderCode: config.productionOrderCode,
+    employeeUserId: Number(formalSubmission.actualEmployeeId),
+    processId: Number(formalSubmission.processId),
+    productKeyword: formalSubmission.productCode,
+    inspectionType: formalSubmission.inspectionType,
+    roundNo: Number(formalSubmission.roundNo),
+    submissionReviewStatus: 'APPROVED'
+  }
+  const approvedPage = await loadPqcLeaderSubmissionPage(page, approvedFilters)
+  const approvedRow = approvedPage.list.find((row) => Number(row.id) === Number(approvedReview.eventId))
+  if (!approvedRow) {
+    return {
+      key: 'pqcProcessInspectionAggregationReadOnly',
+      label: '过程检验汇集只读核验',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_AGGREGATION_READONLY',
+      acceptanceIds: ['AC-M21', 'AC-D37'],
+      approvedEventId: approvedReview.eventId,
+      reviewId: approvedReview.reviewId,
+      approvedTotal: approvedPage.total,
+      description: '只读查询 APPROVED 状态时未返回本轮已确认事件，不能证明汇集状态进入正式读模型。'
+    }
+  }
+  assert.equal(
+    approvedRow.processInspectionAggregationStatus,
+    'AGGREGATED',
+    '已确认 PQC 事件只读读模型必须显示过程检验汇集状态 AGGREGATED。'
+  )
+  assert.equal(
+    Number(approvedRow.processInspectionReviewId),
+    Number(approvedReview.reviewId),
+    '已汇集过程检验只读读模型必须绑定触发汇集的正式 reviewId。'
+  )
+  assert.ok(approvedRow.processInspectionAggregatedAt, '已汇集过程检验只读读模型必须返回汇集时间。')
+
+  const pendingFilters = {
+    pageNo: 1,
+    pageSize: 20,
+    submitDate: selfReview.submitDate || localDateString(),
+    workOrderCode: config.productionOrderCode,
+    employeeUserId: Number(selfReview.actualEmployeeId),
+    processId: Number(selfReview.processId),
+    productKeyword: selfReview.productCode,
+    inspectionType: selfReview.inspectionType,
+    roundNo: Number(selfReview.roundNo),
+    submissionReviewStatus: 'PENDING'
+  }
+  const pendingPage = await loadPqcLeaderSubmissionPage(page, pendingFilters)
+  const pendingRow = pendingPage.list.find((row) => Number(row.id) === Number(selfReview.eventId))
+  if (!pendingRow) {
+    return {
+      key: 'pqcProcessInspectionAggregationReadOnly',
+      label: '过程检验汇集只读核验',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_AGGREGATION_READONLY',
+      acceptanceIds: ['AC-M21', 'AC-D37'],
+      approvedEventId: approvedReview.eventId,
+      pendingEventId: selfReview.eventId,
+      pendingTotal: pendingPage.total,
+      description: '只读查询 PENDING 状态时未返回自我复核被拒的事件，不能证明未确认事件未被汇集。'
+    }
+  }
+  assert.notEqual(
+    pendingRow.processInspectionAggregationStatus,
+    'AGGREGATED',
+    '未确认 PQC 事件不能被只读读模型标记为过程检验已汇集。'
+  )
+  assert.ok(!pendingRow.processInspectionReviewId, '未确认 PQC 事件不能绑定过程检验汇集 reviewId。')
+
+  return {
+    key: 'pqcProcessInspectionAggregationReadOnly',
+    label: '过程检验汇集只读核验',
+    roleKey: 'pqcLeader',
+    status: 'PASS',
+    category: 'E2E_PQC_AGGREGATION_READONLY',
+    acceptanceIds: ['AC-M21', 'AC-D37'],
+    approvedEventId: approvedReview.eventId,
+    pendingEventId: selfReview.eventId,
+    reviewId: approvedReview.reviewId,
+    processInspectionAggregationStatus: approvedRow.processInspectionAggregationStatus,
+    pendingProcessInspectionAggregationStatus: pendingRow.processInspectionAggregationStatus || 'PENDING',
+    endpoint: '/mes/pro/process-pool/team-leader/submission/page'
   }
 }
 
@@ -2579,8 +4955,8 @@ async function verifyActiveOrderUnauthorizedMutationBlocked(page, config, action
 async function verifyActiveOrderCleanupTraceability(page, config, joinEvidence) {
   if (!joinEvidence?.activeOrderId) {
     return {
-      key: 'activeOrderCleanupDeferred',
-      label: '活跃订单清理闭环风险记录',
+      key: 'activeOrderCleanupCompleted',
+      label: '活跃订单最终清理闭环',
       roleKey: 'productionLeader',
       status: 'BLOCKED',
       category: 'E2E_CLEANUP',
@@ -2589,25 +4965,680 @@ async function verifyActiveOrderCleanupTraceability(page, config, joinEvidence) 
     }
   }
 
+  await page.goto(new URL('/mes/pro/process-pool/team-leader', config.frontendUrl).toString(), {
+    waitUntil: 'domcontentloaded',
+    timeout: 90000
+  })
+  const section = page.locator('[data-team-leader-active-order-config]').first()
+  await section.waitFor({ state: 'visible', timeout: 60000 })
   const rows = await reloadActiveOrderRows(page)
   const activeOrder = rows.find((row) => Number(row.id) === Number(joinEvidence.activeOrderId))
   assert.ok(activeOrder, '清理闭环必须能重新定位本轮 activeOrderId。')
   assert.equal(Number(activeOrder.workOrderId), Number(config.workOrderId), '清理闭环定位到的 activeOrder 必须属于任务工单。')
   assert.equal(Number(activeOrder.routeId), Number(config.routeId), '清理闭环定位到的 activeOrder 必须属于任务路线。')
   assert.equal(Number(activeOrder.routeVersionId), Number(config.routeVersionId), '清理闭环定位到的 activeOrder 必须属于任务路线版本。')
+  await fillFormItemForAction(section, '移出活跃订单', '活跃记录ID', joinEvidence.activeOrderId)
+  const listResponsePromise = page.waitForResponse((response) =>
+    response.url().includes('/mes/pro/process-pool/team-leader/active-order/list')
+      && response.request().method() === 'GET'
+  , { timeout: 30000 }).catch((error) => ({ activeOrderListResponseError: error }))
+  const removeResult = await clickButtonAndWaitForSuccess(
+    section,
+    '移出活跃订单',
+    '/mes/pro/process-pool/team-leader/active-order/remove'
+  )
+  const listResponse = await listResponsePromise
+  if (listResponse.activeOrderListResponseError) {
+    failFast(`移出活跃订单后未捕获到活跃订单列表刷新响应：${listResponse.activeOrderListResponseError.message}`, [{
+      key: 'activeOrderCleanupListResponseError',
+      category: 'E2E_CLEANUP',
+      description: '真实页面移出活跃订单后必须刷新列表并证明本轮 activeOrderId 不再处于 ACTIVE 状态。'
+    }])
+  }
+  assert.ok(listResponse.ok(), `移出活跃订单后列表刷新 HTTP 失败：${listResponse.status()}`)
+  const listBody = await listResponse.json()
+  assert.equal(listBody.code, 0, `移出活跃订单后列表刷新业务失败：${listBody.msg || listBody.message || 'unknown'}`)
+  const refreshedRows = Array.isArray(listBody.data) ? listBody.data : []
+  assert.ok(
+    !refreshedRows.some((row) => Number(row.id) === Number(joinEvidence.activeOrderId)),
+    '移出活跃订单后，本轮 activeOrderId 不得继续出现在 ACTIVE 列表。'
+  )
 
   return {
-    key: 'activeOrderCleanupDeferred',
-    label: '活跃订单清理闭环风险记录',
+    key: 'activeOrderCleanupCompleted',
+    label: '活跃订单最终清理闭环',
     roleKey: 'productionLeader',
-    status: 'BLOCKED',
+    status: 'PASS',
     category: 'E2E_CLEANUP',
     acceptanceIds: ['AC-M04'],
     activeOrderId: joinEvidence.activeOrderId,
     workOrderId: config.workOrderId,
     routeId: config.routeId,
     routeVersionId: config.routeVersionId,
-    description: '本轮 activeOrderId 仍是 M6 后续真实 E2E 共享夹具；直接移除会破坏 PQC、放行、日结和后续验证链路。需要一次性可重建夹具或明确清理窗口后再执行删除验证。'
+    cleanupWindow: 'AFTER_ALL_ROLE_ACTIONS',
+    removeResult,
+    refreshedActiveOrderCount: refreshedRows.length
+  }
+}
+
+async function runFinalActiveOrderCleanup(browser, config, actionEvidence) {
+  const joinEvidence = actionEvidence.find((item) => item.key === 'joinActiveOrder' && item.status === 'PASS')
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'zh-CN' })
+  const page = await context.newPage()
+  try {
+    await login(page, config, 'productionLeader', config.roles.productionLeader)
+    return await verifyActiveOrderCleanupTraceability(page, config, joinEvidence)
+  } finally {
+    await context.close()
+  }
+}
+
+async function closeVisibleEdhrReleaseDrawer(page) {
+  const closeButton = page.locator('.el-drawer:visible .el-drawer__close-btn').first()
+  await closeButton.waitFor({ state: 'visible', timeout: 10000 })
+  await closeButton.click()
+  await page.locator('.el-drawer:visible').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => undefined)
+}
+
+function buildStructuredBlockerEvidence(key, label, roleKey, category, acceptanceIds, description, extra = {}) {
+  return {
+    key,
+    label,
+    roleKey,
+    status: 'BLOCKED',
+    category,
+    acceptanceIds,
+    description,
+    ...extra
+  }
+}
+
+async function prepareEdhrReleaseBatchExecutionViaRealPage(page, config) {
+  const evidenceKey = 'edhrReleasePreparedViaBatchExecutionPage'
+  const acceptanceIds = ['AC-M22', 'AC-M23']
+  const browser = page.context().browser()
+  if (!browser) {
+    return buildStructuredBlockerEvidence(
+      evidenceKey,
+      'eDHR 放行批次准备真实页面动作',
+      'productionLeader',
+      'E2E_RELEASE_TRACEABILITY_PREP',
+      acceptanceIds,
+      '无法创建独立浏览器上下文，不能通过生产组长真实页面打开/创建目标批次并执行放行预检。'
+    )
+  }
+
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'zh-CN' })
+  const leaderPage = await context.newPage()
+  try {
+    await login(leaderPage, config, 'productionLeader', config.roles.productionLeader)
+    const batchPageUrl =
+      `${config.frontendUrl.replace(/\/$/, '')}/mes/pro/feedback/edhr-batch-execution?prefillWorkOrderCode=${encodeURIComponent(config.productionOrderCode)}`
+    await leaderPage.goto(batchPageUrl, { waitUntil: 'domcontentloaded', timeout: 90000 })
+    await leaderPage.locator('.edhr-batch-page').waitFor({ state: 'visible', timeout: 60000 })
+    const dialog = leaderPage.locator('.el-dialog:visible').filter({ hasText: '打开或创建 eDHR 批次执行' }).first()
+    const autoOpenedDialog = await dialog.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)
+    if (!autoOpenedDialog) {
+      await leaderPage.getByRole('button', { name: '打开/创建' }).first().click()
+    }
+    await dialog.waitFor({ state: 'visible', timeout: 30000 })
+    const routeItem = dialog.locator('.el-form-item', { hasText: '工艺路线' }).first()
+    await routeItem.locator('.el-select').click()
+    const routeOption = leaderPage
+      .locator('.el-select-dropdown:visible .el-select-dropdown__item')
+      .filter({ hasText: `ID ${config.routeId}` })
+      .first()
+    await routeOption.waitFor({ state: 'visible', timeout: 30000 })
+    await routeOption.click()
+
+    const batchCodeInput = dialog.locator('.el-form-item', { hasText: '批次号' }).locator('input').first()
+    await batchCodeInput.waitFor({ state: 'visible', timeout: 30000 })
+    const batchCode = (await batchCodeInput.inputValue()).trim()
+    if (!batchCode) {
+      return buildStructuredBlockerEvidence(
+        evidenceKey,
+        'eDHR 放行批次准备真实页面动作',
+        'productionLeader',
+        'E2E_RELEASE_TRACEABILITY_PREP',
+        acceptanceIds,
+        '目标工单真实页面未预填批次号，不能猜填 batchCode 创建 eDHR 批次执行。',
+        { workOrderId: config.workOrderId, workOrderCode: config.productionOrderCode }
+      )
+    }
+
+    const openResponsePromise = leaderPage.waitForResponse((response) =>
+      response.url().includes('/mes/pro/edhr-batch-execution/open-or-create')
+        && response.request().method() === 'POST'
+    , { timeout: 60000 }).catch((error) => ({ openResponseError: error }))
+    await dialog.getByRole('button', { name: '确 认' }).click()
+    const openResponse = await openResponsePromise
+    if (openResponse.openResponseError) {
+      return buildStructuredBlockerEvidence(
+        evidenceKey,
+        'eDHR 放行批次准备真实页面动作',
+        'productionLeader',
+        'E2E_RELEASE_TRACEABILITY_PREP',
+        acceptanceIds,
+        `生产组长页面确认打开/创建批次后未捕获正式响应：${openResponse.openResponseError.message}`,
+        { workOrderId: config.workOrderId, workOrderCode: config.productionOrderCode, batchCode }
+      )
+    }
+    assert.ok(openResponse.ok(), `打开/创建 eDHR 批次执行 HTTP 失败：${openResponse.status()}`)
+    const openBody = await openResponse.json()
+    if (!isBusinessSuccess(openBody)) {
+      return buildStructuredBlockerEvidence(
+        evidenceKey,
+        'eDHR 放行批次准备真实页面动作',
+        'productionLeader',
+        'E2E_RELEASE_TRACEABILITY_PREP',
+        acceptanceIds,
+        `生产组长页面打开/创建 eDHR 批次执行业务失败：${responseMessage(openBody)}`,
+        { workOrderId: config.workOrderId, workOrderCode: config.productionOrderCode, batchCode }
+      )
+    }
+
+    const batchExecution = openBody.data || {}
+    const batchExecutionId = Number(batchExecution.id || batchExecution.batchExecutionId)
+    if (!Number.isFinite(batchExecutionId) || batchExecutionId <= 0) {
+      return buildStructuredBlockerEvidence(
+        evidenceKey,
+        'eDHR 放行批次准备真实页面动作',
+        'productionLeader',
+        'E2E_RELEASE_TRACEABILITY_PREP',
+        acceptanceIds,
+        '生产组长页面打开/创建成功响应缺少正式 batchExecutionId，不能继续执行放行预检。',
+        { workOrderId: config.workOrderId, workOrderCode: config.productionOrderCode, batchCode }
+      )
+    }
+
+    const detailUrl = new URL('/mes/pro/feedback/edhr-batch-execution/detail', config.frontendUrl)
+    detailUrl.searchParams.set('id', String(batchExecutionId))
+    detailUrl.searchParams.set('focus', 'precheck')
+    await leaderPage.goto(detailUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 90000 })
+    const precheckWorkspace = leaderPage.locator('[aria-label="放行预检工作区"]').first()
+    await precheckWorkspace.waitFor({ state: 'visible', timeout: 90000 })
+    const precheckButton = precheckWorkspace.getByRole('button', { name: '预检' }).first()
+    await precheckButton.waitFor({ state: 'visible', timeout: 30000 })
+    if (await precheckButton.isDisabled()) {
+      const precheckSummary = (await precheckWorkspace.innerText()).replace(/\s+/g, ' ').trim().slice(0, 500)
+      return buildStructuredBlockerEvidence(
+        evidenceKey,
+        'eDHR 放行批次准备真实页面动作',
+        'productionLeader',
+        'E2E_RELEASE_TRACEABILITY_PREP',
+        acceptanceIds,
+        '目标批次详情页放行预检按钮处于禁用状态，不能通过正式页面形成放行事务。',
+        { workOrderId: config.workOrderId, workOrderCode: config.productionOrderCode, batchExecutionId, batchCode, precheckSummary }
+      )
+    }
+
+    const precheckResponsePromise = leaderPage.waitForResponse((response) =>
+      response.url().includes('/mes/pro/edhr-release/precheck')
+        && response.request().method() === 'POST'
+    , { timeout: 60000 }).catch((error) => ({ precheckResponseError: error }))
+    await precheckButton.click()
+    const precheckResponse = await precheckResponsePromise
+    if (precheckResponse.precheckResponseError) {
+      return buildStructuredBlockerEvidence(
+        evidenceKey,
+        'eDHR 放行批次准备真实页面动作',
+        'productionLeader',
+        'E2E_RELEASE_TRACEABILITY_PREP',
+        acceptanceIds,
+        `生产组长页面执行放行预检后未捕获正式响应：${precheckResponse.precheckResponseError.message}`,
+        { workOrderId: config.workOrderId, workOrderCode: config.productionOrderCode, batchExecutionId, batchCode }
+      )
+    }
+    assert.ok(precheckResponse.ok(), `放行预检 HTTP 失败：${precheckResponse.status()}`)
+    const precheckBody = await precheckResponse.json()
+    if (!isBusinessSuccess(precheckBody)) {
+      return buildStructuredBlockerEvidence(
+        evidenceKey,
+        'eDHR 放行批次准备真实页面动作',
+        'productionLeader',
+        'E2E_RELEASE_TRACEABILITY_PREP',
+        acceptanceIds,
+        `生产组长页面放行预检业务失败：${responseMessage(precheckBody)}`,
+        { workOrderId: config.workOrderId, workOrderCode: config.productionOrderCode, batchExecutionId, batchCode }
+      )
+    }
+    const release = precheckBody.data || {}
+    return {
+      key: evidenceKey,
+      label: 'eDHR 放行批次准备真实页面动作',
+      roleKey: 'productionLeader',
+      status: 'PASS',
+      category: 'E2E_RELEASE_TRACEABILITY_PREP',
+      acceptanceIds,
+      workOrderId: config.workOrderId,
+      workOrderCode: config.productionOrderCode,
+      batchExecutionId,
+      batchExecutionCode: batchExecution.batchExecutionCode,
+      batchCode,
+      releaseTransactionId: release.releaseTransactionId,
+      releaseStatus: release.releaseStatus,
+      precheckSummary: release.precheckSummary || '',
+      endpoints: [
+        '/mes/pro/edhr-batch-execution/open-or-create',
+        '/mes/pro/edhr-release/precheck'
+      ]
+    }
+  } catch (error) {
+    return buildStructuredBlockerEvidence(
+      evidenceKey,
+      'eDHR 放行批次准备真实页面动作',
+      'productionLeader',
+      'E2E_RELEASE_TRACEABILITY_PREP',
+      acceptanceIds,
+      `生产组长真实页面准备 eDHR 放行批次失败：${error.message}`,
+      { workOrderId: config.workOrderId, workOrderCode: config.productionOrderCode }
+    )
+  } finally {
+    await context.close()
+  }
+}
+
+async function verifyEdhrReleaseTraceabilityReadOnly(page, config) {
+  const evidenceKey = 'edhrReleaseTraceabilityReadOnly'
+  const acceptanceIds = ['AC-M22', 'AC-M23']
+  const mutationRequests = []
+  const trackMutationRequest = (request) => {
+    if (!['POST', 'PUT', 'DELETE'].includes(request.method())) return
+    const url = request.url()
+    if (url.includes('/mes/pro/edhr-release/')) {
+      mutationRequests.push({
+        method: request.method(),
+        endpoint: new URL(url).pathname
+      })
+    }
+  }
+  page.on('request', trackMutationRequest)
+  try {
+    await page.goto(new URL('/mes/pro/feedback/edhr-release', config.frontendUrl).toString(), {
+      waitUntil: 'domcontentloaded',
+      timeout: 90000
+    })
+    await page.locator('.edhr-release-page__title').filter({ hasText: '电子批记录放行追溯' }).first()
+      .waitFor({ state: 'visible', timeout: 60000 })
+
+    const toolbar = page.locator('.edhr-release-page__toolbar').first()
+    await fillFormItem(toolbar, '工单号', config.productionOrderCode)
+    const releaseResponsePromise = page.waitForResponse((response) =>
+      response.url().includes('/mes/pro/edhr-release/page')
+        && response.request().method() === 'GET'
+    , { timeout: 30000 }).catch((error) => ({ releaseResponseError: error }))
+    await toolbar.getByRole('button', { name: '查询' }).click()
+    const releaseResponse = await releaseResponsePromise
+    if (releaseResponse.releaseResponseError) {
+      return {
+        key: evidenceKey,
+        label: 'eDHR 放行追溯只读核验',
+        roleKey: 'releaseOwner',
+        status: 'BLOCKED',
+        category: 'E2E_RELEASE_TRACEABILITY',
+        acceptanceIds,
+        workOrderCode: config.productionOrderCode,
+        description: `放行负责人页面查询未捕获正式放行追溯列表响应：${releaseResponse.releaseResponseError.message}`
+      }
+    }
+
+    const releasePageData = await parseJsonResponse(releaseResponse, 'eDHR 放行追溯列表查询')
+    const releaseRows = Array.isArray(releasePageData.list) ? releasePageData.list : []
+    const releaseRow = releaseRows.find((row) =>
+      Number(row.workOrderId) === Number(config.workOrderId)
+        || String(row.workOrderCode || '') === String(config.productionOrderCode))
+    if (!releaseRow) {
+      return {
+        key: evidenceKey,
+        label: 'eDHR 放行追溯只读核验',
+        roleKey: 'releaseOwner',
+        status: 'BLOCKED',
+        category: 'E2E_RELEASE_TRACEABILITY',
+        acceptanceIds,
+        workOrderId: config.workOrderId,
+        workOrderCode: config.productionOrderCode,
+        releaseTotal: Number(releasePageData.total || 0),
+        description: '放行追溯页面按任务工单查询后未返回任务批次放行记录，不能证明 AC-M22/AC-M23 真实页面追溯链路。'
+      }
+    }
+    if (!releaseRow.releaseTransactionId) {
+      return {
+        key: evidenceKey,
+        label: 'eDHR 放行追溯只读核验',
+        roleKey: 'releaseOwner',
+        status: 'BLOCKED',
+        category: 'E2E_RELEASE_TRACEABILITY',
+        acceptanceIds,
+        workOrderId: config.workOrderId,
+        workOrderCode: config.productionOrderCode,
+        batchExecutionId: releaseRow.batchExecutionId,
+        releaseStatus: releaseRow.releaseStatus,
+        description: '任务批次放行记录尚未生成正式 releaseTransactionId；本切片不执行写入型预检，需先通过正式页面动作形成可追溯放行事务。'
+      }
+    }
+
+    const releaseTransactionId = Number(releaseRow.releaseTransactionId)
+    const rowLocator = page
+      .locator('.edhr-release-page__table .el-table__body-wrapper tbody tr')
+      .filter({ hasText: config.productionOrderCode })
+      .first()
+    await rowLocator.waitFor({ state: 'visible', timeout: 30000 })
+
+    const eventResponsePromise = page.waitForResponse((response) =>
+      response.url().includes('/mes/pro/edhr-release/event/page')
+        && response.request().method() === 'GET'
+    , { timeout: 30000 }).catch((error) => ({ eventResponseError: error }))
+    await rowLocator.getByRole('button', { name: '事务事件' }).click()
+    const eventResponse = await eventResponsePromise
+    if (eventResponse.eventResponseError) {
+      return {
+        key: evidenceKey,
+        label: 'eDHR 放行追溯只读核验',
+        roleKey: 'releaseOwner',
+        status: 'BLOCKED',
+        category: 'E2E_RELEASE_TRACEABILITY',
+        acceptanceIds,
+        releaseTransactionId,
+        description: `放行负责人页面打开事务事件抽屉未捕获正式事件响应：${eventResponse.eventResponseError.message}`
+      }
+    }
+    const eventPageData = await parseJsonResponse(eventResponse, 'eDHR 放行事务事件查询')
+    await closeVisibleEdhrReleaseDrawer(page)
+
+    const rowLocatorAfterEvent = page
+      .locator('.edhr-release-page__table .el-table__body-wrapper tbody tr')
+      .filter({ hasText: config.productionOrderCode })
+      .first()
+    const checkResponsePromise = page.waitForResponse((response) =>
+      response.url().includes('/mes/pro/edhr-release/check-item/page')
+        && response.request().method() === 'GET'
+    , { timeout: 30000 }).catch((error) => ({ checkResponseError: error }))
+    await rowLocatorAfterEvent.getByRole('button', { name: '检查项' }).click()
+    const checkResponse = await checkResponsePromise
+    if (checkResponse.checkResponseError) {
+      return {
+        key: evidenceKey,
+        label: 'eDHR 放行追溯只读核验',
+        roleKey: 'releaseOwner',
+        status: 'BLOCKED',
+        category: 'E2E_RELEASE_TRACEABILITY',
+        acceptanceIds,
+        releaseTransactionId,
+        description: `放行负责人页面打开检查项抽屉未捕获正式检查项响应：${checkResponse.checkResponseError.message}`
+      }
+    }
+    const checkPageData = await parseJsonResponse(checkResponse, 'eDHR 放行检查项查询')
+    await closeVisibleEdhrReleaseDrawer(page)
+
+    const releaseApiPage = await loadEdhrReleasePage(page, {
+      pageNo: 1,
+      pageSize: 10,
+      workOrderCode: config.productionOrderCode
+    })
+    const releaseApiRow = releaseApiPage.list.find((row) =>
+      Number(row.releaseTransactionId) === releaseTransactionId)
+    assert.ok(releaseApiRow, '只读 API 核验必须返回同一个放行事务。')
+    const checkApiPage = await loadEdhrReleaseCheckItemPage(page, {
+      pageNo: 1,
+      pageSize: 100,
+      releaseTransactionId,
+      itemStatus: 'OPEN',
+      checkResult: ''
+    })
+    const eventApiPage = await loadEdhrReleaseEventPage(page, {
+      pageNo: 1,
+      pageSize: 100,
+      releaseTransactionId,
+      eventType: ''
+    })
+
+    const checkItems = Array.isArray(checkPageData.list) ? checkPageData.list : []
+    const eventItems = Array.isArray(eventPageData.list) ? eventPageData.list : []
+    if (!checkItems.length || !checkApiPage.list.length) {
+      return {
+        key: evidenceKey,
+        label: 'eDHR 放行追溯只读核验',
+        roleKey: 'releaseOwner',
+        status: 'BLOCKED',
+        category: 'E2E_RELEASE_TRACEABILITY',
+        acceptanceIds,
+        releaseTransactionId,
+        releaseStatus: releaseRow.releaseStatus,
+        description: '放行事务缺少可见检查项，不能证明 DHR/检验/偏差/返工/报废/库存检查来源已进入正式追溯读模型。'
+      }
+    }
+    if (!eventItems.length || !eventApiPage.list.length) {
+      return {
+        key: evidenceKey,
+        label: 'eDHR 放行追溯只读核验',
+        roleKey: 'releaseOwner',
+        status: 'BLOCKED',
+        category: 'E2E_RELEASE_TRACEABILITY',
+        acceptanceIds,
+        releaseTransactionId,
+        releaseStatus: releaseRow.releaseStatus,
+        checkItemCount: checkItems.length,
+        description: '放行事务缺少可见事务事件，不能证明 AC-M23 终态或预检事件追溯读模型。'
+      }
+    }
+    assert.deepEqual(mutationRequests, [], '放行追溯只读核验不得触发放行写接口。')
+
+    return {
+      key: evidenceKey,
+      label: 'eDHR 放行追溯只读核验',
+      roleKey: 'releaseOwner',
+      status: 'PASS',
+      category: 'E2E_RELEASE_TRACEABILITY',
+      acceptanceIds,
+      workOrderId: config.workOrderId,
+      workOrderCode: config.productionOrderCode,
+      batchExecutionId: releaseRow.batchExecutionId,
+      batchExecutionCode: releaseRow.batchExecutionCode,
+      releaseTransactionId,
+      releaseStatus: releaseRow.releaseStatus,
+      precheckSummary: releaseRow.precheckSummary || '',
+      blockingCheckCount: Number(releaseRow.blockingCheckCount || 0),
+      failedCheckCount: Number(releaseRow.failedCheckCount || 0),
+      checkItemCount: checkItems.length,
+      eventCount: eventItems.length,
+      apiCheckItemCount: checkApiPage.list.length,
+      apiEventCount: eventApiPage.list.length,
+      checkCodes: [...new Set(checkItems.map((item) => item.checkCode).filter(Boolean))],
+      checkResults: [...new Set(checkItems.map((item) => item.checkResult).filter(Boolean))],
+      eventTypes: [...new Set(eventItems.map((item) => item.eventType).filter(Boolean))],
+      mutationRequestCount: mutationRequests.length,
+      endpoints: [
+        '/mes/pro/edhr-release/page',
+        '/mes/pro/edhr-release/check-item/page',
+        '/mes/pro/edhr-release/event/page'
+      ]
+    }
+  } finally {
+    page.off('request', trackMutationRequest)
+  }
+}
+
+function createDailyCloseRequestBudgetTracker(page) {
+  const requestBudget = {
+    submissionPageRequests: 0,
+    activeOrderListRequests: 0,
+    submissionDetailRequests: 0,
+    observedRequestEndpoints: []
+  }
+  const trackRequest = (request) => {
+    if (request.method() !== 'GET') return
+    const url = request.url()
+    if (url.includes('/mes/pro/process-pool/team-leader/submission/page')) {
+      requestBudget.submissionPageRequests += 1
+      requestBudget.observedRequestEndpoints.push('team-leader/submission/page')
+    }
+    if (url.includes('/mes/pro/process-pool/team-leader/active-order/list')) {
+      requestBudget.activeOrderListRequests += 1
+      requestBudget.observedRequestEndpoints.push('team-leader/active-order/list')
+    }
+    if (url.includes('/mes/pro/process-pool/team-leader/submission/detail')) {
+      requestBudget.submissionDetailRequests += 1
+      requestBudget.observedRequestEndpoints.push('team-leader/submission/detail')
+    }
+  }
+  page.on('request', trackRequest)
+  return {
+    snapshot: () => ({
+      submissionPageRequests: requestBudget.submissionPageRequests,
+      activeOrderListRequests: requestBudget.activeOrderListRequests,
+      submissionDetailRequests: requestBudget.submissionDetailRequests,
+      observedRequestEndpoints: [...requestBudget.observedRequestEndpoints]
+    }),
+    stop: () => page.off('request', trackRequest)
+  }
+}
+
+function createPqcPieceDetailRequestBudgetTracker(page) {
+  const requestBudget = {
+    pieceDetailRequests: 0,
+    processSnapshotRequests: 0,
+    pqcPersonnelRequests: 0,
+    observedRequestEndpoints: []
+  }
+  const trackRequest = (request) => {
+    if (request.method() !== 'GET') return
+    const url = request.url()
+    if (
+      url.includes('/mes/pro/feedback/frontline/device-account/pqc/piece') ||
+      url.includes('/mes/pro/feedback/frontline/device-account/pqc/detail') ||
+      url.includes('/mes/pro/feedback/frontline/device-account/pqc/inspection-detail')
+    ) {
+      requestBudget.pieceDetailRequests += 1
+      requestBudget.observedRequestEndpoints.push('frontline/pqc/piece-detail')
+    }
+    if (url.includes('/mes/pro/feedback/frontline/device-account/pqc/active-order/processes')) {
+      requestBudget.processSnapshotRequests += 1
+      requestBudget.observedRequestEndpoints.push('frontline/pqc/active-order/processes')
+    }
+    if (url.includes('/mes/pro/feedback/frontline/device-account/pqc/personnel')) {
+      requestBudget.pqcPersonnelRequests += 1
+      requestBudget.observedRequestEndpoints.push('frontline/pqc/personnel')
+    }
+  }
+  page.on('request', trackRequest)
+  return {
+    snapshot: () => ({
+      pieceDetailRequests: requestBudget.pieceDetailRequests,
+      processSnapshotRequests: requestBudget.processSnapshotRequests,
+      pqcPersonnelRequests: requestBudget.pqcPersonnelRequests,
+      observedRequestEndpoints: [...requestBudget.observedRequestEndpoints]
+    }),
+    stop: () => page.off('request', trackRequest)
+  }
+}
+
+function createPqcLeaderSubmissionListRequestBudgetTracker(page) {
+  const requestBudget = {
+    submissionPageRequests: 0,
+    submissionDetailRequests: 0,
+    activeOrderListRequests: 0,
+    observedRequestEndpoints: []
+  }
+  const trackRequest = (request) => {
+    if (request.method() !== 'GET') return
+    const url = request.url()
+    if (url.includes('/mes/pro/process-pool/team-leader/submission/page')) {
+      requestBudget.submissionPageRequests += 1
+      requestBudget.observedRequestEndpoints.push('team-leader/submission/page')
+    }
+    if (url.includes('/mes/pro/process-pool/team-leader/submission/detail')) {
+      requestBudget.submissionDetailRequests += 1
+      requestBudget.observedRequestEndpoints.push('team-leader/submission/detail')
+    }
+    if (url.includes('/mes/pro/process-pool/team-leader/active-order/list')) {
+      requestBudget.activeOrderListRequests += 1
+      requestBudget.observedRequestEndpoints.push('team-leader/active-order/list')
+    }
+  }
+  page.on('request', trackRequest)
+  return {
+    snapshot: () => ({
+      submissionPageRequests: requestBudget.submissionPageRequests,
+      submissionDetailRequests: requestBudget.submissionDetailRequests,
+      activeOrderListRequests: requestBudget.activeOrderListRequests,
+      observedRequestEndpoints: [...requestBudget.observedRequestEndpoints]
+    }),
+    stop: () => page.off('request', trackRequest)
+  }
+}
+
+async function verifyDailyClosePerformanceReadOnly(page, config, actionEvidence) {
+  const evidenceKey = 'dailyClosePerformanceReadOnly'
+  const acceptanceIds = ['AC-D12', 'AC-D38']
+  const joinEvidence = actionEvidence.find((item) => item.key === 'joinActiveOrder' && item.status === 'PASS')
+  if (!joinEvidence?.activeOrderId) {
+    return {
+      key: evidenceKey,
+      label: '生产组长日结看板只读性能证据',
+      roleKey: 'productionLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PERFORMANCE',
+      acceptanceIds,
+      description: '日结看板性能证据缺少本轮 activeOrderId，不能证明看板与活跃订单夹具一致。'
+    }
+  }
+
+  const requestBudgetTracker = createDailyCloseRequestBudgetTracker(page)
+  try {
+    await page.locator('[data-role-matrix-daily-close]').first().waitFor({ state: 'visible', timeout: 30000 })
+    await page.locator('[data-role-matrix-daily-close-summary]').first().waitFor({ state: 'visible', timeout: 30000 })
+    const dailyCloseStatusText = (await page.locator('[data-role-matrix-daily-close-status]').first().innerText())
+      .replace(/\s+/g, ' ')
+      .trim()
+    const expectedCardKeys = ['pending-review', 'rejected-review', 'active-orders', 'load-blocker']
+    const dailyCloseCards = await page.locator('[data-role-matrix-daily-close-card]').evaluateAll((nodes) =>
+      nodes.map((node) => ({
+        key: node.getAttribute('data-role-matrix-daily-close-card'),
+        label: node.querySelector('.team-leader-workbench__daily-close-label')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+        valueText: node.querySelector('.team-leader-workbench__daily-close-value')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+        hint: node.querySelector('.team-leader-workbench__daily-close-hint')?.textContent?.replace(/\s+/g, ' ').trim() || ''
+      }))
+    )
+    await page.waitForTimeout(250)
+    const requestBudget = requestBudgetTracker.snapshot()
+    assert.equal(requestBudget.submissionDetailRequests, 0, '日结看板卡片读取不得触发逐行提交详情请求。')
+    assert.equal(requestBudget.submissionPageRequests, 0, '日结看板卡片读取不得额外触发提交分页请求。')
+    assert.equal(requestBudget.activeOrderListRequests, 0, '日结看板卡片读取不得额外触发活跃订单列表请求。')
+    const observedCardKeys = dailyCloseCards.map((card) => card.key)
+    assert.deepEqual(
+      [...observedCardKeys].sort(),
+      [...expectedCardKeys].sort(),
+      '日结看板必须展示待复核、退回、活跃订单和加载阻塞四张正式卡片。'
+    )
+    assert.equal(new Set(observedCardKeys).size, observedCardKeys.length, '日结看板卡片 key 不得重复。')
+    for (const card of dailyCloseCards) {
+      assert.ok(card.label, `日结看板 ${card.key} 必须有业务标签。`)
+      assert.match(card.valueText, /^\d+$/, `日结看板 ${card.key} 必须展示可解析的数量。`)
+    }
+    const activeOrderCard = dailyCloseCards.find((card) => card.key === 'active-orders')
+    assert.ok(
+      Number(activeOrderCard?.valueText || 0) >= 1,
+      '日结看板活跃订单卡片必须包含本轮已加入的 activeOrder。'
+    )
+    assert.ok(['待处理', '可日结', '加载阻塞'].includes(dailyCloseStatusText), `日结看板状态文本不在正式枚举内：${dailyCloseStatusText}`)
+
+    return {
+      key: evidenceKey,
+      label: '生产组长日结看板只读性能证据',
+      roleKey: 'productionLeader',
+      status: 'PASS',
+      category: 'E2E_PERFORMANCE',
+      acceptanceIds,
+      activeOrderId: joinEvidence.activeOrderId,
+      workOrderId: config.workOrderId,
+      dailyCloseStatusText,
+      cardCount: dailyCloseCards.length,
+      observedCardKeys,
+      requestBudget,
+      dailyCloseCards
+    }
+  } finally {
+    requestBudgetTracker.stop()
   }
 }
 
@@ -2643,8 +5674,13 @@ async function runPhaseAction(page, config, phase, actionEvidence) {
   if (phase.actionKey === 'joinActiveOrder') {
     const joinEvidence = await performActiveOrderJoin(page, config)
     const conflictRouteEvidence = await verifyActiveOrderConflictRouteFailure(page, config, joinEvidence)
-    const cleanupEvidence = await verifyActiveOrderCleanupTraceability(page, config, joinEvidence)
-    return [joinEvidence, conflictRouteEvidence, cleanupEvidence]
+    const transferTraceEvidence = await verifyActiveOrderTransferTraceReadOnly(page, config, joinEvidence)
+    const dailyCloseEvidence = await verifyDailyClosePerformanceReadOnly(page, config, [
+      joinEvidence,
+      conflictRouteEvidence,
+      transferTraceEvidence
+    ])
+    return [joinEvidence, conflictRouteEvidence, transferTraceEvidence, dailyCloseEvidence]
   }
   if (phase.actionKey === 'verifyPqcActiveOrderReadOnly') {
     const readOnlyEvidence = await verifyPqcActiveOrderReadOnly(page, config, actionEvidence)
@@ -2670,10 +5706,55 @@ async function runPhaseAction(page, config, phase, actionEvidence) {
     return [readOnlyEvidence, regulationEvidence, pieceDetailEvidence, employeeEvidence, formalSubmissionEvidence]
   }
   if (phase.actionKey === 'verifyPqcLeaderSubmissionFilterPaginationConsistency') {
-    return verifyPqcLeaderSubmissionFilterPaginationConsistency(page, config)
+    const paginationEvidence = await verifyPqcLeaderSubmissionFilterPaginationConsistency(page, config, actionEvidence)
+    const detailEvidence = await verifyPqcLeaderSubmissionDetailTraceability(page, config, actionEvidence)
+    const detailPermissionEvidence = await verifyPqcLeaderSubmissionDetailUnauthorizedBlocked(page, config, actionEvidence)
+    const aggregationEvidence = await verifyPqcLeaderReviewApprovalAggregatesProcessInspection(
+      page,
+      config,
+      actionEvidence
+    )
+    const duplicateTerminalEvidence = await verifyPqcLeaderDuplicateTerminalReviewBlocked(
+      page,
+      config,
+      [...actionEvidence, aggregationEvidence]
+    )
+    const selfReviewEvidence = await verifyPqcLeaderSelfReviewBlocked(
+      page,
+      config,
+      [...actionEvidence, paginationEvidence]
+    )
+    const rejectedCorrectionEvidence = await verifyPqcLeaderRejectedCorrectionChain(
+      page,
+      config,
+      [...actionEvidence, aggregationEvidence, selfReviewEvidence]
+    )
+    const aggregationReadOnlyEvidence = await verifyPqcProcessInspectionAggregationReadOnly(
+      page,
+      config,
+      [...actionEvidence, aggregationEvidence, selfReviewEvidence]
+    )
+    return [
+      paginationEvidence,
+      detailEvidence,
+      detailPermissionEvidence,
+      aggregationEvidence,
+      duplicateTerminalEvidence,
+      selfReviewEvidence,
+      rejectedCorrectionEvidence,
+      aggregationReadOnlyEvidence
+    ]
+  }
+  if (phase.actionKey === 'verifyQaRegulationPublishedVersionReadOnly') {
+    return verifyQaRegulationPublishedVersionReadOnly(page, config)
   }
   if (phase.actionKey === 'verifyActiveOrderUnauthorizedMutationBlocked') {
     return verifyActiveOrderUnauthorizedMutationBlocked(page, config, actionEvidence)
+  }
+  if (phase.actionKey === 'verifyEdhrReleaseTraceabilityReadOnly') {
+    const preparationEvidence = await prepareEdhrReleaseBatchExecutionViaRealPage(page, config)
+    const traceabilityEvidence = await verifyEdhrReleaseTraceabilityReadOnly(page, config)
+    return [preparationEvidence, traceabilityEvidence]
   }
   return undefined
 }
@@ -2729,6 +5810,7 @@ async function runRealFlow(config) {
         await context.close()
       }
     }
+    actionEvidence.push(await runFinalActiveOrderCleanup(browser, config, actionEvidence))
   } finally {
     await browser.close()
   }

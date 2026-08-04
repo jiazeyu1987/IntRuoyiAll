@@ -12,6 +12,11 @@ import java.util.List;
 public interface MesProcessPoolActiveOrderTransferTraceMapper
         extends BaseMapperX<MesProcessPoolActiveOrderTransferTraceDO> {
 
+    default MesProcessPoolActiveOrderTransferTraceDO selectByIdempotencyKey(String idempotencyKey) {
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderTransferTraceDO>()
+                .eq(MesProcessPoolActiveOrderTransferTraceDO::getIdempotencyKey, idempotencyKey));
+    }
+
     default List<MesProcessPoolActiveOrderTransferTraceDO> selectListByActiveOrderId(Long activeOrderId) {
         return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderTransferTraceDO>()
                 .eq(MesProcessPoolActiveOrderTransferTraceDO::getActiveOrderId, activeOrderId)

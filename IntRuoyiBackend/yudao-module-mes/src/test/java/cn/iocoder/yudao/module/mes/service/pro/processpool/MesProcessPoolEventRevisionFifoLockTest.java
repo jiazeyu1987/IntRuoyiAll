@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionDiffMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,18 +36,22 @@ class MesProcessPoolEventRevisionFifoLockTest {
     private MesProProcessPoolEventRevisionDiffMapper revisionDiffMapper;
     @Mock
     private MesProcessPoolFifoAllocationService fifoAllocationService;
+    @Mock
+    private MesProcessPoolSubmissionReviewMapper submissionReviewMapper;
 
     private MesProcessPoolEventRevisionService service;
 
     @BeforeEach
     void setUp() {
         service = new MesProcessPoolEventRevisionServiceImpl(eventMapper, revisionMapper,
-                revisionDiffMapper, fifoAllocationService);
+                revisionDiffMapper, fifoAllocationService, submissionReviewMapper);
     }
 
     @Test
     void rejectsQuantityFieldUpdateWhenFragmentAllocated() {
-        when(eventMapper.selectById(1001L)).thenReturn(MesProcessPoolEventRevisionServiceTest.event());
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(MesProcessPoolEventRevisionServiceTest.event());
+        when(submissionReviewMapper.selectLatestByEventIdForUpdate(1001L))
+                .thenReturn(MesProcessPoolEventRevisionServiceTest.rejectedReview());
         doThrow(exception(ErrorCodeConstants.PRO_PROCESS_POOL_FIFO_ALLOCATED_FRAGMENT_LOCKED, 8101L))
                 .when(fifoAllocationService)
                 .validateOriginalFieldMutationAllowed(8101L, MesProcessPoolFragmentOriginalField.OUTPUT_QUANTITY);
@@ -60,7 +65,9 @@ class MesProcessPoolEventRevisionFifoLockTest {
 
     @Test
     void rejectsUpdateWhenFifoLockStatusCannotBeConfirmed() {
-        when(eventMapper.selectById(1001L)).thenReturn(MesProcessPoolEventRevisionServiceTest.event());
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(MesProcessPoolEventRevisionServiceTest.event());
+        when(submissionReviewMapper.selectLatestByEventIdForUpdate(1001L))
+                .thenReturn(MesProcessPoolEventRevisionServiceTest.rejectedReview());
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(quantityReq(null)));
 

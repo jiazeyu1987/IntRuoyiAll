@@ -47,6 +47,7 @@
     "e2e:role-matrix-daily-close-scope:static": "node tests/e2e/role-matrix-daily-close-scope-static.spec.cjs",
     "e2e:role-matrix-migration-preflight:static": "node tests/e2e/role-matrix-migration-preflight-static.spec.cjs",
     "e2e:role-matrix-pqc-d32-fixture:static": "node tests/e2e/role-matrix-pqc-d32-fixture-static.spec.cjs",
+    "e2e:role-matrix-pqc-rerun-fixture:static": "node tests/e2e/role-matrix-pqc-rerun-fixture-static.spec.cjs",
     "test:e2e": "playwright test",
     "clean": "npx rimraf node_modules",
     "clean:cache": "npx rimraf node_modules/.cache",

@@ -58,6 +58,8 @@ class MesProcessPoolPqcEventTest extends BaseDbUnitTest {
         assertEquals(req.getSignatureId(), pqcRecord.getSignatureId());
         assertEquals(event.getServerSubmitTime(), pqcRecord.getServerSubmitTime());
         assertEquals(req.getRawPayload(), pqcRecord.getRawPayload());
+        assertEquals(MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_PENDING,
+                pqcRecord.getProcessInspectionAggregationStatus());
     }
 
     @Test

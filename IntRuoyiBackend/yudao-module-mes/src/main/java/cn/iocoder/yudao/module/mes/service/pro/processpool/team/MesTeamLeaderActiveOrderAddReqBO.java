@@ -4,6 +4,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
+import java.util.List;
+
 @Data
 @Builder
 @Accessors(chain = true)
@@ -13,4 +15,5 @@ public class MesTeamLeaderActiveOrderAddReqBO {
     private Long workOrderId;
     private Long routeId;
     private Long routeVersionId;
+    private List<Long> transferIds;
 }
