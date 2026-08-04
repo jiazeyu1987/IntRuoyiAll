@@ -2,10 +2,10 @@
   <div class="edhr-batch-team-leader-page" data-edhr-batch-team-leader-page>
     <EdhrBatchRecordTabs active-tab="teamLeader" />
     <TeamLeaderWorkbenchPage
-      leader-type="PQC"
+      leader-type="PRODUCTION"
       :show-leader-type-tabs="false"
       title="组长工作台"
-      subtitle="查看和复核 PQC 检验员提交、项目明细与过程检验汇集状态"
+      subtitle="查看生产一线原始数据、员工切换、FIFO 分配和异常记录"
     />
   </div>
 </template>

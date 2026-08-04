@@ -384,11 +384,14 @@
               table-key="mes.pro.scheduleOrder.admissionDiff"
               :query-model="workOrderAdmissionQueryParams"
               label-width="88px"
-              :filter-definitions="workOrderAdmissionQuickFilterDefinitions"
-              :show-quick-filter-label="false"
-              :quick-filter-state="workOrderAdmissionQuickFilter.state"
-              :selected-filter-definition="workOrderAdmissionQuickFilter.selectedDefinition.value"
-              :operator-options="workOrderAdmissionQuickFilter.operatorOptions.value"
+              :filter-definitions="[]"
+              :show-quick-filter="false"
+              :quick-filter-state="{}"
+              :operator-options="[]"
+              :show-multi-filter="true"
+              :multi-filter-definitions="workOrderAdmissionMultiFilterDefinitions"
+              :multi-filter-state="workOrderAdmissionMultiFilter.state"
+              :show-multi-filter-operators="false"
               :columns="workOrderAdmissionColumns"
               :column-saving="workOrderAdmissionColumnSaving"
               :show-column-settings="false"
@@ -396,24 +399,16 @@
               :total="workOrderAdmissionTotal"
               v-model:page="workOrderAdmissionQueryParams.pageNo"
               v-model:limit="workOrderAdmissionQueryParams.pageSize"
-              @update:quick-filter-state="workOrderAdmissionQuickFilter.updateState"
-              @quick-filter-query="applyWorkOrderAdmissionQuickFilter"
+              @update:multi-filter-state="workOrderAdmissionMultiFilter.updateState"
+              @multi-filter-query="workOrderAdmissionMultiFilter.applyMultiFilter"
+              @multi-filter-reset="workOrderAdmissionMultiFilter.resetMultiFilter"
+              @multi-filter-remove="workOrderAdmissionMultiFilter.removeCondition"
               @column-change="saveWorkOrderAdmissionColumnConfig"
               @column-reset="resetWorkOrderAdmissionColumnConfig"
               @pagination="getWorkOrderAdmissionList"
             >
               <template #actions>
                 <div class="schedule-order-pool__admission-actions schedule-order-pool__admission-bar">
-                  <div class="schedule-order-pool__admission-show-admitted">
-                    <span>显示已入池订单</span>
-                    <el-switch
-                      v-model="workOrderAdmissionShowAdmitted"
-                      @change="handleWorkOrderAdmissionShowAdmittedChange"
-                    />
-                  </div>
-                  <el-button @click="resetWorkOrderAdmissionQuery">
-                    <Icon icon="ep:refresh" class="mr-5px" /> 重置
-                  </el-button>
                   <el-button
                     type="primary"
                     :loading="workOrderAdmissionSaving"
@@ -2211,18 +2206,15 @@ const selectedWorkOrders = ref<MesProScheduleOrderAdmissionDiffRowVO[]>([])
 const workOrderAdmissionTotal = ref(0)
 let workOrderAdmissionRequestSerial = 0
 const DEFAULT_WORK_ORDER_ADMISSION_STATUS = 'READY_TO_ADMIT'
-const workOrderAdmissionShowAdmitted = ref(false)
-const resolveWorkOrderAdmissionStatus = () =>
-  workOrderAdmissionShowAdmitted.value ? undefined : DEFAULT_WORK_ORDER_ADMISSION_STATUS
 const workOrderAdmissionQueryParams = reactive({
   pageNo: 1,
   pageSize: 10,
   workOrderCode: undefined as string | undefined,
   productCode: undefined as string | undefined,
   admissionStatus: DEFAULT_WORK_ORDER_ADMISSION_STATUS as string | undefined,
-  quickFilter: undefined as TableQuickFilterValue | undefined
+  requestDate: undefined as string[] | undefined
 })
-const workOrderAdmissionQuickFilterDefinitions: TableQuickFilterDefinition[] = [
+const workOrderAdmissionMultiFilterDefinitions: ListMultiFilterDefinition[] = [
   {
     key: 'workOrderCode',
     label: '工单编码',
@@ -2237,8 +2229,6 @@ const workOrderAdmissionQuickFilterDefinitions: TableQuickFilterDefinition[] = [
     queryParamKey: 'productCode',
     placeholder: '请输入产品编号'
   },
-  { key: 'productName', label: '产品名称', type: 'text', placeholder: '请输入产品名称' },
-  { key: 'productSpecification', label: '规格型号', type: 'text', placeholder: '请输入规格型号' },
   {
     key: 'admissionStatus',
     label: '入池状态',
@@ -2250,7 +2240,12 @@ const workOrderAdmissionQuickFilterDefinitions: TableQuickFilterDefinition[] = [
       { label: '阻断', value: 'BLOCKED' }
     ]
   },
-  { key: 'requestDate', label: '需求日期', type: 'dateRange' }
+  {
+    key: 'requestDate',
+    label: '需求日期',
+    type: 'dateRange',
+    queryParamKey: 'requestDate'
+  }
 ]
 const replanDrawerVisible = ref(false)
 const replanSettingsDialogVisible = ref(false)
@@ -3386,45 +3381,18 @@ const getWorkOrderAdmissionList = async () => {
   }
 }
 
-const reloadWorkOrderAdmissionQuickFilter = async () => {
-  workOrderAdmissionQueryParams.admissionStatus = resolveWorkOrderAdmissionStatus()
-  await getWorkOrderAdmissionList()
-}
-
-const workOrderAdmissionQuickFilter = useTableQuickFilter(
+const workOrderAdmissionMultiFilter = useTableMultiFilter(
   'mes.pro.scheduleOrder.admissionDiff',
-  workOrderAdmissionQuickFilterDefinitions,
+  workOrderAdmissionMultiFilterDefinitions,
   workOrderAdmissionQueryParams,
-  reloadWorkOrderAdmissionQuickFilter
+  getWorkOrderAdmissionList
 )
-
-const applyWorkOrderAdmissionQuickFilter = async () => {
-  await workOrderAdmissionQuickFilter.applyQuickFilter()
-}
-
-const handleWorkOrderAdmissionQuery = () => {
-  workOrderAdmissionQueryParams.pageNo = 1
-  getWorkOrderAdmissionList()
-}
-
-const handleWorkOrderAdmissionShowAdmittedChange = () => {
-  workOrderAdmissionQueryParams.admissionStatus = resolveWorkOrderAdmissionStatus()
-  handleWorkOrderAdmissionQuery()
-}
-
-const resetWorkOrderAdmissionQuery = () => {
-  workOrderAdmissionQuickFilter.updateState({
-    fieldKey: workOrderAdmissionQuickFilterDefinitions[0]?.key,
-    operator: 'contains',
-    value: undefined
-  })
-  workOrderAdmissionShowAdmitted.value = false
-  workOrderAdmissionQueryParams.workOrderCode = undefined
-  workOrderAdmissionQueryParams.productCode = undefined
-  workOrderAdmissionQueryParams.admissionStatus = DEFAULT_WORK_ORDER_ADMISSION_STATUS
-  delete workOrderAdmissionQueryParams.quickFilter
-  handleWorkOrderAdmissionQuery()
-}
+workOrderAdmissionMultiFilter.setCondition({
+  id: 'admissionStatus',
+  key: 'admissionStatus',
+  operator: 'eq',
+  value: DEFAULT_WORK_ORDER_ADMISSION_STATUS
+})
 
 const handleWorkOrderAdmissionSelectionChange = (rows: MesProScheduleOrderAdmissionDiffRowVO[]) => {
   selectedWorkOrders.value = rows
@@ -5081,14 +5049,6 @@ onMounted(async () => {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-}
-
-.schedule-order-pool__admission-show-admitted {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-  color: #303133;
 }
 
 .schedule-order-pool :deep(.schedule-order-pool__admission-table__cell--wrap .cell) {
