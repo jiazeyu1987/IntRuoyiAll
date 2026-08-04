@@ -15,6 +15,7 @@ import com.hierynomus.msdtyp.SecurityDescriptor;
 import com.hierynomus.msdtyp.ace.ACE;
 import com.hierynomus.msdtyp.ace.AceFlags;
 import com.hierynomus.msdtyp.ace.AceTypes;
+import com.hierynomus.smbj.SmbConfig;
 import com.hierynomus.smbj.share.DiskShare;
 import com.hierynomus.smbj.share.File;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.List;
 import java.util.Set;
@@ -376,6 +378,18 @@ class NasBrowserServiceImplTest {
 
         assertEquals(1, createdSessions.get());
         assertEquals("C/file.txt", result);
+    }
+
+    @Test
+    void testSmbjConfig_failsFastAndDoesNotUseDfsForDirectShareReads() {
+        SmbConfig config = NasBrowserServiceImpl.SmbjNasSessionFactory.buildSmbConfig();
+
+        assertFalse(config.isDfsEnabled());
+        assertFalse(config.isUseMultiProtocolNegotiate());
+        assertTrue(config.getReadTimeout() <= TimeUnit.SECONDS.toMillis(10));
+        assertTrue(config.getTransactTimeout() <= TimeUnit.SECONDS.toMillis(10));
+        assertTrue(config.getWriteTimeout() <= TimeUnit.SECONDS.toMillis(10));
+        assertTrue(config.getSoTimeout() <= TimeUnit.SECONDS.toMillis(10));
     }
 
     @Test

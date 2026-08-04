@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict')
+const crypto = require('node:crypto')
 const fs = require('node:fs')
 const http = require('node:http')
 const https = require('node:https')
@@ -48,7 +49,7 @@ const requiredAuditFileColumns = [
   'selected_import_task_item_id'
 ]
 
-const requiredTaskColumns = ['audit_task_id', 'idempotency_key', 'request_hash']
+const requiredTaskColumns = ['audit_task_id', 'dcc_project_code_id', 'idempotency_key', 'request_hash']
 
 const requiredTaskItemColumns = [
   'audit_file_id',
@@ -366,7 +367,12 @@ function verifySharedNasSourceFiles() {
   const script = String.raw`
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-$payload = [Console]::In.ReadToEnd() | ConvertFrom-Json
+$payloadPath = $env:DCC_NAS_UNCONTROLLED_IMPORT_NAS_PAYLOAD
+if ([string]::IsNullOrWhiteSpace($payloadPath)) {
+  throw "DCC_NAS_UNCONTROLLED_IMPORT_NAS_PAYLOAD is required"
+}
+$payloadJson = [System.IO.File]::ReadAllText($payloadPath, [System.Text.UTF8Encoding]::new($false))
+$payload = $payloadJson | ConvertFrom-Json
 $sql = "SELECT config_key, value FROM infra_config WHERE config_key LIKE 'infra.nas.%' AND deleted=b'0' ORDER BY config_key;"
 $mysqlCommand = 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot --default-character-set=utf8mb4 -N -B "' + $payload.mysqlDatabase + '"'
 $configRows = $sql | docker exec -i $payload.mysqlContainer sh -lc $mysqlCommand
@@ -412,46 +418,68 @@ try {
     if (-not $targetFull.StartsWith($driveRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
       throw "NAS sample target escaped drive root: $relativePath"
     }
-    if (-not [System.IO.File]::Exists($targetFull)) {
+    if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
       throw "Existing NAS source file missing: $relativePath"
     }
-    $item = Get-Item -LiteralPath $targetFull
+    $item = Get-Item -LiteralPath $target
     if ($item.Length -le 0) {
       throw "Existing NAS source file is empty: $relativePath"
     }
-    $stream = [System.IO.File]::Open($targetFull, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
     try {
-      $buffer = [byte[]]::new([Math]::Min(4, [int]$item.Length))
-      [void]$stream.Read($buffer, 0, $buffer.Length)
+      [byte[]]$sourceBytes = Get-Content -LiteralPath $target -Encoding Byte -ReadCount 0
+      $hashBytes = $sha256.ComputeHash($sourceBytes)
     } finally {
-      $stream.Dispose()
+      $sha256.Dispose()
     }
-    Write-Output ("NAS_EXISTING_FILE_READY" + [char]9 + $relativePath + [char]9 + $item.Length)
+    $hashHex = -join ($hashBytes | ForEach-Object { $_.ToString('x2') })
+    Write-Output ("NAS_EXISTING_FILE_READY" + [char]9 + $relativePath + [char]9 + $item.Length + [char]9 + $hashHex)
   }
 } finally {
   Remove-PSDrive -Name $driveName -Force -ErrorAction SilentlyContinue
 }
 `
 
-  const result = spawnSync(
-    'powershell',
-    ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script],
-    {
-      encoding: 'utf8',
-      input: JSON.stringify({
-        mysqlContainer: config.mysqlContainer,
-        mysqlDatabase: config.mysqlDatabase,
-        files: sharedNasSourceFiles
-      }),
-      maxBuffer: 10 * 1024 * 1024
-    }
+  const payloadPath = path.join(os.tmpdir(), `dcc-nas-existing-files-${process.pid}.json`)
+  fs.writeFileSync(
+    payloadPath,
+    JSON.stringify({
+      mysqlContainer: config.mysqlContainer,
+      mysqlDatabase: config.mysqlDatabase,
+      files: sharedNasSourceFiles
+    }),
+    'utf8'
   )
+  const result = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      DCC_NAS_UNCONTROLLED_IMPORT_NAS_PAYLOAD: payloadPath
+    },
+    maxBuffer: 10 * 1024 * 1024
+  })
+  fs.rmSync(payloadPath, { force: true })
   if (result.status !== 0) {
     throw new Error(`verifySharedNasSourceFiles failed: ${result.stderr.trim() || result.stdout.trim()}`)
   }
   const readyLines = result.stdout.split(/\r?\n/).filter((line) => line.startsWith('NAS_EXISTING_FILE_READY\t'))
   assert.equal(readyLines.length, sharedNasSourceFiles.length, 'all selected existing NAS files must be readable')
   return readyLines
+}
+
+function parseNasReadyEvidence(readyLines) {
+  const evidenceByRelativePath = new Map()
+  for (const line of readyLines) {
+    const [, relativePath, lengthText, sha256] = line.split('\t')
+    assert.ok(relativePath, `NAS ready evidence missing relative path: ${line}`)
+    assert.ok(/^\d+$/.test(lengthText || ''), `NAS ready evidence missing length: ${line}`)
+    assert.match(sha256 || '', /^[a-f0-9]{64}$/, `NAS ready evidence missing sha256: ${line}`)
+    evidenceByRelativePath.set(relativePath, {
+      length: Number(lengthText),
+      sha256
+    })
+  }
+  return evidenceByRelativePath
 }
 
 function syncTaskOwnedFixtureToExistingNasFiles() {
@@ -824,6 +852,7 @@ async function installDirectoryPickerHarness(page) {
 
 async function runFullPageFlow() {
   const nasReadyLines = verifySharedNasSourceFiles()
+  const nasReadyEvidence = parseNasReadyEvidence(nasReadyLines)
   syncTaskOwnedFixtureToExistingNasFiles()
   resetTaskOwnedFixture()
 
@@ -832,20 +861,30 @@ async function runFullPageFlow() {
     headless: true
   })
   const requestEvents = []
+  const responseEvents = []
   try {
     const page = await browser.newPage()
     await installDirectoryPickerHarness(page)
+    const classifyImportRequest = (url) => {
+      if (url.includes('/admin-api/dcc/controlled-files/nas-control-audit/') && url.includes('/import-selected')) return 'import-selected'
+      if (url.includes('/admin-api/dcc/controlled-files/nas-uncontrolled-import/') && url.includes('/content')) return 'content'
+      if (url.includes('/admin-api/dcc/controlled-files/nas-uncontrolled-import/') && url.includes('/local-write-result')) return 'local-write-result'
+      return ''
+    }
     page.on('request', (request) => {
-      const url = request.url()
-      if (url.includes('/admin-api/dcc/controlled-files/nas-control-audit/') && url.includes('/import-selected')) {
-        requestEvents.push({ type: 'import-selected', method: request.method(), url })
+      const type = classifyImportRequest(request.url())
+      if (type) requestEvents.push({ type, method: request.method(), url: request.url() })
+    })
+    page.on('response', async (response) => {
+      const type = classifyImportRequest(response.url())
+      if (!type) return
+      let body = ''
+      try {
+        body = (await response.text()).slice(0, 1000)
+      } catch (error) {
+        body = error.message
       }
-      if (url.includes('/admin-api/dcc/controlled-files/nas-uncontrolled-import/') && url.includes('/content')) {
-        requestEvents.push({ type: 'content', method: request.method(), url })
-      }
-      if (url.includes('/admin-api/dcc/controlled-files/nas-uncontrolled-import/') && url.includes('/local-write-result')) {
-        requestEvents.push({ type: 'local-write-result', method: request.method(), url })
-      }
+      responseEvents.push({ type, status: response.status(), body })
     })
 
     await login(page)
@@ -858,8 +897,9 @@ async function runFullPageFlow() {
     const dialog = page.locator('.el-dialog:visible').filter({ hasText: '统计未受控文件' }).first()
     await dialog.waitFor({ state: 'visible', timeout: 30000 })
     await dialog.getByText('未受控文件下载与归类').waitFor({ state: 'visible', timeout: 30000 })
-    await dialog.getByText('Design-Drawing-MATCHED.pdf').waitFor({ state: 'visible', timeout: 30000 })
-    await dialog.getByText('Needs-Manual-Project.pdf').waitFor({ state: 'visible', timeout: 30000 })
+    for (const file of sharedNasSourceFiles) {
+      await dialog.getByText(path.basename(file.relativePath)).first().waitFor({ state: 'visible', timeout: 30000 })
+    }
     await dialog.getByText('_未分类待处理').waitFor({ state: 'visible', timeout: 30000 })
 
     for (const file of sharedNasSourceFiles.filter((item) => item.selectForFullFlow)) {
@@ -868,21 +908,43 @@ async function runFullPageFlow() {
         .filter({ hasText: file.relativePath })
         .first()
       await row.waitFor({ state: 'visible', timeout: 30000 })
-      await row.locator('.el-checkbox__input').first().click()
+      const checkbox = row.locator('.el-checkbox__inner').first()
+      await checkbox.click()
+      await assertEventually(async () => {
+        assert.equal(
+          await row.locator('.el-checkbox__input.is-checked').count(),
+          1,
+          'row must be selected before import'
+        )
+      }, 10000)
     }
 
     const downloadButton = dialog.getByRole('button', { name: '下载选中文件到本地并归类' }).first()
     await assertEventually(async () => {
-      assert.equal(await downloadButton.isEnabled(), true, 'download selected button must be enabled')
+      const buttonClass = (await downloadButton.getAttribute('class')) || ''
+      assert.equal(buttonClass.includes('is-disabled'), false, 'download selected button must not be disabled')
     }, 10000)
     await downloadButton.click()
 
+    await assertEventually(async () => {
+      const errorText = await dialog.locator('.el-alert:visible').textContent().catch(() => '')
+      assert.ok(
+        requestEvents.some((event) => event.type === 'import-selected'),
+        'import-selected request did not fire; page error=' + errorText
+      )
+    }, 10000)
+
     await assertEventually(() => {
-      const state = assertFinalDatabaseState()
-      assert.equal(state.summary.LOCAL_WRITTEN_ITEMS, 2)
+      try {
+        const state = assertFinalDatabaseState()
+        assert.equal(state.summary.LOCAL_WRITTEN_ITEMS, 2)
+      } catch (error) {
+        error.message += '; requests=' + JSON.stringify(requestEvents) + '; responses=' + JSON.stringify(responseEvents)
+        throw error
+      }
     }, 60000)
 
-    await loadAndAssertLocalFiles()
+    await loadAndAssertLocalFiles(nasReadyEvidence)
 
     const harnessEvents = await page.evaluate(() => window.__dccNasUncontrolledImportHarnessEvents || [])
     for (const requiredEvent of ['showDirectoryPicker', 'getDirectoryHandle', 'getFileHandle', 'createWritable', 'write', 'close']) {
@@ -928,13 +990,19 @@ async function assertEventually(assertion, timeoutMs) {
   throw lastError
 }
 
-async function loadAndAssertLocalFiles() {
+async function loadAndAssertLocalFiles(nasReadyEvidence) {
   for (const file of sharedNasSourceFiles.filter((item) => item.selectForFullFlow)) {
     const target = safeJoin(config.localDir, file.expectedLocalRelativePath)
     assert.ok(fs.existsSync(target), `local file missing: ${file.expectedLocalRelativePath}`)
     const content = fs.readFileSync(target)
-    assert.ok(content.length > 0, `local file is empty: ${file.expectedLocalRelativePath}`)
-    assert.equal(content.subarray(0, 4).toString('utf8'), '%PDF')
+    const sourceEvidence = nasReadyEvidence.get(file.relativePath)
+    assert.ok(sourceEvidence, `NAS ready evidence missing for local file: ${file.relativePath}`)
+    assert.equal(content.length, sourceEvidence.length, `local file length changed: ${file.expectedLocalRelativePath}`)
+    assert.equal(
+      crypto.createHash('sha256').update(content).digest('hex'),
+      sourceEvidence.sha256,
+      `local file sha256 changed: ${file.expectedLocalRelativePath}`
+    )
   }
 }
 

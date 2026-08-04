@@ -97,10 +97,10 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void uploadResponseContract_exposesUploadTicketOnlyAsBindingCredential() throws Exception {
+    void uploadResponseContract_exposesUploadTicketAndSignedOnlyOfficeDocumentUrlWithoutFileId() throws Exception {
         assertTrue(hasBeanProperty(DccControlledFileUploadRespVO.class, "uploadTicket"));
         assertFalse(hasBeanProperty(DccControlledFileUploadRespVO.class, "fileId"));
-        assertFalse(hasBeanProperty(DccControlledFileUploadRespVO.class, "onlyofficeDocumentUrl"));
+        assertTrue(hasBeanProperty(DccControlledFileUploadRespVO.class, "onlyofficeDocumentUrl"));
     }
 
     @Test
@@ -266,6 +266,42 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         assertEquals("10.0.0.9", auditCaptor.getValue().sourceIp());
         assertEquals("REQ-UPLOAD-SUCCESS", auditCaptor.getValue().requestId());
         assertEquals("JUnit", auditCaptor.getValue().userAgent());
+    }
+
+    @Test
+    void uploadPreviewFile_sourceXlsx_withOnlyOfficeConfigReturnsSignedDocumentUrl() throws Exception {
+        DccOnlyOfficePreviewProperties properties = configuredOnlyOfficeProperties();
+        ReflectionTestUtils.setField(uploadService, "onlyOfficePreviewProperties", properties);
+        DccControlledFileUploadPreviewReqVO reqVO = uploadReq("SOURCE",
+                new MockMultipartFile("files", "report.xlsx",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        "xlsx".getBytes()));
+        mockSizePolicy("SOURCE", 4L);
+        when(fileService.createFile(eq("xlsx".getBytes()), eq("report.xlsx"), eq("dcc/original"),
+                eq("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")))
+                .thenReturn("http://test.yudao.iocoder.cn/dcc/original/report.xlsx");
+        doReturn(FileDO.builder().id(104L).name("report.xlsx")
+                .url("http://test.yudao.iocoder.cn/dcc/original/report.xlsx").build())
+                .when(fileMapper).selectFirstOne(org.mockito.ArgumentMatchers.<SFunction<FileDO, ?>>any(),
+                        eq("http://test.yudao.iocoder.cn/dcc/original/report.xlsx"));
+        when(watermarkService.build(99L, "preview", "report.xlsx"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+        when(uploadTicketService.createTicket(any())).thenReturn(new DccUploadTicketCreated(
+                "UT-20260803-0001", "session-1", "SOURCE", "AVAILABLE",
+                LocalDateTime.of(2026, 8, 3, 12, 30)));
+        when(onlyOfficePreviewTokenService.issue(DccOnlyOfficePreviewTokenService.RESOURCE_UPLOAD_PREVIEW, 104L))
+                .thenReturn("signed-upload-preview-token");
+
+        DccControlledFileUploadRespVO respVO = uploadService.uploadPreviewFile(99L, reqVO,
+                auditContext("REQ-XLSX-ONLYOFFICE"));
+
+        assertEquals("OFFICE", respVO.getPreviewKind());
+        assertEquals("http://onlyoffice.local", respVO.getOnlyofficeBaseUrl());
+        assertEquals("http://host.docker.internal:48081/admin-api/dcc/controlled-files/upload-preview/104"
+                        + "/onlyoffice-file?token=signed-upload-preview-token",
+                readBeanProperty(respVO, "onlyofficeDocumentUrl"));
+        assertNull(respVO.getPreviewUnavailableReason());
+        verify(onlyOfficePreviewTokenService).issue(DccOnlyOfficePreviewTokenService.RESOURCE_UPLOAD_PREVIEW, 104L);
     }
 
     @Test
@@ -516,6 +552,15 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
                 .anyMatch(descriptor -> propertyName.equals(descriptor.getName()));
     }
 
+    private Object readBeanProperty(Object bean, String propertyName) throws Exception {
+        return Arrays.stream(Introspector.getBeanInfo(bean.getClass()).getPropertyDescriptors())
+                .filter(descriptor -> propertyName.equals(descriptor.getName()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing bean property: " + propertyName))
+                .getReadMethod()
+                .invoke(bean);
+    }
+
     private boolean hasJsonProperty(Class<?> clazz, String propertyName) {
         ObjectMapper objectMapper = new ObjectMapper();
         return objectMapper.getSerializationConfig()
@@ -531,6 +576,14 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         Schema schema = field.getAnnotation(Schema.class);
         assertNotNull(schema);
         assertTrue(schema.hidden());
+    }
+
+    private DccOnlyOfficePreviewProperties configuredOnlyOfficeProperties() {
+        DccOnlyOfficePreviewProperties properties = new DccOnlyOfficePreviewProperties();
+        properties.setBaseUrl("http://onlyoffice.local/");
+        properties.setJwtSecret("unit-test-secret");
+        properties.setPublicFileBaseUrl("http://host.docker.internal:48081/");
+        return properties;
     }
 
     private static final class ReadFailingMultipartFile implements MultipartFile {

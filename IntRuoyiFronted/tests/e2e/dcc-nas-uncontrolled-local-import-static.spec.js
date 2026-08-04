@@ -123,11 +123,17 @@ assert.doesNotMatch(
   /请先选择已唯一匹配的未受控文件/,
   'local download selection prompt must not exclude 未分类/待处理 rows that have a pending local path.'
 )
+assert.match(
+  nasPage,
+  /selectionScope:\s*'EXPLICIT_SELECTED_FILES'/,
+  'frontend must send the backend import-selected selection scope contract.'
+)
 
 for (const realGateToken of [
   'dcc_nas_control_audit_file',
   'dcc_controlled_file_nas_transfer_task',
   'dcc_controlled_file_nas_transfer_task_item',
+  'dcc_project_code_id',
   'selected_import_task_id',
   'selected_import_task_item_id',
   'archive_category_id_snapshot',
@@ -157,6 +163,12 @@ for (const realGateToken of [
 
 assert.match(
   realE2E,
+  /const requiredTaskColumns = \[[\s\S]*'dcc_project_code_id'[\s\S]*\]/,
+  'real E2E schema gate must include transfer task dcc_project_code_id because the backend mapper selects it.'
+)
+
+assert.match(
+  realE2E,
   /process\.exit\(1\)[\s\S]*DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_CHECK_PASS/,
   'real E2E gate must fail fast on blockers and only print PASS after all preconditions pass.'
 )
@@ -169,6 +181,16 @@ assert.doesNotMatch(
   realE2E,
   /DCC_NAS_UNCONTROLLED_IMPORT_ALLOW_NAS_WRITE|WriteAllBytes|New-Item\s+-ItemType\s+Directory/i,
   'full real E2E must verify existing shared NAS source files without creating or overwriting NAS files.'
+)
+assert.match(
+  realE2E,
+  /System\.Security\.Cryptography\.SHA256[\s\S]*local file sha256 changed/,
+  'full real E2E must prove local files match existing NAS source bytes by SHA-256 instead of extension assumptions.'
+)
+assert.doesNotMatch(
+  realE2E,
+  /subarray\(0,\s*4\)[\s\S]*%PDF/,
+  'full real E2E must not assume existing NAS files with .pdf names start with the %PDF magic header.'
 )
 assert.match(
   realE2E,

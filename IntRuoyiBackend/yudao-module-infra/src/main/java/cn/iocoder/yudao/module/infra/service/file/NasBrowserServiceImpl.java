@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.hierynomus.msfscc.FileAttributes;
 import com.hierynomus.msfscc.fileinformation.FileIdBothDirectoryInformation;
 import com.hierynomus.smbj.SMBClient;
+import com.hierynomus.smbj.SmbConfig;
 import com.hierynomus.smbj.auth.AuthenticationContext;
 import com.hierynomus.smbj.connection.Connection;
 import com.hierynomus.smbj.session.Session;
@@ -38,6 +39,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_NAS_ACL_READ_FAILED;
@@ -530,10 +532,12 @@ public class NasBrowserServiceImpl implements NasBrowserService {
 
     static final class SmbjNasSessionFactory implements NasSessionFactory {
 
+        private static final long DIRECT_SHARE_TIMEOUT_SECONDS = 10;
+
         @Override
         public NasSession create(NasConnectionConfig config) {
             try {
-                SMBClient client = new SMBClient();
+                SMBClient client = new SMBClient(buildSmbConfig());
                 Connection connection = client.connect(config.server(), config.port());
                 AuthenticationContext auth = new AuthenticationContext(
                         config.username(),
@@ -569,6 +573,16 @@ public class NasBrowserServiceImpl implements NasBrowserService {
                 return NasBrowserException.connectFailed(config.server(), ex);
             }
             return NasBrowserException.readFailed(StrUtil.blankToDefault(ex.getMessage(), ex.getClass().getSimpleName()), ex);
+        }
+
+        @VisibleForTesting
+        static SmbConfig buildSmbConfig() {
+            return SmbConfig.builder()
+                    .withDfsEnabled(false)
+                    .withMultiProtocolNegotiate(false)
+                    .withTimeout(DIRECT_SHARE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .withSoTimeout(DIRECT_SHARE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .build();
         }
     }
 

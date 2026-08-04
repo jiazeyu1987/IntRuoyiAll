@@ -341,6 +341,7 @@ const props = defineProps<{
   previewBlob?: Blob | Uint8Array | null
   previewKind?: ControlledFilePreviewKind | null
   onlyofficeBaseUrl?: string
+  onlyofficeDocumentUrl?: string
   previewUnavailableReason?: string
   watermark?: ControlledPreviewWatermark | null
   title?: string
@@ -633,7 +634,7 @@ const loadPreview = async () => {
   resolvedPreviewMetadata.value = null
   resolvedPreviewKind.value = ''
   resolvedOnlyOfficeBaseUrl.value = props.onlyofficeBaseUrl || ''
-  resolvedOnlyOfficeDocumentUrl.value = ''
+  resolvedOnlyOfficeDocumentUrl.value = props.onlyofficeDocumentUrl || ''
   resolvedPreviewUnavailableReason.value = props.previewUnavailableReason || ''
   resolvedFileName.value = props.title || ''
   await resetPreviewState()
@@ -714,6 +715,7 @@ watch(
     props.previewBlob,
     props.previewKind,
     props.onlyofficeBaseUrl,
+    props.onlyofficeDocumentUrl,
     props.previewUnavailableReason,
     props.watermark?.text,
     props.watermark?.traceCode

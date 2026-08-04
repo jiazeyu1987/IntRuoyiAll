@@ -356,6 +356,7 @@
                 :preview-blob="previewFileBlob"
                 :preview-kind="previewUpload.previewKind || 'PDF'"
                 :onlyoffice-base-url="previewUpload.onlyofficeBaseUrl"
+                :onlyoffice-document-url="previewUpload.onlyofficeDocumentUrl"
                 :preview-unavailable-reason="previewUpload.previewUnavailableReason"
                 :title="previewUpload?.fileName || previewFileBlob?.name || '受控文件预览'"
                 :watermark="previewUpload?.watermark || null"

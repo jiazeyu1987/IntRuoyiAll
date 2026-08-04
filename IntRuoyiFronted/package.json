@@ -134,6 +134,8 @@
     "e2e:dcc:upload-name-version-autofill:static": "node tests/e2e/dcc-upload-name-version-autofill-static.spec.js",
     "e2e:dcc:upload-current-version:static": "node tests/e2e/dcc-upload-current-version-static.spec.js",
     "e2e:dcc:upload-governance-ux:static": "node tests/e2e/dcc-upload-governance-ux-static.spec.js",
+    "e2e:dcc:upload-onlyoffice-document-url:static": "node tests/e2e/dcc-upload-onlyoffice-document-url-static.spec.js",
+    "e2e:dcc:upload-onlyoffice-document-url:real": "node tests/e2e/dcc-upload-onlyoffice-document-url-real.e2e.js",
     "e2e:dcc:upload-current-version:real": "node tests/e2e/dcc-upload-current-version-real.e2e.js",
     "e2e:dcc:doc-control-path-confirmation:static": "node tests/e2e/dcc-doc-control-path-confirmation-static.spec.js",
     "e2e:dcc:doc-control-department-distribution:static": "node tests/e2e/dcc-doc-control-department-distribution-static.spec.js",

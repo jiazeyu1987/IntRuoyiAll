@@ -128,6 +128,7 @@ export interface ControlledFileUploadRespVO {
   contentType: string
   previewKind?: ControlledFilePreviewKind
   onlyofficeBaseUrl?: string
+  onlyofficeDocumentUrl?: string
   previewUnavailableReason?: string
   fileSize: number
   watermarkTraceCode?: string | null
@@ -1013,8 +1014,7 @@ const DCC_FORBIDDEN_FILE_CAPABILITY_FIELDS = [
 ] as const
 
 const DCC_UPLOAD_RESPONSE_FORBIDDEN_FIELDS = [
-  ...DCC_FORBIDDEN_FILE_CAPABILITY_FIELDS,
-  'onlyofficeDocumentUrl'
+  ...DCC_FORBIDDEN_FILE_CAPABILITY_FIELDS
 ] as const
 
 const DCC_DOWNLOAD_REQUIRED_RESPONSE_HEADERS = [
@@ -1237,6 +1237,7 @@ export const parseControlledFileUploadResp = (data: unknown): ControlledFileUplo
     contentType: assertRequiredString(payload, 'contentType', 'DCC upload'),
     previewKind: readOptionalPreviewKind(payload, 'previewKind'),
     onlyofficeBaseUrl: readOptionalString(payload, 'onlyofficeBaseUrl'),
+    onlyofficeDocumentUrl: readOptionalString(payload, 'onlyofficeDocumentUrl'),
     previewUnavailableReason: readOptionalString(payload, 'previewUnavailableReason'),
     fileSize: assertRequiredNumber(payload, 'fileSize', 'DCC upload'),
     watermarkTraceCode: readOptionalNullableString(payload, 'watermarkTraceCode'),

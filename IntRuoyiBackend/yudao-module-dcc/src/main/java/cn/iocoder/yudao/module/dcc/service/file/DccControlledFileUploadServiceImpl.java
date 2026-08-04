@@ -166,6 +166,11 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             return;
         }
         respVO.setOnlyofficeBaseUrl(trimTrailingSlash(onlyOfficePreviewProperties.getBaseUrl()));
+        String token = onlyOfficePreviewTokenService.issue(DccOnlyOfficePreviewTokenService.RESOURCE_UPLOAD_PREVIEW,
+                storedFile.getId());
+        respVO.setOnlyofficeDocumentUrl(trimTrailingSlash(onlyOfficePreviewProperties.getPublicFileBaseUrl())
+                + "/admin-api/dcc/controlled-files/upload-preview/" + storedFile.getId()
+                + "/onlyoffice-file?token=" + token);
     }
 
     private void validatePreviewSession(String sessionId) {

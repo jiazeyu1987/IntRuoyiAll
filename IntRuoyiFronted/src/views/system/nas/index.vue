@@ -1558,7 +1558,7 @@ const handleDownloadSelectedNasUncontrolledFilesToLocal = async () => {
     const selectedFiles = buildNasUncontrolledImportSelectedFiles()
     const directoryHandle = await requestNasUncontrolledDirectoryHandle()
     const importTask = await importSelectedNasUncontrolledFiles(auditTaskId, {
-      selectionScope: 'EXPLICIT_SELECTED',
+      selectionScope: 'EXPLICIT_SELECTED_FILES',
       idempotencyKey: createNasUncontrolledImportIdempotencyKey(),
       selectedFiles
     })
