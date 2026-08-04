@@ -92,7 +92,7 @@ ready_for_closeout
 
 M35 已按用户最新范围完成：不再创建或覆盖共享 NAS 文件，改用 `\\172.30.30.4\质量体系文件` 下 3 个已存在文件完成真实页面 full E2E。验证通过 `pnpm e2e:dcc:nas-uncontrolled-local-import:static`、`$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real:check` 和 `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real`；full E2E 生成本地文件 `PTCABC/设计验证方案/2025年质量方针与目标.pdf` 与 `_未分类待处理/1. QMS documents/0 QM/2026年质量方针与目标(1).pdf`，并通过 SHA-256 证明本地字节等于 NAS 源字节。只读 DB 核验证明 audit row 1 为 `LOCAL_WRITTEN/FAILED/ARCHIVE_METADATA_REQUIRED`，audit row 2 为 `LOCAL_WRITTEN/PENDING_MANUAL_REVIEW`，`NAS_UNCONTROLLED_IMPORT` 任务数为 1、local-written items 为 2，目标路径 ACTIVE NAS 来源映射数为 0。
 
-cleanup preview/apply 已完成，复跑 preview 显示 delete/blocked/warnings 均为 `<none>`，核心任务记录、summary 和重启脚本按 `Cleanup Keep` 保留。用户已要求“先提交前后端然后融合合并”，前后端基线提交 `a564e19cc` 已完成；最终 `completed` 仍需等待本任务文档证据提交、`origin/int_main` 融合合并、push 成功并确认分支不再 ahead。当前 fetch/push 还受到本机 GitHub 代理连接 `127.0.0.1` 失败影响，需在后续收尾中继续处理。
+cleanup preview/apply 已完成，复跑 preview 显示 delete/blocked/warnings 均为 `<none>`，核心任务记录、summary 和重启脚本按 `Cleanup Keep` 保留。用户已要求“先提交前后端然后融合合并”：前后端基线提交 `a564e19cc`、本任务文档证据提交 `231dddee7`、本地两轮 `origin/int_main` 融合合并 `d865d4189` 和 `6db2b752f` 已完成；合并后 `pnpm e2e:dcc:nas-uncontrolled-local-import:static` 复验通过。最终 `completed` 仍需等待 GitHub HTTPS 连接恢复、`git push origin int_main` 成功并确认分支不再 ahead；当前直连 GitHub 443 超时，8902 代理路径返回 connection reset。
 
 ## 设计约束检查
 
