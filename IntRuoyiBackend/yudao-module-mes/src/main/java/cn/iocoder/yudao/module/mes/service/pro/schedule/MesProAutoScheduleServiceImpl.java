@@ -463,6 +463,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
 
     private List<EdhrScheduleCompletionCreateCommand> buildEdhrBatchExecutionCompletionCommands(ScheduleComputation computation) {
         List<EdhrScheduleCompletionCreateCommand> commands = new ArrayList<>();
+        Set<Long> blockedWorkOrderIds = blockingWorkOrderIds(computation.issues);
         Map<Long, MesProWorkOrderDO> workOrderMap = computation.scheduleOrders.stream()
                 .map(MesProScheduleOrderDO::getWorkOrderId)
                 .filter(Objects::nonNull)
@@ -479,7 +480,8 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                 .filter(this::hasEnabledEdhrBatchConfig)
                 .collect(Collectors.toSet());
         for (MesProScheduleOrderDO scheduleOrder : computation.scheduleOrders) {
-            if (computation.latestStartRejectedPlans.containsKey(scheduleOrder.getWorkOrderId())
+            if (blockedWorkOrderIds.contains(scheduleOrder.getWorkOrderId())
+                    || computation.latestStartRejectedPlans.containsKey(scheduleOrder.getWorkOrderId())
                     || CollUtil.isEmpty(computation.finalSteps.get(scheduleOrder.getWorkOrderId()))
                     || !edhrEnabledRouteIds.contains(scheduleOrder.getRouteId())) {
                 continue;
@@ -4090,7 +4092,11 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
 
     private List<ScheduleApplier.ScheduleOrderPlanFieldUpdate> buildScheduleOrderPlanFieldUpdates(ScheduleComputation computation) {
         List<ScheduleApplier.ScheduleOrderPlanFieldUpdate> updates = new ArrayList<>();
+        Set<Long> blockedWorkOrderIds = blockingWorkOrderIds(computation.issues);
         for (MesProScheduleOrderDO scheduleOrder : computation.scheduleOrders) {
+            if (blockedWorkOrderIds.contains(scheduleOrder.getWorkOrderId())) {
+                continue;
+            }
             List<PreviewStep> steps = computation.finalSteps.getOrDefault(scheduleOrder.getWorkOrderId(), Collections.emptyList());
             if (CollUtil.isEmpty(steps)) {
                 ScheduleApplier.ScheduleOrderPlanFieldUpdate rejectedUpdate =
@@ -4848,7 +4854,11 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                                                     Map<String, MesProScheduleOrderDO> scheduleOrderByWorkOrderId,
                                                     Map<String, MesProScheduleOrderProcessDO> scheduleOrderProcessByWorkOrderProcess) {
         List<ScheduleApplier.PreservedTaskScheduleRelation> relations = new ArrayList<>();
+        Set<Long> blockedWorkOrderIds = blockingWorkOrderIds(computation.issues);
         for (MesProTaskDO preservedTask : computation.preservedTasks) {
+            if (blockedWorkOrderIds.contains(preservedTask.getWorkOrderId())) {
+                continue;
+            }
             Long scheduleOrderId = resolveScheduleOrderId(scheduleOrderByWorkOrderId, preservedTask.getWorkOrderId());
             Long scheduleOrderProcessId = resolveScheduleOrderProcessId(
                     scheduleOrderProcessByWorkOrderProcess, preservedTask.getWorkOrderId(), preservedTask.getProcessId(), null);
