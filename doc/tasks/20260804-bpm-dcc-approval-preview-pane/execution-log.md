@@ -37,6 +37,9 @@
 - IMPLEMENTATION_COMMIT: `e976d3f8e` -> committed task-owned source, test, package script, and retained task records only.
 - PUSH_PREFLIGHT: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
 - PUSH_BLOCKER: `git push origin int_main` -> FAIL, `Failed to connect to github.com port 443 via 127.0.0.1`; impact: local branch remains ahead of `origin/int_main`, task cannot be marked completed.
+- PUSH_RECOVERY: `git config --show-origin --get-regexp "^(http|https)\.(proxy|sslVerify|version|postBuffer)|^url\..*\.insteadOf$"` -> found `http.https://github.com.proxy=http://127.0.0.1:7890`; `Test-NetConnection 127.0.0.1 -Port 7890` -> FAIL; `Test-NetConnection github.com -Port 443` -> FAIL for direct TCP 443.
+- PUSH_RECOVERY: `Get-NetTCPConnection -State Listen` -> found `clash-win64` listening on `127.0.0.1:8902`; `git -c http.https://github.com.proxy=http://127.0.0.1:8902 ls-remote origin HEAD` -> PASS, remote HEAD `93f935f093b5e072ee322aca54c5cfa4d48b0b74`.
+- REMOTE_SYNC: `git -c http.https://github.com.proxy=http://127.0.0.1:8902 fetch origin int_main` -> PASS; `git rev-parse HEAD` and `git rev-parse origin/int_main` both returned `93f935f093b5e072ee322aca54c5cfa4d48b0b74`; `git status --short --branch` no longer reports `ahead`.
 
 ## Milestone Updates
 
@@ -46,9 +49,9 @@
 - completed: M3 聚焦静态合同、相邻回归合同、`pnpm ts:check` 和 `git diff --check` 均通过。
 - completed: M4 保留验证报告已记录技能 validator PASS 和关键验收结论。
 - completed_local: cleanup 和实现提交完成。
-- blocked: GitHub 443 本机代理连接失败，等待网络/代理恢复后重新推送。
+- completed: 远端已包含本任务实现提交；通过临时 `127.0.0.1:8902` 代理刷新 `origin/int_main` 后确认本地不再领先远端。
 
 ## Blockers
 
-- GitHub 443 经本机 `127.0.0.1` 代理不可达，`git push origin int_main` 失败。
-- 仍有非本任务并行改动留在工作区；本任务提交未混入这些文件。
+- None for this task.
+- NOTE: 仍有非本任务并行改动留在工作区；本任务提交和收尾提交仅选择性暂存本任务文件，未混入这些文件。

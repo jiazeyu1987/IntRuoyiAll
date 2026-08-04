@@ -46,6 +46,6 @@
 
 ## Current Status
 
-blocked
+completed
 
-实现、聚焦验证、相邻回归、类型检查、技能证据校验、cleanup 和本地实现提交均已完成。`git push origin int_main` 因本机代理 `127.0.0.1` 无法连接 GitHub 443 失败，本地分支仍领先 `origin/int_main`，按项目规则任务不能标记为 completed。
+实现、聚焦验证、相邻回归、类型检查、技能证据校验、cleanup、本地实现提交和远端同步确认均已完成。2026-08-05 复核发现 Git 全局 GitHub 专用代理仍指向未监听的 `127.0.0.1:7890`，但本机 `clash-win64` 实际监听 `127.0.0.1:8902`；通过临时代理参数刷新 `origin/int_main` 后确认本地 `HEAD` 与远端跟踪分支一致，本任务可标记为 completed。
