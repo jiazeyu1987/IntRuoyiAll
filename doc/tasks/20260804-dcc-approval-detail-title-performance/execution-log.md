@@ -31,3 +31,24 @@
 - PREFLIGHT: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
 - PUSH_BLOCKER: `git push origin int_main` -> FAIL, expected impact: GitHub 443 连接经本机 `127.0.0.1` 代理失败，本地 `int_main` 仍领先 `origin/int_main`，按项目规则任务不能标记为 completed。
 - STATUS: implementation, verification, cleanup, and local commits complete; final remote delivery blocked by GitHub connectivity/proxy precondition.
+- USER_INTENT_UPDATE: 用户要求删除截图红框中的“流程图”和“流转记录”，进一步加快 BPM/DCC 审批详情页加载速度。
+- PREFLIGHT: 本轮继续使用 `frontend-feature-delivery` 与 `bug-regression-fix-loop`；已读取前端、E2E、任务收尾、PowerShell 编码、PowerShell/Git 与分支端口规则。
+- BASELINE: 开始本轮实现前，保存并行脏工作区基线 `0cb7335da` 和 `46e0670a7`，后续只选择性暂存本任务文件。
+- BDD: 删除非首屏审批 Tab -> Given 用户从 DCC 审批详情进入 BPM 审批页, When 页面首屏渲染, Then 页面只展示审批详情内容，不再显示“流程图”“流转记录”Tab。
+- BDD: 移除额外加载链路 -> Given 审批详情不再提供流程图和流转记录入口, When 页面加载审批详情, Then 前端不再保留流程图 viewer、任务列表组件、流程图状态或 BPMN 模型视图请求链路。
+- RED: `node tests/e2e/bpm-dcc-approval-detail-title-performance-static.spec.js` -> FAIL, expected reason: 旧源码仍包含 `<el-tabs v-model="activeTab">` 和“流程图/流转记录”相关链路。
+- IMPLEMENTATION: 删除 BPM 审批详情页流程图/流转记录 Tab、`ProcessInstanceSimpleViewer`、`ProcessInstanceBpmnViewer`、`ProcessInstanceTaskList`、`activeTab` watcher、流程图状态和 `getProcessInstanceBpmnModelView` 调用链；保留审批详情、DCC 摘要、右侧当前审批时间线、底部审批操作按钮和文控正式处理入口。
+- GREEN: `node tests/e2e/bpm-dcc-approval-detail-title-performance-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/approval-center-chinese-copy-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/dcc-bpm-dcc-approval-viewer-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/form-center-bpm-dcc-approval-bypass-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/bpm-process-timeline-current-node-green-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- PROJECT_EXPERIENCE: 已读取 `project-experience-consolidation` 技能；将“用户明确删除 Tab 后不得只隐藏，必须移除 pane、组件、状态 watch 和专属 API 请求”的经验合并到 `docs/frontend-development.md#前端同路由多入口分面门禁`，并更新 `docs/experience-index.md`。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-dcc-approval-detail-title-performance/frontend-feature-evidence.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260804-dcc-approval-detail-title-performance/bug-regression-evidence.md` -> PASS。
+- GREEN: `git diff --check -- <task-owned files>` -> PASS，只有 Git LF/CRLF working-copy warnings。
+- STATUS: implementation and required verification complete; marked task `ready_for_closeout` pending cleanup preview/apply, selective commit, and push.
+- CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode preview` -> PASS，keep task/execution/verification，delete本轮 evidence files only。
+- CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode apply` -> PASS，deleted本轮 `bug-regression-evidence.md` and `frontend-feature-evidence.md` after validator summaries were copied into retained reports。
+- STATUS: cleanup complete; task status set to `blocked_on_push` because local verification is complete but remote push remains blocked by GitHub 443 local proxy connectivity.

@@ -35,20 +35,35 @@ assert.doesNotMatch(
   'BPM detail header must not directly render processInstance.name'
 )
 
-assert.match(
+assert.doesNotMatch(
   detailSource,
-  /const processModelViewLoaded\s*=\s*ref\(false\)/,
-  'BPM detail must track whether the process diagram has been loaded'
+  /<el-tabs[\s\S]*v-model="activeTab"/,
+  'BPM detail must not render extra tabs when only approval detail is required'
 )
-assert.match(
+assert.doesNotMatch(
   detailSource,
-  /const ensureProcessModelViewLoaded\s*=\s*async\s*\(\s*\)\s*=>/,
-  'BPM detail must load the process diagram through a lazy ensure function'
+  /<el-tab-pane[^>]*label="流程图"[^>]*name="diagram"/,
+  'BPM detail must remove the process diagram tab'
 )
-assert.match(
+assert.doesNotMatch(
   detailSource,
-  /watch\(\s*activeTab[\s\S]*activeName\s*===\s*'diagram'[\s\S]*ensureProcessModelViewLoaded\(\)/,
-  'BPM detail must load the diagram only after the diagram tab is opened'
+  /<el-tab-pane[^>]*label="流转记录"[^>]*name="record"/,
+  'BPM detail must remove the transfer record tab'
+)
+assert.doesNotMatch(
+  detailSource,
+  /ProcessInstance(?:Simple|Bpmn)Viewer|ProcessInstanceTaskList/,
+  'BPM detail must not import or render diagram/task-list components after removing those tabs'
+)
+assert.doesNotMatch(
+  detailSource,
+  /processModelView|processModelViewLoaded|processModelViewLoading|getProcessModelView|ensureProcessModelViewLoaded|getProcessInstanceBpmnModelView/,
+  'BPM detail must remove process diagram state and API calls from this first-screen page'
+)
+assert.doesNotMatch(
+  detailSource,
+  /const activeTab\s*=\s*ref|watch\(\s*activeTab/,
+  'BPM detail must not keep tab state or tab watchers after deleting extra tabs'
 )
 
 const getDetailStart = detailSource.indexOf('const getDetail = () => {')
@@ -58,8 +73,8 @@ assert.ok(getDetailEnd > getDetailStart, 'BPM detail getDetail block must be rea
 const getDetailBlock = detailSource.slice(getDetailStart, getDetailEnd)
 assert.doesNotMatch(
   getDetailBlock,
-  /getProcessModelView\(\)/,
-  'BPM detail initial load must not eagerly request the process diagram'
+  /activeTab|processModelView|getProcessModelView\(\)/,
+  'BPM detail initial load must not prepare or request the removed process diagram'
 )
 
 assert.doesNotMatch(

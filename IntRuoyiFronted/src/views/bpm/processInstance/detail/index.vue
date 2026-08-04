@@ -39,10 +39,7 @@
           <div class="text-#878c93"> {{ formatDate(processInstance.startTime) }} 提交 </div>
         </div>
 
-        <el-tabs v-model="activeTab">
-          <!-- 表单信息 -->
-          <el-tab-pane label="审批详情" name="form">
-            <div class="form-scroll-area">
+        <div class="form-scroll-area">
               <el-scrollbar>
                 <el-row>
                   <el-col :span="17" class="!flex !flex-col formCol">
@@ -141,44 +138,6 @@
                 </el-row>
               </el-scrollbar>
             </div>
-          </el-tab-pane>
-
-          <!-- 流程图 -->
-          <el-tab-pane label="流程图" name="diagram">
-            <div class="form-scroll-area">
-              <ProcessInstanceSimpleViewer
-                v-show="
-                  processDefinition.modelType && processDefinition.modelType === BpmModelType.SIMPLE
-                "
-                :loading="processInstanceLoading || processModelViewLoading"
-                :model-view="processModelView"
-              />
-              <ProcessInstanceBpmnViewer
-                v-show="
-                  processDefinition.modelType && processDefinition.modelType === BpmModelType.BPMN
-                "
-                :loading="processInstanceLoading || processModelViewLoading"
-                :model-view="processModelView"
-              />
-            </div>
-          </el-tab-pane>
-
-          <!-- 流转记录 -->
-          <el-tab-pane label="流转记录" name="record">
-            <div class="form-scroll-area">
-              <el-scrollbar>
-                <ProcessInstanceTaskList :loading="processInstanceLoading" :id="id" />
-              </el-scrollbar>
-            </div>
-          </el-tab-pane>
-
-          <!-- 流转评论 TODO 待开发 -->
-          <el-tab-pane label="流转评论" name="comment" v-if="false">
-            <div class="form-scroll-area">
-              <el-scrollbar> 流转评论 </el-scrollbar>
-            </div>
-          </el-tab-pane>
-        </el-tabs>
 
         <div class="b-t-solid border-t-1px border-[var(--el-border-color)]">
           <!-- 操作栏按钮 -->
@@ -203,16 +162,13 @@
 <script lang="ts" setup>
 import { formatDate } from '@/utils/formatTime'
 import { DICT_TYPE } from '@/utils/dict'
-import { BpmModelType, BpmModelFormType } from '@/utils/constants'
+import { BpmModelFormType } from '@/utils/constants'
 import { setConfAndFields2 } from '@/utils/formCreate'
 import { registerComponent } from '@/utils/routerHelper'
 import type { ApiAttrs } from '@form-create/element-ui/types/config'
 import * as ProcessInstanceApi from '@/api/bpm/processInstance'
 import * as UserApi from '@/api/system/user'
 import { getControlledFile, type ControlledFileVO } from '@/api/dcc/controlledFile/workflow'
-import ProcessInstanceBpmnViewer from './ProcessInstanceBpmnViewer.vue'
-import ProcessInstanceSimpleViewer from './ProcessInstanceSimpleViewer.vue'
-import ProcessInstanceTaskList from './ProcessInstanceTaskList.vue'
 import ProcessInstanceOperationButton from './ProcessInstanceOperationButton.vue'
 import ProcessInstanceTimeline from './ProcessInstanceTimeline.vue'
 import { FieldPermissionType } from '@/components/SimpleProcessDesignerV2/src/consts'
@@ -236,9 +192,6 @@ const router = useRouter()
 const processInstanceLoading = ref(false) // 流程实例的加载中
 const processInstance = ref<any>({}) // 流程实例
 const processDefinition = ref<any>({}) // 流程定义
-const processModelView = ref<any>({}) // 流程模型视图
-const processModelViewLoaded = ref(false)
-const processModelViewLoading = ref(false)
 const operationButtonRef = ref() // 操作按钮组件 ref
 const auditIconsMap = {
   [TaskStatusEnum.RUNNING]: runningSvg,
@@ -274,11 +227,6 @@ const writableFields: Array<string> = [] // 表单可以编辑的字段
 const getDetail = () => {
   // 获得审批详情
   getApprovalDetail()
-  processModelView.value = {}
-  processModelViewLoaded.value = false
-  if (activeTab.value === 'diagram') {
-    void ensureProcessModelViewLoaded()
-  }
 }
 
 /** 加载流程实例 */
@@ -466,33 +414,6 @@ const getApprovalDetail = async () => {
   }
 }
 
-/** 获取流程模型视图*/
-const getProcessModelView = async () => {
-  processModelViewLoading.value = true
-  try {
-    if (BpmModelType.BPMN === processDefinition.value?.modelType) {
-      // 重置，解决 BPMN 流程图刷新不会重新渲染问题
-      processModelView.value = {
-        bpmnXml: ''
-      }
-    }
-    const data = await ProcessInstanceApi.getProcessInstanceBpmnModelView(props.id)
-    if (data) {
-      processModelView.value = data
-    }
-    processModelViewLoaded.value = true
-  } finally {
-    processModelViewLoading.value = false
-  }
-}
-
-const ensureProcessModelViewLoaded = async () => {
-  if (processModelViewLoaded.value || processModelViewLoading.value) {
-    return
-  }
-  await getProcessModelView()
-}
-
 /** 设置表单权限 */
 const setFieldPermission = (field: string, permission: string) => {
   if (permission === FieldPermissionType.READ) {
@@ -522,14 +443,6 @@ const printRef = ref()
 const handlePrint = async () => {
   printRef.value.open(props.id)
 }
-
-/** 当前的 Tab */
-const activeTab = ref('form')
-watch(activeTab, (activeName) => {
-  if (activeName === 'diagram') {
-    void ensureProcessModelViewLoaded()
-  }
-})
 
 /** 初始化 */
 const userOptions = ref<UserApi.UserVO[]>([]) // 用户列表

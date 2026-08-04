@@ -2,7 +2,7 @@
 
 ## Task Goal
 
-修复 BPM/DCC 审批详情页顶部标题仍显示英文 `DCC Controlled File Approval` 的问题，并定位从详情入口进入该页面加载很慢的前端链路，按根因减少非必要详情加载。
+修复 BPM/DCC 审批详情页顶部标题仍显示英文 `DCC Controlled File Approval` 的问题，并定位从详情入口进入该页面加载很慢的前端链路，按根因减少非必要详情加载；追加删除截图红框中的“流程图”“流转记录”入口及其组件/API 准备链路，进一步加快首屏。
 
 ## Milestones
 
@@ -13,11 +13,14 @@
 - [x] M4 运行目标静态合同、相邻合同和必要类型检查
 - [x] M5 更新验证报告并完成收尾提交
 - [ ] M6 推送本地提交到 `origin/int_main`
+- [x] M7 删除审批详情页“流程图”“流转记录”入口和关联前端加载链路
+- [x] M8 复跑目标静态合同、相邻合同和类型检查
 
 ## Expected Verification
 
 - RED：目标静态合同在旧代码下失败，证明英文标题仍可见或 DCC 审批详情仍触发完整详情加载。
 - GREEN：目标静态合同通过，证明页面标题使用中文审批名称，且 BPM 审批详情只加载审批摘要/必要动作入口。
+- GREEN：追加静态合同通过，证明 BPM 审批详情不再渲染“流程图”“流转记录”Tab，不再保留流程图 viewer、任务列表组件、流程图状态或 BPMN 模型视图请求链路。
 - REGRESSION：运行相邻 BPM/DCC 审批详情静态合同或 `pnpm ts:check`；若全量检查被无关历史问题阻塞，记录隔离门禁和阻塞摘要。
 
 ## Current Status
@@ -47,8 +50,22 @@ blocked_on_push
 - REGRESSION：`pnpm ts:check` -> PASS。
 - QUALITY：`git diff --check -- <task-owned files>` -> PASS，只有 Git LF/CRLF working-copy warnings。
 - PUSH_BLOCKER：`git push origin int_main` -> FAIL，GitHub 443 连接经本机 `127.0.0.1` 代理失败；当前本地提交尚未推送到远端，任务不能标记为 completed。
+- RED：`node tests/e2e/bpm-dcc-approval-detail-title-performance-static.spec.js` -> FAIL，本轮追加合同证明旧源码仍存在 `<el-tabs v-model="activeTab">`、“流程图/流转记录”Tab 和流程图/任务列表链路。
+- GREEN：`node tests/e2e/bpm-dcc-approval-detail-title-performance-static.spec.js` -> PASS，追加删除 Tab 与加载链路合同通过。
+- REGRESSION：`node tests/e2e/approval-center-chinese-copy-static.spec.js` -> PASS。
+- REGRESSION：`node tests/e2e/dcc-bpm-dcc-approval-viewer-static.spec.js` -> PASS。
+- REGRESSION：`node tests/e2e/form-center-bpm-dcc-approval-bypass-static.spec.js` -> PASS。
+- REGRESSION：`node tests/e2e/bpm-process-timeline-current-node-green-static.spec.js` -> PASS。
+- REGRESSION：`pnpm ts:check` -> PASS。
+- EVIDENCE：frontend feature evidence validator -> PASS；bug regression evidence validator -> PASS。
+- EXPERIENCE：本轮经验已合并到 `docs/frontend-development.md#前端同路由多入口分面门禁` 和 `docs/experience-index.md`，未新建长期经验文档。
+- CLEANUP：`task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode preview` -> PASS。
+- CLEANUP：`task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode apply` -> PASS，删除已归档的本轮 evidence 文件。
+- PUSH_BLOCKER：本轮实现完成后仍需推送；历史 GitHub 443 本机代理连接问题尚未解除，任务不能标记为 completed。
 
 ## Baseline Commits
 
 - `71177c0a5`：开始前残余脏工作区基线。
 - `ae0cf0d96`：并行残余脏工作区第二基线。
+- `0cb7335da`：本轮删除 Tab 前并行残余脏工作区基线。
+- `46e0670a7`：本轮删除 Tab 前第二个并行残余脏工作区基线。
