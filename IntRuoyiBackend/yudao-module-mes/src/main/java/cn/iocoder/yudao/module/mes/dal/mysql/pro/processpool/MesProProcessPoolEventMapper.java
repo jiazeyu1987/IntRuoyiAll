@@ -32,19 +32,32 @@ public interface MesProProcessPoolEventMapper extends BaseMapperX<MesProProcessP
         if (event == null || event.getEventIdempotencyKey() == null) {
             return null;
         }
-        return selectOne(new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
+        LambdaQueryWrapperX<MesProProcessPoolEventDO> query = new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
                 .eq(MesProProcessPoolEventDO::getEventType, MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
                 .eq(MesProProcessPoolEventDO::getWorkOrderId, event.getWorkOrderId())
                 .eq(MesProProcessPoolEventDO::getRouteId, event.getRouteId())
                 .eq(MesProProcessPoolEventDO::getRouteProcessId, event.getRouteProcessId())
                 .eq(MesProProcessPoolEventDO::getProcessId, event.getProcessId())
                 .eq(MesProProcessPoolEventDO::getActualEmployeeId, event.getActualEmployeeId())
-                .eq(MesProProcessPoolEventDO::getDeviceAccountId, event.getDeviceAccountId())
-                .eq(MesProProcessPoolEventDO::getDeviceId, event.getDeviceId())
-                .eq(MesProProcessPoolEventDO::getWorkstationId, event.getWorkstationId())
                 .eq(MesProProcessPoolEventDO::getFeedbackSourceType, event.getFeedbackSourceType())
                 .eq(MesProProcessPoolEventDO::getFeedbackSourceId, event.getFeedbackSourceId())
-                .eq(MesProProcessPoolEventDO::getEventIdempotencyKey, event.getEventIdempotencyKey()));
+                .eq(MesProProcessPoolEventDO::getEventIdempotencyKey, event.getEventIdempotencyKey());
+        if (event.getDeviceAccountId() == null) {
+            query.isNull(MesProProcessPoolEventDO::getDeviceAccountId);
+        } else {
+            query.eq(MesProProcessPoolEventDO::getDeviceAccountId, event.getDeviceAccountId());
+        }
+        if (event.getDeviceId() == null) {
+            query.isNull(MesProProcessPoolEventDO::getDeviceId);
+        } else {
+            query.eq(MesProProcessPoolEventDO::getDeviceId, event.getDeviceId());
+        }
+        if (event.getWorkstationId() == null) {
+            query.isNull(MesProProcessPoolEventDO::getWorkstationId);
+        } else {
+            query.eq(MesProProcessPoolEventDO::getWorkstationId, event.getWorkstationId());
+        }
+        return selectOne(query);
     }
 
     default MesProProcessPoolEventDO selectByIdForUpdate(Long id) {

@@ -43,6 +43,16 @@ assert.match(pageSource, /signaturePassword\s*[,}]/, 'switch-mode request payloa
 assert.match(pageSource, /审批流程已开启/, 'policy switch must show BPM approval enabled copy')
 assert.match(pageSource, /审批已关闭/, 'policy switch must show approval disabled copy')
 assert.match(pageSource, /BPM审批/, 'BPM_REQUIRED policies must display as normal BPM approval')
+assert.match(
+  pageSource,
+  /approvalSwitchScope:\s*true/,
+  'policy page must default to the approval-switch scope instead of a single mode'
+)
+assert.doesNotMatch(
+  pageSource,
+  /policyMode:\s*'BPM_REQUIRED'\s+as\s+BusinessApprovalPolicyMode\s*\|\s*undefined/,
+  'policy page must not hide closed approval policies by defaulting policyMode to BPM_REQUIRED'
+)
 assert.match(pageSource, /历史签名模式/, 'legacy SIGNATURE_REQUIRED policies must not be presented as approval switch enabled')
 assert.match(pageSource, /关闭审批/, 'policy form must expose disabled approval mode')
 assert.match(pageSource, /VOID:\s*'作废'/, 'VOID action code must display as Chinese void label')

@@ -24,3 +24,4 @@
 
 - PENDING: Playwright real browser verification will use local frontend `http://127.0.0.1:8081`, local backend `http://127.0.0.1:48081/admin-api`, and task-owned helper `http://127.0.0.1:18080`.
 - PENDING: Result JSON and screenshots will be written to `output/playwright/20260804-oauth-admin-check-html/`.
+- RED: Real browser OAuth callback produced an authorization code, but helper token exchange failed because `tenant-id` was missing from the server-side token request.

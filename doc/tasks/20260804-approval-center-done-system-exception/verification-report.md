@@ -19,4 +19,4 @@
 ## Remaining Constraints
 
 - Real browser E2E was not run in this turn; the fix is covered by backend RED/GREEN and approval-center static contracts.
-- Repository closeout commit/push is blocked by existing unrelated dirty worktree state and branch ahead status unless a separate baseline/ownership decision is made.
+- Repository closeout commit/push is blocked: commit `6f9ed0e83 chore: baseline existing workspace changes` already contains this task's implementation together with unrelated files, and current workspace status has unrelated unmerged paths. No history rewrite, force push, or mixed push was attempted.

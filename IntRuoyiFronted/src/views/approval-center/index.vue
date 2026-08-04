@@ -629,7 +629,27 @@ const loadModules = async () => {
     const message = resolveErrorMessage(error)
     loadError.value = message
     ElMessage.error(message)
+    throw error
   }
+}
+
+const syncApprovalQuickFilterStateFromQuery = async () => {
+  const quickFilter = approvalQuickFilter.value
+  if (queryParams.moduleCode) {
+    quickFilter.updateState({ fieldKey: 'moduleCode' })
+    await nextTick()
+    quickFilter.updateState({ operator: 'eq', value: queryParams.moduleCode })
+    return
+  }
+  if (queryParams.keyword.trim()) {
+    quickFilter.updateState({ fieldKey: 'keyword' })
+    await nextTick()
+    quickFilter.updateState({ operator: 'contains', value: queryParams.keyword.trim() })
+    return
+  }
+  quickFilter.updateState({ fieldKey: approvalQuickFilterDefinitions.value[0]?.key || 'moduleCode' })
+  await nextTick()
+  quickFilter.updateState({ operator: 'eq', value: undefined })
 }
 
 const getList = async () => {
@@ -665,6 +685,7 @@ const handlePagination = async (payload?: PaginationPayload) => {
 
 const refreshAll = async () => {
   await loadModules()
+  await syncApprovalQuickFilterStateFromQuery()
   await getList()
 }
 
@@ -770,6 +791,7 @@ const applyRouteQueryAndLoad = async () => {
   try {
     applyRouteQuery()
     syncRouteToCanonicalPath(queryParams.viewType)
+    await syncApprovalQuickFilterStateFromQuery()
     await getList()
   } catch (error) {
     const message = resolveErrorMessage(error)

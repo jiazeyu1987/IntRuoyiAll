@@ -22,8 +22,11 @@
 - Fix: 新增 `resolveDoneApprovalResult(...)`，仅当 `TASK_STATUS` 为空时返回空 `approvalResult`；非空未知状态仍沿用 `fromBpmTaskStatus(...)` fail-fast。
 - Frontend contracts: `node tests/e2e/approval-center-done-standard-list-static.spec.js` -> PASS；`node tests/e2e/approval-center-done-result-remark-static.spec.js` -> PASS；`node tests/e2e/approval-center-chinese-copy-static.spec.js` -> PASS。
 - Experience consolidation: 已新增 `docs/backend-development.md#统一审批中心 BPM 已办历史状态门禁`，并在 `docs/experience-index.md` 增加可检索关键词；`rg` 索引验证通过。
+- Cleanup: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260804-approval-center-done-system-exception --mode preview` -> PASS, keep task/core evidence, delete none, blocked none.
+- Cleanup: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260804-approval-center-done-system-exception --mode apply` -> PASS, deleted none.
+- Git closeout blocker: after verification, commit `6f9ed0e83 chore: baseline existing workspace changes` appeared and includes this task's implementation files together with unrelated files. Current workspace also contains unrelated unmerged paths (`UU` / `AA`) outside this task scope, so this task cannot safely create a clean task-owned commit or push without rewriting or mixing unrelated work.
 
 ## Blockers
 
-- 当前分支 `int_main` 已领先 `origin/int_main` 且工作区存在大量既有未提交改动；按项目 Git policy，最终提交/推送需要先处理既有脏工作区基线或由用户确认边界。
+- 当前分支 `int_main` 已领先 `origin/int_main`，且工作区存在与本任务无关的 unmerged paths；按项目 Git policy，最终提交/推送需要先处理既有冲突和已混入的 baseline commit 边界。
 

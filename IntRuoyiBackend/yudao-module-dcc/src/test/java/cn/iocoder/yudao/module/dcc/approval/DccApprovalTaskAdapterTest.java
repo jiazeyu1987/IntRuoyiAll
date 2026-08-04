@@ -277,6 +277,58 @@ class DccApprovalTaskAdapterTest {
     }
 
     @Test
+    void pageDoneKeepsLegacyHistoricalSnapshotWhenVersionNoIsMissing() {
+        HistoricTaskInstance task = mock(HistoricTaskInstance.class);
+        when(task.getId()).thenReturn("historic-task-legacy-version");
+        when(task.getName()).thenReturn("文控审核");
+        when(task.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_REVIEW");
+        when(task.getProcessInstanceId()).thenReturn("historic-pi-legacy-version");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getEndTime()).thenReturn(new Date(1782180300000L));
+        when(task.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 2));
+        when(bpmTaskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+
+        HistoricProcessInstance processInstance = mock(HistoricProcessInstance.class);
+        when(processInstance.getBusinessKey()).thenReturn("6011");
+        when(processInstance.getStartUserId()).thenReturn("501");
+        when(processInstanceService.getHistoricProcessInstanceMap(Set.of("historic-pi-legacy-version")))
+                .thenReturn(Map.of("historic-pi-legacy-version", processInstance));
+
+        DccControlledFileDO file = DccControlledFileDO.builder()
+                .id(6011L)
+                .title("历史缺版本号文件")
+                .fileNumber("DCC-6011")
+                .categoryId(7002L)
+                .status("APPROVED")
+                .processInstanceId("historic-pi-legacy-version")
+                .build();
+        when(controlledFileMapper.selectByIdIncludingDeleted(6011L)).thenReturn(file);
+        when(fileCategoryMapper.selectById(7002L)).thenReturn(DccFileCategoryDO.builder()
+                .id(7002L)
+                .name("质量手册")
+                .distributionRequired(Boolean.FALSE)
+                .build());
+
+        PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.DONE, ApprovalModuleCode.DCC, null, 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        ApprovalTaskSummary summary = page.getList().get(0);
+        assertEquals("6011", summary.getBusinessKey());
+        assertEquals("历史缺版本号文件", summary.getBusinessTitle());
+        assertEquals(List.of(
+                "文件编号：DCC-6011",
+                "版本：-",
+                "分类：质量手册",
+                "当前节点：文控审核",
+                "盖章：需要",
+                "分发：不需要"
+        ), summary.getBusinessContextTags());
+        assertEquals(ApprovalTaskReviewResult.APPROVE, summary.getApprovalResult());
+    }
+
+    @Test
     void pageDoneReturnsEmptyPageWithoutLoadingProcessInstancesWhenHistoricPageIsEmpty() {
         when(bpmTaskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class)))
                 .thenReturn(new PageResult<>(List.of(), 0L));

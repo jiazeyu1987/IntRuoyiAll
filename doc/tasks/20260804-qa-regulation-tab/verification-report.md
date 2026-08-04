@@ -46,6 +46,7 @@
 - REVIEW: UTF-8 read check for task Markdown files -> PASS.
 - GREEN: `E:\IntRuoyi\IntRuoyiFronted` `node --check tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS.
 - GREEN: `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS; result `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
+- GREEN: 2026-08-04 follow-up E2E rerun `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-original-excerpt-real.e2e.cjs` -> PASS; result `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, `pageErrors=[]`.
 - EVIDENCE: `output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.json`.
 - EVIDENCE: `output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.png`.
 
@@ -68,7 +69,7 @@
 
 - Worktree browser E2E was not started because the worktree could not reserve an `int_main` runtime slot. The task did not randomize ports, reuse `8081/48081` from the worktree, or claim worktree runtime verification as passed.
 - Local `E:\IntRuoyi` browser E2E used the fixed `int_main` runtime ports `8081/48081` and passed. It logged in through the real frontend, opened the hidden route `/mes/pro/process-pool/team-leader`, clicked `QA 规程`, verified pressure-pump metadata and QA rule sections, added a local draft item, ran preview/precheck actions, confirmed the visible no-backend-write message, confirmed no DCC coupling terms in the QA panel, and observed no backend write requests.
-- Refreshed local `E:\IntRuoyi` browser E2E for `原文依据` passed. It logged in through the real frontend, opened `/mes/pro/process-pool/team-leader`, clicked `QA 规程`, verified PDF page/source item/excerpt/method content for five inspection items, confirmed no DCC coupling terms, and observed no backend write requests or browser errors.
+- Refreshed local `E:\IntRuoyi` browser E2E for `原文依据` passed and was rerun on 2026-08-04. It logged in through the real frontend, opened `/mes/pro/process-pool/team-leader`, clicked `QA 规程`, verified PDF page/source item/excerpt/method content for five inspection items, confirmed no DCC coupling terms, and observed no backend write requests or browser errors.
 
 ## Commit / Push Blocker
 

@@ -511,6 +511,10 @@ onMounted(() => {
   display: none;
 }
 
+:deep(.dcc-directory-name-column .el-table__placeholder) {
+  display: none;
+}
+
 .directory-name-cell {
   display: flex;
   width: 100%;

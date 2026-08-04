@@ -70,8 +70,8 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
             ApprovalTaskProvider provider = providerRegistry.requireProvider(safeQuery.getModuleCode());
             assertProviderVisible(provider, loginUserId);
             assertViewSupported(provider, viewType);
-            return enrichAssigneeUserNames(requirePage(provider.page(
-                    toContext(loginUserId, provider, safeQuery, globalView))));
+            ApprovalTaskQueryContext context = toContext(loginUserId, provider, safeQuery, globalView);
+            return enrichAssigneeUserNames(requireConsistentPage(provider, context, provider.page(context)));
         }
 
         List<ApprovalTaskProvider> matchedProviders = providerRegistry.listProviders().stream()
@@ -83,8 +83,11 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
         }
         ApprovalTaskQuery globalWindowQuery = toGlobalWindowQuery(safeQuery);
         List<PageResult<ApprovalTaskSummary>> providerPages = matchedProviders.stream()
-                .map(provider -> requirePage(provider.page(toContext(loginUserId, provider, globalWindowQuery,
-                        globalView))))
+                .map(provider -> {
+                    ApprovalTaskQueryContext context = toContext(loginUserId, provider, globalWindowQuery,
+                            globalView);
+                    return requireConsistentPage(provider, context, provider.page(context));
+                })
                 .toList();
         List<ApprovalTaskSummary> rows = providerPages.stream()
                 .flatMap(page -> page.getList().stream())
@@ -202,6 +205,19 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
         Objects.requireNonNull(page.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED");
         Objects.requireNonNull(page.getTotal(), "APPROVAL_ADAPTER_PAGE_TOTAL_REQUIRED");
         return page;
+    }
+
+    private static PageResult<ApprovalTaskSummary> requireConsistentPage(ApprovalTaskProvider provider,
+                                                                         ApprovalTaskQueryContext context,
+                                                                         PageResult<ApprovalTaskSummary> page) {
+        PageResult<ApprovalTaskSummary> requiredPage = requirePage(page);
+        if (requiredPage.getTotal() > 0 && requiredPage.getList().isEmpty()
+                && safePageNo(context.getPageNo()) == 1) {
+            throw new IllegalStateException("APPROVAL_ADAPTER_PAGE_INCONSISTENT: "
+                    + provider.getModuleCode() + " reported total " + requiredPage.getTotal()
+                    + " but returned no rows for the first page");
+        }
+        return requiredPage;
     }
 
     private static ApprovalTaskQuery toGlobalWindowQuery(ApprovalTaskQuery query) {

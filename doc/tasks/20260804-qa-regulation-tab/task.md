@@ -54,7 +54,7 @@
 
 ready_for_closeout
 
-Item-level original-source excerpts are implemented and verified by static QA/PQC contracts, `ts:check`, frontend evidence validation, and a real local Chromium E2E on `http://127.0.0.1:8081/mes/pro/process-pool/team-leader`. The E2E logged in with the local default `芋道源码/admin` identity, opened `QA 规程`, verified source excerpts from PDF pages 3/6/7/8, confirmed `writeRequests=[]`, `consoleErrors=[]`, and `pageErrors=[]`, and captured evidence under `output/playwright/20260804-qa-regulation-tab/`. Cleanup/commit/push closeout remains pending because the broader `int_main` working tree contains unrelated dirty/ahead changes.
+Item-level original-source excerpts are implemented and verified by static QA/PQC contracts, `ts:check`, frontend evidence validation, and real local Chromium E2E on `http://127.0.0.1:8081/mes/pro/process-pool/team-leader`. The 2026-08-04 follow-up E2E rerun logged in with the local default `芋道源码/admin` identity, opened `QA 规程`, verified source excerpts from PDF pages 3/6/7/8, confirmed `sourceExcerptCount=5`, `writeRequests=[]`, `consoleErrors=[]`, and `pageErrors=[]`, and captured evidence under `output/playwright/20260804-qa-regulation-tab/`. Cleanup/commit/push closeout remains pending because the broader `int_main` working tree contains unrelated dirty/ahead changes.
 
 ## Design Constraints
 
@@ -109,3 +109,5 @@ Item-level original-source excerpts are implemented and verified by static QA/PQ
 
 - doc/tasks/20260804-qa-regulation-tab/frontend-feature-evidence.md
 - doc/tasks/20260804-qa-regulation-tab/qa-regulation-live-e2e.png
+- output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.json
+- output/playwright/20260804-qa-regulation-tab/qa-regulation-original-excerpt-real-e2e.png

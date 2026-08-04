@@ -134,6 +134,11 @@ assert.match(
 )
 assert.match(
   styles,
+  /:deep\(\.dcc-directory-name-column\s+\.el-table__placeholder\)\s*\{[\s\S]*display:\s*none;/,
+  'root-level leaf directories must not keep Element Plus placeholder indentation after the custom folder icon replaces the default tree affordance'
+)
+assert.match(
+  styles,
   /\.directory-name-cell\s*\{[\s\S]*display:\s*flex;[\s\S]*width:\s*100%;[\s\S]*align-items:\s*center;[\s\S]*white-space:\s*nowrap;/,
   'directory icon, text, and error tag must stay on one row across the full name cell width'
 )

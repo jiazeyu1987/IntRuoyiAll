@@ -418,7 +418,7 @@ const queryParams = reactive({
   objectType: undefined as string | undefined,
   actionCode: undefined as string | undefined,
   objectState: undefined as string | undefined,
-  policyMode: undefined as BusinessApprovalPolicyMode | undefined,
+  policyMode: 'BPM_REQUIRED' as BusinessApprovalPolicyMode | undefined,
   status: undefined as BusinessApprovalPolicyStatus | undefined
 })
 

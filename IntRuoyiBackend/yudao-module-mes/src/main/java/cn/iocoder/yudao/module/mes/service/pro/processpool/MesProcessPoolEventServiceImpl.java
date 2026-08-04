@@ -329,13 +329,23 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
         requirePositive(reqDTO.getRouteProcessId(), "routeProcessId");
         requirePositive(reqDTO.getProcessId(), "processId");
         requirePositive(reqDTO.getActualEmployeeId(), "actualEmployeeId");
-        requirePositive(reqDTO.getDeviceAccountId(), "deviceAccountId");
-        requirePositive(reqDTO.getDeviceId(), "deviceId");
-        requirePositive(reqDTO.getWorkstationId(), "workstationId");
+        requirePqcDeviceContext(reqDTO);
         requireNotBlank(reqDTO.getFeedbackSourceType(), "feedbackSourceType");
         requirePositive(reqDTO.getFeedbackSourceId(), "feedbackSourceId");
         requireNotBlank(reqDTO.getRecordbookSourceType(), "recordbookSourceType");
         requirePositive(reqDTO.getRecordbookSourceId(), "recordbookSourceId");
+    }
+
+    private void requirePqcDeviceContext(MesProcessPoolCreatePqcInspectionReqDTO reqDTO) {
+        boolean hasAnyDeviceContext = reqDTO.getDeviceAccountId() != null
+                || reqDTO.getDeviceId() != null
+                || reqDTO.getWorkstationId() != null;
+        if (!hasAnyDeviceContext) {
+            return;
+        }
+        requirePositive(reqDTO.getDeviceAccountId(), "deviceAccountId");
+        requirePositive(reqDTO.getDeviceId(), "deviceId");
+        requirePositive(reqDTO.getWorkstationId(), "workstationId");
     }
 
     private boolean isProductionSubmit(MesProcessPoolCreateEventReqDTO reqDTO) {
