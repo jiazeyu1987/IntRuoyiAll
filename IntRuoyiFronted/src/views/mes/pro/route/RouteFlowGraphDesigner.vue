@@ -709,7 +709,7 @@
               <span>字段名称</span>
               <strong>生产组长</strong>
               <span>字段来源</span>
-              <strong>路线产线负责人配置</strong>
+              <strong>当前工艺路线负责人配置</strong>
             </div>
             <div
               v-loading="routeStartProductionLeadersLoading"
@@ -753,7 +753,7 @@
               <el-empty
                 v-if="routeStartProductionLeaderProductionLines.length === 0"
                 :image-size="38"
-                description="当前路线暂无可负责产线，请先为路线工序绑定工作站产线"
+                description="当前工艺路线暂无可负责范围，请先保存工艺路线"
               />
               <el-empty
                 v-else-if="routeStartProductionLeaders.length === 0"
@@ -772,7 +772,7 @@
                     data-route-start-production-leader-production-line
                     :disabled="routeStartProductionLeaderControlsDisabled"
                     filterable
-                    placeholder="负责产线"
+                    placeholder="负责范围"
                     size="small"
                     :teleported="false"
                     @change="(value) => handleRouteStartProductionLeaderProductionLineChange(leader, value as number | string)"
@@ -8335,7 +8335,7 @@ const resolveRouteStartProductionLeaderProductionLine = (
 const formatRouteStartProductionLeaderProcessSummary = (leader: RouteStartProductionLeaderDraft) => {
   const productionLine = resolveRouteStartProductionLeaderProductionLine(leader)
   const processNames = normalizeRecordBindingCandidateNames(productionLine?.processNames)
-  return processNames.length > 0 ? processNames.join('、') : '待路线产线绑定'
+  return processNames.length > 0 ? processNames.join('、') : '当前路线全部工序'
 }
 
 const loadRouteStartProductionLeaderCandidateOptions = async (
@@ -8413,7 +8413,7 @@ const handleRouteStartProductionLeaderAdd = () => {
   if (routeStartProductionLeaderControlsDisabled.value) return
   const productionLine = routeStartProductionLeaderProductionLines.value[0]
   if (!productionLine) {
-    message.warning('当前路线暂无可负责产线，请先为路线工序绑定工作站产线')
+    message.warning('当前工艺路线暂无可负责范围，请先保存工艺路线')
     return
   }
   routeStartProductionLeaders.value = [
@@ -8484,13 +8484,13 @@ const handleRouteStartProductionLeaderSave = async () => {
       (leader) => !resolveRouteStartProductionLeaderProductionLine(leader)
     )
     if (invalidProductionLine) {
-      throw new Error('生产组长负责产线必须来自当前路线。')
+      throw new Error('生产组长负责范围必须来自当前工艺路线。')
     }
     const invalidLeader = routeStartProductionLeaders.value.find(
       (leader) => leader.candidateSourceIds.length === 0
     )
     if (invalidLeader) {
-      throw new Error(`请先选择${invalidLeader.productionLineName || '产线'}生产组长。`)
+      throw new Error(`请先选择${invalidLeader.productionLineName || '当前工艺路线'}生产组长。`)
     }
     routeStartProductionLeadersSaving.value = true
     routeStartProductionLeadersLoadError.value = ''

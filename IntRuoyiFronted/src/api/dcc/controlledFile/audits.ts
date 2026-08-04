@@ -35,10 +35,10 @@ export interface DccControlledFileAuditRespVO {
   userAgent?: string | null
   privacyMode?: string | null
   watermarkPayloadJson?: string | null
-  occurredAt?: string | null
-  issuedAt?: string | null
-  expiresAt?: string | null
-  createTime?: string | null
+  occurredAt?: number | null
+  issuedAt?: number | null
+  expiresAt?: number | null
+  createTime?: number | null
 }
 
 export const getControlledFileAuditPage = async (

@@ -621,3 +621,15 @@ BDD: Archive metadata missing is visible -> Given a matched file is LOCAL_WRITTE
 - Completion gate update: remote `git push origin int_main` and final "not ahead of origin" checks are removed from this task's completion criteria by explicit user override; local `int_main` fusion plus documented verification is now the final gate.
 - Evidence retained: frontend/backend baseline commit `a564e19cc`, task evidence commit `231dddee7`, local merge commits `d865d4189` and `6db2b752f`, post-merge `pnpm e2e:dcc:nas-uncontrolled-local-import:static` PASS, cleanup preview/apply PASS, and M35 full real E2E PASS using existing NAS files.
 - Boundary: no new NAS write, no remote push, no destructive Git operation, and no staging of unrelated concurrent task files was performed for this scope change.
+
+### M38
+
+- Status: completed for post-fusion full E2E revalidation on local `int_main`.
+- BDD: Post-fusion existing-NAS local import remains valid -> Given local `int_main` has completed the approved fusion and the existing NAS file fixture is still available When the red-box uncontrolled-file local import E2E is rerun Then static contracts, prerequisite checks, browser directory writes, SHA-256 byte equality and backend status side effects must all pass without creating or overwriting shared NAS files.
+- GREEN: prerequisite gate -> PASS, `npx` is available at `D:\Programs\npx.ps1`, package scripts `e2e:dcc:nas-uncontrolled-local-import:static`, `real:check` and `real` exist, and both E2E files exist.
+- GREEN: local runtime gate -> PASS, `http://127.0.0.1:48081/actuator/health` returned `UP`, `http://127.0.0.1:8081/` returned HTTP `200`, backend PID `14800` runs `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260804-dcc-nas-uncontrolled-import.jar`, and frontend PID `28264` runs Vite on `8081`.
+- GREEN: `pnpm e2e:dcc:nas-uncontrolled-local-import:static` -> PASS.
+- GREEN: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real:check` -> PASS, `DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_CHECK_PASS`.
+- GREEN: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real` -> PASS, `DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_E2E_PASS`.
+- GREEN: summary artifact -> PASS, `doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\artifacts\local-import-full-e2e\dcc-nas-uncontrolled-local-import-full-summary.json` shows `nasReadyCount=3`, one `import-selected`, two `content`, two `local-write-result`, directory handle/write/close events for the matched path and `_未分类待处理`, `TASK_COUNT=1`, `LOCAL_WRITTEN_ITEMS=2`, and `ACTIVE_SOURCE_COUNT=0`.
+- Boundary: M38 did not write shared NAS files, did not push to remote, did not rebuild from the dirty workspace, and did not stage unrelated concurrent task files.

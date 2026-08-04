@@ -153,6 +153,7 @@ import {
   type DccUploadSizePolicySaveReqVO,
   type DccUploadSizePolicyVO
 } from '@/api/dcc/controlledFile/uploadSizePolicies'
+import { formatDateTimeValue } from '@/utils/formatTime'
 
 defineOptions({ name: 'CategoryUploadSizePolicyDialog' })
 
@@ -254,8 +255,8 @@ const openEditPolicy = (row: DccUploadSizePolicyVO) => {
   formData.maxBytes = row.maxBytes
   formData.enabled = row.enabled
   formData.policyVersion = row.policyVersion
-  formData.effectiveFrom = row.effectiveFrom || undefined
-  formData.effectiveTo = row.effectiveTo || undefined
+  formData.effectiveFrom = formatDateTimeValue(row.effectiveFrom, '') || undefined
+  formData.effectiveTo = formatDateTimeValue(row.effectiveTo, '') || undefined
   formData.changeReason = row.changeReason
   formVisible.value = true
   formRef.value?.clearValidate()
@@ -334,14 +335,9 @@ const formatExactBytes = (bytes?: number | null) => {
   return value === undefined ? '-' : `${exactBytesFormatter.format(Math.trunc(value))} 字节`
 }
 
-const formatPolicyDateTime = (value: string) => {
-  const normalized = value.replace('T', ' ')
-  return normalized.length >= 19 ? normalized.slice(0, 19) : value
-}
-
-const formatEffectiveRange = (from?: string | null, to?: string | null) => {
-  const start = from ? formatPolicyDateTime(from) : '立即'
-  const end = to ? formatPolicyDateTime(to) : '长期'
+const formatEffectiveRange = (from?: number | null, to?: number | null) => {
+  const start = from ? formatDateTimeValue(from) : '立即'
+  const end = to ? formatDateTimeValue(to) : '长期'
   return `${start} 至 ${end}`
 }
 

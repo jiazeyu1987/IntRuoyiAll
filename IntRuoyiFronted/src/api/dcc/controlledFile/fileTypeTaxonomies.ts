@@ -9,7 +9,7 @@ export interface DccFileTypeTaxonomyVO {
   active: boolean
   sort: number
   remark?: string
-  createTime?: Date | string
+  createTime?: number
   children?: DccFileTypeTaxonomyVO[]
 }
 

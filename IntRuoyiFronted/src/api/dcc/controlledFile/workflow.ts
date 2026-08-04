@@ -78,7 +78,7 @@ export interface ControlledFileMetadataUpdateReqVO {
   productCode?: string
   fileNumber?: string | null
   categoryId: number
-  directoryId: number
+  directoryId?: number | null
 }
 
 export interface ControlledFileProjectCodeRecognitionRespVO {
@@ -131,6 +131,7 @@ export interface ControlledFileUploadRespVO {
   onlyofficeDocumentUrl?: string
   previewUnavailableReason?: string
   fileSize: number
+  expireTime?: number
   watermarkTraceCode?: string | null
   watermark?: ControlledPreviewWatermark | null
 }
@@ -293,11 +294,11 @@ export interface ControlledFilePrintRecordVO {
   useLocation: string
   printUserId: number
   printUserName?: string | null
-  printTime: string
+  printTime: number
   approvalStatus: string
   approvalUserId?: number | null
   approvalUserName?: string | null
-  approvalTime?: string | null
+  approvalTime?: number | null
 }
 
 export interface ControlledFilePrintHtmlVO {
@@ -350,8 +351,8 @@ export interface ControlledFileVersionHistoryVO {
   stampedFileId?: number | null
   currentActiveVersionNo?: string | null
   effectiveDate?: string
-  publishedTime?: string
-  obsoletedTime?: string
+  publishedTime?: number
+  obsoletedTime?: number
   supersededByFileId?: number | null
   remark?: string
   canPreview?: boolean
@@ -365,9 +366,9 @@ export interface ControlledFileDistributionStatusVO {
   distributionMedium?: 'PUBLIC_FOLDER' | 'PAPER'
   status: string
   acknowledgedBy?: number | null
-  acknowledgedAt?: string | null
+  acknowledgedAt?: number | null
   recoveredBy?: number | null
-  recoveredAt?: string | null
+  recoveredAt?: number | null
   recipientUserIds: number[]
   recipients?: ControlledFileDistributionRecipientStatusVO[]
 }
@@ -375,8 +376,8 @@ export interface ControlledFileDistributionStatusVO {
 export interface ControlledFileDistributionRecipientStatusVO {
   id: number
   userId: number
-  readAt?: string | null
-  acknowledgedAt?: string | null
+  readAt?: number | null
+  acknowledgedAt?: number | null
   ackComment?: string | null
 }
 
@@ -412,10 +413,10 @@ export interface ControlledFilePaperDistributionRecordVO {
   issuerName?: string | null
   recipientUserIds: number[]
   recipientNames: string[]
-  issuedAt?: string | null
+  issuedAt?: number | null
   recovererUserId?: number | null
   recovererName?: string | null
-  recoveredAt?: string | null
+  recoveredAt?: number | null
   status: string
 }
 
@@ -423,7 +424,7 @@ export interface ControlledFileTrainingAssignmentVO {
   id: number
   userId: number
   status: string
-  acknowledgedAt?: string
+  acknowledgedAt?: number
   accumulatedViewSeconds?: number
   requiredViewSeconds?: number
   eligibleToAcknowledge?: boolean
@@ -481,7 +482,7 @@ export interface ControlledFileSignatureSummaryVO {
   actionType?: string
   signatureMode?: string
   comment?: string
-  signedAt?: string
+  signedAt?: number
 }
 
 export type DccSignatureTaskActionResult = 'APPROVED' | 'REJECTED'
@@ -496,7 +497,7 @@ export interface DccSignatureActionRespVO {
   controlledCopyHashStatus: string
   evidenceStatus: string
   evidenceHashShort: string
-  signedAt: string
+  signedAt: number
   nextStatus: string
 }
 
@@ -558,7 +559,7 @@ export interface ControlledFileVO {
   projectCodeRecognitionType?: string | null
   projectCodeRecognitionText?: string | null
   projectCodeRecognizedBy?: number | null
-  projectCodeRecognizedTime?: string | null
+  projectCodeRecognizedTime?: number | null
   fileTypeTaxonomyId?: number | null
   fileTypeLevel1?: string | null
   fileTypeLevel2?: string | null
@@ -583,13 +584,13 @@ export interface ControlledFileVO {
   requesterId: number
   processInstanceId?: string
   processDefinitionKey?: string
-  submittedTime?: string
-  approvedTime?: string
-  publishedTime?: string
-  rejectedTime?: string
-  stampedTime?: string
+  submittedTime?: number
+  approvedTime?: number
+  publishedTime?: number
+  rejectedTime?: number
+  stampedTime?: number
   obsoletedBy?: number | null
-  obsoletedTime?: string
+  obsoletedTime?: number
   obsoleteReason?: string
   supersededByFileId?: number | null
   rejectReason?: string
@@ -623,7 +624,7 @@ export interface ExternalFileReviewVO {
   reviewConclusion?: string | null
   conclusionComment?: string | null
   outputFileName?: string | null
-  closedTime?: string | null
+  closedTime?: number | null
 }
 
 export interface ControlledFilePageReqVO extends PageParam {
@@ -697,8 +698,8 @@ export interface ControlledFileBatchRecognitionTaskRespVO {
   remainingCount: number
   lastFailureMessage?: string | null
   failureSummaries?: ControlledFileBatchRecognitionFailureSummaryVO[]
-  startedAt?: string | null
-  completedAt?: string | null
+  startedAt?: number | null
+  completedAt?: number | null
 }
 
 export interface ControlledFileMetadataImportRowRespVO {
@@ -865,7 +866,7 @@ export interface NasPermissionSnapshotSummaryVO {
   unsupportedAceCount: number
   unmappedPrincipalCount: number
   blockerCount: number
-  capturedAt?: string | null
+  capturedAt?: number | null
   lastFailureMessage?: string | null
   restoreSupported: boolean
 }
@@ -967,8 +968,8 @@ export interface NasPermissionRestoreApplyRespVO {
 
 export interface NasPermissionRestoreStatusVO extends NasPermissionRestoreApplyRespVO {
   lastFailureMessage?: string | null
-  startedAt?: string | null
-  completedAt?: string | null
+  startedAt?: number | null
+  completedAt?: number | null
 }
 
 export const CONTROLLED_FILE_PROCESS_DEFINITION_KEY = 'dcc-controlled-file-approval'
@@ -1240,6 +1241,7 @@ export const parseControlledFileUploadResp = (data: unknown): ControlledFileUplo
     onlyofficeDocumentUrl: readOptionalString(payload, 'onlyofficeDocumentUrl'),
     previewUnavailableReason: readOptionalString(payload, 'previewUnavailableReason'),
     fileSize: assertRequiredNumber(payload, 'fileSize', 'DCC upload'),
+    expireTime: readOptionalTimestamp(payload, 'expireTime'),
     watermarkTraceCode: readOptionalNullableString(payload, 'watermarkTraceCode'),
     watermark:
       payload.watermark === undefined || payload.watermark === null

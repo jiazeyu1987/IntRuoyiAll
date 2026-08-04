@@ -14,7 +14,11 @@
     >
       <div class="upload-workbench" data-testid="dcc-upload-single-page-workbench">
         <div class="upload-workbench__grid" data-testid="dcc-upload-single-page-grid">
-          <section class="upload-section upload-section--scope" data-testid="dcc-upload-section-scope">
+          <div
+            class="upload-workbench__column upload-workbench__column--main"
+            data-testid="dcc-upload-left-column"
+          >
+            <section class="upload-section upload-section--scope" data-testid="dcc-upload-section-scope">
         <div class="upload-section__title">提交范围</div>
         <el-form-item v-if="!isExternalReview" label="DCC项目" prop="dccProjectCodeId">
           <el-select
@@ -285,6 +289,32 @@
         </el-form-item>
       </section>
 
+          <section class="upload-section upload-section--preflight" data-testid="dcc-upload-preflight-panel">
+        <div class="upload-section__title">提交前校验</div>
+        <div class="upload-preflight-legend">文件编号/版本 · 分类上传权限 · 审批人链路 · 受控浏览目录 · 浏览权限范围</div>
+        <div class="upload-preflight-grid">
+          <div
+            v-for="check in uploadPreflightChecks"
+            :key="check.key"
+            class="upload-preflight-card"
+            :class="{ 'is-ok': check.ok, 'is-warning': check.warning, 'is-error': !check.ok && !check.warning }"
+          >
+            <div class="upload-preflight-card__header">
+              <span>{{ check.label }}</span>
+              <el-tag size="small" :type="check.ok ? 'success' : check.warning ? 'warning' : 'danger'">
+                {{ check.status }}
+              </el-tag>
+            </div>
+            <div class="upload-preflight-card__description">{{ check.description }}</div>
+          </div>
+        </div>
+      </section>
+          </div>
+
+          <div
+            class="upload-workbench__column upload-workbench__column--side"
+            data-testid="dcc-upload-right-column"
+          >
           <section class="upload-section upload-section--approval" data-testid="dcc-upload-section-approval">
         <div class="upload-section__title">审批要求</div>
         <el-form-item label="培训要求" prop="needTraining">
@@ -403,26 +433,8 @@
         </el-form-item>
       </section>
 
-          <section class="upload-section upload-section--preflight" data-testid="dcc-upload-preflight-panel">
-        <div class="upload-section__title">提交前校验</div>
-        <div class="upload-preflight-legend">文件编号/版本 · 分类上传权限 · 审批人链路 · 受控浏览目录 · 浏览权限范围</div>
-        <div class="upload-preflight-grid">
-          <div
-            v-for="check in uploadPreflightChecks"
-            :key="check.key"
-            class="upload-preflight-card"
-            :class="{ 'is-ok': check.ok, 'is-warning': check.warning, 'is-error': !check.ok && !check.warning }"
-          >
-            <div class="upload-preflight-card__header">
-              <span>{{ check.label }}</span>
-              <el-tag size="small" :type="check.ok ? 'success' : check.warning ? 'warning' : 'danger'">
-                {{ check.status }}
-              </el-tag>
-            </div>
-            <div class="upload-preflight-card__description">{{ check.description }}</div>
+
           </div>
-        </div>
-      </section>
         </div>
 
         <section class="upload-submit-bar" data-testid="dcc-upload-section-submit">
@@ -1661,13 +1673,16 @@ onBeforeUnmount(() => {
 
 .upload-workbench__grid {
   display: grid;
-  grid-template-areas:
-    'scope approval'
-    'file attachment'
-    'preflight preflight';
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px 16px;
+  gap: 16px;
   align-items: start;
+  min-width: 0;
+}
+
+.upload-workbench__column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   min-width: 0;
 }
 
@@ -1679,25 +1694,6 @@ onBeforeUnmount(() => {
   background: #ffffff;
 }
 
-.upload-section--scope {
-  grid-area: scope;
-}
-
-.upload-section--file {
-  grid-area: file;
-}
-
-.upload-section--approval {
-  grid-area: approval;
-}
-
-.upload-section--attachment {
-  grid-area: attachment;
-}
-
-.upload-section--preflight {
-  grid-area: preflight;
-}
 
 .upload-section__title {
   margin-bottom: 10px;
@@ -1725,7 +1721,7 @@ onBeforeUnmount(() => {
 
 .upload-preflight-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1816,17 +1812,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1280px) {
   .upload-workbench__grid {
-    grid-template-areas:
-      'scope'
-      'file'
-      'approval'
-      'attachment'
-      'preflight';
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .upload-preflight-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

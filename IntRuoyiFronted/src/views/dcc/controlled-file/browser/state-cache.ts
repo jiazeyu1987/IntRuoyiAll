@@ -30,7 +30,7 @@ export interface DccBrowserMetadataDirectoryNode {
   hasChildren?: boolean
   directoryPath?: string
   remark?: string
-  createTime?: Date | string
+  createTime?: number
 }
 
 export interface DccBrowserMetadataCache {

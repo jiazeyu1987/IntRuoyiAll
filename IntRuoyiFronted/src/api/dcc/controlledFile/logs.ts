@@ -29,7 +29,7 @@ export interface DccControlledFileLogRespVO {
   id: string
   logType: DccControlledFileLogType | string
   sourceRecordId?: number | null
-  occurredAt?: string | null
+  occurredAt?: number | null
   actionLabel?: string | null
   resultLabel?: string | null
   fileNumber?: string | null

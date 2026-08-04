@@ -35,7 +35,7 @@ export interface ControlledFileApprovalRouteVO {
   versionNo?: number
   active?: boolean
   statusLabel?: string
-  effectiveTime: string
+  effectiveTime: number
   remark?: string
   nodeCount?: number
   nodeSummary?: string

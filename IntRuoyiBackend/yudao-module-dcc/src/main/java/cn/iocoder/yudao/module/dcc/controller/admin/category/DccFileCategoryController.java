@@ -83,10 +83,18 @@ public class DccFileCategoryController {
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
     public CommonResult<List<DccFileCategoryRespVO>> getCategoryList() {
         var bindingMap = categoryAdminService.getCategoryDirectoryBindingMap();
+        var categories = categoryAdminService.getCategoryList();
+        var matrixPositionMap = approvalMatrixAdminService.getActiveMatrixPositionIdsByCategoryIds(
+                categories.stream().map(item -> item.getId()).toList());
         Long loginUserId = getLoginUserId();
-        return success(convertList(categoryAdminService.getCategoryList(), item -> {
+        return success(convertList(categories, item -> {
             DccFileCategoryRespVO respVO = BeanUtils.toBean(item, DccFileCategoryRespVO.class);
+            var matrixPositionIds = matrixPositionMap.get(item.getId());
             respVO.setDirectoryId(bindingMap.get(item.getId()));
+            respVO.setSignoffPositionIds(matrixPositionIds == null
+                    ? List.of() : matrixPositionIds.signoffPositionIds());
+            respVO.setApprovalPositionIds(matrixPositionIds == null
+                    ? List.of() : matrixPositionIds.approvalPositionIds());
             respVO.setCanUpload(loginUserId != null && permissionSupport.hasCategoryPermission(
                     item.getId(), loginUserId, DccFileCategoryPermissionActionEnum.UPLOAD));
             return respVO;

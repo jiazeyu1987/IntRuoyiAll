@@ -227,7 +227,7 @@ async function resolveRouteTarget(page) {
     if (totalRouteCount !== null && probedRouteCount >= totalRouteCount) break
   }
   throw new Error(
-    `当前登录租户下未找到可绑定负责产线的工艺路线，无法验证生产组长配置行；已扫描路线数=${probedRouteCount}` +
+    `当前登录租户下未找到可配置生产组长负责范围的工艺路线，无法验证生产组长配置行；已扫描路线数=${probedRouteCount}` +
       (totalRouteCount === null ? '' : `，接口总数=${totalRouteCount}`)
   )
 }
@@ -387,7 +387,7 @@ async function openProductionLeaderPanel(page, editor, routeTarget) {
   )
   assert.ok(
     Array.isArray(productionLines) && productionLines.length > 0,
-    '生产组长 E2E 目标路线必须至少有一条可负责产线。'
+    '生产组长 E2E 目标路线必须至少有一个当前工艺路线负责范围。'
   )
 
   if ((await panel.locator('[data-route-start-production-leader-production-line]').count()) === 0) {
@@ -395,7 +395,7 @@ async function openProductionLeaderPanel(page, editor, routeTarget) {
     await addButton.waitFor({ state: 'visible', timeout: config.timeout })
     assert.ok(
       await addButton.isEnabled(),
-      '生产组长面板未渲染配置行，且新增按钮不可用；当前路线没有可绑定的负责产线。'
+      '生产组长面板未渲染配置行，且新增按钮不可用；当前路线没有可配置的负责范围。'
     )
     await addButton.click()
   }

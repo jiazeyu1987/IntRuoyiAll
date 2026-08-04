@@ -71,7 +71,7 @@ export interface DccNasControlAuditFileRespVO {
   pathHash?: string
   fileName: string
   fileSize?: number | null
-  modifiedAt?: string
+  modifiedAt?: number
   sourceSignature: string
   controlStatus?: string
   classificationStatus: 'MATCHED' | 'UNCLASSIFIED_PENDING' | 'AMBIGUOUS' | string

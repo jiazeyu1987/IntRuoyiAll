@@ -142,6 +142,7 @@ import {
   getTrainingProgressStatusTagType,
   resolveTrainingPageErrorMessage
 } from '../presentation'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import { openControlledFileViewer } from '../../shared/viewer-navigation'
 
 defineOptions({ name: 'DccTrainingTask' })
@@ -185,7 +186,7 @@ const acknowledgeDisabledReason = computed(() => {
     return '培训任务加载中，暂不能确认。'
   }
   if (task.value.acknowledgedAt) {
-    return `已于 ${task.value.acknowledgedAt} 确认完成。`
+    return `已于 ${formatDateTimeValue(task.value.acknowledgedAt, '-')} 确认完成。`
   }
   if (!previewBlob.value) {
     return '文件预览未加载完成，加载成功后才开始计时。'

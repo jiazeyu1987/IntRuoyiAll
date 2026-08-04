@@ -13,7 +13,7 @@
 ## Safety
 
 - Snapshot-only design avoids destructive schema changes and keeps draft/candidate route version semantics aligned with existing route config snapshots.
-- Save validation rejects unknown production lines, empty leader configuration, invalid source type, and non-existing users/roles.
+- Save validation rejects non-current-route responsible scopes, empty leader configuration, invalid source type, and non-existing users/roles.
 
 ## Rollback
 

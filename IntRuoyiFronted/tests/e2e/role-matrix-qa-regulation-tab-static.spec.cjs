@@ -45,6 +45,7 @@ for (const requiredSelector of [
   'data-qa-regulation-scope',
   'data-qa-regulation-inspection-rules',
   'data-qa-regulation-items',
+  'data-qa-regulation-original-excerpt',
   'data-qa-regulation-completeness',
   'data-qa-pqc-task-preview'
 ]) {
@@ -69,6 +70,34 @@ for (const requiredField of [
     source,
     new RegExp(requiredField),
     `QA regulation item model must retain ${requiredField}.`
+  )
+}
+
+for (const requiredSourceField of [
+  'sourceOriginalPage',
+  'sourceOriginalItem',
+  'sourceOriginalExcerpt',
+  'sourceOriginalMethod'
+]) {
+  assert.match(
+    source,
+    new RegExp(requiredSourceField),
+    `QA regulation item model must retain ${requiredSourceField}.`
+  )
+}
+
+for (const requiredOriginalExcerpt of [
+  '原文依据',
+  '20atm 压力打至 20atm 应无跳压现象',
+  '负压检测：抽负压-80±5kpa，不应有泄漏',
+  '正常或矫正视力，在 300~700lx 的照度下',
+  '推杆组件推入外套',
+  '每一个检验项目均应合格'
+]) {
+  assert.match(
+    source,
+    new RegExp(requiredOriginalExcerpt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `QA regulation item must expose source excerpt: ${requiredOriginalExcerpt}.`
   )
 }
 

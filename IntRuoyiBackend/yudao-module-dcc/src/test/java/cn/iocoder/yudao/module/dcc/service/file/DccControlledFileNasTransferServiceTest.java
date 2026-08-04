@@ -1785,18 +1785,41 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void transfer_rejectsSelectedCategoryWithoutDirectoryBinding() {
+    void transfer_unboundSelectedCategoryUsesUnclassifiedDirectory() {
         ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
         TenantContextHolder.setTenantId(1L);
         when(categoryMapper.selectById(900250L)).thenReturn(otherCategory());
         when(categoryDirectoryBindingMapper.selectActiveByCategoryId(900250L)).thenReturn(null);
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of(unclassifiedDirectory(910000L)));
+        when(taskMapper.selectActiveTask()).thenReturn(null);
+        lenient().when(taskMapper.selectWaitingTasks(any(LocalDateTime.class))).thenReturn(List.of());
 
-        IllegalStateException exception = assertThrows(IllegalStateException.class,
-                () -> transferService.transfer(99L, buildReq()));
+        AtomicLong nextTaskId = new AtomicLong(1000L);
+        List<DccControlledFileNasTransferTaskItemDO> storedItems = new ArrayList<>();
+        Map<Long, DccControlledFileNasTransferTaskDO> storedTasks = new LinkedHashMap<>();
+        doAnswer(invocation -> {
+            DccControlledFileNasTransferTaskDO task = invocation.getArgument(0);
+            task.setId(nextTaskId.getAndIncrement());
+            storedTasks.put(task.getId(), copyTask(task));
+            return 1;
+        }).when(taskMapper).insert(any(DccControlledFileNasTransferTaskDO.class));
+        AtomicLong nextItemId = new AtomicLong(2000L);
+        doAnswer(invocation -> {
+            DccControlledFileNasTransferTaskItemDO item = invocation.getArgument(0);
+            item.setId(nextItemId.getAndIncrement());
+            storedItems.add(copyItem(item));
+            return 1;
+        }).when(taskItemMapper).insert(any(DccControlledFileNasTransferTaskItemDO.class));
+        when(taskMapper.selectById(anyLong())).thenAnswer(invocation ->
+                storedTasks.get(invocation.getArgument(0)));
+        stubAggregatedTaskItemSummary(() -> storedItems);
 
-        assertEquals("当前 DCC 模板类别未绑定受控目录，请先在 DCC 文件类别维护目录绑定", exception.getMessage());
-        verify(taskMapper, never()).insert(any(DccControlledFileNasTransferTaskDO.class));
-        verify(taskItemMapper, never()).insert(any(DccControlledFileNasTransferTaskItemDO.class));
+        DccControlledFileNasTransferRespVO response = transferService.transfer(99L, buildReq());
+
+        assertEquals(1000L, response.getTaskId());
+        assertEquals(DccControlledFileNasTransferServiceImpl.TASK_STATUS_WAITING, response.getStatus());
+        assertEquals(2, response.getRemainingPendingCount());
+        assertEquals(3000L, readLongProperty(storedTasks.get(1000L), "dccProjectCodeId"));
         verify(nasBrowserService, never()).listFiles(any());
         verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
     }
@@ -1824,45 +1847,87 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void processWaitingTasks_failsTaskWhenSelectedCategoryBindingMissing() {
+    void processWaitingTasks_unboundSelectedCategoryUsesUnclassifiedDirectory() {
         ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
         TenantContextHolder.setTenantId(1L);
-        DccControlledFileNasTransferTaskDO task = DccControlledFileNasTransferTaskDO.builder()
-                .id(10L)
-                .operatorUserId(99L)
-                .templateCategoryId(900250L)
-                .dccProjectCodeId(3000L)
-                .productMasterId(null)
-                .effectiveDate(LocalDate.of(2026, 5, 23))
-                .selectedNasPathsJson("[\"1. QMS documents\"]")
-                .status(DccControlledFileNasTransferServiceImpl.TASK_STATUS_WAITING)
-                .build();
-        when(taskMapper.selectWaitingTasks(any(LocalDateTime.class))).thenReturn(List.of(task));
-        when(taskMapper.claimWaitingTask(eq(10L), any(LocalDateTime.class))).thenReturn(1);
-        when(taskMapper.selectById(10L)).thenReturn(task);
-        when(directoryMapper.selectList()).thenReturn(List.of(directory(902634L, null, "1. QMS documents", 1)));
-        when(directoryAccessRuleMapper.selectList()).thenReturn(List.of());
+        Map<Long, DccControlledFileNasTransferTaskDO> tasks = new LinkedHashMap<>();
+        Map<Long, DccControlledFileNasTransferTaskItemDO> items = new LinkedHashMap<>();
+        configureSingleDirectoryTask(tasks, items, "1. QMS documents");
         when(categoryMapper.selectList()).thenReturn(List.of(otherCategory()));
         when(categoryMapper.selectById(900250L)).thenReturn(otherCategory());
         when(categoryDirectoryBindingMapper.selectList()).thenReturn(List.of());
+        AtomicLong nextItemId = new AtomicLong(101L);
+        doAnswer(invocation -> {
+            DccControlledFileNasTransferTaskItemDO item = invocation.getArgument(0);
+            item.setId(nextItemId.getAndIncrement());
+            items.put(item.getId(), copyItem(item));
+            return 1;
+        }).when(taskItemMapper).insert(any(DccControlledFileNasTransferTaskItemDO.class));
+        when(taskItemMapper.claimWaitingItem(anyLong())).thenAnswer(invocation -> {
+            DccControlledFileNasTransferTaskItemDO item = items.get(invocation.getArgument(0));
+            if (item == null || !DccControlledFileNasTransferServiceImpl.ITEM_STATUS_WAITING.equals(item.getStatus())) {
+                return 0;
+            }
+            item.setStatus(DccControlledFileNasTransferServiceImpl.ITEM_STATUS_RUNNING);
+            return 1;
+        });
+        when(taskItemMapper.selectById(anyLong())).thenAnswer(invocation -> copyItem(items.get(invocation.getArgument(0))));
+        doAnswer(invocation -> {
+            DccControlledFileNasTransferTaskItemDO updatedItem = invocation.getArgument(0);
+            items.put(updatedItem.getId(), copyItem(updatedItem));
+            return 1;
+        }).when(taskItemMapper).updateById(any(DccControlledFileNasTransferTaskItemDO.class));
+
+        List<DccFileDirectoryDO> directories = new ArrayList<>(List.of(
+                unclassifiedDirectory(910000L),
+                directory(902634L, null, "1. QMS documents", 1)
+        ));
+        AtomicLong nextDirectoryId = new AtomicLong(920000L);
+        when(directoryMapper.selectList()).thenAnswer(invocation -> directories.stream()
+                .map(DccControlledFileNasTransferServiceTest::copyDirectory)
+                .toList());
+        doAnswer(invocation -> {
+            DccFileDirectoryDO directory = invocation.getArgument(0);
+            directory.setId(nextDirectoryId.getAndIncrement());
+            directories.add(copyDirectory(directory));
+            return 1;
+        }).when(directoryMapper).insert(any(DccFileDirectoryDO.class));
+        when(directoryAccessRuleMapper.selectList()).thenReturn(List.of());
         when(permissionRuleMapper.selectList()).thenReturn(List.of());
         when(distributionRuleMapper.selectList()).thenReturn(List.of());
         when(trainingRuleMapper.selectList()).thenReturn(List.of());
         when(routeMapper.selectList()).thenReturn(List.of());
         when(routeNodeMapper.selectList()).thenReturn(List.of());
+        when(nasBrowserService.readDirectoryAcl("1. QMS documents")).thenReturn(sampleAcl("1. QMS documents"));
+        when(nasBrowserService.listFiles("1. QMS documents")).thenReturn(new FileNasListRespVO().setItems(List.of(
+                new FileNasListRespVO.Item().setName("Quality Manual.pdf")
+                        .setPath("1. QMS documents/Quality Manual.pdf").setDir(false).setSize(10L)
+        )));
+        when(nasBrowserService.readFile("1. QMS documents/Quality Manual.pdf"))
+                .thenReturn(new NasFileReadResult("Quality Manual.pdf", "1. QMS documents/Quality Manual.pdf",
+                        "application/pdf", "pdf".getBytes()));
+        when(fileService.createFileAndReturnId(eq("pdf".getBytes()), eq("Quality Manual.pdf"), eq("dcc/original"),
+                eq("application/pdf"))).thenReturn(5001L);
+        when(workflowService.submitControlledFileWithoutApproval(eq(99L), any(DccControlledFileSubmitReqVO.class)))
+                .thenReturn(6001L);
 
         transferService.processWaitingTasks();
+        DccControlledFileNasTransferRespVO result = transferService.getTask(99L, 10L);
 
-        ArgumentCaptor<DccControlledFileNasTransferTaskDO> taskCaptor =
-                ArgumentCaptor.forClass(DccControlledFileNasTransferTaskDO.class);
-        verify(taskMapper).updateById(taskCaptor.capture());
-        DccControlledFileNasTransferTaskDO failedTask = taskCaptor.getValue();
-        assertEquals(DccControlledFileNasTransferServiceImpl.TASK_STATUS_FAILED, failedTask.getStatus());
-        assertEquals("当前 DCC 模板类别未绑定受控目录，请先在 DCC 文件类别维护目录绑定",
-                failedTask.getLastFailureMessage());
-        verify(taskItemMapper, never()).selectFirstWaitingItemByTaskId(10L);
-        verify(nasBrowserService, never()).listFiles(any());
-        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        assertEquals(DccControlledFileNasTransferServiceImpl.TASK_STATUS_COMPLETED, result.getStatus());
+        assertEquals(1, result.getCreatedDirectoryCount());
+        assertEquals(0, result.getFailedFileCount());
+        DccFileDirectoryDO importedRoot = directories.stream()
+                .filter(directory -> Long.valueOf(920000L).equals(directory.getId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(910000L, importedRoot.getParentId());
+        assertEquals("1. QMS documents", importedRoot.getName());
+        ArgumentCaptor<DccControlledFileSubmitReqVO> submitCaptor =
+                ArgumentCaptor.forClass(DccControlledFileSubmitReqVO.class);
+        verify(workflowService).submitControlledFileWithoutApproval(eq(99L), submitCaptor.capture());
+        assertEquals(900250L, submitCaptor.getValue().getCategoryId());
+        assertEquals(920000L, submitCaptor.getValue().getDirectoryId());
     }
 
     @Test
@@ -3085,6 +3150,19 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
                 .name(name)
                 .active(Boolean.TRUE)
                 .sort(sort)
+                .remark("test")
+                .accessRuleManuallyBound(Boolean.FALSE)
+                .build();
+    }
+
+    private static DccFileDirectoryDO unclassifiedDirectory(Long id) {
+        return DccFileDirectoryDO.builder()
+                .id(id)
+                .parentId(null)
+                .code(DccUploadDirectoryResolver.UNCLASSIFIED_UPLOAD_DIRECTORY_CODE)
+                .name("未分类")
+                .active(Boolean.TRUE)
+                .sort(99)
                 .remark("test")
                 .accessRuleManuallyBound(Boolean.FALSE)
                 .build();

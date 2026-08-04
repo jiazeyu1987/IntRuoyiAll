@@ -1,6 +1,7 @@
 import type { TrainingExecutionRowVO, TrainingTaskProgressVO } from '@/api/dcc/controlledFile/training'
 import type { UserVO } from '@/api/system/user'
 import { formatDccSimpleUserLabel } from '../shared/utils'
+import { formatDateTimeValue } from '@/utils/formatTime'
 
 export const TRAINING_PROGRESS_STATUS_OPTIONS = [
   { label: '待查看', value: 'PENDING_VIEW' },
@@ -48,8 +49,8 @@ interface TrainingTaskSummarySource {
   accumulatedViewSeconds?: number
   requiredViewSeconds?: number
   eligibleToAcknowledge?: boolean
-  acknowledgedAt?: string
-  publishedTime?: string
+  acknowledgedAt?: number
+  publishedTime?: number
   status?: TrainingTaskProgressVO['status']
 }
 
@@ -66,8 +67,8 @@ export const getTrainingTaskSummary = (source: TrainingTaskSummarySource) => {
       ? '已达标，进入培训后可确认'
       : `还需 ${formatTrainingSeconds(remainingSeconds)}`
   const timeText = source.acknowledgedAt
-    ? `确认：${source.acknowledgedAt}`
-    : `发布：${source.publishedTime || '-'}`
+    ? `确认：${formatDateTimeValue(source.acknowledgedAt, '-')}`
+    : `发布：${formatDateTimeValue(source.publishedTime, '-')}`
 
   return {
     statusLabel: getTrainingProgressStatusLabel(source.status),
@@ -113,7 +114,7 @@ export const sortTrainingRowsByPublishedTime = <T extends Pick<TrainingTaskProgr
   rows: T[]
 ) =>
   [...rows].sort((left, right) => {
-    const leftTime = left.publishedTime ? new Date(left.publishedTime).getTime() : 0
-    const rightTime = right.publishedTime ? new Date(right.publishedTime).getTime() : 0
+    const leftTime = left.publishedTime || 0
+    const rightTime = right.publishedTime || 0
     return rightTime - leftTime
   })

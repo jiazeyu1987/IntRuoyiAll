@@ -144,9 +144,6 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     private static final int DATABASE_ERROR_MESSAGE_MAX_LENGTH = 512;
     private static final String DATABASE_ERROR_MESSAGE_TRUNCATED_SUFFIX = "...[truncated]";
     private static final String CANCEL_REASON = "Stopped before deleting DCC directory subtree";
-    private static final String SELECTED_CATEGORY_DIRECTORY_BINDING_REQUIRED_MESSAGE =
-            "当前 DCC 模板类别未绑定受控目录，请先在 DCC 文件类别维护目录绑定";
-
     @Resource
     private NasBrowserService nasBrowserService;
     @Resource
@@ -1698,7 +1695,7 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
                     if (localFolderTask) {
                         processLocalFolderDirectoryItem(nextItem, selectedCategory, snapshot);
                     } else {
-                        processDirectoryItem(nextItem, snapshot, runtime);
+                        processDirectoryItem(nextItem, selectedCategory, snapshot, runtime);
                     }
                 } else {
                     if (localFolderTask) {
@@ -1715,6 +1712,7 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     }
 
     private void processDirectoryItem(DccControlledFileNasTransferTaskItemDO item,
+                                      SelectedCategoryContext selectedCategory,
                                       Snapshot snapshot,
                                       TaskRuntime runtime) {
         if (taskItemMapper.claimWaitingItem(item.getId()) == 0) {
@@ -1755,7 +1753,8 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
         try {
             tx().executeWithoutResult(status -> {
                 DccControlledFileNasTransferTaskItemDO current = taskItemMapper.selectById(item.getId());
-                DirectoryResolution directoryResolution = resolveDirectoryForItem(current, snapshot);
+                DirectoryResolution directoryResolution = resolveDirectoryForItem(current, snapshot,
+                        selectedCategory.nasRootParentDirectoryId(), "Created from NAS transfer task");
                 current.setResolvedDirectoryId(directoryResolution.directory().getId());
                 current.setDirectoryOutcome(directoryResolution.outcome());
                 snapshotCaptureService.captureDirectorySnapshot(current.getTaskId(), current.getId(),
@@ -2227,24 +2226,30 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     private SelectedCategoryContext requireSelectedCategoryContext(Long selectedCategoryId) {
         DccFileCategoryDO category = requireSelectedCategory(selectedCategoryId);
         DccCategoryDirectoryBindingDO binding = categoryDirectoryBindingMapper.selectActiveByCategoryId(selectedCategoryId);
-        if (binding == null || binding.getDirectoryId() == null) {
-            throw new IllegalStateException(SELECTED_CATEGORY_DIRECTORY_BINDING_REQUIRED_MESSAGE);
+        if (binding != null && binding.getDirectoryId() != null) {
+            return new SelectedCategoryContext(category, binding.getDirectoryId(), false);
         }
-        return new SelectedCategoryContext(category, binding.getDirectoryId());
+        DccFileDirectoryDO unclassifiedDirectory =
+                DccUploadDirectoryResolver.resolveUnclassifiedUploadDirectory(directoryMapper.selectEnabledList());
+        return new SelectedCategoryContext(category, unclassifiedDirectory.getId(), true);
     }
 
     private SelectedCategoryContext requireSelectedCategoryContext(Long selectedCategoryId, Snapshot snapshot) {
         DccFileCategoryDO category = requireSelectedCategory(selectedCategoryId);
         Long bindingDirectoryId = snapshot.categoryBindingDirectoryId().get(selectedCategoryId);
+        boolean unclassifiedDirectory = false;
         if (bindingDirectoryId == null) {
-            throw new IllegalStateException(SELECTED_CATEGORY_DIRECTORY_BINDING_REQUIRED_MESSAGE);
+            DccFileDirectoryDO directory = DccUploadDirectoryResolver.resolveUnclassifiedUploadDirectory(
+                    new ArrayList<>(snapshot.directoriesById().values()));
+            bindingDirectoryId = directory.getId();
+            unclassifiedDirectory = true;
         }
         DccFileDirectoryDO bindingDirectory = snapshot.directoriesById().get(bindingDirectoryId);
         if (bindingDirectory == null || !Boolean.TRUE.equals(bindingDirectory.getActive())) {
             throw new IllegalStateException("selected category bound directory missing or inactive: "
                     + bindingDirectoryId);
         }
-        return new SelectedCategoryContext(category, bindingDirectoryId);
+        return new SelectedCategoryContext(category, bindingDirectoryId, unclassifiedDirectory);
     }
 
     private boolean isDirectoryCoveredByBinding(Long directoryId, Long bindingDirectoryId, Snapshot snapshot) {
@@ -2477,7 +2482,12 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     private record DirectoryResolution(DccFileDirectoryDO directory, String outcome) {
     }
 
-    private record SelectedCategoryContext(DccFileCategoryDO category, Long bindingDirectoryId) {
+    private record SelectedCategoryContext(DccFileCategoryDO category, Long bindingDirectoryId,
+                                           boolean unclassifiedDirectory) {
+
+        Long nasRootParentDirectoryId() {
+            return unclassifiedDirectory ? bindingDirectoryId : null;
+        }
     }
 
     static final class TaskRuntime {

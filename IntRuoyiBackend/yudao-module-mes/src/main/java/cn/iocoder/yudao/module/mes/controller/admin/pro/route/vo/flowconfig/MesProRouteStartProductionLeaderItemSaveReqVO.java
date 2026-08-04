@@ -13,8 +13,8 @@ import java.util.List;
 @Accessors(chain = true)
 public class MesProRouteStartProductionLeaderItemSaveReqVO {
 
-    @Schema(description = "负责产线 ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "7001")
-    @NotNull(message = "生产组长负责产线不能为空")
+    @Schema(description = "负责范围 ID，当前等于工艺路线 ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "7001")
+    @NotNull(message = "生产组长负责范围不能为空")
     private Long productionLineId;
 
     @Schema(description = "候选来源类型：USERS/ROLE", requiredMode = Schema.RequiredMode.REQUIRED, example = "USERS")

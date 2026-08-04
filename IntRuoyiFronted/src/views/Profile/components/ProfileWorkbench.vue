@@ -206,8 +206,8 @@ interface UnifiedTodoRow {
   source: string
   detail: string
   statusLabel: string
-  createdAt?: string
-  dueAt?: string
+  createdAt?: string | number
+  dueAt?: string | number
   route: RouteLocationRaw
   edhrWorkTask?: EdhrWorkTaskRespVO
 }
@@ -375,9 +375,12 @@ const compactJoin = (items: Array<string | number | null | undefined>) =>
     .filter(Boolean)
     .join(' · ')
 
-const getTimeValue = (value?: string) => {
+const getTimeValue = (value?: string | number) => {
   if (!value) {
     return Number.NaN
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : Number.NaN
   }
   const parsed = Date.parse(value)
   return Number.isFinite(parsed) ? parsed : Number.NaN

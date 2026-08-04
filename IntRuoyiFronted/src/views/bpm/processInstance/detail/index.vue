@@ -62,7 +62,75 @@
                       </el-col>
                       <!-- 情况二：业务表单 -->
                       <div v-if="processDefinition?.formType === BpmModelFormType.CUSTOM">
-                        <BusinessFormComponent :id="processInstance.businessKey" />
+                        <div
+                          v-if="isDccControlledFileCustomForm"
+                          class="bpm-dcc-approval-summary"
+                          data-testid="bpm-dcc-approval-compact-summary"
+                          v-loading="dccApprovalFileLoading"
+                        >
+                          <div class="bpm-dcc-approval-summary__head">
+                            <div>
+                              <div class="bpm-dcc-approval-summary__eyebrow">审核内容</div>
+                              <div class="bpm-dcc-approval-summary__title">
+                                {{
+                                  dccApprovalFileDetail?.title ||
+                                  processInstance.name ||
+                                  'DCC 受控文件审批'
+                                }}
+                              </div>
+                              <div class="bpm-dcc-approval-summary__subtitle">
+                                审核页默认只展示审批判断所需信息；项目代码联动、受控浏览落位和排障详情请在文控处理页查看。
+                              </div>
+                            </div>
+                            <el-tag type="success" effect="plain">精简审核视图</el-tag>
+                          </div>
+                          <el-alert
+                            v-if="dccApprovalFileError"
+                            class="mb-12px"
+                            type="error"
+                            show-icon
+                            :closable="false"
+                            title="审核内容加载失败"
+                            :description="dccApprovalFileError"
+                          />
+                          <el-descriptions :column="2" border>
+                            <el-descriptions-item label="文件标题">
+                              {{ dccApprovalFileDetail?.title || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="文件编号">
+                              {{ dccApprovalFileDetail?.fileNumber || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="版本">
+                              {{ dccApprovalFileDetail?.versionNo || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="生效日期">
+                              {{ dccApprovalFileDetail?.effectiveDate || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="提交人">
+                              {{ processInstance?.startUser?.nickname || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="提交时间">
+                              {{ formatDate(processInstance.startTime) || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="当前步骤">
+                              {{ currentApprovalStepLabel }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="当前处理人">
+                              {{ currentApprovalActorText }}
+                            </el-descriptions-item>
+                          </el-descriptions>
+                          <div class="bpm-dcc-approval-summary__actions">
+                            <el-button
+                              type="primary"
+                              :disabled="!dccControlledFileBusinessId"
+                              @click="openDccControlledFileApprovalDetail"
+                            >
+                              进入文控审批处理页
+                            </el-button>
+                            <span>需要预览文件、电子签名、通过或拒绝时，从这里进入正式处理入口。</span>
+                          </div>
+                        </div>
+                        <BusinessFormComponent v-else :id="processInstance.businessKey" />
                       </div>
                     </div>
                   </el-col>
@@ -141,6 +209,7 @@ import { registerComponent } from '@/utils/routerHelper'
 import type { ApiAttrs } from '@form-create/element-ui/types/config'
 import * as ProcessInstanceApi from '@/api/bpm/processInstance'
 import * as UserApi from '@/api/system/user'
+import { getControlledFile, type ControlledFileVO } from '@/api/dcc/controlledFile/workflow'
 import ProcessInstanceBpmnViewer from './ProcessInstanceBpmnViewer.vue'
 import ProcessInstanceSimpleViewer from './ProcessInstanceSimpleViewer.vue'
 import ProcessInstanceTaskList from './ProcessInstanceTaskList.vue'
@@ -153,6 +222,7 @@ import approveSvg from '@/assets/svgs/bpm/approve.svg'
 import rejectSvg from '@/assets/svgs/bpm/reject.svg'
 import cancelSvg from '@/assets/svgs/bpm/cancel.svg'
 import PrintDialog from './PrintDialog.vue'
+import { resolveDccTimelineActivityName } from '@/views/dcc/controlled-file/shared/stage-name'
 
 defineOptions({ name: 'BpmProcessInstanceDetail' })
 const props = defineProps<{
@@ -161,6 +231,8 @@ const props = defineProps<{
   activityId?: string //流程活动编号，用于抄送查看
 }>()
 const message = useMessage() // 消息弹窗
+const route = useRoute()
+const router = useRouter()
 const processInstanceLoading = ref(false) // 流程实例的加载中
 const processInstance = ref<any>({}) // 流程实例
 const processDefinition = ref<any>({}) // 流程定义
@@ -193,6 +265,117 @@ const getDetail = () => {
 
 /** 加载流程实例 */
 const BusinessFormComponent = ref<any>(null) // 异步组件
+const dccApprovalFileDetail = ref<ControlledFileVO>()
+const dccApprovalFileLoading = ref(false)
+const dccApprovalFileError = ref('')
+
+const normalizeCustomViewPath = (value?: string) =>
+  String(value || '')
+    .trim()
+    .replace(/^@\/views\//, '')
+    .replace(/^src\/views\//, '')
+    .replace(/^views\//, '')
+    .replace(/^\/+/, '')
+    .replace(/\.vue$/, '')
+    .replace(/\/index$/, '')
+
+const isDccControlledFileCustomForm = computed(
+  () =>
+    normalizeCustomViewPath(processDefinition.value?.formCustomViewPath) ===
+    'dcc/controlled-file/detail'
+)
+
+const dccControlledFileBusinessId = computed(() => {
+  const value = String(processInstance.value?.businessKey || '').trim()
+  return /^\d+$/.test(value) ? value : ''
+})
+
+const currentApprovalNodes = computed(() =>
+  activityNodes.value.filter((node) =>
+    [TaskStatusEnum.WAIT, TaskStatusEnum.RUNNING, TaskStatusEnum.APPROVING].includes(
+      node.status as TaskStatusEnum
+    )
+  )
+)
+
+const currentApprovalStepLabel = computed(() => {
+  const currentNode = currentApprovalNodes.value[0]
+  if (currentNode) {
+    return resolveDccTimelineActivityName(currentNode.id, currentNode.name)
+  }
+  if (processInstance.value?.status === TaskStatusEnum.APPROVE) {
+    return '流程已完成'
+  }
+  return '-'
+})
+
+const getUserDisplayName = (user?: ProcessInstanceApi.User) => {
+  if (!user) {
+    return ''
+  }
+  return user.nickname || (user.id ? `用户#${user.id}` : '')
+}
+
+const currentApprovalActorText = computed(() => {
+  const actorNames = currentApprovalNodes.value.flatMap((node) => {
+    const taskActors = (node.tasks || [])
+      .flatMap((task) => [getUserDisplayName(task.assigneeUser), getUserDisplayName(task.ownerUser)])
+      .filter(Boolean)
+    const candidateActors = (node.candidateUsers || []).map(getUserDisplayName).filter(Boolean)
+    return [...taskActors, ...candidateActors]
+  })
+  return Array.from(new Set(actorNames)).join('、') || '-'
+})
+
+const resetDccApprovalFileSummary = () => {
+  dccApprovalFileDetail.value = undefined
+  dccApprovalFileError.value = ''
+  dccApprovalFileLoading.value = false
+}
+
+const resolveDccApprovalFileError = (error: unknown) => {
+  if (error instanceof Error && error.message && error.message !== 'error') {
+    return error.message
+  }
+  if (typeof error === 'string' && error && error !== 'error') {
+    return error
+  }
+  return '受控文件审核内容加载失败，请联系文控管理员。'
+}
+
+const loadDccApprovalFileSummary = async () => {
+  resetDccApprovalFileSummary()
+  if (!dccControlledFileBusinessId.value) {
+    dccApprovalFileError.value = '流程业务单据缺少受控文件 ID，无法展示审核内容。'
+    return
+  }
+  dccApprovalFileLoading.value = true
+  try {
+    dccApprovalFileDetail.value = await getControlledFile(dccControlledFileBusinessId.value)
+  } catch (error) {
+    dccApprovalFileError.value = resolveDccApprovalFileError(error)
+  } finally {
+    dccApprovalFileLoading.value = false
+  }
+}
+
+const openDccControlledFileApprovalDetail = () => {
+  if (!dccControlledFileBusinessId.value) {
+    message.warning('缺少受控文件 ID，无法进入文控审批处理页。')
+    return
+  }
+  router.push({
+    path: `/dcc/controlled-file/detail/${dccControlledFileBusinessId.value}`,
+    query: {
+      handling: 'approval',
+      from: 'approval-center',
+      processInstanceId: props.id,
+      ...(props.taskId ? { taskId: props.taskId } : {}),
+      ...(route.fullPath ? { returnTo: encodeURIComponent(route.fullPath) } : {})
+    }
+  })
+}
+
 /** 获取审批详情 */
 const activityNodes = ref<ProcessInstanceApi.ApprovalNodeInfo[]>([]) // 审批节点信息
 const getApprovalDetail = async () => {
@@ -214,9 +397,11 @@ const getApprovalDetail = async () => {
     }
     processInstance.value = data.processInstance
     processDefinition.value = data.processDefinition
+    activityNodes.value = data.activityNodes || []
 
     // 设置表单信息
     if (processDefinition.value.formType === BpmModelFormType.NORMAL) {
+      resetDccApprovalFileSummary()
       // 获取表单字段权限
       const formFieldsPermission = data.formFieldsPermission
       // 清空可编辑字段为空
@@ -244,13 +429,17 @@ const getApprovalDetail = async () => {
           })
         }
       })
+    } else if (isDccControlledFileCustomForm.value) {
+      BusinessFormComponent.value = null
+      await loadDccApprovalFileSummary()
     } else {
+      resetDccApprovalFileSummary()
       // 注意：data.processDefinition.formCustomViewPath 是组件的全路径，例如说：/crm/contract/detail/index.vue
       BusinessFormComponent.value = registerComponent(data.processDefinition.formCustomViewPath)
     }
 
     // 获取审批节点，显示 Timeline 的数据
-    activityNodes.value = data.activityNodes
+    activityNodes.value = data.activityNodes || []
 
     // 获取待办任务显示操作按钮
     operationButtonRef.value?.loadTodoTask(data.todoTask)
@@ -359,5 +548,49 @@ $process-header-height: 194px;
   :deep(.el-card) {
     border: none;
   }
+}
+
+.bpm-dcc-approval-summary {
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 12px;
+  background: #fff;
+  padding: 18px;
+}
+
+.bpm-dcc-approval-summary__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.bpm-dcc-approval-summary__eyebrow {
+  color: var(--el-color-primary);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.bpm-dcc-approval-summary__title {
+  color: var(--el-text-color-primary);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.bpm-dcc-approval-summary__subtitle {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.bpm-dcc-approval-summary__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  margin-top: 16px;
 }
 </style>

@@ -34,9 +34,9 @@ test('BDD: metadata API contract -> Given doc_control edits controlled file basi
   assert.match(updateBody, /productName\?:\s*string/)
   assert.match(updateBody, /fileName:\s*string/)
   assert.match(updateBody, /productCode\?:\s*string/)
-  assert.match(updateBody, /fileNumber:\s*string/)
+  assert.match(updateBody, /fileNumber\?:\s*string\s*\|\s*null/)
   assert.match(updateBody, /categoryId:\s*number/)
-  assert.match(updateBody, /directoryId:\s*number/)
+  assert.match(updateBody, /directoryId\?:\s*number\s*\|\s*null/)
   assert.match(fileBody, /productName\?:\s*string/)
   assert.match(workflowSource, /export const updateControlledFileMetadata = async/)
   assert.match(workflowSource, /request\.put\(\{\s*url:\s*`\/dcc\/controlled-files\/\$\{id\}\/metadata`,\s*data\s*\}\)/)
@@ -57,12 +57,12 @@ test('BDD: doc_control-only entry -> Given current roles contain or miss doc_con
 
 test('BDD: metadata dialog behavior -> Given save fails, When backend rejects metadata update, Then the dialog keeps the error visible and does not fake success', () => {
   assert.match(dialogSource, /ControlledFileMetadataDialog/)
-  assert.match(dialogSource, /DCC基础条目/)
+  assert.match(dialogSource, /修改基础信息/)
   assert.match(dialogSource, /getProjectCodePage/)
   assert.match(dialogSource, /metadataForm\.dccProjectCodeId/)
   assert.match(dialogSource, /培训要求/)
   assert.match(dialogSource, /metadataForm\.needTraining/)
-  for (const label of ['文件类别 I', '文件类别 II', '文件类别 III', '文件类别 IV', '文件类别 V']) {
+  for (const label of ['一级', '二级', '三级', '四级', '五级']) {
     assert.match(dialogSource, new RegExp(label))
   }
   for (const field of ['fileTypeLevel1', 'fileTypeLevel2', 'fileTypeLevel3', 'fileTypeLevel4', 'fileTypeLevel5']) {
@@ -86,6 +86,11 @@ test('BDD: category directory scope -> Given a target category is selected, When
   assert.match(dialogSource, /category\.directoryId/)
   assert.match(dialogSource, /collectDirectoryOptions/)
   assert.match(dialogSource, /directoryOptions/)
+  assert.match(dialogSource, /selectedCategoryUsesUnclassifiedDirectory/)
+  assert.match(dialogSource, /系统将自动落位到未分类目录/)
+  assert.match(dialogSource, /directoryId:\s*selectedCategoryUsesUnclassifiedDirectory\.value\s*\?\s*null\s*:\s*metadataForm\.directoryId\s*\|\|\s*null/)
+  assert.doesNotMatch(dialogSource, /当前类别未绑定受控目录/)
+  assert.doesNotMatch(dialogSource, /directoryId:\s*metadataForm\.directoryId as number/)
   assert.match(browserSource, /@saved="handleMetadataSaved"/)
   assert.match(detailSource, /@saved="handleMetadataSaved"/)
   assert.match(browserSource, /await getList\(\)/)

@@ -252,6 +252,28 @@
               <el-input v-model="row.standardText" />
             </template>
           </el-table-column>
+          <el-table-column label="原文依据" min-width="420">
+            <template #default="{ row }">
+              <div class="team-leader-workbench__qa-source" data-qa-regulation-original-excerpt>
+                <div class="team-leader-workbench__qa-source-meta">
+                  <el-tag size="small" type="info" effect="plain">
+                    PDF 第 {{ row.sourceOriginalPage || '待补充' }} 页
+                  </el-tag>
+                  <span>{{ row.sourceOriginalItem || '待补充原文项目' }}</span>
+                </div>
+                <div class="team-leader-workbench__qa-source-label">接受标准原文</div>
+                <div class="team-leader-workbench__qa-source-text">
+                  {{ row.sourceOriginalExcerpt || 'QA 手工新增项目需补充对应 PDF/规程原文摘录。' }}
+                </div>
+                <template v-if="row.sourceOriginalMethod">
+                  <div class="team-leader-workbench__qa-source-label">检验方法原文</div>
+                  <div class="team-leader-workbench__qa-source-text">
+                    {{ row.sourceOriginalMethod }}
+                  </div>
+                </template>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column label="下限" width="120">
             <template #default="{ row }">
               <el-input-number
@@ -1239,6 +1261,10 @@ interface QaRegulationItem {
   critical: boolean
   failureRule: string
   sourceNote: string
+  sourceOriginalPage?: number
+  sourceOriginalItem?: string
+  sourceOriginalExcerpt?: string
+  sourceOriginalMethod?: string
 }
 
 const queryFormRef = ref()
@@ -1342,7 +1368,13 @@ const qaRegulationItems = ref<QaRegulationItem[]>([
     standardText: '外观完整，无明显污渍、破损、变形',
     critical: false,
     failureRule: '任一件不符合则记录不合格并进入复核',
-    sourceNote: '由压力泵过程检验规程初始化，QA 可编辑确认'
+    sourceNote: '由压力泵过程检验规程初始化，QA 可编辑确认',
+    sourceOriginalPage: 6,
+    sourceOriginalItem: '整体粘结 / 外套组件与套筒组件装配 / 外观',
+    sourceOriginalExcerpt:
+      '压力泵整体外观应无黑点、杂质、花纹、划痕等外观缺陷；压力泵内腔无异物、毛丝等活动异物；压力泵外套应有足够的透明度，能清晰地看到基准线；压力泵的第一条刻度线（泵体排空时）应与活塞重合。',
+    sourceOriginalMethod:
+      '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。'
   },
   {
     itemCode: 'PP-ASM',
@@ -1354,7 +1386,12 @@ const qaRegulationItems = ref<QaRegulationItem[]>([
     standardText: '球囊、管路、接头和压力泵主体装配齐全',
     critical: true,
     failureRule: '关键部件缺失或装配错误时整件判定不合格',
-    sourceNote: '由压力泵过程检验规程初始化，QA 可编辑确认'
+    sourceNote: '由压力泵过程检验规程初始化，QA 可编辑确认',
+    sourceOriginalPage: 6,
+    sourceOriginalItem: '外套组件与套筒组件装配 / 配合',
+    sourceOriginalExcerpt:
+      '推杆组件推入外套，后盖与外套的卡槽扣到位，旋转后盖使得后盖与外套的缺口完全一致，不能偏掉；旋转螺杆检查扭力不应偏大，按下按钮推拉螺杆看应无干涉及推拉力偏大。',
+    sourceOriginalMethod: '目测、手感。'
   },
   {
     itemCode: 'PP-SEAL',
@@ -1366,7 +1403,12 @@ const qaRegulationItems = ref<QaRegulationItem[]>([
     standardText: '连接处无可见泄漏，保压过程无异常下降',
     critical: true,
     failureRule: '发现泄漏即判定不合格并触发质量异常',
-    sourceNote: '由压力泵过程检验规程初始化，QA 可编辑确认'
+    sourceNote: '由压力泵过程检验规程初始化，QA 可编辑确认',
+    sourceOriginalPage: 7,
+    sourceOriginalItem: '整体粘结 / 气密性 / 负压检测',
+    sourceOriginalExcerpt: '负压检测：抽负压-80±5kpa，不应有泄漏。',
+    sourceOriginalMethod:
+      '将粘接完成 12 小时后的压力泵接上气密性检测工装，抽负压-80±5kpa，观察有无泄漏。'
   },
   {
     itemCode: 'PP-PRESS',
@@ -1380,19 +1422,31 @@ const qaRegulationItems = ref<QaRegulationItem[]>([
     upperLimit: 0.05,
     critical: true,
     failureRule: '超出上下限即判定不合格',
-    sourceNote: '由压力泵过程检验规程初始化，QA 可编辑确认'
+    sourceNote: '由压力泵过程检验规程初始化，QA 可编辑确认',
+    sourceOriginalPage: 3,
+    sourceOriginalItem: '组装螺杆八组件 / 无跳压',
+    sourceOriginalExcerpt:
+      '20atm 压力打至 20atm 应无跳压现象；30atm 压力打至 30atm 应无跳压现象；40atm 压力泵需打压至 40atm 无跳压现象。',
+    sourceOriginalMethod:
+      '将推杆装到检测专用的泵筒(吸入 10ML 水)上，将压力打至 20atm/30atm/40atm 应无跳压现象。'
   },
   {
     itemCode: 'PP-LABEL',
-    itemName: '标识与批号确认',
+    itemName: '判定规则与记录确认',
     applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
-    inspectionMethod: '标签核对',
-    inspectionTool: '批记录/标签样张',
+    inspectionMethod: '记录核对',
+    inspectionTool: '过程检验记录',
     resultType: 'BOOLEAN',
-    standardText: '产品标识、批号和状态标识清晰一致',
+    standardText: '每一个检验项目均应合格，并形成对应过程检验记录',
     critical: false,
-    failureRule: '标识缺失或批号不一致时退回补正',
-    sourceNote: '由压力泵过程检验规程初始化，QA 可编辑确认'
+    failureRule: '任一检验项目不合格时按判定规则处理，不得直接放行',
+    sourceNote: '由压力泵过程检验规程初始化，QA 可编辑确认',
+    sourceOriginalPage: 8,
+    sourceOriginalItem: '5.2 判定规则 / 7. 相关记录',
+    sourceOriginalExcerpt:
+      '检验中，每一个检验项目均应合格。若出现不合格，则进行不合格品评审并按照不合格评审结果处理。',
+    sourceOriginalMethod:
+      '记录编号 RE-PQC-IDI-001-01，记录名称：按压式球囊扩充压力泵组装过程检验记录。'
   }
 ])
 
@@ -1505,6 +1559,12 @@ const qaRegulationCompletenessChecks = computed(() => {
       item.resultType !== 'NUMERIC' ||
       (Number.isFinite(Number(item.lowerLimit)) && Number.isFinite(Number(item.upperLimit)))
   )
+  const sourceExcerptReady = qaRegulationItems.value.every(
+    (item) =>
+      Number.isFinite(Number(item.sourceOriginalPage)) &&
+      Boolean(item.sourceOriginalItem?.trim()) &&
+      Boolean(item.sourceOriginalExcerpt?.trim())
+  )
   return [
     {
       key: 'scope',
@@ -1535,6 +1595,14 @@ const qaRegulationCompletenessChecks = computed(() => {
       label: '数值上下限',
       passed: numericLimitReady,
       detail: numericLimitReady ? '数值类项目已有上下限' : '数值类项目必须填写上下限'
+    },
+    {
+      key: 'source-excerpts',
+      label: '原文依据摘录',
+      passed: sourceExcerptReady,
+      detail: sourceExcerptReady
+        ? '每个检验项目均已关联 PDF 页码和相关原文摘录'
+        : '每个检验项目都必须补齐对应 PDF 页码、原文项目和相关原文摘录'
     }
   ]
 })
@@ -2070,7 +2138,10 @@ const addQaRegulationItem = () => {
     standardText: '',
     critical: false,
     failureRule: '',
-    sourceNote: 'QA 手工新增，发布前需确认'
+    sourceNote: 'QA 手工新增，发布前需确认',
+    sourceOriginalItem: '',
+    sourceOriginalExcerpt: '',
+    sourceOriginalMethod: ''
   })
 }
 
@@ -2574,6 +2645,38 @@ onMounted(() => getSubmissionList())
 .team-leader-workbench__qa-rule-name {
   color: #172033;
   font-weight: 700;
+}
+
+.team-leader-workbench__qa-source {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.team-leader-workbench__qa-source-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  color: #172033;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.team-leader-workbench__qa-source-label {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.team-leader-workbench__qa-source-text {
+  color: #172033;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: normal;
 }
 
 .team-leader-workbench__qa-check-list {

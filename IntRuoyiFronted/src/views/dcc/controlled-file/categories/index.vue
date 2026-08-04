@@ -137,7 +137,7 @@
                         </el-tag>
                       </div>
                       <div class="category-governance-summary__meta">
-                        创建：{{ row.createTime ? formatDate(row.createTime) : '-' }}
+                        创建：{{ formatDateTimeValue(row.createTime, '-') }}
                       </div>
                     </div>
                   </template>
@@ -234,7 +234,7 @@
 </template>
 
 <script lang="ts" setup>
-import { formatDate } from '@/utils/formatTime'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import { handleTree } from '@/utils/tree'
 import type { ControlledFileDirectoryVO } from '@/api/dcc/controlledFile/directories'

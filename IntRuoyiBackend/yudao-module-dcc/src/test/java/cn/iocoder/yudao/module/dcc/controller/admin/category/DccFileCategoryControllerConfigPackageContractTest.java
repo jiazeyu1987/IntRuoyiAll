@@ -77,6 +77,8 @@ class DccFileCategoryControllerConfigPackageContractTest extends BaseMockitoUnit
                 DccFileCategoryDO.builder().id(10L).code("SOP").name("SOP").active(Boolean.TRUE).sort(1).build(),
                 DccFileCategoryDO.builder().id(11L).code("WI").name("WI").active(Boolean.TRUE).sort(2).build()
         ));
+        when(approvalMatrixAdminService.getActiveMatrixPositionIdsByCategoryIds(List.of(10L, 11L)))
+                .thenReturn(Map.of());
         when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
                 .thenReturn(true);
         when(permissionSupport.hasCategoryPermission(11L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
@@ -90,11 +92,43 @@ class DccFileCategoryControllerConfigPackageContractTest extends BaseMockitoUnit
     }
 
     @Test
+    void getCategoryList_projectsActiveApprovalMatrixPositionIds() {
+        LoginUser loginUser = new LoginUser();
+        loginUser.setId(99L);
+        SecurityFrameworkUtils.setLoginUser(loginUser, new MockHttpServletRequest());
+        when(categoryAdminService.getCategoryDirectoryBindingMap()).thenReturn(Map.of(26L, 126L));
+        when(categoryAdminService.getCategoryList()).thenReturn(List.of(
+                DccFileCategoryDO.builder()
+                        .id(26L)
+                        .code("INTAUTH-26")
+                        .name("技术调研报告")
+                        .active(Boolean.TRUE)
+                        .sort(26)
+                        .build()
+        ));
+        when(approvalMatrixAdminService.getActiveMatrixPositionIdsByCategoryIds(List.of(26L)))
+                .thenReturn(Map.of(26L, new DccCategoryApprovalMatrixAdminService.MatrixPositionIds(
+                        List.of(201L, 202L, 203L), List.of(301L, 302L))));
+        when(permissionSupport.hasCategoryPermission(26L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
+                .thenReturn(true);
+
+        List<DccFileCategoryRespVO> result = controller.getCategoryList().getCheckedData();
+
+        assertEquals(1, result.size());
+        assertEquals("INTAUTH-26", result.get(0).getCode());
+        assertEquals(List.of(201L, 202L, 203L), result.get(0).getSignoffPositionIds());
+        assertEquals(List.of(301L, 302L), result.get(0).getApprovalPositionIds());
+        assertTrue(result.get(0).getCanUpload());
+    }
+
+    @Test
     void getCategoryList_withoutLoginUserDoesNotGrantUploadProjection() {
         when(categoryAdminService.getCategoryDirectoryBindingMap()).thenReturn(Map.of(10L, 100L));
         when(categoryAdminService.getCategoryList()).thenReturn(List.of(
                 DccFileCategoryDO.builder().id(10L).code("SOP").name("SOP").active(Boolean.TRUE).sort(1).build()
         ));
+        when(approvalMatrixAdminService.getActiveMatrixPositionIdsByCategoryIds(List.of(10L)))
+                .thenReturn(Map.of());
 
         List<DccFileCategoryRespVO> result = controller.getCategoryList().getCheckedData();
 

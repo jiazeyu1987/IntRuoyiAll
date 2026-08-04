@@ -13,9 +13,9 @@ export interface DistributionTaskVO {
   userId: number
   departmentId?: number
   distributionMedium: string
-  readAt?: string
-  acknowledgedAt?: string
-  publishedTime?: string
+  readAt?: number
+  acknowledgedAt?: number
+  publishedTime?: number
   status: 'READY_TO_ACKNOWLEDGE'
 }
 

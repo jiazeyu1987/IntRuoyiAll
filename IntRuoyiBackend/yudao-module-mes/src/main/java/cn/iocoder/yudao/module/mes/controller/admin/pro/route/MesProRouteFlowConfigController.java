@@ -97,7 +97,7 @@ public class MesProRouteFlowConfigController {
     }
 
     @GetMapping("/route-start-production-leader-production-lines")
-    @Operation(summary = "获得工艺路线工序开始生产组长可负责产线")
+    @Operation(summary = "获得工艺路线工序开始生产组长可负责范围")
     @Parameter(name = "routeId", description = "工艺路线编号", required = true)
     @Parameter(name = "routeVersionId", description = "候选路线版本编号")
     @PreAuthorize("@ss.hasPermission('mes:pro-route:batch-record-config:query')")

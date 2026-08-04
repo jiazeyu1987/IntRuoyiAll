@@ -1,0 +1,6 @@
+{
+    "status":  "succeeded",
+    "summary":  "Local full runtime running (int_main, frontend=8081 HTTP 200, backend=48081 health UP)",
+    "startedAt":  "2026-08-04T16:03:34+08:00",
+    "finishedAt":  "2026-08-04T16:08:38+08:00"
+}

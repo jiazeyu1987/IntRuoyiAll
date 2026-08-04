@@ -117,6 +117,7 @@
       </el-form-item>
       <el-form-item label="受控目录" :error="metadataDialog.fieldErrors.directoryId">
         <el-select
+          v-if="selectedCategory?.directoryId"
           v-model="metadataForm.directoryId"
           class="!w-full"
           filterable
@@ -130,6 +131,20 @@
             :value="directory.value"
           />
         </el-select>
+        <el-alert
+          v-else-if="metadataForm.categoryId"
+          :closable="false"
+          show-icon
+          type="info"
+          title="当前文件类别未绑定受控目录，系统将自动落位到未分类目录。"
+        />
+        <el-alert
+          v-else
+          :closable="false"
+          show-icon
+          type="info"
+          title="请选择文件类别后查看目录范围。"
+        />
       </el-form-item>
       <div class="metadata-impact-preview" data-testid="dcc-metadata-impact-preview">
         <div class="metadata-impact-preview__title">变更影响预览</div>
@@ -224,6 +239,7 @@ const emit = defineEmits<{
 }>()
 
 const message = useMessage()
+const UNCLASSIFIED_DIRECTORY_AUTO_TEXT = '未分类（自动落位）'
 
 const metadataDialog = reactive({
   submitting: false,
@@ -392,6 +408,10 @@ const directoryOptions = computed(() => {
   return collectDirectoryOptions(category.directoryId)
 })
 
+const selectedCategoryUsesUnclassifiedDirectory = computed(() =>
+  Boolean(metadataForm.categoryId && selectedCategory.value && !selectedCategory.value.directoryId)
+)
+
 const trimToUndefined = (value: string) => {
   const trimmed = value.trim()
   return trimmed ? trimmed : undefined
@@ -464,8 +484,10 @@ const selectedDirectoryOption = computed(() =>
 )
 
 const currentDirectoryImpactText = computed(() => resolveDirectoryPathById(props.file?.directoryId))
-const targetDirectoryImpactText = computed(
-  () => selectedDirectoryOption.value?.label || resolveDirectoryPathById(metadataForm.directoryId)
+const targetDirectoryImpactText = computed(() =>
+  selectedCategoryUsesUnclassifiedDirectory.value
+    ? UNCLASSIFIED_DIRECTORY_AUTO_TEXT
+    : selectedDirectoryOption.value?.label || resolveDirectoryPathById(metadataForm.directoryId)
 )
 
 const applyDccProjectCodeProductNumber = () => {
@@ -625,11 +647,12 @@ const validateMetadataDialog = () => {
   if (!metadataForm.categoryId) {
     errors.categoryId = '请选择文件类别'
   }
-  if (metadataForm.categoryId && !selectedCategory.value?.directoryId) {
-    errors.directoryId = '当前类别未绑定受控目录'
-  } else if (!metadataForm.directoryId) {
+  if (!selectedCategoryUsesUnclassifiedDirectory.value && !metadataForm.directoryId) {
     errors.directoryId = '请选择受控目录'
-  } else if (!directoryOptions.value.some((item) => item.value === metadataForm.directoryId)) {
+  } else if (
+    !selectedCategoryUsesUnclassifiedDirectory.value &&
+    !directoryOptions.value.some((item) => item.value === metadataForm.directoryId)
+  ) {
     errors.directoryId = '请选择类别绑定范围内的受控目录'
   }
   metadataDialog.fieldErrors = errors
@@ -654,7 +677,7 @@ const buildMetadataPayload = (): ControlledFileMetadataUpdateReqVO => ({
   productCode: trimToUndefined(selectedProjectCode.value?.projectCode || metadataForm.productCode),
   fileNumber: metadataForm.fileNumber.trim(),
   categoryId: metadataForm.categoryId as number,
-  directoryId: metadataForm.directoryId as number
+  directoryId: selectedCategoryUsesUnclassifiedDirectory.value ? null : metadataForm.directoryId || null
 })
 
 const resolveMetadataPermissionErrorMessage = (error: unknown, defaultMessage: string) => {

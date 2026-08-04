@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowFormBindingSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowProcessConfigRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowProcessConfigSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderProductionLineRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
@@ -46,6 +47,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 import java.math.BigDecimal;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Set;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_TYPE_INVALID;
@@ -118,6 +120,35 @@ class MesProRouteFlowConfigServiceImplTest {
         Field field = MesProRouteFlowConfigServiceImpl.class.getDeclaredField("permissionGateService");
 
         assertTrue(field.isAnnotationPresent(Resource.class));
+    }
+
+    @Test
+    void routeFlowProcessQueryMethods_shouldNotBeResourceInjectionMethods() throws NoSuchMethodException {
+        Method method = MesProRouteFlowConfigServiceImpl.class.getDeclaredMethod(
+                "getRouteFlowProcessConfigList", Long.class, String.class);
+
+        assertFalse(method.isAnnotationPresent(Resource.class));
+    }
+
+    @Test
+    void getRouteStartProductionLeaderProductionLines_shouldUseCurrentRouteAsResponsibleScope() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("RT-10").name("压力泵路线").build();
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .id(100L).routeId(10L).processId(1000L).sort(1).build();
+        MesProProcessDO process = MesProProcessDO.builder().id(1000L).code("P1000").name("粗洗").build();
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(List.of(routeProcess));
+        doReturn(List.of(process)).when(processMapper).selectBatchIds(anyCollection());
+
+        List<MesProRouteStartProductionLeaderProductionLineRespVO> result =
+                service.getRouteStartProductionLeaderProductionLines(10L, null);
+
+        assertEquals(1, result.size());
+        assertEquals(10L, result.get(0).getProductionLineId());
+        assertEquals("RT-10", result.get(0).getProductionLineCode());
+        assertEquals("压力泵路线", result.get(0).getProductionLineName());
+        assertEquals(List.of(100L), result.get(0).getRouteProcessIds());
+        assertEquals(List.of("粗洗"), result.get(0).getProcessNames());
     }
 
     @Test

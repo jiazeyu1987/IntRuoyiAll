@@ -258,10 +258,16 @@
             <el-option
               v-for="item in transferDialog.categoryOptions"
               :key="item.id"
-              :label="item.directoryId ? item.name : `${item.name}（未绑定受控目录）`"
+              :label="item.directoryId ? item.name : `${item.name}（自动落位未分类）`"
               :value="item.id as number"
             />
           </el-select>
+          <div
+            v-if="selectedTransferCategory && !selectedTransferCategory.directoryId"
+            class="text-12px text-[var(--el-color-info)] mt-4px"
+          >
+            当前模板类别未绑定受控目录，系统将自动落位到未分类目录。
+          </div>
         </el-form-item>
         <el-form-item label="DCC 项目" prop="dccProjectCodeId">
           <el-select
@@ -616,8 +622,6 @@ const message = useMessage()
 const NAS_TRANSFER_LAST_TASK_ID_KEY = 'int-ruoyi:nas-transfer:last-task-id'
 const NAS_CONTROL_AUDIT_LAST_TASK_ID_KEY = 'int-ruoyi:nas-control-audit:last-task-id'
 const NAS_TRANSFER_CONFIRM_MODAL_CLASS = 'nas-transfer-confirm-message-box-overlay'
-const DCC_TEMPLATE_CATEGORY_DIRECTORY_REQUIRED_MESSAGE =
-  '当前 DCC 模板类别未绑定受控目录，请先在 DCC 文件类别维护目录绑定'
 
 type TransferSourceType = 'NAS' | 'LOCAL_FOLDER'
 
@@ -1275,14 +1279,6 @@ const loadTransferProjectCodeOptions = async (keyword = '') => {
   }
 }
 
-const validateTransferCategoryDirectoryBinding = () => {
-  if (!selectedTransferCategory.value?.directoryId) {
-    transferDialog.errorMessage = DCC_TEMPLATE_CATEGORY_DIRECTORY_REQUIRED_MESSAGE
-    return false
-  }
-  return true
-}
-
 const escapeHtml = (value: string) =>
   value
     .replaceAll('&', '&amp;')
@@ -1915,9 +1911,6 @@ const handleSubmitTransfer = async () => {
   if (!valid) {
     return
   }
-  if (!validateTransferCategoryDirectoryBinding()) {
-    return
-  }
   const confirmed = await confirmTransferBeforeSubmit()
   if (!confirmed) {
     return
@@ -1949,9 +1942,6 @@ const handleSubmitTransfer = async () => {
 const handleSubmitLocalFolderImport = async () => {
   const valid = await transferFormRef.value?.validate().catch(() => false)
   if (!valid) {
-    return
-  }
-  if (!validateTransferCategoryDirectoryBinding()) {
     return
   }
   if (!transferDialog.localFolder.files.length) {

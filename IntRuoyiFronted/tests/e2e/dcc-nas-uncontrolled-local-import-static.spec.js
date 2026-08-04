@@ -30,6 +30,7 @@ assert.equal(
 for (const required of [
   'DccNasControlAuditFileRespVO',
   'auditFileId',
+  'modifiedAt\\?: number',
   'sourceSignature',
   'expectedLocalRelativePath',
   'downloadStatus',

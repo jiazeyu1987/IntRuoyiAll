@@ -251,7 +251,7 @@
           </el-table-column>
           <el-table-column v-if="isAuthorizationColumnVisible('lockedUntil')" label="锁定至" prop="lockedUntil" align="center" :width="getAuthorizationColumnWidthString('lockedUntil', 180)" v-bind="sortColumnAttrs('lockedUntil')">
             <template #default="{ row }">
-              {{ row.lockedUntil || '-' }}
+              {{ formatDateTimeValue(row.lockedUntil, '-') }}
             </template>
           </el-table-column>
           <el-table-column v-if="isAuthorizationColumnVisible('latestAuditReason')" label="最新审计原因" :min-width="getAuthorizationColumnMinWidthString('latestAuditReason', 220)" prop="latestAuditReason" show-overflow-tooltip v-bind="sortColumnAttrs('latestAuditReason')" />

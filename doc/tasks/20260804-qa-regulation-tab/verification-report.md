@@ -1,0 +1,73 @@
+# Verification Report
+
+## Summary
+
+- QA regulation tab implemented in `TeamLeaderWorkbenchPage.vue`.
+- The tab lets QA edit pressure-pump process-inspection regulation metadata, scope, first/patrol/final inspection rules, inspection items, completeness checks, and PQC task preview.
+- The tab explicitly states that formal save/publish API is not connected and no backend write occurs.
+- QA/PQC boundary is preserved: QA defines rules, PQC executes published rules, and the QA tab has no DCC classification or controlled-file semantics.
+- Each seeded inspection item now shows item-scoped original PDF evidence: source page, original item label, acceptance-standard excerpt, and inspection-method excerpt.
+- Verification was completed in worktree `D:\IntRuoyiWorktree\2020804_qa` on branch `codex/2020804_qa`.
+- The QA source/test/doc updates are synchronized into `E:\IntRuoyi` on `int_main` and targeted validation passed there.
+- Local `int_main` browser E2E passed on `http://127.0.0.1:8081` with backend `48081`, proving the visible QA tab path works in the running frontend.
+- The refreshed local browser E2E for the new original-source excerpt column is blocked because backend `48081` currently fails during Spring startup in unrelated MES route-flow code.
+
+## Commands
+
+- RED: `node IntRuoyiFronted\tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, missing `QA 规程` tab.
+- GREEN: `node IntRuoyiFronted\tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS.
+- GREEN: `pnpm --dir IntRuoyiFronted run e2e:role-matrix-qa-regulation:static` -> PASS.
+- GREEN: `pnpm --dir IntRuoyiFronted run e2e:role-matrix-pqc-dynamic-form:static` -> PASS.
+- RED: `pnpm --dir IntRuoyiFronted ts:check` -> FAIL, missing worktree dependency prerequisite: `cross-env` not found because `node_modules` did not exist.
+- GREEN: `pnpm --dir IntRuoyiFronted install --frozen-lockfile` -> PASS.
+- GREEN: `pnpm --dir IntRuoyiFronted ts:check` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-qa-regulation-tab/frontend-feature-evidence.md` -> PASS.
+- BLOCKED: `powershell -ExecutionPolicy Bypass -File scripts\runtime\reserve-worktree-slot.ps1 -Name 2020804_qa -Path D:\IntRuoyiWorktree\2020804_qa -Branch codex/2020804_qa -Profile int_main -AsJson` -> FAIL, no available runtime slot for profile `int_main` in range `1..19`.
+- BLOCKED: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> FAIL, no worktree port registry entry is registered for `D:\IntRuoyiWorktree\2020804_qa`.
+- REVIEW: BDD/TDD document structure check -> PASS, required sections present.
+- REVIEW: UTF-8 read check for all task Markdown files -> PASS.
+- REVIEW: `git diff --check` for updated task Markdown files -> PASS.
+- REVIEW: project experience consolidation -> PASS, appended this task evidence to existing `docs/worktree-memory.md`.
+- GREEN: `E:\IntRuoyi` `node IntRuoyiFronted\tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS.
+- GREEN: `E:\IntRuoyi` `pnpm --dir IntRuoyiFronted run e2e:role-matrix-qa-regulation:static` -> PASS.
+- GREEN: `E:\IntRuoyi` `pnpm --dir IntRuoyiFronted run e2e:role-matrix-pqc-dynamic-form:static` -> PASS.
+- GREEN: `E:\IntRuoyi` `pnpm --dir IntRuoyiFronted run ts:check` -> PASS.
+- GREEN: `E:\IntRuoyi` frontend evidence validator -> PASS.
+- GREEN: local Chromium E2E on `http://127.0.0.1:8081/mes/pro/process-pool/team-leader` -> PASS, `writeRequests=[]`, `consoleErrorCount=0`, `pageErrorCount=0`, screenshot `doc/tasks/20260804-qa-regulation-tab/qa-regulation-live-e2e.png`.
+- GREEN: `node IntRuoyiFronted\tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS after local browser E2E.
+- GREEN: `pnpm --dir IntRuoyiFronted run e2e:role-matrix-qa-regulation:static` -> PASS after local browser E2E.
+- RED: `node IntRuoyiFronted\tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL after extending the contract for original-source excerpt fields and UI.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS after adding `原文依据` item excerpts.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `pnpm run e2e:role-matrix-qa-regulation:static` -> PASS after adding `原文依据` item excerpts.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `pnpm run e2e:role-matrix-pqc-dynamic-form:static` -> PASS after adding `原文依据` item excerpts.
+- GREEN: `E:\IntRuoyi\IntRuoyiFronted` `pnpm run ts:check` -> PASS after adding `原文依据` item excerpts.
+- GREEN: frontend evidence validator -> PASS after adding `原文依据` item excerpts.
+- REVIEW: `git diff --check` for QA source/test/task docs -> PASS.
+- REVIEW: UTF-8 read check for task Markdown files -> PASS.
+- BLOCKED: refreshed local browser E2E for the new original-source excerpt column -> frontend `8081` returned HTTP 200, but backend `48081` failed before health with `BeanCreationException` in non-QA `mesProRouteFlowConfigController`, caused by `@Resource annotation requires a single-arg method` on `MesProRouteFlowConfigServiceImpl.getRouteFlowProcessConfigList(Long,String)`.
+
+## BDD/TDD Review
+
+- PASS: BDD scenarios are expressed as Given / When / Then and map to observable UI behavior.
+- PASS: RED evidence records the expected failure before implementation: missing `QA 规程` tab.
+- PASS: GREEN evidence proves the new QA tab contract passes after implementation.
+- PASS: Regression evidence covers existing QA regulation static contract, PQC dynamic form static contract, and Vue type checking.
+- PASS: Boundary review confirms QA defines rules for PQC and is not linked to DCC, file classification, controlled-file upload, or document-control approval.
+- PASS: API readiness review confirms missing formal save/publish API is visible to users and not hidden behind fake success.
+- PASS: Document structure review confirms task goal, milestones, expected verification, current status, design constraints, BDD/TDD acceptance matrix, test data, E2E/user path plan, evidence, and blockers are all present.
+
+## Notes
+
+- PDF text extraction returned empty text; visual rendering of page 1 confirmed scanned content and visible metadata. UI initialization therefore uses reliable filename/cover metadata: `PQC-IDI-001`, `B/0`, `2026-01-04`, and `按压式球囊扩充压力泵组装过程检验规程`.
+- `pnpm --dir IntRuoyiFronted install --frozen-lockfile` completed without changing the lock file; pnpm reported ignored dependency build scripts under its approval policy, but the required Vue type check passed after install.
+
+## Runtime E2E
+
+- Worktree browser E2E was not started because the worktree could not reserve an `int_main` runtime slot. The task did not randomize ports, reuse `8081/48081` from the worktree, or claim worktree runtime verification as passed.
+- Local `E:\IntRuoyi` browser E2E used the fixed `int_main` runtime ports `8081/48081` and passed. It logged in through the real frontend, opened the hidden route `/mes/pro/process-pool/team-leader`, clicked `QA 规程`, verified pressure-pump metadata and QA rule sections, added a local draft item, ran preview/precheck actions, confirmed the visible no-backend-write message, confirmed no DCC coupling terms in the QA panel, and observed no backend write requests.
+- Current refreshed browser E2E for the newly added `原文依据` column is blocked before login by backend startup failure. The task did not use mock auth, API-only assertions, cached screenshots, random ports, or frontend-only checks as a substitute for real E2E.
+
+## Commit / Push Blocker
+
+- Commit and push were not performed because the mandatory branch runtime port guard failed before staging. Creating the required registry entry is blocked until an `int_main` slot in `1..19` is released or formally assigned.
+- `E:\IntRuoyi` also has unrelated dirty DCC/NAS changes and branch divergence from `origin/int_main`; this task is synchronized into the working tree, but not committed as an isolated merge commit.

@@ -162,8 +162,13 @@ import {
   ROUTE_CANDIDATE_SOURCE_OPTIONS
 } from '../../shared/options'
 import { formatDccSimpleUserLabel } from '../../shared/utils'
+import { formatDateTimeValue } from '@/utils/formatTime'
 
 defineOptions({ name: 'DccControlledFileRouteForm' })
+
+type ControlledFileApprovalRouteFormVO = Omit<ControlledFileApprovalRouteVO, 'effectiveTime'> & {
+  effectiveTime: string
+}
 
 const { t } = useI18n()
 const message = useMessage()
@@ -175,7 +180,7 @@ const categories = ref<Array<ControlledFileCategoryVO & { id: number }>>([])
 const editingRoute = ref(false)
 const users = ref<UserVO[]>([])
 const positions = ref<ControlledFileApprovalPositionVO[]>([])
-const formData = ref<ControlledFileApprovalRouteVO>({
+const formData = ref<ControlledFileApprovalRouteFormVO>({
   categoryId: undefined,
   effectiveTime: '',
   remark: '',
@@ -231,6 +236,7 @@ const open = (payload: {
     formData.value = {
       ...JSON.parse(JSON.stringify(payload.route)),
       categoryId: routeCategory?.id ?? payload.route.categoryId,
+      effectiveTime: formatDateTimeValue(payload.route.effectiveTime, ''),
       nodes: payload.route.nodes.map((item) => ({
         ...JSON.parse(JSON.stringify(item)),
         candidateSourceIds: item.candidateSourceIds ?? (item.candidateSourceId ? [item.candidateSourceId] : [])

@@ -422,3 +422,14 @@ M28/M29 已完成真实 E2E 前置审计与可执行 gate；M30 已修复并验�
 - DB evidence: audit row `1` is `LOCAL_WRITTEN/FAILED/ARCHIVE_METADATA_REQUIRED` with no controlled file; audit row `2` is `UNCLASSIFIED_PENDING/LOCAL_WRITTEN/PENDING_MANUAL_REVIEW`; the import task count is `1`, local-written item count is `2`, and `dcc_controlled_file_nas_source` count for the three target paths with `source_type='NAS_UNCONTROLLED_IMPORT'` is `0`.
 - Result: full real page E2E is now verified for the requested read-only existing-NAS-file scope. No shared NAS file was created, overwritten, deleted, or moved.
 - Closeout: task-closeout cleanup preview/apply passed and post-apply preview reports no remaining delete/blocked/warnings. After user authorization to commit frontend/backend first and then merge, frontend/backend baseline commit `a564e19cc`, task evidence commit `231dddee7`, and local integration merges `d865d4189` / `6db2b752f` were completed. Post-merge `pnpm e2e:dcc:nas-uncontrolled-local-import:static` passed. The user then explicitly changed the completion gate to "不用推送,本地融合验证完就算目标完成", so remote push and "not ahead of origin" are no longer required for this task. Result: completed for the local `int_main` fusion verification scope.
+
+## M38 Post-Fusion Full E2E
+
+- Scope: reran the full local `int_main` fusion verification after the user requested post-fusion E2E.
+- Runtime evidence: backend `48081` is `UP`, frontend `8081` returns HTTP `200`, backend PID `14800` points to `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260804-dcc-nas-uncontrolled-import.jar`, and frontend PID `28264` points to the local Vite process.
+- Script evidence: package scripts and E2E files for `static`, `real:check`, and `real` exist; `npx` is available at `D:\Programs\npx.ps1`.
+- GREEN: `pnpm e2e:dcc:nas-uncontrolled-local-import:static` -> PASS.
+- GREEN: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real:check` -> PASS, `DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_CHECK_PASS`.
+- GREEN: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real` -> PASS, `DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_E2E_PASS`.
+- Summary evidence: `artifacts/local-import-full-e2e/dcc-nas-uncontrolled-local-import-full-summary.json` reports `nasReadyCount=3`, one `import-selected` request, two `content` requests, two `local-write-result` requests, successful `showDirectoryPicker/getDirectoryHandle/getFileHandle/createWritable/write/close` harness events, `TASK_COUNT=1`, `LOCAL_WRITTEN_ITEMS=2`, and `ACTIVE_SOURCE_COUNT=0`.
+- Result: post-fusion full E2E PASS; no shared NAS files were created, overwritten, deleted, or moved, and no remote push was performed per user scope.

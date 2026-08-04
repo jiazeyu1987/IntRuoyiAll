@@ -10,6 +10,7 @@ import {
   type DccControlledFileTagType
 } from '../shared/lifecycle'
 import type { DccControlledFileActionProjectionVO } from '@/api/dcc/controlledFile/workflow'
+import { formatDateTimeValue } from '@/utils/formatTime'
 
 export const BROWSER_STATUS_FILTER_OPTIONS = DCC_CONTROLLED_FILE_STATUS_OPTIONS
 
@@ -25,7 +26,7 @@ interface BrowserVersionSummarySource {
   versionNo?: string
   status?: string
   effectiveDate?: string
-  publishedTime?: string
+  publishedTime?: number
   publishedFileId?: number | null
   stampedFileId?: number | null
   currentActiveVersionNo?: string | null
@@ -79,7 +80,7 @@ export const getBrowserVersionSummary = (
     isCurrentActiveVersion,
     modifying: Boolean(isSelectedVersionModifying || version.modifying),
     effectiveText: `生效：${version.effectiveDate || '-'}`,
-    publishedText: `发布：${version.publishedTime || '-'}`,
+    publishedText: `发布：${formatDateTimeValue(version.publishedTime, '-')}`,
     publishedFileStatusText: getBrowserPublishedFileStatusText(version),
     stampedFileStatusText: getBrowserStampedFileStatusText(version),
     currentVersionSourceText: getBrowserCurrentVersionSourceText(version)

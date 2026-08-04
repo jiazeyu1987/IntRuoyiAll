@@ -33,18 +33,18 @@ export interface DccProjectCodeAssignmentRespVO {
   assigneeUserId: number
   assigneeNickname?: string | null
   assignedBy?: number | null
-  assignedTime?: string | null
-  expireTime?: string | null
+  assignedTime?: number | null
+  expireTime?: number | null
   status: string
   assignmentReason?: string | null
   fileCount: number
   changedFileCount: number
   changedFieldCount: number
   revokedBy?: number | null
-  revokedTime?: string | null
+  revokedTime?: number | null
   revokeReason?: string | null
-  createTime?: string | null
-  updateTime?: string | null
+  createTime?: number | null
+  updateTime?: number | null
 }
 
 export interface DccProjectCodeAssignmentFilePageReqVO extends PageParam {
@@ -59,7 +59,7 @@ export interface DccProjectCodeAssignmentFileRespVO extends ControlledFileVO {
   metadataEditable: boolean
   metadataEditAssignmentId: number
   changedFieldCount: number
-  lastChangedTime?: string | null
+  lastChangedTime?: number | null
 }
 
 export interface DccProjectCodeAssignmentAuditPageReqVO extends PageParam {
@@ -91,7 +91,7 @@ export interface DccProjectCodeAssignmentAuditRespVO {
   newValueText?: string | null
   source: string
   changeReason?: string | null
-  changedTime: string
+  changedTime: number
 }
 
 export const createProjectCodeAssignment = async (

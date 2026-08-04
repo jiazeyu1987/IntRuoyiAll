@@ -10,6 +10,7 @@ import {
   type DccControlledFileTagType
 } from '../shared/lifecycle'
 import { getControlledFileHandlingSummary } from '../shared/handlingSummary'
+import { formatDateTimeValue } from '@/utils/formatTime'
 
 export type DccWorkbenchTone = 'primary' | 'warning' | 'danger' | 'success' | 'info'
 
@@ -123,12 +124,14 @@ const resolveWorkbenchFileActionBlockReason = (file: ControlledFileVO) => {
 }
 
 const resolveFileTime = (file: ControlledFileVO) =>
-  file.rejectedTime ||
-  file.publishedTime ||
-  file.approvedTime ||
-  file.submittedTime ||
-  file.obsoletedTime ||
-  '-'
+  formatDateTimeValue(
+    file.rejectedTime ||
+      file.publishedTime ||
+      file.approvedTime ||
+      file.submittedTime ||
+      file.obsoletedTime,
+    '-'
+  )
 
 export const toWorkbenchFileRow = (file: ControlledFileVO): DccWorkbenchFileRow => {
   const nextStep = getControlledFileHandlingSummary(file)

@@ -75,7 +75,7 @@ export interface DccElectronicSignatureVO {
   signatureMode?: string
   passwordVerified?: boolean
   comment?: string
-  signedAt?: string
+  signedAt?: number
 }
 
 export interface DccSignatureEvidenceRespVO {
@@ -102,7 +102,7 @@ export interface DccSignatureEvidenceRespVO {
   evidenceHashShort: string
   evidenceStatus: string
   verificationStatus: string
-  verifiedAt?: string
+  verifiedAt?: number
 }
 
 export interface DccSignatureVerifyRespVO {
@@ -111,7 +111,7 @@ export interface DccSignatureVerifyRespVO {
   recomputedEvidenceHash: string
   evidenceHashShort: string
   verificationStatus: string
-  verifiedAt: string
+  verifiedAt: number
 }
 
 export interface DccSignatureEvidenceExportDownload {
@@ -135,9 +135,9 @@ export interface DccElectronicSignatureImageVO {
   imageStatus: string
   active: boolean
   uploadedBy?: number
-  uploadedAt?: string | number
-  enabledAt?: string | number
-  disabledAt?: string | number
+  uploadedAt?: number
+  enabledAt?: number
+  disabledAt?: number
   disableReason?: string
   referencedCount?: number
 }
@@ -158,13 +158,13 @@ export interface DccElectronicSignatureAuthorizationVO {
   deptName?: string
   mobile?: string
   status?: number
-  loginDate?: string
+  loginDate?: number
   electronicSignatureEnabled: boolean
   authorizationState: string
   locked: boolean
-  lockedUntil?: string | null
+  lockedUntil?: number | null
   latestAuditReason?: string
-  latestAuditAt?: string
+  latestAuditAt?: number
   latestAuditOperatorId?: number
   latestAuditOperatorName?: string
 }
@@ -188,7 +188,7 @@ export interface DccElectronicSignatureAuthorizationAuditVO {
   beforeState: string
   afterState: string
   reason: string
-  operatedAt: string
+  operatedAt: number
 }
 
 export const getDccElectronicSignaturePage = async (

@@ -737,6 +737,10 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
                     .ifPresent(reject -> rejectTaskActivityIds.add(reject.getTaskDefinitionKey()));
             finishedTaskActivityIds.removeAll(rejectTaskActivityIds);
         }
+        retainExistingBpmnElementIds(bpmnModel, unfinishedTaskActivityIds);
+        retainExistingBpmnElementIds(bpmnModel, finishedTaskActivityIds);
+        retainExistingBpmnElementIds(bpmnModel, finishedSequenceFlowActivityIds);
+        retainExistingBpmnElementIds(bpmnModel, rejectTaskActivityIds);
 
         // 2.2 拼接基础信息
         Set<Long> userIds = BpmProcessInstanceConvert.INSTANCE.parseUserIds02(processInstance, tasks);
@@ -747,6 +751,14 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
                 unfinishedTaskActivityIds, finishedTaskActivityIds, finishedSequenceFlowActivityIds,
                 rejectTaskActivityIds,
                 userMap, deptMap);
+    }
+
+    private static void retainExistingBpmnElementIds(BpmnModel bpmnModel, Set<String> activityIds) {
+        if (CollUtil.isEmpty(activityIds)) {
+            return;
+        }
+        activityIds.removeIf(activityId -> StrUtil.isBlank(activityId)
+                || BpmnModelUtils.getFlowElementById(bpmnModel, activityId) == null);
     }
 
     // ========== Update 写入相关方法 ==========

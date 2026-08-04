@@ -94,6 +94,8 @@ M35 已按用户最新范围完成：不再创建或覆盖共享 NAS 文件，�
 
 cleanup preview/apply 已完成，复跑 preview 显示 delete/blocked/warnings 均为 `<none>`，核心任务记录、summary 和重启脚本按 `Cleanup Keep` 保留。用户已要求“先提交前后端然后融合合并”：前后端基线提交 `a564e19cc`、本任务文档证据提交 `231dddee7`、本地两轮 `origin/int_main` 融合合并 `d865d4189` 和 `6db2b752f` 已完成；合并后 `pnpm e2e:dcc:nas-uncontrolled-local-import:static` 复验通过。用户随后明确要求“不用推送,本地融合验证完就算目标完成”，因此本任务完成门禁调整为本地 `int_main` 融合验证通过，不再要求远端 push 或分支不再 ahead。最终验证结果：completed。
 
+M38 融合后 full E2E 已完成复验：在本地 `int_main` 上确认 `48081` 后端 health 为 `UP`、`8081` 前端 HTTP `200`，并依次通过 `pnpm e2e:dcc:nas-uncontrolled-local-import:static`、`$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real:check` 和 `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real`。full 模式返回 `DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_E2E_PASS`，summary 继续证明 `nasReadyCount=3`、local-written items 为 2、ACTIVE NAS 来源映射数为 0；未创建、覆盖、删除或移动共享 NAS 文件，且按用户范围未执行远端 push。
+
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。路径或名称无法唯一识别时进入正式的“未分类/待处理”业务状态，不视为 fallback。

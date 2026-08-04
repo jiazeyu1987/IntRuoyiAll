@@ -28,8 +28,8 @@ export interface DccProjectCodeRespVO {
   priority?: string | null
   status: string
   associatedFileCount?: number | null
-  createTime?: string
-  updateTime?: string
+  createTime?: number
+  updateTime?: number
 }
 
 export interface DccProjectCodeSaveReqVO {
@@ -119,11 +119,11 @@ export interface DccProductOnboardingRespVO extends DccProductOnboardingCreateRe
   status: string
   applicantUserId?: number | null
   approverUserId?: number | null
-  approvedTime?: string | null
+  approvedTime?: number | null
   generatedProjectCodeId?: number | null
   rejectReason?: string | null
-  createTime?: string
-  updateTime?: string
+  createTime?: number
+  updateTime?: number
 }
 
 interface UploadCommonResult<T> {

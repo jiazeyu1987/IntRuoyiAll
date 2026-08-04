@@ -11,13 +11,13 @@ import java.util.List;
 @Accessors(chain = true)
 public class MesProRouteStartProductionLeaderRespVO {
 
-    @Schema(description = "负责产线 ID", example = "7001")
+    @Schema(description = "负责范围 ID，当前等于工艺路线 ID", example = "7001")
     private Long productionLineId;
 
-    @Schema(description = "负责产线编码", example = "LINE-A")
+    @Schema(description = "负责范围编码，当前等于工艺路线编码", example = "LINE-A")
     private String productionLineCode;
 
-    @Schema(description = "负责产线名称", example = "压力泵一线")
+    @Schema(description = "负责范围名称，当前等于工艺路线名称", example = "压力泵一线")
     private String productionLineName;
 
     @Schema(description = "候选来源类型：USERS/ROLE", example = "USERS")

@@ -19,10 +19,10 @@ export interface DccUploadSizePolicyVO {
   enabled: boolean
   priority?: number
   policyVersion: string
-  effectiveFrom?: string | null
-  effectiveTo?: string | null
+  effectiveFrom?: number | null
+  effectiveTo?: number | null
   changeReason: string
-  createTime?: Date | string
+  createTime?: number
 }
 
 export interface DccUploadSizePolicySaveReqVO {

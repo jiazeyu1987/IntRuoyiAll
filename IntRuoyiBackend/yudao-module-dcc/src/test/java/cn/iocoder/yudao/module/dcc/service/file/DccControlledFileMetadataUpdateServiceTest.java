@@ -344,6 +344,30 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void updateMetadata_unboundCategoryUsesUnclassifiedDirectory() {
+        DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
+        reqVO.setDirectoryId(null);
+        mockDocControl();
+        when(controlledFileMapper.selectById(900L)).thenReturn(activeFile());
+        when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(activeFile()));
+        when(categoryMapper.selectById(11L)).thenReturn(DccFileCategoryDO.builder().id(11L).active(Boolean.TRUE).build());
+        when(categoryDirectoryBindingMapper.selectActiveByCategoryId(11L)).thenReturn(null);
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of(unclassifiedDirectory(910000L)));
+
+        metadataUpdateService.updateMetadata(99L, 900L, reqVO);
+
+        ArgumentCaptor<DccControlledFileMasterDO> masterCaptor = ArgumentCaptor.forClass(DccControlledFileMasterDO.class);
+        verify(controlledFileMasterMapper).updateById(masterCaptor.capture());
+        assertEquals(910000L, masterCaptor.getValue().getDirectoryId());
+
+        ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).updateById(fileCaptor.capture());
+        assertEquals(910000L, fileCaptor.getValue().getDirectoryId());
+        verify(controlledFileMasterMapper).selectByCategoryIdAndDirectoryIdAndFileName(11L, 910000L, "NEW-SOP");
+    }
+
+    @Test
     void updateMetadata_conflictingTargetMasterFailsInsteadOfMergingChains() {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
         mockDocControl();
@@ -443,6 +467,17 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
                 .name("目录-" + id)
                 .active(Boolean.TRUE)
                 .sort(1)
+                .build();
+    }
+
+    private DccFileDirectoryDO unclassifiedDirectory(Long id) {
+        return DccFileDirectoryDO.builder()
+                .id(id)
+                .parentId(null)
+                .code(DccUploadDirectoryResolver.UNCLASSIFIED_UPLOAD_DIRECTORY_CODE)
+                .name("未分类")
+                .active(Boolean.TRUE)
+                .sort(99)
                 .build();
     }
 }

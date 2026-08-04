@@ -174,14 +174,11 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
         if (routeMap.isEmpty()) {
             return List.of();
         }
-        Set<AuthorizedProductionLineKey> authorizedProductionLines =
-                resolveRouteStartProductionLeaderAuthorizedLines(loginUserId, routeMap.keySet());
-        if (authorizedProductionLines.isEmpty()) {
+        Set<Long> authorizedRouteIds =
+                resolveRouteStartProductionLeaderAuthorizedRouteIds(loginUserId, routeMap.keySet());
+        if (authorizedRouteIds.isEmpty()) {
             return List.of();
         }
-        Set<Long> authorizedRouteIds = authorizedProductionLines.stream()
-                .map(AuthorizedProductionLineKey::routeId)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
         List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteIds(authorizedRouteIds);
         if (CollUtil.isEmpty(routeProcesses)) {
             throw exception(PRO_FRONTLINE_PRESSURE_PUMP_ROUTE_PROCESS_EMPTY, authorizedRouteIds);
@@ -204,7 +201,6 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
         requireWorkstationsPresentAndEnabled(workstationIds, workstationMap);
 
         List<MesProRouteProcessDO> acceptedRouteProcesses = new ArrayList<>();
-        Set<AuthorizedProductionLineKey> matchedProductionLines = new LinkedHashSet<>();
         Set<Long> processIds = new LinkedHashSet<>();
         Set<Long> acceptedWorkstationIds = new LinkedHashSet<>();
         for (MesProRouteProcessDO routeProcess : routeProcesses) {
@@ -213,22 +209,9 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
             }
             requireRouteProcessIdentity(routeProcess);
             requireRouteProcessWorkstation(routeProcess);
-            MesMdWorkstationDO workstation = workstationMap.get(routeProcess.getWorkstationId());
-            AuthorizedProductionLineKey productionLineKey = new AuthorizedProductionLineKey(
-                    routeProcess.getRouteId(), workstation.getProductionLineId());
-            if (!authorizedProductionLines.contains(productionLineKey)) {
-                continue;
-            }
             acceptedRouteProcesses.add(routeProcess);
-            matchedProductionLines.add(productionLineKey);
             processIds.add(routeProcess.getProcessId());
             acceptedWorkstationIds.add(routeProcess.getWorkstationId());
-        }
-        if (!matchedProductionLines.containsAll(authorizedProductionLines)) {
-            Set<AuthorizedProductionLineKey> missingLines = new LinkedHashSet<>(authorizedProductionLines);
-            missingLines.removeAll(matchedProductionLines);
-            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
-                    "routeStartProductionLeaders=" + missingLines);
         }
         if (acceptedRouteProcesses.isEmpty()) {
             throw exception(PRO_FRONTLINE_PRESSURE_PUMP_ROUTE_PROCESS_EMPTY, authorizedRouteIds);
@@ -384,7 +367,7 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
         return routeMap;
     }
 
-    private Set<AuthorizedProductionLineKey> resolveRouteStartProductionLeaderAuthorizedLines(
+    private Set<Long> resolveRouteStartProductionLeaderAuthorizedRouteIds(
             Long loginUserId, Set<Long> routeIds) {
         List<MesProRouteVersionDO> routeVersions = routeVersionMapper.selectListByRouteIds(routeIds);
         if (CollUtil.isEmpty(routeVersions)) {
@@ -405,15 +388,14 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
             return Set.of();
         }
         Set<Long> userRoleIds = null;
-        Set<AuthorizedProductionLineKey> authorizedProductionLines = new LinkedHashSet<>();
+        Set<Long> authorizedRouteIds = new LinkedHashSet<>();
         for (MesProRouteVersionDO routeVersion : activeVersionByRouteId.values()) {
             List<RouteStartProductionLeaderSnapshot> snapshots =
                     parseRouteStartProductionLeaderSnapshots(routeVersion);
             for (RouteStartProductionLeaderSnapshot snapshot : snapshots) {
                 if (CANDIDATE_SOURCE_TYPE_USERS.equals(snapshot.candidateSourceType())
                         && snapshot.candidateSourceIds().contains(loginUserId)) {
-                    authorizedProductionLines.add(new AuthorizedProductionLineKey(
-                            snapshot.routeId(), snapshot.productionLineId()));
+                    authorizedRouteIds.add(snapshot.routeId());
                     continue;
                 }
                 if (CANDIDATE_SOURCE_TYPE_ROLE.equals(snapshot.candidateSourceType())) {
@@ -422,13 +404,12 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
                     }
                     boolean roleMatched = snapshot.candidateSourceIds().stream().anyMatch(userRoleIds::contains);
                     if (roleMatched) {
-                        authorizedProductionLines.add(new AuthorizedProductionLineKey(
-                                snapshot.routeId(), snapshot.productionLineId()));
+                        authorizedRouteIds.add(snapshot.routeId());
                     }
                 }
             }
         }
-        return authorizedProductionLines;
+        return authorizedRouteIds;
     }
 
     private List<RouteStartProductionLeaderSnapshot> parseRouteStartProductionLeaderSnapshots(
@@ -449,7 +430,9 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
             String candidateSourceType = normalizeProductionLeaderCandidateSourceType(
                     item.getString("candidateSourceType"));
             List<Long> candidateSourceIds = parseCandidateSourceIds(item.get("candidateSourceIds"));
-            if (productionLineId == null || candidateSourceIds.isEmpty()) {
+            if (productionLineId == null
+                    || !Objects.equals(productionLineId, routeVersion.getRouteId())
+                    || candidateSourceIds.isEmpty()) {
                 throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
                         "routeStartProductionLeaders routeVersionId=" + routeVersion.getId());
             }
@@ -668,9 +651,6 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
     }
 
     private record CandidateKey(Long routeProcessId, Long deviceId) {
-    }
-
-    private record AuthorizedProductionLineKey(Long routeId, Long productionLineId) {
     }
 
     private record RouteStartProductionLeaderSnapshot(Long routeId,

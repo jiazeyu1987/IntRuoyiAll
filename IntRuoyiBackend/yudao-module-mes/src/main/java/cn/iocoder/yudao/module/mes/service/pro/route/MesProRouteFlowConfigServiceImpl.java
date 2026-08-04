@@ -22,8 +22,6 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderProductionLineRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderSaveReqVO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdProductionLineDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
@@ -44,8 +42,6 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionGateCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionGateService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordFormSlotType;
-import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdProductionLineService;
-import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationService;
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.controller.admin.permission.vo.role.RoleSaveReqVO;
@@ -211,10 +207,6 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     private RoleCategoryMapper roleCategoryMapper;
     @Resource
     private PermissionService permissionService;
-    @Resource
-    private MesMdWorkstationService workstationService;
-    @Resource
-    private MesMdProductionLineService productionLineService;
 
     @Override
     public List<MesProRouteFlowProcessConfigRespVO> getRouteFlowProcessConfigList(Long routeId, String useType) {
@@ -1058,80 +1050,30 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
 
     private List<MesProRouteStartProductionLeaderProductionLineRespVO>
     buildRouteStartProductionLeaderProductionLineRespList(Long routeId, Long routeVersionId) {
+        MesProRouteDO route = validateRouteExists(routeId);
         List<MesProRouteProcessDO> routeProcesses =
                 resolveRouteStartProductionLeaderRouteProcesses(routeId, routeVersionId);
-        if (CollUtil.isEmpty(routeProcesses)) {
-            return Collections.emptyList();
-        }
-        Set<Long> workstationIds = routeProcesses.stream()
-                .map(MesProRouteProcessDO::getWorkstationId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (workstationIds.isEmpty()) {
-            return Collections.emptyList();
-        }
-        Map<Long, MesMdWorkstationDO> workstationMap = workstationService.getWorkstationMap(workstationIds);
         Map<Long, MesProProcessDO> processMap = convertMap(
                 processMapper.selectBatchIds(convertSet(routeProcesses, MesProRouteProcessDO::getProcessId)),
                 MesProProcessDO::getId);
-        Map<Long, List<Long>> routeProcessIdsByLine = new LinkedHashMap<>();
-        Map<Long, List<String>> processNamesByLine = new LinkedHashMap<>();
-        Map<Long, Integer> firstSortByLine = new LinkedHashMap<>();
+        List<Long> routeProcessIds = new ArrayList<>();
+        List<String> processNames = new ArrayList<>();
         for (MesProRouteProcessDO routeProcess : routeProcesses) {
             if (routeProcess == null || routeProcess.getId() == null || routeProcess.getProcessId() == null) {
                 throw exception(PRO_ROUTE_FLOW_CONFIG_START_PRODUCTION_LEADER_INVALID, "路线工序缺少身份");
             }
-            Long workstationId = routeProcess.getWorkstationId();
-            if (workstationId == null) {
-                continue;
-            }
-            MesMdWorkstationDO workstation = workstationMap.get(workstationId);
-            if (workstation == null || !CommonStatusEnum.isEnable(workstation.getStatus())) {
-                throw exception(PRO_ROUTE_FLOW_CONFIG_START_PRODUCTION_LEADER_INVALID,
-                        "workstationId=" + workstationId);
-            }
-            Long productionLineId = workstation.getProductionLineId();
-            if (productionLineId == null) {
-                continue;
-            }
-            routeProcessIdsByLine.computeIfAbsent(productionLineId, ignored -> new ArrayList<>())
-                    .add(routeProcess.getId());
+            routeProcessIds.add(routeProcess.getId());
             MesProProcessDO process = processMap.get(routeProcess.getProcessId());
             if (process != null && StrUtil.isNotBlank(process.getName())) {
-                processNamesByLine.computeIfAbsent(productionLineId, ignored -> new ArrayList<>())
-                        .add(process.getName());
+                processNames.add(process.getName());
             }
-            firstSortByLine.merge(productionLineId,
-                    routeProcess.getSort() == null ? Integer.MAX_VALUE : routeProcess.getSort(),
-                    Math::min);
         }
-        if (routeProcessIdsByLine.isEmpty()) {
-            return Collections.emptyList();
-        }
-        Map<Long, MesMdProductionLineDO> productionLineMap =
-                productionLineService.getProductionLineMap(routeProcessIdsByLine.keySet());
-        List<MesProRouteStartProductionLeaderProductionLineRespVO> result = new ArrayList<>();
-        for (Long productionLineId : routeProcessIdsByLine.keySet()) {
-            MesMdProductionLineDO productionLine = productionLineMap.get(productionLineId);
-            if (productionLine == null || !CommonStatusEnum.isEnable(productionLine.getStatus())) {
-                throw exception(PRO_ROUTE_FLOW_CONFIG_START_PRODUCTION_LEADER_INVALID,
-                        "productionLineId=" + productionLineId);
-            }
-            result.add(new MesProRouteStartProductionLeaderProductionLineRespVO()
-                    .setProductionLineId(productionLineId)
-                    .setProductionLineCode(productionLine.getCode())
-                    .setProductionLineName(productionLine.getName())
-                    .setRouteProcessIds(routeProcessIdsByLine.getOrDefault(productionLineId, Collections.emptyList()))
-                    .setProcessNames(processNamesByLine.getOrDefault(productionLineId, Collections.emptyList())
-                            .stream()
-                            .distinct()
-                            .toList()));
-        }
-        result.sort(Comparator
-                .comparing((MesProRouteStartProductionLeaderProductionLineRespVO item) ->
-                        firstSortByLine.getOrDefault(item.getProductionLineId(), Integer.MAX_VALUE))
-                .thenComparing(MesProRouteStartProductionLeaderProductionLineRespVO::getProductionLineId));
-        return result;
+        return List.of(new MesProRouteStartProductionLeaderProductionLineRespVO()
+                .setProductionLineId(route.getId())
+                .setProductionLineCode(route.getCode())
+                .setProductionLineName(route.getName())
+                .setRouteProcessIds(routeProcessIds)
+                .setProcessNames(processNames.stream().distinct().toList()));
     }
 
     private List<MesProRouteProcessDO> resolveRouteStartProductionLeaderRouteProcesses(
@@ -1158,7 +1100,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             JSONObject item = toCandidateJsonObject(routeVersion, value);
             Long productionLineId = item.getLong("productionLineId");
             if (productionLineId == null) {
-                throw exception(PRO_ROUTE_FLOW_CONFIG_START_PRODUCTION_LEADER_INVALID, "负责产线为空");
+                throw exception(PRO_ROUTE_FLOW_CONFIG_START_PRODUCTION_LEADER_INVALID, "负责范围为空");
             }
             result.add(new MesProRouteStartProductionLeaderItemSaveReqVO()
                     .setProductionLineId(productionLineId)
@@ -1182,7 +1124,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         List<MesProRouteStartProductionLeaderItemSaveReqVO> result = new ArrayList<>();
         for (MesProRouteStartProductionLeaderItemSaveReqVO item : items) {
             if (item == null || item.getProductionLineId() == null) {
-                throw exception(PRO_ROUTE_FLOW_CONFIG_START_PRODUCTION_LEADER_INVALID, "负责产线为空");
+                throw exception(PRO_ROUTE_FLOW_CONFIG_START_PRODUCTION_LEADER_INVALID, "负责范围为空");
             }
             if (!productionLineMap.containsKey(item.getProductionLineId())) {
                 throw exception(PRO_ROUTE_FLOW_CONFIG_START_PRODUCTION_LEADER_INVALID,

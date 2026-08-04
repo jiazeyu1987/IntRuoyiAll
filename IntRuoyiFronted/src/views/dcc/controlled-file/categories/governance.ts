@@ -7,6 +7,7 @@ import type {
   ControlledFileCategoryReviewMatrixSubjectType,
   ControlledFileCategoryVO
 } from '@/api/dcc/controlledFile/fileCategories'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import type { DccCategoryPermission } from '../shared/lifecycle'
 
 export type CategoryPermissionSubjectType = 'USER' | 'DEPT' | 'ROLE' | 'POSITION'
@@ -138,7 +139,7 @@ export const createDepartmentRuleDraft = (
 export const createApprovalMatrixDraft = (
   matrix?: Partial<ControlledFileCategoryApprovalMatrixVO>
 ): ApprovalMatrixDraft => ({
-  effectiveTime: matrix?.effectiveTime || '',
+  effectiveTime: formatDateTimeValue(matrix?.effectiveTime, ''),
   remark: matrix?.remark || '',
   rules: [...(matrix?.rules || [])].map((rule) => normalizeReviewMatrixRule(rule))
 })
