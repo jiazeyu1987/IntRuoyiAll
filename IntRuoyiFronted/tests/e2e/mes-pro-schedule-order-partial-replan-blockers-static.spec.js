@@ -30,6 +30,10 @@ assert.ok(
   autoScheduleApi.includes('blockedWorkOrderCount: number'),
   'Replan summary must expose blocked work order count.'
 )
+assert.ok(
+  autoScheduleApi.includes('skippedWorkOrderCount: number'),
+  'Replan summary must expose skipped work order count.'
+)
 
 const rowClassStart = source.indexOf('const getScheduleOrderRowClassName')
 assert.ok(rowClassStart >= 0, 'Schedule order row class helper must exist.')
@@ -76,7 +80,7 @@ assert.ok(
 
 const confirmStart = source.indexOf('const confirmApplyReplanStartChoice = async () => {')
 assert.ok(confirmStart >= 0, 'Replan apply confirmation helper must exist.')
-const confirmEnd = source.indexOf('\nconst normalizeScheduleOrderApplyTime', confirmStart)
+const confirmEnd = source.indexOf('\nconst openDailyCompareDialog', confirmStart)
 assert.ok(confirmEnd > confirmStart, 'Replan apply confirmation helper block must be bounded.')
 const confirmBlock = source.slice(confirmStart, confirmEnd)
 assert.ok(

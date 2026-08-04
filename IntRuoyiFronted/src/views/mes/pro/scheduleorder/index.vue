@@ -2370,6 +2370,27 @@ const preflightHasBlockedIssue = computed(() => {
   )
 })
 
+const isPreflightIssueAttributableToWorkOrder = (
+  issue: MesProScheduleOrderPreflightIssueVO
+) => {
+  if (issue.workOrderId || issue.scheduleOrderId || issue.workOrderCode || issue.scheduleOrderCode) {
+    return true
+  }
+  return (
+    Boolean(issue.objectId) &&
+    ['WORK_ORDER', 'SCHEDULE_ORDER'].includes(String(issue.objectType || '').toUpperCase())
+  )
+}
+
+const preflightHasGlobalBlockedIssue = computed(() => {
+  return Boolean(
+    preflightResult.value?.issues?.some(
+      (issue: MesProScheduleOrderPreflightIssueVO) =>
+        issue.severity === 'BLOCKED' && !isPreflightIssueAttributableToWorkOrder(issue)
+    )
+  )
+})
+
 const findScheduleOrderByPreflightIssue = (issue: MesProScheduleOrderPreflightIssueVO) => {
   if (!issue.scheduleOrderId) {
     return undefined
@@ -2398,6 +2419,24 @@ const replanPreviewHasBlockedIssue = computed(() => {
     (replanPreview.value?.summary?.blockingIssueCount ?? 0) > 0 ||
       replanPreview.value?.issues?.some((issue) => issue.severity === 'BLOCKING')
   )
+})
+
+const isAutoScheduleIssueAttributableToWorkOrder = (issue: ProTaskAutoScheduleIssueVO) => {
+  return Boolean(issue.workOrderId || issue.workOrderCode)
+}
+
+const hasGlobalReplanBlockingIssue = (
+  preview: ProTaskAutoScheduleReplanPreviewRespVO | null | undefined
+) => {
+  const blockingIssues = (preview?.issues || []).filter((issue) => issue.severity === 'BLOCKING')
+  if ((preview?.summary?.blockingIssueCount ?? 0) > 0 && !blockingIssues.length) {
+    return true
+  }
+  return blockingIssues.some((issue) => !isAutoScheduleIssueAttributableToWorkOrder(issue))
+}
+
+const replanPreviewHasGlobalBlockedIssue = computed(() => {
+  return hasGlobalReplanBlockingIssue(replanPreview.value)
 })
 
 const replanFeedbackProtectedTasks = computed(() => {
@@ -2591,8 +2630,10 @@ const resolveScheduleReplanProjection = () => {
     (!hasReplanPermission.value && '当前账号没有手动重排权限') ||
     (!scopeRows.length && '请先勾选需要重排的排产工单') ||
     blockedScopeReason ||
-    (preflightHasBlockedIssue.value && '排产前检查存在阻断问题，不能应用重排') ||
-    (replanPreviewHasBlockedIssue.value && '重排预览存在阻断问题，不能应用重排') ||
+    (preflightHasGlobalBlockedIssue.value &&
+      '排产前检查存在无法归因到工单的阻断问题，不能应用重排') ||
+    (replanPreviewHasGlobalBlockedIssue.value &&
+      '重排预览存在无法归因到工单的阻断问题，不能应用重排') ||
     '当前重排动作暂不可用。'
   return resolveControlledActionProjection(
     {
@@ -2602,10 +2643,10 @@ const resolveScheduleReplanProjection = () => {
         hasReplanPermission.value &&
         scopeRows.length > 0 &&
         blockedRows.length === 0 &&
-        !preflightHasBlockedIssue.value &&
-        !replanPreviewHasBlockedIssue.value,
+        !preflightHasGlobalBlockedIssue.value &&
+        !replanPreviewHasGlobalBlockedIssue.value,
       permissionGranted: hasReplanPermission.value,
-      locked: preflightHasBlockedIssue.value || replanPreviewHasBlockedIssue.value,
+      locked: preflightHasGlobalBlockedIssue.value || replanPreviewHasGlobalBlockedIssue.value,
       lockReason: blockerMessage,
       disabledReason: blockerMessage
     },
@@ -3399,7 +3440,14 @@ const getMainTableCellClassName = ({
 }
 
 const getScheduleOrderRowClassName = ({ row }: { row: MesProScheduleOrderVO }) => {
-  return row.frozen ? 'schedule-order-pool__row--frozen' : ''
+  const classes: string[] = []
+  if (row.frozen) {
+    classes.push('schedule-order-pool__row--frozen')
+  }
+  if (Number(row.blockingIssueCount || 0) > 0) {
+    classes.push('schedule-order-pool__row--blocked')
+  }
+  return classes.join(' ')
 }
 
 const getScheduleOrderReplanBlockReason = (row: MesProScheduleOrderVO) => {
@@ -3681,7 +3729,8 @@ const previewReplan = async () => {
   try {
     const request = buildReplanRequest()
     await runPreflightForRequest(request)
-    if (preflightHasBlockedIssue.value) {
+    if (preflightHasGlobalBlockedIssue.value) {
+      message.error('排产前检查存在无法归因到工单的阻断问题，不能生成重排预览')
       return
     }
     await previewReplanForRequest(request)
@@ -3701,7 +3750,17 @@ const buildReplanApplySuccessMessage = (result: ProTaskAutoScheduleApplyRespVO) 
   const createdCount = result.createdTaskIds?.length ?? 0
   const deletedCount = result.deletedTaskIds?.length ?? 0
   const preservedCount = result.preservedTaskIds?.length ?? 0
-  return `应用重排成功：正式排程已更新，新增任务 ${createdCount} 个，删除任务 ${deletedCount} 个，保留任务 ${preservedCount} 个。`
+  const appliedWorkOrderCount = result.summary?.appliedWorkOrderCount
+  const blockedWorkOrderCount = result.summary?.blockedWorkOrderCount
+  const skippedWorkOrderCount = result.summary?.skippedWorkOrderCount
+  const workOrderSummary = [
+    appliedWorkOrderCount !== undefined ? `应用工单 ${appliedWorkOrderCount} 个` : '',
+    blockedWorkOrderCount !== undefined ? `标记阻断 ${blockedWorkOrderCount} 个` : '',
+    skippedWorkOrderCount !== undefined ? `跳过 ${skippedWorkOrderCount} 个` : ''
+  ]
+    .filter(Boolean)
+    .join('，')
+  return `应用重排成功：${workOrderSummary ? `${workOrderSummary}，` : ''}正式排程已更新，新增任务 ${createdCount} 个，删除任务 ${deletedCount} 个，保留任务 ${preservedCount} 个。`
 }
 
 const applyReplan = async () => {
@@ -3723,18 +3782,15 @@ const confirmApplyReplanStartChoice = async () => {
   startReplanApplyProgress()
   try {
     const preflight = await runPreflightForRequest(applyRequest)
-    if (preflight.result === 'BLOCKED' || preflightHasBlockedIssue.value) {
-      throw new Error('排产前检查存在阻断问题，不能应用重排')
+    if (preflight.result === 'BLOCKED' && preflightHasGlobalBlockedIssue.value) {
+      throw new Error('排产前检查存在无法归因到工单的阻断问题，不能应用重排')
     }
     const freshPreview = await previewReplanForRequest(applyRequest)
     if (!freshPreview?.calendarContextToken) {
       throw new Error('重排预览缺少日历上下文，不能应用重排')
     }
-    if (
-      (freshPreview.summary?.blockingIssueCount ?? 0) > 0 ||
-      freshPreview.issues?.some((issue) => issue.severity === 'BLOCKING')
-    ) {
-      throw new Error('重排预览存在阻断问题，不能应用重排')
+    if (hasGlobalReplanBlockingIssue(freshPreview)) {
+      throw new Error('重排预览存在无法归因到工单的阻断问题，不能应用重排')
     }
     const shouldContinueSkippedRows = await confirmSkippedSelectedReplanRows(freshPreview)
     if (!shouldContinueSkippedRows) {
@@ -4480,6 +4536,34 @@ onMounted(async () => {
 .schedule-order-pool :deep(.schedule-order-pool__row--frozen .cell) {
   color: #5f3b00;
   font-weight: 600;
+}
+
+.schedule-order-pool :deep(.schedule-order-pool__row--blocked td.el-table__cell) {
+  background: #fff1f0 !important;
+}
+
+.schedule-order-pool :deep(.schedule-order-pool__row--blocked .cell) {
+  color: #8a1f11;
+  font-weight: 600;
+}
+
+.schedule-order-pool__work-order-ref {
+  display: inline-flex;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.schedule-order-pool__blocking-reason {
+  display: inline-block;
+  max-width: 100%;
+  color: #cf1322;
+  font-size: 12px;
+  line-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .schedule-order-pool__freeze-badge {

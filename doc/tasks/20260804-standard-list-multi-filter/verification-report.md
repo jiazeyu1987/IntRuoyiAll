@@ -5,7 +5,8 @@
 - Implemented optional multi-dimensional filtering for the standard list template and enabled it on the real MES 排产工单 page.
 - 排产工单 pilot maps filters to formal existing query params only: `code`, `erpWorkOrderCode`, `completionFilter`, and `promiseDate`.
 - Real Playwright E2E passed on `http://127.0.0.1:8081/mes/pro/schedule-order` against backend `http://127.0.0.1:48081`.
-- Task is ready for closeout; commit/push is not performed because the shared branch already has unrelated dirty/ahead concurrent changes.
+- Cleanup preview/apply passed and removed only temporary `frontend-feature-evidence.md`.
+- Task remains `ready_for_closeout`; commit/push is not performed because the shared branch already has unrelated dirty/ahead concurrent changes.
 
 ## Passed
 

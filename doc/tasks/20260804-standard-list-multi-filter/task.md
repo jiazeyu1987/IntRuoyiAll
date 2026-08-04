@@ -34,7 +34,8 @@ ready_for_closeout
 
 - 排产工单真实页面 pilot 已启用多维筛选，并通过静态合同、类型检查和真实 Playwright E2E。
 - 真实 E2E 验证了 `code`、`erpWorkOrderCode`、`completionFilter` 正式 query 参数和重置清空参数，目标写请求数为 0。
-- Full closeout/commit/push 仍需处理当前仓库已有的 dirty/ahead 并行任务状态；本轮未执行提交以避免混入非本任务改动。
+- task-closeout-cleanup preview/apply 已通过，删除临时 `frontend-feature-evidence.md`，保留真实 E2E 脚本与 `result.json`。
+- Full closeout/commit/push 仍被当前仓库已有的 dirty/ahead 并行任务状态阻塞；本轮未执行提交或推送，以避免混入非本任务改动。
 
 ## 设计约束检查
 

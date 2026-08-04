@@ -45,3 +45,6 @@
 - E2E NOTE: 一个首屏 `completionFilter=INCOMPLETE` GET 被后续请求 supersede 并记录为 `net::ERR_ABORTED`，单独归因，不作为目标链路失败。
 - GIT NOTE: `IntRuoyiFronted/src/views/mes/pro/scheduleorder/index.vue` 中另有同文件非本任务 diff（同步工单 quick-filter handler），未作为本任务改动或验收结论。
 - PROJECT_EXPERIENCE CLOSEOUT: 已按 `project-experience-consolidation` 规则把真实 E2E 暴露的 multi-filter `0` 宽复合工具栏布局问题沉淀到 `docs/frontend-development.md#统一列表复合工具栏布局门禁`，并更新 `docs/experience-index.md` 关键词。
+- CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode preview` -> PASS，keep 为 `task.md`、`execution-log.md`、`verification-report.md`、真实 E2E 脚本和 `result.json`，delete 仅为临时 `frontend-feature-evidence.md`。
+- CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode apply` -> PASS，已删除临时 `frontend-feature-evidence.md`。
+- GIT BLOCKER: `git status --short --branch` 显示 `int_main...origin/int_main [ahead 10]` 且存在大量并行任务修改/未跟踪文件；本轮不执行 commit/push，避免将非本任务改动混入标准列表多维筛选收尾。
