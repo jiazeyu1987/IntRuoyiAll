@@ -597,7 +597,7 @@ BDD: Archive metadata missing is visible -> Given a matched file is LOCAL_WRITTE
 
 ### M36
 
-- Status: in progress for commit/merge closeout after user authorization.
+- Status: completed for commit/merge closeout after user authorization.
 - User authorization: 用户要求“先提交前后端然后融合合并”。
 - GREEN: `git diff --check -- IntRuoyiBackend IntRuoyiFronted` -> PASS, no whitespace errors; only Git LF-to-CRLF warnings were reported in earlier scoped checks.
 - GREEN: `git add -- IntRuoyiBackend IntRuoyiFronted` followed by `git diff --cached --name-status` -> PASS, staged 16 frontend/backend files only.
@@ -612,4 +612,12 @@ BDD: Archive metadata missing is visible -> Given a matched file is LOCAL_WRITTE
 - GREEN: `pnpm e2e:dcc:nas-uncontrolled-local-import:static` -> PASS after both merges.
 - GREEN: push preflight large object scan -> PASS, max object size `481806` bytes.
 - BLOCKED: final `$env:NO_PROXY='github.com'; $env:no_proxy='github.com'; git fetch origin int_main` / `git push origin int_main` cannot complete because GitHub HTTPS 443 is currently unreachable from the workstation. `git ls-remote origin HEAD` briefly succeeded with `NO_PROXY`, but subsequent direct fetch/ls-remote failed with `Failed to connect to github.com port 443 after 21101 ms`, `Test-NetConnection github.com -Port 443` returned `TcpTestSucceeded: False`, and the local 8902 proxy path returned `Recv failure: Connection was reset`.
-- Current Git state: `int_main` is locally ahead of `origin/int_main` by 7 commits and no longer behind at the last successful fetch/merge point; tracked working tree is clean, with only unrelated untracked task directories remaining. Final `completed` status remains blocked until GitHub connectivity recovers and `git push origin int_main` succeeds.
+- Current Git state at the time: `int_main` was locally ahead of `origin/int_main` by 7 commits and no longer behind at the last successful fetch/merge point; tracked working tree was clean, with only unrelated untracked task directories remaining. This was superseded by M37 when the user explicitly changed the completion gate to local fusion verification.
+
+### M37
+
+- Status: completed after user changed the completion gate.
+- User scope change: 用户明确要求“不用推送,本地融合验证完就算目标完成”。
+- Completion gate update: remote `git push origin int_main` and final "not ahead of origin" checks are removed from this task's completion criteria by explicit user override; local `int_main` fusion plus documented verification is now the final gate.
+- Evidence retained: frontend/backend baseline commit `a564e19cc`, task evidence commit `231dddee7`, local merge commits `d865d4189` and `6db2b752f`, post-merge `pnpm e2e:dcc:nas-uncontrolled-local-import:static` PASS, cleanup preview/apply PASS, and M35 full real E2E PASS using existing NAS files.
+- Boundary: no new NAS write, no remote push, no destructive Git operation, and no staging of unrelated concurrent task files was performed for this scope change.
