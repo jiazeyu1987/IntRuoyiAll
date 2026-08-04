@@ -13,7 +13,8 @@
 - [x] 实现前端 MES 物料产品表单中的工艺路线选择、回显、已启用路线锁定与解除
 - [x] 运行定向 GREEN/REGRESSION 验证并归档证据
 - [x] 运行产品侧工艺路线只读真实页面 E2E 并归档证据
-- [ ] 完成经验沉淀、cleanup、提交和推送
+- [x] 运行产品侧选择工艺路线真实写入 E2E 并清理任务数据
+- [x] 完成经验沉淀、cleanup、提交和推送
 
 ## Expected Verification
 
@@ -23,16 +24,18 @@
 - 运行受影响 MES 后端 Maven 目标测试，必要时使用 `-pl yudao-module-mes -am`。
 - 运行 `frontend-feature-delivery` 与 `backend-api-delivery` evidence validator。
 - 追加真实 Playwright 只读页面验证：从本机前端打开 MES 物料产品，进入产品编辑弹窗的“工艺路线”页签，断言使用 `item-binding-list` 与 `get-by-item`，不调用 `simple-list`，且不发出 MES 写请求。
+- 追加真实 Playwright 写入页面验证：使用测试租户/aoteman 创建任务自有未启用工艺路线，从 MES 物料产品页选择并保存，再核验 `save-by-item` 绑定、解除绑定、删除任务路线和重新打开页面无残留。
 
 ## Current Status
 
-blocked
+completed
 
-产品侧工艺路线绑定的后端接口、前端入口、静态契约、目标 JUnit、前端类型检查、真实页面只读 E2E、经验沉淀、cleanup 和提交已完成；最终完成状态提交 `6107745f0` 及本轮 E2E 文档更新仍需推送，当前阻塞点仍是 GitHub 443 网络不可达。
+产品侧工艺路线绑定的后端接口、前端入口、静态契约、目标 JUnit、前端类型检查、真实页面只读 E2E、测试租户写入 E2E、任务数据清理、经验沉淀、cleanup apply、任务脚本保留、精确提交和推送均已完成。本轮继续收尾复验 GitHub 直连 443 可达，失败根因是 Git 全局 GitHub 代理仍指向未监听的 `127.0.0.1:7890`；已使用一次性 `http.https://github.com.proxy=` 完成远端访问，不修改全局配置。
 
 ## Cleanup Keep
 
 - doc/tasks/20260804-mes-item-route-selection/mes-md-item-route-selection-readonly-real.e2e.cjs
+- doc/tasks/20260804-mes-item-route-selection/mes-md-item-route-selection-write-real.e2e.cjs
 
 ## Applicable Gates
 

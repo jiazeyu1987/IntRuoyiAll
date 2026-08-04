@@ -32,6 +32,8 @@
 - `GREEN: python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260804-mes-item-route-selection/backend-api-evidence.md -> PASS`
 - `GREEN: node --check doc\tasks\20260804-mes-item-route-selection\mes-md-item-route-selection-readonly-real.e2e.cjs -> PASS`
 - `GREEN: node doc\tasks\20260804-mes-item-route-selection\mes-md-item-route-selection-readonly-real.e2e.cjs -> PASS, real frontend path /mes/md/item; route options=4; item-binding-list/get-by-item code=0; MES writes=0; simple-list calls=0; target failures=0; page errors=0`
+- `GREEN: node --check doc\tasks\20260804-mes-item-route-selection\mes-md-item-route-selection-write-real.e2e.cjs -> PASS`
+- `GREEN: node doc\tasks\20260804-mes-item-route-selection\mes-md-item-route-selection-write-real.e2e.cjs -> PASS, 测试租户/aoteman real write path; route create=980087/E2E-ITEM-ROUTE-MSETYTBR; product=924001/A002.09.002.230396; save-by-item bound routeId=980087; cleanup unbound=true, routeDeleted=true, pageReloadShowsNoTaskRoute=true; target failures=0; page errors=0`
 
 ## Command And Verification Notes
 
@@ -52,7 +54,16 @@
 - 2026-08-04：首轮 E2E 暴露 WebStorageCache 的 `v` 字段需要二次 JSON 解包；修正后登录态只读接口正常。后续补齐登录自动跳转竞态和表单异步加载等待，最终真实页面 E2E PASS。
 - 2026-08-04：最终 artifact 为 `output/playwright/20260804-mes-item-route-selection/mes-md-item-route-selection-readonly-real-result.json` 和同目录截图；选中产品 `A002.09.002.230396`，路线选项 4 条，已启用路线为禁用显示项，无 MES 写请求、无 `simple-list` 请求、无目标网络/HTTP 错误、无控制台或页面错误。
 - 2026-08-04：本轮仅验证只读真实页面链路，未在 admin 基线数据上点击保存。真实写入保存/变更/解除需要已确认测试租户/账号和任务自有可清理数据。
+- 2026-08-05：用户要求继续执行“给产品选择工艺路线”真实 E2E；登录前置确认测试租户/aoteman 可进入 `/mes/md/item`，测试租户现有路线 4 条均已启用，无法作为产品侧新选项。
+- 2026-08-05：新增任务专用写入真实 E2E 脚本 `mes-md-item-route-selection-write-real.e2e.cjs`；脚本创建任务自有未启用路线，通过真实 MES 物料产品页面选择并保存，再调用正式页面/API 核验、解除绑定、删除任务路线和重新打开页面无残留。
+- 2026-08-05：写入 E2E 调试记录：首次路线页分页响应等待过严，第二次直跳登录目标页未捕获登录响应，第三次新增弹窗异步内容未加载，最终改为稳定登录、按钮可见等待和弹窗可见输入框顺序定位后通过；失败轮次无目标写请求或已走清理逻辑。
+- 2026-08-05：最终写入 artifact 为 `output/playwright/20260804-mes-item-route-selection/mes-md-item-route-selection-write-real-result.json`、`mes-md-item-route-selection-write-real-bound.png`、`mes-md-item-route-selection-write-real-cleaned.png`；目标写请求仅包含 task route create、save-by-item 绑定、save-by-item 解除、task route delete；无目标网络/HTTP 错误、无控制台错误、无 pageerror。
+- 2026-08-05：写入脚本和只读脚本均被 `.gitignore` 的 `doc/tasks/**/*.cjs` 命中；因任务报告 `Cleanup Keep` 已列明保留，后续若提交需对两个 `.cjs` 使用显式 `git add -f`。
+- 2026-08-05：`GREEN: experience-preflight -> PASS`，本轮经验已由 `docs/e2e-rules.md` 的写入型 E2E 数据/清理、目标链路错误归因、Element Plus 下拉选择门禁，以及 `docs/task-closeout-rules.md` 的任务验证脚本保留门禁覆盖；无需新建长期经验文档。
+- 2026-08-05：继续收尾复验：`scripts\preflight\branch-runtime-port-guard.ps1` PASS；`node --check` 两个任务 E2E 脚本 PASS；`git diff --check -- <task docs>` PASS，仅 LF/CRLF 提示；`task-closeout-cleanup` preview/apply PASS，keep 包含 `task.md`、`execution-log.md`、`verification-report.md` 和两个任务 E2E `.cjs`，delete/blocked/warnings 均为空。
+- 2026-08-05：GitHub 连接复验：全局 GitHub proxy 仍为 `http://127.0.0.1:7890` 且 `Test-NetConnection 127.0.0.1 -Port 7890` 为 False；`Test-NetConnection github.com -Port 443` 为 True；`git -c http.https://github.com.proxy= ls-remote origin HEAD` PASS。收尾推送使用一次性 no-proxy 配置，不修改全局 Git 配置。
+- 2026-08-05：提交边界：当前工作区仍有 DCC、PQC、排产、多维筛选等无关并行改动；本任务只暂存 `doc/tasks/20260804-mes-item-route-selection/` 三份任务文档和两个显式 `git add -f` 的 E2E `.cjs` 脚本，不回滚、不混入无关文件。
 
 ## Blockers
 
-- 最终完成状态提交 `6107745f0 docs: complete mes item route selection task` 已在本地生成，但 `git -c http.proxy= -c https.proxy= -c http.https://github.com.proxy= push origin int_main` 因 `Failed to connect to github.com port 443` 失败；`Test-NetConnection 127.0.0.1 -Port 7890` 仍为 False，GitHub 直连 443 在最终复查时也失败。
+- 无当前任务剩余 blocker。历史 GitHub 443 blocker 已复验为陈旧 Git 全局代理配置问题，使用一次性 `http.https://github.com.proxy=` 可访问远端；无关并行工作区改动未纳入本任务提交。
