@@ -6,7 +6,7 @@
 
 ## Current Status
 
-ready_for_closeout
+in_progress
 
 ## Milestones
 
@@ -14,6 +14,7 @@ ready_for_closeout
 - [x] M2：补充 RED 静态契约，锁定同步工单页签必须存在已入池显示开关及查询参数绑定。
 - [x] M3：实现最小前端开关、请求参数和重置逻辑，不改后端契约、不引入 fallback。
 - [x] M4：运行定向验证与证据校验，记录 GREEN/REGRESSION 结果。
+- [ ] M5：执行真实 Playwright E2E，验证页面开关显示/隐藏已入池订单链路。
 
 ## Expected Verification
 
@@ -21,12 +22,14 @@ ready_for_closeout
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-schedule-order-admission-visibility-switch/frontend-feature-evidence.md`
 - `pnpm ts:check:schedule`
 - `pnpm ts:check` 若被无关历史问题阻塞，记录首个阻塞点。
+- `node doc/tasks/20260804-schedule-order-admission-visibility-switch/real-e2e-admission-switch.cjs`
 
 ## BDD Scenarios
 
 - `BDD: 同步工单默认隐藏已入池订单 -> Given 排产员打开排产工单页面并切换到同步工单页签 / When 页面首次加载同步工单列表 / Then 查询参数默认不包含已加入排产工单池的生产工单，列表聚焦可入池或需处理订单。`
 - `BDD: 开关显示已入池订单 -> Given 排产员停留在同步工单页签 / When 打开“显示已入池订单”开关 / Then 页面重新查询第一页，并把已加入排产工单池的生产工单纳入列表展示。`
 - `BDD: 重置恢复隐藏已入池订单 -> Given 排产员已打开显示已入池订单开关 / When 点击同步工单页签的重置按钮 / Then 开关恢复关闭状态并重新查询隐藏已入池订单的列表。`
+- `BDD: 真实页面开关请求参数一致 -> Given 本机 int_main 前后端运行且用户登录排产工单页面 / When 用户切到同步工单页签并打开/关闭“显示已入池订单”开关 / Then 页面必须分别发出隐藏已入池、纳入已入池、再隐藏已入池的 admission-diff 请求，且不产生写请求。`
 
 ## 设计约束检查
 

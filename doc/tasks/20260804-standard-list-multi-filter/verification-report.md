@@ -14,6 +14,7 @@
 - Target TypeScript syntax transpile check -> PASS.
 - `git diff --check` for task-owned files -> PASS with existing LF/CRLF warning on `UnifiedListTemplate/index.vue`.
 - Frontend feature evidence validator -> PASS.
+- Real browser login/list regression -> PASS on `http://127.0.0.1:8081/system/user` with target text `快速过滤`.
 
 ## Blocked
 
@@ -22,6 +23,7 @@
   - `src/views/mes/qc/template/index.vue(218,3): Module "@/api/mes/qc/template" has no exported member "QaInspectionRuleVO".`
   - `src/views/mes/qc/template/index.vue(251,55): Property "getPublishedQaRegulationVersion" does not exist on "@/api/mes/qc/template".`
 - Target `pnpm exec eslint ...` hung with no output and was stopped as a task-owned process.
+- Multi-filter real E2E -> BLOCKED: no current business page enables `showMultiFilter` or passes `multiFilterDefinitions`, so there is no approved real frontend entry to operate the new multi-dimensional filter controls.
 - Repository was dirty and ahead of origin before this task; no commit or push was attempted to avoid mixing unrelated task changes.
 
 ## Design Verification
@@ -31,3 +33,4 @@
 - Unmapped configured conditions are preserved in explicit `multiFilters`; they are not silently dropped.
 - Query and reset both set `queryParams.pageNo = 1`.
 - No `localStorage`, `sessionStorage`, mock path, fallback branch, or swallowed exception was introduced.
+- Existing standard list page `/system/user` still loads via real browser and shows the legacy quick filter; this validates runtime availability and standard list regression, not the new multi-filter interaction.

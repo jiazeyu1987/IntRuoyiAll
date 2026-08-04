@@ -7,6 +7,9 @@
 - `BDD: 同步工单默认隐藏已入池订单 -> Given 排产员打开排产工单页面并切换到同步工单页签 / When 页面首次加载同步工单列表 / Then 查询参数默认不包含已加入排产工单池的生产工单，列表聚焦可入池或需处理订单。`
 - `BDD: 开关显示已入池订单 -> Given 排产员停留在同步工单页签 / When 打开“显示已入池订单”开关 / Then 页面重新查询第一页，并把已加入排产工单池的生产工单纳入列表展示。`
 - `BDD: 重置恢复隐藏已入池订单 -> Given 排产员已打开显示已入池订单开关 / When 点击同步工单页签的重置按钮 / Then 开关恢复关闭状态并重新查询隐藏已入池订单的列表。`
+- `BDD: 真实页面开关请求参数一致 -> Given 本机 int_main 前后端运行且用户登录排产工单页面 / When 用户切到同步工单页签并打开/关闭“显示已入池订单”开关 / Then 页面必须分别发出隐藏已入池、纳入已入池、再隐藏已入池的 admission-diff 请求，且不产生写请求。`
+- User follow-up: `进行E2E验证`。
+- E2E scope: 使用本机 `http://127.0.0.1:8081` / `http://127.0.0.1:48081` 只读验证，不新增/修改生产工单，不提交入池，不记录密码。
 
 ## Milestone Updates
 
@@ -15,6 +18,7 @@
 - M2 completed: 新增 `IntRuoyiFronted/tests/e2e/mes-schedule-order-admission-show-admitted-switch-static.spec.js`，覆盖 Switch UI、默认关闭、查询参数切换、重置恢复和禁止本地过滤。
 - M3 completed: `IntRuoyiFronted/src/views/mes/pro/scheduleorder/index.vue` 在同步工单 actions 区增加“显示已入池订单”开关；开关关闭时使用 `READY_TO_ADMIT`，打开时清空直接 `admissionStatus` 查询参数以纳入已入池状态；重置恢复关闭。
 - M4 completed: 定向静态契约、相邻回归和排产定向类型检查已执行。
+- M5 in_progress: 已读取 Playwright、E2E、登录、本地运行和 worktree 规则；已确认 `npx` 可用、8081 前端 HTTP 200、48081 后端 health UP，端口归属为 `E:\IntRuoyi` 的 int_main 前后端运行态。
 
 ## Verification Evidence
 

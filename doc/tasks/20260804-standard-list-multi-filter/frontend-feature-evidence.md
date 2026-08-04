@@ -33,8 +33,11 @@
 - Regression contract verifies the existing unified list template still provides quick filter, extra filters, table slot, pagination, sorting helpers, and column settings.
 - Full `pnpm ts:check` was attempted and failed on unrelated existing QA template export errors before current task files.
 - Target ESLint command was attempted but hung with no output; the task-owned lint process was stopped and recorded as a blocker.
+- Real browser regression was run against `/system/user` and passed login plus standard list quick-filter visibility.
+- New multi-filter interaction E2E is blocked because no business page currently enables `showMultiFilter` or provides `multiFilterDefinitions`.
 
 ## Blockers
 
 - Full repository typecheck is blocked by unrelated existing errors in `src/views/mes/qc/template/index.vue` and `@/api/mes/qc/template`.
+- True multi-filter E2E is blocked by the missing real business-page entry; adding a pilot page would be a separate approved migration, not a verification-only action.
 - Formal commit/push closeout is blocked by the repository's pre-existing dirty/ahead state with many unrelated task changes.
