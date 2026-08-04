@@ -22,3 +22,10 @@
 - 产品侧路线下拉使用 `/mes/pro/route/item-binding-list`，避免 `simple-list` 只返回已启用路线而与后端“已启用路线不可维护”校验冲突。
 - 已启用路线可作为当前绑定回显，但前端禁用变更入口；后端继续 fail fast，不引入降级。
 - 未引入 fallback、默认成功或表单槽位/批记录链路替代关系源。
+
+## Closeout
+
+- `task-closeout-cleanup` preview/apply：PASS，删除临时 evidence，保留核心任务记录。
+- 经验沉淀：PASS，新增 `docs/backend-development.md#MES 工艺路线产品绑定状态门禁` 并更新 `docs/experience-index.md`。
+- 收尾提交：`3f15f0539 docs: close out mes item route selection`。
+- 推送：`git -c http.https://github.com.proxy= push origin int_main` PASS，远端更新 `1fd52f05d..3f15f0539`。

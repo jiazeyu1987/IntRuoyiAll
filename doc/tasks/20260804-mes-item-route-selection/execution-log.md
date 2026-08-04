@@ -39,6 +39,11 @@
 - 2026-08-04：实现 `MdItemRouteForm.vue` 与 `MdItemForm.vue` 产品专属“工艺路线”页签，前端调用 route-product API，不向 `MdItemApi` 增加第二套路线字段。
 - 2026-08-04：发现 `ProRouteApi.getRouteSimpleList()` 只返回已启用路线，但后端 route-product 保存要求路线未启用；已新增 `/mes/pro/route/item-binding-list` 产品维护权限下的选择接口，并在前端禁用已启用路线选项。
 - 2026-08-04：Maven 首轮和第二轮验证会话未产生 MES 目标 surefire 报告；随后观察到同目标 `-DforkCount=0` Maven 进程并等待收敛，最终 surefire 明确 PASS。
+- 2026-08-04：项目经验已沉淀到 `docs/backend-development.md#MES 工艺路线产品绑定状态门禁`，并在 `docs/experience-index.md` 增加关键词路由。
+- 2026-08-04：`task-closeout-cleanup` preview/apply 通过；删除临时 `backend-api-evidence.md` 与 `frontend-feature-evidence.md`，保留 `task.md`、`execution-log.md`、`verification-report.md`。
+- 2026-08-04：并发基线提交 `af1bfb191 chore: baseline current frontend backend updates before push` 已包含本任务实现、验证报告和临时 evidence；后续收尾提交 `3f15f0539 docs: close out mes item route selection` 删除临时 evidence 并提交经验沉淀。
+- 2026-08-04：首次 `git push origin int_main` 因全局 GitHub 代理 `http://127.0.0.1:7890` 未监听失败；`Test-NetConnection github.com -Port 443` 直连成功，`git -c http.https://github.com.proxy= ls-remote origin HEAD` 成功。
+- 2026-08-04：使用一次性代理覆盖执行 `git -c http.https://github.com.proxy= push origin int_main` 成功，远端 `int_main` 更新 `1fd52f05d..3f15f0539`。
 
 ## Blockers
 

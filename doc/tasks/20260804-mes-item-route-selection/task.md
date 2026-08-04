@@ -12,7 +12,7 @@
 - [x] 实现后端产品侧查询/保存接口，复用 `MesProRouteProductService`
 - [x] 实现前端 MES 物料产品表单中的工艺路线选择、回显、已启用路线锁定与解除
 - [x] 运行定向 GREEN/REGRESSION 验证并归档证据
-- [ ] 完成经验沉淀、cleanup、提交和推送
+- [x] 完成经验沉淀、cleanup、提交和推送
 
 ## Expected Verification
 
@@ -24,9 +24,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-产品侧工艺路线绑定的后端接口、前端入口、静态契约、目标 JUnit 和前端类型检查已完成。等待 evidence validator、cleanup、选择性提交和推送。
+产品侧工艺路线绑定的后端接口、前端入口、静态契约、目标 JUnit、前端类型检查、经验沉淀、cleanup、提交和推送均已完成。
 
 ## Applicable Gates
 
