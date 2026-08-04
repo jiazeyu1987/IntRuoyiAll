@@ -21,8 +21,11 @@
 - CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode preview` -> PASS。
 - CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode apply` -> PASS，删除已归档的 evidence 文件。
 - COMMIT: `ac2412835` -> committed task-owned source, test, task report, and experience-rule updates only.
+- COMMIT: `b00a4b36f` -> committed final closeout records only.
+- PUSH: `git push origin int_main` -> FAIL，GitHub 443 连接经本机 `127.0.0.1` 代理失败。
 
 ## Remaining Notes
 
 - 未运行真实浏览器 E2E；本次验证覆盖静态合同、相邻合同和 TypeScript。
 - 当前工作区仍有并行任务残余改动，本任务提交需选择性暂存。
+- 本地提交尚未推送到 `origin/int_main`；需恢复 GitHub 连接或本机代理后重新执行 `git push origin int_main`。

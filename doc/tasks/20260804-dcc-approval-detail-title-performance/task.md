@@ -12,6 +12,7 @@
 - [x] M3 最小修改前端标题映射与详情加载条件
 - [x] M4 运行目标静态合同、相邻合同和必要类型检查
 - [x] M5 更新验证报告并完成收尾提交
+- [ ] M6 推送本地提交到 `origin/int_main`
 
 ## Expected Verification
 
@@ -21,7 +22,7 @@
 
 ## Current Status
 
-completed
+blocked_on_push
 
 ## 设计约束检查
 
@@ -45,6 +46,7 @@ completed
 - REGRESSION：`node tests/e2e/bpm-process-timeline-current-node-green-static.spec.js` -> PASS。
 - REGRESSION：`pnpm ts:check` -> PASS。
 - QUALITY：`git diff --check -- <task-owned files>` -> PASS，只有 Git LF/CRLF working-copy warnings。
+- PUSH_BLOCKER：`git push origin int_main` -> FAIL，GitHub 443 连接经本机 `127.0.0.1` 代理失败；当前本地提交尚未推送到远端，任务不能标记为 completed。
 
 ## Baseline Commits
 

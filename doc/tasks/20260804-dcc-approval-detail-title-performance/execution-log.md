@@ -27,3 +27,7 @@
 - CLEANUP: `task_closeout.py --task-id 20260804-dcc-approval-detail-title-performance --mode apply` -> PASS，deleted `bug-regression-evidence.md` and `frontend-feature-evidence.md` after validator summaries were copied into retained reports。
 - STATUS: cleanup complete; task status set to `completed` pending selective commit and push.
 - IMPLEMENTATION_COMMIT: `ac2412835` -> committed task-owned source, test, task report, and experience-rule updates only.
+- CLOSEOUT_COMMIT: `b00a4b36f` -> committed final closeout records only.
+- PREFLIGHT: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
+- PUSH_BLOCKER: `git push origin int_main` -> FAIL, expected impact: GitHub 443 连接经本机 `127.0.0.1` 代理失败，本地 `int_main` 仍领先 `origin/int_main`，按项目规则任务不能标记为 completed。
+- STATUS: implementation, verification, cleanup, and local commits complete; final remote delivery blocked by GitHub connectivity/proxy precondition.
