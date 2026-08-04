@@ -6,7 +6,7 @@ const { chromium } = require('playwright')
 const FRONTEND_ROOT = path.resolve(__dirname, '../..')
 const WORKSPACE_ROOT = path.resolve(FRONTEND_ROOT, '..')
 const BASE_URL = (process.env.QA_REGULATION_E2E_BASE_URL || 'http://127.0.0.1:8081').replace(/\/+$/, '')
-const TARGET_PATH = '/mes/pro/process-pool/team-leader'
+const TARGET_PATH = '/mes/pro/process-pool/qa-regulation'
 const RESULT_DIR = path.resolve(WORKSPACE_ROOT, 'output', 'playwright', '20260804-qa-regulation-tab')
 const RESULT_PATH = path.join(RESULT_DIR, 'qa-regulation-original-excerpt-real-e2e.json')
 const SCREENSHOT_PATH = path.join(RESULT_DIR, 'qa-regulation-original-excerpt-real-e2e.png')
@@ -144,11 +144,10 @@ async function main() {
     await login(page, config)
 
     await page.goto(`${BASE_URL}${TARGET_PATH}`, { waitUntil: 'domcontentloaded' })
-    await page.getByText('工序池班组长工作台', { exact: false }).first().waitFor({ state: 'visible' })
+    await page.getByText('QA 规程配置', { exact: false }).first().waitFor({ state: 'visible' })
 
     captureWrites = true
-    await page.getByRole('tab', { name: 'QA 规程' }).click()
-    const qaTab = page.locator('[data-qa-regulation-tab]').first()
+    const qaTab = page.locator('[data-qa-regulation-page]').first()
     await qaTab.waitFor({ state: 'visible' })
 
     for (const requiredText of [
@@ -204,7 +203,7 @@ async function main() {
       screenshotPath: SCREENSHOT_PATH
     }
     writeResult(result)
-    console.log(`PASS QA regulation original excerpt real E2E ${JSON.stringify(result)}`)
+    console.log(`PASS QA regulation standalone original excerpt real E2E ${JSON.stringify(result)}`)
   } catch (error) {
     writeResult({
       ok: false,
