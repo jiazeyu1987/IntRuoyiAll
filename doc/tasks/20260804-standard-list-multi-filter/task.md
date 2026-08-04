@@ -16,6 +16,7 @@
 - [x] M6: 按用户指定在排产工单真实页面启用多维筛选，并完成静态合同与真实 E2E 验证。
 - [x] M7: 按用户反馈把多维筛选改为可增删条件 Tab，并验证所有已填写 Tab 条件按交集提交。
 - [x] M8: 修复排产工单页面重复筛选区域，只保留右侧条件 Tab 筛选并完成真实 E2E 复验。
+- [ ] M9: 将同步工单页签迁移到同一标准条件 Tab 筛选，移除旧快捷筛选和重复状态筛选，并完成真实 E2E。
 
 ## Expected Verification
 
@@ -32,11 +33,12 @@
 
 ## Current Status
 
-ready_for_closeout
+in_progress
 
 - 排产工单真实页面 pilot 已改为可增删条件 Tab，并通过静态合同、`ts:check:schedule` 和真实 Playwright E2E。
 - 真实 E2E 验证了默认完成状态 Tab、排产工单号 Tab、来源生产工单号 Tab 同时提交为 `completionFilter`、`code`、`erpWorkOrderCode` 正式 query 参数交集，目标写请求数为 0。
 - 用户截图反馈的重复筛选区域已修复：排产工单启用右侧条件 Tab 多维筛选时，左侧旧 quick filter 区域不再显示；真实 E2E 记录 `legacyQuickFilterVisibleCount=0`。
+- 用户继续反馈同步工单也是标准列表但未变化；已确认该页签仍显式接入旧 `useTableQuickFilter`，尚未启用标准多维筛选，当前进入 M9 修复。
 - task-closeout-cleanup preview/apply 已在 Tab 方案复验后通过；仅删除本任务旧失败产物 `artifacts/schedule-order-multi-filter-real/error.txt`，保留本轮 `frontend-feature-evidence.md`、真实 E2E 脚本与 `result.json`。
 - 最新全量 `pnpm ts:check` 已通过。
 - Full closeout/commit/push 仍被当前仓库已有的 dirty/ahead 并行任务状态阻塞；本轮不会宽泛提交或推送，以避免混入非本任务改动。

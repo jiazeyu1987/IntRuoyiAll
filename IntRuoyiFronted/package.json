@@ -279,6 +279,7 @@
     "e2e:unified-list-template-sort:static": "node tests/e2e/unified-list-template-sort-static.spec.js",
     "e2e:unified-list-template-all-sortable:static": "node tests/e2e/unified-list-template-all-headers-sortable-static.spec.js",
     "e2e:approval-center:standard-list:static": "node tests/e2e/approval-center-standard-list-template-static.spec.js",
+    "e2e:approval-center:tab-return-no-reload:static": "node tests/e2e/approval-center-tab-return-no-reload-static.spec.js",
     "e2e:dcc:controlled-file-logs:static": "node tests/e2e/dcc-controlled-file-logs-static.spec.js",
     "e2e:dcc:controlled-file-logs:real": "node tests/e2e/dcc-controlled-file-logs-real.e2e.js",
     "e2e:dcc:loss-order-form-center:static": "node tests/e2e/dcc-loss-order-form-center-chain-static.spec.js",

@@ -44,8 +44,8 @@ Verification
 
 - `git diff --check -- IntRuoyiFronted\src\views\mes\pro\feedback\FrontlineFixedTemplatePanel.vue IntRuoyiFronted\tests\e2e\edhr-frontline-pqc-fullscreen-toggle-static.spec.cjs IntRuoyiFronted\tests\e2e\edhr-frontline-fill-tabs-static.spec.cjs doc\tasks\20260804-pqc-fill-fullscreen-toggle\task.md doc\tasks\20260804-pqc-fill-fullscreen-toggle\execution-log.md` -> PASS with only CRLF normalization warnings.
 - `workdir=IntRuoyiFronted; node tests\e2e\edhr-frontline-fill-tabs-static.spec.cjs` -> BLOCKED by unrelated pre-existing tab assertion: `eDHR batch tabs must include 历史批记录`.
-- `workdir=E:\IntRuoyi; Get-ChildItem Env: | Where-Object Name -match 'PQC|RRM|EDHR_FRONTLINE'` -> `NO_PQC_E2E_ENV_VARS`.
-- `workdir=E:\IntRuoyi; node doc\tasks\20260804-pqc-fill-fullscreen-toggle\pqc-fill-fullscreen-real.e2e.cjs` -> BLOCKED by current local PQC runtime data precondition: page error `当前没有活跃订单，PQC 不能选择订单`; screenshots refreshed under `output\playwright\20260804-pqc-fill-fullscreen-toggle\`.
+- `workdir=E:\IntRuoyi; PQC_FULLSCREEN_E2E_USERNAME=pqce2efullscreen; node doc\tasks\20260804-pqc-fill-fullscreen-toggle\pqc-fill-fullscreen-real.e2e.cjs` -> PASS.
+- `output/playwright/20260804-pqc-fill-fullscreen-toggle/result.json` -> PASS with no PQC submit request, no unexpected MES write, no page/console error, and no PQC target failure.
 
 Responsive, accessibility, loading, empty, error, and permission checks
 
@@ -58,4 +58,4 @@ Blockers
 
 - Formal closeout is blocked by unrelated dirty workspace and branch state: `int_main` was already ahead of `origin/int_main`, and many unrelated files were dirty before this scoped edit.
 - Adjacent fill-tabs static regression is blocked before PQC assertions because current workspace `EdhrBatchRecordTabs.vue` omits “历史批记录”; this task did not alter that file.
-- Real PQC-account E2E is blocked until the local environment has an active PQC order/task for the verified PQC inspector path.
+- No remaining PQC account or active-order E2E blocker; the local task-owned fixture is configured and retained.

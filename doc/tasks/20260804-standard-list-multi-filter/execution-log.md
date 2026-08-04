@@ -15,6 +15,9 @@
 - BDD: 条件 Tab 动态增删 -> Given 标准列表模板启用多维筛选 / When 用户点击红框区域右侧加号 / Then 组件新增一个条件 Tab，并在左侧减号点击时删除当前 Tab。
 - BDD: 条件 Tab 交集查询 -> Given 用户在多个已填写条件 Tab 中选择不同筛选字段和值 / When 点击查询 / Then 前端把所有已填写 Tab 条件一起映射为正式 query 参数，作为交集条件提交。
 - BDD: 排产工单只保留右侧条件 Tab 筛选 -> Given 排产工单主列表启用标准列表多维筛选 / When 用户进入排产工单页面 / Then 页面只显示右侧条件 Tab 筛选区域，不再显示左侧旧 quick filter 区域。
+- BDD: 同步工单启用标准条件 Tab -> Given 用户切换到同步工单页签 / When 标准列表渲染 / Then 页面只显示右侧条件 Tab 多维筛选，不再显示旧 quick filter、显示已入池开关或额外重置按钮。
+- BDD: 同步工单条件交集查询 -> Given 用户在同步工单填写工单编码、产品编号和入池状态条件 / When 点击查询 / Then 待同步差异请求同时提交正式 `workOrderCode`、`productCode`、`admissionStatus` 参数且不发送 `multiFilters` 或 `quickFilter`。
+- BDD: 同步工单默认状态与重置 -> Given 用户首次打开同步工单 / When 列表加载 / Then 默认以稳定的入池状态 Tab 查询可入池工单；When 用户点击条件 Tab 区域重置 / Then 清空正式筛选参数并重新加载第一页。
 
 ## Command And Evidence Log
 
@@ -91,3 +94,6 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260804-standard-list-multi-filter/bug-regression-evidence.md` -> PASS。
 - CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode preview` -> PASS，keep 包含 `bug-regression-evidence.md`、`frontend-feature-evidence.md`、真实 E2E 脚本和 `result.json`，delete 为 `<none>`。
 - CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode apply` -> PASS，delete 为 `<none>`。
+- USER BUG REPORT: 用户反馈同步工单同样使用标准列表模板但没有切换为条件 Tab 多维筛选。
+- ROOT CAUSE: 同步工单直接使用 `UnifiedListTemplate`，但仍显式绑定 `workOrderAdmissionQuickFilterDefinitions`、`useTableQuickFilter` 和旧状态开关，未传入 `showMultiFilter`、`multiFilterDefinitions`、多维状态或查询事件；标准列表多维能力按列表显式启用，因此不会自动替换旧筛选。
+- RED: `node tests/e2e/mes-schedule-order-sync-tab-static.spec.js` -> FAIL, expected reason: `同步工单启用条件 Tab 后必须关闭旧 quick filter。`

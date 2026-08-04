@@ -19,6 +19,9 @@ assert.ok(fs.existsSync(qaPagePath), 'QA regulation must be implemented as a sta
 const qaSource = fs.readFileSync(qaPagePath, 'utf8')
 const workbenchSource = fs.readFileSync(workbenchPath, 'utf8')
 const routeSource = fs.readFileSync(routePath, 'utf8')
+const dccProjectLoaderStart = qaSource.indexOf('const loadDccProjectCodeOptions')
+const dccProjectLoaderEnd = qaSource.indexOf('const retryLoadDccProjectCodes')
+const dccProjectLoaderSource = qaSource.slice(dccProjectLoaderStart, dccProjectLoaderEnd)
 
 assert.match(
   routeSource,
@@ -97,7 +100,7 @@ for (const requiredText of [
   '2026-01-04',
   'IDI',
   '过程检验规程',
-  'QA 负责制定 PQC 的首检、巡检、末检和检验项目规则',
+  'QA 按 DCC 项目代码维护产品规程',
   '请选择 DCC 项目代码',
   '产品名称由 DCC 项目代码带出',
   'DCC 项目代码加载失败',
@@ -156,8 +159,8 @@ for (const requiredOriginalExcerpt of [
 }
 
 assert.doesNotMatch(
-  qaSource,
-  /getProjectCodePage\([\s\S]*catch[\s\S]*(PQC-IDI-001|按压式球囊扩充压力泵)/,
+  dccProjectLoaderSource,
+  /PQC-IDI-001|按压式球囊扩充压力泵/,
   'DCC project loading failures must not fall back to the pressure-pump draft.'
 )
 
