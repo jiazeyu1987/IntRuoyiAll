@@ -25,7 +25,7 @@
 - completed：已建立 BDD 场景和前后端聚焦测试。
 - completed：前端 PQC 面板新增手动“不良说明”文本输入、失败必填校验、提交字段和 rawPayload.pqcDraft 快照。
 - completed：后端 PQC 提交 VO/Command 新增 `nonconformanceDescription`；失败结果缺说明时在写库前 fail-fast；rawPayload 由服务端写入标准化说明并保留订单、工序、PQC task 等追溯身份。
-- ready_for_closeout：定向 GREEN 已通过；完整 closeout/提交/推送因共享工作区非本任务脏改动和无关类型检查失败暂不执行。
+- ready_for_closeout：定向 GREEN、全量前端类型检查、运行态字段检查和真实页面只读输入预检已通过；完整 closeout/提交/推送因共享工作区非本任务脏改动暂不执行。
 
 ## Verification Evidence
 
@@ -35,7 +35,7 @@
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，17 tests。
 - REGRESSION: `node E:\IntRuoyi\IntRuoyiFronted\tests\e2e\frontline-formal-submit-static.spec.cjs` -> PASS。
 - REGRESSION: `pnpm --dir E:\IntRuoyi\IntRuoyiFronted e2e:role-matrix-pqc-dynamic-form:static` -> PASS。
-- REGRESSION: `pnpm --dir E:\IntRuoyi\IntRuoyiFronted ts:check` -> FAIL，阻塞点为 `src/views/mes/pro/processpool/QaRegulationPage.vue(1204,3)` 的 `PATROL_AM` 类型不匹配，非本次 AC-D03 修改文件。
+- REGRESSION: `pnpm --dir E:\IntRuoyi\IntRuoyiFronted ts:check` -> PASS，当前全量前端类型检查已通过。
 - STRUCTURE: `git diff --check` 针对本次相关文件 -> PASS。
 - RUNTIME PREFLIGHT: `GET http://127.0.0.1:8081/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue?t=1785913672517` -> FAIL，Vite eslint 阻塞 3 个 Vue 模板自闭合标签；已修复为显式闭合标签。
 - RUNTIME PREFLIGHT GREEN: 同一 Vite 模块 -> HTTP 200；`node E:\IntRuoyi\IntRuoyiFronted\tests\e2e\role-matrix-pqc-manual-defect-note-static.spec.cjs` -> PASS；相关文件 `git diff --check` -> PASS。
@@ -49,5 +49,4 @@
 
 - 当前共享工作区已有大量非本任务脏改动，后续提交/推送需按项目规则单独处理，不能混入无关改动。
 - 当前分支 `int_main...origin/int_main [ahead 13]` 且存在大量已修改文件；按项目规则，提交/推送前需要先处理共享脏工作区基线，本轮未擅自提交。
-- 全量前端 `ts:check` 存在无关历史阻塞 `QaRegulationPage.vue(1204,3)`；本次 AC-D03 定向静态合同与后端 JUnit 已通过。
 - 真实写入型 PQC E2E 仍未执行：当前只读预检使用本机默认身份和现有活跃订单，不能替代任务自有测试租户/数据的正式提交；页面当前还暴露既有业务数据错误 `精洗-外观-抽检样本数量0与任务计划数量15不一致。`，写入验收前需准备可追踪、可清理的 PQC 任务数据。

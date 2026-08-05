@@ -20,7 +20,7 @@
 | 相邻前端合同 | PASS：`frontline-formal-submit-static.spec.cjs` 与 `e2e:role-matrix-pqc-dynamic-form:static` 均通过。 |
 | 结构检查 | PASS：相关文件 `git diff --check` 通过。 |
 | Cleanup | PASS：task-closeout-cleanup preview/apply 均通过，keep 3，delete/blocked/warnings/deleted_paths 均为 `<none>`。 |
-| 全量前端类型检查 | BLOCKED：`pnpm --dir E:\IntRuoyi\IntRuoyiFronted ts:check` 失败于 `QaRegulationPage.vue(1204,3)` 的 `PATROL_AM` 类型不匹配，非本任务文件。 |
+| 全量前端类型检查 | PASS：`pnpm --dir E:\IntRuoyi\IntRuoyiFronted ts:check` 通过。 |
 
 ## Code Evidence
 

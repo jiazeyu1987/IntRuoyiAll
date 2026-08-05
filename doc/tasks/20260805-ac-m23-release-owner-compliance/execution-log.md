@@ -31,6 +31,8 @@
 - BLOCKED: isolated Maven `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrReleaseServiceImplTest,MesProEdhrApprovalTaskAdapterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` reached `yudao-module-mes` compile but failed before Surefire on non-AC-M23 baseline source: `MesQaInspectionRegulationServiceImpl` missing `publish(MesQaInspectionRegulationSaveReqVO)` in the clean detached HEAD.
 - CLEANUP: removed `D:\IntRuoyiWorktree\ac-m23-release-owner-verify-20260805-1`; `Test-Path` returned `False`.
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrReleaseServiceImplTest,MesProEdhrApprovalTaskAdapterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, `BUILD SUCCESS`, 35 tests, 0 failures, 0 errors, 0 skipped.
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-ac-m23-release-owner-compliance --mode preview` -> keep `task.md`, `execution-log.md`, `verification-report.md`; delete only temporary evidence files; no blockers/warnings.
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-ac-m23-release-owner-compliance --mode apply` -> deleted `backend-api-evidence.md`, `frontend-feature-evidence.md`, `bug-regression-evidence.md`; retained core records.
 
 ## Current Status
 
