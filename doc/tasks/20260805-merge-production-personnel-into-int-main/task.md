@@ -11,9 +11,9 @@
 - [x] 提交 `int_main` 残余前端改动，确保主工作区进入可合并状态
 - [x] 合并生产人员功能分支并语义解决冲突
 - [x] 运行端口守卫、前端静态合同、后端定向 JUnit、diff 与冲突标记门禁
-- [ ] 运行对象大小门禁
-- [ ] 推送 `int_main` 并确认功能分支已被主线包含
-- [ ] 完成收尾记录、经验沉淀和 cleanup
+- [x] 运行对象大小门禁
+- [x] 推送 `int_main` 并确认功能分支已被主线包含
+- [ ] 完成物理 worktree cleanup
 
 ## Expected Verification
 
@@ -36,7 +36,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Current Evidence
 
@@ -53,6 +53,12 @@ in_progress
 - GREEN: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest,MesTeamLeaderRuntimeConfigServiceTest,MesFrontlineRuntimeConfigServiceTest,MesFrontlineRuntimeConfigControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 32, Failures: 0, Errors: 0, Skipped: 0。
 - GREEN: `git diff --cached --check` -> PASS。
 - GREEN: scoped conflict marker scan on staged files with `rg -n "^(<<<<<<<|=======|>>>>>>>)"` -> PASS。
+- GREEN: GitHub 100 MB object gate -> PASS, 299 objects scanned, all `<= 100MB`。
+- GREEN: `git push origin HEAD:int_main` -> PASS, `origin/int_main` updated from `e9d97fa16` to `e6733202a`。
+- GREEN: `git fetch origin int_main`; `git rev-parse HEAD`; `git rev-parse origin/int_main` -> both `e6733202a79f9b9cf928880067d42da68eebaf5b`。
+- GREEN: `git merge-base --is-ancestor origin/codex/20260805-production-personnel-management origin/int_main` -> PASS。
+- Cleanup: original worktree `D:\IntRuoyiWorktree\20260805-production-personnel-management` is removed from Git worktree registration, task-owned processes for `8082/48082` were stopped, and ports `8082/48082` no longer listen.
+- Cleanup blocker: physical path `D:\IntRuoyiWorktree\20260805-production-personnel-management` still exists without `.git`; recursive physical deletion was blocked by local execution policy, so slot `1` remains active in `D:\IntRuoyiWorktree\.ports\worktree-ports.json` per registry rules until the physical path can be removed safely.
 
 ## 设计约束检查
 
