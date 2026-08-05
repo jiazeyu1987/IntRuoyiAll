@@ -101,7 +101,8 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
         verify(fieldAuditService).saveSystemCellLinkChanges(auditCaptor.capture());
         MesProBatchRecordExecutionFieldAuditSaveChangesCommand saveCommand = auditCaptor.getValue();
         assertEquals(8801L, saveCommand.getExecutionId());
-        assertEquals("PROCESS_POOL_REPORT_BACKFILL:1001:9001:5001", saveCommand.getIdempotencyKey());
+        assertEquals("PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5001:6001:agg-single-1001-7101",
+                saveCommand.getIdempotencyKey());
         List<MesProBatchRecordExecutionFieldAuditChange> changes = saveCommand.getChanges();
         assertEquals(2, changes.size());
         assertEquals("report.outputQuantity", changes.get(0).getFieldPath());
@@ -143,12 +144,67 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
         assertEquals(2, first.getAppliedFieldCount());
         assertEquals(2, concurrentReplay.getAppliedFieldCount());
 
-        String expectedIdempotencyKey = "PROCESS_POOL_REPORT_BACKFILL:1001:9001:5001";
+        String expectedIdempotencyKey = "PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5001:6001:agg-single-1001-7101";
         ArgumentCaptor<MesProBatchRecordExecutionFieldAuditSaveChangesCommand> auditCaptor =
                 ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
         verify(fieldAuditService, times(2)).saveSystemCellLinkChanges(auditCaptor.capture());
         assertEquals(expectedIdempotencyKey, auditCaptor.getAllValues().get(0).getIdempotencyKey());
         assertEquals(expectedIdempotencyKey, auditCaptor.getAllValues().get(1).getIdempotencyKey());
+    }
+
+    @Test
+    void shouldAggregateAllConfirmedReportsIntoFormalBatchRecordWithConfiguredStrategies() {
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
+                .thenReturn(List.of(binding()));
+        when(executionService.openOrCreateByContext(any(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class)))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8801L));
+        when(executionMapper.selectById(8801L)).thenReturn(aggregateExecution());
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(
+                        rule(1L, "allocatedQuantity", 5, 2,
+                                MesProBatchRecordExecutionFieldAuditValueType.NUMBER, "SUM"),
+                        rule(2L, "pressure", 6, 2,
+                                MesProBatchRecordExecutionFieldAuditValueType.STRING, "LIST"),
+                        rule(3L, "deviceCode", 7, 2,
+                                MesProBatchRecordExecutionFieldAuditValueType.STRING, "DISTINCT_LIST")));
+        when(fieldAuditService.saveSystemCellLinkChanges(any(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class)))
+                .thenReturn(new MesProBatchRecordExecutionFieldAuditSaveResult()
+                        .setFieldAuditRevision(2L)
+                        .setCellValuesHash("after-hash")
+                        .setFieldAuditHeadHash("after-head")
+                        .setChangedFieldCount(3));
+
+        MesTeamLeaderBatchRecordBackfillResult result = service.backfillCompletedProcess(aggregateCommand());
+
+        assertEquals(8801L, result.getExecutionId());
+        assertEquals(3, result.getAppliedFieldCount());
+        ArgumentCaptor<MesProBatchRecordExecutionFieldAuditSaveChangesCommand> auditCaptor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
+        verify(fieldAuditService).saveSystemCellLinkChanges(auditCaptor.capture());
+        MesProBatchRecordExecutionFieldAuditSaveChangesCommand saveCommand = auditCaptor.getValue();
+        assertEquals("PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5001:6001:agg-two-events", saveCommand.getIdempotencyKey());
+        List<MesProBatchRecordExecutionFieldAuditChange> changes = saveCommand.getChanges();
+        assertEquals(new BigDecimal("200"), changes.get(0).getNewValueJson());
+        assertEquals("15,18", changes.get(1).getNewValueJson());
+        assertEquals("DEV-A,DEV-B", changes.get(2).getNewValueJson());
+    }
+
+    @Test
+    void shouldBlockMultiSourceBackfillWhenAggregationStrategyIsMissing() {
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
+                .thenReturn(List.of(binding()));
+        when(executionService.openOrCreateByContext(any(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class)))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8801L));
+        when(executionMapper.selectById(8801L)).thenReturn(aggregateExecution());
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(ruleWithoutAggregationStrategy(2L, "pressure", 6, 2,
+                        MesProBatchRecordExecutionFieldAuditValueType.STRING)));
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.backfillCompletedProcess(aggregateCommand()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED.getCode(), ex.getCode());
+        verify(fieldAuditService, never()).saveSystemCellLinkChanges(any());
     }
 
     @Test
@@ -185,32 +241,64 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
         return new MesTeamLeaderBatchRecordBackfillCommand()
                 .setEvent(event())
                 .setAllocation(allocation())
+                .setSourceEvents(List.of(event()))
+                .setAllocations(List.of(allocation()))
                 .setWorkOrder(workOrder());
     }
 
+    private static MesTeamLeaderBatchRecordBackfillCommand aggregateCommand() {
+        MesProProcessPoolEventDO first = event(1001L,
+                "{\"pressure\":15,\"deviceCode\":\"DEV-A\"}",
+                LocalDateTime.of(2026, 8, 1, 8, 30));
+        MesProProcessPoolEventDO second = event(1002L,
+                "{\"pressure\":18,\"deviceCode\":\"DEV-B\"}",
+                LocalDateTime.of(2026, 8, 1, 9, 0));
+        return new MesTeamLeaderBatchRecordBackfillCommand()
+                .setEvent(second)
+                .setAllocation(allocation(7102L, 1002L, "80",
+                        LocalDateTime.of(2026, 8, 1, 9, 1)))
+                .setSourceEvents(List.of(first, second))
+                .setAllocations(List.of(
+                        allocation(7101L, 1001L, "120", LocalDateTime.of(2026, 8, 1, 8, 31)),
+                        allocation(7102L, 1002L, "80", LocalDateTime.of(2026, 8, 1, 9, 1))))
+                .setWorkOrder(workOrder())
+                .setAggregateHash("agg-two-events")
+                .setIdempotencyKey("PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5001:6001:agg-two-events");
+    }
+
     private static MesProProcessPoolEventDO event() {
+        return event(1001L, "{\"outputQuantity\":80,\"pressure\":15}", LocalDateTime.of(2026, 8, 1, 9, 0));
+    }
+
+    private static MesProProcessPoolEventDO event(Long id, String rawPayload, LocalDateTime serverSubmitTime) {
         return MesProProcessPoolEventDO.builder()
-                .id(1001L)
+                .id(id)
                 .routeId(7001L)
                 .routeProcessId(5001L)
                 .processId(6001L)
-                .rawPayload("{\"outputQuantity\":80,\"pressure\":15}")
-                .serverSubmitTime(LocalDateTime.of(2026, 8, 1, 9, 0))
+                .rawPayload(rawPayload)
+                .serverSubmitTime(serverSubmitTime)
                 .build();
     }
 
     private static MesProcessPoolReportAllocationDO allocation() {
+        return allocation(7101L, 1001L, "80", LocalDateTime.of(2026, 8, 1, 9, 1));
+    }
+
+    private static MesProcessPoolReportAllocationDO allocation(Long id, Long eventId, String quantity,
+                                                               LocalDateTime confirmedAt) {
         return MesProcessPoolReportAllocationDO.builder()
-                .eventId(1001L)
+                .id(id)
+                .eventId(eventId)
                 .reviewId(7001L)
                 .leaderUserId(3001L)
                 .activeOrderId(8101L)
                 .workOrderId(9001L)
                 .routeProcessId(5001L)
                 .processId(6001L)
-                .allocatedQuantity(new BigDecimal("80"))
+                .allocatedQuantity(new BigDecimal(quantity))
                 .allocationMode(MesProcessPoolReportAllocationDO.MODE_FIFO)
-                .confirmedAt(LocalDateTime.of(2026, 8, 1, 9, 1))
+                .confirmedAt(confirmedAt)
                 .build();
     }
 
@@ -255,9 +343,44 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
                 .build();
     }
 
+    private static MesProBatchRecordExecutionDO aggregateExecution() {
+        return MesProBatchRecordExecutionDO.builder()
+                .id(8801L)
+                .status(0)
+                .fieldAuditRevision(0L)
+                .fieldAuditHeadHash("genesis")
+                .cellValuesHash("before-hash")
+                .executionSnapshotJson("""
+                        {"fields":[
+                          {"fieldPath":"report.allocatedQuantity","fieldKey":"allocatedQuantity","rowIndex":5,"columnIndex":2,"valueType":"NUMBER"},
+                          {"fieldPath":"report.pressure","fieldKey":"pressure","rowIndex":6,"columnIndex":2,"valueType":"STRING"},
+                          {"fieldPath":"report.deviceCode","fieldKey":"deviceCode","rowIndex":7,"columnIndex":2,"valueType":"STRING"}
+                        ]}
+                        """)
+                .cellValuesJson("[]")
+                .build();
+    }
+
     private static MesProBatchRecordCellLinkRuleDO rule(Long id, String sourceFieldCode, Integer rowIndex,
                                                         Integer columnIndex,
                                                         MesProBatchRecordExecutionFieldAuditValueType valueType) {
+        return rule(id, sourceFieldCode, rowIndex, columnIndex, valueType,
+                valueType == MesProBatchRecordExecutionFieldAuditValueType.NUMBER ? "SUM" : "LAST");
+    }
+
+    private static MesProBatchRecordCellLinkRuleDO rule(Long id, String sourceFieldCode, Integer rowIndex,
+                                                        Integer columnIndex,
+                                                        MesProBatchRecordExecutionFieldAuditValueType valueType,
+                                                        String aggregationStrategy) {
+        MesProBatchRecordCellLinkRuleDO rule = ruleWithoutAggregationStrategy(id, sourceFieldCode, rowIndex,
+                columnIndex, valueType);
+        rule.setAggregationStrategy(aggregationStrategy);
+        return rule;
+    }
+
+    private static MesProBatchRecordCellLinkRuleDO ruleWithoutAggregationStrategy(
+            Long id, String sourceFieldCode, Integer rowIndex, Integer columnIndex,
+            MesProBatchRecordExecutionFieldAuditValueType valueType) {
         MesProBatchRecordCellLinkRuleDO rule = new MesProBatchRecordCellLinkRuleDO();
         rule.setId(id);
         rule.setRuleVersion(1L);
