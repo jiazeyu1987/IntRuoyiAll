@@ -137,7 +137,7 @@
                           :key="route.id"
                           :label="formatManualQaRouteOption(route)"
                           :value="route.id"
-                          :disabled="!route.activeRouteVersionId"
+                          :disabled="isManualQaRouteOptionDisabled(route)"
                         />
                       </el-select>
                     </el-form-item>
@@ -800,6 +800,7 @@ import {
   ProRouteFlowConfigApi,
   type ProRouteFlowProcessConfigVO
 } from '@/api/mes/pro/route/flowconfig'
+import { CommonStatusEnum } from '@/utils/constants'
 
 defineOptions({ name: 'MesProProcessPoolQaRegulation' })
 
@@ -1216,10 +1217,14 @@ const formatManualQaRouteOption = (route: ProRouteVO) =>
   [
     route.code,
     route.name,
-    route.activeRouteVersionNo ? `当前版本：${route.activeRouteVersionNo}` : '未发布当前版本'
+    route.activeRouteVersionNo ? `当前版本：${route.activeRouteVersionNo}` : '',
+    route.status === CommonStatusEnum.ENABLE ? '已启用，仅回显' : ''
   ]
     .filter(Boolean)
     .join(' / ')
+
+const isManualQaRouteOptionDisabled = (route: ProRouteVO) =>
+  route.status === CommonStatusEnum.ENABLE
 
 const resolveDccProjectCodeErrorMessage = (error: unknown) => {
   if (error instanceof Error && error.message.trim()) {
@@ -1403,7 +1408,7 @@ const loadManualQaRouteOptions = async () => {
   manualQaRouteOptionsLoading.value = true
   manualQaRouteLoadError.value = ''
   try {
-    manualQaRouteOptions.value = await ProRouteApi.getRouteSimpleList()
+    manualQaRouteOptions.value = await ProRouteApi.getRouteItemBindingList()
   } catch (error) {
     manualQaRouteOptions.value = []
     manualQaRouteLoadError.value = `工艺路线候选加载失败：${resolveDccProjectCodeErrorMessage(error)}`
@@ -1434,8 +1439,12 @@ const handleManualQaRouteBind = async () => {
     return
   }
   const routeOption = manualQaRouteOptions.value.find((route) => Number(route.id) === routeId)
-  if (!routeOption?.activeRouteVersionId) {
-    ElMessage.warning('所选工艺路线没有当前生效版本，不能绑定到 QA 规程。')
+  if (!routeOption) {
+    ElMessage.warning('所选工艺路线不在正式产品绑定候选中，请重新加载。')
+    return
+  }
+  if (isManualQaRouteOptionDisabled(routeOption)) {
+    ElMessage.warning('所选工艺路线已启用，不能在产品侧变更绑定。')
     return
   }
 
