@@ -38,6 +38,10 @@ completed
 - `doc\tasks\20260805-job-matrix-compliance\non-compliance-analysis.md`
 - `doc\tasks\20260805-job-matrix-compliance\verification-report.md`
 
+## Follow-up Updates
+
+- 2026-08-05：已根据用户追问补充 `AC-D03 手动不良说明专项核验`，覆盖手动输入、原始输入快照、订单/工序/PQC 记录追溯、历史记录不被后续修改覆盖四项判断；结论仍为业务口径已调整但未完整验收。
+
 ## Cleanup Keep
 
 - doc/tasks/20260805-job-matrix-compliance/non-compliance-analysis.md

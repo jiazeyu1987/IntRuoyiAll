@@ -1181,7 +1181,7 @@ const resolveReviewerLabel = (row: ApprovalTaskSummaryVO) =>
   row.assigneeUserName || (row.assigneeUserId ? `用户 #${row.assigneeUserId}` : EMPTY_APPROVAL_DISPLAY)
 
 const resolveApplicantLabel = (row: ApprovalTaskSummaryVO) =>
-  row.initiatorUserId ? `用户 #${row.initiatorUserId}` : EMPTY_APPROVAL_DISPLAY
+  row.initiatorUserName || (row.initiatorUserId ? `用户 #${row.initiatorUserId}` : EMPTY_APPROVAL_DISPLAY)
 
 const resolveBusinessContextValueLabel = (value: string, missingLabel: string) => {
   const text = normalizeApprovalDisplayText(value)

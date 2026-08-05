@@ -185,10 +185,17 @@ async function selectIdiProject(page, qaPage) {
 
   await dccCard.getByText('IDI', { exact: false }).first().waitFor({ state: 'visible' })
   await qaPage.getByText('PQC-IDI-001', { exact: false }).first().waitFor({ state: 'visible' })
-  await qaPage
-    .getByText('按压式球囊扩充压力泵组装过程检验规程', { exact: false })
+  const regulationNameInput = qaPage
+    .locator('.el-form-item')
+    .filter({ hasText: '规程名称' })
+    .locator('input')
     .first()
-    .waitFor({ state: 'visible' })
+  await regulationNameInput.waitFor({ state: 'visible' })
+  assert.equal(
+    await regulationNameInput.inputValue(),
+    '按压式球囊扩充压力泵组装过程检验规程',
+    'IDI draft regulation name must be populated from the pressure-pump template'
+  )
   await qaPage.getByText('原文依据摘录', { exact: false }).first().waitFor({ state: 'visible' })
   return statusResponse
 }

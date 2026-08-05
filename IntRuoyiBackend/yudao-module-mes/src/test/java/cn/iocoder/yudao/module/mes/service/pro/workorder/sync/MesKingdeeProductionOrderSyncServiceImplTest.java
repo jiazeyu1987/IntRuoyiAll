@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.workorder.sync;
 
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeProductionOrder;
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeProductionOrderClient;
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeProperties;
@@ -40,6 +41,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -318,6 +320,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
                 .remark("old")
                 .build();
         when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(syncRecord);
+        when(workOrderMapper.selectById(501L)).thenReturn(existing);
         when(workOrderService.getWorkOrder("881MO091049")).thenReturn(existing);
         when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
 
@@ -575,6 +578,88 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         assertEquals("310119", recordCaptor.getValue().getSourceFid());
         assertEquals("MAT-001", recordCaptor.getValue().getSourceMaterialNumber());
         assertEquals(501L, recordCaptor.getValue().getWorkOrderId());
+        verify(syncRecordMapper, never()).updateById(any(MesKingdeeProductionOrderSyncRecordDO.class));
+    }
+
+    @Test
+    void syncWorkOrders_usesSourceRecordWorkOrderWhenBillNoChanges() {
+        ErpKingdeeProductionOrder order = buildOrder();
+        order.setBillNo("881MO091049-REV");
+        MesKingdeeProductionOrderSyncRecordDO syncRecord = new MesKingdeeProductionOrderSyncRecordDO()
+                .setId(77L)
+                .setSourceFid("310119")
+                .setSourceBillNo("881MO091049")
+                .setSourceMaterialNumber("MAT-001")
+                .setWorkOrderId(501L);
+        MesProWorkOrderDO sourceLinkedWorkOrder = MesProWorkOrderDO.builder()
+                .id(501L)
+                .code("881MO091049")
+                .name("Old material")
+                .productId(20L)
+                .quantity(new BigDecimal("10"))
+                .requestDate(LocalDateTime.of(2026, 3, 24, 0, 0))
+                .remark("old")
+                .build();
+        when(productionOrderClient.fetchUnfinishedProductionOrders(any(), any(), any())).thenReturn(List.of(order));
+        when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(syncRecord);
+        when(workOrderMapper.selectById(501L)).thenReturn(sourceLinkedWorkOrder);
+        when(workOrderService.getWorkOrder("881MO091049-REV")).thenReturn(null);
+        when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
+
+        MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrders();
+
+        assertEquals(0, result.getCreatedCount());
+        assertEquals(1, result.getUpdatedCount());
+        verify(workOrderService, never()).createWorkOrder(any(MesProWorkOrderSaveReqVO.class));
+        ArgumentCaptor<MesProWorkOrderDO> updateCaptor = ArgumentCaptor.forClass(MesProWorkOrderDO.class);
+        verify(workOrderMapper).updateById(updateCaptor.capture());
+        assertEquals(501L, updateCaptor.getValue().getId());
+        assertEquals("881MO091049-REV", updateCaptor.getValue().getCode());
+        ArgumentCaptor<MesKingdeeProductionOrderSyncRecordDO> recordCaptor =
+                ArgumentCaptor.forClass(MesKingdeeProductionOrderSyncRecordDO.class);
+        verify(syncRecordMapper).updateById(recordCaptor.capture());
+        assertEquals(77L, recordCaptor.getValue().getId());
+        assertEquals("881MO091049-REV", recordCaptor.getValue().getSourceBillNo());
+        assertEquals(501L, recordCaptor.getValue().getWorkOrderId());
+    }
+
+    @Test
+    void syncWorkOrders_failsFastWhenSourceRecordBillNoConflictsWithAnotherWorkOrder() {
+        ErpKingdeeProductionOrder order = buildOrder();
+        order.setBillNo("881MO091049-REV");
+        MesKingdeeProductionOrderSyncRecordDO syncRecord = new MesKingdeeProductionOrderSyncRecordDO()
+                .setId(77L)
+                .setSourceFid("310119")
+                .setSourceBillNo("881MO091049")
+                .setSourceMaterialNumber("MAT-001")
+                .setWorkOrderId(501L);
+        MesProWorkOrderDO sourceLinkedWorkOrder = MesProWorkOrderDO.builder()
+                .id(501L)
+                .code("881MO091049")
+                .name("Old material")
+                .productId(20L)
+                .quantity(new BigDecimal("10"))
+                .requestDate(LocalDateTime.of(2026, 3, 24, 0, 0))
+                .remark("old")
+                .build();
+        MesProWorkOrderDO conflictingWorkOrder = MesProWorkOrderDO.builder()
+                .id(999L)
+                .code("881MO091049-REV")
+                .name("Other material")
+                .productId(21L)
+                .quantity(new BigDecimal("5"))
+                .requestDate(LocalDateTime.of(2026, 3, 20, 0, 0))
+                .build();
+        when(productionOrderClient.fetchUnfinishedProductionOrders(any(), any(), any())).thenReturn(List.of(order));
+        when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(syncRecord);
+        when(workOrderMapper.selectById(501L)).thenReturn(sourceLinkedWorkOrder);
+        when(workOrderService.getWorkOrder("881MO091049-REV")).thenReturn(conflictingWorkOrder);
+
+        ServiceException exception = assertThrows(ServiceException.class, () -> syncService.syncWorkOrders());
+
+        assertTrue(exception.getMessage().contains("production order source key conflicts"));
+        verify(workOrderService, never()).createWorkOrder(any(MesProWorkOrderSaveReqVO.class));
+        verify(workOrderMapper, never()).updateById(any(MesProWorkOrderDO.class));
         verify(syncRecordMapper, never()).updateById(any(MesKingdeeProductionOrderSyncRecordDO.class));
     }
 

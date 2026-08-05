@@ -20,6 +20,13 @@
 - 写入事务：临时表候选数 `51`，事务内校验 DCC 行当前为空、MDM 产品同租户/未删除/启用后更新，实际 `updated_count=51`。
 - GREEN: `python -X utf8 -` 复核脚本 -> PASS；芋道源码 `119/51/68`，测试租户保持 `133/7/126`，无孤儿绑定，无非启用产品绑定。
 - 压力泵复核：`IDI -> INT-15 / 按压式球囊扩充压力泵`，`IDPR -> INT-14`，`ID -> INT-12`，`IDE/IDE(CE)/IDE(FDA) -> INT-13`。
+- RED: `pnpm e2e:qa-regulation:dcc-status:real` -> FAIL，原因：真实页面已能选择 `IDI` 且返回 `productMasterId=14`，但旧 E2E 用 `getByText` 断言 Element Plus 输入框内的“按压式球囊扩充压力泵组装过程检验规程”，文本引擎未稳定识别该 input value。
+- GREEN: `node --check tests\e2e\qa-regulation-dcc-status-real.e2e.cjs` -> PASS。
+- GREEN: `pnpm e2e:qa-regulation:dcc-status:real` -> PASS；`firstDccProjectPage.sample[0]` 为 `IDI/productMasterId=14`，`project-statuses` 返回 `code=0/count=17/configured=0/unconfigured=17`，`writeRequests=[]`，`badResponses=[]`，`consoleErrors=[]`，`pageErrors=[]`。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\20260805-dcc-project-mdm-binding\database-schema-evidence.md` -> PASS。
+- REGRESSION: `git diff --check -- IntRuoyiFronted/tests/e2e/qa-regulation-dcc-status-real.e2e.cjs doc/tasks/20260805-dcc-project-mdm-binding` -> PASS。
+- REGRESSION: `pnpm ts:check` -> FAIL, unrelated current-worktree blocker in `src/components/UnifiedListTemplate/index.vue(339,8)` from the existing standard-list changes; this task did not modify `UnifiedListTemplate` or `useTableQuickFilter`.
+- Experience consolidation: updated `docs/e2e-rules.md#element-plus-表单值断言门禁` to record that Element Plus input values must be asserted via `inputValue()`/DOM value rather than `getByText`.
 
 ## Milestone Updates
 
@@ -27,7 +34,10 @@
 - completed: 生成唯一高置信候选 51 条，保留 68 条未绑定待业务确认。
 - completed: 事务更新 51 条 `dcc_project_code.product_master_id`。
 - completed: 绑定统计、关键压力泵项目、跨租户/删除产品引用和产品启用状态复核通过。
+- completed: 修正 QA 规程 DCC 状态真实 E2E 的表单值断言并通过真实页面回归。
+- completed: 将 Element Plus 表单值断言经验合并到既有 E2E 规则文档。
 
 ## Blockers
 
-- 本次数据修复已完成；仍有 68 条项目代码因无法通过等值规则证明唯一对应，未自动绑定。
+- 本次数据修复和 QA 规程真实 E2E 已完成；仍有 68 条项目代码因无法通过等值规则证明唯一对应，未自动绑定。
+- 全量前端类型检查当前被无关 `UnifiedListTemplate` 本地改动阻塞；本任务只修改 `qa-regulation-dcc-status-real.e2e.cjs` 的断言方式。

@@ -49,6 +49,8 @@ public class ApprovalTaskSummary {
 
     private Long initiatorUserId;
 
+    private String initiatorUserName;
+
     private Long assigneeUserId;
 
     private String assigneeUserName;

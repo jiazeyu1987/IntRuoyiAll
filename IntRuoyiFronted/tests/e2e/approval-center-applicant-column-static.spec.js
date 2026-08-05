@@ -4,6 +4,7 @@ const assert = require('node:assert/strict')
 
 const root = path.resolve(__dirname, '../..')
 const approvalCenter = fs.readFileSync(path.join(root, 'src/views/approval-center/index.vue'), 'utf8')
+const approvalApi = fs.readFileSync(path.join(root, 'src/api/approval-center/index.ts'), 'utf8')
 
 const tableStart = approvalCenter.indexOf('<el-table')
 const tableEnd = approvalCenter.indexOf('</el-table>', tableStart)
@@ -26,14 +27,20 @@ assert.match(
 )
 
 assert.match(
+  approvalApi,
+  /initiatorUserName\?:\s*string/,
+  '审批中心任务 API 类型必须暴露后端解析后的申请人姓名。'
+)
+
+assert.match(
   approvalCenter,
   /\{\s*key:\s*'applicant',\s*label:\s*'申请人',\s*width:\s*140\s*\}/,
   '审批中心默认列集合必须包含申请人。'
 )
 assert.match(
   approvalCenter,
-  /const resolveApplicantLabel = \(row: ApprovalTaskSummaryVO\) =>\s*row\.initiatorUserId\s*\?\s*`用户 #\$\{row\.initiatorUserId\}`\s*:\s*EMPTY_APPROVAL_DISPLAY/,
-  '申请人列必须读取正式 initiatorUserId，缺失时使用既有空值语义。'
+  /const resolveApplicantLabel = \(row: ApprovalTaskSummaryVO\) =>\s*row\.initiatorUserName\s*\|\|\s*\(row\.initiatorUserId\s*\?\s*`用户 #\$\{row\.initiatorUserId\}`\s*:\s*EMPTY_APPROVAL_DISPLAY\)/,
+  '申请人列必须优先显示正式 initiatorUserName，姓名缺失时才回显用户 ID。'
 )
 
 for (const tableKey of [

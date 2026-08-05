@@ -106,7 +106,7 @@
 - 前端页面 / 表格 / 样式：`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
 - Keywords: Vite import-analysis Failed to resolve import / controlled-file/logs/index.vue / 前端源码 logs 目录被 .gitignore logs/ 忽略 / git check-ignore -> `docs/frontend-development.md#前端源码目录与-gitignore-门禁`
 - Keywords: 既有大契约先失败, 最小静态契约, 专用 static.spec.js, 当前需求 RED/GREEN, 无关 ts:check blocker -> `docs/frontend-development.md#前端静态契约隔离门禁`
-- Keywords: UnifiedListTemplate, 标准列表多维筛选, TableMultiFilter, 条件 Tab, addConditionTab, removeActiveConditionTab, activeConditionId, 快速过滤, 复合工具栏, flex 0宽, 筛选控件不可见, multi-filter 0 width, 正式 query 透传, 交集查询, 重复正式参数校验, 不发送 multiFilters, 禁止页面级 maxInlineFilters 特例, 同页多列表, 同步工单, showMultiFilter 显式接入, definitions state events, 旧 quick filter 残留 -> `docs/frontend-development.md#统一列表复合工具栏布局门禁`
+- Keywords: UnifiedListTemplate, 标准列表多维筛选, TableMultiFilter, 条件 Tab, 默认空条件, setCondition 预置隐藏筛选, addConditionTab, removeActiveConditionTab, activeConditionId, 快速过滤, 复合工具栏, flex 0宽, 筛选控件不可见, multi-filter 0 width, 正式 query 透传, 交集查询, 重复正式参数校验, 不发送 multiFilters, 禁止页面级 maxInlineFilters 特例, 同页多列表, 同步工单, showMultiFilter 显式接入, definitions state events, 旧 quick filter 残留 -> `docs/frontend-development.md#统一列表复合工具栏布局门禁`
 - Keywords: DCC response field has invalid type, cleanupTime, expireTime, LocalDateTime, TimestampLocalDateTimeSerializer, epoch millis, numeric timestamp, readOptionalString 时间字段误判 -> `docs/frontend-development.md#前端-localdatetime-响应契约门禁`
 - Keywords: vite-plugin-eslint Parsing error Unexpected token Did you mean {'>'} or &gt;, Vue SFC 泛型箭头函数, script setup lang ts, const fn = <T>, getPagedDetailRows -> `docs/frontend-development.md#vue-sfc-泛型箭头函数解析门禁`
 - Keywords: BPMN marker, BPM marker, canvas.addMarker, canvas.removeMarker, elementRegistry.get, Cannot read properties of undefined reading markers, 流程图高亮不完整, 审批流程图节点缺失 -> `docs/frontend-development.md#前端-bpmn-marker-高亮完整性门禁`
@@ -270,6 +270,7 @@
 - Keywords: health UP 但 API 挂起, Logback OutputStreamAppender lock, stdout stderr 未消费, SQL DEBUG, MyBatis mapper debug, logging.file.name, output/runtime logs, task-closeout 日志锁, 共享后端活动连接 -> `docs/local-runtime.md#2026-07-27-本地后端标准输出阻塞与日志目录门禁`
 - Keywords: target Jar 运行中被 Maven 覆盖, NoClassDefFoundError, ChainedPersistenceExceptionTranslator, ExceptionUtil, RequestUtil, JimuReportDao_update.sql, TemplateLoaderUtils, 稳定运行 Jar 副本 -> `docs/local-runtime.md#2026-07-27-本地后端运行-jar-不可变门禁`
 - Keywords: Element Plus el-table, 表格行复选框, 表头全选误点, indeterminate checkbox, Playwright body-wrapper row selection, 手动重排选中集合断言 -> `docs/e2e-rules.md#element-plus-表格选择门禁`
+- Keywords: 手动重排全选, 确认应用重排, 重排进度 90%, 未参与排产的工单, replan apply 未发出, preflight preview apply 三段请求, confirmDialogVisible false, dateDialogVisible false -> `docs/e2e-rules.md#mes-手动重排全选应用完成门禁`
 - Keywords: Element Plus 同名列表行, 同名类别, 类别名重复, 按类别名误配, 只读表格单元格断言, API 行与 DOM 行对应, API DOM 行顺序核验 -> `docs/e2e-rules.md#表格行定位`
 - Keywords: 手动重排数据包, 导出全部数据包, 导入全部数据包, manualReplanDataPackage, scheduler-manual-replan-data, 排产工单快照导入, 任务扩展导入, 日历产能导入 -> `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md#手动重排数据包门禁`
 - Keywords: edhr-batch-execution-real-flow.e2e.js, int-ruoyi-mysql, 数据库夹具, LOCAL_DATABASE_FIXTURE, 芋道源码/admin, 真实 E2E 前置条件缺失, 覆盖历史 E2E 证据 -> `docs/e2e-rules.md#edhr-批次执行数据库夹具与证据文件门禁`

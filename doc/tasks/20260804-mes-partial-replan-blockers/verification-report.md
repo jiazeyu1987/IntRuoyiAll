@@ -19,6 +19,22 @@
 - `node tests/e2e/mes-schedule-order-replan-single-action-static.spec.js` -> PASS.
 - `node tests/e2e/mes-pro-schedule-order-apply-replan-toast-static.spec.js` -> PASS.
 - `pnpm.cmd ts:check` -> PASS.
+- 2026-08-05 screenshot follow-up RED: `node tests/e2e/mes-pro-schedule-order-replan-skipped-selected-confirm-static.spec.js` -> FAIL because old code still used blocking `ElMessageBox.confirm` for skipped selected rows.
+- 2026-08-05 screenshot follow-up RED: `node tests/e2e/mes-pro-schedule-order-partial-replan-blockers-static.spec.js` -> FAIL because old code still awaited `confirmSkippedSelectedReplanRows(freshPreview)` before apply.
+- 2026-08-05 screenshot follow-up GREEN: `node tests/e2e/mes-pro-schedule-order-replan-skipped-selected-confirm-static.spec.js` -> PASS after replacing skipped-row confirmation with non-blocking notification.
+- 2026-08-05 screenshot follow-up GREEN: `node tests/e2e/mes-pro-schedule-order-partial-replan-blockers-static.spec.js` -> PASS.
+- 2026-08-05 screenshot follow-up GREEN: `node tests/e2e/mes-pro-schedule-order-replan-apply-enabled-static.spec.js` -> PASS.
+- 2026-08-05 screenshot follow-up GREEN: `node tests/e2e/mes-pro-schedule-order-replan-apply-timeout-static.spec.js` -> PASS.
+- 2026-08-05 screenshot follow-up GREEN: `node tests/e2e/mes-pro-schedule-order-apply-replan-toast-static.spec.js` -> PASS.
+- 2026-08-05 screenshot follow-up GREEN: `pnpm.cmd ts:check` -> PASS.
+- 2026-08-05 full-select real E2E syntax: `node --check tests/e2e/mes-pro-schedule-order-full-select-replan-admin-real.e2e.js` -> PASS.
+- 2026-08-05 full-select real E2E: `node tests/e2e/mes-pro-schedule-order-full-select-replan-admin-real.e2e.js` on `http://127.0.0.1:8081` / `http://127.0.0.1:48081`, Chrome `C:\Program Files\Google\Chrome\Application\chrome.exe`, `芋道源码/admin`, start date `2026-08-06` -> PASS. It selected 12 current-page selectable schedule orders, observed `POST /admin-api/mes/pro/schedule-order/preflight`, `POST /admin-api/mes/pro/auto-schedule/replan/preview`, and `POST /admin-api/mes/pro/auto-schedule/replan/apply`; apply returned HTTP `200`, business `code=0`, summary `workOrderCount=12`, `generatedTaskCount=490`, `preservedTaskCount=10`, `blockingIssueCount=1`, `appliedWorkOrderCount=11`, `blockedWorkOrderCount=1`, `skippedWorkOrderCount=0`, `shortageCount=319`. Progress snapshots did not stop at `90%`; final snapshot had `progressText="重排进度 0%"`, `confirmDialogVisible=false`, `dateDialogVisible=false`, `pageErrors=[]`, `consoleErrors=[]`. Evidence: `doc/tasks/20260804-mes-partial-replan-blockers/artifacts/full-select-replan-admin-e2e-2026-08-05T02-23-40-841Z.json` and `.png`.
+- 2026-08-05 concise blocker notice RED: `node tests/e2e/mes-pro-schedule-order-replan-skipped-selected-confirm-static.spec.js` -> FAIL because the skipped-row notification still carried and rendered product code/name details.
+- 2026-08-05 concise blocker notice GREEN: `node tests/e2e/mes-pro-schedule-order-replan-skipped-selected-confirm-static.spec.js` -> PASS after the notification row model and HTML were reduced to work order + blocked reason only.
+- 2026-08-05 concise blocker notice adjacent GREEN: `node tests/e2e/mes-pro-schedule-order-partial-replan-blockers-static.spec.js` -> PASS.
+- 2026-08-05 concise blocker notice adjacent GREEN: `node tests/e2e/mes-pro-schedule-order-replan-apply-enabled-static.spec.js` -> PASS.
+- 2026-08-05 concise blocker notice adjacent GREEN: `node tests/e2e/mes-pro-schedule-order-apply-replan-toast-static.spec.js` -> PASS.
+- 2026-08-05 concise blocker notice syntax/type GREEN: `node --check tests/e2e/mes-pro-schedule-order-full-select-replan-admin-real.e2e.js` -> PASS; `pnpm.cmd ts:check` -> PASS.
 - `node --check tests/e2e/mes-pro-schedule-order-partial-replan-blockers-real-readonly.e2e.js` -> PASS.
 - `node tests/e2e/mes-pro-schedule-order-partial-replan-blockers-real-readonly.e2e.js` with local Chrome and local test credential env -> BLOCKED: logged into `测试租户/aoteman` on `http://127.0.0.1:8081`, backend `http://127.0.0.1:48081`; the first 74 schedule orders had no unresolved blocking issue, so blocked-row red state and reason visibility could not be verified. Evidence output recorded `mesWriteRequestCount=0`, `pageErrorCount=0`, `consoleErrorCount=0`.
 - `node tests/e2e/mes-pro-schedule-order-partial-replan-blockers-real-readonly.e2e.js` with local Chrome and user-authorized `芋道源码/admin` env -> BLOCKED before fixture setup: logged into `芋道源码/admin`; the schedule-order list returned 47 rows with no unresolved blocking display row, and the read-only issues endpoint returned `BLOCKING` total 0 / unresolved 0 / unresolved with `workOrderId` 0. Evidence output recorded `mesWriteRequestCount=0`, `pageErrorCount=0`, `consoleErrorCount=0`.
@@ -34,8 +50,10 @@
 ## Results
 
 - Backend implementation is present in current HEAD through shared-branch baseline commits and covers partial application, issue persistence, summary counts, and blocked-work-order exclusion from downstream apply syncs.
-- Frontend implementation is present in current HEAD and passes the focused partial-blocker contract, adjacent replan contracts, and TypeScript check.
+- Frontend implementation replaces the skipped-row second confirmation with a non-blocking notification, so one user confirmation on the start-date dialog is enough to continue applying schedulable rows. It passes the focused partial-blocker contract, adjacent replan contracts, TypeScript check, and the user-requested `芋道源码/admin` full-select apply E2E.
+- The skipped/blocked notification now only lists `工单：<code>；原因：<blocked reason>` and no longer renders product code, product name, or expanded detail fields.
 - Real E2E is PASS on the user-authorized `芋道源码/admin` task-owned fixture, including the 2026-08-05 rerun: it creates one attributable `BLOCKING` issue through the calendar UI, verifies the schedule-order row is red and exposes the reason, then closes the issue through the UI and verifies the row is cleared. Only the two expected MES write APIs were called in each run.
+- Real full-select E2E is PASS on the user-requested `芋道源码/admin` path: current-page selectable schedule orders were selected through the visible table rows, `确认应用重排` produced the real apply request, the response succeeded, and the final UI did not remain stuck at `90%`.
 - Final backend regression re-run remains pending because the latest attempt is blocked by unrelated MES QA regulation testCompile errors before the target Surefire test starts; task should not be marked completed until it passes or the blocker is explicitly accepted.
 
 ## Final Status

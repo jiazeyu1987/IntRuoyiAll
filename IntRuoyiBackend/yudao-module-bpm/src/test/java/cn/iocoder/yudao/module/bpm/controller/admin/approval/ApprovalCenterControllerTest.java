@@ -100,5 +100,6 @@ class ApprovalCenterControllerTest {
         ApprovalTaskReviewReqVO.class.getDeclaredMethod("getSignaturePassword");
         ApprovalTaskQuery.class.getDeclaredMethod("getViewType");
         ApprovalTaskSummary.class.getDeclaredMethod("getDetailRoute");
+        ApprovalTaskSummary.class.getDeclaredMethod("getInitiatorUserName");
     }
 }

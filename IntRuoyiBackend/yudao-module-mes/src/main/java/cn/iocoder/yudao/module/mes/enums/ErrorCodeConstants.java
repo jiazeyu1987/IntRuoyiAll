@@ -207,7 +207,7 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_SCHEDULE_ORDER_NOT_EXISTS = new ErrorCode(1_040_270_000, "排产工单不存在");
     ErrorCode PRO_SCHEDULE_ORDER_PROMISE_DATE_REQUIRED = new ErrorCode(1_040_270_001, "承诺交期不能为空");
     ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_DUPLICATE = new ErrorCode(1_040_270_002, "该生产工单已存在排产工单");
-    ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_NOT_CONFIRMED = new ErrorCode(1_040_270_003, "生产工单已完成或已取消，不能生成排产工单");
+    ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_NOT_CONFIRMED = new ErrorCode(1_040_270_003, "生产工单不是已确认状态，不能生成排产工单");
     ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_FROZEN = new ErrorCode(1_040_270_004, "生产工单已临时冻结，不能生成排产工单");
     ErrorCode PRO_SCHEDULE_ORDER_ROUTE_REQUIRED = new ErrorCode(1_040_270_005, "产品缺少启用工艺路线，不能生成排产工单");
     ErrorCode PRO_SCHEDULE_ORDER_ROUTE_PROCESS_REQUIRED = new ErrorCode(1_040_270_006, "工艺路线缺少工序，不能生成排产工单");
@@ -227,6 +227,7 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_SCHEDULE_ORDER_PROCESS_WIP_NOT_EXISTS = new ErrorCode(1_040_270_020, "当前没有可写入的工序在制记录，processId={}");
     ErrorCode PRO_SCHEDULE_ORDER_PROCESS_WIP_CALENDAR_RULE_REQUIRED = new ErrorCode(1_040_270_021, "工序启用夜班但缺少排程日历规则，processId={}");
     ErrorCode PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED = new ErrorCode(1_040_270_022, "资源计算排产工序缺少可用资源产能，routeProcessId={}");
+    ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_ERP_SYNC_REQUIRED = new ErrorCode(1_040_270_023, "生产工单缺少 ERP 正式生产订单同步记录或正式 ID/编号，不能生成排产工单");
 
     // ========== MES 第三方报工待归属（1-040-272-000） ==========
     ErrorCode PRO_FEEDBACK_IMPORT_RECORD_NOT_EXISTS = new ErrorCode(1_040_272_000, "待归属记录不存在");

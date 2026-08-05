@@ -4,8 +4,8 @@
 
 - 输入矩阵：`C:\Users\BJB110\Desktop\3\岗位需求分解矩阵.xlsx`。
 - 读取范围：`岗位需求分解矩阵!A5:D27` 共 23 条主流程需求；`衍生需求!A5:D43` 共 39 条衍生需求；合计 62 条。
-- 当前系统证据显示：M0-M5 来源门禁已验收，RRM-BLK-001..032 已 `RESOLVED_VERIFIED`，最新 `real:check` 已无 SOURCE / ENV / RUNTIME blocker。
-- 当前系统仍处于 M6：全量真实 E2E、清理闭环和逐 AC 验收尚未全部完成；验收报告明确记录 62 项 AC 不能在 M6 完成前标记为全部完成。
+- 当前系统 canonical 证据显示：M0-M5 来源门禁已验收，RRM-BLK-001..032 已 `RESOLVED_VERIFIED`，最近一次授权 RRM 运行态 `real:check` 已无 SOURCE / ENV / RUNTIME blocker。本轮当前 shell 没有 `RRM_*` 环境变量，只能跑出 ENV blocker-only 的 check 产物，不能代表 canonical full real E2E。
+- 当前系统仍处于 M6：全量真实 E2E 和逐 AC 验收尚未全部完成；其中 AC-M04 的加入、冲突、跨角色只读、错误角色拒绝、最终清理和并发门禁已有 PASS 证据，但 62 项 AC 仍未达到 `ACCEPTED`。
 - 因此，本次结论为：当前系统对 62 条岗位需求均为“部分具备基础/局部证据，但未达到可声明符合的验收状态”，均记录为不符合项。
 
 ## 判定口径
@@ -14,11 +14,12 @@
 2. “符合”必须同时具备：正式数据源/代码链路、真实页面成功路径、失败路径、权限或只读隔离、必要的并发/性能/SNAPSHOT/清理证明，并在验收矩阵中达到 `ACCEPTED`。
 3. 已有 SOURCE gate 或局部 action evidence 不等于完整符合；只要 AC 仍处于 `E2E_COVERAGE` 或 M6 未验收，即判定为不完全符合。
 4. 本分析不使用 mock、默认成功、fallback、API-only 或口头假设替代验收证据。
+5. 2026-08-05 业务口径修正：`AC-D03` 不再要求生产班组长或 PQC 组长维护“不良原因”主数据；出现不良时由 PQC 在检验/复核记录中手动输入不良说明或原因，系统需保存原始手输内容并进入后续追溯。
 
 ## 当前系统证据
 
 - `blocker-inventory.md` 记录 M1-M5 已关闭：activeOrderId、生产系数快照、QA/PQC、调拨/放行来源、工艺路线三类配置分离均已验证，RRM-BLK-001..032 状态为 `RESOLVED_VERIFIED`。
-- `task-state.json` 记录当前里程碑为 `M6`，M6 全量真实 E2E 仍为 `STRUCTURED_BLOCKED`，62 项 AC 仍需完整真实页面动作、失败路径、权限隔离、只读核验和清理闭环。
+- `task-state.json` 记录当前里程碑为 `M6`，M6 全量真实 E2E 仍为 `STRUCTURED_BLOCKED`；AC-M04 已有 `activeOrderCleanupCompleted=PASS`，但 62 项 AC 仍需各自完成 AC 级真实页面动作、失败路径、权限隔离、只读核验、清理-readiness 和最终验收。
 - `verification-report.md` 记录当前 M6 已有 6 个 phase evidence、20 个 action evidence、2 个 gate evidence，且无 failed action/gate；但仍明确说明尚未完成 62 AC 的完整验收，不能将矩阵标记为全部完成。
 - `test-plan.md` 的 Coverage Contract 要求覆盖 `62/62`：`AC-M01` 至 `AC-M23`、`AC-D01` 至 `AC-D39` 各自拥有唯一测试用例。
 
@@ -29,7 +30,7 @@
 | AC-M01 | 5 | 计划排产员 / 生产班组长 | 确认生产订单 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明 ERP 已确认订单可按正式 ID/编号查询，且未确认、缺正式 ID 或越权订单不进入候选。 |
 | AC-M02 | 6 | 生产班组长 | 填写调拨申请单 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明 ERP 调拨申请同步后可追溯，且 MES 无创建/编辑入口、缺正式来源时阻塞。 |
 | AC-M03 | 7 | 系统 | 同步 ERP 候选数据 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明订单、调拨、发货、批次按正式 ID 幂等同步，且重复、乱序或冲突来源不生成重复事实。 |
-| AC-M04 | 8 | 生产班组长 | 加入活跃订单池 | 不完全符合 | 已有局部真实动作证据，但尚未完成完整验收；需覆盖同一 `activeOrderId`、重复加入、冲突路线和并发加入最多一个成功，并完成清理闭环。 |
+| AC-M04 | 8 | 生产班组长 | 加入活跃订单池 | 动作通过但未 AC 验收 | 真实页面加入、冲突路线拒绝、跨角色只读、错误角色写入拒绝、最终清理和后端重复/并发/移出路径均已有 PASS/GREEN 证据；但当前仍属于 `E2E_COVERAGE`，尚未完成 AC 级完整失败路径、权限/只读 breadth、清理-readiness 和全量 M6 coverage 准出。 |
 | AC-M05 | 9 | 仓库 | 生成调拨单并发货 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明 ERP 发货后可读取物料、数量、批次和状态，且未发货、部分发货和无正式 ID 不显示完整。 |
 | AC-M06 | 10 | 物料员 | 核对并解包到线边仓 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明实物核对结果和批次形成追溯证据，且缺失、不一致或越权核对进入明确缺项。 |
 | AC-M07 | 11 | 生产班组长 | 关联调拨单 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明一个订单可关联多调拨、多物料和多批次，且重复关联幂等、错误订单/租户/数量被拒绝。 |
@@ -56,7 +57,7 @@
 |---|---:|---|---|---|---|
 | AC-D01 | 5 | 生产班组长 | 添加本班组员工 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明新员工加入班组并用于后续绑定，且重复、跨租户或无权限添加被拒绝。 |
 | AC-D02 | 6 | 生产班组长 | 禁用本班组员工 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明禁用员工不再用于新报工且历史保留，且已禁用仍可新选或历史人员被清空时失败。 |
-| AC-D03 | 7 | 生产班组长 | 维护不良原因 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明新报工只显示当前工序启用的不良原因，且禁用/跨工序原因可选或历史原因被改写时失败。 |
+| AC-D03 | 7 | 生产班组长 | 维护不良原因 | 业务口径已调整，仍未完整验收 | 业务已确认不再维护“不良原因”主数据，PQC 发现不良时手动输入即可；后续需把矩阵/测试计划同步为“PQC 手动录入不良说明并保存快照”，并证明系统不依赖固定不良原因列表、不要求 PQC 组长维护原因、手输内容可追溯且历史记录不被后续修改覆盖。 |
 | AC-D04 | 8 | 生产班组长 | 维护损耗原因 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明损耗原因按工序配置并进入报工，且固定前端列表、禁用原因或跨工序原因被拒绝。 |
 | AC-D05 | 9 | 生产班组长 | 绑定工序可用设备 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明只能从正式设备台账绑定工序设备，且独立创建设备、重复绑定或跨租户设备被拒绝。 |
 | AC-D06 | 10 | 生产班组长 | 设备报修或禁用后的可选控制 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明报修/禁用设备不用于新报工、恢复后可选，且不可用设备仍可提交或历史设备消失时失败。 |
@@ -100,8 +101,57 @@
 |---|---:|---|
 | 主流程 AC 未完全符合 | 23 | `AC-M01` 至 `AC-M23` 均未达到完整 `ACCEPTED`。 |
 | 衍生需求 AC 未完全符合 | 39 | `AC-D01` 至 `AC-D39` 均未达到完整 `ACCEPTED`。 |
-| SOURCE / ENV / RUNTIME blocker | 0 | 当前已无此类 blocker；不符合原因不是 M0-M5 来源门禁未关闭。 |
+| SOURCE / ENV / RUNTIME blocker | 0 / 当前 shell 缺 RRM env | canonical 授权运行态已无 SOURCE / ENV / RUNTIME blocker；但本轮当前 shell 没有 `RRM_*`，不能刷新 full real E2E 产物。不符合主因仍是 62 项 AC 未达 `ACCEPTED`。 |
 | M6 验收缺口 | 62 | 全部 AC 仍需完整真实页面成功路径、失败路径、权限/只读隔离、必要并发/性能/SNAPSHOT、清理闭环和最终验收。 |
+
+## AC-M04 当前进度与下一步
+
+### 已做到
+
+- `joinActiveOrder=PASS`：生产班组长已能通过真实页面把订单加入活跃订单池，并返回统一 `activeOrderId=12`。
+- `activeOrderConflictRouteRejected=PASS`：冲突路线已在真实页面链路 fail-fast 拒绝，且不会先插入错误 active order。
+- `activeOrderCrossRoleReadOnly=PASS`：PQC 检验员已能只读读取同一 `activeOrderId`，证明跨角色统一订单身份。
+- `activeOrderUnauthorizedMutationBlocked=PASS`：专用错误角色 `aoteman` 写入被后端拒绝，返回 `403 / 没有该操作权限`。
+- `activeOrderCleanupCompleted=PASS`：真实后端移出接口已清理 `activeOrderId=12`，回读 active order count 为 0。
+- 并发/重复后端证据已 GREEN：重复加入、`DuplicateKeyException` 并发唯一键、冲突路线前置拒绝、显式 `ACTIVE -> REMOVED` 条件更新均已通过目标或相邻回归。
+
+### 还差什么
+
+- AC-M04 仍未从 `E2E_COVERAGE` 变成 `ACCEPTED`，原因是 M6 总验收仍要求每个 AC 都具备完整真实页面成功路径、失败路径、权限/只读 breadth、清理-readiness 和全量 coverage 准出记录。
+- 当前 `result.json` 已被本轮缺少 `RRM_*` 环境的 `real:check` 覆盖为 ENV blocker-only 产物；它既不再包含旧 `activeOrderCleanupDeferred`，也没有 action/gate evidence。应以后续 `test-report.md` / `verification-report.md` 中 `activeOrderCleanupCompleted=PASS` 的 canonical 证据为准，并在有正式 RRM 环境时重新跑 full real E2E 刷新产物。
+
+### 建议执行顺序
+
+1. 在正式 RRM 环境变量齐备的 shell 中复跑 `real:check` 和 full real E2E，刷新 canonical `result.json`，确认 AC-M04 coverage row 不再引用 `activeOrderCleanupDeferred`。
+2. 在 coverage ledger 中为 AC-M04 明确列出已满足项：成功加入、重复加入幂等/唯一键、冲突路线失败、错误角色拒绝、跨角色只读、最终清理、并发 proof。
+3. 若 ledger 仍要求更多 breadth，补真实页面负向用例：非活跃/终止订单、无路线版本或缺正式路线、跨租户或越权订单、重复提交后的页面回读一致性。
+4. 最后运行 `real:check`、full real E2E、`MesTeamLeaderActiveOrderServiceTest` 和相关静态合同，全部 PASS 后再把 AC-M04 从 `PASS_ACTION_NOT_ACCEPTED` 提升为 `ACCEPTED`。
+
+## AC-D03 手动不良说明专项核验
+
+### 核验结论
+
+| 核验项 | 当前判断 | 代码/证据依据 | 缺口 |
+|---|---|---|---|
+| 系统是否支持手动输入 | 部分支持 | PQC 页面支持逐件手工录入数值、逐件选择“合格/不合格”，并可填写检验数量、损耗数量；`pqcDraft` 当前只有 `inspectionType`、`patrolRound`、`inspectionQuantity`、`scrapQuantity`。 | 未看到 PQC 不良说明/原因的专用文本输入字段；当前不能证明“出现不良时 PQC 手动输入不良原因/说明”。 |
+| 是否保存原始输入快照 | 基础支持 | `MesFrontlinePqcSubmitReqVO.rawPayload` 必填；`buildPqcInspectionEventRawPayload` 先复制前端 `rawPayload`，再补充 `activeOrderId`、`pqcTaskId`、`workOrderId`、`routeProcessId`、`processId`、`pqcItemDetails`、`pieceDetailCount` 等；PQC event 和 PQC record 均写入 `rawPayload`。 | 如果前端没有传“不良说明/原因”字段，快照不会包含该业务输入；缺少专项测试证明手输文本进入 `rawPayload`。 |
+| 是否能追溯到订单/工序/PQC 记录 | 基础支持较完整 | PQC 提交 VO、Command、event、PQC record 均包含 `workOrderId`、`routeId`、`routeProcessId`、`processId`、`pqcTaskId`、`productionSubmitEventId`；提交服务校验 PQC task 身份和当前订单/工序一致；时间线读模型返回 `originalPayloadJson`、工单、工序、PQC task 和 PQC 结果。 | 仍需专项验收把“手动不良说明”与同一订单、工序、PQC event/detail 页面一起回读证明。 |
+| 历史记录是否不会被后续修改覆盖 | 部分支持 | PQC record 的 `rawPayload` 在创建时写入，当前检索未发现更新该字段的服务路径；退回补正有 revision/diff 表记录 `beforePayload`、`afterPayload`、字段前后值和修订签名。 | event 表 `rawPayload` 会在修订服务中被更新为 `afterPayload`，时间线详情的 `originalPayloadJson` 读取的是当前 event `raw_payload`；因此现状更接近“有修订链可追溯”，不是严格的“原始详情永不被覆盖”。 |
+
+### 结论口径
+
+- `AC-D03` 不能按旧口径继续要求“生产班组长/PQC 组长维护不良原因主数据”；旧的 defect reason 目录能力不应作为新版 `AC-D03` 符合证据。
+- 新口径应改为：PQC 在发现不良时手动录入不良说明/原因，系统保存原始手输文本快照，并可按订单、工序、PQC event/record 追溯。
+- 当前系统具备“PQC 提交、逐件明细、原始 payload、订单/工序/PQC 记录追溯、退回补正修订链”的基础能力，但缺少“手动不良说明字段 + 进入 rawPayload + 详情回显 + 原始/修订不覆盖”的专项验收证据。
+- 当前准确状态应保持为：`业务口径已调整，仍未完整验收`，不能提升为 `ACCEPTED`。
+
+### 建议补充验收用例
+
+1. PQC 将某逐件检验项标记为不合格，手动输入“不良说明/原因”，正式提交后在 event `rawPayload`、PQC record `rawPayload` 和 PQC 组长详情中回读同一文本。
+2. 回读详情必须同时显示 `workOrderId/workOrderCode`、`routeProcessId/processId`、`pqcTaskId`、`eventId`、`productionSubmitEventId`，证明手输内容绑定到对应订单、工序和 PQC 记录。
+3. 修改后续配置或不良原因目录后，历史 PQC 详情仍显示当时手输文本，不被新配置、新文案或固定列表覆盖。
+4. PQC 组长退回后，PQC 补正可形成 revision/diff；详情必须能区分首次提交原始文本和补正后文本，失败条件为只显示新值且无法追溯旧值。
+5. 负向路径：没有填写不良说明却提交不合格、前端只允许固定列表、后端未保存手输字段、跨订单/跨工序详情可见、修订直接覆盖无 diff，均应失败。
 
 ## 整改建议
 
