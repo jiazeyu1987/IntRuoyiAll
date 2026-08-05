@@ -10,7 +10,7 @@
 - [x] M1：补充生产人员档案弹框行为的 BDD 场景和 RED 静态合同。
 - [x] M2：在 `TeamLeaderWorkbenchPage.vue` 中实现新增人员按钮、弹框和内容迁移。
 - [x] M3：运行目标静态合同、类型检查或相邻验证，并记录 GREEN/回归证据。
-- [ ] M4：任务收尾，cleanup preview/apply 已通过，待提交收尾记录并推送。
+- [x] M4：任务收尾，cleanup preview/apply、收尾记录提交和 `origin/int_main` 推送均通过。
 
 ## Expected Verification
 
@@ -22,13 +22,15 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 - 已完成新增人员按钮和弹框迁移，人员相关静态合同全部 PASS。
 - `pnpm ts:check` 最终复跑 PASS，并发任务此前造成的同文件类型检查阻塞已解除。
 - 实现提交：`172c55077 feat: move production personnel creation into dialog`。
+- 收尾提交：`74a3fdb61 docs: close production personnel dialog task`。
 - `task-closeout-cleanup` preview/apply 均 PASS，已删除临时 `frontend-feature-evidence.md`，保留三份核心任务文档。
-- 工作区仍存在大量并发任务残余，本任务后续只选择性暂存人员弹框相关文件。
+- 实现与收尾提交已推送到 `origin/int_main`；最终状态记录推送后本地分支不再领先远端。
+- 工作区仍存在大量并发任务残余，均未纳入本任务提交。
 - `frontend-feature-delivery` evidence validator 已 PASS。
 
 ## 适用经验门禁

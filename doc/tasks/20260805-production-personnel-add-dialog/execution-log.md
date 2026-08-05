@@ -53,8 +53,9 @@
 - Implementation commit: `172c55077 feat: move production personnel creation into dialog`。
 - `task-closeout-cleanup` preview -> PASS：keep `task.md`、`execution-log.md`、`verification-report.md`；delete `frontend-feature-evidence.md`。
 - `task-closeout-cleanup` apply -> PASS：临时 evidence 已删除，核心任务文档保留。
-- Closeout records commit: pending。
-- Final push: pending。
+- Closeout records commit: `74a3fdb61 docs: close production personnel dialog task`，文件清单为三份核心任务文档及 `frontend-feature-evidence.md` 删除记录。
+- Push 1: `git push origin int_main` -> PASS，`origin/int_main` 到达 `74a3fdb61`。
+- Final completion-record push: PASS；推送后 `git status --short --branch` 不再显示 ahead，工作区仅保留未暂存的并发任务改动。
 
 ## Experience Consolidation
 
