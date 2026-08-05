@@ -19,6 +19,48 @@
       />
     </ContentWrap>
 
+    <ContentWrap data-qa-regulation-dcc-project>
+      <el-form label-width="112px" class="qa-regulation-page__form">
+        <el-form-item label="DCC 项目代码" required>
+          <el-select
+            v-model="qaRegulationDraft.dccProjectCodeId"
+            clearable
+            filterable
+            remote
+            reserve-keyword
+            :loading="dccProjectCodeOptionsLoading"
+            :remote-method="loadDccProjectCodeOptions"
+            placeholder="请选择 DCC 项目代码"
+            class="!w-100%"
+            @change="handleDccProjectCodeChange"
+            @visible-change="handleDccProjectCodeVisibleChange"
+          >
+            <el-option
+              v-for="project in dccProjectCodeOptions"
+              :key="project.id"
+              :label="formatDccProjectCodeOption(project)"
+              :value="project.id"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+
+      <div
+        v-if="dccProjectCodeLoadError"
+        class="qa-regulation-page__load-error"
+        data-qa-regulation-project-load-error
+      >
+        <el-alert
+          :title="dccProjectCodeLoadError"
+          type="error"
+          :closable="false"
+          show-icon
+        />
+        <el-button type="primary" plain @click="retryLoadDccProjectCodes">重新加载</el-button>
+      </div>
+    </ContentWrap>
+
+    <template v-if="selectedDccProjectCode">
     <ContentWrap>
       <el-tabs v-model="qaActiveTab" data-qa-regulation-tabs>
         <el-tab-pane label="总览" name="overview" />
@@ -28,226 +70,8 @@
       </el-tabs>
     </ContentWrap>
 
-    <ContentWrap v-show="qaActiveTab === 'overview'">
-      <div class="qa-regulation-page__layout">
-        <el-card shadow="never" data-qa-regulation-dcc-project>
-          <template #header>
-            <div class="qa-regulation-page__card-head">
-              <span>DCC 项目范围</span>
-              <el-button
-                link
-                type="primary"
-                :loading="dccProjectCodeOptionsLoading"
-                @click="retryLoadDccProjectCodes"
-              >
-                刷新
-              </el-button>
-            </div>
-          </template>
-
-          <el-form label-width="112px" class="qa-regulation-page__form">
-            <el-form-item label="DCC 项目代码" required>
-              <el-select
-                v-model="qaRegulationDraft.dccProjectCodeId"
-                clearable
-                filterable
-                remote
-                reserve-keyword
-                :loading="dccProjectCodeOptionsLoading"
-                :remote-method="loadDccProjectCodeOptions"
-                placeholder="请选择 DCC 项目代码"
-                class="!w-100%"
-                @change="handleDccProjectCodeChange"
-                @visible-change="handleDccProjectCodeVisibleChange"
-              >
-                <el-option
-                  v-for="project in dccProjectCodeOptions"
-                  :key="project.id"
-                  :label="formatDccProjectCodeOption(project)"
-                  :value="project.id"
-                />
-              </el-select>
-            </el-form-item>
-          </el-form>
-
-          <div
-            v-if="dccProjectCodeLoadError"
-            class="qa-regulation-page__load-error"
-            data-qa-regulation-project-load-error
-          >
-            <el-alert
-              :title="dccProjectCodeLoadError"
-              type="error"
-              :closable="false"
-              show-icon
-            />
-            <el-button type="primary" plain @click="retryLoadDccProjectCodes">重新加载</el-button>
-          </div>
-
-          <el-empty
-            v-else-if="!selectedDccProjectCode"
-            :description="
-              dccProjectCodeOptionsLoading
-                ? '正在加载 DCC 项目代码'
-                : '请选择 DCC 项目代码'
-            "
-            :image-size="72"
-          />
-
-          <el-descriptions v-else :column="1" border>
-            <el-descriptions-item label="项目代码">
-              {{ selectedDccProjectCode.projectCode }}
-            </el-descriptions-item>
-            <el-descriptions-item label="项目名称">
-              {{ selectedDccProjectCode.projectName }}
-            </el-descriptions-item>
-            <el-descriptions-item label="产品主数据">
-              <el-tag
-                :type="selectedDccProjectCode.productMasterId ? 'success' : 'danger'"
-                effect="plain"
-              >
-                {{
-                  selectedDccProjectCode.productMasterId
-                    ? `MDM #${selectedDccProjectCode.productMasterId}`
-                    : '未绑定 MDM 产品'
-                }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="文控编号">
-              {{ selectedDccProjectCode.docControlNo || '--' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="项目状态">
-              {{ selectedDccProjectCode.status }}
-            </el-descriptions-item>
-          </el-descriptions>
-
-          <div class="qa-regulation-page__hint mt-12px">
-            产品名称由 DCC 项目代码带出；项目代码 IDI 对应当前按压式球囊扩充压力泵规程模板。
-          </div>
-
-          <div
-            v-if="
-              !dccProjectCodeLoadError &&
-              !dccProjectCodeOptionsLoading &&
-              !qaRegulationProjectStatusesLoading &&
-              !qaRegulationProjectStatusLoadError
-            "
-            class="qa-regulation-page__config-status"
-            data-qa-regulation-config-status
-          >
-            <div>
-              <div class="qa-regulation-page__status-title">配置状态总览</div>
-              <div class="qa-regulation-page__hint">
-                当前加载范围：已配置 {{ configuredDccProjectCodes.length }} 个，待配置
-                {{ unconfiguredDccProjectCodes.length }} 个；配置状态来自后台 QA 规程记录。
-              </div>
-            </div>
-
-            <div class="qa-regulation-page__status-columns">
-              <section
-                class="qa-regulation-page__status-column"
-                data-qa-regulation-configured-projects
-              >
-                <div class="qa-regulation-page__status-column-head">
-                  <span>已配置 QA 规程</span>
-                  <el-tag type="success" effect="plain">{{ configuredDccProjectCodes.length }}</el-tag>
-                </div>
-                <el-empty
-                  v-if="configuredDccProjectCodes.length === 0"
-                  description="当前加载范围内暂无已配置 QA 规程"
-                  :image-size="48"
-                />
-                <div v-else class="qa-regulation-page__project-list">
-                  <button
-                    v-for="project in configuredDccProjectCodes"
-                    :key="project.id"
-                    type="button"
-                    class="qa-regulation-page__project-status-row"
-                    :class="{
-                      'is-selected':
-                        selectedDccProjectCode && selectedDccProjectCode.id === project.id
-                    }"
-                    @click="selectDccProjectForConfiguration(project)"
-                  >
-                    <span>
-                      <span class="qa-regulation-page__project-code">{{ project.projectCode }}</span>
-                      <span>{{ project.projectName }}</span>
-                    </span>
-                    <span class="qa-regulation-page__project-meta">
-                      {{
-                        project.productMasterId
-                          ? `MDM #${project.productMasterId}`
-                          : '未绑定 MDM 产品'
-                      }}
-                    </span>
-                    <el-tag :type="resolveQaConfigurationStatusType(project)" effect="plain">
-                      {{ resolveQaConfigurationStatusText(project) }}
-                    </el-tag>
-                  </button>
-                </div>
-              </section>
-
-              <section
-                class="qa-regulation-page__status-column"
-                data-qa-regulation-unconfigured-projects
-              >
-                <div class="qa-regulation-page__status-column-head">
-                  <span>待配置 QA 规程</span>
-                  <el-tag type="warning" effect="plain">{{ unconfiguredDccProjectCodes.length }}</el-tag>
-                </div>
-                <el-empty
-                  v-if="unconfiguredDccProjectCodes.length === 0"
-                  description="当前加载范围内暂无待配置项目"
-                  :image-size="48"
-                />
-                <div v-else class="qa-regulation-page__project-list">
-                  <button
-                    v-for="project in unconfiguredDccProjectCodes"
-                    :key="project.id"
-                    type="button"
-                    class="qa-regulation-page__project-status-row"
-                    :class="{
-                      'is-selected':
-                        selectedDccProjectCode && selectedDccProjectCode.id === project.id
-                    }"
-                    @click="selectDccProjectForConfiguration(project)"
-                  >
-                    <span>
-                      <span class="qa-regulation-page__project-code">{{ project.projectCode }}</span>
-                      <span>{{ project.projectName }}</span>
-                    </span>
-                    <span class="qa-regulation-page__project-meta">
-                      {{
-                        project.productMasterId
-                          ? `MDM #${project.productMasterId}`
-                          : '未绑定 MDM 产品'
-                      }}
-                    </span>
-                    <el-tag :type="resolveQaConfigurationStatusType(project)" effect="plain">
-                      {{ resolveQaConfigurationStatusText(project) }}
-                    </el-tag>
-                  </button>
-                </div>
-              </section>
-            </div>
-          </div>
-
-          <div
-            v-if="qaRegulationProjectStatusLoadError"
-            class="qa-regulation-page__load-error mt-12px"
-            data-qa-regulation-status-load-error
-          >
-            <el-alert
-              :title="qaRegulationProjectStatusLoadError"
-              type="error"
-              :closable="false"
-              show-icon
-            />
-            <el-button type="primary" plain @click="retryLoadDccProjectCodes">重新加载</el-button>
-          </div>
-        </el-card>
-
-        <el-card shadow="never" data-qa-regulation-scope>
+    <ContentWrap v-show="selectedDccProjectCode && qaActiveTab === 'overview'">
+      <el-card shadow="never" data-qa-regulation-scope>
           <template #header>适用范围</template>
           <el-form :model="qaRegulationDraft" label-width="112px" class="qa-regulation-page__form">
             <el-form-item label="规程编号">
@@ -280,100 +104,44 @@
                 placeholder="选择 DCC 项目代码后自动带出"
               />
             </el-form-item>
-            <el-form-item label="路线名称">
-              <el-input v-model="qaRegulationDraft.routeName" placeholder="请输入正式工艺路线名称" />
-            </el-form-item>
-            <el-row :gutter="12">
-              <el-col :xs="24" :md="12">
-                <el-form-item label="路线版本">
-                  <el-input v-model="qaRegulationDraft.routeVersionName" />
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :md="12">
-                <el-form-item label="路线工序">
-                  <el-input v-model="qaRegulationDraft.routeProcessName" />
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-row :gutter="12">
-              <el-col :xs="24" :md="12">
-                <el-form-item label="路线 ID">
-                  <el-input-number
-                    v-model="qaRegulationDraft.routeId"
-                    :min="1"
-                    :controls="false"
-                    class="!w-100%"
-                  />
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :md="12">
-                <el-form-item label="路线版本 ID">
-                  <el-input-number
-                    v-model="qaRegulationDraft.routeVersionId"
-                    :min="1"
-                    :controls="false"
-                    class="!w-100%"
-                  />
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-row :gutter="12">
-              <el-col :xs="24" :md="12">
-                <el-form-item label="路线工序 ID">
-                  <el-input-number
-                    v-model="qaRegulationDraft.routeProcessId"
-                    :min="1"
-                    :controls="false"
-                    class="!w-100%"
-                  />
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :md="12">
-                <el-form-item label="工序 ID">
-                  <el-input-number
-                    v-model="qaRegulationDraft.processId"
-                    :min="1"
-                    :controls="false"
-                    class="!w-100%"
-                  />
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-form-item label="SOP">
-              <el-input v-model="qaRegulationDraft.sopName" placeholder="请输入正式 SOP 或作业指导书" />
-            </el-form-item>
-            <el-row :gutter="12">
-              <el-col :xs="24" :md="12">
-                <el-form-item label="生产系数">
-                  <el-input-number
-                    v-model="qaRegulationDraft.productionFactor"
-                    :min="0"
-                    :precision="2"
-                    :controls="false"
-                    class="!w-100%"
-                  />
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :md="12">
-                <el-form-item label="示例订单数">
-                  <el-input-number
-                    v-model="qaRegulationDraft.sampleOrderQuantity"
-                    :min="1"
-                    :controls="false"
-                    class="!w-100%"
-                  />
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-form-item label="批记录绑定">
-              <el-input
-                v-model="qaRegulationDraft.batchRecordBinding"
-                placeholder="请输入当前工序正式批记录绑定"
-              />
-            </el-form-item>
           </el-form>
-        </el-card>
-      </div>
+          <div
+            v-loading="qaRouteScopeLoading"
+            class="qa-regulation-page__route-scope"
+            data-qa-regulation-route-scope-auto
+          >
+            <el-alert
+              class="mb-12px"
+              title="工艺路线来源"
+              description="路线、版本、质检工序、SOP/工艺要求和正式批记录表单均由产品当前绑定的工艺路线自动带出，QA 不在此处手工维护。"
+              type="info"
+              :closable="false"
+              show-icon
+            />
+            <el-alert
+              v-if="qaRouteScopeLoadError"
+              :title="qaRouteScopeLoadError"
+              type="error"
+              :closable="false"
+              show-icon
+              data-qa-regulation-route-scope-error
+            />
+            <div
+              v-else
+              class="qa-regulation-page__scope-grid"
+              data-qa-regulation-route-scope-summary
+            >
+              <div
+                v-for="row in qaRouteScopeRows"
+                :key="row.key"
+                class="qa-regulation-page__scope-row"
+              >
+                <span class="qa-regulation-page__scope-label">{{ row.label }}</span>
+                <span class="qa-regulation-page__scope-value">{{ row.value || '--' }}</span>
+              </div>
+            </div>
+          </div>
+      </el-card>
     </ContentWrap>
 
     <ContentWrap v-show="qaActiveTab === 'rules'">
@@ -522,8 +290,8 @@
           </template>
         </UnifiedListTemplate>
         <div class="qa-regulation-page__hint mt-8px">
-          巡检示例：{{ qaRegulationDraft.sampleOrderQuantity }} × 5% =
-          {{ Math.ceil(qaRegulationDraft.sampleOrderQuantity * 0.05) }}，按向上取整生成 PQC 任务。
+          巡检预览：当前用 {{ qaRegulationDraft.sampleOrderQuantity }} 件示例数量演示 5% 抽样 =
+          {{ Math.ceil(qaRegulationDraft.sampleOrderQuantity * 0.05) }}；正式 PQC 任务按实际工单/批次数量生成。
         </div>
       </el-card>
     </ContentWrap>
@@ -924,6 +692,7 @@
         </el-card>
       </div>
     </ContentWrap>
+    </template>
   </div>
 </template>
 
@@ -942,10 +711,22 @@ import {
 } from '@/api/dcc/controlledFile/projectCodes'
 import {
   QcTemplateApi,
-  type QaInspectionRegulationProjectStatusVO,
   type QaInspectionRegulationSaveItemVO,
   type QaInspectionRegulationSaveReqVO
 } from '@/api/mes/qc/template'
+import { ProRouteApi, type ProRouteVO, type ProRouteVersionVO } from '@/api/mes/pro/route'
+import {
+  ProRouteProductApi,
+  type ProRouteProductVO
+} from '@/api/mes/pro/route/product'
+import {
+  ProRouteProcessApi,
+  type ProRouteProcessVO
+} from '@/api/mes/pro/route/process'
+import {
+  ProRouteFlowConfigApi,
+  type ProRouteFlowProcessConfigVO
+} from '@/api/mes/pro/route/flowconfig'
 
 defineOptions({ name: 'MesProProcessPoolQaRegulation' })
 
@@ -1013,6 +794,21 @@ type QaRegulationTabName = 'overview' | 'rules' | 'items' | 'verification'
 interface QaLocalListQuery {
   pageNo: number
   pageSize: number
+}
+
+interface QaRouteScopeRow {
+  key: string
+  label: string
+  value: string
+}
+
+interface QaRouteScopeAutoSource {
+  routeProduct: ProRouteProductVO
+  route: ProRouteVO
+  routeVersion: ProRouteVersionVO
+  routeProcess: ProRouteProcessVO
+  scheduleConfig?: ProRouteFlowProcessConfigVO
+  batchConfig?: ProRouteFlowProcessConfigVO
 }
 
 const qaActiveTab = ref<QaRegulationTabName>('overview')
@@ -1160,9 +956,7 @@ const createPressurePumpQaRegulationDraft = (): QaRegulationDraft => ({
   regulationCode: 'PQC-IDI-001',
   regulationName: '按压式球囊扩充压力泵组装过程检验规程',
   versionNo: 'B/0',
-  effectiveDate: '2026-01-04',
-  routeName: '按压式球囊扩充压力泵组装工艺路线',
-  sopName: '按压式球囊扩充压力泵组装 SOP'
+  effectiveDate: '2026-01-04'
 })
 
 const qaRegulationDraft = reactive<QaRegulationDraft>(createEmptyQaRegulationDraft())
@@ -1316,9 +1110,9 @@ const dccProjectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 const dccProjectCodeOptionsLoading = ref(false)
 const dccProjectCodeLoadError = ref('')
 const selectedDccProjectCode = ref<DccProjectCodeRespVO>()
-const qaRegulationProjectStatusMap = ref<Record<number, QaInspectionRegulationProjectStatusVO>>({})
-const qaRegulationProjectStatusesLoading = ref(false)
-const qaRegulationProjectStatusLoadError = ref('')
+const qaRouteScopeLoading = ref(false)
+const qaRouteScopeLoadError = ref('')
+const qaRouteScopeAutoSource = ref<QaRouteScopeAutoSource>()
 const qaRegulationSaving = ref(false)
 const qaRegulationPublishing = ref(false)
 
@@ -1327,37 +1121,6 @@ const normalizeDccProjectCode = (projectCode: string) => projectCode.trim().toUp
 const resolveDccProjectProductId = (project: DccProjectCodeRespVO) => {
   const productId = Number(project.productMasterId)
   return Number.isFinite(productId) && productId > 0 ? productId : undefined
-}
-
-const resolveQaRegulationProjectStatus = (project: DccProjectCodeRespVO) => {
-  const productId = resolveDccProjectProductId(project)
-  return productId ? qaRegulationProjectStatusMap.value[productId] : undefined
-}
-
-const hasConfiguredQaRegulation = (project: DccProjectCodeRespVO) =>
-  resolveQaRegulationProjectStatus(project)?.configured === true
-
-const configuredDccProjectCodes = computed(() =>
-  dccProjectCodeOptions.value.filter((project) => hasConfiguredQaRegulation(project))
-)
-
-const unconfiguredDccProjectCodes = computed(() =>
-  dccProjectCodeOptions.value.filter((project) => !hasConfiguredQaRegulation(project))
-)
-
-const resolveQaConfigurationStatusType = (project: DccProjectCodeRespVO) => {
-  if (hasConfiguredQaRegulation(project)) {
-    return 'success'
-  }
-  return resolveDccProjectProductId(project) ? 'warning' : 'danger'
-}
-
-const resolveQaConfigurationStatusText = (project: DccProjectCodeRespVO) => {
-  const status = resolveQaRegulationProjectStatus(project)
-  if (status?.configured) {
-    return status.lifecycleStatus ? `已配置 QA 规程（${status.lifecycleStatus}）` : '已配置 QA 规程'
-  }
-  return resolveDccProjectProductId(project) ? '待配置 QA 规程' : '未绑定 MDM 产品'
 }
 
 const formatDccProjectCodeOption = (project: DccProjectCodeRespVO) =>
@@ -1370,41 +1133,209 @@ const resolveDccProjectCodeErrorMessage = (error: unknown) => {
   return String(error)
 }
 
-const loadQaRegulationProjectStatuses = async (projects: DccProjectCodeRespVO[]) => {
-  qaRegulationProjectStatusesLoading.value = true
-  qaRegulationProjectStatusLoadError.value = ''
-  qaRegulationProjectStatusMap.value = {}
+const normalizeQaRouteScopeText = (value: unknown) => {
+  const text = String(value ?? '').trim()
+  return text || ''
+}
+
+const resolveQaRouteScopePositiveNumber = (value: unknown) => {
+  const normalized = Number(value)
+  return Number.isFinite(normalized) && normalized > 0 ? normalized : undefined
+}
+
+const requireQaRouteScopePositiveNumber = (value: unknown, label: string) => {
+  const normalized = resolveQaRouteScopePositiveNumber(value)
+  if (!normalized) {
+    throw new Error(`${label}缺少正式来源。`)
+  }
+  return normalized
+}
+
+const resetFormalQaRouteScopeFields = () => {
+  qaRouteScopeAutoSource.value = undefined
+  Object.assign(qaRegulationDraft, {
+    routeId: undefined,
+    routeName: '',
+    routeVersionId: undefined,
+    routeVersionName: '',
+    routeProcessId: undefined,
+    processId: undefined,
+    routeProcessName: '',
+    sopName: '',
+    productionFactor: 1,
+    batchRecordBinding: ''
+  })
+}
+
+const formatQaBatchRecordReportName = (
+  report: NonNullable<ProRouteFlowProcessConfigVO['batchRecordReports']>[number]
+) =>
+  [
+    normalizeQaRouteScopeText(report.batchRecordReportName),
+    normalizeQaRouteScopeText(report.batchRecordReportCode),
+    normalizeQaRouteScopeText(report.batchRecordReportId)
+  ].filter(Boolean).join(' / ')
+
+const resolveFormalBatchRecordBindingSummary = (
+  batchConfig: ProRouteFlowProcessConfigVO | undefined,
+  routeProcess: ProRouteProcessVO
+) => {
+  const reports = (batchConfig?.batchRecordReports || [])
+    .slice()
+    .sort((left, right) => Number(left.reportSort || 0) - Number(right.reportSort || 0))
+    .map(formatQaBatchRecordReportName)
+    .filter(Boolean)
+  if (reports.length > 0) {
+    return reports.join('、')
+  }
+  return [
+    normalizeQaRouteScopeText(routeProcess.batchRecordReportName),
+    normalizeQaRouteScopeText(routeProcess.batchRecordReportCode),
+    normalizeQaRouteScopeText(routeProcess.batchRecordReportId)
+  ].filter(Boolean).join(' / ')
+}
+
+const findQaRouteProcessConfig = (
+  configs: ProRouteFlowProcessConfigVO[],
+  routeProcessId: number
+) => configs.find((config) => Number(config.routeProcessId) === Number(routeProcessId))
+
+const resolveQaRouteProcessFromRoute = (routeProcesses: ProRouteProcessVO[]) => {
+  const formalProcesses = routeProcesses.filter(
+    (process) =>
+      resolveQaRouteScopePositiveNumber(process.id) &&
+      resolveQaRouteScopePositiveNumber(process.processId)
+  )
+  const checkProcesses = formalProcesses.filter((process) => process.checkFlag === true)
+  if (checkProcesses.length === 1) {
+    return checkProcesses[0]
+  }
+  if (checkProcesses.length === 0 && formalProcesses.length === 1) {
+    return formalProcesses[0]
+  }
+  if (checkProcesses.length === 0) {
+    throw new Error('当前工艺路线未标记唯一质检工序，请先在工艺路线中维护 checkFlag。')
+  }
+  throw new Error('当前工艺路线存在多个质检工序，请先在工艺路线中明确 QA 规程适用工序。')
+}
+
+const applyFormalQaRouteScope = (source: QaRouteScopeAutoSource) => {
+  const routeProcessId = requireQaRouteScopePositiveNumber(source.routeProcess.id, '路线工序')
+  const processId = requireQaRouteScopePositiveNumber(source.routeProcess.processId, '工序')
+  const productionFactor = resolveQaRouteScopePositiveNumber(source.scheduleConfig?.productionQuantityFactor)
+  Object.assign(qaRegulationDraft, {
+    routeId: requireQaRouteScopePositiveNumber(source.route.id, '工艺路线'),
+    routeName: normalizeQaRouteScopeText(source.route.name || source.route.code || source.route.id),
+    routeVersionId: requireQaRouteScopePositiveNumber(source.routeVersion.id, '路线版本'),
+    routeVersionName: normalizeQaRouteScopeText(source.routeVersion.versionNo || source.routeVersion.id),
+    routeProcessId,
+    processId,
+    routeProcessName: normalizeQaRouteScopeText(
+      source.routeProcess.processName || source.routeProcess.processCode || routeProcessId
+    ),
+    sopName: normalizeQaRouteScopeText(source.routeProcess.processAttention),
+    productionFactor: productionFactor || 1,
+    batchRecordBinding: resolveFormalBatchRecordBindingSummary(source.batchConfig, source.routeProcess)
+  })
+  qaRouteScopeAutoSource.value = source
+}
+
+let qaRouteScopeLoadSerial = 0
+
+const loadQaRouteScopeFromProject = async (project: DccProjectCodeRespVO) => {
+  const loadSerial = ++qaRouteScopeLoadSerial
+  qaRouteScopeLoading.value = true
+  qaRouteScopeLoadError.value = ''
+  resetFormalQaRouteScopeFields()
   try {
-    const productIds = Array.from(
-      new Set(projects.map(resolveDccProjectProductId).filter((id): id is number => !!id))
-    )
-    if (productIds.length === 0) {
+    const productId = resolveDccProjectProductId(project)
+    if (!productId) {
+      throw new Error('当前 DCC 项目代码未绑定 MDM 产品，无法读取产品工艺路线绑定。')
+    }
+    const routeProduct = (await ProRouteProductApi.getRouteProductByItem(productId)) as ProRouteProductVO | null
+    if (!routeProduct?.routeId) {
+      throw new Error('当前 MDM 产品未绑定工艺路线，请先在产品主数据维护当前工艺路线。')
+    }
+    const route = await ProRouteApi.getRoute(routeProduct.routeId)
+    const routeVersionId = routeProduct.routeVersionId || route.activeRouteVersionId
+    if (!routeVersionId) {
+      throw new Error('当前工艺路线缺少激活版本，请先发布工艺路线版本。')
+    }
+    const routeVersion = await ProRouteApi.getRouteVersion(routeVersionId)
+    const routeProcesses = await ProRouteProcessApi.getRouteProcessListByRoute(routeProduct.routeId)
+    const routeProcess = resolveQaRouteProcessFromRoute(routeProcesses)
+    const routeProcessId = requireQaRouteScopePositiveNumber(routeProcess.id, '路线工序')
+    const [scheduleConfigs, batchConfigs] = await Promise.all([
+      ProRouteFlowConfigApi.getProcessConfigList(routeProduct.routeId, 'SCHEDULE', routeVersionId),
+      ProRouteFlowConfigApi.getProcessConfigList(routeProduct.routeId, 'BATCH', routeVersionId)
+    ])
+    if (loadSerial !== qaRouteScopeLoadSerial) {
       return
     }
-    const statuses = await QcTemplateApi.getQaRegulationProjectStatuses(productIds)
-    const statusMap = statuses.reduce<Record<number, QaInspectionRegulationProjectStatusVO>>(
-      (result, status) => {
-        result[status.productId] = status
-        return result
-      },
-      {}
-    )
-    const missingProductIds = productIds.filter((productId) => !statusMap[productId])
-    if (missingProductIds.length > 0) {
-      throw new Error(`响应缺少产品状态：${missingProductIds.join('、')}`)
-    }
-    qaRegulationProjectStatusMap.value = statusMap
+    applyFormalQaRouteScope({
+      routeProduct,
+      route,
+      routeVersion,
+      routeProcess,
+      scheduleConfig: findQaRouteProcessConfig(scheduleConfigs, routeProcessId),
+      batchConfig: findQaRouteProcessConfig(batchConfigs, routeProcessId)
+    })
   } catch (error) {
-    qaRegulationProjectStatusLoadError.value = `QA 规程配置状态加载失败：${resolveDccProjectCodeErrorMessage(error)}`
+    if (loadSerial === qaRouteScopeLoadSerial) {
+      resetFormalQaRouteScopeFields()
+      qaRouteScopeLoadError.value = `工艺路线范围加载失败：${resolveDccProjectCodeErrorMessage(error)}`
+    }
   } finally {
-    qaRegulationProjectStatusesLoading.value = false
+    if (loadSerial === qaRouteScopeLoadSerial) {
+      qaRouteScopeLoading.value = false
+    }
   }
 }
+
+const qaFormalRouteScopeReady = computed(
+  () =>
+    Boolean(
+      qaRegulationDraft.routeId &&
+        qaRegulationDraft.routeName.trim() &&
+        qaRegulationDraft.routeVersionId &&
+        qaRegulationDraft.routeVersionName.trim() &&
+        qaRegulationDraft.routeProcessId &&
+        qaRegulationDraft.processId &&
+        qaRegulationDraft.routeProcessName.trim()
+    )
+)
+
+const qaRouteScopeRows = computed<QaRouteScopeRow[]>(() => [
+  {
+    key: 'route',
+    label: '工艺路线来源',
+    value: qaRegulationDraft.routeName
+  },
+  {
+    key: 'version',
+    label: '路线版本',
+    value: qaRegulationDraft.routeVersionName
+  },
+  {
+    key: 'process',
+    label: '质检工序',
+    value: qaRegulationDraft.routeProcessName
+  },
+  {
+    key: 'batch-record',
+    label: '正式批记录表单',
+    value: qaRegulationDraft.batchRecordBinding || '工艺路线未配置正式批记录表单'
+  },
+  {
+    key: 'sop',
+    label: 'SOP/工艺要求',
+    value: qaRegulationDraft.sopName || '工艺路线未提供 SOP/工艺要求'
+  }
+])
 
 const loadDccProjectCodeOptions = async (keyword = '') => {
   dccProjectCodeOptionsLoading.value = true
   dccProjectCodeLoadError.value = ''
-  qaRegulationProjectStatusLoadError.value = ''
   try {
     const data = await getProjectCodePage({
       pageNo: 1,
@@ -1418,12 +1349,10 @@ const loadDccProjectCodeOptions = async (keyword = '') => {
       options.unshift(selectedProject)
     }
     dccProjectCodeOptions.value = options
-    await loadQaRegulationProjectStatuses(options)
   } catch (error) {
     dccProjectCodeOptions.value = selectedDccProjectCode.value
       ? [selectedDccProjectCode.value]
       : []
-    qaRegulationProjectStatusMap.value = {}
     dccProjectCodeLoadError.value = `DCC 项目代码加载失败：${resolveDccProjectCodeErrorMessage(error)}`
   } finally {
     dccProjectCodeOptionsLoading.value = false
@@ -1447,6 +1376,10 @@ const handleDccProjectCodeVisibleChange = (visible: boolean) => {
 const applyDccProjectToQaDraft = (project?: DccProjectCodeRespVO) => {
   selectedDccProjectCode.value = project
   if (!project) {
+    qaRouteScopeLoadSerial += 1
+    qaRouteScopeLoading.value = false
+    qaRouteScopeLoadError.value = ''
+    resetFormalQaRouteScopeFields()
     Object.assign(qaRegulationDraft, createEmptyQaRegulationDraft())
     qaRegulationItems.value = []
     return
@@ -1464,10 +1397,7 @@ const applyDccProjectToQaDraft = (project?: DccProjectCodeRespVO) => {
   qaRegulationItems.value =
     projectCode === PRESSURE_PUMP_PROJECT_CODE ? createPressurePumpQaRegulationItems() : []
   qaItemsQuery.pageNo = 1
-}
-
-const selectDccProjectForConfiguration = (project: DccProjectCodeRespVO) => {
-  applyDccProjectToQaDraft(project)
+  void loadQaRouteScopeFromProject(project)
 }
 
 const handleDccProjectCodeChange = (projectId?: number) => {
@@ -1512,9 +1442,7 @@ const qaRegulationCompletenessChecks = computed(() => {
       selectedDccProjectCode.value.productMasterId &&
       qaRegulationDraft.productName.trim()
   )
-  const processScopeReady = Boolean(
-    qaRegulationDraft.routeVersionName.trim() && qaRegulationDraft.routeProcessName.trim()
-  )
+  const processScopeReady = qaFormalRouteScopeReady.value
   const versionReady = Boolean(
     qaRegulationDraft.regulationCode.trim() &&
       qaRegulationDraft.regulationName.trim() &&
@@ -1565,7 +1493,9 @@ const qaRegulationCompletenessChecks = computed(() => {
       key: 'scope',
       label: '路线/工序范围',
       passed: processScopeReady,
-      detail: processScopeReady ? '已指定路线版本和路线工序' : '需补齐路线版本和路线工序'
+      detail: processScopeReady
+        ? '已从产品当前工艺路线绑定带出路线版本和质检工序'
+        : qaRouteScopeLoadError.value || '需先从正式工艺路线绑定带出路线版本和质检工序'
     },
     {
       key: 'version',
@@ -1723,6 +1653,10 @@ const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO | undef
     ElMessage.warning('当前 DCC 项目代码未绑定 MDM 产品，不能保存 QA 规程。')
     return undefined
   }
+  if (!qaFormalRouteScopeReady.value) {
+    ElMessage.warning(qaRouteScopeLoadError.value || '当前产品未加载到正式工艺路线/工序范围，不能保存 QA 规程。')
+    return undefined
+  }
   const finalRule = qaInspectionTypeRules.find((rule) => rule.key === 'FINAL')
   const finalInspectionApplicable = Boolean(finalRule?.required)
   const finalInspectionNotApplicableReason =
@@ -1757,10 +1691,6 @@ const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO | undef
   }
 }
 
-const refreshQaRegulationProjectStatusesForCurrentOptions = async () => {
-  await loadQaRegulationProjectStatuses(dccProjectCodeOptions.value)
-}
-
 const previewQaRegulationDraft = async () => {
   const payload = buildQaRegulationSavePayload()
   if (!payload) {
@@ -1771,7 +1701,6 @@ const previewQaRegulationDraft = async () => {
     const result = await QcTemplateApi.saveQaRegulationDraft(payload)
     qaRegulationDraft.lifecycleStatus = result.lifecycleStatus
     ElMessage.success(`QA 规程草稿已保存：${result.versionNo}`)
-    await refreshQaRegulationProjectStatusesForCurrentOptions()
   } catch (error) {
     ElMessage.error(`QA 规程草稿保存失败：${resolveDccProjectCodeErrorMessage(error)}`)
   } finally {
@@ -1797,7 +1726,6 @@ const runQaPublishPrecheck = async () => {
     const result = await QcTemplateApi.publishQaRegulation(payload)
     qaRegulationDraft.lifecycleStatus = 'PUBLISHED'
     ElMessage.success(`QA 规程已发布为不可变版本：${result.versionNo}`)
-    await refreshQaRegulationProjectStatusesForCurrentOptions()
   } catch (error) {
     ElMessage.error(`QA 规程发布失败：${resolveDccProjectCodeErrorMessage(error)}`)
   } finally {
@@ -1853,84 +1781,47 @@ const runQaPublishPrecheck = async () => {
   justify-self: flex-start;
 }
 
+.qa-regulation-page__route-scope {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.qa-regulation-page__scope-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.qa-regulation-page__scope-row {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.qa-regulation-page__scope-label {
+  color: #667085;
+  font-size: 12px;
+}
+
+.qa-regulation-page__scope-value {
+  overflow: hidden;
+  color: #172033;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .qa-regulation-page__card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   font-weight: 700;
-}
-
-.qa-regulation-page__config-status {
-  display: grid;
-  gap: 12px;
-  padding-top: 14px;
-  margin-top: 14px;
-  border-top: 1px solid #e4e7ed;
-}
-
-.qa-regulation-page__status-title {
-  color: #172033;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.qa-regulation-page__status-columns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.qa-regulation-page__status-column {
-  min-width: 0;
-  padding: 10px;
-  border: 1px solid #e4e7ed;
-  border-radius: 10px;
-  background: #fbfcfe;
-}
-
-.qa-regulation-page__status-column-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  color: #172033;
-  font-weight: 700;
-}
-
-.qa-regulation-page__project-list {
-  display: grid;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.qa-regulation-page__project-status-row {
-  display: grid;
-  gap: 6px;
-  width: 100%;
-  padding: 10px;
-  color: #172033;
-  text-align: left;
-  cursor: pointer;
-  background: #ffffff;
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
-}
-
-.qa-regulation-page__project-status-row:hover,
-.qa-regulation-page__project-status-row.is-selected {
-  border-color: #409eff;
-  background: #f3f8ff;
-}
-
-.qa-regulation-page__project-code {
-  margin-right: 6px;
-  font-weight: 700;
-}
-
-.qa-regulation-page__project-meta {
-  color: #667085;
-  font-size: 12px;
 }
 
 .qa-regulation-page__rule-tags {
@@ -2013,11 +1904,10 @@ const runQaPublishPrecheck = async () => {
   .qa-regulation-page__layout {
     grid-template-columns: 1fr;
   }
-}
 
-@media (max-width: 760px) {
-  .qa-regulation-page__status-columns {
+  .qa-regulation-page__scope-grid {
     grid-template-columns: 1fr;
   }
 }
+
 </style>

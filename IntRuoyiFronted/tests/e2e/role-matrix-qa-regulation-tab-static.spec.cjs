@@ -24,6 +24,29 @@ const qcTemplateApiSource = fs.readFileSync(qcTemplateApiPath, 'utf8')
 const dccProjectLoaderStart = qaSource.indexOf('const loadDccProjectCodeOptions')
 const dccProjectLoaderEnd = qaSource.indexOf('const retryLoadDccProjectCodes')
 const dccProjectLoaderSource = qaSource.slice(dccProjectLoaderStart, dccProjectLoaderEnd)
+const dccSelectorStart = qaSource.indexOf('<ContentWrap data-qa-regulation-dcc-project>')
+const dccSelectorEnd =
+  dccSelectorStart >= 0 ? qaSource.indexOf('</ContentWrap>', dccSelectorStart) : -1
+const dccSelectorSource =
+  dccSelectorStart >= 0 && dccSelectorEnd > dccSelectorStart
+    ? qaSource.slice(dccSelectorStart, dccSelectorEnd)
+    : ''
+const qaItemsSectionStart = qaSource.indexOf('<ContentWrap v-show="qaActiveTab === \'items\'">')
+const qaItemsSectionEnd =
+  qaItemsSectionStart >= 0
+    ? qaSource.indexOf('<ContentWrap v-show="qaActiveTab === \'verification\'">', qaItemsSectionStart)
+    : -1
+const qaItemsSectionSource =
+  qaItemsSectionStart >= 0 && qaItemsSectionEnd > qaItemsSectionStart
+    ? qaSource.slice(qaItemsSectionStart, qaItemsSectionEnd)
+    : ''
+const qaItemsColumnsStart = qaSource.indexOf('const qaItemsDefaultColumns')
+const qaItemsColumnsEnd =
+  qaItemsColumnsStart >= 0 ? qaSource.indexOf('const qaChecksDefaultColumns', qaItemsColumnsStart) : -1
+const qaItemsColumnsSource =
+  qaItemsColumnsStart >= 0 && qaItemsColumnsEnd > qaItemsColumnsStart
+    ? qaSource.slice(qaItemsColumnsStart, qaItemsColumnsEnd)
+    : ''
 
 assert.match(
   routeSource,
@@ -84,14 +107,9 @@ assert.match(
   'The selected DCC project must drive the displayed product scope.'
 )
 assert.match(
-  qaSource,
-  /data-qa-regulation-config-status/,
-  'Standalone QA page must expose a DCC project QA configuration status summary.'
-)
-assert.match(
   qcTemplateApiSource,
   /getQaRegulationProjectStatuses[\s\S]*\/mes\/qa\/inspection-regulation\/project-statuses/,
-  'Frontend must call the formal QA regulation project-statuses API.'
+  'The API wrapper must retain the formal QA regulation project-statuses endpoint for non-selector uses.'
 )
 assert.match(
   qcTemplateApiSource,
@@ -104,9 +122,19 @@ assert.match(
   'Frontend must call the formal QA regulation publish API.'
 )
 assert.match(
-  qaSource,
-  /getQaRegulationProjectStatuses[\s\S]*qaRegulationProjectStatusMap/,
-  'Standalone QA page must derive configured/unconfigured groups from backend QA regulation status.'
+  dccSelectorSource,
+  /<ContentWrap[^>]*data-qa-regulation-dcc-project[\s\S]*<el-form[\s\S]*<el-form-item\s+label="DCC 项目代码"\s+required[\s\S]*<el-select/,
+  'QA project selector area must only keep the required DCC project code select row.'
+)
+assert.equal(
+  (dccSelectorSource.match(/<el-form-item\b/g) || []).length,
+  1,
+  'QA project selector area must only render one form row.'
+)
+assert.doesNotMatch(
+  dccSelectorSource,
+  /<el-descriptions|el-tag|data-qa-regulation-config-status|配置状态总览|当前加载范围|已配置 QA 规程|待配置 QA 规程|产品名称由 DCC 项目代码带出/,
+  'QA project selector area must not render status, summary, tags, descriptions, or helper details.'
 )
 assert.match(
   qaSource,
@@ -120,38 +148,48 @@ assert.match(
 )
 assert.match(
   qaSource,
-  /v-if="\s*!dccProjectCodeLoadError\s*&&\s*!dccProjectCodeOptionsLoading\s*&&\s*!qaRegulationProjectStatusesLoading\s*&&\s*!qaRegulationProjectStatusLoadError\s*"[\s\S]*data-qa-regulation-config-status/,
-  'The QA configuration status summary must not report zero projects while DCC or QA status data is loading or failed.'
+  /ProRouteProductApi[\s\S]*getRouteProductByItem[\s\S]*ProRouteApi[\s\S]*getRoute[\s\S]*getRouteVersion[\s\S]*ProRouteProcessApi[\s\S]*getRouteProcessListByRoute[\s\S]*ProRouteFlowConfigApi[\s\S]*getProcessConfigList/,
+  'QA route scope must be loaded from the formal product route binding, active route version, route process, and route flow-config APIs.'
 )
 assert.match(
   qaSource,
-  /data-qa-regulation-status-load-error[\s\S]*qaRegulationProjectStatusLoadError/,
-  'QA regulation status loading failures must remain visible and retryable.'
+  /loadQaRouteScopeFromProject[\s\S]*resolveDccProjectProductId[\s\S]*getRouteProductByItem[\s\S]*applyFormalQaRouteScope/,
+  'Selecting a DCC project must automatically apply the formal route scope instead of asking QA to type route fields.'
 )
 assert.match(
   qaSource,
-  /data-qa-regulation-configured-projects/,
-  'Standalone QA page must list DCC projects that already have a QA regulation configured.'
+  /resolveQaRouteProcessFromRoute[\s\S]*checkFlag[\s\S]*throw new Error/,
+  'QA route scope must fail fast when the route does not expose one unambiguous formal QA/check process.'
 )
 assert.match(
   qaSource,
-  /data-qa-regulation-unconfigured-projects/,
-  'Standalone QA page must list DCC projects that still need QA regulation configuration.'
+  /data-qa-regulation-route-scope-auto[\s\S]*data-qa-regulation-route-scope-error[\s\S]*qaRouteScopeLoadError/,
+  'Formal route scope loading failures must be visible on the QA page.'
+)
+assert.doesNotMatch(
+  qaSource,
+  /<el-input(?:-number)?[\s\S]{0,160}v-model="qaRegulationDraft\.(routeName|routeVersionName|routeProcessName|routeId|routeVersionId|routeProcessId|processId|sopName|productionFactor|sampleOrderQuantity|batchRecordBinding)"/,
+  'QA users must not manually edit route/process IDs, route name/version/process, SOP, production factor, example quantity, or batch-record binding in the yellow-box area.'
 )
 assert.match(
   qaSource,
-  /configuredDccProjectCodes[\s\S]*unconfiguredDccProjectCodes/,
-  'Standalone QA page must split loaded DCC projects into configured and unconfigured groups.'
-)
-assert.match(
-  qaSource,
-  /selectDccProjectForConfiguration[\s\S]*applyDccProjectToQaDraft/,
-  'Configuration status rows must let QA enter the selected project configuration.'
+  /v-if="selectedDccProjectCode"[\s\S]*data-qa-regulation-tabs/,
+  'QA tabs and regulation content must be hidden until a DCC project is selected.'
 )
 assert.doesNotMatch(
   qaSource,
   /QA_CONFIGURED_PROJECT_CODE_SET|hasQaRegulationTemplate\s*=\s*\(project/,
   'Standalone QA page must not hardcode configured QA projects after the formal backend status API exists.'
+)
+assert.doesNotMatch(
+  qaSource,
+  /data-qa-regulation-config-status|data-qa-regulation-configured-projects|data-qa-regulation-unconfigured-projects|configuredDccProjectCodes|unconfiguredDccProjectCodes|selectDccProjectForConfiguration|loadQaRegulationProjectStatuses|qaRegulationProjectStatusMap|qaRegulationProjectStatusLoadError|QaInspectionRegulationProjectStatusVO/,
+  'QA page must not load or display the old configured/unconfigured project status lists after the selector-only requirement.'
+)
+assert.doesNotMatch(
+  qaSource,
+  /<el-descriptions|配置状态总览|当前加载范围|已配置 QA 规程|待配置 QA 规程|产品名称由 DCC 项目代码带出/,
+  'QA project selector area must not render project details, status summary, or old helper text.'
 )
 assert.doesNotMatch(
   qaSource,
@@ -182,7 +220,7 @@ for (const requiredTab of [
 }
 for (const requiredTableKey of [
   'mes.qa.regulation.rules',
-  'mes.qa.regulation.items',
+  'mes.qa.regulation.items.processMethods',
   'mes.qa.regulation.checks',
   'mes.qa.regulation.pqcPreview'
 ]) {
@@ -192,6 +230,54 @@ for (const requiredTableKey of [
     `Standalone QA page must render standard list template ${requiredTableKey}.`
   )
 }
+assert.match(
+  qaItemsSectionSource,
+  /<span>工序检验方法与抽样方案<\/span>/,
+  'Inspection items tab title must state process inspection methods and sampling plans.'
+)
+for (const requiredInspectionItemColumn of [
+  '工序',
+  '检验项目',
+  '接受标准',
+  '检验方法',
+  '检验器具及设备',
+  '抽样方案'
+]) {
+  assert.match(
+    qaItemsSectionSource,
+    new RegExp(`label="${requiredInspectionItemColumn}"`),
+    `Inspection item table must expose the business column ${requiredInspectionItemColumn}.`
+  )
+}
+assert.match(
+  qaItemsSectionSource,
+  /formatQaItemProcessName\(row\)/,
+  'Inspection item rows must display the formal route process for each method row.'
+)
+assert.match(
+  qaItemsSectionSource,
+  /formatQaItemSamplingPlan\(row\)/,
+  'Inspection item rows must display a sampling plan derived from the item applicable inspection rules.'
+)
+for (const requiredInspectionItemColumnKey of [
+  'routeProcessName',
+  'itemName',
+  'standardText',
+  'inspectionMethod',
+  'inspectionTool',
+  'samplingPlan'
+]) {
+  assert.match(
+    qaItemsColumnsSource,
+    new RegExp(`key:\\s*'${requiredInspectionItemColumnKey}'`),
+    `Inspection item column defaults must include ${requiredInspectionItemColumnKey}.`
+  )
+}
+assert.doesNotMatch(
+  qaItemsSectionSource,
+  /label="项目编码"|label="适用类型"|label="方法"|label="工具"|label="标准"/,
+  'Inspection item default table must not keep the old flat project/method/tool/standard labels.'
+)
 assert.doesNotMatch(
   qaSource,
   /正式保存\/发布接口未接入|未写入后台|data-qa-regulation-api-blocker/,
@@ -208,10 +294,6 @@ for (const requiredText of [
   '过程检验规程',
   'QA 按 DCC 项目代码维护产品规程',
   '请选择 DCC 项目代码',
-  '产品名称由 DCC 项目代码带出',
-  '已配置 QA 规程',
-  '待配置 QA 规程',
-  '当前加载范围',
   'DCC 项目代码加载失败',
   '正式保存/发布接口已接入',
   '保存草稿',
@@ -220,21 +302,23 @@ for (const requiredText of [
   '检验规则',
   '检验项目',
   '发布检查',
-  '路线 ID',
-  '路线版本 ID',
-  '路线工序 ID',
-  '工序 ID'
+  '工艺路线来源',
+  '正式批记录表单'
 ]) {
   assert.match(qaSource, new RegExp(requiredText), `Standalone QA page must include ${requiredText}.`)
+}
+for (const forbiddenScopeText of ['路线 ID', '路线版本 ID', '路线工序 ID', '工序 ID', '示例订单数']) {
+  assert.doesNotMatch(
+    qaSource,
+    new RegExp(`label="${forbiddenScopeText}"|>${forbiddenScopeText}<|${forbiddenScopeText}：`),
+    `QA applicable scope must not expose ${forbiddenScopeText} as a manual setup field.`
+  )
 }
 
 for (const requiredSelector of [
   'data-qa-regulation-tabs',
   'data-qa-regulation-scope',
   'data-qa-regulation-dcc-project',
-  'data-qa-regulation-config-status',
-  'data-qa-regulation-configured-projects',
-  'data-qa-regulation-unconfigured-projects',
   'data-qa-regulation-inspection-rules',
   'data-qa-regulation-items',
   'data-qa-regulation-original-excerpt',

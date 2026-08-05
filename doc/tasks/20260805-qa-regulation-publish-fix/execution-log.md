@@ -4,6 +4,7 @@
 
 - 用户要求“进行修复”，针对 `AC-M09 | QA | 维护检验规程` 当前不符合项，补齐正式维护、发布、不可变版本和发布失败校验链路。
 - 用户反馈当前 QA 页面一次性展示内容过多，希望 QA 页面通过 Tab + 标准列表模板形式展示；本次限定为前端 QA 页面信息架构与标准列表模板改造，不修改后端保存/发布接口。
+- 用户补充截图口径：QA 项目选择区只显示 `DCC 项目代码` 下拉选择框；选择项目后再显示对应的适用范围、检验规则、检验项目和发布检查，不再显示之前的已配置项和未配置项。
 
 ## Baseline
 
@@ -23,6 +24,8 @@
 - BDD: QA 页面默认聚焦总览 -> Given QA 用户进入独立 QA 规程配置页 When 页面加载 Then 默认只展示总览页签中的 DCC 项目范围和适用范围，规则、项目、发布检查和 PQC 预览不再首屏一次性直铺。
 - BDD: QA 规则和项目标准列表化 -> Given QA 用户切换到检验规则或检验项目页签 When 查看和编辑列表 Then 内容通过 `UnifiedListTemplate` 承载，并保留原规则编辑、项目新增、项目删除和原文依据选择器。
 - BDD: QA 发布检查标准列表化 -> Given QA 用户切换到发布检查页签 When 查看完整性检查和 PQC 任务预览 Then 完整性检查与 PQC 预览通过 `UnifiedListTemplate` 分区展示，保存草稿和发布规程操作仍在发布检查页签内可见。
+- BDD: QA 项目选择区只保留下拉框 -> Given QA 用户进入页面 When 尚未选择 DCC 项目代码 Then 项目选择区只显示必填的 DCC 项目代码下拉框，不显示项目详情、配置状态、已配置列表或待配置列表。
+- BDD: QA 内容选中后展示 -> Given QA 用户选择一个 DCC 项目代码 When 项目选择成功 Then 页面显示 Tab，并可查看该项目对应的适用范围、检验规则、检验项目和发布检查。
 
 ## RED / GREEN Evidence
 
@@ -39,10 +42,15 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md` -> PASS，frontend feature evidence 有效。
 - GREEN: QA 页面专属排序接线断言 -> PASS，输出 `PASS QA standard list sort wiring`。
 - REGRESSION: `node tests\e2e\unified-list-template-all-headers-sortable-static.spec.js` -> FAIL，失败清单为大量既有页面缺少排序 helper 接线；QA 页面聚焦扫描已显示四个新增列表均接入 `sortColumnAttrs` 与 `handleTemplateSortChange`，该全局历史失败不作为本次完成门禁。
+- RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，选择区仍保留旧项目详情/配置状态结构时，断言 "QA project selector area must only keep the required DCC project code select row." 失败。
+- GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 项目选择区只保留 1 个必填 `DCC 项目代码` 下拉框，Tab 和内容通过 `v-if="selectedDccProjectCode"` 在选中后展示，并禁止旧已配置/待配置状态列表。
+- GREEN: `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js` -> PASS，选择区收窄后标准列表模板系统契约仍通过。
+- GREEN: `pnpm ts:check` -> PASS，选择区收窄与旧状态逻辑删除后 Vue/TypeScript 类型检查通过。
 
 ## Experience Consolidation
 
 - `docs/frontend-development.md` -> UPDATED，合并 QA 新增 4 个 `UnifiedListTemplate` 后标准列表系统接入点 88、显式隐藏筛选 14 的长期门禁证据。
+- `project-experience-consolidation` -> REVIEWED，本次截图口径属于 QA 页面局部信息架构变更，已由任务静态契约锁定“选择区只保留一个必填下拉框、禁止旧状态列表”；未发现需要新增长期经验文档的通用门禁。
 
 ## Verification Evidence
 
@@ -53,10 +61,8 @@
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md`：PASS，输出 `Frontend feature evidence is valid.`。
 - `git diff --check -- <AC-M09 实现文件>`：PASS，无 whitespace error，仅有 Git CRLF 工作区提示。
 - 目标 JUnit 未通过环境门禁：主工作区持续存在非本任务 Maven 测试进程，导致 `target/classes` 缺失和后续专属 JUnit 超时；按规则未强停他人任务。
-- 前端全量类型检查未通过环境门禁：`pnpm ts:check` 超时；静态契约已覆盖本次 QA 保存/发布 API 接入的可观察行为。
 
 ## Blockers
 
 - 当前共享工作区仍有并发源码、测试和文档写入，后续提交需选择性暂存本任务文件。
 - 后端目标 JUnit 需要在没有其它 `E:\IntRuoyi\IntRuoyiBackend` Maven 进程写入 `yudao-module-mes/target` 时复跑。
-- 前端 `pnpm ts:check` 需要在资源稳定时复跑；本次超时不能记录为 PASS。

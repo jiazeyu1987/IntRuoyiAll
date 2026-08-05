@@ -10,6 +10,7 @@
 - [x] 增加后端发布完整性、冲突、已发布版本不可修改的 fail-fast 校验。
 - [x] 接入前端 QA 规程页面正式保存草稿和发布调用，移除“未写入后台”的阻断提示。
 - [x] 将 QA 页面改为 Tab 分区，并用 `UnifiedListTemplate` 承载规则、项目、检查和 PQC 预览列表。
+- [x] 收窄 QA 项目选择区，只保留 DCC 项目代码下拉框，选中后再展示适用范围、检验规则、检验项目和发布检查。
 - [ ] 补齐后端 JUnit 与前端静态契约 RED/GREEN 验证。
 - [x] 记录验证、收尾和剩余阻塞。
 
@@ -24,7 +25,7 @@
 
 ## Current Status
 
-blocked：QA 页面 Tab + 标准列表模板改造已完成，聚焦静态契约、标准列表数量契约、`pnpm ts:check`、frontend evidence validator 和 diff check 均通过；原 AC-M09 后端目标 JUnit 仍沿用共享 Maven target 阻塞记录，当前未提交、未推送，不标记 completed。
+blocked：QA 项目选择区已收窄为单一必填 DCC 项目代码下拉框，并在选中项目后才展示 Tab、适用范围、检验规则、检验项目和发布检查；完整 AC-M09 后端目标 JUnit 仍受共享 Maven target 阻塞，暂不标记 completed。
 
 ## Baseline Commits
 
