@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS `mes_qa_inspection_regulation_version` (
     `lifecycle_status` varchar(32) NOT NULL COMMENT '生命周期：DRAFT/PUBLISHED/RETIRED',
     `published_at` datetime DEFAULT NULL COMMENT '发布时间',
     `retired_at` datetime DEFAULT NULL COMMENT '作废时间',
+    `final_inspection_applicable` bit(1) DEFAULT NULL COMMENT '末检是否适用',
+    `final_inspection_not_applicable_reason` varchar(512) DEFAULT NULL COMMENT '末检不适用依据',
     `snapshot_json` longtext NOT NULL COMMENT '发布快照JSON',
     `creator` varchar(64) DEFAULT '' COMMENT '创建者',
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

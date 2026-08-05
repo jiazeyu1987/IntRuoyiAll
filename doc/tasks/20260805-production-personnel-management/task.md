@@ -12,7 +12,7 @@
 - [x] M3：前端标准列表页签与生产填写员工卡片集成 TDD。
 - [x] M4：定向后端、前端、迁移和 evidence validator 验证。
 - [x] M5：真实 Playwright E2E 验收，使用 worktree slot 1 的 `8082/48082` 成对运行态通过。
-- [ ] M6：收尾、经验沉淀、cleanup、提交并推送当前分支；cleanup 已完成，等待提交/推送，主 worktree 合并与 worktree 删除因外部状态阻塞。
+- [ ] M6：收尾、经验沉淀、cleanup、提交并推送当前分支；cleanup 与初始分支推送已完成，最新 `origin/int_main` 合入冲突已解决且关键验证通过；主 worktree 合并与 worktree 删除仍受外部 dirty 状态阻塞。
 
 ## Expected Verification
 
@@ -21,14 +21,15 @@
 - 前端：任务专用静态合同覆盖 `UnifiedListTemplate`、安全搜索下拉、临时工密码表单、审计入口、员工卡片候选接口。
 - E2E：Playwright 真实页面路径覆盖新增临时工、选择正式工、重名拦截、禁用后不进新报工选择、历史快照保留、审计记录可见。
 - 收尾：`git diff --check`、技能 evidence validator、branch runtime guard、提交和 `git push origin codex/20260805-production-personnel-management`。
+- 合并同步：合入最新 `origin/int_main` 后解决冲突、复跑关键定向验证、推送同步后的功能分支，确保 `int_main` 可在主 worktree 干净后 fast-forward 到该分支。
 
 ## Current Status
 
 ready_for_closeout
 
-实现、后端定向测试、前端静态合同、前端类型检查、脚本语法检查、真实 Playwright E2E、`git diff --check`、四个 evidence validator、经验沉淀和 task-closeout cleanup 已完成。当前仅剩 cleanup 记录提交、分支推送；自动合并/删除 worktree 因主 worktree 外部状态阻塞。
+实现、后端定向测试、前端静态合同、前端类型检查、脚本语法检查、真实 Playwright E2E、`git diff --check`、四个 evidence validator、经验沉淀和 task-closeout cleanup 已完成。`origin/int_main` 合入冲突已解决，并通过 branch runtime guard、生产人员前端静态合同、前端类型检查、后端 30 个定向 JUnit 和 diff check；自动合并/删除 worktree 因主 worktree 外部脏改动仍阻塞。
 
-当前 closeout blocker：`E:\IntRuoyi` 主 worktree dirty，且当前分支不能 fast-forward merge 到 `int_main`；未修改主 worktree，未删除当前 worktree。
+当前 closeout blocker：`E:\IntRuoyi` 主 worktree dirty；未修改主 worktree，未删除当前 worktree。
 
 ## Applicable Gates
 
@@ -38,6 +39,12 @@ ready_for_closeout
 - 标准列表：员工管理列表必须使用 `UnifiedListTemplate`，不能暴露全系统用户列表。
 - Element Plus 下拉：正式工新增通过输入下拉远程搜索，必须等待并选择真实可见选项，不能用数组下标或隐藏值。
 - 无 fallback：不得创建临时系统账号、不得返回全量用户再前端过滤、不得用空候选/默认成功掩盖权限或数据缺口。
+
+## Worktree
+
+- Path: `D:\IntRuoyiWorktree\20260805-production-personnel-management`
+- Branch: `codex/20260805-production-personnel-management`
+- Runtime slot used for verified E2E: `int_main` slot `1`，frontend `8082`，backend `48082`。
 
 ## 设计约束检查
 

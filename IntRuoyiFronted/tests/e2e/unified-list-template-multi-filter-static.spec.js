@@ -22,11 +22,76 @@ assert.match(unifiedListTemplateSource, /import TableMultiFilter from '@\/compon
 assert.match(unifiedListTemplateSource, /showMultiFilter/, '标准列表模板必须提供多维度筛选开关。')
 assert.match(unifiedListTemplateSource, /multiFilterDefinitions/, '标准列表模板必须接收多维度筛选定义。')
 assert.match(unifiedListTemplateSource, /multiFilterState/, '标准列表模板必须接收多维度筛选状态。')
-assert.match(unifiedListTemplateSource, /<TableMultiFilter[\s\S]*:filter-definitions="multiFilterDefinitions"/, '标准列表模板必须把筛选定义传入多维度筛选组件。')
-assert.match(unifiedListTemplateSource, /@update:state="\$emit\('update:multiFilterState', \$event\)"/, '标准列表模板必须透传多维度筛选状态更新。')
-assert.match(unifiedListTemplateSource, /@query="\$emit\('multi-filter-query'\)"/, '标准列表模板必须透传多维度查询事件。')
-assert.match(unifiedListTemplateSource, /@reset="\$emit\('multi-filter-reset'\)"/, '标准列表模板必须透传多维度重置事件。')
-assert.match(unifiedListTemplateSource, /@remove="\$emit\('multi-filter-remove', \$event\)"/, '标准列表模板必须透传单项筛选清除事件。')
+assert.doesNotMatch(
+  unifiedListTemplateSource,
+  /<TableQuickFilter[\s\S]*?<\/TableQuickFilter>/,
+  '标准列表模板不得再渲染旧快速筛选组件，默认筛选必须复用条件 Tab。'
+)
+assert.match(
+  unifiedListTemplateSource,
+  /<TableMultiFilter[\s\S]*:filter-definitions="resolvedStandardFilterDefinitions"[\s\S]*:state="resolvedStandardFilterState"/,
+  '标准列表模板必须通过统一解析后的定义和状态渲染多维条件 Tab。'
+)
+assert.match(
+  unifiedListTemplateSource,
+  /const quickDefinitionsAsMultiFilterDefinitions = computed<ListMultiFilterDefinition\[\]>/,
+  '标准列表模板必须把历史快速筛选定义转换成条件 Tab 定义。'
+)
+assert.match(
+  unifiedListTemplateSource,
+  /const shouldRenderStandardConditionFilter = computed\(\(\) => \{[\s\S]*props\.showMultiFilter === true[\s\S]*props\.showQuickFilter !== false/,
+  '标准列表模板必须统一判断显式多维筛选和默认快速筛选是否展示条件 Tab。'
+)
+assert.match(
+  unifiedListTemplateSource,
+  /const resolvedStandardFilterDefinitions = computed\(\(\) =>[\s\S]*props\.showMultiFilter === true[\s\S]*props\.multiFilterDefinitions[\s\S]*quickDefinitionsAsMultiFilterDefinitions\.value/,
+  '显式多维筛选必须继续使用页面提供的 multiFilterDefinitions，默认列表必须复用 quick filter definitions。'
+)
+assert.match(
+  unifiedListTemplateSource,
+  /const resolvedStandardFilterState = computed\(\(\) =>[\s\S]*props\.showMultiFilter === true[\s\S]*resolvedMultiFilterState\.value[\s\S]*resolvedQuickFilterStateAsMultiFilter\.value/,
+  '标准列表模板必须按筛选模式选择多维状态或快速筛选桥接状态。'
+)
+assert.match(
+  unifiedListTemplateSource,
+  /@update:state="handleStandardFilterStateUpdate"/,
+  '标准列表模板必须通过统一处理函数分发筛选状态更新。'
+)
+assert.match(
+  unifiedListTemplateSource,
+  /@query="handleStandardFilterQuery"/,
+  '标准列表模板必须通过统一处理函数分发查询事件。'
+)
+assert.match(
+  unifiedListTemplateSource,
+  /@reset="handleStandardFilterReset"/,
+  '标准列表模板必须通过统一处理函数分发重置事件。'
+)
+assert.match(
+  unifiedListTemplateSource,
+  /@remove="handleStandardFilterRemove"/,
+  '标准列表模板必须通过统一处理函数分发删除条件事件。'
+)
+assert.match(
+  unifiedListTemplateSource,
+  /const handleStandardFilterStateUpdate = \(state: ListMultiFilterState\) => \{[\s\S]*props\.showMultiFilter === true[\s\S]*emit\('update:multiFilterState', state\)[\s\S]*emit\('update:quickFilterState', toQuickFilterState\(state\)\)/,
+  '显式多维筛选和默认快速筛选桥接必须分别回写各自状态。'
+)
+assert.match(
+  unifiedListTemplateSource,
+  /const handleStandardFilterQuery = \(\) => \{[\s\S]*props\.showMultiFilter === true[\s\S]*emit\('multi-filter-query'\)[\s\S]*emit\('quick-filter-query'\)/,
+  '条件 Tab 查询必须按当前模式分发正式查询事件。'
+)
+assert.match(
+  unifiedListTemplateSource,
+  /const handleStandardFilterReset = async \(\) => \{[\s\S]*props\.showMultiFilter === true[\s\S]*emit\('multi-filter-reset'\)[\s\S]*emit\('update:quickFilterState'[\s\S]*conditions: \[\][\s\S]*emit\('quick-filter-query'\)/,
+  '条件 Tab 重置必须支持显式多维重置，并让默认列表回到无筛选条件后查询。'
+)
+assert.match(
+  unifiedListTemplateSource,
+  /const handleStandardFilterRemove = \(conditionId: string\) => \{[\s\S]*props\.showMultiFilter === true[\s\S]*emit\('multi-filter-remove', conditionId\)/,
+  '显式多维筛选删除条件时必须继续透出 multi-filter-remove 事件。'
+)
 assert.match(
   unifiedListTemplateSource,
   /\.unified-list-template__multi-filter\s*\{[\s\S]*flex:\s*1 1 100%;[\s\S]*min-width:\s*min\(720px,\s*100%\);/,

@@ -16,6 +16,7 @@ import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_SELF_FORBIDDEN;
@@ -64,6 +65,10 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
         if (existingReview != null) {
             throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS,
                     reqBO.getEventId(), existingReview.getReviewStatus());
+        }
+        if (MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(reqBO.getReviewStatus())
+                && MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
+            throw exception(PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED, reqBO.getEventId());
         }
         MesProcessPoolSubmissionReviewDO review = MesProcessPoolSubmissionReviewDO.builder()
                 .eventId(reqBO.getEventId())

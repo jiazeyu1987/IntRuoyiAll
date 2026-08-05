@@ -120,6 +120,7 @@ import java.util.stream.Collectors;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception0;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_PROCESS_FLOW_INVALID;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FEEDBACK_QUANTITY_EXCEED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_BATCH_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_DELETE_BLOCKED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_FROZEN;
@@ -141,6 +142,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_WORKER_QUANTITY_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_WORK_ORDER_DUPLICATE;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_WORK_ORDER_ERP_SYNC_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_WORK_ORDER_FROZEN;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_WORK_ORDER_NOT_CONFIRMED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_PRODUCTION_QUANTITY_FACTOR_INVALID;
@@ -258,6 +260,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         if (CollUtil.isNotEmpty(scheduleOrderMapper.selectListByWorkOrderIds(List.of(workOrder.getId())))) {
             throw exception(PRO_SCHEDULE_ORDER_WORK_ORDER_DUPLICATE);
         }
+        validateFormalErpSyncIdentity(workOrder);
 
         MesProRouteProductDO routeProduct = routeProductMapper.selectByItemId(workOrder.getProductId());
         if (routeProduct == null) {
@@ -928,6 +931,12 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                     "生产工单已在排产工单池中", "排产员", null);
             return row;
         }
+        if (!hasFormalErpSyncIdentity(syncRecordMapper.selectByWorkOrderId(workOrder.getId()), workOrder.getId())) {
+            applyAdmissionIssue(row, ADMISSION_BLOCKED, PREFLIGHT_BLOCKED, "BLOCKED_ERP_SYNC_RECORD_MISSING",
+                    "生产工单缺少 ERP 正式生产订单同步记录或正式 ID/编号，不能加入排产工单池", "生产计划",
+                    null);
+            return row;
+        }
         AdmissionRouteCheck routeCheck = resolveAdmissionRouteCheck(workOrder, routeCheckCache);
         if (!routeCheck.routeReady()) {
             if (routeCheck.warnOnly()) {
@@ -1209,11 +1218,11 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                                       List<MesProScheduleOrderPreflightIssueRespVO> issues) {
         MesKingdeeProductionOrderSyncRecordDO syncRecord = scheduleOrder.getWorkOrderId() == null
                 ? null : syncRecordMapper.selectByWorkOrderId(scheduleOrder.getWorkOrderId());
-        if (syncRecord != null) {
+        if (hasFormalErpSyncIdentity(syncRecord, scheduleOrder.getWorkOrderId())) {
             return;
         }
         issues.add(buildPreflightIssue(scheduleOrder, null, "WARN_ERP_SYNC_RECORD_MISSING", PREFLIGHT_WARN,
-                "ERP_SYNC", scheduleOrder.getWorkOrderId(), "未找到生产工单的 ERP 同步记录，排产可预览但需确认来源单据",
+                "ERP_SYNC", scheduleOrder.getWorkOrderId(), "未找到生产工单的 ERP 正式同步记录或正式 ID/编号，排产可预览但需确认来源单据",
                 "生产计划", workOrderAction(scheduleOrder, "查看生产工单")));
     }
 
@@ -1962,10 +1971,23 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
             throw exception(PRO_SCHEDULE_ORDER_WORK_ORDER_FROZEN);
         }
         Integer status = workOrder.getStatus();
-        if (ObjUtil.equal(status, MesProWorkOrderStatusEnum.FINISHED.getStatus())
-                || ObjUtil.equal(status, MesProWorkOrderStatusEnum.CANCELED.getStatus())) {
+        if (!ObjUtil.equal(status, MesProWorkOrderStatusEnum.CONFIRMED.getStatus())) {
             throw exception(PRO_SCHEDULE_ORDER_WORK_ORDER_NOT_CONFIRMED);
         }
+    }
+
+    private void validateFormalErpSyncIdentity(MesProWorkOrderDO workOrder) {
+        MesKingdeeProductionOrderSyncRecordDO syncRecord = syncRecordMapper.selectByWorkOrderId(workOrder.getId());
+        if (!hasFormalErpSyncIdentity(syncRecord, workOrder.getId())) {
+            throw exception(PRO_SCHEDULE_ORDER_WORK_ORDER_ERP_SYNC_REQUIRED);
+        }
+    }
+
+    private boolean hasFormalErpSyncIdentity(MesKingdeeProductionOrderSyncRecordDO syncRecord, Long workOrderId) {
+        return syncRecord != null
+                && Objects.equals(syncRecord.getWorkOrderId(), workOrderId)
+                && StrUtil.isNotBlank(syncRecord.getSourceFid())
+                && StrUtil.isNotBlank(syncRecord.getSourceBillNo());
     }
 
     private MesProScheduleOrderDO validateScheduleOrderExists(Long scheduleOrderId) {
@@ -2098,14 +2120,14 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
             return new ProgressSummary(totalQuantity, BigDecimal.ZERO.setScale(6), totalQuantity,
                     BigDecimal.ZERO.setScale(6));
         }
-        BigDecimal processUnitQuantity = normalizeQuantity(scheduleOrderQuantity);
-        if (processUnitQuantity.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalStateException("排产工单数量必须大于 0，无法计算整单进度");
-        }
         BigDecimal totalQuantity = BigDecimal.ZERO.setScale(6);
         BigDecimal completedQuantity = BigDecimal.ZERO.setScale(6);
         BigDecimal uncompletedQuantity = BigDecimal.ZERO.setScale(6);
         for (MesProScheduleOrderProcessDO process : enabledProcesses) {
+            BigDecimal processUnitQuantity = normalizeQuantity(process.getPlannedQuantity());
+            if (processUnitQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalStateException("排产工单工序目标数量必须大于 0，无法计算整单进度");
+            }
             BigDecimal reportedQuantity = normalizeQuantity(process.getReportedQuantity());
             BigDecimal effectiveCompletedQuantity = reportedQuantity.min(processUnitQuantity).setScale(6);
             totalQuantity = totalQuantity.add(processUnitQuantity).setScale(6);
@@ -2308,6 +2330,9 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         for (MesProScheduleOrderProcessDO process : processes) {
             BigDecimal plannedQuantity = normalizeQuantity(process.getPlannedQuantity());
             BigDecimal reportedQuantity = completedByProcessId.getOrDefault(process.getId(), BigDecimal.ZERO).setScale(6);
+            if (reportedQuantity.compareTo(plannedQuantity) > 0) {
+                throw exception(PRO_FEEDBACK_QUANTITY_EXCEED);
+            }
             BigDecimal remainingQuantity = plannedQuantity.subtract(reportedQuantity).max(BigDecimal.ZERO).setScale(6);
             BigDecimal overReportedQuantity = reportedQuantity.subtract(plannedQuantity).max(BigDecimal.ZERO).setScale(6);
             process.setReportedQuantity(reportedQuantity);
@@ -2495,7 +2520,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     private BigDecimal resolveProductionQuantityFactor(MesProRouteProcessDO routeProcess,
                                                        MesProRouteFlowProcessConfigDO scheduleRouteFlowConfig) {
         if (scheduleRouteFlowConfig == null || scheduleRouteFlowConfig.getProductionQuantityFactor() == null) {
-            return DEFAULT_PRODUCTION_QUANTITY_FACTOR;
+            throw exception(PRO_ROUTE_FLOW_CONFIG_PRODUCTION_QUANTITY_FACTOR_INVALID, routeProcess.getId());
         }
         BigDecimal factor = scheduleRouteFlowConfig.getProductionQuantityFactor();
         if (factor.compareTo(BigDecimal.ZERO) <= 0) {

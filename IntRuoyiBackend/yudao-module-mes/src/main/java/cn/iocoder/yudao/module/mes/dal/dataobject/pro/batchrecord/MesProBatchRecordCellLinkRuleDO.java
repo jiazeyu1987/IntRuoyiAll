@@ -62,6 +62,8 @@ public class MesProBatchRecordCellLinkRuleDO extends BaseDO {
 
     private String targetValueType;
 
+    private String aggregationStrategy;
+
     private String overwritePolicy;
 
     private String templateSnapshotHash;

@@ -170,4 +170,41 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         verify(feedbackService, never()).createFeedback(any());
         verifyNoInteractions(recordbookEntryService, processPoolSubmitEventService);
     }
+
+    @Test
+    void shouldRejectLossQuantityGreaterThanOutputBeforeWritingAnyRecord() {
+        MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        reqVO.getFeedbackPayload()
+                .setOutputQuantity(new BigDecimal("10.000"))
+                .setLossQuantity(new BigDecimal("11.000"));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertThrows(RuntimeException.class, () -> submitService.submit(reqVO));
+        }
+
+        verifyNoInteractions(submitAuthorizationService, feedbackService, recordbookEntryService,
+                processPoolSubmitEventService);
+    }
+
+    @Test
+    void shouldRejectNegativeProductionQuantityBeforeWritingAnyRecord() {
+        MesProFrontlineFeedbackSubmitReqVO negativeOutputReq = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        negativeOutputReq.getFeedbackPayload()
+                .setOutputQuantity(new BigDecimal("-1.000"))
+                .setLossQuantity(BigDecimal.ZERO);
+        MesProFrontlineFeedbackSubmitReqVO negativeLossReq = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        negativeLossReq.getFeedbackPayload()
+                .setOutputQuantity(new BigDecimal("10.000"))
+                .setLossQuantity(new BigDecimal("-0.001"));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertThrows(RuntimeException.class, () -> submitService.submit(negativeOutputReq));
+            assertThrows(RuntimeException.class, () -> submitService.submit(negativeLossReq));
+        }
+
+        verifyNoInteractions(submitAuthorizationService, feedbackService, recordbookEntryService,
+                processPoolSubmitEventService);
+    }
 }

@@ -37,6 +37,7 @@ export interface ApprovalTaskSummaryVO {
   currentNodeCode?: string
   currentNodeName?: string
   initiatorUserId?: number
+  initiatorUserName?: string
   assigneeUserId?: number
   assigneeUserName?: string
   processInstanceId?: string

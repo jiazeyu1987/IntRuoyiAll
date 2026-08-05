@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS `mes_pqc_inspection_task` (
     `round_no` int NOT NULL COMMENT '轮次',
     `planned_inspection_quantity` int NOT NULL COMMENT '计划检验数量',
     `actual_inspection_quantity` int NOT NULL DEFAULT 0 COMMENT '实际检验数量',
-    `task_status` varchar(32) NOT NULL COMMENT '任务状态：PENDING/SUBMITTED/CANCELLED',
+    `task_status` varchar(32) NOT NULL COMMENT '任务状态：PENDING/SUBMITTED/CONFIRMED/CANCELLED',
     `creator` varchar(64) DEFAULT '' COMMENT '创建者',
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updater` varchar(64) DEFAULT '' COMMENT '更新者',

@@ -92,8 +92,12 @@ assert.ok(
   'Apply path must not throw on attributable preview blockers before applying the schedulable remainder.'
 )
 assert.ok(
-  confirmBlock.includes('await confirmSkippedSelectedReplanRows(freshPreview)'),
-  'Apply path must still explicitly confirm selected rows skipped by blockers before applying the remainder.'
+  confirmBlock.includes('notifySkippedSelectedReplanRows(freshPreview)'),
+  'Apply path must notify selected rows skipped by blockers without blocking the schedulable remainder.'
+)
+assert.ok(
+  !confirmBlock.includes('await confirmSkippedSelectedReplanRows(freshPreview)'),
+  'Apply path must not wait for a second skipped-row confirmation after the user confirms the replan date.'
 )
 
 console.log('PASS: MES schedule order partial replan blockers static contract')

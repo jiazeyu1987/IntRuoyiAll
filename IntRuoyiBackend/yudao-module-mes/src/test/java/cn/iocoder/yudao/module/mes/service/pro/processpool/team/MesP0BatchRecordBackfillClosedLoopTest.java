@@ -82,7 +82,8 @@ class MesP0BatchRecordBackfillClosedLoopTest {
                 ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
         verify(fieldAuditService).saveSystemCellLinkChanges(auditCaptor.capture());
         MesProBatchRecordExecutionFieldAuditSaveChangesCommand command = auditCaptor.getValue();
-        assertEquals("PROCESS_POOL_REPORT_BACKFILL:1001:9001:5001", command.getIdempotencyKey());
+        assertEquals("PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5001:6001:agg-single-1001-7101",
+                command.getIdempotencyKey());
         assertEquals("before-hash", command.getBaseCellValuesHash());
         assertEquals(1L, command.getBaseFieldAuditRevision());
         assertEquals("before-head", command.getBaseFieldAuditHeadHash());
@@ -106,6 +107,8 @@ class MesP0BatchRecordBackfillClosedLoopTest {
         return new MesTeamLeaderBatchRecordBackfillCommand()
                 .setEvent(event())
                 .setAllocation(allocation())
+                .setSourceEvents(List.of(event()))
+                .setAllocations(List.of(allocation()))
                 .setWorkOrder(workOrder());
     }
 
@@ -194,6 +197,7 @@ class MesP0BatchRecordBackfillClosedLoopTest {
         rule.setTargetColumnIndex(columnIndex);
         rule.setTargetCellKey("R" + rowIndex + "C" + columnIndex);
         rule.setTargetValueType(MesProBatchRecordExecutionFieldAuditValueType.NUMBER.name());
+        rule.setAggregationStrategy("LAST");
         rule.setEnabled(true);
         return rule;
     }

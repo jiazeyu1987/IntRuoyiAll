@@ -14,5 +14,7 @@ public interface MesProFrontlineFeedbackErrorCodeConstants {
             new ErrorCode(1_040_753_603, "一线报工签名员工与实际操作员工不一致");
     ErrorCode PRO_FRONTLINE_RECORD_BOOK_EVENT_MISSING =
             new ErrorCode(1_040_753_604, "一线报工记录本原始条目事件缺失：{}");
+    ErrorCode PRO_FRONTLINE_FEEDBACK_QUANTITY_INVALID =
+            new ErrorCode(1_040_753_605, "一线报工数量关系非法：{}");
 
 }

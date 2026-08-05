@@ -39,3 +39,12 @@ ready_for_closeout
 
 - task-closeout cleanup preview/apply passed with `--worktree-closeout off`; intermediate evidence files were deleted after summaries were retained.
 - Linked worktree merge/removal was not performed: `E:\IntRuoyi` is dirty and the branch cannot fast-forward merge into `int_main`.
+
+## Post-Merge Sync Verification
+
+- `git merge --no-ff origin/int_main -m "merge: sync int_main into production personnel management"` initially conflicted; conflicts were resolved by retaining `origin/int_main` error `1_040_760_334` and shifting this task's three personnel errors to `1_040_760_335..337`.
+- `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS for `codex/20260805-production-personnel-management/int_main` with frontend `8082` and backend `48082`.
+- `node tests/e2e/production-personnel-management-static.spec.cjs` -> PASS。
+- `git diff --cached --check` and `git diff --check` -> PASS。
+- `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest,MesTeamLeaderRuntimeConfigServiceTest,MesFrontlineRuntimeConfigServiceTest,MesFrontlineRuntimeConfigControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 30, Failures: 0, Errors: 0, Skipped: 0。
+- `pnpm ts:check` -> PASS。

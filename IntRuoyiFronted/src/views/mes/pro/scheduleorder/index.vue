@@ -1788,7 +1788,7 @@
 
 <script setup lang="ts">
 import dayjs from 'dayjs'
-import { ElMessageBox } from 'element-plus'
+import { ElNotification } from 'element-plus'
 import download from '@/utils/download'
 import { generateUUID } from '@/utils'
 import { dateFormatter, formatDate, formatDateTimeValue } from '@/utils/formatTime'
@@ -2075,7 +2075,7 @@ const scheduleOrderQueryParams = reactive({
   code: undefined as string | undefined,
   erpWorkOrderCode: undefined as string | undefined,
   currentProcessId: undefined as number | undefined,
-  completionFilter: 'INCOMPLETE' as 'INCOMPLETE' | 'ALL' | 'COMPLETED',
+  completionFilter: undefined as 'INCOMPLETE' | 'ALL' | 'COMPLETED' | undefined,
   promiseDate: undefined as string[] | undefined,
   quickFilter: undefined as any
 })
@@ -2104,31 +2104,27 @@ const scheduleOrderMultiFilterDefinitions: ListMultiFilterDefinition[] = [
     label: '排产工单号',
     type: 'text',
     queryParamKey: 'code',
-    placeholder: '请输入排产工单号',
-    defaultVisible: true
+    placeholder: '请输入排产工单号'
   },
   {
     key: 'erpWorkOrderCode',
     label: '来源生产工单号',
     type: 'text',
     queryParamKey: 'erpWorkOrderCode',
-    placeholder: '请输入来源生产工单号',
-    defaultVisible: true
+    placeholder: '请输入来源生产工单号'
   },
   {
     key: 'completionFilter',
     label: '完成筛选',
     type: 'select',
     queryParamKey: 'completionFilter',
-    options: scheduleOrderCompletionFilterOptions,
-    defaultVisible: true
+    options: scheduleOrderCompletionFilterOptions
   },
   {
     key: 'promiseDate',
     label: '承诺交期',
     type: 'dateRange',
-    queryParamKey: 'promiseDate',
-    defaultVisible: false
+    queryParamKey: 'promiseDate'
   }
 ]
 
@@ -2205,13 +2201,12 @@ const workOrderAdmissionList = ref<MesProScheduleOrderAdmissionDiffRowVO[]>([])
 const selectedWorkOrders = ref<MesProScheduleOrderAdmissionDiffRowVO[]>([])
 const workOrderAdmissionTotal = ref(0)
 let workOrderAdmissionRequestSerial = 0
-const DEFAULT_WORK_ORDER_ADMISSION_STATUS = 'READY_TO_ADMIT'
 const workOrderAdmissionQueryParams = reactive({
   pageNo: 1,
   pageSize: 10,
   workOrderCode: undefined as string | undefined,
   productCode: undefined as string | undefined,
-  admissionStatus: DEFAULT_WORK_ORDER_ADMISSION_STATUS as string | undefined,
+  admissionStatus: undefined as string | undefined,
   requestDate: undefined as string[] | undefined
 })
 const workOrderAdmissionMultiFilterDefinitions: ListMultiFilterDefinition[] = [
@@ -2524,8 +2519,6 @@ const replanIssueRows = computed<ReplanIssueRow[]>(() => {
 
 type SkippedSelectedReplanRow = {
   code: string
-  productCode: string
-  productName: string
   reason: string
 }
 
@@ -2559,50 +2552,41 @@ const buildSkippedSelectedReplanRows = (preview: ProTaskAutoScheduleReplanPrevie
         : '预览未生成任务，请检查路线、日历产能或已保护任务'
       return {
         code: row.erpWorkOrderCode || row.code,
-        productCode: row.productCode || '-',
-        productName: row.productName || '-',
         reason
       }
     })
 }
 
-const confirmSkippedSelectedReplanRows = async (preview: ProTaskAutoScheduleReplanPreviewRespVO) => {
+const notifySkippedSelectedReplanRows = (preview: ProTaskAutoScheduleReplanPreviewRespVO) => {
   const skippedRows = buildSkippedSelectedReplanRows(preview)
   if (!skippedRows.length) {
-    return true
+    return
   }
   const rowHtml = skippedRows
+    .slice(0, 6)
     .map(
       (row, index) =>
-        `<li><strong>${index + 1}. ${escapeHtml(row.code)}</strong> ` +
-        `(${escapeHtml(row.productCode)} / ${escapeHtml(row.productName)})：${escapeHtml(
+        `<li><strong>${index + 1}. 工单：${escapeHtml(row.code)}</strong>；原因：${escapeHtml(
           row.reason
         )}</li>`
     )
     .join('')
-  try {
-    await ElMessageBox.confirm(
-      `<div class="schedule-order-pool__skipped-confirm">
-        <p>以下选中的排产工单本次不会参与排产：</p>
+  const moreText =
+    skippedRows.length > 6
+      ? `<p>另有 ${skippedRows.length - 6} 个工单未参与，请在标红行查看原因。</p>`
+      : ''
+  ElNotification({
+    title: '存在未参与排产的工单',
+    message: `<div class="schedule-order-pool__skipped-notice">
+        <p>以下工单本次被阻断：</p>
         <ul>${rowHtml}</ul>
-        <p>是否继续应用其余可排工单？</p>
+        ${moreText}
+        <p>系统将直接应用其余可排工单，阻断工单会标红。</p>
       </div>`,
-      '存在未参与排产的工单',
-      {
-        dangerouslyUseHTMLString: true,
-        confirmButtonText: '继续应用',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-    return true
-  } catch (error) {
-    if (error !== 'cancel' && error !== 'close') {
-      console.error('[MES] 未参与排产工单确认失败', error)
-      message.error(resolveProjectionErrorMessage(error, '手动重排确认'))
-    }
-    return false
-  }
+    dangerouslyUseHTMLString: true,
+    type: 'warning',
+    duration: 9000
+  })
 }
 
 const canApplyReplan = computed(() => {
@@ -2839,12 +2823,6 @@ const scheduleOrderMultiFilter = useTableMultiFilter(
   scheduleOrderQueryParams,
   getScheduleOrderList
 )
-scheduleOrderMultiFilter.setCondition({
-  id: 'completionFilter',
-  key: 'completionFilter',
-  operator: 'eq',
-  value: scheduleOrderQueryParams.completionFilter
-})
 
 const applyProcessRouteQuickFilter = async () => {
   processRouteQuickFilterParams.pageNo = 1
@@ -3387,12 +3365,6 @@ const workOrderAdmissionMultiFilter = useTableMultiFilter(
   workOrderAdmissionQueryParams,
   getWorkOrderAdmissionList
 )
-workOrderAdmissionMultiFilter.setCondition({
-  id: 'admissionStatus',
-  key: 'admissionStatus',
-  operator: 'eq',
-  value: DEFAULT_WORK_ORDER_ADMISSION_STATUS
-})
 
 const handleWorkOrderAdmissionSelectionChange = (rows: MesProScheduleOrderAdmissionDiffRowVO[]) => {
   selectedWorkOrders.value = rows
@@ -3760,10 +3732,7 @@ const confirmApplyReplanStartChoice = async () => {
     if (hasGlobalReplanBlockingIssue(freshPreview)) {
       throw new Error('重排预览存在无法归因到工单的阻断问题，不能应用重排')
     }
-    const shouldContinueSkippedRows = await confirmSkippedSelectedReplanRows(freshPreview)
-    if (!shouldContinueSkippedRows) {
-      return
-    }
+    notifySkippedSelectedReplanRows(freshPreview)
     const applyResult = await ProTaskAutoScheduleApi.replanApply({
       ...applyRequest,
       reason: replanForm.reason?.trim() || undefined,
@@ -4095,6 +4064,7 @@ const getReasonCodeText = (reasonCode?: string) => {
       BLOCKED_INVALID_FINITE_CAPACITY: '缺产能',
       BLOCKED_INVALID_INFINITE_FORMULA: '缺无限产能公式',
       BLOCKED_CALENDAR_RULE_MISSING: '缺日历',
+      BLOCKED_ERP_SYNC_RECORD_MISSING: '缺 ERP 正式订单',
       WARN_ERP_SYNC_RECORD_MISSING: '缺 ERP 同步证据'
     }[reasonCode || ''] || '未知原因'
   )
@@ -4418,12 +4388,12 @@ onMounted(async () => {
   gap: 10px 16px;
 }
 
-:global(.schedule-order-pool__skipped-confirm ul) {
+:global(.schedule-order-pool__skipped-notice ul) {
   margin: 8px 0;
   padding-left: 18px;
 }
 
-:global(.schedule-order-pool__skipped-confirm li) {
+:global(.schedule-order-pool__skipped-notice li) {
   margin: 6px 0;
   line-height: 1.5;
 }

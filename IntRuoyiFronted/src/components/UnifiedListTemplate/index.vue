@@ -8,29 +8,19 @@
       :label-width="labelWidth"
       :data-testid="queryFormTestId"
     >
-      <el-form-item v-if="showQuickFilter !== false" class="unified-list-template__quick-filter">
-        <TableQuickFilter
-          :table-key="tableKey"
-          :filter-definitions="filterDefinitions"
-          :show-label="showQuickFilterLabel"
-          :state="quickFilterState"
-          :selected-definition="selectedFilterDefinition"
-          :operator-options="operatorOptions"
-          @update:state="handleQuickFilterStateUpdate"
-          @query="$emit('quick-filter-query')"
-        />
-      </el-form-item>
-
-      <el-form-item v-if="showMultiFilter === true" class="unified-list-template__multi-filter">
+      <el-form-item
+        v-if="shouldRenderStandardConditionFilter"
+        class="unified-list-template__multi-filter"
+      >
         <TableMultiFilter
           :table-key="tableKey"
-          :filter-definitions="multiFilterDefinitions"
-          :state="resolvedMultiFilterState"
+          :filter-definitions="resolvedStandardFilterDefinitions"
+          :state="resolvedStandardFilterState"
           :show-operators="showMultiFilterOperators"
-          @update:state="$emit('update:multiFilterState', $event)"
-          @query="$emit('multi-filter-query')"
-          @reset="$emit('multi-filter-reset')"
-          @remove="$emit('multi-filter-remove', $event)"
+          @update:state="handleStandardFilterStateUpdate"
+          @query="handleStandardFilterQuery"
+          @reset="handleStandardFilterReset"
+          @remove="handleStandardFilterRemove"
         />
       </el-form-item>
 
@@ -77,11 +67,12 @@
 
 <script setup lang="ts">
 import { computed, nextTick } from 'vue'
-import TableQuickFilter from '@/components/TableQuickFilter/index.vue'
 import TableMultiFilter from '@/components/TableMultiFilter/index.vue'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import type {
+  ListMultiFilterCondition,
   ListMultiFilterDefinition,
+  ListMultiFilterOperator,
   ListMultiFilterState
 } from '@/hooks/web/useTableMultiFilter'
 import type {
@@ -96,6 +87,8 @@ type QuickFilterState = {
   fieldKey?: string
   operator?: TableQuickFilterOperator
   value?: string | number | boolean | Array<string | number>
+  conditions?: ListMultiFilterCondition[]
+  activeConditionId?: string
 }
 
 const EMPTY_MULTI_FILTER_STATE: ListMultiFilterState = {
@@ -190,6 +183,36 @@ const STANDARD_SORT_ORDERS: UnifiedListSortOrder[] = ['ascending', 'descending',
 
 const resolvedMultiFilterState = computed(() => props.multiFilterState || EMPTY_MULTI_FILTER_STATE)
 
+const quickDefinitionsAsMultiFilterDefinitions = computed<ListMultiFilterDefinition[]>(() =>
+  props.filterDefinitions.map((definition) => ({
+    ...definition,
+    type: definition.type,
+    operators: definition.operators as ListMultiFilterOperator[] | undefined
+  }))
+)
+
+const shouldRenderStandardConditionFilter = computed(() => {
+  if (props.showMultiFilter === true) return true
+  return props.showQuickFilter !== false && quickDefinitionsAsMultiFilterDefinitions.value.length > 0
+})
+
+const resolvedQuickFilterStateAsMultiFilter = computed<ListMultiFilterState>(() => ({
+  conditions: props.quickFilterState.conditions || [],
+  activeConditionId: props.quickFilterState.activeConditionId
+}))
+
+const resolvedStandardFilterDefinitions = computed(() =>
+  props.showMultiFilter === true
+    ? props.multiFilterDefinitions
+    : quickDefinitionsAsMultiFilterDefinitions.value
+)
+
+const resolvedStandardFilterState = computed(() =>
+  props.showMultiFilter === true
+    ? resolvedMultiFilterState.value
+    : resolvedQuickFilterStateAsMultiFilter.value
+)
+
 const normalizeSortOrder = (order: unknown): UnifiedListSortOrder =>
   order === 'ascending' || order === 'descending' ? order : null
 
@@ -281,19 +304,65 @@ const handleStandardSortChange = (payload?: { prop?: string; order?: string | nu
   emit('sort-change', { ...nextState, column: payload?.column })
 }
 
-const isQuickFilterSelectValueChange = (state: QuickFilterState) =>
-  props.selectedFilterDefinition?.type === 'select' &&
-  'value' in state &&
-  state.fieldKey === props.quickFilterState.fieldKey &&
-  state.operator === props.quickFilterState.operator &&
-  state.value !== props.quickFilterState.value
+const getConditionId = (condition: Partial<ListMultiFilterCondition>, index = 0) =>
+  condition.id || condition.key || `condition-${index + 1}`
 
-const handleQuickFilterStateUpdate = async (state: QuickFilterState) => {
-  const shouldAutoSearch = isQuickFilterSelectValueChange(state)
-  emit('update:quickFilterState', state)
-  if (shouldAutoSearch) {
-    await nextTick()
-    emit('quick-filter-query')
+const getActiveConditionFromState = (state: ListMultiFilterState) => {
+  const activeId = state.activeConditionId || (state.conditions[0] ? getConditionId(state.conditions[0], 0) : '')
+  return state.conditions.find((condition, index) => getConditionId(condition, index) === activeId)
+}
+
+const toQuickFilterState = (state: ListMultiFilterState): QuickFilterState => {
+  const activeCondition = getActiveConditionFromState(state)
+  return {
+    ...props.quickFilterState,
+    fieldKey: activeCondition?.key,
+    operator: activeCondition?.operator as TableQuickFilterOperator | undefined,
+    value:
+      activeCondition?.valueEnd !== undefined
+        ? [activeCondition.value as string | number, activeCondition.valueEnd as string | number]
+        : activeCondition?.value as string | number | boolean | Array<string | number> | undefined,
+    conditions: [...(state.conditions || [])],
+    activeConditionId: state.activeConditionId
+  }
+}
+
+const handleStandardFilterStateUpdate = (state: ListMultiFilterState) => {
+  if (props.showMultiFilter === true) {
+    emit('update:multiFilterState', state)
+    return
+  }
+  emit('update:quickFilterState', toQuickFilterState(state))
+}
+
+const handleStandardFilterQuery = () => {
+  if (props.showMultiFilter === true) {
+    emit('multi-filter-query')
+    return
+  }
+  emit('quick-filter-query')
+}
+
+const handleStandardFilterReset = async () => {
+  if (props.showMultiFilter === true) {
+    emit('multi-filter-reset')
+    return
+  }
+  emit('update:quickFilterState', {
+    ...props.quickFilterState,
+    fieldKey: undefined,
+    operator: undefined,
+    value: undefined,
+    conditions: [],
+    activeConditionId: undefined
+  })
+  await nextTick()
+  emit('quick-filter-query')
+}
+
+const handleStandardFilterRemove = (conditionId: string) => {
+  if (props.showMultiFilter === true) {
+    emit('multi-filter-remove', conditionId)
   }
 }
 </script>
@@ -320,10 +389,6 @@ const handleQuickFilterStateUpdate = async (state: QuickFilterState) => {
 
 .unified-list-template__query-form :deep(.el-form-item__content) {
   align-items: center;
-}
-
-.unified-list-template__quick-filter {
-  flex: 0 0 auto;
 }
 
 .unified-list-template__multi-filter {

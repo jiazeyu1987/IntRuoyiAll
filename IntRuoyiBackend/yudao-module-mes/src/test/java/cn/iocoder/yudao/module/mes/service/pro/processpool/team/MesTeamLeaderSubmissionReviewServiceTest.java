@@ -90,16 +90,14 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     }
 
     @Test
-    void shouldNotAggregateApprovedProductionSubmission() {
+    void shouldRejectApprovedProductionSubmissionThroughGenericReview() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(productionEvent());
-        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
-            invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7003L);
-            return 1;
-        });
 
-        Long reviewId = service.reviewSubmission(reviewReq());
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
 
-        assertEquals(7003L, reviewId);
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED.getCode(),
+                ex.getCode());
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(any(), any());
     }
 

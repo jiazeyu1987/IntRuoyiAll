@@ -338,6 +338,15 @@
 - Forbidden action: 禁止只因为 `input.files.length > 0` 就认定 Element Plus 组件状态已接收文件；禁止等待接口超时后不记录文件列表状态。
 - Evidence: `doc/tasks/20260727-shared-word-parser-real-e2e/verification-report.md`。
 
+### Element Plus 表单值断言门禁
+
+- Trigger: Playwright 需要断言 Element Plus `el-input`、`el-input-number`、`el-select` 搜索输入框或表单项中的当前值，尤其字段值来自页面初始化模板、后端回填或选择项目后的自动绑定。
+- Preflight check: 先确认目标值是普通文本节点、选中标签，还是原生 `input/textarea` 的 `value`；若是输入框值，必须定位到对应 `el-form-item` 作用域内的 `input/textarea`，使用 `inputValue()` 或等价 DOM value 断言，不得只用 `getByText` 查找输入框内部值。
+- Blocker: `getByText` 找不到输入框值但页面实际已回填、断言误判为业务缺失、或无法区分 label 文本与 value 文本时必须停止并改用表单控件值断言。
+- Verification: 真实 E2E 需同时证明目标表单项可见、输入框 value 等于预期业务值，并保留目标接口或页面状态证据；若修复旧 E2E，先记录旧断言 RED，再重跑目标真实路径 GREEN。
+- Forbidden action: 禁止把 Element Plus 输入框 value 当作普通可见文本节点断言；禁止为通过测试把输入框值复制成额外隐藏/旁路文本；禁止用 API-only 代替真实页面回填验证。
+- Evidence: `doc/tasks/20260805-dcc-project-mdm-binding/verification-report.md`，QA 规程配置选择 `IDI` 后规程名称已在 `el-input` value 中回填，旧 `getByText` 断言误判，改为读取 `规程名称` 表单项 input value 后真实 E2E 通过。
+
 ### Element Plus 选择框显示门禁
 
 - Trigger: 修改 Element Plus `el-select` 多选字段、`el-input-number` 数字步进控件、`el-switch` 旁状态标签、弹窗内多列配置表单、角色/人员/租户/目标项等较长业务名称的输入或选中标签显示。
@@ -370,6 +379,15 @@
 - Verification: 保留真实 E2E 命令、选中集合断言、写入请求参数、最终 UI/API 状态和截图/JSON 证据路径。
 - Forbidden action: 禁止用表头全选、数组下标、API-only、直接 SQL 或坐标猜测绕过可见业务行定位。
 - Evidence: `doc/tasks/verify-manual-reschedule-881mo-20260724/execution-log.md`，2026-07-24 手动重排修复验证。
+
+### MES 手动重排全选应用完成门禁
+
+- Trigger: Playwright 验证 `排产工单`、`手动重排`、`开始重排`、`确认应用重排`、全选排产工单、自动重排局部阻断、进度停在 `90%` 或“存在未参与排产的工单”。
+- Preflight check: 写入型真实 E2E 必须使用真实前端路径逐行勾选可见 body 表格中的可选排产工单，记录已选业务行集合和开始重排日期；点击 `确认应用重排` 后必须同时等待并记录 `preflight`、`preview`、`apply` 三段目标请求，且 `apply` 必须返回 HTTP 2xx、业务 `code=0`。如果预览存在可归因到工单的阻断或未参与工单，页面只能给非阻塞提示；不得再打开会阻断 `apply` 的二次确认框。
+- Blocker: 只完成排产前检查或重排预览、未观察到 `/auto-schedule/replan/apply`、进度停在 `90%`、开始日期弹窗或阻塞确认框未关闭、选中集合无法追溯、点击到禁用行/表头 checkbox、或目标请求/响应证据缺失时，必须判定真实 E2E 未通过。
+- Verification: 证据必须包含选中行数/业务文本、开始日期、三段目标请求 URL 和 payload 摘要、三段响应 HTTP 状态和业务码、apply summary、进度最终状态、`confirmDialogVisible=false`、`dateDialogVisible=false`、`pageErrors=[]`、`consoleErrors=[]`、最终截图和 JSON 路径。
+- Forbidden action: 禁止把夹具红行验证、只读红行验证、API-only apply、历史截图、预览 summary、进度中间值或 success toast 单独当作全选应用 E2E 通过；禁止为了继续排产而二次阻塞确认“未参与排产的工单”。
+- Evidence: `doc/tasks/20260804-mes-partial-replan-blockers/verification-report.md`，2026-08-05 用户截图复验中，旧二次确认导致 `90%` 卡住风险，改为非阻塞通知后 `芋道源码/admin` 当前页 12 条可选排产工单全选应用真实 E2E PASS。
 
 ### Codex Runner 自动测试门禁
 

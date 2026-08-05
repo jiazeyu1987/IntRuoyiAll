@@ -6,6 +6,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderD
 import lombok.Data;
 import lombok.experimental.Accessors;
 
+import java.util.List;
+
 @Data
 @Accessors(chain = true)
 public class MesTeamLeaderBatchRecordBackfillCommand {
@@ -13,6 +15,14 @@ public class MesTeamLeaderBatchRecordBackfillCommand {
     private MesProProcessPoolEventDO event;
 
     private MesProcessPoolReportAllocationDO allocation;
+
+    private List<MesProProcessPoolEventDO> sourceEvents;
+
+    private List<MesProcessPoolReportAllocationDO> allocations;
+
+    private String aggregateHash;
+
+    private String idempotencyKey;
 
     private MesProWorkOrderDO workOrder;
 }

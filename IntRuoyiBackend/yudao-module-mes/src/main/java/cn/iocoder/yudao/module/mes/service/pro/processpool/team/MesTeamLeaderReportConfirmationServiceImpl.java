@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInsp
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
@@ -55,6 +56,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED;
 
 @Service
 @Validated
@@ -130,6 +133,12 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
         MesProProcessPoolEventDO event = requireEventForUpdate(reqBO.getEventId());
         scopeService.assertCanAccessEmployee(reqBO.getLeaderUserId(), reqBO.getLeaderType(),
                 event.getActualEmployeeId());
+        MesProcessPoolSubmissionReviewDO existingReview =
+                reviewMapper.selectLatestByEventIdForUpdate(event.getId());
+        if (existingReview != null) {
+            throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS,
+                    event.getId(), existingReview.getReviewStatus());
+        }
         if (!allocationMapper.selectListByEventIdForUpdate(event.getId()).isEmpty()) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_DUPLICATE, event.getId());
         }
@@ -384,6 +393,9 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
         validateReviewSignature(reqBO.getLeaderUserId(), reqBO.getReviewSignatureId(),
                 reqBO.getReviewSignatureUserId(), reqBO.getReviewSignatureSnapshotJson(),
                 "reportConfirmation.reviewSignature");
+        if (!MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION.equals(reqBO.getLeaderType())) {
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_DENIED);
+        }
         if (!MesProcessPoolReportAllocationDO.MODE_FIFO.equals(reqBO.getAllocationMode())
                 && !MesProcessPoolReportAllocationDO.MODE_MANUAL.equals(reqBO.getAllocationMode())) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_MODE_INVALID, reqBO.getAllocationMode());

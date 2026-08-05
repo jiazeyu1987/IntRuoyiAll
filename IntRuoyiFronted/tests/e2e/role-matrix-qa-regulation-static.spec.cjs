@@ -79,8 +79,13 @@ assert.doesNotMatch(
 )
 assert.match(
   panelSource,
-  /buildPqcPieceValuesPayload[\s\S]*for\s*\(const itemKey of pqcInspectionItemKeys\.value\)[\s\S]*values\[itemKey\]\s*=\s*getPqcStoredPieceValues\(itemKey\)\.slice\(0,\s*pqcInspectionQuantity\.value\)[\s\S]*return values/,
-  'PQC submit payload must rebuild pqcPieceValues from the current formal QA inspection itemCode list.'
+  /buildPqcPieceValuesPayload[\s\S]*for\s*\(const itemKey of pqcInspectionItemKeys\.value\)[\s\S]*values\[itemKey\]\s*=\s*getPqcExactPieceValuesForSubmit\(itemKey\)[\s\S]*return values/,
+  'PQC submit payload must rebuild pqcPieceValues from formal itemCode keys and exact task sample quantities.'
+)
+assert.doesNotMatch(
+  panelSource,
+  /buildPqcPieceValuesPayload[\s\S]*\.slice\(0,\s*pqcInspectionQuantity\.value\)/,
+  'PQC submit payload must not truncate extra sample values to hide task quantity mismatches.'
 )
 
 assert.match(

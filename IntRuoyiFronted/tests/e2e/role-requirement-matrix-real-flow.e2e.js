@@ -1670,7 +1670,12 @@ async function performActiveOrderJoin(page, config) {
   assert.ok(listResponse.ok(), `活跃订单列表刷新 HTTP 失败：${listResponse.status()}`)
   const listBody = await listResponse.json()
   assert.equal(listBody.code, 0, `活跃订单列表刷新业务失败：${listBody.msg || listBody.message || 'unknown'}`)
-  const rows = Array.isArray(listBody.data) ? listBody.data : []
+  const refreshedRows = Array.isArray(listBody.data) ? listBody.data : []
+  const rows = refreshedRows.some((row) =>
+    Number(row.id) === Number(activeOrderId) && Number(row.workOrderId) === Number(config.workOrderId)
+  )
+    ? refreshedRows
+    : await reloadActiveOrderRows(page)
   assert.ok(
     rows.some((row) => Number(row.id) === Number(activeOrderId) && Number(row.workOrderId) === Number(config.workOrderId)),
     '加入活跃订单后，刷新列表必须返回同一 activeOrderId 和 workOrderId。'
@@ -1686,6 +1691,178 @@ async function performActiveOrderJoin(page, config) {
     routeId: config.routeId,
     routeVersionId: config.routeVersionId,
     transferIds: config.transferIds
+  }
+}
+
+function extractAdmissionDiffRows(body) {
+  const data = body?.data
+  if (Array.isArray(data?.list)) return data.list
+  if (Array.isArray(data)) return data
+  return []
+}
+
+async function verifyScheduleOrderErpCandidateAdmission(page, config) {
+  const evidenceKey = 'scheduleOrderErpCandidateAdmission'
+  const acceptanceIds = ['AC-M01']
+  const pagePath = '/mes/pro/schedule-order'
+  try {
+    await page.goto(new URL(pagePath, config.frontendUrl).toString(), {
+      waitUntil: 'domcontentloaded',
+      timeout: 90000
+    })
+    assert.ok(!page.url().includes('/login'), 'AC-M01 排产工单页被重定向到登录页，生产组长会话无效。')
+    const admissionResponsePromise = page.waitForResponse((response) =>
+      response.url().includes('/mes/pro/schedule-order/admission-diff')
+        && response.request().method() === 'GET'
+    , { timeout: 30000 }).catch((error) => ({ admissionResponseError: error }))
+    const admissionTab = page.getByRole('tab', { name: '同步工单' }).first()
+    await admissionTab.waitFor({ state: 'visible', timeout: 60000 })
+    await admissionTab.click()
+    await page.locator('.schedule-order-pool__admission-table').first().waitFor({
+      state: 'visible',
+      timeout: 60000
+    })
+    const admissionResponse = await admissionResponsePromise
+    if (admissionResponse.admissionResponseError) {
+      return {
+        key: evidenceKey,
+        label: '生产组长同步工单候选准入核验',
+        roleKey: 'productionLeader',
+        status: 'BLOCKED',
+        category: 'E2E_AC_M01_PAGE',
+        acceptanceIds,
+        targetPath: pagePath,
+        description: `真实页面打开“同步工单”页签后未捕获 admission-diff 响应：${admissionResponse.admissionResponseError.message}`
+      }
+    }
+    assert.ok(admissionResponse.ok(), `同步工单页签 admission-diff HTTP 失败：${admissionResponse.status()}`)
+    const admissionBody = await admissionResponse.json()
+    assert.ok(isBusinessSuccess(admissionBody), `同步工单页签 admission-diff 业务失败：${responseMessage(admissionBody)}`)
+  } catch (error) {
+    return {
+      key: evidenceKey,
+      label: '生产组长同步工单候选准入核验',
+      roleKey: 'productionLeader',
+      status: 'BLOCKED',
+      category: 'E2E_AC_M01_PAGE',
+      acceptanceIds,
+      targetPath: pagePath,
+      description: `生产组长无法通过真实页面进入同步工单候选池：${error.message}`
+    }
+  }
+
+  const admissionDiffEndpoint = '/admin-api/mes/pro/schedule-order/admission-diff'
+  const targetQuery = {
+    pageNo: 1,
+    pageSize: 10,
+    workOrderCode: config.productionOrderCode
+  }
+  const targetEndpoint = `${admissionDiffEndpoint}?${new URLSearchParams(
+    Object.entries(targetQuery).map(([key, value]) => [key, String(value)])
+  ).toString()}`
+  const targetResult = await fetchWithPageAuth(page, targetEndpoint)
+  if (!targetResult.ok || !isBusinessSuccess(targetResult.body)) {
+    return {
+      key: evidenceKey,
+      label: '生产组长同步工单候选准入核验',
+      roleKey: 'productionLeader',
+      status: 'BLOCKED',
+      category: 'E2E_AC_M01_DATA',
+      acceptanceIds,
+      workOrderCode: config.productionOrderCode,
+      description: `按正式生产订单编号查询候选池失败，HTTP=${targetResult.status}，业务=${responseMessage(targetResult.body)}。`
+    }
+  }
+  const targetRows = extractAdmissionDiffRows(targetResult.body)
+  const targetRow = targetRows.find((row) =>
+    Number(row.workOrderId) === Number(config.workOrderId)
+      && String(row.workOrderCode || '') === String(config.productionOrderCode)
+  )
+  if (!targetRow) {
+    return {
+      key: evidenceKey,
+      label: '生产组长同步工单候选准入核验',
+      roleKey: 'productionLeader',
+      status: 'BLOCKED',
+      category: 'E2E_AC_M01_DATA',
+      acceptanceIds,
+      workOrderId: config.workOrderId,
+      workOrderCode: config.productionOrderCode,
+      description: '候选池无法按正式生产订单编号返回任务专用工单，不能证明 ERP 已确认订单可按正式 ID/编号查询。'
+    }
+  }
+  const targetIsAdmissible = targetRow.admissionStatus === 'READY_TO_ADMIT'
+    ? targetRow.selectable === true
+    : targetRow.admissionStatus === 'ALREADY_ADMITTED'
+  if (!targetIsAdmissible) {
+    return {
+      key: evidenceKey,
+      label: '生产组长同步工单候选准入核验',
+      roleKey: 'productionLeader',
+      status: 'BLOCKED',
+      category: 'E2E_AC_M01_DATA',
+      acceptanceIds,
+      workOrderId: config.workOrderId,
+      workOrderCode: config.productionOrderCode,
+      admissionStatus: targetRow.admissionStatus,
+      selectable: targetRow.selectable,
+      reasonCode: targetRow.reasonCode,
+      description: '任务专用工单未处于 READY_TO_ADMIT 可选或 ALREADY_ADMITTED 已入池状态，不能证明已确认 ERP 订单进入候选。'
+    }
+  }
+
+  const blockedQuery = {
+    pageNo: 1,
+    pageSize: 50,
+    admissionStatus: 'BLOCKED'
+  }
+  const blockedEndpoint = `${admissionDiffEndpoint}?${new URLSearchParams(
+    Object.entries(blockedQuery).map(([key, value]) => [key, String(value)])
+  ).toString()}`
+  const blockedResult = await fetchWithPageAuth(page, blockedEndpoint)
+  if (!blockedResult.ok || !isBusinessSuccess(blockedResult.body)) {
+    return {
+      key: evidenceKey,
+      label: '生产组长同步工单候选准入核验',
+      roleKey: 'productionLeader',
+      status: 'BLOCKED',
+      category: 'E2E_AC_M01_DATA',
+      acceptanceIds,
+      description: `缺 ERP 正式订单阻断样本查询失败，HTTP=${blockedResult.status}，业务=${responseMessage(blockedResult.body)}。`
+    }
+  }
+  const blockedFormalIdentityRows = extractAdmissionDiffRows(blockedResult.body)
+    .filter((row) => row.reasonCode === 'BLOCKED_ERP_SYNC_RECORD_MISSING' && row.selectable === false)
+  if (!blockedFormalIdentityRows.length) {
+    return {
+      key: evidenceKey,
+      label: '生产组长同步工单候选准入核验',
+      roleKey: 'productionLeader',
+      status: 'BLOCKED',
+      category: 'E2E_AC_M01_DATA',
+      acceptanceIds,
+      workOrderId: config.workOrderId,
+      workOrderCode: config.productionOrderCode,
+      admissionStatus: targetRow.admissionStatus,
+      selectable: targetRow.selectable,
+      description: '当前真实候选池缺少 BLOCKED_ERP_SYNC_RECORD_MISSING 阻断样本，不能证明缺正式 ERP ID/编号的订单不会进入可选候选。'
+    }
+  }
+
+  return {
+    key: 'scheduleOrderErpCandidateAdmission',
+    label: '生产组长同步工单候选准入核验',
+    roleKey: 'productionLeader',
+    status: 'PASS',
+    acceptanceIds: ['AC-M01'],
+    targetPath: pagePath,
+    tableSelector: '.schedule-order-pool__admission-table',
+    workOrderId: targetRow.workOrderId,
+    workOrderCode: targetRow.workOrderCode,
+    admissionStatus: targetRow.admissionStatus,
+    selectable: targetRow.selectable,
+    reasonCode: targetRow.reasonCode,
+    blockedFormalIdentityRowCount: blockedFormalIdentityRows.length
   }
 }
 
@@ -2074,6 +2251,16 @@ async function verifyPqcRegulationItemsRendered(page, config, actionEvidence) {
     .filter(Boolean)
   assert.ok(visibleMetaTexts.length > 0, 'PQC 页面必须可见渲染检验方法、标准和判定元信息。')
   const visibleMetaText = visibleMetaTexts.join('\n')
+  const visibleStandardTexts = (await page.locator('[data-pqc-standard-button]').allTextContents())
+    .map((text) => text.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+  const visibleMethodTexts = (await page.locator('[data-pqc-method-button]').allTextContents())
+    .map((text) => text.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+  assert.ok(visibleStandardTexts.length > 0, 'PQC 页面必须可见渲染 QA 规程接收标准。')
+  assert.ok(visibleMethodTexts.length > 0, 'PQC 页面必须可见渲染 QA 规程检验方法。')
+  const visibleStandardText = visibleStandardTexts.join('\n')
+  const visibleMethodText = visibleMethodTexts.join('\n')
   const formatResultTypeLabel = (resultType) => {
     const normalized = String(resultType || '').trim().toUpperCase()
     if (normalized === 'NUMBER' || normalized === 'NUMERIC') return '数值'
@@ -2089,8 +2276,8 @@ async function verifyPqcRegulationItemsRendered(page, config, actionEvidence) {
       return method
         && standard
         && resultTypeLabel
-        && visibleMetaText.includes(method)
-        && visibleMetaText.includes(standard)
+        && visibleMethodText.includes(method)
+        && visibleStandardText.includes(standard)
         && visibleMetaText.includes(resultTypeLabel)
     })
   assert.ok(
@@ -2272,7 +2459,7 @@ async function verifyPqcPieceDetailQuantityPrepared(page, config, actionEvidence
       `PQC 页面检验数量 ${uiQuantity} 必须来自正式 task plannedInspectionQuantity：${plannedQuantities.join(', ')}。`
     )
 
-    const firstEntry = page.locator('.frontline-pqc-content-item, .frontline-pqc-choice-item .manual').first()
+    const firstEntry = page.locator('[data-pqc-piece-open-button]').first()
     if (await firstEntry.count() === 0) {
       return {
         key: 'pqcPieceDetailQuantityPrepared',
@@ -2357,20 +2544,20 @@ async function completePqcPieceDetailsForSubmission(page, alreadyCompletedCount 
   let completedPieceValueCount = alreadyCompletedCount
   let completedChoiceItemCount = 0
   let completedNumericItemCount = 0
-  const choiceItems = page.locator('.frontline-pqc-choice-item')
-  const choiceItemCount = await choiceItems.count()
-  for (let index = 0; index < choiceItemCount; index += 1) {
-    const item = choiceItems.nth(index)
-    const passButton = item.getByRole('button', { name: /^全部合格$/ }).first()
+  const tabs = page.locator('[data-pqc-inspection-tab]')
+  const tabCount = await tabs.count()
+  for (let index = 0; index < tabCount; index += 1) {
+    await tabs.nth(index).click()
+    const activePanel = page.locator('[data-pqc-active-inspection-panel]').first()
+    await activePanel.waitFor({ state: 'visible', timeout: 30000 })
+    const passButton = activePanel.getByRole('button', { name: /^全部合格$/ }).first()
     if (await passButton.count()) {
       await passButton.click()
       completedChoiceItemCount += 1
     }
-  }
-  const numericItems = page.locator('.frontline-pqc-content-item')
-  const numericItemCount = await numericItems.count()
-  for (let index = 0; index < numericItemCount; index += 1) {
-    await numericItems.nth(index).click()
+    const pieceButton = activePanel.locator('[data-pqc-piece-open-button]').first()
+    await pieceButton.waitFor({ state: 'visible', timeout: 30000 })
+    await pieceButton.click()
     const modal = page.locator('[data-pqc-piece-modal]').first()
     await modal.waitFor({ state: 'visible', timeout: 30000 })
     completedPieceValueCount += await fillVisiblePqcPieceModalValues(modal)
@@ -5670,6 +5857,15 @@ async function verifyRealFlowPhase(page, config, phase) {
 
 async function runPhaseAction(page, config, phase, actionEvidence) {
   if (phase.actionKey === 'joinActiveOrder') {
+    const admissionEvidence = await verifyScheduleOrderErpCandidateAdmission(page, config)
+    await page.goto(new URL(phase.targetPath, config.frontendUrl).toString(), {
+      waitUntil: 'domcontentloaded',
+      timeout: 90000
+    })
+    await page.locator('[data-team-leader-active-order-config]').first().waitFor({
+      state: 'visible',
+      timeout: 60000
+    })
     const joinEvidence = await performActiveOrderJoin(page, config)
     const conflictRouteEvidence = await verifyActiveOrderConflictRouteFailure(page, config, joinEvidence)
     const transferTraceEvidence = await verifyActiveOrderTransferTraceReadOnly(page, config, joinEvidence)
@@ -5678,7 +5874,7 @@ async function runPhaseAction(page, config, phase, actionEvidence) {
       conflictRouteEvidence,
       transferTraceEvidence
     ])
-    return [joinEvidence, conflictRouteEvidence, transferTraceEvidence, dailyCloseEvidence]
+    return [admissionEvidence, joinEvidence, conflictRouteEvidence, transferTraceEvidence, dailyCloseEvidence]
   }
   if (phase.actionKey === 'verifyPqcActiveOrderReadOnly') {
     const readOnlyEvidence = await verifyPqcActiveOrderReadOnly(page, config, actionEvidence)

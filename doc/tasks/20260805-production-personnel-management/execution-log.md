@@ -12,14 +12,14 @@
 - BDD: 生产填写员工选择 -> Given 组长进入生产填写页面；When 点击员工卡片；Then 只能选择关联当前组长且未禁用的员工。
 - BDD: 禁用历史快照 -> Given 员工已有历史报工或签名；When 组长禁用员工；Then 新报工选择不再显示该员工，历史报工、签名和批记录继续显示当时姓名快照。
 - BDD: 操作追溯 -> Given 组长执行新增、禁用、启用、修改显示名、重置临时工签名密码或关联正式工；When 操作成功或失败；Then 审计日志记录操作人、对象、动作、结果、变更摘要和时间。
-- Blocker: worktree runtime slot reservation failed with `No available runtime slot for profile 'int_main' in range 1..19.` Real E2E startup remains blocked until a compliant slot is available.
+- Blocker: worktree runtime slot reservation failed with `No available runtime slot for profile 'int_main' in range 1..19.` Real E2E startup remained blocked until a compliant slot became available.
 
 ## RED / GREEN Evidence
 
 - Completed: schema RED/GREEN recorded in `database-schema-evidence.md`.
 - Completed: backend RED/GREEN recorded in `backend-api-evidence.md`; target Maven tests PASS.
 - Completed: frontend RED/GREEN recorded in `frontend-feature-evidence.md`; static contracts PASS.
-- Blocked: real E2E documented in `verification-report.md`; worktree slot reservation has no available `int_main` slot 1..19.
+- Blocked then resolved: real E2E initially blocked by unavailable `int_main` slot 1..19, then slot `1` became available and was used for verified E2E.
 
 ## 2026-08-05 Frontend / Verification Update
 
@@ -35,8 +35,7 @@
 - GREEN: quality assurance evidence validator -> PASS.
 - BLOCKED: `pnpm ts:check` -> FAIL before type checking because `node_modules` is missing and `cross-env` is not recognized.
 - BLOCKED: `scripts\runtime\reserve-worktree-slot.ps1 -Name '20260805-production-personnel-management' -Path 'D:\IntRuoyiWorktree\20260805-production-personnel-management' -Branch 'codex/20260805-production-personnel-management' -Profile 'int_main' -AsJson` -> `No available runtime slot for profile 'int_main' in range 1..19.`
-- E2E decision: real Playwright E2E not executed; no random port, no `8081/48081` reuse, and no API-only substitute was used.
-
+- E2E decision: real Playwright E2E not executed at this stage; no random port, no `8081/48081` reuse, and no API-only substitute was used.
 
 ## 2026-08-05 Dependency / Type Check Update
 
@@ -70,4 +69,16 @@
 
 - Cleanup preview: `task_closeout.py --task-id 20260805-production-personnel-management --mode preview --worktree-closeout off` -> READY; kept `task.md`, `execution-log.md`, `verification-report.md`; planned deletion of intermediate evidence files only.
 - Cleanup apply: `task_closeout.py --task-id 20260805-production-personnel-management --mode apply --worktree-closeout off` -> APPLIED; deleted backend/database/frontend/QA temporary evidence and BDD design files after their PASS summaries were copied into `verification-report.md` and `execution-log.md`.
-- Worktree closeout blocker: auto ff-merge/removal was not run because `E:\IntRuoyi` main worktree is dirty and current branch cannot fast-forward merge into `int_main`; no main-worktree files were touched.
+- Worktree closeout blocker: auto ff-merge/removal was not run because `E:\IntRuoyi` main worktree is dirty and current branch could not fast-forward merge into `int_main`; no main-worktree files were touched.
+
+## 2026-08-05 Merge Sync With origin/int_main
+
+- Command intent: remove the non-fast-forward closeout blocker by merging latest `origin/int_main` into `codex/20260805-production-personnel-management` inside the isolated worktree only.
+- Merge result: `git merge --no-ff origin/int_main -m "merge: sync int_main into production personnel management"` initially conflicted in `ErrorCodeConstants.java`, `task.md`, and `execution-log.md`.
+- Conflict resolution: kept `origin/int_main` error `PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED` at `1_040_760_334`, shifted this task's production personnel errors to `1_040_760_335..337`, and kept the completed task records instead of stale in-progress records from `origin/int_main`.
+- Cleanup consistency: removed reintroduced intermediate `bdd-tdd-design.md` from the merge result because task-closeout cleanup already summarized it into retained records.
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS for `codex/20260805-production-personnel-management/int_main`, frontend `8082`, backend `48082`.
+- GREEN: `node tests/e2e/production-personnel-management-static.spec.cjs` -> PASS.
+- GREEN: `git diff --cached --check` and `git diff --check` -> PASS.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest,MesTeamLeaderRuntimeConfigServiceTest,MesFrontlineRuntimeConfigServiceTest,MesFrontlineRuntimeConfigControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 30, Failures: 0, Errors: 0, Skipped: 0.
+- GREEN: `pnpm ts:check` -> PASS.

@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PQC 红框区域 UI 原型</title>
+  <style>
+    :root {
+      --frontline-bg: #eef3ef;
+      --frontline-panel: #ffffff;
+      --frontline-soft: #f8faf8;
+      --frontline-ink: #111a15;
+      --frontline-muted: #5b665f;
+      --frontline-line: #cbd6ce;
+      --frontline-dark: #24322b;
+      --frontline-green: #15815f;
+      --frontline-green-soft: #dff2ea;
+      --frontline-red: #b9382f;
+      --frontline-red-soft: #f8dfdc;
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #dfe8e1;
+      color: var(--frontline-ink);
+    }
+
+    .prototype-shell {
+      min-height: 100dvh;
+      padding: 26px;
+      background:
+        radial-gradient(circle at 12% 10%, rgba(255, 255, 255, 0.76), transparent 28%),
+        linear-gradient(135deg, #eef3ef 0%, #e1ebe4 100%);
+    }
+
+    .frontline-operator-screen {
+      --operator-width: 1480px;
+      display: grid;
+      grid-template-rows: 118px minmax(0, 1fr) 104px;
+      gap: 18px;
+      max-width: var(--operator-width);
+      min-height: 820px;
+      margin: 0 auto;
+      padding: 24px;
+      overflow: hidden;
+      border-radius: 22px;
+      background: var(--frontline-bg);
+      color: var(--frontline-ink);
+      box-shadow: 0 26px 70px rgba(36, 50, 43, 0.14);
+    }
+
+    .frontline-operator-top {
+      display: grid;
+      grid-template-columns: 340px 430px minmax(0, 1fr) 210px;
+      gap: 18px;
+    }
+
+    .frontline-top-card,
+    .frontline-home-button {
+      min-width: 0;
+      border: 3px solid var(--frontline-line);
+      border-radius: 22px;
+      font: inherit;
+    }
+
+    .frontline-top-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 18px 22px;
+      background: var(--frontline-panel);
+      text-align: left;
+    }
+
+    .frontline-top-card span {
+      color: var(--frontline-muted);
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .frontline-top-card strong {
+      min-width: 0;
+      margin-top: 10px;
+      overflow: hidden;
+      font-size: 34px;
+      font-weight: 900;
+      line-height: 1.1;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .frontline-home-button {
+      background: var(--frontline-dark);
+      color: #ffffff;
+      font-size: 38px;
+      font-weight: 900;
+    }
+
+    .frontline-operator-main {
+      display: grid;
+      grid-template-columns: minmax(760px, 1.72fr) minmax(390px, 0.78fr);
+      gap: 28px;
+      min-height: 0;
+    }
+
+    .frontline-work-panel {
+      display: grid;
+      align-content: start;
+      min-width: 0;
+      min-height: 0;
+      padding: 26px;
+      border: 3px solid var(--frontline-line);
+      border-radius: 28px;
+      background: var(--frontline-panel);
+    }
+
+    .frontline-pqc-content-panel {
+      align-content: stretch;
+      gap: 0;
+    }
+
+    .frontline-pqc-inspection-list {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: 0;
+      min-height: 100%;
+    }
+
+    .pqc-item-tabs {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      align-items: start;
+      min-height: 150px;
+      padding: 0 10px 8px;
+      border: 0;
+      border-top: 3px solid #8cb9a1;
+      background: transparent;
+    }
+
+    .pqc-item-tabs::before {
+      position: absolute;
+      inset: 0 0 auto;
+      height: 24px;
+      border-radius: 0 0 20px 20px;
+      background: linear-gradient(180deg, rgba(223, 242, 234, 0.9), rgba(223, 242, 234, 0));
+      content: "";
+      pointer-events: none;
+    }
+
+    .pqc-item-tab {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-rows: auto auto;
+      gap: 4px 8px;
+      align-items: center;
+      min-width: 0;
+      min-height: 68px;
+      margin-top: -3px;
+      padding: 9px 10px 8px;
+      border: 3px solid var(--frontline-line);
+      border-top: 0;
+      border-radius: 0 0 16px 16px;
+      background: #fbfdfb;
+      color: var(--frontline-ink);
+      font: inherit;
+      text-align: left;
+      box-shadow: inset 0 7px 0 rgba(203, 214, 206, 0.38);
+    }
+
+    .pqc-item-tab:last-child {
+      border-right: 3px solid var(--frontline-line);
+    }
+
+    .pqc-item-tab::before {
+      position: absolute;
+      top: 0;
+      right: 11px;
+      left: 11px;
+      height: 5px;
+      border-radius: 0 0 999px 999px;
+      background: transparent;
+      content: "";
+    }
+
+    .pqc-item-tab strong {
+      min-width: 0;
+      overflow: hidden;
+      font-size: 24px;
+      font-weight: 900;
+      line-height: 1;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pqc-item-tab small {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+      align-items: center;
+      min-width: 0;
+      overflow: visible;
+      color: var(--frontline-muted);
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.05;
+      white-space: nowrap;
+    }
+
+    .pqc-item-tab small span {
+      min-width: 0;
+      overflow: visible;
+      white-space: nowrap;
+    }
+
+    .pqc-item-tab em {
+      display: inline-grid;
+      place-items: center;
+      min-width: 44px;
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: #edf3ef;
+      color: #4b6258;
+      font-size: 14px;
+      font-style: normal;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .pqc-item-tab.active {
+      border-color: #8cb9a1;
+      background: #ffffff;
+      color: var(--frontline-green);
+      box-shadow: inset 0 7px 0 rgba(21, 129, 95, 0.13), 0 8px 18px rgba(36, 50, 43, 0.08);
+      transform: translateY(3px);
+    }
+
+    .pqc-item-tab.active::before {
+      background: var(--frontline-green);
+    }
+
+    .pqc-item-tab.active em {
+      background: #ffffff;
+      color: var(--frontline-green);
+    }
+
+    .pqc-active-summary {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px 16px;
+      align-items: center;
+      padding: 0 4px;
+    }
+
+    .pqc-active-summary h3 {
+      margin: 0;
+      font-size: 38px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .pqc-active-summary span {
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: #edf3ef;
+      color: #4b6258;
+      font-size: 20px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .pqc-active-summary small {
+      grid-column: 1 / -1;
+      color: #4b6258;
+      font-size: 20px;
+      font-weight: 900;
+      line-height: 1.25;
+    }
+
+    .frontline-pqc-choice-item {
+      overflow: hidden;
+      border: 3px solid var(--frontline-line);
+      border-radius: 22px;
+      background: var(--frontline-soft);
+    }
+
+    .frontline-pqc-content-item {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      overflow: visible;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      padding-bottom: 16px;
+    }
+
+    .frontline-pqc-choice-title,
+    .frontline-pqc-content-title {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 4px 16px;
+      align-items: center;
+      min-height: 68px;
+      padding: 8px 18px;
+      border-bottom: 3px solid var(--frontline-line);
+      background: #ffffff;
+    }
+
+    .frontline-pqc-choice-title span,
+    .frontline-pqc-content-title span {
+      font-size: 34px;
+      font-weight: 900;
+      line-height: 1.1;
+    }
+
+    .frontline-pqc-inspection-meta {
+      grid-column: 1 / -1;
+      color: #4b6258;
+      font-size: 18px;
+      font-style: normal;
+      font-weight: 800;
+      line-height: 1.25;
+    }
+
+    .pqc-utility-strip {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      padding: 0;
+      border-bottom: 0;
+      background: transparent;
+    }
+
+    .pqc-select-card,
+    .pqc-fact-card {
+      position: relative;
+      display: grid;
+      min-width: 0;
+      min-height: 66px;
+      border: 3px solid var(--frontline-line);
+      border-radius: 18px;
+      background: #ffffff;
+      color: var(--frontline-ink);
+      font: inherit;
+      text-align: left;
+    }
+
+    .pqc-select-card {
+      grid-template-columns: minmax(0, 1fr) 34px;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 14px 7px 16px;
+    }
+
+    .pqc-select-card strong,
+    .pqc-select-card span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pqc-select-card strong {
+      color: var(--frontline-muted);
+      font-size: 17px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .pqc-select-card span {
+      margin-top: 6px;
+      font-size: 28px;
+      font-weight: 900;
+      line-height: 1.05;
+    }
+
+    .pqc-select-card em {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: var(--frontline-dark);
+      color: #ffffff;
+      font-size: 20px;
+      font-style: normal;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .pqc-select-card.is-empty span {
+      color: #7f8f86;
+    }
+
+    .pqc-select-card.is-selected {
+      border-color: #8cb9a1;
+      background: #fbfffc;
+    }
+
+    .pqc-select-card.is-disabled {
+      border-style: dashed;
+      background: #edf3ef;
+      color: #87968d;
+    }
+
+    .pqc-fact-card {
+      place-items: stretch;
+      align-content: center;
+      gap: 3px;
+      padding: 7px 16px;
+      text-align: left;
+    }
+
+    .pqc-fact-card strong {
+      overflow: hidden;
+      font-size: 28px;
+      font-weight: 900;
+      line-height: 1;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pqc-fact-card span {
+      color: var(--frontline-muted);
+      overflow: hidden;
+      font-size: 17px;
+      font-weight: 900;
+      line-height: 1;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pqc-fact-card.is-primary {
+      border-color: #8cb9a1;
+      background: var(--frontline-green-soft);
+      color: var(--frontline-green);
+    }
+
+    .pqc-required-dot {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--frontline-green);
+    }
+
+    .frontline-pqc-choice-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1.42fr;
+      gap: 8px;
+      min-height: 78px;
+    }
+
+    .frontline-pqc-choice-actions > button {
+      min-width: 0;
+      padding: 8px 12px;
+      border: 3px solid var(--frontline-line);
+      border-radius: 18px;
+      background: var(--frontline-soft);
+      color: var(--frontline-ink);
+      font: inherit;
+      font-size: 29px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .frontline-pqc-choice-actions > button.pass.active {
+      background: var(--frontline-green-soft);
+      color: var(--frontline-green);
+    }
+
+    .frontline-pqc-choice-actions > button.fail.active {
+      background: var(--frontline-red-soft);
+      color: var(--frontline-red);
+    }
+
+    .frontline-pqc-choice-actions .manual {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 38px;
+      grid-template-rows: auto auto;
+      gap: 4px 10px;
+      align-items: center;
+      padding: 10px 16px;
+      text-align: left;
+    }
+
+    .frontline-pqc-choice-actions .manual span {
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .frontline-pqc-choice-actions .manual small {
+      color: var(--frontline-muted);
+      font-size: 22px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .frontline-pqc-choice-actions .manual strong {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      font-size: 40px;
+      line-height: 1;
+    }
+
+    .frontline-pqc-fill-panel {
+      grid-template-rows: auto 86px 104px minmax(0, 1fr);
+      gap: 14px;
+      overflow: hidden;
+      padding-inline: 20px;
+    }
+
+    .frontline-pqc-type-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .frontline-pqc-type-tabs button {
+      min-width: 0;
+      border: 3px solid var(--frontline-line);
+      border-radius: 20px;
+      background: var(--frontline-soft);
+      color: var(--frontline-ink);
+      font: inherit;
+      font-size: 32px;
+      font-weight: 900;
+    }
+
+    .frontline-pqc-type-tabs button.active {
+      border-color: var(--frontline-dark);
+      background: var(--frontline-dark);
+      color: #ffffff;
+    }
+
+    .frontline-pqc-round {
+      display: grid;
+      place-items: center;
+      min-height: 88px;
+      border-radius: 22px;
+      background: var(--frontline-dark);
+      color: #ffffff;
+      font-size: 36px;
+      font-weight: 900;
+    }
+
+    .frontline-pqc-form-area {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      min-width: 0;
+      padding: 18px 16px;
+      border: 3px solid var(--frontline-line);
+      border-radius: 24px;
+      background: #fbfdfb;
+    }
+
+    .frontline-pqc-number-field {
+      display: grid;
+      grid-template-columns: 128px 58px minmax(54px, 1fr) 58px 42px;
+      gap: 8px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .frontline-pqc-number-field label {
+      font-size: 25px;
+      font-weight: 900;
+    }
+
+    .frontline-pqc-number-field button,
+    .frontline-pqc-number-field input {
+      width: 100%;
+      height: 58px;
+      min-width: 0;
+      border: 3px solid var(--frontline-line);
+      border-radius: 16px;
+      background: var(--frontline-soft);
+      color: var(--frontline-ink);
+      text-align: center;
+      font: inherit;
+      font-weight: 900;
+    }
+
+    .frontline-pqc-number-field button {
+      font-size: 32px;
+    }
+
+    .frontline-pqc-number-field input {
+      font-size: 32px;
+    }
+
+    .frontline-pqc-number-field span {
+      font-size: 24px;
+      font-weight: 900;
+    }
+
+    .frontline-pqc-submit-bar {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+    }
+
+    .frontline-pqc-reset-button,
+    .frontline-pqc-submit-button {
+      border: 0;
+      border-radius: 28px;
+      font: inherit;
+      font-size: 50px;
+      font-weight: 900;
+    }
+
+    .frontline-pqc-reset-button {
+      border: 3px solid var(--frontline-line);
+      background: #ffffff;
+      color: var(--frontline-ink);
+    }
+
+    .frontline-pqc-submit-button {
+      background: var(--frontline-green);
+      color: #ffffff;
+    }
+
+    @media (max-width: 1100px) {
+      .frontline-operator-screen {
+        grid-template-rows: auto auto auto;
+        overflow: visible;
+      }
+
+      .frontline-operator-top,
+      .frontline-operator-main {
+        grid-template-columns: 1fr;
+      }
+
+      .pqc-utility-strip {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="prototype-shell">
+    <section class="frontline-operator-screen" aria-label="PQC 填写页面原型">
+      <header class="frontline-operator-top">
+        <button class="frontline-top-card" type="button">
+          <span>生产订单</span>
+          <strong>SC-20260805-260804</strong>
+        </button>
+        <button class="frontline-top-card" type="button">
+          <span>工序</span>
+          <strong>清洗-外观-抽检</strong>
+        </button>
+        <button class="frontline-top-card" type="button">
+          <span>员工</span>
+          <strong>王昕</strong>
+        </button>
+        <button class="frontline-home-button" type="button">最大化</button>
+      </header>
+
+      <main class="frontline-operator-main">
+        <section class="frontline-work-panel frontline-pqc-content-panel">
+          <div class="frontline-pqc-inspection-list">
+            <article class="frontline-pqc-content-item">
+              <div class="pqc-active-summary">
+                <h3>长度</h3>
+                <span>逐件</span>
+                <small>判定：合格/不合格 / 设备：必填 / 已填 0/30</small>
+              </div>
+              <div class="pqc-utility-strip" aria-label="长度质检信息">
+                <button class="pqc-select-card is-selected" type="button">
+                  <span class="pqc-required-dot" aria-hidden="true"></span>
+                  <span>
+                    <strong>检验设备</strong>
+                    <span>电子卡尺</span>
+                  </span>
+                  <em aria-hidden="true">&gt;</em>
+                </button>
+                <button class="pqc-select-card is-selected" type="button">
+                  <span class="pqc-required-dot" aria-hidden="true"></span>
+                  <span>
+                    <strong>设备编号</strong>
+                    <span>QC-CAL-02</span>
+                  </span>
+                  <em aria-hidden="true">&gt;</em>
+                </button>
+                <button class="pqc-fact-card is-primary" type="button">
+                  <strong>接收标准</strong>
+                  <span>±0.02 mm</span>
+                </button>
+                <button class="pqc-fact-card" type="button">
+                  <strong>检验方法</strong>
+                  <span>卡尺复核</span>
+                </button>
+              </div>
+              <div class="frontline-pqc-choice-actions">
+                <button class="pass" type="button">全部合格</button>
+                <button class="fail" type="button">全部不良</button>
+                <button class="manual" type="button">
+                  <span>逐件选择</span>
+                  <small>已填 0/30</small>
+                  <strong aria-hidden="true">&gt;</strong>
+                </button>
+              </div>
+            </article>
+
+            <nav class="pqc-item-tabs" aria-label="检验项目切换">
+              <button class="pqc-item-tab active" type="button">
+                <strong>长度</strong>
+                <em>当前</em>
+                <small><span>设备必填</span><span>已填 0/30</span></small>
+              </button>
+              <button class="pqc-item-tab" type="button">
+                <strong>外观</strong>
+                <em>待选</em>
+                <small><span>设备待选</span><span>已填 0/30</span></small>
+              </button>
+              <button class="pqc-item-tab" type="button">
+                <strong>密封</strong>
+                <em>未检</em>
+                <small><span>待逐件</span><span>已填 0/30</span></small>
+              </button>
+              <button class="pqc-item-tab" type="button">
+                <strong>压力</strong>
+                <em>未检</em>
+                <small><span>设备必填</span><span>已填 0/30</span></small>
+              </button>
+              <button class="pqc-item-tab" type="button">
+                <strong>内径</strong>
+                <em>未检</em>
+                <small><span>设备必填</span><span>已填 0/30</span></small>
+              </button>
+              <button class="pqc-item-tab" type="button">
+                <strong>宽度</strong>
+                <em>未检</em>
+                <small><span>设备必填</span><span>已填 0/30</span></small>
+              </button>
+              <button class="pqc-item-tab" type="button">
+                <strong>厚度</strong>
+                <em>待选</em>
+                <small><span>设备待选</span><span>已填 0/30</span></small>
+              </button>
+              <button class="pqc-item-tab" type="button">
+                <strong>重量</strong>
+                <em>未检</em>
+                <small><span>待逐件</span><span>已填 0/30</span></small>
+              </button>
+              <button class="pqc-item-tab" type="button">
+                <strong>颜色</strong>
+                <em>未检</em>
+                <small><span>目视</span><span>已填 0/30</span></small>
+              </button>
+              <button class="pqc-item-tab" type="button">
+                <strong>硬度</strong>
+                <em>未检</em>
+                <small><span>设备必填</span><span>已填 0/30</span></small>
+              </button>
+            </nav>
+          </div>
+        </section>
+
+        <section class="frontline-work-panel frontline-pqc-fill-panel">
+          <div class="frontline-pqc-type-tabs">
+            <button type="button">首检</button>
+            <button class="active" type="button">巡检</button>
+            <button type="button">末检</button>
+          </div>
+          <div class="frontline-pqc-round">第 260804 次</div>
+          <div class="frontline-pqc-form-area">
+            <div class="frontline-pqc-number-field">
+              <label for="inspectionQuantity">检验数量</label>
+              <button type="button">-</button>
+              <input id="inspectionQuantity" value="30" />
+              <button type="button">+</button>
+              <span>件</span>
+            </div>
+            <div class="frontline-pqc-number-field">
+              <label for="scrapQuantity">损耗数量</label>
+              <button type="button">-</button>
+              <input id="scrapQuantity" value="" />
+              <button type="button">+</button>
+              <span>件</span>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="frontline-pqc-submit-bar">
+        <button class="frontline-pqc-reset-button" type="button">重填</button>
+        <button class="frontline-pqc-submit-button" type="button">提交</button>
+      </footer>
+    </section>
+  </div>
+</body>
+</html>
