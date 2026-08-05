@@ -49,7 +49,9 @@
       <el-table-column label="表格名称" min-width="160">
         <template #default="{ row }">{{ resolveTypeLabel(row.syncType) }}</template>
       </el-table-column>
-      <el-table-column prop="lastSuccessTime" label="最近成功水位" min-width="180" />
+      <el-table-column label="最近成功水位" min-width="180">
+        <template #default="{ row }">{{ formatDateTimeValue(row.lastSuccessTime, '-') }}</template>
+      </el-table-column>
     </el-table>
 
     <div class="profile-erp-table-sync__section-title profile-erp-table-sync__section-title--runs">
@@ -61,18 +63,22 @@
       <el-table-column label="表格名称" min-width="160">
         <template #default="{ row }">{{ resolveTypeLabel(row.syncType) }}</template>
       </el-table-column>
-      <el-table-column prop="triggerType" label="触发" width="90" />
+      <el-table-column label="触发" width="100">
+        <template #default="{ row }">{{ formatTriggerType(row.triggerType) }}</template>
+      </el-table-column>
       <el-table-column label="状态" width="100">
         <template #default="{ row }">{{ formatRunStatus(row.status) }}</template>
       </el-table-column>
-      <el-table-column prop="startedAt" label="开始时间" min-width="160" />
+      <el-table-column label="开始时间" min-width="180">
+        <template #default="{ row }">{{ formatDateTimeValue(row.startedAt, '-') }}</template>
+      </el-table-column>
       <el-table-column label="数量" min-width="160">
         <template #default="{ row }">
           新增 {{ row.createdCount || 0 }} / 更新 {{ row.updatedCount || 0 }} / 跳过
           {{ row.skippedCount || 0 }}
         </template>
       </el-table-column>
-      <el-table-column prop="failureMessage" label="failureMessage" min-width="220" show-overflow-tooltip />
+      <el-table-column prop="failureMessage" label="失败原因" min-width="220" show-overflow-tooltip />
     </el-table>
   </el-card>
 </template>
@@ -86,6 +92,7 @@ import {
   type ErpKingdeeTableAutoSyncTypeVO,
   type ErpKingdeeTableAutoSyncWatermarkVO
 } from '@/api/erp/kingdeeTableAutoSync'
+import { formatDateTimeValue } from '@/utils/formatTime'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -113,9 +120,16 @@ const resolveTypeLabel = (syncType: string) =>
   syncTypes.value.find((item) => item.syncType === syncType)?.label || syncType
 
 const formatRunStatus = (status: number | string) => {
-  if (String(status) === '1') return '成功'
-  if (String(status) === '2') return '失败'
-  return String(status)
+  if (String(status) === '10') return '运行中'
+  if (String(status) === '20') return '成功'
+  if (String(status) === '30') return '失败'
+  return `未知状态（${status}）`
+}
+
+const formatTriggerType = (triggerType: string) => {
+  if (triggerType === 'AUTO') return '自动调度'
+  if (triggerType === 'MANUAL') return '手动执行'
+  return `未知触发（${triggerType}）`
 }
 
 const applyPlan = (plan: ErpKingdeeTableAutoSyncPlanVO) => {

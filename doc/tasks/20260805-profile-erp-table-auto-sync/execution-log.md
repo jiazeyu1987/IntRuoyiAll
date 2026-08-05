@@ -9,10 +9,10 @@
 ## Environment And Isolation
 
 - 主工作区：`E:\IntRuoyi`，当前存在并行脏改动，本任务不直接修改该工作区。
-- 隔离 worktree：原路径 `D:\IntRuoyiWorktree\profile-erp-table-auto-sync` 在验证期间两次被外部进程删除，当前验证路径为 `D:\IntRuoyiWorktree\profile-erp-table-auto-sync-verify`。
+- 隔离 worktree：`D:\IntRuoyiWorktree\profile-erp-table-auto-sync`。该路径在验证期间曾被外部进程删除，用户已停止外部清理进程，当前已重新创建并恢复验证。
 - 分支：`codex/profile-erp-table-auto-sync`。
-- 运行槽位：原登记 `slot=5`，前端端口 `8086`，后端端口 `48086`；当前未启动服务，仅做代码和静态/合同验证。
-- 备注：首次 worktree 在验证后被外部进程移除，已在同一路径重新挂载同一分支并继续。
+- 运行槽位：`slot=2`，前端端口 `8083`，后端端口 `48083`。
+- 端口守卫：`scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，确认分支 `codex/profile-erp-table-auto-sync/int_main` 使用配对端口 `8083/48083`。
 
 ## BDD Scenarios
 
@@ -24,22 +24,39 @@ BDD: 配置页权限边界 -> Given 用户不能查看个人工作台配置页�
 
 BDD: 同步类型正式来源 -> Given 系统存在正式 ERP/Kingdee 同步类型枚举，When 前端加载可选 ERP 表格，Then 只能展示后端正式支持的同步类型，不能混用 NAS 导出类型或前端硬编码兜底。
 
+BDD: 可读地展示 ERP 同步运行结果 -> Given 系统已有 ERP 同步水位和运行记录，When 用户打开“ERP表格自动同步”页签，Then 页面用中文展示自动/手动触发来源、运行中/成功/失败状态和失败原因，并将毫秒时间戳格式化为可读日期时间。
+
 ## TDD Evidence
 
 - RED: node IntRuoyiFronted\tests\e2e\profile-erp-table-auto-sync-static.spec.js -> FAIL, expected reason: `ProfileErpTableAutoSyncSetting.vue` 尚未实现。
 - RED: python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_erp_kingdee_table_auto_sync_sql.py -> FAIL, expected reason: `20260805_erp_kingdee_table_auto_sync.sql` 尚未实现。
 - RED: mvn -pl yudao-module-erp "-Dtest=cn.iocoder.yudao.module.erp.kingdeeautosync.ErpKingdeeTableAutoSyncContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, non-target reason: 未加 `-am` 时 ERP 模块拿到旧 infra reactor 依赖，`NasBrowserService.writeFile(...)` 编译符号缺失。
 - RED: mvn -pl yudao-module-erp -am "-Dtest=cn.iocoder.yudao.module.erp.kingdeeautosync.ErpKingdeeTableAutoSyncContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, expected reason: Surefire 到达目标测试，新 controller/service/job/type enum 文件尚未实现。
-- GREEN: pending -> 实现后运行定向测试并记录 PASS。
+- RED: node IntRuoyiFronted\tests\e2e\profile-erp-table-auto-sync-static.spec.js -> FAIL, expected reason: 真实 E2E 发现运行记录仍显示英文 `failureMessage`、状态数字 `20` 和毫秒时间戳，新增可读展示合同后旧组件不满足要求。
+- GREEN: node IntRuoyiFronted\tests\e2e\profile-erp-table-auto-sync-static.spec.js -> PASS。
+- GREEN: node IntRuoyiFronted\tests\e2e\profile-nas-table-auto-sync-static.spec.js -> PASS。
+- GREEN: pnpm ts:check -> PASS。
+- GREEN: python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_erp_kingdee_table_auto_sync_sql.py -> PASS，4 passed。
+- GREEN: mvn -pl yudao-module-erp -am "-Dtest=cn.iocoder.yudao.module.erp.kingdeeautosync.ErpKingdeeTableAutoSyncContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS，4 tests / 0 failures / 0 errors。
+- REGRESSION: mvn.cmd -pl yudao-server -am -DskipTests package -> PASS。
+- REGRESSION: scripts\preflight\branch-runtime-port-guard.ps1 -> PASS，前端 `8083`、后端 `48083`。
+- REGRESSION: git diff --check -> PASS。
 
 ## Milestone Updates
 
 - M1 completed：确认正式同步类型为 PRODUCT、STOCK、PURCHASE_ORDER、SALE_ORDER、PRODUCTION_ORDER、PRODUCTION_MATERIAL_LIST、BOM；NAS 自动同步是导出到 NAS，不作为 ERP 拉取同步来源。
 - M2 completed：已补充 BDD/TDD/E2E/test-data 设计文档，并完成 RED 证据采集。
+- M4 completed：已实现数据库迁移、后端配置 API、自动调度 Job、个人工作台配置页签和前端 API；支持启用状态、每日时间、ERP 表类型选择、立即执行、运行记录和水位展示。
 - M4 correction：修正自动调度失败重试语义，`lastAutoRunDate` 只在全部所选 ERP JobHandler 成功后写入，避免失败当天被误判为“已自动执行”。
+- M5 completed：本机 `8083/48083` 真实运行态完成 Playwright 保存、刷新回显、数据库读回和页面禁用恢复；真实运行记录复验发现并修复状态数字、毫秒时间戳和英文失败列名问题。
 
 ## Verification Notes
 
 - RED: mvn -pl yudao-module-erp -am "-Dtest=cn.iocoder.yudao.module.erp.kingdeeautosync.ErpKingdeeTableAutoSyncContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, expected reason: 新增 `markAutoRunDateAfterSuccess` 合同后，旧实现缺少成功后写入方法。
 - RED: mvn -pl yudao-module-erp -am "-Dtest=cn.iocoder.yudao.module.erp.kingdeeautosync.ErpKingdeeTableAutoSyncContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, expected reason: 首次断言过宽，误拦截成功后写入 `lastAutoRunDate`，已收窄为顺序断言。
 - BLOCKER: 原 worktree `D:\IntRuoyiWorktree\profile-erp-table-auto-sync` 在 Maven 复验后被外部进程删除；随后切换到 `D:\IntRuoyiWorktree\profile-erp-table-auto-sync-verify` 继续。
+- E2E: `芋道源码/admin` -> 个人工作台 -> 配置 -> ERP表格自动同步 -> 启用 -> `03:25:00` -> `PRODUCT + STOCK` -> 保存 -> 刷新回显 -> PASS。
+- E2E READBACK: 本机开发库确认租户 1 的计划、CRON `0 25 3 * * ?`、`PRODUCT` 和 `STOCK` 与页面一致。
+- E2E RESET: 通过页面恢复自动同步为禁用；未点击“立即执行一次”，未触发额外 Kingdee 拉取。
+- E2E READABILITY: 真实非空运行记录显示“自动调度”“成功”、可读日期时间和“失败原因”；原始状态 `20`、13 位时间戳和英文列名不再可见，控制台错误为 0。
+- EXPERIENCE: 已将运行记录用户可读展示门禁合并到 `docs/frontend-development.md`，并更新 `docs/experience-index.md`。

@@ -37,13 +37,30 @@ for (const token of [
   '同步水位',
   '立即执行一次',
   '最近执行记录',
-  'failureMessage',
+  '失败原因',
   'ElMessage.error',
   'PRODUCT',
   'BOM'
 ]) {
   assert.match(component, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `组件必须包含用户可见能力：${token}`)
 }
+
+for (const [status, label] of [
+  ['10', '运行中'],
+  ['20', '成功'],
+  ['30', '失败']
+]) {
+  assert.match(
+    component,
+    new RegExp(`String\\(status\\) === '${status}'[\\s\\S]*'${label}'`),
+    `运行状态 ${status} 必须显示为“${label}”。`
+  )
+}
+
+assert.match(component, /formatTriggerType\(row\.triggerType\)/, '触发类型必须通过中文展示函数渲染。')
+assert.match(component, /formatDateTimeValue\(row\.lastSuccessTime/, '同步水位必须格式化为可读日期时间。')
+assert.match(component, /formatDateTimeValue\(row\.startedAt/, '运行开始时间必须格式化为可读日期时间。')
+assert.doesNotMatch(component, /label="failureMessage"/, '运行记录不得暴露英文内部字段名 failureMessage。')
 
 assert.doesNotMatch(
   component,

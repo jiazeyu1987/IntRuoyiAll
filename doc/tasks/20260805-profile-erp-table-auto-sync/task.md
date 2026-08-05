@@ -9,8 +9,8 @@
 - [x] M1：确认现有 ERP 同步类型、JobHandler、运行记录和 NAS 配置页复用边界。
 - [x] M2：完成 BDD + TDD 设计文档，定义后端、数据库、前端和 E2E 验收路径。
 - [x] M3：先写 RED 测试，覆盖配置保存、同步类型枚举、调度 Job、前端配置页入口与 API 契约。
-- [ ] M4：实现数据库迁移、后端配置 API、自动调度 Job、前端配置页签。
-- [ ] M5：运行定向 GREEN/REGRESSION 验证，记录验证证据和剩余阻塞。
+- [x] M4：实现数据库迁移、后端配置 API、自动调度 Job、前端配置页签。
+- [x] M5：运行定向 GREEN/REGRESSION 验证，记录验证证据和剩余阻塞。
 
 ## Expected Verification
 
@@ -21,15 +21,22 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-当前任务使用隔离验证 worktree `D:\IntRuoyiWorktree\profile-erp-table-auto-sync-verify`，分支 `codex/profile-erp-table-auto-sync`。原 worktree `D:\IntRuoyiWorktree\profile-erp-table-auto-sync` 在验证期间两次被外部进程删除；本任务不在主工作区直接修改文件。
+当前任务使用隔离 worktree `D:\IntRuoyiWorktree\profile-erp-table-auto-sync`，分支 `codex/profile-erp-table-auto-sync`，运行槽位 `slot=2`，前端端口 `8083`，后端端口 `48083`。外部清理进程已由用户停止，当前 worktree 已重新创建并通过分支运行端口守卫；本任务不在主工作区直接修改文件。
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否；缺少正式同步类型、JobHandler、权限、配置或数据库 schema 时必须 fail fast。
 - `是否从根因和长期维护角度解决`：是；复用现有 `ErpKingdeeSyncTypeEnum`、正式 JobHandler、运行记录和水位链路，不复制同步逻辑。
 - `是否存在临时补丁或绕过`：否。
+
+## Cleanup Keep
+
+- doc/tasks/20260805-profile-erp-table-auto-sync/bdd-scenarios.md
+- doc/tasks/20260805-profile-erp-table-auto-sync/tdd-plan.md
+- doc/tasks/20260805-profile-erp-table-auto-sync/e2e-plan.md
+- doc/tasks/20260805-profile-erp-table-auto-sync/test-data.md
 
 ## Applicable Experience Gates
 
