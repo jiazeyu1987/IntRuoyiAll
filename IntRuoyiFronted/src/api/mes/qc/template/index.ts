@@ -39,6 +39,8 @@ export interface QaInspectionRegulationPublishedVersionVO {
   processId: number
   routeProcessName?: string
   batchRecordBindingSummary?: string
+  finalInspectionApplicable: boolean
+  finalInspectionNotApplicableReason?: string
   firstInspectionRules: QaInspectionRuleVO[]
   patrolInspectionRules: QaInspectionRuleVO[]
   finalInspectionRules: QaInspectionRuleVO[]
@@ -87,6 +89,8 @@ export interface QaInspectionRegulationSaveReqVO {
   regulationName: string
   versionNo: string
   effectiveDate?: string
+  finalInspectionApplicable: boolean
+  finalInspectionNotApplicableReason?: string
   items: QaInspectionRegulationSaveItemVO[]
 }
 

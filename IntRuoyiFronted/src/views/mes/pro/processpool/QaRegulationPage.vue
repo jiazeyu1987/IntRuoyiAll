@@ -439,6 +439,25 @@
                 </template>
               </el-table-column>
               <el-table-column
+                v-if="isQaRulesColumnVisible('notApplicableReason')"
+                label="不适用依据"
+                prop="notApplicableReason"
+                :min-width="getQaRulesColumnMinWidthString('notApplicableReason', 260)"
+              v-bind="sortColumnAttrs('notApplicableReason')"
+              >
+                <template #default="{ row }">
+                  <el-input
+                    v-if="row.key === 'FINAL' && !row.required"
+                    v-model="row.notApplicableReason"
+                    placeholder="填写末检不适用的正式依据"
+                    clearable
+                  />
+                  <el-tag v-else effect="plain" type="info">
+                    {{ row.key === 'FINAL' ? '末检适用' : '不适用' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column
                 v-if="isQaRulesColumnVisible('fixedQuantity')"
                 label="固定数量"
                 prop="fixedQuantity"
@@ -944,6 +963,7 @@ interface QaInspectionTypeRule {
   required: boolean
   fixedQuantity?: number
   sampleRatio?: number
+  notApplicableReason?: string
   taskRule: string
   releaseGate: string
 }
@@ -1025,6 +1045,7 @@ const keepQaLocalPageInRange = (query: QaLocalListQuery, total: number) => {
 const qaRulesDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'rule', label: '规则', minWidth: 120 },
   { key: 'required', label: '是否适用', width: 110 },
+  { key: 'notApplicableReason', label: '不适用依据', minWidth: 260 },
   { key: 'fixedQuantity', label: '固定数量', width: 140 },
   { key: 'sampleRatio', label: '抽样比例', width: 140 },
   { key: 'plannedQuantity', label: 'PQC 计划数量', width: 150 },
@@ -1184,6 +1205,7 @@ const qaInspectionTypeRules = reactive<QaInspectionTypeRule[]>([
     roundLabel: '订单工序结束前',
     required: true,
     fixedQuantity: 3,
+    notApplicableReason: '',
     taskRule: '需要末检时生成末检任务；不适用必须显式关闭',
     releaseGate: '需要/不适用必须明确保存'
   }
@@ -1502,6 +1524,10 @@ const qaRegulationCompletenessChecks = computed(() => {
   const ruleReady = qaInspectionTypeRules.every(
     (rule) => !rule.required || resolveQaRulePlannedQuantity(rule) > 0
   )
+  const finalRule = qaInspectionTypeRules.find((rule) => rule.key === 'FINAL')
+  const finalApplicabilityReady = Boolean(
+    finalRule?.required || finalRule?.notApplicableReason?.trim()
+  )
   const itemReady =
     qaRegulationItems.value.length > 0 &&
     qaRegulationItems.value.every(
@@ -1550,8 +1576,11 @@ const qaRegulationCompletenessChecks = computed(() => {
     {
       key: 'rules',
       label: '首检/巡检/末检规则',
-      passed: ruleReady,
-      detail: ruleReady ? '适用的检验类型均有数量或比例' : '适用检验类型缺少固定数量或抽样比例'
+      passed: ruleReady && finalApplicabilityReady,
+      detail:
+        ruleReady && finalApplicabilityReady
+          ? '适用的检验类型均有数量或比例，末检不适用时已有正式依据'
+          : '适用检验类型缺少固定数量/抽样比例，或末检不适用依据未填写'
     },
     {
       key: 'items',
@@ -1659,9 +1688,12 @@ const resolveRuleForInspectionType = (
 const buildQaRegulationSaveItems = (): QaInspectionRegulationSaveItemVO[] =>
   qaRegulationItems.value.flatMap((item) => {
     const inspectionTypes = Array.from(new Set(item.applicableTypes.map(normalizeQaInspectionType)))
-    return inspectionTypes.map((inspectionType) => {
+    return inspectionTypes.flatMap((inspectionType) => {
       const rule = resolveRuleForInspectionType(inspectionType)
-      return {
+      if (!rule) {
+        return []
+      }
+      return [{
         inspectionType,
         itemCode: item.itemCode,
         itemName: item.itemName,
@@ -1677,7 +1709,7 @@ const buildQaRegulationSaveItems = (): QaInspectionRegulationSaveItemVO[] =>
           inspectionType === 'PATROL' && rule?.sampleRatio
             ? Number((rule.sampleRatio / 100).toFixed(6))
             : undefined
-      }
+      }]
     })
   })
 
@@ -1689,6 +1721,14 @@ const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO | undef
   const productId = resolveDccProjectProductId(selectedDccProjectCode.value)
   if (!productId) {
     ElMessage.warning('当前 DCC 项目代码未绑定 MDM 产品，不能保存 QA 规程。')
+    return undefined
+  }
+  const finalRule = qaInspectionTypeRules.find((rule) => rule.key === 'FINAL')
+  const finalInspectionApplicable = Boolean(finalRule?.required)
+  const finalInspectionNotApplicableReason =
+    finalInspectionApplicable ? undefined : finalRule?.notApplicableReason?.trim()
+  if (!finalInspectionApplicable && !finalInspectionNotApplicableReason) {
+    ElMessage.warning('末检不适用时必须填写正式依据。')
     return undefined
   }
   try {
@@ -1707,6 +1747,8 @@ const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO | undef
       regulationName: qaRegulationDraft.regulationName.trim(),
       versionNo: qaRegulationDraft.versionNo.trim(),
       effectiveDate: qaRegulationDraft.effectiveDate || undefined,
+      finalInspectionApplicable,
+      finalInspectionNotApplicableReason,
       items: buildQaRegulationSaveItems()
     }
   } catch (error) {

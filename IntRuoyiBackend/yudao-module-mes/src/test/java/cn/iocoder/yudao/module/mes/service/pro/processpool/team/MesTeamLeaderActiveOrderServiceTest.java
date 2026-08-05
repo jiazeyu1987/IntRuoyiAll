@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProSchedu
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
@@ -18,6 +19,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrd
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,6 +67,8 @@ class MesTeamLeaderActiveOrderServiceTest {
     @Mock
     private MesQaInspectionRegulationMapper inspectionRegulationMapper;
     @Mock
+    private MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
+    @Mock
     private MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
     @Mock
     private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
@@ -75,9 +79,12 @@ class MesTeamLeaderActiveOrderServiceTest {
     void setUp() {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, auditMapper,
                 scheduleOrderMapper, scheduleOrderProcessMapper, processSnapshotMapper, transferTraceService,
-                inspectionRegulationMapper, inspectionRegulationItemMapper, pqcInspectionTaskMapper);
+                inspectionRegulationMapper, inspectionRegulationVersionMapper, inspectionRegulationItemMapper,
+                pqcInspectionTaskMapper);
         lenient().when(inspectionRegulationMapper.selectPublishedByRouteProcess(any(), any(), any(), any(), any()))
                 .thenReturn(publishedRegulation(9902L));
+        lenient().when(inspectionRegulationVersionMapper.selectById(9902L))
+                .thenReturn(publishedRegulationVersion(true, null));
         lenient().when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(defaultPqcItems());
         lenient().when(pqcInspectionTaskMapper.selectByIdentity(any(), any(), any(), any(), any(), any()))
                 .thenReturn(null);
@@ -369,6 +376,88 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
+    void shouldSkipFinalPqcTaskWhenPublishedRegulationMarksFinalInspectionNotApplicable() {
+        when(inspectionRegulationVersionMapper.selectById(9902L))
+                .thenReturn(publishedRegulationVersion(false, "该工序后续 OQC 覆盖最终包装确认"));
+        when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(List.of(
+                pqcItem("FIRST", 5, null),
+                pqcItem("PATROL", null, new BigDecimal("0.050000"))));
+        when(workOrderService.validateWorkOrderConfirmed(9001L)).thenReturn(MesProWorkOrderDO.builder()
+                .id(9001L)
+                .code("WO-9001")
+                .productId(1001L)
+                .quantity(new BigDecimal("301"))
+                .build());
+        when(activeOrderMapper.insert(any(MesProcessPoolActiveOrderDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolActiveOrderDO.class).setId(8101L);
+            return 1;
+        });
+        when(scheduleOrderMapper.selectEffectiveByWorkOrderId(9001L)).thenReturn(MesProScheduleOrderDO.builder()
+                .id(7701L)
+                .workOrderId(9001L)
+                .productId(1001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .build());
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderId(7701L)).thenReturn(List.of(
+                scheduleProcess(928609L, 6001L, "1.000000", "301.000000")));
+        when(processSnapshotMapper.insertBatch(any())).thenReturn(Boolean.TRUE);
+
+        Long activeOrderId = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .build());
+
+        assertEquals(8101L, activeOrderId);
+        ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
+                ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(3)).insert(taskCaptor.capture());
+        List<MesPqcInspectionTaskDO> tasks = taskCaptor.getAllValues();
+        assertPqcTask(tasks.get(0), "FIRST", "FIRST", 5);
+        assertPqcTask(tasks.get(1), "PATROL", "AM", 16);
+        assertPqcTask(tasks.get(2), "PATROL", "PM", 16);
+    }
+
+    @Test
+    void shouldRejectActiveOrderWhenPublishedRegulationMissingFinalApplicability() {
+        when(inspectionRegulationVersionMapper.selectById(9902L))
+                .thenReturn(publishedRegulationVersion(null, null));
+        when(workOrderService.validateWorkOrderConfirmed(9001L)).thenReturn(MesProWorkOrderDO.builder()
+                .id(9001L)
+                .code("WO-9001")
+                .productId(1001L)
+                .quantity(new BigDecimal("301"))
+                .build());
+        when(activeOrderMapper.insert(any(MesProcessPoolActiveOrderDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolActiveOrderDO.class).setId(8101L);
+            return 1;
+        });
+        when(scheduleOrderMapper.selectEffectiveByWorkOrderId(9001L)).thenReturn(MesProScheduleOrderDO.builder()
+                .id(7701L)
+                .workOrderId(9001L)
+                .productId(1001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .build());
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderId(7701L)).thenReturn(List.of(
+                scheduleProcess(928609L, 6001L, "1.000000", "301.000000")));
+        when(processSnapshotMapper.insertBatch(any())).thenReturn(Boolean.TRUE);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(
+                MesTeamLeaderActiveOrderAddReqBO.builder()
+                        .leaderUserId(3001L)
+                        .workOrderId(9001L)
+                        .routeId(922119L)
+                        .routeVersionId(448L)
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED.getCode(), ex.getCode());
+        verify(pqcInspectionTaskMapper, never()).insert(any(MesPqcInspectionTaskDO.class));
+    }
+
+    @Test
     void shouldRejectActiveOrderWhenPublishedPqcRegulationMissing() {
         when(workOrderService.validateWorkOrderConfirmed(9001L)).thenReturn(MesProWorkOrderDO.builder()
                 .id(9001L)
@@ -574,6 +663,19 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .processId(6001L)
                 .lifecycleStatus("PUBLISHED")
                 .currentVersionId(versionId)
+                .build();
+    }
+
+    private static MesQaInspectionRegulationVersionDO publishedRegulationVersion(
+            Boolean finalInspectionApplicable, String reason) {
+        return MesQaInspectionRegulationVersionDO.builder()
+                .id(9902L)
+                .regulationId(9901L)
+                .versionNo("V21-QA-1")
+                .lifecycleStatus("PUBLISHED")
+                .finalInspectionApplicable(finalInspectionApplicable)
+                .finalInspectionNotApplicableReason(reason)
+                .snapshotJson("{}")
                 .build();
     }
 

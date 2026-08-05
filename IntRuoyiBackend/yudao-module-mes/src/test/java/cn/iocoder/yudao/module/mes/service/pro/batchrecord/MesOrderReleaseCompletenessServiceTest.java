@@ -5,13 +5,16 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInsp
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderTransferTraceDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.materialstock.MesWmMaterialStockDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderTransferTraceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolWorkOrderAbnormalMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.materialstock.MesWmMaterialStockMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -29,6 +32,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class MesOrderReleaseCompletenessServiceTest {
@@ -43,11 +47,19 @@ class MesOrderReleaseCompletenessServiceTest {
     @Mock
     private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Mock
+    private MesQaInspectionRegulationVersionMapper regulationVersionMapper;
+    @Mock
     private MesProcessPoolWorkOrderAbnormalMapper workOrderAbnormalMapper;
     @Mock
     private MesProcessPoolActiveOrderTransferTraceMapper transferTraceMapper;
     @Mock
     private MesWmMaterialStockMapper materialStockMapper;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(regulationVersionMapper.selectById(9902L))
+                .thenReturn(regulationVersion(true, null));
+    }
 
     @Test
     void evaluateInspectionResultSummarizesLargePendingPqcTaskSetWithinReleaseCheckColumnBudget() {
@@ -124,6 +136,48 @@ class MesOrderReleaseCompletenessServiceTest {
 
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.checkResult());
         assertTrue(result.failureReason().contains("身份完整"));
+    }
+
+    @Test
+    void evaluateInspectionResultPassesWithoutFinalWhenRegulationMarksFinalNotApplicable() {
+        MesProEdhrBatchExecutionDO batch = batch();
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(batch);
+        when(regulationVersionMapper.selectById(9902L))
+                .thenReturn(regulationVersion(false, "该工序后续 OQC 覆盖最终包装确认"));
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
+                batch.getRouteVersionId())).thenReturn(activeOrder);
+        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(List.of(
+                confirmedPqcTask(1L, "FIRST", "FIRST"),
+                confirmedPqcTask(2L, "PATROL", "AM"),
+                confirmedPqcTask(3L, "PATROL", "PM")));
+        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
+                .thenReturn(List.of(processSnapshot()));
+
+        MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
+
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.checkResult());
+        assertTrue(result.failureReason().contains("身份完整"));
+    }
+
+    @Test
+    void evaluateInspectionResultBlocksWithoutFinalWhenRegulationMissingExplicitApplicability() {
+        MesProEdhrBatchExecutionDO batch = batch();
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(batch);
+        when(regulationVersionMapper.selectById(9902L))
+                .thenReturn(regulationVersion(null, null));
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
+                batch.getRouteVersionId())).thenReturn(activeOrder);
+        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(List.of(
+                confirmedPqcTask(1L, "FIRST", "FIRST"),
+                confirmedPqcTask(2L, "PATROL", "AM"),
+                confirmedPqcTask(3L, "PATROL", "PM")));
+        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
+                .thenReturn(List.of(processSnapshot()));
+
+        MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
+
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER, result.checkResult());
+        assertTrue(result.failureReason().contains("未显式配置末检是否适用"));
     }
 
     @Test
@@ -253,10 +307,24 @@ class MesOrderReleaseCompletenessServiceTest {
                 .routeVersionId(922120L)
                 .routeProcessId(928609L)
                 .processId(6001L)
+                .regulationVersionId(9902L)
                 .inspectionType(inspectionType)
                 .shiftCode(shiftCode)
                 .roundNo(1)
                 .taskStatus("CONFIRMED")
+                .build();
+    }
+
+    private static MesQaInspectionRegulationVersionDO regulationVersion(Boolean finalInspectionApplicable,
+                                                                        String reason) {
+        return MesQaInspectionRegulationVersionDO.builder()
+                .id(9902L)
+                .regulationId(9901L)
+                .versionNo("V21-QA-1")
+                .lifecycleStatus("PUBLISHED")
+                .finalInspectionApplicable(finalInspectionApplicable)
+                .finalInspectionNotApplicableReason(reason)
+                .snapshotJson("{}")
                 .build();
     }
 

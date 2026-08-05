@@ -35,12 +35,12 @@ See `execution-log.md`.
 
 ## GREEN
 
-- GREEN: backend implementation completed but backend Maven PASS is not claimed.
+- GREEN: backend implementation completed and backend targeted Maven PASS is confirmed.
 - Implemented service changes:
   - `submit`, `approve`, `reject`, and `withdraw` now record terminal `MesProEdhrOperationAuditCommand` entries after successful transaction events.
   - `approve` verifies `signoffEvidenceHash` against a current-user `bpm_approval_signature_record` generated for the EDHR approval work task.
   - `reject` now supports direct `PRECHECK_PASSED` return by the route `RELEASE_APPROVE` owner and keeps `PENDING_APPROVAL` rejection on approval-task candidate validation.
-- Backend Maven GREEN is not claimed because same-module Maven processes from other work were still active in `E:\IntRuoyi\IntRuoyiBackend`.
+- GREEN command: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrReleaseServiceImplTest,MesProEdhrApprovalTaskAdapterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, `BUILD SUCCESS`, 35 tests, 0 failures, 0 errors, 0 skipped.
 
 ## Verification
 
@@ -48,7 +48,7 @@ See `execution-log.md`.
 - Backend evidence validator PASS: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260805-ac-m23-release-owner-compliance\backend-api-evidence.md`.
 - Isolated detached worktree `D:\IntRuoyiWorktree\ac-m23-release-owner-verify-20260805-1` applied only the AC-M23 release service source/test diff and did not start services or reserve ports.
 - Isolated backend Maven reached `yudao-module-mes` compile but did not reach Surefire because clean detached HEAD lacks the non-AC-M23 QA regulation `publish(MesQaInspectionRegulationSaveReqVO)` implementation; the temporary worktree was removed and `Test-Path` returned `False`.
-- Backend Maven verification remains blocked in the main workspace by active same-module Maven processes; no backend PASS is claimed.
+- Backend Maven verification PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrReleaseServiceImplTest,MesProEdhrApprovalTaskAdapterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> `BUILD SUCCESS`; 35 tests run, 0 failures, 0 errors, 0 skipped.
 
 ## Validation
 
@@ -56,6 +56,4 @@ See `execution-log.md`.
 
 ## Blockers
 
-- Backend targeted Maven verification remains blocked by concurrent `yudao-module-mes` Maven processes writing the same module target directory.
-- Observed blockers included active Maven commands for `MesTeamLeaderSubmissionReviewServiceTest`, `MesTeamLeaderActiveOrderServiceTest`, `MesOrderReleaseCompletenessServiceTest/MesPqcProcessInspectionAggregationServiceTest/MesProEdhrReleaseServiceImplTest`, and `MesTeamLeaderBatchRecordBackfillServiceTest`.
-- Current observed active blocker: `mvn -pl yudao-module-mes -am -DskipTests compile` in `E:\IntRuoyi\IntRuoyiBackend`.
+- No backend API verification blockers remain for the AC-M23 scoped tests.

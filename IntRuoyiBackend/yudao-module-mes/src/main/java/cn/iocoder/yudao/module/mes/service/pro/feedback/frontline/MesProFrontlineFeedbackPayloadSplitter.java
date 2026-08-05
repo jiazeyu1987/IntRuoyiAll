@@ -39,7 +39,7 @@ public class MesProFrontlineFeedbackPayloadSplitter {
         feedbackPayload.setFeedbackQuantity(feedback.getOutputQuantity());
         BigDecimal lossQuantity = feedback.getLossQuantity() == null ? BigDecimal.ZERO : feedback.getLossQuantity();
         if (feedback.getOutputQuantity() != null) {
-            feedbackPayload.setQualifiedQuantity(feedback.getOutputQuantity().subtract(lossQuantity).max(BigDecimal.ZERO));
+            feedbackPayload.setQualifiedQuantity(feedback.getOutputQuantity().subtract(lossQuantity));
         }
         feedbackPayload.setUnqualifiedQuantity(lossQuantity);
         feedbackPayload.setLaborScrapQuantity(feedback.getLaborScrapQuantity());

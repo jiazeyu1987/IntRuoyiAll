@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_REQUIRED_RULE_MISSING;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -69,6 +70,7 @@ class MesQaInspectionRegulationServiceTest {
         assertEquals("v21", result.getRouteVersionNo());
         assertEquals("粗洗", result.getRouteProcessName());
         assertEquals("粗洗工序生产记录", result.getBatchRecordBindingSummary());
+        assertEquals(true, result.getFinalInspectionApplicable());
         assertEquals(1, result.getFirstInspectionRules().size());
         assertEquals(1, result.getPatrolInspectionRules().size());
         assertEquals(1, result.getFinalInspectionRules().size());
@@ -138,6 +140,61 @@ class MesQaInspectionRegulationServiceTest {
     }
 
     @Test
+    void publish_rejectsMissingFinalApplicability() {
+        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
+                saveItem("FIRST", "首检外观", 5, null),
+                saveItem("PATROL", "巡检耐压", null, new BigDecimal("0.050000")),
+                saveItem("FINAL", "末检包装", 3, null)));
+        reqVO.setFinalInspectionApplicable(null);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.publish(reqVO));
+
+        assertEquals(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID.getCode(), ex.getCode());
+    }
+
+    @Test
+    void publish_allowsMissingFinalOnlyWhenExplicitlyNotApplicable() {
+        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
+                saveItem("FIRST", "首检外观", 5, null),
+                saveItem("PATROL", "巡检耐压", null, new BigDecimal("0.050000"))));
+        reqVO.setFinalInspectionApplicable(false);
+        reqVO.setFinalInspectionNotApplicableReason("该工序后续 OQC 覆盖最终包装确认");
+        when(regulationMapper.selectByRouteProcess(1001L, 2001L, 3001L, 4001L, 5001L)).thenReturn(null);
+        doAnswer(invocation -> {
+            MesQaInspectionRegulationDO regulation = invocation.getArgument(0);
+            regulation.setId(REGULATION_ID);
+            return 1;
+        }).when(regulationMapper).insert(any(MesQaInspectionRegulationDO.class));
+        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "V21-QA-2")).thenReturn(null);
+        doAnswer(invocation -> {
+            MesQaInspectionRegulationVersionDO version = invocation.getArgument(0);
+            version.setId(VERSION_ID);
+            return 1;
+        }).when(versionMapper).insert(any(MesQaInspectionRegulationVersionDO.class));
+
+        MesQaInspectionRegulationPublishedVersionRespVO result = service.publish(reqVO);
+
+        assertEquals(false, result.getFinalInspectionApplicable());
+        assertEquals("该工序后续 OQC 覆盖最终包装确认", result.getFinalInspectionNotApplicableReason());
+        assertEquals(0, result.getFinalInspectionRules().size());
+        verify(itemMapper, org.mockito.Mockito.times(2)).insert(any(MesQaInspectionRegulationItemDO.class));
+    }
+
+    @Test
+    void publish_rejectsFinalItemsWhenFinalInspectionNotApplicable() {
+        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
+                saveItem("FIRST", "首检外观", 5, null),
+                saveItem("PATROL", "巡检耐压", null, new BigDecimal("0.050000")),
+                saveItem("FINAL", "末检包装", 3, null)));
+        reqVO.setFinalInspectionApplicable(false);
+        reqVO.setFinalInspectionNotApplicableReason("该工序后续 OQC 覆盖最终包装确认");
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.publish(reqVO));
+
+        assertEquals(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID.getCode(), ex.getCode());
+    }
+
+    @Test
     void publish_createsImmutablePublishedVersionAndItems() {
         MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
                 saveItem("FIRST", "首检外观", 5, null),
@@ -162,6 +219,7 @@ class MesQaInspectionRegulationServiceTest {
         assertEquals(VERSION_ID, result.getPublishedVersionId());
         assertEquals("V21-QA-2", result.getVersionNo());
         assertTrue(result.getImmutable());
+        assertEquals(true, result.getFinalInspectionApplicable());
         assertEquals(1, result.getFirstInspectionRules().size());
         assertEquals(1, result.getPatrolInspectionRules().size());
         assertEquals(1, result.getFinalInspectionRules().size());
@@ -177,6 +235,7 @@ class MesQaInspectionRegulationServiceTest {
                 .versionNo("V21-QA-1")
                 .lifecycleStatus("PUBLISHED")
                 .publishedAt(LocalDateTime.of(2026, 8, 1, 10, 0))
+                .finalInspectionApplicable(true)
                 .snapshotJson("""
                         {
                           "productName": "球囊扩张压力泵",
@@ -238,6 +297,7 @@ class MesQaInspectionRegulationServiceTest {
         reqVO.setRegulationCode("QA-PUMP-V21-002");
         reqVO.setRegulationName("球囊扩张压力泵 QA 检验规程");
         reqVO.setVersionNo("V21-QA-2");
+        reqVO.setFinalInspectionApplicable(true);
         reqVO.setItems(items);
         return reqVO;
     }

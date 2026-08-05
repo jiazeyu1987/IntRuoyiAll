@@ -42,6 +42,8 @@ class MesQaPqcSchemaTest {
         assertField(versionClass, "lifecycleStatus", String.class);
         assertField(versionClass, "publishedAt", LocalDateTime.class);
         assertField(versionClass, "retiredAt", LocalDateTime.class);
+        assertField(versionClass, "finalInspectionApplicable", Boolean.class);
+        assertField(versionClass, "finalInspectionNotApplicableReason", String.class);
         assertField(versionClass, "snapshotJson", String.class);
 
         Class<?> itemClass = Class.forName(
@@ -57,12 +59,14 @@ class MesQaPqcSchemaTest {
         assertField(itemClass, "firstInspectionQuantity", Integer.class);
         assertField(itemClass, "patrolInspectionRatio", BigDecimal.class);
 
-        String sql = Files.readString(resolveBackendPath(
-                "sql/mysql/20260802_mes_qa_inspection_regulation.sql"), StandardCharsets.UTF_8);
+        String sql = readBackendSql("sql/mysql/20260802_mes_qa_inspection_regulation.sql",
+                "sql/mysql/20260805_mes_qa_final_inspection_applicability.sql");
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_qa_inspection_regulation`"));
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_qa_inspection_regulation_version`"));
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_qa_inspection_regulation_item`"));
         assertTrue(sql.contains("`lifecycle_status` varchar(32) NOT NULL COMMENT '生命周期：DRAFT/PUBLISHED/RETIRED'"));
+        assertTrue(sql.contains("`final_inspection_applicable` bit(1) DEFAULT NULL COMMENT '末检是否适用'"));
+        assertTrue(sql.contains("`final_inspection_not_applicable_reason` varchar(512) DEFAULT NULL COMMENT '末检不适用依据'"));
         assertTrue(sql.contains("UNIQUE KEY `uk_mes_qa_regulation_route_process`"));
     }
 

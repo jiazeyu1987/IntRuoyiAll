@@ -2486,7 +2486,7 @@ onUnmounted(() => {
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-operator-main.is-pqc,
 .frontline-operator-panel:fullscreen .frontline-operator-main.is-pqc {
-  grid-template-columns: 624px minmax(0, 1fr);
+  grid-template-columns: minmax(760px, 1.72fr) minmax(390px, 0.78fr);
   gap: 22px;
 }
 
@@ -2612,7 +2612,7 @@ onUnmounted(() => {
   min-height: 0;
 
   &.is-pqc {
-    grid-template-columns: 780px minmax(0, 1fr);
+    grid-template-columns: minmax(760px, 1.72fr) minmax(390px, 0.78fr);
   }
 
   &.frontline-production-main.is-no-device {
