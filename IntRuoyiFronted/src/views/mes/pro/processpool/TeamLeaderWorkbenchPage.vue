@@ -52,98 +52,6 @@
           </el-button>
         </div>
 
-        <div class="team-leader-workbench__personnel-actions">
-          <el-card shadow="never">
-            <template #header>搜索选择正式工</template>
-            <el-form :model="formalEmployeeForm" label-width="108px">
-              <el-form-item label="正式工姓名">
-                <el-select
-                  v-model="formalEmployeeForm.systemUserId"
-                  filterable
-                  remote
-                  clearable
-                  reserve-keyword
-                  placeholder="输入姓名搜索"
-                  :remote-method="searchFormalEmployeeCandidatesForSelect"
-                  :loading="formalCandidateLoading"
-                  class="team-leader-workbench__full-control"
-                  data-team-leader-formal-employee-select
-                >
-                  <!-- static contract anchor: remote-method="searchFormalEmployeeCandidatesForSelect" -->
-                  <el-option
-                    v-for="candidate in formalEmployeeCandidateOptions"
-                    :key="candidate.systemUserId"
-                    :label="candidate.displayName"
-                    :value="candidate.systemUserId"
-                  />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="显示名">
-                <el-input
-                  v-model="formalEmployeeForm.displayName"
-                  clearable
-                  placeholder="可选；重名时请加后缀"
-                />
-              </el-form-item>
-              <el-alert
-                title="正式工电子签名密码继续使用原账号配置，本页不设置或重置。"
-                type="info"
-                :closable="false"
-                show-icon
-              />
-              <el-form-item class="team-leader-workbench__form-actions">
-                <el-button
-                  type="primary"
-                  :loading="productionPersonnelSubmitting"
-                  @click="submitLinkFormalEmployee"
-                >
-                  关联正式工
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </el-card>
-
-          <el-card shadow="never">
-            <template #header>手动录入临时工</template>
-            <el-form
-              :model="temporaryEmployeeForm"
-              label-width="108px"
-              data-team-leader-temporary-employee-form
-            >
-              <el-form-item label="显示名">
-                <el-input
-                  v-model="temporaryEmployeeForm.displayName"
-                  clearable
-                  placeholder="同组长有效员工不能重名，重名请加后缀"
-                />
-              </el-form-item>
-              <el-form-item label="签名密码">
-                <el-input
-                  v-model="temporaryEmployeeForm.signaturePassword"
-                  show-password
-                  clearable
-                  placeholder="用于统一电子签名流程"
-                />
-              </el-form-item>
-              <el-alert
-                title="临时工只创建生产人员档案，不创建系统登录账号。"
-                type="info"
-                :closable="false"
-                show-icon
-              />
-              <el-form-item class="team-leader-workbench__form-actions">
-                <el-button
-                  type="primary"
-                  :loading="productionPersonnelSubmitting"
-                  @click="submitCreateTemporaryEmployee"
-                >
-                  新增临时工
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </el-card>
-        </div>
-
         <UnifiedListTemplate
           table-key="mes.processPool.teamLeader.productionPersonnel"
           :query-model="productionPersonnelQuery"
@@ -160,6 +68,18 @@
           @update:limit="handleProductionPersonnelPageSizeChange"
           @pagination="refreshProductionPersonnel"
         >
+          <template #extra-filters>
+            <el-form-item>
+              <el-button
+                type="primary"
+                data-team-leader-open-personnel-dialog
+                @click="productionPersonnelAddDialogVisible = true"
+              >
+                <Icon icon="ep:plus" class="mr-5px" />
+                新增人员
+              </el-button>
+            </el-form-item>
+          </template>
           <template #actions>
             <el-select
               v-model="productionPersonnelQuery.enabled"
@@ -232,6 +152,107 @@
             </el-table>
           </template>
         </UnifiedListTemplate>
+
+        <el-dialog
+          data-team-leader-personnel-add-dialog
+          v-model="productionPersonnelAddDialogVisible"
+          title="新增人员"
+          width="960px"
+          class="team-leader-workbench__personnel-dialog"
+          :close-on-click-modal="!productionPersonnelSubmitting"
+        >
+          <div class="team-leader-workbench__personnel-actions team-leader-workbench__personnel-actions--dialog">
+            <el-card shadow="never">
+              <template #header>搜索选择正式工</template>
+              <el-form :model="formalEmployeeForm" label-width="108px">
+                <el-form-item label="正式工姓名">
+                  <el-select
+                    v-model="formalEmployeeForm.systemUserId"
+                    filterable
+                    remote
+                    clearable
+                    reserve-keyword
+                    placeholder="输入姓名搜索"
+                    :remote-method="searchFormalEmployeeCandidatesForSelect"
+                    :loading="formalCandidateLoading"
+                    class="team-leader-workbench__full-control"
+                    data-team-leader-formal-employee-select
+                  >
+                    <!-- static contract anchor: remote-method="searchFormalEmployeeCandidatesForSelect" -->
+                    <el-option
+                      v-for="candidate in formalEmployeeCandidateOptions"
+                      :key="candidate.systemUserId"
+                      :label="candidate.displayName"
+                      :value="candidate.systemUserId"
+                    />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="显示名">
+                  <el-input
+                    v-model="formalEmployeeForm.displayName"
+                    clearable
+                    placeholder="可选；重名时请加后缀"
+                  />
+                </el-form-item>
+                <el-alert
+                  title="正式工电子签名密码继续使用原账号配置，本页不设置或重置。"
+                  type="info"
+                  :closable="false"
+                  show-icon
+                />
+                <el-form-item class="team-leader-workbench__form-actions">
+                  <el-button
+                    type="primary"
+                    :loading="productionPersonnelSubmitting"
+                    @click="submitLinkFormalEmployee"
+                  >
+                    关联正式工
+                  </el-button>
+                </el-form-item>
+              </el-form>
+            </el-card>
+
+            <el-card shadow="never">
+              <template #header>手动录入临时工</template>
+              <el-form
+                :model="temporaryEmployeeForm"
+                label-width="108px"
+                data-team-leader-temporary-employee-form
+              >
+                <el-form-item label="显示名">
+                  <el-input
+                    v-model="temporaryEmployeeForm.displayName"
+                    clearable
+                    placeholder="同组长有效员工不能重名，重名请加后缀"
+                  />
+                </el-form-item>
+                <el-form-item label="签名密码">
+                  <el-input
+                    v-model="temporaryEmployeeForm.signaturePassword"
+                    show-password
+                    clearable
+                    placeholder="用于统一电子签名流程"
+                  />
+                </el-form-item>
+                <el-alert
+                  title="临时工只创建生产人员档案，不创建系统登录账号。"
+                  type="info"
+                  :closable="false"
+                  show-icon
+                />
+                <el-form-item class="team-leader-workbench__form-actions">
+                  <el-button
+                    type="primary"
+                    :loading="productionPersonnelSubmitting"
+                    @click="submitCreateTemporaryEmployee"
+                  >
+                    新增临时工
+                  </el-button>
+                </el-form-item>
+              </el-form>
+            </el-card>
+          </div>
+        </el-dialog>
 
       </el-tab-pane>
     </el-tabs>
@@ -1483,6 +1504,7 @@ const configuredDefectReasonOptions = ref<
   Array<{ reasonType: string; reasonCode: string; reasonName: string }>
 >([])
 const productionPersonnelActiveTab = ref('productionPersonnel')
+const productionPersonnelAddDialogVisible = ref(false)
 const productionPersonnelLoading = ref(false)
 const productionPersonnelSubmitting = ref(false)
 const formalCandidateLoading = ref(false)
@@ -2944,6 +2966,10 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
+.team-leader-workbench__personnel-actions--dialog {
+  margin-bottom: 0;
+}
+
 .team-leader-workbench__full-control {
   width: 100%;
 }
@@ -3181,7 +3207,8 @@ onMounted(() => {
 @media (max-width: 1180px) {
   .team-leader-workbench__qa-layout,
   .team-leader-workbench__maintenance-grid,
-  .team-leader-workbench__daily-close-grid {
+  .team-leader-workbench__daily-close-grid,
+  .team-leader-workbench__personnel-actions--dialog {
     grid-template-columns: 1fr;
   }
 }
