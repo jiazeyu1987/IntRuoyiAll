@@ -20,16 +20,26 @@ const productionPage = read(productionPagePath)
 const pqcPage = read(pqcPagePath)
 const tabs = read(tabsPath)
 
-for (const tabName of ['批次执行', '历史批记录', '生产填写', 'PQC填写']) {
+for (const tabName of ['批次执行', 'PQC填写', '批记录页面关系图']) {
   assert.match(tabs, new RegExp(tabName), `eDHR batch tabs must include ${tabName}.`)
 }
+assert.doesNotMatch(
+  tabs,
+  /<el-tab-pane\s+label="生产填写"\s+name="production"/,
+  'production fill must be extracted from the eDHR batch internal tabs.'
+)
+assert.doesNotMatch(
+  tabs,
+  /production:\s*'\/mes\/pro\/feedback\/edhr-batch-production-fill'/,
+  'internal tab navigation must not route to standalone frontline production.'
+)
 
 for (const route of [
   {
     path: 'pro/feedback/edhr-batch-production-fill',
     name: 'MesProEdhrBatchProductionFill',
     component: 'BatchProductionFillPage.vue',
-    title: '生产填写'
+    title: '一线生产'
   },
   {
     path: 'pro/feedback/edhr-batch-pqc-fill',
@@ -47,7 +57,7 @@ for (const route of [
   assert.match(routeBlock, /permission:\s*\['mes:pro-edhr-batch-execution:query'\]/, `${route.path} must reuse eDHR batch permission.`)
 }
 
-assert.match(productionPage, /<EdhrBatchRecordTabs\s+active-tab="production"/, 'production fill page must render shared tabs.')
+assert.doesNotMatch(productionPage, /<EdhrBatchRecordTabs|active-tab="production"/, 'standalone frontline production page must not render shared internal tabs.')
 assert.match(productionPage, /<FrontlineFixedTemplatePanel\s+mode="production"/, 'production fill page must lock production mode.')
 assert.match(pqcPage, /<EdhrBatchRecordTabs\s+active-tab="pqc"/, 'PQC fill page must render shared tabs.')
 assert.match(pqcPage, /<FrontlineFixedTemplatePanel\s+mode="pqc"/, 'PQC fill page must lock PQC mode.')

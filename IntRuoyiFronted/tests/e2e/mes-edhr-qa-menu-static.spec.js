@@ -44,10 +44,11 @@ const expectedOrder = [
   ['批记录表单', 0, '/mes/pro/batch-record-form-list'],
   ['QA', 1, '/mes/pro/process-pool/qa-regulation'],
   ['生产组长', 2, '/mes/pro/process-pool/production-leader'],
-  ['PQC组长', 3, '/mes/pro/process-pool/pqc-leader'],
-  ['批次执行', 4, '/mes/pro/feedback/edhr-batch-execution'],
-  ['表单追溯', 5, '/mes/pro/feedback/edhr-form-trace'],
-  ['表单日志', 6, '/mes/pro/feedback/edhr-form-fill-log']
+  ['一线生产', 3, '/mes/pro/feedback/edhr-batch-production-fill'],
+  ['PQC组长', 4, '/mes/pro/process-pool/pqc-leader'],
+  ['批次执行', 5, '/mes/pro/feedback/edhr-batch-execution'],
+  ['表单追溯', 6, '/mes/pro/feedback/edhr-form-trace'],
+  ['表单日志', 7, '/mes/pro/feedback/edhr-form-fill-log']
 ]
 
 for (const [label, sort, menuPath] of expectedOrder) {
@@ -68,11 +69,16 @@ assert.match(
 )
 assert.match(
   sql,
+  /900437[\s\S]*'一线生产'[\s\S]*'mes:pro-edhr-batch-execution:query'[\s\S]*'\/mes\/pro\/feedback\/edhr-batch-production-fill'[\s\S]*'mes\/pro\/edhr-batch\/BatchProductionFillPage'[\s\S]*'MesProEdhrBatchProductionFill'/,
+  'Standalone frontline production dynamic menu must point at the production fill page.'
+)
+assert.match(
+  sql,
   /900435[\s\S]*'PQC组长'[\s\S]*'mes:pro-process-pool-team-leader:query'[\s\S]*'\/mes\/pro\/process-pool\/pqc-leader'[\s\S]*'mes\/pro\/processpool\/PqcLeaderWorkbenchPage'[\s\S]*'MesProProcessPoolPqcLeaderWorkbench'/,
   'PQC leader dynamic menu must point at the standalone QA-side PQC leader page.'
 )
 assert.match(sql, /system_tenant_package/, 'QA menu must be added to tenant packages.')
-assert.match(sql, /900435[\s\S]*900436|900436[\s\S]*900435/, 'Both leader menus must be added to tenant packages and role bindings.')
+assert.match(sql, /900435[\s\S]*900436[\s\S]*900437|900437[\s\S]*900436[\s\S]*900435|900436[\s\S]*900437[\s\S]*900435/, 'Leader and frontline production menus must be added to tenant packages and role bindings.')
 assert.match(sql, /system_role_menu/, 'QA/leader menus must be added to role-menu bindings.')
 assert.match(sql, /'tenant_admin'|'super_admin'/, 'QA/leader menus must include admin-role visibility.')
 
@@ -85,6 +91,11 @@ assert.match(
   route,
   /path:\s*'pro\/process-pool\/production-leader'[\s\S]*component:\s*\(\)\s*=>\s*import\('@\/views\/mes\/pro\/processpool\/ProductionLeaderWorkbenchPage\.vue'\)[\s\S]*name:\s*'MesProProcessPoolProductionLeaderWorkbench'/,
   'Frontend route must load the standalone production leader component.'
+)
+assert.match(
+  route,
+  /path:\s*'pro\/feedback\/edhr-batch-production-fill'[\s\S]*component:\s*\(\)\s*=>\s*import\('@\/views\/mes\/pro\/edhr-batch\/BatchProductionFillPage\.vue'\)[\s\S]*name:\s*'MesProEdhrBatchProductionFill'[\s\S]*title:\s*'一线生产'/,
+  'Frontend route must expose the standalone frontline production title.'
 )
 assert.match(
   route,

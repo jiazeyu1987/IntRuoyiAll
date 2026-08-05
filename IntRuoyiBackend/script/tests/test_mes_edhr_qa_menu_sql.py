@@ -25,9 +25,11 @@ def test_edhr_qa_menu_declares_release_metadata_and_fail_fast_guards() -> None:
     assert "system_menu id 900434 is already used by another active menu" in text
     assert "system_menu id 900435 is already used by another active menu" in text
     assert "system_menu id 900436 is already used by another active menu" in text
+    assert "system_menu id 900437 is already used by another active menu" in text
     assert "QA menu route already exists on a different menu id" in text
     assert "PQC leader menu route already exists on a different menu id" in text
     assert "Production leader menu route already exists on a different menu id" in text
+    assert "Frontline production menu route already exists on a different menu id" in text
 
     for forbidden in [
         "DELETE FROM `SYSTEM_MENU`",
@@ -71,10 +73,19 @@ def test_edhr_qa_menu_inserts_between_batch_record_form_and_batch_execution() ->
             "MesProProcessPoolProductionLeaderWorkbench",
         ),
         (
+            900437,
+            "一线生产",
+            "mes:pro-edhr-batch-execution:query",
+            3,
+            "/mes/pro/feedback/edhr-batch-production-fill",
+            "mes/pro/edhr-batch/BatchProductionFillPage",
+            "MesProEdhrBatchProductionFill",
+        ),
+        (
             900033,
             "批次执行",
             "mes:pro-edhr-batch-execution:query",
-            4,
+            5,
             "/mes/pro/feedback/edhr-batch-execution",
             "mes/pro/edhr-batch/BatchExecutionListPage",
             "MesProEdhrBatchExecutionListPage",
@@ -83,7 +94,7 @@ def test_edhr_qa_menu_inserts_between_batch_record_form_and_batch_execution() ->
             900435,
             "PQC组长",
             "mes:pro-process-pool-team-leader:query",
-            3,
+            4,
             "/mes/pro/process-pool/pqc-leader",
             "mes/pro/processpool/PqcLeaderWorkbenchPage",
             "MesProProcessPoolPqcLeaderWorkbench",
@@ -92,7 +103,7 @@ def test_edhr_qa_menu_inserts_between_batch_record_form_and_batch_execution() ->
             900025,
             "表单追溯",
             "mes:pro-batch-record-execution:track",
-            5,
+            6,
             "/mes/pro/feedback/edhr-form-trace",
             "mes/pro/edhr/FormTracePage",
             "MesProFeedbackEdhrFormTrace",
@@ -101,7 +112,7 @@ def test_edhr_qa_menu_inserts_between_batch_record_form_and_batch_execution() ->
             900432,
             "表单日志",
             "mes:pro-edhr-form-fill-log:query",
-            6,
+            7,
             "/mes/pro/feedback/edhr-form-fill-log",
             "mes/pro/edhr/FormFillLogPage",
             "MesProEdhrFormFillLogPage",
@@ -116,7 +127,7 @@ def test_edhr_qa_menu_inserts_between_batch_record_form_and_batch_execution() ->
         assert f"'{component_name}' AS `component_name`" in text
 
     assert "tmp_mes_edhr_qa_visible_order" in text
-    assert "COUNT(*) FROM `tmp_mes_edhr_qa_visible_order`) <> 7" in text
+    assert "COUNT(*) FROM `tmp_mes_edhr_qa_visible_order`) <> 8" in text
     assert "`parent_id` = 900220" in text
     assert "`visible` = b'1'" in text
 
@@ -141,10 +152,11 @@ def test_edhr_qa_menu_is_bound_to_tenant_packages_and_admin_roles() -> None:
         "900434",
         "900435",
         "900436",
+        "900437",
         "'tenant_admin'",
         "'super_admin'",
         "INSERT INTO `system_role_menu`",
-        "QA or leader menu is not bound to any admin role",
-        "QA or leader menu is missing from target tenant packages",
+        "QA, leader, or frontline production menu is not bound to any admin role",
+        "QA, leader, or frontline production menu is missing from target tenant packages",
     ]:
         assert required in text
