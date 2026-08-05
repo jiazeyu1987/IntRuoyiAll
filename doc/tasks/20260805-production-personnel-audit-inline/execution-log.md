@@ -48,6 +48,7 @@
 - cleanup: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-production-personnel-audit-inline --mode preview` -> PASS，delete 仅 `frontend-feature-evidence.md`。
 - cleanup: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-production-personnel-audit-inline --mode apply` -> PASS，已删除 `frontend-feature-evidence.md`。
 - experience: 已执行 `project-experience-consolidation` 检查；共享分支并发基线已有 `docs/powershell-memory.md#共享分支并发基线提交门禁`，本次新增 `docs/frontend-development.md#Vue Scoped Slot 静态合同门禁` 并在 `docs/experience-index.md` 增加关键词路由。
+- closeout commit: `4de9f9d81 docs: close production personnel audit inline task`，选择性提交本任务收尾文档、cleanup 删除和经验沉淀规则。
 
 ## Blockers
 
