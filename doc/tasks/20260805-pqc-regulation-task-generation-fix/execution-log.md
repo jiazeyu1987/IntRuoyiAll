@@ -32,6 +32,13 @@
 - GREEN: `git diff --check -- <task-owned files>` -> PASS，仅出现 CRLF 工作区提示，无 whitespace error。
 - BLOCKED: `mvn -o -pl yudao-module-mes "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> TIMEOUT，180 秒无 surefire 结果；任务自有 PID 53080 已用 `taskkill /PID 53080 /F` 清理，不能声明后端 GREEN。
 - BLOCKED: `$env:MAVEN_OPTS='-Xmx768m -XX:MaxMetaspaceSize=256m -XX:ReservedCodeCacheSize=128m'; mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest,MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> TIMEOUT，240 秒无 surefire 结果；仅清理本次命令 PID 55352 进程树，保留其他并行 Maven 任务。
+- RED: `node yudao-module-mes\src\test\js\mes-pqc-task-generation-static.spec.cjs` -> FAIL（历史 M2d RED），旧合同缺 `finalInspectionApplicable`、`finalInspectionNotApplicableReason`、发布校验和放行跳过依据证据，无法证明 AC-M15 末检不适用模型。
+- GREEN: `node yudao-module-mes\src\test\js\mes-pqc-task-generation-static.spec.cjs` -> PASS，静态合同覆盖 QA 规程版本表/VO 持久化末检适用性与不适用依据、未显式配置阻塞、不适用但缺依据阻塞、适用时要求 FINAL、不适用时拒绝 FINAL 项目、生成器按发布版本跳过 FINAL 且放行只在有明确依据时不要求 FINAL。
+- GREEN: `node tests\e2e\qa-regulation-final-applicability-static.spec.cjs` -> PASS，前端 QA 规程页面展示“不适用依据”列，末检关闭时要求填写正式依据，保存 payload 提交 `finalInspectionApplicable` 与裁剪后的 `finalInspectionNotApplicableReason`，并排除禁用的检验类型项目。
+- GREEN: `node tests\e2e\mes-frontline-pqc-task-quantity-static.spec.js` -> PASS，前端数量锁定和 exact sample payload 回归通过。
+- GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 规程独立页签相邻静态合同通过。
+- GREEN: `git diff --check -- <task-owned files>` -> PASS，无 whitespace error。
+- GREEN: `$env:MAVEN_OPTS='-Xmx768m -XX:MaxMetaspaceSize=256m -XX:ReservedCodeCacheSize=128m'; mvn -pl yudao-module-mes -am "-Dtest=MesQaInspectionRegulationServiceTest,MesTeamLeaderActiveOrderServiceTest,MesOrderReleaseCompletenessServiceTest,MesQaPqcSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> PASS，`Tests run: 38, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`。
 
 ## Milestone Updates
 
@@ -39,12 +46,15 @@
 - M2a completed：后端 `MesFrontlinePqcContextServiceImpl` 新增 `PRO_FRONTLINE_PQC_TASK_QUANTITY_MISMATCH`，提交前校验任务计划数量、实际提交数量和每个检验项目样本数量完全一致，不一致时不更新任务、不写 piece detail、不创建 process-pool event。
 - M2b completed：后端 `MesTeamLeaderActiveOrderServiceImpl` 在新增活跃订单后，基于启用排产工序、产品、路线版本和已发布 QA 规程生成正式 `MesPqcInspectionTaskDO`；首检/末检使用固定数量，巡检按比例向上取整，同时生成 AM/PM 独立任务；缺产品、缺计划日期、缺已发布规程、缺项目、数量规则冲突或重复身份均 fail fast。
 - M2c completed：后端 `MesOrderReleaseCompletenessServiceImpl` 在全部已有 PQC task 已确认后，继续按 `MesProcessPoolActiveOrderProcessSnapshotMapper.selectListByActiveOrderId` 读取活跃订单工序快照，逐工序要求 FIRST/FIRST、PATROL/AM、PATROL/PM、FINAL/FINAL 且 `roundNo=1` 的预期任务身份，缺任一身份时阻塞放行。
+- M2d completed：后端 QA 规程发布版本、保存请求/响应、schema/migration 均持久化 `finalInspectionApplicable` 和 `finalInspectionNotApplicableReason`；发布时未显式配置、缺不适用依据、适用但填依据、不适用却保留 FINAL 项目均 fail fast；生成器与放行完整性均只在有明确“不适用依据”时跳过 FINAL。
 - M3a completed：前端 `FrontlineFixedTemplatePanel.vue` 将 PQC 任务快照下的检验数量输入和 +/- 按钮锁定；提交前逐项目校验样本数；`itemResults`、`pqcItemDetails`、`rawPayload.pqcPieceValues` 不再 `.slice()` 截断。
-- M4 partial：后端 PQC 任务生成静态合同、前端静态合同和结构检查已通过；后端 JUnit 被当前机器 JVM native memory/pagefile、并行 Maven 占用与超时阻塞。
+- M4 completed：后端 PQC 任务生成静态合同、前端 QA 规程末检适用性合同、前端 PQC 数量合同、QA 规程相邻页签合同、任务文件结构检查和后端目标 Maven/JUnit 已通过。
+- M5 completed：按 `project-experience-consolidation` 将“PQC 末检适用性必须有发布规程依据”合并到 `docs/backend-development.md`，并在 `docs/experience-index.md` 补入 `AC-M15`、`finalInspectionApplicable`、`finalInspectionNotApplicableReason` 等关键词；`task-closeout-cleanup` preview/apply 均通过，keep 核心三份任务文档，delete/blocked/warnings 均为 `<none>`；任务文档和经验文档 UTF-8 校验通过。
 
 ## Blockers
 
 - 已完成既有脏改动基线隔离：`bf24cdc6e chore: baseline existing job matrix docs`、`4b0280901 chore: baseline concurrent task changes`。
 - 当前工作区仍有并行任务改动，必须继续 selective staging，禁止 `git add -A`。
-- 后端 Maven/JUnit 当前无法产出 GREEN：`hs_err_pid55128.log` 显示 JVM native memory/pagefile 不足；后续小堆离线单测 180 秒超时，包含新增生成器测试的目标命令 240 秒超时；当前机器仍存在多条并行 Maven 进程，不能强杀非本任务 PID。
-- 末检“不适用”显式依据仍缺少正式字段、表、VO 和放行校验模型；当前发布规程仍强制 `FINAL` 规则存在，因此本次只能安全生成“适用时末检任务”，不能伪造“不适用”依据或宣称 AC-M15 全量 `ACCEPTED`。
+- 旧 Maven/JUnit blocker 已解除：2026-08-05 15:33 使用低内存 `MAVEN_OPTS` 和 `-forkCount=0` 跑目标 Maven/JUnit，38 个测试通过并 `BUILD SUCCESS`。
+- 旧末检“不适用”依据 blocker 已解除：正式字段、表、VO、发布校验、生成器跳过条件、放行校验和前端填写/提交均已覆盖。
+- 当前任务无产品验证 blocker；工作区仍有并行任务脏改动，提交推送必须继续 selective staging，禁止宽泛暂存或回滚。

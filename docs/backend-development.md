@@ -267,6 +267,15 @@
 - Forbidden action: 禁止用整单设备替代项目级设备，禁止用固定四项字段、前端文案、默认上下限、空标准、raw payload 或 API-only 展示替代正式项目级快照。
 - Evidence: `doc/tasks/20260803-pqc-equipment-standard-method-implementation/verification-report.md`。
 
+### PQC 末检适用性必须有发布规程依据
+
+- Trigger: AC-M15、PQC 末检、末检不适用、QA 规程发布、`finalInspectionApplicable`、`finalInspectionNotApplicableReason`、`FINAL` 检验项目、PQC 任务生成、放行完整性预检。
+- Preflight check: 修改末检、QA 规程发布、PQC 任务生成或放行完整性前，必须核对发布版本表、保存/发布 VO、前端 payload、生成器和放行校验是否都读取同一份 `finalInspectionApplicable` 与 `finalInspectionNotApplicableReason`；缺 FINAL 任务只能由“发布规程明确不适用且有非空依据”解释。
+- Blocker: 未显式配置末检适用性、末检不适用但缺依据、适用却缺 FINAL 项目、不适用却仍保存 FINAL 项目、生成器因缺任务默认跳过末检、或放行预检无法追溯发布版本依据时必须停止。
+- Verification: 后端回归必须覆盖适用生成 FINAL、不适用且有依据跳过 FINAL、未显式配置阻塞、放行不适用通过和缺适用性阻塞；前端静态或真实路径必须覆盖末检关闭时填写正式依据、payload 提交字段、禁用检验类型不序列化为项目；schema 测试需锁定版本表字段。
+- Forbidden action: 禁止把缺少 FINAL 任务、空规则列表、前端开关、默认 false、历史任务状态或 API-only 说明当作末检不适用依据；禁止用 fallback 默认放行掩盖发布规程缺字段。
+- Evidence: `doc/tasks/20260805-pqc-regulation-task-generation-fix/verification-report.md`。
+
 ### PQC 过程检验汇集必须形成最终确认明细
 
 - Trigger: AC-M21、过程检验记录汇集、PQC 组长复核通过、`aggregateApprovedPqcSubmission`、`processInspectionAggregationStatus`、`mes_pqc_process_inspection_aggregate_detail`、`mes_pqc_inspection_task.task_status`。
