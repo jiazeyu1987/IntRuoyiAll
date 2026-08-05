@@ -51,9 +51,10 @@
 
 - Pre-task dirty baseline: `4009002aa`.
 - Shared concurrent baseline `f6ea8f545` contains this task's source/test implementation together with unrelated concurrent work.
+- Shared concurrent baseline `3db8a7030` contains this task's verification and cleanup records together with unrelated concurrent work.
 - No history rewrite, reset, amend, or rollback was performed.
-- Final closeout commit will include only this task's surviving records.
+- `git push origin int_main` -> PASS，远端已包含上述实现、验证和 cleanup 记录。
 
 ## Final Result
 
-PASS for the requested tab split. Cleanup is complete; final task-record commit and push remain.
+PASS. The requested tab split, verification, cleanup, and remote push are complete.

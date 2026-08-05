@@ -87,6 +87,13 @@
 - 当前为主工作区 `int_main`，未执行 worktree 合并或删除。
 - `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS，`int_main` 仍使用前端 `8081`、后端 `48081`。
 
+## Git Closeout
+
+- Implementation commit: `f6ea8f545 chore: preserve dirty worktree baseline`，共享并发基线包含本任务源文件与静态合同，同时包含其它任务文件；未 amend、reset 或拆分。
+- Verification and cleanup record commit: `3db8a7030 chore: preserve dirty worktree baseline`，共享并发基线包含本任务三份核心记录，同时包含其它任务文件；未 amend、reset 或拆分。
+- Push: `git push origin int_main` -> PASS，远端 `int_main` 已包含 `f6ea8f545` 与 `3db8a7030`，推送输出终点为 `3e1e08b26`。
+- Final task status record: pending hash assignment in the dedicated docs-only completion commit.
+
 ## Milestone Updates
 
 - 2026-08-05: 创建任务记录，记录 BDD 场景、预期验证和适用门禁。
@@ -97,3 +104,4 @@
 - 2026-08-05: 最终复验通过任务专用合同、相邻专用合同、类型检查和 diff 检查；隔离记录并发标准列表矛盾断言。
 - 2026-08-05: evidence validator 与经验沉淀检查通过，任务状态更新为 `ready_for_closeout`。
 - 2026-08-05: cleanup preview/apply 与分支端口守卫通过，仅剩本任务核心记录提交和推送。
+- 2026-08-05: 实现、验证与 cleanup 记录已推送到 `origin/int_main`，任务状态更新为 `completed`。
