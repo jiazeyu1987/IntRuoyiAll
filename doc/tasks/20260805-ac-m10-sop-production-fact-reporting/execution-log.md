@@ -24,7 +24,10 @@
 - GREEN: `node tests/e2e/frontline-formal-submit-static.spec.cjs` -> PASS。
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRuntimeConfigServiceTest,MesFrontlineTemplateResolverTest,MesFrontlineSubmitAuthorizationTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 6, Failures: 0, Errors: 0。
 - CLEANUP: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-ac-m10-sop-production-fact-reporting --mode preview` -> PASS，keep 3，delete/blocked/warnings 均为 `<none>`。
-- CLEANUP: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-ac-m10-sop-production-fact-reporting --mode apply` -> PASS，无删除项；因共享分支未完成提交/推送，任务保持 `ready_for_closeout`。
+- CLEANUP: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-ac-m10-sop-production-fact-reporting --mode apply` -> PASS，无删除项。
+- REGRESSION: 2026-08-05 收尾前复跑 `node tests/e2e/role-matrix-ac-m10-sop-production-static.spec.cjs` -> PASS。
+- REGRESSION: 2026-08-05 收尾前复跑 `node tests/e2e/frontline-formal-submit-static.spec.cjs` -> PASS。
+- REGRESSION: 2026-08-05 收尾前复跑 `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRuntimeConfigServiceTest,MesFrontlineTemplateResolverTest,MesFrontlineSubmitAuthorizationTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 6, Failures: 0, Errors: 0, Skipped: 0。
 
 ## Implementation Notes
 
@@ -34,9 +37,10 @@
 - 保留边界：正式一体提交接口仍按后端现有模型要求 `workOrderId/taskId`，没有把无订单草稿入口扩展为无订单正式入库提交，避免用前端字段绕过正式报工领域约束。
 - 后端证明：`MesFrontlineTemplateResolverTest` 覆盖缺正式模板绑定 fail fast；`MesFrontlineSubmitAuthorizationTest` 覆盖越权提交阻塞；`MesFrontlineRuntimeConfigServiceTest` 覆盖授权工序运行态配置。
 - 经验沉淀：已按 `project-experience-consolidation` 检查长期文档归宿；现有 `docs/backend-development.md#MES 一线设备账号权限门禁`、`docs/inception/project-brief.md` 和 `docs/acceptance/production-execution-main-loop/*` 已覆盖通用原则，本次不新增长期经验文档。
+- Git 记录：AC-M10 实现、专用静态契约和初始任务记录已由并发基线提交 `057fba5b9` 捕获；本次仅补齐 AC-M10 completed 收尾记录并保持其它并行脏文件未暂存。
 
 ## Blockers
 
 - 非本任务阻塞：`node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` 失败于 `EdhrBatchRecordTabs.vue` 缺少“历史批记录”页签，本任务未触碰该文件。
 - 非本任务阻塞：`pnpm ts:check` 失败于 `src/views/mes/pro/processpool/QaRegulationPage.vue(1617,3)`，`"PATROL_AM"` 不可赋给 `"FIRST" | "PATROL" | "FINAL"`；该文件已有并行修改，本任务未触碰。
-- 收尾阻塞：当前 `int_main` 工作区存在大量并行脏改动和本地 ahead 状态，本任务未进行基线提交、实现提交或推送。
+- 无 AC-M10 完成门禁阻塞；共享工作区仍有其它并行任务脏改动，本任务未暂存或回滚。

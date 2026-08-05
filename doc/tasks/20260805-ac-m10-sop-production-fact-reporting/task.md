@@ -33,6 +33,6 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-AC-M10 定向修复与验证完成；等待收尾清理、提交和推送。共享分支存在大量并行脏改动，本任务未执行提交/推送。
+AC-M10 定向修复、验证和 cleanup preview/apply 已完成；实现与任务初始记录已由并发基线提交 `057fba5b9` 纳入本地历史，本收尾记录单独提交并推送。

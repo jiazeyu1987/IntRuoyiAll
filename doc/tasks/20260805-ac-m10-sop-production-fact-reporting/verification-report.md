@@ -18,6 +18,7 @@
 - `node tests/e2e/role-matrix-ac-m10-sop-production-static.spec.cjs` -> GREEN，PASS。
 - `node tests/e2e/frontline-formal-submit-static.spec.cjs` -> GREEN，PASS。
 - `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRuntimeConfigServiceTest,MesFrontlineTemplateResolverTest,MesFrontlineSubmitAuthorizationTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> GREEN，BUILD SUCCESS；Tests run: 6, Failures: 0, Errors: 0。
+- 2026-08-05 收尾复跑上述两条 Node 静态契约和 Maven 目标命令 -> 全部 PASS；Maven Tests run: 6, Failures: 0, Errors: 0, Skipped: 0。
 - `git diff --check -- <task paths>` -> PASS，无 whitespace error；仅出现既有 CRLF 工作区提示。
 - `task-closeout-cleanup --mode preview/apply` -> PASS；keep `task.md`、`execution-log.md`、`verification-report.md`，delete/blocked/warnings 均为 `<none>`。
 
@@ -25,8 +26,8 @@
 
 - `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> FAIL，`EdhrBatchRecordTabs.vue` 缺少“历史批记录”页签；该文件不是本次 AC-M10 修改范围。
 - `pnpm ts:check` -> FAIL，`src/views/mes/pro/processpool/QaRegulationPage.vue(1617,3)` 的 `PATROL_AM` 类型不匹配；该文件已有并行修改，本任务未触碰。
-- 当前共享工作区存在大量并行脏改动和本地 ahead 状态，本任务未执行提交或推送，因此任务状态保持 `ready_for_closeout`，未标记 `completed`。
+- 无 AC-M10 完成门禁阻塞；共享工作区仍存在其它并行任务脏改动，本任务未暂存或回滚。
 
 ## Result
 
-AC-M10 定向代码修复已通过。生产 SOP 草稿入口不再被订单上下文预校验阻塞；后端缺 SOP/模板和越权阻塞仍由正式测试覆盖；正式订单关联提交未被放宽或降级。
+AC-M10 定向代码修复已通过并完成收尾。生产 SOP 草稿入口不再被订单上下文预校验阻塞；后端缺 SOP/模板和越权阻塞仍由正式测试覆盖；正式订单关联提交未被放宽或降级。
