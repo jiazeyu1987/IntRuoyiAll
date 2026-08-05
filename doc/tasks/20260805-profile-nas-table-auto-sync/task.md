@@ -26,7 +26,7 @@
 
 ## Current Status
 
-ready_for_closeout - NAS 表格自动同步设计、开发和定向验证已完成；真实 E2E 已在 `http://127.0.0.1:8088` / `http://127.0.0.1:48088` 通过，测试租户计划已清理为禁用，剩余动作为经验沉淀、cleanup preview/apply、提交与推送。
+ready_for_closeout - NAS 表格自动同步设计、开发和定向验证已完成；真实 E2E 已在 `http://127.0.0.1:8088` / `http://127.0.0.1:48088` 通过，测试租户计划已清理为禁用，临时 E2E 结果目录已删除，实现提交 `1e4a61500` 已生成。cleanup apply / worktree 移除当前阻塞于 `E:\IntRuoyi` 主工作区 dirty 且当前分支暂不能 ff-only 合入 `int_main`。
 
 ## 设计约束检查
 

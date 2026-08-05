@@ -39,3 +39,9 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\system-design-docs\scripts\validate_system_design.py --root doc\tasks\20260805-profile-nas-table-auto-sync` -> PASS。
 - GREEN: `python C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root doc\tasks\20260805-profile-nas-table-auto-sync` -> PASS。
 - Status: 已将 `task.md` 更新为 `ready_for_closeout`，设计/验收文档列入 `Cleanup Keep`，进入经验沉淀与 cleanup preview/apply。
+- Experience consolidation: 已更新 `docs\e2e-rules.md#element-plus-选择框显示门禁` 与 `docs\experience-index.md`，沉淀 Element Plus Switch 真实 E2E 需等待 `is-disabled` 解除、点击可见 `.el-switch__core` 并用隐藏 input `aria-checked` 校验状态的规则；`rg -n "saved plan must be enabled|Element Plus Switch 加载禁用态|el-switch is-disabled|aria-checked" docs\experience-index.md docs\e2e-rules.md` -> PASS。
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-profile-nas-table-auto-sync --mode preview` -> BLOCKED；keep 列表正确保留 `task.md`、`execution-log.md`、`verification-report.md` 和用户指定设计/验收文档，delete 列表仅包含 `IntRuoyiFronted\test-results\profile-nas-table-auto-sync-real`；阻塞原因为实现尚未提交、主工作区 `E:\IntRuoyi` dirty、当前分支不能 ff-only 合入 `int_main`。
+- Commit precheck: `git diff --cached --name-status` 只包含本任务前后端代码、SQL、测试、任务文档和经验规则；`git diff --cached --check` -> PASS。
+- Implementation commit: `git commit -m "feat: add profile NAS table auto sync"` -> PASS，commit `1e4a61500`，53 files changed，branch runtime port guard hook PASS。
+- Cleanup artifact: 已删除本任务临时 E2E 结果目录 `IntRuoyiFronted\test-results\profile-nas-table-auto-sync-real`，`Test-Path` -> `False`。
+- Cleanup preview after commit: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-profile-nas-table-auto-sync --mode preview` -> BLOCKED；剩余阻塞仅为当前分支不能 ff-only 合入 `int_main`，以及主工作区 `E:\IntRuoyi` dirty，不能执行 cleanup apply / worktree removal。
