@@ -229,6 +229,21 @@
 | 34 | 批记录自动回填只按已配置字段映射取值，不承担 AC-M11 完整性门禁。 | `MesTeamLeaderBatchRecordBackfillServiceImpl.backfill` 只要求存在启用的 cell-link rules，然后逐条 `toChange`；`sourceValue` 只在某条规则要求的 `sourceFieldCode` 缺失时失败。若规则未配置设备参数、损耗原因、签名快照或人员快照字段，则回填仍可只写入数量/压力等局部字段。 | 正式批记录回填成功不能证明所有报工事实已保存和回读；验收需要的人员、设备、参数、数量、损耗、原因、签名可能缺项但不阻塞。 |
 | 35 | 批记录回填读取的是当前事件 rawPayload，不读取首次记录本事件或修订前 payload。 | `MesTeamLeaderBatchRecordBackfillServiceImpl.sourceValue` 通过 `sourceEventMap` 取事件，再由 `rawPayload(sourceEvent)` 解析当前 `event.rawPayload`；没有使用记录本 `ENTRY_CREATE` 事件快照、工序池 revision 的 `beforePayload` 或首次提交 payload hash。 | 一旦事件主表 rawPayload 被修订服务更新，后续批记录回填会使用补正后的当前值而非首次原始事实；“原始事实不覆盖”仍缺 downstream 证明。 |
 
+### AC-M11 当前复核结论（2026-08-05）
+
+当前结论：`仍不符合 / 尚未达到 ACCEPTED`。本轮当前代码已修掉部分旧缺口，但仍不能完整证明“人员、设备、参数、数量、损耗、原因、签名完整保存，且缺必填、设备不可用、签名不一致时拒绝且原始事实不覆盖”。
+
+| 状态 | 复核项 | 当前代码证据 | 判断 |
+|---|---|---|---|
+| 已局部补齐 | 前端一线提交契约补入工序池幂等键。 | 前端 `ProFrontlineFeedbackSubmitReqVO` 已包含 `processPoolSubmissionIdempotencyKey`；`FrontlineFixedTemplatePanel.vue.buildFrontlineFormalSubmitPayload` 会写入该字段。 | 第三轮第 14 项的“前端缺后端必填幂等键”已不再成立。 |
+| 已局部补齐 | 损耗数量边界已有后端 fail-fast。 | `MesProFrontlineFeedbackSubmitServiceImpl.validateProductionQuantity` 已拒绝 `outputQuantity <= 0`、`lossQuantity < 0`、`lossQuantity > outputQuantity`。 | 第一/第二轮中“损耗大于产出被截断为 0”的核心风险已降低。 |
+| 已局部补齐 | 损耗原因已有结构化 ID 和快照校验。 | `MesFrontlineLossReasonValidatorImpl.requireEnabledLossReason` 在 `lossQuantity > 0` 时要求 `lossReasonId`，并校验原因启用、类型为 `LOSS`、归属当前 `routeProcessId`；拆分器写入 `lossReasonId/code/name` 快照。 | 第三轮中“损耗原因完全无结构化身份”的结论已有改善。 |
+| 仍不符合 | 生产签名仍缺提交时签名快照和 payload 绑定。 | 生产 `MesProFrontlineFeedbackSubmitReqVO` 仍只有 `signatureId/signatureEmployeeId/rawPayload`，没有 `signatureSnapshot`；`MesProcessPoolSubmitEventServiceImpl.toCreateEventReq` 未设置 `signatureSnapshot`，也无 payload hash/digest。 | 不能证明签名时锁定了人员、设备、参数、数量、损耗、原因这一组原始事实。 |
+| 仍不符合 | 设备参数仍是自由 Map，缺后端规则级校验。 | `MesProFrontlineRecordbookPayloadReqVO.equipmentParameters` 仍为 `Map<String,Object>` 且只 `@NotNull`；前端仍按设备 label 分组并过滤 `undefined` 参数；未见后端按参数编码、类型、单位、上下限、必填逐项校验。 | 不能证明“参数完整保存、缺必填或越界时拒绝”。 |
+| 仍不符合 | rawPayload 仍以客户端内容为起点。 | `MesProFrontlineFeedbackPayloadSplitter.buildProcessPoolRawPayload` 仍先 `payload.putAll(reqVO.getRawPayload())`，再覆盖少量服务端字段。 | 客户端伪造字段仍可能进入原始事实，缺少服务端白名单重建和签名前 canonical payload。 |
+| 仍不符合 | 后台创建/更新/导入正式报工仍绕过一线完整事实链路。 | `MesProFeedbackController` 仍暴露 `/create`、`/update`、`/submit`、直接导入接口；`FeedbackForm.vue` 仍走 `createFeedback/updateFeedback/submitFeedback`；这些 VO/表单没有设备参数和生产签名快照。 | 全系统“生产报工”不能只按一线一体提交判断合规。 |
+| 仍不符合 | 原始事实仍有覆盖链路。 | 记录本 `createEntry` 仍创建 `ENTRY_STATUS_DRAFT`，`saveDraft` 可覆盖草稿内容；工序池修订 `updateOriginalRecord` 仍用 `afterPayload` 更新事件主表 `rawPayload`。 | 不能证明原始事实不覆盖，只能证明部分 revision/diff 可追溯。 |
+| 仍不符合 | 下游确认/批记录回填不兜底校验完整事实。 | 组长确认只从 `rawPayload.outputQuantity` 提取数量并做 PQC/分配校验；批记录回填只按 cell-link rule 读取当前 event `rawPayload` 中配置过的字段。 | 组长确认、批记录回填成功不能反推 AC-M11 完整事实已保存。 |
 ## AC-D03 手动不良说明专项核验
 
 ### 核验结论

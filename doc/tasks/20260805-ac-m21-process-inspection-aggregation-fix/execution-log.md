@@ -50,14 +50,14 @@
 - `rg -n "AC-M21|mes_pqc_process_inspection_aggregate_detail|aggregateApprovedPqcSubmission" docs/experience-index.md docs/backend-development.md`: PASS.
 - Stale blocker recheck: `mvn -pl yudao-module-mes -am "-Dtest=MesPqcProcessInspectionAggregationServiceTest,MesProcessPoolSchemaTest,MesQaPqcSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` from `IntRuoyiBackend` -> TIMEOUT after 304s; `jcmd 48672 Thread.print` showed Maven main thread in `java.io.WinNTFileSystem.canonicalize0` while resolving dependencies through Maven/Aether local repository tracking, before new Surefire PASS evidence was produced.
 - Stale blocker process cleanup: stopped only the AC-M21 recheck-owned Maven processes `48672` and `56372`; unrelated Java/Maven processes were left untouched.
+- Stale blocker resolved: after no Maven test process was active and no `.lastUpdated` / `.part` residue was found under the local Maven repository, reran `mvn -pl yudao-module-mes -am "-Dtest=MesPqcProcessInspectionAggregationServiceTest,MesProcessPoolSchemaTest,MesQaPqcSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` from `IntRuoyiBackend` -> PASS, `BUILD SUCCESS`, 12 tests run, 0 failures, 0 errors, 0 skipped, total time 06:01.
 - Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-ac-m21-process-inspection-aggregation-fix --mode preview` -> READY preview; keep `task.md`, `execution-log.md`, `verification-report.md`; delete candidates are task-local intermediate evidence files and `javac-classes`; no blocked paths or warnings.
+- Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-ac-m21-process-inspection-aggregation-fix --mode apply` -> APPLIED; deleted task-local `backend-api-evidence.md`, `database-schema-evidence.md`, and `javac-classes`; kept `task.md`, `execution-log.md`, and `verification-report.md`.
 - Removed task-owned temporary classpath and JVM crash log files from git-visible status. Remaining `javac-classes` directory under ignored backend task temp path is not reported by git and is not part of deliverable.
 
-## Blockers
+## Integration Notes
 
 - Workspace baseline before this task was not clean: `git status --short --branch` reported branch `int_main` ahead of `origin/int_main` by 3 commits and unrelated untracked task directories. Current task will avoid unrelated paths; commit/push completion may need a separate baseline/coordination step.
-- Current workspace later reported branch `int_main` ahead of `origin/int_main` by 13 commits and many modified/untracked files not owned by this task.
-- Full Maven module test verification is blocked by unrelated compile errors in existing test files.
-- Full MES production compile is blocked by Windows native memory/page-file exhaustion during full javac; low-memory retry timed out and the task-owned Maven PID was stopped.
-- 2026-08-05 12:38 stale blocker Maven recheck remains blocked by local Maven dependency-resolution filesystem stall (`WinNTFileSystem.canonicalize0`) and produced no new target Surefire PASS.
-- Cleanup apply is intentionally not run because task status remains `blocked`; apply requires `ready_for_closeout` or `completed`.
+- Current workspace later reported branch `int_main` ahead of `origin/int_main` by 13 commits and many modified/untracked files not owned by this task; after parallel task commits, current full status still includes many staged and unstaged changes unrelated to AC-M21.
+- Full all-test Maven module verification remains outside the scoped AC-M21 closeout gate; the AC-M21 minimum Maven gate now passes.
+- Git commit/push still requires careful staging because unrelated task changes are present in the index/worktree.

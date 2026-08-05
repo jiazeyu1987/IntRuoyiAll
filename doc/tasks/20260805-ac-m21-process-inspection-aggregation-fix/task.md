@@ -48,8 +48,9 @@
 
 ## Current Status
 
-blocked
+completed
 
 - AC-M21 代码修复和目标验证已完成。
-- 全量 Maven 验证、提交和推送因当前工作区/环境阻塞，详见 `verification-report.md`。
-- 2026-08-05 复验最小 Maven 目标命令仍超时，诊断为 Maven/Aether 本地依赖解析卡在 Windows 文件系统 canonicalize，未产生新的 Surefire PASS。
+- 最小 Maven 门禁已在并发 Maven 清空后复跑通过：`MesPqcProcessInspectionAggregationServiceTest`、`MesProcessPoolSchemaTest`、`MesQaPqcSchemaTest` 共 12 个测试 PASS。
+- cleanup apply 已完成，仅保留 `task.md`、`execution-log.md`、`verification-report.md`。
+- Git 提交/推送仍需按共享工作区的其它任务改动做单独集成处理。

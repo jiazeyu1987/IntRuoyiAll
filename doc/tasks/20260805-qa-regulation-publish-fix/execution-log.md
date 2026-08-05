@@ -5,6 +5,8 @@
 - 用户要求“进行修复”，针对 `AC-M09 | QA | 维护检验规程` 当前不符合项，补齐正式维护、发布、不可变版本和发布失败校验链路。
 - 用户反馈当前 QA 页面一次性展示内容过多，希望 QA 页面通过 Tab + 标准列表模板形式展示；本次限定为前端 QA 页面信息架构与标准列表模板改造，不修改后端保存/发布接口。
 - 用户补充截图口径：QA 项目选择区只显示 `DCC 项目代码` 下拉选择框；选择项目后再显示对应的适用范围、检验规则、检验项目和发布检查，不再显示之前的已配置项和未配置项。
+- 用户追问黄框字段是否都可以不用设置：确认路线版本、路线工序、路线 ID、路线版本 ID、路线工序 ID、工序 ID、SOP、生产系数、示例订单数、批记录绑定等不应由 QA 手工设置；产品绑定工艺路线后必须从正式工艺路线和工序配置自动带出。
+- 用户进一步要求“支持手动绑定工艺路线”：当产品尚未绑定工艺路线或需修正绑定时，QA 页面需要提供显式路线选择与绑定动作，但路线版本、质检工序、SOP、生产系数和批记录绑定仍由正式路线配置自动解析，不改回黄框字段手工录入。
 
 ## Baseline
 
@@ -26,6 +28,11 @@
 - BDD: QA 发布检查标准列表化 -> Given QA 用户切换到发布检查页签 When 查看完整性检查和 PQC 任务预览 Then 完整性检查与 PQC 预览通过 `UnifiedListTemplate` 分区展示，保存草稿和发布规程操作仍在发布检查页签内可见。
 - BDD: QA 项目选择区只保留下拉框 -> Given QA 用户进入页面 When 尚未选择 DCC 项目代码 Then 项目选择区只显示必填的 DCC 项目代码下拉框，不显示项目详情、配置状态、已配置列表或待配置列表。
 - BDD: QA 内容选中后展示 -> Given QA 用户选择一个 DCC 项目代码 When 项目选择成功 Then 页面显示 Tab，并可查看该项目对应的适用范围、检验规则、检验项目和发布检查。
+- BDD: QA 适用范围自动带出 -> Given DCC 项目对应产品已绑定正式工艺路线 When QA 用户选择 DCC 项目代码 Then 页面从正式路线、路线版本、路线工序、排产配置和批记录配置加载路线版本、质检工序、正式批记录表单和 SOP/工艺要求，并以只读适用范围展示。
+- BDD: QA 黄框字段禁止手工配置 -> Given QA 用户选择 DCC 项目代码 When 页面展示适用范围 Then 不显示路线版本、路线工序、路线 ID、路线版本 ID、路线工序 ID、工序 ID、SOP、生产系数、示例订单数和批记录绑定等手工输入项。
+- BDD: QA 缺正式路线范围阻断保存发布 -> Given DCC 项目未绑定正式工艺路线、缺激活版本、缺质检工序或存在多个质检工序 When QA 用户保存草稿或发布 Then 页面显示正式路线范围错误并阻断保存/发布，不用默认值或旧字段冒充成功。
+- BDD: QA 手动绑定工艺路线 -> Given DCC 项目已绑定 MDM 产品但尚未绑定当前工艺路线 When QA 用户选择一个已有当前生效版本的工艺路线并点击手动绑定 Then 页面调用正式产品-工艺路线绑定 API 写入绑定，重新读取产品当前绑定，并从正式路线版本、质检工序、排产配置和批记录配置带出适用范围。
+- BDD: QA 手动绑定失败可见 -> Given 用户选择的路线没有当前生效版本、绑定 API 失败或绑定后无法读取当前产品路线 When 用户点击手动绑定 Then 页面显示可见错误并继续阻断保存/发布，不使用所选路线本地值冒充绑定成功。
 
 ## RED / GREEN Evidence
 
@@ -46,6 +53,14 @@
 - GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 项目选择区只保留 1 个必填 `DCC 项目代码` 下拉框，Tab 和内容通过 `v-if="selectedDccProjectCode"` 在选中后展示，并禁止旧已配置/待配置状态列表。
 - GREEN: `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js` -> PASS，选择区收窄后标准列表模板系统契约仍通过。
 - GREEN: `pnpm ts:check` -> PASS，选择区收窄与旧状态逻辑删除后 Vue/TypeScript 类型检查通过。
+- RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，旧 QA 页面未从正式工艺路线 API 加载适用范围，且仍可出现黄框字段手工配置入口，断言正式路线范围自动带出和禁止手工黄框字段失败。
+- GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 页面选择 DCC 项目后调用正式工艺路线/路线版本/路线工序/排产配置/批记录配置链路，展示只读适用范围，并阻止黄框字段手工输入。
+- GREEN: `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js` -> PASS，正式路线范围自动带出后标准列表模板系统契约仍通过。
+- GREEN: `pnpm ts:check` -> PASS，正式路线范围自动带出、保存发布阻断和黄框字段移除后 Vue/TypeScript 类型检查通过。
+- RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，截图口径要求支持手动绑定工艺路线时，旧页面没有路线选择器、`saveRouteProductByItem` 正式绑定调用和绑定后重新解析路线范围。
+- GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 适用范围区域新增 `data-qa-regulation-manual-route-bind`，可选择已有当前生效版本的工艺路线并通过 `saveRouteProductByItem` 写入当前产品绑定，绑定后重新走正式路线范围解析。
+- GREEN: `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js` -> PASS，手动绑定工艺路线能力接入后标准列表模板系统契约仍通过。
+- GREEN: `pnpm ts:check` -> PASS，手动绑定工艺路线相关 Vue/TypeScript 类型检查通过。
 
 ## Experience Consolidation
 
@@ -59,6 +74,8 @@
 - `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js`：PASS，输出 `PASS: unified list template empty condition tabs system contract`。
 - `pnpm ts:check`：PASS，前端类型检查通过。
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md`：PASS，输出 `Frontend feature evidence is valid.`。
+- QA 适用范围黄框字段静态契约：PASS，确认源码包含 `loadQaRouteScopeFromProject`、正式工艺路线 API 调用、只读 `data-qa-regulation-route-scope-auto` 展示和 `qaFormalRouteScopeReady` 保存/发布阻断，且不再存在黄框字段输入控件。
+- QA 手动绑定工艺路线静态契约：PASS，确认源码包含 `ProRouteApi.getRouteSimpleList`、`ProRouteProductApi.saveRouteProductByItem`、`loadQaRouteScopeFromRouteBinding`、`data-qa-regulation-manual-route-bind` 和绑定失败可见错误。
 - `git diff --check -- <AC-M09 实现文件>`：PASS，无 whitespace error，仅有 Git CRLF 工作区提示。
 - 目标 JUnit 未通过环境门禁：主工作区持续存在非本任务 Maven 测试进程，导致 `target/classes` 缺失和后续专属 JUnit 超时；按规则未强停他人任务。
 

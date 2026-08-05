@@ -18,7 +18,9 @@
 - GREEN: database schema evidence validator -> PASS.
 - GREEN: experience keyword routing for AC-M21/PQC process inspection aggregation -> PASS.
 - BLOCKED: 2026-08-05 stale blocker recheck `mvn -pl yudao-module-mes -am "-Dtest=MesPqcProcessInspectionAggregationServiceTest,MesProcessPoolSchemaTest,MesQaPqcSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` timed out after 304s before producing new Surefire PASS evidence; `jcmd` showed Maven dependency resolution stuck in `java.io.WinNTFileSystem.canonicalize0`.
-- PREVIEW: task-closeout cleanup preview kept `task.md`, `execution-log.md`, and `verification-report.md`; delete candidates were task-local intermediate evidence files and `javac-classes`; no blocked paths or warnings. Apply was not run because task status remains `blocked`.
+- GREEN: after Maven concurrency cleared, reran `mvn -pl yudao-module-mes -am "-Dtest=MesPqcProcessInspectionAggregationServiceTest,MesProcessPoolSchemaTest,MesQaPqcSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, `BUILD SUCCESS`, 12 tests run, 0 failures, 0 errors, 0 skipped, total time 06:01.
+- PREVIEW: task-closeout cleanup preview kept `task.md`, `execution-log.md`, and `verification-report.md`; delete candidates were task-local intermediate evidence files and `javac-classes`; no blocked paths or warnings.
+- APPLY: task-closeout cleanup apply deleted only task-local intermediate evidence files and `javac-classes`; kept `task.md`, `execution-log.md`, and `verification-report.md`.
 
 ## Changed Files
 
@@ -36,10 +38,7 @@
 - `docs/backend-development.md`
 - `docs/experience-index.md`
 
-## Remaining Blockers
+## Integration Notes
 
-- Full Maven test command is blocked by existing unrelated test compilation errors in the current workspace.
-- Full MES production compile is blocked by Windows native memory/page-file exhaustion during full module javac while other Java/Maven processes are active.
-- Git closeout/commit/push is blocked by dirty workspace state and unrelated ahead commits/modified files.
-- Stale blocker Maven recheck remains blocked by local Maven/Aether dependency-resolution filesystem stall; only the AC-M21 recheck-owned PIDs `48672` and `56372` were stopped, with unrelated Maven/Java processes left running.
-- Cleanup apply, commit, and push remain blocked until Maven verification and workspace coordination are resolved.
+- Full all-test Maven module verification remains outside the scoped AC-M21 closeout gate; the AC-M21 minimum Maven gate now passes.
+- Git closeout/commit/push requires careful staging because the current worktree/index contains many unrelated task changes.
