@@ -1,8 +1,8 @@
-# PQC 红框区域 UI 原型设计验证报告
+# PQC 红框区域 UI 原型与正式实现验证报告
 
 ## Scope
 
-本轮验证仅覆盖独立 HTML 原型结构、中文编码和任务范围边界，不覆盖正式 PQC Vue 页面、不运行前端构建、不执行真实 E2E。
+本轮验证覆盖独立 HTML 原型、正式 PQC Vue 页面结构、中文编码和任务范围边界；不修改后端接口、不启动本地服务、不执行真实 Playwright 用户路径。
 
 ## Result
 
@@ -18,7 +18,8 @@
 - 按用户第六次反馈，检验项 tab 已改为底部贴边页签样式，先与普通信息卡做出视觉区分。
 - 按用户最新红黄框反馈，检验项 tab 已进一步改为红框连接线下挂式页签：红框范围作为整条 tab 带，黄色框对应单个 tab 标签本体；单个 tab 使用底部圆角、active 绿色状态条和轻微下移表达当前项。
 - 按用户“可显示 10 个 tab 且完整显示”的反馈，tab 区已改为 2 行 x 5 列固定网格；每个 tab 将“要求”和“已填进度”拆成两个字段，避免进度文字被省略。
-- 未修改正式 Vue/TS/CSS 源码。
+- 正式 `FrontlineFixedTemplatePanel.vue` 已落地同方向：只展开当前检验项详情，检验项作为 5 列 tab 网格展示，设备/编号/标准/方法改为触控式信息卡，原生 select 隐藏在卡片内保留正式选择链路。
+- 新增正式静态契约 `IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js`。
 
 ## Verification
 
@@ -33,13 +34,19 @@
 - Tab 底部贴边页签结构断言：PASS。
 - Tab 红框连接线下挂式结构断言：PASS。
 - 10 个 tab 完整显示结构断言：PASS。
+- 正式实现 RED：`node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> FAIL，旧页面未渲染单一当前项详情面板。
+- 正式实现 GREEN：`node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> PASS。
+- 相邻 PQC 契约：`node tests/e2e/pqc-item-equipment-standard-method-static.spec.js` -> PASS。
+- 类型检查：`pnpm ts:check` -> PASS。
+- 前端技能证据校验：`python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-pqc-redbox-ui-prototype/frontend-feature-evidence.md` -> PASS。
 - `git diff --check -- doc/tasks/20260805-pqc-redbox-ui-prototype`：PASS。
-- `task_closeout.py --task-id 20260805-pqc-redbox-ui-prototype --mode preview/apply`：PASS，未删除任何交付物。
+- `git diff --check -- IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js doc/tasks/20260805-pqc-redbox-ui-prototype`：PASS。
+- 原型阶段 `task_closeout.py --task-id 20260805-pqc-redbox-ui-prototype --mode preview/apply` 曾通过，未删除任何交付物；正式实现阶段当前环境未找到 `task_closeout.py` / `task-closeout-cleanup`，因此未能重新执行 cleanup preview/apply。
 
 ## Follow-Up
 
-如用户认可该方向，下一步应在正式 `FrontlineFixedTemplatePanel.vue` 中以最小范围改造 `.frontline-pqc-equipment-controls` 与 `.frontline-pqc-fact-actions`，并新增静态合同覆盖红框区域不再出现未样式化原生 select/button。
+如需要进一步验收，可在本地运行态可用时执行真实 Playwright 路径，确认点击 10 个 tab、选择设备编号、打开逐件弹框和提交前校验均符合预期。
 
 ## Closeout Blocker
 
-项目级 Git 收尾未完成：当前 `int_main` 已领先 `origin/int_main` 13 个提交且存在大量非本任务脏改动。本轮未提交或推送，避免把并发任务改动混入当前 HTML 原型任务。
+项目级收尾未完成：当前环境缺少可调用的 closeout cleanup 命令；当前分支未标记 ahead，但存在非本任务脏改动 `doc/tasks/20260805-ac-m04-acceptance-sync/execution-log.md`、`task.md`、`verification-report.md`。本轮未提交或推送，避免把并发任务改动混入当前任务。

@@ -11,8 +11,8 @@
 - [x] 在不引入 fallback 的前提下，同步或补齐最小正式证据。
 - [x] 运行静态/结果一致性校验，必要时给出阻塞原因。
 - [x] 更新验证报告和当前状态。
-- [ ] 按用户要求补齐本机 `RRM_*` 真实 E2E 前置：确认本机运行态、角色账号、正式业务 ID、签名池和调拨/QA 数据；密码只在进程环境中使用，不写入文档或提交。
-- [ ] 重新运行 `real:check`，若前置为 0 blocker，再运行 full real E2E。
+- [x] 按用户要求补齐本机 `RRM_*` 真实 E2E 前置：确认本机运行态、角色账号、正式业务 ID、签名池和调拨/QA 数据；密码只在进程环境中使用，不写入文档或提交。
+- [x] 重新运行 `real:check`，若前置为 0 blocker，再运行 full real E2E。
 
 ## Expected Verification
 
@@ -24,7 +24,7 @@
 
 in_progress
 
-当前代码脚本已包含 `activeOrderCleanupCompleted` 清理闭环逻辑，canonical 任务报告也证明 AC-M04 已有加入、冲突路线拒绝、跨角色只读、错误角色写入拒绝、最终清理和并发门禁 PASS/GREEN 证据。但当前 shell 缺少全部 `RRM_*` 真实 E2E 环境变量，`real:check` 只能生成 ENV blocker-only 的 `result.json`，不能安全刷新 full real E2E 产物，也不能把 AC-M04 从 `PASS_ACTION_NOT_ACCEPTED` 提升为 `ACCEPTED`。
+当前代码脚本已包含 `activeOrderCleanupCompleted` 清理闭环逻辑，canonical 任务报告也证明 AC-M04 已有加入、冲突路线拒绝、跨角色只读、错误角色写入拒绝、最终清理和并发门禁 PASS/GREEN 证据。本轮已按用户要求在本机补齐 `RRM_*` 前置并刷新 full real E2E：`real:check` 已 PASS，full real E2E 已生成 `mode=real` 产物，AC-M04 的 `joinActiveOrder`、冲突路线拒绝、跨角色只读和最终清理均为 PASS；但整体结果仍为 `BLOCKED`，原因是后续 PQC 正式提交、eDHR 放行准备、并发/性能门禁和 62 个矩阵 coverage 准出仍未闭环，因此 AC-M04 暂仍不能提升为 `ACCEPTED`。
 
 2026-08-05 修复复核：旧历史 worktree 的 `activeOrderTransferTraceReadOnly / E2E_TRANSFER_TRACE_DATA` blocker 在当前源码层面未复现为代码链路缺口；当前系统已具备 `transferIds` 页面录入、前端 API 透传、后端加入/重复/并发路径记录正式调拨追溯、只读接口和回归测试。未改生产代码，原因是没有可复现的当前代码缺陷；按 no-fallback 规则，剩余验收必须在完整 `RRM_*` 真实环境下重跑 full real E2E。
 
@@ -32,10 +32,12 @@ in_progress
 
 2026-08-05 继续补齐：用户明确要求“我不懂代码，你来添加”，本轮任务转为由 Agent 在本机测试租户中补齐 `RRM_*` 前置并执行验证。当前主运行态 `8081/48081` 可用；旧 `8098/48098` RRM slot 已不监听。六个历史 RRM 角色账号存在但默认密码登录失败，需在本机授权测试租户中修复账号密码或重新生成任务自有账号后再注入环境变量。
 
+2026-08-05 15:xx 更新：已在本机测试租户修复七个 RRM 角色账号登录前置，使用进程级环境变量注入完整 `RRM_*`，未把密码写入文档或文件。`pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` 已 PASS；full real E2E 先后暴露并修正三个测试脚本/页面稳定性缺口：加入活跃订单后重读最终列表、PQC 规程元信息按真实页面结构断言、PQC 逐件按钮使用稳定标识点击。最新 full real E2E 产物为 `status=BLOCKED`、`mode=real`、`phaseEvidence=6`、`actionEvidence=22`、`gateEvidence=2`、`blockers=74`；其中 AC-M04 关键动作证据均为 PASS，剩余阻塞已转移到 PQC 正式提交、eDHR 放行准备、并发/性能和全矩阵 coverage 准出。
+
 ## 设计约束检查
 
-- `是否引入 fallback/降级/吞异常`：否。
-- `是否从根因和长期维护角度解决`：是，本轮未用旧报告伪造 `result.json`，而是明确要求在正式 `RRM_*` 环境下重新运行真实 E2E 后再刷新产物。
+- `是否引入 fallback/降级/吞异常`：否。本轮脚本改动均为真实 E2E 稳定定位和页面真实结构同步，不改变业务成功/失败语义。
+- `是否从根因和长期维护角度解决`：是，本轮未用旧报告伪造 `result.json`，而是补齐正式 `RRM_*` 前置后重新运行真实 E2E，并用静态合同锁定脚本与页面结构。
 - `是否存在临时补丁或绕过`：否。
 
 ## Experience Gate

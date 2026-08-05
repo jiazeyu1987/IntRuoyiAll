@@ -20,6 +20,8 @@
 
 2026-08-05 八次反馈：用户要求考虑最多可以完整显示 10 个 tab，因此需要重新评估 tab 大小和排版，不能只按 4 个 tab 设计。
 
+2026-08-05 九次反馈：用户确认“继续”，要求将已确认的 10-tab 原型方向继续推进到正式页面实现。
+
 ## Preflight
 
 - 读取 `docs/frontend-development.md`、`docs/task-closeout-rules.md`、`docs/powershell-encoding.md`、`docs/powershell-memory.md`。
@@ -36,6 +38,9 @@
 - 定位源码：PQC 填写路由为 `IntRuoyiFronted/src/router/modules/remaining.ts` 中 `/mes/pro/feedback/edhr-batch-pqc-fill`，页面实现位于 `IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue`。
 - 定位红框结构：`FrontlineFixedTemplatePanel.vue` 中 `.frontline-pqc-equipment-controls` 当前使用两个原生 `select`，`.frontline-pqc-fact-actions` 当前使用普通按钮；与周围 `.frontline-pqc-choice-actions`、`.frontline-pqc-type-tabs` 的大触控按钮不一致。
 - 原型输出：`doc/tasks/20260805-pqc-redbox-ui-prototype/pqc-redbox-ui-prototype.html`。
+- 正式实现输出：`IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue` 已使用 `data-pqc-active-inspection-panel` 单一当前项详情、`data-pqc-inspection-tabs` 检验项 tab、`repeat(5, minmax(0, 1fr))` 10-tab 网格和触控式设备/编号信息卡。
+- 正式静态契约输出：`IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js`。
+- 前端技能证据输出：`doc/tasks/20260805-pqc-redbox-ui-prototype/frontend-feature-evidence.md`。
 
 ## Verification Evidence
 
@@ -74,8 +79,16 @@
 - GREEN: 将每个 tab 的底部信息拆成“要求”和“已填进度”两个字段，避免 10 个 tab 情况下出现省略号隐藏关键状态 -> PASS。
 - GREEN: 重新生成预览图 `pqc-redbox-ui-prototype.png` -> PASS，文件大小 265297 bytes。
 - GREEN: `python -X utf8` 断言 10 个 tab、5 列网格、10 个 `已填 0/30` 字段、无 tab 进度省略逻辑和 PNG 存在 -> PASS。
+- RED: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> FAIL，预期原因：旧正式页面未渲染 `data-pqc-active-inspection-panel`，仍是纵向展开列表。
+- GREEN: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/pqc-item-equipment-standard-method-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS；首次 120s 超时无诊断，延长至 300s 后 134.9s 通过。
+- GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js doc/tasks/20260805-pqc-redbox-ui-prototype` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-pqc-redbox-ui-prototype/frontend-feature-evidence.md` -> PASS，输出 `Frontend feature evidence is valid.`
+- Project experience consolidation: 已读取 `project-experience-consolidation` 技能并检查 `docs/*memory*.md`、`docs/frontend-development.md` 与 `docs/experience-index.md`；本次经验属于既有“前端静态契约隔离门禁”和“截图局部 UI 静态契约”覆盖范围，不新增长期经验文档。
+- Closeout preview/apply blocker: 当前环境未找到 `task_closeout.py` / `task-closeout-cleanup` 命令，`scripts` 浅层目录也无 closeout 脚本；因此正式实现阶段未能重新执行 cleanup preview/apply。
 
 ## Remaining Blockers
 
-- 正式 Vue 页面尚未修改；需用户确认原型方向后再进入 BDD/TDD 实现。
-- Git 收尾阻塞：`git status --short --branch --untracked-files=no` 显示 `int_main...origin/int_main [ahead 13]` 且存在大量非本任务脏改动；本任务只新增 `doc/tasks/20260805-pqc-redbox-ui-prototype/`，未提交、未推送，避免把并发任务改动混入当前原型任务。
+- 正式 Vue 页面已完成，本轮不再存在实现阻塞。
+- Cleanup/Git 收尾阻塞：当前环境缺少可调用的 closeout cleanup 命令；`git status --short --branch --untracked-files=no` 显示当前分支未标记 ahead，但存在非本任务脏改动 `doc/tasks/20260805-ac-m04-acceptance-sync/execution-log.md`、`task.md`、`verification-report.md`。为避免混入并发任务改动，本轮未提交或推送。
