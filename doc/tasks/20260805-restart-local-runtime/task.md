@@ -8,10 +8,10 @@ Restart the `int_main` local frontend and backend for `E:\IntRuoyi` using the fi
 
 - [x] Read required local runtime, worktree, PowerShell, and task closeout rules.
 - [x] Record current frontend/backend port ownership.
-- [ ] Stop only confirmed old `int_main` frontend/backend processes.
-- [ ] Start backend on `48081` and frontend on `8081`.
-- [ ] Verify backend health and frontend HTTP entry.
-- [x] Record current blocker.
+- [x] Stop only confirmed old `int_main` frontend/backend processes.
+- [x] Start backend on `48081` and frontend on `8081`.
+- [x] Verify backend health and frontend HTTP entry.
+- [x] Record final verification and closeout status.
 
 ## Expected Verification
 
@@ -29,9 +29,9 @@ Restart the `int_main` local frontend and backend for `E:\IntRuoyi` using the fi
 
 ## Current Status
 
-blocked
+completed
 
-Blocked because backend port `48081` is occupied by PID `43376`, whose command line points `yudao.runtime-control.repo-root` at `D:\IntRuoyiWorktree\20260804-upload-approval-quick-action\IntRuoyiBackend`. Project rules reserve `48081` for `E:\IntRuoyi` and require fail-fast instead of stopping a worktree-owned process without explicit authorization.
+Restart completed after explicit user authorization to stop the worktree-owned `48081` process. Cleanup preview/apply passed with no delete candidates.
 
 ## 设计约束检查
 
