@@ -1146,6 +1146,12 @@ public interface ErrorCodeConstants {
             "PQC 提交事件已汇集为过程检验记录，禁止重复汇集：eventId={}，reviewId={}");
     ErrorCode PRO_PROCESS_POOL_REVISION_REJECTED_REVIEW_REQUIRED = new ErrorCode(1_040_760_333,
             "原始记录补正必须基于最新退回复核记录：eventId={}，latestStatus={}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_EMPLOYEE_DISPLAY_NAME_DUPLICATE = new ErrorCode(1_040_760_334,
+            "当前生产组长已有同名有效员工，请修改姓名或增加后缀：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_FORMAL_SIGNATURE_PASSWORD_MANAGED_BY_USER = new ErrorCode(1_040_760_335,
+            "正式工电子签名密码由用户管理统一维护，不能在生产人员档案中重置：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_DUPLICATE = new ErrorCode(1_040_760_336,
+            "当前生产组长已关联该正式工，请启用或修改既有生产人员档案：{}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

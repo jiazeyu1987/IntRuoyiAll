@@ -5,12 +5,18 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderTransferTraceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineEventRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDefectReasonSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceParameterRuleSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeDisplayNameUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeBindingDisableReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeBindingSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeStatusUpdateReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamFormalEmployeeLinkReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamFormalUserCandidateRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
@@ -28,11 +34,16 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceStatusUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeProfileSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamMaintenanceAuditRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamProcessDefectReasonSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamProcessDeviceBindingSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamProcessEmployeeBindingSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamProductionEmployeeRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamTemporaryEmployeeCreateReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamTemporarySignaturePasswordResetReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesWorkOrderAbnormalReportReqVO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDefectReasonCatalogService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamFormalUserCandidateBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProcessDeviceParameterRuleService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderTransferTraceService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeBindingService;
@@ -396,6 +407,101 @@ class MesProcessPoolTeamLeaderControllerTest {
     }
 
     @Test
+    void productionPersonnelManagementEndpointsUseCurrentLeaderScopeAndAuditTrace() {
+        when(runtimeConfigService.listEmployeeProfiles(3001L, null)).thenReturn(List.of(
+                MesProcessPoolTeamEmployeeProfileDO.builder()
+                        .id(8801L)
+                        .leaderUserId(3001L)
+                        .systemUserId(2001L)
+                        .employeeCode("USER-2001")
+                        .employeeName("张三")
+                        .displayName("张三-A")
+                        .employeeType("FORMAL")
+                        .enabled(Boolean.TRUE)
+                        .build()));
+        when(runtimeConfigService.searchFormalUserCandidates(3001L, "张")).thenReturn(List.of(
+                new MesTeamFormalUserCandidateBO(2001L, "张三")));
+        when(runtimeConfigService.createTemporaryEmployee(org.mockito.ArgumentMatchers.any())).thenReturn(8802L);
+        when(runtimeConfigService.linkFormalEmployee(org.mockito.ArgumentMatchers.any())).thenReturn(8803L);
+        when(runtimeConfigService.listEmployeeAuditRecords(3001L, 8801L)).thenReturn(List.of(
+                MesProcessPoolTeamMaintenanceAuditDO.builder()
+                        .id(9901L)
+                        .leaderUserId(3001L)
+                        .operatorUserId(3001L)
+                        .actionType("RENAME_EMPLOYEE")
+                        .targetType("TEAM_EMPLOYEE_PROFILE")
+                        .targetId(8801L)
+                        .resultStatus("SUCCESS")
+                        .changeSummary("修改生产人员显示名：张三-A")
+                        .auditTime(LocalDateTime.of(2026, 8, 5, 10, 30))
+                        .build()));
+
+        CommonResult<List<MesTeamProductionEmployeeRespVO>> listResponse;
+        CommonResult<List<MesTeamFormalUserCandidateRespVO>> candidatesResponse;
+        CommonResult<List<MesTeamMaintenanceAuditRespVO>> auditResponse;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(3001L);
+            listResponse = controller.getProductionPersonnelList(null);
+            candidatesResponse = controller.searchFormalEmployeeCandidates("张");
+            assertEquals(8802L, controller.createTemporaryEmployee(new MesTeamTemporaryEmployeeCreateReqVO()
+                    .setDisplayName("临时工甲")
+                    .setSignaturePassword("sign-123")).getData());
+            assertEquals(8803L, controller.linkFormalEmployee(new MesTeamFormalEmployeeLinkReqVO()
+                    .setSystemUserId(2001L)
+                    .setDisplayName("张三-A")).getData());
+            controller.updateEmployeeDisplayName(new MesTeamEmployeeDisplayNameUpdateReqVO()
+                    .setEmployeeProfileId(8801L)
+                    .setDisplayName("张三-B"));
+            controller.updateEmployeeStatus(new MesTeamEmployeeStatusUpdateReqVO()
+                    .setEmployeeProfileId(8801L)
+                    .setEnabled(Boolean.FALSE));
+            controller.resetTemporarySignaturePassword(new MesTeamTemporarySignaturePasswordResetReqVO()
+                    .setEmployeeProfileId(8802L)
+                    .setSignaturePassword("new-sign"));
+            auditResponse = controller.getEmployeeAuditList(8801L);
+        }
+
+        assertEquals(1, listResponse.getData().size());
+        assertEquals(8801L, listResponse.getData().get(0).getId());
+        assertEquals("张三-A", listResponse.getData().get(0).getDisplayName());
+        assertEquals("FORMAL", listResponse.getData().get(0).getEmployeeType());
+        assertEquals(Boolean.TRUE, listResponse.getData().get(0).getEnabled());
+        assertEquals("SYSTEM_USER", listResponse.getData().get(0).getSignaturePasswordManagedBy());
+
+        assertEquals(1, candidatesResponse.getData().size());
+        assertEquals(2001L, candidatesResponse.getData().get(0).getSystemUserId());
+        assertEquals("张三", candidatesResponse.getData().get(0).getDisplayName());
+
+        assertEquals(1, auditResponse.getData().size());
+        assertEquals("RENAME_EMPLOYEE", auditResponse.getData().get(0).getActionType());
+        assertEquals("SUCCESS", auditResponse.getData().get(0).getResultStatus());
+
+        verify(runtimeConfigService).listEmployeeProfiles(3001L, null);
+        verify(runtimeConfigService).searchFormalUserCandidates(3001L, "张");
+        verify(runtimeConfigService).createTemporaryEmployee(org.mockito.ArgumentMatchers.argThat(req ->
+                req.getLeaderUserId().equals(3001L)
+                        && req.getDisplayName().equals("临时工甲")
+                        && req.getSignaturePassword().equals("sign-123")));
+        verify(runtimeConfigService).linkFormalEmployee(org.mockito.ArgumentMatchers.argThat(req ->
+                req.getLeaderUserId().equals(3001L)
+                        && req.getSystemUserId().equals(2001L)
+                        && req.getDisplayName().equals("张三-A")));
+        verify(runtimeConfigService).renameEmployee(org.mockito.ArgumentMatchers.argThat(req ->
+                req.getLeaderUserId().equals(3001L)
+                        && req.getEmployeeProfileId().equals(8801L)
+                        && req.getDisplayName().equals("张三-B")));
+        verify(runtimeConfigService).updateEmployeeEnabled(org.mockito.ArgumentMatchers.argThat(req ->
+                req.getLeaderUserId().equals(3001L)
+                        && req.getEmployeeProfileId().equals(8801L)
+                        && Boolean.FALSE.equals(req.getEnabled())));
+        verify(runtimeConfigService).resetTemporaryEmployeeSignaturePassword(org.mockito.ArgumentMatchers.argThat(req ->
+                req.getLeaderUserId().equals(3001L)
+                        && req.getEmployeeProfileId().equals(8802L)
+                        && req.getSignaturePassword().equals("new-sign")));
+        verify(runtimeConfigService).listEmployeeAuditRecords(3001L, 8801L);
+    }
+
+    @Test
     void p6TraceEndpointsExposeAllocationCompletionAndBatchRecordBackfillEvidence() {
         when(traceService.getAllocationTrace(1001L, 9001L, 5001L, 6001L))
                 .thenReturn(new MesTeamLeaderAllocationTraceRespVO()
@@ -575,6 +681,28 @@ class MesProcessPoolTeamLeaderControllerTest {
                 "mes:pro-process-pool-team-leader:review");
         assertEndpoint("createEmployeeProfile", new Class[]{MesTeamEmployeeProfileSaveReqVO.class}, PostMapping.class,
                 new String[]{"/employee-profile/create"}, "mes:pro-process-pool-team-leader:maintain");
+        assertEndpoint("getProductionPersonnelList", new Class[]{Boolean.class}, GetMapping.class,
+                new String[]{"/employee-profile/list"}, "mes:pro-process-pool-team-leader:query");
+        assertEndpoint("searchFormalEmployeeCandidates", new Class[]{String.class}, GetMapping.class,
+                new String[]{"/employee-profile/formal-candidates"}, "mes:pro-process-pool-team-leader:maintain");
+        assertEndpoint("createTemporaryEmployee", new Class[]{MesTeamTemporaryEmployeeCreateReqVO.class},
+                PostMapping.class, new String[]{"/employee-profile/temporary/create"},
+                "mes:pro-process-pool-team-leader:maintain");
+        assertEndpoint("linkFormalEmployee", new Class[]{MesTeamFormalEmployeeLinkReqVO.class},
+                PostMapping.class, new String[]{"/employee-profile/formal/link"},
+                "mes:pro-process-pool-team-leader:maintain");
+        assertEndpoint("updateEmployeeDisplayName", new Class[]{MesTeamEmployeeDisplayNameUpdateReqVO.class},
+                PutMapping.class, new String[]{"/employee-profile/display-name/update"},
+                "mes:pro-process-pool-team-leader:maintain");
+        assertEndpoint("updateEmployeeStatus", new Class[]{MesTeamEmployeeStatusUpdateReqVO.class},
+                PutMapping.class, new String[]{"/employee-profile/status/update"},
+                "mes:pro-process-pool-team-leader:maintain");
+        assertEndpoint("resetTemporarySignaturePassword",
+                new Class[]{MesTeamTemporarySignaturePasswordResetReqVO.class}, PutMapping.class,
+                new String[]{"/employee-profile/temp-signature-password/reset"},
+                "mes:pro-process-pool-team-leader:maintain");
+        assertEndpoint("getEmployeeAuditList", new Class[]{Long.class}, GetMapping.class,
+                new String[]{"/employee-profile/audit/list"}, "mes:pro-process-pool-team-leader:query");
         assertEndpoint("saveProcessEmployeeBinding", new Class[]{MesTeamProcessEmployeeBindingSaveReqVO.class},
                 PostMapping.class, new String[]{"/process-employee-binding/save"},
                 "mes:pro-process-pool-team-leader:maintain");
@@ -616,6 +744,11 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertNoClientLeaderUserField(MesTeamLeaderReportAllocationConfirmReqVO.class);
         assertNoClientLeaderUserField(MesTeamLeaderReportAllocationLineReqVO.class);
         assertNoClientLeaderUserField(MesTeamEmployeeProfileSaveReqVO.class);
+        assertNoClientLeaderUserField(MesTeamTemporaryEmployeeCreateReqVO.class);
+        assertNoClientLeaderUserField(MesTeamFormalEmployeeLinkReqVO.class);
+        assertNoClientLeaderUserField(MesTeamEmployeeDisplayNameUpdateReqVO.class);
+        assertNoClientLeaderUserField(MesTeamEmployeeStatusUpdateReqVO.class);
+        assertNoClientLeaderUserField(MesTeamTemporarySignaturePasswordResetReqVO.class);
         assertNoClientLeaderUserField(MesTeamProcessEmployeeBindingSaveReqVO.class);
         assertNoClientLeaderUserField(MesTeamDeviceSaveReqVO.class);
         assertNoClientLeaderUserField(MesTeamDeviceStatusUpdateReqVO.class);

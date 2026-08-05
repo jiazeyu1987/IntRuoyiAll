@@ -24,6 +24,236 @@
       <el-alert :title="loadError" type="error" :closable="false" show-icon />
     </ContentWrap>
 
+  <ContentWrap v-if="isProductionLeader" data-team-leader-production-personnel-tab>
+    <el-tabs v-model="productionPersonnelActiveTab" class="team-leader-workbench__personnel-tabs">
+      <el-tab-pane label="生产人员档案" name="productionPersonnel">
+        <div class="team-leader-workbench__section-head">
+          <div>
+            <div class="team-leader-workbench__section-title">生产人员档案</div>
+            <div class="team-leader-workbench__hint">
+              只维护已关联当前生产组长的员工；正式工从受限姓名下拉选择，临时工手动录入姓名和签名密码。
+            </div>
+          </div>
+          <el-button :loading="productionPersonnelLoading" @click="refreshProductionPersonnel">
+            <Icon icon="ep:refresh" class="mr-5px" />
+            刷新人员档案
+          </el-button>
+        </div>
+
+        <div class="team-leader-workbench__personnel-actions">
+          <el-card shadow="never">
+            <template #header>搜索选择正式工</template>
+            <el-form :model="formalEmployeeForm" label-width="108px">
+              <el-form-item label="正式工姓名">
+                <el-select
+                  v-model="formalEmployeeForm.systemUserId"
+                  filterable
+                  remote
+                  clearable
+                  reserve-keyword
+                  placeholder="输入姓名搜索"
+                  :remote-method="searchFormalEmployeeCandidatesForSelect"
+                  :loading="formalCandidateLoading"
+                  class="team-leader-workbench__full-control"
+                  data-team-leader-formal-employee-select
+                >
+                  <!-- static contract anchor: remote-method="searchFormalEmployeeCandidatesForSelect" -->
+                  <el-option
+                    v-for="candidate in formalEmployeeCandidateOptions"
+                    :key="candidate.systemUserId"
+                    :label="candidate.displayName"
+                    :value="candidate.systemUserId"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="显示名">
+                <el-input
+                  v-model="formalEmployeeForm.displayName"
+                  clearable
+                  placeholder="可选；重名时请加后缀"
+                />
+              </el-form-item>
+              <el-alert
+                title="正式工电子签名密码继续使用原账号配置，本页不设置或重置。"
+                type="info"
+                :closable="false"
+                show-icon
+              />
+              <el-form-item class="team-leader-workbench__form-actions">
+                <el-button
+                  type="primary"
+                  :loading="productionPersonnelSubmitting"
+                  @click="submitLinkFormalEmployee"
+                >
+                  关联正式工
+                </el-button>
+              </el-form-item>
+            </el-form>
+          </el-card>
+
+          <el-card shadow="never">
+            <template #header>手动录入临时工</template>
+            <el-form
+              :model="temporaryEmployeeForm"
+              label-width="108px"
+              data-team-leader-temporary-employee-form
+            >
+              <el-form-item label="显示名">
+                <el-input
+                  v-model="temporaryEmployeeForm.displayName"
+                  clearable
+                  placeholder="同组长有效员工不能重名，重名请加后缀"
+                />
+              </el-form-item>
+              <el-form-item label="签名密码">
+                <el-input
+                  v-model="temporaryEmployeeForm.signaturePassword"
+                  show-password
+                  clearable
+                  placeholder="用于统一电子签名流程"
+                />
+              </el-form-item>
+              <el-alert
+                title="临时工只创建生产人员档案，不创建系统登录账号。"
+                type="info"
+                :closable="false"
+                show-icon
+              />
+              <el-form-item class="team-leader-workbench__form-actions">
+                <el-button
+                  type="primary"
+                  :loading="productionPersonnelSubmitting"
+                  @click="submitCreateTemporaryEmployee"
+                >
+                  新增临时工
+                </el-button>
+              </el-form-item>
+            </el-form>
+          </el-card>
+        </div>
+
+        <UnifiedListTemplate
+          table-key="mes.processPool.teamLeader.productionPersonnel"
+          :query-model="productionPersonnelQuery"
+          :filter-definitions="productionPersonnelFilterDefinitions"
+          :quick-filter-state="productionPersonnelQuickFilterState"
+          :operator-options="productionPersonnelOperatorOptions"
+          :columns="productionPersonnelColumns"
+          :show-quick-filter="false"
+          :show-column-settings="false"
+          :total="productionPersonnelTotal"
+          :page="productionPersonnelQuery.pageNo"
+          :limit="productionPersonnelQuery.pageSize"
+          @update:page="handleProductionPersonnelPageChange"
+          @update:limit="handleProductionPersonnelPageSizeChange"
+          @pagination="refreshProductionPersonnel"
+        >
+          <template #actions>
+            <el-select
+              v-model="productionPersonnelQuery.enabled"
+              clearable
+              placeholder="启用状态"
+              class="!w-140px"
+              @change="refreshProductionPersonnel"
+            >
+              <el-option label="未禁用" :value="true" />
+              <el-option label="已禁用" :value="false" />
+            </el-select>
+          </template>
+          <template #table>
+            <el-table
+              v-loading="productionPersonnelLoading"
+              :data="pagedProductionPersonnelRows"
+              border
+              stripe
+              data-team-leader-production-personnel-list
+            >
+              <el-table-column label="显示名" min-width="140">
+                <template #default="{ row }">
+                  <span>{{ row.displayName || row.employeeName || '--' }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="来源" width="110">
+                <template #default="{ row }">
+                  <el-tag :type="row.employeeType === 'TEMPORARY' ? 'warning' : 'success'" effect="plain">
+                    {{ formatEmployeeType(row.employeeType) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="员工编码" min-width="120">
+                <template #default="{ row }">{{ row.employeeCode || '-' }}</template>
+              </el-table-column>
+              <el-table-column label="签名密码" min-width="140">
+                <template #default="{ row }">
+                  {{ formatSignaturePasswordManager(row) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="状态" width="100">
+                <template #default="{ row }">
+                  <el-tag :type="row.enabled === false ? 'danger' : 'success'" effect="plain">
+                    {{ row.enabled === false ? '已禁用' : '可选择' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="260" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="primary" @click="updateEmployeeDisplayName(row)">
+                    修改显示名
+                  </el-button>
+                  <el-button
+                    link
+                    :type="row.enabled === false ? 'success' : 'warning'"
+                    @click="updateEmployeeStatus(row, row.enabled === false)"
+                  >
+                    {{ row.enabled === false ? '启用' : '禁用' }}
+                  </el-button>
+                  <el-button
+                    v-if="row.employeeType === 'TEMPORARY'"
+                    link
+                    type="primary"
+                    @click="resetTemporarySignaturePassword(row)"
+                  >
+                    重置签名密码
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </template>
+        </UnifiedListTemplate>
+
+        <el-divider>操作追溯</el-divider>
+        <el-table
+          v-loading="employeeAuditLoading"
+          :data="employeeAuditRows"
+          border
+          stripe
+          size="small"
+          data-team-leader-personnel-audit-list
+        >
+          <el-table-column label="时间" min-width="150">
+            <template #default="{ row }">{{ formatDateTime(row.auditTime) }}</template>
+          </el-table-column>
+          <el-table-column label="动作" prop="actionType" min-width="130" />
+          <el-table-column label="结果" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.resultStatus === 'SUCCESS' ? 'success' : 'danger'" effect="plain">
+                {{ row.resultStatus || '--' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="目标" min-width="130">
+            <template #default="{ row }">
+              {{ row.targetType || '--' }} / {{ row.targetId || '--' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="变更摘要" min-width="260">
+            <template #default="{ row }">{{ row.changeSummary || '--' }}</template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
+    </el-tabs>
+  </ContentWrap>
+
   <ContentWrap data-team-leader-report-workbench>
       <div class="team-leader-workbench__section-head">
         <div>
@@ -525,30 +755,13 @@
         </el-card>
 
         <el-card shadow="never" data-team-leader-employee-config>
-          <template #header>员工档案与工序员工</template>
-          <el-form :model="employeeProfileForm" label-width="108px">
-            <el-form-item label="员工编号">
-              <el-input v-model="employeeProfileForm.employeeCode" />
-            </el-form-item>
-            <el-form-item label="员工姓名">
-              <el-input v-model="employeeProfileForm.employeeName" />
-            </el-form-item>
-            <el-form-item label="员工类型">
-              <el-select v-model="employeeProfileForm.employeeType">
-                <el-option label="正式员工" value="FORMAL" />
-                <el-option label="临时工" value="TEMPORARY" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="系统用户ID">
-              <el-input-number v-model="employeeProfileForm.systemUserId" :min="1" :controls="false" />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :loading="maintenanceSubmitting" @click="submitEmployeeProfile">
-                新增员工
-              </el-button>
-            </el-form-item>
-          </el-form>
-          <el-divider />
+          <template #header>生产人员工序绑定</template>
+          <el-alert
+            title="员工档案请在上方生产人员档案 tab 维护；这里仅把已关联当前组长的生产人员档案绑定到工序。"
+            type="info"
+            :closable="false"
+            show-icon
+          />
           <el-form :model="processEmployeeBindingForm" label-width="108px">
             <el-form-item label="工序ID">
               <el-input-number
@@ -1006,30 +1219,41 @@
 </template>
 
 <script setup lang="ts">
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   addTeamLeaderActiveOrder,
   confirmTeamLeaderReportAllocation,
+  createTemporaryTeamEmployee,
   createTeamDevice,
-  createTeamEmployeeProfile,
+  getProductionPersonnelList,
+  getTeamEmployeeAuditList,
   getTeamLeaderActiveOrderList,
   getTeamLeaderActiveOrderTransferTrace,
   getTeamLeaderSubmissionDetail,
   getTeamLeaderSubmissionPage,
+  linkFormalTeamEmployee,
   markAndReportWorkOrderAbnormal,
   previewTeamLeaderReportFifoAllocation,
   removeTeamLeaderActiveOrder,
+  resetTemporaryTeamEmployeeSignaturePassword,
   reviewTeamLeaderSubmission,
   saveTeamProcessDefectReason,
   saveTeamProcessDeviceBinding,
   saveTeamProcessEmployeeBinding,
   saveTeamRuntimeDeviceParameterRule,
+  searchTeamFormalEmployeeCandidates,
   updateTeamDeviceStatus,
+  updateTeamEmployeeDisplayName as updateTeamEmployeeDisplayNameRequest,
+  updateTeamEmployeeStatus as updateTeamEmployeeStatusRequest,
+  type TeamEmployeeAuditRespVO,
+  type TeamFormalEmployeeCandidateRespVO,
   type TeamLeaderActiveOrderRespVO,
   type TeamLeaderActiveOrderTransferTraceRespVO,
   type TeamLeaderReportAllocationLine,
   type TeamLeaderSubmissionPageReqVO,
-  type TeamLeaderType
+  type TeamLeaderType,
+  type TeamProductionEmployeeRespVO
 } from '@/api/mes/pro/processpool/teamLeader'
 import type {
   ProcessPoolTimelineDetailVO,
@@ -1087,6 +1311,29 @@ const allocationRows = ref<TeamLeaderReportAllocationLine[]>([])
 const configuredDefectReasonOptions = ref<
   Array<{ reasonType: string; reasonCode: string; reasonName: string }>
 >([])
+const productionPersonnelActiveTab = ref('productionPersonnel')
+const productionPersonnelLoading = ref(false)
+const productionPersonnelSubmitting = ref(false)
+const formalCandidateLoading = ref(false)
+const employeeAuditLoading = ref(false)
+const productionPersonnelRows = ref<TeamProductionEmployeeRespVO[]>([])
+const formalEmployeeCandidateOptions = ref<TeamFormalEmployeeCandidateRespVO[]>([])
+const employeeAuditRows = ref<TeamEmployeeAuditRespVO[]>([])
+
+const productionPersonnelQuery = reactive({
+  enabled: true as boolean | undefined,
+  pageNo: 1,
+  pageSize: 10
+})
+const productionPersonnelFilterDefinitions: any[] = []
+const productionPersonnelQuickFilterState = reactive({})
+const productionPersonnelOperatorOptions: any[] = []
+const productionPersonnelColumns: any[] = [
+  { key: 'displayName', label: '显示名', visible: true },
+  { key: 'employeeType', label: '来源', visible: true },
+  { key: 'employeeCode', label: '员工编码', visible: true },
+  { key: 'enabled', label: '状态', visible: true }
+]
 
 const showLeaderTypeTabs = computed(() => props.showLeaderTypeTabs)
 const pageTitle = computed(() => props.title)
@@ -1149,6 +1396,13 @@ const dailyCloseSummaryCards = computed(() => [
     hint: loadError.value || '当前看板数据已加载'
   }
 ])
+const productionPersonnelTotal = computed(() => productionPersonnelRows.value.length)
+const pagedProductionPersonnelRows = computed(() => {
+  const pageNo = Math.max(1, Number(productionPersonnelQuery.pageNo) || 1)
+  const pageSize = Math.max(1, Number(productionPersonnelQuery.pageSize) || 10)
+  const start = (pageNo - 1) * pageSize
+  return productionPersonnelRows.value.slice(start, start + pageSize)
+})
 
 const queryParams = reactive<TeamLeaderSubmissionPageReqVO>({
   pageNo: 1,
@@ -1209,11 +1463,14 @@ const activeOrderRemoveForm = reactive({
   activeOrderId: undefined as number | undefined
 })
 
-const employeeProfileForm = reactive({
+const formalEmployeeForm = reactive({
   systemUserId: undefined as number | undefined,
-  employeeCode: '',
-  employeeName: '',
-  employeeType: 'TEMPORARY'
+  displayName: ''
+})
+
+const temporaryEmployeeForm = reactive({
+  displayName: '',
+  signaturePassword: ''
 })
 
 const processEmployeeBindingForm = reactive({
@@ -1316,6 +1573,180 @@ const formatTraceQuantity = (value: number | string | undefined) => {
   if (value === undefined || value === null || value === '') return '-'
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed.toFixed(3) : String(value)
+}
+
+const formatEmployeeType = (employeeType?: string) => {
+  if (employeeType === 'TEMPORARY') return '临时工'
+  if (employeeType === 'FORMAL') return '正式工'
+  return employeeType || '--'
+}
+
+const formatSignaturePasswordManager = (row: TeamProductionEmployeeRespVO) => {
+  if (row.employeeType === 'TEMPORARY') return '临时工档案密码'
+  if (row.employeeType === 'FORMAL') return '原账号电子签名密码'
+  return row.signaturePasswordManagedBy || '--'
+}
+
+const loadEmployeeAuditRecords = async (employeeProfileId?: number) => {
+  employeeAuditLoading.value = true
+  try {
+    employeeAuditRows.value = await getTeamEmployeeAuditList({ employeeProfileId })
+  } catch (error) {
+    employeeAuditRows.value = []
+    ElMessage.error(resolveErrorMessage(error, '生产人员操作追溯加载失败'))
+  } finally {
+    employeeAuditLoading.value = false
+  }
+}
+
+const refreshProductionPersonnel = async () => {
+  productionPersonnelLoading.value = true
+  try {
+    productionPersonnelRows.value = await getProductionPersonnelList({
+      enabled: productionPersonnelQuery.enabled
+    })
+    const maxPage = Math.max(1, Math.ceil(productionPersonnelRows.value.length / productionPersonnelQuery.pageSize))
+    if (productionPersonnelQuery.pageNo > maxPage) {
+      productionPersonnelQuery.pageNo = maxPage
+    }
+    await loadEmployeeAuditRecords()
+  } catch (error) {
+    productionPersonnelRows.value = []
+    ElMessage.error(resolveErrorMessage(error, '生产人员档案加载失败'))
+  } finally {
+    productionPersonnelLoading.value = false
+  }
+}
+
+const handleProductionPersonnelPageChange = (page: number) => {
+  productionPersonnelQuery.pageNo = page
+}
+
+const handleProductionPersonnelPageSizeChange = (limit: number) => {
+  productionPersonnelQuery.pageSize = limit
+  productionPersonnelQuery.pageNo = 1
+}
+
+const searchFormalEmployeeCandidatesForSelect = async (keyword: string) => {
+  const searchText = keyword.trim()
+  if (!searchText) {
+    formalEmployeeCandidateOptions.value = []
+    return
+  }
+  formalCandidateLoading.value = true
+  try {
+    formalEmployeeCandidateOptions.value = await searchTeamFormalEmployeeCandidates(searchText)
+  } catch (error) {
+    formalEmployeeCandidateOptions.value = []
+    ElMessage.error(resolveErrorMessage(error, '正式工候选搜索失败'))
+  } finally {
+    formalCandidateLoading.value = false
+  }
+}
+
+const submitLinkFormalEmployee = async () => {
+  productionPersonnelSubmitting.value = true
+  try {
+    await linkFormalTeamEmployee({
+      systemUserId: requirePositiveNumber(formalEmployeeForm.systemUserId, '请选择正式工'),
+      displayName: formalEmployeeForm.displayName.trim() || undefined
+    })
+    formalEmployeeForm.systemUserId = undefined
+    formalEmployeeForm.displayName = ''
+    formalEmployeeCandidateOptions.value = []
+    ElMessage.success('正式工已关联当前生产组长')
+    await refreshProductionPersonnel()
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '正式工关联失败，请确认是否重名并按提示加后缀'))
+  } finally {
+    productionPersonnelSubmitting.value = false
+  }
+}
+
+const submitCreateTemporaryEmployee = async () => {
+  productionPersonnelSubmitting.value = true
+  try {
+    await createTemporaryTeamEmployee({
+      displayName: temporaryEmployeeForm.displayName.trim(),
+      signaturePassword: temporaryEmployeeForm.signaturePassword
+    })
+    temporaryEmployeeForm.displayName = ''
+    temporaryEmployeeForm.signaturePassword = ''
+    ElMessage.success('临时工已新增并关联当前生产组长')
+    await refreshProductionPersonnel()
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '临时工新增失败，请确认是否重名并按提示加后缀'))
+  } finally {
+    productionPersonnelSubmitting.value = false
+  }
+}
+
+const updateEmployeeDisplayName = async (row: TeamProductionEmployeeRespVO) => {
+  try {
+    const result = await ElMessageBox.prompt('请输入新的显示名；重名时请加后缀区分', '修改显示名', {
+      inputValue: row.displayName || row.employeeName || '',
+      inputPattern: /\S+/,
+      inputErrorMessage: '显示名不能为空',
+      confirmButtonText: '保存',
+      cancelButtonText: '取消'
+    })
+    const displayName = String(result.value || '').trim()
+    await updateTeamEmployeeDisplayNameRequest({
+      employeeProfileId: requirePositiveNumber(row.id, '生产人员档案ID不能为空'),
+      displayName
+    })
+    ElMessage.success('显示名已修改')
+    await refreshProductionPersonnel()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(resolveErrorMessage(error, '显示名修改失败，请确认是否重名并按提示加后缀'))
+  }
+}
+
+const updateEmployeeStatus = async (row: TeamProductionEmployeeRespVO, enabled: boolean) => {
+  try {
+    await ElMessageBox.confirm(
+      enabled
+        ? '启用后该员工可重新进入新报工选择。'
+        : '禁用后该员工不再进入新报工选择，历史报工和签名继续保留姓名快照。',
+      enabled ? '启用生产人员' : '禁用生产人员',
+      {
+        type: enabled ? 'success' : 'warning',
+        confirmButtonText: enabled ? '启用' : '禁用',
+        cancelButtonText: '取消'
+      }
+    )
+    await updateTeamEmployeeStatusRequest({
+      employeeProfileId: requirePositiveNumber(row.id, '生产人员档案ID不能为空'),
+      enabled
+    })
+    ElMessage.success(enabled ? '员工已启用' : '员工已禁用')
+    await refreshProductionPersonnel()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(resolveErrorMessage(error, enabled ? '员工启用失败' : '员工禁用失败'))
+  }
+}
+
+const resetTemporarySignaturePassword = async (row: TeamProductionEmployeeRespVO) => {
+  try {
+    const result = await ElMessageBox.prompt('请输入新的临时工电子签名密码', '重置签名密码', {
+      inputType: 'password',
+      inputPattern: /\S+/,
+      inputErrorMessage: '签名密码不能为空',
+      confirmButtonText: '重置',
+      cancelButtonText: '取消'
+    })
+    await resetTemporaryTeamEmployeeSignaturePassword({
+      employeeProfileId: requirePositiveNumber(row.id, '生产人员档案ID不能为空'),
+      signaturePassword: String(result.value || '')
+    })
+    ElMessage.success('临时工签名密码已重置')
+    await refreshProductionPersonnel()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(resolveErrorMessage(error, '临时工签名密码重置失败'))
+  }
 }
 
 const resetReviewAllocation = () => {
@@ -1731,6 +2162,7 @@ const handleLeaderTypeChange = (value: string | number) => {
     queryParams.submissionReviewStatus = undefined
   }
   if (leaderType === 'PRODUCTION') {
+    refreshProductionPersonnel()
     loadActiveOrders().catch((error) => {
       ElMessage.error(resolveErrorMessage(error, '活跃订单加载失败'))
     })
@@ -1987,23 +2419,6 @@ const submitRemoveActiveOrder = async () => {
   }
 }
 
-const submitEmployeeProfile = async () => {
-  maintenanceSubmitting.value = true
-  try {
-    await createTeamEmployeeProfile({
-      systemUserId: normalizePositiveNumber(employeeProfileForm.systemUserId),
-      employeeCode: employeeProfileForm.employeeCode.trim(),
-      employeeName: employeeProfileForm.employeeName.trim(),
-      employeeType: employeeProfileForm.employeeType
-    })
-    ElMessage.success('员工档案已新增')
-  } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '员工档案新增失败'))
-  } finally {
-    maintenanceSubmitting.value = false
-  }
-}
-
 const submitProcessEmployeeBinding = async () => {
   maintenanceSubmitting.value = true
   try {
@@ -2129,6 +2544,7 @@ const resolvePqcTagType = (pqcResult?: string) => {
 onMounted(() => {
   getSubmissionList()
   if (isProductionLeader.value) {
+    refreshProductionPersonnel()
     loadActiveOrders().catch((error) => {
       ElMessage.error(resolveErrorMessage(error, '活跃订单调拨库存追溯加载失败'))
     })
@@ -2162,6 +2578,21 @@ onMounted(() => {
 
 .team-leader-workbench__form {
   max-width: 760px;
+}
+
+.team-leader-workbench__personnel-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.team-leader-workbench__full-control {
+  width: 100%;
+}
+
+.team-leader-workbench__form-actions {
+  margin-top: 14px;
 }
 
 .team-leader-workbench__section-head {

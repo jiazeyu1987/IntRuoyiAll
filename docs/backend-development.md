@@ -287,6 +287,17 @@
 - Forbidden action: 禁止为了让产品能选择路线而放宽 `validateRouteNotEnable`、禁用后端校验、使用 `MdItemApi.routeId` 第二关系源、默认成功、吞掉保存错误或混入表单槽位/批记录表单链路。
 - Evidence: `doc/tasks/20260804-mes-item-route-selection/verification-report.md`。
 
+## MES 生产人员档案正式工重复关联门禁
+
+### 同一组长正式工关联必须先业务拒绝再写库
+
+- Trigger: 生产人员档案、班组员工、正式工搜索关联、临时工/正式工统一候选、`mes_pro_process_pool_team_employee_profile`、`system_user_id`、`employee_code=USER-<id>`、DuplicateKeyException、重复关联返回 500。
+- Preflight check: 新增正式工关联前必须按当前 `leaderUserId + systemUserId` 查询现有未删除生产人员档案，并区分“已禁用可启用既有档案”和“从未关联可新增”；显示名唯一校验不能替代正式用户唯一关联校验。
+- Blocker: 重复正式工关联落到数据库唯一键异常、接口返回 500、禁用旧档案后再次新增同一系统用户、或只靠前端禁用按钮阻止重复时必须停止并补后端 RED/GREEN。
+- Verification: 后端回归必须覆盖重复正式工在 `employeeProfileMapper.insert` 前抛业务错误，且成功正式工路径仍不保存签名密码；真实 E2E 重跑时使用新的任务自有正式工候选或先明确启用既有档案。
+- Forbidden action: 禁止 catch DuplicateKeyException 后返回默认成功，禁止创建重复正式工档案，禁止把正式工重复关联伪装成显示名重名，禁止让前端过滤全系统用户列表替代后端 scoped 候选。
+- Evidence: `doc/tasks/20260805-production-personnel-management/verification-report.md`，目标测试 `MesTeamLeaderRuntimeConfigServiceTest#shouldRejectDuplicateFormalUserBeforeDatabaseInsert`。
+
 ## 禁止做法
 
 - 禁止跨模块复制业务逻辑来绕过现有服务边界。
