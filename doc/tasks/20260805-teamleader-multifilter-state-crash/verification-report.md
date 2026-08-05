@@ -46,3 +46,11 @@ PASS（目标崩溃已修复；一项无关并行静态合同冲突和登录后 
 - cleanup apply -> `status: applied`。
 - 保留 `task.md`、`execution-log.md`、`verification-report.md` 和正式回归合同。
 - 删除两份已归档的临时技能 evidence。
+
+## Final Git Verification
+
+- 实现所在并行基线提交：`f6ea8f545 chore: preserve dirty worktree baseline`。
+- cleanup 与经验沉淀提交：`9c2075dda docs: close team leader multi-filter render crash`。
+- 两次提交均已成功推送到 `origin/int_main`。
+- 最终目标合同复跑：`node tests/e2e/team-leader-multifilter-render-state-static.spec.js` -> PASS。
+- 推送后分支差异：`origin/int_main...int_main` -> `0 0`。

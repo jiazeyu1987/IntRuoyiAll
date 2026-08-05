@@ -10,7 +10,7 @@
 - [x] M2: 编写可稳定复现首屏 `state` 访问崩溃的 RED 回归合同。
 - [x] M3: 实施最小根因修复，不引入 fallback 或吞异常。
 - [x] M4: 运行目标回归、相邻静态合同和 TypeScript 检查。
-- [ ] M5: 完成验证报告、cleanup、提交并推送。
+- [x] M5: 完成验证报告、cleanup、提交并推送。
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 

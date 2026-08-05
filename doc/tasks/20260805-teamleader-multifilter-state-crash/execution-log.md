@@ -58,3 +58,12 @@
 - `task_closeout.py --mode apply` -> `status: applied`。
 - 已删除 `bug-regression-evidence.md`、`frontend-feature-evidence.md`；验证结论已归档到 `verification-report.md`。
 - 当前为主工作区 `int_main`，未执行 worktree 合并或删除。
+
+## Final Completion Evidence
+
+- `f6ea8f545 chore: preserve dirty worktree baseline` 已包含本任务生产代码、相邻合同、任务专用回归合同和初始任务文档；该提交同时包含并行任务文件，本任务未改写历史。
+- `9c2075dda docs: close team leader multi-filter render crash` 已包含 cleanup、验证报告和 Vue composable 模板顶层绑定长期经验门禁。
+- 上述提交已成功推送到 `origin/int_main`。
+- 最终复跑：`node tests/e2e/team-leader-multifilter-render-state-static.spec.js` -> PASS。
+- 推送后分支同步检查：`git rev-list --left-right --count origin/int_main...int_main` -> `0 0`。
+- 最终完成记录仅选择性提交本任务 `task.md`、`execution-log.md` 和 `verification-report.md`；暂存区及工作区中的并行任务改动保持不动。
