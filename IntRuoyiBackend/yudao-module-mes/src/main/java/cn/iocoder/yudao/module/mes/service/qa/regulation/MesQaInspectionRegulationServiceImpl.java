@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.qa.regulation;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationProjectStatusRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationPublishedVersionRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
@@ -16,8 +17,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.Collections;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_NOT_EXISTS;
@@ -89,6 +94,63 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .patrolInspectionRules(patrolRules)
                 .finalInspectionRules(finalRules)
                 .build();
+    }
+
+    @Override
+    public List<MesQaInspectionRegulationProjectStatusRespVO> getProjectStatuses(Collection<Long> productIds) {
+        List<Long> requestedProductIds = productIds == null
+                ? Collections.emptyList()
+                : productIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (requestedProductIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Map<Long, List<MesQaInspectionRegulationDO>> regulationsByProduct =
+                regulationMapper.selectListByProductIds(requestedProductIds).stream()
+                        .collect(Collectors.groupingBy(MesQaInspectionRegulationDO::getProductId));
+        return requestedProductIds.stream()
+                .map(productId -> buildProjectStatus(productId, regulationsByProduct.get(productId)))
+                .toList();
+    }
+
+    private static MesQaInspectionRegulationProjectStatusRespVO buildProjectStatus(
+            Long productId, List<MesQaInspectionRegulationDO> regulations) {
+        MesQaInspectionRegulationProjectStatusRespVO status = new MesQaInspectionRegulationProjectStatusRespVO();
+        status.setProductId(productId);
+        if (CollUtil.isEmpty(regulations)) {
+            status.setConfigured(false);
+            status.setRegulationCount(0);
+            return status;
+        }
+        MesQaInspectionRegulationDO representative = regulations.stream()
+                .max(Comparator
+                        .comparingInt(MesQaInspectionRegulationServiceImpl::regulationStatusPriority)
+                        .thenComparing(MesQaInspectionRegulationDO::getCurrentVersionId,
+                                Comparator.nullsFirst(Long::compareTo))
+                        .thenComparing(MesQaInspectionRegulationDO::getId,
+                                Comparator.nullsFirst(Long::compareTo)))
+                .orElseThrow();
+        status.setConfigured(true);
+        status.setRegulationCount(regulations.size());
+        status.setRegulationId(representative.getId());
+        status.setCurrentVersionId(representative.getCurrentVersionId());
+        status.setRegulationCode(representative.getRegulationCode());
+        status.setRegulationName(representative.getRegulationName());
+        status.setLifecycleStatus(representative.getLifecycleStatus());
+        return status;
+    }
+
+    private static int regulationStatusPriority(MesQaInspectionRegulationDO regulation) {
+        if (Objects.equals(regulation.getLifecycleStatus(), "PUBLISHED")) {
+            return 3;
+        }
+        if (Objects.equals(regulation.getLifecycleStatus(), "DRAFT")) {
+            return 2;
+        }
+        return 1;
     }
 
     private static JSONObject parseSnapshot(MesQaInspectionRegulationVersionDO version) {

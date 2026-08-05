@@ -51,7 +51,7 @@
 - Blocker: 当前任务实现被并发基线提交混入且需要严格任务独立提交、最近提交包含敏感文件/超大产物、或同一文件还有未区分 hunks 时，必须停止并让用户决定是否重建独立提交历史；不得继续用宽泛 `git add -A`。
 - Verification: 若用户允许继续，任务日志必须记录并发提交 hash、混入范围、保留/不触碰的非任务文件、已通过的目标验证和后续只选择性暂存的文件清单。
 - Forbidden action: 禁止把并发基线提交伪装成本任务实现提交；禁止因为 HEAD 已包含代码就跳过验证、任务文档或冲突记录；禁止擅自 amend、reset、force-push 或用新提交覆盖他人并发改动。
-- Evidence: `doc\tasks\20260730-dcc-product-catalog-remove-toolbar-buttons\execution-log.md`，共享分支基线提交曾把 DCC 按钮删除任务文件和其它任务文件一起提交，后续只能记录异常并选择性收尾。
+- Evidence: `doc\tasks\20260730-dcc-product-catalog-remove-toolbar-buttons\execution-log.md`，共享分支基线提交曾把 DCC 按钮删除任务文件和其它任务文件一起提交，后续只能记录异常并选择性收尾；`doc\tasks\20260804-approval-center-applicant-column\execution-log.md`，审批中心申请人列实现被并行基线提交吞入，后续保留验证证据并仅选择性提交收尾记录。
 
 ### 同文件并行改动选择性暂存门禁
 
@@ -101,11 +101,11 @@
 ### GitHub HTTPS 443 本地代理门禁
 
 - Trigger: `git push`、`git fetch`、`git ls-remote` 或 GitHub HTTPS remote 报 `Failed to connect to github.com port 443 via 127.0.0.1`、`Could not connect to server`、`Connection timed out`、`Recv failure: Connection was reset`。
-- Preflight check: 先运行 `git config --show-origin --get-regexp "^(http|https)\.(proxy|sslVerify|version|postBuffer)|^url\..*\.insteadOf$"`、`Test-NetConnection 127.0.0.1 -Port <proxyPort>`、`Test-NetConnection github.com -Port 443`；如果用户有 FlClash/Clash/VPN，再确认其配置端口和实际监听端口一致。
+- Preflight check: 先运行 `git config --show-origin --list | Select-String -Pattern 'proxy|127\.0\.0\.1|7890|insteadOf|http'`，不要只依赖窄正则，因为 `http.https://github.com.proxy` 这类 URL 级代理可能被漏掉；再运行 `Test-NetConnection 127.0.0.1 -Port <proxyPort>`、`Test-NetConnection github.com -Port 443`、`reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyServer` 和 `/v ProxyEnable`。如果用户有 FlClash/Clash/VPN，再确认其配置端口、Windows 用户代理端口和实际监听端口一致。
 - Blocker: Git 配置指向本地代理但代理端口未监听、GitHub HTTPS 直连 443 不通、代理客户端仅 helper 进程在线但核心未监听、或 SSH 443 可达但 GitHub 不接受当前 SSH key。
-- Verification: `git ls-remote origin HEAD` 成功返回 HEAD；若改用 SSH 443，必须先用 `ssh -T -o BatchMode=yes git@ssh.github.com -p 443` 验证账号认证成功，再改 remote 或 pushurl。
+- Verification: `git ls-remote origin HEAD` 成功返回 HEAD；如果 Git 全局代理端口陈旧但 Windows 用户代理端口正在监听，可先用一次性 `git -c http.https://github.com.proxy=http://127.0.0.1:<actualPort> ls-remote origin HEAD` 验证，再用同样一次性 `-c` 推送；若改用 SSH 443，必须先用 `ssh -T -o BatchMode=yes git@ssh.github.com -p 443` 验证账号认证成功，再改 remote 或 pushurl。
 - Forbidden action: 禁止把删除 Git proxy 当作修复，除非已证明 GitHub HTTPS 直连 443 可用；禁止静默切换到 SSH remote，除非当前 SSH key 已被 GitHub 接受；禁止把 helper 服务监听端口误当作 HTTP/SOCKS 代理端口。
-- Evidence: `doc\tasks\20260731-git-443-push-fix\execution-log.md`，GitHub HTTPS 直连失败、Git 全局代理指向 `127.0.0.1:7890` 但 FlClash 核心未监听，SSH 443 网络可达但公钥未授权。
+- Evidence: `doc\tasks\20260731-git-443-push-fix\execution-log.md`，GitHub HTTPS 直连失败、Git 全局代理指向 `127.0.0.1:7890` 但 FlClash 核心未监听，SSH 443 网络可达但公钥未授权；`doc\tasks\20260804-approval-center-applicant-column\execution-log.md`，窄正则漏掉 URL 级 GitHub proxy，完整 config 发现 `7890` 陈旧、Windows 用户代理实际为 `8902` 且监听，使用一次性 `-c` 对齐代理后 push 成功。
 
 ## PowerShell 编排门禁
 

@@ -25,7 +25,7 @@
 ## GREEN
 
 - GREEN: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProAutoScheduleAlgorithmContractTest#apply_shouldPersistBlockedIssueAndContinueSchedulableWorkOrders" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS before final downstream-filter patch, `BUILD SUCCESS`, 1 test, 0 failures.
-- Final post-filter re-run is pending because Maven stayed in javac class writing for more than 10 minutes with no Surefire output while other same-module Maven processes were active.
+- Final post-filter re-run on 2026-08-05 reached `yudao-module-mes` `testCompile` and failed before Surefire because unrelated `MesQaInspectionRegulationServiceTest` references missing getters on `MesQaInspectionRegulationProjectStatusRespVO`: `getProductId`, `getConfigured`, `getRegulationId`, `getLifecycleStatus`, and `getRegulationCode`.
 
 ## Contract Verification
 
@@ -37,7 +37,7 @@
 ## Validation
 
 - Validation: target backend JUnit passed before the last downstream filter hardening patch.
-- Validation: final target backend JUnit re-run is blocked by concurrent Maven/Windows javac class-writing hang and must be rerun before closeout.
+- Validation: final target backend JUnit re-run is blocked by unrelated MES QA regulation test compilation errors before the target Surefire test can start.
 
 ## Observability
 
@@ -45,4 +45,4 @@
 
 ## Blockers
 
-- Backend final JUnit re-run after the last downstream-filter patch is blocked by concurrent Maven/Windows javac class-writing hang.
+- Backend final JUnit re-run after the last downstream-filter patch is blocked by unrelated `MesQaInspectionRegulationServiceTest` compile errors in the shared MES module testCompile phase.

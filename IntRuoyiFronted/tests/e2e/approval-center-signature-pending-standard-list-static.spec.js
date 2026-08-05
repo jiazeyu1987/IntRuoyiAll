@@ -32,7 +32,7 @@ assert.doesNotMatch(
 )
 assert.match(
   approvalPage,
-  /TODO:\s*'approval\.center\.todo'/,
+  /TODO:\s*'approval\.center\.todo\.applicant\.v1'/,
   '签名待处理并入后，待办仍必须保留稳定表格 key。'
 )
 

@@ -44,6 +44,17 @@ export interface QaInspectionRegulationPublishedVersionVO {
   finalInspectionRules: QaInspectionRuleVO[]
 }
 
+export interface QaInspectionRegulationProjectStatusVO {
+  productId: number
+  configured: boolean
+  regulationCount: number
+  regulationId?: number
+  currentVersionId?: number
+  regulationCode?: string
+  regulationName?: string
+  lifecycleStatus?: string
+}
+
 // MES 质检方案 API
 export const QcTemplateApi = {
   // 查询正式 QA 检验规程发布版本只读证据
@@ -51,6 +62,19 @@ export const QcTemplateApi = {
     return await request.get({
       url: `/mes/qa/inspection-regulation/published-version`,
       params: versionId ? { versionId } : undefined
+    })
+  },
+
+  // 批量查询产品 QA 检验规程配置状态
+  getQaRegulationProjectStatuses: async (
+    productIds: number[]
+  ): Promise<QaInspectionRegulationProjectStatusVO[]> => {
+    if (productIds.length === 0) {
+      return []
+    }
+    return await request.get({
+      url: `/mes/qa/inspection-regulation/project-statuses`,
+      params: { productIds: productIds.join(',') }
     })
   },
 

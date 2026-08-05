@@ -75,14 +75,17 @@ async function login(page) {
 
   const tenantSelect = loginForm.locator('.el-select').first()
   if ((await tenantSelect.count()) > 0 && (await tenantSelect.isVisible())) {
-    await tenantSelect.click()
-    const selectInput = loginForm.locator('.el-select__input').first()
-    if ((await selectInput.count()) > 0) {
-      await selectInput.fill(TENANT)
+    const currentTenantText = (await tenantSelect.innerText()).replace(/\s+/g, ' ').trim()
+    if (!currentTenantText.includes(TENANT)) {
+      await tenantSelect.click()
+      const selectInput = loginForm.locator('.el-select__input').first()
+      if ((await selectInput.count()) > 0) {
+        await selectInput.fill(TENANT)
+      }
+      const tenantOption = page.locator('.el-select-dropdown__item:visible').filter({ hasText: TENANT }).first()
+      await tenantOption.waitFor({ state: 'visible', timeout: 30000 })
+      await tenantOption.click()
     }
-    const tenantOption = page.locator('.el-select-dropdown__item:visible').filter({ hasText: TENANT }).first()
-    await tenantOption.waitFor({ state: 'visible', timeout: 30000 })
-    await tenantOption.click()
   } else {
     await fillFirstVisible(loginForm.locator('input[placeholder="请输入租户名称"]'), TENANT, 'tenant')
   }
@@ -196,49 +199,91 @@ function normalizeDateValue(value) {
   return ''
 }
 
-function resolveScheduleOrderDate(row) {
-  return (
-    normalizeDateValue(row.plannedStartTime) ||
-    normalizeDateValue(row.plannedEndTime) ||
-    normalizeDateValue(row.promiseDate) ||
-    normalizeDateValue(row.createTime)
+function shiftMonth(monthText, offset) {
+  const [year, month] = monthText.split('-').map(Number)
+  const shifted = new Date(Date.UTC(year, month - 1 + offset, 1))
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+function flattenCalendarTasks(dayDetail) {
+  return (dayDetail?.workshops || []).flatMap((workshop) =>
+    (workshop.lines || []).flatMap((line) => line.tasks || [])
   )
 }
 
 async function discoverCandidateScheduleOrder(page, auth) {
-  const inspected = []
-  for (let pageNo = 1; pageNo <= 5; pageNo += 1) {
-    const pageData = await apiGet(page, auth, '/admin-api/mes/pro/schedule-order/page', {
-      pageNo,
-      pageSize: 100
-    })
-    const rows = pageData?.list || []
-    inspected.push(...rows)
-    const candidate = rows.find(
-      (row) =>
-        row.id &&
-        row.code &&
-        row.workOrderId &&
-        Number(row.blockingIssueCount || 0) === 0 &&
-        resolveScheduleOrderDate(row)
+  const rules = await apiGet(page, auth, '/admin-api/mes/pro/schedule-calendar/rules')
+  const simulationDate = normalizeDateValue(rules?.simulationCurrentDate)
+  const currentMonth = formatShanghaiDate(Date.now()).slice(0, 7)
+  const baseMonths = [simulationDate.slice(0, 7), currentMonth].filter(Boolean)
+  const months = [
+    ...new Set(
+      baseMonths.flatMap((month) => [month, shiftMonth(month, -1), shiftMonth(month, 1)])
     )
-    if (candidate) {
-      return {
-        id: candidate.id,
-        code: candidate.code,
-        workOrderId: candidate.workOrderId,
-        date: resolveScheduleOrderDate(candidate),
-        plannedStartTime: candidate.plannedStartTime,
-        plannedEndTime: candidate.plannedEndTime,
-        promiseDate: candidate.promiseDate
+  ]
+  const inspectedDays = []
+  const inspectedWorkOrderIds = new Set()
+
+  for (const month of months) {
+    const monthData = await apiGet(page, auth, '/admin-api/mes/pro/schedule-calendar/month', {
+      month
+    })
+    const taskDays = (monthData?.days || [])
+      .filter((day) => Number(day.totalTaskCount || 0) > 0)
+      .sort((left, right) => String(right.date).localeCompare(String(left.date)))
+
+    for (const day of taskDays) {
+      const date = normalizeDateValue(day.date)
+      if (!date) {
+        continue
+      }
+      inspectedDays.push(date)
+      const dayDetail = await apiGet(page, auth, '/admin-api/mes/pro/schedule-calendar/day-detail', {
+        date
+      })
+      const workOrderIds = [
+        ...new Set(
+          flattenCalendarTasks(dayDetail)
+            .map((task) => Number(task.workOrderId || 0))
+            .filter((workOrderId) => workOrderId > 0)
+        )
+      ]
+
+      for (const workOrderId of workOrderIds) {
+        if (inspectedWorkOrderIds.has(workOrderId)) {
+          continue
+        }
+        inspectedWorkOrderIds.add(workOrderId)
+        const pageData = await apiGet(page, auth, '/admin-api/mes/pro/schedule-order/page', {
+          pageNo: 1,
+          pageSize: 20,
+          workOrderId,
+          completionFilter: 'INCOMPLETE'
+        })
+        const row = (pageData?.list || []).find(
+          (item) =>
+            item.id &&
+            item.code &&
+            item.erpWorkOrderCode &&
+            Number(item.workOrderId) === workOrderId &&
+            Number(item.blockingIssueCount || 0) === 0
+        )
+        if (row) {
+          return {
+            id: row.id,
+            code: row.code,
+            erpWorkOrderCode: row.erpWorkOrderCode,
+            workOrderId,
+            date
+          }
+        }
       }
     }
-    if (!pageData || rows.length < 100) {
-      break
-    }
   }
+
   throw new Error(
-    `BLOCKED: ${TENANT}/${USERNAME} 前 ${inspected.length} 条排产工单中没有可用于任务自有阻断 fixture 的未阻断工单。`
+    `BLOCKED: ${TENANT}/${USERNAME} 扫描月份 ${months.join(',')} 的 ${inspectedDays.length} 个有任务日期、` +
+      `${inspectedWorkOrderIds.size} 个工单后，没有找到可用于任务自有阻断 fixture 的未阻断排产工单。`
   )
 }
 
@@ -325,39 +370,97 @@ async function assertCreatedIssueOpen(page, auth, issueId, candidate) {
   return issue
 }
 
+async function ensureScheduleOrderCodeFilter(page, multiFilter) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const searchInput = multiFilter.locator('input[placeholder="请输入排产工单号"]').first()
+    if ((await searchInput.count()) > 0 && (await searchInput.isVisible())) {
+      return searchInput
+    }
+
+    const codeTab = multiFilter.locator('.el-tabs__item').filter({ hasText: '排产工单号' }).first()
+    if ((await codeTab.count()) > 0 && (await codeTab.isVisible())) {
+      await codeTab.click()
+      await page.waitForTimeout(200)
+      continue
+    }
+
+    const addButton = multiFilter.getByRole('button', { name: '新增筛选条件' }).first()
+    await addButton.waitFor({ state: 'visible', timeout: 30000 })
+    assert.equal(await addButton.isEnabled(), true, 'schedule order multi-filter add button must be enabled')
+    await addButton.click()
+    await page.waitForTimeout(300)
+  }
+  const tabLabels = await multiFilter
+    .locator('.el-tabs__item')
+    .evaluateAll((tabs) => tabs.map((tab) => tab.textContent?.trim()).filter(Boolean))
+  throw new Error(`missing visible schedule order code filter after adding conditions; tabs=${tabLabels.join('|')}`)
+}
+
 async function searchScheduleOrder(page, code) {
-  await page.goto(`${BASE_URL}/mes/pro/schedule-order`, {
-    waitUntil: 'domcontentloaded',
-    timeout: 60000
-  })
-  await page.locator('.schedule-order-pool').waitFor({ state: 'visible', timeout: 60000 })
-  const quickFilter = page.locator('.table-quick-filter[data-table-key="mes.pro.scheduleOrder.main"]').first()
-  const searchInput = page.locator(
-    'input[placeholder="请输入排产工单号"], input[placeholder="请输入工单编码"], input[placeholder="请输入排产工单编号"]'
-  )
-  await fillFirstVisible(searchInput, code, 'schedule order search input')
-  const pageResponsePromise = page
+  const initialPageResponsePromise = page
     .waitForResponse(
       (response) =>
         response.url().includes('/admin-api/mes/pro/schedule-order/page') && response.status() === 200,
       { timeout: 60000 }
     )
     .catch(() => null)
-  const queryButton = quickFilter.getByRole('button', { name: /查询|搜索/ }).first()
-  if ((await queryButton.count()) > 0) {
-    await queryButton.click()
-  } else {
-    await page.getByRole('button', { name: /查询|搜索/ }).first().click()
+  await page.goto(`${BASE_URL}/mes/pro/schedule-order`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 60000
+  })
+  await page.locator('.schedule-order-pool').waitFor({ state: 'visible', timeout: 60000 })
+  await initialPageResponsePromise
+  await settle(page)
+  const existingRow = page
+    .locator('.schedule-order-pool .el-table__body-wrapper:visible tbody tr')
+    .filter({ hasText: code })
+    .first()
+  if ((await existingRow.count()) > 0 && (await existingRow.isVisible())) {
+    return
   }
-  await pageResponsePromise
+
+  const multiFilter = page.locator(
+    '.table-multi-filter[data-table-key="mes.pro.scheduleOrder.main"]'
+  ).first()
+  await multiFilter.waitFor({ state: 'visible', timeout: 30000 })
+  const searchInput = await ensureScheduleOrderCodeFilter(page, multiFilter)
+  await fillFirstVisible(searchInput, code, 'schedule order search input')
+  await page.waitForTimeout(250)
+  const pageResponsePromise = page
+    .waitForResponse(
+      (response) =>
+        response.url().includes('/admin-api/mes/pro/schedule-order/page') && response.status() === 200,
+      { timeout: 60000 }
+    )
+  await multiFilter.getByRole('button', { name: '查询' }).click()
+  const pageResponse = await pageResponsePromise
+  const pageBody = await pageResponse.json()
+  assert.equal(
+    pageBody.code,
+    0,
+    `schedule order search business response must succeed: ${pageBody.msg || pageBody.code}`
+  )
+  const returnedCodes = (pageBody.data?.list || []).map((row) => row.code).filter(Boolean)
+  assert.ok(
+    returnedCodes.includes(code),
+    `schedule order search response must contain ${code}, actual=${returnedCodes.join(',')}`
+  )
   await settle(page)
 }
 
-async function assertBlockedRowVisible(page, candidate) {
-  const targetRow = page
+function locateScheduleOrderRow(page, candidate) {
+  assert.ok(
+    candidate.erpWorkOrderCode,
+    `schedule order ${candidate.code} must expose a visible source work order code`
+  )
+  return page
     .locator('.schedule-order-pool .el-table__body-wrapper:visible tbody tr')
-    .filter({ hasText: candidate.code })
+    .filter({ hasText: candidate.erpWorkOrderCode })
     .first()
+}
+
+async function assertBlockedRowVisible(page, candidate) {
+  const targetRow = locateScheduleOrderRow(page, candidate)
   await targetRow.waitFor({ state: 'visible', timeout: 60000 })
 
   const className = await targetRow.evaluate((row) => row.className)
@@ -448,10 +551,7 @@ async function assertScheduleOrderCleared(page, auth, candidate) {
   assert.equal(Number(row.blockingIssueCount || 0), 0, `target schedule order ${candidate.code} blocker count must clear`)
 
   await searchScheduleOrder(page, candidate.code)
-  const targetRow = page
-    .locator('.schedule-order-pool .el-table__body-wrapper:visible tbody tr')
-    .filter({ hasText: candidate.code })
-    .first()
+  const targetRow = locateScheduleOrderRow(page, candidate)
   await targetRow.waitFor({ state: 'visible', timeout: 60000 })
   const className = await targetRow.evaluate((element) => element.className)
   assert.doesNotMatch(
@@ -496,6 +596,9 @@ async function main() {
   let candidate
   let issueId = 0
   let uiEvidence
+  let auth
+  let issueResolved = false
+  let cleanupStatus = 'not-created'
 
   const browser = await chromium.launch({
     headless: process.env.MES_PARTIAL_REPLAN_E2E_HEADED !== '1',
@@ -513,16 +616,19 @@ async function main() {
 
   try {
     await login(page)
-    const auth = await browserAuth(page)
+    auth = await browserAuth(page)
     assert.equal(String(auth.tenantId), EXPECTED_TENANT_ID, `must stay in 芋道源码 tenant_id=1, actual ${auth.tenantId}`)
 
     candidate = await discoverCandidateScheduleOrder(page, auth)
     issueId = await createIssueViaUi(page, candidate)
+    cleanupStatus = 'open'
     await assertCreatedIssueOpen(page, auth, issueId, candidate)
     await searchScheduleOrder(page, candidate.code)
     uiEvidence = await assertBlockedRowVisible(page, candidate)
     await resolveIssueViaUi(page, candidate, issueId)
     await assertIssueResolved(page, auth, issueId, candidate)
+    issueResolved = true
+    cleanupStatus = 'resolved-via-ui'
     await assertScheduleOrderCleared(page, auth, candidate)
 
     assert.deepEqual(unexpectedMutations, [], `unexpected MES mutation APIs: ${unexpectedMutations.join(', ')}`)
@@ -545,6 +651,7 @@ async function main() {
           taskMarker: TASK_MARKER,
           scheduleOrderCode: candidate.code,
           scheduleOrderId: candidate.id,
+          sourceWorkOrderCode: candidate.erpWorkOrderCode,
           workOrderId: candidate.workOrderId,
           issueDate: candidate.date,
           issueId,
@@ -554,14 +661,37 @@ async function main() {
           unexpectedMesMutationCount: unexpectedMutations.length,
           pageErrorCount: pageErrors.length,
           consoleErrorCount: consoleErrors.length,
-          cleanup: 'resolved-via-ui-and-row-cleared'
+          cleanup: `${cleanupStatus}-and-row-cleared`
         },
         null,
         2
       )
     )
   } catch (error) {
-    const message = error?.message || String(error)
+    let message = error?.message || String(error)
+    const currentUrl = page.url()
+    const bodySnippet = await page
+      .locator('body')
+      .innerText({ timeout: 5000 })
+      .then((text) => text.replace(/\s+/g, ' ').trim().slice(0, 1000))
+      .catch((bodyError) => `BODY_READ_FAILED: ${bodyError.message || bodyError}`)
+    if (issueId > 0 && candidate && auth && !issueResolved) {
+      try {
+        const currentIssue = await findIssue(page, auth, issueId, candidate.workOrderId)
+        if (currentIssue?.resolved === true) {
+          issueResolved = true
+          cleanupStatus = 'already-resolved-after-failure'
+        } else {
+          await resolveIssueViaUi(page, candidate, issueId)
+          await assertIssueResolved(page, auth, issueId, candidate)
+          issueResolved = true
+          cleanupStatus = 'resolved-via-ui-after-failure'
+        }
+      } catch (cleanupError) {
+        cleanupStatus = `FAILED: ${cleanupError?.message || String(cleanupError)}`
+        message = `${message}; task-owned cleanup failed: ${cleanupStatus}`
+      }
+    }
     console.log(
       JSON.stringify(
         {
@@ -573,6 +703,7 @@ async function main() {
           username: USERNAME,
           taskMarker: TASK_MARKER,
           scheduleOrderCode: candidate?.code,
+          sourceWorkOrderCode: candidate?.erpWorkOrderCode,
           workOrderId: candidate?.workOrderId,
           issueDate: candidate?.date,
           issueId: issueId || undefined,
@@ -580,7 +711,12 @@ async function main() {
           expectedMesMutationRequests: expectedMutations,
           unexpectedMesMutationRequests: unexpectedMutations,
           pageErrorCount: pageErrors.length,
-          consoleErrorCount: consoleErrors.length
+          consoleErrorCount: consoleErrors.length,
+          currentUrl,
+          bodySnippet,
+          pageErrors: pageErrors.slice(0, 5),
+          consoleErrors: consoleErrors.slice(0, 5),
+          cleanup: cleanupStatus
         },
         null,
         2

@@ -22,7 +22,7 @@
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -54,3 +54,8 @@ blocked
 - PASS: pushed branch `codex/production-leader-tab-20260804` to `origin`.
 - BLOCKED: automatic linked-worktree closeout preview cannot proceed because current branch cannot be fast-forward merged into `int_main`, and main worktree `E:\IntRuoyi` is dirty.
 - NOTE: shared `E:\IntRuoyi` currently contains unrelated/concurrent route-tab changes and remains unsafe for broad staging; this branch is the verified isolated implementation.
+- PASS: after merging `origin/int_main`, resolved six frontend conflicts to the final eDHR dual-leader-tab contract.
+- PASS: post-merge rerun `node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js`.
+- PASS: post-merge rerun `node tests\e2e\edhr-batch-page-graph-tab-static.spec.js`.
+- PASS: post-merge rerun `node tests\e2e\mes-process-pool-team-leader-static.spec.js`.
+- PASS: post-merge rerun `pnpm ts:check`.

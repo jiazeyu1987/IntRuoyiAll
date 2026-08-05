@@ -84,3 +84,19 @@
 - CLOSEOUT BLOCKED: automatic linked-worktree closeout preview -> BLOCKED，current branch cannot be fast-forward merged into `int_main`, and main worktree `E:\IntRuoyi` is dirty. Current branch will be pushed for safe review/integration; worktree is not removed.- PUSH BLOCKER: `git push origin codex/production-leader-tab-20260804` -> FAIL，expected reason: GitHub-specific Git proxy `http.https://github.com.proxy=http://127.0.0.1:7890` was configured but local port 7890 was not listening.
 - PUSH DIAGNOSTIC: `Test-NetConnection 127.0.0.1 -Port 7890` -> `TcpTestSucceeded=False`; `Test-NetConnection github.com -Port 443` -> `TcpTestSucceeded=True`.
 - PUSH GREEN: `git -c http.https://github.com.proxy= push origin codex/production-leader-tab-20260804` -> PASS，temporary command-level proxy override only; global Git config was not changed.
+
+## 2026-08-05 Merge origin/int_main Resolution
+
+- MERGE: `git -c http.https://github.com.proxy= fetch origin int_main` -> PASS，fetched `origin/int_main`.
+- MERGE: `git merge --no-edit origin/int_main` -> CONFLICT，conflicted files: `remaining.ts`, `BatchPageGraphPage.vue`, `EdhrBatchRecordTabs.vue`, `edhr-batch-page-graph-tab-static.spec.js`, `edhr-batch-record-leader-tabs-static.spec.js`, `mes-process-pool-team-leader-static.spec.js`.
+- RESOLUTION: kept final user contract: eDHR top tabs retain both `生产组长` and `PQC组长`; `PQC组长` uses `/mes/pro/feedback/edhr-batch-pqc-leader` and `BatchPqcLeaderWorkbenchPage.vue`; process-pool standalone routes remain available but do not replace eDHR tabs.
+- RESOLUTION: restored `BatchProductionLeaderWorkbenchPage.vue` and `BatchTeamLeaderWorkbenchPage.vue` after upstream deletion during merge; `组长工作台` stays locked to `leader-type="PQC"` and cannot display production leader content.
+- RESOLUTION: updated page graph nodes back to eDHR routes for `组长工作台`, `生产组长`, and `PQC组长`; static contracts now reject replacing those nodes with `/mes/pro/process-pool/(production|pqc)-leader`.
+- CHECK: `rg -n "<<<<<<<|=======|>>>>>>>" <six conflicted files>` -> PASS, no conflict markers.
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js` -> PASS after merge resolution.
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-page-graph-tab-static.spec.js` -> PASS after merge resolution.
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS after merge resolution.
+- GREEN: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS after merge resolution.
+- PREFLIGHT: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，branch runtime port guard confirmed slot 4 (`frontend 8085`, `backend 48085`).
+- PREFLIGHT NOTE: `git diff --cached --check` reports `IntRuoyiFronted/tests/e2e/approval-center-upload-quick-review-static.spec.js:39: new blank line at EOF`; this file is an upstream `origin/int_main` merge addition, not a task-owned production-leader edit.
+- CURRENT STATUS: implementation and post-merge verification are complete in the isolated worktree; merge commit, push, and closeout gate remain.

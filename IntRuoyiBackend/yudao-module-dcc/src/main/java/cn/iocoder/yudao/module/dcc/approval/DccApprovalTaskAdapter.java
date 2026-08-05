@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskViewType;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskQueryContext;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskResultSupport;
+import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskReviewContext;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskSummary;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskTimelineEntry;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskTimelineQueryContext;
@@ -16,11 +17,15 @@ import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskRespVO;
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.util.FlowableUtils;
 import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileApproveTaskReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRejectTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStageCodeEnum;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowService;
 import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.engine.runtime.ProcessInstance;
@@ -47,6 +52,8 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private static final String SOURCE_TASK_TYPE = "DCC_CONTROLLED_FILE_TASK";
     private static final String APPROVAL_CENTER_VIEWER_FROM = "approval-center";
     private static final String APPROVAL_CENTER_HANDLING_MODE = "approval";
+    private static final Set<String> PROCESS_IN_MODULE_ACTIONS = Set.of("PROCESS_IN_MODULE");
+    private static final Set<String> QUICK_REVIEW_ACTIONS = Set.of("APPROVE", "REJECT", "PROCESS_IN_MODULE");
     private static final Set<ApprovalTaskViewType> SUPPORTED_VIEWS = Set.of(
             ApprovalTaskViewType.TODO,
             ApprovalTaskViewType.DONE
@@ -215,7 +222,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 .requiresSignature(Boolean.TRUE)
                 .detailRoute("/dcc/controlled-file/detail/" + businessKey)
                 .detailQuery(approvalCenterHandlingDetailQuery(task))
-                .availableActions(Set.of("PROCESS_IN_MODULE"))
+                .availableActions(resolveTodoAvailableActions(task.getTaskDefinitionKey(), file.getStatus()))
                 .capabilities(CAPABILITIES)
                 .build();
     }
@@ -253,7 +260,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 .requiresSignature(Boolean.TRUE)
                 .detailRoute("/dcc/controlled-file/detail/" + businessKey)
                 .detailQuery(approvalCenterViewerDetailQuery())
-                .availableActions(Set.of("PROCESS_IN_MODULE"))
+                .availableActions(PROCESS_IN_MODULE_ACTIONS)
                 .capabilities(CAPABILITIES)
                 .build();
     }
@@ -285,9 +292,39 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 .requiresSignature(Boolean.TRUE)
                 .detailRoute("/dcc/controlled-file/detail/" + businessKey)
                 .detailQuery(approvalCenterViewerDetailQuery())
-                .availableActions(Set.of("PROCESS_IN_MODULE"))
+                .availableActions(PROCESS_IN_MODULE_ACTIONS)
                 .capabilities(CAPABILITIES)
                 .build();
+    }
+
+    @Override
+    public void review(ApprovalTaskReviewContext context) {
+        requireSourceTaskType(context.getSourceTaskType());
+        Long fileId = parseBusinessKey(requireText(context.getBusinessKey(),
+                "APPROVAL_BUSINESS_KEY_REQUIRED: DCC review requires controlled file business key"));
+        String taskId = requireText(context.getSourceTaskId(),
+                "APPROVAL_TASK_ID_REQUIRED: DCC review requires source task id");
+        String password = requireText(context.getSignaturePassword(),
+                "APPROVAL_SIGNATURE_PASSWORD_REQUIRED: DCC review requires signature password");
+        if (context.getResult() == ApprovalTaskReviewResult.APPROVE) {
+            DccControlledFileApproveTaskReqVO reqVO = new DccControlledFileApproveTaskReqVO();
+            reqVO.setTaskId(taskId);
+            reqVO.setPassword(password);
+            reqVO.setReason(context.getReason());
+            workflowService.approveTask(context.getLoginUserId(), fileId, reqVO);
+            return;
+        }
+        if (context.getResult() == ApprovalTaskReviewResult.REJECT) {
+            DccControlledFileRejectTaskReqVO reqVO = new DccControlledFileRejectTaskReqVO();
+            reqVO.setTaskId(taskId);
+            reqVO.setPassword(password);
+            reqVO.setReason(requireText(context.getReason(),
+                    "APPROVAL_REJECT_REASON_REQUIRED: DCC reject requires reason"));
+            workflowService.rejectTask(context.getLoginUserId(), fileId, reqVO);
+            return;
+        }
+        throw new IllegalArgumentException("APPROVAL_RESULT_UNSUPPORTED: DCC does not support "
+                + context.getResult());
     }
 
     private static Map<String, String> approvalCenterViewerDetailQuery() {
@@ -306,6 +343,31 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
         query.put("taskId", requireText(task.getId(),
                 "APPROVAL_TASK_ID_REQUIRED: DCC handling route requires task id"));
         return query;
+    }
+
+    private static Set<String> resolveTodoAvailableActions(String taskDefinitionKey, String fileStatus) {
+        if (isDocControlFinalApprovalTask(taskDefinitionKey, fileStatus)) {
+            return PROCESS_IN_MODULE_ACTIONS;
+        }
+        if (isQuickReviewTask(taskDefinitionKey, fileStatus)) {
+            return QUICK_REVIEW_ACTIONS;
+        }
+        return PROCESS_IN_MODULE_ACTIONS;
+    }
+
+    private static boolean isDocControlFinalApprovalTask(String taskDefinitionKey, String fileStatus) {
+        return DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL.getCode().equals(taskDefinitionKey)
+                || DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus().equals(fileStatus)
+                || DccControlledFileStatusEnum.PENDING_APPLICANT_TRAINING_RECORD.getStatus().equals(fileStatus);
+    }
+
+    private static boolean isQuickReviewTask(String taskDefinitionKey, String fileStatus) {
+        return DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(taskDefinitionKey)
+                || DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode().equals(taskDefinitionKey)
+                || DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode().equals(taskDefinitionKey)
+                || DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus().equals(fileStatus)
+                || DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus().equals(fileStatus)
+                || DccControlledFileStatusEnum.PENDING_MATRIX_APPROVAL.getStatus().equals(fileStatus);
     }
 
     private List<String> buildDccBusinessContextTags(DccControlledFileRespVO file, String currentNodeName) {

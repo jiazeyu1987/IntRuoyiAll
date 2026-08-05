@@ -19,7 +19,7 @@
 - 后端回归：重排应用、夜间重排和 issue 持久化相关目标测试通过。
 - 前端 RED/GREEN：新增静态合同覆盖不因局部阻断禁用整批应用、阻断行标红和原因可见。
 - 前端回归：相邻重排静态合同通过，`pnpm ts:check` 通过或记录与本任务无关的既有阻塞。
-- 真实页面 E2E：`mes-pro-schedule-order-partial-replan-blockers-real-readonly.e2e.js` 登录本机测试租户或用户明确授权的 `芋道源码/admin`，验证阻断行红色状态和原因；缺少未解决阻断样本时记录 E2E BLOCKED，禁止写入非任务自有工单。
+- 真实页面 E2E：`mes-pro-schedule-order-partial-replan-blockers-real-fixture.e2e.js` 使用用户明确授权的 `芋道源码/admin`，通过真实页面创建任务自有阻断 issue，验证阻断行红色状态和原因，再通过真实页面关闭并核对清理；缺少样本时只允许任务自有 fixture，不写入非任务自有工单。
 - Evidence validators：bug、backend、frontend evidence 通过。
 
 ## Applicable Gates
@@ -38,6 +38,6 @@
 
 ## Current Status
 
-in_progress
+blocked
 
-实现和前端验证已完成；真实页面 E2E 已分别登录本机测试租户和用户授权的 `芋道源码/admin` 并确认无 MES 写请求，但测试租户前 74 条、芋道源码前 47 条排产工单均没有未解决阻断展示行；芋道源码只读 issues 接口 `BLOCKING` 总数=0，阻断红行/原因可见性真实验证仍被数据前置阻塞。后端最终 JUnit 复跑仍被同模块并发 Maven/Windows class 写入卡顿阻塞，待资源释放后重跑。代码与部分测试已被共享分支并发基线提交吸收，收尾提交/推送暂未完成。
+实现、前端验证和用户授权的 `芋道源码/admin` 真实页面 E2E 已完成，并于 2026-08-05 按用户要求复跑通过。最新 Fixture E2E 创建 task-owned issue `19256`，验证排产工单 `SCH-881MO098538-20260707-0001` / 来源工单 `881MO098538` 标红、原因可见、红色背景 `rgb(255, 241, 240)`，并通过页面关闭异常；最终只读核验确认 task marker issue `19252, 19253, 19254, 19255, 19256` 未关闭数量为 `0`。后端最终 JUnit 已于 2026-08-05 复跑，但在目标 Surefire 启动前被无关 `MesQaInspectionRegulationServiceTest` / `MesQaInspectionRegulationProjectStatusRespVO` getter 不匹配的 `testCompile` 错误阻塞。代码与部分测试已被共享分支并发基线提交吸收，收尾提交/推送暂未完成。

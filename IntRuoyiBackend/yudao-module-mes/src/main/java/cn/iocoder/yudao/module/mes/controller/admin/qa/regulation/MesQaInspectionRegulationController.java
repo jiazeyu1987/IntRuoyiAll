@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.controller.admin.qa.regulation;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationProjectStatusRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationPublishedVersionRespVO;
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,6 +14,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 
@@ -32,5 +35,14 @@ public class MesQaInspectionRegulationController {
     public CommonResult<MesQaInspectionRegulationPublishedVersionRespVO> getPublishedVersion(
             @RequestParam(value = "versionId", required = false) Long versionId) {
         return success(regulationService.getPublishedVersion(versionId));
+    }
+
+    @GetMapping("/project-statuses")
+    @Operation(summary = "批量获得产品 QA 检验规程配置状态")
+    @Parameter(name = "productIds", description = "产品主数据 ID 集合")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")
+    public CommonResult<List<MesQaInspectionRegulationProjectStatusRespVO>> getProjectStatuses(
+            @RequestParam("productIds") List<Long> productIds) {
+        return success(regulationService.getProjectStatuses(productIds));
     }
 }

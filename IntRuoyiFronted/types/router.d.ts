@@ -47,6 +47,7 @@ declare module 'vue-router' {
     tagsViewKey?: string
     tagsViewTitle?: string
     tagsViewKeyMode?: 'fullPath' | 'path'
+    keepAliveName?: string
     icon?: string
     noCache?: boolean
     breadcrumb?: boolean

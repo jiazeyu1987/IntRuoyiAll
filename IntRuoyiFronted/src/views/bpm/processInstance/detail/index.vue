@@ -8,11 +8,11 @@
           :src="auditIconsMap[processInstance.status]"
           alt=""
         />
-        <div class="flex">
+        <div v-if="showProcessInstanceTechnicalHeader" class="flex">
           <div class="text-#878c93 h-15px">编号：{{ id }}</div>
           <Icon icon="ep:printer" class="ml-15px cursor-pointer" @click="handlePrint" />
         </div>
-        <el-divider class="!my-8px" />
+        <el-divider v-if="showProcessInstanceTechnicalHeader" class="!my-8px" />
         <div class="flex items-center gap-5 mb-10px h-40px">
           <div class="text-26px font-bold mb-5px">{{ processInstanceDisplayName }}</div>
           <dict-tag
@@ -116,15 +116,14 @@
                               {{ currentApprovalActorText }}
                             </el-descriptions-item>
                           </el-descriptions>
-                          <div class="bpm-dcc-approval-summary__actions">
-                            <el-button
-                              type="primary"
-                              :disabled="!dccControlledFileBusinessId"
-                              @click="openDccControlledFileApprovalDetail"
-                            >
-                              进入文控审批处理页
-                            </el-button>
-                            <span>需要预览文件、电子签名、通过或拒绝时，从这里进入正式处理入口。</span>
+                          <div
+                            class="bpm-dcc-approval-preview"
+                            data-testid="bpm-dcc-approval-file-preview"
+                          >
+                            <ProtectedPdfViewer
+                              :controlled-file-id="dccControlledFileBusinessId"
+                              :title="dccApprovalFileDetail?.title || '受控文件预览'"
+                            />
                           </div>
                         </div>
                         <BusinessFormComponent v-else :id="processInstance.businessKey" />
@@ -169,6 +168,7 @@ import type { ApiAttrs } from '@form-create/element-ui/types/config'
 import * as ProcessInstanceApi from '@/api/bpm/processInstance'
 import * as UserApi from '@/api/system/user'
 import { getControlledFile, type ControlledFileVO } from '@/api/dcc/controlledFile/workflow'
+import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
 import ProcessInstanceOperationButton from './ProcessInstanceOperationButton.vue'
 import ProcessInstanceTimeline from './ProcessInstanceTimeline.vue'
 import { FieldPermissionType } from '@/components/SimpleProcessDesignerV2/src/consts'
@@ -187,8 +187,6 @@ const props = defineProps<{
   activityId?: string //流程活动编号，用于抄送查看
 }>()
 const message = useMessage() // 消息弹窗
-const route = useRoute()
-const router = useRouter()
 const processInstanceLoading = ref(false) // 流程实例的加载中
 const processInstance = ref<any>({}) // 流程实例
 const processDefinition = ref<any>({}) // 流程定义
@@ -250,6 +248,8 @@ const isDccControlledFileCustomForm = computed(
     normalizeCustomViewPath(processDefinition.value?.formCustomViewPath) ===
     'dcc/controlled-file/detail'
 )
+
+const showProcessInstanceTechnicalHeader = computed(() => !isDccControlledFileCustomForm.value)
 
 const dccControlledFileBusinessId = computed(() => {
   const value = String(processInstance.value?.businessKey || '').trim()
@@ -323,23 +323,6 @@ const loadDccApprovalFileSummary = async () => {
   } finally {
     dccApprovalFileLoading.value = false
   }
-}
-
-const openDccControlledFileApprovalDetail = () => {
-  if (!dccControlledFileBusinessId.value) {
-    message.warning('缺少受控文件 ID，无法进入文控审批处理页。')
-    return
-  }
-  router.push({
-    path: `/dcc/controlled-file/detail/${dccControlledFileBusinessId.value}`,
-    query: {
-      handling: 'approval',
-      from: 'approval-center',
-      processInstanceId: props.id,
-      ...(props.taskId ? { taskId: props.taskId } : {}),
-      ...(route.fullPath ? { returnTo: encodeURIComponent(route.fullPath) } : {})
-    }
-  })
 }
 
 /** 获取审批详情 */
@@ -534,12 +517,17 @@ $process-header-height: 194px;
   margin-top: 8px;
 }
 
-.bpm-dcc-approval-summary__actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
+.bpm-dcc-approval-preview {
   margin-top: 16px;
+  min-height: 360px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 10px;
+  overflow: hidden;
+
+  :deep(.protected-viewer-shell) {
+    min-height: 360px;
+    border: none;
+    border-radius: 0;
+  }
 }
 </style>

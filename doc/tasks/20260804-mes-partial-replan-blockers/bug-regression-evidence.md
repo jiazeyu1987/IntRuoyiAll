@@ -39,7 +39,7 @@
 ## Verification
 
 - Verification: frontend focused static, adjacent replan static contracts, and `pnpm.cmd ts:check` passed.
-- Verification: final backend JUnit re-run remains blocked by concurrent Maven/Windows javac class-writing hang; see blockers.
+- Verification: final backend JUnit re-run was attempted again on 2026-08-05 and reached `yudao-module-mes` `testCompile`, but failed before Surefire due unrelated QA regulation test compile errors; see blockers.
 
 ## Risk And Regression Scope
 
@@ -49,5 +49,5 @@
 
 ## Blockers And Follow-Up
 
-- Final backend JUnit re-run after the downstream filter patch is blocked by concurrent same-module Maven activity and a Windows javac `FileDescriptor.close0` / `ClassWriter.writeClass` hang with no Surefire output.
-- Re-run the target backend test once the shared backend Maven activity is clear.
+- Final backend JUnit re-run after the downstream filter patch is blocked by unrelated `MesQaInspectionRegulationServiceTest` compile errors against `MesQaInspectionRegulationProjectStatusRespVO` missing getters: `getProductId`, `getConfigured`, `getRegulationId`, `getLifecycleStatus`, and `getRegulationCode`.
+- Re-run the target backend test after the shared MES QA regulation test contract is repaired or isolated by its owning task.

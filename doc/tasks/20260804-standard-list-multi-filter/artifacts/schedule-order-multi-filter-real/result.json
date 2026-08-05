@@ -21,6 +21,26 @@
   "filteredTotal": 1,
   "resetTotal": 47,
   "legacyQuickFilterVisibleCount": 0,
+  "conditionEmptyPromptVisibleCount": 0,
+  "conditionEmptyPromptTextCount": 0,
+  "admissionTargetWorkOrderCode": "SMART-SCHED-20260630-RERUN5-MO",
+  "admissionTargetProductCode": "AW.106.03.08.1007",
+  "admissionTargetStatus": "READY_TO_ADMIT",
+  "admissionFilteredParams": {
+    "pageNo": "1",
+    "pageSize": "20",
+    "admissionStatus": "READY_TO_ADMIT",
+    "workOrderCode": "SMART-SCHED-20260630-RERUN5-MO",
+    "productCode": "AW.106.03.08.1007"
+  },
+  "admissionResetParams": {
+    "pageNo": "1",
+    "pageSize": "20"
+  },
+  "admissionInitialTotal": 84,
+  "admissionFilteredTotal": 1,
+  "admissionResetTotal": 1483,
+  "admissionLegacyQuickFilterVisibleCount": 0,
   "targetWriteRequestCount": 0,
   "targetBadResponseCount": 0,
   "targetAbortedRequestCount": 1,

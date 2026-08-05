@@ -43,11 +43,11 @@
 ## 统一列表复合工具栏布局门禁
 
 - Trigger: 修改 `UnifiedListTemplate`、快速过滤、批量操作栏、标准列表多维筛选、`TableMultiFilter`、或把新筛选控件接入已有业务列表。
-- Preflight check: 先在真实业务列表确认快速过滤、操作栏、额外筛选和新增筛选控件的 flex/grid 关系；可折行控件必须有明确行宽、`min-width` 和静态合同覆盖，不得只在空模板或单控件示例中验证。标准列表多维筛选要优先做成可增删条件 Tab 这类通用条件集合，不要靠页面级 `maxInlineFilters`、固定字段横铺或业务页特例控制可见条件。
-- Blocker: 新控件在真实页面中被快速过滤或操作栏挤压到 `0` 宽、不可见、不可点击，静态合同只断言组件存在但不断言布局宽度和正式 query 透传，或同一个正式 query 参数可被多个条件 Tab 覆盖时必须停止。
-- Verification: 聚焦静态合同必须覆盖模板布局类、宽度下限、props/events 透传、条件 Tab 增删、稳定 condition id、重复正式参数校验和正式请求参数；真实 E2E 必须打开目标业务页面，断言控件可见可操作、多个已填写 Tab 按交集提交、请求不携带临时参数、重置清空正式条件且目标写请求为 0。
+- Preflight check: 先在真实业务列表确认快速过滤、操作栏、额外筛选和新增筛选控件的 flex/grid 关系；可折行控件必须有明确行宽、`min-width` 和静态合同覆盖，不得只在空模板或单控件示例中验证。标准列表多维筛选要优先做成可增删条件 Tab 这类通用条件集合，不要靠页面级 `maxInlineFilters`、固定字段横铺或业务页特例控制可见条件。同一页面内多个页签或子列表即使都使用 `UnifiedListTemplate`，也必须逐个显式核对是否接入 `showMultiFilter`、多维 definitions/state/events；模板能力不会自动替换仍绑定旧 quick filter 的列表。
+- Blocker: 新控件在真实页面中被快速过滤或操作栏挤压到 `0` 宽、不可见、不可点击，静态合同只断言组件存在但不断言布局宽度和正式 query 透传，或同一个正式 query 参数可被多个条件 Tab 覆盖时必须停止。目标页面还有其它标准列表页签仍保留旧 quick filter、重复状态开关、重复重置按钮或缺少多维筛选事件时，也不得宣称标准模板复用完成。
+- Verification: 聚焦静态合同必须覆盖模板布局类、宽度下限、props/events 透传、条件 Tab 增删、稳定 condition id、重复正式参数校验和正式请求参数；真实 E2E 必须打开目标业务页面，断言控件可见可操作、多个已填写 Tab 按交集提交、请求不携带临时参数、重置清空正式条件且目标写请求为 0。涉及同页多列表时，E2E 必须切换每个目标页签并分别断言旧 quick filter 可见数为 0、正式参数提交和重置清参。
 - Forbidden action: 禁止用 API-only、临时测试页、隐藏旧快速筛选、移除业务操作按钮、硬编码当前页面宽度、页面级 inline filter 数量特例或前端本地过滤来冒充标准列表多维筛选完成。
-- Evidence: 任务 `doc/tasks/20260804-standard-list-multi-filter/verification-report.md`，排产工单真实 E2E 暴露多维筛选在复合工具栏中被挤压为 `0` 宽，最终用模板级全行布局和静态合同锁定；后续用户反馈固定条件栏复用性差，改为条件 Tab + 加减号，并用真实 E2E 证明多个 Tab 按正式 query 参数交集提交。
+- Evidence: 任务 `doc/tasks/20260804-standard-list-multi-filter/verification-report.md`，排产工单真实 E2E 暴露多维筛选在复合工具栏中被挤压为 `0` 宽，最终用模板级全行布局和静态合同锁定；后续用户反馈固定条件栏复用性差，改为条件 Tab + 加减号，并用真实 E2E 证明多个 Tab 按正式 query 参数交集提交；同步工单页签虽同样使用 `UnifiedListTemplate`，但因未显式接入多维 definitions/state/events 而保持旧 quick filter，最终按页签补齐静态合同和真实 E2E。
 
 ## 前端 LocalDateTime 响应契约门禁
 
@@ -142,11 +142,11 @@
 ## 前端角色内容页签拆分口径门禁
 
 - Trigger: 用户要求“某角色/某类内容专门做一个页签显示，不再显示在某工作台”，尤其涉及 `生产组长`、`PQC组长`、`leaderType`、`TeamLeaderWorkbenchPage`、eDHR 批记录页签或其它角色型工作台拆分。
-- Preflight check: 先从用户原话拆出“要拆出的角色/内容”和“原工作台保留的角色/内容”，再核对现有包装页、路由、页签 key、标题、权限和共享组件 props；若工作区已有相反方向的半成品拆分，必须先用 RED 静态合同锁定当前用户要求，不得沿用旧任务口径。
-- Blocker: 专门页签拆成了错误角色、原工作台仍传入目标角色 props、两个入口同时显示同一角色内容、旧 route/tab key/页面关系图仍指向相反角色、或静态合同只断言“有独立页签”但不验证角色 props 和原工作台负向隐藏时必须停止。
-- Verification: 聚焦静态合同必须同时断言页签 label、tab key、route path、route name/title、包装组件文件、共享组件 `leader-type` 或等价 props、原工作台 `doesNotMatch` 目标角色内容、页面关系图节点和相邻工作台合同；涉及 Vue/TS 时运行 `pnpm ts:check`。
-- Forbidden action: 禁止用 CSS 隐藏、空数据、路由别名、旧页签文案或保留旧反向 wrapper 冒充拆分完成；禁止把“PQC组长拆出去”与“生产组长拆出去”互换处理。
-- Evidence: 任务 `doc/tasks/20260804-production-leader-tab/`，基线中已有相反的 `PQC组长` 独立页签，当前需求要求 `生产组长` 独立页签，最终用静态合同先 RED 再将 `BatchProductionLeaderWorkbenchPage`、`productionLeader` 路由和组长工作台 `leader-type="PQC"` 边界锁定。
+- Preflight check: 先从用户原话拆出“要拆出的角色/内容”和“原工作台保留的角色/内容”，并确认“页签”指动态菜单/主导航入口还是页面内部 `el-tabs`；用户说“类似批次执行”“放在 QA 下面”时，按 eDHR 父菜单下的独立主导航子菜单处理，不得误做成 eDHR 批次页内部 Tab。再核对现有包装页、路由、页签 key、标题、权限和共享组件 props；若工作区已有相反方向的半成品拆分，必须先用 RED 静态合同锁定当前用户要求，不得沿用旧任务口径。
+- Blocker: 专门页签拆成了错误角色、把主导航页签误做成页面内部 Tab、原工作台仍传入目标角色 props、两个入口同时显示同一角色内容、旧 route/tab key/页面关系图仍指向相反角色、或静态合同只断言“有独立页签”但不验证角色 props 和原工作台负向隐藏时必须停止。
+- Verification: 聚焦静态合同必须同时断言页签 label、tab key 或主导航菜单 sort、route path、route name/title、包装组件文件、共享组件 `leader-type` 或等价 props、原工作台 `doesNotMatch` 目标角色内容、页面关系图节点和相邻工作台合同；涉及动态菜单时还必须断言 `system_menu`、租户套餐和角色菜单绑定；涉及 Vue/TS 时运行 `pnpm ts:check`。
+- Forbidden action: 禁止用 CSS 隐藏、空数据、路由别名、旧页签文案、内部 Tab 冒充主导航入口或保留旧反向 wrapper 冒充拆分完成；禁止把“PQC组长拆出去”与“生产组长拆出去”互换处理。
+- Evidence: 任务 `doc/tasks/20260804-production-leader-tab/`，基线中已有相反的 `PQC组长` 独立页签，当前需求要求 `生产组长` 独立页签，最终用静态合同先 RED 再将 `BatchProductionLeaderWorkbenchPage`、`productionLeader` 路由和组长工作台 `leader-type="PQC"` 边界锁定；任务 `doc/tasks/20260804-pqc-leader-tab/`，用户纠正“不是 tab，是类似批次执行的页签”，最终锁定 `QA -> 生产组长 -> PQC组长 -> 批次执行` 主导航顺序，并从 `EdhrBatchRecordTabs.vue` 移除内部 leader tabs。
 
 ## eDHR 表单追溯可视化历史详情门禁
 
@@ -243,11 +243,11 @@
 ### 顶部菜单页签切回缓存
 
 - Trigger: 动态菜单页面、顶部 TagsView 页签、红框菜单页签、`keepAlive`、`noCache`、`componentName`、`defineOptions({ name })`、`AppView` `keep-alive`、从一个已打开菜单页签切到另一个再切回时重复执行首屏 `onMounted`，或 keep-alive 已命中但页内 `route.fullPath` watcher 仍恢复加载目录树/列表。
-- Preflight check: 先核对菜单 `componentName` 与 SFC `defineOptions({ name })` 是否一致，再核对 `routerHelper` 动态路由生成的 `meta.noCache`、`tagsViewKeyMode`、`AppView` 的 `keep-alive include` 和 route key；对明确要求切回不重复加载的正式菜单页签，必须在正式路由元数据层固定 `noCache=false`，不能只依赖运行态菜单 `keepAlive` 当前值。若页面自身监听全局 `route.fullPath`，还必须比较正式有效 route state，并记录目录树/列表已成功加载状态；只有 effective state 变化才恢复加载。
+- Preflight check: 先核对菜单 `componentName` 与 SFC `defineOptions({ name })` 是否一致，再核对 `routerHelper` 动态路由生成的 `meta.noCache`、`tagsViewKeyMode`、`AppView` 的 `keep-alive include` 和 route key；多个正式路由复用同一个 SFC 且路由名不等于组件名时，必须在路由元数据声明显式缓存身份（如 `keepAliveName`）并让 `AppView` 与 `TagsView` 同时使用该身份。对明确要求切回不重复加载的正式菜单页签，必须在正式路由元数据层固定 `noCache=false`，不能只依赖运行态菜单 `keepAlive` 当前值。若页面自身监听全局 `route.fullPath`，还必须比较正式有效 route state，并记录目录树/列表已成功加载状态；只有 effective state 变化才恢复加载。
 - Blocker: 页签切回仍重新 mount、动态路由生成 `noCache=true`、组件名不匹配导致 `keep-alive include` 无法命中、route key 使用 `fullPath` 导致 query 变化重建实例、后台页签 watcher 在同一 effective state 切回时仍调用目录树或列表请求，或静态合同不能证明缓存链路从菜单到 AppView 和页内 route restore guard 闭合时必须停止。
 - Verification: 聚焦静态合同必须同时断言菜单 componentName、SFC name、`routerHelper` 正式路径/组件集合、`meta.noCache=false`、`tagsViewKeyMode='path'`、`TagsView` 缓存集合和 `AppView` `keep-alive`；若页面有 `route.fullPath` watcher，还必须断言同状态切回 guard 在 `loadDirectories()`/`getList()` 前返回、列表成功加载状态 key 和目录树成功加载标记；再复跑相邻页签去重合同、首开性能合同和 `pnpm ts:check`。
 - Forbidden action: 禁止用 localStorage、缓存查询结果、延时器、空数据、隐藏 loading、吞请求错误或强制刷新来掩盖页签重新挂载。
-- Evidence: 任务 `doc/tasks/20260803-dcc-upload-browser-tab-cache/`，DCC“文件上传”和“受控浏览”正式菜单页签在 `routerHelper` 中强制 `noCache=false`，并在受控浏览页内按 effective route state 跳过同状态切回恢复加载，避免运行态菜单 `keepAlive` 异常或后台 `route.fullPath` watcher 导致切回受控浏览重复加载。
+- Evidence: 任务 `doc/tasks/20260803-dcc-upload-browser-tab-cache/`，DCC“文件上传”和“受控浏览”正式菜单页签在 `routerHelper` 中强制 `noCache=false`，并在受控浏览页内按 effective route state 跳过同状态切回恢复加载，避免运行态菜单 `keepAlive` 异常或后台 `route.fullPath` watcher 导致切回受控浏览重复加载；任务 `doc/tasks/20260804-approval-center-tab-cache/`，审批中心四个路由复用 `ApprovalCenterWorkbench`，需用显式 `keepAliveName` 对齐共享组件缓存身份，并在页面内用 route name 与成功加载 state 阻止后台实例重复请求。
 
 ## DCC 上传类别权限投影门禁
 

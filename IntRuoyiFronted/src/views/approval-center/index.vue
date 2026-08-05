@@ -109,6 +109,19 @@
                 </template>
               </el-table-column>
               <el-table-column
+                v-if="isApprovalColumnVisible('applicant')"
+                label="申请人"
+                prop="applicant"
+                :width="getApprovalColumnWidthString('applicant', 140)"
+                v-bind="sortColumnAttrs('applicant')"
+              >
+                <template #default="{ row }">
+                  <span class="approval-center__applicant" :title="resolveApplicantLabel(row)">
+                    {{ resolveApplicantLabel(row) }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column
                 v-if="isApprovalColumnVisible('node')"
                 label="节点"
                 prop="node"
@@ -217,7 +230,7 @@
                     :disabled="row.businessDeleted"
                     @click="openReviewDialog(row)"
                   >
-                    审核
+                    {{ resolveReviewActionLabel(row) }}
                   </el-button>
                   <el-tooltip
                     :disabled="canOpenDecisionDetail(row)"
@@ -404,6 +417,7 @@ defineOptions({ name: 'ApprovalCenterWorkbench' })
 
 const router = useRouter()
 const route = useRoute()
+const approvalCenterRouteInstanceName = String(route.name || '')
 
 type ApprovalCenterListViewType = ApprovalTaskViewType
 
@@ -529,6 +543,8 @@ const timelineTask = ref<ApprovalTaskSummaryVO>()
 const reviewDialogVisible = ref(false)
 const reviewSubmitting = ref(false)
 const reviewTask = ref<ApprovalTaskSummaryVO>()
+let approvalModulesLoaded = false
+let approvalLastLoadedRouteStateKey: string | undefined
 const approvalTodoBadgeStore = useApprovalTodoBadgeStore()
 const reviewForm = reactive<{
   result: ApprovalTaskReviewResult
@@ -549,15 +565,16 @@ const queryParams = reactive<ApprovalCenterQueryParams>({
 })
 
 const approvalCenterTableKeys: Record<ApprovalCenterListViewType, string> = {
-  TODO: 'approval.center.todo',
-  DONE: 'approval.center.done',
-  MY_INITIATED: 'approval.center.myInitiated',
-  CC: 'approval.center.cc'
+  TODO: 'approval.center.todo.applicant.v1',
+  DONE: 'approval.center.done.applicant.v1',
+  MY_INITIATED: 'approval.center.myInitiated.applicant.v1',
+  CC: 'approval.center.cc.applicant.v1'
 }
 
 const approvalDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'source', label: '来源', width: 150 },
   { key: 'businessSummary', label: '业务摘要', width: 300 },
+  { key: 'applicant', label: '申请人', width: 140 },
   { key: 'node', label: '节点', width: 190 },
   { key: 'reviewer', label: '审核人', width: 140 },
   { key: 'approvalResult', label: '审批结果', width: 120 },
@@ -623,8 +640,10 @@ const isUnfilteredTodoQuery = () =>
   queryParams.viewType === 'TODO' && !queryParams.moduleCode && !queryParams.keyword.trim()
 
 const loadModules = async () => {
+  approvalModulesLoaded = false
   try {
     modules.value = await getApprovalCenterModules()
+    approvalModulesLoaded = true
   } catch (error) {
     const message = resolveErrorMessage(error)
     loadError.value = message
@@ -653,6 +672,7 @@ const syncApprovalQuickFilterStateFromQuery = async () => {
 }
 
 const getList = async () => {
+  const requestRouteStateKey = buildApprovalCenterRouteStateKey()
   loading.value = true
   loadError.value = ''
   try {
@@ -661,6 +681,9 @@ const getList = async () => {
     total.value = data.total || 0
     if (isUnfilteredTodoQuery()) {
       approvalTodoBadgeStore.applyTodoTotal(data.total || 0)
+    }
+    if (requestRouteStateKey) {
+      approvalLastLoadedRouteStateKey = requestRouteStateKey
     }
   } catch (error) {
     const message = resolveErrorMessage(error)
@@ -693,6 +716,23 @@ const normalizeRouteQueryValue = (value: unknown) => {
   const rawValue = Array.isArray(value) ? value[0] : value
   return typeof rawValue === 'string' && rawValue.trim() ? rawValue.trim() : undefined
 }
+
+const buildApprovalCenterRouteStateKey = () => {
+  if (String(route.name || '') !== approvalCenterRouteInstanceName) {
+    return undefined
+  }
+  return JSON.stringify({
+    path: route.path.replace(/\/+$/, ''),
+    moduleCode: normalizeRouteQueryValue(route.query.moduleCode) || '',
+    keyword: normalizeRouteQueryValue(route.query.keyword) || ''
+  })
+}
+
+const shouldKeepApprovalCenterLoadedStateOnRouteReturn = (targetRouteStateKey: string) =>
+  approvalModulesLoaded &&
+  approvalLastLoadedRouteStateKey === targetRouteStateKey &&
+  !loading.value &&
+  !loadError.value
 
 const isApprovalTaskViewType = (value: string): value is ApprovalCenterListViewType => {
   return supportedViewTypes.includes(value as ApprovalCenterListViewType)
@@ -788,6 +828,13 @@ const applyRouteQuery = () => {
 }
 
 const applyRouteQueryAndLoad = async () => {
+  const targetRouteStateKey = buildApprovalCenterRouteStateKey()
+  if (!targetRouteStateKey) {
+    return
+  }
+  if (shouldKeepApprovalCenterLoadedStateOnRouteReturn(targetRouteStateKey)) {
+    return
+  }
   try {
     applyRouteQuery()
     syncRouteToCanonicalPath(queryParams.viewType)
@@ -903,9 +950,6 @@ const canOpenDecisionDetail = (row: ApprovalTaskSummaryVO) => {
 
 const resolveDecisionActionLabel = (row: ApprovalTaskSummaryVO) => {
   const actions = row.availableActions || []
-  if (canReview(row)) {
-    return '详情'
-  }
   if (queryParams.viewType === 'TODO' && actions.includes('REVIEW_IN_MODULE')) {
     return '审核'
   }
@@ -915,7 +959,14 @@ const resolveDecisionActionLabel = (row: ApprovalTaskSummaryVO) => {
   if (queryParams.viewType === 'TODO' && actions.includes('PROCESS_IN_MODULE')) {
     return '处理'
   }
+  if (canReview(row)) {
+    return '详情'
+  }
   return '详情'
+}
+
+const resolveReviewActionLabel = (row: ApprovalTaskSummaryVO) => {
+  return row.moduleCode === 'DCC' ? '审批' : '审核'
 }
 
 const resolveDecisionDetailDisabledReason = (row: ApprovalTaskSummaryVO) => {
@@ -1129,6 +1180,9 @@ const resolveNodeNameLabel = (row: ApprovalTaskSummaryVO) => {
 const resolveReviewerLabel = (row: ApprovalTaskSummaryVO) =>
   row.assigneeUserName || (row.assigneeUserId ? `用户 #${row.assigneeUserId}` : EMPTY_APPROVAL_DISPLAY)
 
+const resolveApplicantLabel = (row: ApprovalTaskSummaryVO) =>
+  row.initiatorUserId ? `用户 #${row.initiatorUserId}` : EMPTY_APPROVAL_DISPLAY
+
 const resolveBusinessContextValueLabel = (value: string, missingLabel: string) => {
   const text = normalizeApprovalDisplayText(value)
   if (!text) {
@@ -1188,10 +1242,6 @@ const resolveDccKeyFields = (row: ApprovalTaskSummaryVO) => [
   {
     label: '当前审批节点',
     value: resolveNodeNameLabel(row)
-  },
-  {
-    label: '申请人',
-    value: row.initiatorUserId ? `用户 #${row.initiatorUserId}` : EMPTY_APPROVAL_DISPLAY
   }
 ]
 
@@ -1405,6 +1455,7 @@ watch(
   white-space: nowrap;
 }
 
+.approval-center__applicant,
 .approval-center__reviewer {
   display: inline-block;
   max-width: 100%;

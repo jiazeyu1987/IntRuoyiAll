@@ -5,10 +5,13 @@ import cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskViewType;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskQueryContext;
+import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskReviewContext;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskSummary;
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskPageReqVO;
 import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileApproveTaskReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRejectTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
@@ -111,6 +114,7 @@ class DccApprovalTaskAdapterTest {
         ), summary.getBusinessContextTags());
         assertEquals(Boolean.FALSE, summary.getBusinessDeleted());
         assertEquals(Boolean.TRUE, summary.getRequiresSignature());
+        assertEquals(Set.of("APPROVE", "REJECT", "PROCESS_IN_MODULE"), summary.getAvailableActions());
         assertEquals("/dcc/controlled-file/detail/6001", summary.getDetailRoute());
         assertEquals(Map.of(
                 "handling", "approval",
@@ -122,6 +126,71 @@ class DccApprovalTaskAdapterTest {
         ArgumentCaptor<BpmTaskPageReqVO> captor = ArgumentCaptor.forClass(BpmTaskPageReqVO.class);
         verify(bpmTaskService).getTaskTodoPage(eq(100L), captor.capture());
         assertEquals("dcc-controlled-file-approval", captor.getValue().getProcessDefinitionKey());
+    }
+
+    @Test
+    void pageTodoKeepsDocControlApprovalInModuleBecauseQuickApproveRequiresArtifacts() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-final");
+        when(task.getName()).thenReturn("文控批准");
+        when(task.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_APPROVAL");
+        when(task.getProcessInstanceId()).thenReturn("pi-final");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(bpmTaskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getBusinessKey()).thenReturn("6004");
+        when(processInstance.getStartUserId()).thenReturn("501");
+        when(processInstanceService.getProcessInstanceMap(Set.of("pi-final")))
+                .thenReturn(Map.of("pi-final", processInstance));
+
+        DccControlledFileRespVO file = new DccControlledFileRespVO();
+        file.setId(6004L);
+        file.setTitle("DCC-SOP-004");
+        file.setFileNumber("SOP-004");
+        file.setVersionNo("A");
+        file.setCategoryId(7001L);
+        file.setStatus("PENDING_DOC_CONTROL_APPROVAL");
+        when(workflowService.getControlledFile(6004L)).thenReturn(file);
+        when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder()
+                .id(7001L)
+                .name("SOP 文件")
+                .distributionRequired(Boolean.TRUE)
+                .build());
+
+        PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 10));
+
+        assertEquals(Set.of("PROCESS_IN_MODULE"), page.getList().get(0).getAvailableActions());
+    }
+
+    @Test
+    void reviewApproveDelegatesToControlledFileWorkflow() {
+        adapter.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.DCC,
+                "DCC_CONTROLLED_FILE_TASK", "task-approve", "6001", "pi-1",
+                ApprovalTaskReviewResult.APPROVE, "同意", "secret", false));
+
+        ArgumentCaptor<DccControlledFileApproveTaskReqVO> captor =
+                ArgumentCaptor.forClass(DccControlledFileApproveTaskReqVO.class);
+        verify(workflowService).approveTask(eq(100L), eq(6001L), captor.capture());
+        assertEquals("task-approve", captor.getValue().getTaskId());
+        assertEquals("secret", captor.getValue().getPassword());
+        assertEquals("同意", captor.getValue().getReason());
+    }
+
+    @Test
+    void reviewRejectDelegatesToControlledFileWorkflow() {
+        adapter.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.DCC,
+                "DCC_CONTROLLED_FILE_TASK", "task-reject", "6001", "pi-1",
+                ApprovalTaskReviewResult.REJECT, "资料不完整", "secret", false));
+
+        ArgumentCaptor<DccControlledFileRejectTaskReqVO> captor =
+                ArgumentCaptor.forClass(DccControlledFileRejectTaskReqVO.class);
+        verify(workflowService).rejectTask(eq(100L), eq(6001L), captor.capture());
+        assertEquals("task-reject", captor.getValue().getTaskId());
+        assertEquals("secret", captor.getValue().getPassword());
+        assertEquals("资料不完整", captor.getValue().getReason());
     }
 
     @Test

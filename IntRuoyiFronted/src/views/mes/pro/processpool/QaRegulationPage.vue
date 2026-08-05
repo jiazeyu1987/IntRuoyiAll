@@ -5,7 +5,7 @@
         <div>
           <div class="qa-regulation-page__title">QA 规程配置</div>
           <div class="qa-regulation-page__subtitle">
-            QA 负责制定 PQC 的首检、巡检、末检和检验项目规则；PQC 只按已发布规程执行。
+            QA 按 DCC 项目代码维护产品规程，制定 PQC 的首检、巡检、末检和检验项目规则。
           </div>
         </div>
         <el-tag type="warning" effect="plain">{{ qaRegulationDraft.lifecycleStatus }}</el-tag>
@@ -21,20 +21,221 @@
 
     <ContentWrap>
       <div class="qa-regulation-page__layout">
-        <el-card shadow="never" data-qa-regulation-pressure-pump-source>
-          <template #header>压力泵规程来源</template>
-          <el-descriptions :column="1" border>
-            <el-descriptions-item label="规程名称">
-              按压式球囊扩充压力泵组装过程检验规程
+        <el-card shadow="never" data-qa-regulation-dcc-project>
+          <template #header>
+            <div class="qa-regulation-page__card-head">
+              <span>DCC 项目范围</span>
+              <el-button
+                link
+                type="primary"
+                :loading="dccProjectCodeOptionsLoading"
+                @click="retryLoadDccProjectCodes"
+              >
+                刷新
+              </el-button>
+            </div>
+          </template>
+
+          <el-form label-width="112px" class="qa-regulation-page__form">
+            <el-form-item label="DCC 项目代码" required>
+              <el-select
+                v-model="qaRegulationDraft.dccProjectCodeId"
+                clearable
+                filterable
+                remote
+                reserve-keyword
+                :loading="dccProjectCodeOptionsLoading"
+                :remote-method="loadDccProjectCodeOptions"
+                placeholder="请选择 DCC 项目代码"
+                class="!w-100%"
+                @change="handleDccProjectCodeChange"
+                @visible-change="handleDccProjectCodeVisibleChange"
+              >
+                <el-option
+                  v-for="project in dccProjectCodeOptions"
+                  :key="project.id"
+                  :label="formatDccProjectCodeOption(project)"
+                  :value="project.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-form>
+
+          <div
+            v-if="dccProjectCodeLoadError"
+            class="qa-regulation-page__load-error"
+            data-qa-regulation-project-load-error
+          >
+            <el-alert
+              :title="dccProjectCodeLoadError"
+              type="error"
+              :closable="false"
+              show-icon
+            />
+            <el-button type="primary" plain @click="retryLoadDccProjectCodes">重新加载</el-button>
+          </div>
+
+          <el-empty
+            v-else-if="!selectedDccProjectCode"
+            :description="
+              dccProjectCodeOptionsLoading
+                ? '正在加载 DCC 项目代码'
+                : '请选择 DCC 项目代码'
+            "
+            :image-size="72"
+          />
+
+          <el-descriptions v-else :column="1" border>
+            <el-descriptions-item label="项目代码">
+              {{ selectedDccProjectCode.projectCode }}
             </el-descriptions-item>
-            <el-descriptions-item label="规程编号">PQC-IDI-001</el-descriptions-item>
-            <el-descriptions-item label="版本">B/0</el-descriptions-item>
-            <el-descriptions-item label="生效日期">2026-01-04</el-descriptions-item>
-            <el-descriptions-item label="QA 规程类型">过程检验规程</el-descriptions-item>
-            <el-descriptions-item label="识别说明">
-              由扫描版 PDF 文件名与封面元数据初始化，检验项目和标准需 QA 复核后发布。
+            <el-descriptions-item label="项目名称">
+              {{ selectedDccProjectCode.projectName }}
+            </el-descriptions-item>
+            <el-descriptions-item label="产品主数据">
+              <el-tag
+                :type="selectedDccProjectCode.productMasterId ? 'success' : 'danger'"
+                effect="plain"
+              >
+                {{
+                  selectedDccProjectCode.productMasterId
+                    ? `MDM #${selectedDccProjectCode.productMasterId}`
+                    : '未绑定 MDM 产品'
+                }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="文控编号">
+              {{ selectedDccProjectCode.docControlNo || '--' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="项目状态">
+              {{ selectedDccProjectCode.status }}
             </el-descriptions-item>
           </el-descriptions>
+
+          <div class="qa-regulation-page__hint mt-12px">
+            产品名称由 DCC 项目代码带出；项目代码 IDI 对应当前按压式球囊扩充压力泵规程模板。
+          </div>
+
+          <div
+            v-if="
+              !dccProjectCodeLoadError &&
+              !dccProjectCodeOptionsLoading &&
+              !qaRegulationProjectStatusesLoading &&
+              !qaRegulationProjectStatusLoadError
+            "
+            class="qa-regulation-page__config-status"
+            data-qa-regulation-config-status
+          >
+            <div>
+              <div class="qa-regulation-page__status-title">配置状态总览</div>
+              <div class="qa-regulation-page__hint">
+                当前加载范围：已配置 {{ configuredDccProjectCodes.length }} 个，待配置
+                {{ unconfiguredDccProjectCodes.length }} 个；配置状态来自后台 QA 规程记录。
+              </div>
+            </div>
+
+            <div class="qa-regulation-page__status-columns">
+              <section
+                class="qa-regulation-page__status-column"
+                data-qa-regulation-configured-projects
+              >
+                <div class="qa-regulation-page__status-column-head">
+                  <span>已配置 QA 规程</span>
+                  <el-tag type="success" effect="plain">{{ configuredDccProjectCodes.length }}</el-tag>
+                </div>
+                <el-empty
+                  v-if="configuredDccProjectCodes.length === 0"
+                  description="当前加载范围内暂无已配置 QA 规程"
+                  :image-size="48"
+                />
+                <div v-else class="qa-regulation-page__project-list">
+                  <button
+                    v-for="project in configuredDccProjectCodes"
+                    :key="project.id"
+                    type="button"
+                    class="qa-regulation-page__project-status-row"
+                    :class="{
+                      'is-selected':
+                        selectedDccProjectCode && selectedDccProjectCode.id === project.id
+                    }"
+                    @click="selectDccProjectForConfiguration(project)"
+                  >
+                    <span>
+                      <span class="qa-regulation-page__project-code">{{ project.projectCode }}</span>
+                      <span>{{ project.projectName }}</span>
+                    </span>
+                    <span class="qa-regulation-page__project-meta">
+                      {{
+                        project.productMasterId
+                          ? `MDM #${project.productMasterId}`
+                          : '未绑定 MDM 产品'
+                      }}
+                    </span>
+                    <el-tag :type="resolveQaConfigurationStatusType(project)" effect="plain">
+                      {{ resolveQaConfigurationStatusText(project) }}
+                    </el-tag>
+                  </button>
+                </div>
+              </section>
+
+              <section
+                class="qa-regulation-page__status-column"
+                data-qa-regulation-unconfigured-projects
+              >
+                <div class="qa-regulation-page__status-column-head">
+                  <span>待配置 QA 规程</span>
+                  <el-tag type="warning" effect="plain">{{ unconfiguredDccProjectCodes.length }}</el-tag>
+                </div>
+                <el-empty
+                  v-if="unconfiguredDccProjectCodes.length === 0"
+                  description="当前加载范围内暂无待配置项目"
+                  :image-size="48"
+                />
+                <div v-else class="qa-regulation-page__project-list">
+                  <button
+                    v-for="project in unconfiguredDccProjectCodes"
+                    :key="project.id"
+                    type="button"
+                    class="qa-regulation-page__project-status-row"
+                    :class="{
+                      'is-selected':
+                        selectedDccProjectCode && selectedDccProjectCode.id === project.id
+                    }"
+                    @click="selectDccProjectForConfiguration(project)"
+                  >
+                    <span>
+                      <span class="qa-regulation-page__project-code">{{ project.projectCode }}</span>
+                      <span>{{ project.projectName }}</span>
+                    </span>
+                    <span class="qa-regulation-page__project-meta">
+                      {{
+                        project.productMasterId
+                          ? `MDM #${project.productMasterId}`
+                          : '未绑定 MDM 产品'
+                      }}
+                    </span>
+                    <el-tag :type="resolveQaConfigurationStatusType(project)" effect="plain">
+                      {{ resolveQaConfigurationStatusText(project) }}
+                    </el-tag>
+                  </button>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <div
+            v-if="qaRegulationProjectStatusLoadError"
+            class="qa-regulation-page__load-error mt-12px"
+            data-qa-regulation-status-load-error
+          >
+            <el-alert
+              :title="qaRegulationProjectStatusLoadError"
+              type="error"
+              :closable="false"
+              show-icon
+            />
+            <el-button type="primary" plain @click="retryLoadDccProjectCodes">重新加载</el-button>
+          </div>
         </el-card>
 
         <el-card shadow="never" data-qa-regulation-scope>
@@ -64,7 +265,11 @@
               </el-col>
             </el-row>
             <el-form-item label="产品">
-              <el-input v-model="qaRegulationDraft.productName" />
+              <el-input
+                v-model="qaRegulationDraft.productName"
+                disabled
+                placeholder="选择 DCC 项目代码后自动带出"
+              />
             </el-form-item>
             <el-row :gutter="12">
               <el-col :xs="24" :md="12">
@@ -184,7 +389,14 @@
         <template #header>
           <div class="qa-regulation-page__card-head">
             <span>检验项目与判定标准</span>
-            <el-button type="primary" plain @click="addQaRegulationItem">新增项目</el-button>
+            <el-button
+              type="primary"
+              plain
+              :disabled="!selectedDccProjectCode"
+              @click="addQaRegulationItem"
+            >
+              新增项目
+            </el-button>
           </div>
         </template>
         <el-table :data="qaRegulationItems" border size="small">
@@ -346,11 +558,23 @@
 
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
+import {
+  DCC_PROJECT_CODE_STATUS_ENABLE,
+  getProjectCodePage,
+  type DccProjectCodeRespVO
+} from '@/api/dcc/controlledFile/projectCodes'
+import {
+  QcTemplateApi,
+  type QaInspectionRegulationProjectStatusVO
+} from '@/api/mes/qc/template'
 
 defineOptions({ name: 'MesProProcessPoolQaRegulation' })
 
 type QaInspectionTypeValue = 'FIRST' | 'PATROL_AM' | 'PATROL_PM' | 'FINAL'
 type QaInspectionResultType = 'BOOLEAN' | 'NUMERIC' | 'TEXT'
+
+const PRESSURE_PUMP_PROJECT_CODE = 'IDI'
+const DCC_PROJECT_CODE_PAGE_SIZE = 50
 
 interface QaInspectionTypeRule {
   key: QaInspectionTypeValue
@@ -383,6 +607,22 @@ interface QaRegulationItem {
   sourceOriginalMethod?: string
 }
 
+interface QaRegulationDraft {
+  dccProjectCodeId?: number
+  regulationCode: string
+  regulationName: string
+  versionNo: string
+  effectiveDate: string
+  lifecycleStatus: string
+  productName: string
+  routeVersionName: string
+  routeProcessName: string
+  sopName: string
+  productionFactor: number
+  sampleOrderQuantity: number
+  batchRecordBinding: string
+}
+
 const qaInspectionTypeOptions: Array<{ label: string; value: QaInspectionTypeValue }> = [
   { label: '首检', value: 'FIRST' },
   { label: '上午巡检', value: 'PATROL_AM' },
@@ -390,20 +630,32 @@ const qaInspectionTypeOptions: Array<{ label: string; value: QaInspectionTypeVal
   { label: '末检', value: 'FINAL' }
 ]
 
-const qaRegulationDraft = reactive({
+const createEmptyQaRegulationDraft = (): QaRegulationDraft => ({
+  dccProjectCodeId: undefined,
+  regulationCode: '',
+  regulationName: '',
+  versionNo: '',
+  effectiveDate: '',
+  lifecycleStatus: 'DRAFT',
+  productName: '',
+  routeVersionName: '',
+  routeProcessName: '',
+  sopName: '',
+  productionFactor: 1,
+  sampleOrderQuantity: 301,
+  batchRecordBinding: ''
+})
+
+const createPressurePumpQaRegulationDraft = (): QaRegulationDraft => ({
+  ...createEmptyQaRegulationDraft(),
   regulationCode: 'PQC-IDI-001',
   regulationName: '按压式球囊扩充压力泵组装过程检验规程',
   versionNo: 'B/0',
   effectiveDate: '2026-01-04',
-  lifecycleStatus: 'DRAFT',
-  productName: '按压式球囊扩充压力泵',
-  routeVersionName: '正式路线版本待选择',
-  routeProcessName: '组装过程检验工序',
-  sopName: '按压式球囊扩充压力泵组装 SOP',
-  productionFactor: 1,
-  sampleOrderQuantity: 301,
-  batchRecordBinding: '当前工序正式批记录绑定待选择'
+  sopName: '按压式球囊扩充压力泵组装 SOP'
 })
+
+const qaRegulationDraft = reactive<QaRegulationDraft>(createEmptyQaRegulationDraft())
 
 const qaInspectionTypeRules = reactive<QaInspectionTypeRule[]>([
   {
@@ -448,7 +700,7 @@ const qaInspectionTypeRules = reactive<QaInspectionTypeRule[]>([
   }
 ])
 
-const qaRegulationItems = ref<QaRegulationItem[]>([
+const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
   {
     itemCode: 'PP-APP',
     itemName: '外观确认',
@@ -539,7 +791,181 @@ const qaRegulationItems = ref<QaRegulationItem[]>([
     sourceOriginalMethod:
       '记录编号 RE-PQC-IDI-001-01，记录名称：按压式球囊扩充压力泵组装过程检验记录。'
   }
-])
+]
+
+const qaRegulationItems = ref<QaRegulationItem[]>([])
+const dccProjectCodeOptions = ref<DccProjectCodeRespVO[]>([])
+const dccProjectCodeOptionsLoading = ref(false)
+const dccProjectCodeLoadError = ref('')
+const selectedDccProjectCode = ref<DccProjectCodeRespVO>()
+const qaRegulationProjectStatusMap = ref<Record<number, QaInspectionRegulationProjectStatusVO>>({})
+const qaRegulationProjectStatusesLoading = ref(false)
+const qaRegulationProjectStatusLoadError = ref('')
+
+const normalizeDccProjectCode = (projectCode: string) => projectCode.trim().toUpperCase()
+
+const resolveDccProjectProductId = (project: DccProjectCodeRespVO) => {
+  const productId = Number(project.productMasterId)
+  return Number.isFinite(productId) && productId > 0 ? productId : undefined
+}
+
+const resolveQaRegulationProjectStatus = (project: DccProjectCodeRespVO) => {
+  const productId = resolveDccProjectProductId(project)
+  return productId ? qaRegulationProjectStatusMap.value[productId] : undefined
+}
+
+const hasConfiguredQaRegulation = (project: DccProjectCodeRespVO) =>
+  resolveQaRegulationProjectStatus(project)?.configured === true
+
+const configuredDccProjectCodes = computed(() =>
+  dccProjectCodeOptions.value.filter((project) => hasConfiguredQaRegulation(project))
+)
+
+const unconfiguredDccProjectCodes = computed(() =>
+  dccProjectCodeOptions.value.filter((project) => !hasConfiguredQaRegulation(project))
+)
+
+const resolveQaConfigurationStatusType = (project: DccProjectCodeRespVO) => {
+  if (hasConfiguredQaRegulation(project)) {
+    return 'success'
+  }
+  return resolveDccProjectProductId(project) ? 'warning' : 'danger'
+}
+
+const resolveQaConfigurationStatusText = (project: DccProjectCodeRespVO) => {
+  const status = resolveQaRegulationProjectStatus(project)
+  if (status?.configured) {
+    return status.lifecycleStatus ? `已配置 QA 规程（${status.lifecycleStatus}）` : '已配置 QA 规程'
+  }
+  return resolveDccProjectProductId(project) ? '待配置 QA 规程' : '未绑定 MDM 产品'
+}
+
+const formatDccProjectCodeOption = (project: DccProjectCodeRespVO) =>
+  [project.projectCode, project.projectName, project.docControlNo].filter(Boolean).join(' / ')
+
+const resolveDccProjectCodeErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim()
+  }
+  return String(error)
+}
+
+const loadQaRegulationProjectStatuses = async (projects: DccProjectCodeRespVO[]) => {
+  qaRegulationProjectStatusesLoading.value = true
+  qaRegulationProjectStatusLoadError.value = ''
+  qaRegulationProjectStatusMap.value = {}
+  try {
+    const productIds = Array.from(
+      new Set(projects.map(resolveDccProjectProductId).filter((id): id is number => !!id))
+    )
+    if (productIds.length === 0) {
+      return
+    }
+    const statuses = await QcTemplateApi.getQaRegulationProjectStatuses(productIds)
+    const statusMap = statuses.reduce<Record<number, QaInspectionRegulationProjectStatusVO>>(
+      (result, status) => {
+        result[status.productId] = status
+        return result
+      },
+      {}
+    )
+    const missingProductIds = productIds.filter((productId) => !statusMap[productId])
+    if (missingProductIds.length > 0) {
+      throw new Error(`响应缺少产品状态：${missingProductIds.join('、')}`)
+    }
+    qaRegulationProjectStatusMap.value = statusMap
+  } catch (error) {
+    qaRegulationProjectStatusLoadError.value = `QA 规程配置状态加载失败：${resolveDccProjectCodeErrorMessage(error)}`
+  } finally {
+    qaRegulationProjectStatusesLoading.value = false
+  }
+}
+
+const loadDccProjectCodeOptions = async (keyword = '') => {
+  dccProjectCodeOptionsLoading.value = true
+  dccProjectCodeLoadError.value = ''
+  qaRegulationProjectStatusLoadError.value = ''
+  try {
+    const data = await getProjectCodePage({
+      pageNo: 1,
+      pageSize: DCC_PROJECT_CODE_PAGE_SIZE,
+      status: DCC_PROJECT_CODE_STATUS_ENABLE,
+      keyword: keyword.trim() || undefined
+    })
+    const options = [...data.list]
+    const selectedProject = selectedDccProjectCode.value
+    if (selectedProject && !options.some((project) => project.id === selectedProject.id)) {
+      options.unshift(selectedProject)
+    }
+    dccProjectCodeOptions.value = options
+    await loadQaRegulationProjectStatuses(options)
+  } catch (error) {
+    dccProjectCodeOptions.value = selectedDccProjectCode.value
+      ? [selectedDccProjectCode.value]
+      : []
+    qaRegulationProjectStatusMap.value = {}
+    dccProjectCodeLoadError.value = `DCC 项目代码加载失败：${resolveDccProjectCodeErrorMessage(error)}`
+  } finally {
+    dccProjectCodeOptionsLoading.value = false
+  }
+}
+
+const retryLoadDccProjectCodes = () => {
+  void loadDccProjectCodeOptions()
+}
+
+const handleDccProjectCodeVisibleChange = (visible: boolean) => {
+  if (
+    visible &&
+    dccProjectCodeOptions.value.length === 0 &&
+    !dccProjectCodeOptionsLoading.value
+  ) {
+    void loadDccProjectCodeOptions()
+  }
+}
+
+const applyDccProjectToQaDraft = (project?: DccProjectCodeRespVO) => {
+  selectedDccProjectCode.value = project
+  if (!project) {
+    Object.assign(qaRegulationDraft, createEmptyQaRegulationDraft())
+    qaRegulationItems.value = []
+    return
+  }
+
+  const projectCode = normalizeDccProjectCode(project.projectCode)
+  const draft =
+    projectCode === PRESSURE_PUMP_PROJECT_CODE
+      ? createPressurePumpQaRegulationDraft()
+      : createEmptyQaRegulationDraft()
+  Object.assign(qaRegulationDraft, draft, {
+    dccProjectCodeId: project.id,
+    productName: project.projectName.trim()
+  })
+  qaRegulationItems.value =
+    projectCode === PRESSURE_PUMP_PROJECT_CODE ? createPressurePumpQaRegulationItems() : []
+}
+
+const selectDccProjectForConfiguration = (project: DccProjectCodeRespVO) => {
+  applyDccProjectToQaDraft(project)
+}
+
+const handleDccProjectCodeChange = (projectId?: number) => {
+  if (!projectId) {
+    applyDccProjectToQaDraft()
+    return
+  }
+  const project = dccProjectCodeOptions.value.find((item) => item.id === projectId)
+  if (!project) {
+    dccProjectCodeLoadError.value = '所选 DCC 项目代码不在当前正式候选中，请重新加载。'
+    applyDccProjectToQaDraft()
+    return
+  }
+  applyDccProjectToQaDraft(project)
+}
+
+onMounted(() => {
+  void loadDccProjectCodeOptions()
+})
 
 const resolveQaRulePlannedQuantity = (rule: QaInspectionTypeRule) => {
   if (!rule.required) return 0
@@ -559,10 +985,14 @@ const formatQaRulePlannedQuantity = (rule: QaInspectionTypeRule) => {
 }
 
 const qaRegulationCompletenessChecks = computed(() => {
-  const scopeReady = Boolean(
-    qaRegulationDraft.productName.trim() &&
-      qaRegulationDraft.routeVersionName.trim() &&
-      qaRegulationDraft.routeProcessName.trim()
+  const dccProjectReady = Boolean(
+    qaRegulationDraft.dccProjectCodeId &&
+      selectedDccProjectCode.value &&
+      selectedDccProjectCode.value.productMasterId &&
+      qaRegulationDraft.productName.trim()
+  )
+  const processScopeReady = Boolean(
+    qaRegulationDraft.routeVersionName.trim() && qaRegulationDraft.routeProcessName.trim()
   )
   const versionReady = Boolean(
     qaRegulationDraft.regulationCode.trim() &&
@@ -599,10 +1029,18 @@ const qaRegulationCompletenessChecks = computed(() => {
   )
   return [
     {
+      key: 'dcc-project',
+      label: 'DCC 项目代码与产品',
+      passed: dccProjectReady,
+      detail: dccProjectReady
+        ? `已绑定 ${selectedDccProjectCode.value?.projectCode} / ${qaRegulationDraft.productName}`
+        : '请选择已绑定 MDM 产品的正式 DCC 项目代码'
+    },
+    {
       key: 'scope',
-      label: '产品/路线/工序范围',
-      passed: scopeReady,
-      detail: scopeReady ? '已指定适用产品、路线版本和路线工序' : '需补齐产品、路线版本和路线工序'
+      label: '路线/工序范围',
+      passed: processScopeReady,
+      detail: processScopeReady ? '已指定路线版本和路线工序' : '需补齐路线版本和路线工序'
     },
     {
       key: 'version',
@@ -649,13 +1087,17 @@ const qaPqcTaskPreviewRows = computed(() =>
     roundText: rule.roundLabel,
     plannedQuantityText: formatQaRulePlannedQuantity(rule),
     regulationVersionNo: qaRegulationDraft.versionNo || '--',
-    taskIdentity: `${qaRegulationDraft.productName || '--'} / ${
-      qaRegulationDraft.routeProcessName || '--'
-    } / ${rule.key}`
+    taskIdentity: `${selectedDccProjectCode.value?.projectCode || '--'} / ${
+      qaRegulationDraft.productName || '--'
+    } / ${qaRegulationDraft.routeProcessName || '--'} / ${rule.key}`
   }))
 )
 
 const addQaRegulationItem = () => {
+  if (!selectedDccProjectCode.value) {
+    ElMessage.warning('请先选择 DCC 项目代码')
+    return
+  }
   const nextIndex = qaRegulationItems.value.length + 1
   qaRegulationItems.value.push({
     itemCode: `QA-ITEM-${String(nextIndex).padStart(2, '0')}`,
@@ -679,10 +1121,18 @@ const removeQaRegulationItem = (index: number) => {
 }
 
 const previewQaRegulationDraft = () => {
+  if (!selectedDccProjectCode.value) {
+    ElMessage.warning('请先选择 DCC 项目代码，再预览 QA 规程草稿。')
+    return
+  }
   ElMessage.info('已更新前端草稿预览；正式保存/发布接口未接入，未写入后台。')
 }
 
 const runQaPublishPrecheck = () => {
+  if (!selectedDccProjectCode.value) {
+    ElMessage.warning('请先选择 DCC 项目代码，再执行发布前检查。')
+    return
+  }
   if (qaPublishBlockers.value.length > 0) {
     ElMessage.warning(`发布前仍有 ${qaPublishBlockers.value.length} 项规则需补齐`)
     return
@@ -729,12 +1179,93 @@ const runQaPublishPrecheck = () => {
   margin-bottom: 0;
 }
 
+.qa-regulation-page__load-error {
+  display: grid;
+  gap: 10px;
+}
+
+.qa-regulation-page__load-error .el-button {
+  justify-self: flex-start;
+}
+
 .qa-regulation-page__card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   font-weight: 700;
+}
+
+.qa-regulation-page__config-status {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+  margin-top: 14px;
+  border-top: 1px solid #e4e7ed;
+}
+
+.qa-regulation-page__status-title {
+  color: #172033;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.qa-regulation-page__status-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.qa-regulation-page__status-column {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #e4e7ed;
+  border-radius: 10px;
+  background: #fbfcfe;
+}
+
+.qa-regulation-page__status-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #172033;
+  font-weight: 700;
+}
+
+.qa-regulation-page__project-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.qa-regulation-page__project-status-row {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  color: #172033;
+  text-align: left;
+  cursor: pointer;
+  background: #ffffff;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+}
+
+.qa-regulation-page__project-status-row:hover,
+.qa-regulation-page__project-status-row.is-selected {
+  border-color: #409eff;
+  background: #f3f8ff;
+}
+
+.qa-regulation-page__project-code {
+  margin-right: 6px;
+  font-weight: 700;
+}
+
+.qa-regulation-page__project-meta {
+  color: #667085;
+  font-size: 12px;
 }
 
 .qa-regulation-page__rule-tags {
@@ -815,6 +1346,12 @@ const runQaPublishPrecheck = () => {
 
 @media (max-width: 1180px) {
   .qa-regulation-page__layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .qa-regulation-page__status-columns {
     grid-template-columns: 1fr;
   }
 }

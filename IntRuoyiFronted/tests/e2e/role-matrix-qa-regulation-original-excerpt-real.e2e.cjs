@@ -112,6 +112,19 @@ async function assertSourceExcerptVisible(qaTab, text) {
   assert.ok(sourceText.includes(text), `QA source excerpt must include: ${text}`)
 }
 
+async function selectIdiProject(page, qaTab) {
+  const dccCard = qaTab.locator('[data-qa-regulation-dcc-project]').first()
+  const select = dccCard.locator('.el-select').first()
+  await select.waitFor({ state: 'visible' })
+  await select.click()
+  const input = select.locator('input[role="combobox"], input.el-select__input').first()
+  await input.fill('IDI')
+  const idiOption = page.locator('.el-select-dropdown__item:visible').filter({ hasText: /IDI/ }).first()
+  await idiOption.waitFor({ state: 'visible' })
+  await idiOption.click()
+  await dccCard.getByText('IDI', { exact: false }).first().waitFor({ state: 'visible' })
+}
+
 async function main() {
   const config = collectLoginConfig()
   const browser = await chromium.launch({ headless: true, args: ['--disable-dev-shm-usage'] })
@@ -149,13 +162,9 @@ async function main() {
     captureWrites = true
     const qaTab = page.locator('[data-qa-regulation-page]').first()
     await qaTab.waitFor({ state: 'visible' })
+    await selectIdiProject(page, qaTab)
 
     for (const requiredText of [
-      'PQC-IDI-001',
-      'B/0',
-      '2026-01-04',
-      '按压式球囊扩充压力泵组装过程检验规程',
-      '过程检验规程',
       '原文依据',
       'PDF 第 6 页',
       'PDF 第 7 页',
@@ -165,6 +174,16 @@ async function main() {
     ]) {
       await qaTab.getByText(requiredText, { exact: false }).first().waitFor({ state: 'visible' })
     }
+    const scopeInputValues = await qaTab
+      .locator('[data-qa-regulation-scope] input')
+      .evaluateAll((inputs) => inputs.map((input) => input.value))
+    assert.ok(scopeInputValues.includes('PQC-IDI-001'), 'QA pressure-pump regulation code must remain PQC-IDI-001')
+    assert.ok(
+      scopeInputValues.includes('按压式球囊扩充压力泵组装过程检验规程'),
+      'QA pressure-pump regulation name must remain visible in the scope form'
+    )
+    assert.ok(scopeInputValues.includes('B/0'), 'QA pressure-pump version must remain B/0')
+    assert.ok(scopeInputValues.includes('2026-01-04'), 'QA pressure-pump effective date must remain 2026-01-04')
 
     for (const sourceText of [
       '压力泵整体外观应无黑点、杂质、花纹、划痕等外观缺陷',
@@ -181,8 +200,8 @@ async function main() {
     const qaText = await qaTab.innerText()
     assert.doesNotMatch(
       qaText,
-      /DCC|文件分类|受控文件|文控|controlled-file|fileTypeTaxonomy/i,
-      'QA tab must not include DCC or document-control classification wording'
+      /文件分类|受控文件|controlled-file|fileTypeTaxonomy/i,
+      'QA tab must not include document-control classification wording'
     )
 
     await page.screenshot({ path: SCREENSHOT_PATH, fullPage: true })

@@ -15,6 +15,10 @@
 - BDD: 条件 Tab 动态增删 -> Given 标准列表模板启用多维筛选 / When 用户点击红框区域右侧加号 / Then 组件新增一个条件 Tab，并在左侧减号点击时删除当前 Tab。
 - BDD: 条件 Tab 交集查询 -> Given 用户在多个已填写条件 Tab 中选择不同筛选字段和值 / When 点击查询 / Then 前端把所有已填写 Tab 条件一起映射为正式 query 参数，作为交集条件提交。
 - BDD: 排产工单只保留右侧条件 Tab 筛选 -> Given 排产工单主列表启用标准列表多维筛选 / When 用户进入排产工单页面 / Then 页面只显示右侧条件 Tab 筛选区域，不再显示左侧旧 quick filter 区域。
+- BDD: 同步工单启用标准条件 Tab -> Given 用户切换到同步工单页签 / When 标准列表渲染 / Then 页面只显示右侧条件 Tab 多维筛选，不再显示旧 quick filter、显示已入池开关或额外重置按钮。
+- BDD: 同步工单条件交集查询 -> Given 用户在同步工单填写工单编码、产品编号和入池状态条件 / When 点击查询 / Then 待同步差异请求同时提交正式 `workOrderCode`、`productCode`、`admissionStatus` 参数且不发送 `multiFilters` 或 `quickFilter`。
+- BDD: 同步工单默认状态与重置 -> Given 用户首次打开同步工单 / When 列表加载 / Then 默认以稳定的入池状态 Tab 查询可入池工单；When 用户点击条件 Tab 区域重置 / Then 清空正式筛选参数并重新加载第一页。
+- BDD: 条件为空不显示第二行提示 -> Given 标准条件 Tab 当前没有任何筛选条件 / When 列表筛选区域渲染 / Then 只保留“暂无筛选条件”和加减号行，不显示“点击右侧加号新增筛选条件。”第二行提示。
 
 ## Command And Evidence Log
 
@@ -91,3 +95,49 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260804-standard-list-multi-filter/bug-regression-evidence.md` -> PASS。
 - CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode preview` -> PASS，keep 包含 `bug-regression-evidence.md`、`frontend-feature-evidence.md`、真实 E2E 脚本和 `result.json`，delete 为 `<none>`。
 - CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode apply` -> PASS，delete 为 `<none>`。
+- USER BUG REPORT: 用户截图要求红框内的“点击右侧加号新增筛选条件。”不显示。
+- ROOT CAUSE: `TableMultiFilter` 在 `activeCondition` 不存在时额外渲染 `.table-multi-filter__condition-empty` 第二行提示；上方 Tab 行已经通过“暂无筛选条件”表达空状态，因此该提示重复。
+- RED: `node tests/e2e/unified-list-template-multi-filter-static.spec.js` -> FAIL, expected reason: 条件为空时仍存在“点击右侧加号新增筛选条件。”和 `.table-multi-filter__condition-empty`。
+- GREEN: `node tests/e2e/unified-list-template-multi-filter-static.spec.js; node tests/e2e/schedule-order-main-multi-filter-static.spec.js; node tests/e2e/mes-schedule-order-sync-tab-static.spec.js; node tests/e2e/unified-list-template-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check:schedule` -> PASS。
+- GREEN: `node --check doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs` -> PASS。
+- GREEN: `node doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs` -> PASS；重置后 `conditionEmptyPromptVisibleCount=0`、`conditionEmptyPromptTextCount=0`，上方“暂无筛选条件”仍可见，目标写请求数 `0`、目标 HTTP 错误数 `0`、runtime issues `0`。
+- GREEN: `pnpm ts:check` -> PASS。
+- USER BUG REPORT: 用户反馈同步工单同样使用标准列表模板但没有切换为条件 Tab 多维筛选。
+- ROOT CAUSE: 同步工单直接使用 `UnifiedListTemplate`，但仍显式绑定 `workOrderAdmissionQuickFilterDefinitions`、`useTableQuickFilter` 和旧状态开关，未传入 `showMultiFilter`、`multiFilterDefinitions`、多维状态或查询事件；标准列表多维能力按列表显式启用，因此不会自动替换旧筛选。
+- RED: `node tests/e2e/mes-schedule-order-sync-tab-static.spec.js` -> FAIL, expected reason: `同步工单启用条件 Tab 后必须关闭旧 quick filter。`
+- GREEN: `node tests/e2e/mes-schedule-order-sync-tab-static.spec.js` -> PASS，同步工单已关闭旧 quick filter、启用标准条件 Tab、多维状态与正式查询事件。
+- GREEN: `node tests/e2e/mes-schedule-order-sync-tab-static.spec.js; node tests/e2e/schedule-order-main-multi-filter-static.spec.js; node tests/e2e/unified-list-template-multi-filter-static.spec.js; node tests/e2e/unified-list-template-static.spec.js; node tests/e2e/mes-schedule-order-replan-visible-filter-static.spec.js` -> PASS，标准列表、多维筛选、排产工单主页和同步工单静态合同均通过。
+- GREEN: `pnpm ts:check:schedule` -> PASS。
+- GREEN: `node --check doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs` -> PASS。
+- E2E PREFLIGHT: 已读取 `docs/local-runtime.md`、`docs/login-access.md`、`docs/worktree-restrictions.md` 和 `docs/powershell-encoding.md`；`where.exe npx` -> PASS；`http://127.0.0.1:8081/` -> HTTP 200；`http://127.0.0.1:48081/actuator/health` -> `UP`；端口归属为 `E:\IntRuoyi` 的前端 Vite 和 `output\runtime\int_main` 后端运行 Jar。
+- E2E PREFLIGHT: `node scripts/preflight/login-preflight.mjs ... --target-path /mes/pro/schedule-order --target-text 排产工单` -> PASS，使用本地 `.env` 默认登录来源且未记录密码。
+- GREEN: `node doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs` -> PASS；同步工单旧 quick filter 可见数 `0`，交集查询提交 `admissionStatus=READY_TO_ADMIT`、`workOrderCode=SMART-SCHED-20260630-RERUN5-MO`、`productCode=AW.106.03.08.1007`，查询与重置均未发送 `quickFilter` 或 `multiFilters`，目标写请求数 `0`、目标 HTTP 错误数 `0`、runtime issues `0`。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-standard-list-multi-filter/frontend-feature-evidence.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260804-standard-list-multi-filter/bug-regression-evidence.md` -> PASS。
+- GREEN: `git diff --check -- <task-owned files>` -> PASS，仅有 Git LF/CRLF 工作副本警告。
+- PROJECT_EXPERIENCE CLOSEOUT: 已按 `project-experience-consolidation` 规则复用 `docs/frontend-development.md#统一列表复合工具栏布局门禁`，补充“同页多列表必须逐个显式接入 `showMultiFilter`、definitions/state/events；模板能力不会自动替换仍绑定旧 quick filter 的列表”，并更新 `docs/experience-index.md` 关键词。
+- CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode preview` -> PASS，keep 包含 `bug-regression-evidence.md`、`frontend-feature-evidence.md`、真实 E2E 脚本和 `result.json`，delete 为 `<none>`。
+- CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode apply` -> PASS，delete 为 `<none>`。
+- CLOSEOUT REVERIFY: `node tests/e2e/unified-list-template-multi-filter-static.spec.js` -> PASS，确认标准列表多维筛选静态合同仍禁止第二行空提示回归。
+- CLOSEOUT REVERIFY: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-standard-list-multi-filter/frontend-feature-evidence.md` -> PASS。
+- CLOSEOUT REVERIFY: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260804-standard-list-multi-filter/bug-regression-evidence.md` -> PASS。
+- CLOSEOUT REVERIFY: `node --check doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs` -> PASS。
+- CLOSEOUT REVERIFY: `git diff --check -- <task-owned files>` -> PASS，仅有 Git LF/CRLF 工作副本警告。
+- PROJECT_EXPERIENCE CLOSEOUT: 已读取 `project-experience-consolidation` 技能，搜索 `docs/*memory*.md`、`docs/frontend-development.md` 和 `docs/experience-index.md`；现有 `docs/frontend-development.md#统一列表复合工具栏布局门禁` 已覆盖标准列表多维筛选、条件 Tab、同页多列表和旧 quick filter 残留，本次“第二行空提示不显示”不需要新增长期经验文档。
+- CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode preview` -> PASS，keep 为任务文档、证据文件、真实 E2E 脚本和 `result.json`，delete/blocked/warnings 均为 `<none>`。
+- CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode apply` -> PASS，deleted_paths 为 `<none>`。
+- GIT BLOCKER: `git status --short --branch | Select-Object -First 120` 显示当前共享工作区仍有大量非本任务 dirty/untracked 文件，涉及多个后端、前端和其它 `doc/tasks` 任务；本轮不执行宽泛基线提交、commit 或 push，避免把并行任务改动混入标准列表多维筛选收尾。
+- USER REQUEST: 用户要求再次进行 E2E 验证。
+- E2E REVERIFY PREFLIGHT: 已读取 Playwright 技能、`docs/e2e-rules.md`、`docs/local-runtime.md`、`docs/login-access.md`、`docs/worktree-restrictions.md` 和 `docs/powershell-encoding.md`；`where.exe npx` -> PASS；`http://127.0.0.1:8081/` -> HTTP 200；`http://127.0.0.1:48081/actuator/health` -> `UP`；`node --check doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs` -> PASS。
+- E2E REVERIFY PREFLIGHT: 端口归属为 `E:\IntRuoyi\IntRuoyiFronted` Vite 进程和 `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260804-213215.jar` 后端运行 Jar；官方登录预检 `node scripts/preflight/login-preflight.mjs ... --target-path /mes/pro/schedule-order --target-text 排产工单` -> PASS，使用本地 `.env` 默认登录来源且未记录密码。
+- E2E REVERIFY: `node doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs` -> FAIL，expected reason: 首次运行在 `waitForScheduleOrderPage` 等待 `/admin-api/mes/pro/schedule-order/page` 首屏列表响应时超时，服务健康检查仍为 `8081` HTTP 200、`48081` health `UP`。
+- GREEN: 复跑 `node doc/tasks/20260804-standard-list-multi-filter/schedule-order-multi-filter-real.e2e.cjs` -> PASS；排产工单交集查询提交 `completionFilter=ALL`、`code=SCH-CODEX-FACTOR-20260708093210-20260710-0001`、`erpWorkOrderCode=CODEX-FACTOR-20260708093210`，重置清空正式参数，`legacyQuickFilterVisibleCount=0`，`conditionEmptyPromptVisibleCount=0`，`conditionEmptyPromptTextCount=0`。
+- GREEN: 同步工单页签复验仍通过，交集查询提交 `admissionStatus=READY_TO_ADMIT`、`workOrderCode=SMART-SCHED-20260630-RERUN5-MO`、`productCode=AW.106.03.08.1007`，查询与重置均未发送 `quickFilter` 或 `multiFilters`，`admissionLegacyQuickFilterVisibleCount=0`。
+- E2E REVERIFY RESULT: `targetWriteRequestCount=0`、`targetBadResponseCount=0`、`runtimeIssueCount=0`；一个首屏 `completionFilter=INCOMPLETE` GET 被后续请求 supersede 并记录为 `net::ERR_ABORTED`，单独归因，不影响目标断言。
+- CLOSEOUT REVERIFY: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-standard-list-multi-filter/frontend-feature-evidence.md` -> PASS。
+- CLOSEOUT REVERIFY: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260804-standard-list-multi-filter/bug-regression-evidence.md` -> PASS。
+- CLOSEOUT REVERIFY: `git diff --check -- <task-owned docs and artifacts>` -> PASS，仅有 Git LF/CRLF 工作副本警告。
+- CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode preview` -> PASS，keep 为任务文档、证据文件、真实 E2E 脚本和 `result.json`，delete 仅为首次超时产生的临时 `artifacts/schedule-order-multi-filter-real/error.txt`，blocked/warnings 为 `<none>`。
+- CLEANUP: `task_closeout.py --task-id 20260804-standard-list-multi-filter --mode apply` -> PASS，已删除 `artifacts/schedule-order-multi-filter-real/error.txt`。

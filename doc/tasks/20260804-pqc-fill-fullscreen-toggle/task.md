@@ -12,24 +12,23 @@ PQC账号进入 `PQC填写` 页面时，页面内顶部按钮默认显示“最�
 - [x] 运行定向静态合同和相邻 PQC 布局合同，记录 RED/GREEN/REGRESSION 证据
 - [x] 补齐技能 evidence、验证报告和收尾状态
 - [x] 按真实前端路径补跑 PQC填写最大化 E2E，并记录当前环境业务数据前置缺口
-- [ ] 创建本地任务自有 PQC E2E 账号、活跃订单和待检任务前置条件
-- [ ] 使用 PQC E2E 账号重跑真实 Playwright 验证
+- [x] 创建本地任务自有 PQC E2E 账号、活跃订单和待检任务前置条件
+- [x] 使用 PQC E2E 账号重跑真实 Playwright 验证
 
 ## Expected Verification
 
 - `workdir=IntRuoyiFronted; node tests\e2e\edhr-frontline-pqc-fullscreen-toggle-static.spec.cjs`
 - `workdir=IntRuoyiFronted; node tests\e2e\edhr-frontline-pqc-html-alignment-static.spec.cjs`
 - `workdir=IntRuoyiFronted; node tests\e2e\edhr-frontline-fill-tabs-static.spec.cjs`（当前失败在既有 `EdhrBatchRecordTabs.vue` 缺少“历史批记录”页签，非本次 PQC 最大化改动）
-- `workdir=E:\IntRuoyi; node doc\tasks\20260804-pqc-fill-fullscreen-toggle\pqc-fill-fullscreen-real.e2e.cjs`（当前 BLOCKED：本地环境提示“当前没有活跃订单，PQC 不能选择订单”）
-- `workdir=E:\IntRuoyi; PQC_FULLSCREEN_E2E_USERNAME=<task-owned-pqc-user>; node doc\tasks\20260804-pqc-fill-fullscreen-toggle\pqc-fill-fullscreen-real.e2e.cjs`
+- `workdir=E:\IntRuoyi; PQC_FULLSCREEN_E2E_USERNAME=pqce2efullscreen; node doc\tasks\20260804-pqc-fill-fullscreen-toggle\pqc-fill-fullscreen-real.e2e.cjs`
 - `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260804-pqc-fill-fullscreen-toggle/database-schema-evidence.md`
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-pqc-fill-fullscreen-toggle/frontend-feature-evidence.md`
 
 ## Current Status
 
-in_progress
+blocked
 
-Creating the task-owned local PQC account and active-order fixture requested by the user, then rerunning real Playwright E2E with that identity.
+The user-requested local PQC account and active-order preconditions are configured, and real Playwright E2E passes with identity `芋道源码/pqce2efullscreen`. Formal repository closeout remains blocked by the pre-existing unrelated dirty workspace/branch state and the unrelated `edhr-frontline-fill-tabs-static.spec.cjs` failure.
 
 ## 设计约束检查
 

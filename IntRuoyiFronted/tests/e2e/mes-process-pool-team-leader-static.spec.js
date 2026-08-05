@@ -7,7 +7,12 @@ const timelineApiPath = path.join(root, 'src/api/mes/pro/processpool/index.ts')
 const apiPath = path.join(root, 'src/api/mes/pro/processpool/teamLeader.ts')
 const eventRevisionApiPath = path.join(root, 'src/api/mes/pro/processpool/eventRevision.ts')
 const pagePath = path.join(root, 'src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue')
+const productionLeaderPagePath = path.join(root, 'src/views/mes/pro/processpool/ProductionLeaderWorkbenchPage.vue')
 const pqcLeaderPagePath = path.join(root, 'src/views/mes/pro/processpool/PqcLeaderWorkbenchPage.vue')
+const edhrProductionLeaderPagePath = path.join(
+  root,
+  'src/views/mes/pro/edhr-batch/BatchProductionLeaderWorkbenchPage.vue'
+)
 const edhrPqcLeaderPagePath = path.join(
   root,
   'src/views/mes/pro/edhr-batch/BatchPqcLeaderWorkbenchPage.vue'
@@ -24,7 +29,9 @@ assert(fs.existsSync(apiPath), '班组长工序池必须提供前端 API wrapper
 assert(fs.existsSync(eventRevisionApiPath), '工序池原始记录修订必须提供前端 API wrapper。')
 assert(fs.existsSync(timelineApiPath), '工序池时间轴必须提供前端响应类型。')
 assert(fs.existsSync(pagePath), '班组长工序池必须提供工作台页面。')
+assert(fs.existsSync(productionLeaderPagePath), '生产组长必须提供独立主导航页面包装。')
 assert(fs.existsSync(pqcLeaderPagePath), 'PQC组长必须提供 QA 下独立页面包装。')
+assert(fs.existsSync(edhrProductionLeaderPagePath), 'eDHR 生产组长必须提供独立页签包装。')
 assert(fs.existsSync(edhrPqcLeaderPagePath), 'eDHR PQC组长必须提供独立页签包装。')
 assert(fs.existsSync(edhrTeamLeaderPagePath), 'eDHR 组长工作台包装页必须存在。')
 
@@ -32,7 +39,9 @@ const timelineApi = read(timelineApiPath)
 const api = read(apiPath)
 const eventRevisionApi = read(eventRevisionApiPath)
 const page = read(pagePath)
+const productionLeaderPage = read(productionLeaderPagePath)
 const pqcLeaderPage = read(pqcLeaderPagePath)
+const edhrProductionLeaderPage = read(edhrProductionLeaderPagePath)
 const edhrPqcLeaderPage = read(edhrPqcLeaderPagePath)
 const edhrTeamLeaderPage = read(edhrTeamLeaderPagePath)
 const routes = read(routePath)
@@ -199,20 +208,32 @@ assert(page.includes('lowerLimit') && page.includes('upperLimit'), '设备参数
 assert(!page.includes('ignoreErrorMessage: true'), '班组长页面不得静默隐藏后端错误。')
 
 assert(routes.includes("path: 'pro/process-pool/team-leader'"), 'remaining 路由必须提供班组长工作台入口。')
+assert(routes.includes("path: 'pro/process-pool/production-leader'"), 'remaining 路由必须提供独立生产组长主导航入口。')
+assert(routes.includes('ProductionLeaderWorkbenchPage.vue'), '生产组长入口必须使用 process-pool 专门包装页。')
+assert(routes.includes("path: 'pro/process-pool/pqc-leader'"), 'remaining 路由必须提供 QA 下独立 PQC组长入口。')
+assert(routes.includes('PqcLeaderWorkbenchPage.vue'), 'PQC组长入口必须使用 process-pool 专门包装页，不能显示在组长工作台内。')
 assert(routes.includes("path: 'pro/feedback/edhr-batch-production-leader'"), 'remaining 路由必须提供独立 eDHR 生产组长页签入口。')
-assert(routes.includes('BatchProductionLeaderWorkbenchPage.vue'), '生产组长页签必须使用专门包装页，不能显示在组长工作台内。')
+assert(routes.includes('BatchProductionLeaderWorkbenchPage.vue'), 'eDHR 生产组长页签必须使用专门包装页。')
 assert(routes.includes("path: 'pro/feedback/edhr-batch-pqc-leader'"), 'remaining 路由必须提供独立 eDHR PQC组长页签入口。')
 assert(routes.includes('BatchPqcLeaderWorkbenchPage.vue'), 'eDHR PQC组长页签必须使用专门包装页。')
-assert(routes.includes("path: 'pro/process-pool/pqc-leader'"), 'remaining 路由必须提供 QA 下独立 PQC组长入口。')
-assert(routes.includes('PqcLeaderWorkbenchPage.vue'), 'PQC组长入口必须使用专门包装页，不能显示在组长工作台内。')
+assert(routes.includes("path: 'pro/feedback/edhr-batch-team-leader'"), 'remaining 路由必须保留 eDHR 组长工作台入口。')
+assert(routes.includes('BatchTeamLeaderWorkbenchPage.vue'), 'eDHR 组长工作台入口必须使用专门包装页。')
 assert(routes.includes("permission: ['mes:pro-process-pool-team-leader:query']"), '班组长工作台路由必须绑定查询权限。')
 assert(
-  /<TeamLeaderWorkbenchPage[\s\S]*leader-type="PQC"[\s\S]*:show-leader-type-tabs="false"/.test(pqcLeaderPage),
-  'PQC组长独立页必须锁定 PQC 工作台内容并关闭内部切换。'
+  /data-production-leader-workbench-page[\s\S]*leader-type="PRODUCTION"[\s\S]*:show-leader-type-tabs="false"/.test(productionLeaderPage),
+  '生产组长独立主导航页面必须锁定生产工作台内容并关闭内部切换。'
 )
 assert(
-  !/EdhrBatchRecordTabs|active-tab=/.test(pqcLeaderPage),
-  'PQC组长独立页不得通过 eDHR 内部 tabs 承载。'
+  /data-pqc-leader-workbench-page[\s\S]*leader-type="PQC"[\s\S]*:show-leader-type-tabs="false"/.test(pqcLeaderPage),
+  'PQC组长独立主导航页面必须锁定 PQC 工作台内容并关闭内部切换。'
+)
+assert(
+  !/EdhrBatchRecordTabs|active-tab=/.test(`${productionLeaderPage}\n${pqcLeaderPage}`),
+  'process-pool 独立组长页面不得通过 eDHR 内部 tabs 承载。'
+)
+assert(
+  /<EdhrBatchRecordTabs\s+active-tab="productionLeader"[\s\S]*leader-type="PRODUCTION"[\s\S]*:show-leader-type-tabs="false"/.test(edhrProductionLeaderPage),
+  'eDHR 生产组长页签必须锁定生产工作台内容并关闭内部切换。'
 )
 assert(
   /<EdhrBatchRecordTabs\s+active-tab="pqcLeader"[\s\S]*leader-type="PQC"[\s\S]*:show-leader-type-tabs="false"/.test(edhrPqcLeaderPage),

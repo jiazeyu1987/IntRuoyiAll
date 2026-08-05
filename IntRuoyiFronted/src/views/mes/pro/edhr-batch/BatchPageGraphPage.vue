@@ -360,7 +360,8 @@ const pageEdges: PageEdge[] = [
     sourceHandle: 'source-bottom',
     targetHandle: 'target-top'
   },
-  { from: 'process-pool', to: 'team-lead-review', label: '生产异常与修改日志进入复核' },
+  { from: 'process-pool', to: 'team-lead-review', label: 'PQC 提交进入组长工作台复核' },
+  { from: 'process-pool', to: 'production-lead-review', label: '生产异常与修改日志进入生产组长复核' },
   { from: 'process-pool', to: 'pqc-lead-review', label: 'PQC 提交进入专门复核' },
   { from: 'fifo-allocation', to: 'review-copy', label: '审核副本按限制范围修正超限值' },
   { from: 'review-copy', to: 'formal-record', label: '形成可审核的正式批记录视图' },
