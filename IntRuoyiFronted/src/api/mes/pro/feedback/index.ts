@@ -96,6 +96,7 @@ export interface ProFrontlineFeedbackPayloadReqVO {
   laborScrapQuantity?: number
   materialScrapQuantity?: number
   otherScrapQuantity?: number
+  lossReasonId?: number
   approveUserId: number
   remark?: string
 }

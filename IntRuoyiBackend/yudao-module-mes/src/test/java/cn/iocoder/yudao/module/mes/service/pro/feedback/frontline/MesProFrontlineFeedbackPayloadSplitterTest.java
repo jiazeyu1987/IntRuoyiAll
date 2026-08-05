@@ -21,9 +21,11 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
     void shouldSplitFeedbackQuantitiesAndRecordbookRawContent() {
         MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
         LocalDateTime submittedAt = LocalDateTime.of(2026, 7, 30, 9, 10, 11);
+        MesFrontlineLossReasonSnapshot lossReasonSnapshot =
+                new MesFrontlineLossReasonSnapshot(8301L, "LOSS-001", "正常损耗");
 
         MesProFrontlineFeedbackSplitPayload splitPayload =
-                new MesProFrontlineFeedbackPayloadSplitter().split(reqVO, 9001L, submittedAt);
+                new MesProFrontlineFeedbackPayloadSplitter().split(reqVO, 9001L, submittedAt, lossReasonSnapshot);
 
         MesProFeedbackSaveReqVO feedbackPayload = splitPayload.getFeedbackPayload();
         assertEquals(new BigDecimal("100.500"), feedbackPayload.getFeedbackQuantity());
@@ -32,6 +34,9 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
         assertEquals(new BigDecimal("1.000"), feedbackPayload.getLaborScrapQuantity());
         assertEquals(new BigDecimal("1.500"), feedbackPayload.getMaterialScrapQuantity());
         assertEquals(new BigDecimal("0.000"), feedbackPayload.getOtherScrapQuantity());
+        assertEquals(8301L, feedbackPayload.getLossReasonId());
+        assertEquals("LOSS-001", feedbackPayload.getLossReasonCodeSnapshot());
+        assertEquals("正常损耗", feedbackPayload.getLossReasonNameSnapshot());
         assertEquals(3001L, feedbackPayload.getFeedbackUserId());
         assertEquals(submittedAt, feedbackPayload.getFeedbackTime());
         assertEquals(7001L, feedbackPayload.getApproveUserId());
@@ -67,6 +72,9 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
         assertEquals(reqVO.getRecordbookPayload().getEquipmentParameters(), eventRawPayload.get("equipmentParameters"));
         assertEquals(new BigDecimal("100.500"), eventRawPayload.get("outputQuantity"));
         assertEquals(new BigDecimal("2.500"), eventRawPayload.get("lossQuantity"));
+        assertEquals(8301L, eventRawPayload.get("lossReasonId"));
+        assertEquals("LOSS-001", eventRawPayload.get("lossReasonCodeSnapshot"));
+        assertEquals("正常损耗", eventRawPayload.get("lossReasonNameSnapshot"));
         assertFalse(eventRawPayload.containsKey("previousProcessInputQuantity"));
         assertEquals(new BigDecimal("50"), eventRawPayload.get("temperature"));
         assertEquals(new BigDecimal("10"), eventRawPayload.get("pressure"));
@@ -85,7 +93,9 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
 
         MesProcessPoolSubmitEventCreateReqBO eventPayload =
                 new MesProFrontlineFeedbackPayloadSplitter().split(reqVO, 9001L,
-                        LocalDateTime.of(2026, 8, 1, 9, 10, 11)).getProcessPoolEventPayload();
+                        LocalDateTime.of(2026, 8, 1, 9, 10, 11),
+                        new MesFrontlineLossReasonSnapshot(8301L, "LOSS-001", "正常损耗"))
+                        .getProcessPoolEventPayload();
 
         Map<String, Object> eventRawPayload = eventPayload.getRawPayload();
         assertEquals(nestedParameters, eventRawPayload.get("equipmentParameters"));

@@ -29,6 +29,9 @@ public class MesProcessPoolSubmitEventCreateReqBO {
     private String templateType;
     private BigDecimal outputQuantity;
     private BigDecimal lossQuantity;
+    private Long lossReasonId;
+    private String lossReasonCodeSnapshot;
+    private String lossReasonNameSnapshot;
     private Map<String, Object> equipmentParameters;
     private Map<String, Object> rawPayload;
     private LocalDateTime submittedAt;

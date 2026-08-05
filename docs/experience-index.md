@@ -344,6 +344,7 @@
 - Keywords: Python f-string literal braces, SSH verification carrier, bash SQL JSON braces SyntaxError -> `docs/powershell-preflight-lessons.md#2026-07-13-python-f-string-literal-braces-与远端验收脚本门禁`
 - Keywords: login-preflight.mjs 缺失, admin-only 全量 E2E, 旧目标文案执行列表, 历史 execution 直连填写页, 默认密码清理, 动态预览批次任务 -> `docs/e2e-rules.md#官方登录前置与-admin-only-全量验证门禁`
 - Keywords: Playwright 默认浏览器缓存缺失, PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, 本机 Chrome Edge, 真实 E2E 浏览器前置, 运行库迁移缺失后复跑 GREEN, 班组长工作台冒烟 -> `docs/e2e-rules.md#官方登录前置与-admin-only-全量验证门禁`
+- Keywords: 写入型 E2E 模拟环境, 任务自有模拟环境, 多账号权限 E2E, 缺生产组长账号, 缺测试账号前置, fixture 补齐测试租户, 跨账号可见性, API-only 不能代替模拟环境 -> `docs/e2e-rules.md#写入型-e2e-任务自有模拟环境门禁`
 - Keywords: 登录图形验证码, 登录页验证码, captchaVerification, LoginForm Verify, AdminAuthServiceImpl.login, 账号密码登录验证码关闭 -> `docs/login-access.md#登录图形验证码链路门禁`
 - Keywords: 批记录管理员主区域, 已提交内容, 空表单, 无已提交内容, selectedEmptyTaskPreviewFormViewModel, 暂无已提交批记录内容, review-timeline executionReviews formViewModel, task preview 请求数, 草稿 cell_values_json 不显示, 过期冻结快照样本 -> `docs/e2e-rules.md#edhr-管理员主区域已提交内容门禁`
 - Keywords: stale blocked task, 提交前 blocked 状态复验, Maven compile 解除旧阻塞, pnpm ts:check 解除旧阻塞, 目标 JUnit 复验后提交 -> `docs/powershell-memory.md#提交前-stale-blocker-复验门禁`

@@ -126,6 +126,7 @@ class MesProcessPoolTeamLeaderSchemaTest {
         assertField(MesProcessPoolDefectReasonDO.class, "reasonType", String.class);
         assertField(MesProcessPoolDefectReasonDO.class, "reasonCode", String.class);
         assertField(MesProcessPoolDefectReasonDO.class, "reasonName", String.class);
+        assertField(MesProcessPoolDefectReasonDO.class, "routeProcessId", Long.class);
         assertField(MesProcessPoolDefectReasonDO.class, "processId", Long.class);
         assertField(MesProcessPoolDefectReasonDO.class, "enabled", Boolean.class);
 
@@ -272,6 +273,31 @@ class MesProcessPoolTeamLeaderSchemaTest {
         assertTrue(acM16Sql.contains("SIGNAL SQLSTATE '45000'"));
         assertTrue(acM16Sql.contains("Duplicate MES process-pool submission reviews block AC-M16 terminal constraint"));
         assertTrue(acM16Sql.contains("UNIQUE KEY `uk_mes_pp_submission_review_event` (`tenant_id`, `event_id`, `deleted`)"));
+    }
+
+    @Test
+    void processLossReasonSchemaMustBeRouteProcessSharedAndSnapshotFeedbackHistory() throws Exception {
+        assertField(MesProcessPoolDefectReasonDO.class, "routeProcessId", Long.class);
+        assertField(MesProcessPoolDefectReasonDO.class, "processId", Long.class);
+        assertField(MesProcessPoolDefectReasonDO.class, "enabled", Boolean.class);
+
+        Class<?> feedbackClass = Class.forName(
+                "cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO");
+        assertField(feedbackClass, "lossReasonId", Long.class);
+        assertField(feedbackClass, "lossReasonCodeSnapshot", String.class);
+        assertField(feedbackClass, "lossReasonNameSnapshot", String.class);
+
+        String sql = Files.readString(resolveBackendPath(
+                "sql/mysql/20260805_mes_process_loss_reasons.sql"), StandardCharsets.UTF_8);
+        assertTrue(sql.contains("dependsOn=20260802_mes_process_pool_active_order_authority"));
+        assertTrue(sql.contains("DROP INDEX `uk_mes_pp_defect_reason` ON `mes_pro_process_pool_defect_reason`"));
+        assertTrue(sql.contains("UNIQUE KEY `uk_mes_pp_loss_reason_route_process` (`tenant_id`, `route_process_id`, `reason_type`, `reason_code`, `deleted`)"));
+        assertTrue(sql.contains("KEY `idx_mes_pp_loss_reason_route_process` (`tenant_id`, `route_process_id`, `reason_type`, `enabled`)"));
+        assertFalse(sql.contains("`tenant_id`, `leader_user_id`, `reason_type`, `reason_code`, `process_id`, `deleted`"),
+                "loss reasons must be shared by route-process instead of owned by one production leader");
+        assertTrue(sql.contains("`loss_reason_id` bigint DEFAULT NULL COMMENT '损耗原因ID快照来源'"));
+        assertTrue(sql.contains("`loss_reason_code_snapshot` varchar(64) DEFAULT NULL COMMENT '损耗原因编码快照'"));
+        assertTrue(sql.contains("`loss_reason_name_snapshot` varchar(255) DEFAULT NULL COMMENT '损耗原因名称快照'"));
     }
 
     private static String tableName(Class<?> clazz) {

@@ -756,6 +756,8 @@ type ProductionDeviceParameterDraft = Record<ProductionDeviceParameterKey, numbe
 
 interface ProductionDefectOption {
   key: ProductionDefectKey
+  reasonId: number
+  reasonCode: string
   label: string
 }
 
@@ -885,6 +887,10 @@ const productionScrapQuantity = computed(() =>
     (total, defect) => total + (productionDefectDraft[defect.key] || 0),
     0
   )
+)
+
+const selectedLossReasonId = computed(() =>
+  configuredDefectReasons.value.find((defect) => (productionDefectDraft[defect.key] || 0) > 0)?.reasonId
 )
 
 const pqcInspectionQuantity = computed(() =>
@@ -1018,7 +1024,9 @@ const statusText = computed(() => {
 
 const configuredDefectReasons = computed<ProductionDefectOption[]>(() =>
   (deviceState.runtimeConfig?.defectReasons || []).map((reason) => ({
-    key: reason.reasonCode || String(reason.reasonId),
+    key: String(reason.reasonId),
+    reasonId: reason.reasonId,
+    reasonCode: reason.reasonCode,
     label: reason.reasonName || reason.reasonCode || `不良原因 ${reason.reasonId}`
   }))
 )
@@ -2043,6 +2051,7 @@ const buildFrontlineFormalSubmitPayload = (
       scheduledQuantity: formalContext.scheduledQuantity,
       outputQuantity: productionDraft.outputQuantity!,
       lossQuantity: productionScrapQuantity.value,
+      lossReasonId: selectedLossReasonId.value,
       laborScrapQuantity: productionScrapQuantity.value,
       materialScrapQuantity: 0,
       otherScrapQuantity: 0,

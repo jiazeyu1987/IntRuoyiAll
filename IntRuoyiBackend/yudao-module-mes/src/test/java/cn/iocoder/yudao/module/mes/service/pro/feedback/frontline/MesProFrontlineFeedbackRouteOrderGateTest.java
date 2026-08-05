@@ -29,6 +29,8 @@ class MesProFrontlineFeedbackRouteOrderGateTest {
     private MesProcessPoolSubmitEventService processPoolSubmitEventService;
     @Mock
     private MesFrontlineSubmitAuthorizationService submitAuthorizationService;
+    @Mock
+    private MesFrontlineLossReasonValidator lossReasonValidator;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -39,6 +41,7 @@ class MesProFrontlineFeedbackRouteOrderGateTest {
                 recordbookEntryService,
                 processPoolSubmitEventService,
                 submitAuthorizationService,
+                lossReasonValidator,
                 new MesProFrontlineFeedbackPayloadSplitter());
     }
 

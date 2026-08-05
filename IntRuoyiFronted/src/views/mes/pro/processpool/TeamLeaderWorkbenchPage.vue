@@ -402,6 +402,78 @@
       </el-form>
     </ContentWrap>
 
+
+    <ContentWrap v-if="isProductionLeader" data-team-leader-loss-reason-tab>
+      <div class="team-leader-workbench__section-head">
+        <div>
+          <div class="team-leader-workbench__section-title">损耗原因维护</div>
+          <div class="team-leader-workbench__hint">
+            标准列表按“工序开始”授权展示工序，损耗原因绑定到工序设置列表下的路线工序并由多个生产组长共用。
+          </div>
+        </div>
+        <el-button :loading="lossReasonLoading" @click="loadLossReasonRows">刷新</el-button>
+      </div>
+      <el-table
+        v-loading="lossReasonLoading"
+        :data="lossReasonRows"
+        border
+        stripe
+        data-loss-reason-standard-list
+      >
+        <el-table-column label="工艺路线" min-width="180">
+          <template #default="{ row }">
+            {{ row.routeName || row.routeCode || row.routeId || '--' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="工序" min-width="180">
+          <template #default="{ row }">
+            <span data-loss-reason-route-process-row>
+              {{ formatLossReasonProcess(row) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="损耗原因" min-width="280" data-loss-reason-column>
+          <template #default="{ row }">
+            <div class="team-leader-workbench__loss-reasons">
+              <el-tag
+                v-for="reason in row.reasons"
+                :key="reason.id"
+                :type="reason.enabled ? 'success' : 'info'"
+                effect="plain"
+              >
+                {{ reason.reasonCode }} / {{ reason.reasonName }}{{ reason.enabled ? '' : '（停用）' }}
+              </el-tag>
+              <span v-if="!row.reasons?.length" class="team-leader-workbench__hint">暂无损耗原因</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作面板" width="320" fixed="right">
+          <template #default="{ row }">
+            <div data-loss-reason-operation-panel>
+              <el-button link type="primary" @click="openCreateLossReason(row)">新增损耗原因</el-button>
+              <el-button
+                v-for="reason in row.reasons"
+                :key="`edit-${reason.id}`"
+                link
+                type="warning"
+                @click="openEditLossReason(row, reason)"
+              >
+                修改损耗原因
+              </el-button>
+              <el-button
+                v-for="reason in row.reasons"
+                :key="`delete-${reason.id}`"
+                link
+                type="danger"
+                @click="handleDeleteLossReason(reason)"
+              >
+                删除损耗原因
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+    </ContentWrap>
     <ContentWrap v-if="isProductionLeader" data-team-leader-config-center>
       <div class="team-leader-workbench__section-head">
         <div>
@@ -648,7 +720,6 @@
             </el-form-item>
             <el-form-item label="原因类型">
               <el-select v-model="defectReasonForm.reasonType">
-                <el-option label="损耗" value="LOSS" />
                 <el-option label="不合格" value="UNQUALIFIED" />
                 <el-option label="PQC 失败" value="PQC_FAILURE" />
               </el-select>
@@ -802,6 +873,65 @@
         </div>
       </div>
     </el-drawer>
+
+    <el-dialog
+      v-model="lossReasonDialogVisible"
+      :title="lossReasonDialogTitle"
+      width="560px"
+      destroy-on-close
+      data-loss-reason-edit-dialog
+    >
+      <el-form :model="lossReasonForm" label-width="108px">
+        <el-form-item label="工艺路线">
+          <span>{{ lossReasonEditingRow?.routeName || lossReasonEditingRow?.routeCode || '--' }}</span>
+        </el-form-item>
+        <el-form-item label="工序">
+          <span>{{ lossReasonEditingRow ? formatLossReasonProcess(lossReasonEditingRow) : '--' }}</span>
+        </el-form-item>
+        <el-form-item label="原因编码" required>
+          <el-input
+            v-model="lossReasonForm.reasonCode"
+            :disabled="lossReasonDialogMode === 'edit'"
+            maxlength="64"
+            placeholder="请输入损耗原因编码"
+          />
+        </el-form-item>
+        <el-form-item label="原因名称" required>
+          <el-input
+            v-model="lossReasonForm.reasonName"
+            maxlength="255"
+            placeholder="请输入损耗原因名称"
+          />
+        </el-form-item>
+        <el-form-item label="启用状态">
+          <el-switch
+            v-model="lossReasonForm.enabled"
+            active-text="启用"
+            inactive-text="停用"
+          />
+        </el-form-item>
+        <el-form-item label="维护说明">
+          <el-input
+            v-model="lossReasonForm.remark"
+            type="textarea"
+            :rows="3"
+            maxlength="500"
+            show-word-limit
+            placeholder="记录新增、修改或删除原因"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="lossReasonDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="lossReasonSubmitting"
+          @click="submitLossReason"
+        >
+          保存损耗原因
+        </el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="reviewVisible" title="复核员工提交" width="760px">
       <el-form :model="reviewForm" label-width="92px">
@@ -1006,12 +1136,15 @@
 </template>
 
 <script setup lang="ts">
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   addTeamLeaderActiveOrder,
   confirmTeamLeaderReportAllocation,
   createTeamDevice,
   createTeamEmployeeProfile,
+  createTeamLeaderLossReason,
+  deleteTeamLeaderLossReason,
+  getTeamLeaderLossReasonPage,
   getTeamLeaderActiveOrderList,
   getTeamLeaderActiveOrderTransferTrace,
   getTeamLeaderSubmissionDetail,
@@ -1024,9 +1157,12 @@ import {
   saveTeamProcessDeviceBinding,
   saveTeamProcessEmployeeBinding,
   saveTeamRuntimeDeviceParameterRule,
+  updateTeamLeaderLossReason,
   updateTeamDeviceStatus,
   type TeamLeaderActiveOrderRespVO,
   type TeamLeaderActiveOrderTransferTraceRespVO,
+  type TeamLeaderLossReasonRowVO,
+  type TeamLeaderLossReasonVO,
   type TeamLeaderReportAllocationLine,
   type TeamLeaderSubmissionPageReqVO,
   type TeamLeaderType
@@ -1083,6 +1219,13 @@ const activeOrderOptions = ref<TeamLeaderActiveOrderRespVO[]>([])
 const activeOrderTransferTraceRows = ref<TeamLeaderActiveOrderTransferTraceRespVO[]>([])
 const activeOrderTransferTraceLoading = ref(false)
 const activeOrderTransferTraceError = ref('')
+const lossReasonRows = ref<TeamLeaderLossReasonRowVO[]>([])
+const lossReasonLoading = ref(false)
+const lossReasonSubmitting = ref(false)
+const lossReasonDialogVisible = ref(false)
+const lossReasonDialogMode = ref<'create' | 'edit'>('create')
+const lossReasonEditingRow = ref<TeamLeaderLossReasonRowVO>()
+const lossReasonEditingReason = ref<TeamLeaderLossReasonVO>()
 const allocationRows = ref<TeamLeaderReportAllocationLine[]>([])
 const configuredDefectReasonOptions = ref<
   Array<{ reasonType: string; reasonCode: string; reasonName: string }>
@@ -1103,6 +1246,9 @@ const employeeDetailLabel = computed(() =>
 )
 const detailDrawerTitle = computed(() =>
   activeLeaderTab.value === 'PQC' ? 'PQC检验员提交详情' : '员工提交详情'
+)
+const lossReasonDialogTitle = computed(() =>
+  lossReasonDialogMode.value === 'create' ? '新增损耗原因' : '修改损耗原因'
 )
 const dailyClosePendingReviewCount = computed(
   () =>
@@ -1239,9 +1385,16 @@ const processDeviceBindingForm = reactive({
 
 const defectReasonForm = reactive({
   processId: undefined as number | undefined,
-  reasonType: 'LOSS',
+  reasonType: 'UNQUALIFIED',
   reasonCode: '',
   reasonName: ''
+})
+
+const lossReasonForm = reactive({
+  reasonCode: '',
+  reasonName: '',
+  enabled: true,
+  remark: ''
 })
 
 const deviceRuleForm = reactive({
@@ -1348,6 +1501,120 @@ const loadActiveOrderTransferTraces = async () => {
 const loadActiveOrders = async () => {
   activeOrderOptions.value = await getTeamLeaderActiveOrderList()
   await loadActiveOrderTransferTraces()
+}
+
+const loadLossReasonRows = async () => {
+  if (!isProductionLeader.value) {
+    lossReasonRows.value = []
+    return
+  }
+  lossReasonLoading.value = true
+  try {
+    lossReasonRows.value = await getTeamLeaderLossReasonPage()
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '损耗原因标准列表加载失败'))
+    throw error
+  } finally {
+    lossReasonLoading.value = false
+  }
+}
+
+const formatLossReasonProcess = (row: TeamLeaderLossReasonRowVO) => {
+  const sortText = Number.isFinite(Number(row.sort)) ? `${row.sort} - ` : ''
+  const processText = row.processName || row.processCode || row.processId || '--'
+  return `${sortText}${processText}`
+}
+
+const resetLossReasonForm = () => {
+  lossReasonForm.reasonCode = ''
+  lossReasonForm.reasonName = ''
+  lossReasonForm.enabled = true
+  lossReasonForm.remark = ''
+}
+
+const openCreateLossReason = (row: TeamLeaderLossReasonRowVO) => {
+  lossReasonDialogMode.value = 'create'
+  lossReasonEditingRow.value = row
+  lossReasonEditingReason.value = undefined
+  resetLossReasonForm()
+  lossReasonDialogVisible.value = true
+}
+
+const openEditLossReason = (
+  row: TeamLeaderLossReasonRowVO,
+  reason: TeamLeaderLossReasonVO
+) => {
+  lossReasonDialogMode.value = 'edit'
+  lossReasonEditingRow.value = row
+  lossReasonEditingReason.value = reason
+  lossReasonForm.reasonCode = reason.reasonCode
+  lossReasonForm.reasonName = reason.reasonName
+  lossReasonForm.enabled = reason.enabled
+  lossReasonForm.remark = ''
+  lossReasonDialogVisible.value = true
+}
+
+const submitLossReason = async () => {
+  const row = lossReasonEditingRow.value
+  if (!row) {
+    ElMessage.error('请先选择工序')
+    return
+  }
+  const reasonName = lossReasonForm.reasonName.trim()
+  const reasonCode = lossReasonForm.reasonCode.trim()
+  if (!reasonName || (lossReasonDialogMode.value === 'create' && !reasonCode)) {
+    ElMessage.error('损耗原因编码和名称不能为空')
+    return
+  }
+  lossReasonSubmitting.value = true
+  try {
+    if (lossReasonDialogMode.value === 'create') {
+      await createTeamLeaderLossReason({
+        routeProcessId: row.routeProcessId,
+        reasonCode,
+        reasonName,
+        enabled: lossReasonForm.enabled,
+        remark: lossReasonForm.remark.trim() || undefined
+      })
+    } else {
+      const reasonId = requirePositiveNumber(
+        lossReasonEditingReason.value?.id,
+        '损耗原因编号不能为空'
+      )
+      await updateTeamLeaderLossReason(reasonId, {
+        reasonName,
+        enabled: lossReasonForm.enabled,
+        remark: lossReasonForm.remark.trim() || undefined
+      })
+    }
+    ElMessage.success('损耗原因已保存')
+    lossReasonDialogVisible.value = false
+    await loadLossReasonRows()
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '损耗原因保存失败'))
+  } finally {
+    lossReasonSubmitting.value = false
+  }
+}
+
+const handleDeleteLossReason = async (reason: TeamLeaderLossReasonVO) => {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除损耗原因「${reason.reasonCode} / ${reason.reasonName}」？删除后不能用于新报工，历史报工快照不受影响。`,
+      '删除损耗原因',
+      { type: 'warning' }
+    )
+    lossReasonSubmitting.value = true
+    await deleteTeamLeaderLossReason(reason.id)
+    ElMessage.success('损耗原因已删除')
+    await loadLossReasonRows()
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(resolveErrorMessage(error, '损耗原因删除失败'))
+    }
+  } finally {
+    lossReasonSubmitting.value = false
+  }
 }
 
 const markManualAllocation = () => {
@@ -1733,6 +2000,9 @@ const handleLeaderTypeChange = (value: string | number) => {
   if (leaderType === 'PRODUCTION') {
     loadActiveOrders().catch((error) => {
       ElMessage.error(resolveErrorMessage(error, '活跃订单加载失败'))
+    })
+    loadLossReasonRows().catch((error) => {
+      ElMessage.error(resolveErrorMessage(error, '损耗原因标准列表加载失败'))
     })
   }
   handleQuery()
@@ -2132,6 +2402,9 @@ onMounted(() => {
     loadActiveOrders().catch((error) => {
       ElMessage.error(resolveErrorMessage(error, '活跃订单调拨库存追溯加载失败'))
     })
+    loadLossReasonRows().catch((error) => {
+      ElMessage.error(resolveErrorMessage(error, '损耗原因标准列表加载失败'))
+    })
   }
 })
 </script>
@@ -2314,6 +2587,12 @@ onMounted(() => {
 .team-leader-workbench__transfer-trace {
   width: 100%;
   margin-top: 8px;
+}
+
+.team-leader-workbench__loss-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .team-leader-workbench__payload {

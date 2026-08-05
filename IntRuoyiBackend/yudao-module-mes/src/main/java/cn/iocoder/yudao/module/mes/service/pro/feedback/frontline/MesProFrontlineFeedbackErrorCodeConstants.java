@@ -16,5 +16,9 @@ public interface MesProFrontlineFeedbackErrorCodeConstants {
             new ErrorCode(1_040_753_604, "一线报工记录本原始条目事件缺失：{}");
     ErrorCode PRO_FRONTLINE_FEEDBACK_QUANTITY_INVALID =
             new ErrorCode(1_040_753_605, "一线报工数量关系非法：{}");
+    ErrorCode PRO_FRONTLINE_FEEDBACK_LOSS_REASON_REQUIRED =
+            new ErrorCode(1_040_753_606, "损耗数量大于 0 时必须选择当前工序启用的损耗原因");
+    ErrorCode PRO_FRONTLINE_FEEDBACK_LOSS_REASON_INVALID =
+            new ErrorCode(1_040_753_607, "损耗原因不属于当前工序或已禁用：{}");
 
 }
