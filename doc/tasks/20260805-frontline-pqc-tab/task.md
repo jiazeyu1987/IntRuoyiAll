@@ -6,10 +6,10 @@
 
 ## Milestones
 
-- [ ] M1: 定位批次执行页签、PQC 填写组件、路由和菜单权限来源。
-- [ ] M2: 编写并运行最小 RED 静态合同，证明旧结构仍把 PQC 填写放在批次执行内部 tab 且缺少独立“一线PQC”入口。
-- [ ] M3: 实现独立“一线PQC”入口，复用正式 PQC 填写能力，并移除批次执行内部 tab 展示。
-- [ ] M4: 完成 GREEN、回归与 admin 可见性验证。
+- [x] M1: 定位批次执行页签、PQC 填写组件、路由和菜单权限来源。
+- [x] M2: 编写并运行最小 RED 静态合同，证明旧结构仍把 PQC 填写放在批次执行内部 tab 且缺少独立“一线PQC”入口。
+- [x] M3: 实现独立“一线PQC”入口，复用正式 PQC 填写能力，并移除批次执行内部 tab 展示。
+- [x] M4: 完成 GREEN、回归与 admin 可见性验证。
 - [ ] M5: 完成收尾、经验沉淀、提交与推送。
 
 ## Expected Verification
@@ -21,7 +21,11 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+实现与任务范围内验证已完成：本机 `芋道源码/admin` 真实登录可在 eDHR 菜单看到“一线PQC”，点击后进入 `/mes/pro/feedback/edhr-batch-pqc-fill`，页面标题为“一线PQC”，且不再渲染批次执行内部 `PQC填写` tab。
+
+收尾仍待处理：项目级全量 migration gate 被无关 `20260805_erp_nas_table_auto_sync.sql` 的 `type=schema,job` 阻塞；全量 `git diff --check` 被无关 Java 测试和 `docs/powershell-memory.md` 中既有 conflict marker 阻塞。本任务拥有文件的定向 diff 检查已通过。
 
 ## Design Constraint Checks
 
@@ -37,3 +41,12 @@ in_progress
 ## Git Baseline
 
 - 既有脏改动基线提交：`4cd8ec941`，文件：`IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue`。
+
+## Verification Summary
+
+- `node tests\e2e\edhr-frontline-pqc-tab-static.spec.js`：PASS。
+- `node tests\e2e\edhr-batch-page-graph-tab-static.spec.js`：PASS。
+- `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_mes_edhr_frontline_pqc_menu_sql.py IntRuoyiBackend\script\tests\test_mes_edhr_qa_menu_sql.py -q`：6 passed。
+- `node tests\e2e\edhr-frontline-pqc-menu-real.e2e.js`：PASS，`芋道源码/admin` 可见并打开“一线PQC”。
+- `pnpm ts:check`：PASS。
+- `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py ... --sql-file <依赖闭包 19 个文件>`：PASS，输出 `migration-policy-gate.json`。

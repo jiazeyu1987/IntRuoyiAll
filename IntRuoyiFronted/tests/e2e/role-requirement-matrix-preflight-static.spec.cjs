@@ -1,4 +1,4 @@
-﻿const assert = require('node:assert/strict')
+const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 
@@ -440,6 +440,16 @@ assert.match(
   source,
   /verifyPqcPieceDetailQuantityPrepared[\s\S]*page\.locator\('\[data-pqc-piece-open-button\]'\)[\s\S]*completePqcPieceDetailsForSubmission[\s\S]*data-pqc-inspection-tab[\s\S]*activePanel\.locator\('\[data-pqc-piece-open-button\]'\)/,
   'real E2E must open PQC piece-detail modals through the visible piece-detail button across QA item tabs.'
+)
+assert.match(
+  source,
+  /async function waitForPqcInspectionQuantityHydrated\(page,\s*quantityInput,\s*plannedQuantities[\s\S]*plannedQuantities\.includes\(uiQuantity\)[\s\S]*async function verifyQaRegulationPublishedVersionReadOnly/,
+  'real E2E must wait for PQC inspection quantity hydration against formal plannedInspectionQuantity before judging piece-detail quantity.'
+)
+assert.match(
+  source,
+  /verifyPqcPieceDetailQuantityPrepared[\s\S]*waitForPqcInspectionQuantityHydrated\(page,\s*quantityInput,\s*plannedQuantities\)[\s\S]*category:\s*'E2E_PQC_PIECE_DETAIL'[\s\S]*hydrationTimeoutMs[\s\S]*requestBudget/,
+  'PQC quantity hydration misses must become structured E2E_PQC_PIECE_DETAIL blockers instead of uncaught assertions.'
 )
 
 for (const token of [
@@ -895,6 +905,21 @@ assert.match(
   'RRM real E2E must build a production fill URL with formal route process, signature, quantity, and idempotency context.'
 )
 assert.match(
+  frontlineFixedTemplatePanelSource,
+  /const\s+findInitialProcess[\s\S]*context\.routeProcessId[\s\S]*context\.processId[\s\S]*handleSelectProcess\(initialProcess\)/,
+  'frontline production/PQC fixed template page must initialize the selected process from route query before falling back to the first process.'
+)
+assert.match(
+  frontlineFixedTemplatePanelSource,
+  /const\s+findInitialEmployee[\s\S]*context\.actualEmployeeId[\s\S]*deviceState\.employeeOptions\.find[\s\S]*handleSelectEmployee\(initialEmployee\)/,
+  'frontline fixed template page must initialize the selected employee from actualEmployeeId query before falling back to the first employee.'
+)
+assert.match(
+  source,
+  /async function readFrontlineProductionSubmitState[\s\S]*submitButton\.isDisabled[\s\S]*statusText[\s\S]*async function waitForFrontlineProductionSubmitReady[\s\S]*submitFrontlineProductionForPqcPrereq[\s\S]*waitForFrontlineProductionSubmitReady/,
+  'PQC prerequisite production source event E2E must wait for the production page to finish process/employee/template hydration before declaring the submit button disabled.'
+)
+assert.match(
   source,
   /async function preparePqcFormalSubmissionContext[\s\S]*buildProductionFillUrl[\s\S]*submitFrontlineProductionForPqcPrereq[\s\S]*processPoolEventId/,
   'PQC formal submission must create and capture a fresh processPoolEventId through the real production submit path.'
@@ -905,9 +930,44 @@ assert.match(
   'PQC fill URL must carry the fresh productionSubmitEventId/processPoolEventId instead of relying on historical process-pool state.'
 )
 assert.match(
+  source,
+  /async function clickPqcEmployeeOptionAndWaitForSwitch[\s\S]*for \(let attempt = 1; attempt <= 3; attempt \+= 1\)[\s\S]*targetOption\.click\(\{ timeout: 10000 \}\)[\s\S]*pqcSwitchEmployeeResponseError/,
+  'PQC employee picker clicks must retry real visible options and convert unstable detached DOM into structured personnel blockers.'
+)
+assert.match(
+  source,
+  /async function verifyPqcActualEmployeeSwitch[\s\S]*clickPqcEmployeeOptionAndWaitForSwitch/,
+  'Initial PQC actual-employee selection must use the stable employee-picker helper.'
+)
+assert.match(
+  source,
+  /async function switchPqcActualEmployeeToUser[\s\S]*isPqcEmployeeCardAlreadySelected[\s\S]*clickPqcEmployeeOptionAndWaitForSwitch/,
+  'PQC actual-employee restoration must accept route-hydrated selection and otherwise use the stable employee-picker helper.'
+)
+assert.match(
+  source,
+  /function buildPqcFillUrl\(config,\s*context,\s*employeeEvidence,\s*signatureId\)[\s\S]*appendQueryValue\(query,\s*'signatureId',\s*signatureId\)/,
+  'PQC fill URL must carry the fresh unused signatureId through route query so the real page hydrates pqcSignatureId without a hidden test-only input.'
+)
+assert.match(
   pqcFormalSubmissionSource[0],
   /preparePqcFormalSubmissionContext[\s\S]*buildPqcFillUrl[\s\S]*page\.goto/,
   'verifyPqcFormalSubmissionCreatesEvent must prepare the formal production submit context and reopen PQC with productionSubmitEventId before clicking submit.'
+)
+assert.match(
+  pqcFormalSubmissionSource[0],
+  /resolveUnusedPqcSignatureId[\s\S]*const\s+signatureId\s*=\s*signatureResolution\.signatureId[\s\S]*buildPqcFillUrl\(config,\s*formalSubmissionContext,\s*employeeEvidence,\s*signatureId\)[\s\S]*waitForPqcSubmitReady/,
+  'PQC formal submission must resolve the unused signature before navigation, pass it through URL query, and wait for submit readiness instead of editing a removed control.'
+)
+assert.doesNotMatch(
+  pqcFormalSubmissionSource[0],
+  /#frontlinePqcSignatureId/,
+  'PQC formal submission E2E must not wait for the removed #frontlinePqcSignatureId input; signature context is route-query driven.'
+)
+assert.match(
+  frontlineFixedTemplatePanelSource,
+  /pqcSignatureId\.value\s*=\s*firstRouteQueryNumber\(\['signatureId'\]\)\s*\?\?\s*pqcSignatureId\.value/,
+  'frontline PQC page must hydrate pqcSignatureId from the signatureId route query.'
 )
 assert.doesNotMatch(
   source,

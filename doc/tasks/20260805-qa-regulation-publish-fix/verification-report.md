@@ -16,6 +16,8 @@
 - `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js`：PASS，系统标准列表模板接入点 88 个、显式隐藏筛选列表 14 个。
 - `pnpm ts:check`：PASS，前端 Vue/TypeScript 类型检查通过。
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md`：PASS，frontend feature evidence 有效。
+- `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/backend-api-evidence.md`：PASS，backend API evidence 有效。
+- 48081 运行态 QA endpoint 探针：PASS，旧运行 Jar 缺少 `save-qa-regulation-route-by-item` 并在截图请求时返回 `NoResourceFoundException`；当前 48081 运行 Jar 已包含该 endpoint，登录态调用同一路径并使用无效 routeId 返回 `1040501000 / 工艺路线不存在`，证明路由已注册且不再是 `请求地址不存在`。
 - QA 页面专属排序接线断言：PASS，输出 `PASS QA standard list sort wiring`。
 - `docs/frontend-development.md`：UPDATED，已将标准列表系统接入点 88 和显式隐藏筛选 14 的长期门禁证据合并到既有前端规则。
 - `docs/backend-development.md` / `docs/experience-index.md`：UPDATED，已将产品维护页已启用路线不可维护和 QA 规程手动绑定允许已发布路线拆成两条门禁。
@@ -26,9 +28,10 @@
 - `mvn -pl yudao-module-mes -am "-Dtest=MesQaInspectionRegulationServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`：BLOCKED，`testCompile` 被共享 `target/classes` 缺失阻断；检查时存在其它非本任务 Maven 进程写入同一 `E:\IntRuoyi\IntRuoyiBackend\yudao-module-mes\target`。
 - 限制 `maven.compiler.testIncludes=**/MesQaInspectionRegulationServiceTest.java` 后复跑：BLOCKED，20 分钟超时；期间主工作区仍出现其它非本任务 Maven 测试进程。
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProRouteProductServiceImplTest,MesProRouteProductBindFromWorkOrdersTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`：标准 `-am` 修正后复跑两次超时且无新 Surefire 结果；已按任务边界只停止本任务 Maven PID 47976 和 50448，随后用 Maven 建议的 `-rf :yudao-module-mes` 恢复执行并取得 PASS。
+- `restart-int-ruoyi-local.ps1 -Component backend`：BLOCKED，Maven package 超时；线程栈命中项目已记录的 Windows `IncrementalBuildHelper.beforeRebuildExecution -> WinNTFileSystem.delete0` target 删除卡住问题。已仅停止本次重启脚本派生 Maven/restart PIDs；当前 48081 由包含 QA endpoint 的后续 hotpatch Jar 正常提供服务。
 - `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：当前复跑 BLOCKED，失败于 `Pressure-pump IDI seed data must contain all 22 PDF 5.1 process inspection rows. 5 !== 22`；该失败不在截图“手动绑定工艺路线不能选择”的聚焦验证链路内，本次用 `qa-regulation-manual-route-selectable-static.spec.cjs` 锁定该回归。
 - `node tests\e2e\unified-list-template-all-headers-sortable-static.spec.js`：BLOCKED，当前全局契约被大量既有页面排序 helper 历史缺口阻塞；QA 页面聚焦扫描已确认新增四个标准列表均接入排序 helper。
 
 ## Result
 
-blocked：QA 页面项目选择区收窄、Tab + 标准列表模板改造、正式工艺路线适用范围自动带出、黄框字段移除和手动绑定已发布/已启用工艺路线已完成，并通过聚焦静态契约、QA 绑定后端 JUnit、标准列表数量契约、`pnpm ts:check`、frontend evidence validator 与 diff check；完整 AC-M09 后端目标 JUnit 仍需共享 Maven target 空闲后复跑，当前不提交、不推送、不标记 completed。
+blocked：QA 页面项目选择区收窄、Tab + 标准列表模板改造、正式工艺路线适用范围自动带出、黄框字段移除和手动绑定已发布/已启用工艺路线已完成；截图中的 `save-qa-regulation-route-by-item` 运行态 404 已恢复为正式业务校验响应，并通过聚焦静态契约、QA 绑定后端 JUnit、标准列表数量契约、`pnpm ts:check`、frontend/backend evidence、运行态登录探针与 diff check；完整 AC-M09 后端目标 JUnit 仍需共享 Maven target 空闲后复跑，当前不提交、不推送、不标记 completed。

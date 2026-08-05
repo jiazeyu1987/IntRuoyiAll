@@ -24,13 +24,14 @@
 - `node tests/e2e/qa-regulation-manual-route-selectable-static.spec.cjs`
 - `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs`
 - `node tests/e2e/unified-list-template-empty-tabs-system-static.spec.js`
+- 登录态 API 探针：`POST /admin-api/mes/pro/route-product/save-qa-regulation-route-by-item` 使用无效 routeId 返回业务校验错误而非 `请求地址不存在`。
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md`
 - `pnpm ts:check` 如前端类型链路改动需要全量类型验证。
 - `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs IntRuoyiFronted/tests/e2e/unified-list-template-empty-tabs-system-static.spec.js doc/tasks/20260805-qa-regulation-publish-fix/task.md doc/tasks/20260805-qa-regulation-publish-fix/execution-log.md doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md docs/backend-development.md docs/experience-index.md`
 
 ## Current Status
 
-blocked：QA 项目选择区已收窄为单一必填 DCC 项目代码下拉框，并在选中项目后才展示 Tab、适用范围、检验规则、检验项目和发布检查；适用范围中的路线版本、路线工序、SOP、正式批记录绑定等黄框字段仍由正式工艺路线自动带出。QA 页面显式“手动绑定工艺路线”已允许选择已发布/已启用路线，选项模板显式 `:disabled="false"`，保存走 QA 专用 `saveQaRegulationRouteProductByItem` 后端入口，后端校验路线存在且有 ACTIVE 版本但不调用产品维护页的 `validateRouteNotEnable` 守卫，绑定后重新按正式路线版本和质检工序带出范围；完整 AC-M09 后端目标 JUnit 仍受共享 Maven target 阻塞，暂不标记 completed。
+blocked：QA 项目选择区已收窄为单一必填 DCC 项目代码下拉框，并在选中项目后才展示 Tab、适用范围、检验规则、检验项目和发布检查；适用范围中的路线版本、路线工序、SOP、正式批记录绑定等黄框字段仍由正式工艺路线自动带出。QA 页面显式“手动绑定工艺路线”已允许选择已发布/已启用路线，选项模板显式 `:disabled="false"`，保存走 QA 专用 `saveQaRegulationRouteProductByItem` 后端入口，后端校验路线存在且有 ACTIVE 版本但不调用产品维护页的 `validateRouteNotEnable` 守卫，绑定后重新按正式路线版本和质检工序带出范围；截图中的运行态 `请求地址不存在` 已定位为旧 48081 Jar 未加载 QA endpoint，当前 48081 已切换到包含 QA endpoint 的运行 Jar，登录态探针返回“工艺路线不存在”业务校验而非 404；完整 AC-M09 后端目标 JUnit 仍受共享 Maven target 阻塞，暂不标记 completed。
 
 ## Baseline Commits
 

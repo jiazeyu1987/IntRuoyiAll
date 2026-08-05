@@ -26,6 +26,8 @@
 
 2026-08-05 十一次反馈：用户要求“把当前系统的PQC填写改成与更新后的HTML预览的效果一致”，即正式 Vue 页面必须与最新 HTML 预览的 tab 视觉和完整显示规则保持一致。
 
+2026-08-05 十二次反馈：用户基于截图要求“黄框里的不显示，损耗数量该描述为损耗，检验数量该表述为检验，不良说明改描述为不良”，即右侧填写区隐藏黄框说明和签名编号展示，同时压缩三个字段标签。
+
 ## Preflight
 
 - 读取 `docs/frontend-development.md`、`docs/task-closeout-rules.md`、`docs/powershell-encoding.md`、`docs/powershell-memory.md`。
@@ -38,6 +40,7 @@
 - BDD: PQC 红框区域风格统一 -> Given PQC 填写页主界面使用大字号、粗边框、圆角和深绿操作按钮 When 用户查看检验内容卡片中的设备、标准、方法区域 Then 该区域应使用同等触控面积、边框、字号和信息层级，而不是原生小 select/button。
 - BDD: PQC 选中 tab 黄色高亮且无绿条 -> Given PQC 检验项以 tab 形式展示 When 操作员选中一个检验项 Then 该 tab 使用黄色背景表达选中态，并且不显示旧的绿色顶部状态条。
 - BDD: 正式 PQC tab 与 HTML 预览一致 -> Given HTML 预览中 10 个 tab 的“要求”和“已填进度”完整展示 When 当前系统 PQC 填写页渲染正式 tab Then 正式页应保留同样的黄底选中态、无绿色条和完整字段显示规则。
+- BDD: 右侧填写区黄框内容隐藏 -> Given 操作员查看 PQC 右侧填写区 When 页面渲染数量、损耗和不良输入 Then 不显示黄框内说明文字和签名编号输入，且标签显示为“检验 / 损耗 / 不良”。
 
 ## Milestone Evidence
 
@@ -46,6 +49,7 @@
 - 原型输出：`doc/tasks/20260805-pqc-redbox-ui-prototype/pqc-redbox-ui-prototype.html`。
 - 正式实现输出：`IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue` 已使用 `data-pqc-active-inspection-panel` 单一当前项详情、`data-pqc-inspection-tabs` 检验项 tab、`repeat(5, minmax(0, 1fr))` 10-tab 网格和触控式设备/编号信息卡。
 - 最新选中态输出：`.pqc-item-tab.active` 已改为黄色背景 `#fff4bf`，active 伪元素 `&::before` 使用 `display: none` 且 `background: transparent`，不再显示黄框中的绿色条。
+- 最新右侧填写区输出：PQC 数量标签从“检验数量 / 损耗数量 / 不良说明”改为“检验 / 损耗 / 不良”，黄框说明文字和 `frontlinePqcSignatureId` 签名编号输入不再渲染；`pqcSignatureId` 状态、错误文案和提交校验链路保留。
 - 正式静态契约输出：`IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js`。
 - 前端技能证据输出：`doc/tasks/20260805-pqc-redbox-ui-prototype/frontend-feature-evidence.md`。
 
@@ -105,8 +109,24 @@
 - GREEN: `node tests/e2e/pqc-item-equipment-standard-method-static.spec.js` -> PASS。
 - GREEN: `pnpm ts:check` -> PASS。
 - GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js doc/tasks/20260805-pqc-redbox-ui-prototype docs/frontend-development.md docs/experience-index.md` -> PASS。
+- 2026-08-05 用户追加强要求：“要肉眼完全一致”。
+- RED: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> FAIL，预期原因：正式最大化态仍是 edge-to-edge fullscreen 布局，未使用 HTML 预览的 26px 外边距、1480px 画布、圆角与阴影。
+- GREEN: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> PASS，已锁定最大化态画布、顶部卡片比例、左右面板间距和右侧数量控件尺寸与 HTML 预览一致。
+- GREEN: 只读 SQL 核对正式 PQC 数据 -> PASS，`mes_pqc_inspection_task` + `mes_qa_inspection_regulation_item` 显示当前本机活跃 PQC 工单 `PQC-E2E-FS-20260804` 中最多检验项的 `11. 光固Ⅱ工序` 只有 7 个 PATROL 检验项，低于 HTML 预览的 10 个 tab。
+- BLOCKED: `node doc/tasks/20260805-pqc-redbox-ui-prototype/pqc-real-visual-alignment.e2e.cjs` -> FAIL，预期原因：真实最大化截图已生成，但真实数据只渲染 7 个 tab，无法声明与 10-tab HTML 预览肉眼完全一致。输出 `output/playwright/20260805-pqc-redbox-ui-prototype/pqc-real-fullscreen-1440.png` 与 `output/playwright/20260805-pqc-redbox-ui-prototype/pqc-real-visual-result.json`，结果状态 `BLOCKED_BY_REAL_DATA`。
+- GREEN: 真实截图样式指标 -> PASS，`pqc-real-visual-result.json` 记录 `isFullscreen=true`、`panelPadding=26px`、`screenWidth=1388`、`screenGap=18px`、`screenPadding=24px`、`mainGap=28px`、`activeBackground=rgb(255, 244, 191)`、`activeBeforeDisplay=none`、`tabGridColumns` 为 5 列。
+- GREEN: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/pqc-item-equipment-standard-method-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js doc/tasks/20260805-pqc-redbox-ui-prototype` -> PASS。
+- RED: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> FAIL，预期原因：右侧填写区仍显示黄框说明文字、签名编号输入和长标签文案。
+- GREEN: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> PASS，已验证右侧填写区不渲染说明文字和签名编号输入，标签为“检验 / 损耗 / 不良”，并且不存在对应残留 CSS 选择器。
+- GREEN: `node tests/e2e/pqc-item-equipment-standard-method-static.spec.js` -> PASS，设备、编号、标准和方法相邻契约未被破坏。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `node doc\tasks\20260805-pqc-redbox-ui-prototype\pqc-real-visual-alignment.e2e.cjs` -> BLOCKED，预期原因仍为真实数据 7 个 tab 对 10-tab 预览不足；新截图已重新生成，右侧黄框内容不显示且短标签已生效。
+- GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js doc/tasks/20260805-pqc-redbox-ui-prototype` -> PASS。
 
 ## Remaining Blockers
 
-- 正式 Vue 页面已完成，本轮不再存在实现阻塞。
+- 肉眼完全一致阻塞：当前本地真实 PQC 数据最多只渲染 7 个检验项 tab，而 HTML 预览是 10 个 tab；未获用户明确批准前，不创建任务自有 10 项 PQC 数据，也不通过 mock/占位 tab/改业务数据伪造一致。
 - Cleanup/Git 收尾阻塞：当前环境缺少可调用的 closeout cleanup 命令；`git status --short --branch` 显示当前分支未标记 ahead，但存在多项非本任务脏改动。为避免混入并发任务改动，本轮未提交或推送。

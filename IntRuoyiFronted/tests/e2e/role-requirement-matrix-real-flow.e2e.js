@@ -1,4 +1,4 @@
-﻿const fs = require('node:fs')
+const fs = require('node:fs')
 const path = require('node:path')
 const assert = require('node:assert/strict')
 
@@ -2318,6 +2318,30 @@ async function verifyPqcRegulationItemsRendered(page, config, actionEvidence) {
   }
 }
 
+async function waitForPqcInspectionQuantityHydrated(page, quantityInput, plannedQuantities, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs
+  let rawValue = ''
+  let uiQuantity = 0
+  while (Date.now() < deadline) {
+    rawValue = String(await quantityInput.inputValue().catch(() => ''))
+    uiQuantity = Number(rawValue)
+    if (plannedQuantities.includes(uiQuantity)) {
+      return {
+        status: 'PASS',
+        rawValue,
+        uiQuantity
+      }
+    }
+    await page.waitForTimeout(250)
+  }
+  return {
+    status: 'BLOCKED',
+    rawValue,
+    uiQuantity,
+    timeoutMs
+  }
+}
+
 async function verifyQaRegulationPublishedVersionReadOnly(page, config) {
   const initialQaSectionEvidence = await page.waitForSelector('[data-qa-regulation-section]', {
     state: 'attached',
@@ -2464,11 +2488,25 @@ async function verifyPqcPieceDetailQuantityPrepared(page, config, actionEvidence
     })
     const quantityInput = page.locator('#frontlinePqcInspectionQuantity').first()
     await quantityInput.waitFor({ state: 'visible', timeout: 30000 })
-    const uiQuantity = Number(await quantityInput.inputValue())
-    assert.ok(
-      plannedQuantities.includes(uiQuantity),
-      `PQC 页面检验数量 ${uiQuantity} 必须来自正式 task plannedInspectionQuantity：${plannedQuantities.join(', ')}。`
-    )
+    const quantityResolution = await waitForPqcInspectionQuantityHydrated(page, quantityInput, plannedQuantities)
+    if (quantityResolution.status !== 'PASS') {
+      return {
+        key: 'pqcPieceDetailQuantityPrepared',
+        label: 'PQC 逐件明细数量按计划数量准备',
+        roleKey: 'pqcInspector',
+        status: 'BLOCKED',
+        category: 'E2E_PQC_PIECE_DETAIL',
+        acceptanceIds: ['AC-D27'],
+        activeOrderId: joinEvidence.activeOrderId,
+        plannedQuantities,
+        uiQuantity: quantityResolution.uiQuantity,
+        rawQuantityValue: quantityResolution.rawValue,
+        hydrationTimeoutMs: quantityResolution.timeoutMs,
+        requestBudget: requestBudgetTracker.snapshot(),
+        description: `PQC 页面检验数量未在 ${quantityResolution.timeoutMs}ms 内水合为正式 task plannedInspectionQuantity：${plannedQuantities.join(', ')}。`
+      }
+    }
+    const uiQuantity = quantityResolution.uiQuantity
 
     const firstEntry = page.locator('[data-pqc-piece-open-button]').first()
     if (await firstEntry.count() === 0) {
@@ -2668,6 +2706,52 @@ async function loadPqcPersonnelViaAuth(page, label) {
   }
 }
 
+function pqcEmployeeCardLocator(page) {
+  return page
+    .locator('.frontline-operator-top.is-pqc .frontline-top-card')
+    .filter({ hasText: '员工' })
+    .first()
+}
+
+async function isPqcEmployeeCardAlreadySelected(employeeCard, targetLabel) {
+  const text = await employeeCard.innerText().catch(() => '')
+  return text.includes(targetLabel)
+}
+
+async function clickPqcEmployeeOptionAndWaitForSwitch(page, employeeCard, targetLabel) {
+  let lastClickError
+  let lastResponseError
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    await employeeCard.waitFor({ state: 'visible', timeout: 30000 })
+    const pickerVisible = await page.locator('.frontline-picker').first().isVisible().catch(() => false)
+    if (!pickerVisible) {
+      await employeeCard.click()
+    }
+    const targetOption = page
+      .locator('.frontline-picker__options button')
+      .filter({ hasText: targetLabel })
+      .first()
+    await targetOption.waitFor({ state: 'visible', timeout: 30000 })
+    const switchResponsePromise = page.waitForResponse((response) =>
+      response.url().includes('/mes/pro/feedback/frontline/device-account/pqc/switch-employee')
+        && response.request().method() === 'POST'
+    , { timeout: 30000 }).catch((error) => ({ pqcSwitchEmployeeResponseError: error }))
+    const clickError = await targetOption.click({ timeout: 10000 }).then(() => null).catch((error) => error)
+    if (!clickError) {
+      const switchResponse = await switchResponsePromise
+      if (switchResponse.pqcSwitchEmployeeResponseError) {
+        lastResponseError = switchResponse.pqcSwitchEmployeeResponseError
+        return { pqcSwitchEmployeeResponseError: lastResponseError }
+      }
+      return { switchResponse }
+    }
+    lastClickError = clickError
+    await page.waitForTimeout(750)
+  }
+  return {
+    pqcSwitchEmployeeResponseError: lastClickError || lastResponseError || new Error('PQC employee option click did not complete.')
+  }
+}
 async function verifyPqcActualEmployeeSwitch(page, config, actionEvidence) {
   const joinEvidence = actionEvidence.find((item) => item.key === 'joinActiveOrder' && item.status === 'PASS')
   const readOnlyEvidence = actionEvidence.find((item) => item.key === 'activeOrderCrossRoleReadOnly' && item.status === 'PASS')
@@ -2762,24 +2846,10 @@ async function verifyPqcActualEmployeeSwitch(page, config, actionEvidence) {
   const targetCandidate = nonLoginCandidate || reviewSafeCandidates[0]
   const nonLoginCandidateAvailable = Boolean(nonLoginCandidate)
 
-  const employeeCard = page
-    .locator('.frontline-operator-top.is-pqc .frontline-top-card')
-    .filter({ hasText: '员工' })
-    .first()
-  await employeeCard.waitFor({ state: 'visible', timeout: 30000 })
-  await employeeCard.click()
-  const targetOption = page
-    .locator('.frontline-picker__options button')
-    .filter({ hasText: targetCandidate.label })
-    .first()
-  await targetOption.waitFor({ state: 'visible', timeout: 30000 })
-  const switchResponsePromise = page.waitForResponse((response) =>
-    response.url().includes('/mes/pro/feedback/frontline/device-account/pqc/switch-employee')
-      && response.request().method() === 'POST'
-  , { timeout: 30000 }).catch((error) => ({ pqcSwitchEmployeeResponseError: error }))
-  await targetOption.click()
-  const switchResponse = await switchResponsePromise
-  if (switchResponse.pqcSwitchEmployeeResponseError) {
+  const employeeCard = pqcEmployeeCardLocator(page)
+  const switchResult = await clickPqcEmployeeOptionAndWaitForSwitch(page, employeeCard, targetCandidate.label)
+  const switchResponse = switchResult.switchResponse
+  if (switchResult.pqcSwitchEmployeeResponseError) {
     return {
       key: 'pqcActualEmployeeSelected',
       label: '共享账号下选择实际 PQC 检验人员',
@@ -2789,7 +2859,7 @@ async function verifyPqcActualEmployeeSwitch(page, config, actionEvidence) {
       acceptanceIds: ['AC-D25', 'AC-D31'],
       activeOrderId: joinEvidence.activeOrderId,
       actualEmployeeId: targetCandidate.userId,
-      description: `页面点击实际 PQC 人员后未捕获 switch-employee 响应：${switchResponse.pqcSwitchEmployeeResponseError.message}`
+      description: `页面点击实际 PQC 人员后未捕获 switch-employee 响应：${switchResult.pqcSwitchEmployeeResponseError.message}`
     }
   }
   assert.ok(switchResponse.ok(), `PQC 实际人员切换 HTTP 失败：${switchResponse.status()}`)
@@ -2888,40 +2958,31 @@ async function switchPqcActualEmployeeToUser(page, config, actionEvidence, targe
     }
   }
 
-  const employeeCard = page
-    .locator('.frontline-operator-top.is-pqc .frontline-top-card')
-    .filter({ hasText: '员工' })
-    .first()
+  const employeeCard = pqcEmployeeCardLocator(page)
   await employeeCard.waitFor({ state: 'visible', timeout: 30000 })
-  await employeeCard.click()
-  const targetOption = page
-    .locator('.frontline-picker__options button')
-    .filter({ hasText: targetCandidate.label })
-    .first()
-  await targetOption.waitFor({ state: 'visible', timeout: 30000 })
-  const switchResponsePromise = page.waitForResponse((response) =>
-    response.url().includes('/mes/pro/feedback/frontline/device-account/pqc/switch-employee')
-      && response.request().method() === 'POST'
-  , { timeout: 30000 }).catch((error) => ({ pqcSwitchEmployeeResponseError: error }))
-  await targetOption.click()
-  const switchResponse = await switchResponsePromise
-  if (switchResponse.pqcSwitchEmployeeResponseError) {
-    return {
-      key: evidenceKey,
-      label,
-      roleKey: 'pqcInspector',
-      status: 'BLOCKED',
-      category: 'E2E_PQC_PERSONNEL',
-      acceptanceIds,
-      activeOrderId: joinEvidence.activeOrderId,
-      targetUserId,
-      description: `页面点击目标 PQC 人员后未捕获 switch-employee 响应：${switchResponse.pqcSwitchEmployeeResponseError.message}`
+  const alreadySelected = await isPqcEmployeeCardAlreadySelected(employeeCard, targetCandidate.label)
+  let switchBody = { data: { actualEmployeeId: Number(targetUserId) } }
+  if (!alreadySelected) {
+    const switchResult = await clickPqcEmployeeOptionAndWaitForSwitch(page, employeeCard, targetCandidate.label)
+    const switchResponse = switchResult.switchResponse
+    if (switchResult.pqcSwitchEmployeeResponseError) {
+      return {
+        key: evidenceKey,
+        label,
+        roleKey: 'pqcInspector',
+        status: 'BLOCKED',
+        category: 'E2E_PQC_PERSONNEL',
+        acceptanceIds,
+        activeOrderId: joinEvidence.activeOrderId,
+        targetUserId,
+        description: `页面点击目标 PQC 人员后未捕获 switch-employee 响应：${switchResult.pqcSwitchEmployeeResponseError.message}`
+      }
     }
+    assert.ok(switchResponse.ok(), `PQC 目标人员切换 HTTP 失败：${switchResponse.status()}`)
+    switchBody = await switchResponse.json()
+    assert.equal(switchBody.code, 0, `PQC 目标人员切换业务失败：${responseMessage(switchBody)}`)
+    assert.equal(Number(switchBody.data?.actualEmployeeId), Number(targetUserId), 'PQC 目标人员切换响应必须保存指定 actualEmployeeId。')
   }
-  assert.ok(switchResponse.ok(), `PQC 目标人员切换 HTTP 失败：${switchResponse.status()}`)
-  const switchBody = await switchResponse.json()
-  assert.equal(switchBody.code, 0, `PQC 目标人员切换业务失败：${responseMessage(switchBody)}`)
-  assert.equal(Number(switchBody.data?.actualEmployeeId), Number(targetUserId), 'PQC 目标人员切换响应必须保存指定 actualEmployeeId。')
   await employeeCard.filter({ hasText: targetCandidate.label }).waitFor({ state: 'visible', timeout: 30000 })
 
   return {
@@ -3088,7 +3149,7 @@ function buildProductionFillUrl(config, context) {
   return `${config.frontendUrl}${PRODUCTION_FILL_ROUTE}?${query.toString()}`
 }
 
-function buildPqcFillUrl(config, context, employeeEvidence) {
+function buildPqcFillUrl(config, context, employeeEvidence, signatureId) {
   const query = new URLSearchParams()
   appendQueryValue(query, 'workOrderId', config.workOrderId)
   appendQueryValue(query, 'workOrderCode', config.productionOrderCode)
@@ -3096,6 +3157,7 @@ function buildPqcFillUrl(config, context, employeeEvidence) {
   appendQueryValue(query, 'productionSubmitEventId', context.processPoolEventId)
   appendQueryValue(query, 'processPoolEventId', context.processPoolEventId)
   appendQueryValue(query, 'actualEmployeeId', employeeEvidence?.actualEmployeeId)
+  appendQueryValue(query, 'signatureId', signatureId)
   appendQueryValue(query, 'regulationVersionId', config.qaRegulationVersionId)
   appendQueryValue(query, 'pqcSubmissionIdempotencyKey', `rrm-pqc-${context.processPoolEventId}-${Date.now()}`)
   return `${config.frontendUrl}${PQC_FILL_ROUTE}?${query.toString()}`
@@ -3265,14 +3327,87 @@ function extractProcessPoolEventIdFromFrontlineResponse(body) {
   return requirePositiveFormalId(data?.processPoolEventId, '一线生产提交响应 processPoolEventId')
 }
 
+async function readFrontlineProductionSubmitState(page, submitButton) {
+  const [disabled, topCards, visibleErrors] = await Promise.all([
+    submitButton.isDisabled().catch(() => true),
+    page.locator('[data-frontline-production-operator] .frontline-top-card')
+      .allInnerTexts()
+      .catch(() => []),
+    page.locator('.el-message, .el-message__content')
+      .allInnerTexts()
+      .catch(() => [])
+  ])
+  return {
+    disabled,
+    statusText: [
+      ...topCards.map((text) => text.replace(/\s+/g, ' ').trim()).filter(Boolean),
+      ...visibleErrors.map((text) => text.replace(/\s+/g, ' ').trim()).filter(Boolean)
+    ].join(' | ')
+  }
+}
+
+async function waitForFrontlineProductionSubmitReady(page, submitButton) {
+  const startedAt = Date.now()
+  let latestState = { disabled: true, statusText: '' }
+  while (Date.now() - startedAt < 60000) {
+    latestState = await readFrontlineProductionSubmitState(page, submitButton)
+    if (!latestState.disabled) {
+      return { status: 'PASS', ...latestState }
+    }
+    await page.waitForTimeout(500)
+  }
+  return { status: 'BLOCKED', ...latestState }
+}
+
+async function readPqcSubmitState(page, submitButton) {
+  const [disabled, topCards, inspectionPanels, visibleErrors, signatureIdQuery] = await Promise.all([
+    submitButton.isDisabled().catch(() => true),
+    page.locator('[data-frontline-pqc-operator] .frontline-top-card')
+      .allInnerTexts()
+      .catch(() => []),
+    page.locator('[data-frontline-pqc-operator] [data-pqc-active-inspection-panel], [data-frontline-pqc-operator] [data-pqc-inspection-meta]')
+      .allInnerTexts()
+      .catch(() => []),
+    page.locator('.el-message, .el-message__content')
+      .allInnerTexts()
+      .catch(() => []),
+    page.evaluate(() => new URL(window.location.href).searchParams.get('signatureId'))
+      .catch(() => null)
+  ])
+  return {
+    disabled,
+    signatureIdQuery,
+    statusText: [
+      ...topCards,
+      ...inspectionPanels,
+      ...visibleErrors
+    ].map((text) => text.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' | ')
+  }
+}
+
+async function waitForPqcSubmitReady(page, submitButton, expectedSignatureId) {
+  const startedAt = Date.now()
+  let latestState = { disabled: true, signatureIdQuery: null, statusText: '' }
+  while (Date.now() - startedAt < 60000) {
+    latestState = await readPqcSubmitState(page, submitButton)
+    if (!latestState.disabled && Number(latestState.signatureIdQuery) === Number(expectedSignatureId)) {
+      return { status: 'PASS', ...latestState }
+    }
+    await page.waitForTimeout(500)
+  }
+  return { status: 'BLOCKED', ...latestState }
+}
+
 async function submitFrontlineProductionForPqcPrereq(page, config, context) {
   const submitButton = page.locator('[data-frontline-production-operator] .frontline-production-submit-button').first()
   await submitButton.waitFor({ state: 'visible', timeout: 30000 })
-  if (await submitButton.isDisabled()) {
+  const readyResult = await waitForFrontlineProductionSubmitReady(page, submitButton)
+  if (readyResult.status !== 'PASS') {
     return {
       status: 'BLOCKED',
       category: 'E2E_PQC_SOURCE_EVENT',
-      description: '生产填写页提交按钮仍为禁用状态，不能生成 PQC 正式提交所需 source event。'
+      disabledState: readyResult.statusText,
+      description: `生产填写页提交按钮仍为禁用状态，不能生成 PQC 正式提交所需 source event。当前页面状态：${readyResult.statusText || '未读取到上下文'}。`
     }
   }
   const submitResponsePromise = page.waitForResponse((response) =>
@@ -3459,7 +3594,26 @@ async function verifyPqcFormalSubmissionCreatesEvent(page, config, actionEvidenc
       }
     )
   }
-  const pqcFillUrl = buildPqcFillUrl(config, formalSubmissionContext, employeeEvidence)
+  requireSignatureId(config, 'pqcInspector')
+  const signatureResolution = await resolveUnusedPqcSignatureId(page, config, 'pqcInspector')
+  if (signatureResolution.status !== 'PASS') {
+    return {
+      key: 'pqcFormalSubmissionCreated',
+      label: 'PQC 正式提交生成过程池检验事件',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: signatureResolution.category,
+      acceptanceIds: ['AC-D29', 'AC-D32'],
+      activeOrderId: joinEvidence.activeOrderId,
+      candidateSignatureIds: signatureResolution.candidateSignatureIds,
+      usedSignatureIds: signatureResolution.usedSignatureIds,
+      submissionTotal: signatureResolution.submissionTotal,
+      description: signatureResolution.description
+    }
+  }
+  const signatureId = signatureResolution.signatureId
+
+  const pqcFillUrl = buildPqcFillUrl(config, formalSubmissionContext, employeeEvidence, signatureId)
   await page.goto(pqcFillUrl, { waitUntil: 'domcontentloaded', timeout: 90000 })
   await page.locator('[data-frontline-pqc-operator]').first().waitFor({ state: 'visible', timeout: 60000 })
   const restoredEmployeeEvidence = await switchPqcActualEmployeeToUser(
@@ -3498,30 +3652,10 @@ async function verifyPqcFormalSubmissionCreatesEvent(page, config, actionEvidenc
     )
   }
 
-  requireSignatureId(config, 'pqcInspector')
-  const signatureResolution = await resolveUnusedPqcSignatureId(page, config, 'pqcInspector')
-  if (signatureResolution.status !== 'PASS') {
-    return {
-      key: 'pqcFormalSubmissionCreated',
-      label: 'PQC 正式提交生成过程池检验事件',
-      roleKey: 'pqcInspector',
-      status: 'BLOCKED',
-      category: signatureResolution.category,
-      acceptanceIds: ['AC-D29', 'AC-D32'],
-      activeOrderId: joinEvidence.activeOrderId,
-      candidateSignatureIds: signatureResolution.candidateSignatureIds,
-      usedSignatureIds: signatureResolution.usedSignatureIds,
-      submissionTotal: signatureResolution.submissionTotal,
-      description: signatureResolution.description
-    }
-  }
-  const signatureId = signatureResolution.signatureId
-  const signatureInput = page.locator('#frontlinePqcSignatureId').first()
-  await signatureInput.waitFor({ state: 'visible', timeout: 30000 })
-  await signatureInput.fill(String(signatureId))
   const submitButton = page.locator('.frontline-pqc-submit-button').first()
   await submitButton.waitFor({ state: 'visible', timeout: 30000 })
-  if (await submitButton.isDisabled()) {
+  const submitReady = await waitForPqcSubmitReady(page, submitButton, signatureId)
+  if (submitReady.status !== 'PASS') {
     return {
       key: 'pqcFormalSubmissionCreated',
       label: 'PQC 正式提交生成过程池检验事件',
@@ -3531,9 +3665,11 @@ async function verifyPqcFormalSubmissionCreatesEvent(page, config, actionEvidenc
       acceptanceIds: ['AC-D29', 'AC-D32'],
       activeOrderId: joinEvidence.activeOrderId,
       signatureId,
+      signatureIdQuery: submitReady.signatureIdQuery,
+      disabledState: submitReady.statusText,
       candidateSignatureIds: signatureResolution.candidateSignatureIds,
       usedSignatureIds: signatureResolution.usedSignatureIds,
-      description: 'PQC 页面提交按钮仍为禁用状态，不能证明签名和正式提交上下文已满足。'
+      description: `PQC 页面未通过 URL signatureId 恢复可提交状态，不能证明签名和正式提交上下文已满足。当前 query signatureId=${submitReady.signatureIdQuery || '空'}，页面状态：${submitReady.statusText || '未读取到上下文'}。`
     }
   }
 

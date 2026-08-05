@@ -385,10 +385,10 @@
           </div>
           <div class="frontline-pqc-form-area">
             <div class="frontline-pqc-number-field">
-              <label for="frontlinePqcInspectionQuantity">检验数量</label>
+              <label for="frontlinePqcInspectionQuantity">检验</label>
               <button
                 type="button"
-                aria-label="检验数量减少"
+                aria-label="检验减少"
                 :disabled="isPqcInspectionQuantityLocked"
                 @click="adjustPqcQuantity('inspectionQuantity', -1)"
               >
@@ -405,7 +405,7 @@
               />
               <button
                 type="button"
-                aria-label="检验数量增加"
+                aria-label="检验增加"
                 :disabled="isPqcInspectionQuantityLocked"
                 @click="adjustPqcQuantity('inspectionQuantity', 1)"
               >
@@ -414,10 +414,10 @@
               <span>件</span>
             </div>
             <div class="frontline-pqc-number-field">
-              <label for="frontlinePqcScrapQuantity">损耗数量</label>
+              <label for="frontlinePqcScrapQuantity">损耗</label>
               <button
                 type="button"
-                aria-label="损耗数量减少"
+                aria-label="损耗减少"
                 @click="adjustPqcQuantity('scrapQuantity', -1)"
               >
                 -
@@ -432,7 +432,7 @@
               />
               <button
                 type="button"
-                aria-label="损耗数量增加"
+                aria-label="损耗增加"
                 @click="adjustPqcQuantity('scrapQuantity', 1)"
               >
                 +
@@ -440,7 +440,7 @@
               <span>件</span>
             </div>
             <div class="frontline-pqc-defect-description">
-              <label for="frontlinePqcDefectDescription">不良说明</label>
+              <label for="frontlinePqcDefectDescription">不良</label>
               <textarea
                 id="frontlinePqcDefectDescription"
                 data-pqc-defect-description
@@ -449,19 +449,6 @@
                 rows="3"
                 @input="updatePqcDefectDescription"
               ></textarea>
-              <small>检验不合格或损耗数量大于 0 时必填，随本次 PQC 原始快照保存。</small>
-            </div>
-            <div class="frontline-pqc-number-field is-signature">
-              <label for="frontlinePqcSignatureId">签名编号</label>
-              <input
-                id="frontlinePqcSignatureId"
-                :value="pqcSignatureId ?? ''"
-                type="number"
-                min="1"
-                inputmode="numeric"
-                @input="updatePqcSignatureId"
-              />
-              <span>ID</span>
             </div>
           </div>
         </section>
@@ -1830,14 +1817,48 @@ const handleProductionFullscreenToggle = async () => {
   }
 }
 
+const findInitialProcess = (
+  processes: FrontlineDeviceRouteProcessVO[] = switchableProcessOptions.value
+) => {
+  const requestedRouteId = context.routeId
+  const requestedRouteProcessId = context.routeProcessId
+  const requestedProcessId = context.processId
+  if (requestedRouteId || requestedRouteProcessId || requestedProcessId) {
+    const matchedProcess = processes.find((process) =>
+      (!requestedRouteId || process.routeId === requestedRouteId) &&
+      (!requestedRouteProcessId || process.routeProcessId === requestedRouteProcessId) &&
+      (!requestedProcessId || process.processId === requestedProcessId)
+    )
+    if (matchedProcess) {
+      return matchedProcess
+    }
+  }
+  return processes[0]
+}
+
+const findInitialEmployee = () => {
+  const requestedActualEmployeeId = context.actualEmployeeId
+  if (requestedActualEmployeeId) {
+    const matchedEmployee = deviceState.employeeOptions.find((employee) =>
+      employee.userId === requestedActualEmployeeId ||
+      employee.systemUserId === requestedActualEmployeeId ||
+      employee.employeeProfileId === requestedActualEmployeeId
+    )
+    if (matchedEmployee) {
+      return matchedEmployee
+    }
+  }
+  return deviceState.employeeOptions[0]
+}
+
 const handleSelectActiveOrder = async (activeOrder: FrontlineActiveOrderVO) => {
   const processes = await selectFrontlinePqcActiveOrder(deviceState, activeOrder)
   applyActiveOrderToContext(activeOrder)
   employeeTemplateCode.value = undefined
   payloadPreview.value = undefined
-  const firstProcess = processes[0]
-  if (firstProcess) {
-    await handleSelectProcess(firstProcess)
+  const initialProcess = findInitialProcess(processes)
+  if (initialProcess) {
+    await handleSelectProcess(initialProcess)
   } else {
     closePicker()
   }
@@ -1852,9 +1873,9 @@ const handleSelectProcess = async (process: FrontlineDeviceRouteProcessVO) => {
   applyProcessToContext(process)
   employeeTemplateCode.value = undefined
   payloadPreview.value = undefined
-  const firstEmployee = deviceState.employeeOptions[0]
-  if (firstEmployee) {
-    await handleSelectEmployee(firstEmployee)
+  const initialEmployee = findInitialEmployee()
+  if (initialEmployee) {
+    await handleSelectEmployee(initialEmployee)
   }
   closePicker()
 }
@@ -2407,9 +2428,9 @@ onMounted(async () => {
     return
   }
   await loadFrontlineDeviceProcesses(deviceState)
-  const firstProcess = switchableProcessOptions.value[0]
-  if (firstProcess) {
-    await handleSelectProcess(firstProcess)
+  const initialProcess = findInitialProcess()
+  if (initialProcess) {
+    await handleSelectProcess(initialProcess)
   }
   Object.assign(draft.fieldValues, buildProductionFieldValues())
 })
@@ -2472,51 +2493,38 @@ onUnmounted(() => {
   width: 100vw;
   height: 100vh;
   margin: 0;
+  padding: 26px;
+  box-sizing: border-box;
   overflow: hidden;
-  background: #eef3ef;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(255, 255, 255, 0.76), transparent 28%),
+    linear-gradient(135deg, #eef3ef 0%, #e1ebe4 100%);
 }
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-operator-screen.is-pqc,
 .frontline-operator-panel:fullscreen .frontline-operator-screen.is-pqc {
-  width: 100%;
-  height: 100%;
-  min-height: 100vh;
-  box-sizing: border-box;
-  grid-template-rows: 114px minmax(0, 1fr) 102px;
-  gap: 8px;
-  padding: 16px 18px 8px;
-  border-radius: 0;
+  width: auto;
+  max-width: 1480px;
+  height: auto;
+  min-height: 820px;
+  margin: 0 auto;
+  grid-template-rows: 118px minmax(0, 1fr) 104px;
+  gap: 18px;
+  padding: 24px;
+  border-radius: 22px;
+  box-shadow: 0 26px 70px rgba(36, 50, 43, 0.14);
 }
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-operator-top.is-pqc,
 .frontline-operator-panel:fullscreen .frontline-operator-top.is-pqc {
-  grid-template-columns: 304px 416px minmax(0, 1fr) 190px;
-  gap: 16px;
+  grid-template-columns: 340px 430px minmax(0, 1fr) 210px;
+  gap: 18px;
 }
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-operator-main.is-pqc,
 .frontline-operator-panel:fullscreen .frontline-operator-main.is-pqc {
   grid-template-columns: minmax(760px, 1.72fr) minmax(390px, 0.78fr);
-  gap: 22px;
-}
-
-.frontline-operator-panel.is-pqc-fullscreen .frontline-work-panel,
-.frontline-operator-panel:fullscreen .frontline-work-panel {
-  padding: 22px;
-  border-width: 2px;
-  border-radius: 22px;
-
-  h3 {
-    font-size: 42px;
-  }
-}
-
-.frontline-operator-panel.is-pqc-fullscreen .frontline-top-card,
-.frontline-operator-panel.is-pqc-fullscreen .frontline-home-button,
-.frontline-operator-panel:fullscreen .frontline-top-card,
-.frontline-operator-panel:fullscreen .frontline-home-button {
-  border-width: 2px;
-  border-radius: 18px;
+  gap: 28px;
 }
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-top-card,
@@ -2524,18 +2532,18 @@ onUnmounted(() => {
   padding: 18px 22px;
 
   span {
-    font-size: 25px;
+    font-size: 22px;
   }
 
   strong {
-    margin-top: 8px;
+    margin-top: 10px;
     font-size: 34px;
   }
 }
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-top-card__order,
 .frontline-operator-panel:fullscreen .frontline-top-card__order {
-  font-size: 29px !important;
+  font-size: 34px !important;
 }
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-home-button,
@@ -2543,18 +2551,29 @@ onUnmounted(() => {
   font-size: 38px;
 }
 
+.frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-fill-panel,
+.frontline-operator-panel:fullscreen .frontline-pqc-fill-panel {
+  padding: 26px 20px;
+}
+
+.frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-number-field,
+.frontline-operator-panel:fullscreen .frontline-pqc-number-field {
+  grid-template-columns: 128px 58px minmax(54px, 1fr) 58px 42px;
+  gap: 8px;
+}
+
 .frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-submit-bar,
 .frontline-operator-panel:fullscreen .frontline-pqc-submit-bar {
-  grid-template-columns: 240px minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 24px;
 }
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-reset-button,
 .frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-submit-button,
 .frontline-operator-panel:fullscreen .frontline-pqc-reset-button,
 .frontline-operator-panel:fullscreen .frontline-pqc-submit-button {
-  border-radius: 22px;
-  font-size: 42px;
+  border-radius: 28px;
+  font-size: 50px;
 }
 
 .frontline-operator-top {
@@ -2647,7 +2666,8 @@ onUnmounted(() => {
   min-height: 0;
 
   &.is-pqc {
-    grid-template-columns: minmax(760px, 1.72fr) minmax(390px, 0.78fr);
+    grid-template-columns: minmax(700px, 1.55fr) minmax(430px, 0.95fr);
+    gap: 28px;
   }
 
   &.frontline-production-main.is-no-device {
@@ -3429,6 +3449,7 @@ onUnmounted(() => {
   grid-template-rows: 86px 104px minmax(0, 1fr);
   gap: 14px;
   overflow: hidden;
+  padding: 18px;
 }
 
 .frontline-pqc-type-tabs,
@@ -3475,7 +3496,7 @@ onUnmounted(() => {
   align-content: start;
   gap: 12px;
   min-width: 0;
-  padding: 18px 16px;
+  padding: 14px 12px;
   border: 3px solid var(--frontline-line);
   border-radius: 24px;
   background: #fbfdfb;
@@ -3483,8 +3504,8 @@ onUnmounted(() => {
 
 .frontline-pqc-number-field {
   display: grid;
-  grid-template-columns: 128px 58px minmax(54px, 1fr) 58px 42px;
-  gap: 8px;
+  grid-template-columns: 116px 52px minmax(42px, 1fr) 52px 36px;
+  gap: 6px;
   align-items: center;
   min-width: 0;
 
@@ -3521,14 +3542,10 @@ onUnmounted(() => {
   }
 }
 
-.frontline-pqc-number-field.is-signature {
-  grid-template-columns: 128px minmax(54px, 1fr) 42px;
-}
-
 .frontline-pqc-defect-description {
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
-  gap: 10px 14px;
+  grid-template-columns: 116px minmax(0, 1fr);
+  gap: 8px 10px;
   align-items: start;
   min-width: 0;
 
@@ -3541,31 +3558,23 @@ onUnmounted(() => {
   textarea {
     width: 100%;
     min-width: 0;
-    min-height: 118px;
+    min-height: 96px;
     box-sizing: border-box;
     border: 3px solid var(--frontline-line);
     border-radius: 18px;
-    padding: 16px 18px;
+    padding: 12px 14px;
     background: #ffffff;
     color: var(--frontline-ink);
     font: inherit;
-    font-size: 30px;
+    font-size: 24px;
     font-weight: 800;
     resize: vertical;
-  }
-
-  small {
-    grid-column: 2;
-    color: var(--frontline-muted);
-    font-size: 22px;
-    font-weight: 700;
-    line-height: 1.35;
   }
 }
 
 .frontline-pqc-submit-bar {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 280px minmax(0, 1fr);
   gap: 24px;
 }
 
@@ -3573,7 +3582,7 @@ onUnmounted(() => {
 .frontline-pqc-submit-button {
   border: 0;
   border-radius: 28px;
-  font-size: 54px;
+  font-size: 50px;
   font-weight: 900;
   cursor: pointer;
 }
@@ -3922,10 +3931,6 @@ onUnmounted(() => {
   .frontline-pqc-defect-description,
   .frontline-pqc-submit-bar {
     grid-template-columns: 1fr !important;
-  }
-
-  .frontline-pqc-defect-description small {
-    grid-column: 1;
   }
 
   .frontline-pqc-piece-list {

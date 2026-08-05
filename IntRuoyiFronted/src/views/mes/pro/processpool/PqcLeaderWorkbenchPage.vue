@@ -3,6 +3,7 @@
     <TeamLeaderWorkbenchPage
       leader-type="PQC"
       :show-leader-type-tabs="false"
+      :show-pqc-module-tabs="true"
       title="PQC组长"
       subtitle="查看和复核 PQC 检验员提交、项目明细与过程检验汇集状态"
     />

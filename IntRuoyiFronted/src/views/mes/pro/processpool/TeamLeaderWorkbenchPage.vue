@@ -18,6 +18,16 @@
       <el-tab-pane label="生产组长" name="PRODUCTION" />
       <el-tab-pane label="PQC 组长" name="PQC" />
     </el-tabs>
+
+    <el-tabs
+      v-if="showPqcModuleTabs"
+      v-model="activePqcModuleTab"
+      class="team-leader-workbench__module-tabs"
+      data-pqc-leader-module-tabs
+    >
+      <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+      <el-tab-pane label="看板" name="dashboard" data-pqc-leader-module-tab-dashboard />
+    </el-tabs>
   </ContentWrap>
 
   <ContentWrap v-if="loadError">
@@ -254,7 +264,7 @@
     </el-tabs>
   </ContentWrap>
 
-  <ContentWrap data-team-leader-report-workbench>
+  <ContentWrap v-if="showPqcManagementModule" data-team-leader-report-workbench>
       <div class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">报工确认工作台</div>
@@ -516,7 +526,7 @@
       />
     </ContentWrap>
 
-    <ContentWrap data-role-matrix-daily-close>
+    <ContentWrap v-if="showPqcDashboardModule" data-role-matrix-daily-close>
       <div class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">日结待处理看板</div>
@@ -1412,12 +1422,14 @@ const props = withDefaults(
   defineProps<{
     leaderType?: TeamLeaderType
     showLeaderTypeTabs?: boolean
+    showPqcModuleTabs?: boolean
     title?: string
     subtitle?: string
   }>(),
   {
     leaderType: 'PRODUCTION',
     showLeaderTypeTabs: false,
+    showPqcModuleTabs: false,
     title: '工序池班组长工作台',
     subtitle: '负责生产报工确认、活跃订单分配、异常上报和班组配置中心维护'
   }
@@ -1426,6 +1438,7 @@ const props = withDefaults(
 const queryFormRef = ref()
 const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
+const activePqcModuleTab = ref<'management' | 'dashboard'>('management')
 const loading = ref(false)
 const detailLoading = ref(false)
 const reviewSubmitting = ref(false)
@@ -1482,6 +1495,15 @@ const productionPersonnelColumns: any[] = [
 ]
 
 const showLeaderTypeTabs = computed(() => props.showLeaderTypeTabs)
+const showPqcModuleTabs = computed(
+  () => props.showPqcModuleTabs && activeLeaderTab.value === 'PQC'
+)
+const showPqcManagementModule = computed(
+  () => !showPqcModuleTabs.value || activePqcModuleTab.value === 'management'
+)
+const showPqcDashboardModule = computed(
+  () => !showPqcModuleTabs.value || activePqcModuleTab.value === 'dashboard'
+)
 const pageTitle = computed(() => props.title)
 const pageSubtitle = computed(() => props.subtitle)
 const isProductionLeader = computed(() => activeLeaderTab.value === 'PRODUCTION')

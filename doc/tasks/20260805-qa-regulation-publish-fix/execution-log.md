@@ -8,6 +8,7 @@
 - 用户追问黄框字段是否都可以不用设置：确认路线版本、路线工序、路线 ID、路线版本 ID、路线工序 ID、工序 ID、SOP、生产系数、示例订单数、批记录绑定等不应由 QA 手工设置；产品绑定工艺路线后必须从正式工艺路线和工序配置自动带出。
 - 用户进一步要求“支持手动绑定工艺路线”：当产品尚未绑定工艺路线或需修正绑定时，QA 页面需要提供显式路线选择与绑定动作，但路线版本、质检工序、SOP、生产系数和批记录绑定仍由正式路线配置自动解析，不改回黄框字段手工录入。
 - 用户反馈截图中手动绑定下拉“不能选择”：当前 QA 下拉把已启用/已发布路线置灰为“已启用，仅回显”，需要改为可选择，并保证后端保存不再走产品维护页的启用路线拦截。
+- 用户反馈截图中手动绑定保存失败：前端调用 `/admin-api/mes/pro/route-product/save-qa-regulation-route-by-item` 返回 `请求地址不存在`，需要修复本机 48081 运行态未加载 QA endpoint 的问题。
 
 ## Baseline
 
@@ -68,6 +69,12 @@
 - GREEN: `node tests\e2e\qa-regulation-manual-route-selectable-static.spec.cjs` -> PASS，QA 手动绑定下拉选项显式 `:disabled="false"`，不复用产品维护页的 `CommonStatusEnum.ENABLE` 置灰逻辑，标签展示“可绑定”并调用 QA 专用绑定 API。
 - GREEN: `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js` -> PASS，手动绑定工艺路线能力接入后标准列表模板系统契约仍通过。
 - GREEN: `pnpm ts:check` -> PASS，手动绑定工艺路线相关 Vue/TypeScript 类型检查通过。
+- RED: 运行态日志 `2026-08-05 20:16:16` -> FAIL，`/admin-api/mes/pro/route-product/save-qa-regulation-route-by-item` 在旧 48081 Jar 中返回 `NoResourceFoundException: No static resource ...`，复现截图 `请求地址不存在`。
+- RED: 运行 Jar 检查 -> FAIL，`backend-runtime-control-20260805-172627.jar` 内嵌 `yudao-module-mes-2026.04-SNAPSHOT.jar` 的 `MesProRouteProductController.class` 缺少 `save-qa-regulation-route-by-item` 字符串；源码和 `target/classes` 已包含该 endpoint，说明根因是运行态 Jar 未刷新。
+- BLOCKED: `powershell -ExecutionPolicy Bypass -File IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1 -Component backend` -> TIMEOUT，15 分钟未返回；诊断 Maven PID 2004 线程栈显示卡在 `IncrementalBuildHelper.beforeRebuildExecution -> WinNTFileSystem.delete0`，仅停止本任务 Maven/restart PIDs，未停止其它 worktree Java 进程。
+- GREEN: 运行 Jar 检查 -> PASS，当前 48081 进程 `backend-runtime-control-20260805-team-leader-employee-profile-hotpatch-20260805-203537.jar` 内嵌 MES 模块包含 `save-qa-regulation-route-by-item`、`saveQaRegulationRouteProductByItem` service/interface/impl 方法。
+- GREEN: `http://127.0.0.1:48081/actuator/health` -> PASS，后端状态 `UP`。
+- GREEN: 登录态 API 探针 -> PASS，带本机默认测试登录态调用 `POST /admin-api/mes/pro/route-product/save-qa-regulation-route-by-item` 且使用无效 `routeId=-999999`，返回 code `1040501000` / `工艺路线不存在`，不再返回 `请求地址不存在`，且不写入真实绑定。
 
 ## Experience Consolidation
 
@@ -86,6 +93,8 @@
 - `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js`：PASS，输出 `PASS: unified list template empty condition tabs system contract`。
 - `pnpm ts:check`：PASS，前端类型检查通过。
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md`：PASS，输出 `Frontend feature evidence is valid.`。
+- `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/backend-api-evidence.md`：PASS，输出 `Backend API evidence is valid.`。
+- 48081 运行态 QA endpoint 探针：PASS，当前运行 Jar 包含 QA endpoint，登录态无效路线请求返回正式业务校验而非 404。
 - QA 适用范围黄框字段静态契约：PASS，确认源码包含 `loadQaRouteScopeFromProject`、正式工艺路线 API 调用、只读 `data-qa-regulation-route-scope-auto` 展示和 `qaFormalRouteScopeReady` 保存/发布阻断，且不再存在黄框字段输入控件。
 - QA 手动绑定工艺路线静态契约：PASS，确认源码包含 `ProRouteApi.getRouteItemBindingList`、`ProRouteProductApi.saveQaRegulationRouteProductByItem`、`loadQaRouteScopeFromRouteBinding`、`data-qa-regulation-manual-route-bind` 和绑定失败可见错误，并禁止 `CommonStatusEnum.ENABLE` 禁用已发布路线。
 - `git diff --check -- <AC-M09 实现文件和经验文档>`：PASS，无 whitespace error，仅有 Git CRLF 工作区提示。

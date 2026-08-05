@@ -4,6 +4,7 @@
 
 - 用户要求继续推进 AC-M04：从当前系统分析已做到哪一步，并继续执行下一步。
 - 用户随后要求“进行修复”；本轮按旧历史 blocker `activeOrderTransferTraceReadOnly / E2E_TRANSFER_TRACE_DATA` 复核当前系统是否仍存在 AC-M04 调拨追溯链路缺口。
+- 用户明确回复“授权修复本机库 P0 backfill”；授权范围限定为本机 Docker MySQL 运行库，不包含任何远端测试服/正式服/备用服。
 
 ## BDD / TDD Notes
 
@@ -12,6 +13,8 @@
 - BDD: RRM 本机前置补齐 -> Given 用户要求由 Agent 添加缺失 RRM 前置且本机 `8081/48081` 运行态可用；When 注入 `RRM_*` 并运行 `real:check`；Then 六角色账号必须真实登录、业务 ID 必须指向当前正式数据、`real:check` 不得再返回 ENV/SOURCE/RUNTIME blocker，且密码和签名 JSON 不写入文档或提交。
 - BDD: AC-M04 full real E2E 刷新 -> Given `real:check` 已 PASS 且生产班组长加入活跃订单返回同一 `activeOrderId`；When 运行 full real E2E；Then AC-M04 必须证明加入、冲突路线拒绝、跨角色只读、调拨追溯只读和最终清理均为 PASS，剩余非 AC-M04 coverage 或后续 PQC/eDHR 阻塞必须结构化记录，不能混写成 AC-M04 已 ACCEPTED。
 - BDD: PQC 正式提交 RRM 前置 -> Given PQC 页面提交必须携带本轮新建的 `productionSubmitEventId`；When RRM full real E2E 进入 PQC 提交动作；Then 脚本必须先通过真实一线生产填写页 POST `/mes/pro/feedback/frontline/submit` 捕获新的 `processPoolEventId`，再把同一 ID 作为 `productionSubmitEventId/processPoolEventId` 打开 PQC 页面，禁止使用历史事件 ID 或环境变量硬塞成功。
+- BDD: P0 runtime schema 正式迁移前置 -> Given 本机真实生产填写提交已经到达后端但运行库缺 P0 idempotency 字段；When 准备应用 `20260803_mes_process_pool_event_idempotency.sql`；Then 必须先通过只读 schema/source/preflight gate 证明历史数据可以正式 backfill，不能用空值、随机幂等键、旧事件 ID、删除历史测试行或部分迁移冒充完成。
+- BDD: 授权后本机 P0 backfill 修复 -> Given 用户授权修复本机库且备份、rollback、逐行 manifest 已生成；When 执行本机 backfill 和正式迁移；Then P0 runtime preflight/source/runtime verifier 必须 PASS，且修复范围不得越过授权的本机库。
 - 本轮优先做产物一致性和静态/JSON 校验；若发现真实脚本或源码缺口，再按 RED/GREEN 进入实现。
 
 ## Command Intent
@@ -35,6 +38,9 @@
 - completed：full real E2E 已刷新为 `mode=real` 产物；AC-M04 相关 `joinActiveOrder`、`activeOrderConflictRouteRejected`、`activeOrderCrossRoleReadOnly`、`activeOrderTransferTraceReadOnly`、`activeOrderCleanupCompleted` 均为 PASS。
 - blocked：full real E2E 整体仍 `BLOCKED`，剩余 74 个 blocker：2 个 `E2E_PQC_SUBMISSION_UI`、1 个 `E2E_PQC_SUBMISSION_DATA`、1 个 `E2E_PQC_DETAIL_DATA`、1 个 `E2E_PQC_DETAIL_PERMISSION`、1 个 `E2E_PQC_REVIEW_DATA`、1 个 `E2E_PQC_REVIEW_TERMINAL`、1 个 `E2E_PQC_REVIEW_SELF`、1 个 `E2E_PQC_AGGREGATION_READONLY`、1 个 `E2E_RELEASE_TRACEABILITY_PREP`、1 个 `E2E_CONCURRENCY`、1 个 `E2E_PERFORMANCE`、62 个 `E2E_COVERAGE`。
 - in_progress：正在补齐 RRM PQC 正式提交前置，目标是复用真实生产填写页生成本轮 `processPoolEventId`，再进入 PQC 页面提交；当前先新增静态合同 RED，随后实施最小脚本修复。
+- blocked：PQC 正式提交前端禁用态已解除，真实提交进入后端后被运行库 schema 阻塞；`mes_pro_process_pool_event` 缺 `event_idempotency_key` / `recordbook_entry_id`，且完整 P0 runtime migration 预检显示 88 行历史 backfill blocker，当前结构化来源无法唯一推导，未获业务/DBA 授权和逐行 manifest 前不得写库修复。
+- completed：用户已授权本机库 P0 backfill；已完成备份、rollback、manifest、最小 DB 修复和 P0 runtime verifier 复验。仍禁止远端操作和无 manifest 写入。
+- in_progress：P0 runtime schema/backfill blocker 已解除，下一步重跑 RRM `real:check` 与 full real E2E，确认 PQC 正式提交是否继续前进。
 
 ## Verification Evidence
 
@@ -73,6 +79,20 @@
 - GREEN: 已为 PQC 逐件按钮增加稳定 `data-pqc-piece-open-button`，并让 E2E 按 QA 项目 Tab 逐个点击该按钮完成逐件明细；`node --check` 与 `preflight:static` PASS。
 - FULL_REAL_E2E_2026_08_05: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` -> BLOCKED，`result.json` 为 `status=BLOCKED`、`mode=real`、`phaseEvidence=6`、`actionEvidence=22`、`gateEvidence=2`、`blockers=74`；AC-M04 关键动作 PASS，整体阻塞集中在 PQC 正式提交未发出提交响应、PQC 组长提交夹具不足、eDHR 放行准备下拉未定位目标路线、并发/性能/coverage 准出。
 - EXPERIENCE_REFRESH_2026_08_05: 已读取 `project-experience-consolidation` 并检索 `docs\experience-index.md`、`docs\e2e-rules.md`、`docs\frontend-development.md`、`docs\login-access.md`；本轮经验已由真实 E2E 主链路与扩展诊断隔离、静态合同与真实 E2E 同步、前端静态契约隔离等现有门禁覆盖，不新建长期经验文档。
+- RED: schema probe for `mes_pro_process_pool_event.event_idempotency_key` -> FAIL，当前本机库缺列，真实生产填写提交进入 `/admin-api/mes/pro/feedback/frontline/submit` 后触发 `Unknown column 'event_idempotency_key' in 'field list'`。
+- RED: `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_migration_apply_preflight.py` -> BLOCKED；本机运行库存在 79 行 `mes_pro_process_pool_pqc_record.production_submit_event_id`、2 行 `mes_pro_process_pool_event.event_idempotency_key`、2 行 `mes_pro_process_pool_event.recordbook_entry_id`、5 行 `mes_pro_process_pool_quantity_fragment.production_submit_event_id` 正式 backfill 前置缺口。
+- RED: `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_backfill_sources.py` -> BLOCKED；source audit 显示 79 行 PQC、2 行事件幂等键、2 行事件记录本 entry、5 行 quantity fragment 当前无法从唯一正式结构化来源推导。
+- RED: `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_backfill_repair_plan.py` -> BLOCKED；repair plan gate 明确当前读-only，不允许 DB 写入，需业务/DBA 授权、备份、rollback、逐行 repair manifest 和 dry-run 后才能处理历史 backfill。
+- DATABASE_EVIDENCE_VALIDATOR: `python -X utf8 C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence E:\IntRuoyi\doc\tasks\20260805-ac-m04-acceptance-sync\database-schema-evidence.md` -> PASS，输出 `Database schema evidence is valid.`
+- DOC_UTF8_CHECK: task/execution-log/verification-report/database-schema-evidence 均可按 UTF-8 读取；未记录任何密码或 token。
+- AUTH: 用户明确回复“授权修复本机库 P0 backfill”；授权范围限定为本机 Docker MySQL `127.0.0.2:23306/ruoyi-vue-pro`，未授权测试服/正式服/备用服。
+- BACKUP: `db-backup/acm04-p0-backfill-extended-20260805-203724.sql` -> SHA256 `317BD20FD77F473327B5DAAAEAC5C4A51D474958A9B32A7D652732310C17C8B8`；`db-backup/acm04-review-signature-20260805-204459.sql` -> SHA256 `AEF0616C59C4DD85E9CD851B1855D7B72C68FE84469D984632D0E84DF9E5BBC6`。
+- MANIFEST_GREEN: `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_backfill_repair_manifest.py --manifest doc\tasks\20260805-ac-m04-acceptance-sync\db-repair\p0-backfill-repair-manifest.json` -> PASS，`entryCount=88`，目标列为 PQC `production_submit_event_id`、event `event_idempotency_key` / `recordbook_entry_id`、quantity fragment `production_submit_event_id`。
+- APPLY_GREEN: `db-repair/p0-backfill-apply.sql` 已按授权范围在本机库执行；rollback 保存在 `db-repair/p0-backfill-rollback.sql`。
+- P0_PREFLIGHT_GREEN: `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_migration_apply_preflight.py` -> PASS，`blockers=[]`。
+- P0_SOURCE_GREEN: `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_backfill_sources.py` -> PASS，`blockers=[]`，PQC/event/recordbook/quantityFragment targetRows 均为 0。
+- P0_RUNTIME_GREEN: `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_migration.py` -> PASS，必需列和索引均存在，历史检查 `blockers=[]`。
+- POST_COUNT_GREEN: local MySQL read-only count -> `repair_events=19`、`repair_entries=21`、`repair_recordbook_events=21`、`pqc_missing_submit=0`、`fragment_missing_submit=0`、`event_missing_idem=0`、`event_missing_recordbook=0`；MySQL CLI 安全警告未输出密码明文。
 
 ## Blockers
 
@@ -81,3 +101,4 @@
 - 历史 worktree 真实 `result.json` 不是当前主任务 canonical 状态，直接复制会把额外 transfer-trace blocker 带回主工作区，造成验收口径倒退。
 - AC-M04 当前仍只能保持 `PASS_ACTION_NOT_ACCEPTED`；虽然 full real E2E 已证明 AC-M04 核心动作 PASS，但提升为 `ACCEPTED` 前还必须补齐 coverage ledger 的正式接受条件，证明成功路径、重复/并发、冲突路线、越权写入、跨角色只读、PQC/报工候选联动和清理-readiness 均达到准出。
 - 后续非 AC-M04 阻塞：PQC 正式提交未捕获提交接口响应、PQC 组长提交夹具不足、eDHR 放行准备路线下拉定位失败、AC-M19 并发 proof 缺口、性能准出和 62 个 coverage blocker。
+- 已解除硬阻塞：PQC 正式提交暴露的 P0 runtime migration/backfill blocker 已按用户授权在本机库完成修复并复验 PASS；下一步必须重新运行真实 RRM E2E，不能把 schema verifier PASS 直接冒充 PQC 页面链路 PASS。

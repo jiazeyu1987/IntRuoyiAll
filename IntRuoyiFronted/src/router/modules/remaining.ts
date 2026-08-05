@@ -1880,7 +1880,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: '生产填写',
+          title: '一线生产',
           activeMenu: '/mes/pro/feedback/edhr-batch-production-fill',
           permission: ['mes:pro-edhr-batch-execution:query']
         }
@@ -1894,7 +1894,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: 'PQC填写',
+          title: '一线PQC',
           activeMenu: '/mes/pro/feedback/edhr-batch-pqc-fill',
           permission: ['mes:pro-edhr-batch-execution:query']
         }

@@ -79,13 +79,73 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /\.frontline-pqc-number-field\s*\{[\s\S]*grid-template-columns:\s*128px\s+58px\s+minmax\(54px,\s*1fr\)\s+58px\s+42px[\s\S]*gap:\s*8px/,
-  'The formal PQC quantity controls must match the compact updated HTML preview layout.'
+  /\.frontline-pqc-number-field\s*\{[\s\S]*grid-template-columns:\s*116px\s+52px\s+minmax\(42px,\s*1fr\)\s+52px\s+36px[\s\S]*gap:\s*6px/,
+  'The formal PQC quantity controls must stay compact enough to avoid clipping in the real app shell.'
+)
+assert.match(
+  panelSource,
+  /\.frontline-operator-main\s*\{[\s\S]*&\.is-pqc\s*\{[\s\S]*gap:\s*28px/,
+  'The formal PQC normal layout must keep the same left/right panel gap as the updated HTML preview.'
+)
+assert.match(
+  panelSource,
+  /\.frontline-operator-panel\.is-pqc-fullscreen,\s*\n\.frontline-operator-panel:fullscreen\s*\{[\s\S]*padding:\s*26px[\s\S]*radial-gradient\(circle at 12% 10%/,
+  'The formal PQC maximized canvas must use the same outer spacing and background as the updated HTML preview.'
+)
+assert.match(
+  panelSource,
+  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-screen\.is-pqc,[\s\S]*?\.frontline-operator-panel:fullscreen \.frontline-operator-screen\.is-pqc\s*\{[\s\S]*max-width:\s*1480px[\s\S]*min-height:\s*820px[\s\S]*grid-template-rows:\s*118px\s+minmax\(0,\s*1fr\)\s+104px[\s\S]*gap:\s*18px[\s\S]*padding:\s*24px[\s\S]*border-radius:\s*22px[\s\S]*box-shadow:\s*0 26px 70px/,
+  'The formal PQC maximized operator screen must match the updated HTML preview frame.'
+)
+assert.match(
+  panelSource,
+  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-top\.is-pqc,[\s\S]*?\.frontline-operator-panel:fullscreen \.frontline-operator-top\.is-pqc\s*\{[\s\S]*grid-template-columns:\s*340px\s+430px\s+minmax\(0,\s*1fr\)\s+210px[\s\S]*gap:\s*18px/,
+  'The formal PQC maximized top cards must match the updated HTML preview proportions.'
+)
+assert.match(
+  panelSource,
+  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-pqc-number-field,[\s\S]*?\.frontline-operator-panel:fullscreen \.frontline-pqc-number-field\s*\{[\s\S]*grid-template-columns:\s*128px\s+58px\s+minmax\(54px,\s*1fr\)\s+58px\s+42px[\s\S]*gap:\s*8px/,
+  'The formal PQC maximized quantity controls must match the updated HTML preview sizing.'
 )
 assert.match(
   panelSource,
   /\.frontline-pqc-type-tabs\s*\{[\s\S]*gap:\s*10px[\s\S]*button\s*\{[\s\S]*font-size:\s*32px/,
   'The formal PQC inspection type tabs must match the updated HTML preview size.'
+)
+assert.match(
+  panelSource,
+  /<label for="frontlinePqcInspectionQuantity">检验<\/label>/,
+  'The PQC inspection quantity label must be shortened to 检验 in the compact fill panel.'
+)
+assert.match(
+  panelSource,
+  /aria-label="检验减少"[\s\S]*aria-label="检验增加"/,
+  'The PQC inspection quantity step buttons must use the shortened 检验 copy.'
+)
+assert.match(
+  panelSource,
+  /<label for="frontlinePqcScrapQuantity">损耗<\/label>/,
+  'The PQC scrap quantity label must be shortened to 损耗 in the compact fill panel.'
+)
+assert.match(
+  panelSource,
+  /aria-label="损耗减少"[\s\S]*aria-label="损耗增加"/,
+  'The PQC scrap quantity step buttons must use the shortened 损耗 copy.'
+)
+assert.match(
+  panelSource,
+  /<label for="frontlinePqcDefectDescription">不良<\/label>/,
+  'The PQC defect description label must be shortened to 不良 in the compact fill panel.'
+)
+assert.doesNotMatch(
+  panelSource,
+  /<small>检验不合格或损耗数量大于 0 时必填，随本次 PQC 原始快照保存。<\/small>/,
+  'The yellow-box helper text under the defect textarea must not be displayed.'
+)
+assert.doesNotMatch(
+  panelSource,
+  /<label for="frontlinePqcSignatureId">签名编号<\/label>|id="frontlinePqcSignatureId"|class="frontline-pqc-number-field is-signature"|\.frontline-pqc-number-field\.is-signature|\.frontline-pqc-defect-description small/,
+  'The yellow-box signature field must not be displayed in the compact PQC fill panel.'
 )
 assert.ok(
   panelSource.includes('pqc-select-card') &&
