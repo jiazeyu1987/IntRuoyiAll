@@ -388,11 +388,17 @@ async function disableTemporaryWorkerViaPage(page, displayName, steps) {
     await box.getByRole('button', { name: '禁用' }).click()
   })
   assert.equal(body.code, 0, `禁用员工失败：${body.msg || body.message || 'unknown'}`)
-  await row.waitFor({ state: 'hidden', timeout: 15000 }).catch(async () => {
-    const text = await row.innerText().catch(() => '')
-    assert.ok(!text.includes('可选择'), '禁用后员工不得继续处于可选择状态。')
+  const disabledRow = findPersonnelRow(page, displayName)
+  await disabledRow.locator('.team-leader-workbench__personnel-name.is-disabled').waitFor({
+    state: 'visible',
+    timeout: 15000
   })
-  steps.push('员工禁用后从未禁用人员列表中移除')
+  assert.match(await disabledRow.innerText(), /已禁用/, '禁用后员工必须保留在统一列表并显示已禁用状态。')
+  const disabledNameColor = await disabledRow
+    .locator('.team-leader-workbench__personnel-name.is-disabled')
+    .evaluate((element) => getComputedStyle(element).color)
+  assert.equal(disabledNameColor, 'rgb(245, 108, 108)', '禁用员工显示名必须为红色。')
+  steps.push('员工禁用后保留在统一人员列表，显示已禁用状态且姓名为红色')
 }
 
 async function disableFormalWorkerIfVisible(page, displayName) {

@@ -12,3 +12,17 @@
 - RED: `node tests\e2e\production-personnel-unified-status-list-static.spec.cjs` -> FAIL，生产人员区域仍渲染 `productionPersonnelQuery.enabled` 状态分组控件。
 - Concurrent edit: RED 前发现另一个任务正在同一 Vue 文件修改“新增人员同名错误”弹窗区域；文件曾短暂处于 0 字节写入窗口后恢复。已确认其 hunks 与本任务查询、姓名列和样式 hunk 可区分，未覆盖或回滚并行改动。
 - Implementation: 删除生产人员状态筛选模板和 `productionPersonnelQuery.enabled`；`refreshProductionPersonnel` 改为无过滤调用 `getProductionPersonnelList()`；显示名按 `row.enabled === false` 增加红色状态类，状态文字列保持不变。
+- Regression contract update: 更新既有 `production-personnel-management-real.e2e.js`，将旧断言“禁用后从未禁用列表移除”改为“禁用后仍在统一列表、状态为已禁用且姓名计算色为红色”。
+- GREEN: `node tests\e2e\production-personnel-unified-status-list-static.spec.cjs` -> PASS。
+- REGRESSION: `node tests\e2e\production-leader-remove-header-content-static.spec.js` -> PASS。
+- REGRESSION: `node tests\e2e\production-personnel-add-dialog-static.spec.cjs` -> PASS。
+- REGRESSION: `node tests\e2e\production-personnel-duplicate-inline-error-static.spec.js` -> PASS，证明未破坏并行任务的弹窗内联错误行为。
+- GREEN: `node --check tests\e2e\production-personnel-management-real.e2e.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `git diff --check -- <task paths>` -> PASS，仅输出仓库现有 LF/CRLF 归一化 warning。
+- E2E BLOCKED: `PPM_FRONTEND_URL`、`PPM_BACKEND_URL`、`PPM_TENANT`、`PPM_USERNAME`、`PPM_PASSWORD`、`PPM_FORMAL_SEARCH_KEYWORD` 均未配置；真实写入型 Playwright 未执行，不使用默认账号、API-only、mock 或直接数据修改替代。
+- Concurrent baseline: `3db8a7030 chore: preserve dirty worktree baseline` 混合提交 39 个文件，其中包含本任务核心 Vue 改动、聚焦静态合同和初始任务文档；不得将该提交表述为本任务独立实现提交。
+- Experience consolidation: 复核 `docs/powershell-memory.md#共享分支并发基线提交门禁`、`#同文件并行改动选择性暂存门禁` 和 `#提交后残余改动复扫门禁`，现有规则已完整覆盖本次并发吞入与瞬时写入风险，无需新增或修改长期经验文档。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --self-test` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260805-production-leader-personnel-unified-status-list\frontend-feature-evidence.md` -> PASS。
+- Closeout state: implementation and required available verification complete; task set to `ready_for_closeout` before cleanup preview/apply。

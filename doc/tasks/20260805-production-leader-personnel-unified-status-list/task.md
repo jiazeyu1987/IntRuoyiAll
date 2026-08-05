@@ -15,7 +15,7 @@
 - [x] 创建任务记录并确认现有页面和查询逻辑
 - [x] 编写聚焦静态合同并取得 RED
 - [x] 实现统一列表与禁用姓名红色显示
-- [ ] 运行 GREEN、相邻回归和 TypeScript 检查
+- [x] 运行 GREEN、相邻回归和 TypeScript 检查
 - [ ] 完成 evidence 校验、cleanup、提交和推送
 
 ## Expected Verification
@@ -29,11 +29,13 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 - 已定位状态分组来源：前端默认 `productionPersonnelQuery.enabled = true`，列表请求透传 `enabled`，并渲染“未禁用 / 已禁用”选择器。
-- 已确认目标文件当前无未提交并行改动；工作区其它文件存在并行改动，任务边界将严格限定。
-- 聚焦静态合同已取得 RED，最小实现已完成，等待 GREEN 和回归验证。
+- 聚焦静态合同、相邻合同、真实 E2E 语法检查和 TypeScript 检查已通过。
+- frontend feature evidence validator 与 validator self-test 已通过。
+- 真实写入型 E2E 的 6 个必需环境变量均缺失，未执行真实页面写入链路，未使用默认账号、API-only 或 mock 替代。
+- 并发基线提交 `3db8a7030` 已将本任务核心 Vue 改动、聚焦合同和初始任务文档与其它任务改动混合提交；当前源码行为已复验通过，后续提交只处理仍未提交的本任务真实 E2E 合同与收尾记录。
 
 ## 设计约束检查
 
