@@ -1,6 +1,5 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
-import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
@@ -31,8 +30,6 @@ public class MesPqcProcessInspectionAggregationServiceImpl
         implements MesPqcProcessInspectionAggregationService {
 
     private static final String PQC_INSPECTION_TASK_SOURCE_TYPE = "MES_PQC_INSPECTION_TASK";
-    private static final String PQC_TASK_STATUS_SUBMITTED = "SUBMITTED";
-    private static final String PQC_TASK_STATUS_CONFIRMED = "CONFIRMED";
 
     private final MesProProcessPoolPqcRecordMapper pqcRecordMapper;
     private final MesProProcessPoolEventMapper eventMapper;
@@ -67,15 +64,14 @@ public class MesPqcProcessInspectionAggregationServiceImpl
             throw exception(PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED,
                     eventId, record.getProcessInspectionReviewId());
         }
+
         Long tenantId = requireTenantId(record, eventId);
         MesProProcessPoolEventDO event = eventMapper.selectById(eventId);
-        requireFormalPqcEvent(record, event);
+        validatePqcEvent(record, event, eventId);
         MesPqcInspectionTaskDO task = pqcTaskMapper.selectById(event.getFeedbackSourceId());
-        requireFormalSubmittedTask(record, event, task);
+        validatePqcTask(record, event, task, eventId);
         List<MesPqcInspectionPieceDetailDO> pieceDetails = pieceDetailMapper.selectListByTaskId(task.getId());
-        if (CollUtil.isEmpty(pieceDetails)) {
-            throw exception(PRO_PROCESS_POOL_PQC_RECORD_REQUIRED, eventId);
-        }
+        validatePieceDetails(record, task, pieceDetails, eventId);
 
         LocalDateTime aggregatedAt = LocalDateTime.now();
         int updated = pqcRecordMapper.updateProcessInspectionAggregatedIfPending(tenantId, eventId, reviewId,
@@ -83,16 +79,17 @@ public class MesPqcProcessInspectionAggregationServiceImpl
         if (updated != 1) {
             throw exception(PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED, eventId, reviewId);
         }
-        int taskUpdated = pqcTaskMapper.updateConfirmedIfSubmitted(task.getId(), PQC_TASK_STATUS_SUBMITTED,
-                PQC_TASK_STATUS_CONFIRMED);
+        int taskUpdated = pqcTaskMapper.updateConfirmedIfSubmitted(task.getId(),
+                MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED,
+                MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED);
         if (taskUpdated != 1) {
             throw exception(PRO_PROCESS_POOL_PQC_RECORD_REQUIRED, eventId);
         }
         List<MesPqcProcessInspectionAggregateDetailDO> aggregateRows = pieceDetails.stream()
-                .map(detail -> toAggregateDetail(record, task, detail, reviewId, aggregatedAt))
+                .map(pieceDetail -> buildAggregateDetail(record, event, task, pieceDetail, reviewId, aggregatedAt))
                 .toList();
         if (!Boolean.TRUE.equals(aggregateDetailMapper.insertBatch(aggregateRows))) {
-            throw exception(PRO_PROCESS_POOL_PQC_RECORD_REQUIRED, eventId);
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcProcessInspectionAggregateDetail");
         }
     }
 
@@ -104,8 +101,10 @@ public class MesPqcProcessInspectionAggregationServiceImpl
         return record.getTenantId();
     }
 
-    private static void requireFormalPqcEvent(MesProProcessPoolPqcRecordDO record, MesProProcessPoolEventDO event) {
-        if (event == null || !Objects.equals(record.getEventId(), event.getId())
+    private static void validatePqcEvent(MesProProcessPoolPqcRecordDO record, MesProProcessPoolEventDO event,
+                                         Long eventId) {
+        if (event == null
+                || !Objects.equals(record.getEventId(), event.getId())
                 || !Objects.equals(record.getTenantId(), event.getTenantId())
                 || !MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())
                 || !Objects.equals(record.getWorkOrderId(), event.getWorkOrderId())
@@ -116,20 +115,20 @@ public class MesPqcProcessInspectionAggregationServiceImpl
                 || !PQC_INSPECTION_TASK_SOURCE_TYPE.equals(event.getRecordbookSourceType())
                 || event.getFeedbackSourceId() == null
                 || !Objects.equals(event.getFeedbackSourceId(), event.getRecordbookSourceId())) {
-            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
-                    "pqcProcessInspectionAggregation.eventId=" + record.getEventId());
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcProcessInspectionEvent:" + eventId);
         }
     }
 
-    private static void requireFormalSubmittedTask(MesProProcessPoolPqcRecordDO record,
-                                                   MesProProcessPoolEventDO event,
-                                                   MesPqcInspectionTaskDO task) {
-        if (task == null || !Objects.equals(task.getId(), event.getFeedbackSourceId())
+    private static void validatePqcTask(MesProProcessPoolPqcRecordDO record, MesProProcessPoolEventDO event,
+                                        MesPqcInspectionTaskDO task, Long eventId) {
+        if (task == null
                 || !Objects.equals(record.getTenantId(), task.getTenantId())
+                || !Objects.equals(event.getFeedbackSourceId(), task.getId())
                 || !Objects.equals(record.getWorkOrderId(), task.getWorkOrderId())
                 || !Objects.equals(record.getRouteId(), task.getRouteId())
                 || !Objects.equals(record.getRouteProcessId(), task.getRouteProcessId())
                 || !Objects.equals(record.getProcessId(), task.getProcessId())
+                || task.getRouteVersionId() == null
                 || task.getRegulationVersionId() == null
                 || StrUtil.isBlank(task.getInspectionType())
                 || task.getBusinessDate() == null
@@ -137,72 +136,85 @@ public class MesPqcProcessInspectionAggregationServiceImpl
                 || task.getRoundNo() == null
                 || task.getActualInspectionQuantity() == null
                 || task.getActualInspectionQuantity() <= 0
-                || !PQC_TASK_STATUS_SUBMITTED.equals(task.getTaskStatus())) {
-            throw exception(PRO_PROCESS_POOL_PQC_RECORD_REQUIRED, record.getEventId());
+                || !MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED.equals(task.getTaskStatus())) {
+            throw exception(PRO_PROCESS_POOL_PQC_RECORD_REQUIRED, eventId);
         }
     }
 
-    private static MesPqcProcessInspectionAggregateDetailDO toAggregateDetail(MesProProcessPoolPqcRecordDO record,
-                                                                              MesPqcInspectionTaskDO task,
-                                                                              MesPqcInspectionPieceDetailDO detail,
-                                                                              Long reviewId,
-                                                                              LocalDateTime aggregatedAt) {
-        requirePieceDetail(record, task, detail);
-        MesPqcProcessInspectionAggregateDetailDO aggregate = MesPqcProcessInspectionAggregateDetailDO.builder()
-                .sourcePqcRecordId(record.getId())
-                .sourcePieceDetailId(detail.getId())
-                .eventId(record.getEventId())
-                .reviewId(reviewId)
-                .productionSubmitEventId(record.getProductionSubmitEventId())
-                .pqcTaskId(task.getId())
-                .workOrderId(record.getWorkOrderId())
-                .routeId(record.getRouteId())
-                .routeProcessId(record.getRouteProcessId())
-                .processId(record.getProcessId())
-                .regulationVersionId(task.getRegulationVersionId())
-                .inspectionType(task.getInspectionType())
-                .businessDate(task.getBusinessDate())
-                .shiftCode(task.getShiftCode())
-                .roundNo(task.getRoundNo())
-                .actualInspectionQuantity(task.getActualInspectionQuantity())
-                .sampleNo(detail.getSampleNo())
-                .itemCode(detail.getItemCode())
-                .itemName(detail.getItemName())
-                .inspectionMethod(detail.getInspectionMethod())
-                .standardText(detail.getStandardText())
-                .selectedEquipmentId(detail.getSelectedEquipmentId())
-                .selectedEquipmentCode(detail.getSelectedEquipmentCode())
-                .selectedEquipmentName(detail.getSelectedEquipmentName())
-                .selectedEquipmentNumber(detail.getSelectedEquipmentNumber())
-                .standardLowerLimit(detail.getStandardLowerLimit())
-                .standardUpperLimit(detail.getStandardUpperLimit())
-                .standardUnit(detail.getStandardUnit())
-                .standardPrecision(detail.getStandardPrecision())
-                .resultType(detail.getResultType())
-                .itemResult(detail.getItemResult())
-                .measuredValue(detail.getMeasuredValue())
-                .judgement(detail.getJudgement())
-                .aggregatedAt(aggregatedAt)
-                .build();
-        aggregate.setTenantId(record.getTenantId());
-        return aggregate;
+    private static void validatePieceDetails(MesProProcessPoolPqcRecordDO record, MesPqcInspectionTaskDO task,
+                                             List<MesPqcInspectionPieceDetailDO> pieceDetails, Long eventId) {
+        if (pieceDetails == null || pieceDetails.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_PQC_RECORD_REQUIRED, eventId);
+        }
+        if (pieceDetails.stream().anyMatch(pieceDetail -> isInvalidPieceDetail(record, task, pieceDetail))) {
+            throw exception(PRO_PROCESS_POOL_PQC_RECORD_REQUIRED, eventId);
+        }
     }
 
-    private static void requirePieceDetail(MesProProcessPoolPqcRecordDO record,
-                                           MesPqcInspectionTaskDO task,
-                                           MesPqcInspectionPieceDetailDO detail) {
-        if (detail == null || detail.getId() == null
-                || !Objects.equals(record.getTenantId(), detail.getTenantId())
-                || !Objects.equals(task.getId(), detail.getTaskId())
-                || detail.getSampleNo() == null
-                || StrUtil.isBlank(detail.getItemCode())
-                || StrUtil.isBlank(detail.getItemName())
-                || StrUtil.isBlank(detail.getInspectionMethod())
-                || StrUtil.isBlank(detail.getStandardText())
-                || StrUtil.isBlank(detail.getResultType())
-                || StrUtil.isBlank(detail.getMeasuredValue())
-                || StrUtil.isBlank(detail.getJudgement())) {
-            throw exception(PRO_PROCESS_POOL_PQC_RECORD_REQUIRED, record.getEventId());
-        }
+    private static boolean isInvalidPieceDetail(MesProProcessPoolPqcRecordDO record,
+                                                MesPqcInspectionTaskDO task,
+                                                MesPqcInspectionPieceDetailDO pieceDetail) {
+        return pieceDetail == null
+                || pieceDetail.getId() == null
+                || !Objects.equals(record.getTenantId(), pieceDetail.getTenantId())
+                || !Objects.equals(task.getId(), pieceDetail.getTaskId())
+                || pieceDetail.getSampleNo() == null
+                || StrUtil.isBlank(pieceDetail.getItemCode())
+                || StrUtil.isBlank(pieceDetail.getItemName())
+                || StrUtil.isBlank(pieceDetail.getInspectionMethod())
+                || StrUtil.isBlank(pieceDetail.getStandardText())
+                || StrUtil.isBlank(pieceDetail.getResultType())
+                || StrUtil.isBlank(pieceDetail.getMeasuredValue())
+                || StrUtil.isBlank(pieceDetail.getJudgement());
+    }
+
+    private static MesPqcProcessInspectionAggregateDetailDO buildAggregateDetail(
+            MesProProcessPoolPqcRecordDO record,
+            MesProProcessPoolEventDO event,
+            MesPqcInspectionTaskDO task,
+            MesPqcInspectionPieceDetailDO pieceDetail,
+            Long reviewId,
+            LocalDateTime aggregatedAt) {
+        MesPqcProcessInspectionAggregateDetailDO aggregateDetail =
+                MesPqcProcessInspectionAggregateDetailDO.builder()
+                        .sourcePqcRecordId(record.getId())
+                        .sourcePieceDetailId(pieceDetail.getId())
+                        .eventId(event.getId())
+                        .reviewId(reviewId)
+                        .productionSubmitEventId(record.getProductionSubmitEventId())
+                        .pqcTaskId(task.getId())
+                        .activeOrderId(task.getActiveOrderId())
+                        .workOrderId(task.getWorkOrderId())
+                        .routeId(task.getRouteId())
+                        .routeVersionId(task.getRouteVersionId())
+                        .routeProcessId(task.getRouteProcessId())
+                        .processId(task.getProcessId())
+                        .regulationVersionId(task.getRegulationVersionId())
+                        .inspectionType(task.getInspectionType())
+                        .businessDate(task.getBusinessDate())
+                        .shiftCode(task.getShiftCode())
+                        .roundNo(task.getRoundNo())
+                        .actualInspectionQuantity(task.getActualInspectionQuantity())
+                        .sampleNo(pieceDetail.getSampleNo())
+                        .itemCode(pieceDetail.getItemCode())
+                        .itemName(pieceDetail.getItemName())
+                        .inspectionMethod(pieceDetail.getInspectionMethod())
+                        .standardText(pieceDetail.getStandardText())
+                        .selectedEquipmentId(pieceDetail.getSelectedEquipmentId())
+                        .selectedEquipmentCode(pieceDetail.getSelectedEquipmentCode())
+                        .selectedEquipmentName(pieceDetail.getSelectedEquipmentName())
+                        .selectedEquipmentNumber(pieceDetail.getSelectedEquipmentNumber())
+                        .standardLowerLimit(pieceDetail.getStandardLowerLimit())
+                        .standardUpperLimit(pieceDetail.getStandardUpperLimit())
+                        .standardUnit(pieceDetail.getStandardUnit())
+                        .standardPrecision(pieceDetail.getStandardPrecision())
+                        .resultType(pieceDetail.getResultType())
+                        .itemResult(pieceDetail.getItemResult())
+                        .measuredValue(pieceDetail.getMeasuredValue())
+                        .judgement(pieceDetail.getJudgement())
+                        .aggregatedAt(aggregatedAt)
+                        .build();
+        aggregateDetail.setTenantId(record.getTenantId());
+        return aggregateDetail;
     }
 }

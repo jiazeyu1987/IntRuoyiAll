@@ -1172,6 +1172,10 @@ public interface ErrorCodeConstants {
             "正式工电子签名密码由用户管理统一维护，不能在生产人员档案中重置：{}");
     ErrorCode PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_DUPLICATE = new ErrorCode(1_040_760_337,
             "当前生产组长已关联该正式工，请启用或修改既有生产人员档案：{}");
+    ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_PQC_LEADER_REQUIRED = new ErrorCode(1_040_760_338,
+            "PQC 检验单只能由 PQC 组长确认或退回：eventId={}，leaderType={}");
+    ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_REJECT_REMARK_REQUIRED = new ErrorCode(1_040_760_339,
+            "复核退回必须填写退回原因：eventId={}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

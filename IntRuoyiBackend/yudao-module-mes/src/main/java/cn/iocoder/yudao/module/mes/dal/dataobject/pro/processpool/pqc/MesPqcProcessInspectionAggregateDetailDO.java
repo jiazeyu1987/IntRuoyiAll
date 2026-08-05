@@ -36,8 +36,10 @@ public class MesPqcProcessInspectionAggregateDetailDO extends TenantBaseDO {
     private Long reviewId;
     private Long productionSubmitEventId;
     private Long pqcTaskId;
+    private Long activeOrderId;
     private Long workOrderId;
     private Long routeId;
+    private Long routeVersionId;
     private Long routeProcessId;
     private Long processId;
     private Long regulationVersionId;

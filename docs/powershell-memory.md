@@ -180,6 +180,7 @@
 - Verification: 记录原 Maven 命令、内存失败摘要、低内存重试命令、停止的任务自有 PID、保留的其它 PID，以及后续需要重跑的精确测试命令。
 - Forbidden action: 禁止用更小测试范围冒充目标验证通过；禁止在未达到 Surefire 测试结果时宣称业务 GREEN；禁止因为环境阻塞而提交未记录的验证缺口。
 - Evidence: `doc\tasks\20260805-ac-m19-deterministic-backfill\verification-report.md`，AC-M19 聚合回填修复中目标 Maven 首次因页面文件不足失败，低内存重试超时，仅停止本任务 PID 55008 并记录剩余阻塞。
+- Evidence: `doc/tasks/20260805-ac-m20-pqc-review-fix/execution-log.md`，AC-M20 PQC 复核修复中，标准 Maven 先因 JVM native memory/pagefile 失败，低内存参数后仍长时间处于 Lombok/Javac 编译且并发 Java 任务较多，最终停止本任务 Maven PID 并保持后端 JUnit blocked，待资源释放后复跑标准 Maven 取得 GREEN。
 ## 执行顺序
 
 1. 阶段 1：任务提交/推送预检

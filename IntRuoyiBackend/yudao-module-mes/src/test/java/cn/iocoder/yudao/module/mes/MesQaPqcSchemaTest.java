@@ -190,6 +190,32 @@ class MesQaPqcSchemaTest {
         assertTrue(sql.contains("`standard_upper_limit` decimal(18,6) DEFAULT NULL COMMENT '提交时接收标准上限快照'"));
     }
 
+    @Test
+    void pqcProcessInspectionAggregationSchemaMustFreezeApprovedReviewDetails() throws Exception {
+        Class<?> aggregateDetailClass = Class.forName(
+                "cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO");
+        assertEquals("mes_pqc_process_inspection_aggregate_detail", tableName(aggregateDetailClass));
+        assertField(aggregateDetailClass, "sourcePqcRecordId", Long.class);
+        assertField(aggregateDetailClass, "eventId", Long.class);
+        assertField(aggregateDetailClass, "reviewId", Long.class);
+        assertField(aggregateDetailClass, "productionSubmitEventId", Long.class);
+        assertField(aggregateDetailClass, "pqcTaskId", Long.class);
+        assertField(aggregateDetailClass, "sourcePieceDetailId", Long.class);
+        assertField(aggregateDetailClass, "itemCode", String.class);
+        assertField(aggregateDetailClass, "selectedEquipmentNumber", String.class);
+        assertField(aggregateDetailClass, "standardLowerLimit", BigDecimal.class);
+        assertField(aggregateDetailClass, "standardUpperLimit", BigDecimal.class);
+        assertField(aggregateDetailClass, "measuredValue", String.class);
+        assertField(aggregateDetailClass, "judgement", String.class);
+        assertField(aggregateDetailClass, "aggregatedAt", LocalDateTime.class);
+
+        String sql = Files.readString(resolveBackendPath(
+                "sql/mysql/20260805_mes_process_pool_ac_m20_pqc_review_closure.sql"), StandardCharsets.UTF_8);
+        assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pqc_process_inspection_aggregate_detail`"));
+        assertTrue(sql.contains("`task_status` varchar(32) NOT NULL COMMENT '任务状态：PENDING/SUBMITTED/CONFIRMED/CANCELLED'"));
+        assertTrue(sql.contains("UNIQUE KEY `uk_mes_pqc_process_aggregate_piece`"));
+    }
+
     private static String tableName(Class<?> clazz) {
         return clazz.getAnnotation(TableName.class).value();
     }

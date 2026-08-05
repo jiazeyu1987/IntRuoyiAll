@@ -59,13 +59,14 @@ class MesTeamLeaderSubmissionReviewServiceTest {
 
         assertEquals(7001L, reviewId);
         verify(scopeService).assertCanAccessEmployee(3001L,
-                MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, 2001L);
+                MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, 2001L);
         ArgumentCaptor<MesProcessPoolSubmissionReviewDO> reviewCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolSubmissionReviewDO.class);
         verify(reviewMapper).insert(reviewCaptor.capture());
         MesProcessPoolSubmissionReviewDO review = reviewCaptor.getValue();
         assertEquals(1001L, review.getEventId());
         assertEquals(3001L, review.getLeaderUserId());
+        assertEquals(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, review.getLeaderType());
         assertEquals(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED, review.getReviewStatus());
         assertEquals("数据和签名一致", review.getReviewRemark());
         assertNotNull(review.getReviewedAt());
@@ -102,11 +103,37 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     }
 
     @Test
+    void shouldRejectProductionLeaderReviewingPqcSubmission() {
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.reviewSubmission(productionReviewReq()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_PQC_LEADER_REQUIRED.getCode(),
+                ex.getCode());
+        verify(scopeService, never()).assertCanAccessEmployee(any(), any(), any());
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(any(), any());
+    }
+
+    @Test
+    void shouldRejectRejectedPqcReviewWithoutReason() {
+        MesTeamLeaderSubmissionReviewReqBO req = rejectedReviewReq().setReviewRemark("  ");
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(req));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_REJECT_REMARK_REQUIRED.getCode(),
+                ex.getCode());
+        verify(eventMapper, never()).selectByIdForUpdate(any());
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+    }
+
+    @Test
     void shouldRejectReviewForOutOfScopeEmployee() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
         doThrow(exception(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED))
                 .when(scopeService).assertCanAccessEmployee(3001L,
-                        MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, 2001L);
+                        MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, 2001L);
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
 
@@ -139,7 +166,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         return MesTeamLeaderSubmissionReviewReqBO.builder()
                 .eventId(1001L)
                 .leaderUserId(3001L)
-                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC)
                 .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)
                 .reviewRemark("数据和签名一致")
                 .reviewSignatureId(9101L)
@@ -148,11 +175,16 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 .build();
     }
 
+    private static MesTeamLeaderSubmissionReviewReqBO productionReviewReq() {
+        return reviewReq()
+                .setLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION);
+    }
+
     private static MesTeamLeaderSubmissionReviewReqBO rejectedReviewReq() {
         return MesTeamLeaderSubmissionReviewReqBO.builder()
                 .eventId(1001L)
                 .leaderUserId(3001L)
-                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC)
                 .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_REJECTED)
                 .reviewRemark("压力曲线异常，退回补正")
                 .reviewSignatureId(9102L)

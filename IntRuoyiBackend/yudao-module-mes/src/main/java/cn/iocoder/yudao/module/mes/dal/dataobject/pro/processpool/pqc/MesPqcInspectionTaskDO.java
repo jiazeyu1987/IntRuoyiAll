@@ -25,6 +25,10 @@ import java.time.LocalDate;
 @Accessors(chain = true)
 public class MesPqcInspectionTaskDO extends TenantBaseDO {
 
+    public static final String TASK_STATUS_PENDING = "PENDING";
+    public static final String TASK_STATUS_SUBMITTED = "SUBMITTED";
+    public static final String TASK_STATUS_CONFIRMED = "CONFIRMED";
+
     @TableId
     private Long id;
 

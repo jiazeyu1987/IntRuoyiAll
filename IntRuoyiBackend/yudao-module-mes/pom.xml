@@ -170,6 +170,40 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>mes-ac-m20-pqc-review-targeted-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <testIncludes>
+                                <testInclude>**/MesTeamLeaderSubmissionReviewServiceTest.java</testInclude>
+                                <testInclude>**/MesPqcProcessInspectionAggregationServiceTest.java</testInclude>
+                                <testInclude>**/MesProcessPoolTeamLeaderSchemaTest.java</testInclude>
+                                <testInclude>**/MesQaPqcSchemaTest.java</testInclude>
+                            </testIncludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/MesTeamLeaderSubmissionReviewServiceTest.java</include>
+                                <include>**/MesPqcProcessInspectionAggregationServiceTest.java</include>
+                                <include>**/MesProcessPoolTeamLeaderSchemaTest.java</include>
+                                <include>**/MesQaPqcSchemaTest.java</include>
+                            </includes>
+                            <systemPropertyVariables>
+                                <yudao.info.base-package>cn.iocoder.yudao.module.mes</yudao.info.base-package>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 
 </project>
