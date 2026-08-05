@@ -99,4 +99,5 @@
 - GREEN: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS after merge resolution.
 - PREFLIGHT: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，branch runtime port guard confirmed slot 4 (`frontend 8085`, `backend 48085`).
 - PREFLIGHT NOTE: `git diff --cached --check` reports `IntRuoyiFronted/tests/e2e/approval-center-upload-quick-review-static.spec.js:39: new blank line at EOF`; this file is an upstream `origin/int_main` merge addition, not a task-owned production-leader edit.
+- GREEN: experience-preflight -> PASS，`docs/experience-index.md` already links this task's reusable lessons to `docs/frontend-development.md#前端角色内容页签拆分口径门禁`, `docs/worktree-memory.md#worktree-端口段与原子槽位门禁`, `docs/worktree-memory.md#d-main-本地主线滞后远端融合门禁`, and `docs/powershell-memory.md#github-https-443-本地代理门禁`; no new long-term memory document is needed.
 - CURRENT STATUS: implementation and post-merge verification are complete in the isolated worktree; merge commit, push, and closeout gate remain.
