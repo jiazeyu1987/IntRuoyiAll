@@ -14,13 +14,37 @@ const workbenchPath = path.join(
 )
 const routePath = path.join(frontendRoot, 'src/router/modules/remaining.ts')
 const qcTemplateApiPath = path.join(frontendRoot, 'src/api/mes/qc/template/index.ts')
+const routeProductApiPath = path.join(frontendRoot, 'src/api/mes/pro/route/product/index.ts')
+const backendRouteProductControllerPath = path.join(
+  workspaceRoot,
+  'IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteProductController.java'
+)
+const backendRouteProductServicePath = path.join(
+  workspaceRoot,
+  'IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/route/MesProRouteProductServiceImpl.java'
+)
 
 assert.ok(fs.existsSync(qaPagePath), 'QA regulation must be implemented as a standalone page.')
+assert.ok(fs.existsSync(routeProductApiPath), 'QA route binding must use the formal route-product API wrapper.')
+assert.ok(
+  fs.existsSync(backendRouteProductControllerPath),
+  'QA route binding must have a backend route-product controller contract.'
+)
+assert.ok(
+  fs.existsSync(backendRouteProductServicePath),
+  'QA route binding must have a backend route-product service contract.'
+)
 
 const qaSource = fs.readFileSync(qaPagePath, 'utf8')
 const workbenchSource = fs.readFileSync(workbenchPath, 'utf8')
 const routeSource = fs.readFileSync(routePath, 'utf8')
 const qcTemplateApiSource = fs.readFileSync(qcTemplateApiPath, 'utf8')
+const routeProductApiSource = fs.readFileSync(routeProductApiPath, 'utf8')
+const backendRouteProductControllerSource = fs.readFileSync(
+  backendRouteProductControllerPath,
+  'utf8'
+)
+const backendRouteProductServiceSource = fs.readFileSync(backendRouteProductServicePath, 'utf8')
 const dccProjectLoaderStart = qaSource.indexOf('const loadDccProjectCodeOptions')
 const dccProjectLoaderEnd = qaSource.indexOf('const retryLoadDccProjectCodes')
 const dccProjectLoaderSource = qaSource.slice(dccProjectLoaderStart, dccProjectLoaderEnd)
@@ -46,6 +70,13 @@ const qaItemsColumnsEnd =
 const qaItemsColumnsSource =
   qaItemsColumnsStart >= 0 && qaItemsColumnsEnd > qaItemsColumnsStart
     ? qaSource.slice(qaItemsColumnsStart, qaItemsColumnsEnd)
+    : ''
+const pressurePumpItemsStart = qaSource.indexOf('const createPressurePumpQaRegulationItems')
+const pressurePumpItemsEnd =
+  pressurePumpItemsStart >= 0 ? qaSource.indexOf('const qaRegulationItems', pressurePumpItemsStart) : -1
+const pressurePumpItemsSource =
+  pressurePumpItemsStart >= 0 && pressurePumpItemsEnd > pressurePumpItemsStart
+    ? qaSource.slice(pressurePumpItemsStart, pressurePumpItemsEnd)
     : ''
 
 assert.match(
@@ -158,8 +189,42 @@ assert.match(
 )
 assert.match(
   qaSource,
-  /ProRouteApi[\s\S]*getRouteSimpleList[\s\S]*ProRouteProductApi[\s\S]*saveRouteProductByItem[\s\S]*loadQaRouteScopeFromRouteBinding/,
-  'QA route scope must support an explicit manual route binding action through the formal product-route binding API.'
+  /ProRouteApi[\s\S]*getRouteItemBindingList[\s\S]*ProRouteProductApi[\s\S]*saveQaRegulationRouteProductByItem[\s\S]*loadQaRouteScopeFromRouteBinding/,
+  'QA route scope must support explicit manual route binding through the QA route-product binding API.'
+)
+assert.match(
+  routeProductApiSource,
+  /saveQaRegulationRouteProductByItem[\s\S]*\/mes\/pro\/route-product\/save-qa-regulation-route-by-item/,
+  'Frontend must call the QA-specific route binding endpoint instead of the product maintenance endpoint.'
+)
+assert.match(
+  backendRouteProductControllerSource,
+  /save-qa-regulation-route-by-item[\s\S]*saveQaRegulationRouteProductByItem/,
+  'Backend controller must expose a QA-specific route binding endpoint.'
+)
+assert.match(
+  backendRouteProductServiceSource,
+  /saveQaRegulationRouteProductByItem[\s\S]*savePublishedRouteProductByItem/,
+  'Backend service must expose a QA-specific binding method that does not reuse product-side route maintenance validation.'
+)
+const qaBindingMethodStart = backendRouteProductServiceSource.indexOf('saveQaRegulationRouteProductByItem')
+const qaBindingMethodEnd =
+  qaBindingMethodStart >= 0
+    ? backendRouteProductServiceSource.indexOf('savePublishedRouteProductByItem', qaBindingMethodStart)
+    : -1
+const qaBindingMethodSource =
+  qaBindingMethodStart >= 0 && qaBindingMethodEnd > qaBindingMethodStart
+    ? backendRouteProductServiceSource.slice(qaBindingMethodStart, qaBindingMethodEnd)
+    : ''
+assert.doesNotMatch(
+  qaBindingMethodSource,
+  /validateRouteNotEnable/,
+  'QA route binding must allow a published/enabled route and must not call the editable-route guard.'
+)
+assert.doesNotMatch(
+  qaSource,
+  /isManualQaRouteOptionDisabled[\s\S]*CommonStatusEnum\.ENABLE|已启用，仅回显|所选工艺路线已启用，不能在产品侧变更绑定/,
+  'Manual QA route binding must not disable published/enabled routes in the select.'
 )
 assert.match(
   qaSource,
@@ -348,8 +413,10 @@ for (const requiredRule of ['首检', '上午巡检', '下午巡检', '末检'])
 }
 
 for (const requiredField of [
+  'processName',
   'inspectionMethod',
   'inspectionTool',
+  'samplingPlanText',
   'resultType',
   'standardText',
   'lowerLimit',
@@ -363,6 +430,67 @@ for (const requiredField of [
 ]) {
   assert.match(qaSource, new RegExp(requiredField), `QA regulation item model must retain ${requiredField}.`)
 }
+assert.match(
+  qaSource,
+  /item\.processName\?\.trim\(\)/,
+  'QA regulation item rows must prefer the PDF item process name instead of one global route process.'
+)
+assert.match(
+  qaSource,
+  /item\.samplingPlanText\?\.trim\(\)/,
+  'QA regulation item rows must preserve the PDF sampling plan text before deriving UI-only rule quantities.'
+)
+
+const pressurePumpPdfItemCodes = Array.from(
+  pressurePumpItemsSource.matchAll(/itemCode:\s*'([^']+)'/g),
+  ([, itemCode]) => itemCode
+)
+assert.equal(
+  new Set(pressurePumpPdfItemCodes).size,
+  22,
+  'Pressure-pump IDI seed data must contain all 22 PDF 5.1 process inspection rows.'
+)
+for (const requiredPressurePumpPdfText of [
+  "processName: '清洗'",
+  "processName: '清洁'",
+  "processName: '组装螺杆八组件'",
+  "processName: '光固外套四组件'",
+  "processName: '装配'",
+  "processName: '整体粘结'",
+  "itemName: '光固旋转接头 / 外观'",
+  "itemName: '光固旋转接头 / 牢固度'",
+  "itemName: '光固压力表 / 外观'",
+  "itemName: '光固压力表 / 牢固度'",
+  "itemName: '光固延长管 / 外观'",
+  "itemName: '光固延长管 / 牢固度'",
+  "itemName: '装配活塞 / 外观'",
+  "itemName: '硅化活塞环 / 外观'",
+  "itemName: '装配活塞环 / 外观'",
+  "itemName: '装配活塞环 / 配合'",
+  "itemName: '外套组件与套筒组件装配 / 外观'",
+  "itemName: '外套组件与套筒组件装配 / 配合'",
+  "itemName: '气密性 / 负压检测'",
+  "itemName: '气密性 / 高压检测'",
+  "itemName: '气密性 / 低压检测'",
+  "samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4'",
+  "samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4'",
+  "samplingPlanText: 'GB/T 2828.1，I，AQL=0.4'",
+  '气密性检测工装',
+  '检测专用泵筒',
+  '负压检测：抽负压-80±5kpa，不应有泄漏。',
+  '低压检测：将高压检测合格的压力泵装到气密性检测工装上'
+]) {
+  assert.match(
+    pressurePumpItemsSource,
+    new RegExp(requiredPressurePumpPdfText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `Pressure-pump PDF seed data must include ${requiredPressurePumpPdfText}.`
+  )
+}
+assert.doesNotMatch(
+  pressurePumpItemsSource,
+  /外观确认|装配完整性|密封\/泄漏确认|压力显示\/保压确认|判定规则与记录确认/,
+  'Pressure-pump IDI seed data must not keep the old 5-row demo inspection items.'
+)
 
 for (const requiredOriginalExcerpt of [
   '原文依据',

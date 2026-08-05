@@ -93,6 +93,14 @@ public class MesProRouteProductController {
         return success(routeProductService.saveRouteProductByItem(reqVO.getItemId(), reqVO.getRouteId()));
     }
 
+    @PostMapping("/save-qa-regulation-route-by-item")
+    @Operation(summary = "QA 规程按产品绑定已发布工艺路线")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
+    public CommonResult<Long> saveQaRegulationRouteProductByItem(
+            @Valid @RequestBody MesProRouteProductByItemSaveReqVO reqVO) {
+        return success(routeProductService.saveQaRegulationRouteProductByItem(reqVO.getItemId(), reqVO.getRouteId()));
+    }
+
     @DeleteMapping("/delete")
     @Operation(summary = "删除工艺路线产品")
     @Parameters({

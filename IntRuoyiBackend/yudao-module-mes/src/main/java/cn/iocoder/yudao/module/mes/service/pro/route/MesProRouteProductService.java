@@ -68,6 +68,15 @@ public interface MesProRouteProductService {
     Long saveRouteProductByItem(Long itemId, Long routeId);
 
     /**
+     * QA 规程按产品（物料）绑定已发布工艺路线
+     *
+     * @param itemId 产品编号
+     * @param routeId 工艺路线编号
+     * @return 工艺路线产品编号
+     */
+    Long saveQaRegulationRouteProductByItem(Long itemId, Long routeId);
+
+    /**
      * 按工艺路线获得产品列表
      */
     List<MesProRouteProductDO> getRouteProductListByRouteId(Long routeId);

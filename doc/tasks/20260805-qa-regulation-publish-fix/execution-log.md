@@ -58,14 +58,15 @@
 - GREEN: `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js` -> PASS，正式路线范围自动带出后标准列表模板系统契约仍通过。
 - GREEN: `pnpm ts:check` -> PASS，正式路线范围自动带出、保存发布阻断和黄框字段移除后 Vue/TypeScript 类型检查通过。
 - RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，截图口径要求支持手动绑定工艺路线时，旧页面没有路线选择器、`saveRouteProductByItem` 正式绑定调用和绑定后重新解析路线范围。
-- GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 适用范围区域新增 `data-qa-regulation-manual-route-bind`，可选择已有当前生效版本的工艺路线并通过 `saveRouteProductByItem` 写入当前产品绑定，绑定后重新走正式路线范围解析。
+- GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 适用范围区域新增 `data-qa-regulation-manual-route-bind`，通过产品侧专用 `getRouteItemBindingList` 候选和 `CommonStatusEnum.ENABLE` 禁用规则保持与后端绑定校验一致，再通过 `saveRouteProductByItem` 写入当前产品绑定，绑定后重新走正式路线范围解析。
 - GREEN: `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js` -> PASS，手动绑定工艺路线能力接入后标准列表模板系统契约仍通过。
 - GREEN: `pnpm ts:check` -> PASS，手动绑定工艺路线相关 Vue/TypeScript 类型检查通过。
 
 ## Experience Consolidation
 
 - `docs/frontend-development.md` -> UPDATED，合并 QA 新增 4 个 `UnifiedListTemplate` 后标准列表系统接入点 88、显式隐藏筛选 14 的长期门禁证据。
-- `project-experience-consolidation` -> REVIEWED，本次截图口径属于 QA 页面局部信息架构变更，已由任务静态契约锁定“选择区只保留一个必填下拉框、禁止旧状态列表”；未发现需要新增长期经验文档的通用门禁。
+- `docs/backend-development.md` / `docs/experience-index.md` -> UPDATED，将 QA 手动绑定工艺路线并入既有“MES 工艺路线产品绑定状态门禁”，锁定必须复用 `item-binding-list`、路线状态禁用规则、`saveRouteProductByItem` 和绑定后重读 `getRouteProductByItem`。
+- `project-experience-consolidation` -> REVIEWED，本次不新建长期经验文档，相关通用约束已合并到既有产品侧路线绑定门禁。
 
 ## Verification Evidence
 
@@ -75,8 +76,8 @@
 - `pnpm ts:check`：PASS，前端类型检查通过。
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md`：PASS，输出 `Frontend feature evidence is valid.`。
 - QA 适用范围黄框字段静态契约：PASS，确认源码包含 `loadQaRouteScopeFromProject`、正式工艺路线 API 调用、只读 `data-qa-regulation-route-scope-auto` 展示和 `qaFormalRouteScopeReady` 保存/发布阻断，且不再存在黄框字段输入控件。
-- QA 手动绑定工艺路线静态契约：PASS，确认源码包含 `ProRouteApi.getRouteSimpleList`、`ProRouteProductApi.saveRouteProductByItem`、`loadQaRouteScopeFromRouteBinding`、`data-qa-regulation-manual-route-bind` 和绑定失败可见错误。
-- `git diff --check -- <AC-M09 实现文件>`：PASS，无 whitespace error，仅有 Git CRLF 工作区提示。
+- QA 手动绑定工艺路线静态契约：PASS，确认源码包含 `ProRouteApi.getRouteItemBindingList`、`CommonStatusEnum` 路线状态禁用、`ProRouteProductApi.saveRouteProductByItem`、`loadQaRouteScopeFromRouteBinding`、`data-qa-regulation-manual-route-bind` 和绑定失败可见错误。
+- `git diff --check -- <AC-M09 实现文件和经验文档>`：PASS，无 whitespace error，仅有 Git CRLF 工作区提示。
 - 目标 JUnit 未通过环境门禁：主工作区持续存在非本任务 Maven 测试进程，导致 `target/classes` 缺失和后续专属 JUnit 超时；按规则未强停他人任务。
 
 ## Blockers

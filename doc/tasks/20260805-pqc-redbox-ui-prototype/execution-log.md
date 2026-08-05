@@ -22,6 +22,10 @@
 
 2026-08-05 九次反馈：用户确认“继续”，要求将已确认的 10-tab 原型方向继续推进到正式页面实现。
 
+2026-08-05 十次反馈：用户基于截图要求“不显示黄框里的绿条，选中的用背景黄色显示”，即选中 tab 不再使用绿色顶部状态条，改用黄色背景作为当前项反馈。
+
+2026-08-05 十一次反馈：用户要求“把当前系统的PQC填写改成与更新后的HTML预览的效果一致”，即正式 Vue 页面必须与最新 HTML 预览的 tab 视觉和完整显示规则保持一致。
+
 ## Preflight
 
 - 读取 `docs/frontend-development.md`、`docs/task-closeout-rules.md`、`docs/powershell-encoding.md`、`docs/powershell-memory.md`。
@@ -32,6 +36,8 @@
 ## BDD
 
 - BDD: PQC 红框区域风格统一 -> Given PQC 填写页主界面使用大字号、粗边框、圆角和深绿操作按钮 When 用户查看检验内容卡片中的设备、标准、方法区域 Then 该区域应使用同等触控面积、边框、字号和信息层级，而不是原生小 select/button。
+- BDD: PQC 选中 tab 黄色高亮且无绿条 -> Given PQC 检验项以 tab 形式展示 When 操作员选中一个检验项 Then 该 tab 使用黄色背景表达选中态，并且不显示旧的绿色顶部状态条。
+- BDD: 正式 PQC tab 与 HTML 预览一致 -> Given HTML 预览中 10 个 tab 的“要求”和“已填进度”完整展示 When 当前系统 PQC 填写页渲染正式 tab Then 正式页应保留同样的黄底选中态、无绿色条和完整字段显示规则。
 
 ## Milestone Evidence
 
@@ -39,6 +45,7 @@
 - 定位红框结构：`FrontlineFixedTemplatePanel.vue` 中 `.frontline-pqc-equipment-controls` 当前使用两个原生 `select`，`.frontline-pqc-fact-actions` 当前使用普通按钮；与周围 `.frontline-pqc-choice-actions`、`.frontline-pqc-type-tabs` 的大触控按钮不一致。
 - 原型输出：`doc/tasks/20260805-pqc-redbox-ui-prototype/pqc-redbox-ui-prototype.html`。
 - 正式实现输出：`IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue` 已使用 `data-pqc-active-inspection-panel` 单一当前项详情、`data-pqc-inspection-tabs` 检验项 tab、`repeat(5, minmax(0, 1fr))` 10-tab 网格和触控式设备/编号信息卡。
+- 最新选中态输出：`.pqc-item-tab.active` 已改为黄色背景 `#fff4bf`，active 伪元素 `&::before` 使用 `display: none` 且 `background: transparent`，不再显示黄框中的绿色条。
 - 正式静态契约输出：`IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js`。
 - 前端技能证据输出：`doc/tasks/20260805-pqc-redbox-ui-prototype/frontend-feature-evidence.md`。
 
@@ -87,8 +94,14 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-pqc-redbox-ui-prototype/frontend-feature-evidence.md` -> PASS，输出 `Frontend feature evidence is valid.`
 - Project experience consolidation: 已读取 `project-experience-consolidation` 技能并检查 `docs/*memory*.md`、`docs/frontend-development.md` 与 `docs/experience-index.md`；本次经验属于既有“前端静态契约隔离门禁”和“截图局部 UI 静态契约”覆盖范围，不新增长期经验文档。
 - Closeout preview/apply blocker: 当前环境未找到 `task_closeout.py` / `task-closeout-cleanup` 命令，`scripts` 浅层目录也无 closeout 脚本；因此正式实现阶段未能重新执行 cleanup preview/apply。
+- RED: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> FAIL，预期原因：最新截图要求选中 tab 必须使用黄色背景，旧 active 选中态仍是白底绿字并带绿色顶部状态条。
+- GREEN: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> PASS，已验证 active tab 使用 `#fff4bf` 黄色背景，且 active `&::before` 被 `display: none` 隐藏并保持透明。
+- GREEN: `node tests/e2e/pqc-item-equipment-standard-method-static.spec.js` -> PASS，设备、编号、标准和方法相邻契约未被破坏。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js doc/tasks/20260805-pqc-redbox-ui-prototype` -> PASS。
+- Project experience consolidation: 将“截图样式块静态契约必须抽取目标状态块，避免过宽正则跨块误命中”的通用经验合并到 `docs/frontend-development.md#前端截图样式块静态契约门禁`，并更新 `docs/experience-index.md` 关键词索引。
 
 ## Remaining Blockers
 
 - 正式 Vue 页面已完成，本轮不再存在实现阻塞。
-- Cleanup/Git 收尾阻塞：当前环境缺少可调用的 closeout cleanup 命令；`git status --short --branch --untracked-files=no` 显示当前分支未标记 ahead，但存在非本任务脏改动 `doc/tasks/20260805-ac-m04-acceptance-sync/execution-log.md`、`task.md`、`verification-report.md`。为避免混入并发任务改动，本轮未提交或推送。
+- Cleanup/Git 收尾阻塞：当前环境缺少可调用的 closeout cleanup 命令；`git status --short --branch` 显示当前分支未标记 ahead，但存在多项非本任务脏改动。为避免混入并发任务改动，本轮未提交或推送。

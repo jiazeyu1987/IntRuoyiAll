@@ -26,7 +26,7 @@
 
 - Existing API wrappers retained: DCC project code page, draft save, publish.
 - Formal route scope APIs used by the page: `ProRouteProductApi.getRouteProductByItem(productId)`, `ProRouteApi.getRoute(routeId)`, `ProRouteApi.getRouteVersion(routeVersionId)`, `ProRouteProcessApi.getRouteProcessListByRoute(routeId)`, and `ProRouteFlowConfigApi.getProcessConfigList(routeId, 'SCHEDULE'/'BATCH', routeVersionId)`.
-- Manual route binding APIs used by the page: `ProRouteApi.getRouteSimpleList()` and `ProRouteProductApi.saveRouteProductByItem({ itemId, routeId })`; after saving, the page re-reads `getRouteProductByItem(productId)` and only then applies the formal route scope.
+- Manual route binding APIs used by the page: `ProRouteApi.getRouteItemBindingList()` and `ProRouteProductApi.saveRouteProductByItem({ itemId, routeId })`; the page reuses the product-side route status guard for disabled route options. After saving, it re-reads `getRouteProductByItem(productId)` and only then applies the formal route scope.
 - Data states retained: DCC project loading, load error, retry, selected DCC project, route-scope loading/error, save/publish failure messages.
 - Removed from the page state: configured/unconfigured project status groups and selector-area project details.
 - Save/publish state now requires `qaFormalRouteScopeReady`; missing or ambiguous formal route scope remains a visible blocking error.
@@ -61,7 +61,7 @@
 
 ## Verification
 
-- Verification: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs IntRuoyiFronted/tests/e2e/unified-list-template-empty-tabs-system-static.spec.js doc/tasks/20260805-qa-regulation-publish-fix/task.md doc/tasks/20260805-qa-regulation-publish-fix/execution-log.md doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md` -> PASS，仅有 Git CRLF 工作区提示，无 whitespace error。
+- Verification: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs IntRuoyiFronted/tests/e2e/unified-list-template-empty-tabs-system-static.spec.js doc/tasks/20260805-qa-regulation-publish-fix/task.md doc/tasks/20260805-qa-regulation-publish-fix/execution-log.md doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md docs/backend-development.md docs/experience-index.md` -> PASS，仅有 Git CRLF 工作区提示，无 whitespace error。
 - Verification: QA 页面专属排序接线断言 -> PASS，输出 `PASS QA standard list sort wiring`。
 - Verification: 全局 `unified-list-template-all-headers-sortable-static.spec.js` 仍被大量既有页面阻塞；QA 页面聚焦扫描显示四个新增列表均已接入 `sortColumnAttrs` 与 `handleTemplateSortChange`，未作为本次完成门禁。
 

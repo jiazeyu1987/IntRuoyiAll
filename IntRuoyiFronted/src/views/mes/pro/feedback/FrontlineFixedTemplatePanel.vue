@@ -3362,27 +3362,35 @@ onUnmounted(() => {
     gap: 6px;
     align-items: center;
     min-width: 0;
+    overflow: visible;
     color: var(--frontline-muted);
     font-size: 13px;
     font-weight: 900;
     line-height: 1.05;
     white-space: nowrap;
+
+    span {
+      min-width: 0;
+      overflow: visible;
+      white-space: nowrap;
+    }
   }
 
   &.active {
-    border-color: #8cb9a1;
-    background: #ffffff;
-    color: #15815f;
-    box-shadow: inset 0 7px 0 rgba(21, 129, 95, 0.13), 0 8px 18px rgba(36, 50, 43, 0.08);
+    border-color: #d9a441;
+    background: #fff4bf;
+    color: #111a15;
+    box-shadow: 0 8px 18px rgba(98, 76, 24, 0.12);
     transform: translateY(3px);
 
     &::before {
-      background: #15815f;
+      display: none;
+      background: transparent;
     }
 
     em {
-      background: #ffffff;
-      color: #15815f;
+      background: #f4d98d;
+      color: #5a4311;
     }
   }
 

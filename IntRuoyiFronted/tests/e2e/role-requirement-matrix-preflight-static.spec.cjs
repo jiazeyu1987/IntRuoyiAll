@@ -308,6 +308,8 @@ for (const token of [
   'tenant-id',
   'Authorization',
   '/mes/pro/process-pool/team-leader/active-order/add',
+  '/mes/pro/feedback/edhr-batch-production-fill',
+  '/mes/pro/feedback/frontline/submit',
   '/mes/pro/feedback/edhr-batch-pqc-fill',
   '/mes/pro/feedback/frontline/device-account/pqc/active-orders',
   '/mes/pro/feedback/frontline/device-account/pqc/active-order/processes',
@@ -876,6 +878,41 @@ const pqcFormalSubmissionSource = source.match(/async function verifyPqcFormalSu
 assert.ok(
   pqcFormalSubmissionSource,
   'real E2E script must keep verifyPqcFormalSubmissionCreatesEvent before localDateString for static inspection.'
+)
+assert.match(
+  source,
+  /routeProcessIds:\s*\[[\s\S]*RRM_ROUTE_PROCESS_ID_1[\s\S]*RRM_ROUTE_PROCESS_ID_2[\s\S]*\][\s\S]*primaryRouteProcessId:\s*Number\(envValue\('RRM_ROUTE_PROCESS_ID_1'\)\)/,
+  'RRM config must retain both route process IDs and a primary route process ID so PQC prerequisite production submit is tied to the same formal route context.'
+)
+assert.match(
+  source,
+  /const\s+PRODUCTION_FILL_ROUTE\s*=\s*'\/mes\/pro\/feedback\/edhr-batch-production-fill'[\s\S]*const\s+FRONTLINE_SUBMIT_ENDPOINT\s*=\s*'\/mes\/pro\/feedback\/frontline\/submit'/,
+  'RRM real E2E must define the formal production fill route and production submit endpoint before PQC submission.'
+)
+assert.match(
+  source,
+  /function buildProductionFillUrl[\s\S]*feedbackCode[\s\S]*routeProcessId[\s\S]*signatureEmployeeId[\s\S]*outputQuantity[\s\S]*idempotencyKey/,
+  'RRM real E2E must build a production fill URL with formal route process, signature, quantity, and idempotency context.'
+)
+assert.match(
+  source,
+  /async function preparePqcFormalSubmissionContext[\s\S]*buildProductionFillUrl[\s\S]*submitFrontlineProductionForPqcPrereq[\s\S]*processPoolEventId/,
+  'PQC formal submission must create and capture a fresh processPoolEventId through the real production submit path.'
+)
+assert.match(
+  source,
+  /function buildPqcFillUrl[\s\S]*productionSubmitEventId[\s\S]*processPoolEventId/,
+  'PQC fill URL must carry the fresh productionSubmitEventId/processPoolEventId instead of relying on historical process-pool state.'
+)
+assert.match(
+  pqcFormalSubmissionSource[0],
+  /preparePqcFormalSubmissionContext[\s\S]*buildPqcFillUrl[\s\S]*page\.goto/,
+  'verifyPqcFormalSubmissionCreatesEvent must prepare the formal production submit context and reopen PQC with productionSubmitEventId before clicking submit.'
+)
+assert.doesNotMatch(
+  source,
+  /RRM_PROCESS_POOL_EVENT_ID|RRM_PRODUCTION_SUBMIT_EVENT_ID/,
+  'RRM full real E2E must not accept historical production event IDs from env; it must create a fresh event in the same run.'
 )
 assert.match(
   pqcFormalSubmissionSource[0],

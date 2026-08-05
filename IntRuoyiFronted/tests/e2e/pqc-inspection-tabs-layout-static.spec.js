@@ -7,6 +7,7 @@ const read = (relativePath) =>
   fs.readFileSync(path.join(root, relativePath), 'utf8').replace(/\r\n/g, '\n')
 
 const panelSource = read('src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue')
+const prototypeSource = read('../doc/tasks/20260805-pqc-redbox-ui-prototype/pqc-redbox-ui-prototype.html')
 
 assert.ok(
   panelSource.includes('data-pqc-active-inspection-panel'),
@@ -28,6 +29,26 @@ assert.match(
 )
 assert.match(
   panelSource,
+  /\.pqc-item-tab[\s\S]*&\.active[\s\S]*background:\s*#fff4bf/,
+  'The selected PQC tab must use a yellow background instead of a green top status bar.'
+)
+const activeTabBlockMatch = panelSource.match(
+  /\.pqc-item-tab\s*\{[\s\S]*?&\.active\s*\{([\s\S]*?)\n\s*\}\n\n\s*&:focus-visible/
+)
+assert.ok(activeTabBlockMatch, 'The selected PQC tab style block must be defined.')
+const activeTabBlock = activeTabBlockMatch[1]
+assert.match(
+  activeTabBlock,
+  /&::before\s*\{[\s\S]*display:\s*none[\s\S]*background:\s*transparent/,
+  'The selected PQC tab must hide the old top status pseudo-element.'
+)
+assert.doesNotMatch(
+  activeTabBlock,
+  /background:\s*#15815f/,
+  'The selected PQC tab must not render the old green top bar.'
+)
+assert.match(
+  panelSource,
   /grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/,
   'PQC tab strip must use a 5-column grid so 10 tabs render as two complete rows.'
 )
@@ -40,6 +61,16 @@ assert.match(
   panelSource,
   /data-pqc-tab-progress[\s\S]*getPqcProgressText/,
   'Each PQC tab must show progress independently without relying on truncated meta text.'
+)
+assert.match(
+  prototypeSource,
+  /\.pqc-item-tab small[\s\S]*overflow:\s*visible[\s\S]*\.pqc-item-tab small span[\s\S]*overflow:\s*visible/,
+  'The updated HTML preview must keep PQC tab requirement and progress fields fully visible.'
+)
+assert.match(
+  panelSource,
+  /\.pqc-item-tab\s*\{[\s\S]*small\s*\{[\s\S]*overflow:\s*visible[\s\S]*span\s*\{[\s\S]*overflow:\s*visible[\s\S]*white-space:\s*nowrap/,
+  'The formal PQC tab layout must match the updated HTML preview by keeping requirement and progress fields fully visible.'
 )
 assert.ok(
   panelSource.includes('pqc-select-card') &&

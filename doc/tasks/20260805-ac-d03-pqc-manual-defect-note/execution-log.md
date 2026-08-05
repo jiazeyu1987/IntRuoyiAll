@@ -47,13 +47,14 @@
 - RUNTIME DB READONLY: `SHOW COLUMNS FROM mes_pro_process_pool_pqc_record LIKE 'production_submit_event_id'` -> 0 rows；源码 `MesProProcessPoolPqcRecordDO` 第 38 行和 `MesProProcessPoolPqcRecordMapper.selectListByProductionSubmitEventId` 仍依赖 `productionSubmitEventId`，因此当前运行库 schema 未满足 PQC 写入/追溯链路前置。
 - RUNTIME FIXTURE READONLY: active order 30 对应工单 `PQC-E2E-FS-20260804` / remark `20260804-pqc-fill-fullscreen-toggle`，`mes_pro_process_pool_active_order_process_snapshot` 计数为 0，且 `mes_pro_process_pool_event` 中 work_order_id=980019 无正式事件；active order 12 虽有工序快照和历史 PQC 事件，但状态为 `REMOVED`，不能作为新写入验收夹具。
 - RUNTIME E2E PREFLIGHT: `doc\tasks\20260803-p0-production-execution-loop-implementation\p0-real-e2e-evidence.md` 当前仍为 `BLOCKED`，缺真实可写租户/账号、任务自有工单、设备、签名、PQC 任务、批记录绑定和 `P0_RUNTIME_DB_*`；本轮当前 shell 也无 `RRM_*` 环境，不能刷新 canonical full real E2E。
+- DOC VERIFY: `node E:\IntRuoyi\IntRuoyiFronted\tests\e2e\role-matrix-pqc-manual-defect-note-static.spec.cjs` -> PASS；PowerShell here-string + `python -X utf8 -` 读取 AC-D03/矩阵相关 Markdown -> PASS；`git diff --check` 针对本轮文档 -> PASS。
 - CLEANUP: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-ac-d03-pqc-manual-defect-note --mode preview` -> PASS，keep 3，delete/blocked/warnings 均为 `<none>`。
 - CLEANUP: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-ac-d03-pqc-manual-defect-note --mode apply` -> PASS，deleted_paths 为 `<none>`。
 
 ## Blockers
 
 - 当前共享工作区已有大量非本任务脏改动，后续提交/推送需按项目规则单独处理，不能混入无关改动。
-- 当前分支 `int_main...origin/int_main [ahead 3]` 且存在大量已修改文件；按项目规则，提交/推送前需要先处理共享脏工作区基线，本轮未擅自提交。
+- 当前分支 `int_main...origin/int_main [ahead 2]` 且存在其它任务共享改动；按项目规则，推送前需要先处理共享工作区状态，本轮未擅自推送。
 - 真实写入型 PQC E2E 仍未执行：当前只读预检使用本机默认身份和现有活跃订单，不能替代任务自有测试租户/数据的正式提交；页面当前还暴露既有业务数据错误 `精洗-外观-抽检样本数量0与任务计划数量15不一致。`，写入验收前需准备可追踪、可清理的 PQC 任务数据。
 - 当前运行库缺 `mes_pro_process_pool_pqc_record.production_submit_event_id`，与当前源码读写模型不一致；必须先完成正式 schema 迁移/回填核验，再执行会写入 PQC record 的真实页面提交。
 - 不能复用 active order 30 作为 AC-D03 写入夹具：它缺 active order process snapshot 和正式生产提交事件，且来源是其它任务 `20260804-pqc-fill-fullscreen-toggle`；不能用假 `productionSubmitEventId` 或 API-only 直接提交冒充正式链路。

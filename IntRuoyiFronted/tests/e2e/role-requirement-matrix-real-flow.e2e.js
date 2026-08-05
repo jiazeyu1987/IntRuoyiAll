@@ -14,6 +14,10 @@ const TEST_PLAN_PATH = path.resolve(
   WORKSPACE_ROOT,
   'doc/tasks/20260801-role-requirement-matrix-excel/test-plan.md'
 )
+const PRODUCTION_FILL_ROUTE = '/mes/pro/feedback/edhr-batch-production-fill'
+const PQC_FILL_ROUTE = '/mes/pro/feedback/edhr-batch-pqc-fill'
+const FRONTLINE_SUBMIT_ENDPOINT = '/mes/pro/feedback/frontline/submit'
+const PRODUCTION_FEEDBACK_TYPE_SELF = 1
 
 const ACTIVE_ORDER_DO = path.resolve(
   BACKEND_ROOT,
@@ -312,6 +316,11 @@ function collectConfig() {
     productionOrderCode: envValue('RRM_PRODUCTION_ORDER_CODE'),
     routeId: Number(envValue('RRM_ROUTE_ID')),
     routeVersionId: Number(envValue('RRM_ROUTE_VERSION_ID')),
+    routeProcessIds: [
+      Number(envValue('RRM_ROUTE_PROCESS_ID_1')),
+      Number(envValue('RRM_ROUTE_PROCESS_ID_2'))
+    ],
+    primaryRouteProcessId: Number(envValue('RRM_ROUTE_PROCESS_ID_1')),
     transferIds: parsePositiveIntegerEnvList(envValue('RRM_TRANSFER_IDS'), 'RRM_TRANSFER_IDS'),
     qaRegulationVersionId: Number(envValue('RRM_QA_REGULATION_VERSION_ID')),
     signatureIds: parseSignatureIds(envValue('RRM_SIGNATURE_IDS_JSON')),
@@ -1328,6 +1337,8 @@ function redactConfig(config) {
     productionOrderCode: config.productionOrderCode,
     routeId: config.routeId,
     routeVersionId: config.routeVersionId,
+    routeProcessIds: Array.isArray(config.routeProcessIds) ? config.routeProcessIds : [],
+    primaryRouteProcessId: config.primaryRouteProcessId,
     transferIds: Array.isArray(config.transferIds) ? config.transferIds : [],
     qaRegulationVersionId: config.qaRegulationVersionId,
     signatureIdRoles: Object.keys(config.signatureIds || {}).filter((key) => key !== '__parseError'),
@@ -3028,6 +3039,388 @@ async function resolveUnusedPqcSignatureId(page, config, preferredRoleKey) {
   }
 }
 
+function buildPqcFormalSubmissionBlocker(category, description, extra = {}) {
+  return buildStructuredBlockerEvidence(
+    'pqcFormalSubmissionCreated',
+    'PQC 正式提交生成过程池检验事件',
+    'pqcInspector',
+    category,
+    ['AC-D29', 'AC-D32'],
+    description,
+    extra
+  )
+}
+
+function requirePositiveFormalId(value, label) {
+  const numberValue = Number(value)
+  assert.ok(Number.isFinite(numberValue) && numberValue > 0, `${label} 必须是大于 0 的正式 ID。`)
+  return numberValue
+}
+
+function appendQueryValue(query, key, value) {
+  if (value === undefined || value === null || value === '') {
+    return
+  }
+  query.set(key, String(value))
+}
+
+function buildProductionFillUrl(config, context) {
+  const query = new URLSearchParams()
+  appendQueryValue(query, 'workOrderId', config.workOrderId)
+  appendQueryValue(query, 'productionOrderCode', config.productionOrderCode)
+  appendQueryValue(query, 'routeId', config.routeId)
+  appendQueryValue(query, 'routeProcessId', context.routeProcessId)
+  appendQueryValue(query, 'processId', context.processId)
+  appendQueryValue(query, 'taskId', context.taskId)
+  appendQueryValue(query, 'itemId', context.itemId)
+  appendQueryValue(query, 'feedbackCode', context.feedbackCode)
+  appendQueryValue(query, 'feedbackType', context.feedbackType)
+  appendQueryValue(query, 'approveUserId', context.approveUserId)
+  appendQueryValue(query, 'recordbookId', context.recordbookId)
+  appendQueryValue(query, 'workstationId', context.workstationId)
+  appendQueryValue(query, 'deviceId', context.deviceId)
+  appendQueryValue(query, 'signatureId', context.signatureId)
+  appendQueryValue(query, 'signatureEmployeeId', context.signatureEmployeeId)
+  appendQueryValue(query, 'actualEmployeeId', context.actualEmployeeId)
+  appendQueryValue(query, 'outputQuantity', context.outputQuantity)
+  appendQueryValue(query, 'idempotencyKey', context.idempotencyKey)
+  appendQueryValue(query, 'processPoolSubmissionIdempotencyKey', context.processPoolSubmissionIdempotencyKey)
+  return `${config.frontendUrl}${PRODUCTION_FILL_ROUTE}?${query.toString()}`
+}
+
+function buildPqcFillUrl(config, context, employeeEvidence) {
+  const query = new URLSearchParams()
+  appendQueryValue(query, 'workOrderId', config.workOrderId)
+  appendQueryValue(query, 'workOrderCode', config.productionOrderCode)
+  appendQueryValue(query, 'routeId', config.routeId)
+  appendQueryValue(query, 'productionSubmitEventId', context.processPoolEventId)
+  appendQueryValue(query, 'processPoolEventId', context.processPoolEventId)
+  appendQueryValue(query, 'actualEmployeeId', employeeEvidence?.actualEmployeeId)
+  appendQueryValue(query, 'regulationVersionId', config.qaRegulationVersionId)
+  appendQueryValue(query, 'pqcSubmissionIdempotencyKey', `rrm-pqc-${context.processPoolEventId}-${Date.now()}`)
+  return `${config.frontendUrl}${PQC_FILL_ROUTE}?${query.toString()}`
+}
+
+async function fetchPqcPrereqData(page, endpoint, label) {
+  const result = await fetchWithPageAuth(page, endpoint)
+  if (!result.ok || !isBusinessSuccess(result.body)) {
+    return {
+      status: 'BLOCKED',
+      responseStatus: result.status,
+      responseCode: result.body?.code,
+      responseMessage: responseMessage(result.body),
+      description: `${label} 失败，HTTP=${result.status}，业务=${responseMessage(result.body)}。`
+    }
+  }
+  return {
+    status: 'PASS',
+    data: result.body.data
+  }
+}
+
+function normalizePageList(data) {
+  if (Array.isArray(data?.list)) return data.list
+  if (Array.isArray(data?.rows)) return data.rows
+  if (Array.isArray(data)) return data
+  return []
+}
+
+async function loadProductionProcessForPqcPrereq(page, config) {
+  const result = await fetchPqcPrereqData(
+    page,
+    '/admin-api/mes/pro/feedback/frontline/device-account/processes',
+    '生产填写设备账号工序列表'
+  )
+  if (result.status !== 'PASS') return result
+  const processes = Array.isArray(result.data) ? result.data : []
+  const process = processes.find((item) =>
+    Number(item.routeId) === Number(config.routeId)
+      && Number(item.routeProcessId) === Number(config.primaryRouteProcessId)
+  )
+  if (!process) {
+    return {
+      status: 'BLOCKED',
+      processCount: processes.length,
+      routeProcessIds: processes.map((item) => Number(item.routeProcessId)).filter((value) => Number.isFinite(value)),
+      description: '生产填写设备账号工序列表没有返回 RRM_ROUTE_PROCESS_ID_1 对应的正式主工序，不能生成与当前路线一致的生产提交事件。'
+    }
+  }
+  return { status: 'PASS', process, processCount: processes.length }
+}
+
+async function loadRuntimeConfigForPqcPrereq(page, process) {
+  const query = toQueryString({
+    routeId: process.routeId,
+    routeProcessId: process.routeProcessId,
+    processId: process.processId
+  })
+  const result = await fetchPqcPrereqData(
+    page,
+    `/admin-api/mes/pro/feedback/frontline/device-account/runtime-config?${query}`,
+    '生产填写运行态配置'
+  )
+  if (result.status !== 'PASS') return result
+  return { status: 'PASS', runtimeConfig: result.data || {} }
+}
+
+async function loadProductionEmployeeForPqcPrereq(page, process) {
+  const query = toQueryString({
+    routeId: process.routeId,
+    routeProcessId: process.routeProcessId,
+    processId: process.processId
+  })
+  const result = await fetchPqcPrereqData(
+    page,
+    `/admin-api/mes/pro/feedback/frontline/device-account/employee-candidates?${query}`,
+    '生产填写员工候选'
+  )
+  if (result.status !== 'PASS') return result
+  const employees = Array.isArray(result.data) ? result.data : []
+  const employee = employees.find((item) => Number(item.userId) > 0)
+  if (!employee) {
+    return {
+      status: 'BLOCKED',
+      employeeCount: employees.length,
+      description: '生产填写员工候选没有返回可用于真实提交的正式员工 userId。'
+    }
+  }
+  return { status: 'PASS', employee, employeeCount: employees.length }
+}
+
+async function loadProductionTaskForPqcPrereq(page, config, process) {
+  const query = toQueryString({
+    pageNo: 1,
+    pageSize: 50,
+    workOrderId: config.workOrderId,
+    routeId: config.routeId,
+    processId: process.processId
+  })
+  const result = await fetchPqcPrereqData(
+    page,
+    `/admin-api/mes/pro/task/page?${query}`,
+    '生产任务分页'
+  )
+  if (result.status !== 'PASS') return result
+  const tasks = normalizePageList(result.data)
+  const task = tasks.find((item) =>
+    Number(item.workOrderId) === Number(config.workOrderId)
+      && Number(item.routeId) === Number(config.routeId)
+      && Number(item.processId) === Number(process.processId)
+  )
+  if (!task) {
+    return {
+      status: 'BLOCKED',
+      taskCount: tasks.length,
+      description: '生产任务分页没有返回当前工单、路线和主工序对应的正式生产任务，不能构造生产填写提交上下文。'
+    }
+  }
+  return { status: 'PASS', task, taskCount: tasks.length }
+}
+
+async function loadProductionRecordbookForPqcPrereq(page, config) {
+  const query = toQueryString({
+    pageNo: 1,
+    pageSize: 20,
+    businessObjectCode: config.productionOrderCode,
+    recordbookType: 'PRODUCTION',
+    status: 'OPEN'
+  })
+  const result = await fetchPqcPrereqData(
+    page,
+    `/admin-api/mes/pro/edhr-recordbook/page?${query}`,
+    '生产记录本分页'
+  )
+  if (result.status !== 'PASS') return result
+  const recordbooks = normalizePageList(result.data)
+  const recordbook = recordbooks.find((item) =>
+    Number(item.id) > 0
+      && String(item.businessObjectCode || '') === String(config.productionOrderCode)
+      && String(item.recordbookType || '') === 'PRODUCTION'
+      && String(item.status || '') === 'OPEN'
+  )
+  if (!recordbook) {
+    return {
+      status: 'BLOCKED',
+      recordbookCount: recordbooks.length,
+      description: '生产记录本分页没有返回当前生产订单的 OPEN/PRODUCTION 正式记录本，不能生成生产提交 source event。'
+    }
+  }
+  return { status: 'PASS', recordbook, recordbookCount: recordbooks.length }
+}
+
+function resolveProductionOutputQuantity(task) {
+  const taskQuantity = Number(task.quantity)
+  assert.ok(Number.isFinite(taskQuantity) && taskQuantity > 0, '生产任务 quantity 必须大于 0，才能生成生产提交 source event。')
+  return taskQuantity >= 1 ? 1 : taskQuantity
+}
+
+function resolveProductionDeviceId(process, runtimeConfig) {
+  const devices = Array.isArray(runtimeConfig.devices) ? runtimeConfig.devices : []
+  const configuredDevice = devices.find((device) => Number(device.deviceId) > 0)
+  return requirePositiveFormalId(configuredDevice?.deviceId || process.deviceId, '生产填写设备')
+}
+
+function extractProcessPoolEventIdFromFrontlineResponse(body) {
+  const data = body?.data || body
+  return requirePositiveFormalId(data?.processPoolEventId, '一线生产提交响应 processPoolEventId')
+}
+
+async function submitFrontlineProductionForPqcPrereq(page, config, context) {
+  const submitButton = page.locator('[data-frontline-production-operator] .frontline-production-submit-button').first()
+  await submitButton.waitFor({ state: 'visible', timeout: 30000 })
+  if (await submitButton.isDisabled()) {
+    return {
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SOURCE_EVENT',
+      description: '生产填写页提交按钮仍为禁用状态，不能生成 PQC 正式提交所需 source event。'
+    }
+  }
+  const submitResponsePromise = page.waitForResponse((response) =>
+    response.url().includes(FRONTLINE_SUBMIT_ENDPOINT)
+      && response.request().method() === 'POST'
+  , { timeout: 30000 }).catch((error) => ({ frontlineSubmitResponseError: error }))
+  await submitButton.click()
+  const submitResponse = await submitResponsePromise
+  if (submitResponse.frontlineSubmitResponseError) {
+    return {
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SOURCE_EVENT',
+      description: `点击生产填写提交后未捕获 ${FRONTLINE_SUBMIT_ENDPOINT} 响应：${submitResponse.frontlineSubmitResponseError.message}`
+    }
+  }
+  if (!submitResponse.ok()) {
+    return {
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SOURCE_EVENT',
+      responseStatus: submitResponse.status(),
+      description: `生产填写提交 HTTP 失败：${submitResponse.status()}。`
+    }
+  }
+  const submitBody = await submitResponse.json()
+  if (!isBusinessSuccess(submitBody)) {
+    return {
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SOURCE_EVENT',
+      responseCode: submitBody.code,
+      responseMessage: responseMessage(submitBody),
+      description: `生产填写提交业务失败：${responseMessage(submitBody)}。`
+    }
+  }
+  const processPoolEventId = extractProcessPoolEventIdFromFrontlineResponse(submitBody)
+  return {
+    status: 'PASS',
+    processPoolEventId,
+    frontlineResponse: submitBody.data,
+    productionContext: context
+  }
+}
+
+async function resolveProductionSubmitContextForPqcPrereq(page, config, actionEvidence) {
+  const processResult = await loadProductionProcessForPqcPrereq(page, config)
+  if (processResult.status !== 'PASS') return processResult
+  const process = processResult.process
+  const [runtimeResult, employeeResult, taskResult, recordbookResult] = await Promise.all([
+    loadRuntimeConfigForPqcPrereq(page, process),
+    loadProductionEmployeeForPqcPrereq(page, process),
+    loadProductionTaskForPqcPrereq(page, config, process),
+    loadProductionRecordbookForPqcPrereq(page, config)
+  ])
+  for (const result of [runtimeResult, employeeResult, taskResult, recordbookResult]) {
+    if (result.status !== 'PASS') return result
+  }
+  const leaderResolution = await resolveRoleUserId(page, config, 'productionLeader')
+  if (leaderResolution.status !== 'PASS') {
+    return {
+      status: 'BLOCKED',
+      category: leaderResolution.category,
+      description: `解析生产组长审批人 ID 失败：${leaderResolution.description}`
+    }
+  }
+  const signatureId = requireSignatureId(config, 'productionEmployee')
+  const actualEmployeeId = requirePositiveFormalId(employeeResult.employee.userId, '生产填写实际员工')
+  const task = taskResult.task
+  const runtimeConfig = runtimeResult.runtimeConfig
+  const deviceId = resolveProductionDeviceId(process, runtimeConfig)
+  const feedbackCode = `${config.dataPrefix}PQC-SRC-${Date.now()}`
+  const idempotencyKey = `${config.dataPrefix}PQC-SRC-IDEMP-${Date.now()}`
+  return {
+    status: 'PASS',
+    process,
+    processCount: processResult.processCount,
+    employeeCount: employeeResult.employeeCount,
+    taskCount: taskResult.taskCount,
+    recordbookCount: recordbookResult.recordbookCount,
+    feedbackCode,
+    feedbackType: PRODUCTION_FEEDBACK_TYPE_SELF,
+    taskId: requirePositiveFormalId(task.id, '生产任务'),
+    itemId: requirePositiveFormalId(task.itemId, '生产任务产品物料'),
+    routeProcessId: requirePositiveFormalId(process.routeProcessId, '生产路线工序'),
+    processId: requirePositiveFormalId(process.processId, '生产工序'),
+    workstationId: requirePositiveFormalId(process.workstationId || task.workstationId, '生产工作站'),
+    deviceId,
+    approveUserId: requirePositiveFormalId(leaderResolution.userId, '生产组长审批人'),
+    recordbookId: requirePositiveFormalId(recordbookResult.recordbook.id, '生产记录本'),
+    signatureId,
+    signatureEmployeeId: actualEmployeeId,
+    actualEmployeeId,
+    outputQuantity: resolveProductionOutputQuantity(task),
+    idempotencyKey,
+    processPoolSubmissionIdempotencyKey: `${idempotencyKey}-PROCESS-POOL`,
+    sourceActionKeys: actionEvidence
+      .filter((item) => item.status === 'PASS')
+      .map((item) => item.key)
+  }
+}
+
+async function preparePqcFormalSubmissionContext(page, config, actionEvidence) {
+  const browser = page.context().browser()
+  if (!browser) {
+    return {
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SOURCE_EVENT',
+      description: '无法创建生产填写上下文，不能生成 PQC 正式提交所需 source event。'
+    }
+  }
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'zh-CN' })
+  const productionPage = await context.newPage()
+  try {
+    await login(productionPage, config, 'productionEmployee', config.roles.productionEmployee)
+    const productionContext = await resolveProductionSubmitContextForPqcPrereq(
+      productionPage,
+      config,
+      actionEvidence
+    )
+    if (productionContext.status !== 'PASS') return productionContext
+    const productionFillUrl = buildProductionFillUrl(config, productionContext)
+    await productionPage.goto(productionFillUrl, { waitUntil: 'domcontentloaded', timeout: 90000 })
+    await productionPage.locator('[data-frontline-production-operator]').first()
+      .waitFor({ state: 'visible', timeout: 60000 })
+    const submission = await submitFrontlineProductionForPqcPrereq(
+      productionPage,
+      config,
+      productionContext
+    )
+    if (submission.status !== 'PASS') return submission
+    const processPoolEventId = submission.processPoolEventId
+    return {
+      ...productionContext,
+      status: 'PASS',
+      processPoolEventId,
+      productionSubmitEventId: processPoolEventId,
+      frontlineResponse: submission.frontlineResponse,
+      productionFillRoute: PRODUCTION_FILL_ROUTE
+    }
+  } catch (error) {
+    return {
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SOURCE_EVENT',
+      description: `准备 PQC 正式提交生产 source event 失败：${error.message}`
+    }
+  } finally {
+    await context.close()
+  }
+}
+
 async function verifyPqcFormalSubmissionCreatesEvent(page, config, actionEvidence) {
   const joinEvidence = actionEvidence.find((item) => item.key === 'joinActiveOrder' && item.status === 'PASS')
   const regulationEvidence = actionEvidence.find((item) => item.key === 'pqcRegulationItemsRendered' && item.status === 'PASS')
@@ -3045,6 +3438,64 @@ async function verifyPqcFormalSubmissionCreatesEvent(page, config, actionEvidenc
       acceptanceIds: ['AC-D29', 'AC-D32'],
       description: 'PQC 正式提交前缺少 activeOrder、规程项目、逐件数量或实际检验人动作证据，不能创建正式 submitted 事件。'
     }
+  }
+
+  const formalSubmissionContext = await preparePqcFormalSubmissionContext(page, config, actionEvidence)
+  if (formalSubmissionContext.status !== 'PASS') {
+    return buildPqcFormalSubmissionBlocker(
+      formalSubmissionContext.category || 'E2E_PQC_SOURCE_EVENT',
+      formalSubmissionContext.description || 'PQC 正式提交前无法生成生产报工 source event。',
+      {
+        activeOrderId: joinEvidence.activeOrderId,
+        workOrderId: config.workOrderId,
+        routeId: config.routeId,
+        responseStatus: formalSubmissionContext.responseStatus,
+        responseCode: formalSubmissionContext.responseCode,
+        responseMessage: formalSubmissionContext.responseMessage,
+        processCount: formalSubmissionContext.processCount,
+        employeeCount: formalSubmissionContext.employeeCount,
+        taskCount: formalSubmissionContext.taskCount,
+        recordbookCount: formalSubmissionContext.recordbookCount
+      }
+    )
+  }
+  const pqcFillUrl = buildPqcFillUrl(config, formalSubmissionContext, employeeEvidence)
+  await page.goto(pqcFillUrl, { waitUntil: 'domcontentloaded', timeout: 90000 })
+  await page.locator('[data-frontline-pqc-operator]').first().waitFor({ state: 'visible', timeout: 60000 })
+  const restoredEmployeeEvidence = await switchPqcActualEmployeeToUser(
+    page,
+    config,
+    actionEvidence,
+    employeeEvidence.actualEmployeeId,
+    'pqcFormalSubmissionActualEmployeeRestored',
+    'PQC 正式提交前恢复实际检验人',
+    ['AC-D25', 'AC-D31']
+  )
+  if (restoredEmployeeEvidence.status !== 'PASS') {
+    return buildPqcFormalSubmissionBlocker(
+      restoredEmployeeEvidence.category || 'E2E_PQC_PERSONNEL',
+      `重新打开携带 productionSubmitEventId 的 PQC 页面后，无法恢复同一实际检验人：${restoredEmployeeEvidence.description}`,
+      {
+        activeOrderId: joinEvidence.activeOrderId,
+        productionSubmitEventId: formalSubmissionContext.productionSubmitEventId,
+        processPoolEventId: formalSubmissionContext.processPoolEventId,
+        targetActualEmployeeId: employeeEvidence.actualEmployeeId
+      }
+    )
+  }
+  let refreshedPieceCompletion
+  try {
+    refreshedPieceCompletion = await completePqcPieceDetailsForSubmission(page)
+  } catch (error) {
+    return buildPqcFormalSubmissionBlocker(
+      'E2E_PQC_PIECE_DETAIL',
+      `重新打开携带 productionSubmitEventId 的 PQC 页面后，无法恢复逐件明细：${error.message}`,
+      {
+        activeOrderId: joinEvidence.activeOrderId,
+        productionSubmitEventId: formalSubmissionContext.productionSubmitEventId,
+        processPoolEventId: formalSubmissionContext.processPoolEventId
+      }
+    )
   }
 
   requireSignatureId(config, 'pqcInspector')
@@ -3189,6 +3640,11 @@ async function verifyPqcFormalSubmissionCreatesEvent(page, config, actionEvidenc
     activeOrderId: joinEvidence.activeOrderId,
     workOrderId: config.workOrderId,
     routeId: config.routeId,
+    productionSubmitEventId: formalSubmissionContext.productionSubmitEventId,
+    processPoolEventId: formalSubmissionContext.processPoolEventId,
+    productionTaskId: formalSubmissionContext.taskId,
+    productionRecordbookId: formalSubmissionContext.recordbookId,
+    productionFeedbackCode: formalSubmissionContext.feedbackCode,
     submittedTaskId,
     eventId: submittedRow.id,
     processId: Number(submittedRow.processId),
@@ -3206,10 +3662,13 @@ async function verifyPqcFormalSubmissionCreatesEvent(page, config, actionEvidenc
     usedSignatureIds: signatureResolution.usedSignatureIds,
     plannedQuantities: regulationEvidence.plannedQuantities,
     uiQuantity: pieceDetailEvidence.uiQuantity,
+    refreshedPieceCompletion,
     sourceActionKeys: [
+      ...formalSubmissionContext.sourceActionKeys,
       regulationEvidence.key,
       pieceDetailEvidence.key,
-      employeeEvidence.key
+      employeeEvidence.key,
+      restoredEmployeeEvidence.key
     ],
     endpoint: '/mes/pro/feedback/frontline/device-account/pqc/submit'
   }

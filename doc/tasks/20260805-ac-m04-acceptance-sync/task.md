@@ -13,6 +13,7 @@
 - [x] 更新验证报告和当前状态。
 - [x] 按用户要求补齐本机 `RRM_*` 真实 E2E 前置：确认本机运行态、角色账号、正式业务 ID、签名池和调拨/QA 数据；密码只在进程环境中使用，不写入文档或提交。
 - [x] 重新运行 `real:check`，若前置为 0 blocker，再运行 full real E2E。
+- [ ] 补齐 RRM PQC 正式提交前置：先走真实生产填写页生成本轮 `processPoolEventId`，再把它作为 `productionSubmitEventId/processPoolEventId` 带入 PQC 页面提交。
 
 ## Expected Verification
 

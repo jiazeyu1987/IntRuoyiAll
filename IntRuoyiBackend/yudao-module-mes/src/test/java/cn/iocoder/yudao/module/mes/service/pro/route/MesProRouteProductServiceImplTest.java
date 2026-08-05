@@ -3,9 +3,11 @@ package cn.iocoder.yudao.module.mes.service.pro.route;
 import cn.iocoder.yudao.framework.test.core.util.AssertUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductCopyReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductSaveReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductBomDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductBomMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
@@ -41,6 +43,8 @@ class MesProRouteProductServiceImplTest {
     private MesProRouteProductMapper routeProductMapper;
     @Mock
     private MesProRouteProductBomMapper routeProductBomMapper;
+    @Mock
+    private MesProRouteMapper routeMapper;
     @Mock
     private MesProRouteService routeService;
     @Mock
@@ -189,6 +193,90 @@ class MesProRouteProductServiceImplTest {
         assertEquals(new BigDecimal("3.00"), updated.getProductionTime());
         assertEquals("HOUR", updated.getTimeUnitType());
         assertEquals("keep route side parameters", updated.getRemark());
+    }
+
+    @Test
+    void saveQaRegulationRouteProductByItem_shouldCreateBindingForPublishedRouteWithoutEditableGuard() {
+        when(routeMapper.selectById(200L)).thenReturn(MesProRouteDO.builder().id(200L).build());
+        when(routeVersionMapper.selectActiveByRouteId(200L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(2001L)
+                .routeId(200L)
+                .active(Boolean.TRUE)
+                .lifecycleStatus(MesProRouteVersionMapper.STATUS_ACTIVE)
+                .build());
+        when(routeProductMapper.selectByItemId(301L)).thenReturn(null);
+        doAnswer(invocation -> {
+            MesProRouteProductDO data = invocation.getArgument(0);
+            data.setId(101L);
+            return 1;
+        }).when(routeProductMapper).insert(any(MesProRouteProductDO.class));
+
+        Long result = routeProductService.saveQaRegulationRouteProductByItem(301L, 200L);
+
+        assertEquals(101L, result);
+        verify(routeService, never()).validateRouteNotEnable(any());
+        ArgumentCaptor<MesProRouteProductDO> productCaptor = ArgumentCaptor.forClass(MesProRouteProductDO.class);
+        verify(routeProductMapper).insert(productCaptor.capture());
+        MesProRouteProductDO inserted = productCaptor.getValue();
+        assertEquals(200L, inserted.getRouteId());
+        assertEquals(301L, inserted.getItemId());
+        assertEquals(1, inserted.getQuantity());
+        assertEquals(BigDecimal.ONE, inserted.getProductionTime());
+        assertEquals("MINUTE", inserted.getTimeUnitType());
+        assertEquals("QA 规程手动绑定", inserted.getRemark());
+    }
+
+    @Test
+    void saveQaRegulationRouteProductByItem_shouldMoveExistingBindingWithoutEditableGuard() {
+        MesProRouteProductDO existing = MesProRouteProductDO.builder()
+                .id(100L)
+                .routeId(199L)
+                .itemId(301L)
+                .quantity(8)
+                .productionTime(new BigDecimal("3.00"))
+                .timeUnitType("HOUR")
+                .remark("keep route side parameters")
+                .build();
+        when(routeMapper.selectById(200L)).thenReturn(MesProRouteDO.builder().id(200L).build());
+        when(routeVersionMapper.selectActiveByRouteId(200L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(2001L)
+                .routeId(200L)
+                .active(Boolean.TRUE)
+                .lifecycleStatus(MesProRouteVersionMapper.STATUS_ACTIVE)
+                .build());
+        when(routeProductMapper.selectByItemId(301L)).thenReturn(existing);
+
+        Long result = routeProductService.saveQaRegulationRouteProductByItem(301L, 200L);
+
+        assertEquals(100L, result);
+        verify(routeService, never()).validateRouteNotEnable(any());
+        verify(routeProductBomService).deleteRouteProductBomByRouteIdAndProductId(199L, 301L);
+        ArgumentCaptor<MesProRouteProductDO> productCaptor = ArgumentCaptor.forClass(MesProRouteProductDO.class);
+        verify(routeProductMapper).updateById(productCaptor.capture());
+        MesProRouteProductDO updated = productCaptor.getValue();
+        assertEquals(100L, updated.getId());
+        assertEquals(200L, updated.getRouteId());
+        assertEquals(301L, updated.getItemId());
+        assertEquals(8, updated.getQuantity());
+        assertEquals(new BigDecimal("3.00"), updated.getProductionTime());
+        assertEquals("HOUR", updated.getTimeUnitType());
+        assertEquals("keep route side parameters", updated.getRemark());
+    }
+
+    @Test
+    void saveQaRegulationRouteProductByItem_shouldFailWhenRouteHasNoActiveVersion() {
+        when(routeMapper.selectById(200L)).thenReturn(MesProRouteDO.builder().id(200L).build());
+        when(routeVersionMapper.selectActiveByRouteId(200L)).thenReturn(null);
+
+        AssertUtils.assertServiceException(
+                () -> routeProductService.saveQaRegulationRouteProductByItem(301L, 200L),
+                ErrorCodeConstants.PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS,
+                200L
+        );
+
+        verify(routeProductMapper, never()).insert(any(MesProRouteProductDO.class));
+        verify(routeProductMapper, never()).updateById(any(MesProRouteProductDO.class));
+        verify(routeService, never()).validateRouteNotEnable(any());
     }
 
     @Test

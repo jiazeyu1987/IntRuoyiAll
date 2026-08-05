@@ -16,6 +16,8 @@
 - AC-PQC-TAB-02：tab 区必须支持 10 个完整显示，采用 5 列固定网格形成两行。
 - AC-PQC-TAB-03：每个 tab 必须分别显示项目名称、状态、要求和已填进度，不能依赖省略号隐藏关键状态。
 - AC-PQC-TAB-04：设备、设备编号、标准、方法必须保留正式选择/弹框/提交链路，同时视觉上不再裸露原生 select。
+- AC-PQC-TAB-05：选中 tab 必须使用黄色背景表达当前项，且不显示旧绿色顶部状态条。
+- AC-PQC-TAB-06：正式系统 PQC tab 必须与更新后 HTML 预览保持关键样式一致，要求/已填字段完整显示，不使用省略号隐藏关键状态。
 
 ## UI Entry Points And Owned Files
 
@@ -36,6 +38,8 @@
 - BDD: PQC 10-tab 完整显示 -> Given 当前 PQC 任务包含最多 10 个检验项 When 操作员查看检验内容区 Then 页面以 2 行 x 5 列 tab 完整显示每个检验项名称、要求和已填进度。
 - BDD: 仅当前检验项展开 -> Given 操作员点击某个检验项 tab When tab 成为当前项 Then 页面只展开该检验项的设备、编号、标准、方法和逐件操作，其他检验项保持 tab 摘要。
 - BDD: 正式设备链路保留 -> Given 当前检验项要求选择检验设备 When 操作员点击设备或编号信息卡 Then 页面仍通过正式 select 选择并写入原有 `pqcItemSelections`。
+- BDD: 选中 tab 黄色高亮且无绿条 -> Given 检验项 tab 已渲染 When 操作员选中某个检验项 Then 该 tab 使用黄色背景，旧绿色顶部状态条不可见。
+- BDD: 正式 PQC tab 与 HTML 预览一致 -> Given 更新后的 HTML 预览已确认 When 正式 PQC 填写页渲染检验项 tab Then 正式页的选中态、状态条隐藏和 tab 内字段完整显示与预览一致。
 
 ## RED
 
@@ -43,7 +47,7 @@
 
 ## GREEN
 
-- GREEN: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> PASS.
+- GREEN: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> PASS，覆盖 10-tab 网格、单一当前项详情、黄色 active 背景和无绿色顶部状态条。
 - GREEN: `node tests/e2e/pqc-item-equipment-standard-method-static.spec.js` -> PASS.
 - GREEN: `pnpm ts:check` -> PASS.
 - GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js doc/tasks/20260805-pqc-redbox-ui-prototype` -> PASS.
@@ -63,5 +67,4 @@
 
 ## Blockers And Follow-Up Skills
 
-- 当前工作区存在非本任务脏改动：`doc/tasks/20260801-role-requirement-matrix-implementation/role-requirement-matrix-real-e2e-evidence.md`。
-- 当前分支 `int_main` 已领先 `origin/int_main`，按项目 Git 门禁，收尾提交/推送需先处理并发脏改动与 ahead 状态。
+- 当前工作区存在多项非本任务脏改动，按项目 Git 门禁，提交/推送需先隔离或处理并发改动。

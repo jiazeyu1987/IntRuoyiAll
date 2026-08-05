@@ -2,7 +2,7 @@
 
 ## Task Goal
 
-修复检验项目页签的数据结构与展示口径：检验项目应按“工序 -> 检验方法”呈现，并展示每个检验方法在该工序中的接受标准、检验方法、检验器具及设备、抽样方案，表格形态参考用户提供的图 2。
+修复检验项目页签的数据结构与展示口径：检验项目应按“工序 -> 检验方法”呈现，并展示每个检验方法在该工序中的接受标准、检验方法、检验器具及设备、抽样方案；压力泵 IDI 规程数据必须符合用户指定 PDF `PQC-IDI-001（B 0）按压式球囊扩充压力泵组装过程检验规程--2026.01.04生效.pdf` 中所有工序对应的检验数据。
 
 ## Milestones
 
@@ -10,19 +10,22 @@
 - [x] M2 记录 BDD 场景并补充 RED 静态/单元回归测试。
 - [x] M3 按正式数据来源修复前端展示，不引入 fallback 或 mock 数据。
 - [x] M4 运行目标验证并记录 GREEN/回归证据。
-- [ ] M5 完成收尾文档、经验沉淀、清理、提交与推送。
+- [ ] M5 从用户指定 PDF 提取并核对所有工序检验数据。
+- [ ] M6 将 IDI 初始规程数据更新为 PDF 全量工序数据。
+- [ ] M7 完成收尾文档、经验沉淀、清理、提交与推送。
 
 ## Expected Verification
 
 - 目标静态/单元合同先 RED 后 GREEN，证明表格包含工序、检验项目、接受标准、检验方法、检验器具及设备、抽样方案列。
+- 目标验证证明 IDI 初始规程数据覆盖 PDF 内所有工序检验项目，不再只保留压力泵样例 5 行。
 - 目标验证证明数据按工序映射检验方法，不再把检验项目误建模为独立的项目/方法/工具/标准平铺表。
 - 若需要真实页面验证，按 `docs/e2e-rules.md` 使用真实前端路径；若缺少运行态或账号，则记录 blocker，不用 API-only 冒充页面通过。
 
 ## Current Status
 
-blocked
+in_progress
 
-Implementation, required targeted verification, and task-closeout cleanup are complete. Final commit/push is blocked by unrelated local ahead commits plus staged and unstaged files from other tasks; pushing now would mix task ownership.
+继续执行用户补充范围：以指定 PDF 为正式来源补齐 IDI 全量工序检验数据。最终 commit/push 仍需避开当前工作区无关并行改动。
 
 ## 设计约束检查
 

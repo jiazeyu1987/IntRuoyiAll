@@ -35,4 +35,4 @@
 - PQC 组长详情/时间线回显尚未补真实验收：需要证明手动说明与订单、工序、PQC event/record 同屏可追溯。
 - 历史“不被后续修改覆盖”仍需专项验收：当前代码级证明 rawPayload 创建时保存，仍需真实修订/回读路径区分首次原始文本与补正后文本。
 - 当前运行态现有活跃订单存在写入前置缺口：active order 30 缺工序快照和正式生产提交事件；active order 12 已移出；当前运行库还缺 `production_submit_event_id` schema。写入型 E2E 前需先完成正式 schema 迁移/回填核验，并准备可追踪、可清理且样本数量一致的任务自有 PQC 数据。
-- closeout/提交/推送未执行：共享工作区已有大量非本任务脏改动且分支 ahead 13，不能擅自混入提交。
+- closeout/推送未执行：共享工作区仍有其它任务改动且当前分支 `int_main...origin/int_main [ahead 2]`，不能擅自混入或推送。

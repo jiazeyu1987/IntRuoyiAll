@@ -16,7 +16,8 @@
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md`：PASS，frontend feature evidence 有效。
 - QA 页面专属排序接线断言：PASS，输出 `PASS QA standard list sort wiring`。
 - `docs/frontend-development.md`：UPDATED，已将标准列表系统接入点 88 和显式隐藏筛选 14 的长期门禁证据合并到既有前端规则。
-- `git diff --check -- <AC-M09 实现文件>`：PASS，无 whitespace error。
+- `docs/backend-development.md` / `docs/experience-index.md`：UPDATED，已将 QA 手动绑定工艺路线并入既有产品侧路线绑定门禁。
+- `git diff --check -- <AC-M09 实现文件和经验文档>`：PASS，无 whitespace error。
 
 ## Blocked
 

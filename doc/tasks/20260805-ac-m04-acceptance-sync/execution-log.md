@@ -11,6 +11,7 @@
 - BDD: AC-M04 调拨追溯修复复核 -> Given 生产班组长在加入活跃订单时提供正式 `transferIds`；When 前端提交加入动作且后端创建、重复加入或并发返回同一活跃订单；Then 同一 `activeOrderId` 必须记录正式调拨追溯并通过只读接口/页面暴露，不能用旧结果产物或空数据冒充完成。
 - BDD: RRM 本机前置补齐 -> Given 用户要求由 Agent 添加缺失 RRM 前置且本机 `8081/48081` 运行态可用；When 注入 `RRM_*` 并运行 `real:check`；Then 六角色账号必须真实登录、业务 ID 必须指向当前正式数据、`real:check` 不得再返回 ENV/SOURCE/RUNTIME blocker，且密码和签名 JSON 不写入文档或提交。
 - BDD: AC-M04 full real E2E 刷新 -> Given `real:check` 已 PASS 且生产班组长加入活跃订单返回同一 `activeOrderId`；When 运行 full real E2E；Then AC-M04 必须证明加入、冲突路线拒绝、跨角色只读、调拨追溯只读和最终清理均为 PASS，剩余非 AC-M04 coverage 或后续 PQC/eDHR 阻塞必须结构化记录，不能混写成 AC-M04 已 ACCEPTED。
+- BDD: PQC 正式提交 RRM 前置 -> Given PQC 页面提交必须携带本轮新建的 `productionSubmitEventId`；When RRM full real E2E 进入 PQC 提交动作；Then 脚本必须先通过真实一线生产填写页 POST `/mes/pro/feedback/frontline/submit` 捕获新的 `processPoolEventId`，再把同一 ID 作为 `productionSubmitEventId/processPoolEventId` 打开 PQC 页面，禁止使用历史事件 ID 或环境变量硬塞成功。
 - 本轮优先做产物一致性和静态/JSON 校验；若发现真实脚本或源码缺口，再按 RED/GREEN 进入实现。
 
 ## Command Intent
@@ -33,6 +34,7 @@
 - completed：本机 RRM 前置已补齐；七个 RRM 角色账号在测试租户可登录，`real:check` 已恢复 PASS。
 - completed：full real E2E 已刷新为 `mode=real` 产物；AC-M04 相关 `joinActiveOrder`、`activeOrderConflictRouteRejected`、`activeOrderCrossRoleReadOnly`、`activeOrderTransferTraceReadOnly`、`activeOrderCleanupCompleted` 均为 PASS。
 - blocked：full real E2E 整体仍 `BLOCKED`，剩余 74 个 blocker：2 个 `E2E_PQC_SUBMISSION_UI`、1 个 `E2E_PQC_SUBMISSION_DATA`、1 个 `E2E_PQC_DETAIL_DATA`、1 个 `E2E_PQC_DETAIL_PERMISSION`、1 个 `E2E_PQC_REVIEW_DATA`、1 个 `E2E_PQC_REVIEW_TERMINAL`、1 个 `E2E_PQC_REVIEW_SELF`、1 个 `E2E_PQC_AGGREGATION_READONLY`、1 个 `E2E_RELEASE_TRACEABILITY_PREP`、1 个 `E2E_CONCURRENCY`、1 个 `E2E_PERFORMANCE`、62 个 `E2E_COVERAGE`。
+- in_progress：正在补齐 RRM PQC 正式提交前置，目标是复用真实生产填写页生成本轮 `processPoolEventId`，再进入 PQC 页面提交；当前先新增静态合同 RED，随后实施最小脚本修复。
 
 ## Verification Evidence
 

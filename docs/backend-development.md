@@ -298,12 +298,12 @@
 
 ### 产品侧路线选择必须匹配后端可维护状态
 
-- Trigger: MES 物料产品选择工艺路线、产品侧路线下拉、`getRouteSimpleList`、`item-binding-list`、`saveRouteProductByItem`、`validateRouteNotEnable`、已启用路线不可维护。
-- Preflight check: 修改产品侧路线选择或 route-product 保存前，先核对下拉数据源返回的路线状态集合和后端维护校验是否一致；若后端禁止维护已启用路线，前端不能使用只返回已启用路线的精简列表作为可选项。
-- Blocker: 下拉只提供已启用路线但保存接口会因 `PRO_ROUTE_IS_ENABLE` 失败、已启用当前绑定允许清空或改选、产品侧新增第二套路由字段、或用前端隐藏错误替代后端 fail-fast 时必须停止。
+- Trigger: MES 物料产品选择工艺路线、QA 规程适用范围手动绑定工艺路线、产品侧路线下拉、`getRouteSimpleList`、`item-binding-list`、`saveRouteProductByItem`、`validateRouteNotEnable`、已启用路线不可维护。
+- Preflight check: 修改产品侧路线选择或 route-product 保存前，先核对下拉数据源返回的路线状态集合和后端维护校验是否一致；若后端禁止维护已启用路线，前端不能使用只返回已启用路线的精简列表作为可选项。其它页面若需要“手动绑定工艺路线”，也必须复用 `item-binding-list` 与相同禁用规则，调用 `saveRouteProductByItem` 后重新读取 `getRouteProductByItem`，不得仅用本地所选路线冒充绑定成功。
+- Blocker: 下拉只提供已启用路线但保存接口会因 `PRO_ROUTE_IS_ENABLE` 失败、已启用当前绑定允许清空或改选、产品侧新增第二套路由字段、手动绑定后未重读正式当前绑定、或用前端隐藏错误替代后端 fail-fast 时必须停止。
 - Verification: 前端静态契约必须断言产品侧使用专用路线选择接口、禁用已启用路线选项、不调用只返回已启用路线的 `simple-list`；后端回归必须覆盖创建、迁移、解除绑定和旧路线产品 BOM 清理。
 - Forbidden action: 禁止为了让产品能选择路线而放宽 `validateRouteNotEnable`、禁用后端校验、使用 `MdItemApi.routeId` 第二关系源、默认成功、吞掉保存错误或混入表单槽位/批记录表单链路。
-- Evidence: `doc/tasks/20260804-mes-item-route-selection/verification-report.md`。
+- Evidence: `doc/tasks/20260804-mes-item-route-selection/verification-report.md`；`doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md`。
 
 ## 禁止做法
 
