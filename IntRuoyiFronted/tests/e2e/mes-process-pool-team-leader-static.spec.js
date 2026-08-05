@@ -92,7 +92,8 @@ for (const marker of [
 assert(page.includes('报工确认工作台'), '生产组长必须有报工确认工作台。')
 assert(page.includes('班组配置中心'), '生产组长必须有班组配置中心。')
 assert(page.includes('活跃订单池'), '班组配置中心必须维护活跃订单。')
-assert(page.includes('员工档案与工序员工'), '班组配置中心必须维护员工档案和工序员工关系。')
+assert(page.includes('生产人员档案'), '人员管理 tab 必须维护生产人员档案。')
+assert(page.includes('生产人员工序绑定'), '班组配置中心必须维护工序员工关系。')
 assert(page.includes('设备档案与状态'), '班组配置中心必须维护设备档案和设备状态。')
 assert(page.includes('工序设备与异常关系'), '班组配置中心必须维护工序设备和工序异常关系。')
 assert(page.includes('设备参数维护'), '班组配置中心必须维护设备参数、上下限和默认值。')
@@ -115,7 +116,11 @@ assert(
 assert(!page.includes('data-team-leader-pqc-placeholder'), 'PQC 组长页签不能停留在占位内容。')
 assert(!page.includes('PQC 组长功能正在建设中'), 'PQC 组长必须能看到检验员提交内容，不能显示建设中占位。')
 assert(page.includes("if (leaderType === 'PRODUCTION')"), '生产专属活跃订单/配置加载必须与 PQC 提交看板查询区分。')
-assert(page.includes('handleQuery()'), '切换到 PQC 组长后仍必须查询提交看板。')
+assert(
+  /const handleLeaderTypeChange = async[\s\S]*await resetSubmissionMultiFilter\(\)/.test(page) &&
+    /const resetSubmissionMultiFilter = async[\s\S]*await getSubmissionList\(\)/.test(page),
+  '切换到 PQC 组长后仍必须通过正式多维筛选重置链路查询提交看板。'
+)
 assert(page.includes('PQC检验员'), 'PQC 组长提交看板必须按 PQC 检验员展示提交人。')
 assert(!page.includes('<el-radio-group v-model="queryParams.leaderType"'), '组长类型必须使用页签，不得继续使用单选按钮。')
 assert(page.includes('originalPayloadJson'), '提交详情必须展示原始 payload，复核不能替代原始记录。')

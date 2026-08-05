@@ -1,4 +1,4 @@
-﻿const assert = require('node:assert/strict')
+const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 
@@ -169,6 +169,15 @@ assert.match(
   source,
   /async function runFinalActiveOrderCleanup\(browser,\s*config,\s*actionEvidence\)[\s\S]*?return await verifyActiveOrderCleanupTraceability\(page,\s*config,\s*joinEvidence\)/,
   'runFinalActiveOrderCleanup() must await cleanup verification before closing the Playwright context.'
+)
+const activeOrderCleanupSource = source.match(
+  /async function verifyActiveOrderCleanupTraceability\(page,\s*config,\s*joinEvidence\)[\s\S]*?(?=\nasync function runFinalActiveOrderCleanup)/
+)
+assert.ok(activeOrderCleanupSource, 'Active-order cleanup function must exist.')
+assert.match(
+  activeOrderCleanupSource[0],
+  /\/mes\/pro\/process-pool\/production-leader[\s\S]*await selectRealFlowTab\(page,\s*'班组配置'\)[\s\S]*data-team-leader-active-order-config/,
+  'Active-order cleanup must reopen the formal production-leader page and switch to 班组配置 before locating the cleanup surface.'
 )
 
 for (const token of [
@@ -383,6 +392,41 @@ assert.match(
   /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*verifyScheduleOrderErpCandidateAdmission\(page,\s*config\)[\s\S]*verifyActiveOrderTransferTraceReadOnly\(page,\s*config,\s*joinEvidence\)[\s\S]*return \[admissionEvidence,\s*joinEvidence,\s*conflictRouteEvidence,\s*transferTraceEvidence,\s*dailyCloseEvidence\]/,
   'Production leader phase must prove AC-M01 schedule-order admission before joining the active order, then read transfer/shipment/replenishment/return trace before daily-close evidence.'
 )
+assert.match(
+  source,
+  /key:\s*'productionLeaderWorkbench'[\s\S]*targetPath:\s*'\/mes\/pro\/process-pool\/production-leader'[\s\S]*selectorGroups:\s*\[[\s\S]*tabText:\s*'报工管理'[\s\S]*data-team-leader-report-workbench[\s\S]*tabText:\s*'看板'[\s\S]*data-role-matrix-daily-close[\s\S]*tabText:\s*'班组配置'[\s\S]*data-team-leader-active-order-config/,
+  'Production leader real-flow phase must verify report, dashboard, and config surfaces through their formal module tabs.'
+)
+assert.match(
+  source,
+  /key:\s*'pqcLeaderWorkbench'[\s\S]*selectorGroups:\s*\[[\s\S]*tabText:\s*'PQC管理'[\s\S]*data-team-leader-report-workbench[\s\S]*tabText:\s*'看板'[\s\S]*data-role-matrix-daily-close/,
+  'PQC leader real-flow phase must verify management and dashboard surfaces through their actual module tabs.'
+)
+assert.match(
+  source,
+  /async function selectRealFlowTab\(page,\s*tabText\)[\s\S]*locator\('\.el-tabs__item'\)\.filter\(\{\s*hasText:\s*tabText\s*\}\)[\s\S]*await tab\.waitFor\(\{\s*state:\s*'visible',\s*timeout:\s*60000\s*\}\)[\s\S]*classList\.contains\('is-active'\)[\s\S]*await tab\.click\(\)/,
+  'Full real E2E must wait for asynchronously mounted visible Element Plus module tabs before switching them.'
+)
+assert.doesNotMatch(
+  source,
+  /async function selectRealFlowTab\(page,\s*tabText\)[\s\S]*await tab\.count\(\)[\s\S]*===\s*0\)\s*return/,
+  'Full real E2E must not skip a formal module tab after an immediate zero count.'
+)
+assert.match(
+  source,
+  /async function verifyRealFlowPhase[\s\S]*const selectorGroups = phase\.selectorGroups[\s\S]*for \(const group of selectorGroups\)[\s\S]*await selectRealFlowTab\(page,\s*group\.tabText\)[\s\S]*for \(const selector of group\.selectors\)/,
+  'Phase verification must iterate tab-scoped selector groups so hidden module panels do not become raw Playwright timeouts.'
+)
+assert.match(
+  source,
+  /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*await selectRealFlowTab\(page,\s*'班组配置'\)[\s\S]*data-team-leader-active-order-config[\s\S]*await selectRealFlowTab\(page,\s*'看板'\)[\s\S]*verifyDailyClosePerformanceReadOnly/,
+  'Production leader active-order action must join from 班组配置 and read daily-close evidence from 看板.'
+)
+assert.match(
+  source,
+  /if \(phase\.actionKey === 'verifyPqcLeaderSubmissionFilterPaginationConsistency'\)[\s\S]*await selectRealFlowTab\(page,\s*'PQC管理'\)[\s\S]*verifyPqcLeaderSubmissionFilterPaginationConsistency/,
+  'PQC leader action must return to the PQC管理 module before operating the submission workbench.'
+)
 const activeOrderTransferTraceActionSource = source.match(
   /async function verifyActiveOrderTransferTraceReadOnly[\s\S]*?async function verifyPqcActiveOrderReadOnly/
 )
@@ -440,6 +484,16 @@ assert.match(
   source,
   /verifyPqcPieceDetailQuantityPrepared[\s\S]*page\.locator\('\[data-pqc-piece-open-button\]'\)[\s\S]*completePqcPieceDetailsForSubmission[\s\S]*data-pqc-inspection-tab[\s\S]*activePanel\.locator\('\[data-pqc-piece-open-button\]'\)/,
   'real E2E must open PQC piece-detail modals through the visible piece-detail button across QA item tabs.'
+)
+assert.match(
+  source,
+  /async function waitForPqcInspectionQuantityHydrated\(page,\s*quantityInput,\s*plannedQuantities[\s\S]*plannedQuantities\.includes\(uiQuantity\)[\s\S]*async function verifyQaRegulationPublishedVersionReadOnly/,
+  'real E2E must wait for PQC inspection quantity hydration against formal plannedInspectionQuantity before judging piece-detail quantity.'
+)
+assert.match(
+  source,
+  /verifyPqcPieceDetailQuantityPrepared[\s\S]*waitForPqcInspectionQuantityHydrated\(page,\s*quantityInput,\s*plannedQuantities\)[\s\S]*category:\s*'E2E_PQC_PIECE_DETAIL'[\s\S]*hydrationTimeoutMs[\s\S]*requestBudget/,
+  'PQC quantity hydration misses must become structured E2E_PQC_PIECE_DETAIL blockers instead of uncaught assertions.'
 )
 
 for (const token of [
@@ -810,6 +864,20 @@ assert.match(
 )
 const pqcPieceDetailPerformanceActionSource = source.match(/async function verifyPqcPieceDetailQuantityPrepared[\s\S]*?async function fillVisiblePqcPieceModalValues/)
 assert.ok(pqcPieceDetailPerformanceActionSource, 'M6 PQC piece-detail performance evidence action must exist before modal helper functions.')
+const pqcPieceModalFillSource = source.match(
+  /async function fillVisiblePqcPieceModalValues\(modal\)[\s\S]*?(?=\nasync function completePqcPieceDetailsForSubmission)/
+)
+assert.ok(pqcPieceModalFillSource, 'PQC piece modal fill helper must exist.')
+assert.match(
+  pqcPieceModalFillSource[0],
+  /\.frontline-pqc-piece-row button\.pass/,
+  'PQC piece modal helper must click only the explicit pass button for an all-pass fixture.'
+)
+assert.doesNotMatch(
+  pqcPieceModalFillSource[0],
+  /hasText:\s*'合格'/,
+  'PQC piece modal helper must not use substring text matching that also selects 不合格.'
+)
 assert.match(
   pqcPieceDetailPerformanceActionSource[0],
   /createPqcPieceDetailRequestBudgetTracker/,
@@ -895,6 +963,21 @@ assert.match(
   'RRM real E2E must build a production fill URL with formal route process, signature, quantity, and idempotency context.'
 )
 assert.match(
+  frontlineFixedTemplatePanelSource,
+  /const\s+findInitialProcess[\s\S]*context\.routeProcessId[\s\S]*context\.processId[\s\S]*handleSelectProcess\(initialProcess\)/,
+  'frontline production/PQC fixed template page must initialize the selected process from route query before falling back to the first process.'
+)
+assert.match(
+  frontlineFixedTemplatePanelSource,
+  /const\s+findInitialEmployee[\s\S]*context\.actualEmployeeId[\s\S]*deviceState\.employeeOptions\.find[\s\S]*handleSelectEmployee\(initialEmployee\)/,
+  'frontline fixed template page must initialize the selected employee from actualEmployeeId query before falling back to the first employee.'
+)
+assert.match(
+  source,
+  /async function readFrontlineProductionSubmitState[\s\S]*submitButton\.isDisabled[\s\S]*statusText[\s\S]*async function waitForFrontlineProductionSubmitReady[\s\S]*submitFrontlineProductionForPqcPrereq[\s\S]*waitForFrontlineProductionSubmitReady/,
+  'PQC prerequisite production source event E2E must wait for the production page to finish process/employee/template hydration before declaring the submit button disabled.'
+)
+assert.match(
   source,
   /async function preparePqcFormalSubmissionContext[\s\S]*buildProductionFillUrl[\s\S]*submitFrontlineProductionForPqcPrereq[\s\S]*processPoolEventId/,
   'PQC formal submission must create and capture a fresh processPoolEventId through the real production submit path.'
@@ -905,9 +988,54 @@ assert.match(
   'PQC fill URL must carry the fresh productionSubmitEventId/processPoolEventId instead of relying on historical process-pool state.'
 )
 assert.match(
+  source,
+  /async function clickPqcEmployeeOptionAndWaitForSwitch[\s\S]*for \(let attempt = 1; attempt <= 3; attempt \+= 1\)[\s\S]*targetOption\.click\(\{ timeout: 10000 \}\)[\s\S]*pqcSwitchEmployeeResponseError/,
+  'PQC employee picker clicks must retry real visible options and convert unstable detached DOM into structured personnel blockers.'
+)
+assert.match(
+  source,
+  /async function clickPqcEmployeeOptionAndWaitForSwitch[\s\S]*try \{[\s\S]*targetOption\.waitFor\(\{ state: 'visible', timeout: 30000 \}\)[\s\S]*\} catch \(error\) \{[\s\S]*lastClickError = error[\s\S]*pqcSwitchEmployeeResponseError/,
+  'PQC employee picker helper must convert missing candidate waits into structured personnel blockers instead of raw Playwright timeouts.'
+)
+assert.match(
+  source,
+  /async function verifyPqcActualEmployeeSwitch[\s\S]*clickPqcEmployeeOptionAndWaitForSwitch/,
+  'Initial PQC actual-employee selection must use the stable employee-picker helper.'
+)
+assert.match(
+  source,
+  /async function switchPqcActualEmployeeToUser[\s\S]*isPqcEmployeeCardAlreadySelected[\s\S]*clickPqcEmployeeOptionAndWaitForSwitch/,
+  'PQC actual-employee restoration must accept route-hydrated selection and otherwise use the stable employee-picker helper.'
+)
+assert.match(
+  source,
+  /function buildPqcFillUrl\(config,\s*context,\s*employeeEvidence,\s*signatureId\)[\s\S]*appendQueryValue\(query,\s*'signatureId',\s*signatureId\)/,
+  'PQC fill URL must carry the fresh unused signatureId through route query so the real page hydrates pqcSignatureId without a hidden test-only input.'
+)
+assert.match(
   pqcFormalSubmissionSource[0],
   /preparePqcFormalSubmissionContext[\s\S]*buildPqcFillUrl[\s\S]*page\.goto/,
   'verifyPqcFormalSubmissionCreatesEvent must prepare the formal production submit context and reopen PQC with productionSubmitEventId before clicking submit.'
+)
+assert.match(
+  pqcFormalSubmissionSource[0],
+  /resolveUnusedPqcSignatureId[\s\S]*const\s+signatureId\s*=\s*signatureResolution\.signatureId[\s\S]*buildPqcFillUrl\(config,\s*formalSubmissionContext,\s*employeeEvidence,\s*signatureId\)[\s\S]*waitForPqcSubmitReady/,
+  'PQC formal submission must resolve the unused signature before navigation, pass it through URL query, and wait for submit readiness instead of editing a removed control.'
+)
+assert.match(
+  pqcFormalSubmissionSource[0],
+  /validationResponsePromise[\s\S]*frontline-template\/payload\/validate[\s\S]*pqcSubmitResponseError[\s\S]*E2E_PQC_TEMPLATE_VALIDATION[\s\S]*validationResponseCode[\s\S]*postClickState[\s\S]*postClickMessages/,
+  'PQC formal submission must capture template payload validation when submit is not emitted, instead of reporting an opaque missing submit response.'
+)
+assert.doesNotMatch(
+  pqcFormalSubmissionSource[0],
+  /#frontlinePqcSignatureId/,
+  'PQC formal submission E2E must not wait for the removed #frontlinePqcSignatureId input; signature context is route-query driven.'
+)
+assert.match(
+  frontlineFixedTemplatePanelSource,
+  /pqcSignatureId\.value\s*=\s*firstRouteQueryNumber\(\['signatureId'\]\)\s*\?\?\s*pqcSignatureId\.value/,
+  'frontline PQC page must hydrate pqcSignatureId from the signatureId route query.'
 )
 assert.doesNotMatch(
   source,

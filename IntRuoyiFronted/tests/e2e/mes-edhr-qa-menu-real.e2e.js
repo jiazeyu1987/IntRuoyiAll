@@ -10,6 +10,7 @@ const BASE_URL = (process.env.EDHR_QA_MENU_E2E_BASE_URL || 'http://127.0.0.1:808
   ''
 )
 const TARGET_PATH = '/mes/pro/process-pool/qa-regulation'
+const FRONTLINE_PRODUCTION_PATH = '/mes/pro/feedback/edhr-batch-production-fill'
 const RESULT_DIR = path.resolve(WORKSPACE_ROOT, 'output', 'playwright', '20260804-qa-regulation-tab')
 const RESULT_PATH = path.join(RESULT_DIR, 'edhr-qa-menu-real-e2e.json')
 const SCREENSHOT_PATH = path.join(RESULT_DIR, 'edhr-qa-menu-real-e2e.png')
@@ -247,19 +248,25 @@ async function main() {
 
     const batchRecordForm = visibleMenuItem(page, '批记录表单')
     const qaMenu = visibleMenuItem(page, 'QA')
+    const productionLeaderMenu = visibleMenuItem(page, '生产组长')
+    const frontlineProductionMenu = visibleMenuItem(page, '一线生产')
     const pqcLeaderMenu = visibleMenuItem(page, 'PQC组长')
     const batchExecution = visibleMenuItem(page, '批次执行')
 
     const batchRecordFormBox = await getBox(batchRecordForm, '批记录表单 menu')
     const qaMenuBox = await getBox(qaMenu, 'QA menu')
+    const productionLeaderMenuBox = await getBox(productionLeaderMenu, '生产组长 menu')
+    const frontlineProductionMenuBox = await getBox(frontlineProductionMenu, '一线生产 menu')
     const pqcLeaderMenuBox = await getBox(pqcLeaderMenu, 'PQC组长 menu')
     const batchExecutionBox = await getBox(batchExecution, '批次执行 menu')
 
     assert.ok(
       batchRecordFormBox.y < qaMenuBox.y &&
-        qaMenuBox.y < pqcLeaderMenuBox.y &&
+        qaMenuBox.y < productionLeaderMenuBox.y &&
+        productionLeaderMenuBox.y < frontlineProductionMenuBox.y &&
+        frontlineProductionMenuBox.y < pqcLeaderMenuBox.y &&
         pqcLeaderMenuBox.y < batchExecutionBox.y,
-      'PQC组长 menu must be visually located under QA and before 批次执行'
+      'admin eDHR menu must show 一线生产 between 生产组长 and PQC组长 before 批次执行'
     )
 
     await qaMenu.click()
@@ -279,7 +286,8 @@ async function main() {
       ok: true,
       baseUrl: BASE_URL,
       actor: `${config.tenant}/${config.username}`,
-      menuOrder: ['批记录表单', 'QA', 'PQC组长', '批次执行'],
+      menuOrder: ['批记录表单', 'QA', '生产组长', '一线生产', 'PQC组长', '批次执行'],
+      frontlineProductionPath: FRONTLINE_PRODUCTION_PATH,
       targetPath: TARGET_PATH,
       writeRequests,
       consoleErrors,

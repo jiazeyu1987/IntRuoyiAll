@@ -108,6 +108,27 @@ export interface TeamProductionPersonnelListReqVO {
   enabled?: boolean
 }
 
+export interface TeamPqcPersonnelListReqVO {
+  enabled?: boolean
+}
+
+export interface TeamPqcPersonnelRespVO {
+  scopeId: number
+  systemUserId: number
+  displayName: string
+  username: string
+  enabled: boolean
+}
+
+export interface TeamPqcPersonnelLinkReqVO {
+  systemUserId: number
+}
+
+export interface TeamPqcPersonnelStatusUpdateReqVO {
+  scopeId: number
+  enabled: boolean
+}
+
 export interface TeamProductionEmployeeRespVO {
   id: number
   systemUserId?: number
@@ -382,6 +403,34 @@ export const getProductionPersonnelList = async (params?: TeamProductionPersonne
   return await request.get<TeamProductionEmployeeRespVO[]>({
     url: '/mes/pro/process-pool/team-leader/employee-profile/list',
     params
+  })
+}
+
+export const getPqcPersonnelList = async (params?: TeamPqcPersonnelListReqVO) => {
+  return await request.get<TeamPqcPersonnelRespVO[]>({
+    url: '/mes/pro/process-pool/team-leader/pqc-personnel/list',
+    params
+  })
+}
+
+export const searchPqcFormalEmployeeCandidates = async (keyword: string) => {
+  return await request.get<TeamFormalEmployeeCandidateRespVO[]>({
+    url: '/mes/pro/process-pool/team-leader/pqc-personnel/formal-candidates',
+    params: { keyword }
+  })
+}
+
+export const linkPqcFormalEmployee = async (data: TeamPqcPersonnelLinkReqVO) => {
+  return await request.post<number>({
+    url: '/mes/pro/process-pool/team-leader/pqc-personnel/formal/link',
+    data
+  })
+}
+
+export const updatePqcPersonnelStatus = async (data: TeamPqcPersonnelStatusUpdateReqVO) => {
+  return await request.put<boolean>({
+    url: '/mes/pro/process-pool/team-leader/pqc-personnel/status/update',
+    data
   })
 }
 

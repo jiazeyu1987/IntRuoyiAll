@@ -1,5 +1,5 @@
 <template>
-  <ContentWrap>
+  <ContentWrap v-if="!showPqcModuleTabs && !showProductionModuleTabs">
     <div class="team-leader-workbench__header">
       <div>
         <div class="team-leader-workbench__title">{{ pageTitle }}</div>
@@ -24,114 +24,32 @@
       <el-alert :title="loadError" type="error" :closable="false" show-icon />
     </ContentWrap>
 
-  <ContentWrap v-if="isProductionLeader" data-team-leader-production-personnel-tab>
-    <el-tabs v-model="productionPersonnelActiveTab" class="team-leader-workbench__personnel-tabs">
+  <ContentWrap
+    v-if="showProductionPersonnelModule"
+    :class="{ 'team-leader-workbench__production-module-card': showProductionModuleTabs }"
+    data-team-leader-production-personnel-tab
+  >
+    <el-tabs
+      v-if="showProductionModuleTabs"
+      v-model="activeProductionModuleTab"
+      class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+      data-production-leader-module-tabs
+    >
+      <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
+      <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+      <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
+      <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
+      <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
+      <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
+    </el-tabs>
+    <el-tabs
+      v-model="productionPersonnelActiveTab"
+      :class="[
+        'team-leader-workbench__personnel-tabs',
+        { 'team-leader-workbench__personnel-tabs--embedded': showProductionModuleTabs }
+      ]"
+    >
       <el-tab-pane label="生产人员档案" name="productionPersonnel">
-        <div class="team-leader-workbench__section-head">
-          <div>
-            <div class="team-leader-workbench__section-title">生产人员档案</div>
-            <div class="team-leader-workbench__hint">
-              只维护已关联当前生产组长的员工；正式工从受限姓名下拉选择，临时工手动录入姓名和签名密码。
-            </div>
-          </div>
-          <el-button :loading="productionPersonnelLoading" @click="refreshProductionPersonnel">
-            <Icon icon="ep:refresh" class="mr-5px" />
-            刷新人员档案
-          </el-button>
-        </div>
-
-        <div class="team-leader-workbench__personnel-actions">
-          <el-card shadow="never">
-            <template #header>搜索选择正式工</template>
-            <el-form :model="formalEmployeeForm" label-width="108px">
-              <el-form-item label="正式工姓名">
-                <el-select
-                  v-model="formalEmployeeForm.systemUserId"
-                  filterable
-                  remote
-                  clearable
-                  reserve-keyword
-                  placeholder="输入姓名搜索"
-                  :remote-method="searchFormalEmployeeCandidatesForSelect"
-                  :loading="formalCandidateLoading"
-                  class="team-leader-workbench__full-control"
-                  data-team-leader-formal-employee-select
-                >
-                  <!-- static contract anchor: remote-method="searchFormalEmployeeCandidatesForSelect" -->
-                  <el-option
-                    v-for="candidate in formalEmployeeCandidateOptions"
-                    :key="candidate.systemUserId"
-                    :label="candidate.displayName"
-                    :value="candidate.systemUserId"
-                  />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="显示名">
-                <el-input
-                  v-model="formalEmployeeForm.displayName"
-                  clearable
-                  placeholder="可选；重名时请加后缀"
-                />
-              </el-form-item>
-              <el-alert
-                title="正式工电子签名密码继续使用原账号配置，本页不设置或重置。"
-                type="info"
-                :closable="false"
-                show-icon
-              />
-              <el-form-item class="team-leader-workbench__form-actions">
-                <el-button
-                  type="primary"
-                  :loading="productionPersonnelSubmitting"
-                  @click="submitLinkFormalEmployee"
-                >
-                  关联正式工
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </el-card>
-
-          <el-card shadow="never">
-            <template #header>手动录入临时工</template>
-            <el-form
-              :model="temporaryEmployeeForm"
-              label-width="108px"
-              data-team-leader-temporary-employee-form
-            >
-              <el-form-item label="显示名">
-                <el-input
-                  v-model="temporaryEmployeeForm.displayName"
-                  clearable
-                  placeholder="同组长有效员工不能重名，重名请加后缀"
-                />
-              </el-form-item>
-              <el-form-item label="签名密码">
-                <el-input
-                  v-model="temporaryEmployeeForm.signaturePassword"
-                  show-password
-                  clearable
-                  placeholder="用于统一电子签名流程"
-                />
-              </el-form-item>
-              <el-alert
-                title="临时工只创建生产人员档案，不创建系统登录账号。"
-                type="info"
-                :closable="false"
-                show-icon
-              />
-              <el-form-item class="team-leader-workbench__form-actions">
-                <el-button
-                  type="primary"
-                  :loading="productionPersonnelSubmitting"
-                  @click="submitCreateTemporaryEmployee"
-                >
-                  新增临时工
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </el-card>
-        </div>
-
         <UnifiedListTemplate
           table-key="mes.processPool.teamLeader.productionPersonnel"
           :query-model="productionPersonnelQuery"
@@ -148,17 +66,17 @@
           @update:limit="handleProductionPersonnelPageSizeChange"
           @pagination="refreshProductionPersonnel"
         >
-          <template #actions>
-            <el-select
-              v-model="productionPersonnelQuery.enabled"
-              clearable
-              placeholder="启用状态"
-              class="!w-140px"
-              @change="refreshProductionPersonnel"
-            >
-              <el-option label="未禁用" :value="true" />
-              <el-option label="已禁用" :value="false" />
-            </el-select>
+          <template #extra-filters>
+            <el-form-item>
+              <el-button
+                type="primary"
+                data-team-leader-open-personnel-dialog
+                @click="productionPersonnelAddDialogVisible = true"
+              >
+                <Icon icon="ep:plus" class="mr-5px" />
+                新增人员
+              </el-button>
+            </el-form-item>
           </template>
           <template #table>
             <el-table
@@ -170,7 +88,12 @@
             >
               <el-table-column label="显示名" min-width="140">
                 <template #default="{ row }">
-                  <span>{{ row.displayName || row.employeeName || '--' }}</span>
+                  <span
+                    class="team-leader-workbench__personnel-name"
+                    :class="{ 'is-disabled': row.enabled === false }"
+                  >
+                    {{ row.displayName || row.employeeName || '--' }}
+                  </span>
                 </template>
               </el-table-column>
               <el-table-column label="来源" width="110">
@@ -221,41 +144,315 @@
           </template>
         </UnifiedListTemplate>
 
-        <el-divider>操作追溯</el-divider>
-        <el-table
-          v-loading="employeeAuditLoading"
-          :data="employeeAuditRows"
-          border
-          stripe
-          size="small"
-          data-team-leader-personnel-audit-list
+        <el-dialog
+          data-team-leader-personnel-add-dialog
+          v-model="productionPersonnelAddDialogVisible"
+          width="960px"
+          class="team-leader-workbench__personnel-dialog"
+          :close-on-click-modal="!productionPersonnelSubmitting"
+          @closed="clearProductionPersonnelDialogError"
         >
-          <el-table-column label="时间" min-width="150">
-            <template #default="{ row }">{{ formatDateTime(row.auditTime) }}</template>
-          </el-table-column>
-          <el-table-column label="动作" prop="actionType" min-width="130" />
-          <el-table-column label="结果" width="100">
-            <template #default="{ row }">
-              <el-tag :type="row.resultStatus === 'SUCCESS' ? 'success' : 'danger'" effect="plain">
-                {{ row.resultStatus || '--' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="目标" min-width="130">
-            <template #default="{ row }">
-              {{ row.targetType || '--' }} / {{ row.targetId || '--' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="变更摘要" min-width="260">
-            <template #default="{ row }">{{ row.changeSummary || '--' }}</template>
-          </el-table-column>
-        </el-table>
+          <template #header>
+            <div class="team-leader-workbench__personnel-dialog-header">
+              <span class="team-leader-workbench__personnel-dialog-title">新增人员</span>
+              <Transition name="team-leader-workbench__personnel-dialog-error">
+                <div
+                  v-if="productionPersonnelDialogError"
+                  class="team-leader-workbench__personnel-dialog-error"
+                  data-team-leader-personnel-dialog-error
+                  role="alert"
+                  aria-live="assertive"
+                >
+                  <span class="team-leader-workbench__personnel-dialog-error-text">
+                    {{ productionPersonnelDialogError }}
+                  </span>
+                  <button
+                    type="button"
+                    class="team-leader-workbench__personnel-dialog-error-close"
+                    data-team-leader-personnel-dialog-error-close
+                    aria-label="关闭错误提示"
+                    @click="clearProductionPersonnelDialogError"
+                  >
+                    <Icon icon="ep:close" />
+                  </button>
+                </div>
+              </Transition>
+            </div>
+          </template>
+          <div class="team-leader-workbench__personnel-actions team-leader-workbench__personnel-actions--dialog">
+            <el-card shadow="never">
+              <template #header>搜索选择正式工</template>
+              <el-form :model="formalEmployeeForm" label-width="108px">
+                <el-form-item label="正式工姓名">
+                  <el-select
+                    v-model="formalEmployeeForm.systemUserId"
+                    filterable
+                    remote
+                    clearable
+                    reserve-keyword
+                    placeholder="输入姓名搜索"
+                    :remote-method="searchFormalEmployeeCandidatesForSelect"
+                    :loading="formalCandidateLoading"
+                    class="team-leader-workbench__full-control"
+                    data-team-leader-formal-employee-select
+                  >
+                    <!-- static contract anchor: remote-method="searchFormalEmployeeCandidatesForSelect" -->
+                    <el-option
+                      v-for="candidate in formalEmployeeCandidateOptions"
+                      :key="candidate.systemUserId"
+                      :label="candidate.displayName"
+                      :value="candidate.systemUserId"
+                    />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="显示名">
+                  <el-input
+                    v-model="formalEmployeeForm.displayName"
+                    clearable
+                    placeholder="可选；重名时请加后缀"
+                  />
+                </el-form-item>
+                <el-alert
+                  title="正式工电子签名密码继续使用原账号配置，本页不设置或重置。"
+                  type="info"
+                  :closable="false"
+                  show-icon
+                />
+                <el-form-item class="team-leader-workbench__form-actions">
+                  <el-button
+                    type="primary"
+                    :loading="productionPersonnelSubmitting"
+                    @click="submitLinkFormalEmployee"
+                  >
+                    关联正式工
+                  </el-button>
+                </el-form-item>
+              </el-form>
+            </el-card>
+
+            <el-card shadow="never">
+              <template #header>手动录入临时工</template>
+              <el-form
+                :model="temporaryEmployeeForm"
+                label-width="108px"
+                data-team-leader-temporary-employee-form
+              >
+                <el-form-item label="显示名">
+                  <el-input
+                    v-model="temporaryEmployeeForm.displayName"
+                    clearable
+                    placeholder="同组长有效员工不能重名，重名请加后缀"
+                    @input="clearProductionPersonnelDialogError"
+                  />
+                </el-form-item>
+                <el-form-item label="签名密码">
+                  <el-input
+                    v-model="temporaryEmployeeForm.signaturePassword"
+                    show-password
+                    clearable
+                    placeholder="用于统一电子签名流程"
+                  />
+                </el-form-item>
+                <el-alert
+                  title="临时工只创建生产人员档案，不创建系统登录账号。"
+                  type="info"
+                  :closable="false"
+                  show-icon
+                />
+                <el-form-item class="team-leader-workbench__form-actions">
+                  <el-button
+                    type="primary"
+                    :loading="productionPersonnelSubmitting"
+                    @click="submitCreateTemporaryEmployee"
+                  >
+                    新增临时工
+                  </el-button>
+                </el-form-item>
+              </el-form>
+            </el-card>
+          </div>
+        </el-dialog>
+
       </el-tab-pane>
     </el-tabs>
   </ContentWrap>
 
-  <ContentWrap data-team-leader-report-workbench>
-      <div class="team-leader-workbench__section-head">
+  <ContentWrap
+    v-if="showPqcPersonnelModule"
+    :class="{ 'team-leader-workbench__pqc-module-card': showPqcModuleTabs }"
+    data-pqc-leader-personnel-tab
+  >
+    <div v-if="showPqcModuleTabs" class="team-leader-workbench__embedded-header">
+      <div class="team-leader-workbench__title">{{ pageTitle }}</div>
+      <div class="team-leader-workbench__subtitle">
+        {{ pageSubtitle }}
+      </div>
+    </div>
+    <el-tabs
+      v-if="showPqcModuleTabs"
+      v-model="activePqcModuleTab"
+      class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+      data-pqc-leader-module-tabs
+    >
+      <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
+      <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+      <el-tab-pane label="看板" name="dashboard" data-pqc-leader-module-tab-dashboard />
+    </el-tabs>
+
+    <UnifiedListTemplate
+      table-key="mes.processPool.teamLeader.pqcPersonnel"
+      :query-model="pqcPersonnelQuery"
+      :filter-definitions="pqcPersonnelFilterDefinitions"
+      :quick-filter-state="pqcPersonnelQuickFilterState"
+      :operator-options="pqcPersonnelOperatorOptions"
+      :columns="pqcPersonnelColumns"
+      :show-quick-filter="false"
+      :show-column-settings="false"
+      :total="pqcPersonnelTotal"
+      :page="pqcPersonnelQuery.pageNo"
+      :limit="pqcPersonnelQuery.pageSize"
+      @update:page="handlePqcPersonnelPageChange"
+      @update:limit="handlePqcPersonnelPageSizeChange"
+      @pagination="refreshPqcPersonnel"
+    >
+      <template #actions>
+        <el-button
+          type="primary"
+          data-pqc-personnel-add-button
+          @click="pqcPersonnelAddDialogVisible = true"
+        >
+          <Icon icon="ep:plus" class="mr-5px" />
+          新增
+        </el-button>
+        <el-select
+          v-model="pqcPersonnelQuery.enabled"
+          clearable
+          placeholder="启用状态"
+          class="!w-140px"
+          @change="refreshPqcPersonnel"
+        >
+          <el-option label="已启用" :value="true" />
+          <el-option label="已禁用" :value="false" />
+        </el-select>
+      </template>
+      <template #table>
+        <el-table
+          v-loading="pqcPersonnelLoading"
+          :data="pagedPqcPersonnelRows"
+          border
+          stripe
+          data-pqc-leader-personnel-list
+        >
+          <el-table-column label="PQC检验员" min-width="180">
+            <template #default="{ row }">{{ row.displayName }}</template>
+          </el-table-column>
+          <el-table-column label="账号" min-width="160">
+            <template #default="{ row }">{{ row.username }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="120">
+            <template #default="{ row }">
+              <el-tag :type="row.enabled === false ? 'danger' : 'success'" effect="plain">
+                {{ row.enabled === false ? '已禁用' : '已启用' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="120" fixed="right">
+            <template #default="{ row }">
+              <el-button
+                link
+                :type="row.enabled === false ? 'success' : 'warning'"
+                @click="updatePqcInspectorStatus(row, row.enabled === false)"
+              >
+                {{ row.enabled === false ? '启用' : '禁用' }}
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </UnifiedListTemplate>
+
+    <el-dialog
+      v-model="pqcPersonnelAddDialogVisible"
+      data-pqc-personnel-add-dialog
+      title="新增 PQC 检验员"
+      width="520px"
+      :close-on-click-modal="!pqcPersonnelSubmitting"
+    >
+      <el-form :model="pqcPersonnelForm" label-width="110px">
+        <el-form-item label="PQC检验员">
+          <el-select
+            v-model="pqcPersonnelForm.systemUserId"
+            filterable
+            remote
+            clearable
+            reserve-keyword
+            placeholder="输入姓名或账号搜索"
+            :remote-method="searchPqcFormalEmployeeCandidatesForSelect"
+            :loading="pqcCandidateLoading"
+            class="team-leader-workbench__full-control"
+          >
+            <el-option
+              v-for="candidate in pqcCandidateOptions"
+              :key="candidate.systemUserId"
+              :label="candidate.displayName"
+              :value="candidate.systemUserId"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button :disabled="pqcPersonnelSubmitting" @click="pqcPersonnelAddDialogVisible = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="pqcPersonnelSubmitting"
+          @click="submitLinkPqcFormalEmployee"
+        >
+          确认关联
+        </el-button>
+      </template>
+    </el-dialog>
+  </ContentWrap>
+
+  <ContentWrap
+    v-if="showPqcManagementModule"
+    :class="{
+      'team-leader-workbench__pqc-module-card': showPqcModuleTabs,
+      'team-leader-workbench__production-module-card': showProductionModuleTabs
+    }"
+    data-team-leader-report-workbench
+  >
+      <el-tabs
+        v-if="showProductionModuleTabs"
+        v-model="activeProductionModuleTab"
+        class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+        data-production-leader-module-tabs
+      >
+        <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
+        <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
+        <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
+        <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
+        <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
+      </el-tabs>
+      <div v-if="showPqcModuleTabs" class="team-leader-workbench__embedded-header">
+        <div class="team-leader-workbench__title">{{ pageTitle }}</div>
+        <div class="team-leader-workbench__subtitle">
+          {{ pageSubtitle }}
+        </div>
+      </div>
+      <el-tabs
+        v-if="showPqcModuleTabs"
+        v-model="activePqcModuleTab"
+        class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+      data-pqc-leader-module-tabs
+      >
+        <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
+        <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+        <el-tab-pane label="看板" name="dashboard" data-pqc-leader-module-tab-dashboard />
+      </el-tabs>
+      <div v-if="!showPqcModuleTabs && !showProductionModuleTabs" class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">报工确认工作台</div>
           <div class="team-leader-workbench__hint">
@@ -263,261 +460,276 @@
           </div>
         </div>
       </div>
-      <el-form
-        ref="queryFormRef"
-        class="team-leader-workbench__query"
-        :model="queryParams"
-        :inline="true"
+      <UnifiedListTemplate
+        table-key="mes.processPool.teamLeader.submissions"
+        :query-model="queryParams"
         label-width="88px"
-      >
-        <el-form-item label="提交日期" prop="submitDate">
-          <el-date-picker
-            v-model="queryParams.submitDate"
-            value-format="YYYY-MM-DD"
-            type="date"
-            placeholder="请选择提交日期"
-            class="!w-180px"
-          />
-        </el-form-item>
-        <el-form-item :label="employeeFilterLabel" prop="employeeUserId">
-          <el-input-number
-            v-model="queryParams.employeeUserId"
-            :min="1"
-            :controls="false"
-            placeholder="员工编号"
-            class="!w-180px"
-          />
-        </el-form-item>
-        <el-form-item label="工序" prop="processId">
-          <el-input-number
-            v-model="queryParams.processId"
-            :min="1"
-            :controls="false"
-            placeholder="工序编号"
-            class="!w-180px"
-          />
-        </el-form-item>
-        <el-form-item label="模板类型" prop="templateType">
-          <el-select
-            v-model="queryParams.templateType"
-            clearable
-            filterable
-            placeholder="请选择模板"
-            class="!w-190px"
-          >
-            <el-option label="生产简化模板" value="PRODUCTION_SIMPLIFIED" />
-            <el-option label="PQC 简化模板" value="PQC_SIMPLIFIED" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="生产工单" prop="workOrderCode">
-          <el-input
-            v-model="queryParams.workOrderCode"
-            clearable
-            placeholder="工单编码"
-            class="!w-220px"
-          />
-        </el-form-item>
-        <template v-if="activeLeaderTab === 'PQC'">
-          <el-form-item label="产品" prop="productKeyword">
-            <el-input
-              v-model="queryParams.productKeyword"
-              clearable
-              placeholder="产品编码/名称"
-              class="!w-220px"
-              data-pqc-leader-filter-product
-            />
-          </el-form-item>
-          <el-form-item label="检验类型" prop="inspectionType">
-            <el-select
-              v-model="queryParams.inspectionType"
-              clearable
-              placeholder="检验类型"
-              class="!w-160px"
-              data-pqc-leader-filter-inspection-type
-            >
-              <el-option label="首检" value="FIRST" />
-              <el-option label="巡检" value="PATROL" />
-              <el-option label="末检" value="FINAL" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="轮次" prop="roundNo">
-            <el-input-number
-              v-model="queryParams.roundNo"
-              :min="1"
-              :controls="false"
-              placeholder="轮次"
-              class="!w-140px"
-              data-pqc-leader-filter-round
-            />
-          </el-form-item>
-          <el-form-item label="复核状态" prop="submissionReviewStatus">
-            <el-select
-              v-model="queryParams.submissionReviewStatus"
-              clearable
-              placeholder="复核状态"
-              class="!w-160px"
-              data-pqc-leader-filter-review-status
-            >
-              <el-option label="待判定" value="PENDING" />
-              <el-option label="正确" value="APPROVED" />
-              <el-option label="不正确" value="REJECTED" />
-            </el-select>
-          </el-form-item>
-        </template>
-        <el-form-item>
-          <el-button type="primary" @click="handleQuery">
-            <Icon icon="ep:search" class="mr-5px" />
-            搜索
-          </el-button>
-          <el-button @click="resetQuery">
-            <Icon icon="ep:refresh" class="mr-5px" />
-            重置
-          </el-button>
-        </el-form-item>
-      </el-form>
-
-      <el-table v-loading="loading" :data="submissionList" border stripe>
-        <el-table-column label="提交时间" prop="submittedAt" min-width="160">
-          <template #default="{ row }">{{ formatDateTime(row.submittedAt) }}</template>
-        </el-table-column>
-        <el-table-column :label="employeeColumnLabel" min-width="140">
-          <template #default="{ row }">
-            {{ row.actualEmployeeUserName || row.actualEmployeeUserId || '--' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="工序" min-width="150">
-          <template #default="{ row }">{{ row.processName || row.processCode || '--' }}</template>
-        </el-table-column>
-        <el-table-column label="生产工单" min-width="160">
-          <template #default="{ row }">{{ row.workOrderCode || '--' }}</template>
-        </el-table-column>
-        <el-table-column v-if="activeLeaderTab === 'PQC'" label="产品" min-width="180">
-          <template #default="{ row }">
-            <span data-pqc-leader-submission-product>
-              {{ row.productCode || row.productName || '--' }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column v-if="activeLeaderTab === 'PQC'" label="检验类型/轮次" min-width="150">
-          <template #default="{ row }">
-            <span data-pqc-leader-submission-task>
-              {{ resolvePqcInspectionTypeText(row.inspectionType) }} / 第 {{ row.roundNo || '--' }} 轮
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="PQC" min-width="130">
-          <template #default="{ row }">
-            <el-tag :type="resolvePqcTagType(row.pqcResult)" effect="plain">
-              {{ row.pqcSummary || row.pqcResult || '--' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="提交内容" min-width="220">
-          <template #default="{ row }">
-            <div
-              v-if="isPqcSubmissionRow(row)"
-              class="team-leader-workbench__pqc-content"
-              data-pqc-leader-submission-content
-            >
-              <div
-                v-for="item in resolvePqcSubmissionContentItems(row)"
-                :key="item.key"
-                class="team-leader-workbench__pqc-content-item"
-                :data-pqc-leader-submission-entry="item.key"
-              >
-                <span class="team-leader-workbench__pqc-content-label">{{ item.label }}</span>
-                <span class="team-leader-workbench__pqc-content-value">{{ item.valueText }}</span>
-              </div>
-            </div>
-            <template v-else>{{ resolveProductionSubmissionSummary(row) }}</template>
-          </template>
-        </el-table-column>
-        <el-table-column label="审核副本" min-width="130">
-          <template #default="{ row }">{{ row.auditCopyStatus || '--' }}</template>
-        </el-table-column>
-        <el-table-column v-if="activeLeaderTab === 'PQC'" label="过程检验汇集" min-width="180">
-          <template #default="{ row }">
-            <div
-              class="team-leader-workbench__review-log"
-              data-pqc-process-inspection-aggregation
-              :data-pqc-process-inspection-event-id="String(row.id)"
-            >
-              <el-tag
-                :type="resolveProcessInspectionAggregationTagType(row.processInspectionAggregationStatus)"
-                effect="plain"
-              >
-                {{ resolveProcessInspectionAggregationStatusText(row.processInspectionAggregationStatus) }}
-              </el-tag>
-              <span
-                v-if="row.processInspectionReviewId"
-                class="team-leader-workbench__review-meta"
-              >
-                复核 {{ row.processInspectionReviewId }} ·
-                {{ formatDateTime(row.processInspectionAggregatedAt) }}
-              </span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="复核判定" min-width="190">
-          <template #default="{ row }">
-            <div class="team-leader-workbench__review-log" data-team-leader-review-log>
-              <el-tag :type="resolveSubmissionReviewTagType(row.submissionReviewStatus)" effect="plain">
-                {{ resolveSubmissionReviewStatusText(row.submissionReviewStatus) }}
-              </el-tag>
-              <span v-if="row.submissionReviewRemark" class="team-leader-workbench__review-text">
-                {{ row.submissionReviewRemark }}
-              </span>
-              <span v-if="row.submissionReviewedAt" class="team-leader-workbench__review-meta">
-                复核人 {{ row.submissionReviewLeaderUserId || '--' }} ·
-                {{ formatDateTime(row.submissionReviewedAt) }}
-              </span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="270" fixed="right">
-          <template #default="{ row }">
-            <el-button
-              link
-              type="primary"
-              :data-team-leader-detail-event-id="String(row.id)"
-              @click="openDetail(row)"
-            >
-              详情
-            </el-button>
-            <el-button
-              v-if="canReviewSubmission(row)"
-              link
-              type="success"
-              :data-team-leader-review-event-id="String(row.id)"
-              @click="openReview(row)"
-            >
-              复核
-            </el-button>
-            <el-button
-              v-if="canCorrectSubmission(row)"
-              link
-              type="warning"
-              :data-team-leader-correction-event-id="String(row.id)"
-              @click="openCorrection(row)"
-            >
-              修正
-            </el-button>
-            <el-button v-if="isProductionLeader" link type="warning" @click="prefillAbnormal(row)">
-              标记异常
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <Pagination
+        :filter-definitions="submissionQuickFilterDefinitions"
+        :show-quick-filter="false"
+        single-line-toolbar
+        :quick-filter-state="submissionQuickFilterState"
+        :operator-options="submissionOperatorOptions"
+        :show-multi-filter="true"
+        :multi-filter-definitions="submissionMultiFilterDefinitions"
+        :multi-filter-state="submissionMultiFilterState"
+        :columns="submissionColumns"
+        :column-saving="submissionColumnSaving"
         :total="submissionTotal"
         v-model:page="queryParams.pageNo"
         v-model:limit="queryParams.pageSize"
+        @update:multi-filter-state="updateSubmissionMultiFilterState"
+        @multi-filter-query="applySubmissionMultiFilter"
+        @multi-filter-reset="resetSubmissionMultiFilter"
+        @multi-filter-remove="removeSubmissionMultiFilterCondition"
+        @column-change="saveSubmissionColumnConfig"
+        @column-reset="resetSubmissionColumnConfig"
         @pagination="getSubmissionList"
-      />
+      >
+        <template #table>
+          <el-table
+            v-loading="loading"
+            data-user-table-column-explicit
+            data-user-table-key="mes.processPool.teamLeader.submissions"
+            :data="submissionList"
+            border
+            stripe
+            :show-overflow-tooltip="true"
+            @header-dragend="handleSubmissionHeaderDragend"
+          >
+            <el-table-column
+              v-if="isSubmissionColumnVisible('submittedAt')"
+              label="提交时间"
+              prop="submittedAt"
+              :min-width="getSubmissionColumnMinWidthString('submittedAt', 160)"
+            >
+              <template #default="{ row }">{{ formatDateTime(row.submittedAt) }}</template>
+            </el-table-column>
+            <el-table-column
+              v-if="isSubmissionColumnVisible('employeeUser')"
+              :label="employeeColumnLabel"
+              prop="employeeUser"
+              :min-width="getSubmissionColumnMinWidthString('employeeUser', 140)"
+            >
+              <template #default="{ row }">
+                {{ row.actualEmployeeUserName || row.actualEmployeeUserId || '--' }}
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isSubmissionColumnVisible('process')"
+              label="工序"
+              prop="process"
+              :min-width="getSubmissionColumnMinWidthString('process', 150)"
+            >
+              <template #default="{ row }">{{ row.processName || row.processCode || '--' }}</template>
+            </el-table-column>
+            <el-table-column
+              v-if="isSubmissionColumnVisible('workOrderCode')"
+              label="生产工单"
+              prop="workOrderCode"
+              :min-width="getSubmissionColumnMinWidthString('workOrderCode', 160)"
+            >
+              <template #default="{ row }">{{ row.workOrderCode || '--' }}</template>
+            </el-table-column>
+            <el-table-column
+              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('product')"
+              label="产品"
+              prop="product"
+              :min-width="getSubmissionColumnMinWidthString('product', 180)"
+            >
+              <template #default="{ row }">
+                <span data-pqc-leader-submission-product>
+                  {{ row.productCode || row.productName || '--' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('inspectionTask')"
+              label="检验类型/轮次"
+              prop="inspectionTask"
+              :min-width="getSubmissionColumnMinWidthString('inspectionTask', 150)"
+            >
+              <template #default="{ row }">
+                <span data-pqc-leader-submission-task>
+                  {{ resolvePqcInspectionTypeText(row.inspectionType) }} / 第 {{ row.roundNo || '--' }} 轮
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isSubmissionColumnVisible('pqcResult')"
+              label="PQC"
+              prop="pqcResult"
+              :min-width="getSubmissionColumnMinWidthString('pqcResult', 130)"
+            >
+              <template #default="{ row }">
+                <el-tag :type="resolvePqcTagType(row.pqcResult)" effect="plain">
+                  {{ row.pqcSummary || row.pqcResult || '--' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isSubmissionColumnVisible('submissionContent')"
+              label="提交内容"
+              prop="submissionContent"
+              :min-width="getSubmissionColumnMinWidthString('submissionContent', 220)"
+            >
+              <template #default="{ row }">
+                <div
+                  v-if="isPqcSubmissionRow(row)"
+                  class="team-leader-workbench__pqc-content"
+                  data-pqc-leader-submission-content
+                >
+                  <div
+                    v-for="item in resolvePqcSubmissionContentItems(row)"
+                    :key="item.key"
+                    class="team-leader-workbench__pqc-content-item"
+                    :data-pqc-leader-submission-entry="item.key"
+                  >
+                    <span class="team-leader-workbench__pqc-content-label">{{ item.label }}</span>
+                    <span class="team-leader-workbench__pqc-content-value">{{ item.valueText }}</span>
+                  </div>
+                </div>
+                <template v-else>{{ resolveProductionSubmissionSummary(row) }}</template>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isSubmissionColumnVisible('auditCopyStatus')"
+              label="审核副本"
+              prop="auditCopyStatus"
+              :min-width="getSubmissionColumnMinWidthString('auditCopyStatus', 130)"
+            >
+              <template #default="{ row }">{{ row.auditCopyStatus || '--' }}</template>
+            </el-table-column>
+            <el-table-column
+              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('processInspectionAggregation')"
+              label="过程检验汇集"
+              prop="processInspectionAggregation"
+              :min-width="getSubmissionColumnMinWidthString('processInspectionAggregation', 180)"
+            >
+              <template #default="{ row }">
+                <div
+                  class="team-leader-workbench__review-log"
+                  data-pqc-process-inspection-aggregation
+                  :data-pqc-process-inspection-event-id="String(row.id)"
+                >
+                  <el-tag
+                    :type="resolveProcessInspectionAggregationTagType(row.processInspectionAggregationStatus)"
+                    effect="plain"
+                  >
+                    {{ resolveProcessInspectionAggregationStatusText(row.processInspectionAggregationStatus) }}
+                  </el-tag>
+                  <span
+                    v-if="row.processInspectionReviewId"
+                    class="team-leader-workbench__review-meta"
+                  >
+                    复核 {{ row.processInspectionReviewId }} ·
+                    {{ formatDateTime(row.processInspectionAggregatedAt) }}
+                  </span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isSubmissionColumnVisible('submissionReviewStatus')"
+              label="复核判定"
+              prop="submissionReviewStatus"
+              :min-width="getSubmissionColumnMinWidthString('submissionReviewStatus', 190)"
+            >
+              <template #default="{ row }">
+                <div class="team-leader-workbench__review-log" data-team-leader-review-log>
+                  <el-tag :type="resolveSubmissionReviewTagType(row.submissionReviewStatus)" effect="plain">
+                    {{ resolveSubmissionReviewStatusText(row.submissionReviewStatus) }}
+                  </el-tag>
+                  <span v-if="row.submissionReviewRemark" class="team-leader-workbench__review-text">
+                    {{ row.submissionReviewRemark }}
+                  </span>
+                  <span v-if="row.submissionReviewedAt" class="team-leader-workbench__review-meta">
+                    复核人 {{ row.submissionReviewLeaderUserId || '--' }} ·
+                    {{ formatDateTime(row.submissionReviewedAt) }}
+                  </span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isSubmissionColumnVisible('operation')"
+              label="操作"
+              prop="operation"
+              :width="getSubmissionColumnWidthString('operation', 270)"
+              fixed="right"
+            >
+              <template #default="{ row }">
+                <el-button
+                  link
+                  type="primary"
+                  :data-team-leader-detail-event-id="String(row.id)"
+                  @click="openDetail(row)"
+                >
+                  详情
+                </el-button>
+                <el-button
+                  v-if="canReviewSubmission(row)"
+                  link
+                  type="success"
+                  :data-team-leader-review-event-id="String(row.id)"
+                  @click="openReview(row)"
+                >
+                  复核
+                </el-button>
+                <el-button
+                  v-if="canCorrectSubmission(row)"
+                  link
+                  type="warning"
+                  :data-team-leader-correction-event-id="String(row.id)"
+                  @click="openCorrection(row)"
+                >
+                  修正
+                </el-button>
+                <el-button v-if="isProductionLeader" link type="warning" @click="prefillAbnormal(row)">
+                  标记异常
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </UnifiedListTemplate>
     </ContentWrap>
 
-    <ContentWrap data-role-matrix-daily-close>
-      <div class="team-leader-workbench__section-head">
+    <ContentWrap
+      v-if="showPqcDashboardModule"
+      :class="{
+        'team-leader-workbench__pqc-module-card': showPqcModuleTabs,
+        'team-leader-workbench__production-module-card': showProductionModuleTabs
+      }"
+      data-role-matrix-daily-close
+    >
+      <el-tabs
+        v-if="showProductionModuleTabs"
+        v-model="activeProductionModuleTab"
+        class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+        data-production-leader-module-tabs
+      >
+        <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
+        <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
+        <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
+        <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
+        <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
+      </el-tabs>
+      <div v-if="showPqcModuleTabs" class="team-leader-workbench__embedded-header">
+        <div class="team-leader-workbench__title">{{ pageTitle }}</div>
+        <div class="team-leader-workbench__subtitle">
+          {{ pageSubtitle }}
+        </div>
+      </div>
+      <el-tabs
+        v-if="showPqcModuleTabs"
+        v-model="activePqcModuleTab"
+        class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+      data-pqc-leader-module-tabs
+      >
+        <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
+        <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+        <el-tab-pane label="看板" name="dashboard" data-pqc-leader-module-tab-dashboard />
+      </el-tabs>
+      <div v-if="!showPqcModuleTabs" class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">日结待处理看板</div>
           <div class="team-leader-workbench__hint">
@@ -564,7 +776,24 @@
       />
     </ContentWrap>
 
-    <ContentWrap v-if="isProductionLeader" data-team-leader-abnormal-report>
+    <ContentWrap
+      v-if="showProductionExceptionModule"
+      :class="{ 'team-leader-workbench__production-module-card': showProductionModuleTabs }"
+      data-team-leader-abnormal-report
+    >
+      <el-tabs
+        v-if="showProductionModuleTabs"
+        v-model="activeProductionModuleTab"
+        class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+        data-production-leader-module-tabs
+      >
+        <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
+        <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
+        <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
+        <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
+        <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
+      </el-tabs>
       <div class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">订单异常上报</div>
@@ -635,7 +864,24 @@
     </ContentWrap>
 
 
-    <ContentWrap v-if="isProductionLeader" data-team-leader-loss-reason-tab>
+    <ContentWrap
+      v-if="showProductionLossModule"
+      :class="{ 'team-leader-workbench__production-module-card': showProductionModuleTabs }"
+      data-team-leader-loss-reason-tab
+    >
+      <el-tabs
+        v-if="showProductionModuleTabs"
+        v-model="activeProductionModuleTab"
+        class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+        data-production-leader-module-tabs
+      >
+        <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
+        <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
+        <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
+        <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
+        <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
+      </el-tabs>
       <div class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">损耗原因维护</div>
@@ -706,7 +952,24 @@
         </el-table-column>
       </el-table>
     </ContentWrap>
-    <ContentWrap v-if="isProductionLeader" data-team-leader-config-center>
+    <ContentWrap
+      v-if="showProductionConfigModule"
+      :class="{ 'team-leader-workbench__production-module-card': showProductionModuleTabs }"
+      data-team-leader-config-center
+    >
+      <el-tabs
+        v-if="showProductionModuleTabs"
+        v-model="activeProductionModuleTab"
+        class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+        data-production-leader-module-tabs
+      >
+        <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
+        <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
+        <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
+        <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
+        <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
+      </el-tabs>
       <div class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">班组配置中心</div>
@@ -1354,6 +1617,14 @@
 import { ElMessage, ElMessageBox } from 'element-plus'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
+  useTableMultiFilter,
+  type ListMultiFilterDefinition
+} from '@/hooks/web/useTableMultiFilter'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition
+} from '@/hooks/web/useUserTableColumns'
+import {
   addTeamLeaderActiveOrder,
   confirmTeamLeaderReportAllocation,
   createTemporaryTeamEmployee,
@@ -1361,13 +1632,14 @@ import {
   createTeamEmployeeProfile,
   createTeamLeaderLossReason,
   deleteTeamLeaderLossReason,
+  getPqcPersonnelList,
   getTeamLeaderLossReasonPage,
   getProductionPersonnelList,
-  getTeamEmployeeAuditList,
   getTeamLeaderActiveOrderList,
   getTeamLeaderActiveOrderTransferTrace,
   getTeamLeaderSubmissionDetail,
   getTeamLeaderSubmissionPage,
+  linkPqcFormalEmployee,
   linkFormalTeamEmployee,
   markAndReportWorkOrderAbnormal,
   previewTeamLeaderReportFifoAllocation,
@@ -1378,12 +1650,13 @@ import {
   saveTeamProcessDeviceBinding,
   saveTeamProcessEmployeeBinding,
   saveTeamRuntimeDeviceParameterRule,
+  searchPqcFormalEmployeeCandidates,
   searchTeamFormalEmployeeCandidates,
   updateTeamLeaderLossReason,
   updateTeamDeviceStatus,
   updateTeamEmployeeDisplayName as updateTeamEmployeeDisplayNameRequest,
   updateTeamEmployeeStatus as updateTeamEmployeeStatusRequest,
-  type TeamEmployeeAuditRespVO,
+  updatePqcPersonnelStatus,
   type TeamFormalEmployeeCandidateRespVO,
   type TeamLeaderActiveOrderRespVO,
   type TeamLeaderActiveOrderTransferTraceRespVO,
@@ -1392,6 +1665,7 @@ import {
   type TeamLeaderReportAllocationLine,
   type TeamLeaderSubmissionPageReqVO,
   type TeamLeaderType,
+  type TeamPqcPersonnelRespVO,
   type TeamProductionEmployeeRespVO
 } from '@/api/mes/pro/processpool/teamLeader'
 import type {
@@ -1412,20 +1686,25 @@ const props = withDefaults(
   defineProps<{
     leaderType?: TeamLeaderType
     showLeaderTypeTabs?: boolean
+    showPqcModuleTabs?: boolean
+    showProductionModuleTabs?: boolean
     title?: string
     subtitle?: string
   }>(),
   {
     leaderType: 'PRODUCTION',
     showLeaderTypeTabs: false,
+    showPqcModuleTabs: false,
+    showProductionModuleTabs: false,
     title: '工序池班组长工作台',
     subtitle: '负责生产报工确认、活跃订单分配、异常上报和班组配置中心维护'
   }
 )
 
-const queryFormRef = ref()
 const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
+const activePqcModuleTab = ref<'personnel' | 'management' | 'dashboard'>('personnel')
+const activeProductionModuleTab = ref<'personnel' | 'report' | 'dashboard' | 'exception' | 'loss' | 'config'>('personnel')
 const loading = ref(false)
 const detailLoading = ref(false)
 const reviewSubmitting = ref(false)
@@ -1458,16 +1737,23 @@ const configuredDefectReasonOptions = ref<
   Array<{ reasonType: string; reasonCode: string; reasonName: string }>
 >([])
 const productionPersonnelActiveTab = ref('productionPersonnel')
+const productionPersonnelAddDialogVisible = ref(false)
+const productionPersonnelDialogError = ref('')
+const PRODUCTION_PERSONNEL_DIALOG_ERROR_DURATION = 6000
+let productionPersonnelDialogErrorTimer: ReturnType<typeof setTimeout> | undefined
 const productionPersonnelLoading = ref(false)
 const productionPersonnelSubmitting = ref(false)
 const formalCandidateLoading = ref(false)
-const employeeAuditLoading = ref(false)
 const productionPersonnelRows = ref<TeamProductionEmployeeRespVO[]>([])
 const formalEmployeeCandidateOptions = ref<TeamFormalEmployeeCandidateRespVO[]>([])
-const employeeAuditRows = ref<TeamEmployeeAuditRespVO[]>([])
+const pqcPersonnelAddDialogVisible = ref(false)
+const pqcPersonnelLoading = ref(false)
+const pqcPersonnelSubmitting = ref(false)
+const pqcCandidateLoading = ref(false)
+const pqcPersonnelRows = ref<TeamPqcPersonnelRespVO[]>([])
+const pqcCandidateOptions = ref<TeamFormalEmployeeCandidateRespVO[]>([])
 
 const productionPersonnelQuery = reactive({
-  enabled: true as boolean | undefined,
   pageNo: 1,
   pageSize: 10
 })
@@ -1480,13 +1766,92 @@ const productionPersonnelColumns: any[] = [
   { key: 'employeeCode', label: '员工编码', visible: true },
   { key: 'enabled', label: '状态', visible: true }
 ]
+const pqcPersonnelQuery = reactive({
+  enabled: true as boolean | undefined,
+  pageNo: 1,
+  pageSize: 10
+})
+const pqcPersonnelFilterDefinitions: any[] = []
+const pqcPersonnelQuickFilterState = reactive({})
+const pqcPersonnelOperatorOptions: any[] = []
+const pqcPersonnelColumns: any[] = [
+  { key: 'displayName', label: 'PQC检验员', visible: true },
+  { key: 'username', label: '账号', visible: true },
+  { key: 'enabled', label: '状态', visible: true }
+]
+const SUBMISSION_TABLE_KEY = 'mes.processPool.teamLeader.submissions'
+const submissionQuickFilterDefinitions: any[] = []
+const submissionQuickFilterState = reactive({})
+const submissionOperatorOptions: any[] = []
+const submissionDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'submittedAt', label: '提交时间', minWidth: 160 },
+  { key: 'employeeUser', label: 'PQC检验员/员工', minWidth: 140 },
+  { key: 'process', label: '工序', minWidth: 150 },
+  { key: 'workOrderCode', label: '生产工单', minWidth: 160 },
+  { key: 'product', label: '产品', minWidth: 180 },
+  { key: 'inspectionTask', label: '检验类型/轮次', minWidth: 150 },
+  { key: 'pqcResult', label: 'PQC', minWidth: 130 },
+  { key: 'submissionContent', label: '提交内容', minWidth: 220 },
+  { key: 'auditCopyStatus', label: '审核副本', minWidth: 130 },
+  { key: 'processInspectionAggregation', label: '过程检验汇集', minWidth: 180 },
+  { key: 'submissionReviewStatus', label: '复核判定', minWidth: 190 },
+  { key: 'operation', label: '操作', width: 270, hideable: false, business: false }
+]
+const {
+  saving: submissionColumnSaving,
+  columns: submissionColumns,
+  isColumnVisible: isSubmissionColumnVisible,
+  getColumnWidthString: getSubmissionColumnWidthString,
+  getColumnMinWidthString: getSubmissionColumnMinWidthString,
+  handleHeaderDragend: handleSubmissionHeaderDragend,
+  saveConfig: saveSubmissionColumnConfig,
+  resetConfig: resetSubmissionColumnConfig
+} = useUserTableColumns(SUBMISSION_TABLE_KEY, submissionDefaultColumns)
 
 const showLeaderTypeTabs = computed(() => props.showLeaderTypeTabs)
+const showPqcModuleTabs = computed(
+  () => props.showPqcModuleTabs && activeLeaderTab.value === 'PQC'
+)
+const showProductionModuleTabs = computed(
+  () => props.showProductionModuleTabs && activeLeaderTab.value === 'PRODUCTION'
+)
 const pageTitle = computed(() => props.title)
 const pageSubtitle = computed(() => props.subtitle)
 const isProductionLeader = computed(() => activeLeaderTab.value === 'PRODUCTION')
-const employeeFilterLabel = computed(() =>
-  activeLeaderTab.value === 'PQC' ? 'PQC检验员' : '员工'
+const showProductionPersonnelModule = computed(
+  () => isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'personnel')
+)
+const showProductionReportModule = computed(
+  () => isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'report')
+)
+const showProductionDashboardModule = computed(
+  () =>
+    isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'dashboard')
+)
+const showProductionExceptionModule = computed(
+  () =>
+    isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'exception')
+)
+const showProductionLossModule = computed(
+  () => isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'loss')
+)
+const showProductionConfigModule = computed(
+  () => isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'config')
+)
+const showPqcPersonnelModule = computed(
+  () =>
+    activeLeaderTab.value === 'PQC'
+    && (!showPqcModuleTabs.value || activePqcModuleTab.value === 'personnel')
+)
+const showPqcManagementModule = computed(
+  () =>
+    showProductionReportModule.value ||
+    (activeLeaderTab.value === 'PQC' && (!showPqcModuleTabs.value || activePqcModuleTab.value === 'management'))
+)
+const showPqcDashboardModule = computed(
+  () =>
+    showProductionDashboardModule.value ||
+    (activeLeaderTab.value === 'PQC' && (!showPqcModuleTabs.value || activePqcModuleTab.value === 'dashboard'))
 )
 const employeeColumnLabel = computed(() =>
   activeLeaderTab.value === 'PQC' ? 'PQC检验员' : '员工'
@@ -1552,6 +1917,13 @@ const pagedProductionPersonnelRows = computed(() => {
   const start = (pageNo - 1) * pageSize
   return productionPersonnelRows.value.slice(start, start + pageSize)
 })
+const pqcPersonnelTotal = computed(() => pqcPersonnelRows.value.length)
+const pagedPqcPersonnelRows = computed(() => {
+  const pageNo = Math.max(1, Number(pqcPersonnelQuery.pageNo) || 1)
+  const pageSize = Math.max(1, Number(pqcPersonnelQuery.pageSize) || 10)
+  const start = (pageNo - 1) * pageSize
+  return pqcPersonnelRows.value.slice(start, start + pageSize)
+})
 
 const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
   !row.submissionReviewStatus || row.submissionReviewStatus === 'PENDING'
@@ -1563,11 +1935,11 @@ const queryParams = reactive<TeamLeaderSubmissionPageReqVO>({
   pageNo: 1,
   pageSize: 10,
   leaderType: activeLeaderTab.value,
-  submitDate: new Date().toISOString().slice(0, 10),
+  submitDate: '',
   employeeUserId: undefined,
   processId: undefined,
   deviceId: undefined,
-  templateType: activeLeaderTab.value === 'PQC' ? 'PQC_SIMPLIFIED' : undefined,
+  templateType: undefined,
   workOrderId: undefined,
   workOrderCode: undefined,
   productId: undefined,
@@ -1575,6 +1947,112 @@ const queryParams = reactive<TeamLeaderSubmissionPageReqVO>({
   inspectionType: undefined,
   roundNo: undefined,
   submissionReviewStatus: undefined
+})
+
+const submissionMultiFilterDefinitions = computed<ListMultiFilterDefinition[]>(() => {
+  const baseDefinitions: ListMultiFilterDefinition[] = [
+    {
+      key: 'submitDate',
+      label: '提交日期',
+      type: 'date',
+      queryParamKey: 'submitDate',
+      placeholder: '请选择提交日期'
+    },
+    ...(activeLeaderTab.value === 'PQC'
+      ? [
+          {
+            key: 'employeeUserId',
+            label: 'PQC检验员',
+            type: 'text' as const,
+            queryParamKey: 'employeeUserId',
+            operators: ['eq' as const],
+            placeholder: '员工编号'
+          }
+        ]
+      : [
+          {
+            key: 'employeeUserId',
+            label: '员工',
+            type: 'text' as const,
+            queryParamKey: 'employeeUserId',
+            operators: ['eq' as const],
+            placeholder: '员工编号'
+          }
+        ]),
+    {
+      key: 'processId',
+      label: '工序',
+      type: 'text',
+      queryParamKey: 'processId',
+      operators: ['eq'],
+      placeholder: '工序编号'
+    },
+    {
+      key: 'templateType',
+      label: '模板类型',
+      type: 'select',
+      queryParamKey: 'templateType',
+      options: [
+        { label: '生产简化模板', value: 'PRODUCTION_SIMPLIFIED' },
+        { label: 'PQC 简化模板', value: 'PQC_SIMPLIFIED' }
+      ],
+      placeholder: '请选择模板'
+    },
+    {
+      key: 'workOrderCode',
+      label: '生产工单',
+      type: 'text',
+      queryParamKey: 'workOrderCode',
+      placeholder: '工单编码'
+    }
+  ]
+
+  if (activeLeaderTab.value !== 'PQC') {
+    return baseDefinitions
+  }
+
+  return [
+    ...baseDefinitions,
+    {
+      key: 'productKeyword',
+      label: '产品',
+      type: 'text',
+      queryParamKey: 'productKeyword',
+      placeholder: '产品编码/名称'
+    },
+    {
+      key: 'inspectionType',
+      label: '检验类型',
+      type: 'select',
+      queryParamKey: 'inspectionType',
+      options: [
+        { label: '首检', value: 'FIRST' },
+        { label: '巡检', value: 'PATROL' },
+        { label: '末检', value: 'FINAL' }
+      ],
+      placeholder: '检验类型'
+    },
+    {
+      key: 'roundNo',
+      label: '轮次',
+      type: 'text',
+      queryParamKey: 'roundNo',
+      operators: ['eq'],
+      placeholder: '轮次'
+    },
+    {
+      key: 'submissionReviewStatus',
+      label: '复核状态',
+      type: 'select',
+      queryParamKey: 'submissionReviewStatus',
+      options: [
+        { label: '待判定', value: 'PENDING' },
+        { label: '正确', value: 'APPROVED' },
+        { label: '不正确', value: 'REJECTED' }
+      ],
+      placeholder: '复核状态'
+    }
+  ]
 })
 
 const reviewForm = reactive({
@@ -1621,6 +2099,10 @@ const activeOrderRemoveForm = reactive({
 const formalEmployeeForm = reactive({
   systemUserId: undefined as number | undefined,
   displayName: ''
+})
+
+const pqcPersonnelForm = reactive({
+  systemUserId: undefined as number | undefined
 })
 
 const temporaryEmployeeForm = reactive({
@@ -1749,29 +2231,101 @@ const formatSignaturePasswordManager = (row: TeamProductionEmployeeRespVO) => {
   return row.signaturePasswordManagedBy || '--'
 }
 
-const loadEmployeeAuditRecords = async (employeeProfileId?: number) => {
-  employeeAuditLoading.value = true
+const refreshPqcPersonnel = async () => {
+  pqcPersonnelLoading.value = true
   try {
-    employeeAuditRows.value = await getTeamEmployeeAuditList({ employeeProfileId })
+    pqcPersonnelRows.value = await getPqcPersonnelList({
+      enabled: pqcPersonnelQuery.enabled
+    })
+    const maxPage = Math.max(1, Math.ceil(pqcPersonnelRows.value.length / pqcPersonnelQuery.pageSize))
+    if (pqcPersonnelQuery.pageNo > maxPage) {
+      pqcPersonnelQuery.pageNo = maxPage
+    }
   } catch (error) {
-    employeeAuditRows.value = []
-    ElMessage.error(resolveErrorMessage(error, '生产人员操作追溯加载失败'))
+    pqcPersonnelRows.value = []
+    ElMessage.error(resolveErrorMessage(error, 'PQC 检验员列表加载失败'))
   } finally {
-    employeeAuditLoading.value = false
+    pqcPersonnelLoading.value = false
+  }
+}
+
+const handlePqcPersonnelPageChange = (page: number) => {
+  pqcPersonnelQuery.pageNo = page
+}
+
+const handlePqcPersonnelPageSizeChange = (limit: number) => {
+  pqcPersonnelQuery.pageSize = limit
+  pqcPersonnelQuery.pageNo = 1
+}
+
+const searchPqcFormalEmployeeCandidatesForSelect = async (keyword: string) => {
+  const searchText = keyword.trim()
+  if (!searchText) {
+    pqcCandidateOptions.value = []
+    return
+  }
+  pqcCandidateLoading.value = true
+  try {
+    pqcCandidateOptions.value = await searchPqcFormalEmployeeCandidates(searchText)
+  } catch (error) {
+    pqcCandidateOptions.value = []
+    ElMessage.error(resolveErrorMessage(error, 'PQC 检验员候选搜索失败'))
+  } finally {
+    pqcCandidateLoading.value = false
+  }
+}
+
+const submitLinkPqcFormalEmployee = async () => {
+  pqcPersonnelSubmitting.value = true
+  try {
+    await linkPqcFormalEmployee({
+      systemUserId: requirePositiveNumber(pqcPersonnelForm.systemUserId, '请选择 PQC 检验员')
+    })
+    pqcPersonnelForm.systemUserId = undefined
+    pqcCandidateOptions.value = []
+    pqcPersonnelAddDialogVisible.value = false
+    ElMessage.success('PQC 检验员已关联当前组长')
+    await refreshPqcPersonnel()
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, 'PQC 检验员关联失败'))
+  } finally {
+    pqcPersonnelSubmitting.value = false
+  }
+}
+
+const updatePqcInspectorStatus = async (row: TeamPqcPersonnelRespVO, enabled: boolean) => {
+  try {
+    await ElMessageBox.confirm(
+      enabled
+        ? '启用后，该检验员重新进入当前 PQC 组长的负责范围。'
+        : '禁用后，该检验员不再进入当前 PQC 组长的负责范围。',
+      enabled ? '启用 PQC 检验员' : '禁用 PQC 检验员',
+      {
+        type: enabled ? 'success' : 'warning',
+        confirmButtonText: enabled ? '启用' : '禁用',
+        cancelButtonText: '取消'
+      }
+    )
+    await updatePqcPersonnelStatus({
+      scopeId: requirePositiveNumber(row.scopeId, 'PQC 人员关联ID不能为空'),
+      enabled
+    })
+    ElMessage.success(enabled ? 'PQC 检验员已启用' : 'PQC 检验员已禁用')
+    await refreshPqcPersonnel()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(resolveErrorMessage(error, 'PQC 检验员状态更新失败'))
   }
 }
 
 const refreshProductionPersonnel = async () => {
   productionPersonnelLoading.value = true
   try {
-    productionPersonnelRows.value = await getProductionPersonnelList({
-      enabled: productionPersonnelQuery.enabled
-    })
+    productionPersonnelRows.value = await getProductionPersonnelList()
     const maxPage = Math.max(1, Math.ceil(productionPersonnelRows.value.length / productionPersonnelQuery.pageSize))
     if (productionPersonnelQuery.pageNo > maxPage) {
       productionPersonnelQuery.pageNo = maxPage
     }
-    await loadEmployeeAuditRecords()
   } catch (error) {
     productionPersonnelRows.value = []
     ElMessage.error(resolveErrorMessage(error, '生产人员档案加载失败'))
@@ -1787,6 +2341,23 @@ const handleProductionPersonnelPageChange = (page: number) => {
 const handleProductionPersonnelPageSizeChange = (limit: number) => {
   productionPersonnelQuery.pageSize = limit
   productionPersonnelQuery.pageNo = 1
+}
+
+const clearProductionPersonnelDialogError = () => {
+  if (productionPersonnelDialogErrorTimer !== undefined) {
+    clearTimeout(productionPersonnelDialogErrorTimer)
+    productionPersonnelDialogErrorTimer = undefined
+  }
+  productionPersonnelDialogError.value = ''
+}
+
+const showProductionPersonnelDialogError = (message: string) => {
+  clearProductionPersonnelDialogError()
+  productionPersonnelDialogError.value = message
+  productionPersonnelDialogErrorTimer = setTimeout(
+    clearProductionPersonnelDialogError,
+    PRODUCTION_PERSONNEL_DIALOG_ERROR_DURATION
+  )
 }
 
 const searchFormalEmployeeCandidatesForSelect = async (keyword: string) => {
@@ -1826,6 +2397,7 @@ const submitLinkFormalEmployee = async () => {
 }
 
 const submitCreateTemporaryEmployee = async () => {
+  clearProductionPersonnelDialogError()
   productionPersonnelSubmitting.value = true
   try {
     await createTemporaryTeamEmployee({
@@ -1837,7 +2409,9 @@ const submitCreateTemporaryEmployee = async () => {
     ElMessage.success('临时工已新增并关联当前生产组长')
     await refreshProductionPersonnel()
   } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '临时工新增失败，请确认是否重名并按提示加后缀'))
+    showProductionPersonnelDialogError(
+      resolveErrorMessage(error, '临时工新增失败，请确认是否重名并按提示加后缀')
+    )
   } finally {
     productionPersonnelSubmitting.value = false
   }
@@ -2418,25 +2992,72 @@ const getSubmissionList = async () => {
   }
 }
 
-const handleQuery = () => {
-  queryParams.pageNo = 1
-  getSubmissionList()
+const {
+  state: submissionMultiFilterState,
+  applyMultiFilter: applySubmissionMultiFilterState,
+  updateState: updateSubmissionMultiFilterState,
+  removeCondition: removeSubmissionMultiFilterCondition,
+  clearMultiFilterParams: clearSubmissionMultiFilterParams
+} = useTableMultiFilter(
+  'mes.processPool.teamLeader.submissions',
+  submissionMultiFilterDefinitions,
+  queryParams,
+  getSubmissionList
+)
+
+const clearSubmissionFilterParams = () => {
+  queryParams.employeeUserId = undefined
+  queryParams.processId = undefined
+  queryParams.deviceId = undefined
+  queryParams.templateType = undefined
+  queryParams.workOrderId = undefined
+  queryParams.workOrderCode = undefined
+  queryParams.productId = undefined
+  queryParams.productKeyword = undefined
+  queryParams.inspectionType = undefined
+  queryParams.roundNo = undefined
+  queryParams.submissionReviewStatus = undefined
 }
 
-const handleLeaderTypeChange = (value: string | number) => {
+const resetSubmissionQueryParams = (leaderType: TeamLeaderType) => {
+  queryParams.pageNo = 1
+  queryParams.pageSize = 10
+  queryParams.leaderType = leaderType
+  queryParams.submitDate = ''
+}
+
+const hasSubmissionDateCondition = () => {
+  const condition = submissionMultiFilterState.conditions.find(
+    (item) => item.key === 'submitDate'
+  )
+  const value = condition?.value
+  if (typeof value === 'string' && value.trim()) {
+    return true
+  }
+  ElMessage.warning('提交日期是必填筛选条件，请先在标准多条件搜索中选择提交日期。')
+  return false
+}
+
+const applySubmissionMultiFilter = async () => {
+  if (!hasSubmissionDateCondition()) return
+  await applySubmissionMultiFilterState()
+}
+
+const resetSubmissionMultiFilter = () => {
+  const leaderType = activeLeaderTab.value
+  updateSubmissionMultiFilterState({ conditions: [], activeConditionId: undefined })
+  clearSubmissionMultiFilterParams()
+  clearSubmissionFilterParams()
+  resetSubmissionQueryParams(leaderType)
+  submissionList.value = []
+  submissionTotal.value = 0
+  loadError.value = ''
+}
+
+const handleLeaderTypeChange = async (value: string | number) => {
   const selectedTab = String(value) as WorkbenchLeaderTab
   const leaderType = selectedTab as TeamLeaderType
-  queryParams.leaderType = leaderType
-  if (leaderType === 'PQC') {
-    queryParams.templateType = 'PQC_SIMPLIFIED'
-  } else if (queryParams.templateType === 'PQC_SIMPLIFIED') {
-    queryParams.templateType = undefined
-    queryParams.productId = undefined
-    queryParams.productKeyword = undefined
-    queryParams.inspectionType = undefined
-    queryParams.roundNo = undefined
-    queryParams.submissionReviewStatus = undefined
-  }
+  activeLeaderTab.value = leaderType
   if (leaderType === 'PRODUCTION') {
     refreshProductionPersonnel()
     loadActiveOrders().catch((error) => {
@@ -2445,24 +3066,10 @@ const handleLeaderTypeChange = (value: string | number) => {
     loadLossReasonRows().catch((error) => {
       ElMessage.error(resolveErrorMessage(error, '损耗原因标准列表加载失败'))
     })
+  } else {
+    refreshPqcPersonnel()
   }
-  handleQuery()
-}
-
-const resetQuery = () => {
-  const leaderType = activeLeaderTab.value
-  queryFormRef.value?.resetFields()
-  queryParams.pageNo = 1
-  queryParams.pageSize = 10
-  queryParams.leaderType = leaderType
-  queryParams.submitDate = new Date().toISOString().slice(0, 10)
-  queryParams.templateType = leaderType === 'PQC' ? 'PQC_SIMPLIFIED' : undefined
-  queryParams.productId = undefined
-  queryParams.productKeyword = undefined
-  queryParams.inspectionType = undefined
-  queryParams.roundNo = undefined
-  queryParams.submissionReviewStatus = undefined
-  getSubmissionList()
+  resetSubmissionMultiFilter()
 }
 
 const openDetail = async (event: ProcessPoolTimelineEventVO) => {
@@ -2832,8 +3439,9 @@ const resolvePqcTagType = (pqcResult?: string) => {
   return 'info'
 }
 
+onBeforeUnmount(clearProductionPersonnelDialogError)
+
 onMounted(() => {
-  getSubmissionList()
   if (isProductionLeader.value) {
     refreshProductionPersonnel()
     loadActiveOrders().catch((error) => {
@@ -2842,6 +3450,8 @@ onMounted(() => {
     loadLossReasonRows().catch((error) => {
       ElMessage.error(resolveErrorMessage(error, '损耗原因标准列表加载失败'))
     })
+  } else {
+    refreshPqcPersonnel()
   }
 })
 </script>
@@ -2866,6 +3476,36 @@ onMounted(() => {
   font-size: 12px;
 }
 
+.team-leader-workbench__embedded-header {
+  margin-bottom: 14px;
+}
+
+.team-leader-workbench__pqc-module-card :deep(.el-card__body),
+.team-leader-workbench__production-module-card :deep(.el-card__body) {
+  padding-top: 12px;
+}
+
+.team-leader-workbench__personnel-tabs--embedded :deep(.el-tabs__header) {
+  display: none;
+}
+
+.team-leader-workbench__module-tabs--flat :deep(.el-tabs__header) {
+  margin: 0 0 12px;
+}
+
+.team-leader-workbench__module-tabs--flat :deep(.el-tabs__item) {
+  color: #172033;
+  font-weight: 600;
+}
+
+.team-leader-workbench__module-tabs--flat :deep(.el-tabs__item.is-active) {
+  color: #00a896;
+}
+
+.team-leader-workbench__module-tabs--flat :deep(.el-tabs__active-bar) {
+  background-color: #00a896;
+}
+
 .team-leader-workbench__query {
   margin-bottom: -15px;
 }
@@ -2879,6 +3519,72 @@ onMounted(() => {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 16px;
+}
+
+.team-leader-workbench__personnel-actions--dialog {
+  margin-bottom: 0;
+}
+
+.team-leader-workbench__personnel-name.is-disabled {
+  color: #f56c6c;
+}
+
+.team-leader-workbench__personnel-dialog-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+  padding-right: 36px;
+}
+
+.team-leader-workbench__personnel-dialog-title {
+  color: #172033;
+  font-size: 18px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.team-leader-workbench__personnel-dialog-error {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #f56c6c;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.team-leader-workbench__personnel-dialog-error-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-leader-workbench__personnel-dialog-error-close {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.team-leader-workbench__personnel-dialog-error-enter-active,
+.team-leader-workbench__personnel-dialog-error-leave-active {
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.team-leader-workbench__personnel-dialog-error-enter-from,
+.team-leader-workbench__personnel-dialog-error-leave-to {
+  opacity: 0;
+  transform: translateY(-3px);
 }
 
 .team-leader-workbench__full-control {
@@ -3118,8 +3824,24 @@ onMounted(() => {
 @media (max-width: 1180px) {
   .team-leader-workbench__qa-layout,
   .team-leader-workbench__maintenance-grid,
-  .team-leader-workbench__daily-close-grid {
+  .team-leader-workbench__daily-close-grid,
+  .team-leader-workbench__personnel-actions--dialog {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .team-leader-workbench__personnel-dialog-header {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .team-leader-workbench__personnel-dialog-error {
+    justify-content: flex-start;
+  }
+
+  .team-leader-workbench__personnel-dialog-error-text {
+    white-space: normal;
   }
 }
 </style>

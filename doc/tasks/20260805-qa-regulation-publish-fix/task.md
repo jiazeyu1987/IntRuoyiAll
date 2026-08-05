@@ -14,6 +14,10 @@
 - [x] 将路线版本、路线工序、SOP、正式批记录绑定等适用范围字段改为从产品绑定的正式工艺路线自动带出，禁止 QA 页面手工设置黄框字段。
 - [x] 支持 QA 页面在产品未绑定或需修正时显式选择已发布工艺路线，并通过 QA 专用产品-工艺路线绑定 API 写入后重新带出适用范围。
 - [x] 补齐 QA 手动绑定后端 JUnit 与前端静态契约 RED/GREEN 验证。
+- [x] 修复顶部黄框不显示 DCC 项目选择内容的布局回归。
+- [x] 隐藏截图红框内的副标题、绿色提示和空白间隔。
+- [x] 隐藏适用范围黄色说明块，重排基础字段间距，并让手动工艺路线选择框回填上次正式绑定关系。
+- [x] 隐藏顶部“发布检查”页签，不改现有发布校验、草稿保存和发布接口逻辑。
 - [ ] 复跑完整 AC-M09 后端目标 JUnit。
 - [x] 记录验证、收尾和剩余阻塞。
 
@@ -23,20 +27,24 @@
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProRouteProductServiceImplTest,MesProRouteProductBindFromWorkOrdersTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - `node tests/e2e/qa-regulation-manual-route-selectable-static.spec.cjs`
 - `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs`
+- `node tests/e2e/qa-regulation-publish-tab-hidden-static.spec.cjs`
+- `node tests/e2e/qa-regulation-final-applicability-static.spec.cjs`
 - `node tests/e2e/unified-list-template-empty-tabs-system-static.spec.js`
+- 登录态 API 探针：`POST /admin-api/mes/pro/route-product/save-qa-regulation-route-by-item` 使用无效 routeId 返回业务校验错误而非 `请求地址不存在`。
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md`
 - `pnpm ts:check` 如前端类型链路改动需要全量类型验证。
 - `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs IntRuoyiFronted/tests/e2e/unified-list-template-empty-tabs-system-static.spec.js doc/tasks/20260805-qa-regulation-publish-fix/task.md doc/tasks/20260805-qa-regulation-publish-fix/execution-log.md doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md docs/backend-development.md docs/experience-index.md`
 
 ## Current Status
 
-blocked：QA 项目选择区已收窄为单一必填 DCC 项目代码下拉框，并在选中项目后才展示 Tab、适用范围、检验规则、检验项目和发布检查；适用范围中的路线版本、路线工序、SOP、正式批记录绑定等黄框字段仍由正式工艺路线自动带出。QA 页面显式“手动绑定工艺路线”已允许选择已发布/已启用路线，选项模板显式 `:disabled="false"`，保存走 QA 专用 `saveQaRegulationRouteProductByItem` 后端入口，后端校验路线存在且有 ACTIVE 版本但不调用产品维护页的 `validateRouteNotEnable` 守卫，绑定后重新按正式路线版本和质检工序带出范围；完整 AC-M09 后端目标 JUnit 仍受共享 Maven target 阻塞，暂不标记 completed。
+blocked：最新截图反馈已完成，顶部 QA 页签只显示“总览 / 检验规则 / 检验项目”，不再显示“发布检查”；现有发布校验、草稿保存和发布接口代码未修改。目标静态合同、两个相邻 QA 合同、`pnpm ts:check` 和本机真实只读 Playwright 均通过。实现被并行脏工作区基线提交 `f6ea8f545` 吞入，该提交同时包含大量其它任务文件且当前分支领先 `origin` 1 个提交，本任务不冒充独立实现提交、不直接推送。完整 AC-M09 后端目标 JUnit仍待共享 Maven target 空闲后复跑，标准列表系统合同当前为 91/88 并行计数漂移，因此总任务不标记 completed。
 
 ## Baseline Commits
 
 - `5486d9ba9`：保存进入本任务前的既有前后端与任务文档改动。
 - `fc5e98ffe`：保存进入本任务前的残余岗位矩阵分析文档更新。
 - `515798d74`：保存并发 AC 任务文档更新。
+- `f6ea8f545`：并行任务创建的脏工作区基线提交，包含本次 `QaRegulationPage.vue` 页签删除、QA 静态合同和任务文档，同时混入大量其它任务文件；不得冒充本任务独立实现提交。
 
 ## Applicable Gates
 

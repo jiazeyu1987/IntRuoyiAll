@@ -150,6 +150,15 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - Forbidden action: 禁止执行 `docker system prune --volumes`、`docker volume prune`、删除容器、删除 VHDX、或把 VHDX 文件未立刻缩小误判为清理失败；VHDX 回收/压缩必须作为单独授权任务处理。
 - Evidence: `doc/tasks/20260805-docker-unused-image-cleanup/verification-report.md`。
 
+## 2026-08-05 本机 Ruoyi Docker 未用容器卷镜像清理门禁
+
+- Trigger: 用户明确要求删除当前 Ruoyi 环境用不到的 Docker `image`、`volume`、`container`，或需要在 Docker Desktop WSL2 磁盘过大后进一步清理容器和卷。
+- Preflight check: 先记录 `docker system df`、`docker container ls -a`、`docker volume ls`、每个 volume 的容器引用关系，以及当前运行容器的 mount；只有在用户明确授权 volume/container 清理时，才能删除停止容器、悬挂卷和无容器引用镜像。
+- Blocker: 无法确认当前 Ruoyi 运行容器、无法确认 volume 引用关系、存在疑似 MySQL/MinIO/OnlyOffice 当前数据卷、Docker CLI 异常、或用户只授权镜像清理时必须停止；不得把 `docker system df` 的 image reclaimable 百分比当作删除正在运行容器镜像的依据。
+- Verification: 清理后运行 `docker container ls -a` 确认只剩当前运行容器；运行 volume 引用扫描确认每个剩余 volume 都被当前容器引用；再次运行 `docker image prune -a -f` 和 `docker volume prune -f` 应返回 `Total reclaimed space: 0B`。
+- Forbidden action: 禁止删除当前 MySQL 数据卷、MinIO 数据卷、OnlyOffice 卷、正在运行容器、`docker_data.vhdx`，或为了让 D 盘立刻变小而手工删除 VHDX；VHDX 压缩必须单独走管理员权限压缩流程。
+- Evidence: `doc/tasks/20260805-docker-ruoyi-unused-cleanup/verification-report.md`。
+
 ## 2026-08-02 DCC 上传预览本机 MinIO 前置门禁
 
 - Trigger: DCC 原版上传、上传升版、`/admin-api/dcc/controlled-files/upload-preview`、`SdkClientException`、`Connect to 127.0.0.1:9000 failed: Connection refused`、`docker-minio-1`。

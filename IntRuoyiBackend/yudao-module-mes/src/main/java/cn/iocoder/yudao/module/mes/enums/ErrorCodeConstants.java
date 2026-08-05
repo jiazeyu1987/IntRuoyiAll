@@ -1176,6 +1176,10 @@ public interface ErrorCodeConstants {
             "PQC 检验单只能由 PQC 组长确认或退回：eventId={}，leaderType={}");
     ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_REJECT_REMARK_REQUIRED = new ErrorCode(1_040_760_339,
             "复核退回必须填写退回原因：eventId={}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_DUPLICATE = new ErrorCode(1_040_760_340,
+            "当前 PQC 组长已关联该检验员，请启用或维护既有关联：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_NOT_EXISTS = new ErrorCode(1_040_760_341,
+            "PQC 检验员关联不存在或不属于当前组长：{}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

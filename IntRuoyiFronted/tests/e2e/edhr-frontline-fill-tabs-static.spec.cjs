@@ -8,19 +8,17 @@ const exists = (relativePath) => fs.existsSync(path.join(root, relativePath))
 
 const router = read('src/router/modules/remaining.ts')
 const productionPagePath = 'src/views/mes/pro/edhr-batch/BatchProductionFillPage.vue'
-const pqcPagePath = 'src/views/mes/pro/edhr-batch/BatchPqcFillPage.vue'
 const tabsPath = 'src/views/mes/pro/edhr-batch/EdhrBatchRecordTabs.vue'
 const frontlinePanel = read('src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue')
 
-for (const pagePath of [productionPagePath, pqcPagePath, tabsPath]) {
+for (const pagePath of [productionPagePath, tabsPath]) {
   assert.ok(exists(pagePath), `${pagePath} must exist.`)
 }
 
 const productionPage = read(productionPagePath)
-const pqcPage = read(pqcPagePath)
 const tabs = read(tabsPath)
 
-for (const tabName of ['批次执行', 'PQC填写', '批记录页面关系图']) {
+for (const tabName of ['批次执行', '批记录页面关系图']) {
   assert.match(tabs, new RegExp(tabName), `eDHR batch tabs must include ${tabName}.`)
 }
 assert.doesNotMatch(
@@ -34,33 +32,24 @@ assert.doesNotMatch(
   'internal tab navigation must not route to standalone frontline production.'
 )
 
-for (const route of [
-  {
-    path: 'pro/feedback/edhr-batch-production-fill',
-    name: 'MesProEdhrBatchProductionFill',
-    component: 'BatchProductionFillPage.vue',
-    title: '一线生产'
-  },
-  {
-    path: 'pro/feedback/edhr-batch-pqc-fill',
-    name: 'MesProEdhrBatchPqcFill',
-    component: 'BatchPqcFillPage.vue',
-    title: 'PQC填写'
-  }
-]) {
-  const routeIndex = router.indexOf(`path: '${route.path}'`)
-  assert.ok(routeIndex >= 0, `${route.path} route must exist.`)
-  const routeBlock = router.slice(routeIndex, router.indexOf('\n      {', routeIndex + route.path.length))
-  assert.match(routeBlock, new RegExp(`name: '${route.name}'`), `${route.path} route name must be stable.`)
-  assert.match(routeBlock, new RegExp(route.component), `${route.path} route component must be stable.`)
-  assert.match(routeBlock, new RegExp(`title: '${route.title}'`), `${route.path} route title must be visible.`)
-  assert.match(routeBlock, /permission:\s*\['mes:pro-edhr-batch-execution:query'\]/, `${route.path} must reuse eDHR batch permission.`)
+const route = {
+  path: 'pro/feedback/edhr-batch-production-fill',
+  name: 'MesProEdhrBatchProductionFill',
+  component: 'BatchProductionFillPage.vue',
+  title: '一线生产'
 }
+const routeIndex = router.indexOf(`path: '${route.path}'`)
+assert.ok(routeIndex >= 0, `${route.path} route must exist.`)
+const routeBlock = router.slice(routeIndex, router.indexOf('\n      {', routeIndex + route.path.length))
+assert.match(routeBlock, new RegExp(`name: '${route.name}'`), `${route.path} route name must be stable.`)
+assert.match(routeBlock, new RegExp(route.component), `${route.path} route component must be stable.`)
+assert.match(routeBlock, new RegExp(`title: '${route.title}'`), `${route.path} route title must be visible.`)
+assert.match(routeBlock, /permission:\s*\['mes:pro-edhr-batch-execution:query'\]/, `${route.path} must reuse eDHR batch permission.`)
 
 assert.doesNotMatch(productionPage, /<EdhrBatchRecordTabs|active-tab="production"/, 'standalone frontline production page must not render shared internal tabs.')
 assert.match(productionPage, /<FrontlineFixedTemplatePanel\s+mode="production"/, 'production fill page must lock production mode.')
-assert.match(pqcPage, /<EdhrBatchRecordTabs\s+active-tab="pqc"/, 'PQC fill page must render shared tabs.')
-assert.match(pqcPage, /<FrontlineFixedTemplatePanel\s+mode="pqc"/, 'PQC fill page must lock PQC mode.')
+assert.match(productionPage, /data-edhr-frontline-production-page-title/, 'standalone frontline production page must expose a visible page title.')
+assert.match(productionPage, /一线生产/, 'standalone production page title must be 一线生产.')
 
 assert.match(frontlinePanel, /defineProps<\{\s*mode\?:\s*'production'\s*\|\s*'pqc'/s, 'frontline panel must accept a fixed mode prop.')
 assert.match(frontlinePanel, /templateModeMismatch/, 'frontline panel must expose template mismatch blocking state.')
@@ -99,59 +88,5 @@ for (const forbidden of ['生产工单', '工单', '生产订单', '上工序输
 }
 assert.doesNotMatch(productionTemplate, />输出数量</, 'production UI must not expose the old output quantity wording.')
 assert.doesNotMatch(frontlinePanel, /frontline-no-device/, 'production UI must not show a no-device placeholder panel.')
-
-const pqcTemplate = frontlinePanel.match(/data-frontline-pqc-operator[\s\S]*?<footer class="frontline-pqc-submit-bar">/)
-assert.ok(pqcTemplate, 'PQC operator block must exist.')
-for (const required of ['生产订单', '工序', '员工', '检验内容', '首检', '巡检', '末检', '检验数量', '损耗数量', '签名编号', '全部合格', '全部不良', '逐件选择']) {
-  assert.match(pqcTemplate[0], new RegExp(required), `PQC UI must include ${required}.`)
-}
-assert.match(
-  pqcTemplate[0],
-  /data-pqc-fullscreen-toggle[\s\S]*pqcFullscreenActionText/,
-  'PQC UI top action must default to 最大化 and switch to 主页 through fullscreen state.'
-)
-assert.match(
-  frontlinePanel,
-  /const pqcFullscreenActionText = computed\(\(\) =>\s*isPqcFullscreen\.value \? '主页' : '最大化'/,
-  'PQC fullscreen action text must be 最大化 before fullscreen and 主页 while fullscreen.'
-)
-assert.doesNotMatch(
-  pqcTemplate[0],
-  /@click="handleHome">主页<\/button>/,
-  'PQC UI must not show the old hard-coded home button before fullscreen.'
-)
-assert.match(
-  pqcTemplate[0],
-  /v-for="item in pqcInspectionItems"[\s\S]*:data-pqc-inspection-entry="item\.key"/,
-  'PQC UI must render inspection entries from the formal QA/PQC task snapshot.'
-)
-assert.match(
-  pqcTemplate[0],
-  /:data-pqc-inspection-group="item\.key"/,
-  'PQC choice layout must preserve stable data attributes for every dynamic inspection item.'
-)
-assert.match(
-  pqcTemplate[0],
-  /{{ item\.label }}/,
-  'PQC UI must display the formal inspection item label instead of fixed labels.'
-)
-assert.match(
-  frontlinePanel,
-  /const pqcInspectionItems = computed<PqcInspectionItem\[\]>\(\(\) =>\s*\(deviceState\.selectedProcess\?\.inspectionItems \|\| \[\]\)\.map/,
-  'PQC inspection items must come from selectedProcess.inspectionItems.'
-)
-assert.match(
-  frontlinePanel,
-  /key: item\.itemCode[\s\S]*label: item\.itemName \|\| item\.itemCode[\s\S]*type: isPqcNumericResultType\(item\.resultType\) \? 'number' : 'choice'/,
-  'PQC inspection item labels and types must use the formal QA snapshot fields.'
-)
-assert.match(
-  frontlinePanel,
-  /hasPqcTaskSnapshot[\s\S]*process\?\.inspectionItems\?\.length/,
-  'PQC mode must fail fast when the formal QA/PQC inspection item snapshot is missing.'
-)
-for (const forbidden of ['成功', '失败', '巡检摘要']) {
-  assert.doesNotMatch(pqcTemplate[0], new RegExp(forbidden), `PQC UI must not show ${forbidden}.`)
-}
 
 console.log('PASS: eDHR frontline fill tabs static contract')

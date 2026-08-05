@@ -26,7 +26,13 @@ assertContains(componentSource, /查询/, 'component must render query action')
 assertContains(componentSource, /包含/, 'component must render contains operator label')
 assertContains(componentSource, /等于/, 'component must render equals operator label')
 assertContains(componentSource, /介于/, 'component must render between operator label')
+assertContains(
+  componentSource,
+  /selectedDefinition\?\.type === 'date'[\s\S]*type="date"[\s\S]*value-format="YYYY-MM-DD"/,
+  'component must render single-date control'
+)
 assertContains(componentSource, /el-date-picker[\s\S]*daterange/, 'component must render date range control')
+assertContains(componentSource, /table-quick-filter__value--single-date/, 'component must size single-date control')
 assertContains(componentSource, /el-autocomplete/, 'component must render autocomplete control')
 assertContains(
   componentSource,
@@ -48,6 +54,7 @@ assertContains(hookSource, /export const useTableQuickFilter/, 'hook must export
 assertContains(hookSource, /TableQuickFilterDefinition/, 'hook must define filter definition type')
 assertContains(hookSource, /text/, 'hook must support text fields')
 assertContains(hookSource, /select/, 'hook must support select fields')
+assertContains(hookSource, /date:\s*\['eq'\]/, 'hook must support single-date fields')
 assertContains(hookSource, /dateRange/, 'hook must support date range fields')
 assertContains(hookSource, /autocomplete/, 'hook must support autocomplete fields')
 assertContains(hookSource, /quickFilter/, 'hook must write quickFilter into query params')

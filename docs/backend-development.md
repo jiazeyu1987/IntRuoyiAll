@@ -308,9 +308,9 @@
 ### QA 规程手动绑定必须允许已发布路线
 
 - Trigger: QA 规程适用范围手动绑定工艺路线、`data-qa-regulation-manual-route-bind`、`saveQaRegulationRouteProductByItem`、`save-qa-regulation-route-by-item`、已发布路线不能选择、`已启用，仅回显`。
-- Preflight check: QA 规程只允许手动绑定“工艺路线”这一正式产品路线关系；路线版本、质检工序、SOP、生产系数和批记录绑定仍必须从已发布路线自动解析。QA 下拉可复用 `getRouteItemBindingList` 候选，但不得按 `CommonStatusEnum.ENABLE` 禁用已发布路线；保存必须调用 QA 专用 `saveQaRegulationRouteProductByItem`，后端校验路线存在且有 ACTIVE 版本，不调用 `validateRouteNotEnable`，保存后必须重新读取 `getRouteProductByItem`。
-- Blocker: QA 下拉把已发布/已启用路线置灰、仍调用 `saveRouteProductByItem` 导致 `PRO_ROUTE_IS_ENABLE`、后端 QA 方法缺少 ACTIVE 版本 fail-fast、绑定后只用本地选择值展示、或把黄框字段重新开放为手工输入时必须停止。
-- Verification: 前端静态契约必须断言 QA 页面不再禁用 `CommonStatusEnum.ENABLE`、不显示“已启用，仅回显”、调用 `saveQaRegulationRouteProductByItem` 并重读当前绑定；后端回归必须覆盖 QA 新建绑定、修正既有绑定、缺 ACTIVE 版本失败、Controller QA endpoint 和不调用 `validateRouteNotEnable`。
+- Preflight check: QA 规程只允许手动绑定“工艺路线”这一正式产品路线关系；路线版本、质检工序、SOP、生产系数和批记录绑定仍必须从已发布路线自动解析。QA 下拉可复用 `getRouteItemBindingList` 候选，但不得按 `CommonStatusEnum.ENABLE` 禁用已发布路线；选择 DCC 项目时必须用 `getRouteProductByItem` 读取到的正式 `routeProduct.routeId` 回填手动绑定下拉默认值；保存必须调用 QA 专用 `saveQaRegulationRouteProductByItem`，后端校验路线存在且有 ACTIVE 版本，不调用 `validateRouteNotEnable`，保存后必须重新读取 `getRouteProductByItem` 并以重读结果作为默认绑定。
+- Blocker: QA 下拉把已发布/已启用路线置灰、选择 DCC 项目后不回显已有正式绑定、仍调用 `saveRouteProductByItem` 导致 `PRO_ROUTE_IS_ENABLE`、后端 QA 方法缺少 ACTIVE 版本 fail-fast、绑定后只用本地选择值展示、或把黄框字段重新开放为手工输入时必须停止。
+- Verification: 前端静态契约必须断言 QA 页面不再禁用 `CommonStatusEnum.ENABLE`、不显示“已启用，仅回显”、选择 DCC 项目会把正式 `routeProduct.routeId` 赋给 `manualQaRouteBinding.routeId`、调用 `saveQaRegulationRouteProductByItem` 并重读当前绑定；后端回归必须覆盖 QA 新建绑定、修正既有绑定、缺 ACTIVE 版本失败、Controller QA endpoint 和不调用 `validateRouteNotEnable`。
 - Forbidden action: 禁止放宽产品维护页 `validateRouteNotEnable` 来满足 QA；禁止用前端本地值、默认路线、`formBindings`、批记录表单、空成功或吞异常冒充 QA 绑定成功。
 - Evidence: `doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md`。
 

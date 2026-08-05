@@ -1,7 +1,7 @@
 # 岗位需求分解矩阵真实 E2E 前置证据
 
 - Task ID: `20260801-role-requirement-matrix-implementation`
-- Generated At: `2026-08-05T11:35:18.627Z`
+- Generated At: `2026-08-05T16:30:03.610Z`
 - Status: `BLOCKED`
 - Frontend: `http://127.0.0.1:8081`
 - Backend: `http://127.0.0.1:48081`
@@ -11,14 +11,14 @@
 ## Result
 
 - BLOCKED: 75 blockers remain.
-- E2E_PQC_SOURCE_EVENT:pqcFormalSubmissionCreated -> 生产填写设备账号工序列表 失败，HTTP=200，业务=设备账号 964 未绑定启用工艺路线，无法切换工序。
+- E2E_PQC_SUBMISSION_UI:pqcFormalSubmissionCreated -> 点击 PQC 提交后未捕获正式提交接口响应：page.waitForResponse: Timeout 30000ms exceeded while waiting for event "response"
 - E2E_PQC_SUBMISSION_DATA:pqcLeaderSubmissionFilterPaginationConsistent -> 当前本机租户没有当天球囊扩张压力泵任务的正式 PQC 提交事件，无法通过真实 PQC 组长页面证明多条件筛选和分页 total 一致性；需要先完成至少两笔可筛选的正式 PQC 提交夹具。
 - E2E_PQC_DETAIL_DATA:pqcLeaderSubmissionDetailTraceable -> PQC 组长详情核验前缺少本轮正式 PQC 提交事件，不能用旧事件证明逐件明细和原始 payload 可追溯。
 - E2E_PQC_DETAIL_PERMISSION:pqcLeaderSubmissionDetailUnauthorizedBlocked -> PQC 详情权限隔离核验前缺少本轮正式 PQC 提交事件，不能用旧事件或空事件证明详情读取会被拒绝。
 - E2E_PQC_REVIEW_DATA:pqcLeaderReviewApprovedAndAggregated -> PQC 组长复核前缺少本轮正式 PQC 提交事件证据，不能用旧数据替代真实复核汇集验证。
 - E2E_PQC_REVIEW_TERMINAL:pqcLeaderDuplicateTerminalReviewBlocked -> 重复终态复核失败路径缺少本轮 pqcLeaderReviewApprovedAndAggregated PASS 证据，不能用旧事件替代同事件二次复核验证。
 - E2E_PQC_REVIEW_SELF:pqcLeaderSelfReviewBlocked -> PQC 组长提交看板没有待复核且 actualEmployeeUserId 等于当前 PQC 组长的任务自有事件，不能证明自我复核失败路径。
-- E2E_PQC_SOURCE_EVENT:pqcLeaderRejectedCorrectionChain -> 无法通过 PQC 检验员真实页面准备退回补正候选：生产填写设备账号工序列表 失败，HTTP=200，业务=设备账号 964 未绑定启用工艺路线，无法切换工序。
+- E2E_PQC_SOURCE_EVENT:pqcLeaderRejectedCorrectionChain -> 无法通过 PQC 检验员真实页面准备退回补正候选：生产填写提交业务失败：工序池提交事件电子签名已存在：99008153。
 - E2E_PQC_AGGREGATION_READONLY:pqcProcessInspectionAggregationReadOnly -> 过程检验汇集只读核验前缺少本轮已确认 PQC 复核和正式提交事件证据，不能用旧数据替代。
 - E2E_QA_REGULATION_PAGE:qaRegulationPublishedVersionReadOnly -> 当前 QA 入口只证明页面 shell 可加载，未在真实页面观察到正式 QA 检验规程发布版本、产品/路线版本/工序、首检/巡检/末检完整性、逐工序批记录绑定和发布不可变证据；不能用旧质检方案页替代 BDD-07。
 - E2E_RELEASE_TRACEABILITY_PREP:edhrReleasePreparedViaBatchExecutionPage -> 生产组长真实页面准备 eDHR 放行批次失败：locator.waitFor: Timeout 30000ms exceeded.
@@ -93,7 +93,7 @@ Call log:
 ## Phase Evidence
 
 - PASS: productionEmployeeEntry -> 生产员工入口登录与前端应用加载; role=productionEmployee; selectors=#app
-- PASS: productionLeaderWorkbench -> 生产组长工作台与日结/分配表面; role=productionLeader; selectors=[data-team-leader-report-workbench], [data-team-leader-config-center], [data-team-leader-active-order-config], [data-role-matrix-daily-close]
+- PASS: productionLeaderWorkbench -> 生产组长工作台与日结/分配表面; role=productionLeader; selectors=[data-team-leader-report-workbench], [data-role-matrix-daily-close], [data-team-leader-config-center], [data-team-leader-active-order-config]
 - PASS: pqcInspectorEntry -> PQC 检验员入口登录与前端应用加载; role=pqcInspector; selectors=#app
 - PASS: pqcLeaderWorkbench -> PQC 组长复核表面; role=pqcLeader; selectors=[data-pqc-leader-workbench-page], [data-team-leader-report-workbench], [data-role-matrix-daily-close]
 - PASS: qaRegulationEntry -> QA 规程维护入口; role=qa; selectors=#app

@@ -37,6 +37,19 @@
 | `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-preflight-static.spec.cjs` | PASS。 |
 | 脚本/页面稳定性修复后 `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` | PASS，锁定加入活跃订单最终列表重读、PQC 规程元信息真实页面结构、PQC 逐件按钮稳定标识。 |
 | `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` | BLOCKED，已生成 full real E2E 产物；AC-M04 动作 PASS，整体剩余 74 blockers，主要为 PQC 正式提交/eDHR 放行/并发性能/coverage。 |
+| P0 runtime schema probe | BLOCKED，`mes_pro_process_pool_event` 当前缺 `event_idempotency_key` / `recordbook_entry_id`，真实生产填写提交已到后端但因缺列报错。 |
+| `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_migration_apply_preflight.py` | BLOCKED，完整迁移存在 88 行历史 backfill 前置：79 PQC + 2 event idempotency + 2 recordbook entry + 5 quantity fragment。 |
+| `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_backfill_sources.py` | BLOCKED，当前结构化正式来源无法唯一推导上述 88 行历史 backfill。 |
+| `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_backfill_repair_plan.py` | BLOCKED，读-only gate 明确要求业务/DBA 授权、备份、rollback、逐行 manifest 和 dry-run，当前不得执行 DB 写入。 |
+| `python -X utf8 C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence E:\IntRuoyi\doc\tasks\20260805-ac-m04-acceptance-sync\database-schema-evidence.md` | PASS，数据库 schema evidence 结构有效。 |
+| 用户授权 | PASS，用户明确回复“授权修复本机库 P0 backfill”；范围限定为本机 Docker MySQL `ruoyi-vue-pro`。 |
+| P0 backfill 备份 | PASS，`acm04-p0-backfill-extended-20260805-203724.sql` SHA256 `317BD20FD77F473327B5DAAAEAC5C4A51D474958A9B32A7D652732310C17C8B8`；`acm04-review-signature-20260805-204459.sql` SHA256 `AEF0616C59C4DD85E9CD851B1855D7B72C68FE84469D984632D0E84DF9E5BBC6`。 |
+| `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_backfill_repair_manifest.py --manifest doc\tasks\20260805-ac-m04-acceptance-sync\db-repair\p0-backfill-repair-manifest.json` | PASS，88 行 manifest 命中授权目标列，无 blocker。 |
+| `db-repair/p0-backfill-apply.sql` | PASS，已在本机授权库执行；rollback 保存在 `db-repair/p0-backfill-rollback.sql`。 |
+| `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_migration_apply_preflight.py` | PASS，`blockers=[]`。 |
+| `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_backfill_sources.py` | PASS，`blockers=[]`，四类 targetRows 均为 0。 |
+| `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_migration.py` | PASS，必需列和索引均存在，历史检查无 blocker。 |
+| 本机库后置计数 | PASS，`repair_events=19`、`repair_entries=21`、`repair_recordbook_events=21`、四类 missing 计数均为 0。 |
 
 ## Current AC-M04 State
 
@@ -45,16 +58,15 @@
 - 已补齐：等待并发 Maven 释放后，目标 JUnit 已取得新的 `BUILD SUCCESS`；角色矩阵大静态前置也已恢复 PASS。
 - 已补齐：完整 `RRM_*` 前置、七角色账号登录、`real:check`、full real E2E 当前产物、加入活跃订单/PQC 规程/逐件按钮三处真实 E2E 脚本与页面结构同步。
 - 未做到：AC-M04 仍未完成 `ACCEPTED` 级覆盖，不能只凭 action evidence、source contract 或目标 JUnit 放行；当前 full real E2E 仍有 62 个 `E2E_COVERAGE` blocker，以及 PQC 正式提交/eDHR 放行/并发性能类阻塞。
+- 已解除：PQC 正式提交暴露的 P0 runtime schema/backfill blocker 已按用户授权在本机库完成修复，manifest、preflight、source audit 和 runtime migration verifier 均 PASS。
 - 产物差异：当前磁盘 `result.json` 已不是 ENV-only 产物，而是本轮 full real E2E 的 `mode=real` 产物；历史 worktree full result 仍不作为主工作区结论。
 
 ## Next Step
 
-1. 先处理 PQC 正式提交未捕获 submit 响应：从真实页面确认提交按钮点击后的前端校验提示、签名/实际检验人/设备编号/逐件值是否阻断请求发出。
-2. 准备至少两笔同条件正式 PQC 提交夹具，打通 PQC 组长提交看板筛选分页、详情追溯、权限隔离、复核、重复终态和过程检验汇集只读证据。
-3. 修复 eDHR 放行准备中路线下拉定位 `ID 922119` 不出现的问题，按页面真实可见路线编码/名称/ID 精确选择。
-4. 补 AC-M19 并发 proof 与性能准出证据，减少 `E2E_CONCURRENCY` / `E2E_PERFORMANCE` blocker。
-5. 将 AC-M04 的 PASS action 映射到 coverage ledger 的正式接受条件，满足后再把 AC-M04 从 `PASS_ACTION_NOT_ACCEPTED` 提升到 `ACCEPTED`。
+1. 使用完整 `RRM_*` 环境重跑 `real:check`，确认 schema blocker 不再回到 ENV/RUNTIME 前置。
+2. 重跑 full real E2E，验证 PQC 正式提交是否进入下一阶段，并继续处理 PQC 组长提交、eDHR 放行准备、并发/性能和 coverage 准出。
+3. 将 AC-M04 的 PASS action 映射到 coverage ledger 的正式接受条件，满足后再把 AC-M04 从 `PASS_ACTION_NOT_ACCEPTED` 提升到 `ACCEPTED`。
 
 ## Final Decision
 
-本轮结论为 `PASS_ACTION_NOT_ACCEPTED / BLOCKED_DOWNSTREAM_E2E`：`RRM_*` 前置已补齐，`real:check` 已 PASS，full real E2E 已刷新；当前系统已经做到 AC-M04 的真实加入、同一 `activeOrderId`、调拨追溯只读、冲突路线拒绝、跨角色只读和最终清理闭环。但 full real E2E 整体仍有 74 个 blocker，coverage ledger 尚未准出 AC-M04，因此暂不能标为 `ACCEPTED`。
+本轮结论更新为 `PASS_ACTION_NOT_ACCEPTED / IN_PROGRESS_AFTER_RUNTIME_SCHEMA_BACKFILL`：`RRM_*` 前置已补齐，full real E2E 曾证明 AC-M04 的真实加入、同一 `activeOrderId`、调拨追溯只读、冲突路线拒绝、跨角色只读和最终清理闭环；PQC 正式提交暴露的本机 P0 migration/backfill blocker 已按授权完成修复并复验 PASS。AC-M04 暂不能标为 `ACCEPTED`，下一步必须重跑 `real:check` 和 full real E2E，而不能用 schema verifier 代替真实页面链路准出。

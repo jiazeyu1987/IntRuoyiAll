@@ -40,6 +40,15 @@
 - Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
 - Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。
 
+## Vue Scoped Slot 静态合同门禁
+
+- Trigger: 静态合同用正则断言 Vue SFC 的具名 slot、`UnifiedListTemplate` 的 `#table`、`#actions`、或带作用域变量的模板，例如 `<template #table="{ ... }">`。
+- Preflight check: 正则必须允许 slot props、换行和合法属性，例如使用 `<template\s+#table(?:\s*=\s*"[^"]*")?\s*>`，不得只匹配裸 `<template #table>`。
+- Blocker: 页面源码已有合法 scoped slot 但静态合同报“缺少 table slot”、或合同只因 slot 作用域变量、CRLF/LF、属性顺序变化失败时，必须先修合同再判断业务行为。
+- Verification: 修正后重跑目标静态合同，并确认合同仍断言内部关键锚点，例如 `data-user-table-key`、分页事件、列配置或正式 query 透传。
+- Forbidden action: 禁止为通过静态合同删除 slot props、取消模板作用域变量、弱化为只查页面文件名，或把合法 scoped slot 误判成页面能力缺失。
+- Evidence: 任务 `doc/tasks/20260805-production-personnel-audit-inline/`，表单日志合同旧正则只匹配裸 `#table`，误判已有 `#table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }"` 缺失。
+
 ## 前端截图样式块静态契约门禁
 
 - Trigger: 用户基于截图要求调整局部颜色、选中态、高亮态、状态条、边框、背景或伪元素，尤其同一 SFC 中存在多个相似 `background`、`color`、`&::before`、`:hover`、`.active` 样式块。
@@ -57,6 +66,15 @@
 - Verification: 聚焦静态合同必须覆盖模板布局类、宽度下限、props/events 透传、条件 Tab 增删、默认空条件、禁止 `.setCondition(...)` 预置、稳定 condition id、重复正式参数校验和正式请求参数；真实 E2E 必须打开目标业务页面，断言控件可见可操作、首屏请求不携带隐藏默认条件、多个已填写 Tab 按交集提交、请求不携带临时参数、重置清空正式条件且目标写请求为 0。涉及同页多列表时，E2E 必须切换每个目标页签并分别断言旧 quick filter 可见数为 0、正式参数提交和重置清参。
 - Forbidden action: 禁止用 API-only、临时测试页、隐藏旧快速筛选、移除业务操作按钮、硬编码当前页面宽度、页面级 inline filter 数量特例或前端本地过滤来冒充标准列表多维筛选完成。
 - Evidence: 任务 `doc/tasks/20260804-standard-list-multi-filter/verification-report.md`，排产工单真实 E2E 暴露多维筛选在复合工具栏中被挤压为 `0` 宽，最终用模板级全行布局和静态合同锁定；后续用户反馈固定条件栏复用性差，改为条件 Tab + 加减号，并用真实 E2E 证明多个 Tab 按正式 query 参数交集提交；同步工单页签虽同样使用 `UnifiedListTemplate`，但因未显式接入多维 definitions/state/events 而保持旧 quick filter，最终按页签补齐静态合同和真实 E2E。任务 `doc/tasks/20260805-standard-list-empty-tabs/verification-report.md` 将当前系统 84 个标准列表模板扫描入清单，并锁定默认空条件 Tab、禁止页面级预置隐藏筛选、排产工单和同步工单首屏只带分页参数；任务 `doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md` 新增 QA 规程 4 个标准列表后，将系统接入点更新为 88 个、显式隐藏筛选列表更新为 14 个。
+
+## Vue Composable 模板顶层绑定门禁
+
+- Trigger: Vue SFC 新增 composable/hook 包装对象后，模板直接绑定 `hook.state`、`hook.updateState`、`hook.removeCondition` 等成员，且开发态出现 `Cannot read properties of undefined`、HMR 后 render 崩溃或完整刷新后恢复。
+- Preflight check: 先读取 Vite 当前编译模块，确认完整 setup 是否已创建并返回 hook 包装对象；若编译产物正确但错误发生在父组件 render，检查新 render 是否可能运行在仍持有旧 setup state 的热更新实例上。模板需要的 state 和事件方法应从 hook 返回值解构为顶层 setup binding，再直接传给子组件。
+- Blocker: 模板仍在 render 阶段解引用新加入的 hook 包装对象、回归合同只验证 hook 返回值而不覆盖模板绑定、或准备用可选链/默认空包装对象隐藏 setup 不同步时必须停止。
+- Verification: 聚焦静态合同必须断言模板绑定顶层 state/events 并禁止目标区域出现 `hook.state/updateState/removeCondition`；同时读取 Vite 编译模块确认 `$setup.<topLevelBinding>` 存在且不再出现 `$setup.<hook>.state`，再运行相邻组件合同与 `pnpm ts:check`。
+- Forbidden action: 禁止用 `hook?.state`、`hook || {}`、空 state、强制整页刷新提示或吞掉 render 异常替代正式顶层绑定。
+- Evidence: 任务 `doc/tasks/20260805-teamleader-multifilter-state-crash/verification-report.md`，班组长工作台多维筛选在热更新窗口直接读取 `submissionMultiFilter.state` 导致父组件 render 崩溃。
 
 ## 前端 LocalDateTime 响应契约门禁
 
@@ -159,12 +177,12 @@
 
 ## 前端角色内容页签拆分口径门禁
 
-- Trigger: 用户要求“某角色/某类内容专门做一个页签显示，不再显示在某工作台”，尤其涉及 `生产组长`、`PQC组长`、`leaderType`、`TeamLeaderWorkbenchPage`、eDHR 批记录页签或其它角色型工作台拆分。
-- Preflight check: 先从用户原话拆出“要拆出的角色/内容”和“原工作台保留的角色/内容”，并确认“页签”指动态菜单/主导航入口还是页面内部 `el-tabs`；用户说“类似批次执行”“放在 QA 下面”时，按 eDHR 父菜单下的独立主导航子菜单处理，不得误做成 eDHR 批次页内部 Tab。再核对现有包装页、路由、页签 key、标题、权限和共享组件 props；若工作区已有相反方向的半成品拆分，必须先用 RED 静态合同锁定当前用户要求，不得沿用旧任务口径。
-- Blocker: 专门页签拆成了错误角色、把主导航页签误做成页面内部 Tab、原工作台仍传入目标角色 props、两个入口同时显示同一角色内容、旧 route/tab key/页面关系图仍指向相反角色、或静态合同只断言“有独立页签”但不验证角色 props 和原工作台负向隐藏时必须停止。
-- Verification: 聚焦静态合同必须同时断言页签 label、tab key 或主导航菜单 sort、route path、route name/title、包装组件文件、共享组件 `leader-type` 或等价 props、原工作台 `doesNotMatch` 目标角色内容、页面关系图节点和相邻工作台合同；涉及动态菜单时还必须断言 `system_menu`、租户套餐和角色菜单绑定；涉及 Vue/TS 时运行 `pnpm ts:check`。
+- Trigger: 用户要求“某角色/某类内容专门做一个页签显示，不再显示在某工作台”，尤其涉及 `生产组长`、`PQC组长`、`leaderType`、`TeamLeaderWorkbenchPage`、eDHR 批记录页签、角色工作台页面内部功能模块 Tab 或其它角色型工作台拆分。
+- Preflight check: 先从用户原话拆出“要拆出的角色/内容”和“原工作台保留的角色/内容”，并确认“页签”指动态菜单/主导航入口还是页面内部 `el-tabs`；用户说“类似批次执行”“放在 QA 下面”时，按 eDHR 父菜单下的独立主导航子菜单处理，不得误做成 eDHR 批次页内部 Tab。若用户明确说同一角色下“人员管理、报工管理、损耗管理”等不同功能模块，则按该角色页面内部功能模块 Tab 处理，并先核对共享组件中其它角色复用的 content gate 和相邻静态合同。再核对现有包装页、路由、页签 key、标题、权限和共享组件 props；若工作区已有相反方向的半成品拆分，必须先用 RED 静态合同锁定当前用户要求，不得沿用旧任务口径。
+- Blocker: 专门页签拆成了错误角色、把主导航页签误做成页面内部 Tab、把页面内部功能模块 Tab 误做成新菜单、原工作台仍传入目标角色 props、两个入口同时显示同一角色内容、功能模块仍纵向混排、旧 route/tab key/页面关系图仍指向相反角色、或静态合同只断言“有独立页签”但不验证角色 props、模块 gate、共享 gate 和原工作台负向隐藏时必须停止。
+- Verification: 聚焦静态合同必须同时断言页签 label、tab key 或主导航菜单 sort、route path、route name/title、包装组件文件、共享组件 `leader-type` 或等价 props、原工作台 `doesNotMatch` 目标角色内容、页面关系图节点和相邻工作台合同；页面内部功能模块 Tab 还必须断言包装页显式启用模块 Tab、非目标角色未启用该专属 Tab、每个模块块由对应 computed gate 控制、共享 gate 未破坏相邻角色合同。涉及动态菜单时还必须断言 `system_menu`、租户套餐和角色菜单绑定；涉及 Vue/TS 时运行 `pnpm ts:check`。
 - Forbidden action: 禁止用 CSS 隐藏、空数据、路由别名、旧页签文案、内部 Tab 冒充主导航入口或保留旧反向 wrapper 冒充拆分完成；禁止把“PQC组长拆出去”与“生产组长拆出去”互换处理。
-- Evidence: 任务 `doc/tasks/20260804-production-leader-tab/`，基线中已有相反的 `PQC组长` 独立页签，当前需求要求 `生产组长` 独立页签，最终用静态合同先 RED 再将 `BatchProductionLeaderWorkbenchPage`、`productionLeader` 路由和组长工作台 `leader-type="PQC"` 边界锁定；任务 `doc/tasks/20260804-pqc-leader-tab/`，用户纠正“不是 tab，是类似批次执行的页签”，最终锁定 `QA -> 生产组长 -> PQC组长 -> 批次执行` 主导航顺序，并从 `EdhrBatchRecordTabs.vue` 移除内部 leader tabs。
+- Evidence: 任务 `doc/tasks/20260804-production-leader-tab/`，基线中已有相反的 `PQC组长` 独立页签，当前需求要求 `生产组长` 独立页签，最终用静态合同先 RED 再将 `BatchProductionLeaderWorkbenchPage`、`productionLeader` 路由和组长工作台 `leader-type="PQC"` 边界锁定；任务 `doc/tasks/20260804-pqc-leader-tab/`，用户纠正“不是 tab，是类似批次执行的页签”，最终锁定 `QA -> 生产组长 -> PQC组长 -> 批次执行` 主导航顺序，并从 `EdhrBatchRecordTabs.vue` 移除内部 leader tabs；任务 `doc/tasks/20260805-production-leader-function-tabs/`，用户要求生产组长内“人员管理、报工管理、损耗管理”等不同功能模块是不同 Tab，最终保留 `ProductionLeaderWorkbenchPage` 主导航入口，仅在共享工作台增加生产组长内部模块 Tab，并复跑 PQC 组长相邻合同防止共享 gate 破坏。
 
 ## eDHR 表单追溯可视化历史详情门禁
 

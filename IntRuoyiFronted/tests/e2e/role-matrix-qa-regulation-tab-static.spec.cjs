@@ -48,13 +48,14 @@ const backendRouteProductServiceSource = fs.readFileSync(backendRouteProductServ
 const dccProjectLoaderStart = qaSource.indexOf('const loadDccProjectCodeOptions')
 const dccProjectLoaderEnd = qaSource.indexOf('const retryLoadDccProjectCodes')
 const dccProjectLoaderSource = qaSource.slice(dccProjectLoaderStart, dccProjectLoaderEnd)
-const dccSelectorStart = qaSource.indexOf('<ContentWrap data-qa-regulation-dcc-project>')
+const dccSelectorStart = qaSource.search(/<ContentWrap[^>]*data-qa-regulation-dcc-project/)
 const dccSelectorEnd =
   dccSelectorStart >= 0 ? qaSource.indexOf('</ContentWrap>', dccSelectorStart) : -1
 const dccSelectorSource =
   dccSelectorStart >= 0 && dccSelectorEnd > dccSelectorStart
     ? qaSource.slice(dccSelectorStart, dccSelectorEnd)
     : ''
+const firstContentWrapEnd = qaSource.indexOf('</ContentWrap>')
 const qaItemsSectionStart = qaSource.indexOf('<ContentWrap v-show="qaActiveTab === \'items\'">')
 const qaItemsSectionEnd =
   qaItemsSectionStart >= 0
@@ -154,8 +155,37 @@ assert.match(
 )
 assert.match(
   dccSelectorSource,
-  /<ContentWrap[^>]*data-qa-regulation-dcc-project[\s\S]*<el-form[\s\S]*<el-form-item\s+label="DCC 项目代码"\s+required[\s\S]*<el-select/,
-  'QA project selector area must only keep the required DCC project code select row.'
+  /<ContentWrap[^>]*data-qa-regulation-dcc-project[\s\S]*<el-form\s+label-width="0"[\s\S]*<el-form-item\s+class="qa-regulation-page__project-field"[\s\S]*<el-select[\s\S]*aria-label="DCC 项目代码"/,
+  'QA project selector area must keep a full-width accessible DCC project select without a visible form label.'
+)
+assert.doesNotMatch(
+  dccSelectorSource,
+  /<el-form-item[^>]*label="DCC 项目代码"/,
+  'The screenshot blue-box DCC project code label must not remain visible.'
+)
+assert.match(
+  dccSelectorSource,
+  /class="qa-regulation-page__project-wrap"[\s\S]*data-qa-regulation-dcc-project/,
+  'The top DCC project selector card must use the compact project wrapper that removes the red-box blank band.'
+)
+assert.ok(
+  dccSelectorStart >= 0 && dccSelectorStart < firstContentWrapEnd,
+  'The DCC project selector must render inside the top yellow header panel instead of in a detached card.'
+)
+assert.match(
+  dccSelectorSource,
+  /qa-regulation-page__header[\s\S]*<el-form\s+label-width="0"[\s\S]*aria-label="DCC 项目代码"/,
+  'The top panel must show the title and accessible full-width DCC project selector together.'
+)
+assert.doesNotMatch(
+  dccSelectorSource,
+  /qa-regulation-page__subtitle|data-qa-regulation-api-ready|QA 按 DCC 项目代码维护产品规程|正式保存\/发布接口已接入/,
+  'The red-box subtitle and green API-ready banner must not render in the compact top panel.'
+)
+assert.doesNotMatch(
+  qaSource,
+  /<\/ContentWrap>\s*<ContentWrap\s+data-qa-regulation-dcc-project>/,
+  'The DCC project selector must not be split into a separate ContentWrap below the yellow header panel.'
 )
 assert.equal(
   (dccSelectorSource.match(/<el-form-item\b/g) || []).length,
@@ -164,8 +194,8 @@ assert.equal(
 )
 assert.doesNotMatch(
   dccSelectorSource,
-  /<el-descriptions|el-tag|data-qa-regulation-config-status|配置状态总览|当前加载范围|已配置 QA 规程|待配置 QA 规程|产品名称由 DCC 项目代码带出/,
-  'QA project selector area must not render status, summary, tags, descriptions, or helper details.'
+  /<el-descriptions|data-qa-regulation-config-status|配置状态总览|当前加载范围|已配置 QA 规程|待配置 QA 规程|产品名称由 DCC 项目代码带出/,
+  'QA project selector area must not render old project status summaries, descriptions, or helper details.'
 )
 assert.match(
   qaSource,
@@ -248,6 +278,31 @@ assert.match(
 )
 assert.doesNotMatch(
   qaSource,
+  /title="工艺路线来源"|优先读取产品当前绑定的工艺路线/,
+  'The screenshot yellow-box explanatory route-source alert must not be rendered in the QA applicable scope area.'
+)
+assert.match(
+  qaSource,
+  /data-qa-regulation-basic-form[\s\S]*qa-regulation-page__basic-grid[\s\S]*qa-regulation-page__basic-field--full/,
+  'The screenshot red-box basic regulation fields must use a dedicated grid layout with uniform spacing.'
+)
+assert.match(
+  qaSource,
+  /\.qa-regulation-page__basic-grid[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)[\s\S]*gap:\s*12px/,
+  'The basic regulation field grid must keep consistent two-column spacing.'
+)
+assert.match(
+  qaSource,
+  /loadQaRouteScopeFromProject[\s\S]*const boundRouteId\s*=\s*requireQaRouteScopePositiveNumber\(routeProduct\.routeId[\s\S]*manualQaRouteBinding\.routeId\s*=\s*boundRouteId[\s\S]*loadManualQaRouteOptions\(\)[\s\S]*routeId:\s*boundRouteId/,
+  'Selecting a DCC project must preselect the existing persisted product-route binding and load route options for a readable default label.'
+)
+assert.match(
+  qaSource,
+  /handleManualQaRouteBind[\s\S]*const boundRouteId\s*=\s*requireQaRouteScopePositiveNumber\(routeProduct\.routeId[\s\S]*manualQaRouteBinding\.routeId\s*=\s*boundRouteId[\s\S]*applyFormalQaRouteScope/,
+  'After a manual route bind succeeds, the select must keep the persisted binding returned by the formal product-route API.'
+)
+assert.doesNotMatch(
+  qaSource,
   /<el-input(?:-number)?[\s\S]{0,160}v-model="qaRegulationDraft\.(routeName|routeVersionName|routeProcessName|routeId|routeVersionId|routeProcessId|processId|sopName|productionFactor|sampleOrderQuantity|batchRecordBinding)"/,
   'QA users must not manually edit route/process IDs, route name/version/process, SOP, production factor, example quantity, or batch-record binding in the yellow-box area.'
 )
@@ -283,14 +338,58 @@ assert.match(
 )
 assert.match(
   qaSource,
-  /<el-tabs[\s\S]*v-model="qaActiveTab"[\s\S]*data-qa-regulation-tabs/,
-  'Standalone QA page must split dense content behind QA-owned tabs.'
+  /<el-tabs[\s\S]*v-model="qaActiveTab"[\s\S]*class="qa-regulation-page__tabs qa-regulation-page__tabs--flat"[\s\S]*data-qa-regulation-tabs/,
+  'Standalone QA page must split dense content behind QA-owned flat underline tabs.'
+)
+assert.match(
+  qaSource,
+  /<ContentWrap\s+class="qa-regulation-page__tabs-wrap"[\s\S]*<el-tabs[\s\S]*data-qa-regulation-tabs/,
+  'QA tabs must use a compact wrapper so the red-box blank band below the tabs is not rendered.'
+)
+assert.match(
+  qaSource,
+  /\.qa-regulation-page__project-wrap,\s*\.qa-regulation-page__tabs-wrap\s*\{[\s\S]*margin-bottom:\s*0/,
+  'Compact QA project and tabs wrappers must remove the red-box blank spacing between the selector and QA tabs.'
+)
+assert.match(
+  qaSource,
+  /\.qa-regulation-page\s*\{[\s\S]*display:\s*grid[\s\S]*gap:\s*0/,
+  'The QA page root grid must remove the screenshot blue-box gaps above and below the tabs.'
+)
+assert.match(
+  qaSource,
+  /\.qa-regulation-page__tabs-wrap\s*:deep\(\.el-card__body\)\s*\{[\s\S]*padding-top:\s*12px[\s\S]*padding-bottom:\s*0/,
+  'QA tabs wrapper must use compact top padding and remove the empty bottom band.'
+)
+assert.match(
+  qaSource,
+  /\.qa-regulation-page__tabs-wrap\s*:deep\(\.el-tabs__content\)\s*\{[\s\S]*display:\s*none/,
+  'QA tabs wrapper must hide empty Element Plus tab content.'
+)
+assert.match(
+  qaSource,
+  /\.qa-regulation-page__tabs--flat\s*:deep\(\.el-tabs__header\)\s*\{[\s\S]*margin:\s*0/,
+  'QA tabs must use the same compact flat header margin as the module tabs above.'
+)
+assert.match(
+  qaSource,
+  /\.qa-regulation-page__tabs--flat\s*:deep\(\.el-tabs__item\)\s*\{[\s\S]*color:\s*#172033[\s\S]*font-weight:\s*600/,
+  'QA tabs must use the same text weight and inactive color as the module tabs above.'
+)
+assert.match(
+  qaSource,
+  /\.qa-regulation-page__tabs--flat\s*:deep\(\.el-tabs__item\.is-active\)\s*\{[\s\S]*color:\s*#00a896/,
+  'QA active tab text must use the same teal active color as the module tabs above.'
+)
+assert.match(
+  qaSource,
+  /\.qa-regulation-page__tabs--flat\s*:deep\(\.el-tabs__active-bar\)\s*\{[\s\S]*background-color:\s*#00a896/,
+  'QA active tab underline must use the same teal active bar as the module tabs above.'
 )
 for (const requiredTab of [
   { label: '总览', name: 'overview' },
   { label: '检验规则', name: 'rules' },
-  { label: '检验项目', name: 'items' },
-  { label: '发布检查', name: 'verification' }
+  { label: '检验项目', name: 'items' }
 ]) {
   assert.match(
     qaSource,
@@ -298,6 +397,11 @@ for (const requiredTab of [
     `Standalone QA page must include ${requiredTab.label} tab.`
   )
 }
+assert.doesNotMatch(
+  qaSource,
+  /<el-tab-pane[^>]*label="发布检查"[^>]*name="verification"/,
+  'Standalone QA page must not display the publish verification tab.'
+)
 for (const requiredTableKey of [
   'mes.qa.regulation.rules',
   'mes.qa.regulation.items.processMethods',
@@ -372,17 +476,13 @@ for (const requiredText of [
   '2026-01-04',
   'IDI',
   '过程检验规程',
-  'QA 按 DCC 项目代码维护产品规程',
   '请选择 DCC 项目代码',
   'DCC 项目代码加载失败',
-  '正式保存/发布接口已接入',
   '保存草稿',
   '发布规程',
   '总览',
   '检验规则',
   '检验项目',
-  '发布检查',
-  '工艺路线来源',
   '正式批记录表单'
 ]) {
   assert.match(qaSource, new RegExp(requiredText), `Standalone QA page must include ${requiredText}.`)

@@ -2,7 +2,7 @@
 
 ## Scope
 
-本轮验证覆盖独立 HTML 原型、正式 PQC Vue 页面结构、中文编码和任务范围边界；不修改后端接口、不启动本地服务、不执行真实 Playwright 用户路径。
+本轮验证覆盖独立 HTML 原型、正式 PQC Vue 页面结构、右侧填写区显示压缩、真实最大化画布截图、中文编码和任务范围边界；不修改后端接口，不通过 mock、占位 tab 或改写正式业务数据伪造 10-tab 效果。
 
 ## Result
 
@@ -21,6 +21,10 @@
 - 正式 `FrontlineFixedTemplatePanel.vue` 已落地同方向：只展开当前检验项详情，检验项作为 5 列 tab 网格展示，设备/编号/标准/方法改为触控式信息卡，原生 select 隐藏在卡片内保留正式选择链路。
 - 按用户最新反馈，选中 tab 已改为黄色背景，旧绿色顶部状态条已从 active tab 隐藏。
 - 按用户“当前系统与更新后 HTML 预览一致”的反馈，正式 Vue tab 的要求/已填字段已补齐 `overflow: visible` 和子字段完整显示规则，与预览一致。
+- 按用户“肉眼完全一致”的反馈，正式最大化态已对齐 HTML 预览的外边距、主体宽度、圆角、阴影、顶部卡片比例、左右面板间距、右侧数量控件尺寸和 tab 选中态。
+- 真实 Playwright 截图显示当前本机最大化态画布尺寸为 1440×950，主体屏幕左上为 26px/26px，主体宽度为 1388px，黄色选中 tab 无绿色条。
+- 真实 Playwright 截图也显示当前正式数据只渲染 7 个 tab，不是 HTML 预览中的 10 个 tab；因此不能声明“肉眼完全一致”已完成。
+- 按用户最新黄框反馈，右侧填写区不再显示说明文字和签名编号输入；“检验数量 / 损耗数量 / 不良说明”已改为“检验 / 损耗 / 不良”，底层 `pqcSignatureId` 状态和提交校验未删除。
 - 新增正式静态契约 `IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js`。
 
 ## Verification
@@ -38,11 +42,18 @@
 - 10 个 tab 完整显示结构断言：PASS。
 - 选中 tab 黄色背景且无绿色顶部条断言：PASS。
 - 正式系统与更新后 HTML 预览关键样式一致断言：PASS。
+- 正式最大化态画布与更新后 HTML 预览一致断言：PASS。
+- 右侧填写区黄框隐藏与短标签断言：PASS。
 - 正式实现 RED：`node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> FAIL，旧页面未渲染单一当前项详情面板。
 - 预览一致性 RED：`node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> FAIL，正式 tab 字段块尚未保留预览中的完整显示规则。
+- 最大化态一致性 RED：`node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> FAIL，正式最大化态仍是贴边 fullscreen 布局。
+- 填写区压缩 RED：`node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> FAIL，右侧填写区仍显示黄框说明、签名编号输入和长标签文案。
 - 正式实现 GREEN：`node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> PASS。
 - 相邻 PQC 契约：`node tests/e2e/pqc-item-equipment-standard-method-static.spec.js` -> PASS。
 - 类型检查：`pnpm ts:check` -> PASS。
+- 真实视觉脚本：`node doc/tasks/20260805-pqc-redbox-ui-prototype/pqc-real-visual-alignment.e2e.cjs` -> BLOCKED，预期原因：真实本机 PQC 数据只返回 7 个 tab，无法与 10-tab HTML 预览肉眼完全一致。
+- 真实截图输出：`output/playwright/20260805-pqc-redbox-ui-prototype/pqc-real-fullscreen-1440.png`，尺寸 1440×950。
+- 真实结果输出：`output/playwright/20260805-pqc-redbox-ui-prototype/pqc-real-visual-result.json`，状态 `BLOCKED_BY_REAL_DATA`。
 - 前端技能证据校验：`python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-pqc-redbox-ui-prototype/frontend-feature-evidence.md` -> PASS。
 - `git diff --check -- doc/tasks/20260805-pqc-redbox-ui-prototype`：PASS。
 - `git diff --check -- IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js doc/tasks/20260805-pqc-redbox-ui-prototype`：PASS。
@@ -50,8 +61,8 @@
 
 ## Follow-Up
 
-如需要进一步验收，可在本地运行态可用时执行真实 Playwright 路径，确认点击 10 个 tab、选择设备编号、打开逐件弹框和提交前校验均符合预期。
+如用户批准创建任务自有 10 项 PQC 测试数据，可继续通过正式配置/任务链路生成 10-tab 真实样本后复跑截图脚本；否则只能声明布局和样式一致，tab 数量按真实业务数据渲染。
 
 ## Closeout Blocker
 
-项目级收尾未完成：当前环境缺少可调用的 closeout cleanup 命令；当前分支未标记 ahead，但存在多项非本任务脏改动。本轮未提交或推送，避免把并发任务改动混入当前任务。
+项目级收尾未完成：当前任务被真实数据前置阻塞，无法宣称肉眼完全一致；当前环境缺少可调用的 closeout cleanup 命令，且存在多项非本任务脏改动。本轮未提交或推送，避免把并发任务改动混入当前任务。

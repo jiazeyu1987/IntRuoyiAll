@@ -109,7 +109,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
         AdminUserRespDTO formalUser = new AdminUserRespDTO();
         formalUser.setId(2001L);
         formalUser.setNickname("张三");
-        when(adminUserApi.getUserListBySubordinate(3001L)).thenReturn(List.of(formalUser));
+        when(adminUserApi.getUser(2001L)).thenReturn(formalUser);
         when(employeeProfileMapper.selectList(any())).thenReturn(List.of());
         when(employeeProfileMapper.insert(any(MesProcessPoolTeamEmployeeProfileDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class).setId(8802L);
@@ -130,6 +130,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
         assertEquals(2001L, profileCaptor.getValue().getSystemUserId());
         assertEquals("FORMAL", profileCaptor.getValue().getEmployeeType());
         assertNull(profileCaptor.getValue().getSignaturePasswordHash());
+        verify(adminUserApi, never()).getUserListBySubordinate(3001L);
         verify(passwordEncoder, never()).encode(any());
     }
 
@@ -138,7 +139,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
         AdminUserRespDTO formalUser = new AdminUserRespDTO();
         formalUser.setId(2001L);
         formalUser.setNickname("张三");
-        when(adminUserApi.getUserListBySubordinate(3001L)).thenReturn(List.of(formalUser));
+        when(adminUserApi.getUser(2001L)).thenReturn(formalUser);
         when(employeeProfileMapper.selectList(any())).thenReturn(List.of(MesProcessPoolTeamEmployeeProfileDO.builder()
                 .id(8802L)
                 .leaderUserId(3001L)
@@ -187,20 +188,25 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     }
 
     @Test
-    void shouldSearchFormalCandidatesOnlyFromAllowedSubordinateUsers() {
+    void shouldSearchFormalCandidatesFromAllSystemUsers() {
         AdminUserRespDTO zhang = new AdminUserRespDTO();
         zhang.setId(2001L);
         zhang.setNickname("张三");
-        AdminUserRespDTO li = new AdminUserRespDTO();
-        li.setId(2002L);
-        li.setNickname("李四");
-        when(adminUserApi.getUserListBySubordinate(3001L)).thenReturn(List.of(zhang, li));
+        when(adminUserApi.getUserListByNickname("张")).thenReturn(List.of(zhang));
 
         List<MesTeamFormalUserCandidateBO> candidates = service.searchFormalUserCandidates(3001L, "张");
 
         assertEquals(1, candidates.size());
         assertEquals(2001L, candidates.get(0).getSystemUserId());
         assertEquals("张三", candidates.get(0).getDisplayName());
+        verify(adminUserApi, never()).getUserListBySubordinate(3001L);
+    }
+
+    @Test
+    void shouldNotQueryAllUsersWhenFormalCandidateKeywordIsBlank() {
+        assertTrue(service.searchFormalUserCandidates(3001L, "  ").isEmpty());
+
+        verify(adminUserApi, never()).getUserListByNickname(any());
     }
 
     @Test

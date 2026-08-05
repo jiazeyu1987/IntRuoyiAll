@@ -1,49 +1,68 @@
 <template>
   <div class="qa-regulation-page" data-qa-regulation-page>
-    <ContentWrap>
+    <ContentWrap class="qa-regulation-page__project-wrap" data-qa-regulation-dcc-project>
       <div class="qa-regulation-page__header">
-        <div>
-          <div class="qa-regulation-page__title">QA 规程配置</div>
-          <div class="qa-regulation-page__subtitle">
-            QA 按 DCC 项目代码维护产品规程，制定 PQC 的首检、巡检、末检和检验项目规则。
-          </div>
-        </div>
-        <el-tag type="warning" effect="plain">{{ qaRegulationDraft.lifecycleStatus }}</el-tag>
-      </div>
-      <el-alert
-        title="正式保存/发布接口已接入；发布时由后端校验首检、巡检、末检、项目字段和不可变版本。"
-        type="success"
-        :closable="false"
-        show-icon
-        data-qa-regulation-api-ready
-      />
-    </ContentWrap>
-
-    <ContentWrap data-qa-regulation-dcc-project>
-      <el-form label-width="112px" class="qa-regulation-page__form">
-        <el-form-item label="DCC 项目代码" required>
-          <el-select
-            v-model="qaRegulationDraft.dccProjectCodeId"
-            clearable
-            filterable
-            remote
-            reserve-keyword
-            :loading="dccProjectCodeOptionsLoading"
-            :remote-method="loadDccProjectCodeOptions"
-            placeholder="请选择 DCC 项目代码"
-            class="!w-100%"
-            @change="handleDccProjectCodeChange"
-            @visible-change="handleDccProjectCodeVisibleChange"
-          >
-            <el-option
-              v-for="project in dccProjectCodeOptions"
-              :key="project.id"
-              :label="formatDccProjectCodeOption(project)"
-              :value="project.id"
+        <div class="qa-regulation-page__title">QA 规程配置</div>
+        <el-form label-width="0" class="qa-regulation-page__form qa-regulation-page__project-form">
+          <el-form-item class="qa-regulation-page__project-field">
+            <el-select
+              v-model="qaRegulationDraft.dccProjectCodeId"
+              aria-label="DCC 项目代码"
+              clearable
+              filterable
+              remote
+              reserve-keyword
+              :loading="dccProjectCodeOptionsLoading"
+              :remote-method="loadDccProjectCodeOptions"
+              placeholder="请选择 DCC 项目代码"
+              class="!w-100%"
+              @change="handleDccProjectCodeChange"
+              @visible-change="handleDccProjectCodeVisibleChange"
+            >
+              <el-option
+                v-for="project in dccProjectCodeOptions"
+                :key="project.id"
+                :label="formatDccProjectCodeOption(project)"
+                :value="project.id"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
+        <div
+          class="qa-regulation-page__version-publish"
+          data-qa-regulation-version-publish
+        >
+          <label class="qa-regulation-page__header-field">
+            <span class="qa-regulation-page__header-field-label">版本</span>
+            <el-input
+              v-model="qaRegulationDraft.versionNo"
+              aria-label="规程版本"
+              size="small"
+              placeholder="请输入版本"
+              class="qa-regulation-page__version-input"
             />
-          </el-select>
-        </el-form-item>
-      </el-form>
+          </label>
+          <label class="qa-regulation-page__header-field">
+            <span class="qa-regulation-page__header-field-label">生效日期</span>
+            <el-date-picker
+              v-model="qaRegulationDraft.effectiveDate"
+              aria-label="生效日期"
+              value-format="YYYY-MM-DD"
+              type="date"
+              size="small"
+              class="qa-regulation-page__effective-date"
+            />
+          </label>
+          <el-tag type="warning" effect="plain">{{ qaRegulationDraft.lifecycleStatus }}</el-tag>
+          <el-button
+            type="primary"
+            :loading="qaRegulationPublishing"
+            @click="runQaPublishPrecheck"
+          >
+            发布规程
+          </el-button>
+        </div>
+      </div>
 
       <div
         v-if="dccProjectCodeLoadError"
@@ -61,63 +80,57 @@
     </ContentWrap>
 
     <template v-if="selectedDccProjectCode">
-    <ContentWrap>
-      <el-tabs v-model="qaActiveTab" data-qa-regulation-tabs>
+    <ContentWrap class="qa-regulation-page__tabs-wrap">
+      <el-tabs
+        v-model="qaActiveTab"
+        class="qa-regulation-page__tabs qa-regulation-page__tabs--flat"
+        data-qa-regulation-tabs
+      >
         <el-tab-pane label="总览" name="overview" />
         <el-tab-pane label="检验规则" name="rules" />
         <el-tab-pane label="检验项目" name="items" />
-        <el-tab-pane label="发布检查" name="verification" />
       </el-tabs>
     </ContentWrap>
 
     <ContentWrap v-show="selectedDccProjectCode && qaActiveTab === 'overview'">
       <el-card shadow="never" data-qa-regulation-scope>
           <template #header>适用范围</template>
-          <el-form :model="qaRegulationDraft" label-width="112px" class="qa-regulation-page__form">
-            <el-form-item label="规程编号">
-              <el-input v-model="qaRegulationDraft.regulationCode" />
-            </el-form-item>
-            <el-form-item label="规程名称">
-              <el-input v-model="qaRegulationDraft.regulationName" />
-            </el-form-item>
-            <el-row :gutter="12">
-              <el-col :xs="24" :md="12">
-                <el-form-item label="版本">
-                  <el-input v-model="qaRegulationDraft.versionNo" />
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :md="12">
-                <el-form-item label="生效日期">
-                  <el-date-picker
-                    v-model="qaRegulationDraft.effectiveDate"
-                    value-format="YYYY-MM-DD"
-                    type="date"
-                    class="!w-100%"
-                  />
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-form-item label="产品">
-              <el-input
-                v-model="qaRegulationDraft.productName"
-                disabled
-                placeholder="选择 DCC 项目代码后自动带出"
-              />
-            </el-form-item>
+          <el-form
+            :model="qaRegulationDraft"
+            label-width="88px"
+            class="qa-regulation-page__form qa-regulation-page__basic-form"
+            data-qa-regulation-basic-form
+          >
+            <div class="qa-regulation-page__basic-grid">
+              <el-form-item
+                label="规程编号"
+                class="qa-regulation-page__basic-field qa-regulation-page__basic-field--full"
+              >
+                <el-input v-model="qaRegulationDraft.regulationCode" />
+              </el-form-item>
+              <el-form-item
+                label="规程名称"
+                class="qa-regulation-page__basic-field qa-regulation-page__basic-field--full"
+              >
+                <el-input v-model="qaRegulationDraft.regulationName" />
+              </el-form-item>
+              <el-form-item
+                label="产品"
+                class="qa-regulation-page__basic-field qa-regulation-page__basic-field--full"
+              >
+                <el-input
+                  v-model="qaRegulationDraft.productName"
+                  disabled
+                  placeholder="选择 DCC 项目代码后自动带出"
+                />
+              </el-form-item>
+            </div>
           </el-form>
           <div
             v-loading="qaRouteScopeLoading"
             class="qa-regulation-page__route-scope"
             data-qa-regulation-route-scope-auto
           >
-            <el-alert
-              class="mb-12px"
-              title="工艺路线来源"
-              description="优先读取产品当前绑定的工艺路线；如产品未绑定或需修正，可在此显式选择工艺路线并绑定到产品。路线版本、质检工序、SOP/工艺要求和正式批记录表单仍由路线自动带出。"
-              type="info"
-              :closable="false"
-              show-icon
-            />
             <div class="qa-regulation-page__manual-route-bind" data-qa-regulation-manual-route-bind>
               <el-form label-width="112px" class="qa-regulation-page__form">
                 <el-row :gutter="12">
@@ -348,14 +361,22 @@
         <template #header>
           <div class="qa-regulation-page__card-head">
             <span>工序检验方法与抽样方案</span>
-            <el-button
-              type="primary"
-              plain
-              :disabled="!selectedDccProjectCode"
-              @click="addQaRegulationItem"
-            >
-              新增检验方法
-            </el-button>
+            <div class="qa-regulation-page__card-actions">
+              <UserTableColumnSettings
+                :columns="qaItemsColumns"
+                :saving="qaItemsColumnSaving"
+                :show-reset="false"
+                @change="saveQaItemsColumnConfig"
+              />
+              <el-button
+                type="primary"
+                plain
+                :disabled="!selectedDccProjectCode"
+                @click="addQaRegulationItem"
+              >
+                新增检验方法
+              </el-button>
+            </div>
           </div>
         </template>
         <UnifiedListTemplate
@@ -368,6 +389,8 @@
           :operator-options="qaEmptyOperatorOptions"
           :columns="qaItemsColumns"
           :column-saving="qaItemsColumnSaving"
+          :show-column-settings="false"
+          :show-query-form="false"
           :total="qaRegulationItems.length"
           v-model:page="qaItemsQuery.pageNo"
           v-model:limit="qaItemsQuery.pageSize"
@@ -679,13 +702,6 @@
             <el-button :loading="qaRegulationSaving" @click="previewQaRegulationDraft">
               保存草稿
             </el-button>
-            <el-button
-              type="primary"
-              :loading="qaRegulationPublishing"
-              @click="runQaPublishPrecheck"
-            >
-              发布规程
-            </el-button>
           </div>
         </el-card>
 
@@ -772,6 +788,7 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
   type TableQuickFilterDefinition,
@@ -1660,8 +1677,16 @@ const loadQaRouteScopeFromProject = async (project: DccProjectCodeRespVO) => {
     if (!routeProduct?.routeId) {
       throw new Error('当前 MDM 产品未绑定工艺路线，请在下方选择工艺路线并手动绑定。')
     }
+    if (loadSerial !== qaRouteScopeLoadSerial) {
+      return
+    }
+    const boundRouteId = requireQaRouteScopePositiveNumber(routeProduct.routeId, '产品当前绑定工艺路线')
+    manualQaRouteBinding.routeId = boundRouteId
+    if (manualQaRouteOptions.value.length === 0 && !manualQaRouteOptionsLoading.value) {
+      void loadManualQaRouteOptions()
+    }
     const routeScopeSource = await loadQaRouteScopeFromRouteBinding({
-      routeId: routeProduct.routeId,
+      routeId: boundRouteId,
       routeVersionId: routeProduct.routeVersionId,
       routeProduct
     })
@@ -1712,7 +1737,7 @@ const loadManualQaRouteOptions = async () => {
   manualQaRouteOptionsLoading.value = true
   manualQaRouteLoadError.value = ''
   try {
-    manualQaRouteOptions.value = await ProRouteApi.getRouteSimpleList()
+    manualQaRouteOptions.value = await ProRouteApi.getRouteItemBindingList()
   } catch (error) {
     manualQaRouteOptions.value = []
     manualQaRouteLoadError.value = `工艺路线候选加载失败：${resolveDccProjectCodeErrorMessage(error)}`
@@ -1759,14 +1784,16 @@ const handleManualQaRouteBind = async () => {
     if (!routeProduct?.routeId) {
       throw new Error('绑定提交后未读取到产品当前工艺路线，请刷新后重试。')
     }
+    const boundRouteId = requireQaRouteScopePositiveNumber(routeProduct.routeId, '产品当前绑定工艺路线')
     const routeScopeSource = await loadQaRouteScopeFromRouteBinding({
-      routeId: routeProduct.routeId,
+      routeId: boundRouteId,
       routeVersionId: routeProduct.routeVersionId,
       routeProduct
     })
     if (loadSerial !== qaRouteScopeLoadSerial) {
       return
     }
+    manualQaRouteBinding.routeId = boundRouteId
     applyFormalQaRouteScope(routeScopeSource)
     ElMessage.success('已绑定工艺路线并带出 QA 适用范围。')
   } catch (error) {
@@ -2266,24 +2293,24 @@ const runQaPublishPrecheck = async () => {
 <style scoped>
 .qa-regulation-page {
   display: grid;
-  gap: 16px;
+  gap: 0;
 }
 
 .qa-regulation-page__header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: flex-start;
   gap: 16px;
-  margin-bottom: 14px;
+  margin-bottom: 0;
 }
 
 .qa-regulation-page__title {
+  flex-shrink: 0;
   color: #172033;
   font-size: 20px;
   font-weight: 700;
 }
 
-.qa-regulation-page__subtitle,
 .qa-regulation-page__hint {
   margin-top: 4px;
   color: #667085;
@@ -2301,9 +2328,107 @@ const runQaPublishPrecheck = async () => {
   margin-bottom: 0;
 }
 
+.qa-regulation-page__basic-form {
+  margin: 0;
+}
+
+.qa-regulation-page__basic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.qa-regulation-page__basic-field {
+  margin-bottom: 0;
+}
+
+.qa-regulation-page__basic-field--full {
+  grid-column: 1 / -1;
+}
+
+.qa-regulation-page__project-wrap,
+.qa-regulation-page__tabs-wrap {
+  margin-bottom: 0 !important;
+}
+
+.qa-regulation-page__project-form {
+  flex: 0 1 720px;
+  min-width: 280px;
+  margin: 0;
+}
+
+.qa-regulation-page__project-field {
+  margin-bottom: 0;
+}
+
+.qa-regulation-page__version-publish {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.qa-regulation-page__header-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qa-regulation-page__header-field-label {
+  flex-shrink: 0;
+  color: #606a7b;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.qa-regulation-page__version-input {
+  width: 92px;
+}
+
+.qa-regulation-page__effective-date {
+  width: 142px;
+}
+
+.qa-regulation-page__version-publish :deep(.el-tag) {
+  flex-shrink: 0;
+}
+
+.qa-regulation-page__tabs-wrap :deep(.el-card__body) {
+  padding-top: 12px !important;
+  padding-bottom: 0 !important;
+}
+
+.qa-regulation-page__tabs-wrap :deep(.el-tabs__header) {
+  margin-bottom: 0;
+}
+
+.qa-regulation-page__tabs--flat :deep(.el-tabs__header) {
+  margin: 0;
+}
+
+.qa-regulation-page__tabs--flat :deep(.el-tabs__item) {
+  color: #172033;
+  font-weight: 600;
+}
+
+.qa-regulation-page__tabs--flat :deep(.el-tabs__item.is-active) {
+  color: #00a896;
+}
+
+.qa-regulation-page__tabs--flat :deep(.el-tabs__active-bar) {
+  background-color: #00a896;
+}
+
+.qa-regulation-page__tabs-wrap :deep(.el-tabs__content) {
+  display: none;
+}
+
 .qa-regulation-page__load-error {
   display: grid;
   gap: 10px;
+  margin-top: 12px;
 }
 
 .qa-regulation-page__load-error .el-button {
@@ -2362,10 +2487,19 @@ const runQaPublishPrecheck = async () => {
 
 .qa-regulation-page__card-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   font-weight: 700;
+}
+
+.qa-regulation-page__card-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
 }
 
 .qa-regulation-page__rule-tags {
@@ -2457,12 +2591,53 @@ const runQaPublishPrecheck = async () => {
 }
 
 @media (max-width: 1180px) {
+  .qa-regulation-page__header {
+    flex-wrap: wrap;
+  }
+
+  .qa-regulation-page__project-form {
+    order: 3;
+    flex: 1 0 100%;
+    min-width: 0;
+  }
+
+  .qa-regulation-page__version-publish {
+    margin-left: auto;
+  }
+
   .qa-regulation-page__layout {
     grid-template-columns: 1fr;
   }
 
   .qa-regulation-page__scope-grid {
     grid-template-columns: 1fr;
+  }
+
+  .qa-regulation-page__basic-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .qa-regulation-page__basic-field--full {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .qa-regulation-page__version-publish {
+    flex: 1 0 100%;
+    flex-wrap: wrap;
+    margin-left: 0;
+  }
+
+  .qa-regulation-page__header-field {
+    flex: 1 1 180px;
+  }
+
+  .qa-regulation-page__version-input,
+  .qa-regulation-page__effective-date {
+    flex: 1;
+    width: auto;
+    min-width: 0;
   }
 }
 

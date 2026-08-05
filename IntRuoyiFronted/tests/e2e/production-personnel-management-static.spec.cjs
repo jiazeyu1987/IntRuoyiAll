@@ -7,6 +7,7 @@ const readUtf8 = (relativePath) => fs.readFileSync(path.join(repoRoot, relativeP
 
 const page = readUtf8('src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue')
 const api = readUtf8('src/api/mes/pro/processpool/teamLeader.ts')
+const route = readUtf8('src/router/modules/remaining.ts')
 const frontlineContext = readUtf8('src/views/mes/pro/feedback/frontlineDeviceEmployeeContext.ts')
 const packageJson = JSON.parse(readUtf8('package.json'))
 const realE2ePath = path.join(repoRoot, 'tests/e2e/production-personnel-management-real.e2e.js')
@@ -35,8 +36,12 @@ requirePage(/v-model="temporaryEmployeeForm\.displayName"/,
   'temporary worker creation must capture display name.')
 requirePage(/v-model="temporaryEmployeeForm\.signaturePassword"/,
   'temporary worker creation must capture signature password.')
-requirePage(/data-team-leader-personnel-audit-list/,
-  'employee management tab must show traceable operation records.')
+assert.doesNotMatch(page, /data-team-leader-personnel-audit-list/,
+  'employee management tab must not render a standalone operation trace table.')
+assert.doesNotMatch(page, /<el-divider>\s*操作追溯\s*<\/el-divider>/,
+  'employee management tab must not render a standalone operation trace title.')
+assert.doesNotMatch(page, /employeeAuditRows|employeeAuditLoading|loadEmployeeAuditRecords/,
+  'employee management tab must not keep local audit-table state.')
 requirePage(/resetTemporarySignaturePassword/,
   'temporary worker signature password reset action must be wired.')
 requirePage(/updateEmployeeStatus/,
@@ -62,8 +67,8 @@ requireApi('updateTeamEmployeeStatus', '/employee-profile/status/update',
   'employee enable/disable API')
 requireApi('resetTemporaryTeamEmployeeSignaturePassword', '/employee-profile/temp-signature-password/reset',
   'temporary signature password reset API')
-requireApi('getTeamEmployeeAuditList', '/employee-profile/audit/list',
-  'employee audit trace API')
+assert.match(route, /title:\s*'表单日志'/,
+  'traceable operation records must remain available through the existing form log route.')
 
 assert.match(frontlineContext, /ProFeedbackApi\.getFrontlineRuntimeConfig/,
   'production filling employee cards must be sourced from runtime config.')
@@ -97,7 +102,8 @@ assert.match(realE2e, /assertDuplicateTemporaryWorkerRejected/, 'real E2E must p
 assert.match(realE2e, /resetTemporarySignaturePasswordViaPage/,
   'real E2E must reset temporary worker signature password through the page.')
 assert.match(realE2e, /disableTemporaryWorkerViaPage/, 'real E2E must disable the worker through the page.')
-assert.match(realE2e, /assertAuditTrailVisible/, 'real E2E must verify traceable audit rows.')
+assert.match(realE2e, /assertNoStandaloneAuditList/,
+  'real E2E must verify the personnel page no longer renders a standalone audit list.')
 assert.match(realE2e, /assertRuntimeConfigCandidateScope/,
   'real E2E must verify production filling candidates through runtime config.')
 assert.doesNotMatch(realE2e, /admin123|111111|DEFAULT_PASSWORD/,

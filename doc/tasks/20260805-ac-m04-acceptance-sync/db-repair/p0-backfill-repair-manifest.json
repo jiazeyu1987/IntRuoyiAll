@@ -1,0 +1,1450 @@
+{
+  "authorization": {
+    "businessApprovalId": "USER_CHAT_20260805_AUTH_LOCAL_P0_BACKFILL",
+    "businessOwner": "User authorized in current Codex task",
+    "dbaApprovalId": "LOCAL_DB_REPAIR_AUTH_20260805",
+    "dbaOwner": "Local task operator under user authorization",
+    "maintenanceWindow": "2026-08-05 local runtime maintenance window"
+  },
+  "backupEvidence": {
+    "backupId": "ACM04_P0_BACKFILL_EXTENDED_20260805_203724",
+    "backupLocation": "E:\\IntRuoyi\\doc\\tasks\\20260805-ac-m04-acceptance-sync\\db-backup\\acm04-p0-backfill-extended-20260805-203724.sql",
+    "capturedAt": "2026-08-05 20:37:24 Asia/Shanghai",
+    "checksum": "317BD20FD77F473327B5DAAAEAC5C4A51D474958A9B32A7D652732310C17C8B8"
+  },
+  "dryRun": {
+    "manifestEntryCount": 88,
+    "targetRowCount": 88
+  },
+  "entries": [
+    {
+      "formalSourceId": 980020,
+      "formalSourceType": "MES_PRO_EDHR_RECORDBOOK_ENTRY",
+      "newValue": "P0_REPAIR_20260805_EXISTING_EVENT_1",
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 1,
+      "reason": "Authorized local P0 repair derives idempotency from reconstructed recordbook entry",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_event",
+      "targetColumn": "event_idempotency_key",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 980020,
+      "formalSourceType": "MES_PRO_EDHR_RECORDBOOK_ENTRY",
+      "newValue": 980020,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 1,
+      "reason": "Authorized local P0 repair binds event to reconstructed recordbook entry",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_event",
+      "targetColumn": "recordbook_entry_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 980021,
+      "formalSourceType": "MES_PRO_EDHR_RECORDBOOK_ENTRY",
+      "newValue": "P0_REPAIR_20260805_EXISTING_EVENT_2",
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 2,
+      "reason": "Authorized local P0 repair derives idempotency from reconstructed recordbook entry",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_event",
+      "targetColumn": "event_idempotency_key",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 980021,
+      "formalSourceType": "MES_PRO_EDHR_RECORDBOOK_ENTRY",
+      "newValue": 980021,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 2,
+      "reason": "Authorized local P0 repair binds event to reconstructed recordbook entry",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_event",
+      "targetColumn": "recordbook_entry_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 18,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 18,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 13,
+      "reason": "Authorized local P0 repair creates formal submit-root event matching fragment.event_id",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_quantity_fragment",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 122
+    },
+    {
+      "formalSourceId": 19,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 19,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 14,
+      "reason": "Authorized local P0 repair creates formal submit-root event matching fragment.event_id",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_quantity_fragment",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 122
+    },
+    {
+      "formalSourceId": 20,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 20,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 15,
+      "reason": "Authorized local P0 repair creates formal submit-root event matching fragment.event_id",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_quantity_fragment",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 122
+    },
+    {
+      "formalSourceId": 21,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 21,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 16,
+      "reason": "Authorized local P0 repair creates formal submit-root event matching fragment.event_id",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_quantity_fragment",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 122
+    },
+    {
+      "formalSourceId": 22,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 22,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 17,
+      "reason": "Authorized local P0 repair creates formal submit-root event matching fragment.event_id",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_quantity_fragment",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 122
+    },
+    {
+      "formalSourceId": 104,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 104,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 6,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 105,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 105,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 7,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 104,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 104,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 8,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 106,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 106,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 9,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 107,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 107,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 10,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 108,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 108,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 11,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 109,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 109,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 12,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 110,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 110,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 13,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 111,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 111,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 14,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 112,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 112,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 15,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 113,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 113,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 16,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 114,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 114,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 17,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 115,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 115,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 18,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 116,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 116,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 19,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 117,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 117,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 20,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 104,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 104,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 21,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 105,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 105,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 22,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 104,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 104,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 23,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 106,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 106,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 24,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 104,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 104,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 25,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 104,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 104,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 26,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 104,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 104,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 27,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 107,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 107,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 28,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 108,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 108,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 29,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 109,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 109,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 30,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 110,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 110,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 31,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 111,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 111,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 32,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 112,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 112,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 33,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 113,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 113,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 34,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 114,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 114,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 35,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 104,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 104,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 36,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 104,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 104,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 37,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 105,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 105,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 38,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 106,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 106,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 39,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 107,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 107,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 40,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 108,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 108,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 41,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 109,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 109,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 42,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 110,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 110,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 43,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 111,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 111,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 44,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 112,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 112,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 45,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 113,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 113,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 46,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 114,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 114,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 47,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 115,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 115,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 48,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 116,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 116,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 49,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 117,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 117,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 50,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 104,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 104,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 51,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 105,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 105,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 52,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 106,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 106,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 53,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 107,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 107,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 54,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 108,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 108,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 55,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 109,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 109,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 56,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 110,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 110,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 57,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 111,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 111,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 58,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 112,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 112,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 59,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 113,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 113,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 60,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 114,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 114,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 61,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 115,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 115,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 62,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 116,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 116,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 63,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 117,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 117,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 64,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 104,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 104,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 65,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 105,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 105,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 66,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 106,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 106,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 67,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 107,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 107,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 68,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 108,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 108,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 69,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 109,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 109,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 70,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 110,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 110,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 71,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 111,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 111,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 72,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 112,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 112,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 73,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 113,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 113,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 74,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 114,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 114,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 75,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 115,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 115,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 76,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 116,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 116,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 77,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 117,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 117,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 78,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 104,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 104,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 79,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 104,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 104,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 80,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 104,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 104,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 81,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 104,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 104,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 82,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 105,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 105,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 84,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    },
+    {
+      "formalSourceId": 105,
+      "formalSourceType": "MES_PRO_PROCESS_POOL_EVENT.PRODUCTION_SUBMIT",
+      "newValue": 105,
+      "oldValue": "COLUMN_MISSING",
+      "primaryKey": 85,
+      "reason": "Authorized local P0 repair binds PQC record to reconstructed submit root for same structured context",
+      "reviewer": "user-authorized-local-repair",
+      "table": "mes_pro_process_pool_pqc_record",
+      "targetColumn": "production_submit_event_id",
+      "tenantId": 1
+    }
+  ],
+  "rollbackEvidence": {
+    "restoreCommandReference": "mysql ruoyi-vue-pro < db-backup/acm04-p0-backfill-extended-20260805-203724.sql or run db-repair/p0-backfill-rollback.sql",
+    "rollbackPlanId": "ACM04_P0_BACKFILL_ROLLBACK_SQL",
+    "verificationQueryReference": "rerun verify_p0_runtime_migration_apply_preflight.py and schema probes after rollback"
+  },
+  "sourceRows": [
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 18,
+      "sourcePurpose": "quantity_fragment_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 19,
+      "sourcePurpose": "quantity_fragment_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 20,
+      "sourcePurpose": "quantity_fragment_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 21,
+      "sourcePurpose": "quantity_fragment_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 22,
+      "sourcePurpose": "quantity_fragment_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 104,
+      "sourcePurpose": "pqc_context_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 105,
+      "sourcePurpose": "pqc_context_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 106,
+      "sourcePurpose": "pqc_context_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 107,
+      "sourcePurpose": "pqc_context_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 108,
+      "sourcePurpose": "pqc_context_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 109,
+      "sourcePurpose": "pqc_context_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 110,
+      "sourcePurpose": "pqc_context_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 111,
+      "sourcePurpose": "pqc_context_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 112,
+      "sourcePurpose": "pqc_context_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 113,
+      "sourcePurpose": "pqc_context_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 114,
+      "sourcePurpose": "pqc_context_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 115,
+      "sourcePurpose": "pqc_context_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 116,
+      "sourcePurpose": "pqc_context_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 117,
+      "sourcePurpose": "pqc_context_submit_root",
+      "table": "mes_pro_process_pool_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980020,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980021,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980022,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980023,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980024,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980025,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980026,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980027,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980028,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980029,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980030,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980031,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980032,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980033,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980034,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980035,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980036,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980037,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980038,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980039,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980040,
+      "sourcePurpose": "formal_recordbook_entry",
+      "table": "mes_pro_edhr_recordbook_entry"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980020,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980021,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980022,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980023,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980024,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980025,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980026,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980027,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980028,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980029,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980030,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980031,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980032,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980033,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980034,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980035,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980036,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980037,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980038,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980039,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    },
+    {
+      "formalSourceType": "SIGNED_BUSINESS_RECONSTRUCTION",
+      "primaryKey": 980040,
+      "sourcePurpose": "recordbook_submission_event",
+      "table": "mes_pro_edhr_recordbook_event"
+    }
+  ]
+}

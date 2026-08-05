@@ -17,7 +17,17 @@
     </el-select>
 
     <el-date-picker
-      v-if="definition.type === 'dateRange'"
+      v-if="definition.type === 'date'"
+      :model-value="condition?.value"
+      class="table-multi-filter-field__value table-multi-filter-field__value--single-date"
+      type="date"
+      value-format="YYYY-MM-DD"
+      :placeholder="definition.placeholder || '请选择日期'"
+      @update:model-value="updateValue"
+      @keyup.enter="$emit('query')"
+    />
+    <el-date-picker
+      v-else-if="definition.type === 'dateRange'"
       :model-value="rangeValue"
       class="table-multi-filter-field__value table-multi-filter-field__value--date"
       type="daterange"
@@ -252,6 +262,12 @@ const handleAutocompleteSelect = (item: ListMultiFilterSuggestion) => {
   flex-basis: 260px;
   min-width: 260px;
   width: 260px;
+}
+
+.table-multi-filter-field__value--single-date {
+  flex-basis: 180px;
+  min-width: 180px;
+  width: 180px;
 }
 
 .table-multi-filter-field__range {

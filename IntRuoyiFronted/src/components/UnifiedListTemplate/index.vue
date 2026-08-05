@@ -1,5 +1,9 @@
 <template>
-  <div class="unified-list-template" :data-table-key="tableKey">
+  <div
+    class="unified-list-template"
+    :class="{ 'unified-list-template--single-line-toolbar': singleLineToolbar }"
+    :data-table-key="tableKey"
+  >
     <el-form
       v-if="showQueryForm !== false"
       class="unified-list-template__query-form"
@@ -146,6 +150,7 @@ const props = withDefaults(defineProps<{
   showColumnSettings?: boolean
   showColumnReset?: boolean
   showQueryForm?: boolean
+  singleLineToolbar?: boolean
   sortableColumns?: UnifiedListSortableColumnInput[]
   sortState?: UnifiedListSortState
   total: number
@@ -159,7 +164,8 @@ const props = withDefaults(defineProps<{
   multiFilterDefinitions: () => [],
   showMultiFilterOperators: true,
   showColumnSettings: true,
-  showColumnReset: false
+  showColumnReset: false,
+  singleLineToolbar: false
 })
 
 const emit = defineEmits<{
@@ -445,6 +451,31 @@ const handleStandardFilterRemove = (conditionId: string) => {
 
   .unified-list-template__toolbar-actions {
     margin-left: 0;
+  }
+}
+
+@media (min-width: 1181px) {
+  .unified-list-template--single-line-toolbar .unified-list-template__query-form {
+    display: grid;
+    grid-template-columns: minmax(720px, 1fr) auto;
+    align-items: start;
+  }
+
+  .unified-list-template--single-line-toolbar .unified-list-template__multi-filter {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 720px;
+  }
+
+  .unified-list-template--single-line-toolbar .unified-list-template__toolbar-actions {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    margin-left: 0;
+  }
+
+  .unified-list-template--single-line-toolbar .unified-list-template__toolbar {
+    flex-wrap: nowrap;
   }
 }
 </style>

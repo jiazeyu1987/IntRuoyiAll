@@ -218,7 +218,7 @@ const graphNodes: PageNode[] = [
   {
     id: 'production-fill',
     order: '05',
-    title: '生产填写',
+    title: '一线生产',
     description: '一线员工从报工入口提交数量、设备参数和正式批记录或补充槽位填写动作。',
     kind: '报工页',
     route: '/mes/pro/feedback/edhr-batch-production-fill',
@@ -230,8 +230,8 @@ const graphNodes: PageNode[] = [
   {
     id: 'pqc-fill',
     order: '06',
-    title: 'PQC填写',
-    description: 'PQC 简化录入检验结果、检验数量和损耗数量。',
+    title: '一线PQC',
+    description: '一线 PQC 录入检验结果、检验数量和损耗数量。',
     kind: '质检页',
     route: '/mes/pro/feedback/edhr-batch-pqc-fill',
     isDisabled: false,
