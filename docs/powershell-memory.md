@@ -161,6 +161,15 @@
 - Verification: 记录 PID、`jcmd Thread.print` 关键栈、失败命令、是否停止了任务自有进程、以及后续标准 Maven 命令是否到达 Surefire。
 - Forbidden action: 禁止强杀全部 Java/Maven、禁止删除无关模块 `target`、禁止在目标目录损坏时提交实现、禁止把环境编译失败写成业务测试失败。
 - Evidence: `doc\tasks\20260803-dcc-docx-preview-system-exception\execution-log.md`，DCC 预览任务中同模块 Maven 卡在 `WinNTFileSystem.delete0`，后续 DCC 编译出现大量 `target\classes` `NoSuchFileException`，最终保持 blocked 未提交。
+
+### Maven 并发 Java 内存与长编译阻塞门禁
+
+- Trigger: Windows 上运行 Maven 编译或定向 JUnit 时出现 `There is insufficient memory for the Java Runtime Environment to continue`、`Native memory allocation (mmap) failed`、`页面文件太小`，或低内存 `MAVEN_OPTS` 后仍长时间停在 Javac/Lombok 编译。
+- Preflight check: 重跑 Maven 前先用 `Get-CimInstance Win32_Process -Filter "name = 'java.exe'"` 盘点并发 Java/Maven/运行态进程，用 `Get-CimInstance Win32_OperatingSystem` 查看 `FreePhysicalMemory/FreeVirtualMemory`，确认是否存在其它任务占用；只允许停止当前任务启动且命令行指向当前 worktree 的 Maven PID。
+- Blocker: 页面文件不足、并发 Java 进程归属其它任务、低内存参数后仍无法在合理时间内产出 surefire 或明确退出码、或需要强杀未知 Java 才能继续时，必须把 Maven 验证标记为环境阻塞；不得继续堆叠多个 Maven 命令，也不得把无报告的超时写成测试通过。
+- Verification: 记录原始 Maven 命令、`hs_err_pid*.log` 位置、当前任务 Maven PID、是否停止该 PID、`jcmd <pid> Thread.print` 关键栈、已完成的替代静态/迁移门禁，以及待资源释放后需要重跑的标准 Maven 命令。
+- Forbidden action: 禁止强杀全部 Java/Maven 进程、禁止用低内存参数失败后继续无限重试、禁止把静态扫描冒充 JUnit GREEN、禁止提交时忽略后端 Maven blocker。
+- Evidence: `doc/tasks/20260805-ac-m20-pqc-review-fix/execution-log.md`，AC-M20 PQC 复核修复中，标准 Maven 先因 JVM native memory/pagefile 失败，低内存参数后仍长时间处于 Lombok/Javac 编译且并发 Java 任务较多，最终停止本任务 Maven PID 并保持后端 JUnit blocked。
 ## 执行顺序
 
 1. 阶段 1：任务提交/推送预检

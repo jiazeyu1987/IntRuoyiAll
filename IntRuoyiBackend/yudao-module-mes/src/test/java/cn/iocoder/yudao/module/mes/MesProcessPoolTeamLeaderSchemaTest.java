@@ -103,6 +103,7 @@ class MesProcessPoolTeamLeaderSchemaTest {
 
         assertField(MesProcessPoolSubmissionReviewDO.class, "eventId", Long.class);
         assertField(MesProcessPoolSubmissionReviewDO.class, "leaderUserId", Long.class);
+        assertField(MesProcessPoolSubmissionReviewDO.class, "leaderType", String.class);
         assertField(MesProcessPoolSubmissionReviewDO.class, "reviewStatus", String.class);
         assertField(MesProcessPoolSubmissionReviewDO.class, "reviewRemark", String.class);
         assertField(MesProcessPoolSubmissionReviewDO.class, "reviewedAt", LocalDateTime.class);
@@ -224,6 +225,12 @@ class MesProcessPoolTeamLeaderSchemaTest {
         assertTrue(sql.contains("`role`.`code` = 'tenant_admin'"));
         assertFalse(sql.contains("mes_pro_feedback_surplus_pool"),
                 "F9/F10 must extend process-pool governance and must not reuse the surplus pool");
+
+        String acM20Sql = Files.readString(resolveBackendPath(
+                "sql/mysql/20260805_mes_process_pool_ac_m20_pqc_review_closure.sql"), StandardCharsets.UTF_8);
+        assertTrue(acM20Sql.contains("dependsOn=20260803_mes_process_pool_pqc_process_inspection_aggregation"));
+        assertTrue(acM20Sql.contains("`leader_type` varchar(32)"));
+        assertTrue(acM20Sql.contains("UNIQUE KEY `uk_mes_pp_submission_review_event_terminal` (`tenant_id`, `event_id`, `deleted`)"));
 
         String p1Sql = Files.readString(resolveBackendPath(
                 "sql/mysql/20260731_mes_process_pool_team_leader_p1_runtime_config.sql"), StandardCharsets.UTF_8);

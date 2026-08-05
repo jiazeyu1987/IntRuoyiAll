@@ -255,6 +255,7 @@
               详情
             </el-button>
             <el-button
+              v-if="canReviewSubmission(row)"
               link
               type="success"
               :data-team-leader-review-event-id="String(row.id)"
@@ -263,6 +264,7 @@
               复核
             </el-button>
             <el-button
+              v-if="canCorrectSubmission(row)"
               link
               type="warning"
               :data-team-leader-correction-event-id="String(row.id)"
@@ -1150,6 +1152,12 @@ const dailyCloseSummaryCards = computed(() => [
   }
 ])
 
+const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
+  !row.submissionReviewStatus || row.submissionReviewStatus === 'PENDING'
+
+const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
+  row.submissionReviewStatus === 'REJECTED'
+
 const queryParams = reactive<TeamLeaderSubmissionPageReqVO>({
   pageNo: 1,
   pageSize: 10,
@@ -1773,6 +1781,10 @@ const openDetail = async (event: ProcessPoolTimelineEventVO) => {
 
 const openReview = async (event: ProcessPoolTimelineEventVO) => {
   requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
+  if (!canReviewSubmission(event)) {
+    ElMessage.error('已完成复核的提交不能重复复核')
+    return
+  }
   reviewEvent.value = event
   reviewForm.reviewStatus = 'APPROVED'
   resetReviewAllocation()
@@ -1792,6 +1804,10 @@ const openReview = async (event: ProcessPoolTimelineEventVO) => {
 
 const submitReview = async () => {
   const eventId = requirePositiveNumber(reviewEvent.value?.id, '工序池提交事件编号不能为空')
+  if (reviewForm.reviewStatus === 'REJECTED' && !reviewForm.reviewRemark.trim()) {
+    ElMessage.error('退回复核必须填写复核说明')
+    return
+  }
   reviewSubmitting.value = true
   try {
     const leaderType = queryParams.leaderType as TeamLeaderType
@@ -1828,6 +1844,10 @@ const submitReview = async () => {
 const openCorrection = (event: ProcessPoolTimelineEventVO) => {
   try {
     const eventId = requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
+    if (!canCorrectSubmission(event)) {
+      ElMessage.error('只有复核不正确的提交可以修正')
+      return
+    }
     correctionEvent.value = event
     correctionForm.eventId = eventId
     correctionForm.modifiedByUserId = undefined

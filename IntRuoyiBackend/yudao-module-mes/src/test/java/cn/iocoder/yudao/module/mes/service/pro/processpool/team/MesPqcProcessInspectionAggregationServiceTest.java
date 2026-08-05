@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.tenant.core.db.TenantBaseDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
@@ -66,6 +67,8 @@ class MesPqcProcessInspectionAggregationServiceTest {
         when(aggregateDetailMapper.insertBatch(any())).thenReturn(true);
         when(pqcRecordMapper.updateProcessInspectionAggregatedIfPending(eq(100L), eq(1001L), eq(7001L),
                 org.mockito.ArgumentMatchers.any(LocalDateTime.class))).thenReturn(1);
+        when(pqcTaskMapper.updateConfirmedIfSubmitted(eq(8001L), eq("SUBMITTED"), eq("CONFIRMED")))
+                .thenReturn(1);
 
         service.aggregateApprovedPqcSubmission(1001L, 7001L);
 
@@ -107,6 +110,7 @@ class MesPqcProcessInspectionAggregationServiceTest {
                 aggregatedAtCaptor.capture());
         assertNotNull(aggregatedAtCaptor.getValue());
         assertTrue(aggregateRows.stream().allMatch(row -> aggregatedAtCaptor.getValue().equals(row.getAggregatedAt())));
+        verify(pqcTaskMapper).updateConfirmedIfSubmitted(8001L, "SUBMITTED", "CONFIRMED");
     }
 
     @Test
@@ -118,7 +122,8 @@ class MesPqcProcessInspectionAggregationServiceTest {
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_PQC_RECORD_REQUIRED.getCode(), ex.getCode());
         verify(pqcRecordMapper, never()).updateProcessInspectionAggregatedIfPending(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -131,7 +136,8 @@ class MesPqcProcessInspectionAggregationServiceTest {
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED.getCode(),
                 ex.getCode());
         verify(pqcRecordMapper, never()).updateProcessInspectionAggregatedIfPending(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -154,7 +160,7 @@ class MesPqcProcessInspectionAggregationServiceTest {
     @Test
     void shouldRejectCrossTenantPqcEventBeforeAggregation() {
         when(pqcRecordMapper.selectByEventId(1001L)).thenReturn(pendingRecord());
-        when(eventMapper.selectById(1001L)).thenReturn(pqcEvent().setTenantId(200L));
+        when(eventMapper.selectById(1001L)).thenReturn(withTenant(pqcEvent(), 200L));
 
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> service.aggregateApprovedPqcSubmission(1001L, 7001L));
@@ -185,7 +191,7 @@ class MesPqcProcessInspectionAggregationServiceTest {
     }
 
     private static MesProProcessPoolPqcRecordDO pendingRecord() {
-        return MesProProcessPoolPqcRecordDO.builder()
+        return withTenant(MesProProcessPoolPqcRecordDO.builder()
                 .id(9001L)
                 .eventId(1001L)
                 .productionSubmitEventId(5001L)
@@ -195,24 +201,22 @@ class MesPqcProcessInspectionAggregationServiceTest {
                 .processId(4002L)
                 .processInspectionAggregationStatus(
                         MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_PENDING)
-                .build()
-                .setTenantId(100L);
+                .build(), 100L);
     }
 
     private static MesProProcessPoolPqcRecordDO aggregatedRecord() {
-        return MesProProcessPoolPqcRecordDO.builder()
+        return withTenant(MesProProcessPoolPqcRecordDO.builder()
                 .id(9001L)
                 .eventId(1001L)
                 .processInspectionAggregationStatus(
                         MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED)
                 .processInspectionReviewId(7000L)
                 .processInspectionAggregatedAt(LocalDateTime.of(2026, 8, 3, 18, 0))
-                .build()
-                .setTenantId(100L);
+                .build(), 100L);
     }
 
     private static MesProProcessPoolEventDO pqcEvent() {
-        return MesProProcessPoolEventDO.builder()
+        return withTenant(MesProProcessPoolEventDO.builder()
                 .id(1001L)
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
                 .workOrderId(2001L)
@@ -223,12 +227,11 @@ class MesPqcProcessInspectionAggregationServiceTest {
                 .feedbackSourceId(8001L)
                 .recordbookSourceType("MES_PQC_INSPECTION_TASK")
                 .recordbookSourceId(8001L)
-                .build()
-                .setTenantId(100L);
+                .build(), 100L);
     }
 
     private static MesPqcInspectionTaskDO submittedTask() {
-        return MesPqcInspectionTaskDO.builder()
+        return withTenant(MesPqcInspectionTaskDO.builder()
                 .id(8001L)
                 .activeOrderId(8101L)
                 .workOrderId(2001L)
@@ -243,13 +246,12 @@ class MesPqcProcessInspectionAggregationServiceTest {
                 .roundNo(1)
                 .actualInspectionQuantity(2)
                 .taskStatus("SUBMITTED")
-                .build()
-                .setTenantId(100L);
+                .build(), 100L);
     }
 
     private static List<MesPqcInspectionPieceDetailDO> pieceDetails() {
         return List.of(
-                MesPqcInspectionPieceDetailDO.builder()
+                withTenant(MesPqcInspectionPieceDetailDO.builder()
                         .id(2L)
                         .taskId(8001L)
                         .sampleNo(1)
@@ -269,9 +271,8 @@ class MesPqcProcessInspectionAggregationServiceTest {
                         .itemResult("0.72")
                         .measuredValue("0.72")
                         .judgement(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
-                        .build()
-                        .setTenantId(100L),
-                MesPqcInspectionPieceDetailDO.builder()
+                        .build(), 100L),
+                withTenant(MesPqcInspectionPieceDetailDO.builder()
                         .id(3L)
                         .taskId(8001L)
                         .sampleNo(2)
@@ -291,7 +292,11 @@ class MesPqcProcessInspectionAggregationServiceTest {
                         .itemResult("0.73")
                         .measuredValue("0.73")
                         .judgement(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
-                        .build()
-                        .setTenantId(100L));
+                        .build(), 100L));
+    }
+
+    private static <T extends TenantBaseDO> T withTenant(T object, Long tenantId) {
+        object.setTenantId(tenantId);
+        return object;
     }
 }

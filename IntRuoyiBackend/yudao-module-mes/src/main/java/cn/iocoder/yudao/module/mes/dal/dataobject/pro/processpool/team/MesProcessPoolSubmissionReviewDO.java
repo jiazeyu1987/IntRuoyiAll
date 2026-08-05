@@ -33,6 +33,7 @@ public class MesProcessPoolSubmissionReviewDO extends TenantBaseDO {
 
     private Long eventId;
     private Long leaderUserId;
+    private String leaderType;
     private String reviewStatus;
     private String reviewRemark;
     private LocalDateTime reviewedAt;

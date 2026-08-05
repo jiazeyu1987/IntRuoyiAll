@@ -50,4 +50,11 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .eq(MesPqcInspectionTaskDO::getId, id)
                 .eq(MesPqcInspectionTaskDO::getTaskStatus, pendingStatus));
     }
+
+    default int updateConfirmedIfSubmitted(Long id, String submittedStatus, String confirmedStatus) {
+        return update(null, new LambdaUpdateWrapper<MesPqcInspectionTaskDO>()
+                .set(MesPqcInspectionTaskDO::getTaskStatus, confirmedStatus)
+                .eq(MesPqcInspectionTaskDO::getId, id)
+                .eq(MesPqcInspectionTaskDO::getTaskStatus, submittedStatus));
+    }
 }

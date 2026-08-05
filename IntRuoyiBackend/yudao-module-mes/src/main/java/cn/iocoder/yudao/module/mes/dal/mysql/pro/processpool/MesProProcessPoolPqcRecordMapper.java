@@ -23,12 +23,14 @@ public interface MesProProcessPoolPqcRecordMapper extends BaseMapperX<MesProProc
                 .orderByAsc(MesProProcessPoolPqcRecordDO::getId));
     }
 
-    default int updateProcessInspectionAggregatedIfPending(Long eventId, Long reviewId, LocalDateTime aggregatedAt) {
+    default int updateProcessInspectionAggregatedIfPending(Long tenantId, Long eventId, Long reviewId,
+                                                           LocalDateTime aggregatedAt) {
         return update(null, new LambdaUpdateWrapper<MesProProcessPoolPqcRecordDO>()
                 .set(MesProProcessPoolPqcRecordDO::getProcessInspectionAggregationStatus,
                         MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED)
                 .set(MesProProcessPoolPqcRecordDO::getProcessInspectionReviewId, reviewId)
                 .set(MesProProcessPoolPqcRecordDO::getProcessInspectionAggregatedAt, aggregatedAt)
+                .eq(MesProProcessPoolPqcRecordDO::getTenantId, tenantId)
                 .eq(MesProProcessPoolPqcRecordDO::getEventId, eventId)
                 .eq(MesProProcessPoolPqcRecordDO::getProcessInspectionAggregationStatus,
                         MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_PENDING));

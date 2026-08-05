@@ -1147,6 +1147,10 @@ public interface ErrorCodeConstants {
             "PQC 提交事件已汇集为过程检验记录，禁止重复汇集：eventId={}，reviewId={}");
     ErrorCode PRO_PROCESS_POOL_REVISION_REJECTED_REVIEW_REQUIRED = new ErrorCode(1_040_760_333,
             "原始记录补正必须基于最新退回复核记录：eventId={}，latestStatus={}");
+    ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_PQC_LEADER_REQUIRED = new ErrorCode(1_040_760_334,
+            "PQC 检验单只能由 PQC 组长确认或退回：eventId={}，leaderType={}");
+    ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_REJECT_REMARK_REQUIRED = new ErrorCode(1_040_760_335,
+            "复核退回必须填写退回原因：eventId={}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");
