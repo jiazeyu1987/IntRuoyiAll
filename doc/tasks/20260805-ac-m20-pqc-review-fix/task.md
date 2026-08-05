@@ -11,6 +11,7 @@
 - [x] 后端 GREEN：实施最小服务、DO、Mapper、迁移和测试修复
 - [x] 前端 RED/GREEN：补状态门禁与退回原因校验的静态或单元验证
 - [x] 运行定向验证并记录剩余 blocker
+- [x] 融合 AC-M20 修复提交到 `int_main` 并完成聚焦复验
 
 ## Expected Verification
 
@@ -42,3 +43,5 @@
 blocked
 
 2026-08-05 复验结论：AC-M20 代码级修复已通过后端编译、聚焦 JUnit、前端静态契约、前端类型检查、迁移门禁、diff 检查和本任务运行态健康检查；但真实写入型 Playwright E2E 缺少任务专用 `RRM_*` 租户、账号、签名 ID 与业务数据前置，不能标记为最终 `ACCEPTED`。
+
+2026-08-05 `int_main` 融合结论：AC-M20 修复提交已 cherry-pick 到 `E:\IntRuoyi` 的 `int_main`，生成提交 `0626a3a0b fix: close AC-M20 PQC review loop`；融合后前端静态合同、前端类型检查、后端聚焦 JUnit、提交级 whitespace 检查和 AC-M20 依赖范围迁移门禁均通过。最终 `ACCEPTED` 仍受真实写入型 Playwright E2E 的 `RRM_*` 前置缺失阻塞。

@@ -47,6 +47,14 @@
 - User request: 用户要求将 AC-M20 修复融合进 `int_main`。
 - Merge strategy: AC-M20 分支基点 `e7c27613` 已是 `int_main` 祖先，`int_main` 后续已有大量并行提交；为避免直接 merge 旧分支带入非 AC-M20 差异，采用先提交 AC-M20 自有改动、再 cherry-pick 该提交到 `E:\IntRuoyi` 的 `int_main`。
 - Boundary: `E:\IntRuoyi` 当前存在非 AC-M20 脏文档改动，融合过程只暂存/提交 AC-M20 相关路径，不回滚、不删除、不提交并行任务文件。
+- GREEN: `git -C E:\IntRuoyi -c core.editor=true cherry-pick --continue` -> PASS，生成 `0626a3a0b fix: close AC-M20 PQC review loop`；commit hook 输出 branch runtime port guard PASS。
+- GREEN: `node tests\e2e\team-leader-pqc-review-gate-static.spec.js` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes -am -Pmes-ac-m20-pqc-review-targeted-tests "-Dtest=MesTeamLeaderSubmissionReviewServiceTest,MesPqcProcessInspectionAggregationServiceTest,MesProcessPoolTeamLeaderSchemaTest,MesQaPqcSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，25 tests / 0 failures / 0 errors / 0 skipped。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `git show --check --pretty=short --no-renames HEAD` -> PASS，无 whitespace error。
+- GREEN: AC-M20 依赖范围迁移门禁 -> PASS，14 个 MES 迁移文件通过，包含 `20260805_mes_process_pool_ac_m20_pqc_review_closure` 及其完整 dependsOn 链。
+- BLOCKED: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql` -> FAIL，非 AC-M20 迁移 `20260805_erp_nas_table_auto_sync.sql` 元数据 `type=schema,job` 不符合当前门禁枚举；本任务未修改该文件，未用全量门禁结果否定 AC-M20 范围内 PASS。
+- Experience consolidation: Maven/pagefile 经验已合并到 `docs/powershell-memory.md`；迁移 `type` 只能使用单一枚举的长期规则已存在于发布门禁经验，未新建长期经验文档。
 
 ## Worktree And Git
 

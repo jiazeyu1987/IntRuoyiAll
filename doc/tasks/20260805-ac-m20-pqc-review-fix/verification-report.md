@@ -43,6 +43,24 @@ AC-M20 “PQC 组长确认 PQC 检验单”修复，覆盖后端复核校验、P
 - Runtime slot blocker resolved for this task by reserving `int_main slot 2`: frontend `8083`, backend `48083`.
 - Previous Maven/JUnit and runtime blockers are resolved by the completed verification above.
 
+## int_main Merge Verification 2026-08-05
+
+- PASS: `git -C E:\IntRuoyi -c core.editor=true cherry-pick --continue`
+  - Created `0626a3a0b fix: close AC-M20 PQC review loop` on `int_main`.
+  - Branch runtime port guard passed for `int_main/int_main`: frontend `8081`, backend `48081`.
+- PASS: `node tests\e2e\team-leader-pqc-review-gate-static.spec.js`
+  - AC-M20 front-end gate still passes after fusion into `int_main`.
+- PASS: `mvn -pl yudao-module-mes -am -Pmes-ac-m20-pqc-review-targeted-tests "-Dtest=MesTeamLeaderSubmissionReviewServiceTest,MesPqcProcessInspectionAggregationServiceTest,MesProcessPoolTeamLeaderSchemaTest,MesQaPqcSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+  - Surefire: 25 tests, 0 failures, 0 errors, 0 skipped.
+- PASS: `pnpm ts:check`
+  - Frontend type check passes in `E:\IntRuoyi\IntRuoyiFronted`.
+- PASS: AC-M20 dependency-scoped migration gate
+  - `run-release-migration-policy-gate.py` passed for the 14-file MES dependency chain ending at `20260805_mes_process_pool_ac_m20_pqc_review_closure`.
+- PASS: `git show --check --pretty=short --no-renames HEAD`
+  - No whitespace errors in commit `0626a3a0b`.
+- BLOCKED: full `--sql-root IntRuoyiBackend\sql\mysql` migration gate on current `int_main`
+  - Blocked by non-AC-M20 migration `20260805_erp_nas_table_auto_sync.sql` with invalid `type=schema,job`; AC-M20 scoped gate passed and this task did not modify that file.
+
 ## Result
 
-AC-M20 代码级修复已完成并通过聚焦后端、前端、迁移、打包和运行态健康验证；但真实写入型 Playwright E2E 缺少任务专用 `RRM_*` 前置，当前不能标记为最终 `ACCEPTED`。当前结论为：代码修复成功，最终验收阻塞于真实 E2E 前置数据。
+AC-M20 代码级修复已完成并融合到 `int_main` 提交 `0626a3a0b`，通过聚焦后端、前端、迁移、打包、类型检查和运行态健康验证；但真实写入型 Playwright E2E 缺少任务专用 `RRM_*` 前置，当前不能标记为最终 `ACCEPTED`。当前结论为：代码修复成功，最终验收阻塞于真实 E2E 前置数据。
