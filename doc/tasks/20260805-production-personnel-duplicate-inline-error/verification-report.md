@@ -13,6 +13,10 @@
 - PASS: `node tests\e2e\production-leader-remove-header-content-static.spec.js`
 - PASS: `pnpm ts:check`
 - PASS: task-path `git diff --check`，仅有 LF/CRLF 归一化 warning
+- PASS: bug regression evidence validator
+- PASS: frontend feature evidence validator
+- PASS: 2026-08-05 收尾前重新运行上述四个静态合同、`pnpm ts:check` 和两个 evidence validator
+- PASS: `3db8a7030` 已是 `origin/int_main` 的祖先，本任务生产代码和回归测试已推送
 
 ## Evidence Summary
 
@@ -25,6 +29,8 @@
 
 ## Final Status
 
-- in_progress
-- 实现和定向验证已完成，等待 evidence validator、Git 边界复核和收尾。
-
+- ready_for_closeout
+- 实现、定向验证、证据校验和实现推送均已完成。
+- 本任务实现及测试位于共享基线提交 `3db8a7030`；该提交包含其它任务文件，未伪装为独立实现提交。
+- 当前 Vue 未提交 diff 仅属于并发任务，本任务不触碰。
+- 待运行 cleanup preview/apply；完成后再标记 `completed`。

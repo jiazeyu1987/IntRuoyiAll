@@ -17,7 +17,9 @@
 - [x] 新增聚焦回归合同并取得 RED
 - [x] 实现弹窗内错误提示和退出机制
 - [x] 运行 GREEN、相邻回归和 TypeScript 检查
-- [ ] 校验技能证据并更新收尾状态
+- [x] 校验 bug regression 和 frontend feature 证据
+- [x] 确认实现与回归测试已进入共享基线并推送
+- [ ] cleanup 与最终收尾记录
 
 ## Expected Verification
 
@@ -30,11 +32,14 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-- 只修改新增人员弹窗的错误展示和任务专用静态合同。
-- 不修改 API、后端校验、错误码、数据库、权限、菜单或真实数据来源。
-- 当前分支存在非本任务 ahead 基线提交，提交和推送需单独复核。
+- 弹窗内红色错误、6 秒自动消失、手动关闭、修改显示名清除、关闭弹窗清理和组件卸载清理均已实现并通过验证。
+- 2026-08-05 复验：聚焦合同、三个相邻合同、`pnpm ts:check`、bug regression validator 和 frontend feature validator 均通过。
+- 本任务实现、测试和初始证据已包含在共享基线提交 `3db8a7030` 中；该提交同时包含其它任务文件，任务记录明确保留此共享提交事实，不将其伪装为独立实现提交。
+- `3db8a7030` 已是 `origin/int_main` 的祖先，本任务生产代码和回归测试已推送。
+- 当前 Vue 工作区仅剩并发任务新增的 `single-line-toolbar` 变更，本任务不暂存、不提交、不回滚该变更。
+- 现已满足 cleanup preview/apply 前置，临时 evidence 将按默认规则清理，三个核心任务文档保留。
 
 ## 设计约束检查
 
