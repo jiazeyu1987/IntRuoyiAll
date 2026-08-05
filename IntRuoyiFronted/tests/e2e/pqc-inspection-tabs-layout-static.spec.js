@@ -79,7 +79,7 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /\.frontline-pqc-number-field\s*\{[\s\S]*grid-template-columns:\s*128px\s+58px\s+minmax\(0,\s*1fr\)\s+58px\s+42px[\s\S]*gap:\s*8px/,
+  /\.frontline-pqc-number-field\s*\{[\s\S]*grid-template-columns:\s*128px\s+58px\s+minmax\(54px,\s*1fr\)\s+58px\s+42px[\s\S]*gap:\s*8px/,
   'The formal PQC quantity controls must match the compact updated HTML preview layout.'
 )
 assert.match(

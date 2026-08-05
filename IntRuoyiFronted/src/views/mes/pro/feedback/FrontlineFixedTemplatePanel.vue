@@ -2448,8 +2448,8 @@ onUnmounted(() => {
   color: var(--frontline-ink);
 
   &.is-pqc {
-    grid-template-rows: 130px minmax(0, 1fr) 126px;
-    min-height: 860px;
+    grid-template-rows: 118px minmax(0, 1fr) 104px;
+    min-height: 820px;
   }
 }
 
@@ -2563,7 +2563,8 @@ onUnmounted(() => {
   gap: 20px;
 
   &.is-pqc {
-    grid-template-columns: 380px 520px 1fr 240px;
+    grid-template-columns: 340px 430px minmax(0, 1fr) 210px;
+    gap: 18px;
   }
 }
 
@@ -2605,6 +2606,30 @@ onUnmounted(() => {
 
 .frontline-top-card__order {
   font-size: 32px !important;
+}
+
+.frontline-operator-top.is-pqc {
+  .frontline-top-card {
+    padding: 18px 22px;
+
+    span {
+      font-size: 22px;
+      font-weight: 800;
+    }
+
+    strong {
+      margin-top: 10px;
+      font-size: 34px;
+    }
+  }
+
+  .frontline-top-card__order {
+    font-size: 34px !important;
+  }
+
+  .frontline-home-button {
+    font-size: 38px;
+  }
 }
 
 .frontline-home-button {
@@ -3431,9 +3456,10 @@ onUnmounted(() => {
 
 .frontline-pqc-type-tabs {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 
   button {
-    font-size: 36px;
+    font-size: 32px;
   }
 }
 
@@ -3447,9 +3473,9 @@ onUnmounted(() => {
 .frontline-pqc-form-area {
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
-  padding: 20px;
+  padding: 18px 16px;
   border: 3px solid var(--frontline-line);
   border-radius: 24px;
   background: #fbfdfb;
@@ -3457,20 +3483,20 @@ onUnmounted(() => {
 
 .frontline-pqc-number-field {
   display: grid;
-  grid-template-columns: 190px 82px minmax(0, 1fr) 82px 70px;
-  gap: 14px;
+  grid-template-columns: 128px 58px minmax(54px, 1fr) 58px 42px;
+  gap: 8px;
   align-items: center;
   min-width: 0;
 
   label {
-    font-size: 34px;
+    font-size: 25px;
     font-weight: 900;
   }
 
   button,
   input {
     width: 100%;
-    height: 76px;
+    height: 58px;
     min-width: 0;
     border: 3px solid var(--frontline-line);
     border-radius: 16px;
@@ -3481,22 +3507,22 @@ onUnmounted(() => {
   }
 
   button {
-    font-size: 44px;
+    font-size: 32px;
     cursor: pointer;
   }
 
   input {
-    font-size: 42px;
+    font-size: 32px;
   }
 
   span {
-    font-size: 30px;
+    font-size: 24px;
     font-weight: 900;
   }
 }
 
 .frontline-pqc-number-field.is-signature {
-  grid-template-columns: 190px minmax(0, 1fr) 70px;
+  grid-template-columns: 128px minmax(54px, 1fr) 42px;
 }
 
 .frontline-pqc-defect-description {
@@ -3508,7 +3534,7 @@ onUnmounted(() => {
 
   label {
     padding-top: 12px;
-    font-size: 34px;
+    font-size: 25px;
     font-weight: 900;
   }
 
