@@ -37,7 +37,7 @@
 - BDD: QA 缺正式路线范围阻断保存发布 -> Given DCC 项目未绑定正式工艺路线、缺激活版本、缺质检工序或存在多个质检工序 When QA 用户保存草稿或发布 Then 页面显示正式路线范围错误并阻断保存/发布，不用默认值或旧字段冒充成功。
 - BDD: QA 手动绑定工艺路线 -> Given DCC 项目已绑定 MDM 产品但尚未绑定当前工艺路线 When QA 用户选择一个已发布/已启用且有 ACTIVE 版本的工艺路线并点击手动绑定 Then 页面调用 QA 专用产品-工艺路线绑定 API 写入绑定，重新读取产品当前绑定，并从正式路线版本、质检工序、排产配置和批记录配置带出适用范围。
 - BDD: QA 手动绑定失败可见 -> Given 用户选择的路线没有当前生效版本、绑定 API 失败或绑定后无法读取当前产品路线 When 用户点击手动绑定 Then 页面显示可见错误并继续阻断保存/发布，不使用所选路线本地值冒充绑定成功。
-- BDD: 顶部黄框显示项目选择内容 -> Given QA 用户进入规程配置页 When 页面渲染顶部 QA 标题黄框 Then 黄框内同时显示标题、正式接口提示和必填 `DCC 项目代码` 选择框，不把选择内容拆到黄框外的独立卡片。
+- BDD: 顶部黄框显示项目选择内容 -> Given QA 用户进入规程配置页 When 页面渲染顶部 QA 标题区 Then 顶部区域只保留标题、DRAFT 状态和必填 `DCC 项目代码` 选择框，不显示副标题或绿色接口提示。
 - BDD: 红框说明和空白带隐藏 -> Given QA 用户查看规程配置页 When 页面渲染顶部项目选择区、页签和检验项目表 Then 不显示副标题、绿色正式接口提示、项目选择与页签之间的空白带、页签与表格之间的空白带。
 
 ## RED / GREEN Evidence
@@ -88,6 +88,12 @@
 - GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs doc/tasks/20260805-qa-regulation-publish-fix/task.md doc/tasks/20260805-qa-regulation-publish-fix/execution-log.md` -> PASS，仅有 Git CRLF 工作区提示，无 whitespace error。
 - GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/bug-regression-evidence.md` -> PASS。
 - GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md` -> PASS。
+- RED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，预期原因：截图红框隐藏合同要求顶部项目区使用 compact wrapper 且不渲染 `qa-regulation-page__subtitle` / `data-qa-regulation-api-ready`，旧页面仍显示副标题和绿色提示。
+- GREEN: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，顶部副标题、绿色正式接口提示已移除，项目区和页签区使用 compact wrapper 去掉红框空白带。
+- GREEN: `node tests/e2e/qa-regulation-manual-route-selectable-static.spec.cjs` -> PASS。
+- GREEN: `node tests/e2e/qa-regulation-final-applicability-static.spec.cjs` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS，红框隐藏样式调整后 Vue/TypeScript 类型检查通过。
+- REGRESSION BLOCKED: `node tests/e2e/unified-list-template-empty-tabs-system-static.spec.js` -> FAIL，仍为当前系统标准列表模板接入点 89 vs 合同 88 的并行计数漂移。
 
 ## Experience Consolidation
 
@@ -105,6 +111,7 @@
 - `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：PASS，输出 `PASS role-matrix QA regulation standalone page static contract`。
 - `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：当前复跑 BLOCKED，失败于 `Pressure-pump IDI seed data must contain all 22 PDF 5.1 process inspection rows. 5 !== 22`，与本次 QA 手动绑定下拉可选性聚焦链路不同；本次使用 `qa-regulation-manual-route-selectable-static.spec.cjs` 覆盖截图回归。
 - `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：本轮复跑 PASS，新增黄框布局合同、22 条 PDF 数据合同和 QA 手动绑定正式接口合同均通过。
+- `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：红框隐藏本轮复跑 PASS，新增断言确认副标题、绿色提示和页签空内容不再渲染。
 - `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js`：PASS，输出 `PASS: unified list template empty condition tabs system contract`。
 - `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js`：本轮复跑 BLOCKED，当前系统接入点数量为 89，旧合同锁定 88；记录为并行接入点计数漂移，不作为本轮黄框布局修复通过证据。
 - `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/bug-regression-evidence.md`：PASS，输出 `Bug regression evidence is valid.`

@@ -15,7 +15,7 @@
 
 - AC-M09：QA 可维护并发布检验规程，页面需降低信息密度且保持正式保存/发布链路。
 - 验收：未选择项目时只展示必填 `DCC 项目代码` 下拉；选择后展示 Tab、适用范围、检验规则、检验项目和发布检查；旧已配置/待配置列表不再显示；列表内容使用 `UnifiedListTemplate`；适用范围从正式工艺路线自动带出，路线版本、路线工序、路线 ID、路线版本 ID、路线工序 ID、工序 ID、SOP、生产系数、示例订单数和批记录绑定不再作为手工输入项出现；产品未绑定路线时可在适用范围区域显式选择工艺路线并绑定。
-- 截图回归验收：顶部黄框内必须同时显示 QA 标题、正式接口提示和必填 `DCC 项目代码` 选择框；不得把项目选择内容拆到黄框外的独立卡片。
+- 截图回归验收：顶部项目区只保留 QA 标题、DRAFT 状态和必填 `DCC 项目代码` 选择框；红框标注的副标题、绿色正式接口提示、项目选择与页签之间空白带、页签与表格之间空白带均不显示。
 
 ## UI Entry Points And Owned Files
 
@@ -43,7 +43,8 @@
 - BDD: QA 缺正式路线范围阻断保存发布 -> Given 正式路线绑定、激活版本或唯一质检工序缺失 When QA 用户保存草稿或发布 Then 页面显示路线范围加载失败并阻断动作，不以默认值或手工黄框字段替代。
 - BDD: QA 手动绑定工艺路线 -> Given DCC 项目对应产品缺少当前工艺路线 When QA 用户选择已发布/已启用且有当前生效版本的工艺路线并点击手动绑定 Then 页面通过 QA 专用产品路线绑定 API 写入绑定，重新读取当前绑定，并从正式路线配置带出适用范围。
 - BDD: QA 手动绑定失败可见 -> Given 绑定 API 失败、路线缺当前版本或绑定后读取不到产品路线 When 用户点击手动绑定 Then 页面显示错误并阻断保存/发布。
-- BDD: 顶部黄框显示项目选择内容 -> Given QA 用户进入规程配置页 When 页面渲染顶部 QA 标题黄框 Then 黄框内同时显示标题、正式接口提示和必填 `DCC 项目代码` 选择框，不把选择内容拆到黄框外的独立卡片。
+- BDD: 顶部黄框显示项目选择内容 -> Given QA 用户进入规程配置页 When 页面渲染顶部 QA 标题区 Then 顶部区域只保留标题、DRAFT 状态和必填 `DCC 项目代码` 选择框，不显示副标题或绿色接口提示。
+- BDD: 红框说明和空白带隐藏 -> Given QA 用户查看规程配置页 When 页面渲染顶部项目选择区、页签和检验项目表 Then 不显示副标题、绿色正式接口提示、项目选择与页签之间的空白带、页签与表格之间的空白带。
 
 ## RED
 
@@ -54,6 +55,7 @@
 - RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, expected reason:旧 QA 页面把 `CommonStatusEnum.ENABLE` 路线禁用为“已启用，仅回显”，导致截图中的已发布路线不能选择。
 - RED: `node tests\e2e\qa-regulation-manual-route-selectable-static.spec.cjs` -> FAIL, expected reason:QA 手动绑定下拉的 `<el-option>` 缺少显式 `:disabled="false"`，无法锁住“已发布/已启用路线仍可选”的截图回归要求。
 - RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, expected reason:顶部黄框显示合同要求 `DCC 项目代码` 选择框位于顶部 QA 标题黄框内，旧布局将选择框拆成黄框下方独立 `ContentWrap`。
+- RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, expected reason:红框隐藏合同要求 compact wrapper、移除副标题和绿色提示，旧页面仍显示 `qa-regulation-page__subtitle` 与 `data-qa-regulation-api-ready`。
 
 ## GREEN
 
@@ -64,7 +66,7 @@
 - GREEN: `node tests\e2e\qa-regulation-manual-route-selectable-static.spec.cjs` -> PASS，QA 手动绑定路线选项显式可选，不复用产品维护页的启用路线置灰守卫，不显示“已启用，仅回显”，并保留 QA 专用绑定 API。
 - GREEN: `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js` -> PASS，系统标准列表接入点从 84 更新为 88，显式隐藏筛选列表从 10 更新为 14。
 - GREEN: `pnpm ts:check` -> PASS，Vue/TypeScript 类型检查通过。
-- GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，顶部黄框现在同时包含标题、正式接口提示、`DCC 项目代码` 选择框和加载失败重试区，且手动绑定候选恢复为 `ProRouteApi.getRouteItemBindingList()`。
+- GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，顶部区域只保留标题、DRAFT、`DCC 项目代码` 选择框和加载失败重试区，副标题、绿色提示和红框空白带均不再渲染，且手动绑定候选恢复为 `ProRouteApi.getRouteItemBindingList()`。
 - GREEN: `node tests\e2e\qa-regulation-final-applicability-static.spec.cjs` -> PASS，末检不适用依据合同未受黄框布局调整影响。
 
 ## Verification

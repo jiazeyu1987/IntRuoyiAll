@@ -29,7 +29,7 @@ assert.match(templateMatch[0], /table-key="mes\.pro\.edhr\.formFillLog\.main"/, 
 assert.match(templateMatch[0], /@pagination="getList"/, '分页必须通过标准列表模板触发查询')
 assert.match(route, /title:\s*'表单日志'/, '前端路由标题必须显示为表单日志')
 
-const tableSlot = pageWithoutVueComments.match(/<template\s+#table>[\s\S]*?<\/template>/)
+const tableSlot = pageWithoutVueComments.match(/<template\s+#table(?:\s*=\s*"[^"]*")?\s*>[\s\S]*?<\/template>/)
 assert.ok(tableSlot, '标准列表模板必须提供 table slot')
 assert.match(tableSlot[0], /data-user-table-column-explicit/, '表格必须启用显式列配置')
 assert.match(tableSlot[0], /data-user-table-key="mes\.pro\.edhr\.formFillLog\.main"/, '内部表格必须使用同一 user table key')
@@ -77,9 +77,9 @@ assert.doesNotMatch(
   /\{\s*key:\s*'batchRecordReportId'[\s\S]*label:\s*'表单'/,
   '表单快速过滤不得继续只绑定 batchRecordReportId'
 )
-assert.match(page, /import \{ formatDate \} from '@\/utils\/formatTime'/, '填写时间必须使用统一时间格式化工具')
+assert.match(page, /import \{ formatEdhrDateTime \} from '@\/views\/mes\/pro\/edhr\/shared\/dateTime'/, '填写时间必须使用统一 eDHR 时间格式化工具')
 assert.match(pageWithoutVueComments, /const\s+formatFormLogDateTime\s*=\s*\(value\?:\s*string\s*\|\s*number\s*\|\s*null\)/, '必须提供表单日志时间格式化函数')
-assert.match(pageWithoutVueComments, /formatDate\(parsedDate,\s*'YYYY年M月D日 HH:mm:ss'\)/, '填写时间必须显示为年月日 时分秒格式')
+assert.match(pageWithoutVueComments, /return\s+formatEdhrDateTime\(value\)/, '填写时间必须通过共享 eDHR 时间格式化函数显示')
 assert.match(
   pageWithoutVueComments,
   /label="填写时间"[\s\S]*formatFormLogDateTime\(row\.changedAt\)/,

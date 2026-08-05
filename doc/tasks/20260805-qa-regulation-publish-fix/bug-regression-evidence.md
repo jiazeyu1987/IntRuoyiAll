@@ -2,27 +2,27 @@
 
 ## Bug Summary And Expected Behavior
 
-- Bug: QA 规程配置页顶部黄框只显示标题和接口提示，`DCC 项目代码` 选择框被拆到黄框下方独立卡片，用户反馈黄框里的内容不显示。
-- Expected: 顶部黄框内同时显示 QA 标题、正式接口提示、必填 `DCC 项目代码` 选择框和加载失败重试区；选择项目后再显示 Tab 和规程内容。
+- Bug: QA 规程配置页顶部仍显示副标题、绿色正式接口提示，并在项目选择与页签、页签与表格之间留下红框标注的空白带，用户要求红框里的内容不显示。
+- Expected: 顶部区域只保留 QA 标题、DRAFT 状态、必填 `DCC 项目代码` 选择框和加载失败重试区；副标题、绿色接口提示和红框空白带不渲染；选择项目后紧凑显示 Tab 和规程内容。
 
 ## Reproduction Command Or Path
 
-- Reproduction path: 打开 `/mes/pro/process-pool/qa-regulation`，观察顶部 QA 标题黄框与下方 DCC 项目选择卡片分离。
-- RED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，新增断言命中 `The DCC project selector must render inside the top yellow header panel instead of in a detached card.`
+- Reproduction path: 打开 `/mes/pro/process-pool/qa-regulation`，观察顶部副标题、绿色提示和两个红框空白带仍可见。
+- RED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，新增断言命中 compact wrapper / subtitle / API-ready banner 要求。
 
 ## Root Cause
 
-- `QaRegulationPage.vue` 将顶部说明黄框和 `data-qa-regulation-dcc-project` 项目选择器拆成两个连续 `ContentWrap`，导致用户截图标注的黄框区域没有项目选择内容。
-- 同时主 QA 静态合同跑到更深断言后发现手动绑定路线候选读取退成 `ProRouteApi.getRouteSimpleList()`，与正式产品绑定候选接口合同不一致。
+- `QaRegulationPage.vue` 顶部区域保留了上轮接口说明和绿色成功提示，Element Plus 空 tab content 与 `ContentWrap` 默认底部间距叠加，形成截图红框中的说明区和空白带。
+- 前一次顶部合并修复保证了 DCC 选择框位置，但没有按新截图反馈隐藏说明和空白区域。
 
 ## Regression Test Added Or Updated
 
-- Updated `IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` to assert the DCC project selector renders inside the first/top yellow header `ContentWrap`.
+- Updated `IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` to assert the compact project/tabs wrappers, removal of subtitle/API banner, and hidden empty Element Plus tab content.
 - Existing adjacent contracts retained: `qa-regulation-manual-route-selectable-static.spec.cjs` and `qa-regulation-final-applicability-static.spec.cjs`.
 
 ## RED Command And Expected Failure
 
-- RED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，expected reason: 旧布局把 `DCC 项目代码` 选择框拆到顶部黄框外。
+- RED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，expected reason: 旧页面仍显示副标题、绿色接口提示和红框空白带。
 
 ## GREEN Command And Passing Result
 
@@ -34,7 +34,7 @@
 
 ## Verification
 
-- The focused static contract covers the top yellow header layout and rejects a detached DCC project selector card.
+- The focused static contract covers the red-box hidden-content requirement: no subtitle, no green API-ready banner, compact project/tabs wrappers, and no empty tabs content.
 - Adjacent QA contracts and `pnpm ts:check` confirm the layout change does not break manual route binding, final-inspection applicability, or Vue/TypeScript types.
 
 ## Risk And Regression Scope
