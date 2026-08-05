@@ -31,7 +31,8 @@
 - 2026-08-05：`frontend-feature-evidence.md` 已通过技能 validator，关键 RED/GREEN 和验收结论已归档到本日志与 `verification-report.md`，可进入 cleanup。
 - 2026-08-05：实现提交 `480ae46f0`，提交标题 `fix: move QA display fields to title bar`。
 - 2026-08-05：`task-closeout-cleanup` preview/apply 均通过；保留 `task.md`、`execution-log.md`、`verification-report.md`，删除已归档的临时 `frontend-feature-evidence.md`。
-- 2026-08-05：最终 closeout 提交和 `git push origin int_main` 在本记录提交后执行，推送结果以最终 Git 状态为准。
+- 2026-08-05：closeout 提交 `3e1e08b26`，提交标题 `docs: close QA display fields title bar task`。
+- 2026-08-05：首次 `git push origin int_main` 因 GitHub HTTPS `TLS connect error: unexpected eof while reading` 失败；使用一次性 `http.sslBackend=schannel` 完成 fetch 后，确认 `origin/int_main=4a2b24c39` 已包含 `480ae46f0` 和 `3e1e08b26`，`git merge-base --is-ancestor` 双向均为 0，分支不再 ahead。
 
 ## Blockers
 

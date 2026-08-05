@@ -32,7 +32,9 @@ QA 规程检验项目页的“显示字段”按钮已移动到“工序检验�
 ## Closeout
 
 - 实现提交：`480ae46f0`。
+- 收尾提交：`3e1e08b26`。
 - cleanup preview：PASS。
 - cleanup apply：PASS。
 - 保留：`task.md`、`execution-log.md`、`verification-report.md`。
 - 删除：已通过 validator 且结论已归档的 `frontend-feature-evidence.md`。
+- 远端同步：`origin/int_main=4a2b24c39` 已包含本任务实现与收尾提交，最终分支不再 ahead。
