@@ -12,7 +12,7 @@
 - [x] 运行定向后端验证并记录 GREEN/REGRESSION 证据。
 - [x] 补齐技能 evidence、验证报告和 evidence validator 结果。
 - [x] 完成 task-closeout-cleanup preview/apply。
-- [ ] 完成提交/推送收尾。
+- [x] 完成提交/推送收尾。
 
 ## Expected Verification
 
@@ -22,9 +22,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-实现、定向 Maven 验证、evidence validator 和 cleanup apply 已完成；GREEN 在 `D:\IntRuoyiWorktree\20260805-ac-m18-verify-sparse` 隔离 worktree 中通过，90 tests / 0 failures / 0 errors / 0 skipped。剩余收尾为共享工作区提交/推送门禁；当前主工作区存在大量非 AC-M18 脏改动且 `int_main` ahead 13，不能安全混入本任务提交。
+实现、定向 Maven 验证、evidence validator、cleanup apply 和提交收尾已完成；GREEN 在 `D:\IntRuoyiWorktree\20260805-ac-m18-verify-sparse` 隔离 worktree 中通过，90 tests / 0 failures / 0 errors / 0 skipped。非 AC-M18 脏区已按项目规则保存为独立基线提交（`057fba5b9`、`f19a29f0e`、`5e0acef75`、`546915887`、`44e4d5fc4`、`e8e6ab26`、`2151a27b9`、`35133db9f`、`994930ed1`、`dd336f987`），随后本任务收尾记录单独提交。
 
 ## 设计约束检查
 

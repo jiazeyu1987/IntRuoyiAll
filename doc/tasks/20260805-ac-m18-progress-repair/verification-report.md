@@ -23,7 +23,8 @@ passed
 - The timed-out current-task Maven PID 35688 was stopped.
 - Unrelated Maven processes continued to occupy `E:\IntRuoyi\IntRuoyiBackend`; per project rules, they were not killed.
 
-## Remaining Closeout
+## Closeout
 
-- Commit/push closeout remains blocked by shared workspace state: `int_main` is ahead 13 and the working tree contains extensive unrelated dirty/untracked files from concurrent tasks.
-- AC-M18 is implementation-verified and cleanup-complete, but not marked `completed` because final commit/push cannot be performed safely without mixing unrelated work or violating the dirty-baseline policy.
+- Non-AC-M18 dirty workspace files were preserved in independent baseline commits before the AC-M18 closeout docs: `057fba5b9`, `f19a29f0e`, `5e0acef75`, `546915887`, `44e4d5fc4`, `e8e6ab26`, `2151a27b9`, `35133db9f`, `994930ed1`, `dd336f987`.
+- A stale 0-byte `.git/index.lock` was removed only after the project lock-recovery gate confirmed no active `git` process and age over 60 seconds.
+- AC-M18 implementation and verification files were already present in prior shared commits; task status is now `completed` and ready for the final closeout commit/push.
