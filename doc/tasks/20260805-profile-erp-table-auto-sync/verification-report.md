@@ -71,4 +71,12 @@
 
 ## Final Result
 
-PASS。已完成计划内实现、自动化回归、真实页面保存回显、数据库读回、数据恢复和可读展示复验，无剩余完成阻塞。
+FUNCTION PASS。已完成计划内实现、自动化回归、真实页面保存回显、数据库读回、数据恢复和可读展示复验。
+
+## Closeout Status
+
+- 可读性修复提交：`bf2a4aa1d`。
+- 已验证的本地主分支合并提交：`c38debb9a`。
+- 最新定向复验：前端 ERP/NAS 静态合同、`pnpm ts:check`、SQL pytest 4 项、ERP Maven 合同测试 4 项、端口守卫和 `git diff --check` 全部 PASS。
+- 任务自有 `8083/48083` 服务已停止，端口已释放。
+- 当前任务状态保持 `ready_for_closeout`：`E:\IntRuoyi` 仍有其它任务持续写入，不能安全执行 clean-worktree 要求的 `--ff-only` 融合和 worktree 删除。

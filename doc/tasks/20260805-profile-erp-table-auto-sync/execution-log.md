@@ -60,3 +60,19 @@ BDD: 可读地展示 ERP 同步运行结果 -> Given 系统已有 ERP 同步水�
 - E2E RESET: 通过页面恢复自动同步为禁用；未点击“立即执行一次”，未触发额外 Kingdee 拉取。
 - E2E READABILITY: 真实非空运行记录显示“自动调度”“成功”、可读日期时间和“失败原因”；原始状态 `20`、13 位时间戳和英文列名不再可见，控制台错误为 0。
 - EXPERIENCE: 已将运行记录用户可读展示门禁合并到 `docs/frontend-development.md`，并更新 `docs/experience-index.md`。
+
+## Commit And Closeout Progress
+
+- IMPLEMENTATION: `35c583ce5` 已包含 ERP 表格自动同步正式实现。
+- VERIFICATION FIX: `bf2a4aa1d fix: finish ERP table auto sync verification` 已包含真实 E2E 暴露的运行记录可读性修复及验证证据。
+- MAIN MERGE: `c38debb9a` 已将当时本机 `int_main` 合入功能分支，无冲突。
+- POST-MERGE GREEN: `node tests\e2e\profile-erp-table-auto-sync-static.spec.js` -> PASS。
+- POST-MERGE GREEN: `node tests\e2e\profile-nas-table-auto-sync-static.spec.js` -> PASS。
+- POST-MERGE GREEN: `pnpm ts:check` -> PASS。
+- POST-MERGE GREEN: `python -X utf8 -m pytest script\tests\test_erp_kingdee_table_auto_sync_sql.py` -> PASS，4 passed。
+- POST-MERGE GREEN: `mvn.cmd -pl yudao-module-erp -am "-Dtest=cn.iocoder.yudao.module.erp.kingdeeautosync.ErpKingdeeTableAutoSyncContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，4 tests / 0 failures / 0 errors。
+- POST-MERGE REGRESSION: `scripts\preflight\branch-runtime-port-guard.ps1` 与 `git diff --check` -> PASS。
+- RUNTIME CLOSE: 任务自有前后端服务已停止，`8083/48083` 均无监听。
+- CLEANUP PREVIEW: keep/delete 范围符合任务约束；因当前分支不能快进合入最新 `int_main`，且主工作区仍脏，preview 按规则返回 blocked，未执行 apply。
+- SHARED WORKSPACE SAFETY: 尝试准备主工作区既有改动基线时，连续发现其它任务新增和修改 `TeamLeaderWorkbenchPage.vue`、API、测试及任务文档；已撤销本任务产生的暂存状态并完整保留所有并行改动，未提交、未回滚、未删除任何其它任务文件。
+- CLOSEOUT BLOCKER: 当前主工作区 HEAD 为 `adc862527`，并仍被其它任务持续写入。待 `E:\IntRuoyi` 稳定且 `git status --porcelain` 为空后，需重新合入最新 `int_main`、复跑端口守卫、执行 cleanup preview/apply，并以 `--ff-only` 融合。
