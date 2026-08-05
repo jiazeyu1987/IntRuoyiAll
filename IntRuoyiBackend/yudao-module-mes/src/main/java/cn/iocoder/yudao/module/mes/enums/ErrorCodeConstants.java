@@ -583,6 +583,14 @@ public interface ErrorCodeConstants {
             new ErrorCode(1_040_600_302, "QA 检验规程不存在：{}");
     ErrorCode QA_INSPECTION_REGULATION_SNAPSHOT_INVALID =
             new ErrorCode(1_040_600_303, "QA 检验规程发布快照无效：{}");
+    ErrorCode QA_INSPECTION_REGULATION_REQUIRED_RULE_MISSING =
+            new ErrorCode(1_040_600_304, "QA 检验规程发布失败，缺少必要检验规则：{}");
+    ErrorCode QA_INSPECTION_REGULATION_ITEM_INVALID =
+            new ErrorCode(1_040_600_305, "QA 检验规程检验项目无效：{}");
+    ErrorCode QA_INSPECTION_REGULATION_VERSION_IMMUTABLE =
+            new ErrorCode(1_040_600_306, "QA 检验规程版本已发布，不允许原地修改：{}");
+    ErrorCode QA_INSPECTION_REGULATION_VERSION_CONFLICT =
+            new ErrorCode(1_040_600_307, "QA 检验规程版本状态冲突，无法执行当前操作：{}");
 
     // ========== MES 质量管理-质检指标（1-040-601-000） ==========
     ErrorCode QC_INDICATOR_NOT_EXISTS = new ErrorCode(1_040_601_000, "质检指标不存在");
@@ -788,6 +796,7 @@ public interface ErrorCodeConstants {
     ErrorCode WM_TRANSFER_ALREADY_FINISHED = new ErrorCode(1_040_710_007, "转移单已完成或已取消，无法继续操作");
     ErrorCode WM_TRANSFER_NO_LINE = new ErrorCode(1_040_710_008, "转移单至少需要一条行数据");
     ErrorCode WM_TRANSFER_DETAIL_QUANTITY_MISMATCH = new ErrorCode(1_040_710_009, "转移单行数量与明细数量不一致");
+    ErrorCode WM_TRANSFER_MANUAL_OPERATION_FORBIDDEN = new ErrorCode(1_040_710_010, "转移单由 ERP/正式库存链路生成，禁止 MES 本地手工写操作");
     ErrorCode WM_TRANSFER_LINE_NOT_EXISTS = new ErrorCode(1_040_710_100, "转移单行不存在");
     ErrorCode WM_TRANSFER_LINE_QUANTITY_EXCEED_STOCK = new ErrorCode(1_040_710_101, "转移数量不能超过库存数量");
     ErrorCode WM_TRANSFER_DETAIL_NOT_EXISTS = new ErrorCode(1_040_710_200, "调拨明细不存在");

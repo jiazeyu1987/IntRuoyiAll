@@ -69,7 +69,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             recordTransferTracesIfRequested(existing, reqBO.getTransferIds());
             return existing.getId();
         }
-        BigDecimal erpFixedQuantity = workOrderService.validateWorkOrderExists(reqBO.getWorkOrderId()).getQuantity();
+        BigDecimal erpFixedQuantity = workOrderService.validateWorkOrderConfirmed(reqBO.getWorkOrderId()).getQuantity();
         if (erpFixedQuantity == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder.erpFixedQuantitySnapshot");
         }
@@ -182,7 +182,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (leaderUserId == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrderList");
         }
-        return activeOrderMapper.selectActiveList();
+        return activeOrderMapper.selectActiveListByLeader(leaderUserId);
     }
 
     private MesProScheduleOrderDO requireMatchingScheduleOrder(MesTeamLeaderActiveOrderAddReqBO reqBO) {

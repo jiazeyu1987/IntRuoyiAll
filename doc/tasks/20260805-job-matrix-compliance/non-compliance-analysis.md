@@ -195,6 +195,35 @@
 4. PQC 组长退回后，PQC 补正可形成 revision/diff；详情必须能区分首次提交原始文本和补正后文本，失败条件为只显示新值且无法追溯旧值。
 5. 负向路径：没有填写不良说明却提交不合格、前端只允许固定列表、后端未保存手输字段、跨订单/跨工序详情可见、修订直接覆盖无 diff，均应失败。
 
+## 2026-08-05 代码级继续审计：明确不符合项
+
+用户追问项：`从系统代码分析来看，还有哪些不符合`。
+
+本节只记录从当前系统代码直接能看出的结构性不符合或未闭合风险；不重复“62 项尚未 ACCEPTED”这一总体验收状态。
+
+| 序号 | 涉及 AC | 代码级不符合/未闭合风险 | 代码证据 | 影响 |
+|---:|---|---|---|---|
+| 1 | AC-M08 | 订单加入活跃池时直接置为 `ACTIVE`，没有正式“开工检查/开工就绪”模型。 | `MesTeamLeaderActiveOrderServiceImpl.addActiveOrder` 创建 `MesProcessPoolActiveOrderDO` 后直接设置 `activeStatus/businessStatus = STATUS_ACTIVE`；仅通过 `requireMatchingScheduleOrder`、`insertProcessSnapshots` 等异常阻塞，不返回逐项检查结果、来源、缺项和阻塞原因。`MesProcessPoolTeamLeaderController` 当前提供加入/移出、异常上报、员工/设备维护等入口，未发现 start-check/readiness checklist 接口。 | 只能证明“加入时做了部分前置校验”，不能证明班组长开工前看到逐项结果、缺项不标记就绪、缺项不自动创建异常。 |
+| 2 | AC-D01 / AC-D02 | 员工来源仍是班组长本地档案，不是正式 HR/用户主数据强约束。 | `MesTeamLeaderRuntimeConfigServiceImpl#createEmployee` 直接插入 `MesProcessPoolTeamEmployeeProfileDO`，`systemUserId` 可为空；`bindEmployeeToProcess` 只校验本地 profile 属于 leader 且 enabled；Controller 暴露 `/employee-profile/create` 和 `/process-employee-binding/save`。 | 不能证明“班组员工来自正式人员档案并可按正式身份追溯”；临时/本地员工仍可能进入后续报工绑定。 |
+| 3 | AC-D05 / AC-D06 | 设备来源仍允许班组长本地创建设备，不是只能从正式设备台账绑定。 | `MesTeamLeaderRuntimeConfigServiceImpl#createDevice` 从请求的 `deviceCode/deviceName/deviceStatus` 直接创建 `MesProcessPoolTeamDeviceDO`；Controller 暴露 `/team-device/create`；`assertDeviceAvailable` 只校验本地 enabled 和本地状态 `ENABLED`。 | 设备可用性有局部校验，但源头不是正式设备台账，无法满足“只能从正式设备台账绑定工序设备”。 |
+| 4 | AC-D07 / AC-D08 / AC-M11 | 设备参数上下限仅在维护配置时校验，提交报工时没有后端按上下限逐项判断、阻塞或生成复核提醒。 | `saveDeviceParameterRule` 与 `validateRange` 校验配置下限、上限、默认值；一线页面将 `equipmentParameters` 作为自由对象提交；当前检索未发现提交服务读取参数规则并判断 `lowerLimit/upperLimit` 的超限逻辑或“超限复核提醒”对象。 | 配置存在不等于运行时执行；越界值、伪造参数编码、缺参数或类型错误仍缺少后端 fail-fast/提醒证据。 |
+| 5 | AC-M09 / AC-D15~D23 | QA 检验规程后端当前主要是只读发布版本查询，没有正式保存草稿、校验完整性、发布/启用接口。 | `MesQaInspectionRegulationController` 只有 `/published-version` 和 `/project-statuses` 两个 GET；`MesQaInspectionRegulationServiceImpl` 只读取最新已发布版本和产品配置状态；前端 `QaRegulationPage.vue` 明示“正式保存/发布接口未接入，本页调整仅用于前端规则预览和发布前检查，未写入后台”。 | 不能证明 QA 可维护、保存草稿、发布不可变版本；首检/巡检/末检规则的正式发布链路仍不完整。 |
+| 6 | AC-M12~M15 / AC-D18~D20 | 未发现生产代码按 QA 规程生成 PQC 任务。 | 主代码检索 `MesPqcInspectionTaskDO.builder()`、`pqcInspectionTaskMapper.insert`、`create/generate Pqc task` 未发现正式生成服务；`MesPqcInspectionTaskMapper` 只提供查询 pending/list 和 `updateSubmittedIfPending`；PQC 提交服务要求已有 `pqcTaskId` 且任务为 `PENDING`。 | 首检、上午巡检、下午巡检、末检无法证明按发布规程自动生成任务；`301×5%` 向上取整、班次/轮次、首检固定数量等规则也缺少后端生成证据。 |
+| 7 | AC-D27 / AC-D28 / AC-M12~M15 | PQC 数值型样本没有按标准上下限判定；前端还会用标准下限自动补齐空样本。 | 前端 `pqcInspectionItems` 把数值项默认值设为 `standardLowerLimit`，`getPqcStoredPieceValues` 会补齐到检验数量；`resolvePqcResult` 只在损耗数量大于 0 或逐件值等于“各格/不合格”时失败，不比较数值上下限；后端 `resolvePieceJudgement` 同样只看值是否为“不合格”或总结果是否失败/成功。 | 缺失数值输入或越界数值可能被默认值/总结果掩盖，不能证明逐件明细按规程标准真实判定。 |
+| 8 | AC-D03 新口径 / AC-D28 | PQC 提交结构缺少“不合格原因/说明”专用字段。 | `MesFrontlinePqcSubmitReqVO` 和 `MesFrontlinePqcSubmitCommand` 只有 `inspectionResult`、`itemResults`、`sampleValues`、`rawPayload` 等字段；`ItemResult` 只有项目、设备和样本值；前端 rawPayload 记录 `inspectionType/patrolRound/inspectionQuantity/scrapQuantity/pqcPieceValues`，未看到手输失败原因字段。 | 按新业务口径，PQC 不再维护固定不良原因主数据时，系统仍不能证明“不合格时手动输入说明并保存、回显、追溯”。 |
+| 9 | AC-D03 旧口径迁移风险 | 系统仍保留班组长“不良原因”主数据维护和一线生产缺陷原因下发。 | Controller 暴露 `/defect-reason/create`；运行态配置仍返回 `defectReasons`；前端生产缺陷原因来自 runtime config。 | 如果矩阵口径已经改为 PQC 手动说明，则旧“不良原因目录”不能作为符合证据；还需确认不会要求 PQC 依赖固定原因列表。 |
+| 10 | AC-D36 | PQC 不合格没有看到自动生成独立质量异常的正式链路。 | `MesWorkOrderAbnormalReportServiceImpl#markAndReport` 只根据生产组长手工请求创建 `MesProcessPoolWorkOrderAbnormalDO`；Controller 入口是 `/work-order/abnormal/report`；针对 `INSPECTION_RESULT_FAILURE` 的检索只落在 PQC 结果判定/事件校验，未发现从 PQC failure 自动 insert 异常。 | 不合格 PQC 结果可能只停留在 PQC event/record，不能证明形成独立质量异常、责任和解除条件。 |
+| 11 | AC-M20 / AC-M21 / AC-M22 | PQC 组长确认后的任务状态闭环不完整：放行预检要求 `CONFIRMED`，但提交链路只把任务置为 `SUBMITTED`，组长确认聚合也未回写任务 `CONFIRMED`。 | `MesFrontlinePqcContextServiceImpl` 将 PQC task 从 `PENDING` 更新为 `SUBMITTED`；`MesTeamLeaderSubmissionReviewServiceImpl` 审核通过时仅调用 `aggregateApprovedPqcSubmission`；`MesPqcProcessInspectionAggregationServiceImpl` 只更新 PQC record 的过程检验聚合字段；`MesOrderReleaseCompletenessServiceImpl` 预检却过滤 `taskStatus != CONFIRMED` 并阻塞。 | 过程检验汇集与放行预检之间存在状态断点，可能导致已审核 PQC 仍无法满足放行预检，或需要额外未证明的状态转换。 |
+| 12 | AC-M22 / AC-M23 | 放行预检在当前已读服务里主要覆盖 PQC、偏差、返工、报废、库存一致性，批记录逐工序完整性/签名完整性仍需另行证明。 | `MesOrderReleaseCompletenessServiceImpl` 检查 `evaluateInspectionResult`、`evaluateDeviationClosed`、`evaluateReworkClosed`、`evaluateScrapRecorded`、`evaluateInventoryConsistency` 等；本轮未在该服务中看到“所有正式批记录表单按逐工序绑定完整填写并签名”的直接检查。 | 如果批记录完整性在其它 release 服务实现，需要补明确证据；否则 AC-M22/M23 的“批记录完整性和放行前置”仍不闭合。 |
+
+### 代码级优先整改顺序
+
+1. 先补正式开工检查模型：用 checkItems 明确展示来源、状态、缺项和 blocker，开工就绪与活跃订单加入分离。
+2. 把班组员工/设备的来源改为正式主数据绑定：禁止本地创建设备/临时员工冒充正式台账。
+3. 补 QA 规程写入/草稿校验/发布链路，并从发布版本生成 PQC 任务。
+4. 补 PQC 数值上下限判定、不合格手动说明、质量异常自动生成和 PQC task `CONFIRMED` 状态闭环。
+5. 最后补放行预检对正式批记录逐工序完整性、签名和 PQC/异常闭环的一致性证明。
+
 ## 整改建议
 
 - 继续按 M6 分 AC 切片推进，不得把 phase evidence 或单个 action evidence 等同于整项 AC 验收通过。

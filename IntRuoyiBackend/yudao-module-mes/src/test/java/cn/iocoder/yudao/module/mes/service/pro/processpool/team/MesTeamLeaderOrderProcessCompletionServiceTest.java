@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
@@ -38,6 +39,8 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     @Mock
     private MesProcessPoolReportAllocationMapper allocationMapper;
     @Mock
+    private MesProProcessPoolEventMapper eventMapper;
+    @Mock
     private MesProWorkOrderMapper workOrderMapper;
     @Mock
     private MesProcessPoolOrderProcessCompletionMapper completionMapper;
@@ -54,7 +57,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new MesTeamLeaderOrderProcessCompletionService(allocationMapper, workOrderMapper,
+        service = new MesTeamLeaderOrderProcessCompletionService(allocationMapper, eventMapper, workOrderMapper,
                 completionMapper, orderProcessTargetService, scheduleOrderMapper, scheduleOrderProcessMapper,
                 backfillService);
     }
@@ -62,10 +65,17 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     @Test
     void shouldCompleteOrderProcessAndTriggerBackfillWhenCumulativeQuantityReachesTarget() {
         MesProProcessPoolEventDO event = event();
-        MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "80");
+        MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "80", 7101L, 1001L, 7001L,
+                LocalDateTime.of(2026, 8, 1, 9, 1));
+        MesProcessPoolReportAllocationDO priorLine = allocation(9001L, "120", 7100L, 1000L, 7000L,
+                LocalDateTime.of(2026, 8, 1, 8, 31));
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
-                .thenReturn(List.of(allocation(9001L, "120"), confirmedLine));
+                .thenReturn(List.of(priorLine, confirmedLine));
+        when(eventMapper.selectBatchIds(List.of(1000L, 1001L)))
+                .thenReturn(List.of(event(1000L, "{\"pressure\":15}",
+                                LocalDateTime.of(2026, 8, 1, 8, 30)),
+                        event));
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
         stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
@@ -92,8 +102,19 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         ArgumentCaptor<MesTeamLeaderBatchRecordBackfillCommand> backfillCaptor =
                 ArgumentCaptor.forClass(MesTeamLeaderBatchRecordBackfillCommand.class);
         verify(backfillService).backfillCompletedProcess(backfillCaptor.capture());
-        assertEquals(event.getId(), backfillCaptor.getValue().getEvent().getId());
-        assertEquals(confirmedLine.getWorkOrderId(), backfillCaptor.getValue().getAllocation().getWorkOrderId());
+        MesTeamLeaderBatchRecordBackfillCommand command = backfillCaptor.getValue();
+        assertEquals(event.getId(), command.getEvent().getId());
+        assertEquals(confirmedLine.getWorkOrderId(), command.getAllocation().getWorkOrderId());
+        assertEquals(List.of(1000L, 1001L), command.getSourceEvents().stream()
+                .map(MesProProcessPoolEventDO::getId).toList());
+        assertEquals(List.of(7100L, 7101L), command.getAllocations().stream()
+                .map(MesProcessPoolReportAllocationDO::getId).toList());
+        assertEquals("PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5001:6001:" + command.getAggregateHash(),
+                command.getIdempotencyKey());
+        assertEquals("[1000,1001]", saved.getSourceEventIdsJson());
+        assertEquals("[7100,7101]", saved.getSourceAllocationIdsJson());
+        assertEquals(command.getAggregateHash(), saved.getAggregateHash());
+        assertEquals(command.getIdempotencyKey(), saved.getBackfillIdempotencyKey());
     }
 
     @Test
@@ -206,6 +227,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("300")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(9001L, "300"), allocation(9001L, "300"), confirmedLine));
+        when(eventMapper.selectBatchIds(List.of(1001L))).thenReturn(List.of(event));
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("900"));
         stubFormalSchedule("300", "900");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
