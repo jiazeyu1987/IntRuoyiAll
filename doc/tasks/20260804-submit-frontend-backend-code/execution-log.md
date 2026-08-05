@@ -91,3 +91,11 @@
 - GREEN: Git 候选待提交文件 100MB 扫描 -> PASS；未发现待提交文件超过 100MB。工作区中超过 100MB 的 Jar 均位于 `.runtime`、`target` 或历史任务 jar-inspect 目录，未出现在 Git 候选清单。
 - CLEANUP: `task_closeout.py --task-id 20260804-submit-frontend-backend-code --mode preview` -> PASS；keep `task.md`、`execution-log.md`、`verification-report.md`，delete `frontend-feature-evidence.md`，blocked `<none>`。
 - CLEANUP: `task_closeout.py --task-id 20260804-submit-frontend-backend-code --mode apply` -> PASS；已删除当前任务中间 evidence `doc/tasks/20260804-submit-frontend-backend-code/frontend-feature-evidence.md`。
+- COMMIT: `04da28b94 chore: submit accepted frontend backend residual updates` -> PASS，66 files changed, 2793 insertions, 420 deletions。
+- RESCAN: `git status --short --branch` after commit -> `int_main...origin/int_main [ahead 1]`。
+- GREEN: 待推送对象 100MB 扫描 `origin/int_main..HEAD` -> PASS，未发现超过 GitHub 100MB 限制的 blob。
+- PUSH: `git push origin int_main` -> FAIL，Git 全局 GitHub 代理指向 `127.0.0.1:7890`，本机该端口不可达。
+- NETWORK DIAG: Windows 用户代理为 `127.0.0.1:8902` 且正在监听；`git -c http.https://github.com.proxy=http://127.0.0.1:8902 ls-remote origin HEAD` -> PASS。
+- PUSH: `git -c http.https://github.com.proxy=http://127.0.0.1:8902 push origin int_main` -> PASS，`3f5c3569d..04da28b94 int_main -> int_main`。
+- FINAL VERIFY: `git rev-list --left-right --count HEAD...origin/int_main` -> `0 0`。
+- FINAL STATUS: `git status --short --branch` -> `int_main...origin/int_main`，无已跟踪或未跟踪业务改动；仅仍有历史损坏 `target_corrupt_m4_20260802_1327` 目录 warning。

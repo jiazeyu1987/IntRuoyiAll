@@ -56,3 +56,11 @@
 - Scope: 仅放行 QA 规程状态真实 E2E 的正式产品绑定前置缺口，以及排产局部重排 fixture E2E 的显式密码环境变量缺口。
 - Guard: 本轮不改变业务实现、不新增 fallback、不补默认数据、不记录或传播密码。
 - Result: 允许进入提交、推送和 closeout；最终报告仍保留上述两个真实 E2E blocker 作为已接受风险。
+
+## Closeout
+
+- PASS: Cleanup preview/apply 完成，仅删除当前提交任务中间 evidence，保留 `task.md`、`execution-log.md`、`verification-report.md`。
+- PASS: Commit `04da28b94 chore: submit accepted frontend backend residual updates` 已创建。
+- PASS: 首次 `git push origin int_main` 因 GitHub 代理 `127.0.0.1:7890` 不可达失败；按代理门禁使用一次性 `127.0.0.1:8902` 推送成功，未修改全局 Git 配置。
+- PASS: 推送后 `git rev-list --left-right --count HEAD...origin/int_main` -> `0 0`。
+- Final Result: 任务完成；两个真实 E2E blocker 作为用户已接受风险保留在报告中。

@@ -27,7 +27,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 - 已识别此前提交 `af1bfb191 chore: baseline current frontend backend updates before push`。
 - 已识别后续本地提交，当前分支仍需推送到 `origin/int_main`。
@@ -40,7 +40,8 @@ ready_for_closeout
 - 代码级提交门禁通过：`git diff --check`、`pnpm ts:check`、eDHR 组长页签静态合同、QA 规程静态合同、审批中心静态合同、DCC adapter 静态合同、MES/DCC 目标 Maven 测试和端口 guard 均已通过。
 - 当前提交被真实 E2E 前置阻塞：QA 规程状态真实 E2E 缺正式 `IDI -> productMasterId` 绑定；排产局部重排 fixture E2E 缺显式 `MES_PARTIAL_REPLAN_E2E_PASSWORD` / `MES_REPLAN_E2E_PASSWORD` 环境变量。
 - 用户已明确授权接受上述两个真实 E2E 前置 blocker 后继续提交推送；本轮仍未引入 fallback、默认产品、默认账号或静默降级。
-- 当前剩余工作：提交残余改动、推送 `origin/int_main`，再标记完成并提交最终收尾记录。
+- 已完成残余改动提交 `04da28b94 chore: submit accepted frontend backend residual updates` 并推送 `origin/int_main`。
+- 推送后 `git rev-list --left-right --count HEAD...origin/int_main` 返回 `0 0`，本地分支不再领先远端。
 
 ## 设计约束检查
 
