@@ -26,7 +26,7 @@
 
 ## Current Status
 
-ready_for_closeout - NAS 表格自动同步设计、开发和定向验证已完成；真实 E2E 已在 `http://127.0.0.1:8088` / `http://127.0.0.1:48088` 通过，测试租户计划已清理为禁用，临时 E2E 结果目录已删除，实现提交 `1e4a61500` 已生成。cleanup apply / worktree 移除当前阻塞于 `E:\IntRuoyi` 主工作区 dirty 且当前分支暂不能 ff-only 合入 `int_main`。
+ready_for_closeout - NAS 表格自动同步设计、开发和定向验证已完成；真实 E2E 已在 `http://127.0.0.1:8088` / `http://127.0.0.1:48088` 通过，测试租户计划已清理为禁用，临时 E2E 结果目录已删除，实现提交 `1e4a61500` 和收尾提交 `10dcd8c7f` 已生成。当前不能标记 completed：`git push origin codex/profile-nas-table-auto-sync` 受 GitHub 连接阻塞失败，cleanup apply / worktree 移除也阻塞于 `E:\IntRuoyi` 主工作区 dirty 且当前分支暂不能 ff-only 合入 `int_main`。
 
 ## 设计约束检查
 

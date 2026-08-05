@@ -45,3 +45,5 @@
 - Implementation commit: `git commit -m "feat: add profile NAS table auto sync"` -> PASS，commit `1e4a61500`，53 files changed，branch runtime port guard hook PASS。
 - Cleanup artifact: 已删除本任务临时 E2E 结果目录 `IntRuoyiFronted\test-results\profile-nas-table-auto-sync-real`，`Test-Path` -> `False`。
 - Cleanup preview after commit: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-profile-nas-table-auto-sync --mode preview` -> BLOCKED；剩余阻塞仅为当前分支不能 ff-only 合入 `int_main`，以及主工作区 `E:\IntRuoyi` dirty，不能执行 cleanup apply / worktree removal。
+- Push blocker: `git push origin codex/profile-nas-table-auto-sync` -> FAIL，Git 全局 URL 级代理指向 `127.0.0.1:7890` 但该端口未监听；GitHub 直连 `443` 可 TCP 连接但 HTTPS 请求 reset/timeout；Windows 记录的 `127.0.0.1:8902` 代理端口可监听，但 HTTP/SOCKS5 代理请求均 reset；`ssh -T -o BatchMode=yes git@ssh.github.com -p 443` -> FAIL，`Permission denied (publickey)`。
+- Final blocker: 当前分支本地已有提交 `1e4a61500`、`10dcd8c7f`，但未能推送到 `origin`；按项目规则不得标记 `completed`。cleanup apply / worktree removal 仍阻塞于主工作区 dirty 和 ff-only merge 条件未满足。
