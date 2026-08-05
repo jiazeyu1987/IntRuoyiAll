@@ -27,6 +27,7 @@
 - completed：根据用户 2026-08-05 业务讨论结论修正 `AC-D03` 口径：不再要求维护“不良原因”主数据；出现不良时由 PQC 手动输入不良说明/原因并保留追溯。
 - completed：根据用户追问复核 AC-M04 最新证据，已将不符合项文档从“清理闭环待完成”更新为“动作通过但未 AC 验收”，并补充当前进度与下一步。
 - completed：根据用户继续追问，已补充 `AC-D03 手动不良说明专项核验`：逐项分析手动输入、原始输入快照、订单/工序/PQC 记录追溯、历史记录不被后续修改覆盖四个判断点。
+- completed：根据用户追问复核 AC-M11 生产报工代码链路，已补充 8 项代码级不符合/未闭合风险：工单/任务硬前置、正式报工主表事实不完整、设备参数服务端校验缺口、原因结构化缺口、数量守恒 fail-fast 缺口、签名快照缺口、设备不可用后端负向证明缺口、测试覆盖缺口。
 
 ## Verification Evidence
 
@@ -39,6 +40,7 @@
 - 口径修正：`non-compliance-analysis.md` 已将 `AC-D03` 从“需证明当前工序启用不良原因列表”改为“PQC 手动录入不良说明并保存快照”。
 - AC-M04 复核证据：`test-report.md` 记录 AC-M04 五个真实动作 PASS（加入、冲突、跨角色只读、错误角色拒绝、最终清理）、`activeOrderCleanupCompleted=PASS`、`m6ConcurrencyGateVerified=PASS`；但最新 M6 仍为 `STRUCTURED_BLOCKED`，剩余 62 个 `E2E_COVERAGE`。
 - AC-D03 专项核验证据：前端 PQC 页面支持逐件数值输入、合格/不合格选择、检验数量和损耗数量，但未发现不良说明/原因专用文本字段；后端 `rawPayload`、PQC event、PQC record 和时间线追溯字段具备基础链路；退回补正有 revision/diff，但 event `rawPayload` 会更新为 `afterPayload`，因此仍不能证明“原始详情永不覆盖”。
+- AC-M11 代码级复核证据：已读取 `MesProFrontlineFeedbackPayloadReqVO`、`MesProFrontlineProcessPoolContextReqVO`、`MesProFrontlineFeedbackSubmitServiceImpl`、`MesProFrontlineFeedbackPayloadSplitter`、`MesFrontlineSubmitAuthorizationServiceImpl`、`MesFrontlineRuntimeConfigServiceImpl`、`MesProcessPoolSubmitEventServiceImpl`、`MesProFeedbackDO`、`FrontlineFixedTemplatePanel.vue`、`p0-production-execution-loop-real.e2e.js` 和 `role-requirement-matrix-real-flow.e2e.js`，并将结论写入 `non-compliance-analysis.md` 的 “AC-M11 代码级补充复核”。
 
 ## Blockers
 

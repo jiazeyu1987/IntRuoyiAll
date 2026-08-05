@@ -127,6 +127,23 @@
 3. 若 ledger 仍要求更多 breadth，补真实页面负向用例：非活跃/终止订单、无路线版本或缺正式路线、跨租户或越权订单、重复提交后的页面回读一致性。
 4. 最后运行 `real:check`、full real E2E、`MesTeamLeaderActiveOrderServiceTest` 和相关静态合同，全部 PASS 后再把 AC-M04 从 `PASS_ACTION_NOT_ACCEPTED` 提升为 `ACCEPTED`。
 
+## AC-M11 代码级补充复核
+
+用户追问项：`尚未达到 ACCEPTED；需证明人员、设备、参数、数量、损耗、原因、签名完整保存，且缺必填、设备不可用、签名不一致时拒绝且原始事实不覆盖`。
+
+从当前代码继续细查后，除“尚未达到 ACCEPTED”本身外，AC-M11 还存在以下可确认的不符合或未闭合风险：
+
+| 序号 | 不符合项 | 代码证据 | 影响 |
+|---:|---|---|---|
+| 1 | 报工仍强制依赖生产工单、生产任务、工作站，不满足“工序事实优先，订单归属后续分配”。 | 后端 `MesProFrontlineFeedbackPayloadReqVO` 将 `workstationId`、`workOrderId`、`taskId` 均标为必填；`MesProFrontlineProcessPoolContextReqVO` 同样要求 `workOrderId`、`taskId`、`workstationId`、`deviceId`；前端 `assertFrontlineFormalSubmitContext` 也把订单上下文、生产任务、工作站、设备作为必填；P0 真实 E2E 通过环境变量和 URL 预置这些 ID。 | 不能证明“未确定订单归属时先保存工序原始事实”；真实页面成功路径仍可能只是“有订单/任务上下文”的报工。 |
+| 2 | 正式报工主记录没有承载 AC-M11 所要求的完整事实字段。 | `MesProFeedbackDO` 只有工作站、路线、工序、工单、任务、数量、报工人、状态、备注等字段，未见 `rawPayload`、`equipmentParameters`、`signatureId`、`signatureSnapshot`、结构化损耗/不良原因字段；完整事实被拆到记录本 entry 和工序池 event。 | 如果后续确认、分配、批记录回填读取正式报工主表，无法单表证明“人员、设备、参数、数量、损耗、原因、签名完整保存”。 |
+| 3 | 设备参数服务端未按配置规则逐项校验。 | 运行态会下发参数 `lowerLimit`、`upperLimit`、`defaultValue`、`valueType`，但提交 VO 中 `equipmentParameters` 是自由 `Map<String,Object>`；`validateSubmitContext` 只校验大对象、签名和设备账号存在，未读取参数规则校验编码、单位、类型、上下限或必填。 | 缺参数、越界参数、伪造参数编码或类型错误仍缺少后端 fail-fast 证明；仅靠前端默认值/输入控件不能满足验收。 |
+| 4 | 损耗原因/不良原因没有结构化提交与强制校验。 | 前端把 `defects` 放入 `recordbookPayload.entryContent`，后端提交 VO 和工序池 BO 没有 `lossReasonId`、`reasonCode` 等正式字段；运行态虽返回 enabled defect reasons，但提交服务未校验 `lossQuantity > 0` 时原因必须存在且来自当前工序配置。 | 只能证明“可能保存在 raw/entryContent”，不能证明“原因完整保存、禁用/跨工序原因拒绝、缺原因拒绝”。 |
+| 5 | 数量守恒和损耗边界未 fail-fast。 | `lossQuantity` 仅 `@NotNull`，未见非负、`loss <= output`、损耗分项合计等服务端约束；拆分器将 `qualifiedQuantity = outputQuantity - lossQuantity` 后用 `.max(BigDecimal.ZERO)` 截断。 | 当损耗大于产出或分项不守恒时，系统可能生成 0 合格数而不是拒绝，掩盖原始异常事实。 |
+| 6 | 签名完整性只证明“人员 ID 一致”，未证明签名快照/授权有效性完整保存。 | 生产提交请求只有 `signatureId`、`signatureEmployeeId`，没有 `signatureSnapshot`；PQC VO 反而有 `signatureSnapshot`；生产提交 adapter 只把 `signatureId` 和 `signatureUserId` 传给工序池，未设置 `signatureSnapshot`。 | 只能证明 `actualEmployeeId == signatureEmployeeId` 和签名 ID 唯一，不能证明签名图像/授权版本/签名时点快照不可漂移。 |
+| 7 | 设备不可用拒绝链路仍需补后端负向证明。 | 运行态配置会过滤 enabled 且 `DEVICE_STATUS_ENABLED` 的团队设备；但提交授权主要校验候选工序、设备/工作站匹配、人员绑定、模板匹配。工作站岗位路线候选源只校验工作站启用和机器存在，未在已读提交链路中看到对“已禁用/报修设备”的最终状态复核。 | 若前端缓存或恶意请求提交旧设备 ID，需要证明后端能拒绝不可用设备；当前证据不足以声明满足“设备不可用时拒绝”。 |
+| 8 | 现有测试仍偏结构/Happy Path，缺 AC-M11 负向和原始事实不覆盖证明。 | `MesP0ProductionExecutionSchemaContractTest` 主要断言字段存在；`p0-production-execution-loop-real.e2e.js` 预置工单/任务/工作站/设备/签名 ID；`role-requirement-matrix-real-flow.e2e.js` 的 `productionEmployeeEntry` 只覆盖入口加载并关联 `AC-M10/AC-M11`。 | 未覆盖缺必填、设备不可用、签名不一致、参数越界、损耗原因缺失、重复提交不覆盖原始事实等 AC-M11 准出条件。 |
+
 ## AC-D03 手动不良说明专项核验
 
 ### 核验结论

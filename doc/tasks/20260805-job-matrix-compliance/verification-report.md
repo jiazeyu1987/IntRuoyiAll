@@ -40,6 +40,7 @@
 | AC-D03 业务口径修正 | PASS：已按用户业务讨论结论更新为“不维护不良原因主数据；PQC 出现不良时手动输入说明/原因并保留追溯”。 |
 | AC-M04 follow-up | PASS：已按最新 `test-report.md` / `verification-report.md` 证据修正 AC-M04 状态；清理闭环已 PASS，当前准确状态为 `PASS_ACTION_NOT_ACCEPTED` / 仍属 `E2E_COVERAGE`。 |
 | AC-D03 手动不良说明专项核验 | PASS：已补充四项核验结论；当前判断为基础链路部分具备，但缺少 PQC 不良说明/原因文本字段、专项 rawPayload 回读、详情追溯和原始/修订不覆盖验收，因此仍不能标记 `ACCEPTED`。 |
+| AC-M11 code follow-up | PASS：已按当前代码补充 8 项生产报工不符合/未闭合风险，覆盖硬前置、事实保存、参数校验、原因结构、数量守恒、签名快照、设备不可用负向证明和测试覆盖。 |
 
 ## Final Result
 
