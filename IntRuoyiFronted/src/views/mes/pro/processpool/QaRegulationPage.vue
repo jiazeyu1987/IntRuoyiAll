@@ -1782,10 +1782,12 @@ const addQaRegulationItem = () => {
   const nextIndex = qaRegulationItems.value.length + 1
   qaRegulationItems.value.push({
     itemCode: `QA-ITEM-${String(nextIndex).padStart(2, '0')}`,
+    processName: qaRegulationDraft.routeProcessName.trim(),
     itemName: '新增检验项目',
     applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM'],
     inspectionMethod: '',
     inspectionTool: '',
+    samplingPlanText: '',
     resultType: 'BOOLEAN',
     standardText: '',
     critical: false,
