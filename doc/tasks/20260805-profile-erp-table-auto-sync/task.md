@@ -25,7 +25,7 @@ ready_for_closeout
 
 当前任务使用隔离 worktree `D:\IntRuoyiWorktree\profile-erp-table-auto-sync`，分支 `codex/profile-erp-table-auto-sync`，运行槽位 `slot=2`，前端端口 `8083`，后端端口 `48083`。外部清理进程已由用户停止，当前 worktree 已重新创建并通过分支运行端口守卫；本任务不在主工作区直接修改文件。
 
-功能实现、真实 E2E、可读性修复和合并后定向回归均已通过。当前 `E:\IntRuoyi` 的 `int_main` 仍被其它任务持续写入，无法满足 clean worktree 与 `--ff-only` 合并门禁；因此保持 `ready_for_closeout`，先推送功能分支，待主工作区稳定且干净后再执行 cleanup apply、快进融合和 worktree 删除。
+功能实现、真实 E2E、可读性修复和合并后定向回归均已通过，功能分支已推送到 `origin`。当前 `E:\IntRuoyi` 的 `int_main` 仍被其它任务持续写入，无法满足 clean worktree 与 `--ff-only` 合并门禁；因此保持 `ready_for_closeout`，待主工作区稳定且干净后再执行 cleanup apply、快进融合和 worktree 删除。
 
 ## 设计约束检查
 

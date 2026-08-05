@@ -76,3 +76,4 @@ BDD: 可读地展示 ERP 同步运行结果 -> Given 系统已有 ERP 同步水�
 - CLEANUP PREVIEW: keep/delete 范围符合任务约束；因当前分支不能快进合入最新 `int_main`，且主工作区仍脏，preview 按规则返回 blocked，未执行 apply。
 - SHARED WORKSPACE SAFETY: 尝试准备主工作区既有改动基线时，连续发现其它任务新增和修改 `TeamLeaderWorkbenchPage.vue`、API、测试及任务文档；已撤销本任务产生的暂存状态并完整保留所有并行改动，未提交、未回滚、未删除任何其它任务文件。
 - CLOSEOUT BLOCKER: 当前主工作区 HEAD 为 `adc862527`，并仍被其它任务持续写入。待 `E:\IntRuoyi` 稳定且 `git status --porcelain` 为空后，需重新合入最新 `int_main`、复跑端口守卫、执行 cleanup preview/apply，并以 `--ff-only` 融合。
+- BRANCH PUSH: `8baafeb1b docs: record ERP table auto sync closeout state` 已推送到 `origin/codex/profile-erp-table-auto-sync`；推送后本地与远端 ref 均为 `8baafeb1b3c4756f2088548d8a4cfc2e8d8a12d1`。
