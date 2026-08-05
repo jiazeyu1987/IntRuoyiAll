@@ -20,6 +20,11 @@
 - Final DB check passed: tenant `1` now has `51` bound and `68` unbound rows; tenant `122` remains `7` bound and `126` unbound.
 - Reference integrity passed: invalid bound reference count `0`; tenant `1` bound-to-non-enabled product count `0`.
 - Pressure pump verification passed: `IDI` is bound to `INT-15 / 按压式球囊扩充压力泵`; `IDPR` to `INT-14`; `ID` to `INT-12`; `IDE/IDE(CE)/IDE(FDA)` to `INT-13`.
+- Real E2E passed after test assertion repair: `pnpm e2e:qa-regulation:dcc-status:real` selected `IDI`, confirmed DCC `productMasterId=14`, received successful `project-statuses`, and reported `writeRequests=[]`、`badResponses=[]`、`consoleErrors=[]`、`pageErrors=[]`.
+- Static syntax check passed: `node --check tests\e2e\qa-regulation-dcc-status-real.e2e.cjs`.
+- Database evidence validator passed: `validate_database_schema.py --evidence doc\tasks\20260805-dcc-project-mdm-binding\database-schema-evidence.md`.
+- Diff whitespace check passed for this task's files.
+- Full `pnpm ts:check` is currently blocked by unrelated `UnifiedListTemplate` local changes: `src/components/UnifiedListTemplate/index.vue(339,8)`.
 
 ## Remaining Unbound Scope
 

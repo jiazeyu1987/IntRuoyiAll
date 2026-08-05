@@ -205,6 +205,32 @@ class ApprovalCenterServiceImplTest {
     }
 
     @Test
+    void getTaskPageEnrichesInitiatorUserNameForVisibleRows() {
+        ApprovalTaskSummary row = summary("bpm-initiated-row", LocalDateTime.parse("2026-07-18T19:35:23"))
+                .setInitiatorUserId(151L);
+        AdminUserRespDTO user = new AdminUserRespDTO();
+        user.setId(151L);
+        user.setUsername("wangxin");
+        user.setNickname("王鑫");
+        when(adminUserApi.getUserMap(Set.of(151L))).thenReturn(Map.of(151L, user));
+        ApprovalTaskProvider provider = provider(ApprovalModuleCode.BPM, Set.of(ApprovalTaskViewType.TODO),
+                List.of(row), loginUserId -> true);
+        ApprovalCenterService service = new ApprovalCenterServiceImpl(
+                new ApprovalTaskProviderRegistry(List.of(provider)), permissionApi, adminUserApi,
+                signatureRecordService);
+
+        PageResult<ApprovalTaskSummary> page = service.getTaskPage(100L, new ApprovalTaskQuery()
+                .setModuleCode(ApprovalModuleCode.BPM)
+                .setViewType(ApprovalTaskViewType.TODO)
+                .setPageNo(1)
+                .setPageSize(10));
+
+        assertEquals(1L, page.getTotal());
+        assertEquals("王鑫(wangxin)", page.getList().get(0).getInitiatorUserName());
+        verify(adminUserApi).getUserMap(Set.of(151L));
+    }
+
+    @Test
     void getTaskPageKeepsTaskWhenAssigneeUserSnapshotIsMissing() {
         ApprovalTaskSummary row = summary("orphan-assignee-row", LocalDateTime.parse("2026-07-18T20:41:58"))
                 .setAssigneeUserId(113L);

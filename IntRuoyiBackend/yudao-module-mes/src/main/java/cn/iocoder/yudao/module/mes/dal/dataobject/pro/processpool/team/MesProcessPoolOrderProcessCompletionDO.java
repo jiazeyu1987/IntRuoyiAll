@@ -47,4 +47,8 @@ public class MesProcessPoolOrderProcessCompletionDO extends TenantBaseDO {
     private String backfillError;
     private Long lastEventId;
     private Long lastReviewId;
+    private String sourceEventIdsJson;
+    private String sourceAllocationIdsJson;
+    private String aggregateHash;
+    private String backfillIdempotencyKey;
 }

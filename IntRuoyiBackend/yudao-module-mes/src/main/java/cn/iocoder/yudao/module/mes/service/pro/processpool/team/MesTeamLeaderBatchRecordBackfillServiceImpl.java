@@ -30,7 +30,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -76,6 +80,12 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         MesProProcessPoolEventDO event = command.getEvent();
         MesProWorkOrderDO workOrder = command.getWorkOrder();
         MesProcessPoolReportAllocationDO allocation = command.getAllocation();
+        List<MesProProcessPoolEventDO> sourceEvents = sourceEvents(command);
+        List<MesProcessPoolReportAllocationDO> allocations = allocations(command);
+        validateSources(event, allocation, sourceEvents, allocations);
+        String aggregateHash = aggregateHash(command, sourceEvents, allocations);
+        String idempotencyKey = idempotencyKey(command, event, allocation, aggregateHash);
+
         MesProRouteFlowProcessBatchRecordDO binding = requireFormalBinding(event.getRouteProcessId());
         MesProBatchRecordExecutionOpenOrCreateByContextRespVO opened =
                 executionService.openOrCreateByContext(toOpenReq(event, workOrder, binding));
@@ -94,14 +104,16 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         }
         Map<String, SnapshotField> fields = snapshotFields(execution.getExecutionSnapshotJson());
         Map<String, JsonNode> currentValues = currentValues(execution.getCellValuesJson());
-        JsonNode payload = rawPayload(event);
+        Map<Long, MesProProcessPoolEventDO> sourceEventMap = sourceEventMap(sourceEvents);
+        Map<Long, JsonNode> payloadCache = new LinkedHashMap<>();
         List<MesProBatchRecordExecutionFieldAuditChange> changes = rules.stream()
-                .map(rule -> toChange(event, allocation, binding, rule, fields, currentValues, payload))
+                .map(rule -> toChange(event, allocations, binding, rule, fields, currentValues, sourceEventMap,
+                        payloadCache))
                 .toList();
         MesProBatchRecordExecutionFieldAuditSaveResult saveResult = fieldAuditService.saveSystemCellLinkChanges(
                 new MesProBatchRecordExecutionFieldAuditSaveChangesCommand()
                         .setExecutionId(execution.getId())
-                        .setIdempotencyKey(idempotencyKey(event, allocation))
+                        .setIdempotencyKey(idempotencyKey)
                         .setBaseCellValuesHash(execution.getCellValuesHash())
                         .setBaseFieldAuditRevision(execution.getFieldAuditRevision())
                         .setBaseFieldAuditHeadHash(execution.getFieldAuditHeadHash())
@@ -116,10 +128,42 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
 
     private void validate(MesTeamLeaderBatchRecordBackfillCommand command) {
         if (command == null || command.getEvent() == null || command.getAllocation() == null
-                || command.getWorkOrder() == null || command.getEvent().getRouteProcessId() == null
-                || command.getEvent().getProcessId() == null || command.getAllocation().getWorkOrderId() == null
+                || command.getWorkOrder() == null || command.getEvent().getId() == null
+                || command.getEvent().getRouteProcessId() == null || command.getEvent().getProcessId() == null
+                || command.getAllocation().getId() == null || command.getAllocation().getWorkOrderId() == null
                 || command.getWorkOrder().getId() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "batchRecordBackfill");
+        }
+    }
+
+    private List<MesProProcessPoolEventDO> sourceEvents(MesTeamLeaderBatchRecordBackfillCommand command) {
+        if (command.getSourceEvents() == null || command.getSourceEvents().isEmpty()) {
+            return List.of(command.getEvent());
+        }
+        return List.copyOf(command.getSourceEvents());
+    }
+
+    private List<MesProcessPoolReportAllocationDO> allocations(MesTeamLeaderBatchRecordBackfillCommand command) {
+        if (command.getAllocations() == null || command.getAllocations().isEmpty()) {
+            return List.of(command.getAllocation());
+        }
+        return List.copyOf(command.getAllocations());
+    }
+
+    private void validateSources(MesProProcessPoolEventDO event, MesProcessPoolReportAllocationDO allocation,
+                                 List<MesProProcessPoolEventDO> sourceEvents,
+                                 List<MesProcessPoolReportAllocationDO> allocations) {
+        List<Long> sourceEventIds = sourceEvents.stream()
+                .map(MesProProcessPoolEventDO::getId)
+                .toList();
+        if (sourceEvents.stream().anyMatch(source -> source == null || source.getId() == null)
+                || allocations.stream().anyMatch(sourceAllocation -> sourceAllocation == null
+                || sourceAllocation.getId() == null || sourceAllocation.getEventId() == null
+                || !sourceEventIds.contains(sourceAllocation.getEventId())
+                || !Objects.equals(allocation.getWorkOrderId(), sourceAllocation.getWorkOrderId())
+                || !Objects.equals(event.getRouteProcessId(), sourceAllocation.getRouteProcessId())
+                || !Objects.equals(event.getProcessId(), sourceAllocation.getProcessId()))) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "batchRecordBackfillSources");
         }
     }
 
@@ -156,13 +200,15 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
                 .setBatchCode(StrUtil.trim(workOrder.getBatchCode()));
     }
 
-    private MesProBatchRecordExecutionFieldAuditChange toChange(MesProProcessPoolEventDO event,
-                                                                MesProcessPoolReportAllocationDO allocation,
-                                                                MesProRouteFlowProcessBatchRecordDO binding,
-                                                                MesProBatchRecordCellLinkRuleDO rule,
-                                                                Map<String, SnapshotField> fields,
-                                                                Map<String, JsonNode> currentValues,
-                                                                JsonNode payload) {
+    private MesProBatchRecordExecutionFieldAuditChange toChange(
+            MesProProcessPoolEventDO event,
+            List<MesProcessPoolReportAllocationDO> allocations,
+            MesProRouteFlowProcessBatchRecordDO binding,
+            MesProBatchRecordCellLinkRuleDO rule,
+            Map<String, SnapshotField> fields,
+            Map<String, JsonNode> currentValues,
+            Map<Long, MesProProcessPoolEventDO> sourceEventMap,
+            Map<Long, JsonNode> payloadCache) {
         if (!SOURCE_TYPE_PROCESS_POOL_REPORT.equals(StrUtil.trim(rule.getSourceType()))
                 || StrUtil.isBlank(rule.getSourceFieldCode())) {
             throw exception(PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED,
@@ -173,7 +219,11 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
             throw exception(PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED,
                     event.getRouteProcessId(), binding.getBatchRecordReportId(), rule.getTargetCellKey());
         }
-        Object value = sourceValue(event, allocation, rule.getSourceFieldCode(), payload);
+        List<Object> values = allocations.stream()
+                .map(sourceAllocation -> sourceValue(sourceAllocation, rule.getSourceFieldCode(), sourceEventMap,
+                        payloadCache))
+                .toList();
+        Object value = aggregateValue(event, binding, rule, values);
         MesProBatchRecordExecutionFieldAuditValueType valueType = valueType(rule, field);
         Object normalized = normalizeValue(valueType, value);
         String cellKey = cellKey(rule.getTargetRowIndex(), rule.getTargetColumnIndex());
@@ -188,14 +238,25 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
                 .setExpectedOldValueHash(oldValueHash(valueType, currentValues.get(cellKey), field.defaultValue()));
     }
 
-    private Object sourceValue(MesProProcessPoolEventDO event, MesProcessPoolReportAllocationDO allocation,
-                               String sourceFieldCode, JsonNode payload) {
+    private Object sourceValue(MesProcessPoolReportAllocationDO allocation,
+                               String sourceFieldCode,
+                               Map<Long, MesProProcessPoolEventDO> sourceEventMap,
+                               Map<Long, JsonNode> payloadCache) {
         if ("allocatedQuantity".equals(sourceFieldCode)) {
+            if (allocation.getAllocatedQuantity() == null) {
+                throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED,
+                        allocation.getEventId(), sourceFieldCode);
+            }
             return allocation.getAllocatedQuantity();
         }
+        MesProProcessPoolEventDO sourceEvent = sourceEventMap.get(allocation.getEventId());
+        if (sourceEvent == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "batchRecordBackfillSourceEvent");
+        }
+        JsonNode payload = payloadCache.computeIfAbsent(sourceEvent.getId(), ignored -> rawPayload(sourceEvent));
         JsonNode node = payload.get(sourceFieldCode);
         if (node == null || node.isNull() || (node.isTextual() && StrUtil.isBlank(node.asText()))) {
-            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED, event.getId(), sourceFieldCode);
+            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED, sourceEvent.getId(), sourceFieldCode);
         }
         if (node.isNumber()) {
             return node.decimalValue();
@@ -204,6 +265,99 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
             return node.booleanValue();
         }
         return node.asText();
+    }
+
+    private Object aggregateValue(MesProProcessPoolEventDO event,
+                                  MesProRouteFlowProcessBatchRecordDO binding,
+                                  MesProBatchRecordCellLinkRuleDO rule,
+                                  List<Object> values) {
+        if (values.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED, event.getId(),
+                    rule.getSourceFieldCode());
+        }
+        String strategy = StrUtil.trim(rule.getAggregationStrategy());
+        if (StrUtil.isBlank(strategy)) {
+            if (values.size() == 1) {
+                return values.get(0);
+            }
+            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED,
+                    event.getRouteProcessId(), binding.getBatchRecordReportId(), rule.getSourceFieldCode());
+        }
+        return switch (strategy.toUpperCase()) {
+            case "SUM" -> sumValues(event, binding, rule, values);
+            case "LIST" -> joinValues(values);
+            case "DISTINCT_LIST" -> joinDistinctValues(values);
+            case "FIRST" -> values.get(0);
+            case "LAST" -> values.get(values.size() - 1);
+            case "MIN" -> minValue(event, binding, rule, values);
+            case "MAX" -> maxValue(event, binding, rule, values);
+            default -> throw exception(PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED,
+                    event.getRouteProcessId(), binding.getBatchRecordReportId(), rule.getSourceFieldCode());
+        };
+    }
+
+    private BigDecimal sumValues(MesProProcessPoolEventDO event,
+                                 MesProRouteFlowProcessBatchRecordDO binding,
+                                 MesProBatchRecordCellLinkRuleDO rule,
+                                 List<Object> values) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (Object value : values) {
+            total = total.add(toDecimal(event, binding, rule, value));
+        }
+        return total;
+    }
+
+    private BigDecimal minValue(MesProProcessPoolEventDO event,
+                                MesProRouteFlowProcessBatchRecordDO binding,
+                                MesProBatchRecordCellLinkRuleDO rule,
+                                List<Object> values) {
+        return values.stream()
+                .map(value -> toDecimal(event, binding, rule, value))
+                .min(BigDecimal::compareTo)
+                .orElseThrow(() -> exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED,
+                        event.getId(), rule.getSourceFieldCode()));
+    }
+
+    private BigDecimal maxValue(MesProProcessPoolEventDO event,
+                                MesProRouteFlowProcessBatchRecordDO binding,
+                                MesProBatchRecordCellLinkRuleDO rule,
+                                List<Object> values) {
+        return values.stream()
+                .map(value -> toDecimal(event, binding, rule, value))
+                .max(BigDecimal::compareTo)
+                .orElseThrow(() -> exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED,
+                        event.getId(), rule.getSourceFieldCode()));
+    }
+
+    private BigDecimal toDecimal(MesProProcessPoolEventDO event,
+                                 MesProRouteFlowProcessBatchRecordDO binding,
+                                 MesProBatchRecordCellLinkRuleDO rule,
+                                 Object value) {
+        if (value instanceof BigDecimal decimal) {
+            return decimal;
+        }
+        try {
+            return new BigDecimal(String.valueOf(value));
+        } catch (NumberFormatException ex) {
+            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED,
+                    event.getRouteProcessId(), binding.getBatchRecordReportId(), rule.getSourceFieldCode());
+        }
+    }
+
+    private String joinValues(List<Object> values) {
+        List<String> tokens = new ArrayList<>();
+        for (Object value : values) {
+            tokens.add(displayValue(value));
+        }
+        return String.join(",", tokens);
+    }
+
+    private String joinDistinctValues(List<Object> values) {
+        LinkedHashSet<String> tokens = new LinkedHashSet<>();
+        for (Object value : values) {
+            tokens.add(displayValue(value));
+        }
+        return String.join(",", tokens);
     }
 
     private JsonNode rawPayload(MesProProcessPoolEventDO event) {
@@ -227,19 +381,19 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
             for (JsonNode field : fields) {
                 Integer rowIndex = integer(field, "rowIndex");
                 Integer columnIndex = integer(field, "columnIndex");
-            String fieldPath = text(field, "fieldPath");
-            String fieldKey = text(field, "fieldKey");
-            if (rowIndex != null && columnIndex != null && StrUtil.isNotBlank(fieldPath)
-                    && StrUtil.isNotBlank(fieldKey)) {
-                result.put(cellKey(rowIndex, columnIndex), new SnapshotField(fieldPath, fieldKey,
+                String fieldPath = text(field, "fieldPath");
+                String fieldKey = text(field, "fieldKey");
+                if (rowIndex != null && columnIndex != null && StrUtil.isNotBlank(fieldPath)
+                        && StrUtil.isNotBlank(fieldKey)) {
+                    result.put(cellKey(rowIndex, columnIndex), new SnapshotField(fieldPath, fieldKey,
                             valueType(text(field, "valueType")), snapshotDefaultValue(field)));
+                }
             }
+            return result;
+        } catch (Exception ex) {
+            return result;
         }
-        return result;
-    } catch (Exception ex) {
-        return result;
     }
-}
 
     private Map<String, JsonNode> currentValues(String cellValuesJson) {
         Map<String, JsonNode> result = new LinkedHashMap<>();
@@ -356,9 +510,64 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         return String.valueOf(value);
     }
 
-    private String idempotencyKey(MesProProcessPoolEventDO event, MesProcessPoolReportAllocationDO allocation) {
-        return "PROCESS_POOL_REPORT_BACKFILL:" + event.getId() + ":" + allocation.getWorkOrderId()
-                + ":" + event.getRouteProcessId();
+    private Map<Long, MesProProcessPoolEventDO> sourceEventMap(List<MesProProcessPoolEventDO> sourceEvents) {
+        Map<Long, MesProProcessPoolEventDO> result = new LinkedHashMap<>();
+        for (MesProProcessPoolEventDO sourceEvent : sourceEvents) {
+            result.putIfAbsent(sourceEvent.getId(), sourceEvent);
+        }
+        return result;
+    }
+
+    private String aggregateHash(MesTeamLeaderBatchRecordBackfillCommand command,
+                                 List<MesProProcessPoolEventDO> sourceEvents,
+                                 List<MesProcessPoolReportAllocationDO> allocations) {
+        if (StrUtil.isNotBlank(command.getAggregateHash())) {
+            return StrUtil.trim(command.getAggregateHash());
+        }
+        if (sourceEvents.size() == 1 && allocations.size() == 1) {
+            return "agg-single-" + sourceEvents.get(0).getId() + "-" + allocations.get(0).getId();
+        }
+        StringBuilder canonical = new StringBuilder();
+        for (MesProProcessPoolEventDO sourceEvent : sourceEvents) {
+            canonical.append("event:")
+                    .append(sourceEvent.getId()).append('|')
+                    .append(sourceEvent.getRawPayload() == null ? "" : sourceEvent.getRawPayload()).append('\n');
+        }
+        for (MesProcessPoolReportAllocationDO sourceAllocation : allocations) {
+            canonical.append("allocation:")
+                    .append(sourceAllocation.getId()).append('|')
+                    .append(sourceAllocation.getEventId()).append('|')
+                    .append(sourceAllocation.getAllocatedQuantity()).append('|')
+                    .append(sourceAllocation.getConfirmedAt()).append('\n');
+        }
+        return sha256(canonical.toString());
+    }
+
+    private String idempotencyKey(MesTeamLeaderBatchRecordBackfillCommand command,
+                                  MesProProcessPoolEventDO event,
+                                  MesProcessPoolReportAllocationDO allocation,
+                                  String aggregateHash) {
+        if (StrUtil.isNotBlank(command.getIdempotencyKey())) {
+            return StrUtil.trim(command.getIdempotencyKey());
+        }
+        return "PROCESS_POOL_REPORT_BACKFILL_AGG:" + allocation.getWorkOrderId()
+                + ":" + event.getRouteProcessId()
+                + ":" + event.getProcessId()
+                + ":" + aggregateHash;
+    }
+
+    private String sha256(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] bytes = digest.digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder result = new StringBuilder(bytes.length * 2);
+            for (byte item : bytes) {
+                result.append(String.format("%02x", item));
+            }
+            return result.toString();
+        } catch (Exception ex) {
+            throw new IllegalStateException("SHA-256 digest is unavailable", ex);
+        }
     }
 
     private static String cellKey(Integer rowIndex, Integer columnIndex) {

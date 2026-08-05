@@ -106,6 +106,28 @@ class MesFrontlineRuntimeConfigServiceTest {
         assertEquals("正常损耗", config.defectReasons().get(0).reasonName());
     }
 
+    @Test
+    void getRuntimeConfig_returnsEnabledLossReasonsByRouteProcessWithoutLeaderOwnership() {
+        when(contextService.requireAuthorizedProcess(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesFrontlineRouteProcessCandidate(ROUTE_ID, "R-101", "Route 101",
+                        ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
+                        null, null, null, 301L, "WS-301", "精洗工位"));
+        when(employeeBindingMapper.selectList(any())).thenReturn(List.of());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of());
+        when(defectReasonMapper.selectList(any())).thenReturn(List.of(
+                defectReason(8301L, ROUTE_PROCESS_ID, "LOSS", "LOSS-001", "正常损耗").setLeaderUserId(9999L),
+                defectReason(8302L, 2002L, "LOSS", "LOSS-002", "其它工序损耗").setLeaderUserId(9999L),
+                defectReason(8303L, ROUTE_PROCESS_ID, "LOSS", "LOSS-003", "停用损耗")
+                        .setLeaderUserId(9999L).setEnabled(Boolean.FALSE)));
+
+        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID,
+                ROUTE_PROCESS_ID, PROCESS_ID);
+
+        assertEquals(1, config.defectReasons().size());
+        assertEquals(8301L, config.defectReasons().get(0).reasonId());
+        assertEquals("LOSS-001", config.defectReasons().get(0).reasonCode());
+    }
+
     private static MesProcessPoolTeamEmployeeBindingDO employeeBinding(Long leaderUserId, Long employeeProfileId) {
         return MesProcessPoolTeamEmployeeBindingDO.builder()
                 .leaderUserId(leaderUserId)

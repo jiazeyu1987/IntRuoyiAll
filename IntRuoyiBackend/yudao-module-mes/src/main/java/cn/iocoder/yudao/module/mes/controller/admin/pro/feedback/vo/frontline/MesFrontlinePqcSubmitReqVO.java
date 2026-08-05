@@ -105,6 +105,9 @@ public class MesFrontlinePqcSubmitReqVO {
     @NotBlank(message = "PQC 检验结果不能为空")
     private String inspectionResult;
 
+    @Schema(description = "PQC 手动不良说明")
+    private String nonconformanceDescription;
+
     @Schema(description = "PQC 项目级正式检验结果", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "PQC 项目级检验结果不能为空")
     private List<ItemResult> itemResults;

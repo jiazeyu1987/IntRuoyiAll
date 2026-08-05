@@ -267,6 +267,24 @@
 - Forbidden action: 禁止用整单设备替代项目级设备，禁止用固定四项字段、前端文案、默认上下限、空标准、raw payload 或 API-only 展示替代正式项目级快照。
 - Evidence: `doc/tasks/20260803-pqc-equipment-standard-method-implementation/verification-report.md`。
 
+### PQC 末检适用性必须有发布规程依据
+
+- Trigger: AC-M15、PQC 末检、末检不适用、QA 规程发布、`finalInspectionApplicable`、`finalInspectionNotApplicableReason`、`FINAL` 检验项目、PQC 任务生成、放行完整性预检。
+- Preflight check: 修改末检、QA 规程发布、PQC 任务生成或放行完整性前，必须核对发布版本表、保存/发布 VO、前端 payload、生成器和放行校验是否都读取同一份 `finalInspectionApplicable` 与 `finalInspectionNotApplicableReason`；缺 FINAL 任务只能由“发布规程明确不适用且有非空依据”解释。
+- Blocker: 未显式配置末检适用性、末检不适用但缺依据、适用却缺 FINAL 项目、不适用却仍保存 FINAL 项目、生成器因缺任务默认跳过末检、或放行预检无法追溯发布版本依据时必须停止。
+- Verification: 后端回归必须覆盖适用生成 FINAL、不适用且有依据跳过 FINAL、未显式配置阻塞、放行不适用通过和缺适用性阻塞；前端静态或真实路径必须覆盖末检关闭时填写正式依据、payload 提交字段、禁用检验类型不序列化为项目；schema 测试需锁定版本表字段。
+- Forbidden action: 禁止把缺少 FINAL 任务、空规则列表、前端开关、默认 false、历史任务状态或 API-only 说明当作末检不适用依据；禁止用 fallback 默认放行掩盖发布规程缺字段。
+- Evidence: `doc/tasks/20260805-pqc-regulation-task-generation-fix/verification-report.md`。
+
+### PQC 过程检验汇集必须形成最终确认明细
+
+- Trigger: AC-M21、过程检验记录汇集、PQC 组长复核通过、`aggregateApprovedPqcSubmission`、`processInspectionAggregationStatus`、`mes_pqc_process_inspection_aggregate_detail`、`mes_pqc_inspection_task.task_status`。
+- Preflight check: 修改 PQC 汇集链路前先核对 `mes_pro_process_pool_event`、`mes_pro_process_pool_pqc_record`、`mes_pqc_inspection_task`、`mes_pqc_inspection_piece_detail` 和汇集明细表的租户、事件、任务、轮次、规程版本、逐件明细来源；汇集只能读取正式 `SUBMITTED` 任务和结构化逐件明细，并在同一事务中 CAS 标记记录已汇集、确认任务为 `CONFIRMED`、写入结构化汇集明细。
+- Blocker: 只能证明状态标记而没有结构化明细、仍从 raw payload 汇集、未校验租户/事件/任务一致性、未排除旧修订/未确认任务/重复汇集、或任务确认与明细插入不在同一事务时必须停止。
+- Verification: 后端回归必须覆盖成功汇集明细字段、重复汇集 CAS、跨租户拒绝、无逐件明细拒绝、任务确认 CAS 失败回滚，并配合 schema 测试验证唯一键 `tenant_id + event_id + source_piece_detail_id + deleted`。
+- Forbidden action: 禁止用前端展示、状态字段、默认空明细、raw payload、API-only 截图或吞唯一键异常替代正式结构化汇集事实。
+- Evidence: `doc/tasks/20260805-ac-m21-process-inspection-aggregation-fix/verification-report.md`。
+
 ### QA 规程配置状态必须来自产品级规程记录
 
 - Trigger: QA 规程配置页、DCC 项目代码对应产品、`已配置 QA 规程`、`待配置 QA 规程`、`project-statuses`、`mes_qa_inspection_regulation.product_id`、前端硬编码 `IDI` 或压力泵模板判断配置状态。
@@ -281,11 +299,20 @@
 ### 产品侧路线选择必须匹配后端可维护状态
 
 - Trigger: MES 物料产品选择工艺路线、产品侧路线下拉、`getRouteSimpleList`、`item-binding-list`、`saveRouteProductByItem`、`validateRouteNotEnable`、已启用路线不可维护。
-- Preflight check: 修改产品侧路线选择或 route-product 保存前，先核对下拉数据源返回的路线状态集合和后端维护校验是否一致；若后端禁止维护已启用路线，前端不能使用只返回已启用路线的精简列表作为可选项。
-- Blocker: 下拉只提供已启用路线但保存接口会因 `PRO_ROUTE_IS_ENABLE` 失败、已启用当前绑定允许清空或改选、产品侧新增第二套路由字段、或用前端隐藏错误替代后端 fail-fast 时必须停止。
+- Preflight check: 修改产品侧路线选择或 route-product 保存前，先核对下拉数据源返回的路线状态集合和后端维护校验是否一致；若后端禁止维护已启用路线，前端不能使用只返回已启用路线的精简列表作为可选项，必须禁用不可维护路线并调用 `saveRouteProductByItem` 后重新读取 `getRouteProductByItem`。
+- Blocker: 产品侧下拉只提供已启用路线但保存接口会因 `PRO_ROUTE_IS_ENABLE` 失败、已启用当前绑定允许清空或改选、产品侧新增第二套路由字段、保存后未重读正式当前绑定、或用前端隐藏错误替代后端 fail-fast 时必须停止。
 - Verification: 前端静态契约必须断言产品侧使用专用路线选择接口、禁用已启用路线选项、不调用只返回已启用路线的 `simple-list`；后端回归必须覆盖创建、迁移、解除绑定和旧路线产品 BOM 清理。
-- Forbidden action: 禁止为了让产品能选择路线而放宽 `validateRouteNotEnable`、禁用后端校验、使用 `MdItemApi.routeId` 第二关系源、默认成功、吞掉保存错误或混入表单槽位/批记录表单链路。
+- Forbidden action: 禁止为了让产品维护页能选择路线而放宽 `validateRouteNotEnable`、禁用后端校验、使用 `MdItemApi.routeId` 第二关系源、默认成功、吞掉保存错误或混入表单槽位/批记录表单链路。
 - Evidence: `doc/tasks/20260804-mes-item-route-selection/verification-report.md`。
+
+### QA 规程手动绑定必须允许已发布路线
+
+- Trigger: QA 规程适用范围手动绑定工艺路线、`data-qa-regulation-manual-route-bind`、`saveQaRegulationRouteProductByItem`、`save-qa-regulation-route-by-item`、已发布路线不能选择、`已启用，仅回显`。
+- Preflight check: QA 规程只允许手动绑定“工艺路线”这一正式产品路线关系；路线版本、质检工序、SOP、生产系数和批记录绑定仍必须从已发布路线自动解析。QA 下拉可复用 `getRouteItemBindingList` 候选，但不得按 `CommonStatusEnum.ENABLE` 禁用已发布路线；保存必须调用 QA 专用 `saveQaRegulationRouteProductByItem`，后端校验路线存在且有 ACTIVE 版本，不调用 `validateRouteNotEnable`，保存后必须重新读取 `getRouteProductByItem`。
+- Blocker: QA 下拉把已发布/已启用路线置灰、仍调用 `saveRouteProductByItem` 导致 `PRO_ROUTE_IS_ENABLE`、后端 QA 方法缺少 ACTIVE 版本 fail-fast、绑定后只用本地选择值展示、或把黄框字段重新开放为手工输入时必须停止。
+- Verification: 前端静态契约必须断言 QA 页面不再禁用 `CommonStatusEnum.ENABLE`、不显示“已启用，仅回显”、调用 `saveQaRegulationRouteProductByItem` 并重读当前绑定；后端回归必须覆盖 QA 新建绑定、修正既有绑定、缺 ACTIVE 版本失败、Controller QA endpoint 和不调用 `validateRouteNotEnable`。
+- Forbidden action: 禁止放宽产品维护页 `validateRouteNotEnable` 来满足 QA；禁止用前端本地值、默认路线、`formBindings`、批记录表单、空成功或吞异常冒充 QA 绑定成功。
+- Evidence: `doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md`。
 
 ## 禁止做法
 

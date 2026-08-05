@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.MesProRouteProductController;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductBindFromWorkOrdersReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductBindFromWorkOrdersRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductByItemSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
@@ -244,5 +245,15 @@ class MesProRouteProductBindFromWorkOrdersTest {
         when(controllerRouteProductService.previewBindFromWorkOrders(104L, 1004L)).thenReturn(expected);
 
         assertEquals(expected, controller.previewBindFromWorkOrders(reqVO).getData());
+    }
+
+    @Test
+    void controller_shouldExposeQaRegulationRouteProductBindingEndpointContract() {
+        MesProRouteProductByItemSaveReqVO reqVO = new MesProRouteProductByItemSaveReqVO();
+        reqVO.setItemId(301L);
+        reqVO.setRouteId(200L);
+        when(controllerRouteProductService.saveQaRegulationRouteProductByItem(301L, 200L)).thenReturn(100L);
+
+        assertEquals(100L, controller.saveQaRegulationRouteProductByItem(reqVO).getData());
     }
 }

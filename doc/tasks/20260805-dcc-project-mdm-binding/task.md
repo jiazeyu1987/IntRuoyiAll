@@ -17,6 +17,7 @@
 - 记录 RED：关键 DCC 项目代码存在 MDM 同名产品但 `product_master_id` 为空。
 - 记录 GREEN：事务更新唯一高置信匹配后，更新行数与候选数一致。
 - 复核芋道源码租户绑定/未绑定统计、`IDI` 等关键项目代码映射、无跨租户或已删除产品引用。
+- 运行真实页面 E2E：选择 `IDI` 后 DCC 项目代码返回 `productMasterId=14`，QA 状态接口成功，页面无写请求和前端错误。
 
 ## Current Status
 
@@ -30,6 +31,7 @@ ready_for_closeout
 - 本次仅采用等值型高置信规则：29 条完全同名、7 条去注册/地区括号后缀后同名、15 条去“一次性使用”通用前缀后同名。
 - 保留 68 条未绑定数据不动，原因是缺少等值主数据、名称过短或可能存在产品族/型号歧义。
 - 压力泵相关项目代码已绑定：`ID`、`IDE`、`IDE(CE)`、`IDE(FDA)`、`IDI`、`IDPR`。
+- 已修正并通过 `e2e:qa-regulation:dcc-status:real`，E2E 现在按 Element Plus 表单输入值断言 IDI 规程名称。
 
 ## 设计约束检查
 

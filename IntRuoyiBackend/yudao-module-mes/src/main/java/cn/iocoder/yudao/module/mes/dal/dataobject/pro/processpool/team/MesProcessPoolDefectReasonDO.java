@@ -37,4 +37,5 @@ public class MesProcessPoolDefectReasonDO extends TenantBaseDO {
     private Long routeProcessId;
     private Long processId;
     private Boolean enabled;
+    private String remark;
 }

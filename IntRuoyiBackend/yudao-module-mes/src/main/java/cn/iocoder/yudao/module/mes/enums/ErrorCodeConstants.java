@@ -207,7 +207,7 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_SCHEDULE_ORDER_NOT_EXISTS = new ErrorCode(1_040_270_000, "排产工单不存在");
     ErrorCode PRO_SCHEDULE_ORDER_PROMISE_DATE_REQUIRED = new ErrorCode(1_040_270_001, "承诺交期不能为空");
     ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_DUPLICATE = new ErrorCode(1_040_270_002, "该生产工单已存在排产工单");
-    ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_NOT_CONFIRMED = new ErrorCode(1_040_270_003, "生产工单已完成或已取消，不能生成排产工单");
+    ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_NOT_CONFIRMED = new ErrorCode(1_040_270_003, "生产工单不是已确认状态，不能生成排产工单");
     ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_FROZEN = new ErrorCode(1_040_270_004, "生产工单已临时冻结，不能生成排产工单");
     ErrorCode PRO_SCHEDULE_ORDER_ROUTE_REQUIRED = new ErrorCode(1_040_270_005, "产品缺少启用工艺路线，不能生成排产工单");
     ErrorCode PRO_SCHEDULE_ORDER_ROUTE_PROCESS_REQUIRED = new ErrorCode(1_040_270_006, "工艺路线缺少工序，不能生成排产工单");
@@ -227,6 +227,7 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_SCHEDULE_ORDER_PROCESS_WIP_NOT_EXISTS = new ErrorCode(1_040_270_020, "当前没有可写入的工序在制记录，processId={}");
     ErrorCode PRO_SCHEDULE_ORDER_PROCESS_WIP_CALENDAR_RULE_REQUIRED = new ErrorCode(1_040_270_021, "工序启用夜班但缺少排程日历规则，processId={}");
     ErrorCode PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED = new ErrorCode(1_040_270_022, "资源计算排产工序缺少可用资源产能，routeProcessId={}");
+    ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_ERP_SYNC_REQUIRED = new ErrorCode(1_040_270_023, "生产工单缺少 ERP 正式生产订单同步记录或正式 ID/编号，不能生成排产工单");
 
     // ========== MES 第三方报工待归属（1-040-272-000） ==========
     ErrorCode PRO_FEEDBACK_IMPORT_RECORD_NOT_EXISTS = new ErrorCode(1_040_272_000, "待归属记录不存在");
@@ -539,6 +540,12 @@ public interface ErrorCodeConstants {
             "PQC 检验任务身份与提交上下文不一致：{}");
     ErrorCode PRO_FRONTLINE_PQC_TASK_STATUS_INVALID = new ErrorCode(1_040_506_109,
             "PQC 检验任务状态不允许提交：taskId={}，status={}");
+    ErrorCode PRO_FRONTLINE_PQC_TASK_QUANTITY_MISMATCH = new ErrorCode(1_040_506_110,
+            "PQC 检验任务数量与提交数量不一致：taskId={}，plannedQuantity={}，actualQuantity={}");
+    ErrorCode PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED = new ErrorCode(1_040_506_111,
+            "PQC 检验任务生成前置条件不满足：{}");
+    ErrorCode PRO_PQC_INSPECTION_TASK_IDENTITY_CONFLICT = new ErrorCode(1_040_506_112,
+            "PQC 检验任务身份已存在，禁止重复生成：{}");
 
     // ========== MES 生产管理-生产流转卡（1-040-507-000） ==========
     ErrorCode PRO_CARD_NOT_EXISTS = new ErrorCode(1_040_507_000, "生产流转卡不存在");
@@ -582,6 +589,16 @@ public interface ErrorCodeConstants {
             new ErrorCode(1_040_600_302, "QA 检验规程不存在：{}");
     ErrorCode QA_INSPECTION_REGULATION_SNAPSHOT_INVALID =
             new ErrorCode(1_040_600_303, "QA 检验规程发布快照无效：{}");
+    ErrorCode QA_INSPECTION_REGULATION_REQUIRED_RULE_MISSING =
+            new ErrorCode(1_040_600_304, "QA 检验规程发布失败，缺少必要检验规则：{}");
+    ErrorCode QA_INSPECTION_REGULATION_ITEM_INVALID =
+            new ErrorCode(1_040_600_305, "QA 检验规程检验项目无效：{}");
+    ErrorCode QA_INSPECTION_REGULATION_VERSION_IMMUTABLE =
+            new ErrorCode(1_040_600_306, "QA 检验规程版本已发布，不允许原地修改：{}");
+    ErrorCode QA_INSPECTION_REGULATION_VERSION_CONFLICT =
+            new ErrorCode(1_040_600_307, "QA 检验规程版本状态冲突，无法执行当前操作：{}");
+    ErrorCode QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID =
+            new ErrorCode(1_040_600_308, "QA 检验规程末检适用性配置无效：{}");
 
     // ========== MES 质量管理-质检指标（1-040-601-000） ==========
     ErrorCode QC_INDICATOR_NOT_EXISTS = new ErrorCode(1_040_601_000, "质检指标不存在");
@@ -787,6 +804,7 @@ public interface ErrorCodeConstants {
     ErrorCode WM_TRANSFER_ALREADY_FINISHED = new ErrorCode(1_040_710_007, "转移单已完成或已取消，无法继续操作");
     ErrorCode WM_TRANSFER_NO_LINE = new ErrorCode(1_040_710_008, "转移单至少需要一条行数据");
     ErrorCode WM_TRANSFER_DETAIL_QUANTITY_MISMATCH = new ErrorCode(1_040_710_009, "转移单行数量与明细数量不一致");
+    ErrorCode WM_TRANSFER_MANUAL_OPERATION_FORBIDDEN = new ErrorCode(1_040_710_010, "转移单由 ERP/正式库存链路生成，禁止 MES 本地手工写操作");
     ErrorCode WM_TRANSFER_LINE_NOT_EXISTS = new ErrorCode(1_040_710_100, "转移单行不存在");
     ErrorCode WM_TRANSFER_LINE_QUANTITY_EXCEED_STOCK = new ErrorCode(1_040_710_101, "转移数量不能超过库存数量");
     ErrorCode WM_TRANSFER_DETAIL_NOT_EXISTS = new ErrorCode(1_040_710_200, "调拨明细不存在");
@@ -1146,6 +1164,8 @@ public interface ErrorCodeConstants {
             "PQC 提交事件已汇集为过程检验记录，禁止重复汇集：eventId={}，reviewId={}");
     ErrorCode PRO_PROCESS_POOL_REVISION_REJECTED_REVIEW_REQUIRED = new ErrorCode(1_040_760_333,
             "原始记录补正必须基于最新退回复核记录：eventId={}，latestStatus={}");
+    ErrorCode PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED = new ErrorCode(1_040_760_334,
+            "生产报工通过必须使用报工分配确认链路：eventId={}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

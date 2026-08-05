@@ -15,11 +15,7 @@
               v-model="formData.code"
               placeholder="请输入转移单编号"
               :disabled="isHeaderReadonly"
-            >
-              <template #append>
-                <el-button @click="generateCode" :disabled="isHeaderReadonly">生成</el-button>
-              </template>
-            </el-input>
+            />
           </el-form-item>
         </el-col>
         <el-col :span="8">
@@ -135,26 +131,6 @@
     </template>
 
     <template #footer>
-      <el-button v-if="isEditable" @click="submitForm" type="primary" :disabled="formLoading">
-        保 存
-      </el-button>
-      <el-button
-        v-if="isEditable && formData.status === MesWmTransferStatusEnum.PREPARE"
-        @click="handleSubmit"
-        type="warning"
-        :disabled="formLoading"
-      >
-        提 交
-      </el-button>
-      <el-button v-if="isConfirm" @click="handleConfirm" type="success" :disabled="formLoading">
-        到货确认
-      </el-button>
-      <el-button v-if="isStock" @click="handleStock" type="primary" :disabled="formLoading">
-        执行上架
-      </el-button>
-      <el-button v-if="isFinish" @click="handleFinish" type="success" :disabled="formLoading">
-        执行转移
-      </el-button>
       <el-button @click="dialogVisible = false">关 闭</el-button>
     </template>
   </Dialog>
@@ -162,39 +138,18 @@
 
 <script setup lang="ts">
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
-import { WmTransferApi, WmTransferVO } from '@/api/mes/wm/transfer'
-import { AutoCodeRecordApi } from '@/api/mes/md/autocode/record'
-import { MesAutoCodeRuleCode, MesWmTransferStatusEnum } from '@/views/mes/utils/constants'
+import { WmTransferApi } from '@/api/mes/wm/transfer'
 import TransferLineList from './TransferLineList.vue'
 
 defineOptions({ name: 'TransferForm' })
-const emit = defineEmits(['success'])
-
-const message = useMessage() // 消息弹窗
 const dialogVisible = ref(false) // 弹窗的是否展示
 const formLoading = ref(false) // 表单的加载中
-const formType = ref<string>('create') // 表单的类型：create / update / confirm / stock / finish / detail
-const isEditable = computed(() => ['create', 'update'].includes(formType.value)) // 是否为编辑模式
-const isConfirm = computed(() => formType.value === 'confirm') // 是否为到货确认模式
-const isStock = computed(() => formType.value === 'stock') // 是否为上架模式
-const isFinish = computed(() => formType.value === 'finish') // 是否为执行转移模式
-const isDetail = computed(() => ['detail', 'confirm', 'finish'].includes(formType.value)) // 是否为详情模式
-const isHeaderReadonly = computed(
-  () => ['stock', 'confirm', 'finish', 'detail'].includes(formType.value) // 表头是否只读
-)
+const formType = ref<string>('detail') // 调拨单由 ERP/正式库存链路生成，页面仅保留只读详情
+const isDetail = computed(() => true) // 是否为详情模式
+const isHeaderReadonly = computed(() => true) // 表头是否只读
 const isOuterType = computed(() => !!formData.value.type && Number(formData.value.type) === 2)
 const showDeliveryFields = computed(() => isOuterType.value && !!formData.value.deliveryFlag)
-const dialogTitle = computed(() => {
-  const titles = {
-    create: '新增转移单',
-    update: '编辑转移单',
-    confirm: '到货确认',
-    stock: '执行上架',
-    finish: '执行转移',
-    detail: '转移单详情'
-  }
-  return titles[formType.value] || formType.value
-})
+const dialogTitle = computed(() => '转移单详情')
 const formData = ref({
   id: undefined as number | undefined,
   code: undefined,
@@ -218,19 +173,12 @@ const formRules = reactive({
   transferDate: [{ required: true, message: '转移日期不能为空', trigger: 'change' }]
 })
 const formRef = ref() // 表单 Ref
-const originalFormData = ref<string>('') // 原始表单数据快照，用于脏检查
-
-/** 生成转移单编号 */
-const generateCode = async () => {
-  formData.value.code = await AutoCodeRecordApi.generateAutoCode(MesAutoCodeRuleCode.TRANSFER_CODE)
-}
 
 /** 打开弹窗 */
 const open = async (type: string, id?: number) => {
   dialogVisible.value = true
-  formType.value = type
+  formType.value = 'detail'
   resetForm()
-  // 修改/确认/上架/完成/详情时，加载数据
   if (id) {
     formLoading.value = true
     try {
@@ -238,99 +186,6 @@ const open = async (type: string, id?: number) => {
     } finally {
       formLoading.value = false
     }
-  }
-  // 保存原始数据快照
-  originalFormData.value = JSON.stringify(formData.value)
-}
-
-/** 提交表单（create/update 模式，保存） */
-const submitForm = async () => {
-  await formRef.value.validate()
-  formLoading.value = true
-  try {
-    const data = formData.value as unknown as WmTransferVO
-    if (formType.value === 'create') {
-      const id = await WmTransferApi.createTransfer(data)
-      message.success('新增成功')
-      formData.value.id = id
-      formData.value.status = MesWmTransferStatusEnum.PREPARE
-      formType.value = 'update'
-    } else {
-      await WmTransferApi.updateTransfer(data)
-      message.success('修改成功')
-    }
-    // 更新快照
-    originalFormData.value = JSON.stringify(formData.value)
-    emit('success')
-  } finally {
-    formLoading.value = false
-  }
-}
-
-/** 提交操作：表单修改过则先保存，再提交 */
-const handleSubmit = async () => {
-  await formRef.value.validate()
-  try {
-    await message.confirm('确认提交该转移单？【提交后将不能修改】')
-    formLoading.value = true
-    // 1. 表单有修改时，先保存
-    if (JSON.stringify(formData.value) !== originalFormData.value) {
-      const data = formData.value as unknown as WmTransferVO
-      await WmTransferApi.updateTransfer(data)
-    }
-    // 2. 提交转移单
-    await WmTransferApi.submitTransfer(formData.value.id!)
-    message.success('提交成功')
-    dialogVisible.value = false
-    emit('success')
-  } catch {
-  } finally {
-    formLoading.value = false
-  }
-}
-
-/** 到货确认 */
-const handleConfirm = async () => {
-  try {
-    await message.confirm('确认到货后，将进入待上架状态，是否继续？')
-    formLoading.value = true
-    await WmTransferApi.confirmTransfer(formData.value.id!)
-    message.success('确认成功')
-    dialogVisible.value = false
-    emit('success')
-  } catch {
-  } finally {
-    formLoading.value = false
-  }
-}
-
-/** 执行上架 */
-const handleStock = async () => {
-  try {
-    await message.confirm('确认执行上架？')
-    formLoading.value = true
-    await WmTransferApi.stockTransfer(formData.value.id!)
-    message.success('上架成功')
-    dialogVisible.value = false
-    emit('success')
-  } catch {
-  } finally {
-    formLoading.value = false
-  }
-}
-
-/** 执行转移 */
-const handleFinish = async () => {
-  try {
-    await message.confirm('确认执行调拨？执行后将更新库存。')
-    formLoading.value = true
-    await WmTransferApi.finishTransfer(formData.value.id!)
-    message.success('执行成功')
-    dialogVisible.value = false
-    emit('success')
-  } catch {
-  } finally {
-    formLoading.value = false
   }
 }
 

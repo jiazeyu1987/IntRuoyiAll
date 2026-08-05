@@ -40,14 +40,23 @@
 - Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
 - Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。
 
+## 前端截图样式块静态契约门禁
+
+- Trigger: 用户基于截图要求调整局部颜色、选中态、高亮态、状态条、边框、背景或伪元素，尤其同一 SFC 中存在多个相似 `background`、`color`、`&::before`、`:hover`、`.active` 样式块。
+- Preflight check: 静态契约必须先锁定目标选择器和目标状态块；负向断言要先抽取 `.active`、`:hover`、`:focus-visible` 或对应子块再检查旧样式，不得用过宽 `[\s\S]*` 从目标块跨到后续无关样式。
+- Blocker: 契约无法区分普通态与选中态、命中结果可能跨块包含相邻绿色/黄色/背景/伪元素样式、或无法证明旧样式只在目标状态中被移除时，必须先修正契约再声明 GREEN。
+- Verification: 聚焦静态契约必须同时断言目标正向 token、目标状态块内不存在旧 token、相邻控件契约仍通过；涉及 Vue/SCSS 文件时再运行 `pnpm ts:check` 和 `git diff --check`。
+- Forbidden action: 禁止只凭截图目测改 CSS、禁止用全局覆盖或删除共享伪元素冒充局部状态修复、禁止用跨整文件泛正则做旧样式负向断言。
+- Evidence: 任务 `doc/tasks/20260805-pqc-redbox-ui-prototype/`，PQC 检验项 tab 根据截图从白底绿字和绿色顶部条改为黄色选中背景；静态契约最终抽取 `.pqc-item-tab.active` 样式块，断言 active `&::before` 被隐藏且目标块内不存在旧绿色条。
+
 ## 统一列表复合工具栏布局门禁
 
 - Trigger: 修改 `UnifiedListTemplate`、快速过滤、批量操作栏、标准列表多维筛选、`TableMultiFilter`、或把新筛选控件接入已有业务列表。
-- Preflight check: 先在真实业务列表确认快速过滤、操作栏、额外筛选和新增筛选控件的 flex/grid 关系；可折行控件必须有明确行宽、`min-width` 和静态合同覆盖，不得只在空模板或单控件示例中验证。标准列表多维筛选要优先做成可增删条件 Tab 这类通用条件集合，不要靠页面级 `maxInlineFilters`、固定字段横铺或业务页特例控制可见条件。同一页面内多个页签或子列表即使都使用 `UnifiedListTemplate`，也必须逐个显式核对是否接入 `showMultiFilter`、多维 definitions/state/events；模板能力不会自动替换仍绑定旧 quick filter 的列表。
-- Blocker: 新控件在真实页面中被快速过滤或操作栏挤压到 `0` 宽、不可见、不可点击，静态合同只断言组件存在但不断言布局宽度和正式 query 透传，或同一个正式 query 参数可被多个条件 Tab 覆盖时必须停止。目标页面还有其它标准列表页签仍保留旧 quick filter、重复状态开关、重复重置按钮或缺少多维筛选事件时，也不得宣称标准模板复用完成。
-- Verification: 聚焦静态合同必须覆盖模板布局类、宽度下限、props/events 透传、条件 Tab 增删、稳定 condition id、重复正式参数校验和正式请求参数；真实 E2E 必须打开目标业务页面，断言控件可见可操作、多个已填写 Tab 按交集提交、请求不携带临时参数、重置清空正式条件且目标写请求为 0。涉及同页多列表时，E2E 必须切换每个目标页签并分别断言旧 quick filter 可见数为 0、正式参数提交和重置清参。
+- Preflight check: 先在真实业务列表确认快速过滤、操作栏、额外筛选和新增筛选控件的 flex/grid 关系；可折行控件必须有明确行宽、`min-width` 和静态合同覆盖，不得只在空模板或单控件示例中验证。标准列表多维筛选要优先做成可增删条件 Tab 这类通用条件集合，不要靠页面级 `maxInlineFilters`、固定字段横铺或业务页特例控制可见条件；标准列表条件 Tab 默认必须为空，不得通过页面级 `.setCondition(...)` 或 query 初值预置隐藏业务筛选。同一页面内多个页签或子列表即使都使用 `UnifiedListTemplate`，也必须逐个显式核对是否接入 `showMultiFilter`、多维 definitions/state/events；模板能力不会自动替换仍绑定旧 quick filter 的列表。
+- Blocker: 新控件在真实页面中被快速过滤或操作栏挤压到 `0` 宽、不可见、不可点击，静态合同只断言组件存在但不断言布局宽度和正式 query 透传，或同一个正式 query 参数可被多个条件 Tab 覆盖时必须停止。标准列表首屏请求仍带页面隐藏默认条件、目标页面还有其它标准列表页签仍保留旧 quick filter、重复状态开关、重复重置按钮或缺少多维筛选事件时，也不得宣称标准模板复用完成。
+- Verification: 聚焦静态合同必须覆盖模板布局类、宽度下限、props/events 透传、条件 Tab 增删、默认空条件、禁止 `.setCondition(...)` 预置、稳定 condition id、重复正式参数校验和正式请求参数；真实 E2E 必须打开目标业务页面，断言控件可见可操作、首屏请求不携带隐藏默认条件、多个已填写 Tab 按交集提交、请求不携带临时参数、重置清空正式条件且目标写请求为 0。涉及同页多列表时，E2E 必须切换每个目标页签并分别断言旧 quick filter 可见数为 0、正式参数提交和重置清参。
 - Forbidden action: 禁止用 API-only、临时测试页、隐藏旧快速筛选、移除业务操作按钮、硬编码当前页面宽度、页面级 inline filter 数量特例或前端本地过滤来冒充标准列表多维筛选完成。
-- Evidence: 任务 `doc/tasks/20260804-standard-list-multi-filter/verification-report.md`，排产工单真实 E2E 暴露多维筛选在复合工具栏中被挤压为 `0` 宽，最终用模板级全行布局和静态合同锁定；后续用户反馈固定条件栏复用性差，改为条件 Tab + 加减号，并用真实 E2E 证明多个 Tab 按正式 query 参数交集提交；同步工单页签虽同样使用 `UnifiedListTemplate`，但因未显式接入多维 definitions/state/events 而保持旧 quick filter，最终按页签补齐静态合同和真实 E2E。
+- Evidence: 任务 `doc/tasks/20260804-standard-list-multi-filter/verification-report.md`，排产工单真实 E2E 暴露多维筛选在复合工具栏中被挤压为 `0` 宽，最终用模板级全行布局和静态合同锁定；后续用户反馈固定条件栏复用性差，改为条件 Tab + 加减号，并用真实 E2E 证明多个 Tab 按正式 query 参数交集提交；同步工单页签虽同样使用 `UnifiedListTemplate`，但因未显式接入多维 definitions/state/events 而保持旧 quick filter，最终按页签补齐静态合同和真实 E2E。任务 `doc/tasks/20260805-standard-list-empty-tabs/verification-report.md` 将当前系统 84 个标准列表模板扫描入清单，并锁定默认空条件 Tab、禁止页面级预置隐藏筛选、排产工单和同步工单首屏只带分页参数；任务 `doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md` 新增 QA 规程 4 个标准列表后，将系统接入点更新为 88 个、显式隐藏筛选列表更新为 14 个。
 
 ## 前端 LocalDateTime 响应契约门禁
 

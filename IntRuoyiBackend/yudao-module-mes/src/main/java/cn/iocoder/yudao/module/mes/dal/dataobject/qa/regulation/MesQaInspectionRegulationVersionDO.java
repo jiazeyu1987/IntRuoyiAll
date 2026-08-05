@@ -33,5 +33,7 @@ public class MesQaInspectionRegulationVersionDO extends TenantBaseDO {
     private String lifecycleStatus;
     private LocalDateTime publishedAt;
     private LocalDateTime retiredAt;
+    private Boolean finalInspectionApplicable;
+    private String finalInspectionNotApplicableReason;
     private String snapshotJson;
 }

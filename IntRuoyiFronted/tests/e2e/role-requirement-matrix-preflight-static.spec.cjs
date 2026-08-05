@@ -12,6 +12,10 @@ const teamLeaderWorkbenchPath = path.join(
   frontendRoot,
   'src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'
 )
+const frontlineFixedTemplatePanelPath = path.join(
+  frontendRoot,
+  'src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue'
+)
 const teamLeaderApiPath = path.join(frontendRoot, 'src/api/mes/pro/processpool/teamLeader.ts')
 const processPoolApiPath = path.join(frontendRoot, 'src/api/mes/pro/processpool/index.ts')
 const timelineFilterTestPath = path.join(
@@ -114,6 +118,7 @@ for (const [scriptName, relativeFile] of Object.entries(plannedStaticScripts)) {
 const source = fs.readFileSync(realFlowPath, 'utf8')
 const remainingRouterSource = fs.readFileSync(remainingRouterPath, 'utf8')
 const teamLeaderSource = fs.readFileSync(teamLeaderWorkbenchPath, 'utf8')
+const frontlineFixedTemplatePanelSource = fs.readFileSync(frontlineFixedTemplatePanelPath, 'utf8')
 const teamLeaderApiSource = fs.readFileSync(teamLeaderApiPath, 'utf8')
 const processPoolApiSource = fs.readFileSync(processPoolApiPath, 'utf8')
 const timelineFilterTestSource = fs.readFileSync(timelineFilterTestPath, 'utf8')
@@ -303,6 +308,8 @@ for (const token of [
   'tenant-id',
   'Authorization',
   '/mes/pro/process-pool/team-leader/active-order/add',
+  '/mes/pro/feedback/edhr-batch-production-fill',
+  '/mes/pro/feedback/frontline/submit',
   '/mes/pro/feedback/edhr-batch-pqc-fill',
   '/mes/pro/feedback/frontline/device-account/pqc/active-orders',
   '/mes/pro/feedback/frontline/device-account/pqc/active-order/processes',
@@ -373,8 +380,8 @@ assert.match(
 )
 assert.match(
   source,
-  /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*verifyActiveOrderTransferTraceReadOnly\(page,\s*config,\s*joinEvidence\)[\s\S]*return \[joinEvidence,\s*conflictRouteEvidence,\s*transferTraceEvidence,\s*dailyCloseEvidence\]/,
-  'Production leader phase must read the active-order transfer/shipment/replenishment/return trace after joining the active order and before daily-close evidence.'
+  /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*verifyScheduleOrderErpCandidateAdmission\(page,\s*config\)[\s\S]*verifyActiveOrderTransferTraceReadOnly\(page,\s*config,\s*joinEvidence\)[\s\S]*return \[admissionEvidence,\s*joinEvidence,\s*conflictRouteEvidence,\s*transferTraceEvidence,\s*dailyCloseEvidence\]/,
+  'Production leader phase must prove AC-M01 schedule-order admission before joining the active order, then read transfer/shipment/replenishment/return trace before daily-close evidence.'
 )
 const activeOrderTransferTraceActionSource = source.match(
   /async function verifyActiveOrderTransferTraceReadOnly[\s\S]*?async function verifyPqcActiveOrderReadOnly/
@@ -413,6 +420,26 @@ assert.match(
   source,
   /performActiveOrderJoin[\s\S]*fillFormItemForAction\(section,\s*'加入活跃订单',\s*'调拨单ID列表',\s*config\.transferIds\.join\(','\)\)/,
   'real E2E must submit formal transferIds through the visible active-order join form.'
+)
+assert.match(
+  source,
+  /async function performActiveOrderJoin\(page,\s*config\)[\s\S]*const refreshedRows = Array\.isArray\(listBody\.data\) \? listBody\.data : \[\][\s\S]*const rows = refreshedRows\.some\([\s\S]*\?\s*refreshedRows\s*:\s*await reloadActiveOrderRows\(page\)[\s\S]*rows\.some\(\(row\) => Number\(row\.id\) === Number\(activeOrderId\) && Number\(row\.workOrderId\) === Number\(config\.workOrderId\)\)/,
+  'real E2E active-order join must re-read the final active-order list before asserting the returned activeOrderId.'
+)
+assert.match(
+  source,
+  /verifyPqcRegulationItemsRendered[\s\S]*visibleStandardTexts[\s\S]*data-pqc-standard-button[\s\S]*visibleMethodTexts[\s\S]*data-pqc-method-button[\s\S]*visibleMethodText\.includes\(method\)[\s\S]*visibleStandardText\.includes\(standard\)[\s\S]*visibleMetaText\.includes\(resultTypeLabel\)/,
+  'real E2E must verify PQC method, standard, and result type from their actual visible page surfaces.'
+)
+assert.match(
+  frontlineFixedTemplatePanelSource,
+  /data-pqc-piece-open-button[\s\S]*openPqcPieceInspection\(activePqcTabItem\.key\)/,
+  'PQC page must expose a stable visible button for opening piece-detail inspection.'
+)
+assert.match(
+  source,
+  /verifyPqcPieceDetailQuantityPrepared[\s\S]*page\.locator\('\[data-pqc-piece-open-button\]'\)[\s\S]*completePqcPieceDetailsForSubmission[\s\S]*data-pqc-inspection-tab[\s\S]*activePanel\.locator\('\[data-pqc-piece-open-button\]'\)/,
+  'real E2E must open PQC piece-detail modals through the visible piece-detail button across QA item tabs.'
 )
 
 for (const token of [
@@ -714,7 +741,7 @@ assert.match(
 )
 assert.match(
   teamLeaderBatchRecordBackfillServiceTestSource,
-  /shouldBackfillCompletedProcessOnlyOnceWhenConcurrentAuditAlreadyApplied[\s\S]*PROCESS_POOL_REPORT_BACKFILL:1001:9001:5001[\s\S]*times\(2\)[\s\S]*saveSystemCellLinkChanges/,
+  /shouldBackfillCompletedProcessOnlyOnceWhenConcurrentAuditAlreadyApplied[\s\S]*PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5001:6001:agg-single-1001-7101[\s\S]*times\(2\)[\s\S]*saveSystemCellLinkChanges/,
   'AC-M19 batch-record backfill service test must prove repeated/concurrent backfill uses the same idempotency key and delegates duplicate suppression to field audit.'
 )
 assert.match(
@@ -851,6 +878,41 @@ const pqcFormalSubmissionSource = source.match(/async function verifyPqcFormalSu
 assert.ok(
   pqcFormalSubmissionSource,
   'real E2E script must keep verifyPqcFormalSubmissionCreatesEvent before localDateString for static inspection.'
+)
+assert.match(
+  source,
+  /routeProcessIds:\s*\[[\s\S]*RRM_ROUTE_PROCESS_ID_1[\s\S]*RRM_ROUTE_PROCESS_ID_2[\s\S]*\][\s\S]*primaryRouteProcessId:\s*Number\(envValue\('RRM_ROUTE_PROCESS_ID_1'\)\)/,
+  'RRM config must retain both route process IDs and a primary route process ID so PQC prerequisite production submit is tied to the same formal route context.'
+)
+assert.match(
+  source,
+  /const\s+PRODUCTION_FILL_ROUTE\s*=\s*'\/mes\/pro\/feedback\/edhr-batch-production-fill'[\s\S]*const\s+FRONTLINE_SUBMIT_ENDPOINT\s*=\s*'\/mes\/pro\/feedback\/frontline\/submit'/,
+  'RRM real E2E must define the formal production fill route and production submit endpoint before PQC submission.'
+)
+assert.match(
+  source,
+  /function buildProductionFillUrl[\s\S]*feedbackCode[\s\S]*routeProcessId[\s\S]*signatureEmployeeId[\s\S]*outputQuantity[\s\S]*idempotencyKey/,
+  'RRM real E2E must build a production fill URL with formal route process, signature, quantity, and idempotency context.'
+)
+assert.match(
+  source,
+  /async function preparePqcFormalSubmissionContext[\s\S]*buildProductionFillUrl[\s\S]*submitFrontlineProductionForPqcPrereq[\s\S]*processPoolEventId/,
+  'PQC formal submission must create and capture a fresh processPoolEventId through the real production submit path.'
+)
+assert.match(
+  source,
+  /function buildPqcFillUrl[\s\S]*productionSubmitEventId[\s\S]*processPoolEventId/,
+  'PQC fill URL must carry the fresh productionSubmitEventId/processPoolEventId instead of relying on historical process-pool state.'
+)
+assert.match(
+  pqcFormalSubmissionSource[0],
+  /preparePqcFormalSubmissionContext[\s\S]*buildPqcFillUrl[\s\S]*page\.goto/,
+  'verifyPqcFormalSubmissionCreatesEvent must prepare the formal production submit context and reopen PQC with productionSubmitEventId before clicking submit.'
+)
+assert.doesNotMatch(
+  source,
+  /RRM_PROCESS_POOL_EVENT_ID|RRM_PRODUCTION_SUBMIT_EVENT_ID/,
+  'RRM full real E2E must not accept historical production event IDs from env; it must create a fresh event in the same run.'
 )
 assert.match(
   pqcFormalSubmissionSource[0],

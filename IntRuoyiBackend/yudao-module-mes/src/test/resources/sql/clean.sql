@@ -6,6 +6,7 @@ DELETE FROM "system_notify_template";
 DELETE FROM "mes_pro_process_pool_review_copy_field";
 DELETE FROM "mes_pro_process_pool_review_copy";
 DELETE FROM "mes_pro_process_pool_fifo_allocation_line";
+DELETE FROM "mes_pqc_process_inspection_aggregate_detail";
 DELETE FROM "mes_pro_process_pool_pqc_record";
 DELETE FROM "mes_pro_process_pool_quantity_fragment";
 DELETE FROM "mes_pro_process_pool_event";

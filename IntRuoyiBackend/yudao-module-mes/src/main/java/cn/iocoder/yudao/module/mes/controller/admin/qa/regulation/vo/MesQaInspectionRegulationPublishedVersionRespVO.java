@@ -68,6 +68,12 @@ public class MesQaInspectionRegulationPublishedVersionRespVO {
     @Schema(description = "逐工序批记录绑定摘要")
     private String batchRecordBindingSummary;
 
+    @Schema(description = "末检是否适用")
+    private Boolean finalInspectionApplicable;
+
+    @Schema(description = "末检不适用依据")
+    private String finalInspectionNotApplicableReason;
+
     @Schema(description = "首检规则")
     private List<InspectionRule> firstInspectionRules;
 

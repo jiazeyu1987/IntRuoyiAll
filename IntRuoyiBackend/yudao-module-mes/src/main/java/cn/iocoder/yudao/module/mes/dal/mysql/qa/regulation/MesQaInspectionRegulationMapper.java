@@ -15,13 +15,27 @@ public interface MesQaInspectionRegulationMapper extends BaseMapperX<MesQaInspec
     default MesQaInspectionRegulationDO selectPublishedByRouteProcess(Long productId, Long routeId,
                                                                       Long routeVersionId, Long routeProcessId,
                                                                       Long processId) {
-        return selectOne(new LambdaQueryWrapperX<MesQaInspectionRegulationDO>()
+        return selectOne(baseRouteProcessQuery(productId, routeId, routeVersionId, routeProcessId, processId)
+                .eq(MesQaInspectionRegulationDO::getLifecycleStatus, "PUBLISHED"));
+    }
+
+    default MesQaInspectionRegulationDO selectByRouteProcess(Long productId, Long routeId,
+                                                             Long routeVersionId, Long routeProcessId,
+                                                             Long processId) {
+        return selectOne(baseRouteProcessQuery(productId, routeId, routeVersionId, routeProcessId, processId));
+    }
+
+    private static LambdaQueryWrapperX<MesQaInspectionRegulationDO> baseRouteProcessQuery(Long productId,
+                                                                                          Long routeId,
+                                                                                          Long routeVersionId,
+                                                                                          Long routeProcessId,
+                                                                                          Long processId) {
+        return new LambdaQueryWrapperX<MesQaInspectionRegulationDO>()
                 .eq(MesQaInspectionRegulationDO::getProductId, productId)
                 .eq(MesQaInspectionRegulationDO::getRouteId, routeId)
                 .eq(MesQaInspectionRegulationDO::getRouteVersionId, routeVersionId)
                 .eq(MesQaInspectionRegulationDO::getRouteProcessId, routeProcessId)
-                .eq(MesQaInspectionRegulationDO::getProcessId, processId)
-                .eq(MesQaInspectionRegulationDO::getLifecycleStatus, "PUBLISHED"));
+                .eq(MesQaInspectionRegulationDO::getProcessId, processId);
     }
 
     default List<MesQaInspectionRegulationDO> selectListByProductIds(Collection<Long> productIds) {

@@ -720,6 +720,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         rule.setTargetCellKey(targetCell.getCellKey());
         rule.setTargetLabel(StrUtil.blankToDefault(StrUtil.trim(item.getTargetLabel()), targetCell.getLabel()));
         rule.setTargetValueType(targetCell.getValueType());
+        rule.setAggregationStrategy(StrUtil.trim(item.getAggregationStrategy()));
         rule.setOverwritePolicy(StrUtil.blankToDefault(item.getOverwritePolicy(), OVERWRITE_POLICY_ONLY_WHEN_EMPTY));
         rule.setTemplateSnapshotHash(DigestUtil.sha256Hex(sourceLayoutHash + "|" + targetLayoutHash));
         rule.setRuleVersion(ruleVersion);
@@ -1090,6 +1091,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 .setTargetCellKey(rule.getTargetCellKey())
                 .setTargetLabel(rule.getTargetLabel())
                 .setTargetValueType(rule.getTargetValueType())
+                .setAggregationStrategy(rule.getAggregationStrategy())
                 .setOverwritePolicy(rule.getOverwritePolicy())
                 .setTemplateSnapshotHash(rule.getTemplateSnapshotHash())
                 .setRuleVersion(rule.getRuleVersion())

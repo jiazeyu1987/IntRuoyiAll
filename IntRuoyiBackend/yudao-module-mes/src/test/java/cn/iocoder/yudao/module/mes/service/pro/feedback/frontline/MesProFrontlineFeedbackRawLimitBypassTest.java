@@ -34,6 +34,8 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
     private MesProcessPoolSubmitEventService processPoolSubmitEventService;
     @Mock
     private MesFrontlineSubmitAuthorizationService submitAuthorizationService;
+    @Mock
+    private MesFrontlineLossReasonValidator lossReasonValidator;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -44,6 +46,7 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
                 recordbookEntryService,
                 processPoolSubmitEventService,
                 submitAuthorizationService,
+                lossReasonValidator,
                 new MesProFrontlineFeedbackPayloadSplitter());
     }
 

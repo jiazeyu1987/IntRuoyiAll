@@ -96,6 +96,7 @@ export interface ProFrontlineFeedbackPayloadReqVO {
   laborScrapQuantity?: number
   materialScrapQuantity?: number
   otherScrapQuantity?: number
+  lossReasonId?: number
   approveUserId: number
   remark?: string
 }
@@ -126,6 +127,7 @@ export interface ProFrontlineFeedbackSubmitReqVO {
   feedbackPayload: ProFrontlineFeedbackPayloadReqVO
   recordbookPayload: ProFrontlineRecordbookPayloadReqVO
   processPoolContext: ProFrontlineProcessPoolContextReqVO
+  processPoolSubmissionIdempotencyKey: string
   actualEmployeeId: number
   signatureId: number
   signatureEmployeeId: number
@@ -262,6 +264,7 @@ export interface FrontlinePqcInspectionSubmitReqVO {
   signatureSnapshot?: string
   templateType: string
   inspectionResult: string
+  nonconformanceDescription?: string
   itemResults: FrontlinePqcItemResultSubmitReqVO[]
   rawPayload: Record<string, unknown>
   clientSubmitTime?: string

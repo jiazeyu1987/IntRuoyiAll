@@ -1,0 +1,54 @@
+{
+  "taskId": "20260805-process-loss-reasons",
+  "generatedAt": "2026-08-05T07:14:55.258Z",
+  "status": "PASS",
+  "frontendUrl": "http://127.0.0.1:8093",
+  "backendUrl": "http://127.0.0.1:48093",
+  "tenantId": 122,
+  "tenantName": "测试租户",
+  "browserExecutablePath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "checks": [
+    {
+      "name": "runtime frontend/backend are reachable",
+      "status": "PASS"
+    },
+    {
+      "name": "leader A sees only route-start authorized process rows",
+      "status": "PASS",
+      "expectedRouteProcessIds": [
+        980628,
+        980629
+      ],
+      "unauthorizedRouteProcessId": 980630
+    },
+    {
+      "name": "leader A creates a loss reason through the operation panel",
+      "status": "PASS",
+      "routeProcessId": 980628,
+      "reasonId": 13,
+      "reasonCode": "ZZ-ACD04-UI-1785914094147"
+    },
+    {
+      "name": "leader B sees and updates leader A shared loss reason",
+      "status": "PASS",
+      "reasonId": 13,
+      "updatedName": "ZZ-ACD04-UI-1785914094147-leader-b-updated"
+    },
+    {
+      "name": "leader A sees leader B update and deletes the shared reason",
+      "status": "PASS",
+      "reasonId": 13
+    },
+    {
+      "name": "leader B sees deleted reason as disabled after leader A delete",
+      "status": "PASS",
+      "reasonId": 13
+    },
+    {
+      "name": "target loss-reason page has no HTTP/page errors",
+      "status": "PASS"
+    }
+  ],
+  "targetErrors": [],
+  "pageErrors": []
+}

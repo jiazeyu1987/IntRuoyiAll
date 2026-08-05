@@ -161,6 +161,25 @@
 - Verification: 记录 PID、`jcmd Thread.print` 关键栈、失败命令、是否停止了任务自有进程、以及后续标准 Maven 命令是否到达 Surefire。
 - Forbidden action: 禁止强杀全部 Java/Maven、禁止删除无关模块 `target`、禁止在目标目录损坏时提交实现、禁止把环境编译失败写成业务测试失败。
 - Evidence: `doc\tasks\20260803-dcc-docx-preview-system-exception\execution-log.md`，DCC 预览任务中同模块 Maven 卡在 `WinNTFileSystem.delete0`，后续 DCC 编译出现大量 `target\classes` `NoSuchFileException`，最终保持 blocked 未提交。
+
+### Maven javac/Lombok class 写入长时间运行门禁
+
+- Trigger: Maven 目标测试或编译长时间无 surefire 报告，`jcmd <pid> Thread.print` 显示主线程在 `java.io.FileDescriptor.close0`、`lombok.core.PostCompiler$1.close`、`ClassWriter.writeClass`、`JavaCompiler.generate/compile`，但仍处于 `RUNNABLE`。
+- Preflight check: 先枚举同一 `maven.multiModuleProjectDirectory` 的 Maven/Java 进程，区分当前任务 PID 与并行任务 PID；不要在同一模块 `target` 上继续叠加 Maven。若当前任务 PID 已超过命令超时且无 surefire 报告，只停止当前任务 PID，并记录未触碰的并行 PID。
+- Blocker: 同仓并行 Maven 仍写同一 `target`、目标测试没有生成 surefire、或标准 `-pl <module> -am` 编译仍长时间停在 javac/Lombok 写 class 阶段时，必须把验证标记为 blocked；不得宣称 JUnit 通过。
+- Verification: 记录目标命令、超时秒数、PID、`jcmd` 关键栈、已停止的任务自有 PID、未停止的并行 PID、是否生成目标 surefire，以及后续释放并行 Maven 后的复跑结果。
+- Forbidden action: 禁止把 `RUNNABLE` 状态误判为业务测试失败；禁止强杀并行任务 Maven；禁止在未释放同仓 Maven 时提交实现或继续跑更多 Maven；禁止用旧 surefire 报告冒充本次目标命令结果。
+- Evidence: `doc\tasks\20260805-role-matrix-code-repair\execution-log.md`，AC-M22 放行预检修复中目标 Maven 多次停在 javac/Lombok 写 class 阶段，本任务仅停止自有超时 PID，保留同仓并行 Maven；并行阻塞释放后复跑标准 `-pl ... -am` 目标 JUnit 并以 Surefire PASS 作为最终 GREEN。
+- Supplementary evidence: 若必须在 Maven 阻塞时证明 RED/GREEN，可用 JUnit Console + 显式 javac 参数文件运行任务目标测试，但只能记录为补充证据；必须把 classpath 隔离清楚（旧实现 RED、新实现 GREEN）、同时保留标准 Maven 为 blocked，禁止把该补充结果写成 Maven/Surefire 通过。
+
+### Windows Maven 页面文件不足门禁
+
+- Trigger: Maven 编译或测试报 JVM native memory allocation / `G1 virtual space` / Windows `页面文件太小，无法完成操作`，或同仓存在多个并发 Maven/Java 编译测试进程且工作集持续增长。
+- Preflight check: 先用 `Get-Process -Name java,mvn -ErrorAction SilentlyContinue` 识别当前任务 PID、同仓并发 Maven PID 和常驻运行态；只停止当前任务启动且已超时/失控的 PID，不停止其它任务或运行态进程。
+- Blocker: 页面文件不足、并发 Maven 持续占用内存、或低内存 `MAVEN_OPTS` 重试仍超时时，必须把目标 JUnit 标记为环境阻塞；不得继续叠加 Maven 重试、不得把静态检查写成 JUnit PASS、不得强杀全部 Java 进程腾内存。
+- Verification: 记录原 Maven 命令、内存失败摘要、低内存重试命令、停止的任务自有 PID、保留的其它 PID，以及后续需要重跑的精确测试命令。
+- Forbidden action: 禁止用更小测试范围冒充目标验证通过；禁止在未达到 Surefire 测试结果时宣称业务 GREEN；禁止因为环境阻塞而提交未记录的验证缺口。
+- Evidence: `doc\tasks\20260805-ac-m19-deterministic-backfill\verification-report.md`，AC-M19 聚合回填修复中目标 Maven 首次因页面文件不足失败，低内存重试超时，仅停止本任务 PID 55008 并记录剩余阻塞。
 ## 执行顺序
 
 1. 阶段 1：任务提交/推送预检

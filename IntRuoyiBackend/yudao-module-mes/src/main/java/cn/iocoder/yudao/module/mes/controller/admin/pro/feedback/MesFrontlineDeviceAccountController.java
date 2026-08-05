@@ -169,6 +169,7 @@ public class MesFrontlineDeviceAccountController {
                         .signatureSnapshot(reqVO.getSignatureSnapshot())
                         .templateType(reqVO.getTemplateType())
                         .inspectionResult(reqVO.getInspectionResult())
+                        .nonconformanceDescription(reqVO.getNonconformanceDescription())
                         .itemResults(reqVO.getItemResults().stream()
                                 .map(MesFrontlineDeviceAccountController::toPqcItemResultCommand)
                                 .toList())

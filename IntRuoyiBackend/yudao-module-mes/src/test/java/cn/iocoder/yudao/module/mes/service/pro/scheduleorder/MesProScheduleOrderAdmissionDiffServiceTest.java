@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteScheduleC
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessConfigDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesKingdeeProductionOrderSyncRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryProcessMapper;
@@ -142,6 +143,16 @@ class MesProScheduleOrderAdmissionDiffServiceTest {
                         .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
                         .enabled(Boolean.TRUE)
                         .build());
+        org.mockito.Mockito.lenient().when(syncRecordMapper.selectByWorkOrderId(
+                        org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(invocation -> {
+                    Long workOrderId = invocation.getArgument(0);
+                    return MesKingdeeProductionOrderSyncRecordDO.builder()
+                            .workOrderId(workOrderId)
+                            .sourceFid("FID-" + workOrderId)
+                            .sourceBillNo("ERP-MO-" + workOrderId)
+                            .build();
+                });
     }
 
     private Map<Long, Long> identityMap(java.util.Collection<Long> processIds) {
@@ -552,6 +563,33 @@ class MesProScheduleOrderAdmissionDiffServiceTest {
         assertEquals(1, result.getList().size());
         assertEquals("MO-READY", result.getList().get(0).getWorkOrderCode());
         verify(workOrderMapper, never()).selectPage(argThat(req -> PageParam.PAGE_SIZE_NONE.equals(req.getPageSize())));
+    }
+
+    @Test
+    void getAdmissionDiff_shouldBlockConfirmedOrderWithoutFormalErpSyncIdentity() {
+        MesProWorkOrderDO missingErpIdentity = buildWorkOrder(100L, "MO-MISSING-ERP", 10L, Boolean.FALSE,
+                MesProWorkOrderStatusEnum.CONFIRMED.getStatus());
+        when(workOrderMapper.selectPage(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new PageResult<>(List.of(missingErpIdentity), 1L));
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L))).thenReturn(List.of());
+        when(syncRecordMapper.selectByWorkOrderId(100L)).thenReturn(null);
+
+        MesProScheduleOrderAdmissionDiffPageReqVO reqVO = new MesProScheduleOrderAdmissionDiffPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+
+        MesProScheduleOrderAdmissionDiffPageRespVO result = scheduleOrderService.getAdmissionDiff(reqVO);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(1, result.getList().size());
+        MesProScheduleOrderAdmissionDiffRespVO row = result.getList().get(0);
+        assertEquals("BLOCKED", row.getAdmissionStatus());
+        assertEquals("BLOCKED_ERP_SYNC_RECORD_MISSING", row.getReasonCode());
+        assertEquals("BLOCKED", row.getSeverity());
+        assertFalse(row.getSelectable());
+        assertTrue(row.getMessage().contains("ERP"));
+        assertEquals(0, result.getSummary().getReadyCount());
+        assertEquals(1, result.getSummary().getBlockedCount());
     }
 
     private void mockReadyRoute(Long productId, Long routeId, Long routeVersionId, Long routeProcessId, Long processId) {

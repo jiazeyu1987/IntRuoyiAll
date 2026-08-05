@@ -72,6 +72,11 @@ export const ProRouteProductApi = {
     return await request.post({ url: `/mes/pro/route-product/save-by-item`, data })
   },
 
+  // QA 规程按产品物料绑定已发布工艺路线
+  saveQaRegulationRouteProductByItem: async (data: ProRouteProductByItemSaveReqVO) => {
+    return await request.post({ url: `/mes/pro/route-product/save-qa-regulation-route-by-item`, data })
+  },
+
   // 新增工艺路线产品
   createRouteProduct: async (data: ProRouteProductVO) => {
     return await request.post({ url: `/mes/pro/route-product/create`, data })
