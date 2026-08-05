@@ -32,9 +32,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-AC-M22 后端代码修复、目标 JUnit 和静态校验已通过。目标 Maven 命令 `mvn -pl yudao-module-mes -am "-Dtest=MesOrderReleaseCompletenessServiceTest,MesPqcProcessInspectionAggregationServiceTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` 通过，Surefire 合计 41 tests / 0 failures / 0 errors。提交/推送收尾尚未执行：当前共享工作区仍为 `int_main...origin/int_main [ahead 13]` 且存在大量并行脏改动，不能用宽泛暂存或基线提交混入其它任务文件。
+AC-M22 后端代码修复、目标 JUnit、静态校验、cleanup preview/apply 和经验沉淀均已完成。目标 Maven 命令 `mvn -pl yudao-module-mes -am "-Dtest=MesOrderReleaseCompletenessServiceTest,MesPqcProcessInspectionAggregationServiceTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` 通过，Surefire 合计 41 tests / 0 failures / 0 errors。实现与验证记录已被共享分支提交 `ba81bdfe3` 吸收；本次仅补最终 completed 收尾记录。
 
 ## Remaining Out Of Scope
 

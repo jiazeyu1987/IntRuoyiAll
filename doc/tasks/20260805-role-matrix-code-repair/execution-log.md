@@ -45,6 +45,8 @@
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-role-matrix-code-repair --mode apply` -> PASS，deleted_paths 为 none。
 - PROJECT_EXPERIENCE_CONSOLIDATION: 已复核 `docs/*memory*.md`；将 `docs/powershell-memory.md` 中 AC-M22 Maven javac/Lombok 证据行校正为“阻塞释放后必须复跑标准 Maven 并以 Surefire PASS 为 GREEN”，未新建长期经验文档。
 
-## Blockers
+## Final Closeout
 
-- CLOSEOUT_BLOCKED: 当前共享工作区为 `int_main...origin/int_main [ahead 13]`，且存在大量并行修改/未跟踪文件，范围覆盖 MES 后端、前端、SQL、多个并行任务文档和 `docs/backend-development.md` / `docs/powershell-memory.md`。为避免把其它任务改动混入 AC-M22 实现提交，本次不执行宽泛暂存、提交或推送；AC-M22 代码与验证已完成，等待用户确认共享工作区提交策略或由对应并行任务完成基线/推送。
+- IMPLEMENTATION_COMMIT: `ba81bdfe3 chore: preserve current frontend backend worktree` 已包含 AC-M22 生产代码、回归测试和 `ready_for_closeout` 任务证据。
+- CLOSEOUT: cleanup preview/apply 已通过且无删除项；当前 AC-M22 任务文件在工作区无未提交差异，继续只补 `completed` 状态收尾记录。
+- UNRELATED_DIRTY: 当前工作区仍有 QA regulation/frontend prototype/其它任务文档等并行脏改动；本次不暂存、不提交、不回滚这些非 AC-M22 文件。

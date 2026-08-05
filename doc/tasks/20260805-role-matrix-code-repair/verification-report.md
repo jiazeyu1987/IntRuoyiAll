@@ -16,9 +16,9 @@
 - EVIDENCE_VALIDATOR_PASS: `validate_bug_regression.py --evidence doc\tasks\20260805-role-matrix-code-repair\bug-regression-evidence.md` 通过。
 - CLEANUP_PASS: `task-closeout-cleanup` preview/apply 通过；保留 `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`，无删除项、阻塞项或警告。
 - EXPERIENCE_UPDATED: `docs/powershell-memory.md` 已校正 AC-M22 Maven javac/Lombok 证据行，保留“阻塞时不得宣称 JUnit 通过、释放后必须复跑标准 Maven”的长期门禁。
-- CLOSEOUT_BLOCKED: 当前共享工作区 `int_main...origin/int_main [ahead 13]` 且存在大量并行脏改动；为避免混入其它任务文件，尚未执行 AC-M22 实现提交、收尾提交或 push。
+- CLOSEOUT_DONE: 实现与验证记录已被共享分支提交 `ba81bdfe3` 吸收；cleanup preview/apply 均通过且无删除项；本次只补最终 `completed` 状态收尾记录。
 
 ## Remaining Risks
 
-- 当前分支已有大量并行脏改动和本地 ahead 13；未执行实现提交、收尾提交或 push。
+- 当前工作区仍有非 AC-M22 并行脏改动；本次未暂存、未提交、未回滚这些任务外文件。
 - 真实页面全量 `ACCEPTED` / M6 E2E 仍不在本次已验证范围内。
