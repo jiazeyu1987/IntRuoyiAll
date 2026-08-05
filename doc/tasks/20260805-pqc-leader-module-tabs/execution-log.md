@@ -25,11 +25,19 @@
 
 ## RED / GREEN / REGRESSION
 
-- pending
+- RED: `workdir=IntRuoyiFronted; node tests\e2e\pqc-leader-module-tabs-static.spec.js` -> FAIL, expected reason: old `PqcLeaderWorkbenchPage.vue` did not enable page-internal module tabs.
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\pqc-leader-module-tabs-static.spec.js` -> PASS.
+- REGRESSION: `workdir=IntRuoyiFronted; node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js` -> PASS.
+- REGRESSION: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS.
+- REGRESSION: `workdir=E:\IntRuoyi; git diff --check -- IntRuoyiFronted\src\views\mes\pro\processpool\PqcLeaderWorkbenchPage.vue IntRuoyiFronted\src\views\mes\pro\processpool\TeamLeaderWorkbenchPage.vue IntRuoyiFronted\tests\e2e\pqc-leader-module-tabs-static.spec.js doc\tasks\20260805-pqc-leader-module-tabs` -> PASS, only CRLF normalization warnings.
 
 ## Milestone Updates
 
 - in_progress: 已建立任务目录与 BDD/TDD 记录骨架。
+- completed: 新增 `pqc-leader-module-tabs-static.spec.js`，先证明旧页面缺少 PQC 页面内部功能模块 tab。
+- completed: `PqcLeaderWorkbenchPage.vue` 启用 `showPqcModuleTabs`，共享 `TeamLeaderWorkbenchPage.vue` 增加 `PQC管理` / `看板` 模块 tab。
+- completed: `PQC管理` tab 承载现有复核管理工作台，`看板` tab 承载日结待处理看板；生产组长页面未启用 PQC 专属模块 tab。
+- completed: 定向静态合同、相邻组长入口合同、类型检查和 diff 检查均已通过。
 
 ## Blockers
 
