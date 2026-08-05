@@ -3,6 +3,7 @@
     <TeamLeaderWorkbenchPage
       leader-type="PRODUCTION"
       :show-leader-type-tabs="false"
+      :show-production-module-tabs="true"
       title="生产组长"
       subtitle="查看生产一线原始数据、员工切换、FIFO 分配和异常记录"
     />

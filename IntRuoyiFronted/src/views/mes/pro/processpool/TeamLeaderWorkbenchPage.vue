@@ -1,5 +1,5 @@
 <template>
-  <ContentWrap>
+  <ContentWrap v-if="!showPqcModuleTabs">
     <div class="team-leader-workbench__header">
       <div>
         <div class="team-leader-workbench__title">{{ pageTitle }}</div>
@@ -20,13 +20,15 @@
     </el-tabs>
 
     <el-tabs
-      v-if="showPqcModuleTabs"
-      v-model="activePqcModuleTab"
+      v-if="showProductionModuleTabs"
+      v-model="activeProductionModuleTab"
       class="team-leader-workbench__module-tabs"
-      data-pqc-leader-module-tabs
+      data-production-leader-module-tabs
     >
-      <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
-      <el-tab-pane label="看板" name="dashboard" data-pqc-leader-module-tab-dashboard />
+      <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
+      <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+      <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
+      <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
     </el-tabs>
   </ContentWrap>
 
@@ -34,7 +36,7 @@
       <el-alert :title="loadError" type="error" :closable="false" show-icon />
     </ContentWrap>
 
-  <ContentWrap v-if="isProductionLeader" data-team-leader-production-personnel-tab>
+  <ContentWrap v-if="showProductionPersonnelModule" data-team-leader-production-personnel-tab>
     <el-tabs v-model="productionPersonnelActiveTab" class="team-leader-workbench__personnel-tabs">
       <el-tab-pane label="生产人员档案" name="productionPersonnel">
         <div class="team-leader-workbench__section-head">
@@ -264,8 +266,27 @@
     </el-tabs>
   </ContentWrap>
 
-  <ContentWrap v-if="showPqcManagementModule" data-team-leader-report-workbench>
-      <div class="team-leader-workbench__section-head">
+  <ContentWrap
+    v-if="showPqcManagementModule"
+    :class="{ 'team-leader-workbench__pqc-module-card': showPqcModuleTabs }"
+    data-team-leader-report-workbench
+  >
+      <div v-if="showPqcModuleTabs" class="team-leader-workbench__embedded-header">
+        <div class="team-leader-workbench__title">{{ pageTitle }}</div>
+        <div class="team-leader-workbench__subtitle">
+          {{ pageSubtitle }}
+        </div>
+      </div>
+      <el-tabs
+        v-if="showPqcModuleTabs"
+        v-model="activePqcModuleTab"
+        class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+        data-pqc-leader-module-tabs
+      >
+        <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+        <el-tab-pane label="看板" name="dashboard" data-pqc-leader-module-tab-dashboard />
+      </el-tabs>
+      <div v-if="!showPqcModuleTabs" class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">报工确认工作台</div>
           <div class="team-leader-workbench__hint">
@@ -526,8 +547,27 @@
       />
     </ContentWrap>
 
-    <ContentWrap v-if="showPqcDashboardModule" data-role-matrix-daily-close>
-      <div class="team-leader-workbench__section-head">
+    <ContentWrap
+      v-if="showPqcDashboardModule"
+      :class="{ 'team-leader-workbench__pqc-module-card': showPqcModuleTabs }"
+      data-role-matrix-daily-close
+    >
+      <div v-if="showPqcModuleTabs" class="team-leader-workbench__embedded-header">
+        <div class="team-leader-workbench__title">{{ pageTitle }}</div>
+        <div class="team-leader-workbench__subtitle">
+          {{ pageSubtitle }}
+        </div>
+      </div>
+      <el-tabs
+        v-if="showPqcModuleTabs"
+        v-model="activePqcModuleTab"
+        class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+        data-pqc-leader-module-tabs
+      >
+        <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+        <el-tab-pane label="看板" name="dashboard" data-pqc-leader-module-tab-dashboard />
+      </el-tabs>
+      <div v-if="!showPqcModuleTabs" class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">日结待处理看板</div>
           <div class="team-leader-workbench__hint">
@@ -574,7 +614,7 @@
       />
     </ContentWrap>
 
-    <ContentWrap v-if="isProductionLeader" data-team-leader-abnormal-report>
+    <ContentWrap v-if="showProductionReportModule" data-team-leader-abnormal-report>
       <div class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">订单异常上报</div>
@@ -645,7 +685,7 @@
     </ContentWrap>
 
 
-    <ContentWrap v-if="isProductionLeader" data-team-leader-loss-reason-tab>
+    <ContentWrap v-if="showProductionLossModule" data-team-leader-loss-reason-tab>
       <div class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">损耗原因维护</div>
@@ -716,7 +756,7 @@
         </el-table-column>
       </el-table>
     </ContentWrap>
-    <ContentWrap v-if="isProductionLeader" data-team-leader-config-center>
+    <ContentWrap v-if="showProductionConfigModule" data-team-leader-config-center>
       <div class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">班组配置中心</div>
@@ -1423,6 +1463,7 @@ const props = withDefaults(
     leaderType?: TeamLeaderType
     showLeaderTypeTabs?: boolean
     showPqcModuleTabs?: boolean
+    showProductionModuleTabs?: boolean
     title?: string
     subtitle?: string
   }>(),
@@ -1430,6 +1471,7 @@ const props = withDefaults(
     leaderType: 'PRODUCTION',
     showLeaderTypeTabs: false,
     showPqcModuleTabs: false,
+    showProductionModuleTabs: false,
     title: '工序池班组长工作台',
     subtitle: '负责生产报工确认、活跃订单分配、异常上报和班组配置中心维护'
   }
@@ -1439,6 +1481,7 @@ const queryFormRef = ref()
 const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
 const activePqcModuleTab = ref<'management' | 'dashboard'>('management')
+const activeProductionModuleTab = ref<'personnel' | 'report' | 'loss' | 'config'>('personnel')
 const loading = ref(false)
 const detailLoading = ref(false)
 const reviewSubmitting = ref(false)
@@ -1498,15 +1541,34 @@ const showLeaderTypeTabs = computed(() => props.showLeaderTypeTabs)
 const showPqcModuleTabs = computed(
   () => props.showPqcModuleTabs && activeLeaderTab.value === 'PQC'
 )
-const showPqcManagementModule = computed(
-  () => !showPqcModuleTabs.value || activePqcModuleTab.value === 'management'
-)
-const showPqcDashboardModule = computed(
-  () => !showPqcModuleTabs.value || activePqcModuleTab.value === 'dashboard'
+const showProductionModuleTabs = computed(
+  () => props.showProductionModuleTabs && activeLeaderTab.value === 'PRODUCTION'
 )
 const pageTitle = computed(() => props.title)
 const pageSubtitle = computed(() => props.subtitle)
 const isProductionLeader = computed(() => activeLeaderTab.value === 'PRODUCTION')
+const showProductionPersonnelModule = computed(
+  () => isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'personnel')
+)
+const showProductionReportModule = computed(
+  () => isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'report')
+)
+const showProductionLossModule = computed(
+  () => isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'loss')
+)
+const showProductionConfigModule = computed(
+  () => isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'config')
+)
+const showPqcManagementModule = computed(
+  () =>
+    showProductionReportModule.value ||
+    (activeLeaderTab.value === 'PQC' && (!showPqcModuleTabs.value || activePqcModuleTab.value === 'management'))
+)
+const showPqcDashboardModule = computed(
+  () =>
+    showProductionReportModule.value ||
+    (activeLeaderTab.value === 'PQC' && (!showPqcModuleTabs.value || activePqcModuleTab.value === 'dashboard'))
+)
 const employeeFilterLabel = computed(() =>
   activeLeaderTab.value === 'PQC' ? 'PQC检验员' : '员工'
 )
@@ -2886,6 +2948,31 @@ onMounted(() => {
   margin-top: 4px;
   color: #64748b;
   font-size: 12px;
+}
+
+.team-leader-workbench__embedded-header {
+  margin-bottom: 14px;
+}
+
+.team-leader-workbench__pqc-module-card :deep(.el-card__body) {
+  padding-top: 12px;
+}
+
+.team-leader-workbench__module-tabs--flat :deep(.el-tabs__header) {
+  margin: 0 0 12px;
+}
+
+.team-leader-workbench__module-tabs--flat :deep(.el-tabs__item) {
+  color: #172033;
+  font-weight: 600;
+}
+
+.team-leader-workbench__module-tabs--flat :deep(.el-tabs__item.is-active) {
+  color: #00a896;
+}
+
+.team-leader-workbench__module-tabs--flat :deep(.el-tabs__active-bar) {
+  background-color: #00a896;
 }
 
 .team-leader-workbench__query {
