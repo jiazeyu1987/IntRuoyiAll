@@ -38,6 +38,8 @@ PASS（静态合同、相邻回归、真实 E2E 语法和 TypeScript）；真实
 
 task-closeout-cleanup preview/apply 均通过，只删除临时 `frontend-feature-evidence.md`；`task.md`、`execution-log.md`、`verification-report.md` 保留。
 
+cleanup 记录提交 `59db160a1` 已通过 `git push origin int_main` 推送，远端从 `50d32d861` 更新到 `59db160a1`。
+
 ## Residual Risk
 
 缺少真实写入型 Playwright 证据。静态合同已锁定页面结构、请求调用和禁用姓名样式，真实脚本已更新并通过语法检查，但仍需在具备专用测试租户、生产组长账号和可清理测试数据时执行完整路径。

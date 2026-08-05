@@ -29,3 +29,6 @@
 - Task-owned follow-up commit: `d068655c2 test: verify unified production personnel status list`，包含真实 E2E 新行为断言与保留任务记录；核心 Vue 与聚焦合同仍归属混合基线 `3db8a7030`。
 - Cleanup preview: PASS，keep `task.md`、`execution-log.md`、`verification-report.md`；delete `frontend-feature-evidence.md`；blocked/warnings 均为空。
 - Cleanup apply: PASS，仅删除本任务临时 `frontend-feature-evidence.md`，未触碰其它任务文件、源码、测试或运行态。
+- Cleanup record commit: `59db160a1 docs: record unified personnel list cleanup`。
+- Push: `git push origin int_main` -> PASS，远端从 `50d32d861` 更新到 `59db160a1`。
+- Final status: completed。静态合同、相邻回归、真实 E2E 语法、TypeScript、evidence validator、cleanup 和远端同步均完成；真实写入型 Playwright 前置缺失作为已披露剩余风险保留。
