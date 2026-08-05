@@ -1,22 +1,10 @@
 <template>
   <div class="qa-regulation-page" data-qa-regulation-page>
-    <ContentWrap data-qa-regulation-dcc-project>
+    <ContentWrap class="qa-regulation-page__project-wrap" data-qa-regulation-dcc-project>
       <div class="qa-regulation-page__header">
-        <div>
-          <div class="qa-regulation-page__title">QA 规程配置</div>
-          <div class="qa-regulation-page__subtitle">
-            QA 按 DCC 项目代码维护产品规程，制定 PQC 的首检、巡检、末检和检验项目规则。
-          </div>
-        </div>
+        <div class="qa-regulation-page__title">QA 规程配置</div>
         <el-tag type="warning" effect="plain">{{ qaRegulationDraft.lifecycleStatus }}</el-tag>
       </div>
-      <el-alert
-        title="正式保存/发布接口已接入；发布时由后端校验首检、巡检、末检、项目字段和不可变版本。"
-        type="success"
-        :closable="false"
-        show-icon
-        data-qa-regulation-api-ready
-      />
       <el-form label-width="112px" class="qa-regulation-page__form qa-regulation-page__project-form">
         <el-form-item label="DCC 项目代码" required>
           <el-select
@@ -58,7 +46,7 @@
     </ContentWrap>
 
     <template v-if="selectedDccProjectCode">
-    <ContentWrap>
+    <ContentWrap class="qa-regulation-page__tabs-wrap">
       <el-tabs v-model="qaActiveTab" data-qa-regulation-tabs>
         <el-tab-pane label="总览" name="overview" />
         <el-tab-pane label="检验规则" name="rules" />
@@ -2263,7 +2251,7 @@ const runQaPublishPrecheck = async () => {
 <style scoped>
 .qa-regulation-page {
   display: grid;
-  gap: 16px;
+  gap: 8px;
 }
 
 .qa-regulation-page__header {
@@ -2271,7 +2259,7 @@ const runQaPublishPrecheck = async () => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .qa-regulation-page__title {
@@ -2280,7 +2268,6 @@ const runQaPublishPrecheck = async () => {
   font-weight: 700;
 }
 
-.qa-regulation-page__subtitle,
 .qa-regulation-page__hint {
   margin-top: 4px;
   color: #667085;
@@ -2298,8 +2285,25 @@ const runQaPublishPrecheck = async () => {
   margin-bottom: 0;
 }
 
+.qa-regulation-page__project-wrap,
+.qa-regulation-page__tabs-wrap {
+  margin-bottom: 0 !important;
+}
+
 .qa-regulation-page__project-form {
-  margin-top: 14px;
+  margin-top: 0;
+}
+
+.qa-regulation-page__tabs-wrap :deep(.el-card__body) {
+  padding-bottom: 0 !important;
+}
+
+.qa-regulation-page__tabs-wrap :deep(.el-tabs__header) {
+  margin-bottom: 0;
+}
+
+.qa-regulation-page__tabs-wrap :deep(.el-tabs__content) {
+  display: none;
 }
 
 .qa-regulation-page__load-error {

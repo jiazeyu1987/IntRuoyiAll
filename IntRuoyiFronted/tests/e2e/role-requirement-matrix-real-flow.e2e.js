@@ -2731,30 +2731,34 @@ async function clickPqcEmployeeOptionAndWaitForSwitch(page, employeeCard, target
   let lastClickError
   let lastResponseError
   for (let attempt = 1; attempt <= 3; attempt += 1) {
-    await employeeCard.waitFor({ state: 'visible', timeout: 30000 })
-    const pickerVisible = await page.locator('.frontline-picker').first().isVisible().catch(() => false)
-    if (!pickerVisible) {
-      await employeeCard.click()
-    }
-    const targetOption = page
-      .locator('.frontline-picker__options button')
-      .filter({ hasText: targetLabel })
-      .first()
-    await targetOption.waitFor({ state: 'visible', timeout: 30000 })
-    const switchResponsePromise = page.waitForResponse((response) =>
-      response.url().includes('/mes/pro/feedback/frontline/device-account/pqc/switch-employee')
-        && response.request().method() === 'POST'
-    , { timeout: 30000 }).catch((error) => ({ pqcSwitchEmployeeResponseError: error }))
-    const clickError = await targetOption.click({ timeout: 10000 }).then(() => null).catch((error) => error)
-    if (!clickError) {
-      const switchResponse = await switchResponsePromise
-      if (switchResponse.pqcSwitchEmployeeResponseError) {
-        lastResponseError = switchResponse.pqcSwitchEmployeeResponseError
-        return { pqcSwitchEmployeeResponseError: lastResponseError }
+    try {
+      await employeeCard.waitFor({ state: 'visible', timeout: 30000 })
+      const pickerVisible = await page.locator('.frontline-picker').first().isVisible().catch(() => false)
+      if (!pickerVisible) {
+        await employeeCard.click()
       }
-      return { switchResponse }
+      const targetOption = page
+        .locator('.frontline-picker__options button')
+        .filter({ hasText: targetLabel })
+        .first()
+      await targetOption.waitFor({ state: 'visible', timeout: 30000 })
+      const switchResponsePromise = page.waitForResponse((response) =>
+        response.url().includes('/mes/pro/feedback/frontline/device-account/pqc/switch-employee')
+          && response.request().method() === 'POST'
+      , { timeout: 30000 }).catch((error) => ({ pqcSwitchEmployeeResponseError: error }))
+      const clickError = await targetOption.click({ timeout: 10000 }).then(() => null).catch((error) => error)
+      if (!clickError) {
+        const switchResponse = await switchResponsePromise
+        if (switchResponse.pqcSwitchEmployeeResponseError) {
+          lastResponseError = switchResponse.pqcSwitchEmployeeResponseError
+          return { pqcSwitchEmployeeResponseError: lastResponseError }
+        }
+        return { switchResponse }
+      }
+      lastClickError = clickError
+    } catch (error) {
+      lastClickError = error
     }
-    lastClickError = clickError
     await page.waitForTimeout(750)
   }
   return {

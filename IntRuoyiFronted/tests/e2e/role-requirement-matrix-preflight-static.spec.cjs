@@ -966,6 +966,11 @@ assert.match(
 )
 assert.match(
   source,
+  /async function clickPqcEmployeeOptionAndWaitForSwitch[\s\S]*try \{[\s\S]*targetOption\.waitFor\(\{ state: 'visible', timeout: 30000 \}\)[\s\S]*\} catch \(error\) \{[\s\S]*lastClickError = error[\s\S]*pqcSwitchEmployeeResponseError/,
+  'PQC employee picker helper must convert missing candidate waits into structured personnel blockers instead of raw Playwright timeouts.'
+)
+assert.match(
+  source,
   /async function verifyPqcActualEmployeeSwitch[\s\S]*clickPqcEmployeeOptionAndWaitForSwitch/,
   'Initial PQC actual-employee selection must use the stable employee-picker helper.'
 )
