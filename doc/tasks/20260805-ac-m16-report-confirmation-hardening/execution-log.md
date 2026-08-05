@@ -35,7 +35,8 @@
 - completed: M2 新增/更新 AC-M16 回归，旧服务实现下 RED 失败：`java @doc\tasks\20260805-ac-m16-report-confirmation-hardening\junit-console-red.args` -> FAIL，3 个新用例失败。
 - completed: M3 服务修复已完成：通用复核拒绝生产报工通过，报工确认入口限定生产组长并锁定终态 review。
 - completed: M4 schema 修复已完成：恢复损坏的 `20260730_mes_process_pool_team_leader.sql`，新增 `20260805_mes_process_pool_ac_m16_terminal_constraints.sql` 唯一终态约束。
-- in_progress: M5 定向 javac + JUnit Console GREEN 通过；标准 Maven 仍因并行 Maven 构建多次超时。
+- completed: M5 定向 javac + JUnit Console、标准 Maven 目标回归和三个 evidence validators 均已通过。
+- completed: M6 cleanup preview/apply 已通过，任务目录仅保留 `task.md`、`execution-log.md`、`verification-report.md`，并准备选择性提交/推送本任务收尾记录。
 
 ## Verification Evidence
 
@@ -47,5 +48,10 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260805-ac-m16-report-confirmation-hardening\bug-regression-evidence.md` -> PASS。
 - GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260805-ac-m16-report-confirmation-hardening\backend-api-evidence.md` -> PASS。
 - GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\20260805-ac-m16-report-confirmation-hardening\database-schema-evidence.md` -> PASS。
-- BLOCKED: 标准 Maven `-am` 与不带 `-am` 两个目标命令均超时，未生成新的 AC-M16 surefire 报告；当前存在非本任务 Maven 进程，未终止。
-- EXPERIENCE: 已按 `project-experience-consolidation` 合并经验到 `docs/powershell-memory.md`：Maven 阻塞时 JUnit Console + 显式 javac 只能作为补充证据，标准 Maven 仍需记录 blocked。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderSubmissionReviewServiceTest,MesTeamLeaderReportConfirmationServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`BUILD SUCCESS`；Surefire 报告显示 `MesTeamLeaderSubmissionReviewServiceTest` 6 tests / 0 failures / 0 errors / 0 skipped，`MesTeamLeaderReportConfirmationServiceTest` 7 tests / 0 failures / 0 errors / 0 skipped。
+- RESOLVED: 旧标准 Maven timeout blocker 已按 `docs/powershell-memory.md` 的提交前 stale blocker 复验门禁解除；本次不再将 Maven 记为 blocked。
+- EXPERIENCE: 已按 `project-experience-consolidation` 合并经验到 `docs/powershell-memory.md`：Maven 阻塞时 JUnit Console + 显式 javac 只能作为补充证据；阻塞释放后必须用标准 Maven/Surefire 复验再收尾。
+- GREEN: cleanup preview `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-ac-m16-report-confirmation-hardening --mode preview` -> READY，keep 三份核心记录，delete 限定本任务临时 evidence/javac/JUnit 参数与迁移门禁输出，blocked/warnings 均为 none。
+- GREEN: cleanup apply `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-ac-m16-report-confirmation-hardening --mode apply` -> APPLIED，已删除本任务临时产物并保留核心记录。
+- EXPERIENCE: 收尾前按 `project-experience-consolidation` 复核，本次新增经验已由既有 `docs/powershell-memory.md` 和 `docs/task-closeout-rules.md` 覆盖，无需新建长期经验文档。
+- GIT: 收尾提交只允许选择性暂存 `doc/tasks/20260805-ac-m16-report-confirmation-hardening/`，并行任务脏文件保持未暂存、不回滚。

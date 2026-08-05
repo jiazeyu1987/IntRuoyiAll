@@ -10,8 +10,8 @@
 - [x] M2 补充失败回归测试，证明当前实现可绕过分配或退回后继续分配
 - [x] M3 修复后端服务校验与必要错误码，保持 fail-fast
 - [x] M4 补充/修正 schema 约束与测试 fixture
-- [ ] M5 运行目标 Maven 回归和 evidence validators
-- [ ] M6 收尾记录、cleanup preview/apply、提交并推送
+- [x] M5 运行目标 Maven 回归和 evidence validators
+- [x] M6 收尾记录、cleanup preview/apply、提交并推送
 
 ## Expected Verification
 
@@ -24,9 +24,9 @@
 
 ## Current Status
 
-in_progress
+completed
 
-实现代码、回归测试和 schema 迁移已完成；定向 javac + JUnit Console GREEN 通过。标准 Maven 完成门禁因并行 Maven 构建/本地仓库占用多次超时，提交/推送与 cleanup 尚未执行。
+实现代码、回归测试、schema 迁移、标准 Maven 完成门禁、evidence validators 和 cleanup preview/apply 均已通过；本任务目录仅保留核心收尾记录。
 
 ## 设计约束检查
 
@@ -39,3 +39,8 @@ in_progress
 - 本任务开始时工作区存在多批并行文档/源码改动，已按项目规则做独立基线提交并保留文件边界。
 - 已观察基线提交：`fc5e98ffe`、`fdf1b49d8`、`c7a713c03`、`5702e9d59`、`b01682b49`、`e7c27613e`、`f8c1a38f7`、`ca181206a`。
 - 当前仍可能有并行任务继续写入非 AC-M16 文件；本任务只选择性修改 AC-M16 相关服务、测试、SQL 和任务文档。
+
+## Applicable Experience Gates
+
+- 提交前 stale blocker 复验门禁：旧 Maven blocker 已通过标准 Maven 目标命令和 surefire 报告复验解除，收尾前不得沿用旧 blocked 状态。
+- 技能证据文件清理前归档门禁：bug/backend/database evidence validators 均已 PASS，关键结论已归档到 `execution-log.md` 和 `verification-report.md` 后再执行 cleanup。
