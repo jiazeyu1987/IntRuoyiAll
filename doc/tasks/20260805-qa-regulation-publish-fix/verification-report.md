@@ -28,6 +28,7 @@
 - `docs/backend-development.md` / `docs/experience-index.md`：UPDATED，已将产品维护页已启用路线不可维护和 QA 规程手动绑定允许已发布路线拆成两条门禁，并补充 QA 手动绑定必须按正式 `routeProduct.routeId` 默认回填上次绑定。
 - `git diff --check -- <AC-M09 实现文件和经验文档>`：PASS，无 whitespace error。
 - `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：PASS，顶部 QA 页签只保留总览、检验规则和检验项目，静态合同禁止显示“发布检查”。
+- `node tests\e2e\qa-regulation-publish-tab-hidden-static.spec.cjs`：PASS，隔离证明顶部严格只有三个页签、无“发布检查”，且现有草稿保存和发布方法/API 调用仍保留。
 - `node tests\e2e\qa-regulation-manual-route-selectable-static.spec.cjs`：PASS。
 - `node tests\e2e\qa-regulation-final-applicability-static.spec.cjs`：PASS。
 - `pnpm ts:check`：PASS，最新共享工作区类型检查通过。
@@ -40,9 +41,11 @@
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProRouteProductServiceImplTest,MesProRouteProductBindFromWorkOrdersTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`：标准 `-am` 修正后复跑两次超时且无新 Surefire 结果；已按任务边界只停止本任务 Maven PID 47976 和 50448，随后用 Maven 建议的 `-rf :yudao-module-mes` 恢复执行并取得 PASS。
 - `restart-int-ruoyi-local.ps1 -Component backend`：BLOCKED，Maven package 超时；线程栈命中项目已记录的 Windows `IncrementalBuildHelper.beforeRebuildExecution -> WinNTFileSystem.delete0` target 删除卡住问题。已仅停止本次重启脚本派生 Maven/restart PIDs；当前 48081 由包含 QA endpoint 的后续 hotpatch Jar 正常提供服务。
 - `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js`：BLOCKED，当前系统标准列表模板接入点为 91，而既有合同锁定 88；这是并行接入点计数漂移，本轮未改变 `UnifiedListTemplate` 接入点数量。
+- `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：并行标题栏任务调整合同后最新复跑 PASS；期间的 CSS 属性顺序失败已解除。
+- Git integration：BLOCKED，`f6ea8f545` 是包含本次实现与大量其它任务文件的并行脏工作区基线提交，当前 `int_main` 领先 `origin` 1 个提交；本任务不直接推送该混合提交。
 - `node tests\e2e\unified-list-template-all-headers-sortable-static.spec.js`：BLOCKED，当前全局契约被大量既有页面排序 helper 历史缺口阻塞；QA 页面聚焦扫描已确认新增四个标准列表均接入排序 helper。
 - `pnpm ts:check`：先前非本任务 `TeamLeaderWorkbenchPage.vue` 类型阻塞已解除，最新复跑 PASS。
 
 ## Result
 
-blocked：本轮最新反馈已处理，顶部 QA 页签只显示总览、检验规则和检验项目，不再显示“发布检查”；现有发布校验、草稿保存和发布接口代码未修改。目标静态合同、相邻 QA 合同、`pnpm ts:check` 和本机真实只读 Playwright 均通过。完整 AC-M09 后端目标 JUnit 仍需共享 Maven target 空闲后复跑；标准列表系统合同当前被并行 91/88 接入点计数漂移阻塞；当前不标记 completed。
+blocked：本轮最新反馈已处理，顶部 QA 页签只显示总览、检验规则和检验项目，不再显示“发布检查”；现有发布校验、草稿保存和发布接口代码未修改。目标静态合同、相邻 QA 合同、`pnpm ts:check` 和本机真实只读 Playwright 均通过。实现被并行基线提交 `f6ea8f545` 吞入且该提交混有大量其它任务文件，当前分支 `ahead 1`，本任务不直接推送。完整 AC-M09 后端目标 JUnit 仍需共享 Maven target 空闲后复跑；标准列表系统合同当前被并行 91/88 接入点计数漂移阻塞；当前不标记 completed。

@@ -21,7 +21,7 @@
 
 - Route: `/mes/pro/process-pool/qa-regulation`
 - Component: `IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue`
-- Static contracts: `IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs`, `IntRuoyiFronted/tests/e2e/qa-regulation-manual-route-selectable-static.spec.cjs`
+- Static contracts: `IntRuoyiFronted/tests/e2e/qa-regulation-publish-tab-hidden-static.spec.cjs`, `IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs`, `IntRuoyiFronted/tests/e2e/qa-regulation-manual-route-selectable-static.spec.cjs`
 
 ## API Contracts And Data States
 
@@ -94,6 +94,8 @@
 - Verification: 全局 `unified-list-template-all-headers-sortable-static.spec.js` 仍被大量既有页面阻塞；QA 页面聚焦扫描显示四个新增列表均已接入 `sortColumnAttrs` 与 `handleTemplateSortChange`，未作为本次完成门禁。
 - Verification: `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js` -> BLOCKED，当前系统标准列表模板接入点为 89，而既有合同锁定 88；记录为并行新增接入点计数漂移。
 - Verification: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，覆盖本轮“发布检查”页签隐藏。
+- Verification: `node tests\e2e\qa-regulation-publish-tab-hidden-static.spec.cjs` -> PASS，隔离验证顶部严格只有三个页签、无“发布检查”，并保留正式保存草稿和发布调用。
+- Verification: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> latest PASS after the parallel title-bar contract was adjusted.
 - Verification: `pnpm ts:check` -> PASS。
 - Verification: 本机真实只读 Playwright -> PASS，页签为“总览 / 检验规则 / 检验项目”，`writeRequests=[]`、`pageErrors=[]`。
 - Verification: `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js` -> BLOCKED，当前系统标准列表模板接入点为 91，而既有合同锁定 88；本轮未改变模板接入点数量。
@@ -114,4 +116,5 @@
 
 - Original AC-M09 backend target JUnit remains blocked by the shared Maven target issue recorded in the task log.
 - `node tests/e2e/unified-list-template-empty-tabs-system-static.spec.js` is currently blocked by an unrelated 91 vs 88 system access-point count drift.
+- Git integration is blocked: concurrent baseline commit `f6ea8f545` contains this implementation plus many unrelated task files and leaves `int_main` ahead of `origin` by one commit; this task will not push that mixed commit.
 - Global `unified-list-template-all-headers-sortable-static.spec.js` still fails on unrelated historical pages; QA新增列表已单独确认排序 helper 接线。

@@ -28,4 +28,13 @@
 - Status: blocked，功能和当前 Expected Verification 已完成；Git 收尾受 `QaRegulationPage.vue`、QA 静态契约内既有并行 hunks 影响，未安全提交或推送。
 - User intent update: 将截图蓝框中的 DCC 项目选择器移动到 QA 标题与 `DRAFT` 状态标签之间的黄框位置。
 - BDD: QA 标题行项目选择器 -> Given 用户进入 QA 规程配置页, When 顶部标题区域渲染, Then 标题、项目选择器、生命周期状态位于同一 header 内，选择器占据中间固定弹性宽度，窄屏时选择器换到下一行且仍保持全宽可操作。
-- Status: in_progress，准备更新静态契约并执行 RED。
+- RED: `workdir=IntRuoyiFronted; node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，旧结构仍按“标题 + 状态”结束 header，项目选择器位于 header 下方。
+- Implementation: 将 `qa-regulation-page__project-form` 移入 `qa-regulation-page__header` 的标题与状态标签之间；桌面设置 `flex: 0 1 720px`、`min-width: 280px`，状态标签右对齐；`max-width: 1180px` 时选择器换到下一行并占满宽度。
+- Concurrent boundary: 实施期间确认 `QaRegulationPage.vue` 中 `发布检查` tab 被并行变更移除；该 hunk 与本任务无关，未恢复或覆盖。
+- Isolation: 新增 `qa-regulation-header-project-select-static.spec.cjs`，只验证标题、选择器、状态标签顺序和桌面/窄屏布局，避免原 QA 大契约的无关 tab 断言阻塞本任务。
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\qa-regulation-header-project-select-static.spec.cjs` -> PASS。
+- GREEN: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS。
+- GREEN: `workdir=E:\IntRuoyi; git diff --check -- <QA header task paths>` -> PASS，只有既有 CRLF normalization warning。
+- NON-GATE: `role-matrix-qa-regulation-tab-static.spec.cjs` 当前会失败于并行移除的 `发布检查` tab 断言，不作为本轮标题行布局门禁。
+- Concurrent baseline: `f6ea8f545 chore: preserve dirty worktree baseline` 已将 `QaRegulationPage.vue` 标题行源码和本任务既有记录连同 60+ 个其它任务文件纳入 HEAD；`git diff HEAD -- QaRegulationPage.vue` 仅剩其它并行列表列设置 hunk。
+- Status: blocked，当前功能与定向验证完成；同文件存在并行业务 hunk，未安全提交或推送。

@@ -17,6 +17,12 @@
 - GREEN: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS。
 - GREEN: `workdir=E:\IntRuoyi; git diff --check -- <task-owned paths>` -> PASS，只有 CRLF normalization warnings。
 - NON-GATE: `workdir=IntRuoyiFronted; node tests\e2e\pqc-leader-module-tabs-static.spec.js` -> FAIL，失败在 PQC 自身过期的默认状态类型断言，不读取 QA 文件，不属于当前 Expected Verification。
+- RED: 原 QA 大契约新增标题行断言后 FAIL，证明项目选择器仍在 header 下方。
+- GREEN: `workdir=IntRuoyiFronted; node tests\e2e\qa-regulation-header-project-select-static.spec.cjs` -> PASS。
+- GREEN: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS。
+- GREEN: `workdir=E:\IntRuoyi; git diff --check -- <QA header task paths>` -> PASS。
+- NON-GATE: 原 QA 大契约受同文件并行移除 `发布检查` tab 影响而失败；本轮改用任务专用最小契约隔离标题行布局。
+- GIT: 共享基线提交 `f6ea8f545` 已混合纳入本次 QA 源码与大量无关任务文件，未推送。
 
 ## Evidence Summary
 
@@ -25,8 +31,10 @@
 - QA tab header、item、active item、active bar 已对齐上方模块 tab 的紧凑下划线视觉：深色粗体文本、`#00a896` active 文案和下划线。
 - 项目选择器已移除可见 `DCC 项目代码` 标签，使用 `aria-label="DCC 项目代码"` 保留可访问名称。
 - `.qa-regulation-page` 已使用 `gap: 0`，删除项目卡片与 tab、tab 与当前内容之间的蓝框空白。
+- 项目选择器已移入 `.qa-regulation-page__header`，位于标题和生命周期状态标签之间。
+- 桌面选择器宽度为 `flex: 0 1 720px`，状态标签固定右侧；窄屏选择器换到下一行并占满宽度。
 
 ## Final Status
 
-- QA tab 样式、项目标签删除和上下空白删除均已完成，当前 Expected Verification 全部通过。
-- 任务收尾 blocked：QA 源文件和静态契约中仍包含开始本任务前的并行 hunks，无法安全独立提交本任务修改，未提交或推送。
+- QA tab 样式、项目标签删除、上下空白删除和标题行选择器移动均已完成，当前定向 Expected Verification 全部通过。
+- 任务收尾 blocked：QA 源码已被共享基线提交混合纳入 HEAD，静态契约与任务记录仍有未提交修改，无法安全独立提交或推送。

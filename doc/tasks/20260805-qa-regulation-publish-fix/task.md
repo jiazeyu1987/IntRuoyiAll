@@ -27,6 +27,7 @@
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProRouteProductServiceImplTest,MesProRouteProductBindFromWorkOrdersTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - `node tests/e2e/qa-regulation-manual-route-selectable-static.spec.cjs`
 - `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs`
+- `node tests/e2e/qa-regulation-publish-tab-hidden-static.spec.cjs`
 - `node tests/e2e/qa-regulation-final-applicability-static.spec.cjs`
 - `node tests/e2e/unified-list-template-empty-tabs-system-static.spec.js`
 - 登录态 API 探针：`POST /admin-api/mes/pro/route-product/save-qa-regulation-route-by-item` 使用无效 routeId 返回业务校验错误而非 `请求地址不存在`。
@@ -36,13 +37,14 @@
 
 ## Current Status
 
-blocked：最新截图反馈已完成，顶部 QA 页签只显示“总览 / 检验规则 / 检验项目”，不再显示“发布检查”；现有发布校验、草稿保存和发布接口代码未修改。目标静态合同、两个相邻 QA 合同、`pnpm ts:check` 和本机真实只读 Playwright 均通过；完整 AC-M09 后端目标 JUnit仍待共享 Maven target 空闲后复跑，标准列表系统合同当前为 91/88 并行计数漂移，因此总任务不标记 completed。
+blocked：最新截图反馈已完成，顶部 QA 页签只显示“总览 / 检验规则 / 检验项目”，不再显示“发布检查”；现有发布校验、草稿保存和发布接口代码未修改。目标静态合同、两个相邻 QA 合同、`pnpm ts:check` 和本机真实只读 Playwright 均通过。实现被并行脏工作区基线提交 `f6ea8f545` 吞入，该提交同时包含大量其它任务文件且当前分支领先 `origin` 1 个提交，本任务不冒充独立实现提交、不直接推送。完整 AC-M09 后端目标 JUnit仍待共享 Maven target 空闲后复跑，标准列表系统合同当前为 91/88 并行计数漂移，因此总任务不标记 completed。
 
 ## Baseline Commits
 
 - `5486d9ba9`：保存进入本任务前的既有前后端与任务文档改动。
 - `fc5e98ffe`：保存进入本任务前的残余岗位矩阵分析文档更新。
 - `515798d74`：保存并发 AC 任务文档更新。
+- `f6ea8f545`：并行任务创建的脏工作区基线提交，包含本次 `QaRegulationPage.vue` 页签删除、QA 静态合同和任务文档，同时混入大量其它任务文件；不得冒充本任务独立实现提交。
 
 ## Applicable Gates
 

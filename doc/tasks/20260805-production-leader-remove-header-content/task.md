@@ -13,10 +13,11 @@
 ## Milestones
 
 - [x] 创建任务记录并确认截图范围
-- [ ] 编写聚焦静态合同并取得 RED
-- [ ] 删除黄框内容
-- [ ] 运行 GREEN、相邻回归和 TypeScript 检查
-- [ ] 更新验证报告和收尾状态
+- [x] 编写聚焦静态合同并取得 RED
+- [x] 删除黄框内容
+- [x] 运行 GREEN、相邻回归和 TypeScript 检查
+- [x] 完成 frontend feature evidence 校验
+- [ ] 独立提交、推送和 cleanup
 
 ## Expected Verification
 
@@ -29,11 +30,12 @@
 
 ## Current Status
 
-in_progress
+blocked
 
-- 只改生产组长页面展示结构和任务专用静态合同。
-- 不改 API、后端、数据库、权限、菜单、路由或真实数据来源。
-- 共享页面存在其它并发任务改动，提交和推送必须保持任务边界。
+- 黄框内容已删除，任务专用合同、相邻 Tab/新增人员合同、TypeScript 检查和 evidence validator 均通过。
+- 并发任务生成基线提交 `f6ea8f545 chore: preserve dirty worktree baseline`，将本任务 Vue 改动、静态合同、`task.md` 和 `execution-log.md` 与大量非本任务前后端改动一起提交。
+- 当前 `int_main` 领先 `origin/int_main` 1 个混合基线提交；禁止将该提交冒充成本任务实现提交或未经边界复核直接推送。
+- 因实现已被混合基线提交吞入，无法形成严格独立的任务实现提交；未运行 cleanup apply，临时 evidence 保留。
 
 ## 设计约束检查
 

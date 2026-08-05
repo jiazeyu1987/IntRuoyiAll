@@ -14,6 +14,13 @@
 
 - BDD: PQC 组长列表使用标准列表模板 -> Given 用户进入 `PQC组长 > PQC管理` When 页面渲染提交列表 Then 黄框内列表由 `UnifiedListTemplate` 承载，表格、列配置和分页使用标准列表结构。
 - BDD: PQC 组长搜索使用标准多条件筛选 -> Given 用户需要按提交日期、PQC 检验员、工序、模板类型、生产工单、产品、检验类型、轮次、复核状态组合查询 When 用户通过条件 Tab 添加并提交条件 Then 请求只透传正式分页查询参数，不保留旧手写 `el-form` 搜索表单。
+- BDD: PQC 标准列表工具栏桌面端单行展示 -> Given 用户在桌面宽度进入 `PQC组长 > PQC管理` When 标准列表工具栏渲染 Then 多条件筛选占据左侧主要区域，“显示字段”位于右侧固定区域且二者同一行。
+- BDD: PQC 标准列表工具栏窄屏不溢出 -> Given 页面可用宽度不足以容纳筛选和列设置 When 响应式断点生效 Then 工具栏恢复可换行布局，筛选控件和“显示字段”均保持可见可操作。
+
+## Current Change
+
+- 用户截图要求：筛选放在黄框位置，“显示字段”放在红框位置，显示为一行。
+- 实现方向：为 `UnifiedListTemplate` 增加通用单行工具栏开关，仅在 PQC 管理提交列表启用，不修改其它标准列表默认布局。
 
 ## Milestone Evidence
 
@@ -41,4 +48,4 @@
 ## Blockers
 
 - 真实浏览器 E2E 未运行：本任务验证门禁为聚焦静态合同与 TypeScript 检查，未启动前后端或登录测试账号，因此不声明 Playwright PASS。
-- Git 收尾阻塞：共享 `int_main` 工作区存在多个本任务前及并发任务的改动，且当前分支领先 `origin/int_main` 1 个提交；为避免把并发任务混入基线或任务提交，本任务未执行 commit/push，状态保持 `ready_for_closeout`。
+- Git 收尾阻塞：`int_main` 当前与 `origin/int_main` 同步，但共享暂存区已包含大量其它任务文件，且仍有未暂存/未跟踪并发改动；为避免把并发任务混入本任务提交，本任务未执行 commit/push，状态保持 `ready_for_closeout`。

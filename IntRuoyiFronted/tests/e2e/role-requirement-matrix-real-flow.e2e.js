@@ -5802,6 +5802,7 @@ async function verifyActiveOrderCleanupTraceability(page, config, joinEvidence) 
     waitUntil: 'domcontentloaded',
     timeout: 90000
   })
+  await selectRealFlowTab(page, '班组配置')
   const section = page.locator('[data-team-leader-active-order-config]').first()
   await section.waitFor({ state: 'visible', timeout: 60000 })
   const rows = await reloadActiveOrderRows(page)

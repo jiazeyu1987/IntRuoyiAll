@@ -19,6 +19,7 @@
 - `5486d9ba9`：Baseline commit，保存 71 个进入本任务前的既有改动。
 - `fc5e98ffe`：Baseline commit，保存岗位矩阵分析残余文档更新。
 - `515798d74`：Baseline commit，保存并发 AC 任务文档更新。
+- `f6ea8f545`：并行任务于本轮验证期间创建 `chore: preserve dirty worktree baseline`，吞入本次 `QaRegulationPage.vue` 页签删除、`role-matrix-qa-regulation-tab-static.spec.cjs` 和本任务文档，同时包含大量其它任务文件；当前分支因此 `ahead 1`，本任务不将其声明为独立实现提交、不直接推送。
 - 仍观察到 `doc/tasks/20260805-job-matrix-compliance/*` 被并发任务继续写入；本任务不触碰这些文件，提交时只选择性暂存 AC-M09 文件。
 
 ## BDD Scenarios
@@ -103,6 +104,9 @@
 - GREEN: `pnpm ts:check` -> PASS，最新共享工作区 Vue/TypeScript 类型检查通过，先前 `TeamLeaderWorkbenchPage.vue` 并行类型阻塞已解除。
 - GREEN: 本机真实只读 Playwright -> PASS，使用 `芋道源码/admin` 登录 `http://127.0.0.1:8081`，选择 `IDI` 后页签文本严格为 `["总览","检验规则","检验项目"]`，`writeRequests=[]`、`pageErrors=[]`。
 - REGRESSION BLOCKED: `node tests/e2e/unified-list-template-empty-tabs-system-static.spec.js` -> FAIL，当前并行接入点计数为 91，既有合同锁定 88；本轮未新增或删除 `UnifiedListTemplate` 接入点。
+- REGRESSION BLOCKED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` 最新复跑先失败于并行标题栏任务新增的状态标签 CSS 属性顺序断言；源码同时具备 `flex-shrink: 0` 和 `margin-left: auto`，该失败不属于本次页签行为。按前端静态契约隔离门禁新增 `qa-regulation-publish-tab-hidden-static.spec.cjs`，只覆盖三个页签、禁止“发布检查”和保留正式保存/发布实现。
+- GREEN: `node tests/e2e/qa-regulation-publish-tab-hidden-static.spec.cjs` -> PASS，专用最小合同确认顶部严格只有三个页签，且 `saveQaRegulationDraft` / `publishQaRegulation` 正式实现仍保留。
+- GREEN: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` 最新复跑 -> PASS，并行标题栏合同调整后大型 QA 合同恢复通过。
 - BDD: QA 适用范围截图三色框修复 -> Given QA 用户选择 DCC 项目代码并查看适用范围 When 页面渲染基础信息、路线绑定和路线摘要 Then 黄色“工艺路线来源”说明块不显示，基础字段区采用统一间距网格，手动工艺路线选择框默认选中正式产品路线绑定。
 - RED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，预期原因：旧页面仍渲染 `title="工艺路线来源"` 黄色说明块，且基础字段区缺少 `data-qa-regulation-basic-form` / `qa-regulation-page__basic-grid` / 绑定回填断言。
 - GREEN: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，适用范围黄色说明块已移除，基础字段区使用统一网格，选择 DCC 项目和手动保存后均以正式 `routeProduct.routeId` 回填蓝框下拉默认值。
@@ -135,6 +139,9 @@
 - `pnpm ts:check`：最新复跑 PASS，先前非本任务类型阻塞已解除。
 - 本机真实只读 Playwright：PASS，`芋道源码/admin` 选择 `IDI` 后顶部页签严格为“总览 / 检验规则 / 检验项目”，无后台写请求、无 pageerror。
 - `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js`：最新复跑 BLOCKED，当前系统接入点为 91，既有合同锁定 88；与本次页签声明删除无关。
+- `node tests\e2e\qa-regulation-publish-tab-hidden-static.spec.cjs`：PASS，输出 `PASS qa-regulation-publish-tab-hidden-static`。
+- `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：最新复跑 PASS，并行标题栏断言调整后大型合同已恢复。
+- Git 归属复核：`f6ea8f545` 包含本次实现且混入大量并行任务文件；当前 `int_main...origin/int_main [ahead 1]`，本任务未推送。
 - `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js`：PASS，输出 `PASS: unified list template empty condition tabs system contract`。
 - `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js`：本轮复跑 BLOCKED，当前系统接入点数量为 89，旧合同锁定 88；记录为并行接入点计数漂移，不作为本轮黄框布局修复通过证据。
 - `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/bug-regression-evidence.md`：PASS，输出 `Bug regression evidence is valid.`

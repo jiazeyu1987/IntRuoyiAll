@@ -42,7 +42,7 @@ assert.match(
 )
 assert.match(
   pageWithoutComments,
-  /<el-dialog[\s\S]*data-team-leader-personnel-add-dialog[\s\S]*v-model="productionPersonnelAddDialogVisible"[\s\S]*title="新增人员"/,
+  /<el-dialog[\s\S]*data-team-leader-personnel-add-dialog[\s\S]*v-model="productionPersonnelAddDialogVisible"[\s\S]*<template\s+#header>[\s\S]*新增人员[\s\S]*<\/template>/,
   'production personnel add forms must be hosted by the 新增人员 dialog.'
 )
 

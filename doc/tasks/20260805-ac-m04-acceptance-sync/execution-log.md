@@ -18,6 +18,8 @@
 - BDD: 生产组长正式模块入口 -> Given 当前系统已提供 `/mes/pro/process-pool/production-leader` 正式生产组长页面并通过模块页签承载报工管理与班组配置；When full real E2E 验证生产组长阶段；Then 必须进入正式生产组长页面、切换真实模块页签并验证对应表面，不得继续依赖旧 `/mes/pro/process-pool/team-leader` 页面结构或因选择器超时原始崩溃。
 - BDD: 正式模块页签异步挂载 -> Given 正式生产组长/PQC 组长页面在路由完成后异步挂载模块页签；When E2E 准备切换目标页签；Then 必须等待目标 `.el-tabs__item` 可见后再点击，不得在首次计数为 0 时提前返回并继续等待未激活模块的选择器。
 - BDD: 生产组长模块表面归属 -> Given 当前正式生产组长页面将报工工作台、日结看板和活跃订单配置分别放在“报工管理”“看板”“班组配置”页签；When full real E2E 验证阶段表面和日结证据；Then 必须切换到对应页签后断言，不得在“报工管理”页签等待只属于“看板”的日结组件。
+- BDD: 活跃订单最终清理页签 -> Given full real E2E 最终清理重新进入正式生产组长页面；When 定位并移出本轮 activeOrder；Then 必须先切换到“班组配置”页签再读取活跃订单配置表面，确保清理闭环不会因默认“人员管理”页签而原始超时。
+- BDD: PQC 逐件合格按钮精确定位 -> Given 逐件检验弹窗同时包含“合格”和“不合格”按钮；When E2E 准备全部合格样本；Then 只能点击 `.pass` 合格按钮，不得使用包含文本匹配同时命中“不合格”，否则提交会被不良说明必填规则同步阻断。
 - 本轮优先做产物一致性和静态/JSON 校验；若发现真实脚本或源码缺口，再按 RED/GREEN 进入实现。
 
 ## Command Intent
@@ -47,6 +49,8 @@
 - in_progress：P0 修复后 `real:check` PASS；full real E2E 在生产组长阶段等待旧 `/team-leader` 页面选择器时原始超时，当前按正式 `/production-leader` 页面补 RED/GREEN。
 - RED: 只读 Playwright 探针 -> 初次读取正式生产组长页时模块页签容器数量为 0；约 1.5 秒后页签出现并可切换到报工管理，证明 `selectRealFlowTab` 的立即 `count() === 0` 返回存在异步挂载竞态。
 - RED: full real E2E -> 在正式“报工管理”页签已显示报工工作台后，等待 `[data-role-matrix-daily-close]` 超时；源码确认日结组件由 `showProductionDashboardModule` 控制，正式归属是“看板”页签。
+- RED: full real E2E -> 阶段串已执行到最终清理，但 `verifyActiveOrderCleanupTraceability` 进入 `/production-leader` 后直接等待 `[data-team-leader-active-order-config]`，因默认“人员管理”页签未切换而超时。
+- RED: PQC 提交根因 -> `fillVisiblePqcPieceModalValues` 使用 `{ hasText: '合格' }` 定位逐件按钮，而“不合格”包含“合格”，导致每行先点合格再点不合格；`validatePqcDefectDescription` 随后因未填写不良说明在模板校验请求前同步抛错。
 
 ## Verification Evidence
 

@@ -4,12 +4,16 @@
 
 将 `PQC组长 > PQC管理` 中黄框范围内的手写搜索表单、表格和分页迁移到标准列表模板，并让搜索使用标准列表的多条件筛选能力，同时保留现有 PQC 提交分页接口参数、列表字段和复核操作。
 
+本轮追加：按用户截图将筛选区域放在左侧黄框位置，将“显示字段”放在右侧红框位置，桌面端保持同一行。
+
 ## Milestones
 
 - [x] M1 记录 BDD 场景和标准列表门禁，新增聚焦静态合同并跑出 RED。
 - [x] M2 扩展标准筛选组件对单日期条件的正式支持，避免把提交日期降级成普通文本。
 - [x] M3 将 PQC 管理列表迁移到 `UnifiedListTemplate`，接入多条件筛选、列配置和标准分页。
 - [x] M4 运行聚焦静态合同、相邻标准列表合同和 TypeScript 检查，记录 GREEN/REGRESSION 证据。
+- [ ] M5 增加标准模板单行筛选工具栏能力，并仅在 PQC 管理提交列表启用。
+- [ ] M6 运行布局聚焦合同、相邻多条件合同和 TypeScript 检查，归档本轮验证。
 
 ## Expected Verification
 
@@ -37,12 +41,13 @@
 
 ## Current Status
 
-ready_for_closeout
+in_progress
 
 - 目标列表已迁移到 `UnifiedListTemplate`，接入标准多条件搜索、用户列配置和标准分页。
 - 单日期字段已加入通用 `TableMultiFilter` / `TableQuickFilter` 正式类型和控件支持。
+- 正在按用户截图调整筛选与“显示字段”的单行位置。
 - 4 项预期验证全部通过，验证结果见 `verification-report.md`。
 - 用户已允许基于并发任务的最新 `TeamLeaderWorkbenchPage.vue` 继续合并；新的多条件状态解构接线已保留并通过兼容合同。
 - task-closeout-cleanup preview/apply 已通过，临时 `frontend-feature-evidence.md` 已删除，核心三份任务记录保留。
 - 真实前后端 Playwright 路径未运行，本任务不声明真实 E2E PASS。
-- Git 收尾尚未完成：共享 `int_main` 工作区存在本任务前及并发任务的脏改动，且分支领先 `origin/int_main` 1 个提交；为避免混入并发任务，本任务未提交或推送。
+- Git 收尾尚未完成：`int_main` 当前与 `origin/int_main` 同步，但共享暂存区已包含大量其它任务文件，且仍有未暂存/未跟踪并发改动；无法安全形成仅属于本任务的实现与收尾提交。

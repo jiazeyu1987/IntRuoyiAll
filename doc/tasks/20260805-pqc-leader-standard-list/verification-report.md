@@ -33,7 +33,7 @@
 ## Residual Risks
 
 - 未运行真实前后端 Playwright 登录路径，因此未验证浏览器中的列设置接口、分页交互和多条件组合请求。
-- 当前共享分支存在并行脏改动并领先 `origin/int_main` 1 个提交，本任务尚未完成 Git commit/push 收尾。
+- 当前 `int_main` 与 `origin/int_main` 同步，但共享暂存区和工作区包含其它并发任务改动，本任务尚未完成独立 Git commit/push 收尾。
 
 ## Closeout Cleanup
 

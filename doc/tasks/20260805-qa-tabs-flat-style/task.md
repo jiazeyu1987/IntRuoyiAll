@@ -14,14 +14,14 @@
 - [x] 更新验证报告与收尾状态
 - [x] 删除项目选择器可见标签与页面根布局空白
 - [x] 复跑目标静态契约和相邻验证
-- [ ] 将项目选择器移动到标题与状态标签之间
-- [ ] 验证桌面同排与窄屏换行样式
+- [x] 将项目选择器移动到标题与状态标签之间
+- [x] 验证桌面同排与窄屏换行样式
 
 ## Expected Verification
 
-- `workdir=IntRuoyiFronted; node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`
+- `workdir=IntRuoyiFronted; node tests\e2e\qa-regulation-header-project-select-static.spec.cjs`
 - `workdir=IntRuoyiFronted; pnpm ts:check`
-- `workdir=E:\IntRuoyi; git diff --check -- IntRuoyiFronted\src\views\mes\pro\processpool\QaRegulationPage.vue IntRuoyiFronted\tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs doc\tasks\20260805-qa-tabs-flat-style`
+- `workdir=E:\IntRuoyi; git diff --check -- IntRuoyiFronted\src\views\mes\pro\processpool\QaRegulationPage.vue IntRuoyiFronted\tests\e2e\qa-regulation-header-project-select-static.spec.cjs IntRuoyiFronted\tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs doc\tasks\20260805-qa-tabs-flat-style`
 
 ## Current Status
 
@@ -34,7 +34,11 @@ blocked
 - 目标 QA 静态契约、`pnpm ts:check` 和 `git diff --check` 均通过。
 - 额外复跑的 PQC 契约失败在其自身过期的默认状态类型断言，与本次 QA 文件改动无关，不属于当前 Expected Verification。
 - Git 收尾仍受同文件既有并行改动影响，无法安全把本任务 hunks 与既有 QA 改动独立提交，未执行提交或推送。
-- 用户追加要求：将当前标题下方的项目选择器移动到标题与 `DRAFT` 状态标签之间的黄框位置，准备执行新一轮 RED/GREEN。
+- 已将项目选择器移动到 QA 标题与 `DRAFT` 状态标签之间：桌面使用 `flex: 0 1 720px` 占据黄框位置，状态标签通过 `margin-left: auto` 固定在右侧。
+- `max-width: 1180px` 时 header 自动换行，选择器以 `order: 3`、`flex: 1 0 100%` 独占下一行。
+- 任务专用标题行静态契约、`pnpm ts:check` 和 `git diff --check` 均通过。
+- 同文件并行变更已移除 `发布检查` tab，导致原 QA 大契约失败；本任务未恢复或覆盖该并行变更。
+- 共享基线提交 `f6ea8f545 chore: preserve dirty worktree baseline` 已将本次 QA 源码布局与大量无关前后端改动一起纳入 HEAD；当前不推送该混合提交。
 
 ## 设计约束检查
 

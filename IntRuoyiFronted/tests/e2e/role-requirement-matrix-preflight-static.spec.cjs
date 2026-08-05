@@ -170,6 +170,15 @@ assert.match(
   /async function runFinalActiveOrderCleanup\(browser,\s*config,\s*actionEvidence\)[\s\S]*?return await verifyActiveOrderCleanupTraceability\(page,\s*config,\s*joinEvidence\)/,
   'runFinalActiveOrderCleanup() must await cleanup verification before closing the Playwright context.'
 )
+const activeOrderCleanupSource = source.match(
+  /async function verifyActiveOrderCleanupTraceability\(page,\s*config,\s*joinEvidence\)[\s\S]*?(?=\nasync function runFinalActiveOrderCleanup)/
+)
+assert.ok(activeOrderCleanupSource, 'Active-order cleanup function must exist.')
+assert.match(
+  activeOrderCleanupSource[0],
+  /\/mes\/pro\/process-pool\/production-leader[\s\S]*await selectRealFlowTab\(page,\s*'班组配置'\)[\s\S]*data-team-leader-active-order-config/,
+  'Active-order cleanup must reopen the formal production-leader page and switch to 班组配置 before locating the cleanup surface.'
+)
 
 for (const token of [
   'collectSourceBlockers',
@@ -855,6 +864,20 @@ assert.match(
 )
 const pqcPieceDetailPerformanceActionSource = source.match(/async function verifyPqcPieceDetailQuantityPrepared[\s\S]*?async function fillVisiblePqcPieceModalValues/)
 assert.ok(pqcPieceDetailPerformanceActionSource, 'M6 PQC piece-detail performance evidence action must exist before modal helper functions.')
+const pqcPieceModalFillSource = source.match(
+  /async function fillVisiblePqcPieceModalValues\(modal\)[\s\S]*?(?=\nasync function completePqcPieceDetailsForSubmission)/
+)
+assert.ok(pqcPieceModalFillSource, 'PQC piece modal fill helper must exist.')
+assert.match(
+  pqcPieceModalFillSource[0],
+  /\.frontline-pqc-piece-row button\.pass/,
+  'PQC piece modal helper must click only the explicit pass button for an all-pass fixture.'
+)
+assert.doesNotMatch(
+  pqcPieceModalFillSource[0],
+  /hasText:\s*'合格'/,
+  'PQC piece modal helper must not use substring text matching that also selects 不合格.'
+)
 assert.match(
   pqcPieceDetailPerformanceActionSource[0],
   /createPqcPieceDetailRequestBudgetTracker/,

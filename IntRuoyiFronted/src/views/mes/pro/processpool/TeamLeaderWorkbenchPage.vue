@@ -78,18 +78,6 @@
               </el-button>
             </el-form-item>
           </template>
-          <template #actions>
-            <el-select
-              v-model="productionPersonnelQuery.enabled"
-              clearable
-              placeholder="启用状态"
-              class="!w-140px"
-              @change="refreshProductionPersonnel"
-            >
-              <el-option label="未禁用" :value="true" />
-              <el-option label="已禁用" :value="false" />
-            </el-select>
-          </template>
           <template #table>
             <el-table
               v-loading="productionPersonnelLoading"
@@ -100,7 +88,12 @@
             >
               <el-table-column label="显示名" min-width="140">
                 <template #default="{ row }">
-                  <span>{{ row.displayName || row.employeeName || '--' }}</span>
+                  <span
+                    class="team-leader-workbench__personnel-name"
+                    :class="{ 'is-disabled': row.enabled === false }"
+                  >
+                    {{ row.displayName || row.employeeName || '--' }}
+                  </span>
                 </template>
               </el-table-column>
               <el-table-column label="来源" width="110">
@@ -154,11 +147,38 @@
         <el-dialog
           data-team-leader-personnel-add-dialog
           v-model="productionPersonnelAddDialogVisible"
-          title="新增人员"
           width="960px"
           class="team-leader-workbench__personnel-dialog"
           :close-on-click-modal="!productionPersonnelSubmitting"
+          @closed="clearProductionPersonnelDialogError"
         >
+          <template #header>
+            <div class="team-leader-workbench__personnel-dialog-header">
+              <span class="team-leader-workbench__personnel-dialog-title">新增人员</span>
+              <Transition name="team-leader-workbench__personnel-dialog-error">
+                <div
+                  v-if="productionPersonnelDialogError"
+                  class="team-leader-workbench__personnel-dialog-error"
+                  data-team-leader-personnel-dialog-error
+                  role="alert"
+                  aria-live="assertive"
+                >
+                  <span class="team-leader-workbench__personnel-dialog-error-text">
+                    {{ productionPersonnelDialogError }}
+                  </span>
+                  <button
+                    type="button"
+                    class="team-leader-workbench__personnel-dialog-error-close"
+                    data-team-leader-personnel-dialog-error-close
+                    aria-label="关闭错误提示"
+                    @click="clearProductionPersonnelDialogError"
+                  >
+                    <Icon icon="ep:close" />
+                  </button>
+                </div>
+              </Transition>
+            </div>
+          </template>
           <div class="team-leader-workbench__personnel-actions team-leader-workbench__personnel-actions--dialog">
             <el-card shadow="never">
               <template #header>搜索选择正式工</template>
@@ -222,6 +242,7 @@
                     v-model="temporaryEmployeeForm.displayName"
                     clearable
                     placeholder="同组长有效员工不能重名，重名请加后缀"
+                    @input="clearProductionPersonnelDialogError"
                   />
                 </el-form-item>
                 <el-form-item label="签名密码">
@@ -1716,6 +1737,9 @@ const configuredDefectReasonOptions = ref<
 >([])
 const productionPersonnelActiveTab = ref('productionPersonnel')
 const productionPersonnelAddDialogVisible = ref(false)
+const productionPersonnelDialogError = ref('')
+const PRODUCTION_PERSONNEL_DIALOG_ERROR_DURATION = 6000
+let productionPersonnelDialogErrorTimer: ReturnType<typeof setTimeout> | undefined
 const productionPersonnelLoading = ref(false)
 const productionPersonnelSubmitting = ref(false)
 const formalCandidateLoading = ref(false)
@@ -1729,7 +1753,6 @@ const pqcPersonnelRows = ref<TeamPqcPersonnelRespVO[]>([])
 const pqcCandidateOptions = ref<TeamFormalEmployeeCandidateRespVO[]>([])
 
 const productionPersonnelQuery = reactive({
-  enabled: true as boolean | undefined,
   pageNo: 1,
   pageSize: 10
 })
@@ -2297,9 +2320,7 @@ const updatePqcInspectorStatus = async (row: TeamPqcPersonnelRespVO, enabled: bo
 const refreshProductionPersonnel = async () => {
   productionPersonnelLoading.value = true
   try {
-    productionPersonnelRows.value = await getProductionPersonnelList({
-      enabled: productionPersonnelQuery.enabled
-    })
+    productionPersonnelRows.value = await getProductionPersonnelList()
     const maxPage = Math.max(1, Math.ceil(productionPersonnelRows.value.length / productionPersonnelQuery.pageSize))
     if (productionPersonnelQuery.pageNo > maxPage) {
       productionPersonnelQuery.pageNo = maxPage
@@ -2319,6 +2340,23 @@ const handleProductionPersonnelPageChange = (page: number) => {
 const handleProductionPersonnelPageSizeChange = (limit: number) => {
   productionPersonnelQuery.pageSize = limit
   productionPersonnelQuery.pageNo = 1
+}
+
+const clearProductionPersonnelDialogError = () => {
+  if (productionPersonnelDialogErrorTimer !== undefined) {
+    clearTimeout(productionPersonnelDialogErrorTimer)
+    productionPersonnelDialogErrorTimer = undefined
+  }
+  productionPersonnelDialogError.value = ''
+}
+
+const showProductionPersonnelDialogError = (message: string) => {
+  clearProductionPersonnelDialogError()
+  productionPersonnelDialogError.value = message
+  productionPersonnelDialogErrorTimer = setTimeout(
+    clearProductionPersonnelDialogError,
+    PRODUCTION_PERSONNEL_DIALOG_ERROR_DURATION
+  )
 }
 
 const searchFormalEmployeeCandidatesForSelect = async (keyword: string) => {
@@ -2358,6 +2396,7 @@ const submitLinkFormalEmployee = async () => {
 }
 
 const submitCreateTemporaryEmployee = async () => {
+  clearProductionPersonnelDialogError()
   productionPersonnelSubmitting.value = true
   try {
     await createTemporaryTeamEmployee({
@@ -2369,7 +2408,9 @@ const submitCreateTemporaryEmployee = async () => {
     ElMessage.success('临时工已新增并关联当前生产组长')
     await refreshProductionPersonnel()
   } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '临时工新增失败，请确认是否重名并按提示加后缀'))
+    showProductionPersonnelDialogError(
+      resolveErrorMessage(error, '临时工新增失败，请确认是否重名并按提示加后缀')
+    )
   } finally {
     productionPersonnelSubmitting.value = false
   }
@@ -3397,6 +3438,8 @@ const resolvePqcTagType = (pqcResult?: string) => {
   return 'info'
 }
 
+onBeforeUnmount(clearProductionPersonnelDialogError)
+
 onMounted(() => {
   if (isProductionLeader.value) {
     refreshProductionPersonnel()
@@ -3479,6 +3522,68 @@ onMounted(() => {
 
 .team-leader-workbench__personnel-actions--dialog {
   margin-bottom: 0;
+}
+
+.team-leader-workbench__personnel-name.is-disabled {
+  color: #f56c6c;
+}
+
+.team-leader-workbench__personnel-dialog-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+  padding-right: 36px;
+}
+
+.team-leader-workbench__personnel-dialog-title {
+  color: #172033;
+  font-size: 18px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.team-leader-workbench__personnel-dialog-error {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #f56c6c;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.team-leader-workbench__personnel-dialog-error-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-leader-workbench__personnel-dialog-error-close {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.team-leader-workbench__personnel-dialog-error-enter-active,
+.team-leader-workbench__personnel-dialog-error-leave-active {
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.team-leader-workbench__personnel-dialog-error-enter-from,
+.team-leader-workbench__personnel-dialog-error-leave-to {
+  opacity: 0;
+  transform: translateY(-3px);
 }
 
 .team-leader-workbench__full-control {
@@ -3721,6 +3826,21 @@ onMounted(() => {
   .team-leader-workbench__daily-close-grid,
   .team-leader-workbench__personnel-actions--dialog {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .team-leader-workbench__personnel-dialog-header {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .team-leader-workbench__personnel-dialog-error {
+    justify-content: flex-start;
+  }
+
+  .team-leader-workbench__personnel-dialog-error-text {
+    white-space: normal;
   }
 }
 </style>

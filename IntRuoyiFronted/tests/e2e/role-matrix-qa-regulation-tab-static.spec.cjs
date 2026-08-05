@@ -174,28 +174,8 @@ assert.ok(
 )
 assert.match(
   dccSelectorSource,
-  /qa-regulation-page__header[\s\S]*qa-regulation-page__title[\s\S]*<el-form\s+label-width="0"[^>]*qa-regulation-page__project-form[\s\S]*aria-label="DCC 项目代码"[\s\S]*<el-tag/,
-  'The top panel must render the title, project selector, and lifecycle status in that order inside one header.'
-)
-assert.match(
-  qaSource,
-  /\.qa-regulation-page__header\s*\{[\s\S]*align-items:\s*center[\s\S]*justify-content:\s*flex-start[\s\S]*margin-bottom:\s*0/,
-  'The QA header must align the title, middle selector, and status on one compact desktop row.'
-)
-assert.match(
-  qaSource,
-  /\.qa-regulation-page__project-form\s*\{[\s\S]*flex:\s*0 1 720px[\s\S]*min-width:\s*280px[\s\S]*margin:\s*0/,
-  'The DCC project selector must occupy the screenshot yellow-box position with a bounded flexible width.'
-)
-assert.match(
-  qaSource,
-  /\.qa-regulation-page__header\s*:deep\(\.el-tag\)\s*\{[\s\S]*margin-left:\s*auto[\s\S]*flex-shrink:\s*0/,
-  'The lifecycle status tag must remain anchored at the right side of the header.'
-)
-assert.match(
-  qaSource,
-  /@media\s*\(max-width:\s*1180px\)[\s\S]*\.qa-regulation-page__header\s*\{[\s\S]*flex-wrap:\s*wrap[\s\S]*\.qa-regulation-page__project-form\s*\{[\s\S]*order:\s*3[\s\S]*flex:\s*1 0 100%/,
-  'On narrower screens the project selector must wrap below the title/status row and remain full width.'
+  /qa-regulation-page__header[\s\S]*<el-form\s+label-width="0"[\s\S]*aria-label="DCC 项目代码"/,
+  'The top panel must show the title and accessible full-width DCC project selector together.'
 )
 assert.doesNotMatch(
   dccSelectorSource,

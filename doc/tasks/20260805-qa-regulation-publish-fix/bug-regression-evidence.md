@@ -52,12 +52,14 @@
 - Bug summary and expected behavior: QA 顶部仍显示“发布检查”页签；用户要求顶部只显示总览、检验规则和检验项目，现有发布校验与保存发布代码保持不变。
 - Reproduction command or path: 打开 `/mes/pro/process-pool/qa-regulation`，选择任一 DCC 项目代码后观察顶部 QA 页签。
 - Root cause: `QaRegulationPage.vue` 仍直接声明 `<el-tab-pane label="发布检查" name="verification" />`。
-- Regression test updated: `IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` 明确禁止该页签声明，并保留三个正式页签断言。
+- Regression tests: `IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` 明确禁止该页签声明；`IntRuoyiFronted/tests/e2e/qa-regulation-publish-tab-hidden-static.spec.cjs` 隔离断言三个正式页签并确认现有保存/发布实现仍保留。
 - RED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，预期命中旧“发布检查”页签声明。
 - GREEN: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS。
+- GREEN: `node tests/e2e/qa-regulation-publish-tab-hidden-static.spec.cjs` -> PASS。
 - GREEN: `node tests/e2e/qa-regulation-manual-route-selectable-static.spec.cjs` -> PASS。
 - GREEN: `node tests/e2e/qa-regulation-final-applicability-static.spec.cjs` -> PASS。
 - GREEN: `pnpm ts:check` -> PASS。
 - GREEN: 本机真实只读 Playwright -> PASS，`芋道源码/admin` 选择 `IDI` 后页签为 `["总览","检验规则","检验项目"]`，`writeRequests=[]`、`pageErrors=[]`。
 - Risk and regression scope: 仅删除顶部页签声明；不修改后端、发布校验方法、保存/发布 API、正式路线范围或检验项目数据。
 - Remaining blocker: 系统级标准列表合同因并行接入点计数 `91 != 88` 失败；完整 AC-M09 后端目标 JUnit 仍沿用任务已有阻塞。
+- Git ownership blocker: 并行脏工作区基线提交 `f6ea8f545` 已包含本次实现且混入大量其它任务文件，当前分支 `ahead 1`；本任务不将其冒充独立提交或直接推送。
