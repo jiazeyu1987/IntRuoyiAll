@@ -61,9 +61,11 @@
 - RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，截图口径要求支持手动绑定工艺路线时，旧页面没有路线选择器、`saveRouteProductByItem` 正式绑定调用和绑定后重新解析路线范围。
 - GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 适用范围区域新增 `data-qa-regulation-manual-route-bind`，通过 `getRouteItemBindingList` 候选和 QA 专用绑定 API 写入当前产品绑定，绑定后重新走正式路线范围解析。
 - RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，截图反馈“不能选择”时，旧页面仍调用 `saveRouteProductByItem`，并用 `CommonStatusEnum.ENABLE` 将已启用路线禁用为“已启用，仅回显”。
+- RED: `node tests\e2e\qa-regulation-manual-route-selectable-static.spec.cjs` -> FAIL，截图反馈“不能选择”后新增聚焦静态契约，当前 QA 手动绑定 `<el-option>` 缺少显式 `:disabled="false"`，无法锁住已发布/已启用路线必须可选的回归要求。
 - RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProRouteProductServiceImplTest,MesProRouteProductBindFromWorkOrdersTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，新增 QA 绑定后端回归初次到达 Surefire 后失败于测试断言消息参数，证明新 QA 专用绑定测试已被执行。
 - GREEN: `mvn -rf :yudao-module-mes "-Dtest=MesProRouteProductServiceImplTest,MesProRouteProductBindFromWorkOrdersTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，20 个目标 JUnit 通过，覆盖 QA 新建绑定、修正既有绑定、缺 ACTIVE 版本失败、Controller QA endpoint 和不调用产品维护页 `validateRouteNotEnable`。
 - GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 下拉不再禁用已发布/已启用路线，不再显示“已启用，仅回显”，前端调用 `saveQaRegulationRouteProductByItem` 并重读正式产品路线绑定。
+- GREEN: `node tests\e2e\qa-regulation-manual-route-selectable-static.spec.cjs` -> PASS，QA 手动绑定下拉选项显式 `:disabled="false"`，不复用产品维护页的 `CommonStatusEnum.ENABLE` 置灰逻辑，标签展示“可绑定”并调用 QA 专用绑定 API。
 - GREEN: `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js` -> PASS，手动绑定工艺路线能力接入后标准列表模板系统契约仍通过。
 - GREEN: `pnpm ts:check` -> PASS，手动绑定工艺路线相关 Vue/TypeScript 类型检查通过。
 
@@ -78,7 +80,9 @@
 - `mvn -pl yudao-module-mes -am "-DskipTests" compile`：PASS，`BUILD SUCCESS`，完成时间 `2026-08-05T12:03:48+08:00`。
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProRouteProductServiceImplTest,MesProRouteProductBindFromWorkOrdersTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`：首轮到达 Surefire 并暴露新增测试断言缺少消息参数；修正后标准 `-am` 复跑两次因 Maven 进程超时无新 Surefire 结果，已只停止任务自有 PID 47976 和 50448。
 - `mvn -rf :yudao-module-mes "-Dtest=MesProRouteProductServiceImplTest,MesProRouteProductBindFromWorkOrdersTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`：PASS，`Tests run: 20, Failures: 0, Errors: 0, Skipped: 0`。
+- `node tests\e2e\qa-regulation-manual-route-selectable-static.spec.cjs`：PASS，输出 `PASS qa-regulation-manual-route-selectable-static`。
 - `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：PASS，输出 `PASS role-matrix QA regulation standalone page static contract`。
+- `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：当前复跑 BLOCKED，失败于 `Pressure-pump IDI seed data must contain all 22 PDF 5.1 process inspection rows. 5 !== 22`，与本次 QA 手动绑定下拉可选性聚焦链路不同；本次使用 `qa-regulation-manual-route-selectable-static.spec.cjs` 覆盖截图回归。
 - `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js`：PASS，输出 `PASS: unified list template empty condition tabs system contract`。
 - `pnpm ts:check`：PASS，前端类型检查通过。
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md`：PASS，输出 `Frontend feature evidence is valid.`。

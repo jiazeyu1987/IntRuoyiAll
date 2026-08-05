@@ -72,6 +72,21 @@ assert.match(
   /\.pqc-item-tab\s*\{[\s\S]*small\s*\{[\s\S]*overflow:\s*visible[\s\S]*span\s*\{[\s\S]*overflow:\s*visible[\s\S]*white-space:\s*nowrap/,
   'The formal PQC tab layout must match the updated HTML preview by keeping requirement and progress fields fully visible.'
 )
+assert.match(
+  panelSource,
+  /\.frontline-operator-top[\s\S]*&\.is-pqc\s*\{[\s\S]*grid-template-columns:\s*340px\s+430px\s+minmax\(0,\s*1fr\)\s+210px/,
+  'The formal PQC top cards must match the updated HTML preview proportions.'
+)
+assert.match(
+  panelSource,
+  /\.frontline-pqc-number-field\s*\{[\s\S]*grid-template-columns:\s*128px\s+58px\s+minmax\(0,\s*1fr\)\s+58px\s+42px[\s\S]*gap:\s*8px/,
+  'The formal PQC quantity controls must match the compact updated HTML preview layout.'
+)
+assert.match(
+  panelSource,
+  /\.frontline-pqc-type-tabs\s*\{[\s\S]*gap:\s*10px[\s\S]*button\s*\{[\s\S]*font-size:\s*32px/,
+  'The formal PQC inspection type tabs must match the updated HTML preview size.'
+)
 assert.ok(
   panelSource.includes('pqc-select-card') &&
     panelSource.includes('data-pqc-equipment-card') &&
