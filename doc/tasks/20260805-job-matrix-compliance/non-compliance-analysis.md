@@ -5,7 +5,7 @@
 - 输入矩阵：`C:\Users\BJB110\Desktop\3\岗位需求分解矩阵.xlsx`。
 - 读取范围：`岗位需求分解矩阵!A5:D27` 共 23 条主流程需求；`衍生需求!A5:D43` 共 39 条衍生需求；合计 62 条。
 - 当前系统 canonical 证据显示：M0-M5 来源门禁已验收，RRM-BLK-001..032 已 `RESOLVED_VERIFIED`，最近一次授权 RRM 运行态 `real:check` 已无 SOURCE / ENV / RUNTIME blocker。本轮当前 shell 没有 `RRM_*` 环境变量，只能跑出 ENV blocker-only 的 check 产物，不能代表 canonical full real E2E。
-- 当前系统仍处于 M6：全量真实 E2E 和逐 AC 验收尚未全部完成；其中 AC-M04 的加入、冲突、跨角色只读、错误角色拒绝、最终清理和并发门禁已有 PASS 证据，但 62 项 AC 仍未达到 `ACCEPTED`。
+- 当前系统仍处于 M6：全量真实 E2E 和逐 AC 验收尚未全部完成；其中 AC-M01 的后端候选准入硬门禁和前端静态合同已补齐，AC-M04 的加入、冲突、跨角色只读、错误角色拒绝、最终清理和并发门禁已有 PASS 证据，但 62 项 AC 仍未达到 `ACCEPTED`。
 - 因此，本次结论为：当前系统对 62 条岗位需求均为“部分具备基础/局部证据，但未达到可声明符合的验收状态”，均记录为不符合项。
 
 ## 判定口径
@@ -27,7 +27,7 @@
 
 | AC | 矩阵行 | 岗位/角色 | 需求动作 | 当前判断 | 不符合项 |
 |---|---:|---|---|---|---|
-| AC-M01 | 5 | 计划排产员 / 生产班组长 | 确认生产订单 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明 ERP 已确认订单可按正式 ID/编号查询，且未确认、缺正式 ID 或越权订单不进入候选。 |
+| AC-M01 | 5 | 计划排产员 / 生产班组长 | 确认生产订单 | 代码级门禁已补齐，真实 E2E 未验收 | 后端已要求工单 `CONFIRMED` 且存在 Kingdee 同步记录 `sourceFid/sourceBillNo`，缺正式 ERP 身份会返回 `BLOCKED_ERP_SYNC_RECORD_MISSING` 并不可选，批量加入也会 fail-fast；前端已补齐“缺 ERP 正式订单”原因码和不可选静态合同。仍缺真实页面按正式 ID/编号查询、未确认/缺正式 ID/越权样本排除、任务数据清理和 AC 级 `ACCEPTED` 证据。 |
 | AC-M02 | 6 | 生产班组长 | 填写调拨申请单 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明 ERP 调拨申请同步后可追溯，且 MES 无创建/编辑入口、缺正式来源时阻塞。 |
 | AC-M03 | 7 | 系统 | 同步 ERP 候选数据 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明订单、调拨、发货、批次按正式 ID 幂等同步，且重复、乱序或冲突来源不生成重复事实。 |
 | AC-M04 | 8 | 生产班组长 | 加入活跃订单池 | 动作通过但未 AC 验收 | 真实页面加入、冲突路线拒绝、跨角色只读、错误角色写入拒绝、最终清理和后端重复/并发/移出路径均已有 PASS/GREEN 证据；但当前仍属于 `E2E_COVERAGE`，尚未完成 AC 级完整失败路径、权限/只读 breadth、清理-readiness 和全量 M6 coverage 准出。 |
@@ -103,6 +103,31 @@
 | 衍生需求 AC 未完全符合 | 39 | `AC-D01` 至 `AC-D39` 均未达到完整 `ACCEPTED`。 |
 | SOURCE / ENV / RUNTIME blocker | 0 / 当前 shell 缺 RRM env | canonical 授权运行态已无 SOURCE / ENV / RUNTIME blocker；但本轮当前 shell 没有 `RRM_*`，不能刷新 full real E2E 产物。不符合主因仍是 62 项 AC 未达 `ACCEPTED`。 |
 | M6 验收缺口 | 62 | 全部 AC 仍需完整真实页面成功路径、失败路径、权限/只读隔离、必要并发/性能/SNAPSHOT、清理闭环和最终验收。 |
+
+## AC-M01 当前进度与下一步
+
+### 已做到
+
+- 后端 admission-diff 已把缺 ERP 正式同步身份的已确认工单标记为 `BLOCKED_ERP_SYNC_RECORD_MISSING`，并设置为不可勾选。
+- 后端批量加入排产工单池已 fail-fast 拒绝两类数据：未达到 `CONFIRMED` 的生产工单，以及缺少 Kingdee 正式同步记录或 `sourceFid/sourceBillNo` 为空的工单。
+- 错误码已补齐：`PRO_SCHEDULE_ORDER_WORK_ORDER_NOT_CONFIRMED` 表达未确认阻塞，`PRO_SCHEDULE_ORDER_WORK_ORDER_ERP_SYNC_REQUIRED` 表达缺 ERP 正式 ID/编号阻塞。
+- 前端已补齐 `BLOCKED_ERP_SYNC_RECORD_MISSING: '缺 ERP 正式订单'`，并沿用后端 `selectable=true` 和 `READY_TO_ADMIT` 的行选择保护，静态合同已覆盖该原因码。
+- 已有 RED/GREEN 证据：目标后端 Maven 测试从 3 个预期业务失败变为 70 tests 全部通过；前端静态合同、`node --check` 和 `pnpm ts:check` 已通过。
+
+### 还差什么
+
+- 真实 E2E 尚未完成：还没有通过真实页面证明计划排产员/生产班组长可以按正式 ERP ID/编号查询到已确认订单。
+- 样本数据未闭合：还需要任务自有的 ERP 已同步正式订单、未确认订单、缺正式 ID/编号订单、越权或跨租户订单，分别用于成功路径和失败路径。
+- AC 级验收未闭合：当前证据属于代码级 GREEN 和前端静态合同，不能替代 M6 要求的真实页面 action evidence、权限隔离、清理-readiness 和 coverage ledger。
+- 相邻静态回归存在非本项历史 blocker：`smart-scheduling-smoke-real-flow-static.spec.js` 仍卡在 `autoSchedulePublishResult` 标记缺失，不能把该失败归因到 AC-M01。
+
+### 建议执行顺序
+
+1. 准备任务自有 ERP 同步样本：一条 `CONFIRMED + sourceFid/sourceBillNo` 完整订单，一条未确认订单，一条缺正式 ERP 身份订单，一条越权或跨租户订单。
+2. 启动并确认本机前后端运行态、登录账号、菜单权限和计划排产员/生产班组长真实入口。
+3. 通过真实页面执行候选查询：用正式 ERP ID/编号查到正向订单，并截图/记录 action evidence；确认未确认、缺正式 ID/编号、越权订单不出现在候选或显示明确阻塞原因。
+4. 复跑 AC-M01 目标后端 JUnit、前端静态合同、`pnpm ts:check` 和 M6 `real:check/full real E2E`，把 coverage ledger 中 AC-M01 从代码级 GREEN 提升到 `ACCEPTED`。
+5. 清理任务样本或记录可重建夹具；若运行态、账号、菜单或样本缺失，保持 blocker，不得用 API-only 或静态测试冒充真实 E2E。
 
 ## AC-M04 当前进度与下一步
 
