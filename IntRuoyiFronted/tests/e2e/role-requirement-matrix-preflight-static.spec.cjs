@@ -424,6 +424,16 @@ assert.match(
   /verifyPqcRegulationItemsRendered[\s\S]*visibleStandardTexts[\s\S]*data-pqc-standard-button[\s\S]*visibleMethodTexts[\s\S]*data-pqc-method-button[\s\S]*visibleMethodText\.includes\(method\)[\s\S]*visibleStandardText\.includes\(standard\)[\s\S]*visibleMetaText\.includes\(resultTypeLabel\)/,
   'real E2E must verify PQC method, standard, and result type from their actual visible page surfaces.'
 )
+assert.match(
+  frontendSource,
+  /data-pqc-piece-open-button[\s\S]*openPqcPieceInspection\(activePqcTabItem\.key\)/,
+  'PQC page must expose a stable visible button for opening piece-detail inspection.'
+)
+assert.match(
+  source,
+  /verifyPqcPieceDetailQuantityPrepared[\s\S]*page\.locator\('\[data-pqc-piece-open-button\]'\)[\s\S]*completePqcPieceDetailsForSubmission[\s\S]*data-pqc-inspection-tab[\s\S]*activePanel\.locator\('\[data-pqc-piece-open-button\]'\)/,
+  'real E2E must open PQC piece-detail modals through the visible piece-detail button across QA item tabs.'
+)
 
 for (const token of [
   'processInspectionAggregationStatus',

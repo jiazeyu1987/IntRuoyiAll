@@ -303,6 +303,7 @@
                 <button
                   type="button"
                   class="manual"
+                  data-pqc-piece-open-button
                   :class="{ active: isPqcManualChoiceActive(activePqcTabItem.key) }"
                   @click="openPqcPieceInspection(activePqcTabItem.key)"
                 >

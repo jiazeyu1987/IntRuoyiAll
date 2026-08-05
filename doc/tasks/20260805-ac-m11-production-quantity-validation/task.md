@@ -19,9 +19,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-已完成 AC-M11 数量/损耗边界代码级修复与目标 JUnit 验证；仍未提交/推送，因为共享工作区存在并行任务脏改动和本分支已有 ahead 状态，后续提交需要单独处理基线与选择性暂存。
+已完成 AC-M11 数量/损耗边界代码级修复、目标 JUnit 验证和 cleanup preview/apply；共享分支并发基线已吸收实现改动，本收尾记录仅补齐完成状态与验证证据。
 
 ## 设计约束检查
 

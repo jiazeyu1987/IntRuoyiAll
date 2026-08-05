@@ -16,6 +16,9 @@
 
 - RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProFrontlineFeedbackSubmitServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL；损耗大于产出时仍创建正式报工并将合格数量截断为 0。
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProFrontlineFeedbackSubmitServiceTest,MesProFrontlineFeedbackPayloadSplitterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS；9 tests, 0 failures, 0 errors。
+- Final regression: 同一目标 Maven 命令于 2026-08-05 15:20:16 复跑 PASS；9 tests, 0 failures, 0 errors。
+- Diff check: `git diff --check -- <AC-M11 task-owned paths>` PASS；仅 LF/CRLF warning，无 whitespace 错误。
+- Cleanup: `task-closeout-cleanup --mode preview/apply` PASS；keep `task.md`、`execution-log.md`、`verification-report.md`，delete/blocked/warnings 均为 `<none>`。
 
 ## Result
 

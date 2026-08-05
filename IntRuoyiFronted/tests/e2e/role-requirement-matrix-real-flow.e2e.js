@@ -2459,7 +2459,7 @@ async function verifyPqcPieceDetailQuantityPrepared(page, config, actionEvidence
       `PQC 页面检验数量 ${uiQuantity} 必须来自正式 task plannedInspectionQuantity：${plannedQuantities.join(', ')}。`
     )
 
-    const firstEntry = page.locator('.frontline-pqc-content-item, .frontline-pqc-choice-item .manual').first()
+    const firstEntry = page.locator('[data-pqc-piece-open-button]').first()
     if (await firstEntry.count() === 0) {
       return {
         key: 'pqcPieceDetailQuantityPrepared',
@@ -2544,20 +2544,20 @@ async function completePqcPieceDetailsForSubmission(page, alreadyCompletedCount 
   let completedPieceValueCount = alreadyCompletedCount
   let completedChoiceItemCount = 0
   let completedNumericItemCount = 0
-  const choiceItems = page.locator('.frontline-pqc-choice-item')
-  const choiceItemCount = await choiceItems.count()
-  for (let index = 0; index < choiceItemCount; index += 1) {
-    const item = choiceItems.nth(index)
-    const passButton = item.getByRole('button', { name: /^全部合格$/ }).first()
+  const tabs = page.locator('[data-pqc-inspection-tab]')
+  const tabCount = await tabs.count()
+  for (let index = 0; index < tabCount; index += 1) {
+    await tabs.nth(index).click()
+    const activePanel = page.locator('[data-pqc-active-inspection-panel]').first()
+    await activePanel.waitFor({ state: 'visible', timeout: 30000 })
+    const passButton = activePanel.getByRole('button', { name: /^全部合格$/ }).first()
     if (await passButton.count()) {
       await passButton.click()
       completedChoiceItemCount += 1
     }
-  }
-  const numericItems = page.locator('.frontline-pqc-content-item')
-  const numericItemCount = await numericItems.count()
-  for (let index = 0; index < numericItemCount; index += 1) {
-    await numericItems.nth(index).click()
+    const pieceButton = activePanel.locator('[data-pqc-piece-open-button]').first()
+    await pieceButton.waitFor({ state: 'visible', timeout: 30000 })
+    await pieceButton.click()
     const modal = page.locator('[data-pqc-piece-modal]').first()
     await modal.waitFor({ state: 'visible', timeout: 30000 })
     completedPieceValueCount += await fillVisiblePqcPieceModalValues(modal)
