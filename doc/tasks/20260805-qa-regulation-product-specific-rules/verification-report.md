@@ -48,3 +48,8 @@ PASS：QA 检验规则已按正式 `productMasterId` 隔离；当前压力泵规
 
 - cleanup preview -> PASS，keep/delete 分类正确且无 blocked/warnings。
 - cleanup apply -> PASS，两份临时技能 evidence 已删除；validator PASS 和关键验收结论已归档到保留记录。
+
+## Mainline Sync
+
+- 最新 `origin/int_main` 已合入任务分支，merge commit `13224eadd`。
+- 融合后四个目标/相邻静态合同、`pnpm ts:check`、端口 guard 和 branch diff check 均 PASS。

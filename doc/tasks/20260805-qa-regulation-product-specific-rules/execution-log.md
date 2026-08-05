@@ -56,6 +56,10 @@
 - CLEANUP PREVIEW: `task_closeout.py --mode preview --worktree-closeout off` -> PASS，保留 `task.md`、`execution-log.md`、`verification-report.md`，删除两份已归档并通过 validator 的临时技能 evidence，无 blocked/warnings。
 - CLOSEOUT MODE: 主工作区 `E:\IntRuoyi` 存在并行任务脏改动，本任务不让 cleanup 脚本自动合并或清理该工作区；仅关闭脚本自动 worktree merge，后续按既有“并行主工作区远端快进融合门禁”使用独立集成 worktree 更新 `origin/int_main`。
 - CLEANUP APPLY: `task_closeout.py --mode apply --worktree-closeout off` -> PASS，已删除 `bug-regression-evidence.md` 和 `frontend-feature-evidence.md`；默认保留的三份任务记录完整。
+- MAINLINE SYNC: `13224eadd` 将最新 `origin/int_main`（`adc862527`）合入本任务分支；远端新增只涉及前序 QA 版本发布任务记录，无冲突。
+- POST-MERGE REGRESSION: 产品级规则聚焦合同、QA 页面合同、末检适用性合同、版本发布标题栏合同 -> 全部 PASS。
+- POST-MERGE GREEN: `pnpm ts:check` -> PASS。
+- POST-MERGE GUARD: `branch-runtime-port-guard.ps1` 与 `git diff origin/int_main...HEAD --check` -> PASS。
 
 ## Blockers
 
