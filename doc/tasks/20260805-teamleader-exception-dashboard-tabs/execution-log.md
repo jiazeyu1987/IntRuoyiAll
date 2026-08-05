@@ -92,7 +92,7 @@
 - Implementation commit: `f6ea8f545 chore: preserve dirty worktree baseline`，共享并发基线包含本任务源文件与静态合同，同时包含其它任务文件；未 amend、reset 或拆分。
 - Verification and cleanup record commit: `3db8a7030 chore: preserve dirty worktree baseline`，共享并发基线包含本任务三份核心记录，同时包含其它任务文件；未 amend、reset 或拆分。
 - Push: `git push origin int_main` -> PASS，远端 `int_main` 已包含 `f6ea8f545` 与 `3db8a7030`，推送输出终点为 `3e1e08b26`。
-- Final task status record: pending hash assignment in the dedicated docs-only completion commit.
+- Final task status record: `565b9576d docs: complete teamleader exception dashboard tabs`，仅包含本任务三份核心记录。
 
 ## Milestone Updates
 

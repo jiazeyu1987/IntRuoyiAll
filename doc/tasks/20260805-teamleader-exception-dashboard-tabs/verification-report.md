@@ -52,6 +52,7 @@
 - Pre-task dirty baseline: `4009002aa`.
 - Shared concurrent baseline `f6ea8f545` contains this task's source/test implementation together with unrelated concurrent work.
 - Shared concurrent baseline `3db8a7030` contains this task's verification and cleanup records together with unrelated concurrent work.
+- Dedicated completion record: `565b9576d docs: complete teamleader exception dashboard tabs`，仅包含本任务三份核心记录。
 - No history rewrite, reset, amend, or rollback was performed.
 - `git push origin int_main` -> PASS，远端已包含上述实现、验证和 cleanup 记录。
 
