@@ -17,6 +17,9 @@
 - PASS: frontend feature evidence validator
 - PASS: 2026-08-05 收尾前重新运行上述四个静态合同、`pnpm ts:check` 和两个 evidence validator
 - PASS: `3db8a7030` 已是 `origin/int_main` 的祖先，本任务生产代码和回归测试已推送
+- PASS: 收尾前记录提交 `50d32d861` 已推送到 `origin/int_main`
+- PASS: task-closeout-cleanup preview/apply，无 blocked 或 warnings
+- PASS: cleanup 后仅保留 `task.md`、`execution-log.md`、`verification-report.md`
 
 ## Evidence Summary
 
@@ -29,8 +32,8 @@
 
 ## Final Status
 
-- ready_for_closeout
-- 实现、定向验证、证据校验和实现推送均已完成。
+- completed
+- 实现、定向验证、证据校验、实现推送和任务清理均已完成。
 - 本任务实现及测试位于共享基线提交 `3db8a7030`；该提交包含其它任务文件，未伪装为独立实现提交。
 - 当前 Vue 未提交 diff 仅属于并发任务，本任务不触碰。
-- 待运行 cleanup preview/apply；完成后再标记 `completed`。
+- 临时 evidence 已在 validator 通过且关键结论归档后删除，三个核心任务文档保留。

@@ -36,3 +36,8 @@
 - GREEN recheck: frontend feature evidence validator -> PASS。
 - Experience consolidation recheck: `docs/frontend-development.md` 与 `docs/powershell-memory.md` 已覆盖局部弹窗错误、静态合同隔离和共享分支选择性提交经验，无需修改现有长期经验文档，也无需申请新建文档。
 - Status transition: 旧的共享分支 blocker 已解除，任务转为 `ready_for_closeout`；cleanup 前保留 validator PASS、RED/GREEN 和关键验收结论于本日志及 `verification-report.md`。
+- Pre-closeout commit: `50d32d861 docs: prepare production personnel inline error closeout`，仅包含本任务三个核心记录文件。
+- Push: `git push origin int_main` -> PASS，`50d32d861` 与此前本地 ahead 提交一并推送；本任务实现提交 `3db8a7030` 和收尾前记录均已在远端。
+- Cleanup preview: PASS；keep 为 `task.md`、`execution-log.md`、`verification-report.md`，delete 为 `bug-regression-evidence.md`、`frontend-feature-evidence.md`，blocked/warnings 均为空。
+- Cleanup apply: PASS；仅删除上述两个临时 evidence 文件，三个核心任务文档保留，当前为主工作区，未执行 worktree 合并或删除。
+- Final status: `completed`；后续最终提交只包含本任务 evidence 删除和核心任务记录更新。
