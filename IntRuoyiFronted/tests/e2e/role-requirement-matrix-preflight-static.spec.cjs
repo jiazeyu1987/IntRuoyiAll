@@ -419,6 +419,11 @@ assert.match(
   /async function performActiveOrderJoin\(page,\s*config\)[\s\S]*const refreshedRows = Array\.isArray\(listBody\.data\) \? listBody\.data : \[\][\s\S]*const rows = refreshedRows\.some\([\s\S]*\?\s*refreshedRows\s*:\s*await reloadActiveOrderRows\(page\)[\s\S]*rows\.some\(\(row\) => Number\(row\.id\) === Number\(activeOrderId\) && Number\(row\.workOrderId\) === Number\(config\.workOrderId\)\)/,
   'real E2E active-order join must re-read the final active-order list before asserting the returned activeOrderId.'
 )
+assert.match(
+  source,
+  /verifyPqcRegulationItemsRendered[\s\S]*visibleStandardTexts[\s\S]*data-pqc-standard-button[\s\S]*visibleMethodTexts[\s\S]*data-pqc-method-button[\s\S]*visibleMethodText\.includes\(method\)[\s\S]*visibleStandardText\.includes\(standard\)[\s\S]*visibleMetaText\.includes\(resultTypeLabel\)/,
+  'real E2E must verify PQC method, standard, and result type from their actual visible page surfaces.'
+)
 
 for (const token of [
   'processInspectionAggregationStatus',
