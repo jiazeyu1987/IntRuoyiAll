@@ -104,6 +104,63 @@ export interface TeamLeaderActiveOrderRemoveReqVO {
   activeOrderId: number
 }
 
+export interface TeamProductionPersonnelListReqVO {
+  enabled?: boolean
+}
+
+export interface TeamProductionEmployeeRespVO {
+  id: number
+  systemUserId?: number
+  employeeCode?: string
+  employeeName?: string
+  displayName?: string
+  employeeType?: string
+  enabled?: boolean
+  disabledAt?: string | number
+  signaturePasswordManagedBy?: string
+}
+
+export interface TeamFormalEmployeeCandidateRespVO {
+  systemUserId: number
+  displayName: string
+}
+
+export interface TeamTemporaryEmployeeCreateReqVO {
+  displayName: string
+  signaturePassword: string
+}
+
+export interface TeamFormalEmployeeLinkReqVO {
+  systemUserId: number
+  displayName?: string
+}
+
+export interface TeamEmployeeDisplayNameUpdateReqVO {
+  employeeProfileId: number
+  displayName: string
+}
+
+export interface TeamEmployeeStatusUpdateReqVO {
+  employeeProfileId: number
+  enabled: boolean
+}
+
+export interface TeamTemporarySignaturePasswordResetReqVO {
+  employeeProfileId: number
+  signaturePassword: string
+}
+
+export interface TeamEmployeeAuditRespVO {
+  id: number
+  operatorUserId?: number
+  actionType?: string
+  targetType?: string
+  targetId?: number
+  resultStatus?: string
+  changeSummary?: string
+  auditTime?: string | number
+}
+
 export interface TeamEmployeeProfileSaveReqVO {
   systemUserId?: number
   employeeCode: string
@@ -318,6 +375,66 @@ export const removeTeamLeaderActiveOrder = async (data: TeamLeaderActiveOrderRem
   return await request.put<boolean>({
     url: '/mes/pro/process-pool/team-leader/active-order/remove',
     data
+  })
+}
+
+export const getProductionPersonnelList = async (params?: TeamProductionPersonnelListReqVO) => {
+  return await request.get<TeamProductionEmployeeRespVO[]>({
+    url: '/mes/pro/process-pool/team-leader/employee-profile/list',
+    params
+  })
+}
+
+export const searchTeamFormalEmployeeCandidates = async (keyword: string) => {
+  return await request.get<TeamFormalEmployeeCandidateRespVO[]>({
+    url: '/mes/pro/process-pool/team-leader/employee-profile/formal-candidates',
+    params: { keyword }
+  })
+}
+
+export const createTemporaryTeamEmployee = async (data: TeamTemporaryEmployeeCreateReqVO) => {
+  return await request.post<number>({
+    url: '/mes/pro/process-pool/team-leader/employee-profile/temporary/create',
+    data
+  })
+}
+
+export const linkFormalTeamEmployee = async (data: TeamFormalEmployeeLinkReqVO) => {
+  return await request.post<number>({
+    url: '/mes/pro/process-pool/team-leader/employee-profile/formal/link',
+    data
+  })
+}
+
+export const updateTeamEmployeeDisplayName = async (
+  data: TeamEmployeeDisplayNameUpdateReqVO
+) => {
+  return await request.put<boolean>({
+    url: '/mes/pro/process-pool/team-leader/employee-profile/display-name/update',
+    data
+  })
+}
+
+export const updateTeamEmployeeStatus = async (data: TeamEmployeeStatusUpdateReqVO) => {
+  return await request.put<boolean>({
+    url: '/mes/pro/process-pool/team-leader/employee-profile/status/update',
+    data
+  })
+}
+
+export const resetTemporaryTeamEmployeeSignaturePassword = async (
+  data: TeamTemporarySignaturePasswordResetReqVO
+) => {
+  return await request.put<boolean>({
+    url: '/mes/pro/process-pool/team-leader/employee-profile/temp-signature-password/reset',
+    data
+  })
+}
+
+export const getTeamEmployeeAuditList = async (params?: { employeeProfileId?: number }) => {
+  return await request.get<TeamEmployeeAuditRespVO[]>({
+    url: '/mes/pro/process-pool/team-leader/employee-profile/audit/list',
+    params
   })
 }
 

@@ -158,8 +158,9 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                     || !emittedProfileIds.add(profile.getId())) {
                 continue;
             }
+            String displayName = resolveProfileDisplayName(profile);
             employees.add(new MesFrontlineTeamEmployeeOption(profile.getId(), profile.getSystemUserId(),
-                    profile.getEmployeeCode(), profile.getEmployeeName(), profile.getEmployeeType()));
+                    profile.getEmployeeCode(), displayName, displayName, profile.getEmployeeType()));
         }
         employees.sort(Comparator
                 .comparing(MesFrontlineTeamEmployeeOption::employeeName, Comparator.nullsLast(String::compareTo))
@@ -250,5 +251,18 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
 
     private static boolean routeProcessMatches(Long configuredRouteProcessId, Long routeProcessId) {
         return configuredRouteProcessId == null || Objects.equals(configuredRouteProcessId, routeProcessId);
+    }
+
+    private static String resolveProfileDisplayName(MesProcessPoolTeamEmployeeProfileDO profile) {
+        String displayName = normalizeText(profile.getDisplayName());
+        return displayName != null ? displayName : normalizeText(profile.getEmployeeName());
+    }
+
+    private static String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

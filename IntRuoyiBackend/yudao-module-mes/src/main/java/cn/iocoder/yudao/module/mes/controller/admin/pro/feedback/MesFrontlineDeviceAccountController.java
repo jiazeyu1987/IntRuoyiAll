@@ -285,6 +285,7 @@ public class MesFrontlineDeviceAccountController {
             item.setSystemUserId(employee.systemUserId());
             item.setEmployeeCode(employee.employeeCode());
             item.setEmployeeName(employee.employeeName());
+            item.setDisplayName(employee.displayName());
             item.setEmployeeType(employee.employeeType());
             return item;
         }).toList());

@@ -197,7 +197,8 @@ class MesFrontlineEmployeeSwitchServiceTest {
         when(runtimeConfigService.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
                 .thenReturn(new MesFrontlineRuntimeConfig(ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID,
                         List.of(new MesFrontlineTeamEmployeeOption(employeeProfileId, systemUserId,
-                                systemUserId == null ? "TMP-001" : "E1001", employeeName, employeeType)),
+                                systemUserId == null ? "TMP-001" : "E1001", employeeName, employeeName,
+                                employeeType)),
                         List.of(), List.of()));
     }
 

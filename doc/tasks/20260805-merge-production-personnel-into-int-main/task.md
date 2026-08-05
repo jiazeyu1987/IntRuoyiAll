@@ -9,8 +9,9 @@
 - [x] 读取任务收尾、worktree、PowerShell、编码、前端、E2E 和端口规则
 - [x] 读取经验索引并命中 worktree 融合、残余改动复扫、推送大文件门禁
 - [x] 提交 `int_main` 残余前端改动，确保主工作区进入可合并状态
-- [ ] 合并生产人员功能分支并语义解决冲突
-- [ ] 运行端口守卫、前端静态合同、后端定向 JUnit、diff 与对象大小门禁
+- [x] 合并生产人员功能分支并语义解决冲突
+- [x] 运行端口守卫、前端静态合同、后端定向 JUnit、diff 与冲突标记门禁
+- [ ] 运行对象大小门禁
 - [ ] 推送 `int_main` 并确认功能分支已被主线包含
 - [ ] 完成收尾记录、经验沉淀和 cleanup
 
@@ -39,12 +40,19 @@ in_progress
 
 ## Current Evidence
 
-- 主工作区：`E:\IntRuoyi`，当前分支 `int_main`。
-- 功能 worktree：`D:\IntRuoyiWorktree\20260805-production-personnel-management`，分支 `codex/20260805-production-personnel-management`，状态 clean。
-- 合并前关系：`int_main...origin/codex/20260805-production-personnel-management` 为 `4 5`，需普通 merge 而不是 ff-only。
-- 当前主工作区残余：`IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue`。
-- 残余 QA 前端提交：`85cc34eeb chore: preserve residual QA regulation frontend update`。
-- 残余 QA 校验：`git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue` PASS；`node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` PASS。
+- 主工作区：`E:\IntRuoyi`，当前分支 `int_main`；因并行 dirty 改动，最终融合改在独立集成 worktree 执行，避免覆盖并行任务。
+- 集成 worktree：`D:\IntRuoyiWorktree\20260805-integrate-production-personnel`，分支 `codex/20260805-integrate-production-personnel`，从 `origin/int_main` 创建并预留 slot `3`，frontend `8084` / backend `48084`。
+- 功能分支：`origin/codex/20260805-production-personnel-management`。
+- 语义冲突解决：保留损耗原因维护和生产人员档案管理两组控制器转换方法、schema 测试、服务测试和前端导入；保留 `bdd-tdd-design.md` 设计证据，未接受误删。
+- QA 回归修复：`QaRegulationPage.vue` 手动路线候选改为 `ProRouteApi.getRouteSimpleList()`，继续通过 `ProRouteProductApi.saveRouteProductByItem()` 保存正式产品路线绑定。
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS for `codex/20260805-integrate-production-personnel/int_main`, frontend `8084`, backend `48084`。
+- GREEN: `node tests/e2e/production-personnel-management-static.spec.cjs` -> PASS。
+- GREEN: `node tests/e2e/process-loss-reason-maintenance-static.spec.cjs` -> PASS。
+- GREEN: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest,MesTeamLeaderRuntimeConfigServiceTest,MesFrontlineRuntimeConfigServiceTest,MesFrontlineRuntimeConfigControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 32, Failures: 0, Errors: 0, Skipped: 0。
+- GREEN: `git diff --cached --check` -> PASS。
+- GREEN: scoped conflict marker scan on staged files with `rg -n "^(<<<<<<<|=======|>>>>>>>)"` -> PASS。
 
 ## 设计约束检查
 

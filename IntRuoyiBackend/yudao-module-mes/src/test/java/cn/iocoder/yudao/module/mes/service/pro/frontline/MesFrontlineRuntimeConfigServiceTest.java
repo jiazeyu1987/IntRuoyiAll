@@ -68,8 +68,8 @@ class MesFrontlineRuntimeConfigServiceTest {
                 employeeBinding(9002L, 8802L),
                 employeeBinding(9001L, 8801L)));
         when(employeeProfileMapper.selectBatchIds(anyCollection())).thenReturn(List.of(
-                employeeProfile(8801L, 9001L, null, "TMP-001", "临时工甲", "TEMPORARY", true),
-                employeeProfile(8802L, 9002L, 10002L, "E-002", "其它班组员工", "FORMAL", true)));
+                employeeProfile(8801L, 9001L, null, "TMP-001", "临时工甲", "临时工甲-A", "TEMPORARY", true),
+                employeeProfile(8802L, 9002L, 10002L, "E-002", "其它班组员工", "其它班组员工", "FORMAL", true)));
         when(processDeviceMapper.selectList(any())).thenReturn(List.of(
                 processDevice(9001L, 7001L),
                 processDevice(9001L, 7002L),
@@ -94,7 +94,7 @@ class MesFrontlineRuntimeConfigServiceTest {
         assertEquals(ROUTE_PROCESS_ID, config.routeProcessId());
         assertEquals(PROCESS_ID, config.processId());
         assertEquals(1, config.employees().size());
-        assertEquals("临时工甲", config.employees().get(0).employeeName());
+        assertEquals("临时工甲-A", config.employees().get(0).employeeName());
         assertNull(config.employees().get(0).systemUserId());
         assertEquals(1, config.devices().size());
         assertEquals("压力泵", config.devices().get(0).deviceName());
@@ -139,13 +139,15 @@ class MesFrontlineRuntimeConfigServiceTest {
 
     private static MesProcessPoolTeamEmployeeProfileDO employeeProfile(Long id, Long leaderUserId, Long systemUserId,
                                                                        String employeeCode, String employeeName,
-                                                                       String employeeType, boolean enabled) {
+                                                                       String displayName, String employeeType,
+                                                                       boolean enabled) {
         return MesProcessPoolTeamEmployeeProfileDO.builder()
                 .id(id)
                 .leaderUserId(leaderUserId)
                 .systemUserId(systemUserId)
                 .employeeCode(employeeCode)
                 .employeeName(employeeName)
+                .displayName(displayName)
                 .employeeType(employeeType)
                 .enabled(enabled)
                 .build();

@@ -1408,7 +1408,7 @@ const loadManualQaRouteOptions = async () => {
   manualQaRouteOptionsLoading.value = true
   manualQaRouteLoadError.value = ''
   try {
-    manualQaRouteOptions.value = await ProRouteApi.getRouteItemBindingList()
+    manualQaRouteOptions.value = await ProRouteApi.getRouteSimpleList()
   } catch (error) {
     manualQaRouteOptions.value = []
     manualQaRouteLoadError.value = `工艺路线候选加载失败：${resolveDccProjectCodeErrorMessage(error)}`

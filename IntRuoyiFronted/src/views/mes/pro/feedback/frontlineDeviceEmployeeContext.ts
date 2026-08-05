@@ -166,11 +166,12 @@ export const selectFrontlineProcess = async (
 const toEmployeeCandidate = (employee: FrontlineRuntimeEmployeeVO): FrontlineEmployeeCandidateVO => ({
   userId: employee.systemUserId || employee.employeeProfileId,
   username: employee.employeeCode,
-  nickname: employee.employeeName,
+  nickname: employee.displayName || employee.employeeName,
   employeeProfileId: employee.employeeProfileId,
   systemUserId: employee.systemUserId,
   employeeCode: employee.employeeCode,
-  employeeName: employee.employeeName,
+  employeeName: employee.displayName || employee.employeeName,
+  displayName: employee.displayName,
   employeeType: employee.employeeType
 })
 

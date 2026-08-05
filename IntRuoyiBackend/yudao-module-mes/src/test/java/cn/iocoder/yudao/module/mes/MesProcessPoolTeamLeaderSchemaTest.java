@@ -300,6 +300,33 @@ class MesProcessPoolTeamLeaderSchemaTest {
         assertTrue(sql.contains("`loss_reason_name_snapshot` varchar(255) DEFAULT NULL COMMENT '损耗原因名称快照'"));
     }
 
+    @Test
+    void productionPersonnelSchemaMustSupportFormalTemporarySignatureAndTraceability() throws Exception {
+        assertField(MesProcessPoolTeamEmployeeProfileDO.class, "displayName", String.class);
+        assertField(MesProcessPoolTeamEmployeeProfileDO.class, "signaturePasswordHash", String.class);
+        assertField(MesProcessPoolTeamEmployeeProfileDO.class, "signaturePasswordUpdatedAt", LocalDateTime.class);
+
+        assertField(MesProcessPoolTeamEmployeeBindingDO.class, "displayNameSnapshot", String.class);
+
+        assertField(MesProcessPoolTeamMaintenanceAuditDO.class, "operatorUserId", Long.class);
+        assertField(MesProcessPoolTeamMaintenanceAuditDO.class, "resultStatus", String.class);
+        assertField(MesProcessPoolTeamMaintenanceAuditDO.class, "changeSummary", String.class);
+
+        String sql = Files.readString(resolveBackendPath(
+                "sql/mysql/20260805_mes_process_pool_production_personnel.sql"), StandardCharsets.UTF_8);
+        assertTrue(sql.contains("dependsOn=20260802_mes_process_pool_active_order_process_snapshot"));
+        assertTrue(sql.contains("`display_name` varchar(128)"));
+        assertTrue(sql.contains("`signature_password_hash` varchar(255)"));
+        assertTrue(sql.contains("`signature_password_updated_at` datetime"));
+        assertTrue(sql.contains("employee_type` varchar(32) NOT NULL COMMENT '员工来源：FORMAL/TEMPORARY'"));
+        assertTrue(sql.contains("`active_display_name` varchar(128) GENERATED ALWAYS AS"));
+        assertTrue(sql.contains("UNIQUE KEY `uk_mes_pp_team_employee_active_display_name`"));
+        assertTrue(sql.contains("`display_name_snapshot` varchar(128)"));
+        assertTrue(sql.contains("`operator_user_id` bigint"));
+        assertTrue(sql.contains("`result_status` varchar(32)"));
+        assertTrue(sql.contains("`change_summary` varchar(1000)"));
+    }
+
     private static String tableName(Class<?> clazz) {
         return clazz.getAnnotation(TableName.class).value();
     }
