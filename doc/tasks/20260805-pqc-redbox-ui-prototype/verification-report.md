@@ -20,6 +20,7 @@
 - 按用户“可显示 10 个 tab 且完整显示”的反馈，tab 区已改为 2 行 x 5 列固定网格；每个 tab 将“要求”和“已填进度”拆成两个字段，避免进度文字被省略。
 - 正式 `FrontlineFixedTemplatePanel.vue` 已落地同方向：只展开当前检验项详情，检验项作为 5 列 tab 网格展示，设备/编号/标准/方法改为触控式信息卡，原生 select 隐藏在卡片内保留正式选择链路。
 - 按用户最新反馈，选中 tab 已改为黄色背景，旧绿色顶部状态条已从 active tab 隐藏。
+- 按用户“当前系统与更新后 HTML 预览一致”的反馈，正式 Vue tab 的要求/已填字段已补齐 `overflow: visible` 和子字段完整显示规则，与预览一致。
 - 新增正式静态契约 `IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js`。
 
 ## Verification
@@ -36,7 +37,9 @@
 - Tab 红框连接线下挂式结构断言：PASS。
 - 10 个 tab 完整显示结构断言：PASS。
 - 选中 tab 黄色背景且无绿色顶部条断言：PASS。
+- 正式系统与更新后 HTML 预览关键样式一致断言：PASS。
 - 正式实现 RED：`node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> FAIL，旧页面未渲染单一当前项详情面板。
+- 预览一致性 RED：`node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> FAIL，正式 tab 字段块尚未保留预览中的完整显示规则。
 - 正式实现 GREEN：`node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> PASS。
 - 相邻 PQC 契约：`node tests/e2e/pqc-item-equipment-standard-method-static.spec.js` -> PASS。
 - 类型检查：`pnpm ts:check` -> PASS。

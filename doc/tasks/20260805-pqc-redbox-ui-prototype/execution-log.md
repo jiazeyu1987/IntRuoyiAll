@@ -100,6 +100,11 @@
 - GREEN: `pnpm ts:check` -> PASS。
 - GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js doc/tasks/20260805-pqc-redbox-ui-prototype` -> PASS。
 - Project experience consolidation: 将“截图样式块静态契约必须抽取目标状态块，避免过宽正则跨块误命中”的通用经验合并到 `docs/frontend-development.md#前端截图样式块静态契约门禁`，并更新 `docs/experience-index.md` 关键词索引。
+- RED: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> FAIL，预期原因：正式 Vue 页 tab 的 `small` 字段块缺少更新后 HTML 预览中的 `overflow: visible` 和子字段完整显示规则。
+- GREEN: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> PASS，正式页已与更新后 HTML 预览对齐：10-tab 网格、黄色 active 背景、active 无绿色条、要求/已填字段完整显示。
+- GREEN: `node tests/e2e/pqc-item-equipment-standard-method-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js doc/tasks/20260805-pqc-redbox-ui-prototype docs/frontend-development.md docs/experience-index.md` -> PASS。
 
 ## Remaining Blockers
 

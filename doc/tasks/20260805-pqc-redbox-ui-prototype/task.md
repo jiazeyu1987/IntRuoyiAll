@@ -14,7 +14,7 @@
 - [x] 改造正式 `FrontlineFixedTemplatePanel.vue` 的 PQC 检验内容区域。
 - [x] 完成 GREEN、相邻回归和任务证据更新。
 - [x] 按最新截图反馈移除选中 tab 顶部绿色条，改为黄色背景表达选中态。
-- [ ] 对齐正式 PQC 填写页与更新后 HTML 预览的 tab 文字完整显示规则。
+- [x] 对齐正式 PQC 填写页与更新后 HTML 预览的 tab 文字完整显示规则。
 
 ## Expected Verification
 
@@ -28,9 +28,9 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-正在按用户要求将当前系统 PQC 填写页与更新后的 HTML 预览关键效果对齐：选中 tab 黄底无绿条，并锁定 tab 内要求/已填字段完整显示。
+正式系统 PQC 填写页已与更新后的 HTML 预览关键效果对齐：选中 tab 黄底无绿条，tab 内要求/已填字段完整显示；专用静态契约、相邻 PQC 契约、`pnpm ts:check`、前端证据校验和 `git diff --check` 均通过。收尾仍被当前环境缺少 closeout cleanup 命令以及工作区非本任务脏改动阻塞，暂不能按项目 Git 门禁提交/推送并标记 completed。
 
 ## 设计约束检查
 
@@ -49,4 +49,5 @@ in_progress
 
 - doc/tasks/20260805-pqc-redbox-ui-prototype/pqc-redbox-ui-prototype.html
 - doc/tasks/20260805-pqc-redbox-ui-prototype/pqc-redbox-ui-prototype.png
+- doc/tasks/20260805-pqc-redbox-ui-prototype/pqc-redbox-ui-prototype-yellow-active.png
 - doc/tasks/20260805-pqc-redbox-ui-prototype/frontend-feature-evidence.md

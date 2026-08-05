@@ -44,10 +44,11 @@
 ## RED
 
 - RED: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> FAIL, expected reason: old page did not render `data-pqc-active-inspection-panel` and still used vertically expanded item list.
+- RED: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> FAIL, expected reason: formal Vue tab fields did not yet match the updated HTML preview's full visibility rule.
 
 ## GREEN
 
-- GREEN: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> PASS，覆盖 10-tab 网格、单一当前项详情、黄色 active 背景和无绿色顶部状态条。
+- GREEN: `node tests/e2e/pqc-inspection-tabs-layout-static.spec.js` -> PASS，覆盖 10-tab 网格、单一当前项详情、黄色 active 背景、无绿色顶部状态条和 tab 字段完整显示。
 - GREEN: `node tests/e2e/pqc-item-equipment-standard-method-static.spec.js` -> PASS.
 - GREEN: `pnpm ts:check` -> PASS.
 - GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue IntRuoyiFronted/tests/e2e/pqc-inspection-tabs-layout-static.spec.js doc/tasks/20260805-pqc-redbox-ui-prototype` -> PASS.
