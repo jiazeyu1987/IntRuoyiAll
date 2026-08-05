@@ -40,6 +40,15 @@
 - Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
 - Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。
 
+## Vue Scoped Slot 静态合同门禁
+
+- Trigger: 静态合同用正则断言 Vue SFC 的具名 slot、`UnifiedListTemplate` 的 `#table`、`#actions`、或带作用域变量的模板，例如 `<template #table="{ ... }">`。
+- Preflight check: 正则必须允许 slot props、换行和合法属性，例如使用 `<template\s+#table(?:\s*=\s*"[^"]*")?\s*>`，不得只匹配裸 `<template #table>`。
+- Blocker: 页面源码已有合法 scoped slot 但静态合同报“缺少 table slot”、或合同只因 slot 作用域变量、CRLF/LF、属性顺序变化失败时，必须先修合同再判断业务行为。
+- Verification: 修正后重跑目标静态合同，并确认合同仍断言内部关键锚点，例如 `data-user-table-key`、分页事件、列配置或正式 query 透传。
+- Forbidden action: 禁止为通过静态合同删除 slot props、取消模板作用域变量、弱化为只查页面文件名，或把合法 scoped slot 误判成页面能力缺失。
+- Evidence: 任务 `doc/tasks/20260805-production-personnel-audit-inline/`，表单日志合同旧正则只匹配裸 `#table`，误判已有 `#table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }"` 缺失。
+
 ## 前端截图样式块静态契约门禁
 
 - Trigger: 用户基于截图要求调整局部颜色、选中态、高亮态、状态条、边框、背景或伪元素，尤其同一 SFC 中存在多个相似 `background`、`color`、`&::before`、`:hover`、`.active` 样式块。

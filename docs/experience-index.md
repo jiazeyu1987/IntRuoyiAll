@@ -108,6 +108,7 @@
 - 前端页面 / 表格 / 样式：`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
 - Keywords: Vite import-analysis Failed to resolve import / controlled-file/logs/index.vue / 前端源码 logs 目录被 .gitignore logs/ 忽略 / git check-ignore -> `docs/frontend-development.md#前端源码目录与-gitignore-门禁`
 - Keywords: 既有大契约先失败, 最小静态契约, 专用 static.spec.js, 当前需求 RED/GREEN, 无关 ts:check blocker -> `docs/frontend-development.md#前端静态契约隔离门禁`
+- Keywords: Vue scoped slot, #table slot props, template #table, UnifiedListTemplate table slot, 静态合同缺少 table slot, 具名 slot 正则 -> `docs/frontend-development.md#vue-scoped-slot-静态合同门禁`
 - Keywords: 截图样式块, 局部颜色, 选中态, 高亮态, 状态条, active tab 黄色背景, 伪元素, &::before, 过宽正则, `[\s\S]*` 跨块误命中, 抽取目标状态块 -> `docs/frontend-development.md#前端截图样式块静态契约门禁`
 - Keywords: UnifiedListTemplate, 标准列表多维筛选, TableMultiFilter, 条件 Tab, 默认空条件, setCondition 预置隐藏筛选, addConditionTab, removeActiveConditionTab, activeConditionId, 快速过滤, 复合工具栏, flex 0宽, 筛选控件不可见, multi-filter 0 width, 正式 query 透传, 交集查询, 重复正式参数校验, 不发送 multiFilters, 禁止页面级 maxInlineFilters 特例, 同页多列表, 同步工单, showMultiFilter 显式接入, definitions state events, 旧 quick filter 残留 -> `docs/frontend-development.md#统一列表复合工具栏布局门禁`
 - Keywords: DCC response field has invalid type, cleanupTime, expireTime, LocalDateTime, TimestampLocalDateTimeSerializer, epoch millis, numeric timestamp, readOptionalString 时间字段误判 -> `docs/frontend-development.md#前端-localdatetime-响应契约门禁`

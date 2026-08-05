@@ -6,11 +6,11 @@
 
 ## Milestones
 
-- [ ] M1: 定位生产人员档案页面、现有审计列表和相关测试契约。
-- [ ] M2: 编写 RED 静态合同，证明当前页面仍有独立操作追溯列表。
-- [ ] M3: 移除独立操作追溯列表及只为该列表服务的前端状态/请求。
-- [ ] M4: 运行目标静态合同、相邻合同和 TypeScript 检查。
-- [ ] M5: 更新验证报告、执行 cleanup、提交并推送。
+- [x] M1: 定位生产人员档案页面、现有审计列表和相关测试契约。
+- [x] M2: 编写 RED 静态合同，证明当前页面仍有独立操作追溯列表。
+- [x] M3: 移除独立操作追溯列表及只为该列表服务的前端状态/请求。
+- [x] M4: 运行目标静态合同、相邻合同和 TypeScript 检查。
+- [x] M5: 更新验证报告、执行 cleanup、提交并推送。
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## 设计约束检查
 
@@ -31,4 +31,6 @@ in_progress
 
 ## Experience Gate
 
-- 待读取 `docs/experience-index.md` 后补充适用门禁。
+- 已读取 `docs/experience-index.md`。
+- 适用门禁：前端静态契约隔离门禁、E2E 脚本与静态合同同步门禁、PowerShell 分号串联测试退出码门禁、共享分支并发基线提交门禁。
+- 本任务采用专用静态合同先 RED 后 GREEN；真实 E2E 脚本同步为“无独立追溯表”语义并执行 `node --check`，未用 API-only 或 mock 代替页面行为。
