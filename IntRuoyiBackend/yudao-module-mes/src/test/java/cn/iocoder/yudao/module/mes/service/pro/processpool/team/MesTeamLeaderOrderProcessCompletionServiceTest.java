@@ -5,10 +5,15 @@ import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,6 +44,10 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     @Mock
     private MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
     @Mock
+    private MesProScheduleOrderMapper scheduleOrderMapper;
+    @Mock
+    private MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
+    @Mock
     private MesTeamLeaderBatchRecordBackfillService backfillService;
 
     private MesTeamLeaderOrderProcessCompletionService service;
@@ -46,7 +55,8 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderOrderProcessCompletionService(allocationMapper, workOrderMapper,
-                completionMapper, orderProcessTargetService, backfillService);
+                completionMapper, orderProcessTargetService, scheduleOrderMapper, scheduleOrderProcessMapper,
+                backfillService);
     }
 
     @Test
@@ -57,6 +67,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(9001L, "120"), confirmedLine));
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
         when(backfillService.backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class)))
                 .thenReturn(new MesTeamLeaderBatchRecordBackfillResult()
@@ -93,6 +104,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(9001L, "120"), confirmedLine));
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
 
         service.applyConfirmedAllocations(event, List.of(confirmedLine));
@@ -104,7 +116,32 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         assertAmount("199", saved.getConfirmedQuantity());
         assertEquals(MesProcessPoolOrderProcessCompletionDO.STATUS_IN_PROGRESS, saved.getCompletionStatus());
         assertEquals(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_NOT_REQUIRED, saved.getBackfillStatus());
+        verify(scheduleOrderProcessMapper).updateProgress(8801L, new BigDecimal("199.000000"),
+                new BigDecimal("1.000000"), new BigDecimal("99.500000"));
+        verify(scheduleOrderMapper).updateProgressSummary(7701L, new BigDecimal("200.000000"),
+                new BigDecimal("199.000000"), new BigDecimal("1.000000"), new BigDecimal("99.500000"),
+                MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus());
         verify(backfillService, never()).backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class));
+    }
+
+    @Test
+    void shouldUpdateFormalScheduleProgressByProcessTargetWithoutChangingErpQuantity() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "300");
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("300")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of(confirmedLine));
+        when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("900"));
+        stubFormalSchedule("300", "900");
+        when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
+
+        service.applyConfirmedAllocations(event, List.of(confirmedLine));
+
+        verify(scheduleOrderProcessMapper).updateProgress(8801L, new BigDecimal("300.000000"),
+                new BigDecimal("600.000000"), new BigDecimal("33.333333"));
+        verify(scheduleOrderMapper).updateProgressSummary(7701L, new BigDecimal("900.000000"),
+                new BigDecimal("300.000000"), new BigDecimal("600.000000"), new BigDecimal("33.333333"),
+                MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus());
     }
 
     @Test
@@ -126,6 +163,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(9001L, "200")));
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L))
                 .thenReturn(existingCompletion);
 
@@ -169,6 +207,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(9001L, "300"), allocation(9001L, "300"), confirmedLine));
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("900"));
+        stubFormalSchedule("300", "900");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
         when(backfillService.backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class)))
                 .thenReturn(new MesTeamLeaderBatchRecordBackfillResult()
@@ -219,6 +258,35 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 .code("WO-9001")
                 .batchCode("BATCH-9001")
                 .quantity(new BigDecimal(quantity))
+                .build();
+    }
+
+    private void stubFormalSchedule(String erpQuantity, String plannedQuantity) {
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(9001L)))
+                .thenReturn(List.of(scheduleOrder(erpQuantity)));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderId(7701L))
+                .thenReturn(List.of(scheduleProcess(plannedQuantity)));
+    }
+
+    private static MesProScheduleOrderDO scheduleOrder(String quantity) {
+        return MesProScheduleOrderDO.builder()
+                .id(7701L)
+                .workOrderId(9001L)
+                .quantity(new BigDecimal(quantity))
+                .status(MesProScheduleOrderStatusEnum.SCHEDULED.getStatus())
+                .build();
+    }
+
+    private static MesProScheduleOrderProcessDO scheduleProcess(String plannedQuantity) {
+        return MesProScheduleOrderProcessDO.builder()
+                .id(8801L)
+                .scheduleOrderId(7701L)
+                .routeProcessId(5001L)
+                .processId(6001L)
+                .enabled(Boolean.TRUE)
+                .plannedQuantity(new BigDecimal(plannedQuantity))
+                .reportedQuantity(BigDecimal.ZERO)
+                .remainingQuantity(new BigDecimal(plannedQuantity))
                 .build();
     }
 

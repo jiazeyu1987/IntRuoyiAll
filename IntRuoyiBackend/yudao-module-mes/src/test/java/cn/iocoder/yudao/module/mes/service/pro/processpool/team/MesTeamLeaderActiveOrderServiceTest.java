@@ -64,7 +64,7 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldAddWorkOrderToLeaderActivePoolWithJoinTime() {
-        when(workOrderService.validateWorkOrderExists(9001L)).thenReturn(MesProWorkOrderDO.builder()
+        when(workOrderService.validateWorkOrderConfirmed(9001L)).thenReturn(MesProWorkOrderDO.builder()
                 .id(9001L)
                 .code("WO-9001")
                 .quantity(new BigDecimal("200"))
@@ -92,7 +92,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .build());
 
         assertEquals(8101L, activeOrderId);
-        verify(workOrderService).validateWorkOrderExists(9001L);
+        verify(workOrderService).validateWorkOrderConfirmed(9001L);
         ArgumentCaptor<MesProcessPoolActiveOrderDO> captor =
                 ArgumentCaptor.forClass(MesProcessPoolActiveOrderDO.class);
         verify(activeOrderMapper).insert(captor.capture());
@@ -157,7 +157,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .build();
         when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(9001L, 922119L, 448L))
                 .thenReturn(null, existing);
-        when(workOrderService.validateWorkOrderExists(9001L)).thenReturn(MesProWorkOrderDO.builder()
+        when(workOrderService.validateWorkOrderConfirmed(9001L)).thenReturn(MesProWorkOrderDO.builder()
                 .id(9001L)
                 .code("WO-9001")
                 .quantity(new BigDecimal("200"))
@@ -185,7 +185,7 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldRejectConflictingRouteBeforeInsertingActiveOrder() {
-        when(workOrderService.validateWorkOrderExists(9001L)).thenReturn(MesProWorkOrderDO.builder()
+        when(workOrderService.validateWorkOrderConfirmed(9001L)).thenReturn(MesProWorkOrderDO.builder()
                 .id(9001L)
                 .code("WO-9001")
                 .quantity(new BigDecimal("200"))
@@ -206,6 +206,28 @@ class MesTeamLeaderActiveOrderServiceTest {
                         .build()));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED.getCode(), ex.getCode());
+        verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
+        verify(processSnapshotMapper, never()).insertBatch(any());
+        verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void shouldRejectUnconfirmedWorkOrderBeforeAddingActiveOrder() {
+        when(workOrderService.validateWorkOrderConfirmed(9001L))
+                .thenThrow(cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil
+                        .exception(ErrorCodeConstants.PRO_WORK_ORDER_NOT_CONFIRMED));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(
+                MesTeamLeaderActiveOrderAddReqBO.builder()
+                        .leaderUserId(3001L)
+                        .workOrderId(9001L)
+                        .routeId(922119L)
+                        .routeVersionId(448L)
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_WORK_ORDER_NOT_CONFIRMED.getCode(), ex.getCode());
+        verify(workOrderService).validateWorkOrderConfirmed(9001L);
+        verify(scheduleOrderMapper, never()).selectEffectiveByWorkOrderId(any());
         verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
         verify(processSnapshotMapper, never()).insertBatch(any());
         verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
@@ -237,7 +259,7 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     @Test
     void shouldRecordFormalTransferTraceWhenAddingActiveOrderWithTransferIds() {
-        when(workOrderService.validateWorkOrderExists(9001L)).thenReturn(MesProWorkOrderDO.builder()
+        when(workOrderService.validateWorkOrderConfirmed(9001L)).thenReturn(MesProWorkOrderDO.builder()
                 .id(9001L)
                 .code("WO-9001")
                 .quantity(new BigDecimal("200"))
@@ -302,7 +324,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     @Test
     void shouldReactivateRemovedActiveOrderWhenSameWorkOrderRouteVersionIsJoinedAgain() {
         when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(9001L, 922119L, 448L)).thenReturn(null);
-        when(workOrderService.validateWorkOrderExists(9001L)).thenReturn(MesProWorkOrderDO.builder()
+        when(workOrderService.validateWorkOrderConfirmed(9001L)).thenReturn(MesProWorkOrderDO.builder()
                 .id(9001L)
                 .code("WO-9001")
                 .quantity(new BigDecimal("200"))
@@ -335,7 +357,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .build());
 
         assertEquals(8101L, activeOrderId);
-        verify(workOrderService).validateWorkOrderExists(9001L);
+        verify(workOrderService).validateWorkOrderConfirmed(9001L);
         verify(scheduleOrderMapper).selectEffectiveByWorkOrderId(9001L);
         verify(activeOrderMapper).reactivateRemovedActiveOrder(any(), any(), any(), any());
         verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
@@ -344,37 +366,39 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void shouldListUnifiedActiveOrdersAcrossLeadersInFifoOrder() {
+    void shouldListActiveOrdersOnlyForCurrentLeaderInFifoOrder() {
         List<MesProcessPoolActiveOrderDO> expected = List.of(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L)
-                .leaderUserId(4001L)
+                .leaderUserId(3001L)
                 .workOrderId(9001L)
                 .activeStatus("ACTIVE")
                 .joinedAt(LocalDateTime.of(2026, 7, 31, 8, 30))
                 .build());
-        when(activeOrderMapper.selectActiveList()).thenReturn(expected);
+        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(expected);
 
         List<MesProcessPoolActiveOrderDO> activeOrders = service.listActiveOrders(3001L);
 
         assertEquals(expected, activeOrders);
-        verify(activeOrderMapper).selectActiveList();
+        verify(activeOrderMapper).selectActiveListByLeader(3001L);
+        verify(activeOrderMapper, never()).selectActiveList();
     }
 
     @Test
     void shouldListActiveOrdersWithSingleActiveOrderQueryForDailyClosePerformance() {
         List<MesProcessPoolActiveOrderDO> expected = List.of(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L)
-                .leaderUserId(4001L)
+                .leaderUserId(3001L)
                 .workOrderId(9001L)
                 .activeStatus("ACTIVE")
                 .joinedAt(LocalDateTime.of(2026, 7, 31, 8, 30))
                 .build());
-        when(activeOrderMapper.selectActiveList()).thenReturn(expected);
+        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(expected);
 
         List<MesProcessPoolActiveOrderDO> activeOrders = service.listActiveOrders(3001L);
 
         assertEquals(expected, activeOrders);
-        verify(activeOrderMapper).selectActiveList();
+        verify(activeOrderMapper).selectActiveListByLeader(3001L);
+        verify(activeOrderMapper, never()).selectActiveList();
         verify(scheduleOrderProcessMapper, never()).selectListByScheduleOrderId(any());
         verify(processSnapshotMapper, never()).insertBatch(any());
         verify(scheduleOrderMapper, never()).selectEffectiveByWorkOrderId(any());
