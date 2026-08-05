@@ -6,23 +6,25 @@
 
 ## Milestones
 
-- [ ] 建立 AC-M18 可观察 BDD 场景和 RED 回归测试。
-- [ ] 修复班组长确认分配后的正式排产工单进度同步。
-- [ ] 修复正式排产进度同步的超目标 fail-fast 行为。
-- [ ] 运行定向后端验证并记录 GREEN/REGRESSION 证据。
-- [ ] 补齐技能 evidence、验证报告和收尾状态。
+- [x] 建立 AC-M18 可观察 BDD 场景和 RED 回归测试。
+- [x] 修复班组长确认分配后的正式排产工单进度同步。
+- [x] 修复正式排产进度同步的超目标 fail-fast 行为。
+- [x] 运行定向后端验证并记录 GREEN/REGRESSION 证据。
+- [x] 补齐技能 evidence、验证报告和 evidence validator 结果。
+- [x] 完成 task-closeout-cleanup preview/apply。
+- [ ] 完成提交/推送收尾。
 
 ## Expected Verification
 
-- `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderOrderProcessCompletionServiceTest,MesTeamLeaderReportConfirmationServiceTest,MesProScheduleOrderProgressServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+- `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderOrderProcessCompletionServiceTest,MesTeamLeaderReportConfirmationServiceTest,MesProScheduleOrderProgressServiceTest,MesProScheduleOrderServiceImplTest,MesProScheduleOrderFourRiskContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260805-ac-m18-progress-repair/bug-regression-evidence.md`
 - `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260805-ac-m18-progress-repair/backend-api-evidence.md`
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-已创建任务证据目录，准备补充 RED 测试。
+实现、定向 Maven 验证、evidence validator 和 cleanup apply 已完成；GREEN 在 `D:\IntRuoyiWorktree\20260805-ac-m18-verify-sparse` 隔离 worktree 中通过，90 tests / 0 failures / 0 errors / 0 skipped。剩余收尾为共享工作区提交/推送门禁；当前主工作区存在大量非 AC-M18 脏改动且 `int_main` ahead 13，不能安全混入本任务提交。
 
 ## 设计约束检查
 

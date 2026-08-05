@@ -5,7 +5,7 @@
 - 输入矩阵：`C:\Users\BJB110\Desktop\3\岗位需求分解矩阵.xlsx`。
 - 读取范围：`岗位需求分解矩阵!A5:D27` 共 23 条主流程需求；`衍生需求!A5:D43` 共 39 条衍生需求；合计 62 条。
 - 当前系统 canonical 证据显示：M0-M5 来源门禁已验收，RRM-BLK-001..032 已 `RESOLVED_VERIFIED`，最近一次授权 RRM 运行态 `real:check` 已无 SOURCE / ENV / RUNTIME blocker。本轮当前 shell 没有 `RRM_*` 环境变量，只能跑出 ENV blocker-only 的 check 产物，不能代表 canonical full real E2E。
-- 当前系统仍处于 M6：全量真实 E2E 和逐 AC 验收尚未全部完成；其中 AC-M01 的后端候选准入硬门禁和前端静态合同已补齐，AC-M04 的加入、冲突、跨角色只读、错误角色拒绝、最终清理和并发门禁已有 PASS 证据，但 62 项 AC 仍未达到 `ACCEPTED`。
+- 当前系统仍处于 M6：全量真实 E2E 和逐 AC 验收尚未全部完成；其中 AC-M01 的后端候选准入硬门禁、前端静态合同和 RRM action 接入已补齐，AC-M04 的加入、冲突、跨角色只读、错误角色拒绝、最终清理和并发门禁已有 PASS 证据，但 62 项 AC 仍未达到 `ACCEPTED`。
 - 因此，本次结论为：当前系统对 62 条岗位需求均为“部分具备基础/局部证据，但未达到可声明符合的验收状态”，均记录为不符合项。
 
 ## 判定口径
@@ -27,7 +27,7 @@
 
 | AC | 矩阵行 | 岗位/角色 | 需求动作 | 当前判断 | 不符合项 |
 |---|---:|---|---|---|---|
-| AC-M01 | 5 | 计划排产员 / 生产班组长 | 确认生产订单 | 代码级门禁已补齐，真实 E2E 未验收 | 后端已要求工单 `CONFIRMED` 且存在 Kingdee 同步记录 `sourceFid/sourceBillNo`，缺正式 ERP 身份会返回 `BLOCKED_ERP_SYNC_RECORD_MISSING` 并不可选，批量加入也会 fail-fast；前端已补齐“缺 ERP 正式订单”原因码和不可选静态合同。仍缺真实页面按正式 ID/编号查询、未确认/缺正式 ID/越权样本排除、任务数据清理和 AC 级 `ACCEPTED` 证据。 |
+| AC-M01 | 5 | 计划排产员 / 生产班组长 | 确认生产订单 | 代码级门禁与 RRM action 已接入，真实 E2E 未验收 | 后端已要求工单 `CONFIRMED` 且存在 Kingdee 同步记录 `sourceFid/sourceBillNo`，缺正式 ERP 身份会返回 `BLOCKED_ERP_SYNC_RECORD_MISSING` 并不可选，批量加入也会 fail-fast；前端已补齐“缺 ERP 正式订单”原因码和不可选静态合同；RRM 真实流程脚本已在生产组长加入活跃订单前接入 `scheduleOrderErpCandidateAdmission`。仍缺正式 RRM 环境下真实页面跑通、按正式 ID/编号查询、未确认/缺正式 ID/越权样本排除、任务数据清理和 AC 级 `ACCEPTED` 证据。 |
 | AC-M02 | 6 | 生产班组长 | 填写调拨申请单 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明 ERP 调拨申请同步后可追溯，且 MES 无创建/编辑入口、缺正式来源时阻塞。 |
 | AC-M03 | 7 | 系统 | 同步 ERP 候选数据 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明订单、调拨、发货、批次按正式 ID 幂等同步，且重复、乱序或冲突来源不生成重复事实。 |
 | AC-M04 | 8 | 生产班组长 | 加入活跃订单池 | 动作通过但未 AC 验收 | 真实页面加入、冲突路线拒绝、跨角色只读、错误角色写入拒绝、最终清理和后端重复/并发/移出路径均已有 PASS/GREEN 证据；但当前仍属于 `E2E_COVERAGE`，尚未完成 AC 级完整失败路径、权限/只读 breadth、清理-readiness 和全量 M6 coverage 准出。 |
@@ -57,7 +57,7 @@
 |---|---:|---|---|---|---|
 | AC-D01 | 5 | 生产班组长 | 添加本班组员工 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明新员工加入班组并用于后续绑定，且重复、跨租户或无权限添加被拒绝。 |
 | AC-D02 | 6 | 生产班组长 | 禁用本班组员工 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明禁用员工不再用于新报工且历史保留，且已禁用仍可新选或历史人员被清空时失败。 |
-| AC-D03 | 7 | 生产班组长 | 维护不良原因 | 业务口径已调整，仍未完整验收 | 业务已确认不再维护“不良原因”主数据，PQC 发现不良时手动输入即可；后续需把矩阵/测试计划同步为“PQC 手动录入不良说明并保存快照”，并证明系统不依赖固定不良原因列表、不要求 PQC 组长维护原因、手输内容可追溯且历史记录不被后续修改覆盖。 |
+| AC-D03 | 7 | 生产班组长 | 维护不良原因 | 代码级已补，仍未完整验收 | 业务已确认不再维护“不良原因”主数据；本轮已补 PQC 手动不良说明输入、提交字段、失败必填校验和 rawPayload 快照。仍需真实页面 E2E/详情回读证明系统不依赖固定不良原因列表、不要求 PQC 组长维护原因、手输内容可追溯且历史记录不被后续修改覆盖。 |
 | AC-D04 | 8 | 生产班组长 | 维护损耗原因 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明损耗原因按工序配置并进入报工，且固定前端列表、禁用原因或跨工序原因被拒绝。 |
 | AC-D05 | 9 | 生产班组长 | 绑定工序可用设备 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明只能从正式设备台账绑定工序设备，且独立创建设备、重复绑定或跨租户设备被拒绝。 |
 | AC-D06 | 10 | 生产班组长 | 设备报修或禁用后的可选控制 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明报修/禁用设备不用于新报工、恢复后可选，且不可用设备仍可提交或历史设备消失时失败。 |
@@ -112,21 +112,22 @@
 - 后端批量加入排产工单池已 fail-fast 拒绝两类数据：未达到 `CONFIRMED` 的生产工单，以及缺少 Kingdee 正式同步记录或 `sourceFid/sourceBillNo` 为空的工单。
 - 错误码已补齐：`PRO_SCHEDULE_ORDER_WORK_ORDER_NOT_CONFIRMED` 表达未确认阻塞，`PRO_SCHEDULE_ORDER_WORK_ORDER_ERP_SYNC_REQUIRED` 表达缺 ERP 正式 ID/编号阻塞。
 - 前端已补齐 `BLOCKED_ERP_SYNC_RECORD_MISSING: '缺 ERP 正式订单'`，并沿用后端 `selectable=true` 和 `READY_TO_ADMIT` 的行选择保护，静态合同已覆盖该原因码。
-- 已有 RED/GREEN 证据：目标后端 Maven 测试从 3 个预期业务失败变为 70 tests 全部通过；前端静态合同、`node --check` 和 `pnpm ts:check` 已通过。
+- RRM 真实流程脚本已补入 AC-M01 动作：生产组长先进入 `/mes/pro/schedule-order`，点击真实“同步工单”页签，再用 `admission-diff` 按正式生产订单编号核验候选，同时要求 `BLOCKED_ERP_SYNC_RECORD_MISSING` 行保持 `selectable=false`。
+- 已有 RED/GREEN 证据：目标后端 Maven 测试从 3 个预期业务失败变为 70 tests 全部通过；前端静态合同、RRM AC-M01 action 静态合同、脚本 `node --check` 和 `pnpm ts:check` 已通过。
 
 ### 还差什么
 
-- 真实 E2E 尚未完成：还没有通过真实页面证明计划排产员/生产班组长可以按正式 ERP ID/编号查询到已确认订单。
+- 真实 E2E 尚未完成：脚本已接入真实页面动作，但当前 shell 缺少 RRM 真实运行所需 URL、租户、角色账号、电子签名、任务订单/路线/调拨/规程等环境变量，还没有在正式 RRM 环境跑出 PASS。
 - 样本数据未闭合：还需要任务自有的 ERP 已同步正式订单、未确认订单、缺正式 ID/编号订单、越权或跨租户订单，分别用于成功路径和失败路径。
 - AC 级验收未闭合：当前证据属于代码级 GREEN 和前端静态合同，不能替代 M6 要求的真实页面 action evidence、权限隔离、清理-readiness 和 coverage ledger。
-- 相邻静态回归存在非本项历史 blocker：`smart-scheduling-smoke-real-flow-static.spec.js` 仍卡在 `autoSchedulePublishResult` 标记缺失，不能把该失败归因到 AC-M01。
+- 相邻静态回归存在非本项 blocker：`smart-scheduling-smoke-real-flow-static.spec.js` 仍卡在 `autoSchedulePublishResult` 标记缺失；`pnpm e2e:role-requirement-matrix:preflight:static` 已通过新增 AC-M01 顺序断言后，继续卡在非 AC-M01 的 AC-M19 批记录回填幂等 key 旧断言。
 
 ### 建议执行顺序
 
 1. 准备任务自有 ERP 同步样本：一条 `CONFIRMED + sourceFid/sourceBillNo` 完整订单，一条未确认订单，一条缺正式 ERP 身份订单，一条越权或跨租户订单。
-2. 启动并确认本机前后端运行态、登录账号、菜单权限和计划排产员/生产班组长真实入口。
-3. 通过真实页面执行候选查询：用正式 ERP ID/编号查到正向订单，并截图/记录 action evidence；确认未确认、缺正式 ID/编号、越权订单不出现在候选或显示明确阻塞原因。
-4. 复跑 AC-M01 目标后端 JUnit、前端静态合同、`pnpm ts:check` 和 M6 `real:check/full real E2E`，把 coverage ledger 中 AC-M01 从代码级 GREEN 提升到 `ACCEPTED`。
+2. 在正式 RRM shell 中补齐 `RRM_FRONTEND_URL/RRM_BACKEND_URL`、租户、六类角色账号、电子签名 JSON、订单/路线/调拨/规程 ID，并确认本机前后端运行态、菜单权限和计划排产员/生产班组长真实入口。
+3. 通过已接入的 `scheduleOrderErpCandidateAdmission` 动作执行候选查询：用正式 ERP ID/编号查到正向订单，并记录 action evidence；确认未确认、缺正式 ID/编号、越权订单不出现在候选或显示明确阻塞原因。
+4. 复跑 AC-M01 目标后端 JUnit、前端静态合同、RRM AC-M01 action 静态合同、`pnpm ts:check` 和 M6 `real:check/full real E2E`，把 coverage ledger 中 AC-M01 从代码级 GREEN 提升到 `ACCEPTED`。
 5. 清理任务样本或记录可重建夹具；若运行态、账号、菜单或样本缺失，保持 blocker，不得用 API-only 或静态测试冒充真实 E2E。
 
 ## AC-M04 当前进度与下一步
@@ -169,23 +170,44 @@
 | 7 | 设备不可用拒绝链路仍需补后端负向证明。 | 运行态配置会过滤 enabled 且 `DEVICE_STATUS_ENABLED` 的团队设备；但提交授权主要校验候选工序、设备/工作站匹配、人员绑定、模板匹配。工作站岗位路线候选源只校验工作站启用和机器存在，未在已读提交链路中看到对“已禁用/报修设备”的最终状态复核。 | 若前端缓存或恶意请求提交旧设备 ID，需要证明后端能拒绝不可用设备；当前证据不足以声明满足“设备不可用时拒绝”。 |
 | 8 | 现有测试仍偏结构/Happy Path，缺 AC-M11 负向和原始事实不覆盖证明。 | `MesP0ProductionExecutionSchemaContractTest` 主要断言字段存在；`p0-production-execution-loop-real.e2e.js` 预置工单/任务/工作站/设备/签名 ID；`role-requirement-matrix-real-flow.e2e.js` 的 `productionEmployeeEntry` 只覆盖入口加载并关联 `AC-M10/AC-M11`。 | 未覆盖缺必填、设备不可用、签名不一致、参数越界、损耗原因缺失、重复提交不覆盖原始事实等 AC-M11 准出条件。 |
 
+### AC-M11 第二轮补充缺口
+
+| 序号 | 不符合项 | 代码证据 | 影响 |
+|---:|---|---|---|
+| 9 | 记录本“原始条目”创建后仍是草稿，未在生产提交链路中提交/锁定。 | `createOriginalEntry` 只调用 `recordbookService.createEntry`；`createEntry` 新增 entry 时状态为 `ENTRY_STATUS_DRAFT`、版本为 `1`，生产提交链路没有继续调用 `recordbookService.submit`；而 `saveDraft` 会在草稿状态下直接更新 `entryContentJson`。 | 不能证明记录本中的原始事实“不可覆盖”；只要有草稿编辑权限，原始条目仍存在被后续保存草稿覆盖的路径。 |
+| 10 | 记录本幂等键命中旧条目时直接返回旧 entry，未校验本次 payload 与旧 payload 是否一致。 | `createEntry` 用 `recordbookId + idempotencyKey` 查询旧 entry，命中后直接 `return toEntryResp(existing, ...)`，没有比对 `entryContentJson`、设备参数或 rawPayload。 | 如果前次提交在创建记录本后、创建工序池事件前失败，重试携带不同事实但相同记录本幂等键，系统会复用旧记录本事实而不是显式拒绝冲突。 |
+| 11 | 工序池事件幂等查询维度与数据库唯一约束不一致。 | 查询 `selectSubmitByIdempotency` 包含 `deviceId`、`workstationId`；迁移唯一键 `uk_mes_pro_process_pool_event_idem` 只包含租户、事件类型、工单、路线工序、工序、实际员工、幂等键、删除标记。 | 同一幂等键但设备/工作站不同的请求，查询可能找不到旧事件，插入时再触发数据库唯一冲突；缺少明确的“原始事实冲突拒绝且不覆盖”业务错误证明。 |
+| 12 | 工序池修订会更新事件主表 `rawPayload` 为补正后的 payload。 | `MesProcessPoolEventRevisionServiceImpl.updateOriginalRecord` 会先保存 revision 的 `beforePayload/afterPayload`，随后 `eventMapper.updateById(...setRawPayload(reqBO.getAfterPayload()))` 覆盖事件主表 raw payload。 | 有修订链可追溯，但事件主表的“原始 payload”会变成补正后值；依赖 event 主表的后续批记录回填、时间线或详情不能直接证明首次原始事实未覆盖。 |
+| 13 | 数量服务端校验只约束“报工数量 > 0”或“合格+不良 > 0”，没有校验生产提交的损耗关系。 | `validateFeedbackData` 对需检验工序只校验 `feedbackQuantity > 0`；非检验工序只校验 `qualified + unqualified > 0`；未见对 `lossQuantity`、损耗分项、`loss <= output`、损耗原因联动的校验。 | “数量、损耗、原因完整保存并异常拒绝”仍不能成立；损耗数量异常可能进入正式报工、工序池事件和数量分片。 |
+
+### AC-M11 第三轮补充缺口
+
+| 序号 | 不符合项 | 代码证据 | 影响 |
+|---:|---|---|---|
+| 14 | 前端生产报工提交契约缺少后端必填的工序池幂等键。 | 后端 `MesProFrontlineFeedbackSubmitReqVO.processPoolSubmissionIdempotencyKey` 标为 `@NotBlank`，`MesProFrontlineFeedbackSubmitServiceImpl.validateSubmitContext` 会缺失即拒绝；但前端 `ProFrontlineFeedbackSubmitReqVO` 接口和 `buildFrontlineFormalSubmitPayload` 返回对象都没有该字段，只给记录本 `idempotencyKey` 默认 `frontline-submit-${signatureId}`。 | 真实生产报工路径存在前后端契约断裂；即使页面填完人员、设备、参数、数量、损耗和签名，也可能因缺后端必填幂等键直接失败，无法证明完整保存。 |
+| 15 | 生产电子签名未校验签名主数据、授权状态或签名快照。 | 生产提交 VO 只有 `signatureId`、`signatureEmployeeId`，没有 `signatureSnapshot`；PQC 提交 VO 有 `signatureSnapshot`；`MesFrontlineSubmitAuthorizationServiceImpl` 只校验实际员工等于签名员工、设备/工作站/模板匹配；`MesProcessPoolEventServiceImpl` 只校验签名 ID 为正、签名用户等于实际员工、签名 ID 未重复，未看到签名服务、DCC 授权、图像或有效状态读取。 | 只能拒绝“签名人与实际员工不一致”和“签名 ID 重复”，不能证明签名缺失、过期、未授权、伪造 ID 或签名图像漂移时拒绝并保存原始签名事实。 |
+| 16 | 设备参数提交仍是显示名分组和自由 Map，空值可被省略。 | 运行态参数 VO 只有 `parameterCode/name/unit/lowerLimit/upperLimit/defaultValue/valueType`，没有 `required` 标志；前端 `equipmentParameters` 用 `device.label` 作为外层 key，`buildProductionDeviceParameterPayload` 过滤掉 `undefined`；记录本 payload 的 `equipmentParameters` 是自由 `Map<String,Object>`；后端 splitter 只把嵌套参数展开进 rawPayload。 | 参数身份依赖前端显示名，重复设备名、设备改名或空参数都缺少稳定 ID/必填校验；不能证明“参数完整保存，缺必填或参数异常时拒绝”。 |
+| 17 | 原始 payload 以客户端提交内容为起点，不是服务端白名单重建。 | `MesProFrontlineFeedbackSubmitServiceImpl` 只要求 `rawPayload` 非空；`MesProFrontlineFeedbackPayloadSplitter.buildProcessPoolRawPayload` 先 `payload.putAll(reqVO.getRawPayload())`，再覆盖 `outputQuantity/lossQuantity/equipmentParameters` 等少数字段。 | 客户端伪造的展示字段、人员/设备文案或额外事实可能进入事件 rawPayload；系统没有证明最终原始事实完全来自服务端认证上下文和正式规则。 |
+| 18 | 损耗/不良原因身份不是稳定结构化快照。 | 前端 `configuredDefectReasons` 用 `reason.reasonCode || String(reason.reasonId)` 作为 draft key，提交时只把 `defects: { ...productionDefectDraft }` 放进记录本 `entryContent`；生产报工 VO、记录本 VO 和工序池 BO 均没有 `reasonId/reasonType/reasonName` 等结构化原因字段。 | 原因代码重命名、原因禁用、跨工序原因或同 code 冲突时缺少后端可验证身份；不能证明损耗原因完整保存、缺原因拒绝或历史原因不随配置漂移。 |
+| 19 | 实际人员只以用户 ID 参与校验和保存，缺少报工时人员快照。 | `listEmployeeCandidates` 通过工作站岗位取系统用户并过滤启用状态，`requireBoundEmployee` 只按 `candidate.userId == actualEmployeeId` 判断；事件和报工链路保存 `actualEmployeeId/feedbackUserId/signatureUserId`，未见员工姓名、编码、岗位、班组、候选来源或绑定快照进入生产提交事实。 | 后续用户姓名、岗位、班组或启用状态变化后，历史报工难以证明当时人员范围和人员事实；不能完整满足“人员完整保存且历史原始事实不覆盖”。 |
+
 ## AC-D03 手动不良说明专项核验
 
 ### 核验结论
 
 | 核验项 | 当前判断 | 代码/证据依据 | 缺口 |
 |---|---|---|---|
-| 系统是否支持手动输入 | 部分支持 | PQC 页面支持逐件手工录入数值、逐件选择“合格/不合格”，并可填写检验数量、损耗数量；`pqcDraft` 当前只有 `inspectionType`、`patrolRound`、`inspectionQuantity`、`scrapQuantity`。 | 未看到 PQC 不良说明/原因的专用文本输入字段；当前不能证明“出现不良时 PQC 手动输入不良原因/说明”。 |
-| 是否保存原始输入快照 | 基础支持 | `MesFrontlinePqcSubmitReqVO.rawPayload` 必填；`buildPqcInspectionEventRawPayload` 先复制前端 `rawPayload`，再补充 `activeOrderId`、`pqcTaskId`、`workOrderId`、`routeProcessId`、`processId`、`pqcItemDetails`、`pieceDetailCount` 等；PQC event 和 PQC record 均写入 `rawPayload`。 | 如果前端没有传“不良说明/原因”字段，快照不会包含该业务输入；缺少专项测试证明手输文本进入 `rawPayload`。 |
-| 是否能追溯到订单/工序/PQC 记录 | 基础支持较完整 | PQC 提交 VO、Command、event、PQC record 均包含 `workOrderId`、`routeId`、`routeProcessId`、`processId`、`pqcTaskId`、`productionSubmitEventId`；提交服务校验 PQC task 身份和当前订单/工序一致；时间线读模型返回 `originalPayloadJson`、工单、工序、PQC task 和 PQC 结果。 | 仍需专项验收把“手动不良说明”与同一订单、工序、PQC event/detail 页面一起回读证明。 |
+| 系统是否支持手动输入 | 代码级支持 | `FrontlineFixedTemplatePanel.vue` 已新增 `data-pqc-defect-description` 手动文本框，`pqcDraft.defectDescription` 保存草稿；不合格或损耗时 `validatePqcDefectDescription()` 阻塞空说明提交。 | 仍需真实页面 E2E 证明 PQC 检验员在目标入口可见、可输入并按真实路径提交。 |
+| 是否保存原始输入快照 | 代码级支持 | `FrontlinePqcInspectionSubmitReqVO`、`MesFrontlinePqcSubmitReqVO`、`MesFrontlinePqcSubmitCommand` 均新增 `nonconformanceDescription`；前端 rawPayload.pqcDraft 保存 `defectDescription`；后端 `buildPqcInspectionEventRawPayload` 写入标准化 `nonconformanceDescription`。 | 仍需真实数据回读 event/PQC record rawPayload，证明页面详情能读到该字段。 |
+| 是否能追溯到订单/工序/PQC 记录 | 代码级支持较完整 | 后端 rawPayload 同时保留 `workOrderId`、`routeId`、`routeProcessId`、`processId`、`pqcTaskId`、`regulationVersionId`、`pieceDetailCount` 和 `pqcItemDetails`；新增 JUnit 断言不良说明与 `workOrderId/routeProcessId/pqcTaskId` 同 payload。 | 仍需专项验收把“手动不良说明”与同一订单、工序、PQC event/detail 页面一起回读证明。 |
 | 历史记录是否不会被后续修改覆盖 | 部分支持 | PQC record 的 `rawPayload` 在创建时写入，当前检索未发现更新该字段的服务路径；退回补正有 revision/diff 表记录 `beforePayload`、`afterPayload`、字段前后值和修订签名。 | event 表 `rawPayload` 会在修订服务中被更新为 `afterPayload`，时间线详情的 `originalPayloadJson` 读取的是当前 event `raw_payload`；因此现状更接近“有修订链可追溯”，不是严格的“原始详情永不被覆盖”。 |
 
 ### 结论口径
 
 - `AC-D03` 不能按旧口径继续要求“生产班组长/PQC 组长维护不良原因主数据”；旧的 defect reason 目录能力不应作为新版 `AC-D03` 符合证据。
 - 新口径应改为：PQC 在发现不良时手动录入不良说明/原因，系统保存原始手输文本快照，并可按订单、工序、PQC event/record 追溯。
-- 当前系统具备“PQC 提交、逐件明细、原始 payload、订单/工序/PQC 记录追溯、退回补正修订链”的基础能力，但缺少“手动不良说明字段 + 进入 rawPayload + 详情回显 + 原始/修订不覆盖”的专项验收证据。
-- 当前准确状态应保持为：`业务口径已调整，仍未完整验收`，不能提升为 `ACCEPTED`。
+- 当前系统已具备“手动不良说明字段 + 失败必填 + 进入 rawPayload + 订单/工序/PQC task 追溯身份”的代码级能力，并有静态合同与后端 JUnit 证据。
+- 当前准确状态应调整为：`代码级已补，仍未完整验收`；缺少真实页面 E2E、详情回显和原始/修订不覆盖验收前，仍不能提升为 `ACCEPTED`。
 
 ### 建议补充验收用例
 
@@ -210,7 +232,7 @@
 | 5 | AC-M09 / AC-D15~D23 | QA 检验规程后端当前主要是只读发布版本查询，没有正式保存草稿、校验完整性、发布/启用接口。 | `MesQaInspectionRegulationController` 只有 `/published-version` 和 `/project-statuses` 两个 GET；`MesQaInspectionRegulationServiceImpl` 只读取最新已发布版本和产品配置状态；前端 `QaRegulationPage.vue` 明示“正式保存/发布接口未接入，本页调整仅用于前端规则预览和发布前检查，未写入后台”。 | 不能证明 QA 可维护、保存草稿、发布不可变版本；首检/巡检/末检规则的正式发布链路仍不完整。 |
 | 6 | AC-M12~M15 / AC-D18~D20 | 未发现生产代码按 QA 规程生成 PQC 任务。 | 主代码检索 `MesPqcInspectionTaskDO.builder()`、`pqcInspectionTaskMapper.insert`、`create/generate Pqc task` 未发现正式生成服务；`MesPqcInspectionTaskMapper` 只提供查询 pending/list 和 `updateSubmittedIfPending`；PQC 提交服务要求已有 `pqcTaskId` 且任务为 `PENDING`。 | 首检、上午巡检、下午巡检、末检无法证明按发布规程自动生成任务；`301×5%` 向上取整、班次/轮次、首检固定数量等规则也缺少后端生成证据。 |
 | 7 | AC-D27 / AC-D28 / AC-M12~M15 | PQC 数值型样本没有按标准上下限判定；前端还会用标准下限自动补齐空样本。 | 前端 `pqcInspectionItems` 把数值项默认值设为 `standardLowerLimit`，`getPqcStoredPieceValues` 会补齐到检验数量；`resolvePqcResult` 只在损耗数量大于 0 或逐件值等于“不合格”时失败，不比较数值上下限；后端 `resolvePieceJudgement` 同样只看值是否为“不合格”或总结果是否失败/成功。 | 缺失数值输入或越界数值可能被默认值/总结果掩盖，不能证明逐件明细按规程标准真实判定。 |
-| 8 | AC-D03 新口径 / AC-D28 | PQC 提交结构缺少“不合格原因/说明”专用字段。 | `MesFrontlinePqcSubmitReqVO` 和 `MesFrontlinePqcSubmitCommand` 只有 `inspectionResult`、`itemResults`、`sampleValues`、`rawPayload` 等字段；`ItemResult` 只有项目、设备和样本值；前端 rawPayload 记录 `inspectionType/patrolRound/inspectionQuantity/scrapQuantity/pqcPieceValues`，未看到手输失败原因字段。 | 按新业务口径，PQC 不再维护固定不良原因主数据时，系统仍不能证明“不合格时手动输入说明并保存、回显、追溯”。 |
+| 8 | AC-D03 新口径 / AC-D28 | PQC 提交结构“不合格原因/说明”代码级字段已补，剩余为真实验收缺口。 | `MesFrontlinePqcSubmitReqVO`、`MesFrontlinePqcSubmitCommand` 和前端 `FrontlinePqcInspectionSubmitReqVO` 已新增 `nonconformanceDescription`；前端 rawPayload.pqcDraft 记录 `defectDescription`；后端 rawPayload 写入标准化说明。 | 仍需真实 PQC 页面提交、PQC 组长详情/时间线回读和历史修订不覆盖证明，才能把 AC-D03 提升到 `ACCEPTED`。 |
 | 9 | AC-D03 旧口径迁移风险 | 系统仍保留班组长“不良原因”主数据维护和一线生产缺陷原因下发。 | Controller 暴露 `/defect-reason/create`；运行态配置仍返回 `defectReasons`；前端生产缺陷原因来自 runtime config。 | 如果矩阵口径已经改为 PQC 手动说明，则旧“不良原因目录”不能作为符合证据；还需确认不会要求 PQC 依赖固定原因列表。 |
 | 10 | AC-D36 | PQC 不合格没有看到自动生成独立质量异常的正式链路。 | `MesWorkOrderAbnormalReportServiceImpl#markAndReport` 只根据生产组长手工请求创建 `MesProcessPoolWorkOrderAbnormalDO`；Controller 入口是 `/work-order/abnormal/report`；针对 `INSPECTION_RESULT_FAILURE` 的检索只落在 PQC 结果判定/事件校验，未发现从 PQC failure 自动 insert 异常。 | 不合格 PQC 结果可能只停留在 PQC event/record，不能证明形成独立质量异常、责任和解除条件。 |
 | 11 | AC-M20 / AC-M21 / AC-M22 | PQC 组长确认后的任务状态闭环不完整：放行预检要求 `CONFIRMED`，但提交链路只把任务置为 `SUBMITTED`，组长确认聚合也未回写任务 `CONFIRMED`。 | `MesFrontlinePqcContextServiceImpl` 将 PQC task 从 `PENDING` 更新为 `SUBMITTED`；`MesTeamLeaderSubmissionReviewServiceImpl` 审核通过时仅调用 `aggregateApprovedPqcSubmission`；`MesPqcProcessInspectionAggregationServiceImpl` 只更新 PQC record 的过程检验聚合字段；`MesOrderReleaseCompletenessServiceImpl` 预检却过滤 `taskStatus != CONFIRMED` 并阻塞。 | 过程检验汇集与放行预检之间存在状态断点，可能导致已审核 PQC 仍无法满足放行预检，或需要额外未证明的状态转换。 |

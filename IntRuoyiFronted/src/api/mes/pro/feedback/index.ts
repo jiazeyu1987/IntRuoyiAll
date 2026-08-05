@@ -262,6 +262,7 @@ export interface FrontlinePqcInspectionSubmitReqVO {
   signatureSnapshot?: string
   templateType: string
   inspectionResult: string
+  nonconformanceDescription?: string
   itemResults: FrontlinePqcItemResultSubmitReqVO[]
   rawPayload: Record<string, unknown>
   clientSubmitTime?: string

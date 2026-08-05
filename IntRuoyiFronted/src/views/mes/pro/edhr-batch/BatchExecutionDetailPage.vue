@@ -1191,6 +1191,41 @@
       </template>
     </Dialog>
 
+    <Dialog title="放行退回" v-model="releaseReturnDialogVisible" width="460px">
+      <el-alert
+        v-if="releaseReturnError"
+        :title="releaseReturnError"
+        type="error"
+        :closable="false"
+        show-icon
+        class="edhr-batch-detail__dialog-alert"
+      />
+      <el-alert
+        title="退回会结束当前放行事务，请填写可追溯的退回原因。质量判定拒收请使用独立“质量拒收”动作。"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="edhr-batch-detail__dialog-alert"
+      />
+      <el-form label-width="96px">
+        <el-form-item label="退回原因" required>
+          <el-input
+            v-model="releaseReturnForm.rejectReason"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入放行退回原因"
+            @keyup.enter="submitReleaseReturn"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="releaseReturnDialogVisible = false">取 消</el-button>
+        <el-button type="danger" :loading="releaseReturnSubmitting" @click="submitReleaseReturn">
+          确认退回
+        </el-button>
+      </template>
+    </Dialog>
+
     <Dialog
       :title="selectedSpecialNodePreviewTitle || '附件在线预览'"
       v-model="specialNodePreviewDialogVisible"
@@ -1263,6 +1298,7 @@ import {
 import {
   getEdhrReleaseCheckItemPage,
   precheckEdhrRelease,
+  rejectEdhrRelease,
   submitEdhrRelease,
   type EdhrReleaseCheckItemVO,
   type EdhrReleaseEventRespVO
@@ -1373,6 +1409,9 @@ const routeFormOpenResp = ref<EdhrBatchExecutionTaskOpenRespVO>()
 const releasePrecheckLoading = ref(false)
 const releaseSignatureConfirmVisible = ref(false)
 const releaseSignatureSubmitting = ref(false)
+const releaseReturnDialogVisible = ref(false)
+const releaseReturnSubmitting = ref(false)
+const releaseReturnError = ref('')
 const releaseCheckLoading = ref(false)
 const traceRecordTab = ref<TraceRecordTab>('release')
 const processDetailDialogVisible = ref(false)
@@ -2294,6 +2333,12 @@ const canRunReleasePrecheck = computed(
     (!batchActionLocked.value || hasGoldenFingerActionBypass.value)
 )
 const canSubmitRelease = computed(() => edhrReleaseActionProjection.value.allowed)
+const canReturnRelease = computed(
+  () =>
+    hasReleaseTransaction.value &&
+    ['PRECHECK_PASSED', 'PENDING_APPROVAL'].includes(releaseStatus.value) &&
+    releaseCanSubmitBatchStatus.value
+)
 
 type ReleaseStageKey =
   | 'quality-terminal'
@@ -2787,8 +2832,16 @@ const buildReleaseStageActionItems = (stageKey: ReleaseStageKey): ReleaseStageAc
 function buildReleaseDecisionActionItems(): ReleaseStageActionItem[] {
   return [
     {
-      key: 'release-reject',
-      label: '拒收',
+      key: 'release-return',
+      label: '退回',
+      type: 'danger',
+      permission: ['mes:pro-edhr-release:reject'],
+      disabled: !canReturnRelease.value,
+      onClick: openReleaseReturnDialog
+    },
+    {
+      key: 'quality-reject',
+      label: '质量拒收',
       type: 'danger',
       permission: ['mes:pro-edhr-batch-execution:quality-reject'],
       disabled: !canQualityReject.value,
@@ -3315,6 +3368,9 @@ const releaseSignatureForm = reactive({
   idempotencyKey: '',
   password: '',
   approvalOpinion: ''
+})
+const releaseReturnForm = reactive({
+  rejectReason: ''
 })
 const resolveErrorMessage = (error: unknown, fallback: string) => {
   const responseMessage = (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
@@ -4514,7 +4570,7 @@ const openReleaseSignatureConfirmDialog = async () => {
   releaseSignatureConfirmVisible.value = true
 }
 
-const buildReleaseIdempotencyKey = (mode: 'submit') => {
+const buildReleaseIdempotencyKey = (mode: 'submit' | 'reject') => {
   return `EDHR-RELEASE-${mode}-${workbench.value?.releaseSummary?.releaseTransactionId || 'NA'}-${Date.now()}`
 }
 
@@ -4572,6 +4628,60 @@ const confirmReleaseSignatureSubmit = async () => {
   releaseTransactionForm.rejectReason = ''
   releaseTransactionForm.withdrawReason = ''
   await runReleaseSignatureConfirmAction(() => submitReleaseByOwnerSignature(releaseTransactionId), '放行已完成')
+}
+
+const openReleaseReturnDialog = () => {
+  releaseReturnError.value = ''
+  if (!ensureViewedReleaseStageWritable('放行退回')) return
+  if (!canReturnRelease.value) {
+    releaseReturnError.value = '当前批次暂不能执行放行退回。'
+    message.error(releaseReturnError.value)
+    return
+  }
+  const releaseTransactionId = workbench.value?.releaseSummary?.releaseTransactionId
+  if (!releaseTransactionId) {
+    releaseReturnError.value = '当前批次缺少放行事务，无法执行退回动作。'
+    message.error(releaseReturnError.value)
+    return
+  }
+  releaseReturnForm.rejectReason = ''
+  releaseReturnDialogVisible.value = true
+}
+
+const submitReleaseReturn = async () => {
+  if (!ensureViewedReleaseStageWritable('放行退回')) return
+  releaseReturnError.value = ''
+  if (!canReturnRelease.value) {
+    releaseReturnError.value = '当前批次暂不能执行放行退回。'
+    message.error(releaseReturnError.value)
+    return
+  }
+  const releaseTransactionId = workbench.value?.releaseSummary?.releaseTransactionId
+  if (!releaseTransactionId) {
+    releaseReturnError.value = '当前批次缺少放行事务，无法执行退回动作。'
+    message.error(releaseReturnError.value)
+    return
+  }
+  if (!releaseReturnForm.rejectReason.trim()) {
+    releaseReturnError.value = '退回原因不能为空。'
+    return
+  }
+  releaseReturnSubmitting.value = true
+  try {
+    await rejectEdhrRelease({
+      releaseTransactionId,
+      idempotencyKey: buildReleaseIdempotencyKey('reject'),
+      rejectReason: releaseReturnForm.rejectReason.trim()
+    })
+    releaseReturnDialogVisible.value = false
+    message.success('放行已退回')
+    await loadDetail()
+  } catch (error) {
+    releaseReturnError.value = resolveErrorMessage(error, '放行退回失败。')
+    message.error(releaseReturnError.value)
+  } finally {
+    releaseReturnSubmitting.value = false
+  }
 }
 
 const resetQualityRejectForm = () => {

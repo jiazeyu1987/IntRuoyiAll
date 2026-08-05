@@ -94,9 +94,29 @@ assert.match(
   'Frontend must call the formal QA regulation project-statuses API.'
 )
 assert.match(
+  qcTemplateApiSource,
+  /saveQaRegulationDraft[\s\S]*\/mes\/qa\/inspection-regulation\/draft/,
+  'Frontend must call the formal QA regulation draft save API.'
+)
+assert.match(
+  qcTemplateApiSource,
+  /publishQaRegulation[\s\S]*\/mes\/qa\/inspection-regulation\/publish/,
+  'Frontend must call the formal QA regulation publish API.'
+)
+assert.match(
   qaSource,
   /getQaRegulationProjectStatuses[\s\S]*qaRegulationProjectStatusMap/,
   'Standalone QA page must derive configured/unconfigured groups from backend QA regulation status.'
+)
+assert.match(
+  qaSource,
+  /buildQaRegulationSavePayload[\s\S]*saveQaRegulationDraft[\s\S]*publishQaRegulation/,
+  'Standalone QA page must build one formal backend payload for saving and publishing.'
+)
+assert.match(
+  qaSource,
+  /routeId[\s\S]*routeVersionId[\s\S]*routeProcessId[\s\S]*processId/,
+  'Standalone QA page must require formal route and process IDs before backend save/publish.'
 )
 assert.match(
   qaSource,
@@ -143,6 +163,11 @@ assert.doesNotMatch(
   /<el-tabs|<el-tab-pane/,
   'Standalone QA page must not render another internal tab wrapper.'
 )
+assert.doesNotMatch(
+  qaSource,
+  /正式保存\/发布接口未接入|未写入后台|data-qa-regulation-api-blocker/,
+  'Standalone QA page must not keep the old "API not connected" blocker after draft/publish APIs exist.'
+)
 
 for (const requiredText of [
   'QA 规程配置',
@@ -159,8 +184,13 @@ for (const requiredText of [
   '待配置 QA 规程',
   '当前加载范围',
   'DCC 项目代码加载失败',
-  '正式保存/发布接口未接入',
-  '未写入后台'
+  '正式保存/发布接口已接入',
+  '保存草稿',
+  '发布规程',
+  '路线 ID',
+  '路线版本 ID',
+  '路线工序 ID',
+  '工序 ID'
 ]) {
   assert.match(qaSource, new RegExp(requiredText), `Standalone QA page must include ${requiredText}.`)
 }

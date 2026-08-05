@@ -6,15 +6,15 @@
 
 ## Milestones
 
-- [ ] 记录 AC-M22 BDD/TDD 场景与当前门禁
-- [ ] 补充 RED 回归：PQC 已提交未确认、调拨缺必备来源、调拨数量/状态无效、activeOrder 路线版本不匹配
-- [ ] 实施最小后端修复，不引入 fallback、默认成功或吞异常
-- [ ] 运行目标后端回归与相邻回归
-- [ ] 更新验证报告、剩余风险和收尾状态
+- [x] 记录 AC-M22 BDD/TDD 场景与当前门禁
+- [x] 补充回归：PQC 聚合后确认、调拨缺必备来源、调拨数量/状态无效、activeOrder 路线版本不匹配
+- [x] 实施最小后端修复，不引入 fallback、默认成功或吞异常
+- [x] 运行目标后端回归与相邻回归
+- [x] 更新验证报告、剩余风险和当前阻塞状态
 
 ## Expected Verification
 
-- `mvn -pl yudao-module-mes -am "-Dtest=MesOrderReleaseCompletenessServiceTest,MesProEdhrReleaseServiceImplTest" test`
+- `mvn -pl yudao-module-mes -am "-Dtest=MesOrderReleaseCompletenessServiceTest,MesPqcProcessInspectionAggregationServiceTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - 若目标 Maven 因既有 Windows `target` 文件系统异常阻塞，记录精确 blocker，不用静态扫描冒充 JUnit 通过。
 
 ## Experience Gates
@@ -32,8 +32,14 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+AC-M22 后端代码修复、目标 JUnit 和静态校验已通过。目标 Maven 命令 `mvn -pl yudao-module-mes -am "-Dtest=MesOrderReleaseCompletenessServiceTest,MesPqcProcessInspectionAggregationServiceTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` 通过，Surefire 合计 41 tests / 0 failures / 0 errors。提交/推送收尾尚未执行：当前共享工作区仍为 `int_main...origin/int_main [ahead 13]` 且存在大量并行脏改动，不能用宽泛暂存或基线提交混入其它任务文件。
 
 ## Remaining Out Of Scope
 
 - 真实页面全量 `ACCEPTED` 仍需 M6 E2E 逐 AC 覆盖，本任务只修复后端可单元闭环的不符合项。
+
+## Cleanup Keep
+
+- doc/tasks/20260805-role-matrix-code-repair/bug-regression-evidence.md

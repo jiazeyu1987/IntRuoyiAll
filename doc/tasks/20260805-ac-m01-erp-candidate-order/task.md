@@ -10,8 +10,8 @@
 - [x] M2 先补充失败测试覆盖 AC-M01 正向和边界行为。
 - [x] M3 实现最小正式后端候选查询能力，不引入 fallback、默认成功或静默降级。
 - [x] M4 补齐前端真实入口/API 合约与静态验证。
-- [ ] M5 更新 AC-M01 真实 E2E 覆盖证据和验收报告。
-- [ ] M6 完成 evidence validator、回归验证和任务收尾。
+- [ ] M5 更新 AC-M01 真实 E2E 覆盖证据和验收报告（RRM 真实流程动作已接入；真实运行仍阻塞）。
+- [ ] M6 完成 evidence validator、回归验证和任务收尾（目标静态合同已通过；相邻 RRM preflight 仍有非 AC-M01 blocker）。
 
 ## Expected Verification
 
@@ -22,9 +22,9 @@
 
 ## Current Status
 
-in_progress
+blocked
 
-当前已完成后端候选准入硬门禁和前端静态合同：admission-diff 会把缺 ERP 正式同步身份的工单标记为 `BLOCKED_ERP_SYNC_RECORD_MISSING` 且不可勾选，批量加入接口会 fail-fast 拒绝未确认或缺正式 ERP ID/编号的工单。真实 E2E、提交推送和任务收尾仍未完成，原因见验证报告 Blockers。
+当前已完成后端候选准入硬门禁、前端静态合同和 RRM 真实流程脚本接入：`role-requirement-matrix-real-flow.e2e.js` 已在生产组长 `joinActiveOrder` 前执行 `scheduleOrderErpCandidateAdmission`，通过真实 `/mes/pro/schedule-order` 页面进入“同步工单”页签，并用 `admission-diff` 验证正式生产订单编号候选与 `BLOCKED_ERP_SYNC_RECORD_MISSING/selectable=false` 阻断样本。真实 E2E 尚未达到 PASS：当前 shell 缺少 RRM 真实运行所需账号、URL、电子签名、任务订单/路线/调拨等环境变量，且相邻 RRM preflight 继续阻塞在非 AC-M01 的 AC-M19 批记录回填断言。
 
 ## BDD Scenarios
 

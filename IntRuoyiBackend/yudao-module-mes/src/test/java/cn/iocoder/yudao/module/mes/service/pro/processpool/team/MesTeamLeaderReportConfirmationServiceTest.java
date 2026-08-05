@@ -219,6 +219,50 @@ class MesTeamLeaderReportConfirmationServiceTest {
     }
 
     @Test
+    void shouldBlockAllocationWhenSubmissionAlreadyRejected() {
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L))
+                .thenReturn(submissionReview(MesProcessPoolSubmissionReviewDO.STATUS_REJECTED));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.confirmSubmission(
+                MesTeamLeaderReportConfirmationReqBO.builder()
+                        .eventId(1001L)
+                        .leaderUserId(3001L)
+                        .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                        .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
+                        .reviewSignatureId(9101L)
+                        .reviewSignatureUserId(3001L)
+                        .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
+                        .allocations(List.of(line(8101L, "80")))
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS.getCode(), ex.getCode());
+        verify(allocationMapper, never()).insertBatch(anyCollection());
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(pqcRecordMapper, never()).selectListByProductionSubmitEventId(any());
+    }
+
+    @Test
+    void shouldRejectNonProductionLeaderForReportAllocationBeforeLoadingEvent() {
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.confirmSubmission(
+                MesTeamLeaderReportConfirmationReqBO.builder()
+                        .eventId(1001L)
+                        .leaderUserId(3001L)
+                        .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC)
+                        .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
+                        .reviewSignatureId(9101L)
+                        .reviewSignatureUserId(3001L)
+                        .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
+                        .allocations(List.of(line(8101L, "80")))
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED.getCode(), ex.getCode());
+        verify(eventMapper, never()).selectByIdForUpdate(any());
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(allocationMapper, never()).insertBatch(anyCollection());
+    }
+
+    @Test
     void shouldConfirmManualAllocationAgainstPerProcessSnapshotTargetInsteadOfErpQuantity() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":300}"));
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
@@ -356,6 +400,16 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 .routeProcessId(5001L)
                 .processId(6001L)
                 .allocatedQuantity(new BigDecimal(quantity))
+                .build();
+    }
+
+    private static MesProcessPoolSubmissionReviewDO submissionReview(String status) {
+        return MesProcessPoolSubmissionReviewDO.builder()
+                .id(7000L)
+                .eventId(1001L)
+                .leaderUserId(3001L)
+                .reviewStatus(status)
+                .reviewedAt(LocalDateTime.of(2026, 8, 5, 10, 0))
                 .build();
     }
 

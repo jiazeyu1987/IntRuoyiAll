@@ -22,12 +22,23 @@
 
 ## RED / GREEN Evidence
 
-- pending。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesQaInspectionRegulationServiceTest" test` -> FAIL，修复前缺少 QA 规程保存/发布 VO、service 方法、错误码与 mapper 方法，证明 AC-M09 发布闭环未实现。
+- GREEN: `mvn -pl yudao-module-mes -am "-DskipTests" compile` -> PASS，MES 生产代码编译通过，确认 QA 规程保存/发布服务实现、VO、Controller、Mapper 与错误码生产链路可编译。
+- GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，前端 QA 独立页已接入正式草稿保存/发布 API，旧“未写入后台”阻断提示已移除。
+- BLOCKED: `mvn -pl yudao-module-mes -am "-Dtest=MesQaInspectionRegulationServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，`testCompile` 期间 `yudao-module-mes/target/classes` 多个 class 文件报 `NoSuchFileException`；同一主工作区同时存在其它非本任务 Maven 进程写入同一 `target`。
+- BLOCKED: `mvn -pl yudao-module-mes -am "-DskipTests" compile` 后接 `mvn -pl yudao-module-mes -am "-Dmaven.compiler.testIncludes=**/MesQaInspectionRegulationServiceTest.java" "-Dtest=MesQaInspectionRegulationServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> TIMEOUT，20 分钟未返回；检查时仍有其它非本任务 Maven 测试在 `E:\IntRuoyi\IntRuoyiBackend` 写入同一模块目标目录。
+- BLOCKED: `pnpm ts:check` -> TIMEOUT，604 秒未返回；本任务残留 `pnpm ts:check`/`vue-tsc` 进程已按任务边界停止，未停止其它前端 dev server。
 
 ## Verification Evidence
 
-- pending。
+- `mvn -pl yudao-module-mes -am "-DskipTests" compile`：PASS，`BUILD SUCCESS`，完成时间 `2026-08-05T12:03:48+08:00`。
+- `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：PASS，输出 `PASS role-matrix QA regulation standalone page static contract`。
+- `git diff --check -- <AC-M09 实现文件>`：PASS，无 whitespace error，仅有 Git CRLF 工作区提示。
+- 目标 JUnit 未通过环境门禁：主工作区持续存在非本任务 Maven 测试进程，导致 `target/classes` 缺失和后续专属 JUnit 超时；按规则未强停他人任务。
+- 前端全量类型检查未通过环境门禁：`pnpm ts:check` 超时；静态契约已覆盖本次 QA 保存/发布 API 接入的可观察行为。
 
 ## Blockers
 
-- 当前共享工作区仍有并发文档写入，后续提交需选择性暂存本任务文件。
+- 当前共享工作区仍有并发源码、测试和文档写入，后续提交需选择性暂存本任务文件。
+- 后端目标 JUnit 需要在没有其它 `E:\IntRuoyi\IntRuoyiBackend` Maven 进程写入 `yudao-module-mes/target` 时复跑。
+- 前端 `pnpm ts:check` 需要在资源稳定时复跑；本次超时不能记录为 PASS。

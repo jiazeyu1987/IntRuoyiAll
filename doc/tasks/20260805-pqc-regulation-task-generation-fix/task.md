@@ -6,22 +6,26 @@
 
 ## Milestones
 
-- [ ] M1：建立 RED 证据，覆盖计划数量不一致、多件样本、缺少正式任务生成器和末检不适用放行缺口。
-- [ ] M2：补齐后端正式任务生成/校验服务、提交数量严格校验、末检不适用依据和放行完整性判断。
-- [ ] M3：补齐前端提交侧数量不可改写/不截断策略和规程页面正式保存/发布入口或明确阻塞。
+- [x] M1：建立 RED 证据，覆盖计划数量不一致、多件样本截断和前端数量可改写。
+- [x] M2a：补齐后端 PQC 提交数量严格校验，提交实际数量、计划数量和逐项样本数不一致时 fail fast。
+- [x] M3a：补齐前端提交侧数量不可改写/不截断策略。
+- [x] M2b：补齐正式 PQC 任务生成器、上午/下午巡检生成身份和适用末检任务生成。
+- [x] M2c：补齐放行完整性预期 PQC 任务集合校验。
+- [ ] M2d：补齐末检不适用依据的正式持久化模型。
 - [ ] M4：运行目标后端、前端静态合同和必要回归验证。
 - [ ] M5：记录验证报告、经验沉淀、清理与提交推送。
 
 ## Expected Verification
 
 - 后端目标 JUnit：`MesFrontlinePqcContextServiceTest`、`MesOrderReleaseCompletenessServiceTest`、新增/更新 PQC 任务生成相关测试。
+- 后端静态合同：`node yudao-module-mes\src\test\js\mes-pqc-task-generation-static.spec.cjs`，覆盖生成器必须查已发布规程、AM/PM 巡检身份分离、`301×5%` 向上取整为 `16`、重复身份 fail fast，以及放行完整性必须按工序快照检查 FIRST/PATROL AM/PATROL PM/FINAL 预期任务集合。
 - 前端静态合同：覆盖 PQC 检验数量不可手工偏离任务计划数量、样本提交不截断多件值、QA 规程页面不再声称“仅预览未接入”。
 - 结构检查：`git diff --check`，任务文档 UTF-8 可读。
 - 若全量运行态或真实 E2E 前置缺失，按项目 fail-fast 记录 blocker，不用 mock/API-only 代替。
 
 ## Current Status
 
-in_progress：已确认修复范围，正在建立任务文档、RED 证据和基线隔离。
+blocked：已完成并静态验证前端数量锁定/不截断、后端提交侧数量 fail-fast、正式 PQC 任务生成器、上午/下午巡检身份分离、`301×5%` 向上取整为 `16`、适用末检任务生成和放行完整性预期任务集合校验；后端 Maven/JUnit 在当前机器持续受 JVM native memory/pagefile、并行 Maven 占用与超时阻塞，且末检“不适用”显式依据仍无正式字段/表/接口模型，不能安全标记 AC-M12 至 AC-M15 全量 `ACCEPTED`。
 
 ## 设计约束检查
 

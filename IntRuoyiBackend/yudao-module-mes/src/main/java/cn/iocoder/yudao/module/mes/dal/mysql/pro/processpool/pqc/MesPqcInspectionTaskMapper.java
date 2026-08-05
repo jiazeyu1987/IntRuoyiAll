@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInsp
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Mapper
@@ -42,6 +43,18 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .orderByAsc(MesPqcInspectionTaskDO::getId));
     }
 
+    default MesPqcInspectionTaskDO selectByIdentity(Long activeOrderId, Long routeProcessId,
+                                                    String inspectionType, LocalDate businessDate,
+                                                    String shiftCode, Integer roundNo) {
+        return selectOne(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
+                .eq(MesPqcInspectionTaskDO::getActiveOrderId, activeOrderId)
+                .eq(MesPqcInspectionTaskDO::getRouteProcessId, routeProcessId)
+                .eq(MesPqcInspectionTaskDO::getInspectionType, inspectionType)
+                .eq(MesPqcInspectionTaskDO::getBusinessDate, businessDate)
+                .eq(MesPqcInspectionTaskDO::getShiftCode, shiftCode)
+                .eq(MesPqcInspectionTaskDO::getRoundNo, roundNo));
+    }
+
     default int updateSubmittedIfPending(Long id, Integer actualInspectionQuantity,
                                          String pendingStatus, String submittedStatus) {
         return update(null, new LambdaUpdateWrapper<MesPqcInspectionTaskDO>()
@@ -49,5 +62,12 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .set(MesPqcInspectionTaskDO::getTaskStatus, submittedStatus)
                 .eq(MesPqcInspectionTaskDO::getId, id)
                 .eq(MesPqcInspectionTaskDO::getTaskStatus, pendingStatus));
+    }
+
+    default int updateConfirmedIfSubmitted(Long id, String submittedStatus, String confirmedStatus) {
+        return update(null, new LambdaUpdateWrapper<MesPqcInspectionTaskDO>()
+                .set(MesPqcInspectionTaskDO::getTaskStatus, confirmedStatus)
+                .eq(MesPqcInspectionTaskDO::getId, id)
+                .eq(MesPqcInspectionTaskDO::getTaskStatus, submittedStatus));
     }
 }

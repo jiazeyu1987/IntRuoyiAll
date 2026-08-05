@@ -28,8 +28,11 @@
 - completed：根据用户追问复核 AC-M04 最新证据，已将不符合项文档从“清理闭环待完成”更新为“动作通过但未 AC 验收”，并补充当前进度与下一步。
 - completed：根据用户继续追问，已补充 `AC-D03 手动不良说明专项核验`：逐项分析手动输入、原始输入快照、订单/工序/PQC 记录追溯、历史记录不被后续修改覆盖四个判断点。
 - completed：根据用户追问复核 AC-M11 生产报工代码链路，已补充 8 项代码级不符合/未闭合风险：工单/任务硬前置、正式报工主表事实不完整、设备参数服务端校验缺口、原因结构化缺口、数量守恒 fail-fast 缺口、签名快照缺口、设备不可用后端负向证明缺口、测试覆盖缺口。
-- completed：根据用户追问复核 AC-M01 最新实现证据，已将主流程表状态从泛化“不完全符合”更新为“代码级门禁已补齐，真实 E2E 未验收”，并补充当前已做到、仍缺什么和建议执行顺序。
+- completed：根据用户“继续”继续深挖 AC-M11，已追加 5 项第二轮缺口：记录本原始条目保持草稿可编辑、记录本幂等命中未比对 payload、工序池幂等查询维度与唯一键不一致、事件主表 rawPayload 会被修订覆盖、损耗数量服务端校验仍不足。
+- completed：根据用户继续要求补充 AC-M11 第三轮复核，已追加 6 项缺口：前端缺后端必填工序池幂等键、生产签名未校验主数据/授权/快照、设备参数显示名分组且空值可省略、rawPayload 客户端起点未白名单重建、原因身份缺结构化快照、人员事实缺报工时快照。
+- completed：根据用户追问复核 AC-M01 最新实现证据，已将主流程表状态从泛化“不完全符合”更新为“代码级门禁与 RRM action 已接入，真实 E2E 未验收”，并补充当前已做到、仍缺什么和建议执行顺序。
 - completed：根据用户继续追问“从系统代码分析来看，还有哪些不符合”，已补充 `2026-08-05 代码级继续审计：明确不符合项`，记录 AC-M08、AC-D01/D02、AC-D05/D06、AC-D07/D08、AC-M09/D15-D23、AC-M12-M15/D18-D20、AC-D27/D28、AC-D36、AC-M20/M21/M22、AC-M22/M23 等代码级不符合或未闭合风险。
+- completed：按 `project-experience-consolidation` 技能复核经验沉淀归宿；本次新增内容属于一次性矩阵业务审计结论，不是可复用工程门禁，因此不写入长期经验文档、不新建经验文档。
 
 ## Verification Evidence
 
@@ -43,7 +46,9 @@
 - AC-M04 复核证据：`test-report.md` 记录 AC-M04 五个真实动作 PASS（加入、冲突、跨角色只读、错误角色拒绝、最终清理）、`activeOrderCleanupCompleted=PASS`、`m6ConcurrencyGateVerified=PASS`；但最新 M6 仍为 `STRUCTURED_BLOCKED`，剩余 62 个 `E2E_COVERAGE`。
 - AC-D03 专项核验证据：前端 PQC 页面支持逐件数值输入、合格/不合格选择、检验数量和损耗数量，但未发现不良说明/原因专用文本字段；后端 `rawPayload`、PQC event、PQC record 和时间线追溯字段具备基础链路；退回补正有 revision/diff，但 event `rawPayload` 会更新为 `afterPayload`，因此仍不能证明“原始详情永不覆盖”。
 - AC-M11 代码级复核证据：已读取 `MesProFrontlineFeedbackPayloadReqVO`、`MesProFrontlineProcessPoolContextReqVO`、`MesProFrontlineFeedbackSubmitServiceImpl`、`MesProFrontlineFeedbackPayloadSplitter`、`MesFrontlineSubmitAuthorizationServiceImpl`、`MesFrontlineRuntimeConfigServiceImpl`、`MesProcessPoolSubmitEventServiceImpl`、`MesProFeedbackDO`、`FrontlineFixedTemplatePanel.vue`、`p0-production-execution-loop-real.e2e.js` 和 `role-requirement-matrix-real-flow.e2e.js`，并将结论写入 `non-compliance-analysis.md` 的 “AC-M11 代码级补充复核”。
-- AC-M01 复核证据：`MesProScheduleOrderServiceImpl` 已在 admission-diff 与批量加入链路要求工单 `CONFIRMED` 且具备 Kingdee 同步记录 `sourceFid/sourceBillNo`，缺 ERP 正式身份返回 `BLOCKED_ERP_SYNC_RECORD_MISSING` 或 `PRO_SCHEDULE_ORDER_WORK_ORDER_ERP_SYNC_REQUIRED`；前端 `scheduleorder/index.vue` 已补齐 `缺 ERP 正式订单` 原因码，专用静态合同覆盖该标签。
+- AC-M11 第二轮证据：已读取 `MesProFrontlineRecordbookEntryServiceImpl`、`MesProEdhrRecordbookServiceImpl`、`MesProEdhrRecordbookEntryMapper`、`MesProcessPoolEventRevisionServiceImpl`、`MesProFeedbackServiceImpl`、`20260730_mes_process_pool_foundation.sql`、`20260803_mes_process_pool_event_idempotency.sql`，并将结论追加到 `non-compliance-analysis.md` 的 “AC-M11 第二轮补充缺口”。
+- AC-M11 第三轮证据：已读取 `FrontlineFixedTemplatePanel.vue`、前端 `ProFrontlineFeedbackSubmitReqVO`、后端 `MesProFrontlineFeedbackSubmitReqVO`、`MesProFrontlineRecordbookPayloadReqVO`、`MesFrontlineRuntimeConfigRespVO`、`MesFrontlineSubmitAuthorizationServiceImpl`、`MesFrontlineDeviceAccountContextServiceImpl`、`MesProFrontlineFeedbackSubmitServiceImpl`、`MesProFrontlineFeedbackPayloadSplitter`、`MesProcessPoolSubmitEventServiceImpl`、`MesProcessPoolEventServiceImpl`，并将结论追加到 `non-compliance-analysis.md` 的 “AC-M11 第三轮补充缺口”。
+- AC-M01 复核证据：`MesProScheduleOrderServiceImpl` 已在 admission-diff 与批量加入链路要求工单 `CONFIRMED` 且具备 Kingdee 同步记录 `sourceFid/sourceBillNo`，缺 ERP 正式身份返回 `BLOCKED_ERP_SYNC_RECORD_MISSING` 或 `PRO_SCHEDULE_ORDER_WORK_ORDER_ERP_SYNC_REQUIRED`；前端 `scheduleorder/index.vue` 已补齐 `缺 ERP 正式订单` 原因码，专用静态合同覆盖该标签；RRM 真实流程脚本已新增 `scheduleOrderErpCandidateAdmission` action evidence 并通过目标静态合同。
 - 代码级继续审计证据：已读取 `MesTeamLeaderActiveOrderServiceImpl`、`MesProcessPoolTeamLeaderController`、`MesTeamLeaderRuntimeConfigServiceImpl`、`MesQaInspectionRegulationController`、`MesQaInspectionRegulationServiceImpl`、`MesPqcInspectionTaskMapper`、`MesPqcInspectionTaskDO`、`MesFrontlinePqcContextServiceImpl`、`MesFrontlinePqcSubmitReqVO`、`MesFrontlinePqcSubmitCommand`、`MesTeamLeaderSubmissionReviewServiceImpl`、`MesPqcProcessInspectionAggregationServiceImpl`、`MesOrderReleaseCompletenessServiceImpl`、`MesWorkOrderAbnormalReportServiceImpl` 和 `FrontlineFixedTemplatePanel.vue`；结论已写入 `non-compliance-analysis.md` 的 “2026-08-05 代码级继续审计：明确不符合项”。
 
 ## Blockers

@@ -4,11 +4,13 @@ import cn.hutool.core.collection.CollUtil;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderTransferTraceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolWorkOrderAbnormalDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.materialstock.MesWmMaterialStockDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderTransferTraceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolWorkOrderAbnormalMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.materialstock.MesWmMaterialStockMapper;
@@ -16,6 +18,7 @@ import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -34,11 +37,30 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
     private static final String MODULE_WMS = "WMS";
     private static final String STATUS_CLOSED = "CLOSED";
     private static final String PQC_STATUS_CONFIRMED = "CONFIRMED";
+    private static final int PQC_DEFAULT_ROUND_NO = 1;
+    private static final Set<String> REQUIRED_INVENTORY_SOURCE_TYPES = Set.of(
+            MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_TRANSFER,
+            MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_SHIPMENT,
+            MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_BATCH_TRACE);
+    private static final Set<String> INVENTORY_SOURCE_TYPES = Set.of(
+            MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_TRANSFER,
+            MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_SHIPMENT,
+            MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_REPLENISHMENT,
+            MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_RETURN,
+            MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_BATCH_TRACE);
+    private static final Set<String> MOVEMENT_SOURCE_TYPES_REQUIRING_CLOSED_STATUS = Set.of(
+            MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_TRANSFER,
+            MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_SHIPMENT,
+            MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_REPLENISHMENT,
+            MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_RETURN);
+    private static final Set<String> CLOSED_SOURCE_STATUSES = Set.of("CLOSED", "COMPLETED", "FINISHED", "4");
 
     @Resource
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Resource
     private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
+    @Resource
+    private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Resource
     private MesProcessPoolWorkOrderAbnormalMapper workOrderAbnormalMapper;
     @Resource
@@ -71,9 +93,16 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
                     String.valueOf(activeOrder.getId()), summarizeIds("存在未确认 PQC 检验任务", notConfirmed),
                     "PQC 组长确认最终修订后重新预检");
         }
+        List<String> missingTaskIdentities = missingExpectedPqcTaskIdentities(activeOrder, tasks);
+        if (!missingTaskIdentities.isEmpty()) {
+            return blocker(MesProEdhrReleaseServiceImpl.CHECK_INSPECTION_RESULT, "检验结果检查",
+                    "INSPECTION", MODULE_QMS, "PQC_INSPECTION_TASK", String.valueOf(activeOrder.getId()),
+                    String.valueOf(activeOrder.getId()), summarizeText("缺少预期 PQC 检验任务身份", missingTaskIdentities),
+                    "按发布 QA 规程重新生成 FIRST、PATROL AM、PATROL PM、FINAL 任务后重新预检");
+        }
         return pass(MesProEdhrReleaseServiceImpl.CHECK_INSPECTION_RESULT, "检验结果检查",
                 "INSPECTION", MODULE_QMS, "PQC_INSPECTION_TASK", String.valueOf(activeOrder.getId()),
-                String.valueOf(activeOrder.getId()), "PQC 检验任务均已确认");
+                String.valueOf(activeOrder.getId()), "PQC 检验任务身份完整且均已确认");
     }
 
     @Override
@@ -168,17 +197,35 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
                     "库存一致性检查", "INVENTORY", MODULE_WMS, batch);
         }
         List<MesProcessPoolActiveOrderTransferTraceDO> traces = transferTraceMapper
-                .selectListByActiveOrderIdAndSourceTypes(activeOrder.getId(), List.of(
-                        MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_TRANSFER,
-                        MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_SHIPMENT,
-                        MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_REPLENISHMENT,
-                        MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_RETURN,
-                        MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_BATCH_TRACE));
+                .selectListByActiveOrderIdAndSourceTypes(activeOrder.getId(), INVENTORY_SOURCE_TYPES);
         if (CollUtil.isEmpty(traces)) {
             return blocker(MesProEdhrReleaseServiceImpl.CHECK_INVENTORY_CONSISTENCY, "库存一致性检查",
                     "INVENTORY", MODULE_WMS, "ACTIVE_ORDER_TRANSFER_TRACE", String.valueOf(activeOrder.getId()),
                     String.valueOf(activeOrder.getId()), "未找到 activeOrderId 的调拨/发货/补退料/批次库存追溯",
                     "同步并绑定正式调拨、发货、补料、退料和批次库存来源后重新预检");
+        }
+        Set<String> existingSourceTypes = traces.stream()
+                .map(MesProcessPoolActiveOrderTransferTraceDO::getSourceType)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        Set<String> missingSourceTypes = REQUIRED_INVENTORY_SOURCE_TYPES.stream()
+                .filter(type -> !existingSourceTypes.contains(type))
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+        if (!missingSourceTypes.isEmpty()) {
+            return blocker(MesProEdhrReleaseServiceImpl.CHECK_INVENTORY_CONSISTENCY, "库存一致性检查",
+                    "INVENTORY", MODULE_WMS, "ACTIVE_ORDER_TRANSFER_TRACE", String.valueOf(activeOrder.getId()),
+                    String.valueOf(activeOrder.getId()), "缺少必备库存追溯来源：" + missingSourceTypes,
+                    "同步并绑定正式调拨、发货和批次追溯来源后重新预检");
+        }
+        List<String> invalidTraceReasons = traces.stream()
+                .map(this::invalidInventoryTraceReason)
+                .filter(Objects::nonNull)
+                .toList();
+        if (!invalidTraceReasons.isEmpty()) {
+            return blocker(MesProEdhrReleaseServiceImpl.CHECK_INVENTORY_CONSISTENCY, "库存一致性检查",
+                    "INVENTORY", MODULE_WMS, "ACTIVE_ORDER_TRANSFER_TRACE", String.valueOf(activeOrder.getId()),
+                    String.valueOf(activeOrder.getId()), summarizeText("无效库存追溯来源", invalidTraceReasons),
+                    "修正调拨/发货/补退料/批次追溯数量、来源状态和正式对象后重新预检");
         }
         List<Long> stockIds = traces.stream()
                 .map(MesProcessPoolActiveOrderTransferTraceDO::getMaterialStockId)
@@ -210,10 +257,66 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
     }
 
     private MesProcessPoolActiveOrderDO findActiveOrder(MesProEdhrBatchExecutionDO batch) {
-        if (batch.getWorkOrderId() == null || batch.getRouteId() == null) {
+        if (batch.getWorkOrderId() == null || batch.getRouteId() == null || batch.getRouteVersionId() == null) {
             return null;
         }
-        return activeOrderMapper.selectActiveByWorkOrderAndRoute(batch.getWorkOrderId(), batch.getRouteId());
+        return activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
+                batch.getRouteVersionId());
+    }
+
+    private List<String> missingExpectedPqcTaskIdentities(MesProcessPoolActiveOrderDO activeOrder,
+                                                          List<MesPqcInspectionTaskDO> tasks) {
+        List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots =
+                processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId());
+        if (CollUtil.isEmpty(snapshots)) {
+            return List.of("activeOrderId=" + activeOrder.getId() + " 缺少工序快照，无法证明预期 PQC 任务集合完整");
+        }
+        List<String> missing = new ArrayList<>();
+        for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
+            requirePqcTaskIdentity(tasks, snapshot, "FIRST", "FIRST", missing);
+            requirePqcTaskIdentity(tasks, snapshot, "PATROL", "AM", missing);
+            requirePqcTaskIdentity(tasks, snapshot, "PATROL", "PM", missing);
+            requirePqcTaskIdentity(tasks, snapshot, "FINAL", "FINAL", missing);
+        }
+        return missing;
+    }
+
+    private void requirePqcTaskIdentity(List<MesPqcInspectionTaskDO> tasks,
+                                        MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
+                                        String inspectionType, String shiftCode, List<String> missing) {
+        boolean exists = tasks.stream().anyMatch(task ->
+                Objects.equals(snapshot.getRouteProcessId(), task.getRouteProcessId())
+                        && Objects.equals(snapshot.getProcessId(), task.getProcessId())
+                        && Objects.equals(inspectionType, task.getInspectionType())
+                        && Objects.equals(shiftCode, task.getShiftCode())
+                        && Objects.equals(PQC_DEFAULT_ROUND_NO, task.getRoundNo()));
+        if (!exists) {
+            missing.add("routeProcessId=" + snapshot.getRouteProcessId()
+                    + ", processId=" + snapshot.getProcessId()
+                    + ", inspectionType=" + inspectionType
+                    + ", shiftCode=" + shiftCode
+                    + ", roundNo=" + PQC_DEFAULT_ROUND_NO);
+        }
+    }
+
+    private String invalidInventoryTraceReason(MesProcessPoolActiveOrderTransferTraceDO trace) {
+        if (trace == null) {
+            return "trace=null：正式追溯行缺失";
+        }
+        String traceLabel = "traceId=" + trace.getId() + ", sourceType=" + trace.getSourceType();
+        if (trace.getQuantity() == null || trace.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            return traceLabel + "：数量为空或非正";
+        }
+        if (trace.getMaterialStockId() == null || trace.getBatchId() == null || trace.getItemId() == null
+                || trace.getSourceObjectId() == null || trace.getSourceObjectType() == null
+                || trace.getSourceObjectCode() == null) {
+            return traceLabel + "：正式库存/批次/来源对象不完整";
+        }
+        if (MOVEMENT_SOURCE_TYPES_REQUIRING_CLOSED_STATUS.contains(trace.getSourceType())
+                && !CLOSED_SOURCE_STATUSES.contains(trace.getSourceStatus())) {
+            return traceLabel + "：来源状态未闭环，sourceStatus=" + trace.getSourceStatus();
+        }
+        return null;
     }
 
     private MesOrderReleaseCompletenessCheck activeOrderMissing(String checkCode, String checkName,
@@ -234,6 +337,17 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
             return prefix + "：" + sample;
         }
         return prefix + "：共 " + ids.size() + " 个，示例 " + sample;
+    }
+
+    private String summarizeText(String prefix, List<String> items) {
+        if (CollUtil.isEmpty(items)) {
+            return prefix + "：[]";
+        }
+        List<String> sample = items.stream().limit(12).toList();
+        if (items.size() <= sample.size()) {
+            return prefix + "：" + sample;
+        }
+        return prefix + "：共 " + items.size() + " 个，示例 " + sample;
     }
 
     private MesOrderReleaseCompletenessCheck pass(String checkCode, String checkName, String category, String module,

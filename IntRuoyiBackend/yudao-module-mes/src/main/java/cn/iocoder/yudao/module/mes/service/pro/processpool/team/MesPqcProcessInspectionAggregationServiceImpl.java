@@ -32,6 +32,7 @@ public class MesPqcProcessInspectionAggregationServiceImpl
 
     private static final String PQC_INSPECTION_TASK_SOURCE_TYPE = "MES_PQC_INSPECTION_TASK";
     private static final String PQC_TASK_STATUS_SUBMITTED = "SUBMITTED";
+    private static final String PQC_TASK_STATUS_CONFIRMED = "CONFIRMED";
 
     private final MesProProcessPoolPqcRecordMapper pqcRecordMapper;
     private final MesProProcessPoolEventMapper eventMapper;
@@ -81,6 +82,11 @@ public class MesPqcProcessInspectionAggregationServiceImpl
                 aggregatedAt);
         if (updated != 1) {
             throw exception(PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED, eventId, reviewId);
+        }
+        int taskUpdated = pqcTaskMapper.updateConfirmedIfSubmitted(task.getId(), PQC_TASK_STATUS_SUBMITTED,
+                PQC_TASK_STATUS_CONFIRMED);
+        if (taskUpdated != 1) {
+            throw exception(PRO_PROCESS_POOL_PQC_RECORD_REQUIRED, eventId);
         }
         List<MesPqcProcessInspectionAggregateDetailDO> aggregateRows = pieceDetails.stream()
                 .map(detail -> toAggregateDetail(record, task, detail, reviewId, aggregatedAt))

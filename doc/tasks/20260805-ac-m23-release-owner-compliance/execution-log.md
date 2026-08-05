@@ -17,8 +17,23 @@
 - Skill: bug-regression-fix-loop, backend-api-delivery, frontend-feature-delivery loaded.
 - Gate: docs/task-closeout-rules.md, docs/backend-development.md, docs/frontend-development.md, docs/e2e-rules.md, docs/powershell-encoding.md read.
 - Experience gate: docs/experience-index.md read; applicable eDHR release owner, frontend static isolation, E2E entry gates copied into task.md.
+- RED: `node tests\e2e\edhr-release-owner-return-static.spec.js` -> FAIL, expected reason: batch detail did not import/use formal `rejectEdhrRelease` release-return API.
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> TIMEOUT/BLOCKED, expected business RED not obtained because the Maven run timed out without Surefire result; task-owned process was stopped after confirming command line.
+- Change: backend `MesProEdhrReleaseServiceImpl` now records terminal operation audit for submit/approve/reject/withdraw, verifies approval signoff evidence against `bpm_approval_signature_record`, and allows direct precheck-passed return only for the `RELEASE_APPROVE` owner.
+- Change: frontend `BatchExecutionDetailPage.vue` now adds independent `放行退回` dialog/action using `rejectEdhrRelease` and keeps `质量拒收` on `qualityRejectEdhrBatchExecution`.
+- GREEN: `node tests\e2e\edhr-release-owner-return-static.spec.js` -> PASS.
+- GREEN: `node tests\e2e\edhr-release-direct-submit-button-static.spec.js` -> PASS.
+- GREEN: `git diff --check -- <task-owned AC-M23 files>` -> PASS with LF-to-CRLF warnings only.
+- GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260805-ac-m23-release-owner-compliance\backend-api-evidence.md` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260805-ac-m23-release-owner-compliance\frontend-feature-evidence.md` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260805-ac-m23-release-owner-compliance\bug-regression-evidence.md` -> PASS after adding explicit Verification and Blockers sections.
+- DIAGNOSTIC: created detached verification worktree `D:\IntRuoyiWorktree\ac-m23-release-owner-verify-20260805-1`, applied only the two AC-M23 backend source/test diffs, and did not start services or reserve ports.
+- BLOCKED: isolated Maven `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrReleaseServiceImplTest,MesProEdhrApprovalTaskAdapterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` reached `yudao-module-mes` compile but failed before Surefire on non-AC-M23 baseline source: `MesQaInspectionRegulationServiceImpl` missing `publish(MesQaInspectionRegulationSaveReqVO)` in the clean detached HEAD.
+- CLEANUP: removed `D:\IntRuoyiWorktree\ac-m23-release-owner-verify-20260805-1`; `Test-Path` returned `False`.
+- BLOCKED: backend Maven GREEN not run to completion because unrelated same-module Maven processes remained active in `E:\IntRuoyi\IntRuoyiBackend`.
 
 ## Current Status
 
-in_progress
+blocked
 
+Backend Maven verification, closeout cleanup, commit, and push remain blocked by concurrent same-module Maven activity and dirty shared workspace state. No backend Maven PASS, closeout, commit, or push is claimed.

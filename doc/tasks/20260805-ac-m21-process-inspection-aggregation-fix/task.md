@@ -6,11 +6,11 @@
 
 ## Milestones
 
-- [ ] 建立 AC-M21 BDD/TDD 任务证据与现有 PQC 汇集链路基线。
-- [ ] 用 RED 测试覆盖结构化汇集、未确认排除、重复排除、最终修订与租户隔离。
-- [ ] 实现正式结构化过程检验记录汇集持久化与幂等更新。
-- [ ] 运行 GREEN 与相邻回归验证，并更新岗位矩阵验收证据。
-- [ ] 完成收尾状态、验证报告与遗留阻塞记录。
+- [x] 建立 AC-M21 BDD/TDD 任务证据与现有 PQC 汇集链路基线。
+- [x] 用 RED 测试覆盖结构化汇集、未确认排除、重复排除、最终修订与租户隔离。
+- [x] 实现正式结构化过程检验记录汇集持久化与幂等更新。
+- [x] 运行 GREEN 与相邻回归验证，并更新岗位矩阵验收证据。
+- [x] 完成收尾状态、验证报告与遗留阻塞记录。
 
 ## Expected Verification
 
@@ -37,8 +37,19 @@
 - Forbidden action: 禁止用固定四项字段、前端文案、默认上下限、空标准、raw payload 或 API-only 展示替代正式项目级快照。
 - Evidence: `docs/backend-development.md#MES PQC 项目级检验快照门禁`。
 
+### PQC 过程检验汇集最终确认门禁
+
+- Trigger: AC-M21、过程检验记录汇集、PQC 组长复核通过、`aggregateApprovedPqcSubmission`、`mes_pqc_process_inspection_aggregate_detail`。
+- Preflight check: 汇集必须来自租户/事件/任务一致的正式 `SUBMITTED` PQC 任务和结构化逐件明细，并在同一事务中确认任务、标记汇集、写入明细。
+- Blocker: 只有状态标记、仍从 raw payload 汇集、缺唯一键去重、未排除未确认/旧修订/跨租户/重复数据，必须停止。
+- Verification: 覆盖成功汇集、重复 CAS、跨租户拒绝、无明细拒绝、任务确认 CAS 失败和 schema 唯一键。
+- Forbidden action: 禁止用前端展示、默认空明细、状态字段或吞唯一键异常替代结构化汇集事实。
+- Evidence: `docs/backend-development.md#PQC 过程检验汇集必须形成最终确认明细`。
+
 ## Current Status
 
-in_progress
+blocked
 
-- 已创建任务门禁，准备补 RED 测试。
+- AC-M21 代码修复和目标验证已完成。
+- 全量 Maven 验证、提交和推送因当前工作区/环境阻塞，详见 `verification-report.md`。
+- 2026-08-05 复验最小 Maven 目标命令仍超时，诊断为 Maven/Aether 本地依赖解析卡在 Windows 文件系统 canonicalize，未产生新的 Surefire PASS。

@@ -355,6 +355,7 @@
               <button
                 type="button"
                 aria-label="检验数量减少"
+                :disabled="isPqcInspectionQuantityLocked"
                 @click="adjustPqcQuantity('inspectionQuantity', -1)"
               >
                 -
@@ -365,11 +366,13 @@
                 type="number"
                 min="0"
                 inputmode="numeric"
+                :disabled="isPqcInspectionQuantityLocked"
                 @input="updatePqcQuantity('inspectionQuantity', $event)"
               />
               <button
                 type="button"
                 aria-label="检验数量增加"
+                :disabled="isPqcInspectionQuantityLocked"
                 @click="adjustPqcQuantity('inspectionQuantity', 1)"
               >
                 +
@@ -401,6 +404,18 @@
                 +
               </button>
               <span>件</span>
+            </div>
+            <div class="frontline-pqc-defect-description">
+              <label for="frontlinePqcDefectDescription">不良说明</label>
+              <textarea
+                id="frontlinePqcDefectDescription"
+                data-pqc-defect-description
+                :value="pqcDraft.defectDescription ?? ''"
+                placeholder="出现不良或损耗时手动输入说明"
+                rows="3"
+                @input="updatePqcDefectDescription"
+              />
+              <small>检验不合格或损耗数量大于 0 时必填，随本次 PQC 原始快照保存。</small>
             </div>
             <div class="frontline-pqc-number-field is-signature">
               <label for="frontlinePqcSignatureId">签名编号</label>
@@ -804,7 +819,8 @@ const pqcDraft = reactive({
   inspectionType: undefined as InspectionType | undefined,
   patrolRound: undefined as number | undefined,
   inspectionQuantity: undefined as number | undefined,
-  scrapQuantity: undefined as number | undefined
+  scrapQuantity: undefined as number | undefined,
+  defectDescription: undefined as string | undefined
 })
 
 const activePqcInspectionKey = ref<PqcInspectionItemKey>()
@@ -1238,6 +1254,10 @@ const hasPqcTaskSnapshot = (
   process?.inspectionItems?.length
 )
 
+const isPqcInspectionQuantityLocked = computed(() =>
+  isPqcMode.value && hasPqcTaskSnapshot(deviceState.selectedProcess)
+)
+
 const resolvePqcInspectionType = (inspectionType?: string): InspectionType => {
   if (inspectionType === 'FIRST' || inspectionType === 'PATROL' || inspectionType === 'FINAL') {
     return inspectionType
@@ -1337,6 +1357,7 @@ const applyPqcTaskSnapshotToDraft = (process: FrontlineDeviceRouteProcessVO) => 
   pqcDraft.patrolRound = process.roundNo
   pqcDraft.inspectionQuantity = process.plannedInspectionQuantity
   pqcDraft.scrapQuantity = undefined
+  pqcDraft.defectDescription = undefined
   clearPqcPieceValues()
 }
 
@@ -1420,6 +1441,28 @@ const requirePqcItemSelection = (item: PqcInspectionItem) => {
   return { selection, selectedOption }
 }
 
+const getPqcExactPieceValuesForSubmit = (itemKey: PqcInspectionItemKey) => {
+  const item = pqcInspectionItemMap.value[itemKey]
+  if (!item) {
+    throw new Error(`PQC检验项目${itemKey}不在当前QA规程快照中。`)
+  }
+  const stateKey = getPqcPieceStateKey(itemKey)
+  if (!stateKey) {
+    throw new Error(`${item.label}缺少PQC任务上下文，无法提交逐件检验。`)
+  }
+  const values = pqcPieceValues[stateKey] || []
+  if (values.length !== pqcInspectionQuantity.value) {
+    throw new Error(`${item.label}样本数量${values.length}与任务计划数量${pqcInspectionQuantity.value}不一致。`)
+  }
+  return values.map((value) => String(value ?? '').trim())
+}
+
+const assertPqcSubmissionSampleQuantities = () => {
+  for (const itemKey of pqcInspectionItemKeys.value) {
+    getPqcExactPieceValuesForSubmit(itemKey)
+  }
+}
+
 const buildPqcItemResultsPayload = () =>
   pqcInspectionItems.value.map((item) => {
     const { selection } = requirePqcItemSelection(item)
@@ -1427,7 +1470,7 @@ const buildPqcItemResultsPayload = () =>
       itemCode: item.key,
       selectedEquipmentId: selection.selectedEquipmentId!,
       selectedEquipmentNumber: selection.selectedEquipmentNumber!,
-      sampleValues: getPqcStoredPieceValues(item.key).slice(0, pqcInspectionQuantity.value)
+      sampleValues: getPqcExactPieceValuesForSubmit(item.key)
     }
   })
 
@@ -1448,7 +1491,7 @@ const buildPqcItemDetailsPayload = () =>
       standardPrecision: item.standardPrecision,
       inspectionMethod: item.inspectionMethod,
       resultType: item.resultType,
-      sampleValues: getPqcStoredPieceValues(item.key).slice(0, pqcInspectionQuantity.value)
+      sampleValues: getPqcExactPieceValuesForSubmit(item.key)
     }
   })
 
@@ -1552,8 +1595,16 @@ const selectPqcInspectionType = (inspectionType: InspectionType) => {
 }
 
 const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {
+  if (field === 'inspectionQuantity' && isPqcInspectionQuantityLocked.value) {
+    return
+  }
   const inputValue = (event.target as HTMLInputElement).value
   pqcDraft[field] = inputValue === '' ? undefined : normalizePqcQuantity(Number(inputValue))
+}
+
+const updatePqcDefectDescription = (event: Event) => {
+  const inputValue = (event.target as HTMLTextAreaElement).value
+  pqcDraft.defectDescription = inputValue || undefined
 }
 
 const updatePqcSignatureId = (event: Event) => {
@@ -1565,6 +1616,9 @@ const updatePqcSignatureId = (event: Event) => {
 }
 
 const adjustPqcQuantity = (field: PqcQuantityField, delta: number) => {
+  if (field === 'inspectionQuantity' && isPqcInspectionQuantityLocked.value) {
+    return
+  }
   pqcDraft[field] = normalizePqcQuantity(pqcDraft[field]) + delta
   if (pqcDraft[field] < 0) {
     pqcDraft[field] = 0
@@ -1580,6 +1634,7 @@ const handleResetPqc = () => {
   }
   activePqcInspectionKey.value = undefined
   pqcPieceDraftValues.value = []
+  pqcDraft.defectDescription = undefined
 }
 
 const openPicker = (picker: PickerType) => {
@@ -1716,6 +1771,10 @@ const handleValidate = async () => {
     const error = new Error(statusText.value)
     message.error(error.message)
     throw error
+  }
+  if (isPqcMode.value) {
+    assertPqcSubmissionSampleQuantities()
+    validatePqcDefectDescription()
   }
   Object.assign(
     draft.fieldValues,
@@ -1954,7 +2013,7 @@ const buildPqcFieldValues = () => ({
 const buildPqcPieceValuesPayload = () => {
   const values: Record<string, string[]> = {}
   for (const itemKey of pqcInspectionItemKeys.value) {
-    values[itemKey] = getPqcStoredPieceValues(itemKey).slice(0, pqcInspectionQuantity.value)
+    values[itemKey] = getPqcExactPieceValuesForSubmit(itemKey)
   }
   return values
 }
@@ -2024,13 +2083,15 @@ const buildPqcInspectionSubmitPayload = (
       context.templateCode ||
       expectedTemplateCode.value,
     inspectionResult,
+    nonconformanceDescription: normalizePqcDefectDescription(),
     itemResults: buildPqcItemResultsPayload(),
     rawPayload: {
       pqcDraft: {
         inspectionType: pqcDraft.inspectionType,
         patrolRound: pqcDraft.patrolRound,
         inspectionQuantity: normalizePqcQuantity(pqcDraft.inspectionQuantity),
-        scrapQuantity: normalizePqcQuantity(pqcDraft.scrapQuantity)
+        scrapQuantity: normalizePqcQuantity(pqcDraft.scrapQuantity),
+        defectDescription: normalizePqcDefectDescription()
       },
       pqcPieceValues: buildPqcPieceValuesPayload(),
       pqcItemDetails,
@@ -2064,12 +2125,28 @@ const resolvePqcResult = () => {
     return FRONTLINE_PQC_RESULTS.DETECTION_FAILED
   }
   for (const itemKey of pqcInspectionItemKeys.value) {
-    const values = getPqcStoredPieceValues(itemKey).slice(0, pqcInspectionQuantity.value)
+    const values = getPqcExactPieceValuesForSubmit(itemKey)
     if (values.some((value) => value === '不合格')) {
       return FRONTLINE_PQC_RESULTS.DETECTION_FAILED
     }
   }
   return FRONTLINE_PQC_RESULTS.DETECTION_SUCCESS
+}
+
+const normalizePqcDefectDescription = () => {
+  const value = pqcDraft.defectDescription?.trim()
+  return value || undefined
+}
+
+const validatePqcDefectDescription = () => {
+  if (resolvePqcResult() !== FRONTLINE_PQC_RESULTS.DETECTION_FAILED) {
+    return
+  }
+  if (!normalizePqcDefectDescription()) {
+    const error = new Error('PQC检验不合格时必须手动填写不良说明。')
+    message.error(error.message)
+    throw error
+  }
 }
 
 const applyActiveOrderToContext = (activeOrder: FrontlineActiveOrderVO) => {
@@ -3072,6 +3149,44 @@ onUnmounted(() => {
   grid-template-columns: 190px minmax(0, 1fr) 70px;
 }
 
+.frontline-pqc-defect-description {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 10px 14px;
+  align-items: start;
+  min-width: 0;
+
+  label {
+    padding-top: 12px;
+    font-size: 34px;
+    font-weight: 900;
+  }
+
+  textarea {
+    width: 100%;
+    min-width: 0;
+    min-height: 118px;
+    box-sizing: border-box;
+    border: 3px solid var(--frontline-line);
+    border-radius: 18px;
+    padding: 16px 18px;
+    background: #ffffff;
+    color: var(--frontline-ink);
+    font: inherit;
+    font-size: 30px;
+    font-weight: 800;
+    resize: vertical;
+  }
+
+  small {
+    grid-column: 2;
+    color: var(--frontline-muted);
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+}
+
 .frontline-pqc-submit-bar {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
@@ -3428,8 +3543,13 @@ onUnmounted(() => {
   .frontline-pqc-type-tabs,
   .frontline-pqc-round-tabs,
   .frontline-pqc-number-field,
+  .frontline-pqc-defect-description,
   .frontline-pqc-submit-bar {
     grid-template-columns: 1fr !important;
+  }
+
+  .frontline-pqc-defect-description small {
+    grid-column: 1;
   }
 
   .frontline-pqc-piece-list {

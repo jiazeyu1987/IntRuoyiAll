@@ -27,6 +27,7 @@ public class BatchRecordCellLinkRuleSaveItemReqVO {
     @NotNull(message = "目标单元格列号不能为空")
     private Integer targetColumnIndex;
     private String targetLabel;
+    private String aggregationStrategy;
     private String overwritePolicy;
     private Boolean enabled;
     private String remark;

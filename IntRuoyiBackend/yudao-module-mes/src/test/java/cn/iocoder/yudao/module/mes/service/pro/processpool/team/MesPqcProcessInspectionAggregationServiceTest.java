@@ -66,6 +66,7 @@ class MesPqcProcessInspectionAggregationServiceTest {
         when(aggregateDetailMapper.insertBatch(any())).thenReturn(true);
         when(pqcRecordMapper.updateProcessInspectionAggregatedIfPending(eq(100L), eq(1001L), eq(7001L),
                 org.mockito.ArgumentMatchers.any(LocalDateTime.class))).thenReturn(1);
+        when(pqcTaskMapper.updateConfirmedIfSubmitted(8001L, "SUBMITTED", "CONFIRMED")).thenReturn(1);
 
         service.aggregateApprovedPqcSubmission(1001L, 7001L);
 
@@ -105,6 +106,7 @@ class MesPqcProcessInspectionAggregationServiceTest {
         ArgumentCaptor<LocalDateTime> aggregatedAtCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
         verify(pqcRecordMapper).updateProcessInspectionAggregatedIfPending(eq(100L), eq(1001L), eq(7001L),
                 aggregatedAtCaptor.capture());
+        verify(pqcTaskMapper).updateConfirmedIfSubmitted(8001L, "SUBMITTED", "CONFIRMED");
         assertNotNull(aggregatedAtCaptor.getValue());
         assertTrue(aggregateRows.stream().allMatch(row -> aggregatedAtCaptor.getValue().equals(row.getAggregatedAt())));
     }
@@ -118,7 +120,8 @@ class MesPqcProcessInspectionAggregationServiceTest {
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_PQC_RECORD_REQUIRED.getCode(), ex.getCode());
         verify(pqcRecordMapper, never()).updateProcessInspectionAggregatedIfPending(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -131,7 +134,8 @@ class MesPqcProcessInspectionAggregationServiceTest {
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED.getCode(),
                 ex.getCode());
         verify(pqcRecordMapper, never()).updateProcessInspectionAggregatedIfPending(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -149,12 +153,33 @@ class MesPqcProcessInspectionAggregationServiceTest {
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED.getCode(),
                 ex.getCode());
         verify(aggregateDetailMapper, never()).insertBatch(any());
+        verify(pqcTaskMapper, never()).updateConfirmedIfSubmitted(any(), any(), any());
+    }
+
+    @Test
+    void shouldFailFastWhenSubmittedTaskCannotBeConfirmedAfterApprovedAggregation() {
+        when(pqcRecordMapper.selectByEventId(1001L)).thenReturn(pendingRecord());
+        when(eventMapper.selectById(1001L)).thenReturn(pqcEvent());
+        when(pqcTaskMapper.selectById(8001L)).thenReturn(submittedTask());
+        when(pieceDetailMapper.selectListByTaskId(8001L)).thenReturn(pieceDetails());
+        when(pqcRecordMapper.updateProcessInspectionAggregatedIfPending(eq(100L), eq(1001L), eq(7001L),
+                org.mockito.ArgumentMatchers.any(LocalDateTime.class))).thenReturn(1);
+        when(pqcTaskMapper.updateConfirmedIfSubmitted(8001L, "SUBMITTED", "CONFIRMED")).thenReturn(0);
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.aggregateApprovedPqcSubmission(1001L, 7001L));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_PQC_RECORD_REQUIRED.getCode(), ex.getCode());
+        verify(pqcTaskMapper).updateConfirmedIfSubmitted(8001L, "SUBMITTED", "CONFIRMED");
+        verify(aggregateDetailMapper, never()).insertBatch(any());
     }
 
     @Test
     void shouldRejectCrossTenantPqcEventBeforeAggregation() {
         when(pqcRecordMapper.selectByEventId(1001L)).thenReturn(pendingRecord());
-        when(eventMapper.selectById(1001L)).thenReturn(pqcEvent().setTenantId(200L));
+        MesProProcessPoolEventDO event = pqcEvent();
+        event.setTenantId(200L);
+        when(eventMapper.selectById(1001L)).thenReturn(event);
 
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> service.aggregateApprovedPqcSubmission(1001L, 7001L));
@@ -185,7 +210,7 @@ class MesPqcProcessInspectionAggregationServiceTest {
     }
 
     private static MesProProcessPoolPqcRecordDO pendingRecord() {
-        return MesProProcessPoolPqcRecordDO.builder()
+        MesProProcessPoolPqcRecordDO record = MesProProcessPoolPqcRecordDO.builder()
                 .id(9001L)
                 .eventId(1001L)
                 .productionSubmitEventId(5001L)
@@ -195,24 +220,26 @@ class MesPqcProcessInspectionAggregationServiceTest {
                 .processId(4002L)
                 .processInspectionAggregationStatus(
                         MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_PENDING)
-                .build()
-                .setTenantId(100L);
+                .build();
+        record.setTenantId(100L);
+        return record;
     }
 
     private static MesProProcessPoolPqcRecordDO aggregatedRecord() {
-        return MesProProcessPoolPqcRecordDO.builder()
+        MesProProcessPoolPqcRecordDO record = MesProProcessPoolPqcRecordDO.builder()
                 .id(9001L)
                 .eventId(1001L)
                 .processInspectionAggregationStatus(
                         MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED)
                 .processInspectionReviewId(7000L)
                 .processInspectionAggregatedAt(LocalDateTime.of(2026, 8, 3, 18, 0))
-                .build()
-                .setTenantId(100L);
+                .build();
+        record.setTenantId(100L);
+        return record;
     }
 
     private static MesProProcessPoolEventDO pqcEvent() {
-        return MesProProcessPoolEventDO.builder()
+        MesProProcessPoolEventDO event = MesProProcessPoolEventDO.builder()
                 .id(1001L)
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
                 .workOrderId(2001L)
@@ -223,12 +250,13 @@ class MesPqcProcessInspectionAggregationServiceTest {
                 .feedbackSourceId(8001L)
                 .recordbookSourceType("MES_PQC_INSPECTION_TASK")
                 .recordbookSourceId(8001L)
-                .build()
-                .setTenantId(100L);
+                .build();
+        event.setTenantId(100L);
+        return event;
     }
 
     private static MesPqcInspectionTaskDO submittedTask() {
-        return MesPqcInspectionTaskDO.builder()
+        MesPqcInspectionTaskDO task = MesPqcInspectionTaskDO.builder()
                 .id(8001L)
                 .activeOrderId(8101L)
                 .workOrderId(2001L)
@@ -243,55 +271,56 @@ class MesPqcProcessInspectionAggregationServiceTest {
                 .roundNo(1)
                 .actualInspectionQuantity(2)
                 .taskStatus("SUBMITTED")
-                .build()
-                .setTenantId(100L);
+                .build();
+        task.setTenantId(100L);
+        return task;
     }
 
     private static List<MesPqcInspectionPieceDetailDO> pieceDetails() {
-        return List.of(
-                MesPqcInspectionPieceDetailDO.builder()
-                        .id(2L)
-                        .taskId(8001L)
-                        .sampleNo(1)
-                        .itemCode("pressure")
-                        .itemName("压力")
-                        .inspectionMethod("测压")
-                        .standardText("0.60-0.80MPa")
-                        .selectedEquipmentId(9101L)
-                        .selectedEquipmentCode("EQ-PRESS")
-                        .selectedEquipmentName("压力表")
-                        .selectedEquipmentNumber("SN-P-001")
-                        .standardLowerLimit(new BigDecimal("0.600000"))
-                        .standardUpperLimit(new BigDecimal("0.800000"))
-                        .standardUnit("MPa")
-                        .standardPrecision(3)
-                        .resultType("NUMBER")
-                        .itemResult("0.72")
-                        .measuredValue("0.72")
-                        .judgement(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
-                        .build()
-                        .setTenantId(100L),
-                MesPqcInspectionPieceDetailDO.builder()
-                        .id(3L)
-                        .taskId(8001L)
-                        .sampleNo(2)
-                        .itemCode("pressure")
-                        .itemName("压力")
-                        .inspectionMethod("测压")
-                        .standardText("0.60-0.80MPa")
-                        .selectedEquipmentId(9101L)
-                        .selectedEquipmentCode("EQ-PRESS")
-                        .selectedEquipmentName("压力表")
-                        .selectedEquipmentNumber("SN-P-001")
-                        .standardLowerLimit(new BigDecimal("0.600000"))
-                        .standardUpperLimit(new BigDecimal("0.800000"))
-                        .standardUnit("MPa")
-                        .standardPrecision(3)
-                        .resultType("NUMBER")
-                        .itemResult("0.73")
-                        .measuredValue("0.73")
-                        .judgement(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
-                        .build()
-                        .setTenantId(100L));
+        MesPqcInspectionPieceDetailDO first = MesPqcInspectionPieceDetailDO.builder()
+                .id(2L)
+                .taskId(8001L)
+                .sampleNo(1)
+                .itemCode("pressure")
+                .itemName("压力")
+                .inspectionMethod("测压")
+                .standardText("0.60-0.80MPa")
+                .selectedEquipmentId(9101L)
+                .selectedEquipmentCode("EQ-PRESS")
+                .selectedEquipmentName("压力表")
+                .selectedEquipmentNumber("SN-P-001")
+                .standardLowerLimit(new BigDecimal("0.600000"))
+                .standardUpperLimit(new BigDecimal("0.800000"))
+                .standardUnit("MPa")
+                .standardPrecision(3)
+                .resultType("NUMBER")
+                .itemResult("0.72")
+                .measuredValue("0.72")
+                .judgement(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
+                .build();
+        first.setTenantId(100L);
+        MesPqcInspectionPieceDetailDO second = MesPqcInspectionPieceDetailDO.builder()
+                .id(3L)
+                .taskId(8001L)
+                .sampleNo(2)
+                .itemCode("pressure")
+                .itemName("压力")
+                .inspectionMethod("测压")
+                .standardText("0.60-0.80MPa")
+                .selectedEquipmentId(9101L)
+                .selectedEquipmentCode("EQ-PRESS")
+                .selectedEquipmentName("压力表")
+                .selectedEquipmentNumber("SN-P-001")
+                .standardLowerLimit(new BigDecimal("0.600000"))
+                .standardUpperLimit(new BigDecimal("0.800000"))
+                .standardUnit("MPa")
+                .standardPrecision(3)
+                .resultType("NUMBER")
+                .itemResult("0.73")
+                .measuredValue("0.73")
+                .judgement(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
+                .build();
+        second.setTenantId(100L);
+        return List.of(first, second);
     }
 }

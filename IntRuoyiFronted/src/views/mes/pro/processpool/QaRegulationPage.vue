@@ -11,11 +11,11 @@
         <el-tag type="warning" effect="plain">{{ qaRegulationDraft.lifecycleStatus }}</el-tag>
       </div>
       <el-alert
-        title="正式保存/发布接口未接入，本页调整仅用于前端规则预览和发布前检查，未写入后台。"
-        type="warning"
+        title="正式保存/发布接口已接入；发布时由后端校验首检、巡检、末检、项目字段和不可变版本。"
+        type="success"
         :closable="false"
         show-icon
-        data-qa-regulation-api-blocker
+        data-qa-regulation-api-ready
       />
     </ContentWrap>
 
@@ -271,6 +271,9 @@
                 placeholder="选择 DCC 项目代码后自动带出"
               />
             </el-form-item>
+            <el-form-item label="路线名称">
+              <el-input v-model="qaRegulationDraft.routeName" placeholder="请输入正式工艺路线名称" />
+            </el-form-item>
             <el-row :gutter="12">
               <el-col :xs="24" :md="12">
                 <el-form-item label="路线版本">
@@ -280,6 +283,50 @@
               <el-col :xs="24" :md="12">
                 <el-form-item label="路线工序">
                   <el-input v-model="qaRegulationDraft.routeProcessName" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="12">
+              <el-col :xs="24" :md="12">
+                <el-form-item label="路线 ID">
+                  <el-input-number
+                    v-model="qaRegulationDraft.routeId"
+                    :min="1"
+                    :controls="false"
+                    class="!w-100%"
+                  />
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :md="12">
+                <el-form-item label="路线版本 ID">
+                  <el-input-number
+                    v-model="qaRegulationDraft.routeVersionId"
+                    :min="1"
+                    :controls="false"
+                    class="!w-100%"
+                  />
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="12">
+              <el-col :xs="24" :md="12">
+                <el-form-item label="路线工序 ID">
+                  <el-input-number
+                    v-model="qaRegulationDraft.routeProcessId"
+                    :min="1"
+                    :controls="false"
+                    class="!w-100%"
+                  />
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :md="12">
+                <el-form-item label="工序 ID">
+                  <el-input-number
+                    v-model="qaRegulationDraft.processId"
+                    :min="1"
+                    :controls="false"
+                    class="!w-100%"
+                  />
                 </el-form-item>
               </el-col>
             </el-row>
@@ -529,8 +576,16 @@
             </div>
           </div>
           <div class="qa-regulation-page__actions">
-            <el-button @click="previewQaRegulationDraft">保存草稿预览</el-button>
-            <el-button type="primary" @click="runQaPublishPrecheck">发布前检查</el-button>
+            <el-button :loading="qaRegulationSaving" @click="previewQaRegulationDraft">
+              保存草稿
+            </el-button>
+            <el-button
+              type="primary"
+              :loading="qaRegulationPublishing"
+              @click="runQaPublishPrecheck"
+            >
+              发布规程
+            </el-button>
           </div>
         </el-card>
 
@@ -565,7 +620,9 @@ import {
 } from '@/api/dcc/controlledFile/projectCodes'
 import {
   QcTemplateApi,
-  type QaInspectionRegulationProjectStatusVO
+  type QaInspectionRegulationProjectStatusVO,
+  type QaInspectionRegulationSaveItemVO,
+  type QaInspectionRegulationSaveReqVO
 } from '@/api/mes/qc/template'
 
 defineOptions({ name: 'MesProProcessPoolQaRegulation' })
@@ -615,7 +672,12 @@ interface QaRegulationDraft {
   effectiveDate: string
   lifecycleStatus: string
   productName: string
+  routeId?: number
+  routeName: string
+  routeVersionId?: number
   routeVersionName: string
+  routeProcessId?: number
+  processId?: number
   routeProcessName: string
   sopName: string
   productionFactor: number
@@ -638,7 +700,12 @@ const createEmptyQaRegulationDraft = (): QaRegulationDraft => ({
   effectiveDate: '',
   lifecycleStatus: 'DRAFT',
   productName: '',
+  routeId: undefined,
+  routeName: '',
+  routeVersionId: undefined,
   routeVersionName: '',
+  routeProcessId: undefined,
+  processId: undefined,
   routeProcessName: '',
   sopName: '',
   productionFactor: 1,
@@ -652,6 +719,7 @@ const createPressurePumpQaRegulationDraft = (): QaRegulationDraft => ({
   regulationName: '按压式球囊扩充压力泵组装过程检验规程',
   versionNo: 'B/0',
   effectiveDate: '2026-01-04',
+  routeName: '按压式球囊扩充压力泵组装工艺路线',
   sopName: '按压式球囊扩充压力泵组装 SOP'
 })
 
@@ -801,6 +869,8 @@ const selectedDccProjectCode = ref<DccProjectCodeRespVO>()
 const qaRegulationProjectStatusMap = ref<Record<number, QaInspectionRegulationProjectStatusVO>>({})
 const qaRegulationProjectStatusesLoading = ref(false)
 const qaRegulationProjectStatusLoadError = ref('')
+const qaRegulationSaving = ref(false)
+const qaRegulationPublishing = ref(false)
 
 const normalizeDccProjectCode = (projectCode: string) => projectCode.trim().toUpperCase()
 
@@ -1120,15 +1190,105 @@ const removeQaRegulationItem = (index: number) => {
   qaRegulationItems.value.splice(index, 1)
 }
 
-const previewQaRegulationDraft = () => {
-  if (!selectedDccProjectCode.value) {
-    ElMessage.warning('请先选择 DCC 项目代码，再预览 QA 规程草稿。')
-    return
+const resolvePositiveId = (value: number | undefined, label: string) => {
+  const normalized = Number(value)
+  if (!Number.isFinite(normalized) || normalized <= 0) {
+    throw new Error(`${label}必须填写正式 ID`)
   }
-  ElMessage.info('已更新前端草稿预览；正式保存/发布接口未接入，未写入后台。')
+  return normalized
 }
 
-const runQaPublishPrecheck = () => {
+const normalizeQaInspectionType = (
+  inspectionType: QaInspectionTypeValue
+): QaInspectionRegulationSaveItemVO['inspectionType'] =>
+  inspectionType.startsWith('PATROL') ? 'PATROL' : inspectionType
+
+const resolveRuleForInspectionType = (
+  inspectionType: QaInspectionRegulationSaveItemVO['inspectionType']
+) => qaInspectionTypeRules.find((rule) => rule.inspectionType === inspectionType && rule.required)
+
+const buildQaRegulationSaveItems = (): QaInspectionRegulationSaveItemVO[] =>
+  qaRegulationItems.value.flatMap((item) => {
+    const inspectionTypes = Array.from(new Set(item.applicableTypes.map(normalizeQaInspectionType)))
+    return inspectionTypes.map((inspectionType) => {
+      const rule = resolveRuleForInspectionType(inspectionType)
+      return {
+        inspectionType,
+        itemCode: item.itemCode,
+        itemName: item.itemName,
+        inspectionMethod: item.inspectionMethod,
+        standardText: item.standardText,
+        standardLowerLimit: item.resultType === 'NUMERIC' ? item.lowerLimit : undefined,
+        standardUpperLimit: item.resultType === 'NUMERIC' ? item.upperLimit : undefined,
+        equipmentRequired: Boolean(item.inspectionTool.trim()),
+        resultType: item.resultType,
+        firstInspectionQuantity:
+          inspectionType === 'PATROL' ? undefined : rule?.fixedQuantity || undefined,
+        patrolInspectionRatio:
+          inspectionType === 'PATROL' && rule?.sampleRatio
+            ? Number((rule.sampleRatio / 100).toFixed(6))
+            : undefined
+      }
+    })
+  })
+
+const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO | undefined => {
+  if (!selectedDccProjectCode.value) {
+    ElMessage.warning('请先选择 DCC 项目代码，再保存 QA 规程草稿。')
+    return undefined
+  }
+  const productId = resolveDccProjectProductId(selectedDccProjectCode.value)
+  if (!productId) {
+    ElMessage.warning('当前 DCC 项目代码未绑定 MDM 产品，不能保存 QA 规程。')
+    return undefined
+  }
+  try {
+    return {
+      productId,
+      productName: qaRegulationDraft.productName.trim(),
+      routeId: resolvePositiveId(qaRegulationDraft.routeId, '路线 ID'),
+      routeName: qaRegulationDraft.routeName.trim(),
+      routeVersionId: resolvePositiveId(qaRegulationDraft.routeVersionId, '路线版本 ID'),
+      routeVersionNo: qaRegulationDraft.routeVersionName.trim(),
+      routeProcessId: resolvePositiveId(qaRegulationDraft.routeProcessId, '路线工序 ID'),
+      processId: resolvePositiveId(qaRegulationDraft.processId, '工序 ID'),
+      routeProcessName: qaRegulationDraft.routeProcessName.trim(),
+      batchRecordBindingSummary: qaRegulationDraft.batchRecordBinding.trim() || undefined,
+      regulationCode: qaRegulationDraft.regulationCode.trim(),
+      regulationName: qaRegulationDraft.regulationName.trim(),
+      versionNo: qaRegulationDraft.versionNo.trim(),
+      effectiveDate: qaRegulationDraft.effectiveDate || undefined,
+      items: buildQaRegulationSaveItems()
+    }
+  } catch (error) {
+    ElMessage.warning(resolveDccProjectCodeErrorMessage(error))
+    return undefined
+  }
+}
+
+const refreshQaRegulationProjectStatusesForCurrentOptions = async () => {
+  await loadQaRegulationProjectStatuses(dccProjectCodeOptions.value)
+}
+
+const previewQaRegulationDraft = async () => {
+  const payload = buildQaRegulationSavePayload()
+  if (!payload) {
+    return
+  }
+  qaRegulationSaving.value = true
+  try {
+    const result = await QcTemplateApi.saveQaRegulationDraft(payload)
+    qaRegulationDraft.lifecycleStatus = result.lifecycleStatus
+    ElMessage.success(`QA 规程草稿已保存：${result.versionNo}`)
+    await refreshQaRegulationProjectStatusesForCurrentOptions()
+  } catch (error) {
+    ElMessage.error(`QA 规程草稿保存失败：${resolveDccProjectCodeErrorMessage(error)}`)
+  } finally {
+    qaRegulationSaving.value = false
+  }
+}
+
+const runQaPublishPrecheck = async () => {
   if (!selectedDccProjectCode.value) {
     ElMessage.warning('请先选择 DCC 项目代码，再执行发布前检查。')
     return
@@ -1137,7 +1297,21 @@ const runQaPublishPrecheck = () => {
     ElMessage.warning(`发布前仍有 ${qaPublishBlockers.value.length} 项规则需补齐`)
     return
   }
-  ElMessage.info('发布前检查已通过；正式保存/发布接口未接入，未写入后台。')
+  const payload = buildQaRegulationSavePayload()
+  if (!payload) {
+    return
+  }
+  qaRegulationPublishing.value = true
+  try {
+    const result = await QcTemplateApi.publishQaRegulation(payload)
+    qaRegulationDraft.lifecycleStatus = 'PUBLISHED'
+    ElMessage.success(`QA 规程已发布为不可变版本：${result.versionNo}`)
+    await refreshQaRegulationProjectStatusesForCurrentOptions()
+  } catch (error) {
+    ElMessage.error(`QA 规程发布失败：${resolveDccProjectCodeErrorMessage(error)}`)
+  } finally {
+    qaRegulationPublishing.value = false
+  }
 }
 </script>
 

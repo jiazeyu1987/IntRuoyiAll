@@ -106,6 +106,7 @@ class MesQaPqcSchemaTest {
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pqc_inspection_piece_detail`"));
         assertTrue(sql.contains("UNIQUE KEY `uk_mes_pqc_task_identity`"));
         assertTrue(sql.contains("`regulation_version_id` bigint NOT NULL COMMENT 'QA规程发布版本ID'"));
+        assertTrue(sql.contains("`task_status` varchar(32) NOT NULL COMMENT '任务状态：PENDING/SUBMITTED/CONFIRMED/CANCELLED'"));
         assertTrue(sql.contains("`sample_no` int NOT NULL COMMENT '逐件样本序号'"));
     }
 

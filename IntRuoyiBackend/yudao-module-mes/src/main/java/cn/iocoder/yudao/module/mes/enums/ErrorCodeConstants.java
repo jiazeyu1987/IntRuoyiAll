@@ -540,6 +540,12 @@ public interface ErrorCodeConstants {
             "PQC 检验任务身份与提交上下文不一致：{}");
     ErrorCode PRO_FRONTLINE_PQC_TASK_STATUS_INVALID = new ErrorCode(1_040_506_109,
             "PQC 检验任务状态不允许提交：taskId={}，status={}");
+    ErrorCode PRO_FRONTLINE_PQC_TASK_QUANTITY_MISMATCH = new ErrorCode(1_040_506_110,
+            "PQC 检验任务数量与提交数量不一致：taskId={}，plannedQuantity={}，actualQuantity={}");
+    ErrorCode PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED = new ErrorCode(1_040_506_111,
+            "PQC 检验任务生成前置条件不满足：{}");
+    ErrorCode PRO_PQC_INSPECTION_TASK_IDENTITY_CONFLICT = new ErrorCode(1_040_506_112,
+            "PQC 检验任务身份已存在，禁止重复生成：{}");
 
     // ========== MES 生产管理-生产流转卡（1-040-507-000） ==========
     ErrorCode PRO_CARD_NOT_EXISTS = new ErrorCode(1_040_507_000, "生产流转卡不存在");
@@ -1156,6 +1162,8 @@ public interface ErrorCodeConstants {
             "PQC 提交事件已汇集为过程检验记录，禁止重复汇集：eventId={}，reviewId={}");
     ErrorCode PRO_PROCESS_POOL_REVISION_REJECTED_REVIEW_REQUIRED = new ErrorCode(1_040_760_333,
             "原始记录补正必须基于最新退回复核记录：eventId={}，latestStatus={}");
+    ErrorCode PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED = new ErrorCode(1_040_760_334,
+            "生产报工通过必须使用报工分配确认链路：eventId={}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

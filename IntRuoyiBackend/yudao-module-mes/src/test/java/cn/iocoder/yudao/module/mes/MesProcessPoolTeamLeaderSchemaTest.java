@@ -187,6 +187,10 @@ class MesProcessPoolTeamLeaderSchemaTest {
         assertField(MesProcessPoolOrderProcessCompletionDO.class, "backfillError", String.class);
         assertField(MesProcessPoolOrderProcessCompletionDO.class, "lastEventId", Long.class);
         assertField(MesProcessPoolOrderProcessCompletionDO.class, "lastReviewId", Long.class);
+        assertField(MesProcessPoolOrderProcessCompletionDO.class, "sourceEventIdsJson", String.class);
+        assertField(MesProcessPoolOrderProcessCompletionDO.class, "sourceAllocationIdsJson", String.class);
+        assertField(MesProcessPoolOrderProcessCompletionDO.class, "aggregateHash", String.class);
+        assertField(MesProcessPoolOrderProcessCompletionDO.class, "backfillIdempotencyKey", String.class);
 
         assertField(MesProcessPoolTeamMaintenanceAuditDO.class, "leaderUserId", Long.class);
         assertField(MesProcessPoolTeamMaintenanceAuditDO.class, "actionType", String.class);
@@ -254,8 +258,20 @@ class MesProcessPoolTeamLeaderSchemaTest {
         assertTrue(p4Sql.contains("`confirmed_quantity` decimal(24,6) NOT NULL COMMENT '当前累计确认分配数量'"));
         assertTrue(p4Sql.contains("`completion_status` varchar(32) NOT NULL COMMENT '订单工序完成状态：IN_PROGRESS/COMPLETED'"));
         assertTrue(p4Sql.contains("`backfill_status` varchar(32) NOT NULL COMMENT '批记录回填状态：NOT_REQUIRED/SUCCESS'"));
+        assertTrue(p4Sql.contains("`source_event_ids_json` json NOT NULL COMMENT '本次批记录回填聚合源事件ID集合'"));
+        assertTrue(p4Sql.contains("`source_allocation_ids_json` json NOT NULL COMMENT '本次批记录回填聚合分配ID集合'"));
+        assertTrue(p4Sql.contains("`aggregate_hash` char(64) NOT NULL COMMENT '订单工序完成批记录聚合版本哈希'"));
+        assertTrue(p4Sql.contains("`backfill_idempotency_key` varchar(160) NOT NULL COMMENT '批记录回填聚合版本幂等键'"));
         assertTrue(p4Sql.contains("UNIQUE KEY `uk_mes_pp_order_process_completion` (`tenant_id`, `work_order_id`, `route_process_id`, `process_id`, `deleted`)"));
         assertTrue(p4Sql.contains("KEY `idx_mes_pp_order_process_completion_status` (`tenant_id`, `completion_status`, `backfill_status`)"));
+        assertTrue(p4Sql.contains("KEY `idx_mes_pp_order_process_completion_aggregate` (`tenant_id`, `aggregate_hash`)"));
+
+        String acM16Sql = Files.readString(resolveBackendPath(
+                "sql/mysql/20260805_mes_process_pool_ac_m16_terminal_constraints.sql"), StandardCharsets.UTF_8);
+        assertTrue(acM16Sql.contains("dependsOn=20260804_mes_process_pool_timeline_performance_indexes"));
+        assertTrue(acM16Sql.contains("SIGNAL SQLSTATE '45000'"));
+        assertTrue(acM16Sql.contains("Duplicate MES process-pool submission reviews block AC-M16 terminal constraint"));
+        assertTrue(acM16Sql.contains("UNIQUE KEY `uk_mes_pp_submission_review_event` (`tenant_id`, `event_id`, `deleted`)"));
     }
 
     private static String tableName(Class<?> clazz) {

@@ -373,8 +373,8 @@ assert.match(
 )
 assert.match(
   source,
-  /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*verifyActiveOrderTransferTraceReadOnly\(page,\s*config,\s*joinEvidence\)[\s\S]*return \[joinEvidence,\s*conflictRouteEvidence,\s*transferTraceEvidence,\s*dailyCloseEvidence\]/,
-  'Production leader phase must read the active-order transfer/shipment/replenishment/return trace after joining the active order and before daily-close evidence.'
+  /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*verifyScheduleOrderErpCandidateAdmission\(page,\s*config\)[\s\S]*verifyActiveOrderTransferTraceReadOnly\(page,\s*config,\s*joinEvidence\)[\s\S]*return \[admissionEvidence,\s*joinEvidence,\s*conflictRouteEvidence,\s*transferTraceEvidence,\s*dailyCloseEvidence\]/,
+  'Production leader phase must prove AC-M01 schedule-order admission before joining the active order, then read transfer/shipment/replenishment/return trace before daily-close evidence.'
 )
 const activeOrderTransferTraceActionSource = source.match(
   /async function verifyActiveOrderTransferTraceReadOnly[\s\S]*?async function verifyPqcActiveOrderReadOnly/
@@ -714,7 +714,7 @@ assert.match(
 )
 assert.match(
   teamLeaderBatchRecordBackfillServiceTestSource,
-  /shouldBackfillCompletedProcessOnlyOnceWhenConcurrentAuditAlreadyApplied[\s\S]*PROCESS_POOL_REPORT_BACKFILL:1001:9001:5001[\s\S]*times\(2\)[\s\S]*saveSystemCellLinkChanges/,
+  /shouldBackfillCompletedProcessOnlyOnceWhenConcurrentAuditAlreadyApplied[\s\S]*PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5001:6001:agg-single-1001-7101[\s\S]*times\(2\)[\s\S]*saveSystemCellLinkChanges/,
   'AC-M19 batch-record backfill service test must prove repeated/concurrent backfill uses the same idempotency key and delegates duplicate suppression to field audit.'
 )
 assert.match(

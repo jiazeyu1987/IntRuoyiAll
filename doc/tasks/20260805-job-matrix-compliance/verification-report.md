@@ -33,15 +33,18 @@
 | 逐条衍生需求分析 | PASS：`AC-D01` 至 `AC-D39` 已全部记录。 |
 | 不符合项结论 | PASS：每条均标记为不完全符合，并说明尚缺的正式验收证明。 |
 | No fallback | PASS：未使用 mock、默认成功、fallback、API-only 或口头假设替代验收证据。 |
-| 文件范围 | PASS：仅修改 `doc\tasks\20260805-job-matrix-compliance\` 下本任务文档。 |
+| 文件范围 | PASS：本轮同步修改 `doc\tasks\20260805-job-matrix-compliance\` 文档，并在 AC-M01 专项任务中新增/更新 RRM action 静态合同与真实流程脚本证据。 |
 | UTF-8 和数量校验 | PASS：不符合项文档可 UTF-8 读取，主流程 23 行、衍生需求 39 行。 |
 | Cleanup closeout | PASS：task-closeout-cleanup preview/apply 均通过；keep 4 个文件，delete/blocked/warnings 均为 `<none>`。 |
 | Experience consolidation | PASS：已判断无新的长期经验需要沉淀；本次矩阵状态只保留在任务文档。 |
 | AC-D03 业务口径修正 | PASS：已按用户业务讨论结论更新为“不维护不良原因主数据；PQC 出现不良时手动输入说明/原因并保留追溯”。 |
-| AC-M01 follow-up | PASS：已按最新实现证据更新 AC-M01 当前状态；代码级候选准入硬门禁和前端静态合同已补齐，当前准确状态为“代码级门禁已补齐，真实 E2E 未验收”。 |
+| AC-M01 follow-up | PASS：已按最新实现证据更新 AC-M01 当前状态；代码级候选准入硬门禁、前端静态合同和 RRM action 接入已补齐，当前准确状态为“代码级门禁与 RRM action 已接入，真实 E2E 未验收”。 |
 | AC-M04 follow-up | PASS：已按最新 `test-report.md` / `verification-report.md` 证据修正 AC-M04 状态；清理闭环已 PASS，当前准确状态为 `PASS_ACTION_NOT_ACCEPTED` / 仍属 `E2E_COVERAGE`。 |
-| AC-D03 手动不良说明专项核验 | PASS：已补充四项核验结论；当前判断为基础链路部分具备，但缺少 PQC 不良说明/原因文本字段、专项 rawPayload 回读、详情追溯和原始/修订不覆盖验收，因此仍不能标记 `ACCEPTED`。 |
+| AC-D03 手动不良说明专项核验 | PASS：代码级已补 PQC 不良说明文本字段、提交字段、失败必填和 rawPayload 快照；当前仍缺真实页面提交、详情回读和原始/修订不覆盖验收，因此不能标记 `ACCEPTED`。 |
 | AC-M11 code follow-up | PASS：已按当前代码补充 8 项生产报工不符合/未闭合风险，覆盖硬前置、事实保存、参数校验、原因结构、数量守恒、签名快照、设备不可用负向证明和测试覆盖。 |
+| AC-M11 second pass | PASS：已追加 5 项第二轮缺口，覆盖记录本草稿可覆盖、幂等冲突未比对、工序池幂等维度不一致、事件主表 rawPayload 修订覆盖、损耗数量服务端校验不足。 |
+| AC-M11 third pass | PASS：已追加 6 项第三轮缺口，覆盖前端缺后端必填工序池幂等键、生产签名未校验主数据/授权/快照、设备参数显示名分组且空值可省略、rawPayload 客户端起点、原因身份缺结构化快照、人员事实缺报工时快照。 |
+| 代码级继续审计 | PASS：已补充 12 项可从代码结构直接判断的不符合或未闭合风险，覆盖开工检查、员工/设备来源、参数超限、QA 规程发布、PQC 任务生成、数值判定、失败原因、质量异常、PQC 确认状态闭环和放行预检。 |
 
 ## Final Result
 

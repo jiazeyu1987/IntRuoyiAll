@@ -120,6 +120,7 @@ import java.util.stream.Collectors;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception0;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_PROCESS_FLOW_INVALID;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FEEDBACK_QUANTITY_EXCEED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_BATCH_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_DELETE_BLOCKED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_FROZEN;
@@ -2119,14 +2120,14 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
             return new ProgressSummary(totalQuantity, BigDecimal.ZERO.setScale(6), totalQuantity,
                     BigDecimal.ZERO.setScale(6));
         }
-        BigDecimal processUnitQuantity = normalizeQuantity(scheduleOrderQuantity);
-        if (processUnitQuantity.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalStateException("排产工单数量必须大于 0，无法计算整单进度");
-        }
         BigDecimal totalQuantity = BigDecimal.ZERO.setScale(6);
         BigDecimal completedQuantity = BigDecimal.ZERO.setScale(6);
         BigDecimal uncompletedQuantity = BigDecimal.ZERO.setScale(6);
         for (MesProScheduleOrderProcessDO process : enabledProcesses) {
+            BigDecimal processUnitQuantity = normalizeQuantity(process.getPlannedQuantity());
+            if (processUnitQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalStateException("排产工单工序目标数量必须大于 0，无法计算整单进度");
+            }
             BigDecimal reportedQuantity = normalizeQuantity(process.getReportedQuantity());
             BigDecimal effectiveCompletedQuantity = reportedQuantity.min(processUnitQuantity).setScale(6);
             totalQuantity = totalQuantity.add(processUnitQuantity).setScale(6);
@@ -2329,6 +2330,9 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         for (MesProScheduleOrderProcessDO process : processes) {
             BigDecimal plannedQuantity = normalizeQuantity(process.getPlannedQuantity());
             BigDecimal reportedQuantity = completedByProcessId.getOrDefault(process.getId(), BigDecimal.ZERO).setScale(6);
+            if (reportedQuantity.compareTo(plannedQuantity) > 0) {
+                throw exception(PRO_FEEDBACK_QUANTITY_EXCEED);
+            }
             BigDecimal remainingQuantity = plannedQuantity.subtract(reportedQuantity).max(BigDecimal.ZERO).setScale(6);
             BigDecimal overReportedQuantity = reportedQuantity.subtract(plannedQuantity).max(BigDecimal.ZERO).setScale(6);
             process.setReportedQuantity(reportedQuantity);
@@ -2516,7 +2520,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     private BigDecimal resolveProductionQuantityFactor(MesProRouteProcessDO routeProcess,
                                                        MesProRouteFlowProcessConfigDO scheduleRouteFlowConfig) {
         if (scheduleRouteFlowConfig == null || scheduleRouteFlowConfig.getProductionQuantityFactor() == null) {
-            return DEFAULT_PRODUCTION_QUANTITY_FACTOR;
+            throw exception(PRO_ROUTE_FLOW_CONFIG_PRODUCTION_QUANTITY_FACTOR_INVALID, routeProcess.getId());
         }
         BigDecimal factor = scheduleRouteFlowConfig.getProductionQuantityFactor();
         if (factor.compareTo(BigDecimal.ZERO) <= 0) {

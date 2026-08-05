@@ -55,8 +55,65 @@ export interface QaInspectionRegulationProjectStatusVO {
   lifecycleStatus?: string
 }
 
+export interface QaInspectionRegulationSaveItemVO {
+  inspectionType: 'FIRST' | 'PATROL' | 'FINAL'
+  itemCode: string
+  itemName: string
+  inspectionMethod: string
+  standardText: string
+  standardLowerLimit?: number
+  standardUpperLimit?: number
+  standardUnit?: string
+  standardPrecision?: number
+  equipmentRequired?: boolean
+  resultType: string
+  firstInspectionQuantity?: number
+  patrolInspectionRatio?: number
+}
+
+export interface QaInspectionRegulationSaveReqVO {
+  regulationId?: number
+  productId: number
+  productName: string
+  routeId: number
+  routeName: string
+  routeVersionId: number
+  routeVersionNo: string
+  routeProcessId: number
+  processId: number
+  routeProcessName: string
+  batchRecordBindingSummary?: string
+  regulationCode: string
+  regulationName: string
+  versionNo: string
+  effectiveDate?: string
+  items: QaInspectionRegulationSaveItemVO[]
+}
+
+export interface QaInspectionRegulationSaveRespVO {
+  regulationId: number
+  draftVersionId: number
+  versionNo: string
+  lifecycleStatus: string
+  immutable: boolean
+}
+
 // MES 质检方案 API
 export const QcTemplateApi = {
+  // 保存正式 QA 检验规程草稿
+  saveQaRegulationDraft: async (
+    data: QaInspectionRegulationSaveReqVO
+  ): Promise<QaInspectionRegulationSaveRespVO> => {
+    return await request.post({ url: `/mes/qa/inspection-regulation/draft`, data })
+  },
+
+  // 发布正式 QA 检验规程并生成不可变版本
+  publishQaRegulation: async (
+    data: QaInspectionRegulationSaveReqVO
+  ): Promise<QaInspectionRegulationPublishedVersionVO> => {
+    return await request.post({ url: `/mes/qa/inspection-regulation/publish`, data })
+  },
+
   // 查询正式 QA 检验规程发布版本只读证据
   getPublishedQaRegulationVersion: async (versionId?: number) => {
     return await request.get({

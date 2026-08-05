@@ -9,6 +9,15 @@
 - Forbidden action: 禁止手工猜测槽位、并发直接改写登记表、使用 `slot >= 20`、基准工作区借用 worktree 槽位、冲突时随机换端口或按分支名猜测歧义 profile。
 - Evidence: `doc/tasks/20260726-harden-worktree-port-slot-allocation/verification-report.md`；`doc/tasks/20260803-pqc-equipment-standard-method-design/execution-log.md`，PQC 文档 worktree 未启动服务但提交钩子仍要求 registry，补跑 `reserve-worktree-slot.ps1` 登记 slot 15 后解除阻塞。
 
+## Worktree 旧无监听槽位释放门禁
+
+- Trigger: 用户明确要求清理 `D:\IntRuoyiWorktree\.ports\worktree-ports.json` 中旧 active slot、无监听 slot、过期 runtime slot 或 slot 1..19 全占用但多数端口未监听。
+- Preflight check: 先读取 `docs\worktree-restrictions.md`、`docs\branch-runtime-ports.md` 和端口登记表；用 `Get-NetTCPConnection -State Listen` 复扫登记端口；释放前必须取得同 `reserve-worktree-slot.ps1` 一致的登记表 mutex；历史登记项可能缺少 `profile` 等字段，脚本必须显式可选读取字段并 fail fast。
+- Blocker: 未获得用户明确授权、端口仍有监听、创建时间不满足用户给定条件、登记表校验失败、active 项释放后出现重复 active slot/端口、或无法确认修改只影响用户指定范围时必须停止。
+- Verification: 重新读取登记表确认目标 active 项已变为 inactive；复扫 worktree 端口监听；运行 `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1`；在任务日志记录清理和保留清单。
+- Forbidden action: 禁止把“无监听”误当作可删除目录或可停止进程；禁止未持锁并发改写登记表；禁止把今天创建、仍有监听或不在用户条件内的 slot 一并释放；禁止用随机端口绕过 slot 全占用。
+- Evidence: `doc/tasks/20260805-worktree-slot-registry-cleanup/verification-report.md`，按用户条件释放创建于 2026-08-05 之前且前后端端口均无监听的 `int_main` active slot，并保留今天创建或仍监听的 slot。
+
 ## 主工作区 Maven Target 冲突时的隔离验证 Worktree 门禁
 
 - Trigger: 主工作区目标模块 `target` 已损坏、`mvn clean` 卡在 `WinNTFileSystem.delete0`、存在其它任务 Maven 正在写同一模块输出目录，但当前任务仍需要运行定向 Maven 回归。
@@ -17,6 +26,24 @@
 - Verification: 记录 detached worktree 路径、HEAD、applied diff、目标 Maven PASS 摘要、未启动服务/未使用端口的说明；验证后从主工作区执行 `git worktree remove --force <path>`，并确认 `Test-Path <path>` 为 false。
 - Forbidden action: 禁止强杀其它任务 Maven/Java 进程、删除共享模块 `target`、改用随机 Maven 输出目录、把 isolated worktree 未验证 diff 的结果当作主工作区验证、或遗漏 worktree 删除记录。
 - Evidence: `doc/tasks/20260803-dcc-docx-preview-system-exception/verification-report.md`，主工作区 DCC target 与并发 Maven 冲突时，创建 detached verification worktree、应用单个 service diff、通过 focused/adjacent preview Maven 测试后删除 worktree。
+
+### 隔离验证 Worktree Sparse 初始化门禁
+
+- Trigger: `git worktree add --detach <path> HEAD` 长时间停留在 `locked initializing`，或全量 checkout 因旧 target/残留目录拖慢但当前只需后端定向 Maven。
+- Preflight check: 先确认卡住的 git 进程命令行只属于当前任务目标路径；停止当前任务自己的 git 进程后，用 `git worktree remove -f -f <path>` 清理 initializing 登记，再改用 `git worktree add --detach --no-checkout`、`sparse-checkout init --cone`、`sparse-checkout set IntRuoyiBackend doc docs`、`checkout HEAD`。
+- Blocker: 卡住进程无法证明属于当前任务、目标路径不在 `D:\IntRuoyiWorktree\`、或 sparse 范围不足以运行目标验证时必须停止；不得停止其他任务 git 进程或扩大删除范围。
+- Verification: 记录首次 initializing 清理、sparse worktree 路径、checkout 后 `git status --short --branch`、目标 Maven PASS 和删除后 `Test-Path=False`。
+- Forbidden action: 禁止把 initializing 目录直接当普通目录递归删除；禁止跳过 Git 注册清理；禁止用 sparse checkout 缺文件导致的编译失败冒充业务失败。
+- Evidence: `doc/tasks/20260805-ac-m18-progress-repair/verification-report.md`，AC-M18 首次全量 detached worktree 卡在 initializing，清理当前任务登记后改用 sparse checkout，应用目标 diff 和最小编译基线后 90 个 JUnit PASS 并删除 worktree。
+
+### 隔离验证 Worktree 编译基线差异门禁
+
+- Trigger: 隔离验证 worktree 应用当前任务 diff 后，Maven 在目标 Surefire 前被非当前任务源码或测试编译错误阻塞；常见于主工作区已有并行 compile baseline 但新 worktree 基于较旧 HEAD。
+- Preflight check: 先用目标 Maven 失败日志定位阻塞文件，再从主工作区读取该文件的精确 diff；只允许同步已存在于主工作区、且为到达当前任务目标测试所必需的最小编译基线，并在任务日志中标注为 verification unblocker。
+- Blocker: 编译阻塞需要业务语义判断、主工作区没有对应已验证 diff、基线 diff 会改变当前任务目标行为、或无法区分当前任务 deliverable 与验证环境补丁时必须停止；不得继续扩大同步范围。
+- Verification: 记录每个 baseline patch 的来源文件、`git apply --check` 结果、首次失败摘要、补齐后的目标 Maven PASS 摘要，以及验证 worktree `git status --short --branch` 中这些差异仍被标注为非当前 deliverable。
+- Forbidden action: 禁止把无关 compile baseline 混入当前任务实现结论、禁止用整仓 patch 或 `git add -A` 复制并行改动、禁止把未到达 Surefire 的编译通过写成目标测试通过、禁止在最终提交时不区分当前任务和 verification unblocker。
+- Evidence: `doc/tasks/20260805-ac-m19-deterministic-backfill/verification-report.md`，AC-M19 新 worktree 验证中先后同步主工作区 QA/PQC 最小编译基线，解除非 AC-M19 编译阻塞后目标 Maven 两组 JUnit 均 PASS；`doc/tasks/20260805-ac-m18-progress-repair/verification-report.md`，AC-M18 隔离 worktree 先补主工作区 QA/PQC 编译前置，再到达并通过目标 AC-M18 Surefire。
 
 ## 多 Worktree 批量融合门禁
 

@@ -1,40 +1,40 @@
-# Restart Local Runtime
+# 20260805 restart local runtime
 
 ## Task Goal
 
-Restart the `int_main` local frontend and backend for `E:\IntRuoyi` using the fixed runtime ports.
+重启 `E:\IntRuoyi` 主工作区 `int_main` 本地前端与后端运行态。
 
 ## Milestones
 
-- [x] Read required local runtime, worktree, PowerShell, and task closeout rules.
-- [x] Record current frontend/backend port ownership.
-- [x] Stop only confirmed old `int_main` frontend/backend processes.
-- [x] Start backend on `48081` and frontend on `8081`.
-- [x] Verify backend health and frontend HTTP entry.
-- [x] Record final verification and closeout status.
+- [ ] 读取本地运行、worktree、PowerShell 与收尾规则
+- [ ] 建立端口归属证据，确认 `8081/48081` 可按 `int_main` 安全重启
+- [ ] 重启后端与前端
+- [ ] 验证后端 health 与前端 HTTP 可访问
+- [ ] 记录验证结果与剩余阻塞
 
 ## Expected Verification
 
-- `8081` is served by the local frontend rooted at `E:\IntRuoyi\IntRuoyiFronted`.
-- `48081` is served by the local backend rooted at `E:\IntRuoyi\IntRuoyiBackend`.
-- `http://127.0.0.1:48081/actuator/health` returns `UP`.
-- `http://127.0.0.1:8081/` returns HTTP `200`.
+- `8081` 前端端口监听归属 `E:\IntRuoyi\IntRuoyiFronted` 或为空后启动。
+- `48081` 后端端口监听归属 `E:\IntRuoyi\IntRuoyiBackend` / `output\runtime\int_main` 或为空后启动。
+- `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` 返回 `status=UP`。
+- `Invoke-WebRequest http://127.0.0.1:8081/` 返回 HTTP 200。
 
 ## Applicable Gates
 
-- Local runtime ports remain fixed: frontend `8081`, backend `48081`.
-- Port occupants may be stopped only when their command line confirms `E:\IntRuoyi` / `int_main` ownership.
-- Unknown or non-IntRuoyi occupants must block the restart; no random port changes or silent skips.
-- PowerShell commands avoid `&&`; Chinese task documentation is written with UTF-8-safe methods.
+- 本地重启必须使用 `int_main` 固定端口 `8081/48081`，不得换端口或跳过服务。
+- 端口被旧 `int_main` 进程占用时，记录 PID、命令行和归属依据后才能停止。
+- 端口被未知、非 IntRuoyi 或其它 profile 占用时必须 fail fast。
+- 后端成功以 health `UP` 为准；前端成功以 `8081` HTTP 200 为准。
+- 长运行后端应从 `output\runtime\int_main` 独立 Jar 运行，避免直接占用 Maven `target` Jar。
 
 ## Current Status
 
-completed
+in_progress
 
-Restart completed after explicit user authorization to stop the worktree-owned `48081` process. Cleanup preview/apply passed with no delete candidates.
+已读取 `docs\task-closeout-rules.md`、`docs\local-runtime.md`、`docs\worktree-restrictions.md` 和 `docs\powershell-memory.md`。当前分支已有大量并行未提交改动与 ahead 状态，本任务仅新增当前任务记录并执行运行态重启。
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
-- `是否从根因和长期维护角度解决`：是；按固定本地运行态脚本和端口契约重启。
+- `是否从根因和长期维护角度解决`：是，本任务只按正式本地运行脚本/端口契约重启运行态。
 - `是否存在临时补丁或绕过`：否。

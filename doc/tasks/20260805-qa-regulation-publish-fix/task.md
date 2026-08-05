@@ -6,11 +6,11 @@
 
 ## Milestones
 
-- [ ] 建立后端 QA 规程保存草稿、发布、读取不可变版本的 API 与服务契约。
-- [ ] 增加后端发布完整性、冲突、已发布版本不可修改的 fail-fast 校验。
-- [ ] 接入前端 QA 规程页面正式保存草稿和发布调用，移除“未写入后台”的阻断提示。
+- [x] 建立后端 QA 规程保存草稿、发布、读取不可变版本的 API 与服务契约。
+- [x] 增加后端发布完整性、冲突、已发布版本不可修改的 fail-fast 校验。
+- [x] 接入前端 QA 规程页面正式保存草稿和发布调用，移除“未写入后台”的阻断提示。
 - [ ] 补齐后端 JUnit 与前端静态契约 RED/GREEN 验证。
-- [ ] 记录验证、收尾和剩余阻塞。
+- [x] 记录验证、收尾和剩余阻塞。
 
 ## Expected Verification
 
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-in_progress：已按仓库规则保存进入本任务前的脏工作区基线；剩余并发文档改动不属于本任务，后续只选择性暂存 AC-M09 修复文件。
+blocked：AC-M09 后端/前端修复已完成，`mvn -pl yudao-module-mes -am "-DskipTests" compile` 与前端 QA 静态契约已通过；目标 JUnit 被主工作区其它 Maven 进程持续写入同一 `yudao-module-mes/target` 导致 `target/classes` 缺失阻断，`pnpm ts:check` 超时且已停止本任务残留进程。未提交、未推送，不标记 completed。
 
 ## Baseline Commits
 
