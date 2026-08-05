@@ -19,12 +19,17 @@
 ## Milestone Log
 
 - 2026-08-05: 创建任务目录和最小任务文档，当前状态为 `in_progress`。
+- 2026-08-05: 复核 `MesProFrontlineFeedbackSubmitServiceImpl`、`MesProFrontlineFeedbackPayloadSplitter`、`MesProFrontlineFeedbackPayloadReqVO`、`MesProFrontlineFeedbackSubmitServiceTest` 和 `MesProFrontlineFeedbackPayloadSplitterTest`，确认原缺口为提交服务未校验 `loss <= output`、拆分器用 `.max(BigDecimal.ZERO)` 截断合格数量。
+- 2026-08-05: 新增 `MesProFrontlineFeedbackSubmitServiceTest` 负向用例，覆盖损耗大于产出、负数产出、负数损耗，要求在授权、幂等查询和写入前 fail-fast。
+- 2026-08-05: 修复 `MesProFrontlineFeedbackSubmitServiceImpl`，新增 `validateProductionQuantity`；修复 `MesProFrontlineFeedbackPayloadSplitter`，移除合格数量 0 截断。
+- 2026-08-05: 更新矩阵分析 `doc/tasks/20260805-job-matrix-compliance/non-compliance-analysis.md`，将 AC-M11 标记为“数量/损耗边界代码级已修复”，但整体仍不完全符合。
 
 ## Verification Evidence
 
-- RED: 待执行。
-- GREEN: 待执行。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProFrontlineFeedbackSubmitServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL。关键失败：`lossQuantity=11.000`、`outputQuantity=10.000` 时仍调用 `feedbackService.createFeedback(...)`，并生成 `qualifiedQuantity=0`；负数数量也未在校验阶段 fail-fast。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProFrontlineFeedbackSubmitServiceTest,MesProFrontlineFeedbackPayloadSplitterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，9 tests, 0 failures, 0 errors。
+- Timeout handling: 一次 RED 重跑在 120s 超时，确认 PID 49916/37744 属于本任务 Maven 后仅停止该残留，未触碰其它 worktree Maven 或运行态进程。
 
 ## Blockers
 
-- 暂无当前切片 blocker。共享工作区已有其它任务脏改动，后续不得宽泛暂存、提交或回滚。
+- 共享工作区已有其它任务脏改动且当前分支 `int_main...origin/int_main [ahead 1]`，本切片不执行宽泛暂存、提交或推送；如需提交，必须按脏工作区基线和选择性暂存门禁单独处理。

@@ -36,6 +36,7 @@
 - completed：根据用户追问复核 AC-M01 最新实现证据，已将主流程表状态从泛化“不完全符合”更新为“代码级门禁与 RRM action 已接入，真实 E2E 未验收”，并补充当前已做到、仍缺什么和建议执行顺序。
 - completed：根据用户继续追问“从系统代码分析来看，还有哪些不符合”，已补充 `2026-08-05 代码级继续审计：明确不符合项`，记录 AC-M08、AC-D01/D02、AC-D05/D06、AC-D07/D08、AC-M09/D15-D23、AC-M12-M15/D18-D20、AC-D27/D28、AC-D36、AC-M20/M21/M22、AC-M22/M23 等代码级不符合或未闭合风险。
 - completed：根据用户“继续/进行修复”，已完成 AC-M10 定向修复任务 `20260805-ac-m10-sop-production-fact-reporting`，并将主表 AC-M10 状态更新为“代码级已修复，仍待全量 AC 验收”。
+- completed：根据用户继续要求推进 AC-M11 修复，已完成 `20260805-ac-m11-production-quantity-validation` 数量/损耗边界切片：后端拒绝负数产出、负数损耗、损耗大于产出，拆分器移除 0 合格数截断；AC-M11 主表保持“不完全符合”，因为设备、参数、原因、签名、原始事实不可覆盖等缺口仍未闭合。
 - completed：按 `project-experience-consolidation` 技能复核经验沉淀归宿；本次新增内容属于一次性矩阵业务审计结论，不是可复用工程门禁，因此不写入长期经验文档、不新建经验文档。
 
 ## Verification Evidence

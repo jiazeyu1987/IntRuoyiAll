@@ -37,7 +37,7 @@
 | AC-M08 | 12 | 生产班组长 | 订单开工检查 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明开工检查逐项展示结果、来源和阻塞原因，且缺项不标记就绪、不自动创建异常。 |
 | AC-M09 | 13 | QA | 维护检验规程 | 不完全符合 | 已有 QA 规程入口/局部证据，但尚未完整验收；需证明完整规程可发布并生成不可变版本，缺首检/巡检/末检规则或冲突时发布失败。 |
 | AC-M10 | 14 | 生产员工 | 按 SOP 生产 | 代码级已修复，仍待全量 AC 验收 | 已补 `20260805-ac-m10-sop-production-fact-reporting`：生产模式入口使用设备账号授权工序列表，不依赖 PQC 活跃订单；生产预校验不再要求订单上下文；缺 SOP/模板和越权工序由后端目标 JUnit 覆盖 fail-fast；正式一体提交补齐后端必填工序池幂等键。仍需在 M6 全量真实 E2E 中完成 AC 级页面验收和清理-readiness。 |
-| AC-M11 | 15 | 生产员工 | 生产报工 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明人员、设备、参数、数量、损耗、原因、签名完整保存，且缺必填、设备不可用、签名不一致时拒绝且原始事实不覆盖。 |
+| AC-M11 | 15 | 生产员工 | 生产报工 | 不完全符合（数量/损耗边界代码级已修复） | 已补 `20260805-ac-m11-production-quantity-validation`：生产提交服务端拒绝负数产出、负数损耗、损耗大于产出，拆分器不再用 0 合格数截断掩盖异常。AC-M11 尚未达到 `ACCEPTED`；仍需证明人员、设备、参数、原因、签名完整保存，且缺必填、设备不可用、签名不一致、原始事实覆盖等场景被拒绝。 |
 | AC-M12 | 16 | PQC 检验员 | 执行首检 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明首检按发布规程固定数量生成并逐件提交，且无规程、重复任务或数量不符时阻塞。 |
 | AC-M13 | 17 | PQC 检验员 | 执行上午巡检 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明上午巡检保存日期、班次、轮次并向上取整，且 `301×5%` 非 `16`、跨天重复或轮次冲突时失败。 |
 | AC-M14 | 18 | PQC 检验员 | 执行下午巡检 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明下午巡检与上午任务身份分离，且错班次、错日期或复用上午任务时失败。 |
@@ -165,7 +165,7 @@
 | 2 | 正式报工主记录没有承载 AC-M11 所要求的完整事实字段。 | `MesProFeedbackDO` 只有工作站、路线、工序、工单、任务、数量、报工人、状态、备注等字段，未见 `rawPayload`、`equipmentParameters`、`signatureId`、`signatureSnapshot`、结构化损耗/不良原因字段；完整事实被拆到记录本 entry 和工序池 event。 | 如果后续确认、分配、批记录回填读取正式报工主表，无法单表证明“人员、设备、参数、数量、损耗、原因、签名完整保存”。 |
 | 3 | 设备参数服务端未按配置规则逐项校验。 | 运行态会下发参数 `lowerLimit`、`upperLimit`、`defaultValue`、`valueType`，但提交 VO 中 `equipmentParameters` 是自由 `Map<String,Object>`；`validateSubmitContext` 只校验大对象、签名和设备账号存在，未读取参数规则校验编码、单位、类型、上下限或必填。 | 缺参数、越界参数、伪造参数编码或类型错误仍缺少后端 fail-fast 证明；仅靠前端默认值/输入控件不能满足验收。 |
 | 4 | 损耗原因/不良原因没有结构化提交与强制校验。 | 前端把 `defects` 放入 `recordbookPayload.entryContent`，后端提交 VO 和工序池 BO 没有 `lossReasonId`、`reasonCode` 等正式字段；运行态虽返回 enabled defect reasons，但提交服务未校验 `lossQuantity > 0` 时原因必须存在且来自当前工序配置。 | 只能证明“可能保存在 raw/entryContent”，不能证明“原因完整保存、禁用/跨工序原因拒绝、缺原因拒绝”。 |
-| 5 | 数量守恒和损耗边界未 fail-fast。 | `lossQuantity` 仅 `@NotNull`，未见非负、`loss <= output`、损耗分项合计等服务端约束；拆分器将 `qualifiedQuantity = outputQuantity - lossQuantity` 后用 `.max(BigDecimal.ZERO)` 截断。 | 当损耗大于产出或分项不守恒时，系统可能生成 0 合格数而不是拒绝，掩盖原始异常事实。 |
+| 5 | 数量/损耗主边界已代码级修复，损耗分项合计仍待补充。 | `20260805-ac-m11-production-quantity-validation` 已在 `MesProFrontlineFeedbackSubmitServiceImpl` 增加输出数量必须大于 0、损耗数量不能小于 0、损耗不能大于输出的服务端校验；`MesProFrontlineFeedbackPayloadSplitter` 已移除 `.max(BigDecimal.ZERO)` 截断。 | 负数产出、负数损耗和损耗大于产出已 fail-fast；但工废/料废/其他废品合计是否等于损耗、损耗原因联动仍未闭合，AC-M11 不能因此整体通过。 |
 | 6 | 签名完整性只证明“人员 ID 一致”，未证明签名快照/授权有效性完整保存。 | 生产提交请求只有 `signatureId`、`signatureEmployeeId`，没有 `signatureSnapshot`；PQC VO 反而有 `signatureSnapshot`；生产提交 adapter 只把 `signatureId` 和 `signatureUserId` 传给工序池，未设置 `signatureSnapshot`。 | 只能证明 `actualEmployeeId == signatureEmployeeId` 和签名 ID 唯一，不能证明签名图像/授权版本/签名时点快照不可漂移。 |
 | 7 | 设备不可用拒绝链路仍需补后端负向证明。 | 运行态配置会过滤 enabled 且 `DEVICE_STATUS_ENABLED` 的团队设备；但提交授权主要校验候选工序、设备/工作站匹配、人员绑定、模板匹配。工作站岗位路线候选源只校验工作站启用和机器存在，未在已读提交链路中看到对“已禁用/报修设备”的最终状态复核。 | 若前端缓存或恶意请求提交旧设备 ID，需要证明后端能拒绝不可用设备；当前证据不足以声明满足“设备不可用时拒绝”。 |
 | 8 | 现有测试仍偏结构/Happy Path，缺 AC-M11 负向和原始事实不覆盖证明。 | `MesP0ProductionExecutionSchemaContractTest` 主要断言字段存在；`p0-production-execution-loop-real.e2e.js` 预置工单/任务/工作站/设备/签名 ID；`role-requirement-matrix-real-flow.e2e.js` 的 `productionEmployeeEntry` 只覆盖入口加载并关联 `AC-M10/AC-M11`。 | 未覆盖缺必填、设备不可用、签名不一致、参数越界、损耗原因缺失、重复提交不覆盖原始事实等 AC-M11 准出条件。 |
@@ -178,7 +178,14 @@
 | 10 | 记录本幂等键命中旧条目时直接返回旧 entry，未校验本次 payload 与旧 payload 是否一致。 | `createEntry` 用 `recordbookId + idempotencyKey` 查询旧 entry，命中后直接 `return toEntryResp(existing, ...)`，没有比对 `entryContentJson`、设备参数或 rawPayload。 | 如果前次提交在创建记录本后、创建工序池事件前失败，重试携带不同事实但相同记录本幂等键，系统会复用旧记录本事实而不是显式拒绝冲突。 |
 | 11 | 工序池事件幂等查询维度与数据库唯一约束不一致。 | 查询 `selectSubmitByIdempotency` 包含 `deviceId`、`workstationId`；迁移唯一键 `uk_mes_pro_process_pool_event_idem` 只包含租户、事件类型、工单、路线工序、工序、实际员工、幂等键、删除标记。 | 同一幂等键但设备/工作站不同的请求，查询可能找不到旧事件，插入时再触发数据库唯一冲突；缺少明确的“原始事实冲突拒绝且不覆盖”业务错误证明。 |
 | 12 | 工序池修订会更新事件主表 `rawPayload` 为补正后的 payload。 | `MesProcessPoolEventRevisionServiceImpl.updateOriginalRecord` 会先保存 revision 的 `beforePayload/afterPayload`，随后 `eventMapper.updateById(...setRawPayload(reqBO.getAfterPayload()))` 覆盖事件主表 raw payload。 | 有修订链可追溯，但事件主表的“原始 payload”会变成补正后值；依赖 event 主表的后续批记录回填、时间线或详情不能直接证明首次原始事实未覆盖。 |
-| 13 | 数量服务端校验只约束“报工数量 > 0”或“合格+不良 > 0”，没有校验生产提交的损耗关系。 | `validateFeedbackData` 对需检验工序只校验 `feedbackQuantity > 0`；非检验工序只校验 `qualified + unqualified > 0`；未见对 `lossQuantity`、损耗分项、`loss <= output`、损耗原因联动的校验。 | “数量、损耗、原因完整保存并异常拒绝”仍不能成立；损耗数量异常可能进入正式报工、工序池事件和数量分片。 |
+| 13 | 生产提交损耗主关系已补服务端校验，原因与分项仍未验收。 | `MesProFrontlineFeedbackSubmitServiceImpl.validateProductionQuantity` 已在授权、幂等查询和写入前拒绝 `output <= 0`、`loss < 0`、`loss > output`；目标 JUnit 覆盖非法数量不触发授权、正式报工、记录本或工序池。 | 数量/损耗主关系不再进入正式报工；但 `lossQuantity` 与工废/料废/其他废品合计、损耗原因必填和来源校验仍需后续修复。 |
+
+### AC-M11 修复进展：数量/损耗边界切片
+
+- `20260805-ac-m11-production-quantity-validation` 已完成代码级修复：服务端提交校验新增 `PRO_FRONTLINE_FEEDBACK_QUANTITY_INVALID`，并在拆分前拒绝负数产出、负数损耗、损耗大于产出。
+- `MesProFrontlineFeedbackPayloadSplitter` 不再使用 `.max(BigDecimal.ZERO)` 截断合格数量；合法场景仍按 `qualifiedQuantity = outputQuantity - lossQuantity` 写入。
+- `MesProFrontlineFeedbackSubmitServiceTest` 新增负向回归，证明非法数量在授权、幂等查询、正式报工、记录本和工序池写入前 fail-fast。
+- 本进展只覆盖数量/损耗主边界；AC-M11 仍保留设备参数、结构化原因、签名快照、原始事实不可覆盖、回读追溯等未闭合项。
 
 ### AC-M11 第三轮补充缺口
 

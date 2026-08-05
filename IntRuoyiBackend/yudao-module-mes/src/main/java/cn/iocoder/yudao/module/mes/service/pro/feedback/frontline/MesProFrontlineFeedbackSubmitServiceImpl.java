@@ -143,13 +143,13 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "lossQuantity");
         }
         if (outputQuantity.compareTo(BigDecimal.ZERO) <= 0) {
-            throw exception(PRO_FRONTLINE_FEEDBACK_QUANTITY_INVALID, "outputQuantity must be greater than 0");
+            throw exception(PRO_FRONTLINE_FEEDBACK_QUANTITY_INVALID, "输出数量必须大于 0");
         }
         if (lossQuantity.compareTo(BigDecimal.ZERO) < 0) {
-            throw exception(PRO_FRONTLINE_FEEDBACK_QUANTITY_INVALID, "lossQuantity must be greater than or equal to 0");
+            throw exception(PRO_FRONTLINE_FEEDBACK_QUANTITY_INVALID, "损耗数量不能小于 0");
         }
         if (lossQuantity.compareTo(outputQuantity) > 0) {
-            throw exception(PRO_FRONTLINE_FEEDBACK_QUANTITY_INVALID, "lossQuantity must not exceed outputQuantity");
+            throw exception(PRO_FRONTLINE_FEEDBACK_QUANTITY_INVALID, "损耗数量不能大于输出数量");
         }
     }
 

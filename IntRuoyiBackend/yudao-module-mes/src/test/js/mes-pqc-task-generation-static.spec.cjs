@@ -123,7 +123,7 @@ assert.match(releaseCompletenessService, /isFinalInspectionApplicableForSnapshot
   '放行完整性必须按工序快照和发布版本判断是否需要 FINAL。')
 assert.match(releaseCompletenessService, /Boolean\.FALSE\.equals\(version\.getFinalInspectionApplicable\(\)\)[\s\S]*getFinalInspectionNotApplicableReason/,
   '放行完整性只允许有明确不适用依据时跳过 FINAL。')
-assert.match(releaseCompletenessService, /Boolean\.TRUE\.equals\(version\.getFinalInspectionApplicable\(\)\)[\s\S]*requirePqcTaskIdentity\(tasks,\s*snapshot,\s*"FINAL",\s*"FINAL"/,
+assert.match(releaseCompletenessService, /if\s*\(isFinalInspectionApplicableForSnapshot\(tasks,\s*snapshot,\s*missing\)\)\s*\{[\s\S]*requirePqcTaskIdentity\(tasks,\s*snapshot,\s*"FINAL",\s*"FINAL"/,
   '末检适用时放行完整性必须继续要求 FINAL 任务。')
 
 assert.match(test, /shouldGenerateFormalPqcTasksFromPublishedRegulationWhenAddingActiveOrder/,
