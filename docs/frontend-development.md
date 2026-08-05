@@ -43,11 +43,11 @@
 ## 统一列表复合工具栏布局门禁
 
 - Trigger: 修改 `UnifiedListTemplate`、快速过滤、批量操作栏、标准列表多维筛选、`TableMultiFilter`、或把新筛选控件接入已有业务列表。
-- Preflight check: 先在真实业务列表确认快速过滤、操作栏、额外筛选和新增筛选控件的 flex/grid 关系；可折行控件必须有明确行宽、`min-width` 和静态合同覆盖，不得只在空模板或单控件示例中验证。标准列表多维筛选要优先做成可增删条件 Tab 这类通用条件集合，不要靠页面级 `maxInlineFilters`、固定字段横铺或业务页特例控制可见条件。
-- Blocker: 新控件在真实页面中被快速过滤或操作栏挤压到 `0` 宽、不可见、不可点击，静态合同只断言组件存在但不断言布局宽度和正式 query 透传，或同一个正式 query 参数可被多个条件 Tab 覆盖时必须停止。
-- Verification: 聚焦静态合同必须覆盖模板布局类、宽度下限、props/events 透传、条件 Tab 增删、稳定 condition id、重复正式参数校验和正式请求参数；真实 E2E 必须打开目标业务页面，断言控件可见可操作、多个已填写 Tab 按交集提交、请求不携带临时参数、重置清空正式条件且目标写请求为 0。
+- Preflight check: 先在真实业务列表确认快速过滤、操作栏、额外筛选和新增筛选控件的 flex/grid 关系；可折行控件必须有明确行宽、`min-width` 和静态合同覆盖，不得只在空模板或单控件示例中验证。标准列表多维筛选要优先做成可增删条件 Tab 这类通用条件集合，不要靠页面级 `maxInlineFilters`、固定字段横铺或业务页特例控制可见条件。同一页面内多个页签或子列表即使都使用 `UnifiedListTemplate`，也必须逐个显式核对是否接入 `showMultiFilter`、多维 definitions/state/events；模板能力不会自动替换仍绑定旧 quick filter 的列表。
+- Blocker: 新控件在真实页面中被快速过滤或操作栏挤压到 `0` 宽、不可见、不可点击，静态合同只断言组件存在但不断言布局宽度和正式 query 透传，或同一个正式 query 参数可被多个条件 Tab 覆盖时必须停止。目标页面还有其它标准列表页签仍保留旧 quick filter、重复状态开关、重复重置按钮或缺少多维筛选事件时，也不得宣称标准模板复用完成。
+- Verification: 聚焦静态合同必须覆盖模板布局类、宽度下限、props/events 透传、条件 Tab 增删、稳定 condition id、重复正式参数校验和正式请求参数；真实 E2E 必须打开目标业务页面，断言控件可见可操作、多个已填写 Tab 按交集提交、请求不携带临时参数、重置清空正式条件且目标写请求为 0。涉及同页多列表时，E2E 必须切换每个目标页签并分别断言旧 quick filter 可见数为 0、正式参数提交和重置清参。
 - Forbidden action: 禁止用 API-only、临时测试页、隐藏旧快速筛选、移除业务操作按钮、硬编码当前页面宽度、页面级 inline filter 数量特例或前端本地过滤来冒充标准列表多维筛选完成。
-- Evidence: 任务 `doc/tasks/20260804-standard-list-multi-filter/verification-report.md`，排产工单真实 E2E 暴露多维筛选在复合工具栏中被挤压为 `0` 宽，最终用模板级全行布局和静态合同锁定；后续用户反馈固定条件栏复用性差，改为条件 Tab + 加减号，并用真实 E2E 证明多个 Tab 按正式 query 参数交集提交。
+- Evidence: 任务 `doc/tasks/20260804-standard-list-multi-filter/verification-report.md`，排产工单真实 E2E 暴露多维筛选在复合工具栏中被挤压为 `0` 宽，最终用模板级全行布局和静态合同锁定；后续用户反馈固定条件栏复用性差，改为条件 Tab + 加减号，并用真实 E2E 证明多个 Tab 按正式 query 参数交集提交；同步工单页签虽同样使用 `UnifiedListTemplate`，但因未显式接入多维 definitions/state/events 而保持旧 quick filter，最终按页签补齐静态合同和真实 E2E。
 
 ## 前端 LocalDateTime 响应契约门禁
 
@@ -142,11 +142,11 @@
 ## 前端角色内容页签拆分口径门禁
 
 - Trigger: 用户要求“某角色/某类内容专门做一个页签显示，不再显示在某工作台”，尤其涉及 `生产组长`、`PQC组长`、`leaderType`、`TeamLeaderWorkbenchPage`、eDHR 批记录页签或其它角色型工作台拆分。
-- Preflight check: 先从用户原话拆出“要拆出的角色/内容”和“原工作台保留的角色/内容”，再核对现有包装页、路由、页签 key、标题、权限和共享组件 props；若工作区已有相反方向的半成品拆分，必须先用 RED 静态合同锁定当前用户要求，不得沿用旧任务口径。
-- Blocker: 专门页签拆成了错误角色、原工作台仍传入目标角色 props、两个入口同时显示同一角色内容、旧 route/tab key/页面关系图仍指向相反角色、或静态合同只断言“有独立页签”但不验证角色 props 和原工作台负向隐藏时必须停止。
-- Verification: 聚焦静态合同必须同时断言页签 label、tab key、route path、route name/title、包装组件文件、共享组件 `leader-type` 或等价 props、原工作台 `doesNotMatch` 目标角色内容、页面关系图节点和相邻工作台合同；涉及 Vue/TS 时运行 `pnpm ts:check`。
-- Forbidden action: 禁止用 CSS 隐藏、空数据、路由别名、旧页签文案或保留旧反向 wrapper 冒充拆分完成；禁止把“PQC组长拆出去”与“生产组长拆出去”互换处理。
-- Evidence: 任务 `doc/tasks/20260804-production-leader-tab/`，基线中已有相反的 `PQC组长` 独立页签，当前需求要求 `生产组长` 独立页签，最终用静态合同先 RED 再将 `BatchProductionLeaderWorkbenchPage`、`productionLeader` 路由和组长工作台 `leader-type="PQC"` 边界锁定。
+- Preflight check: 先从用户原话拆出“要拆出的角色/内容”和“原工作台保留的角色/内容”，并确认“页签”指动态菜单/主导航入口还是页面内部 `el-tabs`；用户说“类似批次执行”“放在 QA 下面”时，按 eDHR 父菜单下的独立主导航子菜单处理，不得误做成 eDHR 批次页内部 Tab。再核对现有包装页、路由、页签 key、标题、权限和共享组件 props；若工作区已有相反方向的半成品拆分，必须先用 RED 静态合同锁定当前用户要求，不得沿用旧任务口径。
+- Blocker: 专门页签拆成了错误角色、把主导航页签误做成页面内部 Tab、原工作台仍传入目标角色 props、两个入口同时显示同一角色内容、旧 route/tab key/页面关系图仍指向相反角色、或静态合同只断言“有独立页签”但不验证角色 props 和原工作台负向隐藏时必须停止。
+- Verification: 聚焦静态合同必须同时断言页签 label、tab key 或主导航菜单 sort、route path、route name/title、包装组件文件、共享组件 `leader-type` 或等价 props、原工作台 `doesNotMatch` 目标角色内容、页面关系图节点和相邻工作台合同；涉及动态菜单时还必须断言 `system_menu`、租户套餐和角色菜单绑定；涉及 Vue/TS 时运行 `pnpm ts:check`。
+- Forbidden action: 禁止用 CSS 隐藏、空数据、路由别名、旧页签文案、内部 Tab 冒充主导航入口或保留旧反向 wrapper 冒充拆分完成；禁止把“PQC组长拆出去”与“生产组长拆出去”互换处理。
+- Evidence: 任务 `doc/tasks/20260804-production-leader-tab/`，基线中已有相反的 `PQC组长` 独立页签，当前需求要求 `生产组长` 独立页签，最终用静态合同先 RED 再将 `BatchProductionLeaderWorkbenchPage`、`productionLeader` 路由和组长工作台 `leader-type="PQC"` 边界锁定；任务 `doc/tasks/20260804-pqc-leader-tab/`，用户纠正“不是 tab，是类似批次执行的页签”，最终锁定 `QA -> 生产组长 -> PQC组长 -> 批次执行` 主导航顺序，并从 `EdhrBatchRecordTabs.vue` 移除内部 leader tabs。
 
 ## eDHR 表单追溯可视化历史详情门禁
 

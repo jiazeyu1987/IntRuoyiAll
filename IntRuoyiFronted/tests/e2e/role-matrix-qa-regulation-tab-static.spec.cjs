@@ -13,12 +13,14 @@ const workbenchPath = path.join(
   'src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'
 )
 const routePath = path.join(frontendRoot, 'src/router/modules/remaining.ts')
+const qcTemplateApiPath = path.join(frontendRoot, 'src/api/mes/qc/template/index.ts')
 
 assert.ok(fs.existsSync(qaPagePath), 'QA regulation must be implemented as a standalone page.')
 
 const qaSource = fs.readFileSync(qaPagePath, 'utf8')
 const workbenchSource = fs.readFileSync(workbenchPath, 'utf8')
 const routeSource = fs.readFileSync(routePath, 'utf8')
+const qcTemplateApiSource = fs.readFileSync(qcTemplateApiPath, 'utf8')
 const dccProjectLoaderStart = qaSource.indexOf('const loadDccProjectCodeOptions')
 const dccProjectLoaderEnd = qaSource.indexOf('const retryLoadDccProjectCodes')
 const dccProjectLoaderSource = qaSource.slice(dccProjectLoaderStart, dccProjectLoaderEnd)
@@ -81,6 +83,56 @@ assert.match(
   /dccProjectCodeId[\s\S]*selectedDccProjectCode[\s\S]*productMasterId/,
   'The selected DCC project must drive the displayed product scope.'
 )
+assert.match(
+  qaSource,
+  /data-qa-regulation-config-status/,
+  'Standalone QA page must expose a DCC project QA configuration status summary.'
+)
+assert.match(
+  qcTemplateApiSource,
+  /getQaRegulationProjectStatuses[\s\S]*\/mes\/qa\/inspection-regulation\/project-statuses/,
+  'Frontend must call the formal QA regulation project-statuses API.'
+)
+assert.match(
+  qaSource,
+  /getQaRegulationProjectStatuses[\s\S]*qaRegulationProjectStatusMap/,
+  'Standalone QA page must derive configured/unconfigured groups from backend QA regulation status.'
+)
+assert.match(
+  qaSource,
+  /v-if="\s*!dccProjectCodeLoadError\s*&&\s*!dccProjectCodeOptionsLoading\s*&&\s*!qaRegulationProjectStatusesLoading\s*&&\s*!qaRegulationProjectStatusLoadError\s*"[\s\S]*data-qa-regulation-config-status/,
+  'The QA configuration status summary must not report zero projects while DCC or QA status data is loading or failed.'
+)
+assert.match(
+  qaSource,
+  /data-qa-regulation-status-load-error[\s\S]*qaRegulationProjectStatusLoadError/,
+  'QA regulation status loading failures must remain visible and retryable.'
+)
+assert.match(
+  qaSource,
+  /data-qa-regulation-configured-projects/,
+  'Standalone QA page must list DCC projects that already have a QA regulation configured.'
+)
+assert.match(
+  qaSource,
+  /data-qa-regulation-unconfigured-projects/,
+  'Standalone QA page must list DCC projects that still need QA regulation configuration.'
+)
+assert.match(
+  qaSource,
+  /configuredDccProjectCodes[\s\S]*unconfiguredDccProjectCodes/,
+  'Standalone QA page must split loaded DCC projects into configured and unconfigured groups.'
+)
+assert.match(
+  qaSource,
+  /selectDccProjectForConfiguration[\s\S]*applyDccProjectToQaDraft/,
+  'Configuration status rows must let QA enter the selected project configuration.'
+)
+assert.doesNotMatch(
+  qaSource,
+  /QA_CONFIGURED_PROJECT_CODE_SET|hasQaRegulationTemplate\s*=\s*\(project/,
+  'Standalone QA page must not hardcode configured QA projects after the formal backend status API exists.'
+)
 assert.doesNotMatch(
   qaSource,
   /data-qa-regulation-pressure-pump-source/,
@@ -103,6 +155,9 @@ for (const requiredText of [
   'QA 按 DCC 项目代码维护产品规程',
   '请选择 DCC 项目代码',
   '产品名称由 DCC 项目代码带出',
+  '已配置 QA 规程',
+  '待配置 QA 规程',
+  '当前加载范围',
   'DCC 项目代码加载失败',
   '正式保存/发布接口未接入',
   '未写入后台'
@@ -113,6 +168,9 @@ for (const requiredText of [
 for (const requiredSelector of [
   'data-qa-regulation-scope',
   'data-qa-regulation-dcc-project',
+  'data-qa-regulation-config-status',
+  'data-qa-regulation-configured-projects',
+  'data-qa-regulation-unconfigured-projects',
   'data-qa-regulation-inspection-rules',
   'data-qa-regulation-items',
   'data-qa-regulation-original-excerpt',

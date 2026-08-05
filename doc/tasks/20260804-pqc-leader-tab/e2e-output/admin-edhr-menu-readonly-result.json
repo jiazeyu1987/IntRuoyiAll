@@ -1,0 +1,92 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://127.0.0.1:8081",
+  "identityLabel": "芋道源码/admin",
+  "permissionMenu": {
+    "parentTitle": "eDHR批记录",
+    "children": [
+      {
+        "expectedIndex": 0,
+        "actualIndex": 1,
+        "title": "批记录表单",
+        "path": "/mes/pro/batch-record-form-list"
+      },
+      {
+        "expectedIndex": 1,
+        "actualIndex": 2,
+        "title": "QA",
+        "path": "/mes/pro/process-pool/qa-regulation"
+      },
+      {
+        "expectedIndex": 2,
+        "actualIndex": 3,
+        "title": "生产组长",
+        "path": "/mes/pro/process-pool/production-leader"
+      },
+      {
+        "expectedIndex": 3,
+        "actualIndex": 4,
+        "title": "PQC组长",
+        "path": "/mes/pro/process-pool/pqc-leader"
+      },
+      {
+        "expectedIndex": 4,
+        "actualIndex": 5,
+        "title": "批次执行",
+        "path": "/mes/pro/feedback/edhr-batch-execution"
+      },
+      {
+        "expectedIndex": 5,
+        "actualIndex": 6,
+        "title": "表单追溯",
+        "path": "/mes/pro/feedback/edhr-form-trace"
+      },
+      {
+        "expectedIndex": 6,
+        "actualIndex": 7,
+        "title": "表单日志",
+        "path": "/mes/pro/feedback/edhr-form-fill-log"
+      }
+    ]
+  },
+  "pages": [
+    {
+      "title": "生产组长",
+      "url": "http://127.0.0.1:8081/mes/pro/process-pool/production-leader",
+      "selectorVisible": true,
+      "teamLeaderTypeTabsVisible": 0,
+      "pageApiStatus": 200,
+      "pageApiCode": 0
+    },
+    {
+      "title": "PQC组长",
+      "url": "http://127.0.0.1:8081/mes/pro/process-pool/pqc-leader",
+      "selectorVisible": true,
+      "teamLeaderTypeTabsVisible": 0,
+      "pageApiStatus": 200,
+      "pageApiCode": 0
+    }
+  ],
+  "internalTabsText": "批次执行生产填写PQC填写批记录页面关系图",
+  "mesWriteRequestCount": 0,
+  "targetFailureCount": 0,
+  "nonBlockingReadFailures": [
+    {
+      "url": "http://127.0.0.1:8081/admin-api/system/notify-message/get-unread-count",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://127.0.0.1:8081/admin-api/showroom/assignment/page?status=OPEN&assigneeUserId=1&pageNo=1&pageSize=20",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "pageErrorCount": 0,
+  "verifiedAt": "2026-08-04T16:44:00.078Z"
+}

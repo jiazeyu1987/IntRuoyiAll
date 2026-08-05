@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.qa.regulation;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationProjectStatusRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationPublishedVersionRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
@@ -81,6 +82,43 @@ class MesQaInspectionRegulationServiceTest {
         ServiceException ex = assertThrows(ServiceException.class, () -> service.getPublishedVersion(VERSION_ID));
 
         assertEquals(QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED.getCode(), ex.getCode());
+    }
+
+    @Test
+    void getProjectStatuses_returnsConfiguredAndUnconfiguredProductsInRequestOrder() {
+        MesQaInspectionRegulationDO published = MesQaInspectionRegulationDO.builder()
+                .id(9101L)
+                .productId(1001L)
+                .regulationCode("QA-IDI-001")
+                .regulationName("按压式球囊扩充压力泵 QA 检验规程")
+                .lifecycleStatus("PUBLISHED")
+                .currentVersionId(9102L)
+                .build();
+        MesQaInspectionRegulationDO draft = MesQaInspectionRegulationDO.builder()
+                .id(9201L)
+                .productId(1003L)
+                .regulationCode("QA-NEW-001")
+                .regulationName("新产品 QA 检验规程")
+                .lifecycleStatus("DRAFT")
+                .currentVersionId(9202L)
+                .build();
+        when(regulationMapper.selectListByProductIds(List.of(1001L, 1002L, 1003L)))
+                .thenReturn(List.of(draft, published));
+
+        List<MesQaInspectionRegulationProjectStatusRespVO> result =
+                service.getProjectStatuses(List.of(1001L, 1002L, 1003L));
+
+        assertEquals(3, result.size());
+        assertEquals(1001L, result.get(0).getProductId());
+        assertTrue(result.get(0).getConfigured());
+        assertEquals(9101L, result.get(0).getRegulationId());
+        assertEquals("PUBLISHED", result.get(0).getLifecycleStatus());
+        assertEquals("QA-IDI-001", result.get(0).getRegulationCode());
+        assertEquals(1002L, result.get(1).getProductId());
+        assertEquals(false, result.get(1).getConfigured());
+        assertEquals(1003L, result.get(2).getProductId());
+        assertTrue(result.get(2).getConfigured());
+        assertEquals("DRAFT", result.get(2).getLifecycleStatus());
     }
 
     private static MesQaInspectionRegulationVersionDO publishedVersion() {

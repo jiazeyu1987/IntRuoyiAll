@@ -21,6 +21,8 @@
   "filteredTotal": 1,
   "resetTotal": 47,
   "legacyQuickFilterVisibleCount": 0,
+  "conditionEmptyPromptVisibleCount": 0,
+  "conditionEmptyPromptTextCount": 0,
   "admissionTargetWorkOrderCode": "SMART-SCHED-20260630-RERUN5-MO",
   "admissionTargetProductCode": "AW.106.03.08.1007",
   "admissionTargetStatus": "READY_TO_ADMIT",

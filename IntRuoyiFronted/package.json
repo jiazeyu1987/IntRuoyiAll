@@ -42,6 +42,7 @@
     "e2e:role-requirement-matrix:real:check": "node tests/e2e/role-requirement-matrix-real-flow.e2e.js --check",
     "e2e:role-requirement-matrix:real": "node tests/e2e/role-requirement-matrix-real-flow.e2e.js",
     "e2e:role-matrix-qa-regulation:static": "node tests/e2e/role-matrix-qa-regulation-static.spec.cjs",
+    "e2e:qa-regulation:dcc-status:real": "node tests/e2e/qa-regulation-dcc-status-real.e2e.cjs",
     "e2e:role-matrix-pqc-dynamic-form:static": "node tests/e2e/role-matrix-pqc-dynamic-form-static.spec.cjs",
     "e2e:role-matrix-transfer-start-check:static": "node tests/e2e/role-matrix-transfer-start-check-static.spec.cjs",
     "e2e:role-matrix-daily-close-scope:static": "node tests/e2e/role-matrix-daily-close-scope-static.spec.cjs",

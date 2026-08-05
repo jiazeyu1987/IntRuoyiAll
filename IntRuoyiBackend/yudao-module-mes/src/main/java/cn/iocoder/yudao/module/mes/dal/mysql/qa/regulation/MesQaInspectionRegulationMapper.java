@@ -5,6 +5,10 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+
 @Mapper
 public interface MesQaInspectionRegulationMapper extends BaseMapperX<MesQaInspectionRegulationDO> {
 
@@ -18,5 +22,16 @@ public interface MesQaInspectionRegulationMapper extends BaseMapperX<MesQaInspec
                 .eq(MesQaInspectionRegulationDO::getRouteProcessId, routeProcessId)
                 .eq(MesQaInspectionRegulationDO::getProcessId, processId)
                 .eq(MesQaInspectionRegulationDO::getLifecycleStatus, "PUBLISHED"));
+    }
+
+    default List<MesQaInspectionRegulationDO> selectListByProductIds(Collection<Long> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesQaInspectionRegulationDO>()
+                .in(MesQaInspectionRegulationDO::getProductId, productIds)
+                .orderByAsc(MesQaInspectionRegulationDO::getProductId)
+                .orderByDesc(MesQaInspectionRegulationDO::getCurrentVersionId)
+                .orderByDesc(MesQaInspectionRegulationDO::getId));
     }
 }

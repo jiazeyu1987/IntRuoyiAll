@@ -1,6 +1,6 @@
 -- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260715_mes_edhr_template_config_menu_removal; type=menu; riskLevel=low
--- Insert the standalone QA regulation and PQC leader menus under eDHR before batch execution.
--- QA defines PQC inspection rules; PQC组长 opens the formal PQC leader review page without using eDHR internal tabs.
+-- Insert the standalone QA regulation, production leader, and PQC leader menus under eDHR before batch execution.
+-- Leader pages open formal process-pool workbench wrappers without using eDHR internal tabs.
 SET NAMES utf8mb4;
 
 DROP PROCEDURE IF EXISTS ensure_mes_edhr_qa_menu;
@@ -56,6 +56,23 @@ BEGIN
   IF EXISTS (
     SELECT 1
     FROM `system_menu`
+    WHERE `id` = 900436
+      AND `deleted` = b'0'
+      AND NOT (
+        `name` = '生产组长'
+        AND `parent_id` = 900220
+        AND `path` = '/mes/pro/process-pool/production-leader'
+        AND `component` = 'mes/pro/processpool/ProductionLeaderWorkbenchPage'
+        AND `component_name` = 'MesProProcessPoolProductionLeaderWorkbench'
+      )
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'system_menu id 900436 is already used by another active menu';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM `system_menu`
     WHERE `id` = 900435
       AND `deleted` = b'0'
       AND NOT (
@@ -79,6 +96,17 @@ BEGIN
   ) THEN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'QA menu route already exists on a different menu id';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM `system_menu`
+    WHERE `path` = '/mes/pro/process-pool/production-leader'
+      AND `id` <> 900436
+      AND `deleted` = b'0'
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Production leader menu route already exists on a different menu id';
   END IF;
 
   IF EXISTS (
@@ -113,25 +141,29 @@ BEGIN
          '/mes/pro/process-pool/qa-regulation' AS `path`, 'ep:document-checked' AS `icon`,
          'mes/pro/processpool/QaRegulationPage' AS `component`, 'MesProProcessPoolQaRegulation' AS `component_name`
   UNION ALL
-  SELECT 900435 AS `id`, 'PQC组长' AS `name`, 'mes:pro-process-pool-team-leader:query' AS `permission`, 2 AS `sort`,
+  SELECT 900436 AS `id`, '生产组长' AS `name`, 'mes:pro-process-pool-team-leader:query' AS `permission`, 2 AS `sort`,
+         '/mes/pro/process-pool/production-leader' AS `path`, 'ep:user' AS `icon`,
+         'mes/pro/processpool/ProductionLeaderWorkbenchPage' AS `component`, 'MesProProcessPoolProductionLeaderWorkbench' AS `component_name`
+  UNION ALL
+  SELECT 900435 AS `id`, 'PQC组长' AS `name`, 'mes:pro-process-pool-team-leader:query' AS `permission`, 3 AS `sort`,
          '/mes/pro/process-pool/pqc-leader' AS `path`, 'ep:user-filled' AS `icon`,
          'mes/pro/processpool/PqcLeaderWorkbenchPage' AS `component`, 'MesProProcessPoolPqcLeaderWorkbench' AS `component_name`
   UNION ALL
-  SELECT 900033 AS `id`, '批次执行' AS `name`, 'mes:pro-edhr-batch-execution:query' AS `permission`, 3 AS `sort`,
+  SELECT 900033 AS `id`, '批次执行' AS `name`, 'mes:pro-edhr-batch-execution:query' AS `permission`, 4 AS `sort`,
          '/mes/pro/feedback/edhr-batch-execution' AS `path`, 'ep:document-checked' AS `icon`,
          'mes/pro/edhr-batch/BatchExecutionListPage' AS `component`, 'MesProEdhrBatchExecutionListPage' AS `component_name`
   UNION ALL
-  SELECT 900025 AS `id`, '表单追溯' AS `name`, 'mes:pro-batch-record-execution:track' AS `permission`, 4 AS `sort`,
+  SELECT 900025 AS `id`, '表单追溯' AS `name`, 'mes:pro-batch-record-execution:track' AS `permission`, 5 AS `sort`,
          '/mes/pro/feedback/edhr-form-trace' AS `path`, 'ep:position' AS `icon`,
          'mes/pro/edhr/FormTracePage' AS `component`, 'MesProFeedbackEdhrFormTrace' AS `component_name`
   UNION ALL
-  SELECT 900432 AS `id`, '表单日志' AS `name`, 'mes:pro-edhr-form-fill-log:query' AS `permission`, 5 AS `sort`,
+  SELECT 900432 AS `id`, '表单日志' AS `name`, 'mes:pro-edhr-form-fill-log:query' AS `permission`, 6 AS `sort`,
          '/mes/pro/feedback/edhr-form-fill-log' AS `path`, 'ep:document-copy' AS `icon`,
          'mes/pro/edhr/FormFillLogPage' AS `component`, 'MesProEdhrFormFillLogPage' AS `component_name`;
 
-  IF (SELECT COUNT(*) FROM `tmp_mes_edhr_qa_visible_order`) <> 6 THEN
+  IF (SELECT COUNT(*) FROM `tmp_mes_edhr_qa_visible_order`) <> 7 THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'eDHR QA menu visible order contract must declare exactly six entries';
+      SET MESSAGE_TEXT = 'eDHR QA menu visible order contract must declare exactly seven entries';
   END IF;
 
   INSERT INTO `system_menu` (
@@ -160,7 +192,7 @@ BEGIN
     NOW(),
     b'0'
   FROM `tmp_mes_edhr_qa_visible_order` AS `visible_order`
-  WHERE `visible_order`.`id` IN (900434, 900435)
+  WHERE `visible_order`.`id` IN (900434, 900435, 900436)
     AND NOT EXISTS (
       SELECT 1
       FROM `system_menu`
@@ -230,6 +262,10 @@ BEGIN
   FROM `tmp_mes_edhr_qa_target_packages`;
 
   INSERT IGNORE INTO `tmp_mes_edhr_qa_package_menu_ids` (`package_id`, `menu_id`)
+  SELECT `package_id`, 900436
+  FROM `tmp_mes_edhr_qa_target_packages`;
+
+  INSERT IGNORE INTO `tmp_mes_edhr_qa_package_menu_ids` (`package_id`, `menu_id`)
   SELECT `package_id`, 900435
   FROM `tmp_mes_edhr_qa_target_packages`;
 
@@ -256,10 +292,11 @@ BEGIN
       ON `package`.`id` = `target_package`.`package_id`
      AND `package`.`deleted` = b'0'
     WHERE NOT JSON_CONTAINS(CAST(`package`.`menu_ids` AS JSON), CAST('900434' AS JSON), '$')
+       OR NOT JSON_CONTAINS(CAST(`package`.`menu_ids` AS JSON), CAST('900436' AS JSON), '$')
        OR NOT JSON_CONTAINS(CAST(`package`.`menu_ids` AS JSON), CAST('900435' AS JSON), '$')
   ) THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'QA or PQC leader menu is missing from target tenant packages';
+      SET MESSAGE_TEXT = 'QA or leader menu is missing from target tenant packages';
   END IF;
 
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_edhr_qa_target_roles`;
@@ -308,7 +345,7 @@ BEGIN
   SET `role_menu`.`deleted` = b'0',
       `role_menu`.`updater` = 'edhr-qa-menu',
       `role_menu`.`update_time` = NOW()
-  WHERE `role_menu`.`menu_id` IN (900434, 900435);
+  WHERE `role_menu`.`menu_id` IN (900434, 900435, 900436);
 
   INSERT INTO `system_role_menu` (
     `role_id`, `menu_id`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`
@@ -325,6 +362,8 @@ BEGIN
   FROM `tmp_mes_edhr_qa_target_roles` AS `target_role`
   JOIN (
     SELECT 900434 AS `menu_id`
+    UNION ALL
+    SELECT 900436 AS `menu_id`
     UNION ALL
     SELECT 900435 AS `menu_id`
   ) AS `target_menu`
@@ -343,6 +382,8 @@ BEGIN
     JOIN (
       SELECT 900434 AS `menu_id`
       UNION ALL
+      SELECT 900436 AS `menu_id`
+      UNION ALL
       SELECT 900435 AS `menu_id`
     ) AS `target_menu`
     WHERE NOT EXISTS (
@@ -355,7 +396,7 @@ BEGIN
     )
   ) THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'QA or PQC leader menu is not bound to any admin role';
+      SET MESSAGE_TEXT = 'QA or leader menu is not bound to any admin role';
   END IF;
 
   IF (SELECT COUNT(*)
@@ -367,11 +408,12 @@ BEGIN
         AND (
           (`id` = 900365 AND `name` = '批记录表单' AND `sort` = 0 AND `path` = '/mes/pro/batch-record-form-list' AND `component` = 'mes/pro/batchrecordformlist/index')
           OR (`id` = 900434 AND `name` = 'QA' AND `sort` = 1 AND `path` = '/mes/pro/process-pool/qa-regulation' AND `component` = 'mes/pro/processpool/QaRegulationPage' AND `component_name` = 'MesProProcessPoolQaRegulation')
-          OR (`id` = 900435 AND `name` = 'PQC组长' AND `sort` = 2 AND `path` = '/mes/pro/process-pool/pqc-leader' AND `component` = 'mes/pro/processpool/PqcLeaderWorkbenchPage' AND `component_name` = 'MesProProcessPoolPqcLeaderWorkbench')
-          OR (`id` = 900033 AND `name` = '批次执行' AND `sort` = 3 AND `path` = '/mes/pro/feedback/edhr-batch-execution' AND `component` = 'mes/pro/edhr-batch/BatchExecutionListPage')
-          OR (`id` = 900025 AND `name` = '表单追溯' AND `sort` = 4 AND `path` = '/mes/pro/feedback/edhr-form-trace' AND `component` = 'mes/pro/edhr/FormTracePage')
-          OR (`id` = 900432 AND `name` = '表单日志' AND `sort` = 5 AND `path` = '/mes/pro/feedback/edhr-form-fill-log' AND `component` = 'mes/pro/edhr/FormFillLogPage')
-        )) <> 6 THEN
+          OR (`id` = 900436 AND `name` = '生产组长' AND `sort` = 2 AND `path` = '/mes/pro/process-pool/production-leader' AND `component` = 'mes/pro/processpool/ProductionLeaderWorkbenchPage' AND `component_name` = 'MesProProcessPoolProductionLeaderWorkbench')
+          OR (`id` = 900435 AND `name` = 'PQC组长' AND `sort` = 3 AND `path` = '/mes/pro/process-pool/pqc-leader' AND `component` = 'mes/pro/processpool/PqcLeaderWorkbenchPage' AND `component_name` = 'MesProProcessPoolPqcLeaderWorkbench')
+          OR (`id` = 900033 AND `name` = '批次执行' AND `sort` = 4 AND `path` = '/mes/pro/feedback/edhr-batch-execution' AND `component` = 'mes/pro/edhr-batch/BatchExecutionListPage')
+          OR (`id` = 900025 AND `name` = '表单追溯' AND `sort` = 5 AND `path` = '/mes/pro/feedback/edhr-form-trace' AND `component` = 'mes/pro/edhr/FormTracePage')
+          OR (`id` = 900432 AND `name` = '表单日志' AND `sort` = 6 AND `path` = '/mes/pro/feedback/edhr-form-fill-log' AND `component` = 'mes/pro/edhr/FormFillLogPage')
+        )) <> 7 THEN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'eDHR QA visible menu order is incomplete';
   END IF;

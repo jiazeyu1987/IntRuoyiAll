@@ -27,16 +27,20 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 - 已识别此前提交 `af1bfb191 chore: baseline current frontend backend updates before push`。
 - 已识别后续本地提交，当前分支仍需推送到 `origin/int_main`。
 - 已确认本轮用户明确要求推送，覆盖此前“不推送”的旧口径。
-- 用户已明确最终口径：同时保留 `PQC组长` 独立页签和 `生产组长` 独立页签。
+- 用户已明确最终口径：同时保留 `生产组长` 与 `PQC组长`，二者都是类似 `批次执行` 的 eDHR 顶部同级独立页签，不是 process-pool 左侧菜单独立入口。
 - 已把 eDHR 顶部页签、隐藏路由、页面关系图和静态合同统一为 `组长工作台` + `生产组长` + `PQC组长` 三入口。
 - 已完成本地提交 `b98d82594 chore: submit current frontend backend updates`，包含当时已验证的前端、测试、任务证据和经验文档改动。
-- 用户最新口径已再次复验：`生产组长` 与 `PQC组长` 均保留为 eDHR 独立页签，PQC 包装页、隐藏路由和页面关系图节点均已恢复。
-- 当前剩余工作：提交最新残余改动、运行提交前门禁、推送并复核远端同步状态。
+- 用户最新口径已再次澄清：`生产组长` 与 `PQC组长` 必须按 eDHR 顶部同级页签建模，路由使用 `/mes/pro/feedback/edhr-batch-production-leader` 与 `/mes/pro/feedback/edhr-batch-pqc-leader`。
+- 2026-08-05 复扫确认当前 `HEAD` 与 `origin/int_main` 一致，但工作区仍有残余前后端、测试和多任务证据改动。
+- 代码级提交门禁通过：`git diff --check`、`pnpm ts:check`、eDHR 组长页签静态合同、QA 规程静态合同、审批中心静态合同、DCC adapter 静态合同、MES/DCC 目标 Maven 测试和端口 guard 均已通过。
+- 当前提交被真实 E2E 前置阻塞：QA 规程状态真实 E2E 缺正式 `IDI -> productMasterId` 绑定；排产局部重排 fixture E2E 缺显式 `MES_PARTIAL_REPLAN_E2E_PASSWORD` / `MES_REPLAN_E2E_PASSWORD` 环境变量。
+- 用户已明确授权接受上述两个真实 E2E 前置 blocker 后继续提交推送；本轮仍未引入 fallback、默认产品、默认账号或静默降级。
+- 当前剩余工作：提交残余改动、推送 `origin/int_main`，再标记完成并提交最终收尾记录。
 
 ## 设计约束检查
 

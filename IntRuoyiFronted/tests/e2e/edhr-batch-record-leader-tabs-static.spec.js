@@ -97,7 +97,9 @@ for (const [nodeId, label, route] of [
 ]) {
   assert.match(
     pageGraph,
-    new RegExp(`id:\\s*'${nodeId}'[\\s\\S]*title:\\s*'${label}'[\\s\\S]*route:\\s*'${route.replace(/\//g, '\\/')} '[\\s\\S]*isDisabled:\\s*false`.replace("}' ", "}'")),
+    new RegExp(
+      `id:\\s*'${nodeId}'[\\s\\S]*title:\\s*'${label}'[\\s\\S]*route:\\s*'${route.replace(/\//g, '\\/')}'[\\s\\S]*isDisabled:\\s*false`
+    ),
     `page graph must expose the standalone ${label} route.`
   )
 }

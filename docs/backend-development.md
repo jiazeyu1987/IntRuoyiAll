@@ -267,6 +267,15 @@
 - Forbidden action: 禁止用整单设备替代项目级设备，禁止用固定四项字段、前端文案、默认上下限、空标准、raw payload 或 API-only 展示替代正式项目级快照。
 - Evidence: `doc/tasks/20260803-pqc-equipment-standard-method-implementation/verification-report.md`。
 
+### QA 规程配置状态必须来自产品级规程记录
+
+- Trigger: QA 规程配置页、DCC 项目代码对应产品、`已配置 QA 规程`、`待配置 QA 规程`、`project-statuses`、`mes_qa_inspection_regulation.product_id`、前端硬编码 `IDI` 或压力泵模板判断配置状态。
+- Preflight check: 修改 QA 规程配置状态前，先核对 DCC 项目代码的 `productMasterId` 与 QA 规程表 `product_id` 的正式关系；配置状态必须由后端按产品 ID 查询 QA 规程记录并返回，前端只能展示和错误处理，不得用项目代码、产品名称或样例模板集合推断已配置。
+- Blocker: 页面把压力泵 `IDI`、产品名称、前端常量集合、空状态、模板初始化数据或查询失败当作配置状态来源，或状态接口失败时静默把项目归入待配置，必须停止并补齐正式状态接口和错误展示。
+- Verification: 后端回归必须覆盖已配置与未配置产品按请求顺序返回；前端静态契约必须断言调用正式 `project-statuses` API、禁止硬编码配置集合，并覆盖状态加载失败可见错误；同时运行 `pnpm ts:check`。
+- Forbidden action: 禁止用前端文案、默认项目、压力泵样例模板、API-only 展示或吞掉状态接口错误替代后台 QA 规程配置事实。
+- Evidence: `doc/tasks/20260804-qa-regulation-dcc-project-code/verification-report.md`。
+
 ## MES 工艺路线产品绑定状态门禁
 
 ### 产品侧路线选择必须匹配后端可维护状态

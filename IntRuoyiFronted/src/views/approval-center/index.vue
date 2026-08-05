@@ -230,7 +230,7 @@
                     :disabled="row.businessDeleted"
                     @click="openReviewDialog(row)"
                   >
-                    审核
+                    {{ resolveReviewActionLabel(row) }}
                   </el-button>
                   <el-tooltip
                     :disabled="canOpenDecisionDetail(row)"
@@ -950,9 +950,6 @@ const canOpenDecisionDetail = (row: ApprovalTaskSummaryVO) => {
 
 const resolveDecisionActionLabel = (row: ApprovalTaskSummaryVO) => {
   const actions = row.availableActions || []
-  if (canReview(row)) {
-    return '详情'
-  }
   if (queryParams.viewType === 'TODO' && actions.includes('REVIEW_IN_MODULE')) {
     return '审核'
   }
@@ -962,7 +959,14 @@ const resolveDecisionActionLabel = (row: ApprovalTaskSummaryVO) => {
   if (queryParams.viewType === 'TODO' && actions.includes('PROCESS_IN_MODULE')) {
     return '处理'
   }
+  if (canReview(row)) {
+    return '详情'
+  }
   return '详情'
+}
+
+const resolveReviewActionLabel = (row: ApprovalTaskSummaryVO) => {
+  return row.moduleCode === 'DCC' ? '审批' : '审核'
 }
 
 const resolveDecisionDetailDisabledReason = (row: ApprovalTaskSummaryVO) => {

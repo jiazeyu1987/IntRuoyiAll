@@ -42,6 +42,11 @@ assert.match(multiFilterComponentSource, /table-multi-filter__field-select/, '�
 assert.match(multiFilterComponentSource, /clearAllConditions/, '多维度筛选组件必须支持一键清空筛选。')
 assert.doesNotMatch(multiFilterComponentSource, /<el-popover[\s\S]*更多筛选/, '条件 Tab 方案不得保留旧的更多筛选弹层。')
 assert.doesNotMatch(multiFilterComponentSource, /table-multi-filter__chips/, '条件 Tab 本身承载已选条件，不得保留旧 chip 汇总。')
+assert.doesNotMatch(
+  multiFilterComponentSource,
+  /点击右侧加号新增筛选条件。|table-multi-filter__condition-empty/,
+  '条件为空时只保留 Tab 行的“暂无筛选条件”，不得额外显示第二行新增提示。'
+)
 assert.doesNotMatch(multiFilterComponentSource, /localStorage|sessionStorage/, '多维度筛选组件不得使用本地存储兜底。')
 
 assert.match(multiFilterFieldSource, /showLabel/, '多维度筛选字段组件必须支持在 Tab 条件行中隐藏固定字段标签。')

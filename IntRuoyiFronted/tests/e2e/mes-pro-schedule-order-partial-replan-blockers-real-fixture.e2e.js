@@ -75,14 +75,17 @@ async function login(page) {
 
   const tenantSelect = loginForm.locator('.el-select').first()
   if ((await tenantSelect.count()) > 0 && (await tenantSelect.isVisible())) {
-    await tenantSelect.click()
-    const selectInput = loginForm.locator('.el-select__input').first()
-    if ((await selectInput.count()) > 0) {
-      await selectInput.fill(TENANT)
+    const currentTenantText = (await tenantSelect.innerText()).replace(/\s+/g, ' ').trim()
+    if (!currentTenantText.includes(TENANT)) {
+      await tenantSelect.click()
+      const selectInput = loginForm.locator('.el-select__input').first()
+      if ((await selectInput.count()) > 0) {
+        await selectInput.fill(TENANT)
+      }
+      const tenantOption = page.locator('.el-select-dropdown__item:visible').filter({ hasText: TENANT }).first()
+      await tenantOption.waitFor({ state: 'visible', timeout: 30000 })
+      await tenantOption.click()
     }
-    const tenantOption = page.locator('.el-select-dropdown__item:visible').filter({ hasText: TENANT }).first()
-    await tenantOption.waitFor({ state: 'visible', timeout: 30000 })
-    await tenantOption.click()
   } else {
     await fillFirstVisible(loginForm.locator('input[placeholder="请输入租户名称"]'), TENANT, 'tenant')
   }
@@ -261,6 +264,7 @@ async function discoverCandidateScheduleOrder(page, auth) {
           (item) =>
             item.id &&
             item.code &&
+            item.erpWorkOrderCode &&
             Number(item.workOrderId) === workOrderId &&
             Number(item.blockingIssueCount || 0) === 0
         )
@@ -268,6 +272,7 @@ async function discoverCandidateScheduleOrder(page, auth) {
           return {
             id: row.id,
             code: row.code,
+            erpWorkOrderCode: row.erpWorkOrderCode,
             workOrderId,
             date
           }
@@ -365,12 +370,47 @@ async function assertCreatedIssueOpen(page, auth, issueId, candidate) {
   return issue
 }
 
+async function ensureScheduleOrderCodeFilter(page, multiFilter) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const searchInput = multiFilter.locator('input[placeholder="请输入排产工单号"]').first()
+    if ((await searchInput.count()) > 0 && (await searchInput.isVisible())) {
+      return searchInput
+    }
+
+    const codeTab = multiFilter.locator('.el-tabs__item').filter({ hasText: '排产工单号' }).first()
+    if ((await codeTab.count()) > 0 && (await codeTab.isVisible())) {
+      await codeTab.click()
+      await page.waitForTimeout(200)
+      continue
+    }
+
+    const addButton = multiFilter.getByRole('button', { name: '新增筛选条件' }).first()
+    await addButton.waitFor({ state: 'visible', timeout: 30000 })
+    assert.equal(await addButton.isEnabled(), true, 'schedule order multi-filter add button must be enabled')
+    await addButton.click()
+    await page.waitForTimeout(300)
+  }
+  const tabLabels = await multiFilter
+    .locator('.el-tabs__item')
+    .evaluateAll((tabs) => tabs.map((tab) => tab.textContent?.trim()).filter(Boolean))
+  throw new Error(`missing visible schedule order code filter after adding conditions; tabs=${tabLabels.join('|')}`)
+}
+
 async function searchScheduleOrder(page, code) {
+  const initialPageResponsePromise = page
+    .waitForResponse(
+      (response) =>
+        response.url().includes('/admin-api/mes/pro/schedule-order/page') && response.status() === 200,
+      { timeout: 60000 }
+    )
+    .catch(() => null)
   await page.goto(`${BASE_URL}/mes/pro/schedule-order`, {
     waitUntil: 'domcontentloaded',
     timeout: 60000
   })
   await page.locator('.schedule-order-pool').waitFor({ state: 'visible', timeout: 60000 })
+  await initialPageResponsePromise
+  await settle(page)
   const existingRow = page
     .locator('.schedule-order-pool .el-table__body-wrapper:visible tbody tr')
     .filter({ hasText: code })
@@ -383,17 +423,7 @@ async function searchScheduleOrder(page, code) {
     '.table-multi-filter[data-table-key="mes.pro.scheduleOrder.main"]'
   ).first()
   await multiFilter.waitFor({ state: 'visible', timeout: 30000 })
-  let searchInput = multiFilter.locator('input[placeholder="请输入排产工单号"]')
-  if ((await searchInput.count()) === 0 || !(await searchInput.first().isVisible())) {
-    const codeTab = multiFilter.locator('.el-tabs__item').filter({ hasText: '排产工单号' }).first()
-    if ((await codeTab.count()) > 0) {
-      await codeTab.click()
-    } else {
-      await multiFilter.getByRole('button', { name: '新增筛选条件' }).click()
-    }
-    searchInput = multiFilter.locator('input[placeholder="请输入排产工单号"]')
-    await searchInput.first().waitFor({ state: 'visible', timeout: 30000 })
-  }
+  const searchInput = await ensureScheduleOrderCodeFilter(page, multiFilter)
   await fillFirstVisible(searchInput, code, 'schedule order search input')
   await page.waitForTimeout(250)
   const pageResponsePromise = page
@@ -418,11 +448,19 @@ async function searchScheduleOrder(page, code) {
   await settle(page)
 }
 
-async function assertBlockedRowVisible(page, candidate) {
-  const targetRow = page
+function locateScheduleOrderRow(page, candidate) {
+  assert.ok(
+    candidate.erpWorkOrderCode,
+    `schedule order ${candidate.code} must expose a visible source work order code`
+  )
+  return page
     .locator('.schedule-order-pool .el-table__body-wrapper:visible tbody tr')
-    .filter({ hasText: candidate.code })
+    .filter({ hasText: candidate.erpWorkOrderCode })
     .first()
+}
+
+async function assertBlockedRowVisible(page, candidate) {
+  const targetRow = locateScheduleOrderRow(page, candidate)
   await targetRow.waitFor({ state: 'visible', timeout: 60000 })
 
   const className = await targetRow.evaluate((row) => row.className)
@@ -513,10 +551,7 @@ async function assertScheduleOrderCleared(page, auth, candidate) {
   assert.equal(Number(row.blockingIssueCount || 0), 0, `target schedule order ${candidate.code} blocker count must clear`)
 
   await searchScheduleOrder(page, candidate.code)
-  const targetRow = page
-    .locator('.schedule-order-pool .el-table__body-wrapper:visible tbody tr')
-    .filter({ hasText: candidate.code })
-    .first()
+  const targetRow = locateScheduleOrderRow(page, candidate)
   await targetRow.waitFor({ state: 'visible', timeout: 60000 })
   const className = await targetRow.evaluate((element) => element.className)
   assert.doesNotMatch(
@@ -616,6 +651,7 @@ async function main() {
           taskMarker: TASK_MARKER,
           scheduleOrderCode: candidate.code,
           scheduleOrderId: candidate.id,
+          sourceWorkOrderCode: candidate.erpWorkOrderCode,
           workOrderId: candidate.workOrderId,
           issueDate: candidate.date,
           issueId,
@@ -633,6 +669,12 @@ async function main() {
     )
   } catch (error) {
     let message = error?.message || String(error)
+    const currentUrl = page.url()
+    const bodySnippet = await page
+      .locator('body')
+      .innerText({ timeout: 5000 })
+      .then((text) => text.replace(/\s+/g, ' ').trim().slice(0, 1000))
+      .catch((bodyError) => `BODY_READ_FAILED: ${bodyError.message || bodyError}`)
     if (issueId > 0 && candidate && auth && !issueResolved) {
       try {
         const currentIssue = await findIssue(page, auth, issueId, candidate.workOrderId)
@@ -661,6 +703,7 @@ async function main() {
           username: USERNAME,
           taskMarker: TASK_MARKER,
           scheduleOrderCode: candidate?.code,
+          sourceWorkOrderCode: candidate?.erpWorkOrderCode,
           workOrderId: candidate?.workOrderId,
           issueDate: candidate?.date,
           issueId: issueId || undefined,
@@ -669,6 +712,10 @@ async function main() {
           unexpectedMesMutationRequests: unexpectedMutations,
           pageErrorCount: pageErrors.length,
           consoleErrorCount: consoleErrors.length,
+          currentUrl,
+          bodySnippet,
+          pageErrors: pageErrors.slice(0, 5),
+          consoleErrors: consoleErrors.slice(0, 5),
           cleanup: cleanupStatus
         },
         null,

@@ -71,9 +71,6 @@
       </el-button>
     </div>
 
-    <div v-else class="table-multi-filter__condition-empty">
-      点击右侧加号新增筛选条件。
-    </div>
   </div>
 </template>
 
@@ -335,9 +332,4 @@ const getTabLabel = (condition: ListMultiFilterCondition, index: number) => {
   width: 160px;
 }
 
-.table-multi-filter__condition-empty {
-  color: #7b8794;
-  font-size: 13px;
-  line-height: 32px;
-}
 </style>

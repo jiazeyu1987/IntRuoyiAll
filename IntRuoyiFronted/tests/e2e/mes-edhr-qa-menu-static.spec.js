@@ -119,10 +119,15 @@ assert.doesNotMatch(
   /EdhrBatchRecordTabs|active-tab=/,
   'Standalone leader pages must not be reintroduced as eDHR internal tabs.'
 )
+assert.match(
+  qaPage,
+  /data-qa-regulation-dcc-project|DCC 项目代码/,
+  'QA regulation page must keep the DCC project-code product scope selector.'
+)
 assert.doesNotMatch(
   qaPage,
-  /DCC|文件分类|受控文件|文控|controlled-file|fileTypeTaxonomy/i,
-  'QA page must remain independent from DCC/document-control semantics.'
+  /文件分类|受控文件|controlled-file|fileTypeTaxonomy/i,
+  'QA page must not regress into DCC document taxonomy or controlled-file page semantics.'
 )
 
 console.log('PASS eDHR QA dynamic menu static contract')
