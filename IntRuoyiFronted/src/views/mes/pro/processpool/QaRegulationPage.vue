@@ -823,10 +823,12 @@ interface QaInspectionTypeRule {
 
 interface QaRegulationItem {
   itemCode: string
+  processName?: string
   itemName: string
   applicableTypes: QaInspectionTypeValue[]
   inspectionMethod: string
   inspectionTool: string
+  samplingPlanText?: string
   resultType: QaInspectionResultType
   standardText: string
   lowerLimit?: number

@@ -26,7 +26,7 @@
 
 - Existing API wrappers retained: DCC project code page, draft save, publish.
 - Formal route scope APIs used by the page: `ProRouteProductApi.getRouteProductByItem(productId)`, `ProRouteApi.getRoute(routeId)`, `ProRouteApi.getRouteVersion(routeVersionId)`, `ProRouteProcessApi.getRouteProcessListByRoute(routeId)`, and `ProRouteFlowConfigApi.getProcessConfigList(routeId, 'SCHEDULE'/'BATCH', routeVersionId)`.
-- Manual route binding APIs used by the page: `ProRouteApi.getRouteItemBindingList()` and `ProRouteProductApi.saveRouteProductByItem({ itemId, routeId })`; the page reuses the product-side route status guard for disabled route options. After saving, it re-reads `getRouteProductByItem(productId)` and only then applies the formal route scope.
+- Manual route binding APIs used by the page: `ProRouteApi.getRouteItemBindingList()` and `ProRouteProductApi.saveQaRegulationRouteProductByItem({ itemId, routeId })`; QA manual binding does not disable published/enabled route options. After saving, it re-reads `getRouteProductByItem(productId)` and only then applies the formal route scope.
 - Data states retained: DCC project loading, load error, retry, selected DCC project, route-scope loading/error, save/publish failure messages.
 - Removed from the page state: configured/unconfigured project status groups and selector-area project details.
 - Save/publish state now requires `qaFormalRouteScopeReady`; missing or ambiguous formal route scope remains a visible blocking error.
@@ -40,7 +40,7 @@
 - BDD: QA 内容选中后展示 -> Given QA 用户选择一个 DCC 项目代码 When 项目选择成功 Then 页面显示 Tab，并可查看该项目对应的适用范围、检验规则、检验项目和发布检查。
 - BDD: QA 适用范围自动带出 -> Given DCC 项目对应产品已绑定正式工艺路线 When QA 用户选择 DCC 项目代码 Then 页面只读展示正式路线来源、路线版本、质检工序、正式批记录表单和 SOP/工艺要求。
 - BDD: QA 缺正式路线范围阻断保存发布 -> Given 正式路线绑定、激活版本或唯一质检工序缺失 When QA 用户保存草稿或发布 Then 页面显示路线范围加载失败并阻断动作，不以默认值或手工黄框字段替代。
-- BDD: QA 手动绑定工艺路线 -> Given DCC 项目对应产品缺少当前工艺路线 When QA 用户选择有当前生效版本的工艺路线并点击手动绑定 Then 页面通过正式产品路线绑定 API 写入绑定，重新读取当前绑定，并从正式路线配置带出适用范围。
+- BDD: QA 手动绑定工艺路线 -> Given DCC 项目对应产品缺少当前工艺路线 When QA 用户选择已发布/已启用且有当前生效版本的工艺路线并点击手动绑定 Then 页面通过 QA 专用产品路线绑定 API 写入绑定，重新读取当前绑定，并从正式路线配置带出适用范围。
 - BDD: QA 手动绑定失败可见 -> Given 绑定 API 失败、路线缺当前版本或绑定后读取不到产品路线 When 用户点击手动绑定 Then 页面显示错误并阻断保存/发布。
 
 ## RED
@@ -48,14 +48,15 @@
 - RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, expected reason:旧 QA 页面缺少 `UnifiedListTemplate` 导入和 Tab 分区，断言 "Standalone QA page must use the standard UnifiedListTemplate for dense QA lists." 失败。
 - RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, expected reason:旧选择区仍保留项目详情、配置状态或已配置/待配置列表，断言 "QA project selector area must only keep the required DCC project code select row." 失败。
 - RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, expected reason:旧 QA 页面未从正式工艺路线 API 带出适用范围，且黄框字段仍可能作为手工输入项出现。
-- RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, expected reason:旧 QA 页面缺少手动绑定工艺路线选择器、正式 `saveRouteProductByItem` 调用和绑定后路线范围重读。
+- RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, expected reason:旧 QA 页面缺少手动绑定工艺路线选择器、QA 专用 `saveQaRegulationRouteProductByItem` 调用和绑定后路线范围重读。
+- RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, expected reason:旧 QA 页面把 `CommonStatusEnum.ENABLE` 路线禁用为“已启用，仅回显”，导致截图中的已发布路线不能选择。
 
 ## GREEN
 
 - GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 页面已具备 Tab 分区和四个 `UnifiedListTemplate` 列表。
 - GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 项目选择区只剩 1 个必填 DCC 项目代码下拉框，Tab 与内容在选中项目后显示，旧状态列表源码和 UI selector 均被禁止。
 - GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 适用范围从正式工艺路线/路线版本/路线工序/排产配置/批记录配置自动带出，黄框字段不再提供手工输入，缺正式路线范围时保存/发布被阻断。
-- GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 页面支持显式手动绑定工艺路线，并在绑定成功后重新走正式产品路线绑定和路线范围解析链路。
+- GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 页面支持显式手动绑定已发布/已启用工艺路线，调用 `saveQaRegulationRouteProductByItem`，绑定成功后重新走正式产品路线绑定和路线范围解析链路。
 - GREEN: `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js` -> PASS，系统标准列表接入点从 84 更新为 88，显式隐藏筛选列表从 10 更新为 14。
 - GREEN: `pnpm ts:check` -> PASS，Vue/TypeScript 类型检查通过。
 
@@ -63,6 +64,7 @@
 
 - Verification: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs IntRuoyiFronted/tests/e2e/unified-list-template-empty-tabs-system-static.spec.js doc/tasks/20260805-qa-regulation-publish-fix/task.md doc/tasks/20260805-qa-regulation-publish-fix/execution-log.md doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md docs/backend-development.md docs/experience-index.md` -> PASS，仅有 Git CRLF 工作区提示，无 whitespace error。
 - Verification: QA 页面专属排序接线断言 -> PASS，输出 `PASS QA standard list sort wiring`。
+- Verification: `mvn -rf :yudao-module-mes "-Dtest=MesProRouteProductServiceImplTest,MesProRouteProductBindFromWorkOrdersTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，20 个后端 QA 路线绑定目标 JUnit 通过。
 - Verification: 全局 `unified-list-template-all-headers-sortable-static.spec.js` 仍被大量既有页面阻塞；QA 页面聚焦扫描显示四个新增列表均已接入 `sortColumnAttrs` 与 `handleTemplateSortChange`，未作为本次完成门禁。
 
 ## Responsive Accessibility Loading Empty Error Permission
