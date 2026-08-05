@@ -28,3 +28,11 @@ QA 规程检验项目页的“显示字段”按钮已移动到“工序检验�
 ## Residual Risk
 
 - 缺少登录后的真实页面截图证据；静态布局契约和 TypeScript 验证已覆盖本次代码改动。
+
+## Closeout
+
+- 实现提交：`480ae46f0`。
+- cleanup preview：PASS。
+- cleanup apply：PASS。
+- 保留：`task.md`、`execution-log.md`、`verification-report.md`。
+- 删除：已通过 validator 且结论已归档的 `frontend-feature-evidence.md`。

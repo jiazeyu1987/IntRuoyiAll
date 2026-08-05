@@ -29,6 +29,9 @@
 - 2026-08-05：本机 `8081/48081` 运行态均可用，前端 HTTP 200、后端 health `UP`；浏览器打开目标路由后因现有会话报“登录超时,请重新登录!”停留在应用加载页。未读取或提交本机默认密码，真实页面截图验证记为未完成，不影响已通过的静态布局契约和类型检查结论。
 - 2026-08-05：已执行 `project-experience-consolidation` 检查；本次经验已由 `docs/frontend-development.md` 的截图按钮/局部静态契约门禁覆盖，无需新增或修改长期经验文档。
 - 2026-08-05：`frontend-feature-evidence.md` 已通过技能 validator，关键 RED/GREEN 和验收结论已归档到本日志与 `verification-report.md`，可进入 cleanup。
+- 2026-08-05：实现提交 `480ae46f0`，提交标题 `fix: move QA display fields to title bar`。
+- 2026-08-05：`task-closeout-cleanup` preview/apply 均通过；保留 `task.md`、`execution-log.md`、`verification-report.md`，删除已归档的临时 `frontend-feature-evidence.md`。
+- 2026-08-05：最终 closeout 提交和 `git push origin int_main` 在本记录提交后执行，推送结果以最终 Git 状态为准。
 
 ## Blockers
 
