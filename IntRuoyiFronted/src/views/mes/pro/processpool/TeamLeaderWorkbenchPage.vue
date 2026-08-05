@@ -233,35 +233,6 @@
           </template>
         </UnifiedListTemplate>
 
-        <el-divider>操作追溯</el-divider>
-        <el-table
-          v-loading="employeeAuditLoading"
-          :data="employeeAuditRows"
-          border
-          stripe
-          size="small"
-          data-team-leader-personnel-audit-list
-        >
-          <el-table-column label="时间" min-width="150">
-            <template #default="{ row }">{{ formatDateTime(row.auditTime) }}</template>
-          </el-table-column>
-          <el-table-column label="动作" prop="actionType" min-width="130" />
-          <el-table-column label="结果" width="100">
-            <template #default="{ row }">
-              <el-tag :type="row.resultStatus === 'SUCCESS' ? 'success' : 'danger'" effect="plain">
-                {{ row.resultStatus || '--' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="目标" min-width="130">
-            <template #default="{ row }">
-              {{ row.targetType || '--' }} / {{ row.targetId || '--' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="变更摘要" min-width="260">
-            <template #default="{ row }">{{ row.changeSummary || '--' }}</template>
-          </el-table-column>
-        </el-table>
       </el-tab-pane>
     </el-tabs>
   </ContentWrap>
@@ -1413,7 +1384,6 @@ import {
   deleteTeamLeaderLossReason,
   getTeamLeaderLossReasonPage,
   getProductionPersonnelList,
-  getTeamEmployeeAuditList,
   getTeamLeaderActiveOrderList,
   getTeamLeaderActiveOrderTransferTrace,
   getTeamLeaderSubmissionDetail,
@@ -1433,7 +1403,6 @@ import {
   updateTeamDeviceStatus,
   updateTeamEmployeeDisplayName as updateTeamEmployeeDisplayNameRequest,
   updateTeamEmployeeStatus as updateTeamEmployeeStatusRequest,
-  type TeamEmployeeAuditRespVO,
   type TeamFormalEmployeeCandidateRespVO,
   type TeamLeaderActiveOrderRespVO,
   type TeamLeaderActiveOrderTransferTraceRespVO,
@@ -1517,10 +1486,8 @@ const productionPersonnelActiveTab = ref('productionPersonnel')
 const productionPersonnelLoading = ref(false)
 const productionPersonnelSubmitting = ref(false)
 const formalCandidateLoading = ref(false)
-const employeeAuditLoading = ref(false)
 const productionPersonnelRows = ref<TeamProductionEmployeeRespVO[]>([])
 const formalEmployeeCandidateOptions = ref<TeamFormalEmployeeCandidateRespVO[]>([])
-const employeeAuditRows = ref<TeamEmployeeAuditRespVO[]>([])
 
 const productionPersonnelQuery = reactive({
   enabled: true as boolean | undefined,
@@ -1833,18 +1800,6 @@ const formatSignaturePasswordManager = (row: TeamProductionEmployeeRespVO) => {
   return row.signaturePasswordManagedBy || '--'
 }
 
-const loadEmployeeAuditRecords = async (employeeProfileId?: number) => {
-  employeeAuditLoading.value = true
-  try {
-    employeeAuditRows.value = await getTeamEmployeeAuditList({ employeeProfileId })
-  } catch (error) {
-    employeeAuditRows.value = []
-    ElMessage.error(resolveErrorMessage(error, '生产人员操作追溯加载失败'))
-  } finally {
-    employeeAuditLoading.value = false
-  }
-}
-
 const refreshProductionPersonnel = async () => {
   productionPersonnelLoading.value = true
   try {
@@ -1855,7 +1810,6 @@ const refreshProductionPersonnel = async () => {
     if (productionPersonnelQuery.pageNo > maxPage) {
       productionPersonnelQuery.pageNo = maxPage
     }
-    await loadEmployeeAuditRecords()
   } catch (error) {
     productionPersonnelRows.value = []
     ElMessage.error(resolveErrorMessage(error, '生产人员档案加载失败'))
