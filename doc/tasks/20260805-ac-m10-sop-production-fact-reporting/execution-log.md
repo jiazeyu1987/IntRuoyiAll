@@ -28,6 +28,8 @@
 - REGRESSION: 2026-08-05 收尾前复跑 `node tests/e2e/role-matrix-ac-m10-sop-production-static.spec.cjs` -> PASS。
 - REGRESSION: 2026-08-05 收尾前复跑 `node tests/e2e/frontline-formal-submit-static.spec.cjs` -> PASS。
 - REGRESSION: 2026-08-05 收尾前复跑 `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRuntimeConfigServiceTest,MesFrontlineTemplateResolverTest,MesFrontlineSubmitAuthorizationTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 6, Failures: 0, Errors: 0, Skipped: 0。
+- PREFLIGHT: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main` frontend 8081 / backend 48081。
+- PUSH: `git push origin int_main` -> PASS；包含 AC-M10 实现与任务初始记录的基线提交 `057fba5b9` 已同步到 `origin/int_main`。
 
 ## Implementation Notes
 
@@ -37,7 +39,7 @@
 - 保留边界：正式一体提交接口仍按后端现有模型要求 `workOrderId/taskId`，没有把无订单草稿入口扩展为无订单正式入库提交，避免用前端字段绕过正式报工领域约束。
 - 后端证明：`MesFrontlineTemplateResolverTest` 覆盖缺正式模板绑定 fail fast；`MesFrontlineSubmitAuthorizationTest` 覆盖越权提交阻塞；`MesFrontlineRuntimeConfigServiceTest` 覆盖授权工序运行态配置。
 - 经验沉淀：已按 `project-experience-consolidation` 检查长期文档归宿；现有 `docs/backend-development.md#MES 一线设备账号权限门禁`、`docs/inception/project-brief.md` 和 `docs/acceptance/production-execution-main-loop/*` 已覆盖通用原则，本次不新增长期经验文档。
-- Git 记录：AC-M10 实现、专用静态契约和初始任务记录已由并发基线提交 `057fba5b9` 捕获；本次仅补齐 AC-M10 completed 收尾记录并保持其它并行脏文件未暂存。
+- Git 记录：AC-M10 实现、专用静态契约和初始任务记录已由并发基线提交 `057fba5b9` 捕获并推送；本次仅补齐 AC-M10 completed 收尾记录并保持其它并行脏文件未暂存。
 
 ## Blockers
 

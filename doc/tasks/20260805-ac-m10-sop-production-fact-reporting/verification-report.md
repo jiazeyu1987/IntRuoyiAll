@@ -21,6 +21,7 @@
 - 2026-08-05 收尾复跑上述两条 Node 静态契约和 Maven 目标命令 -> 全部 PASS；Maven Tests run: 6, Failures: 0, Errors: 0, Skipped: 0。
 - `git diff --check -- <task paths>` -> PASS，无 whitespace error；仅出现既有 CRLF 工作区提示。
 - `task-closeout-cleanup --mode preview/apply` -> PASS；keep `task.md`、`execution-log.md`、`verification-report.md`，delete/blocked/warnings 均为 `<none>`。
+- `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS；`git push origin int_main` -> PASS，AC-M10 实现基线 `057fba5b9` 已同步到 `origin/int_main`。
 
 ## Non-Task Blockers
 

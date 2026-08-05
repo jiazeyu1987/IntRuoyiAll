@@ -35,4 +35,4 @@
 
 completed
 
-AC-M10 定向修复、验证和 cleanup preview/apply 已完成；实现与任务初始记录已由并发基线提交 `057fba5b9` 纳入本地历史，本收尾记录单独提交并推送。
+AC-M10 定向修复、验证、cleanup preview/apply 和 origin 同步已完成；实现与任务初始记录已由并发基线提交 `057fba5b9` 纳入历史并推送到 `origin/int_main`，本收尾记录单独提交并推送。共享工作区仍存在非 AC-M10 并行脏改动，本任务未触碰、未暂存、未回滚。
