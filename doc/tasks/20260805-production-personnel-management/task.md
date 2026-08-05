@@ -12,7 +12,7 @@
 - [x] M3：前端标准列表页签与生产填写员工卡片集成 TDD。
 - [x] M4：定向后端、前端、迁移和 evidence validator 验证。
 - [x] M5：真实 Playwright E2E 验收，使用 worktree slot 1 的 `8082/48082` 成对运行态通过。
-- [ ] M6：收尾、经验沉淀、cleanup、提交并推送当前分支；cleanup 与初始分支推送已完成，最新 `origin/int_main` 合入冲突已解决且关键验证通过；主 worktree 合并与 worktree 删除仍受外部 dirty 状态阻塞。
+- [ ] M6：收尾、经验沉淀、cleanup、提交并推送当前分支；cleanup 与初始分支推送已完成，最新 `origin/int_main` 合入冲突已解决、合并提交已创建且关键验证通过；主 worktree 合并与 worktree 删除仍受外部 dirty 状态阻塞。
 
 ## Expected Verification
 
@@ -27,7 +27,7 @@
 
 ready_for_closeout
 
-实现、后端定向测试、前端静态合同、前端类型检查、脚本语法检查、真实 Playwright E2E、`git diff --check`、四个 evidence validator、经验沉淀和 task-closeout cleanup 已完成。`origin/int_main` 合入冲突已解决，并通过 branch runtime guard、生产人员前端静态合同、前端类型检查、后端 30 个定向 JUnit 和 diff check；自动合并/删除 worktree 因主 worktree 外部脏改动仍阻塞。
+实现、后端定向测试、前端静态合同、前端类型检查、脚本语法检查、真实 Playwright E2E、`git diff --check`、四个 evidence validator、经验沉淀和 task-closeout cleanup 已完成。`origin/int_main` 合入冲突已解决，合并提交 `6e32ca6bc` 已创建，并通过 branch runtime guard、生产人员前端静态合同、前端类型检查、后端 30 个定向 JUnit 和 diff check；自动合并/删除 worktree 因主 worktree 外部脏改动仍阻塞。
 
 当前 closeout blocker：`E:\IntRuoyi` 主 worktree dirty；未修改主 worktree，未删除当前 worktree。
 

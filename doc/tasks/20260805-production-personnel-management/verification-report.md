@@ -43,8 +43,11 @@ ready_for_closeout
 ## Post-Merge Sync Verification
 
 - `git merge --no-ff origin/int_main -m "merge: sync int_main into production personnel management"` initially conflicted; conflicts were resolved by retaining `origin/int_main` error `1_040_760_334` and shifting this task's three personnel errors to `1_040_760_335..337`.
+- Merge sync commit: `6e32ca6bc merge: sync int_main into production personnel management`.
 - `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS for `codex/20260805-production-personnel-management/int_main` with frontend `8082` and backend `48082`.
 - `node tests/e2e/production-personnel-management-static.spec.cjs` -> PASS。
 - `git diff --cached --check` and `git diff --check` -> PASS。
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest,MesTeamLeaderRuntimeConfigServiceTest,MesFrontlineRuntimeConfigServiceTest,MesFrontlineRuntimeConfigControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 30, Failures: 0, Errors: 0, Skipped: 0。
 - `pnpm ts:check` -> PASS。
+- `git merge-base --is-ancestor origin/int_main HEAD` -> PASS；`origin/int_main...HEAD` -> `0 3`，分支非 fast-forward blocker 已解除。
+- Remaining closeout blocker：`E:\IntRuoyi` 主 worktree 仍有外部脏改动，因此不能执行 linked worktree ff-merge 和 worktree 删除。

@@ -77,8 +77,11 @@
 - Merge result: `git merge --no-ff origin/int_main -m "merge: sync int_main into production personnel management"` initially conflicted in `ErrorCodeConstants.java`, `task.md`, and `execution-log.md`.
 - Conflict resolution: kept `origin/int_main` error `PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED` at `1_040_760_334`, shifted this task's production personnel errors to `1_040_760_335..337`, and kept the completed task records instead of stale in-progress records from `origin/int_main`.
 - Cleanup consistency: removed reintroduced intermediate `bdd-tdd-design.md` from the merge result because task-closeout cleanup already summarized it into retained records.
+- Merge sync commit: `6e32ca6bc merge: sync int_main into production personnel management`.
 - GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS for `codex/20260805-production-personnel-management/int_main`, frontend `8082`, backend `48082`.
 - GREEN: `node tests/e2e/production-personnel-management-static.spec.cjs` -> PASS.
 - GREEN: `git diff --cached --check` and `git diff --check` -> PASS.
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest,MesTeamLeaderRuntimeConfigServiceTest,MesFrontlineRuntimeConfigServiceTest,MesFrontlineRuntimeConfigControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 30, Failures: 0, Errors: 0, Skipped: 0.
 - GREEN: `pnpm ts:check` -> PASS.
+- Merge readiness: `git merge-base --is-ancestor origin/int_main HEAD` -> PASS (`exit 0`), `origin/int_main...HEAD` -> `0 3`.
+- Remaining blocker: `E:\IntRuoyi` still has unrelated dirty task files, so linked worktree ff-merge/removal remains blocked by project closeout rules.
