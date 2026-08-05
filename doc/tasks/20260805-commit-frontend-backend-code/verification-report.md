@@ -18,12 +18,13 @@
 - PASS: Cleanup apply completed with no deleted paths.
 - PASS: `git ls-remote origin refs/heads/int_main` returned `d8de70c08d2013187fb809325e2adbbc184633fc`.
 - PASS: GitHub 100 MB history-object scan checked 272 pending blob objects; largest was 262,358 bytes and `OVER_100MB=0`.
+- PASS: Re-run GitHub 100 MB scan after closeout commit checked 275 pending blob objects; largest was 262,358 bytes and `OVER_100MB=0`.
+- PASS: `git push origin int_main` pushed `d8de70c08..3edc4e3ad` to `origin/int_main`.
+- PASS: Post-push `git status --short --branch` showed `## int_main...origin/int_main` with no ahead marker.
 
-## Remaining Verification
+## Final Verification
 
-- Commit this task's closeout records.
-- Push `int_main` to `origin`.
-- Confirm `git status --short --branch` no longer shows ahead.
+- Final closeout record is committed separately after this report update and must be pushed to keep `int_main` aligned with `origin/int_main`.
 
 ## Residual Non-Task Files
 

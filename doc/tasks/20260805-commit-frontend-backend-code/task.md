@@ -10,7 +10,7 @@
 - [x] 盘点 Git 分支、远端、暂存区和脏改动
 - [x] 按规则提交既有脏工作区基线
 - [x] 执行提交前 Git 完整性验证和大文件门禁
-- [ ] 更新任务收尾记录并推送到 `origin/int_main`
+- [x] 更新任务收尾记录并推送到 `origin/int_main`
 
 ## Expected Verification
 
@@ -33,7 +33,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Current Evidence
 
@@ -43,6 +43,8 @@ ready_for_closeout
 - Cleanup: `task_closeout.py --task-id 20260805-commit-frontend-backend-code --mode preview/apply` 均 PASS，delete/blocked/warnings 均为 none。
 - GitHub 100 MB scan: 272 pending blob objects scanned, largest object 262,358 bytes, `OVER_100MB=0`。
 - GitHub connectivity: `git ls-remote origin refs/heads/int_main` PASS, remote head `d8de70c08d2013187fb809325e2adbbc184633fc`。
+- Push: `git push origin int_main` PASS, pushed `d8de70c08..3edc4e3ad` to `origin/int_main`。
+- Post-push status: `git status --short --branch` showed `## int_main...origin/int_main` with no ahead marker; remaining dirty files are parallel task artifacts outside this task scope.
 - Residual non-current-task files after baseline: `doc/tasks/20260805-pqc-redbox-ui-prototype/pqc-redbox-ui-prototype.html`, `doc/tasks/20260805-docker-unused-image-cleanup/docker-image-prune-output-2.txt`, `doc/tasks/20260805-docker-unused-image-cleanup/docker-system-df-after.txt`；按并行任务产物保留不暂存。
 
 ## 设计约束检查

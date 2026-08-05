@@ -33,3 +33,10 @@
 - GREEN: `task_closeout.py --task-id 20260805-commit-frontend-backend-code --mode apply` -> PASS, no deleted paths.
 - GREEN: `git ls-remote origin refs/heads/int_main` -> PASS, remote head `d8de70c08d2013187fb809325e2adbbc184633fc`.
 - GREEN: GitHub 100 MB object scan for `origin/int_main..HEAD` -> PASS, 272 blob objects scanned, largest 262,358 bytes, `OVER_100MB=0`.
+- GREEN: Re-run GitHub 100 MB object scan after closeout commit -> PASS, 275 blob objects scanned, largest 262,358 bytes, `OVER_100MB=0`.
+- GREEN: `git push origin int_main` -> PASS, pushed `d8de70c08..3edc4e3ad` to `origin/int_main`; branch runtime port guard passed.
+- GREEN: Post-push `git status --short --branch --untracked-files=all` -> PASS for branch sync, `## int_main...origin/int_main` with no ahead marker. Remaining dirty files are parallel task artifacts and were not staged.
+
+## Final Status
+
+- completed: 前后端代码与相关任务证据已提交并推送；本任务最终记录将作为单独 closeout commit 推送。
