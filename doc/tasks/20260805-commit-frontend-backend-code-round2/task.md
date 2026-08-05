@@ -10,7 +10,7 @@
 - [x] 盘点 Git 分支、远端、暂存区和脏改动。
 - [x] 按规则提交本轮开始前已存在的脏工作区基线。
 - [x] 执行提交前 Git 完整性验证和 cleanup 门禁。
-- [ ] 提交收尾记录、执行大文件门禁并推送到 `origin/int_main`。
+- [x] 提交收尾记录、执行大文件门禁并推送到 `origin/int_main`。
 
 ## Expected Verification
 
@@ -33,9 +33,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-本轮开始前已存在的任务证据改动已提交为基线提交 `57e6f374a chore: preserve current frontend backend evidence updates`。提交范围仅包含 `doc/tasks/20260805-ac-m04-acceptance-sync/` 和 `doc/tasks/20260805-pqc-redbox-ui-prototype/` 任务证据；未发现 `IntRuoyiBackend/` 或 `IntRuoyiFronted/` 下的源码脏改动。cleanup preview/apply 均 PASS，delete/blocked/warnings 均为 none。提交后复扫发现并行新增 `doc/tasks/20260805-restart-local-runtime/` 任务文档改动，本轮不触碰、不暂存该并行任务改动。
+本轮开始前已存在的任务证据改动已提交为基线提交 `57e6f374a chore: preserve current frontend backend evidence updates`，round2 收尾记录已提交为 `3601709b5 docs: close out commit frontend backend round2`，并已推送到 `origin/int_main`。提交范围仅包含 `doc/tasks/20260805-ac-m04-acceptance-sync/`、`doc/tasks/20260805-pqc-redbox-ui-prototype/` 与本 round2 任务证据；未发现 `IntRuoyiBackend/` 或 `IntRuoyiFronted/` 下的源码脏改动。cleanup preview/apply 均 PASS，delete/blocked/warnings 均为 none。提交后复扫发现并行新增 restart-runtime、QA regulation publish fix 和 Docker build cache VHDX compact 任务文档/产物，本轮不触碰、不暂存这些并行任务改动。
 
 ## 设计约束检查
 

@@ -26,6 +26,10 @@
 - completed: `task_closeout.py --task-id 20260805-commit-frontend-backend-code-round2 --mode apply` PASS，deleted_paths none。
 - completed: `scripts\preflight\branch-runtime-port-guard.ps1` PASS for `int_main/int_main`, frontend `8081`, backend `48081`。
 - in_progress: `git ls-remote origin refs/heads/int_main` 首次出现 transient TLS EOF；按 GitHub HTTPS 443 代理门禁检查，GitHub URL proxy 指向 `127.0.0.1:7890`，本地 `7890`/`8902` 均监听，`github.com:443` 可达，Windows ProxyServer 为 `127.0.0.1:7890`；原配置重试 `git ls-remote origin refs/heads/int_main` PASS，remote head `3da50c974a0d7815a67e4c20e7fc4f2ad761b6d1`。
+- completed: Round2 收尾提交 `3601709b5 docs: close out commit frontend backend round2`，仅包含本任务 3 个核心记录文件；hook 再次报告 branch runtime port guard passed。
+- completed: GitHub 100 MB object scan for `origin/int_main..HEAD` PASS，21 objects / 10 blobs scanned，largest blob 14,844 bytes，`OVER_100MB=0`。
+- completed: `git push origin int_main` PASS，pushed `3da50c974..3601709b5` to `origin/int_main`。
+- completed: Post-push `git status --short --branch --untracked-files=all` 显示 `## int_main...origin/int_main`，无 ahead；剩余 dirty 均为并行任务目录，未纳入本轮提交。
 
 ## Verification Evidence
 
@@ -38,7 +42,10 @@
 - GREEN: `task_closeout.py --task-id 20260805-commit-frontend-backend-code-round2 --mode apply` -> PASS, deleted_paths `<none>`。
 - GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, frontend `8081`, backend `48081`。
 - GREEN: `git ls-remote origin refs/heads/int_main` retry -> PASS, remote head `3da50c974a0d7815a67e4c20e7fc4f2ad761b6d1`。
+- GREEN: GitHub 100 MB object scan for `origin/int_main..HEAD` -> PASS, `OBJECTS=21`, `BLOBS=10`, `MAX_SIZE=14844`, `OVER_100MB=0`。
+- GREEN: `git push origin int_main` -> PASS, pushed `3da50c974..3601709b5` to `origin/int_main`。
+- GREEN: Post-push `git status --short --branch --untracked-files=all` -> PASS for branch sync, no ahead marker。
 
 ## Final Status
 
-- ready_for_closeout: 基线提交和 cleanup 已完成；等待收尾提交、大文件门禁和 push 验证。
+- completed: 本轮可提交范围已提交并推送；最终状态更新将作为本任务最后记录提交并再次推送。

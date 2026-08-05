@@ -19,9 +19,11 @@
 - PASS: Cleanup apply completed with no deleted paths.
 - PASS: Branch runtime port guard passed for `int_main/int_main`, frontend `8081`, backend `48081`.
 - PASS: `git ls-remote origin refs/heads/int_main` succeeded on retry after a transient TLS EOF; remote head is `3da50c974a0d7815a67e4c20e7fc4f2ad761b6d1`.
+- PASS: Round2 closeout commit created: `3601709b5 docs: close out commit frontend backend round2`.
+- PASS: GitHub 100 MB object scan checked 21 pending objects and 10 blobs; largest blob was 14,844 bytes and `OVER_100MB=0`.
+- PASS: `git push origin int_main` pushed `3da50c974..3601709b5` to `origin/int_main`.
+- PASS: Post-push `git status --short --branch --untracked-files=all` showed `## int_main...origin/int_main` with no ahead marker.
 
 ## Final Verification
 
-- Pending: GitHub 100 MB object scan.
-- Pending: push to `origin/int_main`.
-- Pending: post-push branch sync check.
+- Final status update is committed separately after this report update and pushed immediately afterward.
