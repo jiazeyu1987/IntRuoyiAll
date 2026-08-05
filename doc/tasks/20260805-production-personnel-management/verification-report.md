@@ -34,3 +34,8 @@
 ## Current Status
 
 ready_for_closeout
+
+## Closeout
+
+- task-closeout cleanup preview/apply passed with `--worktree-closeout off`; intermediate evidence files were deleted after summaries were retained.
+- Linked worktree merge/removal was not performed: `E:\IntRuoyi` is dirty and the branch cannot fast-forward merge into `int_main`.

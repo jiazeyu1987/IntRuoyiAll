@@ -65,3 +65,9 @@
 - Experience consolidation: updated `docs/backend-development.md#MES 生产人员档案正式工重复关联门禁` for write-before-insert formal employee duplicate checks.
 - Experience consolidation: updated `docs/e2e-rules.md#写入型远程下拉候选新鲜度门禁` for fresh task-owned remote dropdown fixtures.
 - Experience index: `rg -n "正式工重复关联|写入型远程下拉候选" docs\experience-index.md docs\backend-development.md docs\e2e-rules.md` can locate both long-term gates.
+
+## 2026-08-05 Cleanup Apply
+
+- Cleanup preview: `task_closeout.py --task-id 20260805-production-personnel-management --mode preview --worktree-closeout off` -> READY; kept `task.md`, `execution-log.md`, `verification-report.md`; planned deletion of intermediate evidence files only.
+- Cleanup apply: `task_closeout.py --task-id 20260805-production-personnel-management --mode apply --worktree-closeout off` -> APPLIED; deleted backend/database/frontend/QA temporary evidence and BDD design files after their PASS summaries were copied into `verification-report.md` and `execution-log.md`.
+- Worktree closeout blocker: auto ff-merge/removal was not run because `E:\IntRuoyi` main worktree is dirty and current branch cannot fast-forward merge into `int_main`; no main-worktree files were touched.
