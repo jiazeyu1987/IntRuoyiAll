@@ -39,6 +39,7 @@
 - 2026-08-05：提交前 `scripts/preflight/branch-runtime-port-guard.ps1` PASS，确认 `int_main` 仍使用前端 `8081`、后端 `48081`。
 - 2026-08-05：共享仓库一度被并行任务 Git commit 占用，`index.lock` 为非零且存在明确其它任务 commit 进程；未删除锁、未停止并行任务，待其自然完成后使用 `git commit --only` 精确提交本任务实现。
 - 2026-08-05：实现提交 `096651841 fix: move QA version publish controls to header`，仅包含 `QaRegulationPage.vue` 和任务专用静态契约。
+- 2026-08-05：并行任务随后创建并推送混合基线提交 `633361dde chore: baseline pre-existing worktree changes`，该提交包含本任务三份收尾记录及其它任务文件；本任务不将其冒充独立收尾提交。复核时 `HEAD` 与 `origin/int_main` 均为 `633361dde`，实现提交 `096651841` 已在其父链中同步到远端。
 
 ## Blockers
 

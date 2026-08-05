@@ -34,6 +34,8 @@ QA 规程顶部标题栏现在依次承载版本号、生效日期、生命周�
 - `task-closeout-cleanup` apply -> PASS，删除 `frontend-feature-evidence.md`，保留三份核心任务记录。
 - `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS。
 - 实现提交：`096651841 fix: move QA version publish controls to header`。
+- 收尾记录进入并行基线提交：`633361dde chore: baseline pre-existing worktree changes`；该提交混有其它任务文件，不作为本任务独立实现提交。
+- 远端同步：复核时 `HEAD == origin/int_main == 633361dde`，实现提交已包含在远端历史。
 
 ## Residual Risk
 
