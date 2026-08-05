@@ -339,14 +339,22 @@
         <template #header>
           <div class="qa-regulation-page__card-head">
             <span>工序检验方法与抽样方案</span>
-            <el-button
-              type="primary"
-              plain
-              :disabled="!selectedDccProjectCode"
-              @click="addQaRegulationItem"
-            >
-              新增检验方法
-            </el-button>
+            <div class="qa-regulation-page__card-actions">
+              <UserTableColumnSettings
+                :columns="qaItemsColumns"
+                :saving="qaItemsColumnSaving"
+                :show-reset="false"
+                @change="saveQaItemsColumnConfig"
+              />
+              <el-button
+                type="primary"
+                plain
+                :disabled="!selectedDccProjectCode"
+                @click="addQaRegulationItem"
+              >
+                新增检验方法
+              </el-button>
+            </div>
           </div>
         </template>
         <UnifiedListTemplate
@@ -359,6 +367,8 @@
           :operator-options="qaEmptyOperatorOptions"
           :columns="qaItemsColumns"
           :column-saving="qaItemsColumnSaving"
+          :show-column-settings="false"
+          :show-query-form="false"
           :total="qaRegulationItems.length"
           v-model:page="qaItemsQuery.pageNo"
           v-model:limit="qaItemsQuery.pageSize"
@@ -763,6 +773,7 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
   type TableQuickFilterDefinition,
@@ -2432,10 +2443,19 @@ const runQaPublishPrecheck = async () => {
 
 .qa-regulation-page__card-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   font-weight: 700;
+}
+
+.qa-regulation-page__card-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
 }
 
 .qa-regulation-page__rule-tags {
