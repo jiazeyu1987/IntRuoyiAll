@@ -54,4 +54,21 @@ class AdminUserApiImplPostIdsTest {
         assertEquals(Set.of(701L, 702L), respDTO.getPostIds());
     }
 
+    @Test
+    void getUserListByNickname_shouldSearchAllSystemUsers() {
+        AdminUserDO user = AdminUserDO.builder()
+                .id(2L)
+                .username("li.si")
+                .nickname("李四")
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        when(userService.getUserListByNickname("李")).thenReturn(List.of(user));
+
+        List<AdminUserRespDTO> users = adminUserApi.getUserListByNickname("李");
+
+        assertEquals(1, users.size());
+        assertEquals(2L, users.get(0).getId());
+        assertEquals("李四", users.get(0).getNickname());
+    }
+
 }

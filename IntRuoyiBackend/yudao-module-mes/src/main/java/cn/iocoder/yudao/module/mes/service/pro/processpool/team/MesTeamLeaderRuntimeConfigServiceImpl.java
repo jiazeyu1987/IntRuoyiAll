@@ -39,7 +39,6 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_EMPLOYEE_DISPLAY_NAME_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_SIGNATURE_PASSWORD_MANAGED_BY_USER;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED;
 
 @Service
 @Validated
@@ -96,9 +95,8 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
         if (normalizedKeyword == null) {
             return List.of();
         }
-        return adminUserApi.getUserListBySubordinate(leaderUserId).stream()
+        return adminUserApi.getUserListByNickname(normalizedKeyword).stream()
                 .filter(Objects::nonNull)
-                .filter(user -> matchesKeyword(user, normalizedKeyword))
                 .sorted(Comparator.comparing(MesTeamLeaderRuntimeConfigServiceImpl::resolveUserDisplayName,
                         Comparator.nullsLast(String::compareTo)).thenComparing(AdminUserRespDTO::getId))
                 .limit(20)
@@ -147,7 +145,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getSystemUserId() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "formalEmployee");
         }
-        AdminUserRespDTO user = requireAllowedFormalUser(reqBO.getLeaderUserId(), reqBO.getSystemUserId());
+        AdminUserRespDTO user = requireFormalUser(reqBO.getSystemUserId());
         assertFormalUserNotLinked(reqBO.getLeaderUserId(), reqBO.getSystemUserId());
         String displayName = normalizeText(reqBO.getDisplayName());
         if (displayName == null) {
@@ -429,13 +427,13 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
         return profile;
     }
 
-    private AdminUserRespDTO requireAllowedFormalUser(Long leaderUserId, Long systemUserId) {
+    private AdminUserRespDTO requireFormalUser(Long systemUserId) {
         adminUserApi.validateUser(systemUserId);
-        return adminUserApi.getUserListBySubordinate(leaderUserId).stream()
-                .filter(Objects::nonNull)
-                .filter(user -> Objects.equals(user.getId(), systemUserId))
-                .findFirst()
-                .orElseThrow(() -> exception(PRO_PROCESS_POOL_TEAM_SCOPE_DENIED));
+        AdminUserRespDTO user = adminUserApi.getUser(systemUserId);
+        if (user == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "formalEmployeeUser");
+        }
+        return user;
     }
 
     private void assertFormalUserNotLinked(Long leaderUserId, Long systemUserId) {
@@ -461,14 +459,6 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
         if (duplicated) {
             throw exception(PRO_PROCESS_POOL_TEAM_EMPLOYEE_DISPLAY_NAME_DUPLICATE, displayName);
         }
-    }
-
-    private static boolean matchesKeyword(AdminUserRespDTO user, String keyword) {
-        return containsKeyword(user.getNickname(), keyword) || containsKeyword(user.getUsername(), keyword);
-    }
-
-    private static boolean containsKeyword(String value, String keyword) {
-        return value != null && value.contains(keyword);
     }
 
     private static String resolveUserDisplayName(AdminUserRespDTO user) {

@@ -101,6 +101,11 @@ class BusinessApprovalOrchestratorSignatureRequiredTest {
         }
 
         @Override
+        public List<AdminUserRespDTO> getUserListByNickname(String nickname) {
+            throw new UnsupportedOperationException("Not used by signature-required tests");
+        }
+
+        @Override
         public List<AdminUserRespDTO> getUserList(Collection<Long> ids) {
             return List.of();
         }

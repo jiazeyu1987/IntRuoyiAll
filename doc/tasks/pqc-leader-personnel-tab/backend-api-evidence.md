@@ -37,3 +37,13 @@
 ## Blocker
 
 - 待复跑：`mvn -pl yudao-module-mes -am "-Dtest=MesPqcLeaderPersonnelServiceTest,MesTeamLeaderScopeServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+- 当前 `48081` 运行旧 Jar，内嵌 MES 模块缺少新增 PQC personnel service/VO；必须在新 Jar class 合同、健康检查和认证态业务响应全部通过后才能解除。
+
+## Runtime Contract
+
+- 新运行 Jar 的 `BOOT-INF/lib/yudao-module-mes-*.jar` 必须包含：
+  - `MesPqcLeaderPersonnelService.class`
+  - `MesPqcLeaderPersonnelServiceImpl.class`
+  - `MesPqcLeaderPersonnelRespVO.class`
+- 只允许停止已确认属于 `int_main:48081` 的旧 PID。
+- 未登录 `401` 不作为路由注册证据；最终必须验证认证态目标接口返回业务响应。

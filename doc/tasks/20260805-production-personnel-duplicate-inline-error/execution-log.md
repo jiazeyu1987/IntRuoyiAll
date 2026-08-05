@@ -41,3 +41,4 @@
 - Cleanup preview: PASS；keep 为 `task.md`、`execution-log.md`、`verification-report.md`，delete 为 `bug-regression-evidence.md`、`frontend-feature-evidence.md`，blocked/warnings 均为空。
 - Cleanup apply: PASS；仅删除上述两个临时 evidence 文件，三个核心任务文档保留，当前为主工作区，未执行 worktree 合并或删除。
 - Final status: `completed`；后续最终提交只包含本任务 evidence 删除和核心任务记录更新。
+- Closeout commit: `b0f746a9a docs: complete production personnel inline error task`，包含两个临时 evidence 删除及三个核心任务记录的完成状态。

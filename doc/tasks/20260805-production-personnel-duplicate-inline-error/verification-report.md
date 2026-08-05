@@ -20,6 +20,7 @@
 - PASS: 收尾前记录提交 `50d32d861` 已推送到 `origin/int_main`
 - PASS: task-closeout-cleanup preview/apply，无 blocked 或 warnings
 - PASS: cleanup 后仅保留 `task.md`、`execution-log.md`、`verification-report.md`
+- PASS: 收尾提交 `b0f746a9a` 仅包含本任务清理删除与核心记录更新
 
 ## Evidence Summary
 

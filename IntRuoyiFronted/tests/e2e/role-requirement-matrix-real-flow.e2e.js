@@ -2594,7 +2594,7 @@ async function fillVisiblePqcPieceModalValues(modal) {
       await input.fill('1')
     }
   }
-  const passButtons = modal.locator('.frontline-pqc-piece-row button', { hasText: '合格' })
+  const passButtons = modal.locator('.frontline-pqc-piece-row button.pass')
   const passButtonCount = await passButtons.count()
   for (let index = 0; index < passButtonCount; index += 1) {
     await passButtons.nth(index).click()

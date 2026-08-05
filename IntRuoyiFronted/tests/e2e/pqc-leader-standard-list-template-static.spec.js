@@ -15,6 +15,7 @@ const multiFilterHook = read('src/hooks/web/useTableMultiFilter.ts')
 const multiFilterField = read('src/components/TableMultiFilter/MultiFilterField.vue')
 const quickFilterHook = read('src/hooks/web/useTableQuickFilter.ts')
 const quickFilterField = read('src/components/TableQuickFilter/index.vue')
+const unifiedListTemplate = read('src/components/UnifiedListTemplate/index.vue')
 
 const reportMarker = 'data-team-leader-report-workbench'
 const reportStart = source.indexOf(reportMarker)
@@ -52,6 +53,37 @@ assert.match(
   reportBlock,
   /data-user-table-column-explicit[\s\S]*data-user-table-key="mes\.processPool\.teamLeader\.submissions"/,
   'PQC 管理表格必须接入标准列配置标记。'
+)
+assert.match(
+  reportBlock,
+  /<UnifiedListTemplate[\s\S]*single-line-toolbar/,
+  'PQC 管理列表必须显式启用标准模板单行工具栏布局。'
+)
+
+assert.match(
+  unifiedListTemplate,
+  /singleLineToolbar\?:\s*boolean/,
+  '标准列表模板必须提供可复用的单行工具栏开关。'
+)
+assert.match(
+  unifiedListTemplate,
+  /'unified-list-template--single-line-toolbar':\s*singleLineToolbar/,
+  '标准列表模板必须通过稳定修饰类启用单行布局。'
+)
+assert.match(
+  unifiedListTemplate,
+  /@media \(min-width:\s*1181px\)[\s\S]*\.unified-list-template--single-line-toolbar \.unified-list-template__query-form\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(720px,\s*1fr\)\s+auto;/,
+  '桌面端单行模式必须使用左侧最小 720px 弹性筛选列和右侧自动宽度工具列。'
+)
+assert.match(
+  unifiedListTemplate,
+  /\.unified-list-template--single-line-toolbar \.unified-list-template__multi-filter\s*\{[\s\S]*grid-column:\s*1;[\s\S]*grid-row:\s*1;/,
+  '单行模式必须把多条件筛选固定在左侧第一列。'
+)
+assert.match(
+  unifiedListTemplate,
+  /\.unified-list-template--single-line-toolbar \.unified-list-template__toolbar-actions\s*\{[\s\S]*grid-column:\s*2;[\s\S]*grid-row:\s*1;[\s\S]*margin-left:\s*0;/,
+  '单行模式必须把显示字段工具区固定在右侧第二列。'
 )
 
 assert.match(

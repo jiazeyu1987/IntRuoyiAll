@@ -454,7 +454,7 @@ public class MesProcessPoolTeamLeaderController {
     }
 
     @GetMapping("/employee-profile/formal-candidates")
-    @Operation(summary = "按姓名搜索当前生产组长可关联的正式工")
+    @Operation(summary = "按姓名搜索全量系统正式工")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
     public CommonResult<List<MesTeamFormalUserCandidateRespVO>> searchFormalEmployeeCandidates(
             @RequestParam("keyword") String keyword) {
@@ -477,7 +477,7 @@ public class MesProcessPoolTeamLeaderController {
     }
 
     @PostMapping("/employee-profile/formal/link")
-    @Operation(summary = "关联当前生产组长可维护范围内的正式工")
+    @Operation(summary = "关联全量系统用户中的正式工")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
     public CommonResult<Long> linkFormalEmployee(@Valid @RequestBody MesTeamFormalEmployeeLinkReqVO reqVO) {
         return success(runtimeConfigService.linkFormalEmployee(MesTeamFormalEmployeeLinkReqBO.builder()

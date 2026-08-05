@@ -466,6 +466,7 @@
         label-width="88px"
         :filter-definitions="submissionQuickFilterDefinitions"
         :show-quick-filter="false"
+        single-line-toolbar
         :quick-filter-state="submissionQuickFilterState"
         :operator-options="submissionOperatorOptions"
         :show-multi-filter="true"
