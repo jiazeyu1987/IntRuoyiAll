@@ -43,4 +43,4 @@
 - PASS: stale slot blocker was resolved after user approval.
 - PASS: current merge of `origin/int_main` has been resolved, verified, committed, and pushed.
 - PASS: cleanup preview/apply with `--worktree-closeout off` deleted only `frontend-feature-evidence.md` and kept the three core task records.
-- BLOCKED: automatic linked-worktree closeout cannot ff-only merge/remove this worktree because main worktree `E:\IntRuoyi` is dirty with unrelated 20260805 task files.
+- BLOCKED: automatic linked-worktree closeout cannot ff-only merge/remove this worktree because local `int_main` is ahead of `origin/int_main` and not an ancestor of this branch; main worktree `E:\IntRuoyi` is also dirty with unrelated 20260805 task files.
