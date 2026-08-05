@@ -1166,6 +1166,12 @@ public interface ErrorCodeConstants {
             "原始记录补正必须基于最新退回复核记录：eventId={}，latestStatus={}");
     ErrorCode PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED = new ErrorCode(1_040_760_334,
             "生产报工通过必须使用报工分配确认链路：eventId={}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_EMPLOYEE_DISPLAY_NAME_DUPLICATE = new ErrorCode(1_040_760_335,
+            "当前生产组长已有同名有效员工，请修改姓名或增加后缀：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_FORMAL_SIGNATURE_PASSWORD_MANAGED_BY_USER = new ErrorCode(1_040_760_336,
+            "正式工电子签名密码由用户管理统一维护，不能在生产人员档案中重置：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_DUPLICATE = new ErrorCode(1_040_760_337,
+            "当前生产组长已关联该正式工，请启用或修改既有生产人员档案：{}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

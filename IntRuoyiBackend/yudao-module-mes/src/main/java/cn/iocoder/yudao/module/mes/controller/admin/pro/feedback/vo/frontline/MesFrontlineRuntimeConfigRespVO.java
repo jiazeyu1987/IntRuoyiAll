@@ -29,6 +29,7 @@ public class MesFrontlineRuntimeConfigRespVO {
         private Long systemUserId;
         private String employeeCode;
         private String employeeName;
+        private String displayName;
         private String employeeType;
     }
 

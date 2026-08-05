@@ -28,3 +28,22 @@
 - GREEN: `git -C D:\IntRuoyiWorktree\20260805-production-personnel-management status --short --branch --untracked-files=all` -> PASS, branch clean.
 - GREEN: `git -C E:\IntRuoyi rev-list --left-right --count int_main...origin/codex/20260805-production-personnel-management` -> PASS, `4 5`.
 - GREEN: `git commit -m "chore: preserve residual QA regulation frontend update"` -> PASS, commit `85cc34eeb`.
+
+## 2026-08-05 Isolated Integration Worktree
+
+- Command intent: avoid overwriting concurrent dirty changes in `E:\IntRuoyi` by creating clean integration worktree `D:\IntRuoyiWorktree\20260805-integrate-production-personnel` from `origin/int_main`.
+- GREEN: `scripts\runtime\reserve-worktree-slot.ps1 -Name 20260805-integrate-production-personnel -Path D:\IntRuoyiWorktree\20260805-integrate-production-personnel -Branch codex/20260805-integrate-production-personnel -Profile int_main -AsJson` -> PASS, slot `3`, frontend `8084`, backend `48084`.
+- Merge: `git merge --no-ff origin/codex/20260805-production-personnel-management -m "merge: production personnel management into int_main"` entered conflict state after timeout; `MERGE_HEAD` remained present and index had four unmerged files.
+- Conflict resolution: semantically merged `MesProcessPoolTeamLeaderController.java`, `MesProcessPoolTeamLeaderSchemaTest.java`, `MesTeamLeaderRuntimeConfigServiceTest.java`, and `TeamLeaderWorkbenchPage.vue`, preserving both process-loss-reason maintenance and production personnel management behavior.
+- Evidence preservation: restored `doc/tasks/20260805-production-personnel-management/bdd-tdd-design.md` from `HEAD` because the integration merge attempted to delete retained design evidence without matching closeout proof in the merge context.
+- RED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, QA manual route binding static contract expected `ProRouteApi.getRouteSimpleList()` before `ProRouteProductApi.saveRouteProductByItem()`.
+- Fix: changed `QaRegulationPage.vue` manual route candidate loading from `ProRouteApi.getRouteItemBindingList()` to `ProRouteApi.getRouteSimpleList()`, preserving the formal product-route save path.
+- GREEN: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS.
+- GREEN: `node tests/e2e/production-personnel-management-static.spec.cjs` -> PASS.
+- GREEN: `node tests/e2e/process-loss-reason-maintenance-static.spec.cjs` -> PASS.
+- GREEN: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS for `codex/20260805-integrate-production-personnel/int_main`, frontend `8084`, backend `48084`.
+- GREEN: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest,MesTeamLeaderRuntimeConfigServiceTest,MesFrontlineRuntimeConfigServiceTest,MesFrontlineRuntimeConfigControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 32, Failures: 0, Errors: 0, Skipped: 0.
+- GREEN: `pnpm install --offline --frozen-lockfile --ignore-scripts --child-concurrency=2 --reporter append-only` -> PASS, restored worktree-local `node_modules` links from pnpm store without changing lockfile.
+- GREEN: `pnpm ts:check` -> PASS.
+- GREEN: `git diff --cached --check` -> PASS.
+- GREEN: scoped staged-file conflict marker scan `rg -n "^(<<<<<<<|=======|>>>>>>>)"` -> PASS.

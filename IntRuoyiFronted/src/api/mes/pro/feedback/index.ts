@@ -211,6 +211,7 @@ export interface FrontlineEmployeeCandidateVO {
   systemUserId?: number
   employeeCode?: string
   employeeName?: string
+  displayName?: string
   employeeType?: string
 }
 
@@ -285,6 +286,7 @@ export interface FrontlineRuntimeEmployeeVO {
   systemUserId?: number
   employeeCode?: string
   employeeName?: string
+  displayName?: string
   employeeType?: string
 }
 

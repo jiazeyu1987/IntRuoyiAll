@@ -76,9 +76,9 @@
 ## 并行主工作区远端快进融合门禁
 
 - Trigger: 主工作区持续被并行任务写入，任务分支已在干净 worktree 中完成实现、验证和推送，但本地 `int_main` 无法保持 clean 以接收 `task_closeout.py` 的 ff-only merge。
-- Preflight check: 在任务 worktree 中先 `git fetch origin int_main`，确认 `origin/int_main` 是当前任务分支 HEAD 的祖先；融合后必须重跑该任务的目标后端、前端、迁移或端口守卫验证，并记录远端主线 hash、任务 HEAD 和验证结果。
-- Blocker: `origin/int_main` 不是任务 HEAD 的祖先、目标验证失败、远端主线又前进导致非快进推送被拒、任务分支存在未提交改动、或缺少可用 `origin` push remote 时必须停止。若目标验证使用 `mvn -pl <module> -am`，上游依赖模块的 compile/testCompile 失败也属于目标验证失败；必须阻塞并记录缺失类/Mapper/测试文件，不得因为当前任务源码未改该依赖模块就跳过、排除或降级验证。
-- Verification: `git merge-base --is-ancestor origin/int_main HEAD` 通过，目标验证命令 PASS，`git push origin HEAD:int_main` 成功，随后 `git fetch origin int_main` 并确认 `origin/int_main` 指向已验证 HEAD 或其后续已融合提交。
+- Preflight check: 在任务 worktree 中先 `git fetch origin int_main`，确认 `origin/int_main` 是当前任务分支 HEAD 的祖先；若不是祖先但任务分支干净且需要解除 closeout 的非 fast-forward blocker，先在隔离 worktree 内语义合入 `origin/int_main`，解决冲突后再重跑该任务的目标后端、前端、迁移或端口守卫验证，并记录远端主线 hash、任务 HEAD 和验证结果。若 `E:\IntRuoyi` 主工作区持续 dirty，不要反复抢主工作区 clean 状态；可从 `origin/int_main` 新建一个 `D:\IntRuoyiWorktree\` 下的集成 worktree，登记 slot 后在该 worktree 内合并功能分支、验证、提交，并用 `git push origin HEAD:int_main` 更新远端主线。
+- Blocker: `origin/int_main` 不是任务 HEAD 的祖先且合入主线冲突无法语义解决、目标验证失败、远端主线又前进导致非快进推送被拒、任务分支存在未提交改动、或缺少可用 `origin` push remote 时必须停止。若目标验证使用 `mvn -pl <module> -am`，上游依赖模块的 compile/testCompile 失败也属于目标验证失败；必须阻塞并记录缺失类/Mapper/测试文件，不得因为当前任务源码未改该依赖模块就跳过、排除或降级验证。
+- Verification: `git merge-base --is-ancestor origin/int_main HEAD` 通过，目标验证命令 PASS，`git push origin HEAD:int_main` 成功，随后 `git fetch origin int_main` 并确认 `origin/int_main` 指向已验证 HEAD 或其后续已融合提交。若集成时触发相邻功能静态合同失败，必须先判断是否为当前融合后主线回归；可在同一集成提交中做最小语义修复并复跑相邻静态合同，禁止把失败静态合同记为无关后继续推送。
 - Forbidden action: 禁止为了 closeout 强行清理、回滚或提交并行任务文件；禁止 force push；禁止在未验证融合后 HEAD 的情况下直接更新 `int_main`；禁止把本地 dirty 主工作区清洁失败当作远端主线已集成。
 - Evidence: `doc/tasks/20260727-codex-test-node-chain/verification-report.md`、`doc/tasks/20260728-node-chain-route-filter/verification-report.md`，主工作区持续并行写入时，任务分支先融合 `origin/int_main`、完成目标验证，再按远端快进路径集成；`doc/tasks/20260730-edhr-frontline-fill-tabs/verification-report.md`，eDHR 集成在远端主线新增 DCC testCompile 缺失类后阻塞，未跳过依赖模块门禁。
 
@@ -87,16 +87,16 @@
 - Trigger: `D:\ProjectPackage\IntRuoyi\IntRuoyiAll` 的本地 `int_main` 在 `git fetch origin int_main` 后同时 `ahead` 和 `behind`，需要把远端 `origin/int_main` 融合回本地主线。
 - Preflight check: 先记录 `git status --short --branch`、`git rev-list --left-right --count HEAD...origin/int_main`、本地 ahead 提交清单和远端 behind 数量；融合前确认未跟踪/脏文件仅属于当前任务文档或已形成基线提交。
 - Blocker: 冲突文件无法通过语义合并保留双方门禁、当前任务文件可能被远端同名覆盖、远端更新后端口 guard 失败、或本地 ahead 提交无法解释时必须停止。
-- Verification: 冲突解决后先用 `rg -n "<<<<<<<|=======|>>>>>>>" <冲突文件>` 清除冲突标记，再运行 `scripts\preflight\branch-runtime-port-guard.ps1`、受影响前端/后端验证和 `git status --short --branch`；若 `git diff --cached --check` 命中远端历史已存在的 whitespace，必须用 scoped diff 证明冲突解决文件和当前任务文件未新增 whitespace，再记录上游遗留项。
+- Verification: 冲突解决后先用 `rg -n "^(<<<<<<<|=======|>>>>>>>)" <冲突文件或 staged 文件>` 清除真正的 Git 冲突标记，再运行 `scripts\preflight\branch-runtime-port-guard.ps1`、受影响前端/后端验证和 `git status --short --branch`；不要用未锚定的 `=======` 全仓扫描判断冲突残留，因为大量 Java 注释分隔线会产生假阳性。若 `git diff --cached --check` 命中远端历史已存在的 whitespace，必须用 scoped diff 证明冲突解决文件和当前任务文件未新增 whitespace，再记录上游遗留项。
 - Forbidden action: 禁止用整文件 `ours/theirs` 覆盖经验门禁文档；禁止因为上游 whitespace 遗留就静默改写大量远端历史文件；禁止在未重跑端口 guard 和目标验证前提交或推送融合结果。
 - Evidence: `doc/tasks/merge-int-main-code-20260728/verification-report.md`，本地 `int_main` 领先 5、落后 445 后融合 `origin/int_main`，保留远端新增前端经验门禁并通过前端 `ts:check`、后端 `compile` 和端口 guard。
 
 ## Worktree 前端依赖启动门禁
 
 - Trigger: 在 `D:\IntRuoyiWorktree\` 下新增或恢复 worktree 后启动前端、运行 Vite、执行前端 `pnpm` 脚本、执行真实 E2E，或日志出现 `Command "vite" not found`、`node_modules\.bin\vite` 缺失、`cross-env is not recognized`。
-- Preflight check: 启动前端或运行前端脚本前先检查目标 worktree 的 `IntRuoyiFronted\package.json`、`pnpm-lock.yaml` 和目标命令需要的 `node_modules\.bin\<tool>.cmd`；例如 Vite/E2E 检查 `vite.cmd`，`pnpm ts:check` 检查 `cross-env.cmd` 与 `vue-tsc`。若依赖缺失，在目标 worktree 前端目录执行 `pnpm install --frozen-lockfile`，不得复制其他工作区的 `node_modules`。
-- Blocker: `pnpm install --frozen-lockfile` 失败、修改 lockfile、依赖目录仍缺目标脚本工具、或目标路径不是当前任务 worktree 时必须停止，不得换端口、复用旧前端进程或把后端/API 验证冒充真实页面 E2E。
-- Verification: 记录 `pnpm install --frozen-lockfile` 退出码、目标 `node_modules\.bin\<tool>.cmd` 存在性、目标前端脚本或前端入口 HTTP 200、Vite 进程命令行指向目标 worktree，以及任务结束后登记端口是否释放。
+- Preflight check: 启动前端或运行前端脚本前先检查目标 worktree 的 `IntRuoyiFronted\package.json`、`pnpm-lock.yaml` 和目标命令需要的 `node_modules\.bin\<tool>.cmd`；例如 Vite/E2E 检查 `vite.cmd`，`pnpm ts:check` 检查 `cross-env.cmd` 与 `vue-tsc`。若依赖缺失，在目标 worktree 前端目录执行 `pnpm install --frozen-lockfile`，不得复制其他工作区的 `node_modules`。若首次 install 超时但 `node_modules\.pnpm` 已有包而顶层 `.bin` 未链接，可在同一目标 worktree 中执行 `pnpm install --offline --frozen-lockfile --ignore-scripts --child-concurrency=2 --reporter append-only` 补齐链接；不得因此改锁文件或跳过类型检查。
+- Blocker: `pnpm install --frozen-lockfile` 或离线补链失败、修改 lockfile、依赖目录仍缺目标脚本工具、或目标路径不是当前任务 worktree 时必须停止，不得换端口、复用旧前端进程、直接调用残缺 `.pnpm` 内部包冒充完整脚本，或把后端/API 验证冒充真实页面 E2E。
+- Verification: 记录 `pnpm install --frozen-lockfile` 或离线补链命令退出码、目标 `node_modules\.bin\<tool>.cmd` 存在性、目标前端脚本或前端入口 HTTP 200、Vite 进程命令行指向目标 worktree，以及任务结束后登记端口是否释放。
 - Forbidden action: 禁止复制 `node_modules`、使用主工作区 Vite 进程冒充 worktree 前端、改共享 `.env` 抢端口、或在依赖缺失时切换到 API-only。
 - Evidence: `doc/tasks/20260726-edhr-release-dossier-requirement-switches/execution-log.md`，slot 5 worktree 首次启动前端失败于 `Command "vite" not found`，补跑 `pnpm install --frozen-lockfile` 后 8086 前端真实启动并通过 E2E；`doc/tasks/20260804-qa-regulation-tab/execution-log.md`，`2020804_qa` worktree 首次 `pnpm ts:check` 失败于 `cross-env` 缺失，确认 worktree 与主工作区锁文件哈希不同后，没有复用主工作区 `node_modules`，改在目标 worktree 执行 `pnpm install --frozen-lockfile` 后类型检查通过。
 

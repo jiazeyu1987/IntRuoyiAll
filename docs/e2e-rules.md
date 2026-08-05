@@ -365,6 +365,15 @@
 - Forbidden action: 禁止把 `collapse-tags-tooltip`、扩大整页/整弹窗、硬编码当前角色名/目标项名、只验证下拉选项文本、或只调宽一个控件但让相邻控件继续被挤压当成“显示完整”。
 - Evidence: `doc/tasks/20260725-edhr-pressure-pump-v13-filler-role/verification-report.md`；`doc/tasks/20260726-codex-test-target-item-input-display/verification-report.md`；`doc/tasks/20260728-edhr-detail-assist-preview-switch/execution-log.md`；`doc/tasks/20260805-profile-nas-table-auto-sync/execution-log.md`。
 
+### 写入型远程下拉候选新鲜度门禁
+
+- Trigger: Playwright 写入型 E2E 通过远程搜索下拉选择正式用户、员工、角色、设备、路线、表单或其它会被新增/绑定/消费的候选对象，尤其脚本可重复运行。
+- Preflight check: 每次写入型 E2E 前必须确认候选对象未被本业务关系消费；如关系具有唯一键或禁用后仍占用业务身份，应创建任务自有新鲜 fixture 或显式走“启用既有记录”路径。
+- Blocker: 搜索候选已被上一轮 E2E 绑定、已禁用但仍占用唯一键、下拉仍可选但提交返回重复业务错误或 DB 500、或脚本把重复失败当成可接受成功时必须停止并刷新 fixture 或修业务校验。
+- Verification: 证据记录候选来源、任务自有标识、页面真实选择动作、写接口响应和最终 UI/API/DB 状态；重复运行时不得复用已消费候选冒充新增路径通过。
+- Forbidden action: 禁止用固定历史候选长期重复写入、禁止前端数组下标选中隐藏值、禁止 API-only 造绑定替代页面下拉、禁止记录密码/token 或把 DB 500 当作预期重复提示。
+- Evidence: `doc/tasks/20260805-production-personnel-management/verification-report.md`，生产人员档案真实 E2E 使用新正式工 fixture `ppmformal151308` 完成正式工远程搜索关联。
+
 ## 表格行定位
 
 - 当页面对列表进行本地排序、过滤或虚拟渲染时，Playwright 必须按页面可见的业务唯一文本定位目标行，再操作同一行的复选框或按钮。

@@ -36,6 +36,8 @@
     "e2e:team-leader-workbench:static": "node tests/e2e/team-leader-workbench-static.spec.cjs",
     "e2e:team-leader-workbench:real:check": "node --check tests/e2e/team-leader-workbench-real-flow.e2e.js",
     "e2e:team-leader-workbench:real": "node tests/e2e/team-leader-workbench-real-flow.e2e.js",
+    "e2e:production-personnel-management:real:check": "node --check tests/e2e/production-personnel-management-real.e2e.js",
+    "e2e:production-personnel-management:real": "node tests/e2e/production-personnel-management-real.e2e.js",
     "e2e:p0-production-execution-loop:static": "node tests/e2e/p0-production-execution-loop-static.spec.cjs",
     "e2e:p0-production-execution-loop:real": "node tests/e2e/p0-production-execution-loop-real.e2e.js",
     "e2e:role-requirement-matrix:preflight:static": "node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs",
