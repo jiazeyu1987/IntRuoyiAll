@@ -12,6 +12,10 @@ const teamLeaderWorkbenchPath = path.join(
   frontendRoot,
   'src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'
 )
+const frontlineFixedTemplatePanelPath = path.join(
+  frontendRoot,
+  'src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue'
+)
 const teamLeaderApiPath = path.join(frontendRoot, 'src/api/mes/pro/processpool/teamLeader.ts')
 const processPoolApiPath = path.join(frontendRoot, 'src/api/mes/pro/processpool/index.ts')
 const timelineFilterTestPath = path.join(
@@ -114,6 +118,7 @@ for (const [scriptName, relativeFile] of Object.entries(plannedStaticScripts)) {
 const source = fs.readFileSync(realFlowPath, 'utf8')
 const remainingRouterSource = fs.readFileSync(remainingRouterPath, 'utf8')
 const teamLeaderSource = fs.readFileSync(teamLeaderWorkbenchPath, 'utf8')
+const frontlineFixedTemplatePanelSource = fs.readFileSync(frontlineFixedTemplatePanelPath, 'utf8')
 const teamLeaderApiSource = fs.readFileSync(teamLeaderApiPath, 'utf8')
 const processPoolApiSource = fs.readFileSync(processPoolApiPath, 'utf8')
 const timelineFilterTestSource = fs.readFileSync(timelineFilterTestPath, 'utf8')
@@ -425,7 +430,7 @@ assert.match(
   'real E2E must verify PQC method, standard, and result type from their actual visible page surfaces.'
 )
 assert.match(
-  frontendSource,
+  frontlineFixedTemplatePanelSource,
   /data-pqc-piece-open-button[\s\S]*openPqcPieceInspection\(activePqcTabItem\.key\)/,
   'PQC page must expose a stable visible button for opening piece-detail inspection.'
 )
