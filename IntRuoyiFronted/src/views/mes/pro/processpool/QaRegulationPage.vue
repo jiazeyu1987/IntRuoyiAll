@@ -20,6 +20,15 @@
     </ContentWrap>
 
     <ContentWrap>
+      <el-tabs v-model="qaActiveTab" data-qa-regulation-tabs>
+        <el-tab-pane label="总览" name="overview" />
+        <el-tab-pane label="检验规则" name="rules" />
+        <el-tab-pane label="检验项目" name="items" />
+        <el-tab-pane label="发布检查" name="verification" />
+      </el-tabs>
+    </ContentWrap>
+
+    <ContentWrap v-show="qaActiveTab === 'overview'">
       <div class="qa-regulation-page__layout">
         <el-card shadow="never" data-qa-regulation-dcc-project>
           <template #header>
@@ -367,7 +376,7 @@
       </div>
     </ContentWrap>
 
-    <ContentWrap>
+    <ContentWrap v-show="qaActiveTab === 'rules'">
       <el-card shadow="never" data-qa-regulation-inspection-rules>
         <template #header>
           <div class="qa-regulation-page__card-head">
@@ -380,50 +389,119 @@
             </div>
           </div>
         </template>
-        <el-table :data="qaInspectionTypeRules" border size="small">
-          <el-table-column label="规则" min-width="120">
-            <template #default="{ row }">
-              <div class="qa-regulation-page__rule-name">{{ row.label }}</div>
-              <div class="qa-regulation-page__hint">{{ row.roundLabel }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column label="是否适用" width="110">
-            <template #default="{ row }">
-              <el-switch v-model="row.required" />
-            </template>
-          </el-table-column>
-          <el-table-column label="固定数量" width="140">
-            <template #default="{ row }">
-              <el-input-number
-                v-model="row.fixedQuantity"
-                :disabled="!row.required || row.sampleRatio !== undefined"
-                :min="0"
-                :controls="false"
-                class="!w-100%"
+        <UnifiedListTemplate
+          table-key="mes.qa.regulation.rules"
+          :query-model="qaRulesQuery"
+          :filter-definitions="qaEmptyFilterDefinitions"
+          :show-quick-filter="false"
+          :quick-filter-state="qaEmptyQuickFilterState"
+          :selected-filter-definition="qaEmptySelectedFilterDefinition"
+          :operator-options="qaEmptyOperatorOptions"
+          :columns="qaRulesColumns"
+          :column-saving="qaRulesColumnSaving"
+          :total="qaInspectionTypeRules.length"
+          v-model:page="qaRulesQuery.pageNo"
+          v-model:limit="qaRulesQuery.pageSize"
+          @column-change="saveQaRulesColumnConfig"
+          @column-reset="resetQaRulesColumnConfig"
+        >
+          <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+            <el-table
+              :data="pagedQaInspectionTypeRules"
+              border
+              size="small"
+              data-user-table-column-explicit
+              data-user-table-key="mes.qa.regulation.rules"
+              @header-dragend="handleQaRulesHeaderDragend"
+              @sort-change="handleTemplateSortChange"
+            >
+              <el-table-column
+                v-if="isQaRulesColumnVisible('rule')"
+                label="规则"
+                prop="rule"
+                :min-width="getQaRulesColumnMinWidthString('rule', 120)"
+              v-bind="sortColumnAttrs('rule')"
+              >
+                <template #default="{ row }">
+                  <div class="qa-regulation-page__rule-name">{{ row.label }}</div>
+                  <div class="qa-regulation-page__hint">{{ row.roundLabel }}</div>
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaRulesColumnVisible('required')"
+                label="是否适用"
+                prop="required"
+                :width="getQaRulesColumnWidthString('required', 110)"
+              v-bind="sortColumnAttrs('required')"
+              >
+                <template #default="{ row }">
+                  <el-switch v-model="row.required" />
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaRulesColumnVisible('fixedQuantity')"
+                label="固定数量"
+                prop="fixedQuantity"
+                :width="getQaRulesColumnWidthString('fixedQuantity', 140)"
+              v-bind="sortColumnAttrs('fixedQuantity')"
+              >
+                <template #default="{ row }">
+                  <el-input-number
+                    v-model="row.fixedQuantity"
+                    :disabled="!row.required || row.sampleRatio !== undefined"
+                    :min="0"
+                    :controls="false"
+                    class="!w-100%"
+                  />
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaRulesColumnVisible('sampleRatio')"
+                label="抽样比例"
+                prop="sampleRatio"
+                :width="getQaRulesColumnWidthString('sampleRatio', 140)"
+              v-bind="sortColumnAttrs('sampleRatio')"
+              >
+                <template #default="{ row }">
+                  <el-input-number
+                    v-model="row.sampleRatio"
+                    :disabled="!row.required || row.fixedQuantity !== undefined"
+                    :min="0"
+                    :max="100"
+                    :precision="1"
+                    :controls="false"
+                    class="!w-100%"
+                  />
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaRulesColumnVisible('plannedQuantity')"
+                label="PQC 计划数量"
+                prop="plannedQuantity"
+                :width="getQaRulesColumnWidthString('plannedQuantity', 150)"
+              v-bind="sortColumnAttrs('plannedQuantity')"
+              >
+                <template #default="{ row }">
+                  <el-tag effect="plain">{{ formatQaRulePlannedQuantity(row) }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaRulesColumnVisible('taskRule')"
+                label="任务生成规则"
+                prop="taskRule"
+                :min-width="getQaRulesColumnMinWidthString('taskRule', 240)"
+              v-bind="sortColumnAttrs('taskRule')"
               />
-            </template>
-          </el-table-column>
-          <el-table-column label="抽样比例" width="140">
-            <template #default="{ row }">
-              <el-input-number
-                v-model="row.sampleRatio"
-                :disabled="!row.required || row.fixedQuantity !== undefined"
-                :min="0"
-                :max="100"
-                :precision="1"
-                :controls="false"
-                class="!w-100%"
+              <el-table-column
+                v-if="isQaRulesColumnVisible('releaseGate')"
+                label="发布门禁"
+                prop="releaseGate"
+                :min-width="getQaRulesColumnMinWidthString('releaseGate', 240)"
+              v-bind="sortColumnAttrs('releaseGate')"
               />
-            </template>
-          </el-table-column>
-          <el-table-column label="PQC 计划数量" width="150">
-            <template #default="{ row }">
-              <el-tag effect="plain">{{ formatQaRulePlannedQuantity(row) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="任务生成规则" min-width="240" prop="taskRule" />
-          <el-table-column label="发布门禁" min-width="240" prop="releaseGate" />
-        </el-table>
+            </el-table>
+          </template>
+        </UnifiedListTemplate>
         <div class="qa-regulation-page__hint mt-8px">
           巡检示例：{{ qaRegulationDraft.sampleOrderQuantity }} × 5% =
           {{ Math.ceil(qaRegulationDraft.sampleOrderQuantity * 0.05) }}，按向上取整生成 PQC 任务。
@@ -431,7 +509,7 @@
       </el-card>
     </ContentWrap>
 
-    <ContentWrap>
+    <ContentWrap v-show="qaActiveTab === 'items'">
       <el-card shadow="never" data-qa-regulation-items>
         <template #header>
           <div class="qa-regulation-page__card-head">
@@ -446,135 +524,297 @@
             </el-button>
           </div>
         </template>
-        <el-table :data="qaRegulationItems" border size="small">
-          <el-table-column label="项目编码" width="130">
-            <template #default="{ row }">
-              <el-input v-model="row.itemCode" />
-            </template>
-          </el-table-column>
-          <el-table-column label="项目" min-width="170">
-            <template #default="{ row }">
-              <el-input v-model="row.itemName" />
-            </template>
-          </el-table-column>
-          <el-table-column label="适用类型" min-width="210">
-            <template #default="{ row }">
-              <el-select v-model="row.applicableTypes" multiple collapse-tags collapse-tags-tooltip>
-                <el-option
-                  v-for="option in qaInspectionTypeOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-            </template>
-          </el-table-column>
-          <el-table-column label="方法" min-width="160">
-            <template #default="{ row }">
-              <el-input v-model="row.inspectionMethod" />
-            </template>
-          </el-table-column>
-          <el-table-column label="工具" min-width="150">
-            <template #default="{ row }">
-              <el-input v-model="row.inspectionTool" />
-            </template>
-          </el-table-column>
-          <el-table-column label="结果类型" width="130">
-            <template #default="{ row }">
-              <el-select v-model="row.resultType">
-                <el-option label="合格/不合格" value="BOOLEAN" />
-                <el-option label="数值" value="NUMERIC" />
-                <el-option label="文本" value="TEXT" />
-              </el-select>
-            </template>
-          </el-table-column>
-          <el-table-column label="标准" min-width="240">
-            <template #default="{ row }">
-              <el-input v-model="row.standardText" />
-            </template>
-          </el-table-column>
-          <el-table-column label="原文依据" min-width="420">
-            <template #default="{ row }">
-              <div class="qa-regulation-page__source" data-qa-regulation-original-excerpt>
-                <div class="qa-regulation-page__source-meta">
-                  <el-tag size="small" type="info" effect="plain">
-                    PDF 第 {{ row.sourceOriginalPage || '待补充' }} 页
-                  </el-tag>
-                  <span>{{ row.sourceOriginalItem || '待补充原文项目' }}</span>
-                </div>
-                <div class="qa-regulation-page__source-label">接受标准原文</div>
-                <div class="qa-regulation-page__source-text">
-                  {{ row.sourceOriginalExcerpt || 'QA 手工新增项目需补充对应 PDF/规程原文摘录。' }}
-                </div>
-                <template v-if="row.sourceOriginalMethod">
-                  <div class="qa-regulation-page__source-label">检验方法原文</div>
-                  <div class="qa-regulation-page__source-text">
-                    {{ row.sourceOriginalMethod }}
+        <UnifiedListTemplate
+          table-key="mes.qa.regulation.items"
+          :query-model="qaItemsQuery"
+          :filter-definitions="qaEmptyFilterDefinitions"
+          :show-quick-filter="false"
+          :quick-filter-state="qaEmptyQuickFilterState"
+          :selected-filter-definition="qaEmptySelectedFilterDefinition"
+          :operator-options="qaEmptyOperatorOptions"
+          :columns="qaItemsColumns"
+          :column-saving="qaItemsColumnSaving"
+          :total="qaRegulationItems.length"
+          v-model:page="qaItemsQuery.pageNo"
+          v-model:limit="qaItemsQuery.pageSize"
+          @column-change="saveQaItemsColumnConfig"
+          @column-reset="resetQaItemsColumnConfig"
+        >
+          <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+            <el-table
+              :data="pagedQaRegulationItems"
+              border
+              size="small"
+              data-user-table-column-explicit
+              data-user-table-key="mes.qa.regulation.items"
+              @header-dragend="handleQaItemsHeaderDragend"
+              @sort-change="handleTemplateSortChange"
+            >
+              <el-table-column
+                v-if="isQaItemsColumnVisible('itemCode')"
+                label="项目编码"
+                prop="itemCode"
+                :width="getQaItemsColumnWidthString('itemCode', 130)"
+              v-bind="sortColumnAttrs('itemCode')"
+              >
+                <template #default="{ row }">
+                  <el-input v-model="row.itemCode" />
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaItemsColumnVisible('itemName')"
+                label="项目"
+                prop="itemName"
+                :min-width="getQaItemsColumnMinWidthString('itemName', 170)"
+              v-bind="sortColumnAttrs('itemName')"
+              >
+                <template #default="{ row }">
+                  <el-input v-model="row.itemName" />
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaItemsColumnVisible('applicableTypes')"
+                label="适用类型"
+                prop="applicableTypes"
+                :min-width="getQaItemsColumnMinWidthString('applicableTypes', 210)"
+              v-bind="sortColumnAttrs('applicableTypes')"
+              >
+                <template #default="{ row }">
+                  <el-select v-model="row.applicableTypes" multiple collapse-tags collapse-tags-tooltip>
+                    <el-option
+                      v-for="option in qaInspectionTypeOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaItemsColumnVisible('inspectionMethod')"
+                label="方法"
+                prop="inspectionMethod"
+                :min-width="getQaItemsColumnMinWidthString('inspectionMethod', 160)"
+              v-bind="sortColumnAttrs('inspectionMethod')"
+              >
+                <template #default="{ row }">
+                  <el-input v-model="row.inspectionMethod" />
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaItemsColumnVisible('inspectionTool')"
+                label="工具"
+                prop="inspectionTool"
+                :min-width="getQaItemsColumnMinWidthString('inspectionTool', 150)"
+              v-bind="sortColumnAttrs('inspectionTool')"
+              >
+                <template #default="{ row }">
+                  <el-input v-model="row.inspectionTool" />
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaItemsColumnVisible('resultType')"
+                label="结果类型"
+                prop="resultType"
+                :width="getQaItemsColumnWidthString('resultType', 130)"
+              v-bind="sortColumnAttrs('resultType')"
+              >
+                <template #default="{ row }">
+                  <el-select v-model="row.resultType">
+                    <el-option label="合格/不合格" value="BOOLEAN" />
+                    <el-option label="数值" value="NUMERIC" />
+                    <el-option label="文本" value="TEXT" />
+                  </el-select>
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaItemsColumnVisible('standardText')"
+                label="标准"
+                prop="standardText"
+                :min-width="getQaItemsColumnMinWidthString('standardText', 240)"
+              v-bind="sortColumnAttrs('standardText')"
+              >
+                <template #default="{ row }">
+                  <el-input v-model="row.standardText" />
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaItemsColumnVisible('sourceOriginalExcerpt')"
+                label="原文依据"
+                prop="sourceOriginalExcerpt"
+                :min-width="getQaItemsColumnMinWidthString('sourceOriginalExcerpt', 420)"
+              v-bind="sortColumnAttrs('sourceOriginalExcerpt')"
+              >
+                <template #default="{ row }">
+                  <div class="qa-regulation-page__source" data-qa-regulation-original-excerpt>
+                    <div class="qa-regulation-page__source-meta">
+                      <el-tag size="small" type="info" effect="plain">
+                        PDF 第 {{ row.sourceOriginalPage || '待补充' }} 页
+                      </el-tag>
+                      <span>{{ row.sourceOriginalItem || '待补充原文项目' }}</span>
+                    </div>
+                    <div class="qa-regulation-page__source-label">接受标准原文</div>
+                    <div class="qa-regulation-page__source-text">
+                      {{ row.sourceOriginalExcerpt || 'QA 手工新增项目需补充对应 PDF/规程原文摘录。' }}
+                    </div>
+                    <template v-if="row.sourceOriginalMethod">
+                      <div class="qa-regulation-page__source-label">检验方法原文</div>
+                      <div class="qa-regulation-page__source-text">
+                        {{ row.sourceOriginalMethod }}
+                      </div>
+                    </template>
                   </div>
                 </template>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="下限" width="120">
-            <template #default="{ row }">
-              <el-input-number
-                v-model="row.lowerLimit"
-                :disabled="row.resultType !== 'NUMERIC'"
-                :controls="false"
-                class="!w-100%"
+              </el-table-column>
+              <el-table-column
+                v-if="isQaItemsColumnVisible('lowerLimit')"
+                label="下限"
+                prop="lowerLimit"
+                :width="getQaItemsColumnWidthString('lowerLimit', 120)"
+              v-bind="sortColumnAttrs('lowerLimit')"
+              >
+                <template #default="{ row }">
+                  <el-input-number
+                    v-model="row.lowerLimit"
+                    :disabled="row.resultType !== 'NUMERIC'"
+                    :controls="false"
+                    class="!w-100%"
+                  />
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaItemsColumnVisible('upperLimit')"
+                label="上限"
+                prop="upperLimit"
+                :width="getQaItemsColumnWidthString('upperLimit', 120)"
+              v-bind="sortColumnAttrs('upperLimit')"
+              >
+                <template #default="{ row }">
+                  <el-input-number
+                    v-model="row.upperLimit"
+                    :disabled="row.resultType !== 'NUMERIC'"
+                    :controls="false"
+                    class="!w-100%"
+                  />
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaItemsColumnVisible('critical')"
+                label="关键项"
+                prop="critical"
+                :width="getQaItemsColumnWidthString('critical', 100)"
+              v-bind="sortColumnAttrs('critical')"
+              >
+                <template #default="{ row }">
+                  <el-checkbox v-model="row.critical">关键</el-checkbox>
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaItemsColumnVisible('failureRule')"
+                label="失败规则"
+                prop="failureRule"
+                :min-width="getQaItemsColumnMinWidthString('failureRule', 220)"
+              v-bind="sortColumnAttrs('failureRule')"
+              >
+                <template #default="{ row }">
+                  <el-input v-model="row.failureRule" />
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaItemsColumnVisible('sourceNote')"
+                label="来源说明"
+                prop="sourceNote"
+                :min-width="getQaItemsColumnMinWidthString('sourceNote', 200)"
+              v-bind="sortColumnAttrs('sourceNote')"
               />
-            </template>
-          </el-table-column>
-          <el-table-column label="上限" width="120">
-            <template #default="{ row }">
-              <el-input-number
-                v-model="row.upperLimit"
-                :disabled="row.resultType !== 'NUMERIC'"
-                :controls="false"
-                class="!w-100%"
-              />
-            </template>
-          </el-table-column>
-          <el-table-column label="关键项" width="100">
-            <template #default="{ row }">
-              <el-checkbox v-model="row.critical">关键</el-checkbox>
-            </template>
-          </el-table-column>
-          <el-table-column label="失败规则" min-width="220">
-            <template #default="{ row }">
-              <el-input v-model="row.failureRule" />
-            </template>
-          </el-table-column>
-          <el-table-column label="来源说明" min-width="200" prop="sourceNote" />
-          <el-table-column label="操作" width="90" fixed="right">
-            <template #default="{ $index }">
-              <el-button link type="danger" @click="removeQaRegulationItem($index)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+              <el-table-column
+                v-if="isQaItemsColumnVisible('actions')"
+                label="操作"
+                prop="actions"
+                :width="getQaItemsColumnWidthString('actions', 90)"
+                fixed="right"
+              >
+                <template #default="{ row }">
+                  <el-button link type="danger" @click="removeQaRegulationItemByRow(row)">
+                    删除
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </template>
+        </UnifiedListTemplate>
       </el-card>
     </ContentWrap>
 
-    <ContentWrap>
+    <ContentWrap v-show="qaActiveTab === 'verification'">
       <div class="qa-regulation-page__layout">
         <el-card shadow="never" data-qa-regulation-completeness>
           <template #header>发布完整性检查</template>
-          <div class="qa-regulation-page__check-list">
-            <div
-              v-for="check in qaRegulationCompletenessChecks"
-              :key="check.key"
-              class="qa-regulation-page__check"
-              :class="{ 'is-passed': check.passed }"
-            >
-              <el-tag :type="check.passed ? 'success' : 'danger'" effect="plain">
-                {{ check.passed ? '已满足' : '需补齐' }}
-              </el-tag>
-              <div>
-                <div class="qa-regulation-page__check-title">{{ check.label }}</div>
-                <div class="qa-regulation-page__hint">{{ check.detail }}</div>
-              </div>
-            </div>
-          </div>
+          <UnifiedListTemplate
+            table-key="mes.qa.regulation.checks"
+            :query-model="qaChecksQuery"
+            :filter-definitions="qaEmptyFilterDefinitions"
+            :show-quick-filter="false"
+            :quick-filter-state="qaEmptyQuickFilterState"
+            :selected-filter-definition="qaEmptySelectedFilterDefinition"
+            :operator-options="qaEmptyOperatorOptions"
+            :columns="qaChecksColumns"
+            :column-saving="qaChecksColumnSaving"
+            :total="qaRegulationCompletenessChecks.length"
+            v-model:page="qaChecksQuery.pageNo"
+            v-model:limit="qaChecksQuery.pageSize"
+            @column-change="saveQaChecksColumnConfig"
+            @column-reset="resetQaChecksColumnConfig"
+          >
+            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+              <el-table
+                :data="pagedQaRegulationCompletenessChecks"
+                border
+                size="small"
+                data-user-table-column-explicit
+                data-user-table-key="mes.qa.regulation.checks"
+                @header-dragend="handleQaChecksHeaderDragend"
+                @sort-change="handleTemplateSortChange"
+              >
+                <el-table-column
+                  v-if="isQaChecksColumnVisible('status')"
+                  label="状态"
+                  prop="status"
+                  :width="getQaChecksColumnWidthString('status', 110)"
+                v-bind="sortColumnAttrs('status')"
+                >
+                  <template #default="{ row }">
+                    <el-tag :type="row.passed ? 'success' : 'danger'" effect="plain">
+                      {{ row.passed ? '已满足' : '需补齐' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isQaChecksColumnVisible('label')"
+                  label="检查项"
+                  prop="label"
+                  :min-width="getQaChecksColumnMinWidthString('label', 180)"
+                v-bind="sortColumnAttrs('label')"
+                >
+                  <template #default="{ row }">
+                    <div
+                      class="qa-regulation-page__check-title"
+                      :class="{ 'is-passed': row.passed }"
+                    >
+                      {{ row.label }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isQaChecksColumnVisible('detail')"
+                  label="说明"
+                  prop="detail"
+                  :min-width="getQaChecksColumnMinWidthString('detail', 260)"
+                v-bind="sortColumnAttrs('detail')"
+                />
+              </el-table>
+            </template>
+          </UnifiedListTemplate>
           <div class="qa-regulation-page__actions">
             <el-button :loading="qaRegulationSaving" @click="previewQaRegulationDraft">
               保存草稿
@@ -591,13 +831,70 @@
 
         <el-card shadow="never" data-qa-pqc-task-preview>
           <template #header>PQC 任务预览</template>
-          <el-table :data="qaPqcTaskPreviewRows" border size="small">
-            <el-table-column label="检验类型" prop="inspectionTypeText" min-width="110" />
-            <el-table-column label="轮次" prop="roundText" min-width="110" />
-            <el-table-column label="计划数量" prop="plannedQuantityText" min-width="110" />
-            <el-table-column label="规程版本" prop="regulationVersionNo" min-width="110" />
-            <el-table-column label="任务身份" prop="taskIdentity" min-width="260" />
-          </el-table>
+          <UnifiedListTemplate
+            table-key="mes.qa.regulation.pqcPreview"
+            :query-model="qaPqcPreviewQuery"
+            :filter-definitions="qaEmptyFilterDefinitions"
+            :show-quick-filter="false"
+            :quick-filter-state="qaEmptyQuickFilterState"
+            :selected-filter-definition="qaEmptySelectedFilterDefinition"
+            :operator-options="qaEmptyOperatorOptions"
+            :columns="qaPqcPreviewColumns"
+            :column-saving="qaPqcPreviewColumnSaving"
+            :total="qaPqcTaskPreviewRows.length"
+            v-model:page="qaPqcPreviewQuery.pageNo"
+            v-model:limit="qaPqcPreviewQuery.pageSize"
+            @column-change="saveQaPqcPreviewColumnConfig"
+            @column-reset="resetQaPqcPreviewColumnConfig"
+          >
+            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+              <el-table
+                :data="pagedQaPqcTaskPreviewRows"
+                border
+                size="small"
+                data-user-table-column-explicit
+                data-user-table-key="mes.qa.regulation.pqcPreview"
+                @header-dragend="handleQaPqcPreviewHeaderDragend"
+                @sort-change="handleTemplateSortChange"
+              >
+                <el-table-column
+                  v-if="isQaPqcPreviewColumnVisible('inspectionTypeText')"
+                  label="检验类型"
+                  prop="inspectionTypeText"
+                  :min-width="getQaPqcPreviewColumnMinWidthString('inspectionTypeText', 110)"
+                v-bind="sortColumnAttrs('inspectionTypeText')"
+                />
+                <el-table-column
+                  v-if="isQaPqcPreviewColumnVisible('roundText')"
+                  label="轮次"
+                  prop="roundText"
+                  :min-width="getQaPqcPreviewColumnMinWidthString('roundText', 110)"
+                v-bind="sortColumnAttrs('roundText')"
+                />
+                <el-table-column
+                  v-if="isQaPqcPreviewColumnVisible('plannedQuantityText')"
+                  label="计划数量"
+                  prop="plannedQuantityText"
+                  :min-width="getQaPqcPreviewColumnMinWidthString('plannedQuantityText', 110)"
+                v-bind="sortColumnAttrs('plannedQuantityText')"
+                />
+                <el-table-column
+                  v-if="isQaPqcPreviewColumnVisible('regulationVersionNo')"
+                  label="规程版本"
+                  prop="regulationVersionNo"
+                  :min-width="getQaPqcPreviewColumnMinWidthString('regulationVersionNo', 110)"
+                v-bind="sortColumnAttrs('regulationVersionNo')"
+                />
+                <el-table-column
+                  v-if="isQaPqcPreviewColumnVisible('taskIdentity')"
+                  label="任务身份"
+                  prop="taskIdentity"
+                  :min-width="getQaPqcPreviewColumnMinWidthString('taskIdentity', 260)"
+                v-bind="sortColumnAttrs('taskIdentity')"
+                />
+              </el-table>
+            </template>
+          </UnifiedListTemplate>
           <el-alert
             class="mt-12px"
             title="PQC 任务必须来自 QA 发布规程快照；缺产品、路线、工序、规则或项目时阻塞生成。"
@@ -613,6 +910,12 @@
 
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
+import {
+  type TableQuickFilterDefinition,
+  type TableQuickFilterOperator
+} from '@/hooks/web/useTableQuickFilter'
 import {
   DCC_PROJECT_CODE_STATUS_ENABLE,
   getProjectCodePage,
@@ -684,6 +987,124 @@ interface QaRegulationDraft {
   sampleOrderQuantity: number
   batchRecordBinding: string
 }
+
+type QaRegulationTabName = 'overview' | 'rules' | 'items' | 'verification'
+
+interface QaLocalListQuery {
+  pageNo: number
+  pageSize: number
+}
+
+const qaActiveTab = ref<QaRegulationTabName>('overview')
+const qaRulesQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
+const qaItemsQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
+const qaChecksQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
+const qaPqcPreviewQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
+const qaEmptyQuickFilterState = reactive({})
+const qaEmptyFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [])
+const qaEmptySelectedFilterDefinition = computed<TableQuickFilterDefinition | undefined>(
+  () => undefined
+)
+const qaEmptyOperatorOptions = computed<TableQuickFilterOperator[]>(() => [])
+
+function paginateQaRows<T>(rows: readonly T[], query: QaLocalListQuery): T[] {
+  const pageSize = Math.max(1, Number(query.pageSize) || 10)
+  const pageNo = Math.max(1, Number(query.pageNo) || 1)
+  const start = (pageNo - 1) * pageSize
+  return rows.slice(start, start + pageSize)
+}
+
+const keepQaLocalPageInRange = (query: QaLocalListQuery, total: number) => {
+  const pageSize = Math.max(1, Number(query.pageSize) || 10)
+  const maxPage = Math.max(1, Math.ceil(total / pageSize))
+  if (query.pageNo > maxPage) {
+    query.pageNo = maxPage
+  }
+}
+
+const qaRulesDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'rule', label: '规则', minWidth: 120 },
+  { key: 'required', label: '是否适用', width: 110 },
+  { key: 'fixedQuantity', label: '固定数量', width: 140 },
+  { key: 'sampleRatio', label: '抽样比例', width: 140 },
+  { key: 'plannedQuantity', label: 'PQC 计划数量', width: 150 },
+  { key: 'taskRule', label: '任务生成规则', minWidth: 240 },
+  { key: 'releaseGate', label: '发布门禁', minWidth: 240 }
+]
+
+const qaItemsDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'itemCode', label: '项目编码', width: 130 },
+  { key: 'itemName', label: '项目', minWidth: 170 },
+  { key: 'applicableTypes', label: '适用类型', minWidth: 210 },
+  { key: 'inspectionMethod', label: '方法', minWidth: 160 },
+  { key: 'inspectionTool', label: '工具', minWidth: 150 },
+  { key: 'resultType', label: '结果类型', width: 130 },
+  { key: 'standardText', label: '标准', minWidth: 240 },
+  { key: 'sourceOriginalExcerpt', label: '原文依据', minWidth: 420 },
+  { key: 'lowerLimit', label: '下限', width: 120 },
+  { key: 'upperLimit', label: '上限', width: 120 },
+  { key: 'critical', label: '关键项', width: 100 },
+  { key: 'failureRule', label: '失败规则', minWidth: 220 },
+  { key: 'sourceNote', label: '来源说明', minWidth: 200 },
+  { key: 'actions', label: '操作', width: 90, hideable: false, business: false }
+]
+
+const qaChecksDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'status', label: '状态', width: 110 },
+  { key: 'label', label: '检查项', minWidth: 180 },
+  { key: 'detail', label: '说明', minWidth: 260 }
+]
+
+const qaPqcPreviewDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'inspectionTypeText', label: '检验类型', minWidth: 110 },
+  { key: 'roundText', label: '轮次', minWidth: 110 },
+  { key: 'plannedQuantityText', label: '计划数量', minWidth: 110 },
+  { key: 'regulationVersionNo', label: '规程版本', minWidth: 110 },
+  { key: 'taskIdentity', label: '任务身份', minWidth: 260 }
+]
+
+const {
+  columns: qaRulesColumns,
+  saving: qaRulesColumnSaving,
+  isColumnVisible: isQaRulesColumnVisible,
+  getColumnWidthString: getQaRulesColumnWidthString,
+  getColumnMinWidthString: getQaRulesColumnMinWidthString,
+  handleHeaderDragend: handleQaRulesHeaderDragend,
+  saveConfig: saveQaRulesColumnConfig,
+  resetConfig: resetQaRulesColumnConfig
+} = useUserTableColumns('mes.qa.regulation.rules', qaRulesDefaultColumns)
+
+const {
+  columns: qaItemsColumns,
+  saving: qaItemsColumnSaving,
+  isColumnVisible: isQaItemsColumnVisible,
+  getColumnWidthString: getQaItemsColumnWidthString,
+  getColumnMinWidthString: getQaItemsColumnMinWidthString,
+  handleHeaderDragend: handleQaItemsHeaderDragend,
+  saveConfig: saveQaItemsColumnConfig,
+  resetConfig: resetQaItemsColumnConfig
+} = useUserTableColumns('mes.qa.regulation.items', qaItemsDefaultColumns)
+
+const {
+  columns: qaChecksColumns,
+  saving: qaChecksColumnSaving,
+  isColumnVisible: isQaChecksColumnVisible,
+  getColumnWidthString: getQaChecksColumnWidthString,
+  getColumnMinWidthString: getQaChecksColumnMinWidthString,
+  handleHeaderDragend: handleQaChecksHeaderDragend,
+  saveConfig: saveQaChecksColumnConfig,
+  resetConfig: resetQaChecksColumnConfig
+} = useUserTableColumns('mes.qa.regulation.checks', qaChecksDefaultColumns)
+
+const {
+  columns: qaPqcPreviewColumns,
+  saving: qaPqcPreviewColumnSaving,
+  isColumnVisible: isQaPqcPreviewColumnVisible,
+  getColumnMinWidthString: getQaPqcPreviewColumnMinWidthString,
+  handleHeaderDragend: handleQaPqcPreviewHeaderDragend,
+  saveConfig: saveQaPqcPreviewColumnConfig,
+  resetConfig: resetQaPqcPreviewColumnConfig
+} = useUserTableColumns('mes.qa.regulation.pqcPreview', qaPqcPreviewDefaultColumns)
 
 const qaInspectionTypeOptions: Array<{ label: string; value: QaInspectionTypeValue }> = [
   { label: '首检', value: 'FIRST' },
@@ -767,6 +1188,10 @@ const qaInspectionTypeRules = reactive<QaInspectionTypeRule[]>([
     releaseGate: '需要/不适用必须明确保存'
   }
 ])
+
+const pagedQaInspectionTypeRules = computed(() =>
+  paginateQaRows(qaInspectionTypeRules, qaRulesQuery)
+)
 
 const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
   {
@@ -862,6 +1287,9 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
 ]
 
 const qaRegulationItems = ref<QaRegulationItem[]>([])
+const pagedQaRegulationItems = computed(() =>
+  paginateQaRows(qaRegulationItems.value, qaItemsQuery)
+)
 const dccProjectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 const dccProjectCodeOptionsLoading = ref(false)
 const dccProjectCodeLoadError = ref('')
@@ -1013,6 +1441,7 @@ const applyDccProjectToQaDraft = (project?: DccProjectCodeRespVO) => {
   })
   qaRegulationItems.value =
     projectCode === PRESSURE_PUMP_PROJECT_CODE ? createPressurePumpQaRegulationItems() : []
+  qaItemsQuery.pageNo = 1
 }
 
 const selectDccProjectForConfiguration = (project: DccProjectCodeRespVO) => {
@@ -1151,6 +1580,10 @@ const qaPublishBlockers = computed(() =>
   qaRegulationCompletenessChecks.value.filter((check) => !check.passed)
 )
 
+const pagedQaRegulationCompletenessChecks = computed(() =>
+  paginateQaRows(qaRegulationCompletenessChecks.value, qaChecksQuery)
+)
+
 const qaPqcTaskPreviewRows = computed(() =>
   qaInspectionTypeRules.map((rule) => ({
     inspectionTypeText: rule.label.includes('巡检') ? '巡检' : rule.label,
@@ -1161,6 +1594,10 @@ const qaPqcTaskPreviewRows = computed(() =>
       qaRegulationDraft.productName || '--'
     } / ${qaRegulationDraft.routeProcessName || '--'} / ${rule.key}`
   }))
+)
+
+const pagedQaPqcTaskPreviewRows = computed(() =>
+  paginateQaRows(qaPqcTaskPreviewRows.value, qaPqcPreviewQuery)
 )
 
 const addQaRegulationItem = () => {
@@ -1188,6 +1625,14 @@ const addQaRegulationItem = () => {
 
 const removeQaRegulationItem = (index: number) => {
   qaRegulationItems.value.splice(index, 1)
+  keepQaLocalPageInRange(qaItemsQuery, qaRegulationItems.value.length)
+}
+
+const removeQaRegulationItemByRow = (row: QaRegulationItem) => {
+  const index = qaRegulationItems.value.indexOf(row)
+  if (index >= 0) {
+    removeQaRegulationItem(index)
+  }
 }
 
 const resolvePositiveId = (value: number | undefined, label: string) => {
@@ -1200,8 +1645,12 @@ const resolvePositiveId = (value: number | undefined, label: string) => {
 
 const normalizeQaInspectionType = (
   inspectionType: QaInspectionTypeValue
-): QaInspectionRegulationSaveItemVO['inspectionType'] =>
-  inspectionType.startsWith('PATROL') ? 'PATROL' : inspectionType
+): QaInspectionRegulationSaveItemVO['inspectionType'] => {
+  if (inspectionType === 'PATROL_AM' || inspectionType === 'PATROL_PM') {
+    return 'PATROL'
+  }
+  return inspectionType
+}
 
 const resolveRuleForInspectionType = (
   inspectionType: QaInspectionRegulationSaveItemVO['inspectionType']

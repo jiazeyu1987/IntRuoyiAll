@@ -36,7 +36,7 @@
 | AC-M07 | 11 | 生产班组长 | 关联调拨单 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明一个订单可关联多调拨、多物料和多批次，且重复关联幂等、错误订单/租户/数量被拒绝。 |
 | AC-M08 | 12 | 生产班组长 | 订单开工检查 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明开工检查逐项展示结果、来源和阻塞原因，且缺项不标记就绪、不自动创建异常。 |
 | AC-M09 | 13 | QA | 维护检验规程 | 不完全符合 | 已有 QA 规程入口/局部证据，但尚未完整验收；需证明完整规程可发布并生成不可变版本，缺首检/巡检/末检规则或冲突时发布失败。 |
-| AC-M10 | 14 | 生产员工 | 按 SOP 生产 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明未选订单/任务仍可按 SOP 进入工序事实报工，且缺工序/SOP 或越权工序时阻塞。 |
+| AC-M10 | 14 | 生产员工 | 按 SOP 生产 | 代码级已修复，仍待全量 AC 验收 | 已补 `20260805-ac-m10-sop-production-fact-reporting`：生产模式入口使用设备账号授权工序列表，不依赖 PQC 活跃订单；生产预校验不再要求订单上下文；缺 SOP/模板和越权工序由后端目标 JUnit 覆盖 fail-fast；正式一体提交补齐后端必填工序池幂等键。仍需在 M6 全量真实 E2E 中完成 AC 级页面验收和清理-readiness。 |
 | AC-M11 | 15 | 生产员工 | 生产报工 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明人员、设备、参数、数量、损耗、原因、签名完整保存，且缺必填、设备不可用、签名不一致时拒绝且原始事实不覆盖。 |
 | AC-M12 | 16 | PQC 检验员 | 执行首检 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明首检按发布规程固定数量生成并逐件提交，且无规程、重复任务或数量不符时阻塞。 |
 | AC-M13 | 17 | PQC 检验员 | 执行上午巡检 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明上午巡检保存日期、班次、轮次并向上取整，且 `301×5%` 非 `16`、跨天重复或轮次冲突时失败。 |
@@ -120,7 +120,7 @@
 - 真实 E2E 尚未完成：脚本已接入真实页面动作，但当前 shell 缺少 RRM 真实运行所需 URL、租户、角色账号、电子签名、任务订单/路线/调拨/规程等环境变量，还没有在正式 RRM 环境跑出 PASS。
 - 样本数据未闭合：还需要任务自有的 ERP 已同步正式订单、未确认订单、缺正式 ID/编号订单、越权或跨租户订单，分别用于成功路径和失败路径。
 - AC 级验收未闭合：当前证据属于代码级 GREEN 和前端静态合同，不能替代 M6 要求的真实页面 action evidence、权限隔离、清理-readiness 和 coverage ledger。
-- 相邻静态回归存在非本项 blocker：`smart-scheduling-smoke-real-flow-static.spec.js` 仍卡在 `autoSchedulePublishResult` 标记缺失；`pnpm e2e:role-requirement-matrix:preflight:static` 已通过新增 AC-M01 顺序断言后，继续卡在非 AC-M01 的 AC-M19 批记录回填幂等 key 旧断言。
+- 相邻静态回归存在非本项 blocker：`smart-scheduling-smoke-real-flow-static.spec.js` 仍卡在 `autoSchedulePublishResult` 标记缺失；`pnpm e2e:role-requirement-matrix:preflight:static` 当前已 PASS，不再阻塞 AC-M01 静态准出。
 
 ### 建议执行顺序
 
@@ -190,6 +190,37 @@
 | 17 | 原始 payload 以客户端提交内容为起点，不是服务端白名单重建。 | `MesProFrontlineFeedbackSubmitServiceImpl` 只要求 `rawPayload` 非空；`MesProFrontlineFeedbackPayloadSplitter.buildProcessPoolRawPayload` 先 `payload.putAll(reqVO.getRawPayload())`，再覆盖 `outputQuantity/lossQuantity/equipmentParameters` 等少数字段。 | 客户端伪造的展示字段、人员/设备文案或额外事实可能进入事件 rawPayload；系统没有证明最终原始事实完全来自服务端认证上下文和正式规则。 |
 | 18 | 损耗/不良原因身份不是稳定结构化快照。 | 前端 `configuredDefectReasons` 用 `reason.reasonCode || String(reason.reasonId)` 作为 draft key，提交时只把 `defects: { ...productionDefectDraft }` 放进记录本 `entryContent`；生产报工 VO、记录本 VO 和工序池 BO 均没有 `reasonId/reasonType/reasonName` 等结构化原因字段。 | 原因代码重命名、原因禁用、跨工序原因或同 code 冲突时缺少后端可验证身份；不能证明损耗原因完整保存、缺原因拒绝或历史原因不随配置漂移。 |
 | 19 | 实际人员只以用户 ID 参与校验和保存，缺少报工时人员快照。 | `listEmployeeCandidates` 通过工作站岗位取系统用户并过滤启用状态，`requireBoundEmployee` 只按 `candidate.userId == actualEmployeeId` 判断；事件和报工链路保存 `actualEmployeeId/feedbackUserId/signatureUserId`，未见员工姓名、编码、岗位、班组、候选来源或绑定快照进入生产提交事实。 | 后续用户姓名、岗位、班组或启用状态变化后，历史报工难以证明当时人员范围和人员事实；不能完整满足“人员完整保存且历史原始事实不覆盖”。 |
+
+### AC-M11 第四轮补充缺口
+
+| 序号 | 不符合项 | 代码证据 | 影响 |
+|---:|---|---|---|
+| 20 | 一线可选设备和提交授权设备来自不同设备来源。 | 运行态设备列表 `MesFrontlineRuntimeConfigServiceImpl.toDeviceOptions` 读取 `MesProcessPoolTeamProcessDeviceDO.deviceId -> MesProcessPoolTeamDeviceDO.id`；前端 `configuredDeviceCards` 使用 `runtimeConfig.devices[].deviceId` 作为 key；但 `MesFrontlineWorkstationPostRouteBindingSource.putBinding` 使用 `MesDvMachineryDO.id` 生成授权候选设备，`MesFrontlineSubmitAuthorizationServiceImpl` 又要求提交 `deviceId` 等于候选 `process.deviceId`。 | 页面选的是班组本地设备 ID，后端授权比的是工作站台账机械 ID；二者不一致时会误拒绝，或者只有 ID 偶然相同时才通过，不能证明“设备完整保存且设备不可用/不匹配时稳定拒绝”。 |
+| 21 | 单一正式设备 ID 与记录本/字段值中的多设备事实不一致。 | `buildFrontlineFormalSubmitPayload` 的 `processPoolContext.deviceId` 只写 `formalContext.deviceId`；但 `equipmentParameters` 和 `buildProductionFieldValues()[DEVICE_PARAMETERS]` 对 `visibleDeviceCards` 全量生成，`buildProductionFieldValues()[DEVICE]` 还把多个设备 label 用 `、` 拼接。 | 正式事件上下文只表示一个设备，记录本和 raw/fieldValues 却可能保存多个设备和多组参数；后续追溯无法明确哪个设备才是本次报工设备，不能满足设备事实一致性。 |
+| 22 | 工序池幂等命中旧事件时不比对本次签名、数量和 rawPayload。 | `MesProcessPoolEventServiceImpl.createEvent` 在生产提交时先 `findExistingSubmitEvent`，命中后直接返回旧 `processPoolEventId`；`findExistingSubmitEvent` 只按幂等键、订单、路线工序、工序、实际员工、设备账号、设备、工作站查询，`toSubmitEventResult` 只返回旧 `feedbackId/recordbookEntryId/recordbookEventId/processPoolEventId`。 | 同一幂等键和上下文下，若本次提交换了签名、数量、参数或原因，系统会复用旧事件而不是显式拒绝“幂等键冲突但事实不同”，仍不能证明原始事实不覆盖/不混淆。 |
+| 23 | 损耗数量被创建为可用数量分片，FIFO 消耗未按 `OUTPUT` 过滤。 | `MesProcessPoolSubmitEventServiceImpl.buildQuantityFragments` 同时创建 `OUTPUT` 和 `LOSS` 分片，`MesProcessPoolEventServiceImpl.createQuantityFragments` 统一设置 `allocationStatus=AVAILABLE`；`MesTeamLeaderReportConfirmationServiceImpl.persistFifoConsumptionIfRequired` 读取该事件全部分片后直接 `map(this::toAllocatableFragment)`，`toAllocatableFragment` 不保留也不校验 `sourceQuantityType`。 | 损耗分片和产出分片进入同一可分配池，代码层无法证明损耗永远不会进入 FIFO、订单分配或批记录回填；这与“数量、损耗守恒并原因完整”要求冲突。 |
+| 24 | 生产执行追溯包没有覆盖参数、原因、原始 payload 和签名快照。 | `MesTeamLeaderTraceServiceImpl.buildSubmitSection` 只放 `processPoolEventId/feedbackId/recordbookEntryId/actualEmployeeId/deviceId/workstationId/signatureId` 等 ID；`closureEvidence` 的 answers 覆盖 `who/device/process/quantity/quality/signature/review/batchRecord`，其中 signature 只列提交/PQC/复核签名 ID，检索未见 `equipmentParameters`、`defects/reason`、`rawPayload`、`signatureSnapshot` 输出。 | 即使底层 event/recordbook 里有部分字段，当前只读追溯接口也不能一站式证明人员、设备、参数、数量、损耗、原因、签名完整保存；验收所需事实仍缺回读证据。 |
+
+### AC-M11 第五轮补充缺口
+
+| 序号 | 不符合项 | 代码证据 | 影响 |
+|---:|---|---|---|
+| 25 | 一线一体提交之外仍有后台创建/更新/提交正式报工通道，未强制设备、参数、原因、签名事实。 | `MesProFeedbackController` 同时暴露 `/create`、`/update`、`/submit` 和 `/approve`；这些接口使用 `MesProFeedbackSaveReqVO`，该 VO 只有工单、任务、工作站、数量、报工人、审批人、备注等字段，没有 `deviceId`、`equipmentParameters`、`rawPayload`、`signatureId/signatureSnapshot` 或结构化损耗原因；`FeedbackForm.vue` 也通过 `createFeedback/updateFeedback/submitFeedback` 走这条旧链路。 | 具备 `mes:pro-feedback:create/update` 权限的后台路径可以生成正式生产报工，但无法满足 AC-M11 对设备、参数、损耗原因和电子签名完整保存的要求；一线链路补强不能代表全系统报工入口合规。 |
+| 26 | 第三方/直接报工 Excel 导入会创建或提交正式报工，但不会采集 AC-M11 所需完整事实。 | `MesProFeedbackImportRecordServiceImpl.attributeImportRecordAllocation` 构造 `MesProFeedbackSaveReqVO` 后调用 `createFeedbackWithScheduleSnapshot`，并把 `laborScrap/materialScrap/otherScrap` 置为 0；`ThirdPartyFeedbackImportServiceImpl.importDirectWorkReportWorkbook` 同样构造 `MesProFeedbackSaveReqVO`、创建正式报工并调用 `submitFeedback(feedbackId, true)`；两条路径均未写入设备参数、签名快照或结构化原因。 | 导入数据可进入正式报工和进度闭环，但不能证明“人员、设备、参数、数量、损耗、原因、签名完整保存”；把损耗字段默认置 0 还可能把源文件未提供的事实误写成业务事实。 |
+| 27 | 正式报工草稿可被更新或删除，缺少原始事实版本/修订保护。 | `MesProFeedbackServiceImpl.updateFeedback` 只要求报工处于 `PREPARE`，随后用 `feedbackMapper.updateById(updateObj)` 覆盖字段；`deleteFeedback` 同样只校验 `PREPARE` 后 `deleteById`；该主表没有 raw/original snapshot 或 revision 链。 | 对后台创建或导入生成的草稿正式报工，提交前事实可被覆盖或删除；这与“原始事实不覆盖”的验收要求冲突，尤其是在报工正式化前缺少可审计的第一次事实快照。 |
+| 28 | 标准报工详情、列表和导出响应不回显 AC-M11 的完整事实。 | `MesProFeedbackRespVO` 主要包含工作站、工艺路线、工序、工单、任务、产品、数量、报工人、审批人、状态、备注和导入来源字段；未包含设备、设备参数、原始 payload、签名、签名快照、结构化损耗/不良原因；`MesProFeedbackController.get/page/export-excel` 均使用该 VO。 | 即使底层某些扩展表保存了局部事实，标准生产报工页面和导出无法作为验收回读证据；用户看不到也无法核对设备、参数、原因和签名是否完整保存。 |
+| 29 | 生产签名没有与具体事实 payload 形成不可拆分绑定。 | `MesProFrontlineFeedbackSubmitRespVO` 只返回 `feedbackId/recordbookEntryId/recordbookEventId/processPoolEventId`；`MesProProcessPoolEventDO` 保存 `rawPayload`、`signatureId`、`signatureUserId`、`signatureSnapshot` 字段但没有 payload hash/digest；生产适配器 `MesProcessPoolSubmitEventServiceImpl.toCreateEventReq` 只设置 `rawPayload/signatureId/signatureUserId`，未设置 `signatureSnapshot`，也未把签名绑定到 canonical payload。 | 现有代码只能证明“某签名 ID 与某事件 ID 同时保存”，不能证明签名时锁定的就是人员、设备、参数、数量、损耗、原因那一组原始事实；后续修订、回填或详情展示时缺少防篡改绑定证据。 |
+| 30 | 必填事实容器只校验非空对象，未校验空内容或必要键。 | `MesProFrontlineRecordbookPayloadReqVO.equipmentParameters` 只是 `@NotNull`，不是 `@NotEmpty`；`MesProFrontlineFeedbackSubmitReqVO.rawPayload` 也是 `@NotNull`；`MesProFrontlineFeedbackSubmitServiceImpl.validateSubmitContext` 只检查 `rawPayload == null`；拆分器直接把 `equipmentParameters/rawPayload` 写入记录本和工序池；工序池只要求序列化后的 `rawPayload` 字符串非空。 | 空 `{}` 的设备参数、缺关键字段的 rawPayload 或缺参数明细的记录本内容仍缺后端统一 fail-fast 证明；不能满足“缺必填时拒绝且原始事实完整保存”。 |
+| 31 | 现有测试明确把越界设备参数作为“保留而不拒绝”的预期。 | `MesProFrontlineFeedbackRawLimitBypassTest.shouldPreserveRawOutOfLimitEquipmentValuesWithoutClippingOrRejecting` 构造 `temperature=10`、`pressure=50` 的 out-of-limit 参数，并断言记录本和工序池事件继续保存这些值；没有对应“越界拒绝/复核提醒”的绿色验收。 | 这直接证明当前代码口径是“越界值原样保存”，而 AC-M11 需要证明参数完整且异常条件可被拒绝或受控处理；当前测试反而锁定了不拒绝行为。 |
+
+### AC-M11 第六轮补充缺口
+
+| 序号 | 不符合项 | 代码证据 | 影响 |
+|---:|---|---|---|
+| 32 | 生产组长确认报工只兜底校验数量、PQC 绑定和分配，不校验 AC-M11 完整事实。 | `MesTeamLeaderReportConfirmationServiceImpl.confirmSubmission` 读取事件后只调用 `extractSubmittedQuantity`、`validatePqcQualityGate`、`validateAndPrepareLines` 和 FIFO/分配逻辑；`validateEvent` 只要求路线工序和工序存在；测试 `MesTeamLeaderReportConfirmationServiceTest.event` 构造的生产提交事件只有 `eventType/workOrderId/routeId/routeProcessId/processId/actualEmployeeId/rawPayload/serverSubmitTime`，缺 `deviceId/workstationId/signatureId/signatureSnapshot/equipmentParameters/reason` 仍能进入确认成功用例。 | 下游“确认/分配成功”不能反推生产报工事实完整；一个只含 `outputQuantity` 的事件也可能通过组长确认链路，无法满足验收要求。 |
+| 33 | 组长确认数量只读取客户端 rawPayload 的 `outputQuantity`，未与正式报工主表或数量分片交叉校验。 | `extractSubmittedQuantity` 只解析 `event.getRawPayload()` 中的 `outputQuantity`，确认和分配都以该值为 `submittedQuantity`；未见与 `MesProFeedbackDO.feedbackQuantity`、`MesProProcessPoolQuantityFragmentDO.totalQuantity` 或记录本原始条目进行一致性校验。 | 如果 rawPayload 被客户端伪造、修订覆盖或与正式报工/分片不一致，组长确认可能按错误数量分配和闭环，不能证明“数量、损耗、原始事实不覆盖”。 |
+| 34 | 批记录自动回填只按已配置字段映射取值，不承担 AC-M11 完整性门禁。 | `MesTeamLeaderBatchRecordBackfillServiceImpl.backfill` 只要求存在启用的 cell-link rules，然后逐条 `toChange`；`sourceValue` 只在某条规则要求的 `sourceFieldCode` 缺失时失败。若规则未配置设备参数、损耗原因、签名快照或人员快照字段，则回填仍可只写入数量/压力等局部字段。 | 正式批记录回填成功不能证明所有报工事实已保存和回读；验收需要的人员、设备、参数、数量、损耗、原因、签名可能缺项但不阻塞。 |
+| 35 | 批记录回填读取的是当前事件 rawPayload，不读取首次记录本事件或修订前 payload。 | `MesTeamLeaderBatchRecordBackfillServiceImpl.sourceValue` 通过 `sourceEventMap` 取事件，再由 `rawPayload(sourceEvent)` 解析当前 `event.rawPayload`；没有使用记录本 `ENTRY_CREATE` 事件快照、工序池 revision 的 `beforePayload` 或首次提交 payload hash。 | 一旦事件主表 rawPayload 被修订服务更新，后续批记录回填会使用补正后的当前值而非首次原始事实；“原始事实不覆盖”仍缺 downstream 证明。 |
 
 ## AC-D03 手动不良说明专项核验
 

@@ -14,6 +14,12 @@
 
 2026-08-05 五次反馈：用户要求当前检验项详情区域不要再用一张外层卡片包裹，直接融入后面的左侧面板背景。
 
+2026-08-05 六次反馈：用户指出 tab 卡片需要和其它普通卡片做区分，否则不知道它是 tab。
+
+2026-08-05 七次反馈：用户基于截图要求“改成红色范围，黄色里是 tab 的 tab 样式”，即红框作为整条 tab 区域，黄色框对应单个 tab 标签本体。
+
+2026-08-05 八次反馈：用户要求考虑最多可以完整显示 10 个 tab，因此需要重新评估 tab 大小和排版，不能只按 4 个 tab 设计。
+
 ## Preflight
 
 - 读取 `docs/frontend-development.md`、`docs/task-closeout-rules.md`、`docs/powershell-encoding.md`、`docs/powershell-memory.md`。
@@ -55,6 +61,19 @@
 - GREEN: 去除当前检验项详情的外层整卡包裹，将 `.frontline-pqc-content-item` 改为透明背景、无外层边框，并取消 `.pqc-utility-strip` 分隔底线；内部设备、标准、方法和判定操作仍保留独立触控控件 -> PASS。
 - GREEN: 重新生成预览图 `pqc-redbox-ui-prototype.png` -> PASS，文件大小 267141 bytes。
 - GREEN: `python -X utf8` 断言当前项详情已融入面板背景、页签结构仍存在、PNG 存在 -> PASS。
+- GREEN: 增强 `pqc-item-tabs` 页签识别：先新增浅绿轨道背景、分隔线、active 内嵌边框和顶部绿色指示条，使 tab 与普通卡片形成视觉区分 -> PASS。
+- GREEN: 重新生成预览图 `pqc-redbox-ui-prototype.png` -> PASS，文件大小 266315 bytes。
+- GREEN: `python -X utf8` 断言 tab 轨道背景、active 顶部指示条、active 内嵌边框和 PNG 存在 -> PASS。
+- GREEN: 根据用户新截图将 tab 改为红框范围内的底部贴边页签样式：去掉整条轨道卡片感，保留底部连接线、上圆角 tab、active 顶部绿色条和轻微上浮 -> PASS。
+- GREEN: 重新生成预览图 `pqc-redbox-ui-prototype.png` -> PASS，文件大小 264915 bytes。
+- GREEN: `python -X utf8` 断言底部贴边页签圆角、底线、active 顶部指示条、active 上浮和 PNG 存在 -> PASS。
+- GREEN: 根据用户红黄框标注，将检验项 tab 改为红框连接线下挂式页签：红框区域承担整条 tab 带，黄色区域对应单个底部圆角 tab 本体，active tab 轻微下移并保留绿色状态条 -> PASS。
+- GREEN: 重新生成预览图 `pqc-redbox-ui-prototype.png` -> PASS，文件大小 263805 bytes。
+- GREEN: `python -X utf8` 断言下挂式 tab 容器顶线、单个 tab 去顶边框、底部圆角、active 下移和 PNG 存在 -> PASS。
+- GREEN: 将 tab 区调整为 2 行 x 5 列固定网格，示例扩展至 10 个检验项：长度、外观、密封、压力、内径、宽度、厚度、重量、颜色、硬度 -> PASS。
+- GREEN: 将每个 tab 的底部信息拆成“要求”和“已填进度”两个字段，避免 10 个 tab 情况下出现省略号隐藏关键状态 -> PASS。
+- GREEN: 重新生成预览图 `pqc-redbox-ui-prototype.png` -> PASS，文件大小 265297 bytes。
+- GREEN: `python -X utf8` 断言 10 个 tab、5 列网格、10 个 `已填 0/30` 字段、无 tab 进度省略逻辑和 PNG 存在 -> PASS。
 
 ## Remaining Blockers
 

@@ -9,6 +9,7 @@
 - [x] 建立后端 QA 规程保存草稿、发布、读取不可变版本的 API 与服务契约。
 - [x] 增加后端发布完整性、冲突、已发布版本不可修改的 fail-fast 校验。
 - [x] 接入前端 QA 规程页面正式保存草稿和发布调用，移除“未写入后台”的阻断提示。
+- [x] 将 QA 页面改为 Tab 分区，并用 `UnifiedListTemplate` 承载规则、项目、检查和 PQC 预览列表。
 - [ ] 补齐后端 JUnit 与前端静态契约 RED/GREEN 验证。
 - [x] 记录验证、收尾和剩余阻塞。
 
@@ -16,11 +17,14 @@
 
 - `mvn -pl yudao-module-mes -am "-Dtest=MesQaInspectionRegulationServiceTest" test`
 - `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs`
+- `node tests/e2e/unified-list-template-empty-tabs-system-static.spec.js`
+- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md`
 - `pnpm ts:check` 如前端类型链路改动需要全量类型验证。
+- `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs IntRuoyiFronted/tests/e2e/unified-list-template-empty-tabs-system-static.spec.js doc/tasks/20260805-qa-regulation-publish-fix/task.md doc/tasks/20260805-qa-regulation-publish-fix/execution-log.md doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md`
 
 ## Current Status
 
-blocked：AC-M09 后端/前端修复已完成，`mvn -pl yudao-module-mes -am "-DskipTests" compile` 与前端 QA 静态契约已通过；目标 JUnit 被主工作区其它 Maven 进程持续写入同一 `yudao-module-mes/target` 导致 `target/classes` 缺失阻断，`pnpm ts:check` 超时且已停止本任务残留进程。未提交、未推送，不标记 completed。
+blocked：QA 页面 Tab + 标准列表模板改造已完成，聚焦静态契约、标准列表数量契约、`pnpm ts:check`、frontend evidence validator 和 diff check 均通过；原 AC-M09 后端目标 JUnit 仍沿用共享 Maven target 阻塞记录，当前未提交、未推送，不标记 completed。
 
 ## Baseline Commits
 

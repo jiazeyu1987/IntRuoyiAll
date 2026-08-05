@@ -121,41 +121,80 @@
     }
 
     .frontline-pqc-content-panel {
+      align-content: stretch;
       gap: 0;
     }
 
     .frontline-pqc-inspection-list {
       display: grid;
-      gap: 14px;
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: 0;
+      min-height: 100%;
     }
 
     .pqc-item-tabs {
+      position: relative;
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      align-items: start;
+      min-height: 150px;
+      padding: 0 10px 8px;
+      border: 0;
+      border-top: 3px solid #8cb9a1;
+      background: transparent;
+    }
+
+    .pqc-item-tabs::before {
+      position: absolute;
+      inset: 0 0 auto;
+      height: 24px;
+      border-radius: 0 0 20px 20px;
+      background: linear-gradient(180deg, rgba(223, 242, 234, 0.9), rgba(223, 242, 234, 0));
+      content: "";
+      pointer-events: none;
     }
 
     .pqc-item-tab {
+      position: relative;
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       grid-template-rows: auto auto;
-      gap: 5px 10px;
+      gap: 4px 8px;
       align-items: center;
       min-width: 0;
-      min-height: 86px;
-      padding: 10px 14px;
+      min-height: 68px;
+      margin-top: -3px;
+      padding: 9px 10px 8px;
       border: 3px solid var(--frontline-line);
-      border-radius: 20px;
-      background: #ffffff;
+      border-top: 0;
+      border-radius: 0 0 16px 16px;
+      background: #fbfdfb;
       color: var(--frontline-ink);
       font: inherit;
       text-align: left;
+      box-shadow: inset 0 7px 0 rgba(203, 214, 206, 0.38);
+    }
+
+    .pqc-item-tab:last-child {
+      border-right: 3px solid var(--frontline-line);
+    }
+
+    .pqc-item-tab::before {
+      position: absolute;
+      top: 0;
+      right: 11px;
+      left: 11px;
+      height: 5px;
+      border-radius: 0 0 999px 999px;
+      background: transparent;
+      content: "";
     }
 
     .pqc-item-tab strong {
       min-width: 0;
       overflow: hidden;
-      font-size: 32px;
+      font-size: 24px;
       font-weight: 900;
       line-height: 1;
       text-overflow: ellipsis;
@@ -164,26 +203,35 @@
 
     .pqc-item-tab small {
       grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+      align-items: center;
       min-width: 0;
-      overflow: hidden;
+      overflow: visible;
       color: var(--frontline-muted);
-      font-size: 18px;
+      font-size: 13px;
       font-weight: 900;
-      line-height: 1.15;
-      text-overflow: ellipsis;
+      line-height: 1.05;
+      white-space: nowrap;
+    }
+
+    .pqc-item-tab small span {
+      min-width: 0;
+      overflow: visible;
       white-space: nowrap;
     }
 
     .pqc-item-tab em {
       display: inline-grid;
       place-items: center;
-      min-width: 58px;
-      height: 30px;
-      padding: 0 10px;
+      min-width: 44px;
+      height: 24px;
+      padding: 0 8px;
       border-radius: 999px;
       background: #edf3ef;
       color: #4b6258;
-      font-size: 17px;
+      font-size: 14px;
       font-style: normal;
       font-weight: 900;
       white-space: nowrap;
@@ -191,8 +239,14 @@
 
     .pqc-item-tab.active {
       border-color: #8cb9a1;
-      background: var(--frontline-green-soft);
+      background: #ffffff;
       color: var(--frontline-green);
+      box-shadow: inset 0 7px 0 rgba(21, 129, 95, 0.13), 0 8px 18px rgba(36, 50, 43, 0.08);
+      transform: translateY(3px);
+    }
+
+    .pqc-item-tab.active::before {
+      background: var(--frontline-green);
     }
 
     .pqc-item-tab.active em {
@@ -243,10 +297,12 @@
     .frontline-pqc-content-item {
       display: grid;
       gap: 10px;
+      align-content: start;
       overflow: visible;
       border: 0;
       border-radius: 0;
       background: transparent;
+      padding-bottom: 16px;
     }
 
     .frontline-pqc-choice-title,
@@ -664,22 +720,52 @@
               <button class="pqc-item-tab active" type="button">
                 <strong>长度</strong>
                 <em>当前</em>
-                <small>设备必填 / 已填 0/30</small>
+                <small><span>设备必填</span><span>已填 0/30</span></small>
               </button>
               <button class="pqc-item-tab" type="button">
                 <strong>外观</strong>
                 <em>待选</em>
-                <small>设备待选 / 已填 0/30</small>
+                <small><span>设备待选</span><span>已填 0/30</span></small>
               </button>
               <button class="pqc-item-tab" type="button">
                 <strong>密封</strong>
                 <em>未检</em>
-                <small>待逐件 / 已填 0/30</small>
+                <small><span>待逐件</span><span>已填 0/30</span></small>
               </button>
               <button class="pqc-item-tab" type="button">
                 <strong>压力</strong>
                 <em>未检</em>
-                <small>设备必填 / 已填 0/30</small>
+                <small><span>设备必填</span><span>已填 0/30</span></small>
+              </button>
+              <button class="pqc-item-tab" type="button">
+                <strong>内径</strong>
+                <em>未检</em>
+                <small><span>设备必填</span><span>已填 0/30</span></small>
+              </button>
+              <button class="pqc-item-tab" type="button">
+                <strong>宽度</strong>
+                <em>未检</em>
+                <small><span>设备必填</span><span>已填 0/30</span></small>
+              </button>
+              <button class="pqc-item-tab" type="button">
+                <strong>厚度</strong>
+                <em>待选</em>
+                <small><span>设备待选</span><span>已填 0/30</span></small>
+              </button>
+              <button class="pqc-item-tab" type="button">
+                <strong>重量</strong>
+                <em>未检</em>
+                <small><span>待逐件</span><span>已填 0/30</span></small>
+              </button>
+              <button class="pqc-item-tab" type="button">
+                <strong>颜色</strong>
+                <em>未检</em>
+                <small><span>目视</span><span>已填 0/30</span></small>
+              </button>
+              <button class="pqc-item-tab" type="button">
+                <strong>硬度</strong>
+                <em>未检</em>
+                <small><span>设备必填</span><span>已填 0/30</span></small>
               </button>
             </nav>
           </div>

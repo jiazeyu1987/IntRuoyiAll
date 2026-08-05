@@ -1806,7 +1806,7 @@ const handleValidate = async () => {
 
 const assertFormalPayloadContext = () => {
   const missingFields: string[] = []
-  if (!context.workOrderId) {
+  if (isPqcMode.value && !context.workOrderId) {
     missingFields.push('订单上下文')
   }
   if (!context.routeId) {
@@ -1967,6 +1967,9 @@ const buildFrontlineFormalSubmitPayload = (
         `frontline-submit-${formalContext.signatureId}`,
       remark: firstRouteQueryText(['recordbookRemark'])
     },
+    processPoolSubmissionIdempotencyKey:
+      firstRouteQueryText(['processPoolSubmissionIdempotencyKey']) ||
+      `frontline-process-pool-${formalContext.signatureId}-${formalContext.routeProcessId}`,
     processPoolContext: {
       workOrderId: formalContext.workOrderId!,
       taskId: formalContext.taskId!,

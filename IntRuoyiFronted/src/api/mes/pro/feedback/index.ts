@@ -126,6 +126,7 @@ export interface ProFrontlineFeedbackSubmitReqVO {
   feedbackPayload: ProFrontlineFeedbackPayloadReqVO
   recordbookPayload: ProFrontlineRecordbookPayloadReqVO
   processPoolContext: ProFrontlineProcessPoolContextReqVO
+  processPoolSubmissionIdempotencyKey: string
   actualEmployeeId: number
   signatureId: number
   signatureEmployeeId: number

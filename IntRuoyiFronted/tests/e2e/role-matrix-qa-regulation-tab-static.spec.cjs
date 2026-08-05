@@ -158,11 +158,40 @@ assert.doesNotMatch(
   /data-qa-regulation-pressure-pump-source/,
   'The standalone page must not keep a pressure-pump-specific source card.'
 )
-assert.doesNotMatch(
+assert.match(
   qaSource,
-  /<el-tabs|<el-tab-pane/,
-  'Standalone QA page must not render another internal tab wrapper.'
+  /import\s+UnifiedListTemplate\s+from\s+'@\/components\/UnifiedListTemplate\/index\.vue'/,
+  'Standalone QA page must use the standard UnifiedListTemplate for dense QA lists.'
 )
+assert.match(
+  qaSource,
+  /<el-tabs[\s\S]*v-model="qaActiveTab"[\s\S]*data-qa-regulation-tabs/,
+  'Standalone QA page must split dense content behind QA-owned tabs.'
+)
+for (const requiredTab of [
+  { label: '总览', name: 'overview' },
+  { label: '检验规则', name: 'rules' },
+  { label: '检验项目', name: 'items' },
+  { label: '发布检查', name: 'verification' }
+]) {
+  assert.match(
+    qaSource,
+    new RegExp(`<el-tab-pane[\\s\\S]*label="${requiredTab.label}"[\\s\\S]*name="${requiredTab.name}"`),
+    `Standalone QA page must include ${requiredTab.label} tab.`
+  )
+}
+for (const requiredTableKey of [
+  'mes.qa.regulation.rules',
+  'mes.qa.regulation.items',
+  'mes.qa.regulation.checks',
+  'mes.qa.regulation.pqcPreview'
+]) {
+  assert.match(
+    qaSource,
+    new RegExp(`table-key="${requiredTableKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`),
+    `Standalone QA page must render standard list template ${requiredTableKey}.`
+  )
+}
 assert.doesNotMatch(
   qaSource,
   /正式保存\/发布接口未接入|未写入后台|data-qa-regulation-api-blocker/,
@@ -187,6 +216,10 @@ for (const requiredText of [
   '正式保存/发布接口已接入',
   '保存草稿',
   '发布规程',
+  '总览',
+  '检验规则',
+  '检验项目',
+  '发布检查',
   '路线 ID',
   '路线版本 ID',
   '路线工序 ID',
@@ -196,6 +229,7 @@ for (const requiredText of [
 }
 
 for (const requiredSelector of [
+  'data-qa-regulation-tabs',
   'data-qa-regulation-scope',
   'data-qa-regulation-dcc-project',
   'data-qa-regulation-config-status',

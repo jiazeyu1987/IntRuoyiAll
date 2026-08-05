@@ -42,7 +42,7 @@ for (const file of walkVueFiles(sourceRoot)) {
   }
 }
 
-assert.equal(standardListBlocks.length, 84, '当前系统标准列表模板接入点数量必须先被锁定为 84 个。')
+assert.equal(standardListBlocks.length, 88, '当前系统标准列表模板接入点数量必须先被锁定为 88 个。')
 
 assert.doesNotMatch(
   templateSource,
@@ -83,7 +83,7 @@ assert.match(
 const explicitlyHidden = standardListBlocks.filter((item) =>
   /:show-quick-filter="false"|show-quick-filter="false"/.test(item.openTag)
 )
-assert.equal(explicitlyHidden.length, 10, '显式隐藏筛选的标准列表数量必须保持为 10 个，避免误开无筛选契约列表。')
+assert.equal(explicitlyHidden.length, 14, '显式隐藏筛选的标准列表数量必须保持为 14 个，避免误开无筛选契约列表。')
 
 const explicitlyMulti = standardListBlocks.filter((item) =>
   /:show-multi-filter="true"|show-multi-filter="true"|:show-multi-filter="showMultiFilter"/.test(item.openTag)

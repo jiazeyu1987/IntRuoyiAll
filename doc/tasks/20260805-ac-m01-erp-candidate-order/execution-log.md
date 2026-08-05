@@ -24,7 +24,7 @@
 - M3: completed。实现后端正式准入：工单必须 `CONFIRMED`，且 `mes_kingdee_production_order_sync_record` 必须匹配 `workOrderId` 并具备非空 `sourceFid/sourceBillNo`。
 - M4: completed。新增前端静态合同并补齐 `BLOCKED_ERP_SYNC_RECORD_MISSING` 本地原因码文案。
 - M5: blocked。RRM 真实流程脚本已补入 AC-M01 动作：生产组长在 `joinActiveOrder` 前进入 `/mes/pro/schedule-order`，打开真实“同步工单”页签，按 `RRM_PRODUCTION_ORDER_CODE` 查询 `admission-diff`，并要求缺 ERP 正式身份样本 `BLOCKED_ERP_SYNC_RECORD_MISSING` 不可选；真实执行仍缺 RRM 账号、URL、电子签名和任务订单/路线/调拨数据环境变量。
-- M6: blocked。目标 AC-M01 静态合同与语法检查已通过；RRM 相邻 preflight 已通过新增 AC-M01 顺序断言后，继续阻塞在非本任务的 AC-M19 批记录回填幂等 key 旧断言；提交推送仍受既有脏工作区和 ahead 状态阻塞。
+- M6: blocked。目标 AC-M01 静态合同、语法检查和 RRM preflight 已通过；真实 RRM `real:check` 仍因缺少 35 个环境/数据前置项阻塞；提交推送仍受当前大量非本任务脏改动和任务边界影响。
 
 ## RED/GREEN Evidence
 
@@ -38,12 +38,12 @@
 - RED: `node tests\e2e\mes-pro-schedule-order-erp-sync-rrm-action-static.spec.js` -> FAIL，RRM 真实流程脚本缺少 `verifyScheduleOrderErpCandidateAdmission`，生产组长阶段尚未把 AC-M01 纳入 action evidence。
 - GREEN: `node tests\e2e\mes-pro-schedule-order-erp-sync-rrm-action-static.spec.js` -> PASS。
 - GREEN: `node --check tests\e2e\role-requirement-matrix-real-flow.e2e.js`、`node --check tests\e2e\role-requirement-matrix-preflight-static.spec.cjs`、`node --check tests\e2e\mes-pro-schedule-order-erp-sync-rrm-action-static.spec.js` -> PASS。
-- REGRESSION: `pnpm e2e:role-requirement-matrix:preflight:static` -> FAIL，非 AC-M01 blocker：AC-M19 批记录回填静态断言仍期望旧 `PROCESS_POOL_REPORT_BACKFILL:1001:9001:5001` 幂等 key，而当前服务测试已使用 `PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5001:6001:agg-single-1001-7101`。
+- GREEN: `pnpm e2e:role-requirement-matrix:preflight:static` -> PASS。
 - BLOCKED: `pnpm e2e:role-requirement-matrix:real:check` -> FAIL/BLOCKED，当前 shell 缺少 35 个 RRM 真实运行前置项，包括 `RRM_FRONTEND_URL`、`RRM_BACKEND_URL`、租户、六类角色账号/密码、电子签名 JSON、任务生产订单 ID/编号、路线/版本/工序、调拨 ID 和 QA 规程版本 ID。
 - GREEN: `git diff --check -- IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js IntRuoyiFronted\tests\e2e\role-requirement-matrix-preflight-static.spec.cjs IntRuoyiFronted\tests\e2e\mes-pro-schedule-order-erp-sync-rrm-action-static.spec.js` -> PASS，仅提示 Git 未来可能将 LF 替换为 CRLF，无 whitespace error。
 
 ## Blockers
 
 - Real E2E blocked/pending：RRM action evidence 已接入脚本，但当前 shell 缺少真实运行所需 RRM 环境变量和任务自有 ERP 已同步正式订单/阻断样本数据，不能把 API-only 或静态测试标记为 AC-M01 真实 E2E PASS。
-- Adjacent preflight blocked：`pnpm e2e:role-requirement-matrix:preflight:static` 已越过本次新增 AC-M01 顺序断言，继续失败在非 AC-M01 的 AC-M19 批记录回填幂等 key 断言，未在本任务扩大修复。
-- Git closeout blocked：`git status --short --branch` 显示 `int_main...origin/int_main [ahead 13]` 且存在大量非本任务脏改/未跟踪文件；未获得用户授权前不能做全量脏工作区基线提交或推送。
+- Adjacent preflight resolved：`pnpm e2e:role-requirement-matrix:preflight:static` 当前 PASS，不再阻塞 AC-M01 专项静态准出。
+- Git closeout blocked：`git status --short --branch` 当前显示 `int_main...origin/int_main` 下存在大量非本任务脏改动和无关未跟踪文件；未获得用户授权前不能基线提交、暂存或推送这些无关改动。

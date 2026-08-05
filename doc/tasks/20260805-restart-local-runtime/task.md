@@ -6,11 +6,11 @@
 
 ## Milestones
 
-- [ ] 读取本地运行、worktree、PowerShell 与收尾规则
-- [ ] 建立端口归属证据，确认 `8081/48081` 可按 `int_main` 安全重启
-- [ ] 重启后端与前端
-- [ ] 验证后端 health 与前端 HTTP 可访问
-- [ ] 记录验证结果与剩余阻塞
+- [x] 读取本地运行、worktree、PowerShell 与收尾规则
+- [x] 建立端口归属证据，确认 `8081/48081` 可按 `int_main` 安全重启
+- [x] 重启后端与前端
+- [x] 验证后端 health 与前端 HTTP 可访问
+- [x] 记录验证结果与剩余阻塞
 
 ## Expected Verification
 
@@ -29,9 +29,9 @@
 
 ## Current Status
 
-in_progress
+completed
 
-已读取 `docs\task-closeout-rules.md`、`docs\local-runtime.md`、`docs\worktree-restrictions.md` 和 `docs\powershell-memory.md`。当前分支已有大量并行未提交改动与 ahead 状态，本任务仅新增当前任务记录并执行运行态重启。
+运行态重启、验证与任务目录 cleanup apply 均已完成：后端 `48081` health 为 `UP`，前端 `8081` 返回 HTTP `200`。当前分支已有大量并行未提交改动与 ahead 状态，本任务仅记录当前任务证据并执行运行态重启；不触碰、不提交、不推送并行任务改动。
 
 ## 设计约束检查
 

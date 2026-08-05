@@ -32,6 +32,7 @@
 | `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js; node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-preflight-static.spec.cjs` | PASS。 |
 | `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest,MesWmTransferManualWriteControllerTest,MesActiveOrderTransferTraceServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` | PASS，BUILD SUCCESS；21 tests / 0 failures / 0 errors / 0 skipped。 |
 | `node IntRuoyiFronted\tests\e2e\mes-wm-transfer-readonly-static.spec.cjs` | PASS，确认调拨页面手工写入口只读化。 |
+| 2026-08-05 14:23 续跑 `preflight:static` / `real:check` | `preflight:static` PASS；`real:check` 仍 BLOCKED，35 个 `ENV` blocker，`result.json` 仍为 check-mode ENV-only 产物。 |
 
 ## Current AC-M04 State
 

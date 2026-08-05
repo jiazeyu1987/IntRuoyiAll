@@ -9,6 +9,7 @@
 
 - BDD: AC-M04 验收产物同步 -> Given 最新报告显示 AC-M04 加入、冲突、跨角色只读、错误角色拒绝、最终清理和并发门禁已有 PASS/GREEN；When 检查当前 E2E 结果产物；Then 结果产物不得继续保留旧 `activeOrderCleanupDeferred` 作为当前 blocker，且必须准确保留未 `ACCEPTED` 的原因。
 - BDD: AC-M04 调拨追溯修复复核 -> Given 生产班组长在加入活跃订单时提供正式 `transferIds`；When 前端提交加入动作且后端创建、重复加入或并发返回同一活跃订单；Then 同一 `activeOrderId` 必须记录正式调拨追溯并通过只读接口/页面暴露，不能用旧结果产物或空数据冒充完成。
+- BDD: RRM 本机前置补齐 -> Given 用户要求由 Agent 添加缺失 RRM 前置且本机 `8081/48081` 运行态可用；When 注入 `RRM_*` 并运行 `real:check`；Then 六角色账号必须真实登录、业务 ID 必须指向当前正式数据、`real:check` 不得再返回 ENV/SOURCE/RUNTIME blocker，且密码和签名 JSON 不写入文档或提交。
 - 本轮优先做产物一致性和静态/JSON 校验；若发现真实脚本或源码缺口，再按 RED/GREEN 进入实现。
 
 ## Command Intent
@@ -50,6 +51,9 @@
 - SYNTAX_RECHECK: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js; node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-preflight-static.spec.cjs` -> PASS。
 - MAVEN_TARGET_GREEN: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest,MesWmTransferManualWriteControllerTest,MesActiveOrderTransferTraceServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> BUILD SUCCESS；`MesWmTransferManualWriteControllerTest` 3、`MesActiveOrderTransferTraceServiceTest` 4、`MesTeamLeaderActiveOrderServiceTest` 14，合计 21 tests / 0 failures / 0 errors / 0 skipped。
 - TRANSFER_READONLY_STATIC: `node IntRuoyiFronted\tests\e2e\mes-wm-transfer-readonly-static.spec.cjs` -> PASS，输出 `PASS: MES transfer page is read-only for manual write operations`。
+- CONTINUE_CHECK_2026_08_05_1423: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS；`pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> BLOCKED，仍为 35 个 `ENV` blocker；`result.json` 保持 `status=BLOCKED`、`mode=check`、`categories={ENV:35}`。
+- RRM_RUNTIME_PROBE_2026_08_05: 主运行态 `8081/48081` 可用，旧 RRM slot `8098/48098` 已不监听；当前将按合法 `int_main` URL 注入 `RRM_FRONTEND_URL=http://127.0.0.1:8081` 与 `RRM_BACKEND_URL=http://127.0.0.1:48081`。
+- RED: 本机脱敏登录探针 -> FAIL，`liuyueyue`、`lvyujie`、`sunxiaoqing`、`shangmengying`、`huzonggang`、`zhengxiaofang`、`aoteman` 均返回业务失败码，`admin` 可登录；预期原因是历史 RRM 角色账号密码前置未在当前运行库可用。
 - EXPERIENCE_REFRESH: 已按 `project-experience-consolidation` 检索现有经验归宿；本轮教训已被 `docs\e2e-rules.md` 的真实 E2E/result artifact 隔离门禁、`docs\frontend-development.md` 的前端静态契约隔离门禁、`docs\backend-development.md` 的 Windows Maven 目标测试阻塞门禁覆盖，不新建长期经验文档。
 - COMMAND_NOTE: 首次尝试列出 worktree 候选 env/rrm 文件时 PowerShell regex 过滤写法错误，产生 `Invalid pattern`；随后改用字符串 `Contains(...)` 过滤，只列文件路径，不读取或输出任何 `.env` 内容。
 - EXPERIENCE: 已读取 `project-experience-consolidation`；本轮没有新增长期经验文档，原因是相关经验已由现有 `docs\e2e-rules.md` 的真实 E2E / result artifact 隔离门禁覆盖，且当前该规则文件存在非本任务脏改动，不触碰无关文件。

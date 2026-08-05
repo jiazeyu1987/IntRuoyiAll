@@ -33,6 +33,7 @@
 - GREEN: `pnpm ts:check` -> PASS.
 - GREEN: RRM AC-M01 action static contract -> PASS.
 - GREEN: `node --check tests\e2e\role-requirement-matrix-real-flow.e2e.js`、`node --check tests\e2e\role-requirement-matrix-preflight-static.spec.cjs`、`node --check tests\e2e\mes-pro-schedule-order-erp-sync-rrm-action-static.spec.js` -> PASS.
+- GREEN: `pnpm e2e:role-requirement-matrix:preflight:static` -> PASS.
 
 ## Verification
 
@@ -45,6 +46,6 @@
 ## Blockers
 
 - Real E2E: not completed in this pass. `pnpm e2e:role-requirement-matrix:real:check` is BLOCKED by missing RRM runtime/env prerequisites: frontend/backend URL, tenant, six role credentials, signature JSON, production order ID/code, route/version/process IDs, transfer IDs, batch-record report ID, and QA regulation version ID.
-- RRM adjacent preflight: `pnpm e2e:role-requirement-matrix:preflight:static` now passes the AC-M01 action-order assertion but still fails on unrelated AC-M19 batch-record backfill idempotency-key assertion.
+- RRM preflight: `pnpm e2e:role-requirement-matrix:preflight:static` now PASS; no adjacent preflight blocker remains for AC-M01.
 - Adjacent static suite: `smart-scheduling-smoke-real-flow-static.spec.js` fails on unrelated marker `autoSchedulePublishResult`.
-- Git closeout: repository is already `int_main...origin/int_main [ahead 13]` with many unrelated dirty files, so task-owned commit/push cannot be safely completed without user authorization for baseline handling.
+- Git closeout: `git status --short --branch` currently shows `int_main...origin/int_main` with many unrelated dirty files and one unrelated untracked evidence file, so task-owned commit/push cannot be safely completed without user authorization for baseline handling.
