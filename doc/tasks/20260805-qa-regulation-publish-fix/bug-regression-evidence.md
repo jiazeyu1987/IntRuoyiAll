@@ -2,47 +2,62 @@
 
 ## Bug Summary And Expected Behavior
 
-- Bug: QA 规程配置页顶部仍显示副标题、绿色正式接口提示，并在项目选择与页签、页签与表格之间留下红框标注的空白带，用户要求红框里的内容不显示。
-- Expected: 顶部区域只保留 QA 标题、DRAFT 状态、必填 `DCC 项目代码` 选择框和加载失败重试区；副标题、绿色接口提示和红框空白带不渲染；选择项目后紧凑显示 Tab 和规程内容。
+- Bug: QA 规程配置页仍显示截图黄色框内的“工艺路线来源”说明块，红框基础字段区排版和间距不统一，蓝框手动工艺路线选择框没有按上次正式绑定关系默认选中。
+- Expected: 黄色说明块不渲染；基础字段区使用统一网格间距；选择 DCC 项目或手动绑定后，蓝框下拉按正式 `getRouteProductByItem` 返回的 `routeProduct.routeId` 默认选中。
 
 ## Reproduction Command Or Path
 
-- Reproduction path: 打开 `/mes/pro/process-pool/qa-regulation`，观察顶部副标题、绿色提示和两个红框空白带仍可见。
-- RED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，新增断言命中 compact wrapper / subtitle / API-ready banner 要求。
+- Reproduction path: 打开 `/mes/pro/process-pool/qa-regulation`，选择 DCC 项目代码，观察适用范围卡片中的黄色说明块、基础字段布局和手动工艺路线默认值。
+- RED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，新增断言命中黄色说明块仍存在、基础字段区缺少统一网格、蓝框未从正式 `routeProduct.routeId` 回填默认绑定。
 
 ## Root Cause
 
-- `QaRegulationPage.vue` 顶部区域保留了上轮接口说明和绿色成功提示，Element Plus 空 tab content 与 `ContentWrap` 默认底部间距叠加，形成截图红框中的说明区和空白带。
-- 前一次顶部合并修复保证了 DCC 选择框位置，但没有按新截图反馈隐藏说明和空白区域。
+- `QaRegulationPage.vue` 的适用范围区保留了说明型 `el-alert`，基础字段仍混用直排 form item 与 `el-row/el-col`，间距来源不统一。
+- 产品已有正式路线绑定时，页面只把绑定用于路线范围解析，没有同步赋给 `manualQaRouteBinding.routeId`，导致蓝框下拉不能默认显示上一次绑定。
 
 ## Regression Test Added Or Updated
 
-- Updated `IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` to assert the compact project/tabs wrappers, removal of subtitle/API banner, and hidden empty Element Plus tab content.
+- Updated `IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` to assert the hidden yellow explanatory alert, dedicated basic-field grid, and formal route-product binding preselection.
 - Existing adjacent contracts retained: `qa-regulation-manual-route-selectable-static.spec.cjs` and `qa-regulation-final-applicability-static.spec.cjs`.
 
 ## RED Command And Expected Failure
 
-- RED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，expected reason: 旧页面仍显示副标题、绿色接口提示和红框空白带。
+- RED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，expected reason: 旧页面仍显示黄色说明块，基础字段未统一网格，手动工艺路线下拉未默认回填正式绑定。
 
 ## GREEN Command And Passing Result
 
 - GREEN: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS。
 - GREEN: `node tests/e2e/qa-regulation-manual-route-selectable-static.spec.cjs` -> PASS。
 - GREEN: `node tests/e2e/qa-regulation-final-applicability-static.spec.cjs` -> PASS。
-- GREEN: `pnpm ts:check` -> PASS。
+- REGRESSION: `pnpm ts:check` -> prior FAIL in unrelated `TeamLeaderWorkbenchPage.vue`; latest rerun PASS after the parallel type blocker was resolved.
 - GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs doc/tasks/20260805-qa-regulation-publish-fix/task.md doc/tasks/20260805-qa-regulation-publish-fix/execution-log.md` -> PASS，仅有 Git CRLF 工作区提示。
 
 ## Verification
 
-- The focused static contract covers the red-box hidden-content requirement: no subtitle, no green API-ready banner, compact project/tabs wrappers, and no empty tabs content.
-- Adjacent QA contracts and `pnpm ts:check` confirm the layout change does not break manual route binding, final-inspection applicability, or Vue/TypeScript types.
+- The focused static contract covers the latest screenshot requirements: no yellow route-source explanatory alert, dedicated basic-field grid spacing, and manual route binding defaulting from the formal product-route relation.
+- Adjacent QA contracts confirm the layout/state change does not break manual route selectability or final-inspection applicability; latest full `pnpm ts:check` passes.
 
 ## Risk And Regression Scope
 
-- Scope is limited to `QaRegulationPage.vue` top layout, DCC project loading/error/retry placement, and formal manual-route candidate API selection.
+- Scope is limited to `QaRegulationPage.vue` applicable-scope layout, formal route-product binding readback, and the static contract that guards those behaviors.
 - No backend contract, save/publish payload, route binding save endpoint, QA rule rows, inspection item seed data, or publish precheck behavior changed.
 
 ## Blockers And Follow-Up Actions
 
-- `node tests/e2e/unified-list-template-empty-tabs-system-static.spec.js` is blocked by unrelated system count drift: current access points are 89 while the existing contract locks 88.
+- `node tests/e2e/unified-list-template-empty-tabs-system-static.spec.js` is blocked by unrelated system count drift: current access points are 91 while the existing contract locks 88.
 - The broader AC-M09 backend target JUnit remains blocked by the shared Maven target issue already recorded in the task log.
+
+## Follow-Up: Publish Verification Tab
+
+- Bug summary and expected behavior: QA 顶部仍显示“发布检查”页签；用户要求顶部只显示总览、检验规则和检验项目，现有发布校验与保存发布代码保持不变。
+- Reproduction command or path: 打开 `/mes/pro/process-pool/qa-regulation`，选择任一 DCC 项目代码后观察顶部 QA 页签。
+- Root cause: `QaRegulationPage.vue` 仍直接声明 `<el-tab-pane label="发布检查" name="verification" />`。
+- Regression test updated: `IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` 明确禁止该页签声明，并保留三个正式页签断言。
+- RED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，预期命中旧“发布检查”页签声明。
+- GREEN: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS。
+- GREEN: `node tests/e2e/qa-regulation-manual-route-selectable-static.spec.cjs` -> PASS。
+- GREEN: `node tests/e2e/qa-regulation-final-applicability-static.spec.cjs` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: 本机真实只读 Playwright -> PASS，`芋道源码/admin` 选择 `IDI` 后页签为 `["总览","检验规则","检验项目"]`，`writeRequests=[]`、`pageErrors=[]`。
+- Risk and regression scope: 仅删除顶部页签声明；不修改后端、发布校验方法、保存/发布 API、正式路线范围或检验项目数据。
+- Remaining blocker: 系统级标准列表合同因并行接入点计数 `91 != 88` 失败；完整 AC-M09 后端目标 JUnit 仍沿用任务已有阻塞。

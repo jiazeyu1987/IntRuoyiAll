@@ -116,12 +116,13 @@ assert.doesNotMatch(multiFilterComponentSource, /localStorage|sessionStorage/, '
 
 assert.match(multiFilterFieldSource, /showLabel/, '多维度筛选字段组件必须支持在 Tab 条件行中隐藏固定字段标签。')
 assert.match(multiFilterFieldSource, /type === 'multiSelect'/, '多维度筛选字段必须支持多选下拉。')
+assert.match(multiFilterFieldSource, /type === 'date'/, '多维度筛选字段必须支持单日期。')
 assert.match(multiFilterFieldSource, /type === 'dateRange'/, '多维度筛选字段必须支持日期范围。')
 assert.match(multiFilterFieldSource, /type === 'numberRange'/, '多维度筛选字段必须支持数字范围。')
 assert.match(multiFilterFieldSource, /type === 'autocomplete'/, '多维度筛选字段必须支持自动补全。')
 assert.match(multiFilterFieldSource, /updateRangeValue/, '多维度筛选字段必须独立更新范围起止值。')
 
-assert.match(multiFilterHookSource, /export type ListMultiFilterFieldType = 'text' \| 'select' \| 'multiSelect' \| 'dateRange' \| 'autocomplete' \| 'numberRange'/, '多维度筛选字段类型必须覆盖文本、单选、多选、日期范围、自动补全和数字范围。')
+assert.match(multiFilterHookSource, /export type ListMultiFilterFieldType = 'text' \| 'select' \| 'multiSelect' \| 'date' \| 'dateRange' \| 'autocomplete' \| 'numberRange'/, '多维度筛选字段类型必须覆盖文本、单选、多选、单日期、日期范围、自动补全和数字范围。')
 assert.match(multiFilterHookSource, /export interface ListMultiFilterDefinition/, '多维度筛选 hook 必须导出筛选定义类型。')
 assert.match(multiFilterHookSource, /export interface ListMultiFilterCondition/, '多维度筛选 hook 必须导出条件类型。')
 assert.match(multiFilterHookSource, /id\?:\s*string/, '多维度筛选条件必须支持稳定 Tab id。')

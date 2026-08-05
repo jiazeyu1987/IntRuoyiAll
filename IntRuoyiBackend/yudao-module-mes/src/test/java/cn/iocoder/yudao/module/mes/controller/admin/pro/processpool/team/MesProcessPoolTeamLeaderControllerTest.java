@@ -17,6 +17,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeStatusUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamFormalEmployeeLinkReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamFormalUserCandidateRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelLinkReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelStatusUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
@@ -45,6 +47,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesW
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDefectReasonCatalogService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamFormalUserCandidateBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProcessDeviceParameterRuleService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderTransferTraceService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeBindingService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddReqBO;
@@ -111,6 +114,8 @@ class MesProcessPoolTeamLeaderControllerTest {
     private MesTeamLeaderReportConfirmationService reportConfirmationService;
     @Mock
     private MesTeamLeaderRuntimeConfigService runtimeConfigService;
+    @Mock
+    private MesPqcLeaderPersonnelService pqcPersonnelService;
     @Mock
     private MesTeamLeaderTraceService traceService;
     @Mock
@@ -681,6 +686,17 @@ class MesProcessPoolTeamLeaderControllerTest {
                 "mes:pro-process-pool-team-leader:review");
         assertEndpoint("createEmployeeProfile", new Class[]{MesTeamEmployeeProfileSaveReqVO.class}, PostMapping.class,
                 new String[]{"/employee-profile/create"}, "mes:pro-process-pool-team-leader:maintain");
+        assertEndpoint("getPqcPersonnelList", new Class[]{Boolean.class}, GetMapping.class,
+                new String[]{"/pqc-personnel/list"}, "mes:pro-process-pool-team-leader:query");
+        assertEndpoint("searchPqcFormalEmployeeCandidates", new Class[]{String.class}, GetMapping.class,
+                new String[]{"/pqc-personnel/formal-candidates"},
+                "mes:pro-process-pool-team-leader:maintain");
+        assertEndpoint("linkPqcFormalEmployee", new Class[]{MesPqcLeaderPersonnelLinkReqVO.class},
+                PostMapping.class, new String[]{"/pqc-personnel/formal/link"},
+                "mes:pro-process-pool-team-leader:maintain");
+        assertEndpoint("updatePqcPersonnelStatus", new Class[]{MesPqcLeaderPersonnelStatusUpdateReqVO.class},
+                PutMapping.class, new String[]{"/pqc-personnel/status/update"},
+                "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("getProductionPersonnelList", new Class[]{Boolean.class}, GetMapping.class,
                 new String[]{"/employee-profile/list"}, "mes:pro-process-pool-team-leader:query");
         assertEndpoint("searchFormalEmployeeCandidates", new Class[]{String.class}, GetMapping.class,

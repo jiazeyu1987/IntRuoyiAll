@@ -385,8 +385,8 @@ assert.match(
 )
 assert.match(
   source,
-  /key:\s*'productionLeaderWorkbench'[\s\S]*selectorGroups:\s*\[[\s\S]*tabText:\s*'报工管理'[\s\S]*data-role-matrix-daily-close[\s\S]*tabText:\s*'班组配置'[\s\S]*data-team-leader-active-order-config/,
-  'Production leader real-flow phase must verify report/daily-close and config/active-order surfaces through their actual module tabs.'
+  /key:\s*'productionLeaderWorkbench'[\s\S]*targetPath:\s*'\/mes\/pro\/process-pool\/production-leader'[\s\S]*selectorGroups:\s*\[[\s\S]*tabText:\s*'报工管理'[\s\S]*data-team-leader-report-workbench[\s\S]*tabText:\s*'看板'[\s\S]*data-role-matrix-daily-close[\s\S]*tabText:\s*'班组配置'[\s\S]*data-team-leader-active-order-config/,
+  'Production leader real-flow phase must verify report, dashboard, and config surfaces through their formal module tabs.'
 )
 assert.match(
   source,
@@ -395,8 +395,13 @@ assert.match(
 )
 assert.match(
   source,
-  /async function selectRealFlowTab\(page,\s*tabText\)[\s\S]*locator\('\.el-tabs__item'\)\.filter\(\{\s*hasText:\s*tabText\s*\}\)[\s\S]*await tab\.count\(\)[\s\S]*return[\s\S]*classList\.contains\('is-active'\)[\s\S]*await tab\.click\(\)/,
-  'Full real E2E must switch real Element Plus module tabs when present, while still verifying visible selectors for legacy all-in-one entries.'
+  /async function selectRealFlowTab\(page,\s*tabText\)[\s\S]*locator\('\.el-tabs__item'\)\.filter\(\{\s*hasText:\s*tabText\s*\}\)[\s\S]*await tab\.waitFor\(\{\s*state:\s*'visible',\s*timeout:\s*60000\s*\}\)[\s\S]*classList\.contains\('is-active'\)[\s\S]*await tab\.click\(\)/,
+  'Full real E2E must wait for asynchronously mounted visible Element Plus module tabs before switching them.'
+)
+assert.doesNotMatch(
+  source,
+  /async function selectRealFlowTab\(page,\s*tabText\)[\s\S]*await tab\.count\(\)[\s\S]*===\s*0\)\s*return/,
+  'Full real E2E must not skip a formal module tab after an immediate zero count.'
 )
 assert.match(
   source,
@@ -405,8 +410,8 @@ assert.match(
 )
 assert.match(
   source,
-  /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*await selectRealFlowTab\(page,\s*'班组配置'\)[\s\S]*data-team-leader-active-order-config[\s\S]*await selectRealFlowTab\(page,\s*'报工管理'\)[\s\S]*verifyDailyClosePerformanceReadOnly/,
-  'Production leader active-order action must join from 班组配置 and read daily-close evidence from 报工管理.'
+  /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*await selectRealFlowTab\(page,\s*'班组配置'\)[\s\S]*data-team-leader-active-order-config[\s\S]*await selectRealFlowTab\(page,\s*'看板'\)[\s\S]*verifyDailyClosePerformanceReadOnly/,
+  'Production leader active-order action must join from 班组配置 and read daily-close evidence from 看板.'
 )
 assert.match(
   source,
@@ -993,6 +998,11 @@ assert.match(
   pqcFormalSubmissionSource[0],
   /resolveUnusedPqcSignatureId[\s\S]*const\s+signatureId\s*=\s*signatureResolution\.signatureId[\s\S]*buildPqcFillUrl\(config,\s*formalSubmissionContext,\s*employeeEvidence,\s*signatureId\)[\s\S]*waitForPqcSubmitReady/,
   'PQC formal submission must resolve the unused signature before navigation, pass it through URL query, and wait for submit readiness instead of editing a removed control.'
+)
+assert.match(
+  pqcFormalSubmissionSource[0],
+  /validationResponsePromise[\s\S]*frontline-template\/payload\/validate[\s\S]*pqcSubmitResponseError[\s\S]*E2E_PQC_TEMPLATE_VALIDATION[\s\S]*validationResponseCode[\s\S]*postClickState[\s\S]*postClickMessages/,
+  'PQC formal submission must capture template payload validation when submit is not emitted, instead of reporting an opaque missing submit response.'
 )
 assert.doesNotMatch(
   pqcFormalSubmissionSource[0],

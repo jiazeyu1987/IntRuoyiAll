@@ -116,7 +116,11 @@ assert(
 assert(!page.includes('data-team-leader-pqc-placeholder'), 'PQC 组长页签不能停留在占位内容。')
 assert(!page.includes('PQC 组长功能正在建设中'), 'PQC 组长必须能看到检验员提交内容，不能显示建设中占位。')
 assert(page.includes("if (leaderType === 'PRODUCTION')"), '生产专属活跃订单/配置加载必须与 PQC 提交看板查询区分。')
-assert(page.includes('handleQuery()'), '切换到 PQC 组长后仍必须查询提交看板。')
+assert(
+  /const handleLeaderTypeChange = async[\s\S]*await resetSubmissionMultiFilter\(\)/.test(page) &&
+    /const resetSubmissionMultiFilter = async[\s\S]*await getSubmissionList\(\)/.test(page),
+  '切换到 PQC 组长后仍必须通过正式多维筛选重置链路查询提交看板。'
+)
 assert(page.includes('PQC检验员'), 'PQC 组长提交看板必须按 PQC 检验员展示提交人。')
 assert(!page.includes('<el-radio-group v-model="queryParams.leaderType"'), '组长类型必须使用页签，不得继续使用单选按钮。')
 assert(page.includes('originalPayloadJson'), '提交详情必须展示原始 payload，复核不能替代原始记录。')

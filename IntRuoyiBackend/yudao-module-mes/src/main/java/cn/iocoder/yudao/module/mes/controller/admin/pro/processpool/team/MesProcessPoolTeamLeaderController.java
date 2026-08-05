@@ -16,6 +16,9 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamFormalUserCandidateRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamMaintenanceAuditRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesProductionExecutionTraceRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelLinkReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelStatusUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
@@ -51,6 +54,10 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDefectReasonS
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderTransferTraceService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProcessDeviceParameterRuleSaveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProcessDeviceParameterRuleService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelLinkReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelStatusUpdateReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeBindingService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeDisplayNameUpdateReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeStatusUpdateReqBO;
@@ -113,6 +120,7 @@ public class MesProcessPoolTeamLeaderController {
     private final MesTeamLeaderActiveOrderService activeOrderService;
     private final MesTeamLeaderReportConfirmationService reportConfirmationService;
     private final MesTeamLeaderRuntimeConfigService runtimeConfigService;
+    private final MesPqcLeaderPersonnelService pqcPersonnelService;
     private final MesTeamLeaderLossReasonService lossReasonService;
     private final MesTeamLeaderTraceService traceService;
     private final MesActiveOrderTransferTraceService activeOrderTransferTraceService;
@@ -126,6 +134,7 @@ public class MesProcessPoolTeamLeaderController {
                                               MesTeamLeaderActiveOrderService activeOrderService,
                                               MesTeamLeaderReportConfirmationService reportConfirmationService,
                                               MesTeamLeaderRuntimeConfigService runtimeConfigService,
+                                              MesPqcLeaderPersonnelService pqcPersonnelService,
                                               MesTeamLeaderLossReasonService lossReasonService,
                                               MesTeamLeaderTraceService traceService,
                                               MesActiveOrderTransferTraceService activeOrderTransferTraceService) {
@@ -138,6 +147,7 @@ public class MesProcessPoolTeamLeaderController {
         this.activeOrderService = activeOrderService;
         this.reportConfirmationService = reportConfirmationService;
         this.runtimeConfigService = runtimeConfigService;
+        this.pqcPersonnelService = pqcPersonnelService;
         this.lossReasonService = lossReasonService;
         this.traceService = traceService;
         this.activeOrderTransferTraceService = activeOrderTransferTraceService;
@@ -384,6 +394,52 @@ public class MesProcessPoolTeamLeaderController {
                         .employeeName(reqVO.getEmployeeName())
                         .employeeType(reqVO.getEmployeeType())
                         .build()));
+    }
+
+    @GetMapping("/pqc-personnel/list")
+    @Operation(summary = "查询当前 PQC 组长关联的检验员")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<List<MesPqcLeaderPersonnelRespVO>> getPqcPersonnelList(
+            @RequestParam(value = "enabled", required = false) Boolean enabled) {
+        return success(pqcPersonnelService.listPersonnel(SecurityFrameworkUtils.getLoginUserId(), enabled)
+                .stream()
+                .map(MesProcessPoolTeamLeaderController::toPqcPersonnelRespVO)
+                .toList());
+    }
+
+    @GetMapping("/pqc-personnel/formal-candidates")
+    @Operation(summary = "按姓名搜索当前 PQC 组长可关联的正式检验员")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<List<MesTeamFormalUserCandidateRespVO>> searchPqcFormalEmployeeCandidates(
+            @RequestParam("keyword") String keyword) {
+        return success(runtimeConfigService.searchFormalUserCandidates(SecurityFrameworkUtils.getLoginUserId(), keyword)
+                .stream()
+                .map(MesProcessPoolTeamLeaderController::toFormalUserCandidateRespVO)
+                .toList());
+    }
+
+    @PostMapping("/pqc-personnel/formal/link")
+    @Operation(summary = "关联当前 PQC 组长可维护范围内的正式检验员")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Long> linkPqcFormalEmployee(
+            @Valid @RequestBody MesPqcLeaderPersonnelLinkReqVO reqVO) {
+        return success(pqcPersonnelService.linkFormalInspector(MesPqcLeaderPersonnelLinkReqBO.builder()
+                .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                .systemUserId(reqVO.getSystemUserId())
+                .build()));
+    }
+
+    @PutMapping("/pqc-personnel/status/update")
+    @Operation(summary = "启用或禁用当前 PQC 组长关联的检验员")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Boolean> updatePqcPersonnelStatus(
+            @Valid @RequestBody MesPqcLeaderPersonnelStatusUpdateReqVO reqVO) {
+        pqcPersonnelService.updatePersonnelStatus(MesPqcLeaderPersonnelStatusUpdateReqBO.builder()
+                .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                .scopeId(reqVO.getScopeId())
+                .enabled(reqVO.getEnabled())
+                .build());
+        return success(Boolean.TRUE);
     }
 
     @GetMapping("/employee-profile/list")
@@ -643,6 +699,15 @@ public class MesProcessPoolTeamLeaderController {
                 .setDisabledAt(profile.getDisabledAt())
                 .setSignaturePasswordManagedBy(profile.getSystemUserId() == null
                         ? "TEMPORARY_PROFILE" : "SYSTEM_USER");
+    }
+
+    private static MesPqcLeaderPersonnelRespVO toPqcPersonnelRespVO(MesPqcLeaderPersonnelBO personnel) {
+        return new MesPqcLeaderPersonnelRespVO()
+                .setScopeId(personnel.getScopeId())
+                .setSystemUserId(personnel.getSystemUserId())
+                .setDisplayName(personnel.getDisplayName())
+                .setUsername(personnel.getUsername())
+                .setEnabled(personnel.getEnabled());
     }
 
     private static MesTeamFormalUserCandidateRespVO toFormalUserCandidateRespVO(MesTeamFormalUserCandidateBO candidate) {

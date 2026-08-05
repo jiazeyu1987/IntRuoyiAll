@@ -19,6 +19,7 @@
 - [x] 已获用户明确授权“授权修复本机库 P0 backfill”；当前仅限本机 Docker MySQL `ruoyi-vue-pro`，禁止触碰测试服/正式服/备用服。
 - [x] 生成备份、rollback 和逐行 repair manifest，并执行最小本机库 backfill + 官方迁移复验。
 - [ ] P0 runtime schema 修复后重跑 `real:check` 和 full real E2E，确认 PQC 正式提交是否解除 schema blocker。
+- [ ] 修复 full real E2E 的生产组长正式入口：使用 `/mes/pro/process-pool/production-leader` 验证模块页签，禁止继续依赖旧 `/team-leader` 页面结构。
 
 ## Expected Verification
 

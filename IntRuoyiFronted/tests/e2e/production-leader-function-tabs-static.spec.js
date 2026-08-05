@@ -22,16 +22,16 @@ assert.doesNotMatch(
 
 assert.match(
   teamLeaderWorkbench,
-  /data-production-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="报工管理"\s+name="report"[\s\S]*<el-tab-pane\s+label="损耗管理"\s+name="loss"[\s\S]*<el-tab-pane\s+label="班组配置"\s+name="config"/,
-  'Shared workbench must render production function tabs for personnel, report, loss, and configuration modules.'
+  /data-production-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="报工管理"\s+name="report"[\s\S]*<el-tab-pane\s+label="看板"\s+name="dashboard"[\s\S]*<el-tab-pane\s+label="异常"\s+name="exception"[\s\S]*<el-tab-pane\s+label="损耗管理"\s+name="loss"[\s\S]*<el-tab-pane\s+label="班组配置"\s+name="config"/,
+  'Shared workbench must render production function tabs for personnel, report, dashboard, exception, loss, and configuration modules.'
 )
 assert.match(
   teamLeaderWorkbench,
-  /const\s+activeProductionModuleTab\s*=\s*ref<'personnel'\s*\|\s*'report'\s*\|\s*'loss'\s*\|\s*'config'>\('personnel'\)/,
+  /const\s+activeProductionModuleTab\s*=\s*ref<'personnel'\s*\|\s*'report'\s*\|\s*'dashboard'\s*\|\s*'exception'\s*\|\s*'loss'\s*\|\s*'config'>\('personnel'\)/,
   'Production module tabs must default to 人员管理.'
 )
 
-for (const moduleName of ['Personnel', 'Report', 'Loss', 'Config']) {
+for (const moduleName of ['Personnel', 'Report', 'Dashboard', 'Exception', 'Loss', 'Config']) {
   assert.match(
     teamLeaderWorkbench,
     new RegExp(`const\\s+showProduction${moduleName}Module\\s*=\\s*computed\\([\\s\\S]*activeProductionModuleTab`),
@@ -41,7 +41,7 @@ for (const moduleName of ['Personnel', 'Report', 'Loss', 'Config']) {
 
 assert.match(
   teamLeaderWorkbench,
-  /<ContentWrap\s+v-if="showProductionPersonnelModule"\s+data-team-leader-production-personnel-tab/,
+  /<ContentWrap[\s\S]*v-if="showProductionPersonnelModule"[\s\S]*data-team-leader-production-personnel-tab/,
   '人员管理 tab must own the production personnel management block.'
 )
 assert.match(
@@ -51,37 +51,42 @@ assert.match(
 )
 assert.match(
   teamLeaderWorkbench,
-  /<ContentWrap\s+v-if="showPqcManagementModule"\s+data-team-leader-report-workbench/,
+  /<ContentWrap[\s\S]*v-if="showPqcManagementModule"[\s\S]*data-team-leader-report-workbench/,
   '报工管理 tab must own the report confirmation workbench.'
 )
 assert.match(
   teamLeaderWorkbench,
-  /const\s+showPqcDashboardModule\s*=\s*computed\([\s\S]*showProductionReportModule[\s\S]*activePqcModuleTab[\s\S]*'dashboard'/,
-  '报工管理 tab must continue to own the production daily close dashboard through the existing PQC dashboard gate.'
+  /const\s+showPqcDashboardModule\s*=\s*computed\([\s\S]*showProductionDashboardModule[\s\S]*activePqcModuleTab[\s\S]*'dashboard'/,
+  '看板 tab must own the production daily close dashboard through the dedicated production dashboard gate.'
 )
 assert.match(
   teamLeaderWorkbench,
-  /<ContentWrap\s+v-if="showPqcDashboardModule"\s+data-role-matrix-daily-close/,
-  '报工管理 tab must own the daily close dashboard.'
+  /<ContentWrap[\s\S]*v-if="showPqcDashboardModule"[\s\S]*data-role-matrix-daily-close/,
+  '看板 tab must own the daily close dashboard.'
 )
 assert.match(
+  teamLeaderWorkbench,
+  /<ContentWrap[\s\S]*v-if="showProductionExceptionModule"[\s\S]*data-team-leader-abnormal-report/,
+  '异常 tab must own the abnormal report block.'
+)
+assert.doesNotMatch(
   teamLeaderWorkbench,
   /<ContentWrap\s+v-if="showProductionReportModule"\s+data-team-leader-abnormal-report/,
-  '报工管理 tab must own the abnormal report block.'
+  '异常上报 must not remain under the 报工管理 tab gate.'
 )
 assert.match(
   teamLeaderWorkbench,
-  /<ContentWrap\s+v-if="showProductionLossModule"\s+data-team-leader-loss-reason-tab/,
+  /<ContentWrap[\s\S]*v-if="showProductionLossModule"[\s\S]*data-team-leader-loss-reason-tab/,
   '损耗管理 tab must own loss reason maintenance.'
 )
 assert.match(
   teamLeaderWorkbench,
-  /<ContentWrap\s+v-if="showProductionConfigModule"\s+data-team-leader-config-center/,
+  /<ContentWrap[\s\S]*v-if="showProductionConfigModule"[\s\S]*data-team-leader-config-center/,
   '班组配置 tab must own the team configuration center.'
 )
 assert.doesNotMatch(
   teamLeaderWorkbench,
-  /<ContentWrap\s+v-if="isProductionLeader"\s+data-team-leader-(production-personnel-tab|abnormal-report|loss-reason-tab|config-center)/,
+  /<ContentWrap[\s\S]{0,160}v-if="isProductionLeader"[\s\S]{0,160}data-team-leader-(production-personnel-tab|abnormal-report|loss-reason-tab|config-center)/,
   'Production-only blocks must be gated by function module tabs, not only by production leader role.'
 )
 

@@ -22,12 +22,12 @@ assert.doesNotMatch(
 
 assert.match(
   teamLeaderWorkbench,
-  /data-pqc-leader-module-tabs[\s\S]*<el-tab-pane\s+label="PQC管理"\s+name="management"[\s\S]*<el-tab-pane\s+label="看板"\s+name="dashboard"/,
-  'Shared workbench must render PQC management and dashboard module tabs.'
+  /data-pqc-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="PQC管理"\s+name="management"[\s\S]*<el-tab-pane\s+label="看板"\s+name="dashboard"/,
+  'Shared workbench must render PQC personnel, management, and dashboard module tabs.'
 )
 assert.match(
   teamLeaderWorkbench,
-  /<ContentWrap\s+v-if="!showPqcModuleTabs">[\s\S]*team-leader-workbench__header/,
+  /<ContentWrap\s+v-if="!showPqcModuleTabs\s+&&\s+!showProductionModuleTabs">[\s\S]*team-leader-workbench__header/,
   'PQC leader must not keep a standalone header/tabs card that leaves blank space above the list.'
 )
 assert.match(
@@ -42,7 +42,7 @@ assert.match(
 )
 assert.match(
   teamLeaderWorkbench,
-  /v-if="!showPqcModuleTabs"\s+class="team-leader-workbench__section-head"/,
+  /v-if="!showPqcModuleTabs\s+&&\s+!showProductionModuleTabs"\s+class="team-leader-workbench__section-head"/,
   'PQC管理 must hide the old explanatory section head so tabs directly reach the list controls.'
 )
 assert.match(
@@ -57,8 +57,13 @@ assert.match(
 )
 assert.match(
   teamLeaderWorkbench,
-  /const\s+activePqcModuleTab\s*=\s*ref<'management'\s*\|\s*'dashboard'>\('management'\)/,
-  'PQC leader module tabs must default to PQC管理.'
+  /const\s+activePqcModuleTab\s*=\s*ref<'personnel'\s*\|\s*'management'\s*\|\s*'dashboard'>\('personnel'\)/,
+  'PQC leader module tabs must default to 人员管理.'
+)
+assert.match(
+  teamLeaderWorkbench,
+  /const\s+showPqcPersonnelModule\s*=\s*computed\([\s\S]*activePqcModuleTab[\s\S]*'personnel'/,
+  'PQC personnel tab must gate the PQC personnel list.'
 )
 assert.match(
   teamLeaderWorkbench,

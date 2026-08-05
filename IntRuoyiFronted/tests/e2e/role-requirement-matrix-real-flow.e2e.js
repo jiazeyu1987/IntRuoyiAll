@@ -170,7 +170,7 @@ const REQUIRED_ENV = [
 
 const ROLE_CONFIGS = [
   ['productionEmployee', 'RRM_PRODUCTION_EMPLOYEE_USERNAME', 'RRM_PRODUCTION_EMPLOYEE_PASSWORD', '/index'],
-  ['productionLeader', 'RRM_PRODUCTION_LEADER_USERNAME', 'RRM_PRODUCTION_LEADER_PASSWORD', '/mes/pro/process-pool/team-leader'],
+  ['productionLeader', 'RRM_PRODUCTION_LEADER_USERNAME', 'RRM_PRODUCTION_LEADER_PASSWORD', '/mes/pro/process-pool/production-leader'],
   ['pqcInspector', 'RRM_PQC_INSPECTOR_USERNAME', 'RRM_PQC_INSPECTOR_PASSWORD', '/index'],
   ['pqcLeader', 'RRM_PQC_LEADER_USERNAME', 'RRM_PQC_LEADER_PASSWORD', '/mes/pro/process-pool/pqc-leader'],
   ['qa', 'RRM_QA_USERNAME', 'RRM_QA_PASSWORD', '/mes/qc/template'],
@@ -182,11 +182,15 @@ const M6_REAL_FLOW_PHASES = [
     key: 'productionLeaderWorkbench',
     roleKey: 'productionLeader',
     label: '生产组长工作台与日结/分配表面',
-    targetPath: '/mes/pro/process-pool/team-leader',
+    targetPath: '/mes/pro/process-pool/production-leader',
     selectorGroups: [
       {
         tabText: '报工管理',
-        selectors: ['[data-team-leader-report-workbench]', '[data-role-matrix-daily-close]']
+        selectors: ['[data-team-leader-report-workbench]']
+      },
+      {
+        tabText: '看板',
+        selectors: ['[data-role-matrix-daily-close]']
       },
       {
         tabText: '班组配置',
@@ -3686,6 +3690,10 @@ async function verifyPqcFormalSubmissionCreatesEvent(page, config, actionEvidenc
     }
   }
 
+  const validationResponsePromise = page.waitForResponse((response) =>
+    response.url().includes('/mes/pro/feedback/frontline-template/payload/validate')
+      && response.request().method() === 'POST'
+  , { timeout: 30000 }).catch((error) => ({ pqcValidationResponseError: error }))
   const submitResponsePromise = page.waitForResponse((response) =>
     response.url().includes('/mes/pro/feedback/frontline/device-account/pqc/submit')
       && response.request().method() === 'POST'
@@ -3693,6 +3701,29 @@ async function verifyPqcFormalSubmissionCreatesEvent(page, config, actionEvidenc
   await submitButton.click()
   const submitResponse = await submitResponsePromise
   if (submitResponse.pqcSubmitResponseError) {
+    const validationResponse = await validationResponsePromise
+    let validationBody
+    if (!validationResponse.pqcValidationResponseError) {
+      validationBody = await validationResponse.json().catch(() => undefined)
+      if (!validationResponse.ok() || !isBusinessSuccess(validationBody)) {
+        return {
+          key: 'pqcFormalSubmissionCreated',
+          label: 'PQC 正式提交生成过程池检验事件',
+          roleKey: 'pqcInspector',
+          status: 'BLOCKED',
+          category: 'E2E_PQC_TEMPLATE_VALIDATION',
+          acceptanceIds: ['AC-D29', 'AC-D32'],
+          activeOrderId: joinEvidence.activeOrderId,
+          signatureId,
+          productionSubmitEventId: formalSubmissionContext.productionSubmitEventId,
+          processPoolEventId: formalSubmissionContext.processPoolEventId,
+          validationHttpStatus: validationResponse.status(),
+          validationResponseCode: validationBody?.code,
+          validationResponseMessage: responseMessage(validationBody),
+          description: `PQC 模板 payload 校验未通过，正式 PQC submit 未发出：${responseMessage(validationBody)}`
+        }
+      }
+    }
     return {
       key: 'pqcFormalSubmissionCreated',
       label: 'PQC 正式提交生成过程池检验事件',
@@ -3702,8 +3733,17 @@ async function verifyPqcFormalSubmissionCreatesEvent(page, config, actionEvidenc
       acceptanceIds: ['AC-D29', 'AC-D32'],
       activeOrderId: joinEvidence.activeOrderId,
       signatureId,
+      productionSubmitEventId: formalSubmissionContext.productionSubmitEventId,
+      processPoolEventId: formalSubmissionContext.processPoolEventId,
       candidateSignatureIds: signatureResolution.candidateSignatureIds,
       usedSignatureIds: signatureResolution.usedSignatureIds,
+      validationCaptured: !validationResponse.pqcValidationResponseError,
+      validationResponseCode: validationBody?.code,
+      validationResponseMessage: validationBody ? responseMessage(validationBody) : validationResponse.pqcValidationResponseError?.message,
+      postClickState: await readPqcSubmitState(page, submitButton),
+      postClickMessages: await page.locator('.el-message, .el-notification')
+        .allInnerTexts()
+        .catch(() => []),
       description: `点击 PQC 提交后未捕获正式提交接口响应：${submitResponse.pqcSubmitResponseError.message}`
     }
   }
@@ -5758,7 +5798,7 @@ async function verifyActiveOrderCleanupTraceability(page, config, joinEvidence) 
     }
   }
 
-  await page.goto(new URL('/mes/pro/process-pool/team-leader', config.frontendUrl).toString(), {
+  await page.goto(new URL('/mes/pro/process-pool/production-leader', config.frontendUrl).toString(), {
     waitUntil: 'domcontentloaded',
     timeout: 90000
   })
@@ -6438,7 +6478,6 @@ async function verifyDailyClosePerformanceReadOnly(page, config, actionEvidence)
 async function selectRealFlowTab(page, tabText) {
   if (!tabText) return
   const tab = page.locator('.el-tabs__item').filter({ hasText: tabText }).first()
-  if ((await tab.count()) === 0) return
   await tab.waitFor({ state: 'visible', timeout: 60000 })
   const isActive = await tab.evaluate((node) =>
     node.classList.contains('is-active') || node.getAttribute('aria-selected') === 'true'
@@ -6495,7 +6534,7 @@ async function runPhaseAction(page, config, phase, actionEvidence) {
     const joinEvidence = await performActiveOrderJoin(page, config)
     const conflictRouteEvidence = await verifyActiveOrderConflictRouteFailure(page, config, joinEvidence)
     const transferTraceEvidence = await verifyActiveOrderTransferTraceReadOnly(page, config, joinEvidence)
-    await selectRealFlowTab(page, '报工管理')
+    await selectRealFlowTab(page, '看板')
     const dailyCloseEvidence = await verifyDailyClosePerformanceReadOnly(page, config, [
       joinEvidence,
       conflictRouteEvidence,

@@ -3,32 +3,33 @@
     <ContentWrap class="qa-regulation-page__project-wrap" data-qa-regulation-dcc-project>
       <div class="qa-regulation-page__header">
         <div class="qa-regulation-page__title">QA 规程配置</div>
+        <el-form label-width="0" class="qa-regulation-page__form qa-regulation-page__project-form">
+          <el-form-item class="qa-regulation-page__project-field">
+            <el-select
+              v-model="qaRegulationDraft.dccProjectCodeId"
+              aria-label="DCC 项目代码"
+              clearable
+              filterable
+              remote
+              reserve-keyword
+              :loading="dccProjectCodeOptionsLoading"
+              :remote-method="loadDccProjectCodeOptions"
+              placeholder="请选择 DCC 项目代码"
+              class="!w-100%"
+              @change="handleDccProjectCodeChange"
+              @visible-change="handleDccProjectCodeVisibleChange"
+            >
+              <el-option
+                v-for="project in dccProjectCodeOptions"
+                :key="project.id"
+                :label="formatDccProjectCodeOption(project)"
+                :value="project.id"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
         <el-tag type="warning" effect="plain">{{ qaRegulationDraft.lifecycleStatus }}</el-tag>
       </div>
-      <el-form label-width="112px" class="qa-regulation-page__form qa-regulation-page__project-form">
-        <el-form-item label="DCC 项目代码" required>
-          <el-select
-            v-model="qaRegulationDraft.dccProjectCodeId"
-            clearable
-            filterable
-            remote
-            reserve-keyword
-            :loading="dccProjectCodeOptionsLoading"
-            :remote-method="loadDccProjectCodeOptions"
-            placeholder="请选择 DCC 项目代码"
-            class="!w-100%"
-            @change="handleDccProjectCodeChange"
-            @visible-change="handleDccProjectCodeVisibleChange"
-          >
-            <el-option
-              v-for="project in dccProjectCodeOptions"
-              :key="project.id"
-              :label="formatDccProjectCodeOption(project)"
-              :value="project.id"
-            />
-          </el-select>
-        </el-form-item>
-      </el-form>
 
       <div
         v-if="dccProjectCodeLoadError"
@@ -47,62 +48,67 @@
 
     <template v-if="selectedDccProjectCode">
     <ContentWrap class="qa-regulation-page__tabs-wrap">
-      <el-tabs v-model="qaActiveTab" data-qa-regulation-tabs>
+      <el-tabs
+        v-model="qaActiveTab"
+        class="qa-regulation-page__tabs qa-regulation-page__tabs--flat"
+        data-qa-regulation-tabs
+      >
         <el-tab-pane label="总览" name="overview" />
         <el-tab-pane label="检验规则" name="rules" />
         <el-tab-pane label="检验项目" name="items" />
-        <el-tab-pane label="发布检查" name="verification" />
       </el-tabs>
     </ContentWrap>
 
     <ContentWrap v-show="selectedDccProjectCode && qaActiveTab === 'overview'">
       <el-card shadow="never" data-qa-regulation-scope>
           <template #header>适用范围</template>
-          <el-form :model="qaRegulationDraft" label-width="112px" class="qa-regulation-page__form">
-            <el-form-item label="规程编号">
-              <el-input v-model="qaRegulationDraft.regulationCode" />
-            </el-form-item>
-            <el-form-item label="规程名称">
-              <el-input v-model="qaRegulationDraft.regulationName" />
-            </el-form-item>
-            <el-row :gutter="12">
-              <el-col :xs="24" :md="12">
-                <el-form-item label="版本">
-                  <el-input v-model="qaRegulationDraft.versionNo" />
-                </el-form-item>
-              </el-col>
-              <el-col :xs="24" :md="12">
-                <el-form-item label="生效日期">
-                  <el-date-picker
-                    v-model="qaRegulationDraft.effectiveDate"
-                    value-format="YYYY-MM-DD"
-                    type="date"
-                    class="!w-100%"
-                  />
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-form-item label="产品">
-              <el-input
-                v-model="qaRegulationDraft.productName"
-                disabled
-                placeholder="选择 DCC 项目代码后自动带出"
-              />
-            </el-form-item>
+          <el-form
+            :model="qaRegulationDraft"
+            label-width="88px"
+            class="qa-regulation-page__form qa-regulation-page__basic-form"
+            data-qa-regulation-basic-form
+          >
+            <div class="qa-regulation-page__basic-grid">
+              <el-form-item
+                label="规程编号"
+                class="qa-regulation-page__basic-field qa-regulation-page__basic-field--full"
+              >
+                <el-input v-model="qaRegulationDraft.regulationCode" />
+              </el-form-item>
+              <el-form-item
+                label="规程名称"
+                class="qa-regulation-page__basic-field qa-regulation-page__basic-field--full"
+              >
+                <el-input v-model="qaRegulationDraft.regulationName" />
+              </el-form-item>
+              <el-form-item label="版本" class="qa-regulation-page__basic-field">
+                <el-input v-model="qaRegulationDraft.versionNo" />
+              </el-form-item>
+              <el-form-item label="生效日期" class="qa-regulation-page__basic-field">
+                <el-date-picker
+                  v-model="qaRegulationDraft.effectiveDate"
+                  value-format="YYYY-MM-DD"
+                  type="date"
+                  class="!w-100%"
+                />
+              </el-form-item>
+              <el-form-item
+                label="产品"
+                class="qa-regulation-page__basic-field qa-regulation-page__basic-field--full"
+              >
+                <el-input
+                  v-model="qaRegulationDraft.productName"
+                  disabled
+                  placeholder="选择 DCC 项目代码后自动带出"
+                />
+              </el-form-item>
+            </div>
           </el-form>
           <div
             v-loading="qaRouteScopeLoading"
             class="qa-regulation-page__route-scope"
             data-qa-regulation-route-scope-auto
           >
-            <el-alert
-              class="mb-12px"
-              title="工艺路线来源"
-              description="优先读取产品当前绑定的工艺路线；如产品未绑定或需修正，可在此显式选择工艺路线并绑定到产品。路线版本、质检工序、SOP/工艺要求和正式批记录表单仍由路线自动带出。"
-              type="info"
-              :closable="false"
-              show-icon
-            />
             <div class="qa-regulation-page__manual-route-bind" data-qa-regulation-manual-route-bind>
               <el-form label-width="112px" class="qa-regulation-page__form">
                 <el-row :gutter="12">
@@ -1645,8 +1651,16 @@ const loadQaRouteScopeFromProject = async (project: DccProjectCodeRespVO) => {
     if (!routeProduct?.routeId) {
       throw new Error('当前 MDM 产品未绑定工艺路线，请在下方选择工艺路线并手动绑定。')
     }
+    if (loadSerial !== qaRouteScopeLoadSerial) {
+      return
+    }
+    const boundRouteId = requireQaRouteScopePositiveNumber(routeProduct.routeId, '产品当前绑定工艺路线')
+    manualQaRouteBinding.routeId = boundRouteId
+    if (manualQaRouteOptions.value.length === 0 && !manualQaRouteOptionsLoading.value) {
+      void loadManualQaRouteOptions()
+    }
     const routeScopeSource = await loadQaRouteScopeFromRouteBinding({
-      routeId: routeProduct.routeId,
+      routeId: boundRouteId,
       routeVersionId: routeProduct.routeVersionId,
       routeProduct
     })
@@ -1744,14 +1758,16 @@ const handleManualQaRouteBind = async () => {
     if (!routeProduct?.routeId) {
       throw new Error('绑定提交后未读取到产品当前工艺路线，请刷新后重试。')
     }
+    const boundRouteId = requireQaRouteScopePositiveNumber(routeProduct.routeId, '产品当前绑定工艺路线')
     const routeScopeSource = await loadQaRouteScopeFromRouteBinding({
-      routeId: routeProduct.routeId,
+      routeId: boundRouteId,
       routeVersionId: routeProduct.routeVersionId,
       routeProduct
     })
     if (loadSerial !== qaRouteScopeLoadSerial) {
       return
     }
+    manualQaRouteBinding.routeId = boundRouteId
     applyFormalQaRouteScope(routeScopeSource)
     ElMessage.success('已绑定工艺路线并带出 QA 适用范围。')
   } catch (error) {
@@ -2251,18 +2267,19 @@ const runQaPublishPrecheck = async () => {
 <style scoped>
 .qa-regulation-page {
   display: grid;
-  gap: 8px;
+  gap: 0;
 }
 
 .qa-regulation-page__header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: flex-start;
   gap: 16px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 
 .qa-regulation-page__title {
+  flex-shrink: 0;
   color: #172033;
   font-size: 20px;
   font-weight: 700;
@@ -2285,21 +2302,68 @@ const runQaPublishPrecheck = async () => {
   margin-bottom: 0;
 }
 
+.qa-regulation-page__basic-form {
+  margin: 0;
+}
+
+.qa-regulation-page__basic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.qa-regulation-page__basic-field {
+  margin-bottom: 0;
+}
+
+.qa-regulation-page__basic-field--full {
+  grid-column: 1 / -1;
+}
+
 .qa-regulation-page__project-wrap,
 .qa-regulation-page__tabs-wrap {
   margin-bottom: 0 !important;
 }
 
 .qa-regulation-page__project-form {
-  margin-top: 0;
+  flex: 0 1 720px;
+  min-width: 280px;
+  margin: 0;
+}
+
+.qa-regulation-page__project-field {
+  margin-bottom: 0;
+}
+
+.qa-regulation-page__header :deep(.el-tag) {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .qa-regulation-page__tabs-wrap :deep(.el-card__body) {
+  padding-top: 12px !important;
   padding-bottom: 0 !important;
 }
 
 .qa-regulation-page__tabs-wrap :deep(.el-tabs__header) {
   margin-bottom: 0;
+}
+
+.qa-regulation-page__tabs--flat :deep(.el-tabs__header) {
+  margin: 0;
+}
+
+.qa-regulation-page__tabs--flat :deep(.el-tabs__item) {
+  color: #172033;
+  font-weight: 600;
+}
+
+.qa-regulation-page__tabs--flat :deep(.el-tabs__item.is-active) {
+  color: #00a896;
+}
+
+.qa-regulation-page__tabs--flat :deep(.el-tabs__active-bar) {
+  background-color: #00a896;
 }
 
 .qa-regulation-page__tabs-wrap :deep(.el-tabs__content) {
@@ -2463,12 +2527,30 @@ const runQaPublishPrecheck = async () => {
 }
 
 @media (max-width: 1180px) {
+  .qa-regulation-page__header {
+    flex-wrap: wrap;
+  }
+
+  .qa-regulation-page__project-form {
+    order: 3;
+    flex: 1 0 100%;
+    min-width: 0;
+  }
+
   .qa-regulation-page__layout {
     grid-template-columns: 1fr;
   }
 
   .qa-regulation-page__scope-grid {
     grid-template-columns: 1fr;
+  }
+
+  .qa-regulation-page__basic-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .qa-regulation-page__basic-field--full {
+    grid-column: auto;
   }
 }
 

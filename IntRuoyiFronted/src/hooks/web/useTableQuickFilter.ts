@@ -7,7 +7,7 @@ import {
   type ListMultiFilterOperator
 } from '@/hooks/web/useTableMultiFilter'
 
-export type TableQuickFilterFieldType = 'text' | 'select' | 'dateRange' | 'autocomplete'
+export type TableQuickFilterFieldType = 'text' | 'select' | 'date' | 'dateRange' | 'autocomplete'
 export type TableQuickFilterOperator = 'contains' | 'eq' | 'between'
 
 export interface TableQuickFilterOption {
@@ -61,6 +61,7 @@ const DEFAULT_OPERATORS: Record<TableQuickFilterFieldType, TableQuickFilterOpera
   text: ['contains', 'eq'],
   autocomplete: ['contains', 'eq'],
   select: ['eq'],
+  date: ['eq'],
   dateRange: ['between']
 }
 
@@ -68,6 +69,7 @@ const DEFAULT_OPERATOR: Record<TableQuickFilterFieldType, TableQuickFilterOperat
   text: 'contains',
   autocomplete: 'contains',
   select: 'eq',
+  date: 'eq',
   dateRange: 'between'
 }
 

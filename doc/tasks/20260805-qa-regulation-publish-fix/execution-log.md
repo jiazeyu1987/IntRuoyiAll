@@ -11,6 +11,7 @@
 - 用户反馈截图中手动绑定保存失败：前端调用 `/admin-api/mes/pro/route-product/save-qa-regulation-route-by-item` 返回 `请求地址不存在`，需要修复本机 48081 运行态未加载 QA endpoint 的问题。
 - 2026-08-05 follow-up：用户反馈顶部黄框里的内容不显示；本轮限定为前端布局回归，要求 `DCC 项目代码` 选择内容显示在顶部 QA 标题黄框区域内，不扩大后端接口、路线绑定或检验项目数据范围。
 - 2026-08-05 follow-up：用户反馈截图红框里的内容不显示；本轮限定为隐藏红框标注的顶部说明副标题、绿色正式接口提示、项目选择与页签之间的空白带、页签与表格之间的空白带，保留标题、DRAFT、DCC 项目代码选择、Tab 和检验项目表。
+- 2026-08-05 follow-up：用户要求“不显示发布检查的tab”；本轮只从顶部 QA 页签导航移除“发布检查”，保留现有发布校验、草稿保存和发布接口代码，不扩展后端或数据范围。
 
 ## Baseline
 
@@ -39,6 +40,7 @@
 - BDD: QA 手动绑定失败可见 -> Given 用户选择的路线没有当前生效版本、绑定 API 失败或绑定后无法读取当前产品路线 When 用户点击手动绑定 Then 页面显示可见错误并继续阻断保存/发布，不使用所选路线本地值冒充绑定成功。
 - BDD: 顶部黄框显示项目选择内容 -> Given QA 用户进入规程配置页 When 页面渲染顶部 QA 标题区 Then 顶部区域只保留标题、DRAFT 状态和必填 `DCC 项目代码` 选择框，不显示副标题或绿色接口提示。
 - BDD: 红框说明和空白带隐藏 -> Given QA 用户查看规程配置页 When 页面渲染顶部项目选择区、页签和检验项目表 Then 不显示副标题、绿色正式接口提示、项目选择与页签之间的空白带、页签与表格之间的空白带。
+- BDD: 发布检查页签隐藏 -> Given QA 用户已选择 DCC 项目代码 When 页面渲染顶部 QA 页签导航 Then 只显示总览、检验规则和检验项目，不显示“发布检查”页签，且现有发布校验与保存发布实现不被替换或降级。
 
 ## RED / GREEN Evidence
 
@@ -94,13 +96,29 @@
 - GREEN: `node tests/e2e/qa-regulation-final-applicability-static.spec.cjs` -> PASS。
 - GREEN: `pnpm ts:check` -> PASS，红框隐藏样式调整后 Vue/TypeScript 类型检查通过。
 - REGRESSION BLOCKED: `node tests/e2e/unified-list-template-empty-tabs-system-static.spec.js` -> FAIL，仍为当前系统标准列表模板接入点 89 vs 合同 88 的并行计数漂移。
+- RED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，预期原因：新增合同要求顶部 QA 页签导航不再声明 `label="发布检查" name="verification"`，旧源码仍显示该页签。
+- GREEN: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，顶部 QA 页签只保留总览、检验规则和检验项目，静态合同明确禁止 `label="发布检查" name="verification"`。
+- GREEN: `node tests/e2e/qa-regulation-manual-route-selectable-static.spec.cjs` -> PASS，手动路线绑定相邻链路未受页签导航调整影响。
+- GREEN: `node tests/e2e/qa-regulation-final-applicability-static.spec.cjs` -> PASS，末检适用性相邻链路未受页签导航调整影响。
+- GREEN: `pnpm ts:check` -> PASS，最新共享工作区 Vue/TypeScript 类型检查通过，先前 `TeamLeaderWorkbenchPage.vue` 并行类型阻塞已解除。
+- GREEN: 本机真实只读 Playwright -> PASS，使用 `芋道源码/admin` 登录 `http://127.0.0.1:8081`，选择 `IDI` 后页签文本严格为 `["总览","检验规则","检验项目"]`，`writeRequests=[]`、`pageErrors=[]`。
+- REGRESSION BLOCKED: `node tests/e2e/unified-list-template-empty-tabs-system-static.spec.js` -> FAIL，当前并行接入点计数为 91，既有合同锁定 88；本轮未新增或删除 `UnifiedListTemplate` 接入点。
+- BDD: QA 适用范围截图三色框修复 -> Given QA 用户选择 DCC 项目代码并查看适用范围 When 页面渲染基础信息、路线绑定和路线摘要 Then 黄色“工艺路线来源”说明块不显示，基础字段区采用统一间距网格，手动工艺路线选择框默认选中正式产品路线绑定。
+- RED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，预期原因：旧页面仍渲染 `title="工艺路线来源"` 黄色说明块，且基础字段区缺少 `data-qa-regulation-basic-form` / `qa-regulation-page__basic-grid` / 绑定回填断言。
+- GREEN: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，适用范围黄色说明块已移除，基础字段区使用统一网格，选择 DCC 项目和手动保存后均以正式 `routeProduct.routeId` 回填蓝框下拉默认值。
+- GREEN: `node tests/e2e/qa-regulation-manual-route-selectable-static.spec.cjs` -> PASS。
+- GREEN: `node tests/e2e/qa-regulation-final-applicability-static.spec.cjs` -> PASS。
+- REGRESSION BLOCKED: `pnpm ts:check` -> FAIL，最新全量类型检查被非本任务 `IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue` 阻塞：缺少 `submissionMultiFilterDefinitions`、`submissionMultiFilter`、`applySubmissionMultiFilter`、`resetSubmissionMultiFilter` 和 `queryFormRef`。本轮未修改该文件，不扩大修复范围。
+- REGRESSION BLOCKED: `node tests/e2e/unified-list-template-empty-tabs-system-static.spec.js` -> FAIL，仍为当前系统标准列表模板接入点 89 vs 合同 88 的并行计数漂移。
 
 ## Experience Consolidation
 
 - `docs/frontend-development.md` -> UPDATED，合并 QA 新增 4 个 `UnifiedListTemplate` 后标准列表系统接入点 88、显式隐藏筛选 14 的长期门禁证据。
 - `docs/backend-development.md` / `docs/experience-index.md` -> UPDATED，将“产品维护页已启用路线不可维护”和“QA 规程手动绑定必须允许已发布路线”拆成两条门禁；QA 绑定必须调用 `saveQaRegulationRouteProductByItem`，后端校验 ACTIVE 版本但不调用 `validateRouteNotEnable`。
+- `docs/backend-development.md` / `docs/experience-index.md` -> UPDATED，补充 QA 规程选择 DCC 项目时必须用正式 `routeProduct.routeId` 回填手动绑定下拉默认值，手动保存后也必须以重读结果作为默认绑定。
 - `project-experience-consolidation` -> REVIEWED，本次不新建长期经验文档，相关通用约束已合并到既有 MES 工艺路线产品绑定状态门禁。
 - `project-experience-consolidation` -> REVIEWED for top yellow-box display follow-up；`docs/frontend-development.md` 已有截图样式/黄框静态契约门禁，`docs/backend-development.md` 和 `docs/experience-index.md` 已有 QA 手动绑定正式路线候选门禁，本轮不新增长期经验文档。
+- `project-experience-consolidation` -> REVIEWED for publish-tab removal；本次仅删除一个业务页签入口，现有 `docs/frontend-development.md` 的截图局部静态契约与真实 E2E 门禁已覆盖，无新增可复用工程经验，不更新长期经验文档。
 
 ## Verification Evidence
 
@@ -112,6 +130,11 @@
 - `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：当前复跑 BLOCKED，失败于 `Pressure-pump IDI seed data must contain all 22 PDF 5.1 process inspection rows. 5 !== 22`，与本次 QA 手动绑定下拉可选性聚焦链路不同；本次使用 `qa-regulation-manual-route-selectable-static.spec.cjs` 覆盖截图回归。
 - `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：本轮复跑 PASS，新增黄框布局合同、22 条 PDF 数据合同和 QA 手动绑定正式接口合同均通过。
 - `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：红框隐藏本轮复跑 PASS，新增断言确认副标题、绿色提示和页签空内容不再渲染。
+- `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：三色框本轮复跑 PASS，新增断言确认黄色说明 alert 不渲染、红框基础字段区统一网格、蓝框下拉按正式 `routeProduct.routeId` 回填默认绑定。
+- `pnpm ts:check`：最新复跑 BLOCKED，失败点均在非本任务 `TeamLeaderWorkbenchPage.vue` 的并行改动，未指向本轮 `QaRegulationPage.vue`。
+- `pnpm ts:check`：最新复跑 PASS，先前非本任务类型阻塞已解除。
+- 本机真实只读 Playwright：PASS，`芋道源码/admin` 选择 `IDI` 后顶部页签严格为“总览 / 检验规则 / 检验项目”，无后台写请求、无 pageerror。
+- `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js`：最新复跑 BLOCKED，当前系统接入点为 91，既有合同锁定 88；与本次页签声明删除无关。
 - `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js`：PASS，输出 `PASS: unified list template empty condition tabs system contract`。
 - `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js`：本轮复跑 BLOCKED，当前系统接入点数量为 89，旧合同锁定 88；记录为并行接入点计数漂移，不作为本轮黄框布局修复通过证据。
 - `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/bug-regression-evidence.md`：PASS，输出 `Bug regression evidence is valid.`

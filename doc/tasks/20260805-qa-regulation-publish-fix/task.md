@@ -16,6 +16,8 @@
 - [x] 补齐 QA 手动绑定后端 JUnit 与前端静态契约 RED/GREEN 验证。
 - [x] 修复顶部黄框不显示 DCC 项目选择内容的布局回归。
 - [x] 隐藏截图红框内的副标题、绿色提示和空白间隔。
+- [x] 隐藏适用范围黄色说明块，重排基础字段间距，并让手动工艺路线选择框回填上次正式绑定关系。
+- [x] 隐藏顶部“发布检查”页签，不改现有发布校验、草稿保存和发布接口逻辑。
 - [ ] 复跑完整 AC-M09 后端目标 JUnit。
 - [x] 记录验证、收尾和剩余阻塞。
 
@@ -25,6 +27,7 @@
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProRouteProductServiceImplTest,MesProRouteProductBindFromWorkOrdersTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - `node tests/e2e/qa-regulation-manual-route-selectable-static.spec.cjs`
 - `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs`
+- `node tests/e2e/qa-regulation-final-applicability-static.spec.cjs`
 - `node tests/e2e/unified-list-template-empty-tabs-system-static.spec.js`
 - 登录态 API 探针：`POST /admin-api/mes/pro/route-product/save-qa-regulation-route-by-item` 使用无效 routeId 返回业务校验错误而非 `请求地址不存在`。
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md`
@@ -33,7 +36,7 @@
 
 ## Current Status
 
-blocked：本轮红框区域已隐藏：顶部副标题、绿色正式接口提示、项目选择与页签之间的空白带、页签与表格之间的空白带均已移除或压缩；保留 QA 标题、DRAFT 状态、DCC 项目代码选择框、Tab 和后续规程内容。聚焦静态合同和 `pnpm ts:check` 已通过；完整 AC-M09 后端目标 JUnit 与标准列表系统 89/88 计数漂移仍保持阻塞，不标记 completed。
+blocked：最新截图反馈已完成，顶部 QA 页签只显示“总览 / 检验规则 / 检验项目”，不再显示“发布检查”；现有发布校验、草稿保存和发布接口代码未修改。目标静态合同、两个相邻 QA 合同、`pnpm ts:check` 和本机真实只读 Playwright 均通过；完整 AC-M09 后端目标 JUnit仍待共享 Maven target 空闲后复跑，标准列表系统合同当前为 91/88 并行计数漂移，因此总任务不标记 completed。
 
 ## Baseline Commits
 

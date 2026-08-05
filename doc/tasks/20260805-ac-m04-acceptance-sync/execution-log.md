@@ -15,6 +15,9 @@
 - BDD: PQC 正式提交 RRM 前置 -> Given PQC 页面提交必须携带本轮新建的 `productionSubmitEventId`；When RRM full real E2E 进入 PQC 提交动作；Then 脚本必须先通过真实一线生产填写页 POST `/mes/pro/feedback/frontline/submit` 捕获新的 `processPoolEventId`，再把同一 ID 作为 `productionSubmitEventId/processPoolEventId` 打开 PQC 页面，禁止使用历史事件 ID 或环境变量硬塞成功。
 - BDD: P0 runtime schema 正式迁移前置 -> Given 本机真实生产填写提交已经到达后端但运行库缺 P0 idempotency 字段；When 准备应用 `20260803_mes_process_pool_event_idempotency.sql`；Then 必须先通过只读 schema/source/preflight gate 证明历史数据可以正式 backfill，不能用空值、随机幂等键、旧事件 ID、删除历史测试行或部分迁移冒充完成。
 - BDD: 授权后本机 P0 backfill 修复 -> Given 用户授权修复本机库且备份、rollback、逐行 manifest 已生成；When 执行本机 backfill 和正式迁移；Then P0 runtime preflight/source/runtime verifier 必须 PASS，且修复范围不得越过授权的本机库。
+- BDD: 生产组长正式模块入口 -> Given 当前系统已提供 `/mes/pro/process-pool/production-leader` 正式生产组长页面并通过模块页签承载报工管理与班组配置；When full real E2E 验证生产组长阶段；Then 必须进入正式生产组长页面、切换真实模块页签并验证对应表面，不得继续依赖旧 `/mes/pro/process-pool/team-leader` 页面结构或因选择器超时原始崩溃。
+- BDD: 正式模块页签异步挂载 -> Given 正式生产组长/PQC 组长页面在路由完成后异步挂载模块页签；When E2E 准备切换目标页签；Then 必须等待目标 `.el-tabs__item` 可见后再点击，不得在首次计数为 0 时提前返回并继续等待未激活模块的选择器。
+- BDD: 生产组长模块表面归属 -> Given 当前正式生产组长页面将报工工作台、日结看板和活跃订单配置分别放在“报工管理”“看板”“班组配置”页签；When full real E2E 验证阶段表面和日结证据；Then 必须切换到对应页签后断言，不得在“报工管理”页签等待只属于“看板”的日结组件。
 - 本轮优先做产物一致性和静态/JSON 校验；若发现真实脚本或源码缺口，再按 RED/GREEN 进入实现。
 
 ## Command Intent
@@ -41,6 +44,9 @@
 - blocked：PQC 正式提交前端禁用态已解除，真实提交进入后端后被运行库 schema 阻塞；`mes_pro_process_pool_event` 缺 `event_idempotency_key` / `recordbook_entry_id`，且完整 P0 runtime migration 预检显示 88 行历史 backfill blocker，当前结构化来源无法唯一推导，未获业务/DBA 授权和逐行 manifest 前不得写库修复。
 - completed：用户已授权本机库 P0 backfill；已完成备份、rollback、manifest、最小 DB 修复和 P0 runtime verifier 复验。仍禁止远端操作和无 manifest 写入。
 - in_progress：P0 runtime schema/backfill blocker 已解除，下一步重跑 RRM `real:check` 与 full real E2E，确认 PQC 正式提交是否继续前进。
+- in_progress：P0 修复后 `real:check` PASS；full real E2E 在生产组长阶段等待旧 `/team-leader` 页面选择器时原始超时，当前按正式 `/production-leader` 页面补 RED/GREEN。
+- RED: 只读 Playwright 探针 -> 初次读取正式生产组长页时模块页签容器数量为 0；约 1.5 秒后页签出现并可切换到报工管理，证明 `selectRealFlowTab` 的立即 `count() === 0` 返回存在异步挂载竞态。
+- RED: full real E2E -> 在正式“报工管理”页签已显示报工工作台后，等待 `[data-role-matrix-daily-close]` 超时；源码确认日结组件由 `showProductionDashboardModule` 控制，正式归属是“看板”页签。
 
 ## Verification Evidence
 

@@ -3,7 +3,7 @@ import { ElMessage } from 'element-plus'
 
 export type ListMultiFilterScalar = string | number | boolean
 export type ListMultiFilterValue = ListMultiFilterScalar | ListMultiFilterScalar[]
-export type ListMultiFilterFieldType = 'text' | 'select' | 'multiSelect' | 'dateRange' | 'autocomplete' | 'numberRange'
+export type ListMultiFilterFieldType = 'text' | 'select' | 'multiSelect' | 'date' | 'dateRange' | 'autocomplete' | 'numberRange'
 export type ListMultiFilterOperator = 'contains' | 'eq' | 'in' | 'between' | 'gte' | 'lte'
 
 export interface ListMultiFilterOption {
@@ -58,6 +58,7 @@ const DEFAULT_OPERATORS: Record<ListMultiFilterFieldType, ListMultiFilterOperato
   text: ['contains', 'eq'],
   select: ['eq'],
   multiSelect: ['in'],
+  date: ['eq'],
   dateRange: ['between'],
   autocomplete: ['contains', 'eq'],
   numberRange: ['between']
@@ -67,6 +68,7 @@ const DEFAULT_OPERATOR: Record<ListMultiFilterFieldType, ListMultiFilterOperator
   text: 'contains',
   select: 'eq',
   multiSelect: 'in',
+  date: 'eq',
   dateRange: 'between',
   autocomplete: 'contains',
   numberRange: 'between'
