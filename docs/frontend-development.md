@@ -67,6 +67,15 @@
 - Forbidden action: 禁止用 API-only、临时测试页、隐藏旧快速筛选、移除业务操作按钮、硬编码当前页面宽度、页面级 inline filter 数量特例或前端本地过滤来冒充标准列表多维筛选完成。
 - Evidence: 任务 `doc/tasks/20260804-standard-list-multi-filter/verification-report.md`，排产工单真实 E2E 暴露多维筛选在复合工具栏中被挤压为 `0` 宽，最终用模板级全行布局和静态合同锁定；后续用户反馈固定条件栏复用性差，改为条件 Tab + 加减号，并用真实 E2E 证明多个 Tab 按正式 query 参数交集提交；同步工单页签虽同样使用 `UnifiedListTemplate`，但因未显式接入多维 definitions/state/events 而保持旧 quick filter，最终按页签补齐静态合同和真实 E2E。任务 `doc/tasks/20260805-standard-list-empty-tabs/verification-report.md` 将当前系统 84 个标准列表模板扫描入清单，并锁定默认空条件 Tab、禁止页面级预置隐藏筛选、排产工单和同步工单首屏只带分页参数；任务 `doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md` 新增 QA 规程 4 个标准列表后，将系统接入点更新为 88 个、显式隐藏筛选列表更新为 14 个。
 
+## Vue Composable 模板顶层绑定门禁
+
+- Trigger: Vue SFC 新增 composable/hook 包装对象后，模板直接绑定 `hook.state`、`hook.updateState`、`hook.removeCondition` 等成员，且开发态出现 `Cannot read properties of undefined`、HMR 后 render 崩溃或完整刷新后恢复。
+- Preflight check: 先读取 Vite 当前编译模块，确认完整 setup 是否已创建并返回 hook 包装对象；若编译产物正确但错误发生在父组件 render，检查新 render 是否可能运行在仍持有旧 setup state 的热更新实例上。模板需要的 state 和事件方法应从 hook 返回值解构为顶层 setup binding，再直接传给子组件。
+- Blocker: 模板仍在 render 阶段解引用新加入的 hook 包装对象、回归合同只验证 hook 返回值而不覆盖模板绑定、或准备用可选链/默认空包装对象隐藏 setup 不同步时必须停止。
+- Verification: 聚焦静态合同必须断言模板绑定顶层 state/events 并禁止目标区域出现 `hook.state/updateState/removeCondition`；同时读取 Vite 编译模块确认 `$setup.<topLevelBinding>` 存在且不再出现 `$setup.<hook>.state`，再运行相邻组件合同与 `pnpm ts:check`。
+- Forbidden action: 禁止用 `hook?.state`、`hook || {}`、空 state、强制整页刷新提示或吞掉 render 异常替代正式顶层绑定。
+- Evidence: 任务 `doc/tasks/20260805-teamleader-multifilter-state-crash/verification-report.md`，班组长工作台多维筛选在热更新窗口直接读取 `submissionMultiFilter.state` 导致父组件 render 崩溃。
+
 ## 前端 LocalDateTime 响应契约门禁
 
 - Trigger: 前端 API wrapper、静态合同或页面报 `DCC response field has invalid type`、`cleanupTime`、`expireTime`、后端响应 VO 使用 `LocalDateTime`，或涉及 `TimestampLocalDateTimeSerializer`。
