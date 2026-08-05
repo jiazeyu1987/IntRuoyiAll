@@ -137,6 +137,7 @@
                           :key="route.id"
                           :label="formatManualQaRouteOption(route)"
                           :value="route.id"
+                          :disabled="false"
                         />
                       </el-select>
                     </el-form-item>
