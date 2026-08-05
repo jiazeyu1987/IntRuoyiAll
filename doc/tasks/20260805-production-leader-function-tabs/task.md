@@ -6,10 +6,10 @@
 
 ## Milestones
 
-- [ ] M1: 定位生产组长页面入口、组件、路由和现有模块结构。
-- [ ] M2: 编写静态合同 RED，证明当前页面未按功能模块 Tab 分组。
-- [ ] M3: 最小化实现功能模块 Tab，保持现有模块逻辑和接口契约不变。
-- [ ] M4: 运行静态合同、类型检查或相邻前端验证，并记录 GREEN/回归证据。
+- [x] M1: 定位生产组长页面入口、组件、路由和现有模块结构。
+- [x] M2: 编写静态合同 RED，证明当前页面未按功能模块 Tab 分组。
+- [x] M3: 最小化实现功能模块 Tab，保持现有模块逻辑和接口契约不变。
+- [x] M4: 运行静态合同、类型检查或相邻前端验证，并记录 GREEN/回归证据。
 - [ ] M5: 更新任务证据、验证报告和收尾状态。
 
 ## Expected Verification
@@ -20,7 +20,9 @@
 
 ## Current Status
 
-in_progress
+completed
+
+实现、定向验证、经验沉淀和 cleanup apply 已完成；待选择性提交并推送当前任务提交。
 
 ## 设计约束检查
 
@@ -30,4 +32,6 @@ in_progress
 
 ## Experience Gate
 
-- 待检查 `docs/experience-index.md` 后补充适用经验门禁。
+- 已读取 `docs/experience-index.md`。
+- 适用 `docs/frontend-development.md#前端静态契约隔离门禁`：本任务使用任务专用静态合同覆盖当前生产组长功能 Tab，不用全量旧合同失败冒充当前行为。
+- 适用 `docs/task-closeout-rules.md#技能证据文件清理前归档门禁`：`frontend-feature-evidence.md` validator PASS 后，关键 PASS 结论复制到 `execution-log.md` 和 `verification-report.md`。
