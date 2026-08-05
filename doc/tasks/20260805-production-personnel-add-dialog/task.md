@@ -10,14 +10,14 @@
 - [x] M1：补充生产人员档案弹框行为的 BDD 场景和 RED 静态合同。
 - [x] M2：在 `TeamLeaderWorkbenchPage.vue` 中实现新增人员按钮、弹框和内容迁移。
 - [x] M3：运行目标静态合同、类型检查或相邻验证，并记录 GREEN/回归证据。
-- [ ] M4：任务收尾，运行 cleanup preview/apply，更新最终状态并推送。
+- [ ] M4：任务收尾，cleanup preview/apply 已通过，待提交收尾记录并推送。
 
 ## Expected Verification
 
 - `node tests/e2e/production-personnel-add-dialog-static.spec.cjs`
 - `node tests/e2e/production-personnel-management-static.spec.cjs`
 - `node tests/e2e/production-personnel-audit-inline-static.spec.cjs`
-- `pnpm ts:check`（已运行，阻塞于并发报工列表模板缺少 `submission*` 变量，与本次人员弹框迁移无关）
+- `pnpm ts:check`
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-production-personnel-add-dialog/frontend-feature-evidence.md`
 
 ## Current Status
@@ -25,7 +25,9 @@
 ready_for_closeout
 
 - 已完成新增人员按钮和弹框迁移，人员相关静态合同全部 PASS。
-- `pnpm ts:check` 当前被并发任务引入的 `TeamLeaderWorkbenchPage.vue` 报工列表模板缺少 `submission*` 变量阻塞；本任务不扩大修复范围。
+- `pnpm ts:check` 最终复跑 PASS，并发任务此前造成的同文件类型检查阻塞已解除。
+- 实现提交：`172c55077 feat: move production personnel creation into dialog`。
+- `task-closeout-cleanup` preview/apply 均 PASS，已删除临时 `frontend-feature-evidence.md`，保留三份核心任务文档。
 - 工作区仍存在大量并发任务残余，本任务后续只选择性暂存人员弹框相关文件。
 - `frontend-feature-delivery` evidence validator 已 PASS。
 

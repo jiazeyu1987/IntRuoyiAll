@@ -32,21 +32,29 @@
 - GREEN: `node tests/e2e/production-personnel-add-dialog-static.spec.cjs` -> PASS。
 - GREEN: `node tests/e2e/production-personnel-management-static.spec.cjs` -> PASS。
 - GREEN: `node tests/e2e/production-personnel-audit-inline-static.spec.cjs` -> PASS。
-- REGRESSION BLOCKED: `pnpm ts:check` -> FAIL，当前失败点是并发任务在同一 SFC 的报工列表模板引用 `submissionQuickFilterDefinitions`、`submissionQuickFilterState`、`submissionOperatorOptions`、`submissionMultiFilterDefinitions`、`submissionMultiFilter`、`submissionColumns`、`submissionColumnSaving`、`applySubmissionMultiFilter`、`resetSubmissionMultiFilter`、`saveSubmissionColumnConfig`、`resetSubmissionColumnConfig`、`handleSubmissionHeaderDragend`、`isSubmissionColumnVisible`、`getSubmissionColumnMinWidthString`、`getSubmissionColumnWidthString`、`queryFormRef` 等缺失符号；人员弹框合同不依赖这些符号。
+- REGRESSION RETRY: `pnpm ts:check` -> PASS；此前并发任务造成的同文件 `submission*` 缺失符号阻塞已解除。
 
 ## Verification
 
 - `node tests/e2e/production-personnel-add-dialog-static.spec.cjs` -> PASS。
 - `node tests/e2e/production-personnel-management-static.spec.cjs` -> PASS。
 - `node tests/e2e/production-personnel-audit-inline-static.spec.cjs` -> PASS。
-- `pnpm ts:check` -> BLOCKED by unrelated concurrent report-list template symbols.
+- `pnpm ts:check` -> PASS。
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-production-personnel-add-dialog/frontend-feature-evidence.md` -> PASS，`Frontend feature evidence is valid.`。
 - `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue IntRuoyiFronted/tests/e2e/production-personnel-add-dialog-static.spec.cjs doc/tasks/20260805-production-personnel-add-dialog` -> PASS，仅提示 Git 未来可能按配置转换 LF/CRLF。
 
 ## Blockers
 
-- Full TypeScript verification is blocked by concurrent same-file changes outside the personnel dialog scope.
-- 选择性提交必须只包含人员弹框 hunk、专用合同和当前任务文档，不能混入同一 SFC 的并发生产模块/报工列表改动。
+- 无验证 blocker。
+- 收尾仍需只选择性提交当前任务文档和 cleanup 删除记录，不能混入同一 SFC 或其它目录的并发改动。
+
+## Commits And Cleanup
+
+- Implementation commit: `172c55077 feat: move production personnel creation into dialog`。
+- `task-closeout-cleanup` preview -> PASS：keep `task.md`、`execution-log.md`、`verification-report.md`；delete `frontend-feature-evidence.md`。
+- `task-closeout-cleanup` apply -> PASS：临时 evidence 已删除，核心任务文档保留。
+- Closeout records commit: pending。
+- Final push: pending。
 
 ## Experience Consolidation
 
