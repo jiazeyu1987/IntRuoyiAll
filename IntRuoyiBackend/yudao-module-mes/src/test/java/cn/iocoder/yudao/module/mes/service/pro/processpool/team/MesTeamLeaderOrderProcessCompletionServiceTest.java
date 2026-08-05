@@ -249,20 +249,32 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     }
 
     private static MesProProcessPoolEventDO event() {
+        return event(1001L, "{\"outputQuantity\":80,\"pressure\":15}", LocalDateTime.of(2026, 8, 1, 9, 0));
+    }
+
+    private static MesProProcessPoolEventDO event(Long id, String rawPayload, LocalDateTime serverSubmitTime) {
         return MesProProcessPoolEventDO.builder()
-                .id(1001L)
+                .id(id)
                 .routeId(7001L)
                 .routeProcessId(5001L)
                 .processId(6001L)
-                .rawPayload("{\"outputQuantity\":80,\"pressure\":15}")
-                .serverSubmitTime(LocalDateTime.of(2026, 8, 1, 9, 0))
+                .rawPayload(rawPayload)
+                .serverSubmitTime(serverSubmitTime)
                 .build();
     }
 
     private static MesProcessPoolReportAllocationDO allocation(Long workOrderId, String quantity) {
+        return allocation(workOrderId, quantity, 7100L + new BigDecimal(quantity).longValue(), 1001L, 7001L,
+                LocalDateTime.of(2026, 8, 1, 9, 1));
+    }
+
+    private static MesProcessPoolReportAllocationDO allocation(Long workOrderId, String quantity, Long id,
+                                                               Long eventId, Long reviewId,
+                                                               LocalDateTime confirmedAt) {
         return MesProcessPoolReportAllocationDO.builder()
-                .eventId(1001L)
-                .reviewId(7001L)
+                .id(id)
+                .eventId(eventId)
+                .reviewId(reviewId)
                 .leaderUserId(3001L)
                 .activeOrderId(8101L)
                 .workOrderId(workOrderId)
@@ -270,7 +282,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 .processId(6001L)
                 .allocatedQuantity(new BigDecimal(quantity))
                 .allocationMode(MesProcessPoolReportAllocationDO.MODE_FIFO)
-                .confirmedAt(LocalDateTime.of(2026, 8, 1, 9, 1))
+                .confirmedAt(confirmedAt)
                 .build();
     }
 
