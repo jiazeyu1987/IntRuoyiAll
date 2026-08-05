@@ -597,6 +597,8 @@ public interface ErrorCodeConstants {
             new ErrorCode(1_040_600_306, "QA 检验规程版本已发布，不允许原地修改：{}");
     ErrorCode QA_INSPECTION_REGULATION_VERSION_CONFLICT =
             new ErrorCode(1_040_600_307, "QA 检验规程版本状态冲突，无法执行当前操作：{}");
+    ErrorCode QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID =
+            new ErrorCode(1_040_600_308, "QA 检验规程末检适用性配置无效：{}");
 
     // ========== MES 质量管理-质检指标（1-040-601-000） ==========
     ErrorCode QC_INDICATOR_NOT_EXISTS = new ErrorCode(1_040_601_000, "质检指标不存在");

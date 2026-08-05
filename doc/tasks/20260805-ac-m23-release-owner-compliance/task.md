@@ -34,14 +34,14 @@
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
-Implemented code changes, frontend static verification, and evidence validators. Backend Maven verification is blocked by concurrent `yudao-module-mes` Maven processes in the shared main workspace; an AC-M23-only detached verification worktree also could not reach Surefire because clean HEAD lacks the non-task QA regulation `publish(...)` implementation currently present as dirty shared-workspace code. This task is not ready for closeout, commit, or push.
+Implemented code changes, frontend static verification, evidence validators, and backend targeted Maven verification. Cleanup, commit, and push remain pending.
 
 ## Milestone Status
 
 - M1 BDD/TDD scenarios: completed.
-- M2 backend repair: implemented, pending Maven GREEN.
+- M2 backend repair: completed; targeted Maven GREEN.
 - M3 frontend release-return entry: completed and static contracts PASS.
-- M4 verification: partially complete; frontend/static/evidence validators PASS, backend Maven blocked before Surefire.
-- M5 closeout: pending backend verification, cleanup, commit, and push.
+- M4 verification: completed; frontend/static/evidence validators PASS and backend Maven PASS.
+- M5 closeout: pending cleanup, commit, and push.

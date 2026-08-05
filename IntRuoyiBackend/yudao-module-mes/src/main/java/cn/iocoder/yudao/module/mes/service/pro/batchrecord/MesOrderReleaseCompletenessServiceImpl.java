@@ -1,18 +1,21 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderTransferTraceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolWorkOrderAbnormalDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.materialstock.MesWmMaterialStockDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderTransferTraceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolWorkOrderAbnormalMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.materialstock.MesWmMaterialStockMapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -61,6 +64,8 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
     private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
     @Resource
     private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
+    @Resource
+    private MesQaInspectionRegulationVersionMapper regulationVersionMapper;
     @Resource
     private MesProcessPoolWorkOrderAbnormalMapper workOrderAbnormalMapper;
     @Resource
@@ -276,9 +281,58 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
             requirePqcTaskIdentity(tasks, snapshot, "FIRST", "FIRST", missing);
             requirePqcTaskIdentity(tasks, snapshot, "PATROL", "AM", missing);
             requirePqcTaskIdentity(tasks, snapshot, "PATROL", "PM", missing);
-            requirePqcTaskIdentity(tasks, snapshot, "FINAL", "FINAL", missing);
+            if (isFinalInspectionApplicableForSnapshot(tasks, snapshot, missing)) {
+                requirePqcTaskIdentity(tasks, snapshot, "FINAL", "FINAL", missing);
+            }
         }
         return missing;
+    }
+
+    private boolean isFinalInspectionApplicableForSnapshot(List<MesPqcInspectionTaskDO> tasks,
+                                                           MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
+                                                           List<String> missing) {
+        List<Long> versionIds = tasks.stream()
+                .filter(task -> Objects.equals(snapshot.getRouteProcessId(), task.getRouteProcessId())
+                        && Objects.equals(snapshot.getProcessId(), task.getProcessId())
+                        && task.getRegulationVersionId() != null)
+                .map(MesPqcInspectionTaskDO::getRegulationVersionId)
+                .distinct()
+                .toList();
+        if (versionIds.isEmpty()) {
+            missing.add("routeProcessId=" + snapshot.getRouteProcessId()
+                    + ", processId=" + snapshot.getProcessId()
+                    + " 缺少发布规程版本，无法证明末检是否适用");
+            return true;
+        }
+        if (versionIds.size() > 1) {
+            missing.add("routeProcessId=" + snapshot.getRouteProcessId()
+                    + ", processId=" + snapshot.getProcessId()
+                    + " 存在多个发布规程版本：" + versionIds);
+            return true;
+        }
+        MesQaInspectionRegulationVersionDO version = regulationVersionMapper.selectById(versionIds.get(0));
+        if (version == null) {
+            missing.add("routeProcessId=" + snapshot.getRouteProcessId()
+                    + ", processId=" + snapshot.getProcessId()
+                    + ", regulationVersionId=" + versionIds.get(0) + " 发布规程版本不存在");
+            return true;
+        }
+        if (version.getFinalInspectionApplicable() == null) {
+            missing.add("routeProcessId=" + snapshot.getRouteProcessId()
+                    + ", processId=" + snapshot.getProcessId()
+                    + ", regulationVersionId=" + version.getId() + " 未显式配置末检是否适用");
+            return true;
+        }
+        if (Boolean.FALSE.equals(version.getFinalInspectionApplicable())) {
+            if (StrUtil.isBlank(version.getFinalInspectionNotApplicableReason())) {
+                missing.add("routeProcessId=" + snapshot.getRouteProcessId()
+                        + ", processId=" + snapshot.getProcessId()
+                        + ", regulationVersionId=" + version.getId() + " 末检不适用但缺少明确依据");
+                return true;
+            }
+            return false;
+        }
+        return true;
     }
 
     private void requirePqcTaskIdentity(List<MesPqcInspectionTaskDO> tasks,

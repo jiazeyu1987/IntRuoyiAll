@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProSchedu
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
@@ -16,6 +17,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrd
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -61,6 +63,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     private final MesActiveOrderTransferTraceService transferTraceService;
     private final MesQaInspectionRegulationMapper inspectionRegulationMapper;
+    private final MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
     private final MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
     private final MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
 
@@ -72,6 +75,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                                MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper,
                                                MesActiveOrderTransferTraceService transferTraceService,
                                                MesQaInspectionRegulationMapper inspectionRegulationMapper,
+                                               MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper,
                                                MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper,
                                                MesPqcInspectionTaskMapper pqcInspectionTaskMapper) {
         this.activeOrderMapper = activeOrderMapper;
@@ -82,6 +86,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         this.processSnapshotMapper = processSnapshotMapper;
         this.transferTraceService = transferTraceService;
         this.inspectionRegulationMapper = inspectionRegulationMapper;
+        this.inspectionRegulationVersionMapper = inspectionRegulationVersionMapper;
         this.inspectionRegulationItemMapper = inspectionRegulationItemMapper;
         this.pqcInspectionTaskMapper = pqcInspectionTaskMapper;
     }
@@ -264,6 +269,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         List<MesPqcInspectionTaskDO> tasks = new ArrayList<>();
         for (MesProScheduleOrderProcessDO process : enabledProcesses) {
             MesQaInspectionRegulationDO regulation = requirePublishedRegulation(activeOrder, process, productId);
+            MesQaInspectionRegulationVersionDO version = requireRegulationVersion(regulation, activeOrder.getId());
             List<MesQaInspectionRegulationItemDO> items = requireRegulationItems(regulation, activeOrder.getId());
             LocalDate businessDate = requireBusinessDate(process, activeOrder.getId());
             tasks.add(buildPqcTask(activeOrder, process, regulation, INSPECTION_TYPE_FIRST, businessDate,
@@ -272,8 +278,13 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                     SHIFT_AM, resolvePatrolInspectionQuantity(process, items, activeOrder.getId())));
             tasks.add(buildPqcTask(activeOrder, process, regulation, INSPECTION_TYPE_PATROL, businessDate,
                     SHIFT_PM, resolvePatrolInspectionQuantity(process, items, activeOrder.getId())));
-            tasks.add(buildPqcTask(activeOrder, process, regulation, INSPECTION_TYPE_FINAL, businessDate,
-                    SHIFT_FINAL, resolveFixedInspectionQuantity(items, INSPECTION_TYPE_FINAL, activeOrder.getId())));
+            if (Boolean.TRUE.equals(version.getFinalInspectionApplicable())) {
+                tasks.add(buildPqcTask(activeOrder, process, regulation, INSPECTION_TYPE_FINAL, businessDate,
+                        SHIFT_FINAL,
+                        resolveFixedInspectionQuantity(items, INSPECTION_TYPE_FINAL, activeOrder.getId())));
+            } else if (Boolean.FALSE.equals(version.getFinalInspectionApplicable())) {
+                requireFinalInspectionNotApplicableReason(version, activeOrder.getId());
+            }
         }
         for (MesPqcInspectionTaskDO task : tasks) {
             insertPqcInspectionTask(task);
@@ -310,6 +321,36 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                             + "，processId=" + process.getProcessId());
         }
         return regulation;
+    }
+
+    private MesQaInspectionRegulationVersionDO requireRegulationVersion(MesQaInspectionRegulationDO regulation,
+                                                                        Long activeOrderId) {
+        MesQaInspectionRegulationVersionDO version =
+                inspectionRegulationVersionMapper.selectById(regulation.getCurrentVersionId());
+        if (version == null || !Objects.equals("PUBLISHED", version.getLifecycleStatus())) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    "QA规程发布版本不存在或未发布，activeOrderId=" + activeOrderId
+                            + "，regulationVersionId=" + regulation.getCurrentVersionId());
+        }
+        if (version.getFinalInspectionApplicable() == null) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    "QA规程发布版本缺少末检适用性配置，activeOrderId=" + activeOrderId
+                            + "，regulationVersionId=" + version.getId());
+        }
+        if (Boolean.FALSE.equals(version.getFinalInspectionApplicable())) {
+            requireFinalInspectionNotApplicableReason(version, activeOrderId);
+        }
+        return version;
+    }
+
+    private void requireFinalInspectionNotApplicableReason(MesQaInspectionRegulationVersionDO version,
+                                                           Long activeOrderId) {
+        if (version.getFinalInspectionNotApplicableReason() == null
+                || version.getFinalInspectionNotApplicableReason().trim().isEmpty()) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    "QA规程发布版本缺少末检不适用依据，activeOrderId=" + activeOrderId
+                            + "，regulationVersionId=" + version.getId());
+        }
     }
 
     private List<MesQaInspectionRegulationItemDO> requireRegulationItems(MesQaInspectionRegulationDO regulation,

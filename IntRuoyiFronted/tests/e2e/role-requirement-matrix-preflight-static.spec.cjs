@@ -414,6 +414,11 @@ assert.match(
   /performActiveOrderJoin[\s\S]*fillFormItemForAction\(section,\s*'加入活跃订单',\s*'调拨单ID列表',\s*config\.transferIds\.join\(','\)\)/,
   'real E2E must submit formal transferIds through the visible active-order join form.'
 )
+assert.match(
+  source,
+  /async function performActiveOrderJoin\(page,\s*config\)[\s\S]*const refreshedRows = Array\.isArray\(listBody\.data\) \? listBody\.data : \[\][\s\S]*const rows = refreshedRows\.some\([\s\S]*\?\s*refreshedRows\s*:\s*await reloadActiveOrderRows\(page\)[\s\S]*rows\.some\(\(row\) => Number\(row\.id\) === Number\(activeOrderId\) && Number\(row\.workOrderId\) === Number\(config\.workOrderId\)\)/,
+  'real E2E active-order join must re-read the final active-order list before asserting the returned activeOrderId.'
+)
 
 for (const token of [
   'processInspectionAggregationStatus',

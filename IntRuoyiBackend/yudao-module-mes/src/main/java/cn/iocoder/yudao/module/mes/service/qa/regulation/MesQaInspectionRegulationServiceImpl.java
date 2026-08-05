@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,6 +34,7 @@ import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_ITEM_INVALID;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_REQUIRED_RULE_MISSING;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_SNAPSHOT_INVALID;
@@ -48,7 +50,8 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     private static final String STATUS_DRAFT = "DRAFT";
     private static final String STATUS_PUBLISHED = "PUBLISHED";
     private static final String STATUS_RETIRED = "RETIRED";
-    private static final Set<String> REQUIRED_INSPECTION_TYPES = Set.of("FIRST", "PATROL", "FINAL");
+    private static final Set<String> ALLOWED_INSPECTION_TYPES = Set.of("FIRST", "PATROL", "FINAL");
+    private static final Set<String> REQUIRED_BASE_INSPECTION_TYPES = Set.of("FIRST", "PATROL");
 
     private final MesQaInspectionRegulationMapper regulationMapper;
     private final MesQaInspectionRegulationVersionMapper versionMapper;
@@ -152,13 +155,19 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                     .regulationId(regulation.getId())
                     .versionNo(reqVO.getVersionNo())
                     .lifecycleStatus(STATUS_DRAFT)
+                    .finalInspectionApplicable(reqVO.getFinalInspectionApplicable())
+                    .finalInspectionNotApplicableReason(normalizeFinalInspectionReason(reqVO))
                     .snapshotJson(snapshotJson)
                     .build();
             versionMapper.insert(version);
         } else {
             version.setSnapshotJson(snapshotJson);
+            version.setFinalInspectionApplicable(reqVO.getFinalInspectionApplicable());
+            version.setFinalInspectionNotApplicableReason(normalizeFinalInspectionReason(reqVO));
             versionMapper.updateById(new MesQaInspectionRegulationVersionDO()
                     .setId(version.getId())
+                    .setFinalInspectionApplicable(reqVO.getFinalInspectionApplicable())
+                    .setFinalInspectionNotApplicableReason(normalizeFinalInspectionReason(reqVO))
                     .setSnapshotJson(snapshotJson));
             itemMapper.deleteByVersionId(version.getId());
         }
@@ -243,6 +252,8 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .processId(regulation.getProcessId())
                 .routeProcessName(firstText(snapshot, "routeProcessName", "processName", "routeProcessCode"))
                 .batchRecordBindingSummary(resolveBatchRecordBindingSummary(snapshot))
+                .finalInspectionApplicable(version.getFinalInspectionApplicable())
+                .finalInspectionNotApplicableReason(version.getFinalInspectionNotApplicableReason())
                 .firstInspectionRules(firstRules)
                 .patrolInspectionRules(patrolRules)
                 .finalInspectionRules(finalRules)
@@ -374,6 +385,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     }
 
     private static void validateItems(MesQaInspectionRegulationSaveReqVO reqVO, boolean publishing) {
+        validateFinalInspectionApplicability(reqVO);
         if (CollUtil.isEmpty(reqVO.getItems())) {
             throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, "items");
         }
@@ -386,16 +398,39 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .filter(StrUtil::isNotBlank)
                 .map(MesQaInspectionRegulationServiceImpl::normalizeInspectionType)
                 .collect(Collectors.toSet());
-        for (String requiredType : REQUIRED_INSPECTION_TYPES) {
+        Set<String> requiredTypes = new LinkedHashSet<>(REQUIRED_BASE_INSPECTION_TYPES);
+        if (Boolean.TRUE.equals(reqVO.getFinalInspectionApplicable())) {
+            requiredTypes.add("FINAL");
+        }
+        if (Boolean.FALSE.equals(reqVO.getFinalInspectionApplicable()) && actualTypes.contains("FINAL")) {
+            throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID,
+                    "末检不适用时不得配置 FINAL 检验项目");
+        }
+        for (String requiredType : requiredTypes) {
             if (!actualTypes.contains(requiredType)) {
                 throw exception(QA_INSPECTION_REGULATION_REQUIRED_RULE_MISSING, requiredType);
             }
         }
     }
 
+    private static void validateFinalInspectionApplicability(MesQaInspectionRegulationSaveReqVO reqVO) {
+        if (reqVO.getFinalInspectionApplicable() == null) {
+            throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID, "末检适用性未显式配置");
+        }
+        if (Boolean.FALSE.equals(reqVO.getFinalInspectionApplicable())
+                && StrUtil.isBlank(reqVO.getFinalInspectionNotApplicableReason())) {
+            throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID, "末检不适用依据不能为空");
+        }
+        if (Boolean.TRUE.equals(reqVO.getFinalInspectionApplicable())
+                && StrUtil.isNotBlank(reqVO.getFinalInspectionNotApplicableReason())) {
+            throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID,
+                    "末检适用时不得填写不适用依据");
+        }
+    }
+
     private static void validateItem(MesQaInspectionRegulationSaveReqVO.InspectionItem item) {
         String inspectionType = normalizeInspectionType(item.getInspectionType());
-        if (!REQUIRED_INSPECTION_TYPES.contains(inspectionType)) {
+        if (!ALLOWED_INSPECTION_TYPES.contains(inspectionType)) {
             throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getInspectionType());
         }
         if (("FIRST".equals(inspectionType) || "FINAL".equals(inspectionType))
@@ -431,6 +466,8 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         snapshot.put("routeVersionNo", reqVO.getRouteVersionNo());
         snapshot.put("routeProcessName", reqVO.getRouteProcessName());
         snapshot.put("effectiveDate", reqVO.getEffectiveDate());
+        snapshot.put("finalInspectionApplicable", reqVO.getFinalInspectionApplicable());
+        snapshot.put("finalInspectionNotApplicableReason", normalizeFinalInspectionReason(reqVO));
         if (StrUtil.isNotBlank(reqVO.getBatchRecordBindingSummary())) {
             JSONArray batchRecordReports = new JSONArray();
             JSONObject batchRecord = new JSONObject();
@@ -440,6 +477,13 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         }
         snapshot.put("inspectionItems", JSON.toJSON(reqVO.getItems()));
         return JSON.toJSONString(snapshot);
+    }
+
+    private static String normalizeFinalInspectionReason(MesQaInspectionRegulationSaveReqVO reqVO) {
+        if (Boolean.FALSE.equals(reqVO.getFinalInspectionApplicable())) {
+            return StrUtil.trim(reqVO.getFinalInspectionNotApplicableReason());
+        }
+        return null;
     }
 
     private static MesQaInspectionRegulationItemDO toItemDO(Long versionId,

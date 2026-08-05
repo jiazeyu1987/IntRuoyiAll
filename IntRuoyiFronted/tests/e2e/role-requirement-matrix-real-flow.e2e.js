@@ -1670,7 +1670,12 @@ async function performActiveOrderJoin(page, config) {
   assert.ok(listResponse.ok(), `活跃订单列表刷新 HTTP 失败：${listResponse.status()}`)
   const listBody = await listResponse.json()
   assert.equal(listBody.code, 0, `活跃订单列表刷新业务失败：${listBody.msg || listBody.message || 'unknown'}`)
-  const rows = Array.isArray(listBody.data) ? listBody.data : []
+  const refreshedRows = Array.isArray(listBody.data) ? listBody.data : []
+  const rows = refreshedRows.some((row) =>
+    Number(row.id) === Number(activeOrderId) && Number(row.workOrderId) === Number(config.workOrderId)
+  )
+    ? refreshedRows
+    : await reloadActiveOrderRows(page)
   assert.ok(
     rows.some((row) => Number(row.id) === Number(activeOrderId) && Number(row.workOrderId) === Number(config.workOrderId)),
     '加入活跃订单后，刷新列表必须返回同一 activeOrderId 和 workOrderId。'

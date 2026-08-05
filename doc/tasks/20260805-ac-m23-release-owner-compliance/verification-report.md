@@ -2,7 +2,7 @@
 
 ## Current Result
 
-Blocked after partial verification. Frontend static contracts, task-owned diff check, and evidence validators are GREEN. Backend code and regression tests are implemented, but backend Maven verification has not reached Surefire because shared-workspace same-module Maven processes remain active and AC-M23-only detached verification is blocked by a non-task clean-HEAD compile gap.
+Verified and ready for closeout. Frontend static contracts, task-owned diff check, evidence validators, and backend targeted Maven verification are GREEN.
 
 ## Verification
 
@@ -13,11 +13,12 @@ Blocked after partial verification. Frontend static contracts, task-owned diff c
 - GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260805-ac-m23-release-owner-compliance\backend-api-evidence.md` -> PASS.
 - GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260805-ac-m23-release-owner-compliance\frontend-feature-evidence.md` -> PASS.
 - GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260805-ac-m23-release-owner-compliance\bug-regression-evidence.md` -> PASS.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrReleaseServiceImplTest,MesProEdhrApprovalTaskAdapterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, `BUILD SUCCESS`, 35 tests, 0 failures, 0 errors, 0 skipped.
 - BLOCKED: backend Maven command `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` timed out and later same-module Maven processes remained active, so no backend GREEN is claimed.
 - BLOCKED: isolated detached verification worktree applied only the two AC-M23 backend diffs and removed itself afterward, but `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrReleaseServiceImplTest,MesProEdhrApprovalTaskAdapterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` failed before Surefire on non-AC-M23 clean-HEAD compile baseline: `MesQaInspectionRegulationServiceImpl` missing `publish(MesQaInspectionRegulationSaveReqVO)`.
 
 ## Blockers
 
-- Backend targeted Maven cannot be completed safely while unrelated `yudao-module-mes` Maven commands continue writing the same `target` tree.
-- Clean detached HEAD does not contain the concurrent QA regulation implementation currently present in the main workspace, so isolated AC-M23-only verification cannot reach Surefire without polluting the verification diff.
-- Task is not ready for closeout/commit because backend Maven verification, cleanup, commit, and push gates remain incomplete.
+- No verification blockers remain for the AC-M23 scoped checks.
+- Real browser E2E was not run because local login/runtime preconditions were not established in this task; this is recorded as an unclaimed verification path, not a PASS.
+- Cleanup, commit, and push remain pending.

@@ -72,6 +72,13 @@ public class MesQaInspectionRegulationSaveReqVO {
     @Schema(description = "生效日期")
     private LocalDate effectiveDate;
 
+    @Schema(description = "末检是否适用；必须显式配置，不能由 FINAL 项目缺失反推", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "末检适用性必须显式配置")
+    private Boolean finalInspectionApplicable;
+
+    @Schema(description = "末检不适用依据；finalInspectionApplicable=false 时必填")
+    private String finalInspectionNotApplicableReason;
+
     @Schema(description = "检验项目", requiredMode = Schema.RequiredMode.REQUIRED)
     @Valid
     @NotEmpty(message = "检验项目不能为空")

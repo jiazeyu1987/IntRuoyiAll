@@ -169,149 +169,182 @@
           class="frontline-work-panel frontline-pqc-content-panel"
           data-frontline-pqc-inspection-content
         >
-          <h3>检验内容</h3>
           <div class="frontline-pqc-inspection-list">
-            <template v-for="item in pqcInspectionItems" :key="item.key">
-              <article
-                v-if="item.type === 'number'"
-                class="frontline-pqc-content-item"
-                :data-pqc-inspection-entry="item.key"
-                :aria-label="`${item.label}逐件检验`"
-              >
-                <span class="frontline-pqc-item-title">{{ item.label }}</span>
-                <small class="frontline-pqc-inspection-meta" data-pqc-inspection-meta>
-                  {{ formatPqcInspectionMeta(item) }}
+            <article
+              v-if="activePqcTabItem"
+              class="frontline-pqc-content-item"
+              data-pqc-active-inspection-panel
+              :data-pqc-inspection-entry="activePqcTabItem.key"
+              :aria-label="`${activePqcTabItem.label}检验详情`"
+            >
+              <div class="pqc-active-summary">
+                <h3>{{ activePqcTabItem.label }}</h3>
+                <span>{{ getPqcTabStateLabel(activePqcTabItem) }}</span>
+                <small data-pqc-inspection-meta>
+                  {{ formatPqcInspectionMeta(activePqcTabItem) }} / {{ getPqcProgressText(activePqcTabItem.key) }}
                 </small>
-                <em>{{ getPqcProgressText(item.key) }}</em>
-                <div class="frontline-pqc-equipment-controls">
+              </div>
+
+              <div class="pqc-utility-strip" :aria-label="`${activePqcTabItem.label}质检信息`">
+                <label
+                  class="pqc-select-card"
+                  data-pqc-equipment-card
+                  :class="{
+                    'is-selected': Boolean(getPqcItemSelection(activePqcTabItem.key).selectedEquipmentId),
+                    'is-empty': !getPqcItemSelection(activePqcTabItem.key).selectedEquipmentId
+                  }"
+                >
+                  <span
+                    v-if="activePqcTabItem.equipmentRequired"
+                    class="pqc-required-dot"
+                    aria-hidden="true"
+                  />
+                  <span>
+                    <strong>检验设备</strong>
+                    <span>{{ getPqcSelectedEquipmentLabel(activePqcTabItem) }}</span>
+                  </span>
+                  <em aria-hidden="true">&gt;</em>
                   <select
-                    :value="getPqcItemSelection(item.key).selectedEquipmentId ?? ''"
+                    class="pqc-select-native"
+                    :value="getPqcItemSelection(activePqcTabItem.key).selectedEquipmentId ?? ''"
                     data-pqc-equipment-select
-                    @change="updatePqcItemSelectedEquipment(item.key, $event)"
+                    aria-label="选择检验设备"
+                    @change="updatePqcItemSelectedEquipment(activePqcTabItem.key, $event)"
                   >
                     <option value="">选择检验设备</option>
                     <option
-                      v-for="option in getUniquePqcEquipmentOptions(item)"
+                      v-for="option in getUniquePqcEquipmentOptions(activePqcTabItem)"
                       :key="option.equipmentId"
                       :value="option.equipmentId"
                     >
                       {{ formatPqcEquipmentLabel(option) }}
                     </option>
                   </select>
+                </label>
+
+                <label
+                  class="pqc-select-card"
+                  data-pqc-equipment-number-card
+                  :class="{
+                    'is-selected': Boolean(getPqcItemSelection(activePqcTabItem.key).selectedEquipmentNumber),
+                    'is-empty': !getPqcItemSelection(activePqcTabItem.key).selectedEquipmentNumber
+                  }"
+                >
+                  <span
+                    v-if="activePqcTabItem.equipmentRequired"
+                    class="pqc-required-dot"
+                    aria-hidden="true"
+                  />
+                  <span>
+                    <strong>设备编号</strong>
+                    <span>{{ getPqcSelectedEquipmentNumberLabel(activePqcTabItem) }}</span>
+                  </span>
+                  <em aria-hidden="true">&gt;</em>
                   <select
-                    :value="getPqcItemSelection(item.key).selectedEquipmentNumber ?? ''"
+                    class="pqc-select-native"
+                    :value="getPqcItemSelection(activePqcTabItem.key).selectedEquipmentNumber ?? ''"
                     data-pqc-equipment-number-select
-                    @change="updatePqcItemSelectedEquipmentNumber(item.key, $event)"
+                    aria-label="选择设备编号"
+                    @change="updatePqcItemSelectedEquipmentNumber(activePqcTabItem.key, $event)"
                   >
                     <option value="">选择设备编号</option>
                     <option
-                      v-for="option in getPqcEquipmentNumberOptions(item.key)"
+                      v-for="option in getPqcEquipmentNumberOptions(activePqcTabItem.key)"
                       :key="`${option.equipmentId}:${option.equipmentNumber}`"
                       :value="option.equipmentNumber"
                     >
                       {{ option.equipmentNumber }}
                     </option>
                   </select>
-                </div>
-                <div class="frontline-pqc-fact-actions">
-                  <button type="button" data-pqc-standard-button @click="openPqcStandardDialog(item.key)">
-                    接收标准
-                  </button>
-                  <button type="button" data-pqc-method-button @click="openPqcMethodDialog(item.key)">
-                    检验方法
-                  </button>
-                  <button type="button" class="manual" @click="openPqcPieceInspection(item.key)">
-                    <span>逐件选择</span>
-                    <strong aria-hidden="true">&gt;</strong>
-                  </button>
-                </div>
-              </article>
+                </label>
+
+                <button
+                  type="button"
+                  class="pqc-fact-card is-primary"
+                  data-pqc-standard-button
+                  @click="openPqcStandardDialog(activePqcTabItem.key)"
+                >
+                  <strong>接收标准</strong>
+                  <span>{{ formatPqcStandardSummary(activePqcTabItem) }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="pqc-fact-card"
+                  data-pqc-method-button
+                  @click="openPqcMethodDialog(activePqcTabItem.key)"
+                >
+                  <strong>检验方法</strong>
+                  <span>{{ formatPqcMethodSummary(activePqcTabItem) }}</span>
+                </button>
+              </div>
 
               <div
-                v-else
-                class="frontline-pqc-choice-item"
-                :data-pqc-inspection-entry="item.key"
-                :data-pqc-inspection-group="item.key"
+                class="frontline-pqc-choice-actions"
+                :class="{ 'is-number': activePqcTabItem.type === 'number' }"
               >
-                <div class="frontline-pqc-choice-title">
-                  <span>{{ item.label }}</span>
-                  <small class="frontline-pqc-inspection-meta" data-pqc-inspection-meta>
-                    {{ formatPqcInspectionMeta(item) }}
-                  </small>
-                </div>
-                <div class="frontline-pqc-equipment-controls">
-                  <select
-                    :value="getPqcItemSelection(item.key).selectedEquipmentId ?? ''"
-                    data-pqc-equipment-select
-                    @change="updatePqcItemSelectedEquipment(item.key, $event)"
-                  >
-                    <option value="">选择检验设备</option>
-                    <option
-                      v-for="option in getUniquePqcEquipmentOptions(item)"
-                      :key="option.equipmentId"
-                      :value="option.equipmentId"
-                    >
-                      {{ formatPqcEquipmentLabel(option) }}
-                    </option>
-                  </select>
-                  <select
-                    :value="getPqcItemSelection(item.key).selectedEquipmentNumber ?? ''"
-                    data-pqc-equipment-number-select
-                    @change="updatePqcItemSelectedEquipmentNumber(item.key, $event)"
-                  >
-                    <option value="">选择设备编号</option>
-                    <option
-                      v-for="option in getPqcEquipmentNumberOptions(item.key)"
-                      :key="`${option.equipmentId}:${option.equipmentNumber}`"
-                      :value="option.equipmentNumber"
-                    >
-                      {{ option.equipmentNumber }}
-                    </option>
-                  </select>
-                </div>
-                <div class="frontline-pqc-fact-actions">
-                  <button type="button" data-pqc-standard-button @click="openPqcStandardDialog(item.key)">
-                    接收标准
-                  </button>
-                  <button type="button" data-pqc-method-button @click="openPqcMethodDialog(item.key)">
-                    检验方法
-                  </button>
-                </div>
-                <div class="frontline-pqc-choice-actions">
-                  <button
-                    type="button"
-                    class="pass"
-                    :class="{ active: isPqcBulkChoiceActive(item.key, '合格') }"
-                    @click="applyPqcBulkChoice(item.key, '合格')"
-                  >
-                    全部合格
-                  </button>
-                  <button
-                    type="button"
-                    class="fail"
-                    :class="{ active: isPqcBulkChoiceActive(item.key, '不合格') }"
-                    @click="applyPqcBulkChoice(item.key, '不合格')"
-                  >
-                    全部不良
-                  </button>
-                  <button
-                    type="button"
-                    class="manual"
-                    :class="{ active: isPqcManualChoiceActive(item.key) }"
-                    @click="openPqcPieceInspection(item.key)"
-                  >
-                    <span>逐件选择</span>
-                    <em>{{ getPqcProgressText(item.key) }}</em>
-                    <strong aria-hidden="true">&gt;</strong>
-                  </button>
-                </div>
+                <button
+                  v-if="activePqcTabItem.type === 'choice'"
+                  type="button"
+                  class="pass"
+                  :class="{ active: isPqcBulkChoiceActive(activePqcTabItem.key, '合格') }"
+                  @click="applyPqcBulkChoice(activePqcTabItem.key, '合格')"
+                >
+                  全部合格
+                </button>
+                <button
+                  v-if="activePqcTabItem.type === 'choice'"
+                  type="button"
+                  class="fail"
+                  :class="{ active: isPqcBulkChoiceActive(activePqcTabItem.key, '不合格') }"
+                  @click="applyPqcBulkChoice(activePqcTabItem.key, '不合格')"
+                >
+                  全部不良
+                </button>
+                <button
+                  type="button"
+                  class="manual"
+                  :class="{ active: isPqcManualChoiceActive(activePqcTabItem.key) }"
+                  @click="openPqcPieceInspection(activePqcTabItem.key)"
+                >
+                  <span>{{ activePqcTabItem.type === 'number' ? '逐件填写' : '逐件选择' }}</span>
+                  <em>{{ getPqcProgressText(activePqcTabItem.key) }}</em>
+                  <strong aria-hidden="true">&gt;</strong>
+                </button>
               </div>
-            </template>
+            </article>
+
+            <div v-else class="frontline-pqc-empty-state" data-pqc-empty-inspection>
+              暂无检验项目
+            </div>
+
+            <nav
+              v-if="pqcInspectionItems.length"
+              class="pqc-item-tabs"
+              data-pqc-inspection-tabs
+              aria-label="PQC检验项目切换"
+            >
+              <button
+                v-for="item in pqcInspectionItems"
+                :key="item.key"
+                type="button"
+                class="pqc-item-tab"
+                data-pqc-inspection-tab
+                :class="{ active: activePqcTabKey === item.key }"
+                :aria-pressed="activePqcTabKey === item.key"
+                @click="selectPqcInspectionTab(item.key)"
+              >
+                <strong>{{ item.label }}</strong>
+                <em>{{ getPqcTabStateLabel(item) }}</em>
+                <small>
+                  <span data-pqc-tab-requirement>{{ formatPqcTabRequirement(item) }}</span>
+                  <span data-pqc-tab-progress>{{ getPqcProgressText(item.key) }}</span>
+                </small>
+              </button>
+            </nav>
           </div>
         </section>
 
         <section class="frontline-work-panel frontline-pqc-fill-panel">
-          <h3>填检验</h3>
           <div class="frontline-pqc-type-tabs">
             <button
               type="button"
@@ -826,6 +859,7 @@ const pqcDraft = reactive({
 const activePqcInspectionKey = ref<PqcInspectionItemKey>()
 const activePqcStandardKey = ref<PqcInspectionItemKey>()
 const activePqcMethodKey = ref<PqcInspectionItemKey>()
+const selectedPqcInspectionKey = ref<PqcInspectionItemKey>()
 const pqcPieceDraftValues = ref<string[]>([])
 const pqcPieceValues = reactive<Record<string, string[]>>({})
 const pqcItemSelections = reactive<Record<PqcInspectionItemKey, PqcItemSelection>>({})
@@ -892,6 +926,20 @@ const pqcInspectionItemKeys = computed<PqcInspectionItemKey[]>(() =>
 const activePqcInspectionItem = computed(() =>
   activePqcInspectionKey.value
     ? pqcInspectionItemMap.value[activePqcInspectionKey.value]
+    : undefined
+)
+
+const activePqcTabKey = computed(() => {
+  const selectedKey = selectedPqcInspectionKey.value
+  if (selectedKey && pqcInspectionItemMap.value[selectedKey]) {
+    return selectedKey
+  }
+  return pqcInspectionItems.value[0]?.key
+})
+
+const activePqcTabItem = computed(() =>
+  activePqcTabKey.value
+    ? pqcInspectionItemMap.value[activePqcTabKey.value]
     : undefined
 )
 
@@ -1275,6 +1323,7 @@ const clearPqcPieceValues = () => {
   activePqcInspectionKey.value = undefined
   activePqcStandardKey.value = undefined
   activePqcMethodKey.value = undefined
+  selectedPqcInspectionKey.value = undefined
   pqcPieceDraftValues.value = []
 }
 
@@ -1404,6 +1453,57 @@ const getPqcCompletedCount = (itemKey: PqcInspectionItemKey) =>
 
 const getPqcProgressText = (itemKey: PqcInspectionItemKey) =>
   `已填 ${getPqcCompletedCount(itemKey)}/${pqcInspectionQuantity.value}`
+
+const selectPqcInspectionTab = (itemKey: PqcInspectionItemKey) => {
+  selectedPqcInspectionKey.value = itemKey
+}
+
+const formatPqcTabRequirement = (item: PqcInspectionItem) =>
+  item.equipmentRequired ? '设备必填' : '设备选填'
+
+const getPqcTabStateLabel = (item: PqcInspectionItem) => {
+  if (activePqcTabKey.value === item.key) {
+    return '当前'
+  }
+  const completedCount = getPqcCompletedCount(item.key)
+  if (pqcInspectionQuantity.value > 0 && completedCount >= pqcInspectionQuantity.value) {
+    return '完成'
+  }
+  if (item.equipmentRequired && !getPqcItemSelection(item.key).selectedEquipmentId) {
+    return '待选'
+  }
+  return '未检'
+}
+
+const getPqcSelectedEquipmentLabel = (item: PqcInspectionItem) => {
+  const selectedEquipmentId = getPqcItemSelection(item.key).selectedEquipmentId
+  const selectedOption = item.equipmentOptions.find((option) =>
+    option.equipmentId === selectedEquipmentId
+  )
+  if (selectedOption) {
+    return formatPqcEquipmentLabel(selectedOption)
+  }
+  return item.equipmentRequired ? '选择检验设备' : '无需指定设备'
+}
+
+const getPqcSelectedEquipmentNumberLabel = (item: PqcInspectionItem) =>
+  getPqcItemSelection(item.key).selectedEquipmentNumber ||
+  (item.equipmentRequired ? '选择设备编号' : '无需设备编号')
+
+const formatPqcStandardSummary = (item: PqcInspectionItem) => {
+  if (item.standardText) {
+    return item.standardText
+  }
+  const lower = formatPqcStandardBound(item.standardLowerLimit, item.standardUnit)
+  const upper = formatPqcStandardBound(item.standardUpperLimit, item.standardUnit)
+  if (lower !== '未配置' || upper !== '未配置') {
+    return `${lower} ~ ${upper}`
+  }
+  return '未配置接收标准'
+}
+
+const formatPqcMethodSummary = (item: PqcInspectionItem) =>
+  item.inspectionMethod || '未配置检验方法'
 
 const formatPqcResultType = (resultType: string) => {
   const normalized = resultType.trim().toUpperCase()
