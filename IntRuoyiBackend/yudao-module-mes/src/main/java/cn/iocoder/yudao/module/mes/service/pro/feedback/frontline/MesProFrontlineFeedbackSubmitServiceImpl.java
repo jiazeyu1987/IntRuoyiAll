@@ -32,17 +32,20 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
     private final MesProFrontlineRecordbookEntryService recordbookEntryService;
     private final MesProcessPoolSubmitEventService processPoolSubmitEventService;
     private final MesFrontlineSubmitAuthorizationService submitAuthorizationService;
+    private final MesFrontlineLossReasonValidator lossReasonValidator;
     private final MesProFrontlineFeedbackPayloadSplitter payloadSplitter;
 
     public MesProFrontlineFeedbackSubmitServiceImpl(MesProFeedbackService feedbackService,
                                                     MesProFrontlineRecordbookEntryService recordbookEntryService,
                                                     MesProcessPoolSubmitEventService processPoolSubmitEventService,
                                                     MesFrontlineSubmitAuthorizationService submitAuthorizationService,
+                                                    MesFrontlineLossReasonValidator lossReasonValidator,
                                                     MesProFrontlineFeedbackPayloadSplitter payloadSplitter) {
         this.feedbackService = feedbackService;
         this.recordbookEntryService = recordbookEntryService;
         this.processPoolSubmitEventService = processPoolSubmitEventService;
         this.submitAuthorizationService = submitAuthorizationService;
+        this.lossReasonValidator = lossReasonValidator;
         this.payloadSplitter = payloadSplitter;
     }
 
@@ -59,9 +62,14 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
             throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_ACCOUNT_MISMATCH, deviceAccountUserId);
         }
         submitAuthorizationService.authorize(buildSubmitIdentityCommand(reqVO, loginUserId));
+        MesFrontlineLossReasonSnapshot lossReasonSnapshot = lossReasonValidator.requireEnabledLossReason(
+                reqVO.getProcessPoolContext().getRouteProcessId(),
+                reqVO.getFeedbackPayload().getLossReasonId(),
+                reqVO.getFeedbackPayload().getLossQuantity());
 
         LocalDateTime submittedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
-        MesProFrontlineFeedbackSplitPayload splitPayload = payloadSplitter.split(reqVO, loginUserId, submittedAt);
+        MesProFrontlineFeedbackSplitPayload splitPayload = payloadSplitter.split(reqVO, loginUserId,
+                submittedAt, lossReasonSnapshot);
         Optional<cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventResult> existing =
                 processPoolSubmitEventService.findExistingSubmitEvent(splitPayload.getProcessPoolEventPayload());
         if (existing.isPresent()) {

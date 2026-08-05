@@ -48,6 +48,38 @@ export interface TeamDefectReasonSaveReqVO {
   reasonName: string
 }
 
+export interface TeamLeaderLossReasonVO {
+  id: number
+  reasonCode: string
+  reasonName: string
+  enabled: boolean
+}
+
+export interface TeamLeaderLossReasonRowVO {
+  routeId: number
+  routeCode?: string
+  routeName?: string
+  routeProcessId: number
+  processId: number
+  processCode?: string
+  processName?: string
+  sort?: number
+  reasons: TeamLeaderLossReasonVO[]
+}
+
+export interface TeamLeaderLossReasonSaveReqVO {
+  routeProcessId: number
+  reasonCode: string
+  reasonName: string
+  enabled?: boolean
+  remark?: string
+}
+
+export interface TeamLeaderLossReasonUpdateReqVO {
+  reasonName: string
+  enabled?: boolean
+  remark?: string
+}
 export interface TeamDeviceParameterRuleSaveReqVO {
   routeProcessId?: number
   processId: number
@@ -227,6 +259,34 @@ export const createTeamDefectReason = async (data: TeamDefectReasonSaveReqVO) =>
   })
 }
 
+export const getTeamLeaderLossReasonPage = async () => {
+  return await request.get<TeamLeaderLossReasonRowVO[]>({
+    url: '/mes/pro/process-pool/team-leader/loss-reasons/page'
+  })
+}
+
+export const createTeamLeaderLossReason = async (data: TeamLeaderLossReasonSaveReqVO) => {
+  return await request.post<number>({
+    url: '/mes/pro/process-pool/team-leader/loss-reasons',
+    data
+  })
+}
+
+export const updateTeamLeaderLossReason = async (
+  id: number,
+  data: TeamLeaderLossReasonUpdateReqVO
+) => {
+  return await request.put<boolean>({
+    url: `/mes/pro/process-pool/team-leader/loss-reasons/${id}`,
+    data
+  })
+}
+
+export const deleteTeamLeaderLossReason = async (id: number) => {
+  return await request.delete<boolean>({
+    url: `/mes/pro/process-pool/team-leader/loss-reasons/${id}`
+  })
+}
 export const saveTeamDeviceParameterRule = async (data: TeamDeviceParameterRuleSaveReqVO) => {
   return await request.post<number>({
     url: '/mes/pro/process-pool/team-leader/device-parameter-rule/save',

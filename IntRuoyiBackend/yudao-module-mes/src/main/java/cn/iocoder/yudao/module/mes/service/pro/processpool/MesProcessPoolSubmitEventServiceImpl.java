@@ -108,6 +108,11 @@ public class MesProcessPoolSubmitEventServiceImpl implements MesProcessPoolSubmi
         fragmentPayload.put("recordbookEntryId", reqBO.getRecordbookEntryId());
         fragmentPayload.put("recordbookEventId", reqBO.getRecordbookEventId());
         fragmentPayload.put("equipmentParameters", reqBO.getEquipmentParameters());
+        if (QUANTITY_TYPE_LOSS.equals(sourceQuantityType)) {
+            fragmentPayload.put("lossReasonId", reqBO.getLossReasonId());
+            fragmentPayload.put("lossReasonCodeSnapshot", reqBO.getLossReasonCodeSnapshot());
+            fragmentPayload.put("lossReasonNameSnapshot", reqBO.getLossReasonNameSnapshot());
+        }
         fragments.add(MesProcessPoolQuantityFragmentCreateDTO.builder()
                 .sourceQuantityType(sourceQuantityType)
                 .qualityStatus(sourceQuantityType)

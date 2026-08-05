@@ -41,6 +41,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
             DEVICE_STATUS_ENABLED, DEVICE_STATUS_REPAIRING, DEVICE_STATUS_DISABLED);
 
     private final MesTeamLeaderScopeService scopeService;
+    private final MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
     private final MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
     private final MesProcessPoolTeamEmployeeBindingMapper employeeBindingMapper;
     private final MesProcessPoolTeamDeviceMapper deviceMapper;
@@ -50,6 +51,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     private final MesProcessPoolTeamMaintenanceAuditMapper auditMapper;
 
     public MesTeamLeaderRuntimeConfigServiceImpl(MesTeamLeaderScopeService scopeService,
+                                                 MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService,
                                                  MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper,
                                                  MesProcessPoolTeamEmployeeBindingMapper employeeBindingMapper,
                                                  MesProcessPoolTeamDeviceMapper deviceMapper,
@@ -58,6 +60,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
                                                  MesProcessPoolDefectReasonMapper defectReasonMapper,
                                                  MesProcessPoolTeamMaintenanceAuditMapper auditMapper) {
         this.scopeService = scopeService;
+        this.routeStartAuthorizationService = routeStartAuthorizationService;
         this.employeeProfileMapper = employeeProfileMapper;
         this.employeeBindingMapper = employeeBindingMapper;
         this.deviceMapper = deviceMapper;
@@ -209,9 +212,18 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
                 || isBlank(reqBO.getReasonType()) || isBlank(reqBO.getReasonCode()) || isBlank(reqBO.getReasonName())) {
             throw exception(PRO_PROCESS_POOL_DEFECT_REASON_REQUIRED, "processDefectReason");
         }
-        scopeService.assertCanMaintainProcess(reqBO.getLeaderUserId(), reqBO.getProcessId());
+        boolean lossReason = MesProcessPoolDefectReasonDO.REASON_TYPE_LOSS.equals(reqBO.getReasonType());
+        if (lossReason) {
+            if (reqBO.getRouteProcessId() == null) {
+                throw exception(PRO_PROCESS_POOL_DEFECT_REASON_REQUIRED, "routeProcessId");
+            }
+            routeStartAuthorizationService.assertCanMaintainRouteProcess(reqBO.getLeaderUserId(),
+                    reqBO.getRouteProcessId());
+        } else {
+            scopeService.assertCanMaintainProcess(reqBO.getLeaderUserId(), reqBO.getProcessId());
+        }
         MesProcessPoolDefectReasonDO reason = MesProcessPoolDefectReasonDO.builder()
-                .leaderUserId(reqBO.getLeaderUserId())
+                .leaderUserId(lossReason ? null : reqBO.getLeaderUserId())
                 .routeProcessId(reqBO.getRouteProcessId())
                 .processId(reqBO.getProcessId())
                 .reasonType(reqBO.getReasonType())

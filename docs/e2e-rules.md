@@ -204,6 +204,15 @@
 - Forbidden action: 禁止删除或跳过官方登录 preflight；禁止把缺失 preflight 脚本当成 E2E 通过；禁止在真实脚本中保留历史默认密码；禁止把过期固定批次/任务 ID 当作长期前置。
 - Evidence: `doc/tasks/20260725-full-e2e-admin-validation/verification-report.md`；`doc/tasks/20260730-banzuzhang/verification-report.md`。
 
+### 写入型 E2E 任务自有模拟环境门禁
+
+- Trigger: 写入型、多账号、权限范围、共享数据或跨角色可见性的真实 E2E 初始判断为缺少测试账号、租户、路线、工序、报工样本或可清理数据前置。
+- Preflight check: 先判断缺口是否可在本机测试租户内用任务自有前缀、安全 fixture 脚本和正式 schema/API 补齐；fixture 必须创建真实账号、角色、权限、业务对象和清理范围，密码只能由环境变量注入，不得写入日志或证据。
+- Blocker: 无测试租户授权、缺正式 schema、缺必要菜单/角色权限、无法清理任务自有数据、只能使用 `芋道源码/admin` 或需要生产/无关真实业务数据时，必须继续记录 BLOCKED。
+- Verification: 模拟环境完成后必须分别记录 fixture 输出、运行态 API 只读核验、真实 Playwright 页面路径、跨账号可见性、目标写接口业务 `code=0`、目标 HTTP/page errors 为空，以及删除/禁用/清理后的状态。
+- Forbidden action: 禁止把 API-only、静态合同、默认 admin、mock 数据或前端直塞 localStorage 当作写入型 E2E 通过；禁止因首次缺账号就跳过可安全构造的任务自有模拟环境。
+- Evidence: `doc/tasks/20260805-process-loss-reasons/verification-report.md`，AC-D04 先从缺生产组长/员工前置转为任务自有模拟环境，再用两个生产组长真实页面验证授权工序、共享新增、共享修改和删除停用。
+
 ### eDHR 管理员主区域已提交内容门禁
 
 - Trigger: Playwright 验证批记录管理员在批次详情主区域查看已提交批记录内容、无已提交内容时显示空表单、`review-timeline.executionReviews.formViewModel`、`selectedEmptyTaskPreviewFormViewModel`、或排查主区域是否读取草稿/快照。

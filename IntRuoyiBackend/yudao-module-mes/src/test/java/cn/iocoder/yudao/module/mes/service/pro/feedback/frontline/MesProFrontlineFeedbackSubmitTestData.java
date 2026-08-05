@@ -49,6 +49,7 @@ final class MesProFrontlineFeedbackSubmitTestData {
                         .setScheduledQuantity(new BigDecimal("300.000"))
                         .setOutputQuantity(new BigDecimal("100.500"))
                         .setLossQuantity(new BigDecimal("2.500"))
+                        .setLossReasonId(8301L)
                         .setLaborScrapQuantity(new BigDecimal("1.000"))
                         .setMaterialScrapQuantity(new BigDecimal("1.500"))
                         .setOtherScrapQuantity(new BigDecimal("0.000"))

@@ -33,6 +33,8 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
     private MesProcessPoolSubmitEventService processPoolSubmitEventService;
     @Mock
     private MesFrontlineSubmitAuthorizationService submitAuthorizationService;
+    @Mock
+    private MesFrontlineLossReasonValidator lossReasonValidator;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -43,6 +45,7 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
                 recordbookEntryService,
                 processPoolSubmitEventService,
                 submitAuthorizationService,
+                lossReasonValidator,
                 new MesProFrontlineFeedbackPayloadSplitter());
     }
 

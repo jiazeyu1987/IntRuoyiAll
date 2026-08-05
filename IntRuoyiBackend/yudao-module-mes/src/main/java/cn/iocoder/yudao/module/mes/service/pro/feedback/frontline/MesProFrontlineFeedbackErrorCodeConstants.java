@@ -14,5 +14,9 @@ public interface MesProFrontlineFeedbackErrorCodeConstants {
             new ErrorCode(1_040_753_603, "一线报工签名员工与实际操作员工不一致");
     ErrorCode PRO_FRONTLINE_RECORD_BOOK_EVENT_MISSING =
             new ErrorCode(1_040_753_604, "一线报工记录本原始条目事件缺失：{}");
+    ErrorCode PRO_FRONTLINE_FEEDBACK_LOSS_REASON_REQUIRED =
+            new ErrorCode(1_040_753_605, "损耗数量大于 0 时必须选择当前工序启用的损耗原因");
+    ErrorCode PRO_FRONTLINE_FEEDBACK_LOSS_REASON_INVALID =
+            new ErrorCode(1_040_753_606, "损耗原因不属于当前工序或已禁用：{}");
 
 }

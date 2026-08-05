@@ -41,6 +41,8 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     @Mock
     private MesTeamLeaderScopeService scopeService;
     @Mock
+    private MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
+    @Mock
     private MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
     @Mock
     private MesProcessPoolTeamEmployeeBindingMapper employeeBindingMapper;
@@ -59,7 +61,8 @@ class MesTeamLeaderRuntimeConfigServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new MesTeamLeaderRuntimeConfigServiceImpl(scopeService, employeeProfileMapper, employeeBindingMapper,
+        service = new MesTeamLeaderRuntimeConfigServiceImpl(scopeService, routeStartAuthorizationService,
+                employeeProfileMapper, employeeBindingMapper,
                 deviceMapper, processDeviceMapper, parameterRuleMapper, defectReasonMapper, auditMapper);
     }
 
@@ -247,7 +250,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     }
 
     @Test
-    void shouldBindConfiguredDefectReasonToProcess() {
+    void shouldBindLossReasonToRouteProcessSharedByRouteStartProductionLeaders() {
         when(defectReasonMapper.insert(any(MesProcessPoolDefectReasonDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolDefectReasonDO.class).setId(8301L);
             return 1;
@@ -255,6 +258,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
 
         Long reasonId = service.saveProcessDefectReason(MesTeamProcessDefectReasonSaveReqBO.builder()
                 .leaderUserId(3001L)
+                .routeProcessId(7101L)
                 .processId(6001L)
                 .reasonType("LOSS")
                 .reasonCode("LOSS-001")
@@ -262,10 +266,14 @@ class MesTeamLeaderRuntimeConfigServiceTest {
                 .build());
 
         assertEquals(8301L, reasonId);
-        verify(scopeService).assertCanMaintainProcess(3001L, 6001L);
+        verify(routeStartAuthorizationService).assertCanMaintainRouteProcess(3001L, 7101L);
+        verify(scopeService, never()).assertCanMaintainProcess(3001L, 6001L);
         ArgumentCaptor<MesProcessPoolDefectReasonDO> reasonCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolDefectReasonDO.class);
         verify(defectReasonMapper).insert(reasonCaptor.capture());
+        assertNull(reasonCaptor.getValue().getLeaderUserId(),
+                "LOSS reason ownership must not be scoped to the editor production leader");
+        assertEquals(7101L, reasonCaptor.getValue().getRouteProcessId());
         assertEquals(6001L, reasonCaptor.getValue().getProcessId());
         assertEquals("LOSS-001", reasonCaptor.getValue().getReasonCode());
         assertTrue(reasonCaptor.getValue().getEnabled());

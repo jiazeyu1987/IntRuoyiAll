@@ -230,15 +230,15 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
 
     private List<MesFrontlineDefectReasonOption> toDefectReasonOptions(
             MesFrontlineRouteProcessCandidate process, Set<Long> leaderUserIds) {
-        if (leaderUserIds.isEmpty()) {
-            return List.of();
-        }
         return defectReasonMapper.selectList(new LambdaQueryWrapperX<MesProcessPoolDefectReasonDO>()
-                        .eq(MesProcessPoolDefectReasonDO::getProcessId, process.processId())
-                        .in(MesProcessPoolDefectReasonDO::getLeaderUserId, leaderUserIds)
+                        .eq(MesProcessPoolDefectReasonDO::getRouteProcessId, process.routeProcessId())
+                        .eq(MesProcessPoolDefectReasonDO::getReasonType,
+                                MesProcessPoolDefectReasonDO.REASON_TYPE_LOSS)
                         .eq(MesProcessPoolDefectReasonDO::getEnabled, Boolean.TRUE))
                 .stream()
                 .filter(reason -> routeProcessMatches(reason.getRouteProcessId(), process.routeProcessId()))
+                .filter(reason -> MesProcessPoolDefectReasonDO.REASON_TYPE_LOSS.equals(reason.getReasonType()))
+                .filter(reason -> Boolean.TRUE.equals(reason.getEnabled()))
                 .sorted(Comparator
                         .comparing(MesProcessPoolDefectReasonDO::getReasonCode,
                                 Comparator.nullsLast(String::compareTo))

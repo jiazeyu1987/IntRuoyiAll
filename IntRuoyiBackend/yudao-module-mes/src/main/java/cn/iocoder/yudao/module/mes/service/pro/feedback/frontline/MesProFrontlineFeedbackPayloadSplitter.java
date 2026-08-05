@@ -19,6 +19,13 @@ public class MesProFrontlineFeedbackPayloadSplitter {
     public MesProFrontlineFeedbackSplitPayload split(MesProFrontlineFeedbackSubmitReqVO reqVO,
                                                      Long loginUserId,
                                                      LocalDateTime submittedAt) {
+        return split(reqVO, loginUserId, submittedAt, null);
+    }
+
+    public MesProFrontlineFeedbackSplitPayload split(MesProFrontlineFeedbackSubmitReqVO reqVO,
+                                                     Long loginUserId,
+                                                     LocalDateTime submittedAt,
+                                                     MesFrontlineLossReasonSnapshot lossReasonSnapshot) {
         MesProFrontlineFeedbackPayloadReqVO feedback = reqVO.getFeedbackPayload();
         MesProFrontlineRecordbookPayloadReqVO recordbook = reqVO.getRecordbookPayload();
         MesProFrontlineProcessPoolContextReqVO context = reqVO.getProcessPoolContext();
@@ -45,6 +52,11 @@ public class MesProFrontlineFeedbackPayloadSplitter {
         feedbackPayload.setLaborScrapQuantity(feedback.getLaborScrapQuantity());
         feedbackPayload.setMaterialScrapQuantity(feedback.getMaterialScrapQuantity());
         feedbackPayload.setOtherScrapQuantity(feedback.getOtherScrapQuantity());
+        if (lossReasonSnapshot != null) {
+            feedbackPayload.setLossReasonId(lossReasonSnapshot.reasonId());
+            feedbackPayload.setLossReasonCodeSnapshot(lossReasonSnapshot.reasonCode());
+            feedbackPayload.setLossReasonNameSnapshot(lossReasonSnapshot.reasonName());
+        }
         feedbackPayload.setFeedbackUserId(reqVO.getActualEmployeeId());
         feedbackPayload.setFeedbackTime(submittedAt);
         feedbackPayload.setApproveUserId(feedback.getApproveUserId());
@@ -61,7 +73,8 @@ public class MesProFrontlineFeedbackPayloadSplitter {
                 .setIdempotencyKey(recordbook.getIdempotencyKey())
                 .setRemark(recordbook.getRemark());
 
-        Map<String, Object> processPoolRawPayload = buildProcessPoolRawPayload(reqVO, feedback, recordbook);
+        Map<String, Object> processPoolRawPayload = buildProcessPoolRawPayload(reqVO, feedback, recordbook,
+                lossReasonSnapshot);
         MesProcessPoolSubmitEventCreateReqBO eventPayload = new MesProcessPoolSubmitEventCreateReqBO()
                 .setProcessPoolSubmissionIdempotencyKey(reqVO.getProcessPoolSubmissionIdempotencyKey())
                 .setWorkOrderId(context.getWorkOrderId())
@@ -78,6 +91,9 @@ public class MesProFrontlineFeedbackPayloadSplitter {
                 .setTemplateType(context.getTemplateType())
                 .setOutputQuantity(feedback.getOutputQuantity())
                 .setLossQuantity(feedback.getLossQuantity())
+                .setLossReasonId(lossReasonSnapshot == null ? null : lossReasonSnapshot.reasonId())
+                .setLossReasonCodeSnapshot(lossReasonSnapshot == null ? null : lossReasonSnapshot.reasonCode())
+                .setLossReasonNameSnapshot(lossReasonSnapshot == null ? null : lossReasonSnapshot.reasonName())
                 .setEquipmentParameters(recordbook.getEquipmentParameters())
                 .setRawPayload(processPoolRawPayload)
                 .setSubmittedAt(submittedAt);
@@ -90,13 +106,19 @@ public class MesProFrontlineFeedbackPayloadSplitter {
 
     private Map<String, Object> buildProcessPoolRawPayload(MesProFrontlineFeedbackSubmitReqVO reqVO,
                                                            MesProFrontlineFeedbackPayloadReqVO feedback,
-                                                           MesProFrontlineRecordbookPayloadReqVO recordbook) {
+                                                           MesProFrontlineRecordbookPayloadReqVO recordbook,
+                                                           MesFrontlineLossReasonSnapshot lossReasonSnapshot) {
         Map<String, Object> payload = new LinkedHashMap<>();
         if (reqVO.getRawPayload() != null) {
         payload.putAll(reqVO.getRawPayload());
         }
         payload.put("outputQuantity", feedback.getOutputQuantity());
         payload.put("lossQuantity", feedback.getLossQuantity());
+        if (lossReasonSnapshot != null) {
+            payload.put("lossReasonId", lossReasonSnapshot.reasonId());
+            payload.put("lossReasonCodeSnapshot", lossReasonSnapshot.reasonCode());
+            payload.put("lossReasonNameSnapshot", lossReasonSnapshot.reasonName());
+        }
         payload.put("equipmentParameters", recordbook.getEquipmentParameters());
         if (recordbook.getEquipmentParameters() != null) {
             recordbook.getEquipmentParameters().forEach((code, value) -> {

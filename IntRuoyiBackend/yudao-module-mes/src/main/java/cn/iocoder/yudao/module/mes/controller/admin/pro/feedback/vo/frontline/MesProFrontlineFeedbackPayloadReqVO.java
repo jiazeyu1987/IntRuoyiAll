@@ -74,6 +74,9 @@ public class MesProFrontlineFeedbackPayloadReqVO {
     @Schema(description = "其他废品数量", example = "0.000")
     private BigDecimal otherScrapQuantity;
 
+    @Schema(description = "损耗原因 ID，来自当前工序后端配置", example = "8301")
+    private Long lossReasonId;
+
     @Schema(description = "当前审批人编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "7001")
     @NotNull(message = "当前审批人不能为空")
     private Long approveUserId;

@@ -149,6 +149,20 @@ public class MesProFeedbackDO extends BaseDO {
      */
     private BigDecimal otherScrapQuantity;
     /**
+     * 损耗原因 ID
+     *
+     * 历史展示以编码和名称快照为准，不实时 join 当前原因配置。
+     */
+    private Long lossReasonId;
+    /**
+     * 损耗原因编码快照
+     */
+    private String lossReasonCodeSnapshot;
+    /**
+     * 损耗原因名称快照
+     */
+    private String lossReasonNameSnapshot;
+    /**
      * 报工用户编号
      *
      * 关联 AdminUserDO#getId()

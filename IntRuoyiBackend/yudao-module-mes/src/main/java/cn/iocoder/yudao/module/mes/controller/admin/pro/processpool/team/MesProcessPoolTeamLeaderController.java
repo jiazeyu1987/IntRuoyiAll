@@ -15,6 +15,10 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderTransferTraceRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderLossReasonRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderLossReasonRowRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderLossReasonSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderLossReasonUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderAllocationTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderBatchRecordTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderOrderProcessTraceRespVO;
@@ -41,6 +45,11 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeB
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRemoveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderLossReasonItem;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderLossReasonRow;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderLossReasonSaveReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderLossReasonService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderLossReasonUpdateReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportAllocationLineReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportAllocationPreview;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportAllocationPreviewLine;
@@ -59,7 +68,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -86,6 +97,7 @@ public class MesProcessPoolTeamLeaderController {
     private final MesTeamLeaderActiveOrderService activeOrderService;
     private final MesTeamLeaderReportConfirmationService reportConfirmationService;
     private final MesTeamLeaderRuntimeConfigService runtimeConfigService;
+    private final MesTeamLeaderLossReasonService lossReasonService;
     private final MesTeamLeaderTraceService traceService;
     private final MesActiveOrderTransferTraceService activeOrderTransferTraceService;
 
@@ -98,6 +110,7 @@ public class MesProcessPoolTeamLeaderController {
                                               MesTeamLeaderActiveOrderService activeOrderService,
                                               MesTeamLeaderReportConfirmationService reportConfirmationService,
                                               MesTeamLeaderRuntimeConfigService runtimeConfigService,
+                                              MesTeamLeaderLossReasonService lossReasonService,
                                               MesTeamLeaderTraceService traceService,
                                               MesActiveOrderTransferTraceService activeOrderTransferTraceService) {
         this.workbenchService = workbenchService;
@@ -109,6 +122,7 @@ public class MesProcessPoolTeamLeaderController {
         this.activeOrderService = activeOrderService;
         this.reportConfirmationService = reportConfirmationService;
         this.runtimeConfigService = runtimeConfigService;
+        this.lossReasonService = lossReasonService;
         this.traceService = traceService;
         this.activeOrderTransferTraceService = activeOrderTransferTraceService;
     }
@@ -201,6 +215,51 @@ public class MesProcessPoolTeamLeaderController {
                 .build()));
     }
 
+    @GetMapping("/loss-reasons/page")
+    @Operation(summary = "查询生产组长可维护工序损耗原因标准列表")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<List<MesTeamLeaderLossReasonRowRespVO>> getLossReasonPage() {
+        return success(lossReasonService.listLossReasonRows(SecurityFrameworkUtils.getLoginUserId()).stream()
+                .map(MesProcessPoolTeamLeaderController::toLossReasonRowRespVO)
+                .toList());
+    }
+
+    @PostMapping("/loss-reasons")
+    @Operation(summary = "新增生产组长工序损耗原因")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Long> createLossReason(@Valid @RequestBody MesTeamLeaderLossReasonSaveReqVO reqVO) {
+        return success(lossReasonService.createLossReason(MesTeamLeaderLossReasonSaveReqBO.builder()
+                .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                .routeProcessId(reqVO.getRouteProcessId())
+                .reasonCode(reqVO.getReasonCode())
+                .reasonName(reqVO.getReasonName())
+                .enabled(reqVO.getEnabled())
+                .remark(reqVO.getRemark())
+                .build()));
+    }
+
+    @PutMapping("/loss-reasons/{id}")
+    @Operation(summary = "修改生产组长工序损耗原因")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Boolean> updateLossReason(@PathVariable("id") Long id,
+                                                   @Valid @RequestBody MesTeamLeaderLossReasonUpdateReqVO reqVO) {
+        lossReasonService.updateLossReason(MesTeamLeaderLossReasonUpdateReqBO.builder()
+                .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                .id(id)
+                .reasonName(reqVO.getReasonName())
+                .enabled(reqVO.getEnabled())
+                .remark(reqVO.getRemark())
+                .build());
+        return success(Boolean.TRUE);
+    }
+
+    @DeleteMapping("/loss-reasons/{id}")
+    @Operation(summary = "删除生产组长工序损耗原因")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Boolean> deleteLossReason(@PathVariable("id") Long id) {
+        lossReasonService.deleteLossReason(SecurityFrameworkUtils.getLoginUserId(), id);
+        return success(Boolean.TRUE);
+    }
     @PostMapping("/device-parameter-rule/save")
     @Operation(summary = "保存班组工序设备参数上下限")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
@@ -437,6 +496,28 @@ public class MesProcessPoolTeamLeaderController {
         return success(traceService.getProductionExecutionTrace(processPoolEventId));
     }
 
+    private static MesTeamLeaderLossReasonRowRespVO toLossReasonRowRespVO(MesTeamLeaderLossReasonRow row) {
+        return new MesTeamLeaderLossReasonRowRespVO()
+                .setRouteId(row.getRouteId())
+                .setRouteCode(row.getRouteCode())
+                .setRouteName(row.getRouteName())
+                .setRouteProcessId(row.getRouteProcessId())
+                .setProcessId(row.getProcessId())
+                .setProcessCode(row.getProcessCode())
+                .setProcessName(row.getProcessName())
+                .setSort(row.getSort())
+                .setReasons(row.getReasons().stream()
+                        .map(MesProcessPoolTeamLeaderController::toLossReasonRespVO)
+                        .toList());
+    }
+
+    private static MesTeamLeaderLossReasonRespVO toLossReasonRespVO(MesTeamLeaderLossReasonItem item) {
+        return new MesTeamLeaderLossReasonRespVO()
+                .setId(item.getId())
+                .setReasonCode(item.getReasonCode())
+                .setReasonName(item.getReasonName())
+                .setEnabled(item.getEnabled());
+    }
     private static MesTeamLeaderActiveOrderRespVO toActiveOrderRespVO(MesProcessPoolActiveOrderDO activeOrder) {
         return new MesTeamLeaderActiveOrderRespVO()
                 .setId(activeOrder.getId())
