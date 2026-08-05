@@ -298,12 +298,21 @@
 
 ### 产品侧路线选择必须匹配后端可维护状态
 
-- Trigger: MES 物料产品选择工艺路线、QA 规程适用范围手动绑定工艺路线、产品侧路线下拉、`getRouteSimpleList`、`item-binding-list`、`saveRouteProductByItem`、`validateRouteNotEnable`、已启用路线不可维护。
-- Preflight check: 修改产品侧路线选择或 route-product 保存前，先核对下拉数据源返回的路线状态集合和后端维护校验是否一致；若后端禁止维护已启用路线，前端不能使用只返回已启用路线的精简列表作为可选项。其它页面若需要“手动绑定工艺路线”，也必须复用 `item-binding-list` 与相同禁用规则，调用 `saveRouteProductByItem` 后重新读取 `getRouteProductByItem`，不得仅用本地所选路线冒充绑定成功。
-- Blocker: 下拉只提供已启用路线但保存接口会因 `PRO_ROUTE_IS_ENABLE` 失败、已启用当前绑定允许清空或改选、产品侧新增第二套路由字段、手动绑定后未重读正式当前绑定、或用前端隐藏错误替代后端 fail-fast 时必须停止。
+- Trigger: MES 物料产品选择工艺路线、产品侧路线下拉、`getRouteSimpleList`、`item-binding-list`、`saveRouteProductByItem`、`validateRouteNotEnable`、已启用路线不可维护。
+- Preflight check: 修改产品侧路线选择或 route-product 保存前，先核对下拉数据源返回的路线状态集合和后端维护校验是否一致；若后端禁止维护已启用路线，前端不能使用只返回已启用路线的精简列表作为可选项，必须禁用不可维护路线并调用 `saveRouteProductByItem` 后重新读取 `getRouteProductByItem`。
+- Blocker: 产品侧下拉只提供已启用路线但保存接口会因 `PRO_ROUTE_IS_ENABLE` 失败、已启用当前绑定允许清空或改选、产品侧新增第二套路由字段、保存后未重读正式当前绑定、或用前端隐藏错误替代后端 fail-fast 时必须停止。
 - Verification: 前端静态契约必须断言产品侧使用专用路线选择接口、禁用已启用路线选项、不调用只返回已启用路线的 `simple-list`；后端回归必须覆盖创建、迁移、解除绑定和旧路线产品 BOM 清理。
-- Forbidden action: 禁止为了让产品能选择路线而放宽 `validateRouteNotEnable`、禁用后端校验、使用 `MdItemApi.routeId` 第二关系源、默认成功、吞掉保存错误或混入表单槽位/批记录表单链路。
-- Evidence: `doc/tasks/20260804-mes-item-route-selection/verification-report.md`；`doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md`。
+- Forbidden action: 禁止为了让产品维护页能选择路线而放宽 `validateRouteNotEnable`、禁用后端校验、使用 `MdItemApi.routeId` 第二关系源、默认成功、吞掉保存错误或混入表单槽位/批记录表单链路。
+- Evidence: `doc/tasks/20260804-mes-item-route-selection/verification-report.md`。
+
+### QA 规程手动绑定必须允许已发布路线
+
+- Trigger: QA 规程适用范围手动绑定工艺路线、`data-qa-regulation-manual-route-bind`、`saveQaRegulationRouteProductByItem`、`save-qa-regulation-route-by-item`、已发布路线不能选择、`已启用，仅回显`。
+- Preflight check: QA 规程只允许手动绑定“工艺路线”这一正式产品路线关系；路线版本、质检工序、SOP、生产系数和批记录绑定仍必须从已发布路线自动解析。QA 下拉可复用 `getRouteItemBindingList` 候选，但不得按 `CommonStatusEnum.ENABLE` 禁用已发布路线；保存必须调用 QA 专用 `saveQaRegulationRouteProductByItem`，后端校验路线存在且有 ACTIVE 版本，不调用 `validateRouteNotEnable`，保存后必须重新读取 `getRouteProductByItem`。
+- Blocker: QA 下拉把已发布/已启用路线置灰、仍调用 `saveRouteProductByItem` 导致 `PRO_ROUTE_IS_ENABLE`、后端 QA 方法缺少 ACTIVE 版本 fail-fast、绑定后只用本地选择值展示、或把黄框字段重新开放为手工输入时必须停止。
+- Verification: 前端静态契约必须断言 QA 页面不再禁用 `CommonStatusEnum.ENABLE`、不显示“已启用，仅回显”、调用 `saveQaRegulationRouteProductByItem` 并重读当前绑定；后端回归必须覆盖 QA 新建绑定、修正既有绑定、缺 ACTIVE 版本失败、Controller QA endpoint 和不调用 `validateRouteNotEnable`。
+- Forbidden action: 禁止放宽产品维护页 `validateRouteNotEnable` 来满足 QA；禁止用前端本地值、默认路线、`formBindings`、批记录表单、空成功或吞异常冒充 QA 绑定成功。
+- Evidence: `doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md`。
 
 ## 禁止做法
 
