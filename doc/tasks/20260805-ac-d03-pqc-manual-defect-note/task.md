@@ -20,9 +20,9 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
-实现、定向验证、全量前端类型检查、运行态字段检查和真实页面只读输入预检已完成；写入型 PQC E2E、详情回读、历史不覆盖专项验收仍未完成。完整 closeout/提交/推送仍受共享工作区大量非本任务脏改动阻塞。
+实现、定向验证、全量前端类型检查、运行态字段检查和真实页面只读输入预检已完成；写入型 PQC E2E、详情回读、历史不覆盖专项验收仍未完成。本轮继续只读预检确认当前运行库 `mes_pro_process_pool_pqc_record` 缺 `production_submit_event_id`，而当前源码 PQC record DO/Mapper 已依赖 `productionSubmitEventId`；同时现有 active order 30 缺正式工序快照和生产提交事件，不能作为 AC-D03 写入型夹具。按 no-fallback 规则，不能用 API-only、假 eventId 或污染既有业务数据替代真实页面写入验收。完整 closeout/提交/推送仍受共享工作区大量非本任务脏改动阻塞。
 
 ## 设计约束检查
 
