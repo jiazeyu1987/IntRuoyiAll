@@ -23,7 +23,7 @@
 
 in_progress
 
-当前任务使用隔离 worktree `D:\IntRuoyiWorktree\profile-erp-table-auto-sync`，分支 `codex/profile-erp-table-auto-sync`，端口槽位 `slot=5`，前端 `8086`，后端 `48086`。主工作区存在并行脏改动，本任务不在主工作区直接修改文件。
+当前任务使用隔离验证 worktree `D:\IntRuoyiWorktree\profile-erp-table-auto-sync-verify`，分支 `codex/profile-erp-table-auto-sync`。原 worktree `D:\IntRuoyiWorktree\profile-erp-table-auto-sync` 在验证期间两次被外部进程删除；本任务不在主工作区直接修改文件。
 
 ## 设计约束检查
 

@@ -9,9 +9,9 @@
 ## Environment And Isolation
 
 - 主工作区：`E:\IntRuoyi`，当前存在并行脏改动，本任务不直接修改该工作区。
-- 隔离 worktree：`D:\IntRuoyiWorktree\profile-erp-table-auto-sync`。
+- 隔离 worktree：原路径 `D:\IntRuoyiWorktree\profile-erp-table-auto-sync` 在验证期间两次被外部进程删除，当前验证路径为 `D:\IntRuoyiWorktree\profile-erp-table-auto-sync-verify`。
 - 分支：`codex/profile-erp-table-auto-sync`。
-- 运行槽位：`slot=5`，前端端口 `8086`，后端端口 `48086`。
+- 运行槽位：原登记 `slot=5`，前端端口 `8086`，后端端口 `48086`；当前未启动服务，仅做代码和静态/合同验证。
 - 备注：首次 worktree 在验证后被外部进程移除，已在同一路径重新挂载同一分支并继续。
 
 ## BDD Scenarios
@@ -36,3 +36,10 @@ BDD: 同步类型正式来源 -> Given 系统存在正式 ERP/Kingdee 同步类�
 
 - M1 completed：确认正式同步类型为 PRODUCT、STOCK、PURCHASE_ORDER、SALE_ORDER、PRODUCTION_ORDER、PRODUCTION_MATERIAL_LIST、BOM；NAS 自动同步是导出到 NAS，不作为 ERP 拉取同步来源。
 - M2 completed：已补充 BDD/TDD/E2E/test-data 设计文档，并完成 RED 证据采集。
+- M4 correction：修正自动调度失败重试语义，`lastAutoRunDate` 只在全部所选 ERP JobHandler 成功后写入，避免失败当天被误判为“已自动执行”。
+
+## Verification Notes
+
+- RED: mvn -pl yudao-module-erp -am "-Dtest=cn.iocoder.yudao.module.erp.kingdeeautosync.ErpKingdeeTableAutoSyncContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, expected reason: 新增 `markAutoRunDateAfterSuccess` 合同后，旧实现缺少成功后写入方法。
+- RED: mvn -pl yudao-module-erp -am "-Dtest=cn.iocoder.yudao.module.erp.kingdeeautosync.ErpKingdeeTableAutoSyncContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, expected reason: 首次断言过宽，误拦截成功后写入 `lastAutoRunDate`，已收窄为顺序断言。
+- BLOCKER: 原 worktree `D:\IntRuoyiWorktree\profile-erp-table-auto-sync` 在 Maven 复验后被外部进程删除；随后切换到 `D:\IntRuoyiWorktree\profile-erp-table-auto-sync-verify` 继续。
