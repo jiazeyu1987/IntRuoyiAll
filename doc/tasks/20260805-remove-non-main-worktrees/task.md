@@ -9,9 +9,10 @@
 - [x] 读取 `docs/worktree-restrictions.md`、`docs/task-closeout-rules.md`、`docs/powershell-memory.md` 与 `docs/powershell-encoding.md`。
 - [x] 保存开始前既有脏工作区基线提交，避免混入本任务记录。
 - [x] 记录删除前 worktree 清单，确认目标仅限 `D:\IntRuoyiWorktree\` 下的非 `int_main` worktree。
-- [ ] 逐个删除非 `int_main` worktree。
-- [ ] 复核最终 worktree 清单只保留 `E:/IntRuoyi`。
-- [ ] 记录最终验证、提交并推送任务记录。
+- [x] 逐个删除非 `int_main` worktree。
+- [x] 复核最终 worktree 清单只保留 `E:/IntRuoyi`。
+- [x] 记录最终验证。
+- [x] 提交并推送任务记录。
 
 ## Expected Verification
 
@@ -22,9 +23,9 @@
 
 ## Current Status
 
-in_progress
+completed
 
-已完成规则读取与既有脏改动基线提交；准备记录删除前 worktree 清单并执行逐个删除。
+已完成 36 个目标 worktree 的 Git 注册移除、物理目录清理、目标端口槽位释放、任务记录收尾和经验沉淀。
 
 ## Design Constraints Check
 
