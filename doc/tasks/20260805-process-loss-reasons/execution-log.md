@@ -34,6 +34,7 @@
 - completed：真实写入型 Playwright E2E 通过生产组长甲/乙页面验证授权范围、共享新增、共享修改、删除停用和跨账号可见。
 - completed：项目经验已沉淀到 `docs/e2e-rules.md#写入型-e2e-任务自有模拟环境门禁`，并在 `docs/experience-index.md` 增加关键词路由。
 - completed：实现提交 `86a219d18 feat: add process loss reason maintenance` 已推送到 `origin/codex/20260805-process-loss-reasons`。
+- completed：主工作区 `int_main` 融合冲突已按语义解决，保留数量校验错误码和损耗原因维护错误码、测试覆盖与任务证据。
 - blocked：cleanup apply、快进合并和 worktree 删除被主工作区脏状态与当前分支无法快进合并到 `int_main` 阻塞；AC-D04 模拟环境和验收本身已完成。
 
 ## RED / GREEN Evidence
@@ -49,6 +50,11 @@
 - GREEN: `node --check .\doc\tasks\20260805-process-loss-reasons\acd04_verify_frontend_ui.e2e.cjs` -> PASS.
 - GREEN: `node .\doc\tasks\20260805-process-loss-reasons\acd04_verify_frontend_ui.e2e.cjs` -> PASS, leader A creates via operation panel, leader B sees/updates, leader A deletes, leader B sees disabled state; target loss-reason HTTP errors `[]`, page errors `[]`.
 - GREEN: `node .\IntRuoyiFronted\tests\e2e\process-loss-reason-maintenance-static.spec.cjs` -> PASS after real UI verification.
+- GREEN: `node IntRuoyiFronted\tests\e2e\process-loss-reason-maintenance-static.spec.cjs` -> PASS during `int_main` fusion, `PASS: process loss reason maintenance static contract is wired`.
+- GREEN: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProFrontlineFeedbackSubmitServiceTest,MesProcessPoolTeamLeaderSchemaTest,MesTeamLeaderRuntimeConfigServiceTest,MesFrontlineRuntimeConfigServiceTest,MesProFrontlineFeedbackPayloadSplitterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS during `int_main` fusion, Tests run: 21, Failures: 0, Errors: 0, Skipped: 0.
+- GREEN: `pnpm.cmd ts:check` -> PASS during `int_main` fusion.
+- GREEN: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --output %TEMP%\process-loss-reasons-main-merge-migration-policy-gate.json` -> PASS during `int_main` fusion, `status=passed`, `migrationCount=435`.
+- GREEN: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS during `int_main` fusion, `int_main/int_main: frontend 8081, backend 48081`.
 
 ## Runtime Evidence
 
@@ -73,6 +79,8 @@
 - 2026-08-05 implementation commit: `86a219d18 feat: add process loss reason maintenance`; branch runtime port guard passed for `codex/20260805-process-loss-reasons/int_main` (`8093/48093`).
 - 2026-08-05 push: `git push origin codex/20260805-process-loss-reasons` -> PASS; remote branch created.
 - 2026-08-05 cleanup preview: `task_closeout.py --task-id 20260805-process-loss-reasons --mode preview` -> BLOCKED only for closeout integration, with keep list preserving task docs/scripts/evidence and delete list limited to task-owned runtime logs, `__pycache__`, and `migration-policy-gate.json`; blockers were `Current branch codex/20260805-process-loss-reasons cannot be fast-forward merged into int_main` and `Main worktree is dirty and cannot receive ff-only merge: E:\IntRuoyi`.
+- 2026-08-05 `int_main` fusion: resolved main-workspace merge content so quantity validation and loss reason maintenance both remain active. Error codes are unique (`1_040_753_605` quantity, `1_040_753_606/607` loss reason required/invalid), and `MesProFrontlineFeedbackSubmitServiceTest` retains both invalid quantity tests and loss reason validator snapshot assertions.
+- 2026-08-05 `int_main` fusion verification: branch runtime port guard PASS, process-loss frontend static contract PASS, MES Maven target tests PASS (21 tests), `pnpm ts:check` PASS, migration policy gate PASS (`migrationCount=435`).
 
 ## Blockers
 

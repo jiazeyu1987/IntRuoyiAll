@@ -13,6 +13,7 @@
 - [x] 运行 GREEN 与回归验证，记录证据。
 - [x] 真实写入型 Playwright E2E：使用任务自有模拟环境完成两个生产组长共享维护验证。
 - [x] 完成经验沉淀、实现提交和推送。
+- [x] 融合进 `int_main`：保留数量校验与损耗原因维护两侧语义，并完成主工作区定向回归。
 - [ ] 完成 cleanup apply、快进合并和 worktree 删除：当前被主工作区脏状态与非快进合并门禁阻塞。
 
 ## Expected Verification
@@ -28,6 +29,8 @@
 ready_for_closeout
 
 任务自有模拟环境已建立，`8093/48093` 运行态、运行时 API 和真实 Playwright 页面路径均已通过。实现已提交并推送到 `origin/codex/20260805-process-loss-reasons`；cleanup preview 保留/删除清单正确，但 apply、快进合并和 worktree 删除被主工作区 `E:\IntRuoyi` 脏状态与当前分支无法快进合并到 `int_main` 阻塞。
+
+2026-08-05 主工作区融合已完成代码级冲突处理：`MesProFrontlineFeedbackErrorCodeConstants` 保留 `PRO_FRONTLINE_FEEDBACK_QUANTITY_INVALID=1_040_753_605`，损耗原因错误码顺延为 `1_040_753_606/607`；`MesProFrontlineFeedbackSubmitServiceTest` 同时保留数量非法拦截与损耗原因快照/校验覆盖。主工作区已通过分支端口门禁、前端静态合同、MES 定向 Maven、`pnpm ts:check` 和迁移策略门禁；待提交并推送融合提交后，原 worktree cleanup/delete 仍按收尾门禁另行处理。
 
 ## 设计约束检查
 
