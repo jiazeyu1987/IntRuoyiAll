@@ -304,6 +304,7 @@
 - Keywords: 个人工作台 系统异常, 待办任务加载失败, 隐藏任务状态, profile-workbench-task-visibility, hidden-keys, system_profile_workbench_task_visibility, 20260727_system_profile_workbench_task_visibility.sql -> `docs/database-rules.md#个人工作台隐藏任务状态迁移门禁`
 - Keywords: int_shedule local Docker dependencies, 23306, 26379, Docker MySQL Redis, branch local runtime dependency ports -> `docs/local-runtime.md#2026-07-25-分支本地运行复用-docker-依赖门禁`
 - Keywords: DCC upload-preview, DCC 原版上传预览, DCC 上传升版预览, docker-minio-1, MinIO 9000, SdkClientException, Connect to 127.0.0.1:9000 failed, Connection refused, yudao bucket, upload-preview targetNetworkFailures -> `docs/local-runtime.md#2026-08-02-dcc-上传预览本机-minio-前置门禁`
+- Keywords: Docker 未使用镜像清理, docker image prune, docker system df, DockerDesktopWSL, docker_data.vhdx, D 盘空间不足, Total reclaimed space 0B, 禁止 volume prune, Tee-Object 流式写入 -> `docs/local-runtime.md#2026-08-05-本机-docker-未使用镜像清理门禁`
 - Keywords: task-closeout status unknown, Current Status completed, cleanup preview apply, worktree Directory not empty -> `docs/release-build-preflight-lessons.md` and `E:\IntRuoyi\docs\worktree-memory.md`
 - Keywords: task-closeout Current Status 反引号, ready_for_closeout 纯文本, cleanup apply unknown, 状态值前置说明 -> `docs/task-closeout-rules.md#收尾规则`
 - Keywords: task-closeout runtime log lock, PermissionError WinError 32, runtime-control-main err log, long-running process log under task dir -> `docs/release-build-preflight-lessons.md#2026-07-13-task-closeout-长运行进程日志目录门禁`

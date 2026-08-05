@@ -141,6 +141,15 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - Forbidden action: 禁止通过停止、删除、重建容器来冒充禁用自启；禁止让 `docker_ragflow` 等无关栈保留 `always`、`unless-stopped` 或 `on-failure` 自启策略。
 - Evidence: `doc/tasks/20260802-docker-autostart-policy/verification-report.md`。
 
+## 2026-08-05 本机 Docker 未使用镜像清理门禁
+
+- Trigger: D 盘空间不足、`D:\Docker\DockerDesktopWSL\disk\docker_data.vhdx` 过大、`docker system df` 显示大量未使用镜像、用户要求通过 Docker 命令清理未使用镜像。
+- Preflight check: 先记录 `docker system df`、`docker container ls -a` 和当前 D 盘可用空间；仅在用户明确要求清理镜像时执行 `docker image prune -a -f`，输出较大时用 `Tee-Object` 流式写入任务证据文件，不要先整体捕获到 PowerShell 变量。
+- Blocker: Docker CLI 不可用、Docker Desktop/WSL 引擎异常、无法确认命令只清镜像、或用户未授权清理 volume/container/build cache 时必须停止；不得手工删除 `docker_data.vhdx`。
+- Verification: 再次运行 `docker image prune -a -f` 应返回 `Total reclaimed space: 0B`；记录清理前后 `docker system df`，并确认容器仍存在、volume 未执行 prune。
+- Forbidden action: 禁止执行 `docker system prune --volumes`、`docker volume prune`、删除容器、删除 VHDX、或把 VHDX 文件未立刻缩小误判为清理失败；VHDX 回收/压缩必须作为单独授权任务处理。
+- Evidence: `doc/tasks/20260805-docker-unused-image-cleanup/verification-report.md`。
+
 ## 2026-08-02 DCC 上传预览本机 MinIO 前置门禁
 
 - Trigger: DCC 原版上传、上传升版、`/admin-api/dcc/controlled-files/upload-preview`、`SdkClientException`、`Connect to 127.0.0.1:9000 failed: Connection refused`、`docker-minio-1`。
