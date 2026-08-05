@@ -18,7 +18,7 @@
 - `workdir=IntRuoyiFronted; node tests/e2e/edhr-batch-page-graph-tab-static.spec.js`
 - `workdir=IntRuoyiFronted; node tests/e2e/mes-process-pool-team-leader-static.spec.js`
 - `workdir=IntRuoyiFronted; pnpm ts:check`
-- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-production-leader-tab/frontend-feature-evidence.md`
+- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260804-production-leader-tab/frontend-feature-evidence.md` before cleanup
 
 ## Current Status
 
@@ -52,10 +52,11 @@ ready_for_closeout
 - PASS: stale `int_main` slot 4 was released after user approval because its physical path was missing and absent from `git worktree list`; current worktree is registered as slot 4 (`8085/48085`).
 - PASS: task-closeout cleanup preview/apply with `--worktree-closeout off` deleted only temporary `frontend-feature-evidence.md` and kept core records.
 - PASS: pushed branch `codex/production-leader-tab-20260804` to `origin`.
-- BLOCKED: automatic linked-worktree closeout preview cannot proceed because current branch cannot be fast-forward merged into `int_main`, and main worktree `E:\IntRuoyi` is dirty.
+- BLOCKED: automatic linked-worktree closeout preview cannot proceed because main worktree `E:\IntRuoyi` is dirty.
 - NOTE: shared `E:\IntRuoyi` currently contains unrelated/concurrent route-tab changes and remains unsafe for broad staging; this branch is the verified isolated implementation.
 - PASS: after merging `origin/int_main`, resolved six frontend conflicts to the final eDHR dual-leader-tab contract.
 - PASS: post-merge rerun `node tests\e2e\edhr-batch-record-leader-tabs-static.spec.js`.
 - PASS: post-merge rerun `node tests\e2e\edhr-batch-page-graph-tab-static.spec.js`.
 - PASS: post-merge rerun `node tests\e2e\mes-process-pool-team-leader-static.spec.js`.
 - PASS: post-merge rerun `pnpm ts:check`.
+- PASS: cleanup preview/apply with `--worktree-closeout off` deleted only `frontend-feature-evidence.md`; task directory now keeps only `task.md`, `execution-log.md`, and `verification-report.md`.

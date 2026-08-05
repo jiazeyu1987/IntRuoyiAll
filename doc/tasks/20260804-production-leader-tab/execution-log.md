@@ -101,3 +101,13 @@
 - PREFLIGHT NOTE: `git diff --cached --check` reports `IntRuoyiFronted/tests/e2e/approval-center-upload-quick-review-static.spec.js:39: new blank line at EOF`; this file is an upstream `origin/int_main` merge addition, not a task-owned production-leader edit.
 - GREEN: experience-preflight -> PASS，`docs/experience-index.md` already links this task's reusable lessons to `docs/frontend-development.md#前端角色内容页签拆分口径门禁`, `docs/worktree-memory.md#worktree-端口段与原子槽位门禁`, `docs/worktree-memory.md#d-main-本地主线滞后远端融合门禁`, and `docs/powershell-memory.md#github-https-443-本地代理门禁`; no new long-term memory document is needed.
 - CURRENT STATUS: implementation and post-merge verification are complete in the isolated worktree; merge commit, push, and closeout gate remain.
+
+## 2026-08-05 Cleanup And Remaining Closeout Blocker
+
+- PUSH: `git -c http.https://github.com.proxy= push origin codex/production-leader-tab-20260804` -> PASS，pushed merge commit `e8c76b25e` and evidence commit `7afc0a311`.
+- CLOSEOUT PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\IntRuoyiWorktree\production-leader-tab-20260804 --task-id 20260804-production-leader-tab --mode preview` -> BLOCKED，expected reason: main worktree `E:\IntRuoyi` is dirty and cannot receive ff-only merge.
+- MAIN WORKTREE STATUS: `git -C E:\IntRuoyi status --short --branch` -> DIRTY，includes `doc/tasks/20260805-restart-local-runtime/*`, `doc/tasks/20260805-approval-center-applicant-name/`, `doc/tasks/20260805-dcc-project-mdm-binding/`, `doc/tasks/20260805-standard-list-empty-tabs/`, and `IntRuoyiFronted/tests/e2e/unified-list-template-empty-tabs-system-static.spec.js`.
+- CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\IntRuoyiWorktree\production-leader-tab-20260804 --task-id 20260804-production-leader-tab --mode preview --worktree-closeout off` -> PASS，delete only `frontend-feature-evidence.md`.
+- CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\IntRuoyiWorktree\production-leader-tab-20260804 --task-id 20260804-production-leader-tab --mode apply --worktree-closeout off` -> PASS，deleted only `frontend-feature-evidence.md`.
+- CLEANUP CHECK: task directory now contains only `task.md`, `execution-log.md`, and `verification-report.md`.
+- REMAINING BLOCKER: worktree ff-only merge/removal cannot proceed until the unrelated dirty state in `E:\IntRuoyi` is resolved; branch remains pushed for safe integration.
