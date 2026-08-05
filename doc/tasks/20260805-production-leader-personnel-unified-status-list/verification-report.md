@@ -34,6 +34,10 @@ PASS（静态合同、相邻回归、真实 E2E 语法和 TypeScript）；真实
 
 并发提交 `3db8a7030 chore: preserve dirty worktree baseline` 混合提交 39 个文件，包含本任务核心 Vue 改动、聚焦合同和初始任务文档。该提交不是本任务独立实现提交；当前源码已在该提交之后重新运行全部定向验证。
 
+本任务独立后续提交为 `d068655c2 test: verify unified production personnel status list`，提交真实 E2E 新行为断言与保留任务记录。
+
+task-closeout-cleanup preview/apply 均通过，只删除临时 `frontend-feature-evidence.md`；`task.md`、`execution-log.md`、`verification-report.md` 保留。
+
 ## Residual Risk
 
 缺少真实写入型 Playwright 证据。静态合同已锁定页面结构、请求调用和禁用姓名样式，真实脚本已更新并通过语法检查，但仍需在具备专用测试租户、生产组长账号和可清理测试数据时执行完整路径。

@@ -26,3 +26,6 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --self-test` -> PASS。
 - GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260805-production-leader-personnel-unified-status-list\frontend-feature-evidence.md` -> PASS。
 - Closeout state: implementation and required available verification complete; task set to `ready_for_closeout` before cleanup preview/apply。
+- Task-owned follow-up commit: `d068655c2 test: verify unified production personnel status list`，包含真实 E2E 新行为断言与保留任务记录；核心 Vue 与聚焦合同仍归属混合基线 `3db8a7030`。
+- Cleanup preview: PASS，keep `task.md`、`execution-log.md`、`verification-report.md`；delete `frontend-feature-evidence.md`；blocked/warnings 均为空。
+- Cleanup apply: PASS，仅删除本任务临时 `frontend-feature-evidence.md`，未触碰其它任务文件、源码、测试或运行态。
