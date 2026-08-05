@@ -148,8 +148,23 @@ assert.match(
 )
 assert.match(
   qaSource,
-  /ProRouteProductApi[\s\S]*getRouteProductByItem[\s\S]*ProRouteApi[\s\S]*getRoute[\s\S]*getRouteVersion[\s\S]*ProRouteProcessApi[\s\S]*getRouteProcessListByRoute[\s\S]*ProRouteFlowConfigApi[\s\S]*getProcessConfigList/,
-  'QA route scope must be loaded from the formal product route binding, active route version, route process, and route flow-config APIs.'
+  /ProRouteProductApi[\s\S]*getRouteProductByItem/,
+  'QA route scope must read the current product-route binding from the formal product binding API.'
+)
+assert.match(
+  qaSource,
+  /loadQaRouteScopeFromRouteBinding[\s\S]*ProRouteApi[\s\S]*getRoute[\s\S]*getRouteVersion[\s\S]*ProRouteProcessApi[\s\S]*getRouteProcessListByRoute[\s\S]*ProRouteFlowConfigApi[\s\S]*getProcessConfigList/,
+  'QA route scope must resolve the selected route through route, active version, route process, and route flow-config APIs.'
+)
+assert.match(
+  qaSource,
+  /ProRouteApi[\s\S]*getRouteSimpleList[\s\S]*ProRouteProductApi[\s\S]*saveRouteProductByItem[\s\S]*loadQaRouteScopeFromRouteBinding/,
+  'QA route scope must support an explicit manual route binding action through the formal product-route binding API.'
+)
+assert.match(
+  qaSource,
+  /data-qa-regulation-manual-route-bind[\s\S]*v-model="manualQaRouteBinding\.routeId"[\s\S]*手动绑定工艺路线/,
+  'QA route scope must render one manual route select and binding action when the product route binding is missing or needs correction.'
 )
 assert.match(
   qaSource,

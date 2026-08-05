@@ -250,8 +250,8 @@
 
 | 核验项 | 当前判断 | 代码/证据依据 | 缺口 |
 |---|---|---|---|
-| 系统是否支持手动输入 | 页面只读预检通过，写入未验收 | `FrontlineFixedTemplatePanel.vue` 已新增 `data-pqc-defect-description` 手动文本框，`pqcDraft.defectDescription` 保存草稿；不合格或损耗时 `validatePqcDefectDescription()` 阻塞空说明提交。2026-08-05 Playwright 登录本机 `芋道源码/admin` 打开 `/mes/pro/feedback/edhr-batch-pqc-fill`，PQC 面板和手动输入控件可见；输入 `AC-D03只读预检手动输入-未提交` 后 value 可回读，且 `/pqc/submit` 写请求数为 0。 | 仍需任务自有测试数据的写入型真实 E2E，证明 PQC 检验员可按真实路径提交不合格说明。 |
-| 是否保存原始输入快照 | 代码级支持 | `FrontlinePqcInspectionSubmitReqVO`、`MesFrontlinePqcSubmitReqVO`、`MesFrontlinePqcSubmitCommand` 均新增 `nonconformanceDescription`；前端 rawPayload.pqcDraft 保存 `defectDescription`；后端 `buildPqcInspectionEventRawPayload` 写入标准化 `nonconformanceDescription`。 | 仍需真实数据回读 event/PQC record rawPayload，证明页面详情能读到该字段。 |
+| 系统是否支持手动输入 | 页面只读预检通过，写入被前置阻塞 | `FrontlineFixedTemplatePanel.vue` 已新增 `data-pqc-defect-description` 手动文本框，`pqcDraft.defectDescription` 保存草稿；不合格或损耗时 `validatePqcDefectDescription()` 阻塞空说明提交。2026-08-05 Playwright 登录本机 `芋道源码/admin` 打开 `/mes/pro/feedback/edhr-batch-pqc-fill`，PQC 面板和手动输入控件可见；输入 `AC-D03只读预检手动输入-未提交` 后 value 可回读，且 `/pqc/submit` 写请求数为 0。继续只读预检确认 active order 30 缺工序快照和正式生产提交事件，active order 12 已 `REMOVED`。 | 仍需任务自有测试数据的写入型真实 E2E，证明 PQC 检验员可按真实路径提交不合格说明；不能用假 `productionSubmitEventId`、API-only 或其它任务夹具替代。 |
+| 是否保存原始输入快照 | 代码级支持，运行库 schema 未满足写入前置 | `FrontlinePqcInspectionSubmitReqVO`、`MesFrontlinePqcSubmitReqVO`、`MesFrontlinePqcSubmitCommand` 均新增 `nonconformanceDescription`；前端 rawPayload.pqcDraft 保存 `defectDescription`；后端 `buildPqcInspectionEventRawPayload` 写入标准化 `nonconformanceDescription`。本轮只读 schema 复核发现运行库 `mes_pro_process_pool_pqc_record` 缺 `production_submit_event_id`，而源码 DO/Mapper 依赖 `productionSubmitEventId`。 | 仍需先完成正式 schema 迁移/回填核验，再用真实数据回读 event/PQC record rawPayload，证明页面详情能读到该字段。 |
 | 是否能追溯到订单/工序/PQC 记录 | 代码级支持较完整 | 后端 rawPayload 同时保留 `workOrderId`、`routeId`、`routeProcessId`、`processId`、`pqcTaskId`、`regulationVersionId`、`pieceDetailCount` 和 `pqcItemDetails`；新增 JUnit 断言不良说明与 `workOrderId/routeProcessId/pqcTaskId` 同 payload。 | 仍需专项验收把“手动不良说明”与同一订单、工序、PQC event/detail 页面一起回读证明。 |
 | 历史记录是否不会被后续修改覆盖 | 部分支持 | PQC record 的 `rawPayload` 在创建时写入，当前检索未发现更新该字段的服务路径；退回补正有 revision/diff 表记录 `beforePayload`、`afterPayload`、字段前后值和修订签名。 | event 表 `rawPayload` 会在修订服务中被更新为 `afterPayload`，时间线详情的 `originalPayloadJson` 读取的是当前 event `raw_payload`；因此现状更接近“有修订链可追溯”，不是严格的“原始详情永不被覆盖”。 |
 
@@ -260,7 +260,7 @@
 - `AC-D03` 不能按旧口径继续要求“生产班组长/PQC 组长维护不良原因主数据”；旧的 defect reason 目录能力不应作为新版 `AC-D03` 符合证据。
 - 新口径应改为：PQC 在发现不良时手动录入不良说明/原因，系统保存原始手输文本快照，并可按订单、工序、PQC event/record 追溯。
 - 当前系统已具备“手动不良说明字段 + 失败必填 + 进入 rawPayload + 订单/工序/PQC task 追溯身份”的代码级能力，并有静态合同、后端 JUnit、运行 Jar 字段检查和真实页面只读输入证据。
-- 当前准确状态应调整为：`代码级已补，仍未完整验收`；缺少真实页面 E2E、详情回显和原始/修订不覆盖验收前，仍不能提升为 `ACCEPTED`。
+- 当前准确状态应调整为：`代码级已补，写入验收被运行库 schema 和正式夹具前置阻塞`；缺少 schema 迁移/回填核验、真实页面 E2E、详情回显和原始/修订不覆盖验收前，仍不能提升为 `ACCEPTED`。
 
 ### 建议补充验收用例
 

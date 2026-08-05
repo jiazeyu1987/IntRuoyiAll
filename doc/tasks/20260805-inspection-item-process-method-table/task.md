@@ -6,10 +6,10 @@
 
 ## Milestones
 
-- [ ] M1 定位当前检验项目页签组件、API 契约和数据来源。
-- [ ] M2 记录 BDD 场景并补充 RED 静态/单元回归测试。
-- [ ] M3 按正式数据来源修复前端展示，不引入 fallback 或 mock 数据。
-- [ ] M4 运行目标验证并记录 GREEN/回归证据。
+- [x] M1 定位当前检验项目页签组件、API 契约和数据来源。
+- [x] M2 记录 BDD 场景并补充 RED 静态/单元回归测试。
+- [x] M3 按正式数据来源修复前端展示，不引入 fallback 或 mock 数据。
+- [x] M4 运行目标验证并记录 GREEN/回归证据。
 - [ ] M5 完成收尾文档、经验沉淀、清理、提交与推送。
 
 ## Expected Verification
@@ -20,7 +20,9 @@
 
 ## Current Status
 
-in_progress
+blocked
+
+Implementation, required targeted verification, and task-closeout cleanup are complete. Final commit/push is blocked by unrelated local ahead commits plus staged and unstaged files from other tasks; pushing now would mix task ownership.
 
 ## 设计约束检查
 

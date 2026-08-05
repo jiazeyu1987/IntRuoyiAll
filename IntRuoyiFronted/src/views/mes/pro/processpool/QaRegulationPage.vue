@@ -113,11 +113,58 @@
             <el-alert
               class="mb-12px"
               title="工艺路线来源"
-              description="路线、版本、质检工序、SOP/工艺要求和正式批记录表单均由产品当前绑定的工艺路线自动带出，QA 不在此处手工维护。"
+              description="优先读取产品当前绑定的工艺路线；如产品未绑定或需修正，可在此显式选择工艺路线并绑定到产品。路线版本、质检工序、SOP/工艺要求和正式批记录表单仍由路线自动带出。"
               type="info"
               :closable="false"
               show-icon
             />
+            <div class="qa-regulation-page__manual-route-bind" data-qa-regulation-manual-route-bind>
+              <el-form label-width="112px" class="qa-regulation-page__form">
+                <el-row :gutter="12">
+                  <el-col :xs="24" :md="18">
+                    <el-form-item label="工艺路线">
+                      <el-select
+                        v-model="manualQaRouteBinding.routeId"
+                        clearable
+                        filterable
+                        :loading="manualQaRouteOptionsLoading"
+                        placeholder="选择要绑定到当前产品的已发布工艺路线"
+                        class="!w-100%"
+                        @visible-change="handleManualQaRouteVisibleChange"
+                      >
+                        <el-option
+                          v-for="route in manualQaRouteOptions"
+                          :key="route.id"
+                          :label="formatManualQaRouteOption(route)"
+                          :value="route.id"
+                          :disabled="!route.activeRouteVersionId"
+                        />
+                      </el-select>
+                    </el-form-item>
+                  </el-col>
+                  <el-col :xs="24" :md="6">
+                    <el-button
+                      type="primary"
+                      plain
+                      class="qa-regulation-page__manual-route-button"
+                      :loading="manualQaRouteBindingSaving"
+                      @click="handleManualQaRouteBind"
+                    >
+                      手动绑定工艺路线
+                    </el-button>
+                  </el-col>
+                </el-row>
+              </el-form>
+              <el-alert
+                v-if="manualQaRouteLoadError"
+                class="mb-12px"
+                :title="manualQaRouteLoadError"
+                type="error"
+                :closable="false"
+                show-icon
+                data-qa-regulation-manual-route-error
+              />
+            </div>
             <el-alert
               v-if="qaRouteScopeLoadError"
               :title="qaRouteScopeLoadError"
@@ -829,12 +876,18 @@ interface QaRouteScopeRow {
 }
 
 interface QaRouteScopeAutoSource {
-  routeProduct: ProRouteProductVO
+  routeProduct?: ProRouteProductVO
   route: ProRouteVO
   routeVersion: ProRouteVersionVO
   routeProcess: ProRouteProcessVO
   scheduleConfig?: ProRouteFlowProcessConfigVO
   batchConfig?: ProRouteFlowProcessConfigVO
+}
+
+interface QaRouteScopeBindingSource {
+  routeId: number
+  routeVersionId?: number
+  routeProduct?: ProRouteProductVO
 }
 
 const qaActiveTab = ref<QaRegulationTabName>('overview')
@@ -1141,6 +1194,11 @@ const selectedDccProjectCode = ref<DccProjectCodeRespVO>()
 const qaRouteScopeLoading = ref(false)
 const qaRouteScopeLoadError = ref('')
 const qaRouteScopeAutoSource = ref<QaRouteScopeAutoSource>()
+const manualQaRouteOptions = ref<ProRouteVO[]>([])
+const manualQaRouteOptionsLoading = ref(false)
+const manualQaRouteLoadError = ref('')
+const manualQaRouteBinding = reactive<{ routeId?: number }>({ routeId: undefined })
+const manualQaRouteBindingSaving = ref(false)
 const qaRegulationSaving = ref(false)
 const qaRegulationPublishing = ref(false)
 
@@ -1153,6 +1211,15 @@ const resolveDccProjectProductId = (project: DccProjectCodeRespVO) => {
 
 const formatDccProjectCodeOption = (project: DccProjectCodeRespVO) =>
   [project.projectCode, project.projectName, project.docControlNo].filter(Boolean).join(' / ')
+
+const formatManualQaRouteOption = (route: ProRouteVO) =>
+  [
+    route.code,
+    route.name,
+    route.activeRouteVersionNo ? `当前版本：${route.activeRouteVersionNo}` : '未发布当前版本'
+  ]
+    .filter(Boolean)
+    .join(' / ')
 
 const resolveDccProjectCodeErrorMessage = (error: unknown) => {
   if (error instanceof Error && error.message.trim()) {
@@ -1282,32 +1349,17 @@ const loadQaRouteScopeFromProject = async (project: DccProjectCodeRespVO) => {
     }
     const routeProduct = (await ProRouteProductApi.getRouteProductByItem(productId)) as ProRouteProductVO | null
     if (!routeProduct?.routeId) {
-      throw new Error('当前 MDM 产品未绑定工艺路线，请先在产品主数据维护当前工艺路线。')
+      throw new Error('当前 MDM 产品未绑定工艺路线，请在下方选择工艺路线并手动绑定。')
     }
-    const route = await ProRouteApi.getRoute(routeProduct.routeId)
-    const routeVersionId = routeProduct.routeVersionId || route.activeRouteVersionId
-    if (!routeVersionId) {
-      throw new Error('当前工艺路线缺少激活版本，请先发布工艺路线版本。')
-    }
-    const routeVersion = await ProRouteApi.getRouteVersion(routeVersionId)
-    const routeProcesses = await ProRouteProcessApi.getRouteProcessListByRoute(routeProduct.routeId)
-    const routeProcess = resolveQaRouteProcessFromRoute(routeProcesses)
-    const routeProcessId = requireQaRouteScopePositiveNumber(routeProcess.id, '路线工序')
-    const [scheduleConfigs, batchConfigs] = await Promise.all([
-      ProRouteFlowConfigApi.getProcessConfigList(routeProduct.routeId, 'SCHEDULE', routeVersionId),
-      ProRouteFlowConfigApi.getProcessConfigList(routeProduct.routeId, 'BATCH', routeVersionId)
-    ])
+    const routeScopeSource = await loadQaRouteScopeFromRouteBinding({
+      routeId: routeProduct.routeId,
+      routeVersionId: routeProduct.routeVersionId,
+      routeProduct
+    })
     if (loadSerial !== qaRouteScopeLoadSerial) {
       return
     }
-    applyFormalQaRouteScope({
-      routeProduct,
-      route,
-      routeVersion,
-      routeProcess,
-      scheduleConfig: findQaRouteProcessConfig(scheduleConfigs, routeProcessId),
-      batchConfig: findQaRouteProcessConfig(batchConfigs, routeProcessId)
-    })
+    applyFormalQaRouteScope(routeScopeSource)
   } catch (error) {
     if (loadSerial === qaRouteScopeLoadSerial) {
       resetFormalQaRouteScopeFields()
@@ -1317,6 +1369,108 @@ const loadQaRouteScopeFromProject = async (project: DccProjectCodeRespVO) => {
     if (loadSerial === qaRouteScopeLoadSerial) {
       qaRouteScopeLoading.value = false
     }
+  }
+}
+
+async function loadQaRouteScopeFromRouteBinding(
+  bindingSource: QaRouteScopeBindingSource
+): Promise<QaRouteScopeAutoSource> {
+  const routeId = requireQaRouteScopePositiveNumber(bindingSource.routeId, '工艺路线')
+  const route = await ProRouteApi.getRoute(routeId)
+  const routeVersionId = bindingSource.routeVersionId || route.activeRouteVersionId
+  if (!routeVersionId) {
+    throw new Error('当前工艺路线缺少激活版本，请先发布工艺路线版本。')
+  }
+  const routeVersion = await ProRouteApi.getRouteVersion(routeVersionId)
+  const routeProcesses = await ProRouteProcessApi.getRouteProcessListByRoute(routeId)
+  const routeProcess = resolveQaRouteProcessFromRoute(routeProcesses)
+  const routeProcessId = requireQaRouteScopePositiveNumber(routeProcess.id, '路线工序')
+  const [scheduleConfigs, batchConfigs] = await Promise.all([
+    ProRouteFlowConfigApi.getProcessConfigList(routeId, 'SCHEDULE', routeVersionId),
+    ProRouteFlowConfigApi.getProcessConfigList(routeId, 'BATCH', routeVersionId)
+  ])
+  return {
+    routeProduct: bindingSource.routeProduct,
+    route,
+    routeVersion,
+    routeProcess,
+    scheduleConfig: findQaRouteProcessConfig(scheduleConfigs, routeProcessId),
+    batchConfig: findQaRouteProcessConfig(batchConfigs, routeProcessId)
+  }
+}
+
+const loadManualQaRouteOptions = async () => {
+  manualQaRouteOptionsLoading.value = true
+  manualQaRouteLoadError.value = ''
+  try {
+    manualQaRouteOptions.value = await ProRouteApi.getRouteSimpleList()
+  } catch (error) {
+    manualQaRouteOptions.value = []
+    manualQaRouteLoadError.value = `工艺路线候选加载失败：${resolveDccProjectCodeErrorMessage(error)}`
+  } finally {
+    manualQaRouteOptionsLoading.value = false
+  }
+}
+
+const handleManualQaRouteVisibleChange = (visible: boolean) => {
+  if (visible && manualQaRouteOptions.value.length === 0 && !manualQaRouteOptionsLoading.value) {
+    void loadManualQaRouteOptions()
+  }
+}
+
+const handleManualQaRouteBind = async () => {
+  if (!selectedDccProjectCode.value) {
+    ElMessage.warning('请先选择 DCC 项目代码，再绑定工艺路线。')
+    return
+  }
+  const productId = resolveDccProjectProductId(selectedDccProjectCode.value)
+  if (!productId) {
+    ElMessage.warning('当前 DCC 项目代码未绑定 MDM 产品，不能绑定工艺路线。')
+    return
+  }
+  const routeId = resolveQaRouteScopePositiveNumber(manualQaRouteBinding.routeId)
+  if (!routeId) {
+    ElMessage.warning('请选择要绑定到当前产品的工艺路线。')
+    return
+  }
+  const routeOption = manualQaRouteOptions.value.find((route) => Number(route.id) === routeId)
+  if (!routeOption?.activeRouteVersionId) {
+    ElMessage.warning('所选工艺路线没有当前生效版本，不能绑定到 QA 规程。')
+    return
+  }
+
+  const loadSerial = ++qaRouteScopeLoadSerial
+  manualQaRouteBindingSaving.value = true
+  qaRouteScopeLoading.value = true
+  qaRouteScopeLoadError.value = ''
+  manualQaRouteLoadError.value = ''
+  resetFormalQaRouteScopeFields()
+  try {
+    await ProRouteProductApi.saveRouteProductByItem({ itemId: productId, routeId })
+    const routeProduct = (await ProRouteProductApi.getRouteProductByItem(productId)) as ProRouteProductVO | null
+    if (!routeProduct?.routeId) {
+      throw new Error('绑定提交后未读取到产品当前工艺路线，请刷新后重试。')
+    }
+    const routeScopeSource = await loadQaRouteScopeFromRouteBinding({
+      routeId: routeProduct.routeId,
+      routeVersionId: routeProduct.routeVersionId,
+      routeProduct
+    })
+    if (loadSerial !== qaRouteScopeLoadSerial) {
+      return
+    }
+    applyFormalQaRouteScope(routeScopeSource)
+    ElMessage.success('已绑定工艺路线并带出 QA 适用范围。')
+  } catch (error) {
+    if (loadSerial === qaRouteScopeLoadSerial) {
+      resetFormalQaRouteScopeFields()
+      qaRouteScopeLoadError.value = `手动绑定工艺路线失败：${resolveDccProjectCodeErrorMessage(error)}`
+    }
+  } finally {
+    if (loadSerial === qaRouteScopeLoadSerial) {
+      qaRouteScopeLoading.value = false
+    }
+    manualQaRouteBindingSaving.value = false
   }
 }
 
@@ -1407,6 +1561,8 @@ const applyDccProjectToQaDraft = (project?: DccProjectCodeRespVO) => {
     qaRouteScopeLoadSerial += 1
     qaRouteScopeLoading.value = false
     qaRouteScopeLoadError.value = ''
+    manualQaRouteLoadError.value = ''
+    manualQaRouteBinding.routeId = undefined
     resetFormalQaRouteScopeFields()
     Object.assign(qaRegulationDraft, createEmptyQaRegulationDraft())
     qaRegulationItems.value = []
@@ -1418,6 +1574,8 @@ const applyDccProjectToQaDraft = (project?: DccProjectCodeRespVO) => {
     projectCode === PRESSURE_PUMP_PROJECT_CODE
       ? createPressurePumpQaRegulationDraft()
       : createEmptyQaRegulationDraft()
+  manualQaRouteLoadError.value = ''
+  manualQaRouteBinding.routeId = undefined
   Object.assign(qaRegulationDraft, draft, {
     dccProjectCodeId: project.id,
     productName: project.projectName.trim()
@@ -1841,6 +1999,21 @@ const runQaPublishPrecheck = async () => {
   display: grid;
   gap: 12px;
   margin-top: 14px;
+}
+
+.qa-regulation-page__manual-route-bind {
+  padding: 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.qa-regulation-page__manual-route-bind .qa-regulation-page__form {
+  margin: 0;
+}
+
+.qa-regulation-page__manual-route-button {
+  width: 100%;
 }
 
 .qa-regulation-page__scope-grid {
