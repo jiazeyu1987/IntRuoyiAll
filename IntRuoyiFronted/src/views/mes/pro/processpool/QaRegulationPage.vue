@@ -300,19 +300,19 @@
       <el-card shadow="never" data-qa-regulation-items>
         <template #header>
           <div class="qa-regulation-page__card-head">
-            <span>检验项目与判定标准</span>
+            <span>工序检验方法与抽样方案</span>
             <el-button
               type="primary"
               plain
               :disabled="!selectedDccProjectCode"
               @click="addQaRegulationItem"
             >
-              新增项目
+              新增检验方法
             </el-button>
           </div>
         </template>
         <UnifiedListTemplate
-          table-key="mes.qa.regulation.items"
+          table-key="mes.qa.regulation.items.processMethods"
           :query-model="qaItemsQuery"
           :filter-definitions="qaEmptyFilterDefinitions"
           :show-quick-filter="false"
@@ -333,13 +333,26 @@
               border
               size="small"
               data-user-table-column-explicit
-              data-user-table-key="mes.qa.regulation.items"
+              data-user-table-key="mes.qa.regulation.items.processMethods"
               @header-dragend="handleQaItemsHeaderDragend"
               @sort-change="handleTemplateSortChange"
             >
               <el-table-column
+                v-if="isQaItemsColumnVisible('routeProcessName')"
+                label="工序"
+                prop="routeProcessName"
+                :min-width="getQaItemsColumnMinWidthString('routeProcessName', 170)"
+              v-bind="sortColumnAttrs('routeProcessName')"
+              >
+                <template #default="{ row }">
+                  <span class="qa-regulation-page__process-name">
+                    {{ formatQaItemProcessName(row) }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column
                 v-if="isQaItemsColumnVisible('itemCode')"
-                label="项目编码"
+                label="检验项目编码"
                 prop="itemCode"
                 :width="getQaItemsColumnWidthString('itemCode', 130)"
               v-bind="sortColumnAttrs('itemCode')"
@@ -350,7 +363,7 @@
               </el-table-column>
               <el-table-column
                 v-if="isQaItemsColumnVisible('itemName')"
-                label="项目"
+                label="检验项目"
                 prop="itemName"
                 :min-width="getQaItemsColumnMinWidthString('itemName', 170)"
               v-bind="sortColumnAttrs('itemName')"
@@ -361,7 +374,7 @@
               </el-table-column>
               <el-table-column
                 v-if="isQaItemsColumnVisible('applicableTypes')"
-                label="适用类型"
+                label="适用检验类型"
                 prop="applicableTypes"
                 :min-width="getQaItemsColumnMinWidthString('applicableTypes', 210)"
               v-bind="sortColumnAttrs('applicableTypes')"
@@ -378,25 +391,49 @@
                 </template>
               </el-table-column>
               <el-table-column
+                v-if="isQaItemsColumnVisible('standardText')"
+                label="接受标准"
+                prop="standardText"
+                :min-width="getQaItemsColumnMinWidthString('standardText', 280)"
+              v-bind="sortColumnAttrs('standardText')"
+              >
+                <template #default="{ row }">
+                  <el-input v-model="row.standardText" type="textarea" :autosize="{ minRows: 2, maxRows: 4 }" />
+                </template>
+              </el-table-column>
+              <el-table-column
                 v-if="isQaItemsColumnVisible('inspectionMethod')"
-                label="方法"
+                label="检验方法"
                 prop="inspectionMethod"
-                :min-width="getQaItemsColumnMinWidthString('inspectionMethod', 160)"
+                :min-width="getQaItemsColumnMinWidthString('inspectionMethod', 240)"
               v-bind="sortColumnAttrs('inspectionMethod')"
               >
                 <template #default="{ row }">
-                  <el-input v-model="row.inspectionMethod" />
+                  <el-input v-model="row.inspectionMethod" type="textarea" :autosize="{ minRows: 2, maxRows: 4 }" />
                 </template>
               </el-table-column>
               <el-table-column
                 v-if="isQaItemsColumnVisible('inspectionTool')"
-                label="工具"
+                label="检验器具及设备"
                 prop="inspectionTool"
-                :min-width="getQaItemsColumnMinWidthString('inspectionTool', 150)"
+                :min-width="getQaItemsColumnMinWidthString('inspectionTool', 170)"
               v-bind="sortColumnAttrs('inspectionTool')"
               >
                 <template #default="{ row }">
                   <el-input v-model="row.inspectionTool" />
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isQaItemsColumnVisible('samplingPlan')"
+                label="抽样方案"
+                prop="samplingPlan"
+                :min-width="getQaItemsColumnMinWidthString('samplingPlan', 240)"
+              v-bind="sortColumnAttrs('samplingPlan')"
+              >
+                <template #default="{ row }">
+                  <div class="qa-regulation-page__sampling-plan">
+                    {{ formatQaItemSamplingPlan(row) }}
+                  </div>
                 </template>
               </el-table-column>
               <el-table-column
@@ -412,17 +449,6 @@
                     <el-option label="数值" value="NUMERIC" />
                     <el-option label="文本" value="TEXT" />
                   </el-select>
-                </template>
-              </el-table-column>
-              <el-table-column
-                v-if="isQaItemsColumnVisible('standardText')"
-                label="标准"
-                prop="standardText"
-                :min-width="getQaItemsColumnMinWidthString('standardText', 240)"
-              v-bind="sortColumnAttrs('standardText')"
-              >
-                <template #default="{ row }">
-                  <el-input v-model="row.standardText" />
                 </template>
               </el-table-column>
               <el-table-column
@@ -850,19 +876,21 @@ const qaRulesDefaultColumns: UserTableColumnDefinition[] = [
 ]
 
 const qaItemsDefaultColumns: UserTableColumnDefinition[] = [
-  { key: 'itemCode', label: '项目编码', width: 130 },
-  { key: 'itemName', label: '项目', minWidth: 170 },
-  { key: 'applicableTypes', label: '适用类型', minWidth: 210 },
-  { key: 'inspectionMethod', label: '方法', minWidth: 160 },
-  { key: 'inspectionTool', label: '工具', minWidth: 150 },
-  { key: 'resultType', label: '结果类型', width: 130 },
-  { key: 'standardText', label: '标准', minWidth: 240 },
-  { key: 'sourceOriginalExcerpt', label: '原文依据', minWidth: 420 },
-  { key: 'lowerLimit', label: '下限', width: 120 },
-  { key: 'upperLimit', label: '上限', width: 120 },
-  { key: 'critical', label: '关键项', width: 100 },
-  { key: 'failureRule', label: '失败规则', minWidth: 220 },
-  { key: 'sourceNote', label: '来源说明', minWidth: 200 },
+  { key: 'routeProcessName', label: '工序', minWidth: 170 },
+  { key: 'itemName', label: '检验项目', minWidth: 170 },
+  { key: 'standardText', label: '接受标准', minWidth: 280 },
+  { key: 'inspectionMethod', label: '检验方法', minWidth: 240 },
+  { key: 'inspectionTool', label: '检验器具及设备', minWidth: 170 },
+  { key: 'samplingPlan', label: '抽样方案', minWidth: 240, sortable: false },
+  { key: 'itemCode', label: '检验项目编码', width: 130, visible: false },
+  { key: 'applicableTypes', label: '适用检验类型', minWidth: 210, visible: false },
+  { key: 'resultType', label: '结果类型', width: 130, visible: false },
+  { key: 'sourceOriginalExcerpt', label: '原文依据', minWidth: 420, visible: false },
+  { key: 'lowerLimit', label: '下限', width: 120, visible: false },
+  { key: 'upperLimit', label: '上限', width: 120, visible: false },
+  { key: 'critical', label: '关键项', width: 100, visible: false },
+  { key: 'failureRule', label: '失败规则', minWidth: 220, visible: false },
+  { key: 'sourceNote', label: '来源说明', minWidth: 200, visible: false },
   { key: 'actions', label: '操作', width: 90, hideable: false, business: false }
 ]
 
@@ -900,7 +928,7 @@ const {
   handleHeaderDragend: handleQaItemsHeaderDragend,
   saveConfig: saveQaItemsColumnConfig,
   resetConfig: resetQaItemsColumnConfig
-} = useUserTableColumns('mes.qa.regulation.items', qaItemsDefaultColumns)
+} = useUserTableColumns('mes.qa.regulation.items.processMethods', qaItemsDefaultColumns)
 
 const {
   columns: qaChecksColumns,
@@ -1435,6 +1463,34 @@ const formatQaRulePlannedQuantity = (rule: QaInspectionTypeRule) => {
   return quantity > 0 ? `${quantity} 件` : '需补齐'
 }
 
+const formatQaItemProcessName = (_item: QaRegulationItem) =>
+  qaRegulationDraft.routeProcessName.trim() || '待加载正式工序'
+
+const formatQaItemSamplingPlan = (item: QaRegulationItem) => {
+  const rules = item.applicableTypes
+    .map((inspectionType) => qaInspectionTypeRules.find((rule) => rule.key === inspectionType))
+    .filter((rule): rule is QaInspectionTypeRule => Boolean(rule))
+
+  if (rules.length === 0) {
+    return '未选择检验类型'
+  }
+
+  return rules
+    .map((rule) => {
+      if (!rule.required) {
+        return `${rule.label}：不适用`
+      }
+      if (Number.isFinite(Number(rule.fixedQuantity)) && Number(rule.fixedQuantity) > 0) {
+        return `${rule.label}：${Number(rule.fixedQuantity)} 件`
+      }
+      if (Number.isFinite(Number(rule.sampleRatio)) && Number(rule.sampleRatio) > 0) {
+        return `${rule.label}：${Number(rule.sampleRatio)}% 抽样，当前示例 ${resolveQaRulePlannedQuantity(rule)} 件`
+      }
+      return `${rule.label}：需补齐数量或比例`
+    })
+    .join('；')
+}
+
 const qaRegulationCompletenessChecks = computed(() => {
   const dccProjectReady = Boolean(
     qaRegulationDraft.dccProjectCodeId &&
@@ -1833,6 +1889,18 @@ const runQaPublishPrecheck = async () => {
 .qa-regulation-page__rule-name {
   color: #172033;
   font-weight: 700;
+}
+
+.qa-regulation-page__process-name {
+  color: #172033;
+  font-weight: 700;
+}
+
+.qa-regulation-page__sampling-plan {
+  color: #172033;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: normal;
 }
 
 .qa-regulation-page__source {
