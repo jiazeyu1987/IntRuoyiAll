@@ -47,6 +47,9 @@
 - User request: 用户要求将 AC-M20 修复融合进 `int_main`。
 - Merge strategy: AC-M20 分支基点 `e7c27613` 已是 `int_main` 祖先，`int_main` 后续已有大量并行提交；为避免直接 merge 旧分支带入非 AC-M20 差异，采用先提交 AC-M20 自有改动、再 cherry-pick 该提交到 `E:\IntRuoyi` 的 `int_main`。
 - Boundary: `E:\IntRuoyi` 当前存在非 AC-M20 脏文档改动，融合过程只暂存/提交 AC-M20 相关路径，不回滚、不删除、不提交并行任务文件。
+- Branch commit: `34715f3a5 fix: close AC-M20 PQC review loop`。
+- Pre-merge guard: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，AC-M20 worktree 为 `8083/48083`，`E:\IntRuoyi` 为 `8081/48081`。
+- BLOCKED: `E:\IntRuoyi` 的 `int_main` 当前已有未解决冲突和并行任务改动，至少包含 `UU IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/feedback/frontline/MesProFrontlineFeedbackErrorCodeConstants.java`、`UU IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/feedback/frontline/MesProFrontlineFeedbackSubmitServiceTest.java`、`AA doc/tasks/20260805-process-loss-reasons/execution-log.md`、`AA doc/tasks/20260805-process-loss-reasons/task.md`。这些不属于 AC-M20，不能由本任务解决或提交；因此 AC-M20 未能 cherry-pick 到 `int_main`。
 
 ## Worktree And Git
 
