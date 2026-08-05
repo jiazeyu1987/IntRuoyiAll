@@ -47,3 +47,16 @@
 - GREEN: `pnpm ts:check` -> PASS.
 - GREEN: `git diff --cached --check` -> PASS.
 - GREEN: scoped staged-file conflict marker scan `rg -n "^(<<<<<<<|=======|>>>>>>>)"` -> PASS.
+
+## 2026-08-05 Push And Closeout
+
+- GREEN: GitHub 100 MB object gate -> PASS, 299 objects scanned, all `<= 100MB`.
+- GREEN: `git merge-base --is-ancestor origin/int_main HEAD` -> PASS.
+- GREEN: `git merge-base --is-ancestor origin/codex/20260805-production-personnel-management HEAD` -> PASS.
+- GREEN: `git fetch origin int_main` followed by `git merge-base --is-ancestor origin/int_main HEAD` -> PASS.
+- GREEN: `git push origin HEAD:int_main` -> PASS, `origin/int_main` updated `e9d97fa16..e6733202a`.
+- GREEN: `git fetch origin int_main`; `git rev-parse HEAD`; `git rev-parse origin/int_main` -> both `e6733202a79f9b9cf928880067d42da68eebaf5b`.
+- GREEN: `git merge-base --is-ancestor origin/codex/20260805-production-personnel-management origin/int_main` -> PASS.
+- Cleanup: `git worktree remove D:\IntRuoyiWorktree\20260805-production-personnel-management` removed the original production personnel worktree from Git registration but failed physical deletion with `Invalid argument`.
+- GREEN: task-owned runtime process cleanup -> stopped original worktree frontend/backend wrappers, Vite, esbuild, and Java process; ports `8082/48082` no longer listen.
+- BLOCKER: physical path `D:\IntRuoyiWorktree\20260805-production-personnel-management` still exists without `.git`; recursive physical deletion command was rejected by local execution policy, so the slot `1` registry entry remains active until the directory can be removed safely.
