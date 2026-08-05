@@ -29,4 +29,4 @@
 
 ## Current Assessment
 
-Implementation, schema repair, evidence validation, and target executable verification are complete. Remaining work is closeout only: keep or remove the verification worktree intentionally, then handle commit/push boundaries without mixing unrelated dirty/ahead changes.
+Implementation, schema repair, evidence validation, target executable verification, cleanup apply, and origin synchronization are complete. `HEAD` and `origin/int_main` both resolve to `a1d3ef0bed4dcbcfeb3ff5ffda421371e54d31b8`; AC-M19 task-owned files have no remaining diff to HEAD. The verification worktree is retained intentionally with no running Java/Maven process because it contains uncommitted verification-only baseline patches and should not be force-removed without explicit deletion approval.

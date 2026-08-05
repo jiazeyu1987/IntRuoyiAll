@@ -48,3 +48,12 @@
 - GREEN: `$env:MAVEN_OPTS='-Xmx1024m -XX:MaxMetaspaceSize=384m -XX:ReservedCodeCacheSize=128m'; mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderSchemaTest,MesProBatchRecordCellLinkSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> PASS，Tests run: 6, Failures: 0, Errors: 0, Skipped: 0。
 - experience：已将验证 worktree 中同步非当前任务编译基线的处理方式归并到 `docs\worktree-memory.md#隔离验证-worktree-编译基线差异门禁`，并在 `docs\experience-index.md` 增加关键词路由。
 - status：实现、schema、evidence validator 和目标 Maven/JUnit 验证均已完成；主工作区仍有非本任务 dirty/ahead 状态，验证 worktree 保留，任务状态更新为 ready_for_closeout。
+
+## 2026-08-05 Closeout
+
+- cleanup-preview：`python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-ac-m19-deterministic-backfill --mode preview` -> READY；keep 为 task/execution/verification/evidence 文件，delete/blocked/warnings 均为 none。
+- cleanup-apply：`python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-ac-m19-deterministic-backfill --mode apply` -> APPLIED；deleted_paths 为 none。
+- git-sync：`git rev-parse HEAD` 与 `git rev-parse origin/int_main` 均为 `a1d3ef0bed4dcbcfeb3ff5ffda421371e54d31b8`；AC-M19 任务文件和核心源码对 HEAD 无剩余 diff。
+- commit-evidence：AC-M19 源码和任务文件已包含在现有主分支提交中，相关提交包括 `ba81bdfe3 chore: preserve current frontend backend worktree` 和 `fdf1b49d8 Baseline: preserve residual AC-M18 and AC-M19 task docs`。
+- worktree-evidence：`D:\IntRuoyiWorktree\ac-m19-verify-20260805` 保留；未发现该路径下遗留 Java/Maven 进程。该 worktree 含未提交 verification-only baseline patches，未在本次 closeout 中强制删除，避免无明确授权丢弃 dirty worktree。
+- status：任务状态更新为 completed；当前主工作区仍存在多个非 AC-M19 并行 dirty 文件，未触碰、未暂存、未提交。

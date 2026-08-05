@@ -11,7 +11,7 @@
 - [x] 实现订单工序级已确认报工聚合、字段策略和聚合版本幂等。
 - [x] 更新完成状态持久化字段，保留聚合源与幂等证据。
 - [x] 运行目标后端测试、schema 测试和技能 evidence 校验。
-- [ ] 完成收尾记录；如存在非本任务脏改动或推送阻塞，明确记录 blocker。
+- [x] 完成收尾记录；如存在非本任务脏改动或推送阻塞，明确记录 blocker。
 
 ## Expected Verification
 
@@ -22,7 +22,7 @@
 
 ## Current Status
 
-ready_for_closeout - implementation, schema updates, static checks, evidence validation, and required Maven/JUnit verification are complete; closeout/commit/push remain pending because the main workspace has unrelated dirty/ahead state and the verification worktree is intentionally retained.
+completed - implementation, schema updates, static checks, evidence validation, Maven/JUnit verification, cleanup apply, and origin synchronization are complete; verification worktree is intentionally retained with no running processes because it contains uncommitted verification-only baseline patches and should not be force-removed without explicit deletion approval.
 
 ## 设计约束检查
 
