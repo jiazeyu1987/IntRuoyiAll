@@ -51,3 +51,4 @@ ready_for_closeout
 - `pnpm ts:check` -> PASS。
 - `git merge-base --is-ancestor origin/int_main HEAD` -> PASS；`origin/int_main...HEAD` -> `0 3`，分支非 fast-forward blocker 已解除。
 - Remaining closeout blocker：`E:\IntRuoyi` 主 worktree 仍有外部脏改动，因此不能执行 linked worktree ff-merge 和 worktree 删除。
+- Experience consolidation：`docs/worktree-memory.md#并行主工作区远端快进融合门禁` 已补充分支落后主线时在隔离 worktree 内语义合入并复验的门禁。

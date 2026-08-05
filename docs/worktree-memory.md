@@ -76,8 +76,8 @@
 ## 并行主工作区远端快进融合门禁
 
 - Trigger: 主工作区持续被并行任务写入，任务分支已在干净 worktree 中完成实现、验证和推送，但本地 `int_main` 无法保持 clean 以接收 `task_closeout.py` 的 ff-only merge。
-- Preflight check: 在任务 worktree 中先 `git fetch origin int_main`，确认 `origin/int_main` 是当前任务分支 HEAD 的祖先；融合后必须重跑该任务的目标后端、前端、迁移或端口守卫验证，并记录远端主线 hash、任务 HEAD 和验证结果。
-- Blocker: `origin/int_main` 不是任务 HEAD 的祖先、目标验证失败、远端主线又前进导致非快进推送被拒、任务分支存在未提交改动、或缺少可用 `origin` push remote 时必须停止。若目标验证使用 `mvn -pl <module> -am`，上游依赖模块的 compile/testCompile 失败也属于目标验证失败；必须阻塞并记录缺失类/Mapper/测试文件，不得因为当前任务源码未改该依赖模块就跳过、排除或降级验证。
+- Preflight check: 在任务 worktree 中先 `git fetch origin int_main`，确认 `origin/int_main` 是当前任务分支 HEAD 的祖先；若不是祖先但任务分支干净且需要解除 closeout 的非 fast-forward blocker，先在隔离 worktree 内语义合入 `origin/int_main`，解决冲突后再重跑该任务的目标后端、前端、迁移或端口守卫验证，并记录远端主线 hash、任务 HEAD 和验证结果。
+- Blocker: `origin/int_main` 不是任务 HEAD 的祖先且合入主线冲突无法语义解决、目标验证失败、远端主线又前进导致非快进推送被拒、任务分支存在未提交改动、或缺少可用 `origin` push remote 时必须停止。若目标验证使用 `mvn -pl <module> -am`，上游依赖模块的 compile/testCompile 失败也属于目标验证失败；必须阻塞并记录缺失类/Mapper/测试文件，不得因为当前任务源码未改该依赖模块就跳过、排除或降级验证。
 - Verification: `git merge-base --is-ancestor origin/int_main HEAD` 通过，目标验证命令 PASS，`git push origin HEAD:int_main` 成功，随后 `git fetch origin int_main` 并确认 `origin/int_main` 指向已验证 HEAD 或其后续已融合提交。
 - Forbidden action: 禁止为了 closeout 强行清理、回滚或提交并行任务文件；禁止 force push；禁止在未验证融合后 HEAD 的情况下直接更新 `int_main`；禁止把本地 dirty 主工作区清洁失败当作远端主线已集成。
 - Evidence: `doc/tasks/20260727-codex-test-node-chain/verification-report.md`、`doc/tasks/20260728-node-chain-route-filter/verification-report.md`，主工作区持续并行写入时，任务分支先融合 `origin/int_main`、完成目标验证，再按远端快进路径集成；`doc/tasks/20260730-edhr-frontline-fill-tabs/verification-report.md`，eDHR 集成在远端主线新增 DCC testCompile 缺失类后阻塞，未跳过依赖模块门禁。

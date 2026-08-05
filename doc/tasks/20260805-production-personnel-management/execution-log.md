@@ -85,3 +85,7 @@
 - GREEN: `pnpm ts:check` -> PASS.
 - Merge readiness: `git merge-base --is-ancestor origin/int_main HEAD` -> PASS (`exit 0`), `origin/int_main...HEAD` -> `0 3`.
 - Remaining blocker: `E:\IntRuoyi` still has unrelated dirty task files, so linked worktree ff-merge/removal remains blocked by project closeout rules.
+
+## 2026-08-05 Additional Experience Consolidation
+
+- Experience consolidation: updated `docs/worktree-memory.md#并行主工作区远端快进融合门禁` to require semantic `origin/int_main` merge inside the isolated task worktree when a completed branch is clean but not yet a descendant of remote main.
