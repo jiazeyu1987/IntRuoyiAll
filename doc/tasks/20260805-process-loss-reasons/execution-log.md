@@ -30,7 +30,9 @@
 - completed：前端实现生产组长“损耗原因维护”标准列表区域、损耗原因独立列和新增/修改/删除操作面板。
 - completed：模拟环境已补齐两个生产组长、一个报工员工、授权/未授权工艺路线、路线工序、损耗原因与任务自有样本数据。
 - completed：真实写入型 Playwright E2E 通过生产组长甲/乙页面验证授权范围、共享新增、共享修改、删除停用和跨账号可见。
-- in_progress：剩余 cleanup、经验沉淀、提交和推送。
+- completed：项目经验已沉淀到 `docs/e2e-rules.md#写入型-e2e-任务自有模拟环境门禁`，并在 `docs/experience-index.md` 增加关键词路由。
+- completed：实现提交 `86a219d18 feat: add process loss reason maintenance` 已推送到 `origin/codex/20260805-process-loss-reasons`。
+- blocked：cleanup apply、快进合并和 worktree 删除被主工作区脏状态与当前分支无法快进合并到 `int_main` 阻塞；AC-D04 模拟环境和验收本身已完成。
 
 ## RED / GREEN Evidence
 
@@ -58,14 +60,19 @@
 - Backend API evidence validator: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260805-process-loss-reasons\backend-api-evidence.md` -> PASS, `Backend API evidence is valid.`
 - Frontend feature evidence validator: `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260805-process-loss-reasons\frontend-feature-evidence.md` -> PASS, `Frontend feature evidence is valid.`
 - Database schema evidence validator: `python -X utf8 C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\20260805-process-loss-reasons\database-schema-evidence.md` -> PASS, `Database schema evidence is valid.`
-- Real E2E: BLOCKED, no `TLW_*` or `PLR_*` production-leader/employee credential and fixture variables are present in the environment; passwords were not printed or recorded.
+- Real E2E preflight history: initially BLOCKED because no `TLW_*` or `PLR_*` production-leader/employee credential and fixture variables were present; this blocker was resolved by `acd04_simulate_environment.py` creating task-owned local fixture data.
 - 2026-08-05 continuation preflight: `.env` contains default local login keys only; `.env.local` / `.env.development` / `.env.development.local` are missing, and `TLW_*` / `PLR_*` production-leader or employee E2E credentials remain absent.
 - 2026-08-05 login smoke: Playwright opened `http://127.0.0.1:8093/login?redirect=/index` with local default `芋道源码/admin`, observed `/system/auth/login` business code `0`, `/system/auth/get-permission-info` business code `0`, and landed on `/index`; password/token/cookie values were not recorded.
 - 2026-08-05 fixture script review: existing real scripts (`team-leader-workbench-real-flow.e2e.js`, `role-requirement-matrix-real-flow.e2e.js`, `p0-production-execution-loop-real.e2e.js`) all require explicit non-production role credentials and task-owned business IDs; the available default admin smoke cannot satisfy AC-D04 write-type acceptance.
 - 2026-08-05 fixture replay: `acd04_simulate_environment.py` created task-owned tenant-scoped production leader and worker users, route-start production leader config, authorized route processes, unauthorized route process, and LOSS reason samples without recording password values.
 - 2026-08-05 runtime API verification: `runtime-api-verification.json` status `PASS`; enabled reason appears in backend runtime config, disabled/cross-process/deleted reasons are excluded.
 - 2026-08-05 frontend UI verification: `frontend-ui-verification.json` status `PASS`; real browser used `http://127.0.0.1:8093` with backend `http://127.0.0.1:48093`, tenant `测试租户`, routeProcess scope `980628/980629`, unauthorized routeProcess `980630` absent, and UI-created reason id `13` was shared/updated/deleted across the two production leaders.
+- 2026-08-05 experience consolidation: updated `docs/e2e-rules.md` with the write-type E2E task-owned simulation environment gate and updated `docs/experience-index.md` keyword routing; `rg` verified the new route.
+- 2026-08-05 implementation commit: `86a219d18 feat: add process loss reason maintenance`; branch runtime port guard passed for `codex/20260805-process-loss-reasons/int_main` (`8093/48093`).
+- 2026-08-05 push: `git push origin codex/20260805-process-loss-reasons` -> PASS; remote branch created.
+- 2026-08-05 cleanup preview: `task_closeout.py --task-id 20260805-process-loss-reasons --mode preview` -> BLOCKED only for closeout integration, with keep list preserving task docs/scripts/evidence and delete list limited to task-owned runtime logs, `__pycache__`, and `migration-policy-gate.json`; blockers were `Current branch codex/20260805-process-loss-reasons cannot be fast-forward merged into int_main` and `Main worktree is dirty and cannot receive ff-only merge: E:\IntRuoyi`.
 
 ## Blockers
 
-- None for AC-D04 simulation and verification. Remaining work is closeout-only: cleanup preview/apply, experience consolidation, commit, and push.
+- None for AC-D04 simulation and verification.
+- Closeout-only BLOCKED: cleanup apply / ff-only merge / worktree removal cannot proceed while `E:\IntRuoyi` is dirty and the current branch cannot fast-forward merge into `int_main`.

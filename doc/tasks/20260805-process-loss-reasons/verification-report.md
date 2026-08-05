@@ -32,6 +32,9 @@
 - GREEN: `python -X utf8 .\doc\tasks\20260805-process-loss-reasons\acd04_verify_runtime_api.py` -> PASS, generated `runtime-api-verification.json`.
 - GREEN: `node --check .\doc\tasks\20260805-process-loss-reasons\acd04_verify_frontend_ui.e2e.cjs` -> PASS.
 - GREEN: `node .\doc\tasks\20260805-process-loss-reasons\acd04_verify_frontend_ui.e2e.cjs` -> PASS, generated `frontend-ui-verification.json`.
+- GREEN: `git diff --cached --check` -> PASS before implementation commit.
+- GREEN: `git commit -m "feat: add process loss reason maintenance"` -> `86a219d18`.
+- GREEN: `git push origin codex/20260805-process-loss-reasons` -> PASS.
 
 ## Runtime
 
@@ -41,10 +44,13 @@
 - Simulated task users: `acd04lead1`, `acd04lead2`, `acd04worker` under tenant `测试租户`; passwords were injected through process environment only and not recorded.
 - Runtime API evidence: leaders only see routeProcess `980628/980629`; unauthorized routeProcess `980630` is absent; backend runtime config includes enabled LOSS reason and excludes disabled/deleted/cross-process reasons.
 - Real UI evidence: production leader page shows loss reason tab, standard list, operation panel, shared add/update/delete flow, and no target HTTP/page errors.
+- Experience evidence: `docs/e2e-rules.md#写入型-e2e-任务自有模拟环境门禁` and `docs/experience-index.md` were updated so future write-type E2E tasks try safe task-owned simulation data before accepting missing-account blockers.
+- Commit/push evidence: implementation commit `86a219d18` is pushed to `origin/codex/20260805-process-loss-reasons`.
 - Worktree: `D:\IntRuoyiWorktree\20260805-process-loss-reasons`, branch `codex/20260805-process-loss-reasons`, slot `12`.
 
 ## Blockers
 
 - None for AC-D04 simulation and verification.
-- Remaining closeout work: cleanup preview/apply, project experience consolidation, implementation/closeout commits, and push.
+- Closeout-only BLOCKED: cleanup apply, ff-only merge, and worktree removal cannot proceed because cleanup preview reports `Current branch codex/20260805-process-loss-reasons cannot be fast-forward merged into int_main` and `Main worktree is dirty and cannot receive ff-only merge: E:\IntRuoyi`.
+- Remaining cleanup candidate: `doc/tasks/20260805-process-loss-reasons/migration-policy-gate.json` is intentionally untracked and listed by cleanup preview for deletion.
 - No fallback used: no mock data, no API-only acceptance, no default admin substitution, no frontend fixed list.
