@@ -11,6 +11,7 @@
 
 - `mvn -pl yudao-module-mes -am "-DskipTests" compile`：PASS，后端生产代码编译通过。
 - `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：PASS，前端静态契约确认正式 API 已接入、旧未写入后台提示已移除，QA 页面使用 Tab + `UnifiedListTemplate`，且项目选择区只保留 1 个必填 `DCC 项目代码` 下拉框，不显示旧已配置/待配置列表；同时确认适用范围从正式工艺路线链路自动带出，黄框字段不再提供手工输入，缺正式路线范围时保存/发布被阻断，并支持通过 `saveQaRegulationRouteProductByItem` 手动绑定已发布/已启用工艺路线后重新解析范围。
+- `node tests\e2e\qa-regulation-manual-route-selectable-static.spec.cjs`：PASS，截图“不能选择”回归已由聚焦静态契约覆盖；QA 手动绑定路线选项显式 `:disabled="false"`，不复用产品维护页的启用路线置灰逻辑，保留“可绑定”语义和 QA 专用绑定 API。
 - `mvn -rf :yudao-module-mes "-Dtest=MesProRouteProductServiceImplTest,MesProRouteProductBindFromWorkOrdersTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`：PASS，20 个目标 JUnit 通过，覆盖 QA 新建绑定、修正既有绑定、缺 ACTIVE 版本失败、Controller QA endpoint 和不调用产品维护页 `validateRouteNotEnable`。
 - `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js`：PASS，系统标准列表模板接入点 88 个、显式隐藏筛选列表 14 个。
 - `pnpm ts:check`：PASS，前端 Vue/TypeScript 类型检查通过。
@@ -25,6 +26,7 @@
 - `mvn -pl yudao-module-mes -am "-Dtest=MesQaInspectionRegulationServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`：BLOCKED，`testCompile` 被共享 `target/classes` 缺失阻断；检查时存在其它非本任务 Maven 进程写入同一 `E:\IntRuoyi\IntRuoyiBackend\yudao-module-mes\target`。
 - 限制 `maven.compiler.testIncludes=**/MesQaInspectionRegulationServiceTest.java` 后复跑：BLOCKED，20 分钟超时；期间主工作区仍出现其它非本任务 Maven 测试进程。
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProRouteProductServiceImplTest,MesProRouteProductBindFromWorkOrdersTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`：标准 `-am` 修正后复跑两次超时且无新 Surefire 结果；已按任务边界只停止本任务 Maven PID 47976 和 50448，随后用 Maven 建议的 `-rf :yudao-module-mes` 恢复执行并取得 PASS。
+- `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：当前复跑 BLOCKED，失败于 `Pressure-pump IDI seed data must contain all 22 PDF 5.1 process inspection rows. 5 !== 22`；该失败不在截图“手动绑定工艺路线不能选择”的聚焦验证链路内，本次用 `qa-regulation-manual-route-selectable-static.spec.cjs` 锁定该回归。
 - `node tests\e2e\unified-list-template-all-headers-sortable-static.spec.js`：BLOCKED，当前全局契约被大量既有页面排序 helper 历史缺口阻塞；QA 页面聚焦扫描已确认新增四个标准列表均接入排序 helper。
 
 ## Result

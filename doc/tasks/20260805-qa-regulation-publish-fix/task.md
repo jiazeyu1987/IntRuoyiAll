@@ -21,6 +21,7 @@
 
 - `mvn -pl yudao-module-mes -am "-Dtest=MesQaInspectionRegulationServiceTest" test`
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProRouteProductServiceImplTest,MesProRouteProductBindFromWorkOrdersTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+- `node tests/e2e/qa-regulation-manual-route-selectable-static.spec.cjs`
 - `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs`
 - `node tests/e2e/unified-list-template-empty-tabs-system-static.spec.js`
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md`
@@ -29,7 +30,7 @@
 
 ## Current Status
 
-blocked：QA 项目选择区已收窄为单一必填 DCC 项目代码下拉框，并在选中项目后才展示 Tab、适用范围、检验规则、检验项目和发布检查；适用范围中的路线版本、路线工序、SOP、正式批记录绑定等黄框字段仍由正式工艺路线自动带出。QA 页面显式“手动绑定工艺路线”已允许选择已发布/已启用路线，保存走 QA 专用 `saveQaRegulationRouteProductByItem` 后端入口，后端校验路线存在且有 ACTIVE 版本但不调用产品维护页的 `validateRouteNotEnable` 守卫，绑定后重新按正式路线版本和质检工序带出范围；完整 AC-M09 后端目标 JUnit 仍受共享 Maven target 阻塞，暂不标记 completed。
+blocked：QA 项目选择区已收窄为单一必填 DCC 项目代码下拉框，并在选中项目后才展示 Tab、适用范围、检验规则、检验项目和发布检查；适用范围中的路线版本、路线工序、SOP、正式批记录绑定等黄框字段仍由正式工艺路线自动带出。QA 页面显式“手动绑定工艺路线”已允许选择已发布/已启用路线，选项模板显式 `:disabled="false"`，保存走 QA 专用 `saveQaRegulationRouteProductByItem` 后端入口，后端校验路线存在且有 ACTIVE 版本但不调用产品维护页的 `validateRouteNotEnable` 守卫，绑定后重新按正式路线版本和质检工序带出范围；完整 AC-M09 后端目标 JUnit 仍受共享 Maven target 阻塞，暂不标记 completed。
 
 ## Baseline Commits
 

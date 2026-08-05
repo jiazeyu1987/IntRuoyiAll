@@ -20,7 +20,7 @@
 
 - Route: `/mes/pro/process-pool/qa-regulation`
 - Component: `IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue`
-- Static contract: `IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs`
+- Static contracts: `IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs`, `IntRuoyiFronted/tests/e2e/qa-regulation-manual-route-selectable-static.spec.cjs`
 
 ## API Contracts And Data States
 
@@ -50,6 +50,7 @@
 - RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, expected reason:旧 QA 页面未从正式工艺路线 API 带出适用范围，且黄框字段仍可能作为手工输入项出现。
 - RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, expected reason:旧 QA 页面缺少手动绑定工艺路线选择器、QA 专用 `saveQaRegulationRouteProductByItem` 调用和绑定后路线范围重读。
 - RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, expected reason:旧 QA 页面把 `CommonStatusEnum.ENABLE` 路线禁用为“已启用，仅回显”，导致截图中的已发布路线不能选择。
+- RED: `node tests\e2e\qa-regulation-manual-route-selectable-static.spec.cjs` -> FAIL, expected reason:QA 手动绑定下拉的 `<el-option>` 缺少显式 `:disabled="false"`，无法锁住“已发布/已启用路线仍可选”的截图回归要求。
 
 ## GREEN
 
@@ -57,12 +58,14 @@
 - GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 项目选择区只剩 1 个必填 DCC 项目代码下拉框，Tab 与内容在选中项目后显示，旧状态列表源码和 UI selector 均被禁止。
 - GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 适用范围从正式工艺路线/路线版本/路线工序/排产配置/批记录配置自动带出，黄框字段不再提供手工输入，缺正式路线范围时保存/发布被阻断。
 - GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，QA 页面支持显式手动绑定已发布/已启用工艺路线，调用 `saveQaRegulationRouteProductByItem`，绑定成功后重新走正式产品路线绑定和路线范围解析链路。
+- GREEN: `node tests\e2e\qa-regulation-manual-route-selectable-static.spec.cjs` -> PASS，QA 手动绑定路线选项显式可选，不复用产品维护页的启用路线置灰守卫，不显示“已启用，仅回显”，并保留 QA 专用绑定 API。
 - GREEN: `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js` -> PASS，系统标准列表接入点从 84 更新为 88，显式隐藏筛选列表从 10 更新为 14。
 - GREEN: `pnpm ts:check` -> PASS，Vue/TypeScript 类型检查通过。
 
 ## Verification
 
 - Verification: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs IntRuoyiFronted/tests/e2e/unified-list-template-empty-tabs-system-static.spec.js doc/tasks/20260805-qa-regulation-publish-fix/task.md doc/tasks/20260805-qa-regulation-publish-fix/execution-log.md doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md docs/backend-development.md docs/experience-index.md` -> PASS，仅有 Git CRLF 工作区提示，无 whitespace error。
+- Verification: `node tests\e2e\qa-regulation-manual-route-selectable-static.spec.cjs` -> PASS，输出 `PASS qa-regulation-manual-route-selectable-static`。
 - Verification: QA 页面专属排序接线断言 -> PASS，输出 `PASS QA standard list sort wiring`。
 - Verification: `mvn -rf :yudao-module-mes "-Dtest=MesProRouteProductServiceImplTest,MesProRouteProductBindFromWorkOrdersTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，20 个后端 QA 路线绑定目标 JUnit 通过。
 - Verification: 全局 `unified-list-template-all-headers-sortable-static.spec.js` 仍被大量既有页面阻塞；QA 页面聚焦扫描显示四个新增列表均已接入 `sortColumnAttrs` 与 `handleTemplateSortChange`，未作为本次完成门禁。
