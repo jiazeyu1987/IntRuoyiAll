@@ -52,6 +52,10 @@
 - FORMAT: 新增静态合同 `pnpm exec prettier --check` -> PASS；`QaRegulationPage.vue` 的可选整文件 Prettier 检查仍报告文件级格式差异，本任务未执行整文件自动重写，避免扩大为无关格式化改动。
 - M4 completed：聚焦合同、三个相邻 QA 合同、`pnpm ts:check`、两份技能 evidence validator 和 scoped diff/UTF-8 检查均通过。
 - EXPERIENCE: 已运行 `project-experience-consolidation`；将“QA 页面未保存规则状态也必须以 `productMasterId` 隔离，禁止共享可变规则数组或由项目代码直接选择当前规则”合并到既有 `docs/backend-development.md` QA 产品级规程门禁，并更新 `docs/experience-index.md` 关键词；未新建长期经验文档。
+- IMPLEMENTATION COMMIT: `d99c2a0a3 fix: isolate QA inspection rules by product`；仅包含本任务生产代码、正式静态回归、任务证据和既有经验文档更新。
+- CLEANUP PREVIEW: `task_closeout.py --mode preview --worktree-closeout off` -> PASS，保留 `task.md`、`execution-log.md`、`verification-report.md`，删除两份已归档并通过 validator 的临时技能 evidence，无 blocked/warnings。
+- CLOSEOUT MODE: 主工作区 `E:\IntRuoyi` 存在并行任务脏改动，本任务不让 cleanup 脚本自动合并或清理该工作区；仅关闭脚本自动 worktree merge，后续按既有“并行主工作区远端快进融合门禁”使用独立集成 worktree 更新 `origin/int_main`。
+- CLEANUP APPLY: `task_closeout.py --mode apply --worktree-closeout off` -> PASS，已删除 `bug-regression-evidence.md` 和 `frontend-feature-evidence.md`；默认保留的三份任务记录完整。
 
 ## Blockers
 

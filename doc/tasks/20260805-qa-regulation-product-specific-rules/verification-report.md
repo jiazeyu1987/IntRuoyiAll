@@ -43,3 +43,8 @@ PASS：QA 检验规则已按正式 `productMasterId` 隔离；当前压力泵规
 ## Blockers
 
 - 无任务自有 blocker。
+
+## Cleanup
+
+- cleanup preview -> PASS，keep/delete 分类正确且无 blocked/warnings。
+- cleanup apply -> PASS，两份临时技能 evidence 已删除；validator PASS 和关键验收结论已归档到保留记录。
