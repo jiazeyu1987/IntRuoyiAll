@@ -57,7 +57,7 @@
 |---|---:|---|---|---|---|
 | AC-D01 | 5 | 生产班组长 | 添加本班组员工 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明新员工加入班组并用于后续绑定，且重复、跨租户或无权限添加被拒绝。 |
 | AC-D02 | 6 | 生产班组长 | 禁用本班组员工 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明禁用员工不再用于新报工且历史保留，且已禁用仍可新选或历史人员被清空时失败。 |
-| AC-D03 | 7 | 生产班组长 | 维护不良原因 | 代码级已补，仍未完整验收 | 业务已确认不再维护“不良原因”主数据；本轮已补 PQC 手动不良说明输入、提交字段、失败必填校验和 rawPayload 快照。仍需真实页面 E2E/详情回读证明系统不依赖固定不良原因列表、不要求 PQC 组长维护原因、手输内容可追溯且历史记录不被后续修改覆盖。 |
+| AC-D03 | 7 | 生产班组长 | 维护不良原因 | 代码级已补，页面只读预检通过，仍未完整验收 | 业务已确认不再维护“不良原因”主数据；本轮已补 PQC 手动不良说明输入、提交字段、失败必填校验和 rawPayload 快照，并通过真实页面只读预检证明 PQC 填写页可见且手动输入控件可录入。仍需写入型真实 E2E/详情回读证明系统不依赖固定不良原因列表、不要求 PQC 组长维护原因、手输内容可追溯且历史记录不被后续修改覆盖。 |
 | AC-D04 | 8 | 生产班组长 | 维护损耗原因 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明损耗原因按工序配置并进入报工，且固定前端列表、禁用原因或跨工序原因被拒绝。 |
 | AC-D05 | 9 | 生产班组长 | 绑定工序可用设备 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明只能从正式设备台账绑定工序设备，且独立创建设备、重复绑定或跨租户设备被拒绝。 |
 | AC-D06 | 10 | 生产班组长 | 设备报修或禁用后的可选控制 | 不完全符合 | 尚未达到 `ACCEPTED`；需证明报修/禁用设备不用于新报工、恢复后可选，且不可用设备仍可提交或历史设备消失时失败。 |
@@ -235,7 +235,7 @@
 
 | 核验项 | 当前判断 | 代码/证据依据 | 缺口 |
 |---|---|---|---|
-| 系统是否支持手动输入 | 代码级支持 | `FrontlineFixedTemplatePanel.vue` 已新增 `data-pqc-defect-description` 手动文本框，`pqcDraft.defectDescription` 保存草稿；不合格或损耗时 `validatePqcDefectDescription()` 阻塞空说明提交。 | 仍需真实页面 E2E 证明 PQC 检验员在目标入口可见、可输入并按真实路径提交。 |
+| 系统是否支持手动输入 | 页面只读预检通过，写入未验收 | `FrontlineFixedTemplatePanel.vue` 已新增 `data-pqc-defect-description` 手动文本框，`pqcDraft.defectDescription` 保存草稿；不合格或损耗时 `validatePqcDefectDescription()` 阻塞空说明提交。2026-08-05 Playwright 登录本机 `芋道源码/admin` 打开 `/mes/pro/feedback/edhr-batch-pqc-fill`，PQC 面板和手动输入控件可见；输入 `AC-D03只读预检手动输入-未提交` 后 value 可回读，且 `/pqc/submit` 写请求数为 0。 | 仍需任务自有测试数据的写入型真实 E2E，证明 PQC 检验员可按真实路径提交不合格说明。 |
 | 是否保存原始输入快照 | 代码级支持 | `FrontlinePqcInspectionSubmitReqVO`、`MesFrontlinePqcSubmitReqVO`、`MesFrontlinePqcSubmitCommand` 均新增 `nonconformanceDescription`；前端 rawPayload.pqcDraft 保存 `defectDescription`；后端 `buildPqcInspectionEventRawPayload` 写入标准化 `nonconformanceDescription`。 | 仍需真实数据回读 event/PQC record rawPayload，证明页面详情能读到该字段。 |
 | 是否能追溯到订单/工序/PQC 记录 | 代码级支持较完整 | 后端 rawPayload 同时保留 `workOrderId`、`routeId`、`routeProcessId`、`processId`、`pqcTaskId`、`regulationVersionId`、`pieceDetailCount` 和 `pqcItemDetails`；新增 JUnit 断言不良说明与 `workOrderId/routeProcessId/pqcTaskId` 同 payload。 | 仍需专项验收把“手动不良说明”与同一订单、工序、PQC event/detail 页面一起回读证明。 |
 | 历史记录是否不会被后续修改覆盖 | 部分支持 | PQC record 的 `rawPayload` 在创建时写入，当前检索未发现更新该字段的服务路径；退回补正有 revision/diff 表记录 `beforePayload`、`afterPayload`、字段前后值和修订签名。 | event 表 `rawPayload` 会在修订服务中被更新为 `afterPayload`，时间线详情的 `originalPayloadJson` 读取的是当前 event `raw_payload`；因此现状更接近“有修订链可追溯”，不是严格的“原始详情永不被覆盖”。 |
@@ -244,7 +244,7 @@
 
 - `AC-D03` 不能按旧口径继续要求“生产班组长/PQC 组长维护不良原因主数据”；旧的 defect reason 目录能力不应作为新版 `AC-D03` 符合证据。
 - 新口径应改为：PQC 在发现不良时手动录入不良说明/原因，系统保存原始手输文本快照，并可按订单、工序、PQC event/record 追溯。
-- 当前系统已具备“手动不良说明字段 + 失败必填 + 进入 rawPayload + 订单/工序/PQC task 追溯身份”的代码级能力，并有静态合同与后端 JUnit 证据。
+- 当前系统已具备“手动不良说明字段 + 失败必填 + 进入 rawPayload + 订单/工序/PQC task 追溯身份”的代码级能力，并有静态合同、后端 JUnit、运行 Jar 字段检查和真实页面只读输入证据。
 - 当前准确状态应调整为：`代码级已补，仍未完整验收`；缺少真实页面 E2E、详情回显和原始/修订不覆盖验收前，仍不能提升为 `ACCEPTED`。
 
 ### 建议补充验收用例
@@ -270,7 +270,7 @@
 | 5 | AC-M09 / AC-D15~D23 | QA 检验规程后端当前主要是只读发布版本查询，没有正式保存草稿、校验完整性、发布/启用接口。 | `MesQaInspectionRegulationController` 只有 `/published-version` 和 `/project-statuses` 两个 GET；`MesQaInspectionRegulationServiceImpl` 只读取最新已发布版本和产品配置状态；前端 `QaRegulationPage.vue` 明示“正式保存/发布接口未接入，本页调整仅用于前端规则预览和发布前检查，未写入后台”。 | 不能证明 QA 可维护、保存草稿、发布不可变版本；首检/巡检/末检规则的正式发布链路仍不完整。 |
 | 6 | AC-M12~M15 / AC-D18~D20 | 未发现生产代码按 QA 规程生成 PQC 任务。 | 主代码检索 `MesPqcInspectionTaskDO.builder()`、`pqcInspectionTaskMapper.insert`、`create/generate Pqc task` 未发现正式生成服务；`MesPqcInspectionTaskMapper` 只提供查询 pending/list 和 `updateSubmittedIfPending`；PQC 提交服务要求已有 `pqcTaskId` 且任务为 `PENDING`。 | 首检、上午巡检、下午巡检、末检无法证明按发布规程自动生成任务；`301×5%` 向上取整、班次/轮次、首检固定数量等规则也缺少后端生成证据。 |
 | 7 | AC-D27 / AC-D28 / AC-M12~M15 | PQC 数值型样本没有按标准上下限判定；前端还会用标准下限自动补齐空样本。 | 前端 `pqcInspectionItems` 把数值项默认值设为 `standardLowerLimit`，`getPqcStoredPieceValues` 会补齐到检验数量；`resolvePqcResult` 只在损耗数量大于 0 或逐件值等于“不合格”时失败，不比较数值上下限；后端 `resolvePieceJudgement` 同样只看值是否为“不合格”或总结果是否失败/成功。 | 缺失数值输入或越界数值可能被默认值/总结果掩盖，不能证明逐件明细按规程标准真实判定。 |
-| 8 | AC-D03 新口径 / AC-D28 | PQC 提交结构“不合格原因/说明”代码级字段已补，剩余为真实验收缺口。 | `MesFrontlinePqcSubmitReqVO`、`MesFrontlinePqcSubmitCommand` 和前端 `FrontlinePqcInspectionSubmitReqVO` 已新增 `nonconformanceDescription`；前端 rawPayload.pqcDraft 记录 `defectDescription`；后端 rawPayload 写入标准化说明。 | 仍需真实 PQC 页面提交、PQC 组长详情/时间线回读和历史修订不覆盖证明，才能把 AC-D03 提升到 `ACCEPTED`。 |
+| 8 | AC-D03 新口径 / AC-D28 | PQC 提交结构“不合格原因/说明”代码级字段已补，页面只读输入已证明，剩余为写入验收缺口。 | `MesFrontlinePqcSubmitReqVO`、`MesFrontlinePqcSubmitCommand` 和前端 `FrontlinePqcInspectionSubmitReqVO` 已新增 `nonconformanceDescription`；前端 rawPayload.pqcDraft 记录 `defectDescription`；后端 rawPayload 写入标准化说明；真实页面只读预检证明 `data-pqc-defect-description` 可见且可输入。 | 仍需真实 PQC 页面提交、PQC 组长详情/时间线回读和历史修订不覆盖证明，才能把 AC-D03 提升到 `ACCEPTED`。 |
 | 9 | AC-D03 旧口径迁移风险 | 系统仍保留班组长“不良原因”主数据维护和一线生产缺陷原因下发。 | Controller 暴露 `/defect-reason/create`；运行态配置仍返回 `defectReasons`；前端生产缺陷原因来自 runtime config。 | 如果矩阵口径已经改为 PQC 手动说明，则旧“不良原因目录”不能作为符合证据；还需确认不会要求 PQC 依赖固定原因列表。 |
 | 10 | AC-D36 | PQC 不合格没有看到自动生成独立质量异常的正式链路。 | `MesWorkOrderAbnormalReportServiceImpl#markAndReport` 只根据生产组长手工请求创建 `MesProcessPoolWorkOrderAbnormalDO`；Controller 入口是 `/work-order/abnormal/report`；针对 `INSPECTION_RESULT_FAILURE` 的检索只落在 PQC 结果判定/事件校验，未发现从 PQC failure 自动 insert 异常。 | 不合格 PQC 结果可能只停留在 PQC event/record，不能证明形成独立质量异常、责任和解除条件。 |
 | 11 | AC-M20 / AC-M21 / AC-M22 | PQC 组长确认后的任务状态闭环不完整：放行预检要求 `CONFIRMED`，但提交链路只把任务置为 `SUBMITTED`，组长确认聚合也未回写任务 `CONFIRMED`。 | `MesFrontlinePqcContextServiceImpl` 将 PQC task 从 `PENDING` 更新为 `SUBMITTED`；`MesTeamLeaderSubmissionReviewServiceImpl` 审核通过时仅调用 `aggregateApprovedPqcSubmission`；`MesPqcProcessInspectionAggregationServiceImpl` 只更新 PQC record 的过程检验聚合字段；`MesOrderReleaseCompletenessServiceImpl` 预检却过滤 `taskStatus != CONFIRMED` 并阻塞。 | 过程检验汇集与放行预检之间存在状态断点，可能导致已审核 PQC 仍无法满足放行预检，或需要额外未证明的状态转换。 |

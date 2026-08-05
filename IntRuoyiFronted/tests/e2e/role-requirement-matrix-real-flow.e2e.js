@@ -2251,6 +2251,16 @@ async function verifyPqcRegulationItemsRendered(page, config, actionEvidence) {
     .filter(Boolean)
   assert.ok(visibleMetaTexts.length > 0, 'PQC 页面必须可见渲染检验方法、标准和判定元信息。')
   const visibleMetaText = visibleMetaTexts.join('\n')
+  const visibleStandardTexts = (await page.locator('[data-pqc-standard-button]').allTextContents())
+    .map((text) => text.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+  const visibleMethodTexts = (await page.locator('[data-pqc-method-button]').allTextContents())
+    .map((text) => text.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+  assert.ok(visibleStandardTexts.length > 0, 'PQC 页面必须可见渲染 QA 规程接收标准。')
+  assert.ok(visibleMethodTexts.length > 0, 'PQC 页面必须可见渲染 QA 规程检验方法。')
+  const visibleStandardText = visibleStandardTexts.join('\n')
+  const visibleMethodText = visibleMethodTexts.join('\n')
   const formatResultTypeLabel = (resultType) => {
     const normalized = String(resultType || '').trim().toUpperCase()
     if (normalized === 'NUMBER' || normalized === 'NUMERIC') return '数值'
@@ -2266,8 +2276,8 @@ async function verifyPqcRegulationItemsRendered(page, config, actionEvidence) {
       return method
         && standard
         && resultTypeLabel
-        && visibleMetaText.includes(method)
-        && visibleMetaText.includes(standard)
+        && visibleMethodText.includes(method)
+        && visibleStandardText.includes(standard)
         && visibleMetaText.includes(resultTypeLabel)
     })
   assert.ok(

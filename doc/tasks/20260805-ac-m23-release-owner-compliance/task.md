@@ -34,9 +34,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-Implemented code changes, frontend static verification, evidence validators, and backend targeted Maven verification. Cleanup, commit, and push remain pending.
+Implemented code changes, frontend static verification, evidence validators, backend targeted Maven verification, and task-closeout cleanup. Commit and push remain pending in the shared workspace.
 
 ## Milestone Status
 
@@ -44,4 +44,4 @@ Implemented code changes, frontend static verification, evidence validators, and
 - M2 backend repair: completed; targeted Maven GREEN.
 - M3 frontend release-return entry: completed and static contracts PASS.
 - M4 verification: completed; frontend/static/evidence validators PASS and backend Maven PASS.
-- M5 closeout: pending cleanup, commit, and push.
+- M5 closeout: completed for cleanup and records; commit/push pending shared workspace Git gate.

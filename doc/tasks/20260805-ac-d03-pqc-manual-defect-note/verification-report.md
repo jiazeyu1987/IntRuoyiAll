@@ -12,6 +12,10 @@
 |---|---|
 | 前端 RED | PASS：`node E:\IntRuoyi\IntRuoyiFronted\tests\e2e\role-matrix-pqc-manual-defect-note-static.spec.cjs` 先失败于缺少 `data-pqc-defect-description`。 |
 | 前端 GREEN | PASS：同一静态合同通过，覆盖手动说明控件、草稿字段、提交字段、rawPayload.pqcDraft 快照和不依赖固定原因列表。 |
+| 前端运行态模块 | PASS：修复 `FrontlineFixedTemplatePanel.vue` 中 2 个 `<span />` 与 1 个 `<textarea />` 自闭合模板 lint 后，Vite 模块 HTTP 200。 |
+| 真实页面只读预检 | PASS：Playwright 登录本机 `芋道源码/admin` 打开 `/mes/pro/feedback/edhr-batch-pqc-fill`，PQC 面板和 `data-pqc-defect-description` 均可见；不提交情况下可手动输入并回读同一值，`/pqc/submit` 写请求数为 0。 |
+| PQC 数据源只读预检 | PASS：登录响应 token 只读调用 PQC 活跃订单接口 code=0/count=2，首个活跃订单工序接口 code=0/count=13。 |
+| 运行 Jar 字段检查 | PASS：当前 48081 运行 Jar 内 MES 模块 class 已包含 `nonconformanceDescription`。 |
 | 后端 GREEN | PASS：`mvn -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` 通过，17 tests。 |
 | 相邻前端合同 | PASS：`frontline-formal-submit-static.spec.cjs` 与 `e2e:role-matrix-pqc-dynamic-form:static` 均通过。 |
 | 结构检查 | PASS：相关文件 `git diff --check` 通过。 |
@@ -26,7 +30,8 @@
 
 ## Remaining Gaps
 
-- 真实页面 E2E 尚未执行：需要用真实 PQC 路径提交一次不合格并回读页面详情。
+- 真实写入型页面 E2E 尚未执行：本轮只完成真实页面只读预检和不提交输入断言；仍需用任务自有 PQC 数据提交一次不合格并回读页面详情。
 - PQC 组长详情/时间线回显尚未补真实验收：需要证明手动说明与订单、工序、PQC event/record 同屏可追溯。
 - 历史“不被后续修改覆盖”仍需专项验收：当前代码级证明 rawPayload 创建时保存，仍需真实修订/回读路径区分首次原始文本与补正后文本。
+- 当前运行态现有活跃订单暴露业务数据错误 `精洗-外观-抽检样本数量0与任务计划数量15不一致。`；写入型 E2E 前需准备可追踪、可清理且样本数量一致的 PQC 任务数据。
 - closeout/提交/推送未执行：共享工作区已有大量非本任务脏改动且分支 ahead 13，不能擅自混入提交。
