@@ -33,4 +33,4 @@
 - Volume reference scan -> all 9 remaining volumes are linked to current containers.
 - `docker system df` -> Images 4, Containers 4, Local Volumes 9, Build Cache 0B.
 - `D:\Docker\DockerDesktopWSL\disk\docker_data.vhdx` -> 458,346,201,088 bytes, about 426.87 GiB.
-- `Get-PSDrive -Name D` -> free space 75,464,884,224 bytes, about 70.29 GiB.
+- `Get-PSDrive -Name D` -> latest free space 99,037,368,320 bytes, about 92.24 GiB.

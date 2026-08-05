@@ -183,11 +183,15 @@ const M6_REAL_FLOW_PHASES = [
     roleKey: 'productionLeader',
     label: '生产组长工作台与日结/分配表面',
     targetPath: '/mes/pro/process-pool/team-leader',
-    selectors: [
-      '[data-team-leader-report-workbench]',
-      '[data-team-leader-config-center]',
-      '[data-team-leader-active-order-config]',
-      '[data-role-matrix-daily-close]'
+    selectorGroups: [
+      {
+        tabText: '报工管理',
+        selectors: ['[data-team-leader-report-workbench]', '[data-role-matrix-daily-close]']
+      },
+      {
+        tabText: '班组配置',
+        selectors: ['[data-team-leader-config-center]', '[data-team-leader-active-order-config]']
+      }
     ],
     actionKey: 'joinActiveOrder',
     acceptanceIds: ['AC-M04', 'AC-M16', 'AC-M17', 'AC-M18', 'AC-D09', 'AC-D12', 'AC-D14', 'AC-D38']
@@ -197,10 +201,15 @@ const M6_REAL_FLOW_PHASES = [
     roleKey: 'pqcLeader',
     label: 'PQC 组长复核表面',
     targetPath: '/mes/pro/process-pool/pqc-leader',
-    selectors: [
-      '[data-pqc-leader-workbench-page]',
-      '[data-team-leader-report-workbench]',
-      '[data-role-matrix-daily-close]'
+    selectorGroups: [
+      {
+        tabText: 'PQC管理',
+        selectors: ['[data-pqc-leader-workbench-page]', '[data-team-leader-report-workbench]']
+      },
+      {
+        tabText: '看板',
+        selectors: ['[data-role-matrix-daily-close]']
+      }
     ],
     actionKey: 'verifyPqcLeaderSubmissionFilterPaginationConsistency',
     acceptanceIds: ['AC-M20', 'AC-D30', 'AC-D32', 'AC-D33', 'AC-D34', 'AC-D35', 'AC-D37']
@@ -6422,22 +6431,39 @@ async function verifyDailyClosePerformanceReadOnly(page, config, actionEvidence)
   }
 }
 
+async function selectRealFlowTab(page, tabText) {
+  if (!tabText) return
+  const tab = page.locator('.el-tabs__item').filter({ hasText: tabText }).first()
+  if ((await tab.count()) === 0) return
+  await tab.waitFor({ state: 'visible', timeout: 60000 })
+  const isActive = await tab.evaluate((node) =>
+    node.classList.contains('is-active') || node.getAttribute('aria-selected') === 'true'
+  ).catch(() => false)
+  if (!isActive) {
+    await tab.click()
+  }
+}
+
 async function verifyRealFlowPhase(page, config, phase) {
   await page.goto(new URL(phase.targetPath, config.frontendUrl).toString(), {
     waitUntil: 'domcontentloaded',
     timeout: 90000
   })
   assert.ok(!page.url().includes('/login'), `${phase.label} 被重定向到登录页，角色权限或会话无效。`)
-  if (phase.tabText) {
-    const tab = page.getByRole('tab', { name: phase.tabText }).first()
-    await tab.waitFor({ state: 'visible', timeout: 60000 })
-    await tab.click()
-  }
   const selectorEvidence = []
-  for (const selector of phase.selectors) {
-    const locator = page.locator(selector).first()
-    await locator.waitFor({ state: 'visible', timeout: 60000 })
-    selectorEvidence.push(selector)
+  const selectorGroups = phase.selectorGroups || [
+    {
+      tabText: phase.tabText,
+      selectors: phase.selectors || []
+    }
+  ]
+  for (const group of selectorGroups) {
+    await selectRealFlowTab(page, group.tabText)
+    for (const selector of group.selectors) {
+      const locator = page.locator(selector).first()
+      await locator.waitFor({ state: 'visible', timeout: 60000 })
+      selectorEvidence.push(selector)
+    }
   }
   return {
     key: phase.key,
@@ -6457,6 +6483,7 @@ async function runPhaseAction(page, config, phase, actionEvidence) {
       waitUntil: 'domcontentloaded',
       timeout: 90000
     })
+    await selectRealFlowTab(page, '班组配置')
     await page.locator('[data-team-leader-active-order-config]').first().waitFor({
       state: 'visible',
       timeout: 60000
@@ -6464,6 +6491,7 @@ async function runPhaseAction(page, config, phase, actionEvidence) {
     const joinEvidence = await performActiveOrderJoin(page, config)
     const conflictRouteEvidence = await verifyActiveOrderConflictRouteFailure(page, config, joinEvidence)
     const transferTraceEvidence = await verifyActiveOrderTransferTraceReadOnly(page, config, joinEvidence)
+    await selectRealFlowTab(page, '报工管理')
     const dailyCloseEvidence = await verifyDailyClosePerformanceReadOnly(page, config, [
       joinEvidence,
       conflictRouteEvidence,
@@ -6495,6 +6523,7 @@ async function runPhaseAction(page, config, phase, actionEvidence) {
     return [readOnlyEvidence, regulationEvidence, pieceDetailEvidence, employeeEvidence, formalSubmissionEvidence]
   }
   if (phase.actionKey === 'verifyPqcLeaderSubmissionFilterPaginationConsistency') {
+    await selectRealFlowTab(page, 'PQC管理')
     const paginationEvidence = await verifyPqcLeaderSubmissionFilterPaginationConsistency(page, config, actionEvidence)
     const detailEvidence = await verifyPqcLeaderSubmissionDetailTraceability(page, config, actionEvidence)
     const detailPermissionEvidence = await verifyPqcLeaderSubmissionDetailUnauthorizedBlocked(page, config, actionEvidence)

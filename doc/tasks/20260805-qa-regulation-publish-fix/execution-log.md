@@ -9,6 +9,8 @@
 - 用户进一步要求“支持手动绑定工艺路线”：当产品尚未绑定工艺路线或需修正绑定时，QA 页面需要提供显式路线选择与绑定动作，但路线版本、质检工序、SOP、生产系数和批记录绑定仍由正式路线配置自动解析，不改回黄框字段手工录入。
 - 用户反馈截图中手动绑定下拉“不能选择”：当前 QA 下拉把已启用/已发布路线置灰为“已启用，仅回显”，需要改为可选择，并保证后端保存不再走产品维护页的启用路线拦截。
 - 用户反馈截图中手动绑定保存失败：前端调用 `/admin-api/mes/pro/route-product/save-qa-regulation-route-by-item` 返回 `请求地址不存在`，需要修复本机 48081 运行态未加载 QA endpoint 的问题。
+- 2026-08-05 follow-up：用户反馈顶部黄框里的内容不显示；本轮限定为前端布局回归，要求 `DCC 项目代码` 选择内容显示在顶部 QA 标题黄框区域内，不扩大后端接口、路线绑定或检验项目数据范围。
+- 2026-08-05 follow-up：用户反馈截图红框里的内容不显示；本轮限定为隐藏红框标注的顶部说明副标题、绿色正式接口提示、项目选择与页签之间的空白带、页签与表格之间的空白带，保留标题、DRAFT、DCC 项目代码选择、Tab 和检验项目表。
 
 ## Baseline
 
@@ -35,6 +37,8 @@
 - BDD: QA 缺正式路线范围阻断保存发布 -> Given DCC 项目未绑定正式工艺路线、缺激活版本、缺质检工序或存在多个质检工序 When QA 用户保存草稿或发布 Then 页面显示正式路线范围错误并阻断保存/发布，不用默认值或旧字段冒充成功。
 - BDD: QA 手动绑定工艺路线 -> Given DCC 项目已绑定 MDM 产品但尚未绑定当前工艺路线 When QA 用户选择一个已发布/已启用且有 ACTIVE 版本的工艺路线并点击手动绑定 Then 页面调用 QA 专用产品-工艺路线绑定 API 写入绑定，重新读取产品当前绑定，并从正式路线版本、质检工序、排产配置和批记录配置带出适用范围。
 - BDD: QA 手动绑定失败可见 -> Given 用户选择的路线没有当前生效版本、绑定 API 失败或绑定后无法读取当前产品路线 When 用户点击手动绑定 Then 页面显示可见错误并继续阻断保存/发布，不使用所选路线本地值冒充绑定成功。
+- BDD: 顶部黄框显示项目选择内容 -> Given QA 用户进入规程配置页 When 页面渲染顶部 QA 标题黄框 Then 黄框内同时显示标题、正式接口提示和必填 `DCC 项目代码` 选择框，不把选择内容拆到黄框外的独立卡片。
+- BDD: 红框说明和空白带隐藏 -> Given QA 用户查看规程配置页 When 页面渲染顶部项目选择区、页签和检验项目表 Then 不显示副标题、绿色正式接口提示、项目选择与页签之间的空白带、页签与表格之间的空白带。
 
 ## RED / GREEN Evidence
 
@@ -75,12 +79,22 @@
 - GREEN: 运行 Jar 检查 -> PASS，当前 48081 进程 `backend-runtime-control-20260805-team-leader-employee-profile-hotpatch-20260805-203537.jar` 内嵌 MES 模块包含 `save-qa-regulation-route-by-item`、`saveQaRegulationRouteProductByItem` service/interface/impl 方法。
 - GREEN: `http://127.0.0.1:48081/actuator/health` -> PASS，后端状态 `UP`。
 - GREEN: 登录态 API 探针 -> PASS，带本机默认测试登录态调用 `POST /admin-api/mes/pro/route-product/save-qa-regulation-route-by-item` 且使用无效 `routeId=-999999`，返回 code `1040501000` / `工艺路线不存在`，不再返回 `请求地址不存在`，且不写入真实绑定。
+- RED: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL，预期原因：新增黄框显示合同要求 `DCC 项目代码` 选择框位于顶部 QA 标题黄框内，旧布局将选择框拆成黄框下方独立 `ContentWrap`。
+- GREEN: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，顶部 `ContentWrap data-qa-regulation-dcc-project` 现在同时包含标题、正式接口提示、`DCC 项目代码` 选择框和加载失败重试区。
+- GREEN: `node tests/e2e/qa-regulation-manual-route-selectable-static.spec.cjs` -> PASS，手动绑定下拉仍显式可选并保留 QA 专用保存 API。
+- GREEN: `node tests/e2e/qa-regulation-final-applicability-static.spec.cjs` -> PASS，末检不适用依据合同未受黄框布局调整影响。
+- GREEN: `pnpm ts:check` -> PASS，顶部黄框布局和路线候选接口调整后 Vue/TypeScript 类型检查通过。
+- REGRESSION BLOCKED: `node tests/e2e/unified-list-template-empty-tabs-system-static.spec.js` -> FAIL，当前系统标准列表模板接入点为 89，而既有合同锁定 88；这是并行新增接入点计数漂移，不由本轮 QA 顶部布局变更产生。
+- GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs doc/tasks/20260805-qa-regulation-publish-fix/task.md doc/tasks/20260805-qa-regulation-publish-fix/execution-log.md` -> PASS，仅有 Git CRLF 工作区提示，无 whitespace error。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/bug-regression-evidence.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md` -> PASS。
 
 ## Experience Consolidation
 
 - `docs/frontend-development.md` -> UPDATED，合并 QA 新增 4 个 `UnifiedListTemplate` 后标准列表系统接入点 88、显式隐藏筛选 14 的长期门禁证据。
 - `docs/backend-development.md` / `docs/experience-index.md` -> UPDATED，将“产品维护页已启用路线不可维护”和“QA 规程手动绑定必须允许已发布路线”拆成两条门禁；QA 绑定必须调用 `saveQaRegulationRouteProductByItem`，后端校验 ACTIVE 版本但不调用 `validateRouteNotEnable`。
 - `project-experience-consolidation` -> REVIEWED，本次不新建长期经验文档，相关通用约束已合并到既有 MES 工艺路线产品绑定状态门禁。
+- `project-experience-consolidation` -> REVIEWED for top yellow-box display follow-up；`docs/frontend-development.md` 已有截图样式/黄框静态契约门禁，`docs/backend-development.md` 和 `docs/experience-index.md` 已有 QA 手动绑定正式路线候选门禁，本轮不新增长期经验文档。
 
 ## Verification Evidence
 
@@ -90,7 +104,11 @@
 - `node tests\e2e\qa-regulation-manual-route-selectable-static.spec.cjs`：PASS，输出 `PASS qa-regulation-manual-route-selectable-static`。
 - `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：PASS，输出 `PASS role-matrix QA regulation standalone page static contract`。
 - `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：当前复跑 BLOCKED，失败于 `Pressure-pump IDI seed data must contain all 22 PDF 5.1 process inspection rows. 5 !== 22`，与本次 QA 手动绑定下拉可选性聚焦链路不同；本次使用 `qa-regulation-manual-route-selectable-static.spec.cjs` 覆盖截图回归。
+- `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs`：本轮复跑 PASS，新增黄框布局合同、22 条 PDF 数据合同和 QA 手动绑定正式接口合同均通过。
 - `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js`：PASS，输出 `PASS: unified list template empty condition tabs system contract`。
+- `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js`：本轮复跑 BLOCKED，当前系统接入点数量为 89，旧合同锁定 88；记录为并行接入点计数漂移，不作为本轮黄框布局修复通过证据。
+- `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/bug-regression-evidence.md`：PASS，输出 `Bug regression evidence is valid.`
+- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md`：PASS，输出 `Frontend feature evidence is valid.`
 - `pnpm ts:check`：PASS，前端类型检查通过。
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md`：PASS，输出 `Frontend feature evidence is valid.`。
 - `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260805-qa-regulation-publish-fix/backend-api-evidence.md`：PASS，输出 `Backend API evidence is valid.`。

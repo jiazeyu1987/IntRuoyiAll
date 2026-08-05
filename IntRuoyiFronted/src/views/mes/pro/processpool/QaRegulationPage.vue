@@ -1,6 +1,6 @@
 <template>
   <div class="qa-regulation-page" data-qa-regulation-page>
-    <ContentWrap>
+    <ContentWrap data-qa-regulation-dcc-project>
       <div class="qa-regulation-page__header">
         <div>
           <div class="qa-regulation-page__title">QA 规程配置</div>
@@ -17,10 +17,7 @@
         show-icon
         data-qa-regulation-api-ready
       />
-    </ContentWrap>
-
-    <ContentWrap data-qa-regulation-dcc-project>
-      <el-form label-width="112px" class="qa-regulation-page__form">
+      <el-form label-width="112px" class="qa-regulation-page__form qa-regulation-page__project-form">
         <el-form-item label="DCC 项目代码" required>
           <el-select
             v-model="qaRegulationDraft.dccProjectCodeId"
@@ -1712,7 +1709,7 @@ const loadManualQaRouteOptions = async () => {
   manualQaRouteOptionsLoading.value = true
   manualQaRouteLoadError.value = ''
   try {
-    manualQaRouteOptions.value = await ProRouteApi.getRouteSimpleList()
+    manualQaRouteOptions.value = await ProRouteApi.getRouteItemBindingList()
   } catch (error) {
     manualQaRouteOptions.value = []
     manualQaRouteLoadError.value = `工艺路线候选加载失败：${resolveDccProjectCodeErrorMessage(error)}`
@@ -2301,9 +2298,14 @@ const runQaPublishPrecheck = async () => {
   margin-bottom: 0;
 }
 
+.qa-regulation-page__project-form {
+  margin-top: 14px;
+}
+
 .qa-regulation-page__load-error {
   display: grid;
   gap: 10px;
+  margin-top: 12px;
 }
 
 .qa-regulation-page__load-error .el-button {

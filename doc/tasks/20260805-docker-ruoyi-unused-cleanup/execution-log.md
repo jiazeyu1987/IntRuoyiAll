@@ -19,6 +19,6 @@
 - REGRESSION: `docker container ls -a` -> PASS, only `int-ruoyi-mysql`, `int-ruoyi-redis`, `onlyoffice`, and `docker-minio-1` remain and all are running.
 - REGRESSION: volume reference scan -> PASS, every remaining Docker volume is linked to a current running container.
 - Verification: `docker system df` -> PASS, final state is Images 4 / Containers 4 / Local Volumes 9 / Build Cache 0B.
-- Verification: D drive check -> PASS, `D:\Docker\DockerDesktopWSL\disk\docker_data.vhdx` remains 426.87 GiB and Windows-visible free space is about 70.29 GiB; VHDX compaction still requires elevated/admin execution as a separate step.
+- Verification: D drive check -> PASS, `D:\Docker\DockerDesktopWSL\disk\docker_data.vhdx` remains 426.87 GiB and latest Windows-visible free space is about 92.24 GiB; VHDX compaction still requires elevated/admin execution as a separate step.
 - Cleanup: `task-closeout-cleanup --mode preview` -> PASS, kept `task.md`, `execution-log.md`, `verification-report.md`, and listed only task-local intermediate evidence files for deletion.
 - Cleanup: `task-closeout-cleanup --mode apply` -> PASS, deleted only the previewed task-local intermediate files.

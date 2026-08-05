@@ -27,6 +27,36 @@ assert.match(
 )
 assert.match(
   teamLeaderWorkbench,
+  /<ContentWrap\s+v-if="!showPqcModuleTabs">[\s\S]*team-leader-workbench__header/,
+  'PQC leader must not keep a standalone header/tabs card that leaves blank space above the list.'
+)
+assert.match(
+  teamLeaderWorkbench,
+  /<ContentWrap\s+v-if="showPqcManagementModule"[\s\S]*'team-leader-workbench__pqc-module-card':\s*showPqcModuleTabs[\s\S]*data-pqc-leader-module-tabs[\s\S]*<el-form/,
+  'PQC管理 tabs must live inside the list card and directly precede the filter/list area.'
+)
+assert.match(
+  teamLeaderWorkbench,
+  /class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"/,
+  'PQC module tabs must use the flat DCC-style underline tab class.'
+)
+assert.match(
+  teamLeaderWorkbench,
+  /v-if="!showPqcModuleTabs"\s+class="team-leader-workbench__section-head"/,
+  'PQC管理 must hide the old explanatory section head so tabs directly reach the list controls.'
+)
+assert.match(
+  teamLeaderWorkbench,
+  /\.team-leader-workbench__module-tabs--flat\s+:deep\(\.el-tabs__header\)\s*\{[\s\S]*margin:\s*0 0 12px/,
+  'Flat PQC module tabs must use a compact header margin like the DCC category tabs.'
+)
+assert.match(
+  teamLeaderWorkbench,
+  /\.team-leader-workbench__module-tabs--flat\s+:deep\(\.el-tabs__active-bar\)\s*\{[\s\S]*background-color:\s*#00a896/,
+  'Flat PQC module tabs must use the teal underline active bar style.'
+)
+assert.match(
+  teamLeaderWorkbench,
   /const\s+activePqcModuleTab\s*=\s*ref<'management'\s*\|\s*'dashboard'>\('management'\)/,
   'PQC leader module tabs must default to PQC管理.'
 )
@@ -42,12 +72,12 @@ assert.match(
 )
 assert.match(
   teamLeaderWorkbench,
-  /<ContentWrap\s+v-if="showPqcManagementModule"\s+data-team-leader-report-workbench/,
+  /<ContentWrap\s+v-if="showPqcManagementModule"[\s\S]*data-team-leader-report-workbench/,
   'PQC管理 tab must own the report confirmation workbench.'
 )
 assert.match(
   teamLeaderWorkbench,
-  /<ContentWrap\s+v-if="showPqcDashboardModule"\s+data-role-matrix-daily-close/,
+  /<ContentWrap\s+v-if="showPqcDashboardModule"[\s\S]*data-role-matrix-daily-close/,
   '看板 tab must own the daily close dashboard.'
 )
 assert.doesNotMatch(

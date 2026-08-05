@@ -9,7 +9,7 @@
 - [x] 读取本地运行、端口矩阵、任务收尾和编码规则。
 - [x] 读取 `docs/experience-index.md` 并识别本次命中的本地后端启动门禁。
 - [x] 检查 `48081` 端口占用和已有后端归属。
-- [ ] 按正式本地运行链路启动或确认后端。
+- [x] 按正式本地运行链路启动或确认后端。
 - [x] 验证后端 health 状态并记录证据。
 
 ## Expected Verification
@@ -26,6 +26,14 @@
 - 按严格 no-fallback 规则，本次不使用旧 `target` Jar、不换端口、不跳过 Maven 构建、不修改数据源。
 - 继续执行时复核 `git ls-files -u` 已无 unmerged index，相关文件无冲突标记，因此继续标准启动验证。
 
+## Final Verification
+
+- 标准脚本生成独立 runtime Jar：`output/runtime/int_main/backend-runtime-control-20260805-222248.jar`。
+- Jar SHA256：`4EA3E8BB6C585C738EB1F99AFE42C33827CB2908E275242819646213488F5A1F`。
+- 后端 Java PID：`60192`，监听 `48081`。
+- 延迟复验 `http://127.0.0.1:48081/actuator/health` 返回 `{"status":"UP"}`。
+- 日志确认 `Tomcat started on port 48081`、`Started YudaoServerApplication`、`项目启动成功`。
+
 ## Applicable Gates
 
 - `docs/local-runtime.md#固定端口`：`E:\IntRuoyi` 的 `int_main` 后端固定使用 `48081`。
@@ -41,4 +49,4 @@
 
 ## Current Status
 
-in_progress
+completed

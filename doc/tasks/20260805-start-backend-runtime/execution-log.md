@@ -20,6 +20,11 @@
 - Standard backend script identified as `IntRuoyiBackend/script/deploy/restart-int-ruoyi-local.ps1`; it performs Maven package before copying an independent runtime Jar.
 - Project experience consolidation: searched existing memory/runtime docs; `docs/local-runtime.md` already covers fixed port, no old Jar fallback, source/runtime Jar safety, and fail-fast local backend startup gates, so no long-term experience document was changed.
 - Continue request:复核 `git ls-files -u` 为空，相关冲突文件没有 `<<<<<<<` / `>>>>>>>` 标记，继续尝试正式启动脚本。
+- RED: `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> FAIL, `48081` 无监听且连接被拒绝。
+- Standard restart: `IntRuoyiBackend/script/deploy/restart-int-ruoyi-local.ps1 -Component backend` -> completed Maven package and generated `output/runtime/int_main/backend-runtime-control-20260805-221422.jar`; first spawned process briefly reached `UP` then exited without a shutdown line, so it was not accepted as stable completion.
+- Stable restart: existing standard script was re-dispatched through `Win32_Process.Create` to avoid exposing secret-bearing Java arguments in the task command and to keep the process detached from the current shell. It generated `output/runtime/int_main/backend-runtime-control-20260805-222248.jar` and launched Java PID `60192`.
+- GREEN: delayed health check after stable restart -> PASS, `{"status":"UP"}`.
+- Stability check: after an additional 60 seconds, PID `60192` was still running and `48081` health remained `UP`.
 
 ## Verification Evidence
 
@@ -33,8 +38,14 @@
   - `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesPqcProcessInspectionAggregationServiceTest.java`
   - `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderSubmissionReviewServiceTest.java`
   - `docs/powershell-memory.md`
+- Runtime Jar: `output/runtime/int_main/backend-runtime-control-20260805-222248.jar`.
+- Runtime Jar SHA256: `4EA3E8BB6C585C738EB1F99AFE42C33827CB2908E275242819646213488F5A1F`.
+- Listener: `0.0.0.0:48081 LISTENING 60192`.
+- Health: `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> `{"status":"UP"}`.
+- Application log: `Tomcat started on port 48081`, `Started YudaoServerApplication`, `项目启动成功`.
 
 ## Blockers
 
 - blocked: unresolved merge conflicts in backend source/test files prevent a formal Maven package and safe local backend startup. Starting from an old Jar or `target` Jar would violate the project no-fallback and runtime Jar rules.
 - cleared for retry: follow-up check shows no unmerged index entries. Startup may still fail on build/runtime prerequisites and must be recorded as the real blocker if it does.
+- none remaining for backend startup; service is running on `48081`.

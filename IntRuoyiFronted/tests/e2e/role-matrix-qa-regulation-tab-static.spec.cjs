@@ -55,6 +55,7 @@ const dccSelectorSource =
   dccSelectorStart >= 0 && dccSelectorEnd > dccSelectorStart
     ? qaSource.slice(dccSelectorStart, dccSelectorEnd)
     : ''
+const firstContentWrapEnd = qaSource.indexOf('</ContentWrap>')
 const qaItemsSectionStart = qaSource.indexOf('<ContentWrap v-show="qaActiveTab === \'items\'">')
 const qaItemsSectionEnd =
   qaItemsSectionStart >= 0
@@ -157,6 +158,30 @@ assert.match(
   /<ContentWrap[^>]*data-qa-regulation-dcc-project[\s\S]*<el-form[\s\S]*<el-form-item\s+label="DCC 项目代码"\s+required[\s\S]*<el-select/,
   'QA project selector area must only keep the required DCC project code select row.'
 )
+assert.match(
+  dccSelectorSource,
+  /class="qa-regulation-page__project-wrap"[\s\S]*data-qa-regulation-dcc-project/,
+  'The top DCC project selector card must use the compact project wrapper that removes the red-box blank band.'
+)
+assert.ok(
+  dccSelectorStart >= 0 && dccSelectorStart < firstContentWrapEnd,
+  'The DCC project selector must render inside the top yellow header panel instead of in a detached card.'
+)
+assert.match(
+  dccSelectorSource,
+  /qa-regulation-page__header[\s\S]*<el-form[\s\S]*<el-form-item\s+label="DCC 项目代码"\s+required/,
+  'The top panel must show the title and DCC project selector together.'
+)
+assert.doesNotMatch(
+  dccSelectorSource,
+  /qa-regulation-page__subtitle|data-qa-regulation-api-ready|QA 按 DCC 项目代码维护产品规程|正式保存\/发布接口已接入/,
+  'The red-box subtitle and green API-ready banner must not render in the compact top panel.'
+)
+assert.doesNotMatch(
+  qaSource,
+  /<\/ContentWrap>\s*<ContentWrap\s+data-qa-regulation-dcc-project>/,
+  'The DCC project selector must not be split into a separate ContentWrap below the yellow header panel.'
+)
 assert.equal(
   (dccSelectorSource.match(/<el-form-item\b/g) || []).length,
   1,
@@ -164,8 +189,8 @@ assert.equal(
 )
 assert.doesNotMatch(
   dccSelectorSource,
-  /<el-descriptions|el-tag|data-qa-regulation-config-status|配置状态总览|当前加载范围|已配置 QA 规程|待配置 QA 规程|产品名称由 DCC 项目代码带出/,
-  'QA project selector area must not render status, summary, tags, descriptions, or helper details.'
+  /<el-descriptions|data-qa-regulation-config-status|配置状态总览|当前加载范围|已配置 QA 规程|待配置 QA 规程|产品名称由 DCC 项目代码带出/,
+  'QA project selector area must not render old project status summaries, descriptions, or helper details.'
 )
 assert.match(
   qaSource,
@@ -286,6 +311,16 @@ assert.match(
   /<el-tabs[\s\S]*v-model="qaActiveTab"[\s\S]*data-qa-regulation-tabs/,
   'Standalone QA page must split dense content behind QA-owned tabs.'
 )
+assert.match(
+  qaSource,
+  /<ContentWrap\s+class="qa-regulation-page__tabs-wrap"[\s\S]*<el-tabs[\s\S]*data-qa-regulation-tabs/,
+  'QA tabs must use a compact wrapper so the red-box blank band below the tabs is not rendered.'
+)
+assert.match(
+  qaSource,
+  /\.qa-regulation-page__project-wrap[\s\S]*margin-bottom:\s*0[\s\S]*\.qa-regulation-page__tabs-wrap[\s\S]*margin-bottom:\s*0[\s\S]*\.qa-regulation-page__tabs-wrap\s*:deep\(\.el-tabs__content\)[\s\S]*display:\s*none/,
+  'Compact QA project and tabs wrappers must remove the red-box blank spacing and empty Element Plus tab content.'
+)
 for (const requiredTab of [
   { label: '总览', name: 'overview' },
   { label: '检验规则', name: 'rules' },
@@ -372,10 +407,8 @@ for (const requiredText of [
   '2026-01-04',
   'IDI',
   '过程检验规程',
-  'QA 按 DCC 项目代码维护产品规程',
   '请选择 DCC 项目代码',
   'DCC 项目代码加载失败',
-  '正式保存/发布接口已接入',
   '保存草稿',
   '发布规程',
   '总览',

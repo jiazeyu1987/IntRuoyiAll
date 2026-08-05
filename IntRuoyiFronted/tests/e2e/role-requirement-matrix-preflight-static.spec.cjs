@@ -383,6 +383,36 @@ assert.match(
   /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*verifyScheduleOrderErpCandidateAdmission\(page,\s*config\)[\s\S]*verifyActiveOrderTransferTraceReadOnly\(page,\s*config,\s*joinEvidence\)[\s\S]*return \[admissionEvidence,\s*joinEvidence,\s*conflictRouteEvidence,\s*transferTraceEvidence,\s*dailyCloseEvidence\]/,
   'Production leader phase must prove AC-M01 schedule-order admission before joining the active order, then read transfer/shipment/replenishment/return trace before daily-close evidence.'
 )
+assert.match(
+  source,
+  /key:\s*'productionLeaderWorkbench'[\s\S]*selectorGroups:\s*\[[\s\S]*tabText:\s*'报工管理'[\s\S]*data-role-matrix-daily-close[\s\S]*tabText:\s*'班组配置'[\s\S]*data-team-leader-active-order-config/,
+  'Production leader real-flow phase must verify report/daily-close and config/active-order surfaces through their actual module tabs.'
+)
+assert.match(
+  source,
+  /key:\s*'pqcLeaderWorkbench'[\s\S]*selectorGroups:\s*\[[\s\S]*tabText:\s*'PQC管理'[\s\S]*data-team-leader-report-workbench[\s\S]*tabText:\s*'看板'[\s\S]*data-role-matrix-daily-close/,
+  'PQC leader real-flow phase must verify management and dashboard surfaces through their actual module tabs.'
+)
+assert.match(
+  source,
+  /async function selectRealFlowTab\(page,\s*tabText\)[\s\S]*locator\('\.el-tabs__item'\)\.filter\(\{\s*hasText:\s*tabText\s*\}\)[\s\S]*await tab\.count\(\)[\s\S]*return[\s\S]*classList\.contains\('is-active'\)[\s\S]*await tab\.click\(\)/,
+  'Full real E2E must switch real Element Plus module tabs when present, while still verifying visible selectors for legacy all-in-one entries.'
+)
+assert.match(
+  source,
+  /async function verifyRealFlowPhase[\s\S]*const selectorGroups = phase\.selectorGroups[\s\S]*for \(const group of selectorGroups\)[\s\S]*await selectRealFlowTab\(page,\s*group\.tabText\)[\s\S]*for \(const selector of group\.selectors\)/,
+  'Phase verification must iterate tab-scoped selector groups so hidden module panels do not become raw Playwright timeouts.'
+)
+assert.match(
+  source,
+  /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*await selectRealFlowTab\(page,\s*'班组配置'\)[\s\S]*data-team-leader-active-order-config[\s\S]*await selectRealFlowTab\(page,\s*'报工管理'\)[\s\S]*verifyDailyClosePerformanceReadOnly/,
+  'Production leader active-order action must join from 班组配置 and read daily-close evidence from 报工管理.'
+)
+assert.match(
+  source,
+  /if \(phase\.actionKey === 'verifyPqcLeaderSubmissionFilterPaginationConsistency'\)[\s\S]*await selectRealFlowTab\(page,\s*'PQC管理'\)[\s\S]*verifyPqcLeaderSubmissionFilterPaginationConsistency/,
+  'PQC leader action must return to the PQC管理 module before operating the submission workbench.'
+)
 const activeOrderTransferTraceActionSource = source.match(
   /async function verifyActiveOrderTransferTraceReadOnly[\s\S]*?async function verifyPqcActiveOrderReadOnly/
 )

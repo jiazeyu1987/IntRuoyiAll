@@ -2,7 +2,7 @@
 
 ## Feature Goal
 
-- 将 `QaRegulationPage.vue` 的 QA 规程配置内容从一次性直铺展示改为“DCC 项目代码下拉选择 + 选中后 Tab 分区”，规则、项目、发布检查和 PQC 预览列表统一由 `UnifiedListTemplate` 承载；路线版本、路线工序、SOP、正式批记录绑定等适用范围字段从产品绑定的正式工艺路线自动带出，不再由 QA 手工设置；产品未绑定或需修正时，允许 QA 显式选择工艺路线并写入产品当前路线绑定。
+- 将 `QaRegulationPage.vue` 的 QA 规程配置内容从一次性直铺展示改为“顶部黄框内 DCC 项目代码下拉选择 + 选中后 Tab 分区”，规则、项目、发布检查和 PQC 预览列表统一由 `UnifiedListTemplate` 承载；路线版本、路线工序、SOP、正式批记录绑定等适用范围字段从产品绑定的正式工艺路线自动带出，不再由 QA 手工设置；产品未绑定或需修正时，允许 QA 显式选择工艺路线并写入产品当前路线绑定。
 
 ## Non-Goals
 
@@ -15,6 +15,7 @@
 
 - AC-M09：QA 可维护并发布检验规程，页面需降低信息密度且保持正式保存/发布链路。
 - 验收：未选择项目时只展示必填 `DCC 项目代码` 下拉；选择后展示 Tab、适用范围、检验规则、检验项目和发布检查；旧已配置/待配置列表不再显示；列表内容使用 `UnifiedListTemplate`；适用范围从正式工艺路线自动带出，路线版本、路线工序、路线 ID、路线版本 ID、路线工序 ID、工序 ID、SOP、生产系数、示例订单数和批记录绑定不再作为手工输入项出现；产品未绑定路线时可在适用范围区域显式选择工艺路线并绑定。
+- 截图回归验收：顶部黄框内必须同时显示 QA 标题、正式接口提示和必填 `DCC 项目代码` 选择框；不得把项目选择内容拆到黄框外的独立卡片。
 
 ## UI Entry Points And Owned Files
 
@@ -42,6 +43,7 @@
 - BDD: QA 缺正式路线范围阻断保存发布 -> Given 正式路线绑定、激活版本或唯一质检工序缺失 When QA 用户保存草稿或发布 Then 页面显示路线范围加载失败并阻断动作，不以默认值或手工黄框字段替代。
 - BDD: QA 手动绑定工艺路线 -> Given DCC 项目对应产品缺少当前工艺路线 When QA 用户选择已发布/已启用且有当前生效版本的工艺路线并点击手动绑定 Then 页面通过 QA 专用产品路线绑定 API 写入绑定，重新读取当前绑定，并从正式路线配置带出适用范围。
 - BDD: QA 手动绑定失败可见 -> Given 绑定 API 失败、路线缺当前版本或绑定后读取不到产品路线 When 用户点击手动绑定 Then 页面显示错误并阻断保存/发布。
+- BDD: 顶部黄框显示项目选择内容 -> Given QA 用户进入规程配置页 When 页面渲染顶部 QA 标题黄框 Then 黄框内同时显示标题、正式接口提示和必填 `DCC 项目代码` 选择框，不把选择内容拆到黄框外的独立卡片。
 
 ## RED
 
@@ -51,6 +53,7 @@
 - RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, expected reason:旧 QA 页面缺少手动绑定工艺路线选择器、QA 专用 `saveQaRegulationRouteProductByItem` 调用和绑定后路线范围重读。
 - RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, expected reason:旧 QA 页面把 `CommonStatusEnum.ENABLE` 路线禁用为“已启用，仅回显”，导致截图中的已发布路线不能选择。
 - RED: `node tests\e2e\qa-regulation-manual-route-selectable-static.spec.cjs` -> FAIL, expected reason:QA 手动绑定下拉的 `<el-option>` 缺少显式 `:disabled="false"`，无法锁住“已发布/已启用路线仍可选”的截图回归要求。
+- RED: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> FAIL, expected reason:顶部黄框显示合同要求 `DCC 项目代码` 选择框位于顶部 QA 标题黄框内，旧布局将选择框拆成黄框下方独立 `ContentWrap`。
 
 ## GREEN
 
@@ -61,19 +64,26 @@
 - GREEN: `node tests\e2e\qa-regulation-manual-route-selectable-static.spec.cjs` -> PASS，QA 手动绑定路线选项显式可选，不复用产品维护页的启用路线置灰守卫，不显示“已启用，仅回显”，并保留 QA 专用绑定 API。
 - GREEN: `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js` -> PASS，系统标准列表接入点从 84 更新为 88，显式隐藏筛选列表从 10 更新为 14。
 - GREEN: `pnpm ts:check` -> PASS，Vue/TypeScript 类型检查通过。
+- GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，顶部黄框现在同时包含标题、正式接口提示、`DCC 项目代码` 选择框和加载失败重试区，且手动绑定候选恢复为 `ProRouteApi.getRouteItemBindingList()`。
+- GREEN: `node tests\e2e\qa-regulation-final-applicability-static.spec.cjs` -> PASS，末检不适用依据合同未受黄框布局调整影响。
 
 ## Verification
 
 - Verification: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs IntRuoyiFronted/tests/e2e/unified-list-template-empty-tabs-system-static.spec.js doc/tasks/20260805-qa-regulation-publish-fix/task.md doc/tasks/20260805-qa-regulation-publish-fix/execution-log.md doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md doc/tasks/20260805-qa-regulation-publish-fix/frontend-feature-evidence.md docs/backend-development.md docs/experience-index.md` -> PASS，仅有 Git CRLF 工作区提示，无 whitespace error。
 - Verification: `node tests\e2e\qa-regulation-manual-route-selectable-static.spec.cjs` -> PASS，输出 `PASS qa-regulation-manual-route-selectable-static`。
+- Verification: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS，输出 `PASS role-matrix QA regulation standalone page static contract`。
+- Verification: `node tests\e2e\qa-regulation-final-applicability-static.spec.cjs` -> PASS，输出 `PASS qa-regulation-final-applicability-static`。
+- Verification: `pnpm ts:check` -> PASS。
 - Verification: QA 页面专属排序接线断言 -> PASS，输出 `PASS QA standard list sort wiring`。
 - Verification: `mvn -rf :yudao-module-mes "-Dtest=MesProRouteProductServiceImplTest,MesProRouteProductBindFromWorkOrdersTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，20 个后端 QA 路线绑定目标 JUnit 通过。
 - Verification: 全局 `unified-list-template-all-headers-sortable-static.spec.js` 仍被大量既有页面阻塞；QA 页面聚焦扫描显示四个新增列表均已接入 `sortColumnAttrs` 与 `handleTemplateSortChange`，未作为本次完成门禁。
+- Verification: `node tests\e2e\unified-list-template-empty-tabs-system-static.spec.js` -> BLOCKED，当前系统标准列表模板接入点为 89，而既有合同锁定 88；记录为并行新增接入点计数漂移。
 
 ## Responsive Accessibility Loading Empty Error Permission
 
 - Preserve existing responsive `.qa-regulation-page__layout` behavior and Element Plus controls.
 - Preserve visible DCC project loading/error/retry states.
+- DCC project loading/error/retry states now render inside the top yellow header panel.
 - Preserve visible formal route-scope loading/error states through `data-qa-regulation-route-scope-auto` and `data-qa-regulation-route-scope-error`.
 - Preserve visible manual route binding loading/error states through `data-qa-regulation-manual-route-bind` and `data-qa-regulation-manual-route-error`.
 - Hide QA regulation tabs/content until `selectedDccProjectCode` exists.
@@ -82,4 +92,5 @@
 ## Blockers
 
 - Original AC-M09 backend target JUnit remains blocked by the shared Maven target issue recorded in the task log.
+- `node tests/e2e/unified-list-template-empty-tabs-system-static.spec.js` is currently blocked by an unrelated 89 vs 88 system access-point count drift.
 - Global `unified-list-template-all-headers-sortable-static.spec.js` still fails on unrelated historical pages; QA新增列表已单独确认排序 helper 接线。
