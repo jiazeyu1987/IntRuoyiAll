@@ -50,6 +50,7 @@ import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_NAS_PA
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_NAS_PATH_NOT_EXISTS;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_NAS_READ_FAILED;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_NAS_SHARE_NOT_EXISTS;
+import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_NAS_WRITE_FAILED;
 
 @Service
 public class NasBrowserServiceImpl implements NasBrowserService {
@@ -174,6 +175,32 @@ public class NasBrowserServiceImpl implements NasBrowserService {
             };
         } catch (Exception ex) {
             throw exception(FILE_NAS_READ_FAILED, ex.getMessage());
+        }
+    }
+
+    @Override
+    public void writeFile(String path, InputStream inputStream) {
+        writeFile(nasSettingsService.getRequiredNasConfig(), path, inputStream);
+    }
+
+    @Override
+    public void writeFile(NasConnectionConfig config, String path, InputStream inputStream) {
+        String normalized = normalizeRelativePath(path);
+        try (NasSession session = sessionFactory.create(config)) {
+            session.writeFile(normalized, inputStream);
+        } catch (NasBrowserException ex) {
+            throw switch (ex.reason()) {
+                case DEPENDENCY_MISSING -> exception(FILE_NAS_DEPENDENCY_MISSING, ex.getMessage());
+                case AUTH_FAILED -> exception(FILE_NAS_AUTH_FAILED);
+                case SHARE_NOT_EXISTS -> exception(FILE_NAS_SHARE_NOT_EXISTS, config.share());
+                case PATH_NOT_EXISTS -> exception(FILE_NAS_PATH_NOT_EXISTS, normalizedOrRoot(normalized));
+                case PATH_NOT_DIRECTORY -> exception(FILE_NAS_PATH_NOT_DIRECTORY, normalizedOrRoot(normalized));
+                case ACCESS_DENIED -> exception(FILE_NAS_WRITE_FAILED, "access denied: " + ex.getMessage());
+                case CONNECT_FAILED -> exception(FILE_NAS_CONNECT_FAILED, config.server());
+                case READ_FAILED -> exception(FILE_NAS_WRITE_FAILED, ex.getMessage());
+            };
+        } catch (Exception ex) {
+            throw exception(FILE_NAS_WRITE_FAILED, ex.getMessage());
         }
     }
 
@@ -316,6 +343,16 @@ public class NasBrowserServiceImpl implements NasBrowserService {
             String normalized = normalizeRelativePath(path);
             try {
                 return session.readFile(normalized);
+            } catch (NasBrowserException ex) {
+                throw mapNasBrowserException(config, normalized, ex);
+            }
+        }
+
+        @Override
+        public void writeFile(String path, InputStream inputStream) {
+            String normalized = normalizeRelativePath(path);
+            try {
+                session.writeFile(normalized, inputStream);
             } catch (NasBrowserException ex) {
                 throw mapNasBrowserException(config, normalized, ex);
             }
@@ -467,6 +504,10 @@ public class NasBrowserServiceImpl implements NasBrowserService {
         List<FileNasListRespVO.Item> list(String normalizedRelativePath);
 
         NasFileReadResult readFile(String normalizedRelativePath);
+
+        default void writeFile(String normalizedRelativePath, InputStream inputStream) {
+            throw NasBrowserException.readFailed("NAS session write is not implemented", null);
+        }
 
         SecurityDescriptor readDirectoryAcl(String normalizedRelativePath);
 
@@ -687,6 +728,44 @@ public class NasBrowserServiceImpl implements NasBrowserService {
                             FileTypeUtils.getMineType(bytes, name),
                             bytes
                     );
+                }
+            } catch (NasBrowserException ex) {
+                throw ex;
+            } catch (Exception ex) {
+                String message = StrUtil.nullToEmpty(ex.getMessage()).toLowerCase();
+                if (message.contains("object path not found") || message.contains("name not found")) {
+                    throw NasBrowserException.pathNotExists(normalizedRelativePath, ex);
+                }
+                if (message.contains("access denied") || message.contains("status_access_denied")) {
+                    throw NasBrowserException.accessDenied(normalizedRelativePath, ex);
+                }
+                if (message.contains("is a directory") || message.contains("not a regular file")) {
+                    throw NasBrowserException.pathNotDirectory(normalizedRelativePath, ex);
+                }
+                throw NasBrowserException.readFailed(StrUtil.blankToDefault(ex.getMessage(), ex.getClass().getSimpleName()), ex);
+            }
+        }
+
+        @Override
+        public void writeFile(String normalizedRelativePath, InputStream inputStream) {
+            String smbPath = normalizedRelativePath.replace("/", "\\");
+            try {
+                if (StrUtil.isBlank(smbPath)) {
+                    throw NasBrowserException.pathNotDirectory(normalizedRelativePath, null);
+                }
+                try (com.hierynomus.smbj.share.File file = share.openFile(
+                        smbPath,
+                        Set.of(AccessMask.GENERIC_WRITE),
+                        null,
+                        Set.of(
+                                SMB2ShareAccess.FILE_SHARE_READ,
+                                SMB2ShareAccess.FILE_SHARE_WRITE,
+                                SMB2ShareAccess.FILE_SHARE_DELETE
+                        ),
+                        SMB2CreateDisposition.FILE_OVERWRITE_IF,
+                        null);
+                     OutputStream outputStream = file.getOutputStream()) {
+                    IoUtil.copy(inputStream, outputStream);
                 }
             } catch (NasBrowserException ex) {
                 throw ex;

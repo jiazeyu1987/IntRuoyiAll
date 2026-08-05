@@ -341,11 +341,11 @@
 ### Element Plus 选择框显示门禁
 
 - Trigger: 修改 Element Plus `el-select` 多选字段、`el-input-number` 数字步进控件、`el-switch` 旁状态标签、弹窗内多列配置表单、角色/人员/租户/目标项等较长业务名称的输入或选中标签显示。
-- Preflight check: 先按 `label-width + grid-template-columns + gap` 核算真实输入区宽度；关键字段必须使用专用布局类和静态合同覆盖。`el-input-number` 默认宽度可能大于网格列，必须显式设置 `width: 100%` 收敛到所在列；文本输入列需要 `min-width: 0` 和 `width: 100%`。必要时在 `el-select` 控件作用域内覆盖 `.el-select__tags-text` 默认省略宽度。窄栏里的 Switch 主标签与状态提示不得全部挤在一个可收缩 flex 行内，状态提示较长时应独占行或使用明确 grid 布局，并对关键标签设置不换行；禁用提示不能只用过浅灰色小字，应有足够对比度或明确状态条承载。Playwright 操作 Element Plus Switch 时，不得点击隐藏的 `input[role="switch"]`；应点击可见 `.el-switch` 或 `.el-switch__core`，再读取隐藏 input 的 `aria-checked` 校验状态。
+- Preflight check: 先按 `label-width + grid-template-columns + gap` 核算真实输入区宽度；关键字段必须使用专用布局类和静态合同覆盖。`el-input-number` 默认宽度可能大于网格列，必须显式设置 `width: 100%` 收敛到所在列；文本输入列需要 `min-width: 0` 和 `width: 100%`。必要时在 `el-select` 控件作用域内覆盖 `.el-select__tags-text` 默认省略宽度。窄栏里的 Switch 主标签与状态提示不得全部挤在一个可收缩 flex 行内，状态提示较长时应独占行或使用明确 grid 布局，并对关键标签设置不换行；禁用提示不能只用过浅灰色小字，应有足够对比度或明确状态条承载。Playwright 操作 Element Plus Switch 时，不得点击隐藏的 `input[role="switch"]`；应先等待可见 `.el-switch` 不含 `is-disabled`，再点击可见 `.el-switch` 或 `.el-switch__core`，最后读取隐藏 input 的 `aria-checked` 轮询校验状态，避免页面初始加载禁用态点击被吞掉。
 - Blocker: 若选中值、输入值或 Switch 状态提示在控件内仍显示为 `...`、换行后被裁切、文字对比度过低导致视觉上看不清、数字步进控件溢出挤压相邻输入框、只靠 tooltip 或下拉选项完整展示、或静态合同无法锁定该字段专用布局，必须停止并修复布局。
-- Verification: 静态合同或真实 E2E 必须断言目标控件有专用布局类、关键列宽足够、数字步进控件收敛到当前列、文本输入框可完整占满分配列、选中标签未继续使用默认省略宽度，Switch 状态提示完整可见、不会被窄栏裁切，且颜色对比足够。
+- Verification: 静态合同或真实 E2E 必须断言目标控件有专用布局类、关键列宽足够、数字步进控件收敛到当前列、文本输入框可完整占满分配列、选中标签未继续使用默认省略宽度，Switch 状态提示完整可见、不会被窄栏裁切，且颜色对比足够；涉及 Switch 写入的真实 E2E 还必须记录点击前后 `aria-checked` 与保存接口 payload 一致。
 - Forbidden action: 禁止把 `collapse-tags-tooltip`、扩大整页/整弹窗、硬编码当前角色名/目标项名、只验证下拉选项文本、或只调宽一个控件但让相邻控件继续被挤压当成“显示完整”。
-- Evidence: `doc/tasks/20260725-edhr-pressure-pump-v13-filler-role/verification-report.md`；`doc/tasks/20260726-codex-test-target-item-input-display/verification-report.md`；`doc/tasks/20260728-edhr-detail-assist-preview-switch/execution-log.md`。
+- Evidence: `doc/tasks/20260725-edhr-pressure-pump-v13-filler-role/verification-report.md`；`doc/tasks/20260726-codex-test-target-item-input-display/verification-report.md`；`doc/tasks/20260728-edhr-detail-assist-preview-switch/execution-log.md`；`doc/tasks/20260805-profile-nas-table-auto-sync/execution-log.md`。
 
 ## 表格行定位
 

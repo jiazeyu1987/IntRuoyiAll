@@ -36,6 +36,15 @@ ErrorCode PURCHASE_ORDER_ITEM_RETURN_FAIL_IN_EXCEED = new ErrorCode(1_030_101_00
     ErrorCode KINGDEE_PRODUCTION_ORDER_REQUEST_FAIL = new ErrorCode(1_030_101_019, "Kingdee K3Cloud生产订单请求失败：{}");
     ErrorCode KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID = new ErrorCode(1_030_101_020, "Kingdee K3Cloud生产订单响应无效：{}");
     ErrorCode KINGDEE_PRODUCTION_ORDER_REQUEST_INVALID = new ErrorCode(1_030_101_021, "Kingdee K3Cloud生产订单请求无效：{}");
+
+    ErrorCode NAS_TABLE_SYNC_PLAN_NOT_EXISTS = new ErrorCode(1_030_101_030, "NAS 表格自动同步计划不存在");
+    ErrorCode NAS_TABLE_SYNC_PLAN_DISABLED = new ErrorCode(1_030_101_031, "NAS 表格自动同步计划未启用");
+    ErrorCode NAS_TABLE_SYNC_START_TIME_REQUIRED = new ErrorCode(1_030_101_032, "启用 NAS 表格自动同步时必须设置每日开始时间");
+    ErrorCode NAS_TABLE_SYNC_DIRECTORY_REQUIRED = new ErrorCode(1_030_101_033, "启用 NAS 表格自动同步时必须设置 NAS 目录");
+    ErrorCode NAS_TABLE_SYNC_TYPE_REQUIRED = new ErrorCode(1_030_101_034, "启用 NAS 表格自动同步时必须至少选择一个 ERP 表");
+    ErrorCode NAS_TABLE_SYNC_TYPE_UNSUPPORTED = new ErrorCode(1_030_101_035, "NAS 表格自动同步不支持导出 ERP 表：{}");
+    ErrorCode NAS_TABLE_SYNC_EXPORT_FAILED = new ErrorCode(1_030_101_036, "NAS 表格自动同步导出失败：{}");
+    ErrorCode NAS_TABLE_SYNC_JOB_SAVE_FAILED = new ErrorCode(1_030_101_037, "NAS 表格自动同步调度保存失败：{}");
     ErrorCode KINGDEE_EXTERNAL_WRITE_DISABLED = new ErrorCode(1_030_101_022, "ERP写权限已关闭，禁止写入外部 ERP");
 
     // ========== ERP Kingdee 事件回调（1-030-901-000） ==========
