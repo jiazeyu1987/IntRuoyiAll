@@ -28,7 +28,40 @@
             </el-select>
           </el-form-item>
         </el-form>
-        <el-tag type="warning" effect="plain">{{ qaRegulationDraft.lifecycleStatus }}</el-tag>
+        <div
+          class="qa-regulation-page__version-publish"
+          data-qa-regulation-version-publish
+        >
+          <label class="qa-regulation-page__header-field">
+            <span class="qa-regulation-page__header-field-label">版本</span>
+            <el-input
+              v-model="qaRegulationDraft.versionNo"
+              aria-label="规程版本"
+              size="small"
+              placeholder="请输入版本"
+              class="qa-regulation-page__version-input"
+            />
+          </label>
+          <label class="qa-regulation-page__header-field">
+            <span class="qa-regulation-page__header-field-label">生效日期</span>
+            <el-date-picker
+              v-model="qaRegulationDraft.effectiveDate"
+              aria-label="生效日期"
+              value-format="YYYY-MM-DD"
+              type="date"
+              size="small"
+              class="qa-regulation-page__effective-date"
+            />
+          </label>
+          <el-tag type="warning" effect="plain">{{ qaRegulationDraft.lifecycleStatus }}</el-tag>
+          <el-button
+            type="primary"
+            :loading="qaRegulationPublishing"
+            @click="runQaPublishPrecheck"
+          >
+            发布规程
+          </el-button>
+        </div>
       </div>
 
       <div
@@ -80,17 +113,6 @@
                 class="qa-regulation-page__basic-field qa-regulation-page__basic-field--full"
               >
                 <el-input v-model="qaRegulationDraft.regulationName" />
-              </el-form-item>
-              <el-form-item label="版本" class="qa-regulation-page__basic-field">
-                <el-input v-model="qaRegulationDraft.versionNo" />
-              </el-form-item>
-              <el-form-item label="生效日期" class="qa-regulation-page__basic-field">
-                <el-date-picker
-                  v-model="qaRegulationDraft.effectiveDate"
-                  value-format="YYYY-MM-DD"
-                  type="date"
-                  class="!w-100%"
-                />
               </el-form-item>
               <el-form-item
                 label="产品"
@@ -679,13 +701,6 @@
           <div class="qa-regulation-page__actions">
             <el-button :loading="qaRegulationSaving" @click="previewQaRegulationDraft">
               保存草稿
-            </el-button>
-            <el-button
-              type="primary"
-              :loading="qaRegulationPublishing"
-              @click="runQaPublishPrecheck"
-            >
-              发布规程
             </el-button>
           </div>
         </el-card>
@@ -2346,9 +2361,38 @@ const runQaPublishPrecheck = async () => {
   margin-bottom: 0;
 }
 
-.qa-regulation-page__header :deep(.el-tag) {
+.qa-regulation-page__version-publish {
+  display: flex;
   flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
   margin-left: auto;
+}
+
+.qa-regulation-page__header-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qa-regulation-page__header-field-label {
+  flex-shrink: 0;
+  color: #606a7b;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.qa-regulation-page__version-input {
+  width: 92px;
+}
+
+.qa-regulation-page__effective-date {
+  width: 142px;
+}
+
+.qa-regulation-page__version-publish :deep(.el-tag) {
+  flex-shrink: 0;
 }
 
 .qa-regulation-page__tabs-wrap :deep(.el-card__body) {
@@ -2557,6 +2601,10 @@ const runQaPublishPrecheck = async () => {
     min-width: 0;
   }
 
+  .qa-regulation-page__version-publish {
+    margin-left: auto;
+  }
+
   .qa-regulation-page__layout {
     grid-template-columns: 1fr;
   }
@@ -2571,6 +2619,25 @@ const runQaPublishPrecheck = async () => {
 
   .qa-regulation-page__basic-field--full {
     grid-column: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .qa-regulation-page__version-publish {
+    flex: 1 0 100%;
+    flex-wrap: wrap;
+    margin-left: 0;
+  }
+
+  .qa-regulation-page__header-field {
+    flex: 1 1 180px;
+  }
+
+  .qa-regulation-page__version-input,
+  .qa-regulation-page__effective-date {
+    flex: 1;
+    width: auto;
+    min-width: 0;
   }
 }
 
