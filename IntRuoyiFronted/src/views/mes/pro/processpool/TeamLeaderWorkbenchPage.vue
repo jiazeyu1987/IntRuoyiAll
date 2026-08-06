@@ -864,35 +864,6 @@
               </template>
             </el-table-column>
             <el-table-column
-              v-if="activeLeaderTab !== 'PQC' && isSubmissionColumnVisible('auditCopyStatus')"
-              label="审核副本"
-              prop="auditCopyStatus"
-              :min-width="getSubmissionColumnMinWidthString('auditCopyStatus', 130)"
-            >
-              <template #default="{ row }">{{ row.auditCopyStatus || '--' }}</template>
-            </el-table-column>
-            <el-table-column
-              v-if="activeLeaderTab !== 'PQC' && isSubmissionColumnVisible('submissionReviewStatus')"
-              label="复核判定"
-              prop="submissionReviewStatus"
-              :min-width="getSubmissionColumnMinWidthString('submissionReviewStatus', 190)"
-            >
-              <template #default="{ row }">
-                <div class="team-leader-workbench__review-log" data-team-leader-review-log>
-                  <el-tag :type="resolveSubmissionReviewTagType(row.submissionReviewStatus)" effect="plain">
-                    {{ resolveSubmissionReviewStatusText(row.submissionReviewStatus) }}
-                  </el-tag>
-                  <span v-if="row.submissionReviewRemark" class="team-leader-workbench__review-text">
-                    {{ row.submissionReviewRemark }}
-                  </span>
-                  <span v-if="row.submissionReviewedAt" class="team-leader-workbench__review-meta">
-                    复核人 {{ row.submissionReviewLeaderUserId || '--' }} ·
-                    {{ formatDateTime(row.submissionReviewedAt) }}
-                  </span>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column
               v-if="isSubmissionColumnVisible('operation')"
               label="操作"
               prop="operation"
@@ -2700,8 +2671,6 @@ const productionSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'lossBreakdown', label: '损耗明细', minWidth: 210 },
   { key: 'selectedDevice', label: '选用设备', minWidth: 220 },
   { key: 'deviceParameterReadings', label: '设备参数', minWidth: 280 },
-  { key: 'auditCopyStatus', label: '审核副本', minWidth: 130 },
-  { key: 'submissionReviewStatus', label: '复核判定', minWidth: 190 },
   { key: 'operation', label: '操作', width: 270, hideable: false, business: false }
 ]
 const pqcSubmissionDefaultColumns: UserTableColumnDefinition[] = [
