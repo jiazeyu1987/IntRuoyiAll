@@ -33,6 +33,10 @@
 - `node IntRuoyiFronted/tests/e2e/team-leader-pqc-review-gate-static.spec.js` -> FAIL；相邻旧合同仍要求 `canReviewSubmission` 只包含空/PENDING 表达式，未覆盖历史页签只读 guard。
 - `node IntRuoyiFronted/tests/e2e/team-leader-production-report-payload-columns-static.spec.cjs` -> FAIL；当前生产报工列池仍包含既有 `workOrder`/`生产工单` 默认列，属于相邻列裁剪合同问题，非本次报工历史新增字段链路。
 
+## Experience Consolidation
+
+- 2026-08-07：已按 project-experience-consolidation 检查现有 docs/*memory*.md 与 E2E 规则；本次仅产生任务局部静态合同经验，无合适长期归宿且未获授权新建长期经验文档，因此不新增项目级经验文件。
+
 ## Blockers
 
-- 当前工作区已有未提交/未推送改动与其它任务文档变更，且分支已 ahead origin；按脏工作区/提交门禁，本任务未执行单独 commit/push。
+- 当前工作区存在无关 doc/tasks/20260806-loss-reason-auto-code-dialog/* 脏文件；按脏工作区/提交门禁，本任务未执行单独 commit/push。

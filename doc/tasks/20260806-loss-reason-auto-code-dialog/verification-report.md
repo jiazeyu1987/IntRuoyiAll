@@ -28,7 +28,8 @@
 - 本任务实现变更已被并发基线提交 `b9a752088` 吸收，该提交同时包含其它任务文件；本任务收尾仅选择性处理 `doc/tasks/20260806-loss-reason-auto-code-dialog/` 下的证据文件。
 - 当前仍有其它任务未提交工作区改动，收尾暂存必须使用显式路径，禁止 `git add -A`。
 
-## Remaining Blockers
+## Closeout Result
 
-- 后端标准 Maven 编译复验待同模块并发 Maven 释放后可重跑。
-- 任务最终提交/推送尚未完成。
+- PASS: 	ask-closeout-cleanup preview/apply 已完成，临时 evidence 文件已删除，核心报告保留。
+- PASS: git push origin int_main 已成功，远端更新到 35529e30f。
+- Follow-up: 后端标准 Maven 编译复验可待同模块并发 Maven 释放后重跑。

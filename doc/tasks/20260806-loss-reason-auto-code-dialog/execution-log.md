@@ -20,4 +20,5 @@
 - Evidence Validator: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260806-loss-reason-auto-code-dialog/backend-api-evidence.md` -> PASS, `Backend API evidence is valid.`
 - Cleanup: `task-closeout-cleanup` preview/apply -> PASS, only deleted archived temporary evidence files `backend-api-evidence.md` and `frontend-feature-evidence.md`; kept `task.md`、`execution-log.md`、`verification-report.md`。
 - Experience Consolidation: 已按 `project-experience-consolidation` 检查长期经验归宿；`docs/task-closeout-rules.md#技能证据文件清理前归档门禁`、`docs/powershell-memory.md#共享分支并发基线提交门禁`、`docs/powershell-memory.md#Maven-目标目录文件系统异常门禁` 已覆盖本次经验，不新增长期经验文档。
-- Status: implementation and static/type verification complete; task set to `ready_for_closeout` pending commit and push.
+- Push: git push origin int_main -> PASS, remote updated to 35529e30f; branch runtime port guard passed for int_main/int_main (8081/48081).
+- Status: completed after closeout cleanup, selective task log commit absorption by concurrent baseline, and successful push.
