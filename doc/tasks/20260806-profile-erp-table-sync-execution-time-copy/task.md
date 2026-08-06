@@ -9,8 +9,8 @@
 - [x] M1 核对截图反馈与现有页面取值来源
 - [x] M2 BDD/TDD 静态合同 RED
 - [x] M3 前端实现最近执行时间与文案修正
-- [ ] M4 目标静态合同、相邻回归与类型检查
-- [ ] M5 收尾清理与最终记录
+- [x] M4 目标静态合同、相邻回归与类型检查
+- [x] M5 收尾清理与最终记录
 
 ## Expected Verification
 
@@ -35,6 +35,6 @@
 
 ## Current Status
 
-in_progress
+completed
 
-目标静态合同、相邻 NAS 合同和 diff 检查已通过；`pnpm ts:check` 被无关的一线生产组件类型错误阻塞，暂未进入 ready_for_closeout。
+目标静态合同、相邻 NAS 合同、diff 检查、证据 validator、`pnpm ts:check` 和 cleanup preview/apply 均已通过。

@@ -34,8 +34,10 @@ assert.match(
 
 const productionStart = panel.indexOf('data-frontline-production-operator')
 assert.ok(productionStart >= 0, 'production operator screen must exist.')
-const productionStageStart = panel.lastIndexOf('data-frontline-production-stage', productionStart)
-assert.ok(productionStageStart >= 0, 'production operator must be wrapped by a scale-to-fit stage.')
+const productionStageAttr = panel.lastIndexOf('data-frontline-production-stage', productionStart)
+assert.ok(productionStageAttr >= 0, 'production operator must be wrapped by a scale-to-fit stage.')
+const productionStageStart = panel.lastIndexOf('<div', productionStageAttr)
+assert.ok(productionStageStart >= 0, 'production stage wrapper tag must exist.')
 const productionBlockStart = panel.lastIndexOf('<div', productionStart)
 assert.ok(productionBlockStart >= 0, 'production operator screen wrapper must exist.')
 const productionEnd = panel.indexOf('</footer>', productionStart)

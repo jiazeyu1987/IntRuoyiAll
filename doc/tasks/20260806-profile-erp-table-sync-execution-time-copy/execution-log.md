@@ -22,9 +22,14 @@
 - GREEN: `node IntRuoyiFronted\tests\e2e\profile-erp-table-auto-sync-static.spec.js` -> PASS，主表时间来自 `latestRun.endedAt || latestRun.startedAt`。
 - REGRESSION: `node IntRuoyiFronted\tests\e2e\profile-nas-table-auto-sync-static.spec.js` -> PASS，NAS 页签删除合同未回退。
 - REGRESSION: `git diff --check -- IntRuoyiFronted/src/views/Profile/components/ProfileErpTableAutoSyncSetting.vue IntRuoyiFronted/tests/e2e/profile-erp-table-auto-sync-static.spec.js doc/tasks/20260806-profile-erp-table-sync-execution-time-copy` -> PASS。
-- REGRESSION-BLOCKED: `pnpm ts:check`（工作目录：`IntRuoyiFronted`）-> FAIL，阻塞于无关文件 `src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue(490,15)` 缺少 `productionStageStyle`。
+- REGRESSION: `pnpm ts:check`（工作目录：`IntRuoyiFronted`）-> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260806-profile-erp-table-sync-execution-time-copy/frontend-feature-evidence.md` -> PASS。
 
 ## Blockers
 
-- 当前工作区存在大量无关脏改动和已暂存文件；本任务只修改 ERP 同步组件、对应静态合同和本任务文档。
-- 全量类型检查被无关的一线生产组件错误阻塞；本任务未修改该文件，按并行任务边界不擅自修复。
+- 当前任务无阻塞；无关脏改动不属于本任务收尾范围。
+
+## Cleanup Log
+
+- CLEANUP-PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260806-profile-erp-table-sync-execution-time-copy --mode preview` -> PASS，保留 task/execution-log/verification-report，计划删除临时 evidence。
+- CLEANUP-APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260806-profile-erp-table-sync-execution-time-copy --mode apply` -> PASS，已删除临时 evidence。

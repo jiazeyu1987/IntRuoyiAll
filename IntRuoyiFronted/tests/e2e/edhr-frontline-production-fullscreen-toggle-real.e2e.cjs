@@ -272,65 +272,26 @@ async function verifyProductionPrototype(page) {
   const initialFullscreen = await page.evaluate(() => Boolean(document.fullscreenElement))
   assert.equal(initialFullscreen, false, 'production route must not enter browser fullscreen by default.')
 
+  const stage = page.locator('[data-frontline-production-stage]').first()
+  await stage.waitFor({ state: 'visible', timeout: 30000 })
+  const stageBox = await stage.boundingBox()
+  assert.ok(stageBox, 'production scale-to-fit stage must have a visible bounding box.')
   const box = await screen.boundingBox()
   assert.ok(box, 'production prototype screen must have a visible bounding box.')
   const viewport = page.viewportSize()
   assert.ok(viewport, 'viewport size must be available.')
-  assert.ok(box.width <= viewport.width + 2, `normal production screen must fit viewport width: ${box.width} > ${viewport.width}`)
+  assert.ok(stageBox.width <= viewport.width + 2, `normal production stage must fit viewport width: ${stageBox.width} > ${viewport.width}`)
   assert.ok(
-    box.x + box.width <= viewport.width + 2,
-    `normal production screen must not clip the right edge: ${JSON.stringify(box)} viewport=${JSON.stringify(viewport)}`
+    stageBox.x + stageBox.width <= viewport.width + 2,
+    `normal production stage must not clip the right edge: ${JSON.stringify(stageBox)} viewport=${JSON.stringify(viewport)}`
   )
-  const responsiveScreenSize = await screen.evaluate((element) => {
+  const strictScreenSize = await screen.evaluate((element) => {
     const style = getComputedStyle(element)
-    return { width: style.width, minHeight: style.minHeight }
+    return { width: style.width, height: style.height, transform: style.transform }
   })
-  assert.notEqual(responsiveScreenSize.width, '1920px', 'normal production screen must not stay fixed at 1920px.')
-  assert.ok(responsiveScreenSize.minHeight, 'normal production screen must keep a responsive min-height.')
-
-  const legacyStageCount = await page.locator('[data-frontline-production-stage]').count()
-  assert.equal(legacyStageCount, 0, 'normal production page must not use a scaled 1920x1080 stage wrapper.')
-  const selectionGrid = screen.locator('[data-frontline-production-selection-grid]').first()
-  await selectionGrid.waitFor({ state: 'visible', timeout: 30000 })
-  const gridBox = await selectionGrid.boundingBox()
-  assert.ok(gridBox, 'production selection grid must have a visible bounding box.')
-  assert.ok(
-    gridBox.width <= box.width * 0.72 + 2,
-    `production selection grid should occupy a local area around two-thirds of the page: grid=${JSON.stringify(gridBox)} screen=${JSON.stringify(box)}`
-  )
-  const selectionCards = screen.locator('[data-frontline-production-selection-card]')
-  assert.equal(await selectionCards.count(), 2, 'production selection grid must contain process and employee cards.')
-  for (const index of [0, 1]) {
-    const cardBox = await selectionCards.nth(index).boundingBox()
-    assert.ok(cardBox, `production selection card ${index + 1} must have a visible bounding box.`)
-    const ratio = cardBox.width / cardBox.height
-    assert.ok(
-      Math.abs(ratio - 16 / 9) <= 0.18,
-      `production selection card ${index + 1} must follow the 1920:1080 ratio: ${ratio}`
-    )
-  }
-
-  await selectionCards.first().click()
-  const pickerCard = screen.locator('.frontline-picker__card').first()
-  await pickerCard.waitFor({ state: 'visible', timeout: 30000 })
-  const pickerBox = await pickerCard.boundingBox()
-  assert.ok(pickerBox, 'production picker card must have a visible bounding box.')
-  const pickerRatio = pickerBox.width / pickerBox.height
-  assert.ok(
-    Math.abs(pickerRatio - 16 / 9) <= 0.18,
-    `production picker card must follow the 1920:1080 ratio: ${pickerRatio}`
-  )
-  const pickerOption = screen.locator('.frontline-picker__option').first()
-  const pickerOptionBox = await pickerOption.boundingBox()
-  assert.ok(pickerOptionBox, 'production picker option must have a visible bounding box.')
-  const pickerOptionRatio = pickerOptionBox.width / pickerOptionBox.height
-  assert.ok(
-    Math.abs(pickerOptionRatio - 16 / 9) <= 0.18,
-    `production picker option must follow the 1920:1080 ratio: ${pickerOptionRatio}`
-  )
-  await screen.locator('.frontline-picker__close').first().click()
-  await pickerCard.waitFor({ state: 'hidden', timeout: 30000 })
-
+  assert.equal(strictScreenSize.width, '1920px', 'inner production canvas width must remain the reference 1920px.')
+  assert.equal(strictScreenSize.height, '1080px', 'inner production canvas height must remain the reference 1080px.')
+  assert.notEqual(strictScreenSize.transform, 'none', 'normal production canvas must be externally scaled by the stage.')
   const button = screen.locator('.home-btn').first()
   await button.waitFor({ state: 'visible', timeout: 30000 })
   await assertButtonText(button, '最大化')

@@ -2770,13 +2770,6 @@ onUnmounted(() => {
   flex: 0 0 auto;
 }
 
-.frontline-production-stage .frontline-operator-screen {
-  position: absolute;
-  inset: 0;
-  transform: scale(var(--frontline-production-scale, 1));
-  transform-origin: top left;
-}
-
 .frontline-operator-screen {
   --frontline-bg: #eef3ef;
   --frontline-panel: #ffffff;
@@ -2807,6 +2800,13 @@ onUnmounted(() => {
     grid-template-rows: 118px minmax(0, 1fr) 104px;
     min-height: 820px;
   }
+}
+
+.frontline-production-stage .frontline-operator-screen {
+  position: absolute;
+  inset: 0;
+  transform: scale(var(--frontline-production-scale, 1));
+  transform-origin: top left;
 }
 
 .frontline-operator-screen button,
@@ -4151,10 +4151,8 @@ onUnmounted(() => {
 }
 
 .frontline-operator-panel.is-production-mode .frontline-picker__card {
-  width: min(92%, 1180px);
-  aspect-ratio: 1920 / 1080;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  padding: 32px;
+  width: 760px;
+  padding: 28px;
   border: 3px solid var(--frontline-line);
   border-radius: 28px;
   background: var(--frontline-panel);
@@ -4170,16 +4168,10 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  align-content: start;
-  min-height: 0;
-  max-height: none;
-  overflow: auto;
 }
 
 .frontline-operator-panel.is-production-mode .frontline-picker__option {
-  height: auto;
-  aspect-ratio: 1920 / 1080;
-  min-height: 0;
+  height: 112px;
   border: 3px solid var(--frontline-line);
   border-radius: 22px;
   background: #f8faf8;

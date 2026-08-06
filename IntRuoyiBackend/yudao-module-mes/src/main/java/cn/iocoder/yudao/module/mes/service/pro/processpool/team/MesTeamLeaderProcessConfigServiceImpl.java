@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
@@ -45,6 +46,7 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
     private final MesProProcessPoolEventMapper eventMapper;
     private final Clock clock;
 
+    @Autowired
     public MesTeamLeaderProcessConfigServiceImpl(MesTeamLeaderLossReasonService lossReasonService,
                                                  MesProcessPoolTeamProcessDeviceMapper processDeviceMapper,
                                                  MesProcessPoolTeamDeviceMapper deviceMapper,
