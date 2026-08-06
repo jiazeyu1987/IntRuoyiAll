@@ -19,7 +19,7 @@
 - [x] 验证重排逻辑和冲突相关静态合同。
 - [x] 保存融合后的并行残余基线。
 - [x] 运行 closeout cleanup preview/apply。
-- [ ] 提交任务记录、推送 `int_main` 并记录 post-push 状态。
+- [x] 提交任务记录、推送 `int_main` 并记录 post-push 状态。
 
 ## Expected Verification
 
@@ -34,10 +34,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-Implementation and required verification passed. Cleanup, final task-record commit, push, and post-push status verification remain.
-Closeout cleanup preview/apply passed with no delete or blocked paths. Final task-record commit, push, and post-push status verification remain.
+Implementation, required verification, cleanup preview/apply, task-record commit, and required `origin/int_main` push are complete for the replan fusion. This final record includes additional task-outside baseline commits created during push closeout; the shell post-push check verifies no local ahead state after this record is pushed.
 
 ## 设计约束检查
 

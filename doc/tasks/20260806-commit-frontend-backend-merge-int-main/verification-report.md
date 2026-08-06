@@ -28,8 +28,16 @@
 - Baseline residual after merge: `bdd31e608`
 - Baseline residual closeout: `0f6ef01c3`
 - Baseline active-order E2E evidence: `bdea0ba9c`
+- Baseline frontline employee E2E evidence: `da25efec0`
+- Baseline frontline employee experience log: `b943b2b85`
+- Baseline submit round2 task records: `159a5ba95`
+- Baseline concurrent ERP/PQC state: `a87234f9a`
+- Baseline concurrent task record updates: `3c8e900aa`
+- Baseline concurrent process/PQC state: `9f0a20319`
 
-## Remaining Closeout
+## Closeout
 
 - PASS: `task-closeout-cleanup` preview/apply kept only `task.md`, `execution-log.md`, and `verification-report.md`; delete `<none>`, blocked `<none>`, warnings `<none>`.
-- Final task-record commit and `git push origin int_main` are pending.
+- PASS: `git push origin int_main` updated `origin/int_main` from `3fd9a221e` to `b943b2b85`.
+- PASS: additional remote sync reached `3c8e900aa` before this final record update.
+- Pending at the time of this file edit: push `9f0a20319` and the final completion-record commit, then verify `git status --short --branch` reports no ahead state. Task-outside dirty files may remain if active parallel tasks continue writing.

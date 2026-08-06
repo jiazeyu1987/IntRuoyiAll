@@ -25,6 +25,12 @@
 - `bdd31e608` - `chore: baseline residual post-replan merge workspace state`，用于保存融合后出现的并行残余改动；暂存前 `git diff --cached --name-status` 已确认未包含当前融合任务记录，`git diff --cached --check` PASS。
 - `0f6ef01c3` - `chore: baseline residual closeout workspace state`，用于保存 closeout 前继续出现的并行后端残余改动。
 - `bdea0ba9c` - `chore: baseline active-order e2e task evidence`，用于保存活跃订单池任务后续 E2E 证据文档。
+- `da25efec0` - `chore: baseline frontline employee e2e evidence`，用于保存一线生产员工弹窗任务后续 E2E 证据。
+- `b943b2b85` - `chore: baseline frontline employee experience log`，用于保存一线生产员工弹窗任务经验归档日志。
+- `159a5ba95` - `chore: baseline submit round2 task records`，用于保存并行 round2 提交任务记录。
+- `a87234f9a` - `chore: baseline concurrent ERP and PQC workspace state`，用于保存推送收尾前出现的并行 ERP/PQC 工作区状态。
+- `3c8e900aa` - `chore: baseline concurrent task record updates`，用于保存并行任务记录的后续增量。
+- `9f0a20319` - `chore: baseline concurrent process and PQC task state`，用于保存流程配置、PQC 测试数据和 EDHR 静态合同等并行状态。
 
 ## Merge Evidence
 
@@ -59,4 +65,6 @@
 
 - Implementation and required verification passed.
 - `task-closeout-cleanup` preview/apply: PASS, keep core task records, delete `<none>`, blocked `<none>`, warnings `<none>`。
-- Remaining: commit task records, push `int_main`, and verify branch is no longer ahead of `origin/int_main`.
+- `git push origin int_main`: PASS，first push updated `origin/int_main` from `3fd9a221e` to `b943b2b85`。
+- Additional push sync observed: `origin/int_main` reached `3c8e900aa` before this final record update.
+- Remaining: push `9f0a20319` plus this final completion-record commit and verify branch is no longer ahead of `origin/int_main`; active parallel tasks may still leave task-outside dirty files, which are not part of this fusion scope.
