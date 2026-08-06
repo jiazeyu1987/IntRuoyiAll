@@ -37,3 +37,7 @@
 - M3 completed：新增 `qa-regulation-pressure-pump-pdf-field-alignment-static.spec.cjs`。
 - M4 completed：聚焦 QA 静态合同通过。
 - M5 completed：`task_closeout.py --mode preview` 与 `--mode apply` 均通过，无删除项、无阻塞；经验沉淀技能已执行，因既有经验文档存在并行改动，本次仅在任务记录保留经验，避免混入非本任务文件。
+
+## Commits
+
+- Implementation commit: `64d51463c20d89706d0e113977ffb50fa8c3cfd2` (`test: lock QA pressure pump PDF field alignment`)。

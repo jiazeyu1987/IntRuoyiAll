@@ -20,3 +20,7 @@
 
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260806-qa-regulation-pdf-field-alignment --mode preview` -> PASS。
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260806-qa-regulation-pdf-field-alignment --mode apply` -> PASS，无删除项。
+
+## Commit
+
+- Implementation commit: `64d51463c20d89706d0e113977ffb50fa8c3cfd2`。
