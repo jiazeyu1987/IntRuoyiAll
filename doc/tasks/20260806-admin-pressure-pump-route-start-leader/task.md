@@ -10,21 +10,22 @@
 - [x] 只读核对目标租户、账号、路线、active version 与现有快照状态。
 - [x] 备份两条 active version 的原始 `route_snapshot_json`。
 - [x] 执行事务化数据修复，只更新 version `448` 和 `622`。
-- [x] 复验 JSON 快照、候选路线工序和非目标租户/版本未变。
+- [x] 复验当前 active JSON 快照、候选路线工序和非目标租户/草稿版本未变。
 - [x] 完成收尾、经验沉淀和最终状态记录。
 
 ## Expected Verification
 
 - RED SQL 在写入前失败，原因是两个 active version 均缺少 `$.configSnapshots.routeStartProductionLeaders`。
 - GREEN SQL 在写入后通过，确认 `candidateSourceType=USERS`、`candidateSourceIds=[1]`、`candidateSourceNames=["瑛泰管理员（admin）"]`，且 `productionLineId` 分别为 `922119` 和 `980091`。
-- 只读 SQL 确认 tenant `122` route `922273`、draft version `490` 和其它历史版本未被更新。
+- 只读 SQL 确认当前 active version 为 `490 / route 922119` 与 `622 / route 980091`，两者均包含 admin 快照；原写入目标 `448` 已被发布流程置为 `SUPERSEDED`。
+- 只读 SQL 确认 tenant `122` route `922273` 未写入 leader 快照，当前 target DRAFT 版本未写入 leader 快照。
 - 登录态 API 验证生产组长新增工序候选包含 `922119` 和 `980091` 的路线工序。
 
 ## Current Status
 
 completed
 
-已完成本机数据写入、SQL/API 验证、database evidence validator、经验沉淀和 cleanup apply。
+已完成本机数据写入、当前 active SQL/API 复验、database evidence validator、经验沉淀和 cleanup apply。2026-08-07 复核发现 route `922119` 的 active version 已由原计划 `448` 切换为 `490`，当前 `490` 与 `622` 均已通过 admin leader 快照验证。
 
 ## 设计约束检查
 
