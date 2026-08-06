@@ -82,7 +82,6 @@ for (const marker of [
   'data-team-leader-parameter-config',
   'data-team-leader-process-relation-config',
   'data-team-leader-active-order-select',
-  'data-team-leader-defect-reason-select',
   'data-team-leader-structured-detail',
   'data-team-leader-fifo-allocation',
   'data-team-leader-allocation-table'
@@ -103,6 +102,39 @@ assert(page.includes('buildAllocationSubmitLines'), '确认报工必须提交活
 assert(page.includes('getTeamLeaderActiveOrderList'), '异常上报和手动分配必须从活跃订单读取。')
 assert(!page.includes('label="生产工单ID"'), '异常上报不能要求手工填写生产工单 ID，必须来自活跃订单。')
 assert(!page.includes('label="来源提交ID"'), '异常上报不能要求手工填写来源提交 ID。')
+const abnormalSectionStart = page.indexOf('<div class="team-leader-workbench__section-title">订单异常上报</div>')
+assert(abnormalSectionStart >= 0, '必须保留订单异常上报模块。')
+const abnormalSectionEnd = page.indexOf('</el-form>', abnormalSectionStart)
+assert(abnormalSectionEnd > abnormalSectionStart, '订单异常上报模块必须包含独立表单。')
+const abnormalSection = page.slice(abnormalSectionStart, abnormalSectionEnd)
+assert(abnormalSection.includes('label="订单号"'), '异常上报只需要订单号字段。')
+assert(!abnormalSection.includes('label="活跃订单"'), '异常上报对用户展示必须收敛为订单号，不再显示活跃订单内部概念。')
+assert(!abnormalSection.includes('label="工序ID"'), '异常上报不需要工序ID。')
+assert(!abnormalSection.includes('label="异常原因"'), '异常上报不需要异常原因。')
+assert(!abnormalSection.includes('data-team-leader-defect-reason-select'), '异常上报不应再渲染异常原因选择器。')
+const abnormalRequestType = api.slice(
+  api.indexOf('export interface WorkOrderAbnormalReportReqVO'),
+  api.indexOf('export interface TeamEmployeeBindingSaveReqVO')
+)
+assert(
+  /workOrderId:\s*number/.test(abnormalRequestType) &&
+    /abnormalDescription:\s*string/.test(abnormalRequestType),
+  '异常上报请求类型必须只暴露订单号和异常说明这两个业务输入。'
+)
+for (const removedField of ['routeProcessId', 'processId', 'sourceEventId', 'abnormalReasonCode']) {
+  assert(!abnormalRequestType.includes(removedField), `异常上报请求类型不应包含 ${removedField}。`)
+}
+const submitAbnormalBlock = page.slice(
+  page.indexOf('const submitAbnormal = async () => {'),
+  page.indexOf('const openAddActiveOrderDialog')
+)
+assert(
+  /markAndReportWorkOrderAbnormal\(\{\s*workOrderId:\s*requireSelectedActiveOrderWorkOrderId\(\),\s*abnormalDescription:\s*abnormalForm\.abnormalDescription\.trim\(\)\s*\}\)/.test(submitAbnormalBlock),
+  '异常上报提交 payload 必须只包含 workOrderId 与 abnormalDescription。'
+)
+for (const removedField of ['routeProcessId', 'processId', 'sourceEventId', 'abnormalReasonCode']) {
+  assert(!submitAbnormalBlock.includes(removedField), `异常上报提交 payload 不应包含 ${removedField}。`)
+}
 assert(!page.includes('<template #header>员工工序绑定</template>'), '旧员工绑定卡片必须替换为员工档案与工序员工关系配置。')
 assert(!page.includes('<template #header>设备参数上下限</template>'), '旧设备参数卡片必须替换为设备档案、状态和运行参数配置。')
 assert(page.includes('PQC') && page.includes('PRODUCTION'), '页面必须继续支持生产班组长和 PQC 班组长两类查询。')

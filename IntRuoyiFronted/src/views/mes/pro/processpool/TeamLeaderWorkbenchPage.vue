@@ -522,12 +522,46 @@
               <template #default="{ row }">{{ row.processName || row.processCode || '--' }}</template>
             </el-table-column>
             <el-table-column
-              v-if="isSubmissionColumnVisible('workOrderCode')"
-              label="生产工单"
-              prop="workOrderCode"
-              :min-width="getSubmissionColumnMinWidthString('workOrderCode', 160)"
+              v-if="isSubmissionColumnVisible('completionQuantity')"
+              :label="completionQuantityColumnLabel"
+              prop="completionQuantity"
+              :min-width="getSubmissionColumnMinWidthString('completionQuantity', 130)"
             >
-              <template #default="{ row }">{{ row.workOrderCode || '--' }}</template>
+              <template #default="{ row }">
+                <span data-team-leader-completion-quantity>
+                  {{ resolveSubmissionCompletionQuantity(row) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isSubmissionColumnVisible('lossQuantity')"
+              label="损耗数量"
+              prop="lossQuantity"
+              :min-width="getSubmissionColumnMinWidthString('lossQuantity', 120)"
+            >
+              <template #default="{ row }">
+                <span data-team-leader-loss-quantity>
+                  {{ resolveSubmissionLossQuantity(row) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isSubmissionColumnVisible('lossBreakdown')"
+              label="损耗明细"
+              prop="lossBreakdown"
+              :min-width="getSubmissionColumnMinWidthString('lossBreakdown', 210)"
+            >
+              <template #default="{ row }">
+                <div class="team-leader-workbench__structured-list" data-team-leader-loss-breakdown>
+                  <span
+                    v-for="item in resolveSubmissionLossBreakdownItems(row)"
+                    :key="item.key"
+                    class="team-leader-workbench__structured-pill"
+                  >
+                    {{ item.label }}：{{ item.valueText }}
+                  </span>
+                </div>
+              </template>
             </el-table-column>
             <el-table-column
               v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('product')"
@@ -554,40 +588,48 @@
               </template>
             </el-table-column>
             <el-table-column
-              v-if="isSubmissionColumnVisible('pqcResult')"
-              label="PQC"
-              prop="pqcResult"
-              :min-width="getSubmissionColumnMinWidthString('pqcResult', 130)"
+              v-if="isSubmissionColumnVisible('equipmentSnapshot')"
+              label="设备"
+              prop="equipmentSnapshot"
+              :min-width="getSubmissionColumnMinWidthString('equipmentSnapshot', 220)"
             >
               <template #default="{ row }">
-                <el-tag :type="resolvePqcTagType(row.pqcResult)" effect="plain">
-                  {{ row.pqcSummary || row.pqcResult || '--' }}
-                </el-tag>
+                <div class="team-leader-workbench__structured-list" data-team-leader-equipment-snapshot>
+                  <span
+                    v-for="item in resolveSubmissionEquipmentItems(row)"
+                    :key="item.key"
+                    class="team-leader-workbench__structured-pill"
+                  >
+                    {{ item.valueText }}
+                  </span>
+                </div>
               </template>
             </el-table-column>
             <el-table-column
-              v-if="isSubmissionColumnVisible('submissionContent')"
-              label="提交内容"
-              prop="submissionContent"
-              :min-width="getSubmissionColumnMinWidthString('submissionContent', 220)"
+              v-if="isSubmissionColumnVisible('parameterSnapshot')"
+              label="参数明细"
+              prop="parameterSnapshot"
+              :min-width="getSubmissionColumnMinWidthString('parameterSnapshot', 280)"
             >
               <template #default="{ row }">
-                <div
-                  v-if="isPqcSubmissionRow(row)"
-                  class="team-leader-workbench__pqc-content"
-                  data-pqc-leader-submission-content
-                >
+                <div class="team-leader-workbench__parameter-list" data-team-leader-parameter-snapshot>
                   <div
-                    v-for="item in resolvePqcSubmissionContentItems(row)"
+                    v-for="item in resolveSubmissionParameterItems(row)"
                     :key="item.key"
-                    class="team-leader-workbench__pqc-content-item"
-                    :data-pqc-leader-submission-entry="item.key"
+                    class="team-leader-workbench__parameter-item"
                   >
-                    <span class="team-leader-workbench__pqc-content-label">{{ item.label }}</span>
-                    <span class="team-leader-workbench__pqc-content-value">{{ item.valueText }}</span>
+                    <span class="team-leader-workbench__parameter-label">{{ item.label }}</span>
+                    <span
+                      class="team-leader-workbench__parameter-value"
+                      :class="{ 'is-out-of-range': item.outOfRange }"
+                    >
+                      {{ item.valueText }}
+                    </span>
+                    <span v-if="item.metaText" class="team-leader-workbench__parameter-meta">
+                      {{ item.metaText }}
+                    </span>
                   </div>
                 </div>
-                <template v-else>{{ resolveProductionSubmissionSummary(row) }}</template>
               </template>
             </el-table-column>
             <el-table-column
@@ -1905,11 +1947,13 @@ const submissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'submittedAt', label: '提交时间', minWidth: 160 },
   { key: 'employeeUser', label: 'PQC检验员/员工', minWidth: 140 },
   { key: 'process', label: '工序', minWidth: 150 },
-  { key: 'workOrderCode', label: '生产工单', minWidth: 160 },
+  { key: 'completionQuantity', label: '完成/检验数量', minWidth: 130 },
+  { key: 'lossQuantity', label: '损耗数量', minWidth: 120 },
+  { key: 'lossBreakdown', label: '损耗明细', minWidth: 210 },
   { key: 'product', label: '产品', minWidth: 180 },
   { key: 'inspectionTask', label: '检验类型/轮次', minWidth: 150 },
-  { key: 'pqcResult', label: 'PQC', minWidth: 130 },
-  { key: 'submissionContent', label: '提交内容', minWidth: 220 },
+  { key: 'equipmentSnapshot', label: '设备', minWidth: 220 },
+  { key: 'parameterSnapshot', label: '参数明细', minWidth: 280 },
   { key: 'auditCopyStatus', label: '审核副本', minWidth: 130 },
   { key: 'processInspectionAggregation', label: '过程检验汇集', minWidth: 180 },
   { key: 'submissionReviewStatus', label: '复核判定', minWidth: 190 },
@@ -1981,6 +2025,9 @@ const employeeColumnLabel = computed(() =>
 )
 const employeeDetailLabel = computed(() =>
   activeLeaderTab.value === 'PQC' ? 'PQC检验员' : '实际员工'
+)
+const completionQuantityColumnLabel = computed(() =>
+  activeLeaderTab.value === 'PQC' ? '检验数量' : '完成数量'
 )
 const detailDrawerTitle = computed(() =>
   activeLeaderTab.value === 'PQC' ? 'PQC检验员提交详情' : '员工提交详情'
@@ -2895,6 +2942,22 @@ interface PqcItemSnapshotDetail {
   judgement?: string
 }
 
+interface SubmissionStructuredItem {
+  key: string
+  label: string
+  valueText: string
+  metaText?: string
+  outOfRange?: boolean
+}
+
+interface ProductionParameterRuleSnapshot {
+  parameterCode?: string
+  parameterName?: string
+  unit?: string
+  lowerLimit?: number | string
+  upperLimit?: number | string
+}
+
 const PQC_SUBMISSION_CONTENT_MISSING_ITEMS: PqcSubmissionContentItem[] = [
   {
     key: 'missing',
@@ -3007,6 +3070,284 @@ const resolvePqcItemSnapshotDetails = (row: ProcessPoolTimelineEventVO) => {
     }
   }
   return []
+}
+
+const formatSubmissionQuantity = (value: unknown) => {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return '--'
+  }
+  return `${String(value).trim()} 件`
+}
+
+const formatSubmissionText = (value: unknown, emptyText = '--') => {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return emptyText
+  }
+  return String(value).trim()
+}
+
+const readSubmissionNestedRecord = (
+  payload: PqcSubmissionPayloadRecord | undefined,
+  key: string
+) => {
+  const value = payload?.[key]
+  return isRecord(value) ? value : undefined
+}
+
+const readSubmissionPayloadValue = (
+  payload: PqcSubmissionPayloadRecord | undefined,
+  keys: string[]
+) => {
+  const fieldValues = readSubmissionNestedRecord(payload, 'fieldValues')
+  const pqcDraft = readSubmissionNestedRecord(payload, 'pqcDraft')
+  for (const key of keys) {
+    const directValue = payload?.[key]
+    if (directValue !== undefined && directValue !== null && String(directValue).trim() !== '') {
+      return directValue
+    }
+    const fieldValue = fieldValues?.[key]
+    if (fieldValue !== undefined && fieldValue !== null && String(fieldValue).trim() !== '') {
+      return fieldValue
+    }
+    const draftValue = pqcDraft?.[key]
+    if (draftValue !== undefined && draftValue !== null && String(draftValue).trim() !== '') {
+      return draftValue
+    }
+  }
+  return undefined
+}
+
+const resolveSubmissionCompletionQuantity = (row: ProcessPoolTimelineEventVO) => {
+  const { rootPayload } = resolvePqcPayloadPair(row)
+  const value = isPqcSubmissionRow(row)
+    ? readSubmissionPayloadValue(rootPayload, ['actualInspectionQuantity', 'inspectionQuantity'])
+    : readSubmissionPayloadValue(rootPayload, ['outputQuantity', 'OUTPUT_QUANTITY'])
+  return formatSubmissionQuantity(value)
+}
+
+const resolveSubmissionLossQuantityValue = (row: ProcessPoolTimelineEventVO) => {
+  const { rootPayload } = resolvePqcPayloadPair(row)
+  return isPqcSubmissionRow(row)
+    ? readSubmissionPayloadValue(rootPayload, ['scrapQuantity', 'lossQuantity', 'SCRAP_QUANTITY'])
+    : readSubmissionPayloadValue(rootPayload, ['lossQuantity', 'SCRAP_QUANTITY'])
+}
+
+const resolveSubmissionLossQuantity = (row: ProcessPoolTimelineEventVO) =>
+  formatSubmissionQuantity(resolveSubmissionLossQuantityValue(row))
+
+const normalizeSubmissionArray = (value: unknown) => Array.isArray(value) ? value : []
+
+const resolveSubmissionLossBreakdownItems = (
+  row: ProcessPoolTimelineEventVO
+): SubmissionStructuredItem[] => {
+  const { rootPayload } = resolvePqcPayloadPair(row)
+  const lossQuantity = resolveSubmissionLossQuantityValue(row)
+  if (isPqcSubmissionRow(row)) {
+    const description = readSubmissionPayloadValue(rootPayload, [
+      'nonconformanceDescription',
+      'defectDescription'
+    ])
+    return [{
+      key: 'pqc-loss',
+      label: formatSubmissionText(description, '不良/损耗'),
+      valueText: formatSubmissionQuantity(lossQuantity)
+    }]
+  }
+  const details = normalizeSubmissionArray(rootPayload?.lossReasonDetails)
+    .map((item, index): SubmissionStructuredItem | undefined => {
+      if (!isRecord(item)) {
+        return undefined
+      }
+      const quantity = item.quantity ?? item.lossQuantity
+      return {
+        key: String(item.reasonId ?? item.reasonCode ?? index),
+        label: formatSubmissionText(item.reasonName ?? item.reasonCode, '损耗原因'),
+        valueText: formatSubmissionQuantity(quantity)
+      }
+    })
+    .filter((item): item is SubmissionStructuredItem => Boolean(item))
+  if (details.length) {
+    return details
+  }
+  const reasonName = readSubmissionPayloadValue(rootPayload, [
+    'lossReasonNameSnapshot',
+    'lossReasonCodeSnapshot'
+  ])
+  return [{
+    key: 'production-loss',
+    label: formatSubmissionText(reasonName, '损耗原因'),
+    valueText: formatSubmissionQuantity(lossQuantity)
+  }]
+}
+
+const resolveSubmissionEquipmentItems = (
+  row: ProcessPoolTimelineEventVO
+): SubmissionStructuredItem[] => {
+  if (isPqcSubmissionRow(row)) {
+    const seen = new Set<string>()
+    const items = resolvePqcItemSnapshotDetails(row)
+      .map((detail, index): SubmissionStructuredItem | undefined => {
+        const equipment = [
+          detail.selectedEquipmentName || detail.selectedEquipmentCode,
+          detail.selectedEquipmentNumber
+        ].filter(Boolean).join(' / ')
+        if (!equipment) {
+          return undefined
+        }
+        const key = `${detail.selectedEquipmentId || detail.selectedEquipmentCode || index}-${detail.selectedEquipmentNumber || ''}`
+        if (seen.has(key)) {
+          return undefined
+        }
+        seen.add(key)
+        return {
+          key,
+          label: detail.itemName || detail.itemCode || '检验项目',
+          valueText: equipment
+        }
+      })
+      .filter((item): item is SubmissionStructuredItem => Boolean(item))
+    return items.length ? items : [{ key: 'empty-equipment', label: '设备', valueText: '--' }]
+  }
+  const { rootPayload } = resolvePqcPayloadPair(row)
+  const equipmentParameters = readSubmissionNestedRecord(rootPayload, 'equipmentParameters')
+  const deviceText = readSubmissionPayloadValue(rootPayload, ['DEVICE'])
+  const deviceLabels = equipmentParameters
+    ? Object.keys(equipmentParameters)
+    : String(deviceText || '').split('、').map((item) => item.trim()).filter(Boolean)
+  return deviceLabels.length
+    ? deviceLabels.map((label) => ({ key: label, label: '设备', valueText: label }))
+    : [{ key: 'empty-equipment', label: '设备', valueText: '--' }]
+}
+
+const toFiniteDisplayNumber = (value: unknown) => {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return undefined
+  }
+  const normalized = String(value).replace(/,/g, '').trim()
+  const numericValue = Number(normalized)
+  return Number.isFinite(numericValue) ? numericValue : undefined
+}
+
+const isValueOutOfRange = (value: unknown, lower?: unknown, upper?: unknown) => {
+  const numericValue = toFiniteDisplayNumber(value)
+  if (numericValue === undefined) {
+    return false
+  }
+  const lowerValue = toFiniteDisplayNumber(lower)
+  const upperValue = toFiniteDisplayNumber(upper)
+  return (
+    (lowerValue !== undefined && numericValue < lowerValue) ||
+    (upperValue !== undefined && numericValue > upperValue)
+  )
+}
+
+const isPqcSampleOutOfRange = (value: unknown, detail: PqcItemSnapshotDetail) =>
+  isValueOutOfRange(value, detail.standardLowerLimit, detail.standardUpperLimit)
+
+const formatParameterRangeText = (lower?: unknown, upper?: unknown, unit = '') => {
+  if ((lower === undefined || lower === null || lower === '') &&
+    (upper === undefined || upper === null || upper === '')) {
+    return ''
+  }
+  return `范围 ${lower ?? '--'} ~ ${upper ?? '--'}${unit}`
+}
+
+const normalizeProductionParameterRules = (value: unknown): ProductionParameterRuleSnapshot[] => {
+  if (Array.isArray(value)) {
+    return value.filter(isRecord).map((item) => ({
+      parameterCode: formatSubmissionText(item.parameterCode, ''),
+      parameterName: formatSubmissionText(item.parameterName, ''),
+      unit: formatSubmissionText(item.unit, ''),
+      lowerLimit: item.lowerLimit as number | string | undefined,
+      upperLimit: item.upperLimit as number | string | undefined
+    }))
+  }
+  if (isRecord(value)) {
+    return Object.entries(value).map(([parameterCode, item]) => {
+      const record = isRecord(item) ? item : {}
+      return {
+        parameterCode,
+        parameterName: formatSubmissionText(record.parameterName, ''),
+        unit: formatSubmissionText(record.unit, ''),
+        lowerLimit: record.lowerLimit as number | string | undefined,
+        upperLimit: record.upperLimit as number | string | undefined
+      }
+    })
+  }
+  return []
+}
+
+const resolveProductionParameterRule = (
+  payload: PqcSubmissionPayloadRecord | undefined,
+  deviceLabel: string,
+  parameterCode: string
+) => {
+  const ruleRoot = readSubmissionNestedRecord(payload, 'equipmentParameterRules')
+  const rules = normalizeProductionParameterRules(ruleRoot?.[deviceLabel])
+  return rules.find((rule) => rule.parameterCode === parameterCode)
+}
+
+const resolveProductionParameterItems = (
+  payload: PqcSubmissionPayloadRecord | undefined
+): SubmissionStructuredItem[] => {
+  const equipmentParameters = readSubmissionNestedRecord(payload, 'equipmentParameters')
+  if (!equipmentParameters) {
+    return [{ key: 'empty-parameter', label: '参数', valueText: '--' }]
+  }
+  const items: SubmissionStructuredItem[] = []
+  Object.entries(equipmentParameters).forEach(([deviceLabel, parameterValues]) => {
+    if (!isRecord(parameterValues)) {
+      items.push({
+        key: deviceLabel,
+        label: deviceLabel,
+        valueText: formatSubmissionText(parameterValues)
+      })
+      return
+    }
+    Object.entries(parameterValues).forEach(([parameterCode, value]) => {
+      const rule = resolveProductionParameterRule(payload, deviceLabel, parameterCode)
+      const unit = rule?.unit || ''
+      items.push({
+        key: `${deviceLabel}-${parameterCode}`,
+        label: [deviceLabel, rule?.parameterName || parameterCode].filter(Boolean).join(' · '),
+        valueText: `${formatSubmissionText(value)}${unit}`,
+        metaText: formatParameterRangeText(rule?.lowerLimit, rule?.upperLimit, unit),
+        outOfRange: isValueOutOfRange(value, rule?.lowerLimit, rule?.upperLimit)
+      })
+    })
+  })
+  return items.length ? items : [{ key: 'empty-parameter', label: '参数', valueText: '--' }]
+}
+
+const resolvePqcParameterItems = (row: ProcessPoolTimelineEventVO): SubmissionStructuredItem[] => {
+  const details = resolvePqcItemSnapshotDetails(row)
+  const items = details.flatMap((detail, detailIndex) => {
+    const values = detail.sampleValues?.length ? detail.sampleValues : ['未填写']
+    return values.map((value, sampleIndex) => {
+      const unit = detail.standardUnit || ''
+      return {
+        key: `${detail.itemCode || detailIndex}-${sampleIndex}`,
+        label: `${detail.itemName || detail.itemCode || '检验项目'}#${sampleIndex + 1}`,
+        valueText: `${formatSubmissionText(value)}${unit}`,
+        metaText: [
+          formatPqcSnapshotStandard(detail),
+          detail.inspectionMethod ? `方法：${detail.inspectionMethod}` : '',
+          detail.judgement ? `判定：${detail.judgement}` : ''
+        ].filter(Boolean).join('；'),
+        outOfRange: isPqcSampleOutOfRange(value, detail)
+      }
+    })
+  })
+  return items.length ? items : [{ key: 'empty-parameter', label: '参数', valueText: '--' }]
+}
+
+const resolveSubmissionParameterItems = (
+  row: ProcessPoolTimelineEventVO
+): SubmissionStructuredItem[] => {
+  const { rootPayload } = resolvePqcPayloadPair(row)
+  return isPqcSubmissionRow(row)
+    ? resolvePqcParameterItems(row)
+    : resolveProductionParameterItems(rootPayload)
 }
 
 const formatPqcSnapshotSampleValues = (detail: PqcItemSnapshotDetail) =>

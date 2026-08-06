@@ -15,6 +15,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
@@ -35,7 +36,9 @@ import java.util.Objects;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_INSPECTION_TASK_IDENTITY_CONFLICT;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_EFFECTIVE_SCHEDULE_UNIQUE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED;
 
@@ -57,6 +60,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProWorkOrderService workOrderService;
+    private final MesProWorkOrderMapper workOrderMapper;
     private final MesProcessPoolTeamMaintenanceAuditMapper auditMapper;
     private final MesProScheduleOrderMapper scheduleOrderMapper;
     private final MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
@@ -69,6 +73,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     public MesTeamLeaderActiveOrderServiceImpl(MesProcessPoolActiveOrderMapper activeOrderMapper,
                                                MesProWorkOrderService workOrderService,
+                                               MesProWorkOrderMapper workOrderMapper,
                                                MesProcessPoolTeamMaintenanceAuditMapper auditMapper,
                                                MesProScheduleOrderMapper scheduleOrderMapper,
                                                MesProScheduleOrderProcessMapper scheduleOrderProcessMapper,
@@ -80,6 +85,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                                MesPqcInspectionTaskMapper pqcInspectionTaskMapper) {
         this.activeOrderMapper = activeOrderMapper;
         this.workOrderService = workOrderService;
+        this.workOrderMapper = workOrderMapper;
         this.auditMapper = auditMapper;
         this.scheduleOrderMapper = scheduleOrderMapper;
         this.scheduleOrderProcessMapper = scheduleOrderProcessMapper;
@@ -92,32 +98,44 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     }
 
     @Override
+    public List<MesTeamLeaderActiveOrderCandidateBO> searchActiveOrderCandidates(String keyword) {
+        return workOrderMapper.selectConfirmedCandidatesByCode(keyword, 20).stream()
+                .map(workOrder -> MesTeamLeaderActiveOrderCandidateBO.builder()
+                        .workOrderId(workOrder.getId())
+                        .workOrderCode(workOrder.getCode())
+                        .build())
+                .toList();
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public Long addActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO) {
-        if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getWorkOrderId() == null
-                || reqBO.getRouteId() == null || reqBO.getRouteVersionId() == null) {
+        if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getWorkOrderId() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder");
-        }
-        MesProcessPoolActiveOrderDO existing = selectExistingActiveOrder(reqBO);
-        if (existing != null) {
-            recordTransferTracesIfRequested(existing, reqBO.getTransferIds());
-            return existing.getId();
         }
         MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderConfirmed(reqBO.getWorkOrderId());
         BigDecimal erpFixedQuantity = workOrder.getQuantity();
         if (erpFixedQuantity == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder.erpFixedQuantitySnapshot");
         }
-        MesProScheduleOrderDO scheduleOrder = requireMatchingScheduleOrder(reqBO);
-        MesProcessPoolActiveOrderDO removed = selectRemovedActiveOrder(reqBO);
+        MesProScheduleOrderDO scheduleOrder = requireUniqueEffectiveScheduleOrder(reqBO.getWorkOrderId());
+        Long routeId = scheduleOrder.getRouteId();
+        Long routeVersionId = scheduleOrder.getRouteVersionId();
+        MesProcessPoolActiveOrderDO existing = selectExistingActiveOrder(reqBO.getWorkOrderId(), routeId,
+                routeVersionId);
+        if (existing != null) {
+            return existing.getId();
+        }
+        MesProcessPoolActiveOrderDO removed = selectRemovedActiveOrder(reqBO.getWorkOrderId(), routeId,
+                routeVersionId);
         if (removed != null) {
             return reactivateRemovedActiveOrder(reqBO, removed);
         }
         MesProcessPoolActiveOrderDO activeOrder = MesProcessPoolActiveOrderDO.builder()
                 .leaderUserId(reqBO.getLeaderUserId())
                 .workOrderId(reqBO.getWorkOrderId())
-                .routeId(reqBO.getRouteId())
-                .routeVersionId(reqBO.getRouteVersionId())
+                .routeId(routeId)
+                .routeVersionId(routeVersionId)
                 .erpFixedQuantitySnapshot(erpFixedQuantity)
                 .activeStatus(STATUS_ACTIVE)
                 .businessStatus(STATUS_ACTIVE)
@@ -127,12 +145,13 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         try {
             activeOrderMapper.insert(activeOrder);
         } catch (DuplicateKeyException ex) {
-            MesProcessPoolActiveOrderDO concurrentlyAdded = selectExistingActiveOrder(reqBO);
+            MesProcessPoolActiveOrderDO concurrentlyAdded = selectExistingActiveOrder(reqBO.getWorkOrderId(), routeId,
+                    routeVersionId);
             if (concurrentlyAdded != null) {
-                recordTransferTracesIfRequested(concurrentlyAdded, reqBO.getTransferIds());
                 return concurrentlyAdded.getId();
             }
-            MesProcessPoolActiveOrderDO concurrentlyRemoved = selectRemovedActiveOrder(reqBO);
+            MesProcessPoolActiveOrderDO concurrentlyRemoved = selectRemovedActiveOrder(reqBO.getWorkOrderId(), routeId,
+                    routeVersionId);
             if (concurrentlyRemoved != null) {
                 return reactivateRemovedActiveOrder(reqBO, concurrentlyRemoved);
             }
@@ -142,7 +161,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 activeOrder.getId());
         insertProcessSnapshots(activeOrder, erpFixedQuantity, enabledProcesses);
         insertPqcInspectionTasks(activeOrder, workOrder, scheduleOrder, enabledProcesses);
-        recordTransferTracesIfRequested(activeOrder, reqBO.getTransferIds());
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "ADD_ACTIVE_ORDER",
                 "ACTIVE_ORDER", activeOrder.getId(), null, activeOrder.toString());
         return activeOrder.getId();

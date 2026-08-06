@@ -7,8 +7,8 @@ import lombok.experimental.Accessors;
 @Data
 @Builder
 @Accessors(chain = true)
-public class MesTeamLeaderActiveOrderAddReqBO {
+public class MesTeamLeaderActiveOrderCandidateBO {
 
-    private Long leaderUserId;
     private Long workOrderId;
+    private String workOrderCode;
 }

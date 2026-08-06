@@ -19,54 +19,47 @@ const productionHeader = source.slice(productionBlockStart, productionHeaderEnd)
 
 assert.match(
   productionHeader,
-  /ref="productionScreenRef"/,
-  'production fill fullscreen must target the production operator screen.'
+  /class="frontline-operator-screen screen"/,
+  'production fill must render the reference 1920 prototype screen.'
 )
 assert.match(
   productionHeader,
-  /frontline-production-fullscreen-button/,
-  'production fill top-right action must use a dedicated fullscreen button class.'
+  /class="frontline-home-button home-btn"/,
+  'production fill top-right action must use the reference Home button class.'
 )
 assert.match(
   productionHeader,
-  /@click="handleProductionFullscreenToggle"/,
-  'production fill top-right action must toggle fullscreen instead of routing home.'
-)
-assert.match(
-  productionHeader,
-  /{{\s*productionFullscreenButtonLabel\s*}}/,
-  'production fill top-right action must render a state-driven label.'
+  /@click="handleHome"[\s\S]*>\s*主页\s*<\/button>/,
+  'production fill top-right action must route Home and display 主页.'
 )
 assert.doesNotMatch(
   productionHeader,
-  /@click="handleHome"[\s\S]*主页/,
-  'production fill default header must not keep the old Home route button.'
+  /ref="productionScreenRef"|frontline-production-fullscreen-button|handleProductionFullscreenToggle|productionFullscreenButtonLabel|aria-pressed="isProductionFullscreen"/,
+  'production fill must not keep the removed fullscreen toggle contract.'
 )
 
-for (const token of [
+for (const removedToken of [
   'const productionScreenRef = ref<HTMLElement>()',
   'const isProductionFullscreen = ref(false)',
   "isProductionFullscreen.value ? '主页' : '最大化'",
   'const syncProductionFullscreenState = () =>',
   'document.fullscreenElement === productionScreenRef.value',
   'const handleProductionFullscreenToggle = async () =>',
-  'await screen.requestFullscreen()',
-  'await document.exitFullscreen()',
   "document.addEventListener('fullscreenchange', syncProductionFullscreenState)",
   "document.removeEventListener('fullscreenchange', syncProductionFullscreenState)"
 ]) {
-  assert.ok(source.includes(token), `production fullscreen contract missing: ${token}`)
+  assert.ok(!source.includes(removedToken), `production fullscreen code must be removed: ${removedToken}`)
 }
 
 assert.match(
   source,
-  /\.frontline-operator-screen:fullscreen\s*\{[\s\S]*width:\s*100vw[\s\S]*height:\s*100vh/,
-  'native fullscreen production screen must fill the viewport.'
+  /\.frontline-operator-screen\s*\{[\s\S]*width:\s*1920px;[\s\S]*height:\s*1080px;[\s\S]*grid-template-rows:\s*130px 1fr 126px;/,
+  'production screen must use the fixed reference prototype canvas.'
 )
 assert.match(
   source,
-  /\.frontline-operator-screen\.is-frontline-fullscreen\s+\.frontline-production-fullscreen-button/,
-  'fullscreen state must keep the Home/restore button visually aligned with the approved screenshot.'
+  /\.frontline-production-submit-bar\s*\{[\s\S]*grid-template-columns:\s*300px 1fr;/,
+  'production footer must keep the reference 300px + 1fr button layout.'
 )
 
-console.log('PASS: eDHR frontline production fullscreen toggle static contract')
+console.log('PASS: eDHR frontline production prototype home action static contract')

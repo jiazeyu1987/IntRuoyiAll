@@ -3,7 +3,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { chromium } = require('playwright')
 
-const TASK_ID = '20260804-production-fill-fullscreen-toggle'
+const TASK_ID = '20260806-frontline-production-prototype-parity'
 const ROUTE = '/mes/pro/feedback/edhr-batch-production-fill'
 const OUTPUT_DIR = path.resolve(process.cwd(), 'test-results', TASK_ID)
 const DEFAULT_CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
@@ -257,34 +257,28 @@ async function readButtonText(button) {
 
 async function assertButtonText(button, expected) {
   const actual = await readButtonText(button)
-  assert.equal(actual, expected, `fullscreen button text should be ${expected}, got ${actual}`)
+  assert.equal(actual, expected, `prototype Home button text should be ${expected}, got ${actual}`)
 }
 
-async function verifyProductionFullscreen(page) {
+async function verifyProductionPrototype(page) {
   await page.goto(`${BASE_URL}${ROUTE}`, { waitUntil: 'domcontentloaded', timeout: 90000 })
   const screen = page.locator('[data-frontline-production-operator]').first()
   await screen.waitFor({ state: 'visible', timeout: 90000 })
 
-  const button = screen.locator('.frontline-production-fullscreen-button').first()
+  const box = await screen.boundingBox()
+  assert.ok(box, 'production prototype screen must have a visible bounding box.')
+  assert.equal(Math.round(box.width), 1920, `prototype screen width must be 1920, got ${box.width}`)
+  assert.equal(Math.round(box.height), 1080, `prototype screen height must be 1080, got ${box.height}`)
+
+  const button = screen.locator('.home-btn').first()
   await button.waitFor({ state: 'visible', timeout: 30000 })
-  await assertButtonText(button, '最大化')
-
-  await button.click()
-  await page.waitForFunction(() => {
-    const target = document.querySelector('[data-frontline-production-operator]')
-    return document.fullscreenElement === target
-  }, null, { timeout: 30000 })
   await assertButtonText(button, '主页')
-  await page.screenshot({
-    path: path.join(OUTPUT_DIR, 'production-fill-fullscreen.png'),
-    fullPage: true
-  })
 
-  await button.click()
-  await page.waitForFunction(() => document.fullscreenElement === null, null, { timeout: 30000 })
-  await assertButtonText(button, '最大化')
+  const legacyFullscreenButtonCount = await screen.locator('.frontline-production-fullscreen-button').count()
+  assert.equal(legacyFullscreenButtonCount, 0, 'production prototype must not render the removed fullscreen button.')
+
   await page.screenshot({
-    path: path.join(OUTPUT_DIR, 'production-fill-restored.png'),
+    path: path.join(OUTPUT_DIR, 'production-fill-prototype.png'),
     fullPage: true
   })
 }
@@ -325,8 +319,8 @@ async function run() {
 
   try {
     await login(page)
-    await verifyProductionFullscreen(page)
-    assert.deepEqual(targetWriteRequests, [], 'production fullscreen E2E must not send MES write requests')
+    await verifyProductionPrototype(page)
+    assert.deepEqual(targetWriteRequests, [], 'production prototype E2E must not send MES write requests')
     assert.deepEqual(targetFailures, [], `target MES request failures: ${JSON.stringify(targetFailures, null, 2)}`)
     assert.deepEqual(pageErrors, [], `page errors: ${pageErrors.join('\n')}`)
 
@@ -343,13 +337,12 @@ async function run() {
       consoleErrors,
       pageErrors,
       screenshots: [
-        path.join(OUTPUT_DIR, 'production-fill-fullscreen.png'),
-        path.join(OUTPUT_DIR, 'production-fill-restored.png')
+        path.join(OUTPUT_DIR, 'production-fill-prototype.png')
       ]
     }
     writeResult(result)
     console.log(
-      `PASS: production fill fullscreen real E2E route=${ROUTE} tenant=${CREDENTIALS.tenant} username=${CREDENTIALS.username}`
+      `PASS: production fill prototype parity real E2E route=${ROUTE} tenant=${CREDENTIALS.tenant} username=${CREDENTIALS.username}`
     )
   } finally {
     await context.close().catch(() => undefined)

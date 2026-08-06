@@ -37,11 +37,16 @@
 
 ## RED
 
-- `node tests\e2e\pqc-personnel-unified-status-list-static.spec.cjs` -> FAIL, expected because the old PQC personnel actions still rendered `v-model="pqcPersonnelQuery.enabled"` and split enabled/disabled inspectors.
+- RED: `node tests\e2e\pqc-personnel-unified-status-list-static.spec.cjs` -> FAIL, expected because the old PQC personnel actions still rendered `v-model="pqcPersonnelQuery.enabled"` and split enabled/disabled inspectors.
 
 ## GREEN
 
-- pending
+- GREEN: `node tests\e2e\pqc-personnel-unified-status-list-static.spec.cjs` -> PASS.
+- GREEN: `node tests\e2e\pqc-leader-personnel-tab-static.spec.js` -> PASS.
+- GREEN: `node tests\e2e\pqc-leader-module-tabs-static.spec.js` -> PASS.
+- GREEN: `node tests\e2e\pqc-leader-standard-list-template-static.spec.js` -> PASS.
+- GREEN: `node tests\e2e\production-personnel-unified-status-list-static.spec.cjs` -> PASS after keeping production and PQC disabled-name CSS rules separate.
+- GREEN: `pnpm ts:check` -> PASS.
 
 ## Responsive Accessibility Loading Empty Error Permission
 
@@ -53,8 +58,9 @@
 ## E2E Or Component Verification Path
 
 - 当前先以静态合同覆盖用户可见结构、请求参数和样式契约。
-- 如需真实页面 E2E，应使用已确认运行态、PQC 组长账号和测试租户，不以 API-only 替代。
+- 未执行真实 Playwright E2E；本任务未发现专用真实路径脚本和已确认的禁用 PQC 人员 fixture，因此不把静态合同或 API-only 验证冒充真实 E2E PASS。
+- 如需真实页面 E2E，应使用已确认运行态、PQC 组长账号、测试租户和同时包含启用/禁用 PQC 人员的任务自有或只读数据。
 
 ## Blockers And Follow-Up Skills
 
-- pending
+- Git closeout blocked by concurrent baseline commit `c4675d197` mixing this task implementation with unrelated task files; implementation is present in current HEAD, but independent commit/push is not safe without user direction.

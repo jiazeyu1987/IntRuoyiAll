@@ -20,6 +20,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelLinkReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelStatusUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCandidateRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderTransferTraceRespVO;
@@ -51,6 +52,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPers
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderTransferTraceService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeBindingService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCandidateBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRemoveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportAllocationLineReqBO;
@@ -63,6 +65,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderSub
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderSubmissionReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderTraceService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderWorkbenchService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesWorkOrderAbnormalReportReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesWorkOrderAbnormalReportService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -89,6 +92,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -177,6 +181,29 @@ class MesProcessPoolTeamLeaderControllerTest {
     }
 
     @Test
+    void markAndReportWorkOrderAbnormal_acceptsOnlyOrderAndDescription() {
+        when(abnormalReportService.markAndReport(org.mockito.ArgumentMatchers.any())).thenReturn(8101L);
+
+        MesWorkOrderAbnormalReportReqVO reqVO = new MesWorkOrderAbnormalReportReqVO()
+                .setWorkOrderId(5001L)
+                .setAbnormalDescription("设备停机，影响工单交付");
+
+        CommonResult<Long> response;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(3001L);
+            response = controller.markAndReportWorkOrderAbnormal(reqVO);
+        }
+
+        assertEquals(8101L, response.getData());
+        ArgumentCaptor<MesWorkOrderAbnormalReportReqBO> captor =
+                ArgumentCaptor.forClass(MesWorkOrderAbnormalReportReqBO.class);
+        verify(abnormalReportService).markAndReport(captor.capture());
+        assertEquals(5001L, captor.getValue().getWorkOrderId());
+        assertEquals(3001L, captor.getValue().getMarkerUserId());
+        assertEquals("设备停机，影响工单交付", captor.getValue().getAbnormalDescription());
+    }
+
+    @Test
     void maintenanceRequestsInjectCurrentLeaderUserIntoServiceCommands() {
         when(employeeBindingService.addEmployeeBinding(org.mockito.ArgumentMatchers.any())).thenReturn(8201L);
         when(defectReasonCatalogService.createReason(org.mockito.ArgumentMatchers.any())).thenReturn(8301L);
@@ -248,10 +275,7 @@ class MesProcessPoolTeamLeaderControllerTest {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(3001L);
             assertEquals(8101L, controller.addActiveOrder(new MesTeamLeaderActiveOrderAddReqVO()
-                    .setWorkOrderId(9001L)
-                    .setRouteId(922119L)
-                    .setRouteVersionId(448L)
-                    .setTransferIds(List.of(5001L, 5002L))).getData());
+                    .setWorkOrderId(9001L)).getData());
             controller.removeActiveOrder(new MesTeamLeaderActiveOrderRemoveReqVO().setActiveOrderId(8101L));
             listResponse = controller.getActiveOrderList();
         }
@@ -261,9 +285,6 @@ class MesProcessPoolTeamLeaderControllerTest {
         verify(activeOrderService).addActiveOrder(addCaptor.capture());
         assertEquals(3001L, addCaptor.getValue().getLeaderUserId());
         assertEquals(9001L, addCaptor.getValue().getWorkOrderId());
-        assertEquals(922119L, addCaptor.getValue().getRouteId());
-        assertEquals(448L, addCaptor.getValue().getRouteVersionId());
-        assertEquals(List.of(5001L, 5002L), addCaptor.getValue().getTransferIds());
 
         ArgumentCaptor<MesTeamLeaderActiveOrderRemoveReqBO> removeCaptor =
                 ArgumentCaptor.forClass(MesTeamLeaderActiveOrderRemoveReqBO.class);
@@ -279,6 +300,23 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEquals("ACTIVE", listResponse.getData().get(0).getActiveStatus());
         assertEquals("ACTIVE", listResponse.getData().get(0).getBusinessStatus());
         assertEquals(0, listResponse.getData().get(0).getVersion());
+    }
+
+    @Test
+    void activeOrderCandidateEndpointReturnsWorkOrderCodeOptions() {
+        when(activeOrderService.searchActiveOrderCandidates("WO-9")).thenReturn(List.of(
+                MesTeamLeaderActiveOrderCandidateBO.builder()
+                        .workOrderId(9001L)
+                        .workOrderCode("WO-9001")
+                        .build()));
+
+        List<MesTeamLeaderActiveOrderCandidateRespVO> candidates =
+                controller.searchActiveOrderCandidates("WO-9").getData();
+
+        assertEquals(1, candidates.size());
+        assertEquals(9001L, candidates.get(0).getWorkOrderId());
+        assertEquals("WO-9001", candidates.get(0).getWorkOrderCode());
+        verify(activeOrderService).searchActiveOrderCandidates("WO-9");
     }
 
     @Test
@@ -660,6 +698,10 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEndpoint("markAndReportWorkOrderAbnormal", new Class[]{MesWorkOrderAbnormalReportReqVO.class},
                 PostMapping.class, new String[]{"/work-order/abnormal/report"},
                 "mes:pro-process-pool-team-leader:abnormal");
+        assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "routeProcessId"));
+        assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "processId"));
+        assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "sourceEventId"));
+        assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "abnormalReasonCode"));
         assertEndpoint("addEmployeeBinding", new Class[]{MesTeamEmployeeBindingSaveReqVO.class}, PostMapping.class,
                 new String[]{"/employee-binding/add"}, "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("disableEmployeeBinding", new Class[]{MesTeamEmployeeBindingDisableReqVO.class},
@@ -672,6 +714,8 @@ class MesProcessPoolTeamLeaderControllerTest {
                 "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("addActiveOrder", new Class[]{MesTeamLeaderActiveOrderAddReqVO.class}, PostMapping.class,
                 new String[]{"/active-order/add"}, "mes:pro-process-pool-team-leader:maintain");
+        assertEndpoint("searchActiveOrderCandidates", new Class[]{String.class}, GetMapping.class,
+                new String[]{"/active-order/candidates"}, "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("removeActiveOrder", new Class[]{MesTeamLeaderActiveOrderRemoveReqVO.class}, PutMapping.class,
                 new String[]{"/active-order/remove"}, "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("getActiveOrderList", new Class[]{}, GetMapping.class,
@@ -791,6 +835,15 @@ class MesProcessPoolTeamLeaderControllerTest {
             assertFalse("leaderUserId".equals(field.getName()),
                     "Client request VO must not accept leaderUserId: " + type.getName());
         }
+    }
+
+    private Field findFieldOrNull(Class<?> type, String name) {
+        for (Field field : type.getDeclaredFields()) {
+            if (name.equals(field.getName())) {
+                return field;
+            }
+        }
+        return null;
     }
 
     private void requireGetter(Class<?> type, String getterName) throws NoSuchMethodException {

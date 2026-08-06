@@ -167,6 +167,16 @@ assert.match(
 )
 assert.match(
   source,
+  /async function primeLoginTenantCache\(page,\s*config,\s*roleKey\)[\s\S]*\/admin-api\/system\/tenant\/get-id-by-name[\s\S]*localStorage\.setItem\('tenantId'[\s\S]*async function login\(page,\s*config,\s*roleKey,\s*role\)[\s\S]*primeLoginTenantCache\(page,\s*config,\s*roleKey\)/,
+  'login() must resolve the formal tenant id through the real page origin and prime tenantId cache before submitting the UI login form.'
+)
+assert.match(
+  source,
+  /const\s+loginRequestPromise\s*=\s*page\.waitForRequest[\s\S]*\/admin-api\/system\/auth\/login[\s\S]*request\.headers\(\)[\s\S]*\['tenant-id'\][\s\S]*loginTenantHeaderMissing/,
+  'login() must capture the actual login request and fail fast if the tenant-id header is missing.'
+)
+assert.match(
+  source,
   /async function runFinalActiveOrderCleanup\(browser,\s*config,\s*actionEvidence\)[\s\S]*?return await verifyActiveOrderCleanupTraceability\(page,\s*config,\s*joinEvidence\)/,
   'runFinalActiveOrderCleanup() must await cleanup verification before closing the Playwright context.'
 )

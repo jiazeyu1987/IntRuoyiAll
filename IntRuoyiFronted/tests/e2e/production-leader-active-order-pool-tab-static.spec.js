@@ -68,8 +68,13 @@ assert.match(
 
 assert.match(
   source,
-  /<el-dialog[\s\S]*data-team-leader-active-order-add-dialog[\s\S]*title="新增活跃订单"[\s\S]*data-team-leader-active-order-route-id[\s\S]*data-team-leader-active-order-route-version-id[\s\S]*data-team-leader-active-order-transfer-ids[\s\S]*@click="submitAddActiveOrder"/,
-  'The 新增活跃订单 button must open a dialog that submits the formal active-order payload.'
+  /<el-dialog[\s\S]*data-team-leader-active-order-add-dialog[\s\S]*title="新增活跃订单"[\s\S]*<el-form-item\s+label="订单号"[\s\S]*<el-select[\s\S]*v-model="activeOrderForm\.workOrderId"[\s\S]*filterable[\s\S]*remote[\s\S]*:remote-method="searchActiveOrderCandidates"[\s\S]*@click="submitAddActiveOrder"/,
+  'The 新增活跃订单 dialog must expose one remote searchable 订单号 el-select bound to workOrderId.'
+)
+assert.doesNotMatch(
+  source,
+  /data-team-leader-active-order-route-id|data-team-leader-active-order-route-version-id|data-team-leader-active-order-transfer-ids|label="生产订单ID"|label="路线ID"|label="路线版本ID"|label="调拨单ID列表"/,
+  'The add dialog must remove old route/version/transfer inputs and only ask for 订单号.'
 )
 assert.match(
   source,
@@ -78,8 +83,13 @@ assert.match(
 )
 assert.match(
   source,
-  /await\s+addTeamLeaderActiveOrder\(\{[\s\S]*workOrderId:[\s\S]*routeId:[\s\S]*routeVersionId:[\s\S]*transferIds:/,
-  'The dialog submit action must call the formal add API with the complete payload.'
+  /await\s+addTeamLeaderActiveOrder\(\{\s*workOrderId:\s*requirePositiveNumber\(activeOrderForm\.workOrderId,\s*'请选择订单号'\)\s*\}\)/,
+  'The dialog submit action must call the add API with workOrderId only.'
+)
+assert.doesNotMatch(
+  source,
+  /addTeamLeaderActiveOrder\(\{[\s\S]*(routeId|routeVersionId|transferIds):/,
+  'The active-order add request body must not contain old route/version/transfer fields.'
 )
 assert.match(
   source,
@@ -103,5 +113,25 @@ for (const field of [
 ]) {
   assert.ok(apiSource.includes(field), `TeamLeaderActiveOrderRespVO must include ${field}.`)
 }
+assert.match(
+  apiSource,
+  /export interface TeamLeaderActiveOrderCandidateRespVO\s*\{[\s\S]*workOrderId:\s*number[\s\S]*workOrderCode:\s*string[\s\S]*\}/,
+  'The team-leader API must expose active-order candidate response fields.'
+)
+assert.match(
+  apiSource,
+  /searchTeamLeaderActiveOrderCandidates[\s\S]*\/mes\/pro\/process-pool\/team-leader\/active-order\/candidates[\s\S]*params:\s*\{\s*keyword\s*\}/,
+  'The team-leader API must expose the active-order candidate search endpoint.'
+)
+assert.match(
+  apiSource,
+  /export interface TeamLeaderActiveOrderAddReqVO\s*\{\s*workOrderId:\s*number\s*\}/,
+  'The active-order add request type must only contain workOrderId.'
+)
+assert.doesNotMatch(
+  apiSource,
+  /interface TeamLeaderActiveOrderAddReqVO[\s\S]*(routeId|routeVersionId|transferIds):/,
+  'The active-order add request type must not expose route/version/transfer fields.'
+)
 
 console.log('PASS: production leader active-order pool tab static contract')

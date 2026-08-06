@@ -408,7 +408,7 @@ public class MesProcessPoolTeamLeaderController {
     }
 
     @GetMapping("/pqc-personnel/formal-candidates")
-    @Operation(summary = "按姓名搜索当前 PQC 组长可关联的正式检验员")
+    @Operation(summary = "按姓名搜索全量系统正式 PQC 检验员候选")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
     public CommonResult<List<MesTeamFormalUserCandidateRespVO>> searchPqcFormalEmployeeCandidates(
             @RequestParam("keyword") String keyword) {
@@ -419,7 +419,7 @@ public class MesProcessPoolTeamLeaderController {
     }
 
     @PostMapping("/pqc-personnel/formal/link")
-    @Operation(summary = "关联当前 PQC 组长可维护范围内的正式检验员")
+    @Operation(summary = "关联全公司正式用户为当前 PQC 组长检验员")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
     public CommonResult<Long> linkPqcFormalEmployee(
             @Valid @RequestBody MesPqcLeaderPersonnelLinkReqVO reqVO) {

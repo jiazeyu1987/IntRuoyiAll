@@ -8,10 +8,10 @@
 
 ## Milestones
 
-- [ ] 建立任务文档、BDD 场景和前端证据文件。
-- [ ] 编写专用静态合同，先验证旧行为 RED。
-- [ ] 修改 PQC 人员管理列表查询与展示逻辑。
-- [ ] 运行定向静态合同、相邻回归、类型检查和证据校验。
+- [x] 建立任务文档、BDD 场景和前端证据文件。
+- [x] 编写专用静态合同，先验证旧行为 RED。
+- [x] 修改 PQC 人员管理列表查询与展示逻辑。
+- [x] 运行定向静态合同、相邻回归和类型检查。
 - [ ] 完成收尾记录、清理预检和提交推送。
 
 ## Expected Verification
@@ -19,8 +19,10 @@
 - `node tests\e2e\pqc-personnel-unified-status-list-static.spec.cjs`
 - `node tests\e2e\pqc-leader-personnel-tab-static.spec.js`
 - `node tests\e2e\pqc-leader-module-tabs-static.spec.js`
+- `node tests\e2e\pqc-leader-standard-list-template-static.spec.js`
+- `node tests\e2e\production-personnel-unified-status-list-static.spec.cjs`
 - `pnpm ts:check`
-- `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue IntRuoyiFronted/tests/e2e/pqc-personnel-unified-status-list-static.spec.cjs doc/tasks/20260806-pqc-leader-personnel-unified-status-list`
+- `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue IntRuoyiFronted/tests/e2e/pqc-personnel-unified-status-list-static.spec.cjs IntRuoyiFronted/tests/e2e/pqc-leader-personnel-tab-static.spec.js doc/tasks/20260806-pqc-leader-personnel-unified-status-list`
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --self-test`
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260806-pqc-leader-personnel-unified-status-list/frontend-feature-evidence.md`
 
@@ -39,6 +41,8 @@
 
 ## Current Status
 
-in_progress
+blocked
 
-- 已创建任务目录，准备补充 BDD 和 RED 静态合同。
+- 功能实现和定向验证已完成：PQC 人员管理删除启用状态筛选，`getPqcPersonnelList()` 改为全量请求，禁用人员姓名使用红色类显示。
+- Git closeout 阻塞：并发基线提交 `c4675d197 chore: baseline pre-existing dirty worktree` 已把本任务实现文件和多个非本任务文件一起提交，本任务无法在不重写历史或推送无关文件的前提下形成独立实现提交。
+- 未执行 cleanup apply、最终完成标记和 push；需用户决定是否接受当前混合 baseline、另建干净分支重做独立提交，或由当前并发任务统一处理推送。

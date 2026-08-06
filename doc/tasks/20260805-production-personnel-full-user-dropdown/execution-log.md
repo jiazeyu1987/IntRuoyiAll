@@ -55,3 +55,10 @@
 - 等待并发 commit 与后续 worktree-add 进程退出后，`E:\IntRuoyi\.git\index.lock` 仍存在，长度为 `1,441,792` 字节，最后写入时间未继续变化。
 - 项目陈旧锁恢复门禁只允许删除“零字节、超过 60 秒、无活动 Git 进程”的精确锁文件；本锁非空，因此 fail fast，不删除、不覆盖、不使用备用 index 绕过。
 - Impact: 功能实现与测试已由 `633361dde` 进入 `origin/int_main`；本任务 cleanup/经验/验证收尾记录尚未形成最终提交和推送，M4 保持未完成。
+
+## 2026-08-06 Runtime Regression
+
+- User evidence: 截图显示“新增人员 > 正式工姓名”输入 `陈` 后下拉为 `No data`。
+- RED: 本机登录态只读请求 `GET /mes/pro/process-pool/team-leader/employee-profile/formal-candidates?keyword=陈` -> `code=0,count=0`。
+- Control: 同一登录态请求 `/system/user/simple-list` 后本地过滤昵称、账号或手机号包含 `陈` 的用户 -> 89 条，示例包含 `陈秀丽`、`陈红艳`、`陈家傲`。
+- Root cause: 当前 48081 运行包 `backend-runtime-control-acm04-pqc-source-context-20260805.jar` 及现有人员 hotpatch 包的嵌套 `yudao-module-mes/system` class 均不包含 `getUserListByNickname` 常量，仍包含 `getUserListBySubordinate`；源码已修复但运行态未刷新。

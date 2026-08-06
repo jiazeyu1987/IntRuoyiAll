@@ -1594,6 +1594,50 @@ async function waitForPostLoginNavigationSettled(page, roleKey) {
   assert.ok(!page.url().includes('/login'), `${roleKey} 登录后仍停留在登录页，不能继续真实 E2E。`)
 }
 
+async function primeLoginTenantCache(page, config, roleKey) {
+  const tenantResult = await page.evaluate(async ({ tenantName }) => {
+    const response = await fetch(
+      `/admin-api/system/tenant/get-id-by-name?name=${encodeURIComponent(tenantName)}`,
+      { method: 'GET' }
+    )
+    let body = {}
+    try {
+      body = await response.json()
+    } catch (error) {
+      return {
+        status: 'FAIL',
+        httpStatus: response.status,
+        message: `租户解析返回非 JSON：${error.message}`
+      }
+    }
+    const tenantId = Number(body?.data)
+    const businessOk = body?.code === 0 || body?.code === 200
+    if (!response.ok || !businessOk || !Number.isFinite(tenantId) || tenantId <= 0) {
+      return {
+        status: 'FAIL',
+        httpStatus: response.status,
+        code: body?.code,
+        message: body?.msg || body?.message || '租户解析未返回有效 tenant-id'
+      }
+    }
+    const now = Date.now()
+    localStorage.setItem('tenantId', JSON.stringify({
+      c: now,
+      e: now + 30 * 24 * 60 * 60 * 1000,
+      v: JSON.stringify(tenantId)
+    }))
+    return { status: 'PASS', tenantId }
+  }, { tenantName: config.tenant })
+  if (tenantResult.status !== 'PASS') {
+    failFast(`${roleKey} 登录前租户解析失败：${tenantResult.message}`, [{
+      key: 'loginTenantResolutionFailed',
+      category: 'E2E_RUNTIME',
+      description: `${roleKey} 通过真实页面源访问 /system/tenant/get-id-by-name 未取得有效 tenant-id；HTTP=${tenantResult.httpStatus || 'unknown'}，业务=${tenantResult.code || 'unknown'}。`
+    }])
+  }
+  return tenantResult.tenantId
+}
+
 async function login(page, config, roleKey, role) {
   const loginUrl = new URL('/login', config.frontendUrl)
   loginUrl.searchParams.set('redirect', '/index')
@@ -1603,21 +1647,45 @@ async function login(page, config, roleKey, role) {
   if ((await form.locator('.verify-img-panel, .verify-bar-area, input[placeholder="请输入验证码"]').count()) > 0) {
     failFast(`${roleKey} 登录页启用了验证码，无法执行无人值守真实 E2E。`)
   }
+  const tenantId = await primeLoginTenantCache(page, config, roleKey)
   const tenantInput = form.locator('.el-select input[role="combobox"], input.el-select__input').filter({ visible: true }).first()
   if ((await tenantInput.count()) > 0 && (await tenantInput.isVisible())) {
     await tenantInput.click()
     await tenantInput.fill(config.tenant)
+    await tenantInput.press('Enter').catch(() => undefined)
+    await page.keyboard.press('Escape').catch(() => undefined)
     const option = page.locator('.el-select-dropdown:visible .el-select-dropdown__item').filter({ hasText: config.tenant }).first()
-    await option.waitFor({ state: 'visible', timeout: 30000 })
-    await option.click()
+    if ((await option.count()) > 0 && (await option.isVisible())) {
+      await option.click()
+    }
   }
   await fillFirstVisible(form.locator('input.el-input__inner:not([role="combobox"]):not([type="password"])'), role.username, `${roleKey} 账号`)
   await fillFirstVisible(form.locator('input[type="password"]'), role.password, `${roleKey} 密码`)
+  const loginRequestPromise = page.waitForRequest(
+    (request) => request.url().includes('/admin-api/system/auth/login') && request.method() === 'POST',
+    { timeout: 90000 }
+  ).catch((error) => ({ loginRequestTimeout: error }))
   const responsePromise = page.waitForResponse(
     (response) => response.url().includes('/admin-api/system/auth/login') && response.request().method() === 'POST',
     { timeout: 90000 }
   ).catch((error) => ({ loginResponseTimeout: error }))
   await form.getByRole('button', { name: /^登录$/ }).click()
+  const loginRequest = await loginRequestPromise
+  if (loginRequest.loginRequestTimeout) {
+    failFast(`${roleKey} 登录未发出登录接口请求：${loginRequest.loginRequestTimeout.message}`, [{
+      key: 'loginRequestTimeout',
+      category: 'E2E_RUNTIME',
+      description: `${roleKey} 登录页已点击登录按钮，但 90 秒内未观察到 /system/auth/login POST；需检查租户/账号表单校验或登录按钮可用态。`
+    }])
+  }
+  const requestHeaders = loginRequest.headers()
+  if (!requestHeaders['tenant-id']) {
+    failFast(`${roleKey} 登录请求缺少 tenant-id 请求头。`, [{
+      key: 'loginTenantHeaderMissing',
+      category: 'E2E_RUNTIME',
+      description: `${roleKey} 登录前已解析 tenantId=${tenantId}，但实际 /system/auth/login 请求没有 tenant-id；需检查登录页租户开关、租户缓存和 LoginApi.login header 契约。`
+    }])
+  }
   const response = await responsePromise
   if (response.loginResponseTimeout) {
     failFast(`${roleKey} 登录未捕获登录接口响应：${response.loginResponseTimeout.message}`, [{

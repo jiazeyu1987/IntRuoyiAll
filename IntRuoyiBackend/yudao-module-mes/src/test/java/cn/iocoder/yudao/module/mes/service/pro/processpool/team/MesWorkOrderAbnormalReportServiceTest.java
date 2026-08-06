@@ -11,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.verify;
 
@@ -28,15 +29,12 @@ class MesWorkOrderAbnormalReportServiceTest {
     }
 
     @Test
-    void shouldMarkAndReportWorkOrderAbnormalWithoutRequiringSubmissionScope() {
+    void shouldMarkAndReportWorkOrderAbnormalWithOnlyOrderAndDescription() {
         whenInsertId(8101L);
 
         Long abnormalId = service.markAndReport(MesWorkOrderAbnormalReportReqBO.builder()
                 .workOrderId(5001L)
-                .processId(6001L)
-                .sourceEventId(null)
                 .markerUserId(3001L)
-                .abnormalReasonCode("DEVICE_STOP")
                 .abnormalDescription("设备停机，影响工单交付")
                 .build());
 
@@ -46,8 +44,11 @@ class MesWorkOrderAbnormalReportServiceTest {
         verify(abnormalMapper).insert(captor.capture());
         MesProcessPoolWorkOrderAbnormalDO abnormal = captor.getValue();
         assertEquals(5001L, abnormal.getWorkOrderId());
-        assertEquals(6001L, abnormal.getProcessId());
-        assertEquals("DEVICE_STOP", abnormal.getAbnormalReasonCode());
+        assertNull(abnormal.getRouteProcessId());
+        assertNull(abnormal.getProcessId());
+        assertNull(abnormal.getSourceEventId());
+        assertNull(abnormal.getAbnormalReasonCode());
+        assertEquals("设备停机，影响工单交付", abnormal.getAbnormalDescription());
         assertEquals(MesProcessPoolWorkOrderAbnormalDO.REPORT_STATUS_REPORTED, abnormal.getReportStatus());
         assertEquals(3001L, abnormal.getMarkerUserId());
         assertEquals(3001L, abnormal.getReporterUserId());
