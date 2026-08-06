@@ -283,6 +283,34 @@ class MesProcessPoolTeamLeaderSchemaTest {
     }
 
     @Test
+    void deviceParameterRuleSchemaMustRequireRouteProcessAndTargetValue() throws Exception {
+        assertField(MesProcessPoolDeviceParameterRuleDO.class, "routeProcessId", Long.class);
+        assertField(MesProcessPoolDeviceParameterRuleDO.class, "defaultValue", BigDecimal.class);
+
+        String sql = Files.readString(resolveBackendPath(
+                "sql/mysql/20260805_mes_process_pool_device_parameter_route_process_constraints.sql"),
+                StandardCharsets.UTF_8);
+        String normalizedSql = sql.replace("\r\n", "\n");
+        String compactSql = sql.replaceAll("\\s+", " ");
+        assertTrue(normalizedSql.startsWith("-- release-migration: allowedEnvironments=test,backup,prod; "
+                + "dependsOn=20260731_mes_process_pool_team_leader_p1_runtime_config; "
+                + "type=schema; riskLevel=medium\n"));
+        assertTrue(sql.contains("SIGNAL SQLSTATE '45000'"));
+        assertTrue(sql.contains("WHERE `route_process_id` IS NULL"));
+        assertTrue(sql.contains("OR `default_value` IS NULL"));
+        assertFalse(sql.contains("WHERE `deleted` = b'0'"));
+        assertTrue(sql.contains(
+                "MODIFY COLUMN `route_process_id` bigint NOT NULL COMMENT '工艺路线工序ID'"));
+        assertTrue(sql.contains(
+                "MODIFY COLUMN `default_value` decimal(24,6) NOT NULL COMMENT '目标值'"));
+        assertTrue(sql.contains("DROP INDEX `uk_mes_pp_device_parameter_rule`"));
+        assertTrue(compactSql.contains("ADD UNIQUE KEY `uk_mes_pp_device_parameter_route_process` "
+                + "(`tenant_id`, `route_process_id`, `device_id`, `parameter_code`, `deleted`)"));
+        assertFalse(sql.contains("UPDATE `mes_pro_process_pool_device_parameter_rule`"));
+        assertFalse(sql.contains("INSERT INTO `mes_pro_process_pool_device_parameter_rule`"));
+    }
+
+    @Test
     void processLossReasonSchemaMustBeRouteProcessSharedAndSnapshotFeedbackHistory() throws Exception {
         assertField(MesProcessPoolDefectReasonDO.class, "routeProcessId", Long.class);
         assertField(MesProcessPoolDefectReasonDO.class, "processId", Long.class);

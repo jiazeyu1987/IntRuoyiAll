@@ -59,6 +59,7 @@
 
 - PowerShell 命令编排 / 中文编码 / 终端输出预检：先读权威共同规则 `E:\IntRuoyi\docs\powershell-memory.md`，维护仓专项增量再读 `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\powershell-preflight-lessons.md`
 - Keywords: PowerShell 分号串联测试, cmd1; cmd2, Node 静态合同串联, 中间测试失败被最后 PASS 掩盖, `$LASTEXITCODE`, 逐条测试退出码 -> `docs/powershell-memory.md#powershell-分号串联测试退出码门禁`
+- Keywords: task-state 并行写入, record_phase_review, record_test_review, check_completion --apply, render_task_status, blocking_prereqs 丢失, 阶段状态回退, P4 pending blocked 覆盖, 状态脚本串行 -> `docs/powershell-memory.md#任务状态脚本串行写入门禁`
 - Keywords: git index.lock, Unable to create .git/index.lock, File exists, 陈旧 Git 锁, 零字节 index lock, 活动 git 进程 -> `docs/powershell-memory.md#git-indexlock-陈旧锁恢复门禁`
 - Keywords: PowerShell 字面管道字符, TypeScript 类型联合, command string pipe, apply_patch ACL, 文件长度变 0, PowerShell 写入超时截断, Set-Content 写源码, 反引号 r n 字面量, import 追加非法字符 -> `docs/powershell-memory.md#powershell-命令文本管道字符门禁`
 - Keywords: 静态合同缩进定位, Vue SFC 弹框块定位, el-dialog class 回找, CRLF LF, source.indexOf 精确缩进失败 -> `docs/e2e-rules.md#windows-换行与脚本行为同步`

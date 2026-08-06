@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDefectReasonMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
@@ -15,6 +16,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -58,6 +60,8 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     @Mock
     private MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
     @Mock
+    private MesProRouteProcessMapper routeProcessMapper;
+    @Mock
     private MesProcessPoolDefectReasonMapper defectReasonMapper;
     @Mock
     private MesProcessPoolTeamMaintenanceAuditMapper auditMapper;
@@ -72,7 +76,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     void setUp() {
         service = new MesTeamLeaderRuntimeConfigServiceImpl(scopeService, routeStartAuthorizationService,
                 employeeProfileMapper, employeeBindingMapper,
-                deviceMapper, processDeviceMapper, parameterRuleMapper, defectReasonMapper, auditMapper,
+                deviceMapper, processDeviceMapper, parameterRuleMapper, routeProcessMapper, defectReasonMapper, auditMapper,
                 adminUserApi, passwordEncoder);
     }
 
@@ -386,16 +390,51 @@ class MesTeamLeaderRuntimeConfigServiceTest {
                 .deviceStatus("REPAIRING")
                 .enabled(Boolean.TRUE)
                 .build());
+        when(routeProcessMapper.selectById(7101L)).thenReturn(routeProcess(7101L, 9001L, 6001L, 10));
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.bindDeviceToProcess(
                 MesTeamProcessDeviceBindingSaveReqBO.builder()
                         .leaderUserId(3001L)
                         .deviceId(7001L)
-                        .processId(6001L)
+                        .routeProcessId(7101L)
                         .build()));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_DEVICE_UNAVAILABLE.getCode(), ex.getCode());
         verify(processDeviceMapper, never()).insert(any(MesProcessPoolTeamProcessDeviceDO.class));
+    }
+
+    @Test
+    void shouldBindDeviceByRouteProcessAndResolveFormalProcessIdServerSide() {
+        when(routeProcessMapper.selectById(7101L)).thenReturn(routeProcess(7101L, 9001L, 6001L, 10));
+        when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()
+                .id(7001L)
+                .leaderUserId(3001L)
+                .deviceCode("D-001")
+                .deviceName("压力泵")
+                .deviceStatus("ENABLED")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of());
+        when(processDeviceMapper.insert(any(MesProcessPoolTeamProcessDeviceDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolTeamProcessDeviceDO.class).setId(8101L);
+            return 1;
+        });
+
+        Long bindingId = service.bindDeviceToProcess(MesTeamProcessDeviceBindingSaveReqBO.builder()
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
+                .deviceId(7001L)
+                .build());
+
+        assertEquals(8101L, bindingId);
+        verify(routeStartAuthorizationService).assertCanMaintainRouteProcess(3001L, 7101L);
+        verify(scopeService, never()).assertCanMaintainProcess(any(), any());
+        ArgumentCaptor<MesProcessPoolTeamProcessDeviceDO> bindingCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolTeamProcessDeviceDO.class);
+        verify(processDeviceMapper).insert(bindingCaptor.capture());
+        assertEquals(6001L, bindingCaptor.getValue().getProcessId());
+        assertEquals(7001L, bindingCaptor.getValue().getDeviceId());
+        assertTrue(bindingCaptor.getValue().getEnabled());
     }
 
     @Test
@@ -450,20 +489,25 @@ class MesTeamLeaderRuntimeConfigServiceTest {
 
 
     @Test
-    void shouldPersistParameterDefaultValueAndRejectDefaultOutsideRange() {
+    void shouldSaveParameterTargetValueByRouteProcessMappedDeviceAndUpsertSameContext() {
+        when(routeProcessMapper.selectById(7101L)).thenReturn(routeProcess(7101L, 9001L, 6001L, 10));
         when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()
                 .id(7001L)
                 .leaderUserId(3001L)
                 .deviceStatus("ENABLED")
                 .enabled(Boolean.TRUE)
                 .build());
-        when(parameterRuleMapper.insert(any(MesProcessPoolDeviceParameterRuleDO.class))).thenAnswer(invocation -> {
-            invocation.getArgument(0, MesProcessPoolDeviceParameterRuleDO.class).setId(8401L);
-            return 1;
-        });
-
-        Long ruleId = service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(MesProcessPoolTeamProcessDeviceDO.builder()
+                .id(8101L)
                 .leaderUserId(3001L)
+                .processId(6001L)
+                .deviceId(7001L)
+                .enabled(Boolean.TRUE)
+                .build()));
+        when(parameterRuleMapper.selectOne(any())).thenReturn(null, MesProcessPoolDeviceParameterRuleDO.builder()
+                .id(8401L)
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
                 .processId(6001L)
                 .deviceId(7001L)
                 .parameterCode("pressure")
@@ -473,27 +517,113 @@ class MesTeamLeaderRuntimeConfigServiceTest {
                 .upperLimit(new BigDecimal("20"))
                 .defaultValue(new BigDecimal("15"))
                 .valueType("DECIMAL")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(parameterRuleMapper.insert(any(MesProcessPoolDeviceParameterRuleDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolDeviceParameterRuleDO.class).setId(8401L);
+            return 1;
+        });
+
+        Long ruleId = service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
+                .deviceId(7001L)
+                .parameterCode("pressure")
+                .parameterName("压力")
+                .unit("MPa")
+                .lowerLimit(new BigDecimal("10"))
+                .upperLimit(new BigDecimal("20"))
+                .targetValue(new BigDecimal("15"))
+                .valueType("DECIMAL")
                 .build());
 
         assertEquals(8401L, ruleId);
         ArgumentCaptor<MesProcessPoolDeviceParameterRuleDO> ruleCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolDeviceParameterRuleDO.class);
         verify(parameterRuleMapper).insert(ruleCaptor.capture());
+        assertEquals(7101L, ruleCaptor.getValue().getRouteProcessId());
+        assertEquals(6001L, ruleCaptor.getValue().getProcessId());
         assertEquals(new BigDecimal("15"), ruleCaptor.getValue().getDefaultValue());
         assertEquals("MPa", ruleCaptor.getValue().getUnit());
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.saveDeviceParameterRule(
-                MesTeamDeviceParameterRuleSaveReqBO.builder()
+        Long updatedRuleId = service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
+                .deviceId(7001L)
+                .parameterCode("pressure")
+                .parameterName("压力更新")
+                .unit("MPa")
+                .lowerLimit(new BigDecimal("11"))
+                .upperLimit(new BigDecimal("21"))
+                .targetValue(new BigDecimal("16"))
+                .valueType("DECIMAL")
+                .build());
+
+        assertEquals(8401L, updatedRuleId);
+        verify(parameterRuleMapper, org.mockito.Mockito.times(1)).insert(any(MesProcessPoolDeviceParameterRuleDO.class));
+        ArgumentCaptor<MesProcessPoolDeviceParameterRuleDO> updateCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolDeviceParameterRuleDO.class);
+        verify(parameterRuleMapper).updateById(updateCaptor.capture());
+        assertEquals(8401L, updateCaptor.getValue().getId());
+        assertEquals(new BigDecimal("16"), updateCaptor.getValue().getDefaultValue());
+        assertEquals("压力更新", updateCaptor.getValue().getParameterName());
+    }
+
+    @Test
+    void shouldRejectParameterRuleWithoutRouteProcessUnmappedDeviceOrTargetOutsideRange() {
+        ServiceException missingRouteProcess = assertThrows(ServiceException.class,
+                () -> service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
                         .leaderUserId(3001L)
-                        .processId(6001L)
                         .deviceId(7001L)
                         .parameterCode("pressure")
                         .lowerLimit(new BigDecimal("10"))
                         .upperLimit(new BigDecimal("20"))
-                        .defaultValue(new BigDecimal("25"))
+                        .targetValue(new BigDecimal("15"))
+                        .valueType("DECIMAL")
                         .build()));
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID.getCode(), ex.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(),
+                missingRouteProcess.getCode());
+        verify(parameterRuleMapper, never()).insert(any(MesProcessPoolDeviceParameterRuleDO.class));
+
+        when(routeProcessMapper.selectById(7101L)).thenReturn(routeProcess(7101L, 9001L, 6001L, 10));
+        when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()
+                .id(7001L)
+                .leaderUserId(3001L)
+                .deviceStatus("ENABLED")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of());
+
+        ServiceException unmappedDevice = assertThrows(ServiceException.class,
+                () -> service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                        .leaderUserId(3001L)
+                        .routeProcessId(7101L)
+                        .deviceId(7001L)
+                        .parameterCode("pressure")
+                        .lowerLimit(new BigDecimal("10"))
+                        .upperLimit(new BigDecimal("20"))
+                        .targetValue(new BigDecimal("15"))
+                        .valueType("DECIMAL")
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED.getCode(), unmappedDevice.getCode());
+
+        ServiceException invalidTarget = assertThrows(ServiceException.class, () -> service.saveDeviceParameterRule(
+                MesTeamDeviceParameterRuleSaveReqBO.builder()
+                        .leaderUserId(3001L)
+                        .routeProcessId(7101L)
+                        .deviceId(7001L)
+                        .parameterCode("pressure")
+                        .lowerLimit(new BigDecimal("10"))
+                        .upperLimit(new BigDecimal("20"))
+                        .targetValue(new BigDecimal("25"))
+                        .valueType("DECIMAL")
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID.getCode(),
+                invalidTarget.getCode());
+        verify(parameterRuleMapper, never()).updateById(any(MesProcessPoolDeviceParameterRuleDO.class));
     }
 
     @Test
@@ -524,5 +654,14 @@ class MesTeamLeaderRuntimeConfigServiceTest {
         assertEquals(6001L, reasonCaptor.getValue().getProcessId());
         assertEquals("LOSS-001", reasonCaptor.getValue().getReasonCode());
         assertTrue(reasonCaptor.getValue().getEnabled());
+    }
+
+    private static MesProRouteProcessDO routeProcess(Long id, Long routeId, Long processId, Integer sort) {
+        return MesProRouteProcessDO.builder()
+                .id(id)
+                .routeId(routeId)
+                .processId(processId)
+                .sort(sort)
+                .build();
     }
 }

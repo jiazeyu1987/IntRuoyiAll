@@ -15,6 +15,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -39,6 +41,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_EMPLOYEE_DISPLAY_NAME_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_SIGNATURE_PASSWORD_MANAGED_BY_USER;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED;
 
 @Service
 @Validated
@@ -57,6 +60,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     private final MesProcessPoolTeamDeviceMapper deviceMapper;
     private final MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
     private final MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
+    private final MesProRouteProcessMapper routeProcessMapper;
     private final MesProcessPoolDefectReasonMapper defectReasonMapper;
     private final MesProcessPoolTeamMaintenanceAuditMapper auditMapper;
     private final AdminUserApi adminUserApi;
@@ -69,6 +73,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
                                                  MesProcessPoolTeamDeviceMapper deviceMapper,
                                                  MesProcessPoolTeamProcessDeviceMapper processDeviceMapper,
                                                  MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper,
+                                                 MesProRouteProcessMapper routeProcessMapper,
                                                  MesProcessPoolDefectReasonMapper defectReasonMapper,
                                                  MesProcessPoolTeamMaintenanceAuditMapper auditMapper,
                                                  AdminUserApi adminUserApi,
@@ -80,6 +85,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
         this.deviceMapper = deviceMapper;
         this.processDeviceMapper = processDeviceMapper;
         this.parameterRuleMapper = parameterRuleMapper;
+        this.routeProcessMapper = routeProcessMapper;
         this.defectReasonMapper = defectReasonMapper;
         this.auditMapper = auditMapper;
         this.adminUserApi = adminUserApi;
@@ -343,21 +349,32 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
 
     @Override
     public Long bindDeviceToProcess(MesTeamProcessDeviceBindingSaveReqBO reqBO) {
-        if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getProcessId() == null
+        if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getRouteProcessId() == null
                 || reqBO.getDeviceId() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "processDeviceBinding");
         }
-        scopeService.assertCanMaintainProcess(reqBO.getLeaderUserId(), reqBO.getProcessId());
+        MesProRouteProcessDO routeProcess = requireAuthorizedRouteProcess(reqBO.getLeaderUserId(),
+                reqBO.getRouteProcessId());
         MesProcessPoolTeamDeviceDO device = requireDevice(reqBO.getLeaderUserId(), reqBO.getDeviceId());
         assertDeviceAvailable(device);
+        List<MesProcessPoolTeamProcessDeviceDO> existingBindings = processDeviceMapper.selectList(
+                new LambdaQueryWrapperX<MesProcessPoolTeamProcessDeviceDO>()
+                        .eq(MesProcessPoolTeamProcessDeviceDO::getLeaderUserId, reqBO.getLeaderUserId())
+                        .eq(MesProcessPoolTeamProcessDeviceDO::getProcessId, routeProcess.getProcessId())
+                        .eq(MesProcessPoolTeamProcessDeviceDO::getDeviceId, device.getId())
+                        .eq(MesProcessPoolTeamProcessDeviceDO::getEnabled, Boolean.TRUE)
+                        .orderByAsc(MesProcessPoolTeamProcessDeviceDO::getId));
+        if (!existingBindings.isEmpty()) {
+            return existingBindings.get(0).getId();
+        }
         MesProcessPoolTeamProcessDeviceDO binding = MesProcessPoolTeamProcessDeviceDO.builder()
                 .leaderUserId(reqBO.getLeaderUserId())
-                .processId(reqBO.getProcessId())
+                .processId(routeProcess.getProcessId())
                 .deviceId(device.getId())
                 .enabled(Boolean.TRUE)
                 .build();
         processDeviceMapper.insert(binding);
-        TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "BIND_DEVICE_PROCESS",
+        TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "BIND_DEVICE_ROUTE_PROCESS",
                 "TEAM_PROCESS_DEVICE", binding.getId(), null, binding.toString());
         return binding.getId();
     }
@@ -365,27 +382,41 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     @Override
     public Long saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO reqBO) {
         validateParameterRule(reqBO);
-        scopeService.assertCanMaintainProcess(reqBO.getLeaderUserId(), reqBO.getProcessId());
+        MesProRouteProcessDO routeProcess = requireAuthorizedRouteProcess(reqBO.getLeaderUserId(),
+                reqBO.getRouteProcessId());
         MesProcessPoolTeamDeviceDO device = requireDevice(reqBO.getLeaderUserId(), reqBO.getDeviceId());
         assertDeviceAvailable(device);
+        assertDeviceMappedToProcess(reqBO.getLeaderUserId(), routeProcess.getProcessId(), device.getId());
+        MesProcessPoolDeviceParameterRuleDO existing = parameterRuleMapper.selectOne(
+                new LambdaQueryWrapperX<MesProcessPoolDeviceParameterRuleDO>()
+                        .eq(MesProcessPoolDeviceParameterRuleDO::getRouteProcessId, routeProcess.getId())
+                        .eq(MesProcessPoolDeviceParameterRuleDO::getDeviceId, device.getId())
+                        .eq(MesProcessPoolDeviceParameterRuleDO::getParameterCode, reqBO.getParameterCode()));
         MesProcessPoolDeviceParameterRuleDO rule = MesProcessPoolDeviceParameterRuleDO.builder()
+                .id(existing == null ? null : existing.getId())
                 .leaderUserId(reqBO.getLeaderUserId())
-                .routeProcessId(reqBO.getRouteProcessId())
-                .processId(reqBO.getProcessId())
-                .deviceId(reqBO.getDeviceId())
+                .routeProcessId(routeProcess.getId())
+                .processId(routeProcess.getProcessId())
+                .deviceId(device.getId())
                 .parameterCode(reqBO.getParameterCode())
                 .parameterName(reqBO.getParameterName())
                 .unit(reqBO.getUnit())
                 .lowerLimit(reqBO.getLowerLimit())
                 .upperLimit(reqBO.getUpperLimit())
-                .defaultValue(reqBO.getDefaultValue())
+                .defaultValue(reqBO.getTargetValue())
                 .valueType(reqBO.getValueType())
                 .enabled(Boolean.TRUE)
                 .build();
-        parameterRuleMapper.insert(rule);
-        TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "SAVE_DEVICE_PARAMETER_RULE",
-                "DEVICE_PARAMETER_RULE", rule.getId(), null, rule.toString());
-        return rule.getId();
+        if (existing == null) {
+            parameterRuleMapper.insert(rule);
+            TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "CREATE_DEVICE_PARAMETER_RULE",
+                    "DEVICE_PARAMETER_RULE", rule.getId(), null, rule.toString());
+            return rule.getId();
+        }
+        parameterRuleMapper.updateById(rule);
+        TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "UPDATE_DEVICE_PARAMETER_RULE",
+                "DEVICE_PARAMETER_RULE", existing.getId(), existing.toString(), rule.toString());
+        return existing.getId();
     }
 
     @Override
@@ -417,6 +448,27 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "SAVE_PROCESS_DEFECT_REASON",
                 "DEFECT_REASON", reason.getId(), null, reason.toString());
         return reason.getId();
+    }
+
+    private MesProRouteProcessDO requireAuthorizedRouteProcess(Long leaderUserId, Long routeProcessId) {
+        routeStartAuthorizationService.assertCanMaintainRouteProcess(leaderUserId, routeProcessId);
+        MesProRouteProcessDO routeProcess = routeProcessMapper.selectById(routeProcessId);
+        if (routeProcess == null || routeProcess.getProcessId() == null) {
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "routeProcessId=" + routeProcessId);
+        }
+        return routeProcess;
+    }
+
+    private void assertDeviceMappedToProcess(Long leaderUserId, Long processId, Long deviceId) {
+        List<MesProcessPoolTeamProcessDeviceDO> bindings = processDeviceMapper.selectList(
+                new LambdaQueryWrapperX<MesProcessPoolTeamProcessDeviceDO>()
+                        .eq(MesProcessPoolTeamProcessDeviceDO::getLeaderUserId, leaderUserId)
+                        .eq(MesProcessPoolTeamProcessDeviceDO::getProcessId, processId)
+                        .eq(MesProcessPoolTeamProcessDeviceDO::getDeviceId, deviceId)
+                        .eq(MesProcessPoolTeamProcessDeviceDO::getEnabled, Boolean.TRUE));
+        if (bindings.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "processDeviceBinding");
+        }
     }
 
     private MesProcessPoolTeamEmployeeProfileDO requireEmployeeProfile(Long leaderUserId, Long employeeProfileId) {
@@ -499,21 +551,20 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     }
 
     private static void validateParameterRule(MesTeamDeviceParameterRuleSaveReqBO reqBO) {
-        if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getProcessId() == null
-                || reqBO.getDeviceId() == null || isBlank(reqBO.getParameterCode())
-                || reqBO.getLowerLimit() == null || reqBO.getUpperLimit() == null) {
+        if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getRouteProcessId() == null
+                || reqBO.getDeviceId() == null || isBlank(reqBO.getParameterCode()) || isBlank(reqBO.getValueType())
+                || reqBO.getLowerLimit() == null || reqBO.getUpperLimit() == null || reqBO.getTargetValue() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deviceParameterRule");
         }
-        validateRange(reqBO.getParameterCode(), reqBO.getLowerLimit(), reqBO.getUpperLimit(), reqBO.getDefaultValue());
+        validateRange(reqBO.getParameterCode(), reqBO.getLowerLimit(), reqBO.getUpperLimit(), reqBO.getTargetValue());
     }
 
     static void validateRange(String parameterCode, BigDecimal lowerLimit, BigDecimal upperLimit,
-                              BigDecimal defaultValue) {
+                              BigDecimal targetValue) {
         if (lowerLimit.compareTo(upperLimit) > 0) {
             throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, parameterCode);
         }
-        if (defaultValue != null && (defaultValue.compareTo(lowerLimit) < 0
-                || defaultValue.compareTo(upperLimit) > 0)) {
+        if (targetValue.compareTo(lowerLimit) < 0 || targetValue.compareTo(upperLimit) > 0) {
             throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, parameterCode);
         }
     }

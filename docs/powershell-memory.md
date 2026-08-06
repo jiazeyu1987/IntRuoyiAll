@@ -127,6 +127,15 @@
 - Forbidden action: 禁止把 `cmd1; cmd2; cmd3` 的最终退出码 0 当作全部测试通过；禁止只引用最后一条 PASS 输出。
 - Evidence: `doc\tasks\20260728-edhr-detail-assist-preview-switch\execution-log.md`，相邻静态合同串联运行时 `edhr-assist-fill-mode-static.spec.js` 断言失败被后续 PASS 命令掩盖，改为单独复跑后正确记录失败。
 
+### 任务状态脚本串行写入门禁
+
+- Trigger: 同一任务内运行会修改 `task-state.json`、`task.md`、`test-report.md` 或其它状态文件的脚本，例如 `record_phase_review.py`、`record_test_review.py`、`check_completion.py --apply`、cleanup apply，尤其准备并行执行以节省时间时。
+- Preflight check: 先区分只读校验命令和状态写入命令；只读命令可以并行，任何会写同一状态文件的命令必须顺序执行。每次状态写入后立即运行 `render_task_status.py` 或等价只读状态检查，确认阶段状态、整体状态、`test_status` 和 `blocking_prereqs` 未被覆盖。
+- Blocker: 并行状态写入后出现阶段状态回退、整体状态与阶段状态不一致、`blocking_prereqs` 丢失、`test_status` 被旧值覆盖，或无法确认哪个命令最后写入状态文件时必须停止并按预期状态顺序重放写入脚本。
+- Verification: 记录顺序重放命令、重放后的 `render_task_status.py` 输出、结构 validator PASS 和 `git diff --check`；必要时在执行日志中说明并行写入造成的覆盖风险已修正。
+- Forbidden action: 禁止把多个状态写入脚本放进 `multi_tool_use.parallel`、PowerShell background job 或同一异步批次；禁止只看单个写入脚本成功输出就跳过最终状态渲染；禁止手改 JSON 掩盖 race，除非脚本不可用且已记录阻塞原因。
+- Evidence: `doc/tasks/20260805-production-leader-process-config-unification/execution-log.md`，P4 阻塞记录中并行运行 `record_phase_review.py` 与 `record_test_review.py` 后 P4 阶段状态被旧快照覆盖为 `pending`，顺序重跑阶段状态脚本并复核 `render_task_status.py` 后恢复为 `blocked`。
+
 ### Codex 文件 ACL 受限写入门禁
 
 - Trigger: `apply_patch`、Node、Python 或普通 PowerShell 对已存在源码/测试/任务文档返回 `apply deny-read ACLs`，但任务必须继续进行受控修改或验证。

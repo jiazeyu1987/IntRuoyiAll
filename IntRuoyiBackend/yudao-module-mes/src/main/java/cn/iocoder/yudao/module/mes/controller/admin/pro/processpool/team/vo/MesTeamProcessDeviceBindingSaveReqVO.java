@@ -5,14 +5,14 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
-@Schema(description = "管理后台 - MES 班组工序设备绑定保存 Request VO")
+@Schema(description = "管理后台 - MES 生产组长路线工序设备绑定保存 Request VO")
 @Data
 @Accessors(chain = true)
 public class MesTeamProcessDeviceBindingSaveReqVO {
 
-    @Schema(description = "工序编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "6001")
+    @Schema(description = "路线工序编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "5001")
     @NotNull
-    private Long processId;
+    private Long routeProcessId;
 
     @Schema(description = "班组设备编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "7001")
     @NotNull

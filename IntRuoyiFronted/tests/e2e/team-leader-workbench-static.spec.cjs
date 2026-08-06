@@ -27,8 +27,9 @@ requirePageMarker('data-team-leader-active-order-route-id', 'active order mainte
 requirePageMarker('data-team-leader-active-order-route-version-id', 'active order maintenance must collect the formal route version id required by backend addActiveOrder.')
 requirePageMarker('data-team-leader-employee-config', 'config center must include employee profile and process binding maintenance')
 requirePageMarker('data-team-leader-device-config', 'config center must include equipment maintenance')
-requirePageMarker('data-team-leader-parameter-config', 'config center must include equipment parameter maintenance')
-requirePageMarker('data-team-leader-process-relation-config', 'config center must include process-employee/device/exception relations')
+requirePageMarker('data-team-leader-process-config-tab', 'page must expose the unified process config tab')
+requirePageMarker('data-team-leader-process-config-table', 'unified process config tab must include the process config table')
+requirePageMarker('data-team-leader-process-relation-config', 'config center must include process exception relations')
 requirePageMarker('data-team-leader-active-order-select', 'abnormal reporting must select from active orders')
 requirePageMarker('data-team-leader-defect-reason-select', 'abnormal reporting must select configured process defect reasons')
 requirePageMarker('data-team-leader-structured-detail', 'submission detail must show structured report content')
@@ -63,8 +64,9 @@ requireApiEndpoint('createTeamEmployeeProfile', '/employee-profile/create', 'emp
 requireApiEndpoint('saveTeamProcessEmployeeBinding', '/process-employee-binding/save', 'process employee relation API')
 requireApiEndpoint('createTeamDevice', '/team-device/create', 'team device create API')
 requireApiEndpoint('updateTeamDeviceStatus', '/team-device/status/update', 'team device status API')
-requireApiEndpoint('saveTeamProcessDeviceBinding', '/process-device-binding/save', 'process device relation API')
-requireApiEndpoint('saveTeamRuntimeDeviceParameterRule', '/runtime-device-parameter-rule/save', 'runtime device parameter API')
+requireApiEndpoint('getTeamLeaderProcessConfigList', '/process-config/list', 'unified process config read API')
+requireApiEndpoint('saveTeamProcessConfigDeviceBinding', '/process-config/device-binding/save', 'route process device binding API')
+requireApiEndpoint('saveTeamProcessConfigDeviceParameterRule', '/process-config/device-parameter-rule/save', 'route process parameter API')
 requireApiEndpoint('saveTeamProcessDefectReason', '/process-defect-reason/save', 'process defect reason API')
 
 assert.doesNotMatch(

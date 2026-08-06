@@ -55,7 +55,34 @@ export interface TeamLeaderLossReasonVO {
   enabled: boolean
 }
 
-export interface TeamLeaderLossReasonRowVO {
+export interface TeamLeaderProcessConfigParameterVO {
+  ruleId?: number
+  parameterCode: string
+  parameterName?: string
+  unit?: string
+  valueType: string
+  lowerLimit: number | string
+  targetValue: number | string
+  upperLimit: number | string
+  enabled?: boolean
+  actualAverage?: number | null
+  sampleCount: number
+  statisticsStartTime?: string | number
+  statisticsEndTime?: string | number
+  statisticsWindowDays: number
+}
+
+export interface TeamLeaderProcessConfigDeviceVO {
+  bindingId?: number
+  deviceId: number
+  deviceCode?: string
+  deviceName?: string
+  deviceStatus?: string
+  mapped?: boolean
+  parameters: TeamLeaderProcessConfigParameterVO[]
+}
+
+export interface TeamLeaderProcessConfigRowRespVO {
   routeId: number
   routeCode?: string
   routeName?: string
@@ -64,7 +91,8 @@ export interface TeamLeaderLossReasonRowVO {
   processCode?: string
   processName?: string
   sort?: number
-  reasons: TeamLeaderLossReasonVO[]
+  lossReasons: TeamLeaderLossReasonVO[]
+  devices: TeamLeaderProcessConfigDeviceVO[]
 }
 
 export interface TeamLeaderLossReasonSaveReqVO {
@@ -81,16 +109,15 @@ export interface TeamLeaderLossReasonUpdateReqVO {
   remark?: string
 }
 export interface TeamDeviceParameterRuleSaveReqVO {
-  routeProcessId?: number
-  processId: number
+  routeProcessId: number
   deviceId: number
   parameterCode: string
   parameterName?: string
   unit?: string
   lowerLimit: number | string
   upperLimit: number | string
-  defaultValue?: number | string
-  valueType?: string
+  targetValue: number | string
+  valueType: string
 }
 
 export interface TeamLeaderActiveOrderAddReqVO {
@@ -206,7 +233,7 @@ export interface TeamDeviceStatusUpdateReqVO {
 }
 
 export interface TeamProcessDeviceBindingSaveReqVO {
-  processId: number
+  routeProcessId: number
   deviceId: number
 }
 
@@ -337,12 +364,6 @@ export const createTeamDefectReason = async (data: TeamDefectReasonSaveReqVO) =>
   })
 }
 
-export const getTeamLeaderLossReasonPage = async () => {
-  return await request.get<TeamLeaderLossReasonRowVO[]>({
-    url: '/mes/pro/process-pool/team-leader/loss-reasons/page'
-  })
-}
-
 export const createTeamLeaderLossReason = async (data: TeamLeaderLossReasonSaveReqVO) => {
   return await request.post<number>({
     url: '/mes/pro/process-pool/team-leader/loss-reasons',
@@ -365,10 +386,10 @@ export const deleteTeamLeaderLossReason = async (id: number) => {
     url: `/mes/pro/process-pool/team-leader/loss-reasons/${id}`
   })
 }
-export const saveTeamDeviceParameterRule = async (data: TeamDeviceParameterRuleSaveReqVO) => {
-  return await request.post<number>({
-    url: '/mes/pro/process-pool/team-leader/device-parameter-rule/save',
-    data
+
+export const getTeamLeaderProcessConfigList = async () => {
+  return await request.get<TeamLeaderProcessConfigRowRespVO[]>({
+    url: '/mes/pro/process-pool/team-leader/process-config/list'
   })
 }
 
@@ -515,16 +536,16 @@ export const updateTeamDeviceStatus = async (data: TeamDeviceStatusUpdateReqVO) 
   })
 }
 
-export const saveTeamProcessDeviceBinding = async (data: TeamProcessDeviceBindingSaveReqVO) => {
+export const saveTeamProcessConfigDeviceBinding = async (data: TeamProcessDeviceBindingSaveReqVO) => {
   return await request.post<number>({
-    url: '/mes/pro/process-pool/team-leader/process-device-binding/save',
+    url: '/mes/pro/process-pool/team-leader/process-config/device-binding/save',
     data
   })
 }
 
-export const saveTeamRuntimeDeviceParameterRule = async (data: TeamDeviceParameterRuleSaveReqVO) => {
+export const saveTeamProcessConfigDeviceParameterRule = async (data: TeamDeviceParameterRuleSaveReqVO) => {
   return await request.post<number>({
-    url: '/mes/pro/process-pool/team-leader/runtime-device-parameter-rule/save',
+    url: '/mes/pro/process-pool/team-leader/process-config/device-parameter-rule/save',
     data
   })
 }

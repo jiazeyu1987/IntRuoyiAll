@@ -8,17 +8,14 @@ import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
 
-@Schema(description = "管理后台 - MES 班组工序设备参数上下限保存 Request VO")
+@Schema(description = "管理后台 - MES 生产组长路线工序设备参数标准保存 Request VO")
 @Data
 @Accessors(chain = true)
 public class MesTeamDeviceParameterRuleSaveReqVO {
 
-    @Schema(description = "路线工序编号", example = "5001")
-    private Long routeProcessId;
-
-    @Schema(description = "工序编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "6001")
+    @Schema(description = "路线工序编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "5001")
     @NotNull
-    private Long processId;
+    private Long routeProcessId;
 
     @Schema(description = "设备编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "7001")
     @NotNull
@@ -42,9 +39,11 @@ public class MesTeamDeviceParameterRuleSaveReqVO {
     @NotNull
     private BigDecimal upperLimit;
 
-    @Schema(description = "默认值", example = "30")
-    private BigDecimal defaultValue;
+    @Schema(description = "目标值", requiredMode = Schema.RequiredMode.REQUIRED, example = "30")
+    @NotNull
+    private BigDecimal targetValue;
 
-    @Schema(description = "值类型", example = "DECIMAL")
+    @Schema(description = "值类型", requiredMode = Schema.RequiredMode.REQUIRED, example = "DECIMAL")
+    @NotBlank
     private String valueType;
 }

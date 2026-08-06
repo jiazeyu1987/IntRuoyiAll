@@ -13,13 +13,12 @@ public class MesTeamDeviceParameterRuleSaveReqBO {
 
     private Long leaderUserId;
     private Long routeProcessId;
-    private Long processId;
     private Long deviceId;
     private String parameterCode;
     private String parameterName;
     private String unit;
     private BigDecimal lowerLimit;
     private BigDecimal upperLimit;
-    private BigDecimal defaultValue;
+    private BigDecimal targetValue;
     private String valueType;
 }

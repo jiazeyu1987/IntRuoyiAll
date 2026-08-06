@@ -250,7 +250,7 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
     }
 
     private static boolean routeProcessMatches(Long configuredRouteProcessId, Long routeProcessId) {
-        return configuredRouteProcessId == null || Objects.equals(configuredRouteProcessId, routeProcessId);
+        return configuredRouteProcessId != null && Objects.equals(configuredRouteProcessId, routeProcessId);
     }
 
     private static String resolveProfileDisplayName(MesProcessPoolTeamEmployeeProfileDO profile) {

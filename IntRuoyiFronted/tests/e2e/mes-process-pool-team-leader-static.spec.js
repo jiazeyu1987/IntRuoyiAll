@@ -40,8 +40,9 @@ for (const endpoint of [
   '/mes/pro/process-pool/team-leader/process-employee-binding/save',
   '/mes/pro/process-pool/team-leader/team-device/create',
   '/mes/pro/process-pool/team-leader/team-device/status/update',
-  '/mes/pro/process-pool/team-leader/process-device-binding/save',
-  '/mes/pro/process-pool/team-leader/runtime-device-parameter-rule/save',
+  '/mes/pro/process-pool/team-leader/process-config/list',
+  '/mes/pro/process-pool/team-leader/process-config/device-binding/save',
+  '/mes/pro/process-pool/team-leader/process-config/device-parameter-rule/save',
   '/mes/pro/process-pool/team-leader/process-defect-reason/save',
   '/mes/pro/process-pool/team-leader/submission/allocation/preview-fifo',
   '/mes/pro/process-pool/team-leader/submission/allocation/confirm'
@@ -64,8 +65,9 @@ for (const apiName of [
   'saveTeamProcessEmployeeBinding',
   'createTeamDevice',
   'updateTeamDeviceStatus',
-  'saveTeamProcessDeviceBinding',
-  'saveTeamRuntimeDeviceParameterRule',
+  'getTeamLeaderProcessConfigList',
+  'saveTeamProcessConfigDeviceBinding',
+  'saveTeamProcessConfigDeviceParameterRule',
   'saveTeamProcessDefectReason',
   'previewTeamLeaderReportFifoAllocation',
   'confirmTeamLeaderReportAllocation'
@@ -79,7 +81,8 @@ for (const marker of [
   'data-team-leader-active-order-config',
   'data-team-leader-employee-config',
   'data-team-leader-device-config',
-  'data-team-leader-parameter-config',
+  'data-team-leader-process-config-tab',
+  'data-team-leader-process-config-table',
   'data-team-leader-process-relation-config',
   'data-team-leader-active-order-select',
   'data-team-leader-defect-reason-select',
@@ -95,8 +98,8 @@ assert(page.includes('活跃订单池'), '班组配置中心必须维护活跃�
 assert(page.includes('生产人员档案'), '人员管理 tab 必须维护生产人员档案。')
 assert(page.includes('生产人员工序绑定'), '班组配置中心必须维护工序员工关系。')
 assert(page.includes('设备档案与状态'), '班组配置中心必须维护设备档案和设备状态。')
-assert(page.includes('工序设备与异常关系'), '班组配置中心必须维护工序设备和工序异常关系。')
-assert(page.includes('设备参数维护'), '班组配置中心必须维护设备参数、上下限和默认值。')
+assert(page.includes('工序异常关系'), '班组配置中心必须维护工序异常关系。')
+assert(page.includes('工序配置'), '生产组长必须通过工序配置统一表维护损耗、设备映射和参数标准。')
 assert(page.includes('报修') && page.includes('REPAIRING'), '设备状态必须支持报修，不得误写为保修。')
 assert(page.includes('allocationMode') && page.includes('FIFO') && page.includes('MANUAL'), '报工确认必须支持 FIFO 自动分配和手动分配。')
 assert(page.includes('buildAllocationSubmitLines'), '确认报工必须提交活跃订单分配明细。')
@@ -191,7 +194,7 @@ assert(
     page.includes('originalPayloadJson'),
   'PQC 检验员提交必须在组长详情中展示提交日志、事件编号、提交时间和原始 payload。'
 )
-assert(page.includes('lowerLimit') && page.includes('upperLimit'), '设备参数维护必须包含上下限字段。')
+assert(page.includes('lowerLimit') && page.includes('targetValue') && page.includes('upperLimit'), '工序配置参数标准必须包含下限、目标值和上限字段。')
 assert(!page.includes('ignoreErrorMessage: true'), '班组长页面不得静默隐藏后端错误。')
 
 assert(routes.includes("path: 'pro/process-pool/team-leader'"), 'remaining 路由必须提供班组长工作台入口。')
