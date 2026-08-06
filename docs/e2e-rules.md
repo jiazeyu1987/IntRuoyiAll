@@ -78,6 +78,15 @@
 - Forbidden action: 禁止全局关闭 console/network 断言、忽略全部第三方域名、把页面 HTTP 200 当作目标功能通过，或省略外部异常证据。
 - Evidence: `doc/tasks/20260801-dcc-list-auto-classify-local-e2e/verification-report.md`，DCC 列表只读 E2E 将外部头像 502 与本机/DCC 目标链路分开归因，并证明目标链路错误数和 DCC 写请求数均为 0。
 
+### Vite 动态导入 500 与冲突标记门禁
+
+- Trigger: 真实 E2E 出现 `Failed to fetch dynamically imported module`、Vite 返回 500、Vue 编译器报 `Attribute name cannot contain`，或目标页面根节点等待超时但模块 URL 可直接返回 Vite overlay。
+- Preflight check: 先直接请求报错模块 URL 或读取 Vite overlay，定位 `loc.file/line/frame`；随后对目标文件运行锚定扫描 `rg -n "^(<<<<<<<|=======|>>>>>>>)" <file>`。若命中冲突标记，必须先归因为前端源码未解决冲突，而不是业务页面缺控件或接口失败。
+- Blocker: 目标页面依赖的 `.vue/.ts` 文件存在 Git 冲突标记、Vite 编译错误或动态导入 500 时，真实 E2E 必须记录 BLOCKED；冲突取舍不明确或文件包含并行任务脏改动时，不得擅自解析并继续验收。
+- Verification: 冲突处理获批并完成后，先用锚定 `rg` 证明目标文件无冲突标记，再直接请求动态模块 HTTP 200，最后重跑原真实 E2E；不得用 API-only、旧截图、清浏览器缓存或关闭 Vite overlay 冒充通过。
+- Forbidden action: 禁止把动态导入 500 写成业务功能 FAIL，禁止忽略 `pageerror` 继续断言，禁止全仓未锚定扫描 `=======` 造成误报，也禁止在未获授权时改写并行任务冲突内容。
+- Evidence: `doc/tasks/20260806-frontline-production-employee-options-match-leader-personnel/verification-report.md`，一线生产员工弹窗真实 E2E 在后端运行 Jar 刷新后被 `TeamLeaderWorkbenchPage.vue` 未解决冲突标记阻塞，页面模块 Vite 500，需先解析前端冲突再复验。
+
 ### Playwright 快照与 daemon 收尾门禁
 
 - Trigger: 使用 Playwright CLI / headed browser 验证登录页、发布控制台、版本变更说明或任何可能包含输入框内容的真实页面。

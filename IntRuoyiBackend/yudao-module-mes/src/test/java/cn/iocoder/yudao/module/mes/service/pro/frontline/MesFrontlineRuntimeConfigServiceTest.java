@@ -137,6 +137,35 @@ class MesFrontlineRuntimeConfigServiceTest {
     }
 
     @Test
+    void getRuntimeConfig_usesCurrentLoginLeaderPersonnelWhenDeviceScopeBelongsToAnotherLeader() {
+        when(contextService.requireAuthorizedProcess(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesFrontlineRouteProcessCandidate(ROUTE_ID, "R-101", "Route 101",
+                        ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
+                        7001L, "D-001", "压力泵", 301L, "WS-301", "精洗工位"));
+        when(employeeBindingMapper.selectList(any())).thenReturn(List.of(
+                employeeBinding(9002L, 8802L)));
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
+                employeeProfile(8801L, LOGIN_USER_ID, 10001L, "LOGIN-001",
+                        "当前组长人员", "当前组长人员", "FORMAL", true),
+                employeeProfile(8802L, 9002L, 10002L, "DEVICE-001",
+                        "设备scope人员", "设备scope人员", "FORMAL", true)));
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(processDevice(9002L, 7001L)));
+        when(deviceMapper.selectBatchIds(anyCollection())).thenReturn(List.of(
+                teamDevice(7001L, 9002L, "D-001", "压力泵", "ENABLED", true)));
+        when(parameterRuleMapper.selectList(any())).thenReturn(List.of());
+        when(defectReasonMapper.selectList(any())).thenReturn(List.of());
+
+        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID,
+                ROUTE_PROCESS_ID, PROCESS_ID);
+
+        assertEquals(1, config.employees().size());
+        assertEquals(8801L, config.employees().get(0).employeeProfileId());
+        assertEquals("当前组长人员", config.employees().get(0).employeeName());
+        assertEquals(1, config.devices().size());
+        assertEquals("压力泵", config.devices().get(0).deviceName());
+    }
+
+    @Test
     void getRuntimeConfig_returnsEnabledLossReasonsByRouteProcessWithoutLeaderOwnership() {
         when(contextService.requireAuthorizedProcess(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
                 .thenReturn(new MesFrontlineRouteProcessCandidate(ROUTE_ID, "R-101", "Route 101",

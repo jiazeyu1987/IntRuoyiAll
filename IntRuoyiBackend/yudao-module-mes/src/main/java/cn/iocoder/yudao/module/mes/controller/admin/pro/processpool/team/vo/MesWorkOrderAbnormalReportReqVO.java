@@ -15,6 +15,10 @@ public class MesWorkOrderAbnormalReportReqVO {
     @NotNull
     private Long workOrderId;
 
+    @Schema(description = "异常原因编码", requiredMode = Schema.RequiredMode.REQUIRED, example = "DEVICE_DOWN")
+    @NotBlank
+    private String abnormalReasonCode;
+
     @Schema(description = "异常说明", requiredMode = Schema.RequiredMode.REQUIRED, example = "损耗异常")
     @NotBlank
     private String abnormalDescription;

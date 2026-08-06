@@ -11,7 +11,7 @@
 - [x] 先补静态合同 RED，锁定一线生产员工弹窗复用生产组长人员管理列表来源。
 - [x] 实现最小正式修复，保持现有切换员工和提交链路不变。
 - [x] 执行 GREEN 与相邻回归验证，记录结果。
-- [ ] 按用户追加要求执行只读真实页面 E2E：生产组长人员管理列表 vs 一线生产员工弹窗。
+- [ ] 按用户追加要求执行只读真实页面 E2E：生产组长人员管理列表 vs 一线生产员工弹窗（当前被前端未解决冲突标记阻塞）。
 
 ## Expected Verification
 
@@ -29,7 +29,7 @@
 
 ## Current Status
 
-in_progress - 用户追加真实 E2E 验证，正在补充只读页面证据。
+blocked - 真实 E2E 已执行到后端运行态刷新；复跑时生产组长页面被 `IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue` 未解决冲突标记阻塞，Vite 动态导入返回 500，无法继续证明弹窗一致性。
 
 ## 设计约束检查
 
@@ -47,3 +47,4 @@ in_progress - 用户追加真实 E2E 验证，正在补充只读页面证据。
 
 - doc/tasks/20260806-frontline-production-employee-options-match-leader-personnel/frontline-production-employee-popup-real-e2e.cjs
 - doc/tasks/20260806-frontline-production-employee-options-match-leader-personnel/frontline-production-employee-popup-evidence.md
+- doc/tasks/20260806-frontline-production-employee-options-match-leader-personnel/restart-frontline-employee-runtime.ps1

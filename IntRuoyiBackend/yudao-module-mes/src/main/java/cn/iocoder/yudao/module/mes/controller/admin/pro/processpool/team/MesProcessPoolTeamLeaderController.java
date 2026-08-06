@@ -200,6 +200,7 @@ public class MesProcessPoolTeamLeaderController {
                 cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesWorkOrderAbnormalReportReqBO.builder()
                 .workOrderId(reqVO.getWorkOrderId())
                 .markerUserId(SecurityFrameworkUtils.getLoginUserId())
+                .abnormalReasonCode(reqVO.getAbnormalReasonCode())
                 .abnormalDescription(reqVO.getAbnormalDescription())
                 .build()));
     }
@@ -777,13 +778,6 @@ public class MesProcessPoolTeamLeaderController {
                 .setDisabledReason(candidate.getDisabledReason())
                 .setOccupiedByOtherPqcLeader(candidate.getOccupiedByOtherPqcLeader())
                 .setOccupiedLeaderUserId(candidate.getOccupiedLeaderUserId());
-    }
-
-    private static MesTeamLeaderActiveOrderCandidateRespVO toActiveOrderCandidateRespVO(
-            MesTeamLeaderActiveOrderCandidateBO candidate) {
-        return new MesTeamLeaderActiveOrderCandidateRespVO()
-                .setWorkOrderId(candidate.getWorkOrderId())
-                .setWorkOrderCode(candidate.getWorkOrderCode());
     }
 
     private static MesTeamMaintenanceAuditRespVO toMaintenanceAuditRespVO(

@@ -459,7 +459,8 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         boolean equipmentRequired = Boolean.TRUE.equals(item.getEquipmentRequired());
         boolean hasEquipmentOptions = CollUtil.isNotEmpty(item.getEquipmentOptions());
         if (equipmentRequired != hasEquipmentOptions) {
-            throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode() + ".equipmentRequired/equipmentOptions");
+            throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID,
+                    item.getItemCode() + ".equipmentRequired/equipmentOptions");
         }
         for (MesQaInspectionRegulationSaveReqVO.EquipmentOption equipmentOption :
                 CollUtil.emptyIfNull(item.getEquipmentOptions())) {

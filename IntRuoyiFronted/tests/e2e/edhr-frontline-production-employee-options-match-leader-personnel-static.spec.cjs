@@ -41,12 +41,12 @@ assert.doesNotMatch(
 )
 assert.match(
   runtimeConfigService,
-  /toEmployeeOptions\(leaderUserIds\)/,
-  'Runtime config must derive employee popup options from the current leader scope.'
+  /toEmployeeOptions\(loginUserId\)/,
+  'Runtime config must derive employee popup options from the current login production leader personnel list.'
 )
 assert.match(
   runtimeConfigService,
-  /employeeProfileMapper\.selectList\(\s*new LambdaQueryWrapperX<MesProcessPoolTeamEmployeeProfileDO>\(\)[\s\S]*\.in\(MesProcessPoolTeamEmployeeProfileDO::getLeaderUserId,\s*leaderUserIds\)[\s\S]*\.eq\(MesProcessPoolTeamEmployeeProfileDO::getEnabled,\s*Boolean\.TRUE\)/,
+  /employeeProfileMapper\.selectList\(\s*new LambdaQueryWrapperX<MesProcessPoolTeamEmployeeProfileDO>\(\)[\s\S]*\.eq\(MesProcessPoolTeamEmployeeProfileDO::getLeaderUserId,\s*leaderUserId\)[\s\S]*\.eq\(MesProcessPoolTeamEmployeeProfileDO::getEnabled,\s*Boolean\.TRUE\)/,
   'Runtime config employees must come from the same enabled production personnel profiles used by personnel management.'
 )
 assert.doesNotMatch(

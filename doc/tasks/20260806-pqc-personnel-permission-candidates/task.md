@@ -11,7 +11,7 @@
 - [x] 用 RED 测试固定“只返回 PQC 权限用户”
 - [x] 实现后端正式权限过滤并保持关联校验一致
 - [x] 运行聚焦后端/前端验证并记录证据
-- [ ] 空点击自动加载候选，并标记其它 PQC 组长占用候选为红色禁选
+- [x] 空点击自动加载候选，并标记其它 PQC 组长占用候选为红色禁选
 - [ ] 收尾清理、提交和推送
 
 ## Expected Verification
@@ -25,9 +25,11 @@
 
 ## Current Status
 
-in_progress
+blocked_on_workspace_conflict_markers
 
-继续实现新增交互：空下拉点击自动加载完整启用 PQC 权限候选池；已被其它 PQC 组长关联的候选在下拉中红色显示且不可选择。
+已完成本轮功能实现和聚焦静态合同：PQC 新增人员下拉空点击会加载空关键字候选；其它 PQC 组长启用员工 scope 占用的候选会在后端标记 disabled/occupied，前端红色显示且不可选择，提交接口也会再次业务拒绝跨组长占用。
+
+剩余阻塞：当前共享工作区在 `TeamLeaderWorkbenchPage.vue`、`teamLeader.ts`、`MesProcessPoolTeamLeaderController.java`、`MesTeamLeaderActiveOrderServiceImpl.java` 等文件存在既有 Git 冲突标记，导致 Maven、pnpm ts:check 和 git diff --check 无法完成；这些冲突包含活跃订单、PQC 列展示等非本任务合并内容，不能在本任务中擅自选择一侧解决。
 
 ## 设计约束检查
 

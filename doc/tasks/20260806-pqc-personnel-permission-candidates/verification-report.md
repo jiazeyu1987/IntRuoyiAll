@@ -2,28 +2,26 @@
 
 ## Summary
 
-- PASS: PQC 新增人员候选范围已从全公司用户改为拥有 `pqc_permission` 的启用用户。
-- PASS: 空关键字候选从 `pqc_permission` 角色分配池加载完整启用用户，不再返回空列表，也不再受 20 条候选上限截断。
-- PASS: PQC 候选查询和提交关联使用同一后端权限口径；无权限用户在写入 scope 前业务拒绝。
-- PASS: 前端仍调用 `/mes/pro/process-pool/team-leader/pqc-personnel/formal-candidates` 远程搜索，不新增前端本地过滤。
-- PASS: `pnpm ts:check` 本轮通过。
+- PASS: PQC 新增人员候选仍限定为拥有 `pqc_permission` 的启用用户。
+- PASS: 空关键字候选加载继续走后端正式 PQC 权限池，不做前端本地过滤。
+- PASS: 新增空点击/聚焦下拉自动加载候选；其它 PQC 组长已启用关联的候选由后端标记为 disabled/occupied，前端红色显示且不可选择。
+- PASS: 提交关联前后端双层校验：前端阻止 disabled 候选提交，后端在写入 scope 前拒绝已被其它 PQC 组长占用的用户。
+- BLOCKED: Maven、`pnpm ts:check`、`git diff --check` 当前被共享工作区既有 merge conflict markers 阻断，无法给出全量 GREEN。
 
 ## Verification
 
-- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesPqcLeaderPersonnelServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，缺少候选服务方法、权限注入构造器和新错误码。
-- RED: `node tests\e2e\pqc-leader-personnel-company-wide-candidates-static.spec.js` -> FAIL，PQC 候选端点仍使用全公司正式员工候选服务。
-- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesPqcLeaderPersonnelServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，初版 `Tests run: 21, Failures: 0, Errors: 0, Skipped: 0`。
-- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesPqcLeaderPersonnelServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，角色池取数修正后 `Tests run: 22, Failures: 0, Errors: 0, Skipped: 0`。
 - GREEN: `node tests\e2e\pqc-leader-personnel-company-wide-candidates-static.spec.js` -> PASS。
-- PASS: `git diff --check -- <本任务相关路径>` -> PASS；仅存在 CRLF 工作区提示，无空白错误。
-- PASS: `pnpm ts:check` -> PASS。
+- BLOCKED: `mvn -pl yudao-module-mes -am "-Dtest=MesPqcLeaderPersonnelServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL；`MesProcessPoolTeamLeaderController.java`、`MesTeamLeaderActiveOrderServiceImpl.java` 存在 conflict marker，Javac 在进入本轮测试前失败。
+- BLOCKED: `pnpm ts:check` -> FAIL；`TeamLeaderWorkbenchPage.vue` 存在 conflict marker，Vue TS 报 TS1185。
+- BLOCKED: `git diff --check -- <本任务相关路径>` -> FAIL；`teamLeader.ts`、`TeamLeaderWorkbenchPage.vue`、`MesProcessPoolTeamLeaderController.java` 等文件存在 leftover conflict marker。
 
 ## Scope Notes
 
-- 权限口径：使用本地已有 `PQC权限角色` 的正式角色编码 `pqc_permission`，避免通用菜单权限 `mes:pro-edhr-batch-execution:query` 或 `mes:pro-process-pool-team-leader:query` 复用导致混入非 PQC 用户。
-- 候选入口：后端先按 `pqc_permission` 解析角色 ID，再取角色分配用户池并加载用户信息；空关键字返回完整启用候选，输入关键字仅在该权限池内筛选。
-- 提交校验：`linkFormalInspector` 先校验用户有效，再校验 PQC 权限角色，再检查重复 scope，最后写入 `mes_pro_process_pool_team_leader_scope`。
+- 本轮没有引入 fallback、默认成功、前端本地候选过滤或吞异常。
+- 占用事实只来自现有 `mes_pro_process_pool_team_leader_scope`，筛选 `leader_type=PQC`、`scope_type=EMPLOYEE`、`enabled=true`。
+- 当前组长自己已有的重复关联仍按原重复关联错误处理；其它 PQC 组长占用才作为红色禁选候选展示。
 
-## Closeout Blockers
+## Blockers
 
-- 当前共享工作区已有大量非本任务改动，未执行提交和推送，避免混入其它任务文件。
+- 需要先处理共享工作区的 merge conflict markers，尤其是活跃订单和 PQC 列配置相关冲突。由于冲突内容涉及非本任务业务选择，本任务未擅自选择 HEAD 或 origin 一侧。
+- 当前未提交/未推送，避免把共享工作区其它任务改动和未解决冲突混入本任务提交。

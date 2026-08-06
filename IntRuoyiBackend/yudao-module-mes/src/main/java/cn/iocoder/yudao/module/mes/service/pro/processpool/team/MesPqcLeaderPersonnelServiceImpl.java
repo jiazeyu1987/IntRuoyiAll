@@ -82,7 +82,7 @@ public class MesPqcLeaderPersonnelServiceImpl implements MesPqcLeaderPersonnelSe
         Map<Long, Long> occupiedByOtherPqcLeaderMap = scopeMapper
                 .selectActiveScopesByLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC)
                 .stream()
-                .filter(MesPqcLeaderPersonnelServiceImpl::isPqcEmployeeScope)
+                .filter(scope -> MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE.equals(scope.getScopeType()))
                 .filter(scope -> scope.getEmployeeUserId() != null && scope.getLeaderUserId() != null)
                 .filter(scope -> !Objects.equals(scope.getLeaderUserId(), leaderUserId))
                 .collect(Collectors.toMap(MesProcessPoolTeamLeaderScopeDO::getEmployeeUserId,

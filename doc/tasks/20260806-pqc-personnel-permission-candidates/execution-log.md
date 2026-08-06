@@ -36,3 +36,19 @@
 ## Remaining Blocker
 
 - 收尾提交/推送未执行：当前共享工作区存在大量非本任务改动和未跟踪任务目录，不能将本次改动与其它任务混入同一提交。
+
+
+## 2026-08-06 Empty Dropdown Occupancy Update
+
+- RED: `node tests\e2e\pqc-leader-personnel-company-wide-candidates-static.spec.js` -> FAIL，预期失败原因：PQC formal link 尚未拒绝已被其它 PQC 组长启用 scope 占用的候选；后续静态断言继续暴露候选方法未直接标记占用字段、前端空点击加载/红色禁选未实现。
+- GREEN: `node tests\e2e\pqc-leader-personnel-company-wide-candidates-static.spec.js` -> PASS，合同锁定后端占用字段、跨组长提交拒绝、前端空点击加载和红色禁选展示。
+- BLOCKED: `mvn -pl yudao-module-mes -am "-Dtest=MesPqcLeaderPersonnelServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，阻塞原因不是本轮 PQC 候选逻辑，而是当前共享工作区已有未解决冲突标记：`MesProcessPoolTeamLeaderController.java` 与 `MesTeamLeaderActiveOrderServiceImpl.java` 编译时报 merge conflict marker 相关语法错误。
+- BLOCKED: `pnpm ts:check` -> FAIL，`TeamLeaderWorkbenchPage.vue` 存在既有 merge conflict marker，Vue TS 编译直接报 TS1185。
+- BLOCKED: `git diff --check -- <本任务相关路径>` -> FAIL，`teamLeader.ts`、`TeamLeaderWorkbenchPage.vue`、`MesProcessPoolTeamLeaderController.java` 等文件存在 leftover conflict marker；这些冲突覆盖活跃订单和列配置等非本任务内容，需先由对应任务/负责人完成冲突选择。
+
+## Current Update Work
+
+- 后端 `MesTeamFormalUserCandidateBO` / `MesTeamFormalUserCandidateRespVO` 增加 `disabled`、`disabledReason`、`occupiedByOtherPqcLeader`、`occupiedLeaderUserId` 字段。
+- 后端候选查询从 PQC 权限角色池加载用户后，按 `mes_pro_process_pool_team_leader_scope` 的启用 PQC 员工 scope 标记“其它组长占用”。
+- 后端 `linkFormalInspector` 在写入 scope 前新增跨 PQC 组长占用校验，命中时返回 `PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_OCCUPIED_BY_OTHER_LEADER`，不写库。
+- 前端 PQC 新增人员 `el-select` 增加 `automatic-dropdown`、空 focus/visible-change 加载、候选 disabled 绑定、红色占用原因展示；即使前端被绕过，后端仍二次拒绝。

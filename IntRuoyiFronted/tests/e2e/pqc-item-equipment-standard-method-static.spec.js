@@ -137,5 +137,10 @@ assert.match(
   /itemEquipmentMapper\.insert\(toItemEquipmentDO\(version\.getId\(\), itemReqVO, equipmentOption\)\)/,
   'QA regulation service must persist each item equipment option for the published PQC snapshot.'
 )
+assert.match(
+  qaServiceSource,
+  /equipmentRequired != hasEquipmentOptions/,
+  'QA regulation service must fail fast when equipmentRequired and formal equipment options disagree.'
+)
 
 console.log('PASS: PQC item equipment, standard, and method static contract')

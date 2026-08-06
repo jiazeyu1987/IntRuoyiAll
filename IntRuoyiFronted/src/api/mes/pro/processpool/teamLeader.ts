@@ -24,6 +24,7 @@ export interface TeamLeaderSubmissionReviewReqVO {
 
 export interface WorkOrderAbnormalReportReqVO {
   workOrderId: number
+  abnormalReasonCode: string
   abnormalDescription: string
 }
 
@@ -254,11 +255,6 @@ export interface TeamLeaderActiveOrderRespVO {
   version?: number
 }
 
-export interface TeamLeaderActiveOrderCandidateRespVO {
-  workOrderId: number
-  workOrderCode: string
-}
-
 export interface TeamLeaderActiveOrderTransferTraceRespVO {
   id: number
   activeOrderId: number
@@ -429,13 +425,6 @@ export const addTeamLeaderActiveOrder = async (data: TeamLeaderActiveOrderAddReq
   return await request.post<number>({
     url: '/mes/pro/process-pool/team-leader/active-order/add',
     data
-  })
-}
-
-export const searchTeamLeaderActiveOrderCandidates = async (keyword: string) => {
-  return await request.get<TeamLeaderActiveOrderCandidateRespVO[]>({
-    url: '/mes/pro/process-pool/team-leader/active-order/candidates',
-    params: { keyword }
   })
 }
 

@@ -6,9 +6,9 @@
 
 ## Milestones
 
-- [ ] Milestone 1: 核对现有 QA 规程、PQC 填写页和后端任务快照链路
-- [ ] Milestone 2: 先补 RED 回归，锁定 QA 项目设备/标准/方法来源约束
-- [ ] Milestone 3: 实现最小正式链路修正，不引入 fallback
+- [x] Milestone 1: 核对现有 QA 规程、PQC 填写页和后端任务快照链路
+- [x] Milestone 2: 先补 RED 回归，锁定 QA 项目设备/标准/方法来源约束
+- [x] Milestone 3: 实现最小正式链路修正，不引入 fallback
 - [ ] Milestone 4: 运行定向验证并记录 GREEN / REGRESSION
 - [ ] Milestone 5: 收尾记录与清理状态确认
 
@@ -25,7 +25,18 @@
 
 ## Current Status
 
-in_progress
+blocked
+
+## Blocker
+
+- 后端目标验证被本任务外既有合并冲突阻断：`MesProcessPoolTeamLeaderController.java` 与 `MesTeamLeaderActiveOrderServiceImpl.java` 当前为 `UU`，源码含 `<<<<<<< HEAD` / `>>>>>>> origin/int_main` 冲突标记，导致 `yudao-module-mes` 重新编译失败。
+- 按 no-fallback 与任务所有权规则，本任务不擅自解析这两个生产组长流程文件的冲突；需先完成对应冲突解决后，才能重新运行后端定向单测并收尾。
+
+## Verification Status
+
+- PASS：`node tests\e2e\pqc-item-equipment-standard-method-static.spec.js`。
+- PASS：task-owned `git diff --check`，仅输出 CRLF 工作区提示，无空白错误。
+- BLOCKED：`mvn -pl yudao-module-mes -am "-Dtest=MesQaInspectionRegulationServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`，在 MES 主模块编译阶段被上述无关 `UU` 冲突阻断。
 
 ## 设计约束检查
 
