@@ -111,3 +111,9 @@ BDD: 可读地展示 ERP 同步运行结果 -> Given 系统已有 ERP 同步水�
 - MAIN DIRTY CHECK: `E:\IntRuoyi` 状态稳定为 1 项未跟踪目录：`doc/tasks/20260806-qa-regulation-pdf-field-alignment/`。
 - OWNERSHIP BLOCKER: 该目录属于其它 in-progress 任务，且其 `execution-log.md` 明确写明本任务文件不应进入脏工作区基线提交；按并行任务所有权规则，本 ERP 收尾不能提交、隐藏、删除或改写该目录。
 - CLOSEOUT STATE: ERP 代码已进入远端 `int_main`，功能分支也已推送；剩余仅等待其它任务处理该目录后重新执行 cleanup apply、删除 worktree 并释放 slot 2。
+
+## 2026-08-06 Closeout Retry 2
+
+- MAIN WORKTREE OBSERVATION: `E:\IntRuoyi` 仍有活跃 Codex/Git 进程写入；连续观察中 dirty 数量从 13 增至 15，再增至 16，说明主工作区不是稳定合并窗口。
+- CURRENT BLOCKER: 主工作区最新可见脏改动包含 `MesPqcLeaderPersonnelServiceTest.java`、`TeamLeaderWorkbenchPage.vue`、PQC 人员静态合同、AC-M04 任务证据、`doc/tasks/20260806-pqc-*` 和 `doc/tasks/20260806-qa-regulation-pdf-field-alignment/` 等并行任务文件。
+- ACTION: 未运行 cleanup apply，未合并、未提交、未删除或隐藏其它任务文件；ERP worktree 保持 clean，功能分支继续保留用于后续 closeout。

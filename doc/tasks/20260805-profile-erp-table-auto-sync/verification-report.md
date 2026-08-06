@@ -103,3 +103,9 @@ FUNCTION PASS。已完成计划内实现、自动化回归、真实页面保存�
 - cleanup preview 仍被主工作区 dirty 阻塞。
 - 当前唯一残留为其它任务目录 `doc/tasks/20260806-qa-regulation-pdf-field-alignment/`，该任务自身记录要求不进入脏工作区基线提交。
 - 本任务不能越权提交或删除该目录；继续保持 `ready_for_closeout`，等待主工作区清理后再执行 cleanup apply。
+
+## 2026-08-06 Closeout Retry 2
+
+- 再次观察时 `E:\IntRuoyi` dirty 数量从 13 增至 16，并存在活跃 Git/Codex 进程。
+- 阻塞范围已扩大到 PQC 人员、AC-M04、QA PDF 字段对齐等并行任务文件；仍不能执行 clean-worktree 要求的 cleanup apply。
+- ERP 分支和远端保持同步，`8083/48083` 端口空闲；剩余动作仍是等待主工作区清理后执行 cleanup apply。
