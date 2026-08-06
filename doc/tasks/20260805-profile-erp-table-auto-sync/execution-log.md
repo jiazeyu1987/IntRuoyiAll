@@ -117,3 +117,11 @@ BDD: 可读地展示 ERP 同步运行结果 -> Given 系统已有 ERP 同步水�
 - MAIN WORKTREE OBSERVATION: `E:\IntRuoyi` 仍有活跃 Codex/Git 进程写入；连续观察中 dirty 数量从 13 增至 15，再增至 16，说明主工作区不是稳定合并窗口。
 - CURRENT BLOCKER: 主工作区最新可见脏改动包含 `MesPqcLeaderPersonnelServiceTest.java`、`TeamLeaderWorkbenchPage.vue`、PQC 人员静态合同、AC-M04 任务证据、`doc/tasks/20260806-pqc-*` 和 `doc/tasks/20260806-qa-regulation-pdf-field-alignment/` 等并行任务文件。
 - ACTION: 未运行 cleanup apply，未合并、未提交、未删除或隐藏其它任务文件；ERP worktree 保持 clean，功能分支继续保留用于后续 closeout。
+
+## 2026-08-06 Closeout Retry 3
+
+- USER INTENT: 用户询问“需要融合的文件有持续写入吗？如果没有可以融合”，本轮仅确认主工作区是否稳定，并在稳定时才允许继续融合。
+- MAIN SNAPSHOT 1: `2026-08-06T09:27:15+08:00`，`E:\IntRuoyi` 位于 `int_main...origin/int_main [ahead 1]`，仍有并行任务脏改动，包括 MES/PQC 源码、`QaRegulationPage.vue`、提交任务文档和多个未跟踪任务目录。
+- MAIN SNAPSHOT 2: `2026-08-06T09:27:37+08:00`，dirty 列表继续增长，新增或更新 `doc/tasks/20260805-production-personnel-full-user-dropdown/*`、`IntRuoyiFronted/tests/e2e/pqc-submission-structured-columns-static.spec.js`、`doc/tasks/20260806-pqc-submission-structured-columns/`，且 `qa-regulation-project-last-copy-static.spec.cjs` 也在采样间隔内更新。
+- CURRENT BLOCKER: 主工作区仍在持续写入，不是安全融合窗口；按 worktree closeout 门禁，`task_closeout.py --mode apply` 不能在目标主工作区 dirty 且持续变化时执行。
+- ACTION: 未运行 cleanup apply，未执行 ff-only merge，未提交、未删除、未隐藏任何并行任务文件；ERP worktree 保留，等待 `E:\IntRuoyi` clean 且稳定后再继续。
