@@ -32,6 +32,24 @@
 - EXPERIENCE: 更新 `docs/backend-development.md#第三方报工直报正式链路门禁` 与 `docs/experience-index.md`，补充多个当前可用工作站班次小时不一致时也必须按默认 `10.5` 小时计算。
 - GIT: 主工作区存在大量并行任务脏改动；本任务提交只选择性暂存排产修复源码、测试、任务记录和本次经验 hunk，未暂存并行任务文件。
 
+## Commit And Runtime
+
+- COMMIT: `git commit -m "修复重排班次小时不一致默认值"` -> PASS, commit `bd1dce0f1d80cd9d9ccdcf6835d406c77c4e9ad0`.
+- PUSH: `git push origin int_main` -> PASS, `origin/int_main` updated from `e32d241ae` to `bd1dce0f1`.
+- BUILD: `git worktree add --detach D:\IntRuoyiWorktree\replan-shift-hours-runtime-20260806 origin/int_main` -> PASS, detached HEAD `bd1dce0f1`.
+- BUILD: `mvn -pl yudao-server -am "-DskipTests" package` from clean worktree -> PASS, `BUILD SUCCESS`, total time `02:47 min`.
+- RUNTIME JAR: copied `yudao-server\target\yudao-server-exec.jar` to `E:\IntRuoyi\output\runtime\int_main\backend-runtime-replan-shift-hours-20260806-225601.jar`, SHA256 `68C4C6E1E42FC9A566B05A99FD7D5C34301951119167086CE4684530C2824F41`.
+- JAR CHECK: nested `BOOT-INF/lib/yudao-module-mes-2026.04-SNAPSHOT.jar` has `compress_type=0`; `MesProAutoScheduleServiceImpl.class` found.
+- RESTART: stopped old `48081` PID `23164` running `backend-runtime-latest-process-config-admin-auth-20260806-224302.jar`; started new PID `44100` with `backend-runtime-replan-shift-hours-20260806-225601.jar`.
+- HEALTH: `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> PASS, `{"status":"UP"}`.
+- CLEAN BUILD WORKTREE: `git worktree remove --force D:\IntRuoyiWorktree\replan-shift-hours-runtime-20260806` -> PASS, `REMOVED=True`.
+
+## Closeout
+
+- CLEANUP PREVIEW: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace E:\IntRuoyi --task-id 20260806-replan-shift-hours-still-missing --mode preview` -> PASS, keep `task.md`, `execution-log.md`, `verification-report.md`; delete `bug-regression-evidence.md`; blocked none.
+- CLEANUP APPLY: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace E:\IntRuoyi --task-id 20260806-replan-shift-hours-still-missing --mode apply` -> PASS, deleted only `bug-regression-evidence.md`.
+- FINAL STATUS: `completed`.
+
 ## Blockers
 
 - None.

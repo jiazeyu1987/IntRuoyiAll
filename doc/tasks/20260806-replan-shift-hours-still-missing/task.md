@@ -10,8 +10,8 @@
 - [x] 复现当前抛错路径并补充失败回归测试。
 - [x] 实现最小修复，确保当前路线资源计算按默认 `10.5`。
 - [x] 运行定向 Maven 回归并更新验证记录。
-- [ ] 重启本机 `int_main` 后端到修复后的最新 Jar。
-- [ ] 收尾清理、沉淀经验、提交并推送。
+- [x] 重启本机 `int_main` 后端到修复后的最新 Jar。
+- [x] 收尾清理、沉淀经验、提交并推送。
 
 ## Expected Verification
 
@@ -28,9 +28,9 @@
 
 ## Current Status
 
-in_progress
+completed
 
-已完成 RED/GREEN 和相邻回归，准备提交实现并从干净 worktree 构建运行 Jar。
+已完成 RED/GREEN、相邻回归、实现提交推送，并已将本机 `int_main` 后端 `48081` 重启到包含修复的最新 Jar；cleanup apply 已删除本任务临时 bug evidence，保留正式任务记录与验证报告。
 
 ## 设计约束检查
 
