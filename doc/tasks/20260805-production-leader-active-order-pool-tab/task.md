@@ -14,6 +14,7 @@
 - [x] 更新静态合同和真实 E2E 脚本，拆分调拨追溯只读验收
 - [x] 修复未选择真实候选时加入活跃订单可能向后端提交空 `workOrderId` 的回归
 - [x] 修复只输入完整订单号但未点候选时仍向后端提交空 `workOrderId` 的截图回归
+- [x] 使用 `芋道源码/admin` 走生产组长页签聚焦真实 E2E，证明新增请求体仅包含 `workOrderId`
 - [ ] 完成写入型真实 E2E、证据归档、清理、提交与推送
 
 ## Expected Verification
@@ -26,6 +27,7 @@
 - `workdir=IntRuoyiFronted; node --check tests/e2e/team-leader-workbench-real-flow.e2e.js`
 - `workdir=IntRuoyiFronted; pnpm ts:check`
 - `workdir=IntRuoyiFronted; node tests/e2e/team-leader-workbench-real-flow.e2e.js`，必须使用测试生产组长和任务自有已确认工单；当前缺少 `TLW_*` 前置时记录 BLOCKED。
+- `workdir=IntRuoyiFronted; ACTIVE_ORDER_E2E_BASE_URL=http://127.0.0.1:8081 ACTIVE_ORDER_E2E_WORK_ORDER_CODE=881MO093613 node tests/e2e/production-leader-active-order-focused.e2e.js`，使用 `芋道源码/admin` 真实页面路径验证订单号下拉选择和新增请求体；当前本机无完整 QA 规程覆盖候选时记录 BLOCKED。
 - `workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-production-leader-active-order-pool-tab/frontend-feature-evidence.md`
 - `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260805-production-leader-active-order-pool-tab/backend-api-evidence.md`
@@ -34,7 +36,7 @@
 
 ## Current Status
 
-blocked - 本轮已修复“加入活跃订单池提示 `请求参数不正确:不能为null`”回归，并补齐“只输入完整订单号未点候选”精确解析路径；活跃订单聚焦静态合同、`pnpm ts:check` 与目标 `git diff --check` 已通过。2026-08-06 14:58 已确认主运行态前端 8081 HTTP 200、后端 48081 health `UP`，并执行真实 E2E 入口；当前仍因缺少测试租户、账号和任务自有工单/工序等 `TLW_*` 写入夹具而阻塞，且相邻 RRM、PQC 静态合同失败在并行 PQC 列表选择器/重置链路缺失，按项目规则未执行 cleanup apply、提交或推送。
+blocked - 本轮已修复“加入活跃订单池提示 `请求参数不正确:不能为null`”回归，并补齐“只输入完整订单号未点候选”精确解析路径；活跃订单聚焦静态合同、`pnpm ts:check` 与目标 `git diff --check` 已通过。2026-08-06 17:18 使用 `芋道源码/admin` 在生产组长页签完成聚焦真实 Playwright 路径：远程下拉选择 `881MO093613` 后新增请求体为 `{"workOrderId":925868}`，旧 null 参数校验已消失；后端进入正式 PQC 任务生成前置并因缺少已发布 QA 规程阻塞，事务回滚后活跃订单、工序快照、PQC 任务残留均为 0。本机只读统计显示已确认工单 4,338 条、唯一有效排产 55 条、完整 QA 规程覆盖可新增候选 0 条；按无 fallback / 无造数规则，完整新增 PASS 仍阻塞，未执行 cleanup apply、提交或推送。
 
 ## 设计约束检查
 

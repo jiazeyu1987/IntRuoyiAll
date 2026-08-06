@@ -100,8 +100,23 @@
 - Missing: `TLW_TENANT`、`TLW_USERNAME`、`TLW_PASSWORD`、`TLW_WORK_ORDER_ID`、`TLW_WORK_ORDER_CODE`、`TLW_TASK_ID`、`TLW_ROUTE_ID`、`TLW_ROUTE_PROCESS_ID`、`TLW_PROCESS_ID`、`TLW_ITEM_ID`、`TLW_EMPLOYEE_PROFILE_ID`、`TLW_DEVICE_ID`、`TLW_RECORDBOOK_ID`、`TLW_SIGNATURE_ID`、`TLW_SIGNATURE_EMPLOYEE_ID`、`TLW_APPROVE_USER_ID`、`TLW_FEEDBACK_CODE`、`TLW_FEEDBACK_TYPE`。
 - Impact: 本次没有进入新增活跃订单写入路径，未使用 mock、自由输入、隐藏字段、API-only 或 admin 基线数据替代。
 
+## Focused Admin E2E 2026-08-06 17:18 +08:00
+
+- User scope adjustment: 用户明确要求按实际页面路径验证：“登录admin账号，在生产组长页签里面找到一个生产订单，点击加入”。
+- Preflight: 已读取 `docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/worktree-restrictions.md`、`docs/database-rules.md`、`docs/powershell-encoding.md` 和 `docs/task-closeout-rules.md`；`npx` 可用，前端 8081 HTTP 200，后端 48081 health `UP`。
+- Runtime refresh evidence: 48081 运行 Jar 已热替换到 `backend-runtime-frontline-employee-options-active-order-code-input-20260806-1638.jar`；聚焦 E2E 请求不再触发旧 `routeId/routeVersionId @NotNull` 参数错误。
+- Command: `workdir=IntRuoyiFronted; ACTIVE_ORDER_E2E_BASE_URL=http://127.0.0.1:8081 ACTIVE_ORDER_E2E_WORK_ORDER_CODE=881MO093613 node tests/e2e/production-leader-active-order-focused.e2e.js` -> non-zero。
+- REAL E2E BLOCKED: Playwright 使用 `芋道源码/admin` 登录，进入 `/mes/pro/process-pool/production-leader`，打开“活跃订单池”，点击“新增活跃订单”，远程下拉选择候选 `881MO093613`。
+- Payload evidence: `IntRuoyiFronted/test-results/production-leader-active-order-focused/result.json` 记录候选 `{workOrderId: 925868, workOrderCode: "881MO093613"}`，新增请求体为 `{"workOrderId":925868}`，请求体字段集合仅包含 `workOrderId`。
+- Backend response: `/mes/pro/process-pool/team-leader/active-order/add` 返回业务码 `1040506111`，消息为 `PQC 检验任务生成前置条件不满足：缺少已发布QA规程，activeOrderId=32，routeProcessId=926632，processId=922917`。
+- Rollback verification: 只读 DB 核验 `mes_pro_process_pool_active_order`、`mes_pro_process_pool_active_order_process_snapshot`、`mes_pqc_inspection_task` 对 `activeOrderId IN (31,32)` 与 `workOrderId=925868` 的残留计数均为 0。
+- Candidate inventory: 只读 DB 统计当前本机 `status=1` 已确认工单 4,338 条，其中唯一有效排产 55 条、存在启用排产工序 55 条、路线信息完整 55 条，但满足完整 QA 规程前置的可新增候选为 0 条。
+- Existing-active check: 当前唯一活跃订单 `PQC-E2E-FS-20260804` 对应工单 `980019` 已确认，但没有有效排产记录；加入接口会先执行唯一有效排产校验，不能作为完整新增 PASS 候选复用。
+- Impact: “请求参数不正确:不能为null”回归已通过真实页面路径排除；完整新增成功仍被本机正式 QA 规程/排产数据前置阻塞。未通过 SQL、隐藏字段、mock、自由输入或 API-only 写入补数据。
+
 ## Blockers
 
+- 当前本机无可用于完整新增 PASS 的正式候选：已确认 + 唯一有效排产 + 启用工序 + 计划日期 + 已发布 QA 规程 + 发布版本末检适用性 + 首检/巡检/末检规则同时满足的候选数为 0。
 - 缺少写入型真实 E2E 前置：`TLW_TENANT`、`TLW_USERNAME`、`TLW_PASSWORD`、`TLW_WORK_ORDER_ID`、`TLW_WORK_ORDER_CODE`、`TLW_TASK_ID`、`TLW_ROUTE_ID`、`TLW_ROUTE_PROCESS_ID`、`TLW_PROCESS_ID`、`TLW_ITEM_ID`、`TLW_EMPLOYEE_PROFILE_ID`、`TLW_DEVICE_ID`、`TLW_RECORDBOOK_ID`、`TLW_SIGNATURE_ID`、`TLW_SIGNATURE_EMPLOYEE_ID`、`TLW_APPROVE_USER_ID`、`TLW_FEEDBACK_CODE`、`TLW_FEEDBACK_TYPE`。
 - 当前全量前端门禁还受并行 PQC 列表改动阻塞：`role-requirement-matrix-preflight-static.spec.cjs` 和 `mes-process-pool-team-leader-static.spec.js` 均失败在 PQC 选择器/重置链路缺失。
 - Impact: 未执行写入型真实新增/移出/填报闭环 E2E；未使用 mock、自由输入、隐藏字段、API-only 或 admin 基线数据替代。
