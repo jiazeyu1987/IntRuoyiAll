@@ -5,6 +5,7 @@
 - 用户需要一个“ERP表格自动同步”功能，放在个人工作台的配置页签下。
 - 功能需要支持选择每天几点自动同步，以及选择哪些 ERP 表格进行数据同步。
 - 用户要求先修改，并提醒当前有其他 Codex CLI 正在修改错误，需避免冲突。
+- 用户于 2026-08-06 要求融合合并 worktree 中已完成的代码；本轮仅处理状态为 `ready_for_closeout` 且验证通过的 ERP 自动同步分支。
 
 ## Environment And Isolation
 
@@ -60,6 +61,14 @@ BDD: 可读地展示 ERP 同步运行结果 -> Given 系统已有 ERP 同步水�
 - E2E RESET: 通过页面恢复自动同步为禁用；未点击“立即执行一次”，未触发额外 Kingdee 拉取。
 - E2E READABILITY: 真实非空运行记录显示“自动调度”“成功”、可读日期时间和“失败原因”；原始状态 `20`、13 位时间戳和英文列名不再可见，控制台错误为 0。
 - EXPERIENCE: 已将运行记录用户可读展示门禁合并到 `docs/frontend-development.md`，并更新 `docs/experience-index.md`。
+
+## 2026-08-06 Integration Resume
+
+- PRECHECK: 当前 ERP worktree 分支为 `codex/profile-erp-table-auto-sync`，HEAD `a1217d26304cdbdffe46c76f025893dd27ed87b4`，工作区 clean。
+- PRECHECK: 最新远端主线为 `origin/int_main` `74d66c0948550b3a0841b62d0e6f8fb9ab2f85db`；远端主线尚不是 ERP 分支 HEAD 的祖先，必须先在隔离 worktree 中语义融合并复跑目标验证。
+- OWNERSHIP: `D:\IntRuoyiWorktree\20260805-process-config-unification` 仍为 dirty 且任务状态 `blocked`，不满足批量融合门禁，本轮不提交、不复制、不合并该 worktree 的未完成内容。
+- MAIN SAFETY: `E:\IntRuoyi` 的 `int_main` 落后远端且存在大量并行脏改动；按并行主工作区远端快进融合门禁，不修改、不清理、不提交主工作区内容。
+- EXPERIENCE: 已执行 `project-experience-consolidation` 路由检查；现有 `docs/worktree-memory.md` 的“并行主工作区远端快进融合门禁”和“多 Worktree 批量融合门禁”已完整覆盖本轮场景，无新增可复用经验文档变更。
 
 ## Commit And Closeout Progress
 
