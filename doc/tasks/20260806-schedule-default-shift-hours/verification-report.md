@@ -25,4 +25,4 @@
 
 ## Remaining Checks
 
-- Pending commit and push.
+- None for this task. Implementation commit `84565e2ae` was pushed to `origin/int_main`; this completed-status record is part of the final closeout commit.

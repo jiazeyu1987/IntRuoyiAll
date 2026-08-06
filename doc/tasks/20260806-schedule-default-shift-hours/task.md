@@ -11,7 +11,7 @@
 - [x] 补充前端 RED 静态合同：排产管理员设置默认 10.5 且必填。
 - [x] 实现后端默认班次小时和前端默认/必填。
 - [x] 运行目标后端、前端验证并记录 GREEN。
-- [ ] 收尾清理、提交并推送。
+- [x] 收尾清理、提交并推送。
 
 ## Expected Verification
 
@@ -30,9 +30,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-后端与前端目标验证、diff check、evidence validator、经验沉淀和 cleanup 均已完成；下一步提交并推送。
+后端与前端目标验证、diff check、evidence validator、经验沉淀、cleanup、实现提交和推送均已完成。实现提交 `84565e2ae` 已推送到 `origin/int_main`，本 completed 状态随最终收尾提交推送。
 
 ## 设计约束检查
 

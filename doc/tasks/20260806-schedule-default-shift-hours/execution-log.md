@@ -51,7 +51,9 @@
 - Experience index check: `rg -n "Maven 单模块陈旧依赖|stale local reactor dependencies|不带 -am 测试前失败" docs\experience-index.md docs\powershell-memory.md` -> PASS.
 - Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260806-schedule-default-shift-hours --mode preview` -> PASS; keep core task records, delete 3 temporary evidence files, no blockers/warnings.
 - Cleanup apply: same script with `--mode apply` -> PASS; deleted `backend-api-evidence.md`, `bug-regression-evidence.md`, and `frontend-feature-evidence.md`.
+- Implementation commit: `84565e2ae 修复排产班次小时默认值`; staged file list contained only this task's backend/frontend changes, regression/static tests, task records, and experience documents.
+- Implementation push: `git push origin int_main` -> PASS, `b7ddcc429..84565e2ae int_main -> int_main`; branch runtime port guard passed for `int_main/int_main`.
 
 ## Blockers
 
-- Pending commit and push. Working tree also contains unrelated modified source/test/task files from parallel work; they are not part of this task and must not be mixed into this task's commits.
+- None for this task. Working tree still contains unrelated modified source/test/task files from parallel work; they were not staged or committed for this task.
