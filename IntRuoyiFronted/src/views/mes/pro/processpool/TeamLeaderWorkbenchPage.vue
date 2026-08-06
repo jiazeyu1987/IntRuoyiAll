@@ -588,6 +588,25 @@
               </template>
             </el-table-column>
             <el-table-column
+              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('pqcSubmissionContent')"
+              label="PQC提交内容"
+              prop="pqcSubmissionContent"
+              :min-width="getSubmissionColumnMinWidthString('pqcSubmissionContent', 260)"
+            >
+              <template #default="{ row }">
+                <div class="team-leader-workbench__pqc-content" data-pqc-leader-submission-content>
+                  <div
+                    v-for="item in resolvePqcSubmissionContentItems(row)"
+                    :key="item.key"
+                    class="team-leader-workbench__pqc-content-item"
+                  >
+                    <span class="team-leader-workbench__pqc-content-label">{{ item.label }}</span>
+                    <span class="team-leader-workbench__pqc-content-value">{{ item.valueText }}</span>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
               v-if="isSubmissionColumnVisible('selectedDevice')"
               label="选用设备"
               prop="selectedDevice"
@@ -1077,6 +1096,21 @@
             />
           </el-select>
         </el-form-item>
+        <el-form-item label="异常原因" prop="abnormalReasonCode">
+          <el-select
+            v-model="abnormalForm.abnormalReasonCode"
+            filterable
+            placeholder="请选择已配置的异常原因"
+            data-team-leader-abnormal-reason-select
+          >
+            <el-option
+              v-for="reason in configuredDefectReasonOptions"
+              :key="reason.reasonCode"
+              :label="`${reason.reasonName}（${reason.reasonCode}）`"
+              :value="reason.reasonCode"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="异常说明" prop="abnormalDescription">
           <el-input
             v-model="abnormalForm.abnormalDescription"
@@ -1318,7 +1352,7 @@
               <el-input-number v-model="defectReasonForm.processId" :min="1" :controls="false" />
             </el-form-item>
             <el-form-item label="原因类型">
-              <el-select v-model="defectReasonForm.reasonType">
+              <el-select v-model="defectReasonForm.reasonType" data-team-leader-defect-reason-select>
                 <el-option label="不合格" value="UNQUALIFIED" />
                 <el-option label="PQC 失败" value="PQC_FAILURE" />
               </el-select>
@@ -1932,6 +1966,7 @@ const submissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'lossBreakdown', label: '损耗明细', minWidth: 210 },
   { key: 'product', label: '产品', minWidth: 180 },
   { key: 'inspectionTask', label: '检验类型/轮次', minWidth: 150 },
+  { key: 'pqcSubmissionContent', label: 'PQC提交内容', minWidth: 260 },
   { key: 'selectedDevice', label: '选用设备', minWidth: 220 },
   { key: 'deviceParameterReadings', label: '设备参数', minWidth: 280 },
   { key: 'auditCopyStatus', label: '审核副本', minWidth: 130 },
@@ -2235,6 +2270,7 @@ const correctionForm = reactive({
 const abnormalForm = reactive({
   activeOrderId: undefined as number | undefined,
   workOrderId: undefined as number | undefined,
+  abnormalReasonCode: '',
   abnormalDescription: ''
 })
 
@@ -2308,6 +2344,7 @@ const deviceRuleForm = reactive({
 
 const abnormalRules = {
   activeOrderId: [{ required: true, message: '订单号不能为空', trigger: 'change' }],
+  abnormalReasonCode: [{ required: true, message: '异常原因不能为空', trigger: 'change' }],
   abnormalDescription: [{ required: true, message: '异常说明不能为空', trigger: 'blur' }]
 }
 
@@ -3796,6 +3833,7 @@ const submitAbnormal = async () => {
   try {
     await markAndReportWorkOrderAbnormal({
       workOrderId: requireSelectedActiveOrderWorkOrderId(),
+      abnormalReasonCode: abnormalForm.abnormalReasonCode.trim(),
       abnormalDescription: abnormalForm.abnormalDescription.trim()
     })
     ElMessage.success('异常已上报')

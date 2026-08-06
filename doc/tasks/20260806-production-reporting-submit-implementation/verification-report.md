@@ -6,7 +6,7 @@ ready_for_closeout
 
 ## Evidence
 
-- Frontend static contracts cover table columns, structured submit payload, abnormal parameter class, and adjacent team-leader/frontline contracts.
+- Frontend static contracts cover table columns, structured submit payload, abnormal parameter class, abnormal reason payload, PQC structured submission content, and adjacent team-leader/frontline contracts.
 - Backend contract tests cover loss detail validation, process-scoped configuration, and structured timeline/read-model projection.
 - TypeScript and Maven targeted regression commands passed.
 - Skill evidence files were created for frontend and backend delivery and are ready for validator execution.
@@ -19,7 +19,9 @@ ready_for_closeout
 - `node tests/e2e/team-leader-workbench-static.spec.cjs` -> PASS.
 - `node tests/e2e/frontline-formal-submit-static.spec.cjs` -> PASS.
 - `node tests/e2e/team-leader-report-allocation-static.spec.cjs` -> PASS.
+- `node tests/e2e/mes-process-pool-team-leader-static.spec.js` -> PASS.
 - `pnpm ts:check` -> PASS.
+- `mvn -pl yudao-module-mes -am "-Dtest=MesWorkOrderAbnormalReportServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 14 tests.
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProFrontlineFeedbackSubmitDetailContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests.
 - `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRuntimeConfigProcessScopeTest,MesProcessPoolTimelineSubmissionPayloadDisplayTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 2 tests.
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProFrontlineFeedbackSubmitServiceTest,MesProFrontlineFeedbackRawLimitBypassTest,MesProFrontlineFeedbackRouteOrderGateTest,MesProFrontlineFeedbackSubmitRollbackTest,MesP0ProductionSubmitClosedLoopContractTest,MesProFrontlineFeedbackSubmitDetailContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 16 tests.

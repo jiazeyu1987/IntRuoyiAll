@@ -18,7 +18,7 @@
 - [x] M2：先写前端/后端 RED 测试，覆盖表格列、结构化 payload、损耗合计校验、工序配置范围和异常参数标红。
 - [x] M3：实现最小正式方案，保持现有报工链路、配置快照和无 fallback 策略。
 - [x] M4：运行 GREEN 与回归验证，记录前端/后端技能证据。
-- [ ] M5：完成收尾、提交、推送，并在主工作区状态允许时融合回 `int_main`。
+- [ ] M5：完成收尾、提交、推送，并融合回 `int_main`。
 
 ## Expected Verification
 
@@ -56,4 +56,4 @@
 
 ready_for_closeout
 
-已完成前端静态合同、`pnpm ts:check`、后端目标 JUnit、提交链路回归、技能 evidence validator、经验沉淀和 branch runtime port guard；剩余 cleanup、提交、推送与融合。
+已完成 `origin/int_main` 合并后的异常上报契约修复、PQC 提交内容列补齐、前端静态合同、`pnpm ts:check`、后端目标 JUnit、提交链路回归、技能 evidence validator、经验沉淀和 branch runtime port guard；剩余提交、推送、融合与 cleanup。

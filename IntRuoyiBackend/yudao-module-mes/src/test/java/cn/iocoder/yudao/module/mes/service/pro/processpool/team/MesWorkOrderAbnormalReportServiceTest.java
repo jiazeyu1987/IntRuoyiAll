@@ -29,12 +29,13 @@ class MesWorkOrderAbnormalReportServiceTest {
     }
 
     @Test
-    void shouldMarkAndReportWorkOrderAbnormalWithOnlyOrderAndDescription() {
+    void shouldMarkAndReportWorkOrderAbnormalWithReasonCode() {
         whenInsertId(8101L);
 
         Long abnormalId = service.markAndReport(MesWorkOrderAbnormalReportReqBO.builder()
                 .workOrderId(5001L)
                 .markerUserId(3001L)
+                .abnormalReasonCode("DEVICE_DOWN")
                 .abnormalDescription("设备停机，影响工单交付")
                 .build());
 
@@ -47,7 +48,7 @@ class MesWorkOrderAbnormalReportServiceTest {
         assertNull(abnormal.getRouteProcessId());
         assertNull(abnormal.getProcessId());
         assertNull(abnormal.getSourceEventId());
-        assertNull(abnormal.getAbnormalReasonCode());
+        assertEquals("DEVICE_DOWN", abnormal.getAbnormalReasonCode());
         assertEquals("设备停机，影响工单交付", abnormal.getAbnormalDescription());
         assertEquals(MesProcessPoolWorkOrderAbnormalDO.REPORT_STATUS_REPORTED, abnormal.getReportStatus());
         assertEquals(3001L, abnormal.getMarkerUserId());

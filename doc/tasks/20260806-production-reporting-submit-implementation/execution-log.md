@@ -41,6 +41,28 @@
 - GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, branch `codex/20260806-production-reporting-submit-implementation`, profile `int_main`, frontend `8086`, backend `48086`.
 - Experience consolidation: updated `docs/powershell-memory.md#maven-静态源码合同工作目录门禁` and `docs/experience-index.md` with Surefire static source contract path guidance; `rg -n "Maven 静态源码合同工作目录门禁|Surefire user\.dir|readSource" docs\powershell-memory.md docs\experience-index.md` -> PASS.
 
+## Post-origin/int_main Merge Verification
+
+- Merge: `git merge --no-edit origin/int_main` -> PASS, merge commit `9cf76713f`; no file conflicts.
+- Fix: after merge, `pnpm ts:check` exposed `WorkOrderAbnormalReportReqVO.abnormalReasonCode` as a required frontend payload field. The abnormal-report form now requires a configured reason code and submits `abnormalReasonCode` without weakening the API type or backend validation.
+- Fix: restored adjacent team-leader contracts after upstream merge by keeping `data-team-leader-defect-reason-select`, adding `data-team-leader-abnormal-reason-select`, and rendering PQC structured submission content in the leader table.
+- GREEN: `node tests/e2e/mes-process-pool-team-leader-static.spec.js` -> PASS.
+- GREEN: `node tests/e2e/team-leader-production-report-payload-columns-static.spec.cjs` -> PASS.
+- GREEN: `node tests/e2e/frontline-production-submit-payload-detail-static.spec.cjs` -> PASS.
+- GREEN: `node tests/e2e/team-leader-production-report-abnormal-parameter-static.spec.cjs` -> PASS.
+- GREEN: `node tests/e2e/team-leader-workbench-static.spec.cjs` -> PASS.
+- GREEN: `node tests/e2e/frontline-formal-submit-static.spec.cjs` -> PASS.
+- GREEN: `node tests/e2e/team-leader-report-allocation-static.spec.cjs` -> PASS.
+- GREEN: `pnpm ts:check` -> PASS after abnormal reason payload and PQC content column fixes.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesWorkOrderAbnormalReportServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 14 tests, 0 failures.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProFrontlineFeedbackSubmitDetailContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests, 0 failures.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRuntimeConfigProcessScopeTest,MesProcessPoolTimelineSubmissionPayloadDisplayTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 2 tests, 0 failures.
+- REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesProFrontlineFeedbackSubmitServiceTest,MesProFrontlineFeedbackRawLimitBypassTest,MesProFrontlineFeedbackRouteOrderGateTest,MesProFrontlineFeedbackSubmitRollbackTest,MesP0ProductionSubmitClosedLoopContractTest,MesProFrontlineFeedbackSubmitDetailContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 16 tests, 0 failures.
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260806-production-reporting-submit-implementation/frontend-feature-evidence.md` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260806-production-reporting-submit-implementation/backend-api-evidence.md` -> PASS.
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, branch `codex/20260806-production-reporting-submit-implementation`, profile `int_main`, frontend `8086`, backend `48086`.
+- REGRESSION: `git diff --check` -> PASS; only Git LF-to-CRLF working-copy warnings were emitted.
+
 ## Blockers
 
 - Real write-type E2E was not run because the task did not establish a running worktree frontend/backend pair, test tenant/account/signature, production order, and current process configuration fixture. No API-only, mock, or default-success substitute was used.

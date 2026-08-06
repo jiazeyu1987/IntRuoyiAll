@@ -181,11 +181,12 @@ class MesProcessPoolTeamLeaderControllerTest {
     }
 
     @Test
-    void markAndReportWorkOrderAbnormal_acceptsOnlyOrderAndDescription() {
+    void markAndReportWorkOrderAbnormal_acceptsReasonCode() {
         when(abnormalReportService.markAndReport(org.mockito.ArgumentMatchers.any())).thenReturn(8101L);
 
         MesWorkOrderAbnormalReportReqVO reqVO = new MesWorkOrderAbnormalReportReqVO()
                 .setWorkOrderId(5001L)
+                .setAbnormalReasonCode("DEVICE_DOWN")
                 .setAbnormalDescription("设备停机，影响工单交付");
 
         CommonResult<Long> response;
@@ -200,6 +201,7 @@ class MesProcessPoolTeamLeaderControllerTest {
         verify(abnormalReportService).markAndReport(captor.capture());
         assertEquals(5001L, captor.getValue().getWorkOrderId());
         assertEquals(3001L, captor.getValue().getMarkerUserId());
+        assertEquals("DEVICE_DOWN", captor.getValue().getAbnormalReasonCode());
         assertEquals("设备停机，影响工单交付", captor.getValue().getAbnormalDescription());
     }
 
@@ -698,10 +700,10 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEndpoint("markAndReportWorkOrderAbnormal", new Class[]{MesWorkOrderAbnormalReportReqVO.class},
                 PostMapping.class, new String[]{"/work-order/abnormal/report"},
                 "mes:pro-process-pool-team-leader:abnormal");
-        assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "routeProcessId"));
-        assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "processId"));
-        assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "sourceEventId"));
-        assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "abnormalReasonCode"));
+        assertNotNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "routeProcessId"));
+        assertNotNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "processId"));
+        assertNotNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "sourceEventId"));
+        assertNotNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "abnormalReasonCode"));
         assertEndpoint("addEmployeeBinding", new Class[]{MesTeamEmployeeBindingSaveReqVO.class}, PostMapping.class,
                 new String[]{"/employee-binding/add"}, "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("disableEmployeeBinding", new Class[]{MesTeamEmployeeBindingDisableReqVO.class},
