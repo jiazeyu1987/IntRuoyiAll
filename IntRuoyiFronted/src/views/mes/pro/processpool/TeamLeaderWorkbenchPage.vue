@@ -576,7 +576,7 @@
               :min-width="getSubmissionColumnMinWidthString('employeeUser', 140)"
             >
               <template #default="{ row }">
-                {{ row.actualEmployeeUserName || row.actualEmployeeUserId || '--' }}
+                {{ row.actualEmployeeUserName || '--' }}
               </template>
             </el-table-column>
             <el-table-column
@@ -943,7 +943,7 @@
               {{ formatDateTime(detail.submittedAt) }}
             </el-descriptions-item>
             <el-descriptions-item :label="employeeDetailLabel">
-              {{ detail.actualEmployeeUserName || detail.actualEmployeeUserId || '--' }}
+              {{ detail.actualEmployeeUserName || '--' }}
             </el-descriptions-item>
             <el-descriptions-item label="工序">
               {{ detail.processName || detail.processCode || '--' }}
@@ -1045,7 +1045,7 @@
                 {{ detail.id || '--' }}
               </el-descriptions-item>
               <el-descriptions-item label="PQC检验员">
-                {{ detail.actualEmployeeUserName || detail.actualEmployeeUserId || '--' }}
+                {{ detail.actualEmployeeUserName || '--' }}
               </el-descriptions-item>
               <el-descriptions-item label="服务端提交时间">
                 {{ formatDateTime(detail.submittedAt) }}
@@ -1970,7 +1970,7 @@
             {{ formatDateTime(detail.submittedAt) }}
           </el-descriptions-item>
           <el-descriptions-item :label="employeeDetailLabel">
-            {{ detail.actualEmployeeUserName || detail.actualEmployeeUserId || '--' }}
+            {{ detail.actualEmployeeUserName || '--' }}
           </el-descriptions-item>
           <el-descriptions-item label="工序">
             {{ detail.processName || detail.processCode || '--' }}
@@ -2036,7 +2036,7 @@
               {{ detail.id || '--' }}
             </el-descriptions-item>
             <el-descriptions-item label="PQC检验员">
-              {{ detail.actualEmployeeUserName || detail.actualEmployeeUserId || '--' }}
+              {{ detail.actualEmployeeUserName || '--' }}
             </el-descriptions-item>
             <el-descriptions-item label="服务端提交时间">
               {{ formatDateTime(detail.submittedAt) }}

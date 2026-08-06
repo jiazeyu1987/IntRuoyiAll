@@ -1,0 +1,63 @@
+{
+  "ok": false,
+  "baseUrl": "http://127.0.0.1:8081",
+  "targetPath": "/mes/pro/process-pool/qa-regulation",
+  "actor": "芋道源码/admin",
+  "browserExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "error": "The input was expected to not match the regular expression /当前工艺路线未标记唯一质检工序|维护 checkFlag/. Input:\n\n'QA 规程配置\\n' +\n  'ID / 球囊扩张压力泵 / 112\\n' +\n  '复制\\n' +\n  '版本\\n' +\n  '生效日期\\n' +\n  'DRAFT\\n' +\n  '发布规程\\n' +\n  '总览\\n' +\n  '检验项目\\n' +\n  '适用范围\\n' +\n  '规程编号\\n' +\n  '规程名称\\n' +\n  '产品\\n' +\n  '工艺路线\\n' +\n  'ROUTE-XLSX-00001 / 球囊扩张导管 / 可绑定\\n' +\n  '手动绑定工艺路线\\n' +\n  '手动绑定工艺路线失败：当前工艺路线未标记唯一质检工序，请先在工艺路线中维护 checkFlag。'\n",
+  "targetResponses": [
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/route-product/get-by-item?itemId=11"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/route/flow-config?routeId=900025&useType=BATCH&routeVersionId=271"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/route/flow-config?routeId=900025&useType=SCHEDULE&routeVersionId=271"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/route-process/list-by-route?routeId=900025"
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/route-product/save-qa-regulation-route-by-item"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/route-product/get-by-item?itemId=11"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/route/flow-config?routeId=900025&useType=SCHEDULE&routeVersionId=271"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/route/flow-config?routeId=900025&useType=BATCH&routeVersionId=271"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/route-process/list-by-route?routeId=900025"
+    }
+  ],
+  "writeRequests": [
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/route-product/save-qa-regulation-route-by-item"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": []
+}

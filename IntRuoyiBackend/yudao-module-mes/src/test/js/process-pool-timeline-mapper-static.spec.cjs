@@ -24,6 +24,7 @@ for (const required of [
   'pool_event.raw_payload',
   'pool_event.device_account_id AS loginUserId',
   'pool_event.actual_employee_id AS actualEmployeeUserId',
+  'actual_employee.nickname AS actualEmployeeUserName',
   'pool_event.signature_user_id AS signatureEmployeeUserId',
   'pool_event.signature_id AS electronicSignatureId',
   'pool_event.feedback_source_id AS sourceFeedbackId',
@@ -46,6 +47,17 @@ for (const required of [
 ]) {
   assert(source.includes(required), `时间轴 mapper 必须读取 F1 正式字段：${required}`)
 }
+
+assert.doesNotMatch(
+  source,
+  /NULL\s+AS\s+actualEmployeeUserName/,
+  '生产组长报工列表员工列必须从正式用户表读取姓名，不能返回 NULL 后让前端退回显示员工编号。'
+)
+assert.match(
+  source,
+  /LEFT JOIN\s+system_users\s+actual_employee[\s\S]{0,240}actual_employee\.id\s*=\s*pool_event\.actual_employee_id[\s\S]{0,240}actual_employee\.tenant_id\s*=\s*pool_event\.tenant_id[\s\S]{0,240}actual_employee\.deleted\s*=\s*0/,
+  '时间轴 mapper 必须按租户和删除标记关联 system_users actual_employee，使用 nickname 作为实际填写员工姓名。'
+)
 
 for (const requiredFilter of [
   'reqVO.productId',

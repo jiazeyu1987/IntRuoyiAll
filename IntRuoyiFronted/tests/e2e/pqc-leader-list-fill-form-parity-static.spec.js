@@ -14,13 +14,16 @@ const tableStart = source.indexOf('<el-table', reportStart)
 const tableEnd = source.indexOf('</el-table>', tableStart)
 assert.ok(tableStart > reportStart && tableEnd > tableStart, 'submission table block must be locatable.')
 const tableBlock = source.slice(tableStart, tableEnd)
-const defaultColumnsStart = source.indexOf('const submissionDefaultColumns')
-const defaultColumnsEnd = source.indexOf('const {', defaultColumnsStart)
-assert.ok(
-  defaultColumnsStart >= 0 && defaultColumnsEnd > defaultColumnsStart,
-  'submission default columns block must be locatable.'
-)
-const defaultColumnsBlock = source.slice(defaultColumnsStart, defaultColumnsEnd)
+const extractConstArray = (constName) => {
+  const start = source.indexOf(`const ${constName}`)
+  const arrayStart = source.indexOf('[', source.indexOf('=', start))
+  const end = source.indexOf('\n]', arrayStart)
+  assert.ok(start >= 0 && arrayStart > start && end > arrayStart, `${constName} block must be locatable.`)
+  return source.slice(start, end + 1)
+}
+const productionDefaultColumnsBlock = extractConstArray('productionSubmissionDefaultColumns')
+const pqcDefaultColumnsBlock = extractConstArray('pqcSubmissionDefaultColumns')
+const defaultColumnsBlock = `${productionDefaultColumnsBlock}\n${pqcDefaultColumnsBlock}`
 
 for (const removedLabel of ['一线PQC表单', '审核副本', '过程检验汇集', '复核判定']) {
   assert.doesNotMatch(
@@ -50,11 +53,10 @@ for (const [key, label, marker] of [
   ['acceptanceStandard', '接收标准', 'data-pqc-leader-acceptance-standard'],
   ['inspectionMethod', '检验方法', 'data-pqc-leader-inspection-method'],
   ['inspectionJudgement', '检验判定', 'data-pqc-leader-inspection-judgement'],
-  ['defectDescription', '不良说明', 'data-pqc-leader-defect-description'],
-  ['pieceSampleValues', '逐件/样本值', 'data-pqc-leader-piece-sample-values']
+  ['defectDescription', '不良说明', 'data-pqc-leader-defect-description']
 ]) {
   assert.match(
-    defaultColumnsBlock,
+    pqcDefaultColumnsBlock,
     new RegExp(`\\{ key: '${key}', label: '${label}'`),
     `submission default columns must include structured PQC key ${key}.`
   )
@@ -64,6 +66,16 @@ for (const [key, label, marker] of [
     `PQC leader list must expose structured marker ${marker}.`
   )
 }
+assert.doesNotMatch(
+  defaultColumnsBlock,
+  /key:\s*'pieceSampleValues'|label:\s*'逐件\/样本值'/,
+  'sample values must stay detail-only and must not be available as a list column.'
+)
+assert.doesNotMatch(
+  tableBlock,
+  /data-pqc-leader-piece-sample-values|label="逐件\/样本值"/,
+  'PQC leader list must not expose the noisy sample-values column.'
+)
 
 for (const keptKey of [
   'completionQuantity',

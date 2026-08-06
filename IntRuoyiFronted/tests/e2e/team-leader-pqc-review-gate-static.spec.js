@@ -18,7 +18,13 @@ assert.match(
 assert.match(
   source,
   /v-if="canCorrectSubmission\(row\)"[\s\S]*:data-team-leader-correction-event-id="String\(row\.id\)"/,
-  '修正按钮必须只对 REJECTED 行显示'
+  '修改按钮必须通过 canCorrectSubmission 控制可见性'
+)
+
+assert.match(
+  source,
+  /:data-team-leader-correction-event-id="String\(row\.id\)"[\s\S]*@click="openCorrection\(row\)"[\s\S]*>\s*修改\s*<\/el-button>/,
+  '行级修改按钮必须打开正式原始记录修改入口'
 )
 
 assert.match(
@@ -29,8 +35,8 @@ assert.match(
 
 assert.match(
   source,
-  /const canCorrectSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*row\.submissionReviewStatus === 'REJECTED'/,
-  '修正判断必须只允许 REJECTED'
+  /const canCorrectSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*isProductionLeader\.value \|\| row\.submissionReviewStatus === 'REJECTED'/,
+  '生产组长报工行允许直接修改；PQC 仍只允许 REJECTED 后修改'
 )
 
 assert.match(
@@ -47,6 +53,6 @@ assert.match(
 
 assert.match(
   source,
-  /if \(!canCorrectSubmission\(event\)\) \{[\s\S]*ElMessage\.error\('只有复核不正确的提交可以修正'\)[\s\S]*return[\s\S]*\}/,
-  'openCorrection 必须二次阻断非退回行修正'
+  /if \(!canCorrectSubmission\(event\)\) \{[\s\S]*ElMessage\.error\('只有生产报工或复核不正确的提交可以修改'\)[\s\S]*return[\s\S]*\}/,
+  'openCorrection 必须二次阻断不允许修改的行'
 )

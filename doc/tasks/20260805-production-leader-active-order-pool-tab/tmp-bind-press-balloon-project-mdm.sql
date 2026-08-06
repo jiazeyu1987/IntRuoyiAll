@@ -11,6 +11,7 @@ BEGIN
   DECLARE v_target_route_version_id BIGINT DEFAULT 622;
   DECLARE v_project_code VARCHAR(64) DEFAULT 'IDI';
   DECLARE v_expected_mdm_product_id BIGINT DEFAULT 14;
+  DECLARE v_mdm_route_remark VARCHAR(512) DEFAULT CONVERT(UNHEX('514120E8A784E7A88BE6898BE58AA8E7BB91E5AE9A') USING utf8mb4);
   DECLARE v_project_code_count INT DEFAULT 0;
   DECLARE v_target_route_count INT DEFAULT 0;
   DECLARE v_target_version_count INT DEFAULT 0;
@@ -27,6 +28,7 @@ BEGIN
 
   SET v_target_name = v_target_name COLLATE utf8mb4_unicode_ci;
   SET v_source_name = v_source_name COLLATE utf8mb4_unicode_ci;
+  SET v_mdm_route_remark = v_mdm_route_remark COLLATE utf8mb4_unicode_ci;
 
   START TRANSACTION;
 
@@ -150,7 +152,7 @@ BEGIN
       (route_id, item_id, quantity, production_time, time_unit_type, remark,
        creator, create_time, updater, update_time, deleted, tenant_id)
     VALUES
-      (v_target_route_id, v_expected_mdm_product_id, 1, 1.000000, 'MINUTE', 'QA 规程手动绑定',
+      (v_target_route_id, v_expected_mdm_product_id, 1, 1.000000, 'MINUTE', v_mdm_route_remark,
        'codex', NOW(), 'codex', NOW(), b'0', 1);
     SET v_target_route_product_id = LAST_INSERT_ID();
   ELSE
@@ -158,7 +160,7 @@ BEGIN
        SET quantity = 1,
            production_time = 1.000000,
            time_unit_type = 'MINUTE',
-           remark = 'QA 规程手动绑定',
+           remark = v_mdm_route_remark,
            deleted = b'0',
            updater = 'codex',
            update_time = NOW()
@@ -177,7 +179,7 @@ BEGIN
              'quantity', 1,
              'productionTime', 1.0,
              'timeUnitType', 'MINUTE',
-             'remark', 'QA 规程手动绑定',
+             'remark', v_mdm_route_remark,
              'creator', 'codex',
              'updater', 'codex',
              'deleted', false

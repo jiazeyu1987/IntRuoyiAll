@@ -9,7 +9,7 @@
         pool_event.device_account_id AS loginUserId,
         NULL AS loginUserName,
         pool_event.actual_employee_id AS actualEmployeeUserId,
-        NULL AS actualEmployeeUserName,
+        actual_employee.nickname AS actualEmployeeUserName,
         pool_event.signature_user_id AS signatureEmployeeUserId,
         NULL AS signatureEmployeeUserName,
         pool_event.signature_id AS electronicSignatureId,
@@ -122,6 +122,10 @@
           ON product_item.id = work_order.product_id
          AND product_item.tenant_id = pool_event.tenant_id
          AND product_item.deleted = 0
+        LEFT JOIN system_users actual_employee
+          ON actual_employee.id = pool_event.actual_employee_id
+         AND actual_employee.tenant_id = pool_event.tenant_id
+         AND actual_employee.deleted = 0
         LEFT JOIN mes_pqc_inspection_task pqc_task
           ON pqc_task.tenant_id = pool_event.tenant_id
          AND pqc_task.deleted = 0

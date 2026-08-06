@@ -6,11 +6,11 @@
 
 ## Milestones
 
-- [ ] 定位红框对应页面、组件和列定义。
-- [ ] 先补充最小静态回归合同，证明当前两列仍可见时 RED。
-- [ ] 做最小前端修复，使目标列表不再渲染 `审核副本` 与 `复核判定`。
-- [ ] 运行目标合同、相邻验证和结构检查，记录 RED/GREEN/REGRESSION。
-- [ ] 完成任务文档、验证报告和收尾状态。
+- [x] 定位红框对应页面、组件和列定义。
+- [x] 先补充最小静态回归合同，证明当前两列仍可见时 RED。
+- [x] 做最小前端修复，使目标列表不再渲染 `审核副本` 与 `复核判定`。
+- [x] 运行目标合同、相邻验证和结构检查，记录 RED/GREEN/REGRESSION。
+- [x] 完成任务文档、验证报告和收尾状态。
 
 ## Expected Verification
 
@@ -33,5 +33,13 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
+Implementation and required verification are complete. Final closeout commit/push is not performed in this turn because the shared branch currently contains unrelated concurrent dirty paths and existing ahead commits that are outside this task-owned scope.
+
+## Verification Summary
+
+- RED: `node tests/e2e/team-leader-hide-review-copy-columns-static.spec.cjs` failed before implementation because `审核副本` still rendered in the submission table.
+- GREEN: target hide-column static contract passed after removing the two table columns and production default column entries.
+- REGRESSION: `pqc-leader-sample-values-detail-only-static`, `mes-process-pool-team-leader-static`, and `pqc-leader-list-fill-form-parity-static` passed.
+- STRUCTURE: `pnpm ts:check` passed and `git diff --check` passed.
