@@ -15,10 +15,6 @@ public class MesTeamLeaderLossReasonSaveReqVO {
     @NotNull(message = "路线工序不能为空")
     private Long routeProcessId;
 
-    @Schema(description = "原因编码", requiredMode = Schema.RequiredMode.REQUIRED, example = "LOSS-001")
-    @NotBlank(message = "原因编码不能为空")
-    private String reasonCode;
-
     @Schema(description = "原因名称", requiredMode = Schema.RequiredMode.REQUIRED, example = "正常损耗")
     @NotBlank(message = "原因名称不能为空")
     private String reasonName;

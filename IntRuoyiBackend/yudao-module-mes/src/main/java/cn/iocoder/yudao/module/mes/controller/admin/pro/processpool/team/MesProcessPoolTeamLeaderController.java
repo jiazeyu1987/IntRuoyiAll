@@ -259,7 +259,6 @@ public class MesProcessPoolTeamLeaderController {
         return success(lossReasonService.createLossReason(MesTeamLeaderLossReasonSaveReqBO.builder()
                 .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
                 .routeProcessId(reqVO.getRouteProcessId())
-                .reasonCode(reqVO.getReasonCode())
                 .reasonName(reqVO.getReasonName())
                 .enabled(reqVO.getEnabled())
                 .remark(reqVO.getRemark())

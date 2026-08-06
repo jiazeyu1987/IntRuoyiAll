@@ -24,6 +24,16 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260806-qa-route-checkflag-load-error\bug-regression-evidence.md` -> PASS
 - GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260806-qa-route-checkflag-load-error\frontend-feature-evidence.md` -> PASS
 - RED: `node doc\tasks\20260806-qa-route-checkflag-load-error\qa-route-checkflag-real.e2e.cjs` -> FAIL, 真实页面仍显示 `手动绑定工艺路线失败：当前工艺路线未标记唯一质检工序，请先在工艺路线中维护 checkFlag。`
+- RED: `node tests\e2e\qa-regulation-route-checkflag-fallback-static.spec.cjs` -> FAIL, `QA route resolver must honor the formal route keyFlag marker when checkFlag and batch-record bindings are absent.`
+- GREEN: `node tests\e2e\qa-regulation-route-checkflag-fallback-static.spec.cjs` -> PASS
+- GREEN: `node tests\e2e\role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS
+- GREEN: `node doc\tasks\20260806-qa-route-checkflag-load-error\qa-route-checkflag-real.e2e.cjs` -> PASS, `ID / 球囊扩张压力泵 / 112` 手动绑定后适用范围显示 `质检工序 / 纸塑袋封口（包装）`，`consoleErrors=[]`，`pageErrors=[]`。
+- GREEN: `node tests\e2e\qa-regulation-id-balloon-pressure-pump-pdf-items-static.spec.cjs` -> PASS
+- GREEN: `node tests\e2e\qa-regulation-pressure-pump-screenshot-pages-static.spec.cjs` -> PASS
+- GREEN: `node tests\e2e\qa-regulation-pressure-pump-complete-pdf-items-static.spec.cjs` -> PASS
+- GREEN: `node tests\e2e\qa-regulation-pressure-pump-pdf-field-alignment-static.spec.cjs` -> PASS
+- GREEN: `pnpm ts:check` -> PASS
+- GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/qa-regulation-route-checkflag-fallback-static.spec.cjs IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs doc/tasks/20260806-qa-route-checkflag-load-error` -> PASS
 
 ## Evidence
 
@@ -36,3 +46,5 @@
 - 2026-08-06: 已按 `project-experience-consolidation` 评估长期经验归档。经验最适合合并到 `docs/backend-development.md#QA 规程手动绑定必须允许已发布路线`，但该文件已有无关脏改动，本任务不混写长期文档，避免把其它任务改动纳入当前收尾。
 - 2026-08-06: 未提交/推送。原因：共享 `int_main` 工作区存在大量无关脏改动，按项目规则若提交需先建立全量脏工作区基线；该基线会纳入非本任务文件，需用户确认后再执行。
 - 2026-08-07: 真实 E2E 采集到 `ROUTE-XLSX-00001 / 球囊扩张导管` 的 `SCHEDULE` 和 `BATCH` 配置均为 23 条但无 `checkFlag`、无 `batchRecordReports`、无 `batchRecordReportId` 投影；`route-process/list-by-route` 中仅 `926807 / Z830 / 纸塑袋封口（包装）` 存在 `keyFlag=true`。下一步按唯一正式 `keyFlag` 工序补齐解析并复验。
+- 2026-08-07: 已补齐 QA 页面解析顺序：唯一 `checkFlag=true`、单一正式工序、唯一启用 BATCH `batchRecordReports`、唯一发布投影、唯一 `keyFlag=true`；多个 keyFlag 仍 fail-fast，不使用 `formBindings`。
+- 2026-08-07: 真实 E2E 通过，结果文件 `doc/tasks/20260806-qa-route-checkflag-load-error/qa-route-checkflag-real-e2e.json` 记录 `ok=true`，截图为 `doc/tasks/20260806-qa-route-checkflag-load-error/qa-route-checkflag-real-e2e.png`。

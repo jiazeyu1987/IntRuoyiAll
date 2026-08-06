@@ -11,7 +11,7 @@
 - [x] 备份两条 active version 的原始 `route_snapshot_json`。
 - [x] 执行事务化数据修复，只更新 version `448` 和 `622`。
 - [x] 复验 JSON 快照、候选路线工序和非目标租户/版本未变。
-- [ ] 完成收尾、经验沉淀和最终状态记录。
+- [x] 完成收尾、经验沉淀和最终状态记录。
 
 ## Expected Verification
 
@@ -22,9 +22,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-已完成本机数据写入和 SQL/API 验证；等待 evidence validator、清理与最终收尾。
+已完成本机数据写入、SQL/API 验证、database evidence validator、经验沉淀和 cleanup apply。
 
 ## 设计约束检查
 
@@ -37,3 +37,7 @@ ready_for_closeout
 - doc/tasks/20260806-admin-pressure-pump-route-start-leader/task.md
 - doc/tasks/20260806-admin-pressure-pump-route-start-leader/execution-log.md
 - doc/tasks/20260806-admin-pressure-pump-route-start-leader/verification-report.md
+- doc/tasks/20260806-admin-pressure-pump-route-start-leader/db-backup/route-version-448-622-before.sql
+- doc/tasks/20260806-admin-pressure-pump-route-start-leader/db-repair/apply-route-start-leaders.sql
+- doc/tasks/20260806-admin-pressure-pump-route-start-leader/db-repair/red-missing-route-start-leaders.sql
+- doc/tasks/20260806-admin-pressure-pump-route-start-leader/db-repair/verify-route-start-leaders.sql

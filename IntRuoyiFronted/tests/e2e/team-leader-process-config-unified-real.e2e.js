@@ -63,7 +63,6 @@ function collectConfig() {
     upperLimit: Number(envValue('TEAM_LEADER_PROCESS_CONFIG_UPPER_LIMIT') || 20),
     updatedTargetValue: Number(envValue('TEAM_LEADER_PROCESS_CONFIG_UPDATED_TARGET_VALUE') || 16),
     invalidLowerLimit: Number(envValue('TEAM_LEADER_PROCESS_CONFIG_INVALID_LOWER_LIMIT') || 30),
-    lossReasonCode: envValue('TEAM_LEADER_PROCESS_CONFIG_LOSS_REASON_CODE') || `${dataPrefix}-LOSS-${timestamp}`,
     lossReasonName: envValue('TEAM_LEADER_PROCESS_CONFIG_LOSS_REASON_NAME') || `${dataPrefix}真实损耗`,
     frontlineUrl: envValue('TEAM_LEADER_PROCESS_CONFIG_FRONTLINE_URL'),
     frontlineParameterSelector: envValue('TEAM_LEADER_PROCESS_CONFIG_FRONTLINE_PARAMETER_SELECTOR'),
@@ -265,7 +264,6 @@ async function saveLossReason(page, config, rowIndex, steps) {
   await clickRowAction(page, rowIndex, '[data-team-leader-process-config-add-loss]')
   const dialog = page.locator('[data-loss-reason-edit-dialog]').first()
   await dialog.waitFor({ state: 'visible', timeout: 15000 })
-  await fillFormItem(dialog, '原因编码', config.lossReasonCode)
   await fillFormItem(dialog, '原因名称', config.lossReasonName)
   const responsePromise = waitForBusinessResponse(page, '/mes/pro/process-pool/team-leader/loss-reasons', 'POST')
   await dialog.getByRole('button', { name: '保存损耗原因' }).click()

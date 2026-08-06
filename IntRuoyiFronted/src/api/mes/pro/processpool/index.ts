@@ -108,6 +108,7 @@ export interface ProcessPoolTimelineEventVO {
   submissionReviewStatus?: string
   submissionReviewRemark?: string
   submissionReviewLeaderUserId?: number
+  submissionReviewLeaderUserName?: string
   submissionReviewedAt?: string | number | Date
   modificationHistorySummary?: string
 }

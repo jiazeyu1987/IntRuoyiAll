@@ -94,10 +94,7 @@ export interface TeamLeaderProcessConfigRowRespVO {
 
 export interface TeamLeaderLossReasonSaveReqVO {
   routeProcessId: number
-  reasonCode: string
   reasonName: string
-  enabled?: boolean
-  remark?: string
 }
 
 export interface TeamLeaderLossReasonUpdateReqVO {

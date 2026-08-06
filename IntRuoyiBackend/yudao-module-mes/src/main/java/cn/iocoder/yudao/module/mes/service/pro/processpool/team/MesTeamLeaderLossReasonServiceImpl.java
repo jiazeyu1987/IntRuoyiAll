@@ -95,7 +95,7 @@ public class MesTeamLeaderLossReasonServiceImpl implements MesTeamLeaderLossReas
                 .routeProcessId(routeProcess.getId())
                 .processId(routeProcess.getProcessId())
                 .reasonType(MesProcessPoolDefectReasonDO.REASON_TYPE_LOSS)
-                .reasonCode(StrUtil.trim(reqBO.getReasonCode()))
+                .reasonCode(generateLossReasonCode(routeProcess.getId()))
                 .reasonName(StrUtil.trim(reqBO.getReasonName()))
                 .enabled(reqBO.getEnabled() == null ? Boolean.TRUE : reqBO.getEnabled())
                 .build();
@@ -164,8 +164,30 @@ public class MesTeamLeaderLossReasonServiceImpl implements MesTeamLeaderLossReas
 
     private void validateSaveReq(MesTeamLeaderLossReasonSaveReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getRouteProcessId() == null
-                || StrUtil.isBlank(reqBO.getReasonCode()) || StrUtil.isBlank(reqBO.getReasonName())) {
+                || StrUtil.isBlank(reqBO.getReasonName())) {
             throw exception(PRO_PROCESS_POOL_DEFECT_REASON_REQUIRED, "lossReason");
+        }
+    }
+
+    private String generateLossReasonCode(Long routeProcessId) {
+        Long existingCount = defectReasonMapper.selectCount(
+                new LambdaQueryWrapperX<MesProcessPoolDefectReasonDO>()
+                        .eq(MesProcessPoolDefectReasonDO::getRouteProcessId, routeProcessId)
+                        .eq(MesProcessPoolDefectReasonDO::getReasonType,
+                                MesProcessPoolDefectReasonDO.REASON_TYPE_LOSS));
+        long sequence = (existingCount == null ? 0L : existingCount) + 1L;
+        while (true) {
+            String candidate = "LOSS-" + routeProcessId + "-" + String.format("%03d", sequence);
+            Long duplicateCount = defectReasonMapper.selectCount(
+                    new LambdaQueryWrapperX<MesProcessPoolDefectReasonDO>()
+                            .eq(MesProcessPoolDefectReasonDO::getRouteProcessId, routeProcessId)
+                            .eq(MesProcessPoolDefectReasonDO::getReasonType,
+                                    MesProcessPoolDefectReasonDO.REASON_TYPE_LOSS)
+                            .eq(MesProcessPoolDefectReasonDO::getReasonCode, candidate));
+            if (duplicateCount == null || duplicateCount == 0L) {
+                return candidate;
+            }
+            sequence++;
         }
     }
 

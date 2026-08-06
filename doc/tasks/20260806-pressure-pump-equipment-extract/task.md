@@ -2,7 +2,7 @@
 
 ## Task Goal
 
-从 `C:\Users\BJB110\Desktop\文档\批记录压力泵.doc` 直接读取球囊扩张压力泵生产记录中的工序、设备、设备编码和设备参数，并生成按列展开的 Excel 文件。
+从 `C:\Users\BJB110\Desktop\文档\批记录压力泵.doc` 直接读取球囊扩张压力泵生产记录中的工序、设备、设备编码和设备参数，生成按列展开的 Excel 文件，并核对这些设备编码在当前设备台账中的存在情况。
 
 ## Milestones
 
@@ -10,6 +10,8 @@
 - [x] 提取工序、设备、编码、参数和标准值。
 - [x] 生成 Excel 文件并设置可读列宽。
 - [x] 验证 Excel 内容、结构和可打开性。
+- [x] 核对提取出的设备编码在当前设备台账中的存在情况。
+- [x] 生成设备台账匹配 Excel 并验证输出。
 
 ## Expected Verification
 
@@ -17,6 +19,8 @@
 - 使用 OfficeCLI 创建并验证 `.xlsx` 文件。
 - 复核输出表头包含 `工序`、`设备`、`编码`、`参数1`、`标准1` 等展开列。
 - 复核关键样例：粗洗/超声波清洗机/B09393/清洗次数=2/清洗介质=自来水。
+- 使用本地 Docker MySQL `ruoyi-vue-pro.mes_dv_machinery` 未删除台账记录核对设备编码。
+- 复核台账匹配输出表头包含 `来源设备`、`设备编码`、`台账匹配`、`未删除记录数`、`总记录数`、`已删除记录数`、`未删除记录详情`。
 
 ## Current Status
 
@@ -37,6 +41,7 @@ completed
 ## Output
 
 - `C:\Users\BJB110\Desktop\文档\批记录压力泵_工序设备参数_完成版.xlsx`
+- `C:\Users\BJB110\Desktop\文档\批记录压力泵_设备台账匹配_完成版.xlsx`
 
 ## Verification Result
 
@@ -44,3 +49,6 @@ completed
 - PASS：OfficeCLI `view issues` 返回 `Found 0 issue(s):`。
 - PASS：OfficeCLI `view outline` 确认 `工序设备参数` 工作表为 19 行 × 14 列。
 - PASS：关键样例已复核：粗洗 / 超声波清洗机 / B09393 / 清洗次数=2 / 清洗介质=自来水。
+- PASS：设备台账匹配输出为 `设备台账匹配` 工作表 13 行 × 7 列。
+- PASS：12 个设备编码中 9 个在当前未删除设备台账中存在，3 个不存在：`B04091`、`C01017`、`A05075`。
+- PASS：OfficeCLI `validate`、`view issues`、错误值查询和 HTML 预览文本检查均未发现结构错误、公式错误、占位符或 `###` 溢出。

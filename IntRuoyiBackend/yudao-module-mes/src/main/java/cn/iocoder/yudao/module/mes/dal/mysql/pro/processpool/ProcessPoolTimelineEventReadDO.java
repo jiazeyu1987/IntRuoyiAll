@@ -62,6 +62,7 @@ public class ProcessPoolTimelineEventReadDO {
     private String submissionReviewStatus;
     private String submissionReviewRemark;
     private Long submissionReviewLeaderUserId;
+    private String submissionReviewLeaderUserName;
     private LocalDateTime submissionReviewedAt;
     private String modificationHistorySummary;
 

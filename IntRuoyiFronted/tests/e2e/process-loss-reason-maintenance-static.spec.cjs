@@ -52,8 +52,13 @@ assert.match(
 )
 assert.match(
   teamLeaderApi,
-  /interface TeamLeaderLossReasonSaveReqVO[\s\S]*routeProcessId:\s*number[\s\S]*reasonCode:\s*string[\s\S]*reasonName:\s*string/,
-  'loss reason create/update payload must bind to routeProcessId'
+  /interface TeamLeaderLossReasonSaveReqVO[\s\S]*routeProcessId:\s*number[\s\S]*reasonName:\s*string/,
+  'loss reason create payload must bind to routeProcessId and submit reason name'
+)
+assert.doesNotMatch(
+  teamLeaderApi,
+  /interface TeamLeaderLossReasonSaveReqVO[\s\S]*reasonCode:\s*string/,
+  'loss reason create payload must not submit a manual reason code'
 )
 
 assert.match(

@@ -34,9 +34,10 @@
       v-model="activeProductionModuleTab"
       class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
       data-production-leader-module-tabs
-    >
+      >
       <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
       <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+      <el-tab-pane label="报工历史" name="reportHistory" data-production-leader-module-tab-report-history />
       <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
       <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
       <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
@@ -471,6 +472,7 @@
       >
         <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
         <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="报工历史" name="reportHistory" data-production-leader-module-tab-report-history />
         <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
@@ -850,6 +852,30 @@
               </template>
             </el-table-column>
             <el-table-column
+              v-if="isProductionReportHistoryTab && isSubmissionColumnVisible('approvedBy')"
+              label="审核通过人"
+              prop="approvedBy"
+              :min-width="getSubmissionColumnMinWidthString('approvedBy', 140)"
+            >
+              <template #default="{ row }">
+                <span data-team-leader-report-history-approved-by>
+                  {{ row.submissionReviewLeaderUserName || '--' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isProductionReportHistoryTab && isSubmissionColumnVisible('approvedAt')"
+              label="审核通过时间"
+              prop="approvedAt"
+              :min-width="getSubmissionColumnMinWidthString('approvedAt', 160)"
+            >
+              <template #default="{ row }">
+                <span data-team-leader-report-history-approved-at>
+                  {{ formatDateTime(row.submissionReviewedAt) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column
               v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('defectDescription')"
               label="不良说明"
               prop="defectDescription"
@@ -1075,6 +1101,7 @@
       >
         <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
         <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="报工历史" name="reportHistory" data-production-leader-module-tab-report-history />
         <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
@@ -1324,6 +1351,7 @@
       >
         <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
         <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="报工历史" name="reportHistory" data-production-leader-module-tab-report-history />
         <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
@@ -1430,6 +1458,7 @@
       >
         <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
         <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="报工历史" name="reportHistory" data-production-leader-module-tab-report-history />
         <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
@@ -1535,6 +1564,7 @@
       >
         <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
         <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="报工历史" name="reportHistory" data-production-leader-module-tab-report-history />
         <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
@@ -1796,6 +1826,7 @@
       >
         <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
         <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="报工历史" name="reportHistory" data-production-leader-module-tab-report-history />
         <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
@@ -2065,12 +2096,12 @@
         <el-form-item label="工序">
           <span>{{ lossReasonEditingRow ? formatProcessConfigProcess(lossReasonEditingRow) : '--' }}</span>
         </el-form-item>
-        <el-form-item label="原因编码" required>
+        <el-form-item v-if="lossReasonDialogMode === 'edit'" label="原因编码">
           <el-input
             v-model="lossReasonForm.reasonCode"
-            :disabled="lossReasonDialogMode === 'edit'"
+            disabled
             maxlength="64"
-            placeholder="请输入损耗原因编码"
+            placeholder="系统自动生成"
           />
         </el-form-item>
         <el-form-item label="原因名称" required>
@@ -2080,14 +2111,14 @@
             placeholder="请输入损耗原因名称"
           />
         </el-form-item>
-        <el-form-item label="启用状态">
+        <el-form-item v-if="lossReasonDialogMode === 'edit'" label="启用状态">
           <el-switch
             v-model="lossReasonForm.enabled"
             active-text="启用"
             inactive-text="停用"
           />
         </el-form-item>
-        <el-form-item label="维护说明">
+        <el-form-item v-if="lossReasonDialogMode === 'edit'" label="维护说明">
           <el-input
             v-model="lossReasonForm.remark"
             type="textarea"
@@ -2542,7 +2573,7 @@ const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
 const activePqcModuleTab = ref<'personnel' | 'management' | 'dashboard' | 'detail'>('personnel')
 const activeProductionModuleTab = ref<
-  'personnel' | 'report' | 'activeOrder' | 'dashboard' | 'exception' | 'processConfig' | 'config'
+  'personnel' | 'report' | 'reportHistory' | 'activeOrder' | 'dashboard' | 'exception' | 'processConfig' | 'config'
 >('personnel')
 
 const DEFAULT_SUBMISSION_DATE_CONDITION_ID = 'submitDate'
@@ -2668,6 +2699,7 @@ const pqcDetailColumns: any[] = [
 ]
 const SUBMISSION_TABLE_KEY = 'mes.processPool.teamLeader.submissions'
 const PRODUCTION_SUBMISSION_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.production`
+const PRODUCTION_REPORT_HISTORY_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.productionHistory`
 const PQC_SUBMISSION_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.pqc`
 const submissionQuickFilterDefinitions: any[] = []
 const submissionQuickFilterState = reactive({})
@@ -2683,6 +2715,12 @@ const productionSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'selectedDevice', label: '选用设备', minWidth: 220 },
   { key: 'deviceParameterReadings', label: '设备参数', minWidth: 280 },
   { key: 'operation', label: '操作', width: 270, hideable: false, business: false }
+]
+const productionReportHistoryDefaultColumns: UserTableColumnDefinition[] = [
+  ...productionSubmissionDefaultColumns.filter((column) => column.key !== 'operation'),
+  { key: 'approvedBy', label: '审核通过人', minWidth: 140 },
+  { key: 'approvedAt', label: '审核通过时间', minWidth: 160 },
+  { key: 'operation', label: '操作', width: 110, hideable: false, business: false }
 ]
 const pqcSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'submittedAt', label: '提交时间', minWidth: 160 },
@@ -2710,12 +2748,20 @@ const productionSubmissionColumnControl = useUserTableColumns(
   PRODUCTION_SUBMISSION_TABLE_KEY,
   productionSubmissionDefaultColumns
 )
+const productionReportHistoryColumnControl = useUserTableColumns(
+  PRODUCTION_REPORT_HISTORY_TABLE_KEY,
+  productionReportHistoryDefaultColumns
+)
 const pqcSubmissionColumnControl = useUserTableColumns(
   PQC_SUBMISSION_TABLE_KEY,
   pqcSubmissionDefaultColumns
 )
 const activeSubmissionColumnControl = computed(() =>
-  activeLeaderTab.value === 'PQC' ? pqcSubmissionColumnControl : productionSubmissionColumnControl
+  activeLeaderTab.value === 'PQC'
+    ? pqcSubmissionColumnControl
+    : activeProductionModuleTab.value === 'reportHistory'
+      ? productionReportHistoryColumnControl
+      : productionSubmissionColumnControl
 )
 const submissionColumnSaving = computed(() => activeSubmissionColumnControl.value.saving.value)
 const submissionColumns = computed<UserTableColumnState[]>(
@@ -2757,6 +2803,12 @@ const showProductionPersonnelModule = computed(
 const showProductionReportModule = computed(
   () => isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'report')
 )
+const showProductionReportHistoryModule = computed(
+  () => isProductionLeader.value && showProductionModuleTabs.value && activeProductionModuleTab.value === 'reportHistory'
+)
+const isProductionReportHistoryTab = computed(() =>
+  isProductionLeader.value && activeProductionModuleTab.value === 'reportHistory'
+)
 const showProductionActiveOrderModule = computed(
   () =>
     isProductionLeader.value
@@ -2784,6 +2836,7 @@ const showPqcPersonnelModule = computed(
 const showPqcManagementModule = computed(
   () =>
     showProductionReportModule.value ||
+    showProductionReportHistoryModule.value ||
     (activeLeaderTab.value === 'PQC' && (!showPqcModuleTabs.value || activePqcModuleTab.value === 'management'))
 )
 const showPqcDashboardModule = computed(
@@ -2877,10 +2930,12 @@ const pagedPqcPersonnelRows = computed(() => {
 })
 
 const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
-  !row.submissionReviewStatus || row.submissionReviewStatus === 'PENDING'
+  !isProductionReportHistoryTab.value
+  && (!row.submissionReviewStatus || row.submissionReviewStatus === 'PENDING')
 
 const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
-  isProductionLeader.value || row.submissionReviewStatus === 'REJECTED'
+  !isProductionReportHistoryTab.value
+  && (isProductionLeader.value || row.submissionReviewStatus === 'REJECTED')
 
 const queryParams = reactive<TeamLeaderSubmissionPageReqVO>({
   pageNo: 1,
@@ -3668,9 +3723,8 @@ const submitLossReason = async () => {
     return
   }
   const reasonName = lossReasonForm.reasonName.trim()
-  const reasonCode = lossReasonForm.reasonCode.trim()
-  if (!reasonName || (lossReasonDialogMode.value === 'create' && !reasonCode)) {
-    ElMessage.error('损耗原因编码和名称不能为空')
+  if (!reasonName) {
+    ElMessage.error('请输入损耗原因名称')
     return
   }
   lossReasonSubmitting.value = true
@@ -3678,10 +3732,7 @@ const submitLossReason = async () => {
     if (lossReasonDialogMode.value === 'create') {
       await createTeamLeaderLossReason({
         routeProcessId: row.routeProcessId,
-        reasonCode,
-        reasonName,
-        enabled: lossReasonForm.enabled,
-        remark: lossReasonForm.remark.trim() || undefined
+        reasonName
       })
     } else {
       const reasonId = requirePositiveNumber(
@@ -4624,7 +4675,7 @@ const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
     productKeyword: queryParams.productKeyword?.trim() || undefined,
     inspectionType: queryParams.inspectionType || undefined,
     roundNo: normalizePositiveNumber(queryParams.roundNo),
-    submissionReviewStatus: queryParams.submissionReviewStatus || undefined
+    submissionReviewStatus: isProductionReportHistoryTab.value ? 'APPROVED' : queryParams.submissionReviewStatus || undefined
   }
 }
 
@@ -4702,6 +4753,10 @@ const clearSubmissionFilterParams = () => {
   queryParams.productKeyword = undefined
   queryParams.inspectionType = undefined
   queryParams.roundNo = undefined
+  if (isProductionReportHistoryTab.value) {
+    queryParams.submissionReviewStatus = 'APPROVED'
+    return
+  }
   queryParams.submissionReviewStatus = undefined
 }
 
@@ -4751,9 +4806,10 @@ watch(activePqcModuleTab, async (tab) => {
 })
 
 watch(activeProductionModuleTab, async (tab) => {
-  if (tab === 'report' && activeLeaderTab.value === 'PRODUCTION') {
+  if ((tab === 'report' || tab === 'reportHistory') && activeLeaderTab.value === 'PRODUCTION') {
     queryParams.leaderType = 'PRODUCTION'
     queryParams.pageNo = 1
+    queryParams.submissionReviewStatus = tab === 'reportHistory' ? 'APPROVED' : undefined
     ensureSubmissionDateCondition()
     await getSubmissionList()
   }
@@ -5236,8 +5292,15 @@ onMounted(() => {
     loadProcessConfigRows().catch((error) => {
       ElMessage.error(resolveErrorMessage(error, '工序配置列表加载失败'))
     })
-    if (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'report') {
+    if (
+      !showProductionModuleTabs.value ||
+      activeProductionModuleTab.value === 'report' ||
+      activeProductionModuleTab.value === 'reportHistory'
+    ) {
       queryParams.leaderType = 'PRODUCTION'
+      if (activeProductionModuleTab.value === 'reportHistory') {
+        queryParams.submissionReviewStatus = 'APPROVED'
+      }
       ensureSubmissionDateCondition()
       getSubmissionList()
     }

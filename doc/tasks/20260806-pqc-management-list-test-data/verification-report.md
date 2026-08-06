@@ -6,7 +6,7 @@
 - SQL verification confirms the row is visible under the admin/PQC today-list scope.
 - Runtime authenticated API verification confirms the PQC 管理列表 can return the inserted row.
 - Browser verification confirms `PQC组长 > PQC管理` now loads with visible `提交日期=2026-08-06` and displays the inserted row.
-- Static UI verification confirms `逐件/样本值` is no longer a PQC 管理 list column, while detail still renders sample values and the detail drawer is widened from `620px` to `1240px`.
+- Static UI verification confirms `逐件/样本值` is no longer a PQC 管理 list column, while detail now renders inside the `详情` tab with a standard-list PQC item table.
 
 ## Commands
 
@@ -20,6 +20,10 @@
 - `node tests/e2e/pqc-leader-sample-values-detail-only-static.spec.cjs` -> PASS.
 - `node tests/e2e/pqc-leader-item-snapshot-static.spec.js` -> PASS.
 - `node tests/e2e/mes-process-pool-team-leader-static.spec.js` -> PASS.
+- `node tests/e2e/pqc-leader-module-tabs-static.spec.js` -> PASS.
+- `node tests/e2e/pqc-leader-personnel-tab-static.spec.js` -> PASS.
+- `node tests/e2e/pqc-leader-standard-list-template-static.spec.js` -> PASS.
+- `node tests/e2e/production-leader-function-tabs-static.spec.js` -> PASS.
 - `node doc/tasks/20260806-pqc-management-list-test-data/verify-pqc-management-list-real.e2e.cjs` -> PASS.
 - `pnpm ts:check` from `IntRuoyiFronted` -> PASS.
 - `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue IntRuoyiFronted/tests/e2e/pqc-leader-sample-values-detail-only-static.spec.cjs doc/tasks/20260806-pqc-management-list-test-data` -> PASS.
@@ -52,18 +56,18 @@
 - Captured request: `/admin-api/mes/pro/process-pool/team-leader/submission/page?pageNo=1&pageSize=10&leaderType=PQC&submitDate=2026-08-06`.
 - Captured response: HTTP `200`, business `code=0`, total `1`, work order `RRM-20260801-PP-MO-001`.
 - Page assertion: visible row contains `RRM-20260801-PP-MO-001`; captured API row confirms `processName=清洗工序`.
-- Detail assertion: clicked detail for event `160`; drawer width measured `1240px`; left label column measured `400px`; detail sample values include seeded `53.00`; `结构化报工内容` and `原始提交内容` are not visible.
+- Detail assertion: clicked detail for event `160`; page switched to the `详情` tab; the in-page detail area width measured `1200px`; the drawer visible count was `0`; left label column measured `400px`; detail sample values include seeded `53.00`; `结构化报工内容` and `原始提交内容` are not visible.
 - Screenshot artifact: `doc/tasks/20260806-pqc-management-list-test-data/pqc-management-list-real.png`.
-- Screenshot artifact: `doc/tasks/20260806-pqc-management-list-test-data/pqc-management-detail-real.png`.
+- Screenshot artifact: `doc/tasks/20260806-pqc-management-list-test-data/pqc-management-detail-tab-real.png`.
 
 ## List / Detail Display Verification
 
 - List behavior: `pieceSampleValues` / `逐件/样本值` removed from the PQC management table render path and from `pqcSubmissionDefaultColumns`.
-- Detail behavior: PQC item snapshot table still renders `样本值` through `formatPqcSnapshotSampleValues(row)` with marker `data-pqc-leader-detail-sample-values`.
-- Drawer behavior: submission detail drawer now uses `size="1240px"` with marker `data-team-leader-submission-detail-drawer`, doubling the prior `620px` width.
-- Detail cleanup behavior: `结构化报工内容` and `原始提交内容` are removed from the drawer; description labels use `team-leader-workbench__detail-descriptions` and enforce `400px` width.
-- Static regression: `pqc-leader-sample-values-detail-only-static.spec.cjs` passed and locks list-hidden/detail-visible behavior.
-- Real regression: `verify-pqc-management-list-real.e2e.cjs` passed and measured the actual drawer width as `1240px` and label width as `400px`.
+- Detail behavior: PQC item snapshot table renders inside `data-pqc-leader-detail-tab`, is wrapped by `UnifiedListTemplate table-key="mes.processPool.teamLeader.pqcSubmissionDetailItems"`, and still renders `样本值` through `formatPqcSnapshotSampleValues(row)`.
+- Drawer behavior: the submission detail drawer remains available only for non-PQC-module contexts through `v-if="!showPqcDetailAsTab"`; PQC module detail clicks do not open the drawer.
+- Detail cleanup behavior: `结构化报工内容` and `原始提交内容` are removed from the tab detail; description labels use `team-leader-workbench__detail-descriptions` and enforce `400px` width.
+- Static regression: `pqc-leader-sample-values-detail-only-static.spec.cjs` passed and locks list-hidden/detail-tab-visible behavior.
+- Real regression: `verify-pqc-management-list-real.e2e.cjs` passed and measured the actual detail tab width as `1200px` and label width as `400px`.
 
 ## Cleanup
 
@@ -81,5 +85,5 @@ COMMIT;
 
 ## Residual Scope
 
-- Adjacent list-structure contracts still need a separate cleanup pass: one production-report column contract fails on pre-existing `workOrder` default column, and one older PQC standard-list contract still expects an empty default condition instead of the backend-required visible `submitDate`.
-- No commit, push, or task-closeout-cleanup apply was performed to avoid mixing this task with unrelated current workspace changes.
+- Focused adjacent list-structure contracts now pass for PQC detail tabs, PQC personnel tabs, standard list template, shared workbench, and production module tabs.
+- No commit, push, or task-closeout-cleanup apply was performed because the workspace already has unrelated dirty changes and local commits ahead of `origin/int_main`.
