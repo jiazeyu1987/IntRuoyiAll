@@ -38,6 +38,7 @@
 - Preserved review operation flow and moved the review log display to the detail view via `data-team-leader-review-log`.
 - Updated adjacent static contracts to use current `productionSubmissionDefaultColumns` / `pqcSubmissionDefaultColumns` anchors and the current detail-only sample-value policy.
 - Project experience consolidation: existing `docs/frontend-development.md` (column-pool isolation and cross-account column visibility) and `docs/e2e-rules.md` (narrow static-contract fix and adjacent-contract synchronization) already cover the reusable lesson; no new long-term experience document was created.
+- Cleanup preview/apply: `task_closeout.py --task-id 20260806-hide-review-copy-columns --mode preview` and `--mode apply` kept `task.md`, `execution-log.md`, and `verification-report.md`; deleted task-local temporary evidence files `bug-regression-evidence.md` and `frontend-feature-evidence.md` after validator PASS results were copied into the verification report.
 
 ## Blockers
 

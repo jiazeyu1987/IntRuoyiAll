@@ -9,8 +9,10 @@
 - [x] 创建任务记录并读取前端、编码、bug regression、frontend feature 和相关经验门禁。
 - [x] 定位 `checkFlag` 报错链路和现有静态契约。
 - [x] 增加 RED 静态回归，证明无 `checkFlag` 但存在正式批记录绑定工序或路线工序默认批记录投影时不能直接报错。
-- [x] 实施最小正式修复，避免 fallback/吞异常。
+- [x] 实施首轮最小正式修复，避免 fallback/吞异常。
 - [x] 运行目标静态契约、相邻 QA 回归、结构检查和类型检查。
+- [ ] 基于真实 E2E 暴露的路线数据形态补齐唯一 `keyFlag` 正式工序解析。
+- [ ] 重跑真实页面 E2E，确认手动绑定后适用范围可见且无 checkFlag 报错。
 
 ## Expected Verification
 
@@ -21,6 +23,7 @@
 - `node tests/e2e/qa-regulation-pressure-pump-complete-pdf-items-static.spec.cjs`
 - `node tests/e2e/qa-regulation-pressure-pump-pdf-field-alignment-static.spec.cjs`
 - `pnpm ts:check`
+- `node doc/tasks/20260806-qa-route-checkflag-load-error/qa-route-checkflag-real.e2e.cjs`
 - `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/qa-regulation-route-checkflag-fallback-static.spec.cjs IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs doc/tasks/20260806-qa-route-checkflag-load-error`
 
 ## Experience Gate Summary
@@ -31,12 +34,12 @@
 
 ## 设计约束检查
 
-- `是否引入 fallback/降级/吞异常`：否。若缺 `checkFlag`，只能按正式路线工序列表、唯一启用 BATCH `batchRecordReports` 正式批记录绑定，或已发布路线工序 `batchRecordReportId/code/name` 投影确定可解析工序；多工序冲突仍 fail-fast。
+- `是否引入 fallback/降级/吞异常`：否。若缺 `checkFlag`，只能按正式路线工序列表、唯一启用 BATCH `batchRecordReports` 正式批记录绑定、已发布路线工序 `batchRecordReportId/code/name` 投影，或路线自身唯一 `keyFlag` 正式标记确定可解析工序；多工序冲突仍 fail-fast。
 - `是否从根因和长期维护角度解决`：是，修复 QA 路线范围解析规则与已发布路线绑定的正式链路一致。
 - `是否存在临时补丁或绕过`：否。
 
 ## Current Status
 
-ready_for_closeout
+in_progress
 
-- 已完成实现和目标验证；收尾提交/推送未执行，因为共享 `int_main` 工作区存在大量无关脏改动，不能在未确认基线范围时将其它任务改动一并提交。
+- 真实 E2E 仍复现 checkFlag 报错；当前需补齐唯一 `keyFlag` 正式工序解析后复验。

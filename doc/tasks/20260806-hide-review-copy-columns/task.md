@@ -35,7 +35,7 @@
 
 ready_for_closeout
 
-Implementation and required verification are complete. Final closeout commit/push is not performed in this turn because the shared branch currently contains unrelated concurrent dirty paths and existing ahead commits that are outside this task-owned scope.
+Implementation, required verification, project-experience check, and task-closeout-cleanup apply are complete. Final commit/push is not performed in this turn because the shared branch currently contains unrelated concurrent dirty paths and existing ahead commits that are outside this task-owned scope.
 
 ## Verification Summary
 
@@ -43,3 +43,4 @@ Implementation and required verification are complete. Final closeout commit/pus
 - GREEN: target hide-column static contract passed after removing the two table columns and production default column entries.
 - REGRESSION: `pqc-leader-sample-values-detail-only-static`, `mes-process-pool-team-leader-static`, and `pqc-leader-list-fill-form-parity-static` passed.
 - STRUCTURE: `pnpm ts:check` passed and `git diff --check` passed.
+- CLEANUP: `task_closeout.py --task-id 20260806-hide-review-copy-columns --mode apply` deleted only task-local temporary evidence files and kept `task.md`, `execution-log.md`, and `verification-report.md`.

@@ -280,6 +280,11 @@ assert.match(
 )
 assert.match(
   qaSource,
+  /hasFormalQaKeyRouteProcess[\s\S]*process\.keyFlag === true[\s\S]*keyRouteProcesses/,
+  'QA route scope must use the route keyFlag process when checkFlag and batch-record bindings are absent.'
+)
+assert.match(
+  qaSource,
   /resolveQaRouteProcessFromRoute[\s\S]*checkProcesses\.length > 1[\s\S]*多个质检工序/,
   'QA route scope must still fail fast when the route exposes multiple checkFlag processes.'
 )

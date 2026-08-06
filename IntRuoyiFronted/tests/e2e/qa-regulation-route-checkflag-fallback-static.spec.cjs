@@ -21,6 +21,7 @@ assert.ok(
 const loadBindingSource = qaSource.slice(loadBindingStart, loadBindingEnd)
 const batchCandidateIndex = resolverSource.indexOf('batchRecordProcesses')
 const routeProcessCandidateIndex = resolverSource.indexOf('routeProcessBatchRecordProcesses')
+const keyRouteProcessCandidateIndex = resolverSource.indexOf('keyRouteProcesses')
 const noCheckFlagThrowIndex = resolverSource.indexOf('当前工艺路线未标记唯一质检工序')
 
 assert.match(
@@ -43,6 +44,11 @@ assert.match(
   /hasFormalQaRouteProcessBatchRecordBinding[\s\S]*process\.batchRecordReportId[\s\S]*process\.batchRecordReportCode[\s\S]*process\.batchRecordReportName/,
   'The route-process projection candidate must come from batchRecordReport fields, not form slots.'
 )
+assert.match(
+  qaSource,
+  /const hasFormalQaKeyRouteProcess = \(process: ProRouteProcessVO\) =>[\s\S]*process\.keyFlag === true/,
+  'QA route resolver must honor the formal route keyFlag marker when checkFlag and batch-record bindings are absent.'
+)
 assert.ok(
   batchCandidateIndex >= 0 && noCheckFlagThrowIndex > batchCandidateIndex,
   'Missing checkFlag must check for one formal batch-record process before showing the checkFlag maintenance error.'
@@ -50,6 +56,10 @@ assert.ok(
 assert.ok(
   routeProcessCandidateIndex >= 0 && noCheckFlagThrowIndex > routeProcessCandidateIndex,
   'Missing checkFlag must check the route-process batchRecordReport projection before showing the checkFlag maintenance error.'
+)
+assert.ok(
+  keyRouteProcessCandidateIndex >= 0 && noCheckFlagThrowIndex > keyRouteProcessCandidateIndex,
+  'Missing checkFlag must check for one formal route keyFlag process before showing the checkFlag maintenance error.'
 )
 assert.match(
   resolverSource,
@@ -75,6 +85,16 @@ assert.match(
   resolverSource,
   /if \(routeProcessBatchRecordProcesses\.length > 1\) \{[\s\S]*多个默认批记录报表工序/,
   'Routes with multiple route-process batchRecordReport candidates must fail fast instead of guessing.'
+)
+assert.match(
+  resolverSource,
+  /if \(keyRouteProcesses\.length === 1\) \{[\s\S]*return keyRouteProcesses\[0\]/,
+  'A route with exactly one keyFlag process must load QA scope without requiring checkFlag.'
+)
+assert.match(
+  resolverSource,
+  /if \(keyRouteProcesses\.length > 1\) \{[\s\S]*多个关键工序/,
+  'Routes with multiple keyFlag processes must fail fast instead of guessing.'
 )
 assert.doesNotMatch(
   resolverSource,
