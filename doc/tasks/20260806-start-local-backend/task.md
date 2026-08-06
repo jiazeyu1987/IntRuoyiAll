@@ -9,9 +9,9 @@
 - [x] 读取本地运行、worktree、PowerShell/Git、编码和任务收尾规则。
 - [x] 检查 Git 状态并保存启动前已有脏改动基线。
 - [x] 检查 `48081` 当前监听与健康状态。
-- [ ] 启动后端服务。
-- [ ] 验证后端 health 为 `UP`，记录 PID、命令和归属。
-- [ ] 完成本任务记录、收尾和推送。
+- [x] 启动后端服务。
+- [x] 验证后端 health 为 `UP`，记录 PID、命令和归属。
+- [x] 完成本任务记录、收尾和推送。
 
 ## Expected Verification
 
@@ -29,12 +29,19 @@
 
 ## Current Status
 
-in_progress
+completed
 
-已确认 `48081` 无监听，后端未运行。已创建启动前脏工作区基线提交 `e4a8226e6`，当前准备启动后端。
+后端已从独立运行 Jar 启动，PID `27116` 正在监听 `48081`，`/actuator/health` 返回 `UP`。启动期间发现 `target` Jar 陈旧导致构造器注入失败；重新打包被并行 Maven PID `44732` 占用同一 MES `target` 阻塞，因此未继续触碰 `target`，改用项目规则要求的 `output\runtime\int_main` 独立运行 Jar 完成启动。
+
+cleanup preview/apply 已完成，仅删除本任务临时启动脚本；长期经验沉淀检查已完成，现有 `docs/local-runtime.md` 与 `docs/powershell-memory.md` 已覆盖本次经验，无需新增长期经验文档。
+
+## Cleanup Candidates
+
+- doc/tasks/20260806-start-local-backend/start-backend.ps1
+- doc/tasks/20260806-start-local-backend/start-existing-runtime-jar.ps1
 
 ## 设计约束检查
 
-- `是否引入 fallback/降级/吞异常`：否。
-- `是否从根因和长期维护角度解决`：是；仅执行正式本地后端启动与健康检查，不改端口或配置。
+- `是否引入 fallback/降级/吞异常`：否；未切换端口、数据源、profile、mock 或默认成功，使用 `output\runtime\int_main` 独立运行 Jar 属于本地长期运行正式路径。
+- `是否从根因和长期维护角度解决`：是；识别出 `target` Jar 陈旧与并行 Maven `target` 冲突，未强行覆盖共享构建目录。
 - `是否存在临时补丁或绕过`：否。
