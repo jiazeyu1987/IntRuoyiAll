@@ -147,6 +147,11 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     private static final String ISSUE_TYPE_MANUAL_NIGHT_SHIFT_CANCEL = "MANUAL_NIGHT_SHIFT_CANCEL";
     private static final String ISSUE_SEVERITY_BLOCKING = "BLOCKING";
     private static final String ISSUE_SEVERITY_WARNING = "WARNING";
+    private static final String PROTECTION_REASON_FINISHED = "FINISHED";
+    private static final String PROTECTION_REASON_FEEDBACK = "FEEDBACK";
+    private static final String PROTECTION_REASON_IN_PROGRESS = "IN_PROGRESS";
+    private static final String PROTECTION_REASON_LOCKED = "LOCKED";
+    private static final String PROTECTION_REASON_MANUAL = "MANUAL";
     private static final String ISSUE_MESSAGE_ROUTE_CALENDAR_CAPACITY_INSUFFICIENT =
             "路线工序可用日历产能不足";
     private static final int MAX_SHIFT_CAPACITY_ISSUES = 1;
@@ -881,11 +886,11 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         MesProReplanExplanationRespVO.ProtectionSummary summary =
                 new MesProReplanExplanationRespVO.ProtectionSummary();
         summary.setTotalCount(protectedTasks.size());
-        summary.setFeedbackCount(countProtectionReason(protectedTasks, "FEEDBACK"));
-        summary.setInProgressCount(countProtectionReason(protectedTasks, "IN_PROGRESS"));
-        summary.setFinishedCount(countProtectionReason(protectedTasks, "FINISHED"));
-        summary.setLockedCount(countProtectionReason(protectedTasks, "LOCKED"));
-        summary.setManualCount(countProtectionReason(protectedTasks, "MANUAL"));
+        summary.setFeedbackCount(countProtectionReason(protectedTasks, PROTECTION_REASON_FEEDBACK));
+        summary.setInProgressCount(countProtectionReason(protectedTasks, PROTECTION_REASON_IN_PROGRESS));
+        summary.setFinishedCount(countProtectionReason(protectedTasks, PROTECTION_REASON_FINISHED));
+        summary.setLockedCount(countProtectionReason(protectedTasks, PROTECTION_REASON_LOCKED));
+        summary.setManualCount(countProtectionReason(protectedTasks, PROTECTION_REASON_MANUAL));
         summary.setOtherCount(protectedTasks.size() - summary.getFeedbackCount() - summary.getInProgressCount()
                 - summary.getFinishedCount() - summary.getLockedCount() - summary.getManualCount());
         return summary;
@@ -2245,6 +2250,9 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         Map<Long, MesMdWorkstationDO> workstationsToAdd = new LinkedHashMap<>();
         for (MesProTaskDO protectedTask : computation.preservedTasks) {
             Long workstationId = protectedTask.getWorkstationId();
+            if (isProgressOnlyProtectedTask(computation, protectedTask)) {
+                continue;
+            }
             if (workstationId == null) {
                 computation.issues.add(ScheduleIssueDraft.blocking(ISSUE_TYPE_WORKSTATION,
                         protectedTask.getWorkOrderId(), protectedTask.getProcessId(), null, null,
@@ -2394,6 +2402,9 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             if (computation.replaceableScopeTasks.stream().anyMatch(replaceable -> ObjUtil.equal(replaceable.getId(), task.getId()))) {
                 continue;
             }
+            if (isProgressOnlyProtectedTask(computation, task)) {
+                continue;
+            }
             MesMdWorkstationDO workstation = computation.workstationMap.get(task.getWorkstationId());
             if (workstation == null || workstation.getProductionLineId() == null) {
                 continue;
@@ -2422,11 +2433,17 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
 
         Set<Long> seededTaskIds = new LinkedHashSet<>();
         for (MesProTaskDO preservedTask : computation.preservedTasks) {
+            if (isProgressOnlyProtectedTask(computation, preservedTask)) {
+                continue;
+            }
             seedTaskDailyProcessCapacity(computation, ledger, preservedTask,
                     effectiveScheduleOrderByWorkOrderId, processByScheduleOrderId, seededTaskIds);
         }
         for (MesProTaskDO lineResourceTask : lineResourceTasks) {
             if (lineResourceTask.getId() != null && replaceableTaskIds.contains(lineResourceTask.getId())) {
+                continue;
+            }
+            if (isProgressOnlyProtectedTask(computation, lineResourceTask)) {
                 continue;
             }
             seedTaskDailyProcessCapacity(computation, ledger, lineResourceTask,
@@ -2646,20 +2663,20 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                                            MesProTaskDO task,
                                            MesProTaskScheduleExtDO ext) {
         if (MesProTaskStatusEnum.isEndStatus(task.getStatus())) {
-            return "FINISHED";
+            return PROTECTION_REASON_FINISHED;
         }
         if (ObjUtil.equal(task.getStatus(), MesProTaskStatusEnum.IN_PROGRESS.getStatus())) {
-            return "IN_PROGRESS";
+            return PROTECTION_REASON_IN_PROGRESS;
         }
         if (CollUtil.isNotEmpty(computation.feedbackByTaskId.get(task.getId()))) {
-            return "FEEDBACK";
+            return PROTECTION_REASON_FEEDBACK;
         }
         if (ext != null && Boolean.TRUE.equals(ext.getLocked())) {
-            return "LOCKED";
+            return PROTECTION_REASON_LOCKED;
         }
         if (Boolean.TRUE.equals(computation.preserveManualLockedTasks)
                 && (ext == null || ObjUtil.notEqual(SCHEDULE_SOURCE_AUTO, ext.getScheduleSource()))) {
-            return "MANUAL";
+            return PROTECTION_REASON_MANUAL;
         }
         return null;
     }
@@ -2879,7 +2896,8 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             }
 
             MesProTaskDO protectedTask = CollUtil.isEmpty(protectedTasks) ? null : protectedTasks.get(0);
-            MesMdWorkstationDO protectedWorkstation = protectedTask == null ? null
+            boolean useProtectedTaskResource = shouldUseProtectedTaskResourceForFuturePlanning(computation, protectedTask);
+            MesMdWorkstationDO protectedWorkstation = !useProtectedTaskResource ? null
                     : computation.workstationMap.get(protectedTask.getWorkstationId());
             Long requiredLineId = protectedWorkstation != null ? protectedWorkstation.getProductionLineId() : null;
             if (protectedTask != null && (protectedTask.getStartTime() == null || protectedTask.getEndTime() == null)) {
@@ -2887,7 +2905,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                         routeProcess.getProcessId(), protectedTask.getWorkstationId(), null, "受保护任务缺少开始或结束时间"));
                 return null;
             }
-            if (protectedTask != null && requiredLineId == null) {
+            if (useProtectedTaskResource && requiredLineId == null) {
                 computation.issues.add(ScheduleIssueDraft.blocking(ISSUE_TYPE_LINE, workOrder.getId(),
                         routeProcess.getProcessId(), protectedTask.getWorkstationId(), null, "受保护任务未绑定产线"));
                 return null;
@@ -4834,6 +4852,19 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
 
     private String scheduleOrderProcessTaskKey(Long workOrderId, Long scheduleOrderProcessId) {
         return ScheduleOrderProcessIdentity.scheduleOrderProcessTaskKey(workOrderId, scheduleOrderProcessId);
+    }
+
+    private boolean shouldUseProtectedTaskResourceForFuturePlanning(ScheduleComputation computation,
+                                                                    MesProTaskDO protectedTask) {
+        return protectedTask != null && !isProgressOnlyProtectedTask(computation, protectedTask);
+    }
+
+    private boolean isProgressOnlyProtectedTask(ScheduleComputation computation, MesProTaskDO task) {
+        if (computation == null || task == null || task.getId() == null) {
+            return false;
+        }
+        String reason = computation.protectionReasonByTaskId.get(task.getId());
+        return PROTECTION_REASON_FEEDBACK.equals(reason) || PROTECTION_REASON_FINISHED.equals(reason);
     }
 
     private Long resolveScheduleOrderId(Map<String, MesProScheduleOrderDO> scheduleOrderByWorkOrderId, Long workOrderId) {
