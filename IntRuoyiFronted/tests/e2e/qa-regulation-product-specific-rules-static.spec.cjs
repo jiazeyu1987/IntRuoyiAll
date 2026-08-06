@@ -27,6 +27,18 @@ assert.ok(
 )
 
 const pressurePumpBindingSource = qaSource.slice(pressurePumpBindingStart, saveProductDraftStart)
+const emptyRuleProfileStart = qaSource.indexOf('const createEmptyQaInspectionTypeRules =')
+const pressurePumpRuleProfileStart = qaSource.indexOf(
+  'const createPressurePumpQaInspectionTypeRules =',
+  emptyRuleProfileStart
+)
+
+assert.ok(
+  emptyRuleProfileStart >= 0 && pressurePumpRuleProfileStart > emptyRuleProfileStart,
+  'Empty and pressure-pump rule profiles must remain explicit and separately testable.'
+)
+
+const emptyRuleProfileSource = qaSource.slice(emptyRuleProfileStart, pressurePumpRuleProfileStart)
 
 assert.match(
   qaSource,
@@ -44,14 +56,49 @@ assert.match(
   'Unconfigured products must receive an explicit empty rule profile.'
 )
 assert.match(
+  emptyRuleProfileSource,
+  /=>\s*\[\s*\]/,
+  'Unconfigured or other products must render no inherited inspection-rule rows until their own product rules are configured.'
+)
+assert.match(
+  qaSource,
+  /const createBaseQaInspectionTypeRules = \(\): QaInspectionTypeRule\[\] =>/,
+  'Shared first/patrol/final row labels may only live in a base profile used by configured product templates.'
+)
+assert.match(
   qaSource,
   /const createPressurePumpQaInspectionTypeRules = \(\): QaInspectionTypeRule\[\] =>/,
   'The existing pressure-pump rules must remain an explicit product profile.'
 )
 assert.match(
   qaSource,
+  /const createPressurePumpQaInspectionTypeRules = \(\): QaInspectionTypeRule\[\] =>\s*createBaseQaInspectionTypeRules\(\)\.map/,
+  'The pressure-pump profile may seed first/patrol/final rows only through its own product template.'
+)
+assert.match(
+  qaSource,
   /const replaceQaInspectionTypeRules = \(rules: QaInspectionTypeRule\[\]\) =>/,
   'Product switches must replace the shared reactive rule array deterministically.'
+)
+assert.match(
+  qaSource,
+  /v-for="rule in qaInspectionTypeRules"[\s\S]*\{\{\s*rule\.label\s*\}\}/,
+  'The inspection-rule tag rail must render only the current product rule labels.'
+)
+assert.doesNotMatch(
+  qaSource,
+  /<el-tag effect="plain">首检<\/el-tag>[\s\S]*<el-tag effect="plain">上午巡检<\/el-tag>[\s\S]*<el-tag effect="plain">下午巡检<\/el-tag>[\s\S]*<el-tag effect="plain">末检<\/el-tag>/,
+  'The QA page must not hardcode first/patrol/final tag labels for every selected product.'
+)
+assert.match(
+  qaSource,
+  /const qaPatrolPreviewText = computed/,
+  'The patrol preview hint must be derived from the current product rules.'
+)
+assert.doesNotMatch(
+  qaSource,
+  /Math\.ceil\(qaRegulationDraft\.sampleOrderQuantity \* 0\.05\)/,
+  'Other products must not inherit the pressure-pump 5% patrol preview text.'
 )
 assert.match(
   qaSource,

@@ -210,10 +210,12 @@
           <div class="qa-regulation-page__card-head">
             <span>检验类型规则</span>
             <div class="qa-regulation-page__rule-tags" data-qa-regulation-rule-types>
-              <el-tag effect="plain">首检</el-tag>
-              <el-tag effect="plain">上午巡检</el-tag>
-              <el-tag effect="plain">下午巡检</el-tag>
-              <el-tag effect="plain">末检</el-tag>
+              <template v-if="qaInspectionTypeRules.length > 0">
+                <el-tag v-for="rule in qaInspectionTypeRules" :key="rule.key" effect="plain">
+                  {{ rule.label }}
+                </el-tag>
+              </template>
+              <el-tag v-else effect="plain" type="info">当前产品未配置检验规则</el-tag>
             </div>
           </div>
         </template>
@@ -349,9 +351,8 @@
             </el-table>
           </template>
         </UnifiedListTemplate>
-        <div class="qa-regulation-page__hint mt-8px">
-          巡检预览：当前用 {{ qaRegulationDraft.sampleOrderQuantity }} 件示例数量演示 5% 抽样 =
-          {{ Math.ceil(qaRegulationDraft.sampleOrderQuantity * 0.05) }}；正式 PQC 任务按实际工单/批次数量生成。
+        <div v-if="qaPatrolPreviewText" class="qa-regulation-page__hint mt-8px">
+          {{ qaPatrolPreviewText }}
         </div>
       </el-card>
     </ContentWrap>
@@ -1075,7 +1076,7 @@ const createPressurePumpQaRegulationDraft = (): QaRegulationDraft => ({
 
 const qaRegulationDraft = reactive<QaRegulationDraft>(createEmptyQaRegulationDraft())
 
-const createEmptyQaInspectionTypeRules = (): QaInspectionTypeRule[] => [
+const createBaseQaInspectionTypeRules = (): QaInspectionTypeRule[] => [
   {
     key: 'FIRST',
     inspectionType: 'FIRST',
@@ -1115,8 +1116,10 @@ const createEmptyQaInspectionTypeRules = (): QaInspectionTypeRule[] => [
   }
 ]
 
+const createEmptyQaInspectionTypeRules = (): QaInspectionTypeRule[] => []
+
 const createPressurePumpQaInspectionTypeRules = (): QaInspectionTypeRule[] =>
-  createEmptyQaInspectionTypeRules().map((rule) => {
+  createBaseQaInspectionTypeRules().map((rule) => {
     if (rule.key === 'FIRST') {
       return { ...rule, fixedQuantity: 5 }
     }
@@ -2074,6 +2077,22 @@ const formatQaRulePlannedQuantity = (rule: QaInspectionTypeRule) => {
   return quantity > 0 ? `${quantity} 件` : '需补齐'
 }
 
+const qaPatrolPreviewText = computed(() => {
+  const patrolRule = qaInspectionTypeRules.find(
+    (rule) =>
+      rule.inspectionType === 'PATROL' &&
+      rule.required &&
+      Number.isFinite(Number(rule.sampleRatio)) &&
+      Number(rule.sampleRatio) > 0
+  )
+  if (!patrolRule) {
+    return ''
+  }
+  const sampleRatio = Number(patrolRule.sampleRatio)
+  const plannedQuantity = Math.ceil(qaRegulationDraft.sampleOrderQuantity * (sampleRatio / 100))
+  return `巡检预览：当前用 ${qaRegulationDraft.sampleOrderQuantity} 件示例数量演示 ${sampleRatio}% 抽样 = ${plannedQuantity}；正式 PQC 任务按实际工单/批次数量生成。`
+})
+
 const formatQaItemProcessName = (item: QaRegulationItem) =>
   item.processName?.trim() || qaRegulationDraft.routeProcessName.trim() || '待加载正式工序'
 
@@ -2121,9 +2140,12 @@ const qaRegulationCompletenessChecks = computed(() => {
       qaRegulationDraft.versionNo.trim() &&
       qaRegulationDraft.effectiveDate
   )
-  const ruleReady = qaInspectionTypeRules.every(
-    (rule) => !rule.required || resolveQaRulePlannedQuantity(rule) > 0
-  )
+  const ruleRowsReady = qaInspectionTypeRules.length > 0
+  const ruleReady =
+    ruleRowsReady &&
+    qaInspectionTypeRules.every(
+      (rule) => !rule.required || resolveQaRulePlannedQuantity(rule) > 0
+    )
   const finalRule = qaInspectionTypeRules.find((rule) => rule.key === 'FINAL')
   const finalApplicabilityReady = Boolean(
     finalRule?.required || finalRule?.notApplicableReason?.trim()
@@ -2182,6 +2204,8 @@ const qaRegulationCompletenessChecks = computed(() => {
       detail:
         ruleReady && finalApplicabilityReady
           ? '适用的检验类型均有数量或比例，末检不适用时已有正式依据'
+          : !ruleRowsReady
+            ? '当前产品未配置检验类型规则'
           : '适用检验类型缺少固定数量/抽样比例，或末检不适用依据未填写'
     },
     {
@@ -2329,6 +2353,10 @@ const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO | undef
   }
   if (!qaFormalRouteScopeReady.value) {
     ElMessage.warning(qaRouteScopeLoadError.value || '当前产品未加载到正式工艺路线/工序范围，不能保存 QA 规程。')
+    return undefined
+  }
+  if (qaInspectionTypeRules.length === 0) {
+    ElMessage.warning('当前产品未配置检验规则，不能保存 QA 规程。')
     return undefined
   }
   const finalRule = qaInspectionTypeRules.find((rule) => rule.key === 'FINAL')
