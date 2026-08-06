@@ -24,7 +24,7 @@
 - `node tests/e2e/qa-regulation-pressure-pump-pdf-field-alignment-static.spec.cjs`
 - `pnpm ts:check`
 - `node doc/tasks/20260806-qa-route-checkflag-load-error/qa-route-checkflag-real.e2e.cjs`
-- `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/qa-regulation-route-checkflag-fallback-static.spec.cjs IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs doc/tasks/20260806-qa-route-checkflag-load-error`
+- `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/qa-regulation-route-checkflag-fallback-static.spec.cjs IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs doc/tasks/20260806-qa-route-checkflag-load-error docs/backend-development.md`
 
 ## Experience Gate Summary
 
@@ -43,4 +43,5 @@
 ready_for_closeout
 
 - 真实 E2E 已通过：`ID / 球囊扩张压力泵 / 112` 手动绑定 `ROUTE-XLSX-00001 / 球囊扩张导管` 后，页面按唯一 `keyFlag` 工序 `纸塑袋封口（包装）` 显示适用范围，未再出现 checkFlag 报错。
+- 已将可复用经验合并到 `docs/backend-development.md#QA 规程手动绑定必须允许已发布路线`。
 - 收尾提交/推送未执行，因为当前共享 `int_main` 工作区仍存在其它并行任务脏改动，不能在未确认基线范围时将其它任务改动一并提交。

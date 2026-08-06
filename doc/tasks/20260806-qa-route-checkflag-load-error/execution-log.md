@@ -48,3 +48,4 @@
 - 2026-08-07: 真实 E2E 采集到 `ROUTE-XLSX-00001 / 球囊扩张导管` 的 `SCHEDULE` 和 `BATCH` 配置均为 23 条但无 `checkFlag`、无 `batchRecordReports`、无 `batchRecordReportId` 投影；`route-process/list-by-route` 中仅 `926807 / Z830 / 纸塑袋封口（包装）` 存在 `keyFlag=true`。下一步按唯一正式 `keyFlag` 工序补齐解析并复验。
 - 2026-08-07: 已补齐 QA 页面解析顺序：唯一 `checkFlag=true`、单一正式工序、唯一启用 BATCH `batchRecordReports`、唯一发布投影、唯一 `keyFlag=true`；多个 keyFlag 仍 fail-fast，不使用 `formBindings`。
 - 2026-08-07: 真实 E2E 通过，结果文件 `doc/tasks/20260806-qa-route-checkflag-load-error/qa-route-checkflag-real-e2e.json` 记录 `ok=true`，截图为 `doc/tasks/20260806-qa-route-checkflag-load-error/qa-route-checkflag-real-e2e.png`。
+- 2026-08-07: 按 `project-experience-consolidation` 将经验合并到既有 `docs/backend-development.md#QA 规程手动绑定必须允许已发布路线`，记录无 `checkFlag` 路线的正式解析顺序和禁止 `formBindings`/猜测。

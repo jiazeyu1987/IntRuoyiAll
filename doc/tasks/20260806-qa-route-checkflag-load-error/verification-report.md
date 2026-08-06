@@ -17,7 +17,7 @@
 - `node tests\e2e\qa-regulation-pressure-pump-pdf-field-alignment-static.spec.cjs` -> PASS
 - `pnpm ts:check` -> PASS
 - `node doc\tasks\20260806-qa-route-checkflag-load-error\qa-route-checkflag-real.e2e.cjs` -> PASS
-- `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/qa-regulation-route-checkflag-fallback-static.spec.cjs IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs doc/tasks/20260806-qa-route-checkflag-load-error` -> PASS, only CRLF normalization warnings.
+- `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/qa-regulation-route-checkflag-fallback-static.spec.cjs IntRuoyiFronted/tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs doc/tasks/20260806-qa-route-checkflag-load-error docs/backend-development.md` -> PASS, only CRLF normalization warnings.
 - `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260806-qa-route-checkflag-load-error\bug-regression-evidence.md` -> PASS
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260806-qa-route-checkflag-load-error\frontend-feature-evidence.md` -> PASS
 
@@ -25,5 +25,5 @@
 
 - Task implementation and verification are complete.
 - Real E2E evidence is stored in `doc/tasks/20260806-qa-route-checkflag-load-error/qa-route-checkflag-real-e2e.json`, with screenshot `doc/tasks/20260806-qa-route-checkflag-load-error/qa-route-checkflag-real-e2e.png`.
-- Long-term experience consolidation was evaluated, but the fitting existing document `docs/backend-development.md` already has unrelated dirty changes, so it was not modified in this task.
+- Long-term experience consolidation was completed in `docs/backend-development.md#QA 规程手动绑定必须允许已发布路线`.
 - Commit and push were not performed because `int_main` contains many unrelated dirty files. A required dirty-worktree baseline would include non-task changes and needs explicit user confirmation.
