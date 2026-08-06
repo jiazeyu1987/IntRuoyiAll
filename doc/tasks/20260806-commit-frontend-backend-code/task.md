@@ -7,7 +7,7 @@
 ## Milestones
 
 - [x] M1：确认仓库根目录、当前分支、远端和工作区状态。
-- [ ] M2：确认现有变更的任务归属、验证状态、敏感文件和大文件风险。
+- [x] M2：确认现有变更的任务归属、验证状态、敏感文件和大文件风险。
 - [ ] M3：按项目门禁完成暂存、提交、远端同步和推送。
 - [ ] M4：复扫残余改动并完成任务收尾记录。
 
@@ -57,3 +57,12 @@ in_progress
 - 备份长度：`1,441,792` 字节。
 - 原锁与备份 SHA-256：`9B97BC1366A299084C544168EFD3C81C2F5099D15FE7913BB356760BA073D869`。
 - 备份哈希一致后仅删除精确路径 `.git/index.lock`；未替换 `.git/index`，未使用备用索引执行提交。
+
+## Verification Evidence
+
+- `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main/int_main` 前端 `8081`、后端 `48081`。
+- `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest,MesQaPqcSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，25 tests / 0 failures / 0 errors。
+- 前端静态合同批量运行 -> PASS，覆盖 P0 生产执行、PQC 生产来源上下文、生产组长活跃订单池、生产组长 Tab、RRM preflight/local wrapper、统一列表多筛选和真实 E2E 脚本语法。
+- `pnpm ts:check` -> PASS。
+- `git diff --check` 与 `git diff --cached --check` -> PASS。
+- 敏感信息复核：强 token / private key / bearer 模式未命中；RRM 本机包装脚本中的 SQL `password = '$escapedHash'` 为 here-string 变量占位，真实密码由进程环境变量提供，未发现明文密码值。

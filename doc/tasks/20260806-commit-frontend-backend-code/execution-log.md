@@ -53,3 +53,25 @@
 - 未跟踪文件最大为 `371,303` 字节，未发现超大文件。
 - 强敏感模式扫描未发现私钥、AWS/GitHub/OpenAI token 或 Bearer token；本机 RRM 包装脚本命中密码变量赋值逻辑，提交恢复后仍需完成脱敏内容复核。
 - `doc/tasks/20260805-restart-local-frontend-backend/` 是并发任务新增目录，本任务未修改且不会纳入提交。
+
+## Verification Before Baseline Commit
+
+- `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main/int_main` 前端 `8081`、后端 `48081`。
+- `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest,MesQaPqcSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`MesQaPqcSchemaTest` 6 tests、`MesFrontlinePqcContextServiceTest` 19 tests，合计 25 tests / 0 failures / 0 errors / 0 skipped。
+- 前端静态合同批量命令 -> PASS：
+  - `node tests/e2e/p0-production-execution-loop-static.spec.cjs`
+  - `node tests/e2e/pqc-production-source-context-static.spec.cjs`
+  - `node tests/e2e/production-leader-active-order-pool-tab-static.spec.js`
+  - `node tests/e2e/production-leader-function-tabs-static.spec.js`
+  - `node tests/e2e/production-leader-remove-header-content-static.spec.js`
+  - `node tests/e2e/production-leader-tabs-flat-style-static.spec.js`
+  - `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs`
+  - `node tests/e2e/role-requirement-matrix-local-wrapper-static.spec.cjs`
+  - `node tests/e2e/unified-list-template-multi-filter-static.spec.js`
+  - `node --check tests/e2e/role-requirement-matrix-real-flow.e2e.js`
+  - `node --check tests/e2e/team-leader-workbench-real-flow.e2e.js`
+- `pnpm ts:check` -> PASS。
+- `git diff --check` -> PASS。
+- `git diff --cached --check` -> PASS。
+- Hardcoded secret review -> PASS：`run-rrm-real-e2e-local.ps1` 中两处 12 字符 quoted literal 为 SQL here-string 中的 `$escapedHash` 变量占位，SHA-256 一致且包含 `$`，不是实际密码值；真实临时密码通过 `RRM_LOCAL_E2E_TEMP_PASSWORD` / `RRM_*_PASSWORD` 进程环境变量传入。
+- Existing history large-object scan attempted against partial clone -> inconclusive due promisor remote TLS EOF；改为提交前 staged 文件大小扫描。
