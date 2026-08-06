@@ -185,6 +185,9 @@ public class ProcessPoolTimelineEventRespVO {
     @Schema(description = "最新组长复核人用户编号", example = "3001")
     private Long submissionReviewLeaderUserId;
 
+    @Schema(description = "最新组长复核人姓名", example = "生产组长")
+    private String submissionReviewLeaderUserName;
+
     @Schema(description = "最新组长复核时间")
     private LocalDateTime submissionReviewedAt;
 

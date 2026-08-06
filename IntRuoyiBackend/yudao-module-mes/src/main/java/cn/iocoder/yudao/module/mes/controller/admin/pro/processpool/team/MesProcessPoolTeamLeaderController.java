@@ -260,8 +260,6 @@ public class MesProcessPoolTeamLeaderController {
                 .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
                 .routeProcessId(reqVO.getRouteProcessId())
                 .reasonName(reqVO.getReasonName())
-                .enabled(reqVO.getEnabled())
-                .remark(reqVO.getRemark())
                 .build()));
     }
 

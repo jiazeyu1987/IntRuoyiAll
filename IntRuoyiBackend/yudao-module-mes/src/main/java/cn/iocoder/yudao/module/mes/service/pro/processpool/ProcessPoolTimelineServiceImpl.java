@@ -138,6 +138,7 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                 .setSubmissionReviewStatus(event.getSubmissionReviewStatus())
                 .setSubmissionReviewRemark(event.getSubmissionReviewRemark())
                 .setSubmissionReviewLeaderUserId(event.getSubmissionReviewLeaderUserId())
+                .setSubmissionReviewLeaderUserName(event.getSubmissionReviewLeaderUserName())
                 .setSubmissionReviewedAt(event.getSubmissionReviewedAt())
                 .setModificationHistorySummary(event.getModificationHistorySummary());
         fillProductionSubmissionPayload(event, respVO);

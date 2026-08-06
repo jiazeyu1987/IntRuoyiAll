@@ -97,9 +97,8 @@ public class MesTeamLeaderLossReasonServiceImpl implements MesTeamLeaderLossReas
                 .reasonType(MesProcessPoolDefectReasonDO.REASON_TYPE_LOSS)
                 .reasonCode(generateLossReasonCode(routeProcess.getId()))
                 .reasonName(StrUtil.trim(reqBO.getReasonName()))
-                .enabled(reqBO.getEnabled() == null ? Boolean.TRUE : reqBO.getEnabled())
+                .enabled(Boolean.TRUE)
                 .build();
-        reason.setRemark(StrUtil.blankToDefault(StrUtil.trim(reqBO.getRemark()), null));
         defectReasonMapper.insert(reason);
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "CREATE_LOSS_REASON",
                 "DEFECT_REASON", reason.getId(), null, reason.toString());

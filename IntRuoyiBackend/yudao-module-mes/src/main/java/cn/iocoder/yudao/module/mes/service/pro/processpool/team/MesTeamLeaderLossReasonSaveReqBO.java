@@ -12,7 +12,5 @@ public class MesTeamLeaderLossReasonSaveReqBO {
     private Long leaderUserId;
     private Long routeProcessId;
     private String reasonName;
-    private Boolean enabled;
-    private String remark;
 
 }

@@ -19,10 +19,4 @@ public class MesTeamLeaderLossReasonSaveReqVO {
     @NotBlank(message = "原因名称不能为空")
     private String reasonName;
 
-    @Schema(description = "是否启用", example = "true")
-    private Boolean enabled;
-
-    @Schema(description = "备注")
-    private String remark;
-
 }

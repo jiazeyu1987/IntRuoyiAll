@@ -58,6 +58,7 @@
         latest_submission_review.review_status AS submissionReviewStatus,
         latest_submission_review.review_remark AS submissionReviewRemark,
         latest_submission_review.leader_user_id AS submissionReviewLeaderUserId,
+        review_leader.nickname AS submissionReviewLeaderUserName,
         latest_submission_review.reviewed_at AS submissionReviewedAt,
         COALESCE(revision_summary.summary, '原始记录暂无修改') AS modificationHistorySummary
     </sql>
@@ -160,6 +161,13 @@
          AND latest_submission_review.tenant_id = pool_event.tenant_id
     </sql>
 
+    <sql id="SubmissionReviewLeaderJoin">
+        LEFT JOIN system_users review_leader
+          ON review_leader.id = latest_submission_review.leader_user_id
+         AND review_leader.tenant_id = pool_event.tenant_id
+         AND review_leader.deleted = 0
+    </sql>
+
     <select id="selectTimelineCount" resultType="java.lang.Long">
         SELECT COUNT(1)
         FROM mes_pro_process_pool_event pool_event
@@ -214,6 +222,7 @@
           ON review_copy_summary.event_id = pool_event.id
          AND review_copy_summary.tenant_id = pool_event.tenant_id
         <include refid="LatestSubmissionReviewJoin"/>
+        <include refid="SubmissionReviewLeaderJoin"/>
         LEFT JOIN (
             SELECT tenant_id,
                    event_id,
@@ -271,6 +280,7 @@
           ON review_copy_summary.event_id = pool_event.id
          AND review_copy_summary.tenant_id = pool_event.tenant_id
         <include refid="LatestSubmissionReviewJoin"/>
+        <include refid="SubmissionReviewLeaderJoin"/>
         LEFT JOIN (
             SELECT tenant_id,
                    event_id,

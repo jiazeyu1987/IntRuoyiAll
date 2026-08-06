@@ -39,6 +39,14 @@ const extractCreatePayload = (source) => {
   return source.slice(start, end)
 }
 
+const extractBetween = (source, startMarker, endMarker) => {
+  const start = source.indexOf(startMarker)
+  assert.notStrictEqual(start, -1, `Missing start marker: ${startMarker}`)
+  const end = source.indexOf(endMarker, start)
+  assert.notStrictEqual(end, -1, `Missing end marker: ${endMarker}`)
+  return source.slice(start, end)
+}
+
 const lossReasonDialog = extractAfterMarker(
   workbench,
   'data-loss-reason-edit-dialog',
@@ -77,6 +85,11 @@ assert.doesNotMatch(
 )
 
 const createPayload = extractCreatePayload(workbench)
+const createLossReasonController = extractBetween(
+  controller,
+  'public CommonResult<Long> createLossReason',
+  '@PutMapping("/loss-reasons/{id}")'
+)
 assert.match(createPayload, /routeProcessId:\s*row\.routeProcessId/, '新增 payload 必须绑定当前路线工序。')
 assert.match(createPayload, /reasonName\b/, '新增 payload 必须提交原因名称。')
 assert.doesNotMatch(createPayload, /reasonCode/, '新增 payload 不得提交手工 reasonCode。')
@@ -94,8 +107,21 @@ assert.doesNotMatch(
   '前端新增损耗原因类型不得继续声明必填 reasonCode。'
 )
 assert.doesNotMatch(controllerSaveReq, /NotBlank\(message = "原因编码不能为空"\)/, '后端新增 VO 不得要求原因编码。')
+assert.doesNotMatch(controllerSaveReq, /private Boolean enabled;/, '后端新增 VO 不得接收隐藏启用状态。')
+assert.doesNotMatch(controllerSaveReq, /private String remark;/, '后端新增 VO 不得接收隐藏维护说明。')
 assert.doesNotMatch(saveReqBo, /private String reasonCode;/, '后端新增 BO 不得继续接收手工原因编码。')
-assert.doesNotMatch(controller, /\.reasonCode\(reqVO\.getReasonCode\(\)\)/, 'Controller 不得从请求体透传手工原因编码。')
+assert.doesNotMatch(saveReqBo, /private Boolean enabled;/, '后端新增 BO 不得接收隐藏启用状态。')
+assert.doesNotMatch(saveReqBo, /private String remark;/, '后端新增 BO 不得接收隐藏维护说明。')
+assert.doesNotMatch(
+  createLossReasonController,
+  /\.reasonCode\(reqVO\.getReasonCode\(\)\)/,
+  'Controller 新增损耗原因方法不得从请求体透传手工原因编码。'
+)
+assert.doesNotMatch(
+  createLossReasonController,
+  /\.(enabled|remark)\(reqVO\./,
+  'Controller 新增损耗原因方法不得透传新增弹窗隐藏字段。'
+)
 assert.doesNotMatch(
   lossReasonService,
   /StrUtil\.trim\(reqBO\.getReasonCode\(\)\)/,

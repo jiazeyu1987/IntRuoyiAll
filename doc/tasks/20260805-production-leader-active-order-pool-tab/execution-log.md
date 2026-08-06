@@ -232,3 +232,15 @@
 - Verification: New route `980091` has active version `622 / V1 / ACTIVE`, copied process count `14`, copied route flow config count `2`, active schedule config count `14`, active product bindings `923072/907063`, `923073/913662`, and `923074/924008`, snapshot product item IDs `[907063, 913662, 924008]`, and active product BOM count `0`.
 - Read-only order check: target products `907063`, `913662`, and `924008` currently have `0` production work orders and `0` schedule orders, so no active-order candidate appears solely from this route/product association.
 - GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260805-production-leader-active-order-pool-tab/database-schema-evidence.md` -> PASS，`Database schema evidence is valid.`
+
+## Data Change 2026-08-07 Press Balloon Project Code And MDM Binding
+
+- User request: 将 `按压式球囊扩充压力泵` 工艺路线绑定对应的项目代码和 MDM。
+- BDD: 按压式球囊项目代码与 MDM 绑定到新路线 -> Given tenant 1 已存在目标路线 `980091 / RT000028-IDI`、DCC 项目代码 `IDI` 和启用 MDM 产品 `INT-15/id=14`，When 收敛路线产品绑定，Then `item_id=14` 只在目标路线活跃、DCC 项目代码继续指向 MDM 产品，目标活跃版本快照包含该 MDM 产品。
+- Precheck: `dcc_project_code` 字段包含 `product_master_id`，`mdm_product` 包含 `id/product_code/name_cn/status`，`mes_pro_route_product.item_id` 为工艺路线产品绑定字段。
+- Precheck: `dcc_project_code.id=129` / `project_code=IDI` 已绑定 `product_master_id=14`，对应 `mdm_product.id=14` / `product_code=INT-15` / `name_cn=按压式球囊扩充压力泵` / `status=ENABLE`。
+- Precheck: 目标路线 `980091` 已活跃绑定 3 个同名 MES 物料产品；但 MDM 产品 `item_id=14` 活跃绑定仍在旧路线 `922119`，目标路线同一绑定 `923071` 为软删除状态。
+- RED: `tmp-bind-press-balloon-project-mdm.sql` first run -> FAIL，`ERROR 1267 Illegal mix of collations`，事务未提交；随后按目标列 `utf8mb4_unicode_ci` 显式声明过程变量排序规则。
+- GREEN: `tmp-bind-press-balloon-project-mdm.sql` -> PASS，返回 `target_route_id=980091`、`target_route_version_id=622`、`project_code=IDI`、`mdm_product_id=14`、`target_route_product_id=923079`、`final_target_mdm_bindings=1`、`final_non_target_mdm_bindings=0`、`final_snapshot_contains_mdm=1`。
+- Verification: `tmp-press-balloon-project-mdm-verify.sql` -> PASS，DCC 项目代码 `IDI` 绑定 MDM `INT-15/id=14`；旧路线 `922119` 对 `item_id=14` 无活跃绑定；目标路线 `980091` 对 `item_id=14` 有且仅有 1 条活跃绑定；目标活跃版本 `622/V1` 快照包含 MDM 产品，目标路线活跃产品总数为 4。
+- Safety: 本次只操作本机 tenant 1；未创建生产工单、排产工单、QA 规程、PQC 任务或 mock 数据；未使用空 `productMasterId`、默认项目代码、前端 payload 或隐藏字段推断绑定。
