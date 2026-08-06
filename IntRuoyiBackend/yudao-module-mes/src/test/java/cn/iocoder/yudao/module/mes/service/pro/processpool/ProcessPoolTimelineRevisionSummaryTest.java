@@ -33,7 +33,9 @@ class ProcessPoolTimelineRevisionSummaryTest {
         assertTrue(xml.contains("submissionReviewStatus"));
         assertTrue(xml.contains("submissionReviewRemark"));
         assertTrue(xml.contains("submissionReviewLeaderUserId"));
+        assertTrue(xml.contains("submissionReviewLeaderUserName"));
         assertTrue(xml.contains("submissionReviewedAt"));
+        assertTrue(xml.contains("review_leader.nickname AS submissionReviewLeaderUserName"));
         assertTrue(xml.contains("ROW_NUMBER()"));
         assertFalse(xml.contains("reviewTeamLeaderSubmission("));
     }

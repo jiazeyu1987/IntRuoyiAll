@@ -43,7 +43,8 @@ for (const required of [
   'pqc.process_inspection_aggregated_at AS processInspectionAggregatedAt',
   'pool_event.pqc_task_id',
   'mes_pqc_inspection_task pqc_task',
-  'latest_submission_review.review_status AS submissionReviewStatus'
+  'latest_submission_review.review_status AS submissionReviewStatus',
+  'review_leader.nickname AS submissionReviewLeaderUserName'
 ]) {
   assert(source.includes(required), `时间轴 mapper 必须读取 F1 正式字段：${required}`)
 }
@@ -57,6 +58,11 @@ assert.match(
   source,
   /LEFT JOIN\s+system_users\s+actual_employee[\s\S]{0,240}actual_employee\.id\s*=\s*pool_event\.actual_employee_id[\s\S]{0,240}actual_employee\.tenant_id\s*=\s*pool_event\.tenant_id[\s\S]{0,240}actual_employee\.deleted\s*=\s*0/,
   '时间轴 mapper 必须按租户和删除标记关联 system_users actual_employee，使用 nickname 作为实际填写员工姓名。'
+)
+assert.match(
+  source,
+  /LEFT JOIN\s+system_users\s+review_leader[\s\S]{0,260}review_leader\.id\s*=\s*latest_submission_review\.leader_user_id[\s\S]{0,260}review_leader\.tenant_id\s*=\s*pool_event\.tenant_id[\s\S]{0,260}review_leader\.deleted\s*=\s*0/,
+  '报工历史必须按租户和删除标记关联 system_users review_leader，使用 nickname 作为审核通过人姓名。'
 )
 
 for (const requiredFilter of [
