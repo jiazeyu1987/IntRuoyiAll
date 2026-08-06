@@ -2762,6 +2762,21 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 
+.frontline-production-stage {
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  max-width: 100%;
+  flex: 0 0 auto;
+}
+
+.frontline-production-stage .frontline-operator-screen {
+  position: absolute;
+  inset: 0;
+  transform: scale(var(--frontline-production-scale, 1));
+  transform-origin: top left;
+}
+
 .frontline-operator-screen {
   --frontline-bg: #eef3ef;
   --frontline-panel: #ffffff;
@@ -2770,10 +2785,10 @@ onUnmounted(() => {
   --frontline-line: #cbd6ce;
   --frontline-dark: #24322b;
   display: grid;
-  width: min(100%, 1600px);
-  min-height: min(1080px, calc(100vh - 144px));
+  width: 1920px;
+  height: 1080px;
   box-sizing: border-box;
-  grid-template-rows: auto minmax(0, 1fr) 126px;
+  grid-template-rows: 130px 1fr 126px;
   gap: 20px;
   padding: 28px;
   overflow: hidden;
@@ -2916,20 +2931,6 @@ onUnmounted(() => {
   &.is-pqc {
     grid-template-columns: 340px 430px minmax(0, 1fr) 210px;
     gap: 18px;
-  }
-}
-
-.frontline-operator-top.is-production {
-  width: min(100%, 68vw);
-  max-width: 1280px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(132px, 0.58fr);
-  justify-self: center;
-  align-self: start;
-
-  .frontline-production-selection-card,
-  .frontline-production-fullscreen-toggle {
-    aspect-ratio: 1920 / 1080;
-    min-height: 0;
   }
 }
 
@@ -4150,8 +4151,10 @@ onUnmounted(() => {
 }
 
 .frontline-operator-panel.is-production-mode .frontline-picker__card {
-  width: 760px;
-  padding: 28px;
+  width: min(92%, 1180px);
+  aspect-ratio: 1920 / 1080;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding: 32px;
   border: 3px solid var(--frontline-line);
   border-radius: 28px;
   background: var(--frontline-panel);
@@ -4167,12 +4170,15 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  align-content: start;
+  min-height: 0;
   max-height: none;
-  overflow: visible;
+  overflow: auto;
 }
 
 .frontline-operator-panel.is-production-mode .frontline-picker__option {
-  height: 112px;
+  height: auto;
+  aspect-ratio: 1920 / 1080;
   min-height: 0;
   border: 3px solid var(--frontline-line);
   border-radius: 22px;
