@@ -310,6 +310,27 @@ async function verifyProductionPrototype(page) {
     )
   }
 
+  await selectionCards.first().click()
+  const pickerCard = screen.locator('.frontline-picker__card').first()
+  await pickerCard.waitFor({ state: 'visible', timeout: 30000 })
+  const pickerBox = await pickerCard.boundingBox()
+  assert.ok(pickerBox, 'production picker card must have a visible bounding box.')
+  const pickerRatio = pickerBox.width / pickerBox.height
+  assert.ok(
+    Math.abs(pickerRatio - 16 / 9) <= 0.18,
+    `production picker card must follow the 1920:1080 ratio: ${pickerRatio}`
+  )
+  const pickerOption = screen.locator('.frontline-picker__option').first()
+  const pickerOptionBox = await pickerOption.boundingBox()
+  assert.ok(pickerOptionBox, 'production picker option must have a visible bounding box.')
+  const pickerOptionRatio = pickerOptionBox.width / pickerOptionBox.height
+  assert.ok(
+    Math.abs(pickerOptionRatio - 16 / 9) <= 0.18,
+    `production picker option must follow the 1920:1080 ratio: ${pickerOptionRatio}`
+  )
+  await screen.locator('.frontline-picker__close').first().click()
+  await pickerCard.waitFor({ state: 'hidden', timeout: 30000 })
+
   const button = screen.locator('.home-btn').first()
   await button.waitFor({ state: 'visible', timeout: 30000 })
   await assertButtonText(button, '最大化')
