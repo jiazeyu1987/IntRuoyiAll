@@ -485,9 +485,14 @@
 
     <div
       v-else
-      class="frontline-operator-screen screen"
-      data-frontline-production-operator
+      class="frontline-production-stage"
+      data-frontline-production-stage
+      :style="productionStageStyle"
     >
+      <div
+        class="frontline-operator-screen screen"
+        data-frontline-production-operator
+      >
         <header
           class="frontline-operator-top top is-production"
           data-frontline-production-selection-grid
@@ -731,6 +736,7 @@
             {{ payloadLoading ? '提交中' : '提交' }}
           </button>
         </footer>
+      </div>
     </div>
 
     <div v-if="activePicker && isPqcMode" class="frontline-picker picker" @click.self="closePicker">
@@ -934,6 +940,19 @@ const pqcItemSelections = reactive<Record<PqcInspectionItemKey, PqcItemSelection
 const pqcSignatureId = ref<number>()
 
 const isPqcMode = computed(() => props.mode === 'pqc')
+const PRODUCTION_CANVAS_WIDTH = 1920
+const PRODUCTION_CANVAS_HEIGHT = 1080
+const productionViewportScale = ref(1)
+let productionViewportScaleFrame: number | undefined
+let productionViewportResizeObserver: ResizeObserver | undefined
+const productionStageStyle = computed(() => {
+  const scale = productionViewportScale.value
+  return {
+    '--frontline-production-scale': String(scale),
+    width: `${PRODUCTION_CANVAS_WIDTH * scale}px`,
+    height: `${PRODUCTION_CANVAS_HEIGHT * scale}px`
+  }
+})
 const currentLoginUserId = computed(() => Number(userStore.getUser?.id || 0))
 const pqcProductionSubmitEventId = computed(() =>
   firstRouteQueryNumber(['productionSubmitEventId', 'processPoolEventId'])
@@ -1860,9 +1879,58 @@ const handleHome = () => {
   router.push('/')
 }
 
+const parseCssPixelValue = (value: string) => {
+  const parsed = Number.parseFloat(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+const resolveProductionViewportScale = () => {
+  const panel = frontlinePanelRef.value
+  if (!panel || isPqcMode.value) {
+    return 1
+  }
+  const rect = panel.getBoundingClientRect()
+  const style = window.getComputedStyle(panel)
+  const availableWidth = Math.max(
+    0,
+    rect.width - parseCssPixelValue(style.paddingLeft) - parseCssPixelValue(style.paddingRight)
+  )
+  const widthScale = availableWidth / PRODUCTION_CANVAS_WIDTH
+  const fullscreenHeightScale = isProductionFullscreen.value
+    ? Math.max(
+      0,
+      rect.height - parseCssPixelValue(style.paddingTop) - parseCssPixelValue(style.paddingBottom)
+    ) / PRODUCTION_CANVAS_HEIGHT
+    : 1
+  const nextScale = Math.min(1, widthScale, fullscreenHeightScale)
+  if (!Number.isFinite(nextScale) || nextScale <= 0) {
+    return 1
+  }
+  return nextScale
+}
+
+const updateProductionViewportScale = () => {
+  productionViewportScale.value = resolveProductionViewportScale()
+}
+
+const scheduleProductionViewportScaleUpdate = () => {
+  if (isPqcMode.value) {
+    productionViewportScale.value = 1
+    return
+  }
+  if (productionViewportScaleFrame !== undefined) {
+    window.cancelAnimationFrame(productionViewportScaleFrame)
+  }
+  productionViewportScaleFrame = window.requestAnimationFrame(() => {
+    productionViewportScaleFrame = undefined
+    updateProductionViewportScale()
+  })
+}
+
 const syncPqcFullscreenState = () => {
   isPqcFullscreen.value = isPqcMode.value && document.fullscreenElement === frontlinePanelRef.value
   isProductionFullscreen.value = !isPqcMode.value && document.fullscreenElement === frontlinePanelRef.value
+  scheduleProductionViewportScaleUpdate()
 }
 
 const enterPqcFullscreen = async () => {
@@ -2619,6 +2687,16 @@ const resolveErrorMessage = (error: unknown) => {
 
 onMounted(async () => {
   document.addEventListener('fullscreenchange', syncPqcFullscreenState)
+  window.addEventListener('resize', scheduleProductionViewportScaleUpdate)
+  if (!isPqcMode.value) {
+    if (typeof ResizeObserver !== 'function') {
+      throw new Error('当前浏览器不支持一线生产填写页面缩放观察。')
+    }
+    productionViewportResizeObserver = new ResizeObserver(scheduleProductionViewportScaleUpdate)
+    if (frontlinePanelRef.value) {
+      productionViewportResizeObserver.observe(frontlinePanelRef.value)
+    }
+  }
   syncPqcFullscreenState()
   hydrateContextFromRoute()
   catalog.value = await FrontlineTemplateApi.getCatalog()
@@ -2644,6 +2722,15 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('fullscreenchange', syncPqcFullscreenState)
+  window.removeEventListener('resize', scheduleProductionViewportScaleUpdate)
+  if (productionViewportScaleFrame !== undefined) {
+    window.cancelAnimationFrame(productionViewportScaleFrame)
+    productionViewportScaleFrame = undefined
+  }
+  if (productionViewportResizeObserver) {
+    productionViewportResizeObserver.disconnect()
+    productionViewportResizeObserver = undefined
+  }
 })
 </script>
 

@@ -64,4 +64,4 @@
 - GREEN: `git diff --check` -> PASS。
 - GREEN: `rg -n "^(<<<<<<<|=======|>>>>>>>)" -g "!**/target/**" -g "!**/target_corrupt*/**" IntRuoyiBackend IntRuoyiFronted docs doc` -> 无匹配，conflict markers 已清零。
 - 合并修复：去除 `MesProcessPoolTeamLeaderController` 重复 `toActiveOrderCandidateRespVO`，并补齐异常上报 `abnormalReasonCode` 前后端类型/BO/持久化链路，使既有班组长合同与当前实现一致。
-- CLOSEOUT BLOCKER: `git status --short --branch --untracked-files=all` -> 当前分支仍 ahead，且仍有其它任务代码/文档改动；本任务未提交/未推送，避免混入非本任务改动。
+- CLOSEOUT BLOCKER: `git status --short --branch --untracked-files=all` -> 当前工作区仍有其它任务代码/文档改动和未跟踪任务目录；本任务未提交/未推送，避免混入非本任务改动。

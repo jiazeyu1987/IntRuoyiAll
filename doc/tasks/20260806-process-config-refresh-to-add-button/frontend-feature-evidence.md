@@ -32,11 +32,13 @@
 
 ## RED
 
-待记录。
+RED: `node tests\e2e\production-leader-function-tabs-static.spec.js` -> FAIL。预期原因：新增的静态合同要求工序配置模块头部按钮显示“新增”，而组件仍显示“刷新”。
 
 ## GREEN
 
-待记录。
+GREEN: `node tests\e2e\production-leader-function-tabs-static.spec.js` -> PASS。
+
+GREEN: `node tests\e2e\production-leader-tabs-flat-style-static.spec.js` -> PASS。
 
 ## Responsive Accessibility Loading Empty Error Permission
 

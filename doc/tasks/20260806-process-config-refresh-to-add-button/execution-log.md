@@ -6,3 +6,9 @@
 - Scope: 仅修改目标前端页面和最小静态合同，不改后端、不改菜单权限、不触碰既有 ERP 同步脏改动。
 - BDD: 工序配置按钮文案 -> Given 生产组长进入“工序配置”模块；When 页面渲染模块头部操作按钮；Then 右上角按钮显示“新增”，并继续绑定原列表加载方法和 loading 状态。
 - Required rules read: `docs/frontend-development.md`, `docs/task-closeout-rules.md`, `docs/powershell-encoding.md`, `docs/experience-index.md`, frontend-feature-delivery skill and `references/frontend-contract.md`.
+- Target component: `IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue`, marker `data-team-leader-process-config-tab`, current button was `<el-button :loading="processConfigLoading" @click="loadProcessConfigRows">刷新</el-button>`.
+- RED: `node tests\e2e\production-leader-function-tabs-static.spec.js` -> FAIL, expected reason: static contract requires the process config header button to display `新增` while source still displayed `刷新`.
+- Change: updated only the process config header button text from `刷新` to `新增`; kept `:loading="processConfigLoading"` and `@click="loadProcessConfigRows"`.
+- GREEN: `node tests\e2e\production-leader-function-tabs-static.spec.js` -> PASS.
+- REGRESSION: `node tests\e2e\production-leader-tabs-flat-style-static.spec.js` -> PASS.
+- Boundary: existing dirty files under `ProfileErpTableAutoSyncSetting.vue`, `profile-erp-table-auto-sync-static.spec.js`, and unrelated task docs were not modified by this task.

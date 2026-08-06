@@ -14,12 +14,17 @@
 ## Evidence
 
 - 2026-08-06：截图显示生产用料清单 `新增行数=992` 且 `同步成功/失败=成功`，说明最新运行记录成功；旧时间来自主表 `lastSuccessTime` 展示，不代表最近执行完成时间。
-- 2026-08-06：前端组件当前主表 `最近一次同步时间` 使用 `formatDateTimeValue(row.lastSuccessTime, '-')`；`lastSuccessTime` 来自 `getWatermarkList()`。
+- 2026-08-06：前端组件旧时间列使用 `formatDateTimeValue(row.lastSuccessTime, '-')`，不符合“最近执行时间”的用户理解。
 
 ## TDD Log
 
-- 待记录 RED/GREEN/REGRESSION。
+- RED: `node IntRuoyiFronted\tests\e2e\profile-erp-table-auto-sync-static.spec.js` -> FAIL, 旧合同缺少 `最近执行时间` 并仍允许旧时间口径。
+- GREEN: `node IntRuoyiFronted\tests\e2e\profile-erp-table-auto-sync-static.spec.js` -> PASS，主表时间来自 `latestRun.endedAt || latestRun.startedAt`。
+- REGRESSION: `node IntRuoyiFronted\tests\e2e\profile-nas-table-auto-sync-static.spec.js` -> PASS，NAS 页签删除合同未回退。
+- REGRESSION: `git diff --check -- IntRuoyiFronted/src/views/Profile/components/ProfileErpTableAutoSyncSetting.vue IntRuoyiFronted/tests/e2e/profile-erp-table-auto-sync-static.spec.js doc/tasks/20260806-profile-erp-table-sync-execution-time-copy` -> PASS。
+- REGRESSION-BLOCKED: `pnpm ts:check`（工作目录：`IntRuoyiFronted`）-> FAIL，阻塞于无关文件 `src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue(490,15)` 缺少 `productionStageStyle`。
 
 ## Blockers
 
-- 当前工作区存在大量无关脏改动；本任务只修改 ERP 同步组件、对应静态合同和本任务文档。
+- 当前工作区存在大量无关脏改动和已暂存文件；本任务只修改 ERP 同步组件、对应静态合同和本任务文档。
+- 全量类型检查被无关的一线生产组件错误阻塞；本任务未修改该文件，按并行任务边界不擅自修复。

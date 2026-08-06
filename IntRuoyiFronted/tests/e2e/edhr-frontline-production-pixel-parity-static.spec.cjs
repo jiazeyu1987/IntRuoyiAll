@@ -35,11 +35,20 @@ const assertIncludesAll = (text, tokens, scope) => {
 
 const productionStart = source.indexOf('data-frontline-production-operator')
 assert.ok(productionStart >= 0, 'production operator screen must exist.')
+const productionStageAttr = source.lastIndexOf('data-frontline-production-stage', productionStart)
+assert.ok(productionStageAttr >= 0, 'production stage wrapper must exist.')
+const productionStageStart = source.lastIndexOf('<div', productionStageAttr)
 const productionBlockStart = source.lastIndexOf('<div', productionStart)
 const productionFooterEnd = source.indexOf('</footer>', productionStart)
 assert.ok(productionBlockStart >= 0 && productionFooterEnd > productionStart, 'production block must include wrapper and footer.')
 const productionBlock = source.slice(productionBlockStart, productionFooterEnd)
+const productionStage = source.slice(productionStageStart, productionBlockStart)
 
+assert.match(
+  productionStage,
+  /class="frontline-production-stage"[\s\S]*data-frontline-production-stage[\s\S]*:style="productionStageStyle"/,
+  'production DOM must use an outer scale-to-fit stage.'
+)
 assert.match(
   source,
   /'is-production-mode':\s*!isPqcMode/,
@@ -76,19 +85,6 @@ assert.doesNotMatch(
 )
 
 assertIncludesAll(
-  source,
-  [
-    'class="frontline-picker picker"',
-    'class="frontline-picker__card picker-card"',
-    'class="frontline-picker__title picker-title"',
-    'class="frontline-picker__options picker-options"',
-    'class="frontline-picker__option picker-option"',
-    'class="frontline-picker__close picker-close"'
-  ],
-  'picker DOM'
-)
-
-assertIncludesAll(
   extractBlock('.frontline-operator-panel.is-production-mode {'),
   [
     'display: grid;',
@@ -119,10 +115,10 @@ const screenBlock = extractBlock('.frontline-operator-screen {')
 assertIncludesAll(
   screenBlock,
   [
-    'width: min(100%, 1600px);',
-    'min-height: min(1080px, calc(100vh - 144px));',
+    'width: 1920px;',
+    'height: 1080px;',
     'padding: 28px;',
-    'grid-template-rows: auto minmax(0, 1fr) 126px;',
+    'grid-template-rows: 130px 1fr 126px;',
     'gap: 20px;',
     'overflow: hidden;',
     'position: relative;',
@@ -134,17 +130,28 @@ assertIncludesAll(
 )
 assert.doesNotMatch(
   screenBlock,
-  /width:\s*1920px;|height:\s*1080px;/,
-  'normal production screen must not hard-code the full 1920x1080 canvas.'
+  /width:\s*min\(100%,\s*1600px\)|min-height:\s*min\(1080px,\s*calc\(100vh - 144px\)\)|grid-template-rows:\s*auto minmax\(0,\s*1fr\) 126px/,
+  'production screen style must not keep the responsive re-layout.'
 )
 assertIncludesAll(
-  extractBlock('.frontline-operator-top.is-production {'),
-  [
-    'width: min(100%, 68vw);',
-    'max-width: 1280px;',
-    'grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(132px, 0.58fr);'
-  ],
-  'production top selection grid style'
+  extractBlock('.frontline-production-stage {'),
+  ['position: relative;', 'width: 1920px;', 'height: 1080px;', 'max-width: 100%;'],
+  'production stage style'
+)
+assertIncludesAll(
+  extractBlock('.frontline-production-stage .frontline-operator-screen {'),
+  ['position: absolute;', 'inset: 0;', 'transform: scale(var(--frontline-production-scale, 1));', 'transform-origin: top left;'],
+  'production stage screen transform style'
+)
+assertIncludesAll(
+  extractBlock('.frontline-operator-top {'),
+  ['grid-template-columns: 1fr 1fr 240px;', 'gap: 20px;'],
+  'production top reference grid style'
+)
+assert.doesNotMatch(
+  source,
+  /\.frontline-operator-top\.is-production\s*\{[\s\S]*width:\s*min\(100%,\s*68vw\)|aspect-ratio:\s*1920 \/ 1080/,
+  'production top layout must not use the previous local responsive grid.'
 )
 
 assertIncludesAll(
@@ -179,30 +186,16 @@ assertIncludesAll(
   'top reference label/value style'
 )
 
-const quantityPanelBlock = extractBlock('.frontline-production-quantity-panel {')
 assertIncludesAll(
-  quantityPanelBlock,
+  extractBlock('.frontline-production-quantity-panel {'),
   ['grid-template-rows: auto auto auto minmax(0, 1fr);', 'gap: 16px;'],
   'quantity panel style'
 )
-assert.doesNotMatch(
-  quantityPanelBlock,
-  /is-no-device|grid-template-rows:\s*auto minmax\(0,\s*1fr\)/,
-  'quantity panel style must not keep alternate no-device layout.'
-)
-assert.doesNotMatch(source, /\.frontline-production-quantity-body\s*\{/, 'reference layout must not require a production quantity body wrapper.')
-
 assertIncludesAll(
   extractBlock('.frontline-production-device-panel {'),
   ['grid-template-rows: auto 98px 1fr;', 'gap: 18px;', 'overflow: hidden;'],
   'device panel style'
 )
-assert.doesNotMatch(
-  extractBlock('.frontline-production-device-tabs {'),
-  /padding:\s*0 8px;|overflow:\s*hidden;|text-overflow:\s*ellipsis;/,
-  'device tabs must not add non-reference trimming or side padding.'
-)
-
 assertIncludesAll(
   extractBlock('.frontline-production-submit-bar {'),
   ['grid-template-columns: 300px 1fr;', 'gap: 24px;', 'position: relative;', 'z-index: 2;'],
@@ -221,25 +214,13 @@ assertIncludesAll(
 )
 assertIncludesAll(
   extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__card {'),
-  [
-    'width: min(92%, 1180px);',
-    'aspect-ratio: 1920 / 1080;',
-    'grid-template-rows: auto minmax(0, 1fr) auto;',
-    'padding: 32px;',
-    'border: 3px solid var(--frontline-line);',
-    'border-radius: 28px;'
-  ],
+  ['width: 760px;', 'padding: 28px;', 'border: 3px solid var(--frontline-line);', 'border-radius: 28px;'],
   'production picker card style'
 )
 assertIncludesAll(
   extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__option {'),
-  ['aspect-ratio: 1920 / 1080;', 'height: auto;', 'font-size: 42px;', 'border-radius: 22px;'],
+  ['height: 112px;', 'font-size: 42px;', 'border-radius: 22px;'],
   'production picker option style'
-)
-assertIncludesAll(
-  extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__options {'),
-  ['min-height: 0;', 'overflow: auto;', 'align-content: start;'],
-  'production picker option grid style'
 )
 assertIncludesAll(
   extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__close {'),

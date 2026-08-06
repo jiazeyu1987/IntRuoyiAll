@@ -1358,7 +1358,7 @@
             以路线工序串联损耗原因、设备映射和设备参数标准；平均值来自近 30 天正式报工，只读展示。
           </div>
         </div>
-        <el-button :loading="processConfigLoading" @click="loadProcessConfigRows">刷新</el-button>
+        <el-button :loading="processConfigLoading" @click="loadProcessConfigRows">新增</el-button>
       </div>
       <el-table
         v-loading="processConfigLoading"

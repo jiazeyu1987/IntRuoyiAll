@@ -30,36 +30,41 @@ const extractBlock = (selector) => {
 
 const productionStart = source.indexOf('data-frontline-production-operator')
 assert.ok(productionStart >= 0, 'production operator block must exist.')
+const productionStageAttr = source.lastIndexOf('data-frontline-production-stage', productionStart)
+assert.ok(productionStageAttr >= 0, 'production operator must be wrapped by a scale-to-fit stage.')
+const productionStageStart = source.lastIndexOf('<div', productionStageAttr)
 const productionBlockStart = source.lastIndexOf('<div', productionStart)
-assert.ok(productionBlockStart >= 0, 'production operator wrapper must exist.')
+assert.ok(productionStageStart >= 0, 'production stage wrapper must exist.')
+assert.ok(productionBlockStart > productionStageStart, 'production screen must be inside the stage wrapper.')
 const productionHeaderEnd = source.indexOf('</header>', productionStart)
 assert.ok(productionHeaderEnd > productionStart, 'production operator header must exist.')
 const productionHeader = source.slice(productionBlockStart, productionHeaderEnd)
+const productionStageOpen = source.slice(productionStageStart, productionBlockStart)
 
+assert.match(
+  productionStageOpen,
+  /class="frontline-production-stage"[\s\S]*data-frontline-production-stage[\s\S]*:style="productionStageStyle"/,
+  'production fill must use a measured outer stage instead of changing the reference canvas layout.'
+)
 assert.match(
   productionHeader,
   /class="frontline-operator-screen screen"/,
   'production fill must render the approved operator screen.'
 )
-assert.doesNotMatch(
-  source,
-  /frontline-production-stage|data-frontline-production-stage|productionStageStyle|PRODUCTION_CANVAS_WIDTH|PRODUCTION_CANVAS_HEIGHT|productionViewportScale|ResizeObserver|--frontline-production-scale/,
-  'normal production fill must not use a fixed 1920x1080 stage, viewport ResizeObserver scaling, or full-canvas transform scaling.'
+assert.match(
+  productionHeader,
+  /class="frontline-operator-top top is-production"/,
+  'production header must keep the reference top row class.'
 )
 assert.match(
   productionHeader,
-  /class="frontline-operator-top top is-production"[\s\S]*data-frontline-production-selection-grid/,
-  'production header must expose a local selection grid instead of a scaled full-canvas stage.'
+  /class="frontline-top-card top-box[^"]*"[\s\S]*<div class="top-label">工序<\/div>/,
+  'process selector must keep the reference top-card/top-box structure.'
 )
 assert.match(
   productionHeader,
-  /class="frontline-top-card top-box frontline-production-selection-card"[\s\S]*data-frontline-production-selection-card[\s\S]*<div class="top-label">工序<\/div>/,
-  'process selector must be a production selection card inside the 16:9 grid.'
-)
-assert.match(
-  productionHeader,
-  /class="frontline-top-card top-box frontline-production-selection-card"[\s\S]*data-frontline-production-selection-card[\s\S]*<div class="top-label">员工<\/div>/,
-  'employee selector must be a production selection card inside the 16:9 grid.'
+  /class="frontline-top-card top-box[^"]*"[\s\S]*<div class="top-label">员工<\/div>/,
+  'employee selector must keep the reference top-card/top-box structure.'
 )
 assert.match(
   productionHeader,
@@ -85,14 +90,29 @@ assert.doesNotMatch(
 for (const requiredToken of [
   'const isProductionFullscreen = ref(false)',
   "isProductionFullscreen.value ? '主页' : '最大化'",
+  'const PRODUCTION_CANVAS_WIDTH = 1920',
+  'const PRODUCTION_CANVAS_HEIGHT = 1080',
+  'const productionViewportScale = ref(1)',
+  'const productionStageStyle = computed(() =>',
+  '--frontline-production-scale',
   'const enterProductionFullscreen = async () =>',
   'const handleProductionFullscreenToggle = async () =>',
   "document.addEventListener('fullscreenchange', syncPqcFullscreenState)",
   "document.removeEventListener('fullscreenchange', syncPqcFullscreenState)"
 ]) {
-  assert.ok(source.includes(requiredToken), `production fullscreen code must exist: ${requiredToken}`)
+  assert.ok(source.includes(requiredToken), `production fullscreen/stage code must exist: ${requiredToken}`)
 }
 
+assert.match(
+  source,
+  /const productionStageStyle = computed\(\(\) =>[\s\S]*`\$\{PRODUCTION_CANVAS_WIDTH \* scale\}px`[\s\S]*`\$\{PRODUCTION_CANVAS_HEIGHT \* scale\}px`/,
+  'production stage style must size the outer layout box to the scaled 1920x1080 canvas.'
+)
+assert.match(
+  source,
+  /ResizeObserver/,
+  'production stage must update scale when the app content area changes size.'
+)
 assert.match(
   source,
   /const syncPqcFullscreenState = \(\) =>[\s\S]*isProductionFullscreen\.value\s*=\s*!isPqcMode\.value && document\.fullscreenElement === frontlinePanelRef\.value/,
@@ -126,26 +146,36 @@ assert.match(
   'production fullscreen style must be applied only after explicit fullscreen state.'
 )
 assert.match(
-  extractBlock('.frontline-operator-top.is-production {'),
-  /width:\s*min\(100%,\s*68vw\);[\s\S]*max-width:\s*1280px;[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)\s+minmax\(132px,\s*0\.58fr\);/,
-  'production selection area must be a local grid around two-thirds of the page, not the full 1920 canvas.'
+  extractBlock('.frontline-production-stage {'),
+  /position:\s*relative;[\s\S]*width:\s*1920px;[\s\S]*height:\s*1080px;[\s\S]*max-width:\s*100%;/,
+  'production stage must reserve the scaled reference canvas footprint in normal page flow.'
 )
 assert.match(
-  extractBlock('.frontline-operator-top.is-production {'),
-  /\.frontline-production-selection-card,\s*\n\s*\.frontline-production-fullscreen-toggle\s*\{[\s\S]*aspect-ratio:\s*1920 \/ 1080;/,
-  'production process, employee, and action grid cells must use the 1920:1080 ratio.'
+  extractBlock('.frontline-production-stage .frontline-operator-screen {'),
+  /position:\s*absolute;[\s\S]*inset:\s*0;[\s\S]*transform:\s*scale\(var\(--frontline-production-scale,\s*1\)\);[\s\S]*transform-origin:\s*top left;/,
+  'production stage must scale the full reference canvas externally.'
 )
 
 const screenBlock = extractBlock('.frontline-operator-screen {')
 assert.match(
   screenBlock,
-  /width:\s*min\(100%,\s*1600px\);[\s\S]*min-height:\s*min\(1080px,\s*calc\(100vh - 144px\)\);[\s\S]*grid-template-rows:\s*auto minmax\(0,\s*1fr\) 126px;/,
-  'normal production screen must be responsive in the page flow rather than fixed to 1920x1080.'
+  /width:\s*1920px;[\s\S]*height:\s*1080px;[\s\S]*grid-template-rows:\s*130px 1fr 126px;/,
+  'production screen must keep the strict reference 1920x1080 canvas and row rhythm.'
 )
 assert.doesNotMatch(
   screenBlock,
-  /width:\s*1920px;|height:\s*1080px;/,
-  'normal production screen must not hard-code the full 1920x1080 canvas.'
+  /width:\s*min\(100%,\s*1600px\)|grid-template-rows:\s*auto minmax\(0,\s*1fr\) 126px/,
+  'production screen must not keep the responsive re-layout that broke reference parity.'
+)
+assert.match(
+  extractBlock('.frontline-operator-top {'),
+  /grid-template-columns:\s*1fr 1fr 240px;/,
+  'production top area must keep the reference 1fr 1fr 240px layout.'
+)
+assert.doesNotMatch(
+  source,
+  /\.frontline-operator-top\.is-production\s*\{[\s\S]*width:\s*min\(100%,\s*68vw\)|aspect-ratio:\s*1920 \/ 1080/,
+  'production top area must not keep the previous local responsive selection grid.'
 )
 assert.match(
   source,
@@ -153,4 +183,4 @@ assert.match(
   'production footer must keep the reference 300px + 1fr button layout.'
 )
 
-console.log('PASS: eDHR frontline production local 16:9 selection grid static contract')
+console.log('PASS: eDHR frontline production strict canvas scale-to-fit static contract')

@@ -34,6 +34,8 @@ assert.match(
 
 const productionStart = panel.indexOf('data-frontline-production-operator')
 assert.ok(productionStart >= 0, 'production operator screen must exist.')
+const productionStageStart = panel.lastIndexOf('data-frontline-production-stage', productionStart)
+assert.ok(productionStageStart >= 0, 'production operator must be wrapped by a scale-to-fit stage.')
 const productionBlockStart = panel.lastIndexOf('<div', productionStart)
 assert.ok(productionBlockStart >= 0, 'production operator screen wrapper must exist.')
 const productionEnd = panel.indexOf('</footer>', productionStart)
@@ -54,9 +56,14 @@ for (const token of [
 }
 
 assert.match(
+  panel.slice(productionStageStart, productionBlockStart),
+  /class="frontline-production-stage"[\s\S]*data-frontline-production-stage[\s\S]*:style="productionStageStyle"/,
+  'production block must scale the full reference canvas from an outer stage.'
+)
+assert.match(
   productionBlock,
-  /class="[^"]*\bfrontline-top-card\b[^"]*\btop-box\b[^"]*\bfrontline-production-selection-card\b[^"]*"/,
-  'production selector cards must keep the reference top-card classes while adding the production selection class.'
+  /class="[^"]*\bfrontline-top-card\b[^"]*\btop-box\b[^"]*"/,
+  'production selector cards must keep the reference top-card classes.'
 )
 assert.match(
   productionBlock,
@@ -81,20 +88,24 @@ assert.ok(screenStyleEnd > screenStyleStart, 'base production screen style block
 const screenStyle = panel.slice(screenStyleStart, screenStyleEnd)
 
 for (const token of [
-  'width: min(100%, 1600px);',
-  'min-height: min(1080px, calc(100vh - 144px));',
-  'grid-template-rows: auto minmax(0, 1fr) 126px;',
+  'width: 1920px;',
+  'height: 1080px;',
+  'grid-template-rows: 130px 1fr 126px;',
   'padding: 28px;',
   'background: var(--frontline-bg);'
 ]) {
-  assert.ok(screenStyle.includes(token), `production screen style must preserve reference content responsively: ${token}`)
+  assert.ok(screenStyle.includes(token), `production screen style must preserve reference content strictly: ${token}`)
 }
 assert.doesNotMatch(
   screenStyle,
-  /width:\s*1920px;|height:\s*1080px;|border-radius:\s*18px/,
-  'base production screen must not use the old fixed 1920x1080 canvas or admin-contained card.'
+  /width:\s*min\(100%,\s*1600px\)|grid-template-rows:\s*auto minmax\(0,\s*1fr\) 126px|border-radius:\s*18px/,
+  'base production screen must not use the old responsive/admin-contained layout.'
 )
-
+assert.match(
+  panel,
+  /\.frontline-production-stage \.frontline-operator-screen\s*\{[\s\S]*transform:\s*scale\(var\(--frontline-production-scale,\s*1\)\);/,
+  'production page must prevent normal-page overflow by scaling only the outer rendered canvas.'
+)
 assert.match(
   panel,
   /\.frontline-production-submit-bar\s*\{[\s\S]*grid-template-columns:\s*300px 1fr;/,
