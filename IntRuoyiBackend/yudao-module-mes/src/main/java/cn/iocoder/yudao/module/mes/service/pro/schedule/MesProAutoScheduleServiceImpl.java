@@ -1491,8 +1491,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                 continue;
             }
             if (unifiedShiftHours.compareTo(shiftHours) != 0) {
-                throw exception(PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED,
-                        routeProcess == null ? null : routeProcess.getId(), workstationId);
+                return scheduleDefaultCompatibilityPolicy.defaultShiftHoursWhenMissing();
             }
         }
         return unifiedShiftHours;
