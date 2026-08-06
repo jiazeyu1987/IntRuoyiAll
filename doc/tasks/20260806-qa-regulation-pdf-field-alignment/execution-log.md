@@ -12,19 +12,28 @@
 
 ## BDD
 
-- BDD: 气密性检测方法按 PDF 原文展示 -> Given QA 规程选择压力泵项目，When 查看工序检验方法与抽样方案列表，Then 气密性高压检测和低压检测的“检验方法”应包含 PDF 原文完整操作步骤，而不是仅显示“进行检测”。
+- BDD: 气密性检测列归属保持一致 -> Given QA 规程选择压力泵项目，When 查看工序检验方法与抽样方案列表，Then 气密性高压/低压检测的“检验方法”保持 PDF 方法栏的简短装配检测句，完整接气源、观察压力表和回零要求保持在“接受标准”栏。
 
 ## Baseline
 
-- 进入本任务前 `git status --short --branch` 显示大量已暂存、未暂存和未跟踪改动，且分支 `int_main` 落后 `origin/int_main` 16 个提交。
-- 本任务文件 `doc/tasks/20260806-qa-regulation-pdf-field-alignment/` 不应进入脏工作区基线提交。
+- 进入本任务前工作区持续存在并行任务脏改动和并行提交；过程中出现 `c4675d197 chore: baseline pre-existing dirty worktree`、`2eee67dc1 fix: remember QA project selector` 等并行提交。
+- 本任务只拥有 `IntRuoyiFronted/tests/e2e/qa-regulation-pressure-pump-pdf-field-alignment-static.spec.cjs` 与 `doc/tasks/20260806-qa-regulation-pdf-field-alignment/`。
 
 ## RED / GREEN
 
-- RED: pending.
-- GREEN: pending.
+- RED: 不适用。复查 PDF 第 7 页后确认当前 QA 模板的高压/低压“检验方法”已与 PDF 方法栏一致；直接修改生产模板会把“接受标准”误写入“检验方法”。
+- GREEN: `node tests/e2e/qa-regulation-pressure-pump-pdf-field-alignment-static.spec.cjs` -> PASS。
+- GREEN: `node tests/e2e/role-matrix-qa-regulation-tab-static.spec.cjs` -> PASS。
+
+## Verification Evidence
+
+- 新增静态合同锁定 `PP-020-AIRTIGHT-NEGATIVE`、`PP-021-AIRTIGHT-HIGH`、`PP-022-AIRTIGHT-LOW` 的项目名、检验方法、接受标准、原文摘录、检验设备和抽样方案。
+- 合同明确高压/低压完整充气检测步骤属于 `standardText/sourceOriginalExcerpt`，简短“进行检测”句属于 `inspectionMethod/sourceOriginalMethod`。
 
 ## Milestone Notes
 
-- M1 in_progress：建立任务记录并准备提交进入本任务前的脏工作区基线。
-
+- M1 completed：建立任务记录，并记录进入本任务前存在并行脏改动。
+- M2 completed：复查 PDF 扫描页 7/8，确认第 8 页无 5.1 列表残余，气密性行在第 7 页结束。
+- M3 completed：新增 `qa-regulation-pressure-pump-pdf-field-alignment-static.spec.cjs`。
+- M4 completed：聚焦 QA 静态合同通过。
+- M5 completed：`task_closeout.py --mode preview` 与 `--mode apply` 均通过，无删除项、无阻塞；经验沉淀技能已执行，因既有经验文档存在并行改动，本次仅在任务记录保留经验，避免混入非本任务文件。
