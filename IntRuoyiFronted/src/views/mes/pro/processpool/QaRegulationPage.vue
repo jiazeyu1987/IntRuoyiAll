@@ -2096,6 +2096,8 @@ const hasFormalQaRouteProcessBatchRecordBinding = (process: ProRouteProcessVO) =
     normalizeQaRouteScopeText(process.batchRecordReportName)
   )
 
+const hasFormalQaKeyRouteProcess = (process: ProRouteProcessVO) => process.keyFlag === true
+
 const resolveQaRouteProcessFromRoute = (
   routeProcesses: ProRouteProcessVO[],
   batchConfigs: ProRouteFlowProcessConfigVO[] = []
@@ -2138,6 +2140,13 @@ const resolveQaRouteProcessFromRoute = (
   }
   if (routeProcessBatchRecordProcesses.length > 1) {
     throw new Error('当前工艺路线存在多个默认批记录报表工序，请先在工艺路线中维护唯一 checkFlag。')
+  }
+  const keyRouteProcesses = formalProcesses.filter(hasFormalQaKeyRouteProcess)
+  if (keyRouteProcesses.length === 1) {
+    return keyRouteProcesses[0]
+  }
+  if (keyRouteProcesses.length > 1) {
+    throw new Error('当前工艺路线存在多个关键工序，无法唯一确定 QA 规程适用工序，请先在工艺路线中维护唯一 checkFlag。')
   }
   throw new Error('当前工艺路线未标记唯一质检工序，请先在工艺路线中维护 checkFlag。')
 }
