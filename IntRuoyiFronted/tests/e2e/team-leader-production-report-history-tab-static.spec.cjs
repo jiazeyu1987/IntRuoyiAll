@@ -19,8 +19,8 @@ const timelineMapper = readUtf8(path.join(
   'IntRuoyiBackend/yudao-module-mes/src/main/resources/mapper/pro/processpool/MesProProcessPoolTimelineReadMapper.xml'
 ))
 
-const reportTabCount = (page.match(/data-production-leader-module-tab-report\b/g) || []).length
-const historyTabCount = (page.match(/data-production-leader-module-tab-report-history\b/g) || []).length
+const reportTabCount = (page.match(/data-production-leader-module-tab-report(?=[\s/>])/g) || []).length
+const historyTabCount = (page.match(/data-production-leader-module-tab-report-history(?=[\s/>])/g) || []).length
 assert.ok(reportTabCount > 0, 'production leader report tab must exist.')
 assert.equal(
   historyTabCount,
@@ -72,7 +72,7 @@ assert.match(
 )
 assert.match(
   page,
-  /submissionReviewStatus:\s*isProductionReportHistoryTab\.value\s*\?\s*'APPROVED'\s*:\s*queryParams\.submissionReviewStatus \|\| undefined/,
+  /submissionReviewStatus:\s*\(?isProductionReportHistoryTab\.value(?:\s*\|\|\s*isPqcFormHistoryTab\.value)?\)?\s*\?\s*'APPROVED'\s*:\s*queryParams\.submissionReviewStatus \|\| undefined/,
   '报工历史查询必须强制提交 submissionReviewStatus=APPROVED。'
 )
 assert.match(
@@ -93,12 +93,12 @@ assert.match(
 )
 assert.match(
   page,
-  /const canReviewSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*!isProductionReportHistoryTab\.value[\s\S]*row\.submissionReviewStatus === 'PENDING'/,
+  /const canReviewSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*(?:!isProductionReportHistoryTab\.value|!\(isProductionReportHistoryTab\.value\s*\|\|\s*isPqcFormHistoryTab\.value\))[\s\S]*row\.submissionReviewStatus === 'PENDING'/,
   '报工历史行不得出现复核入口。'
 )
 assert.match(
   page,
-  /const canCorrectSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*!isProductionReportHistoryTab\.value[\s\S]*row\.submissionReviewStatus === 'REJECTED'/,
+  /const canCorrectSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*(?:!isProductionReportHistoryTab\.value|!\(isProductionReportHistoryTab\.value\s*\|\|\s*isPqcFormHistoryTab\.value\))[\s\S]*row\.submissionReviewStatus === 'REJECTED'/,
   '报工历史行不得出现修改入口。'
 )
 

@@ -6,23 +6,27 @@
 
 ## Milestones
 
-1. `in_progress` 建立 BDD/TDD 任务记录与 RED 静态合同。
-2. `pending` 核对 PQC 管理页签现有列池、查询条件和审核字段来源。
-3. `pending` 前端新增“历史表单”页签、审核通过固定查询和只读历史列。
-4. `pending` 补齐必要的前端类型/API 字段映射。
-5. `pending` 运行目标静态合同、相邻合同和类型检查。
-6. `pending` 更新验证报告与收尾状态。
+1. `completed` 建立 BDD/TDD 任务记录与 RED 静态合同。
+2. `completed` 核对 PQC 管理页签现有列池、查询条件和审核字段来源。
+3. `completed` 前端新增“历史表单”页签、审核通过固定查询和只读历史列。
+4. `completed` 补齐必要的前端类型/API 字段映射。
+5. `completed` 运行目标静态合同、相邻合同和类型检查。
+6. `in_progress` 更新验证报告与收尾状态。
 
 ## Expected Verification
 
 - `node IntRuoyiFronted/tests/e2e/pqc-leader-form-history-tab-static.spec.cjs`
+- `node IntRuoyiFronted/tests/e2e/team-leader-production-report-history-tab-static.spec.cjs`
+- `node IntRuoyiBackend/yudao-module-mes/src/test/js/process-pool-timeline-mapper-static.spec.cjs`
 - `node IntRuoyiFronted/tests/e2e/team-leader-production-report-payload-columns-static.spec.cjs`
 - `pnpm ts:check`（在 `IntRuoyiFronted` 下）
 - `git diff --check`
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+历史表单功能实现完成，目标合同、生产报工历史相邻合同、后端 mapper 静态合同、`pnpm ts:check` 和 `git diff --check` 均通过。`team-leader-production-report-payload-columns-static.spec.cjs` 仍失败在既存生产报工列池断言，不属于本次 PQC 历史表单改动范围，已在验证报告记录为相邻回归阻塞。
 
 ## 设计约束检查
 
