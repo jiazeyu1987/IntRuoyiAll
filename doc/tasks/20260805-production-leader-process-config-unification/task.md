@@ -11,7 +11,7 @@
 - [x] M2：先取得后端 RED，再实现统一列表、设备绑定和参数标准维护 API。
 - [x] M3：先取得前端 RED，再实现以工序为主线的统一表和参数维护交互。
 - [x] M4：完成保留的后端、前端、相邻回归、真实 E2E 脚本语法检查和用户手动验收交接。
-- [ ] M5：完成 cleanup、提交、推送并合并主代码。
+- [x] M5：完成 cleanup、提交、推送并合并主代码。
 
 ## Expected Verification
 
@@ -23,9 +23,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-P1 数据库迁移、P2 后端统一读写与统计、P3 前端统一表与维护交互均已完成目标 RED/GREEN 和阶段评审。2026-08-06 用户明确取消真实 E2E 合并前门禁并要求直接合并主代码后，P4 已按更新后的 code-only/full-context 范围完成：迁移 pytest、全仓 migration policy gate、目标 Maven `-am`、前端 `ts:check`、静态合同、真实 E2E 脚本语法、变更记录校验、任务 artifact 校验和测试报告校验均通过。真实写入型 Playwright 未运行、未生成截图或 trace，已交由用户在主代码手动验证。
+P1 数据库迁移、P2 后端统一读写与统计、P3 前端统一表与维护交互均已完成目标 RED/GREEN 和阶段评审。2026-08-06 用户明确取消真实 E2E 合并前门禁并要求直接合并主代码后，P4 已按更新后的 code-only/full-context 范围完成：迁移 pytest、全仓 migration policy gate、目标 Maven `-am`、前端 `ts:check`、静态合同、真实 E2E 脚本语法、变更记录校验、任务 artifact 校验和测试报告校验均通过。真实写入型 Playwright 未运行、未生成截图或 trace，已交由用户在主代码手动验证。cleanup 已应用并仅保留 task.md、execution-log.md 和 verification-report.md；实现提交为 `aba81d090`，收尾提交和远端合并证据见执行日志。
 
 ## 设计约束检查
 

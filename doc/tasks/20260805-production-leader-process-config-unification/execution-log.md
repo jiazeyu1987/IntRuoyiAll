@@ -170,3 +170,10 @@
 - P4-AC3 -> PASS：用户手动验收范围已写入 `verification-report.md`、`test-report.md` 和 change record，覆盖统一表配置闭环、一线正式提交平均值和无样本 null/0 语义。
 - P4-AC4 -> PASS：取消 E2E 的用户原话、保留门禁、未运行边界、非任务历史回归 caveat 和合并风险均已记录。
 - Current task status: `task.md` 已标记 `ready_for_closeout`，等待状态脚本、completion gate、cleanup、提交、推送和合并。
+## Cleanup And Implementation Commit
+
+- Implementation commit: `aba81d090` (`feat: unify production leader process config`) created after retained automation gates passed.
+- Cleanup preview: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-production-leader-process-config-unification --mode preview --worktree-closeout off` -> READY；保留 `task.md`、`execution-log.md`、`verification-report.md`，计划删除中间 evidence、PRD、test-plan、task-state 和 test-report。
+- Cleanup apply: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-production-leader-process-config-unification --mode apply --worktree-closeout off` -> APPLIED；仅删除 preview 中列出的任务中间产物。
+- Worktree closeout: skipped by `--worktree-closeout off` because local `E:\IntRuoyi` main worktree is dirty with unrelated concurrent changes;本任务不触碰主工作区无关文件。
+- Remaining closeout: stage cleanup deletions and surviving task records, create cleanup commit, push current branch, then attempt no-force remote integration to `origin/int_main` if fast-forward preconditions allow.
