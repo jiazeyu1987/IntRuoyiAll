@@ -7,9 +7,9 @@
 ## Milestones
 
 - [x] M1：读取提交、PowerShell、编码和任务收尾门禁，确认仓库所有权、分支、远端和本地领先状态。
-- [ ] M2：处理远端同步前置问题，确认 GitHub 网络/代理可用。
-- [ ] M3：完成提交前验证、大文件/敏感信息/端口守卫检查，并推送 `int_main`。
-- [ ] M4：运行收尾清理 preview/apply，记录最终同步状态并完成任务文档。
+- [x] M2：处理远端同步前置问题，确认 GitHub 网络/代理可用。
+- [x] M3：完成提交前验证、大文件/敏感信息/端口守卫检查，并推送 `int_main`。
+- [x] M4：运行收尾清理 preview/apply，记录最终同步状态并完成任务文档。
 
 ## Expected Verification
 
@@ -39,13 +39,24 @@
 
 ## Current Status
 
-in_progress
+completed
 
-已确认前后端目录均归属 `E:\IntRuoyi` 单一 Git 仓库，当前分支为 `int_main`，工作区没有 tracked dirty/staged 改动，当前本地领先 `origin/int_main` 12 个提交。`git fetch origin int_main` 暂时因 GitHub TLS EOF 失败，正在按 GitHub HTTPS 443 门禁复核代理和网络。
+已确认前后端目录均归属 `E:\IntRuoyi` 单一 Git 仓库，当前分支为 `int_main`。`git fetch origin int_main` 在 GitHub TLS EOF 后复跑成功，`origin/int_main...HEAD` 为 `0 0`，说明前后端代码提交已同步到远端。cleanup preview/apply 已完成且无删除项或阻塞；当前任务证据将作为最终收尾提交推送到 `origin/int_main`。
 
 ## Blockers
 
-- 暂无最终 blocker；当前远端同步受 GitHub TLS EOF 影响，需完成代理/网络定位后继续。
+- 无。
+
+## Verification Evidence
+
+- `git fetch origin int_main` -> PASS。
+- `git rev-list --left-right --count origin/int_main...HEAD` -> `0 0`。
+- `git diff --check` -> PASS。
+- `git diff --cached --check` -> PASS。
+- `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main/int_main` 前端 `8081`、后端 `48081`。
+- Staged file size scan -> PASS，暂存文件均未超过 100 MB。
+- `project-experience-consolidation` 适用性检查 -> PASS，现有 `docs\powershell-memory.md` 已覆盖 GitHub HTTPS 443、本地代理、提交/推送和残余复扫门禁，本次不新增长期经验文档。
+- `task-closeout-cleanup` preview/apply -> PASS，keep 3 files，delete 0，blocked 0，warnings 0。
 
 ## Cleanup Keep
 
