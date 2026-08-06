@@ -81,6 +81,12 @@ BDD: 可读地展示 ERP 同步运行结果 -> Given 系统已有 ERP 同步水�
 - GREEN: 将依赖修正为 `dependsOn=20260612_erp_kingdee_sync_runtime` 后，SQL 合同 -> PASS，4 passed。
 - GREEN: 目标迁移及依赖链 policy gate -> PASS，`migrationCount=2`，两项 `type=schema`，目标依赖解析为 `20260612_erp_kingdee_sync_runtime`。
 - WIDE REGRESSION: 全仓 migration policy gate 仍被 `origin/int_main` 已存在的 `20260805_erp_nas_table_auto_sync.sql` 非法 `type=schema,job` 阻塞；该文件来自既有提交 `1e4a61500` 且已存在于融合前的远端主线，不是本任务引入。按宽回归归因门禁保留失败证据，不用窄测掩盖。
+- IMPLEMENTATION COMMIT: `54f8d21ea fix: validate ERP auto sync migration metadata`，包含迁移元数据根因修复、SQL 合同和融合验证记录。
+- BRANCH PUSH: `git push origin codex/profile-erp-table-auto-sync` -> PASS，远端功能分支更新为 `54f8d21ea`。
+- MAIN PUSH: `git push origin HEAD:int_main` -> PASS，远端 `int_main` 从 `74d66c094` 快进到 `54f8d21ea`，未使用 force push。
+- CLEANUP PREVIEW: keep/delete 分类符合任务文档；迁移 policy JSON 的关键 PASS/FAIL 摘要已归档到 `execution-log.md` 和 `verification-report.md`。
+- CLEANUP APPLY: `task_closeout.py --task-id 20260805-profile-erp-table-auto-sync --mode apply` -> BLOCKED，精确原因是主工作区 `E:\IntRuoyi` dirty，不能接收脚本要求的本地 ff-only merge；未删除任何文件、未移除 worktree、未释放 slot 2。
+- CLOSEOUT STATE: 远端代码融合已完成，但清理和 worktree 删除未完成，因此任务继续保持 `ready_for_closeout`，不得标记 `completed`。
 
 ## Commit And Closeout Progress
 

@@ -93,3 +93,7 @@ FUNCTION PASS。已完成计划内实现、自动化回归、真实页面保存�
 - 本任务迁移元数据已从非法 `type=schema,job` 修正为正式单一 `type=schema`，依赖从带 `.sql` 后缀修正为 migrationId `20260612_erp_kingdee_sync_runtime`。
 - 目标迁移及依赖链 policy gate -> PASS，`migrationCount=2`。
 - 全仓 migration policy gate -> FAIL，仅命中融合前远端主线既有 `20260805_erp_nas_table_auto_sync.sql` 的非法 `type=schema,job`；该宽回归遗留不由本 ERP 功能分支引入，已保留精确失败证据。
+- 实现与融合记录提交 `54f8d21ea` 已推送到 `origin/codex/profile-erp-table-auto-sync`。
+- `git push origin HEAD:int_main` -> PASS，远端 `int_main` 已快进到 `54f8d21ea`。
+- task-closeout cleanup preview/apply 均确认保留正式任务记录、删除任务 evidence/截图/runtime 日志；apply 因 `E:\IntRuoyi` 主工作区 dirty 而 fail fast，未发生删除、worktree 移除或槽位释放。
+- 最终状态为 `ready_for_closeout`：代码已融合到远端主线，剩余工作仅为主工作区稳定后执行 cleanup apply、删除该 worktree 并释放 slot 2。
