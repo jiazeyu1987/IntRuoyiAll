@@ -95,3 +95,13 @@
 - REGRESSION: `git diff --check` -> PASS, only Git LF-to-CRLF working-copy warnings were emitted.
 - GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, branch `codex/20260806-production-reporting-submit-implementation`, profile `int_main`, frontend `8086`, backend `48086`.
 - Experience consolidation: updated existing `docs/frontend-development.md#多角色共享表格列池隔离门禁` and `docs/experience-index.md`; `rg -n "多角色共享表格列池隔离门禁|productionSubmissionDefaultColumns|PQC提交内容误进生产列设置" docs\frontend-development.md docs\experience-index.md` -> PASS.
+
+## Production Leader PQC Column Remote Integration
+
+- Commit: `b8aad69358aee29e2698c07afb81aca6eb4d7ae0 fix: hide pqc columns from production report` -> PASS.
+- Push: `git push origin codex/20260806-production-reporting-submit-implementation` -> PASS, remote task branch advanced from `3158d21d1` to `b8aad6935`.
+- Fast-forward precheck: `git fetch origin int_main`; `git merge-base --is-ancestor origin/int_main HEAD` -> PASS, `origin/int_main` was `3158d21d117e34faf18ce1339339ea8f206a109c`.
+- Integration: `git push origin HEAD:int_main` -> PASS, remote `int_main` advanced from `3158d21d1` to `b8aad6935`.
+- Verification: `git fetch origin int_main`; `git rev-parse HEAD` and `git rev-parse origin/int_main` both returned `b8aad69358aee29e2698c07afb81aca6eb4d7ae0`; `git merge-base --is-ancestor HEAD origin/int_main` -> PASS.
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260806-production-reporting-submit-implementation --mode preview` -> BLOCKED because local main worktree `E:\IntRuoyi` is dirty and cannot receive the script's ff-only merge. Preview keep list was `task.md`, `execution-log.md`, `verification-report.md`; delete list was `backend-api-evidence.md`, `bug-regression-evidence.md`, `frontend-feature-evidence.md`.
+- Decision: remote `int_main` integration is complete at `b8aad69358aee29e2698c07afb81aca6eb4d7ae0`; cleanup apply and local worktree removal remain blocked by unrelated local main dirty state. No main worktree files were cleaned, reverted, or committed.

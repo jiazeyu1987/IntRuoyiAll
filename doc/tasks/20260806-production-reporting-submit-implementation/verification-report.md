@@ -55,9 +55,11 @@ ready_for_closeout
 ## Remote Integration
 
 - `git push origin codex/20260806-production-reporting-submit-implementation` -> PASS.
-- `git push origin HEAD:int_main` -> PASS; `origin/int_main` now points to verified HEAD `eb05459dff7e38fdd1b150923ca266043ccbd0c9`.
+- `git push origin HEAD:int_main` -> PASS; `origin/int_main` now points to verified HEAD `b8aad69358aee29e2698c07afb81aca6eb4d7ae0`.
 - `git merge-base --is-ancestor HEAD origin/int_main` -> PASS.
 
 ## Cleanup Status
 
 - `task-closeout-cleanup --mode preview` -> BLOCKED because local main worktree `E:\IntRuoyi` is dirty. Cleanup apply and worktree removal were not run to avoid touching unrelated local main changes.
+- Latest preview keep list: `task.md`, `execution-log.md`, `verification-report.md`.
+- Latest preview delete list: `backend-api-evidence.md`, `bug-regression-evidence.md`, `frontend-feature-evidence.md`.
