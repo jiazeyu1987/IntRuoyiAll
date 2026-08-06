@@ -1476,10 +1476,15 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         if (CollUtil.isEmpty(workstations)) {
             return null;
         }
+        boolean hasMissingShiftHours = workstations.stream()
+                .map(workstation -> workstation == null ? null : workstation.getShiftHours())
+                .anyMatch(shiftHours -> normalizePositiveShiftHours(shiftHours) == null);
+        if (hasMissingShiftHours) {
+            return scheduleDefaultCompatibilityPolicy.defaultShiftHoursWhenMissing();
+        }
         BigDecimal unifiedShiftHours = null;
         for (MesMdWorkstationDO workstation : workstations) {
-            BigDecimal shiftHours = scheduleDefaultCompatibilityPolicy.shiftHoursOrDefault(
-                    workstation == null ? null : workstation.getShiftHours());
+            BigDecimal shiftHours = normalizePositiveShiftHours(workstation == null ? null : workstation.getShiftHours());
             Long workstationId = workstation == null ? null : workstation.getId();
             if (unifiedShiftHours == null) {
                 unifiedShiftHours = shiftHours;
