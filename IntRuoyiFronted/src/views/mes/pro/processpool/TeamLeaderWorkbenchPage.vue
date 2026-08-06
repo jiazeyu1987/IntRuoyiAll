@@ -1049,7 +1049,7 @@
         <div>
           <div class="team-leader-workbench__section-title">订单异常上报</div>
           <div class="team-leader-workbench__hint">
-            异常订单来自活跃订单池，异常原因来自当前工序配置。
+            选择订单号并填写异常说明即可完成上报。
           </div>
         </div>
       </div>
@@ -1060,11 +1060,11 @@
         label-width="120px"
         class="team-leader-workbench__form"
       >
-        <el-form-item label="活跃订单" prop="activeOrderId" data-team-leader-active-order-select>
+        <el-form-item label="订单号" prop="activeOrderId" data-team-leader-active-order-select>
           <el-select
             v-model="abnormalForm.activeOrderId"
             filterable
-            placeholder="请选择活跃订单"
+            placeholder="请选择订单号"
             @change="handleAbnormalActiveOrderChange"
           >
             <el-option
@@ -1072,28 +1072,6 @@
               :key="order.id"
               :label="formatActiveOrderOption(order)"
               :value="order.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="工序ID" prop="processId">
-          <el-input-number v-model="abnormalForm.processId" :min="1" :controls="false" />
-        </el-form-item>
-        <el-form-item
-          label="异常原因"
-          prop="abnormalReasonCode"
-          data-team-leader-defect-reason-select
-        >
-          <el-select
-            v-model="abnormalForm.abnormalReasonCode"
-            filterable
-            allow-create
-            placeholder="请选择当前工序允许的异常原因"
-          >
-            <el-option
-              v-for="reason in configuredDefectReasonOptions"
-              :key="reason.reasonCode"
-              :label="reason.reasonName"
-              :value="reason.reasonCode"
             />
           </el-select>
         </el-form-item>
@@ -2255,10 +2233,6 @@ const correctionForm = reactive({
 const abnormalForm = reactive({
   activeOrderId: undefined as number | undefined,
   workOrderId: undefined as number | undefined,
-  routeProcessId: undefined as number | undefined,
-  processId: undefined as number | undefined,
-  sourceEventId: undefined as number | undefined,
-  abnormalReasonCode: '',
   abnormalDescription: ''
 })
 
@@ -2331,8 +2305,7 @@ const deviceRuleForm = reactive({
 })
 
 const abnormalRules = {
-  activeOrderId: [{ required: true, message: '活跃订单不能为空', trigger: 'change' }],
-  abnormalReasonCode: [{ required: true, message: '异常原因不能为空', trigger: 'blur' }],
+  activeOrderId: [{ required: true, message: '订单号不能为空', trigger: 'change' }],
   abnormalDescription: [{ required: true, message: '异常说明不能为空', trigger: 'blur' }]
 }
 
@@ -3717,9 +3690,6 @@ const prefillAbnormal = (event: ProcessPoolTimelineEventVO) => {
     (order) => order.workOrderId === abnormalForm.workOrderId
   )
   abnormalForm.activeOrderId = matchedActiveOrder?.id
-  abnormalForm.routeProcessId = normalizePositiveNumber(event.routeProcessId)
-  abnormalForm.processId = normalizePositiveNumber(event.processId)
-  abnormalForm.sourceEventId = normalizePositiveNumber(event.id)
 }
 
 const handleAbnormalActiveOrderChange = (activeOrderId?: number) => {
@@ -3728,10 +3698,10 @@ const handleAbnormalActiveOrderChange = (activeOrderId?: number) => {
 }
 
 const requireSelectedActiveOrderWorkOrderId = () => {
-  const activeOrderId = requirePositiveNumber(abnormalForm.activeOrderId, '活跃订单不能为空')
+  const activeOrderId = requirePositiveNumber(abnormalForm.activeOrderId, '订单号不能为空')
   const activeOrder = activeOrderOptions.value.find((order) => order.id === activeOrderId)
   if (!activeOrder) {
-    throw new Error('活跃订单不存在或已移出')
+    throw new Error('订单号不存在或已移出')
   }
   return activeOrder.workOrderId
 }
@@ -3759,10 +3729,6 @@ const submitAbnormal = async () => {
   try {
     await markAndReportWorkOrderAbnormal({
       workOrderId: requireSelectedActiveOrderWorkOrderId(),
-      routeProcessId: normalizePositiveNumber(abnormalForm.routeProcessId),
-      processId: normalizePositiveNumber(abnormalForm.processId),
-      sourceEventId: normalizePositiveNumber(abnormalForm.sourceEventId),
-      abnormalReasonCode: abnormalForm.abnormalReasonCode.trim(),
       abnormalDescription: abnormalForm.abnormalDescription.trim()
     })
     ElMessage.success('异常已上报')
@@ -4333,6 +4299,59 @@ onMounted(() => {
 }
 
 .team-leader-workbench__pqc-content-value {
+  word-break: break-word;
+}
+
+.team-leader-workbench__structured-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.team-leader-workbench__structured-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border: 1px solid #d7eadf;
+  border-radius: 999px;
+  background: #f4fbf7;
+  color: #264237;
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.team-leader-workbench__parameter-list {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.team-leader-workbench__parameter-item {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.72fr) minmax(58px, auto) minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+}
+
+.team-leader-workbench__parameter-label {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.team-leader-workbench__parameter-value {
+  color: #1f2937;
+  font-weight: 700;
+}
+
+.team-leader-workbench__parameter-value.is-out-of-range {
+  color: #c00000;
+}
+
+.team-leader-workbench__parameter-meta {
+  color: #64748b;
   word-break: break-word;
 }
 

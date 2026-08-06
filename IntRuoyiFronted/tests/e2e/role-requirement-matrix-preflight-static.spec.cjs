@@ -172,7 +172,7 @@ assert.match(
 )
 assert.match(
   source,
-  /const\s+loginRequestPromise\s*=\s*page\.waitForRequest[\s\S]*\/admin-api\/system\/auth\/login[\s\S]*request\.headers\(\)[\s\S]*\['tenant-id'\][\s\S]*loginTenantHeaderMissing/,
+  /const\s+loginRequestPromise\s*=\s*page\.waitForRequest[\s\S]*\/admin-api\/system\/auth\/login[\s\S]*loginRequest\.headers\(\)[\s\S]*\['tenant-id'\][\s\S]*loginTenantHeaderMissing/,
   'login() must capture the actual login request and fail fast if the tenant-id header is missing.'
 )
 assert.match(
