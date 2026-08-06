@@ -7,9 +7,9 @@
 ## Milestones
 
 - [x] 识别生产组长页面、统一列表模板和现有活跃订单接口
-- [ ] 编写并运行聚焦 RED 静态合同
-- [ ] 实现活跃订单池 Tab、标准列表和新增对话框
-- [ ] 运行定向 GREEN、相邻回归和 TypeScript 验证
+- [x] 编写并运行聚焦 RED 静态合同
+- [x] 实现活跃订单池 Tab、标准列表和新增对话框
+- [x] 运行定向 GREEN、相邻回归、TypeScript 和只读真实页面验证
 - [ ] 完成证据归档、清理、提交与推送
 
 ## Expected Verification
@@ -17,14 +17,20 @@
 - `workdir=IntRuoyiFronted; node tests/e2e/production-leader-active-order-pool-tab-static.spec.js`
 - `workdir=IntRuoyiFronted; node tests/e2e/production-leader-function-tabs-static.spec.js`
 - `workdir=IntRuoyiFronted; node tests/e2e/production-leader-tabs-flat-style-static.spec.js`
+- `workdir=IntRuoyiFronted; node tests/e2e/production-leader-remove-header-content-static.spec.js`
+- `workdir=IntRuoyiFronted; node tests/e2e/team-leader-workbench-static.spec.cjs`
+- `workdir=IntRuoyiFronted; node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs`
 - `workdir=IntRuoyiFronted; node tests/e2e/mes-process-pool-team-leader-static.spec.js`
+- `workdir=IntRuoyiFronted; node --check tests/e2e/role-requirement-matrix-real-flow.e2e.js`
+- `workdir=IntRuoyiFronted; node --check tests/e2e/team-leader-workbench-real-flow.e2e.js`
 - `workdir=IntRuoyiFronted; pnpm ts:check`
+- 本机 `芋道源码/admin` 只读 Playwright：登录生产组长页面，打开“活跃订单池”Tab 和新增弹窗后取消，断言目标写请求为 `0`
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260805-production-leader-active-order-pool-tab/frontend-feature-evidence.md`
 - `git diff --check`
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -42,4 +48,3 @@ in_progress
 ## Cleanup Candidates
 
 - doc/tasks/20260805-production-leader-active-order-pool-tab/frontend-feature-evidence.md
-

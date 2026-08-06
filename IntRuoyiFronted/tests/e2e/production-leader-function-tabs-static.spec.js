@@ -22,16 +22,16 @@ assert.doesNotMatch(
 
 assert.match(
   teamLeaderWorkbench,
-  /data-production-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="报工管理"\s+name="report"[\s\S]*<el-tab-pane\s+label="看板"\s+name="dashboard"[\s\S]*<el-tab-pane\s+label="异常"\s+name="exception"[\s\S]*<el-tab-pane\s+label="损耗管理"\s+name="loss"[\s\S]*<el-tab-pane\s+label="班组配置"\s+name="config"/,
-  'Shared workbench must render production function tabs for personnel, report, dashboard, exception, loss, and configuration modules.'
+  /data-production-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="报工管理"\s+name="report"[\s\S]*<el-tab-pane\s+label="活跃订单池"\s+name="activeOrder"[\s\S]*<el-tab-pane\s+label="看板"\s+name="dashboard"[\s\S]*<el-tab-pane\s+label="异常"\s+name="exception"[\s\S]*<el-tab-pane\s+label="损耗管理"\s+name="loss"[\s\S]*<el-tab-pane\s+label="班组配置"\s+name="config"/,
+  'Shared workbench must render production function tabs for personnel, report, active orders, dashboard, exception, loss, and configuration modules.'
 )
 assert.match(
   teamLeaderWorkbench,
-  /const\s+activeProductionModuleTab\s*=\s*ref<'personnel'\s*\|\s*'report'\s*\|\s*'dashboard'\s*\|\s*'exception'\s*\|\s*'loss'\s*\|\s*'config'>\('personnel'\)/,
+  /const\s+activeProductionModuleTab\s*=\s*ref<[\s\S]*'personnel'[\s\S]*'report'[\s\S]*'activeOrder'[\s\S]*'dashboard'[\s\S]*'exception'[\s\S]*'loss'[\s\S]*'config'[\s\S]*>\('personnel'\)/,
   'Production module tabs must default to 人员管理.'
 )
 
-for (const moduleName of ['Personnel', 'Report', 'Dashboard', 'Exception', 'Loss', 'Config']) {
+for (const moduleName of ['Personnel', 'Report', 'ActiveOrder', 'Dashboard', 'Exception', 'Loss', 'Config']) {
   assert.match(
     teamLeaderWorkbench,
     new RegExp(`const\\s+showProduction${moduleName}Module\\s*=\\s*computed\\([\\s\\S]*activeProductionModuleTab`),
@@ -53,6 +53,11 @@ assert.match(
   teamLeaderWorkbench,
   /<ContentWrap[\s\S]*v-if="showPqcManagementModule"[\s\S]*data-team-leader-report-workbench/,
   '报工管理 tab must own the report confirmation workbench.'
+)
+assert.match(
+  teamLeaderWorkbench,
+  /<ContentWrap[\s\S]*v-if="showProductionActiveOrderModule"[\s\S]*data-team-leader-active-order-pool-tab/,
+  '活跃订单池 tab must own the standard active-order list.'
 )
 assert.match(
   teamLeaderWorkbench,

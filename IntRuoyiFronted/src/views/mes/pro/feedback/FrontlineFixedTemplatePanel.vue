@@ -856,6 +856,9 @@ const pqcItemSelections = reactive<Record<PqcInspectionItemKey, PqcItemSelection
 const pqcSignatureId = ref<number>()
 
 const isPqcMode = computed(() => props.mode === 'pqc')
+const pqcProductionSubmitEventId = computed(() =>
+  firstRouteQueryNumber(['productionSubmitEventId', 'processPoolEventId'])
+)
 
 const productionOrderLabel = computed(() => {
   const selectedOrder = deviceState.selectedActiveOrder
@@ -976,6 +979,7 @@ const isSubmitBlocked = computed(() =>
   templateBindingMissing.value ||
   (isPqcMode.value && !deviceState.selectedActiveOrder) ||
   (isPqcMode.value && !hasPqcTaskSnapshot(deviceState.selectedProcess)) ||
+  (isPqcMode.value && !pqcProductionSubmitEventId.value) ||
   (isPqcMode.value && !pqcSignatureId.value) ||
   !deviceState.selectedProcess ||
   !deviceState.selectedEmployee
@@ -996,6 +1000,9 @@ const statusText = computed(() => {
   }
   if (!deviceState.selectedEmployee) {
     return '请选择员工'
+  }
+  if (isPqcMode.value && !pqcProductionSubmitEventId.value) {
+    return '缺少生产提交事件，无法提交PQC'
   }
   if (isPqcMode.value && !pqcSignatureId.value) {
     return '请填写签名编号'
@@ -2160,24 +2167,10 @@ const buildPqcInspectionSubmitPayload = (
   const employee = deviceState.selectedEmployee
   const actualEmployeeId = context.actualEmployeeId
   const signatureId = pqcSignatureId.value
-  const deviceAccountId = Number(userStore.getUser?.id || 0)
-  const deviceId = activeProductionDevice.value?.key
-    ? Number(activeProductionDevice.value.key)
-    : Number(process?.deviceId || 0)
-  const workstationId = Number(process?.workstationId || 0)
-  const productionSubmitEventId = firstRouteQueryNumber(['productionSubmitEventId', 'processPoolEventId'])
+  const productionSubmitEventId = pqcProductionSubmitEventId.value
   const missingFormalContext: string[] = []
   if (!productionSubmitEventId) {
     missingFormalContext.push('productionSubmitEventId')
-  }
-  if (!deviceAccountId) {
-    missingFormalContext.push('deviceAccountId')
-  }
-  if (!deviceId) {
-    missingFormalContext.push('deviceId')
-  }
-  if (!workstationId) {
-    missingFormalContext.push('workstationId')
   }
   if (!activeOrder || !process || !employee || !actualEmployeeId || !signatureId ||
     !hasPqcTaskSnapshot(process) || !pqcDraft.inspectionType || !pqcDraft.patrolRound ||
@@ -2205,9 +2198,6 @@ const buildPqcInspectionSubmitPayload = (
     roundNo: pqcDraft.patrolRound,
     actualInspectionQuantity: pqcInspectionQuantity.value,
     actualEmployeeId,
-    deviceAccountId: deviceAccountId,
-    deviceId: deviceId,
-    workstationId: workstationId,
     pqcSubmissionIdempotencyKey,
     signatureId,
     signatureEmployeeId: actualEmployeeId,

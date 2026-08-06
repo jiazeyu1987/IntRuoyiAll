@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
@@ -54,6 +55,7 @@ import java.util.Set;
 import static cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC;
 import static cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE;
 import static cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_PROCESS;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_TASK_QUANTITY_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_TASK_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED;
@@ -133,6 +135,8 @@ class MesFrontlinePqcContextServiceTest {
                 workOrderMapper, routeMapper, routeProductMapper, routeProcessMapper, regulationMapper,
                 regulationItemMapper, regulationItemEquipmentMapper, pqcTaskMapper, pqcPieceDetailMapper,
                 processService, itemService, scopeMapper, adminUserApi, templateResolver, processPoolEventService);
+        lenient().when(processPoolEventMapper.selectByIdForUpdate(PRODUCTION_SUBMIT_EVENT_ID))
+                .thenReturn(productionSubmitEvent(PRODUCTION_SUBMIT_EVENT_ID, ROUTE_PROCESS_ID, PROCESS_ID));
     }
 
     @Test
@@ -786,7 +790,7 @@ class MesFrontlinePqcContextServiceTest {
 
         assertEquals(PQC_TASK_ID, taskId);
         verify(pqcTaskMapper).updateSubmittedIfPending(PQC_TASK_ID, 2, "PENDING", "SUBMITTED");
-        verify(processPoolEventMapper, never()).selectByIdForUpdate(any());
+        verify(processPoolEventMapper).selectByIdForUpdate(PRODUCTION_SUBMIT_EVENT_ID);
         ArgumentCaptor<MesProcessPoolCreatePqcInspectionReqDTO> eventCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolCreatePqcInspectionReqDTO.class);
         verify(processPoolEventService).createPqcInspectionEvent(eventCaptor.capture());
@@ -802,6 +806,43 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals(PQC_TASK_ID, eventRequest.getRecordbookSourceId());
         assertTrue(eventRequest.getRawPayload().contains("\"pqcTaskId\":7001"));
         assertTrue(eventRequest.getRawPayload().contains("\"pieceDetailCount\":4"));
+    }
+
+    @Test
+    void shouldResolvePqcDeviceContextFromExactProductionSubmitEvent() {
+        givenSuccessfulPqcSubmissionContext();
+        when(processPoolEventMapper.selectByIdForUpdate(PRODUCTION_SUBMIT_EVENT_ID))
+                .thenReturn(productionSubmitEvent(PRODUCTION_SUBMIT_EVENT_ID, ROUTE_PROCESS_ID, PROCESS_ID));
+
+        Long taskId = service.submitPqcInspection(LOGIN_USER_ID, successfulPqcSubmitCommand()
+                .deviceAccountId(99901L)
+                .deviceId(99902L)
+                .workstationId(99903L)
+                .build());
+
+        assertEquals(PQC_TASK_ID, taskId);
+        ArgumentCaptor<MesProcessPoolCreatePqcInspectionReqDTO> eventCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolCreatePqcInspectionReqDTO.class);
+        verify(processPoolEventService).createPqcInspectionEvent(eventCaptor.capture());
+        MesProcessPoolCreatePqcInspectionReqDTO eventRequest = eventCaptor.getValue();
+        assertEquals(DEVICE_ACCOUNT_ID, eventRequest.getDeviceAccountId());
+        assertEquals(DEVICE_ID, eventRequest.getDeviceId());
+        assertEquals(WORKSTATION_ID, eventRequest.getWorkstationId());
+    }
+
+    @Test
+    void shouldRejectPqcInspectionWhenProductionSubmitEventIdentityDoesNotMatch() {
+        when(processPoolEventMapper.selectByIdForUpdate(PRODUCTION_SUBMIT_EVENT_ID))
+                .thenReturn(productionSubmitEvent(PRODUCTION_SUBMIT_EVENT_ID, 4999L, PROCESS_ID));
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.submitPqcInspection(LOGIN_USER_ID, successfulPqcSubmitCommand().build()));
+
+        assertEquals(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID.getCode(), exception.getCode());
+        verify(activeOrderMapper, never()).selectActiveByWorkOrderAndRoute(any(), any());
+        verify(pqcTaskMapper, never()).updateSubmittedIfPending(any(), any(), any(), any());
+        verify(pqcPieceDetailMapper, never()).insertBatch(anyCollection());
+        verify(processPoolEventService, never()).createPqcInspectionEvent(any());
     }
 
     @Test
@@ -987,6 +1028,89 @@ class MesFrontlinePqcContextServiceTest {
         when(routeMapper.selectListByIdsIgnoreDeleted(Set.of(ROUTE_ID))).thenReturn(List.of(route(ROUTE_ID)));
         when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, PRODUCT_ID))
                 .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
+    }
+
+    private void givenSuccessfulPqcSubmissionContext() {
+        when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
+                        LocalDateTime.of(2026, 8, 1, 8, 0)));
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID, PRODUCT_ID));
+        when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, PRODUCT_ID))
+                .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
+        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route(ROUTE_ID));
+        when(routeProcessMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
+                routeProcessWithoutWorkstation(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10)));
+        when(processService.getProcessMap(Set.of(PROCESS_ID))).thenReturn(Map.of(
+                PROCESS_ID, process(PROCESS_ID, "P-1", "首工序")));
+        givenPqcTaskContext(ROUTE_PROCESS_ID, PROCESS_ID, PQC_TASK_ID, REGULATION_VERSION_ID);
+        when(scopeMapper.selectActiveScopesByLeaderType(LEADER_TYPE_PQC)).thenReturn(List.of(
+                scope(7001L, SCOPE_TYPE_EMPLOYEE, 8001L)));
+        when(adminUserApi.getUserList(Set.of(7001L, 8001L))).thenReturn(List.of(
+                enabledUser(7001L, "pqc-leader-a", "PQC组长A"),
+                enabledUser(8001L, "pqc-employee-a", "PQC员工A")));
+        when(pqcTaskMapper.selectById(PQC_TASK_ID)).thenReturn(pqcTask(PQC_TASK_ID, ROUTE_PROCESS_ID,
+                PROCESS_ID, REGULATION_VERSION_ID));
+        when(pqcTaskMapper.updateSubmittedIfPending(PQC_TASK_ID, 2, "PENDING", "SUBMITTED")).thenReturn(1);
+        when(processPoolEventService.createPqcInspectionEvent(any(MesProcessPoolCreatePqcInspectionReqDTO.class)))
+                .thenReturn(9902L);
+    }
+
+    private MesFrontlinePqcSubmitCommand.MesFrontlinePqcSubmitCommandBuilder successfulPqcSubmitCommand() {
+        return MesFrontlinePqcSubmitCommand.builder()
+                .activeOrderId(ACTIVE_ORDER_ID)
+                .pqcTaskId(PQC_TASK_ID)
+                .productionSubmitEventId(PRODUCTION_SUBMIT_EVENT_ID)
+                .regulationVersionId(REGULATION_VERSION_ID)
+                .workOrderId(WORK_ORDER_ID)
+                .routeId(ROUTE_ID)
+                .routeProcessId(ROUTE_PROCESS_ID)
+                .processId(PROCESS_ID)
+                .inspectionType("PATROL")
+                .businessDate(LocalDate.of(2026, 8, 1))
+                .shiftCode("DAY")
+                .roundNo(1)
+                .actualInspectionQuantity(2)
+                .actualEmployeeId(8001L)
+                .deviceAccountId(DEVICE_ACCOUNT_ID)
+                .deviceId(DEVICE_ID)
+                .workstationId(WORKSTATION_ID)
+                .pqcSubmissionIdempotencyKey(PQC_IDEMPOTENCY_KEY)
+                .signatureId(8802L)
+                .signatureEmployeeId(8001L)
+                .signatureSnapshot(PQC_SIGNATURE_SNAPSHOT)
+                .templateType("PQC_SIMPLIFIED")
+                .inspectionResult("DETECTION_SUCCESS")
+                .itemResults(List.of(
+                        MesFrontlinePqcSubmitCommand.ItemResult.builder()
+                                .itemCode("pressure")
+                                .selectedEquipmentId(9101L)
+                                .selectedEquipmentNumber("EQ-P-001")
+                                .sampleValues(List.of("0.8", "0.9"))
+                                .build(),
+                        MesFrontlinePqcSubmitCommand.ItemResult.builder()
+                                .itemCode("appearance")
+                                .selectedEquipmentId(9102L)
+                                .selectedEquipmentNumber("EQ-V-002")
+                                .sampleValues(List.of("合格", "合格"))
+                                .build()))
+                .rawPayload(Map.of(
+                        "pqcDraft", Map.of("inspectionType", "PATROL", "inspectionQuantity", 2)))
+                .clientSubmitTime(LocalDateTime.of(2026, 8, 1, 9, 30));
+    }
+
+    private static MesProProcessPoolEventDO productionSubmitEvent(Long eventId, Long routeProcessId,
+                                                                  Long processId) {
+        return MesProProcessPoolEventDO.builder()
+                .id(eventId)
+                .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .workOrderId(WORK_ORDER_ID)
+                .routeId(ROUTE_ID)
+                .routeProcessId(routeProcessId)
+                .processId(processId)
+                .deviceAccountId(DEVICE_ACCOUNT_ID)
+                .deviceId(DEVICE_ID)
+                .workstationId(WORKSTATION_ID)
+                .build();
     }
 
     private void givenPqcTaskContext(Long routeProcessId, Long processId, Long taskId, Long regulationVersionId) {

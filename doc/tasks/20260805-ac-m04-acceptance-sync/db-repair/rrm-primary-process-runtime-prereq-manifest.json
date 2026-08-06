@@ -1,0 +1,58 @@
+{
+  "repairId": "ACM04_RRM_PRIMARY_PROCESS_RUNTIME_PREREQ_20260805_LOCAL",
+  "taskId": "20260805-ac-m04-acceptance-sync",
+  "database": "ruoyi-vue-pro",
+  "environment": "local-docker-only",
+  "tenantId": 1,
+  "leaderUserId": 1520,
+  "creator": "rrm-acm04",
+  "updater": "rrm-acm04",
+  "remark": "rrm-ac-m04-runtime-prereq",
+  "rows": [
+    {
+      "table": "mes_pro_process_pool_team_leader_scope",
+      "primaryKey": 980039,
+      "semanticKey": {
+        "leaderType": "PRODUCTION",
+        "scopeType": "PROCESS",
+        "processId": 922985
+      },
+      "beforeCount": 0,
+      "afterCount": 1
+    },
+    {
+      "table": "mes_pro_process_pool_team_leader_scope",
+      "primaryKey": 980040,
+      "semanticKey": {
+        "leaderType": "PRODUCTION",
+        "scopeType": "WORKSTATION",
+        "workstationId": 980010
+      },
+      "beforeCount": 0,
+      "afterCount": 1
+    },
+    {
+      "table": "mes_pro_process_pool_team_process_device",
+      "primaryKey": 15,
+      "semanticKey": {
+        "processId": 922985,
+        "deviceId": 41
+      },
+      "beforeCount": 0,
+      "afterCount": 1
+    },
+    {
+      "table": "mes_pro_process_pool_team_employee_binding",
+      "primaryKey": 21,
+      "semanticKey": {
+        "processId": 922985,
+        "employeeProfileId": 980022,
+        "employeeUserId": 964
+      },
+      "displayNameSource": "mes_pro_process_pool_team_employee_profile.id=980022",
+      "beforeCount": 0,
+      "afterCount": 1
+    }
+  ],
+  "rollback": "db-repair/rrm-primary-process-runtime-prereq-rollback.sql"
+}

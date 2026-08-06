@@ -1,7 +1,7 @@
 # 岗位需求分解矩阵真实 E2E 前置证据
 
 - Task ID: `20260801-role-requirement-matrix-implementation`
-- Generated At: `2026-08-05T16:30:03.610Z`
+- Generated At: `2026-08-05T23:34:41.797Z`
 - Status: `BLOCKED`
 - Frontend: `http://127.0.0.1:8081`
 - Backend: `http://127.0.0.1:48081`
@@ -10,23 +10,12 @@
 
 ## Result
 
-- BLOCKED: 75 blockers remain.
-- E2E_PQC_SUBMISSION_UI:pqcFormalSubmissionCreated -> 点击 PQC 提交后未捕获正式提交接口响应：page.waitForResponse: Timeout 30000ms exceeded while waiting for event "response"
-- E2E_PQC_SUBMISSION_DATA:pqcLeaderSubmissionFilterPaginationConsistent -> 当前本机租户没有当天球囊扩张压力泵任务的正式 PQC 提交事件，无法通过真实 PQC 组长页面证明多条件筛选和分页 total 一致性；需要先完成至少两笔可筛选的正式 PQC 提交夹具。
-- E2E_PQC_DETAIL_DATA:pqcLeaderSubmissionDetailTraceable -> PQC 组长详情核验前缺少本轮正式 PQC 提交事件，不能用旧事件证明逐件明细和原始 payload 可追溯。
-- E2E_PQC_DETAIL_PERMISSION:pqcLeaderSubmissionDetailUnauthorizedBlocked -> PQC 详情权限隔离核验前缺少本轮正式 PQC 提交事件，不能用旧事件或空事件证明详情读取会被拒绝。
-- E2E_PQC_REVIEW_DATA:pqcLeaderReviewApprovedAndAggregated -> PQC 组长复核前缺少本轮正式 PQC 提交事件证据，不能用旧数据替代真实复核汇集验证。
+- BLOCKED: 67 blockers remain.
+- E2E_PQC_REVIEW_BUSINESS:pqcLeaderReviewApprovedAndAggregated -> PQC 组长复核接口业务失败：系统异常
 - E2E_PQC_REVIEW_TERMINAL:pqcLeaderDuplicateTerminalReviewBlocked -> 重复终态复核失败路径缺少本轮 pqcLeaderReviewApprovedAndAggregated PASS 证据，不能用旧事件替代同事件二次复核验证。
-- E2E_PQC_REVIEW_SELF:pqcLeaderSelfReviewBlocked -> PQC 组长提交看板没有待复核且 actualEmployeeUserId 等于当前 PQC 组长的任务自有事件，不能证明自我复核失败路径。
-- E2E_PQC_SOURCE_EVENT:pqcLeaderRejectedCorrectionChain -> 无法通过 PQC 检验员真实页面准备退回补正候选：生产填写提交业务失败：工序池提交事件电子签名已存在：99008153。
 - E2E_PQC_AGGREGATION_READONLY:pqcProcessInspectionAggregationReadOnly -> 过程检验汇集只读核验前缺少本轮已确认 PQC 复核和正式提交事件证据，不能用旧数据替代。
 - E2E_QA_REGULATION_PAGE:qaRegulationPublishedVersionReadOnly -> 当前 QA 入口只证明页面 shell 可加载，未在真实页面观察到正式 QA 检验规程发布版本、产品/路线版本/工序、首检/巡检/末检完整性、逐工序批记录绑定和发布不可变证据；不能用旧质检方案页替代 BDD-07。
-- E2E_RELEASE_TRACEABILITY_PREP:edhrReleasePreparedViaBatchExecutionPage -> 生产组长真实页面准备 eDHR 放行批次失败：locator.waitFor: Timeout 30000ms exceeded.
-Call log:
-[2m  - waiting for locator('.el-select-dropdown:visible .el-select-dropdown__item').filter({ hasText: 'ID 922119' }).first() to be visible[22m
-
-- E2E_CONCURRENCY:m6ConcurrencyGateDeferred -> 测试矩阵中 12 个 CONC AC 仍需逐项完成真实并发或服务级并发证据；当前已观察 3 个 CONC AC（AC-M04, AC-M07, AC-M23），已有 proof AC-M04, AC-M07, AC-M16, AC-M17, AC-M18, AC-M20, AC-M21, AC-M23, AC-D29, AC-D34, AC-D37，缺少 proof AC-M19。
-- E2E_PERFORMANCE:m6PerformanceGateDeferred -> 测试矩阵中 4 个 PERF AC 仍需分页总数、索引或查询计数证据；当前已观察 3 个 PERF AC（AC-D12, AC-D38, AC-D27），但 request-budget、后端查询计数、索引或分页总数证明尚未全部闭环。
+- E2E_CONCURRENCY:m6ConcurrencyGateDeferred -> 测试矩阵中 12 个 CONC AC 仍需逐项完成真实并发或服务级并发证据；当前已观察 4 个 CONC AC（AC-M04, AC-M07, AC-D29, AC-M23），已有 proof AC-M04, AC-M07, AC-M16, AC-M17, AC-M18, AC-M20, AC-M21, AC-M23, AC-D29, AC-D34, AC-D37，缺少 proof AC-M19。
 - E2E_COVERAGE:AC-M01 -> TC-M01 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已执行真实动作：scheduleOrderErpCandidateAdmission。
 - E2E_COVERAGE:AC-M02 -> TC-M02 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已执行真实动作：activeOrderTransferTraceReadOnly。
 - E2E_COVERAGE:AC-M03 -> TC-M03 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
@@ -48,8 +37,8 @@ Call log:
 - E2E_COVERAGE:AC-M19 -> TC-M19 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
 - E2E_COVERAGE:AC-M20 -> TC-M20 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
 - E2E_COVERAGE:AC-M21 -> TC-M21 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
-- E2E_COVERAGE:AC-M22 -> TC-M22 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：releaseOwnerEntry；已执行真实动作：edhrReleaseTraceabilityReadOnly。
-- E2E_COVERAGE:AC-M23 -> TC-M23 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：releaseOwnerEntry；已执行真实动作：edhrReleaseTraceabilityReadOnly。
+- E2E_COVERAGE:AC-M22 -> TC-M22 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：releaseOwnerEntry；已执行真实动作：edhrReleasePreparedViaBatchExecutionPage, edhrReleaseTraceabilityReadOnly。
+- E2E_COVERAGE:AC-M23 -> TC-M23 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：releaseOwnerEntry；已执行真实动作：edhrReleasePreparedViaBatchExecutionPage, edhrReleaseTraceabilityReadOnly。
 - E2E_COVERAGE:AC-D01 -> TC-D01 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
 - E2E_COVERAGE:AC-D02 -> TC-D02 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
 - E2E_COVERAGE:AC-D03 -> TC-D03 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
@@ -78,13 +67,13 @@ Call log:
 - E2E_COVERAGE:AC-D26 -> TC-D26 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
 - E2E_COVERAGE:AC-D27 -> TC-D27 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry；已执行真实动作：pqcPieceDetailQuantityPrepared。
 - E2E_COVERAGE:AC-D28 -> TC-D28 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
-- E2E_COVERAGE:AC-D29 -> TC-D29 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
-- E2E_COVERAGE:AC-D30 -> TC-D30 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
+- E2E_COVERAGE:AC-D29 -> TC-D29 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry；已执行真实动作：pqcFormalSubmissionCreated。
+- E2E_COVERAGE:AC-D30 -> TC-D30 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench；已执行真实动作：pqcLeaderRejectedCorrectionChain。
 - E2E_COVERAGE:AC-D31 -> TC-D31 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry；已执行真实动作：pqcRegulationItemsRendered, pqcActualEmployeeSelected。
-- E2E_COVERAGE:AC-D32 -> TC-D32 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
-- E2E_COVERAGE:AC-D33 -> TC-D33 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
+- E2E_COVERAGE:AC-D32 -> TC-D32 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench；已执行真实动作：pqcFormalSubmissionCreated, pqcLeaderSubmissionFilterPaginationConsistent。
+- E2E_COVERAGE:AC-D33 -> TC-D33 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench；已执行真实动作：pqcLeaderSubmissionDetailTraceable, pqcLeaderSubmissionDetailUnauthorizedBlocked。
 - E2E_COVERAGE:AC-D34 -> TC-D34 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
-- E2E_COVERAGE:AC-D35 -> TC-D35 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
+- E2E_COVERAGE:AC-D35 -> TC-D35 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench；已执行真实动作：pqcLeaderSelfReviewBlocked。
 - E2E_COVERAGE:AC-D36 -> TC-D36 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
 - E2E_COVERAGE:AC-D37 -> TC-D37 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
 - E2E_COVERAGE:AC-D38 -> TC-D38 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：productionLeaderWorkbench；已执行真实动作：dailyClosePerformanceReadOnly。
@@ -93,7 +82,7 @@ Call log:
 ## Phase Evidence
 
 - PASS: productionEmployeeEntry -> 生产员工入口登录与前端应用加载; role=productionEmployee; selectors=#app
-- PASS: productionLeaderWorkbench -> 生产组长工作台与日结/分配表面; role=productionLeader; selectors=[data-team-leader-report-workbench], [data-role-matrix-daily-close], [data-team-leader-config-center], [data-team-leader-active-order-config]
+- PASS: productionLeaderWorkbench -> 生产组长工作台与日结/分配表面; role=productionLeader; selectors=[data-team-leader-report-workbench], [data-role-matrix-daily-close], [data-team-leader-active-order-config], [data-team-leader-config-center]
 - PASS: pqcInspectorEntry -> PQC 检验员入口登录与前端应用加载; role=pqcInspector; selectors=#app
 - PASS: pqcLeaderWorkbench -> PQC 组长复核表面; role=pqcLeader; selectors=[data-pqc-leader-workbench-page], [data-team-leader-report-workbench], [data-role-matrix-daily-close]
 - PASS: qaRegulationEntry -> QA 规程维护入口; role=qa; selectors=#app
@@ -110,31 +99,31 @@ Call log:
 - PASS: pqcRegulationItemsRendered -> PQC 页面按已发布 QA 规程渲染检验项目; role=pqcInspector; acceptance=AC-D17, AC-D19, AC-D24, AC-D31
 - PASS: pqcPieceDetailQuantityPrepared -> PQC 逐件明细数量按计划数量准备; role=pqcInspector; acceptance=AC-D27
 - PASS: pqcActualEmployeeSelected -> 共享账号下选择实际 PQC 检验人员; role=pqcInspector; acceptance=AC-D25, AC-D31
-- BLOCKED: pqcFormalSubmissionCreated -> PQC 正式提交生成过程池检验事件; role=pqcInspector; acceptance=AC-D29, AC-D32
-- BLOCKED: pqcLeaderSubmissionFilterPaginationConsistent -> PQC 组长提交看板筛选分页一致性; role=pqcLeader; acceptance=AC-D32
-- BLOCKED: pqcLeaderSubmissionDetailTraceable -> PQC 组长提交详情逐件追溯; role=pqcLeader; acceptance=AC-D33
-- BLOCKED: pqcLeaderSubmissionDetailUnauthorizedBlocked -> PQC 组长提交详情权限隔离; role=unauthorizedActor; acceptance=AC-D33
+- PASS: pqcFormalSubmissionCreated -> PQC 正式提交生成过程池检验事件; role=pqcInspector; acceptance=AC-D29, AC-D32
+- PASS: pqcLeaderSubmissionFilterPaginationConsistent -> PQC 组长提交看板筛选分页一致性; role=pqcLeader; acceptance=AC-D32
+- PASS: pqcLeaderSubmissionDetailTraceable -> PQC 组长提交详情逐件追溯; role=pqcLeader; acceptance=AC-D33
+- PASS: pqcLeaderSubmissionDetailUnauthorizedBlocked -> PQC 组长提交详情权限隔离; role=unauthorizedActor; acceptance=AC-D33
 - BLOCKED: pqcLeaderReviewApprovedAndAggregated -> PQC 组长确认后汇集过程检验记录; role=pqcLeader; acceptance=AC-M20, AC-D34, AC-D37
 - BLOCKED: pqcLeaderDuplicateTerminalReviewBlocked -> PQC 组长重复终态复核拒绝; role=pqcLeader; acceptance=AC-M20, AC-D34, AC-D37
-- BLOCKED: pqcLeaderSelfReviewBlocked -> PQC 组长自我复核拒绝; role=pqcLeader; acceptance=AC-D35
-- BLOCKED: pqcLeaderRejectedCorrectionChain -> PQC 组长退回后补正修订链; role=pqcLeader; acceptance=AC-D30
+- PASS: pqcLeaderSelfReviewBlocked -> PQC 组长自我复核拒绝; role=pqcLeader; acceptance=AC-D35
+- PASS: pqcLeaderRejectedCorrectionChain -> PQC 组长退回后补正修订链; role=pqcLeader; acceptance=AC-D30
 - BLOCKED: pqcProcessInspectionAggregationReadOnly -> 过程检验汇集只读核验; role=pqcLeader; acceptance=AC-M21, AC-D37
 - BLOCKED: qaRegulationPublishedVersionReadOnly -> QA 规程发布版本维护页面证据; role=qa; acceptance=AC-M09, AC-D15, AC-D16, AC-D17, AC-D18, AC-D19, AC-D20, AC-D21, AC-D22, AC-D23
-- BLOCKED: edhrReleasePreparedViaBatchExecutionPage -> eDHR 放行批次准备真实页面动作; role=productionLeader; acceptance=AC-M22, AC-M23
+- PASS: edhrReleasePreparedViaBatchExecutionPage -> eDHR 放行批次准备真实页面动作; role=productionLeader; acceptance=AC-M22, AC-M23
 - PASS: edhrReleaseTraceabilityReadOnly -> eDHR 放行追溯只读核验; role=releaseOwner; acceptance=AC-M22, AC-M23
 - PASS: activeOrderCleanupCompleted -> 活跃订单最终清理闭环; role=productionLeader; acceptance=AC-M04
 
 ## Gate Evidence
 
 - BLOCKED: m6ConcurrencyGateDeferred -> M6 并发门禁结构化; category=E2E_CONCURRENCY; acceptance=AC-M04, AC-M07, AC-M16, AC-M17, AC-M18, AC-M19, AC-M20, AC-M21, AC-M23, AC-D29, AC-D34, AC-D37
-- BLOCKED: m6PerformanceGateDeferred -> M6 性能门禁结构化; category=E2E_PERFORMANCE; acceptance=AC-D12, AC-D27, AC-D32, AC-D38
+- PASS: m6PerformanceGateVerified -> M6 性能门禁结构化; category=E2E_PERFORMANCE; acceptance=AC-D12, AC-D27, AC-D32, AC-D38
 
 ## Acceptance Coverage
 
 - Total: 62
 - Accepted: 0
-- Action Observed: 17
-- Surface Observed: 29
+- Action Observed: 22
+- Surface Observed: 24
 - Uncovered: 16
 - Pending: 62
 - AC-M01/TC-M01: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=--; actions=scheduleOrderErpCandidateAdmission
@@ -158,8 +147,8 @@ Call log:
 - AC-M19/TC-M19: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
 - AC-M20/TC-M20: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
 - AC-M21/TC-M21: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
-- AC-M22/TC-M22: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=releaseOwnerEntry; actions=edhrReleaseTraceabilityReadOnly
-- AC-M23/TC-M23: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=releaseOwnerEntry; actions=edhrReleaseTraceabilityReadOnly
+- AC-M22/TC-M22: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=releaseOwnerEntry; actions=edhrReleasePreparedViaBatchExecutionPage, edhrReleaseTraceabilityReadOnly
+- AC-M23/TC-M23: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=releaseOwnerEntry; actions=edhrReleasePreparedViaBatchExecutionPage, edhrReleaseTraceabilityReadOnly
 - AC-D01/TC-D01: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
 - AC-D02/TC-D02: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
 - AC-D03/TC-D03: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
@@ -188,13 +177,13 @@ Call log:
 - AC-D26/TC-D26: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
 - AC-D27/TC-D27: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcInspectorEntry; actions=pqcPieceDetailQuantityPrepared
 - AC-D28/TC-D28: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
-- AC-D29/TC-D29: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
-- AC-D30/TC-D30: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
+- AC-D29/TC-D29: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcInspectorEntry; actions=pqcFormalSubmissionCreated
+- AC-D30/TC-D30: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcLeaderWorkbench; actions=pqcLeaderRejectedCorrectionChain
 - AC-D31/TC-D31: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcInspectorEntry; actions=pqcRegulationItemsRendered, pqcActualEmployeeSelected
-- AC-D32/TC-D32: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
-- AC-D33/TC-D33: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
+- AC-D32/TC-D32: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcLeaderWorkbench; actions=pqcFormalSubmissionCreated, pqcLeaderSubmissionFilterPaginationConsistent
+- AC-D33/TC-D33: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcLeaderWorkbench; actions=pqcLeaderSubmissionDetailTraceable, pqcLeaderSubmissionDetailUnauthorizedBlocked
 - AC-D34/TC-D34: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
-- AC-D35/TC-D35: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
+- AC-D35/TC-D35: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcLeaderWorkbench; actions=pqcLeaderSelfReviewBlocked
 - AC-D36/TC-D36: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
 - AC-D37/TC-D37: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
 - AC-D38/TC-D38: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=productionLeaderWorkbench; actions=dailyClosePerformanceReadOnly

@@ -7,9 +7,9 @@
 ## Milestones
 
 - [x] M0：建立任务记录，读取后端、任务收尾和适用经验门禁。
-- [ ] M1：补充全量用户搜索与跨部门正式工关联的 BDD/RED 测试。
-- [ ] M2：实现系统全量用户候选搜索和正式工关联校验。
-- [ ] M3：运行定向后端回归、技能证据校验和差异检查。
+- [x] M1：补充全量用户搜索与跨部门正式工关联的 BDD/RED 测试。
+- [x] M2：实现系统全量用户候选搜索和正式工关联校验。
+- [x] M3：运行定向后端回归、技能证据校验和差异检查。
 - [ ] M4：完成经验沉淀、cleanup、提交并推送。
 
 ## Expected Verification
@@ -22,9 +22,15 @@
 
 ## Current Status
 
-in_progress
+blocked
 
-已确认现有实现直接调用 `AdminUserApi.getUserListBySubordinate`，导致候选和关联均被当前组长部门下属范围限制。
+功能实现、定向回归、evidence validator 和 cleanup 已通过，且实现已由并发提交 `633361dde` 推送到 `origin/int_main`。最终记录提交被 `E:\IntRuoyi\.git\index.lock` 阻塞：锁文件非空（1,441,792 字节），项目规则禁止删除非空锁；待共享仓库索引恢复后继续 M4。
+
+## Blockers
+
+- `git add -- <task-owned paths>` 返回 `Unable to create 'E:/IntRuoyi/.git/index.lock': File exists`。
+- 该锁由并发 Git 操作产生，持续存在且非空；已等待并确认原并发 commit/worktree-add 进程退出，但不得按“零字节陈旧锁”流程删除。
+- 影响：本任务 closeout 文档与经验文档尚未形成最终本地提交和推送；不影响已进入 `origin/int_main` 的功能实现与测试代码。
 
 ## Applicable Gates
 
@@ -34,6 +40,7 @@ in_progress
 - 权限不变：Controller 继续要求 `mes:pro-process-pool-team-leader:maintain`。
 - 无 fallback：不得在全量查询失败时回退到下属列表、空成功或前端本地过滤。
 - 当前主工作区已有未提交改动，按项目规则先创建独立脏工作区基线提交并记录文件清单。
+- 共享分支并发：实现被并行基线提交 `633361dde` 纳入后，必须保留该事实，不得把并行提交伪装成本任务独立实现提交。
 
 ## 设计约束检查
 

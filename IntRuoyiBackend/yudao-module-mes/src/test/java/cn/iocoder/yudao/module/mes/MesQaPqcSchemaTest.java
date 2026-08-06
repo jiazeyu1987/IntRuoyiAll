@@ -216,6 +216,28 @@ class MesQaPqcSchemaTest {
         assertTrue(sql.contains("UNIQUE KEY `uk_mes_pqc_process_aggregate_piece`"));
     }
 
+    @Test
+    void pqcProcessInspectionAggregateRuntimeClosureMustRepairExistingTable() throws Exception {
+        String sql = Files.readString(resolveBackendPath(
+                "sql/mysql/20260805_mes_pqc_process_inspection_aggregate_runtime_closure.sql"),
+                StandardCharsets.UTF_8);
+
+        assertTrue(sql.contains(
+                "dependsOn=20260805_mes_process_pool_ac_m20_pqc_review_closure,"
+                        + "20260805_mes_pqc_process_inspection_aggregate_detail"));
+        assertTrue(sql.contains("'active_order_id'"));
+        assertTrue(sql.contains("'route_version_id'"));
+        assertTrue(sql.contains("'actual_inspection_quantity'"));
+        assertTrue(sql.contains("JOIN `mes_pqc_inspection_task` `task`"));
+        assertTrue(sql.contains("`aggregate_detail`.`actual_inspection_quantity` = "
+                + "`task`.`actual_inspection_quantity`"));
+        assertTrue(sql.contains(
+                "MODIFY COLUMN `actual_inspection_quantity` int NOT NULL COMMENT '实际检验数量'"));
+        assertTrue(sql.contains("uk_mes_pqc_process_inspection_aggregate"));
+        assertTrue(sql.contains("idx_mes_pqc_process_inspection_review"));
+        assertTrue(sql.contains("idx_mes_pqc_process_inspection_submit_event"));
+    }
+
     private static String tableName(Class<?> clazz) {
         return clazz.getAnnotation(TableName.class).value();
     }

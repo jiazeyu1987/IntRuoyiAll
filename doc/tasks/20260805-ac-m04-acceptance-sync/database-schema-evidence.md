@@ -10,6 +10,12 @@
 - `mes_pro_process_pool_event.recordbook_entry_id`
 - `mes_pro_process_pool_pqc_record.production_submit_event_id`
 - `mes_pro_process_pool_quantity_fragment.production_submit_event_id`
+- `mes_pro_process_pool_team_leader_scope` local RRM fixture rows for process `922985` and workstation `980010`
+- `mes_pro_process_pool_team_leader_scope` local PQC review scope from leader user `512` to actual employee user `914524`
+- `mes_pro_process_pool_team_process_device` local RRM fixture row for process `922985` and device `41`
+- `mes_pro_process_pool_team_employee_binding` local RRM fixture row for process `922985` and employee profile `980022`
+- `mes_pro_task` local RRM fixture row for work order `980008`, route `922119`, process `922985`, and workstation `980010`
+- `system_users` local RRM test-account rows `512, 659, 964, 1301, 1520, 1618, 910272`
 
 ## Database Engine And Tooling
 
@@ -26,12 +32,27 @@
 
 BDD: P0 runtime idempotency migration gate -> Given production submit events and PQC records exist in the runtime database, When applying the P0 migration, Then every historical row must have a formal source for idempotency, recordbook entry and submit-root backfill before schema/index migration proceeds.
 
+BDD: RRM primary process runtime prerequisites -> Given the primary route process resolves to process `922985`, workstation `980010` and device `41`, When the production employee loads runtime configuration, Then the same production leader must own explicit process/workstation scopes plus process-device and process-employee bindings; adjacent process fixtures must not be used as fallback.
+
+BDD: RRM primary process production task -> Given the PQC source event must be created through a real production fill submission, When the production task page is queried by work order `980008`, route `922119`, and process `922985`, Then exactly one formal tenant-owned task must provide the matching workstation, item, quantity, and active status; an adjacent-process task must not be reused.
+
+BDD: RRM temporary credential restoration -> Given seven local RRM accounts were temporarily enabled and the wrapper did not establish its restore flag after the successful update, When recovering the local database, Then all seven rows must be restored from the exact WHERE-side binlog image for password, updater and update_time in one guarded transaction; guessed hashes and partial restore are forbidden.
+
+BDD: RRM PQC review scope -> Given PQC event `133` is a formal submitted event for actual employee `914524`, When PQC leader `512` loads the scope-filtered submission board, Then the event is visible only through an enabled `PQC + EMPLOYEE` scope from `512` to `914524`; the timeline authority filter must not be removed or bypassed.
+
 ## RED Evidence
 
 - RED: schema probe -> FAIL because `mes_pro_process_pool_event` lacks `event_idempotency_key` / `recordbook_entry_id`.
 - RED: `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_migration_apply_preflight.py` -> BLOCKED with 88 historical backfill blockers.
 - RED: `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_backfill_sources.py` -> BLOCKED because current structured sources cannot uniquely derive the 88 target backfill rows.
 - RED: `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_backfill_repair_plan.py` -> BLOCKED and read-only; DB writes require authorization, backup, rollback, row manifest and dry-run.
+- RED: full RRM real E2E -> BLOCKED at production runtime configuration with `frontline runtime deviceId=41`.
+- RED: local read-only fixture probe -> expected four primary-process semantic bindings, observed all four counts at 0 while candidate IDs were collision-free.
+- RED: first fixture apply -> MySQL `ERROR 1267 Illegal mix of collations`; four task-owned rows persisted because procedure DDL implicitly committed the original transaction. The first result was rejected and must be exactly rolled back before retrying with corrected transaction placement and collation.
+- RED: full RRM real E2E after runtime fixture repair -> BLOCKED because the exact production-task page query for work order `980008`, route `922119`, and process `922985` returned zero rows.
+- RED: local exact task probe -> expected one primary-process task, observed semantic count `0`; candidate ID `981940` and code `RRM-20260805-PRIMARY-922985` were collision-free.
+- RED: local account restore preflight -> expected seven accounts in their pre-wrapper state, observed one shared temporary password value and one shared database-clock update time. Binlog position `8815139` contains the exact seven-row before image required for recovery.
+- RED: local PQC review-scope probe -> event `133`, PQC record `90`, and task `93` exist, but leader `512` has responsible employee IDs `{512,659}` while the event actual employee is `914524`; the current board query returns `0`, and the same query with `914524` included returns `1`.
 
 ## GREEN Evidence
 
@@ -43,6 +64,11 @@ BDD: P0 runtime idempotency migration gate -> Given production submit events and
 - GREEN: `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_backfill_sources.py` -> PASS with `blockers=[]` and all target row counts at 0.
 - GREEN: `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_migration.py` -> PASS; required P0 columns and indexes exist.
 - GREEN: local DB post-count probe -> PASS; `repair_events=19`, `repair_entries=21`, `repair_recordbook_events=21`, and missing counts for PQC submit roots, quantity fragment submit roots, event idempotency keys, and recordbook entries are all 0.
+- GREEN: local RRM account restoration -> PASS; seven rows were restored from the exact before image at `binlog.000128` position `8815139`, the guarded transaction reported 7 restored rows, and the temporary credential value remained on 0 target rows. The database-clock timestamp `2026-08-06 03:36:18` is future-skewed relative to the current date `2026-08-05`.
+- GREEN: credential artifact cleanup -> PASS; the temporary decoded-binlog carrier was deleted after verification and no password hash was written to project evidence.
+- GREEN: RRM primary-process fixture repair -> PASS; backup、manifest、transactional apply、exact post-count verification 均已完成，full real E2E 继续到后续 PQC 阶段。
+- GREEN: RRM primary-process production task -> PASS; task `981940` 已按精确备份、manifest、transactional apply 和 post-count 验证写入，full real E2E 已使用该正式任务创建生产 source event。
+- GREEN: RRM PQC review scope -> PASS; backup `db-backup/acm04-rrm-pqc-review-scope-20260805.sql` SHA256 `21A4C7D7E4D16ADEC838A2202BBE7A4C4CE8F4C0105EF5BF7948C44AFEC74BFA`，apply/rollback/manifest 齐备，后置验证 `SCOPE_ROW=1`、`VISIBLE_EVENT=1`、残留存储过程 `0`。
 
 ## Safety Decision
 
@@ -56,6 +82,10 @@ Final safety decision: after authorization, the repair used a row-level manifest
 
 - Full restore option: restore `db-backup/acm04-p0-backfill-extended-20260805-203724.sql` into the local `ruoyi-vue-pro` database.
 - Targeted rollback option: execute `db-repair/p0-backfill-rollback.sql`, then rerun `verify_p0_runtime_migration_apply_preflight.py` and schema probes.
+- RRM primary-process fixture rollback: execute `db-repair/rrm-primary-process-runtime-prereq-rollback.sql`; it may delete only the four exact task-owned rows whose creator/updater/remark and business keys still match the manifest.
+- RRM primary-process task rollback: execute `db-repair/rrm-primary-process-task-rollback.sql`; it may delete only task `981940` when every task-owned field still matches and no downstream feedback, issue, or schedule-extension dependency exists.
+- RRM account recovery source: local `binlog.000128` position `8815139`; restore only the seven authorized test-account rows and verify no temporary credential value remains.
+- RRM PQC review scope rollback: execute `db-repair/rrm-pqc-review-scope-rollback.sql`; it may delete only scope `980041` when leader, employee, creator, updater, remark, enabled, tenant and deleted fields still match the manifest.
 
 ## Verification
 

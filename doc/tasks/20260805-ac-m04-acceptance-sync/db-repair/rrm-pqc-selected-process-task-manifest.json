@@ -1,0 +1,50 @@
+{
+  "repairId": "ACM04_RRM_PQC_SELECTED_PROCESS_TASK_20260805_LOCAL",
+  "taskId": "20260805-ac-m04-acceptance-sync",
+  "database": "ruoyi-vue-pro",
+  "environment": "local-docker-only",
+  "tenantId": 1,
+  "creator": "rrm-acm04",
+  "updater": "rrm-acm04",
+  "remark": "rrm-ac-m04-pqc-source-task-922987",
+  "backup": {
+    "path": "db-backup/acm04-rrm-pqc-selected-process-task-20260805.sql",
+    "scope": "mes_pro_task WHERE work_order_id=980008",
+    "sha256": "CC2DEF017C07B4E1C95A13CBD47FF766EDF570C38C29B95DACE4211A9EE636B8"
+  },
+  "sourceIdentity": {
+    "pqcTaskId": 68,
+    "activeOrderId": 12,
+    "workOrderId": 980008,
+    "workOrderCode": "RRM-20260801-PP-MO-001",
+    "routeId": 922119,
+    "routeVersionId": 448,
+    "routeProcessId": 928611,
+    "processId": 922987,
+    "workstationId": 980009,
+    "itemId": 902149,
+    "regulationVersionId": 18,
+    "adjacentTaskId": 981939,
+    "primaryTaskId": 981940
+  },
+  "rows": [
+    {
+      "table": "mes_pro_task",
+      "primaryKey": 981941,
+      "semanticKey": {
+        "workOrderId": 980008,
+        "routeId": 922119,
+        "processId": 922987
+      },
+      "code": "RRM-20260805-PQC-922987",
+      "name": "RRM PQC selected process source task 922987",
+      "workstationId": 980009,
+      "itemId": 902149,
+      "quantity": "10.000000",
+      "status": 0,
+      "beforeCount": 0,
+      "afterCount": 1
+    }
+  ],
+  "rollback": "db-repair/rrm-pqc-selected-process-task-rollback.sql"
+}

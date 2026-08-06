@@ -18,6 +18,7 @@ const PRODUCTION_FILL_ROUTE = '/mes/pro/feedback/edhr-batch-production-fill'
 const PQC_FILL_ROUTE = '/mes/pro/feedback/edhr-batch-pqc-fill'
 const FRONTLINE_SUBMIT_ENDPOINT = '/mes/pro/feedback/frontline/submit'
 const PRODUCTION_FEEDBACK_TYPE_SELF = 1
+const reservedProductionSignatureIds = new Set()
 
 const ACTIVE_ORDER_DO = path.resolve(
   BACKEND_ROOT,
@@ -193,8 +194,12 @@ const M6_REAL_FLOW_PHASES = [
         selectors: ['[data-role-matrix-daily-close]']
       },
       {
+        tabText: '活跃订单池',
+        selectors: ['[data-team-leader-active-order-config]']
+      },
+      {
         tabText: '班组配置',
-        selectors: ['[data-team-leader-config-center]', '[data-team-leader-active-order-config]']
+        selectors: ['[data-team-leader-config-center]']
       }
     ],
     actionKey: 'joinActiveOrder',
@@ -1478,12 +1483,6 @@ async function fillFormItem(section, label, value) {
   await fillFirstVisible(item.locator('input'), String(value), label)
 }
 
-async function fillElementPlusInput(section, selector, value) {
-  const input = section.locator(`input${selector}, ${selector} input`).first()
-  await input.waitFor({ state: 'visible', timeout: 30000 })
-  await input.fill(String(value))
-}
-
 function formForAction(section, actionText) {
   return section.getByRole('button', { name: actionText }).first()
     .locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " el-form ")][1]')
@@ -1670,16 +1669,19 @@ async function reloadActiveOrderRows(page) {
 
 async function performActiveOrderJoin(page, config) {
   const section = page.locator('[data-team-leader-active-order-config]').first()
-  await fillFormItemForAction(section, '加入活跃订单', '生产订单ID', config.workOrderId)
-  await fillFormItemForAction(section, '加入活跃订单', '路线ID', config.routeId)
-  await fillFormItemForAction(section, '加入活跃订单', '路线版本ID', config.routeVersionId)
-  await fillFormItemForAction(section, '加入活跃订单', '调拨单ID列表', config.transferIds.join(','))
+  await section.getByRole('button', { name: '新增活跃订单' }).click()
+  const dialog = page.locator('[data-team-leader-active-order-add-dialog]').first()
+  await dialog.waitFor({ state: 'visible', timeout: 10000 })
+  await fillFormItem(dialog, '生产订单ID', config.workOrderId)
+  await fillFormItem(dialog, '路线ID', config.routeId)
+  await fillFormItem(dialog, '路线版本ID', config.routeVersionId)
+  await fillFormItem(dialog, '调拨单ID列表', config.transferIds.join(','))
   const listResponsePromise = page.waitForResponse((response) =>
     response.url().includes('/mes/pro/process-pool/team-leader/active-order/list')
       && response.request().method() === 'GET'
   , { timeout: 30000 }).catch((error) => ({ activeOrderListResponseError: error }))
   const activeOrderId = await clickButtonAndWaitForSuccess(
-    section,
+    dialog,
     '加入活跃订单',
     '/mes/pro/process-pool/team-leader/active-order/add'
   )
@@ -1893,12 +1895,15 @@ async function verifyScheduleOrderErpCandidateAdmission(page, config) {
 async function verifyActiveOrderConflictRouteFailure(page, config, joinEvidence) {
   const conflictRouteId = config.routeId + 1
   const section = page.locator('[data-team-leader-active-order-config]').first()
-  await fillFormItemForAction(section, '加入活跃订单', '生产订单ID', config.workOrderId)
-  await fillFormItemForAction(section, '加入活跃订单', '路线ID', conflictRouteId)
-  await fillFormItemForAction(section, '加入活跃订单', '路线版本ID', config.routeVersionId)
-  await fillFormItemForAction(section, '加入活跃订单', '调拨单ID列表', config.transferIds.join(','))
+  await section.getByRole('button', { name: '新增活跃订单' }).click()
+  const dialog = page.locator('[data-team-leader-active-order-add-dialog]').first()
+  await dialog.waitFor({ state: 'visible', timeout: 10000 })
+  await fillFormItem(dialog, '生产订单ID', config.workOrderId)
+  await fillFormItem(dialog, '路线ID', conflictRouteId)
+  await fillFormItem(dialog, '路线版本ID', config.routeVersionId)
+  await fillFormItem(dialog, '调拨单ID列表', config.transferIds.join(','))
   const body = await clickButtonAndWaitForBusinessFailure(
-    section,
+    dialog,
     '加入活跃订单',
     '/mes/pro/process-pool/team-leader/active-order/add'
   )
@@ -1907,6 +1912,8 @@ async function verifyActiveOrderConflictRouteFailure(page, config, joinEvidence)
   await page.locator('.el-message, .el-notification').filter({
     hasText: /活跃订单|工序|路线|目标数量|快照/
   }).first().waitFor({ state: 'visible', timeout: 10000 })
+  await dialog.getByRole('button', { name: '取消' }).click()
+  await dialog.waitFor({ state: 'hidden', timeout: 10000 })
   const rows = await reloadActiveOrderRows(page)
   assert.ok(Array.isArray(rows), '冲突路线失败后活跃订单列表必须仍可读取。')
   assert.ok(
@@ -2259,6 +2266,7 @@ async function verifyPqcRegulationItemsRendered(page, config, actionEvidence) {
     .find(({ item }) => !item.itemCode || !item.itemName || !item.inspectionMethod || !item.standardText || !item.resultType)
   assert.equal(invalidItem, undefined, 'PQC 检验项目必须包含项目编码、名称、方法、标准和结果类型。')
 
+  const selectedPqcProcess = matchingProcesses[0]
   const itemCount = matchingProcesses.reduce((sum, process) => sum + process.inspectionItems.length, 0)
   const inspectionTypes = [...new Set(matchingProcesses.map((process) => process.inspectionType).filter(Boolean))]
   const regulationVersionIds = [...new Set(matchingProcesses.map((process) => process.regulationVersionId))]
@@ -2291,8 +2299,8 @@ async function verifyPqcRegulationItemsRendered(page, config, actionEvidence) {
     if (normalized === 'BOOLEAN' || normalized === 'CHOICE' || normalized === 'PASS_FAIL') return '合格/不合格'
     return String(resultType || '').trim()
   }
-  const visibleFormalItem = matchingProcesses
-    .flatMap((process) => process.inspectionItems.map((item) => ({ process, item })))
+  const visibleFormalItem = selectedPqcProcess.inspectionItems
+    .map((item) => ({ process: selectedPqcProcess, item }))
     .find(({ item }) => {
       const method = String(item.inspectionMethod || '').trim()
       const standard = String(item.standardText || '').trim()
@@ -2317,6 +2325,13 @@ async function verifyPqcRegulationItemsRendered(page, config, actionEvidence) {
     acceptanceIds: ['AC-D17', 'AC-D19', 'AC-D24', 'AC-D31'],
     activeOrderId: joinEvidence.activeOrderId,
     processCount: matchingProcesses.length,
+    routeProcessId: requirePositiveFormalId(selectedPqcProcess.routeProcessId, 'PQC 页面选中路线工序'),
+    processId: requirePositiveFormalId(selectedPqcProcess.processId, 'PQC 页面选中工序'),
+    pqcTaskId: requirePositiveFormalId(selectedPqcProcess.pqcTaskId, 'PQC 页面选中任务'),
+    selectedRegulationVersionId: requirePositiveFormalId(
+      selectedPqcProcess.regulationVersionId,
+      'PQC 页面选中规程版本'
+    ),
     itemCount,
     inspectionTypes,
     regulationVersionIds,
@@ -2602,6 +2617,17 @@ async function fillVisiblePqcPieceModalValues(modal) {
   return inputCount + passButtonCount
 }
 
+async function selectFirstFormalPqcOption(select, label) {
+  await select.waitFor({ state: 'visible', timeout: 30000 })
+  const firstFormalOption = select.locator('option:not([value=""])').first()
+  await firstFormalOption.waitFor({ state: 'attached', timeout: 30000 })
+  const value = String(await firstFormalOption.getAttribute('value') || '').trim()
+  assert.ok(value, `${label}缺少可选择的正式选项。`)
+  await select.selectOption(value)
+  assert.equal(await select.inputValue(), value, `${label}必须保留真实选择结果。`)
+  return value
+}
+
 async function completePqcPieceDetailsForSubmission(page, alreadyCompletedCount = 0) {
   let completedPieceValueCount = alreadyCompletedCount
   let completedChoiceItemCount = 0
@@ -2612,6 +2638,17 @@ async function completePqcPieceDetailsForSubmission(page, alreadyCompletedCount 
     await tabs.nth(index).click()
     const activePanel = page.locator('[data-pqc-active-inspection-panel]').first()
     await activePanel.waitFor({ state: 'visible', timeout: 30000 })
+    const inspectionEntry = String(
+      await activePanel.getAttribute('data-pqc-inspection-entry') || index + 1
+    )
+    await selectFirstFormalPqcOption(
+      activePanel.locator('[data-pqc-equipment-select]').first(),
+      `PQC项目${inspectionEntry}检验设备`
+    )
+    await selectFirstFormalPqcOption(
+      activePanel.locator('[data-pqc-equipment-number-select]').first(),
+      `PQC项目${inspectionEntry}设备编号`
+    )
     const passButton = activePanel.getByRole('button', { name: /^全部合格$/ }).first()
     if (await passButton.count()) {
       await passButton.click()
@@ -3029,6 +3066,47 @@ function requireSignatureId(config, roleKey) {
   return signatureId
 }
 
+function collectConfiguredProductionSignatureIds(config) {
+  const candidates = []
+  const pushCandidate = (value) => {
+    const signatureId = Number(value)
+    if (Number.isFinite(signatureId) && signatureId > 0 && !candidates.includes(signatureId)) {
+      candidates.push(signatureId)
+    }
+  }
+  pushCandidate(config.signatureIds?.productionEmployee)
+  const extraEntries = Object.entries(config.signatureIds || {})
+    .filter(([roleKey]) => /^productionExtra\d+$/.test(roleKey))
+    .sort(([leftRoleKey], [rightRoleKey]) =>
+      Number(leftRoleKey.replace('productionExtra', '')) - Number(rightRoleKey.replace('productionExtra', '')))
+  for (const [, signatureId] of extraEntries) {
+    pushCandidate(signatureId)
+  }
+  assert.ok(
+    candidates.length > 0,
+    'RRM_SIGNATURE_IDS_JSON 必须提供 productionEmployee 或 productionExtra* 正式电子签名 ID。'
+  )
+  return candidates
+}
+
+function resolveNextProductionSignatureId(config, preferredRoleKey) {
+  assert.equal(
+    preferredRoleKey,
+    'productionEmployee',
+    '生产 source event 只能从 productionEmployee/productionExtra* 专用签名池领取签名 ID。'
+  )
+  const candidateSignatureIds = collectConfiguredProductionSignatureIds(config)
+  const signatureId = candidateSignatureIds.find(
+    (candidate) => !reservedProductionSignatureIds.has(candidate)
+  )
+  assert.ok(
+    signatureId,
+    '生产 source event 专用签名池已耗尽；请在 RRM_SIGNATURE_IDS_JSON 中补充 productionExtra* 正式签名 ID。'
+  )
+  reservedProductionSignatureIds.add(signatureId)
+  return signatureId
+}
+
 function isPqcSignaturePoolRole(roleKey, preferredRoleKey) {
   return roleKey === preferredRoleKey || /^pqcExtra\d+$/.test(roleKey)
 }
@@ -3173,6 +3251,8 @@ function buildPqcFillUrl(config, context, employeeEvidence, signatureId) {
   appendQueryValue(query, 'routeId', config.routeId)
   appendQueryValue(query, 'productionSubmitEventId', context.processPoolEventId)
   appendQueryValue(query, 'processPoolEventId', context.processPoolEventId)
+  appendQueryValue(query, 'routeProcessId', context.routeProcessId)
+  appendQueryValue(query, 'processId', context.processId)
   appendQueryValue(query, 'actualEmployeeId', employeeEvidence?.actualEmployeeId)
   appendQueryValue(query, 'signatureId', signatureId)
   appendQueryValue(query, 'regulationVersionId', config.qaRegulationVersionId)
@@ -3204,7 +3284,16 @@ function normalizePageList(data) {
   return []
 }
 
-async function loadProductionProcessForPqcPrereq(page, config) {
+async function loadProductionProcessForPqcPrereq(page, config, regulationEvidence) {
+  const targetRouteProcessId = requirePositiveFormalId(
+    regulationEvidence?.routeProcessId,
+    'PQC 页面冻结路线工序'
+  )
+  const targetProcessId = requirePositiveFormalId(
+    regulationEvidence?.processId,
+    'PQC 页面冻结工序'
+  )
+  requirePositiveFormalId(regulationEvidence?.pqcTaskId, 'PQC 页面冻结任务')
   const result = await fetchPqcPrereqData(
     page,
     '/admin-api/mes/pro/feedback/frontline/device-account/processes',
@@ -3214,14 +3303,18 @@ async function loadProductionProcessForPqcPrereq(page, config) {
   const processes = Array.isArray(result.data) ? result.data : []
   const process = processes.find((item) =>
     Number(item.routeId) === Number(config.routeId)
-      && Number(item.routeProcessId) === Number(config.primaryRouteProcessId)
+      && Number(item.routeProcessId) === targetRouteProcessId
+      && Number(item.processId) === targetProcessId
   )
   if (!process) {
     return {
       status: 'BLOCKED',
       processCount: processes.length,
       routeProcessIds: processes.map((item) => Number(item.routeProcessId)).filter((value) => Number.isFinite(value)),
-      description: '生产填写设备账号工序列表没有返回 RRM_ROUTE_PROCESS_ID_1 对应的正式主工序，不能生成与当前路线一致的生产提交事件。'
+      targetRouteProcessId,
+      targetProcessId,
+      targetPqcTaskId: Number(regulationEvidence.pqcTaskId),
+      description: '生产填写设备账号工序列表没有返回 PQC 页面本轮选中任务对应的同一路线工序和工序，不能生成同源生产提交事件。'
     }
   }
   return { status: 'PASS', process, processCount: processes.length }
@@ -3468,7 +3561,16 @@ async function submitFrontlineProductionForPqcPrereq(page, config, context) {
 }
 
 async function resolveProductionSubmitContextForPqcPrereq(page, config, actionEvidence) {
-  const processResult = await loadProductionProcessForPqcPrereq(page, config)
+  const regulationEvidence = actionEvidence.find((item) =>
+    item.key === 'pqcRegulationItemsRendered' && item.status === 'PASS')
+  if (!regulationEvidence) {
+    return {
+      status: 'BLOCKED',
+      category: 'E2E_PQC_SOURCE_EVENT',
+      description: '准备生产 source event 前缺少 PQC 页面本轮选中任务的冻结工序证据。'
+    }
+  }
+  const processResult = await loadProductionProcessForPqcPrereq(page, config, regulationEvidence)
   if (processResult.status !== 'PASS') return processResult
   const process = processResult.process
   const [runtimeResult, employeeResult, taskResult, recordbookResult] = await Promise.all([
@@ -3488,7 +3590,7 @@ async function resolveProductionSubmitContextForPqcPrereq(page, config, actionEv
       description: `解析生产组长审批人 ID 失败：${leaderResolution.description}`
     }
   }
-  const signatureId = requireSignatureId(config, 'productionEmployee')
+  const signatureId = resolveNextProductionSignatureId(config, 'productionEmployee')
   const actualEmployeeId = requirePositiveFormalId(employeeResult.employee.userId, '生产填写实际员工')
   const task = taskResult.task
   const runtimeConfig = runtimeResult.runtimeConfig
@@ -4018,21 +4120,135 @@ function reviewStatusLabel(status) {
   return '待判定'
 }
 
+async function resetPqcLeaderSubmissionFilters(multiFilter) {
+  const resetButton = multiFilter.getByRole('button', { name: '重置' }).first()
+  if ((await resetButton.count()) === 0 || !(await resetButton.isVisible())) {
+    return
+  }
+  await resetButton.click()
+  await multiFilter
+    .locator('.table-multi-filter__tabs-empty')
+    .waitFor({ state: 'visible', timeout: 30000 })
+}
+
+async function ensurePqcLeaderSubmissionFilterCondition(
+  page,
+  multiFilter,
+  filterKey,
+  filterLabel
+) {
+  const field = multiFilter.locator(`[data-filter-key="${filterKey}"]`).first()
+  if ((await field.count()) > 0 && (await field.isVisible())) {
+    return field
+  }
+
+  const existingTab = multiFilter
+    .locator('.el-tabs__item')
+    .filter({ hasText: filterLabel })
+    .first()
+  if ((await existingTab.count()) > 0) {
+    await existingTab.click()
+    await field.waitFor({ state: 'visible', timeout: 30000 })
+    return field
+  }
+
+  const addButton = multiFilter.getByRole('button', { name: '新增筛选条件' }).first()
+  await addButton.waitFor({ state: 'visible', timeout: 30000 })
+  assert.equal(await addButton.isEnabled(), true, `PQC 组长筛选条件 ${filterLabel} 必须可新增。`)
+  await addButton.click()
+  await page.waitForTimeout(150)
+
+  if ((await field.count()) > 0 && (await field.isVisible())) {
+    return field
+  }
+
+  const fieldSelect = multiFilter.locator('.table-multi-filter__field-select').first()
+  await fieldSelect.waitFor({ state: 'visible', timeout: 30000 })
+  await fieldSelect.click()
+  const option = page
+    .locator('.el-select-dropdown:visible .el-select-dropdown__item')
+    .filter({ hasText: filterLabel })
+    .first()
+  await option.waitFor({ state: 'visible', timeout: 30000 })
+  await option.click()
+  await field.waitFor({ state: 'visible', timeout: 30000 })
+  return field
+}
+
+async function setPqcLeaderSubmissionFilter(
+  page,
+  multiFilter,
+  filterKey,
+  filterLabel,
+  value,
+  optionLabel
+) {
+  const field = await ensurePqcLeaderSubmissionFilterCondition(
+    page,
+    multiFilter,
+    filterKey,
+    filterLabel
+  )
+  if (optionLabel) {
+    const select = field.locator('.table-multi-filter-field__value').first()
+    await select.waitFor({ state: 'visible', timeout: 30000 })
+    await select.click()
+    const option = page
+      .locator('.el-select-dropdown:visible .el-select-dropdown__item')
+      .filter({ hasText: optionLabel })
+      .first()
+    await option.waitFor({ state: 'visible', timeout: 30000 })
+    await option.click()
+  } else {
+    const input = field.locator('input:not([readonly])').first()
+    await input.waitFor({ state: 'visible', timeout: 30000 })
+    await input.fill(String(value))
+    if (filterKey === 'submitDate') {
+      await input.press('Tab')
+    }
+  }
+  const displayedValue = String(optionLabel || value)
+  await multiFilter
+    .locator('.table-multi-filter__tabs .el-tabs__item')
+    .filter({ hasText: `${filterLabel}: ${displayedValue}` })
+    .first()
+    .waitFor({ state: 'visible', timeout: 30000 })
+}
+
 async function searchPqcLeaderSubmissionsOnPage(page, filters) {
   const section = page.locator('[data-team-leader-report-workbench]').first()
-  await fillFormItem(section, '提交日期', filters.submitDate)
-  await fillFormItem(section, '生产工单', filters.workOrderCode)
-  await fillFormItem(section, 'PQC检验员', filters.employeeUserId)
-  await fillFormItem(section, '工序', filters.processId)
-  await fillElementPlusInput(section, '[data-pqc-leader-filter-product]', filters.productKeyword)
-  await selectElementPlusOption(page, '[data-pqc-leader-filter-inspection-type]', inspectionTypeLabel(filters.inspectionType))
-  await fillElementPlusInput(section, '[data-pqc-leader-filter-round]', filters.roundNo)
-  await selectElementPlusOption(page, '[data-pqc-leader-filter-review-status]', reviewStatusLabel(filters.submissionReviewStatus))
+  const multiFilter = section
+    .locator('.table-multi-filter[data-table-key="mes.processPool.teamLeader.submissions"]')
+    .first()
+  await multiFilter.waitFor({ state: 'visible', timeout: 30000 })
+  await resetPqcLeaderSubmissionFilters(multiFilter)
+  await setPqcLeaderSubmissionFilter(page, multiFilter, 'submitDate', '提交日期', filters.submitDate)
+  await setPqcLeaderSubmissionFilter(page, multiFilter, 'workOrderCode', '生产工单', filters.workOrderCode)
+  await setPqcLeaderSubmissionFilter(page, multiFilter, 'employeeUserId', 'PQC检验员', filters.employeeUserId)
+  await setPqcLeaderSubmissionFilter(page, multiFilter, 'processId', '工序', filters.processId)
+  await setPqcLeaderSubmissionFilter(page, multiFilter, 'productKeyword', '产品', filters.productKeyword)
+  await setPqcLeaderSubmissionFilter(
+    page,
+    multiFilter,
+    'inspectionType',
+    '检验类型',
+    filters.inspectionType,
+    inspectionTypeLabel(filters.inspectionType)
+  )
+  await setPqcLeaderSubmissionFilter(page, multiFilter, 'roundNo', '轮次', filters.roundNo)
+  await setPqcLeaderSubmissionFilter(
+    page,
+    multiFilter,
+    'submissionReviewStatus',
+    '复核状态',
+    filters.submissionReviewStatus,
+    reviewStatusLabel(filters.submissionReviewStatus)
+  )
   const responsePromise = page.waitForResponse((response) =>
     response.url().includes('/mes/pro/process-pool/team-leader/submission/page')
       && response.request().method() === 'GET'
   , { timeout: 30000 }).catch((error) => ({ submissionFilterResponseError: error }))
-  await section.getByRole('button', { name: '搜索' }).click()
+  await multiFilter.getByRole('button', { name: '查询' }).click()
   const response = await responsePromise
   return { section, response }
 }
@@ -4512,6 +4728,60 @@ async function verifyPqcLeaderSubmissionDetailUnauthorizedBlocked(page, config, 
   }
 }
 
+function buildPqcLeaderReviewSignatureSnapshot(
+  eventId,
+  reviewerUserId,
+  reviewSignatureId,
+  reviewStatus,
+  purpose
+) {
+  return JSON.stringify({
+    source: 'RRM_REAL_E2E',
+    taskId: TASK_ID,
+    purpose,
+    eventId: Number(eventId),
+    reviewerUserId: Number(reviewerUserId),
+    reviewSignatureId: Number(reviewSignatureId),
+    reviewStatus,
+    signedAt: new Date().toISOString()
+  })
+}
+
+async function fillPqcLeaderReviewSignature(
+  dialog,
+  config,
+  reviewerUserId,
+  eventId,
+  reviewStatus,
+  purpose
+) {
+  const reviewSignatureId = requireSignatureId(config, 'pqcLeader')
+  const reviewSignatureSnapshotJson = buildPqcLeaderReviewSignatureSnapshot(
+    eventId,
+    reviewerUserId,
+    reviewSignatureId,
+    reviewStatus,
+    purpose
+  )
+  await fillDialogFormField(dialog, '复核签名ID', reviewSignatureId)
+  await fillDialogFormField(dialog, '签名员工ID', reviewerUserId)
+  await fillDialogFormField(dialog, '签名快照', reviewSignatureSnapshotJson)
+  return {
+    reviewSignatureId,
+    reviewSignatureEmployeeUserId: Number(reviewerUserId),
+    reviewSignatureSnapshotJson
+  }
+}
+
+async function closePqcLeaderReviewDialog(dialog) {
+  if (!(await dialog.isVisible().catch(() => false))) return
+  const cancelButton = dialog.getByRole('button', { name: '取消' }).first()
+  if ((await cancelButton.count()) > 0 && await cancelButton.isVisible()) {
+    await cancelButton.click()
+  }
+  await dialog.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
+}
+
 async function verifyPqcLeaderReviewApprovalAggregatesProcessInspection(page, config, actionEvidence) {
   const formalSubmission = actionEvidence.find((item) =>
     item.key === 'pqcFormalSubmissionCreated' && item.status === 'PASS')
@@ -4541,6 +4811,20 @@ async function verifyPqcLeaderReviewApprovalAggregatesProcessInspection(page, co
       description: 'PQC 正式提交事件缺少 processId、productCode、inspectionType、roundNo 或 actualEmployeeId，无法通过真实页面精确定位同一待复核行。'
     }
   }
+  const reviewerResolution = await resolveRoleUserId(page, config, 'pqcLeader')
+  if (reviewerResolution.status !== 'PASS') {
+    return {
+      key: 'pqcLeaderReviewApprovedAndAggregated',
+      label: 'PQC 组长确认后汇集过程检验记录',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: reviewerResolution.category,
+      acceptanceIds: ['AC-M20', 'AC-D34', 'AC-D37'],
+      eventId: formalSubmission.eventId,
+      description: reviewerResolution.description
+    }
+  }
+  const reviewerUserId = Number(reviewerResolution.userId)
 
   const pendingFilters = {
     pageNo: 1,
@@ -4614,6 +4898,14 @@ async function verifyPqcLeaderReviewApprovalAggregatesProcessInspection(page, co
   const dialog = page.locator('.el-dialog:visible', { hasText: '复核员工提交' }).first()
   await dialog.waitFor({ state: 'visible', timeout: 30000 })
   await dialog.locator('textarea').first().fill('M6 AC-D37 real-page approved review aggregates process inspection.')
+  const reviewSignature = await fillPqcLeaderReviewSignature(
+    dialog,
+    config,
+    reviewerUserId,
+    formalSubmission.eventId,
+    'APPROVED',
+    'PQC_LEADER_APPROVED_REVIEW'
+  )
   const reviewResponsePromise = page.waitForResponse((reviewResponse) =>
     reviewResponse.url().includes('/mes/pro/process-pool/team-leader/submission/review')
       && reviewResponse.request().method() === 'POST'
@@ -4621,6 +4913,7 @@ async function verifyPqcLeaderReviewApprovalAggregatesProcessInspection(page, co
   await dialog.getByRole('button', { name: '提交复核' }).click()
   const reviewResponse = await reviewResponsePromise
   if (reviewResponse.reviewResponseError) {
+    await closePqcLeaderReviewDialog(dialog)
     return {
       key: 'pqcLeaderReviewApprovedAndAggregated',
       label: 'PQC 组长确认后汇集过程检验记录',
@@ -4635,6 +4928,7 @@ async function verifyPqcLeaderReviewApprovalAggregatesProcessInspection(page, co
   assert.ok(reviewResponse.ok(), `PQC 组长复核 HTTP 失败：${reviewResponse.status()}`)
   const reviewBody = await reviewResponse.json()
   if (!isBusinessSuccess(reviewBody)) {
+    await closePqcLeaderReviewDialog(dialog)
     return {
       key: 'pqcLeaderReviewApprovedAndAggregated',
       label: 'PQC 组长确认后汇集过程检验记录',
@@ -4650,6 +4944,24 @@ async function verifyPqcLeaderReviewApprovalAggregatesProcessInspection(page, co
   }
   const reviewId = Number(reviewBody.data)
   assert.ok(Number.isFinite(reviewId) && reviewId > 0, 'PQC 组长复核必须返回正式 reviewId。')
+  const dialogCloseError = await dialog
+    .waitFor({ state: 'hidden', timeout: 30000 })
+    .then(() => null)
+    .catch((error) => error)
+  if (dialogCloseError) {
+    await closePqcLeaderReviewDialog(dialog)
+    return {
+      key: 'pqcLeaderReviewApprovedAndAggregated',
+      label: 'PQC 组长确认后汇集过程检验记录',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      category: 'E2E_PQC_REVIEW_PAGE',
+      acceptanceIds: ['AC-M20', 'AC-D34', 'AC-D37'],
+      eventId: formalSubmission.eventId,
+      reviewId,
+      description: `PQC 组长复核业务成功后弹窗未关闭：${dialogCloseError.message}`
+    }
+  }
 
   const approvedFilters = {
     ...pendingFilters,
@@ -4699,7 +5011,10 @@ async function verifyPqcLeaderReviewApprovalAggregatesProcessInspection(page, co
     eventId: formalSubmission.eventId,
     submittedTaskId: formalSubmission.submittedTaskId,
     submitDate: formalSubmission.submitDate || localDateString(),
+    reviewerUserId,
     reviewId,
+    reviewSignatureId: reviewSignature.reviewSignatureId,
+    reviewSignatureEmployeeUserId: reviewSignature.reviewSignatureEmployeeUserId,
     processInspectionAggregationStatus: reviewedRow.processInspectionAggregationStatus,
     processInspectionReviewId: reviewedRow.processInspectionReviewId,
     processInspectionAggregatedAt: reviewedRow.processInspectionAggregatedAt,
@@ -4710,7 +5025,8 @@ async function verifyPqcLeaderReviewApprovalAggregatesProcessInspection(page, co
 async function verifyPqcLeaderDuplicateTerminalReviewBlocked(page, config, actionEvidence) {
   const approvedReview = actionEvidence.find((item) =>
     item.key === 'pqcLeaderReviewApprovedAndAggregated' && item.status === 'PASS')
-  if (!approvedReview?.eventId || !approvedReview?.reviewId) {
+  if (!approvedReview?.eventId || !approvedReview?.reviewId
+    || !approvedReview?.reviewerUserId || !approvedReview?.reviewSignatureId) {
     return {
       key: 'pqcLeaderDuplicateTerminalReviewBlocked',
       label: 'PQC 组长重复终态复核拒绝',
@@ -4723,7 +5039,14 @@ async function verifyPqcLeaderDuplicateTerminalReviewBlocked(page, config, actio
   }
 
   const expectedErrorKey = 'PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS'
-  const expectedErrorCode = 1040760325
+  const expectedErrorCode = 1040760329
+  const reviewSignatureSnapshotJson = buildPqcLeaderReviewSignatureSnapshot(
+    approvedReview.eventId,
+    approvedReview.reviewerUserId,
+    approvedReview.reviewSignatureId,
+    'APPROVED',
+    'PQC_LEADER_DUPLICATE_TERMINAL_NEGATIVE'
+  )
   const result = await fetchWithPageAuth(
     page,
     '/admin-api/mes/pro/process-pool/team-leader/submission/review',
@@ -4734,7 +5057,10 @@ async function verifyPqcLeaderDuplicateTerminalReviewBlocked(page, config, actio
         eventId: Number(approvedReview.eventId),
         leaderType: 'PQC',
         reviewStatus: 'APPROVED',
-        reviewRemark: `M6 AC-D34 duplicate terminal review negative path; expect ${expectedErrorKey}.`
+        reviewRemark: `M6 AC-D34 duplicate terminal review negative path; expect ${expectedErrorKey}.`,
+        reviewSignatureId: Number(approvedReview.reviewSignatureId),
+        reviewSignatureEmployeeUserId: Number(approvedReview.reviewerUserId),
+        reviewSignatureSnapshotJson
       })
     }
   )
@@ -5000,7 +5326,15 @@ async function verifyPqcLeaderSelfReviewBlocked(page, config, actionEvidence) {
   )
 
   const expectedErrorKey = 'PRO_PROCESS_POOL_SUBMISSION_REVIEW_SELF_FORBIDDEN'
-  const expectedErrorCode = 1040760326
+  const expectedErrorCode = 1040760330
+  const reviewSignatureId = requireSignatureId(config, 'pqcLeader')
+  const reviewSignatureSnapshotJson = buildPqcLeaderReviewSignatureSnapshot(
+    pendingRow.id,
+    reviewerUserId,
+    reviewSignatureId,
+    'APPROVED',
+    'PQC_LEADER_SELF_REVIEW_NEGATIVE'
+  )
   const result = await fetchWithPageAuth(
     page,
     '/admin-api/mes/pro/process-pool/team-leader/submission/review',
@@ -5011,7 +5345,10 @@ async function verifyPqcLeaderSelfReviewBlocked(page, config, actionEvidence) {
         eventId: Number(pendingRow.id),
         leaderType: 'PQC',
         reviewStatus: 'APPROVED',
-        reviewRemark: `M6 AC-D35 self-review negative path; expect ${expectedErrorKey}.`
+        reviewRemark: `M6 AC-D35 self-review negative path; expect ${expectedErrorKey}.`,
+        reviewSignatureId,
+        reviewSignatureEmployeeUserId: reviewerUserId,
+        reviewSignatureSnapshotJson
       })
     }
   )
@@ -5373,6 +5710,14 @@ async function verifyPqcLeaderRejectedCorrectionChain(page, config, actionEviden
   await reviewDialog.waitFor({ state: 'visible', timeout: 30000 })
   await selectElementPlusOption(page, '.el-dialog:visible .el-select', reviewStatusLabel(rejectedReviewPayload.reviewStatus))
   await reviewDialog.locator('textarea').first().fill(rejectionReason)
+  const rejectionReviewSignature = await fillPqcLeaderReviewSignature(
+    reviewDialog,
+    config,
+    reviewerUserId,
+    candidate.id,
+    'REJECTED',
+    'PQC_LEADER_REJECTED_REVIEW'
+  )
   const reviewResponsePromise = page.waitForResponse((reviewResponse) =>
     reviewResponse.url().includes('/mes/pro/process-pool/team-leader/submission/review')
       && reviewResponse.request().method() === 'POST'
@@ -5380,6 +5725,7 @@ async function verifyPqcLeaderRejectedCorrectionChain(page, config, actionEviden
   await reviewDialog.getByRole('button', { name: '提交复核' }).click()
   const reviewResponse = await reviewResponsePromise
   if (reviewResponse.reviewResponseError) {
+    await closePqcLeaderReviewDialog(reviewDialog)
     return {
       key: 'pqcLeaderRejectedCorrectionChain',
       label: 'PQC 组长退回后补正修订链',
@@ -5394,6 +5740,7 @@ async function verifyPqcLeaderRejectedCorrectionChain(page, config, actionEviden
   assert.ok(reviewResponse.ok(), `PQC 退回复核 HTTP 失败：${reviewResponse.status()}`)
   const reviewBody = await reviewResponse.json()
   if (!isBusinessSuccess(reviewBody)) {
+    await closePqcLeaderReviewDialog(reviewDialog)
     return {
       key: 'pqcLeaderRejectedCorrectionChain',
       label: 'PQC 组长退回后补正修订链',
@@ -5409,6 +5756,24 @@ async function verifyPqcLeaderRejectedCorrectionChain(page, config, actionEviden
   }
   const rejectionReviewId = Number(reviewBody.data)
   assert.ok(Number.isFinite(rejectionReviewId) && rejectionReviewId > 0, 'PQC 退回复核必须返回正式 reviewId。')
+  const reviewDialogCloseError = await reviewDialog
+    .waitFor({ state: 'hidden', timeout: 30000 })
+    .then(() => null)
+    .catch((error) => error)
+  if (reviewDialogCloseError) {
+    await closePqcLeaderReviewDialog(reviewDialog)
+    return {
+      key: 'pqcLeaderRejectedCorrectionChain',
+      label: 'PQC 组长退回后补正修订链',
+      roleKey: 'pqcLeader',
+      status: 'BLOCKED',
+      acceptanceIds: ['AC-D30'],
+      category: 'E2E_PQC_REJECT_CORRECTION',
+      eventId: candidate.id,
+      reviewId: rejectionReviewId,
+      description: `PQC 退回复核业务成功后弹窗未关闭：${reviewDialogCloseError.message}`
+    }
+  }
 
   const rejectedFilters = {
     ...pendingFilters,
@@ -5555,6 +5920,9 @@ async function verifyPqcLeaderRejectedCorrectionChain(page, config, actionEviden
     acceptanceIds: ['AC-D30'],
     eventId: candidate.id,
     reviewId: rejectionReviewId,
+    reviewSignatureId: rejectionReviewSignature.reviewSignatureId,
+    reviewSignatureEmployeeUserId:
+      rejectionReviewSignature.reviewSignatureEmployeeUserId,
     revisionId,
     revisionSignatureId,
     modifiedByUserId,
@@ -5785,6 +6153,46 @@ async function verifyActiveOrderUnauthorizedMutationBlocked(page, config, action
   }
 }
 
+async function findVisibleActiveOrderRowAcrossPages(section, activeOrderId, maxPageCount) {
+  const page = section.page()
+  const pagination = section.locator('.el-pagination').first()
+  const pageAttempts = Math.max(1, Number(maxPageCount) || 1)
+  for (let pageOffset = 0; pageOffset < pageAttempts; pageOffset += 1) {
+    const marker = section.locator(
+      `[data-team-leader-active-order-id="${activeOrderId}"]`
+    ).first()
+    if (await marker.isVisible().catch(() => false)) {
+      const activePageText = await pagination.locator('.el-pager li.is-active').first()
+        .textContent()
+        .catch(() => String(pageOffset + 1))
+      return {
+        row: marker.locator('xpath=ancestor::tr[1]'),
+        pageNo: Number(String(activePageText || pageOffset + 1).trim())
+      }
+    }
+
+    const nextButton = pagination.locator('button.btn-next').first()
+    if (!(await nextButton.isVisible().catch(() => false)) || await nextButton.isDisabled()) {
+      break
+    }
+    const activePage = pagination.locator('.el-pager li.is-active').first()
+    const previousPage = String(await activePage.textContent() || '').trim()
+    await nextButton.click()
+    await page.waitForFunction(
+      ({ selector, previous }) => {
+        const current = document.querySelector(selector)
+        return Boolean(current && String(current.textContent || '').trim() !== previous)
+      },
+      {
+        selector: '[data-team-leader-active-order-config] .el-pagination .el-pager li.is-active',
+        previous: previousPage
+      },
+      { timeout: 10000 }
+    )
+  }
+  assert.fail(`活跃订单列表分页中未找到 activeOrderId=${activeOrderId} 的可见业务行。`)
+}
+
 async function verifyActiveOrderCleanupTraceability(page, config, joinEvidence) {
   if (!joinEvidence?.activeOrderId) {
     return {
@@ -5802,7 +6210,7 @@ async function verifyActiveOrderCleanupTraceability(page, config, joinEvidence) 
     waitUntil: 'domcontentloaded',
     timeout: 90000
   })
-  await selectRealFlowTab(page, '班组配置')
+  await selectRealFlowTab(page, '活跃订单池')
   const section = page.locator('[data-team-leader-active-order-config]').first()
   await section.waitFor({ state: 'visible', timeout: 60000 })
   const rows = await reloadActiveOrderRows(page)
@@ -5811,13 +6219,19 @@ async function verifyActiveOrderCleanupTraceability(page, config, joinEvidence) 
   assert.equal(Number(activeOrder.workOrderId), Number(config.workOrderId), '清理闭环定位到的 activeOrder 必须属于任务工单。')
   assert.equal(Number(activeOrder.routeId), Number(config.routeId), '清理闭环定位到的 activeOrder 必须属于任务路线。')
   assert.equal(Number(activeOrder.routeVersionId), Number(config.routeVersionId), '清理闭环定位到的 activeOrder 必须属于任务路线版本。')
-  await fillFormItemForAction(section, '移出活跃订单', '活跃记录ID', joinEvidence.activeOrderId)
+  const visibleActiveOrder = await findVisibleActiveOrderRowAcrossPages(
+    section,
+    joinEvidence.activeOrderId,
+    rows.length
+  )
+  const activeOrderRow = visibleActiveOrder.row
+  await activeOrderRow.waitFor({ state: 'visible', timeout: 10000 })
   const listResponsePromise = page.waitForResponse((response) =>
     response.url().includes('/mes/pro/process-pool/team-leader/active-order/list')
       && response.request().method() === 'GET'
   , { timeout: 30000 }).catch((error) => ({ activeOrderListResponseError: error }))
   const removeResult = await clickButtonAndWaitForSuccess(
-    section,
+    activeOrderRow,
     '移出活跃订单',
     '/mes/pro/process-pool/team-leader/active-order/remove'
   )
@@ -5849,6 +6263,7 @@ async function verifyActiveOrderCleanupTraceability(page, config, joinEvidence) 
     workOrderId: config.workOrderId,
     routeId: config.routeId,
     routeVersionId: config.routeVersionId,
+    cleanupPageNo: visibleActiveOrder.pageNo,
     cleanupWindow: 'AFTER_ALL_ROLE_ACTIONS',
     removeResult,
     refreshedActiveOrderCount: refreshedRows.length
@@ -6527,7 +6942,7 @@ async function runPhaseAction(page, config, phase, actionEvidence) {
       waitUntil: 'domcontentloaded',
       timeout: 90000
     })
-    await selectRealFlowTab(page, '班组配置')
+    await selectRealFlowTab(page, '活跃订单池')
     await page.locator('[data-team-leader-active-order-config]').first().waitFor({
       state: 'visible',
       timeout: 60000

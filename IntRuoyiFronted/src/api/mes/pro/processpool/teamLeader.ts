@@ -215,9 +215,14 @@ export interface TeamProcessDefectReasonSaveReqVO extends TeamDefectReasonSaveRe
 export interface TeamLeaderActiveOrderRespVO {
   id: number
   workOrderId: number
+  routeId: number
+  routeVersionId: number
+  erpFixedQuantitySnapshot?: number | string
   activeStatus: string
-  joinedAt?: string
-  removedAt?: string
+  businessStatus?: string
+  joinedAt?: number
+  removedAt?: number
+  version?: number
 }
 
 export interface TeamLeaderActiveOrderTransferTraceRespVO {

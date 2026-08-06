@@ -37,6 +37,7 @@
     >
       <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
       <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+      <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
       <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
       <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
       <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
@@ -431,6 +432,7 @@
       >
         <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
         <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
         <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
@@ -693,6 +695,214 @@
     </ContentWrap>
 
     <ContentWrap
+      v-if="showProductionActiveOrderModule"
+      :class="{ 'team-leader-workbench__production-module-card': showProductionModuleTabs }"
+      data-team-leader-active-order-config
+      data-team-leader-active-order-pool-tab
+    >
+      <el-tabs
+        v-if="showProductionModuleTabs"
+        v-model="activeProductionModuleTab"
+        class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+        data-production-leader-module-tabs
+      >
+        <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
+        <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
+        <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
+        <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
+        <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
+        <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
+      </el-tabs>
+
+      <UnifiedListTemplate
+        table-key="mes.processPool.teamLeader.activeOrders"
+        :query-model="activeOrderQuery"
+        :filter-definitions="activeOrderFilterDefinitions"
+        :quick-filter-state="activeOrderQuickFilterState"
+        :operator-options="activeOrderOperatorOptions"
+        :columns="activeOrderColumns"
+        :show-quick-filter="false"
+        :show-column-settings="false"
+        single-line-toolbar
+        :total="activeOrderTotal"
+        v-model:page="activeOrderQuery.pageNo"
+        v-model:limit="activeOrderQuery.pageSize"
+      >
+        <template #actions>
+          <el-button
+            type="primary"
+            data-team-leader-open-active-order-dialog
+            @click="openActiveOrderDialog"
+          >
+            <Icon icon="ep:plus" class="mr-5px" />
+            新增活跃订单
+          </el-button>
+        </template>
+        <template #table>
+          <el-table
+            v-loading="activeOrderLoading"
+            :data="pagedActiveOrderRows"
+            border
+            stripe
+            :show-overflow-tooltip="true"
+            data-team-leader-active-order-list
+          >
+            <el-table-column label="活跃池ID" prop="id" width="110">
+              <template #default="{ row }">
+                <span :data-team-leader-active-order-id="String(row.id)">{{ row.id }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="生产订单ID" prop="workOrderId" min-width="130" />
+            <el-table-column label="路线ID" prop="routeId" min-width="120" />
+            <el-table-column label="路线版本ID" prop="routeVersionId" min-width="130" />
+            <el-table-column label="ERP生产数量" min-width="130">
+              <template #default="{ row }">
+                {{ formatTraceQuantity(row.erpFixedQuantitySnapshot) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="resolveActiveOrderStatusType(row.activeStatus)" effect="plain">
+                  {{ resolveActiveOrderStatusText(row.activeStatus) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="加入时间" min-width="170">
+              <template #default="{ row }">{{ formatDateTime(row.joinedAt) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="100" fixed="right">
+              <template #default="{ row }">
+                <el-button
+                  link
+                  type="danger"
+                  :loading="maintenanceSubmitting"
+                  @click="submitRemoveActiveOrder(row)"
+                >
+                  移出活跃订单
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </UnifiedListTemplate>
+
+      <el-divider>调拨库存追溯</el-divider>
+      <el-alert
+        v-if="activeOrderTransferTraceError"
+        :title="activeOrderTransferTraceError"
+        type="error"
+        :closable="false"
+        show-icon
+        data-team-leader-active-order-transfer-trace-error
+      />
+      <el-table
+        v-else
+        :data="activeOrderTransferTraceRows"
+        v-loading="activeOrderTransferTraceLoading"
+        size="small"
+        border
+        class="team-leader-workbench__transfer-trace"
+        empty-text="暂无正式调拨/发货/补料/退料追溯"
+        data-team-leader-active-order-transfer-trace
+      >
+        <el-table-column label="活跃池" width="76">
+          <template #default="{ row }">
+            <span data-transfer-trace-active-order-id>{{ row.activeOrderId }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="来源类型" min-width="92">
+          <template #default="{ row }">
+            <span data-transfer-trace-source-type>{{ row.sourceType }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="来源单号" min-width="116">
+          <template #default="{ row }">
+            <span data-transfer-trace-source-object-code>
+              {{ row.sourceObjectCode || row.sourceObjectId || '-' }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" min-width="88">
+          <template #default="{ row }">
+            <span data-transfer-trace-source-status>{{ row.sourceStatus || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="数量" min-width="82">
+          <template #default="{ row }">
+            <span data-transfer-trace-quantity>{{ formatTraceQuantity(row.quantity) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="库存ID" min-width="86">
+          <template #default="{ row }">
+            <span data-transfer-trace-material-stock-id>{{ row.materialStockId || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="批次ID" min-width="86">
+          <template #default="{ row }">
+            <span data-transfer-trace-batch-id>{{ row.batchId || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="幂等键" min-width="160">
+          <template #default="{ row }">
+            <span data-transfer-trace-idempotency-key>{{ row.idempotencyKey }}</span>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <el-dialog
+        v-model="activeOrderAddDialogVisible"
+        data-team-leader-active-order-add-dialog
+        title="新增活跃订单"
+        width="560px"
+        :close-on-click-modal="!maintenanceSubmitting"
+        @closed="resetActiveOrderForm"
+      >
+        <el-form :model="activeOrderForm" label-width="110px">
+          <el-form-item label="生产订单ID">
+            <el-input-number
+              v-model="activeOrderForm.workOrderId"
+              :min="1"
+              :controls="false"
+              class="team-leader-workbench__full-control"
+            />
+          </el-form-item>
+          <el-form-item label="路线ID" data-team-leader-active-order-route-id>
+            <el-input-number
+              v-model="activeOrderForm.routeId"
+              :min="1"
+              :controls="false"
+              class="team-leader-workbench__full-control"
+            />
+          </el-form-item>
+          <el-form-item label="路线版本ID" data-team-leader-active-order-route-version-id>
+            <el-input-number
+              v-model="activeOrderForm.routeVersionId"
+              :min="1"
+              :controls="false"
+              class="team-leader-workbench__full-control"
+            />
+          </el-form-item>
+          <el-form-item label="调拨单ID列表" data-team-leader-active-order-transfer-ids>
+            <el-input
+              v-model="activeOrderForm.transferIdsText"
+              clearable
+              placeholder="多个 ID 用逗号或空格分隔"
+            />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button :disabled="maintenanceSubmitting" @click="activeOrderAddDialogVisible = false">
+            取消
+          </el-button>
+          <el-button type="primary" :loading="maintenanceSubmitting" @click="submitAddActiveOrder">
+            加入活跃订单
+          </el-button>
+        </template>
+      </el-dialog>
+    </ContentWrap>
+
+    <ContentWrap
       v-if="showPqcDashboardModule"
       :class="{
         'team-leader-workbench__pqc-module-card': showPqcModuleTabs,
@@ -708,6 +918,7 @@
       >
         <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
         <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
         <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
@@ -789,6 +1000,7 @@
       >
         <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
         <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
         <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
@@ -877,6 +1089,7 @@
       >
         <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
         <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
         <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
@@ -965,6 +1178,7 @@
       >
         <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
         <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
+        <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
         <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
@@ -974,123 +1188,11 @@
         <div>
           <div class="team-leader-workbench__section-title">班组配置中心</div>
           <div class="team-leader-workbench__hint">
-            维护员工、设备、参数、活跃订单和工序关系，员工端填报从这里读取配置。
+            维护员工、设备、参数和工序关系，员工端填报从这里读取配置。
           </div>
         </div>
       </div>
       <div class="team-leader-workbench__maintenance-grid">
-        <el-card shadow="never" data-team-leader-active-order-config>
-          <template #header>活跃订单池</template>
-          <el-form :model="activeOrderForm" label-width="98px">
-            <el-form-item label="生产订单ID">
-              <el-input-number v-model="activeOrderForm.workOrderId" :min="1" :controls="false" />
-            </el-form-item>
-            <el-form-item label="路线ID" data-team-leader-active-order-route-id>
-              <el-input-number v-model="activeOrderForm.routeId" :min="1" :controls="false" />
-            </el-form-item>
-            <el-form-item label="路线版本ID" data-team-leader-active-order-route-version-id>
-              <el-input-number v-model="activeOrderForm.routeVersionId" :min="1" :controls="false" />
-            </el-form-item>
-            <el-form-item label="调拨单ID列表" data-team-leader-active-order-transfer-ids>
-              <el-input
-                v-model="activeOrderForm.transferIdsText"
-                clearable
-                placeholder="多个 ID 用逗号或空格分隔"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :loading="maintenanceSubmitting" @click="submitAddActiveOrder">
-                加入活跃订单
-              </el-button>
-            </el-form-item>
-          </el-form>
-          <el-divider />
-          <el-form :model="activeOrderRemoveForm" label-width="98px">
-            <el-form-item label="活跃记录ID">
-              <el-input-number
-                v-model="activeOrderRemoveForm.activeOrderId"
-                :min="1"
-                :controls="false"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-button
-                type="danger"
-                plain
-                :loading="maintenanceSubmitting"
-                @click="submitRemoveActiveOrder"
-              >
-                移出活跃订单
-              </el-button>
-            </el-form-item>
-          </el-form>
-          <div class="team-leader-workbench__hint">
-            当前活跃订单：{{ activeOrderOptions.length }} 个
-          </div>
-          <el-divider>调拨库存追溯</el-divider>
-          <el-alert
-            v-if="activeOrderTransferTraceError"
-            :title="activeOrderTransferTraceError"
-            type="error"
-            :closable="false"
-            show-icon
-            data-team-leader-active-order-transfer-trace-error
-          />
-          <el-table
-            v-else
-            :data="activeOrderTransferTraceRows"
-            v-loading="activeOrderTransferTraceLoading"
-            size="small"
-            border
-            class="team-leader-workbench__transfer-trace"
-            empty-text="暂无正式调拨/发货/补料/退料追溯"
-            data-team-leader-active-order-transfer-trace
-          >
-            <el-table-column label="活跃池" width="76">
-              <template #default="{ row }">
-                <span data-transfer-trace-active-order-id>{{ row.activeOrderId }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="来源类型" min-width="92">
-              <template #default="{ row }">
-                <span data-transfer-trace-source-type>{{ row.sourceType }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="来源单号" min-width="116">
-              <template #default="{ row }">
-                <span data-transfer-trace-source-object-code>
-                  {{ row.sourceObjectCode || row.sourceObjectId || '-' }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="状态" min-width="88">
-              <template #default="{ row }">
-                <span data-transfer-trace-source-status>{{ row.sourceStatus || '-' }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="数量" min-width="82">
-              <template #default="{ row }">
-                <span data-transfer-trace-quantity>{{ formatTraceQuantity(row.quantity) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="库存ID" min-width="86">
-              <template #default="{ row }">
-                <span data-transfer-trace-material-stock-id>{{ row.materialStockId || '-' }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="批次ID" min-width="86">
-              <template #default="{ row }">
-                <span data-transfer-trace-batch-id>{{ row.batchId || '-' }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="幂等键" min-width="160">
-              <template #default="{ row }">
-                <span data-transfer-trace-idempotency-key>{{ row.idempotencyKey }}</span>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-
         <el-card shadow="never" data-team-leader-employee-config>
           <template #header>生产人员工序绑定</template>
           <el-alert
@@ -1704,17 +1806,21 @@ const props = withDefaults(
 const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
 const activePqcModuleTab = ref<'personnel' | 'management' | 'dashboard'>('personnel')
-const activeProductionModuleTab = ref<'personnel' | 'report' | 'dashboard' | 'exception' | 'loss' | 'config'>('personnel')
+const activeProductionModuleTab = ref<
+  'personnel' | 'report' | 'activeOrder' | 'dashboard' | 'exception' | 'loss' | 'config'
+>('personnel')
 const loading = ref(false)
 const detailLoading = ref(false)
 const reviewSubmitting = ref(false)
 const allocationPreviewLoading = ref(false)
 const abnormalSubmitting = ref(false)
 const maintenanceSubmitting = ref(false)
+const activeOrderLoading = ref(false)
 const correctionSubmitting = ref(false)
 const detailVisible = ref(false)
 const reviewVisible = ref(false)
 const correctionVisible = ref(false)
+const activeOrderAddDialogVisible = ref(false)
 const loadError = ref('')
 const submissionTotal = ref(0)
 const submissionList = ref<ProcessPoolTimelineEventVO[]>([])
@@ -1765,6 +1871,22 @@ const productionPersonnelColumns: any[] = [
   { key: 'employeeType', label: '来源', visible: true },
   { key: 'employeeCode', label: '员工编码', visible: true },
   { key: 'enabled', label: '状态', visible: true }
+]
+const activeOrderQuery = reactive({
+  pageNo: 1,
+  pageSize: 10
+})
+const activeOrderFilterDefinitions: any[] = []
+const activeOrderQuickFilterState = reactive({})
+const activeOrderOperatorOptions: any[] = []
+const activeOrderColumns: any[] = [
+  { key: 'id', label: '活跃池ID', visible: true },
+  { key: 'workOrderId', label: '生产订单ID', visible: true },
+  { key: 'routeId', label: '路线ID', visible: true },
+  { key: 'routeVersionId', label: '路线版本ID', visible: true },
+  { key: 'erpFixedQuantitySnapshot', label: 'ERP生产数量', visible: true },
+  { key: 'activeStatus', label: '状态', visible: true },
+  { key: 'joinedAt', label: '加入时间', visible: true }
 ]
 const pqcPersonnelQuery = reactive({
   enabled: true as boolean | undefined,
@@ -1823,6 +1945,11 @@ const showProductionPersonnelModule = computed(
 )
 const showProductionReportModule = computed(
   () => isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'report')
+)
+const showProductionActiveOrderModule = computed(
+  () =>
+    isProductionLeader.value
+    && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'activeOrder')
 )
 const showProductionDashboardModule = computed(
   () =>
@@ -1916,6 +2043,13 @@ const pagedProductionPersonnelRows = computed(() => {
   const pageSize = Math.max(1, Number(productionPersonnelQuery.pageSize) || 10)
   const start = (pageNo - 1) * pageSize
   return productionPersonnelRows.value.slice(start, start + pageSize)
+})
+const activeOrderTotal = computed(() => activeOrderOptions.value.length)
+const pagedActiveOrderRows = computed(() => {
+  const pageNo = Math.max(1, Number(activeOrderQuery.pageNo) || 1)
+  const pageSize = Math.max(1, Number(activeOrderQuery.pageSize) || 10)
+  const start = (pageNo - 1) * pageSize
+  return activeOrderOptions.value.slice(start, start + pageSize)
 })
 const pqcPersonnelTotal = computed(() => pqcPersonnelRows.value.length)
 const pagedPqcPersonnelRows = computed(() => {
@@ -2092,10 +2226,6 @@ const activeOrderForm = reactive({
   transferIdsText: ''
 })
 
-const activeOrderRemoveForm = reactive({
-  activeOrderId: undefined as number | undefined
-})
-
 const formalEmployeeForm = reactive({
   systemUserId: undefined as number | undefined,
   displayName: ''
@@ -2212,6 +2342,14 @@ const parsePositiveIntegerList = (value: string, label: string) => {
 const formatActiveOrderOption = (order: TeamLeaderActiveOrderRespVO) => {
   return `订单 ${order.workOrderId} / 活跃池 ${order.id}`
 }
+
+const resolveActiveOrderStatusText = (status?: string) => {
+  if (status === 'ACTIVE') return '活跃'
+  return status || '--'
+}
+
+const resolveActiveOrderStatusType = (status?: string) =>
+  status === 'ACTIVE' ? 'success' : 'warning'
 
 const formatTraceQuantity = (value: number | string | undefined) => {
   if (value === undefined || value === null || value === '') return '-'
@@ -2513,8 +2651,24 @@ const loadActiveOrderTransferTraces = async () => {
 }
 
 const loadActiveOrders = async () => {
-  activeOrderOptions.value = await getTeamLeaderActiveOrderList()
-  await loadActiveOrderTransferTraces()
+  activeOrderLoading.value = true
+  let listLoaded = false
+  try {
+    activeOrderOptions.value = await getTeamLeaderActiveOrderList()
+    listLoaded = true
+    const maxPage = Math.max(1, Math.ceil(activeOrderOptions.value.length / activeOrderQuery.pageSize))
+    if (activeOrderQuery.pageNo > maxPage) {
+      activeOrderQuery.pageNo = maxPage
+    }
+    await loadActiveOrderTransferTraces()
+  } catch (error) {
+    if (!listLoaded) {
+      activeOrderOptions.value = []
+    }
+    throw error
+  } finally {
+    activeOrderLoading.value = false
+  }
 }
 
 const loadLossReasonRows = async () => {
@@ -3284,8 +3438,21 @@ const submitAbnormal = async () => {
   }
 }
 
+const resetActiveOrderForm = () => {
+  activeOrderForm.workOrderId = undefined
+  activeOrderForm.routeId = undefined
+  activeOrderForm.routeVersionId = undefined
+  activeOrderForm.transferIdsText = ''
+}
+
+const openActiveOrderDialog = () => {
+  resetActiveOrderForm()
+  activeOrderAddDialogVisible.value = true
+}
+
 const submitAddActiveOrder = async () => {
   maintenanceSubmitting.value = true
+  let writeCompleted = false
   try {
     await addTeamLeaderActiveOrder({
       workOrderId: requirePositiveNumber(activeOrderForm.workOrderId, '生产订单ID不能为空'),
@@ -3293,25 +3460,34 @@ const submitAddActiveOrder = async () => {
       routeVersionId: requirePositiveNumber(activeOrderForm.routeVersionId, '路线版本ID不能为空'),
       transferIds: parsePositiveIntegerList(activeOrderForm.transferIdsText, '调拨单ID列表')
     })
+    writeCompleted = true
     ElMessage.success('活跃订单已加入')
+    activeOrderAddDialogVisible.value = false
+    resetActiveOrderForm()
     await loadActiveOrders()
   } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '活跃订单加入失败'))
+    ElMessage.error(
+      resolveErrorMessage(error, writeCompleted ? '活跃订单已加入，但列表刷新失败' : '活跃订单加入失败')
+    )
   } finally {
     maintenanceSubmitting.value = false
   }
 }
 
-const submitRemoveActiveOrder = async () => {
+const submitRemoveActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
   maintenanceSubmitting.value = true
+  let writeCompleted = false
   try {
     await removeTeamLeaderActiveOrder({
-      activeOrderId: requirePositiveNumber(activeOrderRemoveForm.activeOrderId, '活跃订单记录ID不能为空')
+      activeOrderId: requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
     })
+    writeCompleted = true
     ElMessage.success('活跃订单已移出')
     await loadActiveOrders()
   } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '活跃订单移出失败'))
+    ElMessage.error(
+      resolveErrorMessage(error, writeCompleted ? '活跃订单已移出，但列表刷新失败' : '活跃订单移出失败')
+    )
   } finally {
     maintenanceSubmitting.value = false
   }

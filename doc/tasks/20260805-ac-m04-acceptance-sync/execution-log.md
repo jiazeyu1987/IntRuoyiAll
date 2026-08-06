@@ -20,6 +20,23 @@
 - BDD: 生产组长模块表面归属 -> Given 当前正式生产组长页面将报工工作台、日结看板和活跃订单配置分别放在“报工管理”“看板”“班组配置”页签；When full real E2E 验证阶段表面和日结证据；Then 必须切换到对应页签后断言，不得在“报工管理”页签等待只属于“看板”的日结组件。
 - BDD: 活跃订单最终清理页签 -> Given full real E2E 最终清理重新进入正式生产组长页面；When 定位并移出本轮 activeOrder；Then 必须先切换到“班组配置”页签再读取活跃订单配置表面，确保清理闭环不会因默认“人员管理”页签而原始超时。
 - BDD: PQC 逐件合格按钮精确定位 -> Given 逐件检验弹窗同时包含“合格”和“不合格”按钮；When E2E 准备全部合格样本；Then 只能点击 `.pass` 合格按钮，不得使用包含文本匹配同时命中“不合格”，否则提交会被不良说明必填规则同步阻断。
+- BDD: PQC 正式提交继承生产事件设备上下文 -> Given 本轮真实生产填写已经返回唯一 `productionSubmitEventId`，且该事件冻结了设备账号、设备和工作站；When PQC 检验员提交同一订单、路线和工序的检验结果；Then 后端必须按该事件 ID 读取并校验正式设备上下文，PQC 前端不得从当前登录人、路线工序默认工作站或页面设备状态猜测这些字段。
+- BDD: PQC 拒绝错误生产事件根 -> Given PQC 提交携带的 `productionSubmitEventId` 不是 `PRODUCTION_SUBMIT`，或事件订单/路线/工序与 PQC 任务不一致；When 后端处理提交；Then 必须在更新 PQC 任务、写逐件明细和创建 PQC 事件之前 fail fast，禁止使用活跃池最新事件或客户端字段绕过。
+- BDD: RRM 主工序运行态前置 -> Given 本机 RRM 正式主路线工序为 `928609 / 922985 / 980010`，班组设备 `41` 和员工档案 `980022 / user 964` 已启用且归属生产组长 `1520`；When 生产员工通过真实页面读取该工序运行态配置；Then 必须由同一生产组长的 PROCESS、WORKSTATION、工序设备和工序员工四条正式绑定共同提供上下文，不能从相邻工序、默认设备、登录人或前端字段推断。
+- BDD: RRM 主工序夹具写入安全 -> Given 用户只授权本机 `ruoyi-vue-pro` 且目标四条语义绑定均不存在；When 执行修复 SQL；Then SQL 必须在一个事务内断言路线工序、设备、员工档案、相邻夹具、候选主键和语义键，精确插入四行并可按 creator/updater/remark 全字段条件回滚，禁止覆盖或复用其它任务数据。
+- BDD: RRM 主工序生产任务前置 -> Given PQC source event 必须先通过真实生产填写页提交，且生产任务分页按 `workOrderId=980008 / routeId=922119 / processId=922985` 精确查询；When 解析生产填写上下文；Then 必须返回一条正式、启用、同租户且物料/工作站匹配的 `mes_pro_task`，不能复用相邻工序任务、默认任务或历史事件绕过。
+- BDD: PQC 正式项目设备选择与工序同源 -> Given 本轮生产提交事件冻结主工序 `routeProcessId/processId`，且发布 QA 规程为每个检验项目提供正式设备及设备编号；When RRM E2E 重新打开 PQC 页面并逐项填写后提交；Then URL 必须携带同一主工序身份，每个 QA 项目必须真实选择非占位设备和对应设备编号，禁止依赖页面默认工序或空项目级设备选择。
+- BDD: RRM 临时密码恢复 -> Given 临时登录前置修改了七个本机 RRM 测试账号且恢复标志未及时建立；When 继续任何写入型 E2E；Then 必须先从本机 binlog 对应更新事件的 WHERE-side 精确恢复七行密码、更新人和更新时间，并证明恢复行数为 7、临时值残留为 0，禁止猜测旧密码、复制其它账号 hash 或只改更新时间。
+- BDD: 多笔生产 source event 签名唯一性 -> Given 一轮 full real E2E 会为正式提交、自我复核负向候选和退回补正候选分别创建生产提交事件；When 每笔事件进入后端唯一签名校验；Then 脚本必须从显式 `productionEmployee/productionExtra*` 池逐次保留不同签名 ID，禁止反复使用同一个 `productionEmployee` ID 或生成随机 fallback ID。
+- BDD: PQC 待检工序与生产 source event 同源 -> Given PQC 页面本轮从正式 processes 响应选择了仍待检的工序；When E2E 为该 PQC 提交准备真实生产 source event；Then 必须使用 `pqcRegulationItemsRendered` 冻结的同一 `routeProcessId/processId/pqcTaskId` 查询生产运行态和任务，禁止继续固定 `RRM_ROUTE_PROCESS_ID_1` 或回落到主工序。
+- BDD: 本机 RRM 包装输出可审计 -> Given 安全包装必须顺序运行 `real:check` 和 full real E2E；When 包装调用 pnpm 子命令；Then 子命令 stdout/stderr 必须实时显示，且包装必须在管道结束后立即保存并返回该 pnpm 进程退出码，禁止把输出数组误当作函数返回值或由后续命令覆盖退出码。
+- BDD: PQC 组长只看正式负责员工提交 -> Given 本轮 PQC 事件 `133` 的实际检验人是 `914524`，且组长看板按 `PQC + EMPLOYEE` scope 过滤 `actual_employee_id`；When PQC 组长 `512` 查询提交看板；Then 只有在存在正式 `512 -> 914524` scope 时同一 `pqcTaskId=93 + signatureId=99009104` 才可见，禁止移除范围过滤或扩大为全租户可见。
+- BDD: PQC 本轮选中工序生产任务前置 -> Given PQC 页面冻结的待检任务为 `68 / routeProcess=928611 / process=922987`，且该路线工序正式工作站为 `980009`；When E2E 为同一工序准备真实生产提交 source event；Then `mes_pro_task` 必须返回同一 `workOrder=980008 / route=922119 / process=922987 / workstation=980009` 的正式任务，禁止复用 `922985` 或 `922986` 相邻任务。
+- BDD: PQC 本轮工序任务写入安全 -> Given 用户只授权本机 Docker MySQL 且目标任务语义键、候选主键和编码均不存在；When 执行任务补齐 SQL；Then 必须先备份精确范围，在事务内断言 PQC 任务、工单、路线工序、工序、工作站、物料和相邻任务来源，精确插入一行并保留依赖检查 rollback，禁止修改任何远端环境。
+- BDD: PQC 组长复核签名上下文 -> Given 后端对正确、不正确、重复终态和自我复核请求都先校验 `reviewSignatureId + reviewSignatureEmployeeUserId + reviewSignatureSnapshotJson`；When 真实 E2E 执行任一复核路径；Then 必须使用 `RRM_SIGNATURE_IDS_JSON.pqcLeader`、当前 PQC 组长用户 ID 和合法 JSON 快照，禁止靠空字段触发错误后误判成目标业务守卫。
+- BDD: PQC 复核弹窗闭环 -> Given 页面复核成功后 `reviewVisible=false`，失败时弹窗保持打开；When E2E 点击“提交复核”；Then 成功必须等待弹窗隐藏后再操作筛选，失败必须先记录结构化 blocker 并关闭当前复核弹窗，禁止使用 force click 绕过遮罩。
+- BDD: PQC 复核 scope 本机修复安全 -> Given 用户仅授权本机 Docker MySQL 且目标语义 scope 不存在；When 写入 `512/PQC/EMPLOYEE/914524`；Then 必须先核对用户、既有 scope、事件、PQC 记录、候选主键和语义键，在一个事务中精确插入一行，并提供按全字段删除的 rollback。
+- BDD: AC-M21 汇集表运行态闭合 -> Given AC-M20 已先创建过程检验汇集表、AC-M21 的 `CREATE TABLE IF NOT EXISTS` 不会修改既有表；When PQC 组长批准本轮提交并批量写汇集明细；Then 正式追加迁移必须幂等补齐 `active_order_id`、`route_version_id`、`actual_inspection_quantity`，从同租户正式 PQC 任务回填缺失值，缺正式来源时 fail fast，并补齐标准唯一键和查询索引。
 - 本轮优先做产物一致性和静态/JSON 校验；若发现真实脚本或源码缺口，再按 RED/GREEN 进入实现。
 
 ## Command Intent
@@ -46,11 +63,15 @@
 - blocked：PQC 正式提交前端禁用态已解除，真实提交进入后端后被运行库 schema 阻塞；`mes_pro_process_pool_event` 缺 `event_idempotency_key` / `recordbook_entry_id`，且完整 P0 runtime migration 预检显示 88 行历史 backfill blocker，当前结构化来源无法唯一推导，未获业务/DBA 授权和逐行 manifest 前不得写库修复。
 - completed：用户已授权本机库 P0 backfill；已完成备份、rollback、manifest、最小 DB 修复和 P0 runtime verifier 复验。仍禁止远端操作和无 manifest 写入。
 - in_progress：P0 runtime schema/backfill blocker 已解除，下一步重跑 RRM `real:check` 与 full real E2E，确认 PQC 正式提交是否继续前进。
+- in_progress：PQC 正式提交已返回 `taskId=93` 并落库为事件 `133`、PQC 记录 `90`；当前首个 blocker 已收敛为 PQC 组长 `512` 缺少实际检验人 `914524` 的正式 `EMPLOYEE` scope。
 - in_progress：P0 修复后 `real:check` PASS；full real E2E 在生产组长阶段等待旧 `/team-leader` 页面选择器时原始超时，当前按正式 `/production-leader` 页面补 RED/GREEN。
 - RED: 只读 Playwright 探针 -> 初次读取正式生产组长页时模块页签容器数量为 0；约 1.5 秒后页签出现并可切换到报工管理，证明 `selectRealFlowTab` 的立即 `count() === 0` 返回存在异步挂载竞态。
 - RED: full real E2E -> 在正式“报工管理”页签已显示报工工作台后，等待 `[data-role-matrix-daily-close]` 超时；源码确认日结组件由 `showProductionDashboardModule` 控制，正式归属是“看板”页签。
 - RED: full real E2E -> 阶段串已执行到最终清理，但 `verifyActiveOrderCleanupTraceability` 进入 `/production-leader` 后直接等待 `[data-team-leader-active-order-config]`，因默认“人员管理”页签未切换而超时。
 - RED: PQC 提交根因 -> `fillVisiblePqcPieceModalValues` 使用 `{ hasText: '合格' }` 定位逐件按钮，而“不合格”包含“合格”，导致每行先点合格再点不合格；`validatePqcDefectDescription` 随后因未填写不良说明在模板校验请求前同步抛错。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` -> BLOCKED；最新 `result.json` 的生产填写来源阻塞为 `生产填写运行态配置 失败：班组长工作台缺少负责范围上下文：frontline runtime deviceId=41`。
+- RED: local MySQL read-only fixture probe -> FAIL expected four active semantic bindings, observed `PROCESS(922985)=0`、`WORKSTATION(980010)=0`、`process-device(922985,41)=0`、`employee-binding(922985,980022,964)=0`；候选主键 `980039/980040/15/21` 冲突数均为 `0`。
+- RED: first `rrm-primary-process-runtime-prereq-apply.sql` execution -> FAIL with MySQL `ERROR 1267 Illegal mix of collations` during post-verification. Follow-up probe found the four inserts persisted because `CREATE PROCEDURE` implicitly ended the initial transaction and CALL ran under autocommit; the result is not accepted. Required correction: exact rollback, procedure DDL outside the transaction, CALL inside a new transaction, and `v_display_name` explicitly `utf8mb4_unicode_ci`.
 
 ## Verification Evidence
 
@@ -103,6 +124,39 @@
 - P0_SOURCE_GREEN: `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_backfill_sources.py` -> PASS，`blockers=[]`，PQC/event/recordbook/quantityFragment targetRows 均为 0。
 - P0_RUNTIME_GREEN: `python -X utf8 IntRuoyiBackend\script\p0\verify_p0_runtime_migration.py` -> PASS，必需列和索引均存在，历史检查 `blockers=[]`。
 - POST_COUNT_GREEN: local MySQL read-only count -> `repair_events=19`、`repair_entries=21`、`repair_recordbook_events=21`、`pqc_missing_submit=0`、`fragment_missing_submit=0`、`event_missing_idem=0`、`event_missing_recordbook=0`；MySQL CLI 安全警告未输出密码明文。
+- RRM_PRIMARY_PROCESS_SCHEMA: local MySQL `information_schema` probe -> PASS；确认目标表为 `mes_pro_process_pool_team_leader_scope`、`mes_pro_process_pool_team_process_device`、`mes_pro_process_pool_team_employee_binding`，并核对真实列、索引和 bit/tenant 字段。
+- RRM_PRIMARY_PROCESS_SOURCES: local MySQL read-only probe -> PASS；`leaderUserId=1520` 的相邻夹具 `922986/980008`、`922987/980009`、设备 `41`、员工档案 `980022/systemUserId=964`、EMPLOYEE/EQUIPMENT/ORDER scope 均启用且 `tenant_id=1/deleted=0`。
+- RRM_PRIMARY_PROCESS_CONCURRENCY: sanitized process probe -> PASS；未发现运行中的 `role-requirement-matrix-real-flow.e2e.js` 或 `e2e:role-requirement-matrix:real` Node/PowerShell 写入进程，未终止无明确任务归属的遗留 headless Chrome。
+- RED: full RRM real E2E after primary runtime repair -> BLOCKED at `pqcFormalSubmissionCreated / E2E_PQC_SOURCE_EVENT`；生产任务分页按 `workOrderId=980008 / routeId=922119 / processId=922985` 返回 `taskCount=0`。
+- RED: local `mes_pro_task` exact probe -> FAIL as expected；同工单/路线只有 `981939 / process=922986 / workstation=980008`，主工序 `922985 / workstation=980010` 语义计数为 `0`，候选 `id=981940` 和 `code=RRM-20260805-PRIMARY-922985` 无冲突。
+- RED: `node tests/e2e/pqc-production-source-context-static.spec.cjs` -> FAIL，预期失败为 `PQC fill URL must keep the exact route process and process from the production submit event context.`；旧 `buildPqcFillUrl()` 只传生产事件 ID，未传同一 `routeProcessId/processId`。
+- RED: `pnpm e2e:role-requirement-matrix:preflight:static` -> FAIL，预期失败为 `real E2E must select a non-placeholder formal option for project-level PQC equipment fields.`；旧 `completePqcPieceDetailsForSubmission()` 只填写逐件值，未逐项目选择正式设备和设备编号。
+- RED: local account restore preflight -> FAIL as expected；七个目标账号当前密码只有 1 个 distinct value，更新时间均为数据库时钟 `2026-08-06 03:36:18`，证明最后一次临时登录更新尚未恢复。`binlog.000128` 在 position `8815139` 精确包含七行密码变更，恢复前禁止运行 E2E。
+- GREEN: local account restore transaction -> PASS；从 `binlog.000128` position `8815139` 的 WHERE-side 在内存中恢复七行 `password/updater/update_time`，事务断言 `RESTORE_ROWS=7`，临时值残留 `0`。恢复过程未输出或落盘密码哈希。
+- CLEANUP: credential-bearing binlog copy -> PASS；任务使用的本机临时 binlog 副本已删除，未提交、未保留原始凭据材料。
+- CLOCK_NOTE: 数据库时钟记录 `2026-08-06 03:36:18`，晚于当前日期 `2026-08-05`；后续仅将其作为数据库时钟偏移值引用，不把它写成当前日期。
+- RRM_PRIMARY_TASK_SCHEMA: local MySQL `SHOW CREATE TABLE mes_pro_task` -> PASS；已核对真实列、类型、`utf8mb4_unicode_ci`、主键和租户/删除标记。
+- RRM_PRIMARY_TASK_SOURCES: local MySQL read-only probe -> PASS；正式来源为工单 `980008`、路线工序 `928609`、工序 `922985`、工作站 `980010`、物料 `902149` 和相邻任务 `981939`。
+- RRM_PRIMARY_TASK_CONCURRENCY: sanitized Node process probe -> PASS；未发现运行中的 RRM real E2E Node 写入进程。
+- PQC_EVENT_RUNTIME_GREEN: local MySQL read-only probe -> PASS；事件 `133` 为 `PQC_INSPECTION`，`pqc_task_id=93`、`actual_employee_id=914524`、`signature_id=99009104`，PQC 记录 `90` 通过 `event_id=133` 关联且 `production_submit_event_id=132`。
+- RED: PQC leader scope-filter SQL -> FAIL as expected；组长 `512` 当前负责员工集合为 `{512,659}`，在 `2026-08-06` 本机偏移提交时间窗口内看板 SQL 命中 `0`；仅在模拟加入 `914524` 后同一事件命中 `1`。
+- RED: local PQC scope exact probe -> FAIL as expected；`leader_user_id=512 / leader_type=PQC / scope_type=EMPLOYEE / employee_user_id=914524` 语义计数为 `0`，候选主键 `980041` 无冲突，且无运行中的 RRM 写入进程。
+- PQC_SCOPE_BACKUP: `db-backup/acm04-rrm-pqc-review-scope-20260805.sql` -> SHA256 `21A4C7D7E4D16ADEC838A2202BBE7A4C4CE8F4C0105EF5BF7948C44AFEC74BFA`。
+- PQC_SCOPE_APPLY_GREEN: `db-repair/rrm-pqc-review-scope-apply.sql` -> PASS；本机精确 scope `id=980041` 已写入，rollback 为 `db-repair/rrm-pqc-review-scope-rollback.sql`，manifest 为 `db-repair/rrm-pqc-review-scope-manifest.json`。
+- PQC_SCOPE_POST_GREEN: local MySQL exact probe -> PASS；`SCOPE_ROW=1`、看板等价 SQL `VISIBLE_EVENT=1`、残留存储过程 `0`。
+- RED: `node IntRuoyiFronted\tests\e2e\role-requirement-matrix-local-wrapper-static.spec.cjs` -> FAIL，预期原因为安全包装尚未要求精确 `PQC_REVIEW_SCOPE=1`。
+- GREEN: `node IntRuoyiFronted\tests\e2e\role-requirement-matrix-local-wrapper-static.spec.cjs` -> PASS，输出 `PASS role-requirement-matrix local wrapper static contract`。
+- GREEN: PowerShell parser for `run-rrm-real-e2e-local.ps1` -> PASS；包装脚本语法有效。
+- RED: local PQC-selected process task probe -> FAIL as expected；`pqcTaskId=68` 对应 `routeProcessId=928611 / processId=922987 / workstationId=980009`，但 `mes_pro_task` 中 `workOrder=980008 / route=922119 / process=922987` 语义计数为 `0`。候选 `id=981941`、编码 `RRM-20260805-PQC-922987` 冲突数均为 `0`，`AUTO_INCREMENT=981941`。
+- CONCURRENCY: sanitized RRM process probe -> PASS；只命中本轮只读探针 PowerShell 自身，未发现独立运行的 `role-requirement-matrix-real-flow.e2e.js` 或 `e2e:role-requirement-matrix:real` 写入进程。
+- RED: safe wrapper full real E2E after PQC-selected task repair -> FAIL at `resetPqcLeaderSubmissionFilters`；真实页面复核弹窗中的 `textarea` 持续拦截后台“重置”。源码核对确认页面复核表单要求复核签名 ID、签名员工 ID 和签名快照，而 E2E 只填写复核说明，导致复核请求未形成、弹窗未关闭。
+- BDD: PQC 组长正式签名复核闭环 -> Given 真实复核弹窗要求复核签名 ID、签名员工 ID 和签名快照；When PQC 组长通过页面批准或退回本轮提交；Then E2E 必须填写正式签名上下文、捕获 `/mes/pro/process-pool/team-leader/submission/review` 响应，并在业务成功后等待弹窗关闭，失败时结构化记录并关闭弹窗，禁止让遮罩拦截后续筛选。
+- RED: `node IntRuoyiFronted\tests\e2e\role-requirement-matrix-preflight-static.spec.cjs` -> FAIL at line 755；退回补正合同错误要求 `fillPqcLeaderReviewSignature -> wait hidden -> review endpoint`，与真实正确顺序不一致。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `node IntRuoyiFronted\tests\e2e\role-requirement-matrix-preflight-static.spec.cjs` -> PASS；退回补正合同已锁定 `fill signature -> review endpoint -> wait hidden -> update-original`。
+- GREEN: `node IntRuoyiFronted\tests\e2e\role-requirement-matrix-local-wrapper-static.spec.cjs` -> PASS；本机 DB 前置仍要求精确 `PQC_REVIEW_SCOPE=1` 和 `PQC_SELECTED_TASK=1`。
+- GREEN: PowerShell parser for `run-rrm-real-e2e-local.ps1` -> PASS。
+- GREEN: experience-preflight -> PASS；已读取 `docs/frontend-development.md`、`docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/worktree-restrictions.md`、`docs/database-rules.md`、`docs/powershell-encoding.md` 和 `docs/task-closeout-rules.md`，当前长链路仅限 `E:\IntRuoyi` 的 `8081/48081` 与本机 Docker MySQL。
 
 ## Blockers
 
@@ -111,4 +165,5 @@
 - 历史 worktree 真实 `result.json` 不是当前主任务 canonical 状态，直接复制会把额外 transfer-trace blocker 带回主工作区，造成验收口径倒退。
 - AC-M04 当前仍只能保持 `PASS_ACTION_NOT_ACCEPTED`；虽然 full real E2E 已证明 AC-M04 核心动作 PASS，但提升为 `ACCEPTED` 前还必须补齐 coverage ledger 的正式接受条件，证明成功路径、重复/并发、冲突路线、越权写入、跨角色只读、PQC/报工候选联动和清理-readiness 均达到准出。
 - 后续非 AC-M04 阻塞：PQC 正式提交未捕获提交接口响应、PQC 组长提交夹具不足、eDHR 放行准备路线下拉定位失败、AC-M19 并发 proof 缺口、性能准出和 62 个 coverage blocker。
+- 当前 PQC 首要数据 blocker：事件已落库，但 PQC 组长 `512` 缺少实际检验人 `914524` 的正式负责范围；必须补精确本机 scope，禁止放宽 `employeeUserIds` 权限过滤。
 - 已解除硬阻塞：PQC 正式提交暴露的 P0 runtime migration/backfill blocker 已按用户授权在本机库完成修复并复验 PASS；下一步必须重新运行真实 RRM E2E，不能把 schema verifier PASS 直接冒充 PQC 页面链路 PASS。

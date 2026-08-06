@@ -336,8 +336,9 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             throw exception(PRO_FRONTLINE_SIGNATURE_EMPLOYEE_MISMATCH,
                     command.getActualEmployeeId(), command.getSignatureEmployeeId());
         }
+        MesProProcessPoolEventDO sourceEvent = requireProductionSubmitEvent(command);
         Optional<Long> existingPqcTaskId = processPoolEventService.findExistingPqcInspectionTaskId(
-                buildPqcInspectionLookup(command));
+                buildPqcInspectionLookup(command, sourceEvent));
         if (existingPqcTaskId.isPresent()) {
             return existingPqcTaskId.get();
         }
@@ -370,9 +371,9 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 .routeProcessId(process.routeProcessId())
                 .processId(process.processId())
                 .actualEmployeeId(command.getActualEmployeeId())
-                .deviceAccountId(command.getDeviceAccountId())
-                .deviceId(command.getDeviceId())
-                .workstationId(command.getWorkstationId())
+                .deviceAccountId(sourceEvent.getDeviceAccountId())
+                .deviceId(sourceEvent.getDeviceId())
+                .workstationId(sourceEvent.getWorkstationId())
                 .templateType(command.getTemplateType())
                 .feedbackSourceType(PQC_INSPECTION_TASK_SOURCE_TYPE)
                 .feedbackSourceId(task.getId())
@@ -442,7 +443,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         return new ArrayList<>(snapshotByItem.values());
     }
 
-    private MesProcessPoolCreatePqcInspectionReqDTO buildPqcInspectionLookup(MesFrontlinePqcSubmitCommand command) {
+    private MesProcessPoolCreatePqcInspectionReqDTO buildPqcInspectionLookup(
+            MesFrontlinePqcSubmitCommand command, MesProProcessPoolEventDO sourceEvent) {
         return MesProcessPoolCreatePqcInspectionReqDTO.builder()
                 .workOrderId(command.getWorkOrderId())
                 .productionSubmitEventId(command.getProductionSubmitEventId())
@@ -451,9 +453,9 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 .routeProcessId(command.getRouteProcessId())
                 .processId(command.getProcessId())
                 .actualEmployeeId(command.getActualEmployeeId())
-                .deviceAccountId(command.getDeviceAccountId())
-                .deviceId(command.getDeviceId())
-                .workstationId(command.getWorkstationId())
+                .deviceAccountId(sourceEvent.getDeviceAccountId())
+                .deviceId(sourceEvent.getDeviceId())
+                .workstationId(sourceEvent.getWorkstationId())
                 .templateType(command.getTemplateType())
                 .feedbackSourceType(PQC_INSPECTION_TASK_SOURCE_TYPE)
                 .feedbackSourceId(command.getPqcTaskId())
@@ -485,9 +487,6 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         requireValue(command.getRoundNo(), "roundNo");
         requireValue(command.getActualInspectionQuantity(), "actualInspectionQuantity");
         requirePositive(command.getActualEmployeeId(), "actualEmployeeId");
-        requirePositive(command.getDeviceAccountId(), "deviceAccountId");
-        requirePositive(command.getDeviceId(), "deviceId");
-        requirePositive(command.getWorkstationId(), "workstationId");
         requireText(command.getPqcSubmissionIdempotencyKey(), "pqcSubmissionIdempotencyKey");
         requirePositive(command.getSignatureId(), "signatureId");
         requirePositive(command.getSignatureEmployeeId(), "signatureEmployeeId");
@@ -532,6 +531,26 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 && StrUtil.isBlank(nonconformanceDescription)) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "nonconformanceDescription");
         }
+    }
+
+    private MesProProcessPoolEventDO requireProductionSubmitEvent(MesFrontlinePqcSubmitCommand command) {
+        MesProProcessPoolEventDO sourceEvent =
+                processPoolEventMapper.selectByIdForUpdate(command.getProductionSubmitEventId());
+        if (sourceEvent == null) {
+            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "productionSubmitEventId");
+        }
+        if (!MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(sourceEvent.getEventType())
+                || !Objects.equals(sourceEvent.getWorkOrderId(), command.getWorkOrderId())
+                || !Objects.equals(sourceEvent.getRouteId(), command.getRouteId())
+                || !Objects.equals(sourceEvent.getRouteProcessId(), command.getRouteProcessId())
+                || !Objects.equals(sourceEvent.getProcessId(), command.getProcessId())) {
+            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
+                    "productionSubmitEventId=" + command.getProductionSubmitEventId());
+        }
+        requirePositive(sourceEvent.getDeviceAccountId(), "productionSubmitEvent.deviceAccountId");
+        requirePositive(sourceEvent.getDeviceId(), "productionSubmitEvent.deviceId");
+        requirePositive(sourceEvent.getWorkstationId(), "productionSubmitEvent.workstationId");
+        return sourceEvent;
     }
 
     private MesProcessPoolActiveOrderDO requireActiveOrder(Long workOrderId, Long routeId) {

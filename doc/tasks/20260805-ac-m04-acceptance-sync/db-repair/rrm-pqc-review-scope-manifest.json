@@ -1,0 +1,37 @@
+{
+  "repairId": "ACM04_RRM_PQC_REVIEW_SCOPE_20260805_LOCAL",
+  "taskId": "20260805-ac-m04-acceptance-sync",
+  "database": "ruoyi-vue-pro",
+  "environment": "local-docker-only",
+  "tenantId": 1,
+  "creator": "rrm-acm04",
+  "updater": "rrm-acm04",
+  "remark": "rrm-ac-m04-pqc-review-scope",
+  "sourceIdentity": {
+    "leaderUserId": 512,
+    "leaderUsername": "huzonggang",
+    "actualEmployeeUserId": 914524,
+    "actualEmployeeUsername": "pqce2efullscreen",
+    "pqcEventId": 133,
+    "pqcRecordId": 90,
+    "pqcTaskId": 93,
+    "signatureId": 99009104,
+    "productionSubmitEventId": 132
+  },
+  "rows": [
+    {
+      "table": "mes_pro_process_pool_team_leader_scope",
+      "primaryKey": 980041,
+      "semanticKey": {
+        "leaderUserId": 512,
+        "leaderType": "PQC",
+        "scopeType": "EMPLOYEE",
+        "employeeUserId": 914524
+      },
+      "enabled": true,
+      "beforeCount": 0,
+      "afterCount": 1
+    }
+  ],
+  "rollback": "db-repair/rrm-pqc-review-scope-rollback.sql"
+}

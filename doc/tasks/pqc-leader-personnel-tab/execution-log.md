@@ -25,6 +25,18 @@
 - GREEN: 隔离 worktree 目标 Surefire -> PASS，`MesProcessPoolTeamLeaderControllerTest` 11 个、`MesPqcLeaderPersonnelServiceTest` 5 个、`MesTeamLeaderScopeServiceTest` 5 个，共 21 个测试，失败 0、错误 0。
 - GREEN: 隔离构建 `yudao-server-exec.jar` SHA256 `9A424362D7A7A0986473AA395CF4D85E37BA4AF3868529EE3E6B7AD34469D9BA`；内嵌 MES Jar 包含 `MesPqcLeaderPersonnelService.class`、`MesPqcLeaderPersonnelServiceImpl.class`、`MesPqcLeaderPersonnelRespVO.class` 和新 Controller。
 - RED CONFIRMATION: 旧运行 Jar SHA256 `4EA3E8BB6C585C738EB1F99AFE42C33827CB2908E275242819646213488F5A1F`，内嵌 MES Jar 缺少上述三个 PQC personnel 关键类。
+- RUNTIME: 仅停止确认归属 `int_main:48081` 的旧 PID `60192`；新 PID `55784` 运行 `output/runtime/int_main/backend-runtime-control-pqc-personnel-4a2b24c39.jar`，health `UP`。
+- GREEN: Playwright 真实页面 `/mes/pro/process-pool/pqc-leader` -> PASS；目标接口 HTTP `200`、业务码 `0`，tab 顺序正确，人员列表和新增按钮可见，`pageErrors=[]`。
+- REGRESSION: PQC personnel、PQC tab、生产组长相邻 tab 三个前端静态合同复跑 PASS。
+- TRANSIENT: 首次复跑 `pnpm ts:check` 时，并行任务 `20260805-production-leader-active-order-pool-tab` 正在写同一 Vue 文件，出现缺少 `activeOrder*` 定义的中间态错误。
+- GREEN: 并行任务静态合同通过后按 stale-blocker 门禁复跑 `pnpm ts:check` -> PASS；未修改、覆盖或提交该并行任务代码。
+- CLEANUP: 任务自有 detached verification worktree 已通过 `git worktree remove --force` 删除，路径不存在且 Git 登记已移除。
+- VALIDATOR: bug-regression evidence -> PASS；validator self-test -> PASS。
+- VALIDATOR: backend-api evidence -> PASS；validator self-test -> PASS。
+- VALIDATOR: frontend-feature evidence -> PASS；validator self-test -> PASS。
+- EXPERIENCE: `project-experience-consolidation` 核对后，现有 `docs/local-runtime.md` 和 `docs/worktree-memory.md` 已覆盖旧 Jar、认证态路由、隔离构建和不可变运行 Jar 门禁；本次不新增重复经验文档。
+- CLOSEOUT: task-closeout preview -> keep 3、delete 6、blocked 0、warnings 0。
+- CLOSEOUT: task-closeout apply -> PASS，删除 3 个临时 evidence 和 3 个一次性验证脚本，只保留 `task.md`、`execution-log.md`、`verification-report.md`。
 
 ## Completed Work
 
@@ -34,4 +46,4 @@
 
 ## Remaining Blocker
 
-- 必须用已验证的不可变 Jar 替换确认归属的旧 PID `60192`，并完成健康检查和认证态目标接口验证。
+- 无。

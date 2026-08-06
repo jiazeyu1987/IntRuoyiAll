@@ -176,8 +176,23 @@ const activeOrderCleanupSource = source.match(
 assert.ok(activeOrderCleanupSource, 'Active-order cleanup function must exist.')
 assert.match(
   activeOrderCleanupSource[0],
-  /\/mes\/pro\/process-pool\/production-leader[\s\S]*await selectRealFlowTab\(page,\s*'班组配置'\)[\s\S]*data-team-leader-active-order-config/,
-  'Active-order cleanup must reopen the formal production-leader page and switch to 班组配置 before locating the cleanup surface.'
+  /\/mes\/pro\/process-pool\/production-leader[\s\S]*await selectRealFlowTab\(page,\s*'活跃订单池'\)[\s\S]*data-team-leader-active-order-config/,
+  'Active-order cleanup must reopen the formal production-leader page and switch to 活跃订单池 before locating the cleanup surface.'
+)
+assert.match(
+  source,
+  /async function findVisibleActiveOrderRowAcrossPages[\s\S]*button\.btn-next[\s\S]*isDisabled\(\)[\s\S]*waitForFunction/,
+  'Active-order cleanup must page through the real visible table when the task row is not on the first page.'
+)
+assert.match(
+  activeOrderCleanupSource[0],
+  /findVisibleActiveOrderRowAcrossPages\(\s*section,\s*joinEvidence\.activeOrderId,\s*rows\.length\s*\)/,
+  'Active-order cleanup must use the pagination-aware visible-row locator.'
+)
+assert.doesNotMatch(
+  activeOrderCleanupSource[0],
+  /const activeOrderRow = section\.locator\('tbody tr'\)[\s\S]*activeOrderRow\.waitFor\(\{\s*state:\s*'visible'/,
+  'Active-order cleanup must not assume the task row is already visible on the current page.'
 )
 
 for (const token of [
@@ -354,6 +369,16 @@ assert.match(
 )
 assert.match(
   source,
+  /async function selectFirstFormalPqcOption[\s\S]*option:not\(\[value=""\]\)[\s\S]*selectOption/,
+  'real E2E must select a non-placeholder formal option for project-level PQC equipment fields.'
+)
+assert.match(
+  source,
+  /async function completePqcPieceDetailsForSubmission[\s\S]*selectFirstFormalPqcOption\([\s\S]*data-pqc-equipment-select[\s\S]*selectFirstFormalPqcOption\([\s\S]*data-pqc-equipment-number-select/,
+  'real E2E must select formal equipment and equipment number for every PQC inspection item.'
+)
+assert.match(
+  source,
   /async function findPqcLeaderSubmissionRowByTaskAndSignature[\s\S]*Number\(item\.pqcTaskId\)\s*===\s*Number\(submittedTaskId\)[\s\S]*Number\(item\.electronicSignatureId\)\s*===\s*Number\(signatureId\)/,
   'PQC formal-submission E2E must identify the newly-created event by both submitted taskId and configured signatureId, not by reused taskId alone.'
 )
@@ -394,8 +419,8 @@ assert.match(
 )
 assert.match(
   source,
-  /key:\s*'productionLeaderWorkbench'[\s\S]*targetPath:\s*'\/mes\/pro\/process-pool\/production-leader'[\s\S]*selectorGroups:\s*\[[\s\S]*tabText:\s*'报工管理'[\s\S]*data-team-leader-report-workbench[\s\S]*tabText:\s*'看板'[\s\S]*data-role-matrix-daily-close[\s\S]*tabText:\s*'班组配置'[\s\S]*data-team-leader-active-order-config/,
-  'Production leader real-flow phase must verify report, dashboard, and config surfaces through their formal module tabs.'
+  /key:\s*'productionLeaderWorkbench'[\s\S]*targetPath:\s*'\/mes\/pro\/process-pool\/production-leader'[\s\S]*selectorGroups:\s*\[[\s\S]*tabText:\s*'报工管理'[\s\S]*data-team-leader-report-workbench[\s\S]*tabText:\s*'看板'[\s\S]*data-role-matrix-daily-close[\s\S]*tabText:\s*'活跃订单池'[\s\S]*data-team-leader-active-order-config[\s\S]*tabText:\s*'班组配置'[\s\S]*data-team-leader-config-center/,
+  'Production leader real-flow phase must verify report, dashboard, active-order, and config surfaces through their formal module tabs.'
 )
 assert.match(
   source,
@@ -419,8 +444,8 @@ assert.match(
 )
 assert.match(
   source,
-  /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*await selectRealFlowTab\(page,\s*'班组配置'\)[\s\S]*data-team-leader-active-order-config[\s\S]*await selectRealFlowTab\(page,\s*'看板'\)[\s\S]*verifyDailyClosePerformanceReadOnly/,
-  'Production leader active-order action must join from 班组配置 and read daily-close evidence from 看板.'
+  /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*await selectRealFlowTab\(page,\s*'活跃订单池'\)[\s\S]*data-team-leader-active-order-config[\s\S]*await selectRealFlowTab\(page,\s*'看板'\)[\s\S]*verifyDailyClosePerformanceReadOnly/,
+  'Production leader active-order action must join from 活跃订单池 and read daily-close evidence from 看板.'
 )
 assert.match(
   source,
@@ -462,8 +487,27 @@ assert.match(
 )
 assert.match(
   source,
-  /performActiveOrderJoin[\s\S]*fillFormItemForAction\(section,\s*'加入活跃订单',\s*'调拨单ID列表',\s*config\.transferIds\.join\(','\)\)/,
-  'real E2E must submit formal transferIds through the visible active-order join form.'
+  /performActiveOrderJoin[\s\S]*getByRole\('button',\s*\{\s*name:\s*'新增活跃订单'\s*\}\)\.click\(\)[\s\S]*data-team-leader-active-order-add-dialog[\s\S]*fillFormItem\(dialog,\s*'调拨单ID列表',\s*config\.transferIds\.join\(','\)\)/,
+  'real E2E must fill the active-order join fields directly within the visible dialog form.'
+)
+const activeOrderDialogActionsSource = source.match(
+  /async function performActiveOrderJoin[\s\S]*?(?=async function verifyActiveOrderTransferTraceReadOnly)/
+)
+assert.ok(activeOrderDialogActionsSource, 'Active-order dialog action functions must exist.')
+assert.doesNotMatch(
+  activeOrderDialogActionsSource[0],
+  /fillFormItemForAction\(dialog,\s*'加入活跃订单'/,
+  'Active-order dialog actions must not infer an el-form ancestor from the footer action button.'
+)
+assert.match(
+  activeOrderDialogActionsSource[0],
+  /verifyActiveOrderConflictRouteFailure[\s\S]*fillFormItem\(dialog,\s*'生产订单ID',\s*config\.workOrderId\)[\s\S]*fillFormItem\(dialog,\s*'路线ID',\s*conflictRouteId\)/,
+  'Conflict-route verification must fill fields directly within the active-order dialog.'
+)
+assert.match(
+  activeOrderDialogActionsSource[0],
+  /verifyActiveOrderConflictRouteFailure[\s\S]*\.el-message,\s*\.el-notification[\s\S]*dialog\.getByRole\('button',\s*\{\s*name:\s*'取消'\s*\}\)\.click\(\)[\s\S]*dialog\.waitFor\(\{\s*state:\s*'hidden'/,
+  'Conflict-route verification must close the expected-failure dialog before continuing to other module tabs.'
 )
 assert.match(
   source,
@@ -625,8 +669,8 @@ assert.match(
 )
 assert.match(
   source,
-  /pqcLeader[\s\S]*'\/mes\/pro\/process-pool\/pqc-leader'[\s\S]*async function searchPqcLeaderSubmissionsOnPage[\s\S]*data-pqc-leader-filter-product/,
-  'PQC leader submission filter E2E must open the standalone QA-side PQC leader route before locating PQC-only filters.'
+  /pqcLeader[\s\S]*'\/mes\/pro\/process-pool\/pqc-leader'[\s\S]*async function searchPqcLeaderSubmissionsOnPage[\s\S]*table-multi-filter\[data-table-key="mes\.processPool\.teamLeader\.submissions"\]/,
+  'PQC leader submission filter E2E must open the standalone route and operate the formal standard multi-filter.'
 )
 assert.doesNotMatch(
   source,
@@ -635,13 +679,38 @@ assert.doesNotMatch(
 )
 assert.match(
   source,
-  /async function searchPqcLeaderSubmissionsOnPage[\s\S]*fillFormItem\(section,\s*'提交日期',\s*filters\.submitDate\)[\s\S]*fillFormItem\(section,\s*'生产工单',\s*filters\.workOrderCode\)/,
-  'PQC leader submission filter E2E must set the page submitDate from the target event instead of relying on the default date.'
+  /async function ensurePqcLeaderSubmissionFilterCondition[\s\S]*data-filter-key[\s\S]*新增筛选条件[\s\S]*table-multi-filter__field-select/,
+  'PQC leader submission filter E2E must add or activate each formal standard multi-filter condition.'
 )
 assert.match(
   source,
-  /function\s+fillElementPlusInput[\s\S]*input\$\{selector\},\s*\$\{selector\} input/,
-  'PQC leader submission filter E2E must fill Element Plus inputs whether data-* is on the wrapper or the native input.'
+  /async function searchPqcLeaderSubmissionsOnPage[\s\S]*setPqcLeaderSubmissionFilter\(page,\s*multiFilter,\s*'submitDate',\s*'提交日期',\s*filters\.submitDate\)[\s\S]*setPqcLeaderSubmissionFilter\(page,\s*multiFilter,\s*'workOrderCode',\s*'生产工单',\s*filters\.workOrderCode\)[\s\S]*getByRole\('button',\s*\{\s*name:\s*'查询'\s*\}\)\.click\(\)/,
+  'PQC leader submission filter E2E must set the event date and business filters through the standard multi-filter before querying.'
+)
+assert.match(
+  source,
+  /async function setPqcLeaderSubmissionFilter[\s\S]*table-multi-filter-field__value[\s\S]*input:not\(\[readonly\]\)/,
+  'PQC leader submission filter E2E must target the value control instead of the read-only operator select.'
+)
+assert.match(
+  source,
+  /async function setPqcLeaderSubmissionFilter[\s\S]*table-multi-filter__tabs[\s\S]*filterLabel/,
+  'PQC leader submission filter E2E must wait for each updated condition to render in its Tab label.'
+)
+assert.match(
+  source,
+  /filterKey\s*===\s*'submitDate'[\s\S]*input\.press\(['"]Tab['"]\)/,
+  'PQC leader submission filter E2E must commit the Element Plus date value through a real blur.'
+)
+assert.match(
+  source,
+  /async function resetPqcLeaderSubmissionFilters[\s\S]*getByRole\('button',\s*\{\s*name:\s*'重置'\s*\}\)[\s\S]*table-multi-filter__tabs-empty[\s\S]*async function searchPqcLeaderSubmissionsOnPage[\s\S]*resetPqcLeaderSubmissionFilters\(multiFilter\)[\s\S]*setPqcLeaderSubmissionFilter/,
+  'each PQC leader query must reset the standard multi-filter before rebuilding the target conditions.'
+)
+assert.doesNotMatch(
+  source,
+  /data-pqc-leader-filter-(?:product|inspection-type|round|review-status)|fillFormItem\(section,\s*'提交日期'/,
+  'PQC leader submission filter E2E must not depend on the removed legacy form controls.'
 )
 assert.match(
   source,
@@ -660,17 +729,22 @@ assert.match(
 )
 assert.match(
   source,
+  /async function fillPqcLeaderReviewSignature[\s\S]*requireSignatureId\(config,\s*'pqcLeader'\)[\s\S]*复核签名ID[\s\S]*签名员工ID[\s\S]*签名快照[\s\S]*async function verifyPqcLeaderReviewApprovalAggregatesProcessInspection[\s\S]*fillPqcLeaderReviewSignature[\s\S]*waitFor\(\{ state: 'hidden'/,
+  'PQC leader page review must fill the formal leader signature context and wait for the review dialog to close.'
+)
+assert.match(
+  source,
   /async function verifyPqcLeaderReviewApprovalAggregatesProcessInspection[\s\S]*reviewButtonVisible[\s\S]*reviewButton[\s\S]*\.waitFor\(\{ state: 'visible'[\s\S]*\.catch\(\(error\) => \(\{ reviewButtonError: error \}\)\)[\s\S]*E2E_PQC_REVIEW_PAGE/,
   'PQC leader approval review button visibility failures must become structured E2E_PQC_REVIEW_PAGE blockers.'
 )
 assert.match(
   source,
-  /async function verifyPqcLeaderDuplicateTerminalReviewBlocked[\s\S]*pqcLeaderReviewApprovedAndAggregated[\s\S]*PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS[\s\S]*\/mes\/pro\/process-pool\/team-leader\/submission\/review[\s\S]*isBusinessSuccess\(result\.body\)[\s\S]*E2E_PQC_REVIEW_TERMINAL/,
+  /async function verifyPqcLeaderDuplicateTerminalReviewBlocked[\s\S]*pqcLeaderReviewApprovedAndAggregated[\s\S]*PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS[\s\S]*expectedErrorCode\s*=\s*1040760329[\s\S]*\/mes\/pro\/process-pool\/team-leader\/submission\/review[\s\S]*reviewSignatureId[\s\S]*reviewSignatureEmployeeUserId[\s\S]*reviewSignatureSnapshotJson[\s\S]*isBusinessSuccess\(result\.body\)[\s\S]*E2E_PQC_REVIEW_TERMINAL/,
   'PQC leader review E2E must attempt a second terminal review for the same approved event and prove the backend rejects it.'
 )
 assert.match(
   source,
-  /async function verifyPqcLeaderSelfReviewBlocked[\s\S]*resolveRoleUserId\(page,\s*config,\s*'pqcLeader'\)[\s\S]*searchPqcLeaderSubmissionsOnPage[\s\S]*PRO_PROCESS_POOL_SUBMISSION_REVIEW_SELF_FORBIDDEN[\s\S]*\/mes\/pro\/process-pool\/team-leader\/submission\/review[\s\S]*E2E_PQC_REVIEW_SELF/,
+  /async function verifyPqcLeaderSelfReviewBlocked[\s\S]*resolveRoleUserId\(page,\s*config,\s*'pqcLeader'\)[\s\S]*searchPqcLeaderSubmissionsOnPage[\s\S]*PRO_PROCESS_POOL_SUBMISSION_REVIEW_SELF_FORBIDDEN[\s\S]*expectedErrorCode\s*=\s*1040760330[\s\S]*\/mes\/pro\/process-pool\/team-leader\/submission\/review[\s\S]*reviewSignatureId[\s\S]*reviewSignatureEmployeeUserId[\s\S]*reviewSignatureSnapshotJson[\s\S]*E2E_PQC_REVIEW_SELF/,
   'PQC leader review E2E must observe a pending self-review row in the real page and prove the formal review endpoint rejects it.'
 )
 assert.match(
@@ -680,7 +754,7 @@ assert.match(
 )
 assert.match(
   source,
-  /async function verifyPqcLeaderRejectedCorrectionChain[\s\S]*data-team-leader-correction-event-id[\s\S]*reviewStatus:\s*'REJECTED'[\s\S]*\/mes\/pro\/process-pool\/team-leader\/submission\/review[\s\S]*revisionSignatureId[\s\S]*\/mes\/pro\/process-pool\/event-revision\/update-original[\s\S]*modificationHistorySummary[\s\S]*E2E_PQC_REJECT_CORRECTION/,
+  /async function verifyPqcLeaderRejectedCorrectionChain[\s\S]*data-team-leader-correction-event-id[\s\S]*reviewStatus:\s*'REJECTED'[\s\S]*fillPqcLeaderReviewSignature[\s\S]*\/mes\/pro\/process-pool\/team-leader\/submission\/review[\s\S]*waitFor\(\{ state: 'hidden'[\s\S]*revisionSignatureId[\s\S]*\/mes\/pro\/process-pool\/event-revision\/update-original[\s\S]*modificationHistorySummary[\s\S]*E2E_PQC_REJECT_CORRECTION/,
   'PQC rejected-correction E2E must reject a real pending submission, submit the page correction through update-original with a new signature, and prove modification history in the read model.'
 )
 assert.match(
@@ -984,8 +1058,8 @@ assert.match(
 )
 assert.match(
   source,
-  /function buildPqcFillUrl[\s\S]*productionSubmitEventId[\s\S]*processPoolEventId/,
-  'PQC fill URL must carry the fresh productionSubmitEventId/processPoolEventId instead of relying on historical process-pool state.'
+  /function buildPqcFillUrl[\s\S]*productionSubmitEventId[\s\S]*processPoolEventId[\s\S]*routeProcessId[\s\S]*processId/,
+  'PQC fill URL must carry the fresh production event and the exact route-process identity instead of relying on historical or default process state.'
 )
 assert.match(
   source,
