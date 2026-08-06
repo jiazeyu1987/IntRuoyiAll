@@ -122,9 +122,11 @@ export interface TeamDeviceParameterRuleSaveReqVO {
 
 export interface TeamLeaderActiveOrderAddReqVO {
   workOrderId: number
-  routeId: number
-  routeVersionId: number
-  transferIds?: number[]
+}
+
+export interface TeamLeaderActiveOrderCandidateRespVO {
+  workOrderId: number
+  workOrderCode: string
 }
 
 export interface TeamLeaderActiveOrderRemoveReqVO {
@@ -242,9 +244,14 @@ export interface TeamProcessDefectReasonSaveReqVO extends TeamDefectReasonSaveRe
 export interface TeamLeaderActiveOrderRespVO {
   id: number
   workOrderId: number
+  routeId: number
+  routeVersionId: number
+  erpFixedQuantitySnapshot?: number | string
   activeStatus: string
-  joinedAt?: string
-  removedAt?: string
+  businessStatus?: string
+  joinedAt?: number
+  removedAt?: number
+  version?: number
 }
 
 export interface TeamLeaderActiveOrderTransferTraceRespVO {
@@ -410,6 +417,13 @@ export const addTeamLeaderActiveOrder = async (data: TeamLeaderActiveOrderAddReq
   return await request.post<number>({
     url: '/mes/pro/process-pool/team-leader/active-order/add',
     data
+  })
+}
+
+export const searchTeamLeaderActiveOrderCandidates = async (keyword: string) => {
+  return await request.get<TeamLeaderActiveOrderCandidateRespVO[]>({
+    url: '/mes/pro/process-pool/team-leader/active-order/candidates',
+    params: { keyword }
   })
 }
 

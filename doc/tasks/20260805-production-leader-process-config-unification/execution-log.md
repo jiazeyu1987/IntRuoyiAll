@@ -177,3 +177,20 @@
 - Cleanup apply: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-production-leader-process-config-unification --mode apply --worktree-closeout off` -> APPLIED；仅删除 preview 中列出的任务中间产物。
 - Worktree closeout: skipped by `--worktree-closeout off` because local `E:\IntRuoyi` main worktree is dirty with unrelated concurrent changes;本任务不触碰主工作区无关文件。
 - Remaining closeout: stage cleanup deletions and surviving task records, create cleanup commit, push current branch, then attempt no-force remote integration to `origin/int_main` if fast-forward preconditions allow.
+
+## Main-Code Merge Resume
+
+- Scope confirmation: 用户明确指令 `不用E2E,直接合并到主代码,我手动验证` 仍作为本轮合并门禁；本轮不运行真实浏览器写入型 E2E，不生成截图或 trace，不声明真实页面已通过。
+- Merge conflict resolution: 已完成 `origin/int_main` 合入当前任务分支后的冲突处理，`git diff --name-only --diff-filter=U` 无未解决冲突文件。
+- RED: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesTeamLeaderProcessConfigServiceTest,MesTeamLeaderRuntimeConfigServiceTest,MesProcessPoolTeamLeaderSchemaTest,MesFrontlineRuntimeConfigServiceTest,MesTeamLeaderActiveOrderServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected merge-resume issue: `MesTeamLeaderActiveOrderServiceTest` setup 使用 `inspectionRegulationMapper` 但字段缺少 `@Mock`，触发 NPE 和 Mockito matcher 污染。
+- GREEN: 为 `MesQaInspectionRegulationMapper inspectionRegulationMapper` 补充 `@Mock`，只修测试注入，不改业务实现。
+- GREEN: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`Tests run: 11, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`。
+- GREEN: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesTeamLeaderProcessConfigServiceTest,MesTeamLeaderRuntimeConfigServiceTest,MesProcessPoolTeamLeaderSchemaTest,MesFrontlineRuntimeConfigServiceTest,MesTeamLeaderActiveOrderServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`Tests run: 50, Failures: 0, Errors: 0, Skipped: 0`，`BUILD SUCCESS`。
+- GREEN: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_mes_process_pool_device_parameter_route_process_migration.py -q` -> PASS，`4 passed in 0.17s`。
+- GREEN: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --output C:\Users\BJB110\AppData\Local\Temp\20260806-process-config-merge-policy-gate.json` -> PASS，`status=passed`、`migrationCount=442`。
+- GREEN: `pnpm ts:check` from `IntRuoyiFronted` -> PASS，exit code `0`。
+- GREEN: `node tests\e2e\team-leader-process-config-unified-static.spec.cjs`、`team-leader-workbench-static.spec.cjs`、`mes-process-pool-team-leader-static.spec.js`、`frontline-team-config-static.spec.cjs`、`production-leader-active-order-pool-tab-static.spec.js`、`production-leader-function-tabs-static.spec.js`、`production-leader-tabs-flat-style-static.spec.js` from `IntRuoyiFronted` -> PASS。
+- GREEN: `node --check tests\e2e\team-leader-process-config-unified-real.e2e.js` from `IntRuoyiFronted` -> PASS；仅语法检查，未执行真实 E2E。
+- GREEN: `git diff --cached origin/int_main --check` -> PASS，exit code `0`；仅 Git line-ending normalization warning，无 whitespace error。
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260805-process-config-unification/int_main: frontend 8085, backend 48085`。
+- Next: stage latest merge-resume test/doc updates, create merge commit, push task branch, then push verified `HEAD` to `origin/int_main` without force。

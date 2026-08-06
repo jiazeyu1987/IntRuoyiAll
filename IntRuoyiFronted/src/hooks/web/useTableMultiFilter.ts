@@ -106,7 +106,7 @@ const hasCompleteRangeValue = (condition: Partial<ListMultiFilterCondition>) => 
 }
 
 export const getDefaultMultiFilterOperator = (definition: ListMultiFilterDefinition) =>
-  DEFAULT_OPERATOR[definition.type]
+  definition.operators?.[0] || DEFAULT_OPERATOR[definition.type]
 
 export const getMultiFilterOperatorOptions = (definition: ListMultiFilterDefinition) =>
   definition.operators || DEFAULT_OPERATORS[definition.type]

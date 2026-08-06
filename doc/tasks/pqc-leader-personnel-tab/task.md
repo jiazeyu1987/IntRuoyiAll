@@ -9,8 +9,8 @@
 - [x] 建立 BDD / TDD 任务证据和 RED 契约
 - [x] 实现后端 PQC 人员 scope 管理 API
 - [x] 实现前端 PQC 人员管理 tab、列表和新增弹窗
-- [ ] 修复 `48081` 旧 Jar 导致的认证态接口不存在
-- [x] 运行后端聚焦验证并记录结果
+- [x] 修复 `48081` 旧 Jar 导致的认证态接口不存在
+- [x] 运行前后端聚焦验证并记录结果
 - [ ] 收尾清理并更新任务状态
 
 ## Expected Verification
@@ -23,9 +23,9 @@
 
 ## Current Status
 
-in_progress
+completed
 
-前后端聚焦验证已通过。用户真实页面发现 PQC personnel 接口不存在；已确认 `48081` 运行的是缺少新增 PQC class 的旧 Jar，隔离构建的新 Jar 已通过关键 class 合同，正在替换旧运行态并完成认证态请求验证。
+后端目标测试、不可变 Jar 构建、运行态替换、Playwright 认证态页面验证、前端聚焦合同、类型检查、三个 evidence validator 和 cleanup 均已通过。
 
 ## 设计约束检查
 
@@ -42,3 +42,10 @@ in_progress
 - MES PQC 项目级检验快照门禁：PQC 组长复核可见范围使用正式 PQC scope，不用前端文案或 raw payload 替代正式责任范围。
 - 本地后端隔离构建 Jar 加载门禁：运行 Jar 必须包含新增 PQC class，未登录 `401` 不作为路由加载证明。
 - 主工作区 Maven Target 冲突时的隔离验证 Worktree 门禁：从已提交 HEAD 创建任务自有 detached worktree，不从并行脏主工作区直接打包。
+
+## Cleanup Candidates
+
+- doc/tasks/pqc-leader-personnel-tab/backend-api-evidence.md
+- doc/tasks/pqc-leader-personnel-tab/frontend-feature-evidence.md
+- doc/tasks/pqc-leader-personnel-tab/bug-regression-evidence.md
+- doc/tasks/pqc-leader-personnel-tab/restart-verified-backend.ps1

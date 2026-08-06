@@ -287,12 +287,12 @@
 
 ### QA 规程配置状态必须来自产品级规程记录
 
-- Trigger: QA 规程配置页、DCC 项目代码对应产品、`已配置 QA 规程`、`待配置 QA 规程`、`project-statuses`、`mes_qa_inspection_regulation.product_id`、前端硬编码 `IDI` 或压力泵模板判断配置状态。
-- Preflight check: 修改 QA 规程配置状态前，先核对 DCC 项目代码的 `productMasterId` 与 QA 规程表 `product_id` 的正式关系；配置状态必须由后端按产品 ID 查询 QA 规程记录并返回，前端只能展示和错误处理，不得用项目代码、产品名称或样例模板集合推断已配置。
-- Blocker: 页面把压力泵 `IDI`、产品名称、前端常量集合、空状态、模板初始化数据或查询失败当作配置状态来源，或状态接口失败时静默把项目归入待配置，必须停止并补齐正式状态接口和错误展示。
-- Verification: 后端回归必须覆盖已配置与未配置产品按请求顺序返回；前端静态契约必须断言调用正式 `project-statuses` API、禁止硬编码配置集合，并覆盖状态加载失败可见错误；同时运行 `pnpm ts:check`。
-- Forbidden action: 禁止用前端文案、默认项目、压力泵样例模板、API-only 展示或吞掉状态接口错误替代后台 QA 规程配置事实。
-- Evidence: `doc/tasks/20260804-qa-regulation-dcc-project-code/verification-report.md`。
+- Trigger: QA 规程配置页、DCC 项目代码对应产品、`已配置 QA 规程`、`待配置 QA 规程`、产品级检验规则草稿、`qaInspectionTypeRules`、`qaProductRuleDrafts`、`project-statuses`、`mes_qa_inspection_regulation.product_id`、前端硬编码 `IDI` 或压力泵模板判断产品状态。
+- Preflight check: 修改 QA 规程配置状态或检验规则前，先核对 DCC 项目代码的 `productMasterId` 与 QA 规程表 `product_id` 的正式关系；配置状态必须由后端按产品 ID 查询 QA 规程记录并返回。页面内尚未保存的规程字段、检验规则和检验项目也必须以 `productMasterId` 为唯一状态 key，切换产品前保存当前产品草稿、切换后恢复目标产品草稿；同一产品的不同 DCC 入口必须复用同一状态，缺产品绑定时清空并阻塞。
+- Blocker: 页面把压力泵 `IDI`、产品名称、前端常量集合、空状态、模板初始化数据或查询失败当作配置状态来源，直接以项目代码选择当前规则，多个产品共享同一个可变规则数组，切换产品不重置/恢复规则，或状态接口失败时静默把项目归入待配置，必须停止并补齐正式产品状态链路。
+- Verification: 后端回归必须覆盖已配置与未配置产品按请求顺序返回；前端静态契约必须断言调用正式 `project-statuses` API、产品草稿 Map 以正式产品 ID 为 key、切换前保存和切换后恢复、同产品跨项目入口复用、缺产品绑定清空，并禁止项目代码直接选择当前规则；同时运行相邻 QA 合同和 `pnpm ts:check`。
+- Forbidden action: 禁止用前端文案、默认项目、产品名称、项目代码、压力泵样例模板、共享页面单例、API-only 展示或吞掉状态接口错误替代产品级 QA 规程和检验规则事实；样例规则如需保留，只能先通过正式 DCC `productMasterId` 登记产品归属。
+- Evidence: `doc/tasks/20260804-qa-regulation-dcc-project-code/verification-report.md`；`doc/tasks/20260805-qa-regulation-product-specific-rules/verification-report.md`。
 
 ## MES 工艺路线产品绑定状态门禁
 
@@ -318,12 +318,12 @@
 
 ### 同一组长正式工关联必须先业务拒绝再写库
 
-- Trigger: 生产人员档案、班组员工、正式工搜索关联、临时工/正式工统一候选、`mes_pro_process_pool_team_employee_profile`、`system_user_id`、`employee_code=USER-<id>`、DuplicateKeyException、重复关联返回 500。
-- Preflight check: 新增正式工关联前必须按当前 `leaderUserId + systemUserId` 查询现有未删除生产人员档案，并区分“已禁用可启用既有档案”和“从未关联可新增”；显示名唯一校验不能替代正式用户唯一关联校验。
-- Blocker: 重复正式工关联落到数据库唯一键异常、接口返回 500、禁用旧档案后再次新增同一系统用户、或只靠前端禁用按钮阻止重复时必须停止并补后端 RED/GREEN。
-- Verification: 后端回归必须覆盖重复正式工在 `employeeProfileMapper.insert` 前抛业务错误，且成功正式工路径仍不保存签名密码；真实 E2E 重跑时使用新的任务自有正式工候选或先明确启用既有档案。
-- Forbidden action: 禁止 catch DuplicateKeyException 后返回默认成功，禁止创建重复正式工档案，禁止把正式工重复关联伪装成显示名重名，禁止让前端过滤全系统用户列表替代后端 scoped 候选。
-- Evidence: `doc/tasks/20260805-production-personnel-management/verification-report.md`，目标测试 `MesTeamLeaderRuntimeConfigServiceTest#shouldRejectDuplicateFormalUserBeforeDatabaseInsert`。
+- Trigger: 生产人员档案、班组员工、正式工搜索关联、全量用户下拉、跨部门正式工、临时工/正式工统一候选、`getUserListBySubordinate`、`getUserListByNickname`、`mes_pro_process_pool_team_employee_profile`、`system_user_id`、`employee_code=USER-<id>`、DuplicateKeyException、重复关联返回 500。
+- Preflight check: 先明确正式工候选范围是“组长下属”还是“全量系统用户”；候选查询与提交关联校验必须使用同一范围，不能只放开下拉。新增正式工关联前还必须按当前 `leaderUserId + systemUserId` 查询现有未删除生产人员档案，并区分“已禁用可启用既有档案”和“从未关联可新增”；显示名唯一校验不能替代正式用户唯一关联校验。
+- Blocker: 全量候选可见但提交仍按 `getUserListBySubordinate` 拒绝、候选只靠前端过滤、重复正式工关联落到数据库唯一键异常、接口返回 500、禁用旧档案后再次新增同一系统用户、或只靠前端禁用按钮阻止重复时必须停止并补后端 RED/GREEN。
+- Verification: 后端回归必须覆盖候选数据源、关联校验范围、空关键字不触发无条件全量扫描、重复正式工在 `employeeProfileMapper.insert` 前抛业务错误，且成功正式工路径仍不保存签名密码；跨模块新增 `AdminUserApi` 方法时必须用 `-am` 编译所有上游测试手写实现。真实 E2E 重跑时使用新的任务自有正式工候选或先明确启用既有档案。
+- Forbidden action: 禁止只改候选接口不改关联校验，禁止让前端加载全系统用户后本地过滤，禁止为接口扩展增加默认空列表兼容 fallback，禁止 catch DuplicateKeyException 后返回默认成功，禁止创建重复正式工档案，禁止把正式工重复关联伪装成显示名重名。
+- Evidence: `doc/tasks/20260805-production-personnel-management/verification-report.md`、`doc/tasks/20260805-production-personnel-full-user-dropdown/verification-report.md`；目标测试 `MesTeamLeaderRuntimeConfigServiceTest#shouldRejectDuplicateFormalUserBeforeDatabaseInsert`、`MesTeamLeaderRuntimeConfigServiceTest#shouldSearchFormalCandidatesFromAllSystemUsers`。
 
 ## 禁止做法
 

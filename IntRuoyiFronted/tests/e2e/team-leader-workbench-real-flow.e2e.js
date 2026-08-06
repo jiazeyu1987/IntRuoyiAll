@@ -360,8 +360,17 @@ async function configureTeamLeaderPage(page, config, steps) {
   steps.push('组长工作台和配置中心可见')
 
   const activeOrder = page.locator('[data-team-leader-active-order-config]').first()
-  await fillFormItemForAction(activeOrder, '加入活跃订单', '生产订单ID', config.workOrderId)
-  await clickButtonAndWaitForSuccess(activeOrder, '加入活跃订单', '/mes/pro/process-pool/team-leader/active-order/add')
+  await activeOrder.getByRole('button', { name: '新增活跃订单' }).click()
+  const activeOrderDialog = page.locator('[data-team-leader-active-order-add-dialog]').first()
+  await activeOrderDialog.waitFor({ state: 'visible', timeout: 10000 })
+  await fillFormItemForAction(activeOrderDialog, '加入活跃订单', '生产订单ID', config.workOrderId)
+  await fillFormItemForAction(activeOrderDialog, '加入活跃订单', '路线ID', config.routeId)
+  await fillFormItemForAction(activeOrderDialog, '加入活跃订单', '路线版本ID', config.routeVersionId)
+  await clickButtonAndWaitForSuccess(
+    activeOrderDialog,
+    '加入活跃订单',
+    '/mes/pro/process-pool/team-leader/active-order/add'
+  )
   steps.push('生产组长通过 UI 加入活跃订单')
 
   const employee = page.locator('[data-team-leader-employee-config]').first()

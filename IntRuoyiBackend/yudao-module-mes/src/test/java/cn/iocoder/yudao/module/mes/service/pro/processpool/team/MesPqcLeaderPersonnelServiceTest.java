@@ -39,8 +39,6 @@ class MesPqcLeaderPersonnelServiceTest {
 
     @Test
     void shouldLinkFormalInspectorAsPqcEmployeeScope() {
-        AdminUserRespDTO inspector = user(2001L, "pqc01", "王检验");
-        when(adminUserApi.getUserListBySubordinate(3001L)).thenReturn(List.of(inspector));
         when(scopeMapper.selectPqcEmployeeScope(3001L, 2001L)).thenReturn(null);
         when(scopeMapper.insert(any(MesProcessPoolTeamLeaderScopeDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolTeamLeaderScopeDO.class).setId(9001L);
@@ -54,6 +52,7 @@ class MesPqcLeaderPersonnelServiceTest {
 
         assertEquals(9001L, scopeId);
         verify(adminUserApi).validateUser(2001L);
+        verify(adminUserApi, never()).getUserListBySubordinate(3001L);
         ArgumentCaptor<MesProcessPoolTeamLeaderScopeDO> scopeCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolTeamLeaderScopeDO.class);
         verify(scopeMapper).insert(scopeCaptor.capture());
@@ -66,8 +65,6 @@ class MesPqcLeaderPersonnelServiceTest {
 
     @Test
     void shouldRejectDuplicateActivePqcInspectorBeforeInsert() {
-        AdminUserRespDTO inspector = user(2001L, "pqc01", "王检验");
-        when(adminUserApi.getUserListBySubordinate(3001L)).thenReturn(List.of(inspector));
         when(scopeMapper.selectPqcEmployeeScope(3001L, 2001L)).thenReturn(MesProcessPoolTeamLeaderScopeDO.builder()
                 .id(9001L)
                 .leaderUserId(3001L)
@@ -84,6 +81,8 @@ class MesPqcLeaderPersonnelServiceTest {
                         .build()));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_DUPLICATE.getCode(), ex.getCode());
+        verify(adminUserApi).validateUser(2001L);
+        verify(adminUserApi, never()).getUserListBySubordinate(3001L);
         verify(scopeMapper, never()).insert(any(MesProcessPoolTeamLeaderScopeDO.class));
     }
 

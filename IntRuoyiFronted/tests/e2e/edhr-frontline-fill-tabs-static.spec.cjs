@@ -47,9 +47,12 @@ assert.match(routeBlock, new RegExp(`title: '${route.title}'`), `${route.path} r
 assert.match(routeBlock, /permission:\s*\['mes:pro-edhr-batch-execution:query'\]/, `${route.path} must reuse eDHR batch permission.`)
 
 assert.doesNotMatch(productionPage, /<EdhrBatchRecordTabs|active-tab="production"/, 'standalone frontline production page must not render shared internal tabs.')
-assert.match(productionPage, /<FrontlineFixedTemplatePanel\s+mode="production"/, 'production fill page must lock production mode.')
-assert.match(productionPage, /data-edhr-frontline-production-page-title/, 'standalone frontline production page must expose a visible page title.')
-assert.match(productionPage, /一线生产/, 'standalone production page title must be 一线生产.')
+assert.match(productionPage, /<FrontlineFixedTemplatePanel\s+mode="production"\s*\/>/, 'production fill page must directly lock production mode.')
+assert.doesNotMatch(
+  productionPage,
+  /<ContentWrap>|data-edhr-frontline-production-page-title|按活跃订单、工序和设备填写一线生产记录/,
+  'standalone production page must not render an extra admin title shell outside the approved 1920 prototype.'
+)
 
 assert.match(frontlinePanel, /defineProps<\{\s*mode\?:\s*'production'\s*\|\s*'pqc'/s, 'frontline panel must accept a fixed mode prop.')
 assert.match(frontlinePanel, /templateModeMismatch/, 'frontline panel must expose template mismatch blocking state.')
@@ -70,12 +73,19 @@ assert.doesNotMatch(processPickerBlock[0], /deviceState\.processOptions\.map/, '
 const productionStart = frontlinePanel.indexOf('data-frontline-production-operator')
 const productionEnd = frontlinePanel.indexOf('</footer>', productionStart)
 assert.ok(productionStart >= 0 && productionEnd > productionStart, 'production operator block must exist.')
-const productionTemplate = frontlinePanel.slice(productionStart, productionEnd)
-for (const required of ['工序', '员工', 'productionFullscreenButtonLabel', '完成数量', '损耗数量', '不良明细', '填设备', '重填', '提交']) {
+const productionBlockStart = frontlinePanel.lastIndexOf('<div', productionStart)
+assert.ok(productionBlockStart >= 0, 'production operator wrapper must exist.')
+const productionTemplate = frontlinePanel.slice(productionBlockStart, productionEnd)
+for (const required of ['工序', '员工', '主页', '完成数量', '损耗数量', '不良明细', '填设备', '重填', '提交']) {
   assert.match(productionTemplate, new RegExp(required), `production UI must include ${required}.`)
 }
-assert.match(productionTemplate, /frontline-production-fullscreen-button/, 'production UI must expose the fullscreen toggle button.')
-assert.doesNotMatch(productionTemplate, /@click="handleHome"[\s\S]*主页/, 'production UI must not expose the old Home route button.')
+assert.match(productionTemplate, /class="frontline-operator-screen screen"/, 'production UI must render the approved prototype screen class.')
+assert.match(productionTemplate, /class="frontline-home-button home-btn"[\s\S]*@click="handleHome"[\s\S]*主页/, 'production UI must expose the reference Home button.')
+assert.doesNotMatch(
+  productionTemplate,
+  /frontline-production-fullscreen-button|productionFullscreenButtonLabel|handleProductionFullscreenToggle/,
+  'production UI must not keep the old fullscreen toggle in the reference prototype.'
+)
 assert.match(
   productionTemplate,
   /v-for="parameter in activeProductionDevice\.parameters"[\s\S]*parameter\.parameterName \|\| parameter\.parameterCode/,

@@ -25,7 +25,7 @@
 
 completed
 
-P1 数据库迁移、P2 后端统一读写与统计、P3 前端统一表与维护交互均已完成目标 RED/GREEN 和阶段评审。2026-08-06 用户明确取消真实 E2E 合并前门禁并要求直接合并主代码后，P4 已按更新后的 code-only/full-context 范围完成：迁移 pytest、全仓 migration policy gate、目标 Maven `-am`、前端 `ts:check`、静态合同、真实 E2E 脚本语法、变更记录校验、任务 artifact 校验和测试报告校验均通过。真实写入型 Playwright 未运行、未生成截图或 trace，已交由用户在主代码手动验证。cleanup 已应用并仅保留 task.md、execution-log.md 和 verification-report.md；实现提交为 `aba81d090`，收尾提交和远端合并证据见执行日志。
+P1 数据库迁移、P2 后端统一读写与统计、P3 前端统一表与维护交互均已完成目标 RED/GREEN 和阶段评审。2026-08-06 用户明确取消真实 E2E 合并前门禁并要求直接合并主代码后，P4 已按更新后的 code-only/full-context 范围完成：迁移 pytest、全仓 migration policy gate（442 条迁移）、目标 Maven `-am`（50 个用例）、前端 `ts:check`、7 个生产组长/前线相邻静态合同、真实 E2E 脚本语法、变更记录校验、任务 artifact 校验和测试报告校验均通过。真实写入型 Playwright 未运行、未生成截图或 trace，已交由用户在主代码手动验证。cleanup 已应用并仅保留 task.md、execution-log.md 和 verification-report.md；实现提交为 `aba81d090`，收尾提交和远端合并证据见执行日志。
 
 ## 设计约束检查
 

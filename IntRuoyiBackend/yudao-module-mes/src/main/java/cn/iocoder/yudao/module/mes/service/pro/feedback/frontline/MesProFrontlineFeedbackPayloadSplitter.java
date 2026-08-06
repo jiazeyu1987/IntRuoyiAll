@@ -94,6 +94,9 @@ public class MesProFrontlineFeedbackPayloadSplitter {
                 .setLossReasonId(lossReasonSnapshot == null ? null : lossReasonSnapshot.reasonId())
                 .setLossReasonCodeSnapshot(lossReasonSnapshot == null ? null : lossReasonSnapshot.reasonCode())
                 .setLossReasonNameSnapshot(lossReasonSnapshot == null ? null : lossReasonSnapshot.reasonName())
+                .setLossDetails(feedback.getLossDetails())
+                .setSelectedDevice(feedback.getSelectedDevice())
+                .setDeviceParameterReadings(feedback.getDeviceParameterReadings())
                 .setEquipmentParameters(recordbook.getEquipmentParameters())
                 .setRawPayload(processPoolRawPayload)
                 .setSubmittedAt(submittedAt);
@@ -110,10 +113,13 @@ public class MesProFrontlineFeedbackPayloadSplitter {
                                                            MesFrontlineLossReasonSnapshot lossReasonSnapshot) {
         Map<String, Object> payload = new LinkedHashMap<>();
         if (reqVO.getRawPayload() != null) {
-        payload.putAll(reqVO.getRawPayload());
+            payload.putAll(reqVO.getRawPayload());
         }
         payload.put("outputQuantity", feedback.getOutputQuantity());
         payload.put("lossQuantity", feedback.getLossQuantity());
+        payload.put("lossDetails", feedback.getLossDetails());
+        payload.put("selectedDevice", feedback.getSelectedDevice());
+        payload.put("deviceParameterReadings", feedback.getDeviceParameterReadings());
         if (lossReasonSnapshot != null) {
             payload.put("lossReasonId", lossReasonSnapshot.reasonId());
             payload.put("lossReasonCodeSnapshot", lossReasonSnapshot.reasonCode());

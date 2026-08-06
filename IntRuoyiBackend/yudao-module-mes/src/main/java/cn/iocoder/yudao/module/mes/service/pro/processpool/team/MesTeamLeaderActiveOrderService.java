@@ -6,6 +6,8 @@ import java.util.List;
 
 public interface MesTeamLeaderActiveOrderService {
 
+    List<MesTeamLeaderActiveOrderCandidateBO> searchActiveOrderCandidates(String keyword);
+
     Long addActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO);
 
     void removeActiveOrder(MesTeamLeaderActiveOrderRemoveReqBO reqBO);

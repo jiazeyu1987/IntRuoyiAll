@@ -23,6 +23,32 @@ export interface ProcessPoolTimelineReadonlyActionsVO {
   canExecuteFifoAllocation: boolean
 }
 
+export interface ProcessPoolTimelineLossDetailVO {
+  reasonId?: number
+  reasonCode?: string
+  reasonName?: string
+  quantity?: number
+}
+
+export interface ProcessPoolTimelineSelectedDeviceVO {
+  deviceId?: number
+  deviceCode?: string
+  deviceName?: string
+}
+
+export interface ProcessPoolTimelineDeviceParameterReadingVO {
+  deviceId?: number
+  deviceCode?: string
+  deviceName?: string
+  parameterCode?: string
+  parameterName?: string
+  unit?: string
+  value?: number | string
+  lowerLimit?: number | string
+  upperLimit?: number | string
+  parameterStatus?: 'NORMAL' | 'BELOW_LOWER' | 'ABOVE_UPPER'
+}
+
 export interface ProcessPoolTimelineEventVO {
   id: number
   processPoolEventId?: number
@@ -63,6 +89,11 @@ export interface ProcessPoolTimelineEventVO {
   sourceFeedbackId?: number
   sourceRecordbookEntryId?: number
   sourceRecordbookEventId?: number
+  outputQuantity?: number
+  lossQuantity?: number
+  lossDetails?: ProcessPoolTimelineLossDetailVO[]
+  selectedDevice?: ProcessPoolTimelineSelectedDeviceVO
+  deviceParameterReadings?: ProcessPoolTimelineDeviceParameterReadingVO[]
   submittedSummary?: string
   originalPayloadJson?: string
   pqcResult?: string

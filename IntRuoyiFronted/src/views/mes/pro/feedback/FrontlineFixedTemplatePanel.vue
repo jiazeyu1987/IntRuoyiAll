@@ -475,45 +475,43 @@
 
     <div
       v-else
-      ref="productionScreenRef"
-      class="frontline-operator-screen"
-      :class="{ 'is-frontline-fullscreen': isProductionFullscreen }"
+      class="frontline-operator-screen screen"
       data-frontline-production-operator
     >
-      <header class="frontline-operator-top">
-        <button class="frontline-top-card" type="button" @click="openPicker('process')">
+      <header class="frontline-operator-top top">
+        <button class="frontline-top-card top-box" type="button" @click="openPicker('process')">
           <span>工序</span>
           <strong>{{ selectedProcessLabel }}</strong>
         </button>
-        <button class="frontline-top-card" type="button" @click="openPicker('employee')">
+        <button class="frontline-top-card top-box" type="button" @click="openPicker('employee')">
           <span>员工</span>
           <strong>{{ selectedEmployeeLabel }}</strong>
         </button>
         <button
-          class="frontline-home-button frontline-production-fullscreen-button"
+          class="frontline-home-button home-btn"
           type="button"
-          :aria-pressed="isProductionFullscreen"
-          @click="handleProductionFullscreenToggle"
+          @click="handleHome"
         >
-          {{ productionFullscreenButtonLabel }}
+          主页
         </button>
       </header>
 
       <main
-        class="frontline-operator-main frontline-production-main"
+        class="frontline-operator-main frontline-production-main main"
         :class="{ 'is-no-device': !visibleDeviceCards.length }"
       >
         <section
-          class="frontline-work-panel frontline-production-quantity-panel"
+          class="frontline-work-panel panel quantity-panel frontline-production-quantity-panel"
           :class="{ 'is-no-device': !visibleDeviceCards.length }"
           aria-label="数量与不良"
         >
-          <h3>填数量</h3>
+          <div class="panel-title">填数量</div>
           <div class="frontline-production-quantity-body">
             <div class="frontline-production-quantity-fields">
-              <div class="frontline-production-number-field">
-                <label for="frontlineProductionOutputQuantity">完成数量</label>
+              <div class="frontline-production-number-field field">
+                <label class="field-label" for="frontlineProductionOutputQuantity">完成数量</label>
                 <button
+                  class="num-btn"
                   type="button"
                   aria-label="完成数量减少"
                   @click="adjustProductionOutputQuantity(-1)"
@@ -521,54 +519,57 @@
                   -
                 </button>
                 <input
+                  class="value-box"
                   id="frontlineProductionOutputQuantity"
                   :value="productionDraft.outputQuantity ?? ''"
                   inputmode="numeric"
                   @input="updateProductionOutputQuantity"
                 />
                 <button
+                  class="num-btn"
                   type="button"
                   aria-label="完成数量增加"
                   @click="adjustProductionOutputQuantity(1)"
                 >
                   +
                 </button>
-                <span>件</span>
+                <span class="unit">件</span>
               </div>
 
-              <div class="frontline-production-number-field is-total">
-                <label for="frontlineProductionScrapQuantity">损耗数量</label>
+              <div class="frontline-production-number-field field total is-total">
+                <label class="field-label" for="frontlineProductionScrapQuantity">损耗数量</label>
                 <input
+                  class="value-box"
                   id="frontlineProductionScrapQuantity"
                   :value="productionScrapQuantity"
                   inputmode="numeric"
                   readonly
                 />
-                <span>件</span>
+                <span class="unit">件</span>
               </div>
             </div>
 
-            <section class="frontline-production-defect-section" aria-label="不良明细">
-              <div class="frontline-production-defect-title">不良明细</div>
-              <div class="frontline-production-defect-grid">
+            <section class="frontline-production-defect-section defect-section" aria-label="不良明细">
+              <div class="frontline-production-defect-title defect-title">不良明细</div>
+              <div class="frontline-production-defect-grid defect-grid">
                 <div
                   v-for="defect in configuredDefectReasons"
                   :key="defect.key"
-                  class="frontline-production-defect-card"
+                  class="frontline-production-defect-card defect-card"
                   :class="{ active: getProductionDefectQuantity(defect.key) > 0 }"
                   :data-defect-key="defect.key"
                 >
-                  <span class="frontline-production-defect-name">{{ defect.label }}</span>
+                  <span class="frontline-production-defect-name defect-name">{{ defect.label }}</span>
                   <button
                     type="button"
-                    class="frontline-production-defect-step"
+                    class="frontline-production-defect-step defect-step"
                     :aria-label="`${defect.label}减少`"
                     @click="adjustProductionDefectQuantity(defect.key, -1)"
                   >
                     -
                   </button>
                   <input
-                    class="frontline-production-defect-qty"
+                    class="frontline-production-defect-qty defect-qty"
                     :value="getProductionDefectQuantity(defect.key)"
                     inputmode="numeric"
                     :aria-label="`${defect.label}数量`"
@@ -576,13 +577,13 @@
                   />
                   <button
                     type="button"
-                    class="frontline-production-defect-step"
+                    class="frontline-production-defect-step defect-step"
                     :aria-label="`${defect.label}增加`"
                     @click="adjustProductionDefectQuantity(defect.key, 1)"
                   >
                     +
                   </button>
-                  <span class="frontline-production-defect-unit">件</span>
+                  <span class="frontline-production-defect-unit defect-unit">件</span>
                 </div>
               </div>
             </section>
@@ -591,14 +592,15 @@
 
         <section
           v-if="visibleDeviceCards.length"
-          class="frontline-work-panel frontline-production-device-panel"
+          class="frontline-work-panel panel device-panel frontline-production-device-panel"
           aria-label="设备"
         >
-          <h3>填设备</h3>
-          <div class="frontline-production-device-tabs" role="tablist" aria-label="设备切换">
+          <div class="panel-title">填设备</div>
+          <div class="frontline-production-device-tabs device-tabs" role="tablist" aria-label="设备切换">
             <button
               v-for="device in visibleDeviceCards"
               :key="device.key"
+              class="device-tab"
               type="button"
               role="tab"
               :aria-selected="device.key === selectedProductionDeviceKey"
@@ -608,16 +610,20 @@
               {{ device.label }}
             </button>
           </div>
-          <div v-if="activeProductionDevice" class="frontline-production-device-current">
+          <div v-if="activeProductionDevice" class="frontline-production-device-current device-current">
             <div
               v-for="parameter in activeProductionDevice.parameters"
               :key="parameter.parameterCode"
-              class="frontline-production-device-param"
+              class="frontline-production-device-param device-param"
             >
-              <label :for="`frontlineProductionDeviceParameter-${parameter.parameterCode}`">
+              <label
+                class="device-param-label"
+                :for="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
+              >
                 {{ parameter.parameterName || parameter.parameterCode }}
               </label>
               <button
+                class="device-num"
                 type="button"
                 :aria-label="`${parameter.parameterName || parameter.parameterCode}减少`"
                 @click="adjustProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, -1)"
@@ -625,34 +631,53 @@
                 -
               </button>
               <input
+                class="device-value"
+                :class="{
+                  'is-parameter-out-of-range': resolveProductionParameterStatus(
+                    getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode),
+                    parameter
+                  ) !== 'NORMAL'
+                }"
                 :id="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
                 :value="getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode)"
+                :data-parameter-status="resolveProductionParameterStatus(
+                  getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode),
+                  parameter
+                )"
+                :aria-label="[
+                  parameter.parameterName || parameter.parameterCode,
+                  resolveProductionParameterStatus(
+                    getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode),
+                    parameter
+                  ) === 'NORMAL' ? '' : '参数异常'
+                ].filter(Boolean).join('，')"
                 inputmode="decimal"
                 @input="updateProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, $event)"
               />
               <button
+                class="device-num"
                 type="button"
                 :aria-label="`${parameter.parameterName || parameter.parameterCode}增加`"
                 @click="adjustProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, 1)"
               >
                 +
               </button>
-              <span>{{ parameter.unit || '' }}</span>
+              <span class="device-unit">{{ parameter.unit || '' }}</span>
             </div>
           </div>
         </section>
       </main>
 
-      <footer class="frontline-production-submit-bar">
+      <footer class="frontline-production-submit-bar bottom">
         <button
-          class="frontline-production-reset-button"
+          class="frontline-production-reset-button minor-btn"
           type="button"
           @click="handleResetProduction"
         >
           重填
         </button>
         <button
-          class="frontline-production-submit-button"
+          class="frontline-production-submit-button submit-btn"
           type="button"
           :disabled="isSubmitBlocked || payloadLoading"
           @click="handleValidate"
@@ -710,7 +735,11 @@ import {
   type FrontlinePqcEquipmentOptionVO,
   type FrontlinePqcInspectionSubmitReqVO,
   type FrontlineRuntimeDeviceParameterVO,
-  type ProFrontlineFeedbackSubmitReqVO
+  type ProFrontlineDeviceParameterReadingReqVO,
+  type ProFrontlineFeedbackSubmitReqVO,
+  type ProFrontlineLossDetailReqVO,
+  type ProFrontlineParameterStatus,
+  type ProFrontlineSelectedDeviceReqVO
 } from '@/api/mes/pro/feedback'
 import { useUserStore } from '@/store/modules/user'
 import {
@@ -750,6 +779,9 @@ interface ProductionDefectOption {
 
 interface ProductionDeviceCard {
   key: string
+  deviceId: number
+  deviceCode?: string
+  deviceName?: string
   label: string
   parameters: FrontlineRuntimeDeviceParameterVO[]
 }
@@ -809,11 +841,6 @@ const isPqcFullscreen = ref(false)
 const pqcFullscreenActionText = computed(() =>
   isPqcFullscreen.value ? '主页' : '最大化'
 )
-const productionScreenRef = ref<HTMLElement>()
-const isProductionFullscreen = ref(false)
-const productionFullscreenButtonLabel = computed(() =>
-  isProductionFullscreen.value ? '主页' : '最大化'
-)
 
 const expectedTemplateCode = computed<FrontlineTemplateCode>(() =>
   props.mode === 'pqc'
@@ -856,6 +883,9 @@ const pqcItemSelections = reactive<Record<PqcInspectionItemKey, PqcItemSelection
 const pqcSignatureId = ref<number>()
 
 const isPqcMode = computed(() => props.mode === 'pqc')
+const pqcProductionSubmitEventId = computed(() =>
+  firstRouteQueryNumber(['productionSubmitEventId', 'processPoolEventId'])
+)
 
 const productionOrderLabel = computed(() => {
   const selectedOrder = deviceState.selectedActiveOrder
@@ -874,10 +904,6 @@ const productionScrapQuantity = computed(() =>
     (total, defect) => total + (productionDefectDraft[defect.key] || 0),
     0
   )
-)
-
-const selectedLossReasonId = computed(() =>
-  configuredDefectReasons.value.find((defect) => (productionDefectDraft[defect.key] || 0) > 0)?.reasonId
 )
 
 const pqcInspectionQuantity = computed(() =>
@@ -976,6 +1002,7 @@ const isSubmitBlocked = computed(() =>
   templateBindingMissing.value ||
   (isPqcMode.value && !deviceState.selectedActiveOrder) ||
   (isPqcMode.value && !hasPqcTaskSnapshot(deviceState.selectedProcess)) ||
+  (isPqcMode.value && !pqcProductionSubmitEventId.value) ||
   (isPqcMode.value && !pqcSignatureId.value) ||
   !deviceState.selectedProcess ||
   !deviceState.selectedEmployee
@@ -996,6 +1023,9 @@ const statusText = computed(() => {
   }
   if (!deviceState.selectedEmployee) {
     return '请选择员工'
+  }
+  if (isPqcMode.value && !pqcProductionSubmitEventId.value) {
+    return '缺少生产提交事件，无法提交PQC'
   }
   if (isPqcMode.value && !pqcSignatureId.value) {
     return '请填写签名编号'
@@ -1023,6 +1053,9 @@ const configuredDeviceCards = computed<ProductionDeviceCard[]>(() =>
     .filter((device) => Number(device.deviceId || 0) > 0)
     .map((device, index) => ({
       key: String(device.deviceId),
+      deviceId: device.deviceId,
+      deviceCode: device.deviceCode,
+      deviceName: device.deviceName,
       label: device.deviceName || device.deviceCode || `设备 ${index + 1}`,
       parameters: device.parameters || []
     }))
@@ -1185,6 +1218,33 @@ function normalizeProductionParameter(value: unknown) {
     return undefined
   }
   return Math.max(0, parsed)
+}
+
+const toFiniteProductionParameterNumber = (value: unknown) => {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return undefined
+  }
+  const parsed = Number(String(value).replace(/,/g, '').trim())
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+const resolveProductionParameterStatus = (
+  value: unknown,
+  parameter: FrontlineRuntimeDeviceParameterVO
+): ProFrontlineParameterStatus => {
+  const numericValue = toFiniteProductionParameterNumber(value)
+  if (numericValue === undefined) {
+    return 'NORMAL'
+  }
+  const lowerLimit = toFiniteProductionParameterNumber(parameter.lowerLimit)
+  const upperLimit = toFiniteProductionParameterNumber(parameter.upperLimit)
+  if (lowerLimit !== undefined && numericValue < lowerLimit) {
+    return 'BELOW_LOWER'
+  }
+  if (upperLimit !== undefined && numericValue > upperLimit) {
+    return 'ABOVE_UPPER'
+  }
+  return 'NORMAL'
 }
 
 const updateProductionOutputQuantity = (event: Event) => {
@@ -1749,10 +1809,6 @@ const syncPqcFullscreenState = () => {
   isPqcFullscreen.value = document.fullscreenElement === frontlinePanelRef.value
 }
 
-const syncProductionFullscreenState = () => {
-  isProductionFullscreen.value = document.fullscreenElement === productionScreenRef.value
-}
-
 const enterPqcFullscreen = async () => {
   const panel = frontlinePanelRef.value
   if (!panel) {
@@ -1787,33 +1843,6 @@ const handlePqcFullscreenToggle = async () => {
   } catch (error) {
     message.error(resolveErrorMessage(error))
     throw error
-  }
-}
-
-const handleProductionFullscreenToggle = async () => {
-  if (isProductionFullscreen.value) {
-    if (document.fullscreenElement === productionScreenRef.value) {
-      await document.exitFullscreen()
-    }
-    syncProductionFullscreenState()
-    return
-  }
-
-  const screen = productionScreenRef.value
-  if (!screen) {
-    message.error('生产填写最大化区域尚未加载。')
-    return
-  }
-  if (!screen.requestFullscreen) {
-    message.error('当前浏览器不支持生产填写最大化。')
-    return
-  }
-
-  try {
-    await screen.requestFullscreen()
-    syncProductionFullscreenState()
-  } catch (error) {
-    message.error(error instanceof Error ? error.message : '生产填写最大化失败')
   }
 }
 
@@ -2050,12 +2079,10 @@ const buildFrontlineFormalSubmitPayload = (
 ): ProFrontlineFeedbackSubmitReqVO => {
   const formalContext = readFrontlineFormalSubmitContext()
   assertFrontlineFormalSubmitContext(formalContext)
-  const equipmentParameters = Object.fromEntries(
-    visibleDeviceCards.value.map((device) => [
-      device.label,
-      buildProductionDeviceParameterPayload(device.key)
-    ])
-  )
+  const selectedDevice = activeProductionDevice.value
+  const equipmentParameters = selectedDevice
+    ? { [selectedDevice.label]: buildProductionDeviceParameterPayload(selectedDevice.key) }
+    : {}
   return {
     feedbackPayload: {
       code: formalContext.feedbackCode!,
@@ -2072,7 +2099,9 @@ const buildFrontlineFormalSubmitPayload = (
       scheduledQuantity: formalContext.scheduledQuantity,
       outputQuantity: productionDraft.outputQuantity!,
       lossQuantity: productionScrapQuantity.value,
-      lossReasonId: selectedLossReasonId.value,
+      lossDetails: buildProductionLossDetailsPayload(),
+      selectedDevice: buildProductionSelectedDevicePayload(),
+      deviceParameterReadings: buildProductionDeviceParameterReadingsPayload(),
       laborScrapQuantity: productionScrapQuantity.value,
       materialScrapQuantity: 0,
       otherScrapQuantity: 0,
@@ -2115,7 +2144,7 @@ const buildFrontlineFormalSubmitPayload = (
     actualEmployeeId: context.actualEmployeeId!,
     signatureId: formalContext.signatureId!,
     signatureEmployeeId: formalContext.signatureEmployeeId!,
-    rawPayload: rawPayload as unknown as Record<string, unknown>
+    rawPayload: buildProductionStructuredRawPayload(rawPayload) as unknown as Record<string, unknown>
   }
 }
 
@@ -2126,19 +2155,94 @@ const buildProductionDeviceParameterPayload = (deviceKey: string) => {
   )
 }
 
-const buildProductionFieldValues = () => ({
-  [FRONTLINE_FIELD_CODES.DEVICE]: visibleDeviceCards.value.length
-    ? visibleDeviceCards.value.map((device) => device.label).join('、')
-    : '无设备',
-  [FRONTLINE_FIELD_CODES.DEVICE_PARAMETERS]: Object.fromEntries(
-    visibleDeviceCards.value.map((device) => [
-      device.label,
-      buildProductionDeviceParameterPayload(device.key)
-    ])
-  ),
-  [FRONTLINE_FIELD_CODES.OUTPUT_QUANTITY]: productionDraft.outputQuantity,
-  [FRONTLINE_FIELD_CODES.SCRAP_QUANTITY]: productionScrapQuantity.value
+const buildProductionLossDetailsPayload = (): ProFrontlineLossDetailReqVO[] =>
+  configuredDefectReasons.value
+    .map((defect) => ({
+      reasonId: defect.reasonId,
+      reasonCode: defect.reasonCode,
+      reasonName: defect.label,
+      quantity: productionDefectDraft[defect.key] || 0
+    }))
+    .filter((defect) => defect.quantity > 0)
+
+const buildProductionSelectedDevicePayload = (): ProFrontlineSelectedDeviceReqVO | undefined => {
+  const device = activeProductionDevice.value
+  if (!device) {
+    return undefined
+  }
+  return {
+    deviceId: device.deviceId,
+    deviceCode: device.deviceCode,
+    deviceName: device.deviceName || device.label
+  }
+}
+
+const buildProductionDeviceParameterReadingsPayload =
+  (): ProFrontlineDeviceParameterReadingReqVO[] => {
+    const device = activeProductionDevice.value
+    if (!device) {
+      return []
+    }
+    return device.parameters
+      .map<ProFrontlineDeviceParameterReadingReqVO | undefined>((parameter) => {
+        const value = getProductionDeviceParameter(device.key, parameter.parameterCode)
+        const numericValue = toFiniteProductionParameterNumber(value)
+        if (numericValue === undefined) {
+          return undefined
+        }
+        return {
+          deviceId: device.deviceId,
+          deviceCode: device.deviceCode,
+          deviceName: device.deviceName || device.label,
+          parameterCode: parameter.parameterCode,
+          parameterName: parameter.parameterName,
+          unit: parameter.unit,
+          value: numericValue,
+          lowerLimit: parameter.lowerLimit,
+          upperLimit: parameter.upperLimit,
+          parameterStatus: resolveProductionParameterStatus(value, parameter)
+        }
+      })
+      .filter((item): item is ProFrontlineDeviceParameterReadingReqVO => item !== undefined)
+  }
+
+const buildProductionEquipmentParameterRulesPayload = () =>
+  activeProductionDevice.value
+    ? Object.fromEntries([[
+      activeProductionDevice.value.label,
+      activeProductionDevice.value.parameters.map((parameter) => ({
+        parameterCode: parameter.parameterCode,
+        parameterName: parameter.parameterName,
+        unit: parameter.unit,
+        lowerLimit: parameter.lowerLimit,
+        upperLimit: parameter.upperLimit,
+        valueType: parameter.valueType
+      }))
+    ]])
+    : {}
+
+const buildProductionStructuredRawPayload = (rawPayload: FrontlineTemplatePayloadVO) => ({
+  ...rawPayload,
+  lossDetails: buildProductionLossDetailsPayload(),
+  lossReasonDetails: buildProductionLossDetailsPayload(),
+  selectedDevice: buildProductionSelectedDevicePayload(),
+  deviceParameterReadings: buildProductionDeviceParameterReadingsPayload(),
+  equipmentParameterRules: buildProductionEquipmentParameterRulesPayload()
 })
+
+const buildProductionFieldValues = () => {
+  const selectedDevice = activeProductionDevice.value
+  return {
+    [FRONTLINE_FIELD_CODES.DEVICE]: selectedDevice ? selectedDevice.label : '无设备',
+    [FRONTLINE_FIELD_CODES.DEVICE_PARAMETERS]: selectedDevice
+      ? {
+          [selectedDevice.label]: buildProductionDeviceParameterPayload(selectedDevice.key)
+        }
+      : {},
+    [FRONTLINE_FIELD_CODES.OUTPUT_QUANTITY]: productionDraft.outputQuantity,
+    [FRONTLINE_FIELD_CODES.SCRAP_QUANTITY]: productionScrapQuantity.value
+  }
+}
 
 const buildPqcFieldValues = () => ({
   [FRONTLINE_FIELD_CODES.PQC_RESULT]: resolvePqcResult()
@@ -2160,24 +2264,10 @@ const buildPqcInspectionSubmitPayload = (
   const employee = deviceState.selectedEmployee
   const actualEmployeeId = context.actualEmployeeId
   const signatureId = pqcSignatureId.value
-  const deviceAccountId = Number(userStore.getUser?.id || 0)
-  const deviceId = activeProductionDevice.value?.key
-    ? Number(activeProductionDevice.value.key)
-    : Number(process?.deviceId || 0)
-  const workstationId = Number(process?.workstationId || 0)
-  const productionSubmitEventId = firstRouteQueryNumber(['productionSubmitEventId', 'processPoolEventId'])
+  const productionSubmitEventId = pqcProductionSubmitEventId.value
   const missingFormalContext: string[] = []
   if (!productionSubmitEventId) {
     missingFormalContext.push('productionSubmitEventId')
-  }
-  if (!deviceAccountId) {
-    missingFormalContext.push('deviceAccountId')
-  }
-  if (!deviceId) {
-    missingFormalContext.push('deviceId')
-  }
-  if (!workstationId) {
-    missingFormalContext.push('workstationId')
   }
   if (!activeOrder || !process || !employee || !actualEmployeeId || !signatureId ||
     !hasPqcTaskSnapshot(process) || !pqcDraft.inspectionType || !pqcDraft.patrolRound ||
@@ -2205,9 +2295,6 @@ const buildPqcInspectionSubmitPayload = (
     roundNo: pqcDraft.patrolRound,
     actualInspectionQuantity: pqcInspectionQuantity.value,
     actualEmployeeId,
-    deviceAccountId: deviceAccountId,
-    deviceId: deviceId,
-    workstationId: workstationId,
     pqcSubmissionIdempotencyKey,
     signatureId,
     signatureEmployeeId: actualEmployeeId,
@@ -2410,9 +2497,7 @@ const resolveErrorMessage = (error: unknown) => {
 
 onMounted(async () => {
   document.addEventListener('fullscreenchange', syncPqcFullscreenState)
-  document.addEventListener('fullscreenchange', syncProductionFullscreenState)
   syncPqcFullscreenState()
-  syncProductionFullscreenState()
   hydrateContextFromRoute()
   catalog.value = await FrontlineTemplateApi.getCatalog()
   if (isPqcMode.value) {
@@ -2435,10 +2520,6 @@ onMounted(async () => {
   Object.assign(draft.fieldValues, buildProductionFieldValues())
 })
 
-onBeforeUnmount(() => {
-  document.removeEventListener('fullscreenchange', syncProductionFullscreenState)
-})
-
 onUnmounted(() => {
   document.removeEventListener('fullscreenchange', syncPqcFullscreenState)
 })
@@ -2447,7 +2528,6 @@ onUnmounted(() => {
 <style scoped lang="scss">
 .frontline-operator-panel {
   position: relative;
-  margin-bottom: 12px;
 }
 
 .frontline-operator-screen {
@@ -2458,17 +2538,20 @@ onUnmounted(() => {
   --frontline-line: #cbd6ce;
   --frontline-dark: #24322b;
   display: grid;
-  grid-template-rows: 130px minmax(0, 1fr) 110px;
+  width: 1920px;
+  height: 1080px;
+  box-sizing: border-box;
+  grid-template-rows: 130px 1fr 126px;
   gap: 20px;
-  min-height: min(1080px, calc(100vh - 180px));
   padding: 28px;
   overflow: hidden;
   position: relative;
-  border-radius: 18px;
   background: var(--frontline-bg);
   color: var(--frontline-ink);
 
   &.is-pqc {
+    width: auto;
+    height: auto;
     grid-template-rows: 118px minmax(0, 1fr) 104px;
     min-height: 820px;
   }
@@ -2480,12 +2563,6 @@ onUnmounted(() => {
   min-height: 100vh;
   box-sizing: border-box;
   border-radius: 0;
-}
-
-.frontline-operator-screen.is-frontline-fullscreen .frontline-production-fullscreen-button {
-  border-color: var(--frontline-line);
-  background: var(--frontline-dark);
-  color: #ffffff;
 }
 
 .frontline-operator-panel.is-pqc-fullscreen,
@@ -2661,7 +2738,7 @@ onUnmounted(() => {
 
 .frontline-operator-main {
   display: grid;
-  grid-template-columns: 1050px minmax(0, 1fr);
+  grid-template-columns: 1050px 1fr;
   gap: 28px;
   min-height: 0;
 
@@ -2685,7 +2762,8 @@ onUnmounted(() => {
   border-radius: 28px;
   background: var(--frontline-panel);
 
-  h3 {
+  h3,
+  .panel-title {
     margin: 0;
     font-size: 48px;
     font-weight: 900;
@@ -2934,7 +3012,7 @@ onUnmounted(() => {
 
 .frontline-production-device-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   min-width: 0;
 
@@ -3006,6 +3084,12 @@ onUnmounted(() => {
 
   input {
     font-size: 52px;
+
+    &.is-parameter-out-of-range {
+      border-color: #dc2626;
+      background: #fff1f2;
+      color: #b91c1c;
+    }
   }
 
   span {
@@ -3016,7 +3100,7 @@ onUnmounted(() => {
 
 .frontline-production-submit-bar {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 300px 1fr;
   gap: 24px;
 }
 

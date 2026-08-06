@@ -70,18 +70,6 @@ public class MesFrontlinePqcSubmitReqVO {
     @NotNull(message = "实际填写员工不能为空")
     private Long actualEmployeeId;
 
-    @Schema(description = "设备账号编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "设备账号不能为空")
-    private Long deviceAccountId;
-
-    @Schema(description = "设备编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "设备不能为空")
-    private Long deviceId;
-
-    @Schema(description = "工作站编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "工作站不能为空")
-    private Long workstationId;
-
     @Schema(description = "PQC 提交幂等键", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "PQC 提交幂等键不能为空")
     private String pqcSubmissionIdempotencyKey;

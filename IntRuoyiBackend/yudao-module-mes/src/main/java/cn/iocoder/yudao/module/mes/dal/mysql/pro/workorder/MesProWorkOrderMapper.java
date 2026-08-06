@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.QuickFilterUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderPageReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.apache.ibatis.annotations.Mapper;
@@ -69,6 +70,18 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
 
     default MesProWorkOrderDO selectByCode(String code) {
         return selectOne(MesProWorkOrderDO::getCode, code);
+    }
+
+    default List<MesProWorkOrderDO> selectConfirmedCandidatesByCode(String keyword, int limit) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        int safeLimit = Math.max(1, Math.min(limit, 20));
+        return selectList(new LambdaQueryWrapperX<MesProWorkOrderDO>()
+                .like(MesProWorkOrderDO::getCode, keyword.trim())
+                .eq(MesProWorkOrderDO::getStatus, MesProWorkOrderStatusEnum.CONFIRMED.getStatus())
+                .orderByDesc(MesProWorkOrderDO::getId)
+                .last("LIMIT " + safeLimit));
     }
 
     default List<MesProWorkOrderDO> selectListByCodes(Collection<String> codes) {

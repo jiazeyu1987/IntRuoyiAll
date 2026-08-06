@@ -17,7 +17,6 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_NOT_EXISTS;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED;
 
 @Service
 @Validated
@@ -57,12 +56,6 @@ public class MesPqcLeaderPersonnelServiceImpl implements MesPqcLeaderPersonnelSe
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcPersonnelLink");
         }
         adminUserApi.validateUser(reqBO.getSystemUserId());
-        boolean allowed = adminUserApi.getUserListBySubordinate(reqBO.getLeaderUserId()).stream()
-                .filter(Objects::nonNull)
-                .anyMatch(user -> Objects.equals(user.getId(), reqBO.getSystemUserId()));
-        if (!allowed) {
-            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_DENIED);
-        }
         if (scopeMapper.selectPqcEmployeeScope(reqBO.getLeaderUserId(), reqBO.getSystemUserId()) != null) {
             throw exception(PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_DUPLICATE, reqBO.getSystemUserId());
         }

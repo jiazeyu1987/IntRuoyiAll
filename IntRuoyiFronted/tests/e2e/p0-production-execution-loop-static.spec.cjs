@@ -96,17 +96,24 @@ assert.match(
 
 assert.match(
   frontlineApi,
-  /interface\s+FrontlinePqcInspectionSubmitReqVO[\s\S]*productionSubmitEventId:\s*number[\s\S]*deviceAccountId:\s*number[\s\S]*deviceId:\s*number[\s\S]*workstationId:\s*number[\s\S]*pqcSubmissionIdempotencyKey:\s*string/,
-  'PQC submit request must carry productionSubmitEventId, deviceAccountId, deviceId, workstationId, and pqcSubmissionIdempotencyKey.'
+  /interface\s+FrontlinePqcInspectionSubmitReqVO[\s\S]*productionSubmitEventId:\s*number[\s\S]*pqcSubmissionIdempotencyKey:\s*string/,
+  'PQC submit request must carry the productionSubmitEventId trace root and PQC idempotency key.'
 )
-for (const fieldName of ['productionSubmitEventId', 'deviceAccountId', 'deviceId', 'workstationId', 'pqcSubmissionIdempotencyKey']) {
+for (const fieldName of ['productionSubmitEventId', 'pqcSubmissionIdempotencyKey']) {
   assertPqcPayloadField(fieldName)
 }
 assert.match(
   pqcPayloadBuilder,
-  /缺少PQC正式提交上下文[\s\S]*productionSubmitEventId[\s\S]*deviceAccountId[\s\S]*deviceId[\s\S]*workstationId/,
-  'PQC payload builder must fail fast when formal production submit, device, and workstation context is missing.'
+  /缺少PQC正式提交上下文[\s\S]*productionSubmitEventId/,
+  'PQC payload builder must fail fast when the formal production submit root is missing.'
 )
+for (const serverOwnedField of ['deviceAccountId', 'deviceId', 'workstationId']) {
+  assert.doesNotMatch(
+    pqcPayloadBuilder,
+    new RegExp(`\\b${serverOwnedField}\\b`),
+    `PQC payload builder must not infer server-owned ${serverOwnedField}.`
+  )
+}
 
 assert.match(
   teamLeaderApi,

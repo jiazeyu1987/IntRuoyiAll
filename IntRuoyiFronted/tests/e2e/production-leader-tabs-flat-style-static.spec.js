@@ -24,7 +24,7 @@ const assertProductionTabs = (block, label) => {
     /class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"[\s\S]*data-production-leader-module-tabs/,
     `${label} must render production module tabs with the shared flat underline style.`
   )
-  for (const tabLabel of ['人员管理', '报工管理', '看板', '异常', '损耗管理', '班组配置']) {
+  for (const tabLabel of ['人员管理', '报工管理', '活跃订单池', '看板', '异常', '工序配置', '班组配置']) {
     assert.match(block, new RegExp(`label="${tabLabel}"`), `${label} must keep ${tabLabel} tab visible.`)
   }
 }
@@ -65,6 +65,19 @@ assert.ok(
   '报工管理 module tabs must appear before the report list template.'
 )
 
+const activeOrderBlock = sliceContentWrapByMarker('data-team-leader-active-order-pool-tab')
+assert.match(
+  activeOrderBlock,
+  /'team-leader-workbench__production-module-card':\s*showProductionModuleTabs/,
+  '活跃订单池 content card must use compact production module card padding.'
+)
+assertProductionTabs(activeOrderBlock, '活跃订单池')
+assert.ok(
+  activeOrderBlock.indexOf('data-production-leader-module-tabs') <
+    activeOrderBlock.indexOf('<UnifiedListTemplate'),
+  '活跃订单池 module tabs must appear before the active-order list.'
+)
+
 const dashboardBlock = sliceContentWrapByMarker('data-role-matrix-daily-close')
 assert.match(
   dashboardBlock,
@@ -90,16 +103,16 @@ assert.ok(
   '异常 module tabs must appear before the exception form.'
 )
 
-const lossBlock = sliceContentWrapByMarker('data-team-leader-loss-reason-tab')
+const processConfigBlock = sliceContentWrapByMarker('data-team-leader-process-config-tab')
 assert.match(
-  lossBlock,
+  processConfigBlock,
   /'team-leader-workbench__production-module-card':\s*showProductionModuleTabs/,
-  '损耗管理 content card must use compact production module card padding.'
+  '工序配置 content card must use compact production module card padding.'
 )
-assertProductionTabs(lossBlock, '损耗管理')
+assertProductionTabs(processConfigBlock, '工序配置')
 assert.ok(
-  lossBlock.indexOf('data-production-leader-module-tabs') < lossBlock.indexOf('<el-table'),
-  '损耗管理 module tabs must appear before the loss reason list.'
+  processConfigBlock.indexOf('data-production-leader-module-tabs') < processConfigBlock.indexOf('<el-table'),
+  '工序配置 module tabs must appear before the unified process config table.'
 )
 
 const configBlock = sliceContentWrapByMarker('data-team-leader-config-center')

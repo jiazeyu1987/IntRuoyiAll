@@ -23,8 +23,7 @@ requirePageMarker('data-team-leader-config-center', 'page must expose a team con
 requirePageMarker('报工确认工作台', 'page must use the business label 报工确认工作台')
 requirePageMarker('班组配置中心', 'page must use the business label 班组配置中心')
 requirePageMarker('data-team-leader-active-order-config', 'config center must include active order maintenance')
-requirePageMarker('data-team-leader-active-order-route-id', 'active order maintenance must collect the formal route id required by backend addActiveOrder.')
-requirePageMarker('data-team-leader-active-order-route-version-id', 'active order maintenance must collect the formal route version id required by backend addActiveOrder.')
+requirePageMarker(':remote-method="searchActiveOrderCandidates"', 'active order maintenance must search formal work order candidates instead of hand-entering route ids.')
 requirePageMarker('data-team-leader-employee-config', 'config center must include employee profile and process binding maintenance')
 requirePageMarker('data-team-leader-device-config', 'config center must include equipment maintenance')
 requirePageMarker('data-team-leader-process-config-tab', 'page must expose the unified process config tab')
@@ -49,15 +48,16 @@ assert.doesNotMatch(
 )
 
 requireApiEndpoint('addTeamLeaderActiveOrder', '/active-order/add', 'active order add API')
+requireApiEndpoint('searchTeamLeaderActiveOrderCandidates', '/active-order/candidates', 'active order candidate search API')
 assert.match(
   api,
-  /interface TeamLeaderActiveOrderAddReqVO[\s\S]*routeId:\s*number[\s\S]*routeVersionId:\s*number/,
-  'active order add API payload must include routeId and routeVersionId, matching backend authority requirements.'
+  /interface TeamLeaderActiveOrderAddReqVO\s*\{\s*workOrderId:\s*number\s*\}/,
+  'active order add API payload must only include workOrderId; backend derives route and version from the effective schedule.'
 )
 assert.match(
   page,
-  /addTeamLeaderActiveOrder\(\{[\s\S]*routeId:\s*requirePositiveNumber\(activeOrderForm\.routeId[\s\S]*routeVersionId:\s*requirePositiveNumber\(activeOrderForm\.routeVersionId/,
-  'active order UI submit must send explicit routeId and routeVersionId instead of relying on backend defaults.'
+  /addTeamLeaderActiveOrder\(\{\s*workOrderId:\s*requirePositiveNumber\(activeOrderForm\.workOrderId,\s*'请选择订单号'\)\s*\}\)/,
+  'active order UI submit must send only the selected workOrderId.'
 )
 requireApiEndpoint('removeTeamLeaderActiveOrder', '/active-order/remove', 'active order remove API')
 requireApiEndpoint('createTeamEmployeeProfile', '/employee-profile/create', 'employee profile API')

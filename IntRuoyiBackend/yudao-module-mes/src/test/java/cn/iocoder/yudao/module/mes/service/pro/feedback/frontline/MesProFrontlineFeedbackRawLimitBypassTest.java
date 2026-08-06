@@ -36,6 +36,8 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
     private MesFrontlineSubmitAuthorizationService submitAuthorizationService;
     @Mock
     private MesFrontlineLossReasonValidator lossReasonValidator;
+    @Mock
+    private MesFrontlineDeviceParameterValidator deviceParameterValidator;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -47,6 +49,7 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
                 processPoolSubmitEventService,
                 submitAuthorizationService,
                 lossReasonValidator,
+                deviceParameterValidator,
                 new MesProFrontlineFeedbackPayloadSplitter());
     }
 

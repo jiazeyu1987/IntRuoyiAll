@@ -62,7 +62,11 @@ assertMatches(
   '工序配置 must be the single process-scoped configuration tab.'
 )
 assert.doesNotMatch(page, /label="损耗管理"\s+name="loss"/, 'Old standalone 损耗管理 tab must be removed.')
-assertIncludes(page, "activeProductionModuleTab = ref<'personnel' | 'report' | 'dashboard' | 'exception' | 'processConfig' | 'config'>", 'Production module tab state must include processConfig.')
+assertMatches(
+  page,
+  /activeProductionModuleTab\s*=\s*ref<[\s\S]*'processConfig'[\s\S]*>\('personnel'\)/,
+  'Production module tab state must include processConfig.'
+)
 assertIncludes(page, 'showProductionProcessConfigModule', 'Page must gate the unified process config module explicitly.')
 assertIncludes(page, 'data-team-leader-process-config-tab', 'Unified process config module must have a stable root selector.')
 assertIncludes(page, 'data-team-leader-process-config-table', 'Unified process config table must have a stable selector.')

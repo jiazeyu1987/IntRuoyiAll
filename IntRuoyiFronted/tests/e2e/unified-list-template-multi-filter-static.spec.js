@@ -128,6 +128,11 @@ assert.match(multiFilterHookSource, /export interface ListMultiFilterCondition/,
 assert.match(multiFilterHookSource, /id\?:\s*string/, '多维度筛选条件必须支持稳定 Tab id。')
 assert.match(multiFilterHookSource, /conditions:\s*ListMultiFilterCondition\[\]/, '多维度筛选状态必须使用条件数组。')
 assert.match(multiFilterHookSource, /activeConditionId\?:\s*string/, '多维度筛选状态必须记录当前编辑的条件 Tab。')
+assert.match(
+  multiFilterHookSource,
+  /export const getDefaultMultiFilterOperator = \(definition: ListMultiFilterDefinition\) =>\s*definition\.operators\?\.\[0\]\s*\|\|\s*DEFAULT_OPERATOR\[definition\.type\]/,
+  '多维度筛选默认操作符必须优先使用字段显式声明的第一个操作符。'
+)
 assert.match(multiFilterHookSource, /queryParamKeys\?: \[string, string\]/, '多维度筛选定义必须支持范围字段映射到正式 query 起止参数。')
 assert.match(multiFilterHookSource, /queryParams\.pageNo = 1/, '多维度筛选查询和重置必须回到第一页。')
 assert.match(multiFilterHookSource, /delete queryParamTarget\.multiFilters/, '多维度筛选必须清理旧 multiFilters 参数。')

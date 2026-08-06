@@ -9,17 +9,17 @@
 
 - Outcome: passed under the user-approved code-only merge scope.
 - Scope change: 用户明确指令 `不用E2E,直接合并到主代码,我手动验证`，真实 Playwright 写入型页面验证不再作为合并前完成门禁。
-- Completed evidence: target migration pytest, full migration policy gate, target Maven `-am` suite, frontend `ts:check`, frontend static contracts, real E2E script syntax check, `git diff --check`, branch runtime port guard, change-request validation, artifact validation, and test-report validation all pass.
+- Completed evidence: target migration pytest, full migration policy gate, target Maven `-am` suite, frontend `ts:check`, frontend static contracts, real E2E script syntax check, `git diff --check`, branch runtime port guard, change-request validation, artifact validation, and test-report validation all pass. Post-merge resume verification also passed with 442 migrations, 50 target Maven tests, and 7 frontend static contracts.
 - Boundary: 本报告不声明真实 E2E 已通过；未生成截图、trace 或真实页面写入证据，真实页面风险由用户在主代码手动验收。
 - Regression caveat: broader Maven regression commands previously failed on unrelated historical infra/MES defects; those failures are not counted as current-task GREEN and are no longer a merge blocker under the updated scope.
 
 ## Commands
 
 - PASS: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_mes_process_pool_device_parameter_route_process_migration.py -q` -> `4 passed`.
-- PASS: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --output doc\tasks\20260805-production-leader-process-config-unification\migration-policy-gate.json` -> `status=passed`, `migrationCount=440`.
-- PASS: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderSchemaTest,MesTeamLeaderProcessConfigServiceTest,MesTeamLeaderRuntimeConfigServiceTest,MesProcessPoolTeamLeaderControllerTest,MesFrontlineRuntimeConfigServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> `Tests run: 37`, `BUILD SUCCESS`.
+- PASS: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --output C:\Users\BJB110\AppData\Local\Temp\20260806-process-config-merge-policy-gate.json` -> `status=passed`, `migrationCount=442`.
+- PASS: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesTeamLeaderProcessConfigServiceTest,MesTeamLeaderRuntimeConfigServiceTest,MesProcessPoolTeamLeaderSchemaTest,MesFrontlineRuntimeConfigServiceTest,MesTeamLeaderActiveOrderServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> `Tests run: 50`, `BUILD SUCCESS`.
 - PASS: `pnpm ts:check` from `IntRuoyiFronted`.
-- PASS: frontend static contracts `team-leader-process-config-unified-static.spec.cjs`, `team-leader-workbench-static.spec.cjs`, `mes-process-pool-team-leader-static.spec.js`, and `frontline-team-config-static.spec.cjs`.
+- PASS: frontend static contracts `team-leader-process-config-unified-static.spec.cjs`, `team-leader-workbench-static.spec.cjs`, `mes-process-pool-team-leader-static.spec.js`, `frontline-team-config-static.spec.cjs`, `production-leader-active-order-pool-tab-static.spec.js`, `production-leader-function-tabs-static.spec.js`, and `production-leader-tabs-flat-style-static.spec.js`.
 - PASS: `node --check tests\e2e\team-leader-process-config-unified-real.e2e.js`.
 - PASS: `python -X utf8 C:\Users\BJB110\.codex\skills\change-request-triage\scripts\validate_change_request.py --evidence docs\changes\20260806-production-leader-process-config-manual-verification.md`.
 - PASS: `python -X utf8 C:\Users\BJB110\.codex\skills\spec-driven-delivery\scripts\validate_artifacts.py --cwd D:\IntRuoyiWorktree\20260805-process-config-unification --task-id 20260805-production-leader-process-config-unification`.

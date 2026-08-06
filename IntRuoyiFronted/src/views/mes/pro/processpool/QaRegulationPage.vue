@@ -5,27 +5,41 @@
         <div class="qa-regulation-page__title">QA 规程配置</div>
         <el-form label-width="0" class="qa-regulation-page__form qa-regulation-page__project-form">
           <el-form-item class="qa-regulation-page__project-field">
-            <el-select
-              v-model="qaRegulationDraft.dccProjectCodeId"
-              aria-label="DCC 项目代码"
-              clearable
-              filterable
-              remote
-              reserve-keyword
-              :loading="dccProjectCodeOptionsLoading"
-              :remote-method="loadDccProjectCodeOptions"
-              placeholder="请选择 DCC 项目代码"
-              class="!w-100%"
-              @change="handleDccProjectCodeChange"
-              @visible-change="handleDccProjectCodeVisibleChange"
-            >
-              <el-option
-                v-for="project in dccProjectCodeOptions"
-                :key="project.id"
-                :label="formatDccProjectCodeOption(project)"
-                :value="project.id"
-              />
-            </el-select>
+            <div class="qa-regulation-page__project-selector" data-qa-regulation-project-selector>
+              <el-select
+                v-model="qaRegulationDraft.dccProjectCodeId"
+                aria-label="DCC 项目代码"
+                clearable
+                filterable
+                remote
+                reserve-keyword
+                :loading="dccProjectCodeOptionsLoading"
+                :remote-method="loadDccProjectCodeOptions"
+                placeholder="请选择 DCC 项目代码"
+                class="qa-regulation-page__project-select !w-100%"
+                data-qa-regulation-project-copyable
+                @change="handleDccProjectCodeChange"
+                @visible-change="handleDccProjectCodeVisibleChange"
+              >
+                <el-option
+                  v-for="project in dccProjectCodeOptions"
+                  :key="project.id"
+                  :label="formatDccProjectCodeOption(project)"
+                  :value="project.id"
+                />
+              </el-select>
+              <el-button
+                plain
+                aria-label="复制 DCC 项目代码"
+                title="复制 DCC 项目代码"
+                class="qa-regulation-page__project-copy-button"
+                data-qa-regulation-project-copy
+                :disabled="!selectedDccProjectCodeLabel"
+                @click="copySelectedDccProjectCode"
+              >
+                复制
+              </el-button>
+            </div>
           </el-form-item>
         </el-form>
         <div
@@ -787,6 +801,7 @@
 
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
+import { useClipboard } from '@vueuse/core'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
@@ -796,6 +811,7 @@ import {
 } from '@/hooks/web/useTableQuickFilter'
 import {
   DCC_PROJECT_CODE_STATUS_ENABLE,
+  getProjectCode,
   getProjectCodePage,
   type DccProjectCodeRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
@@ -825,6 +841,8 @@ type QaInspectionResultType = 'BOOLEAN' | 'NUMERIC' | 'TEXT'
 
 const PRESSURE_PUMP_PROJECT_CODE = 'IDI'
 const DCC_PROJECT_CODE_PAGE_SIZE = 50
+const QA_REGULATION_LAST_DCC_PROJECT_CODE_ID_STORAGE_KEY =
+  'int-ruoyi:qa-regulation:last-dcc-project-code-id'
 
 interface QaInspectionTypeRule {
   key: QaInspectionTypeValue
@@ -879,6 +897,20 @@ interface QaRegulationDraft {
   productionFactor: number
   sampleOrderQuantity: number
   batchRecordBinding: string
+}
+
+interface QaProductRuleDraftSnapshot {
+  regulationDraft: Pick<
+    QaRegulationDraft,
+    | 'regulationCode'
+    | 'regulationName'
+    | 'versionNo'
+    | 'effectiveDate'
+    | 'lifecycleStatus'
+    | 'sampleOrderQuantity'
+  >
+  inspectionTypeRules: QaInspectionTypeRule[]
+  regulationItems: QaRegulationItem[]
 }
 
 type QaRegulationTabName = 'overview' | 'rules' | 'items' | 'verification'
@@ -1061,14 +1093,13 @@ const createPressurePumpQaRegulationDraft = (): QaRegulationDraft => ({
 
 const qaRegulationDraft = reactive<QaRegulationDraft>(createEmptyQaRegulationDraft())
 
-const qaInspectionTypeRules = reactive<QaInspectionTypeRule[]>([
+const createEmptyQaInspectionTypeRules = (): QaInspectionTypeRule[] => [
   {
     key: 'FIRST',
     inspectionType: 'FIRST',
     label: '首检',
     roundLabel: '每个适用订单工序开始前',
     required: true,
-    fixedQuantity: 5,
     taskRule: '按发布规程固定数量生成首检任务',
     releaseGate: '缺固定数量或项目时不能发布'
   },
@@ -1078,7 +1109,6 @@ const qaInspectionTypeRules = reactive<QaInspectionTypeRule[]>([
     label: '上午巡检',
     roundLabel: '上午班次独立轮次',
     required: true,
-    sampleRatio: 5,
     taskRule: '按订单数量 × 上午比例向上取整',
     releaseGate: '上午比例需独立配置'
   },
@@ -1088,7 +1118,6 @@ const qaInspectionTypeRules = reactive<QaInspectionTypeRule[]>([
     label: '下午巡检',
     roundLabel: '下午班次独立轮次',
     required: true,
-    sampleRatio: 5,
     taskRule: '按订单数量 × 下午比例向上取整',
     releaseGate: '下午比例需独立配置'
   },
@@ -1097,13 +1126,33 @@ const qaInspectionTypeRules = reactive<QaInspectionTypeRule[]>([
     inspectionType: 'FINAL',
     label: '末检',
     roundLabel: '订单工序结束前',
-    required: true,
-    fixedQuantity: 3,
+    required: false,
     notApplicableReason: '',
     taskRule: '需要末检时生成末检任务；不适用必须显式关闭',
     releaseGate: '需要/不适用必须明确保存'
   }
-])
+]
+
+const createPressurePumpQaInspectionTypeRules = (): QaInspectionTypeRule[] =>
+  createEmptyQaInspectionTypeRules().map((rule) => {
+    if (rule.key === 'FIRST') {
+      return { ...rule, fixedQuantity: 5 }
+    }
+    if (rule.key === 'PATROL_AM' || rule.key === 'PATROL_PM') {
+      return { ...rule, sampleRatio: 5 }
+    }
+    return { ...rule, required: true, fixedQuantity: 3 }
+  })
+
+const qaInspectionTypeRules = reactive<QaInspectionTypeRule[]>(createEmptyQaInspectionTypeRules())
+
+const replaceQaInspectionTypeRules = (rules: QaInspectionTypeRule[]) => {
+  qaInspectionTypeRules.splice(
+    0,
+    qaInspectionTypeRules.length,
+    ...rules.map((rule) => ({ ...rule }))
+  )
+}
 
 const pagedQaInspectionTypeRules = computed(() =>
   paginateQaRows(qaInspectionTypeRules, qaRulesQuery)
@@ -1512,10 +1561,13 @@ const qaRegulationItems = ref<QaRegulationItem[]>([])
 const pagedQaRegulationItems = computed(() =>
   paginateQaRows(qaRegulationItems.value, qaItemsQuery)
 )
+const qaProductRuleDrafts = new Map<number, QaProductRuleDraftSnapshot>()
 const dccProjectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 const dccProjectCodeOptionsLoading = ref(false)
 const dccProjectCodeLoadError = ref('')
 const selectedDccProjectCode = ref<DccProjectCodeRespVO>()
+const activeQaRegulationProductId = ref<number | undefined>()
+const pressurePumpProductId = ref<number | undefined>()
 const qaRouteScopeLoading = ref(false)
 const qaRouteScopeLoadError = ref('')
 const qaRouteScopeAutoSource = ref<QaRouteScopeAutoSource>()
@@ -1526,6 +1578,7 @@ const manualQaRouteBinding = reactive<{ routeId?: number }>({ routeId: undefined
 const manualQaRouteBindingSaving = ref(false)
 const qaRegulationSaving = ref(false)
 const qaRegulationPublishing = ref(false)
+const { copy: copyQaProjectSelectionToClipboard } = useClipboard({ legacy: true })
 
 const normalizeDccProjectCode = (projectCode: string) => projectCode.trim().toUpperCase()
 
@@ -1534,8 +1587,88 @@ const resolveDccProjectProductId = (project: DccProjectCodeRespVO) => {
   return Number.isFinite(productId) && productId > 0 ? productId : undefined
 }
 
+const cloneQaRegulationItems = (items: QaRegulationItem[]) =>
+  items.map((item) => ({
+    ...item,
+    applicableTypes: [...item.applicableTypes]
+  }))
+
+const createQaProductRuleDraftSnapshot = (
+  draft: QaRegulationDraft,
+  inspectionTypeRules: QaInspectionTypeRule[],
+  regulationItems: QaRegulationItem[]
+): QaProductRuleDraftSnapshot => ({
+  regulationDraft: {
+    regulationCode: draft.regulationCode,
+    regulationName: draft.regulationName,
+    versionNo: draft.versionNo,
+    effectiveDate: draft.effectiveDate,
+    lifecycleStatus: draft.lifecycleStatus,
+    sampleOrderQuantity: draft.sampleOrderQuantity
+  },
+  inspectionTypeRules: inspectionTypeRules.map((rule) => ({ ...rule })),
+  regulationItems: cloneQaRegulationItems(regulationItems)
+})
+
+const registerPressurePumpProductBinding = (projects: DccProjectCodeRespVO[]) => {
+  const pressurePumpProject = projects.find(
+    (project) => normalizeDccProjectCode(project.projectCode) === PRESSURE_PUMP_PROJECT_CODE
+  )
+  if (!pressurePumpProject) {
+    return
+  }
+  const productId = resolveDccProjectProductId(pressurePumpProject)
+  if (productId) {
+    pressurePumpProductId.value = productId
+  }
+}
+
+const saveCurrentQaProductRuleDraft = () => {
+  const productId = activeQaRegulationProductId.value
+  if (!productId) {
+    return
+  }
+  qaProductRuleDrafts.set(
+    productId,
+    createQaProductRuleDraftSnapshot(
+      qaRegulationDraft,
+      qaInspectionTypeRules,
+      qaRegulationItems.value
+    )
+  )
+}
+
+const loadQaProductRuleDraft = (productId: number, project: DccProjectCodeRespVO) => {
+  let snapshot = qaProductRuleDrafts.get(productId)
+  if (!snapshot) {
+    const isPressurePumpProduct = productId === pressurePumpProductId.value
+    snapshot = createQaProductRuleDraftSnapshot(
+      isPressurePumpProduct
+        ? createPressurePumpQaRegulationDraft()
+        : createEmptyQaRegulationDraft(),
+      isPressurePumpProduct
+        ? createPressurePumpQaInspectionTypeRules()
+        : createEmptyQaInspectionTypeRules(),
+      isPressurePumpProduct ? createPressurePumpQaRegulationItems() : []
+    )
+    qaProductRuleDrafts.set(productId, snapshot)
+  }
+
+  Object.assign(qaRegulationDraft, createEmptyQaRegulationDraft(), snapshot.regulationDraft, {
+    dccProjectCodeId: project.id,
+    productName: project.projectName.trim()
+  })
+  replaceQaInspectionTypeRules(snapshot.inspectionTypeRules)
+  qaRegulationItems.value = cloneQaRegulationItems(snapshot.regulationItems)
+  activeQaRegulationProductId.value = productId
+}
+
 const formatDccProjectCodeOption = (project: DccProjectCodeRespVO) =>
   [project.projectCode, project.projectName, project.docControlNo].filter(Boolean).join(' / ')
+
+const selectedDccProjectCodeLabel = computed(() =>
+  selectedDccProjectCode.value ? formatDccProjectCodeOption(selectedDccProjectCode.value) : ''
+)
 
 const formatManualQaRouteOption = (route: ProRouteVO) =>
   [
@@ -1552,6 +1685,67 @@ const resolveDccProjectCodeErrorMessage = (error: unknown) => {
     return error.message.trim()
   }
   return String(error)
+}
+
+const reportDccProjectSelectionStorageError = (action: string, error: unknown) => {
+  const message = `DCC 项目代码上次选择${action}失败：${resolveDccProjectCodeErrorMessage(error)}`
+  dccProjectCodeLoadError.value = message
+  ElMessage.error(message)
+}
+
+const persistLastDccProjectCodeSelection = (project?: DccProjectCodeRespVO) => {
+  if (typeof window === 'undefined') {
+    return
+  }
+  try {
+    if (project) {
+      window.localStorage.setItem(
+        QA_REGULATION_LAST_DCC_PROJECT_CODE_ID_STORAGE_KEY,
+        String(project.id)
+      )
+      return
+    }
+    window.localStorage.removeItem(QA_REGULATION_LAST_DCC_PROJECT_CODE_ID_STORAGE_KEY)
+  } catch (error) {
+    reportDccProjectSelectionStorageError('保存', error)
+  }
+}
+
+const readLastDccProjectCodeSelectionId = () => {
+  if (typeof window === 'undefined') {
+    return undefined
+  }
+  try {
+    const rawProjectId = window.localStorage.getItem(
+      QA_REGULATION_LAST_DCC_PROJECT_CODE_ID_STORAGE_KEY
+    )
+    if (!rawProjectId) {
+      return undefined
+    }
+    const lastProjectId = Number(rawProjectId)
+    if (!Number.isFinite(lastProjectId) || lastProjectId <= 0) {
+      throw new Error('本地记录的 DCC 项目代码 ID 非法。')
+    }
+    return lastProjectId
+  } catch (error) {
+    reportDccProjectSelectionStorageError('读取', error)
+    return undefined
+  }
+}
+
+const copySelectedDccProjectCode = async () => {
+  const copyableProjectLabel = selectedDccProjectCodeLabel.value.trim()
+  if (!copyableProjectLabel) {
+    ElMessage.warning('请先选择 DCC 项目代码再复制。')
+    return
+  }
+  try {
+    await copyQaProjectSelectionToClipboard(copyableProjectLabel)
+    ElMessage.success('DCC 项目代码已复制')
+  } catch (error) {
+    ElMessage.error('DCC 项目代码复制失败，请检查浏览器剪贴板权限或浏览器限制。')
+    throw error
+  }
 }
 
 const normalizeQaRouteScopeText = (value: unknown) => {
@@ -1865,6 +2059,7 @@ const loadDccProjectCodeOptions = async (keyword = '') => {
     if (selectedProject && !options.some((project) => project.id === selectedProject.id)) {
       options.unshift(selectedProject)
     }
+    registerPressurePumpProductBinding(options)
     dccProjectCodeOptions.value = options
   } catch (error) {
     dccProjectCodeOptions.value = selectedDccProjectCode.value
@@ -1880,6 +2075,33 @@ const retryLoadDccProjectCodes = () => {
   void loadDccProjectCodeOptions()
 }
 
+const restoreLastDccProjectCodeSelection = async () => {
+  const lastProjectId = readLastDccProjectCodeSelectionId()
+  if (!lastProjectId || selectedDccProjectCode.value) {
+    return
+  }
+  try {
+    let project = dccProjectCodeOptions.value.find(
+      (item) => Number(item.id) === lastProjectId
+    )
+    if (!project) {
+      project = await getProjectCode(lastProjectId)
+    }
+    if (project.status !== DCC_PROJECT_CODE_STATUS_ENABLE) {
+      throw new Error('上次选择的 DCC 项目代码已停用，请重新选择。')
+    }
+    if (!dccProjectCodeOptions.value.some((item) => Number(item.id) === Number(project.id))) {
+      dccProjectCodeOptions.value = [project, ...dccProjectCodeOptions.value]
+    }
+    qaRegulationDraft.dccProjectCodeId = project.id
+    applyDccProjectToQaDraft(project)
+  } catch (error) {
+    const message = `DCC 项目代码上次选择恢复失败：${resolveDccProjectCodeErrorMessage(error)}`
+    dccProjectCodeLoadError.value = message
+    ElMessage.error(message)
+  }
+}
+
 const handleDccProjectCodeVisibleChange = (visible: boolean) => {
   if (
     visible &&
@@ -1891,7 +2113,10 @@ const handleDccProjectCodeVisibleChange = (visible: boolean) => {
 }
 
 const applyDccProjectToQaDraft = (project?: DccProjectCodeRespVO) => {
+  saveCurrentQaProductRuleDraft()
   selectedDccProjectCode.value = project
+  persistLastDccProjectCodeSelection(project)
+  activeQaRegulationProductId.value = undefined
   if (!project) {
     qaRouteScopeLoadSerial += 1
     qaRouteScopeLoading.value = false
@@ -1901,22 +2126,27 @@ const applyDccProjectToQaDraft = (project?: DccProjectCodeRespVO) => {
     resetFormalQaRouteScopeFields()
     Object.assign(qaRegulationDraft, createEmptyQaRegulationDraft())
     qaRegulationItems.value = []
+    replaceQaInspectionTypeRules(createEmptyQaInspectionTypeRules())
     return
   }
 
-  const projectCode = normalizeDccProjectCode(project.projectCode)
-  const draft =
-    projectCode === PRESSURE_PUMP_PROJECT_CODE
-      ? createPressurePumpQaRegulationDraft()
-      : createEmptyQaRegulationDraft()
+  registerPressurePumpProductBinding([project])
+  const productId = resolveDccProjectProductId(project)
   manualQaRouteLoadError.value = ''
   manualQaRouteBinding.routeId = undefined
-  Object.assign(qaRegulationDraft, draft, {
-    dccProjectCodeId: project.id,
-    productName: project.projectName.trim()
-  })
-  qaRegulationItems.value =
-    projectCode === PRESSURE_PUMP_PROJECT_CODE ? createPressurePumpQaRegulationItems() : []
+  if (!productId) {
+    Object.assign(qaRegulationDraft, createEmptyQaRegulationDraft(), {
+      dccProjectCodeId: project.id,
+      productName: project.projectName.trim()
+    })
+    qaRegulationItems.value = []
+    replaceQaInspectionTypeRules(createEmptyQaInspectionTypeRules())
+    qaItemsQuery.pageNo = 1
+    void loadQaRouteScopeFromProject(project)
+    return
+  }
+
+  loadQaProductRuleDraft(productId, project)
   qaItemsQuery.pageNo = 1
   void loadQaRouteScopeFromProject(project)
 }
@@ -1935,8 +2165,9 @@ const handleDccProjectCodeChange = (projectId?: number) => {
   applyDccProjectToQaDraft(project)
 }
 
-onMounted(() => {
-  void loadDccProjectCodeOptions()
+onMounted(async () => {
+  await loadDccProjectCodeOptions()
+  await restoreLastDccProjectCodeSelection()
 })
 
 const resolveQaRulePlannedQuantity = (rule: QaInspectionTypeRule) => {
@@ -2359,6 +2590,30 @@ const runQaPublishPrecheck = async () => {
 
 .qa-regulation-page__project-field {
   margin-bottom: 0;
+}
+
+.qa-regulation-page__project-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.qa-regulation-page__project-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.qa-regulation-page__project-select :deep(.el-select__selected-item) {
+  user-select: text;
+}
+
+.qa-regulation-page__project-select :deep(.el-select__placeholder) {
+  user-select: text;
+}
+
+.qa-regulation-page__project-copy-button {
+  flex-shrink: 0;
 }
 
 .qa-regulation-page__version-publish {
