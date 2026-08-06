@@ -5,27 +5,41 @@
         <div class="qa-regulation-page__title">QA 规程配置</div>
         <el-form label-width="0" class="qa-regulation-page__form qa-regulation-page__project-form">
           <el-form-item class="qa-regulation-page__project-field">
-            <el-select
-              v-model="qaRegulationDraft.dccProjectCodeId"
-              aria-label="DCC 项目代码"
-              clearable
-              filterable
-              remote
-              reserve-keyword
-              :loading="dccProjectCodeOptionsLoading"
-              :remote-method="loadDccProjectCodeOptions"
-              placeholder="请选择 DCC 项目代码"
-              class="!w-100%"
-              @change="handleDccProjectCodeChange"
-              @visible-change="handleDccProjectCodeVisibleChange"
-            >
-              <el-option
-                v-for="project in dccProjectCodeOptions"
-                :key="project.id"
-                :label="formatDccProjectCodeOption(project)"
-                :value="project.id"
-              />
-            </el-select>
+            <div class="qa-regulation-page__project-selector" data-qa-regulation-project-selector>
+              <el-select
+                v-model="qaRegulationDraft.dccProjectCodeId"
+                aria-label="DCC 项目代码"
+                clearable
+                filterable
+                remote
+                reserve-keyword
+                :loading="dccProjectCodeOptionsLoading"
+                :remote-method="loadDccProjectCodeOptions"
+                placeholder="请选择 DCC 项目代码"
+                class="qa-regulation-page__project-select !w-100%"
+                data-qa-regulation-project-copyable
+                @change="handleDccProjectCodeChange"
+                @visible-change="handleDccProjectCodeVisibleChange"
+              >
+                <el-option
+                  v-for="project in dccProjectCodeOptions"
+                  :key="project.id"
+                  :label="formatDccProjectCodeOption(project)"
+                  :value="project.id"
+                />
+              </el-select>
+              <el-button
+                plain
+                aria-label="复制 DCC 项目代码"
+                title="复制 DCC 项目代码"
+                class="qa-regulation-page__project-copy-button"
+                data-qa-regulation-project-copy
+                :disabled="!selectedDccProjectCodeLabel"
+                @click="copySelectedDccProjectCode"
+              >
+                复制
+              </el-button>
+            </div>
           </el-form-item>
         </el-form>
         <div
@@ -787,6 +801,7 @@
 
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
+import { useClipboard } from '@vueuse/core'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
@@ -796,6 +811,7 @@ import {
 } from '@/hooks/web/useTableQuickFilter'
 import {
   DCC_PROJECT_CODE_STATUS_ENABLE,
+  getProjectCode,
   getProjectCodePage,
   type DccProjectCodeRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
@@ -825,6 +841,8 @@ type QaInspectionResultType = 'BOOLEAN' | 'NUMERIC' | 'TEXT'
 
 const PRESSURE_PUMP_PROJECT_CODE = 'IDI'
 const DCC_PROJECT_CODE_PAGE_SIZE = 50
+const QA_REGULATION_LAST_DCC_PROJECT_CODE_ID_STORAGE_KEY =
+  'int-ruoyi:qa-regulation:last-dcc-project-code-id'
 
 interface QaInspectionTypeRule {
   key: QaInspectionTypeValue
@@ -1560,6 +1578,7 @@ const manualQaRouteBinding = reactive<{ routeId?: number }>({ routeId: undefined
 const manualQaRouteBindingSaving = ref(false)
 const qaRegulationSaving = ref(false)
 const qaRegulationPublishing = ref(false)
+const { copy: copyQaProjectSelectionToClipboard } = useClipboard({ legacy: true })
 
 const normalizeDccProjectCode = (projectCode: string) => projectCode.trim().toUpperCase()
 
@@ -1647,6 +1666,10 @@ const loadQaProductRuleDraft = (productId: number, project: DccProjectCodeRespVO
 const formatDccProjectCodeOption = (project: DccProjectCodeRespVO) =>
   [project.projectCode, project.projectName, project.docControlNo].filter(Boolean).join(' / ')
 
+const selectedDccProjectCodeLabel = computed(() =>
+  selectedDccProjectCode.value ? formatDccProjectCodeOption(selectedDccProjectCode.value) : ''
+)
+
 const formatManualQaRouteOption = (route: ProRouteVO) =>
   [
     route.code,
@@ -1662,6 +1685,67 @@ const resolveDccProjectCodeErrorMessage = (error: unknown) => {
     return error.message.trim()
   }
   return String(error)
+}
+
+const reportDccProjectSelectionStorageError = (action: string, error: unknown) => {
+  const message = `DCC 项目代码上次选择${action}失败：${resolveDccProjectCodeErrorMessage(error)}`
+  dccProjectCodeLoadError.value = message
+  ElMessage.error(message)
+}
+
+const persistLastDccProjectCodeSelection = (project?: DccProjectCodeRespVO) => {
+  if (typeof window === 'undefined') {
+    return
+  }
+  try {
+    if (project) {
+      window.localStorage.setItem(
+        QA_REGULATION_LAST_DCC_PROJECT_CODE_ID_STORAGE_KEY,
+        String(project.id)
+      )
+      return
+    }
+    window.localStorage.removeItem(QA_REGULATION_LAST_DCC_PROJECT_CODE_ID_STORAGE_KEY)
+  } catch (error) {
+    reportDccProjectSelectionStorageError('保存', error)
+  }
+}
+
+const readLastDccProjectCodeSelectionId = () => {
+  if (typeof window === 'undefined') {
+    return undefined
+  }
+  try {
+    const rawProjectId = window.localStorage.getItem(
+      QA_REGULATION_LAST_DCC_PROJECT_CODE_ID_STORAGE_KEY
+    )
+    if (!rawProjectId) {
+      return undefined
+    }
+    const lastProjectId = Number(rawProjectId)
+    if (!Number.isFinite(lastProjectId) || lastProjectId <= 0) {
+      throw new Error('本地记录的 DCC 项目代码 ID 非法。')
+    }
+    return lastProjectId
+  } catch (error) {
+    reportDccProjectSelectionStorageError('读取', error)
+    return undefined
+  }
+}
+
+const copySelectedDccProjectCode = async () => {
+  const copyableProjectLabel = selectedDccProjectCodeLabel.value.trim()
+  if (!copyableProjectLabel) {
+    ElMessage.warning('请先选择 DCC 项目代码再复制。')
+    return
+  }
+  try {
+    await copyQaProjectSelectionToClipboard(copyableProjectLabel)
+    ElMessage.success('DCC 项目代码已复制')
+  } catch (error) {
+    ElMessage.error('DCC 项目代码复制失败，请检查浏览器剪贴板权限或浏览器限制。')
+    throw error
+  }
 }
 
 const normalizeQaRouteScopeText = (value: unknown) => {
@@ -1991,6 +2075,33 @@ const retryLoadDccProjectCodes = () => {
   void loadDccProjectCodeOptions()
 }
 
+const restoreLastDccProjectCodeSelection = async () => {
+  const lastProjectId = readLastDccProjectCodeSelectionId()
+  if (!lastProjectId || selectedDccProjectCode.value) {
+    return
+  }
+  try {
+    let project = dccProjectCodeOptions.value.find(
+      (item) => Number(item.id) === lastProjectId
+    )
+    if (!project) {
+      project = await getProjectCode(lastProjectId)
+    }
+    if (project.status !== DCC_PROJECT_CODE_STATUS_ENABLE) {
+      throw new Error('上次选择的 DCC 项目代码已停用，请重新选择。')
+    }
+    if (!dccProjectCodeOptions.value.some((item) => Number(item.id) === Number(project.id))) {
+      dccProjectCodeOptions.value = [project, ...dccProjectCodeOptions.value]
+    }
+    qaRegulationDraft.dccProjectCodeId = project.id
+    applyDccProjectToQaDraft(project)
+  } catch (error) {
+    const message = `DCC 项目代码上次选择恢复失败：${resolveDccProjectCodeErrorMessage(error)}`
+    dccProjectCodeLoadError.value = message
+    ElMessage.error(message)
+  }
+}
+
 const handleDccProjectCodeVisibleChange = (visible: boolean) => {
   if (
     visible &&
@@ -2004,6 +2115,7 @@ const handleDccProjectCodeVisibleChange = (visible: boolean) => {
 const applyDccProjectToQaDraft = (project?: DccProjectCodeRespVO) => {
   saveCurrentQaProductRuleDraft()
   selectedDccProjectCode.value = project
+  persistLastDccProjectCodeSelection(project)
   activeQaRegulationProductId.value = undefined
   if (!project) {
     qaRouteScopeLoadSerial += 1
@@ -2053,8 +2165,9 @@ const handleDccProjectCodeChange = (projectId?: number) => {
   applyDccProjectToQaDraft(project)
 }
 
-onMounted(() => {
-  void loadDccProjectCodeOptions()
+onMounted(async () => {
+  await loadDccProjectCodeOptions()
+  await restoreLastDccProjectCodeSelection()
 })
 
 const resolveQaRulePlannedQuantity = (rule: QaInspectionTypeRule) => {
@@ -2477,6 +2590,30 @@ const runQaPublishPrecheck = async () => {
 
 .qa-regulation-page__project-field {
   margin-bottom: 0;
+}
+
+.qa-regulation-page__project-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.qa-regulation-page__project-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.qa-regulation-page__project-select :deep(.el-select__selected-item) {
+  user-select: text;
+}
+
+.qa-regulation-page__project-select :deep(.el-select__placeholder) {
+  user-select: text;
+}
+
+.qa-regulation-page__project-copy-button {
+  flex-shrink: 0;
 }
 
 .qa-regulation-page__version-publish {
