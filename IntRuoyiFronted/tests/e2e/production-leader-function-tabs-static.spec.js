@@ -86,6 +86,16 @@ assert.match(
 )
 assert.match(
   teamLeaderWorkbench,
+  /data-team-leader-process-config-tab[\s\S]*<el-button\s+:loading="processConfigLoading"\s+@click="loadProcessConfigRows">\s*新增\s*<\/el-button>[\s\S]*data-team-leader-process-config-table/,
+  '工序配置模块头部操作按钮必须显示“新增”，并继续复用工序配置加载状态与加载方法。'
+)
+assert.doesNotMatch(
+  teamLeaderWorkbench,
+  /data-team-leader-process-config-tab[\s\S]*<el-button\s+:loading="processConfigLoading"\s+@click="loadProcessConfigRows">\s*刷新\s*<\/el-button>[\s\S]*data-team-leader-process-config-table/,
+  '工序配置模块头部操作按钮不得继续显示“刷新”。'
+)
+assert.match(
+  teamLeaderWorkbench,
   /<ContentWrap[\s\S]*v-if="showProductionConfigModule"[\s\S]*data-team-leader-config-center/,
   '班组配置 tab must own the team configuration center.'
 )

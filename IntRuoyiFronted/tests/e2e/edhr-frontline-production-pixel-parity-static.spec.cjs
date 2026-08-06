@@ -221,13 +221,25 @@ assertIncludesAll(
 )
 assertIncludesAll(
   extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__card {'),
-  ['width: 760px;', 'padding: 28px;', 'border: 3px solid var(--frontline-line);', 'border-radius: 28px;'],
+  [
+    'width: min(92%, 1180px);',
+    'aspect-ratio: 1920 / 1080;',
+    'grid-template-rows: auto minmax(0, 1fr) auto;',
+    'padding: 32px;',
+    'border: 3px solid var(--frontline-line);',
+    'border-radius: 28px;'
+  ],
   'production picker card style'
 )
 assertIncludesAll(
   extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__option {'),
-  ['height: 112px;', 'font-size: 42px;', 'border-radius: 22px;'],
+  ['aspect-ratio: 1920 / 1080;', 'height: auto;', 'font-size: 42px;', 'border-radius: 22px;'],
   'production picker option style'
+)
+assertIncludesAll(
+  extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__options {'),
+  ['min-height: 0;', 'overflow: auto;', 'align-content: start;'],
+  'production picker option grid style'
 )
 assertIncludesAll(
   extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__close {'),
