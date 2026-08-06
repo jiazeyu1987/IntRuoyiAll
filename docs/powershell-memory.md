@@ -89,6 +89,15 @@
 - Forbidden action: 禁止只看最近一次 `git commit` 成功就直接推送；禁止在未复扫状态时使用宽泛 `git add -A`；禁止把提交后新出现的并行任务目录混入当前任务收尾提交。
 - Evidence: `doc\tasks\20260727-commit-frontend-backend-code\execution-log.md`，提交前后端代码时两次提交后复扫分别发现前端 Runner 残余改动、后端批记录报表残余改动，并拆分提交保留边界。
 
+### 脏工作区功能分支融合增量门禁
+
+- Trigger: 在 `int_main` 或共享分支上融合远端功能分支，同时工作区存在并行未暂存改动、残余基线、或 `git diff HEAD..branch` 显示大量非本分支文件。
+- Preflight check: 先用 `git merge-base HEAD <branch>` 取真实分叉点，再运行 `git diff --name-status "<merge-base>..<branch>"` 获取该分支实际增量；同时用 `git diff --name-only` 列出当前未暂存文件，只按两个列表的交集判断是否需要先基线提交或阻塞。
+- Blocker: 实际增量与未暂存文件有同文件重叠且无法可靠区分 hunks、工作区存在未解决冲突、或待融合分支会删除/覆盖主线证据文件时必须停止并让用户决定。
+- Verification: 任务日志记录 merge-base、实际增量文件列表、未暂存交集、merge commit hash、目标回归命令和最终 `git status --short --branch`。
+- Forbidden action: 禁止只看 `git diff HEAD..branch` 的宽泛差异就误判分支会改动所有主线新增文件；禁止为继续融合而使用 `git add -A` 混入并行改动；禁止用 reset、checkout 或 rebase 清空脏工作区。
+- Evidence: `doc/tasks/20260806-commit-frontend-backend-merge-int-main/execution-log.md`，融合 `origin/codex/replan-current-route-after-feedback` 前通过 merge-base 确认实际增量仅为排产服务、测试和经验文档，与并行残余无重叠后安全合并。
+
 ### GitHub 推送大文件门禁
 
 - Trigger: 推送到 GitHub remote、处理 `GH001`、`Large files detected`、`pre-receive hook declined`、Git LFS 或历史大文件问题。
