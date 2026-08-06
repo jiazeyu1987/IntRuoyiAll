@@ -153,6 +153,15 @@
 - Forbidden action: 禁止把 PowerShell 参数拆分错误误判为产品编译失败；禁止移除 `-am` 或改成更宽测试作为绕过。
 - Evidence: `doc\tasks\20260726-codex-test-case-project-column\execution-log.md`，目标 JUnit 首次因 PowerShell 拆分 `-Dsurefire.failIfNoSpecifiedTests=false` 失败，整体加引号后通过；`doc\tasks\20260726-work-order-field-cell-link\execution-log.md`，目标 MES JUnit 需同时整体加引号 `"-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordCellLinkSchemaTest"` 与 `"-Dsurefire.failIfNoSpecifiedTests=false"`，并保留 `-am` 编译依赖模块源码。
 
+### Maven 静态源码合同工作目录门禁
+
+- Trigger: JUnit 静态合同通过 `Files.readString`、`Path.of` 或 `readSource` 读取源码文件，且命令使用 `mvn -pl <module> -am "-Dtest=..." test`；失败文本包含 `NoSuchFileException`、重复模块路径如 `yudao-module-mes\yudao-module-mes\src`，或断言没有命中实际生产实现类。
+- Preflight check: 静态合同读取源码前先按 Surefire 实际 `user.dir` 兼容模块根和仓库根两种工作目录；若被测职责已拆到独立 validator/service，不要只断言入口 service 源码字符串，需读取真正承载业务约束的实现类。
+- Blocker: 测试在目标 Surefire 前因源码路径错误失败、合同断言落在错误类导致误判业务实现缺失、或为了通过测试把生产代码塞回入口类时必须停止并修正测试合同。
+- Verification: 复跑原 Maven 命令，确认目标测试类已进入 Surefire 且 PASS；任务日志同时记录原路径/断言失败和修正后的目标类。
+- Forbidden action: 禁止把 `NoSuchFileException` 写成业务 RED；禁止改 Maven 工作目录、复制源码到重复模块目录、或为了静态字符串断言破坏正式服务分层。
+- Evidence: `doc/tasks/20260806-production-reporting-submit-implementation/execution-log.md`，报工提交参数明细实现中 `MesFrontlineRuntimeConfigProcessScopeTest` 首次在 Surefire 模块目录下读取 `yudao-module-mes\src` 失败，随后静态合同改为兼容模块根并读取 `MesFrontlineDeviceParameterValidatorImpl`，目标 Maven 2 个用例 PASS。
+
 ### Maven 目标目录文件系统异常门禁
 
 - Trigger: Maven 编译或 `clean` 报 `target\classes` `NoSuchFileException`、同模块类大量缺失、或 `jcmd` 显示 `WinNTFileSystem.delete0` / `getBooleanAttributes0` 长时间停在目标目录。

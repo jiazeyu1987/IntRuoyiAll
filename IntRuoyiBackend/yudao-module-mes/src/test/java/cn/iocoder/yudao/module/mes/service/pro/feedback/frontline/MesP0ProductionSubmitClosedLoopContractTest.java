@@ -44,6 +44,8 @@ class MesP0ProductionSubmitClosedLoopContractTest {
     private MesFrontlineSubmitAuthorizationService submitAuthorizationService;
     @Mock
     private MesFrontlineLossReasonValidator lossReasonValidator;
+    @Mock
+    private MesFrontlineDeviceParameterValidator deviceParameterValidator;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -55,6 +57,7 @@ class MesP0ProductionSubmitClosedLoopContractTest {
                 processPoolSubmitEventService,
                 submitAuthorizationService,
                 lossReasonValidator,
+                deviceParameterValidator,
                 new MesProFrontlineFeedbackPayloadSplitter());
     }
 

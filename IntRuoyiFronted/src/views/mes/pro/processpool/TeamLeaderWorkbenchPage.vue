@@ -588,13 +588,13 @@
               </template>
             </el-table-column>
             <el-table-column
-              v-if="isSubmissionColumnVisible('equipmentSnapshot')"
-              label="设备"
-              prop="equipmentSnapshot"
-              :min-width="getSubmissionColumnMinWidthString('equipmentSnapshot', 220)"
+              v-if="isSubmissionColumnVisible('selectedDevice')"
+              label="选用设备"
+              prop="selectedDevice"
+              :min-width="getSubmissionColumnMinWidthString('selectedDevice', 220)"
             >
               <template #default="{ row }">
-                <div class="team-leader-workbench__structured-list" data-team-leader-equipment-snapshot>
+                <div class="team-leader-workbench__structured-list" data-team-leader-selected-device>
                   <span
                     v-for="item in resolveSubmissionEquipmentItems(row)"
                     :key="item.key"
@@ -606,13 +606,13 @@
               </template>
             </el-table-column>
             <el-table-column
-              v-if="isSubmissionColumnVisible('parameterSnapshot')"
-              label="参数明细"
-              prop="parameterSnapshot"
-              :min-width="getSubmissionColumnMinWidthString('parameterSnapshot', 280)"
+              v-if="isSubmissionColumnVisible('deviceParameterReadings')"
+              label="设备参数"
+              prop="deviceParameterReadings"
+              :min-width="getSubmissionColumnMinWidthString('deviceParameterReadings', 280)"
             >
               <template #default="{ row }">
-                <div class="team-leader-workbench__parameter-list" data-team-leader-parameter-snapshot>
+                <div class="team-leader-workbench__parameter-list" data-team-leader-device-parameter-readings>
                   <div
                     v-for="item in resolveSubmissionParameterItems(row)"
                     :key="item.key"
@@ -621,7 +621,9 @@
                     <span class="team-leader-workbench__parameter-label">{{ item.label }}</span>
                     <span
                       class="team-leader-workbench__parameter-value"
-                      :class="{ 'is-out-of-range': item.outOfRange }"
+                      :class="{ 'is-parameter-out-of-range': item.outOfRange }"
+                      :data-parameter-status="item.parameterStatus || (item.outOfRange ? 'ABNORMAL' : 'NORMAL')"
+                      :aria-label="item.outOfRange ? `参数异常：${item.label} ${item.valueText}` : item.label"
                     >
                       {{ item.valueText }}
                     </span>
@@ -1952,8 +1954,8 @@ const submissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'lossBreakdown', label: '损耗明细', minWidth: 210 },
   { key: 'product', label: '产品', minWidth: 180 },
   { key: 'inspectionTask', label: '检验类型/轮次', minWidth: 150 },
-  { key: 'equipmentSnapshot', label: '设备', minWidth: 220 },
-  { key: 'parameterSnapshot', label: '参数明细', minWidth: 280 },
+  { key: 'selectedDevice', label: '选用设备', minWidth: 220 },
+  { key: 'deviceParameterReadings', label: '设备参数', minWidth: 280 },
   { key: 'auditCopyStatus', label: '审核副本', minWidth: 130 },
   { key: 'processInspectionAggregation', label: '过程检验汇集', minWidth: 180 },
   { key: 'submissionReviewStatus', label: '复核判定', minWidth: 190 },
@@ -2948,6 +2950,7 @@ interface SubmissionStructuredItem {
   valueText: string
   metaText?: string
   outOfRange?: boolean
+  parameterStatus?: string
 }
 
 interface ProductionParameterRuleSnapshot {
@@ -3153,7 +3156,10 @@ const resolveSubmissionLossBreakdownItems = (
       valueText: formatSubmissionQuantity(lossQuantity)
     }]
   }
-  const details = normalizeSubmissionArray(rootPayload?.lossReasonDetails)
+  const structuredLossDetails = row.lossDetails?.length
+    ? row.lossDetails
+    : normalizeSubmissionArray(rootPayload?.lossDetails || rootPayload?.lossReasonDetails)
+  const details = structuredLossDetails
     .map((item, index): SubmissionStructuredItem | undefined => {
       if (!isRecord(item)) {
         return undefined
@@ -3208,7 +3214,30 @@ const resolveSubmissionEquipmentItems = (
       .filter((item): item is SubmissionStructuredItem => Boolean(item))
     return items.length ? items : [{ key: 'empty-equipment', label: '设备', valueText: '--' }]
   }
+  if (row.selectedDevice) {
+    const deviceText = [
+      row.selectedDevice.deviceName || row.selectedDevice.deviceCode,
+      row.selectedDevice.deviceId ? `#${row.selectedDevice.deviceId}` : ''
+    ].filter(Boolean).join(' / ')
+    return [{
+      key: String(row.selectedDevice.deviceId || row.selectedDevice.deviceCode || 'selected-device'),
+      label: '选用设备',
+      valueText: deviceText || '--'
+    }]
+  }
   const { rootPayload } = resolvePqcPayloadPair(row)
+  const rawSelectedDevice = isRecord(rootPayload?.selectedDevice) ? rootPayload.selectedDevice : undefined
+  if (rawSelectedDevice) {
+    const deviceText = [
+      rawSelectedDevice.deviceName || rawSelectedDevice.deviceCode,
+      rawSelectedDevice.deviceId ? `#${rawSelectedDevice.deviceId}` : ''
+    ].filter(Boolean).join(' / ')
+    return [{
+      key: String(rawSelectedDevice.deviceId || rawSelectedDevice.deviceCode || 'selected-device'),
+      label: '选用设备',
+      valueText: deviceText || '--'
+    }]
+  }
   const equipmentParameters = readSubmissionNestedRecord(rootPayload, 'equipmentParameters')
   const deviceText = readSubmissionPayloadValue(rootPayload, ['DEVICE'])
   const deviceLabels = equipmentParameters
@@ -3288,8 +3317,38 @@ const resolveProductionParameterRule = (
 }
 
 const resolveProductionParameterItems = (
-  payload: PqcSubmissionPayloadRecord | undefined
+  payload: PqcSubmissionPayloadRecord | undefined,
+  deviceParameterReadings?: unknown[]
 ): SubmissionStructuredItem[] => {
+  if (deviceParameterReadings?.length) {
+    const items = deviceParameterReadings
+      .map((item, index): SubmissionStructuredItem | undefined => {
+        if (!isRecord(item)) {
+          return undefined
+        }
+        const parameterStatus = formatSubmissionText(item.parameterStatus, 'NORMAL')
+        const unit = formatSubmissionText(item.unit, '')
+        const abnormal =
+          parameterStatus === 'ABOVE_UPPER' ||
+          parameterStatus === 'BELOW_LOWER' ||
+          isValueOutOfRange(item.value, item.lowerLimit, item.upperLimit)
+        return {
+          key: String(item.parameterCode || index),
+          label: [
+            formatSubmissionText(item.deviceName || item.deviceCode, ''),
+            formatSubmissionText(item.parameterName || item.parameterCode, '参数')
+          ].filter(Boolean).join(' · '),
+          valueText: `${formatSubmissionText(item.value)}${unit}`,
+          metaText: formatParameterRangeText(item.lowerLimit, item.upperLimit, unit),
+          outOfRange: abnormal,
+          parameterStatus
+        }
+      })
+      .filter((item): item is SubmissionStructuredItem => Boolean(item))
+    if (items.length) {
+      return items
+    }
+  }
   const equipmentParameters = readSubmissionNestedRecord(payload, 'equipmentParameters')
   if (!equipmentParameters) {
     return [{ key: 'empty-parameter', label: '参数', valueText: '--' }]
@@ -3312,7 +3371,10 @@ const resolveProductionParameterItems = (
         label: [deviceLabel, rule?.parameterName || parameterCode].filter(Boolean).join(' · '),
         valueText: `${formatSubmissionText(value)}${unit}`,
         metaText: formatParameterRangeText(rule?.lowerLimit, rule?.upperLimit, unit),
-        outOfRange: isValueOutOfRange(value, rule?.lowerLimit, rule?.upperLimit)
+        outOfRange: isValueOutOfRange(value, rule?.lowerLimit, rule?.upperLimit),
+        parameterStatus: isValueOutOfRange(value, rule?.lowerLimit, rule?.upperLimit)
+          ? 'ABNORMAL'
+          : 'NORMAL'
       })
     })
   })
@@ -3347,7 +3409,12 @@ const resolveSubmissionParameterItems = (
   const { rootPayload } = resolvePqcPayloadPair(row)
   return isPqcSubmissionRow(row)
     ? resolvePqcParameterItems(row)
-    : resolveProductionParameterItems(rootPayload)
+    : resolveProductionParameterItems(
+        rootPayload,
+        row.deviceParameterReadings?.length
+          ? row.deviceParameterReadings
+          : normalizeSubmissionArray(rootPayload?.deviceParameterReadings)
+      )
 }
 
 const formatPqcSnapshotSampleValues = (detail: PqcItemSnapshotDetail) =>
@@ -4274,6 +4341,11 @@ onMounted(() => {
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.team-leader-workbench__parameter-value.is-parameter-out-of-range {
+  color: #dc2626;
+  font-weight: 700;
 }
 
 .team-leader-workbench__review-log {

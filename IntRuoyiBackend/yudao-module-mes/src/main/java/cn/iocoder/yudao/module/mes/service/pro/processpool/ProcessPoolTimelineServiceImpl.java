@@ -1,22 +1,34 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineEventRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelinePageReqVO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolTimelineReadMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO;
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Validated
 public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineService {
 
     private static final String SUBMIT_DATE_REQUIRED_MESSAGE = "工序池时间轴查询必须提供提交日期";
+    private static final TypeReference<Map<String, Object>> PAYLOAD_TYPE = new TypeReference<>() {
+    };
+    private static final TypeReference<List<ProcessPoolTimelineEventRespVO.LossDetailRespVO>> LOSS_DETAIL_TYPE =
+            new TypeReference<>() {
+            };
+    private static final TypeReference<List<ProcessPoolTimelineEventRespVO.DeviceParameterReadingRespVO>>
+            DEVICE_PARAMETER_READING_TYPE = new TypeReference<>() {
+            };
 
     private final MesProProcessPoolTimelineReadMapper timelineReadMapper;
 
@@ -128,6 +140,47 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                 .setSubmissionReviewLeaderUserId(event.getSubmissionReviewLeaderUserId())
                 .setSubmissionReviewedAt(event.getSubmissionReviewedAt())
                 .setModificationHistorySummary(event.getModificationHistorySummary());
+        fillProductionSubmissionPayload(event, respVO);
+    }
+
+    private void fillProductionSubmissionPayload(ProcessPoolTimelineEventReadDO event,
+                                                 ProcessPoolTimelineEventRespVO respVO) {
+        Map<String, Object> payload = parseOriginalPayload(event.getOriginalPayloadJson());
+        if (payload == null || payload.isEmpty()) {
+            return;
+        }
+        respVO.setOutputQuantity(toBigDecimal(payload.get("outputQuantity")))
+                .setLossQuantity(toBigDecimal(payload.get("lossQuantity")))
+                .setLossDetails(convertValue(payload.get("lossDetails"), LOSS_DETAIL_TYPE))
+                .setSelectedDevice(convertValue(payload.get("selectedDevice"),
+                        ProcessPoolTimelineEventRespVO.SelectedDeviceRespVO.class))
+                .setDeviceParameterReadings(convertValue(payload.get("deviceParameterReadings"),
+                        DEVICE_PARAMETER_READING_TYPE));
+    }
+
+    private Map<String, Object> parseOriginalPayload(String originalPayloadJson) {
+        return JsonUtils.parseObject(originalPayloadJson, PAYLOAD_TYPE);
+    }
+
+    private static BigDecimal toBigDecimal(Object value) {
+        if (value == null || String.valueOf(value).trim().isEmpty()) {
+            return null;
+        }
+        if (value instanceof BigDecimal bigDecimal) {
+            return bigDecimal;
+        }
+        if (value instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
+        return new BigDecimal(String.valueOf(value).trim());
+    }
+
+    private static <T> T convertValue(Object value, Class<T> targetClass) {
+        return value == null ? null : JsonUtils.getObjectMapper().convertValue(value, targetClass);
+    }
+
+    private static <T> T convertValue(Object value, TypeReference<T> typeReference) {
+        return value == null ? null : JsonUtils.getObjectMapper().convertValue(value, typeReference);
     }
 
 }

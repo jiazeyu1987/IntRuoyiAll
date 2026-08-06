@@ -197,9 +197,19 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 reqBO.getRouteVersionId());
     }
 
+    private MesProcessPoolActiveOrderDO selectExistingActiveOrder(Long workOrderId, Long routeId,
+                                                                  Long routeVersionId) {
+        return activeOrderMapper.selectActiveByWorkOrderRouteVersion(workOrderId, routeId, routeVersionId);
+    }
+
     private MesProcessPoolActiveOrderDO selectRemovedActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO) {
         return activeOrderMapper.selectRemovedByWorkOrderRouteVersion(reqBO.getWorkOrderId(), reqBO.getRouteId(),
                 reqBO.getRouteVersionId());
+    }
+
+    private MesProcessPoolActiveOrderDO selectRemovedActiveOrder(Long workOrderId, Long routeId,
+                                                                 Long routeVersionId) {
+        return activeOrderMapper.selectRemovedByWorkOrderRouteVersion(workOrderId, routeId, routeVersionId);
     }
 
     private Long reactivateRemovedActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO,
@@ -247,6 +257,19 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 || !Objects.equals(scheduleOrder.getRouteId(), reqBO.getRouteId())
                 || !Objects.equals(scheduleOrder.getRouteVersionId(), reqBO.getRouteVersionId())) {
             throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, reqBO.getWorkOrderId());
+        }
+        return scheduleOrder;
+    }
+
+    private MesProScheduleOrderDO requireUniqueEffectiveScheduleOrder(Long workOrderId) {
+        List<MesProScheduleOrderDO> scheduleOrders = scheduleOrderMapper.selectEffectiveListByWorkOrderIds(
+                List.of(workOrderId));
+        if (scheduleOrders.size() != 1 || scheduleOrders.get(0).getId() == null) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_EFFECTIVE_SCHEDULE_UNIQUE_REQUIRED, workOrderId);
+        }
+        MesProScheduleOrderDO scheduleOrder = scheduleOrders.get(0);
+        if (scheduleOrder.getRouteId() == null || scheduleOrder.getRouteVersionId() == null) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED, workOrderId);
         }
         return scheduleOrder;
     }

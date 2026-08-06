@@ -20,5 +20,9 @@ public interface MesProFrontlineFeedbackErrorCodeConstants {
             new ErrorCode(1_040_753_606, "损耗数量大于 0 时必须选择当前工序启用的损耗原因");
     ErrorCode PRO_FRONTLINE_FEEDBACK_LOSS_REASON_INVALID =
             new ErrorCode(1_040_753_607, "损耗原因不属于当前工序或已禁用：{}");
+    ErrorCode PRO_FRONTLINE_FEEDBACK_DEVICE_INVALID =
+            new ErrorCode(1_040_753_608, "选用设备不属于当前工序或不可用：{}");
+    ErrorCode PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID =
+            new ErrorCode(1_040_753_609, "设备参数不属于当前工序/设备配置或不可用：{}");
 
 }

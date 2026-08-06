@@ -20,6 +20,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelStatusUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCandidateRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderTransferTraceRespVO;
@@ -64,6 +65,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeS
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamFormalEmployeeLinkReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamFormalUserCandidateBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCandidateBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRemoveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderLossReasonItem;
@@ -335,6 +337,16 @@ public class MesProcessPoolTeamLeaderController {
     public CommonResult<List<MesTeamLeaderActiveOrderRespVO>> getActiveOrderList() {
         return success(activeOrderService.listActiveOrders(SecurityFrameworkUtils.getLoginUserId()).stream()
                 .map(MesProcessPoolTeamLeaderController::toActiveOrderRespVO)
+                .toList());
+    }
+
+    @GetMapping("/active-order/candidates")
+    @Operation(summary = "搜索生产组长可加入活跃订单候选")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<List<MesTeamLeaderActiveOrderCandidateRespVO>> searchActiveOrderCandidates(
+            @RequestParam("keyword") String keyword) {
+        return success(activeOrderService.searchActiveOrderCandidates(keyword).stream()
+                .map(MesProcessPoolTeamLeaderController::toActiveOrderCandidateRespVO)
                 .toList());
     }
 
@@ -741,6 +753,13 @@ public class MesProcessPoolTeamLeaderController {
                 .setJoinedAt(activeOrder.getJoinedAt())
                 .setRemovedAt(activeOrder.getRemovedAt())
                 .setVersion(activeOrder.getVersion());
+    }
+
+    private static MesTeamLeaderActiveOrderCandidateRespVO toActiveOrderCandidateRespVO(
+            MesTeamLeaderActiveOrderCandidateBO candidate) {
+        return new MesTeamLeaderActiveOrderCandidateRespVO()
+                .setWorkOrderId(candidate.getWorkOrderId())
+                .setWorkOrderCode(candidate.getWorkOrderCode());
     }
 
     private static MesTeamLeaderActiveOrderTransferTraceRespVO toActiveOrderTransferTraceRespVO(
