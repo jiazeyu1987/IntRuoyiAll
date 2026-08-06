@@ -51,6 +51,7 @@
 - E2E-GREEN-FINAL: `node doc\tasks\20260806-frontline-production-employee-options-match-leader-personnel\frontline-production-employee-popup-real-e2e.cjs` -> PASS, `frontline production employee popup matches enabled production personnel list; count=8`。
 - E2E-GREEN-FINAL-DETAIL: 人员管理启用人员、runtime employees、popup options 均为 `112`、`113`、`114`、`陈丽`、`方王魏`、`李业辉`、`李之音`、`王一林`；三者 hash 均为 `a7115b13b7357fb2a3691ec6f3b339a11d45f162c6bc8b81e8f9946ad9378e40`。
 - E2E-GREEN-FINAL-ARTIFACTS: `E:\IntRuoyi\output\playwright\20260806-frontline-production-employee-options-match-leader-personnel\frontline-production-employee-popup-result.json`、`production-personnel-list.png`、`frontline-production-employee-popup.png`；`pageErrors=[]`、`consoleErrors=[]`、`targetNetworkFailures=[]`、`targetHttpFailures=[]`。
+- EXPERIENCE-FINAL: 已按 `project-experience-consolidation` 归档到既有 `docs/backend-development.md#MES 生产人员档案正式工重复关联门禁`，补强“当前登录生产组长 `loginUserId` 优先于设备/工序 scope leader”的规则，并更新 `docs/experience-index.md` 关键词；`rg -n "当前登录生产组长|loginUserId|设备scope leader|一线生产员工弹窗" docs\backend-development.md docs\experience-index.md` -> PASS。
 
 ## Blockers
 
