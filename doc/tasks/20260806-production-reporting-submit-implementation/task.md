@@ -57,4 +57,4 @@
 
 ready_for_closeout
 
-User追加反馈要求生产组长报工表不显示 PQC 内容。已在同一 worktree 中完成前端静态契约、最小实现、回归验证、证据校验、经验沉淀、任务分支推送和远端 `int_main` 快进融合；远端 `int_main` 当前指向 `b8aad69358aee29e2698c07afb81aca6eb4d7ae0`。本地 cleanup apply / worktree removal 仍受 `E:\IntRuoyi` 脏工作区阻塞。
+User追加反馈要求生产组长报工表不显示 PQC 内容。已在同一 worktree 中完成前端静态契约、最小实现、回归验证、证据校验、经验沉淀、任务分支推送和远端 `int_main` 快进融合；远端 `int_main` 已包含实现提交 `b8aad69358aee29e2698c07afb81aca6eb4d7ae0` 以及后续收尾记录提交，最终以 `git fetch origin int_main` 后 `HEAD == origin/int_main` 的校验为准。本地 cleanup apply / worktree removal 仍受 `E:\IntRuoyi` 脏工作区阻塞。
