@@ -967,7 +967,7 @@ class MesProAutoScheduleServiceImplTest {
     }
 
     @Test
-    void replanPreview_shouldReserveFeedbackProtectedRouteProcessCapacityWithoutLineKey() {
+    void replanPreview_shouldNotReserveFeedbackProtectedRouteProcessCapacityWithoutLineKey() {
         workOrder.setQuantity(new BigDecimal("100"));
         routeProduct.setQuantity(100);
         routeProcess.setWorkstationId(null);
@@ -1087,11 +1087,9 @@ class MesProAutoScheduleServiceImplTest {
                 .filter(task -> task.getId() != null && task.getId().contains("_preview_"))
                 .toList();
         assertEquals(0, preview.getSummary().getBlockingIssueCount(), preview.getIssues().toString());
-        assertEquals(2, generatedTasks.size());
-        assertEquals(new BigDecimal("20"), generatedTasks.get(0).getQuantity());
+        assertEquals(1, generatedTasks.size());
+        assertEquals(new BigDecimal("100"), generatedTasks.get(0).getQuantity());
         assertEquals(LocalDateTime.of(2026, 5, 14, 8, 0), generatedTasks.get(0).getStartDate());
-        assertEquals(new BigDecimal("80"), generatedTasks.get(1).getQuantity());
-        assertEquals(LocalDateTime.of(2026, 5, 15, 8, 0), generatedTasks.get(1).getStartDate());
     }
 
     @Test
@@ -2527,6 +2525,67 @@ class MesProAutoScheduleServiceImplTest {
         assertEquals(1, generatedTasks.size());
         assertEquals(0, new BigDecimal("800").compareTo(
                 generatedTasks.get(0).getQuantity()));
+    }
+
+    @Test
+    void replanPreview_shouldScheduleRemainingQuantityFromCurrentRouteWhenFeedbackTaskHasNoWorkstation() {
+        workOrder.setQuantity(new BigDecimal("1000"));
+        routeProduct.setQuantity(1000);
+        routeProduct.setProductionTime(BigDecimal.ONE);
+        routeProcess.setWorkstationId(30L);
+        scheduleOrderProcess.setPlannedQuantity(new BigDecimal("1000"));
+        scheduleOrderProcess.setReportedQuantity(new BigDecimal("200"));
+        scheduleOrderProcess.setRemainingQuantity(new BigDecimal("800"));
+        scheduleOrderProcess.setCapacityMode(null);
+        MesProTaskDO feedbackTask = MesProTaskDO.builder()
+                .id(32L)
+                .code("PT-FEEDBACK-NO-WS")
+                .workOrderId(1L)
+                .workstationId(null)
+                .routeId(20L)
+                .processId(300L)
+                .itemId(100L)
+                .quantity(new BigDecimal("1000"))
+                .startTime(LocalDateTime.of(2026, 5, 14, 8, 0))
+                .endTime(LocalDateTime.of(2026, 5, 14, 8, 12))
+                .status(0)
+                .build();
+        MesProFeedbackDO feedback = MesProFeedbackDO.builder()
+                .id(303L)
+                .taskId(32L)
+                .workOrderId(1L)
+                .status(1)
+                .feedbackQuantity(new BigDecimal("200"))
+                .build();
+        when(materialStockMapper.selectListByItemIds(any())).thenReturn(List.of(
+                MesWmMaterialStockDO.builder()
+                        .id(85L)
+                        .itemId(200L)
+                        .quantity(new BigDecimal("1000"))
+                        .frozen(Boolean.FALSE)
+                        .build()));
+        when(workstationMapper.selectListByProcessIds(any(), any())).thenReturn(List.of(workstation));
+        when(productionLineService.getProductionLineMap(any())).thenReturn(Map.of(40L, productionLine));
+        when(planService.getPlanMap(any())).thenReturn(Map.of(50L, plan));
+        when(planShiftService.getPlanShiftListByPlanId(50L)).thenReturn(List.of(shift));
+        when(capacityPlanMapper.selectListByLineIdsAndDate(any(), any())).thenReturn(List.of(capacityPlan));
+        when(taskMapper.selectListByWorkOrderIds(any())).thenReturn(List.of(feedbackTask));
+        when(feedbackMapper.selectListByTaskIds(any())).thenReturn(List.of(feedback));
+        when(workstationCapacityService.getCapacityMetrics(any(), any()))
+                .thenReturn(Map.of(30L, buildCapacityMetrics(1, 1, BigDecimal.ZERO, new BigDecimal("1000"))));
+
+        MesProAutoScheduleReplanPreviewRespVO preview = autoScheduleService.replanPreview(buildReplanReq());
+
+        assertEquals(0, preview.getSummary().getBlockingIssueCount(), preview.getIssues().toString());
+        assertFalse(preview.getIssues().stream()
+                .anyMatch(issue -> "受保护任务未绑定工作站".equals(issue.getMessage())));
+        assertEquals(1, preview.getSummary().getPreservedTaskCount());
+        assertEquals(1, preview.getSummary().getGeneratedTaskCount());
+        var generatedTasks = preview.getTasks().stream()
+                .filter(task -> task.getId() != null && task.getId().contains("_preview_"))
+                .toList();
+        assertEquals(1, generatedTasks.size());
+        assertEquals(0, new BigDecimal("800").compareTo(generatedTasks.get(0).getQuantity()));
     }
 
     @Test
