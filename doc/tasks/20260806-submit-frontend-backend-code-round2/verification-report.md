@@ -19,4 +19,5 @@ PASS
 
 - Frontend/backend code sync: PASS，`origin/int_main...HEAD` 为 `0 0`。
 - Initial task evidence commit: `159a5ba95 chore: baseline submit round2 task records`，仅包含本任务目录三份新增记录。
-- Final task evidence update: pending at report write time; commit hash and push verification will be reported in the final task summary after Git completes.
+- Final task evidence update: `a00109b73 docs: complete submit round2 evidence`。
+- Pre-push residuals: task-outside modifications remain under `doc/tasks/20260806-commit-frontend-backend-merge-int-main/`; they are intentionally not staged or committed by this task.

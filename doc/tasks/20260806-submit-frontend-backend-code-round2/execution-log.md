@@ -46,6 +46,12 @@
 - Closeout commit pre-scan
   - 目的：提交最终任务记录前复扫本地领先提交和 staged 边界。
   - 结果：发现本地已有提交 `159a5ba95 chore: baseline submit round2 task records`，仅包含本任务目录三份新增记录；当前 staged diff 仍只包含同三份任务记录的最终 cleanup 更新，未混入前后端源码或任务外文件。
+- Push pre-scan after closeout commit
+  - 目的：推送前复扫本地领先提交、暂存区和工作区残余。
+  - 结果：待推送提交为 `159a5ba95` 与 `a00109b73`；outbound blob 扫描 PASS，无超过 100 MB 对象；暂存区为空。工作区存在任务外目录 `doc/tasks/20260806-commit-frontend-backend-merge-int-main/` 三份记录的未暂存修改，本任务未暂存、未提交、未回滚这些并发残余。
+- Final record commit retry
+  - 目的：提交补充的残余记录。
+  - 结果：首次 `git commit` 被瞬时 `.git/index.lock` 阻塞；只读复核时锁文件已自然消失。复扫发现任务外 `doc/tasks/20260806-commit-frontend-backend-merge-int-main/` 三份记录进入 staged，已使用 `git restore --staged -- <paths>` 仅移出暂存区，保留工作区内容不动；当前 staged 边界恢复为本任务记录文件。
 
 ## Milestone Status
 
