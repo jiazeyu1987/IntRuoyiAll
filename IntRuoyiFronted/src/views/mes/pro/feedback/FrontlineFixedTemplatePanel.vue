@@ -4151,8 +4151,10 @@ onUnmounted(() => {
 }
 
 .frontline-operator-panel.is-production-mode .frontline-picker__card {
-  width: 760px;
-  padding: 28px;
+  width: min(92%, 1180px);
+  aspect-ratio: 1920 / 1080;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding: 32px;
   border: 3px solid var(--frontline-line);
   border-radius: 28px;
   background: var(--frontline-panel);
@@ -4168,10 +4170,16 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  align-content: start;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
 }
 
 .frontline-operator-panel.is-production-mode .frontline-picker__option {
-  height: 112px;
+  height: auto;
+  aspect-ratio: 1920 / 1080;
+  min-height: 0;
   border: 3px solid var(--frontline-line);
   border-radius: 22px;
   background: #f8faf8;

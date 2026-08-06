@@ -114,6 +114,24 @@
 - Existing-active check: 当前唯一活跃订单 `PQC-E2E-FS-20260804` 对应工单 `980019` 已确认，但没有有效排产记录；加入接口会先执行唯一有效排产校验，不能作为完整新增 PASS 候选复用。
 - Impact: “请求参数不正确:不能为null”回归已通过真实页面路径排除；完整新增成功仍被本机正式 QA 规程/排产数据前置阻塞。未通过 SQL、隐藏字段、mock、自由输入或 API-only 写入补数据。
 
+## Bug Regression 2026-08-06 Process Config Route Runtime
+
+- User report: 生产组长页面提示 `请求地址不存在:admin-api/mes/pro/process-pool/team-leader/process-config/list`。
+- BDD: 工序配置页签加载统一表 -> Given 本机 `int_main` 前后端运行态可用且用户以 `芋道源码/admin` 登录，When 打开生产组长页面并点击“工序配置”，Then `/mes/pro/process-pool/team-leader/process-config/list` 必须进入真实后端 Controller，返回 HTTP 200 和业务码 0，不得再返回地址不存在。
+- RED: 只读检查旧运行 Jar `backend-runtime-frontline-employee-options-login-leader-20260806-171928.jar` 的内嵌 `BOOT-INF/lib/yudao-module-mes-2026.04-SNAPSHOT.jar` -> FAIL，`javap` 未发现 `/process-config/list`、`getProcessConfigList` 或 `MesTeamLeaderProcessConfigRowRespVO`，但源码和 target MES jar 已包含这些类/常量。
+- RED: 第一次刷新运行 Jar `backend-runtime-process-config-list-20260806-181206.jar` 后启动 `48081` -> FAIL，Spring 启动失败：`MesTeamLeaderProcessConfigServiceImpl` 存在多个构造器但正式运行构造器未显式 `@Autowired`，Spring 查找默认构造器并报 `No default constructor found`。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderProcessConfigServiceTest#runtimeConstructor_hasAutowiredAnnotationSoSpringDoesNotRequireDefaultConstructor" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，断言正式运行构造器缺少 `@Autowired`。
+- Fix: 锁定正式 5 参数运行构造器为 `@Autowired`，保留 6 参数 `Clock` 测试构造器；重新 `mvn -pl yudao-module-mes -am -DskipTests package` 构建 MES 模块，并基于旧稳定运行 Jar 只替换内嵌 `yudao-module-mes-2026.04-SNAPSHOT.jar`。
+- Runtime: 新运行 Jar `backend-runtime-process-config-list-autowired-20260806-183405.jar` SHA256 `A5D9E29678123C398D66E812F692B337804742CF9DA11523C7EF09837179EA91`；内嵌 MES jar `compress_type=0`，`javap` 可见 `/process-config/list`、`getProcessConfigList` 和构造器 `RuntimeVisibleAnnotations: Autowired`。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderProcessConfigServiceTest#runtimeConstructor_hasAutowiredAnnotationSoSpringDoesNotRequireDefaultConstructor" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 1, Failures: 0, Errors: 0, Skipped: 0。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderProcessConfigServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 18, Failures: 0, Errors: 0, Skipped: 0。
+- GREEN: `node tests/e2e/team-leader-process-config-unified-static.spec.cjs` -> PASS。
+- GREEN: `node tests/e2e/team-leader-workbench-static.spec.cjs` -> PASS。
+- GREEN: `node tests/e2e/production-leader-active-order-pool-tab-static.spec.js` -> PASS。
+- Runtime GREEN: `http://127.0.0.1:48081/actuator/health` -> `UP`；监听 PID `2548` 命令行归属新运行 Jar。
+- REAL E2E GREEN: `node test-results/process-config-route-focused/process-config-route-focused.e2e.cjs` -> PASS；Playwright 登录 `芋道源码/admin`，进入 `/mes/pro/process-pool/production-leader`，点击“工序配置”，目标接口 HTTP 200、业务码 `0`、`pageErrors=[]`、`consoleErrors=[]`，结果写入 `IntRuoyiFronted/test-results/process-config-route-focused/result.json`。
+- Impact: 本次没有新增 fallback、mock endpoint、隐藏错误或切换端口；问题根因是本机 `48081` 运行 Jar 未加载当前 MES 模块，刷新后同页旧 `process-config/list` 地址不存在问题已消除。
+
 ## Blockers
 
 - 当前本机无可用于完整新增 PASS 的正式候选：已确认 + 唯一有效排产 + 启用工序 + 计划日期 + 已发布 QA 规程 + 发布版本末检适用性 + 首检/巡检/末检规则同时满足的候选数为 0。

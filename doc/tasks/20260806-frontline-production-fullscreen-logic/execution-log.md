@@ -166,3 +166,65 @@ GREEN: `git diff --check -- <本任务文件>` -> PASS
 Closeout boundary update:
 - 本次用户澄清的局部 16:9 grid 修复和定向验证已完成。
 - 当前 `git status --short --branch -- <本任务文件>` 显示 `int_main...origin/int_main [behind 11]`，且全仓仍有大量非本任务脏改动/未跟踪文件。为避免混入并行任务，未执行提交和推送，任务状态保持 blocked。
+
+## 2026-08-06 18:52 +08:00
+
+User intent: 用户反馈一线生产普通页已不再溢出，但排版、大小、布局又与 `C:\Users\BJB110\Desktop\3\frontline-production-operator-1920.html` 不一致，要求严格完全一致。
+
+Boundary:
+- 只改一线生产填写组件展示层和对应回归合同/真实 E2E 脚本断言。
+- 不改 API、后端、路由、权限、业务字段、提交 payload 或一线 PQC 数据逻辑。
+
+BDD: 一线生产严格参考画布且不横向溢出 -> Given 用户进入一线生产填写页；When 普通后台页面容器宽度不足 1920px；Then 内部 `.frontline-operator-screen` 仍保持参考 HTML 的 1920×1080、顶部 `1fr 1fr 240px`、主区 `1050px 1fr`、底部 `300px 1fr` 和原始字号，只有外层 `.frontline-production-stage` 等比例缩放以适配页面宽度。
+
+RED: `node tests\e2e\edhr-frontline-production-fullscreen-toggle-static.spec.cjs` -> FAIL, expected reason: 当前实现缺少 scale-to-fit stage 或内部 screen 仍使用响应式 `1600px` / 局部 16:9 grid，无法证明与参考 HTML 严格一致。
+
+Implementation:
+- `FrontlineFixedTemplatePanel.vue`：生产模式保留 `frontline-production-stage` 外层，内部 `.frontline-operator-screen screen` 保持 `1920px × 1080px` 与 `130px 1fr 126px`。
+- `FrontlineFixedTemplatePanel.vue`：移除生产 top 的 `68vw` 局部 grid 覆盖，恢复参考顶部 `1fr 1fr 240px`。
+- `FrontlineFixedTemplatePanel.vue`：恢复生产 picker 为参考 `760px` 卡片、双列 options、`112px` option 高度，避免 picker 也被局部 16:9 重排。
+- `edhr-frontline-production-fullscreen-toggle-real.e2e.cjs`：真实路径断言改为 stage fit viewport + inner canvas computed `1920px × 1080px`。
+- 静态合同恢复为“严格参考 canvas + 外层缩放”口径，撤销上一轮局部响应式 grid 合同。
+
+GREEN: `node tests\e2e\edhr-frontline-production-fullscreen-toggle-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\edhr-frontline-production-pixel-parity-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\edhr-frontline-production-prototype-parity-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\edhr-frontline-fill-tabs-static.spec.cjs` -> PASS
+GREEN: `node --check tests\e2e\edhr-frontline-production-fullscreen-toggle-real.e2e.cjs` -> PASS
+GREEN: `pnpm ts:check` -> PASS
+GREEN: `git diff --check -- <本任务文件>` -> PASS
+
+Experience consolidation:
+- 已读取 `project-experience-consolidation` 技能。
+- 本次可复用经验是：用户要求与参考 HTML/截图“严格完全一致”时，不得用局部响应式重排替代目标画布；应把防溢出适配放在外层缩放或外层容器。
+- 因 `docs/frontend-development.md` 当前已有非本任务脏改动，本轮不混入长期文档，只在任务证据中记录。
+
+Closeout boundary update:
+- 本轮实现和定向验证已完成。
+- 当前工作区存在非本任务脏改动/未跟踪文件且分支 ahead；本任务不提交、不推送，状态保持 blocked。
+## 2026-08-06 追加：生产 picker 弹框 16:9
+
+User intent: 用户截图反馈一线生产“选工序”弹框比例不是按 1920×1080 来的，要求弹框自身和选项 grid/card 都按 1920:1080 / 16:9 比例。
+
+BDD: 一线生产 picker 弹框按 16:9 显示 -> Given 用户点击一线生产顶部工序或员工选择卡；When picker 弹框打开；Then 弹框 card 使用 `aspect-ratio: 1920 / 1080`，内部 options 区域在 card 内滚动，每个 option 也使用 `aspect-ratio: 1920 / 1080`。
+
+RED: `node tests\e2e\edhr-frontline-production-pixel-parity-static.spec.cjs` -> FAIL, expected reason: 旧实现仍要求/使用 picker card `width: 760px` 和 option `height: 112px`，不能满足 1920:1080 弹框比例。
+RED: `node tests\e2e\edhr-frontline-production-fullscreen-toggle-static.spec.cjs` -> FAIL, expected reason: 旧 fullscreen 合同仍把 production picker 断言为固定 760px/112px。
+
+Implementation:
+- `FrontlineFixedTemplatePanel.vue`：生产 picker card 改为 `width: min(92%, 1180px)`、`aspect-ratio: 1920 / 1080`、`grid-template-rows: auto minmax(0, 1fr) auto` 和 `padding: 32px`。
+- `FrontlineFixedTemplatePanel.vue`：生产 picker options 增加 `align-content: start`、`min-height: 0`、`max-height: none`、`overflow: auto`，滚动限定在 options 区。
+- `FrontlineFixedTemplatePanel.vue`：生产 picker option 改为 `height: auto`、`aspect-ratio: 1920 / 1080`、`min-height: 0`。
+- 静态合同和真实 E2E 脚本同步锁定 picker card / option 的 16:9 比例。
+
+GREEN: `node tests\e2e\edhr-frontline-production-pixel-parity-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\edhr-frontline-production-fullscreen-toggle-static.spec.cjs` -> PASS
+GREEN: `node --check tests\e2e\edhr-frontline-production-fullscreen-toggle-real.e2e.cjs` -> PASS
+GREEN: `node tests\e2e\edhr-frontline-production-prototype-parity-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\edhr-frontline-fill-tabs-static.spec.cjs` -> PASS
+GREEN: `pnpm ts:check` -> PASS
+GREEN: `git diff --check -- <本任务文件>` -> PASS
+
+Closeout boundary update:
+- 本轮 picker 比例修复和定向验证已完成。
+- 当前 `int_main` 工作区仍有非本任务脏改动/未跟踪文件；本任务未提交、未推送。

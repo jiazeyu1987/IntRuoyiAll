@@ -48,6 +48,20 @@
 - BUSINESS BLOCKED: 同一次真实 E2E 返回业务码 `1040506111`，消息为 `PQC 检验任务生成前置条件不满足：缺少已发布QA规程，activeOrderId=32，routeProcessId=926632，processId=922917`；这是正式 PQC 前置条件失败，不是请求参数 null。
 - DB ROLLBACK PASS: 只读核验活跃订单、工序快照和 PQC 任务对 `activeOrderId IN (31,32)` 与 `workOrderId=925868` 的残留计数均为 0。
 
+## Process Config Route Runtime Regression
+
+- Bug Summary: 用户反馈生产组长页面提示 `请求地址不存在:admin-api/mes/pro/process-pool/team-leader/process-config/list`。
+- Expected: 登录后真实页面点击“工序配置”时，`/mes/pro/process-pool/team-leader/process-config/list` 必须由运行态 Controller 接收，返回 HTTP 200 和业务码 0，不得返回地址不存在。
+- Reproduction: 旧 `48081` 运行 Jar `backend-runtime-frontline-employee-options-login-leader-20260806-171928.jar` 的内嵌 `yudao-module-mes-2026.04-SNAPSHOT.jar` 经 `javap` 检查缺少 `/process-config/list`、`getProcessConfigList` 和 `MesTeamLeaderProcessConfigRowRespVO`，而源码/target MES jar 已包含这些符号。
+- Root Cause: 本机 `48081` 仍运行旧 runtime Jar，未加载当前 MES 模块；首次刷新后又暴露 `MesTeamLeaderProcessConfigServiceImpl` 多构造器缺正式 `@Autowired` 的 Spring Bean 构造器选择问题。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderProcessConfigServiceTest#runtimeConstructor_hasAutowiredAnnotationSoSpringDoesNotRequireDefaultConstructor" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，正式运行构造器缺少 `@Autowired`。
+- Fix: 正式 5 参数运行构造器标注 `@Autowired`，保留 6 参数 `Clock` 测试构造器；重新打包 MES 模块，并基于旧稳定运行 Jar 只替换内嵌 `BOOT-INF/lib/yudao-module-mes-2026.04-SNAPSHOT.jar`。
+- Verification: 新运行 Jar `backend-runtime-process-config-list-autowired-20260806-183405.jar` 内嵌 MES jar `compress_type=0`，`javap` 可见 `/process-config/list` 和构造器 `Autowired` 注解；`http://127.0.0.1:48081/actuator/health` 返回 `UP`。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderProcessConfigServiceTest#runtimeConstructor_hasAutowiredAnnotationSoSpringDoesNotRequireDefaultConstructor" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 1, Failures: 0, Errors: 0, Skipped: 0。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderProcessConfigServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 18, Failures: 0, Errors: 0, Skipped: 0。
+- GREEN: `workdir=IntRuoyiFronted; node tests/e2e/team-leader-process-config-unified-static.spec.cjs` -> PASS。
+- GREEN: `workdir=IntRuoyiFronted; node test-results/process-config-route-focused/process-config-route-focused.e2e.cjs` -> PASS；真实登录 `芋道源码/admin` 后进入生产组长页面并点击“工序配置”，目标接口 HTTP 200、业务码 0、`pageErrors=[]`、`consoleErrors=[]`。
+
 ## Blockers And Follow-Up
 
 - BLOCKED: 当前本机可新增候选库存不足；只读 DB 统计已确认工单 4,338 条、唯一有效排产 55 条、完整 QA 规程覆盖可新增候选 0 条。

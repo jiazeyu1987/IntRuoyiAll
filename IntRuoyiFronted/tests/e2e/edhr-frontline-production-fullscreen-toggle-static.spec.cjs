@@ -10,7 +10,9 @@ const panelPath = path.join(
 const source = fs.readFileSync(panelPath, 'utf8').replace(/\r\n/g, '\n')
 
 const extractBlock = (selector) => {
-  const selectorIndex = source.indexOf(selector)
+  const anchoredSelector = `\n${selector}`
+  const anchoredIndex = source.indexOf(anchoredSelector)
+  const selectorIndex = anchoredIndex >= 0 ? anchoredIndex + 1 : source.indexOf(selector)
   assert.ok(selectorIndex >= 0, `missing selector: ${selector}`)
   const openIndex = source.indexOf('{', selectorIndex)
   assert.ok(openIndex > selectorIndex, `missing selector body: ${selector}`)
@@ -173,8 +175,8 @@ assert.match(
   'production top area must keep the reference 1fr 1fr 240px layout.'
 )
 assert.doesNotMatch(
-  source,
-  /\.frontline-operator-top\.is-production\s*\{[\s\S]*width:\s*min\(100%,\s*68vw\)|aspect-ratio:\s*1920 \/ 1080/,
+  extractBlock('.frontline-operator-top {'),
+  /width:\s*min\(100%,\s*68vw\)|aspect-ratio:\s*1920 \/ 1080/,
   'production top area must not keep the previous local responsive selection grid.'
 )
 assert.match(
@@ -182,5 +184,21 @@ assert.match(
   /\.frontline-production-submit-bar\s*\{[\s\S]*grid-template-columns:\s*300px 1fr;/,
   'production footer must keep the reference 300px + 1fr button layout.'
 )
+assert.match(
+  extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__card {'),
+  /width:\s*min\(92%,\s*1180px\);[\s\S]*aspect-ratio:\s*1920 \/ 1080;[\s\S]*grid-template-rows:\s*auto minmax\(0,\s*1fr\) auto;[\s\S]*padding:\s*32px;/,
+  'production picker card must follow the 1920x1080 ratio instead of the old fixed-width card.'
+)
+assert.match(
+  extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__options {'),
+  /align-content:\s*start;[\s\S]*min-height:\s*0;[\s\S]*max-height:\s*none;[\s\S]*overflow:\s*auto;/,
+  'production picker option grid must fit inside the 16:9 card and scroll only the options area.'
+)
+assert.match(
+  extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__option {'),
+  /height:\s*auto;[\s\S]*aspect-ratio:\s*1920 \/ 1080;[\s\S]*min-height:\s*0;/,
+  'production picker options must also use the 1920x1080 card ratio.'
+)
+
 
 console.log('PASS: eDHR frontline production strict canvas scale-to-fit static contract')

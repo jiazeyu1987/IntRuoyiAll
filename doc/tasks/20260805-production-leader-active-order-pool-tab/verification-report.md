@@ -2,7 +2,7 @@
 
 ## Result
 
-本轮已修复“加入活跃订单池提示 `请求参数不正确:不能为null`”回归，并补齐截图中的“只输入完整订单号但未点候选”路径：提交前会按 `workOrderCode` 精确解析候选，命中后才发送 `workOrderId`。活跃订单聚焦静态合同、`pnpm ts:check` 和目标 `git diff --check` 已通过；2026-08-06 17:18 使用 `芋道源码/admin` 真实页面复跑生产组长页签，新增请求体为 `{"workOrderId":925868}`，旧 null 参数错误未再出现。当前任务仍不得标记 completed：本机无完整 QA 规程覆盖的可新增候选，真实新增成功被正式 PQC 前置条件阻塞。
+本轮已修复“加入活跃订单池提示 `请求参数不正确:不能为null`”回归，并补齐截图中的“只输入完整订单号但未点候选”路径：提交前会按 `workOrderCode` 精确解析候选，命中后才发送 `workOrderId`。活跃订单聚焦静态合同、`pnpm ts:check` 和目标 `git diff --check` 已通过；2026-08-06 17:18 使用 `芋道源码/admin` 真实页面复跑生产组长页签，新增请求体为 `{"workOrderId":925868}`，旧 null 参数错误未再出现。2026-08-06 19:04 又修复 `process-config/list` 地址不存在运行态回归：刷新后的本机 `48081` 新 Jar 已加载当前 MES 模块，只读 Playwright 登录并点击“工序配置”后目标接口 HTTP 200、业务码 0。当前任务仍不得标记 completed：本机无完整 QA 规程覆盖的可新增候选，真实新增成功被正式 PQC 前置条件阻塞。
 
 ## Acceptance
 
@@ -14,7 +14,8 @@
 - AC6 PASS：调拨关联输入已从新增动作拆除；既有调拨追溯仍为只读展示。
 - AC7 PASS：未点击真实订单号候选、清空、搜索失败或候选刷新失配时，前端抛 `请选择订单号` 并阻止 `/active-order/add` 写请求。
 - AC8 PASS：只输入完整订单号且精确命中候选时，前端提交前自动解析 `workOrderId`，避免后端收到 `null`。
-- AC9 BLOCKED：完整真实新增成功要求本机存在已确认工单、唯一有效排产、启用工序、计划日期和已发布 QA 规程完整覆盖；当前只读统计显示满足全部条件的候选数为 0。
+- AC9 PASS：生产组长“工序配置”页签对应 `/process-config/list` 已在本机 `48081` 运行态加载，真实页面路径返回 HTTP 200、业务码 0，不再提示“请求地址不存在”。
+- AC10 BLOCKED：完整真实新增成功要求本机存在已确认工单、唯一有效排产、启用工序、计划日期和已发布 QA 规程完整覆盖；当前只读统计显示满足全部条件的候选数为 0。
 
 ## Verification
 
@@ -39,6 +40,15 @@
 - DB ROLLBACK PASS: 只读核验 `mes_pro_process_pool_active_order`、`mes_pro_process_pool_active_order_process_snapshot`、`mes_pqc_inspection_task` 对 `activeOrderId IN (31,32)` 与 `workOrderId=925868` 的残留计数均为 0。
 - CANDIDATE INVENTORY BLOCKED: 只读 DB 统计当前本机已确认工单 4,338 条、唯一有效排产 55 条、路线信息完整 55 条，但完整 QA 规程覆盖的可新增候选 0 条。
 - RUNTIME: `http://127.0.0.1:8081/` -> HTTP 200；`http://127.0.0.1:48081/actuator/health` -> `UP`；端口 8081/48081 归属 `E:\IntRuoyi` 主工作区运行态。
+- PROCESS-CONFIG RED: 只读检查旧运行 Jar `backend-runtime-frontline-employee-options-login-leader-20260806-171928.jar` 内嵌 MES 模块 -> FAIL，缺少 `/process-config/list`、`getProcessConfigList` 和 `MesTeamLeaderProcessConfigRowRespVO`。
+- PROCESS-CONFIG RED: 首次刷新 Jar `backend-runtime-process-config-list-20260806-181206.jar` 启动 -> FAIL，`MesTeamLeaderProcessConfigServiceImpl` 多构造器缺正式 `@Autowired`，Spring 报 `No default constructor found`。
+- PROCESS-CONFIG RED: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderProcessConfigServiceTest#runtimeConstructor_hasAutowiredAnnotationSoSpringDoesNotRequireDefaultConstructor" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，正式运行构造器缺少 `@Autowired`。
+- PROCESS-CONFIG FIX: 新运行 Jar `backend-runtime-process-config-list-autowired-20260806-183405.jar` SHA256 `A5D9E29678123C398D66E812F692B337804742CF9DA11523C7EF09837179EA91`；内嵌 MES jar `compress_type=0`，`javap` 可见 `/process-config/list` 与构造器 `Autowired` 注解。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderProcessConfigServiceTest#runtimeConstructor_hasAutowiredAnnotationSoSpringDoesNotRequireDefaultConstructor" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 1, Failures: 0, Errors: 0, Skipped: 0。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderProcessConfigServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 18, Failures: 0, Errors: 0, Skipped: 0。
+- GREEN: `node tests/e2e/team-leader-process-config-unified-static.spec.cjs` -> PASS。
+- GREEN: `node test-results/process-config-route-focused/process-config-route-focused.e2e.cjs` -> PASS；结果 `IntRuoyiFronted/test-results/process-config-route-focused/result.json` 显示 `httpStatus=200`、`businessCode=0`、`pageErrors=[]`、`consoleErrors=[]`。
+- RUNTIME GREEN: `http://127.0.0.1:48081/actuator/health` -> `UP`；PID `2548` 运行新 Jar `backend-runtime-process-config-list-autowired-20260806-183405.jar`。
 
 ## Evidence Validators
 

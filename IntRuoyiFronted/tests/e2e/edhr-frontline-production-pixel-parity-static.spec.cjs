@@ -149,8 +149,8 @@ assertIncludesAll(
   'production top reference grid style'
 )
 assert.doesNotMatch(
-  source,
-  /\.frontline-operator-top\.is-production\s*\{[\s\S]*width:\s*min\(100%,\s*68vw\)|aspect-ratio:\s*1920 \/ 1080/,
+  extractBlock('.frontline-operator-top {'),
+  /width:\s*min\(100%,\s*68vw\)|aspect-ratio:\s*1920 \/ 1080/,
   'production top layout must not use the previous local responsive grid.'
 )
 
@@ -214,12 +214,24 @@ assertIncludesAll(
 )
 assertIncludesAll(
   extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__card {'),
-  ['width: 760px;', 'padding: 28px;', 'border: 3px solid var(--frontline-line);', 'border-radius: 28px;'],
+  [
+    'width: min(92%, 1180px);',
+    'aspect-ratio: 1920 / 1080;',
+    'grid-template-rows: auto minmax(0, 1fr) auto;',
+    'padding: 32px;',
+    'border: 3px solid var(--frontline-line);',
+    'border-radius: 28px;'
+  ],
   'production picker card style'
 )
 assertIncludesAll(
+  extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__options {'),
+  ['align-content: start;', 'min-height: 0;', 'max-height: none;', 'overflow: auto;'],
+  'production picker option grid style'
+)
+assertIncludesAll(
   extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__option {'),
-  ['height: 112px;', 'font-size: 42px;', 'border-radius: 22px;'],
+  ['height: auto;', 'aspect-ratio: 1920 / 1080;', 'min-height: 0;', 'font-size: 42px;', 'border-radius: 22px;'],
   'production picker option style'
 )
 assertIncludesAll(

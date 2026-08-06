@@ -9,10 +9,11 @@
 ## Milestones
 
 - [x] 建立任务目录、BDD 场景和数据写入边界。
-- [ ] 核对 PQC 管理列表 API、读模型、表结构和 admin 可见范围。
-- [ ] 写入一条本机测试租户 PQC 提交事件及必要关联记录。
-- [ ] 验证 `芋道源码/admin` PQC 管理列表可查询到该测试数据。
-- [ ] 记录验证结果、数据主键和清理方式。
+- [x] 核对 PQC 管理列表 API、读模型、表结构和 admin 可见范围。
+- [x] 写入一条本机测试租户 PQC 提交事件及必要关联记录。
+- [x] 用 SQL 读模型验证 `芋道源码/admin` PQC 管理列表口径可查询到该测试数据。
+- [x] 记录验证结果、数据主键和清理方式。
+- [x] 运行态登录态 API 验证：本机 `48081` 健康，PQC 管理列表接口可查到该记录。
 
 ## Expected Verification
 
@@ -40,6 +41,14 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-- 已开始核对 PQC 管理列表正式数据来源和写入边界。
+- 已完成测试数据写入：`mes_pro_process_pool_event.id=160`，marker `PQC_TEST_20260806_MGMT_LIST_20260806181357559250`。
+- SQL 读模型验证通过：tenant `1`、admin/PQC 今日列表口径可命中事件 `160`。
+- 运行态登录态 API 验证通过：`http://127.0.0.1:48081/actuator/health` 返回 `UP`，`/admin-api/mes/pro/process-pool/team-leader/submission/page` 返回事件 `160`。
+- 当前任务交付与验证已完成；尚未执行 task-closeout-cleanup apply、提交或推送，避免混入当前工作区无关脏改动。
+
+## Cleanup Keep
+
+- doc/tasks/20260806-pqc-management-list-test-data/insert-pqc-test-data.sql
+- doc/tasks/20260806-pqc-management-list-test-data/fix-pqc-test-payload-json.sql

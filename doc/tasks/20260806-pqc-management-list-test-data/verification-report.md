@@ -2,16 +2,53 @@
 
 ## Summary
 
-- Pending.
+- Test data has been inserted into the formal local MES/PQC read model for `芋道源码/admin`.
+- SQL verification confirms the row is visible under the admin/PQC today-list scope.
+- Runtime authenticated API verification confirms the PQC 管理列表 can return the inserted row.
 
 ## Commands
 
-- Pending.
+- `docker exec int-ruoyi-mysql ... information_schema.COLUMNS ...` -> schema verified.
+- `docker exec int-ruoyi-mysql ... insert-pqc-test-data.sql` -> inserted event/task/record/detail rows.
+- `docker exec int-ruoyi-mysql ... fix-pqc-test-payload-json.sql` -> corrected JSON array payload.
+- `docker exec int-ruoyi-mysql ... SELECT ... event_idempotency_key='PQC_TEST_20260806_MGMT_LIST_20260806181357559250'` -> SQL verification passed.
+- `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> `{"status":"UP"}`.
+- Authenticated `GET /admin-api/mes/pro/process-pool/team-leader/submission/page?leaderType=PQC&submitDate=2026-08-06&workOrderCode=RRM-20260801-PP-MO-001&templateType=PQC_SIMPLIFIED` -> code `0`, total `1`, event `160`.
 
 ## Data Created
 
-- Pending.
+- Marker: `PQC_TEST_20260806_MGMT_LIST_20260806181357559250`.
+- `mes_pqc_inspection_task.id=189`.
+- `mes_pro_process_pool_event.id=160`.
+- `mes_pro_process_pool_pqc_record.id=103`.
+- `mes_pqc_inspection_piece_detail`: 90 rows for task `189`.
+- Context: work order `RRM-20260801-PP-MO-001`, process `清洗工序`, inspection quantity `30`, loss/scrap quantity `1`, loss reason quantity sum `1`.
+- Structured values: 3 PQC items, each with 30 samples; pressure sample #12 `53.00` exceeds upper limit `52.0`.
+
+## API Verification
+
+- Backend health: `UP` on `48081`, listener PID `2548`.
+- Admin/PQC list API: tenant `1`, login code `0`, list code `0`, total `1`, returned rows `1`.
+- Returned row: event `160`, work order `RRM-20260801-PP-MO-001`, process `清洗工序`, template `PQC_SIMPLIFIED`, PQC task `189`, PQC result `FAILURE`, loss quantity `1.0`.
+- Runtime payload evidence: marker present in `originalPayloadJson`, `pqcItemDetails` count `3`, pressure sample #12 `53.00`, `standardUpperLimit=52.0`, loss reason quantity sum `1.0`.
+- Evidence validator: `Database schema evidence is valid.`
+- Cleanup preview: ready; keep task records plus SQL scripts, delete only temporary evidence/runtime-inspect artifacts, blocked/warnings none.
 
 ## Cleanup
 
-- Pending.
+- Keep data unless the user asks to remove it.
+- Cleanup SQL:
+
+```sql
+START TRANSACTION;
+DELETE FROM mes_pqc_inspection_piece_detail WHERE tenant_id = 1 AND task_id = 189;
+DELETE FROM mes_pro_process_pool_pqc_record WHERE tenant_id = 1 AND id = 103 AND event_id = 160;
+DELETE FROM mes_pro_process_pool_event WHERE tenant_id = 1 AND id = 160 AND event_idempotency_key = 'PQC_TEST_20260806_MGMT_LIST_20260806181357559250';
+DELETE FROM mes_pqc_inspection_task WHERE tenant_id = 1 AND id = 189;
+COMMIT;
+```
+
+## Residual Scope
+
+- Browser page screenshot verification was not run in this turn; validation is SQL plus authenticated local admin API list.
+- No commit, push, or task-closeout-cleanup apply was performed to avoid mixing this task with unrelated current workspace changes.
