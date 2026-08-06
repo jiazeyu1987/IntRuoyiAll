@@ -22,16 +22,14 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-用户复测反馈“搜索不到”；已复现本机 48081 候选接口 `keyword=陈` 返回 0，但系统用户简单列表同租户存在 89 个“陈”匹配用户。当前 48081 运行包不包含 `getUserListByNickname`，正在执行运行态刷新验证。
+用户复测反馈“搜索不到”后，已确认本机 48081 旧运行包未加载全量用户候选实现；现已用热补运行包刷新 48081 后端，登录态候选接口 `keyword=陈` 返回 20 条候选，空关键字仍返回 0。实现与运行态验证均已完成，任务进入 closeout 待提交状态。
 
 ## Blockers
 
-- `git add -- <task-owned paths>` 返回 `Unable to create 'E:/IntRuoyi/.git/index.lock': File exists`。
-- 该锁由并发 Git 操作产生，持续存在且非空；已等待并确认原并发 commit/worktree-add 进程退出，但不得按“零字节陈旧锁”流程删除。
-- 影响：本任务 closeout 文档与经验文档尚未形成最终本地提交和推送；不影响已进入 `origin/int_main` 的功能实现与测试代码。
-- 2026-08-06 复核：`index.lock` 已不存在，Git 阻塞解除；新的阻塞转为本机 48081 运行包未加载全量用户候选实现。
+- 运行态阻塞已解除：`backend-runtime-production-formal-users-20260806.jar` 已在 48081 启动并通过登录态接口验证。
+- Closeout 提交/推送仍待处理：当前共享工作区存在多项非本任务并发改动，本轮未暂存、未提交、未推送这些无关文件，避免混入当前修复结论。
 
 ## Applicable Gates
 

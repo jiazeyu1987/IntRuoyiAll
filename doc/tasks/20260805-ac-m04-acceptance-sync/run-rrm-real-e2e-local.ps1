@@ -51,6 +51,7 @@ $rrmEnvironmentKeys = @(
     'RRM_ROUTE_PROCESS_ID_1',
     'RRM_ROUTE_PROCESS_ID_2',
     'RRM_TRANSFER_IDS',
+    'RRM_TRANSFER_TRACE_ACTIVE_ORDER_ID',
     'RRM_BATCH_RECORD_REPORT_ID',
     'RRM_QA_REGULATION_VERSION_ID'
 )
@@ -204,6 +205,22 @@ WHERE leader_user_id = 512
   AND enabled = b'1'
   AND tenant_id = 1
   AND deleted = b'0';
+SELECT CONCAT('TRANSFER_TRACE_ACTIVE_ORDER=', COUNT(*))
+FROM mes_pro_process_pool_active_order_transfer_trace trace
+JOIN mes_pro_process_pool_active_order active_order
+  ON active_order.id = trace.active_order_id
+ AND active_order.tenant_id = trace.tenant_id
+ AND active_order.deleted = b'0'
+WHERE trace.active_order_id = 12
+  AND trace.tenant_id = 1
+  AND trace.deleted = b'0'
+  AND trace.source_type IS NOT NULL
+  AND (trace.source_object_code IS NOT NULL OR trace.source_object_id IS NOT NULL)
+  AND trace.source_status IS NOT NULL
+  AND trace.quantity IS NOT NULL
+  AND trace.material_stock_id IS NOT NULL
+  AND trace.batch_id IS NOT NULL
+  AND trace.idempotency_key IS NOT NULL;
 "@
     $values = @{}
     foreach ($line in @(Invoke-LocalMysql $sql)) {
@@ -219,7 +236,8 @@ WHERE leader_user_id = 512
         @{ Key = 'WORKSTATION_SCOPE'; Value = 1 },
         @{ Key = 'PROCESS_DEVICE'; Value = 1 },
         @{ Key = 'EMPLOYEE_BINDING'; Value = 1 },
-        @{ Key = 'PQC_REVIEW_SCOPE'; Value = 1 }
+        @{ Key = 'PQC_REVIEW_SCOPE'; Value = 1 },
+        @{ Key = 'TRANSFER_TRACE_ACTIVE_ORDER'; Value = 2 }
     )) {
         if (-not $values.ContainsKey($required.Key) -or $values[$required.Key] -ne $required.Value) {
             throw "RRM database prerequisite failed: $($required.Key) expected $($required.Value)."
@@ -627,6 +645,7 @@ function Set-RrmEnvironment(
     $env:RRM_ROUTE_PROCESS_ID_1 = '928609'
     $env:RRM_ROUTE_PROCESS_ID_2 = '928610'
     $env:RRM_TRANSFER_IDS = '1,2'
+    $env:RRM_TRANSFER_TRACE_ACTIVE_ORDER_ID = '12'
     $env:RRM_BATCH_RECORD_REPORT_ID = '1d05410f1d3140c5b8aa6786887ae69c'
     $env:RRM_QA_REGULATION_VERSION_ID = '6'
 }

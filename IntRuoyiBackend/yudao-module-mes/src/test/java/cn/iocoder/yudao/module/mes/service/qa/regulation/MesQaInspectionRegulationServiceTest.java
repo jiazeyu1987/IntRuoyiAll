@@ -5,14 +5,17 @@ import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspec
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationPublishedVersionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemEquipmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -43,12 +46,15 @@ class MesQaInspectionRegulationServiceTest {
     private MesQaInspectionRegulationVersionMapper versionMapper;
     @Mock
     private MesQaInspectionRegulationItemMapper itemMapper;
+    @Mock
+    private MesQaInspectionRegulationItemEquipmentMapper itemEquipmentMapper;
 
     private MesQaInspectionRegulationService service;
 
     @BeforeEach
     void setUp() {
-        service = new MesQaInspectionRegulationServiceImpl(regulationMapper, versionMapper, itemMapper);
+        service = new MesQaInspectionRegulationServiceImpl(regulationMapper, versionMapper, itemMapper,
+                itemEquipmentMapper);
     }
 
     @Test
@@ -228,6 +234,41 @@ class MesQaInspectionRegulationServiceTest {
         verify(itemMapper, org.mockito.Mockito.times(3)).insert(any(MesQaInspectionRegulationItemDO.class));
     }
 
+    @Test
+    void saveDraft_persistsFormalItemEquipmentOptions() {
+        MesQaInspectionRegulationSaveReqVO.InspectionItem firstItem =
+                saveItem("FIRST", "首检外观", 5, null);
+        firstItem.setEquipmentRequired(true);
+        firstItem.setEquipmentOptions(List.of(equipmentOption(8101L, "EQ-001", "检验灯箱", "BOX-001")));
+        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(firstItem));
+        when(regulationMapper.selectByRouteProcess(1001L, 2001L, 3001L, 4001L, 5001L)).thenReturn(null);
+        doAnswer(invocation -> {
+            MesQaInspectionRegulationDO regulation = invocation.getArgument(0);
+            regulation.setId(REGULATION_ID);
+            return 1;
+        }).when(regulationMapper).insert(any(MesQaInspectionRegulationDO.class));
+        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "V21-QA-2")).thenReturn(null);
+        doAnswer(invocation -> {
+            MesQaInspectionRegulationVersionDO version = invocation.getArgument(0);
+            version.setId(VERSION_ID);
+            return 1;
+        }).when(versionMapper).insert(any(MesQaInspectionRegulationVersionDO.class));
+
+        service.saveDraft(reqVO);
+
+        ArgumentCaptor<MesQaInspectionRegulationItemEquipmentDO> equipmentCaptor =
+                ArgumentCaptor.forClass(MesQaInspectionRegulationItemEquipmentDO.class);
+        verify(itemEquipmentMapper).insert(equipmentCaptor.capture());
+        MesQaInspectionRegulationItemEquipmentDO equipment = equipmentCaptor.getValue();
+        assertEquals(VERSION_ID, equipment.getRegulationVersionId());
+        assertEquals("FIRST", equipment.getInspectionType());
+        assertEquals("FIRST-SAVE", equipment.getItemCode());
+        assertEquals(8101L, equipment.getEquipmentId());
+        assertEquals("EQ-001", equipment.getEquipmentCode());
+        assertEquals("检验灯箱", equipment.getEquipmentName());
+        assertEquals("BOX-001", equipment.getEquipmentNumber());
+    }
+
     private static MesQaInspectionRegulationVersionDO publishedVersion() {
         return MesQaInspectionRegulationVersionDO.builder()
                 .id(VERSION_ID)
@@ -316,5 +357,20 @@ class MesQaInspectionRegulationServiceTest {
         item.setFirstInspectionQuantity(firstQuantity);
         item.setPatrolInspectionRatio(patrolRatio);
         return item;
+    }
+
+    private static MesQaInspectionRegulationSaveReqVO.EquipmentOption equipmentOption(Long equipmentId,
+                                                                                      String equipmentCode,
+                                                                                      String equipmentName,
+                                                                                      String equipmentNumber) {
+        MesQaInspectionRegulationSaveReqVO.EquipmentOption option =
+                new MesQaInspectionRegulationSaveReqVO.EquipmentOption();
+        option.setEquipmentId(equipmentId);
+        option.setEquipmentCode(equipmentCode);
+        option.setEquipmentName(equipmentName);
+        option.setEquipmentNumber(equipmentNumber);
+        option.setDefaultFlag(true);
+        option.setSort(1);
+        return option;
     }
 }

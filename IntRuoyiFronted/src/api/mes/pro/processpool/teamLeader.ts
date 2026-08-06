@@ -24,10 +24,6 @@ export interface TeamLeaderSubmissionReviewReqVO {
 
 export interface WorkOrderAbnormalReportReqVO {
   workOrderId: number
-  routeProcessId?: number
-  processId?: number
-  sourceEventId?: number
-  abnormalReasonCode: string
   abnormalDescription: string
 }
 
@@ -95,9 +91,6 @@ export interface TeamDeviceParameterRuleSaveReqVO {
 
 export interface TeamLeaderActiveOrderAddReqVO {
   workOrderId: number
-  routeId: number
-  routeVersionId: number
-  transferIds?: number[]
 }
 
 export interface TeamLeaderActiveOrderRemoveReqVO {
@@ -223,6 +216,11 @@ export interface TeamLeaderActiveOrderRespVO {
   joinedAt?: number
   removedAt?: number
   version?: number
+}
+
+export interface TeamLeaderActiveOrderCandidateRespVO {
+  workOrderId: number
+  workOrderCode: string
 }
 
 export interface TeamLeaderActiveOrderTransferTraceRespVO {
@@ -387,6 +385,13 @@ export const getTeamLeaderActiveOrderTransferTrace = async (activeOrderId: numbe
   return await request.get<TeamLeaderActiveOrderTransferTraceRespVO[]>({
     url: '/mes/pro/process-pool/team-leader/active-order/transfer-trace',
     params: { activeOrderId }
+  })
+}
+
+export const searchTeamLeaderActiveOrderCandidates = async (keyword: string) => {
+  return await request.get<TeamLeaderActiveOrderCandidateRespVO[]>({
+    url: '/mes/pro/process-pool/team-leader/active-order/candidates',
+    params: { keyword }
   })
 }
 

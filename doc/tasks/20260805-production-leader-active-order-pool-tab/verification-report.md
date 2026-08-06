@@ -2,29 +2,48 @@
 
 ## Result
 
-生产组长“活跃订单池”独立 Tab、标准列表模板和新增活跃订单弹窗已实现。聚焦 RED/GREEN、相邻静态回归、TypeScript、脚本语法检查和本机只读 Playwright 路径通过。
+本轮已修复“加入活跃订单池提示 `请求参数不正确:不能为null`”回归，并补齐截图中的“只输入完整订单号但未点候选”路径：提交前会按 `workOrderCode` 精确解析候选，命中后才发送 `workOrderId`。活跃订单聚焦静态合同、`pnpm ts:check` 和目标 `git diff --check` 已通过。当前任务仍不得标记 completed：写入型真实 Playwright E2E 缺少任务自有 `TLW_*` 夹具，且相邻 RRM/PQC 静态合同仍受并行 PQC 列表选择器/重置链路缺失阻塞。
 
 ## Acceptance
 
-- AC1 PASS：生产组长七组功能 Tab 均包含“活跃订单池”。
-- AC2 PASS：Tab 使用 `UnifiedListTemplate` 展示正式活跃订单列表，运行态空列表正确显示。
-- AC3 PASS：标准列表 actions 区域提供“新增活跃订单”按钮。
-- AC4 PASS：新增弹窗绑定正式加入接口，成功后关闭并刷新列表；静态合同与 TypeScript 已覆盖。
-- AC5 PASS：列表行保留正式移出活跃订单接口。
-- AC6 PASS：班组配置不再重复展示活跃订单维护卡片。
+- AC1 PASS：新增活跃订单弹窗只保留“订单号”远程可搜索 `el-select`，候选展示生产工单编号并绑定 `workOrderId`。
+- AC2 PASS：前端 `addTeamLeaderActiveOrder` 请求类型和提交 payload 只包含 `workOrderId`。
+- AC3 PASS：后端 `POST /active-order/add` 只接收 `workOrderId`，并从唯一有效排产解析正式 `routeId` 和 `routeVersionId`。
+- AC4 PASS：候选接口 `GET /active-order/candidates?keyword=...` 使用维护权限并返回已确认生产工单候选。
+- AC5 PASS：无有效排产、多条有效排产或排产缺正式路线/版本时后端 fail fast，不创建活跃订单、工序快照或 PQC 任务。
+- AC6 PASS：调拨关联输入已从新增动作拆除；既有调拨追溯仍为只读展示。
+- AC7 PASS：未点击真实订单号候选、清空、搜索失败或候选刷新失配时，前端抛 `请选择订单号` 并阻止 `/active-order/add` 写请求。
+- AC8 PASS：只输入完整订单号且精确命中候选时，前端提交前自动解析 `workOrderId`，避免后端收到 `null`。
 
 ## Verification
 
-- `node tests/e2e/production-leader-active-order-pool-tab-static.spec.js` -> PASS。
-- `production-leader-function-tabs-static.spec.js`、`production-leader-tabs-flat-style-static.spec.js`、`production-leader-remove-header-content-static.spec.js`、`team-leader-workbench-static.spec.cjs`、`role-requirement-matrix-preflight-static.spec.cjs` -> PASS。
-- 两个修改后的真实流程脚本 `node --check` -> PASS。
-- `pnpm ts:check` -> PASS。
-- 当前任务源码和测试 `git diff --check` -> PASS。
-- 本机运行态：前端 `8081` HTTP `200`，后端 `48081` health `UP`。
-- 官方登录前置：`芋道源码/admin` 进入生产组长页面 -> PASS。
-- 只读 Playwright：打开“活跃订单池”Tab、标准列表和新增弹窗后取消；活跃订单数量 `0`，目标写请求 `0`，目标请求失败 `0`，页面错误 `0`，控制台错误 `0` -> PASS。
+- RED: `node tests/e2e/production-leader-active-order-pool-tab-static.spec.js` -> FAIL，旧实现缺少候选 change/clear 事件和候选级提交校验。
+- RED: `node tests/e2e/team-leader-workbench-static.spec.cjs` -> FAIL，旧实现提交仍直接读取 `activeOrderForm.workOrderId`。
+- RED: `node tests/e2e/production-leader-active-order-pool-tab-static.spec.js` -> FAIL，第一轮修复仍缺少按完整订单号精确解析候选的提交前路径。
+- RED: `node tests/e2e/team-leader-workbench-static.spec.cjs` -> FAIL，第一轮修复仍要求点击候选，不能覆盖截图中的完整输入直接提交。
+- GREEN: `node tests/e2e/production-leader-active-order-pool-tab-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/team-leader-workbench-static.spec.cjs` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue IntRuoyiFronted/tests/e2e/production-leader-active-order-pool-tab-static.spec.js IntRuoyiFronted/tests/e2e/team-leader-workbench-static.spec.cjs` -> PASS，仅 CRLF working-copy 提示。
+- PRIOR PASS: `node --check tests/e2e/role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- PRIOR PASS: `node --check tests/e2e/team-leader-workbench-real-flow.e2e.js` -> PASS。
+- PRIOR PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 25, Failures: 0, Errors: 0, Skipped: 0。
+- BLOCKED: `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> FAIL，当前缺少 PQC 过程检验汇集稳定选择器 `data-pqc-process-inspection-aggregation`。
+- BLOCKED: `node tests/e2e/mes-process-pool-team-leader-static.spec.js` -> FAIL，当前 PQC 组长切换后提交看板多维筛选重置链路合同失败。
+- GREEN: `pnpm e2e:team-leader-workbench:real:check` -> PASS。
+- BLOCKED: 注入 `TLW_FRONTEND_URL=http://127.0.0.1:8081` 与 `TLW_BACKEND_URL=http://127.0.0.1:48081` 后运行 `pnpm e2e:team-leader-workbench:real` -> non-zero，`IntRuoyiFronted/test-results/team-leader-workbench-real-flow/result.json` 记录 `status=BLOCKED`，原因是缺少真实写入型 E2E 前置条件。
+- RUNTIME: `http://127.0.0.1:8081/` -> HTTP 200；`http://127.0.0.1:48081/actuator/health` -> `UP`；端口 8081/48081 归属 `E:\IntRuoyi` 主工作区运行态。
 
-## Residual Risk
+## Evidence Validators
 
-- `mes-process-pool-team-leader-static.spec.js` 仍失败于本任务前已存在的提交筛选重置合同差异，与活跃订单 Tab 无关，已由任务专用合同隔离。
-- 完整新增/移出写入型 E2E 需要已确认的测试租户、生产组长账号和 `TLW_*` 任务夹具；本次未在 `芋道源码/admin` 基线数据上执行写入。
+- `validate_frontend_feature.py --evidence doc/tasks/20260805-production-leader-active-order-pool-tab/frontend-feature-evidence.md` -> PRIOR PASS。
+- `validate_backend_api.py --evidence doc/tasks/20260805-production-leader-active-order-pool-tab/backend-api-evidence.md` -> PRIOR PASS。
+- `validate_change_request.py --evidence docs/changes/20260806-active-order-code-input.md` -> PRIOR PASS。
+- `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260805-production-leader-active-order-pool-tab/bug-regression-evidence.md` -> PASS。
+
+## Blockers
+
+- Missing `TLW_TENANT`, `TLW_USERNAME`, `TLW_PASSWORD`, `TLW_WORK_ORDER_ID`, `TLW_WORK_ORDER_CODE`, `TLW_TASK_ID`, `TLW_ROUTE_ID`, `TLW_ROUTE_PROCESS_ID`, `TLW_PROCESS_ID`, `TLW_ITEM_ID`, `TLW_EMPLOYEE_PROFILE_ID`, `TLW_DEVICE_ID`, `TLW_RECORDBOOK_ID`, `TLW_SIGNATURE_ID`, `TLW_SIGNATURE_EMPLOYEE_ID`, `TLW_APPROVE_USER_ID`, `TLW_FEEDBACK_CODE`, and `TLW_FEEDBACK_TYPE`。
+- Current frontend full-gate blockers: `role-requirement-matrix-preflight-static.spec.cjs`、`mes-process-pool-team-leader-static.spec.js` 均失败在并行 PQC 列表选择器/重置链路缺失，不属于本次活跃订单空值回归。
+- Impact: 未执行写入型真实新增/移出/填报闭环 E2E；未使用 mock、自由输入、隐藏字段、API-only 或 admin 基线数据替代。
+- Closeout: 因必需真实 E2E 和当前全量前端门禁阻塞，当前不运行 cleanup apply，不创建实现提交、收尾提交，也不推送 `int_main`。

@@ -26,7 +26,9 @@
 - REGRESSION: `node tests\e2e\pqc-leader-standard-list-template-static.spec.js` -> PASS.
 - REGRESSION: `node tests\e2e\production-personnel-unified-status-list-static.spec.cjs` -> initially FAIL after shared selector merge; fixed by splitting PQC and production disabled-name CSS rules, then PASS.
 - REGRESSION: `pnpm ts:check` -> PASS.
+- POST-CONCURRENCY RECHECK: after unrelated working-tree changes appeared in `TeamLeaderWorkbenchPage.vue`, `node tests\e2e\pqc-personnel-unified-status-list-static.spec.cjs` -> PASS and `node tests\e2e\pqc-leader-personnel-tab-static.spec.js` -> PASS.
 - E2E: Not executed; no task-specific real Playwright path and confirmed disabled PQC personnel fixture were identified for this narrow list-display change. Static contracts cover the rendered controls, request parameter contract, status text, and red disabled-name class without claiming real E2E PASS.
+- EXPERIENCE: no new long-term experience document created; the observed closeout risk is already covered by `docs\powershell-memory.md` sections `共享分支并发基线提交门禁` and `同文件并行改动选择性暂存门禁`.
 
 ## Blockers
 

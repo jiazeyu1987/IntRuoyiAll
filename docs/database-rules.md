@@ -83,6 +83,15 @@
 - Forbidden action: 禁止用前端硬编码标题遮盖动态菜单旧值；禁止直接执行含中文字符串字面量的 SQL 后不复核 HEX；禁止扩大 `WHERE` 范围或改角色/租户绑定来掩盖菜单名未更新。
 - Evidence: `doc/tasks/20260728-fix-product-menu-title-runtime/execution-log.md`。
 
+### 系统角色菜单授权 tenant 1 admin 门禁
+
+- Trigger: 新增或收敛 `system_role`、`system_role_menu`、`system_user_role`、动态菜单权限角色、admin 授权、只允许特定角色看某菜单/页签，且迁移通过 `system_tenant_package.menu_ids` 扫描目标租户。
+- Preflight check: 写角色/菜单迁移前，必须核对 tenant 1 的 `system_tenant.package_id` 是否能通过套餐表命中；若 admin 用户需要被赋权，迁移必须显式把 tenant 1 纳入目标角色集合，不能只依赖套餐 menu_ids 扫描。
+- Blocker: tenant 1 `admin` 用户存在但目标角色集合不包含 tenant 1、`system_role_category.code='menu'` 缺失、同租户目标角色 code 重复，或迁移只能让租户套餐角色看到菜单而 admin 用户不能通过标准权限解析拿到权限时必须停止。
+- Verification: 静态 SQL 合同必须断言 tenant 1 显式纳入目标集合、admin 被写入 `system_user_role`、目标菜单只授权给正式角色、非目标角色仅软删除；同时运行聚焦 role/menu SQL 测试和 release migration policy gate 依赖闭包。
+- Forbidden action: 禁止把 `tenant_admin`/`super_admin` 菜单绑定当作“只有目标角色可见”的替代；禁止用前端隐藏菜单、硬编码 admin bypass、默认成功权限或 broad role grant 掩盖 role/menu/user-role 链路未命中。
+- Evidence: `doc/tasks/20260806-qa-role-permission-tab/verification-report.md`；`IntRuoyiBackend/sql/mysql/20260806_mes_qa_role_permission_tab.sql`。
+
 ### 测试管理 schema 迁移门禁
 
 - Trigger: 访问 `系统管理 > 测试管理` 提示 `系统异常`，或修改/运行 `system_codex_test_case`、Codex Runner、测试项分页、测试管理页面相关接口。

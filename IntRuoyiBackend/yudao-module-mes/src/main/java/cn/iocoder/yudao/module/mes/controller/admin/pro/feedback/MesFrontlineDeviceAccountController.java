@@ -124,7 +124,7 @@ public class MesFrontlineDeviceAccountController {
     @Operation(summary = "获得 PQC 员工和 PQC 组长")
     @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
     public CommonResult<List<MesFrontlineEmployeeCandidateRespVO>> getPqcPersonnel() {
-        return success(pqcContextService.listPqcEmployeeCandidates().stream()
+        return success(pqcContextService.listPqcEmployeeCandidates(getLoginUserId()).stream()
                 .map(MesFrontlineDeviceAccountController::toEmployeeCandidateRespVO)
                 .toList());
     }

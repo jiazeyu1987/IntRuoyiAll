@@ -5,163 +5,357 @@
         <div>
           <div class="profile-erp-table-sync__title">ERP表格自动同步</div>
           <div class="profile-erp-table-sync__subtitle">
-            统一配置每天自动拉取哪些 ERP 表格、几点开始；支持 PRODUCT、BOM 等正式类型。
+            统一配置每天自动拉取哪些 ERP 表格、几点开始；复用生产工单同款 Job 增量同步链路。
           </div>
         </div>
-        <el-tag v-if="form.jobId" type="info">Job {{ form.jobId }}</el-tag>
+        <el-tag type="success">infra/job</el-tag>
       </div>
     </template>
 
     <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
 
-    <el-form class="profile-erp-table-sync__form" label-width="120px" :disabled="loading">
+    <el-form class="profile-erp-table-sync__form" label-width="120px" :disabled="loading || saving">
       <el-form-item label="启用自动同步">
         <el-switch v-model="form.enabled" />
       </el-form-item>
       <el-form-item label="每日开始时间">
-        <el-time-picker v-model="form.dailyStartTime" value-format="HH:mm:ss" format="HH:mm:ss" />
+        <el-time-picker
+          v-model="form.dailyStartTime"
+          value-format="HH:mm:ss"
+          format="HH:mm:ss"
+          :clearable="false"
+        />
       </el-form-item>
       <el-form-item label="ERP 表格">
-        <el-checkbox-group v-model="selectedSyncTypes" class="profile-erp-table-sync__checks">
-          <el-checkbox v-for="item in syncTypes" :key="item.syncType" :label="item.syncType">
-            {{ item.label }}
-            <span class="profile-erp-table-sync__handler">{{ item.handlerName }}</span>
-          </el-checkbox>
-        </el-checkbox-group>
+        <el-table
+          ref="syncTableRef"
+          v-loading="jobLoading || watermarkLoading || runLoading"
+          :data="syncTableRows"
+          row-key="syncType"
+          class="profile-erp-table-sync__select-table"
+          border
+          @selection-change="handleSyncTableSelectionChange"
+        >
+          <el-table-column type="selection" width="48" :selectable="isSyncRowSelectable" />
+          <el-table-column prop="erpTableName" label="ERP表格名称" min-width="180" />
+          <el-table-column prop="localTabName" label="本地页签名称" min-width="220" />
+          <el-table-column label="最近一次同步时间" min-width="180">
+            <template #default="{ row }">{{ formatDateTimeValue(row.lastSuccessTime, '-') }}</template>
+          </el-table-column>
+          <el-table-column label="新增行数" min-width="110">
+            <template #default="{ row }">{{ resolveCreatedCount(row.latestRun) }}</template>
+          </el-table-column>
+          <el-table-column label="同步成功/失败" min-width="140">
+            <template #default="{ row }">
+              <el-tag :type="resolveLatestSyncStatusTagType(row.latestRun)">
+                {{ formatLatestSyncStatus(row.latestRun) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="失败原因" min-width="220" show-overflow-tooltip>
+            <template #default="{ row }">{{ resolveFailureReason(row.latestRun) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="120" fixed="right">
+            <template #default="{ row }">
+              <el-button
+                type="primary"
+                link
+                :loading="manualSyncingType === row.syncType"
+                :disabled="running || Boolean(manualSyncingType)"
+                @click="handleRunSingle(row)"
+              >
+                手动同步
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </el-form-item>
       <el-form-item>
         <el-button type="primary" :loading="saving" @click="handleSave">保存配置</el-button>
-        <el-button type="success" :loading="running" @click="handleRunOnce">立即执行一次</el-button>
+        <el-button
+          type="success"
+          :loading="running"
+          :disabled="selectedSyncTypes.length === 0 || Boolean(manualSyncingType)"
+          @click="handleRunOnce"
+        >
+          立即执行一次
+        </el-button>
       </el-form-item>
     </el-form>
 
-    <el-descriptions class="profile-erp-table-sync__summary" :column="3" border>
-      <el-descriptions-item label="最近状态">{{ form.lastStatus || '未执行' }}</el-descriptions-item>
-      <el-descriptions-item label="最近自动日期">{{ form.lastAutoRunDate || '-' }}</el-descriptions-item>
-      <el-descriptions-item label="最近信息">{{ form.lastMessage || '-' }}</el-descriptions-item>
-    </el-descriptions>
-
-    <el-divider />
-
-    <div class="profile-erp-table-sync__section-title">同步水位</div>
-    <el-table v-loading="watermarkLoading" :data="watermarks" class="profile-erp-table-sync__table" border>
-      <el-table-column prop="syncType" label="同步类型" width="180" />
-      <el-table-column label="表格名称" min-width="160">
-        <template #default="{ row }">{{ resolveTypeLabel(row.syncType) }}</template>
-      </el-table-column>
-      <el-table-column label="最近成功水位" min-width="180">
-        <template #default="{ row }">{{ formatDateTimeValue(row.lastSuccessTime, '-') }}</template>
-      </el-table-column>
-    </el-table>
-
-    <div class="profile-erp-table-sync__section-title profile-erp-table-sync__section-title--runs">
-      最近执行记录
+    <div class="profile-erp-table-sync__running-jobs">
+      <div class="profile-erp-table-sync__running-header">
+        <div class="profile-erp-table-sync__running-title">正在进行的同步 Job</div>
+        <div class="profile-erp-table-sync__running-subtitle">仅显示当前运行中的 ERP 同步任务。</div>
+      </div>
+      <el-table
+        v-loading="runningJobLoading"
+        :data="runningSyncRuns"
+        row-key="id"
+        class="profile-erp-table-sync__running-table"
+        border
+        empty-text="暂无正在进行的同步 Job"
+      >
+        <el-table-column label="ERP表格名称" min-width="180">
+          <template #default="{ row }">{{ resolveSyncTypeName(row.syncType) }}</template>
+        </el-table-column>
+        <el-table-column label="开始时间" min-width="180">
+          <template #default="{ row }">{{ formatDateTimeValue(row.startedAt, '-') }}</template>
+        </el-table-column>
+        <el-table-column label="新增行数" min-width="110">
+          <template #default="{ row }">{{ resolveRunCount(row.createdCount) }}</template>
+        </el-table-column>
+        <el-table-column label="更新行数" min-width="110">
+          <template #default="{ row }">{{ resolveRunCount(row.updatedCount) }}</template>
+        </el-table-column>
+        <el-table-column label="失败行数" min-width="110">
+          <template #default="{ row }">{{ resolveRunCount(row.failedCount) }}</template>
+        </el-table-column>
+      </el-table>
     </div>
-    <el-table v-loading="runLoading" :data="runs" class="profile-erp-table-sync__table" border>
-      <el-table-column prop="id" label="运行编号" width="100" />
-      <el-table-column prop="syncType" label="同步类型" width="180" />
-      <el-table-column label="表格名称" min-width="160">
-        <template #default="{ row }">{{ resolveTypeLabel(row.syncType) }}</template>
-      </el-table-column>
-      <el-table-column label="触发" width="100">
-        <template #default="{ row }">{{ formatTriggerType(row.triggerType) }}</template>
-      </el-table-column>
-      <el-table-column label="状态" width="100">
-        <template #default="{ row }">{{ formatRunStatus(row.status) }}</template>
-      </el-table-column>
-      <el-table-column label="开始时间" min-width="180">
-        <template #default="{ row }">{{ formatDateTimeValue(row.startedAt, '-') }}</template>
-      </el-table-column>
-      <el-table-column label="数量" min-width="160">
-        <template #default="{ row }">
-          新增 {{ row.createdCount || 0 }} / 更新 {{ row.updatedCount || 0 }} / 跳过
-          {{ row.skippedCount || 0 }}
-        </template>
-      </el-table-column>
-      <el-table-column prop="failureMessage" label="失败原因" min-width="220" show-overflow-tooltip />
-    </el-table>
   </el-card>
 </template>
 
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
-import {
-  ErpKingdeeTableAutoSyncApi,
-  type ErpKingdeeTableAutoSyncPlanVO,
-  type ErpKingdeeTableAutoSyncRunVO,
-  type ErpKingdeeTableAutoSyncTypeVO,
-  type ErpKingdeeTableAutoSyncWatermarkVO
-} from '@/api/erp/kingdeeTableAutoSync'
+import { ErpKingdeeSyncApi } from '@/api/erp/sync'
+import type { ErpKingdeeSyncRunVO, ErpKingdeeSyncWatermarkVO } from '@/api/erp/sync'
+import * as JobApi from '@/api/infra/job'
+import { InfraJobStatusEnum } from '@/utils/constants'
 import { formatDateTimeValue } from '@/utils/formatTime'
 
+interface ProfileErpSyncType {
+  syncType: string
+  erpTableName: string
+  localTabName: string
+  handlerName: string
+}
+
+interface ProfileErpTableSyncForm {
+  enabled: boolean
+  dailyStartTime: string
+}
+
+interface ProfileErpSyncTableRow extends ProfileErpSyncType {
+  lastSuccessTime?: string
+  latestRun?: ErpKingdeeSyncRunVO
+}
+
+defineOptions({ name: 'ProfileErpTableAutoSyncSetting' })
+
+const DEFAULT_DAILY_START_TIME = '02:00:00'
+const RUNNING_SYNC_STATUS = 10
+const RUNNING_SYNC_RUN_PAGE_SIZE = 20
+const syncTypes: ProfileErpSyncType[] = [
+  {
+    syncType: 'PRODUCT',
+    erpTableName: 'ERP 商品',
+    localTabName: 'ERP商品 / MES物料产品',
+    handlerName: 'kingdeeProductItemSyncJob'
+  },
+  {
+    syncType: 'STOCK',
+    erpTableName: 'ERP 库存',
+    localTabName: 'ERP库存',
+    handlerName: 'kingdeeStockSyncJob'
+  },
+  {
+    syncType: 'PURCHASE_ORDER',
+    erpTableName: '采购订单',
+    localTabName: 'ERP采购订单',
+    handlerName: 'kingdeePurchaseOrderSyncJob'
+  },
+  {
+    syncType: 'SALE_ORDER',
+    erpTableName: '销售订单',
+    localTabName: 'ERP销售订单',
+    handlerName: 'kingdeeSaleOrderSyncJob'
+  },
+  {
+    syncType: 'PRODUCTION_ORDER',
+    erpTableName: '生产工单',
+    localTabName: 'MES生产工单',
+    handlerName: 'kingdeeProductionOrderSyncJob'
+  },
+  {
+    syncType: 'PRODUCTION_MATERIAL_LIST',
+    erpTableName: '生产用料清单',
+    localTabName: 'ERP生产用料清单',
+    handlerName: 'kingdeeProductionMaterialListSyncJob'
+  },
+  {
+    syncType: 'BOM',
+    erpTableName: '产品 BOM',
+    localTabName: 'ERP产品BOM',
+    handlerName: 'kingdeeBomSyncJob'
+  }
+]
+
 const loading = ref(false)
+const jobLoading = ref(false)
 const saving = ref(false)
 const running = ref(false)
-const runLoading = ref(false)
 const watermarkLoading = ref(false)
+const runLoading = ref(false)
+const runningJobLoading = ref(false)
+const manualSyncingType = ref('')
 const loadError = ref('')
-const syncTypes = ref<ErpKingdeeTableAutoSyncTypeVO[]>([])
-const runs = ref<ErpKingdeeTableAutoSyncRunVO[]>([])
-const watermarks = ref<ErpKingdeeTableAutoSyncWatermarkVO[]>([])
+const watermarks = ref<ErpKingdeeSyncWatermarkVO[]>([])
+const latestRuns = ref<ErpKingdeeSyncRunVO[]>([])
+const runningSyncRuns = ref<ErpKingdeeSyncRunVO[]>([])
+const jobsByHandlerName = ref<Record<string, JobApi.JobVO>>({})
 const selectedSyncTypes = ref<string[]>([])
-const form = reactive<ErpKingdeeTableAutoSyncPlanVO>({
+const syncTableRef = ref()
+const syncingTableSelection = ref(false)
+const form = reactive<ProfileErpTableSyncForm>({
   enabled: false,
-  dailyStartTime: '02:00:00',
-  items: []
+  dailyStartTime: DEFAULT_DAILY_START_TIME
 })
 
 const resolveErrorMessage = (error: unknown, defaultMessage: string) => {
   if (error instanceof Error && error.message.trim()) return error.message
-  const responseMessage = (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
+  const responseData =
+    typeof error === 'object' && error !== null && 'response' in error
+      ? (error as { response?: { data?: { msg?: unknown; message?: unknown } } }).response?.data
+      : undefined
+  const responseMessage = responseData?.msg || responseData?.message
   return typeof responseMessage === 'string' && responseMessage.trim() ? responseMessage : defaultMessage
 }
 
-const resolveTypeLabel = (syncType: string) =>
-  syncTypes.value.find((item) => item.syncType === syncType)?.label || syncType
+const padTimePart = (value: string | number) => String(value).padStart(2, '0')
 
-const formatRunStatus = (status: number | string) => {
-  if (String(status) === '10') return '运行中'
-  if (String(status) === '20') return '成功'
-  if (String(status) === '30') return '失败'
-  return `未知状态（${status}）`
+const toDailyCronExpression = (time: string) => {
+  if (!/^\d{2}:\d{2}:\d{2}$/.test(time)) return ''
+  const [hour, minute, second] = time.split(':').map((part) => Number(part))
+  if ([hour, minute, second].some((part) => Number.isNaN(part))) return ''
+  return `${second} ${minute} ${hour} * * ?`
 }
 
-const formatTriggerType = (triggerType: string) => {
-  if (triggerType === 'AUTO') return '自动调度'
-  if (triggerType === 'MANUAL') return '手动执行'
-  return `未知触发（${triggerType}）`
+const parseDailyCronExpression = (cronExpression?: string) => {
+  const match = cronExpression?.trim().match(/^(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+\*\s+\*\s+\?$/)
+  if (!match) return ''
+  const [, second, minute, hour] = match
+  return `${padTimePart(hour)}:${padTimePart(minute)}:${padTimePart(second)}`
 }
 
-const applyPlan = (plan: ErpKingdeeTableAutoSyncPlanVO) => {
-  form.id = plan.id
-  form.enabled = plan.enabled === true
-  form.dailyStartTime = plan.dailyStartTime || '02:00:00'
-  form.cronExpression = plan.cronExpression
-  form.jobId = plan.jobId
-  form.lastAutoRunDate = plan.lastAutoRunDate
-  form.lastRunTime = plan.lastRunTime
-  form.lastStatus = plan.lastStatus
-  form.lastMessage = plan.lastMessage
-  form.items = plan.items || []
-  selectedSyncTypes.value = form.items.filter((item) => item.enabled).map((item) => item.syncType)
+const dailyCronExpression = computed(() => toDailyCronExpression(form.dailyStartTime))
+const watermarkBySyncType = computed<Record<string, string | undefined>>(() =>
+  watermarks.value.reduce<Record<string, string | undefined>>((acc, item) => {
+    acc[item.syncType] = item.lastSuccessTime
+    return acc
+  }, {})
+)
+const latestRunBySyncType = computed<Record<string, ErpKingdeeSyncRunVO | undefined>>(() =>
+  latestRuns.value.reduce<Record<string, ErpKingdeeSyncRunVO | undefined>>((acc, item) => {
+    if (!acc[item.syncType]) {
+      acc[item.syncType] = item
+    }
+    return acc
+  }, {})
+)
+const syncTableRows = computed<ProfileErpSyncTableRow[]>(() =>
+  syncTypes.map((item) => ({
+    ...item,
+    lastSuccessTime: watermarkBySyncType.value[item.syncType],
+    latestRun: latestRunBySyncType.value[item.syncType]
+  }))
+)
+
+const isSyncRowSelectable = () => !loading.value && !saving.value && !manualSyncingType.value
+
+const formatLatestSyncStatus = (latestRun?: ErpKingdeeSyncRunVO) => {
+  if (!latestRun) return '未执行'
+  if (latestRun.status === 20) return '成功'
+  if (latestRun.status === 30) return '失败'
+  if (latestRun.status === 10) return '运行中'
+  return `未知状态（${latestRun.status}）`
 }
 
-const loadRuns = async () => {
-  runLoading.value = true
+const resolveLatestSyncStatusTagType = (latestRun?: ErpKingdeeSyncRunVO) => {
+  if (!latestRun) return 'info'
+  if (latestRun.status === 20) return 'success'
+  if (latestRun.status === 30) return 'danger'
+  if (latestRun.status === 10) return 'warning'
+  return 'info'
+}
+
+const resolveCreatedCount = (latestRun?: ErpKingdeeSyncRunVO) => {
+  if (!latestRun) return '-'
+  if (typeof latestRun.createdCount === 'number') return latestRun.createdCount
+  return '-'
+}
+
+const resolveFailureReason = (latestRun?: ErpKingdeeSyncRunVO) => {
+  if (!latestRun || latestRun.status !== 30) return '-'
+  const failureMessage = latestRun.failureMessage?.trim()
+  return failureMessage || '-'
+}
+
+const resolveSyncTypeName = (syncType: string) =>
+  syncTypes.find((item) => item.syncType === syncType)?.erpTableName || `未知ERP表格（${syncType}）`
+
+const resolveRunCount = (value?: number) => (typeof value === 'number' ? value : '-')
+
+const syncSelectedRows = async () => {
+  await nextTick()
+  const table = syncTableRef.value
+  if (!table) return
+  syncingTableSelection.value = true
   try {
-    const page = await ErpKingdeeTableAutoSyncApi.getRunPage({ pageNo: 1, pageSize: 10 })
-    runs.value = page.list || []
-  } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '最近执行记录加载失败'))
+    table.clearSelection()
+    const selectedSyncTypeSet = new Set(selectedSyncTypes.value)
+    syncTableRows.value.forEach((row) => {
+      table.toggleRowSelection(row, selectedSyncTypeSet.has(row.syncType))
+    })
   } finally {
-    runLoading.value = false
+    await nextTick()
+    syncingTableSelection.value = false
+  }
+}
+
+const handleSyncTableSelectionChange = (rows: ProfileErpSyncTableRow[]) => {
+  if (syncingTableSelection.value) return
+  selectedSyncTypes.value = rows.map((row) => row.syncType)
+}
+
+const fetchJobByHandlerName = async (handlerName: string) => {
+  const page = await JobApi.getJobPage({
+    pageNo: 1,
+    pageSize: 1,
+    handlerName
+  } as PageParam & { handlerName: string })
+  const job = (page.list || []).find((item: JobApi.JobVO) => item.handlerName === handlerName)
+  if (!job) {
+    throw new Error(`未找到同步任务处理器：${handlerName}`)
+  }
+  return job
+}
+
+const loadJobs = async () => {
+  jobLoading.value = true
+  try {
+    const entries = await Promise.all(
+      syncTypes.map(async (item) => [item.handlerName, await fetchJobByHandlerName(item.handlerName)] as const)
+    )
+    const nextJobsByHandlerName = Object.fromEntries(entries)
+    jobsByHandlerName.value = nextJobsByHandlerName
+    selectedSyncTypes.value = syncTypes
+      .filter((item) => nextJobsByHandlerName[item.handlerName].status === InfraJobStatusEnum.NORMAL)
+      .map((item) => item.syncType)
+    form.enabled = selectedSyncTypes.value.length > 0
+    form.dailyStartTime =
+      syncTypes
+        .map((item) => parseDailyCronExpression(nextJobsByHandlerName[item.handlerName].cronExpression))
+        .find((time) => time) || DEFAULT_DAILY_START_TIME
+  } finally {
+    jobLoading.value = false
   }
 }
 
 const loadWatermarks = async () => {
   watermarkLoading.value = true
   try {
-    watermarks.value = await ErpKingdeeTableAutoSyncApi.getWatermarkList()
+    watermarks.value = await ErpKingdeeSyncApi.getWatermarkList()
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '同步水位加载失败'))
   } finally {
@@ -169,17 +363,48 @@ const loadWatermarks = async () => {
   }
 }
 
+const loadLatestRuns = async () => {
+  runLoading.value = true
+  try {
+    const latestRunList = await Promise.all(
+      syncTypes.map(async (item) => {
+        const page = await ErpKingdeeSyncApi.getRunPage({
+          pageNo: 1,
+          pageSize: 1,
+          syncType: item.syncType
+        } as PageParam & { syncType: string })
+        return page.list?.[0] as ErpKingdeeSyncRunVO | undefined
+      })
+    )
+    latestRuns.value = latestRunList.filter((item): item is ErpKingdeeSyncRunVO => Boolean(item))
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '同步运行结果加载失败'))
+  } finally {
+    runLoading.value = false
+  }
+}
+
+const loadRunningSyncRuns = async () => {
+  runningJobLoading.value = true
+  try {
+    const page = await ErpKingdeeSyncApi.getRunPage({
+      pageNo: 1,
+      pageSize: RUNNING_SYNC_RUN_PAGE_SIZE,
+      status: RUNNING_SYNC_STATUS
+    } as PageParam & { status: number })
+    runningSyncRuns.value = page.list || []
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '运行中的同步 Job 加载失败'))
+  } finally {
+    runningJobLoading.value = false
+  }
+}
+
 const loadData = async () => {
   loading.value = true
   loadError.value = ''
   try {
-    const [typeList, plan] = await Promise.all([
-      ErpKingdeeTableAutoSyncApi.getSyncTypes(),
-      ErpKingdeeTableAutoSyncApi.getPlan()
-    ])
-    syncTypes.value = typeList
-    applyPlan(plan)
-    await Promise.all([loadRuns(), loadWatermarks()])
+    await Promise.all([loadJobs(), loadWatermarks(), loadLatestRuns(), loadRunningSyncRuns()])
   } catch (error) {
     loadError.value = resolveErrorMessage(error, 'ERP表格自动同步配置加载失败')
     ElMessage.error(loadError.value)
@@ -188,22 +413,49 @@ const loadData = async () => {
   }
 }
 
-const buildSavePayload = () => ({
-  enabled: form.enabled,
-  dailyStartTime: form.dailyStartTime,
-  items: syncTypes.value.map((item, index) => ({
-    syncType: item.syncType,
-    enabled: selectedSyncTypes.value.includes(item.syncType),
-    sortOrder: index * 10
-  }))
-})
+const refreshJobsBeforeMutation = async () => {
+  const entries = await Promise.all(
+    syncTypes.map(async (item) => [
+      item,
+      jobsByHandlerName.value[item.handlerName] || (await fetchJobByHandlerName(item.handlerName))
+    ] as const)
+  )
+  for (const [item, job] of entries) {
+    jobsByHandlerName.value[item.handlerName] = job
+  }
+  return entries
+}
 
 const handleSave = async () => {
+  if (!dailyCronExpression.value) {
+    ElMessage.error('请选择有效的每日开始时间')
+    return
+  }
+  if (form.enabled && selectedSyncTypes.value.length === 0) {
+    ElMessage.error('启用自动同步时至少选择一个 ERP 表格')
+    return
+  }
   saving.value = true
   try {
-    const plan = await ErpKingdeeTableAutoSyncApi.savePlan(buildSavePayload())
-    applyPlan(plan)
-    ElMessage.success('ERP表格自动同步配置已保存')
+    const selectedSyncTypeSet = new Set(selectedSyncTypes.value)
+    const jobEntries = await refreshJobsBeforeMutation()
+    await Promise.all(
+      jobEntries.map(async ([item, job]) => {
+        await JobApi.updateJob({
+          ...job,
+          cronExpression: dailyCronExpression.value
+        })
+        const targetStatus =
+          form.enabled && selectedSyncTypeSet.has(item.syncType)
+            ? InfraJobStatusEnum.NORMAL
+            : InfraJobStatusEnum.STOP
+        if (job.status !== targetStatus) {
+          await JobApi.updateJobStatus(job.id, targetStatus)
+        }
+      })
+    )
+    ElMessage.success(`ERP表格自动同步配置已保存：${form.enabled ? selectedSyncTypeSet.size : 0}/${syncTypes.length}`)
+    await loadJobs()
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, 'ERP表格自动同步配置保存失败'))
   } finally {
@@ -212,11 +464,17 @@ const handleSave = async () => {
 }
 
 const handleRunOnce = async () => {
+  const selectedItems = syncTypes.filter((item) => selectedSyncTypes.value.includes(item.syncType))
+  if (selectedItems.length === 0) {
+    ElMessage.error('请先选择至少一个 ERP 表格')
+    return
+  }
   running.value = true
   try {
-    const result = await ErpKingdeeTableAutoSyncApi.runOnce()
-    ElMessage.success(`立即执行一次已完成：${result.successSyncCount}/${result.totalSyncCount}`)
-    await Promise.all([loadRuns(), loadWatermarks(), ErpKingdeeTableAutoSyncApi.getPlan().then(applyPlan)])
+    await refreshJobsBeforeMutation()
+    await Promise.all(selectedItems.map((item) => ErpKingdeeSyncApi.runIncrementalSyncJob(item.handlerName)))
+    ElMessage.success(`已提交 ${selectedItems.length} 个 ERP 增量同步任务`)
+    await Promise.all([loadWatermarks(), loadJobs(), loadLatestRuns(), loadRunningSyncRuns()])
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '立即执行一次失败'))
   } finally {
@@ -224,12 +482,30 @@ const handleRunOnce = async () => {
   }
 }
 
+const handleRunSingle = async (row: ProfileErpSyncTableRow) => {
+  manualSyncingType.value = row.syncType
+  try {
+    await ErpKingdeeSyncApi.runIncrementalSyncJob(row.handlerName)
+    ElMessage.success(`已提交 ${row.erpTableName} 单表 ERP 增量同步任务`)
+    await Promise.all([loadWatermarks(), loadLatestRuns(), loadRunningSyncRuns()])
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '手动同步失败'))
+  } finally {
+    manualSyncingType.value = ''
+  }
+}
+
+watch([syncTableRows, selectedSyncTypes], () => {
+  void syncSelectedRows()
+}, { flush: 'post' })
+
 onMounted(loadData)
 </script>
 
 <style scoped>
 .profile-erp-table-sync {
-  max-width: 1080px;
+  width: 100%;
+  max-width: none;
 }
 
 .profile-erp-table-sync__header {
@@ -255,33 +531,34 @@ onMounted(loadData)
   margin-top: 16px;
 }
 
-.profile-erp-table-sync__checks {
+.profile-erp-table-sync__select-table {
+  width: 100%;
+}
+
+.profile-erp-table-sync__running-jobs {
+  margin-top: 20px;
+}
+
+.profile-erp-table-sync__running-header {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
 }
 
-.profile-erp-table-sync__handler {
-  margin-left: 6px;
-  color: #8a95a8;
-  font-size: 12px;
-}
-
-.profile-erp-table-sync__summary {
-  margin-top: 12px;
-}
-
-.profile-erp-table-sync__section-title {
-  margin-bottom: 12px;
+.profile-erp-table-sync__running-title {
   color: #1f2d3d;
+  font-size: 15px;
   font-weight: 600;
 }
 
-.profile-erp-table-sync__section-title--runs {
-  margin-top: 18px;
+.profile-erp-table-sync__running-subtitle {
+  color: #8a94a6;
+  font-size: 12px;
 }
 
-.profile-erp-table-sync__table {
+.profile-erp-table-sync__running-table {
   width: 100%;
 }
 </style>

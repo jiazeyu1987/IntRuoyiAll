@@ -164,14 +164,30 @@
 - BACKUP: `db-backup/acm04-ac-m21-aggregate-runtime-closure-20260806.sql` -> SHA256 `8D9DD18114ED4BD603EA94CB504D76B3954660E6645C12FF8BE86F37342BF674`。
 - GREEN: AC-M21 local DB apply -> PASS；本机 Docker MySQL 执行运行态闭合迁移成功，rollback 保存在 `db-repair/acm21-aggregate-runtime-closure-rollback.sql`。
 - GREEN: AC-M21 local DB post-verify -> PASS；`mes_pqc_process_inspection_aggregate_detail` 已存在 `active_order_id`、`route_version_id NOT NULL`、`actual_inspection_quantity NOT NULL`，缺正式来源行 `0`、残留存储过程 `0`，唯一键 `uk_mes_pqc_process_inspection_aggregate` 与 review/task/submit_event 索引均存在。
+- RED: `node IntRuoyiFronted\tests\e2e\role-requirement-matrix-preflight-static.spec.cjs` -> FAIL，预期原因为活跃订单 add API 类型缺 `transferIds?: number[]`，无法证明页面正式调拨单 ID 会进入提交 payload。
+- RED: safe wrapper full real E2E after AC-M21 closure -> FAIL at `performActiveOrderJoin`，真实页面弹窗只剩候选“订单号”选择框，缺 `生产订单ID / 路线ID / 路线版本ID / 调拨单ID列表` 可见字段；Playwright 在 `生产订单ID` 表单项等待超时。
+- BDD: 活跃订单加入正式字段闭环 -> Given AC-M04 加入活跃订单必须绑定同一生产订单、路线、路线版本和正式调拨单 ID；When 生产班组长点击“新增活跃订单”；Then 页面必须暴露这些正式字段、前端 API 类型必须携带 `routeId/routeVersionId/transferIds`，提交前必须校验调拨单 ID 为正整数，禁止只用候选订单号替代正式路线和调拨来源。
+- GREEN: active-order dialog contract repair -> PASS；已保留候选“订单号”选择作为辅助输入，同时恢复 `生产订单ID / 路线ID / 路线版本ID / 调拨单ID列表` 输入、`parsePositiveIntegerList`、`routeId/routeVersionId/transferIds` payload 和更强静态合同。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `node IntRuoyiFronted\tests\e2e\role-requirement-matrix-preflight-static.spec.cjs` -> PASS，输出 `PASS role-requirement-matrix preflight static contract`。
+- GREEN: `node IntRuoyiFronted\tests\e2e\role-requirement-matrix-local-wrapper-static.spec.cjs` -> PASS，输出 `PASS role-requirement-matrix local wrapper static contract`。
+- FULL_REAL_E2E_2026_08_06: `doc\tasks\20260805-ac-m04-acceptance-sync\run-rrm-real-e2e-local.ps1 -Mode Real -BackendJar output\runtime\int_main\backend-runtime-control-acm04-pqc-source-context-20260805.jar` -> BLOCKED；`real:check` PASS，full real E2E 产物为 `status=BLOCKED`、`mode=real`、`phaseEvidence=6`、`actionEvidence=22`、`gateEvidence=2`、`blockers=64`、categories `{E2E_QA_REGULATION_PAGE:1,E2E_CONCURRENCY:1,E2E_COVERAGE:62}`。
+- FULL_REAL_E2E_ACTIONS_2026_08_06: AC-M04 `joinActiveOrder / activeOrderConflictRouteRejected / activeOrderTransferTraceReadOnly / activeOrderCrossRoleReadOnly / activeOrderCleanupCompleted` 均 PASS，`activeOrderId=12`；PQC `pqcFormalSubmissionCreated / pqcLeaderReviewApprovedAndAggregated / pqcLeaderDuplicateTerminalReviewBlocked / pqcLeaderSelfReviewBlocked / pqcProcessInspectionAggregationReadOnly` 均 PASS；eDHR `edhrReleasePreparedViaBatchExecutionPage / edhrReleaseTraceabilityReadOnly` 均 PASS。
+- BDD: QA 发布版本与 coverage 准出闭合 -> Given QA 规程页面必须显示正式发布版本、路线版本、工序、首检/巡检/末检、批记录绑定和发布不可变证据，且 M0-M5、M6 并发/性能、最终活跃订单清理均已 PASS；When 安全包装 full real E2E 重新生成 coverage ledger；Then 62 项 AC 必须全部 `ACCEPTED`，`blockers` 必须为 0，禁止把旧 `E2E_COVERAGE` blocker 或旧 QA 页面 blocker 留作当前结论。
+- GREEN: runtime immutable evidence -> PASS；`output\runtime\int_main\backend-runtime-acm04-formal-active-order-20260806-130259.jar` SHA256 `D3CB7E27188198816C2385095EA82950B7E1BE5DDDD8C186D02BB10E1C46C223`，本机 `48081` 监听 PID `36924`，`/actuator/health` 返回 `UP`。
+- GREEN: `node IntRuoyiFronted\tests\e2e\role-requirement-matrix-preflight-static.spec.cjs` -> PASS；正式合同已要求 `RRM_TRANSFER_IDS`、冲突路线拒绝、QA 发布版本页面证据、AC-M19 聚合幂等键和 coverage ledger capstone acceptance。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `node IntRuoyiFronted\tests\e2e\role-requirement-matrix-local-wrapper-static.spec.cjs` -> PASS；本机安全包装包含 `RRM_TRANSFER_IDS=1,2` 保存、注入和恢复合同。
+- GREEN: `doc\tasks\20260805-ac-m04-acceptance-sync\run-rrm-real-e2e-local.ps1 -Mode Real -BackendJar output\runtime\int_main\backend-runtime-acm04-formal-active-order-20260806-130259.jar` -> PASS；输出 `PASS role-requirement-matrix full real E2E` 和 `RRM_ACCOUNT_RESTORE=PASS`。
+- GREEN: parsed `IntRuoyiFronted\test-results\role-requirement-matrix-real-flow\result.json` -> `status=PASS`、`mode=real`、`phaseEvidence=6`、`actionEvidence=22`、`gateEvidence=2`、`blockers=0`、coverage `total=62`、`accepted=62`、`pending=0`；`m6ConcurrencyGateVerified=true`、`m6PerformanceGateVerified=true`、`activeOrderCleanupCompleted=true`、`allRequiredPhasesPassed=true`。
+- GREEN: targeted backend regression -> `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am -Pmes-ac-m04-active-order-targeted-tests "-Dtest=MesTeamLeaderActiveOrderServiceTest,MesProcessPoolTeamLeaderControllerTest,MesActiveOrderTransferTraceServiceTest,MesActiveOrderTransferTraceSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` PASS；30 tests / 0 failures / 0 errors / 0 skipped，`BUILD SUCCESS`。
+- GREEN: `git diff --check -- doc/tasks/20260805-ac-m04-acceptance-sync/task.md doc/tasks/20260805-ac-m04-acceptance-sync/execution-log.md doc/tasks/20260805-ac-m04-acceptance-sync/verification-report.md` -> PASS。
+- EXPERIENCE_REFRESH_2026_08_06: 已按 `project-experience-consolidation` 规则复核经验归宿；本轮新增内容属于一次性验收与本机数据修复证据，已有 `docs\e2e-rules.md`、`docs\database-rules.md`、`docs\task-closeout-rules.md` 覆盖通用门禁，且相关长期规则文件当前存在非本任务脏改动，因此不新建或修改长期经验文档。
+- CLEANUP_PREVIEW_2026_08_06: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-ac-m04-acceptance-sync --mode preview` -> PASS；补充 `Cleanup Keep` 后 `delete=<none>`、`blocked=<none>`、`warnings=<none>`。
+- CLEANUP_APPLY_2026_08_06: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260805-ac-m04-acceptance-sync --mode apply` -> PASS；`deleted_paths=<none>`，保留任务文档、DB backup、rollback、manifest、policy gate 和 E2E 包装脚本。
+- DOC_UTF8_CHECK_2026_08_06: `python -X utf8` 读取 `task.md`、`execution-log.md`、`verification-report.md` -> PASS。
 
 ## Blockers
 
-- 当前仓库存在大量非本任务既有脏改动；本任务只触碰当前专项任务文档和必要的 AC-M04 产物同步文件，未获明确要求不处理无关改动。
-- `RRM_*` 前置已补齐且 `real:check` 已 PASS；不得再把旧 ENV blocker-only 产物当作当前状态。
-- 历史 worktree 真实 `result.json` 不是当前主任务 canonical 状态，直接复制会把额外 transfer-trace blocker 带回主工作区，造成验收口径倒退。
-- AC-M04 当前仍只能保持 `PASS_ACTION_NOT_ACCEPTED`；虽然 full real E2E 已证明 AC-M04 核心动作 PASS，但提升为 `ACCEPTED` 前还必须补齐 coverage ledger 的正式接受条件，证明成功路径、重复/并发、冲突路线、越权写入、跨角色只读、PQC/报工候选联动和清理-readiness 均达到准出。
-- 后续非 AC-M04 阻塞：PQC 正式提交未捕获提交接口响应、PQC 组长提交夹具不足、eDHR 放行准备路线下拉定位失败、AC-M19 并发 proof 缺口、性能准出和 62 个 coverage blocker。
-- 已解除：PQC 组长 `512` 到实际检验人 `914524` 的正式负责范围已补齐并复验；禁止放宽 `employeeUserIds` 权限过滤。
-- 已解除：AC-M21 汇集表运行态 schema blocker 已通过正式迁移、本机 apply 和 post-verify 闭合；下一步必须用 full real E2E 证明页面批准复核后的汇集与只读证据。
-- 已解除硬阻塞：PQC 正式提交暴露的 P0 runtime migration/backfill blocker 已按用户授权在本机库完成修复并复验 PASS；下一步必须重新运行真实 RRM E2E，不能把 schema verifier PASS 直接冒充 PQC 页面链路 PASS。
+- 当前代码与验证 blocker：无。P0 backfill、QA 发布版本页面证据、AC-M19 并发 proof、M6 性能门禁、最终活跃订单清理和 62 项 coverage ledger 均已 PASS。
+- 当前收尾/Git blocker：仓库已有大量非本任务脏改动，且 `git status --short --branch` 显示 `int_main...origin/int_main [behind 5]`。本轮未回滚、未提交、未推送这些无关改动；若要按项目 Git 完整收尾，需要单独处理 dirty baseline、远端 behind 同步和任务归属提交边界。

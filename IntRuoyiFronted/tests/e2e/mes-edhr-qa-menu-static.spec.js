@@ -59,7 +59,7 @@ for (const [label, sort, menuPath] of expectedOrder) {
 
 assert.match(
   sql,
-  /900434[\s\S]*'QA'[\s\S]*'mes:pro-process-pool-team-leader:query'[\s\S]*'\/mes\/pro\/process-pool\/qa-regulation'[\s\S]*'mes\/pro\/processpool\/QaRegulationPage'[\s\S]*'MesProProcessPoolQaRegulation'/,
+  /900434[\s\S]*'QA'[\s\S]*'mes:qa-inspection-regulation:query'[\s\S]*'\/mes\/pro\/process-pool\/qa-regulation'[\s\S]*'mes\/pro\/processpool\/QaRegulationPage'[\s\S]*'MesProProcessPoolQaRegulation'/,
   'QA dynamic menu must point at the standalone QA regulation page.'
 )
 assert.match(
@@ -74,7 +74,7 @@ assert.match(
 )
 assert.match(
   sql,
-  /900435[\s\S]*'PQC组长'[\s\S]*'mes:pro-process-pool-team-leader:query'[\s\S]*'\/mes\/pro\/process-pool\/pqc-leader'[\s\S]*'mes\/pro\/processpool\/PqcLeaderWorkbenchPage'[\s\S]*'MesProProcessPoolPqcLeaderWorkbench'/,
+  /900435[\s\S]*'PQC组长'[\s\S]*'mes:pro-process-pool-pqc-leader:query'[\s\S]*'\/mes\/pro\/process-pool\/pqc-leader'[\s\S]*'mes\/pro\/processpool\/PqcLeaderWorkbenchPage'[\s\S]*'MesProProcessPoolPqcLeaderWorkbench'/,
   'PQC leader dynamic menu must point at the standalone QA-side PQC leader page.'
 )
 assert.match(sql, /system_tenant_package/, 'QA menu must be added to tenant packages.')
@@ -104,8 +104,18 @@ assert.match(
 )
 assert.match(
   route,
-  /permission:\s*\['mes:pro-process-pool-team-leader:query'\]/,
+  /path:\s*'pro\/process-pool\/qa-regulation'[\s\S]*permission:\s*\['mes:qa-inspection-regulation:query'\]/,
   'Frontend route permission must match the dynamic QA menu permission.'
+)
+assert.match(
+  route,
+  /path:\s*'pro\/process-pool\/pqc-leader'[\s\S]*permission:\s*\['mes:pro-process-pool-pqc-leader:query'\]/,
+  'Frontend PQC leader route must use the dedicated PQC leader permission.'
+)
+assert.doesNotMatch(
+  route,
+  /path:\s*'pro\/process-pool\/pqc-leader'[\s\S]*permission:\s*\['mes:pro-process-pool-team-leader:query'\]/,
+  'Frontend PQC leader route must not reuse the broad team-leader query permission.'
 )
 assert.match(qaPage, /data-qa-regulation-page/, 'Standalone QA page must remain routable.')
 assert.match(productionLeaderPage, /data-production-leader-workbench-page/, 'Standalone production leader page must remain routable.')

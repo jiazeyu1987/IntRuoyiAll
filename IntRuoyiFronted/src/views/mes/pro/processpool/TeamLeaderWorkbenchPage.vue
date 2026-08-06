@@ -522,6 +522,18 @@
               <template #default="{ row }">{{ row.processName || row.processCode || '--' }}</template>
             </el-table-column>
             <el-table-column
+              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('workOrder')"
+              label="生产工单"
+              prop="workOrder"
+              :min-width="getSubmissionColumnMinWidthString('workOrder', 160)"
+            >
+              <template #default="{ row }">
+                <span data-pqc-leader-work-order>
+                  {{ row.workOrderCode || row.workOrderName || '--' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column
               v-if="isSubmissionColumnVisible('completionQuantity')"
               :label="completionQuantityColumnLabel"
               prop="completionQuantity"
@@ -588,6 +600,24 @@
               </template>
             </el-table-column>
             <el-table-column
+              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('inspectionItems')"
+              label="检验项"
+              prop="inspectionItems"
+              :min-width="getSubmissionColumnMinWidthString('inspectionItems', 190)"
+            >
+              <template #default="{ row }">
+                <div class="team-leader-workbench__structured-list" data-pqc-leader-inspection-items>
+                  <span
+                    v-for="item in resolvePqcInspectionItemItems(row)"
+                    :key="item.key"
+                    class="team-leader-workbench__structured-pill"
+                  >
+                    {{ item.valueText }}
+                  </span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
               v-if="isSubmissionColumnVisible('equipmentSnapshot')"
               label="设备"
               prop="equipmentSnapshot"
@@ -601,6 +631,78 @@
                     class="team-leader-workbench__structured-pill"
                   >
                     {{ item.valueText }}
+                  </span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('equipmentNumber')"
+              label="设备编号"
+              prop="equipmentNumber"
+              :min-width="getSubmissionColumnMinWidthString('equipmentNumber', 150)"
+            >
+              <template #default="{ row }">
+                <div class="team-leader-workbench__structured-list" data-pqc-leader-equipment-number>
+                  <span
+                    v-for="item in resolvePqcEquipmentNumberItems(row)"
+                    :key="item.key"
+                    class="team-leader-workbench__structured-pill"
+                  >
+                    {{ item.label }}：{{ item.valueText }}
+                  </span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('acceptanceStandard')"
+              label="接收标准"
+              prop="acceptanceStandard"
+              :min-width="getSubmissionColumnMinWidthString('acceptanceStandard', 220)"
+            >
+              <template #default="{ row }">
+                <div class="team-leader-workbench__structured-list" data-pqc-leader-acceptance-standard>
+                  <span
+                    v-for="item in resolvePqcAcceptanceStandardItems(row)"
+                    :key="item.key"
+                    class="team-leader-workbench__structured-pill"
+                  >
+                    {{ item.label }}：{{ item.valueText }}
+                  </span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('inspectionMethod')"
+              label="检验方法"
+              prop="inspectionMethod"
+              :min-width="getSubmissionColumnMinWidthString('inspectionMethod', 180)"
+            >
+              <template #default="{ row }">
+                <div class="team-leader-workbench__structured-list" data-pqc-leader-inspection-method>
+                  <span
+                    v-for="item in resolvePqcInspectionMethodItems(row)"
+                    :key="item.key"
+                    class="team-leader-workbench__structured-pill"
+                  >
+                    {{ item.label }}：{{ item.valueText }}
+                  </span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('inspectionJudgement')"
+              label="检验判定"
+              prop="inspectionJudgement"
+              :min-width="getSubmissionColumnMinWidthString('inspectionJudgement', 150)"
+            >
+              <template #default="{ row }">
+                <div class="team-leader-workbench__structured-list" data-pqc-leader-inspection-judgement>
+                  <span
+                    v-for="item in resolvePqcInspectionJudgementItems(row)"
+                    :key="item.key"
+                    class="team-leader-workbench__structured-pill"
+                  >
+                    {{ item.label }}：{{ item.valueText }}
                   </span>
                 </div>
               </template>
@@ -633,58 +735,39 @@
               </template>
             </el-table-column>
             <el-table-column
-              v-if="isSubmissionColumnVisible('auditCopyStatus')"
-              label="审核副本"
-              prop="auditCopyStatus"
-              :min-width="getSubmissionColumnMinWidthString('auditCopyStatus', 130)"
-            >
-              <template #default="{ row }">{{ row.auditCopyStatus || '--' }}</template>
-            </el-table-column>
-            <el-table-column
-              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('processInspectionAggregation')"
-              label="过程检验汇集"
-              prop="processInspectionAggregation"
-              :min-width="getSubmissionColumnMinWidthString('processInspectionAggregation', 180)"
+              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('pieceSampleValues')"
+              label="逐件/样本值"
+              prop="pieceSampleValues"
+              :min-width="getSubmissionColumnMinWidthString('pieceSampleValues', 220)"
             >
               <template #default="{ row }">
-                <div
-                  class="team-leader-workbench__review-log"
-                  data-pqc-process-inspection-aggregation
-                  :data-pqc-process-inspection-event-id="String(row.id)"
-                >
-                  <el-tag
-                    :type="resolveProcessInspectionAggregationTagType(row.processInspectionAggregationStatus)"
-                    effect="plain"
+                <div class="team-leader-workbench__parameter-list" data-pqc-leader-piece-sample-values>
+                  <div
+                    v-for="item in resolvePqcPieceSampleItems(row)"
+                    :key="item.key"
+                    class="team-leader-workbench__parameter-item"
                   >
-                    {{ resolveProcessInspectionAggregationStatusText(row.processInspectionAggregationStatus) }}
-                  </el-tag>
-                  <span
-                    v-if="row.processInspectionReviewId"
-                    class="team-leader-workbench__review-meta"
-                  >
-                    复核 {{ row.processInspectionReviewId }} ·
-                    {{ formatDateTime(row.processInspectionAggregatedAt) }}
-                  </span>
+                    <span class="team-leader-workbench__parameter-label">{{ item.label }}</span>
+                    <span
+                      class="team-leader-workbench__parameter-value"
+                      :class="{ 'is-out-of-range': item.outOfRange }"
+                    >
+                      {{ item.valueText }}
+                    </span>
+                  </div>
                 </div>
               </template>
             </el-table-column>
             <el-table-column
-              v-if="isSubmissionColumnVisible('submissionReviewStatus')"
-              label="复核判定"
-              prop="submissionReviewStatus"
-              :min-width="getSubmissionColumnMinWidthString('submissionReviewStatus', 190)"
+              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('defectDescription')"
+              label="不良说明"
+              prop="defectDescription"
+              :min-width="getSubmissionColumnMinWidthString('defectDescription', 180)"
             >
               <template #default="{ row }">
-                <div class="team-leader-workbench__review-log" data-team-leader-review-log>
-                  <el-tag :type="resolveSubmissionReviewTagType(row.submissionReviewStatus)" effect="plain">
-                    {{ resolveSubmissionReviewStatusText(row.submissionReviewStatus) }}
-                  </el-tag>
-                  <span v-if="row.submissionReviewRemark" class="team-leader-workbench__review-text">
-                    {{ row.submissionReviewRemark }}
-                  </span>
-                  <span v-if="row.submissionReviewedAt" class="team-leader-workbench__review-meta">
-                    复核人 {{ row.submissionReviewLeaderUserId || '--' }} ·
-                    {{ formatDateTime(row.submissionReviewedAt) }}
+                <div class="team-leader-workbench__structured-list" data-pqc-leader-defect-description>
+                  <span class="team-leader-workbench__structured-pill">
+                    {{ resolvePqcDefectDescriptionText(row) }}
                   </span>
                 </div>
               </template>
@@ -898,36 +981,34 @@
         @closed="resetActiveOrderForm"
       >
         <el-form :model="activeOrderForm" label-width="110px">
-          <el-form-item label="生产订单ID">
-            <el-input-number
+          <el-form-item label="订单号" data-team-leader-active-order-work-order-code>
+            <el-select
               v-model="activeOrderForm.workOrderId"
-              :min="1"
-              :controls="false"
-              class="team-leader-workbench__full-control"
-            />
-          </el-form-item>
-          <el-form-item label="路线ID" data-team-leader-active-order-route-id>
-            <el-input-number
-              v-model="activeOrderForm.routeId"
-              :min="1"
-              :controls="false"
-              class="team-leader-workbench__full-control"
-            />
-          </el-form-item>
-          <el-form-item label="路线版本ID" data-team-leader-active-order-route-version-id>
-            <el-input-number
-              v-model="activeOrderForm.routeVersionId"
-              :min="1"
-              :controls="false"
-              class="team-leader-workbench__full-control"
-            />
-          </el-form-item>
-          <el-form-item label="调拨单ID列表" data-team-leader-active-order-transfer-ids>
-            <el-input
-              v-model="activeOrderForm.transferIdsText"
+              filterable
+              remote
               clearable
-              placeholder="多个 ID 用逗号或空格分隔"
-            />
+              reserve-keyword
+              :remote-method="searchActiveOrderCandidates"
+              :loading="activeOrderCandidateLoading"
+              placeholder="请输入并选择订单号"
+              class="team-leader-workbench__full-control"
+              @change="handleActiveOrderCandidateChange"
+              @clear="handleActiveOrderCandidateClear"
+            >
+              <el-option
+                v-for="candidate in activeOrderCandidateOptions"
+                :key="candidate.workOrderId"
+                :label="candidate.workOrderCode"
+                :value="candidate.workOrderId"
+              />
+            </el-select>
+            <div
+              v-if="activeOrderCandidateError"
+              class="team-leader-workbench__form-error"
+              data-team-leader-active-order-candidate-error
+            >
+              {{ activeOrderCandidateError }}
+            </div>
           </el-form-item>
         </el-form>
         <template #footer>
@@ -1316,7 +1397,7 @@
               <el-input-number v-model="defectReasonForm.processId" :min="1" :controls="false" />
             </el-form-item>
             <el-form-item label="原因类型">
-              <el-select v-model="defectReasonForm.reasonType">
+              <el-select v-model="defectReasonForm.reasonType" data-team-leader-defect-reason-select>
                 <el-option label="不合格" value="UNQUALIFIED" />
                 <el-option label="PQC 失败" value="PQC_FAILURE" />
               </el-select>
@@ -1769,6 +1850,7 @@ import {
   saveTeamProcessDeviceBinding,
   saveTeamProcessEmployeeBinding,
   saveTeamRuntimeDeviceParameterRule,
+  searchTeamLeaderActiveOrderCandidates,
   searchPqcFormalEmployeeCandidates,
   searchTeamFormalEmployeeCandidates,
   updateTeamLeaderLossReason,
@@ -1777,6 +1859,7 @@ import {
   updateTeamEmployeeStatus as updateTeamEmployeeStatusRequest,
   updatePqcPersonnelStatus,
   type TeamFormalEmployeeCandidateRespVO,
+  type TeamLeaderActiveOrderCandidateRespVO,
   type TeamLeaderActiveOrderRespVO,
   type TeamLeaderActiveOrderTransferTraceRespVO,
   type TeamLeaderLossReasonRowVO,
@@ -1845,6 +1928,11 @@ const detail = ref<ProcessPoolTimelineDetailVO>()
 const reviewEvent = ref<ProcessPoolTimelineEventVO>()
 const correctionEvent = ref<ProcessPoolTimelineEventVO>()
 const activeOrderOptions = ref<TeamLeaderActiveOrderRespVO[]>([])
+const activeOrderCandidateOptions = ref<TeamLeaderActiveOrderCandidateRespVO[]>([])
+const activeOrderSelectedCandidate = ref<TeamLeaderActiveOrderCandidateRespVO>()
+const activeOrderCandidateKeyword = ref('')
+const activeOrderCandidateLoading = ref(false)
+const activeOrderCandidateError = ref('')
 const activeOrderTransferTraceRows = ref<TeamLeaderActiveOrderTransferTraceRespVO[]>([])
 const activeOrderTransferTraceLoading = ref(false)
 const activeOrderTransferTraceError = ref('')
@@ -1925,16 +2013,21 @@ const submissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'submittedAt', label: '提交时间', minWidth: 160 },
   { key: 'employeeUser', label: 'PQC检验员/员工', minWidth: 140 },
   { key: 'process', label: '工序', minWidth: 150 },
+  { key: 'workOrder', label: '生产工单', minWidth: 160 },
   { key: 'completionQuantity', label: '完成/检验数量', minWidth: 130 },
   { key: 'lossQuantity', label: '损耗数量', minWidth: 120 },
   { key: 'lossBreakdown', label: '损耗明细', minWidth: 210 },
   { key: 'product', label: '产品', minWidth: 180 },
   { key: 'inspectionTask', label: '检验类型/轮次', minWidth: 150 },
+  { key: 'inspectionItems', label: '检验项', minWidth: 190 },
   { key: 'equipmentSnapshot', label: '设备', minWidth: 220 },
+  { key: 'equipmentNumber', label: '设备编号', minWidth: 150 },
+  { key: 'acceptanceStandard', label: '接收标准', minWidth: 220 },
+  { key: 'inspectionMethod', label: '检验方法', minWidth: 180 },
+  { key: 'inspectionJudgement', label: '检验判定', minWidth: 150 },
   { key: 'parameterSnapshot', label: '参数明细', minWidth: 280 },
-  { key: 'auditCopyStatus', label: '审核副本', minWidth: 130 },
-  { key: 'processInspectionAggregation', label: '过程检验汇集', minWidth: 180 },
-  { key: 'submissionReviewStatus', label: '复核判定', minWidth: 190 },
+  { key: 'pieceSampleValues', label: '逐件/样本值', minWidth: 220 },
+  { key: 'defectDescription', label: '不良说明', minWidth: 180 },
   { key: 'operation', label: '操作', width: 270, hideable: false, business: false }
 ]
 const {
@@ -2237,10 +2330,7 @@ const abnormalForm = reactive({
 })
 
 const activeOrderForm = reactive({
-  workOrderId: undefined as number | undefined,
-  routeId: undefined as number | undefined,
-  routeVersionId: undefined as number | undefined,
-  transferIdsText: ''
+  workOrderId: undefined as number | undefined
 })
 
 const formalEmployeeForm = reactive({
@@ -2317,7 +2407,7 @@ const resolveErrorMessage = (error: unknown, fallback: string) => {
   return fallback
 }
 
-const normalizePositiveNumber = (value?: number) => {
+const normalizePositiveNumber = (value?: unknown) => {
   const parsed = Number(value)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
 }
@@ -2341,18 +2431,6 @@ const requireFiniteNumber = (value: unknown, message: string) => {
     throw new Error(message)
   }
   return parsed
-}
-
-const parsePositiveIntegerList = (value: string, label: string) => {
-  const text = value.trim()
-  if (!text) return []
-  return text.split(/[,\s，]+/).filter(Boolean).map((item) => {
-    const parsed = Number(item)
-    if (!Number.isInteger(parsed) || parsed <= 0) {
-      throw new Error(`${label}只能包含大于 0 的整数 ID`)
-    }
-    return parsed
-  })
 }
 
 const formatActiveOrderOption = (order: TeamLeaderActiveOrderRespVO) => {
@@ -2923,6 +3001,27 @@ interface SubmissionStructuredItem {
   outOfRange?: boolean
 }
 
+interface PqcFillFormSampleItem {
+  key: string
+  valueText: string
+  outOfRange?: boolean
+}
+
+interface PqcFillFormSnapshotItem {
+  key: string
+  inspectionItemText: string
+  inspectionStageText: string
+  equipmentText: string
+  equipmentNumberText: string
+  standardText: string
+  methodText: string
+  judgementText: string
+  quantityText: string
+  scrapText: string
+  defectDescriptionText: string
+  samples: PqcFillFormSampleItem[]
+}
+
 interface ProductionParameterRuleSnapshot {
   parameterCode?: string
   parameterName?: string
@@ -3093,7 +3192,7 @@ const readSubmissionPayloadValue = (
 const resolveSubmissionCompletionQuantity = (row: ProcessPoolTimelineEventVO) => {
   const { rootPayload } = resolvePqcPayloadPair(row)
   const value = isPqcSubmissionRow(row)
-    ? readSubmissionPayloadValue(rootPayload, ['actualInspectionQuantity', 'inspectionQuantity'])
+    ? readSubmissionPayloadValue(rootPayload, ['inspectionQuantity', 'actualInspectionQuantity'])
     : readSubmissionPayloadValue(rootPayload, ['outputQuantity', 'OUTPUT_QUANTITY'])
   return formatSubmissionQuantity(value)
 }
@@ -3117,8 +3216,8 @@ const resolveSubmissionLossBreakdownItems = (
   const lossQuantity = resolveSubmissionLossQuantityValue(row)
   if (isPqcSubmissionRow(row)) {
     const description = readSubmissionPayloadValue(rootPayload, [
-      'nonconformanceDescription',
-      'defectDescription'
+      'defectDescription',
+      'nonconformanceDescription'
     ])
     return [{
       key: 'pqc-loss',
@@ -3160,14 +3259,11 @@ const resolveSubmissionEquipmentItems = (
     const seen = new Set<string>()
     const items = resolvePqcItemSnapshotDetails(row)
       .map((detail, index): SubmissionStructuredItem | undefined => {
-        const equipment = [
-          detail.selectedEquipmentName || detail.selectedEquipmentCode,
-          detail.selectedEquipmentNumber
-        ].filter(Boolean).join(' / ')
+        const equipment = detail.selectedEquipmentName || detail.selectedEquipmentCode
         if (!equipment) {
           return undefined
         }
-        const key = `${detail.selectedEquipmentId || detail.selectedEquipmentCode || index}-${detail.selectedEquipmentNumber || ''}`
+        const key = String(detail.selectedEquipmentId || detail.selectedEquipmentCode || index)
         if (seen.has(key)) {
           return undefined
         }
@@ -3223,6 +3319,68 @@ const formatParameterRangeText = (lower?: unknown, upper?: unknown, unit = '') =
     return ''
   }
   return `范围 ${lower ?? '--'} ~ ${upper ?? '--'}${unit}`
+}
+
+const resolvePqcDetailStructuredItems = (
+  row: ProcessPoolTimelineEventVO,
+  resolveValueText: (detail: PqcItemSnapshotDetail) => string
+): SubmissionStructuredItem[] => {
+  const details = resolvePqcItemSnapshotDetails(row)
+  if (!details.length) {
+    return [{ key: 'missing-pqc-detail', label: 'PQC明细', valueText: '--' }]
+  }
+  return details.map((detail, index) => ({
+    key: detail.itemCode || `${detail.itemName || 'pqc-item'}-${index}`,
+    label: detail.itemName || detail.itemCode || '检验项',
+    valueText: resolveValueText(detail)
+  }))
+}
+
+const resolvePqcInspectionItemItems = (row: ProcessPoolTimelineEventVO) =>
+  resolvePqcDetailStructuredItems(row, (detail) =>
+    formatSubmissionText(detail.itemName || detail.itemCode, '--')
+  )
+
+const resolvePqcEquipmentNumberItems = (row: ProcessPoolTimelineEventVO) =>
+  resolvePqcDetailStructuredItems(row, (detail) =>
+    formatSubmissionText(detail.selectedEquipmentNumber, '--')
+  )
+
+const resolvePqcAcceptanceStandardItems = (row: ProcessPoolTimelineEventVO) =>
+  resolvePqcDetailStructuredItems(row, (detail) => formatPqcSnapshotStandard(detail))
+
+const resolvePqcInspectionMethodItems = (row: ProcessPoolTimelineEventVO) =>
+  resolvePqcDetailStructuredItems(row, (detail) =>
+    formatSubmissionText(detail.inspectionMethod, '--')
+  )
+
+const resolvePqcInspectionJudgementItems = (row: ProcessPoolTimelineEventVO) =>
+  resolvePqcDetailStructuredItems(row, (detail) =>
+    formatSubmissionText(detail.judgement || detail.itemResult || detail.resultType, '--')
+  )
+
+const resolvePqcDefectDescriptionText = (row: ProcessPoolTimelineEventVO) => {
+  const { rootPayload } = resolvePqcPayloadPair(row)
+  const value = readSubmissionPayloadValue(rootPayload, ['defectDescription', 'nonconformanceDescription'])
+  return formatSubmissionText(value, '--')
+}
+
+const resolvePqcPieceSampleItems = (
+  row: ProcessPoolTimelineEventVO
+): SubmissionStructuredItem[] => {
+  const details = resolvePqcItemSnapshotDetails(row)
+  if (!details.length) {
+    return [{ key: 'missing-pqc-sample', label: '样本', valueText: '--' }]
+  }
+  return details.flatMap((detail, detailIndex) => {
+    const values = detail.sampleValues?.length ? detail.sampleValues : ['未填写']
+    return values.map((value, sampleIndex) => ({
+      key: `${detail.itemCode || detail.itemName || detailIndex}-${sampleIndex}`,
+      label: `${detail.itemName || detail.itemCode || '检验项'}#${sampleIndex + 1}`,
+      valueText: `${formatSubmissionText(value)}${detail.standardUnit || ''}`,
+      outOfRange: isPqcSampleOutOfRange(value, detail)
+    }))
+  })
 }
 
 const normalizeProductionParameterRules = (value: unknown): ProductionParameterRuleSnapshot[] => {
@@ -3294,22 +3452,20 @@ const resolveProductionParameterItems = (
 
 const resolvePqcParameterItems = (row: ProcessPoolTimelineEventVO): SubmissionStructuredItem[] => {
   const details = resolvePqcItemSnapshotDetails(row)
-  const items = details.flatMap((detail, detailIndex) => {
-    const values = detail.sampleValues?.length ? detail.sampleValues : ['未填写']
-    return values.map((value, sampleIndex) => {
-      const unit = detail.standardUnit || ''
-      return {
-        key: `${detail.itemCode || detailIndex}-${sampleIndex}`,
-        label: `${detail.itemName || detail.itemCode || '检验项目'}#${sampleIndex + 1}`,
-        valueText: `${formatSubmissionText(value)}${unit}`,
-        metaText: [
-          formatPqcSnapshotStandard(detail),
-          detail.inspectionMethod ? `方法：${detail.inspectionMethod}` : '',
-          detail.judgement ? `判定：${detail.judgement}` : ''
-        ].filter(Boolean).join('；'),
-        outOfRange: isPqcSampleOutOfRange(value, detail)
-      }
-    })
+  const items = details.map((detail, detailIndex) => {
+    const equipmentText = detail.selectedEquipmentName || detail.selectedEquipmentCode
+    const judgementText = detail.judgement || detail.itemResult || detail.resultType
+    return {
+      key: detail.itemCode || `${detail.itemName || 'pqc-parameter'}-${detailIndex}`,
+      label: detail.itemName || detail.itemCode || '检验项目',
+      valueText: formatPqcSnapshotStandard(detail),
+      metaText: [
+        equipmentText ? `设备：${equipmentText}` : '',
+        detail.selectedEquipmentNumber ? `设备编号：${detail.selectedEquipmentNumber}` : '',
+        detail.inspectionMethod ? `方法：${detail.inspectionMethod}` : '',
+        judgementText ? `判定：${judgementText}` : ''
+      ].filter(Boolean).join('；')
+    }
   })
   return items.length ? items : [{ key: 'empty-parameter', label: '参数', valueText: '--' }]
 }
@@ -3741,9 +3897,11 @@ const submitAbnormal = async () => {
 
 const resetActiveOrderForm = () => {
   activeOrderForm.workOrderId = undefined
-  activeOrderForm.routeId = undefined
-  activeOrderForm.routeVersionId = undefined
-  activeOrderForm.transferIdsText = ''
+  activeOrderSelectedCandidate.value = undefined
+  activeOrderCandidateKeyword.value = ''
+  activeOrderCandidateOptions.value = []
+  activeOrderCandidateError.value = ''
+  activeOrderCandidateLoading.value = false
 }
 
 const openActiveOrderDialog = () => {
@@ -3751,15 +3909,128 @@ const openActiveOrderDialog = () => {
   activeOrderAddDialogVisible.value = true
 }
 
+const findActiveOrderCandidateById = (workOrderId: number) =>
+  activeOrderCandidateOptions.value.find(
+    (candidate) => Number(candidate.workOrderId) === Number(workOrderId)
+  )
+
+const findActiveOrderCandidateByCode = (workOrderCode: string) =>
+  activeOrderCandidateOptions.value.find(
+    (candidate) => candidate.workOrderCode.trim() === workOrderCode.trim()
+  )
+
+const handleActiveOrderCandidateClear = () => {
+  activeOrderForm.workOrderId = undefined
+  activeOrderSelectedCandidate.value = undefined
+  activeOrderCandidateKeyword.value = ''
+  activeOrderCandidateError.value = ''
+}
+
+const handleActiveOrderCandidateChange = (value?: number | string) => {
+  const workOrderId = normalizePositiveNumber(value)
+  if (!workOrderId) {
+    handleActiveOrderCandidateClear()
+    return
+  }
+  const selectedCandidate = findActiveOrderCandidateById(workOrderId)
+  if (!selectedCandidate) {
+    activeOrderForm.workOrderId = undefined
+    activeOrderSelectedCandidate.value = undefined
+    activeOrderCandidateError.value = '请选择订单号'
+    return
+  }
+  activeOrderForm.workOrderId = selectedCandidate.workOrderId
+  activeOrderSelectedCandidate.value = selectedCandidate
+  activeOrderCandidateKeyword.value = selectedCandidate.workOrderCode
+  activeOrderCandidateError.value = ''
+}
+
+const searchActiveOrderCandidates = async (keyword: string) => {
+  const searchText = keyword.trim()
+  activeOrderCandidateKeyword.value = searchText
+  activeOrderCandidateError.value = ''
+  if (!searchText) {
+    activeOrderCandidateOptions.value = []
+    handleActiveOrderCandidateClear()
+    return
+  }
+  if (
+    activeOrderSelectedCandidate.value
+    && activeOrderSelectedCandidate.value.workOrderCode !== searchText
+  ) {
+    activeOrderForm.workOrderId = undefined
+    activeOrderSelectedCandidate.value = undefined
+  }
+  activeOrderCandidateLoading.value = true
+  try {
+    activeOrderCandidateOptions.value = await searchTeamLeaderActiveOrderCandidates(searchText)
+    const workOrderId = normalizePositiveNumber(activeOrderForm.workOrderId)
+    if (workOrderId && !findActiveOrderCandidateById(workOrderId)) {
+      activeOrderForm.workOrderId = undefined
+      activeOrderSelectedCandidate.value = undefined
+    }
+  } catch (error) {
+    activeOrderCandidateOptions.value = []
+    activeOrderForm.workOrderId = undefined
+    activeOrderSelectedCandidate.value = undefined
+    activeOrderCandidateError.value = resolveErrorMessage(error, '订单号候选搜索失败')
+    ElMessage.error(activeOrderCandidateError.value)
+  } finally {
+    activeOrderCandidateLoading.value = false
+  }
+}
+
+const resolveActiveOrderCandidateByKeyword = async () => {
+  const keyword = activeOrderCandidateKeyword.value.trim()
+  if (!keyword) {
+    return undefined
+  }
+  const localCandidate = findActiveOrderCandidateByCode(keyword)
+  if (localCandidate) {
+    return localCandidate
+  }
+  activeOrderCandidateLoading.value = true
+  try {
+    activeOrderCandidateOptions.value = await searchTeamLeaderActiveOrderCandidates(keyword)
+    return findActiveOrderCandidateByCode(keyword)
+  } catch (error) {
+    activeOrderCandidateOptions.value = []
+    activeOrderCandidateError.value = resolveErrorMessage(error, '订单号候选搜索失败')
+    ElMessage.error(activeOrderCandidateError.value)
+    return undefined
+  } finally {
+    activeOrderCandidateLoading.value = false
+  }
+}
+
+const requireSelectedActiveOrderCandidateWorkOrderId = async () => {
+  const workOrderId = normalizePositiveNumber(activeOrderForm.workOrderId)
+  let selectedCandidate = activeOrderSelectedCandidate.value
+  if (
+    workOrderId
+    && selectedCandidate
+    && Number(selectedCandidate.workOrderId) === Number(workOrderId)
+    && findActiveOrderCandidateById(workOrderId)
+  ) {
+    return workOrderId
+  }
+  selectedCandidate = await resolveActiveOrderCandidateByKeyword()
+  if (!selectedCandidate) {
+    throw new Error('请选择订单号')
+  }
+  activeOrderForm.workOrderId = selectedCandidate.workOrderId
+  activeOrderSelectedCandidate.value = selectedCandidate
+  activeOrderCandidateKeyword.value = selectedCandidate.workOrderCode
+  activeOrderCandidateError.value = ''
+  return requirePositiveNumber(selectedCandidate.workOrderId, '请选择订单号')
+}
+
 const submitAddActiveOrder = async () => {
   maintenanceSubmitting.value = true
   let writeCompleted = false
   try {
     await addTeamLeaderActiveOrder({
-      workOrderId: requirePositiveNumber(activeOrderForm.workOrderId, '生产订单ID不能为空'),
-      routeId: requirePositiveNumber(activeOrderForm.routeId, '路线ID不能为空'),
-      routeVersionId: requirePositiveNumber(activeOrderForm.routeVersionId, '路线版本ID不能为空'),
-      transferIds: parsePositiveIntegerList(activeOrderForm.transferIdsText, '调拨单ID列表')
+      workOrderId: await requireSelectedActiveOrderCandidateWorkOrderId()
     })
     writeCompleted = true
     ElMessage.success('活跃订单已加入')
@@ -4322,6 +4593,59 @@ onMounted(() => {
   word-break: break-word;
 }
 
+.team-leader-workbench__pqc-fill-form {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  color: #263c35;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.team-leader-workbench__pqc-fill-form-item {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #d7eadf;
+  border-radius: 10px;
+  background: #f8fcfa;
+  padding: 8px;
+}
+
+.team-leader-workbench__pqc-fill-form-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  color: #0f172a;
+}
+
+.team-leader-workbench__pqc-fill-form-title span {
+  border-radius: 999px;
+  background: #e6f4ec;
+  color: #2d5a46;
+  padding: 1px 7px;
+  font-weight: 600;
+}
+
+.team-leader-workbench__pqc-fill-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 10px;
+  word-break: break-word;
+}
+
+.team-leader-workbench__pqc-fill-form-samples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.team-leader-workbench__pqc-fill-form-samples .team-leader-workbench__parameter-value {
+  border: 1px solid #d7eadf;
+  border-radius: 999px;
+  background: #fff;
+  padding: 1px 7px;
+}
 .team-leader-workbench__parameter-list {
   display: grid;
   gap: 6px;

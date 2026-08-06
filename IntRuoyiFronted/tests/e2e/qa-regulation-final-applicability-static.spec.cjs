@@ -24,13 +24,13 @@ assert.match(
 )
 assert.match(
   qaSource,
-  /key:\s*'notApplicableReason'[\s\S]*label:\s*'不适用依据'/,
-  'QA regulation rules table must include a visible not-applicable evidence column.'
+  /data-qa-regulation-final-inspection-switch[\s\S]*是否需要末检[\s\S]*v-model="finalInspectionRequired"/,
+  'QA regulation item toolbar must expose the final-inspection applicability switch.'
 )
 assert.match(
   qaSource,
-  /row\.key === 'FINAL' && !row\.required[\s\S]*v-model="row\.notApplicableReason"/,
-  'The final-inspection row must require an editable not-applicable reason when disabled.'
+  /data-qa-regulation-final-not-applicable-reason[\s\S]*v-if="!finalInspectionRequired"[\s\S]*v-model="finalInspectionNotApplicableReason"/,
+  'The final-inspection switch must require an editable not-applicable reason when disabled.'
 )
 assert.match(
   qaSource,

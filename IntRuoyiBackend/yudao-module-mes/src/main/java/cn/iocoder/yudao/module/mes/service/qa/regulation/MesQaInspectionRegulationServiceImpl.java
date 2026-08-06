@@ -7,8 +7,10 @@ import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspec
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemEquipmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
@@ -56,13 +58,16 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     private final MesQaInspectionRegulationMapper regulationMapper;
     private final MesQaInspectionRegulationVersionMapper versionMapper;
     private final MesQaInspectionRegulationItemMapper itemMapper;
+    private final MesQaInspectionRegulationItemEquipmentMapper itemEquipmentMapper;
 
     public MesQaInspectionRegulationServiceImpl(MesQaInspectionRegulationMapper regulationMapper,
                                                 MesQaInspectionRegulationVersionMapper versionMapper,
-                                                MesQaInspectionRegulationItemMapper itemMapper) {
+                                                MesQaInspectionRegulationItemMapper itemMapper,
+                                                MesQaInspectionRegulationItemEquipmentMapper itemEquipmentMapper) {
         this.regulationMapper = regulationMapper;
         this.versionMapper = versionMapper;
         this.itemMapper = itemMapper;
+        this.itemEquipmentMapper = itemEquipmentMapper;
     }
 
     @Override
@@ -170,12 +175,17 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                     .setFinalInspectionNotApplicableReason(normalizeFinalInspectionReason(reqVO))
                     .setSnapshotJson(snapshotJson));
             itemMapper.deleteByVersionId(version.getId());
+            itemEquipmentMapper.deleteByVersionId(version.getId());
         }
 
         List<MesQaInspectionRegulationItemDO> items = new ArrayList<>();
         for (MesQaInspectionRegulationSaveReqVO.InspectionItem itemReqVO : reqVO.getItems()) {
             MesQaInspectionRegulationItemDO item = toItemDO(version.getId(), itemReqVO);
             itemMapper.insert(item);
+            for (MesQaInspectionRegulationSaveReqVO.EquipmentOption equipmentOption :
+                    CollUtil.emptyIfNull(itemReqVO.getEquipmentOptions())) {
+                itemEquipmentMapper.insert(toItemEquipmentDO(version.getId(), itemReqVO, equipmentOption));
+            }
             items.add(item);
         }
         return new DraftContext(regulation, version, items);
@@ -446,6 +456,25 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 && (item.getStandardLowerLimit() == null || item.getStandardUpperLimit() == null)) {
             throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode());
         }
+        boolean equipmentRequired = Boolean.TRUE.equals(item.getEquipmentRequired());
+        if (equipmentRequired && CollUtil.isEmpty(item.getEquipmentOptions())) {
+            throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode() + ".equipmentOptions");
+        }
+        for (MesQaInspectionRegulationSaveReqVO.EquipmentOption equipmentOption :
+                CollUtil.emptyIfNull(item.getEquipmentOptions())) {
+            validateEquipmentOption(item, equipmentOption);
+        }
+    }
+
+    private static void validateEquipmentOption(MesQaInspectionRegulationSaveReqVO.InspectionItem item,
+                                                MesQaInspectionRegulationSaveReqVO.EquipmentOption equipmentOption) {
+        if (equipmentOption == null || equipmentOption.getEquipmentId() == null
+                || equipmentOption.getEquipmentId() <= 0
+                || StrUtil.isBlank(equipmentOption.getEquipmentCode())
+                || StrUtil.isBlank(equipmentOption.getEquipmentName())
+                || StrUtil.isBlank(equipmentOption.getEquipmentNumber())) {
+            throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode() + ".equipmentOption");
+        }
     }
 
     private static boolean positive(BigDecimal value) {
@@ -499,10 +528,26 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .standardUpperLimit(item.getStandardUpperLimit())
                 .standardUnit(item.getStandardUnit())
                 .standardPrecision(item.getStandardPrecision())
-                .equipmentRequired(item.getEquipmentRequired())
+                .equipmentRequired(Boolean.TRUE.equals(item.getEquipmentRequired()))
                 .resultType(item.getResultType())
                 .firstInspectionQuantity(item.getFirstInspectionQuantity())
                 .patrolInspectionRatio(item.getPatrolInspectionRatio())
+                .build();
+    }
+
+    private static MesQaInspectionRegulationItemEquipmentDO toItemEquipmentDO(Long versionId,
+                                                                              MesQaInspectionRegulationSaveReqVO.InspectionItem item,
+                                                                              MesQaInspectionRegulationSaveReqVO.EquipmentOption equipmentOption) {
+        return MesQaInspectionRegulationItemEquipmentDO.builder()
+                .regulationVersionId(versionId)
+                .inspectionType(normalizeInspectionType(item.getInspectionType()))
+                .itemCode(item.getItemCode())
+                .equipmentId(equipmentOption.getEquipmentId())
+                .equipmentCode(StrUtil.trim(equipmentOption.getEquipmentCode()))
+                .equipmentName(StrUtil.trim(equipmentOption.getEquipmentName()))
+                .equipmentNumber(StrUtil.trim(equipmentOption.getEquipmentNumber()))
+                .defaultFlag(equipmentOption.getDefaultFlag())
+                .sort(equipmentOption.getSort())
                 .build();
     }
 

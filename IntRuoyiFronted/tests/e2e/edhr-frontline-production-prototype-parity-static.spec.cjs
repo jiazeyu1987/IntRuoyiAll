@@ -42,9 +42,7 @@ const productionBlock = panel.slice(productionBlockStart, productionEnd)
 
 for (const token of [
   'class="frontline-operator-screen screen"',
-  'class="frontline-operator-top top"',
-  'class="frontline-top-card top-box"',
-  'class="frontline-home-button home-btn"',
+  'class="frontline-operator-top top is-production"',
   'class="frontline-operator-main frontline-production-main main"',
   'frontline-work-panel panel quantity-panel frontline-production-quantity-panel',
   'frontline-work-panel panel device-panel frontline-production-device-panel',
@@ -57,13 +55,23 @@ for (const token of [
 
 assert.match(
   productionBlock,
-  /class="frontline-home-button home-btn"[\s\S]*@click="handleHome"[\s\S]*>\s*主页\s*<\/button>/,
-  'top-right action must match the reference prototype Home button instead of the old maximize toggle.'
+  /class="[^"]*\bfrontline-top-card\b[^"]*\btop-box\b[^"]*\bfrontline-production-selection-card\b[^"]*"/,
+  'production selector cards must keep the reference top-card classes while adding the production selection class.'
+)
+assert.match(
+  productionBlock,
+  /class="[^"]*\bfrontline-home-button\b[^"]*\bhome-btn\b[^"]*"/,
+  'top-right action must keep the reference prototype Home button class for styling.'
+)
+assert.match(
+  productionBlock,
+  /data-production-fullscreen-toggle[\s\S]*:aria-label="productionFullscreenActionText"[\s\S]*:aria-pressed="isProductionFullscreen"[\s\S]*@click="handleProductionFullscreenToggle"[\s\S]*{{ productionFullscreenActionText }}/,
+  'top-right action must mirror PQC explicit 最大化/主页 fullscreen switching.'
 )
 assert.doesNotMatch(
   productionBlock,
-  /productionFullscreenButtonLabel|handleProductionFullscreenToggle|aria-pressed="isProductionFullscreen"/,
-  'production prototype block must not keep the old maximize label or fullscreen toggle binding.'
+  /@click="handleHome"[\s\S]*>\s*主页\s*<\/button>/,
+  'production prototype block must not default to Home routing before fullscreen.'
 )
 
 const screenStyleStart = panel.indexOf('.frontline-operator-screen {')
@@ -73,18 +81,18 @@ assert.ok(screenStyleEnd > screenStyleStart, 'base production screen style block
 const screenStyle = panel.slice(screenStyleStart, screenStyleEnd)
 
 for (const token of [
-  'width: 1920px;',
-  'height: 1080px;',
-  'grid-template-rows: 130px 1fr 126px;',
+  'width: min(100%, 1600px);',
+  'min-height: min(1080px, calc(100vh - 144px));',
+  'grid-template-rows: auto minmax(0, 1fr) 126px;',
   'padding: 28px;',
   'background: var(--frontline-bg);'
 ]) {
-  assert.ok(screenStyle.includes(token), `production screen style must match reference token: ${token}`)
+  assert.ok(screenStyle.includes(token), `production screen style must preserve reference content responsively: ${token}`)
 }
 assert.doesNotMatch(
   screenStyle,
-  /min-height:\s*min\(1080px,\s*calc\(100vh - 180px\)\)|border-radius:\s*18px/,
-  'base production screen must be a fixed 1920x1080 prototype canvas, not the old admin-contained responsive card.'
+  /width:\s*1920px;|height:\s*1080px;|border-radius:\s*18px/,
+  'base production screen must not use the old fixed 1920x1080 canvas or admin-contained card.'
 )
 
 assert.match(

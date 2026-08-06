@@ -1096,8 +1096,8 @@ public interface ErrorCodeConstants {
             "工序池审核副本电子签名已存在：{}");
 
     // ========== MES 工序池班组长工作台（1-040-760-300） ==========
-    ErrorCode PRO_PROCESS_POOL_TEAM_SCOPE_DENIED = new ErrorCode(1_040_760_300,
-            "班组长不在该员工或工序的负责范围内");
+    ErrorCode PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED = new ErrorCode(1_040_760_344,
+            "班组长不在该{}的负责范围内");
     ErrorCode PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED = new ErrorCode(1_040_760_301,
             "班组长工作台缺少负责范围上下文：{}");
     ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_STATUS_INVALID = new ErrorCode(1_040_760_302,
@@ -1184,6 +1184,14 @@ public interface ErrorCodeConstants {
             "活跃订单缺少唯一有效排产工单：{}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED = new ErrorCode(1_040_760_343,
             "活跃订单有效排产缺少正式路线或路线版本：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_CONFIRMATION_PRODUCTION_LEADER_REQUIRED = new ErrorCode(1_040_760_345,
+            "报工确认只能由生产组长执行：eventId={}，leaderType={}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_PERMISSION_REQUIRED = new ErrorCode(1_040_760_346,
+            "PQC 检验员必须拥有 PQC 权限角色：userId={}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_ROLE_REQUIRED = new ErrorCode(1_040_760_347,
+            "PQC 权限角色未配置或已禁用：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_OCCUPIED_BY_OTHER_LEADER = new ErrorCode(1_040_760_348,
+            "该 PQC 检验员已被其他 PQC 组长选择，不能重复关联：userId={}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

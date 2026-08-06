@@ -48,9 +48,6 @@
               <el-tab-pane label="放行资料要求" name="releaseDossier">
                 <EdhrReleaseDossierRequirementSetting />
               </el-tab-pane>
-              <el-tab-pane label="NAS表格自动同步" name="nasTableSync">
-                <ProfileNasTableAutoSyncSetting />
-              </el-tab-pane>
               <el-tab-pane label="ERP表格自动同步" name="erpTableSync">
                 <ProfileErpTableAutoSyncSetting />
               </el-tab-pane>
@@ -75,7 +72,6 @@ import {
   EdhrRecordbookGlobalSetting,
   ProfileErpTableAutoSyncSetting,
   ProfileWorkbench,
-  ProfileNasTableAutoSyncSetting,
   ResetPwd,
   UserSocial
 } from './components'

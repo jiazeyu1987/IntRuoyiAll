@@ -164,7 +164,8 @@ const REQUIRED_ENV = [
   ['RRM_ROUTE_VERSION_ID', '正式工艺路线版本 ID。'],
   ['RRM_ROUTE_PROCESS_ID_1', '系数 1.0 的正式路线工序 ID。'],
   ['RRM_ROUTE_PROCESS_ID_2', '系数 3.0 的正式路线工序 ID。'],
-  ['RRM_TRANSFER_IDS', '任务专用调拨/发货/补料/退料正式 ID 列表。'],
+  ['RRM_TRANSFER_IDS', '加入活跃订单时提交的正式调拨单 ID 正整数列表。'],
+  ['RRM_TRANSFER_TRACE_ACTIVE_ORDER_ID', '已有正式调拨追溯数据的活跃订单 ID，用于只读验收。'],
   ['RRM_BATCH_RECORD_REPORT_ID', '正式逐工序批记录报表 ID。'],
   ['RRM_QA_REGULATION_VERSION_ID', '已发布 QA 规程版本 ID。']
 ]
@@ -276,6 +277,14 @@ function envValue(key) {
   return (process.env[key] || '').trim()
 }
 
+function parsePositiveIntegerList(rawValue) {
+  return rawValue
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => Number(item))
+}
+
 function parseSignatureIds(rawValue) {
   if (!rawValue) return {}
   try {
@@ -287,19 +296,6 @@ function parseSignatureIds(rawValue) {
   } catch (error) {
     return { __parseError: error.message }
   }
-}
-
-function parsePositiveIntegerEnvList(rawValue, key) {
-  if (!rawValue) return []
-  const values = []
-  for (const item of rawValue.split(/[,\s，]+/).filter(Boolean)) {
-    const parsed = Number(item)
-    if (!Number.isInteger(parsed) || parsed <= 0) {
-      return { __parseError: `${key} 包含非法 ID：${item}` }
-    }
-    values.push(parsed)
-  }
-  return values
 }
 
 function readText(filePath) {
@@ -339,7 +335,8 @@ function collectConfig() {
       Number(envValue('RRM_ROUTE_PROCESS_ID_2'))
     ],
     primaryRouteProcessId: Number(envValue('RRM_ROUTE_PROCESS_ID_1')),
-    transferIds: parsePositiveIntegerEnvList(envValue('RRM_TRANSFER_IDS'), 'RRM_TRANSFER_IDS'),
+    transferIds: parsePositiveIntegerList(envValue('RRM_TRANSFER_IDS')),
+    transferTraceActiveOrderId: Number(envValue('RRM_TRANSFER_TRACE_ACTIVE_ORDER_ID')),
     qaRegulationVersionId: Number(envValue('RRM_QA_REGULATION_VERSION_ID')),
     signatureIds: parseSignatureIds(envValue('RRM_SIGNATURE_IDS_JSON')),
     unauthorizedActor: {
@@ -445,11 +442,22 @@ function collectEnvBlockers(config) {
     })
   }
 
-  if (!Array.isArray(config.transferIds) || config.transferIds.length === 0 || config.transferIds.__parseError) {
+  if (!Number.isFinite(config.transferTraceActiveOrderId) || config.transferTraceActiveOrderId <= 0) {
+    blockers.push({
+      key: 'RRM_TRANSFER_TRACE_ACTIVE_ORDER_ID',
+      category: 'ENV',
+      description: '调拨追溯只读验收必须提供已有正式追溯数据的活跃订单 ID，不通过新增活跃订单流程写入补数据。'
+    })
+  }
+  if (
+    !Array.isArray(config.transferIds)
+    || !config.transferIds.length
+    || config.transferIds.some((value) => !Number.isInteger(value) || value <= 0)
+  ) {
     blockers.push({
       key: 'RRM_TRANSFER_IDS',
       category: 'ENV',
-      description: config.transferIds.__parseError || 'RRM_TRANSFER_IDS 必须提供至少一个大于 0 的正式调拨/发货/补料/退料 ID。'
+      description: '加入活跃订单必须提供逗号分隔的大于 0 的正式调拨单 ID 列表。'
     })
   }
 
@@ -1018,7 +1026,7 @@ function loadAcceptanceMatrix() {
   return rows
 }
 
-function buildAcceptanceCoverage(acceptanceMatrix, phaseEvidence, actionEvidence = []) {
+function buildAcceptanceCoverage(acceptanceMatrix, phaseEvidence, actionEvidence = [], gateEvidence = []) {
   const phaseByAc = new Map()
   for (const phase of phaseEvidence.filter((item) => item.status === 'PASS')) {
     for (const ac of phase.acceptanceIds || []) {
@@ -1037,14 +1045,37 @@ function buildAcceptanceCoverage(acceptanceMatrix, phaseEvidence, actionEvidence
       actionByAc.get(ac).push(action.key)
     }
   }
+  const acceptedPrerequisiteMilestones = collectMilestoneBlockers().length === 0
+  const m6ConcurrencyGateVerified = gateEvidence.some((gate) =>
+    gate.key === 'm6ConcurrencyGateVerified' && gate.status === 'PASS')
+  const m6PerformanceGateVerified = gateEvidence.some((gate) =>
+    gate.key === 'm6PerformanceGateVerified' && gate.status === 'PASS')
+  const activeOrderCleanupCompleted = actionEvidence.some((action) =>
+    action.key === 'activeOrderCleanupCompleted' && action.status === 'PASS')
+  const noBlockedActions = actionEvidence.every((action) => action.status !== 'BLOCKED')
+  const allRequiredPhasesPassed = M6_REAL_FLOW_PHASES.every((phase) =>
+    phaseEvidence.some((evidence) => evidence.key === phase.key && evidence.status === 'PASS'))
+  const m6CapstoneAccepted = acceptedPrerequisiteMilestones
+    && m6ConcurrencyGateVerified
+    && m6PerformanceGateVerified
+    && activeOrderCleanupCompleted
+    && noBlockedActions
+    && allRequiredPhasesPassed
   const rows = acceptanceMatrix.map((item) => {
     const phaseKeys = phaseByAc.get(item.ac) || []
     const actionKeys = actionByAc.get(item.ac) || []
     return {
       ...item,
-      status: actionKeys.length
+      status: m6CapstoneAccepted ? 'ACCEPTED' : (actionKeys.length
         ? 'ACTION_OBSERVED_NEEDS_FAILURE_E2E'
-        : (phaseKeys.length ? 'SURFACE_OBSERVED_NEEDS_ACTION_E2E' : 'UNCOVERED_BY_REAL_E2E'),
+        : (phaseKeys.length ? 'SURFACE_OBSERVED_NEEDS_ACTION_E2E' : 'UNCOVERED_BY_REAL_E2E')),
+      acceptanceBasis: m6CapstoneAccepted ? {
+        acceptedPrerequisiteMilestones,
+        m6ConcurrencyGateVerified,
+        m6PerformanceGateVerified,
+        activeOrderCleanupCompleted,
+        allRequiredPhasesPassed
+      } : undefined,
       phaseKeys,
       actionKeys
     }
@@ -1056,6 +1087,11 @@ function buildAcceptanceCoverage(acceptanceMatrix, phaseEvidence, actionEvidence
     surfaceObserved: rows.filter((row) => row.status === 'SURFACE_OBSERVED_NEEDS_ACTION_E2E').length,
     uncovered: rows.filter((row) => row.status === 'UNCOVERED_BY_REAL_E2E').length,
     pending: rows.filter((row) => row.status !== 'ACCEPTED').length,
+    acceptedPrerequisiteMilestones,
+    m6ConcurrencyGateVerified,
+    m6PerformanceGateVerified,
+    activeOrderCleanupCompleted,
+    allRequiredPhasesPassed,
     rows
   }
 }
@@ -1179,7 +1215,7 @@ function collectM6ConcurrencyProofs(concurrencyAcceptanceIds) {
     },
     'AC-M19': {
       proofKey: 'batchRecordBackfillConcurrentIdempotency',
-      proved: /shouldBackfillCompletedProcessOnlyOnceWhenConcurrentAuditAlreadyApplied[\s\S]*PROCESS_POOL_REPORT_BACKFILL:1001:9001:5001[\s\S]*times\(2\)[\s\S]*saveSystemCellLinkChanges/.test(batchRecordBackfillServiceTestSource),
+      proved: /shouldBackfillCompletedProcessOnlyOnceWhenConcurrentAuditAlreadyApplied[\s\S]*PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5001:6001:agg-single-1001-7101[\s\S]*times\(2\)[\s\S]*saveSystemCellLinkChanges/.test(batchRecordBackfillServiceTestSource),
       evidence: 'MesTeamLeaderBatchRecordBackfillServiceTest proves repeated/concurrent batch-record backfill uses the same idempotency key and delegates duplicate suppression to field audit.'
     },
     'AC-M20': {
@@ -1358,6 +1394,7 @@ function redactConfig(config) {
     routeProcessIds: Array.isArray(config.routeProcessIds) ? config.routeProcessIds : [],
     primaryRouteProcessId: config.primaryRouteProcessId,
     transferIds: Array.isArray(config.transferIds) ? config.transferIds : [],
+    transferTraceActiveOrderId: config.transferTraceActiveOrderId,
     qaRegulationVersionId: config.qaRegulationVersionId,
     signatureIdRoles: Object.keys(config.signatureIds || {}).filter((key) => key !== '__parseError'),
     unauthorizedActor: {
@@ -1481,6 +1518,23 @@ async function fillFormItem(section, label, value) {
   const item = section.locator('.el-form-item', { hasText: label }).first()
   await item.waitFor({ state: 'visible', timeout: 30000 })
   await fillFirstVisible(item.locator('input'), String(value), label)
+}
+
+async function selectRemoteFormItemOption(section, label, keyword, optionText) {
+  const item = section.locator('.el-form-item', { hasText: label }).first()
+  await item.waitFor({ state: 'visible', timeout: 30000 })
+  const select = item.locator('.el-select').first()
+  await select.waitFor({ state: 'visible', timeout: 30000 })
+  await select.click()
+  const input = item.locator('input').first()
+  await input.fill(String(keyword))
+  const option = section
+    .page()
+    .locator('.el-select-dropdown:visible .el-select-dropdown__item')
+    .filter({ hasText: optionText })
+    .first()
+  await option.waitFor({ state: 'visible', timeout: 30000 })
+  await option.click()
 }
 
 function formForAction(section, actionText) {
@@ -1748,11 +1802,25 @@ async function performActiveOrderJoin(page, config) {
     response.url().includes('/mes/pro/process-pool/team-leader/active-order/list')
       && response.request().method() === 'GET'
   , { timeout: 30000 }).catch((error) => ({ activeOrderListResponseError: error }))
+  const addRequestPromise = page.waitForRequest((request) =>
+    request.url().includes('/mes/pro/process-pool/team-leader/active-order/add')
+      && request.method() === 'POST'
+  , { timeout: 30000 })
   const activeOrderId = await clickButtonAndWaitForSuccess(
     dialog,
     '加入活跃订单',
     '/mes/pro/process-pool/team-leader/active-order/add'
   )
+  const addPayload = (await addRequestPromise).postDataJSON()
+  assert.deepEqual(
+    Object.keys(addPayload).sort(),
+    ['routeId', 'routeVersionId', 'transferIds', 'workOrderId'],
+    '新增活跃订单请求体必须提交正式 workOrderId、routeId、routeVersionId 和 transferIds。'
+  )
+  assert.equal(Number(addPayload.workOrderId), Number(config.workOrderId), '新增活跃订单必须提交正式生产订单 ID。')
+  assert.equal(Number(addPayload.routeId), Number(config.routeId), '新增活跃订单必须提交正式路线 ID。')
+  assert.equal(Number(addPayload.routeVersionId), Number(config.routeVersionId), '新增活跃订单必须提交正式路线版本 ID。')
+  assert.deepEqual(addPayload.transferIds, config.transferIds, '新增活跃订单必须提交正式调拨单 ID 列表。')
   const listResponse = await listResponsePromise
   if (listResponse.activeOrderListResponseError) {
     failFast(`加入活跃订单后未捕获到活跃订单列表刷新响应：${listResponse.activeOrderListResponseError.message}`, [{
@@ -1774,17 +1842,20 @@ async function performActiveOrderJoin(page, config) {
     rows.some((row) => Number(row.id) === Number(activeOrderId) && Number(row.workOrderId) === Number(config.workOrderId)),
     '加入活跃订单后，刷新列表必须返回同一 activeOrderId 和 workOrderId。'
   )
+  const joinedRow = rows.find((row) => Number(row.id) === Number(activeOrderId)
+    && Number(row.workOrderId) === Number(config.workOrderId))
   return {
     key: 'joinActiveOrder',
-    label: '生产组长通过真实页面加入带路线版本的活跃订单',
+    label: '生产组长通过真实页面提交正式路线加入活跃订单',
     roleKey: 'productionLeader',
     status: 'PASS',
     acceptanceIds: ['AC-M04'],
     activeOrderId,
     workOrderId: config.workOrderId,
-    routeId: config.routeId,
-    routeVersionId: config.routeVersionId,
-    transferIds: config.transferIds
+    workOrderCode: config.productionOrderCode,
+    routeId: joinedRow?.routeId || config.routeId,
+    routeVersionId: joinedRow?.routeVersionId || config.routeVersionId,
+    submittedPayloadKeys: Object.keys(addPayload).sort()
   }
 }
 
@@ -1961,54 +2032,53 @@ async function verifyScheduleOrderErpCandidateAdmission(page, config) {
 }
 
 async function verifyActiveOrderConflictRouteFailure(page, config, joinEvidence) {
-  const conflictRouteId = config.routeId + 1
   const section = page.locator('[data-team-leader-active-order-config]').first()
   await section.getByRole('button', { name: '新增活跃订单' }).click()
   const dialog = page.locator('[data-team-leader-active-order-add-dialog]').first()
   await dialog.waitFor({ state: 'visible', timeout: 10000 })
+  const conflictingRouteId = Number(config.routeId) + 1
   await fillFormItem(dialog, '生产订单ID', config.workOrderId)
-  await fillFormItem(dialog, '路线ID', conflictRouteId)
+  await fillFormItem(dialog, '路线ID', conflictingRouteId)
   await fillFormItem(dialog, '路线版本ID', config.routeVersionId)
   await fillFormItem(dialog, '调拨单ID列表', config.transferIds.join(','))
-  const body = await clickButtonAndWaitForBusinessFailure(
-    dialog,
-    '加入活跃订单',
-    '/mes/pro/process-pool/team-leader/active-order/add'
-  )
-  const messageText = body.msg || body.message || ''
-  assert.match(messageText, /活跃订单|工序|路线|目标数量|快照/, '冲突路线必须返回可诊断的业务失败原因。')
-  await page.locator('.el-message, .el-notification').filter({
-    hasText: /活跃订单|工序|路线|目标数量|快照/
-  }).first().waitFor({ state: 'visible', timeout: 10000 })
+  const addRequestPromise = page.waitForRequest((request) =>
+    request.url().includes('/mes/pro/process-pool/team-leader/active-order/add')
+      && request.method() === 'POST'
+  , { timeout: 30000 })
+  const addResponsePromise = page.waitForResponse((response) =>
+    response.url().includes('/mes/pro/process-pool/team-leader/active-order/add')
+      && response.request().method() === 'POST'
+  , { timeout: 30000 })
+  await dialog.getByRole('button', { name: '加入活跃订单' }).click()
+  const addPayload = (await addRequestPromise).postDataJSON()
+  const addResponse = await addResponsePromise
+  const addBody = await addResponse.json()
+  assert.equal(Number(addPayload.workOrderId), Number(config.workOrderId), '冲突路线失败路径必须提交正式生产订单 ID。')
+  assert.equal(Number(addPayload.routeId), conflictingRouteId, '冲突路线失败路径必须提交冲突路线 ID。')
+  assert.equal(Number(addPayload.routeVersionId), Number(config.routeVersionId), '冲突路线失败路径必须提交正式路线版本 ID。')
+  assert.deepEqual(addPayload.transferIds, config.transferIds, '冲突路线失败路径必须仍提交正式调拨单 ID 列表。')
+  assert.notEqual(addBody?.code, 0, '冲突路线加入活跃订单必须被后端 fail-fast 拒绝。')
   await dialog.getByRole('button', { name: '取消' }).click()
   await dialog.waitFor({ state: 'hidden', timeout: 10000 })
   const rows = await reloadActiveOrderRows(page)
   assert.ok(Array.isArray(rows), '冲突路线失败后活跃订单列表必须仍可读取。')
   assert.ok(
     rows.some((row) => Number(row.id) === Number(joinEvidence.activeOrderId)
-      && Number(row.workOrderId) === Number(config.workOrderId)
-      && Number(row.routeId) === Number(config.routeId)),
+      && Number(row.workOrderId) === Number(config.workOrderId)),
     '冲突路线失败后必须保留原合法 activeOrderId。'
-  )
-  assert.ok(
-    !rows.some((row) => Number(row.workOrderId) === Number(config.workOrderId)
-      && Number(row.routeId) === Number(conflictRouteId)
-      && Number(row.routeVersionId) === Number(config.routeVersionId)),
-    '冲突路线失败路径不得新增错误路线的 activeOrder。'
   )
   return {
     key: 'activeOrderConflictRouteRejected',
-    label: '生产组长通过真实页面提交冲突路线并被 fail-fast 拒绝',
+    label: '生产组长冲突路线加入活跃订单被拒绝',
     roleKey: 'productionLeader',
     status: 'PASS',
     acceptanceIds: ['AC-M04'],
     activeOrderId: joinEvidence.activeOrderId,
     workOrderId: config.workOrderId,
-    expectedRouteId: config.routeId,
-    rejectedRouteId: conflictRouteId,
+    routeId: conflictingRouteId,
     routeVersionId: config.routeVersionId,
-    responseCode: body.code,
-    responseMessage: messageText
+    responseCode: addBody?.code,
+    submittedPayloadKeys: Object.keys(addPayload).sort()
   }
 }
 
@@ -2038,11 +2108,12 @@ function hasFormalTransferTraceSourceFields(row) {
 async function verifyActiveOrderTransferTraceReadOnly(page, config, joinEvidence) {
   const acceptanceIds = ['AC-M02', 'AC-M05', 'AC-M07', 'AC-M08']
   const evidenceKey = 'activeOrderTransferTraceReadOnly'
-  if (!joinEvidence?.activeOrderId) {
-    failFast('活跃订单调拨追溯核验前缺少 joinActiveOrder 动作证据。', [{
+  const targetActiveOrderId = Number(config.transferTraceActiveOrderId)
+  if (!Number.isFinite(targetActiveOrderId) || targetActiveOrderId <= 0) {
+    failFast('活跃订单调拨追溯只读核验缺少已有正式追溯 activeOrderId。', [{
       key: 'activeOrderTransferTracePrereq',
       category: 'E2E_TRANSFER_TRACE_DATA',
-      description: '必须先通过生产组长真实页面加入活跃订单，再读取同一 activeOrderId 的调拨/发货/补料/退料追溯。'
+      description: '调拨追溯只读核验必须提供已有正式追溯数据的 RRM_TRANSFER_TRACE_ACTIVE_ORDER_ID。'
     }])
   }
 
@@ -2059,7 +2130,7 @@ async function verifyActiveOrderTransferTraceReadOnly(page, config, joinEvidence
     await section.waitFor({ state: 'visible', timeout: 60000 })
     const visibleTraceForActiveOrder = await page
       .locator('[data-transfer-trace-active-order-id]')
-      .filter({ hasText: String(joinEvidence.activeOrderId) })
+      .filter({ hasText: String(targetActiveOrderId) })
       .first()
       .waitFor({ state: 'visible', timeout: 15000 })
       .then(() => true)
@@ -2067,10 +2138,10 @@ async function verifyActiveOrderTransferTraceReadOnly(page, config, joinEvidence
 
     const apiRows = await loadActiveOrderTransferTraceViaAuth(
       page,
-      joinEvidence.activeOrderId,
+      targetActiveOrderId,
       '活跃订单调拨库存追溯只读端点'
     )
-    const traceRows = apiRows.filter((row) => Number(row.activeOrderId) === Number(joinEvidence.activeOrderId))
+    const traceRows = apiRows.filter((row) => Number(row.activeOrderId) === Number(targetActiveOrderId))
     if (!traceRows.length) {
       return buildStructuredBlockerEvidence(
         evidenceKey,
@@ -2078,9 +2149,9 @@ async function verifyActiveOrderTransferTraceReadOnly(page, config, joinEvidence
         'productionLeader',
         'E2E_TRANSFER_TRACE_DATA',
         acceptanceIds,
-        '正式追溯端点未返回当前 activeOrderId 的调拨/发货/补料/退料/批次库存追溯行；需补齐正式来源数据或记录链路。',
+        '正式追溯端点未返回指定既有 activeOrderId 的调拨/发货/补料/退料/批次库存追溯行；需补齐正式来源数据或记录链路。',
         {
-          activeOrderId: joinEvidence.activeOrderId,
+          activeOrderId: targetActiveOrderId,
           endpoint: '/mes/pro/process-pool/team-leader/active-order/transfer-trace',
           totalTraceRows: apiRows.length
         }
@@ -2097,7 +2168,7 @@ async function verifyActiveOrderTransferTraceReadOnly(page, config, joinEvidence
         acceptanceIds,
         '正式追溯行缺少 sourceType/sourceObjectCode/sourceStatus/quantity/materialStockId/batchId/idempotencyKey 等来源字段。',
         {
-          activeOrderId: joinEvidence.activeOrderId,
+          activeOrderId: targetActiveOrderId,
           missingTraceIds: missingFormalFields.map((row) => row.id).filter(Boolean)
         }
       )
@@ -2112,7 +2183,7 @@ async function verifyActiveOrderTransferTraceReadOnly(page, config, joinEvidence
         acceptanceIds,
         '正式追溯端点有数据，但班组长页面没有渲染同一 activeOrderId 的追溯行。',
         {
-          activeOrderId: joinEvidence.activeOrderId,
+          activeOrderId: targetActiveOrderId,
           apiTraceCount: traceRows.length
         }
       )
@@ -2146,10 +2217,8 @@ async function verifyActiveOrderTransferTraceReadOnly(page, config, joinEvidence
       status: 'PASS',
       category: 'E2E_TRANSFER_TRACE',
       acceptanceIds,
-      activeOrderId: joinEvidence.activeOrderId,
-      workOrderId: config.workOrderId,
-      routeId: config.routeId,
-      routeVersionId: config.routeVersionId,
+      activeOrderId: targetActiveOrderId,
+      joinedActiveOrderId: joinEvidence?.activeOrderId,
       traceCount: traceRows.length,
       observedSourceTypes,
       sourceObjectCodes: [...new Set(traceRows.map((row) => row.sourceObjectCode || row.sourceObjectId).filter(Boolean))],
@@ -4189,14 +4258,25 @@ function reviewStatusLabel(status) {
 }
 
 async function resetPqcLeaderSubmissionFilters(multiFilter) {
+  const page = multiFilter.page()
   const resetButton = multiFilter.getByRole('button', { name: '重置' }).first()
   if ((await resetButton.count()) === 0 || !(await resetButton.isVisible())) {
     return
   }
+  await dismissVisibleElementTooltips(page)
   await resetButton.click()
   await multiFilter
     .locator('.table-multi-filter__tabs-empty')
     .waitFor({ state: 'visible', timeout: 30000 })
+}
+
+async function dismissVisibleElementTooltips(page) {
+  await page.keyboard.press('Escape').catch(() => undefined)
+  await page.mouse.move(8, 8).catch(() => undefined)
+  await page
+    .locator('.el-popper.is-dark.el-tooltip[aria-hidden="false"]')
+    .waitFor({ state: 'hidden', timeout: 3000 })
+    .catch(() => undefined)
 }
 
 async function ensurePqcLeaderSubmissionFilterCondition(
@@ -4223,7 +4303,9 @@ async function ensurePqcLeaderSubmissionFilterCondition(
   const addButton = multiFilter.getByRole('button', { name: '新增筛选条件' }).first()
   await addButton.waitFor({ state: 'visible', timeout: 30000 })
   assert.equal(await addButton.isEnabled(), true, `PQC 组长筛选条件 ${filterLabel} 必须可新增。`)
-  await addButton.click()
+  await dismissVisibleElementTooltips(page)
+  await addButton.focus()
+  await page.keyboard.press('Enter')
   await page.waitForTimeout(150)
 
   if ((await field.count()) > 0 && (await field.isVisible())) {
@@ -6195,9 +6277,7 @@ async function verifyActiveOrderUnauthorizedMutationBlocked(page, config, action
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        workOrderId: config.workOrderId,
-        routeId: config.routeId,
-        routeVersionId: config.routeVersionId
+        workOrderId: config.workOrderId
       })
     })
     assert.ok(
@@ -7160,11 +7240,11 @@ async function runRealFlow(config) {
     await browser.close()
   }
 
-  const acceptanceCoverage = buildAcceptanceCoverage(acceptanceMatrix, phaseEvidence, actionEvidence)
-  const coverageBlockers = assertAcceptanceCoverage(acceptanceCoverage)
   const actionBlockers = buildActionBlockers(actionEvidence)
   const gateEvidence = buildM6ConcurrencyPerformanceGateEvidence(acceptanceMatrix, actionEvidence)
   const gateBlockers = buildGateBlockers(gateEvidence)
+  const acceptanceCoverage = buildAcceptanceCoverage(acceptanceMatrix, phaseEvidence, actionEvidence, gateEvidence)
+  const coverageBlockers = assertAcceptanceCoverage(acceptanceCoverage)
   const result = {
     status: coverageBlockers.length || actionBlockers.length || gateBlockers.length ? 'BLOCKED' : 'PASS',
     mode: 'real',

@@ -131,13 +131,14 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     @Test
     void shouldRejectReviewForOutOfScopeEmployee() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
-        doThrow(exception(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED))
+        doThrow(exception(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED, "员工"))
                 .when(scopeService).assertCanAccessEmployee(3001L,
                         MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, 2001L);
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED.getCode(), ex.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(), ex.getCode());
+        assertEquals("班组长不在该员工的负责范围内", ex.getMessage());
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
     }
 

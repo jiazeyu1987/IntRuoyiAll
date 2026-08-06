@@ -2,7 +2,11 @@
   <section
     ref="frontlinePanelRef"
     class="frontline-operator-panel"
-    :class="{ 'is-pqc-fullscreen': isPqcFullscreen }"
+    :class="{
+      'is-pqc-fullscreen': isPqcFullscreen,
+      'is-production-mode': !isPqcMode,
+      'is-production-fullscreen': isProductionFullscreen
+    }"
   >
     <div
       v-if="isPqcMode"
@@ -18,7 +22,13 @@
           <span>工序</span>
           <strong>{{ selectedProcessLabel }}</strong>
         </button>
-        <button class="frontline-top-card" type="button" @click="openPicker('employee')">
+        <button
+          class="frontline-top-card is-login-employee"
+          type="button"
+          data-pqc-login-employee-card
+          disabled
+          aria-disabled="true"
+        >
           <span>员工</span>
           <strong>{{ selectedEmployeeLabel }}</strong>
         </button>
@@ -478,75 +488,113 @@
       class="frontline-operator-screen screen"
       data-frontline-production-operator
     >
-      <header class="frontline-operator-top top">
-        <button class="frontline-top-card top-box" type="button" @click="openPicker('process')">
-          <span>工序</span>
-          <strong>{{ selectedProcessLabel }}</strong>
-        </button>
-        <button class="frontline-top-card top-box" type="button" @click="openPicker('employee')">
-          <span>员工</span>
-          <strong>{{ selectedEmployeeLabel }}</strong>
-        </button>
-        <button
-          class="frontline-home-button home-btn"
-          type="button"
-          @click="handleHome"
+        <header
+          class="frontline-operator-top top is-production"
+          data-frontline-production-selection-grid
         >
-          主页
-        </button>
-      </header>
+          <button
+            class="frontline-top-card top-box frontline-production-selection-card"
+            type="button"
+            data-frontline-production-selection-card
+            @click="openPicker('process')"
+          >
+            <div class="top-label">工序</div>
+            <div class="top-value">{{ selectedProcessLabel }}</div>
+          </button>
+          <button
+            class="frontline-top-card top-box frontline-production-selection-card"
+            type="button"
+            data-frontline-production-selection-card
+            @click="openPicker('employee')"
+          >
+            <div class="top-label">员工</div>
+            <div class="top-value">{{ selectedEmployeeLabel }}</div>
+          </button>
+          <button
+            class="frontline-home-button home-btn frontline-production-fullscreen-toggle"
+            type="button"
+            data-production-fullscreen-toggle
+            :aria-label="productionFullscreenActionText"
+            :aria-pressed="isProductionFullscreen"
+            @click="handleProductionFullscreenToggle"
+          >
+            {{ productionFullscreenActionText }}
+          </button>
+        </header>
 
-      <main
-        class="frontline-operator-main frontline-production-main main"
-        :class="{ 'is-no-device': !visibleDeviceCards.length }"
-      >
         <section
-          class="frontline-work-panel panel quantity-panel frontline-production-quantity-panel"
-          :class="{ 'is-no-device': !visibleDeviceCards.length }"
-          aria-label="数量与不良"
+          v-if="activePicker"
+          class="frontline-picker picker"
+          :aria-label="activePicker === 'process' ? '选择工序' : '选择员工'"
+          @click.self="closePicker"
         >
-          <div class="panel-title">填数量</div>
-          <div class="frontline-production-quantity-body">
-            <div class="frontline-production-quantity-fields">
-              <div class="frontline-production-number-field field">
-                <label class="field-label" for="frontlineProductionOutputQuantity">完成数量</label>
-                <button
-                  class="num-btn"
-                  type="button"
-                  aria-label="完成数量减少"
-                  @click="adjustProductionOutputQuantity(-1)"
-                >
-                  -
-                </button>
-                <input
-                  class="value-box"
-                  id="frontlineProductionOutputQuantity"
-                  :value="productionDraft.outputQuantity ?? ''"
-                  inputmode="numeric"
-                  @input="updateProductionOutputQuantity"
-                />
-                <button
-                  class="num-btn"
-                  type="button"
-                  aria-label="完成数量增加"
-                  @click="adjustProductionOutputQuantity(1)"
-                >
-                  +
-                </button>
-                <span class="unit">件</span>
-              </div>
+          <div class="frontline-picker__card picker-card">
+            <h3 class="frontline-picker__title picker-title">
+              {{ activePicker === 'process' ? '选工序' : '选择员工' }}
+            </h3>
+            <div class="frontline-picker__options picker-options">
+              <button
+                v-for="option in pickerOptions"
+                :key="option.key"
+                class="frontline-picker__option picker-option"
+                type="button"
+                :class="{ active: option.active }"
+                @click="option.onClick"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+            <button class="frontline-picker__close picker-close" type="button" @click="closePicker">
+              返回
+            </button>
+          </div>
+        </section>
 
-              <div class="frontline-production-number-field field total is-total">
-                <label class="field-label" for="frontlineProductionScrapQuantity">损耗数量</label>
-                <input
-                  class="value-box"
-                  id="frontlineProductionScrapQuantity"
-                  :value="productionScrapQuantity"
-                  inputmode="numeric"
-                  readonly
-                />
-                <span class="unit">件</span>
-              </div>
+        <main class="frontline-operator-main frontline-production-main main">
+          <section
+            class="frontline-work-panel panel quantity-panel frontline-production-quantity-panel"
+            aria-label="数量与不良"
+          >
+            <div class="panel-title">填数量</div>
+
+            <div class="frontline-production-number-field field">
+              <label class="field-label" for="frontlineProductionOutputQuantity">完成数量</label>
+              <button
+                class="num-btn"
+                type="button"
+                aria-label="完成数量减少"
+                @click="adjustProductionOutputQuantity(-1)"
+              >
+                -
+              </button>
+              <input
+                class="value-box"
+                id="frontlineProductionOutputQuantity"
+                :value="productionDraft.outputQuantity ?? ''"
+                inputmode="numeric"
+                @input="updateProductionOutputQuantity"
+              />
+              <button
+                class="num-btn"
+                type="button"
+                aria-label="完成数量增加"
+                @click="adjustProductionOutputQuantity(1)"
+              >
+                +
+              </button>
+              <span class="unit">件</span>
+            </div>
+
+            <div class="frontline-production-number-field field total is-total">
+              <label class="field-label" for="frontlineProductionScrapQuantity">损耗数量</label>
+              <input
+                class="value-box"
+                id="frontlineProductionScrapQuantity"
+                :value="productionScrapQuantity"
+                inputmode="numeric"
+                readonly
+              />
+              <span class="unit">件</span>
             </div>
 
             <section class="frontline-production-defect-section defect-section" aria-label="不良明细">
@@ -587,104 +635,103 @@
                 </div>
               </div>
             </section>
-          </div>
-        </section>
+          </section>
 
-        <section
-          v-if="visibleDeviceCards.length"
-          class="frontline-work-panel panel device-panel frontline-production-device-panel"
-          aria-label="设备"
-        >
-          <div class="panel-title">填设备</div>
-          <div class="frontline-production-device-tabs device-tabs" role="tablist" aria-label="设备切换">
-            <button
-              v-for="device in visibleDeviceCards"
-              :key="device.key"
-              class="device-tab"
-              type="button"
-              role="tab"
-              :aria-selected="device.key === selectedProductionDeviceKey"
-              :class="{ active: device.key === selectedProductionDeviceKey }"
-              @click="selectedProductionDeviceKey = device.key"
-            >
-              {{ device.label }}
-            </button>
-          </div>
-          <div v-if="activeProductionDevice" class="frontline-production-device-current device-current">
-            <div
-              v-for="parameter in activeProductionDevice.parameters"
-              :key="parameter.parameterCode"
-              class="frontline-production-device-param device-param"
-            >
-              <label
-                class="device-param-label"
-                :for="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
-              >
-                {{ parameter.parameterName || parameter.parameterCode }}
-              </label>
+          <section
+            class="frontline-work-panel panel device-panel frontline-production-device-panel"
+            aria-label="设备"
+          >
+            <div class="panel-title">填设备</div>
+            <div class="frontline-production-device-tabs device-tabs" role="tablist" aria-label="设备切换">
               <button
-                class="device-num"
+                v-for="device in visibleDeviceCards"
+                :key="device.key"
+                class="device-tab"
                 type="button"
-                :aria-label="`${parameter.parameterName || parameter.parameterCode}减少`"
-                @click="adjustProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, -1)"
+                role="tab"
+                :aria-selected="device.key === selectedProductionDeviceKey"
+                :class="{ active: device.key === selectedProductionDeviceKey }"
+                @click="selectedProductionDeviceKey = device.key"
               >
-                -
+                {{ device.label }}
               </button>
-              <input
-                class="device-value"
-                :id="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
-                :value="getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode)"
-                inputmode="decimal"
-                @input="updateProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, $event)"
-              />
-              <button
-                class="device-num"
-                type="button"
-                :aria-label="`${parameter.parameterName || parameter.parameterCode}增加`"
-                @click="adjustProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, 1)"
-              >
-                +
-              </button>
-              <span class="device-unit">{{ parameter.unit || '' }}</span>
             </div>
-          </div>
-        </section>
-      </main>
+            <div v-if="activeProductionDevice" class="frontline-production-device-current device-current">
+              <div
+                v-for="parameter in activeProductionDevice.parameters"
+                :key="parameter.parameterCode"
+                class="frontline-production-device-param device-param"
+              >
+                <label
+                  class="device-param-label"
+                  :for="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
+                >
+                  {{ parameter.parameterName || parameter.parameterCode }}
+                </label>
+                <button
+                  class="device-num"
+                  type="button"
+                  :aria-label="`${parameter.parameterName || parameter.parameterCode}减少`"
+                  @click="adjustProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, -1)"
+                >
+                  -
+                </button>
+                <input
+                  class="device-value"
+                  :id="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
+                  :value="getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode)"
+                  inputmode="decimal"
+                  @input="updateProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, $event)"
+                />
+                <button
+                  class="device-num"
+                  type="button"
+                  :aria-label="`${parameter.parameterName || parameter.parameterCode}增加`"
+                  @click="adjustProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, 1)"
+                >
+                  +
+                </button>
+                <span class="device-unit">{{ parameter.unit || '' }}</span>
+              </div>
+            </div>
+          </section>
+        </main>
 
-      <footer class="frontline-production-submit-bar bottom">
-        <button
-          class="frontline-production-reset-button minor-btn"
-          type="button"
-          @click="handleResetProduction"
-        >
-          重填
-        </button>
-        <button
-          class="frontline-production-submit-button submit-btn"
-          type="button"
-          :disabled="isSubmitBlocked || payloadLoading"
-          @click="handleValidate"
-        >
-          {{ payloadLoading ? '提交中' : '提交' }}
-        </button>
-      </footer>
+        <footer class="frontline-production-submit-bar bottom">
+          <button
+            class="frontline-production-reset-button minor-btn"
+            type="button"
+            @click="handleResetProduction"
+          >
+            重填
+          </button>
+          <button
+            class="frontline-production-submit-button submit-btn"
+            type="button"
+            :disabled="isSubmitBlocked || payloadLoading"
+            @click="handleValidate"
+          >
+            {{ payloadLoading ? '提交中' : '提交' }}
+          </button>
+        </footer>
     </div>
 
-    <div v-if="activePicker" class="frontline-picker" @click.self="closePicker">
-      <section class="frontline-picker__card">
-        <h3>
+    <div v-if="activePicker && isPqcMode" class="frontline-picker picker" @click.self="closePicker">
+      <section class="frontline-picker__card picker-card">
+        <h3 class="frontline-picker__title picker-title">
           {{
             isPqcMode
               ? activePicker === 'order'
                 ? '选择订单'
                 : activePicker === 'process' ? '选工序' : '选择员工'
-              : activePicker === 'process' ? '选择工序' : '选择员工'
+              : activePicker === 'process' ? '选工序' : '选择员工'
           }}
         </h3>
-        <div class="frontline-picker__options">
+        <div class="frontline-picker__options picker-options">
           <button
             v-for="option in pickerOptions"
             :key="option.key"
+            class="frontline-picker__option picker-option"
             type="button"
             :class="{ active: option.active }"
             @click="option.onClick"
@@ -692,8 +739,8 @@
             {{ option.label }}
           </button>
         </div>
-        <button class="frontline-picker__close" type="button" @click="closePicker">
-          {{ isPqcMode ? '返回' : '关闭' }}
+        <button class="frontline-picker__close picker-close" type="button" @click="closePicker">
+          返回
         </button>
       </section>
     </div>
@@ -814,8 +861,12 @@ const deviceState = reactive(createFrontlineDeviceEmployeeState())
 const employeeTemplateCode = ref<FrontlineTemplateCode>()
 const frontlinePanelRef = ref<HTMLElement>()
 const isPqcFullscreen = ref(false)
+const isProductionFullscreen = ref(false)
 const pqcFullscreenActionText = computed(() =>
   isPqcFullscreen.value ? '主页' : '最大化'
+)
+const productionFullscreenActionText = computed(() =>
+  isProductionFullscreen.value ? '主页' : '最大化'
 )
 
 const expectedTemplateCode = computed<FrontlineTemplateCode>(() =>
@@ -859,6 +910,7 @@ const pqcItemSelections = reactive<Record<PqcInspectionItemKey, PqcItemSelection
 const pqcSignatureId = ref<number>()
 
 const isPqcMode = computed(() => props.mode === 'pqc')
+const currentLoginUserId = computed(() => Number(userStore.getUser?.id || 0))
 const pqcProductionSubmitEventId = computed(() =>
   firstRouteQueryNumber(['productionSubmitEventId', 'processPoolEventId'])
 )
@@ -1744,6 +1796,9 @@ const handleResetPqc = () => {
 }
 
 const openPicker = (picker: PickerType) => {
+  if (isPqcMode.value && picker === 'employee') {
+    return
+  }
   activePicker.value = picker
 }
 
@@ -1756,7 +1811,8 @@ const handleHome = () => {
 }
 
 const syncPqcFullscreenState = () => {
-  isPqcFullscreen.value = document.fullscreenElement === frontlinePanelRef.value
+  isPqcFullscreen.value = isPqcMode.value && document.fullscreenElement === frontlinePanelRef.value
+  isProductionFullscreen.value = !isPqcMode.value && document.fullscreenElement === frontlinePanelRef.value
 }
 
 const enterPqcFullscreen = async () => {
@@ -1796,6 +1852,43 @@ const handlePqcFullscreenToggle = async () => {
   }
 }
 
+const enterProductionFullscreen = async () => {
+  const panel = frontlinePanelRef.value
+  if (!panel) {
+    throw new Error('一线生产填写最大化区域尚未加载。')
+  }
+  if (typeof panel.requestFullscreen !== 'function') {
+    throw new Error('当前浏览器不支持一线生产填写最大化。')
+  }
+  await panel.requestFullscreen()
+  syncPqcFullscreenState()
+}
+
+const exitProductionFullscreen = async () => {
+  if (!document.fullscreenElement) {
+    syncPqcFullscreenState()
+    return
+  }
+  if (typeof document.exitFullscreen !== 'function') {
+    throw new Error('当前浏览器不支持退出一线生产填写最大化。')
+  }
+  await document.exitFullscreen()
+  syncPqcFullscreenState()
+}
+
+const handleProductionFullscreenToggle = async () => {
+  try {
+    if (isProductionFullscreen.value) {
+      await exitProductionFullscreen()
+      return
+    }
+    await enterProductionFullscreen()
+  } catch (error) {
+    message.error(resolveErrorMessage(error))
+    throw error
+  }
+}
+
 const findInitialProcess = (
   processes: FrontlineDeviceRouteProcessVO[] = switchableProcessOptions.value
 ) => {
@@ -1815,7 +1908,25 @@ const findInitialProcess = (
   return processes[0]
 }
 
+const isCurrentLoginEmployee = (employee?: FrontlineEmployeeCandidateVO) => {
+  const loginUserId = currentLoginUserId.value
+  return Boolean(
+    employee &&
+    loginUserId &&
+    (
+      employee.userId === loginUserId ||
+      employee.systemUserId === loginUserId
+    )
+  )
+}
+
+const findCurrentLoginEmployee = () =>
+  deviceState.employeeOptions.find((employee) => isCurrentLoginEmployee(employee))
+
 const findInitialEmployee = () => {
+  if (isPqcMode.value) {
+    return findCurrentLoginEmployee()
+  }
   const requestedActualEmployeeId = context.actualEmployeeId
   if (requestedActualEmployeeId) {
     const matchedEmployee = deviceState.employeeOptions.find((employee) =>
@@ -1855,11 +1966,20 @@ const handleSelectProcess = async (process: FrontlineDeviceRouteProcessVO) => {
   const initialEmployee = findInitialEmployee()
   if (initialEmployee) {
     await handleSelectEmployee(initialEmployee)
+  } else if (isPqcMode.value) {
+    const error = new Error('当前登录账号未返回PQC人员候选，无法进入PQC填写。')
+    message.error(error.message)
+    throw error
   }
   closePicker()
 }
 
 const handleSelectEmployee = async (employee: FrontlineEmployeeCandidateVO) => {
+  if (isPqcMode.value && !isCurrentLoginEmployee(employee)) {
+    const error = new Error('一线PQC员工已锁定为当前登录账号，不能切换。')
+    message.error(error.message)
+    throw error
+  }
   const result = isPqcMode.value
     ? await switchFrontlinePqcActualEmployee(deviceState, employee.userId)
     : await switchFrontlineActualEmployee(deviceState, employee.userId)
@@ -2295,7 +2415,9 @@ const hydrateContextFromRoute = () => {
   context.routeId = firstRouteQueryNumber(['routeId']) ?? context.routeId
   context.routeProcessId = firstRouteQueryNumber(['routeProcessId']) ?? context.routeProcessId
   context.processId = firstRouteQueryNumber(['processId']) ?? context.processId
-  context.actualEmployeeId = firstRouteQueryNumber(['actualEmployeeId']) ?? context.actualEmployeeId
+  if (!isPqcMode.value) {
+    context.actualEmployeeId = firstRouteQueryNumber(['actualEmployeeId']) ?? context.actualEmployeeId
+  }
   productionDraft.outputQuantity = firstRouteQueryNumber(['outputQuantity', 'submitQuantity']) ?? productionDraft.outputQuantity
   pqcSignatureId.value = firstRouteQueryNumber(['signatureId']) ?? pqcSignatureId.value
   const queryTemplateCode = resolveTemplateCode(firstRouteQueryText(['templateCode', 'templateNo']))
@@ -2436,6 +2558,29 @@ onUnmounted(() => {
   position: relative;
 }
 
+.frontline-operator-panel.is-production-mode {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: calc(100vh - 96px);
+  margin: 0;
+  padding: 24px 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: #dfe8e2;
+  color: #111a15;
+  font-family:
+    "Microsoft YaHei UI",
+    "PingFang SC",
+    "Noto Sans CJK SC",
+    sans-serif;
+}
+
+.frontline-operator-screen,
+.frontline-operator-screen * {
+  box-sizing: border-box;
+}
+
 .frontline-operator-screen {
   --frontline-bg: #eef3ef;
   --frontline-panel: #ffffff;
@@ -2444,16 +2589,21 @@ onUnmounted(() => {
   --frontline-line: #cbd6ce;
   --frontline-dark: #24322b;
   display: grid;
-  width: 1920px;
-  height: 1080px;
+  width: min(100%, 1600px);
+  min-height: min(1080px, calc(100vh - 144px));
   box-sizing: border-box;
-  grid-template-rows: 130px 1fr 126px;
+  grid-template-rows: auto minmax(0, 1fr) 126px;
   gap: 20px;
   padding: 28px;
   overflow: hidden;
   position: relative;
   background: var(--frontline-bg);
   color: var(--frontline-ink);
+  font-family:
+    "Microsoft YaHei UI",
+    "PingFang SC",
+    "Noto Sans CJK SC",
+    sans-serif;
 
   &.is-pqc {
     width: auto;
@@ -2461,6 +2611,11 @@ onUnmounted(() => {
     grid-template-rows: 118px minmax(0, 1fr) 104px;
     min-height: 820px;
   }
+}
+
+.frontline-operator-screen button,
+.frontline-operator-screen input {
+  font: inherit;
 }
 
 .frontline-operator-screen:fullscreen {
@@ -2482,6 +2637,19 @@ onUnmounted(() => {
   background:
     radial-gradient(circle at 12% 10%, rgba(255, 255, 255, 0.76), transparent 28%),
     linear-gradient(135deg, #eef3ef 0%, #e1ebe4 100%);
+}
+
+.frontline-operator-panel.is-production-fullscreen,
+.frontline-operator-panel.is-production-mode:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  background: #dfe8e2;
 }
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-operator-screen.is-pqc,
@@ -2510,8 +2678,8 @@ onUnmounted(() => {
   gap: 28px;
 }
 
-.frontline-operator-panel.is-pqc-fullscreen .frontline-top-card,
-.frontline-operator-panel:fullscreen .frontline-top-card {
+.frontline-operator-panel.is-pqc-fullscreen .frontline-operator-screen.is-pqc .frontline-top-card,
+.frontline-operator-panel:fullscreen .frontline-operator-screen.is-pqc .frontline-top-card {
   padding: 18px 22px;
 
   span {
@@ -2524,13 +2692,13 @@ onUnmounted(() => {
   }
 }
 
-.frontline-operator-panel.is-pqc-fullscreen .frontline-top-card__order,
-.frontline-operator-panel:fullscreen .frontline-top-card__order {
+.frontline-operator-panel.is-pqc-fullscreen .frontline-operator-screen.is-pqc .frontline-top-card__order,
+.frontline-operator-panel:fullscreen .frontline-operator-screen.is-pqc .frontline-top-card__order {
   font-size: 34px !important;
 }
 
-.frontline-operator-panel.is-pqc-fullscreen .frontline-home-button,
-.frontline-operator-panel:fullscreen .frontline-home-button {
+.frontline-operator-panel.is-pqc-fullscreen .frontline-operator-screen.is-pqc .frontline-home-button,
+.frontline-operator-panel:fullscreen .frontline-operator-screen.is-pqc .frontline-home-button {
   font-size: 38px;
 }
 
@@ -2570,6 +2738,20 @@ onUnmounted(() => {
   }
 }
 
+.frontline-operator-top.is-production {
+  width: min(100%, 68vw);
+  max-width: 1280px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(132px, 0.58fr);
+  justify-self: center;
+  align-self: start;
+
+  .frontline-production-selection-card,
+  .frontline-production-fullscreen-toggle {
+    aspect-ratio: 1920 / 1080;
+    min-height: 0;
+  }
+}
+
 .frontline-top-card,
 .frontline-home-button {
   min-width: 0;
@@ -2594,7 +2776,14 @@ onUnmounted(() => {
     line-height: 1;
   }
 
-  strong {
+  .top-label {
+    color: var(--frontline-muted);
+    font-size: 28px;
+    font-weight: 700;
+  }
+
+  strong,
+  .top-value {
     min-width: 0;
     margin-top: 12px;
     overflow: hidden;
@@ -2604,6 +2793,11 @@ onUnmounted(() => {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+.frontline-top-card.is-login-employee {
+  cursor: default;
+  opacity: 1;
 }
 
 .frontline-top-card__order {
@@ -2652,10 +2846,6 @@ onUnmounted(() => {
     grid-template-columns: minmax(700px, 1.55fr) minmax(430px, 0.95fr);
     gap: 28px;
   }
-
-  &.frontline-production-main.is-no-device {
-    grid-template-columns: 1fr;
-  }
 }
 
 .frontline-work-panel {
@@ -2678,38 +2868,8 @@ onUnmounted(() => {
 }
 
 .frontline-production-quantity-panel {
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: 16px;
-
-  &.is-no-device {
-    padding: 36px;
-  }
-}
-
-.frontline-production-quantity-body {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 16px;
-  min-width: 0;
-  min-height: 0;
-}
-
-.frontline-production-quantity-panel.is-no-device .frontline-production-quantity-body {
-  grid-template-rows: minmax(0, 1fr);
-  grid-template-columns: 680px minmax(0, 1fr);
-  gap: 36px;
-}
-
-.frontline-production-quantity-fields {
-  display: grid;
-  gap: 16px;
-  align-content: start;
-}
-
-.frontline-production-quantity-panel.is-no-device .frontline-production-quantity-fields {
-  grid-template-rows: 108px 108px;
-  gap: 28px;
-  align-content: center;
 }
 
 .frontline-production-number-field {
@@ -2762,38 +2922,6 @@ onUnmounted(() => {
   }
 }
 
-.frontline-production-quantity-panel.is-no-device .frontline-production-number-field {
-  grid-template-columns: 230px 86px minmax(150px, 1fr) 86px 60px;
-  gap: 18px;
-
-  &.is-total {
-    grid-template-columns: 230px minmax(0, 1fr) 60px;
-  }
-
-  label {
-    font-size: 40px;
-  }
-
-  button,
-  input {
-    height: 108px;
-    border-radius: 20px;
-  }
-
-  button {
-    font-size: 56px;
-  }
-
-  input {
-    font-size: 58px;
-  }
-
-  span {
-    font-size: 38px;
-    font-weight: 900;
-  }
-}
-
 .frontline-production-defect-section {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -2807,20 +2935,12 @@ onUnmounted(() => {
   line-height: 1;
 }
 
-.frontline-production-quantity-panel.is-no-device .frontline-production-defect-title {
-  font-size: 38px;
-}
-
 .frontline-production-defect-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: repeat(4, minmax(0, 1fr));
   gap: 10px;
   min-height: 0;
-}
-
-.frontline-production-quantity-panel.is-no-device .frontline-production-defect-grid {
-  gap: 12px;
 }
 
 .frontline-production-defect-card {
@@ -2844,21 +2964,10 @@ onUnmounted(() => {
   }
 }
 
-.frontline-production-quantity-panel.is-no-device .frontline-production-defect-card {
-  grid-template-columns: minmax(0, 1fr) 66px 88px 66px 40px;
-  gap: 10px;
-  padding: 0 14px;
-  border-radius: 18px;
-}
-
 .frontline-production-defect-name {
   min-width: 0;
   font-size: 24px;
   line-height: 1.15;
-}
-
-.frontline-production-quantity-panel.is-no-device .frontline-production-defect-name {
-  font-size: 28px;
 }
 
 .frontline-production-defect-step,
@@ -2890,28 +2999,8 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.frontline-production-quantity-panel.is-no-device {
-  .frontline-production-defect-step,
-  .frontline-production-defect-qty {
-    height: 64px;
-    border-radius: 14px;
-  }
-
-  .frontline-production-defect-step {
-    font-size: 40px;
-  }
-
-  .frontline-production-defect-qty {
-    font-size: 34px;
-  }
-
-  .frontline-production-defect-unit {
-    font-size: 28px;
-  }
-}
-
 .frontline-production-device-panel {
-  grid-template-rows: auto 98px minmax(0, 1fr);
+  grid-template-rows: auto 98px 1fr;
   gap: 18px;
   overflow: hidden;
 }
@@ -2925,16 +3014,13 @@ onUnmounted(() => {
   button {
     min-width: 0;
     height: 98px;
-    padding: 0 8px;
-    overflow: hidden;
+    padding: 0;
     border: 3px solid var(--frontline-line);
     border-radius: 20px;
     background: #f8faf8;
     color: var(--frontline-ink);
     font-size: 34px;
     font-weight: 900;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     cursor: pointer;
 
     &.active {
@@ -3002,10 +3088,13 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 300px 1fr;
   gap: 24px;
+  position: relative;
+  z-index: 2;
 }
 
 .frontline-production-reset-button,
 .frontline-production-submit-button {
+  border: 0;
   border-radius: 28px;
   font-size: 54px;
   font-weight: 900;
@@ -3865,6 +3954,63 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
+.frontline-operator-panel.is-production-mode .frontline-picker {
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  border-radius: 0;
+  background: rgba(17, 26, 21, 0.38);
+}
+
+.frontline-operator-panel.is-production-mode .frontline-picker__card {
+  width: 760px;
+  padding: 28px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 28px;
+  background: var(--frontline-panel);
+}
+
+.frontline-operator-panel.is-production-mode .frontline-picker__title {
+  font-size: 48px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.frontline-operator-panel.is-production-mode .frontline-picker__options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  max-height: none;
+  overflow: visible;
+}
+
+.frontline-operator-panel.is-production-mode .frontline-picker__option {
+  height: 112px;
+  min-height: 0;
+  border: 3px solid var(--frontline-line);
+  border-radius: 22px;
+  background: #f8faf8;
+  color: var(--frontline-ink);
+  font-size: 42px;
+  font-weight: 900;
+}
+
+.frontline-operator-panel.is-production-mode .frontline-picker__option.active {
+  border-color: var(--frontline-dark);
+  background: var(--frontline-dark);
+  color: #ffffff;
+}
+
+.frontline-operator-panel.is-production-mode .frontline-picker__close {
+  height: 86px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 22px;
+  background: #f8faf8;
+  color: var(--frontline-ink);
+  font-size: 36px;
+  font-weight: 900;
+}
+
 .frontline-operator-screen :deep(.el-input-number),
 .frontline-operator-screen :deep(.el-input),
 .frontline-operator-screen :deep(.el-radio-group) {
@@ -3892,19 +4038,12 @@ onUnmounted(() => {
 }
 
 @media (max-width: 1280px) {
-  .frontline-operator-screen {
+  .frontline-operator-screen.is-pqc {
     min-height: 860px;
   }
 
-  .frontline-operator-top,
   .frontline-operator-top.is-pqc,
-  .frontline-operator-main,
-  .frontline-production-quantity-panel.is-no-device .frontline-production-quantity-body,
-  .frontline-production-number-field,
-  .frontline-production-number-field.is-total,
-  .frontline-production-device-tabs,
-  .frontline-production-device-param,
-  .frontline-production-submit-bar {
+  .frontline-operator-main.is-pqc {
     grid-template-columns: 1fr;
   }
 

@@ -66,8 +66,6 @@ class MesTeamLeaderActiveOrderServiceTest {
     @Mock
     private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Mock
-    private MesActiveOrderTransferTraceService transferTraceService;
-    @Mock
     private MesQaInspectionRegulationMapper inspectionRegulationMapper;
     @Mock
     private MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
@@ -82,7 +80,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     void setUp() {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
                 auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, processSnapshotMapper,
-                transferTraceService, inspectionRegulationMapper, inspectionRegulationVersionMapper,
+                inspectionRegulationMapper, inspectionRegulationVersionMapper,
                 inspectionRegulationItemMapper, pqcInspectionTaskMapper);
         lenient().when(inspectionRegulationMapper.selectPublishedByRouteProcess(any(), any(), any(), any(), any()))
                 .thenReturn(publishedRegulation(9902L));
@@ -115,10 +113,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 scheduleProcess(928609L, 6001L, "3.000000", "600.000000"),
                 scheduleProcess(928610L, 6002L, "2.000000", "400.000000")));
 
-        Long activeOrderId = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
-                .leaderUserId(3001L)
-                .workOrderId(9001L)
-                .build());
+        Long activeOrderId = service.addActiveOrder(activeOrderReq());
 
         assertEquals(8101L, activeOrderId);
         verify(workOrderService).validateWorkOrderConfirmed(9001L);
@@ -146,7 +141,6 @@ class MesTeamLeaderActiveOrderServiceTest {
                 "200", "3.000000", "600.000000");
         assertSnapshot(snapshots.get(1), 8101L, 9001L, 922119L, 448L, 928610L, 6002L,
                 "200", "2.000000", "400.000000");
-        verify(transferTraceService, never()).recordTransferTracesForActiveOrder(any(), any());
         verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
     }
 
@@ -157,16 +151,12 @@ class MesTeamLeaderActiveOrderServiceTest {
         when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(9001L, 922119L, 448L))
                 .thenReturn(existingActiveOrder(8101L, "ACTIVE", 0));
 
-        Long activeOrderId = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
-                .leaderUserId(3001L)
-                .workOrderId(9001L)
-                .build());
+        Long activeOrderId = service.addActiveOrder(activeOrderReq());
 
         assertEquals(8101L, activeOrderId);
         verify(activeOrderMapper).selectActiveByWorkOrderRouteVersion(9001L, 922119L, 448L);
         verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
         verify(processSnapshotMapper, never()).insertBatch(any());
-        verify(transferTraceService, never()).recordTransferTracesForActiveOrder(any(), any());
     }
 
     @Test
@@ -178,14 +168,10 @@ class MesTeamLeaderActiveOrderServiceTest {
         when(activeOrderMapper.insert(any(MesProcessPoolActiveOrderDO.class)))
                 .thenThrow(new DuplicateKeyException("uk_mes_pp_active_order"));
 
-        Long activeOrderId = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
-                .leaderUserId(3001L)
-                .workOrderId(9001L)
-                .build());
+        Long activeOrderId = service.addActiveOrder(activeOrderReq());
 
         assertEquals(8102L, activeOrderId);
         verify(processSnapshotMapper, never()).insertBatch(any());
-        verify(transferTraceService, never()).recordTransferTracesForActiveOrder(any(), any());
         verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
     }
 
@@ -197,16 +183,12 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .thenReturn(existingActiveOrder(8101L, "REMOVED", 7));
         when(activeOrderMapper.reactivateRemovedActiveOrder(any(), any(), any(), any())).thenReturn(1);
 
-        Long activeOrderId = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
-                .leaderUserId(3001L)
-                .workOrderId(9001L)
-                .build());
+        Long activeOrderId = service.addActiveOrder(activeOrderReq());
 
         assertEquals(8101L, activeOrderId);
         verify(activeOrderMapper).reactivateRemovedActiveOrder(eq(8101L), eq(3001L), eq(7), any(LocalDateTime.class));
         verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
         verify(processSnapshotMapper, never()).insertBatch(any());
-        verify(transferTraceService, never()).recordTransferTracesForActiveOrder(any(), any());
         verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
     }
 
@@ -216,11 +198,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .thenThrow(cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil
                         .exception(ErrorCodeConstants.PRO_WORK_ORDER_NOT_CONFIRMED));
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(
-                MesTeamLeaderActiveOrderAddReqBO.builder()
-                        .leaderUserId(3001L)
-                        .workOrderId(9001L)
-                        .build()));
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
 
         assertEquals(ErrorCodeConstants.PRO_WORK_ORDER_NOT_CONFIRMED.getCode(), ex.getCode());
         verify(scheduleOrderMapper, never()).selectEffectiveListByWorkOrderIds(any());
@@ -232,11 +210,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         stubConfirmedWorkOrder();
         stubEffectiveSchedules();
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(
-                MesTeamLeaderActiveOrderAddReqBO.builder()
-                        .leaderUserId(3001L)
-                        .workOrderId(9001L)
-                        .build()));
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_EFFECTIVE_SCHEDULE_UNIQUE_REQUIRED.getCode(),
                 ex.getCode());
@@ -249,11 +223,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         stubEffectiveSchedules(effectiveSchedule(7701L, 922119L, 448L),
                 effectiveSchedule(7702L, 922119L, 448L));
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(
-                MesTeamLeaderActiveOrderAddReqBO.builder()
-                        .leaderUserId(3001L)
-                        .workOrderId(9001L)
-                        .build()));
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_EFFECTIVE_SCHEDULE_UNIQUE_REQUIRED.getCode(),
                 ex.getCode());
@@ -265,11 +235,18 @@ class MesTeamLeaderActiveOrderServiceTest {
         stubConfirmedWorkOrder();
         stubEffectiveSchedules(effectiveSchedule(7701L, null, 448L));
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(
-                MesTeamLeaderActiveOrderAddReqBO.builder()
-                        .leaderUserId(3001L)
-                        .workOrderId(9001L)
-                        .build()));
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED.getCode(), ex.getCode());
+        verifyNoActiveOrderWrites();
+    }
+
+    @Test
+    void shouldRejectWhenEffectiveScheduleRouteVersionMissing() {
+        stubConfirmedWorkOrder();
+        stubEffectiveSchedules(effectiveSchedule(7701L, 922119L, null));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED.getCode(), ex.getCode());
         verifyNoActiveOrderWrites();
@@ -281,10 +258,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         stubEffectiveSchedules(effectiveSchedule(7701L, 922119L, 448L));
         stubSuccessfulInsertAndProcesses(List.of(scheduleProcess(928609L, 6001L, "1.000000", "301.000000")));
 
-        Long activeOrderId = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
-                .leaderUserId(3001L)
-                .workOrderId(9001L)
-                .build());
+        Long activeOrderId = service.addActiveOrder(activeOrderReq());
 
         assertEquals(8101L, activeOrderId);
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
@@ -315,6 +289,13 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(scheduleOrderProcessMapper, never()).selectListByScheduleOrderId(any());
         verify(processSnapshotMapper, never()).insertBatch(any());
         verify(scheduleOrderMapper, never()).selectEffectiveListByWorkOrderIds(any());
+    }
+
+    private static MesTeamLeaderActiveOrderAddReqBO activeOrderReq() {
+        return MesTeamLeaderActiveOrderAddReqBO.builder()
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .build();
     }
 
     private void stubConfirmedWorkOrder() {
@@ -380,7 +361,6 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(activeOrderMapper, never()).reactivateRemovedActiveOrder(any(), any(), any(), any());
         verify(processSnapshotMapper, never()).insertBatch(any());
         verify(pqcInspectionTaskMapper, never()).insert(any(MesPqcInspectionTaskDO.class));
-        verify(transferTraceService, never()).recordTransferTracesForActiveOrder(any(), any());
         verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
     }
 

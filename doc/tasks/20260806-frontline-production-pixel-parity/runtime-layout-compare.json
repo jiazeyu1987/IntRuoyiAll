@@ -1,0 +1,215 @@
+{
+  "route": "http://127.0.0.1:8081/mes/pro/feedback/edhr-batch-production-fill",
+  "reference": "file:///C:/Users/BJB110/Desktop/3/frontline-production-operator-1920.html",
+  "viewport": "1920x1080",
+  "pageErrors": [],
+  "diffs": [],
+  "referenceBoxes": {
+    "screen": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1080
+    },
+    "top": {
+      "x": 28,
+      "y": 28,
+      "width": 1864,
+      "height": 130
+    },
+    "topProcess": {
+      "x": 28,
+      "y": 28,
+      "width": 792,
+      "height": 143.19
+    },
+    "topEmployee": {
+      "x": 840,
+      "y": 28,
+      "width": 792,
+      "height": 143.19
+    },
+    "home": {
+      "x": 1652,
+      "y": 28,
+      "width": 240,
+      "height": 143.19
+    },
+    "main": {
+      "x": 28,
+      "y": 178,
+      "width": 1864,
+      "height": 728
+    },
+    "quantityPanel": {
+      "x": 28,
+      "y": 178,
+      "width": 1050,
+      "height": 728
+    },
+    "fieldOutput": {
+      "x": 57,
+      "y": 271,
+      "width": 992,
+      "height": 96
+    },
+    "fieldLoss": {
+      "x": 57,
+      "y": 383,
+      "width": 992,
+      "height": 96
+    },
+    "defectSection": {
+      "x": 57,
+      "y": 495,
+      "width": 992,
+      "height": 382
+    },
+    "defectGrid": {
+      "x": 57,
+      "y": 539,
+      "width": 992,
+      "height": 338
+    },
+    "devicePanel": {
+      "x": 1106,
+      "y": 178,
+      "width": 786,
+      "height": 728
+    },
+    "deviceTabs": {
+      "x": 1135,
+      "y": 273,
+      "width": 728,
+      "height": 98
+    },
+    "deviceCurrent": {
+      "x": 1135,
+      "y": 389,
+      "width": 728,
+      "height": 488
+    },
+    "bottom": {
+      "x": 28,
+      "y": 926,
+      "width": 1864,
+      "height": 126
+    },
+    "reset": {
+      "x": 28,
+      "y": 926,
+      "width": 300,
+      "height": 126
+    },
+    "submit": {
+      "x": 352,
+      "y": 926,
+      "width": 1540,
+      "height": 126
+    }
+  },
+  "actualBoxes": {
+    "screen": {
+      "x": 0,
+      "y": 0,
+      "width": 1920,
+      "height": 1080
+    },
+    "top": {
+      "x": 28,
+      "y": 28,
+      "width": 1864,
+      "height": 130
+    },
+    "topProcess": {
+      "x": 28,
+      "y": 28,
+      "width": 792,
+      "height": 143.19
+    },
+    "topEmployee": {
+      "x": 840,
+      "y": 28,
+      "width": 792,
+      "height": 143.19
+    },
+    "home": {
+      "x": 1652,
+      "y": 28,
+      "width": 240,
+      "height": 143.19
+    },
+    "main": {
+      "x": 28,
+      "y": 178,
+      "width": 1864,
+      "height": 728
+    },
+    "quantityPanel": {
+      "x": 28,
+      "y": 178,
+      "width": 1050,
+      "height": 728
+    },
+    "fieldOutput": {
+      "x": 57,
+      "y": 271,
+      "width": 992,
+      "height": 96
+    },
+    "fieldLoss": {
+      "x": 57,
+      "y": 383,
+      "width": 992,
+      "height": 96
+    },
+    "defectSection": {
+      "x": 57,
+      "y": 495,
+      "width": 992,
+      "height": 382
+    },
+    "defectGrid": {
+      "x": 57,
+      "y": 539,
+      "width": 992,
+      "height": 338
+    },
+    "devicePanel": {
+      "x": 1106,
+      "y": 178,
+      "width": 786,
+      "height": 728
+    },
+    "deviceTabs": {
+      "x": 1135,
+      "y": 273,
+      "width": 728,
+      "height": 98
+    },
+    "deviceCurrent": {
+      "x": 1135,
+      "y": 389,
+      "width": 728,
+      "height": 488
+    },
+    "bottom": {
+      "x": 28,
+      "y": 926,
+      "width": 1864,
+      "height": 126
+    },
+    "reset": {
+      "x": 28,
+      "y": 926,
+      "width": 300,
+      "height": 126
+    },
+    "submit": {
+      "x": 352,
+      "y": 926,
+      "width": 1540,
+      "height": 126
+    }
+  }
+}

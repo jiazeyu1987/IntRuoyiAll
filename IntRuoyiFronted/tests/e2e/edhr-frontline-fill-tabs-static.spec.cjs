@@ -76,15 +76,19 @@ assert.ok(productionStart >= 0 && productionEnd > productionStart, 'production o
 const productionBlockStart = frontlinePanel.lastIndexOf('<div', productionStart)
 assert.ok(productionBlockStart >= 0, 'production operator wrapper must exist.')
 const productionTemplate = frontlinePanel.slice(productionBlockStart, productionEnd)
-for (const required of ['工序', '员工', '主页', '完成数量', '损耗数量', '不良明细', '填设备', '重填', '提交']) {
+for (const required of ['工序', '员工', '完成数量', '损耗数量', '不良明细', '填设备', '重填', '提交']) {
   assert.match(productionTemplate, new RegExp(required), `production UI must include ${required}.`)
 }
 assert.match(productionTemplate, /class="frontline-operator-screen screen"/, 'production UI must render the approved prototype screen class.')
-assert.match(productionTemplate, /class="frontline-home-button home-btn"[\s\S]*@click="handleHome"[\s\S]*主页/, 'production UI must expose the reference Home button.')
+assert.match(
+  productionTemplate,
+  /class="[^"]*\bfrontline-home-button\b[^"]*\bhome-btn\b[^"]*"[\s\S]*data-production-fullscreen-toggle[\s\S]*@click="handleProductionFullscreenToggle"[\s\S]*{{ productionFullscreenActionText }}/,
+  'production UI must keep the reference Home button styling but use the explicit fullscreen toggle like PQC.'
+)
 assert.doesNotMatch(
   productionTemplate,
-  /frontline-production-fullscreen-button|productionFullscreenButtonLabel|handleProductionFullscreenToggle/,
-  'production UI must not keep the old fullscreen toggle in the reference prototype.'
+  /frontline-production-fullscreen-button|productionFullscreenButtonLabel/,
+  'production UI must not keep the old removed fullscreen button class or label.'
 )
 assert.match(
   productionTemplate,

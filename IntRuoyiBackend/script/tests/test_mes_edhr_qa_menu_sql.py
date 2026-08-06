@@ -57,7 +57,7 @@ def test_edhr_qa_menu_inserts_between_batch_record_form_and_batch_execution() ->
         (
             900434,
             "QA",
-            "mes:pro-process-pool-team-leader:query",
+            "mes:qa-inspection-regulation:query",
             1,
             "/mes/pro/process-pool/qa-regulation",
             "mes/pro/processpool/QaRegulationPage",
@@ -93,7 +93,7 @@ def test_edhr_qa_menu_inserts_between_batch_record_form_and_batch_execution() ->
         (
             900435,
             "PQC组长",
-            "mes:pro-process-pool-team-leader:query",
+            "mes:pro-process-pool-pqc-leader:query",
             4,
             "/mes/pro/process-pool/pqc-leader",
             "mes/pro/processpool/PqcLeaderWorkbenchPage",

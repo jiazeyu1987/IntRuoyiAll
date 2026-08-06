@@ -16,6 +16,7 @@
 - REGRESSION: `node tests\e2e\pqc-leader-standard-list-template-static.spec.js` -> PASS.
 - REGRESSION: `node tests\e2e\production-personnel-unified-status-list-static.spec.cjs` -> PASS after CSS rule split.
 - REGRESSION: `pnpm ts:check` -> PASS.
+- POST-CONCURRENCY RECHECK: `node tests\e2e\pqc-personnel-unified-status-list-static.spec.cjs` -> PASS and `node tests\e2e\pqc-leader-personnel-tab-static.spec.js` -> PASS after unrelated working-tree changes appeared in `TeamLeaderWorkbenchPage.vue`.
 
 ## Not Run
 
@@ -26,3 +27,4 @@
 - Current HEAD: `c4675d197 chore: baseline pre-existing dirty worktree`.
 - The baseline commit includes this task's `TeamLeaderWorkbenchPage.vue`, `pqc-leader-personnel-tab-static.spec.js`, and task evidence edits, plus unrelated backend/frontend/docs files.
 - Do not push this baseline as this task's independent implementation without user direction.
+- Existing long-term gates already cover this risk: `docs\powershell-memory.md` -> `共享分支并发基线提交门禁` and `同文件并行改动选择性暂存门禁`.

@@ -83,6 +83,16 @@ assert.match(
 )
 assert.match(
   header,
+  /data-qa-regulation-project-dropdown/,
+  'QA header project selector must expose a stable dropdown-capable control marker.'
+)
+assert.match(
+  header,
+  /<el-select[\s\S]*automatic-dropdown[\s\S]*default-first-option[\s\S]*filterable[\s\S]*remote[\s\S]*remote-show-suffix[\s\S]*:remote-method="loadDccProjectCodeOptions"[\s\S]*<el-option[\s\S]*:label="formatDccProjectCodeOption\(project\)"[\s\S]*:value="project\.id"/,
+  'The project code field must remain a searchable dropdown select, not a pure copyable input.'
+)
+assert.match(
+  header,
   /data-qa-regulation-project-copy/,
   'QA header must provide a dedicated copy action inside the red-box project area.'
 )

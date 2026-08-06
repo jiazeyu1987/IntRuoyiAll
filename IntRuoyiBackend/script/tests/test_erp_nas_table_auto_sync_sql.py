@@ -54,8 +54,13 @@ def test_nas_table_auto_sync_sql_seeds_disabled_infra_job() -> None:
 
 def test_nas_table_auto_sync_sql_has_release_metadata() -> None:
     sql = SQL_PATH.read_text(encoding="utf-8")
+    first_line = sql.splitlines()[0].strip()
 
-    assert "20260805_erp_nas_table_auto_sync" in sql
+    assert first_line == (
+        "-- release-migration: allowedEnvironments=test,backup,prod; "
+        "dependsOn=20260612_erp_kingdee_sync_runtime; type=schema; riskLevel=medium"
+    )
     assert "NAS 表格自动同步" in sql
-    assert "schema" in sql.lower()
-    assert "job" in sql.lower()
+    assert "type=schema,job" not in sql
+    assert "dependsOn=20260612_erp_kingdee_sync_runtime.sql" not in sql
+    assert "'erpNasTableAutoSyncJob'" in sql

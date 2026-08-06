@@ -6,22 +6,23 @@
 
 ## Milestones
 
-- [ ] 记录 BDD/TDD 与适用门禁
-- [ ] 新增前端与后端 RED 合同，证明旧实现仍依赖工序ID或异常原因
-- [ ] 更新前端表单、请求类型和后端接口/服务契约
-- [ ] 运行目标 GREEN 验证并记录结果
-- [ ] 更新验证报告与收尾状态
+- [x] 记录 BDD/TDD 与适用门禁
+- [x] 新增前端与后端 RED 合同，证明旧实现仍依赖工序ID或异常原因
+- [x] 更新前端表单、请求类型和后端接口/服务契约
+- [x] 运行任务专用 GREEN 验证并记录结果
+- [ ] 完成后端 Maven 与大合同回归（当前被既有无关问题阻塞）
 
 ## Expected Verification
 
-- `node tests/e2e/mes-process-pool-team-leader-static.spec.js`
+- `node tests/e2e/work-order-abnormal-minimal-report-static.spec.js`
+- `node tests/e2e/mes-process-pool-team-leader-static.spec.js`（大合同回归；当前存在无关 PQC 多维筛选断言阻塞）
 - `mvn -pl yudao-module-mes -am "-Dtest=MesWorkOrderAbnormalReportServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260806-work-order-abnormal-minimal-report/frontend-feature-evidence.md`
 - `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260806-work-order-abnormal-minimal-report/backend-api-evidence.md`
 
 ## Current Status
 
-in_progress
+blocked - 实现和任务专用静态合同已完成；后端 Maven 被既有活跃订单新增链路编译错误阻塞，大合同被既有 PQC 多维筛选断言阻塞，无法按项目规则完成最终 closeout。
 
 ## 设计约束检查
 

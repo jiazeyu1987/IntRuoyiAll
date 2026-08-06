@@ -88,8 +88,8 @@ assert.match(
 assert.match(routeSource, /title:\s*'QA 规程配置'/, 'Standalone route must have a QA title.')
 assert.match(
   routeSource,
-  /permission:\s*\['mes:pro-process-pool-team-leader:query'\]/,
-  'Standalone QA route must keep the existing process-pool query permission until a formal QA menu permission exists.'
+  /path:\s*'pro\/process-pool\/qa-regulation'[\s\S]*permission:\s*\['mes:qa-inspection-regulation:query'\]/,
+  'Standalone QA route must use the formal QA permission role for QA tab visibility.'
 )
 
 assert.doesNotMatch(
@@ -388,7 +388,6 @@ assert.match(
 )
 for (const requiredTab of [
   { label: '总览', name: 'overview' },
-  { label: '检验规则', name: 'rules' },
   { label: '检验项目', name: 'items' }
 ]) {
   assert.match(
@@ -403,7 +402,6 @@ assert.doesNotMatch(
   'Standalone QA page must not display the publish verification tab.'
 )
 for (const requiredTableKey of [
-  'mes.qa.regulation.rules',
   'mes.qa.regulation.items.processMethods',
   'mes.qa.regulation.checks',
   'mes.qa.regulation.pqcPreview'
@@ -481,8 +479,8 @@ for (const requiredText of [
   '保存草稿',
   '发布规程',
   '总览',
-  '检验规则',
   '检验项目',
+  '是否需要末检',
   '正式批记录表单'
 ]) {
   assert.match(qaSource, new RegExp(requiredText), `Standalone QA page must include ${requiredText}.`)
@@ -499,10 +497,11 @@ for (const requiredSelector of [
   'data-qa-regulation-tabs',
   'data-qa-regulation-scope',
   'data-qa-regulation-dcc-project',
-  'data-qa-regulation-inspection-rules',
   'data-qa-regulation-items',
   'data-qa-regulation-original-excerpt',
   'data-qa-regulation-completeness',
+  'data-qa-regulation-final-inspection-switch',
+  'data-qa-regulation-final-not-applicable-reason',
   'data-qa-pqc-task-preview'
 ]) {
   assert.match(qaSource, new RegExp(requiredSelector), `Standalone QA page must include ${requiredSelector}.`)

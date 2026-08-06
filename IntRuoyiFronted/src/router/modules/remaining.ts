@@ -2008,7 +2008,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           icon: '',
           title: 'QA 规程配置',
           activeMenu: '/mes/pro/process-pool/qa-regulation',
-          permission: ['mes:pro-process-pool-team-leader:query']
+          permission: ['mes:qa-inspection-regulation:query']
         }
       },
       {
@@ -2036,7 +2036,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           icon: '',
           title: 'PQC组长',
           activeMenu: '/mes/pro/process-pool/pqc-leader',
-          permission: ['mes:pro-process-pool-team-leader:query']
+          permission: ['mes:pro-process-pool-pqc-leader:query']
         }
       },
       {

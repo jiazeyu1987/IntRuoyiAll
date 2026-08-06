@@ -333,6 +333,33 @@ async function selectFormItemForAction(section, actionText, label, optionText) {
   await selectFormItem(formForAction(section, actionText), label, optionText)
 }
 
+async function selectRemoteFormItemOption(section, label, keyword, optionText) {
+  const page = section.page()
+  const item = section.locator('.el-form-item', { hasText: label }).first()
+  await clickFirst(item, ['.el-select__wrapper', '.el-select'])
+  const input = item.locator('input:visible').first()
+  await input.waitFor({ state: 'visible', timeout: 10000 })
+  const candidatesResponsePromise = page.waitForResponse((response) =>
+    response.url().includes('/mes/pro/process-pool/team-leader/active-order/candidates')
+      && response.request().method() === 'GET'
+  , { timeout: 20000 })
+  await input.fill(String(keyword))
+  const candidatesResponse = await candidatesResponsePromise
+  assert.strictEqual(candidatesResponse.ok(), true, `订单号候选接口 HTTP 失败：${candidatesResponse.status()}`)
+  const candidatesBody = await candidatesResponse.json()
+  assert.strictEqual(
+    candidatesBody.code,
+    0,
+    `订单号候选接口业务失败：${candidatesBody.msg || candidatesBody.message || 'unknown'}`
+  )
+  assert.ok(
+    Array.isArray(candidatesBody.data)
+      && candidatesBody.data.some((candidate) => candidate.workOrderCode === optionText),
+    `订单号候选接口未返回目标工单编号：${optionText}`
+  )
+  await page.locator('.el-select-dropdown__item:visible', { hasText: optionText }).last().click()
+}
+
 async function clickButton(section, text) {
   await section.getByRole('button', { name: text }).click()
   await section.page().waitForLoadState('networkidle')
@@ -353,6 +380,34 @@ async function clickButtonAndWaitForSuccess(section, text, endpointFragment) {
   return body.data
 }
 
+async function clickAddActiveOrderAndAssertPayload(dialog, config) {
+  const page = dialog.page()
+  const endpointFragment = '/mes/pro/process-pool/team-leader/active-order/add'
+  const requestPromise = page.waitForRequest((request) =>
+    request.url().includes(endpointFragment)
+      && request.method() === 'POST'
+  , { timeout: 20000 })
+  const responsePromise = page.waitForResponse((response) =>
+    response.url().includes(endpointFragment)
+      && response.request().method() === 'POST'
+  , { timeout: 20000 })
+  await dialog.getByRole('button', { name: '加入活跃订单' }).click()
+  const request = await requestPromise
+  const payload = JSON.parse(request.postData() || '{}')
+  assert.deepStrictEqual(
+    Object.keys(payload).sort(),
+    ['workOrderId'],
+    '新增活跃订单请求体只能提交 workOrderId。'
+  )
+  assert.strictEqual(Number(payload.workOrderId), Number(config.workOrderId), '新增活跃订单请求体必须提交所选工单 ID。')
+  const response = await responsePromise
+  assert.strictEqual(response.ok(), true, `加入活跃订单写入接口 HTTP 失败：${response.status()}`)
+  const body = await response.json()
+  assert.strictEqual(body.code, 0, `加入活跃订单写入接口业务失败：${body.msg || body.message || 'unknown'}`)
+  await page.waitForLoadState('networkidle')
+  return body.data
+}
+
 async function configureTeamLeaderPage(page, config, steps) {
   await page.goto(`${config.frontendUrl}${TEAM_LEADER_ROUTE}`, { waitUntil: 'networkidle' })
   await page.locator('[data-team-leader-report-workbench]').waitFor({ state: 'visible' })
@@ -363,14 +418,8 @@ async function configureTeamLeaderPage(page, config, steps) {
   await activeOrder.getByRole('button', { name: '新增活跃订单' }).click()
   const activeOrderDialog = page.locator('[data-team-leader-active-order-add-dialog]').first()
   await activeOrderDialog.waitFor({ state: 'visible', timeout: 10000 })
-  await fillFormItemForAction(activeOrderDialog, '加入活跃订单', '生产订单ID', config.workOrderId)
-  await fillFormItemForAction(activeOrderDialog, '加入活跃订单', '路线ID', config.routeId)
-  await fillFormItemForAction(activeOrderDialog, '加入活跃订单', '路线版本ID', config.routeVersionId)
-  await clickButtonAndWaitForSuccess(
-    activeOrderDialog,
-    '加入活跃订单',
-    '/mes/pro/process-pool/team-leader/active-order/add'
-  )
+  await selectRemoteFormItemOption(activeOrderDialog, '订单号', config.workOrderCode, config.workOrderCode)
+  await clickAddActiveOrderAndAssertPayload(activeOrderDialog, config)
   steps.push('生产组长通过 UI 加入活跃订单')
 
   const employee = page.locator('[data-team-leader-employee-config]').first()

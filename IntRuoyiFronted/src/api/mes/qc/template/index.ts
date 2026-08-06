@@ -57,6 +57,15 @@ export interface QaInspectionRegulationProjectStatusVO {
   lifecycleStatus?: string
 }
 
+export interface QaInspectionRegulationSaveEquipmentOptionVO {
+  equipmentId: number
+  equipmentCode: string
+  equipmentName: string
+  equipmentNumber: string
+  defaultFlag?: boolean
+  sort?: number
+}
+
 export interface QaInspectionRegulationSaveItemVO {
   inspectionType: 'FIRST' | 'PATROL' | 'FINAL'
   itemCode: string
@@ -68,6 +77,7 @@ export interface QaInspectionRegulationSaveItemVO {
   standardUnit?: string
   standardPrecision?: number
   equipmentRequired?: boolean
+  equipmentOptions?: QaInspectionRegulationSaveEquipmentOptionVO[]
   resultType: string
   firstInspectionQuantity?: number
   patrolInspectionRatio?: number

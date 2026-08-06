@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260612_erp_kingdee_sync_runtime.sql; type=schema,job; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260612_erp_kingdee_sync_runtime; type=schema; riskLevel=medium
 -- 20260805_erp_nas_table_auto_sync
 -- NAS 表格自动同步：新增租户级 ERP 表导出计划、明细、运行日志和全局调度 Job。
 -- 设计边界：业务配置只存 erp_nas_table_sync_* 表；infra_job 只保存全局 handler，不保存表选择、NAS 目录或其它业务配置。

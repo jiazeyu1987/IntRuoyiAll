@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -67,10 +66,9 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         List<MesProcessPoolTeamEmployeeBindingDO> employeeBindings = listEmployeeBindings(process.processId());
         List<MesProcessPoolTeamProcessDeviceDO> processDeviceBindings = listProcessDeviceBindings(process.processId());
         Set<Long> leaderUserIds = resolveLeaderUserIds(process, employeeBindings, processDeviceBindings);
-        employeeBindings = filterEmployeeBindingsByLeader(employeeBindings, leaderUserIds);
         processDeviceBindings = filterProcessDeviceBindingsByLeader(processDeviceBindings, leaderUserIds);
 
-        List<MesFrontlineTeamEmployeeOption> employees = toEmployeeOptions(employeeBindings);
+        List<MesFrontlineTeamEmployeeOption> employees = toEmployeeOptions(leaderUserIds);
         List<MesFrontlineTeamDeviceOption> devices = toDeviceOptions(processDeviceBindings, process, leaderUserIds);
         List<MesFrontlineDefectReasonOption> defectReasons = toDefectReasonOptions(process, leaderUserIds);
         return new MesFrontlineRuntimeConfig(process.routeId(), process.routeProcessId(), process.processId(),
@@ -116,16 +114,6 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         return leaderUserIds;
     }
 
-    private static List<MesProcessPoolTeamEmployeeBindingDO> filterEmployeeBindingsByLeader(
-            List<MesProcessPoolTeamEmployeeBindingDO> employeeBindings, Set<Long> leaderUserIds) {
-        if (leaderUserIds.isEmpty()) {
-            return List.of();
-        }
-        return employeeBindings.stream()
-                .filter(binding -> leaderUserIds.contains(binding.getLeaderUserId()))
-                .toList();
-    }
-
     private static List<MesProcessPoolTeamProcessDeviceDO> filterProcessDeviceBindingsByLeader(
             List<MesProcessPoolTeamProcessDeviceDO> processDeviceBindings, Set<Long> leaderUserIds) {
         if (leaderUserIds.isEmpty()) {
@@ -136,25 +124,19 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                 .toList();
     }
 
-    private List<MesFrontlineTeamEmployeeOption> toEmployeeOptions(
-            List<MesProcessPoolTeamEmployeeBindingDO> employeeBindings) {
-        Set<Long> profileIds = employeeBindings.stream()
-                .map(MesProcessPoolTeamEmployeeBindingDO::getEmployeeProfileId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (profileIds.isEmpty()) {
+    private List<MesFrontlineTeamEmployeeOption> toEmployeeOptions(Set<Long> leaderUserIds) {
+        if (leaderUserIds.isEmpty()) {
             return List.of();
         }
-        Map<Long, MesProcessPoolTeamEmployeeProfileDO> profiles = employeeProfileMapper.selectBatchIds(profileIds)
-                .stream()
-                .filter(profile -> profile != null && Boolean.TRUE.equals(profile.getEnabled()))
-                .collect(Collectors.toMap(MesProcessPoolTeamEmployeeProfileDO::getId, Function.identity(),
-                        (left, ignored) -> left, LinkedHashMap::new));
         List<MesFrontlineTeamEmployeeOption> employees = new ArrayList<>();
         Set<Long> emittedProfileIds = new LinkedHashSet<>();
-        for (MesProcessPoolTeamEmployeeBindingDO binding : employeeBindings) {
-            MesProcessPoolTeamEmployeeProfileDO profile = profiles.get(binding.getEmployeeProfileId());
-            if (profile == null || !Objects.equals(profile.getLeaderUserId(), binding.getLeaderUserId())
+        List<MesProcessPoolTeamEmployeeProfileDO> profiles = employeeProfileMapper.selectList(
+                new LambdaQueryWrapperX<MesProcessPoolTeamEmployeeProfileDO>()
+                        .in(MesProcessPoolTeamEmployeeProfileDO::getLeaderUserId, leaderUserIds)
+                        .eq(MesProcessPoolTeamEmployeeProfileDO::getEnabled, Boolean.TRUE));
+        for (MesProcessPoolTeamEmployeeProfileDO profile : profiles) {
+            if (profile == null || !leaderUserIds.contains(profile.getLeaderUserId())
+                    || !Boolean.TRUE.equals(profile.getEnabled())
                     || !emittedProfileIds.add(profile.getId())) {
                 continue;
             }
@@ -183,7 +165,7 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                 .filter(device -> device != null
                         && Boolean.TRUE.equals(device.getEnabled())
                         && DEVICE_STATUS_ENABLED.equals(device.getDeviceStatus()))
-                .collect(Collectors.toMap(MesProcessPoolTeamDeviceDO::getId, Function.identity(),
+                .collect(Collectors.toMap(MesProcessPoolTeamDeviceDO::getId, device -> device,
                         (left, ignored) -> left, LinkedHashMap::new));
         Map<Long, List<MesFrontlineDeviceParameterOption>> parametersByDevice =
                 listParameterOptions(process, deviceIds, leaderUserIds);

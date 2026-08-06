@@ -57,7 +57,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_CONFIRMATION_PRODUCTION_LEADER_REQUIRED;
 
 @Service
 @Validated
@@ -394,7 +394,8 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
                 reqBO.getReviewSignatureUserId(), reqBO.getReviewSignatureSnapshotJson(),
                 "reportConfirmation.reviewSignature");
         if (!MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION.equals(reqBO.getLeaderType())) {
-            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_DENIED);
+            throw exception(PRO_PROCESS_POOL_REPORT_CONFIRMATION_PRODUCTION_LEADER_REQUIRED,
+                    reqBO.getEventId(), reqBO.getLeaderType());
         }
         if (!MesProcessPoolReportAllocationDO.MODE_FIFO.equals(reqBO.getAllocationMode())
                 && !MesProcessPoolReportAllocationDO.MODE_MANUAL.equals(reqBO.getAllocationMode())) {

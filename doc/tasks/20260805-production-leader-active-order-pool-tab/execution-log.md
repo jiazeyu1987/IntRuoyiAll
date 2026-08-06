@@ -23,58 +23,94 @@
 - 页面入口：`IntRuoyiFronted/src/views/mes/pro/processpool/ProductionLeaderWorkbenchPage.vue`。
 - 共享实现：`IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue`。
 - 正式接口：`getTeamLeaderActiveOrderList`、`addTeamLeaderActiveOrder`、`removeTeamLeaderActiveOrder`。
-- 当前活跃订单维护位于“班组配置”模块中的内嵌卡片，尚未作为独立 Tab，也未使用统一标准列表模板。
-- `docs/experience-index.md` 已存在；命中统一列表、角色内容页签拆分和前端静态契约隔离门禁。
+- `docs/experience-index.md` 已存在；命中统一列表、角色内容页签拆分、前端静态契约隔离、Element Plus 下拉选择和 PowerShell/Git 门禁。
 
 ## Dirty Worktree Baseline
 
 - 初始分支：`int_main`，跟踪 `origin/int_main`。
-- 初始工作区存在当前任务开始前的并行改动，涉及后端 Team Leader 配置、系统用户 API、`UnifiedListTemplate`、PQC 规程页、`TeamLeaderWorkbenchPage.vue`、若干测试和既有任务文档。
-- 基线提交：`633361dde chore: baseline pre-existing worktree changes`。
-- 该共享基线由并行任务提交并推送，包含任务开始前既有改动，也包含本任务刚建立的三份任务文档；尚未包含本任务测试或生产代码。
-- 基线后仍有其它并行任务文档改动；它们不属于本任务，后续只选择性暂存本任务文件。
+- 历史基线提交：`633361dde chore: baseline pre-existing worktree changes`。
 - 2026-08-06 继续本需求前，当前工作区既有脏改动已按项目规则提交为基线 `a8f377ba0 chore: preserve preexisting workspace baseline`。
 - 2026-08-06 基线后执行 `git fetch origin int_main` 与 `git merge --no-edit origin/int_main`，无冲突合并远端 16 个提交。
+- 本轮接手时工作区仍存在大量并行任务改动；仅修改本任务目标文件和同页静态合同所需的最小修正。
+
+## Git Lock Recovery
+
+- 2026-08-06 12:23:35 检查 `.git/index.lock`：精确路径 `E:\IntRuoyi\.git\index.lock`，长度 `0`，最后写入时间 `2026-08-06 11:35:38`。
+- 只读枚举 `git` / `git-lfs` 进程：无活动进程。
+- 按 `docs/powershell-memory.md#Git index.lock 陈旧锁恢复门禁` 删除 0 字节且超过 60 秒的陈旧锁；随后 `git status --short --branch` 可读取。
+- 2026-08-06 13:33 复查 `.git/index.lock`：长度 `0`，最后写入时间 `2026-08-06 12:29:49`，但存在由 `ChatGPT.exe` 触发的后台 `git status --no-renames --porcelain=v1 -z --untracked-files=normal` 进程；按门禁未删除锁文件、未停止外部进程。
 
 ## Change Triage
 
 - CHANGE: `docs/changes/20260806-active-order-code-input.md` -> Decision `Accept`。
 - Impact: 新增候选接口、收缩新增请求、服务端解析排产路线、前端单字段远程下拉、真实 E2E 调拨追溯只读拆分。
 
+## Implementation Summary
+
+- 后端 `MesTeamLeaderActiveOrderAddReqVO` 和 `MesTeamLeaderActiveOrderAddReqBO` 只保留 `workOrderId`。
+- 后端候选接口 `GET /active-order/candidates` 返回 `workOrderId`、`workOrderCode`，并使用维护权限。
+- 后端新增接口从唯一有效排产工单解析 `routeId` 和 `routeVersionId`，缺少唯一有效排产或路线/版本时使用专用业务错误 fail fast。
+- 前端新增弹窗只保留“订单号”远程可搜索 `el-select`，选项 label 为 `workOrderCode`，value 为 `workOrderId`。
+- 前端提交只调用 `addTeamLeaderActiveOrder({ workOrderId })`；旧路线 ID、路线版本 ID、调拨单 ID 输入和解析函数已移除。
+- RRM 真实脚本将加入动作改为选择订单号候选，失败分支改为未选择候选不发写请求；调拨追溯只使用已有 `RRM_TRANSFER_TRACE_ACTIVE_ORDER_ID` 做只读验证。
+- 同页相邻静态合同要求 `resetSubmissionMultiFilter()` 异步刷新提交看板；已补齐 `await getSubmissionList()` 和 `await resetSubmissionMultiFilter()`。
+
 ## Verification Evidence
 
 - RED: `node tests/e2e/production-leader-active-order-pool-tab-static.spec.js` -> FAIL，首个失败为生产功能模块状态缺少 `activeOrder` Tab，符合预期。
 - GREEN: `node tests/e2e/production-leader-active-order-pool-tab-static.spec.js` -> PASS。
-- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `node tests/e2e/team-leader-workbench-static.spec.cjs` -> PASS。
+- RED: `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> FAIL，旧相邻合同仍要求新增活跃订单 payload 暴露 `routeId/routeVersionId/transferIds`。
+- GREEN: `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> PASS。
+- GREEN: `node tests/e2e/mes-process-pool-team-leader-static.spec.js` -> PASS。
 - GREEN: `node --check tests/e2e/role-requirement-matrix-real-flow.e2e.js` -> PASS。
 - GREEN: `node --check tests/e2e/team-leader-workbench-real-flow.e2e.js` -> PASS。
-- REGRESSION: `production-leader-function-tabs-static.spec.js`、`production-leader-tabs-flat-style-static.spec.js`、`production-leader-remove-header-content-static.spec.js`、`team-leader-workbench-static.spec.cjs`、`role-requirement-matrix-preflight-static.spec.cjs` -> PASS。
-- REGRESSION: `node tests/e2e/mes-process-pool-team-leader-static.spec.js` -> FAIL，失败点是既有合同要求 `resetSubmissionMultiFilter()` 异步调用 `getSubmissionList()`；当前基线实现为同步清空，失败与本任务新增 Tab、列表、新增弹窗和活跃订单接口无关，按前端静态契约隔离门禁保留。
-- REAL E2E: 官方登录前置在 `http://127.0.0.1:8081/mes/pro/process-pool/production-leader` 使用 `芋道源码/admin` -> PASS。
-- REAL E2E: 只读 Playwright 打开“活跃订单池”Tab，确认标准列表、新增按钮和新增弹窗可见，关闭弹窗且未提交；运行态活跃订单数量为 `0`，`activeOrderWriteRequestCount=0`、`targetFailureCount=0`、`pageErrorCount=0`、`consoleErrorCount=0` -> PASS。
-- RUNTIME: 前端 `8081` HTTP `200`，进程归属 `E:\IntRuoyi\IntRuoyiFronted`；后端 `48081` health `UP`，运行参数 `repo-root` 归属 `E:\IntRuoyi\IntRuoyiBackend`。
-- DIFF: 当前任务源码与测试 `git diff --check` -> PASS。
-- EVIDENCE: `validate_frontend_feature.py --evidence doc/tasks/20260805-production-leader-active-order-pool-tab/frontend-feature-evidence.md` -> PASS。
-- EXPERIENCE: 已执行 `project-experience-consolidation` 检索；本次“只读打开新增弹窗并断言目标写请求为 0”已由 `docs/e2e-rules.md#Playwright 目标链路与外部资源异常归因门禁` 覆盖，“既有大合同无关失败使用任务专用最小合同隔离”已由 `docs/frontend-development.md#前端静态契约隔离门禁` 覆盖，无需新增或修改长期经验文档。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 25, Failures: 0, Errors: 0, Skipped: 0。
+- GREEN: `validate_frontend_feature.py --evidence doc/tasks/20260805-production-leader-active-order-pool-tab/frontend-feature-evidence.md` -> PASS。
+- GREEN: `validate_backend_api.py --evidence doc/tasks/20260805-production-leader-active-order-pool-tab/backend-api-evidence.md` -> PASS。
+- GREEN: `validate_change_request.py --evidence docs/changes/20260806-active-order-code-input.md` -> PASS。
+- GREEN: `git diff --check` -> PASS（仅 CRLF working-copy 提示）。
+- REAL E2E BLOCKED: `node tests/e2e/team-leader-workbench-real-flow.e2e.js` -> exit code 1/blocked result，当前环境无 `TLW_*` 变量；阻塞详情写入 `IntRuoyiFronted/test-results/team-leader-workbench-real-flow/result.json`。
 
-## Implementation Summary
+## Bug Regression 2026-08-06 Null WorkOrder
 
-- 生产组长七组功能 Tab 均加入独立“活跃订单池”入口。
-- 活跃订单池使用 `UnifiedListTemplate` 和客户端分页展示正式列表接口返回的全部活跃记录。
-- 新增按钮打开独立对话框，并通过正式加入接口提交生产订单、路线、路线版本和调拨单 ID。
-- 每行保留正式移出能力；班组配置不再重复承载活跃订单维护。
-- 调拨库存追溯随活跃订单维护移动到新 Tab，加载和错误状态继续显式暴露。
+- User report: 加入活跃订单池时提示 `请求参数不正确:不能为null`。
+- BDD: 未选择真实订单号候选不发写请求 -> Given 生产组长只输入自由文本、清空下拉或候选刷新后没有真实选中项，When 点击“加入活跃订单”，Then 前端提示 `请选择订单号`，不得调用 `/active-order/add`，后端不得收到 `workOrderId=null`。
+- RED: `node tests/e2e/production-leader-active-order-pool-tab-static.spec.js` -> FAIL，新增弹窗缺少 `@change="handleActiveOrderCandidateChange"` / `@clear="handleActiveOrderCandidateClear"`，不能证明绑定真实候选。
+- RED: `node tests/e2e/team-leader-workbench-static.spec.cjs` -> FAIL，提交仍直接使用 `requirePositiveNumber(activeOrderForm.workOrderId, '请选择订单号')`，缺少候选级提交门禁。
+- Fix: 前端新增 `activeOrderSelectedCandidate`、`handleActiveOrderCandidateChange`、`handleActiveOrderCandidateClear` 和 `requireSelectedActiveOrderCandidateWorkOrderId()`；搜索为空、搜索失败或候选刷新不包含当前值时清除旧选择；提交前必须确认表单值、已选候选和当前候选列表一致。
+- Follow-up report: 截图显示用户已输入完整订单号 `881MO093613`，但未点击候选时仍提示后端 `请求参数不正确:不能为null`。
+- RED: `node tests/e2e/production-leader-active-order-pool-tab-static.spec.js` -> FAIL，缺少 `activeOrderCandidateKeyword` 和按 `workOrderCode` 精确解析候选的提交前路径。
+- RED: `node tests/e2e/team-leader-workbench-static.spec.cjs` -> FAIL，提交路径未 `await requireSelectedActiveOrderCandidateWorkOrderId()`，不能覆盖完整输入后直接提交。
+- Fix: 增加 `activeOrderCandidateKeyword` 与 `resolveActiveOrderCandidateByKeyword()`；提交前优先复用已选候选，否则按完整输入的订单号精确匹配当前候选，未命中时即时请求候选接口并再次精确匹配，命中后才提交对应 `workOrderId`。
+- GREEN: `node tests/e2e/production-leader-active-order-pool-tab-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/team-leader-workbench-static.spec.cjs` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue IntRuoyiFronted/tests/e2e/production-leader-active-order-pool-tab-static.spec.js IntRuoyiFronted/tests/e2e/team-leader-workbench-static.spec.cjs` -> PASS，仅 CRLF working-copy 提示。
+- BLOCKED: `node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> FAIL，当前 PQC 过程检验汇集选择器缺失，不属于本次活跃订单空值修复。
+- BLOCKED: `node tests/e2e/mes-process-pool-team-leader-static.spec.js` -> FAIL，当前 PQC 组长切换后提交看板多维筛选重置链路合同失败，不属于本次活跃订单空值修复。
+
+## E2E Verification 2026-08-06 14:58 +08:00
+
+- Preflight: 已读取 `docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/worktree-restrictions.md` 和 `docs/task-closeout-rules.md`。
+- Runtime: `http://127.0.0.1:8081/` -> HTTP 200；`http://127.0.0.1:48081/actuator/health` -> `UP`；端口 8081/48081 归属 `E:\IntRuoyi` 主工作区运行态。
+- GREEN: `pnpm e2e:team-leader-workbench:real:check` -> PASS。
+- BLOCKED: 注入 `TLW_FRONTEND_URL=http://127.0.0.1:8081` 与 `TLW_BACKEND_URL=http://127.0.0.1:48081` 后运行 `pnpm e2e:team-leader-workbench:real` -> non-zero，真实脚本写入 `IntRuoyiFronted/test-results/team-leader-workbench-real-flow/result.json`，状态 `BLOCKED`，原因是缺少真实写入型 E2E 前置条件。
+- Missing: `TLW_TENANT`、`TLW_USERNAME`、`TLW_PASSWORD`、`TLW_WORK_ORDER_ID`、`TLW_WORK_ORDER_CODE`、`TLW_TASK_ID`、`TLW_ROUTE_ID`、`TLW_ROUTE_PROCESS_ID`、`TLW_PROCESS_ID`、`TLW_ITEM_ID`、`TLW_EMPLOYEE_PROFILE_ID`、`TLW_DEVICE_ID`、`TLW_RECORDBOOK_ID`、`TLW_SIGNATURE_ID`、`TLW_SIGNATURE_EMPLOYEE_ID`、`TLW_APPROVE_USER_ID`、`TLW_FEEDBACK_CODE`、`TLW_FEEDBACK_TYPE`。
+- Impact: 本次没有进入新增活跃订单写入路径，未使用 mock、自由输入、隐藏字段、API-only 或 admin 基线数据替代。
 
 ## Blockers
 
-- 完整写入型真实 E2E 需要已确认的测试租户、生产组长账号和 `TLW_*` 任务夹具变量；当前仅有 `芋道源码/admin` 只读身份，因此未执行新增/移出写入。当前任务按聚焦 RED/GREEN、相邻回归、类型检查和只读真实页面路径验收，未使用 admin 基线数据写入。
-- 若并行任务继续修改本任务目标文件并产生同一区域冲突，将停止并报告。
-- Git 提交/推送阻塞：选择性暂存时检测到并发 `git commit -m "fix: isolate QA inspection rules by product"`，`.git/index.lock` 为非空文件（`1441792` 字节）。等待并发提交退出后锁文件仍保持非空；按 `docs/powershell-memory.md#Git index.lock 陈旧锁恢复门禁`，非空锁禁止删除，因此本任务不能安全执行 `git add`、实现提交、收尾提交或 push，状态保持 `ready_for_closeout`。
+- 缺少写入型真实 E2E 前置：`TLW_TENANT`、`TLW_USERNAME`、`TLW_PASSWORD`、`TLW_WORK_ORDER_ID`、`TLW_WORK_ORDER_CODE`、`TLW_TASK_ID`、`TLW_ROUTE_ID`、`TLW_ROUTE_PROCESS_ID`、`TLW_PROCESS_ID`、`TLW_ITEM_ID`、`TLW_EMPLOYEE_PROFILE_ID`、`TLW_DEVICE_ID`、`TLW_RECORDBOOK_ID`、`TLW_SIGNATURE_ID`、`TLW_SIGNATURE_EMPLOYEE_ID`、`TLW_APPROVE_USER_ID`、`TLW_FEEDBACK_CODE`、`TLW_FEEDBACK_TYPE`。
+- 当前全量前端门禁还受并行 PQC 列表改动阻塞：`role-requirement-matrix-preflight-static.spec.cjs` 和 `mes-process-pool-team-leader-static.spec.js` 均失败在 PQC 选择器/重置链路缺失。
+- Impact: 未执行写入型真实新增/移出/填报闭环 E2E；未使用 mock、自由输入、隐藏字段、API-only 或 admin 基线数据替代。
+- Because required real E2E is blocked, task status is `blocked`; no cleanup apply, implementation commit, closeout commit, or push is performed.
 
 ## Closeout
 
-- 当前状态已切换为 `ready_for_closeout`。
-- cleanup 默认保留 `task.md`、`execution-log.md`、`verification-report.md`，删除已完成归档的 `frontend-feature-evidence.md`。
-- `task_closeout.py --mode preview` -> keep 3、delete 1、blocked 0、warnings 0。
-- `task_closeout.py --mode apply` -> PASS，已删除 `frontend-feature-evidence.md`，当前为主工作区，无 worktree 合并或删除动作。
-- 实现提交、收尾提交和 `git push origin int_main` 因非空 `.git/index.lock` 阻塞，尚未完成。
+- Current status: `blocked`。
+- `task-closeout-cleanup` preview/apply not run in this continuation because required write-type real E2E is blocked.
+- Evidence validators and `git diff --check` have passed; cleanup/apply/commit/push remain blocked until the required write-type real E2E fixture is injected and passes.
+- Current Git closeout note: `.git/index.lock` remains present as a 0-byte lock because an external Codex desktop background Git status process is active; future index-write work must rerun the stale-lock gate before add/commit/merge.
+- Experience consolidation: merged the reusable static-contract lesson into `docs/e2e-rules.md#静态合同与真实 E2E 同步门禁` and updated `docs/experience-index.md`; no new long-term document was created.

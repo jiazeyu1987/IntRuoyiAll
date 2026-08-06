@@ -13,4 +13,15 @@ public class MesTeamFormalUserCandidateBO {
 
     private Long systemUserId;
     private String displayName;
+    private Boolean disabled;
+    private String disabledReason;
+    private Boolean occupiedByOtherPqcLeader;
+    private Long occupiedLeaderUserId;
+
+    public MesTeamFormalUserCandidateBO(Long systemUserId, String displayName) {
+        this.systemUserId = systemUserId;
+        this.displayName = displayName;
+        this.disabled = Boolean.FALSE;
+        this.occupiedByOtherPqcLeader = Boolean.FALSE;
+    }
 }

@@ -94,6 +94,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -317,6 +318,24 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEquals(9001L, candidates.get(0).getWorkOrderId());
         assertEquals("WO-9001", candidates.get(0).getWorkOrderCode());
         verify(activeOrderService).searchActiveOrderCandidates("WO-9");
+    }
+
+    @Test
+    void pqcFormalCandidateEndpointDelegatesToPqcPermissionCandidateService() {
+        when(pqcPersonnelService.searchFormalInspectorCandidates(3001L, "王")).thenReturn(List.of(
+                new MesTeamFormalUserCandidateBO(2001L, "王检验")));
+
+        CommonResult<List<MesTeamFormalUserCandidateRespVO>> response;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(3001L);
+            response = controller.searchPqcFormalEmployeeCandidates("王");
+        }
+
+        assertEquals(1, response.getData().size());
+        assertEquals(2001L, response.getData().get(0).getSystemUserId());
+        assertEquals("王检验", response.getData().get(0).getDisplayName());
+        verify(pqcPersonnelService).searchFormalInspectorCandidates(3001L, "王");
+        verify(runtimeConfigService, never()).searchFormalUserCandidates(3001L, "王");
     }
 
     @Test

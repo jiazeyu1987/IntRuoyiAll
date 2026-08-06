@@ -13,7 +13,7 @@
 - [x] 更新验证报告和当前状态。
 - [x] 按用户要求补齐本机 `RRM_*` 真实 E2E 前置：确认本机运行态、角色账号、正式业务 ID、签名池和调拨/QA 数据；密码只在进程环境中使用，不写入文档或提交。
 - [x] 重新运行 `real:check`，若前置为 0 blocker，再运行 full real E2E。
-- [ ] 补齐 RRM PQC 正式提交前置：先走真实生产填写页生成本轮 `processPoolEventId`，再把它作为 `productionSubmitEventId/processPoolEventId` 带入 PQC 页面提交。
+- [x] 补齐 RRM PQC 正式提交前置：先走真实生产填写页生成本轮 `processPoolEventId`，再把它作为 `productionSubmitEventId/processPoolEventId` 带入 PQC 页面提交。
 - [x] 核对 PQC 前置提交失败的根因：确认当前本机库缺 `mes_pro_process_pool_event.event_idempotency_key` / `recordbook_entry_id`，且完整 P0 runtime 迁移需要正式历史 backfill 前置。
 - [x] 等待正式授权、备份、rollback 和逐行 repair manifest 后，再处理 88 行历史 P0 backfill blocker；未满足前不得写入 synthetic/backfill 数据。
 - [x] 已获用户明确授权“授权修复本机库 P0 backfill”；当前仅限本机 Docker MySQL `ruoyi-vue-pro`，禁止触碰测试服/正式服/备用服。
@@ -21,7 +21,7 @@
 - [x] P0 runtime schema 修复后重跑 `real:check` 和 full real E2E，确认 schema blocker 已解除并定位下一项真实前置。
 - [x] 补齐 RRM 主工序运行态前置：为 `922985 / 980010 / device 41 / employee profile 980022` 写入四条精确、可回滚的本机夹具并复验。
 - [x] 补齐 RRM 主工序正式生产任务：为 `workOrder=980008 / route=922119 / process=922985 / workstation=980010` 写入一条精确、可回滚的 `mes_pro_task` 本机夹具并复验。
-- [ ] 修复 full real E2E 的生产组长正式入口：使用 `/mes/pro/process-pool/production-leader` 验证模块页签，禁止继续依赖旧 `/team-leader` 页面结构。
+- [x] 修复 full real E2E 的生产组长正式入口：使用 `/mes/pro/process-pool/production-leader` 验证模块页签，禁止继续依赖旧 `/team-leader` 页面结构。
 - [x] 恢复七个 RRM 测试账号：从本机 MySQL binlog 的精确更新前镜像恢复密码、更新人和更新时间，完成 7 行事务断言后才能重跑写入型 E2E。
 - [x] 核对本轮 PQC 正式提交落库与组长看板不可见根因：事件 `133`、PQC 记录 `90`、任务 `93` 已落库，当前只缺 PQC 组长 `512` 对实际检验人 `914524` 的正式 `EMPLOYEE` scope。
 - [x] 备份并补齐本机 PQC 复核人员 scope `512 -> 914524`，保留逐行 manifest 和精确 rollback。
@@ -29,7 +29,9 @@
 - [x] 补齐 PQC 本轮选中工序生产任务：为 `pqcTaskId=68 / routeProcess=928611 / process=922987 / workstation=980009` 写入一条精确、可回滚的本机 `mes_pro_task` 夹具并复验。
 - [x] 修复 PQC 组长真实复核弹窗前置：填写正式复核签名 ID、签名员工 ID 和签名快照，提交后等待弹窗关闭；失败时结构化记录并关闭弹窗。
 - [x] 修复 AC-M21 过程检验汇集表运行态闭合：追加幂等迁移补齐 `active_order_id`、`route_version_id`、`actual_inspection_quantity` 及完整列/索引契约，完成 schema RED/GREEN、本机备份、回滚、迁移和结构复验。
-- [ ] 重跑安全包装 full real E2E，确认同一 `pqcTaskId=93 + signatureId=99009104` 可见并继续完成复核、汇集和清理链路。
+- [x] 重跑安全包装 full real E2E，确认同一 `pqcTaskId=93 + signatureId=99009104` 可见并继续完成复核、汇集和清理链路。
+- [x] 修复 QA 规程发布版本真实页面只读证据：在真实 QA 页面观察正式发布版本、产品/路线版本/工序、首检/巡检/末检完整性、逐工序批记录绑定和发布不可变证据。
+- [x] 补齐 AC-M19 并发 proof 与 62 项 coverage ledger 准出映射。
 
 ## Expected Verification
 
@@ -39,11 +41,13 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+2026-08-06 最终复验：本机 P0 backfill、RRM 前置、QA 规程发布版本页面证据、AC-M19 并发 proof 和 62 项 coverage ledger 已全部闭合。`IntRuoyiFronted/test-results/role-requirement-matrix-real-flow/result.json` 当前为 `status=PASS`、`mode=real`、`phaseEvidence=6`、`actionEvidence=22`、`gateEvidence=2`、`blockers=0`、`accepted=62 / total=62`；AC-M04 可从 `PASS_ACTION_NOT_ACCEPTED` 提升为 `ACCEPTED`。本机后端运行态为 `48081` / PID `36924` / health `UP`，immutable jar `output/runtime/int_main/backend-runtime-acm04-formal-active-order-20260806-130259.jar` SHA256 `D3CB7E27188198816C2385095EA82950B7E1BE5DDDD8C186D02BB10E1C46C223`。实现、验证、cleanup preview/apply 和经验门禁记录已完成，剩余仅为 Git 集成边界处理。
 
 七个 RRM 测试账号已从本机 `binlog.000128` position `8815139` 的精确 WHERE-side 镜像恢复密码、更新人和更新时间；事务恢复 `7` 行，临时值残留 `0`，包含凭据哈希的临时 binlog 副本已删除。数据库时钟写出的 `2026-08-06 03:36:18` 晚于当前日期 `2026-08-05`，属于本机数据库/系统时钟偏移证据，不作为当前日期。现在可继续用修正后的 `try/finally` 临时登录包装运行 `real:check` 和 full real E2E。
 
-当前代码脚本已包含 `activeOrderCleanupCompleted` 清理闭环逻辑，canonical 任务报告也证明 AC-M04 已有加入、冲突路线拒绝、跨角色只读、错误角色写入拒绝、最终清理和并发门禁 PASS/GREEN 证据。本轮已按用户要求在本机补齐 `RRM_*` 前置并刷新 full real E2E：`real:check` 已 PASS，full real E2E 已生成 `mode=real` 产物，AC-M04 的 `joinActiveOrder`、冲突路线拒绝、跨角色只读和最终清理均为 PASS；但整体结果仍为 `BLOCKED`，原因是后续 PQC 正式提交、eDHR 放行准备、并发/性能门禁和 62 个矩阵 coverage 准出仍未闭环，因此 AC-M04 暂仍不能提升为 `ACCEPTED`。
+当前代码脚本已包含 `activeOrderCleanupCompleted` 清理闭环逻辑，canonical 任务报告和当前 `result.json` 均证明 AC-M04 加入、冲突路线拒绝、跨角色只读、错误角色写入拒绝、调拨追溯只读、最终清理、并发门禁和性能门禁均为 PASS/GREEN。本轮已按用户要求在本机补齐 `RRM_*` 前置与 P0 backfill，最终 full real E2E 已清零 blocker，AC-M04 当前结论为 `ACCEPTED`。
 
 2026-08-05 修复复核：旧历史 worktree 的 `activeOrderTransferTraceReadOnly / E2E_TRANSFER_TRACE_DATA` blocker 在当前源码层面未复现为代码链路缺口；当前系统已具备 `transferIds` 页面录入、前端 API 透传、后端加入/重复/并发路径记录正式调拨追溯、只读接口和回归测试。未改生产代码，原因是没有可复现的当前代码缺陷；按 no-fallback 规则，剩余验收必须在完整 `RRM_*` 真实环境下重跑 full real E2E。
 
@@ -73,6 +77,8 @@ in_progress
 
 2026-08-06 AC-M21 汇集表运行态闭合：PQC 组长批准复核已进入后端汇集事务，首个真实阻塞为 `MesPqcProcessInspectionAggregateDetailMapper.insert` 写入 `actual_inspection_quantity` 时运行库表缺列。根因是 AC-M20 已提前创建 `mes_pqc_process_inspection_aggregate_detail`，后续 AC-M21 `CREATE TABLE IF NOT EXISTS` 无法修补既有表。已新增正式运行态闭合迁移 `20260805_mes_pqc_process_inspection_aggregate_runtime_closure.sql` 和 schema 回归，补齐列、回填、NOT NULL、唯一键与查询索引；本机备份、rollback、迁移 apply 和 post-verify 均 PASS。下一步重跑安全包装 full real E2E，验证真实批准、重复终态、汇集只读和清理链路。
 
+2026-08-06 full real E2E 最终更新：安全包装 full real E2E 使用正式本机 runtime 完整通过，`result.json` 为 `status=PASS`、`mode=real`、`phaseEvidence=6`、`actionEvidence=22`、`gateEvidence=2`、`blockers=0`、coverage `62/62 ACCEPTED`。AC-M04 加入、冲突路线拒绝、跨角色只读、调拨追溯只读、最终清理均 PASS，PQC 正式提交、组长批准、重复终态、自我复核拦截、AC-M21 汇集只读、QA 发布版本页面证据、eDHR 放行准备和追溯只读也均 PASS。
+
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。本轮脚本改动均为真实 E2E 稳定定位和页面真实结构同步，不改变业务成功/失败语义。
@@ -83,3 +89,17 @@ in_progress
 
 - 已读取 `docs\task-closeout-rules.md`、`docs\e2e-rules.md`、`docs\frontend-development.md`、`docs\login-access.md`、`docs\local-runtime.md`、`docs\worktree-restrictions.md`、`docs\powershell-encoding.md`。
 - 命中经验索引：规划型 E2E、真实 E2E 主链路与 result.json 产物隔离、静态合同与真实 E2E 同步、worktree/int_main 运行态 URL 门禁。
+
+## Cleanup Keep
+
+- doc/tasks/20260805-ac-m04-acceptance-sync/ac-m20-migration-chain/
+- doc/tasks/20260805-ac-m04-acceptance-sync/db-backup/
+- doc/tasks/20260805-ac-m04-acceptance-sync/db-repair/
+- doc/tasks/20260805-ac-m04-acceptance-sync/ac-m20-migration-policy-gate.json
+- doc/tasks/20260805-ac-m04-acceptance-sync/ac-m21-runtime-closure-policy-gate.json
+- doc/tasks/20260805-ac-m04-acceptance-sync/migration-policy-gate-all.json
+- doc/tasks/20260805-ac-m04-acceptance-sync/bug-regression-evidence.md
+- doc/tasks/20260805-ac-m04-acceptance-sync/database-schema-evidence.md
+- doc/tasks/20260805-ac-m04-acceptance-sync/recover-rrm-accounts-from-binlog.ps1
+- doc/tasks/20260805-ac-m04-acceptance-sync/restart-acm04-runtime.ps1
+- doc/tasks/20260805-ac-m04-acceptance-sync/run-rrm-real-e2e-local.ps1

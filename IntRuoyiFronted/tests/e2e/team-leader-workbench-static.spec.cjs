@@ -23,8 +23,7 @@ requirePageMarker('data-team-leader-config-center', 'page must expose a team con
 requirePageMarker('报工确认工作台', 'page must use the business label 报工确认工作台')
 requirePageMarker('班组配置中心', 'page must use the business label 班组配置中心')
 requirePageMarker('data-team-leader-active-order-config', 'config center must include active order maintenance')
-requirePageMarker('data-team-leader-active-order-route-id', 'active order maintenance must collect the formal route id required by backend addActiveOrder.')
-requirePageMarker('data-team-leader-active-order-route-version-id', 'active order maintenance must collect the formal route version id required by backend addActiveOrder.')
+requirePageMarker('data-team-leader-active-order-work-order-code', 'active order maintenance must collect the formal production work order code through a remote dropdown.')
 requirePageMarker('data-team-leader-employee-config', 'config center must include employee profile and process binding maintenance')
 requirePageMarker('data-team-leader-device-config', 'config center must include equipment maintenance')
 requirePageMarker('data-team-leader-parameter-config', 'config center must include equipment parameter maintenance')
@@ -48,15 +47,31 @@ assert.doesNotMatch(
 )
 
 requireApiEndpoint('addTeamLeaderActiveOrder', '/active-order/add', 'active order add API')
+requireApiEndpoint('searchTeamLeaderActiveOrderCandidates', '/active-order/candidates', 'active order candidate search API')
 assert.match(
   api,
-  /interface TeamLeaderActiveOrderAddReqVO[\s\S]*routeId:\s*number[\s\S]*routeVersionId:\s*number/,
-  'active order add API payload must include routeId and routeVersionId, matching backend authority requirements.'
+  /interface TeamLeaderActiveOrderAddReqVO\s*\{\s*workOrderId:\s*number\s*\}/,
+  'active order add API payload must only include the selected workOrderId.'
 )
 assert.match(
   page,
-  /addTeamLeaderActiveOrder\(\{[\s\S]*routeId:\s*requirePositiveNumber\(activeOrderForm\.routeId[\s\S]*routeVersionId:\s*requirePositiveNumber\(activeOrderForm\.routeVersionId/,
-  'active order UI submit must send explicit routeId and routeVersionId instead of relying on backend defaults.'
+  /addTeamLeaderActiveOrder\(\{\s*workOrderId:\s*await\s+requireSelectedActiveOrderCandidateWorkOrderId\(\)\s*\}\)/,
+  'active order UI submit must send only a candidate-verified workOrderId and reject free-text/null selection before the API call.'
+)
+assert.match(
+  page,
+  /const\s+activeOrderCandidateKeyword\s*=\s*ref\(''\)[\s\S]*const\s+findActiveOrderCandidateByCode\s*=[\s\S]*candidate\.workOrderCode\.trim\(\)\s*===\s*workOrderCode\.trim\(\)/,
+  'active order submit guard must track typed order-number text and match it against real candidates.'
+)
+assert.match(
+  page,
+  /const\s+resolveActiveOrderCandidateByKeyword\s*=\s*async\s*\(\)\s*=>[\s\S]*activeOrderCandidateKeyword\.value[\s\S]*searchTeamLeaderActiveOrderCandidates\(keyword\)[\s\S]*return findActiveOrderCandidateByCode\(keyword\)[\s\S]*const\s+requireSelectedActiveOrderCandidateWorkOrderId\s*=\s*async\s*\(\)\s*=>[\s\S]*await resolveActiveOrderCandidateByKeyword\(\)[\s\S]*throw new Error\('请选择订单号'\)[\s\S]*return requirePositiveNumber\(selectedCandidate\.workOrderId,\s*'请选择订单号'\)/,
+  'active order submit guard must resolve exact typed text to a real candidate and still block unmatched free text.'
+)
+assert.doesNotMatch(
+  page,
+  /data-team-leader-active-order-route-id|data-team-leader-active-order-route-version-id|data-team-leader-active-order-transfer-ids|activeOrderForm\.(routeId|routeVersionId|transferIdsText)|parsePositiveIntegerList/,
+  'active order add dialog must not expose route/version/transfer inputs or parsing logic.'
 )
 requireApiEndpoint('removeTeamLeaderActiveOrder', '/active-order/remove', 'active order remove API')
 requireApiEndpoint('createTeamEmployeeProfile', '/employee-profile/create', 'employee profile API')
@@ -122,6 +137,21 @@ assert.match(
   realE2e,
   /async function fillFormItemForAction/,
   'real P6 E2E must fill duplicated labels by scoping each field to the form that owns the target action button.'
+)
+assert.match(
+  realE2e,
+  /async function selectRemoteFormItemOption[\s\S]*active-order\/candidates[\s\S]*candidate\.workOrderCode === optionText/,
+  'real P6 E2E must choose active orders from the formal remote order-number candidates.'
+)
+assert.match(
+  realE2e,
+  /Object\.keys\(payload\)\.sort\(\)[\s\S]*\['workOrderId'\][\s\S]*Number\(payload\.workOrderId\)/,
+  'real P6 E2E must assert the add-active-order request body contains only workOrderId.'
+)
+assert.doesNotMatch(
+  realE2e,
+  /fillFormItemForAction\(activeOrderDialog,\s*'加入活跃订单',\s*'(生产订单ID|路线ID|路线版本ID)'/,
+  'real P6 E2E must not fill removed active-order route/version/id inputs.'
 )
 assert.match(
   realE2e,

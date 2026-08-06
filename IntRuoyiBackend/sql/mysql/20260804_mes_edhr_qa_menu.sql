@@ -165,7 +165,7 @@ BEGIN
          '/mes/pro/batch-record-form-list' AS `path`, 'ep:tickets' AS `icon`,
          'mes/pro/batchrecordformlist/index' AS `component`, 'MesProBatchRecordFormList' AS `component_name`
   UNION ALL
-  SELECT 900434 AS `id`, 'QA' AS `name`, 'mes:pro-process-pool-team-leader:query' AS `permission`, 1 AS `sort`,
+  SELECT 900434 AS `id`, 'QA' AS `name`, 'mes:qa-inspection-regulation:query' AS `permission`, 1 AS `sort`,
          '/mes/pro/process-pool/qa-regulation' AS `path`, 'ep:document-checked' AS `icon`,
          'mes/pro/processpool/QaRegulationPage' AS `component`, 'MesProProcessPoolQaRegulation' AS `component_name`
   UNION ALL
@@ -177,7 +177,7 @@ BEGIN
          '/mes/pro/feedback/edhr-batch-production-fill' AS `path`, 'ep:edit-pen' AS `icon`,
          'mes/pro/edhr-batch/BatchProductionFillPage' AS `component`, 'MesProEdhrBatchProductionFill' AS `component_name`
   UNION ALL
-  SELECT 900435 AS `id`, 'PQC组长' AS `name`, 'mes:pro-process-pool-team-leader:query' AS `permission`, 4 AS `sort`,
+  SELECT 900435 AS `id`, 'PQC组长' AS `name`, 'mes:pro-process-pool-pqc-leader:query' AS `permission`, 4 AS `sort`,
          '/mes/pro/process-pool/pqc-leader' AS `path`, 'ep:user-filled' AS `icon`,
          'mes/pro/processpool/PqcLeaderWorkbenchPage' AS `component`, 'MesProProcessPoolPqcLeaderWorkbench' AS `component_name`
   UNION ALL

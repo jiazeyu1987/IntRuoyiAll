@@ -124,10 +124,11 @@ assert(
 for (const removedField of ['routeProcessId', 'processId', 'sourceEventId', 'abnormalReasonCode']) {
   assert(!abnormalRequestType.includes(removedField), `异常上报请求类型不应包含 ${removedField}。`)
 }
-const submitAbnormalBlock = page.slice(
-  page.indexOf('const submitAbnormal = async () => {'),
-  page.indexOf('const openAddActiveOrderDialog')
-)
+const submitAbnormalStart = page.indexOf('const submitAbnormal = async () => {')
+assert(submitAbnormalStart >= 0, '必须保留异常上报提交函数。')
+const submitAbnormalEnd = page.indexOf('const openActiveOrderDialog', submitAbnormalStart)
+assert(submitAbnormalEnd > submitAbnormalStart, '异常上报提交函数必须在活跃订单弹窗函数前结束。')
+const submitAbnormalBlock = page.slice(submitAbnormalStart, submitAbnormalEnd)
 assert(
   /markAndReportWorkOrderAbnormal\(\{\s*workOrderId:\s*requireSelectedActiveOrderWorkOrderId\(\),\s*abnormalDescription:\s*abnormalForm\.abnormalDescription\.trim\(\)\s*\}\)/.test(submitAbnormalBlock),
   '异常上报提交 payload 必须只包含 workOrderId 与 abnormalDescription。'

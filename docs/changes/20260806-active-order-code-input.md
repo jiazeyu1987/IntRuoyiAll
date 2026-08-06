@@ -40,5 +40,7 @@ Accept.
 
 ## Blockers And Next Action
 
-- Git 非空锁已释放；已完成既有脏工作区基线提交 `a8f377ba0` 并无冲突合并 `origin/int_main`。
-- Next: 更新 BDD/RED 测试，再实现后端和前端。
+- Git 非空锁已恢复：本轮接手时 `.git/index.lock` 为 0 字节且超过 60 秒无活动 Git/Git-LFS 进程，已按项目门禁删除陈旧锁。
+- Implementation: 后端候选接口、workOrderId-only 新增接口、服务端唯一有效排产路线解析、前端订单号远程下拉、旧路线/调拨输入删除、RRM 脚本候选选择与未选候选阻塞路径已完成。
+- Verification: 后端目标 JUnit（25 tests）、前端静态合同、两个真实脚本语法检查、`pnpm ts:check`、evidence validators 和 `git diff --check` 已通过；相邻 RRM 静态合同已同步删除旧 route/version/transfer 新增依赖。
+- Blocker: 写入型真实 Playwright E2E 缺少测试租户、测试生产组长账号和任务自有 `TLW_*` 工单/工序/设备/签名夹具；当前任务保持 blocked，不执行 cleanup apply、提交或推送。

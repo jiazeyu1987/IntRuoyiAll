@@ -123,6 +123,10 @@ public class MesQaInspectionRegulationSaveReqVO {
         @Schema(description = "是否要求设备")
         private Boolean equipmentRequired;
 
+        @Schema(description = "检验项目正式设备选项")
+        @Valid
+        private List<EquipmentOption> equipmentOptions;
+
         @Schema(description = "结果类型", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotBlank(message = "结果类型不能为空")
         private String resultType;
@@ -132,5 +136,32 @@ public class MesQaInspectionRegulationSaveReqVO {
 
         @Schema(description = "巡检抽样比例")
         private BigDecimal patrolInspectionRatio;
+    }
+
+    @Schema(description = "管理后台 - MES QA 检验规程检验项目设备选项")
+    @Data
+    public static class EquipmentOption {
+
+        @Schema(description = "MES 设备台账 ID", requiredMode = Schema.RequiredMode.REQUIRED)
+        @NotNull(message = "检验设备不能为空")
+        private Long equipmentId;
+
+        @Schema(description = "设备编码", requiredMode = Schema.RequiredMode.REQUIRED)
+        @NotBlank(message = "设备编码不能为空")
+        private String equipmentCode;
+
+        @Schema(description = "设备名称", requiredMode = Schema.RequiredMode.REQUIRED)
+        @NotBlank(message = "设备名称不能为空")
+        private String equipmentName;
+
+        @Schema(description = "设备编号/出厂编号/台账编码", requiredMode = Schema.RequiredMode.REQUIRED)
+        @NotBlank(message = "设备编号不能为空")
+        private String equipmentNumber;
+
+        @Schema(description = "是否默认设备")
+        private Boolean defaultFlag;
+
+        @Schema(description = "排序")
+        private Integer sort;
     }
 }

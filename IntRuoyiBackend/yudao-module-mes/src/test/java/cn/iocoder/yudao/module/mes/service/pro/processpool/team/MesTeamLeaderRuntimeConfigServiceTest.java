@@ -100,6 +100,8 @@ class MesTeamLeaderRuntimeConfigServiceTest {
         assertNull(profileCaptor.getValue().getSystemUserId());
         assertEquals("bcrypt-temp-sign", profileCaptor.getValue().getSignaturePasswordHash());
         assertNotNull(profileCaptor.getValue().getSignaturePasswordUpdatedAt());
+        verify(scopeService, never()).assertCanAccessEmployee(any(), any(), any());
+        verify(scopeService, never()).assertCanMaintainProcess(any(), any());
         verify(adminUserApi, never()).validateUser(any());
         verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
     }
@@ -130,6 +132,8 @@ class MesTeamLeaderRuntimeConfigServiceTest {
         assertEquals(2001L, profileCaptor.getValue().getSystemUserId());
         assertEquals("FORMAL", profileCaptor.getValue().getEmployeeType());
         assertNull(profileCaptor.getValue().getSignaturePasswordHash());
+        verify(scopeService, never()).assertCanAccessEmployee(any(), any(), any());
+        verify(scopeService, never()).assertCanMaintainProcess(any(), any());
         verify(adminUserApi, never()).getUserListBySubordinate(3001L);
         verify(passwordEncoder, never()).encode(any());
     }

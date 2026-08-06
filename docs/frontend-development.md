@@ -40,6 +40,15 @@
 - Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
 - Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。
 
+## 复合输入控件交互保留门禁
+
+- Trigger: 修改 `el-select`、`el-autocomplete`、远程搜索下拉或同类复合输入控件时，为其增加复制、上次选择恢复、只读回显、后缀按钮或标题栏紧凑布局。
+- Preflight check: 先确认原控件承担的正式交互职责，例如下拉选择、远程搜索、清空、候选 `label/value`、正式加载方法和可复制展示；专用静态契约必须同时锁定原组件标签、关键交互属性、正式候选渲染和新增复制/回显标识。
+- Blocker: 控件被替换为纯 `el-input` 或文本、复制按钮遮挡点击、远程搜索方法或 `el-option` 候选丢失、下拉箭头不可见、无法改变当前选择、或合同只断言可见文案/复制能力而未证明仍可选择时必须停止。
+- Verification: 先补 RED 静态契约覆盖“复制不替代选择”，GREEN 后运行目标合同、相邻标题栏/页签合同、`git diff --check`；若改动触及类型或运行态逻辑，再运行 `pnpm ts:check` 或记录无关 blocker。
+- Forbidden action: 禁止为了让内容可复制而把正式选择控件改成 disabled/read-only 输入框、隐藏候选下拉、移除远程搜索、用 API-only 或截图目测替代控件交互验证。
+- Evidence: 任务 `doc/tasks/20260806-qa-project-selector-dropdown-copy/`，QA 规程项目代码字段在支持上次选择恢复和复制后，补充 `automatic-dropdown`、`remote-show-suffix` 和 `data-qa-regulation-project-dropdown`，静态契约锁定仍是可搜索下拉 `el-select`。
+
 ## Vue Scoped Slot 静态合同门禁
 
 - Trigger: 静态合同用正则断言 Vue SFC 的具名 slot、`UnifiedListTemplate` 的 `#table`、`#actions`、或带作用域变量的模板，例如 `<template #table="{ ... }">`。
@@ -94,6 +103,15 @@
 - Forbidden action: 禁止用空运行记录、隐藏列、mock 数据、API-only、默认成功文案或把未知枚举映射成成功来绕过真实展示验证。
 - Evidence: `doc/tasks/20260805-profile-erp-table-auto-sync/verification-report.md`，ERP 自动同步页面真实数据曾直出状态 `20`、触发类型 `AUTO`、毫秒时间戳和 `failureMessage`，补充 RED/GREEN 后由真实页面复验中文可读展示。
 
+## ERP 表格同步 Job 链路门禁
+
+- Trigger: 个人工作台、ERP 同步监控、生产工单、物料、库存、采购、销售、BOM 或生产用料清单等页面新增或调整 ERP 表格同步、自动同步、立即执行一次、每日同步配置。
+- Preflight check: 先核对现有正式增量同步链路是否已通过 `ErpKingdeeSyncApi.runIncrementalSyncJob(handlerName)` 和 `infra/job` 调度任务承载；配置类页面必须按 handlerName 查询正式 Job，使用 `JobApi.updateJob` 更新 cron，使用 `JobApi.updateJobStatus` 启停任务。
+- Blocker: 前端仍调用 `/erp/kingdee-table-auto-sync/**`、全量同步旧接口、禁用 ERP 模块 Controller、mock 成功、默认成功状态，或缺少任一正式 handlerName 对应 Job 时必须停止。
+- Verification: 聚焦静态合同必须断言组件导入 `@/api/erp/sync`、`@/api/infra/job`、`InfraJobStatusEnum`，覆盖 `JobApi.getJobPage/updateJob/updateJobStatus`、`ErpKingdeeSyncApi.runIncrementalSyncJob`，并禁止 `kingdee-table-auto-sync`。
+- Forbidden action: 禁止通过开启禁用模块、复制旧自动同步 Controller、前端吞错、API-only 成功提示或硬编码假 Job ID 来冒充生产工单同款同步方式。
+- Evidence: 任务 `doc/tasks/20260806-profile-erp-table-sync-use-job-api/verification-report.md`，Profile ERP 表格自动同步旧实现误走 `/erp/kingdee-table-auto-sync/**`，页面显示 ERP 模块禁用，最终改为复用正式 Job 增量同步链路并通过 RED/GREEN 验证。
+
 ## Vue SFC 泛型箭头函数解析门禁
 
 - Trigger: Vite 或 `vite-plugin-eslint` 在 `.vue` 文件中报 `Parsing error: Unexpected token. Did you mean {'>'} or &gt;?`，且报错行是 `<script setup lang="ts">` 内的 `<T>`、`<K, V>` 等泛型箭头函数。
@@ -142,11 +160,20 @@
 ## 前端截图字号调整静态契约门禁
 
 - Trigger: 用户基于截图要求调整卡片、表格、弹窗或页面局部文字大小，尤其出现“文字大小”“字号”“放大 2 倍”“缩小一半”“卡片内文字”等表述。
-- Preflight check: 先定位目标区域已有 SFC/CSS 选择器和相邻静态契约；若已有契约锁定字号或密度，必须先按用户口径更新该契约并跑出 RED，再改最小 CSS。若没有契约，新增任务专用静态契约断言目标选择器和具体字号，不得只凭截图目测。
-- Blocker: 找不到目标选择器、无法区分卡片内文字与页面其它文字、契约无法稳定 RED/GREEN、或改动会同时改变数据、权限、接口、保存/提交链路时必须停止补齐范围。
+- Preflight check: 先定位目标区域已有 SFC/CSS 选择器和相邻静态契约；若已有契约锁定字号或密度，必须先按用户口径更新该契约并跑出 RED，再改最小 CSS。若没有契约，新增任务专用静态契约断言目标选择器和具体字号，不得只凭截图目测。若目标区域处于 `transform: scale(...)`、缩放 stage 或 1920 原型画布内，关键操作按钮/输入文字必须按可见字号建模，必要时用 `原型字号 / scale` 的作用域 CSS 变量反向补偿，并在静态契约中锁定变量和选择器。
+- Blocker: 找不到目标选择器、无法区分卡片内文字与页面其它文字、契约无法稳定 RED/GREEN、缩放容器导致关键操作按钮可见字号继续偏小、或改动会同时改变数据、权限、接口、保存/提交链路时必须停止补齐范围。
 - Verification: 至少运行目标字号静态契约和一个相邻结构/显示契约；若改动触及 Vue/TS 逻辑或构建可受影响，再运行 `pnpm ts:check`。
-- Forbidden action: 禁止用全局 `body`/Element Plus 泛选择器批量放大、禁止隐藏/缩放容器冒充字号变化、禁止把截图局部需求扩大成整页重设计、禁止跳过 RED 直接改 CSS。
-- Evidence: 任务 `doc/tasks/20260729-card-text-double/`，eDHR 填写辅助模式卡片原有半字号静态契约先 RED，再将网格卡片内标签、输入/占位、选择项、按钮、校验和单位文字提高为 2 倍。
+- Forbidden action: 禁止用全局 `body`/Element Plus 泛选择器批量放大、禁止隐藏/缩放容器冒充字号变化、禁止把整体 stage 缩放后的关键操作按钮字号缩小当作“页面已适配”、禁止把截图局部需求扩大成整页重设计、禁止跳过 RED 直接改 CSS。
+- Evidence: 任务 `doc/tasks/20260729-card-text-double/`，eDHR 填写辅助模式卡片原有半字号静态契约先 RED，再将网格卡片内标签、输入/占位、选择项、按钮、校验和单位文字提高为 2 倍；任务 `doc/tasks/20260806-frontline-production-fullscreen-logic/`，一线生产 1920 画布 stage 缩放完整显示后，最大化/主页、重填、提交按钮用 `42 / scale` 和 `54 / scale` 的 stage 作用域字号变量补偿，避免按钮文字随整体 transform 变小。
+
+## 前端参考页面像素级布局比对门禁
+
+- Trigger: 用户提供本地 HTML、原型页或明确要求“严格完全一致”“大小、排版完全一致”“像素级一致”，尤其目标页面已有真实前端实现和动态数据。
+- Preflight check: 除静态合同锁定 DOM/CSS token 外，必须用 Playwright 在目标 viewport 同时打开参考页和真实路由，采集关键区域 `boundingBox()`，逐项比较 `x/y/width/height`；参考页的 body/字体/盒模型/媒体查询边界也要纳入合同。
+- Blocker: 只靠静态 CSS token、截图目测或单张截图宣称像素级一致，未比对真实路由与参考页的关键区域尺寸；或真实路由仍被登录页、权限页、外层后台 layout、媒体查询、line-height、字体继承、共享弹窗挂载位置影响时必须继续修复或记录阻塞。
+- Verification: 聚焦静态合同 PASS，真实 Playwright 路由截图尺寸等于目标画布尺寸，layout compare JSON 的 `diffCount=0` 且 `pageErrors=[]`，并复跑相邻静态合同、`pnpm ts:check` 和 `git diff --check`。
+- Forbidden action: 禁止用缩放、截图裁剪、隐藏外层布局、硬编码假数据、API/mock 页面、截图 OCR 或只比较源码 token 冒充像素级一致。
+- Evidence: 任务 `doc/tasks/20260806-frontline-production-pixel-parity/verification-report.md`，一线生产参考 HTML 对齐中，静态合同通过后真实 Playwright bounding box 仍发现顶栏按钮高度差 7px，最终定位到 `top-label` 的 line-height 差异并修到 `diffCount=0`。
 
 ## 前端截图按钮统一静态契约门禁
 

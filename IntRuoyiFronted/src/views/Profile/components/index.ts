@@ -3,7 +3,6 @@ import EdhrReleaseDossierRequirementSetting from './EdhrReleaseDossierRequiremen
 import EdhrRecordbookGlobalSetting from './EdhrRecordbookGlobalSetting.vue'
 import ProfileWorkbench from './ProfileWorkbench.vue'
 import ProfileErpTableAutoSyncSetting from './ProfileErpTableAutoSyncSetting.vue'
-import ProfileNasTableAutoSyncSetting from './ProfileNasTableAutoSyncSetting.vue'
 import ProfileUser from './ProfileUser.vue'
 import ResetPwd from './ResetPwd.vue'
 import UserAvatarVue from './UserAvatar.vue'
@@ -16,7 +15,6 @@ export {
   ProfileUser,
   ProfileWorkbench,
   ProfileErpTableAutoSyncSetting,
-  ProfileNasTableAutoSyncSetting,
   ResetPwd,
   UserAvatarVue,
   UserSocial

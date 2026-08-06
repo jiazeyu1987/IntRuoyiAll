@@ -67,7 +67,7 @@ class MesFrontlineRuntimeConfigServiceTest {
         when(employeeBindingMapper.selectList(any())).thenReturn(List.of(
                 employeeBinding(9002L, 8802L),
                 employeeBinding(9001L, 8801L)));
-        when(employeeProfileMapper.selectBatchIds(anyCollection())).thenReturn(List.of(
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
                 employeeProfile(8801L, 9001L, null, "TMP-001", "临时工甲", "临时工甲-A", "TEMPORARY", true),
                 employeeProfile(8802L, 9002L, 10002L, "E-002", "其它班组员工", "其它班组员工", "FORMAL", true)));
         when(processDeviceMapper.selectList(any())).thenReturn(List.of(
@@ -104,6 +104,34 @@ class MesFrontlineRuntimeConfigServiceTest {
         assertEquals(new BigDecimal("15"), config.devices().get(0).parameters().get(0).defaultValue());
         assertEquals(1, config.defectReasons().size());
         assertEquals("正常损耗", config.defectReasons().get(0).reasonName());
+    }
+
+    @Test
+    void getRuntimeConfig_returnsEnabledLeaderPersonnelProfilesInsteadOfOnlyProcessBindings() {
+        when(contextService.requireAuthorizedProcess(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesFrontlineRouteProcessCandidate(ROUTE_ID, "R-101", "Route 101",
+                        ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
+                        7001L, "D-001", "压力泵", 301L, "WS-301", "精洗工位"));
+        when(employeeBindingMapper.selectList(any())).thenReturn(List.of(
+                employeeBinding(9001L, 8801L)));
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
+                employeeProfile(8801L, 9001L, null, "TMP-001", "临时工甲", "临时工甲-A", "TEMPORARY", true),
+                employeeProfile(8803L, 9001L, 10003L, "USER-10003", "正式工乙", "正式工乙", "FORMAL", true),
+                employeeProfile(8804L, 9001L, 10004L, "USER-10004", "禁用员工", "禁用员工", "FORMAL", false),
+                employeeProfile(8805L, 9002L, 10005L, "USER-10005", "其它组员工", "其它组员工", "FORMAL", true)));
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(processDevice(9001L, 7001L)));
+        when(deviceMapper.selectBatchIds(anyCollection())).thenReturn(List.of(
+                teamDevice(7001L, 9001L, "D-001", "压力泵", "ENABLED", true)));
+        when(parameterRuleMapper.selectList(any())).thenReturn(List.of());
+        when(defectReasonMapper.selectList(any())).thenReturn(List.of());
+
+        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID,
+                ROUTE_PROCESS_ID, PROCESS_ID);
+
+        assertEquals(2, config.employees().size());
+        assertEquals(8801L, config.employees().get(0).employeeProfileId());
+        assertEquals(8803L, config.employees().get(1).employeeProfileId());
+        assertEquals(10003L, config.employees().get(1).systemUserId());
     }
 
     @Test

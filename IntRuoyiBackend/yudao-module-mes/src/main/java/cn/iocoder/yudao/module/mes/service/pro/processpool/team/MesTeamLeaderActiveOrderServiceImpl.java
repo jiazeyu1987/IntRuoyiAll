@@ -65,7 +65,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private final MesProScheduleOrderMapper scheduleOrderMapper;
     private final MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
-    private final MesActiveOrderTransferTraceService transferTraceService;
     private final MesQaInspectionRegulationMapper inspectionRegulationMapper;
     private final MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
     private final MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
@@ -78,7 +77,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                                MesProScheduleOrderMapper scheduleOrderMapper,
                                                MesProScheduleOrderProcessMapper scheduleOrderProcessMapper,
                                                MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper,
-                                               MesActiveOrderTransferTraceService transferTraceService,
                                                MesQaInspectionRegulationMapper inspectionRegulationMapper,
                                                MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper,
                                                MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper,
@@ -90,7 +88,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         this.scheduleOrderMapper = scheduleOrderMapper;
         this.scheduleOrderProcessMapper = scheduleOrderProcessMapper;
         this.processSnapshotMapper = processSnapshotMapper;
-        this.transferTraceService = transferTraceService;
         this.inspectionRegulationMapper = inspectionRegulationMapper;
         this.inspectionRegulationVersionMapper = inspectionRegulationVersionMapper;
         this.inspectionRegulationItemMapper = inspectionRegulationItemMapper;
@@ -192,14 +189,14 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 "ACTIVE_ORDER", activeOrder.getId(), activeOrder.toString(), update.toString());
     }
 
-    private MesProcessPoolActiveOrderDO selectExistingActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO) {
-        return activeOrderMapper.selectActiveByWorkOrderRouteVersion(reqBO.getWorkOrderId(), reqBO.getRouteId(),
-                reqBO.getRouteVersionId());
+    private MesProcessPoolActiveOrderDO selectExistingActiveOrder(Long workOrderId, Long routeId,
+                                                                  Long routeVersionId) {
+        return activeOrderMapper.selectActiveByWorkOrderRouteVersion(workOrderId, routeId, routeVersionId);
     }
 
-    private MesProcessPoolActiveOrderDO selectRemovedActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO) {
-        return activeOrderMapper.selectRemovedByWorkOrderRouteVersion(reqBO.getWorkOrderId(), reqBO.getRouteId(),
-                reqBO.getRouteVersionId());
+    private MesProcessPoolActiveOrderDO selectRemovedActiveOrder(Long workOrderId, Long routeId,
+                                                                 Long routeVersionId) {
+        return activeOrderMapper.selectRemovedByWorkOrderRouteVersion(workOrderId, routeId, routeVersionId);
     }
 
     private Long reactivateRemovedActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO,
@@ -222,12 +219,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                     .build();
             TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "REACTIVATE_ACTIVE_ORDER",
                     "ACTIVE_ORDER", removed.getId(), removed.toString(), after.toString());
-            recordTransferTracesIfRequested(after, reqBO.getTransferIds());
             return removed.getId();
         }
-        MesProcessPoolActiveOrderDO concurrentlyAdded = selectExistingActiveOrder(reqBO);
+        MesProcessPoolActiveOrderDO concurrentlyAdded = selectExistingActiveOrder(removed.getWorkOrderId(),
+                removed.getRouteId(), removed.getRouteVersionId());
         if (concurrentlyAdded != null) {
-            recordTransferTracesIfRequested(concurrentlyAdded, reqBO.getTransferIds());
             return concurrentlyAdded.getId();
         }
         throw new IllegalStateException("Failed to reactivate removed active order: " + removed.getId());
@@ -241,22 +237,20 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return activeOrderMapper.selectActiveListByLeader(leaderUserId);
     }
 
-    private MesProScheduleOrderDO requireMatchingScheduleOrder(MesTeamLeaderActiveOrderAddReqBO reqBO) {
-        MesProScheduleOrderDO scheduleOrder = scheduleOrderMapper.selectEffectiveByWorkOrderId(reqBO.getWorkOrderId());
-        if (scheduleOrder == null || scheduleOrder.getId() == null
-                || !Objects.equals(scheduleOrder.getRouteId(), reqBO.getRouteId())
-                || !Objects.equals(scheduleOrder.getRouteVersionId(), reqBO.getRouteVersionId())) {
-            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, reqBO.getWorkOrderId());
+    private MesProScheduleOrderDO requireUniqueEffectiveScheduleOrder(Long workOrderId) {
+        List<MesProScheduleOrderDO> scheduleOrders = scheduleOrderMapper
+                .selectEffectiveListByWorkOrderIds(List.of(workOrderId));
+        if (scheduleOrders.size() != 1) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_EFFECTIVE_SCHEDULE_UNIQUE_REQUIRED, workOrderId);
+        }
+        MesProScheduleOrderDO scheduleOrder = scheduleOrders.get(0);
+        if (scheduleOrder.getId() == null || scheduleOrder.getRouteId() == null
+                || scheduleOrder.getRouteVersionId() == null) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED, workOrderId);
         }
         return scheduleOrder;
     }
 
-    private void recordTransferTracesIfRequested(MesProcessPoolActiveOrderDO activeOrder, List<Long> transferIds) {
-        if (transferIds == null || transferIds.isEmpty()) {
-            return;
-        }
-        transferTraceService.recordTransferTracesForActiveOrder(activeOrder, transferIds);
-    }
 
     private List<MesProScheduleOrderProcessDO> selectEnabledScheduleProcesses(MesProScheduleOrderDO scheduleOrder,
                                                                               Long activeOrderId) {

@@ -26,10 +26,6 @@ public class MesWorkOrderAbnormalReportServiceImpl implements MesWorkOrderAbnorm
         LocalDateTime now = LocalDateTime.now();
         MesProcessPoolWorkOrderAbnormalDO abnormal = MesProcessPoolWorkOrderAbnormalDO.builder()
                 .workOrderId(reqBO.getWorkOrderId())
-                .routeProcessId(reqBO.getRouteProcessId())
-                .processId(reqBO.getProcessId())
-                .sourceEventId(reqBO.getSourceEventId())
-                .abnormalReasonCode(reqBO.getAbnormalReasonCode())
                 .abnormalDescription(reqBO.getAbnormalDescription())
                 .reportStatus(MesProcessPoolWorkOrderAbnormalDO.REPORT_STATUS_REPORTED)
                 .markerUserId(reqBO.getMarkerUserId())
@@ -43,7 +39,7 @@ public class MesWorkOrderAbnormalReportServiceImpl implements MesWorkOrderAbnorm
 
     private void validateReq(MesWorkOrderAbnormalReportReqBO reqBO) {
         if (reqBO == null || reqBO.getWorkOrderId() == null || reqBO.getMarkerUserId() == null
-                || isBlank(reqBO.getAbnormalReasonCode()) || isBlank(reqBO.getAbnormalDescription())) {
+                || isBlank(reqBO.getAbnormalDescription())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "workOrderAbnormal");
         }
     }

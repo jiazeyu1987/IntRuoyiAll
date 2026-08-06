@@ -144,7 +144,7 @@ for (const token of [
   'RRM_UNAUTHORIZED_PASSWORD',
   'RRM_SIGNATURE_IDS_JSON',
   'RRM_PRODUCTION_ORDER_ID',
-  'RRM_TRANSFER_IDS'
+  'RRM_TRANSFER_TRACE_ACTIVE_ORDER_ID'
 ]) {
   assert.match(source, new RegExp(token), `real E2E preflight must require ${token}.`)
 }
@@ -248,6 +248,8 @@ for (const token of [
   'acceptanceCoverage',
   'phaseEvidence',
   'performActiveOrderJoin',
+  'RRM_TRANSFER_IDS',
+  'parsePositiveIntegerList',
   'verifyActiveOrderConflictRouteFailure',
   'activeOrderConflictRouteRejected',
   'verifyPqcActiveOrderReadOnly',
@@ -424,8 +426,8 @@ assert.match(
 )
 assert.match(
   source,
-  /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*verifyScheduleOrderErpCandidateAdmission\(page,\s*config\)[\s\S]*verifyActiveOrderTransferTraceReadOnly\(page,\s*config,\s*joinEvidence\)[\s\S]*return \[admissionEvidence,\s*joinEvidence,\s*conflictRouteEvidence,\s*transferTraceEvidence,\s*dailyCloseEvidence\]/,
-  'Production leader phase must prove AC-M01 schedule-order admission before joining the active order, then read transfer/shipment/replenishment/return trace before daily-close evidence.'
+  /if \(phase\.actionKey === 'joinActiveOrder'\)[\s\S]*verifyScheduleOrderErpCandidateAdmission\(page,\s*config\)[\s\S]*verifyActiveOrderConflictRouteFailure\(page,\s*config,\s*joinEvidence\)[\s\S]*verifyActiveOrderTransferTraceReadOnly\(page,\s*config,\s*joinEvidence\)[\s\S]*return \[admissionEvidence,\s*joinEvidence,\s*conflictRouteEvidence,\s*transferTraceEvidence,\s*dailyCloseEvidence\]/,
+  'Production leader phase must prove AC-M01 schedule-order admission, join with formal route/version/transfer fields, reject a conflicting route, then read transfer trace before daily-close evidence.'
 )
 assert.match(
   source,
@@ -492,13 +494,18 @@ assert.match(
 )
 assert.match(
   source,
-  /function parsePositiveIntegerEnvList[\s\S]*transferIds:\s*parsePositiveIntegerEnvList\(envValue\('RRM_TRANSFER_IDS'\),\s*'RRM_TRANSFER_IDS'\)/,
-  'real E2E must parse RRM_TRANSFER_IDS into formal transferIds before joining the active order.'
+  /transferTraceActiveOrderId:\s*Number\(envValue\('RRM_TRANSFER_TRACE_ACTIVE_ORDER_ID'\)\)/,
+  'real E2E must read an existing activeOrderId for transfer-trace read-only verification.'
 )
 assert.match(
   source,
-  /performActiveOrderJoin[\s\S]*getByRole\('button',\s*\{\s*name:\s*'新增活跃订单'\s*\}\)\.click\(\)[\s\S]*data-team-leader-active-order-add-dialog[\s\S]*fillFormItem\(dialog,\s*'调拨单ID列表',\s*config\.transferIds\.join\(','\)\)/,
-  'real E2E must fill the active-order join fields directly within the visible dialog form.'
+  /RRM_TRANSFER_IDS[\s\S]*function parsePositiveIntegerList[\s\S]*transferIds:\s*parsePositiveIntegerList\(envValue\('RRM_TRANSFER_IDS'\)\)[\s\S]*key:\s*'RRM_TRANSFER_IDS'/,
+  'real E2E must parse formal transferIds for active-order joining and conflict-route rejection.'
+)
+assert.match(
+  source,
+  /performActiveOrderJoin[\s\S]*getByRole\('button',\s*\{\s*name:\s*'新增活跃订单'\s*\}\)\.click\(\)[\s\S]*data-team-leader-active-order-add-dialog[\s\S]*fillFormItem\(dialog,\s*'生产订单ID',\s*config\.workOrderId\)[\s\S]*fillFormItem\(dialog,\s*'路线ID',\s*config\.routeId\)[\s\S]*fillFormItem\(dialog,\s*'路线版本ID',\s*config\.routeVersionId\)[\s\S]*fillFormItem\(dialog,\s*'调拨单ID列表',\s*config\.transferIds\.join\(','\)\)[\s\S]*Object\.keys\(addPayload\)\.sort\(\)[\s\S]*\['routeId',\s*'routeVersionId',\s*'transferIds',\s*'workOrderId'\]/,
+  'real E2E must submit formal workOrderId, routeId, routeVersionId, and transferIds when joining an active order.'
 )
 const activeOrderDialogActionsSource = source.match(
   /async function performActiveOrderJoin[\s\S]*?(?=async function verifyActiveOrderTransferTraceReadOnly)/
@@ -511,13 +518,13 @@ assert.doesNotMatch(
 )
 assert.match(
   activeOrderDialogActionsSource[0],
-  /verifyActiveOrderConflictRouteFailure[\s\S]*fillFormItem\(dialog,\s*'生产订单ID',\s*config\.workOrderId\)[\s\S]*fillFormItem\(dialog,\s*'路线ID',\s*conflictRouteId\)/,
-  'Conflict-route verification must fill fields directly within the active-order dialog.'
+  /verifyActiveOrderConflictRouteFailure[\s\S]*const conflictingRouteId = Number\(config\.routeId\) \+ 1[\s\S]*fillFormItem\(dialog,\s*'路线ID',\s*conflictingRouteId\)[\s\S]*assert\.notEqual\(addBody\?\.code,\s*0[\s\S]*activeOrderConflictRouteRejected/,
+  'Active-order dialog actions must prove a conflicting route is rejected by the backend without replacing the legal activeOrderId.'
 )
 assert.match(
   activeOrderDialogActionsSource[0],
-  /verifyActiveOrderConflictRouteFailure[\s\S]*\.el-message,\s*\.el-notification[\s\S]*dialog\.getByRole\('button',\s*\{\s*name:\s*'取消'\s*\}\)\.click\(\)[\s\S]*dialog\.waitFor\(\{\s*state:\s*'hidden'/,
-  'Conflict-route verification must close the expected-failure dialog before continuing to other module tabs.'
+  /fillFormItem\(dialog,\s*'生产订单ID',\s*config\.workOrderId\)[\s\S]*fillFormItem\(dialog,\s*'路线ID',\s*config\.routeId\)[\s\S]*fillFormItem\(dialog,\s*'路线版本ID',\s*config\.routeVersionId\)[\s\S]*fillFormItem\(dialog,\s*'调拨单ID列表',\s*config\.transferIds\.join\(','\)\)[\s\S]*assert\.deepEqual\(addPayload\.transferIds,\s*config\.transferIds/,
+  'Active-order join must fill and submit the formal route/version/transfer inputs.'
 )
 assert.match(
   source,
@@ -590,10 +597,19 @@ assert.ok(
   teamLeaderTransferTraceApiSource,
   'team-leader API wrapper must type the formal active-order transfer trace response.'
 )
+const teamLeaderActiveOrderAddReqSource = teamLeaderApiSource.match(
+  /export interface TeamLeaderActiveOrderAddReqVO\s*\{[\s\S]*?\}/
+)
+assert.ok(teamLeaderActiveOrderAddReqSource, 'team-leader active-order add request type must exist.')
 assert.match(
-  teamLeaderApiSource,
-  /export interface TeamLeaderActiveOrderAddReqVO[\s\S]*transferIds\?: number\[\]/,
-  'team-leader active-order add API payload must carry optional formal transferIds.'
+  teamLeaderActiveOrderAddReqSource[0],
+  /workOrderId:\s*number/,
+  'team-leader active-order add API payload must carry the formal workOrderId.'
+)
+assert.doesNotMatch(
+  teamLeaderActiveOrderAddReqSource[0],
+  /routeId:\s*number|routeVersionId:\s*number|transferIds\??:\s*number\[\]/,
+  'team-leader active-order add API payload must not expose route/version/transfer fields.'
 )
 for (const token of [
   'sourceType',
@@ -617,18 +633,23 @@ assert.match(
 )
 assert.match(
   teamLeaderSource,
-  /<el-form-item label="调拨单ID列表" data-team-leader-active-order-transfer-ids>[\s\S]*v-model="activeOrderForm\.transferIdsText"/,
-  'team leader workbench must expose a visible formal transferIds field.'
+  /<el-form-item label="订单号"[\s\S]*<el-select[\s\S]*v-model="activeOrderForm\.workOrderId"[\s\S]*filterable[\s\S]*remote[\s\S]*:remote-method="searchActiveOrderCandidates"/,
+  'team leader workbench must expose one remote searchable 订单号 selector for active-order joining.'
 )
 assert.match(
   teamLeaderSource,
-  /const parsePositiveIntegerList = \(value: string, label: string\)[\s\S]*Number\.isInteger\(parsed\)[\s\S]*throw new Error\(`\$\{label\}只能包含大于 0 的整数 ID`\)/,
-  'team leader workbench must validate transferIds as positive integer IDs.'
+  /<el-option[\s\S]*v-for="candidate in activeOrderCandidateOptions"[\s\S]*:label="candidate\.workOrderCode"[\s\S]*:value="candidate\.workOrderId"/,
+  'team leader workbench must bind candidate label to workOrderCode and value to workOrderId.'
 )
 assert.match(
   teamLeaderSource,
-  /transferIds:\s*parsePositiveIntegerList\(activeOrderForm\.transferIdsText,\s*'调拨单ID列表'\)/,
-  'team leader workbench must submit visible transferIds as validated transferIds.'
+  /await addTeamLeaderActiveOrder\(\{\s*workOrderId:\s*requirePositiveNumber\(activeOrderForm\.workOrderId,\s*'请选择订单号'\)\s*\}\)/,
+  'team leader workbench must submit only the selected workOrderId for active-order joining.'
+)
+assert.doesNotMatch(
+  teamLeaderSource,
+  /data-team-leader-active-order-route-id|data-team-leader-active-order-route-version-id|data-team-leader-active-order-transfer-ids|activeOrderForm\.(routeId|routeVersionId|transferIdsText)|parsePositiveIntegerList/,
+  'team leader workbench must not expose route/version/transfer inputs in active-order joining.'
 )
 const teamLeaderTransferTraceViewSource = teamLeaderSource.match(
   /data-team-leader-active-order-transfer-trace[\s\S]*?<\/el-table>/
@@ -691,6 +712,16 @@ assert.match(
   source,
   /async function ensurePqcLeaderSubmissionFilterCondition[\s\S]*data-filter-key[\s\S]*新增筛选条件[\s\S]*table-multi-filter__field-select/,
   'PQC leader submission filter E2E must add or activate each formal standard multi-filter condition.'
+)
+assert.match(
+  source,
+  /async function dismissVisibleElementTooltips\(page\)[\s\S]*el-popper\.is-dark\.el-tooltip\[aria-hidden="false"\][\s\S]*async function ensurePqcLeaderSubmissionFilterCondition[\s\S]*dismissVisibleElementTooltips\(page\)[\s\S]*addButton\.focus\(\)[\s\S]*keyboard\.press\('Enter'\)/,
+  'PQC leader multi-filter add must close visible Element Plus tooltips and activate the button by keyboard, instead of using force clicks.'
+)
+assert.doesNotMatch(
+  source,
+  /force:\s*true/,
+  'RRM real E2E must not use force clicks to bypass visible UI overlays.'
 )
 assert.match(
   source,
@@ -945,6 +976,16 @@ assert.match(
   source,
   /await runFinalActiveOrderCleanup\(browser,\s*config,\s*actionEvidence\)[\s\S]*const acceptanceCoverage = buildAcceptanceCoverage/,
   'Full real E2E must run final active-order cleanup after all role actions and before building coverage/blocker evidence.'
+)
+assert.match(
+  source,
+  /function buildAcceptanceCoverage\(acceptanceMatrix,\s*phaseEvidence,\s*actionEvidence = \[\],\s*gateEvidence = \[\]\)[\s\S]*m6ConcurrencyGateVerified[\s\S]*m6PerformanceGateVerified[\s\S]*activeOrderCleanupCompleted[\s\S]*status:\s*m6CapstoneAccepted\s*\?\s*'ACCEPTED'/,
+  'Coverage ledger must mark ACs ACCEPTED only after accepted M0-M5 evidence, M6 concurrency/performance gates, and final cleanup are all present.'
+)
+assert.match(
+  source,
+  /const gateEvidence = buildM6ConcurrencyPerformanceGateEvidence\(acceptanceMatrix,\s*actionEvidence\)[\s\S]*const acceptanceCoverage = buildAcceptanceCoverage\(acceptanceMatrix,\s*phaseEvidence,\s*actionEvidence,\s*gateEvidence\)/,
+  'Full real E2E must build gate evidence before coverage so the ledger consumes the final M6 gate decisions.'
 )
 const pqcPieceDetailPerformanceActionSource = source.match(/async function verifyPqcPieceDetailQuantityPrepared[\s\S]*?async function fillVisiblePqcPieceModalValues/)
 assert.ok(pqcPieceDetailPerformanceActionSource, 'M6 PQC piece-detail performance evidence action must exist before modal helper functions.')

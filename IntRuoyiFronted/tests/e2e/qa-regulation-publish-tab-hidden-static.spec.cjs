@@ -28,10 +28,9 @@ assert.deepEqual(
   panes,
   [
     { label: '总览', name: 'overview' },
-    { label: '检验规则', name: 'rules' },
     { label: '检验项目', name: 'items' }
   ],
-  'QA navigation must expose exactly the three approved tabs.'
+  'QA navigation must expose only the overview and inspection-item tabs.'
 )
 assert.doesNotMatch(
   tabsSource,

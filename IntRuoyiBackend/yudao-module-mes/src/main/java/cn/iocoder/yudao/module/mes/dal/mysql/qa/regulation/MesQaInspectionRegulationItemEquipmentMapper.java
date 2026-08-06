@@ -20,4 +20,9 @@ public interface MesQaInspectionRegulationItemEquipmentMapper
                 .orderByAsc(MesQaInspectionRegulationItemEquipmentDO::getSort)
                 .orderByAsc(MesQaInspectionRegulationItemEquipmentDO::getId));
     }
+
+    default int deleteByVersionId(Long regulationVersionId) {
+        return delete(new LambdaQueryWrapperX<MesQaInspectionRegulationItemEquipmentDO>()
+                .eq(MesQaInspectionRegulationItemEquipmentDO::getRegulationVersionId, regulationVersionId));
+    }
 }

@@ -256,7 +256,9 @@ class MesTeamLeaderReportConfirmationServiceTest {
                         .allocations(List.of(line(8101L, "80")))
                         .build()));
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED.getCode(), ex.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_CONFIRMATION_PRODUCTION_LEADER_REQUIRED.getCode(),
+                ex.getCode());
+        assertEquals("报工确认只能由生产组长执行：eventId=1001，leaderType=PQC", ex.getMessage());
         verify(eventMapper, never()).selectByIdForUpdate(any());
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(allocationMapper, never()).insertBatch(anyCollection());

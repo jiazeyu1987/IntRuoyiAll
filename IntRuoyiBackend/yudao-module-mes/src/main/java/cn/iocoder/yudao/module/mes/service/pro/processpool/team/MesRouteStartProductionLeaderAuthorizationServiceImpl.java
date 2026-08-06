@@ -21,8 +21,8 @@ import java.util.Objects;
 import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED;
 
 @Service
 public class MesRouteStartProductionLeaderAuthorizationServiceImpl
@@ -78,7 +78,7 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
         }
         MesProRouteVersionDO activeVersion = routeVersionMapper.selectActiveByRouteId(routeProcess.getRouteId());
         if (!resolveAuthorizedRouteIds(leaderUserId, activeVersion == null ? List.of() : List.of(activeVersion)).contains(routeProcess.getRouteId())) {
-            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_DENIED);
+            throw exception(PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED, "路线开始工序");
         }
     }
 

@@ -47,9 +47,9 @@ if (-not $oldProcess.CommandLine.Contains("--yudao.runtime-control.repo-root=$ex
     throw "Port 48081 PID $oldPid does not belong to the E:\IntRuoyi backend."
 }
 
-$commandPattern = '(?s)^"(?<exe>[^"]+)"\s+-jar\s+' +
+$commandPattern = '(?s)^"(?<exe>[^"]+)"\s+-jar\s+"?' +
     [regex]::Escape($oldJarPath) +
-    '\s+(?<tail>.*)$'
+    '"?\s+(?<tail>.*)$'
 $commandMatch = [regex]::Match($oldProcess.CommandLine, $commandPattern)
 if (-not $commandMatch.Success) {
     throw 'Unable to parse the verified backend command line.'

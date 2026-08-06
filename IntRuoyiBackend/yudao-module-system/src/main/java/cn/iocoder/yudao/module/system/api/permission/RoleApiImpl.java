@@ -28,6 +28,12 @@ public class RoleApiImpl implements RoleApi {
     }
 
     @Override
+    public RoleRespDTO getRoleByCode(String code) {
+        RoleDO role = roleService.getRoleByCode(code);
+        return BeanUtils.toBean(role, RoleRespDTO.class);
+    }
+
+    @Override
     public void validRoleList(Collection<Long> ids) {
         roleService.validateRoleList(ids);
     }

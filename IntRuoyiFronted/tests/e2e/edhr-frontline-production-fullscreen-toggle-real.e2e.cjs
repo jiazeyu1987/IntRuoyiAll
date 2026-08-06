@@ -3,7 +3,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { chromium } = require('playwright')
 
-const TASK_ID = '20260806-frontline-production-prototype-parity'
+const TASK_ID = '20260806-frontline-production-fullscreen-logic'
 const ROUTE = '/mes/pro/feedback/edhr-batch-production-fill'
 const OUTPUT_DIR = path.resolve(process.cwd(), 'test-results', TASK_ID)
 const DEFAULT_CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
@@ -257,25 +257,76 @@ async function readButtonText(button) {
 
 async function assertButtonText(button, expected) {
   const actual = await readButtonText(button)
-  assert.equal(actual, expected, `prototype Home button text should be ${expected}, got ${actual}`)
+  assert.equal(actual, expected, `production fullscreen action text should be ${expected}, got ${actual}`)
 }
 
 async function verifyProductionPrototype(page) {
   await page.goto(`${BASE_URL}${ROUTE}`, { waitUntil: 'domcontentloaded', timeout: 90000 })
+  const panel = page.locator('.frontline-operator-panel.is-production-mode').first()
+  await panel.waitFor({ state: 'visible', timeout: 90000 })
   const screen = page.locator('[data-frontline-production-operator]').first()
   await screen.waitFor({ state: 'visible', timeout: 90000 })
 
+  const panelPosition = await panel.evaluate((element) => getComputedStyle(element).position)
+  assert.notEqual(panelPosition, 'fixed', 'production panel must not be fixed fullscreen before explicit 最大化.')
+  const initialFullscreen = await page.evaluate(() => Boolean(document.fullscreenElement))
+  assert.equal(initialFullscreen, false, 'production route must not enter browser fullscreen by default.')
+
   const box = await screen.boundingBox()
   assert.ok(box, 'production prototype screen must have a visible bounding box.')
-  assert.equal(Math.round(box.width), 1920, `prototype screen width must be 1920, got ${box.width}`)
-  assert.equal(Math.round(box.height), 1080, `prototype screen height must be 1080, got ${box.height}`)
+  const viewport = page.viewportSize()
+  assert.ok(viewport, 'viewport size must be available.')
+  assert.ok(box.width <= viewport.width + 2, `normal production screen must fit viewport width: ${box.width} > ${viewport.width}`)
+  assert.ok(
+    box.x + box.width <= viewport.width + 2,
+    `normal production screen must not clip the right edge: ${JSON.stringify(box)} viewport=${JSON.stringify(viewport)}`
+  )
+  const responsiveScreenSize = await screen.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return { width: style.width, minHeight: style.minHeight }
+  })
+  assert.notEqual(responsiveScreenSize.width, '1920px', 'normal production screen must not stay fixed at 1920px.')
+  assert.ok(responsiveScreenSize.minHeight, 'normal production screen must keep a responsive min-height.')
+
+  const legacyStageCount = await page.locator('[data-frontline-production-stage]').count()
+  assert.equal(legacyStageCount, 0, 'normal production page must not use a scaled 1920x1080 stage wrapper.')
+  const selectionGrid = screen.locator('[data-frontline-production-selection-grid]').first()
+  await selectionGrid.waitFor({ state: 'visible', timeout: 30000 })
+  const gridBox = await selectionGrid.boundingBox()
+  assert.ok(gridBox, 'production selection grid must have a visible bounding box.')
+  assert.ok(
+    gridBox.width <= box.width * 0.72 + 2,
+    `production selection grid should occupy a local area around two-thirds of the page: grid=${JSON.stringify(gridBox)} screen=${JSON.stringify(box)}`
+  )
+  const selectionCards = screen.locator('[data-frontline-production-selection-card]')
+  assert.equal(await selectionCards.count(), 2, 'production selection grid must contain process and employee cards.')
+  for (const index of [0, 1]) {
+    const cardBox = await selectionCards.nth(index).boundingBox()
+    assert.ok(cardBox, `production selection card ${index + 1} must have a visible bounding box.`)
+    const ratio = cardBox.width / cardBox.height
+    assert.ok(
+      Math.abs(ratio - 16 / 9) <= 0.18,
+      `production selection card ${index + 1} must follow the 1920:1080 ratio: ${ratio}`
+    )
+  }
 
   const button = screen.locator('.home-btn').first()
   await button.waitFor({ state: 'visible', timeout: 30000 })
-  await assertButtonText(button, '主页')
+  await assertButtonText(button, '最大化')
 
   const legacyFullscreenButtonCount = await screen.locator('.frontline-production-fullscreen-button').count()
   assert.equal(legacyFullscreenButtonCount, 0, 'production prototype must not render the removed fullscreen button.')
+
+  await button.click()
+  await page.waitForFunction(() => {
+    const fullscreenElement = document.fullscreenElement
+    return Boolean(fullscreenElement && fullscreenElement.classList.contains('frontline-operator-panel'))
+  })
+  await assertButtonText(button, '主页')
+
+  await button.click()
+  await page.waitForFunction(() => !document.fullscreenElement)
+  await assertButtonText(button, '最大化')
 
   await page.screenshot({
     path: path.join(OUTPUT_DIR, 'production-fill-prototype.png'),

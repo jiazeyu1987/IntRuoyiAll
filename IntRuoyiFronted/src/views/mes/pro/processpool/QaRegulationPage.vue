@@ -10,14 +10,18 @@
                 v-model="qaRegulationDraft.dccProjectCodeId"
                 aria-label="DCC 项目代码"
                 clearable
+                automatic-dropdown
+                default-first-option
                 filterable
                 remote
+                remote-show-suffix
                 reserve-keyword
                 :loading="dccProjectCodeOptionsLoading"
                 :remote-method="loadDccProjectCodeOptions"
                 placeholder="请选择 DCC 项目代码"
                 class="qa-regulation-page__project-select !w-100%"
                 data-qa-regulation-project-copyable
+                data-qa-regulation-project-dropdown
                 @change="handleDccProjectCodeChange"
                 @visible-change="handleDccProjectCodeVisibleChange"
               >
@@ -101,7 +105,6 @@
         data-qa-regulation-tabs
       >
         <el-tab-pane label="总览" name="overview" />
-        <el-tab-pane label="检验规则" name="rules" />
         <el-tab-pane label="检验项目" name="items" />
       </el-tabs>
     </ContentWrap>
@@ -218,164 +221,31 @@
       </el-card>
     </ContentWrap>
 
-    <ContentWrap v-show="qaActiveTab === 'rules'">
-      <el-card shadow="never" data-qa-regulation-inspection-rules>
-        <template #header>
-          <div class="qa-regulation-page__card-head">
-            <span>检验类型规则</span>
-            <div class="qa-regulation-page__rule-tags" data-qa-regulation-rule-types>
-              <el-tag effect="plain">首检</el-tag>
-              <el-tag effect="plain">上午巡检</el-tag>
-              <el-tag effect="plain">下午巡检</el-tag>
-              <el-tag effect="plain">末检</el-tag>
-            </div>
-          </div>
-        </template>
-        <UnifiedListTemplate
-          table-key="mes.qa.regulation.rules"
-          :query-model="qaRulesQuery"
-          :filter-definitions="qaEmptyFilterDefinitions"
-          :show-quick-filter="false"
-          :quick-filter-state="qaEmptyQuickFilterState"
-          :selected-filter-definition="qaEmptySelectedFilterDefinition"
-          :operator-options="qaEmptyOperatorOptions"
-          :columns="qaRulesColumns"
-          :column-saving="qaRulesColumnSaving"
-          :total="qaInspectionTypeRules.length"
-          v-model:page="qaRulesQuery.pageNo"
-          v-model:limit="qaRulesQuery.pageSize"
-          @column-change="saveQaRulesColumnConfig"
-          @column-reset="resetQaRulesColumnConfig"
-        >
-          <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
-            <el-table
-              :data="pagedQaInspectionTypeRules"
-              border
-              size="small"
-              data-user-table-column-explicit
-              data-user-table-key="mes.qa.regulation.rules"
-              @header-dragend="handleQaRulesHeaderDragend"
-              @sort-change="handleTemplateSortChange"
-            >
-              <el-table-column
-                v-if="isQaRulesColumnVisible('rule')"
-                label="规则"
-                prop="rule"
-                :min-width="getQaRulesColumnMinWidthString('rule', 120)"
-              v-bind="sortColumnAttrs('rule')"
-              >
-                <template #default="{ row }">
-                  <div class="qa-regulation-page__rule-name">{{ row.label }}</div>
-                  <div class="qa-regulation-page__hint">{{ row.roundLabel }}</div>
-                </template>
-              </el-table-column>
-              <el-table-column
-                v-if="isQaRulesColumnVisible('required')"
-                label="是否适用"
-                prop="required"
-                :width="getQaRulesColumnWidthString('required', 110)"
-              v-bind="sortColumnAttrs('required')"
-              >
-                <template #default="{ row }">
-                  <el-switch v-model="row.required" />
-                </template>
-              </el-table-column>
-              <el-table-column
-                v-if="isQaRulesColumnVisible('notApplicableReason')"
-                label="不适用依据"
-                prop="notApplicableReason"
-                :min-width="getQaRulesColumnMinWidthString('notApplicableReason', 260)"
-              v-bind="sortColumnAttrs('notApplicableReason')"
-              >
-                <template #default="{ row }">
-                  <el-input
-                    v-if="row.key === 'FINAL' && !row.required"
-                    v-model="row.notApplicableReason"
-                    placeholder="填写末检不适用的正式依据"
-                    clearable
-                  />
-                  <el-tag v-else effect="plain" type="info">
-                    {{ row.key === 'FINAL' ? '末检适用' : '不适用' }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column
-                v-if="isQaRulesColumnVisible('fixedQuantity')"
-                label="固定数量"
-                prop="fixedQuantity"
-                :width="getQaRulesColumnWidthString('fixedQuantity', 140)"
-              v-bind="sortColumnAttrs('fixedQuantity')"
-              >
-                <template #default="{ row }">
-                  <el-input-number
-                    v-model="row.fixedQuantity"
-                    :disabled="!row.required || row.sampleRatio !== undefined"
-                    :min="0"
-                    :controls="false"
-                    class="!w-100%"
-                  />
-                </template>
-              </el-table-column>
-              <el-table-column
-                v-if="isQaRulesColumnVisible('sampleRatio')"
-                label="抽样比例"
-                prop="sampleRatio"
-                :width="getQaRulesColumnWidthString('sampleRatio', 140)"
-              v-bind="sortColumnAttrs('sampleRatio')"
-              >
-                <template #default="{ row }">
-                  <el-input-number
-                    v-model="row.sampleRatio"
-                    :disabled="!row.required || row.fixedQuantity !== undefined"
-                    :min="0"
-                    :max="100"
-                    :precision="1"
-                    :controls="false"
-                    class="!w-100%"
-                  />
-                </template>
-              </el-table-column>
-              <el-table-column
-                v-if="isQaRulesColumnVisible('plannedQuantity')"
-                label="PQC 计划数量"
-                prop="plannedQuantity"
-                :width="getQaRulesColumnWidthString('plannedQuantity', 150)"
-              v-bind="sortColumnAttrs('plannedQuantity')"
-              >
-                <template #default="{ row }">
-                  <el-tag effect="plain">{{ formatQaRulePlannedQuantity(row) }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column
-                v-if="isQaRulesColumnVisible('taskRule')"
-                label="任务生成规则"
-                prop="taskRule"
-                :min-width="getQaRulesColumnMinWidthString('taskRule', 240)"
-              v-bind="sortColumnAttrs('taskRule')"
-              />
-              <el-table-column
-                v-if="isQaRulesColumnVisible('releaseGate')"
-                label="发布门禁"
-                prop="releaseGate"
-                :min-width="getQaRulesColumnMinWidthString('releaseGate', 240)"
-              v-bind="sortColumnAttrs('releaseGate')"
-              />
-            </el-table>
-          </template>
-        </UnifiedListTemplate>
-        <div class="qa-regulation-page__hint mt-8px">
-          巡检预览：当前用 {{ qaRegulationDraft.sampleOrderQuantity }} 件示例数量演示 5% 抽样 =
-          {{ Math.ceil(qaRegulationDraft.sampleOrderQuantity * 0.05) }}；正式 PQC 任务按实际工单/批次数量生成。
-        </div>
-      </el-card>
-    </ContentWrap>
-
     <ContentWrap v-show="qaActiveTab === 'items'">
       <el-card shadow="never" data-qa-regulation-items>
         <template #header>
           <div class="qa-regulation-page__card-head">
             <span>工序检验方法与抽样方案</span>
             <div class="qa-regulation-page__card-actions">
+              <div
+                class="qa-regulation-page__final-inspection-switch"
+                data-qa-regulation-final-inspection-switch
+              >
+                <span class="qa-regulation-page__final-inspection-label">是否需要末检</span>
+                <el-switch
+                  v-model="finalInspectionRequired"
+                  active-text="需要"
+                  inactive-text="不需要"
+                />
+                <el-input
+                  data-qa-regulation-final-not-applicable-reason
+                  v-if="!finalInspectionRequired"
+                  v-model="finalInspectionNotApplicableReason"
+                  placeholder="填写末检不适用的正式依据"
+                  clearable
+                  class="qa-regulation-page__final-inspection-reason"
+                />
+              </div>
               <UserTableColumnSettings
                 :columns="qaItemsColumns"
                 :saving="qaItemsColumnSaving"
@@ -504,7 +374,44 @@
               v-bind="sortColumnAttrs('inspectionTool')"
               >
                 <template #default="{ row }">
-                  <el-input v-model="row.inspectionTool" />
+                  <div class="qa-regulation-page__equipment-editor">
+                    <el-input
+                      v-model="row.inspectionTool"
+                      placeholder="检验器具及设备说明"
+                    />
+                    <div
+                      v-for="(option, optionIndex) in getQaRegulationItemEquipmentOptions(row)"
+                      :key="`${row.itemCode}-${optionIndex}`"
+                      class="qa-regulation-page__equipment-option"
+                      data-qa-regulation-equipment-option
+                    >
+                      <el-input-number
+                        v-model="option.equipmentId"
+                        :controls="false"
+                        :min="1"
+                        placeholder="设备ID"
+                        class="qa-regulation-page__equipment-id"
+                      />
+                      <el-input v-model="option.equipmentCode" placeholder="设备编码" />
+                      <el-input v-model="option.equipmentName" placeholder="设备名称" />
+                      <el-input v-model="option.equipmentNumber" placeholder="设备编号" />
+                      <el-switch v-model="option.defaultFlag" active-text="默认" />
+                      <el-button
+                        text
+                        type="danger"
+                        @click="removeQaRegulationEquipmentOption(row, optionIndex)"
+                      >
+                        删除
+                      </el-button>
+                    </div>
+                    <el-button
+                      size="small"
+                      data-qa-regulation-equipment-option-add
+                      @click="addQaRegulationEquipmentOption(row)"
+                    >
+                      添加正式设备
+                    </el-button>
+                  </div>
                 </template>
               </el-table-column>
               <el-table-column
@@ -817,6 +724,7 @@ import {
 } from '@/api/dcc/controlledFile/projectCodes'
 import {
   QcTemplateApi,
+  type QaInspectionRegulationSaveEquipmentOptionVO,
   type QaInspectionRegulationSaveItemVO,
   type QaInspectionRegulationSaveReqVO
 } from '@/api/mes/qc/template'
@@ -864,6 +772,7 @@ interface QaRegulationItem {
   applicableTypes: QaInspectionTypeValue[]
   inspectionMethod: string
   inspectionTool: string
+  equipmentOptions?: QaRegulationEquipmentOptionDraft[]
   samplingPlanText?: string
   resultType: QaInspectionResultType
   standardText: string
@@ -876,6 +785,15 @@ interface QaRegulationItem {
   sourceOriginalItem?: string
   sourceOriginalExcerpt?: string
   sourceOriginalMethod?: string
+}
+
+interface QaRegulationEquipmentOptionDraft {
+  equipmentId?: number
+  equipmentCode: string
+  equipmentName: string
+  equipmentNumber: string
+  defaultFlag?: boolean
+  sort?: number
 }
 
 interface QaRegulationDraft {
@@ -913,7 +831,7 @@ interface QaProductRuleDraftSnapshot {
   regulationItems: QaRegulationItem[]
 }
 
-type QaRegulationTabName = 'overview' | 'rules' | 'items' | 'verification'
+type QaRegulationTabName = 'overview' | 'items' | 'verification'
 
 interface QaLocalListQuery {
   pageNo: number
@@ -942,7 +860,6 @@ interface QaRouteScopeBindingSource {
 }
 
 const qaActiveTab = ref<QaRegulationTabName>('overview')
-const qaRulesQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
 const qaItemsQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
 const qaChecksQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
 const qaPqcPreviewQuery = reactive<QaLocalListQuery>({ pageNo: 1, pageSize: 10 })
@@ -967,17 +884,6 @@ const keepQaLocalPageInRange = (query: QaLocalListQuery, total: number) => {
     query.pageNo = maxPage
   }
 }
-
-const qaRulesDefaultColumns: UserTableColumnDefinition[] = [
-  { key: 'rule', label: '规则', minWidth: 120 },
-  { key: 'required', label: '是否适用', width: 110 },
-  { key: 'notApplicableReason', label: '不适用依据', minWidth: 260 },
-  { key: 'fixedQuantity', label: '固定数量', width: 140 },
-  { key: 'sampleRatio', label: '抽样比例', width: 140 },
-  { key: 'plannedQuantity', label: 'PQC 计划数量', width: 150 },
-  { key: 'taskRule', label: '任务生成规则', minWidth: 240 },
-  { key: 'releaseGate', label: '发布门禁', minWidth: 240 }
-]
 
 const qaItemsDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'routeProcessName', label: '工序', minWidth: 170 },
@@ -1011,17 +917,6 @@ const qaPqcPreviewDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'regulationVersionNo', label: '规程版本', minWidth: 110 },
   { key: 'taskIdentity', label: '任务身份', minWidth: 260 }
 ]
-
-const {
-  columns: qaRulesColumns,
-  saving: qaRulesColumnSaving,
-  isColumnVisible: isQaRulesColumnVisible,
-  getColumnWidthString: getQaRulesColumnWidthString,
-  getColumnMinWidthString: getQaRulesColumnMinWidthString,
-  handleHeaderDragend: handleQaRulesHeaderDragend,
-  saveConfig: saveQaRulesColumnConfig,
-  resetConfig: resetQaRulesColumnConfig
-} = useUserTableColumns('mes.qa.regulation.rules', qaRulesDefaultColumns)
 
 const {
   columns: qaItemsColumns,
@@ -1146,17 +1041,45 @@ const createPressurePumpQaInspectionTypeRules = (): QaInspectionTypeRule[] =>
 
 const qaInspectionTypeRules = reactive<QaInspectionTypeRule[]>(createEmptyQaInspectionTypeRules())
 
+const normalizeQaInspectionTypeRules = (rules: QaInspectionTypeRule[]): QaInspectionTypeRule[] =>
+  rules.map((rule) => {
+    if (rule.key === 'FINAL') {
+      return { ...rule }
+    }
+    return { ...rule, required: true }
+  })
+
 const replaceQaInspectionTypeRules = (rules: QaInspectionTypeRule[]) => {
   qaInspectionTypeRules.splice(
     0,
     qaInspectionTypeRules.length,
-    ...rules.map((rule) => ({ ...rule }))
+    ...normalizeQaInspectionTypeRules(rules)
   )
 }
 
-const pagedQaInspectionTypeRules = computed(() =>
-  paginateQaRows(qaInspectionTypeRules, qaRulesQuery)
+const finalInspectionRule = computed(() =>
+  qaInspectionTypeRules.find((rule) => rule.key === 'FINAL')
 )
+
+const finalInspectionRequired = computed<boolean>({
+  get: () => Boolean(finalInspectionRule.value?.required),
+  set: (required: boolean) => {
+    if (!finalInspectionRule.value) {
+      throw new Error('缺少末检规则配置')
+    }
+    finalInspectionRule.value.required = required
+  }
+})
+
+const finalInspectionNotApplicableReason = computed<string>({
+  get: () => finalInspectionRule.value?.notApplicableReason ?? '',
+  set: (reason: string) => {
+    if (!finalInspectionRule.value) {
+      throw new Error('缺少末检规则配置')
+    }
+    finalInspectionRule.value.notApplicableReason = reason
+  }
+})
 
 const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
   {
@@ -1412,8 +1335,8 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     sourceOriginalMethod: '目测、手感。'
   },
   {
-    itemCode: 'PP-015-BOND-SLEEVE-APP',
-    processName: '整体粘结',
+    itemCode: 'PP-015-ASSEMBLE-SLEEVE-APP',
+    processName: '装配',
     itemName: '外套组件与套筒组件装配 / 外观',
     applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
@@ -1425,13 +1348,13 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     failureRule: '检验中，每一个检验项目均应合格；若出现不合格，则按不合格品评审结果处理。',
     sourceNote: '用户指定 PDF PQC-IDI-001（B/0）5.1 检验内容。',
     sourceOriginalPage: 6,
-    sourceOriginalItem: '整体粘结 / 外套组件与套筒组件装配 / 外观',
+    sourceOriginalItem: '装配 / 外套组件与套筒组件装配 / 外观',
     sourceOriginalExcerpt: '压力泵整体外观应无黑点、杂质、花纹、划痕等外观缺陷；压力泵内腔无异物、毛丝等活动异物；压力泵外套应有足够的透明度，能清晰地看到基准线；压力泵的第一条刻度线（泵体排空时）应与活塞重合。',
     sourceOriginalMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。'
   },
   {
-    itemCode: 'PP-016-BOND-SLEEVE-FIT',
-    processName: '整体粘结',
+    itemCode: 'PP-016-ASSEMBLE-SLEEVE-FIT',
+    processName: '装配',
     itemName: '外套组件与套筒组件装配 / 配合',
     applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '目测、手感。',
@@ -1443,7 +1366,7 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     failureRule: '检验中，每一个检验项目均应合格；若出现不合格，则按不合格品评审结果处理。',
     sourceNote: '用户指定 PDF PQC-IDI-001（B/0）5.1 检验内容。',
     sourceOriginalPage: 6,
-    sourceOriginalItem: '整体粘结 / 外套组件与套筒组件装配 / 配合',
+    sourceOriginalItem: '装配 / 外套组件与套筒组件装配 / 配合',
     sourceOriginalExcerpt: '1）推杆组件推入外套，后盖与外套的卡槽扣到位，旋转后盖使得后盖与外套的缺口完全一致，不能偏掉；2）旋转螺杆检查扭力不应偏大，按下按钮推拉螺杆看应无干涉及推拉力偏大。',
     sourceOriginalMethod: '目测、手感。'
   },
@@ -2357,6 +2280,7 @@ const addQaRegulationItem = () => {
     applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM'],
     inspectionMethod: '',
     inspectionTool: '',
+    equipmentOptions: [],
     samplingPlanText: '',
     resultType: 'BOOLEAN',
     standardText: '',
@@ -2381,10 +2305,40 @@ const removeQaRegulationItemByRow = (row: QaRegulationItem) => {
   }
 }
 
+const getQaRegulationItemEquipmentOptions = (item: QaRegulationItem) => {
+  if (!item.equipmentOptions) {
+    item.equipmentOptions = []
+  }
+  return item.equipmentOptions
+}
+
+const addQaRegulationEquipmentOption = (item: QaRegulationItem) => {
+  const options = getQaRegulationItemEquipmentOptions(item)
+  options.push({
+    equipmentCode: '',
+    equipmentName: '',
+    equipmentNumber: '',
+    defaultFlag: options.length === 0,
+    sort: options.length + 1
+  })
+}
+
+const removeQaRegulationEquipmentOption = (item: QaRegulationItem, index: number) => {
+  getQaRegulationItemEquipmentOptions(item).splice(index, 1)
+}
+
 const resolvePositiveId = (value: number | undefined, label: string) => {
   const normalized = Number(value)
   if (!Number.isFinite(normalized) || normalized <= 0) {
     throw new Error(`${label}必须填写正式 ID`)
+  }
+  return normalized
+}
+
+const resolveRequiredText = (value: string | undefined, label: string) => {
+  const normalized = value?.trim()
+  if (!normalized) {
+    throw new Error(`${label}不能为空`)
   }
   return normalized
 }
@@ -2402,9 +2356,27 @@ const resolveRuleForInspectionType = (
   inspectionType: QaInspectionRegulationSaveItemVO['inspectionType']
 ) => qaInspectionTypeRules.find((rule) => rule.inspectionType === inspectionType && rule.required)
 
+const buildQaRegulationItemEquipmentOptions = (
+  item: QaRegulationItem
+): QaInspectionRegulationSaveEquipmentOptionVO[] => {
+  const options = getQaRegulationItemEquipmentOptions(item)
+  if (item.inspectionTool.trim() && options.length === 0) {
+    throw new Error(`${item.itemName}已填写检验器具及设备说明，但未配置正式设备台账选项。`)
+  }
+  return options.map((option, index) => ({
+    equipmentId: resolvePositiveId(option.equipmentId, `${item.itemName}设备 ID`),
+    equipmentCode: resolveRequiredText(option.equipmentCode, `${item.itemName}设备编码`),
+    equipmentName: resolveRequiredText(option.equipmentName, `${item.itemName}设备名称`),
+    equipmentNumber: resolveRequiredText(option.equipmentNumber, `${item.itemName}设备编号`),
+    defaultFlag: option.defaultFlag,
+    sort: option.sort || index + 1
+  }))
+}
+
 const buildQaRegulationSaveItems = (): QaInspectionRegulationSaveItemVO[] =>
   qaRegulationItems.value.flatMap((item) => {
     const inspectionTypes = Array.from(new Set(item.applicableTypes.map(normalizeQaInspectionType)))
+    const equipmentOptions = buildQaRegulationItemEquipmentOptions(item)
     return inspectionTypes.flatMap((inspectionType) => {
       const rule = resolveRuleForInspectionType(inspectionType)
       if (!rule) {
@@ -2418,7 +2390,8 @@ const buildQaRegulationSaveItems = (): QaInspectionRegulationSaveItemVO[] =>
         standardText: item.standardText,
         standardLowerLimit: item.resultType === 'NUMERIC' ? item.lowerLimit : undefined,
         standardUpperLimit: item.resultType === 'NUMERIC' ? item.upperLimit : undefined,
-        equipmentRequired: Boolean(item.inspectionTool.trim()),
+        equipmentRequired: equipmentOptions.length > 0,
+        equipmentOptions: buildQaRegulationItemEquipmentOptions(item),
         resultType: item.resultType,
         firstInspectionQuantity:
           inspectionType === 'PATROL' ? undefined : rule?.fixedQuantity || undefined,
@@ -2757,20 +2730,54 @@ const runQaPublishPrecheck = async () => {
   margin-left: auto;
 }
 
-.qa-regulation-page__rule-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.qa-regulation-page__final-inspection-switch {
+  display: grid;
+  grid-template-columns: auto auto minmax(180px, 260px);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid #d0d5dd;
+  border-radius: 999px;
+  background: #f8fafc;
 }
 
-.qa-regulation-page__rule-name {
+.qa-regulation-page__final-inspection-label {
   color: #172033;
+  font-size: 13px;
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.qa-regulation-page__final-inspection-reason {
+  width: 100%;
+  min-width: 0;
 }
 
 .qa-regulation-page__process-name {
   color: #172033;
   font-weight: 700;
+}
+
+.qa-regulation-page__equipment-editor {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.qa-regulation-page__equipment-option {
+  display: grid;
+  grid-template-columns: 88px minmax(96px, 1fr);
+  gap: 6px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.qa-regulation-page__equipment-id {
+  width: 100%;
 }
 
 .qa-regulation-page__sampling-plan {
@@ -2878,6 +2885,13 @@ const runQaPublishPrecheck = async () => {
 }
 
 @media (max-width: 720px) {
+  .qa-regulation-page__final-inspection-switch {
+    grid-template-columns: 1fr;
+    justify-items: start;
+    width: 100%;
+    border-radius: 12px;
+  }
+
   .qa-regulation-page__version-publish {
     flex: 1 0 100%;
     flex-wrap: wrap;

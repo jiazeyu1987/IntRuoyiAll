@@ -247,13 +247,19 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
     }
 
     @Override
-    public List<MesFrontlineEmployeeCandidate> listPqcEmployeeCandidates() {
+    public List<MesFrontlineEmployeeCandidate> listPqcEmployeeCandidates(Long loginUserId) {
+        requireValue(loginUserId, "loginUserId");
         List<MesProcessPoolTeamLeaderScopeDO> scopes = scopeMapper.selectActiveScopesByLeaderType(LEADER_TYPE_PQC);
         Set<Long> userIds = new LinkedHashSet<>();
+        boolean loginUserInPqcScope = false;
         for (MesProcessPoolTeamLeaderScopeDO scope : scopes) {
             if (scope == null || !Boolean.TRUE.equals(scope.getEnabled())) {
                 continue;
             }
+            boolean leaderMatchesLogin = Objects.equals(scope.getLeaderUserId(), loginUserId);
+            boolean employeeMatchesLogin = SCOPE_TYPE_EMPLOYEE.equals(scope.getScopeType())
+                    && Objects.equals(scope.getEmployeeUserId(), loginUserId);
+            loginUserInPqcScope = loginUserInPqcScope || leaderMatchesLogin || employeeMatchesLogin;
             if (scope.getLeaderUserId() != null) {
                 userIds.add(scope.getLeaderUserId());
             }
@@ -261,8 +267,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 userIds.add(scope.getEmployeeUserId());
             }
         }
-        if (userIds.isEmpty()) {
-            throw exception(PRO_FRONTLINE_PQC_PERSONNEL_EMPTY);
+        if (!loginUserInPqcScope || userIds.isEmpty()) {
+            throw exception(PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND, loginUserId);
         }
         List<AdminUserRespDTO> users = adminUserApi.getUserList(userIds);
         if (CollUtil.isEmpty(users)) {
@@ -273,11 +279,13 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             if (user == null || user.getId() == null || !CommonStatusEnum.isEnable(user.getStatus())) {
                 continue;
             }
-            candidateByUserId.putIfAbsent(user.getId(),
-                    new MesFrontlineEmployeeCandidate(user.getId(), user.getUsername(), user.getNickname()));
+            if (Objects.equals(user.getId(), loginUserId)) {
+                candidateByUserId.putIfAbsent(user.getId(),
+                        new MesFrontlineEmployeeCandidate(user.getId(), user.getUsername(), user.getNickname()));
+            }
         }
         if (candidateByUserId.isEmpty()) {
-            throw exception(PRO_FRONTLINE_PQC_PERSONNEL_EMPTY);
+            throw exception(PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND, loginUserId);
         }
         return candidateByUserId.values().stream()
                 .sorted(Comparator
@@ -300,9 +308,13 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
     }
 
     @Override
-    public MesFrontlineEmployeeCandidate requirePqcEmployee(Long actualEmployeeId) {
+    public MesFrontlineEmployeeCandidate requirePqcEmployee(Long loginUserId, Long actualEmployeeId) {
+        requireValue(loginUserId, "loginUserId");
         requireValue(actualEmployeeId, "actualEmployeeId");
-        return listPqcEmployeeCandidates().stream()
+        if (!Objects.equals(loginUserId, actualEmployeeId)) {
+            throw exception(PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND, actualEmployeeId);
+        }
+        return listPqcEmployeeCandidates(loginUserId).stream()
                 .filter(candidate -> Objects.equals(candidate.userId(), actualEmployeeId))
                 .findFirst()
                 .orElseThrow(() -> exception(PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND, actualEmployeeId));
@@ -313,9 +325,9 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                                                                     Long routeProcessId, Long processId,
                                                                     Long actualEmployeeId) {
         requireValue(loginUserId, "loginUserId");
+        requirePqcEmployee(loginUserId, actualEmployeeId);
         MesFrontlineRouteProcessCandidate process = requireActiveOrderProcess(workOrderId, routeId,
                 routeProcessId, processId);
-        requirePqcEmployee(actualEmployeeId);
         MesFrontlineTemplateDescriptor template = new MesFrontlineTemplateDescriptor(
                 FrontlineTemplateCodes.PQC_SIMPLIFIED, FrontlineTemplateTypes.PQC,
                 process.routeProcessId(), process.processId(), actualEmployeeId);
@@ -348,7 +360,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         }
         MesFrontlineRouteProcessCandidate process = requireActiveOrderProcess(command.getWorkOrderId(),
                 command.getRouteId(), command.getRouteProcessId(), command.getProcessId());
-        requirePqcEmployee(command.getActualEmployeeId());
+        requirePqcEmployee(loginUserId, command.getActualEmployeeId());
         requirePqcTaskIdentity(task, command, process);
         List<MesPqcInspectionPieceDetailDO> pieceDetails = buildPieceDetails(task.getId(), command,
                 process.inspectionItems());

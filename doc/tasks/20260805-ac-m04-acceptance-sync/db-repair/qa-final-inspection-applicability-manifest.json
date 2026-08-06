@@ -1,0 +1,18 @@
+{
+  "scope": "local Docker MySQL int-ruoyi-mysql / ruoyi-vue-pro only",
+  "authorizedByUser": "continuation of authorized local repair workflow",
+  "issue": "QA published-version endpoint returned business 500 because mes_qa_inspection_regulation_version lacked final inspection applicability columns.",
+  "sourceMigration": "IntRuoyiBackend/sql/mysql/20260805_mes_qa_final_inspection_applicability.sql",
+  "targetTable": "mes_qa_inspection_regulation_version",
+  "targetColumns": [
+    "final_inspection_applicable",
+    "final_inspection_not_applicable_reason"
+  ],
+  "backup": "doc/tasks/20260805-ac-m04-acceptance-sync/db-backup/acm04-qa-final-inspection-applicability-20260806.sql",
+  "rollback": "doc/tasks/20260805-ac-m04-acceptance-sync/db-repair/qa-final-inspection-applicability-rollback.sql",
+  "forbidden": [
+    "Do not write default success values",
+    "Do not mark QA published-version evidence accepted without the real frontend/API path",
+    "Do not modify remote databases"
+  ]
+}

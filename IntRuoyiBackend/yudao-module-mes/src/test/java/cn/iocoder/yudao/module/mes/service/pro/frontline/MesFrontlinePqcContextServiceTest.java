@@ -56,6 +56,7 @@ import static cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.Me
 import static cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE;
 import static cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_PROCESS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_TASK_QUANTITY_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_TASK_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED;
@@ -72,7 +73,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MesFrontlinePqcContextServiceTest {
 
-    private static final Long LOGIN_USER_ID = 9001L;
+    private static final Long LOGIN_USER_ID = 8001L;
     private static final Long WORK_ORDER_ID = 1001L;
     private static final Long ROUTE_ID = 2001L;
     private static final Long PRODUCT_ID = 3001L;
@@ -263,7 +264,7 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     @Test
-    void shouldListAllPqcEmployeesAndPqcLeaders() {
+    void shouldListOnlyCurrentPqcLoginEmployee() {
         when(scopeMapper.selectActiveScopesByLeaderType(LEADER_TYPE_PQC)).thenReturn(List.of(
                 scope(7001L, SCOPE_TYPE_EMPLOYEE, 8001L),
                 scope(7002L, SCOPE_TYPE_PROCESS, null),
@@ -274,10 +275,11 @@ class MesFrontlinePqcContextServiceTest {
                 enabledUser(8001L, "pqc-employee-a", "PQC员工A"),
                 enabledUser(8002L, "pqc-employee-b", "PQC员工B")));
 
-        List<MesFrontlineEmployeeCandidate> employees = service.listPqcEmployeeCandidates();
+        List<MesFrontlineEmployeeCandidate> employees = service.listPqcEmployeeCandidates(LOGIN_USER_ID);
 
-        assertEquals(Set.of(7001L, 7002L, 8001L, 8002L),
-                employees.stream().map(MesFrontlineEmployeeCandidate::userId).collect(java.util.stream.Collectors.toSet()));
+        assertEquals(List.of(LOGIN_USER_ID),
+                employees.stream().map(MesFrontlineEmployeeCandidate::userId).toList());
+        assertEquals("PQC员工A", employees.get(0).nickname());
     }
 
     @Test
@@ -312,6 +314,16 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals(LOGIN_USER_ID, result.loginUserId());
         assertEquals(8001L, result.actualEmployeeId());
         assertEquals("PQC_SIMPLIFIED", result.template().templateNo());
+    }
+
+    @Test
+    void shouldRejectPqcEmployeeSwitchWhenActualEmployeeIsNotLoginUser() {
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.switchPqcActualEmployee(LOGIN_USER_ID, WORK_ORDER_ID,
+                        ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID, 8002L));
+
+        assertEquals(PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND.getCode(), exception.getCode());
+        verify(activeOrderMapper, never()).selectActiveByWorkOrderAndRoute(any(), any());
     }
 
     @Test

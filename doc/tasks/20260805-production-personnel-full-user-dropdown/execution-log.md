@@ -62,3 +62,16 @@
 - RED: 本机登录态只读请求 `GET /mes/pro/process-pool/team-leader/employee-profile/formal-candidates?keyword=陈` -> `code=0,count=0`。
 - Control: 同一登录态请求 `/system/user/simple-list` 后本地过滤昵称、账号或手机号包含 `陈` 的用户 -> 89 条，示例包含 `陈秀丽`、`陈红艳`、`陈家傲`。
 - Root cause: 当前 48081 运行包 `backend-runtime-control-acm04-pqc-source-context-20260805.jar` 及现有人员 hotpatch 包的嵌套 `yudao-module-mes/system` class 均不包含 `getUserListByNickname` 常量，仍包含 `getUserListBySubordinate`；源码已修复但运行态未刷新。
+
+## 2026-08-06 Runtime Fix GREEN
+
+- Build isolation: 主工作区 `mvn -pl yudao-server -am "-Dmaven.test.skip=true" package` 曾因非本任务 active-order 并发改动编译失败；未修改这些并发文件。
+- Class source: 使用独立 worktree 已编译 class，只替换当前运行 jar 内任务相关 class：`AdminUserApi`、`AdminUserApiImpl`、`AdminUserService`、`AdminUserServiceImpl`、`AdminUserMapper`、`MesTeamLeaderRuntimeConfigServiceImpl`。
+- Hotpatch: 以当前运行包为底生成 `backend-runtime-production-formal-users-20260806.jar`，保留其它并发运行态内容；`BOOT-INF/lib/yudao-module-system-2026.04-SNAPSHOT.jar` 和 `BOOT-INF/lib/yudao-module-mes-2026.04-SNAPSHOT.jar` 外层写入均为 `compress_type=0`。
+- Jar SHA256: `2c14fd2d6365c968bc26ed5bb15c0457e2301dbd62ec6aab321387dd6bc84000`。
+- Runtime restart: 已确认旧 PID `60048` 属于 `E:\IntRuoyi` 的 int_main 48081 后端后停止；新 PID `17936` 使用 `backend-runtime-production-formal-users-20260806.jar` 启动，`/actuator/health` -> `UP`。
+- GREEN: 登录态 `GET /mes/pro/process-pool/team-leader/employee-profile/formal-candidates?keyword=陈` -> `code=0,count=20`，样例 `陈世世`、`陈丹`、`陈丽`、`陈亚辉`。
+- Guard GREEN: 空白关键字 `keyword=%20%20` -> `code=0,count=0`；同租户 `/system/user/simple-list` 本地过滤 `陈` -> 89 条。
+- Experience: 已将跨模块 API 热替换必须成组核对接口、调用方、实现类、服务和 Mapper 的经验合并到 `docs/local-runtime.md` 与 `docs/experience-index.md`。
+- EVIDENCE: `validate_bug_regression.py --evidence doc/tasks/20260805-production-personnel-full-user-dropdown/bug-regression-evidence.md` -> PASS，`Bug regression evidence is valid.`。
+- CONTRACT: task-owned documentation `git diff --check` -> PASS；仅提示 Windows CRLF 工作区换行转换 warning，无 whitespace error。

@@ -61,7 +61,8 @@ class MesTeamLeaderScopeServiceTest {
                 () -> service.assertCanAccessEmployee(100L,
                         MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, 9001L));
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED.getCode(), ex.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(), ex.getCode());
+        assertEquals("班组长不在该员工的负责范围内", ex.getMessage());
     }
 
     @Test
@@ -73,7 +74,8 @@ class MesTeamLeaderScopeServiceTest {
 
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> service.assertCanMaintainProcess(100L, 9001L));
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED.getCode(), ex.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(), ex.getCode());
+        assertEquals("班组长不在该工序的负责范围内", ex.getMessage());
     }
 
     @Test
@@ -91,9 +93,12 @@ class MesTeamLeaderScopeServiceTest {
                 () -> service.assertCanMaintainEquipment(100L, 8002L));
         ServiceException orderDenied = assertThrows(ServiceException.class,
                 () -> service.assertCanMaintainOrder(100L, 9002L));
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED.getCode(), lineDenied.getCode());
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED.getCode(), equipmentDenied.getCode());
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED.getCode(), orderDenied.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(), lineDenied.getCode());
+        assertEquals("班组长不在该产线的负责范围内", lineDenied.getMessage());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(), equipmentDenied.getCode());
+        assertEquals("班组长不在该设备的负责范围内", equipmentDenied.getMessage());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(), orderDenied.getCode());
+        assertEquals("班组长不在该订单的负责范围内", orderDenied.getMessage());
     }
 
     private static MesProcessPoolTeamLeaderScopeDO employeeScope(Long employeeUserId) {

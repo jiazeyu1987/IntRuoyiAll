@@ -20,6 +20,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelStatusUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCandidateRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderTransferTraceRespVO;
@@ -64,6 +65,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeS
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamFormalEmployeeLinkReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamFormalUserCandidateBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCandidateBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRemoveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderLossReasonItem;
@@ -194,11 +196,7 @@ public class MesProcessPoolTeamLeaderController {
         return success(abnormalReportService.markAndReport(
                 cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesWorkOrderAbnormalReportReqBO.builder()
                 .workOrderId(reqVO.getWorkOrderId())
-                .routeProcessId(reqVO.getRouteProcessId())
-                .processId(reqVO.getProcessId())
-                .sourceEventId(reqVO.getSourceEventId())
                 .markerUserId(SecurityFrameworkUtils.getLoginUserId())
-                .abnormalReasonCode(reqVO.getAbnormalReasonCode())
                 .abnormalDescription(reqVO.getAbnormalDescription())
                 .build()));
     }
@@ -305,6 +303,16 @@ public class MesProcessPoolTeamLeaderController {
                 .build()));
     }
 
+    @GetMapping("/active-order/candidates")
+    @Operation(summary = "按订单号搜索可加入活跃订单的已确认生产工单")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<List<MesTeamLeaderActiveOrderCandidateRespVO>> searchActiveOrderCandidates(
+            @RequestParam(value = "keyword", required = false) String keyword) {
+        return success(activeOrderService.searchActiveOrderCandidates(keyword).stream()
+                .map(MesProcessPoolTeamLeaderController::toActiveOrderCandidateRespVO)
+                .toList());
+    }
+
     @PostMapping("/active-order/add")
     @Operation(summary = "加入生产组长活跃订单")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
@@ -312,9 +320,6 @@ public class MesProcessPoolTeamLeaderController {
         return success(activeOrderService.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
                 .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
                 .workOrderId(reqVO.getWorkOrderId())
-                .routeId(reqVO.getRouteId())
-                .routeVersionId(reqVO.getRouteVersionId())
-                .transferIds(reqVO.getTransferIds())
                 .build()));
     }
 
@@ -408,11 +413,11 @@ public class MesProcessPoolTeamLeaderController {
     }
 
     @GetMapping("/pqc-personnel/formal-candidates")
-    @Operation(summary = "按姓名搜索全量系统正式 PQC 检验员候选")
+    @Operation(summary = "按姓名搜索拥有 PQC 权限角色的正式检验员候选")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
     public CommonResult<List<MesTeamFormalUserCandidateRespVO>> searchPqcFormalEmployeeCandidates(
             @RequestParam("keyword") String keyword) {
-        return success(runtimeConfigService.searchFormalUserCandidates(SecurityFrameworkUtils.getLoginUserId(), keyword)
+        return success(pqcPersonnelService.searchFormalInspectorCandidates(SecurityFrameworkUtils.getLoginUserId(), keyword)
                 .stream()
                 .map(MesProcessPoolTeamLeaderController::toFormalUserCandidateRespVO)
                 .toList());
@@ -713,7 +718,18 @@ public class MesProcessPoolTeamLeaderController {
     private static MesTeamFormalUserCandidateRespVO toFormalUserCandidateRespVO(MesTeamFormalUserCandidateBO candidate) {
         return new MesTeamFormalUserCandidateRespVO()
                 .setSystemUserId(candidate.getSystemUserId())
-                .setDisplayName(candidate.getDisplayName());
+                .setDisplayName(candidate.getDisplayName())
+                .setDisabled(candidate.getDisabled())
+                .setDisabledReason(candidate.getDisabledReason())
+                .setOccupiedByOtherPqcLeader(candidate.getOccupiedByOtherPqcLeader())
+                .setOccupiedLeaderUserId(candidate.getOccupiedLeaderUserId());
+    }
+
+    private static MesTeamLeaderActiveOrderCandidateRespVO toActiveOrderCandidateRespVO(
+            MesTeamLeaderActiveOrderCandidateBO candidate) {
+        return new MesTeamLeaderActiveOrderCandidateRespVO()
+                .setWorkOrderId(candidate.getWorkOrderId())
+                .setWorkOrderCode(candidate.getWorkOrderCode());
     }
 
     private static MesTeamMaintenanceAuditRespVO toMaintenanceAuditRespVO(

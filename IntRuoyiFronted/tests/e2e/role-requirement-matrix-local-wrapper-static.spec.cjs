@@ -138,6 +138,36 @@ assert.match(
   /@\{\s*Key = 'PQC_SELECTED_TASK';\s*Value = 1\s*\}/,
   'database preflight must fail unless exactly one PQC-selected production task exists.'
 )
+assert.match(
+  source,
+  /SELECT CONCAT\('TRANSFER_TRACE_ACTIVE_ORDER=', COUNT\(\*\)\)[\s\S]*mes_pro_process_pool_active_order_transfer_trace trace[\s\S]*trace\.active_order_id = 12[\s\S]*trace\.source_type IS NOT NULL[\s\S]*trace\.source_status IS NOT NULL[\s\S]*trace\.quantity IS NOT NULL[\s\S]*trace\.material_stock_id IS NOT NULL[\s\S]*trace\.batch_id IS NOT NULL[\s\S]*trace\.idempotency_key IS NOT NULL/,
+  'database preflight must require existing formal transfer trace rows for active order 12.'
+)
+assert.match(
+  source,
+  /@\{\s*Key = 'TRANSFER_TRACE_ACTIVE_ORDER';\s*Value = 2\s*\}/,
+  'database preflight must fail unless the existing transfer trace active order has exactly two formal rows.'
+)
+assert.match(
+  source,
+  /['"]RRM_TRANSFER_TRACE_ACTIVE_ORDER_ID['"]/,
+  'wrapper must save and restore RRM_TRANSFER_TRACE_ACTIVE_ORDER_ID.'
+)
+assert.match(
+  source,
+  /['"]RRM_TRANSFER_IDS['"]/,
+  'wrapper must save and restore RRM_TRANSFER_IDS.'
+)
+assert.match(
+  source,
+  /\$env:RRM_TRANSFER_IDS\s*=\s*['"]1,2['"]/,
+  'wrapper must inject the formal transfer IDs used by active-order joining.'
+)
+assert.match(
+  source,
+  /\$env:RRM_TRANSFER_TRACE_ACTIVE_ORDER_ID\s*=\s*['"]12['"]/,
+  'wrapper must inject the existing formal transfer trace active order ID.'
+)
 
 for (const passwordKey of [
   'RRM_PRODUCTION_EMPLOYEE_PASSWORD',

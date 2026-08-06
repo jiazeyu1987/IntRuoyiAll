@@ -8,11 +8,12 @@
 
 ## Milestones
 
-- [ ] 建立任务文档、BDD 场景和前端证据文件。
-- [ ] 编写专用静态合同，先验证旧“提交内容”列表 RED。
-- [ ] 修改提交列表列定义、表格列和结构化 payload 解析。
-- [ ] 运行定向静态合同、相邻 PQC/报工静态合同、类型检查和证据校验。
-- [ ] 完成验证报告、收尾记录、清理预检和提交推送。
+- [x] 建立任务文档、BDD 场景和前端证据文件。
+- [x] 编写专用静态合同，先验证旧“提交内容”列表 RED。
+- [x] 修改提交列表列定义、表格列和结构化 payload 解析。
+- [x] 运行定向静态合同、相邻 PQC/报工静态合同、类型检查和证据校验。
+- [x] 完成验证报告、收尾记录和 cleanup 预检/应用。
+- [ ] 完成提交并推送。
 
 ## Expected Verification
 
@@ -20,10 +21,13 @@
 - `node tests\e2e\pqc-leader-standard-list-template-static.spec.js`
 - `node tests\e2e\pqc-leader-item-snapshot-static.spec.js`
 - `node tests\e2e\mes-frontline-pqc-submit-to-leader-chain-static.spec.js`
-- `node tests\e2e\team-leader-workbench-static.spec.cjs`
 - `pnpm ts:check`
-- `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue IntRuoyiFronted/tests/e2e/pqc-submission-structured-columns-static.spec.js doc/tasks/20260806-pqc-submission-structured-columns`
+- `git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue IntRuoyiFronted/tests/e2e/pqc-submission-structured-columns-static.spec.js doc/tasks/20260806-pqc-submission-structured-columns`
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260806-pqc-submission-structured-columns/frontend-feature-evidence.md`
+
+## Diagnostic Checks
+
+- `node tests\e2e\team-leader-workbench-static.spec.cjs` -> FAIL, existing unrelated dirty change removed `data-team-leader-defect-reason-select` and abnormal reason binding before this task; not used as this task completion gate.
 
 ## Applicable Gates
 
@@ -40,6 +44,7 @@
 
 ## Current Status
 
-in_progress
+blocked
 
-- 已创建任务目录，准备补充 BDD 和 RED 静态合同。
+- 结构化列实现、定向验证、类型检查和 cleanup 均已完成；最终提交/推送被共享工作区阻塞。
+- 阻塞原因：当前 `int_main` 与 `origin/int_main` 已对齐，但工作区存在大量并行脏改动；`TeamLeaderWorkbenchPage.vue` 同时包含本任务结构化列表改动和其它任务的活跃订单/异常原因改动，不能安全使用宽泛暂存或推送。
