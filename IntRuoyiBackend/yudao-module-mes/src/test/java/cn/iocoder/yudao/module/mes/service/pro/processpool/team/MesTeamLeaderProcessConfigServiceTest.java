@@ -13,7 +13,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
 
+import java.lang.reflect.Constructor;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -50,6 +52,20 @@ class MesTeamLeaderProcessConfigServiceTest {
     void setUp() {
         service = new MesTeamLeaderProcessConfigServiceImpl(lossReasonService, processDeviceMapper, deviceMapper,
                 parameterRuleMapper, eventMapper, FIXED_CLOCK);
+    }
+
+    @Test
+    void runtimeConstructor_hasAutowiredAnnotationSoSpringDoesNotRequireDefaultConstructor() throws NoSuchMethodException {
+        Constructor<MesTeamLeaderProcessConfigServiceImpl> runtimeConstructor =
+                MesTeamLeaderProcessConfigServiceImpl.class.getConstructor(
+                        MesTeamLeaderLossReasonService.class,
+                        MesProcessPoolTeamProcessDeviceMapper.class,
+                        MesProcessPoolTeamDeviceMapper.class,
+                        MesProcessPoolDeviceParameterRuleMapper.class,
+                        MesProProcessPoolEventMapper.class);
+
+        assertTrue(runtimeConstructor.isAnnotationPresent(Autowired.class),
+                "Spring must use the public runtime constructor instead of looking for a default constructor");
     }
 
     @Test
