@@ -193,4 +193,9 @@
 - GREEN: `node --check tests\e2e\team-leader-process-config-unified-real.e2e.js` from `IntRuoyiFronted` -> PASS；仅语法检查，未执行真实 E2E。
 - GREEN: `git diff --cached origin/int_main --check` -> PASS，exit code `0`；仅 Git line-ending normalization warning，无 whitespace error。
 - GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260805-process-config-unification/int_main: frontend 8085, backend 48085`。
-- Next: stage latest merge-resume test/doc updates, create merge commit, push task branch, then push verified `HEAD` to `origin/int_main` without force。
+- GREEN: Large object pre-push scan `git rev-list --objects origin/int_main..HEAD` + `git cat-file -s` -> PASS，无超过 100 MB 的待推送 blob。
+- Merge commit: `c77154b67a4324b2d0fe7598fecce0e34fe761c2` (`Merge origin/int_main into process config unification`) created after final retained gates passed.
+- Push retry evidence: first `git push origin codex/20260805-process-config-unification` failed with transient GitHub HTTPS TLS EOF; `git ls-remote origin HEAD` and `Test-NetConnection github.com -Port 443` passed, then retry succeeded.
+- GREEN: `git push origin codex/20260805-process-config-unification` -> PASS，remote branch updated `e89253ea8..c77154b67`。
+- GREEN: `git push origin HEAD:int_main` -> PASS，`origin/int_main` fast-forwarded `b0b38693e..c77154b67`，no force push used。
+- GREEN: `git ls-remote origin int_main codex/20260805-process-config-unification` -> PASS，both refs point to `c77154b67a4324b2d0fe7598fecce0e34fe761c2`。

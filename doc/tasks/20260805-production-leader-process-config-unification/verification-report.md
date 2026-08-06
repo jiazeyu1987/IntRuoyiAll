@@ -26,6 +26,8 @@
 - PASS: `python -X utf8 C:\Users\BJB110\.codex\skills\spec-driven-delivery\scripts\validate_test_report.py --cwd D:\IntRuoyiWorktree\20260805-process-config-unification --task-id 20260805-production-leader-process-config-unification --expected-outcome passed`.
 - PASS: `git diff --check` -> exit code `0`; only Git line-ending normalization warnings.
 - PASS: `scripts\preflight\branch-runtime-port-guard.ps1` -> branch runtime port guard passed.
+- PASS: `git push origin codex/20260805-process-config-unification` -> remote task branch updated to `c77154b67a4324b2d0fe7598fecce0e34fe761c2`.
+- PASS: `git push origin HEAD:int_main` -> `origin/int_main` fast-forwarded to `c77154b67a4324b2d0fe7598fecce0e34fe761c2`.
 - NOT RUN BY USER-APPROVED SCOPE: `node tests\e2e\team-leader-process-config-unified-real.e2e.js`; real write-path Playwright validation is handed off to user manual verification after merge.
 
 ## Acceptance Status
