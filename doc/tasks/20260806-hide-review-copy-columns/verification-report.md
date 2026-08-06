@@ -12,6 +12,8 @@ Implementation verification passed for hiding the red-box columns `审核副本`
 - `node tests/e2e/pqc-leader-list-fill-form-parity-static.spec.js` -> PASS.
 - `pnpm ts:check` -> PASS.
 - `git diff --check` -> PASS.
+- `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260806-hide-review-copy-columns/bug-regression-evidence.md` -> PASS.
+- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260806-hide-review-copy-columns/frontend-feature-evidence.md` -> PASS.
 
 ## Scope Notes
 
@@ -26,4 +28,3 @@ Implementation verification passed for hiding the red-box columns `审核副本`
 ## Closeout
 
 Task is ready for closeout. Commit/push was not performed in this turn because the shared branch currently contains unrelated concurrent dirty paths and existing ahead commits outside this task-owned scope.
-

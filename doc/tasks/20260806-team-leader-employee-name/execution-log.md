@@ -31,4 +31,13 @@
 ## Evidence
 
 - Experience gate: 命中 `docs/backend-development.md#第三方报工直报正式链路门禁` 中 `team-leader/submission/page` / `MesProProcessPoolTimelineReadMapper` / `actual_employee_id` 读模型规则；任务约束已写入 `task.md`。
-- 待补充 RED/GREEN/REGRESSION。
+- RED: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> FAIL，预期失败原因：mapper 当前缺少 `actual_employee.nickname AS actualEmployeeUserName` 且返回 `NULL AS actualEmployeeUserName`。
+- RED: `node IntRuoyiFronted\tests\e2e\team-leader-production-report-employee-name-static.spec.cjs` -> FAIL，预期失败原因：员工列模板仍为 `row.actualEmployeeUserName || row.actualEmployeeUserId || '--'`。
+- FIX: `MesProProcessPoolTimelineReadMapper.xml` -> `TimelineAuthorityJoins` 增加 `system_users actual_employee` 租户/删除标记关联，`TimelineColumns` 返回 `actual_employee.nickname AS actualEmployeeUserName`。
+- FIX: `TeamLeaderWorkbenchPage.vue` -> 报工列表和详情员工字段只渲染 `actualEmployeeUserName || '--'`，不再把 `actualEmployeeUserId` 当显示文案。
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> PASS。
+- GREEN: `node IntRuoyiFronted\tests\e2e\team-leader-production-report-employee-name-static.spec.cjs` -> PASS。
+- REGRESSION: `node IntRuoyiFronted\tests\e2e\pqc-leader-sample-values-detail-only-static.spec.cjs` -> PASS。
+- REGRESSION: `node IntRuoyiFronted\tests\e2e\production-leader-report-row-modify-action-static.spec.cjs` -> PASS。
+- REGRESSION: `node IntRuoyiFronted\tests\e2e\team-leader-hide-review-copy-columns-static.spec.cjs` -> PASS。
+- REGRESSION-NONTASK: `node IntRuoyiFronted\tests\e2e\team-leader-production-report-payload-columns-static.spec.cjs` -> FAIL，失败点为既有 `productionSubmissionDefaultColumns` 包含 `label: '生产工单'`；本任务 diff 只涉及员工姓名渲染和 mapper 姓名字段，未改生产工单列。

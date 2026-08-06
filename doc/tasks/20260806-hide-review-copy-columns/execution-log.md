@@ -21,8 +21,8 @@
 
 - RED: `node tests/e2e/team-leader-hide-review-copy-columns-static.spec.cjs` -> FAIL, expected reason: `red-box column 审核副本 must not render in the submission table`.
 - GREEN: `node tests/e2e/team-leader-hide-review-copy-columns-static.spec.cjs` -> PASS.
-- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260806-hide-review-copy-columns/bug-regression-evidence.md` -> pending before validator run.
-- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260806-hide-review-copy-columns/frontend-feature-evidence.md` -> pending before validator run.
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260806-hide-review-copy-columns/bug-regression-evidence.md` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260806-hide-review-copy-columns/frontend-feature-evidence.md` -> PASS.
 - REGRESSION: `node tests/e2e/pqc-leader-sample-values-detail-only-static.spec.cjs` -> PASS.
 - REGRESSION: `node tests/e2e/mes-process-pool-team-leader-static.spec.js` -> PASS.
 - REGRESSION: `node tests/e2e/pqc-leader-list-fill-form-parity-static.spec.js` -> PASS.
@@ -42,4 +42,3 @@
 
 - Closeout commit/push not performed: `git status --short --branch` shows unrelated concurrent dirty paths and existing ahead commits outside this task scope.
 - Non-current wide contract observation: `node tests/e2e/team-leader-production-report-payload-columns-static.spec.cjs` failed on a pre-existing `生产工单` default-column assertion; this failure is unrelated to the `审核副本` / `复核判定` hide request and was not used as this task's completion gate.
-
