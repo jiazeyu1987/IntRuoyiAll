@@ -13,6 +13,7 @@ const component = read('src/views/Profile/components/ProfileErpTableAutoSyncSett
 const syncApi = read('src/api/erp/sync/index.ts')
 const jobApi = read('src/api/infra/job/index.ts')
 const workOrderPage = read('src/views/mes/pro/workorder/index.vue')
+const forbiddenInternalCopyPattern = new RegExp(['\\u6570\\u636e\\u6c34\\u4f4d', '\\u540c\\u6b65\\u6c34\\u4f4d'].join('|'))
 const runPageReqVo = readWorkspace(
   'IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/sync/vo/ErpKingdeeSyncRunPageReqVO.java'
 )
@@ -117,7 +118,7 @@ for (const token of [
   'handleRunSingle(row',
   'syncSelectedRows'
 ]) {
-  assert.match(component, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `ERP 表格选择区必须用可选列表展示映射、最近同步时间和运行结果：${token}`)
+  assert.match(component, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `ERP 表格选择区必须用可选列表展示映射、最近执行时间和运行结果：${token}`)
 }
 
 for (const token of [
@@ -237,8 +238,8 @@ for (const token of [
 }
 
 assert.match(component, /resolveLatestRunTime\(row\.latestRun\)/, '主表最近执行时间必须来自正式运行记录。')
-assert.doesNotMatch(component, /formatDateTimeValue\(row\.lastSuccessTime/, '主表不得再把内部增量位置显示成最近同步时间。')
-assert.doesNotMatch(component, /数据水位|同步水位/, '用户可见文案不得使用难理解的内部术语。')
+assert.doesNotMatch(component, /formatDateTimeValue\(row\.lastSuccessTime/, '主表不得再把内部增量位置显示成最近执行时间。')
+assert.doesNotMatch(component, forbiddenInternalCopyPattern, '用户可见文案不得使用难理解的内部术语。')
 assert.doesNotMatch(component, /ErpKingdeeSyncWatermarkVO|loadWatermarks|watermarkBySyncType/, '主表执行时间口径不得继续依赖内部增量位置状态。')
 assert.doesNotMatch(component, /最近执行记录[\s\S]*formatDateTimeValue\(row\.startedAt/, '不得恢复最近执行记录历史区。')
 assert.doesNotMatch(component, /prop="failureMessage"/, '列表级失败原因不得直接暴露英文内部字段名 failureMessage 作为表格 prop。')
