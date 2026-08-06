@@ -8,9 +8,9 @@
 
 - [x] 创建任务目录并记录 BDD / RED / GREEN 目标。
 - [x] 只读核对目标租户、账号、路线、active version 与现有快照状态。
-- [ ] 备份两条 active version 的原始 `route_snapshot_json`。
-- [ ] 执行事务化数据修复，只更新 version `448` 和 `622`。
-- [ ] 复验 JSON 快照、候选路线工序和非目标租户/版本未变。
+- [x] 备份两条 active version 的原始 `route_snapshot_json`。
+- [x] 执行事务化数据修复，只更新 version `448` 和 `622`。
+- [x] 复验 JSON 快照、候选路线工序和非目标租户/版本未变。
 - [ ] 完成收尾、经验沉淀和最终状态记录。
 
 ## Expected Verification
@@ -22,9 +22,9 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-已完成任务目录创建和只读目标定位；准备执行事务化本机数据修复。
+已完成本机数据写入和 SQL/API 验证；等待 evidence validator、清理与最终收尾。
 
 ## 设计约束检查
 

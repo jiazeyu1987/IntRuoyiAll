@@ -37,6 +37,7 @@
 - Removed `审核副本` and `复核判定` from the submission table and production default column pool.
 - Preserved review operation flow and moved the review log display to the detail view via `data-team-leader-review-log`.
 - Updated adjacent static contracts to use current `productionSubmissionDefaultColumns` / `pqcSubmissionDefaultColumns` anchors and the current detail-only sample-value policy.
+- Project experience consolidation: existing `docs/frontend-development.md` (column-pool isolation and cross-account column visibility) and `docs/e2e-rules.md` (narrow static-contract fix and adjacent-contract synchronization) already cover the reusable lesson; no new long-term experience document was created.
 
 ## Blockers
 

@@ -267,12 +267,12 @@
 
 ### 生产组长报工管理造数必须补齐工序池时间线
 
-- Trigger: 生产组长报工管理随机数据、`team-leader/submission/page`、`MesTeamLeaderWorkbenchService.getSubmissionPage`、`MesProProcessPoolTimelineReadMapper`、只写 `mes_pro_feedback` 后组长页面无新增。
-- Preflight check: 先确认页面读模型按 `mes_pro_process_pool_event.server_submit_time`、`actual_employee_id` 和生产组长责任员工集合筛选；造数必须同时补齐正式报工、记录本 entry/event、工序池 `PRODUCTION_SUBMIT` 事件、数量片段和 `mes_pro_process_pool` 汇总，并核对员工在目标生产组长的 `EMPLOYEE` scope 内。
-- Blocker: 只有 `mes_pro_feedback` 而缺工序池事件、记录本或数量片段，`actual_employee_id` 不在当前生产组长责任范围，缺 `route_process_id/process_id/work_order_id/task_id` 正式链路，或只能用 admin 登录态看到数据时必须停止，不得宣称生产组长报工管理可见。
-- Verification: 用数据库只读 SQL 同时断言报工、工序池事件、记录本 entry/event、数量片段计数；再使用生产组长本人登录态请求 `/admin-api/mes/pro/process-pool/team-leader/submission/page?leaderType=PRODUCTION&submitDate=<date>`，按事件 ID 或任务标识断言命中新增数据。
-- Forbidden action: 禁止用 admin 页面、API-only 非组长账号、前端假行、空列表刷新、直接改工序池汇总或只改报工主表替代生产组长真实时间线可见性。
-- Evidence: `doc/tasks/20260806-production-leader-feedback-random-data/verification-report.md`。
+- Trigger: 生产组长报工管理随机数据、`team-leader/submission/page`、`MesTeamLeaderWorkbenchService.getSubmissionPage`、`MesProProcessPoolTimelineReadMapper`、`actualEmployeeUserName` 为空、员工列显示用户编号或 `964`、只写 `mes_pro_feedback` 后组长页面无新增。
+- Preflight check: 先确认页面读模型按 `mes_pro_process_pool_event.server_submit_time`、`actual_employee_id` 和生产组长责任员工集合筛选；时间线 mapper 必须按 `pool_event.actual_employee_id`、`tenant_id`、`deleted` 关联 `system_users` 并返回 `nickname AS actualEmployeeUserName`；造数必须同时补齐正式报工、记录本 entry/event、工序池 `PRODUCTION_SUBMIT` 事件、数量片段和 `mes_pro_process_pool` 汇总，并核对员工在目标生产组长的 `EMPLOYEE` scope 内。
+- Blocker: 只有 `mes_pro_feedback` 而缺工序池事件、记录本或数量片段，`actual_employee_id` 不在当前生产组长责任范围，缺 `route_process_id/process_id/work_order_id/task_id` 正式链路，mapper 返回 `NULL AS actualEmployeeUserName`，前端把 `actualEmployeeUserId` 当员工显示文案，或只能用 admin 登录态看到数据时必须停止，不得宣称生产组长报工管理可见。
+- Verification: 用数据库只读 SQL 同时断言报工、工序池事件、记录本 entry/event、数量片段计数和 `actual_employee_id -> system_users.nickname` 可解析；再使用生产组长本人登录态请求 `/admin-api/mes/pro/process-pool/team-leader/submission/page?leaderType=PRODUCTION&submitDate=<date>`，按事件 ID 或任务标识断言命中新增数据且 `actualEmployeeUserName` 非空；静态合同锁定 mapper 不得返回空姓名、前端不得退回显示员工 ID。
+- Forbidden action: 禁止用 admin 页面、API-only 非组长账号、前端假行、空列表刷新、直接改工序池汇总、只改报工主表、前端硬编码姓名或显示用户 ID 替代生产组长真实时间线可见性。
+- Evidence: `doc/tasks/20260806-production-leader-feedback-random-data/verification-report.md`；`doc/tasks/20260806-team-leader-employee-name/verification-report.md`。
 
 ## MES PQC 项目级检验快照门禁
 

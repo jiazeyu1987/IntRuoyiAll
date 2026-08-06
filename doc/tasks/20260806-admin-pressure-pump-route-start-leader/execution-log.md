@@ -23,7 +23,10 @@
 
 ## GREEN
 
-Pending.
+- GREEN: `docker exec int-ruoyi-mysql ... mysql ... < db-repair/apply-route-start-leaders.sql` -> PASS, `APPLIED / updated_rows=2 / verified_rows=2`.
+- GREEN: `docker exec int-ruoyi-mysql ... mysql ... < db-repair/verify-route-start-leaders.sql` -> PASS, versions `448` and `622` each contain one `USERS` item for user `1`; tenant `122` route and draft `490` changed count is `0`.
+- GREEN: `node api-verify/verify-switchable-processes.cjs` -> PASS, `芋道源码/admin` returned `28` process-config rows and route IDs `[922119, 980091]`.
+- API scope note: `/mes/pro/feedback/frontline/device-account/processes` was initially checked but is not the production group leader add-dialog source and correctly enforced a separate workstation binding requirement. The actual UI data source `/mes/pro/process-pool/team-leader/process-config/list` passed.
 
 ## Rollback
 
