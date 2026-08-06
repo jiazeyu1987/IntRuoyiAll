@@ -23,7 +23,7 @@
 - M2 completed：新增 `replanPreview_shouldScheduleRemainingQuantityFromCurrentRouteWhenFeedbackTaskHasNoWorkstation`，复现反馈保护任务缺旧工作站会被错误阻断。
 - M3 completed：将 `FEEDBACK`/`FINISHED` 保护任务识别为进度事实，不再参与未来资源强制、旧工作站补水、产线可用性占用或工序日产能占用；剩余任务改按当前工艺路线资源选择。
 - M4 completed：目标回归通过；完整类回归受基线测试夹具漂移阻断，详见 `verification-report.md`。
-- M5 in progress：已同步更新第三方报工重排经验门禁；cleanup preview 无删除项，但因主工作区 `E:\IntRuoyi` 脏改动阻断自动 merge/remove worktree；待提交和推送。
+- M5 blocked for closeout apply：已同步更新第三方报工重排经验门禁；实现提交 `585d4526c9289288d4481abac948baf61f57aa6f` 已推送到 `origin/codex/replan-current-route-after-feedback`；cleanup preview 无删除项，但因主工作区 `E:\IntRuoyi` 脏改动阻断自动 merge/remove worktree。
 
 ## Verification Evidence
 
@@ -33,6 +33,7 @@
 - BLOCKED: `mvn -pl yudao-module-mes -am "-Dtest=MesProAutoScheduleServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，`Tests run: 96, Failures: 0, Errors: 7, Skipped: 0`；错误集中在最新发布工艺路线配置夹具缺 `productionQuantityFactor` / `shiftHours`。
 - GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260806-replan-current-route-after-feedback\bug-regression-evidence.md` -> PASS。
 - GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`frontend 8083`，`backend 48083`。
+- GREEN: `git push origin codex/replan-current-route-after-feedback` -> PASS，远端分支已创建。
 - BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260806-replan-current-route-after-feedback --mode preview` -> cleanup 无删除项，但主工作区 `E:\IntRuoyi` 脏改动阻断自动 ff-only merge/remove worktree。
 - CHECK: `git diff --check` -> PASS。
 

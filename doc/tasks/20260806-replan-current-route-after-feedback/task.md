@@ -25,7 +25,8 @@ ready_for_closeout
 - 已创建隔离 worktree：`D:\IntRuoyiWorktree\replan-current-route-after-feedback`。
 - 已创建分支：`codex/replan-current-route-after-feedback`，基于 `origin/int_main`。
 - 已登记 runtime slot：`int_main slot=2`，前端 `8083`，后端 `48083`；本任务暂不启动服务。
-- 已完成核心实现、证据文档、目标回归验证和分支端口预检；待提交和推送。
+- 已完成核心实现、证据文档、目标回归验证、分支端口预检、提交和推送。
+- 实现提交：`585d4526c9289288d4481abac948baf61f57aa6f`，已推送到 `origin/codex/replan-current-route-after-feedback`。
 - Cleanup preview 已运行，无删除项；自动 merge/remove worktree 被主工作区 `E:\IntRuoyi` 脏改动阻断，需待主工作区清洁后再执行 closeout apply。
 
 ## Experience Gate
