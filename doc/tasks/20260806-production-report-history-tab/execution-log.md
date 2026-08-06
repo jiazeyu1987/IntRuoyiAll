@@ -13,12 +13,26 @@
 
 ## RED/GREEN
 
-- 待记录。
+- `RED: node IntRuoyiFronted/tests/e2e/team-leader-production-report-history-tab-static.spec.cjs -> FAIL, 0 个 data-production-leader-module-tab-report-history 标记，报工历史页签不存在。`
+- `RED: node IntRuoyiBackend/yudao-module-mes/src/test/js/process-pool-timeline-mapper-static.spec.cjs -> FAIL, mapper 缺少 review_leader.nickname AS submissionReviewLeaderUserName。`
+- `GREEN: node IntRuoyiFronted/tests/e2e/team-leader-production-report-history-tab-static.spec.cjs -> PASS: production report history tab static contract。`
+- `GREEN: node IntRuoyiBackend/yudao-module-mes/src/test/js/process-pool-timeline-mapper-static.spec.cjs -> PASS process-pool-timeline-mapper-static。`
+- `GREEN: pnpm ts:check -> PASS。`
+- `GREEN: mvn -pl yudao-module-mes -am "-Dtest=ProcessPoolTimelineRevisionSummaryTest,ProcessPoolTimelineFilterTest,ProcessPoolTimelineQueryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, Tests run: 8, Failures: 0, Errors: 0, Skipped: 0。`
 
 ## Milestone Updates
 
 - 2026-08-06：创建任务目录与 BDD 记录；已读取前端、后端、E2E、PowerShell、任务收尾规则及前后端交付技能。
+- 2026-08-07：补齐生产组长“报工历史”页签、独立列池、APPROVED 强制查询、只读操作边界。
+- 2026-08-07：补齐时间轴读模型 `submissionReviewLeaderUserName`，mapper 通过 `system_users review_leader` 读取审核人昵称并由 DO/VO/API 类型穿透。
+- 2026-08-07：目标前端静态合同、后端 mapper 静态合同、前端类型检查、后端定向 JUnit 均已通过。
+
+## Adjacent Verification Notes
+
+- `node tests/e2e/pqc-leader-list-fill-form-parity-static.spec.js`（在 `IntRuoyiFronted` 下）-> PASS。
+- `node IntRuoyiFronted/tests/e2e/team-leader-pqc-review-gate-static.spec.js` -> FAIL；相邻旧合同仍要求 `canReviewSubmission` 只包含空/PENDING 表达式，未覆盖历史页签只读 guard。
+- `node IntRuoyiFronted/tests/e2e/team-leader-production-report-payload-columns-static.spec.cjs` -> FAIL；当前生产报工列池仍包含既有 `workOrder`/`生产工单` 默认列，属于相邻列裁剪合同问题，非本次报工历史新增字段链路。
 
 ## Blockers
 
-- 当前工作区已有未提交/未推送改动，目标页面 `TeamLeaderWorkbenchPage.vue` 和时间轴 mapper 已存在并行差异；本任务仅在现有差异上追加，提交前需按脏工作区/同文件并行改动门禁处理。
+- 当前工作区已有未提交/未推送改动与其它任务文档变更，且分支已 ahead origin；按脏工作区/提交门禁，本任务未执行单独 commit/push。
