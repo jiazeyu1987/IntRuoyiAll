@@ -1,12 +1,14 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Schema(description = "管理后台 - MES 一线报工提交报工载荷 Request VO")
 @Data
@@ -77,11 +79,94 @@ public class MesProFrontlineFeedbackPayloadReqVO {
     @Schema(description = "损耗原因 ID，来自当前工序后端配置", example = "8301")
     private Long lossReasonId;
 
+    @Valid
+    @Schema(description = "损耗原因明细，数量合计必须等于损耗数量")
+    private List<LossDetailReqVO> lossDetails;
+
+    @Valid
+    @Schema(description = "选用设备快照")
+    private SelectedDeviceReqVO selectedDevice;
+
+    @Valid
+    @Schema(description = "选用设备参数读数")
+    private List<DeviceParameterReadingReqVO> deviceParameterReadings;
+
     @Schema(description = "当前审批人编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "7001")
     @NotNull(message = "当前审批人不能为空")
     private Long approveUserId;
 
     @Schema(description = "备注", example = "frontline production")
     private String remark;
+
+    @Data
+    @Accessors(chain = true)
+    public static class LossDetailReqVO {
+
+        @Schema(description = "损耗原因编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "8301")
+        @NotNull(message = "损耗原因不能为空")
+        private Long reasonId;
+
+        @Schema(description = "损耗原因编码", example = "LOSS-001")
+        private String reasonCode;
+
+        @Schema(description = "损耗原因名称", example = "正常损耗")
+        private String reasonName;
+
+        @Schema(description = "损耗数量", requiredMode = Schema.RequiredMode.REQUIRED, example = "2.500")
+        @NotNull(message = "损耗原因数量不能为空")
+        private BigDecimal quantity;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SelectedDeviceReqVO {
+
+        @Schema(description = "设备编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "501")
+        @NotNull(message = "选用设备不能为空")
+        private Long deviceId;
+
+        @Schema(description = "设备编码", example = "PT-A-03")
+        private String deviceCode;
+
+        @Schema(description = "设备名称", example = "压力泵")
+        private String deviceName;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class DeviceParameterReadingReqVO {
+
+        @Schema(description = "设备编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "501")
+        @NotNull(message = "设备参数所属设备不能为空")
+        private Long deviceId;
+
+        @Schema(description = "设备编码", example = "PT-A-03")
+        private String deviceCode;
+
+        @Schema(description = "设备名称", example = "压力泵")
+        private String deviceName;
+
+        @Schema(description = "参数编码", requiredMode = Schema.RequiredMode.REQUIRED, example = "pressure")
+        @NotNull(message = "设备参数编码不能为空")
+        private String parameterCode;
+
+        @Schema(description = "参数名称", example = "压力")
+        private String parameterName;
+
+        @Schema(description = "参数单位", example = "MPa")
+        private String unit;
+
+        @Schema(description = "参数读数", example = "50")
+        private BigDecimal value;
+
+        @Schema(description = "配置下限", example = "20")
+        private BigDecimal lowerLimit;
+
+        @Schema(description = "配置上限", example = "40")
+        private BigDecimal upperLimit;
+
+        @Schema(description = "参数状态：NORMAL/BELOW_LOWER/ABOVE_UPPER", example = "ABOVE_UPPER")
+        private String parameterStatus;
+    }
 
 }

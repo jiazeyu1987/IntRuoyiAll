@@ -28,6 +28,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderLossReasonRowRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderLossReasonSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderLossReasonUpdateReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderProcessConfigRowRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderAllocationTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderBatchRecordTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderOrderProcessTraceRespVO;
@@ -53,8 +54,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDefectReasonCatalogService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDefectReasonSaveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderTransferTraceService;
-import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProcessDeviceParameterRuleSaveReqBO;
-import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProcessDeviceParameterRuleService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelLinkReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelService;
@@ -73,6 +72,10 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderLos
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderLossReasonSaveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderLossReasonService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderLossReasonUpdateReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderProcessConfigDevice;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderProcessConfigParameter;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderProcessConfigRow;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderProcessConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportAllocationLineReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportAllocationPreview;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportAllocationPreviewLine;
@@ -118,7 +121,7 @@ public class MesProcessPoolTeamLeaderController {
     private final MesWorkOrderAbnormalReportService abnormalReportService;
     private final MesTeamEmployeeBindingService employeeBindingService;
     private final MesDefectReasonCatalogService defectReasonCatalogService;
-    private final MesProcessDeviceParameterRuleService deviceParameterRuleService;
+    private final MesTeamLeaderProcessConfigService processConfigService;
     private final MesTeamLeaderActiveOrderService activeOrderService;
     private final MesTeamLeaderReportConfirmationService reportConfirmationService;
     private final MesTeamLeaderRuntimeConfigService runtimeConfigService;
@@ -132,7 +135,7 @@ public class MesProcessPoolTeamLeaderController {
                                               MesWorkOrderAbnormalReportService abnormalReportService,
                                               MesTeamEmployeeBindingService employeeBindingService,
                                               MesDefectReasonCatalogService defectReasonCatalogService,
-                                              MesProcessDeviceParameterRuleService deviceParameterRuleService,
+                                              MesTeamLeaderProcessConfigService processConfigService,
                                               MesTeamLeaderActiveOrderService activeOrderService,
                                               MesTeamLeaderReportConfirmationService reportConfirmationService,
                                               MesTeamLeaderRuntimeConfigService runtimeConfigService,
@@ -145,7 +148,7 @@ public class MesProcessPoolTeamLeaderController {
         this.abnormalReportService = abnormalReportService;
         this.employeeBindingService = employeeBindingService;
         this.defectReasonCatalogService = defectReasonCatalogService;
-        this.deviceParameterRuleService = deviceParameterRuleService;
+        this.processConfigService = processConfigService;
         this.activeOrderService = activeOrderService;
         this.reportConfirmationService = reportConfirmationService;
         this.runtimeConfigService = runtimeConfigService;
@@ -284,32 +287,13 @@ public class MesProcessPoolTeamLeaderController {
         lossReasonService.deleteLossReason(SecurityFrameworkUtils.getLoginUserId(), id);
         return success(Boolean.TRUE);
     }
-    @PostMapping("/device-parameter-rule/save")
-    @Operation(summary = "保存班组工序设备参数上下限")
-    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
-    public CommonResult<Long> saveDeviceParameterRule(@Valid @RequestBody MesTeamDeviceParameterRuleSaveReqVO reqVO) {
-        return success(deviceParameterRuleService.saveRule(MesProcessDeviceParameterRuleSaveReqBO.builder()
-                .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
-                .routeProcessId(reqVO.getRouteProcessId())
-                .processId(reqVO.getProcessId())
-                .deviceId(reqVO.getDeviceId())
-                .parameterCode(reqVO.getParameterCode())
-                .parameterName(reqVO.getParameterName())
-                .unit(reqVO.getUnit())
-                .lowerLimit(reqVO.getLowerLimit())
-                .upperLimit(reqVO.getUpperLimit())
-                .defaultValue(reqVO.getDefaultValue())
-                .valueType(reqVO.getValueType())
-                .build()));
-    }
 
-    @GetMapping("/active-order/candidates")
-    @Operation(summary = "按订单号搜索可加入活跃订单的已确认生产工单")
-    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
-    public CommonResult<List<MesTeamLeaderActiveOrderCandidateRespVO>> searchActiveOrderCandidates(
-            @RequestParam(value = "keyword", required = false) String keyword) {
-        return success(activeOrderService.searchActiveOrderCandidates(keyword).stream()
-                .map(MesProcessPoolTeamLeaderController::toActiveOrderCandidateRespVO)
+    @GetMapping("/process-config/list")
+    @Operation(summary = "查询生产组长统一工序配置表")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<List<MesTeamLeaderProcessConfigRowRespVO>> getProcessConfigList() {
+        return success(processConfigService.listProcessConfigs(SecurityFrameworkUtils.getLoginUserId()).stream()
+                .map(MesProcessPoolTeamLeaderController::toProcessConfigRowRespVO)
                 .toList());
     }
 
@@ -340,6 +324,16 @@ public class MesProcessPoolTeamLeaderController {
     public CommonResult<List<MesTeamLeaderActiveOrderRespVO>> getActiveOrderList() {
         return success(activeOrderService.listActiveOrders(SecurityFrameworkUtils.getLoginUserId()).stream()
                 .map(MesProcessPoolTeamLeaderController::toActiveOrderRespVO)
+                .toList());
+    }
+
+    @GetMapping("/active-order/candidates")
+    @Operation(summary = "搜索生产组长可加入活跃订单候选")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<List<MesTeamLeaderActiveOrderCandidateRespVO>> searchActiveOrderCandidates(
+            @RequestParam("keyword") String keyword) {
+        return success(activeOrderService.searchActiveOrderCandidates(keyword).stream()
+                .map(MesProcessPoolTeamLeaderController::toActiveOrderCandidateRespVO)
                 .toList());
     }
 
@@ -581,35 +575,35 @@ public class MesProcessPoolTeamLeaderController {
         return success(Boolean.TRUE);
     }
 
-    @PostMapping("/process-device-binding/save")
-    @Operation(summary = "保存班组工序设备绑定")
+    @PostMapping("/process-config/device-binding/save")
+    @Operation(summary = "保存生产组长路线工序设备绑定")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
-    public CommonResult<Long> saveProcessDeviceBinding(@Valid @RequestBody MesTeamProcessDeviceBindingSaveReqVO reqVO) {
+    public CommonResult<Long> saveProcessConfigDeviceBinding(
+            @Valid @RequestBody MesTeamProcessDeviceBindingSaveReqVO reqVO) {
         return success(runtimeConfigService.bindDeviceToProcess(
                 cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamProcessDeviceBindingSaveReqBO.builder()
                         .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
-                        .processId(reqVO.getProcessId())
+                        .routeProcessId(reqVO.getRouteProcessId())
                         .deviceId(reqVO.getDeviceId())
                         .build()));
     }
 
-    @PostMapping("/runtime-device-parameter-rule/save")
-    @Operation(summary = "保存班组运行态设备参数规则")
+    @PostMapping("/process-config/device-parameter-rule/save")
+    @Operation(summary = "保存生产组长路线工序设备参数标准")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
-    public CommonResult<Long> saveRuntimeDeviceParameterRule(
+    public CommonResult<Long> saveProcessConfigDeviceParameterRule(
             @Valid @RequestBody MesTeamDeviceParameterRuleSaveReqVO reqVO) {
         return success(runtimeConfigService.saveDeviceParameterRule(
                 cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamDeviceParameterRuleSaveReqBO.builder()
                         .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
                         .routeProcessId(reqVO.getRouteProcessId())
-                        .processId(reqVO.getProcessId())
                         .deviceId(reqVO.getDeviceId())
                         .parameterCode(reqVO.getParameterCode())
                         .parameterName(reqVO.getParameterName())
                         .unit(reqVO.getUnit())
                         .lowerLimit(reqVO.getLowerLimit())
                         .upperLimit(reqVO.getUpperLimit())
-                        .defaultValue(reqVO.getDefaultValue())
+                        .targetValue(reqVO.getTargetValue())
                         .valueType(reqVO.getValueType())
                         .build()));
     }
@@ -666,6 +660,66 @@ public class MesProcessPoolTeamLeaderController {
     public CommonResult<MesProductionExecutionTraceRespVO> getProductionExecutionTrace(
             @RequestParam("processPoolEventId") Long processPoolEventId) {
         return success(traceService.getProductionExecutionTrace(processPoolEventId));
+    }
+
+    private static MesTeamLeaderProcessConfigRowRespVO toProcessConfigRowRespVO(MesTeamLeaderProcessConfigRow row) {
+        return new MesTeamLeaderProcessConfigRowRespVO()
+                .setRouteId(row.getRouteId())
+                .setRouteCode(row.getRouteCode())
+                .setRouteName(row.getRouteName())
+                .setRouteProcessId(row.getRouteProcessId())
+                .setProcessId(row.getProcessId())
+                .setProcessCode(row.getProcessCode())
+                .setProcessName(row.getProcessName())
+                .setSort(row.getSort())
+                .setLossReasons(row.getLossReasons().stream()
+                        .map(MesProcessPoolTeamLeaderController::toProcessConfigLossReasonRespVO)
+                        .toList())
+                .setDevices(row.getDevices().stream()
+                        .map(MesProcessPoolTeamLeaderController::toProcessConfigDeviceRespVO)
+                        .toList());
+    }
+
+    private static MesTeamLeaderProcessConfigRowRespVO.LossReason toProcessConfigLossReasonRespVO(
+            MesTeamLeaderLossReasonItem item) {
+        return new MesTeamLeaderProcessConfigRowRespVO.LossReason()
+                .setId(item.getId())
+                .setReasonCode(item.getReasonCode())
+                .setReasonName(item.getReasonName())
+                .setEnabled(item.getEnabled());
+    }
+
+    private static MesTeamLeaderProcessConfigRowRespVO.Device toProcessConfigDeviceRespVO(
+            MesTeamLeaderProcessConfigDevice device) {
+        return new MesTeamLeaderProcessConfigRowRespVO.Device()
+                .setBindingId(device.getBindingId())
+                .setDeviceId(device.getDeviceId())
+                .setDeviceCode(device.getDeviceCode())
+                .setDeviceName(device.getDeviceName())
+                .setDeviceStatus(device.getDeviceStatus())
+                .setMapped(device.getMapped())
+                .setParameters(device.getParameters().stream()
+                        .map(MesProcessPoolTeamLeaderController::toProcessConfigParameterRespVO)
+                        .toList());
+    }
+
+    private static MesTeamLeaderProcessConfigRowRespVO.Parameter toProcessConfigParameterRespVO(
+            MesTeamLeaderProcessConfigParameter parameter) {
+        return new MesTeamLeaderProcessConfigRowRespVO.Parameter()
+                .setRuleId(parameter.getRuleId())
+                .setParameterCode(parameter.getParameterCode())
+                .setParameterName(parameter.getParameterName())
+                .setUnit(parameter.getUnit())
+                .setValueType(parameter.getValueType())
+                .setLowerLimit(parameter.getLowerLimit())
+                .setTargetValue(parameter.getTargetValue())
+                .setUpperLimit(parameter.getUpperLimit())
+                .setEnabled(parameter.getEnabled())
+                .setActualAverage(parameter.getActualAverage())
+                .setSampleCount(parameter.getSampleCount())
+                .setStatisticsStartTime(parameter.getStatisticsStartTime())
+                .setStatisticsEndTime(parameter.getStatisticsEndTime())
+                .setStatisticsWindowDays(parameter.getStatisticsWindowDays());
     }
 
     private static MesTeamLeaderLossReasonRowRespVO toLossReasonRowRespVO(MesTeamLeaderLossReasonRow row) {
@@ -757,6 +811,13 @@ public class MesProcessPoolTeamLeaderController {
                 .setJoinedAt(activeOrder.getJoinedAt())
                 .setRemovedAt(activeOrder.getRemovedAt())
                 .setVersion(activeOrder.getVersion());
+    }
+
+    private static MesTeamLeaderActiveOrderCandidateRespVO toActiveOrderCandidateRespVO(
+            MesTeamLeaderActiveOrderCandidateBO candidate) {
+        return new MesTeamLeaderActiveOrderCandidateRespVO()
+                .setWorkOrderId(candidate.getWorkOrderId())
+                .setWorkOrderCode(candidate.getWorkOrderCode());
     }
 
     private static MesTeamLeaderActiveOrderTransferTraceRespVO toActiveOrderTransferTraceRespVO(

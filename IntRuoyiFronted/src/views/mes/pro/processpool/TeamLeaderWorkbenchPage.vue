@@ -40,7 +40,7 @@
       <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
       <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
       <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
-      <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
+      <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
       <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
     </el-tabs>
     <el-tabs
@@ -384,17 +384,35 @@
             remote
             clearable
             reserve-keyword
-            placeholder="输入姓名或账号搜索"
+            automatic-dropdown
+            remote-show-suffix
+            placeholder="点击或输入姓名、账号搜索"
             :remote-method="searchPqcFormalEmployeeCandidatesForSelect"
             :loading="pqcCandidateLoading"
             class="team-leader-workbench__full-control"
+            @focus="loadPqcFormalEmployeeCandidatesForSelect"
+            @visible-change="handlePqcCandidateDropdownVisibleChange"
           >
             <el-option
               v-for="candidate in pqcCandidateOptions"
               :key="candidate.systemUserId"
               :label="candidate.displayName"
               :value="candidate.systemUserId"
-            />
+              :disabled="candidate.disabled"
+              :class="{
+                'team-leader-workbench__pqc-candidate-option--occupied': candidate.occupiedByOtherPqcLeader
+              }"
+            >
+              <div class="team-leader-workbench__pqc-candidate-option">
+                <span>{{ candidate.displayName }}</span>
+                <span
+                  v-if="candidate.occupiedByOtherPqcLeader"
+                  class="team-leader-workbench__pqc-candidate-disabled-reason"
+                >
+                  {{ candidate.disabledReason || '已被其他PQC组长选择' }}
+                </span>
+              </div>
+            </el-option>
           </el-select>
         </el-form-item>
       </el-form>
@@ -432,7 +450,7 @@
         <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
-        <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
+        <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
         <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
       <div v-if="showPqcModuleTabs" class="team-leader-workbench__embedded-header">
@@ -618,6 +636,25 @@
               </template>
             </el-table-column>
             <el-table-column
+              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('pqcSubmissionContent')"
+              label="PQC提交内容"
+              prop="pqcSubmissionContent"
+              :min-width="getSubmissionColumnMinWidthString('pqcSubmissionContent', 260)"
+            >
+              <template #default="{ row }">
+                <div class="team-leader-workbench__pqc-content" data-pqc-leader-submission-content>
+                  <div
+                    v-for="item in resolvePqcSubmissionContentItems(row)"
+                    :key="item.key"
+                    class="team-leader-workbench__pqc-content-item"
+                  >
+                    <span class="team-leader-workbench__pqc-content-label">{{ item.label }}</span>
+                    <span class="team-leader-workbench__pqc-content-value">{{ item.valueText }}</span>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
               v-if="isSubmissionColumnVisible('equipmentSnapshot')"
               label="设备"
               prop="equipmentSnapshot"
@@ -625,6 +662,24 @@
             >
               <template #default="{ row }">
                 <div class="team-leader-workbench__structured-list" data-team-leader-equipment-snapshot>
+                  <span
+                    v-for="item in resolveSubmissionEquipmentItems(row)"
+                    :key="item.key"
+                    class="team-leader-workbench__structured-pill"
+                  >
+                    {{ item.valueText }}
+                  </span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isSubmissionColumnVisible('selectedDevice')"
+              label="选用设备"
+              prop="selectedDevice"
+              :min-width="getSubmissionColumnMinWidthString('selectedDevice', 220)"
+            >
+              <template #default="{ row }">
+                <div class="team-leader-workbench__structured-list" data-team-leader-selected-device>
                   <span
                     v-for="item in resolveSubmissionEquipmentItems(row)"
                     :key="item.key"
@@ -723,7 +778,38 @@
                     <span class="team-leader-workbench__parameter-label">{{ item.label }}</span>
                     <span
                       class="team-leader-workbench__parameter-value"
-                      :class="{ 'is-out-of-range': item.outOfRange }"
+                      :class="{ 'is-parameter-out-of-range': item.outOfRange }"
+                      :data-parameter-status="item.parameterStatus || (item.outOfRange ? 'ABNORMAL' : 'NORMAL')"
+                      :aria-label="item.outOfRange ? `参数异常：${item.label} ${item.valueText}` : item.label"
+                    >
+                      {{ item.valueText }}
+                    </span>
+                    <span v-if="item.metaText" class="team-leader-workbench__parameter-meta">
+                      {{ item.metaText }}
+                    </span>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isSubmissionColumnVisible('deviceParameterReadings')"
+              label="设备参数"
+              prop="deviceParameterReadings"
+              :min-width="getSubmissionColumnMinWidthString('deviceParameterReadings', 280)"
+            >
+              <template #default="{ row }">
+                <div class="team-leader-workbench__parameter-list" data-team-leader-device-parameter-readings>
+                  <div
+                    v-for="item in resolveSubmissionParameterItems(row)"
+                    :key="item.key"
+                    class="team-leader-workbench__parameter-item"
+                  >
+                    <span class="team-leader-workbench__parameter-label">{{ item.label }}</span>
+                    <span
+                      class="team-leader-workbench__parameter-value"
+                      :class="{ 'is-parameter-out-of-range': item.outOfRange }"
+                      :data-parameter-status="item.parameterStatus || (item.outOfRange ? 'ABNORMAL' : 'NORMAL')"
+                      :aria-label="item.outOfRange ? `参数异常：${item.label} ${item.valueText}` : item.label"
                     >
                       {{ item.valueText }}
                     </span>
@@ -768,6 +854,63 @@
                 <div class="team-leader-workbench__structured-list" data-pqc-leader-defect-description>
                   <span class="team-leader-workbench__structured-pill">
                     {{ resolvePqcDefectDescriptionText(row) }}
+                  </span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isSubmissionColumnVisible('auditCopyStatus')"
+              label="审核副本"
+              prop="auditCopyStatus"
+              :min-width="getSubmissionColumnMinWidthString('auditCopyStatus', 130)"
+            >
+              <template #default="{ row }">{{ row.auditCopyStatus || '--' }}</template>
+            </el-table-column>
+            <el-table-column
+              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('processInspectionAggregation')"
+              label="过程检验汇集"
+              prop="processInspectionAggregation"
+              :min-width="getSubmissionColumnMinWidthString('processInspectionAggregation', 180)"
+            >
+              <template #default="{ row }">
+                <div
+                  class="team-leader-workbench__review-log"
+                  data-pqc-process-inspection-aggregation
+                  :data-pqc-process-inspection-event-id="String(row.id)"
+                >
+                  <el-tag
+                    :type="resolveProcessInspectionAggregationTagType(row.processInspectionAggregationStatus)"
+                    effect="plain"
+                  >
+                    {{ resolveProcessInspectionAggregationStatusText(row.processInspectionAggregationStatus) }}
+                  </el-tag>
+                  <span
+                    v-if="row.processInspectionReviewId"
+                    class="team-leader-workbench__review-meta"
+                  >
+                    复核 {{ row.processInspectionReviewId }} ·
+                    {{ formatDateTime(row.processInspectionAggregatedAt) }}
+                  </span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isSubmissionColumnVisible('submissionReviewStatus')"
+              label="复核判定"
+              prop="submissionReviewStatus"
+              :min-width="getSubmissionColumnMinWidthString('submissionReviewStatus', 190)"
+            >
+              <template #default="{ row }">
+                <div class="team-leader-workbench__review-log" data-team-leader-review-log>
+                  <el-tag :type="resolveSubmissionReviewTagType(row.submissionReviewStatus)" effect="plain">
+                    {{ resolveSubmissionReviewStatusText(row.submissionReviewStatus) }}
+                  </el-tag>
+                  <span v-if="row.submissionReviewRemark" class="team-leader-workbench__review-text">
+                    {{ row.submissionReviewRemark }}
+                  </span>
+                  <span v-if="row.submissionReviewedAt" class="team-leader-workbench__review-meta">
+                    复核人 {{ row.submissionReviewLeaderUserId || '--' }} ·
+                    {{ formatDateTime(row.submissionReviewedAt) }}
                   </span>
                 </div>
               </template>
@@ -833,7 +976,7 @@
         <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
-        <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
+        <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
         <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
 
@@ -1041,7 +1184,7 @@
         <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
-        <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
+        <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
         <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
       <div v-if="showPqcModuleTabs" class="team-leader-workbench__embedded-header">
@@ -1123,7 +1266,7 @@
         <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
-        <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
+        <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
         <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
       <div class="team-leader-workbench__section-head">
@@ -1156,6 +1299,21 @@
             />
           </el-select>
         </el-form-item>
+        <el-form-item label="异常原因" prop="abnormalReasonCode">
+          <el-select
+            v-model="abnormalForm.abnormalReasonCode"
+            filterable
+            placeholder="请选择已配置的异常原因"
+            data-team-leader-abnormal-reason-select
+          >
+            <el-option
+              v-for="reason in configuredDefectReasonOptions"
+              :key="reason.reasonCode"
+              :label="`${reason.reasonName}（${reason.reasonCode}）`"
+              :value="reason.reasonCode"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="异常说明" prop="abnormalDescription">
           <el-input
             v-model="abnormalForm.abnormalDescription"
@@ -1175,9 +1333,9 @@
 
 
     <ContentWrap
-      v-if="showProductionLossModule"
+      v-if="showProductionProcessConfigModule"
       :class="{ 'team-leader-workbench__production-module-card': showProductionModuleTabs }"
-      data-team-leader-loss-reason-tab
+      data-team-leader-process-config-tab
     >
       <el-tabs
         v-if="showProductionModuleTabs"
@@ -1190,24 +1348,25 @@
         <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
-        <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
+        <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
         <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
       <div class="team-leader-workbench__section-head">
         <div>
-          <div class="team-leader-workbench__section-title">损耗原因维护</div>
+          <div class="team-leader-workbench__section-title">工序配置</div>
           <div class="team-leader-workbench__hint">
-            标准列表按“工序开始”授权展示工序，损耗原因绑定到工序设置列表下的路线工序并由多个生产组长共用。
+            以路线工序串联损耗原因、设备映射和设备参数标准；平均值来自近 30 天正式报工，只读展示。
           </div>
         </div>
-        <el-button :loading="lossReasonLoading" @click="loadLossReasonRows">刷新</el-button>
+        <el-button :loading="processConfigLoading" @click="loadProcessConfigRows">刷新</el-button>
       </div>
       <el-table
-        v-loading="lossReasonLoading"
-        :data="lossReasonRows"
+        v-loading="processConfigLoading"
+        :data="processConfigRows"
+        :row-key="(row) => String(row.routeProcessId)"
         border
         stripe
-        data-loss-reason-standard-list
+        data-team-leader-process-config-table
       >
         <el-table-column label="工艺路线" min-width="180">
           <template #default="{ row }">
@@ -1216,47 +1375,119 @@
         </el-table-column>
         <el-table-column label="工序" min-width="180">
           <template #default="{ row }">
-            <span data-loss-reason-route-process-row>
-              {{ formatLossReasonProcess(row) }}
+            <span data-team-leader-process-config-row-key>
+              {{ formatProcessConfigProcess(row) }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="损耗原因" min-width="280" data-loss-reason-column>
+        <el-table-column label="损耗原因" min-width="260">
           <template #default="{ row }">
-            <div class="team-leader-workbench__loss-reasons">
+            <div class="team-leader-workbench__loss-reasons" data-team-leader-process-config-loss-reasons>
               <el-tag
-                v-for="reason in row.reasons"
+                v-for="reason in row.lossReasons"
                 :key="reason.id"
                 :type="reason.enabled ? 'success' : 'info'"
                 effect="plain"
               >
                 {{ reason.reasonCode }} / {{ reason.reasonName }}{{ reason.enabled ? '' : '（停用）' }}
               </el-tag>
-              <span v-if="!row.reasons?.length" class="team-leader-workbench__hint">暂无损耗原因</span>
+              <span v-if="!row.lossReasons?.length" class="team-leader-workbench__hint">暂无损耗原因</span>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作面板" width="320" fixed="right">
+        <el-table-column label="映射设备" min-width="280">
           <template #default="{ row }">
-            <div data-loss-reason-operation-panel>
-              <el-button link type="primary" @click="openCreateLossReason(row)">新增损耗原因</el-button>
+            <div class="team-leader-workbench__process-config-devices" data-team-leader-process-config-devices>
+              <el-tag
+                v-for="device in row.devices"
+                :key="device.deviceId"
+                type="success"
+                effect="plain"
+              >
+                {{ formatProcessConfigDevice(device) }}
+              </el-tag>
+              <span v-if="!row.devices?.length" class="team-leader-workbench__hint">未映射设备</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="设备参数标准" min-width="360">
+          <template #default="{ row }">
+            <div class="team-leader-workbench__process-config-parameters" data-team-leader-process-config-parameters>
+              <template v-for="device in row.devices" :key="`params-${device.deviceId}`">
+                <div
+                  v-for="parameter in device.parameters"
+                  :key="`${device.deviceId}-${parameter.parameterCode}`"
+                  class="team-leader-workbench__process-config-parameter"
+                >
+                  <span class="team-leader-workbench__process-config-parameter-name">
+                    {{ parameter.parameterName || parameter.parameterCode }}
+                  </span>
+                  <span>
+                    下限 {{ parameter.lowerLimit }} / 目标 {{ parameter.targetValue }} / 上限 {{ parameter.upperLimit }}
+                    {{ parameter.unit || '' }}
+                  </span>
+                  <span>平均 {{ formatProcessConfigAverage(parameter) }}</span>
+                  <span>样本 {{ parameter.sampleCount ?? 0 }}</span>
+                  <span>
+                    {{ formatProcessConfigStatisticsWindow(parameter) }}
+                  </span>
+                </div>
+              </template>
+              <span
+                v-if="!hasProcessConfigParameters(row)"
+                class="team-leader-workbench__hint"
+              >
+                暂无参数标准
+              </span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作面板" width="360" fixed="right">
+          <template #default="{ row }">
+            <div class="team-leader-workbench__process-config-actions">
               <el-button
-                v-for="reason in row.reasons"
+                link
+                type="primary"
+                data-team-leader-process-config-add-loss
+                @click="openCreateLossReason(row)"
+              >
+                新增损耗
+              </el-button>
+              <el-button
+                v-for="reason in row.lossReasons"
                 :key="`edit-${reason.id}`"
                 link
                 type="warning"
                 @click="openEditLossReason(row, reason)"
               >
-                修改损耗原因
+                修改损耗
               </el-button>
               <el-button
-                v-for="reason in row.reasons"
+                v-for="reason in row.lossReasons"
                 :key="`delete-${reason.id}`"
                 link
                 type="danger"
                 @click="handleDeleteLossReason(reason)"
               >
-                删除损耗原因
+                删除损耗
+              </el-button>
+              <el-button
+                link
+                type="primary"
+                data-team-leader-process-config-bind-device
+                @click="openProcessConfigDeviceDialog(row)"
+              >
+                映射设备
+              </el-button>
+              <el-button
+                v-for="device in row.devices"
+                :key="`parameter-${device.deviceId}`"
+                link
+                type="primary"
+                data-team-leader-process-config-edit-parameter
+                @click="openProcessConfigParameterDialog(row, device)"
+              >
+                参数标准
               </el-button>
             </div>
           </template>
@@ -1279,7 +1510,7 @@
         <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
-        <el-tab-pane label="损耗管理" name="loss" data-production-leader-module-tab-loss />
+        <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
         <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
       <div class="team-leader-workbench__section-head">
@@ -1369,29 +1600,13 @@
         </el-card>
 
         <el-card shadow="never" data-team-leader-process-relation-config>
-          <template #header>工序设备与异常关系</template>
-          <el-form :model="processDeviceBindingForm" label-width="108px">
-            <el-form-item label="工序ID">
-              <el-input-number
-                v-model="processDeviceBindingForm.processId"
-                :min="1"
-                :controls="false"
-              />
-            </el-form-item>
-            <el-form-item label="设备ID">
-              <el-input-number
-                v-model="processDeviceBindingForm.deviceId"
-                :min="1"
-                :controls="false"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :loading="maintenanceSubmitting" @click="submitProcessDeviceBinding">
-                绑定工序设备
-              </el-button>
-            </el-form-item>
-          </el-form>
-          <el-divider />
+          <template #header>工序异常关系</template>
+          <el-alert
+            title="设备映射与设备参数标准已合并到“工序配置”统一表维护。"
+            type="info"
+            :closable="false"
+            show-icon
+          />
           <el-form :model="defectReasonForm" label-width="108px">
             <el-form-item label="工序ID">
               <el-input-number v-model="defectReasonForm.processId" :min="1" :controls="false" />
@@ -1415,41 +1630,6 @@
                 @click="submitProcessDefectReason"
               >
                 保存工序异常原因
-              </el-button>
-            </el-form-item>
-          </el-form>
-        </el-card>
-
-        <el-card shadow="never" data-team-leader-parameter-config>
-          <template #header>设备参数维护</template>
-          <el-form :model="deviceRuleForm" label-width="98px">
-            <el-form-item label="工序ID">
-              <el-input-number v-model="deviceRuleForm.processId" :min="1" :controls="false" />
-            </el-form-item>
-            <el-form-item label="设备ID">
-              <el-input-number v-model="deviceRuleForm.deviceId" :min="1" :controls="false" />
-            </el-form-item>
-            <el-form-item label="参数编码">
-              <el-input v-model="deviceRuleForm.parameterCode" />
-            </el-form-item>
-            <el-form-item label="参数名称">
-              <el-input v-model="deviceRuleForm.parameterName" />
-            </el-form-item>
-            <el-form-item label="单位">
-              <el-input v-model="deviceRuleForm.unit" />
-            </el-form-item>
-            <el-form-item label="下限">
-              <el-input-number v-model="deviceRuleForm.lowerLimit" :controls="false" />
-            </el-form-item>
-            <el-form-item label="上限">
-              <el-input-number v-model="deviceRuleForm.upperLimit" :controls="false" />
-            </el-form-item>
-            <el-form-item label="默认值">
-              <el-input-number v-model="deviceRuleForm.defaultValue" :controls="false" />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :loading="maintenanceSubmitting" @click="submitRuntimeDeviceRule">
-                保存参数
               </el-button>
             </el-form-item>
           </el-form>
@@ -1564,7 +1744,7 @@
           <span>{{ lossReasonEditingRow?.routeName || lossReasonEditingRow?.routeCode || '--' }}</span>
         </el-form-item>
         <el-form-item label="工序">
-          <span>{{ lossReasonEditingRow ? formatLossReasonProcess(lossReasonEditingRow) : '--' }}</span>
+          <span>{{ lossReasonEditingRow ? formatProcessConfigProcess(lossReasonEditingRow) : '--' }}</span>
         </el-form-item>
         <el-form-item label="原因编码" required>
           <el-input
@@ -1607,6 +1787,136 @@
           @click="submitLossReason"
         >
           保存损耗原因
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="processConfigDeviceDialogVisible"
+      title="映射工序设备"
+      width="520px"
+      destroy-on-close
+      data-team-leader-process-config-device-dialog
+    >
+      <el-form :model="processConfigDeviceForm" label-width="108px">
+        <el-form-item label="工艺路线">
+          <span>{{ processConfigSelectedRow?.routeName || processConfigSelectedRow?.routeCode || '--' }}</span>
+        </el-form-item>
+        <el-form-item label="工序">
+          <span>{{ processConfigSelectedRow ? formatProcessConfigProcess(processConfigSelectedRow) : '--' }}</span>
+        </el-form-item>
+        <el-form-item label="设备" required>
+          <el-select
+            v-model="processConfigDeviceForm.deviceId"
+            filterable
+            placeholder="请选择当前组长设备"
+            data-team-leader-process-config-device-select
+          >
+            <el-option
+              v-for="device in processConfigDeviceOptions"
+              :key="device.deviceId"
+              :label="formatProcessConfigDevice(device)"
+              :value="device.deviceId"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="processConfigDeviceDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="processConfigSubmitting"
+          @click="submitProcessConfigDeviceBinding"
+        >
+          保存设备映射
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="processConfigParameterDialogVisible"
+      title="维护设备参数标准"
+      width="620px"
+      destroy-on-close
+      data-team-leader-process-config-parameter-dialog
+    >
+      <el-form :model="processConfigParameterForm" label-width="108px">
+        <el-form-item label="工艺路线">
+          <span>{{ processConfigSelectedRow?.routeName || processConfigSelectedRow?.routeCode || '--' }}</span>
+        </el-form-item>
+        <el-form-item label="工序">
+          <span>{{ processConfigSelectedRow ? formatProcessConfigProcess(processConfigSelectedRow) : '--' }}</span>
+        </el-form-item>
+        <el-form-item label="设备">
+          <span>{{ processConfigSelectedDevice ? formatProcessConfigDevice(processConfigSelectedDevice) : '--' }}</span>
+        </el-form-item>
+        <el-form-item label="参数编码" required>
+          <el-input
+            v-model="processConfigParameterForm.parameterCode"
+            maxlength="64"
+            placeholder="请输入参数编码"
+            data-team-leader-process-config-parameter-code
+          />
+        </el-form-item>
+        <el-form-item label="参数名称">
+          <el-input v-model="processConfigParameterForm.parameterName" maxlength="128" />
+        </el-form-item>
+        <el-form-item label="单位">
+          <el-input v-model="processConfigParameterForm.unit" maxlength="32" />
+        </el-form-item>
+        <el-form-item label="值类型" required>
+          <el-select v-model="processConfigParameterForm.valueType">
+            <el-option label="数值" value="DECIMAL" />
+            <el-option label="整数" value="INTEGER" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="下限" required>
+          <el-input-number
+            v-model="processConfigParameterForm.lowerLimit"
+            :controls="false"
+            data-team-leader-process-config-lower-limit
+          />
+        </el-form-item>
+        <el-form-item label="目标值" required>
+          <el-input-number
+            v-model="processConfigParameterForm.targetValue"
+            :controls="false"
+            data-team-leader-process-config-target-value
+          />
+        </el-form-item>
+        <el-form-item label="上限" required>
+          <el-input-number
+            v-model="processConfigParameterForm.upperLimit"
+            :controls="false"
+            data-team-leader-process-config-upper-limit
+          />
+        </el-form-item>
+        <el-form-item label="实际平均值">
+          <span data-team-leader-process-config-average-readonly>
+            {{ processConfigEditingParameter ? formatProcessConfigAverage(processConfigEditingParameter) : '暂无样本' }}
+          </span>
+        </el-form-item>
+        <el-form-item label="样本数">
+          <span>{{ processConfigEditingParameter?.sampleCount ?? 0 }}</span>
+        </el-form-item>
+        <el-form-item label="统计周期">
+          <span>
+            {{
+              processConfigEditingParameter
+                ? formatProcessConfigStatisticsWindow(processConfigEditingParameter)
+                : '--'
+            }}
+          </span>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="processConfigParameterDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="processConfigSubmitting"
+          @click="submitProcessConfigParameterRule"
+        >
+          保存参数标准
         </el-button>
       </template>
     </el-dialog>
@@ -1822,7 +2132,8 @@ import {
 } from '@/hooks/web/useTableMultiFilter'
 import {
   useUserTableColumns,
-  type UserTableColumnDefinition
+  type UserTableColumnDefinition,
+  type UserTableColumnState
 } from '@/hooks/web/useUserTableColumns'
 import {
   addTeamLeaderActiveOrder,
@@ -1833,7 +2144,7 @@ import {
   createTeamLeaderLossReason,
   deleteTeamLeaderLossReason,
   getPqcPersonnelList,
-  getTeamLeaderLossReasonPage,
+  getTeamLeaderProcessConfigList,
   getProductionPersonnelList,
   getTeamLeaderActiveOrderList,
   getTeamLeaderActiveOrderTransferTrace,
@@ -1847,11 +2158,12 @@ import {
   resetTemporaryTeamEmployeeSignaturePassword,
   reviewTeamLeaderSubmission,
   saveTeamProcessDefectReason,
-  saveTeamProcessDeviceBinding,
+  saveTeamProcessConfigDeviceBinding,
+  saveTeamProcessConfigDeviceParameterRule,
   saveTeamProcessEmployeeBinding,
   saveTeamRuntimeDeviceParameterRule,
-  searchTeamLeaderActiveOrderCandidates,
   searchPqcFormalEmployeeCandidates,
+  searchTeamLeaderActiveOrderCandidates,
   searchTeamFormalEmployeeCandidates,
   updateTeamLeaderLossReason,
   updateTeamDeviceStatus,
@@ -1862,8 +2174,10 @@ import {
   type TeamLeaderActiveOrderCandidateRespVO,
   type TeamLeaderActiveOrderRespVO,
   type TeamLeaderActiveOrderTransferTraceRespVO,
-  type TeamLeaderLossReasonRowVO,
   type TeamLeaderLossReasonVO,
+  type TeamLeaderProcessConfigDeviceVO,
+  type TeamLeaderProcessConfigParameterVO,
+  type TeamLeaderProcessConfigRowRespVO,
   type TeamLeaderReportAllocationLine,
   type TeamLeaderSubmissionPageReqVO,
   type TeamLeaderType,
@@ -1907,7 +2221,7 @@ const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
 const activePqcModuleTab = ref<'personnel' | 'management' | 'dashboard'>('personnel')
 const activeProductionModuleTab = ref<
-  'personnel' | 'report' | 'activeOrder' | 'dashboard' | 'exception' | 'loss' | 'config'
+  'personnel' | 'report' | 'activeOrder' | 'dashboard' | 'exception' | 'processConfig' | 'config'
 >('personnel')
 const loading = ref(false)
 const detailLoading = ref(false)
@@ -1936,12 +2250,18 @@ const activeOrderCandidateError = ref('')
 const activeOrderTransferTraceRows = ref<TeamLeaderActiveOrderTransferTraceRespVO[]>([])
 const activeOrderTransferTraceLoading = ref(false)
 const activeOrderTransferTraceError = ref('')
-const lossReasonRows = ref<TeamLeaderLossReasonRowVO[]>([])
-const lossReasonLoading = ref(false)
+const processConfigRows = ref<TeamLeaderProcessConfigRowRespVO[]>([])
+const processConfigLoading = ref(false)
+const processConfigSubmitting = ref(false)
+const processConfigDeviceDialogVisible = ref(false)
+const processConfigParameterDialogVisible = ref(false)
+const processConfigSelectedRow = ref<TeamLeaderProcessConfigRowRespVO>()
+const processConfigSelectedDevice = ref<TeamLeaderProcessConfigDeviceVO>()
+const processConfigEditingParameter = ref<TeamLeaderProcessConfigParameterVO>()
 const lossReasonSubmitting = ref(false)
 const lossReasonDialogVisible = ref(false)
 const lossReasonDialogMode = ref<'create' | 'edit'>('create')
-const lossReasonEditingRow = ref<TeamLeaderLossReasonRowVO>()
+const lossReasonEditingRow = ref<TeamLeaderProcessConfigRowRespVO>()
 const lossReasonEditingReason = ref<TeamLeaderLossReasonVO>()
 const allocationRows = ref<TeamLeaderReportAllocationLine[]>([])
 const configuredDefectReasonOptions = ref<
@@ -2006,40 +2326,81 @@ const pqcPersonnelColumns: any[] = [
   { key: 'enabled', label: '状态', visible: true }
 ]
 const SUBMISSION_TABLE_KEY = 'mes.processPool.teamLeader.submissions'
+const PRODUCTION_SUBMISSION_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.production`
+const PQC_SUBMISSION_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.pqc`
 const submissionQuickFilterDefinitions: any[] = []
 const submissionQuickFilterState = reactive({})
 const submissionOperatorOptions: any[] = []
-const submissionDefaultColumns: UserTableColumnDefinition[] = [
+const productionSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'submittedAt', label: '提交时间', minWidth: 160 },
-  { key: 'employeeUser', label: 'PQC检验员/员工', minWidth: 140 },
+  { key: 'employeeUser', label: '员工', minWidth: 140 },
   { key: 'process', label: '工序', minWidth: 150 },
   { key: 'workOrder', label: '生产工单', minWidth: 160 },
-  { key: 'completionQuantity', label: '完成/检验数量', minWidth: 130 },
+  { key: 'completionQuantity', label: '完成数量', minWidth: 130 },
+  { key: 'lossQuantity', label: '损耗数量', minWidth: 120 },
+  { key: 'lossBreakdown', label: '损耗明细', minWidth: 210 },
+  { key: 'selectedDevice', label: '选用设备', minWidth: 220 },
+  { key: 'deviceParameterReadings', label: '设备参数', minWidth: 280 },
+  { key: 'auditCopyStatus', label: '审核副本', minWidth: 130 },
+  { key: 'submissionReviewStatus', label: '复核判定', minWidth: 190 },
+  { key: 'operation', label: '操作', width: 270, hideable: false, business: false }
+]
+const pqcSubmissionDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'submittedAt', label: '提交时间', minWidth: 160 },
+  { key: 'employeeUser', label: 'PQC检验员', minWidth: 140 },
+  { key: 'process', label: '工序', minWidth: 150 },
+  { key: 'completionQuantity', label: '检验数量', minWidth: 130 },
   { key: 'lossQuantity', label: '损耗数量', minWidth: 120 },
   { key: 'lossBreakdown', label: '损耗明细', minWidth: 210 },
   { key: 'product', label: '产品', minWidth: 180 },
   { key: 'inspectionTask', label: '检验类型/轮次', minWidth: 150 },
   { key: 'inspectionItems', label: '检验项', minWidth: 190 },
+  { key: 'pqcSubmissionContent', label: 'PQC提交内容', minWidth: 260 },
   { key: 'equipmentSnapshot', label: '设备', minWidth: 220 },
+  { key: 'selectedDevice', label: '选用设备', minWidth: 220 },
   { key: 'equipmentNumber', label: '设备编号', minWidth: 150 },
   { key: 'acceptanceStandard', label: '接收标准', minWidth: 220 },
   { key: 'inspectionMethod', label: '检验方法', minWidth: 180 },
   { key: 'inspectionJudgement', label: '检验判定', minWidth: 150 },
   { key: 'parameterSnapshot', label: '参数明细', minWidth: 280 },
+  { key: 'deviceParameterReadings', label: '设备参数', minWidth: 280 },
   { key: 'pieceSampleValues', label: '逐件/样本值', minWidth: 220 },
   { key: 'defectDescription', label: '不良说明', minWidth: 180 },
+  { key: 'auditCopyStatus', label: '审核副本', minWidth: 130 },
+  { key: 'processInspectionAggregation', label: '过程检验汇集', minWidth: 180 },
+  { key: 'submissionReviewStatus', label: '复核判定', minWidth: 190 },
   { key: 'operation', label: '操作', width: 270, hideable: false, business: false }
 ]
-const {
-  saving: submissionColumnSaving,
-  columns: submissionColumns,
-  isColumnVisible: isSubmissionColumnVisible,
-  getColumnWidthString: getSubmissionColumnWidthString,
-  getColumnMinWidthString: getSubmissionColumnMinWidthString,
-  handleHeaderDragend: handleSubmissionHeaderDragend,
-  saveConfig: saveSubmissionColumnConfig,
-  resetConfig: resetSubmissionColumnConfig
-} = useUserTableColumns(SUBMISSION_TABLE_KEY, submissionDefaultColumns)
+const productionSubmissionColumnControl = useUserTableColumns(
+  PRODUCTION_SUBMISSION_TABLE_KEY,
+  productionSubmissionDefaultColumns
+)
+const pqcSubmissionColumnControl = useUserTableColumns(
+  PQC_SUBMISSION_TABLE_KEY,
+  pqcSubmissionDefaultColumns
+)
+const activeSubmissionColumnControl = computed(() =>
+  activeLeaderTab.value === 'PQC' ? pqcSubmissionColumnControl : productionSubmissionColumnControl
+)
+const submissionColumnSaving = computed(() => activeSubmissionColumnControl.value.saving.value)
+const submissionColumns = computed<UserTableColumnState[]>(
+  () => activeSubmissionColumnControl.value.columns.value
+)
+const isSubmissionColumnVisible = (key: string) =>
+  activeSubmissionColumnControl.value.isColumnVisible(key)
+const getSubmissionColumnWidthString = (key: string, fallback?: number) =>
+  activeSubmissionColumnControl.value.getColumnWidthString(key, fallback)
+const getSubmissionColumnMinWidthString = (key: string, fallback?: number) =>
+  activeSubmissionColumnControl.value.getColumnMinWidthString(key, fallback)
+const handleSubmissionHeaderDragend = async (newWidth: number, oldWidth: number, column: any) => {
+  await activeSubmissionColumnControl.value.handleHeaderDragend(newWidth, oldWidth, column)
+}
+const saveSubmissionColumnConfig = async () => {
+  await activeSubmissionColumnControl.value.saveConfig()
+}
+const resetSubmissionColumnConfig = async () => {
+  await activeSubmissionColumnControl.value.resetConfig()
+}
 
 const showLeaderTypeTabs = computed(() => props.showLeaderTypeTabs)
 const showPqcModuleTabs = computed(
@@ -2070,8 +2431,8 @@ const showProductionExceptionModule = computed(
   () =>
     isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'exception')
 )
-const showProductionLossModule = computed(
-  () => isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'loss')
+const showProductionProcessConfigModule = computed(
+  () => isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'processConfig')
 )
 const showProductionConfigModule = computed(
   () => isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'config')
@@ -2326,6 +2687,7 @@ const correctionForm = reactive({
 const abnormalForm = reactive({
   activeOrderId: undefined as number | undefined,
   workOrderId: undefined as number | undefined,
+  abnormalReasonCode: '',
   abnormalDescription: ''
 })
 
@@ -2363,11 +2725,6 @@ const teamDeviceStatusForm = reactive({
   deviceStatus: 'REPAIRING' as 'ENABLED' | 'REPAIRING' | 'DISABLED'
 })
 
-const processDeviceBindingForm = reactive({
-  processId: undefined as number | undefined,
-  deviceId: undefined as number | undefined
-})
-
 const defectReasonForm = reactive({
   processId: undefined as number | undefined,
   reasonType: 'UNQUALIFIED',
@@ -2382,20 +2739,24 @@ const lossReasonForm = reactive({
   remark: ''
 })
 
-const deviceRuleForm = reactive({
-  processId: undefined as number | undefined,
+const processConfigDeviceForm = reactive({
+  deviceId: undefined as number | undefined
+})
+
+const processConfigParameterForm = reactive({
   deviceId: undefined as number | undefined,
   parameterCode: '',
   parameterName: '',
   unit: '',
   lowerLimit: undefined as number | undefined,
+  targetValue: undefined as number | undefined,
   upperLimit: undefined as number | undefined,
-  defaultValue: undefined as number | undefined,
   valueType: 'DECIMAL'
 })
 
 const abnormalRules = {
   activeOrderId: [{ required: true, message: '订单号不能为空', trigger: 'change' }],
+  abnormalReasonCode: [{ required: true, message: '异常原因不能为空', trigger: 'change' }],
   abnormalDescription: [{ required: true, message: '异常说明不能为空', trigger: 'blur' }]
 }
 
@@ -2418,11 +2779,6 @@ const requirePositiveNumber = (value: unknown, message: string) => {
     throw new Error(message)
   }
   return parsed
-}
-
-const normalizeFiniteNumber = (value?: number) => {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : undefined
 }
 
 const requireFiniteNumber = (value: unknown, message: string) => {
@@ -2490,10 +2846,6 @@ const handlePqcPersonnelPageSizeChange = (limit: number) => {
 
 const searchPqcFormalEmployeeCandidatesForSelect = async (keyword: string) => {
   const searchText = keyword.trim()
-  if (!searchText) {
-    pqcCandidateOptions.value = []
-    return
-  }
   pqcCandidateLoading.value = true
   try {
     pqcCandidateOptions.value = await searchPqcFormalEmployeeCandidates(searchText)
@@ -2505,11 +2857,27 @@ const searchPqcFormalEmployeeCandidatesForSelect = async (keyword: string) => {
   }
 }
 
+const loadPqcFormalEmployeeCandidatesForSelect = async () => {
+  await searchPqcFormalEmployeeCandidatesForSelect('')
+}
+
+const handlePqcCandidateDropdownVisibleChange = (visible: boolean) => {
+  if (!visible) return
+  void loadPqcFormalEmployeeCandidatesForSelect()
+}
+
 const submitLinkPqcFormalEmployee = async () => {
   pqcPersonnelSubmitting.value = true
   try {
+    const systemUserId = requirePositiveNumber(pqcPersonnelForm.systemUserId, '请选择 PQC 检验员')
+    const selectedCandidate = pqcCandidateOptions.value.find(
+      (candidate) => candidate.systemUserId === systemUserId
+    )
+    if (selectedCandidate?.disabled) {
+      throw new Error(selectedCandidate.disabledReason || '该 PQC 检验员当前不可选择')
+    }
     await linkPqcFormalEmployee({
-      systemUserId: requirePositiveNumber(pqcPersonnelForm.systemUserId, '请选择 PQC 检验员')
+      systemUserId
     })
     pqcPersonnelForm.systemUserId = undefined
     pqcCandidateOptions.value = []
@@ -2763,26 +3131,61 @@ const loadActiveOrders = async () => {
   }
 }
 
-const loadLossReasonRows = async () => {
+const loadProcessConfigRows = async () => {
   if (!isProductionLeader.value) {
-    lossReasonRows.value = []
+    processConfigRows.value = []
     return
   }
-  lossReasonLoading.value = true
+  processConfigLoading.value = true
   try {
-    lossReasonRows.value = await getTeamLeaderLossReasonPage()
+    processConfigRows.value = await getTeamLeaderProcessConfigList()
   } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '损耗原因标准列表加载失败'))
+    ElMessage.error(resolveErrorMessage(error, '工序配置列表加载失败'))
     throw error
   } finally {
-    lossReasonLoading.value = false
+    processConfigLoading.value = false
   }
 }
 
-const formatLossReasonProcess = (row: TeamLeaderLossReasonRowVO) => {
+const processConfigDeviceOptions = computed(() => {
+  const optionMap = new Map<number, TeamLeaderProcessConfigDeviceVO>()
+  processConfigRows.value.forEach((row) => {
+    row.devices?.forEach((device) => {
+      if (device.deviceId && !optionMap.has(device.deviceId)) {
+        optionMap.set(device.deviceId, device)
+      }
+    })
+  })
+  return [...optionMap.values()]
+})
+
+const formatProcessConfigProcess = (row: TeamLeaderProcessConfigRowRespVO) => {
   const sortText = Number.isFinite(Number(row.sort)) ? `${row.sort} - ` : ''
   const processText = row.processName || row.processCode || row.processId || '--'
   return `${sortText}${processText}`
+}
+
+const formatProcessConfigDevice = (device: TeamLeaderProcessConfigDeviceVO) => {
+  const code = device.deviceCode ? `${device.deviceCode} / ` : ''
+  const name = device.deviceName || device.deviceId || '--'
+  return `${code}${name}`
+}
+
+const hasProcessConfigParameters = (row: TeamLeaderProcessConfigRowRespVO) =>
+  row.devices?.some((device) => device.parameters?.length) ?? false
+
+const formatProcessConfigAverage = (parameter: TeamLeaderProcessConfigParameterVO) => {
+  if (parameter.actualAverage === null || parameter.actualAverage === undefined) {
+    return '暂无样本'
+  }
+  const unit = parameter.unit ? ` ${parameter.unit}` : ''
+  return `${parameter.actualAverage}${unit}`
+}
+
+const formatProcessConfigStatisticsWindow = (parameter: TeamLeaderProcessConfigParameterVO) => {
+  const start = formatDateTimeValue(parameter.statisticsStartTime, '--')
+  const end = formatDateTimeValue(parameter.statisticsEndTime, '--')
+  return `${start} ~ ${end}（${parameter.statisticsWindowDays || 30}天）`
 }
 
 const resetLossReasonForm = () => {
@@ -2792,7 +3195,7 @@ const resetLossReasonForm = () => {
   lossReasonForm.remark = ''
 }
 
-const openCreateLossReason = (row: TeamLeaderLossReasonRowVO) => {
+const openCreateLossReason = (row: TeamLeaderProcessConfigRowRespVO) => {
   lossReasonDialogMode.value = 'create'
   lossReasonEditingRow.value = row
   lossReasonEditingReason.value = undefined
@@ -2801,7 +3204,7 @@ const openCreateLossReason = (row: TeamLeaderLossReasonRowVO) => {
 }
 
 const openEditLossReason = (
-  row: TeamLeaderLossReasonRowVO,
+  row: TeamLeaderProcessConfigRowRespVO,
   reason: TeamLeaderLossReasonVO
 ) => {
   lossReasonDialogMode.value = 'edit'
@@ -2849,7 +3252,7 @@ const submitLossReason = async () => {
     }
     ElMessage.success('损耗原因已保存')
     lossReasonDialogVisible.value = false
-    await loadLossReasonRows()
+    await loadProcessConfigRows()
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '损耗原因保存失败'))
   } finally {
@@ -2867,13 +3270,117 @@ const handleDeleteLossReason = async (reason: TeamLeaderLossReasonVO) => {
     lossReasonSubmitting.value = true
     await deleteTeamLeaderLossReason(reason.id)
     ElMessage.success('损耗原因已删除')
-    await loadLossReasonRows()
+    await loadProcessConfigRows()
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') {
       ElMessage.error(resolveErrorMessage(error, '损耗原因删除失败'))
     }
   } finally {
     lossReasonSubmitting.value = false
+  }
+}
+
+const resetProcessConfigParameterForm = () => {
+  processConfigParameterForm.deviceId = processConfigSelectedDevice.value?.deviceId
+  processConfigParameterForm.parameterCode = ''
+  processConfigParameterForm.parameterName = ''
+  processConfigParameterForm.unit = ''
+  processConfigParameterForm.lowerLimit = undefined
+  processConfigParameterForm.targetValue = undefined
+  processConfigParameterForm.upperLimit = undefined
+  processConfigParameterForm.valueType = 'DECIMAL'
+}
+
+const openProcessConfigDeviceDialog = (row: TeamLeaderProcessConfigRowRespVO) => {
+  processConfigSelectedRow.value = row
+  processConfigSelectedDevice.value = undefined
+  processConfigEditingParameter.value = undefined
+  processConfigDeviceForm.deviceId = row.devices?.[0]?.deviceId ?? processConfigDeviceOptions.value[0]?.deviceId
+  processConfigDeviceDialogVisible.value = true
+}
+
+const openProcessConfigParameterDialog = (
+  row: TeamLeaderProcessConfigRowRespVO,
+  device: TeamLeaderProcessConfigDeviceVO,
+  parameter?: TeamLeaderProcessConfigParameterVO
+) => {
+  processConfigSelectedRow.value = row
+  processConfigSelectedDevice.value = device
+  processConfigEditingParameter.value = parameter ?? device.parameters?.[0]
+  resetProcessConfigParameterForm()
+  if (processConfigEditingParameter.value) {
+    processConfigParameterForm.parameterCode = processConfigEditingParameter.value.parameterCode
+    processConfigParameterForm.parameterName = processConfigEditingParameter.value.parameterName || ''
+    processConfigParameterForm.unit = processConfigEditingParameter.value.unit || ''
+    processConfigParameterForm.lowerLimit = Number(processConfigEditingParameter.value.lowerLimit)
+    processConfigParameterForm.targetValue = Number(processConfigEditingParameter.value.targetValue)
+    processConfigParameterForm.upperLimit = Number(processConfigEditingParameter.value.upperLimit)
+    processConfigParameterForm.valueType = processConfigEditingParameter.value.valueType || 'DECIMAL'
+  }
+  processConfigParameterDialogVisible.value = true
+}
+
+const submitProcessConfigDeviceBinding = async () => {
+  const row = processConfigSelectedRow.value
+  if (!row) {
+    ElMessage.error('请先选择路线工序')
+    return
+  }
+  processConfigSubmitting.value = true
+  try {
+    await saveTeamProcessConfigDeviceBinding({
+      routeProcessId: requirePositiveNumber(row.routeProcessId, '路线工序不能为空'),
+      deviceId: requirePositiveNumber(processConfigDeviceForm.deviceId, '设备不能为空')
+    })
+    ElMessage.success('设备映射已保存')
+    processConfigDeviceDialogVisible.value = false
+    await loadProcessConfigRows()
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '设备映射保存失败'))
+  } finally {
+    processConfigSubmitting.value = false
+  }
+}
+
+const submitProcessConfigParameterRule = async () => {
+  const row = processConfigSelectedRow.value
+  const device = processConfigSelectedDevice.value
+  if (!row || !device) {
+    ElMessage.error('请先选择路线工序和设备')
+    return
+  }
+  const parameterCode = processConfigParameterForm.parameterCode.trim()
+  if (!parameterCode) {
+    ElMessage.error('参数编码不能为空')
+    return
+  }
+  const lowerLimit = requireFiniteNumber(processConfigParameterForm.lowerLimit, '参数下限不能为空')
+  const targetValue = requireFiniteNumber(processConfigParameterForm.targetValue, '参数目标值不能为空')
+  const upperLimit = requireFiniteNumber(processConfigParameterForm.upperLimit, '参数上限不能为空')
+  if (lowerLimit > targetValue || targetValue > upperLimit) {
+    ElMessage.error('参数区间必须满足下限 <= 目标值 <= 上限')
+    return
+  }
+  processConfigSubmitting.value = true
+  try {
+    await saveTeamProcessConfigDeviceParameterRule({
+      routeProcessId: requirePositiveNumber(row.routeProcessId, '路线工序不能为空'),
+      deviceId: requirePositiveNumber(device.deviceId, '设备不能为空'),
+      parameterCode,
+      parameterName: processConfigParameterForm.parameterName.trim() || undefined,
+      unit: processConfigParameterForm.unit.trim() || undefined,
+      lowerLimit,
+      targetValue,
+      upperLimit,
+      valueType: processConfigParameterForm.valueType
+    })
+    ElMessage.success('设备参数标准已保存')
+    processConfigParameterDialogVisible.value = false
+    await loadProcessConfigRows()
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '设备参数标准保存失败'))
+  } finally {
+    processConfigSubmitting.value = false
   }
 }
 
@@ -2999,6 +3506,7 @@ interface SubmissionStructuredItem {
   valueText: string
   metaText?: string
   outOfRange?: boolean
+  parameterStatus?: string
 }
 
 interface PqcFillFormSampleItem {
@@ -3225,7 +3733,10 @@ const resolveSubmissionLossBreakdownItems = (
       valueText: formatSubmissionQuantity(lossQuantity)
     }]
   }
-  const details = normalizeSubmissionArray(rootPayload?.lossReasonDetails)
+  const structuredLossDetails = row.lossDetails?.length
+    ? row.lossDetails
+    : normalizeSubmissionArray(rootPayload?.lossDetails || rootPayload?.lossReasonDetails)
+  const details = structuredLossDetails
     .map((item, index): SubmissionStructuredItem | undefined => {
       if (!isRecord(item)) {
         return undefined
@@ -3277,7 +3788,30 @@ const resolveSubmissionEquipmentItems = (
       .filter((item): item is SubmissionStructuredItem => Boolean(item))
     return items.length ? items : [{ key: 'empty-equipment', label: '设备', valueText: '--' }]
   }
+  if (row.selectedDevice) {
+    const deviceText = [
+      row.selectedDevice.deviceName || row.selectedDevice.deviceCode,
+      row.selectedDevice.deviceId ? `#${row.selectedDevice.deviceId}` : ''
+    ].filter(Boolean).join(' / ')
+    return [{
+      key: String(row.selectedDevice.deviceId || row.selectedDevice.deviceCode || 'selected-device'),
+      label: '选用设备',
+      valueText: deviceText || '--'
+    }]
+  }
   const { rootPayload } = resolvePqcPayloadPair(row)
+  const rawSelectedDevice = isRecord(rootPayload?.selectedDevice) ? rootPayload.selectedDevice : undefined
+  if (rawSelectedDevice) {
+    const deviceText = [
+      rawSelectedDevice.deviceName || rawSelectedDevice.deviceCode,
+      rawSelectedDevice.deviceId ? `#${rawSelectedDevice.deviceId}` : ''
+    ].filter(Boolean).join(' / ')
+    return [{
+      key: String(rawSelectedDevice.deviceId || rawSelectedDevice.deviceCode || 'selected-device'),
+      label: '选用设备',
+      valueText: deviceText || '--'
+    }]
+  }
   const equipmentParameters = readSubmissionNestedRecord(rootPayload, 'equipmentParameters')
   const deviceText = readSubmissionPayloadValue(rootPayload, ['DEVICE'])
   const deviceLabels = equipmentParameters
@@ -3419,8 +3953,38 @@ const resolveProductionParameterRule = (
 }
 
 const resolveProductionParameterItems = (
-  payload: PqcSubmissionPayloadRecord | undefined
+  payload: PqcSubmissionPayloadRecord | undefined,
+  deviceParameterReadings?: unknown[]
 ): SubmissionStructuredItem[] => {
+  if (deviceParameterReadings?.length) {
+    const items = deviceParameterReadings
+      .map((item, index): SubmissionStructuredItem | undefined => {
+        if (!isRecord(item)) {
+          return undefined
+        }
+        const parameterStatus = formatSubmissionText(item.parameterStatus, 'NORMAL')
+        const unit = formatSubmissionText(item.unit, '')
+        const abnormal =
+          parameterStatus === 'ABOVE_UPPER' ||
+          parameterStatus === 'BELOW_LOWER' ||
+          isValueOutOfRange(item.value, item.lowerLimit, item.upperLimit)
+        return {
+          key: String(item.parameterCode || index),
+          label: [
+            formatSubmissionText(item.deviceName || item.deviceCode, ''),
+            formatSubmissionText(item.parameterName || item.parameterCode, '参数')
+          ].filter(Boolean).join(' · '),
+          valueText: `${formatSubmissionText(item.value)}${unit}`,
+          metaText: formatParameterRangeText(item.lowerLimit, item.upperLimit, unit),
+          outOfRange: abnormal,
+          parameterStatus
+        }
+      })
+      .filter((item): item is SubmissionStructuredItem => Boolean(item))
+    if (items.length) {
+      return items
+    }
+  }
   const equipmentParameters = readSubmissionNestedRecord(payload, 'equipmentParameters')
   if (!equipmentParameters) {
     return [{ key: 'empty-parameter', label: '参数', valueText: '--' }]
@@ -3443,7 +4007,10 @@ const resolveProductionParameterItems = (
         label: [deviceLabel, rule?.parameterName || parameterCode].filter(Boolean).join(' · '),
         valueText: `${formatSubmissionText(value)}${unit}`,
         metaText: formatParameterRangeText(rule?.lowerLimit, rule?.upperLimit, unit),
-        outOfRange: isValueOutOfRange(value, rule?.lowerLimit, rule?.upperLimit)
+        outOfRange: isValueOutOfRange(value, rule?.lowerLimit, rule?.upperLimit),
+        parameterStatus: isValueOutOfRange(value, rule?.lowerLimit, rule?.upperLimit)
+          ? 'ABNORMAL'
+          : 'NORMAL'
       })
     })
   })
@@ -3476,7 +4043,12 @@ const resolveSubmissionParameterItems = (
   const { rootPayload } = resolvePqcPayloadPair(row)
   return isPqcSubmissionRow(row)
     ? resolvePqcParameterItems(row)
-    : resolveProductionParameterItems(rootPayload)
+    : resolveProductionParameterItems(
+        rootPayload,
+        row.deviceParameterReadings?.length
+          ? row.deviceParameterReadings
+          : normalizeSubmissionArray(rootPayload?.deviceParameterReadings)
+      )
 }
 
 const formatPqcSnapshotSampleValues = (detail: PqcItemSnapshotDetail) =>
@@ -3661,7 +4233,7 @@ const applySubmissionMultiFilter = async () => {
   await applySubmissionMultiFilterState()
 }
 
-const resetSubmissionMultiFilter = () => {
+const resetSubmissionMultiFilter = async () => {
   const leaderType = activeLeaderTab.value
   updateSubmissionMultiFilterState({ conditions: [], activeConditionId: undefined })
   clearSubmissionMultiFilterParams()
@@ -3670,6 +4242,7 @@ const resetSubmissionMultiFilter = () => {
   submissionList.value = []
   submissionTotal.value = 0
   loadError.value = ''
+  await getSubmissionList()
 }
 
 const handleLeaderTypeChange = async (value: string | number) => {
@@ -3681,13 +4254,13 @@ const handleLeaderTypeChange = async (value: string | number) => {
     loadActiveOrders().catch((error) => {
       ElMessage.error(resolveErrorMessage(error, '活跃订单加载失败'))
     })
-    loadLossReasonRows().catch((error) => {
-      ElMessage.error(resolveErrorMessage(error, '损耗原因标准列表加载失败'))
+    loadProcessConfigRows().catch((error) => {
+      ElMessage.error(resolveErrorMessage(error, '工序配置列表加载失败'))
     })
   } else {
     refreshPqcPersonnel()
   }
-  resetSubmissionMultiFilter()
+  await resetSubmissionMultiFilter()
 }
 
 const openDetail = async (event: ProcessPoolTimelineEventVO) => {
@@ -3885,6 +4458,7 @@ const submitAbnormal = async () => {
   try {
     await markAndReportWorkOrderAbnormal({
       workOrderId: requireSelectedActiveOrderWorkOrderId(),
+      abnormalReasonCode: abnormalForm.abnormalReasonCode.trim(),
       abnormalDescription: abnormalForm.abnormalDescription.trim()
     })
     ElMessage.success('异常已上报')
@@ -4114,21 +4688,6 @@ const submitTeamDeviceStatus = async () => {
   }
 }
 
-const submitProcessDeviceBinding = async () => {
-  maintenanceSubmitting.value = true
-  try {
-    await saveTeamProcessDeviceBinding({
-      processId: requirePositiveNumber(processDeviceBindingForm.processId, '工序ID不能为空'),
-      deviceId: requirePositiveNumber(processDeviceBindingForm.deviceId, '设备ID不能为空')
-    })
-    ElMessage.success('工序设备关系已保存')
-  } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '工序设备关系保存失败'))
-  } finally {
-    maintenanceSubmitting.value = false
-  }
-}
-
 const submitProcessDefectReason = async () => {
   maintenanceSubmitting.value = true
   try {
@@ -4157,28 +4716,6 @@ const submitProcessDefectReason = async () => {
   }
 }
 
-const submitRuntimeDeviceRule = async () => {
-  maintenanceSubmitting.value = true
-  try {
-    await saveTeamRuntimeDeviceParameterRule({
-      processId: requirePositiveNumber(deviceRuleForm.processId, '工序ID不能为空'),
-      deviceId: requirePositiveNumber(deviceRuleForm.deviceId, '设备ID不能为空'),
-      parameterCode: deviceRuleForm.parameterCode.trim(),
-      parameterName: deviceRuleForm.parameterName.trim() || undefined,
-      unit: deviceRuleForm.unit.trim() || undefined,
-      lowerLimit: requireFiniteNumber(deviceRuleForm.lowerLimit, '参数下限不能为空'),
-      upperLimit: requireFiniteNumber(deviceRuleForm.upperLimit, '参数上限不能为空'),
-      defaultValue: normalizeFiniteNumber(deviceRuleForm.defaultValue),
-      valueType: deviceRuleForm.valueType
-    })
-    ElMessage.success('设备参数已保存')
-  } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '设备参数保存失败'))
-  } finally {
-    maintenanceSubmitting.value = false
-  }
-}
-
 const formatDateTime = (value?: string | number | Date) => formatDateTimeValue(value, '--')
 
 const resolvePqcTagType = (pqcResult?: string) => {
@@ -4195,8 +4732,8 @@ onMounted(() => {
     loadActiveOrders().catch((error) => {
       ElMessage.error(resolveErrorMessage(error, '活跃订单调拨库存追溯加载失败'))
     })
-    loadLossReasonRows().catch((error) => {
-      ElMessage.error(resolveErrorMessage(error, '损耗原因标准列表加载失败'))
+    loadProcessConfigRows().catch((error) => {
+      ElMessage.error(resolveErrorMessage(error, '工序配置列表加载失败'))
     })
   } else {
     refreshPqcPersonnel()
@@ -4279,6 +4816,24 @@ onMounted(() => {
 
 .team-leader-workbench__pqc-personnel-name.is-disabled {
   color: #f56c6c;
+}
+
+:deep(.team-leader-workbench__pqc-candidate-option--occupied) {
+  color: #f56c6c;
+}
+
+.team-leader-workbench__pqc-candidate-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.team-leader-workbench__pqc-candidate-disabled-reason {
+  color: #f56c6c;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .team-leader-workbench__personnel-dialog-header {
@@ -4511,6 +5066,11 @@ onMounted(() => {
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.team-leader-workbench__parameter-value.is-parameter-out-of-range {
+  color: #dc2626;
+  font-weight: 700;
 }
 
 .team-leader-workbench__review-log {

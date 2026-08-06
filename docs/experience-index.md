@@ -59,6 +59,7 @@
 
 - PowerShell 命令编排 / 中文编码 / 终端输出预检：先读权威共同规则 `E:\IntRuoyi\docs\powershell-memory.md`，维护仓专项增量再读 `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\powershell-preflight-lessons.md`
 - Keywords: PowerShell 分号串联测试, cmd1; cmd2, Node 静态合同串联, 中间测试失败被最后 PASS 掩盖, `$LASTEXITCODE`, 逐条测试退出码 -> `docs/powershell-memory.md#powershell-分号串联测试退出码门禁`
+- Keywords: task-state 并行写入, record_phase_review, record_test_review, check_completion --apply, render_task_status, blocking_prereqs 丢失, 阶段状态回退, P4 pending blocked 覆盖, 状态脚本串行 -> `docs/powershell-memory.md#任务状态脚本串行写入门禁`
 - Keywords: git index.lock, Unable to create .git/index.lock, File exists, 陈旧 Git 锁, 零字节 index lock, 活动 git 进程 -> `docs/powershell-memory.md#git-indexlock-陈旧锁恢复门禁`
 - Keywords: PowerShell 字面管道字符, TypeScript 类型联合, command string pipe, apply_patch ACL, 文件长度变 0, PowerShell 写入超时截断, Set-Content 写源码, 反引号 r n 字面量, import 追加非法字符 -> `docs/powershell-memory.md#powershell-命令文本管道字符门禁`
 - Keywords: 静态合同缩进定位, Vue SFC 弹框块定位, el-dialog class 回找, CRLF LF, source.indexOf 精确缩进失败 -> `docs/e2e-rules.md#windows-换行与脚本行为同步`
@@ -74,6 +75,7 @@
 - Keywords: Playwright CLI daemon residual, cliDaemon.js, .playwright-cli page snapshot, page-*.yml, output/playwright task directory lock, 登录页预填字段快照, stop task-owned daemon only -> `docs/e2e-rules.md#playwright-快照与-daemon-收尾门禁`
 - Keywords: e2e-result 被覆盖, result.json 被旧 run 污染, result.json targetRequests 非 JSON object, result.json targetRequests 与 Markdown Target Request 不一致, result.json targetRequests label 缺失, result.json targetRequests url 缺失, result.json targetRequests method 缺失, result.json targetRequests httpStatus 缺失, result.json targetRequests businessCode 缺失, result.json targetResponseIdentities 非 JSON object, result.json targetResponseIdentities field 缺失, result.json targetResponseIdentities value 缺失, result.json targetResponseIdentities sourceRequestLabel, result.json targetResponseIdentities sourceRequestLabel 缺失, 响应身份来源请求 label, targetResponseIdentities 与 targetRequests label 集合不一致, targetRequestEvidenceFlushed, Business Code flush, Markdown 目标请求成功但 JSON 指向旧后端, verification-report 被覆盖, final-readonly-db-verification 被覆盖, Markdown evidence 与 Playwright result 不一致, 主链路 PASS 被扩展诊断覆盖, viewer linkage 可选断言, traceability 可选诊断, DCC 原版发布 resume 覆盖结果, 同任务目录多个 Playwright 脚本共享结果文件, completion gate 跨 task root 读取其它 worktree result -> `docs/e2e-rules.md#真实-e2e-主链路与扩展诊断产物隔离门禁`
 - Keywords: PowerShell Maven -D, -Dsurefire.failIfNoSpecifiedTests, -Dtest, Unknown lifecycle phase, 目标 JUnit 加引号 -> `docs/powershell-memory.md#powershell-maven--d-参数引号门禁`
+- Keywords: Surefire user.dir, JUnit 静态源码合同, Files.readString, Path.of src main java, readSource, NoSuchFileException, 重复模块路径, yudao-module-mes yudao-module-mes src, validator 实现类断言 -> `docs/powershell-memory.md#maven-静态源码合同工作目录门禁`
 - Keywords: IncrementalBuildHelper.beforeRebuildExecution, WinNTFileSystem.delete0, Windows Maven 增量输出删除卡住, Maven 无 surefire 报告, 仅停止任务自有 Maven PID -> `docs/backend-development.md#2026-07-27-windows-maven-增量输出删除卡住门禁`
 - Keywords: target classes NoSuchFileException, Maven target cleanup stuck, WinNTFileSystem.delete0, getBooleanAttributes0, 同模块类大量缺失, DCC target 损坏, 不叠加 Maven 命令 -> `docs/powershell-memory.md#maven-目标目录文件系统异常门禁`
 - Keywords: detached verification worktree, isolated Maven target, git worktree add --detach, 主工作区 Maven target 冲突, 共享 target 并发 Maven, DCC target 隔离验证, 不启动服务不登记端口 -> `docs/worktree-memory.md#主工作区-maven-target-冲突时的隔离验证-worktree-门禁`
@@ -110,6 +112,7 @@
 - Keywords: Vite import-analysis Failed to resolve import / controlled-file/logs/index.vue / 前端源码 logs 目录被 .gitignore logs/ 忽略 / git check-ignore -> `docs/frontend-development.md#前端源码目录与-gitignore-门禁`
 - Keywords: 既有大契约先失败, 最小静态契约, 专用 static.spec.js, 当前需求 RED/GREEN, 无关 ts:check blocker -> `docs/frontend-development.md#前端静态契约隔离门禁`
 - Keywords: 复合输入控件, 复制不替代选择, 可复制下拉, el-select 远程搜索, automatic-dropdown, remote-show-suffix, data-qa-regulation-project-dropdown, 项目代码输入框支持选择下拉 -> `docs/frontend-development.md#复合输入控件交互保留门禁`
+- Keywords: 多角色共享表格, 角色列池隔离, 用户列设置串用, productionSubmissionDefaultColumns, pqcSubmissionDefaultColumns, active column control, PQC提交内容误进生产列设置, v-if 只隐藏渲染不隔离列配置 -> `docs/frontend-development.md#多角色共享表格列池隔离门禁`
 - Keywords: Vue scoped slot, #table slot props, template #table, UnifiedListTemplate table slot, 静态合同缺少 table slot, 具名 slot 正则 -> `docs/frontend-development.md#vue-scoped-slot-静态合同门禁`
 - Keywords: 截图样式块, 局部颜色, 选中态, 高亮态, 状态条, active tab 黄色背景, 伪元素, &::before, 过宽正则, `[\s\S]*` 跨块误命中, 抽取目标状态块 -> `docs/frontend-development.md#前端截图样式块静态契约门禁`
 - Keywords: UnifiedListTemplate, 标准列表多维筛选, TableMultiFilter, 条件 Tab, 默认空条件, setCondition 预置隐藏筛选, addConditionTab, removeActiveConditionTab, activeConditionId, 快速过滤, 复合工具栏, flex 0宽, 筛选控件不可见, multi-filter 0 width, 正式 query 透传, 交集查询, 重复正式参数校验, 不发送 multiFilters, 禁止页面级 maxInlineFilters 特例, 同页多列表, 同步工单, showMultiFilter 显式接入, definitions state events, 旧 quick filter 残留 -> `docs/frontend-development.md#统一列表复合工具栏布局门禁`
@@ -173,6 +176,7 @@
 - Keywords: 真实 E2E 阶段归因, full-chain 后续阶段失败, 目标阶段已保存, adminSave, 后续路线绑定断言失败, 不宣称 full-chain PASS, 阶段性证据字段 -> `docs/e2e-rules.md#真实-e2e-阶段归因门禁`
 - Keywords: 真实 E2E 页面加载判据, 批次执行详情, 页面批号等待超时, 内部执行号, 生产批号, 接口命中目标 ID, 工序组渲染, 样式 class 颜色断言, 无 MES 写请求 -> `docs/e2e-rules.md#真实-e2e-页面加载判据门禁`
 - Keywords: worktree E2E 成对 URL, int_main 主端口 E2E, 8081 48081, EDHR_RELEASE_DOSSIER_E2E_BASE_URL, EDHR_RELEASE_DOSSIER_E2E_BACKEND_URL, 同一 runtime slot, 48081 旧 jar, 8086 48086 -> `docs/e2e-rules.md#worktree--int_main-运行态-url-门禁`
+- Keywords: Vite 动态导入 500, Failed to fetch dynamically imported module, Attribute name cannot contain, Vue 编译 overlay, Git 冲突标记, 锚定扫描 conflict markers, 真实 E2E 页面根节点等待超时 -> `docs/e2e-rules.md#vite-动态导入-500-与冲突标记门禁`
 - Keywords: 主工作区端口被并行任务占用, 48081 被无关任务占用, 旧 Jar 不能作为修复验证, 成对 worktree 运行态, 8090 48090, reserve-worktree-slot, 前后端 PID 归属, 第三方报工真实 E2E -> `docs/worktree-memory.md#主工作区端口被并行任务占用时的成对运行态门禁`
 - Keywords: Execution context was destroyed, Playwright 登录导航竞争, page.evaluate localStorage.clear, 全新 browser.newContext, 登录页自动重定向, 二次导航登录, fresh context storage -> `docs/e2e-rules.md#playwright-全新上下文登录导航竞争门禁`
 - Keywords: worktree 真实 E2E env, .env.local, VITE_APP_CAPTCHA_ENABLE=false, 登录页验证码已开启, slot 前端代理后端端口, 8088 48088 -> `docs/worktree-memory.md#worktree-真实-e2e-运行产物门禁`

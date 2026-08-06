@@ -678,8 +678,25 @@
                 </button>
                 <input
                   class="device-value"
+                  :class="{
+                    'is-parameter-out-of-range': resolveProductionParameterStatus(
+                      getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode),
+                      parameter
+                    ) !== 'NORMAL'
+                  }"
                   :id="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
                   :value="getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode)"
+                  :data-parameter-status="resolveProductionParameterStatus(
+                    getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode),
+                    parameter
+                  )"
+                  :aria-label="[
+                    parameter.parameterName || parameter.parameterCode,
+                    resolveProductionParameterStatus(
+                      getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode),
+                      parameter
+                    ) === 'NORMAL' ? '' : '参数异常'
+                  ].filter(Boolean).join('，')"
                   inputmode="decimal"
                   @input="updateProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, $event)"
                 />
@@ -765,7 +782,11 @@ import {
   type FrontlinePqcEquipmentOptionVO,
   type FrontlinePqcInspectionSubmitReqVO,
   type FrontlineRuntimeDeviceParameterVO,
-  type ProFrontlineFeedbackSubmitReqVO
+  type ProFrontlineDeviceParameterReadingReqVO,
+  type ProFrontlineFeedbackSubmitReqVO,
+  type ProFrontlineLossDetailReqVO,
+  type ProFrontlineParameterStatus,
+  type ProFrontlineSelectedDeviceReqVO
 } from '@/api/mes/pro/feedback'
 import { useUserStore } from '@/store/modules/user'
 import {
@@ -805,6 +826,9 @@ interface ProductionDefectOption {
 
 interface ProductionDeviceCard {
   key: string
+  deviceId: number
+  deviceCode?: string
+  deviceName?: string
   label: string
   parameters: FrontlineRuntimeDeviceParameterVO[]
 }
@@ -932,10 +956,6 @@ const productionScrapQuantity = computed(() =>
     (total, defect) => total + (productionDefectDraft[defect.key] || 0),
     0
   )
-)
-
-const selectedLossReasonId = computed(() =>
-  configuredDefectReasons.value.find((defect) => (productionDefectDraft[defect.key] || 0) > 0)?.reasonId
 )
 
 const pqcInspectionQuantity = computed(() =>
@@ -1085,6 +1105,9 @@ const configuredDeviceCards = computed<ProductionDeviceCard[]>(() =>
     .filter((device) => Number(device.deviceId || 0) > 0)
     .map((device, index) => ({
       key: String(device.deviceId),
+      deviceId: device.deviceId,
+      deviceCode: device.deviceCode,
+      deviceName: device.deviceName,
       label: device.deviceName || device.deviceCode || `设备 ${index + 1}`,
       parameters: device.parameters || []
     }))
@@ -1247,6 +1270,33 @@ function normalizeProductionParameter(value: unknown) {
     return undefined
   }
   return Math.max(0, parsed)
+}
+
+const toFiniteProductionParameterNumber = (value: unknown) => {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return undefined
+  }
+  const parsed = Number(String(value).replace(/,/g, '').trim())
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+const resolveProductionParameterStatus = (
+  value: unknown,
+  parameter: FrontlineRuntimeDeviceParameterVO
+): ProFrontlineParameterStatus => {
+  const numericValue = toFiniteProductionParameterNumber(value)
+  if (numericValue === undefined) {
+    return 'NORMAL'
+  }
+  const lowerLimit = toFiniteProductionParameterNumber(parameter.lowerLimit)
+  const upperLimit = toFiniteProductionParameterNumber(parameter.upperLimit)
+  if (lowerLimit !== undefined && numericValue < lowerLimit) {
+    return 'BELOW_LOWER'
+  }
+  if (upperLimit !== undefined && numericValue > upperLimit) {
+    return 'ABOVE_UPPER'
+  }
+  return 'NORMAL'
 }
 
 const updateProductionOutputQuantity = (event: Event) => {
@@ -2149,12 +2199,10 @@ const buildFrontlineFormalSubmitPayload = (
 ): ProFrontlineFeedbackSubmitReqVO => {
   const formalContext = readFrontlineFormalSubmitContext()
   assertFrontlineFormalSubmitContext(formalContext)
-  const equipmentParameters = Object.fromEntries(
-    visibleDeviceCards.value.map((device) => [
-      device.label,
-      buildProductionDeviceParameterPayload(device.key)
-    ])
-  )
+  const selectedDevice = activeProductionDevice.value
+  const equipmentParameters = selectedDevice
+    ? { [selectedDevice.label]: buildProductionDeviceParameterPayload(selectedDevice.key) }
+    : {}
   return {
     feedbackPayload: {
       code: formalContext.feedbackCode!,
@@ -2171,7 +2219,9 @@ const buildFrontlineFormalSubmitPayload = (
       scheduledQuantity: formalContext.scheduledQuantity,
       outputQuantity: productionDraft.outputQuantity!,
       lossQuantity: productionScrapQuantity.value,
-      lossReasonId: selectedLossReasonId.value,
+      lossDetails: buildProductionLossDetailsPayload(),
+      selectedDevice: buildProductionSelectedDevicePayload(),
+      deviceParameterReadings: buildProductionDeviceParameterReadingsPayload(),
       laborScrapQuantity: productionScrapQuantity.value,
       materialScrapQuantity: 0,
       otherScrapQuantity: 0,
@@ -2225,21 +2275,62 @@ const buildProductionDeviceParameterPayload = (deviceKey: string) => {
   )
 }
 
-const buildProductionLossReasonDetailsPayload = () =>
+const buildProductionLossDetailsPayload = (): ProFrontlineLossDetailReqVO[] =>
   configuredDefectReasons.value
     .map((defect) => ({
       reasonId: defect.reasonId,
-      reasonCode: defect.key,
+      reasonCode: defect.reasonCode,
       reasonName: defect.label,
       quantity: productionDefectDraft[defect.key] || 0
     }))
     .filter((defect) => defect.quantity > 0)
 
+const buildProductionSelectedDevicePayload = (): ProFrontlineSelectedDeviceReqVO | undefined => {
+  const device = activeProductionDevice.value
+  if (!device) {
+    return undefined
+  }
+  return {
+    deviceId: device.deviceId,
+    deviceCode: device.deviceCode,
+    deviceName: device.deviceName || device.label
+  }
+}
+
+const buildProductionDeviceParameterReadingsPayload =
+  (): ProFrontlineDeviceParameterReadingReqVO[] => {
+    const device = activeProductionDevice.value
+    if (!device) {
+      return []
+    }
+    return device.parameters
+      .map<ProFrontlineDeviceParameterReadingReqVO | undefined>((parameter) => {
+        const value = getProductionDeviceParameter(device.key, parameter.parameterCode)
+        const numericValue = toFiniteProductionParameterNumber(value)
+        if (numericValue === undefined) {
+          return undefined
+        }
+        return {
+          deviceId: device.deviceId,
+          deviceCode: device.deviceCode,
+          deviceName: device.deviceName || device.label,
+          parameterCode: parameter.parameterCode,
+          parameterName: parameter.parameterName,
+          unit: parameter.unit,
+          value: numericValue,
+          lowerLimit: parameter.lowerLimit,
+          upperLimit: parameter.upperLimit,
+          parameterStatus: resolveProductionParameterStatus(value, parameter)
+        }
+      })
+      .filter((item): item is ProFrontlineDeviceParameterReadingReqVO => item !== undefined)
+  }
+
 const buildProductionEquipmentParameterRulesPayload = () =>
-  Object.fromEntries(
-    visibleDeviceCards.value.map((device) => [
-      device.label,
-      device.parameters.map((parameter) => ({
+  activeProductionDevice.value
+    ? Object.fromEntries([[
+      activeProductionDevice.value.label,
+      activeProductionDevice.value.parameters.map((parameter) => ({
         parameterCode: parameter.parameterCode,
         parameterName: parameter.parameterName,
         unit: parameter.unit,
@@ -2247,28 +2338,31 @@ const buildProductionEquipmentParameterRulesPayload = () =>
         upperLimit: parameter.upperLimit,
         valueType: parameter.valueType
       }))
-    ])
-  )
+    ]])
+    : {}
 
 const buildProductionStructuredRawPayload = (rawPayload: FrontlineTemplatePayloadVO) => ({
   ...rawPayload,
-  lossReasonDetails: buildProductionLossReasonDetailsPayload(),
+  lossDetails: buildProductionLossDetailsPayload(),
+  lossReasonDetails: buildProductionLossDetailsPayload(),
+  selectedDevice: buildProductionSelectedDevicePayload(),
+  deviceParameterReadings: buildProductionDeviceParameterReadingsPayload(),
   equipmentParameterRules: buildProductionEquipmentParameterRulesPayload()
 })
 
-const buildProductionFieldValues = () => ({
-  [FRONTLINE_FIELD_CODES.DEVICE]: visibleDeviceCards.value.length
-    ? visibleDeviceCards.value.map((device) => device.label).join('、')
-    : '无设备',
-  [FRONTLINE_FIELD_CODES.DEVICE_PARAMETERS]: Object.fromEntries(
-    visibleDeviceCards.value.map((device) => [
-      device.label,
-      buildProductionDeviceParameterPayload(device.key)
-    ])
-  ),
-  [FRONTLINE_FIELD_CODES.OUTPUT_QUANTITY]: productionDraft.outputQuantity,
-  [FRONTLINE_FIELD_CODES.SCRAP_QUANTITY]: productionScrapQuantity.value
-})
+const buildProductionFieldValues = () => {
+  const selectedDevice = activeProductionDevice.value
+  return {
+    [FRONTLINE_FIELD_CODES.DEVICE]: selectedDevice ? selectedDevice.label : '无设备',
+    [FRONTLINE_FIELD_CODES.DEVICE_PARAMETERS]: selectedDevice
+      ? {
+          [selectedDevice.label]: buildProductionDeviceParameterPayload(selectedDevice.key)
+        }
+      : {},
+    [FRONTLINE_FIELD_CODES.OUTPUT_QUANTITY]: productionDraft.outputQuantity,
+    [FRONTLINE_FIELD_CODES.SCRAP_QUANTITY]: productionScrapQuantity.value
+  }
+}
 
 const buildPqcFieldValues = () => ({
   [FRONTLINE_FIELD_CODES.PQC_RESULT]: resolvePqcResult()
@@ -3076,6 +3170,12 @@ onUnmounted(() => {
 
   input {
     font-size: 52px;
+
+    &.is-parameter-out-of-range {
+      border-color: #dc2626;
+      background: #fff1f2;
+      color: #b91c1c;
+    }
   }
 
   span {

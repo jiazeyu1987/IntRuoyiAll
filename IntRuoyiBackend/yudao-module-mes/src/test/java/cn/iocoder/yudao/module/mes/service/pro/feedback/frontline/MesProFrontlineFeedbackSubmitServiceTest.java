@@ -15,6 +15,7 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,6 +43,8 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     private MesFrontlineSubmitAuthorizationService submitAuthorizationService;
     @Mock
     private MesFrontlineLossReasonValidator lossReasonValidator;
+    @Mock
+    private MesFrontlineDeviceParameterValidator deviceParameterValidator;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -53,6 +56,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                 processPoolSubmitEventService,
                 submitAuthorizationService,
                 lossReasonValidator,
+                deviceParameterValidator,
                 new MesProFrontlineFeedbackPayloadSplitter());
     }
 
@@ -91,7 +95,10 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             assertEquals("PRODUCTION_SIMPLE", command.templateNo());
             return true;
         }));
-        inOrder.verify(lossReasonValidator).requireEnabledLossReason(71L, 8301L, new BigDecimal("2.500"));
+        inOrder.verify(lossReasonValidator).requireEnabledLossReasons(
+                71L,
+                MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails(),
+                new BigDecimal("2.500"));
         inOrder.verify(feedbackService).createFeedback(argThat(payload -> {
             assertEquals(new BigDecimal("100.500"), payload.getFeedbackQuantity());
             assertEquals(new BigDecimal("2.500"), payload.getUnqualifiedQuantity());
@@ -154,7 +161,10 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
     @Test
     void shouldRejectDisabledOrCrossRouteProcessLossReasonBeforeWritingAnyRecord() {
-        when(lossReasonValidator.requireEnabledLossReason(71L, 8301L, new BigDecimal("2.500")))
+        when(lossReasonValidator.requireEnabledLossReasons(
+                71L,
+                MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails(),
+                new BigDecimal("2.500")))
                 .thenThrow(new IllegalStateException("损耗原因不属于当前工序或已禁用"));
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -164,7 +174,10 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         }
 
         verify(submitAuthorizationService).authorize(any());
-        verify(lossReasonValidator).requireEnabledLossReason(71L, 8301L, new BigDecimal("2.500"));
+        verify(lossReasonValidator).requireEnabledLossReasons(
+                71L,
+                MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails(),
+                new BigDecimal("2.500"));
         verify(feedbackService, never()).createFeedback(any());
         verifyNoInteractions(recordbookEntryService, processPoolSubmitEventService);
     }
@@ -237,7 +250,10 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     }
 
     private void stubValidLossReason() {
-        when(lossReasonValidator.requireEnabledLossReason(71L, 8301L, new BigDecimal("2.500")))
-                .thenReturn(new MesFrontlineLossReasonSnapshot(8301L, "LOSS-001", "正常损耗"));
+        when(lossReasonValidator.requireEnabledLossReasons(
+                71L,
+                MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails(),
+                new BigDecimal("2.500")))
+                .thenReturn(List.of(new MesFrontlineLossReasonSnapshot(8301L, "LOSS-001", "正常损耗")));
     }
 }

@@ -10,6 +10,6 @@ import lombok.experimental.Accessors;
 public class MesTeamProcessDeviceBindingSaveReqBO {
 
     private Long leaderUserId;
-    private Long processId;
+    private Long routeProcessId;
     private Long deviceId;
 }

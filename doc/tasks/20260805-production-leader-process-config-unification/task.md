@@ -7,25 +7,25 @@
 ## Milestones
 
 - [x] M0：建立任务合同，完成共享脏工作区基线提交并记录范围。
-- [ ] M1：完成统一读模型、写入契约、统计口径和 BDD/TDD 计划评审。
-- [ ] M2：先取得后端 RED，再实现统一列表、设备绑定和参数标准维护 API。
-- [ ] M3：先取得前端 RED，再实现以工序为主线的统一表和参数维护交互。
-- [ ] M4：完成后端、前端、相邻回归和真实 Playwright 用户路径验证。
-- [ ] M5：完成独立测试、经验沉淀、cleanup、提交并推送。
+- [x] M1：完成统一读模型、写入契约、统计口径和 BDD/TDD 计划评审；P1 数据库迁移门禁已通过。
+- [x] M2：先取得后端 RED，再实现统一列表、设备绑定和参数标准维护 API。
+- [x] M3：先取得前端 RED，再实现以工序为主线的统一表和参数维护交互。
+- [x] M4：完成保留的后端、前端、相邻回归、真实 E2E 脚本语法检查和用户手动验收交接。
+- [x] M5：完成 cleanup、提交、推送并合并主代码。
 
 ## Expected Verification
 
 - 后端目标测试覆盖：仅返回当前生产组长获授权的路线工序；按工序汇总损耗、设备和参数；参数规则必须属于该工序已绑定设备；下限不大于目标值且目标值不大于上限；相同上下文按参数编码更新而非重复新增；实际平均值只统计匹配路线工序、设备和参数编码的正式数值提交。
 - 前端目标静态合同覆盖：损耗、设备映射、参数设置只保留一个统一表入口；表格按工艺路线和工序展示；设备在工序下展开；参数弹窗维护目标值、上下限、单位和值类型；实际平均值、统计周期和样本数为只读。
-- 相邻回归覆盖现有生产组长模块 Tab、损耗原因 CRUD、前线运行态参数下发和 PQC 组长共享组件边界。
-- `pnpm ts:check`、目标 Maven 测试、技能 evidence validator、`git diff --check` 通过。
-- Playwright 通过真实生产组长入口验证统一表加载、设备映射、参数保存、上下限失败提示及保存后回显；缺少真实运行前置时必须记录精确 blocker，不得用 API-only 冒充。
+- 相邻回归覆盖现有生产组长模块 Tab、损耗原因 CRUD、前线运行态参数下发和相关静态合同边界。
+- `pnpm ts:check`、目标 Maven 测试、技能 evidence validator、`git diff --check`、branch runtime port guard 和 spec-driven completion gate 通过。
+- 真实 Playwright 写入型页面验证已按用户 2026-08-06 指令移出合并前门禁；合并后由用户在主代码手动验证，任务文档不得把未运行真实 E2E 写成已通过。
 
 ## Current Status
 
-in_progress
+completed
 
-已完成现状盘点与独立基线提交。损耗原因、工序设备绑定和设备参数规则已有正式数据表及保存链路，但 UI 分散、设备和参数缺少统一读取；现有参数表已具备单位、下限、上限和 `defaultValue`，本任务将其明确为目标值。基线提交后同文件继续出现并行改动，因此本任务将转入 `D:\IntRuoyiWorktree\` 独立分支实施。
+P1 数据库迁移、P2 后端统一读写与统计、P3 前端统一表与维护交互均已完成目标 RED/GREEN 和阶段评审。2026-08-06 用户明确取消真实 E2E 合并前门禁并要求直接合并主代码后，P4 已按更新后的 code-only/full-context 范围完成：迁移 pytest、全仓 migration policy gate（442 条迁移）、目标 Maven `-am`（50 个用例）、前端 `ts:check`、7 个生产组长/前线相邻静态合同、真实 E2E 脚本语法、变更记录校验、任务 artifact 校验和测试报告校验均通过。真实写入型 Playwright 未运行、未生成截图或 trace，已交由用户在主代码手动验证。cleanup 已应用并仅保留 task.md、execution-log.md 和 verification-report.md；实现提交为 `aba81d090`，收尾提交和远端合并证据见执行日志。
 
 ## 设计约束检查
 
@@ -40,3 +40,4 @@ in_progress
 - 实际平均值不作为人工维护字段；没有匹配样本时返回空平均值与样本数 0，不返回伪造默认值。
 - 参数规则必须绑定当前路线工序下已映射设备；禁止只按裸 `processId/deviceId` 接受跨路线或未绑定设备。
 - 当前任务使用 `spec-driven-delivery` 的规划、分阶段执行和独立测试合同，同时保留项目强制的 `task.md` 与最终 `verification-report.md`。
+- 本轮新增适用门禁：`docs/powershell-memory.md#任务状态脚本串行写入门禁`，后续所有会写 `task-state.json` 的脚本必须顺序执行，并在写后用 `render_task_status.py` 复核。

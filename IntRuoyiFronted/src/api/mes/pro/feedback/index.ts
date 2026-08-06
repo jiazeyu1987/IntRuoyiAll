@@ -78,6 +78,34 @@ export interface ProFeedbackVO {
   approvalImpactText?: string
 }
 
+export interface ProFrontlineLossDetailReqVO {
+  reasonId: number
+  reasonCode?: string
+  reasonName?: string
+  quantity: number
+}
+
+export interface ProFrontlineSelectedDeviceReqVO {
+  deviceId: number
+  deviceCode?: string
+  deviceName?: string
+}
+
+export type ProFrontlineParameterStatus = 'NORMAL' | 'BELOW_LOWER' | 'ABOVE_UPPER'
+
+export interface ProFrontlineDeviceParameterReadingReqVO {
+  deviceId: number
+  deviceCode?: string
+  deviceName?: string
+  parameterCode: string
+  parameterName?: string
+  unit?: string
+  value?: number
+  lowerLimit?: number | string
+  upperLimit?: number | string
+  parameterStatus: ProFrontlineParameterStatus
+}
+
 export interface ProFrontlineFeedbackPayloadReqVO {
   code: string
   type: number
@@ -97,6 +125,9 @@ export interface ProFrontlineFeedbackPayloadReqVO {
   materialScrapQuantity?: number
   otherScrapQuantity?: number
   lossReasonId?: number
+  lossDetails?: ProFrontlineLossDetailReqVO[]
+  selectedDevice?: ProFrontlineSelectedDeviceReqVO
+  deviceParameterReadings?: ProFrontlineDeviceParameterReadingReqVO[]
   approveUserId: number
   remark?: string
 }

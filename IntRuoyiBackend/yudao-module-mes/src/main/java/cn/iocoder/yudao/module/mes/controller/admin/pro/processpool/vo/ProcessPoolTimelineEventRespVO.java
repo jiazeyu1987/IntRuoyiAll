@@ -4,8 +4,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Schema(description = "管理后台 - MES 工序池提交事件时间轴 Response VO")
 @Data
@@ -126,6 +128,21 @@ public class ProcessPoolTimelineEventRespVO {
     @Schema(description = "来源记录本事件编号", example = "7201")
     private Long sourceRecordbookEventId;
 
+    @Schema(description = "完成数量")
+    private BigDecimal outputQuantity;
+
+    @Schema(description = "损耗数量")
+    private BigDecimal lossQuantity;
+
+    @Schema(description = "损耗原因明细")
+    private List<LossDetailRespVO> lossDetails;
+
+    @Schema(description = "选用设备快照")
+    private SelectedDeviceRespVO selectedDevice;
+
+    @Schema(description = "选用设备参数读数")
+    private List<DeviceParameterReadingRespVO> deviceParameterReadings;
+
     @Schema(description = "提交摘要")
     private String submittedSummary;
 
@@ -173,5 +190,37 @@ public class ProcessPoolTimelineEventRespVO {
 
     @Schema(description = "修改历史摘要")
     private String modificationHistorySummary;
+
+    @Data
+    @Accessors(chain = true)
+    public static class LossDetailRespVO {
+        private Long reasonId;
+        private String reasonCode;
+        private String reasonName;
+        private BigDecimal quantity;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SelectedDeviceRespVO {
+        private Long deviceId;
+        private String deviceCode;
+        private String deviceName;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class DeviceParameterReadingRespVO {
+        private Long deviceId;
+        private String deviceCode;
+        private String deviceName;
+        private String parameterCode;
+        private String parameterName;
+        private String unit;
+        private BigDecimal value;
+        private BigDecimal lowerLimit;
+        private BigDecimal upperLimit;
+        private String parameterStatus;
+    }
 
 }

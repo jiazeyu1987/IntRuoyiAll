@@ -81,6 +81,8 @@ class MesFrontlineRuntimeConfigServiceTest {
         when(parameterRuleMapper.selectList(any())).thenReturn(List.of(
                 parameterRule(7001L, ROUTE_PROCESS_ID, "pressure", "压力", "MPa",
                         "10", "20", "15", "DECIMAL"),
+                parameterRule(7001L, null, "legacy-pressure", "历史空路线压力", "MPa",
+                        "10", "20", "15", "DECIMAL"),
                 parameterRule(7001L, 2002L, "temperature", "温度", "℃",
                         "30", "60", "45", "DECIMAL")));
         when(defectReasonMapper.selectList(any())).thenReturn(List.of(

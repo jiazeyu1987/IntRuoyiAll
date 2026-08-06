@@ -40,8 +40,9 @@ for (const endpoint of [
   '/mes/pro/process-pool/team-leader/process-employee-binding/save',
   '/mes/pro/process-pool/team-leader/team-device/create',
   '/mes/pro/process-pool/team-leader/team-device/status/update',
-  '/mes/pro/process-pool/team-leader/process-device-binding/save',
-  '/mes/pro/process-pool/team-leader/runtime-device-parameter-rule/save',
+  '/mes/pro/process-pool/team-leader/process-config/list',
+  '/mes/pro/process-pool/team-leader/process-config/device-binding/save',
+  '/mes/pro/process-pool/team-leader/process-config/device-parameter-rule/save',
   '/mes/pro/process-pool/team-leader/process-defect-reason/save',
   '/mes/pro/process-pool/team-leader/submission/allocation/preview-fifo',
   '/mes/pro/process-pool/team-leader/submission/allocation/confirm'
@@ -64,8 +65,9 @@ for (const apiName of [
   'saveTeamProcessEmployeeBinding',
   'createTeamDevice',
   'updateTeamDeviceStatus',
-  'saveTeamProcessDeviceBinding',
-  'saveTeamRuntimeDeviceParameterRule',
+  'getTeamLeaderProcessConfigList',
+  'saveTeamProcessConfigDeviceBinding',
+  'saveTeamProcessConfigDeviceParameterRule',
   'saveTeamProcessDefectReason',
   'previewTeamLeaderReportFifoAllocation',
   'confirmTeamLeaderReportAllocation'
@@ -79,9 +81,11 @@ for (const marker of [
   'data-team-leader-active-order-config',
   'data-team-leader-employee-config',
   'data-team-leader-device-config',
-  'data-team-leader-parameter-config',
+  'data-team-leader-process-config-tab',
+  'data-team-leader-process-config-table',
   'data-team-leader-process-relation-config',
   'data-team-leader-active-order-select',
+  'data-team-leader-abnormal-reason-select',
   'data-team-leader-structured-detail',
   'data-team-leader-fifo-allocation',
   'data-team-leader-allocation-table'
@@ -94,8 +98,8 @@ assert(page.includes('活跃订单池'), '班组配置中心必须维护活跃�
 assert(page.includes('生产人员档案'), '人员管理 tab 必须维护生产人员档案。')
 assert(page.includes('生产人员工序绑定'), '班组配置中心必须维护工序员工关系。')
 assert(page.includes('设备档案与状态'), '班组配置中心必须维护设备档案和设备状态。')
-assert(page.includes('工序设备与异常关系'), '班组配置中心必须维护工序设备和工序异常关系。')
-assert(page.includes('设备参数维护'), '班组配置中心必须维护设备参数、上下限和默认值。')
+assert(page.includes('工序异常关系'), '班组配置中心必须维护工序异常关系。')
+assert(page.includes('工序配置'), '生产组长必须通过工序配置统一表维护损耗、设备映射和参数标准。')
 assert(page.includes('报修') && page.includes('REPAIRING'), '设备状态必须支持报修，不得误写为保修。')
 assert(page.includes('allocationMode') && page.includes('FIFO') && page.includes('MANUAL'), '报工确认必须支持 FIFO 自动分配和手动分配。')
 assert(page.includes('buildAllocationSubmitLines'), '确认报工必须提交活跃订单分配明细。')
@@ -107,33 +111,34 @@ assert(abnormalSectionStart >= 0, '必须保留订单异常上报模块。')
 const abnormalSectionEnd = page.indexOf('</el-form>', abnormalSectionStart)
 assert(abnormalSectionEnd > abnormalSectionStart, '订单异常上报模块必须包含独立表单。')
 const abnormalSection = page.slice(abnormalSectionStart, abnormalSectionEnd)
-assert(abnormalSection.includes('label="订单号"'), '异常上报只需要订单号字段。')
+assert(abnormalSection.includes('label="订单号"'), '异常上报必须选择订单号。')
+assert(abnormalSection.includes('label="异常原因"'), '异常上报必须选择正式异常原因。')
+assert(abnormalSection.includes('data-team-leader-abnormal-reason-select'), '异常上报必须渲染异常原因选择器。')
 assert(!abnormalSection.includes('label="活跃订单"'), '异常上报对用户展示必须收敛为订单号，不再显示活跃订单内部概念。')
 assert(!abnormalSection.includes('label="工序ID"'), '异常上报不需要工序ID。')
-assert(!abnormalSection.includes('label="异常原因"'), '异常上报不需要异常原因。')
-assert(!abnormalSection.includes('data-team-leader-defect-reason-select'), '异常上报不应再渲染异常原因选择器。')
 const abnormalRequestType = api.slice(
   api.indexOf('export interface WorkOrderAbnormalReportReqVO'),
   api.indexOf('export interface TeamEmployeeBindingSaveReqVO')
 )
 assert(
   /workOrderId:\s*number/.test(abnormalRequestType) &&
+    /abnormalReasonCode:\s*string/.test(abnormalRequestType) &&
     /abnormalDescription:\s*string/.test(abnormalRequestType),
-  '异常上报请求类型必须只暴露订单号和异常说明这两个业务输入。'
+  '异常上报请求类型必须包含订单号、异常原因编码和异常说明。'
 )
-for (const removedField of ['routeProcessId', 'processId', 'sourceEventId', 'abnormalReasonCode']) {
+for (const removedField of ['routeProcessId', 'processId', 'sourceEventId']) {
   assert(!abnormalRequestType.includes(removedField), `异常上报请求类型不应包含 ${removedField}。`)
 }
 const submitAbnormalStart = page.indexOf('const submitAbnormal = async () => {')
 assert(submitAbnormalStart >= 0, '必须保留异常上报提交函数。')
-const submitAbnormalEnd = page.indexOf('const openActiveOrderDialog', submitAbnormalStart)
-assert(submitAbnormalEnd > submitAbnormalStart, '异常上报提交函数必须在活跃订单弹窗函数前结束。')
+const submitAbnormalEnd = page.indexOf('const resetActiveOrderForm', submitAbnormalStart)
+assert(submitAbnormalEnd > submitAbnormalStart, '异常上报提交函数必须在活跃订单表单函数前结束。')
 const submitAbnormalBlock = page.slice(submitAbnormalStart, submitAbnormalEnd)
 assert(
-  /markAndReportWorkOrderAbnormal\(\{\s*workOrderId:\s*requireSelectedActiveOrderWorkOrderId\(\),\s*abnormalDescription:\s*abnormalForm\.abnormalDescription\.trim\(\)\s*\}\)/.test(submitAbnormalBlock),
-  '异常上报提交 payload 必须只包含 workOrderId 与 abnormalDescription。'
+  /markAndReportWorkOrderAbnormal\(\{\s*workOrderId:\s*requireSelectedActiveOrderWorkOrderId\(\),\s*abnormalReasonCode:\s*abnormalForm\.abnormalReasonCode\.trim\(\),\s*abnormalDescription:\s*abnormalForm\.abnormalDescription\.trim\(\)\s*\}\)/.test(submitAbnormalBlock),
+  '异常上报提交 payload 必须包含 workOrderId、abnormalReasonCode 与 abnormalDescription。'
 )
-for (const removedField of ['routeProcessId', 'processId', 'sourceEventId', 'abnormalReasonCode']) {
+for (const removedField of ['routeProcessId', 'processId', 'sourceEventId']) {
   assert(!submitAbnormalBlock.includes(removedField), `异常上报提交 payload 不应包含 ${removedField}。`)
 }
 assert(!page.includes('<template #header>员工工序绑定</template>'), '旧员工绑定卡片必须替换为员工档案与工序员工关系配置。')
@@ -150,9 +155,10 @@ assert(!page.includes('data-team-leader-pqc-placeholder'), 'PQC 组长页签不�
 assert(!page.includes('PQC 组长功能正在建设中'), 'PQC 组长必须能看到检验员提交内容，不能显示建设中占位。')
 assert(page.includes("if (leaderType === 'PRODUCTION')"), '生产专属活跃订单/配置加载必须与 PQC 提交看板查询区分。')
 assert(
-  /const handleLeaderTypeChange = async[\s\S]*await resetSubmissionMultiFilter\(\)/.test(page) &&
-    /const resetSubmissionMultiFilter = async[\s\S]*await getSubmissionList\(\)/.test(page),
-  '切换到 PQC 组长后仍必须通过正式多维筛选重置链路查询提交看板。'
+  /const handleLeaderTypeChange\s*=\s*async\s*\([^)]*\)\s*=>\s*\{[\s\S]*await resetSubmissionMultiFilter\(\)/.test(page) &&
+    /const resetSubmissionMultiFilter\s*=\s*async\s*\(\)\s*=>\s*\{[\s\S]*updateSubmissionMultiFilterState\(\{ conditions: \[\], activeConditionId: undefined \}\)[\s\S]*submissionList\.value = \[\][\s\S]*submissionTotal\.value = 0/.test(page) &&
+    /const applySubmissionMultiFilter = async \(\) => \{[\s\S]*if \(!hasSubmissionDateCondition\(\)\) return[\s\S]*await applySubmissionMultiFilterState\(\)/.test(page),
+  '切换到 PQC 组长后必须清空多维筛选和列表，并继续通过提交日期必填门禁查询提交看板。'
 )
 assert(page.includes('PQC检验员'), 'PQC 组长提交看板必须按 PQC 检验员展示提交人。')
 assert(!page.includes('<el-radio-group v-model="queryParams.leaderType"'), '组长类型必须使用页签，不得继续使用单选按钮。')
@@ -224,7 +230,7 @@ assert(
     page.includes('originalPayloadJson'),
   'PQC 检验员提交必须在组长详情中展示提交日志、事件编号、提交时间和原始 payload。'
 )
-assert(page.includes('lowerLimit') && page.includes('upperLimit'), '设备参数维护必须包含上下限字段。')
+assert(page.includes('lowerLimit') && page.includes('targetValue') && page.includes('upperLimit'), '工序配置参数标准必须包含下限、目标值和上限字段。')
 assert(!page.includes('ignoreErrorMessage: true'), '班组长页面不得静默隐藏后端错误。')
 
 assert(routes.includes("path: 'pro/process-pool/team-leader'"), 'remaining 路由必须提供班组长工作台入口。')

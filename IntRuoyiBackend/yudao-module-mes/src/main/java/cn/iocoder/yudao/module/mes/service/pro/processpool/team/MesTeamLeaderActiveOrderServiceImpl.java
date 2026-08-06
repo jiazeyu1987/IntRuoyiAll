@@ -251,7 +251,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return scheduleOrder;
     }
 
-
     private List<MesProScheduleOrderProcessDO> selectEnabledScheduleProcesses(MesProScheduleOrderDO scheduleOrder,
                                                                               Long activeOrderId) {
         List<MesProScheduleOrderProcessDO> enabledProcesses = scheduleOrderProcessMapper

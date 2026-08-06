@@ -20,6 +20,29 @@ final class MesProFrontlineFeedbackSubmitTestData {
         Map<String, Object> equipmentParameters = new LinkedHashMap<>();
         equipmentParameters.put("temperature", new BigDecimal("50"));
         equipmentParameters.put("pressure", new BigDecimal("10"));
+        List<MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO> lossDetails = List.of(
+                new MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO()
+                        .setReasonId(8301L)
+                        .setReasonCode("LOSS-001")
+                        .setReasonName("正常损耗")
+                        .setQuantity(new BigDecimal("2.500")));
+        MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO selectedDevice =
+                new MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO()
+                        .setDeviceId(501L)
+                        .setDeviceCode("PT-A-03")
+                        .setDeviceName("压力泵");
+        List<MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO> deviceParameterReadings = List.of(
+                new MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO()
+                        .setDeviceId(501L)
+                        .setDeviceCode("PT-A-03")
+                        .setDeviceName("压力泵")
+                        .setParameterCode("pressure")
+                        .setParameterName("压力")
+                        .setValue(new BigDecimal("50"))
+                        .setUnit("MPa")
+                        .setLowerLimit(new BigDecimal("20"))
+                        .setUpperLimit(new BigDecimal("40"))
+                        .setParameterStatus("ABOVE_UPPER"));
 
         Map<String, Object> entryContent = new LinkedHashMap<>();
         entryContent.put("operatorNote", "frontline original record");
@@ -27,6 +50,9 @@ final class MesProFrontlineFeedbackSubmitTestData {
         Map<String, Object> rawPayload = new LinkedHashMap<>();
         rawPayload.put("templateType", "PRODUCTION_SIMPLE");
         rawPayload.put("equipmentParameters", equipmentParameters);
+        rawPayload.put("lossDetails", lossDetails);
+        rawPayload.put("selectedDevice", selectedDevice);
+        rawPayload.put("deviceParameterReadings", deviceParameterReadings);
         rawPayload.put("routePredecessorStatuses", Map.of("P10", "WAITING"));
 
         return new MesProFrontlineFeedbackSubmitReqVO()
@@ -50,6 +76,9 @@ final class MesProFrontlineFeedbackSubmitTestData {
                         .setOutputQuantity(new BigDecimal("100.500"))
                         .setLossQuantity(new BigDecimal("2.500"))
                         .setLossReasonId(8301L)
+                        .setLossDetails(lossDetails)
+                        .setSelectedDevice(selectedDevice)
+                        .setDeviceParameterReadings(deviceParameterReadings)
                         .setLaborScrapQuantity(new BigDecimal("1.000"))
                         .setMaterialScrapQuantity(new BigDecimal("1.500"))
                         .setOtherScrapQuantity(new BigDecimal("0.000"))
