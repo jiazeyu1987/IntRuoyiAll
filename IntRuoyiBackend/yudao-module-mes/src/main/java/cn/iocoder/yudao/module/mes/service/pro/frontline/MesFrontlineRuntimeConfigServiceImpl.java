@@ -68,7 +68,7 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         Set<Long> leaderUserIds = resolveLeaderUserIds(process, employeeBindings, processDeviceBindings);
         processDeviceBindings = filterProcessDeviceBindingsByLeader(processDeviceBindings, leaderUserIds);
 
-        List<MesFrontlineTeamEmployeeOption> employees = toEmployeeOptions(leaderUserIds);
+        List<MesFrontlineTeamEmployeeOption> employees = toEmployeeOptions(loginUserId);
         List<MesFrontlineTeamDeviceOption> devices = toDeviceOptions(processDeviceBindings, process, leaderUserIds);
         List<MesFrontlineDefectReasonOption> defectReasons = toDefectReasonOptions(process, leaderUserIds);
         return new MesFrontlineRuntimeConfig(process.routeId(), process.routeProcessId(), process.processId(),
@@ -124,18 +124,16 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                 .toList();
     }
 
-    private List<MesFrontlineTeamEmployeeOption> toEmployeeOptions(Set<Long> leaderUserIds) {
-        if (leaderUserIds.isEmpty()) {
-            return List.of();
-        }
+    private List<MesFrontlineTeamEmployeeOption> toEmployeeOptions(Long leaderUserId) {
+        Objects.requireNonNull(leaderUserId, "leaderUserId");
         List<MesFrontlineTeamEmployeeOption> employees = new ArrayList<>();
         Set<Long> emittedProfileIds = new LinkedHashSet<>();
         List<MesProcessPoolTeamEmployeeProfileDO> profiles = employeeProfileMapper.selectList(
                 new LambdaQueryWrapperX<MesProcessPoolTeamEmployeeProfileDO>()
-                        .in(MesProcessPoolTeamEmployeeProfileDO::getLeaderUserId, leaderUserIds)
+                        .eq(MesProcessPoolTeamEmployeeProfileDO::getLeaderUserId, leaderUserId)
                         .eq(MesProcessPoolTeamEmployeeProfileDO::getEnabled, Boolean.TRUE));
         for (MesProcessPoolTeamEmployeeProfileDO profile : profiles) {
-            if (profile == null || !leaderUserIds.contains(profile.getLeaderUserId())
+            if (profile == null || !Objects.equals(profile.getLeaderUserId(), leaderUserId)
                     || !Boolean.TRUE.equals(profile.getEnabled())
                     || !emittedProfileIds.add(profile.getId())) {
                 continue;

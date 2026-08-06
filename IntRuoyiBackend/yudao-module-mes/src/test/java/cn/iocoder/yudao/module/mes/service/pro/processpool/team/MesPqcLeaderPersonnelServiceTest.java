@@ -112,14 +112,20 @@ class MesPqcLeaderPersonnelServiceTest {
         List<MesTeamFormalUserCandidateBO> rows = service.searchFormalInspectorCandidates(3001L, "");
 
         assertEquals(2, rows.size());
-        assertEquals(2001L, rows.get(0).getSystemUserId());
-        assertEquals(Boolean.TRUE, rows.get(0).getDisabled());
-        assertEquals(Boolean.TRUE, rows.get(0).getOccupiedByOtherPqcLeader());
-        assertEquals(3002L, rows.get(0).getOccupiedLeaderUserId());
-        assertEquals("已被其他PQC组长选择", rows.get(0).getDisabledReason());
-        assertEquals(2002L, rows.get(1).getSystemUserId());
-        assertEquals(Boolean.FALSE, rows.get(1).getDisabled());
-        assertEquals(Boolean.FALSE, rows.get(1).getOccupiedByOtherPqcLeader());
+        MesTeamFormalUserCandidateBO occupied = rows.stream()
+                .filter(row -> row.getSystemUserId().equals(2001L))
+                .findFirst()
+                .orElseThrow();
+        MesTeamFormalUserCandidateBO currentLeaderCandidate = rows.stream()
+                .filter(row -> row.getSystemUserId().equals(2002L))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(Boolean.TRUE, occupied.getDisabled());
+        assertEquals(Boolean.TRUE, occupied.getOccupiedByOtherPqcLeader());
+        assertEquals(3002L, occupied.getOccupiedLeaderUserId());
+        assertEquals("已被其他PQC组长选择", occupied.getDisabledReason());
+        assertEquals(Boolean.FALSE, currentLeaderCandidate.getDisabled());
+        assertEquals(Boolean.FALSE, currentLeaderCandidate.getOccupiedByOtherPqcLeader());
     }
 
     @Test

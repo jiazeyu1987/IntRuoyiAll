@@ -795,9 +795,9 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEndpoint("markAndReportWorkOrderAbnormal", new Class[]{MesWorkOrderAbnormalReportReqVO.class},
                 PostMapping.class, new String[]{"/work-order/abnormal/report"},
                 "mes:pro-process-pool-team-leader:abnormal");
-        assertNotNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "routeProcessId"));
-        assertNotNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "processId"));
-        assertNotNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "sourceEventId"));
+        assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "routeProcessId"));
+        assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "processId"));
+        assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "sourceEventId"));
         assertNotNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "abnormalReasonCode"));
         assertEndpoint("addEmployeeBinding", new Class[]{MesTeamEmployeeBindingSaveReqVO.class}, PostMapping.class,
                 new String[]{"/employee-binding/add"}, "mes:pro-process-pool-team-leader:maintain");
