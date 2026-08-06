@@ -44,11 +44,11 @@
 ### 生产组长工序配置维护权限不得被工序开始快照误拦
 
 - Trigger: 生产组长工作台、工序配置、损耗原因、设备映射、设备参数标准、`process-config/list`、`routeStartProductionLeaders`、`mes:pro-process-pool-team-leader:maintain`、admin 点击新增却提示没有可新增路线工序。
-- Preflight check: 修改生产组长配置页候选工序、损耗/设备/参数维护授权前，先区分“维护入口权限”和“工序开始职责快照”：若接口本身受 `mes:pro-process-pool-team-leader:maintain` 保护，后端候选和维护断言必须先通过 `PermissionApi.hasAnyPermissions(loginUserId, permission)` 识别正式维护权限，再对无维护权限用户读取 active 路线版本的 `routeStartProductionLeaders` 快照。
+- Preflight check: 修改生产组长配置页候选工序、损耗/设备/参数维护授权前，先区分“维护入口权限”和“工序开始职责快照”：若接口本身受 `mes:pro-process-pool-team-leader:maintain` 保护，后端候选和维护断言必须先通过 `PermissionApi.hasAnyPermissions(loginUserId, permission)` 识别正式维护权限，再对无维护权限用户读取 active 路线版本的 `routeStartProductionLeaders` 快照。若通过 SQL 修复 active 路线快照，写入后必须重新只读解析当前 active version；路线发布可能把原目标 version 置为 `SUPERSEDED` 并生成新的 active version，最终验证不得继续把旧 draft/version ID 当作非目标失败条件。
 - Blocker: 拥有维护权限的 admin 或维护账号仍被要求逐条配置到工序开始生产组长、`process-config/list` 因快照缺账号返回空候选、保存损耗/设备/参数仍报路线工序 scope denied，或无权限用户因本次修复获得全部路线工序时必须停止并补后端 RED/GREEN。
-- Verification: 后端回归必须覆盖“有维护权限但不在工序开始快照中仍可列出 active 路线工序”“有维护权限可维护指定 routeProcess”“无维护权限仍走 USER/ROLE 快照授权”，并复跑工序配置相邻服务测试和前端新增入口静态合同；真实登录态验证新增按钮候选时必须调用生产组长工序配置数据源 `/mes/pro/process-pool/team-leader/process-config/list`，不得用一线设备账号 `/mes/pro/feedback/frontline/device-account/processes` 替代，因为后者还会执行正式工作站绑定门禁。
+- Verification: 后端回归必须覆盖“有维护权限但不在工序开始快照中仍可列出 active 路线工序”“有维护权限可维护指定 routeProcess”“无维护权限仍走 USER/ROLE 快照授权”，并复跑工序配置相邻服务测试和前端新增入口静态合同；真实登录态验证新增按钮候选时必须调用生产组长工序配置数据源 `/mes/pro/process-pool/team-leader/process-config/list`，不得用一线设备账号 `/mes/pro/feedback/frontline/device-account/processes` 替代，因为后者还会执行正式工作站绑定门禁。数据修复复验必须以 `tenant_id + route_id + active=1 + lifecycle_status=ACTIVE` 当前命中行为准，同时记录原写入 version 与当前 active version 的差异。
 - Forbidden action: 禁止用前端新增弹窗默认候选、空列表成功、admin 硬编码、直接放宽所有账号、菜单文案或 API-only 说明替代正式后端授权；禁止把 `formBindings`、批记录表单或其它路线配置链路当作工序开始生产组长来源。
-- Evidence: `doc/tasks/20260806-process-config-refresh-to-add-button/verification-report.md`，用户以 `芋道源码 / admin` 点击新增仍报“当前账号没有可新增的路线工序”。
+- Evidence: `doc/tasks/20260806-process-config-refresh-to-add-button/verification-report.md`，用户以 `芋道源码 / admin` 点击新增仍报“当前账号没有可新增的路线工序”；`doc/tasks/20260806-admin-pressure-pump-route-start-leader/verification-report.md`，路线发布后 route `922119` 的 active version 从原写入 `448` 变为 `490`，最终按当前 active `490` 与 `622` 复验通过。
 
 ## eDHR 详情回填门禁
 
