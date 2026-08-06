@@ -11,7 +11,7 @@
 - [x] RED：用回归测试证明后端 mapper 当前把 `actualEmployeeUserName` 置空。
 - [x] GREEN：修复 mapper 正式姓名来源并更新必要合同。
 - [x] REGRESSION：运行目标静态/后端验证，确认列表姓名链路不再退回编号。
-- [ ] Closeout：记录验证报告、经验沉淀、提交并推送。
+- [x] Closeout：记录验证报告、经验沉淀、提交并推送。
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 

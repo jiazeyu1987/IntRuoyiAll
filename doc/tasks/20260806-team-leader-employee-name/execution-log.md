@@ -41,3 +41,7 @@
 - REGRESSION: `node IntRuoyiFronted\tests\e2e\production-leader-report-row-modify-action-static.spec.cjs` -> PASS。
 - REGRESSION: `node IntRuoyiFronted\tests\e2e\team-leader-hide-review-copy-columns-static.spec.cjs` -> PASS。
 - REGRESSION-NONTASK: `node IntRuoyiFronted\tests\e2e\team-leader-production-report-payload-columns-static.spec.cjs` -> FAIL，失败点为既有 `productionSubmissionDefaultColumns` 包含 `label: '生产工单'`；本任务 diff 只涉及员工姓名渲染和 mapper 姓名字段，未改生产工单列。
+- VALIDATOR: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260806-team-leader-employee-name\bug-regression-evidence.md` -> PASS。
+- EXPERIENCE: 已合并长期经验到 `docs/backend-development.md#第三方报工直报正式链路门禁`，并更新 `docs/experience-index.md`；`rg actualEmployeeUserName docs\experience-index.md docs\backend-development.md` 可定位。
+- CLEANUP: `task_closeout.py --task-id 20260806-team-leader-employee-name --mode preview` -> ready；保留 `task.md`、`execution-log.md`、`verification-report.md`，删除 `bug-regression-evidence.md`。
+- CLEANUP: `task_closeout.py --task-id 20260806-team-leader-employee-name --mode apply` -> applied；已删除任务中间 evidence，主工作区无需 worktree 合并。
