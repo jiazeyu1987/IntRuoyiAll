@@ -97,3 +97,9 @@ FUNCTION PASS。已完成计划内实现、自动化回归、真实页面保存�
 - `git push origin HEAD:int_main` -> PASS，远端 `int_main` 已快进到 `54f8d21ea`。
 - task-closeout cleanup preview/apply 均确认保留正式任务记录、删除任务 evidence/截图/runtime 日志；apply 因 `E:\IntRuoyi` 主工作区 dirty 而 fail fast，未发生删除、worktree 移除或槽位释放。
 - 最终状态为 `ready_for_closeout`：代码已融合到远端主线，剩余工作仅为主工作区稳定后执行 cleanup apply、删除该 worktree 并释放 slot 2。
+
+## 2026-08-06 Closeout Retry
+
+- cleanup preview 仍被主工作区 dirty 阻塞。
+- 当前唯一残留为其它任务目录 `doc/tasks/20260806-qa-regulation-pdf-field-alignment/`，该任务自身记录要求不进入脏工作区基线提交。
+- 本任务不能越权提交或删除该目录；继续保持 `ready_for_closeout`，等待主工作区清理后再执行 cleanup apply。

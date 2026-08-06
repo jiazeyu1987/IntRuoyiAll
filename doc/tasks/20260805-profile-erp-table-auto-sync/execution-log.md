@@ -104,3 +104,10 @@ BDD: 可读地展示 ERP 同步运行结果 -> Given 系统已有 ERP 同步水�
 - SHARED WORKSPACE SAFETY: 尝试准备主工作区既有改动基线时，连续发现其它任务新增和修改 `TeamLeaderWorkbenchPage.vue`、API、测试及任务文档；已撤销本任务产生的暂存状态并完整保留所有并行改动，未提交、未回滚、未删除任何其它任务文件。
 - CLOSEOUT BLOCKER: 当前主工作区 HEAD 为 `adc862527`，并仍被其它任务持续写入。待 `E:\IntRuoyi` 稳定且 `git status --porcelain` 为空后，需重新合入最新 `int_main`、复跑端口守卫、执行 cleanup preview/apply，并以 `--ff-only` 融合。
 - BRANCH PUSH: `8baafeb1b docs: record ERP table auto sync closeout state` 已推送到 `origin/codex/profile-erp-table-auto-sync`；推送后本地与远端 ref 均为 `8baafeb1b3c4756f2088548d8a4cfc2e8d8a12d1`。
+
+## 2026-08-06 Closeout Retry
+
+- CLEANUP PREVIEW: `task_closeout.py --task-id 20260805-profile-erp-table-auto-sync --mode preview` -> BLOCKED，当前仅剩 `Main worktree is dirty and cannot receive ff-only merge: E:\IntRuoyi`。
+- MAIN DIRTY CHECK: `E:\IntRuoyi` 状态稳定为 1 项未跟踪目录：`doc/tasks/20260806-qa-regulation-pdf-field-alignment/`。
+- OWNERSHIP BLOCKER: 该目录属于其它 in-progress 任务，且其 `execution-log.md` 明确写明本任务文件不应进入脏工作区基线提交；按并行任务所有权规则，本 ERP 收尾不能提交、隐藏、删除或改写该目录。
+- CLOSEOUT STATE: ERP 代码已进入远端 `int_main`，功能分支也已推送；剩余仅等待其它任务处理该目录后重新执行 cleanup apply、删除 worktree 并释放 slot 2。

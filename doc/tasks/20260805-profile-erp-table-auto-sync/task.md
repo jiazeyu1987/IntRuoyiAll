@@ -25,7 +25,7 @@ ready_for_closeout
 
 当前任务使用隔离 worktree `D:\IntRuoyiWorktree\profile-erp-table-auto-sync`，分支 `codex/profile-erp-table-auto-sync`，运行槽位 `slot=2`，前端端口 `8083`，后端端口 `48083`。外部清理进程已由用户停止，当前 worktree 已重新创建并通过分支运行端口守卫；本任务不在主工作区直接修改文件。
 
-功能实现、真实 E2E、可读性修复和合并后定向回归均已通过。2026-08-06 已在隔离 worktree 中语义合入最新 `origin/int_main`，并修正本任务迁移元数据的非法复合类型与错误依赖后缀；目标迁移策略门禁、SQL 合同、ERP Maven 合同、前端 ERP/NAS 静态合同和 `pnpm ts:check` 均通过。已验证提交 `54f8d21ea` 已推送到功能分支并快进更新远端 `int_main`。当前保持 `ready_for_closeout`：cleanup apply 被 `E:\IntRuoyi` 主工作区并行脏改动阻塞，worktree 和 slot 2 必须继续保留。
+功能实现、真实 E2E、可读性修复和合并后定向回归均已通过。2026-08-06 已在隔离 worktree 中语义合入最新 `origin/int_main`，并修正本任务迁移元数据的非法复合类型与错误依赖后缀；目标迁移策略门禁、SQL 合同、ERP Maven 合同、前端 ERP/NAS 静态合同和 `pnpm ts:check` 均通过。已验证提交 `54f8d21ea` 已推送到功能分支并快进更新远端 `int_main`。当前保持 `ready_for_closeout`：cleanup apply 被 `E:\IntRuoyi` 主工作区并行脏改动阻塞，当前精确残留为其它任务目录 `doc/tasks/20260806-qa-regulation-pdf-field-alignment/`，且该任务日志明确要求其不进入脏工作区基线提交；worktree 和 slot 2 必须继续保留。
 
 ## 设计约束检查
 
