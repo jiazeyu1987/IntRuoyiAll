@@ -25,10 +25,18 @@ requirePageMarker('班组配置中心', 'page must use the business label 班组
 requirePageMarker('data-team-leader-active-order-config', 'config center must include active order maintenance')
 requirePageMarker('data-team-leader-active-order-work-order-code', 'active order maintenance must collect the formal production work order code through a remote dropdown.')
 requirePageMarker(':remote-method="searchActiveOrderCandidates"', 'active order maintenance must search formal work order candidates instead of hand-entering route ids.')
+requirePageMarker('team-leader-workbench__active-order-candidate', 'active order maintenance must render candidate dropdown options with eligibility status.')
+requirePageMarker('符合要求', 'active order maintenance must visibly mark eligible order-number candidates.')
 requirePageMarker('data-team-leader-employee-config', 'config center must include employee profile and process binding maintenance')
 requirePageMarker('data-team-leader-device-config', 'config center must include equipment maintenance')
 requirePageMarker('data-team-leader-process-config-tab', 'page must expose the unified process config tab')
 requirePageMarker('data-team-leader-process-config-table', 'unified process config tab must include the process config table')
+requirePageMarker('data-production-leader-responsible-routes', 'production leader module tabs must display responsible route names in the right-side header area')
+assert.match(
+  page,
+  /const\s+productionResponsibleRouteNames\s*=\s*computed\([\s\S]*processConfigRows\.value[\s\S]*row\.routeName[\s\S]*seen\.add\(routeName\)[\s\S]*return routeNames/,
+  'production leader route header must use formal process-config routeName rows instead of fallback sources.'
+)
 requirePageMarker('data-team-leader-process-relation-config', 'config center must include process exception relations')
 requirePageMarker('data-team-leader-active-order-select', 'abnormal reporting must select from active orders')
 requirePageMarker('data-team-leader-defect-reason-select', 'abnormal reporting must select configured process defect reasons')
@@ -54,6 +62,16 @@ assert.match(
   api,
   /interface TeamLeaderActiveOrderAddReqVO\s*\{\s*workOrderId:\s*number\s*\}/,
   'active order add API payload must only include the selected workOrderId.'
+)
+assert.match(
+  api,
+  /interface TeamLeaderActiveOrderCandidateRespVO\s*\{[\s\S]*workOrderId:\s*number[\s\S]*workOrderCode:\s*string[\s\S]*eligible:\s*boolean[\s\S]*ineligibleReason\?:\s*string[\s\S]*\}/,
+  'active order candidate API response must expose eligibility metadata for sorting and green status display.'
+)
+assert.match(
+  page,
+  /<el-option[\s\S]*v-for="candidate in activeOrderCandidateOptions"[\s\S]*team-leader-workbench__active-order-candidate[\s\S]*'is-eligible': candidate\.eligible[\s\S]*符合要求/,
+  'active order dropdown must show eligible candidates with a green 符合要求 marker.'
 )
 assert.match(
   page,

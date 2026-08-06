@@ -1,6 +1,6 @@
 ## Summary
 
-一线生产填写页已保持与 `C:\Users\BJB110\Desktop\3\frontline-production-operator-1920.html` 一致的内部 1920×1080 画布、顶部/主区/底部 grid 和显式“最大化/主页”切换；普通后台页面用外层 `frontline-production-stage` 等比例缩放避免横向溢出。最新反馈的 picker 弹框已改为 `1920:1080` / 16:9，弹框卡片和每个选项卡都锁定同一比例。
+一线生产填写页已保持与 `C:\Users\BJB110\Desktop\3\frontline-production-operator-1920.html` 一致的内部 1920×1080 画布、顶部/主区/底部 grid 和显式“最大化/主页”切换；普通后台页面用外层 `frontline-production-stage` 等比例缩放避免横向溢出。最新反馈的 picker 弹框已改为 `1920:1080` / 16:9，弹框卡片和每个选项卡都锁定同一比例；“最大化 / 重填 / 提交”在 stage 缩放后使用反向补偿字号，避免文字随整张画布缩小；一线生产选择工序现在点击即关闭 picker，PQC 仍保留校验成功后关闭。
 
 ## Passed
 
@@ -16,7 +16,7 @@
 
 - Implementation verification is PASS.
 - Commit/push closeout remains blocked because the branch is ahead of `origin/int_main` and the workspace has unrelated dirty/untracked files. This task did not stage, commit, push, or revert unrelated work.
-- Project experience consolidation was reviewed; latest picker-ratio lesson is recorded in this task evidence and regression contracts.
+- Project experience consolidation was completed for this turn; picker immediate-feedback guidance was merged into `docs\frontend-development.md`.
 
 ## Files Touched
 
@@ -24,6 +24,7 @@
 - `IntRuoyiFronted/tests/e2e/edhr-frontline-production-fullscreen-toggle-static.spec.cjs`
 - `IntRuoyiFronted/tests/e2e/edhr-frontline-production-pixel-parity-static.spec.cjs`
 - `IntRuoyiFronted/tests/e2e/edhr-frontline-production-fullscreen-toggle-real.e2e.cjs`
+- `docs/frontend-development.md`
 - `doc/tasks/20260806-frontline-production-fullscreen-logic/task.md`
 - `doc/tasks/20260806-frontline-production-fullscreen-logic/execution-log.md`
 - `doc/tasks/20260806-frontline-production-fullscreen-logic/verification-report.md`

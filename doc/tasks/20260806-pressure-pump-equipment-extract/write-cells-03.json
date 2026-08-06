@@ -1,0 +1,562 @@
+[
+  {
+    "command": "set",
+    "path": "/Sheet1/A11",
+    "props": {
+      "value": "组装Ⅱ",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B11",
+    "props": {
+      "value": "未见设备编码字段",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C11",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D11",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E11",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F11",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G11",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H11",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I11",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J11",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K11",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L11",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M11",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N11",
+    "props": {
+      "value": "源文档未见设备参数表。",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A12",
+    "props": {
+      "value": "检测",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B12",
+    "props": {
+      "value": "高压机小气压检测",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C12",
+    "props": {
+      "value": "G01143",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D12",
+    "props": {
+      "value": "低压检验气源",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E12",
+    "props": {
+      "value": "8atm",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F12",
+    "props": {
+      "value": "高压检测气源",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G12",
+    "props": {
+      "value": "30atm",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H12",
+    "props": {
+      "value": "最大压力保持观察",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I12",
+    "props": {
+      "value": "10s内无跳压、降压",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J12",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K12",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L12",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M12",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N12",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A13",
+    "props": {
+      "value": "光固Ⅱ",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B13",
+    "props": {
+      "value": "光固机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C13",
+    "props": {
+      "value": "A05075 / A05059",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D13",
+    "props": {
+      "value": "紫外灯数量",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E13",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F13",
+    "props": {
+      "value": "能量范围mJ/cm2",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G13",
+    "props": {
+      "value": "800-1000",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H13",
+    "props": {
+      "value": "传送带速度",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I13",
+    "props": {
+      "value": "10-30",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J13",
+    "props": {
+      "value": "运行次数",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K13",
+    "props": {
+      "value": "1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L13",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M13",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N13",
+    "props": {
+      "value": "源文本复选框字符直接解析存在形态差异，仅提取设备编码。",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A14",
+    "props": {
+      "value": "单包装",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B14",
+    "props": {
+      "value": "封口热合机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C14",
+    "props": {
+      "value": "A05199",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D14",
+    "props": {
+      "value": "热合温度℃",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E14",
+    "props": {
+      "value": "135±10",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F14",
+    "props": {
+      "value": "热合时间s",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G14",
+    "props": {
+      "value": "1.8±0.5",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H14",
+    "props": {
+      "value": "热合压力MPa",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I14",
+    "props": {
+      "value": "0.5-0.6",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J14",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K14",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L14",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M14",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N14",
+    "props": {
+      "value": "单包装源表含4台设备、3组温度/时间标准；该行按文本顺序提取。",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A15",
+    "props": {
+      "value": "单包装",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B15",
+    "props": {
+      "value": "封口热合机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C15",
+    "props": {
+      "value": "A05203",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D15",
+    "props": {
+      "value": "热合温度℃",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E15",
+    "props": {
+      "value": "150±5",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F15",
+    "props": {
+      "value": "热合时间s",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G15",
+    "props": {
+      "value": "5±1",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H15",
+    "props": {
+      "value": "热合压力MPa",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I15",
+    "props": {
+      "value": "0.5-0.6",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J15",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K15",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L15",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M15",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N15",
+    "props": {
+      "value": "单包装源表含4台设备、3组温度/时间标准；该行按文本顺序提取。",
+      "type": "string"
+    }
+  }
+]

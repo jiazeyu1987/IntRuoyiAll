@@ -12,6 +12,8 @@
 - [x] 实现后端正式权限过滤并保持关联校验一致
 - [x] 运行聚焦后端/前端验证并记录证据
 - [x] 空点击自动加载候选，并标记其它 PQC 组长占用候选为红色禁选
+- [x] 修复空下拉加载 PQC 候选时的系统异常回归
+- [x] 在 `芋道源码/admin` 下完成真实页面 E2E 验证
 - [ ] 收尾清理、提交和推送
 
 ## Expected Verification
@@ -22,14 +24,15 @@
 - `mvn -pl yudao-module-mes -am "-Dtest=MesPqcLeaderPersonnelServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - `pnpm ts:check` 或记录明确阻塞
 - `git diff --check -- <task paths>`
+- `芋道源码/admin` 真实页面 E2E：进入 PQC 组长人员管理，点击新增人员空下拉，候选返回 30 个且无系统异常；缺省 `keyword` 登录态接口补充核验返回 30 个。
 
 ## Current Status
 
 ready_for_closeout
 
-已完成本轮功能实现和验证：PQC 新增人员下拉空点击会加载空关键字候选；其它 PQC 组长启用员工 scope 占用的候选会在后端标记 disabled/occupied，前端红色显示且不可选择，提交接口也会再次业务拒绝跨组长占用。
+PQC 新增人员弹窗空下拉“系统异常”回归已修复并通过 `芋道源码/admin` 真实页面 E2E：PQC 组长默认进入 `人员管理`，点击新增人员空下拉后 `/pqc-personnel/formal-candidates?keyword=` 返回 30 个候选且无“系统异常”；登录态缺省 `keyword` 接口也返回 30 个候选。
 
-原共享工作区 conflict markers 已清零，目标 Maven、`pnpm ts:check`、PQC 静态合同与 `git diff --check` 均已通过。剩余收尾阻塞：最后一次检查显示当前工作区仍有其它任务代码/文档改动和未跟踪任务目录；为避免混入非本任务改动，本任务未执行提交和推送。
+剩余收尾阻塞：当前共享工作区仍有大量其它任务代码/文档改动和未跟踪文件；为避免混入非本任务改动，本任务未执行提交和推送。
 
 ## 设计约束检查
 

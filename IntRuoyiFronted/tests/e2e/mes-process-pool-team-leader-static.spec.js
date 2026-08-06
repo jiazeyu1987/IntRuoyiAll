@@ -162,18 +162,22 @@ assert(
 )
 assert(page.includes('PQC检验员'), 'PQC 组长提交看板必须按 PQC 检验员展示提交人。')
 assert(!page.includes('<el-radio-group v-model="queryParams.leaderType"'), '组长类型必须使用页签，不得继续使用单选按钮。')
-assert(page.includes('originalPayloadJson'), '提交详情必须展示原始 payload，复核不能替代原始记录。')
+assert(page.includes('originalPayloadJson'), 'PQC 结构化明细必须保留从原始 payload 快照解析的能力，复核不能替代原始记录。')
 assert(
   /export interface ProcessPoolTimelineEventVO[\s\S]*originalPayloadJson\?: string/.test(timelineApi),
   '组长列表分页响应必须暴露 originalPayloadJson，不能只在详情接口暴露原始 payload。'
 )
 assert(
-  page.includes('resolvePqcSubmissionContentItems'),
-  'PQC 组长列表提交内容必须通过正式解析函数展示检验员逐项填写内容。'
+  !page.includes('data-pqc-leader-submission-content'),
+  'PQC 组长列表不得继续用一整段 PQC提交内容承载逐项填写内容。'
 )
 assert(
-  page.includes('data-pqc-leader-submission-content'),
-  'PQC 组长列表必须提供稳定选择器承载逐项提交内容。'
+  page.includes('data-pqc-leader-inspection-items'),
+  'PQC 组长列表必须用结构化检验项列承载提交内容摘要。'
+)
+assert(
+  page.includes('data-pqc-leader-detail-tab') && page.includes('data-pqc-leader-item-snapshot-table'),
+  'PQC 组长详情必须在页签内用项目明细表承载逐项提交内容。'
 )
 for (const payloadField of ['pqcItemDetails', 'itemResults']) {
   assert(

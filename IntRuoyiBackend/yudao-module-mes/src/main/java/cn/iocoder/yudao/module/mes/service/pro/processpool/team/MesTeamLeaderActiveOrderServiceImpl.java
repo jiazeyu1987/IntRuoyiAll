@@ -30,8 +30,14 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED;
@@ -96,12 +102,298 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     @Override
     public List<MesTeamLeaderActiveOrderCandidateBO> searchActiveOrderCandidates(String keyword) {
-        return workOrderMapper.selectConfirmedCandidatesByCode(keyword, 20).stream()
-                .map(workOrder -> MesTeamLeaderActiveOrderCandidateBO.builder()
-                        .workOrderId(workOrder.getId())
-                        .workOrderCode(workOrder.getCode())
-                        .build())
+        List<MesProWorkOrderDO> workOrders = workOrderMapper.selectConfirmedCandidatesByCode(keyword, 20);
+        CandidateEligibilityContext context = buildCandidateEligibilityContext(workOrders);
+        return workOrders.stream()
+                .map(workOrder -> toActiveOrderCandidate(workOrder, context))
+                .sorted((left, right) -> Boolean.compare(right.isEligible(), left.isEligible()))
                 .toList();
+    }
+
+    private CandidateEligibilityContext buildCandidateEligibilityContext(List<MesProWorkOrderDO> workOrders) {
+        if (workOrders == null || workOrders.isEmpty()) {
+            return emptyCandidateEligibilityContext();
+        }
+        List<Long> workOrderIds = workOrders.stream()
+                .map(MesProWorkOrderDO::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (workOrderIds.isEmpty()) {
+            return emptyCandidateEligibilityContext();
+        }
+        List<MesProScheduleOrderDO> scheduleOrders =
+                scheduleOrderMapper.selectEffectiveListByWorkOrderIds(workOrderIds);
+        Map<Long, List<MesProScheduleOrderDO>> schedulesByWorkOrderId = scheduleOrders.stream()
+                .filter(scheduleOrder -> scheduleOrder.getWorkOrderId() != null)
+                .collect(Collectors.groupingBy(MesProScheduleOrderDO::getWorkOrderId));
+        List<Long> scheduleOrderIds = scheduleOrders.stream()
+                .map(MesProScheduleOrderDO::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, List<MesProScheduleOrderProcessDO>> processesByScheduleOrderId = scheduleOrderIds.isEmpty()
+                ? Collections.emptyMap()
+                : scheduleOrderProcessMapper.selectListByScheduleOrderIds(scheduleOrderIds).stream()
+                .filter(process -> process.getScheduleOrderId() != null)
+                .collect(Collectors.groupingBy(MesProScheduleOrderProcessDO::getScheduleOrderId));
+        List<Long> productIds = Stream.concat(
+                        workOrders.stream().map(MesProWorkOrderDO::getProductId),
+                        scheduleOrders.stream().map(MesProScheduleOrderDO::getProductId))
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        List<MesQaInspectionRegulationDO> regulations = productIds.isEmpty()
+                ? Collections.emptyList()
+                : inspectionRegulationMapper.selectListByProductIds(productIds).stream()
+                .filter(regulation -> Objects.equals("PUBLISHED", regulation.getLifecycleStatus()))
+                .filter(regulation -> regulation.getCurrentVersionId() != null)
+                .toList();
+        Map<CandidateRegulationKey, List<MesQaInspectionRegulationDO>> regulationsByKey = regulations.stream()
+                .filter(regulation -> regulation.getProductId() != null)
+                .filter(regulation -> regulation.getRouteId() != null)
+                .filter(regulation -> regulation.getRouteVersionId() != null)
+                .filter(regulation -> regulation.getRouteProcessId() != null)
+                .filter(regulation -> regulation.getProcessId() != null)
+                .collect(Collectors.groupingBy(this::toCandidateRegulationKey));
+        List<Long> versionIds = regulations.stream()
+                .map(MesQaInspectionRegulationDO::getCurrentVersionId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, MesQaInspectionRegulationVersionDO> versionsById = versionIds.isEmpty()
+                ? Collections.emptyMap()
+                : inspectionRegulationVersionMapper.selectBatchIds(versionIds).stream()
+                .filter(version -> version.getId() != null)
+                .collect(Collectors.toMap(MesQaInspectionRegulationVersionDO::getId, Function.identity(),
+                        (left, right) -> left));
+        Map<Long, List<MesQaInspectionRegulationItemDO>> itemsByVersionId = versionIds.isEmpty()
+                ? Collections.emptyMap()
+                : inspectionRegulationItemMapper.selectListByVersionIds(versionIds).stream()
+                .filter(item -> item.getRegulationVersionId() != null)
+                .collect(Collectors.groupingBy(MesQaInspectionRegulationItemDO::getRegulationVersionId));
+        return new CandidateEligibilityContext(schedulesByWorkOrderId, processesByScheduleOrderId,
+                regulationsByKey, versionsById, itemsByVersionId);
+    }
+
+    private static CandidateEligibilityContext emptyCandidateEligibilityContext() {
+        return new CandidateEligibilityContext(Collections.emptyMap(), Collections.emptyMap(),
+                Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+    }
+
+    private MesTeamLeaderActiveOrderCandidateBO toActiveOrderCandidate(MesProWorkOrderDO workOrder,
+                                                                       CandidateEligibilityContext context) {
+        CandidateEligibility eligibility = evaluateCandidateEligibility(workOrder, context);
+        return MesTeamLeaderActiveOrderCandidateBO.builder()
+                .workOrderId(workOrder.getId())
+                .workOrderCode(workOrder.getCode())
+                .eligible(eligibility.eligible())
+                .ineligibleReason(eligibility.ineligibleReason())
+                .build();
+    }
+
+    private CandidateRegulationKey toCandidateRegulationKey(MesQaInspectionRegulationDO regulation) {
+        return new CandidateRegulationKey(regulation.getProductId(), regulation.getRouteId(),
+                regulation.getRouteVersionId(), regulation.getRouteProcessId(), regulation.getProcessId());
+    }
+
+    private CandidateEligibility evaluateCandidateEligibility(MesProWorkOrderDO workOrder,
+                                                              CandidateEligibilityContext context) {
+        if (workOrder == null || workOrder.getId() == null) {
+            return blockedCandidate("缺少生产工单");
+        }
+        BigDecimal erpFixedQuantity = workOrder.getQuantity();
+        if (erpFixedQuantity == null || erpFixedQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+            return blockedCandidate("ERP生产数量无效");
+        }
+        List<MesProScheduleOrderDO> scheduleOrders = context.schedulesByWorkOrderId()
+                .getOrDefault(workOrder.getId(), Collections.emptyList());
+        if (scheduleOrders.size() != 1) {
+            return blockedCandidate("缺少唯一有效排产工单");
+        }
+        MesProScheduleOrderDO scheduleOrder = scheduleOrders.get(0);
+        if (scheduleOrder.getId() == null || scheduleOrder.getRouteId() == null
+                || scheduleOrder.getRouteVersionId() == null) {
+            return blockedCandidate("有效排产缺少正式路线/路线版本");
+        }
+        List<MesProScheduleOrderProcessDO> enabledProcesses = context.processesByScheduleOrderId()
+                .getOrDefault(scheduleOrder.getId(), Collections.emptyList()).stream()
+                .filter(process -> Boolean.TRUE.equals(process.getEnabled()))
+                .toList();
+        if (enabledProcesses.isEmpty()) {
+            return blockedCandidate("缺少启用排产工序");
+        }
+        for (MesProScheduleOrderProcessDO process : enabledProcesses) {
+            String snapshotReason = validateCandidateProcessSnapshot(process, erpFixedQuantity);
+            if (snapshotReason != null) {
+                return blockedCandidate(snapshotReason);
+            }
+        }
+        CandidateProduct product = resolveCandidateProduct(workOrder, scheduleOrder);
+        if (product.ineligibleReason() != null) {
+            return blockedCandidate(product.ineligibleReason());
+        }
+        for (MesProScheduleOrderProcessDO process : enabledProcesses) {
+            String pqcReason = validateCandidatePqcPrerequisites(scheduleOrder, process, product.productId(), context);
+            if (pqcReason != null) {
+                return blockedCandidate(pqcReason);
+            }
+        }
+        return new CandidateEligibility(true, null);
+    }
+
+    private String validateCandidateProcessSnapshot(MesProScheduleOrderProcessDO process,
+                                                    BigDecimal erpFixedQuantity) {
+        if (process == null || process.getRouteProcessId() == null || process.getProcessId() == null) {
+            return "排产工序缺少路线工序/工序";
+        }
+        if (!positive(process.getProductionQuantityFactor())) {
+            return "排产工序数量系数无效";
+        }
+        if (!positive(process.getPlannedQuantity())) {
+            return "排产工序计划数量无效";
+        }
+        BigDecimal factor = process.getProductionQuantityFactor().setScale(6, RoundingMode.HALF_UP);
+        BigDecimal plannedQuantity = process.getPlannedQuantity().setScale(6, RoundingMode.HALF_UP);
+        BigDecimal expectedPlannedQuantity = erpFixedQuantity.multiply(factor).setScale(6, RoundingMode.HALF_UP);
+        if (plannedQuantity.compareTo(expectedPlannedQuantity) != 0) {
+            return "排产工序计划数量与ERP数量不匹配";
+        }
+        return null;
+    }
+
+    private CandidateProduct resolveCandidateProduct(MesProWorkOrderDO workOrder,
+                                                     MesProScheduleOrderDO scheduleOrder) {
+        Long workOrderProductId = workOrder.getProductId();
+        Long scheduleProductId = scheduleOrder.getProductId();
+        if (workOrderProductId != null && scheduleProductId != null
+                && !Objects.equals(workOrderProductId, scheduleProductId)) {
+            return new CandidateProduct(null, "工单产品与排产产品不一致");
+        }
+        Long productId = scheduleProductId != null ? scheduleProductId : workOrderProductId;
+        if (productId == null) {
+            return new CandidateProduct(null, "缺少产品ID");
+        }
+        return new CandidateProduct(productId, null);
+    }
+
+    private String validateCandidatePqcPrerequisites(MesProScheduleOrderDO scheduleOrder,
+                                                     MesProScheduleOrderProcessDO process,
+                                                     Long productId,
+                                                     CandidateEligibilityContext context) {
+        CandidateRegulationKey key = new CandidateRegulationKey(productId, scheduleOrder.getRouteId(),
+                scheduleOrder.getRouteVersionId(), process.getRouteProcessId(), process.getProcessId());
+        List<MesQaInspectionRegulationDO> regulations = context.regulationsByKey()
+                .getOrDefault(key, Collections.emptyList());
+        if (regulations.isEmpty()) {
+            return "缺少已发布QA规程";
+        }
+        if (regulations.size() > 1) {
+            return "已发布QA规程不唯一";
+        }
+        MesQaInspectionRegulationDO regulation = regulations.get(0);
+        if (regulation.getCurrentVersionId() == null) {
+            return "缺少已发布QA规程";
+        }
+        MesQaInspectionRegulationVersionDO version = context.versionsById().get(regulation.getCurrentVersionId());
+        if (version == null || !Objects.equals("PUBLISHED", version.getLifecycleStatus())) {
+            return "QA规程发布版本不存在或未发布";
+        }
+        if (version.getFinalInspectionApplicable() == null) {
+            return "QA规程发布版本缺少末检适用性配置";
+        }
+        if (Boolean.FALSE.equals(version.getFinalInspectionApplicable())
+                && (version.getFinalInspectionNotApplicableReason() == null
+                || version.getFinalInspectionNotApplicableReason().trim().isEmpty())) {
+            return "QA规程发布版本缺少末检不适用依据";
+        }
+        List<MesQaInspectionRegulationItemDO> items = context.itemsByVersionId()
+                .getOrDefault(regulation.getCurrentVersionId(), Collections.emptyList());
+        if (items == null || items.isEmpty()) {
+            return "已发布QA规程缺少检验项目";
+        }
+        if (process.getPlanDate() == null) {
+            return "排产工序缺少计划日期";
+        }
+        String firstReason = validateFixedInspectionQuantity(items, INSPECTION_TYPE_FIRST);
+        if (firstReason != null) {
+            return firstReason;
+        }
+        String patrolReason = validatePatrolInspectionQuantity(process, items);
+        if (patrolReason != null) {
+            return patrolReason;
+        }
+        if (Boolean.TRUE.equals(version.getFinalInspectionApplicable())) {
+            return validateFixedInspectionQuantity(items, INSPECTION_TYPE_FINAL);
+        }
+        return null;
+    }
+
+    private String validateFixedInspectionQuantity(List<MesQaInspectionRegulationItemDO> items,
+                                                   String inspectionType) {
+        Integer quantity = null;
+        for (MesQaInspectionRegulationItemDO item : items) {
+            if (!Objects.equals(inspectionType, normalizeInspectionType(item.getInspectionType()))) {
+                continue;
+            }
+            Integer itemQuantity = item.getFirstInspectionQuantity();
+            if (itemQuantity == null || itemQuantity <= 0) {
+                return "固定检验数量无效";
+            }
+            if (quantity != null && !Objects.equals(quantity, itemQuantity)) {
+                return "同一检验类型存在不同固定数量";
+            }
+            quantity = itemQuantity;
+        }
+        return quantity == null ? "缺少检验类型规则" : null;
+    }
+
+    private String validatePatrolInspectionQuantity(MesProScheduleOrderProcessDO process,
+                                                    List<MesQaInspectionRegulationItemDO> items) {
+        BigDecimal ratio = null;
+        Integer fixedQuantity = null;
+        for (MesQaInspectionRegulationItemDO item : items) {
+            if (!Objects.equals(INSPECTION_TYPE_PATROL, normalizeInspectionType(item.getInspectionType()))) {
+                continue;
+            }
+            if (positive(item.getPatrolInspectionRatio())) {
+                if (fixedQuantity != null) {
+                    return "巡检规则同时存在固定数量和比例";
+                }
+                if (ratio != null && ratio.compareTo(item.getPatrolInspectionRatio()) != 0) {
+                    return "同一巡检规则存在不同比例";
+                }
+                ratio = item.getPatrolInspectionRatio();
+                continue;
+            }
+            Integer itemQuantity = item.getFirstInspectionQuantity();
+            if (itemQuantity == null || itemQuantity <= 0) {
+                return "巡检数量规则无效";
+            }
+            if (ratio != null) {
+                return "巡检规则同时存在固定数量和比例";
+            }
+            if (fixedQuantity != null && !Objects.equals(fixedQuantity, itemQuantity)) {
+                return "同一巡检规则存在不同固定数量";
+            }
+            fixedQuantity = itemQuantity;
+        }
+        if (ratio != null) {
+            if (!positive(process.getPlannedQuantity())) {
+                return "排产工序计划数量无效";
+            }
+            try {
+                process.getPlannedQuantity().multiply(ratio).setScale(0, RoundingMode.CEILING).intValueExact();
+            } catch (ArithmeticException ex) {
+                return "巡检计划数量超出整数范围";
+            }
+            return null;
+        }
+        return fixedQuantity == null ? "缺少巡检规则" : null;
+    }
+
+    private CandidateEligibility blockedCandidate(String reason) {
+        return new CandidateEligibility(false, reason);
     }
 
     @Override
@@ -568,5 +860,23 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
         }
         return value;
+    }
+
+    private record CandidateEligibility(boolean eligible, String ineligibleReason) {
+    }
+
+    private record CandidateProduct(Long productId, String ineligibleReason) {
+    }
+
+    private record CandidateRegulationKey(Long productId, Long routeId, Long routeVersionId, Long routeProcessId,
+                                          Long processId) {
+    }
+
+    private record CandidateEligibilityContext(
+            Map<Long, List<MesProScheduleOrderDO>> schedulesByWorkOrderId,
+            Map<Long, List<MesProScheduleOrderProcessDO>> processesByScheduleOrderId,
+            Map<CandidateRegulationKey, List<MesQaInspectionRegulationDO>> regulationsByKey,
+            Map<Long, MesQaInspectionRegulationVersionDO> versionsById,
+            Map<Long, List<MesQaInspectionRegulationItemDO>> itemsByVersionId) {
     }
 }

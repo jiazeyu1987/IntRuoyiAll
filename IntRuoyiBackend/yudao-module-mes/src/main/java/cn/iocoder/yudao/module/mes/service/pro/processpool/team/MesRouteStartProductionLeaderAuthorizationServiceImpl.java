@@ -28,6 +28,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 public class MesRouteStartProductionLeaderAuthorizationServiceImpl
         implements MesRouteStartProductionLeaderAuthorizationService {
 
+    static final String TEAM_LEADER_MAINTAIN_PERMISSION = "mes:pro-process-pool-team-leader:maintain";
+
     private static final String CANDIDATE_SOURCE_TYPE_USER = "USER";
     private static final String CANDIDATE_SOURCE_TYPE_USERS = "USERS";
     private static final String CANDIDATE_SOURCE_TYPE_ROLE = "ROLE";
@@ -86,15 +88,21 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
         if (CollUtil.isEmpty(routeVersions)) {
             return Set.of();
         }
+        List<MesProRouteVersionDO> activeRouteVersions = routeVersions.stream()
+                .filter(this::isActiveRouteVersion)
+                .toList();
+        if (CollUtil.isEmpty(activeRouteVersions)) {
+            return Set.of();
+        }
+        if (permissionApi.hasAnyPermissions(leaderUserId, TEAM_LEADER_MAINTAIN_PERMISSION)) {
+            return activeRouteVersions.stream()
+                    .map(MesProRouteVersionDO::getRouteId)
+                    .filter(Objects::nonNull)
+                    .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        }
         Set<Long> userRoleIds = null;
         Set<Long> authorizedRouteIds = new LinkedHashSet<>();
-        for (MesProRouteVersionDO routeVersion : routeVersions) {
-            if (routeVersion == null
-                    || routeVersion.getRouteId() == null
-                    || !Boolean.TRUE.equals(routeVersion.getActive())
-                    || !MesProRouteVersionMapper.STATUS_ACTIVE.equals(routeVersion.getLifecycleStatus())) {
-                continue;
-            }
+        for (MesProRouteVersionDO routeVersion : activeRouteVersions) {
             for (RouteStartProductionLeaderSnapshot snapshot
                     : parseRouteStartProductionLeaderSnapshots(routeVersion)) {
                 if (CANDIDATE_SOURCE_TYPE_USERS.equals(snapshot.candidateSourceType())
@@ -114,6 +122,13 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
             }
         }
         return authorizedRouteIds;
+    }
+
+    private boolean isActiveRouteVersion(MesProRouteVersionDO routeVersion) {
+        return routeVersion != null
+                && routeVersion.getRouteId() != null
+                && Boolean.TRUE.equals(routeVersion.getActive())
+                && MesProRouteVersionMapper.STATUS_ACTIVE.equals(routeVersion.getLifecycleStatus());
     }
 
     private List<RouteStartProductionLeaderSnapshot> parseRouteStartProductionLeaderSnapshots(

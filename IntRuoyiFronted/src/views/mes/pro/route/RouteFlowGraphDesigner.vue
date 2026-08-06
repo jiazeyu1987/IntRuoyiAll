@@ -2161,6 +2161,7 @@ const routeStartProductionLeadersLoadError = ref('')
 const routeStartProductionLeaders = ref<RouteStartProductionLeaderDraft[]>([])
 const routeStartProductionLeaderProductionLines =
   ref<ProRouteStartProductionLeaderProductionLineVO[]>([])
+const routeStartProductionLeadersBaseline = ref('')
 let routeStartProductionLeaderDraftSequence = 0
 const releaseApprovalRuleForm = reactive<ReleaseApprovalRuleForm>({
   candidateSourceType: 'USER',
@@ -6324,6 +6325,7 @@ const saveFromParent = async () => {
       throw new Error(buildValidationErrorMessage(result))
     }
     applyPersistedRouteProcessIdMap(result.routeProcessIdMap)
+    await saveRouteStartProductionLeadersIfChanged()
     await saveSelectedProcessAttributeDrafts()
     markGraphSaveClean()
     emit('saved')
@@ -8022,6 +8024,7 @@ const resetRouteStartProductionLeaders = () => {
   routeStartProductionLeadersLoadError.value = ''
   routeStartProductionLeaders.value = []
   routeStartProductionLeaderProductionLines.value = []
+  routeStartProductionLeadersBaseline.value = ''
 }
 
 const fillReleaseApprovalRuleForm = (rule?: EdhrWorkTaskAssignmentRuleRespVO | null) => {
@@ -8313,6 +8316,26 @@ const normalizeRouteStartProductionLeaders = (leaders: ProRouteStartProductionLe
     return Number(first.sort || 0) - Number(second.sort || 0)
   })
 
+const buildRouteStartProductionLeaderSaveItems = () =>
+  routeStartProductionLeaders.value.map((leader) => ({
+    productionLineId: leader.productionLineId,
+    candidateSourceType: leader.candidateSourceType,
+    candidateSourceIds: leader.candidateSourceIds,
+    candidateSourceNames: leader.candidateSourceNames,
+    remark: leader.remark || null
+  }))
+
+const serializeRouteStartProductionLeaderSaveItems = () =>
+  JSON.stringify(buildRouteStartProductionLeaderSaveItems())
+
+const markRouteStartProductionLeadersClean = () => {
+  routeStartProductionLeadersBaseline.value = serializeRouteStartProductionLeaderSaveItems()
+}
+
+const hasRouteStartProductionLeaderDraftChanges = () =>
+  routeStartProductionLeadersLoaded.value &&
+  routeStartProductionLeadersBaseline.value !== serializeRouteStartProductionLeaderSaveItems()
+
 const resolveRouteStartProductionLeaderReadRouteVersionId = () =>
   props.routeVersionEditContext?.lifecycleStatus === 'ACTIVE'
     ? undefined
@@ -8366,10 +8389,12 @@ const loadRouteStartProductionLeaders = async (force = false) => {
     ])
     routeStartProductionLeaderProductionLines.value = productionLines
     routeStartProductionLeaders.value = normalizeRouteStartProductionLeaders(leaders)
+    markRouteStartProductionLeadersClean()
     routeStartProductionLeadersLoaded.value = true
   } catch (error) {
     routeStartProductionLeaderProductionLines.value = []
     routeStartProductionLeaders.value = []
+    routeStartProductionLeadersBaseline.value = ''
     const errorMessage = resolveErrorMessage(error, '生产组长配置加载失败。')
     routeStartProductionLeadersLoadError.value = errorMessage
     message.error(errorMessage)
@@ -8471,42 +8496,63 @@ const handleRouteStartProductionLeaderCandidateIdsChange = (
   )
 }
 
-const handleRouteStartProductionLeaderSave = async () => {
+const requireRouteStartProductionLeaderSaveRouteVersionId = () => {
+  if (!props.routeId) {
+    throw new Error('请先保存工艺路线，再保存生产组长。')
+  }
+  const routeVersionId = requireCandidateRouteVersionId('生产组长保存')
+  if (routeStartProductionLeaders.value.length === 0) {
+    throw new Error('请先新增生产组长配置。')
+  }
+  const invalidProductionLine = routeStartProductionLeaders.value.find(
+    (leader) => !resolveRouteStartProductionLeaderProductionLine(leader)
+  )
+  if (invalidProductionLine) {
+    throw new Error('生产组长负责范围必须来自当前工艺路线。')
+  }
+  const invalidLeader = routeStartProductionLeaders.value.find(
+    (leader) => leader.candidateSourceIds.length === 0
+  )
+  if (invalidLeader) {
+    throw new Error(`请先选择${invalidLeader.productionLineName || '当前工艺路线'}生产组长。`)
+  }
+  return routeVersionId
+}
+
+const saveRouteStartProductionLeaders = async (options: { showSuccess?: boolean } = {}) => {
+  const routeVersionId = requireRouteStartProductionLeaderSaveRouteVersionId()
+  routeStartProductionLeadersSaving.value = true
+  routeStartProductionLeadersLoadError.value = ''
   try {
-    if (!props.routeId) {
-      throw new Error('请先保存工艺路线，再保存生产组长。')
-    }
-    const routeVersionId = requireCandidateRouteVersionId('生产组长保存')
-    if (routeStartProductionLeaders.value.length === 0) {
-      throw new Error('请先新增生产组长配置。')
-    }
-    const invalidProductionLine = routeStartProductionLeaders.value.find(
-      (leader) => !resolveRouteStartProductionLeaderProductionLine(leader)
-    )
-    if (invalidProductionLine) {
-      throw new Error('生产组长负责范围必须来自当前工艺路线。')
-    }
-    const invalidLeader = routeStartProductionLeaders.value.find(
-      (leader) => leader.candidateSourceIds.length === 0
-    )
-    if (invalidLeader) {
-      throw new Error(`请先选择${invalidLeader.productionLineName || '当前工艺路线'}生产组长。`)
-    }
-    routeStartProductionLeadersSaving.value = true
-    routeStartProductionLeadersLoadError.value = ''
     await ProRouteFlowConfigApi.saveRouteStartProductionLeaders({
       routeId: props.routeId,
       routeVersionId,
-      items: routeStartProductionLeaders.value.map((leader) => ({
-        productionLineId: leader.productionLineId,
-        candidateSourceType: leader.candidateSourceType,
-        candidateSourceIds: leader.candidateSourceIds,
-        candidateSourceNames: leader.candidateSourceNames,
-        remark: leader.remark || null
-      }))
+      items: buildRouteStartProductionLeaderSaveItems()
     })
-    message.success('生产组长配置已保存')
+    if (options.showSuccess) {
+      message.success('生产组长配置已保存')
+    }
     await loadRouteStartProductionLeaders(true)
+  } finally {
+    routeStartProductionLeadersSaving.value = false
+  }
+}
+
+const saveRouteStartProductionLeadersIfChanged = async () => {
+  if (!hasRouteStartProductionLeaderDraftChanges()) return
+  try {
+    await saveRouteStartProductionLeaders()
+  } catch (error) {
+    const errorMessage = resolveErrorMessage(error, '生产组长配置保存失败。')
+    routeStartProductionLeadersLoadError.value = errorMessage
+    throw new Error(errorMessage)
+  }
+}
+
+const handleRouteStartProductionLeaderSave = async () => {
+  try {
+    routeStartProductionLeadersSaving.value = true
+    await saveRouteStartProductionLeaders({ showSuccess: true })
   } catch (error) {
     const errorMessage = resolveErrorMessage(error, '生产组长配置保存失败。')
     routeStartProductionLeadersLoadError.value = errorMessage

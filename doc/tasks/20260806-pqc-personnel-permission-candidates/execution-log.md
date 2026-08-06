@@ -11,6 +11,7 @@
 - BDD: 空下拉点击自动加载候选 -> Given 新增 PQC 检验员弹窗打开且搜索框为空 / When 用户点击或聚焦下拉框 / Then 前端自动请求空关键字候选并展示符合 PQC 权限的启用用户供选择。
 - BDD: 其它 PQC 组长已选人员红色禁选 -> Given 候选用户已存在其它 PQC 组长的启用员工 scope / When 当前组长打开新增候选下拉 / Then 该候选仍显示但为红色禁用状态，不能提交关联。
 - BDD: PQC 正式员工关联校验复用同一权限范围 -> Given 请求关联一个无 PQC 权限的系统用户 / When 提交 PQC formal link / Then 后端业务拒绝该用户不是 PQC 权限候选，不写入 scope 关系，不返回默认成功。
+- BDD: 空下拉候选接口不因缺少 keyword 系统异常 -> Given 新增 PQC 检验员弹窗点击空下拉触发候选加载 / When 前端请求未携带或携带空 `keyword` / Then 后端按空关键字查询 PQC 权限候选，不抛参数绑定异常，不返回“系统异常”。
 
 ## Command Log
 
@@ -65,3 +66,29 @@
 - GREEN: `rg -n "^(<<<<<<<|=======|>>>>>>>)" -g "!**/target/**" -g "!**/target_corrupt*/**" IntRuoyiBackend IntRuoyiFronted docs doc` -> 无匹配，conflict markers 已清零。
 - 合并修复：去除 `MesProcessPoolTeamLeaderController` 重复 `toActiveOrderCandidateRespVO`，并补齐异常上报 `abnormalReasonCode` 前后端类型/BO/持久化链路，使既有班组长合同与当前实现一致。
 - CLOSEOUT BLOCKER: `git status --short --branch --untracked-files=all` -> 当前工作区仍有其它任务代码/文档改动和未跟踪任务目录；本任务未提交/未推送，避免混入非本任务改动。
+
+## 2026-08-06 Empty Dropdown System Exception Fix
+
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest#pqcFormalCandidateEndpointAcceptsMissingKeywordForEmptyDropdown" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，预期失败原因：`searchPqcFormalEmployeeCandidates` 的 `@RequestParam("keyword")` 默认 `required=true`，空下拉请求缺省 `keyword` 时会在进入服务前参数绑定失败。
+- Root cause: PQC 新增人员弹窗空点击是正式空关键字查询场景，但后端 Controller 把 `keyword` 建模为必填参数；请求封装或交互路径未带该参数时不会进入 `MesPqcLeaderPersonnelServiceImpl` 的空关键字权限池逻辑，前端收到异常后显示“系统异常”。
+- Fix: 将 PQC 候选接口参数改为 `@RequestParam(value = "keyword", required = false)`，缺省值按 `null` 传入现有服务层，由 `normalizeText` 作为空关键字处理；未引入全员 fallback、默认成功或前端本地过滤。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest#pqcFormalCandidateEndpointAcceptsMissingKeywordForEmptyDropdown" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`Tests run: 1, Failures: 0, Errors: 0, Skipped: 0`。
+- GREEN: `node tests\e2e\pqc-leader-personnel-company-wide-candidates-static.spec.js` -> PASS，静态合同新增 `keyword required=false` 断言。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesPqcLeaderPersonnelServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`Tests run: 26, Failures: 0, Errors: 0, Skipped: 0`。
+- GREEN: `pnpm ts:check` -> PASS。
+- REGRESSION: `git diff --check` -> PASS，仅有 Git 换行提示，无空白错误。
+- CLOSEOUT BLOCKER: `git status --short --branch --untracked-files=all` -> 当前共享工作区仍有其它任务代码/文档改动和未跟踪任务目录；本任务未提交/未推送，避免混入非本任务改动。
+- EXPERIENCE: project-experience-consolidation -> 已合并到 `docs/frontend-development.md#复合输入控件交互保留门禁`，并更新 `docs/experience-index.md` 关键词；`rg -n "空下拉|keyword required=false|RequestParam required=false|20260806-pqc-personnel-permission-candidates" docs/frontend-development.md docs/experience-index.md` -> PASS。
+
+## 2026-08-06 Admin Real E2E Verification
+
+- RED: `芋道源码/admin` 真实页面 E2E -> FAIL，点击 PQC 新增人员空下拉时 `/pqc-personnel/formal-candidates?keyword=` 返回业务码 `500`、消息“系统异常”；后端日志显示 `NoSuchMethodError: RoleApi.getRoleByCode(String)`，说明 48081 运行 Jar 的 MES 与 system 模块版本不一致。
+- RUNTIME: 停止完整 `mvn -pl yudao-server -am -DskipTests package`，原因是本轮 Maven 长时间卡在 Windows 文件属性读取且仓内存在损坏的旧 `target_corrupt_m4_20260802_1327` 目录；未删除非本任务目录，改用项目规则允许的内嵌模块热替换。
+- RUNTIME: 以 `yudao-module-system-2026.04-SNAPSHOT.jar` 热替换运行 Jar 内 `BOOT-INF/lib/yudao-module-system-2026.04-SNAPSHOT.jar`，保持 nested jar `compress_type=0`；后端 `56964 -> 49580`，health `UP`。
+- RED: `芋道源码/admin` 真实页面 E2E 补充缺省 `keyword` 接口核验 -> FAIL，页面 `keyword=` 已返回 30 个候选且无系统异常，但缺省 `keyword` 登录态接口仍返回 `请求参数缺失:keyword`；`javap -v target/classes` 确认源码编译 class 中 `searchPqcFormalEmployeeCandidates` 的 `@RequestParam required=false` 已存在，运行 Jar 的 MES Controller class 未同步。
+- RUNTIME: 以当前运行 Jar 为底，热替换内嵌 MES jar 中 `MesProcessPoolTeamLeaderController.class`，并再次替换 system 模块，两个 nested jar 均验证 `compress_type=0`；后端 `49580 -> 42608`，health `UP`。
+- RUNTIME: 前端 8081 Vite 在后端刷新后 HTTP 请求超时，确认 PID `54068` 是 `vite --mode env.local --strictPort` 后重启；新前端 HTTP `200`，后端 health `UP`。
+- GREEN: `芋道源码/admin` 真实页面 E2E -> PASS，当前 URL `/mes/pro/process-pool/pqc-leader`，PQC tab 顺序 `人员管理/PQC管理/看板` 且默认 `人员管理`；点击新增人员空下拉后页面候选接口返回 `code=0,count=30`，可见选项数 30，无“系统异常/请求地址不存在”，无目标网络失败、无 pageerror、无写请求。
+- GREEN: 登录态缺省 `keyword` 补充核验 -> PASS，`GET /admin-api/mes/pro/process-pool/team-leader/pqc-personnel/formal-candidates` 不带 query 返回 `code=0,count=30`。
+- Evidence: `output/playwright/20260806-pqc-personnel-admin-e2e/result.json`，截图 `output/playwright/20260806-pqc-personnel-admin-e2e/pqc-personnel-dropdown.png`；本地当前端口 `8081` HTTP `200`，`48081` health `UP`。
+- Scope note: 当前 `芋道源码/admin` 数据中 `occupiedCandidateCount=0`，因此真实 E2E 未观察到“其它 PQC 组长已选候选红色禁用”样本；该行为仍由前端静态合同、后端单测和提交校验覆盖。

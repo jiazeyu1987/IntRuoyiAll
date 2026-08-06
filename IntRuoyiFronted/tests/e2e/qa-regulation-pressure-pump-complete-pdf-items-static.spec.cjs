@@ -10,7 +10,10 @@ const qaPagePath = path.join(
 const qaSource = fs.readFileSync(qaPagePath, 'utf8')
 
 const start = qaSource.indexOf('const createPressurePumpQaRegulationItems')
-const end = start >= 0 ? qaSource.indexOf('const qaRegulationItems', start) : -1
+const end =
+  start >= 0
+    ? qaSource.indexOf('const createBalloonPressurePumpQaRegulationItems', start)
+    : -1
 assert.ok(start >= 0 && end > start, 'Pressure-pump QA regulation item template must exist.')
 const source = qaSource.slice(start, end)
 
@@ -233,12 +236,12 @@ const expectedRows = [
     page: 6,
     screenshotPage: 4,
     processName: '整体粘结',
-    itemName: '气密性 / 外观',
+    itemName: '外观',
     standardText: '对气密性检测合格的产品进行外观检查应无黑点、杂质、花纹、划痕、缺损、裂纹等外观缺陷；不应有多余胶水外露。',
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s，对气密性合格的产品进行观察。',
     inspectionTool: '目测',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
-    sourceOriginalItem: '整体粘结 / 气密性 / 外观'
+    sourceOriginalItem: '整体粘结 / 外观'
   },
   {
     itemCode: 'PP-018-BOND-NO-BLOCK',

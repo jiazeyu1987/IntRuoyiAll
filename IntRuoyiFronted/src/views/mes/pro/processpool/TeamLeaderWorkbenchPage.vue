@@ -43,6 +43,29 @@
       <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
       <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
     </el-tabs>
+    <div
+      v-if="showProductionModuleTabs"
+      class="team-leader-workbench__responsible-routes"
+      data-production-leader-responsible-routes
+      aria-label="生产组长负责的工艺路线"
+    >
+      <span class="team-leader-workbench__responsible-routes-label">负责工艺路线</span>
+      <template v-if="productionResponsibleRouteNames.length">
+        <el-tag
+          v-for="routeName in productionResponsibleRouteNames"
+          :key="routeName"
+          class="team-leader-workbench__responsible-route-tag"
+          type="success"
+          effect="plain"
+          :title="routeName"
+        >
+          {{ routeName }}
+        </el-tag>
+      </template>
+      <span v-else class="team-leader-workbench__responsible-routes-empty">
+        {{ processConfigLoading ? '工艺路线加载中' : '暂无负责工艺路线' }}
+      </span>
+    </div>
     <el-tabs
       v-model="productionPersonnelActiveTab"
       :class="[
@@ -297,6 +320,7 @@
     >
       <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
       <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+      <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
       <el-tab-pane label="看板" name="dashboard" data-pqc-leader-module-tab-dashboard />
     </el-tabs>
 
@@ -453,6 +477,29 @@
         <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
         <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
+      <div
+        v-if="showProductionModuleTabs"
+        class="team-leader-workbench__responsible-routes"
+        data-production-leader-responsible-routes
+        aria-label="生产组长负责的工艺路线"
+      >
+        <span class="team-leader-workbench__responsible-routes-label">负责工艺路线</span>
+        <template v-if="productionResponsibleRouteNames.length">
+          <el-tag
+            v-for="routeName in productionResponsibleRouteNames"
+            :key="routeName"
+            class="team-leader-workbench__responsible-route-tag"
+            type="success"
+            effect="plain"
+            :title="routeName"
+          >
+            {{ routeName }}
+          </el-tag>
+        </template>
+        <span v-else class="team-leader-workbench__responsible-routes-empty">
+          {{ processConfigLoading ? '工艺路线加载中' : '暂无负责工艺路线' }}
+        </span>
+      </div>
       <div v-if="showPqcModuleTabs" class="team-leader-workbench__embedded-header">
         <div class="team-leader-workbench__title">{{ pageTitle }}</div>
         <div class="team-leader-workbench__subtitle">
@@ -467,6 +514,7 @@
       >
         <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
         <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+        <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
         <el-tab-pane label="看板" name="dashboard" data-pqc-leader-module-tab-dashboard />
       </el-tabs>
       <div v-if="!showPqcModuleTabs && !showProductionModuleTabs" class="team-leader-workbench__section-head">
@@ -632,25 +680,6 @@
                   >
                     {{ item.valueText }}
                   </span>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column
-              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('pqcSubmissionContent')"
-              label="PQC提交内容"
-              prop="pqcSubmissionContent"
-              :min-width="getSubmissionColumnMinWidthString('pqcSubmissionContent', 260)"
-            >
-              <template #default="{ row }">
-                <div class="team-leader-workbench__pqc-content" data-pqc-leader-submission-content>
-                  <div
-                    v-for="item in resolvePqcSubmissionContentItems(row)"
-                    :key="item.key"
-                    class="team-leader-workbench__pqc-content-item"
-                  >
-                    <span class="team-leader-workbench__pqc-content-label">{{ item.label }}</span>
-                    <span class="team-leader-workbench__pqc-content-value">{{ item.valueText }}</span>
-                  </div>
                 </div>
               </template>
             </el-table-column>
@@ -821,30 +850,6 @@
               </template>
             </el-table-column>
             <el-table-column
-              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('pieceSampleValues')"
-              label="逐件/样本值"
-              prop="pieceSampleValues"
-              :min-width="getSubmissionColumnMinWidthString('pieceSampleValues', 220)"
-            >
-              <template #default="{ row }">
-                <div class="team-leader-workbench__parameter-list" data-pqc-leader-piece-sample-values>
-                  <div
-                    v-for="item in resolvePqcPieceSampleItems(row)"
-                    :key="item.key"
-                    class="team-leader-workbench__parameter-item"
-                  >
-                    <span class="team-leader-workbench__parameter-label">{{ item.label }}</span>
-                    <span
-                      class="team-leader-workbench__parameter-value"
-                      :class="{ 'is-out-of-range': item.outOfRange }"
-                    >
-                      {{ item.valueText }}
-                    </span>
-                  </div>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column
               v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('defectDescription')"
               label="不良说明"
               prop="defectDescription"
@@ -859,7 +864,7 @@
               </template>
             </el-table-column>
             <el-table-column
-              v-if="isSubmissionColumnVisible('auditCopyStatus')"
+              v-if="activeLeaderTab !== 'PQC' && isSubmissionColumnVisible('auditCopyStatus')"
               label="审核副本"
               prop="auditCopyStatus"
               :min-width="getSubmissionColumnMinWidthString('auditCopyStatus', 130)"
@@ -867,35 +872,7 @@
               <template #default="{ row }">{{ row.auditCopyStatus || '--' }}</template>
             </el-table-column>
             <el-table-column
-              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('processInspectionAggregation')"
-              label="过程检验汇集"
-              prop="processInspectionAggregation"
-              :min-width="getSubmissionColumnMinWidthString('processInspectionAggregation', 180)"
-            >
-              <template #default="{ row }">
-                <div
-                  class="team-leader-workbench__review-log"
-                  data-pqc-process-inspection-aggregation
-                  :data-pqc-process-inspection-event-id="String(row.id)"
-                >
-                  <el-tag
-                    :type="resolveProcessInspectionAggregationTagType(row.processInspectionAggregationStatus)"
-                    effect="plain"
-                  >
-                    {{ resolveProcessInspectionAggregationStatusText(row.processInspectionAggregationStatus) }}
-                  </el-tag>
-                  <span
-                    v-if="row.processInspectionReviewId"
-                    class="team-leader-workbench__review-meta"
-                  >
-                    复核 {{ row.processInspectionReviewId }} ·
-                    {{ formatDateTime(row.processInspectionAggregatedAt) }}
-                  </span>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column
-              v-if="isSubmissionColumnVisible('submissionReviewStatus')"
+              v-if="activeLeaderTab !== 'PQC' && isSubmissionColumnVisible('submissionReviewStatus')"
               label="复核判定"
               prop="submissionReviewStatus"
               :min-width="getSubmissionColumnMinWidthString('submissionReviewStatus', 190)"
@@ -960,6 +937,149 @@
     </ContentWrap>
 
     <ContentWrap
+      v-if="showPqcDetailModule"
+      class="team-leader-workbench__pqc-module-card"
+      data-pqc-leader-detail-tab
+    >
+      <div class="team-leader-workbench__embedded-header">
+        <div class="team-leader-workbench__title">{{ pageTitle }}</div>
+        <div class="team-leader-workbench__subtitle">
+          {{ pageSubtitle }}
+        </div>
+      </div>
+      <el-tabs
+        v-model="activePqcModuleTab"
+        class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+        data-pqc-leader-module-tabs
+      >
+        <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
+        <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+        <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
+        <el-tab-pane label="看板" name="dashboard" data-pqc-leader-module-tab-dashboard />
+      </el-tabs>
+
+      <div v-loading="detailLoading" class="team-leader-workbench__detail-tab-body">
+        <el-empty
+          v-if="!detail && !detailLoading"
+          description="请先在 PQC管理 列表点击详情"
+        />
+        <template v-else-if="detail">
+          <el-descriptions
+            :column="1"
+            border
+            class="team-leader-workbench__detail-descriptions"
+            label-width="400px"
+            data-team-leader-structured-detail
+          >
+            <el-descriptions-item label="服务端提交时间">
+              {{ formatDateTime(detail.submittedAt) }}
+            </el-descriptions-item>
+            <el-descriptions-item :label="employeeDetailLabel">
+              {{ detail.actualEmployeeUserName || detail.actualEmployeeUserId || '--' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="工序">
+              {{ detail.processName || detail.processCode || '--' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="生产工单">
+              {{ detail.workOrderCode || '--' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="提交摘要">
+              {{ detail.submittedSummary || '--' }}
+            </el-descriptions-item>
+            <el-descriptions-item v-if="detail.pqcResult || detail.pqcSummary" label="PQC检验内容">
+              <el-tag :type="resolvePqcTagType(detail.pqcResult)" effect="plain">
+                {{ detail.pqcSummary || detail.pqcResult }}
+              </el-tag>
+            </el-descriptions-item>
+          </el-descriptions>
+
+          <div
+            v-if="isPqcSubmissionRow(detail)"
+            class="team-leader-workbench__detail-standard-list"
+          >
+            <div class="team-leader-workbench__submission-log-title">PQC项目明细</div>
+            <UnifiedListTemplate
+              table-key="mes.processPool.teamLeader.pqcSubmissionDetailItems"
+              :query-model="pqcDetailQuery"
+              :filter-definitions="pqcDetailFilterDefinitions"
+              :quick-filter-state="pqcDetailQuickFilterState"
+              :operator-options="pqcDetailOperatorOptions"
+              :columns="pqcDetailColumns"
+              :show-query-form="false"
+              :show-column-settings="false"
+              :total="pqcDetailTotal"
+              v-model:page="pqcDetailQuery.pageNo"
+              v-model:limit="pqcDetailQuery.pageSize"
+            >
+              <template #table>
+                <el-table
+                  :data="pagedPqcDetailRows"
+                  border
+                  size="small"
+                  data-pqc-leader-item-snapshot-table
+                  empty-text="PQC提交内容缺少正式项目明细"
+                >
+                  <el-table-column label="检验项目" min-width="120">
+                    <template #default="{ row }">{{ row.itemName || row.itemCode || '--' }}</template>
+                  </el-table-column>
+                  <el-table-column label="检验设备" min-width="140">
+                    <template #default="{ row }">
+                      {{ row.selectedEquipmentName || row.selectedEquipmentCode || '--' }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="设备编号" prop="selectedEquipmentNumber" min-width="130" />
+                  <el-table-column label="接收标准" min-width="180">
+                    <template #default="{ row }">{{ formatPqcSnapshotStandard(row) }}</template>
+                  </el-table-column>
+                  <el-table-column label="检验方法" prop="inspectionMethod" min-width="180" />
+                  <el-table-column label="样本值" min-width="180">
+                    <template #default="{ row }">
+                      <span data-pqc-leader-detail-sample-values>
+                        {{ formatPqcSnapshotSampleValues(row) }}
+                      </span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="判定" min-width="100">
+                    <template #default="{ row }">{{ row.judgement || row.itemResult || '--' }}</template>
+                  </el-table-column>
+                </el-table>
+              </template>
+            </UnifiedListTemplate>
+          </div>
+
+          <div
+            v-if="isPqcSubmissionRow(detail)"
+            class="team-leader-workbench__submission-log"
+            data-pqc-submission-log
+          >
+            <div class="team-leader-workbench__submission-log-title">PQC提交日志</div>
+            <el-descriptions
+              :column="1"
+              border
+              class="team-leader-workbench__detail-descriptions"
+              label-width="400px"
+            >
+              <el-descriptions-item label="提交事件编号">
+                {{ detail.id || '--' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="PQC检验员">
+                {{ detail.actualEmployeeUserName || detail.actualEmployeeUserId || '--' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="服务端提交时间">
+                {{ formatDateTime(detail.submittedAt) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="签名编号">
+                <span data-pqc-submission-signature-id>
+                  {{ detail.electronicSignatureId || '--' }}
+                </span>
+              </el-descriptions-item>
+            </el-descriptions>
+          </div>
+        </template>
+      </div>
+    </ContentWrap>
+
+    <ContentWrap
       v-if="showProductionActiveOrderModule"
       :class="{ 'team-leader-workbench__production-module-card': showProductionModuleTabs }"
       data-team-leader-active-order-config
@@ -979,6 +1099,29 @@
         <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
         <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
+      <div
+        v-if="showProductionModuleTabs"
+        class="team-leader-workbench__responsible-routes"
+        data-production-leader-responsible-routes
+        aria-label="生产组长负责的工艺路线"
+      >
+        <span class="team-leader-workbench__responsible-routes-label">负责工艺路线</span>
+        <template v-if="productionResponsibleRouteNames.length">
+          <el-tag
+            v-for="routeName in productionResponsibleRouteNames"
+            :key="routeName"
+            class="team-leader-workbench__responsible-route-tag"
+            type="success"
+            effect="plain"
+            :title="routeName"
+          >
+            {{ routeName }}
+          </el-tag>
+        </template>
+        <span v-else class="team-leader-workbench__responsible-routes-empty">
+          {{ processConfigLoading ? '工艺路线加载中' : '暂无负责工艺路线' }}
+        </span>
+      </div>
 
       <UnifiedListTemplate
         table-key="mes.processPool.teamLeader.activeOrders"
@@ -1143,7 +1286,25 @@
                 :key="candidate.workOrderId"
                 :label="candidate.workOrderCode"
                 :value="candidate.workOrderId"
-              />
+              >
+                <div
+                  class="team-leader-workbench__active-order-candidate"
+                  :class="{ 'is-eligible': candidate.eligible }"
+                >
+                  <span class="team-leader-workbench__active-order-candidate-code">
+                    {{ candidate.workOrderCode }}
+                  </span>
+                  <span
+                    v-if="candidate.eligible"
+                    class="team-leader-workbench__active-order-candidate-badge"
+                  >
+                    符合要求
+                  </span>
+                  <span v-else class="team-leader-workbench__active-order-candidate-reason">
+                    {{ candidate.ineligibleReason || '暂不符合' }}
+                  </span>
+                </div>
+              </el-option>
             </el-select>
             <div
               v-if="activeOrderCandidateError"
@@ -1187,6 +1348,29 @@
         <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
         <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
+      <div
+        v-if="showProductionModuleTabs"
+        class="team-leader-workbench__responsible-routes"
+        data-production-leader-responsible-routes
+        aria-label="生产组长负责的工艺路线"
+      >
+        <span class="team-leader-workbench__responsible-routes-label">负责工艺路线</span>
+        <template v-if="productionResponsibleRouteNames.length">
+          <el-tag
+            v-for="routeName in productionResponsibleRouteNames"
+            :key="routeName"
+            class="team-leader-workbench__responsible-route-tag"
+            type="success"
+            effect="plain"
+            :title="routeName"
+          >
+            {{ routeName }}
+          </el-tag>
+        </template>
+        <span v-else class="team-leader-workbench__responsible-routes-empty">
+          {{ processConfigLoading ? '工艺路线加载中' : '暂无负责工艺路线' }}
+        </span>
+      </div>
       <div v-if="showPqcModuleTabs" class="team-leader-workbench__embedded-header">
         <div class="team-leader-workbench__title">{{ pageTitle }}</div>
         <div class="team-leader-workbench__subtitle">
@@ -1201,6 +1385,7 @@
       >
         <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
         <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+        <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
         <el-tab-pane label="看板" name="dashboard" data-pqc-leader-module-tab-dashboard />
       </el-tabs>
       <div v-if="!showPqcModuleTabs" class="team-leader-workbench__section-head">
@@ -1269,6 +1454,29 @@
         <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
         <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
+      <div
+        v-if="showProductionModuleTabs"
+        class="team-leader-workbench__responsible-routes"
+        data-production-leader-responsible-routes
+        aria-label="生产组长负责的工艺路线"
+      >
+        <span class="team-leader-workbench__responsible-routes-label">负责工艺路线</span>
+        <template v-if="productionResponsibleRouteNames.length">
+          <el-tag
+            v-for="routeName in productionResponsibleRouteNames"
+            :key="routeName"
+            class="team-leader-workbench__responsible-route-tag"
+            type="success"
+            effect="plain"
+            :title="routeName"
+          >
+            {{ routeName }}
+          </el-tag>
+        </template>
+        <span v-else class="team-leader-workbench__responsible-routes-empty">
+          {{ processConfigLoading ? '工艺路线加载中' : '暂无负责工艺路线' }}
+        </span>
+      </div>
       <div class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">订单异常上报</div>
@@ -1351,6 +1559,29 @@
         <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
         <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
+      <div
+        v-if="showProductionModuleTabs"
+        class="team-leader-workbench__responsible-routes"
+        data-production-leader-responsible-routes
+        aria-label="生产组长负责的工艺路线"
+      >
+        <span class="team-leader-workbench__responsible-routes-label">负责工艺路线</span>
+        <template v-if="productionResponsibleRouteNames.length">
+          <el-tag
+            v-for="routeName in productionResponsibleRouteNames"
+            :key="routeName"
+            class="team-leader-workbench__responsible-route-tag"
+            type="success"
+            effect="plain"
+            :title="routeName"
+          >
+            {{ routeName }}
+          </el-tag>
+        </template>
+        <span v-else class="team-leader-workbench__responsible-routes-empty">
+          {{ processConfigLoading ? '工艺路线加载中' : '暂无负责工艺路线' }}
+        </span>
+      </div>
       <div class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">工序配置</div>
@@ -1358,7 +1589,14 @@
             以路线工序串联损耗原因、设备映射和设备参数标准；平均值来自近 30 天正式报工，只读展示。
           </div>
         </div>
-        <el-button :loading="processConfigLoading" @click="loadProcessConfigRows">新增</el-button>
+        <el-button
+          type="primary"
+          :loading="processConfigLoading"
+          data-team-leader-process-config-create-entry
+          @click="openCreateProcessConfigDataDialog"
+        >
+          新增
+        </el-button>
       </div>
       <el-table
         v-loading="processConfigLoading"
@@ -1493,6 +1731,75 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <el-dialog
+        v-model="processConfigCreateDialogVisible"
+        title="新增工序配置数据"
+        width="560px"
+        destroy-on-close
+        data-team-leader-process-config-create-dialog
+      >
+        <el-form :model="processConfigCreateForm" label-width="108px">
+          <el-form-item label="路线工序" required>
+            <el-select
+              v-model="processConfigCreateForm.routeProcessId"
+              filterable
+              placeholder="请选择路线工序"
+              data-team-leader-process-config-create-process
+              @change="handleProcessConfigCreateRouteChange"
+            >
+              <el-option
+                v-for="row in processConfigRows"
+                :key="row.routeProcessId"
+                :label="formatProcessConfigCreateProcessOption(row)"
+                :value="row.routeProcessId"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="新增类型" required>
+            <el-radio-group
+              v-model="processConfigCreateForm.createType"
+              data-team-leader-process-config-create-type
+              @change="handleProcessConfigCreateTypeChange"
+            >
+              <el-radio-button label="LOSS_REASON">损耗原因</el-radio-button>
+              <el-radio-button label="DEVICE_BINDING">设备映射</el-radio-button>
+              <el-radio-button label="PARAMETER_RULE">设备参数标准</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item
+            v-if="processConfigCreateForm.createType === 'PARAMETER_RULE'"
+            label="设备"
+            required
+          >
+            <el-select
+              v-model="processConfigCreateForm.deviceId"
+              filterable
+              placeholder="请选择当前工序已映射设备"
+              data-team-leader-process-config-create-device
+            >
+              <el-option
+                v-for="device in processConfigCreateDeviceOptions"
+                :key="device.deviceId"
+                :label="formatProcessConfigDevice(device)"
+                :value="device.deviceId"
+              />
+            </el-select>
+          </el-form-item>
+          <el-alert
+            title="选择后将打开对应维护弹窗；保存时继续使用正式损耗、设备映射和设备参数接口。"
+            type="info"
+            :closable="false"
+            show-icon
+          />
+        </el-form>
+        <template #footer>
+          <el-button @click="processConfigCreateDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="confirmCreateProcessConfigData">
+            下一步
+          </el-button>
+        </template>
+      </el-dialog>
     </ContentWrap>
     <ContentWrap
       v-if="showProductionConfigModule"
@@ -1513,6 +1820,29 @@
         <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
         <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
+      <div
+        v-if="showProductionModuleTabs"
+        class="team-leader-workbench__responsible-routes"
+        data-production-leader-responsible-routes
+        aria-label="生产组长负责的工艺路线"
+      >
+        <span class="team-leader-workbench__responsible-routes-label">负责工艺路线</span>
+        <template v-if="productionResponsibleRouteNames.length">
+          <el-tag
+            v-for="routeName in productionResponsibleRouteNames"
+            :key="routeName"
+            class="team-leader-workbench__responsible-route-tag"
+            type="success"
+            effect="plain"
+            :title="routeName"
+          >
+            {{ routeName }}
+          </el-tag>
+        </template>
+        <span v-else class="team-leader-workbench__responsible-routes-empty">
+          {{ processConfigLoading ? '工艺路线加载中' : '暂无负责工艺路线' }}
+        </span>
+      </div>
       <div class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">班组配置中心</div>
@@ -1637,9 +1967,23 @@
       </div>
     </ContentWrap>
 
-    <el-drawer v-model="detailVisible" :title="detailDrawerTitle" size="620px" destroy-on-close>
+    <el-drawer
+      v-if="!showPqcDetailAsTab"
+      v-model="detailVisible"
+      :title="detailDrawerTitle"
+      size="1240px"
+      destroy-on-close
+      data-team-leader-submission-detail-drawer
+    >
       <div v-loading="detailLoading">
-        <el-descriptions v-if="detail" :column="1" border data-team-leader-structured-detail>
+        <el-descriptions
+          v-if="detail"
+          :column="1"
+          border
+          class="team-leader-workbench__detail-descriptions"
+          label-width="400px"
+          data-team-leader-structured-detail
+        >
           <el-descriptions-item label="服务端提交时间">
             {{ formatDateTime(detail.submittedAt) }}
           </el-descriptions-item>
@@ -1682,22 +2026,15 @@
               </el-table-column>
               <el-table-column label="检验方法" prop="inspectionMethod" min-width="180" />
               <el-table-column label="样本值" min-width="180">
-                <template #default="{ row }">{{ formatPqcSnapshotSampleValues(row) }}</template>
+                <template #default="{ row }">
+                  <span data-pqc-leader-detail-sample-values>
+                    {{ formatPqcSnapshotSampleValues(row) }}
+                  </span>
+                </template>
               </el-table-column>
               <el-table-column label="判定" min-width="100">
                 <template #default="{ row }">{{ row.judgement || row.itemResult || '--' }}</template>
               </el-table-column>
-            </el-table>
-          </el-descriptions-item>
-          <el-descriptions-item label="结构化报工内容">
-            <el-table
-              :data="resolveStructuredPayloadItems(detail.originalPayloadJson)"
-              border
-              size="small"
-              empty-text="暂无结构化字段"
-            >
-              <el-table-column label="字段" prop="field" min-width="160" />
-              <el-table-column label="值" prop="value" min-width="220" />
             </el-table>
           </el-descriptions-item>
         </el-descriptions>
@@ -1707,7 +2044,12 @@
           data-pqc-submission-log
         >
           <div class="team-leader-workbench__submission-log-title">PQC提交日志</div>
-          <el-descriptions :column="1" border>
+          <el-descriptions
+            :column="1"
+            border
+            class="team-leader-workbench__detail-descriptions"
+            label-width="400px"
+          >
             <el-descriptions-item label="提交事件编号">
               {{ detail.id || '--' }}
             </el-descriptions-item>
@@ -1721,11 +2063,6 @@
               <span data-pqc-submission-signature-id>
                 {{ detail.electronicSignatureId || '--' }}
               </span>
-            </el-descriptions-item>
-            <el-descriptions-item label="原始提交内容">
-              <pre class="team-leader-workbench__payload" data-pqc-submission-original-payload>{{
-                detail.originalPayloadJson || '--'
-              }}</pre>
             </el-descriptions-item>
           </el-descriptions>
         </div>
@@ -2124,10 +2461,12 @@
 </template>
 
 <script setup lang="ts">
+import { watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   useTableMultiFilter,
+  type ListMultiFilterCondition,
   type ListMultiFilterDefinition
 } from '@/hooks/web/useTableMultiFilter'
 import {
@@ -2191,11 +2530,12 @@ import {
   updateProcessPoolOriginalRecord,
   type ProcessPoolEventRevisionFieldChangeVO
 } from '@/api/mes/pro/processpool/eventRevision'
-import { formatDateTimeValue } from '@/utils/formatTime'
+import { formatDateTimeValue, formatDate } from '@/utils/formatTime'
 
 defineOptions({ name: 'MesProProcessPoolTeamLeaderWorkbench' })
 
 type WorkbenchLeaderTab = TeamLeaderType
+type ProcessConfigCreateType = 'LOSS_REASON' | 'DEVICE_BINDING' | 'PARAMETER_RULE'
 
 const props = withDefaults(
   defineProps<{
@@ -2218,10 +2558,13 @@ const props = withDefaults(
 
 const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
-const activePqcModuleTab = ref<'personnel' | 'management' | 'dashboard'>('personnel')
+const activePqcModuleTab = ref<'personnel' | 'management' | 'dashboard' | 'detail'>('personnel')
 const activeProductionModuleTab = ref<
   'personnel' | 'report' | 'activeOrder' | 'dashboard' | 'exception' | 'processConfig' | 'config'
 >('personnel')
+
+const DEFAULT_SUBMISSION_DATE_CONDITION_ID = 'submitDate'
+const getDefaultSubmissionDate = () => formatDate(new Date(), 'YYYY-MM-DD')
 const loading = ref(false)
 const detailLoading = ref(false)
 const reviewSubmitting = ref(false)
@@ -2252,6 +2595,7 @@ const activeOrderTransferTraceError = ref('')
 const processConfigRows = ref<TeamLeaderProcessConfigRowRespVO[]>([])
 const processConfigLoading = ref(false)
 const processConfigSubmitting = ref(false)
+const processConfigCreateDialogVisible = ref(false)
 const processConfigDeviceDialogVisible = ref(false)
 const processConfigParameterDialogVisible = ref(false)
 const processConfigSelectedRow = ref<TeamLeaderProcessConfigRowRespVO>()
@@ -2324,6 +2668,22 @@ const pqcPersonnelColumns: any[] = [
   { key: 'username', label: '账号', visible: true },
   { key: 'enabled', label: '状态', visible: true }
 ]
+const pqcDetailQuery = reactive({
+  pageNo: 1,
+  pageSize: 10
+})
+const pqcDetailFilterDefinitions: any[] = []
+const pqcDetailQuickFilterState = reactive({})
+const pqcDetailOperatorOptions: any[] = []
+const pqcDetailColumns: any[] = [
+  { key: 'itemName', label: '检验项目', visible: true },
+  { key: 'selectedEquipmentName', label: '检验设备', visible: true },
+  { key: 'selectedEquipmentNumber', label: '设备编号', visible: true },
+  { key: 'standardText', label: '接收标准', visible: true },
+  { key: 'inspectionMethod', label: '检验方法', visible: true },
+  { key: 'sampleValues', label: '样本值', visible: true },
+  { key: 'judgement', label: '判定', visible: true }
+]
 const SUBMISSION_TABLE_KEY = 'mes.processPool.teamLeader.submissions'
 const PRODUCTION_SUBMISSION_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.production`
 const PQC_SUBMISSION_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.pqc`
@@ -2348,13 +2708,13 @@ const pqcSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'submittedAt', label: '提交时间', minWidth: 160 },
   { key: 'employeeUser', label: 'PQC检验员', minWidth: 140 },
   { key: 'process', label: '工序', minWidth: 150 },
+  { key: 'workOrder', label: '生产工单', minWidth: 160 },
   { key: 'completionQuantity', label: '检验数量', minWidth: 130 },
   { key: 'lossQuantity', label: '损耗数量', minWidth: 120 },
   { key: 'lossBreakdown', label: '损耗明细', minWidth: 210 },
   { key: 'product', label: '产品', minWidth: 180 },
   { key: 'inspectionTask', label: '检验类型/轮次', minWidth: 150 },
   { key: 'inspectionItems', label: '检验项', minWidth: 190 },
-  { key: 'pqcSubmissionContent', label: 'PQC提交内容', minWidth: 260 },
   { key: 'equipmentSnapshot', label: '设备', minWidth: 220 },
   { key: 'selectedDevice', label: '选用设备', minWidth: 220 },
   { key: 'equipmentNumber', label: '设备编号', minWidth: 150 },
@@ -2363,11 +2723,7 @@ const pqcSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'inspectionJudgement', label: '检验判定', minWidth: 150 },
   { key: 'parameterSnapshot', label: '参数明细', minWidth: 280 },
   { key: 'deviceParameterReadings', label: '设备参数', minWidth: 280 },
-  { key: 'pieceSampleValues', label: '逐件/样本值', minWidth: 220 },
   { key: 'defectDescription', label: '不良说明', minWidth: 180 },
-  { key: 'auditCopyStatus', label: '审核副本', minWidth: 130 },
-  { key: 'processInspectionAggregation', label: '过程检验汇集', minWidth: 180 },
-  { key: 'submissionReviewStatus', label: '复核判定', minWidth: 190 },
   { key: 'operation', label: '操作', width: 270, hideable: false, business: false }
 ]
 const productionSubmissionColumnControl = useUserTableColumns(
@@ -2386,7 +2742,8 @@ const submissionColumns = computed<UserTableColumnState[]>(
   () => activeSubmissionColumnControl.value.columns.value
 )
 const isSubmissionColumnVisible = (key: string) =>
-  activeSubmissionColumnControl.value.isColumnVisible(key)
+  submissionColumns.value.some((column) => column.key === key)
+  && activeSubmissionColumnControl.value.isColumnVisible(key)
 const getSubmissionColumnWidthString = (key: string, fallback?: number) =>
   activeSubmissionColumnControl.value.getColumnWidthString(key, fallback)
 const getSubmissionColumnMinWidthString = (key: string, fallback?: number) =>
@@ -2404,6 +2761,9 @@ const resetSubmissionColumnConfig = async () => {
 const showLeaderTypeTabs = computed(() => props.showLeaderTypeTabs)
 const showPqcModuleTabs = computed(
   () => props.showPqcModuleTabs && activeLeaderTab.value === 'PQC'
+)
+const showPqcDetailAsTab = computed(
+  () => activeLeaderTab.value === 'PQC' && showPqcModuleTabs.value
 )
 const showProductionModuleTabs = computed(
   () => props.showProductionModuleTabs && activeLeaderTab.value === 'PRODUCTION'
@@ -2450,6 +2810,9 @@ const showPqcDashboardModule = computed(
   () =>
     showProductionDashboardModule.value ||
     (activeLeaderTab.value === 'PQC' && (!showPqcModuleTabs.value || activePqcModuleTab.value === 'dashboard'))
+)
+const showPqcDetailModule = computed(
+  () => showPqcDetailAsTab.value && activePqcModuleTab.value === 'detail'
 )
 const employeeColumnLabel = computed(() =>
   activeLeaderTab.value === 'PQC' ? 'PQC检验员' : '员工'
@@ -2543,7 +2906,7 @@ const queryParams = reactive<TeamLeaderSubmissionPageReqVO>({
   pageNo: 1,
   pageSize: 10,
   leaderType: activeLeaderTab.value,
-  submitDate: '',
+  submitDate: getDefaultSubmissionDate(),
   employeeUserId: undefined,
   processId: undefined,
   deviceId: undefined,
@@ -2736,6 +3099,12 @@ const lossReasonForm = reactive({
   reasonName: '',
   enabled: true,
   remark: ''
+})
+
+const processConfigCreateForm = reactive({
+  routeProcessId: undefined as number | undefined,
+  createType: 'LOSS_REASON' as ProcessConfigCreateType,
+  deviceId: undefined as number | undefined
 })
 
 const processConfigDeviceForm = reactive({
@@ -3158,10 +3527,39 @@ const processConfigDeviceOptions = computed(() => {
   return [...optionMap.values()]
 })
 
+const productionResponsibleRouteNames = computed(() => {
+  const seen = new Set<string>()
+  const routeNames: string[] = []
+  processConfigRows.value.forEach((row) => {
+    const routeName = String(row.routeName || '').trim()
+    if (!routeName || seen.has(routeName)) {
+      return
+    }
+    seen.add(routeName)
+    routeNames.push(routeName)
+  })
+  return routeNames
+})
+
+const processConfigCreateSelectedRow = computed(() =>
+  processConfigRows.value.find(
+    (row) => row.routeProcessId === processConfigCreateForm.routeProcessId
+  )
+)
+
+const processConfigCreateDeviceOptions = computed(
+  () => processConfigCreateSelectedRow.value?.devices ?? []
+)
+
 const formatProcessConfigProcess = (row: TeamLeaderProcessConfigRowRespVO) => {
   const sortText = Number.isFinite(Number(row.sort)) ? `${row.sort} - ` : ''
   const processText = row.processName || row.processCode || row.processId || '--'
   return `${sortText}${processText}`
+}
+
+const formatProcessConfigCreateProcessOption = (row: TeamLeaderProcessConfigRowRespVO) => {
+  const routeText = row.routeName || row.routeCode || row.routeId || '--'
+  return `${routeText} / ${formatProcessConfigProcess(row)}`
 }
 
 const formatProcessConfigDevice = (device: TeamLeaderProcessConfigDeviceVO) => {
@@ -3185,6 +3583,73 @@ const formatProcessConfigStatisticsWindow = (parameter: TeamLeaderProcessConfigP
   const start = formatDateTimeValue(parameter.statisticsStartTime, '--')
   const end = formatDateTimeValue(parameter.statisticsEndTime, '--')
   return `${start} ~ ${end}（${parameter.statisticsWindowDays || 30}天）`
+}
+
+const syncProcessConfigCreateDevice = () => {
+  processConfigCreateForm.deviceId = processConfigCreateDeviceOptions.value[0]?.deviceId
+}
+
+const resetProcessConfigCreateForm = () => {
+  processConfigCreateForm.routeProcessId = processConfigRows.value[0]?.routeProcessId
+  processConfigCreateForm.createType = 'LOSS_REASON'
+  syncProcessConfigCreateDevice()
+}
+
+const handleProcessConfigCreateRouteChange = () => {
+  syncProcessConfigCreateDevice()
+}
+
+const handleProcessConfigCreateTypeChange = () => {
+  if (processConfigCreateForm.createType === 'PARAMETER_RULE') {
+    syncProcessConfigCreateDevice()
+  }
+}
+
+const ensureProcessConfigRowsLoadedForCreate = async () => {
+  if (processConfigRows.value.length === 0) {
+    await loadProcessConfigRows()
+  }
+  if (processConfigRows.value.length === 0) {
+    ElMessage.error('当前账号没有可新增的路线工序，请先在工艺路线的工序开始配置中授权生产组长')
+    return false
+  }
+  return true
+}
+
+const openCreateProcessConfigDataDialog = async () => {
+  if (!(await ensureProcessConfigRowsLoadedForCreate())) return
+  resetProcessConfigCreateForm()
+  processConfigCreateDialogVisible.value = true
+}
+
+const confirmCreateProcessConfigData = () => {
+  const row = processConfigCreateSelectedRow.value
+  if (!row) {
+    ElMessage.error('请先选择路线工序')
+    return
+  }
+  if (processConfigCreateForm.createType === 'LOSS_REASON') {
+    processConfigCreateDialogVisible.value = false
+    openCreateLossReason(row)
+    return
+  }
+  if (processConfigCreateForm.createType === 'DEVICE_BINDING') {
+    processConfigCreateDialogVisible.value = false
+    openProcessConfigDeviceDialog(row)
+    return
+  }
+  const deviceId = Number(processConfigCreateForm.deviceId)
+  if (!Number.isFinite(deviceId) || deviceId <= 0) {
+    ElMessage.error('请选择设备')
+    return
+  }
+  const device = row.devices?.find((item) => item.deviceId === deviceId)
+  if (!device) {
+    ElMessage.error('请选择当前工序已映射设备；新增参数标准前需先完成设备映射')
+    return
+  }
+  processConfigCreateDialogVisible.value = false
+  openProcessConfigParameterDialog(row, device, undefined, { create: true })
 }
 
 const resetLossReasonForm = () => {
@@ -3294,18 +3759,22 @@ const openProcessConfigDeviceDialog = (row: TeamLeaderProcessConfigRowRespVO) =>
   processConfigSelectedRow.value = row
   processConfigSelectedDevice.value = undefined
   processConfigEditingParameter.value = undefined
-  processConfigDeviceForm.deviceId = row.devices?.[0]?.deviceId ?? processConfigDeviceOptions.value[0]?.deviceId
+  const mappedDeviceIds = new Set((row.devices ?? []).map((device) => device.deviceId))
+  processConfigDeviceForm.deviceId =
+    processConfigDeviceOptions.value.find((device) => !mappedDeviceIds.has(device.deviceId))
+      ?.deviceId ?? processConfigDeviceOptions.value[0]?.deviceId
   processConfigDeviceDialogVisible.value = true
 }
 
 const openProcessConfigParameterDialog = (
   row: TeamLeaderProcessConfigRowRespVO,
   device: TeamLeaderProcessConfigDeviceVO,
-  parameter?: TeamLeaderProcessConfigParameterVO
+  parameter?: TeamLeaderProcessConfigParameterVO,
+  options: { create?: boolean } = {}
 ) => {
   processConfigSelectedRow.value = row
   processConfigSelectedDevice.value = device
-  processConfigEditingParameter.value = parameter ?? device.parameters?.[0]
+  processConfigEditingParameter.value = options.create ? undefined : parameter ?? device.parameters?.[0]
   resetProcessConfigParameterForm()
   if (processConfigEditingParameter.value) {
     processConfigParameterForm.parameterCode = processConfigEditingParameter.value.parameterCode
@@ -3650,6 +4119,21 @@ const resolvePqcItemSnapshotDetails = (row: ProcessPoolTimelineEventVO) => {
   }
   return []
 }
+
+const pqcDetailRows = computed<PqcItemSnapshotDetail[]>(() => {
+  const currentDetail = detail.value
+  if (!currentDetail || !isPqcSubmissionRow(currentDetail as ProcessPoolTimelineEventVO)) {
+    return []
+  }
+  return resolvePqcItemSnapshotDetails(currentDetail as ProcessPoolTimelineEventVO)
+})
+const pqcDetailTotal = computed(() => pqcDetailRows.value.length)
+const pagedPqcDetailRows = computed(() => {
+  const pageNo = Math.max(1, Number(pqcDetailQuery.pageNo) || 1)
+  const pageSize = Math.max(1, Number(pqcDetailQuery.pageSize) || 10)
+  const start = (pageNo - 1) * pageSize
+  return pqcDetailRows.value.slice(start, start + pageSize)
+})
 
 const formatSubmissionQuantity = (value: unknown) => {
   if (value === undefined || value === null || String(value).trim() === '') {
@@ -4164,7 +4648,8 @@ const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
   }
 }
 
-const getSubmissionList = async () => {
+async function getSubmissionList() {
+  ensureSubmissionDateCondition()
   loading.value = true
   loadError.value = ''
   try {
@@ -4194,6 +4679,38 @@ const {
   getSubmissionList
 )
 
+const ensureSubmissionDateCondition = () => {
+  const currentSubmitDate =
+    typeof queryParams.submitDate === 'string' && queryParams.submitDate.trim()
+      ? queryParams.submitDate.trim()
+      : getDefaultSubmissionDate()
+  queryParams.submitDate = currentSubmitDate
+
+  const submitDateCondition: ListMultiFilterCondition = {
+    id: DEFAULT_SUBMISSION_DATE_CONDITION_ID,
+    key: 'submitDate',
+    operator: 'eq',
+    value: currentSubmitDate
+  }
+  const nextConditions = [
+    submitDateCondition,
+    ...submissionMultiFilterState.conditions.filter(
+      (condition) =>
+        (condition.id || condition.key) !== DEFAULT_SUBMISSION_DATE_CONDITION_ID &&
+        condition.key !== 'submitDate'
+    )
+  ]
+  const activeConditionStillExists = nextConditions.some(
+    (condition) => (condition.id || condition.key) === submissionMultiFilterState.activeConditionId
+  )
+  updateSubmissionMultiFilterState({
+    conditions: nextConditions,
+    activeConditionId: activeConditionStillExists
+      ? submissionMultiFilterState.activeConditionId
+      : DEFAULT_SUBMISSION_DATE_CONDITION_ID
+  })
+}
+
 const clearSubmissionFilterParams = () => {
   queryParams.employeeUserId = undefined
   queryParams.processId = undefined
@@ -4212,7 +4729,7 @@ const resetSubmissionQueryParams = (leaderType: TeamLeaderType) => {
   queryParams.pageNo = 1
   queryParams.pageSize = 10
   queryParams.leaderType = leaderType
-  queryParams.submitDate = ''
+  queryParams.submitDate = getDefaultSubmissionDate()
 }
 
 const hasSubmissionDateCondition = () => {
@@ -4238,11 +4755,29 @@ const resetSubmissionMultiFilter = async () => {
   clearSubmissionMultiFilterParams()
   clearSubmissionFilterParams()
   resetSubmissionQueryParams(leaderType)
+  ensureSubmissionDateCondition()
   submissionList.value = []
   submissionTotal.value = 0
   loadError.value = ''
   await getSubmissionList()
 }
+
+watch(activePqcModuleTab, async (tab) => {
+  if (tab === 'management' && activeLeaderTab.value === 'PQC') {
+    queryParams.leaderType = 'PQC'
+    ensureSubmissionDateCondition()
+    await getSubmissionList()
+  }
+})
+
+watch(activeProductionModuleTab, async (tab) => {
+  if (tab === 'report' && activeLeaderTab.value === 'PRODUCTION') {
+    queryParams.leaderType = 'PRODUCTION'
+    queryParams.pageNo = 1
+    ensureSubmissionDateCondition()
+    await getSubmissionList()
+  }
+})
 
 const handleLeaderTypeChange = async (value: string | number) => {
   const selectedTab = String(value) as WorkbenchLeaderTab
@@ -4262,11 +4797,10 @@ const handleLeaderTypeChange = async (value: string | number) => {
   await resetSubmissionMultiFilter()
 }
 
-const openDetail = async (event: ProcessPoolTimelineEventVO) => {
-  const eventId = requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
-  detailVisible.value = true
+const loadSubmissionDetail = async (eventId: number) => {
   detailLoading.value = true
   detail.value = undefined
+  pqcDetailQuery.pageNo = 1
   try {
     detail.value = await getTeamLeaderSubmissionDetail(
       eventId,
@@ -4277,6 +4811,18 @@ const openDetail = async (event: ProcessPoolTimelineEventVO) => {
   } finally {
     detailLoading.value = false
   }
+}
+
+const openDetail = async (event: ProcessPoolTimelineEventVO) => {
+  const eventId = requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
+  if (activeLeaderTab.value === 'PQC' && showPqcModuleTabs.value) {
+    detailVisible.value = false
+    activePqcModuleTab.value = 'detail'
+    await loadSubmissionDetail(eventId)
+    return
+  }
+  detailVisible.value = true
+  await loadSubmissionDetail(eventId)
 }
 
 const openReview = async (event: ProcessPoolTimelineEventVO) => {
@@ -4432,22 +4978,6 @@ const requireSelectedActiveOrderWorkOrderId = () => {
     throw new Error('订单号不存在或已移出')
   }
   return activeOrder.workOrderId
-}
-
-const resolveStructuredPayloadItems = (rawPayload?: string) => {
-  if (!rawPayload?.trim()) return []
-  try {
-    const parsed = JSON.parse(rawPayload)
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return [{ field: 'payload', value: String(parsed) }]
-    }
-    return Object.entries(parsed).map(([field, value]) => ({
-      field,
-      value: typeof value === 'object' ? JSON.stringify(value) : String(value)
-    }))
-  } catch {
-    return [{ field: 'payload', value: rawPayload }]
-  }
 }
 
 const submitAbnormal = async () => {
@@ -4734,8 +5264,17 @@ onMounted(() => {
     loadProcessConfigRows().catch((error) => {
       ElMessage.error(resolveErrorMessage(error, '工序配置列表加载失败'))
     })
+    if (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'report') {
+      queryParams.leaderType = 'PRODUCTION'
+      ensureSubmissionDateCondition()
+      getSubmissionList()
+    }
   } else {
     refreshPqcPersonnel()
+    if (!showPqcModuleTabs.value) {
+      ensureSubmissionDateCondition()
+      getSubmissionList()
+    }
   }
 })
 </script>
@@ -4766,6 +5305,7 @@ onMounted(() => {
 
 .team-leader-workbench__pqc-module-card :deep(.el-card__body),
 .team-leader-workbench__production-module-card :deep(.el-card__body) {
+  position: relative;
   padding-top: 12px;
 }
 
@@ -4788,6 +5328,63 @@ onMounted(() => {
 
 .team-leader-workbench__module-tabs--flat :deep(.el-tabs__active-bar) {
   background-color: #00a896;
+}
+
+.team-leader-workbench__production-module-card .team-leader-workbench__module-tabs--flat :deep(.el-tabs__header) {
+  padding-right: min(560px, 42vw);
+}
+
+.team-leader-workbench__responsible-routes {
+  position: absolute;
+  top: 12px;
+  right: 18px;
+  display: flex;
+  max-width: min(560px, 42vw);
+  min-height: 40px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.team-leader-workbench__responsible-routes-label {
+  flex: 0 0 auto;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.team-leader-workbench__responsible-route-tag {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-leader-workbench__responsible-route-tag :deep(.el-tag__content) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-leader-workbench__responsible-routes-empty {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+@media (max-width: 1180px) {
+  .team-leader-workbench__production-module-card .team-leader-workbench__module-tabs--flat :deep(.el-tabs__header) {
+    padding-right: 0;
+  }
+
+  .team-leader-workbench__responsible-routes {
+    position: static;
+    max-width: 100%;
+    justify-content: flex-start;
+    margin: -4px 0 12px;
+    flex-wrap: wrap;
+    white-space: normal;
+  }
 }
 
 .team-leader-workbench__query {
@@ -4833,6 +5430,46 @@ onMounted(() => {
   color: #f56c6c;
   font-size: 12px;
   font-weight: 600;
+}
+
+.team-leader-workbench__active-order-candidate {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #64748b;
+}
+
+.team-leader-workbench__active-order-candidate.is-eligible {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.team-leader-workbench__active-order-candidate-code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-leader-workbench__active-order-candidate-badge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #16a34a;
+  padding: 1px 7px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.team-leader-workbench__active-order-candidate-reason {
+  flex: 0 1 auto;
+  overflow: hidden;
+  color: #94a3b8;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .team-leader-workbench__personnel-dialog-header {
@@ -5059,14 +5696,6 @@ onMounted(() => {
   gap: 6px;
 }
 
-.team-leader-workbench__payload {
-  max-height: 260px;
-  margin: 0;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
 .team-leader-workbench__parameter-value.is-parameter-out-of-range {
   color: #dc2626;
   font-weight: 700;
@@ -5087,6 +5716,22 @@ onMounted(() => {
 
 .team-leader-workbench__review-meta {
   color: #64748b;
+}
+
+.team-leader-workbench__detail-tab-body,
+.team-leader-workbench__detail-standard-list {
+  display: grid;
+  gap: 16px;
+}
+
+.team-leader-workbench__detail-standard-list {
+  margin-top: 16px;
+}
+
+.team-leader-workbench__detail-descriptions:deep(.el-descriptions__label) {
+  width: 400px !important;
+  min-width: 400px;
+  white-space: nowrap;
 }
 
 .team-leader-workbench__submission-log {

@@ -305,9 +305,17 @@ async function verifyProductionPrototype(page) {
     Math.abs(pickerRatio - 16 / 9) <= 0.06,
     `production picker card must follow the 1920:1080 ratio: ${pickerRatio}`
   )
+  assert.ok(
+    pickerBox.width >= box.width * 0.88,
+    `production picker card must be roughly 1.5x wider than the previous 1180px card: picker=${pickerBox.width}, screen=${box.width}`
+  )
   const pickerOption = screen.locator('.frontline-picker__option').first()
   const pickerOptionBox = await pickerOption.boundingBox()
   assert.ok(pickerOptionBox, 'production picker option must have a visible bounding box.')
+  assert.ok(
+    pickerOptionBox.width <= pickerBox.width / 5.5,
+    `production picker option must be reduced to about one quarter of the previous area: option=${pickerOptionBox.width}, picker=${pickerBox.width}`
+  )
   const pickerOptionRatio = pickerOptionBox.width / pickerOptionBox.height
   assert.ok(
     Math.abs(pickerOptionRatio - 16 / 9) <= 0.06,

@@ -46,6 +46,12 @@ assert.match(
 
 assert.match(
   candidateEndpoint,
+  /@RequestParam\(value = "keyword", required = false\)\s+String keyword/,
+  'PQC personnel candidate endpoint must accept a missing keyword so empty dropdown loading does not fail binding.'
+)
+
+assert.match(
+  candidateEndpoint,
   /pqcPersonnelService\.searchFormalInspectorCandidates\(SecurityFrameworkUtils\.getLoginUserId\(\),\s*keyword\)/,
   'PQC personnel candidate endpoint method body must use the PQC permission candidate service.'
 )

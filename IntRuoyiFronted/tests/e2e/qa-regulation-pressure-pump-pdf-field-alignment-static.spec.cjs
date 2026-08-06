@@ -11,7 +11,9 @@ const qaSource = fs.readFileSync(qaPagePath, 'utf8')
 
 const pressurePumpItemsStart = qaSource.indexOf('const createPressurePumpQaRegulationItems')
 const pressurePumpItemsEnd =
-  pressurePumpItemsStart >= 0 ? qaSource.indexOf('const qaRegulationItems', pressurePumpItemsStart) : -1
+  pressurePumpItemsStart >= 0
+    ? qaSource.indexOf('const createBalloonPressurePumpQaRegulationItems', pressurePumpItemsStart)
+    : -1
 
 assert.ok(
   pressurePumpItemsStart >= 0 && pressurePumpItemsEnd > pressurePumpItemsStart,

@@ -22,8 +22,8 @@ assert.doesNotMatch(
 
 assert.match(
   teamLeaderWorkbench,
-  /data-pqc-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="PQC管理"\s+name="management"[\s\S]*<el-tab-pane\s+label="看板"\s+name="dashboard"/,
-  'Shared workbench must render PQC personnel, management, and dashboard module tabs.'
+  /data-pqc-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="PQC管理"\s+name="management"[\s\S]*<el-tab-pane\s+label="详情"\s+name="detail"[\s\S]*<el-tab-pane\s+label="看板"\s+name="dashboard"/,
+  'Shared workbench must render PQC personnel, management, detail, and dashboard module tabs.'
 )
 assert.match(
   teamLeaderWorkbench,
@@ -57,7 +57,7 @@ assert.match(
 )
 assert.match(
   teamLeaderWorkbench,
-  /const\s+activePqcModuleTab\s*=\s*ref<'personnel'\s*\|\s*'management'\s*\|\s*'dashboard'>\('personnel'\)/,
+  /const\s+activePqcModuleTab\s*=\s*ref<'personnel'\s*\|\s*'management'\s*\|\s*'dashboard'\s*\|\s*'detail'>\('personnel'\)/,
   'PQC leader module tabs must default to 人员管理.'
 )
 assert.match(
@@ -77,6 +77,11 @@ assert.match(
 )
 assert.match(
   teamLeaderWorkbench,
+  /const\s+showPqcDetailModule\s*=\s*computed\([\s\S]*showPqcDetailAsTab[\s\S]*activePqcModuleTab[\s\S]*'detail'/,
+  'PQC detail tab must gate the in-page detail content.'
+)
+assert.match(
+  teamLeaderWorkbench,
   /<ContentWrap\s+v-if="showPqcManagementModule"[\s\S]*data-team-leader-report-workbench/,
   'PQC管理 tab must own the report confirmation workbench.'
 )
@@ -84,6 +89,11 @@ assert.match(
   teamLeaderWorkbench,
   /<ContentWrap\s+v-if="showPqcDashboardModule"[\s\S]*data-role-matrix-daily-close/,
   '看板 tab must own the daily close dashboard.'
+)
+assert.match(
+  teamLeaderWorkbench,
+  /<ContentWrap\s+v-if="showPqcDetailModule"[\s\S]*data-pqc-leader-detail-tab[\s\S]*table-key="mes\.processPool\.teamLeader\.pqcSubmissionDetailItems"/,
+  '详情 tab must own the in-page PQC detail standard list.'
 )
 assert.doesNotMatch(
   pqcLeaderPage,

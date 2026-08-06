@@ -69,6 +69,8 @@ GREEN: `node tests\e2e\edhr-frontline-production-prototype-parity-static.spec.cj
 GREEN: `node tests\e2e\edhr-frontline-fill-tabs-static.spec.cjs` -> PASS
 GREEN: `node --check tests\e2e\edhr-frontline-production-fullscreen-toggle-real.e2e.cjs` -> PASS
 GREEN: `pnpm ts:check` -> PASS
+GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260806-frontline-production-fullscreen-logic\bug-regression-evidence.md` -> PASS
+GREEN: `git diff --check -- <本任务文件>` -> PASS
 GREEN: `git diff --check -- <本任务文件>` -> PASS
 GREEN: `node -e <task file trailing whitespace check>` -> PASS
 
@@ -228,3 +230,107 @@ GREEN: `git diff --check -- <本任务文件>` -> PASS
 Closeout boundary update:
 - 本轮 picker 比例修复和定向验证已完成。
 - 当前 `int_main` 工作区仍有非本任务脏改动/未跟踪文件；本任务未提交、未推送。
+
+## 2026-08-06 20:19 +08:00
+
+User intent: 用户再次反馈一线生产“最大化、提交、重填”的文字大小不对，要求修正按钮字号。
+
+Boundary:
+- 只改一线生产 stage 缩放下三个关键按钮的展示字号和聚焦静态合同。
+- 不改内部参考 HTML 布局 token、不改 picker 16:9 口径、不改 API、后端、路由、权限、业务字段或提交 payload。
+
+BDD: 一线生产 stage 缩放后关键按钮可见字号保持参考值 -> Given 一线生产普通页通过 `frontline-production-stage` 缩放完整显示 1920×1080 参考画布；When 可用页面宽度小于参考画布导致 `transform: scale(...)` 小于 1；Then “最大化/主页”按钮的可见字号仍按参考顶部按钮 42px 呈现，“重填/提交”的可见字号仍按参考底部按钮 54px 呈现，而不是跟随整张画布一起变小。
+
+RED: `node tests\e2e\edhr-frontline-production-fullscreen-toggle-static.spec.cjs` -> FAIL, expected reason: `productionStageStyle` 缺少 `--frontline-production-top-action-font-size` / `--frontline-production-footer-action-font-size`，生产 stage 内三个按钮也没有使用补偿后的字号变量。
+
+Root cause:
+- 严格参考 HTML 要求内部 `.frontline-operator-screen` 保持 `1920px × 1080px` 和 42px/54px 原型字号。
+- 普通后台页为了不横向溢出，通过外层 `.frontline-production-stage .frontline-operator-screen { transform: scale(...) }` 缩小整张画布；这个 transform 也会把按钮文字的可见字号一起缩小，导致用户看到的“最大化 / 重填 / 提交”偏小。
+
+Implementation:
+- `FrontlineFixedTemplatePanel.vue`：在 `productionStageStyle` 中新增 `--frontline-production-top-action-font-size: ${42 / scale}px` 和 `--frontline-production-footer-action-font-size: ${54 / scale}px`。
+- `FrontlineFixedTemplatePanel.vue`：新增生产 stage 作用域样式，让 `.frontline-production-fullscreen-toggle` 使用顶部补偿字号，让 `.frontline-production-reset-button` / `.frontline-production-submit-button` 使用底部补偿字号。
+- `edhr-frontline-production-fullscreen-toggle-static.spec.cjs`：新增静态合同锁定补偿变量和三个按钮 selector，避免后续严格画布修复时再次丢失可见字号补偿。
+
+GREEN: `node tests\e2e\edhr-frontline-production-fullscreen-toggle-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\edhr-frontline-production-pixel-parity-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\edhr-frontline-production-prototype-parity-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\edhr-frontline-fill-tabs-static.spec.cjs` -> PASS
+GREEN: `node --check tests\e2e\edhr-frontline-production-fullscreen-toggle-real.e2e.cjs` -> PASS
+GREEN: `pnpm ts:check` -> PASS
+
+Experience consolidation:
+- 已读取 `project-experience-consolidation` 技能。
+- `docs/frontend-development.md#前端截图字号调整静态契约门禁` 和 `docs/experience-index.md` 已存在“缩放画布 / transform scale / stage 字号补偿 / 可见字号”入口，本轮不新建长期经验文档，只在任务证据和静态合同中补齐当前回归。
+
+Closeout boundary update:
+- 本次按钮字号修复和定向验证已完成。
+- 当前工作区仍存在非本任务脏改动/未跟踪文件；本任务未提交、未推送，状态保持 blocked。
+
+## 2026-08-06 追加：生产 picker 遮挡修复
+
+User intent: 用户截图反馈当前 picker 选项都被遮挡，要求每个卡片变成当前大小的 1/4，弹框比当前大一半。
+
+BDD: 一线生产 picker 大弹框小卡片 -> Given 用户点击一线生产工序/员工选择；When picker 打开；Then 弹框宽度相对上一轮 1180px 放大到 1770px，选项区用 6 列布局，每张 option card 保持 16:9 且宽度约为弹框的 1/6，不再上下遮挡。
+
+RED: `node tests\e2e\edhr-frontline-production-pixel-parity-static.spec.cjs` -> FAIL, expected reason: 当前 picker card 仍是 `width: min(92%, 1180px)`，不满足弹框放大一半。
+RED: `node tests\e2e\edhr-frontline-production-fullscreen-toggle-static.spec.cjs` -> FAIL, expected reason: 当前 picker options 仍是 2 列，单卡过大导致遮挡。
+
+Implementation:
+- `FrontlineFixedTemplatePanel.vue`：生产 picker card 改为 `width: min(96%, 1770px)`，保留 `aspect-ratio: 1920 / 1080`。
+- `FrontlineFixedTemplatePanel.vue`：生产 picker options 改为 `grid-template-columns: repeat(6, minmax(0, 1fr))` 和 `gap: 12px`。
+- `FrontlineFixedTemplatePanel.vue`：生产 picker option 保持 16:9，同时增加 flex 居中、`font-size: 30px`、`line-height: 1.1`、`word-break: break-word` 和 `overflow: hidden`，避免文字和卡片互相遮挡。
+- 静态合同和真实 E2E 脚本同步增加“弹框更大、选项更小”的断言。
+
+GREEN: `node tests\e2e\edhr-frontline-production-pixel-parity-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\edhr-frontline-production-fullscreen-toggle-static.spec.cjs` -> PASS
+GREEN: `node --check tests\e2e\edhr-frontline-production-fullscreen-toggle-real.e2e.cjs` -> PASS
+GREEN: `node tests\e2e\edhr-frontline-production-prototype-parity-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\edhr-frontline-fill-tabs-static.spec.cjs` -> PASS
+GREEN: `pnpm ts:check` -> PASS
+GREEN: `git diff --check -- <本任务文件>` -> PASS
+
+Closeout boundary update:
+- 本轮 picker 遮挡修复和定向验证已完成。
+- 当前 `int_main` 工作区仍有非本任务脏改动/未跟踪文件；本任务未提交、未推送。
+
+## 2026-08-06 追加：生产工序选择即时关闭
+
+User intent: 用户截图反馈一线生产选择工序后，卡片已经选中但弹框没有立刻消失，要等一会才关闭；期望点击选择后立即完成选择反馈。
+
+Boundary:
+- 只改一线生产工序 picker 的关闭时序和静态合同。
+- 不改 API、后端、运行配置加载、默认员工选择、提交 payload、PQC 选工序校验或 PQC 员工锁定逻辑。
+
+BDD: 一线生产点击工序后 picker 立即收起 -> Given 用户打开一线生产“选工序”弹框；When 点击任一工序卡片；Then picker 立即关闭，后续 `selectFrontlineProcess` 运行配置加载和默认员工切换在后台继续完成，不再让用户看到 active 卡片停留在弹框内。
+
+BDD: 一线 PQC 选工序仍保留校验成功后关闭 -> Given 用户在一线 PQC 选择工序；When 当前登录人校验或 PQC 人员候选校验未完成；Then 不提前关闭弹框，仍在成功校验/员工确认后关闭，避免非法选择被隐藏。
+
+RED: `node tests\e2e\edhr-frontline-production-fullscreen-toggle-static.spec.cjs` -> FAIL, expected reason: `handleSelectProcess` 中生产模式先 `await selectFrontlineProcess(deviceState, process)`，再通过 `handleSelectEmployee` / 末尾 `closePicker()` 关闭 picker，无法证明点击即关闭。
+
+Root cause:
+- `handleSelectProcess` 同时服务生产和 PQC。
+- 旧实现为了复用 PQC 的成功后关闭流程，把 `closePicker()` 放在 `selectFrontlineProcess`、`applyProcessToContext`、`findInitialEmployee`、`handleSelectEmployee` 之后。
+- 一线生产的 `selectFrontlineProcess` 会等待运行配置和员工候选，默认员工切换也会等待异步上下文切换；因此用户点击后先看到 option active，但 picker 仍停留到异步链路结束。
+
+Implementation:
+- `FrontlineFixedTemplatePanel.vue`：在 `handleSelectProcess` 开头增加 `shouldClosePickerImmediately = !isPqcMode.value`。
+- `FrontlineFixedTemplatePanel.vue`：生产模式先 `closePicker()`，再执行 `selectFrontlineProcess`、上下文应用和默认员工切换。
+- `FrontlineFixedTemplatePanel.vue`：PQC 模式不提前关闭，末尾仅在 `!shouldClosePickerImmediately` 时关闭，保留原有成功校验后关闭语义。
+- `edhr-frontline-production-fullscreen-toggle-static.spec.cjs`：抽取 `handleSelectProcess` 函数体，锁定生产 `closePicker()` 位于 `await selectFrontlineProcess` 之前，并锁定 PQC 仍通过 `if (!shouldClosePickerImmediately) { closePicker() }` 收尾。
+- `docs/frontend-development.md`：新增“前端选择弹框即时反馈门禁”，沉淀点选即关闭与校验型关闭的边界。
+
+GREEN: `node tests\e2e\edhr-frontline-production-fullscreen-toggle-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\edhr-frontline-production-pixel-parity-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\edhr-frontline-production-prototype-parity-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\edhr-frontline-fill-tabs-static.spec.cjs` -> PASS
+GREEN: `node --check tests\e2e\edhr-frontline-production-fullscreen-toggle-real.e2e.cjs` -> PASS
+GREEN: `pnpm ts:check` -> PASS
+
+Experience consolidation:
+- 已读取 `project-experience-consolidation` 技能。
+- 已将“选择弹框即时反馈门禁”合并到 `docs/frontend-development.md`，避免后续把 picker 关闭排在耗时异步请求之后。
+
+Closeout boundary update:
+- 本轮生产工序选择即时关闭修复和定向验证已完成。
+- 当前工作区仍存在非本任务脏改动/未跟踪文件；本任务未提交、未推送，状态保持 blocked。

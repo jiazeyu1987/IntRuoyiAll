@@ -13,14 +13,14 @@ const pqcPersonnelBlock = teamLeaderWorkbench.slice(pqcPersonnelStart, pqcPerson
 
 assert.match(
   teamLeaderWorkbench,
-  /const\s+activePqcModuleTab\s*=\s*ref<'personnel'\s*\|\s*'management'\s*\|\s*'dashboard'>\('personnel'\)/,
+  /const\s+activePqcModuleTab\s*=\s*ref<'personnel'\s*\|\s*'management'\s*\|\s*'dashboard'\s*\|\s*'detail'>\('personnel'\)/,
   'PQC module tabs must default to 人员管理.'
 )
 
 assert.match(
   teamLeaderWorkbench,
-  /data-pqc-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="PQC管理"\s+name="management"[\s\S]*<el-tab-pane\s+label="看板"\s+name="dashboard"/,
-  'PQC module tabs must render 人员管理 / PQC管理 / 看板 in order.'
+  /data-pqc-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="PQC管理"\s+name="management"[\s\S]*<el-tab-pane\s+label="详情"\s+name="detail"[\s\S]*<el-tab-pane\s+label="看板"\s+name="dashboard"/,
+  'PQC module tabs must render 人员管理 / PQC管理 / 详情 / 看板 in order.'
 )
 
 assert.match(

@@ -56,6 +56,11 @@ assert.match(
 )
 assert.match(
   teamLeaderWorkbench,
+  /watch\(activeProductionModuleTab,\s*async\s*\(tab\)\s*=>\s*\{[\s\S]*tab\s*===\s*'report'[\s\S]*activeLeaderTab\.value\s*===\s*'PRODUCTION'[\s\S]*queryParams\.leaderType\s*=\s*'PRODUCTION'[\s\S]*queryParams\.pageNo\s*=\s*1[\s\S]*ensureSubmissionDateCondition\(\)[\s\S]*await\s+getSubmissionList\(\)[\s\S]*\}\)/,
+  '生产组长切换到报工管理 tab 时必须按 PRODUCTION 组长类型自动加载当天报工列表。'
+)
+assert.match(
+  teamLeaderWorkbench,
   /<ContentWrap[\s\S]*v-if="showProductionActiveOrderModule"[\s\S]*data-team-leader-active-order-pool-tab/,
   '活跃订单池 tab must own the standard active-order list.'
 )
@@ -86,13 +91,43 @@ assert.match(
 )
 assert.match(
   teamLeaderWorkbench,
-  /data-team-leader-process-config-tab[\s\S]*<el-button\s+:loading="processConfigLoading"\s+@click="loadProcessConfigRows">\s*新增\s*<\/el-button>[\s\S]*data-team-leader-process-config-table/,
-  '工序配置模块头部操作按钮必须显示“新增”，并继续复用工序配置加载状态与加载方法。'
+  /data-team-leader-process-config-tab[\s\S]*<el-button[\s\S]{0,180}data-team-leader-process-config-create-entry[\s\S]{0,180}@click="openCreateProcessConfigDataDialog"[\s\S]{0,80}>\s*新增\s*<\/el-button>[\s\S]*data-team-leader-process-config-table/,
+  '工序配置模块头部“新增”按钮必须打开新增配置入口，不能继续执行列表刷新。'
 )
 assert.doesNotMatch(
   teamLeaderWorkbench,
   /data-team-leader-process-config-tab[\s\S]*<el-button\s+:loading="processConfigLoading"\s+@click="loadProcessConfigRows">\s*刷新\s*<\/el-button>[\s\S]*data-team-leader-process-config-table/,
   '工序配置模块头部操作按钮不得继续显示“刷新”。'
+)
+assert.doesNotMatch(
+  teamLeaderWorkbench,
+  /data-team-leader-process-config-tab[\s\S]*<el-button[\s\S]{0,160}@click="loadProcessConfigRows"[\s\S]{0,80}>\s*新增\s*<\/el-button>[\s\S]*data-team-leader-process-config-table/,
+  '工序配置模块头部“新增”按钮不得继续绑定 loadProcessConfigRows。'
+)
+assert.match(
+  teamLeaderWorkbench,
+  /<el-dialog[\s\S]{0,220}v-model="processConfigCreateDialogVisible"[\s\S]{0,220}data-team-leader-process-config-create-dialog[\s\S]*data-team-leader-process-config-create-process[\s\S]*v-for="row in processConfigRows"[\s\S]*data-team-leader-process-config-create-type[\s\S]*LOSS_REASON[\s\S]*DEVICE_BINDING[\s\S]*PARAMETER_RULE[\s\S]*@click="confirmCreateProcessConfigData"/,
+  '工序配置新增入口必须提供路线工序选择、新增类型选择，并由确认动作进入正式维护弹窗。'
+)
+assert.match(
+  teamLeaderWorkbench,
+  /const\s+ensureProcessConfigRowsLoadedForCreate\s*=\s*async\s*\(\)\s*=>\s*{[\s\S]*await\s+loadProcessConfigRows\(\)[\s\S]*当前账号没有可新增的路线工序，请先在工艺路线的工序开始配置中授权生产组长[\s\S]*}/,
+  '工序配置新增入口在候选路线工序为空时必须先调用正式列表接口重新加载，不能直接阻断新增。'
+)
+assert.match(
+  teamLeaderWorkbench,
+  /const\s+openCreateProcessConfigDataDialog\s*=\s*async\s*\(\)\s*=>\s*{[\s\S]*await\s+ensureProcessConfigRowsLoadedForCreate\(\)[\s\S]*resetProcessConfigCreateForm\(\)[\s\S]*processConfigCreateDialogVisible\.value\s*=\s*true/,
+  '工序配置新增入口必须等待路线工序候选加载完成后再打开新增弹窗。'
+)
+assert.doesNotMatch(
+  teamLeaderWorkbench,
+  /暂无可新增的路线工序，请先确认工序配置列表已加载/,
+  '工序配置新增入口不得在未主动加载候选路线工序时提示用户先确认列表加载。'
+)
+assert.match(
+  teamLeaderWorkbench,
+  /const\s+confirmCreateProcessConfigData\s*=\s*\(\)\s*=>\s*{[\s\S]*openCreateLossReason\(row\)[\s\S]*openProcessConfigDeviceDialog\(row\)[\s\S]*openProcessConfigParameterDialog\(row,\s*device,\s*undefined,\s*\{\s*create:\s*true\s*\}\)/,
+  '新增入口必须按类型复用损耗、设备映射、参数标准的正式保存弹窗。'
 )
 assert.match(
   teamLeaderWorkbench,

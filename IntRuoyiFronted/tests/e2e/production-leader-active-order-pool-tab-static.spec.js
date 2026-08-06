@@ -55,6 +55,22 @@ assert.equal(
   7,
   'Every production module tab strip, including the active-order content card, must expose 活跃订单池.'
 )
+const responsibleRouteSummaryCount = (source.match(/data-production-leader-responsible-routes/g) || []).length
+assert.equal(
+  responsibleRouteSummaryCount,
+  activeOrderTabCount,
+  'Every production module tab strip must show the responsible route names in the right-side header area.'
+)
+assert.match(
+  source,
+  /const\s+productionResponsibleRouteNames\s*=\s*computed\([\s\S]*processConfigRows\.value[\s\S]*row\.routeName[\s\S]*seen\.add\(routeName\)[\s\S]*return routeNames/,
+  'Production responsible route names must be derived from the formal process-config rows and de-duplicated by routeName.'
+)
+assert.doesNotMatch(
+  source.match(/const\s+productionResponsibleRouteNames\s*=\s*computed\([\s\S]*?return routeNames[\s\S]*?\n\}\)/)?.[0] || '',
+  /formBindings|activeOrderOptions|routeCode|routeId/,
+  'The responsible route header must not infer names from form slots, active orders, route codes, or route IDs.'
+)
 
 const activeOrderBlock = sliceContentWrapByMarker('data-team-leader-active-order-pool-tab')
 const activeOrderDialogBlock = sliceDialogByMarker('data-team-leader-active-order-add-dialog')
@@ -94,6 +110,16 @@ assert.match(
   activeOrderAddDialog,
   /<el-dialog[\s\S]*data-team-leader-active-order-add-dialog[\s\S]*title="新增活跃订单"[\s\S]*<el-form-item\s+label="订单号"[\s\S]*<el-select[\s\S]*v-model="activeOrderForm\.workOrderId"[\s\S]*filterable[\s\S]*remote[\s\S]*:remote-method="searchActiveOrderCandidates"[\s\S]*@change="handleActiveOrderCandidateChange"[\s\S]*@clear="handleActiveOrderCandidateClear"[\s\S]*@click="submitAddActiveOrder"/,
   'The 新增活跃订单 dialog must expose one remote searchable 订单号 el-select bound to workOrderId.'
+)
+assert.match(
+  activeOrderAddDialog,
+  /<el-option[\s\S]*v-for="candidate in activeOrderCandidateOptions"[\s\S]*team-leader-workbench__active-order-candidate[\s\S]*'is-eligible': candidate\.eligible[\s\S]*符合要求/,
+  'The active-order candidate dropdown must render eligible candidates with a green visible 符合要求 marker.'
+)
+assert.match(
+  source,
+  /\.team-leader-workbench__active-order-candidate\.is-eligible[\s\S]*color:\s*#16a34a/,
+  'The active-order candidate dropdown must style eligible candidates in green.'
 )
 assert.doesNotMatch(
   activeOrderAddDialog,
@@ -149,8 +175,8 @@ for (const field of [
 }
 assert.match(
   apiSource,
-  /export interface TeamLeaderActiveOrderCandidateRespVO\s*\{[\s\S]*workOrderId:\s*number[\s\S]*workOrderCode:\s*string[\s\S]*\}/,
-  'The team-leader API must expose active-order candidate response fields.'
+  /export interface TeamLeaderActiveOrderCandidateRespVO\s*\{[\s\S]*workOrderId:\s*number[\s\S]*workOrderCode:\s*string[\s\S]*eligible:\s*boolean[\s\S]*ineligibleReason\?:\s*string[\s\S]*\}/,
+  'The team-leader API must expose active-order candidate eligibility fields.'
 )
 assert.match(
   apiSource,

@@ -124,6 +124,8 @@ export interface TeamLeaderActiveOrderAddReqVO {
 export interface TeamLeaderActiveOrderCandidateRespVO {
   workOrderId: number
   workOrderCode: string
+  eligible: boolean
+  ineligibleReason?: string
 }
 
 export interface TeamLeaderActiveOrderRemoveReqVO {

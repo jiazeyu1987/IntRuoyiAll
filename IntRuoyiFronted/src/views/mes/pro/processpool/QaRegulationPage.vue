@@ -748,9 +748,14 @@ type QaInspectionTypeValue = 'FIRST' | 'PATROL_AM' | 'PATROL_PM' | 'FINAL'
 type QaInspectionResultType = 'BOOLEAN' | 'NUMERIC' | 'TEXT'
 
 const PRESSURE_PUMP_PROJECT_CODE = 'IDI'
+const BALLOON_PRESSURE_PUMP_PROJECT_CODE = 'ID'
 const DCC_PROJECT_CODE_PAGE_SIZE = 50
 const QA_REGULATION_LAST_DCC_PROJECT_CODE_ID_STORAGE_KEY =
   'int-ruoyi:qa-regulation:last-dcc-project-code-id'
+const QA_PDF_ITEM_FAILURE_RULE =
+  '检验中，每一个检验项目均应合格；若出现不合格，则按不合格品评审结果处理。'
+const BALLOON_PRESSURE_PUMP_SOURCE_NOTE =
+  '用户指定 PDF PQC-ID-001（G/0）5.1 检验内容。'
 
 interface QaInspectionTypeRule {
   key: QaInspectionTypeValue
@@ -986,6 +991,14 @@ const createPressurePumpQaRegulationDraft = (): QaRegulationDraft => ({
   effectiveDate: '2026-01-04'
 })
 
+const createBalloonPressurePumpQaRegulationDraft = (): QaRegulationDraft => ({
+  ...createEmptyQaRegulationDraft(),
+  regulationCode: 'PQC-ID-001',
+  regulationName: '（椎体）球囊扩张压力泵组装过程检验规程',
+  versionNo: 'G/0',
+  effectiveDate: '2025-09-30'
+})
+
 const qaRegulationDraft = reactive<QaRegulationDraft>(createEmptyQaRegulationDraft())
 
 const createEmptyQaInspectionTypeRules = (): QaInspectionTypeRule[] => [
@@ -1038,6 +1051,9 @@ const createPressurePumpQaInspectionTypeRules = (): QaInspectionTypeRule[] =>
     }
     return { ...rule, required: true, fixedQuantity: 3 }
   })
+
+const createBalloonPressurePumpQaInspectionTypeRules = (): QaInspectionTypeRule[] =>
+  createPressurePumpQaInspectionTypeRules()
 
 const qaInspectionTypeRules = reactive<QaInspectionTypeRule[]>(createEmptyQaInspectionTypeRules())
 
@@ -1373,7 +1389,7 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
   {
     itemCode: 'PP-017-BOND-AIRTIGHT-APP',
     processName: '整体粘结',
-    itemName: '气密性 / 外观',
+    itemName: '外观',
     applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s，对气密性合格的产品进行观察。',
     inspectionTool: '目测',
@@ -1384,7 +1400,7 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     failureRule: '检验中，每一个检验项目均应合格；若出现不合格，则按不合格品评审结果处理。',
     sourceNote: '用户指定 PDF PQC-IDI-001（B/0）5.1 检验内容。',
     sourceOriginalPage: 6,
-    sourceOriginalItem: '整体粘结 / 气密性 / 外观',
+    sourceOriginalItem: '整体粘结 / 外观',
     sourceOriginalExcerpt: '对气密性检测合格的产品进行外观检查应无黑点、杂质、花纹、划痕、缺损、裂纹等外观缺陷；不应有多余胶水外露。',
     sourceOriginalMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s，对气密性合格的产品进行观察。'
   },
@@ -1480,6 +1496,315 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
   }
 ]
 
+const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
+  {
+    itemCode: 'ID-001-WASH-APP',
+    processName: '清洗/精洗',
+    itemName: '外观',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
+    inspectionTool: '目测',
+    samplingPlanText: 'GB/T 2828.1，I，AQL=0.4',
+    resultType: 'BOOLEAN',
+    standardText: '弹簧、胶塞、套筒、手柄、齿条、芯杆、螺盖清洗干燥后表面及内部应无液珠；表面应清洁，无黑点、无异物等。',
+    critical: false,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 4,
+    sourceOriginalItem: '清洗/精洗 / 外观',
+    sourceOriginalExcerpt: '弹簧、胶塞、套筒、手柄、齿条、芯杆、螺盖清洗干燥后表面及内部应无液珠；表面应清洁，无黑点、无异物等。',
+    sourceOriginalMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。'
+  },
+  {
+    itemCode: 'ID-002-CLEAN-APP',
+    processName: '清洁',
+    itemName: '外观',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '用清洁、无尘布，蘸取 75% 酒精擦拭产品表面。正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
+    inspectionTool: '目测',
+    samplingPlanText: 'GB/T 2828.1，I，AQL=0.4',
+    resultType: 'BOOLEAN',
+    standardText: '压力表等清洁后应清洁、无异物、浮尘。',
+    critical: false,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 4,
+    sourceOriginalItem: '清洁 / 外观',
+    sourceOriginalExcerpt: '压力表等清洁后应清洁、无异物、浮尘。',
+    sourceOriginalMethod: '用清洁、无尘布，蘸取 75% 酒精擦拭产品表面。正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。'
+  },
+  {
+    itemCode: 'ID-003-ASSEMBLY-I-APP',
+    processName: '组装Ⅰ',
+    itemName: '外观',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
+    inspectionTool: '目测',
+    samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
+    resultType: 'BOOLEAN',
+    standardText: '1）表面应清洁、无黑点、异物、无划伤、无注塑缺陷；2）硅化后齿条、螺盖表面应无成滴的多余硅油；3）组装后芯杆应无多余毛屑。',
+    critical: false,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 4,
+    sourceOriginalItem: '组装Ⅰ / 外观',
+    sourceOriginalExcerpt: '1）表面应清洁、无黑点、异物、无划伤、无注塑缺陷；2）硅化后齿条、螺盖表面应无成滴的多余硅油；3）组装后芯杆应无多余毛屑。',
+    sourceOriginalMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。'
+  },
+  {
+    itemCode: 'ID-004-ASSEMBLY-I-RELEASE',
+    processName: '组装Ⅰ',
+    itemName: '撤压',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '将待检推杆与专用套筒（吸入 10ML 检测用纯化水）组装，将压力打至 25atm，放到撤压机（气压：2atm，缸径 20MM）上，观察能否顺利撤压。',
+    inspectionTool: '撤压机',
+    samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
+    resultType: 'BOOLEAN',
+    standardText: '将压力打至 25atm，放到撤压机（气压：2atm，缸径 20MM）上应能顺利撤压。',
+    critical: true,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 4,
+    sourceOriginalItem: '组装Ⅰ / 撤压',
+    sourceOriginalExcerpt: '将压力打至 25atm，放到撤压机（气压：2atm，缸径 20MM）上应能顺利撤压。',
+    sourceOriginalMethod: '将待检推杆与专用套筒（吸入 10ML 检测用纯化水）组装，将压力打至 25atm，放到撤压机（气压：2atm，缸径 20MM）上，观察能否顺利撤压。'
+  },
+  {
+    itemCode: 'ID-005-ASSEMBLY-I-NOJUMP',
+    processName: '组装Ⅰ',
+    itemName: '无跳压',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '将推杆装到检测专用的泵筒（吸入 10 ml 和 20 ml 水）上，将压力打至 30 atm 应无跳压现象，加压泄压各 5 次；40atm 的压力泵则将推杆装到检测专用的泵筒（吸入 10 ml 和 20 ml 水），压力打至 40 atm 无跳压现象，加压泄压各 5 次。',
+    inspectionTool: '/',
+    samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=1.0',
+    resultType: 'BOOLEAN',
+    standardText: '30atm 的压力泵压力打至 30atm 应无跳压现象；40atm 的压力泵则压力打至 40 atm 无跳压现象。',
+    critical: true,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 4,
+    sourceOriginalItem: '组装Ⅰ / 无跳压',
+    sourceOriginalExcerpt: '30atm 的压力泵压力打至 30atm 应无跳压现象；40atm 的压力泵则压力打至 40 atm 无跳压现象。',
+    sourceOriginalMethod: '将推杆装到检测专用的泵筒（吸入 10 ml 和 20 ml 水）上，将压力打至 30 atm 应无跳压现象，加压泄压各 5 次；40atm 的压力泵则将推杆装到检测专用的泵筒（吸入 10 ml 和 20 ml 水），压力打至 40 atm 无跳压现象，加压泄压各 5 次。'
+  },
+  {
+    itemCode: 'ID-006-UV-I-SWIVEL-APP',
+    processName: '光固Ⅰ',
+    itemName: '光固旋转接头 / 外观',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
+    inspectionTool: '目测',
+    samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
+    resultType: 'BOOLEAN',
+    standardText: '延长管和旋转接头：光固位置应整洁均匀圆滑美观；胶水未污染其它地方。',
+    critical: false,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 5,
+    sourceOriginalItem: '光固Ⅰ / 光固旋转接头 / 外观',
+    sourceOriginalExcerpt: '延长管和旋转接头：光固位置应整洁均匀圆滑美观；胶水未污染其它地方。',
+    sourceOriginalMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。'
+  },
+  {
+    itemCode: 'ID-007-UV-I-SWIVEL-STRENGTH',
+    processName: '光固Ⅰ',
+    itemName: '光固旋转接头 / 牢固度',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '用 15N 的砝码悬挂，停留 15s。',
+    inspectionTool: '15N 砝码',
+    samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
+    resultType: 'BOOLEAN',
+    standardText: '连接处施加 15N 的静态轴向拉力保持 15s，应不脱落。',
+    critical: true,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 5,
+    sourceOriginalItem: '光固Ⅰ / 光固旋转接头 / 牢固度',
+    sourceOriginalExcerpt: '连接处施加 15N 的静态轴向拉力保持 15s，应不脱落。',
+    sourceOriginalMethod: '用 15N 的砝码悬挂，停留 15s。'
+  },
+  {
+    itemCode: 'ID-008-UV-I-GAUGE-APP',
+    processName: '光固Ⅰ',
+    itemName: '光固压力表 / 外观',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
+    inspectionTool: '目测',
+    samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
+    resultType: 'BOOLEAN',
+    standardText: '外套与压力表：光固位置应整洁均匀圆滑美观；胶水未污染其它地方。',
+    critical: false,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 5,
+    sourceOriginalItem: '光固Ⅰ / 光固压力表 / 外观',
+    sourceOriginalExcerpt: '外套与压力表：光固位置应整洁均匀圆滑美观；胶水未污染其它地方。',
+    sourceOriginalMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。'
+  },
+  {
+    itemCode: 'ID-009-UV-I-GAUGE-STRENGTH',
+    processName: '光固Ⅰ',
+    itemName: '光固压力表 / 牢固度',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '用 15N 的砝码悬挂，停留 15s。',
+    inspectionTool: '15N 砝码',
+    samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
+    resultType: 'BOOLEAN',
+    standardText: '连接处施加 15N 的静态轴向拉力保持 15s，应不脱落。',
+    critical: true,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 5,
+    sourceOriginalItem: '光固Ⅰ / 光固压力表 / 牢固度',
+    sourceOriginalExcerpt: '连接处施加 15N 的静态轴向拉力保持 15s，应不脱落。',
+    sourceOriginalMethod: '用 15N 的砝码悬挂，停留 15s。'
+  },
+  {
+    itemCode: 'ID-010-UV-I-GAUGE-TORQUE',
+    processName: '光固Ⅰ',
+    itemName: '光固压力表 / 扭力值',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '使用 5N·m 扭力扳手对连接处进行测试，无松动情况判定合格。',
+    inspectionTool: '扭力扳手',
+    samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
+    resultType: 'BOOLEAN',
+    standardText: '压力表固化后扭力值＞5N·m。',
+    critical: true,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 5,
+    sourceOriginalItem: '光固Ⅰ / 光固压力表 / 扭力值',
+    sourceOriginalExcerpt: '压力表固化后扭力值＞5N·m。',
+    sourceOriginalMethod: '使用 5N·m 扭力扳手对连接处进行测试，无松动情况判定合格。'
+  },
+  {
+    itemCode: 'ID-011-UV-I-TUBE-APP',
+    processName: '光固Ⅰ',
+    itemName: '光固延长管 / 外观',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
+    inspectionTool: '目测',
+    samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
+    resultType: 'BOOLEAN',
+    standardText: '延长管与外套：光固位置应整洁均匀圆滑美观；胶水未污染其它地方。',
+    critical: false,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 6,
+    sourceOriginalItem: '光固Ⅰ / 光固延长管 / 外观',
+    sourceOriginalExcerpt: '延长管与外套：光固位置应整洁均匀圆滑美观；胶水未污染其它地方。',
+    sourceOriginalMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。'
+  },
+  {
+    itemCode: 'ID-012-UV-I-TUBE-STRENGTH',
+    processName: '光固Ⅰ',
+    itemName: '光固延长管 / 牢固度',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '用 15N 的砝码悬挂，停留 15s。',
+    inspectionTool: '15N 砝码',
+    samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=1.0',
+    resultType: 'BOOLEAN',
+    standardText: '连接处施加 15N 的静态轴向拉力保持 15s，应不脱落。',
+    critical: true,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 6,
+    sourceOriginalItem: '光固Ⅰ / 光固延长管 / 牢固度',
+    sourceOriginalExcerpt: '连接处施加 15N 的静态轴向拉力保持 15s，应不脱落。',
+    sourceOriginalMethod: '用 15N 的砝码悬挂，停留 15s。'
+  },
+  {
+    itemCode: 'ID-013-ASSEMBLY-II-APP',
+    processName: '组装Ⅱ / 硅化Ⅰ',
+    itemName: '外观',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
+    inspectionTool: '目测',
+    samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=1.0',
+    resultType: 'BOOLEAN',
+    standardText: '组装后产品表面应无黑点、杂质、花纹、划痕等外观缺陷；产品内腔无异物、毛丝等活动异物；配件组装后无挤压形成的多余料丝等现象；胶塞表面应无成滴的硅油汇聚。',
+    critical: false,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 6,
+    sourceOriginalItem: '组装Ⅱ / 硅化Ⅰ / 外观',
+    sourceOriginalExcerpt: '组装后产品表面应无黑点、杂质、花纹、划痕等外观缺陷；产品内腔无异物、毛丝等活动异物；配件组装后无挤压形成的多余料丝等现象；胶塞表面应无成滴的硅油汇聚。',
+    sourceOriginalMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。'
+  },
+  {
+    itemCode: 'ID-014-TEST-HIGH-PRESSURE',
+    processName: '检测',
+    itemName: '高压检测',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '将组装产品装到气密性检测工装上进行检测。',
+    inspectionTool: '气密性检测工装',
+    samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
+    resultType: 'BOOLEAN',
+    standardText: '将整体组装产品装到气密性检测工装上，通过大脚接头接上 30atm（30atm 压力泵）/38atm（40atm 压力泵）气源，打开气源，观察压力表应能匀速上升到指定压力，到达最大压力后 10s 内压力表指针应无跳压、降压的现象，撤掉气源后，压力表应可以迅速回零。',
+    critical: true,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 6,
+    sourceOriginalItem: '检测 / 高压检测',
+    sourceOriginalExcerpt: '将整体组装产品装到气密性检测工装上，通过大脚接头接上 30atm（30atm 压力泵）/38atm（40atm 压力泵）气源，打开气源，观察压力表应能匀速上升到指定压力，到达最大压力后 10s 内压力表指针应无跳压、降压的现象，撤掉气源后，压力表应可以迅速回零。',
+    sourceOriginalMethod: '将组装产品装到气密性检测工装上进行检测。'
+  },
+  {
+    itemCode: 'ID-015-TEST-LOW-PRESSURE',
+    processName: '检测',
+    itemName: '低压检测',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '将高压检测合格的压力泵装到气密性检测工装上进行检测。',
+    inspectionTool: '气密性检测工装',
+    samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
+    resultType: 'BOOLEAN',
+    standardText: '将高压检测合格的压力泵装到气密性检测工装上，通过大脚接头接上 8atm 气源，打开气源，观察压力表指针，应可以匀速指示到测试压力值，不应有升压缓慢或直接从低压跳到 8atm 现象；撤掉气源后，压力表应可以迅速回零。',
+    critical: true,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 6,
+    sourceOriginalItem: '检测 / 低压检测',
+    sourceOriginalExcerpt: '将高压检测合格的压力泵装到气密性检测工装上，通过大脚接头接上 8atm 气源，打开气源，观察压力表指针，应可以匀速指示到测试压力值，不应有升压缓慢或直接从低压跳到 8atm 现象；撤掉气源后，压力表应可以迅速回零。',
+    sourceOriginalMethod: '将高压检测合格的压力泵装到气密性检测工装上进行检测。'
+  },
+  {
+    itemCode: 'ID-016-UV-II-APP',
+    processName: '光固Ⅱ',
+    itemName: '外观',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
+    inspectionTool: '目测',
+    samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
+    resultType: 'BOOLEAN',
+    standardText: '光固位置应整洁均匀圆滑美观；胶水没有污染到其它地方；压力泵整体外观应无黑点、杂质、花纹、划痕等外观缺陷；不应有多余胶水外露。',
+    critical: false,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 7,
+    sourceOriginalItem: '光固Ⅱ / 外观',
+    sourceOriginalExcerpt: '光固位置应整洁均匀圆滑美观；胶水没有污染到其它地方；压力泵整体外观应无黑点、杂质、花纹、划痕等外观缺陷；不应有多余胶水外露。',
+    sourceOriginalMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。'
+  },
+  {
+    itemCode: 'ID-017-UV-II-STRENGTH',
+    processName: '光固Ⅱ',
+    itemName: '牢固度',
+    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
+    inspectionMethod: '用 15N 的砝码悬挂，停留 15s。',
+    inspectionTool: '15N 砝码',
+    samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
+    resultType: 'BOOLEAN',
+    standardText: '对连接处施加 15N 的静态轴向拉力保持 15s，应不脱落。',
+    critical: true,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 7,
+    sourceOriginalItem: '光固Ⅱ / 牢固度',
+    sourceOriginalExcerpt: '对连接处施加 15N 的静态轴向拉力保持 15s，应不脱落。',
+    sourceOriginalMethod: '用 15N 的砝码悬挂，停留 15s。'
+  }
+]
+
 const qaRegulationItems = ref<QaRegulationItem[]>([])
 const pagedQaRegulationItems = computed(() =>
   paginateQaRows(qaRegulationItems.value, qaItemsQuery)
@@ -1491,6 +1816,7 @@ const dccProjectCodeLoadError = ref('')
 const selectedDccProjectCode = ref<DccProjectCodeRespVO>()
 const activeQaRegulationProductId = ref<number | undefined>()
 const pressurePumpProductId = ref<number | undefined>()
+const balloonPressurePumpProductId = ref<number | undefined>()
 const qaRouteScopeLoading = ref(false)
 const qaRouteScopeLoadError = ref('')
 const qaRouteScopeAutoSource = ref<QaRouteScopeAutoSource>()
@@ -1537,12 +1863,18 @@ const registerPressurePumpProductBinding = (projects: DccProjectCodeRespVO[]) =>
   const pressurePumpProject = projects.find(
     (project) => normalizeDccProjectCode(project.projectCode) === PRESSURE_PUMP_PROJECT_CODE
   )
-  if (!pressurePumpProject) {
-    return
-  }
-  const productId = resolveDccProjectProductId(pressurePumpProject)
-  if (productId) {
+  if (pressurePumpProject) {
+    const productId = resolveDccProjectProductId(pressurePumpProject)
     pressurePumpProductId.value = productId
+  }
+
+  const balloonPressurePumpProject = projects.find(
+    (project) =>
+      normalizeDccProjectCode(project.projectCode) === BALLOON_PRESSURE_PUMP_PROJECT_CODE
+  )
+  if (balloonPressurePumpProject) {
+    const productId = resolveDccProjectProductId(balloonPressurePumpProject)
+    balloonPressurePumpProductId.value = productId
   }
 }
 
@@ -1565,14 +1897,23 @@ const loadQaProductRuleDraft = (productId: number, project: DccProjectCodeRespVO
   let snapshot = qaProductRuleDrafts.get(productId)
   if (!snapshot) {
     const isPressurePumpProduct = productId === pressurePumpProductId.value
+    const isBalloonPressurePumpProduct = productId === balloonPressurePumpProductId.value
     snapshot = createQaProductRuleDraftSnapshot(
-      isPressurePumpProduct
+      isBalloonPressurePumpProduct
+        ? createBalloonPressurePumpQaRegulationDraft()
+        : isPressurePumpProduct
         ? createPressurePumpQaRegulationDraft()
         : createEmptyQaRegulationDraft(),
-      isPressurePumpProduct
+      isBalloonPressurePumpProduct
+        ? createBalloonPressurePumpQaInspectionTypeRules()
+        : isPressurePumpProduct
         ? createPressurePumpQaInspectionTypeRules()
         : createEmptyQaInspectionTypeRules(),
-      isPressurePumpProduct ? createPressurePumpQaRegulationItems() : []
+      isBalloonPressurePumpProduct
+        ? createBalloonPressurePumpQaRegulationItems()
+        : isPressurePumpProduct
+        ? createPressurePumpQaRegulationItems()
+        : []
     )
     qaProductRuleDrafts.set(productId, snapshot)
   }
@@ -1738,7 +2079,27 @@ const findQaRouteProcessConfig = (
   routeProcessId: number
 ) => configs.find((config) => Number(config.routeProcessId) === Number(routeProcessId))
 
-const resolveQaRouteProcessFromRoute = (routeProcesses: ProRouteProcessVO[]) => {
+const hasFormalQaBatchRecordBinding = (config: ProRouteFlowProcessConfigVO) =>
+  config.enabled === true &&
+  (config.batchRecordReports || []).some((report) =>
+    Boolean(
+      normalizeQaRouteScopeText(report.batchRecordReportId) ||
+      normalizeQaRouteScopeText(report.batchRecordReportCode) ||
+      normalizeQaRouteScopeText(report.batchRecordReportName)
+    )
+  )
+
+const hasFormalQaRouteProcessBatchRecordBinding = (process: ProRouteProcessVO) =>
+  Boolean(
+    normalizeQaRouteScopeText(process.batchRecordReportId) ||
+    normalizeQaRouteScopeText(process.batchRecordReportCode) ||
+    normalizeQaRouteScopeText(process.batchRecordReportName)
+  )
+
+const resolveQaRouteProcessFromRoute = (
+  routeProcesses: ProRouteProcessVO[],
+  batchConfigs: ProRouteFlowProcessConfigVO[] = []
+) => {
   const formalProcesses = routeProcesses.filter(
     (process) =>
       resolveQaRouteScopePositiveNumber(process.id) &&
@@ -1748,13 +2109,37 @@ const resolveQaRouteProcessFromRoute = (routeProcesses: ProRouteProcessVO[]) => 
   if (checkProcesses.length === 1) {
     return checkProcesses[0]
   }
+  if (checkProcesses.length > 1) {
+    throw new Error('当前工艺路线存在多个质检工序，请先在工艺路线中明确 QA 规程适用工序。')
+  }
   if (checkProcesses.length === 0 && formalProcesses.length === 1) {
     return formalProcesses[0]
   }
-  if (checkProcesses.length === 0) {
-    throw new Error('当前工艺路线未标记唯一质检工序，请先在工艺路线中维护 checkFlag。')
+  const batchRecordProcessIds = new Set(
+    batchConfigs
+      .filter(hasFormalQaBatchRecordBinding)
+      .map((config) => resolveQaRouteScopePositiveNumber(config.routeProcessId))
+      .filter((routeProcessId): routeProcessId is number => Boolean(routeProcessId))
+  )
+  const batchRecordProcesses = formalProcesses.filter((process) =>
+    batchRecordProcessIds.has(Number(process.id))
+  )
+  if (batchRecordProcesses.length === 1) {
+    return batchRecordProcesses[0]
   }
-  throw new Error('当前工艺路线存在多个质检工序，请先在工艺路线中明确 QA 规程适用工序。')
+  if (batchRecordProcesses.length > 1) {
+    throw new Error('当前工艺路线存在多个正式批记录绑定工序，请先在工艺路线中维护唯一 checkFlag。')
+  }
+  const routeProcessBatchRecordProcesses = formalProcesses.filter(
+    hasFormalQaRouteProcessBatchRecordBinding
+  )
+  if (routeProcessBatchRecordProcesses.length === 1) {
+    return routeProcessBatchRecordProcesses[0]
+  }
+  if (routeProcessBatchRecordProcesses.length > 1) {
+    throw new Error('当前工艺路线存在多个默认批记录报表工序，请先在工艺路线中维护唯一 checkFlag。')
+  }
+  throw new Error('当前工艺路线未标记唯一质检工序，请先在工艺路线中维护 checkFlag。')
 }
 
 const applyFormalQaRouteScope = (source: QaRouteScopeAutoSource) => {
@@ -1833,13 +2218,13 @@ async function loadQaRouteScopeFromRouteBinding(
     throw new Error('当前工艺路线缺少激活版本，请先发布工艺路线版本。')
   }
   const routeVersion = await ProRouteApi.getRouteVersion(routeVersionId)
-  const routeProcesses = await ProRouteProcessApi.getRouteProcessListByRoute(routeId)
-  const routeProcess = resolveQaRouteProcessFromRoute(routeProcesses)
-  const routeProcessId = requireQaRouteScopePositiveNumber(routeProcess.id, '路线工序')
-  const [scheduleConfigs, batchConfigs] = await Promise.all([
+  const [routeProcesses, scheduleConfigs, batchConfigs] = await Promise.all([
+    ProRouteProcessApi.getRouteProcessListByRoute(routeId),
     ProRouteFlowConfigApi.getProcessConfigList(routeId, 'SCHEDULE', routeVersionId),
     ProRouteFlowConfigApi.getProcessConfigList(routeId, 'BATCH', routeVersionId)
   ])
+  const routeProcess = resolveQaRouteProcessFromRoute(routeProcesses, batchConfigs)
+  const routeProcessId = requireQaRouteScopePositiveNumber(routeProcess.id, '路线工序')
   return {
     routeProduct: bindingSource.routeProduct,
     route,

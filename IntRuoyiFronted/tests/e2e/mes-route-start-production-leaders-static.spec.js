@@ -33,6 +33,16 @@ assert.match(flowConfigApi, /ProRouteStartProductionLeaderVO/, '前端 API 类�
 assert.match(flowConfigApi, /getRouteStartProductionLeaders/, '前端 API 必须读取生产组长配置。')
 assert.match(flowConfigApi, /saveRouteStartProductionLeaders/, '前端 API 必须保存生产组长配置。')
 assert.match(flowConfigApi, /getRouteStartProductionLeaderProductionLines/, '前端 API 必须读取当前路线负责范围。')
+assert.match(
+  designer,
+  /const\s+saveRouteStartProductionLeadersIfChanged\s*=\s*async\s*\(\)\s*=>[\s\S]*ProRouteFlowConfigApi\.saveRouteStartProductionLeaders[\s\S]*routeStartProductionLeaders.value.map[\s\S]*const\s+saveFromParent\s*=\s*async\s*\(\)\s*=>[\s\S]*await\s+saveRouteStartProductionLeadersIfChanged\(\)[\s\S]*await\s+saveSelectedProcessAttributeDrafts\(\)/,
+  '顶部保存必须在通用关系图保存链路中调用生产组长专用保存，并且早于最终属性保存完成。'
+)
+assert.doesNotMatch(
+  designer,
+  /const\s+saveRouteStartProductionLeadersIfChanged\s*=\s*async\s*\(\)\s*=>[\s\S]*message\.success\('生产组长配置已保存'\)/,
+  '顶部保存联动保存生产组长时不得额外弹出局部成功提示，只保留外层保存结果。'
+)
 assert.doesNotMatch(
   feedbackApi,
   /frontline-pressure-pump:all-processes/,

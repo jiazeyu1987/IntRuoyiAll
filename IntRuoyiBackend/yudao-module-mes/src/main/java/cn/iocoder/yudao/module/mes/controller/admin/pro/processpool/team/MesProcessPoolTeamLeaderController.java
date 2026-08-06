@@ -411,7 +411,7 @@ public class MesProcessPoolTeamLeaderController {
     @Operation(summary = "按姓名搜索拥有 PQC 权限角色的正式检验员候选")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
     public CommonResult<List<MesTeamFormalUserCandidateRespVO>> searchPqcFormalEmployeeCandidates(
-            @RequestParam("keyword") String keyword) {
+            @RequestParam(value = "keyword", required = false) String keyword) {
         return success(pqcPersonnelService.searchFormalInspectorCandidates(SecurityFrameworkUtils.getLoginUserId(), keyword)
                 .stream()
                 .map(MesProcessPoolTeamLeaderController::toFormalUserCandidateRespVO)
@@ -811,7 +811,9 @@ public class MesProcessPoolTeamLeaderController {
             MesTeamLeaderActiveOrderCandidateBO candidate) {
         return new MesTeamLeaderActiveOrderCandidateRespVO()
                 .setWorkOrderId(candidate.getWorkOrderId())
-                .setWorkOrderCode(candidate.getWorkOrderCode());
+                .setWorkOrderCode(candidate.getWorkOrderCode())
+                .setEligible(candidate.isEligible())
+                .setIneligibleReason(candidate.getIneligibleReason());
     }
 
     private static MesTeamLeaderActiveOrderTransferTraceRespVO toActiveOrderTransferTraceRespVO(

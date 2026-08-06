@@ -34,20 +34,38 @@
 ## 前端静态契约隔离门禁
 
 - Trigger: 当前任务需要 RED/GREEN 静态契约，但已有大契约或全量 `pnpm ts:check` 先失败在无关历史问题上。
-- Preflight check: 先运行最接近的既有契约并冻结首个无关失败；若失败点不属于当前任务，新增或改用任务专用最小静态契约覆盖当前行为。
-- Blocker: 无法证明失败点与当前任务无关、或专用契约不能稳定先 RED 后 GREEN 时，不得宣称当前行为完成。
+- Preflight check: 先运行最接近的既有契约并冻结首个无关失败；若失败点不属于当前任务，新增或改用任务专用最小静态契约覆盖当前行为。静态合同从单个源码文件截取函数、模板或配置块时，结束锚点必须是“下一个明确同类块/函数名”或配对标记；同文件后续可能追加相邻产品模板、角色模板或配置块时，禁止用宽泛的 `const qaRegulationItems`、`</script>`、文件结尾等远端锚点导致新增块被旧合同误计数。
+- Blocker: 无法证明失败点与当前任务无关、或专用契约不能稳定先 RED 后 GREEN 时，不得宣称当前行为完成。新增相邻模板后，既有合同若出现行数翻倍、误报重复项或负向断言跨块命中，必须先收窄旧合同边界再判断业务是否回归，不得为了通过测试删除新模板或放宽计数断言。
 - Verification: `execution-log.md` 同时记录无关 blocker、专用契约 RED/GREEN、以及全量回归命令的剩余阻塞摘要。
 - Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
-- Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。
+- Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。任务 `doc/tasks/20260806-qa-id-balloon-pressure-pump-pdf-items/`，新增 `PQC-ID-001` 相邻产品模板后，旧 `PQC-IDI-001` 静态合同原本用 `const qaRegulationItems` 作远端结束锚点，误把新 17 行计入旧 22 行合同；最终将旧合同结束锚点收窄到 `const createBalloonPressurePumpQaRegulationItems`，并新增 ID 专用合同。任务 `doc/tasks/20260806-qa-idi-pressure-pump-screenshot-pages-verify/`，逐页截图对表时必须同时锁定源码顺序、PDF 页码、`itemName` 和 `sourceOriginalItem`，避免图 4 `整体粘结 / 外观` 被后续图 5 `气密性` 合并单元格分组污染。
+
+## 前端按钮文案与行为一致性门禁
+
+- Trigger: 用户要求将按钮改名、把“刷新/查询/打开”等按钮改成“新增/保存/提交”等动作按钮，或指出按钮显示动作与实际点击行为不一致。
+- Preflight check: 静态合同必须同时锁定按钮可见文案、稳定 `data-*` 锚点、`@click` 绑定的新正式动作，以及禁止旧点击方法继续绑定；若新增动作需要选择对象或类型，还必须锁定对应弹窗、表单选择项和正式保存链路。
+- Blocker: 只改按钮文案但继续调用旧刷新/查询/打开方法、只断言文案不验证点击处理器、或用刷新后列表变化冒充新增入口时必须停止。
+- Verification: 先让按钮行为静态合同 RED，再实现正式入口并跑目标合同、相邻合同、`pnpm ts:check` 和 `git diff --check`。
+- Forbidden action: 禁止把“新增”按钮继续绑定刷新方法；禁止用新增文案、toast 或 API-only 成功提示替代真实可操作入口。
+- Evidence: 任务 `doc/tasks/20260806-process-config-refresh-to-add-button/`，工序配置头部按钮先从“刷新”改成“新增”但仍绑定 `loadProcessConfigRows`，补充合同后改为打开路线工序 + 新增类型选择弹窗并复用正式维护弹窗。
+
+## 前端选择弹框即时反馈门禁
+
+- Trigger: 用户反馈点击弹框选项后没有立刻选择、选中态停留、弹框过一会才消失，或修改工序/员工/角色/项目等 picker、dialog、dropdown 的选中流程。
+- Preflight check: 先区分该选择是否需要同步校验后才能关闭；若产品口径是“点选即关闭”，关闭弹框或隐藏候选面板必须发生在耗时异步请求、运行配置加载、员工/上下文切换之前，后续失败再通过正式错误提示暴露。若选择项需要像 PQC 登录人校验一样阻止非法切换，必须保留校验成功后关闭。
+- Blocker: 点击后 option 已 active 但弹框仍等待接口或上下文切换、静态合同只断言最终关闭不检查关闭顺序、或为了即时关闭而跳过必须的非法选择校验时必须停止。
+- Verification: 聚焦静态合同抽取选择处理函数，断言即时关闭场景的 `closePicker()` / hide 行为位于目标 `await` 之前，同时断言校验型场景仍在成功校验后关闭；再运行相邻 picker/页签合同和 `pnpm ts:check`。
+- Forbidden action: 禁止用 loading 遮罩、延迟 toast、禁用按钮、吞掉异步错误、或把所有模式统一提前关闭来掩盖正式校验差异。
+- Evidence: 任务 `doc/tasks/20260806-frontline-production-fullscreen-logic/`，一线生产选择工序时旧逻辑等待 `selectFrontlineProcess` 和默认员工切换后才关闭弹框，导致用户看到选中卡片停留；修复为生产模式点击即 `closePicker()`，一线 PQC 仍保留校验成功后关闭。
 
 ## 复合输入控件交互保留门禁
 
-- Trigger: 修改 `el-select`、`el-autocomplete`、远程搜索下拉或同类复合输入控件时，为其增加复制、上次选择恢复、只读回显、后缀按钮或标题栏紧凑布局。
-- Preflight check: 先确认原控件承担的正式交互职责，例如下拉选择、远程搜索、清空、候选 `label/value`、正式加载方法和可复制展示；专用静态契约必须同时锁定原组件标签、关键交互属性、正式候选渲染和新增复制/回显标识。
-- Blocker: 控件被替换为纯 `el-input` 或文本、复制按钮遮挡点击、远程搜索方法或 `el-option` 候选丢失、下拉箭头不可见、无法改变当前选择、或合同只断言可见文案/复制能力而未证明仍可选择时必须停止。
-- Verification: 先补 RED 静态契约覆盖“复制不替代选择”，GREEN 后运行目标合同、相邻标题栏/页签合同、`git diff --check`；若改动触及类型或运行态逻辑，再运行 `pnpm ts:check` 或记录无关 blocker。
-- Forbidden action: 禁止为了让内容可复制而把正式选择控件改成 disabled/read-only 输入框、隐藏候选下拉、移除远程搜索、用 API-only 或截图目测替代控件交互验证。
-- Evidence: 任务 `doc/tasks/20260806-qa-project-selector-dropdown-copy/`，QA 规程项目代码字段在支持上次选择恢复和复制后，补充 `automatic-dropdown`、`remote-show-suffix` 和 `data-qa-regulation-project-dropdown`，静态契约锁定仍是可搜索下拉 `el-select`。
+- Trigger: 修改 `el-select`、`el-autocomplete`、远程搜索下拉或同类复合输入控件时，为其增加复制、上次选择恢复、只读回显、后缀按钮、标题栏紧凑布局、空点击加载候选或 `automatic-dropdown`。
+- Preflight check: 先确认原控件承担的正式交互职责，例如下拉选择、远程搜索、清空、候选 `label/value`、正式加载方法和可复制展示；若空点击加载是正式交互，前端空关键字请求与后端参数绑定必须同源建模，后端查询参数应显式允许缺省或空值并进入正式候选查询逻辑；专用静态契约必须同时锁定原组件标签、关键交互属性、正式候选渲染、新增复制/回显标识和空关键字契约。
+- Blocker: 控件被替换为纯 `el-input` 或文本、复制按钮遮挡点击、远程搜索方法或 `el-option` 候选丢失、下拉箭头不可见、无法改变当前选择、空下拉请求缺少 `keyword` 时后端参数绑定失败、或合同只断言可见文案/复制能力而未证明仍可选择时必须停止。
+- Verification: 先补 RED 静态契约覆盖“复制不替代选择”和空点击加载契约，GREEN 后运行目标合同、相邻标题栏/页签合同、`git diff --check`；若改动触及类型、接口参数或运行态逻辑，再运行 `pnpm ts:check`、目标后端参数绑定单测或记录无关 blocker。
+- Forbidden action: 禁止为了让内容可复制而把正式选择控件改成 disabled/read-only 输入框、隐藏候选下拉、移除远程搜索、只靠前端传空字符串而后端仍把 `keyword` 设为必填、用 API-only 或截图目测替代控件交互验证。
+- Evidence: 任务 `doc/tasks/20260806-qa-project-selector-dropdown-copy/`，QA 规程项目代码字段在支持上次选择恢复和复制后，补充 `automatic-dropdown`、`remote-show-suffix` 和 `data-qa-regulation-project-dropdown`，静态契约锁定仍是可搜索下拉 `el-select`；任务 `doc/tasks/20260806-pqc-personnel-permission-candidates/`，PQC 新增人员空下拉加载候选时，后端 `keyword` 必填导致参数绑定异常，修复为 `required=false` 并用控制器单测和静态合同锁定。
 
 ## 多角色共享表格列池隔离门禁
 
@@ -79,9 +97,9 @@
 ## 统一列表复合工具栏布局门禁
 
 - Trigger: 修改 `UnifiedListTemplate`、快速过滤、批量操作栏、标准列表多维筛选、`TableMultiFilter`、或把新筛选控件接入已有业务列表。
-- Preflight check: 先在真实业务列表确认快速过滤、操作栏、额外筛选和新增筛选控件的 flex/grid 关系；可折行控件必须有明确行宽、`min-width` 和静态合同覆盖，不得只在空模板或单控件示例中验证。标准列表多维筛选要优先做成可增删条件 Tab 这类通用条件集合，不要靠页面级 `maxInlineFilters`、固定字段横铺或业务页特例控制可见条件；标准列表条件 Tab 默认必须为空，不得通过页面级 `.setCondition(...)` 或 query 初值预置隐藏业务筛选。同一页面内多个页签或子列表即使都使用 `UnifiedListTemplate`，也必须逐个显式核对是否接入 `showMultiFilter`、多维 definitions/state/events；模板能力不会自动替换仍绑定旧 quick filter 的列表。
+- Preflight check: 先在真实业务列表确认快速过滤、操作栏、额外筛选和新增筛选控件的 flex/grid 关系；可折行控件必须有明确行宽、`min-width` 和静态合同覆盖，不得只在空模板或单控件示例中验证。标准列表多维筛选要优先做成可增删条件 Tab 这类通用条件集合，不要靠页面级 `maxInlineFilters`、固定字段横铺或业务页特例控制可见条件；标准列表条件 Tab 默认必须为空，不得通过页面级 `.setCondition(...)` 或 query 初值预置隐藏业务筛选。若正式后端接口存在必填查询条件且首屏业务要求有默认值，例如当天提交日期，允许预置默认条件，但该条件必须在多维筛选中可见、可审计、稳定 condition id，静态合同和真实 E2E 必须证明请求参数来自可见条件而不是隐藏 query。同一页面内多个页签或子列表即使都使用 `UnifiedListTemplate`，也必须逐个显式核对是否接入 `showMultiFilter`、多维 definitions/state/events；模板能力不会自动替换仍绑定旧 quick filter 的列表。
 - Blocker: 新控件在真实页面中被快速过滤或操作栏挤压到 `0` 宽、不可见、不可点击，静态合同只断言组件存在但不断言布局宽度和正式 query 透传，或同一个正式 query 参数可被多个条件 Tab 覆盖时必须停止。标准列表首屏请求仍带页面隐藏默认条件、目标页面还有其它标准列表页签仍保留旧 quick filter、重复状态开关、重复重置按钮或缺少多维筛选事件时，也不得宣称标准模板复用完成。
-- Verification: 聚焦静态合同必须覆盖模板布局类、宽度下限、props/events 透传、条件 Tab 增删、默认空条件、禁止 `.setCondition(...)` 预置、稳定 condition id、重复正式参数校验和正式请求参数；真实 E2E 必须打开目标业务页面，断言控件可见可操作、首屏请求不携带隐藏默认条件、多个已填写 Tab 按交集提交、请求不携带临时参数、重置清空正式条件且目标写请求为 0。涉及同页多列表时，E2E 必须切换每个目标页签并分别断言旧 quick filter 可见数为 0、正式参数提交和重置清参。
+- Verification: 聚焦静态合同必须覆盖模板布局类、宽度下限、props/events 透传、条件 Tab 增删、默认空条件、禁止 `.setCondition(...)` 预置、稳定 condition id、重复正式参数校验和正式请求参数；若存在正式必填默认条件，必须额外断言默认条件在筛选 UI 中可见、重置后仍按业务要求恢复可见条件、目标请求包含该正式参数且无隐藏临时参数。真实 E2E 必须打开目标业务页面，断言控件可见可操作、首屏请求不携带隐藏默认条件、多个已填写 Tab 按交集提交、请求不携带临时参数、重置清空正式条件且目标写请求为 0；必填默认条件场景则按正式业务口径验证“恢复可见默认条件”而不是强制清空。涉及同页多列表时，E2E 必须切换每个目标页签并分别断言旧 quick filter 可见数为 0、正式参数提交和重置清参。
 - Forbidden action: 禁止用 API-only、临时测试页、隐藏旧快速筛选、移除业务操作按钮、硬编码当前页面宽度、页面级 inline filter 数量特例或前端本地过滤来冒充标准列表多维筛选完成。
 - Evidence: 任务 `doc/tasks/20260804-standard-list-multi-filter/verification-report.md`，排产工单真实 E2E 暴露多维筛选在复合工具栏中被挤压为 `0` 宽，最终用模板级全行布局和静态合同锁定；后续用户反馈固定条件栏复用性差，改为条件 Tab + 加减号，并用真实 E2E 证明多个 Tab 按正式 query 参数交集提交；同步工单页签虽同样使用 `UnifiedListTemplate`，但因未显式接入多维 definitions/state/events 而保持旧 quick filter，最终按页签补齐静态合同和真实 E2E。任务 `doc/tasks/20260805-standard-list-empty-tabs/verification-report.md` 将当前系统 84 个标准列表模板扫描入清单，并锁定默认空条件 Tab、禁止页面级预置隐藏筛选、排产工单和同步工单首屏只带分页参数；任务 `doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md` 新增 QA 规程 4 个标准列表后，将系统接入点更新为 88 个、显式隐藏筛选列表更新为 14 个。
 
@@ -214,11 +232,11 @@
 ## 前端角色内容页签拆分口径门禁
 
 - Trigger: 用户要求“某角色/某类内容专门做一个页签显示，不再显示在某工作台”，尤其涉及 `生产组长`、`PQC组长`、`leaderType`、`TeamLeaderWorkbenchPage`、eDHR 批记录页签、角色工作台页面内部功能模块 Tab 或其它角色型工作台拆分。
-- Preflight check: 先从用户原话拆出“要拆出的角色/内容”和“原工作台保留的角色/内容”，并确认“页签”指动态菜单/主导航入口还是页面内部 `el-tabs`；用户说“类似批次执行”“放在 QA 下面”时，按 eDHR 父菜单下的独立主导航子菜单处理，不得误做成 eDHR 批次页内部 Tab。若用户明确说同一角色下“人员管理、报工管理、损耗管理”等不同功能模块，则按该角色页面内部功能模块 Tab 处理，并先核对共享组件中其它角色复用的 content gate 和相邻静态合同。再核对现有包装页、路由、页签 key、标题、权限和共享组件 props；若工作区已有相反方向的半成品拆分，必须先用 RED 静态合同锁定当前用户要求，不得沿用旧任务口径。
-- Blocker: 专门页签拆成了错误角色、把主导航页签误做成页面内部 Tab、把页面内部功能模块 Tab 误做成新菜单、原工作台仍传入目标角色 props、两个入口同时显示同一角色内容、功能模块仍纵向混排、旧 route/tab key/页面关系图仍指向相反角色、或静态合同只断言“有独立页签”但不验证角色 props、模块 gate、共享 gate 和原工作台负向隐藏时必须停止。
-- Verification: 聚焦静态合同必须同时断言页签 label、tab key 或主导航菜单 sort、route path、route name/title、包装组件文件、共享组件 `leader-type` 或等价 props、原工作台 `doesNotMatch` 目标角色内容、页面关系图节点和相邻工作台合同；页面内部功能模块 Tab 还必须断言包装页显式启用模块 Tab、非目标角色未启用该专属 Tab、每个模块块由对应 computed gate 控制、共享 gate 未破坏相邻角色合同。涉及动态菜单时还必须断言 `system_menu`、租户套餐和角色菜单绑定；涉及 Vue/TS 时运行 `pnpm ts:check`。
+- Preflight check: 先从用户原话拆出“要拆出的角色/内容”和“原工作台保留的角色/内容”，并确认“页签”指动态菜单/主导航入口还是页面内部 `el-tabs`；用户说“类似批次执行”“放在 QA 下面”时，按 eDHR 父菜单下的独立主导航子菜单处理，不得误做成 eDHR 批次页内部 Tab。若用户明确说同一角色下“人员管理、报工管理、损耗管理”等不同功能模块，则按该角色页面内部功能模块 Tab 处理，并先核对共享组件中其它角色复用的 content gate、默认激活页签、每个非默认功能模块的数据加载触发和相邻静态合同。再核对现有包装页、路由、页签 key、标题、权限和共享组件 props；若工作区已有相反方向的半成品拆分，必须先用 RED 静态合同锁定当前用户要求，不得沿用旧任务口径。
+- Blocker: 专门页签拆成了错误角色、把主导航页签误做成页面内部 Tab、把页面内部功能模块 Tab 误做成新菜单、原工作台仍传入目标角色 props、两个入口同时显示同一角色内容、功能模块仍纵向混排、旧 route/tab key/页面关系图仍指向相反角色、非默认功能模块只切换显示但没有 watcher/handler 触发正式列表加载、或静态合同只断言“有独立页签”但不验证角色 props、模块 gate、共享 gate、数据加载触发和原工作台负向隐藏时必须停止。
+- Verification: 聚焦静态合同必须同时断言页签 label、tab key 或主导航菜单 sort、route path、route name/title、包装组件文件、共享组件 `leader-type` 或等价 props、原工作台 `doesNotMatch` 目标角色内容、页面关系图节点和相邻工作台合同；页面内部功能模块 Tab 还必须断言包装页显式启用模块 Tab、非目标角色未启用该专属 Tab、每个模块块由对应 computed gate 控制、非默认数据列表在 tab 选中时设置正式 query 角色/日期/分页并调用正式加载方法、共享 gate 未破坏相邻角色合同。涉及动态菜单时还必须断言 `system_menu`、租户套餐和角色菜单绑定；涉及 Vue/TS 时运行 `pnpm ts:check`。
 - Forbidden action: 禁止用 CSS 隐藏、空数据、路由别名、旧页签文案、内部 Tab 冒充主导航入口或保留旧反向 wrapper 冒充拆分完成；禁止把“PQC组长拆出去”与“生产组长拆出去”互换处理。
-- Evidence: 任务 `doc/tasks/20260804-production-leader-tab/`，基线中已有相反的 `PQC组长` 独立页签，当前需求要求 `生产组长` 独立页签，最终用静态合同先 RED 再将 `BatchProductionLeaderWorkbenchPage`、`productionLeader` 路由和组长工作台 `leader-type="PQC"` 边界锁定；任务 `doc/tasks/20260804-pqc-leader-tab/`，用户纠正“不是 tab，是类似批次执行的页签”，最终锁定 `QA -> 生产组长 -> PQC组长 -> 批次执行` 主导航顺序，并从 `EdhrBatchRecordTabs.vue` 移除内部 leader tabs；任务 `doc/tasks/20260805-production-leader-function-tabs/`，用户要求生产组长内“人员管理、报工管理、损耗管理”等不同功能模块是不同 Tab，最终保留 `ProductionLeaderWorkbenchPage` 主导航入口，仅在共享工作台增加生产组长内部模块 Tab，并复跑 PQC 组长相邻合同防止共享 gate 破坏。
+- Evidence: 任务 `doc/tasks/20260804-production-leader-tab/`，基线中已有相反的 `PQC组长` 独立页签，当前需求要求 `生产组长` 独立页签，最终用静态合同先 RED 再将 `BatchProductionLeaderWorkbenchPage`、`productionLeader` 路由和组长工作台 `leader-type="PQC"` 边界锁定；任务 `doc/tasks/20260804-pqc-leader-tab/`，用户纠正“不是 tab，是类似批次执行的页签”，最终锁定 `QA -> 生产组长 -> PQC组长 -> 批次执行` 主导航顺序，并从 `EdhrBatchRecordTabs.vue` 移除内部 leader tabs；任务 `doc/tasks/20260805-production-leader-function-tabs/`，用户要求生产组长内“人员管理、报工管理、损耗管理”等不同功能模块是不同 Tab，最终保留 `ProductionLeaderWorkbenchPage` 主导航入口，仅在共享工作台增加生产组长内部模块 Tab，并复跑 PQC 组长相邻合同防止共享 gate 破坏。任务 `doc/tasks/20260806-production-leader-feedback-random-data/`，生产组长内部默认页签为“人员管理”，用户点击“报工管理”后旧代码只切显示不触发 `getSubmissionList()`，最终补 `watch(activeProductionModuleTab)` 并用真实页面证明表格不再为空。
 
 ## eDHR 表单追溯可视化历史详情门禁
 

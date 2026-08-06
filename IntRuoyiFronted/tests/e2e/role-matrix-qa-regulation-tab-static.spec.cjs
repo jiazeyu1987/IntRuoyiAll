@@ -74,7 +74,9 @@ const qaItemsColumnsSource =
     : ''
 const pressurePumpItemsStart = qaSource.indexOf('const createPressurePumpQaRegulationItems')
 const pressurePumpItemsEnd =
-  pressurePumpItemsStart >= 0 ? qaSource.indexOf('const qaRegulationItems', pressurePumpItemsStart) : -1
+  pressurePumpItemsStart >= 0
+    ? qaSource.indexOf('const createBalloonPressurePumpQaRegulationItems', pressurePumpItemsStart)
+    : -1
 const pressurePumpItemsSource =
   pressurePumpItemsStart >= 0 && pressurePumpItemsEnd > pressurePumpItemsStart
     ? qaSource.slice(pressurePumpItemsStart, pressurePumpItemsEnd)
@@ -268,8 +270,18 @@ assert.match(
 )
 assert.match(
   qaSource,
-  /resolveQaRouteProcessFromRoute[\s\S]*checkFlag[\s\S]*throw new Error/,
-  'QA route scope must fail fast when the route does not expose one unambiguous formal QA/check process.'
+  /hasFormalQaBatchRecordBinding[\s\S]*batchRecordReports[\s\S]*resolveQaRouteProcessFromRoute\(routeProcesses, batchConfigs\)/,
+  'QA route scope must use formal BATCH batchRecordReports to identify the QA process when checkFlag is missing.'
+)
+assert.match(
+  qaSource,
+  /hasFormalQaRouteProcessBatchRecordBinding[\s\S]*batchRecordReportId[\s\S]*routeProcessBatchRecordProcesses/,
+  'QA route scope must also use the published route-process batchRecordReport projection when BATCH configs are unavailable.'
+)
+assert.match(
+  qaSource,
+  /resolveQaRouteProcessFromRoute[\s\S]*checkProcesses\.length > 1[\s\S]*多个质检工序/,
+  'QA route scope must still fail fast when the route exposes multiple checkFlag processes.'
 )
 assert.match(
   qaSource,

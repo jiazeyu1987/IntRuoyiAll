@@ -36,11 +36,15 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -96,13 +100,83 @@ class MesTeamLeaderActiveOrderServiceTest {
     void shouldSearchConfirmedWorkOrderCandidatesByCode() {
         when(workOrderMapper.selectConfirmedCandidatesByCode("WO-9", 20))
                 .thenReturn(List.of(confirmedWorkOrder()));
+        stubEffectiveSchedules(effectiveSchedule(7701L, 922119L, 448L));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(List.of(7701L)))
+                .thenReturn(List.of(scheduleProcess(928609L, 6001L, "1.000000", "200.000000")));
+        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
 
         List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
 
         assertEquals(1, candidates.size());
         assertEquals(9001L, candidates.get(0).getWorkOrderId());
         assertEquals("WO-9001", candidates.get(0).getWorkOrderCode());
+        assertTrue(candidates.get(0).isEligible());
+        assertEquals(null, candidates.get(0).getIneligibleReason());
         verify(workOrderMapper).selectConfirmedCandidatesByCode("WO-9", 20);
+    }
+
+    @Test
+    void shouldSortEligibleActiveOrderCandidatesBeforeBlockedCandidates() {
+        when(workOrderMapper.selectConfirmedCandidatesByCode("WO", 20)).thenReturn(List.of(
+                confirmedWorkOrder(9002L, "WO-9002", new BigDecimal("200"), 1001L),
+                confirmedWorkOrder(9001L, "WO-9001", new BigDecimal("200"), 1001L)));
+        when(scheduleOrderMapper.selectEffectiveListByWorkOrderIds(any())).thenReturn(List.of(
+                effectiveSchedule(7702L, 9002L, 922119L, 448L),
+                effectiveSchedule(7701L, 9001L, 922119L, 448L)));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(any())).thenReturn(List.of(
+                scheduleProcess(7702L, 928610L, 6002L, "1.000000", "200.000000"),
+                scheduleProcess(7701L, 928609L, 6001L, "1.000000", "200.000000")));
+        stubCandidatePqcPrerequisites(publishedRegulation(9902L, 928609L, 6001L));
+
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO");
+
+        assertEquals(List.of(9001L, 9002L), candidates.stream()
+                .map(MesTeamLeaderActiveOrderCandidateBO::getWorkOrderId)
+                .toList());
+        assertTrue(candidates.get(0).isEligible());
+        assertEquals(null, candidates.get(0).getIneligibleReason());
+        assertFalse(candidates.get(1).isEligible());
+        assertEquals("缺少已发布QA规程", candidates.get(1).getIneligibleReason());
+        verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
+        verify(processSnapshotMapper, never()).insertBatch(any());
+        verify(pqcInspectionTaskMapper, never()).insert(any(MesPqcInspectionTaskDO.class));
+    }
+
+    @Test
+    void shouldBatchLoadCandidateDependenciesSoRemoteDropdownDoesNotStayLoading() {
+        when(workOrderMapper.selectConfirmedCandidatesByCode("88", 20)).thenReturn(List.of(
+                confirmedWorkOrder(9001L, "881MO093613", new BigDecimal("200"), 1001L),
+                confirmedWorkOrder(9002L, "881MO093615", new BigDecimal("200"), 1001L)));
+        when(scheduleOrderMapper.selectEffectiveListByWorkOrderIds(any())).thenReturn(List.of(
+                effectiveSchedule(7701L, 9001L, 922119L, 448L),
+                effectiveSchedule(7702L, 9002L, 922119L, 448L)));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(any())).thenReturn(List.of(
+                scheduleProcess(7701L, 928609L, 6001L, "1.000000", "200.000000"),
+                scheduleProcess(7702L, 928610L, 6002L, "1.000000", "200.000000")));
+        stubCandidatePqcPrerequisites(
+                publishedRegulation(9902L, 928609L, 6001L),
+                publishedRegulation(9903L, 928610L, 6002L));
+
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("88");
+
+        assertEquals(List.of(9001L, 9002L), candidates.stream()
+                .map(MesTeamLeaderActiveOrderCandidateBO::getWorkOrderId)
+                .toList());
+        assertTrue(candidates.stream().allMatch(MesTeamLeaderActiveOrderCandidateBO::isEligible));
+        verify(scheduleOrderMapper).selectEffectiveListByWorkOrderIds(argThat(ids ->
+                Set.copyOf(ids).equals(Set.of(9001L, 9002L))));
+        verify(scheduleOrderProcessMapper).selectListByScheduleOrderIds(argThat(ids ->
+                Set.copyOf(ids).equals(Set.of(7701L, 7702L))));
+        verify(scheduleOrderProcessMapper, never()).selectListByScheduleOrderId(any());
+        verify(inspectionRegulationMapper).selectListByProductIds(argThat(ids ->
+                Set.copyOf(ids).equals(Set.of(1001L))));
+        verify(inspectionRegulationMapper, never()).selectPublishedByRouteProcess(any(), any(), any(), any(), any());
+        verify(inspectionRegulationVersionMapper).selectBatchIds(argThat(ids ->
+                Set.copyOf(ids).equals(Set.of(9902L, 9903L))));
+        verify(inspectionRegulationVersionMapper, never()).selectById(any());
+        verify(inspectionRegulationItemMapper).selectListByVersionIds(argThat(ids ->
+                Set.copyOf(ids).equals(Set.of(9902L, 9903L))));
+        verify(inspectionRegulationItemMapper, never()).selectListByVersionId(any());
     }
 
     @Test
@@ -311,16 +385,24 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     private static MesProWorkOrderDO confirmedWorkOrder(BigDecimal quantity) {
+        return confirmedWorkOrder(9001L, "WO-9001", quantity, 1001L);
+    }
+
+    private static MesProWorkOrderDO confirmedWorkOrder(Long id, String code, BigDecimal quantity, Long productId) {
         return MesProWorkOrderDO.builder()
-                .id(9001L)
-                .code("WO-9001")
-                .productId(1001L)
+                .id(id)
+                .code(code)
+                .productId(productId)
                 .quantity(quantity)
                 .build();
     }
 
     private void stubEffectiveSchedules(MesProScheduleOrderDO... schedules) {
-        when(scheduleOrderMapper.selectEffectiveListByWorkOrderIds(List.of(9001L))).thenReturn(List.of(schedules));
+        stubEffectiveSchedulesFor(9001L, schedules);
+    }
+
+    private void stubEffectiveSchedulesFor(Long workOrderId, MesProScheduleOrderDO... schedules) {
+        when(scheduleOrderMapper.selectEffectiveListByWorkOrderIds(List.of(workOrderId))).thenReturn(List.of(schedules));
     }
 
     private void stubSuccessfulInsertAndProcesses(List<MesProScheduleOrderProcessDO> processes) {
@@ -333,9 +415,14 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     private static MesProScheduleOrderDO effectiveSchedule(Long id, Long routeId, Long routeVersionId) {
+        return effectiveSchedule(id, 9001L, routeId, routeVersionId);
+    }
+
+    private static MesProScheduleOrderDO effectiveSchedule(Long id, Long workOrderId, Long routeId,
+                                                           Long routeVersionId) {
         return MesProScheduleOrderDO.builder()
                 .id(id)
-                .workOrderId(9001L)
+                .workOrderId(workOrderId)
                 .productId(1001L)
                 .routeId(routeId)
                 .routeVersionId(routeVersionId)
@@ -366,7 +453,14 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     private static MesProScheduleOrderProcessDO scheduleProcess(Long routeProcessId, Long processId, String factor,
                                                                 String plannedQuantity) {
+        return scheduleProcess(7701L, routeProcessId, processId, factor, plannedQuantity);
+    }
+
+    private static MesProScheduleOrderProcessDO scheduleProcess(Long scheduleOrderId, Long routeProcessId,
+                                                                Long processId, String factor,
+                                                                String plannedQuantity) {
         return MesProScheduleOrderProcessDO.builder()
+                .scheduleOrderId(scheduleOrderId)
                 .routeProcessId(routeProcessId)
                 .processId(processId)
                 .enabled(Boolean.TRUE)
@@ -377,22 +471,47 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     private static MesQaInspectionRegulationDO publishedRegulation(Long versionId) {
+        return publishedRegulation(versionId, 928609L, 6001L);
+    }
+
+    private static MesQaInspectionRegulationDO publishedRegulation(Long versionId, Long routeProcessId,
+                                                                   Long processId) {
         return MesQaInspectionRegulationDO.builder()
                 .id(9901L)
                 .productId(1001L)
                 .routeId(922119L)
                 .routeVersionId(448L)
-                .routeProcessId(928609L)
-                .processId(6001L)
+                .routeProcessId(routeProcessId)
+                .processId(processId)
                 .lifecycleStatus("PUBLISHED")
                 .currentVersionId(versionId)
                 .build();
     }
 
+    private void stubCandidatePqcPrerequisites(MesQaInspectionRegulationDO... regulations) {
+        List<MesQaInspectionRegulationDO> regulationList = List.of(regulations);
+        when(inspectionRegulationMapper.selectListByProductIds(any())).thenReturn(regulationList);
+        when(inspectionRegulationVersionMapper.selectBatchIds(any())).thenAnswer(invocation ->
+                regulationList.stream()
+                        .map(MesQaInspectionRegulationDO::getCurrentVersionId)
+                        .map(versionId -> publishedRegulationVersion(versionId, true, null))
+                        .toList());
+        when(inspectionRegulationItemMapper.selectListByVersionIds(any())).thenAnswer(invocation ->
+                regulationList.stream()
+                        .map(MesQaInspectionRegulationDO::getCurrentVersionId)
+                        .flatMap(versionId -> defaultPqcItems(versionId).stream())
+                        .toList());
+    }
+
     private static MesQaInspectionRegulationVersionDO publishedRegulationVersion(
             Boolean finalInspectionApplicable, String reason) {
+        return publishedRegulationVersion(9902L, finalInspectionApplicable, reason);
+    }
+
+    private static MesQaInspectionRegulationVersionDO publishedRegulationVersion(
+            Long id, Boolean finalInspectionApplicable, String reason) {
         return MesQaInspectionRegulationVersionDO.builder()
-                .id(9902L)
+                .id(id)
                 .regulationId(9901L)
                 .versionNo("V21-QA-1")
                 .lifecycleStatus("PUBLISHED")
@@ -403,16 +522,25 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     private static List<MesQaInspectionRegulationItemDO> defaultPqcItems() {
+        return defaultPqcItems(9902L);
+    }
+
+    private static List<MesQaInspectionRegulationItemDO> defaultPqcItems(Long regulationVersionId) {
         return List.of(
-                pqcItem("FIRST", 5, null),
-                pqcItem("PATROL", null, new BigDecimal("0.050000")),
-                pqcItem("FINAL", 3, null));
+                pqcItem(regulationVersionId, "FIRST", 5, null),
+                pqcItem(regulationVersionId, "PATROL", null, new BigDecimal("0.050000")),
+                pqcItem(regulationVersionId, "FINAL", 3, null));
     }
 
     private static MesQaInspectionRegulationItemDO pqcItem(String inspectionType, Integer fixedQuantity,
                                                            BigDecimal patrolRatio) {
+        return pqcItem(9902L, inspectionType, fixedQuantity, patrolRatio);
+    }
+
+    private static MesQaInspectionRegulationItemDO pqcItem(Long regulationVersionId, String inspectionType,
+                                                           Integer fixedQuantity, BigDecimal patrolRatio) {
         return MesQaInspectionRegulationItemDO.builder()
-                .regulationVersionId(9902L)
+                .regulationVersionId(regulationVersionId)
                 .inspectionType(inspectionType)
                 .itemCode(inspectionType + "-001")
                 .itemName(inspectionType + " 检验项目")

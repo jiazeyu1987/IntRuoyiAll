@@ -215,7 +215,7 @@ assertIncludesAll(
 assertIncludesAll(
   extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__card {'),
   [
-    'width: min(92%, 1180px);',
+    'width: min(96%, 1770px);',
     'aspect-ratio: 1920 / 1080;',
     'grid-template-rows: auto minmax(0, 1fr) auto;',
     'padding: 32px;',
@@ -226,12 +226,26 @@ assertIncludesAll(
 )
 assertIncludesAll(
   extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__options {'),
-  ['align-content: start;', 'min-height: 0;', 'max-height: none;', 'overflow: auto;'],
+  ['grid-template-columns: repeat(6, minmax(0, 1fr));', 'gap: 12px;', 'align-content: start;', 'min-height: 0;', 'max-height: none;', 'overflow: auto;'],
   'production picker option grid style'
 )
 assertIncludesAll(
   extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__option {'),
-  ['height: auto;', 'aspect-ratio: 1920 / 1080;', 'min-height: 0;', 'font-size: 42px;', 'border-radius: 22px;'],
+  [
+    'display: flex;',
+    'align-items: center;',
+    'justify-content: center;',
+    'height: auto;',
+    'aspect-ratio: 1920 / 1080;',
+    'min-height: 0;',
+    'padding: 8px 10px;',
+    'font-size: 30px;',
+    'line-height: 1.1;',
+    'text-align: center;',
+    'word-break: break-word;',
+    'overflow: hidden;',
+    'border-radius: 22px;'
+  ],
   'production picker option style'
 )
 assertIncludesAll(

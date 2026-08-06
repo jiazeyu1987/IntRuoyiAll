@@ -1,7 +1,7 @@
 # 一线生产员工弹窗真实 E2E 证据
 
 - Task ID: 20260806-frontline-production-employee-options-match-leader-personnel
-- Generated At: 2026-08-06T09:22:28.534Z
+- Generated At: 2026-08-06T13:23:10.303Z
 - Status: PASS
 - Frontend: http://127.0.0.1:8081
 - Backend: http://127.0.0.1:48081

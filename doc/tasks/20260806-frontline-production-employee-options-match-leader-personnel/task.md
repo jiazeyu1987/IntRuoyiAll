@@ -29,7 +29,7 @@
 
 ## Current Status
 
-ready_for_closeout - 真实 E2E 已通过：生产组长人员管理启用人员、runtime config employees 与一线生产员工弹窗候选均为 8 人，集合 hash 完全一致；剩余 closeout 仅涉及仓库级提交/推送与任务产物清理边界。
+ready_for_closeout - 2026-08-06 当前复验中，前端静态合同、脚本语法、后端目标 JUnit、真实页面 E2E、`git diff --check` 均通过，源码与运行态均满足“一线生产员工弹窗来自当前登录生产组长人员管理启用人员”口径；真实 E2E 结果：生产组长人员管理启用人员、runtime config employees 与一线生产员工弹窗候选均为 8 人，集合 hash 完全一致。剩余 closeout 仅涉及仓库级提交/推送与任务产物清理边界。
 
 ## 设计约束检查
 

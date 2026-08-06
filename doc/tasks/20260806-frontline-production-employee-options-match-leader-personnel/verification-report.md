@@ -52,5 +52,22 @@
 
 ## Closeout Notes
 
-- 任务实现、静态合同、后端单测和真实页面 E2E 均通过；任务状态已更新为 `ready_for_closeout`。
+- 历史任务实现、静态合同、后端单测和真实页面 E2E 均通过；本轮复验再次确认真实页面 E2E 通过。
 - 当前仓库存在大量非本任务脏改动；本轮按用户要求完成 E2E 复验，尚未执行混合提交或推送，避免把无关任务文件纳入本次交付。
+- 当前完整验证已通过：后端目标 JUnit 复跑已取得 Maven GREEN，任务状态已调整为 `ready_for_closeout`。
+
+## 2026-08-06 Current Revalidation
+
+- PASS: `node tests\e2e\edhr-frontline-production-employee-options-match-leader-personnel-static.spec.cjs`
+- PASS: `node tests\e2e\edhr-frontline-fill-tabs-static.spec.cjs`
+- PASS: `node tests\e2e\frontline-team-config-static.spec.cjs`
+- PASS: `node tests\e2e\production-personnel-management-static.spec.cjs`
+- PASS: `node tests\e2e\team-leader-workbench-static.spec.cjs`
+- PASS: `node --check doc\tasks\20260806-frontline-production-employee-options-match-leader-personnel\frontline-production-employee-popup-real-e2e.cjs`
+- PASS: `pnpm ts:check`
+- PASS: `git diff --check -- <task-owned files>`
+- PASS: `node doc\tasks\20260806-frontline-production-employee-options-match-leader-personnel\frontline-production-employee-popup-real-e2e.cjs` -> `frontline production employee popup matches enabled production personnel list; count=8`
+- PASS DETAIL: 人员管理启用人员、runtime employees、popup options 均为 8 人，hash 均为 `a7115b13b7357fb2a3691ec6f3b339a11d45f162c6bc8b81e8f9946ad9378e40`；人员集合均为 `112`、`113`、`114`、`陈丽`、`方王魏`、`李业辉`、`李之音`、`王一林`；`pageErrors=[]`、`consoleErrors=[]`、`targetNetworkFailures=[]`、`targetHttpFailures=[]`。
+- PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRuntimeConfigServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> `MesFrontlineRuntimeConfigServiceTest` Tests run: 4, Failures: 0, Errors: 0, Skipped: 0; reactor `BUILD SUCCESS`.
+
+Current conclusion: The employee-popup source chain is correct and verified by static contract, real page E2E, and backend target JUnit.

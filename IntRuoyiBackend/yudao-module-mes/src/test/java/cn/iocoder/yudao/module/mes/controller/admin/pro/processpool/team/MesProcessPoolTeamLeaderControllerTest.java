@@ -83,6 +83,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.lang.reflect.Field;
@@ -329,14 +330,27 @@ class MesProcessPoolTeamLeaderControllerTest {
                 MesTeamLeaderActiveOrderCandidateBO.builder()
                         .workOrderId(9001L)
                         .workOrderCode("WO-9001")
+                        .eligible(true)
+                        .build(),
+                MesTeamLeaderActiveOrderCandidateBO.builder()
+                        .workOrderId(9002L)
+                        .workOrderCode("WO-9002")
+                        .eligible(false)
+                        .ineligibleReason("缺少已发布QA规程")
                         .build()));
 
         List<MesTeamLeaderActiveOrderCandidateRespVO> candidates =
                 controller.searchActiveOrderCandidates("WO-9").getData();
 
-        assertEquals(1, candidates.size());
+        assertEquals(2, candidates.size());
         assertEquals(9001L, candidates.get(0).getWorkOrderId());
         assertEquals("WO-9001", candidates.get(0).getWorkOrderCode());
+        assertEquals(Boolean.TRUE, candidates.get(0).getEligible());
+        assertEquals(null, candidates.get(0).getIneligibleReason());
+        assertEquals(9002L, candidates.get(1).getWorkOrderId());
+        assertEquals("WO-9002", candidates.get(1).getWorkOrderCode());
+        assertEquals(Boolean.FALSE, candidates.get(1).getEligible());
+        assertEquals("缺少已发布QA规程", candidates.get(1).getIneligibleReason());
         verify(activeOrderService).searchActiveOrderCandidates("WO-9");
     }
 
@@ -356,6 +370,17 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEquals("王检验", response.getData().get(0).getDisplayName());
         verify(pqcPersonnelService).searchFormalInspectorCandidates(3001L, "王");
         verify(runtimeConfigService, never()).searchFormalUserCandidates(3001L, "王");
+    }
+
+    @Test
+    void pqcFormalCandidateEndpointAcceptsMissingKeywordForEmptyDropdown() throws Exception {
+        Method method = MesProcessPoolTeamLeaderController.class.getDeclaredMethod(
+                "searchPqcFormalEmployeeCandidates", String.class);
+        RequestParam keywordParam = method.getParameters()[0].getAnnotation(RequestParam.class);
+
+        assertNotNull(keywordParam);
+        assertEquals("keyword", keywordParam.value());
+        assertFalse(keywordParam.required());
     }
 
     @Test

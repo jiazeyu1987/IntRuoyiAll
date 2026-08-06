@@ -1,0 +1,240 @@
+[
+  {
+    "command": "set",
+    "path": "/工序设备参数/A1",
+    "props": {
+      "value": "工序",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/B1",
+    "props": {
+      "value": "设备",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/C1",
+    "props": {
+      "value": "编码",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/D1",
+    "props": {
+      "value": "参数1",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/E1",
+    "props": {
+      "value": "标准1",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/F1",
+    "props": {
+      "value": "参数2",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/G1",
+    "props": {
+      "value": "标准2",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/H1",
+    "props": {
+      "value": "参数3",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/I1",
+    "props": {
+      "value": "标准3",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/J1",
+    "props": {
+      "value": "参数4",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/K1",
+    "props": {
+      "value": "标准4",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/L1",
+    "props": {
+      "value": "参数5",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/M1",
+    "props": {
+      "value": "标准5",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/N1",
+    "props": {
+      "value": "备注",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[A]",
+    "props": {
+      "width": 12
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[B]",
+    "props": {
+      "width": 24
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[C]",
+    "props": {
+      "width": 18
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[D]",
+    "props": {
+      "width": 16
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[E]",
+    "props": {
+      "width": 22
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[F]",
+    "props": {
+      "width": 16
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[G]",
+    "props": {
+      "width": 22
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[H]",
+    "props": {
+      "width": 16
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[I]",
+    "props": {
+      "width": 22
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[J]",
+    "props": {
+      "width": 16
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[K]",
+    "props": {
+      "width": 22
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[L]",
+    "props": {
+      "width": 16
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[M]",
+    "props": {
+      "width": 22
+    }
+  },
+  {
+    "command": "set",
+    "path": "/工序设备参数/col[N]",
+    "props": {
+      "width": 48
+    }
+  }
+]

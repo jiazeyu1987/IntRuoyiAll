@@ -57,3 +57,60 @@
 
 - 无当前 E2E blocker；真实页面一致性验证已通过。
 - Repository closeout commit/push not performed in this step because the workspace already contains extensive unrelated dirty changes from parallel/prior tasks; current task is `ready_for_closeout` rather than fully closed.
+
+## 2026-08-06 21:16 +08:00 Revalidation
+
+User intent: 用户要求“选择的员工是这个生产组长的人员管理的列表下的人员”，并要求按照这个需求进行开发验证。
+
+Scope:
+- 本轮没有改动生产代码；复核现有实现是否仍满足当前登录生产组长人员管理列表来源。
+- 不改一线生产视觉布局、不改一线 PQC、不改接口契约、不改无关 active-order 任务文件。
+
+Implementation check:
+- `MesFrontlineRuntimeConfigServiceImpl#getRuntimeConfig(...)` 当前调用 `toEmployeeOptions(loginUserId)`。
+- `toEmployeeOptions(Long leaderUserId)` 使用 `employeeProfileMapper.selectList(...)` 查询 `MesProcessPoolTeamEmployeeProfileDO::getLeaderUserId = 当前登录生产组长` 且 `enabled = true` 的人员档案。
+- 前端员工弹窗仍读取 `runtimeConfig.employees.map(toEmployeeCandidate)`，未使用 legacy `getFrontlineEmployeeCandidates` 或全量系统用户兜底。
+
+GREEN: `node tests\e2e\edhr-frontline-production-employee-options-match-leader-personnel-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\edhr-frontline-fill-tabs-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\frontline-team-config-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\production-personnel-management-static.spec.cjs` -> PASS
+GREEN: `node tests\e2e\team-leader-workbench-static.spec.cjs` -> PASS
+GREEN: `node --check doc\tasks\20260806-frontline-production-employee-options-match-leader-personnel\frontline-production-employee-popup-real-e2e.cjs` -> PASS
+GREEN: `pnpm ts:check` -> PASS
+GREEN: `git diff --check -- <task-owned files>` -> PASS
+
+BLOCKED: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRuntimeConfigServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL before target Surefire; MES `testCompile` failed in unrelated `MesTeamLeaderActiveOrderServiceTest` at `selectListByVersionIds(java.lang.Object)` missing from `MesQaInspectionRegulationItemMapper` and `Set.copyOf(Object)` type inference. This failure is outside the employee-popup source chain and belongs to current dirty active-order work.
+
+Concurrency note:
+- Initial Maven attempt was stopped/abandoned after long no-output compile while another同仓 Maven was writing the shared target directory.
+- After Java/Maven process复查只剩运行态进程，重跑目标 Maven；第二次到达 MES testCompile but was blocked by the unrelated active-order test compilation errors above.
+
+Current verification conclusion:
+- 本需求源码和前端/静态/类型验证通过，仍满足“员工弹窗=当前登录生产组长人员管理启用人员”。
+- 后续 21:35 复跑后端目标 JUnit 已通过，前一轮无关 testCompile blocker 已解除。
+
+## 2026-08-06 21:23 +08:00 Real E2E Revalidation
+
+Runtime preflight:
+- 8081 listener PID `21760` belongs to `E:\IntRuoyi\IntRuoyiFronted` Vite `env.local`; `http://127.0.0.1:8081/` returned HTTP 200.
+- 48081 listener PID `42608` belongs to `E:\IntRuoyi\output\runtime\int_main\backend-runtime-pqc-personnel-admin-e2e-sync-mes-20260806-211747.jar`; `http://127.0.0.1:48081/actuator/health` returned `UP`.
+- `rg -n "^(<<<<<<<|=======|>>>>>>>)" IntRuoyiFronted\src\views\mes\pro\processpool\TeamLeaderWorkbenchPage.vue IntRuoyiFronted\src\views\mes\pro\feedback\FrontlineFixedTemplatePanel.vue IntRuoyiFronted\src\views\mes\pro\feedback\frontlineDeviceEmployeeContext.ts` -> no matches.
+
+GREEN: `node doc\tasks\20260806-frontline-production-employee-options-match-leader-personnel\frontline-production-employee-popup-real-e2e.cjs` -> PASS, `frontline production employee popup matches enabled production personnel list; count=8`.
+
+E2E details:
+- 人员管理启用人员、runtime employees、一线生产员工弹窗 popup options 均为 8 人。
+- 三者 hash 均为 `a7115b13b7357fb2a3691ec6f3b339a11d45f162c6bc8b81e8f9946ad9378e40`。
+- 三者人员集合均为 `112`、`113`、`114`、`陈丽`、`方王魏`、`李业辉`、`李之音`、`王一林`。
+- 选中工序为 `粗洗工序`，`routeId=922119`、`routeProcessId=928609`、`processId=922985`。
+- `pageErrors=[]`、`consoleErrors=[]`、`targetNetworkFailures=[]`、`targetHttpFailures=[]`。
+- Result artifact: `E:\IntRuoyi\output\playwright\20260806-frontline-production-employee-options-match-leader-personnel\frontline-production-employee-popup-result.json`。
+
+## 2026-08-06 21:35 +08:00 Backend JUnit Revalidation
+
+GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRuntimeConfigServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, `MesFrontlineRuntimeConfigServiceTest` Tests run: 4, Failures: 0, Errors: 0, Skipped: 0; reactor `BUILD SUCCESS`.
+
+Current verification conclusion:
+- 源码静态合同、真实页面 E2E 和后端目标 JUnit 均通过。
+- 任务状态调整为 `ready_for_closeout`；剩余事项仅为仓库级 closeout/提交/推送边界，需避免混入当前工作区大量无关脏改动。

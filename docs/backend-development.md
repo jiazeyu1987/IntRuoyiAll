@@ -41,6 +41,15 @@
 - Forbidden action: 禁止硬编码账号 ID、岗位 ID、角色 ID；禁止把岗位/工作站绑定失败当作权限角色授权的 fallback；禁止用前端放行、空列表成功或默认路线掩盖权限链路未命中。
 - Evidence: `doc/tasks/20260803-pressure-pump-role-process-switch/verification-report.md`，运行时错误 `设备账号上下文不完整或不一致：post workstation binding loginUserId=1, postIds=[14]`。
 
+### 生产组长工序配置维护权限不得被工序开始快照误拦
+
+- Trigger: 生产组长工作台、工序配置、损耗原因、设备映射、设备参数标准、`process-config/list`、`routeStartProductionLeaders`、`mes:pro-process-pool-team-leader:maintain`、admin 点击新增却提示没有可新增路线工序。
+- Preflight check: 修改生产组长配置页候选工序、损耗/设备/参数维护授权前，先区分“维护入口权限”和“工序开始职责快照”：若接口本身受 `mes:pro-process-pool-team-leader:maintain` 保护，后端候选和维护断言必须先通过 `PermissionApi.hasAnyPermissions(loginUserId, permission)` 识别正式维护权限，再对无维护权限用户读取 active 路线版本的 `routeStartProductionLeaders` 快照。
+- Blocker: 拥有维护权限的 admin 或维护账号仍被要求逐条配置到工序开始生产组长、`process-config/list` 因快照缺账号返回空候选、保存损耗/设备/参数仍报路线工序 scope denied，或无权限用户因本次修复获得全部路线工序时必须停止并补后端 RED/GREEN。
+- Verification: 后端回归必须覆盖“有维护权限但不在工序开始快照中仍可列出 active 路线工序”“有维护权限可维护指定 routeProcess”“无维护权限仍走 USER/ROLE 快照授权”，并复跑工序配置相邻服务测试和前端新增入口静态合同。
+- Forbidden action: 禁止用前端新增弹窗默认候选、空列表成功、admin 硬编码、直接放宽所有账号、菜单文案或 API-only 说明替代正式后端授权；禁止把 `formBindings`、批记录表单或其它路线配置链路当作工序开始生产组长来源。
+- Evidence: `doc/tasks/20260806-process-config-refresh-to-add-button/verification-report.md`，用户以 `芋道源码 / admin` 点击新增仍报“当前账号没有可新增的路线工序”。
+
 ## eDHR 详情回填门禁
 
 ### 路线配置有值但详情接口为空
@@ -255,6 +264,15 @@
 - Verification: 后端回归必须同时覆盖匹配行创建/提交正式报工、缺用户跳过、重复导入再次正式报工、超剩余跳过、导入后反馈/已完成任务只扣减剩余量且剩余任务按当前工艺路线资源生成、缺班次小时默认 `10.5` 且不掩盖缺工作站/缺产能；前端静态合同需确认导入确认后刷新正式报工列表并广播受影响排产工单刷新 payload，真实 E2E 需至少覆盖一次第三方报工导入后的手动重排预览或应用；跨环境补工作站数据后必须复验工作台目标工序 `shiftCapacityTotal` 为非 0 且资源链路行数可追溯；重排应用后必须记录排产工单计划时间、`mes_pro_task_schedule_ext` 任务数、空/失效工作站数、覆盖工作站数和最近一次重排快照。
 - Forbidden action: 禁止用导入记录直接进度、前端假新增、默认成功、空列表刷新或 API-only 结果替代正式报工持久化链路。
 - Evidence: `doc/tasks/20260801-third-party-feedback-import-list-progress/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/verification-report.md`；`doc/tasks/20260802-test-server-replan-shift-hours-duration/verification-report.md`；`doc/tasks/20260806-replan-current-route-after-feedback/verification-report.md`；`doc/tasks/20260806-replan-shift-hours-default-regression/verification-report.md`。
+
+### 生产组长报工管理造数必须补齐工序池时间线
+
+- Trigger: 生产组长报工管理随机数据、`team-leader/submission/page`、`MesTeamLeaderWorkbenchService.getSubmissionPage`、`MesProProcessPoolTimelineReadMapper`、只写 `mes_pro_feedback` 后组长页面无新增。
+- Preflight check: 先确认页面读模型按 `mes_pro_process_pool_event.server_submit_time`、`actual_employee_id` 和生产组长责任员工集合筛选；造数必须同时补齐正式报工、记录本 entry/event、工序池 `PRODUCTION_SUBMIT` 事件、数量片段和 `mes_pro_process_pool` 汇总，并核对员工在目标生产组长的 `EMPLOYEE` scope 内。
+- Blocker: 只有 `mes_pro_feedback` 而缺工序池事件、记录本或数量片段，`actual_employee_id` 不在当前生产组长责任范围，缺 `route_process_id/process_id/work_order_id/task_id` 正式链路，或只能用 admin 登录态看到数据时必须停止，不得宣称生产组长报工管理可见。
+- Verification: 用数据库只读 SQL 同时断言报工、工序池事件、记录本 entry/event、数量片段计数；再使用生产组长本人登录态请求 `/admin-api/mes/pro/process-pool/team-leader/submission/page?leaderType=PRODUCTION&submitDate=<date>`，按事件 ID 或任务标识断言命中新增数据。
+- Forbidden action: 禁止用 admin 页面、API-only 非组长账号、前端假行、空列表刷新、直接改工序池汇总或只改报工主表替代生产组长真实时间线可见性。
+- Evidence: `doc/tasks/20260806-production-leader-feedback-random-data/verification-report.md`。
 
 ## MES PQC 项目级检验快照门禁
 

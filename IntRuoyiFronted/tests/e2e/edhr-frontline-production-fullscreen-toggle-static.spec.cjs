@@ -30,6 +30,25 @@ const extractBlock = (selector) => {
   assert.fail(`unterminated selector body: ${selector}`)
 }
 
+const extractFunctionBlock = (name) => {
+  const start = source.indexOf(`const ${name} = async`)
+  assert.ok(start >= 0, `missing function: ${name}`)
+  const openIndex = source.indexOf('{', start)
+  assert.ok(openIndex > start, `missing function body: ${name}`)
+  let depth = 0
+  for (let index = openIndex; index < source.length; index += 1) {
+    const char = source[index]
+    if (char === '{') depth += 1
+    if (char === '}') {
+      depth -= 1
+      if (depth === 0) {
+        return source.slice(openIndex + 1, index)
+      }
+    }
+  }
+  assert.fail(`unterminated function body: ${name}`)
+}
+
 const productionStart = source.indexOf('data-frontline-production-operator')
 assert.ok(productionStart >= 0, 'production operator block must exist.')
 const productionStageAttr = source.lastIndexOf('data-frontline-production-stage', productionStart)
@@ -112,6 +131,11 @@ assert.match(
 )
 assert.match(
   source,
+  /const productionStageStyle = computed\(\(\) =>[\s\S]*'--frontline-production-top-action-font-size':\s*`\$\{42 \/ scale\}px`[\s\S]*'--frontline-production-footer-action-font-size':\s*`\$\{54 \/ scale\}px`/,
+  'production stage style must compensate visible action button font sizes after transform scaling.'
+)
+assert.match(
+  source,
   /ResizeObserver/,
   'production stage must update scale when the app content area changes size.'
 )
@@ -124,6 +148,18 @@ assert.match(
   source,
   /const enterProductionFullscreen = async \(\) =>[\s\S]*frontlinePanelRef\.value[\s\S]*requestFullscreen\(\)/,
   'production fullscreen entry must call requestFullscreen on the same panel element as PQC.'
+)
+
+const handleSelectProcessBlock = extractFunctionBlock('handleSelectProcess')
+assert.match(
+  handleSelectProcessBlock,
+  /const shouldClosePickerImmediately = !isPqcMode\.value;?[\s\S]*if \(shouldClosePickerImmediately\) \{[\s\S]*closePicker\(\)[\s\S]*await selectFrontlineProcess\(deviceState, process\)/,
+  'production process selection must close the picker before waiting for runtime config or employee switching.'
+)
+assert.match(
+  handleSelectProcessBlock,
+  /if \(!shouldClosePickerImmediately\) \{[\s\S]*closePicker\(\)[\s\S]*\}/,
+  'PQC process selection must keep the existing close-after-validation behavior.'
 )
 assert.match(
   source,
@@ -157,6 +193,16 @@ assert.match(
   /position:\s*absolute;[\s\S]*inset:\s*0;[\s\S]*transform:\s*scale\(var\(--frontline-production-scale,\s*1\)\);[\s\S]*transform-origin:\s*top left;/,
   'production stage must scale the full reference canvas externally.'
 )
+assert.match(
+  extractBlock('.frontline-production-stage .frontline-production-fullscreen-toggle {'),
+  /font-size:\s*var\(--frontline-production-top-action-font-size,\s*42px\);/,
+  'production top action button must preserve the reference visible font size after stage scaling.'
+)
+assert.match(
+  extractBlock('.frontline-production-stage .frontline-production-reset-button,\n.frontline-production-stage .frontline-production-submit-button {'),
+  /font-size:\s*var\(--frontline-production-footer-action-font-size,\s*54px\);/,
+  'production footer action buttons must preserve the reference visible font size after stage scaling.'
+)
 
 const screenBlock = extractBlock('.frontline-operator-screen {')
 assert.match(
@@ -186,18 +232,18 @@ assert.match(
 )
 assert.match(
   extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__card {'),
-  /width:\s*min\(92%,\s*1180px\);[\s\S]*aspect-ratio:\s*1920 \/ 1080;[\s\S]*grid-template-rows:\s*auto minmax\(0,\s*1fr\) auto;[\s\S]*padding:\s*32px;/,
-  'production picker card must follow the 1920x1080 ratio instead of the old fixed-width card.'
+  /width:\s*min\(96%,\s*1770px\);[\s\S]*aspect-ratio:\s*1920 \/ 1080;[\s\S]*grid-template-rows:\s*auto minmax\(0,\s*1fr\) auto;[\s\S]*padding:\s*32px;/,
+  'production picker card must be 1.5x wider than the previous 1180px 16:9 card.'
 )
 assert.match(
   extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__options {'),
-  /align-content:\s*start;[\s\S]*min-height:\s*0;[\s\S]*max-height:\s*none;[\s\S]*overflow:\s*auto;/,
-  'production picker option grid must fit inside the 16:9 card and scroll only the options area.'
+  /grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);[\s\S]*gap:\s*12px;[\s\S]*align-content:\s*start;[\s\S]*min-height:\s*0;[\s\S]*max-height:\s*none;[\s\S]*overflow:\s*auto;/,
+  'production picker option grid must shrink each 16:9 option card to roughly one quarter of the previous area.'
 )
 assert.match(
   extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__option {'),
-  /height:\s*auto;[\s\S]*aspect-ratio:\s*1920 \/ 1080;[\s\S]*min-height:\s*0;/,
-  'production picker options must also use the 1920x1080 card ratio.'
+  /display:\s*flex;[\s\S]*align-items:\s*center;[\s\S]*justify-content:\s*center;[\s\S]*height:\s*auto;[\s\S]*aspect-ratio:\s*1920 \/ 1080;[\s\S]*min-height:\s*0;[\s\S]*font-size:\s*30px;/,
+  'production picker options must stay 16:9, smaller, centered, and readable.'
 )
 
 

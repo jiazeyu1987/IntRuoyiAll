@@ -739,7 +739,16 @@
       </div>
     </div>
 
-    <div v-if="activePicker && isPqcMode" class="frontline-picker picker" @click.self="closePicker">
+    <div
+      v-if="activePicker && isPqcMode"
+      class="frontline-picker picker"
+      data-pqc-process-picker
+      :class="{
+        'frontline-picker--production-order': activePicker === 'order',
+        'frontline-picker--production-process': activePicker === 'process'
+      }"
+      @click.self="closePicker"
+    >
       <section class="frontline-picker__card picker-card">
         <h3 class="frontline-picker__title picker-title">
           {{
@@ -949,6 +958,8 @@ const productionStageStyle = computed(() => {
   const scale = productionViewportScale.value
   return {
     '--frontline-production-scale': String(scale),
+    '--frontline-production-top-action-font-size': `${42 / scale}px`,
+    '--frontline-production-footer-action-font-size': `${54 / scale}px`,
     width: `${PRODUCTION_CANVAS_WIDTH * scale}px`,
     height: `${PRODUCTION_CANVAS_HEIGHT * scale}px`
   }
@@ -2073,6 +2084,11 @@ const handleSelectActiveOrder = async (activeOrder: FrontlineActiveOrderVO) => {
 }
 
 const handleSelectProcess = async (process: FrontlineDeviceRouteProcessVO) => {
+  const shouldClosePickerImmediately = !isPqcMode.value
+  if (shouldClosePickerImmediately) {
+    closePicker()
+  }
+
   if (isPqcMode.value) {
     await selectFrontlinePqcProcess(deviceState, process)
   } else {
@@ -2089,7 +2105,9 @@ const handleSelectProcess = async (process: FrontlineDeviceRouteProcessVO) => {
     message.error(error.message)
     throw error
   }
-  closePicker()
+  if (!shouldClosePickerImmediately) {
+    closePicker()
+  }
 }
 
 const handleSelectEmployee = async (employee: FrontlineEmployeeCandidateVO) => {
@@ -2647,10 +2665,7 @@ const formatActiveOrderLabel = (activeOrder?: FrontlineActiveOrderVO) => {
   if (!activeOrder) {
     return '未选择'
   }
-  const orderText = activeOrder.workOrderCode || activeOrder.workOrderName || `订单 ${activeOrder.workOrderId}`
-  const productText = activeOrder.productCode || activeOrder.productName
-  const routeText = activeOrder.routeName || activeOrder.routeCode
-  return [orderText, productText, routeText].filter(Boolean).join(' / ')
+  return activeOrder.workOrderCode || activeOrder.workOrderName || `订单 ${activeOrder.workOrderId}`
 }
 
 const formatProcessLabel = (process?: FrontlineDeviceRouteProcessVO) => {
@@ -2736,6 +2751,12 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 .frontline-operator-panel {
+  --frontline-bg: #eef3ef;
+  --frontline-panel: #ffffff;
+  --frontline-ink: #111a15;
+  --frontline-muted: #5b665f;
+  --frontline-line: #cbd6ce;
+  --frontline-dark: #24322b;
   position: relative;
 }
 
@@ -3304,6 +3325,15 @@ onUnmounted(() => {
     cursor: not-allowed;
     opacity: 0.48;
   }
+}
+
+.frontline-production-stage .frontline-production-fullscreen-toggle {
+  font-size: var(--frontline-production-top-action-font-size, 42px);
+}
+
+.frontline-production-stage .frontline-production-reset-button,
+.frontline-production-stage .frontline-production-submit-button {
+  font-size: var(--frontline-production-footer-action-font-size, 54px);
 }
 
 .frontline-pqc-inspection-list {
@@ -4151,7 +4181,7 @@ onUnmounted(() => {
 }
 
 .frontline-operator-panel.is-production-mode .frontline-picker__card {
-  width: min(92%, 1180px);
+  width: min(96%, 1770px);
   aspect-ratio: 1920 / 1080;
   grid-template-rows: auto minmax(0, 1fr) auto;
   padding: 32px;
@@ -4168,8 +4198,8 @@ onUnmounted(() => {
 
 .frontline-operator-panel.is-production-mode .frontline-picker__options {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
   align-content: start;
   min-height: 0;
   max-height: none;
@@ -4177,15 +4207,23 @@ onUnmounted(() => {
 }
 
 .frontline-operator-panel.is-production-mode .frontline-picker__option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   height: auto;
   aspect-ratio: 1920 / 1080;
   min-height: 0;
+  padding: 8px 10px;
   border: 3px solid var(--frontline-line);
   border-radius: 22px;
   background: #f8faf8;
   color: var(--frontline-ink);
-  font-size: 42px;
+  font-size: 30px;
   font-weight: 900;
+  line-height: 1.1;
+  text-align: center;
+  word-break: break-word;
+  overflow: hidden;
 }
 
 .frontline-operator-panel.is-production-mode .frontline-picker__option.active {
@@ -4195,6 +4233,128 @@ onUnmounted(() => {
 }
 
 .frontline-operator-panel.is-production-mode .frontline-picker__close {
+  height: 86px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 22px;
+  background: #f8faf8;
+  color: var(--frontline-ink);
+  font-size: 36px;
+  font-weight: 900;
+}
+
+.frontline-picker--production-order {
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  border-radius: 0;
+  background: rgba(17, 26, 21, 0.38);
+}
+
+.frontline-picker--production-order .frontline-picker__card {
+  width: min(96%, 1770px);
+  aspect-ratio: 1920 / 1080;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding: 32px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 28px;
+  background: var(--frontline-panel);
+}
+
+.frontline-picker--production-order .frontline-picker__options {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  align-content: start;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+}
+
+.frontline-picker--production-order .frontline-picker__option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: auto;
+  aspect-ratio: 1920 / 1080;
+  min-height: 0;
+  padding: 8px 10px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 22px;
+  background: #f8faf8;
+  color: var(--frontline-ink);
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: center;
+  word-break: break-word;
+  overflow: hidden;
+}
+
+.frontline-picker--production-order .frontline-picker__close {
+  height: 86px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 22px;
+  background: #f8faf8;
+  color: var(--frontline-ink);
+  font-size: 36px;
+  font-weight: 900;
+}
+
+.frontline-picker--production-process {
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  border-radius: 0;
+  background: rgba(17, 26, 21, 0.38);
+}
+
+.frontline-picker--production-process .frontline-picker__card {
+  width: min(96%, 1770px);
+  aspect-ratio: 1920 / 1080;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding: 32px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 28px;
+  background: var(--frontline-panel);
+}
+
+.frontline-picker--production-process .frontline-picker__options {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  align-content: start;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+}
+
+.frontline-picker--production-process .frontline-picker__option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: auto;
+  aspect-ratio: 1920 / 1080;
+  min-height: 0;
+  padding: 8px 10px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 22px;
+  background: #f8faf8;
+  color: var(--frontline-ink);
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: center;
+  word-break: break-word;
+  overflow: hidden;
+}
+
+.frontline-picker--production-process .frontline-picker__option.active {
+  border-color: var(--frontline-dark);
+  background: var(--frontline-dark);
+  color: #ffffff;
+}
+
+.frontline-picker--production-process .frontline-picker__close {
   height: 86px;
   border: 3px solid var(--frontline-line);
   border-radius: 22px;
