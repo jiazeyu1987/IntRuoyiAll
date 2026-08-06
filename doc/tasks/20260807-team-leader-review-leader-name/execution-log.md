@@ -27,4 +27,6 @@
 - REGRESSION: `pnpm ts:check` -> PASS。
 - VALIDATOR: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260807-team-leader-review-leader-name\bug-regression-evidence.md` -> PASS。
 - CLEANUP PREVIEW: `task_closeout.py --task-id 20260807-team-leader-review-leader-name --mode preview` -> ready；保留 `task.md`、`execution-log.md`、`verification-report.md`，删除临时 `bug-regression-evidence.md`。
+- CLEANUP APPLY: `task_closeout.py --task-id 20260807-team-leader-review-leader-name --mode apply` -> applied；已删除临时 `bug-regression-evidence.md`。
+- EXPERIENCE: 已按 `project-experience-consolidation` 合并长期经验到 `docs/frontend-development.md#前端静态契约隔离门禁`，并更新 `docs/experience-index.md`；`rg "data-production-leader-module-tab-report\\b|report-history 误计数|20260807-team-leader-review-leader-name" docs\frontend-development.md docs\experience-index.md` 可定位。
 - REGRESSION-NONTASK: `node IntRuoyiFronted\tests\e2e\pqc-leader-form-history-tab-static.spec.cjs` -> FAIL，失败点为并行 PQC 历史页签合同尚未完全满足；本任务验收范围为生产组长报工员工/审核通过人姓名链路，未将该 PQC 页签合同作为完成门禁。

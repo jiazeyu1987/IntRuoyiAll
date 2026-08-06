@@ -14,6 +14,8 @@
 - `pnpm ts:check` -> PASS。
 - Bug regression evidence validator -> PASS。
 - Cleanup preview -> ready，删除范围仅限临时 `bug-regression-evidence.md`。
+- Cleanup apply -> applied，临时 evidence 已删除。
+- Project experience -> updated `docs/frontend-development.md` and `docs/experience-index.md` for static contract `data-*` prefix counting.
 
 ## Notes
 

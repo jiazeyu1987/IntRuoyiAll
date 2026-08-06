@@ -10,7 +10,7 @@
 - [x] 创建任务文档并复现当前静态合同 RED。
 - [x] GREEN：后端时间线读模型正式返回审核通过人姓名，并透传到响应 VO。
 - [x] REGRESSION：运行后端 mapper 合同、员工姓名合同和报工历史合同。
-- [ ] Closeout：记录验证证据并完成提交/推送。
+- [x] Closeout：记录验证证据并完成提交/推送。
 
 ## Expected Verification
 
@@ -22,7 +22,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
