@@ -118,7 +118,6 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_AUTO_SCHE
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_AUTO_SCHEDULE_PRODUCTION_MATERIAL_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_AUTO_SCHEDULE_ROUTE_VERSION_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_CALENDAR_INVALID_DATE_SHIFT_MODE;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_SCHEDULE_PREREQUISITE_MISSING;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -806,7 +805,7 @@ class MesProAutoScheduleServiceImplTest {
     }
 
     @Test
-    void refreshScheduleOrderProcessesFromRouteConfig_shouldRejectUnboundFiniteHourlyConfigWithoutWorkbenchShiftHours() {
+    void refreshScheduleOrderProcessesFromRouteConfig_shouldUseDefaultShiftHoursWhenWorkbenchShiftHoursMissing() {
         scheduleOrderProcess.setEnabled(Boolean.TRUE);
         scheduleOrderProcess.setCapacityMode(MesProScheduleCapacityModeEnum.FINITE_HOURLY.getMode());
         scheduleOrderProcess.setHourlyCapacityTotal(BigDecimal.ONE);
@@ -814,6 +813,14 @@ class MesProAutoScheduleServiceImplTest {
         scheduleOrderProcess.setShiftCapacityTotal(new BigDecimal("10.5"));
         routeProcess.setWorkstationId(null);
         when(workstationMapper.selectListForShiftHours()).thenReturn(Collections.emptyList());
+        when(routeFlowConfigMapper.selectByRouteIdAndUseType(
+                20L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()))
+                .thenReturn(MesProRouteFlowConfigDO.builder()
+                        .id(90000L)
+                        .routeId(20L)
+                        .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
+                        .enabled(Boolean.TRUE)
+                        .build());
         when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(20L,
                 MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())).thenReturn(List.of(
                         MesProRouteFlowProcessConfigDO.builder()
@@ -833,12 +840,12 @@ class MesProAutoScheduleServiceImplTest {
                         .nightShiftEnabled(Boolean.FALSE)
                         .build()));
 
-        ServiceException ex = assertThrows(ServiceException.class, () ->
-                ReflectionTestUtils.invokeMethod(autoScheduleService,
-                        "refreshScheduleOrderProcessesFromRouteConfig", scheduleOrder, List.of(scheduleOrderProcess), false));
+        ReflectionTestUtils.invokeMethod(autoScheduleService,
+                "refreshScheduleOrderProcessesFromRouteConfig", scheduleOrder, List.of(scheduleOrderProcess), false);
 
-        assertEquals(PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED.getCode(), ex.getCode());
         assertEquals(new BigDecimal("10.5"), scheduleOrderProcess.getShiftHours());
+        assertEquals(new BigDecimal("25.714286"), scheduleOrderProcess.getHourlyCapacityTotal());
+        assertEquals(0, new BigDecimal("270.0000030").compareTo(scheduleOrderProcess.getShiftCapacityTotal()));
     }
 
     @Test

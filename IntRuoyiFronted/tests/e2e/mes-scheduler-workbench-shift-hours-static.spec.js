@@ -16,7 +16,7 @@ const workstationForm = fs.readFileSync(
   'utf8'
 )
 const routeProcessList = fs.readFileSync(
-  path.join(repoRoot, 'src/views/mes/pro/route/RouteProcessList.vue'),
+  path.join(repoRoot, 'src/views/mes/pro/route/RouteMesProcessList.vue'),
   'utf8'
 )
 

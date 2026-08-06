@@ -2732,9 +2732,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         if (resourceSnapshot.shiftHours != null && resourceSnapshot.shiftHours.compareTo(BigDecimal.ZERO) > 0) {
             return resourceSnapshot.shiftHours;
         }
-        Object routeProcessId = resourceSnapshot.payload.get("routeProcessId");
-        Long routeProcessIdValue = routeProcessId instanceof Number ? ((Number) routeProcessId).longValue() : null;
-        throw exception(PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED, routeProcessIdValue, null);
+        return scheduleDefaultCompatibilityPolicy.defaultShiftHoursWhenMissing();
     }
 
     private ResourceSnapshotContext buildResourceSnapshotContext(List<MesProRouteProcessDO> routeProcesses) {
@@ -2966,14 +2964,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
 
     private BigDecimal resolveSnapshotShiftHours(MesMdWorkstationDO workstation, MesProRouteProcessDO routeProcess,
                                                  boolean failFastOnMissingResource) {
-        BigDecimal shiftHours = workstation.getShiftHours();
-        if (shiftHours == null || shiftHours.compareTo(BigDecimal.ZERO) <= 0) {
-            if (failFastOnMissingResource) {
-                throw exception(PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED, routeProcess.getId(), workstation.getId());
-            }
-            return null;
-        }
-        return shiftHours;
+        return scheduleDefaultCompatibilityPolicy.shiftHoursOrDefault(workstation.getShiftHours());
     }
 
     private Integer resolveSnapshotWorkerQuantity(MesMdWorkstationWorkerDO worker) {
@@ -3011,11 +3002,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     }
 
     private BigDecimal requireShiftHours(MesMdWorkstationDO workstation, MesProRouteProcessDO routeProcess) {
-        BigDecimal shiftHours = workstation.getShiftHours();
-        if (shiftHours == null || shiftHours.compareTo(BigDecimal.ZERO) <= 0) {
-            throw exception(PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED, routeProcess.getId(), workstation.getId());
-        }
-        return shiftHours;
+        return scheduleDefaultCompatibilityPolicy.shiftHoursOrDefault(workstation.getShiftHours());
     }
 
     private MesProRouteVersionDO validateScheduleAdmissionRequirements(MesProRouteDO route, List<MesProRouteProcessDO> routeProcesses) {

@@ -17,6 +17,12 @@ class MesProScheduleOrderNoDefaultConfigContractTest {
         String scheduleOrderService = Files.readString(Path.of("src", "main", "java", "cn", "iocoder", "yudao",
                 "module", "mes", "service", "pro", "scheduleorder",
                 "MesProScheduleOrderServiceImpl.java"), StandardCharsets.UTF_8);
+        String autoScheduleService = Files.readString(Path.of("src", "main", "java", "cn", "iocoder", "yudao",
+                "module", "mes", "service", "pro", "schedule",
+                "MesProAutoScheduleServiceImpl.java"), StandardCharsets.UTF_8);
+        String scheduleDefaultCompatibilityPolicy = Files.readString(Path.of("src", "main", "java", "cn", "iocoder", "yudao",
+                "module", "mes", "service", "pro", "schedule", "component",
+                "ScheduleDefaultCompatibilityPolicy.java"), StandardCharsets.UTF_8);
         String routeProcessController = Files.readString(Path.of("src", "main", "java", "cn", "iocoder", "yudao",
                 "module", "mes", "controller", "admin", "pro", "route",
                 "MesProRouteProcessController.java"), StandardCharsets.UTF_8);
@@ -32,12 +38,14 @@ class MesProScheduleOrderNoDefaultConfigContractTest {
         String errorCodeConstants = Files.readString(Path.of("src", "main", "java", "cn", "iocoder", "yudao",
                 "module", "mes", "enums", "ErrorCodeConstants.java"), StandardCharsets.UTF_8);
 
-        assertFalse(scheduleOrderService.contains("DEFAULT_SHIFT_HOURS"));
+        assertTrue(scheduleDefaultCompatibilityPolicy.contains("DEFAULT_SHIFT_HOURS"));
+        assertTrue(scheduleDefaultCompatibilityPolicy.contains("new BigDecimal(\"10.5\")"));
+        assertTrue(scheduleOrderService.contains("scheduleDefaultCompatibilityPolicy.defaultShiftHoursWhenMissing()"));
+        assertTrue(autoScheduleService.contains("scheduleDefaultCompatibilityPolicy.defaultShiftHoursWhenMissing()"));
         assertFalse(scheduleOrderService.contains("DEFAULT_WORKER_QUANTITY"));
         assertFalse(routeProcessController.contains("DEFAULT_SHIFT_HOURS"));
         assertFalse(routeProcessController.contains("DEFAULT_WORKER_QUANTITY"));
         assertFalse(routeResourceService.contains("DEFAULT_SHIFT_HOURS"));
-        assertTrue(scheduleOrderService.contains("PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED"));
         assertTrue(routeProcessController.contains("PRO_ROUTE_SCHEDULE_SHIFT_HOURS_REQUIRED"));
         assertTrue(routeResourceContract.contains(
                 "PageResult<MesProRouteResourceRespVO> getResourcePage(@Valid MesProRouteResourcePageReqVO pageReqVO)"));

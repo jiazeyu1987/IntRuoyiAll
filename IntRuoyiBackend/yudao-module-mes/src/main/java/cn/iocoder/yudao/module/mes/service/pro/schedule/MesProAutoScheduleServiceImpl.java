@@ -1464,17 +1464,10 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                                                         MesMdWorkstationDO workstation,
                                                         BigDecimal unboundWorkbenchShiftHours) {
         if (workstation != null) {
-            BigDecimal shiftHours = normalizePositiveShiftHours(workstation.getShiftHours());
-            if (shiftHours == null) {
-                throw exception(PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED, routeProcess.getId(), workstation.getId());
-            }
-            return shiftHours;
+            return scheduleDefaultCompatibilityPolicy.shiftHoursOrDefault(workstation.getShiftHours());
         }
         BigDecimal shiftHours = normalizePositiveShiftHours(unboundWorkbenchShiftHours);
-        if (shiftHours == null) {
-            throw exception(PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED, routeProcess.getId(), null);
-        }
-        return shiftHours;
+        return shiftHours == null ? scheduleDefaultCompatibilityPolicy.defaultShiftHoursWhenMissing() : shiftHours;
     }
 
     private BigDecimal resolveUnifiedWorkbenchShiftHoursOrNull(MesProRouteProcessDO routeProcess) {
@@ -1485,12 +1478,9 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         }
         BigDecimal unifiedShiftHours = null;
         for (MesMdWorkstationDO workstation : workstations) {
-            BigDecimal shiftHours = normalizePositiveShiftHours(workstation == null ? null : workstation.getShiftHours());
+            BigDecimal shiftHours = scheduleDefaultCompatibilityPolicy.shiftHoursOrDefault(
+                    workstation == null ? null : workstation.getShiftHours());
             Long workstationId = workstation == null ? null : workstation.getId();
-            if (shiftHours == null) {
-                throw exception(PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED,
-                        routeProcess == null ? null : routeProcess.getId(), workstationId);
-            }
             if (unifiedShiftHours == null) {
                 unifiedShiftHours = shiftHours;
                 continue;

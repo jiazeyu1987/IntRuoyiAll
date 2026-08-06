@@ -171,6 +171,15 @@
 - Forbidden action: 禁止把 PowerShell 参数拆分错误误判为产品编译失败；禁止移除 `-am` 或改成更宽测试作为绕过。
 - Evidence: `doc\tasks\20260726-codex-test-case-project-column\execution-log.md`，目标 JUnit 首次因 PowerShell 拆分 `-Dsurefire.failIfNoSpecifiedTests=false` 失败，整体加引号后通过；`doc\tasks\20260726-work-order-field-cell-link\execution-log.md`，目标 MES JUnit 需同时整体加引号 `"-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordCellLinkSchemaTest"` 与 `"-Dsurefire.failIfNoSpecifiedTests=false"`，并保留 `-am` 编译依赖模块源码。
 
+### Maven 单模块陈旧依赖门禁
+
+- Trigger: 在多模块 Maven 项目中只运行单模块目标测试，失败发生在测试启动前，错误指向上游模块 API、DTO、枚举、Mapper 或 service contract 缺失/签名不一致。
+- Preflight check: 对依赖其它 reactor 模块的目标 JUnit 使用 `mvn -pl <module> -am "-Dtest=..." "-Dsurefire.failIfNoSpecifiedTests=false" test`；如果为了诊断先运行了不带 `-am` 的命令，必须确认失败是否来自本地仓库陈旧依赖而不是业务断言。
+- Blocker: 不带 `-am` 的单模块命令在 testCompile/compile 阶段失败且未进入 Surefire 时，不得把它记录为业务 RED/GREEN，也不得缩小测试范围绕过上游依赖编译。
+- Verification: 使用带 `-am` 的 reactor 命令复跑，确认目标测试进入 Surefire 且 PASS/FAIL 反映真实业务行为；任务日志记录原单模块失败原因和最终 reactor 验证命令。
+- Forbidden action: 禁止把本地 `.m2` 陈旧产物导致的编译失败误判为产品逻辑失败；禁止删除 `-am` 来节省时间后宣称目标 JUnit 已验证；禁止用旧 surefire 报告冒充当前命令结果。
+- Evidence: `doc\tasks\20260806-schedule-default-shift-hours\execution-log.md`，排产班次小时默认值修复中不带 `-am` 的单模块 Maven 因本地 `system` API 依赖陈旧在测试前失败，最终使用 `-pl yudao-module-mes -am` 的目标 JUnit 命令通过 4 个用例。
+
 ### Maven 静态源码合同工作目录门禁
 
 - Trigger: JUnit 静态合同通过 `Files.readString`、`Path.of` 或 `readSource` 读取源码文件，且命令使用 `mvn -pl <module> -am "-Dtest=..." test`；失败文本包含 `NoSuchFileException`、重复模块路径如 `yudao-module-mes\yudao-module-mes\src`，或断言没有命中实际生产实现类。

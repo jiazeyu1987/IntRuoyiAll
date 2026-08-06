@@ -3181,13 +3181,14 @@ class MesProScheduleOrderServiceImplTest {
     }
 
     @Test
-    void createFromWorkOrder_shouldNotDefaultShiftHoursWhenMissing() {
+    void createFromWorkOrder_shouldUseDefaultShiftHoursWhenWorkstationShiftHoursMissing() {
         MesProWorkOrderDO workOrder = MesProWorkOrderDO.builder()
                 .id(108L).code("ERP-MO-009").productId(28L).quantity(BigDecimal.ONE)
                 .status(MesProWorkOrderStatusEnum.CONFIRMED.getStatus()).temporaryFrozen(Boolean.FALSE).build();
         MesProRouteProductDO routeProduct = MesProRouteProductDO.builder().routeId(38L).itemId(28L).build();
         MesProRouteDO route = MesProRouteDO.builder().id(38L).code("ROUTE-I").status(CommonStatusEnum.ENABLE.getStatus()).build();
-        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder().id(308L).routeId(38L).processId(48L).sort(1).build();
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .id(308L).routeId(38L).processId(48L).sort(1).workstationId(508L).build();
         MesProRouteVersionDO routeVersion = MesProRouteVersionDO.builder().id(708L).routeId(38L).versionNo("V1").active(Boolean.TRUE).build();
         MesProScheduleOrderCreateFromWorkOrderReqVO reqVO = new MesProScheduleOrderCreateFromWorkOrderReqVO();
         reqVO.setWorkOrderId(108L);
@@ -3216,13 +3217,25 @@ class MesProScheduleOrderServiceImplTest {
         when(processMapper.selectBatchIds(List.of(48L))).thenReturn(List.of(
                 MesProProcessDO.builder().id(48L).code("B048").name("设备工序").build()
         ));
+        when(routeProcessFlowEdgeMapper.selectListByRouteId(38L)).thenReturn(List.of());
+        when(workstationMapper.selectBatchIds(Set.of(508L))).thenReturn(List.of(
+                MesMdWorkstationDO.builder().id(508L).code("WS-508").name("设备工位")
+                        .processId(48L).singleStandardHourlyCapacity(new BigDecimal("9.000000")).build()
+        ));
+        when(workstationMapper.selectListByProcessIds(
+                List.of(48L), CommonStatusEnum.ENABLE.getStatus())).thenReturn(List.of());
+        when(workstationMachineMapper.selectListByWorkstationIds(List.of(508L))).thenReturn(List.of());
+        when(workstationWorkerMapper.selectListByWorkstationIds(List.of(508L))).thenReturn(List.of(
+                MesMdWorkstationWorkerDO.builder().id(608L).workstationId(508L).quantity(1).build()
+        ));
+        when(machineryProcessMapper.selectListByMachineryIds(Set.of())).thenReturn(List.of());
         scheduleOrderService.createFromWorkOrder(reqVO);
 
         ArgumentCaptor<MesProScheduleOrderProcessDO> processCaptor =
                 ArgumentCaptor.forClass(MesProScheduleOrderProcessDO.class);
         verify(scheduleOrderProcessMapper).insert(processCaptor.capture());
-        assertNull(processCaptor.getValue().getShiftHours());
-        assertNull(processCaptor.getValue().getShiftCapacityTotal());
+        assertEquals(0, processCaptor.getValue().getShiftHours().compareTo(new BigDecimal("10.5")));
+        assertEquals(0, processCaptor.getValue().getShiftCapacityTotal().compareTo(new BigDecimal("94.5000000")));
     }
 
     @Test
