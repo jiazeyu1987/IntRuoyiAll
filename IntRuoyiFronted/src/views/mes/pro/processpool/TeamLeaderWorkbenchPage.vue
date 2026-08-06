@@ -325,16 +325,6 @@
           <Icon icon="ep:plus" class="mr-5px" />
           新增
         </el-button>
-        <el-select
-          v-model="pqcPersonnelQuery.enabled"
-          clearable
-          placeholder="启用状态"
-          class="!w-140px"
-          @change="refreshPqcPersonnel"
-        >
-          <el-option label="已启用" :value="true" />
-          <el-option label="已禁用" :value="false" />
-        </el-select>
       </template>
       <template #table>
         <el-table
@@ -345,7 +335,14 @@
           data-pqc-leader-personnel-list
         >
           <el-table-column label="PQC检验员" min-width="180">
-            <template #default="{ row }">{{ row.displayName }}</template>
+            <template #default="{ row }">
+              <span
+                class="team-leader-workbench__pqc-personnel-name"
+                :class="{ 'is-disabled': row.enabled === false }"
+              >
+                {{ row.displayName || row.username || '--' }}
+              </span>
+            </template>
           </el-table-column>
           <el-table-column label="账号" min-width="160">
             <template #default="{ row }">{{ row.username }}</template>
@@ -1889,7 +1886,6 @@ const activeOrderColumns: any[] = [
   { key: 'joinedAt', label: '加入时间', visible: true }
 ]
 const pqcPersonnelQuery = reactive({
-  enabled: true as boolean | undefined,
   pageNo: 1,
   pageSize: 10
 })
@@ -2372,9 +2368,7 @@ const formatSignaturePasswordManager = (row: TeamProductionEmployeeRespVO) => {
 const refreshPqcPersonnel = async () => {
   pqcPersonnelLoading.value = true
   try {
-    pqcPersonnelRows.value = await getPqcPersonnelList({
-      enabled: pqcPersonnelQuery.enabled
-    })
+    pqcPersonnelRows.value = await getPqcPersonnelList()
     const maxPage = Math.max(1, Math.ceil(pqcPersonnelRows.value.length / pqcPersonnelQuery.pageSize))
     if (pqcPersonnelQuery.pageNo > maxPage) {
       pqcPersonnelQuery.pageNo = maxPage
@@ -3702,6 +3696,10 @@ onMounted(() => {
 }
 
 .team-leader-workbench__personnel-name.is-disabled {
+  color: #f56c6c;
+}
+
+.team-leader-workbench__pqc-personnel-name.is-disabled {
   color: #f56c6c;
 }
 

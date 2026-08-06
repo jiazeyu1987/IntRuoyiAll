@@ -91,3 +91,51 @@ E2E 与当前复核表单契约不同步，只填写 `reviewRemark`，没有填�
 ### Blockers And Follow-up
 
 需运行安全包装 full real E2E，确认真实批准、退回、汇集和后续清理链路。
+
+## AC-M21 Aggregate Runtime Closure Regression
+
+### Bug Summary
+
+PQC 组长批准复核进入后端过程检验汇集事务后，`MesPqcProcessInspectionAggregateDetailMapper.insert`
+写入 `actual_inspection_quantity` 报缺列，导致页面真实批准链路返回 `系统异常`。
+
+### Expected Behavior
+
+既有运行库中的 `mes_pqc_process_inspection_aggregate_detail` 必须具备 AC-M21 汇集明细所需的
+`active_order_id`、`route_version_id`、`actual_inspection_quantity`、唯一键和查询索引；批准复核时
+后端应写入结构化汇集明细，不得因旧表形态失败。
+
+### Reproduction
+
+- Real path: `run-rrm-real-e2e-local.ps1 -Mode Real`
+- Observed: `pqcLeaderReviewApprovedAndAggregated` 阻塞，后端日志显示汇集明细 insert 缺
+  `actual_inspection_quantity`。
+
+### Root Cause
+
+AC-M20 已提前创建 `mes_pqc_process_inspection_aggregate_detail`，后续 AC-M21 使用
+`CREATE TABLE IF NOT EXISTS`，因此不会修改既有表；本机库保留旧表结构，缺少 mapper 当前写入所需列。
+
+### Regression Test
+
+- `MesQaPqcSchemaTest#pqcProcessInspectionAggregateRuntimeClosureMustRepairExistingTable`
+- `MesProcessPoolSchemaTest` 相邻 schema 契约
+
+### RED:
+
+`MesQaPqcSchemaTest` 先失败，原因是运行态闭合迁移文件不存在，无法证明既有表会被补齐。
+
+### GREEN:
+
+`mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesQaPqcSchemaTest,MesProcessPoolSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+PASS；本机闭合迁移 apply PASS，post-verify 证明缺失列、NOT NULL 和索引均已修复。
+
+### Verification
+
+`ac-m21-runtime-closure-policy-gate.json` 为 `status=passed`；本机备份 SHA256 为
+`8D9DD18114ED4BD603EA94CB504D76B3954660E6645C12FF8BE86F37342BF674`；回滚脚本为
+`db-repair/acm21-aggregate-runtime-closure-rollback.sql`。
+
+### Blockers
+
+代码和本机 schema blocker 已解除；仍需重跑 full real E2E，证明真实 PQC 批准复核后汇集明细和只读汇集证据闭环。

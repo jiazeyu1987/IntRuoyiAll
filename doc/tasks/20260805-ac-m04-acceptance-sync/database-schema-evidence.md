@@ -16,11 +16,17 @@
 - `mes_pro_process_pool_team_employee_binding` local RRM fixture row for process `922985` and employee profile `980022`
 - `mes_pro_task` local RRM fixture row for work order `980008`, route `922119`, process `922985`, and workstation `980010`
 - `system_users` local RRM test-account rows `512, 659, 964, 1301, 1520, 1618, 910272`
+- `mes_pqc_process_inspection_aggregate_detail.active_order_id`
+- `mes_pqc_process_inspection_aggregate_detail.route_version_id`
+- `mes_pqc_process_inspection_aggregate_detail.actual_inspection_quantity`
+- `mes_pqc_process_inspection_aggregate_detail` unique key `uk_mes_pqc_process_inspection_aggregate`
+- `mes_pqc_process_inspection_aggregate_detail` indexes `idx_mes_pqc_process_inspection_review`, `idx_mes_pqc_process_inspection_task`, `idx_mes_pqc_process_inspection_submit_event`
 
 ## Database Engine And Tooling
 
 - Engine: local Docker MySQL, database `ruoyi-vue-pro`.
 - Migration under review: `IntRuoyiBackend\sql\mysql\20260803_mes_process_pool_event_idempotency.sql`.
+- Runtime closure migration under review: `IntRuoyiBackend\sql\mysql\20260805_mes_pqc_process_inspection_aggregate_runtime_closure.sql`.
 - Repair and verification gates used:
   - `IntRuoyiBackend\script\p0\verify_p0_runtime_migration_apply_preflight.py`
   - `IntRuoyiBackend\script\p0\verify_p0_runtime_backfill_sources.py`
@@ -40,6 +46,8 @@ BDD: RRM temporary credential restoration -> Given seven local RRM accounts were
 
 BDD: RRM PQC review scope -> Given PQC event `133` is a formal submitted event for actual employee `914524`, When PQC leader `512` loads the scope-filtered submission board, Then the event is visible only through an enabled `PQC + EMPLOYEE` scope from `512` to `914524`; the timeline authority filter must not be removed or bypassed.
 
+BDD: AC-M21 process inspection aggregate runtime closure -> Given AC-M20 may have created `mes_pqc_process_inspection_aggregate_detail` before the full AC-M21 table shape, When the local runtime applies the closure migration, Then the existing table must be repaired with `active_order_id`, non-null `route_version_id`, non-null `actual_inspection_quantity`, standard unique key and query indexes, with missing formal PQC task sources failing fast.
+
 ## RED Evidence
 
 - RED: schema probe -> FAIL because `mes_pro_process_pool_event` lacks `event_idempotency_key` / `recordbook_entry_id`.
@@ -53,6 +61,8 @@ BDD: RRM PQC review scope -> Given PQC event `133` is a formal submitted event f
 - RED: local exact task probe -> expected one primary-process task, observed semantic count `0`; candidate ID `981940` and code `RRM-20260805-PRIMARY-922985` were collision-free.
 - RED: local account restore preflight -> expected seven accounts in their pre-wrapper state, observed one shared temporary password value and one shared database-clock update time. Binlog position `8815139` contains the exact seven-row before image required for recovery.
 - RED: local PQC review-scope probe -> event `133`, PQC record `90`, and task `93` exist, but leader `512` has responsible employee IDs `{512,659}` while the event actual employee is `914524`; the current board query returns `0`, and the same query with `914524` included returns `1`.
+- RED: AC-M21 runtime closure schema test -> `MesQaPqcSchemaTest` failed because `20260805_mes_pqc_process_inspection_aggregate_runtime_closure.sql` did not exist, leaving no migration contract to repair existing aggregate tables.
+- RED: full real E2E after PQC approval -> backend aggregation insert failed with `Unknown column 'actual_inspection_quantity' in 'field list'` in `MesPqcProcessInspectionAggregateDetailMapper.insert`, proving the local runtime table was still the older AC-M20 shape.
 
 ## GREEN Evidence
 
@@ -69,6 +79,10 @@ BDD: RRM PQC review scope -> Given PQC event `133` is a formal submitted event f
 - GREEN: RRM primary-process fixture repair -> PASS; backup、manifest、transactional apply、exact post-count verification 均已完成，full real E2E 继续到后续 PQC 阶段。
 - GREEN: RRM primary-process production task -> PASS; task `981940` 已按精确备份、manifest、transactional apply 和 post-count 验证写入，full real E2E 已使用该正式任务创建生产 source event。
 - GREEN: RRM PQC review scope -> PASS; backup `db-backup/acm04-rrm-pqc-review-scope-20260805.sql` SHA256 `21A4C7D7E4D16ADEC838A2202BBE7A4C4CE8F4C0105EF5BF7948C44AFEC74BFA`，apply/rollback/manifest 齐备，后置验证 `SCOPE_ROW=1`、`VISIBLE_EVENT=1`、残留存储过程 `0`。
+- GREEN: AC-M21 schema regression -> PASS; `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesQaPqcSchemaTest,MesProcessPoolSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` passed 7 schema tests after adding the closure migration.
+- GREEN: AC-M21 release migration policy gate -> PASS; `ac-m21-runtime-closure-policy-gate.json` reports `status=passed` and `migrationCount=17`.
+- GREEN: AC-M21 local backup -> PASS; `db-backup/acm04-ac-m21-aggregate-runtime-closure-20260806.sql` SHA256 `8D9DD18114ED4BD603EA94CB504D76B3954660E6645C12FF8BE86F37342BF674`.
+- GREEN: AC-M21 local apply and post-verify -> PASS; the local runtime table now has `active_order_id`, `route_version_id NOT NULL`, `actual_inspection_quantity NOT NULL`, missing required source count `0`, residual procedure count `0`, and all required aggregate indexes.
 
 ## Safety Decision
 
@@ -86,6 +100,7 @@ Final safety decision: after authorization, the repair used a row-level manifest
 - RRM primary-process task rollback: execute `db-repair/rrm-primary-process-task-rollback.sql`; it may delete only task `981940` when every task-owned field still matches and no downstream feedback, issue, or schedule-extension dependency exists.
 - RRM account recovery source: local `binlog.000128` position `8815139`; restore only the seven authorized test-account rows and verify no temporary credential value remains.
 - RRM PQC review scope rollback: execute `db-repair/rrm-pqc-review-scope-rollback.sql`; it may delete only scope `980041` when leader, employee, creator, updater, remark, enabled, tenant and deleted fields still match the manifest.
+- AC-M21 aggregate runtime closure rollback: restore `db-backup/acm04-ac-m21-aggregate-runtime-closure-20260806.sql` for a full local runtime restore, or run the guarded targeted rollback in `db-repair/acm21-aggregate-runtime-closure-rollback.sql` and rerun the aggregate schema post-verify.
 
 ## Verification
 
@@ -97,3 +112,5 @@ Final safety decision: after authorization, the repair used a row-level manifest
 ## Blockers
 
 No database-schema blocker remains for the local P0 runtime repair. The task remains in progress because RRM `real:check` and full real E2E must still be rerun; schema verifier PASS does not replace true Playwright user-path acceptance.
+
+No database-schema blocker remains for the AC-M21 local aggregate runtime closure. The remaining requirement is real Playwright acceptance proving PQC leader approval creates aggregate detail and exposes the read-only aggregation evidence.

@@ -28,7 +28,7 @@
 - [x] 将 `PQC_REVIEW_SCOPE=1` 纳入本机真实 E2E 安全包装的数据库前置门禁，并完成静态 RED/GREEN。
 - [x] 补齐 PQC 本轮选中工序生产任务：为 `pqcTaskId=68 / routeProcess=928611 / process=922987 / workstation=980009` 写入一条精确、可回滚的本机 `mes_pro_task` 夹具并复验。
 - [x] 修复 PQC 组长真实复核弹窗前置：填写正式复核签名 ID、签名员工 ID 和签名快照，提交后等待弹窗关闭；失败时结构化记录并关闭弹窗。
-- [ ] 修复 AC-M21 过程检验汇集表运行态闭合：追加幂等迁移补齐 `actual_inspection_quantity` 及完整 DO 列/索引契约，完成本机备份、回滚、迁移和真实复核复验。
+- [x] 修复 AC-M21 过程检验汇集表运行态闭合：追加幂等迁移补齐 `active_order_id`、`route_version_id`、`actual_inspection_quantity` 及完整列/索引契约，完成 schema RED/GREEN、本机备份、回滚、迁移和结构复验。
 - [ ] 重跑安全包装 full real E2E，确认同一 `pqcTaskId=93 + signatureId=99009104` 可见并继续完成复核、汇集和清理链路。
 
 ## Expected Verification
@@ -70,6 +70,8 @@ in_progress
 2026-08-05 PQC 本轮工序任务复核：真实 E2E 冻结的待检任务为 `pqcTaskId=68 / routeProcessId=928611 / processId=922987`，正式工作站为 `980009`。本机 `mes_pro_task` 当前只有同工单/路线的 `922986` 与已补的 `922985` 任务，目标 `922987` 语义计数为 `0`；候选 `id=981941`、编码 `RRM-20260805-PQC-922987` 均无冲突。主工序 `922985` 任务不能替代 PQC 本轮选中工序，本轮将只补一条精确、可回滚的本机任务。
 
 2026-08-05 PQC 组长复核弹窗修复：本机选中工序生产任务 `981941` 已存在并通过安全包装前置；full real E2E 已进入 PQC 组长复核。旧脚本只填写复核说明，页面因缺正式签名上下文没有发送复核请求且弹窗持续遮挡后续筛选。当前脚本已补齐正式签名字段、接口响应捕获、成功后弹窗关闭等待和失败清理；静态合同已修正为实际执行顺序并通过。
+
+2026-08-06 AC-M21 汇集表运行态闭合：PQC 组长批准复核已进入后端汇集事务，首个真实阻塞为 `MesPqcProcessInspectionAggregateDetailMapper.insert` 写入 `actual_inspection_quantity` 时运行库表缺列。根因是 AC-M20 已提前创建 `mes_pqc_process_inspection_aggregate_detail`，后续 AC-M21 `CREATE TABLE IF NOT EXISTS` 无法修补既有表。已新增正式运行态闭合迁移 `20260805_mes_pqc_process_inspection_aggregate_runtime_closure.sql` 和 schema 回归，补齐列、回填、NOT NULL、唯一键与查询索引；本机备份、rollback、迁移 apply 和 post-verify 均 PASS。下一步重跑安全包装 full real E2E，验证真实批准、重复终态、汇集只读和清理链路。
 
 ## 设计约束检查
 
