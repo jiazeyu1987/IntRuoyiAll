@@ -26,7 +26,10 @@
 - 正式保存 API：`saveRouteStartProductionLeaders` 复用 `/mes/pro/route/flow-config/route-start-production-leaders/save`，不引入备用数据源、表单槽位或批记录表单替代。
 - 成功提示边界：顶部保存联动不额外弹出“生产组长配置已保存”，由外层统一显示通用保存结果；右侧小保存仍保留局部成功提示。
 - 项目经验沉淀：已检查 `project-experience-consolidation`；既有 `docs/frontend-development.md#前端按钮文案与行为一致性门禁` 和 `docs/frontend-development.md#前端静态契约隔离门禁` 已覆盖本次经验，无需新增长期经验文档。
+- CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260806-route-start-production-leader-top-save --mode preview` -> PASS，keep `task.md` / `execution-log.md` / `verification-report.md`，delete `<none>`。
+- CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260806-route-start-production-leader-top-save --mode apply` -> PASS，deleted_paths `<none>`。
 
 ## Blockers
 
 - 当前分支已有非本任务基线提交且仍领先 `origin/int_main`，另有非本任务工作区改动；本任务不改写历史、不强推、不回滚并行改动。
+- 未执行 `git push origin int_main`：当前领先提交包含大量非本任务基线内容，直接推送会超出本任务边界。

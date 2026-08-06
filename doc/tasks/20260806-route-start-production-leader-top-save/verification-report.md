@@ -14,6 +14,7 @@ PASS：顶部“保存”已覆盖“工序开始生产组长”字段明细变�
 - PASS：`workdir=IntRuoyiFronted; node tests/e2e/mes-route-start-production-leaders-static.spec.js`
 - PASS：`workdir=E:\IntRuoyi; git diff --check -- IntRuoyiFronted\src\views\mes\pro\route\RouteFlowGraphDesigner.vue IntRuoyiFronted\tests\e2e\mes-route-start-production-leaders-static.spec.js doc\tasks\20260806-route-start-production-leader-top-save\task.md doc\tasks\20260806-route-start-production-leader-top-save\execution-log.md`
 - PASS：`workdir=IntRuoyiFronted; pnpm ts:check`
+- PASS：`workdir=E:\IntRuoyi; task-closeout-cleanup preview/apply`，无删除项、无阻塞、无 warnings。
 
 ## Key Checks
 
@@ -24,4 +25,4 @@ PASS：顶部“保存”已覆盖“工序开始生产组长”字段明细变�
 
 ## Remaining Notes
 
-- 分支当前已有非本任务基线提交领先 `origin/int_main`，本任务未执行推送。
+- 分支当前已有非本任务基线提交领先 `origin/int_main`，本任务未执行推送，避免把非本任务基线内容作为本任务交付推到远端。
