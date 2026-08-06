@@ -6,14 +6,19 @@
 - PASS: 空关键字候选加载继续走后端正式 PQC 权限池，不做前端本地过滤。
 - PASS: 新增空点击/聚焦下拉自动加载候选；其它 PQC 组长已启用关联的候选由后端标记为 disabled/occupied，前端红色显示且不可选择。
 - PASS: 提交关联前后端双层校验：前端阻止 disabled 候选提交，后端在写入 scope 前拒绝已被其它 PQC 组长占用的用户。
-- BLOCKED: Maven、`pnpm ts:check`、`git diff --check` 当前被共享工作区既有 merge conflict markers 阻断，无法给出全量 GREEN。
+- PASS: 原共享工作区 conflict markers 已清零；目标 Maven、`pnpm ts:check`、PQC/班组长静态合同与 `git diff --check` 均已通过。
+- CLOSEOUT BLOCKED: 当前分支仍有其它任务文档改动和未跟踪任务目录，且领先 `origin/int_main` 2 个提交；未执行提交/推送，避免混入非本任务改动。
 
 ## Verification
 
 - GREEN: `node tests\e2e\pqc-leader-personnel-company-wide-candidates-static.spec.js` -> PASS。
-- BLOCKED: `mvn -pl yudao-module-mes -am "-Dtest=MesPqcLeaderPersonnelServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL；`MesProcessPoolTeamLeaderController.java`、`MesTeamLeaderActiveOrderServiceImpl.java` 存在 conflict marker，Javac 在进入本轮测试前失败。
-- BLOCKED: `pnpm ts:check` -> FAIL；`TeamLeaderWorkbenchPage.vue` 存在 conflict marker，Vue TS 报 TS1185。
-- BLOCKED: `git diff --check -- <本任务相关路径>` -> FAIL；`teamLeader.ts`、`TeamLeaderWorkbenchPage.vue`、`MesProcessPoolTeamLeaderController.java` 等文件存在 leftover conflict marker。
+- GREEN: `node tests\e2e\production-leader-active-order-pool-tab-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesPqcLeaderPersonnelServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`Tests run: 25, Failures: 0, Errors: 0, Skipped: 0`。
+- GREEN: `git diff --check -- <本任务相关路径>` -> PASS。
+- GREEN: `git diff --check` -> PASS。
+- GREEN: conflict marker scan -> PASS，无 `<<<<<<<` / `=======` / `>>>>>>>` 命中。
 
 ## Scope Notes
 
@@ -23,5 +28,5 @@
 
 ## Blockers
 
-- 需要先处理共享工作区的 merge conflict markers，尤其是活跃订单和 PQC 列配置相关冲突。由于冲突内容涉及非本任务业务选择，本任务未擅自选择 HEAD 或 origin 一侧。
-- 当前未提交/未推送，避免把共享工作区其它任务改动和未解决冲突混入本任务提交。
+- 当前未提交/未推送：`git status --short --branch --untracked-files=all` 显示分支领先 `origin/int_main` 2 个提交，且存在其它任务文档改动和未跟踪任务目录。
+- 若要完成最终 closeout，需要先由对应任务负责人处理或明确授权一并提交/推送这些非本任务改动。

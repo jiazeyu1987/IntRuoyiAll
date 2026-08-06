@@ -25,11 +25,11 @@
 
 ## Current Status
 
-blocked_on_workspace_conflict_markers
+ready_for_closeout
 
-已完成本轮功能实现和聚焦静态合同：PQC 新增人员下拉空点击会加载空关键字候选；其它 PQC 组长启用员工 scope 占用的候选会在后端标记 disabled/occupied，前端红色显示且不可选择，提交接口也会再次业务拒绝跨组长占用。
+已完成本轮功能实现和验证：PQC 新增人员下拉空点击会加载空关键字候选；其它 PQC 组长启用员工 scope 占用的候选会在后端标记 disabled/occupied，前端红色显示且不可选择，提交接口也会再次业务拒绝跨组长占用。
 
-剩余阻塞：当前共享工作区在 `TeamLeaderWorkbenchPage.vue`、`teamLeader.ts`、`MesProcessPoolTeamLeaderController.java`、`MesTeamLeaderActiveOrderServiceImpl.java` 等文件存在既有 Git 冲突标记，导致 Maven、pnpm ts:check 和 git diff --check 无法完成；这些冲突包含活跃订单、PQC 列展示等非本任务合并内容，不能在本任务中擅自选择一侧解决。
+原共享工作区 conflict markers 已清零，目标 Maven、`pnpm ts:check`、PQC 静态合同与 `git diff --check` 均已通过。剩余收尾阻塞：当前分支仍有其它任务文档改动、未跟踪任务目录，且 `int_main` 领先 `origin/int_main` 2 个提交；为避免混入非本任务改动，本任务未执行提交和推送。
 
 ## 设计约束检查
 

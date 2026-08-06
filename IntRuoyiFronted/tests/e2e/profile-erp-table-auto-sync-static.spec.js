@@ -88,7 +88,7 @@ for (const token of [
   'ERP 表格',
   'ERP表格名称',
   '本地页签名称',
-  '最近一次同步时间',
+  '最近执行时间',
   '新增行数',
   '同步成功/失败',
   '失败原因',
@@ -108,10 +108,9 @@ for (const token of [
   '@selection-change="handleSyncTableSelectionChange"',
   'type="selection"',
   'syncTableRows',
-  'watermarkBySyncType',
   'latestRunBySyncType',
   'localTabName',
-  'formatDateTimeValue(row.lastSuccessTime',
+  'resolveLatestRunTime(row.latestRun',
   'resolveCreatedCount(row.latestRun',
   'formatLatestSyncStatus(row.latestRun',
   'resolveFailureReason(row.latestRun',
@@ -131,9 +130,11 @@ for (const token of [
   'status === 20',
   'status === 30',
   'status === 10',
+  'endedAt',
   "return '成功'",
   "return '失败'",
   "return '运行中'",
+  'formatDateTimeValue(latestRun.endedAt || latestRun.startedAt',
   'createdCount',
   "typeof latestRun.createdCount === 'number'",
   'failureMessage'
@@ -176,7 +177,7 @@ for (const token of [
   'manualSyncingType === row.syncType',
   '单表 ERP 增量同步任务',
   '手动同步失败',
-  'loadWatermarks(), loadLatestRuns()'
+  'loadLatestRuns(), loadRunningSyncRuns()'
 ]) {
   assert.match(component, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `每行手动同步按钮必须触发正式单表增量同步并刷新结果：${token}`)
 }
@@ -235,7 +236,10 @@ for (const token of [
   assert.doesNotMatch(component, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `截图要求删除的展示区不得残留：${token}`)
 }
 
-assert.match(component, /formatDateTimeValue\(row\.lastSuccessTime/, '同步水位必须格式化为可读日期时间。')
+assert.match(component, /resolveLatestRunTime\(row\.latestRun\)/, '主表最近执行时间必须来自正式运行记录。')
+assert.doesNotMatch(component, /formatDateTimeValue\(row\.lastSuccessTime/, '主表不得再把内部增量位置显示成最近同步时间。')
+assert.doesNotMatch(component, /数据水位|同步水位/, '用户可见文案不得使用难理解的内部术语。')
+assert.doesNotMatch(component, /ErpKingdeeSyncWatermarkVO|loadWatermarks|watermarkBySyncType/, '主表执行时间口径不得继续依赖内部增量位置状态。')
 assert.doesNotMatch(component, /最近执行记录[\s\S]*formatDateTimeValue\(row\.startedAt/, '不得恢复最近执行记录历史区。')
 assert.doesNotMatch(component, /prop="failureMessage"/, '列表级失败原因不得直接暴露英文内部字段名 failureMessage 作为表格 prop。')
 assert.doesNotMatch(

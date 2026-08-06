@@ -29,7 +29,7 @@
       <el-form-item label="ERP 表格">
         <el-table
           ref="syncTableRef"
-          v-loading="jobLoading || watermarkLoading || runLoading"
+          v-loading="jobLoading || runLoading"
           :data="syncTableRows"
           row-key="syncType"
           class="profile-erp-table-sync__select-table"
@@ -39,8 +39,8 @@
           <el-table-column type="selection" width="48" :selectable="isSyncRowSelectable" />
           <el-table-column prop="erpTableName" label="ERP表格名称" min-width="180" />
           <el-table-column prop="localTabName" label="本地页签名称" min-width="220" />
-          <el-table-column label="最近一次同步时间" min-width="180">
-            <template #default="{ row }">{{ formatDateTimeValue(row.lastSuccessTime, '-') }}</template>
+          <el-table-column label="最近执行时间" min-width="180">
+            <template #default="{ row }">{{ resolveLatestRunTime(row.latestRun) }}</template>
           </el-table-column>
           <el-table-column label="新增行数" min-width="110">
             <template #default="{ row }">{{ resolveCreatedCount(row.latestRun) }}</template>
@@ -119,7 +119,7 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
 import { ErpKingdeeSyncApi } from '@/api/erp/sync'
-import type { ErpKingdeeSyncRunVO, ErpKingdeeSyncWatermarkVO } from '@/api/erp/sync'
+import type { ErpKingdeeSyncRunVO } from '@/api/erp/sync'
 import * as JobApi from '@/api/infra/job'
 import { InfraJobStatusEnum } from '@/utils/constants'
 import { formatDateTimeValue } from '@/utils/formatTime'
@@ -137,7 +137,6 @@ interface ProfileErpTableSyncForm {
 }
 
 interface ProfileErpSyncTableRow extends ProfileErpSyncType {
-  lastSuccessTime?: string
   latestRun?: ErpKingdeeSyncRunVO
 }
 
@@ -195,12 +194,10 @@ const loading = ref(false)
 const jobLoading = ref(false)
 const saving = ref(false)
 const running = ref(false)
-const watermarkLoading = ref(false)
 const runLoading = ref(false)
 const runningJobLoading = ref(false)
 const manualSyncingType = ref('')
 const loadError = ref('')
-const watermarks = ref<ErpKingdeeSyncWatermarkVO[]>([])
 const latestRuns = ref<ErpKingdeeSyncRunVO[]>([])
 const runningSyncRuns = ref<ErpKingdeeSyncRunVO[]>([])
 const jobsByHandlerName = ref<Record<string, JobApi.JobVO>>({})
@@ -239,12 +236,6 @@ const parseDailyCronExpression = (cronExpression?: string) => {
 }
 
 const dailyCronExpression = computed(() => toDailyCronExpression(form.dailyStartTime))
-const watermarkBySyncType = computed<Record<string, string | undefined>>(() =>
-  watermarks.value.reduce<Record<string, string | undefined>>((acc, item) => {
-    acc[item.syncType] = item.lastSuccessTime
-    return acc
-  }, {})
-)
 const latestRunBySyncType = computed<Record<string, ErpKingdeeSyncRunVO | undefined>>(() =>
   latestRuns.value.reduce<Record<string, ErpKingdeeSyncRunVO | undefined>>((acc, item) => {
     if (!acc[item.syncType]) {
@@ -256,7 +247,6 @@ const latestRunBySyncType = computed<Record<string, ErpKingdeeSyncRunVO | undefi
 const syncTableRows = computed<ProfileErpSyncTableRow[]>(() =>
   syncTypes.map((item) => ({
     ...item,
-    lastSuccessTime: watermarkBySyncType.value[item.syncType],
     latestRun: latestRunBySyncType.value[item.syncType]
   }))
 )
@@ -283,6 +273,11 @@ const resolveCreatedCount = (latestRun?: ErpKingdeeSyncRunVO) => {
   if (!latestRun) return '-'
   if (typeof latestRun.createdCount === 'number') return latestRun.createdCount
   return '-'
+}
+
+const resolveLatestRunTime = (latestRun?: ErpKingdeeSyncRunVO) => {
+  if (!latestRun) return '-'
+  return formatDateTimeValue(latestRun.endedAt || latestRun.startedAt, '-')
 }
 
 const resolveFailureReason = (latestRun?: ErpKingdeeSyncRunVO) => {
@@ -352,17 +347,6 @@ const loadJobs = async () => {
   }
 }
 
-const loadWatermarks = async () => {
-  watermarkLoading.value = true
-  try {
-    watermarks.value = await ErpKingdeeSyncApi.getWatermarkList()
-  } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '同步水位加载失败'))
-  } finally {
-    watermarkLoading.value = false
-  }
-}
-
 const loadLatestRuns = async () => {
   runLoading.value = true
   try {
@@ -404,7 +388,7 @@ const loadData = async () => {
   loading.value = true
   loadError.value = ''
   try {
-    await Promise.all([loadJobs(), loadWatermarks(), loadLatestRuns(), loadRunningSyncRuns()])
+    await Promise.all([loadJobs(), loadLatestRuns(), loadRunningSyncRuns()])
   } catch (error) {
     loadError.value = resolveErrorMessage(error, 'ERP表格自动同步配置加载失败')
     ElMessage.error(loadError.value)
@@ -474,7 +458,7 @@ const handleRunOnce = async () => {
     await refreshJobsBeforeMutation()
     await Promise.all(selectedItems.map((item) => ErpKingdeeSyncApi.runIncrementalSyncJob(item.handlerName)))
     ElMessage.success(`已提交 ${selectedItems.length} 个 ERP 增量同步任务`)
-    await Promise.all([loadWatermarks(), loadJobs(), loadLatestRuns(), loadRunningSyncRuns()])
+    await Promise.all([loadJobs(), loadLatestRuns(), loadRunningSyncRuns()])
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '立即执行一次失败'))
   } finally {
@@ -487,7 +471,7 @@ const handleRunSingle = async (row: ProfileErpSyncTableRow) => {
   try {
     await ErpKingdeeSyncApi.runIncrementalSyncJob(row.handlerName)
     ElMessage.success(`已提交 ${row.erpTableName} 单表 ERP 增量同步任务`)
-    await Promise.all([loadWatermarks(), loadLatestRuns(), loadRunningSyncRuns()])
+    await Promise.all([loadLatestRuns(), loadRunningSyncRuns()])
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '手动同步失败'))
   } finally {

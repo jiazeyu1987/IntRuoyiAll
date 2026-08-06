@@ -52,3 +52,16 @@
 - 后端候选查询从 PQC 权限角色池加载用户后，按 `mes_pro_process_pool_team_leader_scope` 的启用 PQC 员工 scope 标记“其它组长占用”。
 - 后端 `linkFormalInspector` 在写入 scope 前新增跨 PQC 组长占用校验，命中时返回 `PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_OCCUPIED_BY_OTHER_LEADER`，不写库。
 - 前端 PQC 新增人员 `el-select` 增加 `automatic-dropdown`、空 focus/visible-change 加载、候选 disabled 绑定、红色占用原因展示；即使前端被绕过，后端仍二次拒绝。
+
+## 2026-08-06 Continue Verification Update
+
+- GREEN: `node tests\e2e\pqc-leader-personnel-company-wide-candidates-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\production-leader-active-order-pool-tab-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesPqcLeaderPersonnelServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`Tests run: 25, Failures: 0, Errors: 0, Skipped: 0`。
+- GREEN: `git diff --check -- <本任务相关路径>` -> PASS。
+- GREEN: `git diff --check` -> PASS。
+- GREEN: `rg -n "^(<<<<<<<|=======|>>>>>>>)" -g "!**/target/**" -g "!**/target_corrupt*/**" IntRuoyiBackend IntRuoyiFronted docs doc` -> 无匹配，conflict markers 已清零。
+- 合并修复：去除 `MesProcessPoolTeamLeaderController` 重复 `toActiveOrderCandidateRespVO`，并补齐异常上报 `abnormalReasonCode` 前后端类型/BO/持久化链路，使既有班组长合同与当前实现一致。
+- CLOSEOUT BLOCKER: `git status --short --branch --untracked-files=all` -> `int_main...origin/int_main [ahead 2]`，仍有其它任务文档改动和未跟踪 `doc/tasks/20260806-profile-erp-table-sync-execution-time-copy/`；本任务未提交/未推送，避免混入非本任务改动。
