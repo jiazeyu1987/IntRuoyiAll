@@ -23,6 +23,7 @@
 - 前端只校验 `activeOrderForm.workOrderId` 是正数，没有保存并校验“当前值来自远程候选列表中的真实选项”。
 - 第一轮修复要求点击候选，但 Element Plus 远程下拉在用户只输入完整订单号时不会更新 `v-model`；若运行态仍走旧提交链路，就会继续把空 `workOrderId` 发到后端。
 - 静态合同只覆盖 payload 字段收缩，没有锁定完整订单号输入的精确候选解析行为，因此截图路径仍可能落到后端校验层。
+- 真实运行态复验还确认过一次独立部署问题：48081 曾运行旧 Jar，旧 `MesTeamLeaderActiveOrderAddReqVO` 仍包含 `routeId/routeVersionId @NotNull`，导致前端正确提交 `workOrderId` 时仍返回 `请求参数不正确:不能为null`；热替换当前 Jar 后该旧参数校验不再出现。
 
 ## Fix
 
@@ -43,9 +44,13 @@
 - GREEN: `workdir=IntRuoyiFronted; node tests/e2e/team-leader-workbench-static.spec.cjs` -> PASS。
 - GREEN: `workdir=IntRuoyiFronted; pnpm ts:check` -> PASS。
 - GREEN: `workdir=E:\IntRuoyi; git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue IntRuoyiFronted/tests/e2e/production-leader-active-order-pool-tab-static.spec.js IntRuoyiFronted/tests/e2e/team-leader-workbench-static.spec.cjs` -> PASS，仅 CRLF working-copy 提示。
+- REAL E2E BLOCKED/PAYLOAD PASS: `workdir=IntRuoyiFronted; ACTIVE_ORDER_E2E_BASE_URL=http://127.0.0.1:8081 ACTIVE_ORDER_E2E_WORK_ORDER_CODE=881MO093613 node tests/e2e/production-leader-active-order-focused.e2e.js` -> non-zero；真实页面路径选择候选 `{workOrderId: 925868, workOrderCode: "881MO093613"}`，提交请求体为 `{"workOrderId":925868}`，旧 null 参数错误未出现。
+- BUSINESS BLOCKED: 同一次真实 E2E 返回业务码 `1040506111`，消息为 `PQC 检验任务生成前置条件不满足：缺少已发布QA规程，activeOrderId=32，routeProcessId=926632，processId=922917`；这是正式 PQC 前置条件失败，不是请求参数 null。
+- DB ROLLBACK PASS: 只读核验活跃订单、工序快照和 PQC 任务对 `activeOrderId IN (31,32)` 与 `workOrderId=925868` 的残留计数均为 0。
 
 ## Blockers And Follow-Up
 
+- BLOCKED: 当前本机可新增候选库存不足；只读 DB 统计已确认工单 4,338 条、唯一有效排产 55 条、完整 QA 规程覆盖可新增候选 0 条。
 - BLOCKED: `workdir=IntRuoyiFronted; node tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> FAIL，当前缺少 PQC 过程检验汇集稳定选择器 `data-pqc-process-inspection-aggregation`，不属于本次活跃订单空值修复。
 - BLOCKED: `workdir=IntRuoyiFronted; node tests/e2e/mes-process-pool-team-leader-static.spec.js` -> FAIL，当前 PQC 组长切换后提交看板多维筛选重置链路合同失败，不属于本次活跃订单空值修复。
 - BLOCKED: 写入型真实 Playwright E2E 仍缺少任务自有 `TLW_*` 测试租户、账号、工单、工序、设备和签名夹具；未使用 mock、自由输入、隐藏字段或 API-only 替代。
