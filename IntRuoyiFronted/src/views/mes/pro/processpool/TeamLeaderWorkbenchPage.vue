@@ -895,10 +895,7 @@
                   :data-team-leader-correction-event-id="String(row.id)"
                   @click="openCorrection(row)"
                 >
-                  修正
-                </el-button>
-                <el-button v-if="isProductionLeader" link type="warning" @click="prefillAbnormal(row)">
-                  标记异常
+                  修改
                 </el-button>
               </template>
             </el-table-column>
@@ -956,6 +953,20 @@
             </el-descriptions-item>
             <el-descriptions-item label="提交摘要">
               {{ detail.submittedSummary || '--' }}
+            </el-descriptions-item>
+            <el-descriptions-item v-if="!isPqcSubmissionRow(detail)" label="复核日志">
+              <div class="team-leader-workbench__review-log" data-team-leader-review-log>
+                <el-tag :type="resolveSubmissionReviewTagType(detail.submissionReviewStatus)" effect="plain">
+                  {{ resolveSubmissionReviewStatusText(detail.submissionReviewStatus) }}
+                </el-tag>
+                <span v-if="detail.submissionReviewRemark" class="team-leader-workbench__review-text">
+                  {{ detail.submissionReviewRemark }}
+                </span>
+                <span v-if="detail.submissionReviewedAt" class="team-leader-workbench__review-meta">
+                  复核人 {{ detail.submissionReviewLeaderUserId || '--' }} ·
+                  {{ formatDateTime(detail.submissionReviewedAt) }}
+                </span>
+              </div>
             </el-descriptions-item>
             <el-descriptions-item v-if="detail.pqcResult || detail.pqcSummary" label="PQC检验内容">
               <el-tag :type="resolvePqcTagType(detail.pqcResult)" effect="plain">
@@ -2349,9 +2360,9 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="correctionVisible" title="修正不正确内容" width="760px" destroy-on-close>
+    <el-dialog v-model="correctionVisible" title="修改报工内容" width="760px" destroy-on-close>
       <el-alert
-        title="修正将调用原始记录修改接口，系统会记录修改前、修改后、原因、修改人、签名和字段差异日志。"
+        title="修改将调用原始记录修改接口，系统会记录修改前、修改后、原因、修改人、签名和字段差异日志。"
         type="warning"
         :closable="false"
         show-icon
@@ -2381,7 +2392,7 @@
             </el-form-item>
           </el-col>
           <el-col :xs="24" :md="8">
-            <el-form-item label="修正签名ID">
+            <el-form-item label="修改签名ID">
               <el-input-number
                 v-model="correctionForm.revisionSignatureId"
                 :min="1"
@@ -2404,7 +2415,7 @@
         <el-form-item label="修改后payload JSON">
           <el-input v-model="correctionForm.afterPayloadJson" type="textarea" :rows="8" resize="vertical" />
         </el-form-item>
-        <el-form-item label="修正签名快照JSON">
+        <el-form-item label="修改签名快照JSON">
           <el-input
             v-model="correctionForm.revisionSignatureSnapshotJson"
             type="textarea"
@@ -2425,7 +2436,7 @@
       <template #footer>
         <el-button @click="correctionVisible = false">取消</el-button>
         <el-button type="primary" :loading="correctionSubmitting" @click="submitCorrection">
-          提交修正并记录日志
+          提交修改并记录日志
         </el-button>
       </template>
     </el-dialog>
@@ -2869,7 +2880,7 @@ const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
   !row.submissionReviewStatus || row.submissionReviewStatus === 'PENDING'
 
 const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
-  row.submissionReviewStatus === 'REJECTED'
+  isProductionLeader.value || row.submissionReviewStatus === 'REJECTED'
 
 const queryParams = reactive<TeamLeaderSubmissionPageReqVO>({
   pageNo: 1,
@@ -4860,7 +4871,7 @@ const openCorrection = (event: ProcessPoolTimelineEventVO) => {
   try {
     const eventId = requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
     if (!canCorrectSubmission(event)) {
-      ElMessage.error('只有复核不正确的提交可以修正')
+      ElMessage.error('只有生产报工或复核不正确的提交可以修改')
       return
     }
     correctionEvent.value = event
@@ -4874,7 +4885,7 @@ const openCorrection = (event: ProcessPoolTimelineEventVO) => {
     correctionForm.changedFieldsJson = ''
     correctionVisible.value = true
   } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '原始记录修正入口打开失败'))
+    ElMessage.error(resolveErrorMessage(error, '原始记录修改入口打开失败'))
   }
 }
 
@@ -4882,7 +4893,7 @@ const buildCorrectionRequest = () => {
   parseJsonField<Record<string, unknown>>(correctionForm.afterPayloadJson, '修改后payload JSON')
   parseJsonField<Record<string, unknown>>(
     correctionForm.revisionSignatureSnapshotJson,
-    '修正签名快照JSON'
+    '修改签名快照JSON'
   )
   const changedFields = parseJsonField<ProcessPoolEventRevisionFieldChangeVO[]>(
     correctionForm.changedFieldsJson,
@@ -4901,7 +4912,7 @@ const buildCorrectionRequest = () => {
     eventId: requirePositiveNumber(correctionForm.eventId, '工序池提交事件编号不能为空'),
     afterPayload: correctionForm.afterPayloadJson.trim(),
     changeReason: correctionForm.changeReason.trim(),
-    revisionSignatureId: requirePositiveNumber(correctionForm.revisionSignatureId, '修正签名ID不能为空'),
+    revisionSignatureId: requirePositiveNumber(correctionForm.revisionSignatureId, '修改签名ID不能为空'),
     revisionSignatureUserId: requirePositiveNumber(
       correctionForm.revisionSignatureUserId,
       '签名用户ID不能为空'
@@ -4917,22 +4928,14 @@ const submitCorrection = async () => {
   correctionSubmitting.value = true
   try {
     await updateProcessPoolOriginalRecord(buildCorrectionRequest())
-    ElMessage.success('修正已提交，修改日志已记录')
+    ElMessage.success('修改已提交，修改日志已记录')
     correctionVisible.value = false
     await getSubmissionList()
   } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '原始记录修正失败'))
+    ElMessage.error(resolveErrorMessage(error, '原始记录修改失败'))
   } finally {
     correctionSubmitting.value = false
   }
-}
-
-const prefillAbnormal = (event: ProcessPoolTimelineEventVO) => {
-  abnormalForm.workOrderId = normalizePositiveNumber(event.workOrderId)
-  const matchedActiveOrder = activeOrderOptions.value.find(
-    (order) => order.workOrderId === abnormalForm.workOrderId
-  )
-  abnormalForm.activeOrderId = matchedActiveOrder?.id
 }
 
 const handleAbnormalActiveOrderChange = (activeOrderId?: number) => {

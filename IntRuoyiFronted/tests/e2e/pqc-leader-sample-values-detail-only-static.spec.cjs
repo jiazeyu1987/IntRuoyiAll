@@ -61,15 +61,10 @@ assert.match(
   /const isSubmissionColumnVisible = \(key: string\) =>\s*\n\s*submissionColumns\.value\.some\(\(column\) => column\.key === key\)\s*\n\s*&& activeSubmissionColumnControl\.value\.isColumnVisible\(key\)/,
   'Submission column visibility must not default missing role-specific columns to visible.'
 )
-assert.match(
-  page,
-  /v-if="activeLeaderTab !== 'PQC' && isSubmissionColumnVisible\('auditCopyStatus'\)"/,
-  'Audit copy must remain production-only and never show in the PQC management list.'
-)
-assert.match(
-  page,
-  /v-if="activeLeaderTab !== 'PQC' && isSubmissionColumnVisible\('submissionReviewStatus'\)"/,
-  'Review judgement must remain production-only and never show in the PQC management list.'
+assert.doesNotMatch(
+  tableBlock,
+  /label="审核副本"|prop="auditCopyStatus"|label="复核判定"|prop="submissionReviewStatus"/,
+  'Audit copy and review judgement must not render as list columns.'
 )
 
 assert.match(
