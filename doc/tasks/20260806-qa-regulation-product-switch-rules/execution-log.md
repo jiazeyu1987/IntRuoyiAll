@@ -44,6 +44,9 @@
 - POST-MERGE REGRESSION：`node tests/e2e/qa-regulation-final-applicability-static.spec.cjs` -> PASS。
 - POST-MERGE REGRESSION：`node tests/e2e/qa-regulation-version-publish-header-static.spec.cjs` -> PASS。
 - POST-MERGE TYPECHECK：`pnpm ts:check` -> PASS。
+- PUSH PREFLIGHT：`scripts\preflight\branch-runtime-port-guard.ps1` -> PASS；待推送最大对象 115606 bytes，未超过 GitHub 100 MB 限制。
+- PUSH RETRY：首次 `git push -u origin codex/qa-regulation-product-switch-fix` 因 TLS unexpected EOF 失败；按 GitHub 443 门禁检查 proxy、`Test-NetConnection` 和 `git ls-remote origin HEAD` 均可用后重试。
+- PUSH：`git push -u origin codex/qa-regulation-product-switch-fix` -> PASS，远端分支 `origin/codex/qa-regulation-product-switch-fix` 已创建并设置 upstream。
 
 ## Blockers
 

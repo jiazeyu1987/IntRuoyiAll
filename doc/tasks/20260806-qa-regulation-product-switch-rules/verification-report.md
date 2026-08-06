@@ -26,4 +26,4 @@ QA 规程检验规则产品切换回归已修复。未配置规则的其它产�
 
 ## Blockers
 
-Worktree/slot 删除收尾阻塞：主工作区 `E:\IntRuoyi` 存在无关脏改动，`task-closeout-cleanup` auto 模式不能安全执行 ff-only 合并和 worktree 删除。本次已完成实现、验证、临时 evidence 清理、实现提交与分支同步；worktree `D:\IntRuoyiWorktree\qa-regulation-product-switch-fix` 和 slot 3 暂保留。
+Worktree/slot 删除收尾阻塞：主工作区 `E:\IntRuoyi` 存在无关脏改动，`task-closeout-cleanup` auto 模式不能安全执行 ff-only 合并和 worktree 删除。本次已完成实现、验证、临时 evidence 清理、实现提交、分支同步与 `origin/codex/qa-regulation-product-switch-fix` 推送；worktree `D:\IntRuoyiWorktree\qa-regulation-product-switch-fix` 和 slot 3 暂保留。

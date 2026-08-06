@@ -47,7 +47,7 @@
 
 ready_for_closeout
 
-实现与验证已完成；实现提交 `bb9cb14fb` 已创建，并已合并最新 `origin/int_main`（merge commit `36951d8fd`）后复跑验证。临时 evidence 已按 cleanup apply 清理。待提交并推送任务记录；worktree/slot 删除因主工作区 `E:\IntRuoyi` 存在无关脏改动，不能执行 ff-only 合并收尾。
+实现、验证、任务记录提交与分支推送已完成；实现提交 `bb9cb14fb` 已创建，并已合并最新 `origin/int_main`（merge commit `36951d8fd`）后复跑验证。临时 evidence 已按 cleanup apply 清理。分支已推送到 `origin/codex/qa-regulation-product-switch-fix`；worktree/slot 删除因主工作区 `E:\IntRuoyi` 存在无关脏改动，不能执行 ff-only 合并收尾。
 
 ## Verification Evidence
 
@@ -66,3 +66,4 @@ ready_for_closeout
 - `task-closeout-cleanup` preview（auto）显示核心保留文件正确、临时 evidence 可删除，但因 `E:\IntRuoyi` 主工作区脏状态和 ff-only 合并条件阻塞 worktree closeout。
 - `task-closeout-cleanup` preview/apply（`--worktree-closeout off`）已执行，只删除 `bug-regression-evidence.md` 与 `frontend-feature-evidence.md`，保留 `task.md`、`execution-log.md`、`verification-report.md`。
 - `project-experience-consolidation` 已执行归属检查；现有 `docs/backend-development.md#QA 规程配置状态必须来自产品级规程记录` 已覆盖本次经验，无需新增长期经验文档。
+- `git push -u origin codex/qa-regulation-product-switch-fix` -> PASS；远端分支已创建并设置 upstream。
