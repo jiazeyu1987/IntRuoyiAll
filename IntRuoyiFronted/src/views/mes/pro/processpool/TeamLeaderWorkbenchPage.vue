@@ -323,6 +323,7 @@
       <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
       <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
       <el-tab-pane label="看板" name="dashboard" data-pqc-leader-module-tab-dashboard />
+      <el-tab-pane label="历史表单" name="history" data-pqc-leader-module-tab-history />
     </el-tabs>
 
     <UnifiedListTemplate
@@ -518,6 +519,7 @@
         <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
         <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
         <el-tab-pane label="看板" name="dashboard" data-pqc-leader-module-tab-dashboard />
+        <el-tab-pane label="历史表单" name="history" data-pqc-leader-module-tab-history />
       </el-tabs>
       <div v-if="!showPqcModuleTabs && !showProductionModuleTabs" class="team-leader-workbench__section-head">
         <div>
@@ -876,6 +878,30 @@
               </template>
             </el-table-column>
             <el-table-column
+              v-if="isPqcFormHistoryTab && isSubmissionColumnVisible('approvedBy')"
+              label="审核通过人"
+              prop="approvedBy"
+              :min-width="getSubmissionColumnMinWidthString('approvedBy', 140)"
+            >
+              <template #default="{ row }">
+                <span data-pqc-leader-history-approved-by>
+                  {{ row.submissionReviewLeaderUserName || row.submissionReviewLeaderUserId || '--' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isPqcFormHistoryTab && isSubmissionColumnVisible('approvedAt')"
+              label="审核通过时间"
+              prop="approvedAt"
+              :min-width="getSubmissionColumnMinWidthString('approvedAt', 160)"
+            >
+              <template #default="{ row }">
+                <span data-pqc-leader-history-approved-at>
+                  {{ formatDateTime(row.submissionReviewedAt) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column
               v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('defectDescription')"
               label="不良说明"
               prop="defectDescription"
@@ -950,6 +976,7 @@
         <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
         <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
         <el-tab-pane label="看板" name="dashboard" data-pqc-leader-module-tab-dashboard />
+        <el-tab-pane label="历史表单" name="history" data-pqc-leader-module-tab-history />
       </el-tabs>
 
       <div v-loading="detailLoading" class="team-leader-workbench__detail-tab-body">
@@ -1397,6 +1424,7 @@
         <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
         <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
         <el-tab-pane label="看板" name="dashboard" data-pqc-leader-module-tab-dashboard />
+        <el-tab-pane label="历史表单" name="history" data-pqc-leader-module-tab-history />
       </el-tabs>
       <div v-if="!showPqcModuleTabs" class="team-leader-workbench__section-head">
         <div>
@@ -2571,7 +2599,7 @@ const props = withDefaults(
 
 const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
-const activePqcModuleTab = ref<'personnel' | 'management' | 'dashboard' | 'detail'>('personnel')
+const activePqcModuleTab = ref<'personnel' | 'management' | 'dashboard' | 'detail' | 'history'>('personnel')
 const activeProductionModuleTab = ref<
   'personnel' | 'report' | 'reportHistory' | 'activeOrder' | 'dashboard' | 'exception' | 'processConfig' | 'config'
 >('personnel')
@@ -2701,6 +2729,7 @@ const SUBMISSION_TABLE_KEY = 'mes.processPool.teamLeader.submissions'
 const PRODUCTION_SUBMISSION_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.production`
 const PRODUCTION_REPORT_HISTORY_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.productionHistory`
 const PQC_SUBMISSION_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.pqc`
+const PQC_FORM_HISTORY_TABLE_KEY = `${PQC_SUBMISSION_TABLE_KEY}.history`
 const submissionQuickFilterDefinitions: any[] = []
 const submissionQuickFilterState = reactive({})
 const submissionOperatorOptions: any[] = []
@@ -2744,6 +2773,12 @@ const pqcSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'defectDescription', label: '不良说明', minWidth: 180 },
   { key: 'operation', label: '操作', width: 270, hideable: false, business: false }
 ]
+const pqcFormHistoryDefaultColumns: UserTableColumnDefinition[] = [
+  ...pqcSubmissionDefaultColumns.filter((column) => column.key !== 'operation'),
+  { key: 'approvedBy', label: '审核通过人', minWidth: 140 },
+  { key: 'approvedAt', label: '审核通过时间', minWidth: 160 },
+  { key: 'operation', label: '操作', width: 110, hideable: false, business: false }
+]
 const productionSubmissionColumnControl = useUserTableColumns(
   PRODUCTION_SUBMISSION_TABLE_KEY,
   productionSubmissionDefaultColumns
@@ -2756,9 +2791,18 @@ const pqcSubmissionColumnControl = useUserTableColumns(
   PQC_SUBMISSION_TABLE_KEY,
   pqcSubmissionDefaultColumns
 )
+const pqcFormHistoryColumnControl = useUserTableColumns(
+  PQC_FORM_HISTORY_TABLE_KEY,
+  pqcFormHistoryDefaultColumns
+)
+const isPqcFormHistoryTab = computed(() =>
+  activeLeaderTab.value === 'PQC' && activePqcModuleTab.value === 'history'
+)
 const activeSubmissionColumnControl = computed(() =>
   activeLeaderTab.value === 'PQC'
-    ? pqcSubmissionColumnControl
+    ? isPqcFormHistoryTab.value
+      ? pqcFormHistoryColumnControl
+      : pqcSubmissionColumnControl
     : activeProductionModuleTab.value === 'reportHistory'
       ? productionReportHistoryColumnControl
       : productionSubmissionColumnControl
@@ -2833,10 +2877,14 @@ const showPqcPersonnelModule = computed(
     activeLeaderTab.value === 'PQC'
     && (!showPqcModuleTabs.value || activePqcModuleTab.value === 'personnel')
 )
+const showPqcFormHistoryModule = computed(
+  () => activeLeaderTab.value === 'PQC' && showPqcModuleTabs.value && activePqcModuleTab.value === 'history'
+)
 const showPqcManagementModule = computed(
   () =>
     showProductionReportModule.value ||
     showProductionReportHistoryModule.value ||
+    showPqcFormHistoryModule.value ||
     (activeLeaderTab.value === 'PQC' && (!showPqcModuleTabs.value || activePqcModuleTab.value === 'management'))
 )
 const showPqcDashboardModule = computed(
@@ -2930,11 +2978,11 @@ const pagedPqcPersonnelRows = computed(() => {
 })
 
 const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
-  !isProductionReportHistoryTab.value
+  !(isProductionReportHistoryTab.value || isPqcFormHistoryTab.value)
   && (!row.submissionReviewStatus || row.submissionReviewStatus === 'PENDING')
 
 const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
-  !isProductionReportHistoryTab.value
+  !(isProductionReportHistoryTab.value || isPqcFormHistoryTab.value)
   && (isProductionLeader.value || row.submissionReviewStatus === 'REJECTED')
 
 const queryParams = reactive<TeamLeaderSubmissionPageReqVO>({
@@ -4675,7 +4723,7 @@ const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
     productKeyword: queryParams.productKeyword?.trim() || undefined,
     inspectionType: queryParams.inspectionType || undefined,
     roundNo: normalizePositiveNumber(queryParams.roundNo),
-    submissionReviewStatus: isProductionReportHistoryTab.value ? 'APPROVED' : queryParams.submissionReviewStatus || undefined
+    submissionReviewStatus: (isProductionReportHistoryTab.value || isPqcFormHistoryTab.value) ? 'APPROVED' : queryParams.submissionReviewStatus || undefined
   }
 }
 
@@ -4753,6 +4801,10 @@ const clearSubmissionFilterParams = () => {
   queryParams.productKeyword = undefined
   queryParams.inspectionType = undefined
   queryParams.roundNo = undefined
+  if (isPqcFormHistoryTab.value) {
+    queryParams.submissionReviewStatus = 'APPROVED'
+    return
+  }
   if (isProductionReportHistoryTab.value) {
     queryParams.submissionReviewStatus = 'APPROVED'
     return
@@ -4798,8 +4850,10 @@ const resetSubmissionMultiFilter = async () => {
 }
 
 watch(activePqcModuleTab, async (tab) => {
-  if (tab === 'management' && activeLeaderTab.value === 'PQC') {
+  if ((tab === 'management' || tab === 'history') && activeLeaderTab.value === 'PQC') {
     queryParams.leaderType = 'PQC'
+    queryParams.pageNo = 1
+    queryParams.submissionReviewStatus = tab === 'history' ? 'APPROVED' : undefined
     ensureSubmissionDateCondition()
     await getSubmissionList()
   }
