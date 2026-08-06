@@ -109,3 +109,17 @@ FUNCTION PASS。已完成计划内实现、自动化回归、真实页面保存�
 - 再次观察时 `E:\IntRuoyi` dirty 数量从 13 增至 16，并存在活跃 Git/Codex 进程。
 - 阻塞范围已扩大到 PQC 人员、AC-M04、QA PDF 字段对齐等并行任务文件；仍不能执行 clean-worktree 要求的 cleanup apply。
 - ERP 分支和远端保持同步，`8083/48083` 端口空闲；剩余动作仍是等待主工作区清理后执行 cleanup apply。
+
+## 2026-08-06 Direct Merge Verification
+
+- Direct merge commit: `33e8ba63f merge: integrate ERP table auto sync closeout`。
+- Baseline commits protecting unrelated concurrent workspace edits: `9579ce504` and `93d0b6847`。
+- `node tests\e2e\profile-erp-table-auto-sync-static.spec.js` -> PASS。
+- `node tests\e2e\profile-nas-table-auto-sync-static.spec.js` -> PASS。
+- `python -X utf8 -m pytest script\tests\test_erp_kingdee_table_auto_sync_sql.py -q` -> PASS，4 passed。
+- `pnpm ts:check` -> PASS after rerun on stable source snapshot。
+- `mvn.cmd -pl yudao-module-erp -am "-Dtest=cn.iocoder.yudao.module.erp.kingdeeautosync.ErpKingdeeTableAutoSyncContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，4 tests / 0 failures / 0 errors，BUILD SUCCESS。
+- `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main/int_main` ports remain `8081/48081`。
+- Worktree closeout: `D:\IntRuoyiWorktree\profile-erp-table-auto-sync` Git registration removed, residual physical directory deleted, `Test-Path=False`。
+- Port registry closeout: `profile-erp-table-auto-sync` slot 2 (`8083/48083`) marked inactive with `cleanupTask=20260805-profile-erp-table-auto-sync`。
+- Final result: FUNCTION AND CLOSEOUT PASS，任务完成。
