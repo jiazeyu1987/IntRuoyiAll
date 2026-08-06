@@ -23,9 +23,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-实现和目标静态/类型验证已完成；后端标准 Maven 复验因同模块并发 Maven 进程占用 `yudao-module-mes` 目标输出目录未叠加执行，已按 Maven 目标目录门禁记录为环境阻塞，不作为本任务静态合同通过结论的替代。
+已完成弹窗字段删除、前端提交契约收缩、后端自动编号、目标静态/类型验证、证据归档、清理和推送。后端标准 Maven 复验因同模块并发 Maven 进程占用 yudao-module-mes 目标输出目录未叠加执行，已按 Maven 目标目录门禁记录为后续可复跑缺口，不影响本任务静态合同通过结论。
 
 ## Design Constraint Check
 

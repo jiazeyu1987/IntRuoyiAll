@@ -30,6 +30,6 @@
 
 ## Closeout Result
 
-- PASS: 	ask-closeout-cleanup preview/apply 已完成，临时 evidence 文件已删除，核心报告保留。
+- PASS: task-closeout-cleanup preview/apply 已完成，临时 evidence 文件已删除，核心报告保留。
 - PASS: git push origin int_main 已成功，远端更新到 35529e30f。
 - Follow-up: 后端标准 Maven 编译复验可待同模块并发 Maven 释放后重跑。
