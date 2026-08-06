@@ -56,4 +56,4 @@
 
 ready_for_closeout
 
-已完成 `origin/int_main` 合并后的异常上报契约修复、PQC 提交内容列补齐、前端静态合同、`pnpm ts:check`、后端目标 JUnit、提交链路回归、技能 evidence validator、经验沉淀和 branch runtime port guard；剩余提交、推送、融合与 cleanup。
+Remote `int_main` integration is complete at `eb05459dff7e38fdd1b150923ca266043ccbd0c9`. Cleanup apply and worktree removal remain blocked because local main worktree `E:\IntRuoyi` is dirty; no unrelated main-worktree changes were touched.

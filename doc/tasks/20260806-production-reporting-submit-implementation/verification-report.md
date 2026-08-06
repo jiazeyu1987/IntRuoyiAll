@@ -34,3 +34,13 @@ ready_for_closeout
 ## Blockers
 
 - Real write-type E2E was not run because required runtime and task-owned data prerequisites were not established for this implementation task. This was not replaced by API-only or mock verification.
+
+## Remote Integration
+
+- `git push origin codex/20260806-production-reporting-submit-implementation` -> PASS.
+- `git push origin HEAD:int_main` -> PASS; `origin/int_main` now points to verified HEAD `eb05459dff7e38fdd1b150923ca266043ccbd0c9`.
+- `git merge-base --is-ancestor HEAD origin/int_main` -> PASS.
+
+## Cleanup Status
+
+- `task-closeout-cleanup --mode preview` -> BLOCKED because local main worktree `E:\IntRuoyi` is dirty. Cleanup apply and worktree removal were not run to avoid touching unrelated local main changes.

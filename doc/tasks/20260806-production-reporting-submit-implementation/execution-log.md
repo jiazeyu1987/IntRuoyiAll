@@ -67,3 +67,12 @@
 
 - Real write-type E2E was not run because the task did not establish a running worktree frontend/backend pair, test tenant/account/signature, production order, and current process configuration fixture. No API-only, mock, or default-success substitute was used.
 - Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260806-production-reporting-submit-implementation --mode preview` -> BLOCKED before implementation commit. Preview would keep `task.md`/`execution-log.md`/`verification-report.md` and delete temporary frontend/backend evidence files, but blocked because current branch had uncommitted implementation files, local `E:\IntRuoyi` main worktree was dirty, and branch was not yet ready for ff-only merge. Action: commit verified task-owned implementation first, then rerun cleanup.
+
+## Remote Integration And Cleanup Preview
+
+- Commit: `eb05459df fix: align team leader post-merge reporting contracts` -> PASS, task-owned post-merge fix and verification records committed.
+- Push: `git push origin codex/20260806-production-reporting-submit-implementation` -> PASS.
+- Integration: `git push origin HEAD:int_main` -> PASS, remote `int_main` fast-forwarded from `6f75f2a93` to `eb05459df`.
+- Verification: `git fetch origin int_main`; `git rev-parse HEAD` and `git rev-parse origin/int_main` both returned `eb05459dff7e38fdd1b150923ca266043ccbd0c9`; `git merge-base --is-ancestor HEAD origin/int_main` -> PASS.
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260806-production-reporting-submit-implementation --mode preview` -> BLOCKED because local main worktree `E:\IntRuoyi` is dirty and cannot receive the script's ff-only merge. Preview keep list was `task.md`, `execution-log.md`, `verification-report.md`; delete list was `backend-api-evidence.md`, `frontend-feature-evidence.md`.
+- Decision: remote `int_main` integration is complete; cleanup apply and local worktree removal remain blocked by unrelated local main dirty state. No main worktree files were cleaned, reverted, or committed.
