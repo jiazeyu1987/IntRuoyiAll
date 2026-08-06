@@ -21,11 +21,11 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 当前任务使用隔离 worktree `D:\IntRuoyiWorktree\profile-erp-table-auto-sync`，分支 `codex/profile-erp-table-auto-sync`，运行槽位 `slot=2`，前端端口 `8083`，后端端口 `48083`。外部清理进程已由用户停止，当前 worktree 已重新创建并通过分支运行端口守卫；本任务不在主工作区直接修改文件。
 
-功能实现、真实 E2E、可读性修复和合并后定向回归均已通过。2026-08-06 已在隔离 worktree 中语义合入最新 `origin/int_main`，并修正本任务迁移元数据的非法复合类型与错误依赖后缀；目标迁移策略门禁、SQL 合同、ERP Maven 合同、前端 ERP/NAS 静态合同和 `pnpm ts:check` 均通过。已验证提交 `54f8d21ea` 已推送到功能分支并快进更新远端 `int_main`。当前保持 `ready_for_closeout`：cleanup apply 被 `E:\IntRuoyi` 主工作区并行脏改动阻塞；2026-08-06 09:27 二次采样显示主工作区仍在持续新增/更新 MES、PQC、QA 与任务文档文件，不是安全融合窗口。worktree 和 slot 2 必须继续保留，待主工作区 clean 且稳定后再执行 cleanup apply、ff-only merge、删除 worktree 并释放槽位。
+功能实现、真实 E2E、可读性修复和合并后定向回归均已通过。2026-08-06 已在隔离 worktree 中语义合入最新 `origin/int_main`，并修正本任务迁移元数据的非法复合类型与错误依赖后缀；目标迁移策略门禁、SQL 合同、ERP Maven 合同、前端 ERP/NAS 静态合同和 `pnpm ts:check` 均通过。已验证提交 `54f8d21ea` 已推送到功能分支并快进更新远端 `int_main`。2026-08-06 用户明确要求直接融合后，本地 `int_main` 已通过 merge 提交 `33e8ba63f` 融合 `codex/profile-erp-table-auto-sync`；融合后复跑 ERP/NAS 静态合同、SQL 合同、`pnpm ts:check`、ERP Maven 合同和端口守卫均通过。`D:\IntRuoyiWorktree\profile-erp-table-auto-sync` 已删除，Git worktree 注册已移除，端口登记 slot 2 已释放为 inactive，最终状态为 completed。
 
 ## 设计约束检查
 

@@ -125,3 +125,19 @@ BDD: 可读地展示 ERP 同步运行结果 -> Given 系统已有 ERP 同步水�
 - MAIN SNAPSHOT 2: `2026-08-06T09:27:37+08:00`，dirty 列表继续增长，新增或更新 `doc/tasks/20260805-production-personnel-full-user-dropdown/*`、`IntRuoyiFronted/tests/e2e/pqc-submission-structured-columns-static.spec.js`、`doc/tasks/20260806-pqc-submission-structured-columns/`，且 `qa-regulation-project-last-copy-static.spec.cjs` 也在采样间隔内更新。
 - CURRENT BLOCKER: 主工作区仍在持续写入，不是安全融合窗口；按 worktree closeout 门禁，`task_closeout.py --mode apply` 不能在目标主工作区 dirty 且持续变化时执行。
 - ACTION: 未运行 cleanup apply，未执行 ff-only merge，未提交、未删除、未隐藏任何并行任务文件；ERP worktree 保留，等待 `E:\IntRuoyi` clean 且稳定后再继续。
+
+## 2026-08-06 Direct Merge And Closeout
+
+- USER INTENT: 用户明确要求“直接融合就行，融合完之后删除 worktree；如果担心，融合之后测试一遍”。本轮按用户授权执行直接 merge，不再等待主工作区完全 clean 后运行 cleanup apply。
+- BASELINE: `9579ce504 chore: baseline pre-ERP merge workspace state` 保护融合前主工作区并行脏改动；敏感词扫描命中均为字段名、环境变量名或测试变量名，无明文密钥；大文件扫描无超过 50MB 文件。
+- MERGE: `33e8ba63f merge: integrate ERP table auto sync closeout` 将 `origin/codex/profile-erp-table-auto-sync` 直接融合进本地 `int_main`，无冲突；实际 merge 仅改 ERP 任务记录 3 个文件。
+- BASELINE: `93d0b6847 chore: baseline post-ERP merge workspace state` 保护 merge 后并行写入的 2 个文件；随后验证期间仍有其它并行任务继续写入，本任务未回滚或删除这些改动。
+- GREEN: `node tests\e2e\profile-erp-table-auto-sync-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\profile-nas-table-auto-sync-static.spec.js` -> PASS。
+- GREEN: `python -X utf8 -m pytest script\tests\test_erp_kingdee_table_auto_sync_sql.py -q` -> PASS，4 passed。
+- GREEN: `pnpm ts:check` -> 首次因并行写入窗口在 `TeamLeaderWorkbenchPage.vue` 报缺候选状态，当前源码稳定后复跑 -> PASS。
+- GREEN: `mvn.cmd -pl yudao-module-erp -am "-Dtest=cn.iocoder.yudao.module.erp.kingdeeautosync.ErpKingdeeTableAutoSyncContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，4 tests / 0 failures / 0 errors，BUILD SUCCESS。
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main/int_main` 使用前端 `8081`、后端 `48081`。
+- WORKTREE DELETE: `git worktree remove D:\IntRuoyiWorktree\profile-erp-table-auto-sync` 已移除 Git 注册；Windows 返回 `Directory not empty` 后，确认残留目录无 `.git`、无目标路径进程、8083/48083 无监听，并只删除该残留目录，最终 `Test-Path` 为 false。
+- SLOT RELEASE: 使用与 `reserve-worktree-slot.ps1` 同名互斥锁更新 `D:\IntRuoyiWorktree\.ports\worktree-ports.json`，将 `profile-erp-table-auto-sync` active slot 2 标记为 inactive，记录 `deletedAt`、`cleanupTask=20260805-profile-erp-table-auto-sync` 和释放说明。
+- CLOSEOUT STATE: 任务已完成，状态更新为 `completed`；主工作区仍有其它并行任务未提交改动，但不属于 ERP worktree 删除和 slot 释放范围。
