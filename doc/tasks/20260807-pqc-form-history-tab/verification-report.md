@@ -28,5 +28,6 @@ PASS for the requested PQC 历史表单 feature. The target static contract, pro
 
 ## Closeout Status
 
-- Current status: `ready_for_closeout`.
+- Current status: `completed`.
+- Cleanup apply deleted only archived `frontend-feature-evidence.md` and kept the core task records.
 - No fallback, mock data, silent downgrade, or temporary bypass was introduced.

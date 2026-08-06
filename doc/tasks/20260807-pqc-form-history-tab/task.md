@@ -11,7 +11,7 @@
 3. `completed` 前端新增“历史表单”页签、审核通过固定查询和只读历史列。
 4. `completed` 补齐必要的前端类型/API 字段映射。
 5. `completed` 运行目标静态合同、相邻合同和类型检查。
-6. `in_progress` 更新验证报告与收尾状态。
+6. `completed` 更新验证报告与收尾状态。
 
 ## Expected Verification
 
@@ -24,9 +24,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-历史表单功能实现完成，目标合同、生产报工历史相邻合同、后端 mapper 静态合同、`pnpm ts:check` 和 `git diff --check` 均通过。`team-leader-production-report-payload-columns-static.spec.cjs` 仍失败在既存生产报工列池断言，不属于本次 PQC 历史表单改动范围，已在验证报告记录为相邻回归阻塞。
+历史表单功能实现和 cleanup apply 已完成，目标合同、生产报工历史相邻合同、后端 mapper 静态合同、`pnpm ts:check` 和 `git diff --check` 均通过。`team-leader-production-report-payload-columns-static.spec.cjs` 仍失败在既存生产报工列池断言，不属于本次 PQC 历史表单改动范围，已在验证报告记录为相邻回归阻塞。
 
 ## 设计约束检查
 
