@@ -81,3 +81,15 @@ FUNCTION PASS。已完成计划内实现、自动化回归、真实页面保存�
 - 任务自有 `8083/48083` 服务已停止，端口已释放。
 - 功能分支已推送到 `origin/codex/profile-erp-table-auto-sync`，本地与远端 `8baafeb1b3c4756f2088548d8a4cfc2e8d8a12d1` 一致。
 - 当前任务状态保持 `ready_for_closeout`：`E:\IntRuoyi` 仍有其它任务持续写入，不能安全执行 clean-worktree 要求的 `--ff-only` 融合和 worktree 删除。
+
+## 2026-08-06 Integration Verification
+
+- 最新远端主线 `74d66c094` 已通过合并提交 `42e20ddea` 融入 ERP 功能分支，`git merge-base --is-ancestor origin/int_main HEAD` -> PASS。
+- `node IntRuoyiFronted\tests\e2e\profile-erp-table-auto-sync-static.spec.js` -> PASS。
+- `node IntRuoyiFronted\tests\e2e\profile-nas-table-auto-sync-static.spec.js` -> PASS。
+- `pnpm ts:check` -> PASS。
+- `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_erp_kingdee_table_auto_sync_sql.py -q` -> PASS，4 passed。
+- `mvn.cmd -pl yudao-module-erp -am "-Dtest=cn.iocoder.yudao.module.erp.kingdeeautosync.ErpKingdeeTableAutoSyncContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，4 tests / 0 failures / 0 errors。
+- 本任务迁移元数据已从非法 `type=schema,job` 修正为正式单一 `type=schema`，依赖从带 `.sql` 后缀修正为 migrationId `20260612_erp_kingdee_sync_runtime`。
+- 目标迁移及依赖链 policy gate -> PASS，`migrationCount=2`。
+- 全仓 migration policy gate -> FAIL，仅命中融合前远端主线既有 `20260805_erp_nas_table_auto_sync.sql` 的非法 `type=schema,job`；该宽回归遗留不由本 ERP 功能分支引入，已保留精确失败证据。

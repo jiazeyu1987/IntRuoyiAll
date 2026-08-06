@@ -69,6 +69,18 @@ BDD: 可读地展示 ERP 同步运行结果 -> Given 系统已有 ERP 同步水�
 - OWNERSHIP: `D:\IntRuoyiWorktree\20260805-process-config-unification` 仍为 dirty 且任务状态 `blocked`，不满足批量融合门禁，本轮不提交、不复制、不合并该 worktree 的未完成内容。
 - MAIN SAFETY: `E:\IntRuoyi` 的 `int_main` 落后远端且存在大量并行脏改动；按并行主工作区远端快进融合门禁，不修改、不清理、不提交主工作区内容。
 - EXPERIENCE: 已执行 `project-experience-consolidation` 路由检查；现有 `docs/worktree-memory.md` 的“并行主工作区远端快进融合门禁”和“多 Worktree 批量融合门禁”已完整覆盖本轮场景，无新增可复用经验文档变更。
+- MERGE: `42e20ddea` 已将 `origin/int_main` `74d66c094` 语义合入 ERP 分支，无冲突；合并钩子和分支运行端口守卫均通过。
+- POST-MERGE GREEN: `node tests\e2e\profile-erp-table-auto-sync-static.spec.js` -> PASS。
+- POST-MERGE GREEN: `node tests\e2e\profile-nas-table-auto-sync-static.spec.js` -> PASS。
+- POST-MERGE GREEN: `pnpm ts:check` -> PASS。
+- POST-MERGE GREEN: `mvn.cmd -pl yudao-module-erp -am "-Dtest=cn.iocoder.yudao.module.erp.kingdeeautosync.ErpKingdeeTableAutoSyncContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，4 tests / 0 failures / 0 errors。
+- RED: `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --sql-file IntRuoyiBackend\sql\mysql\20260805_erp_kingdee_table_auto_sync.sql ...` -> FAIL，预期原因是本任务迁移元数据使用非法复合类型 `type=schema,job`。
+- RED: 更新 SQL 合同后运行 `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_erp_kingdee_table_auto_sync_sql.py -q` -> FAIL，1 failed / 3 passed，证明旧迁移头不满足单一 `type=schema`。
+- GREEN: 将本任务迁移类型收敛为 `type=schema` 后，SQL 合同暂时通过；目标 migration policy gate 随后明确暴露 `dependsOn=20260612_erp_kingdee_sync_runtime.sql` 后缀无效。
+- RED: SQL 合同新增无 `.sql` 后缀的正式 migrationId 断言后复跑 -> FAIL，1 failed / 3 passed。
+- GREEN: 将依赖修正为 `dependsOn=20260612_erp_kingdee_sync_runtime` 后，SQL 合同 -> PASS，4 passed。
+- GREEN: 目标迁移及依赖链 policy gate -> PASS，`migrationCount=2`，两项 `type=schema`，目标依赖解析为 `20260612_erp_kingdee_sync_runtime`。
+- WIDE REGRESSION: 全仓 migration policy gate 仍被 `origin/int_main` 已存在的 `20260805_erp_nas_table_auto_sync.sql` 非法 `type=schema,job` 阻塞；该文件来自既有提交 `1e4a61500` 且已存在于融合前的远端主线，不是本任务引入。按宽回归归因门禁保留失败证据，不用窄测掩盖。
 
 ## Commit And Closeout Progress
 

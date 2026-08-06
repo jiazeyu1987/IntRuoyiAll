@@ -52,6 +52,7 @@ def test_kingdee_table_auto_sync_sql_has_release_metadata_and_runtime_dependency
 
     assert "20260805_erp_kingdee_table_auto_sync" in sql
     assert "ERP 表格自动同步" in sql
-    assert "dependsOn=20260612_erp_kingdee_sync_runtime.sql" in sql
-    assert "schema" in sql.lower()
-    assert "job" in sql.lower()
+    assert "dependsOn=20260612_erp_kingdee_sync_runtime;" in sql
+    assert "dependsOn=20260612_erp_kingdee_sync_runtime.sql" not in sql
+    assert "type=schema; riskLevel=medium" in sql
+    assert "type=schema,job" not in sql

@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260612_erp_kingdee_sync_runtime.sql; type=schema,job; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260612_erp_kingdee_sync_runtime; type=schema; riskLevel=medium
 -- 20260805_erp_kingdee_table_auto_sync
 -- ERP 表格自动同步：新增租户级 Kingdee/ERP 拉取同步计划和全局 dispatcher Job。
 -- 设计边界：只保存自动触发配置；实际同步继续复用现有 Kingdee JobHandler、erp_kingdee_sync_run 和 erp_kingdee_sync_watermark。
