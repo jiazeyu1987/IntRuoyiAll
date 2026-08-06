@@ -10,7 +10,7 @@
 - [x] 定位重排实际报错路径并补充 RED 回归测试。
 - [x] 实现最小后端修复，保持缺工作站/缺产能等资源错误 fail-fast。
 - [x] 运行目标 Maven 回归和证据验证。
-- [ ] 收尾清理、提交并推送。
+- [x] 收尾清理、提交并推送。
 
 ## Expected Verification
 
@@ -28,9 +28,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-实现和目标验证已完成；剩余 closeout、提交和推送。
+实现提交 `c76f3fec0` 已创建；收尾记录完成，等待本收尾提交随任务一起推送验证。
 
 ## 设计约束检查
 

@@ -29,7 +29,8 @@
 - The detached verification worktree did not start frontend/backend services and did not reserve runtime ports.
 - The detached verification worktree `D:\IntRuoyiWorktree\verify-replan-shift-hours-default-20260806` was removed after PASS; remaining worktree list no longer contains it.
 - Project experience was merged into existing backend development rules and experience index; no new long-term memory file was created.
+- Implementation commit: `c76f3fec0` (`修复重排班次小时默认值回归`).
 
 ## Blockers
 
-- No code blocker remains.
+- No blocker remains.

@@ -47,7 +47,8 @@
 - PASS: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260806-replan-shift-hours-default-regression --mode apply` -> applied，deleted `backend-api-evidence.md` and `bug-regression-evidence.md`。
 - PASS: `rg -n "排产资源缺少班次小时配置|defaultShiftHoursWhenMissing|默认10.5小时|缺班次小时" docs\experience-index.md docs\backend-development.md` -> PASS，经验索引可定位到后端门禁。
 - PASS: `git diff --check -- IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/schedule/MesProAutoScheduleServiceImpl.java IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/schedule/MesProAutoScheduleServiceImplTest.java doc/tasks/20260806-replan-shift-hours-default-regression docs/backend-development.md docs/experience-index.md` -> PASS，仅 CRLF working-copy 提示。
-- Pending: explicit-path commit and push。
+- PASS: Implementation commit `c76f3fec0` (`修复重排班次小时默认值回归`) created with explicit-path staging; unrelated parallel task files remained unstaged。
+- Pending: final closeout commit and push verification。
 
 ## Blockers
 
