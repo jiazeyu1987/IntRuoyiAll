@@ -15,7 +15,7 @@
 
 ## TDD Evidence
 
-- RED: pending
+- RED: `node tests\e2e\pqc-personnel-unified-status-list-static.spec.cjs` -> FAIL, expected because the old PQC personnel actions still rendered `v-model="pqcPersonnelQuery.enabled"` and split enabled/disabled inspectors.
 - GREEN: pending
 - REGRESSION: pending
 

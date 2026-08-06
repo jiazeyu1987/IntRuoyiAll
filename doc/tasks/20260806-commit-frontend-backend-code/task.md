@@ -8,8 +8,8 @@
 
 - [x] M1：确认仓库根目录、当前分支、远端和工作区状态。
 - [x] M2：确认现有变更的任务归属、验证状态、敏感文件和大文件风险。
-- [ ] M3：按项目门禁完成暂存、提交、远端同步和推送。
-- [ ] M4：复扫残余改动并完成任务收尾记录。
+- [x] M3：按项目门禁完成暂存、提交、远端同步和推送。
+- [x] M4：复扫残余改动并完成任务收尾记录。
 
 ## Expected Verification
 
@@ -37,9 +37,9 @@
 
 ## Current Status
 
-in_progress
+completed
 
-用户已明确授权一次性恢复非空锁。锁文件已按原 SHA-256 备份到 `.git/index.lock.backup-20260806-090540` 后删除，Git 状态和 staged 清单恢复可读。当前 `int_main` 在等待期间变为落后 `origin/int_main` 16 个提交，正在继续验证、基线提交和远端同步。
+用户已明确授权一次性恢复非空锁。锁文件已按原 SHA-256 备份到 `.git/index.lock.backup-20260806-090540` 后删除，Git 状态和 staged 清单恢复可读。前后端提交、远端同步、清理预览、清理应用和最终收尾记录均已完成；并发任务残余改动保持未触碰。
 
 ## Blockers
 
@@ -66,3 +66,11 @@ in_progress
 - `pnpm ts:check` -> PASS。
 - `git diff --check` 与 `git diff --cached --check` -> PASS。
 - 敏感信息复核：强 token / private key / bearer 模式未命中；RRM 本机包装脚本中的 SQL `password = '$escapedHash'` 为 here-string 变量占位，真实密码由进程环境变量提供，未发现明文密码值。
+- `task-closeout-cleanup` preview/apply -> PASS，保留 `task.md`、`execution-log.md`、`verification-report.md`，删除 0 个文件，阻塞 0 项。
+- 最终收尾阶段仅暂存当前任务目录 3 个文件；并发 PQC/QA 残余源码、测试和任务目录未纳入本任务收尾提交。
+
+## Cleanup Keep
+
+- doc/tasks/20260806-commit-frontend-backend-code/task.md
+- doc/tasks/20260806-commit-frontend-backend-code/execution-log.md
+- doc/tasks/20260806-commit-frontend-backend-code/verification-report.md

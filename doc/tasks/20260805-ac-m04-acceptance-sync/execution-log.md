@@ -37,6 +37,7 @@
 - BDD: PQC 复核弹窗闭环 -> Given 页面复核成功后 `reviewVisible=false`，失败时弹窗保持打开；When E2E 点击“提交复核”；Then 成功必须等待弹窗隐藏后再操作筛选，失败必须先记录结构化 blocker 并关闭当前复核弹窗，禁止使用 force click 绕过遮罩。
 - BDD: PQC 复核 scope 本机修复安全 -> Given 用户仅授权本机 Docker MySQL 且目标语义 scope 不存在；When 写入 `512/PQC/EMPLOYEE/914524`；Then 必须先核对用户、既有 scope、事件、PQC 记录、候选主键和语义键，在一个事务中精确插入一行，并提供按全字段删除的 rollback。
 - BDD: AC-M21 汇集表运行态闭合 -> Given AC-M20 已先创建过程检验汇集表、AC-M21 的 `CREATE TABLE IF NOT EXISTS` 不会修改既有表；When PQC 组长批准本轮提交并批量写汇集明细；Then 正式追加迁移必须幂等补齐 `active_order_id`、`route_version_id`、`actual_inspection_quantity`，从同租户正式 PQC 任务回填缺失值，缺正式来源时 fail fast，并补齐标准唯一键和查询索引。
+- BDD: AC-M21 运行态汇集迁移安全 -> Given 本机运行库已经存在旧形态 `mes_pqc_process_inspection_aggregate_detail`；When 执行闭合迁移；Then 必须先备份、可回滚、从正式 `mes_pqc_inspection_task` 回填缺失列，并在缺少正式来源或存在重复业务键时 fail fast，禁止用默认数量、空 route version 或吞唯一键异常冒充汇集成功。
 - 本轮优先做产物一致性和静态/JSON 校验；若发现真实脚本或源码缺口，再按 RED/GREEN 进入实现。
 
 ## Command Intent
@@ -157,6 +158,12 @@
 - GREEN: `node IntRuoyiFronted\tests\e2e\role-requirement-matrix-local-wrapper-static.spec.cjs` -> PASS；本机 DB 前置仍要求精确 `PQC_REVIEW_SCOPE=1` 和 `PQC_SELECTED_TASK=1`。
 - GREEN: PowerShell parser for `run-rrm-real-e2e-local.ps1` -> PASS。
 - GREEN: experience-preflight -> PASS；已读取 `docs/frontend-development.md`、`docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/worktree-restrictions.md`、`docs/database-rules.md`、`docs/powershell-encoding.md` 和 `docs/task-closeout-rules.md`，当前长链路仅限 `E:\IntRuoyi` 的 `8081/48081` 与本机 Docker MySQL。
+- RED: AC-M21 aggregate runtime closure schema test -> FAIL；`MesQaPqcSchemaTest` 预期运行态闭合迁移存在，但 `20260805_mes_pqc_process_inspection_aggregate_runtime_closure.sql` 尚未落盘，无法证明既有 AC-M20 旧表会被补齐 `actual_inspection_quantity`。
+- GREEN: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesQaPqcSchemaTest,MesProcessPoolSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS；7 个 schema 测试通过，覆盖运行态闭合迁移必须补齐 `active_order_id`、`route_version_id`、`actual_inspection_quantity`、NOT NULL、回填和索引。
+- GREEN: AC-M21 migration policy gate -> PASS；`doc\tasks\20260805-ac-m04-acceptance-sync\ac-m21-runtime-closure-policy-gate.json` 显示 `status=passed`、`migrationCount=17`，新增迁移 `20260805_mes_pqc_process_inspection_aggregate_runtime_closure.sql` 具备 release-migration 元数据、依赖和 SHA256。
+- BACKUP: `db-backup/acm04-ac-m21-aggregate-runtime-closure-20260806.sql` -> SHA256 `8D9DD18114ED4BD603EA94CB504D76B3954660E6645C12FF8BE86F37342BF674`。
+- GREEN: AC-M21 local DB apply -> PASS；本机 Docker MySQL 执行运行态闭合迁移成功，rollback 保存在 `db-repair/acm21-aggregate-runtime-closure-rollback.sql`。
+- GREEN: AC-M21 local DB post-verify -> PASS；`mes_pqc_process_inspection_aggregate_detail` 已存在 `active_order_id`、`route_version_id NOT NULL`、`actual_inspection_quantity NOT NULL`，缺正式来源行 `0`、残留存储过程 `0`，唯一键 `uk_mes_pqc_process_inspection_aggregate` 与 review/task/submit_event 索引均存在。
 
 ## Blockers
 
@@ -165,5 +172,6 @@
 - 历史 worktree 真实 `result.json` 不是当前主任务 canonical 状态，直接复制会把额外 transfer-trace blocker 带回主工作区，造成验收口径倒退。
 - AC-M04 当前仍只能保持 `PASS_ACTION_NOT_ACCEPTED`；虽然 full real E2E 已证明 AC-M04 核心动作 PASS，但提升为 `ACCEPTED` 前还必须补齐 coverage ledger 的正式接受条件，证明成功路径、重复/并发、冲突路线、越权写入、跨角色只读、PQC/报工候选联动和清理-readiness 均达到准出。
 - 后续非 AC-M04 阻塞：PQC 正式提交未捕获提交接口响应、PQC 组长提交夹具不足、eDHR 放行准备路线下拉定位失败、AC-M19 并发 proof 缺口、性能准出和 62 个 coverage blocker。
-- 当前 PQC 首要数据 blocker：事件已落库，但 PQC 组长 `512` 缺少实际检验人 `914524` 的正式负责范围；必须补精确本机 scope，禁止放宽 `employeeUserIds` 权限过滤。
+- 已解除：PQC 组长 `512` 到实际检验人 `914524` 的正式负责范围已补齐并复验；禁止放宽 `employeeUserIds` 权限过滤。
+- 已解除：AC-M21 汇集表运行态 schema blocker 已通过正式迁移、本机 apply 和 post-verify 闭合；下一步必须用 full real E2E 证明页面批准复核后的汇集与只读证据。
 - 已解除硬阻塞：PQC 正式提交暴露的 P0 runtime migration/backfill blocker 已按用户授权在本机库完成修复并复验 PASS；下一步必须重新运行真实 RRM E2E，不能把 schema verifier PASS 直接冒充 PQC 页面链路 PASS。

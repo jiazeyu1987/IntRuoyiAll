@@ -37,8 +37,14 @@ assert.match(
 
 assert.match(
   teamLeaderWorkbench,
-  /<template\s+#actions(?:\s*=\s*"[^"]*")?\s*>[\s\S]*data-pqc-personnel-add-button[\s\S]*新增[\s\S]*pqcPersonnelQuery\.enabled/,
-  'PQC personnel standard list actions must expose 新增 and enabled filter controls.'
+  /<template\s+#actions(?:\s*=\s*"[^"]*")?\s*>[\s\S]*data-pqc-personnel-add-button[\s\S]*新增/,
+  'PQC personnel standard list actions must expose 新增.'
+)
+
+assert.doesNotMatch(
+  pqcPersonnelBlock,
+  /pqcPersonnelQuery\.enabled/,
+  'PQC personnel standard list must not split inspectors by enabled status.'
 )
 
 assert.match(
