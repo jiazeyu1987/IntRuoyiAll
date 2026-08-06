@@ -7,9 +7,9 @@
 ## Milestones
 
 - [x] 定位顶部保存与生产组长字段保存的分离链路。
-- [ ] 补充静态回归合同，先证明顶部保存未调用生产组长专用保存。
-- [ ] 实现顶部保存联动保存生产组长配置。
-- [ ] 运行目标静态合同和基础校验。
+- [x] 补充静态回归合同，先证明顶部保存未调用生产组长专用保存。
+- [x] 实现顶部保存联动保存生产组长配置。
+- [x] 运行目标静态合同和基础校验。
 
 ## Expected Verification
 
@@ -18,7 +18,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Applicable Experience Gate
 
