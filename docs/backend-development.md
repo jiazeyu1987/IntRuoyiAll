@@ -287,12 +287,12 @@
 
 ### QA 规程配置状态必须来自产品级规程记录
 
-- Trigger: QA 规程配置页、DCC 项目代码对应产品、`已配置 QA 规程`、`待配置 QA 规程`、`project-statuses`、`mes_qa_inspection_regulation.product_id`、前端硬编码 `IDI` 或压力泵模板判断配置状态。
-- Preflight check: 修改 QA 规程配置状态前，先核对 DCC 项目代码的 `productMasterId` 与 QA 规程表 `product_id` 的正式关系；配置状态必须由后端按产品 ID 查询 QA 规程记录并返回，前端只能展示和错误处理，不得用项目代码、产品名称或样例模板集合推断已配置。
-- Blocker: 页面把压力泵 `IDI`、产品名称、前端常量集合、空状态、模板初始化数据或查询失败当作配置状态来源，或状态接口失败时静默把项目归入待配置，必须停止并补齐正式状态接口和错误展示。
-- Verification: 后端回归必须覆盖已配置与未配置产品按请求顺序返回；前端静态契约必须断言调用正式 `project-statuses` API、禁止硬编码配置集合，并覆盖状态加载失败可见错误；同时运行 `pnpm ts:check`。
-- Forbidden action: 禁止用前端文案、默认项目、压力泵样例模板、API-only 展示或吞掉状态接口错误替代后台 QA 规程配置事实。
-- Evidence: `doc/tasks/20260804-qa-regulation-dcc-project-code/verification-report.md`。
+- Trigger: QA 规程配置页、DCC 项目代码对应产品、`已配置 QA 规程`、`待配置 QA 规程`、产品级检验规则草稿、`qaInspectionTypeRules`、`qaProductRuleDrafts`、`project-statuses`、`mes_qa_inspection_regulation.product_id`、前端硬编码 `IDI` 或压力泵模板判断产品状态。
+- Preflight check: 修改 QA 规程配置状态或检验规则前，先核对 DCC 项目代码的 `productMasterId` 与 QA 规程表 `product_id` 的正式关系；配置状态必须由后端按产品 ID 查询 QA 规程记录并返回。页面内尚未保存的规程字段、检验规则和检验项目也必须以 `productMasterId` 为唯一状态 key，切换产品前保存当前产品草稿、切换后恢复目标产品草稿；同一产品的不同 DCC 入口必须复用同一状态，缺产品绑定时清空并阻塞。
+- Blocker: 页面把压力泵 `IDI`、产品名称、前端常量集合、空状态、模板初始化数据或查询失败当作配置状态来源，直接以项目代码选择当前规则，多个产品共享同一个可变规则数组，切换产品不重置/恢复规则，或状态接口失败时静默把项目归入待配置，必须停止并补齐正式产品状态链路。
+- Verification: 后端回归必须覆盖已配置与未配置产品按请求顺序返回；前端静态契约必须断言调用正式 `project-statuses` API、产品草稿 Map 以正式产品 ID 为 key、切换前保存和切换后恢复、同产品跨项目入口复用、缺产品绑定清空，并禁止项目代码直接选择当前规则；同时运行相邻 QA 合同和 `pnpm ts:check`。
+- Forbidden action: 禁止用前端文案、默认项目、产品名称、项目代码、压力泵样例模板、共享页面单例、API-only 展示或吞掉状态接口错误替代产品级 QA 规程和检验规则事实；样例规则如需保留，只能先通过正式 DCC `productMasterId` 登记产品归属。
+- Evidence: `doc/tasks/20260804-qa-regulation-dcc-project-code/verification-report.md`；`doc/tasks/20260805-qa-regulation-product-specific-rules/verification-report.md`。
 
 ## MES 工艺路线产品绑定状态门禁
 

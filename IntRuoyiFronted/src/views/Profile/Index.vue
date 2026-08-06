@@ -51,6 +51,9 @@
               <el-tab-pane label="NAS表格自动同步" name="nasTableSync">
                 <ProfileNasTableAutoSyncSetting />
               </el-tab-pane>
+              <el-tab-pane label="ERP表格自动同步" name="erpTableSync">
+                <ProfileErpTableAutoSyncSetting />
+              </el-tab-pane>
             </el-tabs>
           </div>
         </el-tab-pane>
@@ -70,6 +73,7 @@ import {
   BasicInfo,
   EdhrReleaseDossierRequirementSetting,
   EdhrRecordbookGlobalSetting,
+  ProfileErpTableAutoSyncSetting,
   ProfileWorkbench,
   ProfileNasTableAutoSyncSetting,
   ResetPwd,

@@ -45,6 +45,15 @@ ErrorCode PURCHASE_ORDER_ITEM_RETURN_FAIL_IN_EXCEED = new ErrorCode(1_030_101_00
     ErrorCode NAS_TABLE_SYNC_TYPE_UNSUPPORTED = new ErrorCode(1_030_101_035, "NAS 表格自动同步不支持导出 ERP 表：{}");
     ErrorCode NAS_TABLE_SYNC_EXPORT_FAILED = new ErrorCode(1_030_101_036, "NAS 表格自动同步导出失败：{}");
     ErrorCode NAS_TABLE_SYNC_JOB_SAVE_FAILED = new ErrorCode(1_030_101_037, "NAS 表格自动同步调度保存失败：{}");
+    ErrorCode KINGDEE_TABLE_AUTO_SYNC_PLAN_NOT_EXISTS = new ErrorCode(1_030_101_038, "ERP 表格自动同步计划不存在");
+    ErrorCode KINGDEE_TABLE_AUTO_SYNC_PLAN_DISABLED = new ErrorCode(1_030_101_039, "ERP 表格自动同步计划未启用");
+    ErrorCode KINGDEE_TABLE_AUTO_SYNC_START_TIME_REQUIRED = new ErrorCode(1_030_101_040, "启用 ERP 表格自动同步时必须设置每日开始时间");
+    ErrorCode KINGDEE_TABLE_AUTO_SYNC_TYPE_REQUIRED = new ErrorCode(1_030_101_041, "启用 ERP 表格自动同步时必须至少选择一个 ERP 表格");
+    ErrorCode KINGDEE_TABLE_AUTO_SYNC_TYPE_UNSUPPORTED = new ErrorCode(1_030_101_042, "ERP 表格自动同步不支持同步类型：{}");
+    ErrorCode KINGDEE_TABLE_AUTO_SYNC_JOB_SAVE_FAILED = new ErrorCode(1_030_101_043, "ERP 表格自动同步调度保存失败：{}");
+    ErrorCode KINGDEE_TABLE_AUTO_SYNC_JOB_HANDLER_MISSING = new ErrorCode(1_030_101_044, "ERP 表格自动同步任务处理器不存在：{}");
+    ErrorCode KINGDEE_TABLE_AUTO_SYNC_JOB_HANDLER_INVALID = new ErrorCode(1_030_101_045, "ERP 表格自动同步任务处理器类型无效：{}");
+    ErrorCode KINGDEE_TABLE_AUTO_SYNC_EXECUTE_FAILED = new ErrorCode(1_030_101_046, "ERP 表格自动同步执行失败：{}");
     ErrorCode KINGDEE_EXTERNAL_WRITE_DISABLED = new ErrorCode(1_030_101_022, "ERP写权限已关闭，禁止写入外部 ERP");
 
     // ========== ERP Kingdee 事件回调（1-030-901-000） ==========
