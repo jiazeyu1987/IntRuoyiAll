@@ -10,7 +10,7 @@
 
 ## RED / GREEN
 
-- RED: pending
+- RED: `workdir=IntRuoyiFronted; node tests/e2e/mes-route-start-production-leaders-static.spec.js` -> FAIL, expected reason: 顶部保存链路缺少 `saveRouteStartProductionLeadersIfChanged`，没有调用生产组长专用保存。
 - GREEN: pending
 
 ## Root Cause

@@ -6344,7 +6344,8 @@ const persistRouteProcessDraftChanges = async () => {
 const hasWorkspaceDraftChanges = () =>
   graphDirty.value ||
   hasSelectedProcessAttributeDraftChanges() ||
-  hasRouteProcessUpdateDraftChanges()
+  hasRouteProcessUpdateDraftChanges() ||
+  hasRouteStartProductionLeaderDraftChanges()
 
 const discardWorkspaceDraftChanges = () => {
   graphDirty.value = false

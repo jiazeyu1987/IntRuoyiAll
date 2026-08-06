@@ -121,18 +121,18 @@ assert.match(
 )
 assert.match(
   source,
-  /const resetSubmissionMultiFilter = \(\) => \{[\s\S]*conditions:\s*\[\][\s\S]*clearSubmissionFilterParams\(\)[\s\S]*submissionList\.value = \[\][\s\S]*submissionTotal\.value = 0/,
-  'PQC 管理重置必须回到标准空条件状态，不得携带隐藏日期条件继续查询。'
+  /const resetSubmissionMultiFilter = async \(\) => \{[\s\S]*conditions:\s*\[\][\s\S]*clearSubmissionFilterParams\(\)[\s\S]*ensureSubmissionDateCondition\(\)[\s\S]*submissionList\.value = \[\][\s\S]*submissionTotal\.value = 0[\s\S]*await getSubmissionList\(\)/,
+  'PQC 管理重置必须恢复可见提交日期条件并通过标准列表重新查询。'
 )
 assert.doesNotMatch(
   source,
   /submissionMultiFilter\.setCondition|syncSubmissionDefaultConditions/,
-  '标准多条件搜索首屏必须保持空条件，不得通过页面级 setCondition 预置日期或模板筛选。'
+  '标准多条件搜索不得通过隐藏 setCondition 预置日期或模板筛选。'
 )
 assert.match(
   source,
-  /submitDate:\s*''[\s\S]*templateType:\s*undefined/,
-  'PQC 管理首屏 query 参数不得预置隐藏提交日期或模板类型。'
+  /submitDate:\s*getDefaultSubmissionDate\(\)[\s\S]*templateType:\s*undefined/,
+  'PQC 管理首屏 query 参数必须使用可见的默认提交日期条件，且不得预置隐藏模板类型。'
 )
 
 assert.match(

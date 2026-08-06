@@ -3,7 +3,7 @@
 ## Summary
 
 - QA route scope loading now resolves the route process after loading route processes plus SCHEDULE and BATCH configs.
-- Resolution order is deterministic: unique `checkFlag=true`, single formal process, unique enabled BATCH `batchRecordReports` process, otherwise fail-fast.
+- Resolution order is deterministic: unique `checkFlag=true`, single formal process, unique enabled BATCH `batchRecordReports` process, unique published route-process `batchRecordReportId/code/name` projection, otherwise fail-fast.
 - `formBindings` are not used to infer official batch-record process ownership.
 
 ## Commands
