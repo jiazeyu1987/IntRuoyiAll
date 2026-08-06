@@ -10,7 +10,7 @@
 - [x] M2 RED 静态合同覆盖按钮文案与点击行为
 - [x] M3 前端实现最小正式修改入口
 - [x] M4 GREEN 与回归验证
-- [ ] M5 收尾、经验沉淀、提交与推送
+- [x] M5 收尾、经验沉淀、提交与推送
 
 ## Expected Verification
 
@@ -22,7 +22,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
@@ -45,3 +45,8 @@ ready_for_closeout
 - Source behavior captured in commit `b29b78104`: `TeamLeaderWorkbenchPage.vue` row operation now shows “修改”, calls `openCorrection(row)`, allows production leader row-level modification, and removes row-level `prefillAbnormal(row)` / “标记异常”.
 - Regression contract captured in commit `34e2faceb`: `production-leader-report-row-modify-action-static.spec.cjs`.
 - Adjacent review gate update captured in commit `8c55fbe51`: `team-leader-pqc-review-gate-static.spec.js` now reflects production direct modification while preserving PQC rejected-only modification.
+
+## Final Verification
+
+- Cleanup preview/apply passed with no deleted paths.
+- Final task-owned closeout records were prepared for selective commit because unrelated concurrent task files remained dirty.

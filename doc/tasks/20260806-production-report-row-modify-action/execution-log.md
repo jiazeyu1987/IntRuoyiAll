@@ -36,8 +36,9 @@
 - Project experience consolidation: existing `docs/frontend-development.md#前端按钮文案与行为一致性门禁` already covers this reusable lesson; no new long-term document was created.
 - Cleanup preview: PASS, kept `task.md`, `execution-log.md`, and `verification-report.md`; no delete, blocked, or warning entries.
 - Cleanup apply: PASS, no files deleted.
+- Final closeout: non-task dirty baseline attempt was blocked by trailing whitespace in `doc/tasks/20260806-pressure-pump-equipment-extract/equipment-ledger-match.tsv`; to avoid modifying unrelated task data, current task closeout records were staged selectively.
 
 ## Blockers
 
 - No functional blocker for this task.
-- Closeout/push still needs to avoid staging unrelated concurrent dirty task files.
+- Unrelated concurrent dirty files remain outside this task and were not staged.

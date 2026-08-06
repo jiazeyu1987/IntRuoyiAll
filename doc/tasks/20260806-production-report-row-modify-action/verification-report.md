@@ -19,3 +19,4 @@ PASS. 生产组长报工管理行操作已从“标记异常”改为“修改�
 - Formal modification path remains `openCorrection(row)` -> `updateProcessPoolOriginalRecord(...)`; no fallback, mock, or abnormal-prefill substitute was introduced.
 - Source implementation was already captured by concurrent baseline commit `b29b78104`; task contract was captured by `34e2faceb`; adjacent contract update was captured by `8c55fbe51`.
 - Unrelated concurrent dirty docs under `doc/tasks/20260806-hide-review-copy-columns/` and `doc/tasks/20260806-team-leader-employee-name/` were not staged for this task.
+- Final closeout records are task-owned only; unrelated dirty TSV/data artifacts were left untouched.
