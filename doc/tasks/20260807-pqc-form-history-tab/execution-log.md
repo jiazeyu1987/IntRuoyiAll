@@ -30,6 +30,7 @@
 - 2026-08-07：已在 `TeamLeaderWorkbenchPage.vue` 新增 PQC “历史表单”tab、`history` tab key、`showPqcFormHistoryModule`、`isPqcFormHistoryTab`、`PQC_FORM_HISTORY_TABLE_KEY`、历史列池和审核人/审核时间列。
 - 2026-08-07：历史页签查询强制 `submissionReviewStatus=APPROVED`，切换/重置时保持 APPROVED；历史页签屏蔽复核与修改入口，仅保留详情。
 - 2026-08-07：生产报工历史静态合同更新为兼容 PQC 历史页签共享的 `APPROVED` 查询和只读操作边界。
+- 2026-08-07：项目经验沉淀完成，已更新 `docs/frontend-development.md#前端角色内容页签拆分口径门禁` 和 `docs/experience-index.md`，记录重复 module tabs、独立历史状态、列池隔离和相邻合同要求。
 
 ## Blockers
 
