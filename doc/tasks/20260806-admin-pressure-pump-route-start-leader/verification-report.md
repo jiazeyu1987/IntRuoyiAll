@@ -30,4 +30,4 @@ PASS. Tenant `1` user `1/admin` is bound as route-start production leader for bo
 - Database evidence validator: PASS.
 - Cleanup apply: PASS; retained rollback backup and SQL evidence, removed temporary API script and temporary database evidence file.
 - 2026-08-07 recheck: updated retained GREEN SQL to verify current active target versions and reran SQL/API verification successfully.
-- Project experience: updated existing backend-development gate with the process-config add-dialog verification endpoint boundary.
+- Project experience: updated existing backend-development gate with the process-config add-dialog verification endpoint boundary and current-active-version recheck rule.

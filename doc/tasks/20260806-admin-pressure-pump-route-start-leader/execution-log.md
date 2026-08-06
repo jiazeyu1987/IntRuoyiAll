@@ -43,7 +43,7 @@
 ## Closeout
 
 - GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\20260806-admin-pressure-pump-route-start-leader\database-schema-evidence.md` -> PASS, `Database schema evidence is valid.`
-- EXPERIENCE: Updated `docs/backend-development.md#生产组长工序配置维护权限不得被工序开始快照误拦` to record that add-dialog verification must use `/mes/pro/process-pool/team-leader/process-config/list`, not the frontline device-account endpoint.
+- EXPERIENCE: Updated `docs/backend-development.md#生产组长工序配置维护权限不得被工序开始快照误拦` to record that add-dialog verification must use `/mes/pro/process-pool/team-leader/process-config/list`, not the frontline device-account endpoint, and that SQL data-repair rechecks must resolve the current active route version after route publication.
 - CLEANUP PREVIEW: `task_closeout.py --task-id 20260806-admin-pressure-pump-route-start-leader --mode preview` -> PASS after retaining rollback backup and SQL evidence.
 - CLEANUP APPLY: `task_closeout.py --task-id 20260806-admin-pressure-pump-route-start-leader --mode apply` -> PASS; deleted only `api-verify/verify-switchable-processes.cjs` and `database-schema-evidence.md` after copying key conclusions into `verification-report.md`.
 - STATUS: task marked `completed`.
