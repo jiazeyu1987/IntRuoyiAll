@@ -32,6 +32,11 @@
 
 - `RED: node IntRuoyiFronted/tests/e2e/team-leader-production-report-history-tab-static.spec.cjs -> FAIL, 报工历史 tab、APPROVED 查询、审核列与只读边界不存在。`
 
+## Verification
+
+- `node IntRuoyiFronted/tests/e2e/team-leader-production-report-history-tab-static.spec.cjs`：PASS。
+- `pnpm ts:check`：PASS。
+
 ## GREEN
 
 - `GREEN: node IntRuoyiFronted/tests/e2e/team-leader-production-report-history-tab-static.spec.cjs -> PASS。`
