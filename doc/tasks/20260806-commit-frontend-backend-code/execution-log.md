@@ -75,3 +75,21 @@
 - `git diff --cached --check` -> PASS。
 - Hardcoded secret review -> PASS：`run-rrm-real-e2e-local.ps1` 中两处 12 字符 quoted literal 为 SQL here-string 中的 `$escapedHash` 变量占位，SHA-256 一致且包含 `$`，不是实际密码值；真实临时密码通过 `RRM_LOCAL_E2E_TEMP_PASSWORD` / `RRM_*_PASSWORD` 进程环境变量传入。
 - Existing history large-object scan attempted against partial clone -> inconclusive due promisor remote TLS EOF；改为提交前 staged 文件大小扫描。
+
+## Push And Closeout Evidence
+
+- Commit `a8f377ba0` -> `chore: preserve preexisting workspace baseline`; preserved the reviewed frontend/backend/MES/PQC dirty worktree changes.
+- Commit `5549189ac` -> merged `origin/int_main` into `int_main` without history rewrite.
+- Commit `4366d6d11` -> recorded this submission task evidence and included concurrent PQC personnel task files that were already staged by shared-workspace activity.
+- Push: `git push origin int_main` -> PASS, `32cc89c6b..4366d6d11  int_main -> int_main`.
+- Final sync check after push: `git rev-list --left-right --count origin/int_main...HEAD` -> `0 0`.
+- Post-push residuals are concurrent task changes outside this task's ownership; current closeout will only commit `doc/tasks/20260806-commit-frontend-backend-code/`.
+
+## Final Closeout Resume
+
+- 2026-08-06：用户继续授权后恢复收尾；`git status --short --branch` 显示 `int_main...origin/int_main [ahead 1]`，暂存区为空。
+- 本地领先提交 `c4675d197`（`chore: baseline pre-existing dirty worktree`）是共享工作区并发基线，包含 PQC/QA 并发任务残余文件；本任务不回滚、不重写、不混入新的并发改动。
+- `git fetch origin int_main` -> PASS，远端引用可读取；未在脏工作区执行合并。
+- `project-experience-consolidation` 已执行适用性检查：`docs/powershell-memory.md` 已覆盖 `index.lock`、共享分支并发基线和提交后残余复扫门禁；本次不新增长期经验文档，避免把一次性授权恢复写成默认降级路径。
+- `task-closeout-cleanup` preview/apply 已完成，keep 为当前任务 `task.md`、`execution-log.md`、`verification-report.md`，delete/blocked/warnings 均为 0。
+- 最终收尾提交边界：仅允许暂存并提交 `doc/tasks/20260806-commit-frontend-backend-code/task.md`、`execution-log.md`、`verification-report.md`。
