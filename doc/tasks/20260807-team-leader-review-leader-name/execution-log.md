@@ -17,3 +17,12 @@
 ## Evidence
 
 - RED: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> FAIL，预期失败原因：mapper 缺少 `review_leader.nickname AS submissionReviewLeaderUserName`。
+- BASELINE: 最近并行基线 `258c46628 chore: baseline concurrent review leader follow-up` 已包含初始后端姓名字段和任务文档；按共享分支并发基线门禁记录该实现被基线提交吞入，后续不改写历史。
+- FIX: 后端时间线 mapper 返回 `review_leader.nickname AS submissionReviewLeaderUserName`，并通过 `system_users review_leader` 按 `leader_user_id + tenant_id + deleted=0` 正式关联；DO、VO、Service 透传 `submissionReviewLeaderUserName`。
+- FIX: 报工历史静态合同收窄 `report` 页签计数，避免把 `report-history` 误计为 `report`；同时兼容 PQC 历史页新增后的更严格历史操作保护表达式。
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> PASS。
+- GREEN: `node IntRuoyiFronted\tests\e2e\team-leader-production-report-employee-name-static.spec.cjs` -> PASS。
+- GREEN: `node IntRuoyiFronted\tests\e2e\team-leader-production-report-history-tab-static.spec.cjs` -> PASS。
+- REGRESSION: `mvn -pl yudao-module-mes -am "-DskipTests" compile` -> PASS，退出码 0。
+- REGRESSION: `pnpm ts:check` -> PASS。
+- REGRESSION-NONTASK: `node IntRuoyiFronted\tests\e2e\pqc-leader-form-history-tab-static.spec.cjs` -> FAIL，失败点为并行 PQC 历史页签合同尚未完全满足；本任务验收范围为生产组长报工员工/审核通过人姓名链路，未将该 PQC 页签合同作为完成门禁。

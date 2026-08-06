@@ -101,3 +101,9 @@
 - GREEN: Verification SQL confirmed target route `980091` has active version `622 / V1 / ACTIVE`, copied process count `14`, copied route flow configs `2`, active schedule configs `14`, exactly 3 active target-product bindings, 0 old-product bindings, 0 product BOMs, and snapshot item IDs `[907063, 913662, 924008]`.
 - INFO: The 3 target products currently have 0 production work orders and 0 schedule orders; this route/product association does not create production or schedule orders.
 - GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260805-production-leader-active-order-pool-tab/database-schema-evidence.md` -> PASS，`Database schema evidence is valid.`
+
+## Press Balloon Project Code And MDM Binding
+
+- GREEN: `tmp-bind-press-balloon-project-mdm.sql` -> PASS，返回 `target_route_id=980091`、`target_route_version_id=622`、`project_code=IDI`、`mdm_product_id=14`、`target_route_product_id=923079`、`final_target_mdm_bindings=1`、`final_non_target_mdm_bindings=0`、`final_snapshot_contains_mdm=1`。
+- GREEN: `tmp-press-balloon-project-mdm-verify.sql` -> PASS，`dcc_project_code.id=129 / IDI` 绑定启用 MDM `INT-15/id=14`；旧路线 `922119` 对 `item_id=14` 无活跃绑定；目标路线 `980091` 对 `item_id=14` 有且仅有 1 条活跃绑定；目标活跃版本 `622/V1` 快照包含该 MDM 产品，目标路线活跃产品总数为 4。
+- SAFETY: 本次只操作本机 tenant 1 数据，未创建生产工单、排产工单、QA 规程、PQC 任务或 mock 数据。
