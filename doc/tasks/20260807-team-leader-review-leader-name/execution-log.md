@@ -25,4 +25,6 @@
 - GREEN: `node IntRuoyiFronted\tests\e2e\team-leader-production-report-history-tab-static.spec.cjs` -> PASS。
 - REGRESSION: `mvn -pl yudao-module-mes -am "-DskipTests" compile` -> PASS，退出码 0。
 - REGRESSION: `pnpm ts:check` -> PASS。
+- VALIDATOR: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260807-team-leader-review-leader-name\bug-regression-evidence.md` -> PASS。
+- CLEANUP PREVIEW: `task_closeout.py --task-id 20260807-team-leader-review-leader-name --mode preview` -> ready；保留 `task.md`、`execution-log.md`、`verification-report.md`，删除临时 `bug-regression-evidence.md`。
 - REGRESSION-NONTASK: `node IntRuoyiFronted\tests\e2e\pqc-leader-form-history-tab-static.spec.cjs` -> FAIL，失败点为并行 PQC 历史页签合同尚未完全满足；本任务验收范围为生产组长报工员工/审核通过人姓名链路，未将该 PQC 页签合同作为完成门禁。

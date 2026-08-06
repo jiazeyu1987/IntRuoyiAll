@@ -16,4 +16,6 @@
 - Verification: `git diff --check b9a752088^ b9a752088 -- <task-owned paths>` -> PASS，无输出。
 - Concurrency: 本任务实现已被并发基线提交 `b9a752088` 吸收；该提交还包含其它任务文件，本任务后续只选择性暂存当前任务文档。
 - Maven Blocker: 检查到同模块 Maven PID `47148/49960` 正在运行其它任务 `ProcessPoolTimelineRevisionSummaryTest,ProcessPoolTimelineFilterTest,ProcessPoolTimelineQueryTest`，按 Maven 目标目录门禁未叠加本任务 `mvn -pl yudao-module-mes -am "-DskipTests" compile`。
+- Evidence Validator: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260806-loss-reason-auto-code-dialog/frontend-feature-evidence.md` -> PASS, `Frontend feature evidence is valid.`
+- Evidence Validator: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260806-loss-reason-auto-code-dialog/backend-api-evidence.md` -> PASS, `Backend API evidence is valid.`
 - Status: implementation and static/type verification complete; task set to `ready_for_closeout` pending evidence validators, cleanup, commit, and push.

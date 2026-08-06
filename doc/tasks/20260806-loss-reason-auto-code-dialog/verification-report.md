@@ -14,8 +14,8 @@
 
 ## Evidence Validators
 
-- PENDING: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260806-loss-reason-auto-code-dialog/frontend-feature-evidence.md`
-- PENDING: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260806-loss-reason-auto-code-dialog/backend-api-evidence.md`
+- PASS: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260806-loss-reason-auto-code-dialog/frontend-feature-evidence.md` -> `Frontend feature evidence is valid.`
+- PASS: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260806-loss-reason-auto-code-dialog/backend-api-evidence.md` -> `Backend API evidence is valid.`
 
 ## Maven Status
 

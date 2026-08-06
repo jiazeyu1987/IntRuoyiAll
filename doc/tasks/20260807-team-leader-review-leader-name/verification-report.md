@@ -12,6 +12,8 @@
 - `node IntRuoyiFronted\tests\e2e\team-leader-production-report-history-tab-static.spec.cjs` -> PASS。
 - `mvn -pl yudao-module-mes -am "-DskipTests" compile` -> PASS，退出码 0。
 - `pnpm ts:check` -> PASS。
+- Bug regression evidence validator -> PASS。
+- Cleanup preview -> ready，删除范围仅限临时 `bug-regression-evidence.md`。
 
 ## Notes
 
