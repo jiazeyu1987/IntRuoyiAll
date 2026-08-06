@@ -99,7 +99,12 @@ assert.match(
 )
 assert.match(
   qaPageSource,
-  /equipmentOptions:\s*buildQaRegulationItemEquipmentOptions\(item\)/,
+  /const equipmentOptions = buildQaRegulationItemEquipmentOptions\(item\)/,
+  'QA regulation page must build formal item equipment options before serializing inspection items.'
+)
+assert.match(
+  qaPageSource,
+  /equipmentOptions,\s*\r?\n\s*resultType:/,
   'QA regulation page must serialize each inspection item equipment option into the save payload.'
 )
 assert.doesNotMatch(

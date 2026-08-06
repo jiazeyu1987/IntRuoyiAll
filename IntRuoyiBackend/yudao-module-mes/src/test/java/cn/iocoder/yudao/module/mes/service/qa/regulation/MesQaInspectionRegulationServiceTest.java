@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_ITEM_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_REQUIRED_RULE_MISSING;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -267,6 +268,19 @@ class MesQaInspectionRegulationServiceTest {
         assertEquals("EQ-001", equipment.getEquipmentCode());
         assertEquals("检验灯箱", equipment.getEquipmentName());
         assertEquals("BOX-001", equipment.getEquipmentNumber());
+    }
+
+    @Test
+    void saveDraft_rejectsEquipmentOptionsWhenEquipmentNotRequired() {
+        MesQaInspectionRegulationSaveReqVO.InspectionItem firstItem =
+                saveItem("FIRST", "首检外观", 5, null);
+        firstItem.setEquipmentRequired(false);
+        firstItem.setEquipmentOptions(List.of(equipmentOption(8101L, "EQ-001", "检验灯箱", "BOX-001")));
+        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(firstItem));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.saveDraft(reqVO));
+
+        assertEquals(QA_INSPECTION_REGULATION_ITEM_INVALID.getCode(), ex.getCode());
     }
 
     private static MesQaInspectionRegulationVersionDO publishedVersion() {

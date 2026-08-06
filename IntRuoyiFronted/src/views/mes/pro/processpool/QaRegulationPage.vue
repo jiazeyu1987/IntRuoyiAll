@@ -2391,7 +2391,7 @@ const buildQaRegulationSaveItems = (): QaInspectionRegulationSaveItemVO[] =>
         standardLowerLimit: item.resultType === 'NUMERIC' ? item.lowerLimit : undefined,
         standardUpperLimit: item.resultType === 'NUMERIC' ? item.upperLimit : undefined,
         equipmentRequired: equipmentOptions.length > 0,
-        equipmentOptions: buildQaRegulationItemEquipmentOptions(item),
+        equipmentOptions,
         resultType: item.resultType,
         firstInspectionQuantity:
           inspectionType === 'PATROL' ? undefined : rule?.fixedQuantity || undefined,
