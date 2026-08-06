@@ -7,6 +7,7 @@
 核心需求：
 
 - 班组长“报工管理”生产报工表删除 `生产工单`、`PQC`、`提交内容` 三列。
+- 生产组长报工表和显示字段设置不展示 `PQC提交内容`、检验类型/轮次、过程检验汇集等 PQC 专属内容；PQC 专属内容仅保留在 PQC 组长表。
 - 报工提交 payload 和班组长展示必须包含工序、员工、完成数量、损耗数量、各损耗原因对应数量、选用设备、设备参数读数。
 - 损耗原因、设备、设备参数上下限必须按当前工序对应的班组长配置解析，不能跨工序串用同名配置。
 - 设备参数超出配置上下限时允许提交，但在班组长表格/详情中标红提示异常。
@@ -56,4 +57,4 @@
 
 ready_for_closeout
 
-Remote `int_main` integration is complete at `eb05459dff7e38fdd1b150923ca266043ccbd0c9`. Cleanup apply and worktree removal remain blocked because local main worktree `E:\IntRuoyi` is dirty; no unrelated main-worktree changes were touched.
+User追加反馈要求生产组长报工表不显示 PQC 内容。已在同一 worktree 中完成前端静态契约、最小实现、回归验证、证据校验和经验沉淀；待提交、推送并重新融合远端 `int_main`，本地 cleanup apply 仍受 `E:\IntRuoyi` 脏工作区阻塞。

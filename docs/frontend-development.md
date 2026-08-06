@@ -40,6 +40,15 @@
 - Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
 - Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。
 
+## 多角色共享表格列池隔离门禁
+
+- Trigger: 同一个 Vue 组件或 `UnifiedListTemplate` 表格按角色、页签、业务类型复用，并且存在用户列设置、默认列池、动态列显隐或专属业务列，例如生产组长/PQC 组长共用报工表。
+- Preflight check: 先同时检查模板渲染 `v-if`、传给列设置组件的 `columns`、默认列定义、持久化 `tableKey` 和保存/重置处理；角色专属字段必须在列池层隔离，不能只在 `<el-table-column>` 上用 `v-if` 隐藏。
+- Blocker: 当前角色的显示字段设置仍包含其它角色专属 label/key/marker、不同角色共享同一默认列池导致持久化配置串用、或静态合同只断言 DOM 渲染不覆盖列设置池时必须停止。
+- Verification: 聚焦静态合同必须分别抽取各角色默认列池，断言当前角色不包含其它角色专属 key/label，并断言 active column control 按角色选择；再运行相邻工作台合同和 `pnpm ts:check`。
+- Forbidden action: 禁止只用 `activeTab`/`v-if` 隐藏表格列、禁止让列设置继续暴露其它角色字段、禁止复用旧共享列配置 key 掩盖角色字段串用。
+- Evidence: 任务 `doc/tasks/20260806-production-reporting-submit-implementation/`，生产组长报工表模板已隐藏 PQC 列但显示字段设置仍来自共享列池，最终拆分 `productionSubmissionDefaultColumns` / `pqcSubmissionDefaultColumns` 与角色 active column control。
+
 ## Vue Scoped Slot 静态合同门禁
 
 - Trigger: 静态合同用正则断言 Vue SFC 的具名 slot、`UnifiedListTemplate` 的 `#table`、`#actions`、或带作用域变量的模板，例如 `<template #table="{ ... }">`。

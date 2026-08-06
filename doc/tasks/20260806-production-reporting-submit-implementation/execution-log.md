@@ -76,3 +76,22 @@
 - Verification: `git fetch origin int_main`; `git rev-parse HEAD` and `git rev-parse origin/int_main` both returned `eb05459dff7e38fdd1b150923ca266043ccbd0c9`; `git merge-base --is-ancestor HEAD origin/int_main` -> PASS.
 - Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260806-production-reporting-submit-implementation --mode preview` -> BLOCKED because local main worktree `E:\IntRuoyi` is dirty and cannot receive the script's ff-only merge. Preview keep list was `task.md`, `execution-log.md`, `verification-report.md`; delete list was `backend-api-evidence.md`, `frontend-feature-evidence.md`.
 - Decision: remote `int_main` integration is complete; cleanup apply and local worktree removal remain blocked by unrelated local main dirty state. No main worktree files were cleaned, reverted, or committed.
+
+## Production Leader PQC Column Correction
+
+- User intent: 生产组长的报工表里不需要显示 PQC 的内容。
+- BDD: 生产组长报工表不显示 PQC 专属内容 -> Given 生产组长打开报工管理并打开显示字段设置, When 查看生产报工表列与列配置, Then 不出现产品、检验类型/轮次、PQC提交内容、过程检验汇集等 PQC 专属列，PQC 组长表仍保留 PQC 专属提交内容。
+- RED: `node tests\e2e\team-leader-production-report-payload-columns-static.spec.cjs` -> FAIL, 旧实现没有 `productionSubmissionDefaultColumns` / `pqcSubmissionDefaultColumns` 独立列池，生产列配置仍来自包含 PQC 专属字段的共享默认列。
+- GREEN: `node tests\e2e\team-leader-production-report-payload-columns-static.spec.cjs` -> PASS.
+- GREEN: `node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS.
+- GREEN: `node tests\e2e\team-leader-workbench-static.spec.cjs` -> PASS.
+- GREEN: `node tests\e2e\frontline-production-submit-payload-detail-static.spec.cjs` -> PASS.
+- GREEN: `node tests\e2e\team-leader-production-report-abnormal-parameter-static.spec.cjs` -> PASS.
+- GREEN: `node tests\e2e\frontline-formal-submit-static.spec.cjs` -> PASS.
+- GREEN: `node tests\e2e\team-leader-report-allocation-static.spec.cjs` -> PASS.
+- GREEN: `pnpm ts:check` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260806-production-reporting-submit-implementation\frontend-feature-evidence.md` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260806-production-reporting-submit-implementation\bug-regression-evidence.md` -> PASS after adding the required `Verification` evidence section.
+- REGRESSION: `git diff --check` -> PASS, only Git LF-to-CRLF working-copy warnings were emitted.
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, branch `codex/20260806-production-reporting-submit-implementation`, profile `int_main`, frontend `8086`, backend `48086`.
+- Experience consolidation: updated existing `docs/frontend-development.md#多角色共享表格列池隔离门禁` and `docs/experience-index.md`; `rg -n "多角色共享表格列池隔离门禁|productionSubmissionDefaultColumns|PQC提交内容误进生产列设置" docs\frontend-development.md docs\experience-index.md` -> PASS.

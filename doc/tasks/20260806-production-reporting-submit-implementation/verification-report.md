@@ -7,6 +7,7 @@ ready_for_closeout
 ## Evidence
 
 - Frontend static contracts cover table columns, structured submit payload, abnormal parameter class, abnormal reason payload, PQC structured submission content, and adjacent team-leader/frontline contracts.
+- Production leader column settings now have an isolated production column pool that excludes PQC-only columns; PQC leader keeps its PQC submission content column pool.
 - Backend contract tests cover loss detail validation, process-scoped configuration, and structured timeline/read-model projection.
 - TypeScript and Maven targeted regression commands passed.
 - Skill evidence files were created for frontend and backend delivery and are ready for validator execution.
@@ -30,6 +31,22 @@ ready_for_closeout
 - `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260806-production-reporting-submit-implementation/backend-api-evidence.md` -> PASS.
 - `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, `int_main` slot 5 ports `8086/48086`.
 - Experience consolidation -> PASS, updated existing `docs/powershell-memory.md` and `docs/experience-index.md`.
+
+## Additional Production Leader PQC Column Correction
+
+- `node tests/e2e/team-leader-production-report-payload-columns-static.spec.cjs` -> RED then PASS after splitting production/PQC column pools.
+- `node tests/e2e/mes-process-pool-team-leader-static.spec.js` -> PASS.
+- `node tests/e2e/team-leader-workbench-static.spec.cjs` -> PASS.
+- `node tests/e2e/frontline-production-submit-payload-detail-static.spec.cjs` -> PASS.
+- `node tests/e2e/team-leader-production-report-abnormal-parameter-static.spec.cjs` -> PASS.
+- `node tests/e2e/frontline-formal-submit-static.spec.cjs` -> PASS.
+- `node tests/e2e/team-leader-report-allocation-static.spec.cjs` -> PASS.
+- `pnpm ts:check` -> PASS.
+- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260806-production-reporting-submit-implementation/frontend-feature-evidence.md` -> PASS.
+- `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260806-production-reporting-submit-implementation/bug-regression-evidence.md` -> PASS.
+- `rg -n "多角色共享表格列池隔离门禁|productionSubmissionDefaultColumns|PQC提交内容误进生产列设置" docs/frontend-development.md docs/experience-index.md` -> PASS.
+- `git diff --check` -> PASS.
+- `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS.
 
 ## Blockers
 

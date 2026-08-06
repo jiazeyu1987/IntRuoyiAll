@@ -1777,7 +1777,8 @@ import {
 } from '@/hooks/web/useTableMultiFilter'
 import {
   useUserTableColumns,
-  type UserTableColumnDefinition
+  type UserTableColumnDefinition,
+  type UserTableColumnState
 } from '@/hooks/web/useUserTableColumns'
 import {
   addTeamLeaderActiveOrder,
@@ -1954,14 +1955,29 @@ const pqcPersonnelColumns: any[] = [
   { key: 'enabled', label: '状态', visible: true }
 ]
 const SUBMISSION_TABLE_KEY = 'mes.processPool.teamLeader.submissions'
+const PRODUCTION_SUBMISSION_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.production`
+const PQC_SUBMISSION_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.pqc`
 const submissionQuickFilterDefinitions: any[] = []
 const submissionQuickFilterState = reactive({})
 const submissionOperatorOptions: any[] = []
-const submissionDefaultColumns: UserTableColumnDefinition[] = [
+const productionSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'submittedAt', label: '提交时间', minWidth: 160 },
-  { key: 'employeeUser', label: 'PQC检验员/员工', minWidth: 140 },
+  { key: 'employeeUser', label: '员工', minWidth: 140 },
   { key: 'process', label: '工序', minWidth: 150 },
-  { key: 'completionQuantity', label: '完成/检验数量', minWidth: 130 },
+  { key: 'completionQuantity', label: '完成数量', minWidth: 130 },
+  { key: 'lossQuantity', label: '损耗数量', minWidth: 120 },
+  { key: 'lossBreakdown', label: '损耗明细', minWidth: 210 },
+  { key: 'selectedDevice', label: '选用设备', minWidth: 220 },
+  { key: 'deviceParameterReadings', label: '设备参数', minWidth: 280 },
+  { key: 'auditCopyStatus', label: '审核副本', minWidth: 130 },
+  { key: 'submissionReviewStatus', label: '复核判定', minWidth: 190 },
+  { key: 'operation', label: '操作', width: 270, hideable: false, business: false }
+]
+const pqcSubmissionDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'submittedAt', label: '提交时间', minWidth: 160 },
+  { key: 'employeeUser', label: 'PQC检验员', minWidth: 140 },
+  { key: 'process', label: '工序', minWidth: 150 },
+  { key: 'completionQuantity', label: '检验数量', minWidth: 130 },
   { key: 'lossQuantity', label: '损耗数量', minWidth: 120 },
   { key: 'lossBreakdown', label: '损耗明细', minWidth: 210 },
   { key: 'product', label: '产品', minWidth: 180 },
@@ -1974,16 +1990,36 @@ const submissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'submissionReviewStatus', label: '复核判定', minWidth: 190 },
   { key: 'operation', label: '操作', width: 270, hideable: false, business: false }
 ]
-const {
-  saving: submissionColumnSaving,
-  columns: submissionColumns,
-  isColumnVisible: isSubmissionColumnVisible,
-  getColumnWidthString: getSubmissionColumnWidthString,
-  getColumnMinWidthString: getSubmissionColumnMinWidthString,
-  handleHeaderDragend: handleSubmissionHeaderDragend,
-  saveConfig: saveSubmissionColumnConfig,
-  resetConfig: resetSubmissionColumnConfig
-} = useUserTableColumns(SUBMISSION_TABLE_KEY, submissionDefaultColumns)
+const productionSubmissionColumnControl = useUserTableColumns(
+  PRODUCTION_SUBMISSION_TABLE_KEY,
+  productionSubmissionDefaultColumns
+)
+const pqcSubmissionColumnControl = useUserTableColumns(
+  PQC_SUBMISSION_TABLE_KEY,
+  pqcSubmissionDefaultColumns
+)
+const activeSubmissionColumnControl = computed(() =>
+  activeLeaderTab.value === 'PQC' ? pqcSubmissionColumnControl : productionSubmissionColumnControl
+)
+const submissionColumnSaving = computed(() => activeSubmissionColumnControl.value.saving.value)
+const submissionColumns = computed<UserTableColumnState[]>(
+  () => activeSubmissionColumnControl.value.columns.value
+)
+const isSubmissionColumnVisible = (key: string) =>
+  activeSubmissionColumnControl.value.isColumnVisible(key)
+const getSubmissionColumnWidthString = (key: string, fallback?: number) =>
+  activeSubmissionColumnControl.value.getColumnWidthString(key, fallback)
+const getSubmissionColumnMinWidthString = (key: string, fallback?: number) =>
+  activeSubmissionColumnControl.value.getColumnMinWidthString(key, fallback)
+const handleSubmissionHeaderDragend = async (newWidth: number, oldWidth: number, column: any) => {
+  await activeSubmissionColumnControl.value.handleHeaderDragend(newWidth, oldWidth, column)
+}
+const saveSubmissionColumnConfig = async () => {
+  await activeSubmissionColumnControl.value.saveConfig()
+}
+const resetSubmissionColumnConfig = async () => {
+  await activeSubmissionColumnControl.value.resetConfig()
+}
 
 const showLeaderTypeTabs = computed(() => props.showLeaderTypeTabs)
 const showPqcModuleTabs = computed(
