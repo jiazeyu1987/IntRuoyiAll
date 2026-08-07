@@ -39,6 +39,11 @@ BDD: 任一前置条件失败时整体回滚 -> Given 三项变更在同一事�
 - GREEN: relationship read models -> PASS，`mes_dv_machinery_process` 两条活动关系分别使用 `A05075/B04091`，全局 MES 工序目录及其设备子表共四条活动记录同步为新编码；按稳定设备 ID 的两条工位关系仍各 `1` 条。
 - GREEN: barcode and tenant boundary -> PASS，租户 `122` 的设备条码配置仍为 `0`、三台目标设备条码仍为 `0`；租户 `1` 未删除设备仍为 `31`，其它租户不存在五个目标/旧编码的活动记录。
 - VERIFY: real frontend E2E -> NOT RUN，当前会话只有 `芋道源码/admin` 的本机默认登录来源；已确认其密码哈希与 `测试租户` 的 `admin/aoteman/codexedhrcell01` 均不相同，历史任务也记录 `测试租户/admin` 登录失败。按 `docs/login-access.md` 未切换租户、未复用数据库令牌、未重置账号密码；本次以事务后真实数据库及正式读模型精确查询作为必需数据验证。
+- EXPERIENCE: `project-experience-consolidation` -> PASS，将 DML 后必须先保存 `ROW_COUNT()`、再读取 `LAST_INSERT_ID()` 的可复用门禁合并到 `docs/database-rules.md`，并更新 `docs/experience-index.md`；未新建长期经验文档。
+- COMMIT: 并发基线提交 `3cddd9b70` 保存了本任务 `ready_for_closeout` 阶段的三份正式记录；经验门禁提交为 `b30a7f98a`。本任务不重写并发提交历史。
+- CLEANUP PREVIEW: `task_closeout.py --task-id 20260807-pressure-pump-equipment-ledger-correction --mode preview` -> PASS，仅计划保留 `task.md/execution-log.md/verification-report.md`，删除临时 `apply.sql`，无 blocked 或 warning。
+- CLEANUP APPLY: `task_closeout.py --task-id 20260807-pressure-pump-equipment-ledger-correction --mode apply` -> PASS，仅删除已提交的临时事务脚本 `apply.sql`，三份正式任务记录均保留；当前为主 worktree，无合并或 worktree 删除动作。
+- PUSH PREFLIGHT: 默认 GitHub URL 级代理指向未监听的 `127.0.0.1:7890`；Windows 直连 GitHub `443` 可达，一次性清空该 URL 级代理后 `git ls-remote origin HEAD` 成功。未修改全局 Git 配置。
 
 ## Milestone Updates
 
@@ -47,7 +52,7 @@ BDD: 任一前置条件失败时整体回滚 -> Given 三项变更在同一事�
 - M3 completed：变更前精确行、关联计数、非编码字段 MD5、租户总数和回滚条件已记录。
 - M4 completed：第二次事务执行通过全部 fail-fast 断言并提交三项主数据变更；第一次脚本错误已验证整体回滚。
 - M5 completed：目标唯一性、旧编码清除、稳定 ID、非编码字段、设备工序、全局 MES 工序目录、工位关系、条码和租户边界均通过只读核对。
-- M6 in_progress：任务状态已进入 `ready_for_closeout`，待 cleanup、提交和推送。
+- M6 completed：长期经验合并、cleanup preview/apply、正式记录提交和 `int_main` 最终推送均完成。
 
 ## Blockers
 
