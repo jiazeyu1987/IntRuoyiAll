@@ -34,3 +34,6 @@
 - Experience consolidation: 根因属于登录/租户范围门禁，已合并到既有 `docs/login-access.md#本机登录来源`：截图或当前页面写入前必须核对同一真实会话的租户/账号、可见业务范围和列表数量，禁止静默切换到另一测试租户；未新建长期经验文档。
 - Correction closeout preview: `task_closeout.py --mode preview` -> `status: ready`；保留 `task.md`、`execution-log.md`、`verification-report.md`，计划删除修正用 `bug-regression-evidence.md` 和 `output/playwright/20260807-production-leader-process-loss-reasons-random-fix/`，blocked 为 `none`；首次临时目录已不存在，仅产生预期 warning。
 - Correction closeout apply: `task_closeout.py --mode apply` -> `status: applied`；修正用证据草稿和 Playwright 临时目录已删除，三个核心任务记录均保留；Playwright 会话 `lossreasonfix0807` 已关闭。
+- Implementation/closeout commit: `5278e375d`（`docs: correct production leader loss reason scope`），仅包含本任务四个记录变更（含清理删除）及 `docs/login-access.md` 的租户门禁经验。
+- Push: 默认 GitHub URL 级代理 `127.0.0.1:7890` 未监听，当前 Clash `8902` TLS 握手失败；一次性禁用该 URL 代理后直连 `git ls-remote origin HEAD` 成功，随后 `git -c http.https://github.com.proxy= push origin int_main` -> PASS，`a8ecf9fc6..5278e375d` 已推送；未修改全局 Git 或系统代理配置。
+- Final verification: 数据核验、可视核验、经验沉淀、临时产物清理和实现记录推送均完成，任务状态更新为 `completed`。

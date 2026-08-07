@@ -97,4 +97,4 @@ PASS：已按用户截图对应的本机 `int_main` 默认身份 `芋道源码/a
 
 - 首次范围和本次修正范围的 `task-closeout-cleanup` 均已完成；本次 preview 为 `status: ready`、apply 为 `status: applied`，blocked 为 `none`。
 - 修正用 `bug-regression-evidence.md` 和 Playwright 临时目录已删除，核心验证结论保留在本报告与 `execution-log.md`。
-- Final status: `ready_for_closeout`。
+- Final status: `completed`；实现/收尾记录提交 `5278e375d` 已推送到 `origin/int_main`。
