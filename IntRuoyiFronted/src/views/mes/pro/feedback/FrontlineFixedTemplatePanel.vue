@@ -1251,13 +1251,17 @@ const currentLoginUserId = computed(() => Number(userStore.getUser?.id || 0))
 const productionSubmitCandidates = computed(() =>
   deviceState.selectedProcess?.productionSubmitCandidates || []
 )
+const productionSubmitContext = computed(() => deviceState.runtimeConfig?.productionSubmitContext)
 
 const selectedActiveOrder = computed(() => deviceState.selectedActiveOrder)
 
 const productionOrderLabel = computed(() => {
   const selectedOrder = selectedActiveOrder.value
+  const submitContext = productionSubmitContext.value
   return selectedOrder?.workOrderCode ||
     selectedOrder?.workOrderName ||
+    submitContext?.workOrderCode ||
+    submitContext?.workOrderName ||
     firstRouteQueryText(['productionOrderCode', 'workOrderCode', 'orderCode']) ||
     '未选择订单'
 })
@@ -2921,9 +2925,8 @@ const assertFormalPayloadContext = () => {
 }
 
 interface FrontlineFormalSubmitContext {
-  feedbackCode?: string
-  feedbackType?: number
   workOrderId?: number
+  workOrderCode?: string
   taskId?: number
   routeId?: number
   routeProcessId?: number
@@ -2934,8 +2937,8 @@ interface FrontlineFormalSubmitContext {
   itemId?: number
   approveUserId?: number
   recordbookId?: number
-  signatureId?: number
   signatureEmployeeId?: number
+  signaturePassword?: string
   scheduleOrderId?: number
   scheduleOrderProcessId?: number
   scheduledQuantity?: number
@@ -2944,36 +2947,34 @@ interface FrontlineFormalSubmitContext {
 
 const readFrontlineFormalSubmitContext = (): FrontlineFormalSubmitContext => {
   const selectedProcess = deviceState.selectedProcess
+  const serverContext = deviceState.runtimeConfig?.productionSubmitContext
   return {
-    feedbackCode: firstRouteQueryText(['feedbackCode', 'feedbackNo', 'code']),
-    feedbackType: firstRouteQueryNumber(['feedbackType', 'type']),
-    workOrderId: context.workOrderId,
-    taskId: firstRouteQueryNumber(['taskId', 'productionTaskId']),
-    routeId: context.routeId,
-    routeProcessId: context.routeProcessId,
-    processId: context.processId,
-    workstationId: selectedProcess?.workstationId ?? firstRouteQueryNumber(['workstationId']),
+    workOrderId: serverContext?.workOrderId,
+    workOrderCode: serverContext?.workOrderCode,
+    taskId: serverContext?.taskId,
+    routeId: serverContext?.routeId,
+    routeProcessId: serverContext?.routeProcessId,
+    processId: serverContext?.processId,
+    workstationId: serverContext?.workstationId,
     deviceId: activeProductionDevice.value?.key
       ? Number(activeProductionDevice.value.key)
       : selectedProcess?.deviceId,
     deviceAccountUserId: Number(userStore.getUser?.id || 0),
-    itemId: firstRouteQueryNumber(['itemId', 'productItemId']),
-    approveUserId: firstRouteQueryNumber(['approveUserId', 'teamLeaderUserId']),
-    recordbookId: firstRouteQueryNumber(['recordbookId', 'frontlineRecordbookId']),
-    signatureId: firstRouteQueryNumber(['signatureId']),
-    signatureEmployeeId: firstRouteQueryNumber(['signatureEmployeeId']),
-    scheduleOrderId: firstRouteQueryNumber(['scheduleOrderId']),
-    scheduleOrderProcessId: firstRouteQueryNumber(['scheduleOrderProcessId']),
-    scheduledQuantity: firstRouteQueryNumber(['scheduledQuantity']),
-    expireDate: firstRouteQueryText(['expireDate'])
+    itemId: serverContext?.itemId,
+    approveUserId: serverContext?.approveUserId,
+    recordbookId: serverContext?.recordbookId,
+    signatureEmployeeId: context.actualEmployeeId,
+    signaturePassword: productionSignaturePassword.value.trim(),
+    scheduleOrderId: serverContext?.scheduleOrderId,
+    scheduleOrderProcessId: serverContext?.scheduleOrderProcessId,
+    scheduledQuantity: serverContext?.scheduledQuantity,
+    expireDate: serverContext?.expireDate ? String(serverContext.expireDate) : undefined
   }
 }
 
 const assertFrontlineFormalSubmitContext = (formalContext: FrontlineFormalSubmitContext) => {
   const missingFields: string[] = []
   const requiredFields: Array<[keyof FrontlineFormalSubmitContext, string]> = [
-    ['feedbackCode', '报工单编号'],
-    ['feedbackType', '报工类型'],
     ['workOrderId', '订单上下文'],
     ['taskId', '生产任务'],
     ['routeId', '路线'],
@@ -2984,7 +2985,7 @@ const assertFrontlineFormalSubmitContext = (formalContext: FrontlineFormalSubmit
     ['itemId', '产品物料'],
     ['approveUserId', '班组长审批人'],
     ['recordbookId', '记录本'],
-    ['signatureId', '签名'],
+    ['signaturePassword', '签名'],
     ['signatureEmployeeId', '签名员工']
   ]
   for (const [field, label] of requiredFields) {
@@ -3002,6 +3003,13 @@ const assertFrontlineFormalSubmitContext = (formalContext: FrontlineFormalSubmit
     formalContext.signatureEmployeeId !== context.actualEmployeeId
   ) {
     throw new Error('签名员工必须等于实际填写员工，无法提交。')
+  }
+  if (
+    formalContext.signatureEmployeeId &&
+    currentLoginUserId.value &&
+    formalContext.signatureEmployeeId !== currentLoginUserId.value
+  ) {
+    throw new Error('当前登录账号必须是实际填写员工，无法完成电子签名。')
   }
   if (missingFields.length) {
     throw new Error(`缺少${missingFields.join('、')}，无法提交。`)
@@ -3023,8 +3031,6 @@ const buildFrontlineFormalSubmitPayload = (
     : {}
   return {
     feedbackPayload: {
-      code: formalContext.feedbackCode!,
-      type: formalContext.feedbackType!,
       workstationId: formalContext.workstationId!,
       routeId: formalContext.routeId!,
       processId: formalContext.processId!,
@@ -3050,7 +3056,7 @@ const buildFrontlineFormalSubmitPayload = (
       recordbookId: formalContext.recordbookId!,
       entryTitle:
         firstRouteQueryText(['recordbookEntryTitle']) ||
-        `一线报工-${formalContext.feedbackCode}`,
+        `一线报工-${formalContext.workOrderCode || formalContext.workOrderId}-${formalContext.taskId}`,
       entryContent: {
         fieldValues: { ...draft.fieldValues },
         defects: { ...productionDefectDraft },
@@ -3061,13 +3067,11 @@ const buildFrontlineFormalSubmitPayload = (
       equipmentParameters,
       tagCodes: [],
       idempotencyKey:
-        firstRouteQueryText(['idempotencyKey']) ||
-        `frontline-submit-${formalContext.signatureId}`,
+        `frontline-submit-${formalContext.workOrderId}-${formalContext.taskId}-${formalContext.routeProcessId}-${context.actualEmployeeId}`,
       remark: firstRouteQueryText(['recordbookRemark'])
     },
     processPoolSubmissionIdempotencyKey:
-      firstRouteQueryText(['processPoolSubmissionIdempotencyKey']) ||
-      `frontline-process-pool-${formalContext.signatureId}-${formalContext.routeProcessId}`,
+      `frontline-process-pool-${formalContext.workOrderId}-${formalContext.taskId}-${formalContext.routeProcessId}-${context.actualEmployeeId}`,
     processPoolContext: {
       workOrderId: formalContext.workOrderId!,
       taskId: formalContext.taskId!,
@@ -3080,7 +3084,6 @@ const buildFrontlineFormalSubmitPayload = (
       templateType: context.templateCode || expectedTemplateCode.value
     },
     actualEmployeeId: context.actualEmployeeId!,
-    signatureId: formalContext.signatureId!,
     signatureEmployeeId: formalContext.signatureEmployeeId!,
     signaturePassword,
     rawPayload: buildProductionStructuredRawPayload(rawPayload) as unknown as Record<string, unknown>
