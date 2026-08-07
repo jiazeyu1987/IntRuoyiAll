@@ -87,6 +87,15 @@
 - Forbidden action: 禁止把动态导入 500 写成业务功能 FAIL，禁止忽略 `pageerror` 继续断言，禁止全仓未锚定扫描 `=======` 造成误报，也禁止在未获授权时改写并行任务冲突内容。
 - Evidence: `doc/tasks/20260806-frontline-production-employee-options-match-leader-personnel/verification-report.md`，一线生产员工弹窗真实 E2E 在后端运行 Jar 刷新后被 `TeamLeaderWorkbenchPage.vue` 未解决冲突标记阻塞，页面模块 Vite 500，需先解析前端冲突再复验。
 
+### 共享 Vite 遮罩与目标链路验收边界门禁
+
+- Trigger: `int_main` 共享 Vite 运行态因无关并发脏文件触发 `vite-error-overlay`、PostCSS/编译错误或全屏开发遮罩，但本轮目标页面模块、目标接口和目标控件仍可独立访问。
+- Preflight check: 读取遮罩中的文件、行号和错误类型，核对报错文件是否属于当前任务及是否位于目标页面依赖链；同时记录目标页面 URL、目标 API 响应和目标控件状态。报错文件属于并发任务时不得修改或回退；只有明确记录遮罩来源后，才可临时关闭遮罩收集窄范围目标链路证据。
+- Blocker: 遮罩来自目标页面依赖、目标模块或目标接口，关闭遮罩后目标控件不可用，或无法证明错误与当前任务独立时，真实 E2E 必须记录 BLOCKED。
+- Verification: 窄范围结果必须分别记录目标链路 PASS 与共享前端运行态未全局通过；证据至少包含遮罩来源、目标接口 HTTP/业务码、目标错误文案是否出现和目标 UI 交互。关闭遮罩只允许用于继续取证，不得作为错误已修复或全局 console 健康的证据。
+- Forbidden action: 禁止回退或修改无关并发文件，禁止隐藏遮罩后宣称共享前端无错误，禁止省略仍存在的 console/request 异常，也禁止用窄范围 PASS 覆盖共享运行态问题。
+- Evidence: `doc/tasks/20260807-fix-zhaohaichen-upload-category-permission/verification-report.md`，本机文件上传页受无关 `TeamLeaderWorkbenchPage.vue` PostCSS 遮罩影响；记录归属并关闭遮罩后，仍以真实 `zhaohaichen` 账号完成上传 taxonomy 目标接口和三级分类选择验证，同时明确不宣称共享前端全局健康。
+
 ### Playwright 快照与 daemon 收尾门禁
 
 - Trigger: 使用 Playwright CLI / headed browser 验证登录页、发布控制台、版本变更说明或任何可能包含输入框内容的真实页面。
