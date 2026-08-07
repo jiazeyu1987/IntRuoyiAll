@@ -219,6 +219,28 @@
             </div>
           </div>
       </el-card>
+      <el-card
+        shadow="never"
+        class="qa-regulation-page__overview-note"
+        data-qa-regulation-overview-note
+      >
+        <template #header>备注</template>
+        <ol
+          class="qa-regulation-page__overview-note-list"
+          data-qa-regulation-overview-note-list
+        >
+          <li>
+            设备初次开机、模具更换、参数调整、模具维修等需要按照抽样规则进行首件检验；
+          </li>
+          <li>
+            首检如果发现不合格，及时向部门主管/领导汇报，待问题得到纠正后，生产稳定之后，重新进行首检，检验全部合格后，才可转入正常生产；
+          </li>
+          <li>如果样本量等于或超过批量，则进行100%检验；</li>
+          <li>
+            过程巡检应每班记录两次，上午和下午各一次，巡检过程中若发现产品不合格，应及时向部门主管反映不合格问题，并对之前生产的产品进行隔离，问题纠正之后，进行双倍检验，确认无异常之后，转入正常抽样。然后对之前生产的产品组织评审，根据评审结果对该批次产品进行处理。
+          </li>
+        </ol>
+      </el-card>
     </ContentWrap>
 
     <ContentWrap v-show="qaActiveTab === 'items'">
@@ -3105,6 +3127,27 @@ const runQaPublishPrecheck = async () => {
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.qa-regulation-page__overview-note {
+  margin-top: 12px;
+}
+
+.qa-regulation-page__overview-note-list {
+  margin: 0;
+  padding-left: 24px;
+  color: #344054;
+  font-size: 14px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.qa-regulation-page__overview-note-list li {
+  padding-left: 4px;
+}
+
+.qa-regulation-page__overview-note-list li + li {
+  margin-top: 8px;
 }
 
 .qa-regulation-page__card-head {
