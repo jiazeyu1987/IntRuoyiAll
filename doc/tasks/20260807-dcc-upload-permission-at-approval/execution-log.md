@@ -65,3 +65,10 @@
 - Resume condition satisfied：用户明确要求继续，且活动 Git 进程已结束；将逐文件核对 diff，不覆盖无关改动。
 - Resolution：用户明确要求继续后完成逐文件合并；实现分别被并发脏工作区基线提交 `de6b84628`、`20d6fe43e`、`8e71bc24f` 收录，未重写历史，最终任务记录将单独提交。
 - Ready for closeout：实现、定向回归、真实页面、视觉检查与机器证据校验全部通过，状态已更新为 `ready_for_closeout`。
+
+## Closeout
+
+- Implementation record commit：`8dfdcae84 docs: record DCC upload permission verification`；实现源码此前由已记录的并发基线提交收录，未重写或伪装提交历史。
+- Cleanup preview：PASS，仅计划删除 `bug-regression-evidence.md` 与 `output/playwright/20260807-dcc-upload-permission-at-approval/`，保留 `task.md`、`execution-log.md`、`verification-report.md` 和正式测试。
+- Cleanup apply：PASS，上述两个任务自有临时路径已删除；当前为主工作区，未执行 worktree 合并或删除。
+- Final status：`completed`；最终收尾记录待单独提交并推送到 `origin/int_main`。

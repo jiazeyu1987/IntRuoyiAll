@@ -2,7 +2,7 @@
 
 ## Result
 
-- 当前结果：PASS，状态 `ready_for_closeout`（等待清理、最终记录提交与推送）。
+- 当前结果：PASS，状态 `completed`。
 - 上传阶段不再执行文件类别 `UPLOAD` 权限限制；审批阶段权限边界保持并通过拒绝用例验证。
 
 ## Behavior Coverage
@@ -33,3 +33,9 @@
 
 - 本机 `48081` 使用的运行 Jar 早于本次后端源码变更，未用管理员真实路径冒充“无类别权限”的后端证明；该边界由针对正式服务实现的 JUnit 无权限测试覆盖。
 - 文件类别接口仍保留 `canUpload` 字段供现有权限管理模型使用，但本次两个上传入口不再消费它。
+
+## Closeout Verification
+
+- `task-closeout-cleanup` preview：PASS，无 blocked/warnings。
+- `task-closeout-cleanup` apply：PASS，仅删除本任务临时回归证据和 Playwright 输出。
+- 主工作区无额外 worktree 合并/删除动作；正式源码、正式测试和三个任务保留文档均保留。
