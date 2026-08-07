@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
@@ -13,6 +15,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectio
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
@@ -20,6 +24,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +39,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -70,6 +79,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private final MesProcessPoolTeamMaintenanceAuditMapper auditMapper;
     private final MesProScheduleOrderMapper scheduleOrderMapper;
     private final MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
+    private final MesProRouteProductMapper routeProductMapper;
+    private final MesProRouteVersionMapper routeVersionMapper;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     private final MesQaInspectionRegulationMapper inspectionRegulationMapper;
     private final MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
@@ -82,6 +93,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                                MesProcessPoolTeamMaintenanceAuditMapper auditMapper,
                                                MesProScheduleOrderMapper scheduleOrderMapper,
                                                MesProScheduleOrderProcessMapper scheduleOrderProcessMapper,
+                                               MesProRouteProductMapper routeProductMapper,
+                                               MesProRouteVersionMapper routeVersionMapper,
                                                MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper,
                                                MesQaInspectionRegulationMapper inspectionRegulationMapper,
                                                MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper,
@@ -93,6 +106,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         this.auditMapper = auditMapper;
         this.scheduleOrderMapper = scheduleOrderMapper;
         this.scheduleOrderProcessMapper = scheduleOrderProcessMapper;
+        this.routeProductMapper = routeProductMapper;
+        this.routeVersionMapper = routeVersionMapper;
         this.processSnapshotMapper = processSnapshotMapper;
         this.inspectionRegulationMapper = inspectionRegulationMapper;
         this.inspectionRegulationVersionMapper = inspectionRegulationVersionMapper;
