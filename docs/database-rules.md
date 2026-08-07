@@ -47,6 +47,15 @@
 - Forbidden action: 禁止修改数据库默认排序规则、手改真实表排序规则、扩大 `WHERE` 范围、拆掉精确租户/删除标记条件，或把失败事务当作成功继续执行。
 - Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`；`doc/tasks/20260801-smart-seed-collation-fix/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/execution-log.md`，`20260726_system_codex_smart_scheduling_test_items.sql` 的 `tmp_codex_smart_scheduling_*` 临时表必须显式 `COLLATE=utf8mb4_0900_ai_ci`，防止 `utf8mb4_general_ci` / `utf8mb4_0900_ai_ci` 混用。
 
+### 数据修复 DML 影响行数读取顺序门禁
+
+- Trigger: 数据修复事务在 `INSERT`、`UPDATE` 或 `DELETE` 后同时需要断言 `ROW_COUNT()`，并读取 `LAST_INSERT_ID()`、执行 `SET`、`SELECT` 或其它会改变会话诊断值的语句。
+- Preflight check: 每条 DML 后必须第一时间执行 `SET @affected_rows = ROW_COUNT()` 保存影响行数；需要自增 ID 时，只能在影响行数保存完成后读取 `LAST_INSERT_ID()`，后续断言必须使用已保存变量。
+- Blocker: 在读取 `ROW_COUNT()` 前执行任何其它语句，或事务断言得到与 DML 预期不符的影响行数时必须停止并确认事务未提交；不得把诊断值被覆盖误判为业务前置条件失败。
+- Verification: 至少覆盖一次预期影响行数断言、目标主键/业务键查询和失败事务回滚核对；若失败发生在 `COMMIT` 前，必须重新查询所有目标表，证明没有部分业务写入。
+- Forbidden action: 禁止在 DML 与 `ROW_COUNT()` 之间读取 `LAST_INSERT_ID()`、执行额外 `SET/SELECT` 或依赖客户端输出；禁止删除影响行数断言来让脚本继续执行。
+- Evidence: `doc/tasks/20260807-pressure-pump-equipment-ledger-correction/execution-log.md`。
+
 ### DCC 文件类别规则种子门禁
 
 - Trigger: DCC 项目代码文件分类、`dcc_file_category_match_rule`、OQ/PQ、零配件图纸、类别规则 seed、批量识别 `AMBIGUOUS` / `UNCLASSIFIED` 根因修复。
