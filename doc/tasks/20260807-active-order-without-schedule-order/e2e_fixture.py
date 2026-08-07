@@ -255,7 +255,6 @@ def seed() -> dict[str, Any]:
                 "published_by": leader_user_id,
                 "published_time": now,
                 "remark": f"{PREFIX} fixture",
-                "active_unique_flag": 1,
                 **audit_values(),
             })
             route_product_id = insert_row(cursor, "mes_pro_route_product", {

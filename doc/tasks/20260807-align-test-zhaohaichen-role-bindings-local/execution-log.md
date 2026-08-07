@@ -43,6 +43,9 @@
 - EXPERIENCE CONSOLIDATION: 使用 `project-experience-consolidation` 将“DCC 菜单恢复必须同时排除目录管理下载旁路并核对用户/角色/岗位/部门下载规则”的通用门禁合并到现有 `docs/database-rules.md`，并补充 `docs/experience-index.md` 路由；未新建长期经验文档。并行任务在提交同一索引文件时将本任务新增索引行一并纳入 `fe2d19dac`，已用 `git show fe2d19dac -- docs/experience-index.md` 确认该行存在；本任务不重复修改或回退该提交。
 - GIT CONCURRENCY: 并行任务在本任务文件已暂存后创建共享基线提交 `de6b84628 chore: baseline concurrent changes before schedule order label`，该提交包含本任务七个初版任务文件及 `docs/database-rules.md` 新门禁；已用限定路径 `git log --name-status -- <task-path> docs/database-rules.md` 核对，内容未丢失。本任务不回退该并行提交，剩余改动继续使用显式 `git commit --only -- <task-paths>` 隔离。
 - GREEN: `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS：`int_main/int_main` 使用 frontend `8081`、backend `48081`。
+- IMPLEMENTATION RECORD COMMIT: `17b68d156 docs: record zhaohaichen test role alignment`，显式 `git commit --only` 仅提交本任务 `change.sql`、`verify.sql`、`rollback.sql` 和 `execution-log.md` 的剩余改动；提交钩子再次通过 branch runtime port guard。
+- CLEANUP PREVIEW: `task_closeout.py --task-id 20260807-align-test-zhaohaichen-role-bindings-local --mode preview` -> PASS；保留六个核心/SQL 文件，仅计划删除 `database-schema-evidence.md`，blocked/warnings 均为空。
+- CLEANUP APPLY: 同一脚本 `--mode apply` -> PASS；仅删除已经把 PASS 摘要复制到保留记录的 `database-schema-evidence.md`，未清理其它任务文件、生产代码、测试或运行进程。并行任务随后将该删除纳入共享基线提交 `788b9888b`；已通过限定路径 `git show --name-status 788b9888b -- <evidence-path>` 确认仅为该文件删除，本任务不重复删除或回退。
 
 ## Dirty Worktree Baseline
 
@@ -125,5 +128,5 @@ M docs/frontend-development.md
 
 ## Remaining Closeout
 
-- 数据变更、核心验收、database evidence validator 和经验沉淀已完成；待 cleanup preview/apply、任务提交和推送。
+- 数据变更、核心验收、database evidence validator、经验沉淀和 cleanup preview/apply 已完成；待收尾记录提交和 `origin/int_main` 推送。
 - 共享工作区仍有其它任务改动；后续仅显式暂存本任务文件，不终止其它任务进程，不把并行任务文件混入本任务提交。

@@ -350,7 +350,7 @@ async function selectCascaderPath(page, label, segments) {
 
     const candidate = chooseUnclassifiedCandidate(categories || [], taxonomies || [])
     if (!candidate) {
-      throw new Error('BLOCKER: 当前登录租户没有“唯一可上传、文件分类叶子节点绑定、且未绑定提交目录”的 DCC 文件类别，无法验证自动落位未分类目录。')
+      throw new Error('BLOCKER: 当前登录租户没有“唯一启用、文件分类叶子节点绑定、且未绑定提交目录”的 DCC 文件类别，无法验证自动落位未分类目录。')
     }
     evidence.selectedCandidate = candidate
 

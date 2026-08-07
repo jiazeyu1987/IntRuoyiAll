@@ -7,7 +7,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$expectedUsers = [ordered]@{ '512' = 'huzonggang'; '659' = 'shangmengying'; '1520' = 'lvyujie' }
+$expectedUsers = [ordered]@{ '512' = 'huzonggang'; '659' = 'shangmengying'; '964' = 'liuyueyue' }
 $targetIdList = ($expectedUsers.Keys | ForEach-Object { [string]$_ }) -join ','
 $temporaryUpdater = 'CODX-PQC-20260807-CREDENTIAL'
 
@@ -135,9 +135,7 @@ $tempDir = $null
 $password = $null
 $originalPasswordEnv = [Environment]::GetEnvironmentVariable('PQC5_TEMP_PASSWORD', 'Process')
 $originalBrowserEnv = [Environment]::GetEnvironmentVariable('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH', 'Process')
-$originalTaskIdsEnv = [Environment]::GetEnvironmentVariable('PQC5_TASK_IDS_JSON', 'Process')
-$originalProductionTaskEnv = [Environment]::GetEnvironmentVariable('PQC5_PRODUCTION_TASK_ID', 'Process')
-$originalRecordbookEnv = [Environment]::GetEnvironmentVariable('PQC5_RECORDBOOK_ID', 'Process')
+$originalTargetsEnv = [Environment]::GetEnvironmentVariable('PQC5_TARGETS_JSON', 'Process')
 try {
     foreach ($path in @($FrontendRoot, $BackendJar, $BrowserPath)) { if (-not (Test-Path -LiteralPath $path)) { throw "Required path is missing: $path" } }
     $conflicts = @(Get-CimInstance Win32_Process | Where-Object {
@@ -151,15 +149,43 @@ try {
     [void](New-Item -ItemType Directory -Path $tempDir)
     $hash = New-BcryptHash $password $tempDir
     Set-TemporaryPassword $snapshot $hash
-    $taskIds = @(Invoke-LocalMysql "SELECT id FROM mes_pqc_inspection_task WHERE tenant_id=1 AND deleted=b'0' AND creator='CODX-PQC-20260807' ORDER BY round_no;")
-    $productionTaskIds = @(Invoke-LocalMysql "SELECT id FROM mes_pro_task WHERE tenant_id=1 AND deleted=b'0' AND creator='CODX-PQC-20260807';")
-    $recordbookIds = @(Invoke-LocalMysql "SELECT id FROM mes_pro_edhr_recordbook WHERE tenant_id=1 AND deleted=b'0' AND creator='CODX-PQC-20260807';")
-    if ($taskIds.Count -ne 5 -or $productionTaskIds.Count -ne 1 -or $recordbookIds.Count -ne 1) { throw 'Task-owned fixture ids are incomplete' }
+    $targetSql = @"
+SELECT active_order.id,work_order.id,work_order.code,pqc_task.id,pqc_task.planned_inspection_quantity,
+       production_task.id,recordbook.id
+  FROM mes_pro_process_pool_active_order active_order
+  JOIN mes_pro_work_order work_order
+    ON work_order.id=active_order.work_order_id AND work_order.tenant_id=active_order.tenant_id AND work_order.deleted=b'0'
+  JOIN mes_pqc_inspection_task pqc_task
+    ON pqc_task.active_order_id=active_order.id AND pqc_task.tenant_id=active_order.tenant_id AND pqc_task.deleted=b'0'
+   AND pqc_task.inspection_type='FINAL' AND pqc_task.task_status='PENDING'
+  JOIN mes_pro_task production_task
+    ON production_task.work_order_id=work_order.id AND production_task.tenant_id=work_order.tenant_id AND production_task.deleted=b'0'
+   AND production_task.creator='CODX-PQC-20260807'
+  JOIN mes_pro_edhr_recordbook recordbook
+    ON recordbook.business_object_id=work_order.id AND recordbook.tenant_id=work_order.tenant_id AND recordbook.deleted=b'0'
+   AND recordbook.creator='CODX-PQC-20260807' AND recordbook.status='OPEN'
+ WHERE active_order.tenant_id=1 AND active_order.deleted=b'0' AND active_order.active_status='ACTIVE'
+   AND pqc_task.id IN (198,202,206,210,214)
+ ORDER BY active_order.id;
+"@
+    $targetRows = @(Invoke-LocalMysql $targetSql)
+    if ($targetRows.Count -ne 5) { throw "Expected 5 complete submission targets, found $($targetRows.Count)" }
+    $targets = @($targetRows | ForEach-Object {
+        $parts = $_ -split "`t", 7
+        if ($parts.Count -ne 7) { throw 'Unexpected submission target row shape' }
+        [ordered]@{
+            activeOrderId = [long]$parts[0]
+            workOrderId = [long]$parts[1]
+            workOrderCode = $parts[2]
+            pqcTaskId = [long]$parts[3]
+            plannedQuantity = [int]$parts[4]
+            productionTaskId = [long]$parts[5]
+            recordbookId = [long]$parts[6]
+        }
+    })
     $env:PQC5_TEMP_PASSWORD = $password
     $env:PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = $BrowserPath
-    $env:PQC5_TASK_IDS_JSON = '[' + (($taskIds | ForEach-Object { [string]$_ }) -join ',') + ']'
-    $env:PQC5_PRODUCTION_TASK_ID = [string]$productionTaskIds[0]
-    $env:PQC5_RECORDBOOK_ID = [string]$recordbookIds[0]
+    $env:PQC5_TARGETS_JSON = ConvertTo-Json -InputObject $targets -Compress
     Push-Location $FrontendRoot
     try {
         & node.exe 'E:\IntRuoyi\doc\tasks\20260807-pqc-leader-management-five-records\run-e2e.cjs'
@@ -169,9 +195,7 @@ try {
     if ($null -ne $snapshot) { Restore-Accounts $snapshot }
     [Environment]::SetEnvironmentVariable('PQC5_TEMP_PASSWORD', $originalPasswordEnv, 'Process')
     [Environment]::SetEnvironmentVariable('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH', $originalBrowserEnv, 'Process')
-    [Environment]::SetEnvironmentVariable('PQC5_TASK_IDS_JSON', $originalTaskIdsEnv, 'Process')
-    [Environment]::SetEnvironmentVariable('PQC5_PRODUCTION_TASK_ID', $originalProductionTaskEnv, 'Process')
-    [Environment]::SetEnvironmentVariable('PQC5_RECORDBOOK_ID', $originalRecordbookEnv, 'Process')
+    [Environment]::SetEnvironmentVariable('PQC5_TARGETS_JSON', $originalTargetsEnv, 'Process')
     if ($tempDir -and (Test-Path -LiteralPath $tempDir)) {
         $resolved = [IO.Path]::GetFullPath($tempDir)
         $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
