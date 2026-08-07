@@ -41,6 +41,8 @@
 - GREEN: Database schema evidence validator -> PASS：`Database schema evidence is valid.`。
 - GREEN: `git diff --check -- doc/tasks/20260807-align-test-zhaohaichen-role-bindings-local` -> PASS。
 - EXPERIENCE CONSOLIDATION: 使用 `project-experience-consolidation` 将“DCC 菜单恢复必须同时排除目录管理下载旁路并核对用户/角色/岗位/部门下载规则”的通用门禁合并到现有 `docs/database-rules.md`，并补充 `docs/experience-index.md` 路由；未新建长期经验文档。并行任务在提交同一索引文件时将本任务新增索引行一并纳入 `fe2d19dac`，已用 `git show fe2d19dac -- docs/experience-index.md` 确认该行存在；本任务不重复修改或回退该提交。
+- GIT CONCURRENCY: 并行任务在本任务文件已暂存后创建共享基线提交 `de6b84628 chore: baseline concurrent changes before schedule order label`，该提交包含本任务七个初版任务文件及 `docs/database-rules.md` 新门禁；已用限定路径 `git log --name-status -- <task-path> docs/database-rules.md` 核对，内容未丢失。本任务不回退该并行提交，剩余改动继续使用显式 `git commit --only -- <task-paths>` 隔离。
+- GREEN: `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS：`int_main/int_main` 使用 frontend `8081`、backend `48081`。
 
 ## Dirty Worktree Baseline
 

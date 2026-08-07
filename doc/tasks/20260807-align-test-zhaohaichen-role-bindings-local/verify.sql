@@ -119,4 +119,3 @@ WHERE g.tenant_id = 1
   AND u.username = 'zhaohaichen'
   AND g.status = 'ACTIVE'
   AND g.deleted = b'0';
-
