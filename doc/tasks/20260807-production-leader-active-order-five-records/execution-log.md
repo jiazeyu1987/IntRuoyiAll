@@ -13,7 +13,10 @@
 
 ## RED / GREEN Evidence
 
-- RED: pending - 写入前任务前缀对应的合格候选和 ACTIVE 活跃订单必须为 0。
+- RED: 写入前只读查询 -> FAIL as expected，`work_orders=0 / schedules=0 / regulations=0 / active_orders=0`；目标 5 条数据尚不存在。
+- RED: 首轮 `fixture.sql` -> FAIL，正式路线版本 `622` 的完整快照约 72 KB，超过排产工单 `route_snapshot_json TEXT` 容量；事务整体回滚，复核三类目标记录均为 0。未截断共享快照，改为构造只包含本次唯一启用工序的正式排产快照。
+- GREEN: 第二轮 `fixture.sql` -> PASS，返回 `regulation_id=36 / regulation_version_id=36 / fixture_count=5`。
+- GREEN: `verify.sql` -> PASS，5 条工单 `980022..980026` 均为已确认、数量 10；排产 `148..152` 均唯一有效；排产工序 `3465..3469` 均启用、数量因子 1、计划数量 10、计划日期非空；QA 规程 `36/V1` 已发布且 FIRST=2、PATROL=10%、FINAL=3；写入前 ACTIVE 活跃订单仍为 0。
 - GREEN: pending - 5 个任务订单候选均 `eligible=true`，真实页面 5 次加入均成功，最终 5 条 ACTIVE 活跃订单及关联快照/PQC 任务通过只读复核。
 
 ## Command Intent
@@ -25,9 +28,10 @@
 ## Milestone Status
 
 - M1 completed：资格合同、运行环境边界、禁止直接写活跃订单的门禁已确认。
-- M2 in_progress：正在核对 schema、当前生产组长身份与完整 QA 规程组合。
+- M2 completed：MySQL `8.0.39`、目标表 schema/索引/排序规则、tenant 1 默认页面身份 `admin/id=1`、路线 `980091`、ACTIVE 版本 `622/V1`、路线工序 `980631/922985`、产品 `924008` 及正式产品绑定均已核对。
+- M3 completed：任务前缀 `CODX-AO5-20260807-` 的 5 条工单/排产/排产工序和 QA 规程已在单一受控事务内创建并通过只读复核；未直接写活跃订单及其子表。
+- M4 in_progress：正在使用 Playwright CLI 操作生产组长真实页面。
 
 ## Blockers
 
 - 当前共享 `int_main` 分支存在其它并发任务提交和未提交文件；本任务暂不执行宽泛暂存、基线提交或推送，提交前必须重新复核归属与并发状态。
-

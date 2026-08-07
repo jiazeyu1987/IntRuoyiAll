@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
 import cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationMachineService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationService;
@@ -76,6 +77,8 @@ class MesFrontlineEmployeeSwitchServiceTest {
     private MesMdWorkstationMachineService workstationMachineService;
     @Mock
     private MesDvMachineryService machineryService;
+    @Mock
+    private MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
 
     private MesFrontlineDeviceAccountContextServiceImpl contextService;
     private MesFrontlineEmployeeSwitchServiceImpl employeeSwitchService;
@@ -84,7 +87,7 @@ class MesFrontlineEmployeeSwitchServiceTest {
     void setUp() {
         contextService = new MesFrontlineDeviceAccountContextServiceImpl(routeBindingSourceProvider, routeProcessMapper,
                 routeVersionMapper, processService, workstationWorkerService, adminUserApi, permissionApi, routeService,
-                workstationService, workstationMachineService, machineryService);
+                workstationService, workstationMachineService, machineryService, employeeProfileMapper);
         MesFrontlineTemplateResolverImpl templateResolver = new MesFrontlineTemplateResolverImpl(templateBindingSourceProvider);
         employeeSwitchService = new MesFrontlineEmployeeSwitchServiceImpl(contextService, templateResolver,
                 runtimeConfigService);

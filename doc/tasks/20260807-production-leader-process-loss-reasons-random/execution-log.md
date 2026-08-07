@@ -17,5 +17,7 @@
 - GREEN: Playwright CLI 页面查找首尾任务原因 -> `RLR0807-001-01` 命中 `球囊扩张压力泵 / 1 - 粗洗工序 / LOSS-928896-001`；`RLR0807-066-01` 命中 `ACD04 Unauthorized Route / 10 - ACD04 Unauthorized Process / LOSS-980630-001`。
 - UI note: 页面存在 `2` 条与本任务无关的“审批待办数量加载失败：系统异常”console error，并显示同源全局 toast；损耗原因目标接口、目标页面脚本和本任务写入均无错误，未隐藏或改写该并发环境问题。
 - Evidence: 临时结构化结果 `output/playwright/20260807-production-leader-process-loss-reasons-random/batch-add-result.json`，最终页面截图 `output/playwright/20260807-production-leader-process-loss-reasons-random/final-process-config.png`；核心统计和逐工序编码已归档到 `verification-report.md`，临时产物列入 cleanup。
-- Concurrency: 执行期间共享 `int_main` 出现并发基线提交；本任务前置日志被提交 `9c7507e1d`（`chore: baseline concurrent process loss reason task log`）吸收。当前任务不修改并发源码、测试、SQL 或其它任务文档，后续仅显式暂存本任务三个核心记录。
+- Concurrency: 执行期间共享 `int_main` 出现并发基线提交；本任务前置日志被 `9c7507e1d` 吸收，完整验证报告与 `ready_for_closeout` 状态随后被 `e111d1543`（`chore: baseline concurrent frontline updates`）吸收。当前任务不修改并发源码、测试、SQL 或其它任务文档，后续仅显式暂存本任务三个核心记录。
 - Experience consolidation: 已按 `project-experience-consolidation` 检查长期经验归宿；本次可复用规则已完整存在于 `docs/e2e-rules.md#写入型-e2e-任务自有模拟环境门禁`、`docs/e2e-rules.md#写入型远程下拉候选新鲜度门禁` 和 `docs/backend-development.md#生产组长工序配置维护权限不得被工序开始快照误拦`，未重复新增长期经验文档。
+- Closeout preview: `task_closeout.py --mode preview` -> `status: ready`，仅删除本任务 `output/playwright/20260807-production-leader-process-loss-reasons-random/`，保留 `task.md`、`execution-log.md`、`verification-report.md`，blocked/warnings 均为 `none`。
+- Closeout apply: `task_closeout.py --mode apply` -> `status: applied`，本任务 Playwright 临时目录已删除；任务隔离 npm 缓存 `E:\Int\DevCache\npm-cache-lossreason0807` 已确认无占用进程后删除并复核 `CACHE_EXISTS=false`。

@@ -4,13 +4,11 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDefectReasonDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDefectReasonMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import org.springframework.stereotype.Service;
@@ -34,7 +32,6 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
     private static final String DEVICE_STATUS_ENABLED = "ENABLED";
 
     private final MesFrontlineDeviceAccountContextService contextService;
-    private final MesProcessPoolTeamEmployeeBindingMapper employeeBindingMapper;
     private final MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
     private final MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
     private final MesProcessPoolTeamDeviceMapper deviceMapper;
@@ -43,14 +40,12 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
 
     public MesFrontlineRuntimeConfigServiceImpl(
             MesFrontlineDeviceAccountContextService contextService,
-            MesProcessPoolTeamEmployeeBindingMapper employeeBindingMapper,
             MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper,
             MesProcessPoolTeamProcessDeviceMapper processDeviceMapper,
             MesProcessPoolTeamDeviceMapper deviceMapper,
             MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper,
             MesProcessPoolDefectReasonMapper defectReasonMapper) {
         this.contextService = contextService;
-        this.employeeBindingMapper = employeeBindingMapper;
         this.employeeProfileMapper = employeeProfileMapper;
         this.processDeviceMapper = processDeviceMapper;
         this.deviceMapper = deviceMapper;
@@ -63,22 +58,16 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                                                       Long processId) {
         MesFrontlineRouteProcessCandidate process = contextService.requireAuthorizedProcess(loginUserId,
                 routeId, routeProcessId, processId);
-        List<MesProcessPoolTeamEmployeeBindingDO> employeeBindings = listEmployeeBindings(process.processId());
+        Long responsibleLeaderUserId = contextService.resolveResponsibleLeaderUserId(loginUserId);
         List<MesProcessPoolTeamProcessDeviceDO> processDeviceBindings = listProcessDeviceBindings(process.processId());
-        Set<Long> leaderUserIds = resolveLeaderUserIds(process, employeeBindings, processDeviceBindings);
+        Set<Long> leaderUserIds = resolveLeaderUserIds(process, processDeviceBindings, responsibleLeaderUserId);
         processDeviceBindings = filterProcessDeviceBindingsByLeader(processDeviceBindings, leaderUserIds);
 
-        List<MesFrontlineTeamEmployeeOption> employees = toEmployeeOptions(loginUserId);
+        List<MesFrontlineTeamEmployeeOption> employees = toEmployeeOptions(responsibleLeaderUserId);
         List<MesFrontlineTeamDeviceOption> devices = toDeviceOptions(processDeviceBindings, process, leaderUserIds);
         List<MesFrontlineDefectReasonOption> defectReasons = toDefectReasonOptions(process, leaderUserIds);
         return new MesFrontlineRuntimeConfig(process.routeId(), process.routeProcessId(), process.processId(),
                 employees, devices, defectReasons);
-    }
-
-    private List<MesProcessPoolTeamEmployeeBindingDO> listEmployeeBindings(Long processId) {
-        return employeeBindingMapper.selectList(new LambdaQueryWrapperX<MesProcessPoolTeamEmployeeBindingDO>()
-                .eq(MesProcessPoolTeamEmployeeBindingDO::getProcessId, processId)
-                .eq(MesProcessPoolTeamEmployeeBindingDO::getEnabled, Boolean.TRUE));
     }
 
     private List<MesProcessPoolTeamProcessDeviceDO> listProcessDeviceBindings(Long processId) {
@@ -88,8 +77,8 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
     }
 
     private static Set<Long> resolveLeaderUserIds(MesFrontlineRouteProcessCandidate process,
-                                                  List<MesProcessPoolTeamEmployeeBindingDO> employeeBindings,
-                                                  List<MesProcessPoolTeamProcessDeviceDO> processDeviceBindings) {
+                                                  List<MesProcessPoolTeamProcessDeviceDO> processDeviceBindings,
+                                                  Long responsibleLeaderUserId) {
         Set<Long> leaderUserIds = new LinkedHashSet<>();
         if (process.deviceId() != null) {
             processDeviceBindings.stream()
@@ -103,13 +92,14 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
             }
             return leaderUserIds;
         }
-        employeeBindings.stream().map(MesProcessPoolTeamEmployeeBindingDO::getLeaderUserId)
-                .filter(Objects::nonNull).forEach(leaderUserIds::add);
         processDeviceBindings.stream().map(MesProcessPoolTeamProcessDeviceDO::getLeaderUserId)
                 .filter(Objects::nonNull).forEach(leaderUserIds::add);
         if (leaderUserIds.size() > 1) {
             throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED,
                     "frontline runtime processId=" + process.processId());
+        }
+        if (leaderUserIds.isEmpty() && responsibleLeaderUserId != null) {
+            leaderUserIds.add(responsibleLeaderUserId);
         }
         return leaderUserIds;
     }

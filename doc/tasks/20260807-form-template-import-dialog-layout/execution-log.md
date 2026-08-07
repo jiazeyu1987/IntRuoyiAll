@@ -20,7 +20,12 @@
 ## Milestone Updates
 
 - M1 complete：现有页面入口、组件、交互契约、设计参考和适用规则已确认。
-- M2 in progress：待创建专用静态合同并执行 RED。
+- M2 complete：专用静态合同已创建并取得预期 RED。
+- M3 in progress：正在实现弹窗单列、满宽上传和响应式布局。
+
+## TDD Evidence
+
+- RED: `node tests/e2e/form-template-import-dialog-layout-static.spec.js` -> FAIL，预期原因：现有组件缺少 `form-template-import-dialog` 独立布局作用域，后续宽度、顶部标签、上传满宽与文件名换行合同尚未实现。
 
 ## Blockers
 
@@ -35,3 +40,13 @@
   - `doc/tasks/20260807-production-employee-inherits-leader-processes/task.md`
 - OWNERSHIP DECISION：未修改任务外文件，已用 `git restore --staged -- <explicit paths>` 撤销本次暂存；工作区内容保持不变。
 - IMPACT：严格基线门禁未通过，当前任务不能创建 RED 测试或修改生产组件。
+- USER AUTHORIZATION：用户明确授权修正上述 6 个任务外文档并继续基线提交。
+- BASELINE FIX：仅删除获授权文档末尾多余空行；随后 `git diff --cached --check` -> PASS。
+- BASELINE COMMIT 1：`35595ee9f chore: baseline concurrent changes before form import layout`，包含 26 个既有脏文件：
+  - 后端：`MesTeamLeaderActiveOrderServiceImpl.java`、`MesProRouteVersionPublishProjectionServiceImpl.java`、`MesFrontlineProductionEmployeeLeaderProcessScopeTest.java`、`MesTeamLeaderActiveOrderServiceTest.java`、`MesProRouteVersionPublishProjectionServiceTest.java`。
+  - 前端：`TeamLeaderWorkbenchPage.vue` 和 6 个生产组长/角色矩阵静态或真实 E2E 文件。
+  - 文档：`20260807-frontline-route-process-workstation-binding-fix` 3 个文件、`20260807-pressure-pump-equipment-ledger-correction` 3 个文件、`20260807-production-employee-inherits-leader-processes` 4 个文件、`20260807-production-leader-active-order-five-records` 2 个文件、`20260807-remove-team-configuration-tab` 2 个文件。
+- BASELINE COMMIT 2：`e111d1543 chore: baseline concurrent frontline updates`，包含 `MesFrontlineDeviceAccountContextService.java`、`MesFrontlineDeviceAccountContextServiceImpl.java`、2 个生产组长静态合同、`20260807-production-leader-process-loss-reasons-random` 3 个记录和 `20260807-shared-word-parser-implementation` 3 个记录。
+- BASELINE COMMIT 3：`3cddd9b70 chore: baseline concurrent equipment ledger records`，包含 `20260807-pressure-pump-equipment-ledger-correction` 的 `task.md`、`execution-log.md`、`verification-report.md`。
+- BASELINE VERIFY：三次提交前的 `git diff --cached --check` 和 branch runtime port guard 均 PASS。
+- BLOCKER RESOLVED：当前任务已进入 RED -> GREEN。

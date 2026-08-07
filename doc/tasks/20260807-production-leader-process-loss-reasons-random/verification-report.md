@@ -94,3 +94,9 @@ PASS：在本机 `int_main` 的 `测试租户/admin` 真实生产组长页面中
 - 临时最终截图：`output/playwright/20260807-production-leader-process-loss-reasons-random/final-process-config.png`。
 - 仅写入本机 `int_main` 的 `测试租户`；未操作远程环境、未直接执行 SQL、未修改已有损耗原因。
 - 新增名称前缀：`RLR0807`；如需撤销，必须另行授权后按本报告编码和名称逐条停用或删除。
+
+## Closeout
+
+- `task-closeout-cleanup` preview/apply -> PASS，核心三份记录保留，任务 Playwright 临时目录已删除。
+- 任务隔离 npm 缓存已删除，`CACHE_EXISTS=false`。
+- Final status: `completed`。

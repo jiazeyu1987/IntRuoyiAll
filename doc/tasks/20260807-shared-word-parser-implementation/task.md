@@ -23,7 +23,12 @@
 
 ## Applicable Experience Gate
 
-- 待读取 `docs/experience-index.md` 后补充匹配经验摘要。
+- `docs/backend-development.md#eDHR-批记录-Word-表格解析门禁`：使用真实源 DOC 与最小合成表格双重验证；缺 fixture 或 RED 不稳定时阻塞；禁止按表单名、工序名、文件名或产品模板写特例。
+- `docs/powershell-memory.md#PowerShell-Maven--D-参数引号门禁`：所有 Maven `-D...` 参数整体加引号。
+- `docs/powershell-memory.md#Maven-单模块陈旧依赖门禁`：BPM/MES 目标测试使用 `-pl ... -am`，确保兄弟模块和共享模块进入 reactor。
+- `docs/powershell-memory.md#Maven-目标目录文件系统异常门禁`：不得与并发 Maven 叠加写同一 `target`；未到达 Surefire 不得记录为业务通过。
+- `docs/powershell-memory.md#共享分支并发基线提交门禁`：每个阶段复核最近提交、状态和本任务 diff，防止并发基线吞入本任务实现。
+- `docs/task-closeout-rules.md#技能证据文件清理前归档门禁`：backend evidence validator 通过后，将关键结论归档到保留报告，再执行 cleanup。
 
 ## 设计约束检查
 

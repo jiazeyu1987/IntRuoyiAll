@@ -10,7 +10,7 @@
 - [x] 通过真实页面确认登录用户、租户和生产组长工序配置列表。
 - [x] 为每个目标工序随机新增 1~6 个损耗原因。
 - [x] 通过页面结果和只读接口核对新增数量、名称和编码。
-- [ ] 完成任务记录、清理临时浏览器产物并收尾。
+- [x] 完成任务记录、清理临时浏览器产物并收尾。
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Design Constraint Check
 

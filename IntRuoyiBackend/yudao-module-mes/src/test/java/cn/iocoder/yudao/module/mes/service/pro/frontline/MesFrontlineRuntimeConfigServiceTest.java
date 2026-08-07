@@ -3,13 +3,11 @@ package cn.iocoder.yudao.module.mes.service.pro.frontline;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDefectReasonDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDefectReasonMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,8 +36,6 @@ class MesFrontlineRuntimeConfigServiceTest {
     @Mock
     private MesFrontlineDeviceAccountContextService contextService;
     @Mock
-    private MesProcessPoolTeamEmployeeBindingMapper employeeBindingMapper;
-    @Mock
     private MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
     @Mock
     private MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
@@ -54,8 +50,10 @@ class MesFrontlineRuntimeConfigServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new MesFrontlineRuntimeConfigServiceImpl(contextService, employeeBindingMapper,
-                employeeProfileMapper, processDeviceMapper, deviceMapper, parameterRuleMapper, defectReasonMapper);
+        service = new MesFrontlineRuntimeConfigServiceImpl(contextService, employeeProfileMapper,
+                processDeviceMapper, deviceMapper, parameterRuleMapper, defectReasonMapper);
+        org.mockito.Mockito.lenient().when(contextService.resolveResponsibleLeaderUserId(LOGIN_USER_ID))
+                .thenReturn(LOGIN_USER_ID);
     }
 
     @Test
@@ -64,9 +62,6 @@ class MesFrontlineRuntimeConfigServiceTest {
                 .thenReturn(new MesFrontlineRouteProcessCandidate(ROUTE_ID, "R-101", "Route 101",
                         ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
                         7001L, "D-001", "压力泵", 301L, "WS-301", "精洗工位"));
-        when(employeeBindingMapper.selectList(any())).thenReturn(List.of(
-                employeeBinding(9002L, 8802L),
-                employeeBinding(9001L, 8801L)));
         when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
                 employeeProfile(8801L, 9001L, null, "TMP-001", "临时工甲", "临时工甲-A", "TEMPORARY", true),
                 employeeProfile(8802L, 9002L, 10002L, "E-002", "其它班组员工", "其它班组员工", "FORMAL", true)));
@@ -114,8 +109,6 @@ class MesFrontlineRuntimeConfigServiceTest {
                 .thenReturn(new MesFrontlineRouteProcessCandidate(ROUTE_ID, "R-101", "Route 101",
                         ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
                         7001L, "D-001", "压力泵", 301L, "WS-301", "精洗工位"));
-        when(employeeBindingMapper.selectList(any())).thenReturn(List.of(
-                employeeBinding(9001L, 8801L)));
         when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
                 employeeProfile(8801L, 9001L, null, "TMP-001", "临时工甲", "临时工甲-A", "TEMPORARY", true),
                 employeeProfile(8803L, 9001L, 10003L, "USER-10003", "正式工乙", "正式工乙", "FORMAL", true),
@@ -142,8 +135,6 @@ class MesFrontlineRuntimeConfigServiceTest {
                 .thenReturn(new MesFrontlineRouteProcessCandidate(ROUTE_ID, "R-101", "Route 101",
                         ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
                         7001L, "D-001", "压力泵", 301L, "WS-301", "精洗工位"));
-        when(employeeBindingMapper.selectList(any())).thenReturn(List.of(
-                employeeBinding(9002L, 8802L)));
         when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
                 employeeProfile(8801L, LOGIN_USER_ID, 10001L, "LOGIN-001",
                         "当前组长人员", "当前组长人员", "FORMAL", true),
@@ -171,7 +162,6 @@ class MesFrontlineRuntimeConfigServiceTest {
                 .thenReturn(new MesFrontlineRouteProcessCandidate(ROUTE_ID, "R-101", "Route 101",
                         ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
                         null, null, null, 301L, "WS-301", "精洗工位"));
-        when(employeeBindingMapper.selectList(any())).thenReturn(List.of());
         when(processDeviceMapper.selectList(any())).thenReturn(List.of());
         when(defectReasonMapper.selectList(any())).thenReturn(List.of(
                 defectReason(8301L, ROUTE_PROCESS_ID, "LOSS", "LOSS-001", "正常损耗").setLeaderUserId(9999L),
@@ -185,15 +175,6 @@ class MesFrontlineRuntimeConfigServiceTest {
         assertEquals(1, config.defectReasons().size());
         assertEquals(8301L, config.defectReasons().get(0).reasonId());
         assertEquals("LOSS-001", config.defectReasons().get(0).reasonCode());
-    }
-
-    private static MesProcessPoolTeamEmployeeBindingDO employeeBinding(Long leaderUserId, Long employeeProfileId) {
-        return MesProcessPoolTeamEmployeeBindingDO.builder()
-                .leaderUserId(leaderUserId)
-                .processId(PROCESS_ID)
-                .employeeProfileId(employeeProfileId)
-                .enabled(Boolean.TRUE)
-                .build();
     }
 
     private static MesProcessPoolTeamEmployeeProfileDO employeeProfile(Long id, Long leaderUserId, Long systemUserId,

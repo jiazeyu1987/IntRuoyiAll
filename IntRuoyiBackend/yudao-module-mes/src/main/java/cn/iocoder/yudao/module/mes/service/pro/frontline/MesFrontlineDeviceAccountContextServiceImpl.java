@@ -102,14 +102,43 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
     }
 
     @Override
+    public Long resolveResponsibleLeaderUserId(Long loginUserId) {
+        return resolveResponsibleLeaderContext(loginUserId).leaderUserId();
+    }
+
+    @Override
     public List<MesFrontlineRouteProcessCandidate> listSwitchableProcesses(Long loginUserId) {
-        requireValue(loginUserId, "loginUserId");
+        ResponsibleLeaderContext responsibleLeader = resolveResponsibleLeaderContext(loginUserId);
         List<MesFrontlineRouteProcessCandidate> routeStartLeaderCandidates =
-                listRouteStartProductionLeaderSwitchableProcesses(loginUserId);
+                listRouteStartProductionLeaderSwitchableProcesses(responsibleLeader.leaderUserId());
         if (CollUtil.isNotEmpty(routeStartLeaderCandidates)) {
             return routeStartLeaderCandidates;
         }
+        if (responsibleLeader.productionEmployee()) {
+            throw exception(PRO_FRONTLINE_ROUTE_PROCESS_NOT_AUTHORIZED, loginUserId);
+        }
         return listPostBoundSwitchableProcesses(loginUserId);
+    }
+
+    private ResponsibleLeaderContext resolveResponsibleLeaderContext(Long loginUserId) {
+        requireValue(loginUserId, "loginUserId");
+        List<MesProcessPoolTeamEmployeeProfileDO> profiles = employeeProfileMapper.selectList(
+                new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesProcessPoolTeamEmployeeProfileDO>()
+                        .eq(MesProcessPoolTeamEmployeeProfileDO::getSystemUserId, loginUserId));
+        if (CollUtil.isEmpty(profiles)) {
+            return new ResponsibleLeaderContext(loginUserId, false);
+        }
+        Set<Long> leaderUserIds = profiles.stream()
+                .filter(Objects::nonNull)
+                .filter(profile -> Boolean.TRUE.equals(profile.getEnabled()))
+                .map(MesProcessPoolTeamEmployeeProfileDO::getLeaderUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (leaderUserIds.size() != 1) {
+            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
+                    "productionEmployee leaderUserId loginUserId=" + loginUserId);
+        }
+        return new ResponsibleLeaderContext(leaderUserIds.iterator().next(), true);
     }
 
     private List<MesFrontlineRouteProcessCandidate> listPostBoundSwitchableProcesses(Long loginUserId) {
@@ -272,36 +301,37 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
                                                                       Long routeProcessId, Long processId) {
         MesFrontlineRouteProcessCandidate processCandidate = requireAuthorizedProcess(loginUserId, routeId,
                 routeProcessId, processId);
-        List<MesMdWorkstationWorkerDO> workers = workstationWorkerService.getWorkstationWorkerListByWorkstationId(
-                processCandidate.workstationId());
-        Set<Long> postIds = collectPostIds(workers);
-        if (postIds.isEmpty()) {
+        Long leaderUserId = resolveResponsibleLeaderUserId(loginUserId);
+        List<MesFrontlineEmployeeCandidate> candidates = employeeProfileMapper.selectList(
+                        new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesProcessPoolTeamEmployeeProfileDO>()
+                                .eq(MesProcessPoolTeamEmployeeProfileDO::getLeaderUserId, leaderUserId)
+                                .eq(MesProcessPoolTeamEmployeeProfileDO::getEnabled, Boolean.TRUE))
+                .stream()
+                .filter(Objects::nonNull)
+                .filter(profile -> Objects.equals(profile.getLeaderUserId(), leaderUserId))
+                .filter(profile -> Boolean.TRUE.equals(profile.getEnabled()))
+                .map(MesFrontlineDeviceAccountContextServiceImpl::toEmployeeCandidate)
+                .toList();
+        if (candidates.isEmpty()) {
             throw exception(PRO_FRONTLINE_PROCESS_EMPLOYEE_EMPTY, processCandidate.workstationId(),
                     processCandidate.processId());
         }
-        List<AdminUserRespDTO> users = adminUserApi.getUserListByPostIds(postIds);
-        if (CollUtil.isEmpty(users)) {
-            throw exception(PRO_FRONTLINE_PROCESS_EMPLOYEE_EMPTY, processCandidate.workstationId(),
-                    processCandidate.processId());
-        }
-        Map<Long, MesFrontlineEmployeeCandidate> candidateByUserId = new LinkedHashMap<>();
-        for (AdminUserRespDTO user : users) {
-            if (user == null || user.getId() == null || !CommonStatusEnum.isEnable(user.getStatus())) {
-                continue;
-            }
-            candidateByUserId.putIfAbsent(user.getId(),
-                    new MesFrontlineEmployeeCandidate(user.getId(), user.getUsername(), user.getNickname()));
-        }
-        if (candidateByUserId.isEmpty()) {
-            throw exception(PRO_FRONTLINE_PROCESS_EMPLOYEE_EMPTY, processCandidate.workstationId(),
-                    processCandidate.processId());
-        }
-        return candidateByUserId.values().stream()
+        return candidates.stream()
                 .sorted(Comparator
                         .comparing((MesFrontlineEmployeeCandidate candidate) -> displayName(candidate),
                                 Comparator.nullsLast(String::compareTo))
                         .thenComparing(MesFrontlineEmployeeCandidate::userId))
                 .toList();
+    }
+
+    private static MesFrontlineEmployeeCandidate toEmployeeCandidate(
+            MesProcessPoolTeamEmployeeProfileDO profile) {
+        Long employeeId = profile.getSystemUserId() != null ? profile.getSystemUserId() : profile.getId();
+        String displayName = normalizeText(profile.getDisplayName());
+        if (displayName == null) {
+            displayName = normalizeText(profile.getEmployeeName());
+        }
+        return new MesFrontlineEmployeeCandidate(employeeId, profile.getEmployeeCode(), displayName);
     }
 
     @Override
@@ -646,6 +676,14 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
         return candidate.username();
     }
 
+    private static String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     private static void requireValue(Object value, String fieldName) {
         if (value == null) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, fieldName);
@@ -656,6 +694,9 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
     }
 
     private record CandidateKey(Long routeProcessId, Long deviceId) {
+    }
+
+    private record ResponsibleLeaderContext(Long leaderUserId, boolean productionEmployee) {
     }
 
     private record RouteStartProductionLeaderSnapshot(Long routeId,
