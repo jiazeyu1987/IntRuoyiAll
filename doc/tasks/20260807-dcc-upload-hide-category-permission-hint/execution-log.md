@@ -41,6 +41,12 @@
 - Final current-state TypeScript: `pnpm ts:check` -> FAIL in unrelated concurrent file `src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue:774` because `handleActiveOrderSearchEnter` is missing；本任务 DCC 文件未出现在错误中。
 - Final current-state real E2E retry 1 -> BLOCKED: login page `page.goto` exceeded 60000 ms while local frontend HTTP probe still returned 200。
 - Final current-state real E2E retry 2 -> BLOCKED: waiting for `/admin-api/system/auth/login` response exceeded 60000 ms；未产生 DCC 写请求，未把环境超时记录为产品失败。
+- Cleanup final apply: preview 显示只删除重新生成的 `output/playwright/20260807-dcc-upload-hide-category-permission-hint`，无 blocked/warnings；apply 成功删除该目录并继续保留三份核心任务记录。
+- Concurrent closeout commit: `de6b84628 chore: baseline concurrent changes before schedule order label` 吞入本任务 cleanup 删除、最终任务记录和经验规则修正；本任务未重写该共享提交。
+- Push preflight: branch runtime port guard -> PASS；`git rev-list --left-right --count origin/int_main...HEAD` -> `0 4`。
+- PUSH BLOCKER attempt 1: `git push origin int_main` -> FAIL, GitHub HTTPS via `127.0.0.1:8902` could not connect。
+- PUSH BLOCKER attempt 2: 只读检查显示本机 `8902` 已有 listener 后按原配置重试，branch runtime port guard 再次 PASS，但 `git push origin int_main` 仍以相同代理连接错误失败。未切换代理、未直连、未 force-push。
+- Push impact: 本任务实现所在 `fca53dda5` 已属于 `origin/int_main`；包含最终 cleanup/任务记录的 `de6b84628` 仍在本地 ahead 提交集合中。按项目规则任务保持 `ready_for_closeout`，不得标记 completed。
 
 ## Git Baseline
 
@@ -51,4 +57,5 @@
 
 ## Blockers
 
-- 当前无产品实现阻塞。
+- 产品展示实现无阻塞。
+- Closeout blocker: GitHub 推送代理 `127.0.0.1:8902` 连续两次不可连接，当前分支仍领先 `origin/int_main`，因此不能完成最终任务状态。

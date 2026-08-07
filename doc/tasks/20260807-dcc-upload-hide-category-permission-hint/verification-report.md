@@ -41,3 +41,4 @@ PASS
 
 - 最终共享工作区 `pnpm ts:check` 被非本任务 MES 页面缺失方法阻塞。
 - 最终只读 Playwright 复跑被本机登录链路超时阻塞；此前同一任务页面验证已 PASS，且最新源码静态合同继续证明目标节点不存在。
+- 最终 `git push origin int_main` 连续两次因 GitHub HTTPS 代理 `127.0.0.1:8902` 不可连接而失败；实现提交已在 origin，但最终 cleanup/任务记录提交尚未推送，任务保持 `ready_for_closeout`。
