@@ -22,31 +22,36 @@
 - 复用 `MesProScheduleOrderVO.erpWorkOrderCode`、`manualFinished` 和 `status`；不新增或修改 API。
 - 已完成状态常量沿用页面现有 `SCHEDULE_ORDER_STATUS_FINISHED = 3`。
 
-## BDD Scenarios
+## BDD: Scenarios
 
 - Given 工单已完成；When 渲染来源生产工单号；Then 追加“(已完成)”。
 - Given 工单未完成；When 渲染来源生产工单号；Then 保持原文。
 
-## RED
+## RED: Expected Failure
 
 - Command: `node tests/e2e/mes-schedule-order-completed-source-label-static.spec.cjs`
 - Expected/actual: FAIL；当前模板只渲染 `row.erpWorkOrderCode`，缺少完成标识 helper 和调用。
 
-## GREEN
+## GREEN: Passing Contract
 
 - Command: `node tests/e2e/mes-schedule-order-completed-source-label-static.spec.cjs`
 - Result: PASS；已完成状态追加“(已完成)”，未完成状态保持原文，且不从进度/数量推断。
 
-## UI State Checks
+## Verification
+
+### UI State Checks
 
 - Responsive: 文本沿用现有可换行来源工单号单元格，不新增固定宽度控件。
 - Accessibility: 保持现有可聚焦链接按钮，标识进入同一可访问名称。
 - Loading/empty/error: 不改变现有列表状态。
 - Permission: 不改变现有权限指令或操作按钮。
 
-## Real User Path
+### Real User Path
 
-- Playwright 本机只读验证待执行；要求目标写请求数为 0。
+- Playwright 本机真实页面 `/mes/pro/schedule-order` 验证通过。
+- 已完成样本：`881MO090880(已完成)`、`881MO090863(已完成)`。
+- 未完成对照样本：`881MO093613`，未追加标识。
+- 排产工单分页接口返回 200；MES 写请求数为 0；控制台错误数为 0。
 
 ## Blockers And Follow-up Skills
 
