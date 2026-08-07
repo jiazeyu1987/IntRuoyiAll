@@ -2,7 +2,7 @@
 
 ## Result
 
-- 当前结果：PASS，状态 `completed`。
+- 功能验证结果：PASS；任务状态：`blocked`（本地提交尚未成功推送到 `origin/int_main`）。
 - 上传阶段不再执行文件类别 `UPLOAD` 权限限制；审批阶段权限边界保持并通过拒绝用例验证。
 
 ## Behavior Coverage
@@ -39,3 +39,10 @@
 - `task-closeout-cleanup` preview：PASS，无 blocked/warnings。
 - `task-closeout-cleanup` apply：PASS，仅删除本任务临时回归证据和 Playwright 输出。
 - 主工作区无额外 worktree 合并/删除动作；正式源码、正式测试和三个任务保留文档均保留。
+
+## Push Blocker
+
+- `git push origin int_main`：FAIL。
+- 原因：用户级 Git 配置将 GitHub HTTPS 代理指向 `http://127.0.0.1:7890`，当前该端口没有监听进程。
+- 影响：本地分支仍领先 `origin/int_main`，按项目规则不能宣称任务完成。
+- 未执行：未静默禁用代理、未切换远端、未强推。
