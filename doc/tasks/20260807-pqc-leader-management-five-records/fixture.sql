@@ -44,12 +44,14 @@ BEGIN
     IF v_count <> 1 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='formal route process/workstation binding is missing'; END IF;
 
     SELECT COUNT(*) INTO v_count
-      FROM system_user_post user_post
+      FROM system_users user
+      JOIN system_user_post user_post
+        ON user_post.user_id=user.id AND user_post.tenant_id=user.tenant_id AND user_post.deleted=b'0'
       JOIN mes_md_workstation_worker worker
-        ON worker.post_id=user_post.post_id AND worker.tenant_id=user_post.tenant_id AND worker.deleted=b'0'
-     WHERE user_post.user_id=964 AND user_post.post_id=14 AND user_post.tenant_id=1 AND user_post.deleted=b'0'
-       AND worker.workstation_id=980010;
-    IF v_count <> 1 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='frontline device account workstation binding is missing'; END IF;
+        ON worker.post_id=user_post.post_id AND worker.tenant_id=user.tenant_id AND worker.deleted=b'0'
+     WHERE user.id=659 AND user.username='shangmengying' AND user.tenant_id=1 AND user.deleted=b'0' AND user.status=0
+       AND user_post.post_id=14 AND worker.workstation_id=980010;
+    IF v_count <> 1 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='post-bound production device account 659 is missing'; END IF;
 
     SELECT COUNT(*) INTO v_count
       FROM mes_qa_inspection_regulation regulation
@@ -92,11 +94,11 @@ BEGIN
       business_object_code,opened_at,entry_count,remark,
       creator,create_time,updater,update_time,deleted,tenant_id
     ) VALUES
-      ('CODX-PQC-20260807-RB-01','PQC source production recordbook 01',980010,'RRM-20260801-PRODUCTION-RECORD-TPL','RRM production recordbook template','V1','PRODUCTION','OPEN',964,'PQC5_E2E','WORK_ORDER',980022,'CODX-AO5-20260807-01',NOW(),0,'Task-owned source recordbook 01','CODX-PQC-20260807',NOW(),'CODX-PQC-20260807',NOW(),b'0',1),
-      ('CODX-PQC-20260807-RB-02','PQC source production recordbook 02',980010,'RRM-20260801-PRODUCTION-RECORD-TPL','RRM production recordbook template','V1','PRODUCTION','OPEN',964,'PQC5_E2E','WORK_ORDER',980023,'CODX-AO5-20260807-02',NOW(),0,'Task-owned source recordbook 02','CODX-PQC-20260807',NOW(),'CODX-PQC-20260807',NOW(),b'0',1),
-      ('CODX-PQC-20260807-RB-03','PQC source production recordbook 03',980010,'RRM-20260801-PRODUCTION-RECORD-TPL','RRM production recordbook template','V1','PRODUCTION','OPEN',964,'PQC5_E2E','WORK_ORDER',980024,'CODX-AO5-20260807-03',NOW(),0,'Task-owned source recordbook 03','CODX-PQC-20260807',NOW(),'CODX-PQC-20260807',NOW(),b'0',1),
-      ('CODX-PQC-20260807-RB-04','PQC source production recordbook 04',980010,'RRM-20260801-PRODUCTION-RECORD-TPL','RRM production recordbook template','V1','PRODUCTION','OPEN',964,'PQC5_E2E','WORK_ORDER',980025,'CODX-AO5-20260807-04',NOW(),0,'Task-owned source recordbook 04','CODX-PQC-20260807',NOW(),'CODX-PQC-20260807',NOW(),b'0',1),
-      ('CODX-PQC-20260807-RB-05','PQC source production recordbook 05',980010,'RRM-20260801-PRODUCTION-RECORD-TPL','RRM production recordbook template','V1','PRODUCTION','OPEN',964,'PQC5_E2E','WORK_ORDER',980026,'CODX-AO5-20260807-05',NOW(),0,'Task-owned source recordbook 05','CODX-PQC-20260807',NOW(),'CODX-PQC-20260807',NOW(),b'0',1);
+      ('CODX-PQC-20260807-RB-01','PQC source production recordbook 01',980010,'RRM-20260801-PRODUCTION-RECORD-TPL','RRM production recordbook template','V1','PRODUCTION','OPEN',659,'PQC5_E2E','WORK_ORDER',980022,'CODX-AO5-20260807-01',NOW(),0,'Task-owned source recordbook 01','CODX-PQC-20260807',NOW(),'CODX-PQC-20260807',NOW(),b'0',1),
+      ('CODX-PQC-20260807-RB-02','PQC source production recordbook 02',980010,'RRM-20260801-PRODUCTION-RECORD-TPL','RRM production recordbook template','V1','PRODUCTION','OPEN',659,'PQC5_E2E','WORK_ORDER',980023,'CODX-AO5-20260807-02',NOW(),0,'Task-owned source recordbook 02','CODX-PQC-20260807',NOW(),'CODX-PQC-20260807',NOW(),b'0',1),
+      ('CODX-PQC-20260807-RB-03','PQC source production recordbook 03',980010,'RRM-20260801-PRODUCTION-RECORD-TPL','RRM production recordbook template','V1','PRODUCTION','OPEN',659,'PQC5_E2E','WORK_ORDER',980024,'CODX-AO5-20260807-03',NOW(),0,'Task-owned source recordbook 03','CODX-PQC-20260807',NOW(),'CODX-PQC-20260807',NOW(),b'0',1),
+      ('CODX-PQC-20260807-RB-04','PQC source production recordbook 04',980010,'RRM-20260801-PRODUCTION-RECORD-TPL','RRM production recordbook template','V1','PRODUCTION','OPEN',659,'PQC5_E2E','WORK_ORDER',980025,'CODX-AO5-20260807-04',NOW(),0,'Task-owned source recordbook 04','CODX-PQC-20260807',NOW(),'CODX-PQC-20260807',NOW(),b'0',1),
+      ('CODX-PQC-20260807-RB-05','PQC source production recordbook 05',980010,'RRM-20260801-PRODUCTION-RECORD-TPL','RRM production recordbook template','V1','PRODUCTION','OPEN',659,'PQC5_E2E','WORK_ORDER',980026,'CODX-AO5-20260807-05',NOW(),0,'Task-owned source recordbook 05','CODX-PQC-20260807',NOW(),'CODX-PQC-20260807',NOW(),b'0',1);
 
     SELECT
       (SELECT COUNT(*) FROM mes_pro_task WHERE tenant_id=1 AND deleted=b'0' AND creator='CODX-PQC-20260807')

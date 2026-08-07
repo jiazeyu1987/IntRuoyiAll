@@ -1,12 +1,12 @@
 $ErrorActionPreference = 'Stop'
 
-$oldPid = 38500
-$oldJar = 'E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260807-082313.jar'
-$newJar = 'E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260807-100911-route-workstation-fix.jar'
+$oldPid = 66208
+$oldJar = 'E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260807-100911-route-workstation-fix.jar'
+$newJar = 'E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260807-121743-route-workstation-formal-binding-fix.jar'
 $runtimeDir = 'E:\IntRuoyi\output\runtime\int_main'
 $repoRoot = 'E:\IntRuoyi\IntRuoyiBackend'
-$outLog = Join-Path $runtimeDir 'backend-runtime-control-20260807-100911-route-workstation-fix.out.log'
-$errLog = Join-Path $runtimeDir 'backend-runtime-control-20260807-100911-route-workstation-fix.err.log'
+$outLog = Join-Path $runtimeDir 'backend-runtime-control-20260807-121743-route-workstation-formal-binding-fix.out.log'
+$errLog = Join-Path $runtimeDir 'backend-runtime-control-20260807-121743-route-workstation-formal-binding-fix.err.log'
 
 $oldProcess = Get-CimInstance Win32_Process -Filter "ProcessId=$oldPid"
 if ($null -eq $oldProcess) {

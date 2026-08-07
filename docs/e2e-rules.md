@@ -90,11 +90,11 @@
 ### Playwright 快照与 daemon 收尾门禁
 
 - Trigger: 使用 Playwright CLI / headed browser 验证登录页、发布控制台、版本变更说明或任何可能包含输入框内容的真实页面。
-- Preflight check: 运行前把输出目录限定到当前任务或 releaseTag；验收后扫描 `.playwright-cli\page-*.yml`、trace、截图、视频和 CLI daemon 进程，判断是否包含登录预填字段、账号、密码、token 或任务敏感数据。
-- Blocker: 任务输出目录存在未脱敏 `page-*.yml`、trace、视频或截图，或存在命令行可证明属于当前任务的 `cliDaemon.js <task-or-release>` 进程仍占用输出目录时，任务不得 closeout。
-- Verification: 删除或脱敏任务自有 Playwright artifact；若目录被锁，只停止命令行明确属于当前任务的 daemon 和子进程；最终记录任务输出目录 `Test-Path=False` 或 artifact 清单为空。
-- Forbidden action: 禁止提交原始 Playwright snapshot；禁止为了清理目录误停其他并发 E2E/Playwright 任务；禁止用旧页面快照代替本轮真实页面验证。
-- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260730-head-test-only-release\execution-log.md`，发布验收后清理当前任务 `.playwright-cli` 快照，并只停止 `cliDaemon.js r260731c-r2 --headed` 任务归属进程树。
+- Preflight check: 运行前把输出目录限定到当前任务或 releaseTag；Windows 命名会话必须使用 CLI 实际支持的 `-s=<session>` 语法，`open` 后立即用同一会话 `snapshot/list` 验证会话仍存在。读取快照前先假定登录页预填值可能包含真实密码，不得把原始 YAML 回显到任务日志；验收后扫描 `.playwright-cli\page-*.yml`、trace、截图、视频和 CLI daemon 进程，判断是否包含登录预填字段、账号、密码、token 或任务敏感数据。
+- Blocker: CLI 在 Windows 出现 `UV_HANDLE_CLOSING` 断言、`open` 后同名会话不存在、登录快照含未脱敏预填凭据、任务输出目录存在未脱敏 `page-*.yml`/trace/视频/截图，或存在命令行可证明属于当前任务的 `cliDaemon.js <task-or-release>` 进程仍占用输出目录时，CLI 验证不得记 PASS，任务也不得 closeout。
+- Verification: CLI 会话异常必须先记录为工具链失败，再使用项目既有 Playwright 脚本承载同一真实页面路径，不能降级为 API-only；删除或脱敏任务自有 Playwright artifact；若目录被锁，只停止命令行明确属于当前任务的 daemon 和子进程；最终记录任务输出目录 `Test-Path=False` 或 artifact 清单为空。
+- Forbidden action: 禁止提交或回显原始 Playwright 登录快照；禁止把 CLI 会话丢失或运行时断言归因成产品失败；禁止为了清理目录误停其他并发 E2E/Playwright 任务；禁止用旧页面快照代替本轮真实页面验证。
+- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260730-head-test-only-release\execution-log.md`，发布验收后清理当前任务 `.playwright-cli` 快照，并只停止 `cliDaemon.js r260731c-r2 --headed` 任务归属进程树；`doc/tasks/20260807-frontline-pqc-all-active-orders-search/verification-report.md`，Windows CLI 会话未保持并出现运行时断言后，改用任务自有 Playwright 脚本完成同一真实页面任务边界验证。
 
 ### Worktree / int_main 运行态 URL 门禁
 

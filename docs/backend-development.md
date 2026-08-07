@@ -332,6 +332,15 @@
 - Forbidden action: 禁止放宽产品维护页 `validateRouteNotEnable` 来满足 QA；禁止用前端本地值、默认路线、`formBindings`、批记录表单、空成功或吞异常冒充 QA 绑定成功。
 - Evidence: `doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md`。
 
+### 零排产活跃订单必须使用发布态正式路线
+
+- Trigger: 生产组长活跃订单候选/新增、已确认生产工单没有有效排产工单、`MesTeamLeaderActiveOrderServiceImpl`、`mes_pro_route_product`、`mes_pro_route_version.route_snapshot_json`。
+- Preflight check: 先按生产工单产品读取唯一未删除的 `mes_pro_route_product` 正式绑定，再读取该路线唯一 `active=1 AND lifecycle_status=ACTIVE` 版本；运行工序、顺序和数量系数必须从发布快照 `configSnapshots.flowGraph.nodes` 与 `scheduleUseConfigs` 逐项匹配，ERP 数量和 ERP 计划开工时间必须来自生产工单正式字段。候选资格和新增写入必须复用同一个路线来源解析契约。
+- Blocker: 产品无绑定/多绑定、ACTIVE 版本缺失/不唯一、快照节点与 SCHEDULE 配置集合不一致、工序重复、没有启用工序、数量系数非正数、ERP 数量非正数、ERP 计划开工时间缺失或正式 PQC 规程缺失时必须 fail fast。有效排产工单为 1 条时继续使用排产路线/版本/工序计划；大于 1 条时仍按冲突阻塞。
+- Verification: 后端测试至少覆盖零排产成功、缺绑定、缺 ACTIVE 版本、快照不完整、ERP 日期缺失、单排产兼容和多排产冲突；真实 E2E 必须通过页面搜索并加入任务自有零排产工单，再只读核验工序快照数量系数/计划数量和 PQC 业务日期，最后精确清理任务数据。
+- Forbidden action: 禁止把零排产实现为默认路线、任取第一条绑定/版本、读取草稿当前配置、默认数量系数、当前日期/需求日期替代 ERP 计划开工日期、空工序成功、前端文案放宽或 API-only 成功。
+- Evidence: `doc/tasks/20260807-active-order-without-schedule-order/verification-report.md`。
+
 ## MES 生产人员档案正式工重复关联门禁
 
 ### 同一组长正式工关联必须先业务拒绝再写库

@@ -22,6 +22,18 @@ $expectedBindings = [ordered]@{
     922998 = 980021
 }
 
+function Resolve-ExpectedWorkstationId([long] $processId) {
+    $key = [string] $processId
+    if (-not $expectedBindings.Contains($key)) {
+        throw "Missing approved workstation mapping: processId=$processId"
+    }
+    $workstationId = [long] $expectedBindings[$key]
+    if ($workstationId -le 0) {
+        throw "Approved workstation mapping is invalid: processId=$processId"
+    }
+    return $workstationId
+}
+
 function Read-FrontendEnv([string] $name) {
     $line = Get-Content -Encoding utf8 -LiteralPath $frontendEnvPath |
         Where-Object { $_ -match ('^\s*' + [regex]::Escape($name) + '\s*=') } |
@@ -93,8 +105,14 @@ $expectedProcessIds = @($expectedBindings.Keys | ForEach-Object { [long] $_ } | 
 if (($actualProcessIds -join ',') -ne ($expectedProcessIds -join ',')) {
     throw 'Candidate process identity set does not match the approved repair map'
 }
-if (@($nodes | Where-Object { $null -ne $_.routeProcessWorkstationId }).Count -ne 0) {
-    throw 'Candidate already contains an unexpected formal workstation binding'
+$nullBindingCount = @($nodes | Where-Object { $null -eq $_.routeProcessWorkstationId }).Count
+$zeroBindingCount = @($nodes | Where-Object { [long] $_.routeProcessWorkstationId -eq 0 }).Count
+if ($nullBindingCount -eq $nodes.Count) {
+    $candidateInitialBindingState = 'EMPTY'
+} elseif ($zeroBindingCount -eq $nodes.Count) {
+    $candidateInitialBindingState = 'TASK_RETRY_ZERO'
+} else {
+    throw 'Candidate contains a formal workstation state outside the approved empty or task-owned retry state'
 }
 
 $updates = foreach ($node in $nodes) {
@@ -103,7 +121,7 @@ $updates = foreach ($node in $nodes) {
         id = [long] $node.routeProcessId
         routeId = $routeId
         processId = $processId
-        workstationId = [long] $expectedBindings[[int] $processId]
+        workstationId = Resolve-ExpectedWorkstationId $processId
         sort = [int] $node.sort
         keyFlag = [bool] $node.keyFlag
         checkFlag = [bool] $node.checkFlag
@@ -121,19 +139,19 @@ $saveBody = [ordered]@{
     routeProcessDeletes = @()
 }
 $validation = Invoke-ApiPost '/mes/pro/route-process-flow/validate' $saveBody $headers
-if (-not $validation.valid -or $validation.status -ne 'VALID') {
-    throw "Candidate graph validation failed: status=$($validation.status)"
+if (-not $validation.valid -or $validation.validationStatus -ne 'VALID') {
+    throw "Candidate graph validation failed: status=$($validation.validationStatus)"
 }
 $saved = Invoke-ApiPost '/mes/pro/route-process-flow/save' $saveBody $headers
-if (-not $saved.valid -or $saved.status -ne 'VALID') {
-    throw "Candidate graph save failed: status=$($saved.status)"
+if (-not $saved.valid -or $saved.validationStatus -ne 'VALID') {
+    throw "Candidate graph save failed: status=$($saved.validationStatus)"
 }
 
 $savedGraph = Invoke-ApiGet "/mes/pro/route-process-flow/get?routeId=$routeId&routeVersionId=$candidateId" $headers
 $savedNodes = @($savedGraph.nodes)
 foreach ($node in $savedNodes) {
     $processId = [long] $node.processId
-    $expectedWorkstationId = [long] $expectedBindings[[int] $processId]
+    $expectedWorkstationId = Resolve-ExpectedWorkstationId $processId
     if ([long] $node.routeProcessWorkstationId -ne $expectedWorkstationId) {
         throw "Saved formal binding mismatch: processId=$processId"
     }
@@ -159,7 +177,7 @@ if ($liveNodes.Count -ne $expectedBindings.Count) {
 }
 foreach ($node in $liveNodes) {
     $processId = [long] $node.processId
-    $expectedWorkstationId = [long] $expectedBindings[[int] $processId]
+    $expectedWorkstationId = Resolve-ExpectedWorkstationId $processId
     if ([long] $node.routeProcessWorkstationId -ne $expectedWorkstationId) {
         throw "Published formal binding mismatch: processId=$processId"
     }
@@ -171,6 +189,7 @@ foreach ($node in $liveNodes) {
     PreviousActiveVersionId = $sourceVersionId
     ActiveVersionId = $candidateId
     ActiveVersionNo = $published.versionNo
+    CandidateInitialBindingState = $candidateInitialBindingState
     CandidateGraphVersionBefore = $graph.graphVersion
     CandidateGraphVersionAfter = $saved.graphVersion
     PublishedNodeCount = $liveNodes.Count

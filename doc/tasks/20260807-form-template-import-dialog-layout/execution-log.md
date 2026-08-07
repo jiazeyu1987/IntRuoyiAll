@@ -23,7 +23,7 @@
 - M2 complete：专用静态合同已创建并取得预期 RED。
 - M3 complete：弹窗改为 640px 响应式单列布局，上传区满宽，长文件名可在内容区内换行。
 - M4 complete：专用合同、相邻合同、类型检查、格式检查、差异检查及真实页面桌面/窄屏验证均通过。
-- M5 complete：任务先设为 `ready_for_closeout`；cleanup preview 精确列出 25 项本任务临时产物且 `blocked=0`、`warnings=0`，apply 成功后仅保留 `task.md`、`execution-log.md`、`verification-report.md`。
+- M5 blocked：任务先设为 `ready_for_closeout`；cleanup preview 精确列出 25 项本任务临时产物且 `blocked=0`、`warnings=0`，apply 成功后仅保留 `task.md`、`execution-log.md`、`verification-report.md`。共享 Git 写入未停止，最终收尾记录提交与推送仍受阻。
 
 ## TDD Evidence
 
@@ -50,7 +50,8 @@
 - EXPERIENCE CONSOLIDATION：本次可复用经验已由 `docs/frontend-development.md` 的“前端截图样式块静态契约门禁”“前端参考页面像素级布局比对门禁”和“前端静态合同隔离门禁”完整覆盖，因此不重复修改长期经验文档，也不新建文档。
 - CLEANUP PREVIEW：`python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260807-form-template-import-dialog-layout --mode preview` -> PASS，`blocked=<none>`、`warnings=<none>`。
 - CLEANUP APPLY：同脚本 `--mode apply` -> PASS；本任务 Playwright 日志/截图、临时上传样本和 `frontend-feature-evidence.md` 已删除，核心记录与正式测试保留。
-- FINAL STATUS：`completed`；等待提交本任务三份核心记录并推送后核对远端同步状态。
+- PUSH BLOCKER：本任务生产组件与专用测试已由远端提交 `e6b8a2df2` 持有；收尾记录进入本地提交 `de6b84628`。最终推送前多次按规则建立并发基线，但其它任务持续新增脏改动并反复占用 `.git/index.lock`；当前无法同时满足“工作区清洁”和“无索引锁”两个推送前置条件。
+- FINAL STATUS：`ready_for_closeout`；共享分支写入停止后，需重新运行端口守卫、确认 `git status --short --branch` 无脏改动、推送 `origin int_main` 并核对不再 ahead，方可改为 `completed`。
 
 ## Blockers
 

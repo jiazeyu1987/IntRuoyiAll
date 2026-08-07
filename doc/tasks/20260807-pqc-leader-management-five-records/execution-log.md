@@ -40,6 +40,12 @@
 - RED: 第十一轮 employee-candidates -> FAIL with business code `1040760101`，设备账号 `1520` 没有启用的路线绑定。只读根因核对确认路线 `922119` 当前 V24 的工序 `980645` 缺 `workstation_id`，且活跃订单/规程/待检任务仍冻结在旧工序 `928609`。该共享根因已由 `20260807-frontline-route-process-workstation-binding-fix` 和 `20260807-frontline-pqc-latest-active-version` 处理，本任务不跨任务修改路线、规程或权限。
 - RED: 方案切换前精确回滚 -> PASS；在正式事件标识命中 `0` 的前提下，仅删除本任务创建且仍为 PENDING/OPEN 的旧前置，复核任务自有 PQC task 和正式事件均为 `0`。
 - GREEN-PRECONDITION: 已完成的数据任务 `20260807-production-leader-active-order-five-records` 保留活跃订单 `35..39` / 工单 `980022..980026`；路线 `980091/V622`、当前工序 `980631`、工作站 `980010`、员工账号 `964` 的岗位工作站绑定、发布规程 `36` 及 5 条 FINAL PENDING 任务 `198/202/206/210/214` 完整一致。本任务只新增后续生产来源和 PQC 提交，不改写该任务的已交付数据。
+- RED: 新对象首轮 `run-e2e.ps1` -> FAIL before production write；同一真实会话的候选接口已返回员工 `964`，但 Playwright 未在未限定可见面板的全局弹层定位器中命中员工选项。正式事件仍为 `0`，临时账号已恢复；收紧为当前可见生产面板内定位后重试。
+- RED: 后续两轮登录运行态 -> FAIL before business write；一轮 90 秒内未捕获登录响应，一轮登录 HTTP/业务响应成功但 SPA 未在 60 秒内自动离开 `/login`。前后端健康均为正常，正式事件 `0`，账号均已恢复。登录门禁改为等待真实登录页写入 `ACCESS_TOKEN`，业务页仍由后续 `page.goto` 真实路由进入，不直接调用登录 API 或写入伪造 token。
+- RED: 收紧面板定位后 -> FAIL before production write；弹层真实打开但页面运行时员工选项为空。根据后端正式规则和版本快照确认：路线 `980091/V622` 的 `routeStartProductionLeaders` 只授权 `admin/id=1`；员工 `964` 的精确工序授权不等于路线开始页面账号。改用快照指定的 `admin` 设备账号和其启用生产员工 `1681/陈丽`；不修改路线快照或扩大权限。
+- RED: `admin` 路线开始账号 -> FAIL before production write；该账号同时被旧路线 `922119` 授权，正式工序列表在筛选前对全部授权路线执行工作站门禁，因旧路线 V24 缺绑定返回 `1040760104`。不触碰并发修复任务的共享路线数据；改用已有岗位 14 的设备账号 `151/pengyunfeng`，该账号仅通过岗位/工作站获取正式路线 `980091`。为其创建 1 个任务自有、无系统登录账号的 FORMAL 生产员工档案，不扩权现有员工。
+- RED: 岗位账号 `151/pengyunfeng` -> FAIL before production write；路线隔离正确，但该账号缺 `mes:pro-feedback:query/create` 正式接口权限，响应业务码 `403`。不扩大该账号角色；改用同样具备岗位 14 且已有正式接口权限的 PQC 账号 `659/shangmengying`。旧路线快照只授权用户 `1`，因此 `659` 的岗位路线集只包含具有正式工作站的路线 `980091`。
+- RED: 任务自有无账号生产员工 -> FAIL before production write；当前运行后端的正式候选模型返回岗位用户集合，不返回无系统账号档案。候选响应已包含 `659/商孟莹`，因此删除未使用的任务员工档案，直接使用同一正式候选账号作为生产实际员工和随后 PQC 检验员。
 - GREEN: 待执行。
 - REGRESSION: 待执行。
 

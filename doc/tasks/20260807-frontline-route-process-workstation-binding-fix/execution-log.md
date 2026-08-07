@@ -29,6 +29,9 @@
 - M3 implementation complete: 在正式发布投影构造 `MesProRouteProcessDO` 时加入 `workstationId`，未改变一线生产缺失绑定时的 fail-fast 门禁。
 - M3 follow-up RED: V25 发布前置校验发现候选流程图把展示用 `workstationId` 解析成了正式 `routeProcessWorkstationId`，脚本在写入前阻断，未发布、未修改当前 V24。新增正式字段与展示字段取不同值的回归断言，并覆盖候选保存必须写入正式字段。
 - M3 formal-field correction complete: 已统一候选流程图读取、候选保存快照、流程配置解析和版本发布投影，仅使用 `routeProcessWorkstationId` 作为正式绑定来源；`workstationId` 保持展示字段，不参与正式绑定投影，也未加入任何旧字段兼容或默认值分支。
+- M3 targeted GREEN complete: 使用任务隔离编译产物运行 JUnit Platform，`MesProRouteVersionPublishProjectionServiceTest` 与 `MesProRouteProcessFlowServiceImplTest` 共 4 个目标用例全部通过，覆盖候选读取、候选保存和发布投影。
+- M4 runtime complete: 已将 3 个正式字段修复类写入本地运行包，运行包 SHA-256 为 `650703E8CEDAFCF6DDBF7122E4FC7F9BFFD384B5DE20024F2102B017845C56D0`；嵌套 MES Jar 保持 STORED，3 个运行态 class SHA-256 与隔离编译产物逐一一致。48081 已由新 PID `67752` 接管且 health=`UP`。
+- M4 repair retry blocked before publish: 临时发布脚本首次保存时因 PowerShell `OrderedDictionary` 使用整数键取值返回空，再被 `[long]` 转换为 `0`，导致任务自建候选 V25 的 14 个正式绑定被写成 `0`；随后候选读取门禁立即阻断，V25 未提交、未发布，V24 仍为唯一 ACTIVE。只读数据库核对确认候选 V25 恰好 14 个值均为 `0`，无其它正式值；将通过正式候选取消/重建 API 清理该任务自有候选，不直接改数据库。
 
 ## Verification Evidence
 
@@ -36,6 +39,7 @@
 - RED: `publish-workstation-repair.ps1`（V25 发布前置校验）-> FAIL, `Candidate already contains an unexpected formal workstation binding`；候选快照的正式字段为空但展示字段有值，证明读取路径错误地把展示字段提升为正式绑定。脚本在保存和发布前终止，V24 仍为唯一生效版本。
 - RED environment note: 组合回归命令曾在 4 个并发 Maven 编译期间因共享 `target/classes` 被其它构建清理而失败，报错为 DCC/MES 依赖类缺失；该结果不是行为断言证据，待共享编译结束后重新执行同一标准命令。
 - GREEN: pending。
+- GREEN: `java @.../junit-selected.args` -> PASS, 4 tests found / 4 tests successful / 0 failed。
 - REGRESSION: pending。
 
 ## Blockers

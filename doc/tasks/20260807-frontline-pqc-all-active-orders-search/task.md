@@ -7,10 +7,10 @@
 ## Milestones
 
 - [x] M1：核对现有订单接口、数据来源、相邻任务和经验门禁。
-- [ ] M2：记录 BDD，并用失败静态契约锁定订单号输入与全局 ACTIVE 来源。
-- [ ] M3：实现最小前端搜索交互，不改变订单、工序和人员正式数据链路。
-- [ ] M4：完成定向测试、类型检查、相邻回归及技能证据校验。
-- [ ] M5：完成经验沉淀检查与任务清理收尾。
+- [x] M2：记录 BDD，并用失败静态契约锁定订单号输入与全局 ACTIVE 来源。
+- [x] M3：实现最小前端搜索交互，不改变订单、工序和人员正式数据链路。
+- [x] M4：完成定向测试、类型检查、相邻回归及真实浏览器任务边界验证。
+- [x] M5：完成经验沉淀检查与任务清理收尾。
 
 ## Expected Verification
 
@@ -36,5 +36,8 @@
 
 ## Current Status
 
-in_progress - M1 已完成，准备进入 RED。
+completed - 实现、定向验证、真实浏览器任务边界验证、经验沉淀和任务临时产物清理均已完成；下游 QA 规程缺失作为相邻任务 blocker 保留在验证报告。
 
+## Cleanup Candidates
+
+- output/playwright/20260807-frontline-pqc-all-active-orders-search

@@ -7,7 +7,8 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$expectedUsers = [ordered]@{ '512' = 'huzonggang'; '659' = 'shangmengying'; '964' = 'liuyueyue' }
+$expectedUsers = [ordered]@{ '512' = 'huzonggang'; '659' = 'shangmengying' }
+$expectedUserCount = $expectedUsers.Count
 $targetIdList = ($expectedUsers.Keys | ForEach-Object { [string]$_ }) -join ','
 $temporaryUpdater = 'CODX-PQC-20260807-CREDENTIAL'
 
@@ -35,7 +36,7 @@ FROM system_users WHERE id IN ($targetIdList) ORDER BY id;
             UpdateTime = $parts[4]
         }
     }
-    if ($rows.Count -ne 3) { throw "Expected 3 account rows, found $($rows.Count)" }
+    if ($rows.Count -ne $expectedUserCount) { throw "Expected $expectedUserCount account rows, found $($rows.Count)" }
     return $rows
 }
 
@@ -94,18 +95,18 @@ function Set-TemporaryPassword([object[]]$Snapshot, [string]$Hash) {
 START TRANSACTION;
 SELECT id FROM system_users WHERE id IN ($targetIdList) ORDER BY id FOR UPDATE;
 SET @before_count=(SELECT COUNT(*) FROM system_users WHERE $conditions);
-SET @assert_sql=IF(@before_count=3,'SELECT 1','SELECT 1 FROM __pqc5_snapshot_mismatch');
+SET @assert_sql=IF(@before_count=$expectedUserCount,'SELECT 1','SELECT 1 FROM __pqc5_snapshot_mismatch');
 PREPARE stmt FROM @assert_sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 UPDATE system_users SET password='$Hash',updater='$temporaryUpdater',update_time=NOW()
  WHERE id IN ($targetIdList) AND tenant_id=1 AND deleted=b'0';
 SET @changed=ROW_COUNT();
-SET @assert_sql=IF(@changed=3,'SELECT 1','SELECT 1 FROM __pqc5_update_count_mismatch');
+SET @assert_sql=IF(@changed=$expectedUserCount,'SELECT 1','SELECT 1 FROM __pqc5_update_count_mismatch');
 PREPARE stmt FROM @assert_sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 COMMIT;
 SELECT CONCAT('PQC5_TEMP_ACCOUNT_ROWS=',@changed);
 "@
     $result = @(Invoke-LocalMysql $sql)
-    if (-not ($result -contains 'PQC5_TEMP_ACCOUNT_ROWS=3')) { throw 'Temporary credential update failed' }
+    if (-not ($result -contains "PQC5_TEMP_ACCOUNT_ROWS=$expectedUserCount")) { throw 'Temporary credential update failed' }
 }
 
 function Restore-Accounts([object[]]$Snapshot) {
@@ -121,13 +122,13 @@ SELECT id FROM system_users WHERE id IN ($targetIdList) ORDER BY id FOR UPDATE;
 UPDATE system_users SET password=CASE id $passwordCases END,updater=CASE id $updaterCases END,update_time=CASE id $timeCases END
  WHERE id IN ($targetIdList);
 SET @exact=(SELECT COUNT(*) FROM system_users WHERE $conditions);
-SET @assert_sql=IF(@exact=3,'SELECT 1','SELECT 1 FROM __pqc5_restore_mismatch');
+SET @assert_sql=IF(@exact=$expectedUserCount,'SELECT 1','SELECT 1 FROM __pqc5_restore_mismatch');
 PREPARE stmt FROM @assert_sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 COMMIT;
 SELECT CONCAT('PQC5_ACCOUNT_RESTORE_ROWS=',@exact);
 "@
     $result = @(Invoke-LocalMysql $sql)
-    if (-not ($result -contains 'PQC5_ACCOUNT_RESTORE_ROWS=3')) { throw 'Account restoration failed' }
+    if (-not ($result -contains "PQC5_ACCOUNT_RESTORE_ROWS=$expectedUserCount")) { throw 'Account restoration failed' }
 }
 
 $snapshot = $null

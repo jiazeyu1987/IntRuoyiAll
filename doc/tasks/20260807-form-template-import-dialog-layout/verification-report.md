@@ -36,3 +36,4 @@ PASS：导入表单模板弹窗的单列信息层级、满宽上传区域、长�
 - task-closeout-cleanup preview -> PASS，删除清单 25 项，`blocked=0`、`warnings=0`。
 - task-closeout-cleanup apply -> PASS，本任务临时 Playwright 产物、上传样本和中间证据文件已删除。
 - 保留：生产组件、正式静态合同、`task.md`、`execution-log.md`、`verification-report.md`。
+- 推送状态：生产组件和正式静态合同已在远端提交 `e6b8a2df2`；最终收尾记录因共享 `int_main` 持续脏写和索引锁暂未推送，任务保持 `ready_for_closeout`。

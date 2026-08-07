@@ -458,8 +458,8 @@ class MesProRouteProcessFlowServiceImplTest {
                 argThat(snapshot -> snapshot.toString().contains("graphVersion=4")
                         && snapshot.toString().contains("nodes")
                         && snapshot.toString().contains("routeProcessId=21")
-                        && snapshot.toString().contains("routeProcessWorkstationId=81001")
-                        && !snapshot.toString().contains("workstationId=81001")));
+                        && candidateNodeHasWorkstation(snapshot, 21L, 81001L)
+                        && candidateNodeOmitsDisplayWorkstation(snapshot, 21L)));
         verify(flowEdgeMapper, never()).deleteByRouteId(routeId);
         verify(boundaryEdgeMapper, never()).deleteByRouteId(routeId);
         verify(flowLayoutMapper, never()).deleteByRouteId(routeId);
@@ -1146,9 +1146,12 @@ class MesProRouteProcessFlowServiceImplTest {
         return reqVO;
     }
 
-    private static boolean candidateNodeHasWorkstation(java.util.Map<String, Object> snapshot,
+    private static boolean candidateNodeHasWorkstation(Object snapshotValue,
                                                        Long routeProcessId,
                                                        Long workstationId) {
+        if (!(snapshotValue instanceof java.util.Map<?, ?> snapshot)) {
+            return false;
+        }
         Object nodesValue = snapshot.get("nodes");
         if (!(nodesValue instanceof List<?> nodes)) {
             return false;
@@ -1156,6 +1159,20 @@ class MesProRouteProcessFlowServiceImplTest {
         return nodes.stream().anyMatch(value -> value instanceof java.util.Map<?, ?> node
                 && routeProcessId.equals(node.get("routeProcessId"))
                 && workstationId.equals(node.get("routeProcessWorkstationId")));
+    }
+
+    private static boolean candidateNodeOmitsDisplayWorkstation(Object snapshotValue,
+                                                                Long routeProcessId) {
+        if (!(snapshotValue instanceof java.util.Map<?, ?> snapshot)) {
+            return false;
+        }
+        Object nodesValue = snapshot.get("nodes");
+        if (!(nodesValue instanceof List<?> nodes)) {
+            return false;
+        }
+        return nodes.stream().anyMatch(value -> value instanceof java.util.Map<?, ?> node
+                && routeProcessId.equals(node.get("routeProcessId"))
+                && !node.containsKey("workstationId"));
     }
 
     private static MesProRouteProcessFlowEdgeDO edgeDO(Long routeId, Long source, Long target, Long graphVersion) {

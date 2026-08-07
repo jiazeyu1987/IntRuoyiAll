@@ -21,7 +21,7 @@
 - [x] M1：核对现有排产解析、生产工单字段、产品路线绑定、ACTIVE 版本快照和 PQC 任务依赖。
 - [x] M2：记录 BDD 并新增无排产场景 RED 测试。
 - [x] M3：实现无排产正式路线解析、候选资格和新增快照/PQC 链路。
-- [ ] M4：完成目标测试、相邻回归、后端证据校验和真实用户路径 E2E。
+- [x] M4：完成目标测试、相邻回归、后端证据校验和真实用户路径 E2E。
 - [ ] M5：经验沉淀、cleanup preview/apply、提交并推送。
 
 ## 预期验证
@@ -41,10 +41,15 @@
 
 ## Current Status
 
-in_progress - 无排产正式路线解析和 37 项聚焦后端回归已通过，正在完成证据校验与真实用户路径 E2E 前置核对。
+ready_for_closeout - 实现、聚焦回归、前端静态合同、backend/database evidence、隔离运行态真实页面、数据库结果核验、任务数据归零和经验沉淀均已完成；待 cleanup preview/apply、任务提交和推送。
 
 ## Cleanup Keep
 
 - doc/tasks/20260807-active-order-without-schedule-order/task.md
 - doc/tasks/20260807-active-order-without-schedule-order/execution-log.md
 - doc/tasks/20260807-active-order-without-schedule-order/verification-report.md
+
+## Cleanup Candidates
+
+- IntRuoyiFronted/test-results/production-leader-active-order-focused
+- output/runtime/int_main-slot8-active-order
