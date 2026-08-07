@@ -158,6 +158,39 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
+    void shouldMarkUnscheduledCandidateIneligibleWhenActiveRouteVersionMissing() {
+        when(workOrderMapper.selectConfirmedCandidatesByCode("WO-9", 20))
+                .thenReturn(List.of(confirmedWorkOrderWithPlannedStart()));
+        stubEffectiveSchedules();
+        when(routeProductMapper.selectListByItemIds(List.of(1001L))).thenReturn(List.of(
+                MesProRouteProductDO.builder().id(7001L).itemId(1001L).routeId(922119L).build()));
+        when(routeVersionMapper.selectListByRouteIds(List.of(922119L))).thenReturn(List.of());
+
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+
+        assertFalse(candidates.get(0).isEligible());
+        assertEquals("产品工艺路线缺少当前ACTIVE版本", candidates.get(0).getIneligibleReason());
+        verifyNoActiveOrderWrites();
+    }
+
+    @Test
+    void shouldMarkUnscheduledCandidateIneligibleWhenActiveRouteSnapshotIncomplete() {
+        when(workOrderMapper.selectConfirmedCandidatesByCode("WO-9", 20))
+                .thenReturn(List.of(confirmedWorkOrderWithPlannedStart()));
+        stubEffectiveSchedules();
+        when(routeProductMapper.selectListByItemIds(List.of(1001L))).thenReturn(List.of(
+                MesProRouteProductDO.builder().id(7001L).itemId(1001L).routeId(922119L).build()));
+        when(routeVersionMapper.selectListByRouteIds(List.of(922119L))).thenReturn(List.of(
+                activeRouteVersion("{}")));
+
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+
+        assertFalse(candidates.get(0).isEligible());
+        assertEquals("产品工艺路线ACTIVE版本快照缺少配置快照", candidates.get(0).getIneligibleReason());
+        verifyNoActiveOrderWrites();
+    }
+
+    @Test
     void shouldSortEligibleActiveOrderCandidatesBeforeBlockedCandidates() {
         when(workOrderMapper.selectConfirmedCandidatesByCode("WO", 20)).thenReturn(List.of(
                 confirmedWorkOrder(9002L, "WO-9002", new BigDecimal("200"), 1001L),
@@ -298,6 +331,19 @@ class MesTeamLeaderActiveOrderServiceTest {
         ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED.getCode(), ex.getCode());
+        verifyNoActiveOrderWrites();
+    }
+
+    @Test
+    void shouldRejectAddWithoutScheduleWhenErpPlannedStartMissing() {
+        stubConfirmedWorkOrder();
+        stubEffectiveSchedules();
+        stubUnscheduledActiveRoute();
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
+
+        assertEquals(ErrorCodeConstants.PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED.getCode(), ex.getCode());
+        assertTrue(ex.getMessage().contains("ERP计划开工时间缺失"));
         verifyNoActiveOrderWrites();
     }
 
@@ -514,13 +560,17 @@ class MesTeamLeaderActiveOrderServiceTest {
         when(routeProductMapper.selectListByItemIds(List.of(1001L))).thenReturn(List.of(
                 MesProRouteProductDO.builder().id(7001L).itemId(1001L).routeId(922119L).build()));
         when(routeVersionMapper.selectListByRouteIds(List.of(922119L))).thenReturn(List.of(
-                MesProRouteVersionDO.builder()
-                        .id(448L)
-                        .routeId(922119L)
-                        .active(Boolean.TRUE)
-                        .lifecycleStatus("ACTIVE")
-                        .routeSnapshotJson(activeRouteSnapshotJson())
-                        .build()));
+                activeRouteVersion(activeRouteSnapshotJson())));
+    }
+
+    private static MesProRouteVersionDO activeRouteVersion(String routeSnapshotJson) {
+        return MesProRouteVersionDO.builder()
+                .id(448L)
+                .routeId(922119L)
+                .active(Boolean.TRUE)
+                .lifecycleStatus("ACTIVE")
+                .routeSnapshotJson(routeSnapshotJson)
+                .build();
     }
 
     private static String activeRouteSnapshotJson() {
