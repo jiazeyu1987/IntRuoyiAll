@@ -99,12 +99,12 @@
               </template>
             </el-select>
             <el-alert
-              v-if="categoryPermissionPreflightMessage"
+              v-if="categoryPreflightMessage"
               class="mt-8px !w-560px"
               type="warning"
               :closable="false"
               show-icon
-              :title="categoryPermissionPreflightMessage"
+              :title="categoryPreflightMessage"
             />
           </div>
         </el-form-item>
@@ -280,7 +280,7 @@
 
           <section class="upload-section upload-section--preflight" data-testid="dcc-upload-preflight-panel">
         <div class="upload-section__title">提交前校验</div>
-        <div class="upload-preflight-legend">文件编号/版本 · 分类上传权限 · 审批人链路 · 受控浏览目录 · 浏览权限范围</div>
+        <div class="upload-preflight-legend">文件编号/版本 · 文件类别 · 审批人链路 · 受控浏览目录 · 浏览权限范围</div>
         <div class="upload-preflight-grid">
           <div
             v-for="check in uploadPreflightChecks"
@@ -647,9 +647,8 @@ const selectedProjectCode = computed(() =>
   projectCodeOptions.value.find((project) => project.id === formData.dccProjectCodeId)
 )
 const categoryDirectoryBindingMessage = '当前文件类别未绑定提交目录，系统将自动落位到未分类目录。'
-const categoryUploadPermissionMessage = '当前用户没有该文件类别的上传权限，请联系文控管理员补齐该类别 UPLOAD 权限。'
 const categorySelectEmptyText = computed(() => {
-  return '当前没有可上传文件类别'
+  return '当前没有可选文件类别'
 })
 const selectedFileTypeTaxonomyBoundCategories = computed(() => {
   if (isExternalReview.value) {
@@ -665,25 +664,20 @@ const selectedFileTypeTaxonomyBoundCategories = computed(() => {
   )
 })
 const availableCategories = computed(() =>
-  selectedFileTypeTaxonomyBoundCategories.value.filter((category) => {
-    if (!category.active || category.canUpload === false) {
-      return false
-    }
-    return true
-  })
+  selectedFileTypeTaxonomyBoundCategories.value.filter((category) => category.active)
 )
 const selectedFileTypeTaxonomyAutoCategory = computed(() =>
   !isExternalReview.value && availableCategories.value.length === 1
     ? availableCategories.value[0]
     : undefined
 )
-const categoryPermissionPreflightMessage = computed(() => {
+const categoryPreflightMessage = computed(() => {
   if (categoryOptionsError.value) {
     return categoryOptionsError.value
   }
   if (isExternalReview.value) {
     if (!categories.value.length || !availableCategories.value.length) {
-      return '当前没有可上传文件类别：请确认分类已启用，并授予当前账号文件类别 UPLOAD 权限。'
+      return '当前没有可选文件类别：请确认文件类别已启用。'
     }
     return ''
   }
@@ -694,15 +688,12 @@ const categoryPermissionPreflightMessage = computed(() => {
     return '请先选择至少三级文件分类，文件类别将自动取最后一级。'
   }
   if (!selectedFileTypeTaxonomyBoundCategories.value.length) {
-    return '当前文件分类暂无可上传文件类别，请联系文控管理员配置该叶子节点的唯一正式 DCC 类别。'
+    return '当前文件分类暂无可选文件类别，请联系文控管理员配置该叶子节点的唯一正式 DCC 类别。'
   }
   if (selectedFileTypeTaxonomyBoundCategories.value.length > 1) {
     return '当前文件分类叶子节点绑定了多个正式 DCC 类别，请联系文控管理员保留唯一启用类别后再提交。'
   }
   const boundCategory = selectedFileTypeTaxonomyBoundCategories.value[0]
-  if (boundCategory.canUpload === false) {
-    return categoryUploadPermissionMessage
-  }
   if (!boundCategory.directoryId) {
     return categoryDirectoryBindingMessage
   }
@@ -766,16 +757,12 @@ const formRules = reactive<FormRules>({
     {
       validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
         if (!value) {
-          callback(new Error(isExternalReview.value ? '请选择文件类别' : categoryPermissionPreflightMessage.value || '文件分类尚未自动匹配可上传文件类别'))
+          callback(new Error(isExternalReview.value ? '请选择文件类别' : categoryPreflightMessage.value || '文件分类尚未自动匹配文件类别'))
           return
         }
         const category = categories.value.find((item) => item.id === Number(value))
         if (!isExternalReview.value && category?.fileTypeTaxonomyId !== Number(formData.fileTypeTaxonomyId)) {
           callback(new Error('文件类别必须来自当前文件分类叶子节点，请重新选择文件分类'))
-          return
-        }
-        if (category.canUpload === false) {
-          callback(new Error(categoryUploadPermissionMessage))
           return
         }
         callback()
@@ -920,7 +907,7 @@ const cleanupCurrentUploadSession = async (showSuccess = false) => {
 
 const buildUploadPreviewContext = () => {
   if (!formData.categoryId) {
-    throw new Error(isExternalReview.value ? '请先选择文件类别' : categoryPermissionPreflightMessage.value || '文件分类尚未自动匹配可上传文件类别')
+    throw new Error(isExternalReview.value ? '请先选择文件类别' : categoryPreflightMessage.value || '文件分类尚未自动匹配文件类别')
   }
   return {
     categoryId: formData.categoryId,
@@ -1214,7 +1201,6 @@ const approvalChainPreflightText = computed(() => {
 })
 
 const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
-  const categoryCanUpload = selectedCategory.value?.canUpload !== false
   const approvalPositionIds = selectedCategory.value?.approvalPositionIds || []
   const signoffPositionIds = selectedCategory.value?.signoffPositionIds || []
   const hasApprovalChain = Boolean(selectedCategory.value && approvalPositionIds.length && signoffPositionIds.length)
@@ -1250,15 +1236,13 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
       warning: !versionReady || currentVersionLookupLoading.value
     },
     {
-      key: 'category-upload',
-      label: '分类上传权限',
-      status: selectedCategory.value ? (categoryCanUpload ? '可上传' : '无权限') : (isExternalReview.value ? '待选择' : '待匹配'),
+      key: 'category-selection',
+      label: '文件类别',
+      status: selectedCategory.value ? '已匹配' : (isExternalReview.value ? '待选择' : '待匹配'),
       description: selectedCategory.value
-        ? categoryCanUpload
-          ? `当前分类 ${selectedCategory.value.name} 允许上传。`
-          : categoryUploadPermissionMessage
-        : isExternalReview.value ? '请选择文件类别后检查当前账号是否有上传权限。' : '选择文件分类后将自动匹配正式文件类别并检查当前账号上传权限。',
-      ok: Boolean(selectedCategory.value && categoryCanUpload),
+        ? `当前文件类别：${selectedCategory.value.name}。`
+        : isExternalReview.value ? '请选择文件类别。' : '选择文件分类后将自动匹配正式文件类别。',
+      ok: Boolean(selectedCategory.value),
       warning: !selectedCategory.value
     },
     {
@@ -1531,7 +1515,7 @@ const submitForm = async () => {
     return
   }
   if (!uploadDirectoryTree.value) {
-    message.warning(isExternalReview.value ? '请先选择文件类别并完成目录加载' : categoryPermissionPreflightMessage.value || '请先选择文件分类并完成目录加载')
+    message.warning(isExternalReview.value ? '请先选择文件类别并完成目录加载' : categoryPreflightMessage.value || '请先选择文件分类并完成目录加载')
     return
   }
   if (!formData.directoryId) {

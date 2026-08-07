@@ -31,6 +31,10 @@
 - RED: 第二轮 `run-e2e.ps1` -> FAIL before login write，租户 Unicode 常量首字误写为“花”；临时账号已恢复且提交标识仍为 0。常量已修正为正式租户“芋道源码”。
 - RED: 第三轮 `run-e2e.ps1` -> FAIL before active-order write，生产组长真实登录已通过，但脚本误捕获下拉框预加载的空 keyword 候选响应；账号已恢复、提交仍为 0。候选响应条件已收紧为精确业务订单号。
 - RED: 第四轮 `run-e2e.ps1` -> FAIL after successful login API and before business write，`waitForURL` 等待 SPA 整页 `load` 超时；改为断言真实页面 `location.pathname` 离开 `/login`，不跳过认证或业务页面。
+- RED: 第五轮 `run-e2e.ps1` -> FAIL before active-order write，精确 keyword 候选响应未匹配工单 `980008`；账号已恢复且提交仍为 0。下一轮记录非敏感候选业务体以确认正式不可加入原因，不绕过候选门禁。
+- RED: 第六轮候选证据 -> BLOCKED，工单 `980008` 的正式不可加入原因是“QA规程发布版本缺少末检适用性配置”；不修改共享 QA 主数据，已精确回滚未提交任务 `190..194`，改用 ACTIVE 测试订单 `980019`。
+- RED: 第七轮 `run-e2e.ps1` -> FAIL before production write，真实生产填写页已打开但提交按钮 60 秒内保持禁用；账号已恢复、正式事件仍为 0。下一轮采集非敏感页面运行态文本定位缺失前置。
+- RED: 第八轮运行态证据 -> FAIL before production write，页面已选正式工序“粗洗工序”但员工显示“未选择”，无后端错误；修正为通过生产页面员工卡选择正式员工 `964/刘悦悦` 并校验 switch-employee 响应。
 - GREEN: 待执行。
 - REGRESSION: 待执行。
 

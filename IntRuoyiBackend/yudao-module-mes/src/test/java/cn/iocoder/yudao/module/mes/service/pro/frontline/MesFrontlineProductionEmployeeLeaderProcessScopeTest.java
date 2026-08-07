@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
@@ -32,6 +33,9 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_ROUTE_PROCESS_NOT_AUTHORIZED;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.never;
@@ -107,6 +111,54 @@ class MesFrontlineProductionEmployeeLeaderProcessScopeTest {
         assertEquals(List.of(1001L, 1002L, 1003L),
                 candidates.stream().map(MesFrontlineRouteProcessCandidate::routeProcessId).toList());
         verify(routeBindingSourceProvider, never()).getIfAvailable();
+    }
+
+    @Test
+    void disabledProductionEmployeeProfileFailsWithoutDeviceAccountFallback() {
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
+                employeeProfile(8801L, LEADER_USER_ID, Boolean.FALSE)));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> contextService.listSwitchableProcesses(EMPLOYEE_USER_ID));
+
+        assertEquals(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID.getCode(), error.getCode());
+        verify(routeBindingSourceProvider, never()).getIfAvailable();
+    }
+
+    @Test
+    void multipleProductionLeaderOwnershipFailsWithoutDeviceAccountFallback() {
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
+                employeeProfile(8801L, LEADER_USER_ID, Boolean.TRUE),
+                employeeProfile(8802L, 9002L, Boolean.TRUE)));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> contextService.listSwitchableProcesses(EMPLOYEE_USER_ID));
+
+        assertEquals(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID.getCode(), error.getCode());
+        verify(routeBindingSourceProvider, never()).getIfAvailable();
+    }
+
+    @Test
+    void productionLeaderWithoutFormalRouteFailsWithoutDeviceAccountFallback() {
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
+                employeeProfile(8801L, LEADER_USER_ID, Boolean.TRUE)));
+        when(routeService.getRouteListByStatus(CommonStatusEnum.ENABLE.getStatus())).thenReturn(List.of());
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> contextService.listSwitchableProcesses(EMPLOYEE_USER_ID));
+
+        assertEquals(PRO_FRONTLINE_ROUTE_PROCESS_NOT_AUTHORIZED.getCode(), error.getCode());
+        verify(routeBindingSourceProvider, never()).getIfAvailable();
+    }
+
+    private static MesProcessPoolTeamEmployeeProfileDO employeeProfile(Long id, Long leaderUserId,
+                                                                        Boolean enabled) {
+        return MesProcessPoolTeamEmployeeProfileDO.builder()
+                .id(id)
+                .leaderUserId(leaderUserId)
+                .systemUserId(EMPLOYEE_USER_ID)
+                .enabled(enabled)
+                .build();
     }
 
     private static String routeSnapshot(Long routeId) {

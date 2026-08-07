@@ -100,7 +100,6 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_FILE_NUMBER_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_FILE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_REQUIRED;
@@ -236,8 +235,6 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                             "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 4L);
                 });
         lenient().when(permissionApi.hasAnyPermissions(any(Long.class), any(String[].class))).thenReturn(true);
-        lenient().when(permissionSupport.hasCategoryPermission(any(Long.class), any(Long.class),
-                any(DccFileCategoryPermissionActionEnum.class))).thenReturn(true);
         lenient().when(controlledFileMasterMapper.selectByIdForUpdate(any(Long.class))).thenAnswer(invocation ->
                 DccControlledFileMasterDO.builder().id(invocation.getArgument(0)).build());
         lenient().when(projectCodeMapper.selectById(3000L)).thenReturn(DccProjectCodeDO.builder()
@@ -266,8 +263,6 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("V1.0");
         reqVO.setChangeType(DccControlledFileChangeTypeEnum.NEW.getCode());
         mockCommonSubmitDependencies();
-        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
-                .thenReturn(false);
         when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "Doc Control Review", "POSITION", 50L),
                 routeNode(2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "Matrix Review", "POSITION", 51L),
@@ -1060,8 +1055,6 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         when(fileTypeTaxonomyAdminService.resolveActivePath(8803L)).thenReturn(defaultTaxonomyPath());
         when(fileTypeTaxonomyAdminService.listActiveDescendantIds(8803L)).thenReturn(List.of(8803L));
         when(fileTypeTaxonomyAdminService.listActiveDescendantPaths(8803L)).thenReturn(List.of(defaultTaxonomyPath()));
-        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD)).thenReturn(true);
-
         assertServiceException(() -> workflowService.submitControlledFile(99L, reqVO),
                 CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
 
@@ -1636,8 +1629,6 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     void previewRoute_withoutCategoryUploadPermission_success() {
         when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
                 .id(10L).active(Boolean.TRUE).source("LOCAL").build());
-        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
-                .thenReturn(false);
         when(routeMapper.selectLatestActiveByCategoryId(10L)).thenReturn(
                 DccCategoryApprovalRouteDO.builder().id(30L).categoryId(10L).versionNo(2).active(Boolean.TRUE).build());
         when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(

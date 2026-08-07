@@ -22,7 +22,21 @@
 ## Verification Evidence
 
 - RED: `node tests/e2e/dcc-training-ux-prechecks-static.spec.cjs` -> FAIL，预期原因：`CategoryTrainingRulesTab.vue` 仍包含 `dcc-training-rule-permission-precheck`，违反编辑页不显示合同。
+- GREEN: `node tests/e2e/dcc-training-ux-prechecks-static.spec.cjs` -> PASS。
+- REGRESSION: `pnpm e2e:dcc:training-ux-prechecks:static` -> PASS。
+- REGRESSION: `pnpm ts:check` -> PASS。
+- `git diff --check -- <task-owned-paths>` -> PASS；仅有 Git 的 LF/CRLF 工作区提示，无空白错误。
+- 源码扫描：目标 `CategoryTrainingRulesTab.vue` 不再包含提示 marker、标题或权限文案；非目标 `TrainingRulesReadonlyTab.vue` 仍保留三项内容。
+- `frontend-feature-delivery` evidence validator -> PASS：`Frontend feature evidence is valid.`
+- validator self-test -> PASS。
+- `project-experience-consolidation`：现有前端静态契约隔离门禁已覆盖本次可复用经验，无长期经验文档变更。
 
 ## Blockers
 
 - 无。
+
+## Closeout Evidence
+
+- `task-closeout-cleanup --mode preview` -> PASS；只删除临时 `frontend-feature-evidence.md`，保留三份正式任务记录，无 blocked/warnings。
+- `task-closeout-cleanup --mode apply` -> PASS；已删除临时 evidence 文件，未触碰源码、测试或其它任务文件。
+- 最终状态：`completed`；按当前 `AGENTS.md` 默认策略未执行 Git commit/push。

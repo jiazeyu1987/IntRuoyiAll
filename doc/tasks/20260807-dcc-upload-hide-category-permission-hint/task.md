@@ -2,7 +2,7 @@
 
 ## Task Goal
 
-在 DCC 受控文件上传页的只读“文件类别”区域中，不再显示用户截图红框内的“自动取文件分类最后一级”路径说明和橙色权限预检提示；保留文件类别值、正式类别权限过滤、表单校验和提交阻断。
+在 DCC 受控文件上传页的只读“文件类别”区域中，不再显示用户截图红框内的“自动取文件分类最后一级”路径说明和橙色权限预检提示，同时保留文件类别值。本任务不以展示隐藏结果推断或决定类别权限应在哪个业务阶段校验。
 
 ## Milestones
 
@@ -23,9 +23,9 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-实现、聚焦合同、TypeScript 检查和真实只读 Playwright 均已通过；正在归档验证证据并执行 closeout。
+用户要求的展示行为、聚焦静态合同和相邻分类合同已通过；实现已被共享分支并发基线提交并推送。最终只读 Playwright 复跑受当前登录链路超时阻塞，等待重新 cleanup 和任务记录提交。
 
 ## 设计约束检查
 
@@ -36,5 +36,9 @@ in_progress
 ## Experience Gate
 
 - 已读取 `docs/experience-index.md`。
-- 适用门禁：`docs/frontend-development.md#DCC 上传类别权限投影门禁`。本任务只改变只读类别区域的辅助展示，必须保留 `canUpload` 过滤、旧选择校验和后端 fail-fast 权限链路。
+- 适用门禁：`docs/frontend-development.md#DCC 上传类别权限投影门禁`。本任务只改变只读类别区域的辅助展示；权限职责由独立任务 `20260807-dcc-upload-permission-at-approval` 的明确用户要求和测试负责，不用本任务的 DOM 结果证明。
 - 适用通用门禁：前端静态契约隔离、共享分支并发基线提交、同文件并行改动选择性暂存。
+
+## Cleanup Candidates
+
+- output/playwright/20260807-dcc-upload-hide-category-permission-hint/

@@ -667,7 +667,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .id(routeProcessId)
                     .routeId(routeVersion.getRouteId())
                     .processId(processId)
-                    .workstationId(node.getLong("workstationId"))
+                    .workstationId(node.getLong("routeProcessWorkstationId"))
                     .sort(sort)
                     .keyFlag(Boolean.TRUE.equals(node.getBoolean("keyFlag")))
                     .checkFlag(Boolean.TRUE.equals(node.getBoolean("checkFlag")))

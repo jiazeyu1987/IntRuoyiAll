@@ -157,7 +157,7 @@ class MesProRouteProcessFlowServiceImplTest {
                               "routeId": 9011,
                               "graphVersion": 12,
                               "nodes": [
-                                {"routeProcessId": 111, "processId": 1001, "workstationId": 81001, "sort": 1, "keyFlag": true, "checkFlag": false},
+                                {"routeProcessId": 111, "processId": 1001, "routeProcessWorkstationId": 81001, "workstationId": 81001, "sort": 1, "keyFlag": true, "checkFlag": false},
                                 {"routeProcessId": 112, "processId": 1002, "sort": 2, "keyFlag": false, "checkFlag": false}
                               ],
                               "edges": [
@@ -1155,7 +1155,7 @@ class MesProRouteProcessFlowServiceImplTest {
         }
         return nodes.stream().anyMatch(value -> value instanceof java.util.Map<?, ?> node
                 && routeProcessId.equals(node.get("routeProcessId"))
-                && workstationId.equals(node.get("workstationId")));
+                && workstationId.equals(node.get("routeProcessWorkstationId")));
     }
 
     private static MesProRouteProcessFlowEdgeDO edgeDO(Long routeId, Long source, Long target, Long graphVersion) {

@@ -231,7 +231,7 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
                     .id(routeProcessId)
                     .routeId(candidateVersion.getRouteId())
                     .processId(processId)
-                    .workstationId(node.getLong("workstationId"))
+                    .workstationId(node.getLong("routeProcessWorkstationId"))
                     .sort(sort)
                     .keyFlag(Boolean.TRUE.equals(node.getBoolean("keyFlag")))
                     .checkFlag(Boolean.TRUE.equals(node.getBoolean("checkFlag")))
@@ -555,7 +555,7 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
         Map<String, Object> node = new LinkedHashMap<>();
         node.put("routeProcessId", routeProcess.getId());
         node.put("processId", routeProcess.getProcessId());
-        node.put("workstationId", routeProcess.getWorkstationId());
+        node.put("routeProcessWorkstationId", routeProcess.getWorkstationId());
         node.put("sort", routeProcess.getSort());
         node.put("keyFlag", Boolean.TRUE.equals(routeProcess.getKeyFlag()));
         node.put("checkFlag", Boolean.TRUE.equals(routeProcess.getCheckFlag()));

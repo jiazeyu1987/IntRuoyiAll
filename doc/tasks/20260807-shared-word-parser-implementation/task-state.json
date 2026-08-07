@@ -1,10 +1,10 @@
 {
   "task_id": "20260807-shared-word-parser-implementation",
   "goal": "让表单模板与批记录表单使用同一套 Word 结构解析算法，并保持各自业务合同不变",
-  "status": "planning",
-  "current_stage": "plan_review",
+  "status": "ready_for_execution",
+  "current_stage": "execution",
   "planner_review_status": "approved",
-  "plan_review_status": "pending",
+  "plan_review_status": "approved",
   "blocking_prereqs": [],
   "iteration_counts": {
     "planner_revisions": 1,
@@ -12,6 +12,120 @@
     "executor_loops": 0,
     "test_loops": 0
   },
-  "tasks": [],
-  "updated_at": "2026-08-07T14:35:00+08:00"
+  "tasks": [
+    {
+      "task_id": "T1",
+      "title": "建立迁移前字段与 helper 归属清单门禁",
+      "status": "in_progress",
+      "dependency_ids": [],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecordreport/MesProBatchRecordWordParserOwnershipContractTest.java",
+        "IntRuoyiBackend/yudao-module-mes/src/test/resources/contracts/shared-word-parser-ownership.json",
+        "doc/tasks/20260807-shared-word-parser-implementation/execution-log.md"
+      ],
+      "acceptance_ids": ["AC-03", "AC-12", "AC-16"],
+      "owner_agent": "/root/shared_word_t1_ownership"
+    },
+    {
+      "task_id": "T2",
+      "title": "先写共享 parser、依赖边界与 diagnostics 的 RED 测试",
+      "status": "pending",
+      "dependency_ids": ["T1"],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-word-parser/src/test/java/cn/iocoder/yudao/module/wordparser/**",
+        "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/SharedWordParserModuleBoundaryTest.java",
+        "doc/tasks/20260807-shared-word-parser-implementation/execution-log.md"
+      ],
+      "acceptance_ids": ["AC-01", "AC-02", "AC-03", "AC-13", "AC-15", "AC-16"]
+    },
+    {
+      "task_id": "T3",
+      "title": "实现业务中立的共享 Word canonical parser",
+      "status": "pending",
+      "dependency_ids": ["T2"],
+      "write_scope": [
+        "IntRuoyiBackend/pom.xml",
+        "IntRuoyiBackend/yudao-module-word-parser/**",
+        "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/SharedWordParserModuleBoundaryTest.java",
+        "doc/tasks/20260807-shared-word-parser-implementation/execution-log.md"
+      ],
+      "acceptance_ids": ["AC-01", "AC-02", "AC-03", "AC-11", "AC-13"]
+    },
+    {
+      "task_id": "T4",
+      "title": "先写 MES adapter 真实 DOC 与合成表格等价 RED",
+      "status": "pending",
+      "dependency_ids": ["T3"],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecordreport/MesProBatchRecordSharedParserEquivalenceTest.java",
+        "IntRuoyiBackend/yudao-module-mes/src/test/resources/contracts/pressure-pump-parser-baseline.json",
+        "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecordreport/MesProBatchRecordDocParserTest.java",
+        "doc/tasks/20260807-shared-word-parser-implementation/execution-log.md"
+      ],
+      "acceptance_ids": ["AC-02", "AC-04", "AC-05", "AC-06", "AC-08", "AC-16"]
+    },
+    {
+      "task_id": "T5",
+      "title": "将 MES Word parser 收敛为 shared parser adapter",
+      "status": "pending",
+      "dependency_ids": ["T4"],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes/pom.xml",
+        "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecordreport/**",
+        "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecordreport/**",
+        "doc/tasks/20260807-shared-word-parser-implementation/execution-log.md"
+      ],
+      "acceptance_ids": ["AC-04", "AC-05", "AC-06", "AC-08", "AC-09", "AC-11", "AC-12"]
+    },
+    {
+      "task_id": "T6",
+      "title": "先写 BPM shared adapter 与失败不落库 RED",
+      "status": "pending",
+      "dependency_ids": ["T5"],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-bpm/src/test/java/cn/iocoder/yudao/module/bpm/formcenter/runtime/DefaultWordFormTemplateRecognizerTest.java",
+        "IntRuoyiBackend/yudao-module-bpm/src/test/java/cn/iocoder/yudao/module/bpm/formcenter/runtime/FormCenterTemplateImportRuntimeTest.java",
+        "doc/tasks/20260807-shared-word-parser-implementation/execution-log.md"
+      ],
+      "acceptance_ids": ["AC-04", "AC-07", "AC-09", "AC-11", "AC-16"]
+    },
+    {
+      "task_id": "T7",
+      "title": "将 BPM Word recognizer 切换到 shared parser",
+      "status": "pending",
+      "dependency_ids": ["T6"],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-bpm/pom.xml",
+        "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/formcenter/**",
+        "IntRuoyiBackend/yudao-module-bpm/src/test/java/cn/iocoder/yudao/module/bpm/formcenter/**",
+        "doc/tasks/20260807-shared-word-parser-implementation/execution-log.md"
+      ],
+      "acceptance_ids": ["AC-04", "AC-07", "AC-09", "AC-10", "AC-11", "AC-12"]
+    },
+    {
+      "task_id": "T8",
+      "title": "补齐跨模块静态合同并执行集成回归",
+      "status": "pending",
+      "dependency_ids": ["T7"],
+      "write_scope": [
+        "IntRuoyiFronted/tests/e2e/shared-word-parser-api-contract-static.spec.js",
+        "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/SharedWordParserModuleBoundaryTest.java",
+        "IntRuoyiBackend/yudao-module-bpm/src/test/java/cn/iocoder/yudao/module/bpm/formcenter/controller/FormCenterRuntimeContractTest.java",
+        "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecordreport/MesProBatchRecordReportControllerTest.java",
+        "doc/tasks/20260807-shared-word-parser-implementation/execution-log.md"
+      ],
+      "acceptance_ids": ["AC-01", "AC-03", "AC-08", "AC-09", "AC-10", "AC-11", "AC-12", "AC-13", "AC-14", "AC-15", "AC-16"]
+    },
+    {
+      "task_id": "T9",
+      "title": "独立验证与放行判定",
+      "status": "pending",
+      "dependency_ids": ["T8"],
+      "write_scope": [
+        "doc/tasks/20260807-shared-word-parser-implementation/test-report.md"
+      ],
+      "acceptance_ids": ["AC-01", "AC-02", "AC-03", "AC-04", "AC-05", "AC-06", "AC-07", "AC-08", "AC-09", "AC-10", "AC-11", "AC-12", "AC-13", "AC-14", "AC-15", "AC-16"]
+    }
+  ],
+  "updated_at": "2026-08-07T11:08:00+08:00"
 }

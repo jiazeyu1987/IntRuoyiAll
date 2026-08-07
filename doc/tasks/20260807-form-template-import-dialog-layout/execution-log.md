@@ -21,11 +21,36 @@
 
 - M1 complete：现有页面入口、组件、交互契约、设计参考和适用规则已确认。
 - M2 complete：专用静态合同已创建并取得预期 RED。
-- M3 in progress：正在实现弹窗单列、满宽上传和响应式布局。
+- M3 complete：弹窗改为 640px 响应式单列布局，上传区满宽，长文件名可在内容区内换行。
+- M4 complete：专用合同、相邻合同、类型检查、格式检查、差异检查及真实页面桌面/窄屏验证均通过。
+- M5 complete：任务先设为 `ready_for_closeout`；cleanup preview 精确列出 25 项本任务临时产物且 `blocked=0`、`warnings=0`，apply 成功后仅保留 `task.md`、`execution-log.md`、`verification-report.md`。
 
 ## TDD Evidence
 
 - RED: `node tests/e2e/form-template-import-dialog-layout-static.spec.js` -> FAIL，预期原因：现有组件缺少 `form-template-import-dialog` 独立布局作用域，后续宽度、顶部标签、上传满宽与文件名换行合同尚未实现。
+- GREEN: `node tests/e2e/form-template-import-dialog-layout-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/form-center-static.spec.js` -> PASS，正式 `importTemplateDoc`、`selectedTemplateId`、文件类型和错误抛出合同保持不变。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `pnpm exec prettier --check src/views/form-center/template/components/TemplateImportDialog.vue tests/e2e/form-template-import-dialog-layout-static.spec.js` -> PASS。
+- GREEN: `git diff --check -- IntRuoyiFronted/src/views/form-center/template/components/TemplateImportDialog.vue IntRuoyiFronted/tests/e2e/form-template-import-dialog-layout-static.spec.js doc/tasks/20260807-form-template-import-dialog-layout` -> PASS。
+
+## Real Page Verification
+
+- ENTRY：确认前端 `127.0.0.1:8081` 与后端健康接口 `127.0.0.1:48081` 可用，通过真实登录进入 `/mdm/form-center/template`，从页面“导入”按钮打开弹窗。
+- DESKTOP：viewport `929x917`；弹窗 `640x663.203`，`scrollWidth === clientWidth`；上传区 `552x203` 且左右边界均位于正文内；长文件名高度 `40px`、`overflow-wrap: anywhere`、无横向溢出；底部操作位于弹窗内。
+- MOBILE：viewport `390x844`；弹窗 `366x671.203` 且完整位于视口内；正文与文档均无横向滚动；上传区 `298x207` 位于正文内；长文件名高度 `60px` 并正常换行；底部操作完整可见。
+- CONSOLE：`console error` -> 0 errors、0 warnings。
+- REQUESTS：仅选择本任务临时 docx 文件，未点击“导入”；网络请求清单中不存在表单模板导入请求，未写入业务数据。
+- VISUAL：桌面和窄屏截图均完成目视检查，字段、上传区、文件名与底部按钮无重叠；截图作为任务临时产物在收尾时删除。
+
+## Integration Evidence
+
+- CONCURRENT BASELINE：并发任务按全局脏工作区基线规则将本任务记录加入 `6b3a6b816`，将生产组件与专用静态合同加入 `e6b8a2df2`；两次提交均已包含在 `origin/int_main`。
+- OWNERSHIP：本任务未改写或回退上述并发基线提交；最终提交只包含本任务收尾记录与技能清理结果。
+- EXPERIENCE CONSOLIDATION：本次可复用经验已由 `docs/frontend-development.md` 的“前端截图样式块静态契约门禁”“前端参考页面像素级布局比对门禁”和“前端静态合同隔离门禁”完整覆盖，因此不重复修改长期经验文档，也不新建文档。
+- CLEANUP PREVIEW：`python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260807-form-template-import-dialog-layout --mode preview` -> PASS，`blocked=<none>`、`warnings=<none>`。
+- CLEANUP APPLY：同脚本 `--mode apply` -> PASS；本任务 Playwright 日志/截图、临时上传样本和 `frontend-feature-evidence.md` 已删除，核心记录与正式测试保留。
+- FINAL STATUS：`completed`；等待提交本任务三份核心记录并推送后核对远端同步状态。
 
 ## Blockers
 

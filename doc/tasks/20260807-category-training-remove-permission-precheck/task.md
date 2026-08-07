@@ -7,9 +7,9 @@
 ## Milestones
 
 - [x] M1：定位截图对应组件和相邻静态契约。
-- [ ] M2：先更新静态契约并取得预期 RED。
-- [ ] M3：删除目标提示节点并取得 GREEN。
-- [ ] M4：完成相邻回归、类型检查、技能证据验证和任务收尾。
+- [x] M2：先更新静态契约并取得预期 RED。
+- [x] M3：删除目标提示节点并取得 GREEN。
+- [x] M4：完成相邻回归、类型检查、技能证据验证和任务收尾。
 
 ## Expected Verification
 
@@ -20,7 +20,9 @@
 
 ## Current Status
 
-in_progress
+completed
+
+目标提示已删除，RED/GREEN、聚焦回归、类型检查、evidence validator 和 cleanup preview/apply 均通过；未执行 Git 提交或推送。
 
 ## 设计约束检查
 
@@ -33,3 +35,4 @@ in_progress
 - 已读取 `docs/experience-index.md`。
 - 适用门禁：`docs/frontend-development.md#前端静态契约隔离门禁`；现有合同必须明确区分目标编辑页和非目标只读页，避免宽泛删除提示能力。
 - 截图按钮、填写配置红框及 eDHR 元信息门禁与本任务组件不匹配，不扩展适用范围。
+- 已按 `project-experience-consolidation` 评估：本次经验已被现有“前端静态契约隔离门禁”完整覆盖，无需重复修改长期经验文档。

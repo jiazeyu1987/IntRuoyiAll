@@ -26,7 +26,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import io.swagger.v3.oas.annotations.media.Schema;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -45,7 +44,6 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_FILE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_PURPOSE_INVALID;
@@ -63,7 +61,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -89,12 +86,6 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
 
     @InjectMocks
     private DccControlledFileUploadServiceImpl uploadService;
-
-    @BeforeEach
-    void setUpCategoryUploadPermission() {
-        lenient().when(permissionSupport.hasCategoryPermission(anyLong(), anyLong(),
-                any(DccFileCategoryPermissionActionEnum.class))).thenReturn(true);
-    }
 
     @Test
     void uploadResponseContract_exposesUploadTicketAndSignedOnlyOfficeDocumentUrlWithoutFileId() throws Exception {
@@ -205,8 +196,6 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
                 new MockMultipartFile("files", "sample.docx",
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         "docx".getBytes()));
-        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
-                .thenReturn(false);
         mockSizePolicy("SOURCE", 4L);
         when(fileService.createFile(eq("docx".getBytes()), eq("sample.docx"), eq("dcc/original"),
                 eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document")))

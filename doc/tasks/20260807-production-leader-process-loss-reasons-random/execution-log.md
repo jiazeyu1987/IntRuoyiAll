@@ -22,3 +22,7 @@
 - Closeout preview: `task_closeout.py --mode preview` -> `status: ready`，仅删除本任务 `output/playwright/20260807-production-leader-process-loss-reasons-random/`，保留 `task.md`、`execution-log.md`、`verification-report.md`，blocked/warnings 均为 `none`。
 - Closeout apply: `task_closeout.py --mode apply` -> `status: applied`，本任务 Playwright 临时目录已删除；任务隔离 npm 缓存 `E:\Int\DevCache\npm-cache-lossreason0807` 已确认无占用进程后删除并复核 `CACHE_EXISTS=false`。
 - Push blocker: 最终 `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS；GitHub URL 级配置端口 `127.0.0.1:7890` 未监听，一次性改用 Clash 当前 `mixed-port=8902` 后 TLS 握手异常断开，禁用 URL 级代理后的直连也被重置。Clash 控制面进一步确认当前节点及自动选择组全部 `48` 个节点健康检查失败；因此无法执行强制 `git push origin int_main`，任务保持 `ready_for_closeout`，未修改全局 Git 或系统代理配置。
+- User regression evidence: 用户截图显示默认生产组长页面的 `球囊扩张导管` 多个工序仍为“暂无损耗原因”。重新通过真实登录页进入 `芋道源码/admin` 后，负责路线与截图一致。
+- BDD: 修正错误租户并补齐当前列表 -> Given 默认 `芋道源码/admin` 的生产组长工序配置列表, When 对当前页面每个工序新增随机 `1..6` 个带 `RLR0807M` 前缀的损耗原因, Then `105` 个工序的任务原因数均为 `1..6` 且页面不再出现“暂无损耗原因”。
+- RED: Playwright CLI `run-code --filename output/playwright/20260807-production-leader-process-loss-reasons-random-fix/red-current-page.js` -> FAIL（预期）；`rowCount=105`、`emptyRowCount=104`、`taskReasonCount=0`。
+- Root cause: 首次执行选择了 `测试租户/admin` 的 `66` 个工序，用户实际查看的是默认 `芋道源码/admin` 的另一套 `105` 个工序；首次验证范围正确但目标租户错误。

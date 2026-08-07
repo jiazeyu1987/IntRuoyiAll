@@ -7,7 +7,6 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadPreviewReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadRespVO;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFilePreviewKindEnum;
-import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
 import cn.iocoder.yudao.module.dcc.service.audit.DccAccessBoundaryLogCreateCommand;
 import cn.iocoder.yudao.module.dcc.service.audit.DccControlledFileAccessAuditService;
 import cn.iocoder.yudao.module.dcc.service.upload.DccUploadSizePolicyService;
@@ -22,7 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ONLYOFFICE_PREVIEW_CONFIG_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_FILE_INVALID;
@@ -54,8 +52,6 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
     private DccUploadTicketService uploadTicketService;
     @Resource
     private DccControlledFileAccessAuditService accessAuditService;
-    @Resource
-    private DccControlledFileCategoryPermissionSupport permissionSupport;
 
     @Override
     public DccControlledFileUploadRespVO uploadPreviewFile(Long userId, DccControlledFileUploadPreviewReqVO reqVO,
@@ -67,7 +63,6 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             file = validatePreviewFile(reqVO);
             validatePreviewSession(reqVO.getSessionId());
             purpose = validatePreviewPurposeName(reqVO.getPurpose(), file.getOriginalFilename());
-            validateCategoryUploadPermission(reqVO.getCategoryId(), userId);
             uploadSizePolicyService.validateUploadSize(reqVO.getCategoryId(),
                     purpose, file.getSize(), null);
             byte[] content = IoUtil.readBytes(file.getInputStream());
@@ -176,12 +171,6 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
     private void validatePreviewSession(String sessionId) {
         if (StrUtil.isBlank(sessionId)) {
             throw exception(CONTROLLED_FILE_UPLOAD_SESSION_INVALID);
-        }
-    }
-
-    private void validateCategoryUploadPermission(Long categoryId, Long userId) {
-        if (!permissionSupport.hasCategoryPermission(categoryId, userId, DccFileCategoryPermissionActionEnum.UPLOAD)) {
-            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         }
     }
 

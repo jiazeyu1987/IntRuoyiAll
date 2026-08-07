@@ -7,7 +7,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$expectedUsers = [ordered]@{ '512' = 'huzonggang'; '659' = 'shangmengying'; '1520' = 'lvyujie' }
+$expectedUsers = [ordered]@{ '512' = 'huzonggang'; '659' = 'shangmengying'; '964' = 'liuyueyue' }
 $targetIdList = ($expectedUsers.Keys | ForEach-Object { [string]$_ }) -join ','
 $temporaryUpdater = 'CODX-PQC-20260807-CREDENTIAL'
 
@@ -135,6 +135,9 @@ $tempDir = $null
 $password = $null
 $originalPasswordEnv = [Environment]::GetEnvironmentVariable('PQC5_TEMP_PASSWORD', 'Process')
 $originalBrowserEnv = [Environment]::GetEnvironmentVariable('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH', 'Process')
+$originalTaskIdsEnv = [Environment]::GetEnvironmentVariable('PQC5_TASK_IDS_JSON', 'Process')
+$originalProductionTaskEnv = [Environment]::GetEnvironmentVariable('PQC5_PRODUCTION_TASK_ID', 'Process')
+$originalRecordbookEnv = [Environment]::GetEnvironmentVariable('PQC5_RECORDBOOK_ID', 'Process')
 try {
     foreach ($path in @($FrontendRoot, $BackendJar, $BrowserPath)) { if (-not (Test-Path -LiteralPath $path)) { throw "Required path is missing: $path" } }
     $conflicts = @(Get-CimInstance Win32_Process | Where-Object {
@@ -148,8 +151,15 @@ try {
     [void](New-Item -ItemType Directory -Path $tempDir)
     $hash = New-BcryptHash $password $tempDir
     Set-TemporaryPassword $snapshot $hash
+    $taskIds = @(Invoke-LocalMysql "SELECT id FROM mes_pqc_inspection_task WHERE tenant_id=1 AND deleted=b'0' AND creator='CODX-PQC-20260807' ORDER BY round_no;")
+    $productionTaskIds = @(Invoke-LocalMysql "SELECT id FROM mes_pro_task WHERE tenant_id=1 AND deleted=b'0' AND creator='CODX-PQC-20260807';")
+    $recordbookIds = @(Invoke-LocalMysql "SELECT id FROM mes_pro_edhr_recordbook WHERE tenant_id=1 AND deleted=b'0' AND creator='CODX-PQC-20260807';")
+    if ($taskIds.Count -ne 5 -or $productionTaskIds.Count -ne 1 -or $recordbookIds.Count -ne 1) { throw 'Task-owned fixture ids are incomplete' }
     $env:PQC5_TEMP_PASSWORD = $password
     $env:PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = $BrowserPath
+    $env:PQC5_TASK_IDS_JSON = '[' + (($taskIds | ForEach-Object { [string]$_ }) -join ',') + ']'
+    $env:PQC5_PRODUCTION_TASK_ID = [string]$productionTaskIds[0]
+    $env:PQC5_RECORDBOOK_ID = [string]$recordbookIds[0]
     Push-Location $FrontendRoot
     try {
         & node.exe 'E:\IntRuoyi\doc\tasks\20260807-pqc-leader-management-five-records\run-e2e.cjs'
@@ -159,6 +169,9 @@ try {
     if ($null -ne $snapshot) { Restore-Accounts $snapshot }
     [Environment]::SetEnvironmentVariable('PQC5_TEMP_PASSWORD', $originalPasswordEnv, 'Process')
     [Environment]::SetEnvironmentVariable('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH', $originalBrowserEnv, 'Process')
+    [Environment]::SetEnvironmentVariable('PQC5_TASK_IDS_JSON', $originalTaskIdsEnv, 'Process')
+    [Environment]::SetEnvironmentVariable('PQC5_PRODUCTION_TASK_ID', $originalProductionTaskEnv, 'Process')
+    [Environment]::SetEnvironmentVariable('PQC5_RECORDBOOK_ID', $originalRecordbookEnv, 'Process')
     if ($tempDir -and (Test-Path -LiteralPath $tempDir)) {
         $resolved = [IO.Path]::GetFullPath($tempDir)
         $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())

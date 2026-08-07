@@ -101,6 +101,15 @@
 - Forbidden action: 禁止把 `tenant_admin`/`super_admin` 菜单绑定当作“只有目标角色可见”的替代；禁止用前端隐藏菜单、硬编码 admin bypass、默认成功权限或 broad role grant 掩盖 role/menu/user-role 链路未命中。
 - Evidence: `doc/tasks/20260806-qa-role-permission-tab/verification-report.md`；`IntRuoyiBackend/sql/mysql/20260806_mes_qa_role_permission_tab.sql`。
 
+### DCC 菜单恢复与无下载角色隔离门禁
+
+- Trigger: 跨环境同步用户角色、恢复 `文控中心` / `电子签名` / `基础数据` 等动态菜单，或要求账号可浏览 DCC 但继续禁止下载。
+- Preflight check: 写 `system_user_role` / `system_role_menu` 前，必须枚举候选角色的全部有效 `system_menu.permission`，并按后端正式下载判定同时核对用户、角色、岗位、部门链的类别和目录规则；至少显式排除 `dcc:controlled-file:directory:manage`、`dcc:controlled-file:access-rule:manage`、`dcc:controlled-file:category:manage`、`dcc:controlled-file:download`，确认目录管理权限是否会旁路类别与目录下载校验。
+- Blocker: 候选共享角色包含任一下载旁路权限、任一用户/角色/岗位/部门规则可放行下载、目标账号身份不唯一、菜单白名单包含未启用或已删除菜单，或写入后不能清理目标用户精确角色缓存时必须停止；不得直接绑定该共享角色。
+- Verification: 记录变更前后有效用户角色、三个目标根菜单的角色解析来源、角色危险权限计数、动态授权计数、用户/角色/岗位/部门类别与目录下载规则计数，以及精确角色缓存失效结果；没有活动登录 token 时明确记录 UI/API 未验收，不得以匿名请求或 mock 替代。
+- Forbidden action: 禁止只检查 `dcc:controlled-file:download` 菜单、只恢复根菜单后推断下载仍被禁止、用共享高权限角色冒充本机入口对齐、清空全库权限缓存，或以用户看不到下载按钮代替后端下载权限链验证。
+- Evidence: `doc/tasks/20260807-align-test-zhaohaichen-role-bindings-local/verification-report.md`。
+
 ### 测试管理 schema 迁移门禁
 
 - Trigger: 访问 `系统管理 > 测试管理` 提示 `系统异常`，或修改/运行 `system_codex_test_case`、Codex Runner、测试项分页、测试管理页面相关接口。

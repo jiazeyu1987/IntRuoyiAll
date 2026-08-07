@@ -54,6 +54,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderPro
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCandidateBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRemoveReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRow;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportAllocationLineReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportAllocationPreview;
@@ -257,18 +258,19 @@ class MesProcessPoolTeamLeaderControllerTest {
     @Test
     void activeOrderRequestsInjectCurrentLeaderUserAndExposeOnlyActivePool() {
         when(activeOrderService.addActiveOrder(org.mockito.ArgumentMatchers.any())).thenReturn(8101L);
-        when(activeOrderService.listActiveOrders(3001L)).thenReturn(List.of(MesProcessPoolActiveOrderDO.builder()
-                .id(8101L)
-                .leaderUserId(3001L)
-                .workOrderId(9001L)
-                .routeId(922119L)
-                .routeVersionId(448L)
-                .erpFixedQuantitySnapshot(new BigDecimal("200"))
-                .activeStatus("ACTIVE")
-                .businessStatus("ACTIVE")
-                .joinedAt(LocalDateTime.of(2026, 7, 31, 8, 30))
-                .version(0)
-                .build()));
+        when(activeOrderService.listActiveOrders(3001L)).thenReturn(List.of(new MesTeamLeaderActiveOrderRow()
+                .setId(8101L)
+                .setLeaderUserId(3001L)
+                .setWorkOrderId(9001L)
+                .setRouteId(922119L)
+                .setRouteName("按压式球囊扩充压力泵工艺路线")
+                .setRouteVersionId(448L)
+                .setRouteVersionNo("V1")
+                .setErpFixedQuantitySnapshot(new BigDecimal("200"))
+                .setActiveStatus("ACTIVE")
+                .setBusinessStatus("ACTIVE")
+                .setJoinedAt(LocalDateTime.of(2026, 7, 31, 8, 30))
+                .setVersion(0)));
 
         CommonResult<List<MesTeamLeaderActiveOrderRespVO>> listResponse;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -295,6 +297,8 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEquals(9001L, listResponse.getData().get(0).getWorkOrderId());
         assertEquals(922119L, listResponse.getData().get(0).getRouteId());
         assertEquals(448L, listResponse.getData().get(0).getRouteVersionId());
+        assertEquals("按压式球囊扩充压力泵工艺路线", listResponse.getData().get(0).getRouteName());
+        assertEquals("V1", listResponse.getData().get(0).getRouteVersionNo());
         assertEquals(new BigDecimal("200"), listResponse.getData().get(0).getErpFixedQuantitySnapshot());
         assertEquals("ACTIVE", listResponse.getData().get(0).getActiveStatus());
         assertEquals("ACTIVE", listResponse.getData().get(0).getBusinessStatus());

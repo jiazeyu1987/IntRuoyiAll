@@ -28,10 +28,13 @@
 - M3 RED complete: 新增 `projectCandidate_shouldPreserveFrozenRouteProcessWorkstationBinding`，证明候选快照中的 `workstationId=980010` 投影后为 `null`。
 - M3 implementation complete: 在正式发布投影构造 `MesProRouteProcessDO` 时加入 `workstationId`，未改变一线生产缺失绑定时的 fail-fast 门禁。
 - M3 follow-up RED: V25 发布前置校验发现候选流程图把展示用 `workstationId` 解析成了正式 `routeProcessWorkstationId`，脚本在写入前阻断，未发布、未修改当前 V24。新增正式字段与展示字段取不同值的回归断言，并覆盖候选保存必须写入正式字段。
+- M3 formal-field correction complete: 已统一候选流程图读取、候选保存快照、流程配置解析和版本发布投影，仅使用 `routeProcessWorkstationId` 作为正式绑定来源；`workstationId` 保持展示字段，不参与正式绑定投影，也未加入任何旧字段兼容或默认值分支。
 
 ## Verification Evidence
 
 - RED: `mvn --% -pl yudao-module-mes -am -Dtest=MesProRouteVersionPublishProjectionServiceTest#projectCandidate_shouldPreserveFrozenRouteProcessWorkstationBinding -Dsurefire.failIfNoSpecifiedTests=false test` -> FAIL, `expected: <980010> but was: <null>`，证明版本发布投影丢失正式工作站绑定。
+- RED: `publish-workstation-repair.ps1`（V25 发布前置校验）-> FAIL, `Candidate already contains an unexpected formal workstation binding`；候选快照的正式字段为空但展示字段有值，证明读取路径错误地把展示字段提升为正式绑定。脚本在保存和发布前终止，V24 仍为唯一生效版本。
+- RED environment note: 组合回归命令曾在 4 个并发 Maven 编译期间因共享 `target/classes` 被其它构建清理而失败，报错为 DCC/MES 依赖类缺失；该结果不是行为断言证据，待共享编译结束后重新执行同一标准命令。
 - GREEN: pending。
 - REGRESSION: pending。
 

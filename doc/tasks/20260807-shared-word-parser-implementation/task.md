@@ -6,11 +6,11 @@
 
 ## Milestones
 
-- M1：完成现状分析、PRD、任务分解、测试计划和依赖边界设计。
-- M2：按 BDD + 严格 TDD 建立共享解析模块及 canonical profile。
-- M3：迁移 MES 解析适配器并验证旧新结构等价。
-- M4：迁移表单中心识别器并验证字段识别与错误语义。
-- M5：完成独立回归、经验沉淀、提交推送和任务清理。
+- [x] M1：完成现状分析、PRD、任务分解、测试计划和依赖边界设计。
+- [ ] M2：按 BDD + 严格 TDD 建立共享解析模块及 canonical profile。
+- [ ] M3：迁移 MES 解析适配器并验证旧新结构等价。
+- [ ] M4：迁移表单中心识别器并验证字段识别与错误语义。
+- [ ] M5：完成独立回归、经验沉淀、提交推送和任务清理。
 
 ## Expected Verification
 
@@ -38,7 +38,7 @@
 
 ## Current Status
 
-in_progress：正在执行任务启动、规划门禁和脏工作区基线提交。
+in_progress：M1 已完成并通过规划评审；正在执行 T1 字段/helper 归属清单门禁。当前 `E:\IntRuoyi\IntRuoyiBackend` 存在其他任务的 MES Maven 构建，目标验证需等待其结束后串行运行，未强制终止无关进程。
 
 ## Cleanup Keep
 

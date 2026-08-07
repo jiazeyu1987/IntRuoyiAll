@@ -61,7 +61,6 @@ import cn.iocoder.yudao.module.dcc.enums.DccControlledFileMasterStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFilePreviewKindEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccDistributionMediumEnum;
-import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
@@ -107,7 +106,6 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DISTRIBUTION_DEPARTMENT_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DISTRIBUTION_MEDIUM_INVALID;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_FILE_NUMBER_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PRODUCT_CODE_INVALID;
@@ -197,8 +195,6 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     @Resource
     private PermissionApi permissionApi;
     @Resource
-    private DccControlledFileCategoryPermissionSupport permissionSupport;
-    @Resource
     private DccProjectCodeMapper projectCodeMapper;
     @Resource
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
@@ -214,7 +210,6 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     @Override
     public List<DccControlledFileRoutePreviewRespVO> previewRoute(Long userId, Long categoryId) {
         DccFileCategoryDO category = validateCategory(categoryId);
-        validateCategoryUploadPermission(category.getId(), userId);
         return convertList(approvalRouteAssigneeResolver.resolveRoute(category.getId(), userId).nodes(),
                 this::toRoutePreviewRespVO);
     }
@@ -1134,7 +1129,6 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 controlledUploadSubmit);
         DccControlledFileVersion requestedVersion = parseVersion(reqVO.getVersionNo());
         DccFileCategoryDO category = validateCategory(reqVO.getCategoryId());
-        validateCategoryUploadPermission(category.getId(), userId);
         ResolvedDccProduct dccProduct = resolveDccProductFromProjectCode(projectCode);
         if (requireScreenshotMetadata) {
             validateScreenshotProductCode(dccProduct);
@@ -1643,12 +1637,6 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             throw exception(CONTROLLED_FILE_CATEGORY_DISABLED);
         }
         return category;
-    }
-
-    private void validateCategoryUploadPermission(Long categoryId, Long userId) {
-        if (!permissionSupport.hasCategoryPermission(categoryId, userId, DccFileCategoryPermissionActionEnum.UPLOAD)) {
-            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
-        }
     }
 
     private Set<Long> resolveRequestedDirectoryIds(DccControlledFilePageReqVO reqVO) {

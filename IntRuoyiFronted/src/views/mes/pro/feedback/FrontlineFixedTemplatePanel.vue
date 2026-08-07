@@ -750,16 +750,38 @@
       @click.self="closePicker"
     >
       <section class="frontline-picker__card picker-card">
-        <h3 class="frontline-picker__title picker-title">
-          {{
-            isPqcMode
-              ? activePicker === 'order'
-                ? '选择订单'
+        <div class="frontline-picker__heading">
+          <h3 class="frontline-picker__title picker-title">
+            {{
+              isPqcMode
+                ? activePicker === 'order'
+                  ? '选择订单'
+                  : activePicker === 'process' ? '选工序' : '选择员工'
                 : activePicker === 'process' ? '选工序' : '选择员工'
-              : activePicker === 'process' ? '选工序' : '选择员工'
-          }}
-        </h3>
+            }}
+          </h3>
+          <input
+            v-if="activePicker === 'order'"
+            ref="activeOrderSearchInputRef"
+            v-model="activeOrderKeyword"
+            class="frontline-picker__order-search"
+            type="search"
+            data-pqc-order-search-input
+            aria-label="输入订单号筛选活跃订单"
+            placeholder="输入订单号"
+            autocomplete="off"
+            spellcheck="false"
+            @keydown.enter="handleActiveOrderSearchEnter"
+          />
+        </div>
         <div class="frontline-picker__options picker-options">
+          <p
+            v-if="activePicker === 'order' && pickerOptions.length === 0"
+            class="frontline-picker__empty"
+            aria-live="polite"
+          >
+            未找到匹配的活跃订单
+          </p>
           <button
             v-for="option in pickerOptions"
             :key="option.key"
@@ -896,6 +918,8 @@ const catalog = ref<FrontlineTemplateDefinitionVO[]>([])
 const payloadLoading = ref(false)
 const payloadPreview = ref<FrontlineTemplatePayloadVO>()
 const activePicker = ref<PickerType>()
+const activeOrderKeyword = ref('')
+const activeOrderSearchInputRef = ref<HTMLInputElement>()
 const deviceState = reactive(createFrontlineDeviceEmployeeState())
 const employeeTemplateCode = ref<FrontlineTemplateCode>()
 const frontlinePanelRef = ref<HTMLElement>()
@@ -1162,9 +1186,21 @@ const switchableProcessOptions = computed(() => {
   })
 })
 
+const normalizeActiveOrderKeyword = (value?: string) => (value || '').trim().toLocaleUpperCase()
+
+const filteredActiveOrderOptions = computed(() => {
+  const keyword = normalizeActiveOrderKeyword(activeOrderKeyword.value)
+  if (!keyword) {
+    return deviceState.activeOrderOptions
+  }
+  return deviceState.activeOrderOptions.filter((order) =>
+    normalizeActiveOrderKeyword(order.workOrderCode).includes(keyword)
+  )
+})
+
 const pickerOptions = computed(() => {
   if (activePicker.value === 'order') {
-    return deviceState.activeOrderOptions.map((order) => ({
+    return filteredActiveOrderOptions.value.map((order) => ({
       key: `${order.workOrderId}-${order.routeId}`,
       label: formatActiveOrderLabel(order),
       active: isSameActiveOrder(order, deviceState.selectedActiveOrder),
@@ -1880,9 +1916,16 @@ const openPicker = (picker: PickerType) => {
     return
   }
   activePicker.value = picker
+  if (picker === 'order') {
+    activeOrderKeyword.value = ''
+    nextTick(() => activeOrderSearchInputRef.value?.focus())
+  }
 }
 
 const closePicker = () => {
+  if (activePicker.value === 'order') {
+    activeOrderKeyword.value = ''
+  }
   activePicker.value = undefined
 }
 
@@ -2068,6 +2111,24 @@ const findInitialEmployee = () => {
     }
   }
   return deviceState.employeeOptions[0]
+}
+
+const handleActiveOrderSearchEnter = async () => {
+  const keyword = normalizeActiveOrderKeyword(activeOrderKeyword.value)
+  if (!keyword) {
+    return
+  }
+  const exactMatch = filteredActiveOrderOptions.value.find(
+    (order) => normalizeActiveOrderKeyword(order.workOrderCode) === keyword
+  )
+  const targetOrder = exactMatch || (
+    filteredActiveOrderOptions.value.length === 1
+      ? filteredActiveOrderOptions.value[0]
+      : undefined
+  )
+  if (targetOrder) {
+    await handleSelectActiveOrder(targetOrder)
+  }
 }
 
 const handleSelectActiveOrder = async (activeOrder: FrontlineActiveOrderVO) => {
@@ -4260,6 +4321,35 @@ onUnmounted(() => {
   background: var(--frontline-panel);
 }
 
+.frontline-picker--production-order .frontline-picker__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-width: 0;
+}
+
+.frontline-picker--production-order .frontline-picker__order-search {
+  flex: 0 1 620px;
+  width: min(620px, 46%);
+  height: 72px;
+  padding: 0 24px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 12px;
+  outline: none;
+  background: #ffffff;
+  color: var(--frontline-ink);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.frontline-picker--production-order .frontline-picker__order-search:focus {
+  border-color: var(--frontline-dark);
+  box-shadow: 0 0 0 4px rgba(31, 50, 42, 0.16);
+}
+
 .frontline-picker--production-order .frontline-picker__options {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -4268,6 +4358,16 @@ onUnmounted(() => {
   min-height: 0;
   max-height: none;
   overflow: auto;
+}
+
+.frontline-picker--production-order .frontline-picker__empty {
+  grid-column: 1 / -1;
+  align-self: center;
+  margin: 0;
+  color: #66736c;
+  font-size: 32px;
+  font-weight: 800;
+  text-align: center;
 }
 
 .frontline-picker--production-order .frontline-picker__option {

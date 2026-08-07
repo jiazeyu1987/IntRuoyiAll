@@ -7,10 +7,10 @@
 ## Milestones
 
 - [x] M1：确认现有弹窗入口、组件、交互契约、设计参考和适用项目规则。
-- [ ] M2：以专用静态合同记录目标布局并取得 RED 证据。
-- [ ] M3：完成最小布局与样式调整并取得 GREEN 证据。
-- [ ] M4：完成类型检查、相邻合同、响应式页面检查和差异检查。
-- [ ] M5：完成证据归档、任务清理、提交与推送。
+- [x] M2：以专用静态合同记录目标布局并取得 RED 证据。
+- [x] M3：完成最小布局与样式调整并取得 GREEN 证据。
+- [x] M4：完成类型检查、相邻合同、响应式页面检查和差异检查。
+- [x] M5：完成证据归档与任务清理；最终记录进入提交与推送门禁。
 
 ## Expected Verification
 
@@ -39,6 +39,34 @@
 - doc/tasks/20260807-form-template-import-dialog-layout/execution-log.md
 - doc/tasks/20260807-form-template-import-dialog-layout/verification-report.md
 
+## Cleanup Candidates
+
+- doc/tasks/20260807-form-template-import-dialog-layout/frontend-feature-evidence.md
+- output/playwright/form-template-import-dialog-layout/
+- .playwright-cli/console-2026-08-07T02-18-57-747Z.log
+- .playwright-cli/page-2026-08-07T02-19-00-036Z.yml
+- .playwright-cli/page-2026-08-07T02-28-50-808Z.yml
+- .playwright-cli/console-2026-08-07T02-30-39-798Z.log
+- .playwright-cli/page-2026-08-07T02-30-41-181Z.yml
+- .playwright-cli/page-2026-08-07T02-32-15-599Z.yml
+- .playwright-cli/page-2026-08-07T02-33-35-805Z.yml
+- .playwright-cli/console-2026-08-07T02-31-34-859Z.log
+- .playwright-cli/console-2026-08-07T02-35-57-285Z.log
+- .playwright-cli/page-2026-08-07T02-35-58-794Z.yml
+- .playwright-cli/page-2026-08-07T02-37-14-576Z.yml
+- .playwright-cli/page-2026-08-07T02-40-06-441Z.yml
+- .playwright-cli/page-2026-08-07T02-43-27-184Z.png
+- .playwright-cli/console-2026-08-07T02-37-13-181Z.log
+- .playwright-cli/console-2026-08-07T02-51-39-835Z.log
+- .playwright-cli/page-2026-08-07T02-51-41-271Z.yml
+- .playwright-cli/page-2026-08-07T02-55-09-494Z.png
+- .playwright-cli/console-2026-08-07T02-55-16-805Z.log
+- .playwright-cli/page-2026-08-07T02-55-17-986Z.yml
+- .playwright-cli/page-2026-08-07T02-56-08-527Z.yml
+- .playwright-cli/page-2026-08-07T02-57-26-846Z.yml
+- .playwright-cli/page-2026-08-07T02-57-42-241Z.png
+- .playwright-cli/page-2026-08-07T02-58-32-384Z.yml
+
 ## Current Status
 
-in_progress：用户已授权修正 6 个任务外文档的 EOF 空行；脏工作区基线提交 `35595ee9f` 已完成，正在建立当前弹窗布局的 RED 合同。
+completed：实现、静态合同、类型检查和真实页面桌面/窄屏验证均已通过；任务临时产物清理已完成，最终记录进入提交与推送门禁。

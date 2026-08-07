@@ -203,7 +203,7 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                     MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
                             .routeId(routeId)
                             .processId(process.getId())
-                            .workstationId(node.getLong("workstationId"))
+                            .workstationId(node.getLong("routeProcessWorkstationId"))
                             .sort(sort)
                             .keyFlag(node.getBoolean("keyFlag"))
                             .checkFlag(node.getBoolean("checkFlag"))
