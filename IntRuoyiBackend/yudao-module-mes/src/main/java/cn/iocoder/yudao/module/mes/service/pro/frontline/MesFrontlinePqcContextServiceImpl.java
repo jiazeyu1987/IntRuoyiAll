@@ -1139,6 +1139,9 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
     private record PqcTaskProcessKey(Long routeProcessId, Long processId) {
     }
 
+    private record RouteSnapshotProcess(Long routeProcessId, Long processId, Integer sort) {
+    }
+
     private record InspectionItemKey(String inspectionType, String itemCode) {
     }
 
