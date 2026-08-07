@@ -34,12 +34,19 @@ requirePageMarker('data-team-leader-process-config-table', 'unified process conf
 requirePageMarker('data-production-leader-responsible-routes', 'production leader module tabs must display responsible route names in the right-side header area')
 assert.match(
   page,
-  /const\s+productionResponsibleRouteNames\s*=\s*computed\([\s\S]*processConfigRows\.value[\s\S]*row\.routeName[\s\S]*seen\.add\(routeName\)[\s\S]*return routeNames/,
-  'production leader route header must use formal process-config routeName rows instead of fallback sources.'
+  /const\s+productionResponsibleRouteNames\s*=\s*computed\([\s\S]*responsibleRouteRows\.value[\s\S]*row\.routeName[\s\S]*seen\.add\(routeName\)[\s\S]*return routeNames/,
+  'production leader route header must use formal responsibility routeName rows.'
+)
+assert.doesNotMatch(
+  page.match(/const\s+productionResponsibleRouteNames\s*=\s*computed\(\(\)\s*=>\s*\{[\s\S]*?\n\}\)/)?.[0] || '',
+  /processConfigRows\.value/,
+  'production leader route header must not present process-config maintenance scope as formal responsibility.'
 )
 requirePageMarker('data-team-leader-process-relation-config', 'config center must include process exception relations')
-requirePageMarker('data-team-leader-active-order-select', 'abnormal reporting must select from active orders')
-requirePageMarker('data-team-leader-defect-reason-select', 'abnormal reporting must select configured process defect reasons')
+requirePageMarker('data-team-leader-report-active-order-abnormal', 'active order rows must expose abnormal reporting')
+requirePageMarker('data-team-leader-abnormal-report-dialog', 'abnormal reporting must use the selected active-order row')
+requirePageMarker('team-leader-workbench__abnormal-work-order-id', 'abnormal work-order ids must use the error color')
+requirePageMarker('allocatableActiveOrderOptions', 'manual allocation must exclude abnormal active orders')
 requirePageMarker('data-team-leader-structured-detail', 'submission detail must show structured report content')
 requirePageMarker('data-team-leader-fifo-allocation', 'report workbench must keep FIFO allocation action')
 requirePageMarker('data-team-leader-allocation-table', 'report workbench must keep manual allocation table')

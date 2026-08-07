@@ -8,5 +8,6 @@ public record MesFrontlineDeviceParameterOption(String parameterCode,
                                                 BigDecimal lowerLimit,
                                                 BigDecimal upperLimit,
                                                 BigDecimal defaultValue,
-                                                String valueType) {
+                                                String valueType,
+                                                String standardText) {
 }

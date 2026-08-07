@@ -1,7 +1,11 @@
 package cn.iocoder.yudao.module.erp.service.config;
 
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.erp.controller.admin.config.vo.ErpKingdeeConfigRespVO;
 import cn.iocoder.yudao.module.erp.controller.admin.config.vo.ErpKingdeeConfigSaveReqVO;
+import cn.iocoder.yudao.module.erp.controller.admin.config.vo.ErpKingdeeActiveConnectionRespVO;
+import cn.iocoder.yudao.module.erp.controller.admin.config.vo.ErpKingdeeActiveConnectionSaveReqVO;
+import cn.iocoder.yudao.module.erp.enums.ErpKingdeeConnectionTypeEnum;
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeProperties;
 import cn.iocoder.yudao.module.infra.controller.admin.config.vo.ConfigSaveReqVO;
 import cn.iocoder.yudao.module.infra.dal.dataobject.config.ConfigDO;
@@ -14,6 +18,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -21,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -55,6 +62,8 @@ class ErpKingdeeConfigServiceImplTest {
 
     @Test
     void getConfig_returnsRuntimeDefaultsWhenNoSavedConfigExists() {
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(null);
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
 
         ErpKingdeeConfigRespVO config = kingdeeConfigService.getConfig();
@@ -70,6 +79,8 @@ class ErpKingdeeConfigServiceImplTest {
 
     @Test
     void getConfig_preservesChineseUsername() {
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(null);
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
 
         ErpKingdeeConfigRespVO config = kingdeeConfigService.getConfig();
@@ -79,6 +90,8 @@ class ErpKingdeeConfigServiceImplTest {
 
     @Test
     void saveConfig_createsDedicatedInfraConfigWhenMissing() {
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(null);
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
         ErpKingdeeConfigSaveReqVO saveReqVO = buildSaveReqVO();
 
@@ -98,6 +111,8 @@ class ErpKingdeeConfigServiceImplTest {
         configDO.setId(1L);
         configDO.setConfigKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY);
         configDO.setValue("{\"baseUrl\":\"http://custom/K3Cloud\",\"acctId\":\"acct-new\",\"username\":\"sync-user\",\"password\":\"sync-pass\",\"lcid\":2052,\"product\":{\"queryLimit\":9000},\"bom\":{\"queryLimit\":800},\"productionOrder\":{\"queryLimit\":1500},\"purchaseOrder\":{\"purchaseOrgNumber\":\"990\",\"queryDays\":30,\"queryLimit\":1500},\"saleOrder\":{\"queryDays\":45,\"queryLimit\":1800}}");
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(null);
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(configDO);
 
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
@@ -110,6 +125,156 @@ class ErpKingdeeConfigServiceImplTest {
         assertEquals(1500, properties.getProductionOrder().getQueryLimit());
         assertEquals("990", properties.getPurchaseOrder().getPurchaseOrgNumber());
         assertEquals(45, properties.getSaleOrder().getQueryDays());
+    }
+
+    @Test
+    void getActiveConnection_defaultsToTestWhenSelectionHasNeverBeenSaved() {
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(null);
+
+        ErpKingdeeActiveConnectionRespVO response = kingdeeConfigService.getActiveConnection();
+
+        assertEquals(ErpKingdeeConnectionTypeEnum.TEST.getType(), response.getActiveConnectionType());
+        assertEquals("测试账套", response.getActiveConnectionName());
+        assertEquals(2, response.getOptions().size());
+        assertEquals("正式账套", response.getOptions().get(1).getConnectionName());
+    }
+
+    @Test
+    void updateActiveConnection_savesProductionOnlyAfterProductionConfigIsValidated() {
+        ConfigDO productionConfig = config(2L, ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY,
+                "{\"baseUrl\":\"http://prod/K3Cloud\",\"acctId\":\"prod-acct\","
+                        + "\"username\":\"prod-user\",\"password\":\"prod-password\",\"lcid\":2052}");
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(null);
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
+                .thenReturn(productionConfig);
+        ErpKingdeeActiveConnectionSaveReqVO request = new ErpKingdeeActiveConnectionSaveReqVO();
+        request.setConnectionType(ErpKingdeeConnectionTypeEnum.PRODUCTION.getType());
+
+        ErpKingdeeActiveConnectionRespVO response = kingdeeConfigService.updateActiveConnection(request);
+
+        org.mockito.ArgumentCaptor<ConfigSaveReqVO> captor = org.mockito.ArgumentCaptor.forClass(ConfigSaveReqVO.class);
+        verify(configService).createConfig(captor.capture());
+        assertEquals(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY, captor.getValue().getKey());
+        assertEquals(ErpKingdeeConnectionTypeEnum.PRODUCTION.getType(), captor.getValue().getValue());
+        assertEquals(Boolean.FALSE, captor.getValue().getVisible());
+        assertEquals("正式账套", response.getActiveConnectionName());
+    }
+
+    @Test
+    void updateActiveConnection_doesNotSaveWhenProductionConfigIsMissing() {
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
+                .thenReturn(null);
+        ErpKingdeeActiveConnectionSaveReqVO request = new ErpKingdeeActiveConnectionSaveReqVO();
+        request.setConnectionType(ErpKingdeeConnectionTypeEnum.PRODUCTION.getType());
+
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> kingdeeConfigService.updateActiveConnection(request));
+
+        assertTrue(exception.getMessage().contains("正式账套连接配置缺失"));
+        verify(configService, never()).createConfig(any());
+        verify(configService, never()).updateConfig(any());
+    }
+
+    @Test
+    void getEffectiveProperties_usesProductionConnectionAndPreservesSharedSyncSettings() {
+        ConfigDO testConfig = config(1L, ErpKingdeeConfigServiceImpl.CONFIG_KEY,
+                "{\"baseUrl\":\"http://test/K3Cloud\",\"acctId\":\"test-acct\","
+                        + "\"username\":\"test-user\",\"password\":\"test-password\",\"lcid\":2052,"
+                        + "\"product\":{\"queryLimit\":9000},\"bom\":{\"queryLimit\":800},"
+                        + "\"productionOrder\":{\"queryLimit\":1500,\"templateBillNo\":\"TEST-MO\"},"
+                        + "\"purchaseOrder\":{\"purchaseOrgNumber\":\"990\",\"queryDays\":30,\"queryLimit\":1500},"
+                        + "\"saleOrder\":{\"queryDays\":45,\"queryLimit\":1800}}");
+        ConfigDO activeConfig = config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY,
+                ErpKingdeeConnectionTypeEnum.PRODUCTION.getType());
+        ConfigDO productionConfig = config(3L, ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY,
+                "{\"baseUrl\":\"http://prod/K3Cloud\",\"acctId\":\"prod-acct\","
+                        + "\"username\":\"prod-user\",\"password\":\"prod-password\",\"lcid\":2052}");
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(testConfig);
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(activeConfig);
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
+                .thenReturn(productionConfig);
+
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+
+        assertEquals("http://prod/K3Cloud", properties.getBaseUrl());
+        assertEquals("prod-acct", properties.getAcctId());
+        assertEquals("prod-user", properties.getUsername());
+        assertEquals(9000, properties.getProduct().getQueryLimit());
+        assertEquals("TEST-MO", properties.getProductionOrder().getTemplateBillNo());
+        assertEquals("990", properties.getPurchaseOrder().getPurchaseOrgNumber());
+    }
+
+    @Test
+    void getEffectiveProperties_failsFastWhenActiveProductionConfigIsMissing() {
+        ConfigDO activeConfig = config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY,
+                ErpKingdeeConnectionTypeEnum.PRODUCTION.getType());
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(activeConfig);
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
+                .thenReturn(null);
+
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> kingdeeConfigService.getEffectiveProperties());
+
+        assertTrue(exception.getMessage().contains("正式账套连接配置缺失"));
+    }
+
+    @Test
+    void saveConfig_whenProductionIsActiveKeepsTestConnectionAndUpdatesProductionConnection() {
+        ConfigDO activeConfig = config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY,
+                ErpKingdeeConnectionTypeEnum.PRODUCTION.getType());
+        ConfigDO testConfig = config(1L, ErpKingdeeConfigServiceImpl.CONFIG_KEY,
+                JsonUtils.toJsonString(buildSaveReqVO()));
+        ConfigDO productionConfig = config(3L, ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY,
+                "{\"baseUrl\":\"http://old-prod/K3Cloud\",\"acctId\":\"old-prod-acct\","
+                        + "\"username\":\"old-prod-user\",\"password\":\"old-prod-password\",\"lcid\":2052}");
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(activeConfig);
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(testConfig);
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY))
+                .thenReturn(productionConfig);
+        ErpKingdeeConfigSaveReqVO request = buildSaveReqVO();
+        request.setBaseUrl("http://new-prod/K3Cloud");
+        request.setAcctId("new-prod-acct");
+        request.setUsername("new-prod-user");
+        request.setPassword("new-prod-password");
+        request.getProduct().setQueryLimit(7777);
+
+        kingdeeConfigService.saveConfig(request);
+
+        org.mockito.ArgumentCaptor<ConfigSaveReqVO> captor = org.mockito.ArgumentCaptor.forClass(ConfigSaveReqVO.class);
+        verify(configService, times(2)).updateConfig(captor.capture());
+        List<ConfigSaveReqVO> savedConfigs = captor.getAllValues();
+        ConfigSaveReqVO savedTestConfig = savedConfigs.stream()
+                .filter(item -> ErpKingdeeConfigServiceImpl.CONFIG_KEY.equals(item.getKey()))
+                .findFirst().orElseThrow();
+        ConfigSaveReqVO savedProductionConfig = savedConfigs.stream()
+                .filter(item -> ErpKingdeeConfigServiceImpl.PRODUCTION_CONNECTION_CONFIG_KEY.equals(item.getKey()))
+                .findFirst().orElseThrow();
+        ErpKingdeeConfigSaveReqVO savedTest = JsonUtils.parseObject(savedTestConfig.getValue(),
+                ErpKingdeeConfigSaveReqVO.class);
+        assertEquals("6977227150362f", savedTest.getAcctId());
+        assertEquals(7777, savedTest.getProduct().getQueryLimit());
+        assertTrue(savedProductionConfig.getValue().contains("new-prod-acct"));
+        assertFalse(savedProductionConfig.getValue().contains("old-prod-acct"));
+    }
+
+    @Test
+    void getActiveConnection_failsFastWhenSavedSelectionIsInvalid() {
+        ConfigDO activeConfig = config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY, "UNKNOWN");
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(activeConfig);
+
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> kingdeeConfigService.getActiveConnection());
+
+        assertTrue(exception.getMessage().contains("不支持的 ERP 连接类型"));
     }
 
     @Test
@@ -191,6 +356,14 @@ class ErpKingdeeConfigServiceImplTest {
         saleOrderConfig.setQueryLimit(1000);
         reqVO.setSaleOrder(saleOrderConfig);
         return reqVO;
+    }
+
+    private static ConfigDO config(Long id, String key, String value) {
+        ConfigDO configDO = new ConfigDO();
+        configDO.setId(id);
+        configDO.setConfigKey(key);
+        configDO.setValue(value);
+        return configDO;
     }
 
 }

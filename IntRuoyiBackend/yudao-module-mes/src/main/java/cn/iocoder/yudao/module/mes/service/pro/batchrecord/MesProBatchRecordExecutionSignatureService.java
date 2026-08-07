@@ -44,6 +44,7 @@ public class MesProBatchRecordExecutionSignatureService {
     public static final String ACTION_ARCHIVE_SEAL = "ARCHIVE_SEAL";
     public static final String ACTION_FIELD_CHANGE = "FIELD_CHANGE";
     public static final String ACTION_FORM_REVIEW = "FORM_REVIEW";
+    public static final String ACTION_PQC_SUBMIT = "PQC_SUBMIT";
     public static final String SIGNATURE_MODE_PASSWORD = "PASSWORD";
     public static final String SIGNATURE_MODE_LOGIN_SESSION = "LOGIN_SESSION";
     public static final String SIGNATURE_TIME_MODE_SERVER = "SERVER_TIME";
@@ -73,6 +74,11 @@ public class MesProBatchRecordExecutionSignatureService {
     @Transactional(rollbackFor = Exception.class)
     public Long recordSubmitSignature(Long executionId, String password, String comment) {
         return recordSignature(executionId, password, comment, ACTION_SUBMIT);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordPqcSubmitSignature(String password, String comment) {
+        return recordSignature(0L, password, comment, ACTION_PQC_SUBMIT);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -513,6 +519,7 @@ public class MesProBatchRecordExecutionSignatureService {
             case ACTION_ARCHIVE_SEAL -> "归档封存";
             case ACTION_FIELD_CHANGE -> "字段变更";
             case ACTION_FORM_REVIEW -> "表单复核";
+            case ACTION_PQC_SUBMIT -> "PQC检验提交";
             default -> actionType;
         };
     }

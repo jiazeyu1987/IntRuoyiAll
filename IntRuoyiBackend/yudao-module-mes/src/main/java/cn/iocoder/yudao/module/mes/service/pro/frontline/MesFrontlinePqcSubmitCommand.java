@@ -34,11 +34,9 @@ public class MesFrontlinePqcSubmitCommand {
     private Long deviceId;
     private Long workstationId;
     private String pqcSubmissionIdempotencyKey;
-    private Long signatureId;
-    private Long signatureEmployeeId;
-    private String signatureSnapshot;
+    private String signaturePassword;
     private String templateType;
-    private String inspectionResult;
+    private Integer scrapQuantity;
     private String nonconformanceDescription;
     private List<ItemResult> itemResults;
     private Map<String, Object> rawPayload;

@@ -22,7 +22,7 @@ assert.doesNotMatch(
 
 assert.match(
   teamLeaderWorkbench,
-  /data-production-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="报工管理"\s+name="report"[\s\S]*<el-tab-pane\s+label="活跃订单池"\s+name="activeOrder"[\s\S]*<el-tab-pane\s+label="看板"\s+name="dashboard"[\s\S]*<el-tab-pane\s+label="异常"\s+name="exception"[\s\S]*<el-tab-pane\s+label="工序配置"\s+name="processConfig"/,
+  /data-production-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="报工管理"\s+name="report"[\s\S]*<el-tab-pane\s+label="活跃订单池"\s+name="activeOrder"[\s\S]*<el-tab-pane\s+label="看板"\s+name="dashboard"[\s\S]*<el-tab-pane\s+label="工序配置"\s+name="processConfig"/,
   'Shared workbench must render the retained production function tabs.'
 )
 assert.doesNotMatch(
@@ -41,7 +41,7 @@ assert.doesNotMatch(
   'Production module tab state must not retain the removed config key.'
 )
 
-for (const moduleName of ['Personnel', 'Report', 'ActiveOrder', 'Dashboard', 'Exception', 'ProcessConfig']) {
+for (const moduleName of ['Personnel', 'Report', 'ActiveOrder', 'Dashboard', 'ProcessConfig']) {
   assert.match(
     teamLeaderWorkbench,
     new RegExp(`const\\s+showProduction${moduleName}Module\\s*=\\s*computed\\([\\s\\S]*activeProductionModuleTab`),
@@ -84,15 +84,15 @@ assert.match(
   /<ContentWrap[\s\S]*v-if="showPqcDashboardModule"[\s\S]*data-role-matrix-daily-close/,
   '看板 tab must own the daily close dashboard.'
 )
-assert.match(
-  teamLeaderWorkbench,
-  /<ContentWrap[\s\S]*v-if="showProductionExceptionModule"[\s\S]*data-team-leader-abnormal-report/,
-  '异常 tab must own the abnormal report block.'
-)
 assert.doesNotMatch(
   teamLeaderWorkbench,
-  /<ContentWrap\s+v-if="showProductionReportModule"\s+data-team-leader-abnormal-report/,
-  '异常上报 must not remain under the 报工管理 tab gate.'
+  /showProductionExceptionModule|data-production-leader-module-tab-exception/,
+  '独立异常页签和内容门禁必须删除。'
+)
+assert.match(
+  teamLeaderWorkbench,
+  /data-team-leader-active-order-pool-tab[\s\S]*data-team-leader-report-active-order-abnormal[\s\S]*data-team-leader-abnormal-report-dialog/,
+  '异常上报必须合并到活跃订单池行操作。'
 )
 assert.match(
   teamLeaderWorkbench,
@@ -116,8 +116,13 @@ assert.doesNotMatch(
 )
 assert.match(
   teamLeaderWorkbench,
-  /<el-dialog[\s\S]{0,220}v-model="processConfigCreateDialogVisible"[\s\S]{0,220}data-team-leader-process-config-create-dialog[\s\S]*data-team-leader-process-config-create-process[\s\S]*v-for="row in processConfigRows"[\s\S]*data-team-leader-process-config-create-type[\s\S]*LOSS_REASON[\s\S]*DEVICE_BINDING[\s\S]*PARAMETER_RULE[\s\S]*@click="confirmCreateProcessConfigData"/,
-  '工序配置新增入口必须提供路线工序选择、新增类型选择，并由确认动作进入正式维护弹窗。'
+  /<el-dialog[\s\S]{0,220}v-model="processConfigCreateDialogVisible"[\s\S]{0,220}data-team-leader-process-config-create-dialog[\s\S]*data-team-leader-process-config-create-process[\s\S]*v-for="row in processConfigRows"[\s\S]*data-team-leader-process-config-create-type[\s\S]*DEVICE_BINDING[\s\S]*PARAMETER_RULE[\s\S]*@click="confirmCreateProcessConfigData"/,
+  '工序配置顶部新增入口必须只提供设备映射和参数标准，并由确认动作进入正式维护弹窗。'
+)
+assert.doesNotMatch(
+  teamLeaderWorkbench,
+  /<el-radio-button\s+label="LOSS_REASON">损耗原因<\/el-radio-button>/,
+  '顶部新增入口不得继续暴露损耗原因。'
 )
 assert.match(
   teamLeaderWorkbench,
@@ -136,8 +141,18 @@ assert.doesNotMatch(
 )
 assert.match(
   teamLeaderWorkbench,
-  /const\s+confirmCreateProcessConfigData\s*=\s*\(\)\s*=>\s*{[\s\S]*openCreateLossReason\(row\)[\s\S]*openProcessConfigDeviceDialog\(row\)[\s\S]*openProcessConfigParameterDialog\(row,\s*device,\s*undefined,\s*\{\s*create:\s*true\s*\}\)/,
-  '新增入口必须按类型复用损耗、设备映射、参数标准的正式保存弹窗。'
+  /const\s+confirmCreateProcessConfigData\s*=\s*\(\)\s*=>\s*{[\s\S]*openProcessConfigDeviceDialog\(row\)[\s\S]*openProcessConfigParameterDialog\(row,\s*device,\s*undefined,\s*\{\s*create:\s*true\s*\}\)/,
+  '顶部新增入口必须按类型复用设备映射和参数标准的正式保存弹窗。'
+)
+assert.doesNotMatch(
+  teamLeaderWorkbench,
+  /const\s+confirmCreateProcessConfigData\s*=\s*\(\)\s*=>\s*{[\s\S]*openCreateLossReason\(row\)/,
+  '顶部新增确认逻辑不得继续转入损耗新增。'
+)
+assert.match(
+  teamLeaderWorkbench,
+  /createType:\s*'DEVICE_BINDING'\s+as ProcessConfigCreateType/,
+  '顶部新增类型必须默认设备映射。'
 )
 const productionConfigGate = teamLeaderWorkbench.match(
   /const\s+showProductionConfigModule\s*=\s*computed\([\s\S]*?(?=const\s+showPqcPersonnelModule)/

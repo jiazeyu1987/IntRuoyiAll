@@ -49,29 +49,24 @@ const extractBetween = (source, startMarker, endMarker) => {
 
 const lossReasonDialog = extractAfterMarker(
   workbench,
-  'data-loss-reason-edit-dialog',
+  'data-loss-reason-maintenance-dialog',
   '\n    <el-dialog'
 )
 
-assert.match(
+const lossReasonCreateRow = extractBetween(
   lossReasonDialog,
-  /<el-form-item\s+v-if="lossReasonDialogMode === 'edit'"\s+label="原因编码"/,
-  '原因编码只能在修改已有损耗原因时展示，新增时由系统自动生成。'
+  'data-loss-reason-inline-create-row',
+  '        </template>'
 )
 assert.match(
-  lossReasonDialog,
-  /<el-form-item\s+v-if="lossReasonDialogMode === 'edit'"\s+label="启用状态"/,
-  '启用状态只能在修改已有损耗原因时维护，新增默认启用。'
-)
-assert.match(
-  lossReasonDialog,
-  /<el-form-item\s+v-if="lossReasonDialogMode === 'edit'"\s+label="维护说明"/,
-  '维护说明只能在修改已有损耗原因时展示，新增弹窗删除截图红框说明区。'
+  lossReasonCreateRow,
+  /v-model="lossReasonForm\.reasonName"/,
+  '新增行必须只填写损耗描述。'
 )
 assert.doesNotMatch(
-  lossReasonDialog,
-  /<el-form-item\s+label="原因编码"\s+required>/,
-  '新增损耗原因弹窗不得要求手工原因编码。'
+  lossReasonCreateRow,
+  /v-model="lossReasonForm\.(?:reasonCode|enabled|remark)"/,
+  '新增行不得要求手工原因编码、启用状态或维护说明。'
 )
 assert.doesNotMatch(
   workbench,

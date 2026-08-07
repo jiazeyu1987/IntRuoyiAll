@@ -107,6 +107,29 @@
           fixed="left"
           :selectable="isScheduleOrderSelectable"
         />
+        <el-table-column label="重排状态" width="104" fixed="left" align="center">
+          <template #default="{ row }">
+            <span
+              v-if="!isScheduleOrderReplanable(row)"
+              class="schedule-order-pool__replan-block-reason"
+              role="status"
+              :aria-label="`不可重排：${getScheduleOrderReplanBlockReason(row)}`"
+            >
+              <Icon icon="ep:warning-filled" :size="13" aria-hidden="true" />
+              <span>不可重排</span>
+              <small>{{ getScheduleOrderReplanBlockReason(row) }}</small>
+            </span>
+            <span
+              v-else
+              class="schedule-order-pool__replan-available"
+              role="status"
+              aria-label="可重排"
+            >
+              <Icon icon="ep:circle-check-filled" :size="13" aria-hidden="true" />
+              可重排
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column
           v-if="isScheduleOrderColumnVisible('code')"
           label="排产工单号"
@@ -230,9 +253,20 @@
           v-bind="sortColumnAttrs('plannedStartTime')"
         >
           <template #default="{ row }">
-            <span :class="{ 'schedule-order-pool__risk-text': isStartRisk(row) }">
-              {{ formatDateTime(row.plannedStartTime) }}
-            </span>
+            <div class="schedule-order-pool__risk-cell">
+              <span :class="{ 'schedule-order-pool__risk-text': isStartRisk(row) }">
+                {{ formatDateTime(row.plannedStartTime) }}
+              </span>
+              <span
+                v-if="getStartRiskText(row)"
+                class="schedule-order-pool__risk-indicator schedule-order-pool__risk-indicator--critical"
+                role="status"
+                :aria-label="getStartRiskText(row)"
+              >
+                <Icon icon="ep:warning-filled" :size="13" aria-hidden="true" />
+                {{ getStartRiskText(row) }}
+              </span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column
@@ -244,9 +278,20 @@
           v-bind="sortColumnAttrs('plannedEndTime')"
         >
           <template #default="{ row }">
-            <span :class="{ 'schedule-order-pool__warning-text': isDeliveryRisk(row) }">
-              {{ formatDateTime(row.plannedEndTime) }}
-            </span>
+            <div class="schedule-order-pool__risk-cell">
+              <span :class="{ 'schedule-order-pool__warning-text': isDeliveryRisk(row) }">
+                {{ formatDateTime(row.plannedEndTime) }}
+              </span>
+              <span
+                v-if="getDeliveryRiskText(row)"
+                class="schedule-order-pool__risk-indicator"
+                role="status"
+                :aria-label="getDeliveryRiskText(row)"
+              >
+                <Icon icon="ep:warning-filled" :size="13" aria-hidden="true" />
+                {{ getDeliveryRiskText(row) }}
+              </span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column
@@ -275,7 +320,22 @@
                 row.productionMaterialListSummary || `共 ${row.productionMaterialListCount} 张`
               }}
             </el-link>
-            <span v-else class="schedule-order-pool__material-missing">缺失</span>
+            <el-tooltip
+              v-else
+              :content="MISSING_MATERIAL_LIST_HINT"
+              effect="dark"
+              placement="top"
+              popper-class="schedule-order-pool__missing-value-popper"
+            >
+              <span
+                class="schedule-order-pool__missing-value-hint schedule-order-pool__material-missing"
+                tabindex="0"
+                :aria-label="MISSING_MATERIAL_LIST_HINT"
+              >
+                <span>缺失</span>
+                <Icon icon="ep:question-filled" :size="14" aria-hidden="true" />
+              </span>
+            </el-tooltip>
           </template>
         </el-table-column>
         <el-table-column
@@ -301,7 +361,22 @@
               }}</span>
               <span>{{ formatPercent(row.currentProcessProgressPercent) }}%</span>
             </div>
-            <span v-else>-</span>
+            <el-tooltip
+              v-else
+              :content="MISSING_CURRENT_PROCESS_HINT"
+              effect="dark"
+              placement="top"
+              popper-class="schedule-order-pool__missing-value-popper"
+            >
+              <span
+                class="schedule-order-pool__missing-value-hint schedule-order-pool__current-process-missing"
+                tabindex="0"
+                :aria-label="MISSING_CURRENT_PROCESS_HINT"
+              >
+                <span>-</span>
+                <Icon icon="ep:question-filled" :size="14" aria-hidden="true" />
+              </span>
+            </el-tooltip>
           </template>
         </el-table-column>
         <el-table-column
@@ -358,7 +433,7 @@
                 type="success"
                 @click="openManualFinishDialog(row)"
               >
-                完成
+                强制完成
               </el-button>
               <el-button
                 v-if="row.manualFinished"
@@ -368,7 +443,7 @@
                 :title="buildManualFinishTooltip(row)"
                 @click="openRevokeManualFinishDialog(row)"
               >
-                撤销
+                撤销强制完成
               </el-button>
             </div>
           </template>
@@ -763,23 +838,45 @@
 
     <Dialog
       v-model="manualFinishDialogVisible"
-      :title="manualFinishDialogMode === 'MANUAL_FINISH' ? '排产工单人工完成' : '撤销排产工单人工完成'"
+      :title="manualFinishDialogMode === 'MANUAL_FINISH' ? '排产工单强制完成' : '撤销排产工单强制完成'"
       width="460px"
     >
-      <el-form label-width="88px">
+      <el-alert
+        v-if="manualFinishDialogMode === 'MANUAL_FINISH'"
+        class="mb-16px"
+        type="warning"
+        :closable="false"
+        show-icon
+        title="这是有权限人员执行的强制关闭操作。强制完成后汇总按 100% 展示，真实工序进度仍保留，可撤销。"
+      />
+      <el-alert
+        v-else
+        class="mb-16px"
+        type="info"
+        :closable="false"
+        show-icon
+        title="撤销后将根据真实工序进度恢复汇总状态。"
+      />
+      <el-form label-width="128px">
         <el-form-item label="排产工单号">
           <span>{{ manualFinishTarget?.code || '-' }}</span>
         </el-form-item>
         <el-form-item label="来源生产工单号">
           <span>{{ manualFinishTarget?.erpWorkOrderCode || '-' }}</span>
         </el-form-item>
-        <el-form-item :label="manualFinishDialogMode === 'MANUAL_FINISH' ? '完成原因' : '撤销原因'">
+        <el-form-item
+          :label="manualFinishDialogMode === 'MANUAL_FINISH' ? '强制完成原因' : '撤销强制完成原因'"
+        >
           <el-input
             v-model="manualFinishReason"
             type="textarea"
             :rows="3"
             maxlength="500"
-            placeholder="请填写操作原因"
+            :placeholder="
+              manualFinishDialogMode === 'MANUAL_FINISH'
+                ? '请填写强制完成原因'
+                : '请填写撤销强制完成原因'
+            "
           />
         </el-form-item>
       </el-form>
@@ -790,7 +887,7 @@
           :loading="manualFinishSaving"
           @click="submitManualFinishAction"
         >
-          {{ manualFinishDialogMode === 'MANUAL_FINISH' ? '设为已完成' : '撤销已完成' }}
+          {{ manualFinishDialogMode === 'MANUAL_FINISH' ? '强制完成' : '撤销强制完成' }}
         </el-button>
       </template>
     </Dialog>
@@ -1006,7 +1103,7 @@
         type="warning"
         :closable="false"
         show-icon
-        title="该工单已人工完成，列表按 100% 展示；以下工序仍显示真实报工进度。"
+        title="该工单已由有权限人员强制关闭；汇总按 100% 展示，以下工序仍保留真实进度，可撤销强制完成。"
       />
       <UnifiedListTemplate
         table-key="mes.pro.scheduleOrder.processRoute"
@@ -1892,6 +1989,10 @@ const ScheduleOrderMainList = BaseScheduleOrderMainList as typeof BaseScheduleOr
 
 const SCHEDULE_ORDER_STATUS_FINISHED = 3
 const SCHEDULE_ORDER_STATUS_CANCELED = 4
+const MISSING_MATERIAL_LIST_HINT =
+  '未查询到生产用料清单。仍可调整优先级、设置承诺交期和冻结/解冻；入池与手动重排以正式排产检查结果为准。'
+const MISSING_CURRENT_PROCESS_HINT =
+  '当前列表未解析出可显示的未完成工序，该展示值不作为统一禁用判据。仍可调整优先级、设置承诺交期和冻结/解冻；入池与手动重排以正式排产检查结果为准。'
 const { emitter } = useEmitt()
 
 const scheduleOrderTableHeight = '100%'
@@ -2088,7 +2189,7 @@ const scheduleOrderQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   { key: 'code', label: '排产工单号', type: 'text', placeholder: '请输入排产工单号' },
   {
     key: 'completionFilter',
-    label: '完成筛选',
+    label: '完成状态',
     type: 'select',
     queryParamKey: 'completionFilter',
     options: scheduleOrderCompletionFilterOptions
@@ -2115,7 +2216,7 @@ const scheduleOrderMultiFilterDefinitions: ListMultiFilterDefinition[] = [
   },
   {
     key: 'completionFilter',
-    label: '完成筛选',
+    label: '完成状态',
     type: 'select',
     queryParamKey: 'completionFilter',
     options: scheduleOrderCompletionFilterOptions
@@ -3204,13 +3305,17 @@ const submitManualFinishAction = async () => {
     return
   }
   if (!manualFinishReason.value.trim()) {
-    message.warning(manualFinishDialogMode.value === 'MANUAL_FINISH' ? '完成原因不能为空' : '撤销原因不能为空')
+    message.warning(
+      manualFinishDialogMode.value === 'MANUAL_FINISH'
+        ? '强制完成原因不能为空'
+        : '撤销强制完成原因不能为空'
+    )
     return
   }
   const confirmText =
     manualFinishDialogMode.value === 'MANUAL_FINISH'
-      ? '确认将该排产工单设为已完成吗？设置后列表会按 100% 已完成展示。'
-      : '确认撤销该排产工单的人工完成吗？撤销后会恢复真实报工进度。'
+      ? '确认强制完成该排产工单吗？这是有权限人员执行的强制关闭操作；强制完成后汇总按 100% 展示，真实工序进度仍保留，可撤销。'
+      : '确认撤销该排产工单的强制完成吗？撤销后将根据真实工序进度恢复汇总状态。'
   await message.confirm(confirmText)
   manualFinishSaving.value = true
   try {
@@ -3219,13 +3324,13 @@ const submitManualFinishAction = async () => {
         id: manualFinishTarget.value.id,
         reason: manualFinishReason.value
       })
-      message.success('排产工单已设为已完成')
+      message.success('排产工单已强制完成')
     } else {
       await MesProScheduleOrderApi.revokeManualFinishScheduleOrder({
         id: manualFinishTarget.value.id,
         reason: manualFinishReason.value
       })
-      message.success('排产工单已撤销人工完成')
+      message.success('排产工单已撤销强制完成')
     }
     manualFinishDialogVisible.value = false
     await getScheduleOrderList()
@@ -3256,10 +3361,10 @@ const operationTraceFieldLabelMap: Record<string, string> = {
   frozenTime: '冻结时间',
   frozenBy: '冻结人',
   freezeReason: '冻结原因',
-  manualFinished: '人工完成',
-  manualFinishedTime: '人工完成时间',
-  manualFinishedBy: '人工完成人',
-  manualFinishedReason: '人工完成原因',
+  manualFinished: '强制完成',
+  manualFinishedTime: '强制完成时间',
+  manualFinishedBy: '强制完成人',
+  manualFinishedReason: '强制完成原因',
   status: '状态',
   remark: '备注'
 }
@@ -3398,10 +3503,11 @@ const getScheduleOrderReplanBlockReason = (row: MesProScheduleOrderVO) => {
 }
 
 const isScheduleOrderReplanable = (row: MesProScheduleOrderVO) => {
+  const status = Number(row.status)
   return (
     !row.frozen &&
-    row.status !== SCHEDULE_ORDER_STATUS_FINISHED &&
-    row.status !== SCHEDULE_ORDER_STATUS_CANCELED
+    status !== SCHEDULE_ORDER_STATUS_FINISHED &&
+    status !== SCHEDULE_ORDER_STATUS_CANCELED
   )
 }
 
@@ -3993,21 +4099,38 @@ const formatIssueDate = (value?: string) => {
   return value ? formatDate(new Date(value), 'YYYY-MM-DD') : '-'
 }
 
-const isStartRisk = (row: MesProScheduleOrderVO) => {
-  return Boolean(
-    row.plannedStartTime && row.latestStartTime && row.plannedStartTime > row.latestStartTime
-  )
+const getStartRiskText = (row: MesProScheduleOrderVO) => {
+  if (!row.plannedStartTime || !row.latestStartTime) return ''
+  const plannedStart = dayjs(row.plannedStartTime)
+  const latestStart = dayjs(row.latestStartTime)
+  if (!plannedStart.isValid() || !latestStart.isValid() || !plannedStart.isAfter(latestStart)) {
+    return ''
+  }
+
+  const overdueMinutes = Math.max(1, Math.ceil(plannedStart.diff(latestStart, 'minute', true)))
+  if (overdueMinutes < 60) return `晚于最晚开工 ${overdueMinutes} 分钟`
+  if (overdueMinutes < 24 * 60) return `晚于最晚开工 ${Math.ceil(overdueMinutes / 60)} 小时`
+  return `晚于最晚开工 ${Math.ceil(overdueMinutes / (24 * 60))} 天`
 }
 
-const isDeliveryRisk = (row: MesProScheduleOrderVO) => {
-  const plannedEndDate = formatDateTime(row.plannedEndTime).slice(0, 10)
-  return Boolean(row.plannedEndTime && row.promiseDate && plannedEndDate > row.promiseDate)
+const isStartRisk = (row: MesProScheduleOrderVO) => Boolean(getStartRiskText(row))
+
+const getDeliveryRiskText = (row: MesProScheduleOrderVO) => {
+  if (!row.plannedEndTime || !row.promiseDate) return ''
+  const plannedEndDate = dayjs(row.plannedEndTime).startOf('day')
+  const promiseDate = dayjs(row.promiseDate).startOf('day')
+  if (!plannedEndDate.isValid() || !promiseDate.isValid()) return ''
+
+  const overdueDays = plannedEndDate.diff(promiseDate, 'day')
+  return overdueDays > 0 ? `逾承诺交期 ${overdueDays} 天` : ''
 }
+
+const isDeliveryRisk = (row: MesProScheduleOrderVO) => Boolean(getDeliveryRiskText(row))
 
 const buildManualFinishTooltip = (row: MesProScheduleOrderVO) => {
   return [
-    row.manualFinishedTime ? `时间：${formatDateTime(row.manualFinishedTime)}` : '',
-    row.manualFinishedReason ? `原因：${row.manualFinishedReason}` : ''
+    row.manualFinishedTime ? `强制完成时间：${formatDateTime(row.manualFinishedTime)}` : '',
+    row.manualFinishedReason ? `强制完成原因：${row.manualFinishedReason}` : ''
   ]
     .filter(Boolean)
     .join('\n')
@@ -4168,8 +4291,8 @@ const getOperationTypeText = (type: string) => {
     UNFREEZE: '解冻',
     UPDATE: '修改',
     DELETE: '删除',
-    MANUAL_FINISH: '人工完成',
-    REVOKE_MANUAL_FINISH: '撤销人工完成',
+    MANUAL_FINISH: '强制完成',
+    REVOKE_MANUAL_FINISH: '撤销强制完成',
     SYNC_PROGRESS: '同步进度'
   }
   return textMap[type] || type || '-'
@@ -4463,6 +4586,36 @@ onMounted(async () => {
   word-break: break-all;
   overflow-wrap: anywhere;
   line-height: 18px;
+}
+
+.schedule-order-pool__replan-block-reason {
+  display: inline-flex;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.schedule-order-pool__replan-block-reason small {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.schedule-order-pool__replan-available {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #237804;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
 }
 
 .schedule-order-pool :deep(.schedule-order-pool__main-table__cell--wrap .cell) {
@@ -4792,9 +4945,67 @@ onMounted(async () => {
   font-weight: 600;
 }
 
+.schedule-order-pool__risk-cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.schedule-order-pool__risk-indicator {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: #ad4e00;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.schedule-order-pool__risk-indicator--critical {
+  color: #b42318;
+}
+
 .schedule-order-pool__material-missing {
   color: #cf1322;
   font-weight: 600;
+}
+
+.schedule-order-pool__missing-value-hint {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  gap: 4px;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.schedule-order-pool__missing-value-hint:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}
+
+.schedule-order-pool__missing-value-hint .icon {
+  flex: 0 0 auto;
+}
+
+:global(.schedule-order-pool__missing-value-popper) {
+  max-width: 360px;
+  line-height: 20px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.schedule-order-pool__current-process-missing {
+  color: var(--el-text-color-secondary);
 }
 
 .schedule-order-pool__reason-cell {

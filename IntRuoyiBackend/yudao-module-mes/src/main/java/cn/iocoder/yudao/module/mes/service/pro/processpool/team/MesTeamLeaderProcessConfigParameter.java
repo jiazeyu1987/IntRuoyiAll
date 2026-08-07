@@ -15,6 +15,7 @@ public class MesTeamLeaderProcessConfigParameter {
     private String parameterName;
     private String unit;
     private String valueType;
+    private String standardText;
     private BigDecimal lowerLimit;
     private BigDecimal targetValue;
     private BigDecimal upperLimit;

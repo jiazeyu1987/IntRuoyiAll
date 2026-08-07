@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
+import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_DEVICE_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -210,6 +211,26 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         verify(submitAuthorizationService).authorize(any());
         verify(feedbackService, never()).createFeedback(any());
         verifyNoInteractions(recordbookEntryService, processPoolSubmitEventService);
+    }
+
+    @Test
+    void shouldRejectConfiguredDeviceContextWithoutSelectedDeviceBeforeWritingAnyRecord() {
+        MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        reqVO.getFeedbackPayload()
+                .setSelectedDevice(null)
+                .setDeviceParameterReadings(List.of());
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            cn.iocoder.yudao.framework.common.exception.ServiceException ex = assertThrows(
+                    cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                    () -> submitService.submit(reqVO));
+            assertEquals(PRO_FRONTLINE_FEEDBACK_DEVICE_INVALID.getCode(), ex.getCode());
+        }
+
+        verify(submitAuthorizationService).authorize(any());
+        verify(feedbackService, never()).createFeedback(any());
+        verifyNoInteractions(recordbookEntryService, processPoolSubmitEventService, lossReasonValidator);
     }
 
     @Test

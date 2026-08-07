@@ -54,6 +54,7 @@ BEGIN
             OR `route_id` IS NULL
             OR `route_version_id` IS NULL
             OR `route_process_id` IS NULL
+            OR `process_id` IS NULL
             OR `regulation_version_id` IS NULL
             OR `planned_inspection_quantity` IS NULL)
     ) THEN

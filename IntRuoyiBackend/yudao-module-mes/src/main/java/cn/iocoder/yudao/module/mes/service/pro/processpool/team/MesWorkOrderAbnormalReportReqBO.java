@@ -11,6 +11,5 @@ public class MesWorkOrderAbnormalReportReqBO {
 
     private Long workOrderId;
     private Long markerUserId;
-    private String abnormalReasonCode;
     private String abnormalDescription;
 }

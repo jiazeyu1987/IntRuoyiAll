@@ -100,7 +100,7 @@ assert.doesNotMatch(batchDetailFunction, /focus/, '批号跳转不得带工单 f
 assert.match(workOrderFunction, /path:\s*'\/mes\/pro\/feedback\/edhr-batch-execution\/detail'/, '生产工单号跳转目标必须是 eDHR 批次执行详情')
 assert.match(workOrderFunction, /(?:\['focus'\]|focus)\s*:\s*'work-order'/, '生产工单号跳转必须带 focus=work-order')
 assert.match(pageWithoutVueComments, /批次上下文缺失/, '缺少 batchExecutionId 时必须显示上下文缺失')
-assert.doesNotMatch(pageWithoutVueComments, /label="修改原因"|reasonCategory|reasonText/, '表单填写日志主列表不得暴露修改原因列或过滤')
+assert.doesNotMatch(templateMatch[0], /label="修改原因"|reasonCategory|reasonText/, '表单填写日志主列表不得暴露修改原因列或过滤')
 assert.match(pageWithoutVueComments, /const\s+formatCellLocation\s*=\s*\(row:\s*FormFillLogItemRespVO\)/, '明细单元格定位必须提供人可读格式化函数')
 assert.match(pageWithoutVueComments, /const\s+formatCellLocationDetail\s*=\s*\(row:\s*FormFillLogItemRespVO\)/, '明细单元格定位必须提供行列说明函数')
 assert.match(pageWithoutVueComments, /const\s+formatCellLocationTooltip\s*=\s*\(row:\s*FormFillLogItemRespVO\)/, '明细单元格定位必须将原始路径放入提示')
@@ -123,5 +123,27 @@ assert.match(api, /\/mes\/pro\/batch-record-execution\/form-fill-log\/page/, 'AP
 assert.match(api, /\/mes\/pro\/batch-record-execution\/form-fill-log\/detail/, 'API 必须调用填写日志明细接口')
 assert.match(api, /FormFillLogPageReqVO/, 'API 必须声明分页请求类型')
 assert.match(api, /contextStatus/, 'API 必须暴露上下文状态')
+
+assert.match(pageWithoutVueComments, /data-edhr-form-log-source-tabs/, '表单日志必须提供日志来源页签')
+assert.match(pageWithoutVueComments, /label="表单填写日志"/, '原表单填写日志必须保留为独立页签')
+assert.match(pageWithoutVueComments, /label="报工修改日志"/, '报工修改记录必须迁移到表单日志页签')
+assert.match(pageWithoutVueComments, /data-production-report-revision-log-table/, '报工修改日志必须有稳定列表锚点')
+assert.match(pageWithoutVueComments, /row-key="revisionId"/, '报工修改日志必须用修订记录作为列表主对象')
+for (const label of ['生产工单号', '工序', '原报工人', '原提交时间', '修改人', '修改时间', '修改原因', '修改字段数', '修改摘要']) {
+  assert.match(pageWithoutVueComments, new RegExp(`label="${label}"`), `报工修改日志列表必须包含列：${label}`)
+}
+assert.match(pageWithoutVueComments, /openProductionReportRevisionDetail\(row\)/, '报工修改日志必须提供详情入口')
+assert.match(pageWithoutVueComments, /data-production-report-revision-log-detail-drawer/, '报工修改日志详情必须在表单日志中打开')
+assert.match(pageWithoutVueComments, /getProductionReportRevisionLogPage\(buildProductionReportRevisionQuery\(\)\)/, '报工修改日志分页必须调用正式 API wrapper')
+assert.match(pageWithoutVueComments, /getProductionReportRevisionLogDetail\(row\.revisionId\)/, '报工修改日志详情必须按修订记录读取')
+assert.match(pageWithoutVueComments, /productionReportRevisionLoadError/, '报工修改日志必须暴露加载错误')
+assert.match(pageWithoutVueComments, /productionReportRevisionDetailError/, '报工修改日志详情必须暴露加载错误')
+assert.doesNotMatch(pageWithoutVueComments, /getProcessPoolProductionReportRevisionLogs/, '表单日志不得复用工作台按 eventId 查询的旧入口')
+
+assert.match(api, /ProductionReportRevisionLogPageReqVO/, 'API 必须声明报工修改日志分页请求类型')
+assert.match(api, /ProductionReportRevisionLogPageRespVO/, 'API 必须声明报工修改日志分页响应类型')
+assert.match(api, /ProductionReportRevisionLogDetailRespVO/, 'API 必须声明报工修改日志详情响应类型')
+assert.match(api, /\/mes\/pro\/batch-record-execution\/form-fill-log\/production-report-revision\/page/, 'API 必须调用表单日志下的报工修改分页接口')
+assert.match(api, /\/mes\/pro\/batch-record-execution\/form-fill-log\/production-report-revision\/detail/, 'API 必须调用表单日志下的报工修改详情接口')
 
 console.log('PASS: eDHR form fill log static contract')

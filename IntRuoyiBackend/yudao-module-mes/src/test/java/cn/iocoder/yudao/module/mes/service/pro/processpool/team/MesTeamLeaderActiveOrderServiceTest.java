@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInsp
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolWorkOrderAbnormalDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
@@ -42,6 +43,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -89,6 +91,8 @@ class MesTeamLeaderActiveOrderServiceTest {
     private MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
     @Mock
     private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
+    @Mock
+    private MesWorkOrderAbnormalStateService abnormalStateService;
 
     private MesTeamLeaderActiveOrderService service;
 
@@ -98,7 +102,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
                 routeVersionMapper, processSnapshotMapper,
                 inspectionRegulationMapper, inspectionRegulationVersionMapper,
-                inspectionRegulationItemMapper, pqcInspectionTaskMapper);
+                inspectionRegulationItemMapper, pqcInspectionTaskMapper, abnormalStateService);
         lenient().when(inspectionRegulationMapper.selectPublishedByRouteProcess(any(), any(), any(), any(), any()))
                 .thenReturn(publishedRegulation(9902L));
         lenient().when(inspectionRegulationVersionMapper.selectById(9902L))
@@ -107,6 +111,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         lenient().when(pqcInspectionTaskMapper.selectByIdentity(any(), any(), any(), any(), any(), any()))
                 .thenReturn(null);
         lenient().when(pqcInspectionTaskMapper.insert(any(MesPqcInspectionTaskDO.class))).thenReturn(1);
+        lenient().when(abnormalStateService.findLatestOpenByWorkOrderIds(any())).thenReturn(Map.of());
     }
 
     @Test
@@ -322,8 +327,9 @@ class MesTeamLeaderActiveOrderServiceTest {
                 "200", "1.000000", "200.000000");
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
         verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
+        LocalDate joinedDate = activeOrderCaptor.getValue().getJoinedAt().toLocalDate();
         assertTrue(taskCaptor.getAllValues().stream()
-                .allMatch(task -> LocalDate.of(2026, 8, 5).equals(task.getBusinessDate())));
+                .allMatch(task -> joinedDate.equals(task.getBusinessDate())));
     }
 
     @Test
@@ -339,16 +345,19 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void shouldRejectAddWithoutScheduleWhenErpPlannedStartMissing() {
+    void shouldKeepScheduledPqcBusinessDateFromProcessPlanDateWhenErpPlannedStartMissing() {
         stubConfirmedWorkOrder();
-        stubEffectiveSchedules();
-        stubUnscheduledActiveRoute();
+        stubEffectiveSchedules(effectiveSchedule(7701L, 922119L, 448L));
+        stubSuccessfulInsertAndProcesses(List.of(
+                scheduleProcess(928609L, 6001L, "1.000000", "200.000000")));
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
+        Long activeOrderId = service.addActiveOrder(activeOrderReq());
 
-        assertEquals(ErrorCodeConstants.PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED.getCode(), ex.getCode());
-        assertTrue(ex.getMessage().contains("ERP计划开工时间缺失"));
-        verifyNoActiveOrderWrites();
+        assertEquals(8101L, activeOrderId);
+        ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
+        assertTrue(taskCaptor.getAllValues().stream()
+                .allMatch(task -> LocalDate.of(2026, 8, 5).equals(task.getBusinessDate())));
     }
 
     @Test
@@ -497,6 +506,14 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .routeId(922119L)
                 .versionNo("V1")
                 .build()));
+        when(abnormalStateService.findLatestOpenByWorkOrderIds(List.of(9001L))).thenReturn(Map.of(9001L,
+                MesProcessPoolWorkOrderAbnormalDO.builder()
+                        .id(8801L)
+                        .workOrderId(9001L)
+                        .abnormalDescription("设备停机")
+                        .reportStatus(MesProcessPoolWorkOrderAbnormalDO.REPORT_STATUS_REPORTED)
+                        .reportedAt(LocalDateTime.of(2026, 8, 7, 11, 0))
+                        .build()));
 
         List<MesTeamLeaderActiveOrderRow> activeOrders = service.listActiveOrders(3001L);
 
@@ -504,6 +521,9 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals(8101L, activeOrders.get(0).getId());
         assertEquals("按压式球囊扩充压力泵工艺路线", activeOrders.get(0).getRouteName());
         assertEquals("V1", activeOrders.get(0).getRouteVersionNo());
+        assertTrue(activeOrders.get(0).getAbnormal());
+        assertEquals("设备停机", activeOrders.get(0).getAbnormalReason());
+        assertEquals(LocalDateTime.of(2026, 8, 7, 11, 0), activeOrders.get(0).getAbnormalReportedAt());
         verify(activeOrderMapper).selectActiveListByLeader(3001L);
         verify(routeMapper).selectBatchIds(List.of(922119L));
         verify(routeVersionMapper).selectBatchIds(List.of(448L));

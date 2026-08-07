@@ -19,15 +19,37 @@ const requireApiEndpoint = (source, functionName, endpoint, message) => {
   assert.match(source, new RegExp(endpoint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${message}: missing endpoint`)
 }
 
-requireWorkbenchMarker('data-team-leader-loss-reason-tab', 'production leader workbench must expose a loss reason tab')
-requireWorkbenchMarker('损耗原因维护', 'loss reason tab must use the approved label')
-requireWorkbenchMarker('data-loss-reason-standard-list', 'loss reason maintenance must use a standard list area')
-requireWorkbenchMarker('data-loss-reason-route-process-row', 'standard list rows must represent route-process records')
-requireWorkbenchMarker('data-loss-reason-column', 'standard list must show loss reasons in an independent column')
-requireWorkbenchMarker('data-loss-reason-operation-panel', 'loss reason list must expose an operation panel')
-requireWorkbenchMarker('新增损耗原因', 'operation panel must support add')
-requireWorkbenchMarker('修改损耗原因', 'operation panel must support edit')
-requireWorkbenchMarker('删除损耗原因', 'operation panel must support delete')
+requireWorkbenchMarker(
+  'data-team-leader-process-config-tab',
+  'production leader workbench must expose process configuration'
+)
+requireWorkbenchMarker(
+  'data-team-leader-process-config-table',
+  'process configuration must expose the route-process list'
+)
+requireWorkbenchMarker(
+  'data-team-leader-process-config-manage-loss',
+  'each route process must expose one loss maintenance entry'
+)
+requireWorkbenchMarker(
+  'data-loss-reason-maintenance-dialog',
+  'loss maintenance must use the unified dialog'
+)
+requireWorkbenchMarker(
+  'data-loss-reason-maintenance-table',
+  'the dialog must show the current route process loss list'
+)
+requireWorkbenchMarker('data-loss-reason-inline-add', 'the dialog must support bottom create')
+requireWorkbenchMarker('data-loss-reason-inline-edit', 'the dialog must support inline edit')
+requireWorkbenchMarker('data-loss-reason-inline-delete', 'the dialog must support confirmed delete')
+
+for (const removedLabel of ['新增损耗', '修改损耗', '删除损耗']) {
+  assert.doesNotMatch(
+    workbench,
+    new RegExp(`>\\s*${removedLabel}\\s*<\\/el-button>`),
+    `the old ${removedLabel} operation button must not remain`
+  )
+}
 
 assert.doesNotMatch(
   workbench,
@@ -37,9 +59,9 @@ assert.doesNotMatch(
 
 requireApiEndpoint(
   teamLeaderApi,
-  'getTeamLeaderLossReasonPage',
-  '/loss-reasons/page',
-  'loss reason route-process list API'
+  'getTeamLeaderProcessConfigList',
+  '/process-config/list',
+  'formal route-process configuration list API'
 )
 requireApiEndpoint(teamLeaderApi, 'createTeamLeaderLossReason', '/loss-reasons', 'loss reason create API')
 requireApiEndpoint(teamLeaderApi, 'updateTeamLeaderLossReason', '/loss-reasons/', 'loss reason update API')
@@ -47,8 +69,8 @@ requireApiEndpoint(teamLeaderApi, 'deleteTeamLeaderLossReason', '/loss-reasons/'
 
 assert.match(
   teamLeaderApi,
-  /interface TeamLeaderLossReasonRowVO[\s\S]*routeProcessId:\s*number[\s\S]*reasons:\s*TeamLeaderLossReasonVO\[\]/,
-  'loss reason list row must be keyed by routeProcessId and carry shared reasons'
+  /interface TeamLeaderProcessConfigRowRespVO[\s\S]*routeProcessId:\s*number[\s\S]*lossReasons:\s*TeamLeaderLossReasonVO\[\]/,
+  'formal process configuration rows must be keyed by routeProcessId and carry loss reasons'
 )
 assert.match(
   teamLeaderApi,
@@ -73,8 +95,8 @@ assert.doesNotMatch(
 )
 assert.match(
   frontlinePanel,
-  /lossReasonId:\s*selectedLossReasonId\.value/,
-  'frontline submit payload must include selected backend loss reason id'
+  /buildProductionLossDetailsPayload[\s\S]*reasonId:\s*defect\.reasonId[\s\S]*lossDetails:\s*buildProductionLossDetailsPayload\(\)/,
+  'frontline submit payload must map configured backend reason IDs into loss details'
 )
 assert.match(
   feedbackApi,

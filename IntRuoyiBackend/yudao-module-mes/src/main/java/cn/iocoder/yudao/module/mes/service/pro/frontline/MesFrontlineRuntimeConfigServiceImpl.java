@@ -80,6 +80,14 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                                                   List<MesProcessPoolTeamProcessDeviceDO> processDeviceBindings,
                                                   Long responsibleLeaderUserId) {
         Set<Long> leaderUserIds = new LinkedHashSet<>();
+        if (isRouteStartProductionLeaderContext(process)) {
+            if (responsibleLeaderUserId == null) {
+                throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED,
+                        "frontline runtime routeStartProductionLeader");
+            }
+            leaderUserIds.add(responsibleLeaderUserId);
+            return leaderUserIds;
+        }
         if (process.deviceId() != null) {
             processDeviceBindings.stream()
                     .filter(binding -> Objects.equals(binding.getDeviceId(), process.deviceId()))
@@ -102,6 +110,11 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
             leaderUserIds.add(responsibleLeaderUserId);
         }
         return leaderUserIds;
+    }
+
+    private static boolean isRouteStartProductionLeaderContext(MesFrontlineRouteProcessCandidate process) {
+        return MesFrontlineRouteProcessCandidate.CONTEXT_SOURCE_ROUTE_START_PRODUCTION_LEADER.equals(
+                process.contextSource());
     }
 
     private static List<MesProcessPoolTeamProcessDeviceDO> filterProcessDeviceBindingsByLeader(
@@ -196,7 +209,7 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                         LinkedHashMap::new,
                         Collectors.mapping(rule -> new MesFrontlineDeviceParameterOption(rule.getParameterCode(),
                                 rule.getParameterName(), rule.getUnit(), rule.getLowerLimit(), rule.getUpperLimit(),
-                                rule.getDefaultValue(), rule.getValueType()), Collectors.toList())));
+                                rule.getDefaultValue(), rule.getValueType(), rule.getStandardText()), Collectors.toList())));
     }
 
     private List<MesFrontlineDefectReasonOption> toDefectReasonOptions(

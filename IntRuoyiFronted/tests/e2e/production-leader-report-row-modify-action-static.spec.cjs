@@ -27,7 +27,7 @@ assert.doesNotMatch(
 )
 assert.match(
   source,
-  /const canCorrectSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*isProductionLeader\.value \|\| row\.submissionReviewStatus === 'REJECTED'/,
+  /const canCorrectSubmission = \(row: ProcessPoolTimelineEventVO\) =>[\s\S]*!\(isProductionReportHistoryTab\.value \|\| isPqcFormHistoryTab\.value\)[\s\S]*\(isProductionLeader\.value \|\| row\.submissionReviewStatus === 'REJECTED'\)/,
   '生产组长报工管理必须允许行级修改入口；PQC 仍只允许复核不正确后修改。'
 )
 assert.match(
@@ -42,8 +42,8 @@ assert.doesNotMatch(
 )
 assert.match(
   source,
-  /data-team-leader-abnormal-report[\s\S]*订单异常上报[\s\S]*markAndReportWorkOrderAbnormal/,
-  '独立“异常”模块必须继续保留正式异常上报链路。'
+  /data-team-leader-active-order-pool-tab[\s\S]*data-team-leader-report-active-order-abnormal[\s\S]*markAndReportWorkOrderAbnormal/,
+  '正式异常上报链路必须合并到活跃订单行操作。'
 )
 
 console.log('PASS: production leader report row modify action static contract')

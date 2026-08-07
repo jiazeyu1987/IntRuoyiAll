@@ -36,8 +36,66 @@ assert.match(
 )
 assert.match(
   panel,
-  /ProFeedbackApi\.frontlineSubmit\(\s*buildFrontlineFormalSubmitPayload\(/,
-  'submit action must send the employee payload through ProFeedbackApi.frontlineSubmit.'
+  /assertProductionSubmissionReady/,
+  'production submit must run local business readiness validation before opening confirmation.'
+)
+assert.match(
+  panel,
+  /请填写完成数量/,
+  'production submit must give a precise validation message when output quantity is missing.'
+)
+assert.match(
+  panel,
+  /请填写设备参数/,
+  'production submit must reject missing numeric device parameter readings before sending a request.'
+)
+const productionReadiness = panel.match(
+  /const assertProductionSubmissionReady\s*=\s*\(\)\s*=>\s*\{[\s\S]*?(?=\nconst buildProductionFormalSubmitConfirmation)/
+)?.[0]
+assert.ok(productionReadiness, 'production submission readiness validator must exist.')
+assert.doesNotMatch(
+  productionReadiness,
+  /当前工序缺少正式设备配置，无法提交/,
+  'a process without formal equipment must not be rejected only because no device is configured.'
+)
+assert.match(
+  productionReadiness,
+  /const device = activeProductionDevice\.value[\s\S]*if \(!device\) \{\s*return\s*\}/,
+  'device parameter validation must be skipped only when the current process has no formal device.'
+)
+const formalContextAssertion = panel.match(
+  /const assertFrontlineFormalSubmitContext\s*=\s*\([\s\S]*?(?=\nconst buildFrontlineFormalSubmitPayload)/
+)?.[0]
+assert.ok(formalContextAssertion, 'formal submit context assertion must exist.')
+assert.doesNotMatch(
+  formalContextAssertion,
+  /\['deviceId',\s*'设备'\]/,
+  'formal submit context must not make deviceId mandatory for device-free processes.'
+)
+assert.match(
+  panel,
+  /deviceId:\s*formalContext\.deviceId,\s*\n\s*deviceAccountUserId:/,
+  'process-pool payload must preserve an optional deviceId without a non-null assertion.'
+)
+assert.match(
+  panel,
+  /data-production-submit-confirmation-dialog[\s\S]*确认正式提交/,
+  'production submit must show an explicit irreversible confirmation with the formal summary inside the component.'
+)
+assert.doesNotMatch(
+  panel.match(/const handleProductionFormalSubmit\s*=\s*async\s*\(\)\s*=>\s*\{[\s\S]*?(?=\nconst assertPqcFormalSubmissionReady)/)?.[0] || '',
+  /message\.confirm|ElMessageBox/,
+  'production formal submit must not rely on body-mounted global MessageBox in fullscreen mode.'
+)
+assert.match(
+  panel,
+  /正式提交后不可修改/,
+  'formal confirmation content must state that a successful formal submission cannot be edited.'
+)
+assert.match(
+  panel,
+  /formalSubmitResult\.value\s*=\s*await\s+ProFeedbackApi\.frontlineSubmit\(/,
+  'submit action must persist the resolved formal submit result instead of discarding it.'
 )
 assert.match(
   panel,
@@ -51,8 +109,27 @@ assert.match(
 )
 assert.match(
   panel,
-  /ProFeedbackApi\.frontlineSubmit\([\s\S]*?\)\s*[\r\n\s]*message\.success\('已提交'\)/,
-  'success feedback must happen only after the formal frontlineSubmit call resolves.'
+  /feedbackId[\s\S]*recordbookEntryId[\s\S]*processPoolEventId/,
+  'the submitted state must retain the formal feedback, recordbook, and process-pool identifiers.'
+)
+assert.match(
+  panel,
+  /isProductionSubmitted[\s\S]*已正式提交/,
+  'the production controls must enter a persistent submitted state after success.'
+)
+const productionSubmitHandler = panel.match(
+  /const handleProductionFormalSubmit\s*=\s*async\s*\(\)\s*=>\s*\{[\s\S]*?(?=\nconst handleValidate)/
+)?.[0]
+assert.ok(productionSubmitHandler, 'production formal submit handler must be implemented.')
+assert.doesNotMatch(
+  productionSubmitHandler,
+  /FrontlineTemplateApi\.validatePayload/,
+  'production formal submit must not send a separate pre-validation write request before the transactional endpoint.'
+)
+assert.strictEqual(
+  (productionSubmitHandler.match(/ProFeedbackApi\.frontlineSubmit\(/g) || []).length,
+  1,
+  'one confirmed action must invoke the formal submit endpoint exactly once.'
 )
 
 console.log('PASS: frontline formal submit static contract is wired')

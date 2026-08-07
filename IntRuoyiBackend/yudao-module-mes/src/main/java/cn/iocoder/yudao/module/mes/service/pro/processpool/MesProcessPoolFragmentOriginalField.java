@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 public enum MesProcessPoolFragmentOriginalField {
 
     OUTPUT_QUANTITY(true),
+    LOSS_QUANTITY(false),
+    DEVICE_PARAMETERS(false),
     QUALITY_STATUS(true),
     ALLOCATABLE_STATUS(true),
     REMARK(false);

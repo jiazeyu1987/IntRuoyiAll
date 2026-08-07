@@ -50,8 +50,8 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
     }
 
     @Override
-    public Optional<Long> findExistingPqcInspectionTaskId(MesProcessPoolCreatePqcInspectionReqDTO reqDTO) {
-        return findExistingPqcInspectionEvent(reqDTO).map(MesProProcessPoolEventDO::getFeedbackSourceId);
+    public Optional<Long> findExistingPqcInspectionEventId(MesProcessPoolCreatePqcInspectionReqDTO reqDTO) {
+        return findExistingPqcInspectionEvent(reqDTO).map(MesProProcessPoolEventDO::getId);
     }
 
     @Override
@@ -157,7 +157,10 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
         requireNotBlank(reqDTO.getRawPayload(), "rawPayload");
         requirePositive(reqDTO.getSignatureId(), "signatureId");
         requirePositive(reqDTO.getSignatureUserId(), "signatureUserId");
-        if (!MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(reqDTO.getEventType())) {
+        if (isProductionSubmit(reqDTO)) {
+            requirePositive(reqDTO.getDeviceAccountId(), "deviceAccountId");
+            requirePositive(reqDTO.getWorkstationId(), "workstationId");
+        } else if (!MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(reqDTO.getEventType())) {
             requirePositive(reqDTO.getDeviceAccountId(), "deviceAccountId");
             requirePositive(reqDTO.getDeviceId(), "deviceId");
             requirePositive(reqDTO.getWorkstationId(), "workstationId");
@@ -285,7 +288,6 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
         requirePositive(reqDTO.getProcessId(), "processId");
         requirePositive(reqDTO.getActualEmployeeId(), "actualEmployeeId");
         requirePositive(reqDTO.getDeviceAccountId(), "deviceAccountId");
-        requirePositive(reqDTO.getDeviceId(), "deviceId");
         requirePositive(reqDTO.getWorkstationId(), "workstationId");
     }
 

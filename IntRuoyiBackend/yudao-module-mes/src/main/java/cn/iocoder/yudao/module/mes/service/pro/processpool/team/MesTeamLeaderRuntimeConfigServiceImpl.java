@@ -50,6 +50,9 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     static final String DEVICE_STATUS_DISABLED = "DISABLED";
     private static final Set<String> DEVICE_STATUSES = Set.of(
             DEVICE_STATUS_ENABLED, DEVICE_STATUS_REPAIRING, DEVICE_STATUS_DISABLED);
+    private static final Set<String> NUMERIC_PARAMETER_VALUE_TYPES = Set.of(
+            MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER,
+            MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL);
 
     private final MesTeamLeaderScopeService scopeService;
     private final MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
@@ -273,6 +276,17 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     }
 
     @Override
+    public List<MesProcessPoolTeamDeviceDO> listDevices(Long leaderUserId, Boolean enabled) {
+        if (leaderUserId == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "teamDeviceLeader");
+        }
+        return deviceMapper.selectList(new LambdaQueryWrapperX<MesProcessPoolTeamDeviceDO>()
+                .eq(MesProcessPoolTeamDeviceDO::getLeaderUserId, leaderUserId)
+                .eqIfPresent(MesProcessPoolTeamDeviceDO::getEnabled, enabled)
+                .orderByAsc(MesProcessPoolTeamDeviceDO::getId));
+    }
+
+    @Override
     public Long createDevice(MesTeamDeviceSaveReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || isBlank(reqBO.getDeviceCode())
                 || isBlank(reqBO.getDeviceName()) || isBlank(reqBO.getDeviceStatus())) {
@@ -374,6 +388,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
                 .upperLimit(reqBO.getUpperLimit())
                 .defaultValue(reqBO.getTargetValue())
                 .valueType(reqBO.getValueType())
+                .standardText(reqBO.getStandardText())
                 .enabled(Boolean.TRUE)
                 .build();
         if (existing == null) {
@@ -522,7 +537,17 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     private static void validateParameterRule(MesTeamDeviceParameterRuleSaveReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getRouteProcessId() == null
                 || reqBO.getDeviceId() == null || isBlank(reqBO.getParameterCode()) || isBlank(reqBO.getValueType())
-                || reqBO.getLowerLimit() == null || reqBO.getUpperLimit() == null || reqBO.getTargetValue() == null) {
+                || isBlank(reqBO.getStandardText())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deviceParameterRule");
+        }
+        if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD.equals(reqBO.getValueType())) {
+            if (reqBO.getLowerLimit() != null || reqBO.getUpperLimit() != null || reqBO.getTargetValue() != null) {
+                throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, reqBO.getParameterCode());
+            }
+            return;
+        }
+        if (!NUMERIC_PARAMETER_VALUE_TYPES.contains(reqBO.getValueType())
+                || reqBO.getLowerLimit() == null || reqBO.getUpperLimit() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deviceParameterRule");
         }
         validateRange(reqBO.getParameterCode(), reqBO.getLowerLimit(), reqBO.getUpperLimit(), reqBO.getTargetValue());
@@ -533,7 +558,8 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
         if (lowerLimit.compareTo(upperLimit) > 0) {
             throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, parameterCode);
         }
-        if (targetValue.compareTo(lowerLimit) < 0 || targetValue.compareTo(upperLimit) > 0) {
+        if (targetValue != null
+                && (targetValue.compareTo(lowerLimit) < 0 || targetValue.compareTo(upperLimit) > 0)) {
             throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, parameterCode);
         }
     }

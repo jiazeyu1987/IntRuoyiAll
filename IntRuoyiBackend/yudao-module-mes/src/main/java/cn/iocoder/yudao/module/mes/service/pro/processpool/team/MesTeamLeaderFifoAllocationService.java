@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -32,15 +33,18 @@ public class MesTeamLeaderFifoAllocationService {
     private final MesProWorkOrderMapper workOrderMapper;
     private final MesProcessPoolReportAllocationMapper allocationMapper;
     private final MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
+    private final MesWorkOrderAbnormalStateService abnormalStateService;
 
     public MesTeamLeaderFifoAllocationService(MesProcessPoolActiveOrderMapper activeOrderMapper,
                                               MesProWorkOrderMapper workOrderMapper,
                                               MesProcessPoolReportAllocationMapper allocationMapper,
-                                              MesTeamLeaderOrderProcessTargetService orderProcessTargetService) {
+                                              MesTeamLeaderOrderProcessTargetService orderProcessTargetService,
+                                              MesWorkOrderAbnormalStateService abnormalStateService) {
         this.activeOrderMapper = activeOrderMapper;
         this.workOrderMapper = workOrderMapper;
         this.allocationMapper = allocationMapper;
         this.orderProcessTargetService = orderProcessTargetService;
+        this.abnormalStateService = abnormalStateService;
     }
 
     public MesTeamLeaderReportAllocationPreview previewFifoAllocation(MesTeamLeaderFifoAllocationReqBO reqBO) {
@@ -94,8 +98,17 @@ public class MesTeamLeaderFifoAllocationService {
     }
 
     List<MesProcessPoolActiveOrderDO> sortedActiveOrders(Long leaderUserId) {
-        return activeOrderMapper.selectActiveListByLeader(leaderUserId).stream()
+        List<MesProcessPoolActiveOrderDO> activeOrders = activeOrderMapper.selectActiveListByLeader(leaderUserId)
+                .stream()
                 .filter(activeOrder -> Objects.equals(activeOrder.getActiveStatus(), "ACTIVE"))
+                .toList();
+        List<Long> workOrderIds = activeOrders.stream()
+                .map(MesProcessPoolActiveOrderDO::getWorkOrderId)
+                .distinct()
+                .toList();
+        Set<Long> openAbnormalWorkOrderIds = abnormalStateService.findOpenWorkOrderIds(workOrderIds);
+        return activeOrders.stream()
+                .filter(activeOrder -> !openAbnormalWorkOrderIds.contains(activeOrder.getWorkOrderId()))
                 .sorted(Comparator
                         .comparing(MesProcessPoolActiveOrderDO::getJoinedAt,
                                 Comparator.nullsLast(LocalDateTime::compareTo))

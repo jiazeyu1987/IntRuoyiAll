@@ -80,6 +80,8 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     private MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService;
     @Mock
     private MesPqcProcessInspectionAggregationService processInspectionAggregationService;
+    @Mock
+    private MesWorkOrderAbnormalStateService abnormalStateService;
 
     private MesTeamLeaderSubmissionReviewService submissionReviewService;
     private MesTeamLeaderReportConfirmationService reportConfirmationService;
@@ -90,11 +92,12 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 processInspectionAggregationService);
         MesTeamLeaderFifoAllocationService fifoAllocationService =
                 new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
-                        orderProcessTargetService);
+                        orderProcessTargetService, abnormalStateService);
         reportConfirmationService = new MesTeamLeaderReportConfirmationServiceImpl(scopeService, eventMapper,
                 activeOrderMapper, workOrderMapper, reviewMapper, allocationMapper, quantityFragmentMapper,
                 pqcRecordMapper, fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper,
-                pqcPieceDetailMapper, orderProcessTargetService, orderProcessCompletionService);
+                pqcPieceDetailMapper, orderProcessTargetService, orderProcessCompletionService,
+                abnormalStateService);
     }
 
     @Test

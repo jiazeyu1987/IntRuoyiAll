@@ -6376,24 +6376,24 @@ async function verifyActiveOrderCleanupTraceability(page, config, joinEvidence) 
   , { timeout: 30000 }).catch((error) => ({ activeOrderListResponseError: error }))
   const removeResult = await clickButtonAndWaitForSuccess(
     activeOrderRow,
-    '移出活跃订单',
+    '移除',
     '/mes/pro/process-pool/team-leader/active-order/remove'
   )
   const listResponse = await listResponsePromise
   if (listResponse.activeOrderListResponseError) {
-    failFast(`移出活跃订单后未捕获到活跃订单列表刷新响应：${listResponse.activeOrderListResponseError.message}`, [{
+    failFast(`移除后未捕获到活跃订单列表刷新响应：${listResponse.activeOrderListResponseError.message}`, [{
       key: 'activeOrderCleanupListResponseError',
       category: 'E2E_CLEANUP',
-      description: '真实页面移出活跃订单后必须刷新列表并证明本轮 activeOrderId 不再处于 ACTIVE 状态。'
+      description: '真实页面移除活跃订单后必须刷新列表并证明本轮 activeOrderId 不再处于 ACTIVE 状态。'
     }])
   }
-  assert.ok(listResponse.ok(), `移出活跃订单后列表刷新 HTTP 失败：${listResponse.status()}`)
+  assert.ok(listResponse.ok(), `移除后列表刷新 HTTP 失败：${listResponse.status()}`)
   const listBody = await listResponse.json()
-  assert.equal(listBody.code, 0, `移出活跃订单后列表刷新业务失败：${listBody.msg || listBody.message || 'unknown'}`)
+  assert.equal(listBody.code, 0, `移除后列表刷新业务失败：${listBody.msg || listBody.message || 'unknown'}`)
   const refreshedRows = Array.isArray(listBody.data) ? listBody.data : []
   assert.ok(
     !refreshedRows.some((row) => Number(row.id) === Number(joinEvidence.activeOrderId)),
-    '移出活跃订单后，本轮 activeOrderId 不得继续出现在 ACTIVE 列表。'
+    '移除后，本轮 activeOrderId 不得继续出现在 ACTIVE 列表。'
   )
 
   return {

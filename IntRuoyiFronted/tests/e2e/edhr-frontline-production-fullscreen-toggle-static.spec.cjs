@@ -242,8 +242,8 @@ assert.match(
 )
 assert.match(
   extractBlock('.frontline-operator-panel.is-production-mode .frontline-picker__option {'),
-  /display:\s*flex;[\s\S]*align-items:\s*center;[\s\S]*justify-content:\s*center;[\s\S]*height:\s*auto;[\s\S]*aspect-ratio:\s*1920 \/ 1080;[\s\S]*min-height:\s*0;[\s\S]*font-size:\s*30px;/,
-  'production picker options must stay 16:9, smaller, centered, and readable.'
+  /display:\s*flex;[\s\S]*align-items:\s*center;[\s\S]*justify-content:\s*center;[\s\S]*height:\s*auto;[\s\S]*aspect-ratio:\s*1920 \/ 720;[\s\S]*min-height:\s*0;[\s\S]*font-size:\s*24px;/,
+  'production picker options must stay compact, centered, and readable.'
 )
 
 

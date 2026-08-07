@@ -80,6 +80,8 @@ class MesP0ActiveOrderFifoClosedLoopTest {
     private MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
     @Mock
     private MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService;
+    @Mock
+    private MesWorkOrderAbnormalStateService abnormalStateService;
 
     private MesTeamLeaderReportConfirmationService service;
 
@@ -87,11 +89,11 @@ class MesP0ActiveOrderFifoClosedLoopTest {
     void setUp() {
         MesTeamLeaderFifoAllocationService fifoAllocationService =
                 new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
-                        orderProcessTargetService);
+                        orderProcessTargetService, abnormalStateService);
         service = new MesTeamLeaderReportConfirmationServiceImpl(scopeService, eventMapper, activeOrderMapper,
                 workOrderMapper, reviewMapper, allocationMapper, quantityFragmentMapper, pqcRecordMapper,
                 fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper, pqcPieceDetailMapper,
-                orderProcessTargetService, orderProcessCompletionService);
+                orderProcessTargetService, orderProcessCompletionService, abnormalStateService);
     }
 
     @Test

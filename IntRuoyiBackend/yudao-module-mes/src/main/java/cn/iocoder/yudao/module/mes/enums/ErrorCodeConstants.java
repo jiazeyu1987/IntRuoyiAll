@@ -1082,6 +1082,8 @@ public interface ErrorCodeConstants {
             "压力泵角色授权缺少启用压力泵工艺路线，无法切换工序，loginUserId={}");
     ErrorCode PRO_FRONTLINE_PRESSURE_PUMP_ROUTE_PROCESS_EMPTY = new ErrorCode(1_040_760_120,
             "压力泵角色授权缺少有效工艺路线工序，routeIds={}");
+    ErrorCode PRO_FRONTLINE_ACTUAL_EMPLOYEE_LEADER_ASSIGNMENT_INVALID = new ErrorCode(1_040_760_121,
+            "实际填写员工必须且只能属于一个启用的生产组长，actualEmployeeId={}");
 
     // ========== MES 工序池审核副本（1-040-760-200） ==========
     ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_FIELD_MAPPING_REQUIRED = new ErrorCode(1_040_760_200,
@@ -1164,6 +1166,8 @@ public interface ErrorCodeConstants {
             "PQC 提交事件已汇集为过程检验记录，禁止重复汇集：eventId={}，reviewId={}");
     ErrorCode PRO_PROCESS_POOL_REVISION_REJECTED_REVIEW_REQUIRED = new ErrorCode(1_040_760_333,
             "原始记录补正必须基于最新退回复核记录：eventId={}，latestStatus={}");
+    ErrorCode PRO_PROCESS_POOL_REVISION_PRODUCTION_REPORT_APPROVED_LOCKED = new ErrorCode(1_040_760_351,
+            "生产报工已经确认通过，禁止修改：eventId={}");
     ErrorCode PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED = new ErrorCode(1_040_760_334,
             "生产报工通过必须使用报工分配确认链路：eventId={}");
     ErrorCode PRO_PROCESS_POOL_TEAM_EMPLOYEE_DISPLAY_NAME_DUPLICATE = new ErrorCode(1_040_760_335,
@@ -1192,6 +1196,10 @@ public interface ErrorCodeConstants {
             "PQC 权限角色未配置或已禁用：{}");
     ErrorCode PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_OCCUPIED_BY_OTHER_LEADER = new ErrorCode(1_040_760_348,
             "该 PQC 检验员已被其他 PQC 组长选择，不能重复关联：userId={}");
+    ErrorCode PRO_PROCESS_POOL_WORK_ORDER_ABNORMAL_OPEN_EXISTS = new ErrorCode(1_040_760_349,
+            "生产订单已存在未关闭异常：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_ABNORMAL_ORDER_FORBIDDEN = new ErrorCode(1_040_760_350,
+            "异常生产订单不参与报工分配：{}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

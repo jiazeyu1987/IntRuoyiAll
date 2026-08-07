@@ -46,6 +46,7 @@ export interface ListMultiFilterCondition {
 
 export interface ListMultiFilterState {
   conditions: ListMultiFilterCondition[]
+  appliedConditions: ListMultiFilterCondition[]
   activeConditionId?: string
 }
 
@@ -53,6 +54,8 @@ export type ListMultiFilterQueryParams = Record<string, any> & {
   pageNo?: number
   multiFilters?: ListMultiFilterCondition[]
 }
+
+type MultiFilterQueryParamSnapshot = Map<string, { present: boolean; value: unknown }>
 
 const DEFAULT_OPERATORS: Record<ListMultiFilterFieldType, ListMultiFilterOperator[]> = {
   text: ['contains', 'eq'],
@@ -154,6 +157,43 @@ export const normalizeMultiFilterCondition = (
   }
 }
 
+export const cloneMultiFilterConditions = (conditions: ListMultiFilterCondition[]) =>
+  conditions.map((condition) => ({
+    ...condition,
+    value: Array.isArray(condition.value) ? [...condition.value] : condition.value
+  }))
+
+export const normalizeMultiFilterConditions = (
+  definitions: ListMultiFilterDefinition[],
+  conditions: ListMultiFilterCondition[]
+) => {
+  const definitionMap = new Map(definitions.map((definition) => [definition.key, definition]))
+  return conditions
+    .map((condition) => {
+      const definition = definitionMap.get(condition.key)
+      const operator = definition
+        ? condition.operator || getDefaultMultiFilterOperator(definition)
+        : condition.operator
+      const value = Array.isArray(condition.value)
+        ? condition.value.map((item) => normalizeScalarValue(item))
+        : normalizeScalarValue(condition.value)
+      return {
+        key: condition.key,
+        operator,
+        value,
+        valueEnd: normalizeScalarValue(condition.valueEnd)
+      }
+    })
+    .sort((left, right) => left.key.localeCompare(right.key) || left.operator.localeCompare(right.operator))
+}
+
+export const hasMultiFilterDraftChanges = (
+  definitions: ListMultiFilterDefinition[],
+  state: ListMultiFilterState
+) =>
+  JSON.stringify(normalizeMultiFilterConditions(definitions, state.conditions)) !==
+  JSON.stringify(normalizeMultiFilterConditions(definitions, state.appliedConditions))
+
 export const isMultiFilterConditionEmpty = (
   definition: ListMultiFilterDefinition,
   condition: Partial<ListMultiFilterCondition>
@@ -168,6 +208,7 @@ export const useTableMultiFilter = <T extends ListMultiFilterQueryParams>(
   const definitions = computed(() => toValue(filterDefinitions))
   const state = reactive<ListMultiFilterState>({
     conditions: [],
+    appliedConditions: [],
     activeConditionId: undefined
   })
 
@@ -257,6 +298,43 @@ export const useTableMultiFilter = <T extends ListMultiFilterQueryParams>(
     })
   }
 
+  const getManagedMultiFilterParamKeys = () => {
+    const keys = new Set<string>(['pageNo', 'multiFilters'])
+    definitions.value.forEach((definition) => {
+      if (definition.queryParamKey) keys.add(definition.queryParamKey)
+      definition.queryParamKeys?.forEach((key) => keys.add(key))
+    })
+    return keys
+  }
+
+  const cloneQueryParamValue = (value: unknown) =>
+    Array.isArray(value)
+      ? value.map((item) => (item && typeof item === 'object' ? { ...item } : item))
+      : value
+
+  const snapshotMultiFilterParams = (): MultiFilterQueryParamSnapshot => {
+    const queryParamTarget = queryParams as ListMultiFilterQueryParams
+    const snapshot: MultiFilterQueryParamSnapshot = new Map()
+    getManagedMultiFilterParamKeys().forEach((key) => {
+      snapshot.set(key, {
+        present: Object.prototype.hasOwnProperty.call(queryParamTarget, key),
+        value: cloneQueryParamValue(queryParamTarget[key])
+      })
+    })
+    return snapshot
+  }
+
+  const restoreMultiFilterParams = (snapshot: MultiFilterQueryParamSnapshot) => {
+    const queryParamTarget = queryParams as ListMultiFilterQueryParams
+    snapshot.forEach(({ present, value }, key) => {
+      if (present) {
+        queryParamTarget[key] = cloneQueryParamValue(value)
+      } else {
+        delete queryParamTarget[key]
+      }
+    })
+  }
+
   const writeConditionToParams = (
     definition: ListMultiFilterDefinition,
     condition: ListMultiFilterCondition,
@@ -278,6 +356,8 @@ export const useTableMultiFilter = <T extends ListMultiFilterQueryParams>(
 
   const applyMultiFilter = async () => {
     if (!validate()) return
+    const appliedConditions = cloneMultiFilterConditions(state.conditions)
+    const previousQueryParams = snapshotMultiFilterParams()
     clearMultiFilterParams()
     const queryParamTarget = queryParams as ListMultiFilterQueryParams
     const unmappedConditions: ListMultiFilterCondition[] = []
@@ -290,15 +370,30 @@ export const useTableMultiFilter = <T extends ListMultiFilterQueryParams>(
       queryParamTarget.multiFilters = unmappedConditions
     }
     queryParams.pageNo = 1
-    await reload()
+    let reloadSucceeded = false
+    try {
+      await reload()
+      reloadSucceeded = true
+    } finally {
+      if (!reloadSucceeded) restoreMultiFilterParams(previousQueryParams)
+    }
+    state.appliedConditions = appliedConditions
   }
 
   const resetMultiFilter = async () => {
+    const previousQueryParams = snapshotMultiFilterParams()
     state.conditions = []
     state.activeConditionId = undefined
     clearMultiFilterParams()
     queryParams.pageNo = 1
-    await reload()
+    let reloadSucceeded = false
+    try {
+      await reload()
+      reloadSucceeded = true
+    } finally {
+      if (!reloadSucceeded) restoreMultiFilterParams(previousQueryParams)
+    }
+    state.appliedConditions = []
   }
 
   const updateState = (nextState: Partial<ListMultiFilterState>) => {
@@ -307,6 +402,9 @@ export const useTableMultiFilter = <T extends ListMultiFilterQueryParams>(
     }
     if ('activeConditionId' in nextState) {
       state.activeConditionId = nextState.activeConditionId
+    }
+    if ('appliedConditions' in nextState) {
+      state.appliedConditions = cloneMultiFilterConditions(nextState.appliedConditions || [])
     }
   }
 

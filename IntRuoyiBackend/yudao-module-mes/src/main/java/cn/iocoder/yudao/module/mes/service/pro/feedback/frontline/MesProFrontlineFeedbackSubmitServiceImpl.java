@@ -24,6 +24,7 @@ import java.util.Optional;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_DEVICE_ACCOUNT_MISMATCH;
+import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_DEVICE_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_LOGIN_USER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_QUANTITY_INVALID;
@@ -240,6 +241,16 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
 
     private void validateDeviceParameterPayload(MesProFrontlineFeedbackSubmitReqVO reqVO) {
         MesProFrontlineProcessPoolContextReqVO routeProcessContext = reqVO.getProcessPoolContext();
+        MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO selectedDevice =
+                reqVO.getFeedbackPayload().getSelectedDevice();
+        if (routeProcessContext.getDeviceId() != null
+                && (selectedDevice == null || selectedDevice.getDeviceId() == null)) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_INVALID, "selectedDevice");
+        }
+        if (selectedDevice != null && selectedDevice.getDeviceId() != null
+                && !Objects.equals(routeProcessContext.getDeviceId(), selectedDevice.getDeviceId())) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_INVALID, selectedDevice.getDeviceId());
+        }
         List<MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO> deviceParameterReadings =
                 reqVO.getFeedbackPayload().getDeviceParameterReadings();
         if (deviceParameterReadings != null && deviceParameterReadings.stream()
@@ -250,7 +261,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         deviceParameterValidator.validateSelectedDeviceAndParameters(
                 routeProcessContext.getRouteProcessId(),
                 routeProcessContext.getProcessId(),
-                reqVO.getFeedbackPayload().getSelectedDevice(),
+                selectedDevice,
                 deviceParameterReadings);
     }
 

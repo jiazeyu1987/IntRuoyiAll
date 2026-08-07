@@ -343,6 +343,27 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     }
 
     @Test
+    void shouldListCurrentLeaderEnabledDevicesBeforeAnyProcessBindingExists() {
+        when(deviceMapper.selectList(any())).thenReturn(List.of(
+                MesProcessPoolTeamDeviceDO.builder()
+                        .id(7001L)
+                        .leaderUserId(3001L)
+                        .deviceCode("C01017")
+                        .deviceName("撤压机")
+                        .deviceStatus("ENABLED")
+                        .enabled(Boolean.TRUE)
+                        .build()));
+
+        List<MesProcessPoolTeamDeviceDO> devices = service.listDevices(3001L, Boolean.TRUE);
+
+        assertEquals(1, devices.size());
+        assertEquals("C01017", devices.get(0).getDeviceCode());
+        assertEquals("撤压机", devices.get(0).getDeviceName());
+        assertTrue(devices.get(0).getEnabled());
+        verify(processDeviceMapper, never()).selectList(any());
+    }
+
+    @Test
     void shouldCreateDeviceAndRejectRepairingDeviceWhenBindingProcess() {
         when(deviceMapper.insert(any(MesProcessPoolTeamDeviceDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolTeamDeviceDO.class).setId(7001L);
@@ -497,6 +518,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
                 .lowerLimit(new BigDecimal("10"))
                 .upperLimit(new BigDecimal("20"))
                 .defaultValue(new BigDecimal("15"))
+                .standardText("10-20MPa，目标15MPa")
                 .valueType("DECIMAL")
                 .enabled(Boolean.TRUE)
                 .build());
@@ -515,6 +537,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
                 .lowerLimit(new BigDecimal("10"))
                 .upperLimit(new BigDecimal("20"))
                 .targetValue(new BigDecimal("15"))
+                .standardText("10-20MPa，目标15MPa")
                 .valueType("DECIMAL")
                 .build());
 
@@ -525,6 +548,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
         assertEquals(7101L, ruleCaptor.getValue().getRouteProcessId());
         assertEquals(6001L, ruleCaptor.getValue().getProcessId());
         assertEquals(new BigDecimal("15"), ruleCaptor.getValue().getDefaultValue());
+        assertEquals("10-20MPa，目标15MPa", ruleCaptor.getValue().getStandardText());
         assertEquals("MPa", ruleCaptor.getValue().getUnit());
 
         Long updatedRuleId = service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
@@ -537,6 +561,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
                 .lowerLimit(new BigDecimal("11"))
                 .upperLimit(new BigDecimal("21"))
                 .targetValue(new BigDecimal("16"))
+                .standardText("11-21MPa，目标16MPa")
                 .valueType("DECIMAL")
                 .build());
 
@@ -548,6 +573,93 @@ class MesTeamLeaderRuntimeConfigServiceTest {
         assertEquals(8401L, updateCaptor.getValue().getId());
         assertEquals(new BigDecimal("16"), updateCaptor.getValue().getDefaultValue());
         assertEquals("压力更新", updateCaptor.getValue().getParameterName());
+        assertEquals("11-21MPa，目标16MPa", updateCaptor.getValue().getStandardText());
+    }
+
+    @Test
+    void shouldSaveTextStandardWithoutNumericValues() {
+        when(routeProcessMapper.selectById(7101L)).thenReturn(routeProcess(7101L, 9001L, 6001L, 10));
+        when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()
+                .id(7001L)
+                .leaderUserId(3001L)
+                .deviceStatus("ENABLED")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(MesProcessPoolTeamProcessDeviceDO.builder()
+                .id(8101L)
+                .leaderUserId(3001L)
+                .processId(6001L)
+                .deviceId(7001L)
+                .enabled(Boolean.TRUE)
+                .build()));
+        when(parameterRuleMapper.selectOne(any())).thenReturn(null);
+        when(parameterRuleMapper.insert(any(MesProcessPoolDeviceParameterRuleDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolDeviceParameterRuleDO.class).setId(8402L);
+            return 1;
+        });
+
+        Long ruleId = service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
+                .deviceId(7001L)
+                .parameterCode("cleaning-medium")
+                .parameterName("清洗介质")
+                .standardText("纯化水")
+                .valueType("TEXT_STANDARD")
+                .build());
+
+        assertEquals(8402L, ruleId);
+        ArgumentCaptor<MesProcessPoolDeviceParameterRuleDO> ruleCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolDeviceParameterRuleDO.class);
+        verify(parameterRuleMapper).insert(ruleCaptor.capture());
+        assertEquals("纯化水", ruleCaptor.getValue().getStandardText());
+        assertNull(ruleCaptor.getValue().getLowerLimit());
+        assertNull(ruleCaptor.getValue().getDefaultValue());
+        assertNull(ruleCaptor.getValue().getUpperLimit());
+        assertEquals("TEXT_STANDARD", ruleCaptor.getValue().getValueType());
+    }
+
+    @Test
+    void shouldSaveNumericRangeWithoutTargetValue() {
+        when(routeProcessMapper.selectById(7101L)).thenReturn(routeProcess(7101L, 9001L, 6001L, 10));
+        when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()
+                .id(7001L)
+                .leaderUserId(3001L)
+                .deviceStatus("ENABLED")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(MesProcessPoolTeamProcessDeviceDO.builder()
+                .leaderUserId(3001L)
+                .processId(6001L)
+                .deviceId(7001L)
+                .enabled(Boolean.TRUE)
+                .build()));
+        when(parameterRuleMapper.selectOne(any())).thenReturn(null);
+        when(parameterRuleMapper.insert(any(MesProcessPoolDeviceParameterRuleDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolDeviceParameterRuleDO.class).setId(8403L);
+            return 1;
+        });
+
+        Long ruleId = service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
+                .deviceId(7001L)
+                .parameterCode("pressure-range")
+                .parameterName("压力范围")
+                .unit("MPa")
+                .lowerLimit(new BigDecimal("0.5"))
+                .upperLimit(new BigDecimal("0.6"))
+                .standardText("0.5-0.6MPa")
+                .valueType("DECIMAL")
+                .build());
+
+        assertEquals(8403L, ruleId);
+        ArgumentCaptor<MesProcessPoolDeviceParameterRuleDO> ruleCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolDeviceParameterRuleDO.class);
+        verify(parameterRuleMapper).insert(ruleCaptor.capture());
+        assertNull(ruleCaptor.getValue().getDefaultValue());
+        assertEquals(new BigDecimal("0.5"), ruleCaptor.getValue().getLowerLimit());
+        assertEquals(new BigDecimal("0.6"), ruleCaptor.getValue().getUpperLimit());
     }
 
     @Test
@@ -560,6 +672,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
                         .lowerLimit(new BigDecimal("10"))
                         .upperLimit(new BigDecimal("20"))
                         .targetValue(new BigDecimal("15"))
+                        .standardText("10-20MPa，目标15MPa")
                         .valueType("DECIMAL")
                         .build()));
 
@@ -585,6 +698,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
                         .lowerLimit(new BigDecimal("10"))
                         .upperLimit(new BigDecimal("20"))
                         .targetValue(new BigDecimal("15"))
+                        .standardText("10-20MPa，目标15MPa")
                         .valueType("DECIMAL")
                         .build()));
 
@@ -599,6 +713,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
                         .lowerLimit(new BigDecimal("10"))
                         .upperLimit(new BigDecimal("20"))
                         .targetValue(new BigDecimal("25"))
+                        .standardText("10-20MPa，目标25MPa")
                         .valueType("DECIMAL")
                         .build()));
 

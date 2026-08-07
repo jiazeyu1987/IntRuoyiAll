@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record MesFrontlineActiveOrderCandidate(Long workOrderId,
@@ -8,9 +9,9 @@ public record MesFrontlineActiveOrderCandidate(Long workOrderId,
                                                Long productId,
                                                String productCode,
                                                String productName,
+                                               BigDecimal quantity,
                                                Long routeId,
                                                String routeCode,
                                                String routeName,
                                                LocalDateTime latestSubmitTime) {
 }
-

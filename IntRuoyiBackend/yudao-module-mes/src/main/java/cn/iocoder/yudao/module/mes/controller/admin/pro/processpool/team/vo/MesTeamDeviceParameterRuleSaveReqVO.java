@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -31,19 +32,21 @@ public class MesTeamDeviceParameterRuleSaveReqVO {
     @Schema(description = "参数单位", example = "MPa")
     private String unit;
 
-    @Schema(description = "下限", requiredMode = Schema.RequiredMode.REQUIRED, example = "20")
-    @NotNull
+    @Schema(description = "下限；文本标准为空", example = "20")
     private BigDecimal lowerLimit;
 
-    @Schema(description = "上限", requiredMode = Schema.RequiredMode.REQUIRED, example = "40")
-    @NotNull
+    @Schema(description = "上限；文本标准为空", example = "40")
     private BigDecimal upperLimit;
 
-    @Schema(description = "目标值", requiredMode = Schema.RequiredMode.REQUIRED, example = "30")
-    @NotNull
+    @Schema(description = "目标值；范围标准和文本标准可为空", example = "30")
     private BigDecimal targetValue;
 
     @Schema(description = "值类型", requiredMode = Schema.RequiredMode.REQUIRED, example = "DECIMAL")
     @NotBlank
     private String valueType;
+
+    @Schema(description = "参数标准原文", requiredMode = Schema.RequiredMode.REQUIRED, example = "20-30%")
+    @NotBlank
+    @Size(max = 1000)
+    private String standardText;
 }

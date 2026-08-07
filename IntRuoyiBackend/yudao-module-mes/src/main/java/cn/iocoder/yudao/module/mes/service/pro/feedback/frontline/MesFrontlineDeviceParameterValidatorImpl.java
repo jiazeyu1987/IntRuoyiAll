@@ -57,16 +57,33 @@ public class MesFrontlineDeviceParameterValidatorImpl implements MesFrontlineDev
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "routeProcessId/processId");
         }
         if (selectedDevice == null || selectedDevice.getDeviceId() == null) {
-            throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_INVALID, "selectedDevice");
+            if (deviceParameterReadings != null && !deviceParameterReadings.isEmpty()) {
+                throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_INVALID, "selectedDevice");
+            }
+            return;
         }
         MesProcessPoolTeamDeviceDO device = requireEnabledDevice(selectedDevice.getDeviceId());
         Set<Long> leaderUserIds = requireProcessDeviceLeaders(processId, device);
         Map<String, MesProcessPoolDeviceParameterRuleDO> rulesByParameterCode =
                 listEnabledParameterRules(routeProcessId, processId, device.getId(), leaderUserIds);
+        Set<String> submittedParameterCodes = new LinkedHashSet<>();
         for (MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO reading
                 : deviceParameterReadings == null ? List.<MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO>of()
                 : deviceParameterReadings) {
             validateReadingAgainstRule(device, reading, rulesByParameterCode);
+            if (!submittedParameterCodes.add(reading.getParameterCode())) {
+                throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID,
+                        "duplicate parameterCode=" + reading.getParameterCode());
+            }
+        }
+        for (MesProcessPoolDeviceParameterRuleDO rule : rulesByParameterCode.values()) {
+            if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD.equals(rule.getValueType())) {
+                continue;
+            }
+            if (!submittedParameterCodes.contains(rule.getParameterCode())) {
+                throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID,
+                        "missing parameterCode=" + rule.getParameterCode());
+            }
         }
     }
 
@@ -122,6 +139,9 @@ public class MesFrontlineDeviceParameterValidatorImpl implements MesFrontlineDev
         }
         MesProcessPoolDeviceParameterRuleDO rule = rulesByParameterCode.get(reading.getParameterCode());
         if (rule == null) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID, reading.getParameterCode());
+        }
+        if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD.equals(rule.getValueType())) {
             throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID, reading.getParameterCode());
         }
         reading.setDeviceCode(device.getDeviceCode())

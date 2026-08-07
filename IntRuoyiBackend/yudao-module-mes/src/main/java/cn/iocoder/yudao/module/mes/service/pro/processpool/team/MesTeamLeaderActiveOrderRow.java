@@ -26,4 +26,7 @@ public class MesTeamLeaderActiveOrderRow {
     private LocalDateTime joinedAt;
     private LocalDateTime removedAt;
     private Integer version;
+    private Boolean abnormal;
+    private String abnormalReason;
+    private LocalDateTime abnormalReportedAt;
 }

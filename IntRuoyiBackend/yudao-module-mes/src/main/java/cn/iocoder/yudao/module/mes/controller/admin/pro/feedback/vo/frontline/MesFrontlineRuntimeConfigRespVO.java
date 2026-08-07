@@ -51,6 +51,7 @@ public class MesFrontlineRuntimeConfigRespVO {
         private BigDecimal upperLimit;
         private BigDecimal defaultValue;
         private String valueType;
+        private String standardText;
     }
 
     @Data

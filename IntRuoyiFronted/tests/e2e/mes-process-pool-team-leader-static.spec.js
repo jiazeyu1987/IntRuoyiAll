@@ -81,8 +81,8 @@ for (const marker of [
   'data-team-leader-process-config-tab',
   'data-team-leader-process-config-table',
   'data-team-leader-process-relation-config',
-  'data-team-leader-active-order-select',
-  'data-team-leader-abnormal-reason-select',
+  'data-team-leader-report-active-order-abnormal',
+  'data-team-leader-abnormal-report-dialog',
   'data-team-leader-structured-detail',
   'data-team-leader-fifo-allocation',
   'data-team-leader-allocation-table'
@@ -105,27 +105,21 @@ assert(page.includes('buildAllocationSubmitLines'), '确认报工必须提交活
 assert(page.includes('getTeamLeaderActiveOrderList'), '异常上报和手动分配必须从活跃订单读取。')
 assert(!page.includes('label="生产工单ID"'), '异常上报不能要求手工填写生产工单 ID，必须来自活跃订单。')
 assert(!page.includes('label="来源提交ID"'), '异常上报不能要求手工填写来源提交 ID。')
-const abnormalSectionStart = page.indexOf('<div class="team-leader-workbench__section-title">订单异常上报</div>')
-assert(abnormalSectionStart >= 0, '必须保留订单异常上报模块。')
-const abnormalSectionEnd = page.indexOf('</el-form>', abnormalSectionStart)
-assert(abnormalSectionEnd > abnormalSectionStart, '订单异常上报模块必须包含独立表单。')
-const abnormalSection = page.slice(abnormalSectionStart, abnormalSectionEnd)
-assert(abnormalSection.includes('label="订单号"'), '异常上报必须选择订单号。')
-assert(abnormalSection.includes('label="异常原因"'), '异常上报必须选择正式异常原因。')
-assert(abnormalSection.includes('data-team-leader-abnormal-reason-select'), '异常上报必须渲染异常原因选择器。')
-assert(!abnormalSection.includes('label="活跃订单"'), '异常上报对用户展示必须收敛为订单号，不再显示活跃订单内部概念。')
-assert(!abnormalSection.includes('label="工序ID"'), '异常上报不需要工序ID。')
+assert(!page.includes('showProductionExceptionModule'), '不得保留独立异常页签模块。')
+assert(page.includes('data-team-leader-report-active-order-abnormal'), '活跃订单行必须提供报异常入口。')
+assert(page.includes('data-team-leader-abnormal-report-dialog'), '行内报异常必须打开原因填写对话框。')
+assert(page.includes('label="异常原因"'), '异常上报对话框必须填写异常原因。')
+assert(!page.includes('data-team-leader-abnormal-reason-select'), '异常上报不再要求选择原因编码。')
 const abnormalRequestType = api.slice(
   api.indexOf('export interface WorkOrderAbnormalReportReqVO'),
   api.indexOf('export interface TeamDefectReasonSaveReqVO')
 )
 assert(
   /workOrderId:\s*number/.test(abnormalRequestType) &&
-    /abnormalReasonCode:\s*string/.test(abnormalRequestType) &&
     /abnormalDescription:\s*string/.test(abnormalRequestType),
-  '异常上报请求类型必须包含订单号、异常原因编码和异常说明。'
+  '异常上报请求类型必须只包含订单号和异常原因。'
 )
-for (const removedField of ['routeProcessId', 'processId', 'sourceEventId']) {
+for (const removedField of ['routeProcessId', 'processId', 'sourceEventId', 'abnormalReasonCode']) {
   assert(!abnormalRequestType.includes(removedField), `异常上报请求类型不应包含 ${removedField}。`)
 }
 const submitAbnormalStart = page.indexOf('const submitAbnormal = async () => {')
@@ -134,10 +128,10 @@ const submitAbnormalEnd = page.indexOf('const resetActiveOrderForm', submitAbnor
 assert(submitAbnormalEnd > submitAbnormalStart, '异常上报提交函数必须在活跃订单表单函数前结束。')
 const submitAbnormalBlock = page.slice(submitAbnormalStart, submitAbnormalEnd)
 assert(
-  /markAndReportWorkOrderAbnormal\(\{\s*workOrderId:\s*requireSelectedActiveOrderWorkOrderId\(\),\s*abnormalReasonCode:\s*abnormalForm\.abnormalReasonCode\.trim\(\),\s*abnormalDescription:\s*abnormalForm\.abnormalDescription\.trim\(\)\s*\}\)/.test(submitAbnormalBlock),
-  '异常上报提交 payload 必须包含 workOrderId、abnormalReasonCode 与 abnormalDescription。'
+  /markAndReportWorkOrderAbnormal\(\{\s*workOrderId:\s*abnormalForm\.workOrderId,\s*abnormalDescription:\s*abnormalForm\.abnormalDescription\.trim\(\)\s*\}\)/.test(submitAbnormalBlock),
+  '异常上报提交 payload 必须锁定当前活跃订单并只包含异常原因。'
 )
-for (const removedField of ['routeProcessId', 'processId', 'sourceEventId']) {
+for (const removedField of ['routeProcessId', 'processId', 'sourceEventId', 'abnormalReasonCode']) {
   assert(!submitAbnormalBlock.includes(removedField), `异常上报提交 payload 不应包含 ${removedField}。`)
 }
 assert(!page.includes('<template #header>员工工序绑定</template>'), '旧员工绑定卡片必须替换为员工档案与工序员工关系配置。')
@@ -213,8 +207,8 @@ for (const field of [
 assert(page.includes('正确') && page.includes('不正确'), '组长复核必须按正确/不正确表达，不得只用通过/退回。')
 assert(page.includes('data-team-leader-review-log'), '组长检查列表必须提供稳定选择器展示复核判定日志。')
 assert(
-  eventRevisionApi.includes('/mes/pro/process-pool/event-revision/update-original') &&
-    page.includes('updateProcessPoolOriginalRecord'),
+  eventRevisionApi.includes('/mes/pro/process-pool/event-revision/correct-production-report') &&
+    page.includes('correctProcessPoolProductionReport'),
   '组长修改不正确内容必须走正式原始记录修订接口并写修订日志。'
 )
 assert(

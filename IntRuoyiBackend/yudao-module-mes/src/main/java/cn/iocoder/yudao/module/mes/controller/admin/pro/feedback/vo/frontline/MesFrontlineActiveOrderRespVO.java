@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Schema(description = "管理后台 - MES PQC 当前活跃订单 Response VO")
@@ -19,8 +20,10 @@ public class MesFrontlineActiveOrderRespVO {
     private Long productId;
     @Schema(description = "产品编码")
     private String productCode;
-    @Schema(description = "产品名称")
+    @Schema(description = "产品名称", requiredMode = Schema.RequiredMode.REQUIRED)
     private String productName;
+    @Schema(description = "生产数量", requiredMode = Schema.RequiredMode.REQUIRED, example = "125.5")
+    private BigDecimal quantity;
     @Schema(description = "工艺路线编号")
     private Long routeId;
     @Schema(description = "工艺路线编码")
@@ -30,4 +33,3 @@ public class MesFrontlineActiveOrderRespVO {
     @Schema(description = "最近提交时间")
     private LocalDateTime latestSubmitTime;
 }
-

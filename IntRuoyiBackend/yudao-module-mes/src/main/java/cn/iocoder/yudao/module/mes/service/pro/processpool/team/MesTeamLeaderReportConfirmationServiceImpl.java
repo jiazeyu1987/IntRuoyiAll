@@ -39,6 +39,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -58,6 +59,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_CONFIRMATION_PRODUCTION_LEADER_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_ABNORMAL_ORDER_FORBIDDEN;
 
 @Service
 @Validated
@@ -77,6 +79,7 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
     private final MesProcessPoolFifoAllocationService processPoolFifoAllocationService;
     private final MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
     private final MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService;
+    private final MesWorkOrderAbnormalStateService abnormalStateService;
 
     public MesTeamLeaderReportConfirmationServiceImpl(MesTeamLeaderScopeService scopeService,
                                                       MesProProcessPoolEventMapper eventMapper,
@@ -91,7 +94,8 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
                                                        MesPqcInspectionTaskMapper pqcTaskMapper,
                                                        MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper,
                                                        MesTeamLeaderOrderProcessTargetService orderProcessTargetService,
-                                                       MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService) {
+                                                       MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService,
+                                                       MesWorkOrderAbnormalStateService abnormalStateService) {
         this.scopeService = scopeService;
         this.eventMapper = eventMapper;
         this.activeOrderMapper = activeOrderMapper;
@@ -106,6 +110,7 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
         this.processPoolFifoAllocationService = processPoolFifoAllocationService;
         this.orderProcessTargetService = orderProcessTargetService;
         this.orderProcessCompletionService = orderProcessCompletionService;
+        this.abnormalStateService = abnormalStateService;
     }
 
     @Override
@@ -239,6 +244,11 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
                 .map(MesProcessPoolActiveOrderDO::getWorkOrderId)
                 .distinct()
                 .toList();
+        Set<Long> openAbnormalWorkOrderIds = abnormalStateService.findOpenWorkOrderIds(workOrderIds);
+        if (!openAbnormalWorkOrderIds.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_ABNORMAL_ORDER_FORBIDDEN,
+                    openAbnormalWorkOrderIds.iterator().next());
+        }
         Map<Long, MesProWorkOrderDO> workOrderMap = workOrderMapper.selectListByIdsForUpdate(workOrderIds)
                 .stream()
                 .collect(Collectors.toMap(MesProWorkOrderDO::getId, Function.identity(), (a, b) -> a,

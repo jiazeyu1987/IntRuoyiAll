@@ -34,8 +34,7 @@ public class MesProFrontlineProcessPoolContextReqVO {
     @NotNull(message = "工作站不能为空")
     private Long workstationId;
 
-    @Schema(description = "设备编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "501")
-    @NotNull(message = "设备不能为空")
+    @Schema(description = "设备编号；无正式设备配置的工序可为空", example = "501")
     private Long deviceId;
 
     @Schema(description = "设备账号用户编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "9001")

@@ -14,18 +14,58 @@
 
     <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
 
-    <el-form class="profile-erp-table-sync__form" label-width="120px" :disabled="loading || saving">
-      <el-form-item label="启用自动同步">
-        <el-switch v-model="form.enabled" />
-      </el-form-item>
-      <el-form-item label="每日开始时间">
-        <el-time-picker
-          v-model="form.dailyStartTime"
-          value-format="HH:mm:ss"
-          format="HH:mm:ss"
-          :clearable="false"
-        />
-      </el-form-item>
+    <el-form
+      class="profile-erp-table-sync__form"
+      label-width="120px"
+      :disabled="loading || saving || connectionSaving"
+    >
+      <div class="profile-erp-table-sync__top-settings">
+        <div class="profile-erp-table-sync__schedule-settings">
+          <el-form-item label="启用自动同步">
+            <el-switch v-model="form.enabled" />
+          </el-form-item>
+          <el-form-item label="每日开始时间">
+            <el-time-picker
+              v-model="form.dailyStartTime"
+              value-format="HH:mm:ss"
+              format="HH:mm:ss"
+              :clearable="false"
+            />
+          </el-form-item>
+        </div>
+
+        <section class="profile-erp-table-sync__connection-setting" aria-label="ERP连接">
+          <div class="profile-erp-table-sync__connection-status">
+            <span class="profile-erp-table-sync__connection-label">当前连接</span>
+            <el-tag
+              v-if="currentConnectionType"
+              :type="currentConnectionType === 'PRODUCTION' ? 'danger' : 'success'"
+              effect="plain"
+            >
+              {{ currentConnectionName }}
+            </el-tag>
+            <el-tag v-if="connectionDirty" type="warning" effect="plain">待保存</el-tag>
+          </div>
+          <div class="profile-erp-table-sync__connection-controls">
+            <el-segmented
+              v-model="selectedConnectionType"
+              :options="segmentedConnectionOptions"
+              :disabled="connectionOptions.length !== 2"
+              aria-label="选择 ERP 连接"
+            />
+            <el-button
+              class="profile-erp-table-sync__connection-save"
+              type="primary"
+              :loading="connectionSaving"
+              :disabled="!connectionDirty"
+              @click="handleSaveConnection"
+            >
+              <Icon icon="ep:check" />
+              保存连接
+            </el-button>
+          </div>
+        </section>
+      </div>
       <el-form-item label="ERP 表格">
         <el-table
           ref="syncTableRef"
@@ -86,7 +126,9 @@
     <div class="profile-erp-table-sync__running-jobs">
       <div class="profile-erp-table-sync__running-header">
         <div class="profile-erp-table-sync__running-title">正在进行的同步 Job</div>
-        <div class="profile-erp-table-sync__running-subtitle">仅显示当前运行中的 ERP 同步任务。</div>
+        <div class="profile-erp-table-sync__running-subtitle"
+          >仅显示当前运行中的 ERP 同步任务。</div
+        >
       </div>
       <el-table
         v-loading="runningJobLoading"
@@ -118,6 +160,12 @@
 
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
+import { ErpKingdeeConfigApi } from '@/api/erp/config'
+import type {
+  ErpKingdeeActiveConnectionVO,
+  ErpKingdeeConnectionOptionVO,
+  ErpKingdeeConnectionType
+} from '@/api/erp/config'
 import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import type { ErpKingdeeSyncRunVO } from '@/api/erp/sync'
 import * as JobApi from '@/api/infra/job'
@@ -145,6 +193,10 @@ defineOptions({ name: 'ProfileErpTableAutoSyncSetting' })
 const DEFAULT_DAILY_START_TIME = '02:00:00'
 const RUNNING_SYNC_STATUS = 10
 const RUNNING_SYNC_RUN_PAGE_SIZE = 20
+const REQUIRED_CONNECTION_OPTIONS: Record<ErpKingdeeConnectionType, string> = {
+  TEST: '测试账套',
+  PRODUCTION: '正式账套'
+}
 const syncTypes: ProfileErpSyncType[] = [
   {
     syncType: 'PRODUCT',
@@ -193,6 +245,7 @@ const syncTypes: ProfileErpSyncType[] = [
 const loading = ref(false)
 const jobLoading = ref(false)
 const saving = ref(false)
+const connectionSaving = ref(false)
 const running = ref(false)
 const runLoading = ref(false)
 const runningJobLoading = ref(false)
@@ -204,6 +257,10 @@ const jobsByHandlerName = ref<Record<string, JobApi.JobVO>>({})
 const selectedSyncTypes = ref<string[]>([])
 const syncTableRef = ref()
 const syncingTableSelection = ref(false)
+const currentConnectionType = ref<ErpKingdeeConnectionType | ''>('')
+const currentConnectionName = ref('')
+const selectedConnectionType = ref<ErpKingdeeConnectionType | ''>('')
+const connectionOptions = ref<ErpKingdeeConnectionOptionVO[]>([])
 const form = reactive<ProfileErpTableSyncForm>({
   enabled: false,
   dailyStartTime: DEFAULT_DAILY_START_TIME
@@ -216,7 +273,9 @@ const resolveErrorMessage = (error: unknown, defaultMessage: string) => {
       ? (error as { response?: { data?: { msg?: unknown; message?: unknown } } }).response?.data
       : undefined
   const responseMessage = responseData?.msg || responseData?.message
-  return typeof responseMessage === 'string' && responseMessage.trim() ? responseMessage : defaultMessage
+  return typeof responseMessage === 'string' && responseMessage.trim()
+    ? responseMessage
+    : defaultMessage
 }
 
 const padTimePart = (value: string | number) => String(value).padStart(2, '0')
@@ -236,6 +295,18 @@ const parseDailyCronExpression = (cronExpression?: string) => {
 }
 
 const dailyCronExpression = computed(() => toDailyCronExpression(form.dailyStartTime))
+const segmentedConnectionOptions = computed(() =>
+  connectionOptions.value.map((item) => ({
+    label: item.connectionName,
+    value: item.connectionType
+  }))
+)
+const connectionDirty = computed(
+  () =>
+    Boolean(currentConnectionType.value) &&
+    Boolean(selectedConnectionType.value) &&
+    currentConnectionType.value !== selectedConnectionType.value
+)
 const latestRunBySyncType = computed<Record<string, ErpKingdeeSyncRunVO | undefined>>(() =>
   latestRuns.value.reduce<Record<string, ErpKingdeeSyncRunVO | undefined>>((acc, item) => {
     if (!acc[item.syncType]) {
@@ -330,17 +401,23 @@ const loadJobs = async () => {
   jobLoading.value = true
   try {
     const entries = await Promise.all(
-      syncTypes.map(async (item) => [item.handlerName, await fetchJobByHandlerName(item.handlerName)] as const)
+      syncTypes.map(
+        async (item) => [item.handlerName, await fetchJobByHandlerName(item.handlerName)] as const
+      )
     )
     const nextJobsByHandlerName = Object.fromEntries(entries)
     jobsByHandlerName.value = nextJobsByHandlerName
     selectedSyncTypes.value = syncTypes
-      .filter((item) => nextJobsByHandlerName[item.handlerName].status === InfraJobStatusEnum.NORMAL)
+      .filter(
+        (item) => nextJobsByHandlerName[item.handlerName].status === InfraJobStatusEnum.NORMAL
+      )
       .map((item) => item.syncType)
     form.enabled = selectedSyncTypes.value.length > 0
     form.dailyStartTime =
       syncTypes
-        .map((item) => parseDailyCronExpression(nextJobsByHandlerName[item.handlerName].cronExpression))
+        .map((item) =>
+          parseDailyCronExpression(nextJobsByHandlerName[item.handlerName].cronExpression)
+        )
         .find((time) => time) || DEFAULT_DAILY_START_TIME
   } finally {
     jobLoading.value = false
@@ -384,11 +461,35 @@ const loadRunningSyncRuns = async () => {
   }
 }
 
+const applyActiveConnection = (data: ErpKingdeeActiveConnectionVO) => {
+  const validActiveType = data?.activeConnectionType in REQUIRED_CONNECTION_OPTIONS
+  const validOptions =
+    Array.isArray(data?.options) &&
+    data.options.length === 2 &&
+    data.options.every(
+      (item) =>
+        item.connectionType in REQUIRED_CONNECTION_OPTIONS &&
+        item.connectionName === REQUIRED_CONNECTION_OPTIONS[item.connectionType]
+    )
+  if (!validActiveType || !validOptions) {
+    throw new Error('ERP 连接配置返回格式无效')
+  }
+  currentConnectionType.value = data.activeConnectionType
+  currentConnectionName.value = REQUIRED_CONNECTION_OPTIONS[data.activeConnectionType]
+  selectedConnectionType.value = data.activeConnectionType
+  connectionOptions.value = data.options
+}
+
+const loadActiveConnection = async () => {
+  const data = await ErpKingdeeConfigApi.getActiveConnection()
+  applyActiveConnection(data)
+}
+
 const loadData = async () => {
   loading.value = true
   loadError.value = ''
   try {
-    await Promise.all([loadJobs(), loadLatestRuns(), loadRunningSyncRuns()])
+    await Promise.all([loadActiveConnection(), loadJobs(), loadLatestRuns(), loadRunningSyncRuns()])
   } catch (error) {
     loadError.value = resolveErrorMessage(error, 'ERP表格自动同步配置加载失败')
     ElMessage.error(loadError.value)
@@ -397,12 +498,32 @@ const loadData = async () => {
   }
 }
 
+const handleSaveConnection = async () => {
+  if (!selectedConnectionType.value || !connectionDirty.value) return
+  connectionSaving.value = true
+  try {
+    const data = await ErpKingdeeConfigApi.updateActiveConnection({
+      connectionType: selectedConnectionType.value
+    })
+    applyActiveConnection(data)
+    ElMessage.success(`ERP 当前连接已切换为${currentConnectionName.value}`)
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, 'ERP 连接保存失败'))
+  } finally {
+    connectionSaving.value = false
+  }
+}
+
 const refreshJobsBeforeMutation = async () => {
   const entries = await Promise.all(
-    syncTypes.map(async (item) => [
-      item,
-      jobsByHandlerName.value[item.handlerName] || (await fetchJobByHandlerName(item.handlerName))
-    ] as const)
+    syncTypes.map(
+      async (item) =>
+        [
+          item,
+          jobsByHandlerName.value[item.handlerName] ||
+            (await fetchJobByHandlerName(item.handlerName))
+        ] as const
+    )
   )
   for (const [item, job] of entries) {
     jobsByHandlerName.value[item.handlerName] = job
@@ -438,7 +559,9 @@ const handleSave = async () => {
         }
       })
     )
-    ElMessage.success(`ERP表格自动同步配置已保存：${form.enabled ? selectedSyncTypeSet.size : 0}/${syncTypes.length}`)
+    ElMessage.success(
+      `ERP表格自动同步配置已保存：${form.enabled ? selectedSyncTypeSet.size : 0}/${syncTypes.length}`
+    )
     await loadJobs()
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, 'ERP表格自动同步配置保存失败'))
@@ -456,7 +579,9 @@ const handleRunOnce = async () => {
   running.value = true
   try {
     await refreshJobsBeforeMutation()
-    await Promise.all(selectedItems.map((item) => ErpKingdeeSyncApi.runIncrementalSyncJob(item.handlerName)))
+    await Promise.all(
+      selectedItems.map((item) => ErpKingdeeSyncApi.runIncrementalSyncJob(item.handlerName))
+    )
     ElMessage.success(`已提交 ${selectedItems.length} 个 ERP 增量同步任务`)
     await Promise.all([loadJobs(), loadLatestRuns(), loadRunningSyncRuns()])
   } catch (error) {
@@ -479,9 +604,13 @@ const handleRunSingle = async (row: ProfileErpSyncTableRow) => {
   }
 }
 
-watch([syncTableRows, selectedSyncTypes], () => {
-  void syncSelectedRows()
-}, { flush: 'post' })
+watch(
+  [syncTableRows, selectedSyncTypes],
+  () => {
+    void syncSelectedRows()
+  },
+  { flush: 'post' }
+)
 
 onMounted(loadData)
 </script>
@@ -515,6 +644,52 @@ onMounted(loadData)
   margin-top: 16px;
 }
 
+.profile-erp-table-sync__top-settings {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(420px, 520px);
+  gap: 32px;
+  align-items: start;
+  margin-bottom: 4px;
+}
+
+.profile-erp-table-sync__schedule-settings {
+  min-width: 0;
+}
+
+.profile-erp-table-sync__connection-setting {
+  min-width: 0;
+  padding-left: 24px;
+  border-left: 1px solid #dcdfe6;
+}
+
+.profile-erp-table-sync__connection-status {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-erp-table-sync__connection-label {
+  color: #606266;
+  font-size: 14px;
+}
+
+.profile-erp-table-sync__connection-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.profile-erp-table-sync__connection-controls :deep(.el-segmented) {
+  flex: 1;
+  min-width: 260px;
+}
+
+.profile-erp-table-sync__connection-save {
+  flex: none;
+}
+
 .profile-erp-table-sync__select-table {
   width: 100%;
 }
@@ -544,5 +719,53 @@ onMounted(loadData)
 
 .profile-erp-table-sync__running-table {
   width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .profile-erp-table-sync__top-settings {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .profile-erp-table-sync__connection-setting {
+    padding-top: 16px;
+    padding-left: 0;
+    border-top: 1px solid #dcdfe6;
+    border-left: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .profile-erp-table-sync__connection-setting {
+    width: 100%;
+  }
+
+  .profile-erp-table-sync__connection-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .profile-erp-table-sync__connection-controls :deep(.el-segmented) {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .profile-erp-table-sync__connection-save {
+    width: 100%;
+  }
+
+  .profile-erp-table-sync__form :deep(.el-form-item) {
+    display: block;
+  }
+
+  .profile-erp-table-sync__form :deep(.el-form-item__label) {
+    display: block;
+    width: auto !important;
+    text-align: left;
+  }
+
+  .profile-erp-table-sync__form :deep(.el-form-item__content) {
+    margin-left: 0 !important;
+  }
 }
 </style>

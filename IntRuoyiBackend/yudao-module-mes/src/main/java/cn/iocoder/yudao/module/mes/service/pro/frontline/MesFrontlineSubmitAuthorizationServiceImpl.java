@@ -57,7 +57,6 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
         requireValue(command.loginUserId(), "loginUserId");
         requireValue(command.actualEmployeeId(), "actualEmployeeId");
         requireValue(command.signatureEmployeeId(), "signatureEmployeeId");
-        requireValue(command.deviceId(), "deviceId");
         requireValue(command.workstationId(), "workstationId");
         requireValue(command.routeId(), "routeId");
         requireValue(command.routeProcessId(), "routeProcessId");

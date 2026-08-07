@@ -295,7 +295,7 @@ async function run() {
               response.request().method() === 'PUT',
             { timeout: 30000 }
           ),
-          row.getByRole('button', { name: '移出活跃订单' }).click()
+          row.getByRole('button', { name: '移除' }).click()
         ])
         const removeBody = await removeResponse.json()
         assert.equal(removeResponse.ok(), true, `remove HTTP ${removeResponse.status()}`)

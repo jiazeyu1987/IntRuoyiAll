@@ -74,8 +74,8 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /\.frontline-operator-top[\s\S]*&\.is-pqc\s*\{[\s\S]*grid-template-columns:\s*340px\s+430px\s+minmax\(0,\s*1fr\)\s+210px/,
-  'The formal PQC top cards must match the updated HTML preview proportions.'
+  /\.frontline-operator-top[\s\S]*&\.is-pqc\s*\{[\s\S]*grid-template-columns:\s*minmax\(480px,\s*1\.55fr\)\s+minmax\(220px,\s*0\.85fr\)\s+minmax\(200px,\s*1fr\)\s+150px/,
+  'The formal PQC top cards must match the current order-summary proportions.'
 )
 assert.match(
   panelSource,
@@ -94,13 +94,13 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-screen\.is-pqc,[\s\S]*?\.frontline-operator-panel:fullscreen \.frontline-operator-screen\.is-pqc\s*\{[\s\S]*max-width:\s*1480px[\s\S]*min-height:\s*820px[\s\S]*grid-template-rows:\s*118px\s+minmax\(0,\s*1fr\)\s+104px[\s\S]*gap:\s*18px[\s\S]*padding:\s*24px[\s\S]*border-radius:\s*22px[\s\S]*box-shadow:\s*0 26px 70px/,
+  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-screen\.is-pqc,[\s\S]*?\.frontline-operator-panel:fullscreen \.frontline-operator-screen\.is-pqc\s*\{[\s\S]*max-width:\s*1480px[\s\S]*min-height:\s*820px[\s\S]*grid-template-rows:\s*minmax\(118px,\s*auto\)\s+minmax\(0,\s*1fr\)\s+104px[\s\S]*gap:\s*18px[\s\S]*padding:\s*24px[\s\S]*border-radius:\s*22px[\s\S]*box-shadow:\s*0 26px 70px/,
   'The formal PQC maximized operator screen must match the updated HTML preview frame.'
 )
 assert.match(
   panelSource,
-  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-top\.is-pqc,[\s\S]*?\.frontline-operator-panel:fullscreen \.frontline-operator-top\.is-pqc\s*\{[\s\S]*grid-template-columns:\s*340px\s+430px\s+minmax\(0,\s*1fr\)\s+210px[\s\S]*gap:\s*18px/,
-  'The formal PQC maximized top cards must match the updated HTML preview proportions.'
+  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-top\.is-pqc,[\s\S]*?\.frontline-operator-panel:fullscreen \.frontline-operator-top\.is-pqc\s*\{[\s\S]*grid-template-columns:\s*minmax\(480px,\s*1\.55fr\)\s+minmax\(220px,\s*0\.85fr\)\s+minmax\(200px,\s*1fr\)\s+150px[\s\S]*gap:\s*12px/,
+  'The formal PQC maximized top cards must match the current order-summary proportions.'
 )
 assert.match(
   panelSource,

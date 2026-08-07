@@ -445,6 +445,27 @@ class MesProFeedbackImportRecordServiceImplTest {
     }
 
     @Test
+    void getImportRecordPage_shouldAggregateSurplusWhenProcessCodeMatchesMultipleProcesses() {
+        var reqVO = new cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.importrecord.MesProFeedbackImportRecordPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        when(importRecordMapper.selectPage(reqVO)).thenReturn(new PageResult<>(List.of(importRecord), 1L));
+        when(processMapper.selectListByCodes(List.of("PROC-001")))
+                .thenReturn(List.of(
+                        cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
+                                .id(2000L).code("PROC-001").build(),
+                        cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
+                                .id(2001L).code("PROC-001").build()));
+        when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(new BigDecimal("5.0"));
+        when(surplusPoolMapper.sumAvailableQuantityByProcessId(2001L)).thenReturn(new BigDecimal("7.5"));
+
+        var result = service.getImportRecordPage(reqVO);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(0, new BigDecimal("12.5").compareTo(result.getList().get(0).getSurplusPoolQuantity()));
+    }
+
+    @Test
     void getImportRecordMapByFeedbackIds_shouldKeepSourceRowForApprovalReview() {
         MesProFeedbackImportRecordDO attributedRecord = MesProFeedbackImportRecordDO.builder()
                 .id(19L)

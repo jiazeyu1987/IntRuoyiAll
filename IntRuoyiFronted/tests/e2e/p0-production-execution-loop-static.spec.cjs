@@ -96,12 +96,14 @@ assert.match(
 
 assert.match(
   frontlineApi,
-  /interface\s+FrontlinePqcInspectionSubmitReqVO[\s\S]*productionSubmitEventId:\s*number[\s\S]*pqcSubmissionIdempotencyKey:\s*string/,
-  'PQC submit request must carry the productionSubmitEventId trace root and PQC idempotency key.'
+  /interface\s+FrontlinePqcInspectionSubmitReqVO[\s\S]*productionSubmitEventId:\s*number[\s\S]*scrapQuantity:\s*number[\s\S]*signaturePassword:\s*string/,
+  'PQC submit request must carry the productionSubmitEventId trace root, scrap quantity, and one-time signature password.'
 )
-for (const fieldName of ['productionSubmitEventId', 'pqcSubmissionIdempotencyKey']) {
-  assertPqcPayloadField(fieldName)
-}
+assertPqcPayloadField('productionSubmitEventId')
+assert.match(pqcPayloadBuilder, /scrapQuantity:\s*normalizePqcQuantity/)
+assert.match(pqcPayloadBuilder, /signaturePassword:\s*pqcSignaturePassword\.value/)
+assert.doesNotMatch(pqcPayloadBuilder, /pqcSubmissionIdempotencyKey/,
+  'PQC idempotency key must be derived by the backend from the formal task identity.')
 assert.match(
   pqcPayloadBuilder,
   /缺少PQC正式提交上下文[\s\S]*productionSubmitEventId/,

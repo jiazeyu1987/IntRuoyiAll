@@ -15,7 +15,7 @@ public interface MesProProcessPoolEventMapper extends BaseMapperX<MesProProcessP
         if (event == null || event.getEventIdempotencyKey() == null) {
             return null;
         }
-        return selectOne(new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
+        LambdaQueryWrapperX<MesProProcessPoolEventDO> query = new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
                 .eq(MesProProcessPoolEventDO::getEventType, MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
                 .eq(MesProProcessPoolEventDO::getWorkOrderId, event.getWorkOrderId())
                 .eq(MesProProcessPoolEventDO::getRouteId, event.getRouteId())
@@ -23,9 +23,14 @@ public interface MesProProcessPoolEventMapper extends BaseMapperX<MesProProcessP
                 .eq(MesProProcessPoolEventDO::getProcessId, event.getProcessId())
                 .eq(MesProProcessPoolEventDO::getActualEmployeeId, event.getActualEmployeeId())
                 .eq(MesProProcessPoolEventDO::getDeviceAccountId, event.getDeviceAccountId())
-                .eq(MesProProcessPoolEventDO::getDeviceId, event.getDeviceId())
                 .eq(MesProProcessPoolEventDO::getWorkstationId, event.getWorkstationId())
-                .eq(MesProProcessPoolEventDO::getEventIdempotencyKey, event.getEventIdempotencyKey()));
+                .eq(MesProProcessPoolEventDO::getEventIdempotencyKey, event.getEventIdempotencyKey());
+        if (event.getDeviceId() == null) {
+            query.isNull(MesProProcessPoolEventDO::getDeviceId);
+        } else {
+            query.eq(MesProProcessPoolEventDO::getDeviceId, event.getDeviceId());
+        }
+        return selectOne(query);
     }
 
     default MesProProcessPoolEventDO selectPqcByIdempotency(MesProProcessPoolEventDO event) {
@@ -72,6 +77,31 @@ public interface MesProProcessPoolEventMapper extends BaseMapperX<MesProProcessP
     default MesProProcessPoolEventDO selectBySignatureId(Long signatureId) {
         return selectOne(new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
                 .eq(MesProProcessPoolEventDO::getSignatureId, signatureId));
+    }
+
+    default MesProProcessPoolEventDO selectLatestPqcByTaskId(String feedbackSourceType, Long pqcTaskId) {
+        if (feedbackSourceType == null || pqcTaskId == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
+                .eq(MesProProcessPoolEventDO::getEventType, MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                .eq(MesProProcessPoolEventDO::getFeedbackSourceType, feedbackSourceType)
+                .eq(MesProProcessPoolEventDO::getFeedbackSourceId, pqcTaskId)
+                .orderByDesc(MesProProcessPoolEventDO::getId)
+                .last("LIMIT 1"));
+    }
+
+    default List<MesProProcessPoolEventDO> selectProductionSubmitsByWorkOrderAndRoute(Long workOrderId,
+                                                                                     Long routeId) {
+        if (workOrderId == null || routeId == null) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
+                .eq(MesProProcessPoolEventDO::getEventType, MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .eq(MesProProcessPoolEventDO::getWorkOrderId, workOrderId)
+                .eq(MesProProcessPoolEventDO::getRouteId, routeId)
+                .orderByDesc(MesProProcessPoolEventDO::getServerSubmitTime)
+                .orderByDesc(MesProProcessPoolEventDO::getId));
     }
 
     default List<MesProProcessPoolEventDO> selectPqcEventsForSubmit(MesProProcessPoolEventDO submitEvent) {

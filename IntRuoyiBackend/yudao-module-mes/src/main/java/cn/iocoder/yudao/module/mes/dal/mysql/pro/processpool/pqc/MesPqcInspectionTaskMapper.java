@@ -7,7 +7,10 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Mapper
 public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspectionTaskDO> {
@@ -41,6 +44,19 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .orderByAsc(MesPqcInspectionTaskDO::getInspectionType)
                 .orderByAsc(MesPqcInspectionTaskDO::getRoundNo)
                 .orderByAsc(MesPqcInspectionTaskDO::getId));
+    }
+
+    default Set<Long> selectActiveOrderIdsByTaskStatus(Collection<Long> activeOrderIds, String taskStatus) {
+        if (activeOrderIds == null || activeOrderIds.isEmpty()) {
+            return Set.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
+                .in(MesPqcInspectionTaskDO::getActiveOrderId, activeOrderIds)
+                .eq(MesPqcInspectionTaskDO::getTaskStatus, taskStatus))
+                .stream()
+                .map(MesPqcInspectionTaskDO::getActiveOrderId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
     }
 
     default MesPqcInspectionTaskDO selectByIdentity(Long activeOrderId, Long routeProcessId,

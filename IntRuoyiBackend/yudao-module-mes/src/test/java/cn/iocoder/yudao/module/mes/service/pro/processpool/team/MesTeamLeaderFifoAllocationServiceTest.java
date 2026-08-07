@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -35,13 +36,15 @@ class MesTeamLeaderFifoAllocationServiceTest {
     private MesProcessPoolReportAllocationMapper allocationMapper;
     @Mock
     private MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
+    @Mock
+    private MesWorkOrderAbnormalStateService abnormalStateService;
 
     private MesTeamLeaderFifoAllocationService service;
 
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
-                orderProcessTargetService);
+                orderProcessTargetService, abnormalStateService);
     }
 
     @Test
@@ -131,6 +134,18 @@ class MesTeamLeaderFifoAllocationServiceTest {
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH.getCode(),
                 ex.getCode());
         verify(allocationMapper, never()).insertBatch(org.mockito.ArgumentMatchers.anyCollection());
+    }
+
+    @Test
+    void shouldExcludeOpenAbnormalOrdersFromFifoAllocation() {
+        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
+                activeOrder(8101L, 9001L, "2026-07-31T08:00:00"),
+                activeOrder(8102L, 9002L, "2026-07-31T09:00:00")));
+        when(abnormalStateService.findOpenWorkOrderIds(List.of(9001L, 9002L))).thenReturn(Set.of(9001L));
+
+        List<MesProcessPoolActiveOrderDO> result = service.sortedActiveOrders(3001L);
+
+        assertEquals(List.of(9002L), result.stream().map(MesProcessPoolActiveOrderDO::getWorkOrderId).toList());
     }
 
     @Test

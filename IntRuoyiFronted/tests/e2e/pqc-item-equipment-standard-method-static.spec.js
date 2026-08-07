@@ -16,6 +16,14 @@ const qaServiceSource = read(
   '../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/qa/regulation/MesQaInspectionRegulationServiceImpl.java'
 )
 
+const blockBetween = (source, startToken, endToken) => {
+  const start = source.indexOf(startToken)
+  assert.ok(start >= 0, `missing start token: ${startToken}`)
+  const end = source.indexOf(endToken, start)
+  assert.ok(end > start, `missing end token after ${startToken}: ${endToken}`)
+  return source.slice(start, end)
+}
+
 assert.match(
   apiSource,
   /export interface FrontlinePqcEquipmentOptionVO/,
@@ -80,6 +88,42 @@ assert.match(
   panelSource,
   /itemResults: buildPqcItemResultsPayload\(\)/,
   'PQC submit request must include itemResults outside rawPayload.'
+)
+
+assert.match(
+  panelSource,
+  /const assertPqcSubmissionItemEquipmentSelections = \(\) =>[\s\S]*requirePqcItemSelection\(item\)/,
+  'PQC formal submit must validate every item-level equipment identity before opening the signature dialog.'
+)
+const requireSelectionBlock = blockBetween(
+  panelSource,
+  'const requirePqcItemSelection = (item: PqcInspectionItem) => {',
+  'const getPqcExactPieceValuesForSubmit = (itemKey: PqcInspectionItemKey) => {'
+)
+assert.match(
+  requireSelectionBlock,
+  /if \(!selection\.selectedEquipmentId\) \{[\s\S]*throw new Error/,
+  'PQC item selection validation must require selectedEquipmentId for every formal itemResult.'
+)
+assert.match(
+  requireSelectionBlock,
+  /if \(!selection\.selectedEquipmentNumber\) \{[\s\S]*throw new Error/,
+  'PQC item selection validation must require selectedEquipmentNumber for every formal itemResult.'
+)
+assert.doesNotMatch(
+  requireSelectionBlock,
+  /item\.equipmentRequired && !selection\.selectedEquipmentId/,
+  'PQC selectedEquipmentId cannot be optional in formal submit because backend requires itemResults.<item>.selectedEquipmentId.'
+)
+const handleValidateBlock = blockBetween(
+  panelSource,
+  'const handleValidate = async () => {',
+  'const closePqcSignatureDialog = () => {'
+)
+assert.match(
+  handleValidateBlock,
+  /assertPqcSubmissionItemEquipmentSelections\(\)[\s\S]*assertPqcSubmissionSampleQuantities\(\)/,
+  'PQC equipment identity validation must run before sample quantity validation and before the signature dialog opens.'
 )
 assert.doesNotMatch(
   panelSource,

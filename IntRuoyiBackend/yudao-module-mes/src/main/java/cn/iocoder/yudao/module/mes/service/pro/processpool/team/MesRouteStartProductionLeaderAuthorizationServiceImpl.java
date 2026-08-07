@@ -2,8 +2,10 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteFlowConfigServiceImpl;
@@ -28,23 +30,54 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 public class MesRouteStartProductionLeaderAuthorizationServiceImpl
         implements MesRouteStartProductionLeaderAuthorizationService {
 
-    static final String TEAM_LEADER_MAINTAIN_PERMISSION = "mes:pro-process-pool-team-leader:maintain";
-
     private static final String CANDIDATE_SOURCE_TYPE_USER = "USER";
     private static final String CANDIDATE_SOURCE_TYPE_USERS = "USERS";
     private static final String CANDIDATE_SOURCE_TYPE_ROLE = "ROLE";
 
+    private final MesProRouteMapper routeMapper;
     private final MesProRouteProcessMapper routeProcessMapper;
     private final MesProRouteVersionMapper routeVersionMapper;
     private final PermissionApi permissionApi;
 
     public MesRouteStartProductionLeaderAuthorizationServiceImpl(
+            MesProRouteMapper routeMapper,
             MesProRouteProcessMapper routeProcessMapper,
             MesProRouteVersionMapper routeVersionMapper,
             PermissionApi permissionApi) {
+        this.routeMapper = routeMapper;
         this.routeProcessMapper = routeProcessMapper;
         this.routeVersionMapper = routeVersionMapper;
         this.permissionApi = permissionApi;
+    }
+
+    @Override
+    public List<MesProRouteDO> listResponsibleRoutes(Long leaderUserId) {
+        if (leaderUserId == null) {
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "leaderUserId");
+        }
+        Set<Long> routeIds = resolveConfiguredRouteIds(leaderUserId, listActiveRouteVersions());
+        if (routeIds.isEmpty()) {
+            return List.of();
+        }
+        List<MesProRouteDO> routes = routeMapper.selectBatchIds(routeIds);
+        Set<Long> loadedRouteIds = routes.stream()
+                .filter(Objects::nonNull)
+                .map(MesProRouteDO::getId)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        boolean invalidRouteSummary = routes.stream().anyMatch(route -> route == null
+                || route.getId() == null
+                || route.getName() == null
+                || route.getName().isBlank());
+        if (!loadedRouteIds.equals(routeIds) || invalidRouteSummary) {
+            Set<Long> missingRouteIds = new LinkedHashSet<>(routeIds);
+            missingRouteIds.removeAll(loadedRouteIds);
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED,
+                    "responsibleRoutes missingRouteIds=" + missingRouteIds);
+        }
+        return routes.stream()
+                .sorted(Comparator.comparing(MesProRouteDO::getId))
+                .toList();
     }
 
     @Override
@@ -52,10 +85,7 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
         if (leaderUserId == null) {
             throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "leaderUserId");
         }
-        List<MesProRouteVersionDO> activeVersions = routeVersionMapper.selectList(
-                new LambdaQueryWrapperX<MesProRouteVersionDO>()
-                        .eq(MesProRouteVersionDO::getActive, Boolean.TRUE)
-                        .eq(MesProRouteVersionDO::getLifecycleStatus, MesProRouteVersionMapper.STATUS_ACTIVE));
+        List<MesProRouteVersionDO> activeVersions = listActiveRouteVersions();
         Set<Long> routeIds = resolveAuthorizedRouteIds(leaderUserId, activeVersions);
         if (routeIds.isEmpty()) {
             return List.of();
@@ -84,6 +114,13 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
         }
     }
 
+    private List<MesProRouteVersionDO> listActiveRouteVersions() {
+        return routeVersionMapper.selectList(
+                new LambdaQueryWrapperX<MesProRouteVersionDO>()
+                        .eq(MesProRouteVersionDO::getActive, Boolean.TRUE)
+                        .eq(MesProRouteVersionDO::getLifecycleStatus, MesProRouteVersionMapper.STATUS_ACTIVE));
+    }
+
     private Set<Long> resolveAuthorizedRouteIds(Long leaderUserId, List<MesProRouteVersionDO> routeVersions) {
         if (CollUtil.isEmpty(routeVersions)) {
             return Set.of();
@@ -94,15 +131,20 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
         if (CollUtil.isEmpty(activeRouteVersions)) {
             return Set.of();
         }
-        if (permissionApi.hasAnyPermissions(leaderUserId, TEAM_LEADER_MAINTAIN_PERMISSION)) {
-            return activeRouteVersions.stream()
-                    .map(MesProRouteVersionDO::getRouteId)
-                    .filter(Objects::nonNull)
-                    .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        return resolveConfiguredRouteIds(leaderUserId, activeRouteVersions);
+    }
+
+    private Set<Long> resolveConfiguredRouteIds(Long leaderUserId,
+                                                List<MesProRouteVersionDO> routeVersions) {
+        if (CollUtil.isEmpty(routeVersions)) {
+            return Set.of();
         }
         Set<Long> userRoleIds = null;
         Set<Long> authorizedRouteIds = new LinkedHashSet<>();
-        for (MesProRouteVersionDO routeVersion : activeRouteVersions) {
+        for (MesProRouteVersionDO routeVersion : routeVersions) {
+            if (!isActiveRouteVersion(routeVersion)) {
+                continue;
+            }
             for (RouteStartProductionLeaderSnapshot snapshot
                     : parseRouteStartProductionLeaderSnapshots(routeVersion)) {
                 if (CANDIDATE_SOURCE_TYPE_USERS.equals(snapshot.candidateSourceType())

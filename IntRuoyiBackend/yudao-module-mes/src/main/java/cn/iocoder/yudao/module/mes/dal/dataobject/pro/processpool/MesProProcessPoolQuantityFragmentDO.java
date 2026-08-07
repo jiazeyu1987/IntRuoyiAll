@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 public class MesProProcessPoolQuantityFragmentDO extends TenantBaseDO {
 
     public static final String ALLOCATION_STATUS_AVAILABLE = "AVAILABLE";
+    public static final String SOURCE_QUANTITY_TYPE_OUTPUT = "OUTPUT";
 
     @TableId
     private Long id;

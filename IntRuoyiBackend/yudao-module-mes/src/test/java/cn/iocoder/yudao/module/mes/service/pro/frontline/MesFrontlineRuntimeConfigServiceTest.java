@@ -79,7 +79,18 @@ class MesFrontlineRuntimeConfigServiceTest {
                 parameterRule(7001L, null, "legacy-pressure", "历史空路线压力", "MPa",
                         "10", "20", "15", "DECIMAL"),
                 parameterRule(7001L, 2002L, "temperature", "温度", "℃",
-                        "30", "60", "45", "DECIMAL")));
+                        "30", "60", "45", "DECIMAL"),
+                MesProcessPoolDeviceParameterRuleDO.builder()
+                        .leaderUserId(9001L)
+                        .routeProcessId(ROUTE_PROCESS_ID)
+                        .processId(PROCESS_ID)
+                        .deviceId(7001L)
+                        .parameterCode("z-cleaning-medium")
+                        .parameterName("清洗介质")
+                        .standardText("纯化水")
+                        .valueType("TEXT_STANDARD")
+                        .enabled(Boolean.TRUE)
+                        .build()));
         when(defectReasonMapper.selectList(any())).thenReturn(List.of(
                 defectReason(8301L, ROUTE_PROCESS_ID, "LOSS", "LOSS-001", "正常损耗"),
                 defectReason(8302L, 2002L, "LOSS", "LOSS-002", "其它工序损耗")));
@@ -96,9 +107,13 @@ class MesFrontlineRuntimeConfigServiceTest {
         assertEquals(1, config.devices().size());
         assertEquals("压力泵", config.devices().get(0).deviceName());
         assertEquals("ENABLED", config.devices().get(0).deviceStatus());
-        assertEquals(1, config.devices().get(0).parameters().size());
+        assertEquals(2, config.devices().get(0).parameters().size());
         assertEquals("pressure", config.devices().get(0).parameters().get(0).parameterCode());
         assertEquals(new BigDecimal("15"), config.devices().get(0).parameters().get(0).defaultValue());
+        assertEquals("10-20MPa，目标15MPa", config.devices().get(0).parameters().get(0).standardText());
+        assertEquals("纯化水", config.devices().get(0).parameters().get(1).standardText());
+        assertEquals("TEXT_STANDARD", config.devices().get(0).parameters().get(1).valueType());
+        assertNull(config.devices().get(0).parameters().get(1).lowerLimit());
         assertEquals(1, config.defectReasons().size());
         assertEquals("正常损耗", config.defectReasons().get(0).reasonName());
     }
@@ -154,6 +169,28 @@ class MesFrontlineRuntimeConfigServiceTest {
         assertEquals("当前组长人员", config.employees().get(0).employeeName());
         assertEquals(1, config.devices().size());
         assertEquals("压力泵", config.devices().get(0).deviceName());
+    }
+
+    @Test
+    void getRuntimeConfig_keepsLeaderScopeWhenRouteStartCandidateDeviceHasNoTeamBinding() {
+        when(contextService.requireAuthorizedProcess(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesFrontlineRouteProcessCandidate(ROUTE_ID, "R-101", "Route 101",
+                        ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
+                        41L, "DV-041", "正式工位设备", 301L, "WS-301", "精洗工位",
+                        MesFrontlineRouteProcessCandidate.CONTEXT_SOURCE_ROUTE_START_PRODUCTION_LEADER));
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of());
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
+                employeeProfile(8801L, LOGIN_USER_ID, 10001L, "LOGIN-001",
+                        "当前组长人员", "当前组长人员", "FORMAL", true)));
+        when(defectReasonMapper.selectList(any())).thenReturn(List.of());
+
+        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID,
+                ROUTE_PROCESS_ID, PROCESS_ID);
+
+        assertEquals(1, config.employees().size());
+        assertEquals(8801L, config.employees().get(0).employeeProfileId());
+        assertEquals("当前组长人员", config.employees().get(0).employeeName());
+        assertEquals(0, config.devices().size());
     }
 
     @Test
@@ -230,6 +267,7 @@ class MesFrontlineRuntimeConfigServiceTest {
                 .lowerLimit(new BigDecimal(lowerLimit))
                 .upperLimit(new BigDecimal(upperLimit))
                 .defaultValue(new BigDecimal(defaultValue))
+                .standardText(lowerLimit + "-" + upperLimit + unit + "，目标" + defaultValue + unit)
                 .valueType(valueType)
                 .enabled(Boolean.TRUE)
                 .build();

@@ -9,7 +9,7 @@ public interface MesProcessPoolEventService {
 
     Optional<MesProcessPoolSubmitEventResult> findExistingSubmitEvent(MesProcessPoolCreateEventReqDTO reqDTO);
 
-    Optional<Long> findExistingPqcInspectionTaskId(MesProcessPoolCreatePqcInspectionReqDTO reqDTO);
+    Optional<Long> findExistingPqcInspectionEventId(MesProcessPoolCreatePqcInspectionReqDTO reqDTO);
 
     Long createEvent(MesProcessPoolCreateEventReqDTO reqDTO);
 

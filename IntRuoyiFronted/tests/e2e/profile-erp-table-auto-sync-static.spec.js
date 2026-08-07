@@ -5,15 +5,19 @@ const path = require('node:path')
 const root = path.resolve(__dirname, '../..')
 const workspaceRoot = path.resolve(root, '..')
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')
-const readWorkspace = (relativePath) => fs.readFileSync(path.join(workspaceRoot, relativePath), 'utf8')
+const readWorkspace = (relativePath) =>
+  fs.readFileSync(path.join(workspaceRoot, relativePath), 'utf8')
 
 const profileIndex = read('src/views/Profile/Index.vue')
 const componentIndex = read('src/views/Profile/components/index.ts')
 const component = read('src/views/Profile/components/ProfileErpTableAutoSyncSetting.vue')
 const syncApi = read('src/api/erp/sync/index.ts')
+const configApi = read('src/api/erp/config/index.ts')
 const jobApi = read('src/api/infra/job/index.ts')
 const workOrderPage = read('src/views/mes/pro/workorder/index.vue')
-const forbiddenInternalCopyPattern = new RegExp(['\\u6570\\u636e\\u6c34\\u4f4d', '\\u540c\\u6b65\\u6c34\\u4f4d'].join('|'))
+const forbiddenInternalCopyPattern = new RegExp(
+  ['\\u6570\\u636e\\u6c34\\u4f4d', '\\u540c\\u6b65\\u6c34\\u4f4d'].join('|')
+)
 const runPageReqVo = readWorkspace(
   'IntRuoyiBackend/yudao-module-erp/src/main/java/cn/iocoder/yudao/module/erp/controller/admin/sync/vo/ErpKingdeeSyncRunPageReqVO.java'
 )
@@ -26,9 +30,21 @@ assert.match(
   /const GOLDEN_FINGER_PERMISSION = 'mes:pro-batch-record-execution:golden-finger'/,
   '个人工作台配置页签必须继续复用 golden-finger 权限边界。'
 )
-assert.match(profileIndex, /<el-tabs[\s\S]*ERP表格自动同步/, '配置页签内部必须新增 ERP 表格自动同步 tab。')
-assert.match(profileIndex, /<ProfileErpTableAutoSyncSetting\s*\/>/, '配置页签必须渲染 ERP 表格自动同步组件。')
-assert.match(componentIndex, /ProfileErpTableAutoSyncSetting/, 'Profile 组件导出必须包含 ERP 表格自动同步组件。')
+assert.match(
+  profileIndex,
+  /<el-tabs[\s\S]*ERP表格自动同步/,
+  '配置页签内部必须新增 ERP 表格自动同步 tab。'
+)
+assert.match(
+  profileIndex,
+  /<ProfileErpTableAutoSyncSetting\s*\/>/,
+  '配置页签必须渲染 ERP 表格自动同步组件。'
+)
+assert.match(
+  componentIndex,
+  /ProfileErpTableAutoSyncSetting/,
+  'Profile 组件导出必须包含 ERP 表格自动同步组件。'
+)
 
 for (const token of [
   '/erp/kingdee-sync/run/page',
@@ -37,8 +53,53 @@ for (const token of [
   'JobApi.getJobPage',
   'JobApi.runJob'
 ]) {
-  assert.match(syncApi, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `ERP 同步 API 必须包含正式链路：${token}`)
+  assert.match(
+    syncApi,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `ERP 同步 API 必须包含正式链路：${token}`
+  )
 }
+
+for (const token of [
+  'ErpKingdeeConnectionType',
+  'ErpKingdeeActiveConnectionVO',
+  '/erp/kingdee-config/active-connection',
+  'getActiveConnection',
+  'updateActiveConnection'
+]) {
+  assert.match(
+    configApi,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `ERP 配置 API 必须包含账套切换契约：${token}`
+  )
+}
+
+for (const token of [
+  'import { ErpKingdeeConfigApi',
+  'el-segmented',
+  '当前连接',
+  '测试账套',
+  '正式账套',
+  '待保存',
+  '保存连接',
+  'connectionDirty',
+  'loadActiveConnection',
+  'handleSaveConnection',
+  'ErpKingdeeConfigApi.getActiveConnection',
+  'ErpKingdeeConfigApi.updateActiveConnection'
+]) {
+  assert.match(
+    component,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `ERP 自动同步页必须包含显式保存的账套切换能力：${token}`
+  )
+}
+
+assert.match(
+  component,
+  /@media\s*\(max-width:\s*768px\)[\s\S]*profile-erp-table-sync__connection-setting/,
+  'ERP 账套切换区必须在窄屏下提供响应式布局。'
+)
 
 for (const token of [
   '/infra/job/page',
@@ -46,7 +107,11 @@ for (const token of [
   '/infra/job/update-status',
   '/infra/job/trigger'
 ]) {
-  assert.match(jobApi, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `Job API 必须包含正式调度接口：${token}`)
+  assert.match(
+    jobApi,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `Job API 必须包含正式调度接口：${token}`
+  )
 }
 
 assert.match(
@@ -56,7 +121,7 @@ assert.match(
 )
 
 for (const token of [
-  "import { ErpKingdeeSyncApi",
+  'import { ErpKingdeeSyncApi',
   "import * as JobApi from '@/api/infra/job'",
   "import { InfraJobStatusEnum } from '@/utils/constants'",
   'JobApi.getJobPage',
@@ -68,7 +133,11 @@ for (const token of [
   'toDailyCronExpression',
   'parseDailyCronExpression'
 ]) {
-  assert.match(component, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `组件必须复用正式 Job 同步链路：${token}`)
+  assert.match(
+    component,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `组件必须复用正式 Job 同步链路：${token}`
+  )
 }
 
 for (const token of [
@@ -101,7 +170,11 @@ for (const token of [
   '生产工单',
   'BOM'
 ]) {
-  assert.match(component, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `组件必须包含用户可见能力：${token}`)
+  assert.match(
+    component,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `组件必须包含用户可见能力：${token}`
+  )
 }
 
 for (const token of [
@@ -118,7 +191,11 @@ for (const token of [
   'handleRunSingle(row',
   'syncSelectedRows'
 ]) {
-  assert.match(component, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `ERP 表格选择区必须用可选列表展示映射、最近执行时间和运行结果：${token}`)
+  assert.match(
+    component,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `ERP 表格选择区必须用可选列表展示映射、最近执行时间和运行结果：${token}`
+  )
 }
 
 for (const token of [
@@ -140,7 +217,11 @@ for (const token of [
   "typeof latestRun.createdCount === 'number'",
   'failureMessage'
 ]) {
-  assert.match(component, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `列表级同步状态列必须来自正式运行记录并中文展示：${token}`)
+  assert.match(
+    component,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `列表级同步状态列必须来自正式运行记录并中文展示：${token}`
+  )
 }
 
 for (const token of [
@@ -160,10 +241,18 @@ for (const token of [
   'resolveRunCount(row.updatedCount',
   'resolveRunCount(row.failedCount'
 ]) {
-  assert.match(component, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `正在进行的同步 Job 列表必须展示正式运行中记录：${token}`)
+  assert.match(
+    component,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `正在进行的同步 Job 列表必须展示正式运行中记录：${token}`
+  )
 }
 
-assert.match(runPageReqVo, /private Integer status;/, 'ERP 同步运行分页请求必须支持 status 查询参数。')
+assert.match(
+  runPageReqVo,
+  /private Integer status;/,
+  'ERP 同步运行分页请求必须支持 status 查询参数。'
+)
 assert.match(
   runMapper,
   /\.eqIfPresent\(ErpKingdeeSyncRunDO::getStatus,\s*reqVO\.getStatus\(\)\)/,
@@ -180,7 +269,11 @@ for (const token of [
   '手动同步失败',
   'loadLatestRuns(), loadRunningSyncRuns()'
 ]) {
-  assert.match(component, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `每行手动同步按钮必须触发正式单表增量同步并刷新结果：${token}`)
+  assert.match(
+    component,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `每行手动同步按钮必须触发正式单表增量同步并刷新结果：${token}`
+  )
 }
 
 for (const token of [
@@ -192,11 +285,19 @@ for (const token of [
   'ERP生产用料清单',
   'ERP产品BOM'
 ]) {
-  assert.match(component, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `ERP 表格列表必须声明本地页签映射：${token}`)
+  assert.match(
+    component,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `ERP 表格列表必须声明本地页签映射：${token}`
+  )
 }
 
 assert.doesNotMatch(component, /<el-checkbox-group/, 'ERP 表格选择区不得继续使用横向复选框组。')
-assert.doesNotMatch(component, /profile-erp-table-sync__checks/, 'ERP 表格选择区不得继续保留复选框组样式。')
+assert.doesNotMatch(
+  component,
+  /profile-erp-table-sync__checks/,
+  'ERP 表格选择区不得继续保留复选框组样式。'
+)
 assert.match(
   component,
   /\.profile-erp-table-sync\s*\{[\s\S]*width:\s*100%;[\s\S]*max-width:\s*none;/,
@@ -234,15 +335,43 @@ for (const token of [
   'formatRunStatus',
   'formatTriggerType'
 ]) {
-  assert.doesNotMatch(component, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `截图要求删除的展示区不得残留：${token}`)
+  assert.doesNotMatch(
+    component,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `截图要求删除的展示区不得残留：${token}`
+  )
 }
 
-assert.match(component, /resolveLatestRunTime\(row\.latestRun\)/, '主表最近执行时间必须来自正式运行记录。')
-assert.doesNotMatch(component, /formatDateTimeValue\(row\.lastSuccessTime/, '主表不得再把内部增量位置显示成最近执行时间。')
-assert.doesNotMatch(component, forbiddenInternalCopyPattern, '用户可见文案不得使用难理解的内部术语。')
-assert.doesNotMatch(component, /ErpKingdeeSyncWatermarkVO|loadWatermarks|watermarkBySyncType/, '主表执行时间口径不得继续依赖内部增量位置状态。')
-assert.doesNotMatch(component, /最近执行记录[\s\S]*formatDateTimeValue\(row\.startedAt/, '不得恢复最近执行记录历史区。')
-assert.doesNotMatch(component, /prop="failureMessage"/, '列表级失败原因不得直接暴露英文内部字段名 failureMessage 作为表格 prop。')
+assert.match(
+  component,
+  /resolveLatestRunTime\(row\.latestRun\)/,
+  '主表最近执行时间必须来自正式运行记录。'
+)
+assert.doesNotMatch(
+  component,
+  /formatDateTimeValue\(row\.lastSuccessTime/,
+  '主表不得再把内部增量位置显示成最近执行时间。'
+)
+assert.doesNotMatch(
+  component,
+  forbiddenInternalCopyPattern,
+  '用户可见文案不得使用难理解的内部术语。'
+)
+assert.doesNotMatch(
+  component,
+  /ErpKingdeeSyncWatermarkVO|loadWatermarks|watermarkBySyncType/,
+  '主表执行时间口径不得继续依赖内部增量位置状态。'
+)
+assert.doesNotMatch(
+  component,
+  /最近执行记录[\s\S]*formatDateTimeValue\(row\.startedAt/,
+  '不得恢复最近执行记录历史区。'
+)
+assert.doesNotMatch(
+  component,
+  /prop="failureMessage"/,
+  '列表级失败原因不得直接暴露英文内部字段名 failureMessage 作为表格 prop。'
+)
 assert.doesNotMatch(
   component,
   /kingdeeTableAutoSync|ErpKingdeeTableAutoSyncApi|kingdee-table-auto-sync/,

@@ -24,6 +24,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_FIFO_LOCK_STATUS_UNKNOWN;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_PRODUCTION_REPORT_APPROVED_LOCKED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_REJECTED_REVIEW_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_SIGNATURE_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_SIGNATURE_REUSED;
@@ -54,13 +55,27 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long updateOriginalRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
+        return updateRecord(reqBO, true);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long updateProductionReportRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
+        return updateRecord(reqBO, false);
+    }
+
+    private Long updateRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO, boolean rejectedReviewRequired) {
         validateRequest(reqBO);
         MesProProcessPoolEventDO event = eventMapper.selectByIdForUpdate(reqBO.getEventId());
         if (event == null) {
             throw exception(PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS, reqBO.getEventId());
         }
         validateJsonPayload(event.getRawPayload(), "rawPayload");
-        validateLatestRejectedReview(event.getId());
+        if (rejectedReviewRequired) {
+            validateLatestRejectedReview(event.getId());
+        } else {
+            validateProductionReportCorrection(event);
+        }
         validateSignature(reqBO, event);
         validateDiffAndFifoLocks(reqBO);
 
@@ -92,6 +107,18 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
                 .setId(event.getId())
                 .setRawPayload(reqBO.getAfterPayload()));
         return revision.getId();
+    }
+
+    private void validateProductionReportCorrection(MesProProcessPoolEventDO event) {
+        if (!MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionSubmitEvent");
+        }
+        MesProcessPoolSubmissionReviewDO latestReview =
+                submissionReviewMapper.selectLatestByEventIdForUpdate(event.getId());
+        if (latestReview != null
+                && MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(latestReview.getReviewStatus())) {
+            throw exception(PRO_PROCESS_POOL_REVISION_PRODUCTION_REPORT_APPROVED_LOCKED, event.getId());
+        }
     }
 
     private void validateRequest(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
@@ -182,6 +209,8 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
     private String toOriginalFieldName(MesProcessPoolFragmentOriginalField field) {
         return switch (field) {
             case OUTPUT_QUANTITY -> "输出数量";
+            case LOSS_QUANTITY -> "损耗数量";
+            case DEVICE_PARAMETERS -> "设备参数";
             case QUALITY_STATUS -> "质量状态";
             case ALLOCATABLE_STATUS -> "可分配状态";
             case REMARK -> "备注";

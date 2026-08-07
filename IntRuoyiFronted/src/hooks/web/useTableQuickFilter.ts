@@ -1,6 +1,7 @@
 import { computed, reactive, toValue, watch, type MaybeRefOrGetter } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
+  cloneMultiFilterConditions,
   normalizeMultiFilterCondition,
   type ListMultiFilterCondition,
   type ListMultiFilterDefinition,
@@ -49,11 +50,14 @@ export type TableQuickFilterQueryParams = Record<string, any> & {
   quickFilter?: TableQuickFilterValue
 }
 
+type QuickFilterQueryParamSnapshot = Map<string, { present: boolean; value: unknown }>
+
 export interface TableQuickFilterState {
   fieldKey?: string
   operator?: TableQuickFilterOperator
   value?: string | number | boolean | Array<string | number>
   conditions?: ListMultiFilterCondition[]
+  appliedConditions: ListMultiFilterCondition[]
   activeConditionId?: string
 }
 
@@ -121,7 +125,8 @@ export const useTableQuickFilter = <T extends TableQuickFilterQueryParams>(
   const state = reactive<TableQuickFilterState>({
     fieldKey: definitions.value[0]?.key,
     operator: definitions.value[0] ? DEFAULT_OPERATOR[definitions.value[0].type] : undefined,
-    value: undefined
+    value: undefined,
+    appliedConditions: []
   })
 
   const selectedDefinition = computed(() =>
@@ -253,12 +258,58 @@ export const useTableQuickFilter = <T extends TableQuickFilterQueryParams>(
     })
   }
 
+  const getManagedQuickFilterParamKeys = () => {
+    const keys = new Set<string>(['pageNo', 'quickFilter', 'multiFilters'])
+    definitions.value.forEach((definition) => {
+      if (definition.queryParamKey) keys.add(definition.queryParamKey)
+    })
+    return keys
+  }
+
+  const cloneQueryParamValue = (value: unknown) =>
+    Array.isArray(value)
+      ? value.map((item) => (item && typeof item === 'object' ? { ...item } : item))
+      : value && typeof value === 'object'
+        ? { ...value }
+        : value
+
+  const snapshotQuickFilterParams = (): QuickFilterQueryParamSnapshot => {
+    const queryParamTarget = queryParams as TableQuickFilterQueryParams
+    const snapshot: QuickFilterQueryParamSnapshot = new Map()
+    getManagedQuickFilterParamKeys().forEach((key) => {
+      snapshot.set(key, {
+        present: Object.prototype.hasOwnProperty.call(queryParamTarget, key),
+        value: cloneQueryParamValue(queryParamTarget[key])
+      })
+    })
+    return snapshot
+  }
+
+  const restoreQuickFilterParams = (snapshot: QuickFilterQueryParamSnapshot) => {
+    const queryParamTarget = queryParams as TableQuickFilterQueryParams
+    snapshot.forEach(({ present, value }, key) => {
+      if (present) {
+        queryParamTarget[key] = cloneQueryParamValue(value)
+      } else {
+        delete queryParamTarget[key]
+      }
+    })
+  }
+
   const resetQuickFilter = async () => {
+    const previousQueryParams = snapshotQuickFilterParams()
     state.fieldKey = definitions.value[0]?.key
     resetValueForField()
     clearQuickFilterParams()
     queryParams.pageNo = 1
-    await reload()
+    let reloadSucceeded = false
+    try {
+      await reload()
+      reloadSucceeded = true
+    } finally {
+      if (!reloadSucceeded) restoreQuickFilterParams(previousQueryParams)
+    }
+    state.appliedConditions = []
   }
 
   const validateConditionTabs = () => {
@@ -334,6 +385,8 @@ export const useTableQuickFilter = <T extends TableQuickFilterQueryParams>(
       return
     }
 
+    const appliedConditions = cloneMultiFilterConditions(state.conditions || [])
+    const previousQueryParams = snapshotQuickFilterParams()
     clearQuickFilterParams()
     const queryParamTarget = queryParams as TableQuickFilterQueryParams
     const unmappedConditions: TableQuickFilterValue[] = []
@@ -351,7 +404,14 @@ export const useTableQuickFilter = <T extends TableQuickFilterQueryParams>(
       queryParams.quickFilter = unmappedConditions[0]
     }
     queryParams.pageNo = 1
-    await reload()
+    let reloadSucceeded = false
+    try {
+      await reload()
+      reloadSucceeded = true
+    } finally {
+      if (!reloadSucceeded) restoreQuickFilterParams(previousQueryParams)
+    }
+    state.appliedConditions = appliedConditions
   }
 
   const applyQuickFilter = async () => {
@@ -365,6 +425,7 @@ export const useTableQuickFilter = <T extends TableQuickFilterQueryParams>(
     }
     if (!validate()) return
     const definition = selectedDefinition.value
+    const previousQueryParams = snapshotQuickFilterParams()
     clearQuickFilterParams()
     if (definition?.queryParamKey) {
       const queryParamTarget = queryParams as TableQuickFilterQueryParams
@@ -376,7 +437,13 @@ export const useTableQuickFilter = <T extends TableQuickFilterQueryParams>(
       queryParams.quickFilter = quickFilter.value
     }
     queryParams.pageNo = 1
-    await reload()
+    let reloadSucceeded = false
+    try {
+      await reload()
+      reloadSucceeded = true
+    } finally {
+      if (!reloadSucceeded) restoreQuickFilterParams(previousQueryParams)
+    }
   }
 
   const updateState = (nextState: Partial<typeof state>) => {
@@ -394,6 +461,9 @@ export const useTableQuickFilter = <T extends TableQuickFilterQueryParams>(
     }
     if ('activeConditionId' in nextState) {
       state.activeConditionId = nextState.activeConditionId
+    }
+    if ('appliedConditions' in nextState) {
+      state.appliedConditions = cloneMultiFilterConditions(nextState.appliedConditions || [])
     }
   }
 

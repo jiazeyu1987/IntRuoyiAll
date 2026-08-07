@@ -92,11 +92,13 @@ type QuickFilterState = {
   operator?: TableQuickFilterOperator
   value?: string | number | boolean | Array<string | number>
   conditions?: ListMultiFilterCondition[]
+  appliedConditions?: ListMultiFilterCondition[]
   activeConditionId?: string
 }
 
 const EMPTY_MULTI_FILTER_STATE: ListMultiFilterState = {
-  conditions: []
+  conditions: [],
+  appliedConditions: []
 }
 
 type UnifiedListSortOrder = 'ascending' | 'descending' | null
@@ -204,6 +206,7 @@ const shouldRenderStandardConditionFilter = computed(() => {
 
 const resolvedQuickFilterStateAsMultiFilter = computed<ListMultiFilterState>(() => ({
   conditions: props.quickFilterState.conditions || [],
+  appliedConditions: props.quickFilterState.appliedConditions || [],
   activeConditionId: props.quickFilterState.activeConditionId
 }))
 
@@ -329,6 +332,7 @@ const toQuickFilterState = (state: ListMultiFilterState): QuickFilterState => {
         ? [activeCondition.value as string | number, activeCondition.valueEnd as string | number]
         : activeCondition?.value as string | number | boolean | Array<string | number> | undefined,
     conditions: [...(state.conditions || [])],
+    appliedConditions: [...state.appliedConditions],
     activeConditionId: state.activeConditionId
   }
 }
@@ -360,6 +364,7 @@ const handleStandardFilterReset = async () => {
     operator: undefined,
     value: undefined,
     conditions: [],
+    appliedConditions: props.quickFilterState.appliedConditions || [],
     activeConditionId: undefined
   })
   await nextTick()

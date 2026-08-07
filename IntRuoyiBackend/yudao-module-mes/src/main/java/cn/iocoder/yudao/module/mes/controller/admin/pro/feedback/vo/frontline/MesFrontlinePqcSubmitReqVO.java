@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -66,32 +67,14 @@ public class MesFrontlinePqcSubmitReqVO {
     @NotNull(message = "实际检验数量不能为空")
     private Integer actualInspectionQuantity;
 
-    @Schema(description = "实际填写员工编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "实际填写员工不能为空")
-    private Long actualEmployeeId;
+    @Schema(description = "电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "电子签名密码不能为空")
+    private String signaturePassword;
 
-    @Schema(description = "PQC 提交幂等键", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "PQC 提交幂等键不能为空")
-    private String pqcSubmissionIdempotencyKey;
-
-    @Schema(description = "电子签名编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "电子签名不能为空")
-    private Long signatureId;
-
-    @Schema(description = "电子签名员工编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "电子签名员工不能为空")
-    private Long signatureEmployeeId;
-
-    @Schema(description = "电子签名快照")
-    private String signatureSnapshot;
-
-    @Schema(description = "模板类型", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "模板类型不能为空")
-    private String templateType;
-
-    @Schema(description = "PQC 检验结果", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "PQC 检验结果不能为空")
-    private String inspectionResult;
+    @Schema(description = "结构化损耗数量", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "损耗数量不能为空")
+    @Min(value = 0, message = "损耗数量不能小于 0")
+    private Integer scrapQuantity;
 
     @Schema(description = "PQC 手动不良说明")
     private String nonconformanceDescription;

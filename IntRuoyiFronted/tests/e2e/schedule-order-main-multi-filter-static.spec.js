@@ -62,7 +62,7 @@ const multiDefinitionBlock = pageSource.slice(multiDefinitionStart, multiDefinit
 for (const [key, label, queryParamKey] of [
   ['code', '排产工单号', 'code'],
   ['erpWorkOrderCode', '来源生产工单号', 'erpWorkOrderCode'],
-  ['completionFilter', '完成筛选', 'completionFilter'],
+  ['completionFilter', '完成状态', 'completionFilter'],
   ['promiseDate', '承诺交期', 'promiseDate']
 ]) {
   assert.match(
@@ -101,7 +101,7 @@ assert.doesNotMatch(pageSource, /multi-filter-max-inline-filters/, '条件 Tab �
 assert.match(
   pageSource,
   /scheduleOrderMultiFilter\.setCondition\(\{[\s\S]*id:\s*'completionFilter'[\s\S]*key:\s*'completionFilter'[\s\S]*value:\s*scheduleOrderQueryParams\.completionFilter/,
-  '排产工单多维筛选必须把页面默认完成筛选状态显式展示为稳定条件 Tab。'
+  '排产工单多维筛选必须把页面默认完成状态筛选显式展示为稳定条件 Tab。'
 )
 assert.doesNotMatch(
   pageSource,

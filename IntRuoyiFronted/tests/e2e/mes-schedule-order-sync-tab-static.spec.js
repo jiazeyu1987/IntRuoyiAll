@@ -90,8 +90,13 @@ assert.match(
 )
 assert.match(
   source,
-  /workOrderAdmissionMultiFilter\.setCondition\(\{[\s\S]*?id: 'admissionStatus'[\s\S]*?key: 'admissionStatus'[\s\S]*?value: DEFAULT_WORK_ORDER_ADMISSION_STATUS[\s\S]*?\}\)/,
-  '同步工单首次加载必须用稳定入池状态 Tab 表达默认可入池条件。'
+  /const workOrderAdmissionQueryParams = reactive\(\{[\s\S]*?admissionStatus:\s*undefined/,
+  '同步工单首屏必须保持正式入池状态参数为空。'
+)
+assert.doesNotMatch(
+  source,
+  /DEFAULT_WORK_ORDER_ADMISSION_STATUS|workOrderAdmissionMultiFilter\.setCondition\(/,
+  '同步工单不得恢复页面级默认“可入池”条件，首屏标准条件 Tab 必须为空。'
 )
 assert.doesNotMatch(source, /const workOrderAdmissionQuickFilter = useTableQuickFilter/, '同步工单不得继续创建旧快捷筛选 hook。')
 assert.doesNotMatch(source, /const workOrderAdmissionShowAdmitted = ref/, '同步工单不得保留独立的显示已入池筛选状态。')

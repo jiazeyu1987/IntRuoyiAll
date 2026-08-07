@@ -78,22 +78,22 @@ assertIncludesAll(
     'align-items: center;',
     'justify-content: center;',
     'height: auto;',
-    'aspect-ratio: 1920 / 1080;',
+    'aspect-ratio: 1920 / 720;',
     'min-height: 0;',
-    'padding: 8px 10px;',
-    'font-size: 30px;',
-    'line-height: 1.1;',
+    'padding: 6px 8px;',
+    'font-size: 24px;',
+    'line-height: 1.05;',
     'text-align: center;',
     'word-break: break-word;',
     'overflow: hidden;',
-    'border-radius: 22px;'
+    'border-radius: 18px;'
   ],
-  'PQC process picker production-layout option style'
+  'PQC process picker production-layout compact option style'
 )
 assertIncludesAll(
   extractBlock('.frontline-picker--production-process .frontline-picker__close {'),
-  ['height: 86px;', 'font-size: 36px;', 'border-radius: 22px;'],
-  'PQC process picker production-layout close style'
+  ['height: 68px;', 'font-size: 30px;', 'border-radius: 18px;'],
+  'PQC process picker production-layout compact close style'
 )
 
 console.log('PASS: PQC process picker uses production picker layout')

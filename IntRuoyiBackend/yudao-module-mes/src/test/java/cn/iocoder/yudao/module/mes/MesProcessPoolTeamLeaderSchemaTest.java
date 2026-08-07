@@ -311,6 +311,28 @@ class MesProcessPoolTeamLeaderSchemaTest {
     }
 
     @Test
+    void deviceParameterRuleSchemaMustPreserveTextStandardAndAllowConditionalNumericValues() throws Exception {
+        assertField(MesProcessPoolDeviceParameterRuleDO.class, "standardText", String.class);
+
+        String sql = Files.readString(resolveBackendPath(
+                "sql/mysql/20260807_mes_process_pool_device_parameter_standard_text.sql"),
+                StandardCharsets.UTF_8);
+        String normalizedSql = sql.replace("\r\n", "\n");
+        assertTrue(normalizedSql.startsWith("-- release-migration: allowedEnvironments=test,backup,prod; "
+                + "dependsOn=20260805_mes_process_pool_device_parameter_route_process_constraints; "
+                + "type=schema; riskLevel=medium\n"));
+        assertTrue(sql.contains("SIGNAL SQLSTATE '45000'"));
+        assertTrue(sql.contains("ADD COLUMN `standard_text` varchar(1000)"));
+        assertTrue(sql.contains("MODIFY COLUMN `lower_limit` decimal(24,6) DEFAULT NULL"));
+        assertTrue(sql.contains("MODIFY COLUMN `upper_limit` decimal(24,6) DEFAULT NULL"));
+        assertTrue(sql.contains("MODIFY COLUMN `default_value` decimal(24,6) DEFAULT NULL"));
+        assertTrue(sql.contains("ADD COLUMN `standard_text` varchar(1000) NOT NULL"));
+        assertTrue(sql.contains("Existing MES device parameter rules require explicit standard_text governance"));
+        assertFalse(sql.contains("UPDATE `mes_pro_process_pool_device_parameter_rule`"),
+                "migration must not guess an exact source standard for legacy rows");
+    }
+
+    @Test
     void processLossReasonSchemaMustBeRouteProcessSharedAndSnapshotFeedbackHistory() throws Exception {
         assertField(MesProcessPoolDefectReasonDO.class, "routeProcessId", Long.class);
         assertField(MesProcessPoolDefectReasonDO.class, "processId", Long.class);

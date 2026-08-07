@@ -44,6 +44,7 @@ import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_ACTUAL_EMPLOYEE_NOT_IN_TEAM;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_ACTUAL_EMPLOYEE_LEADER_ASSIGNMENT_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_DEVICE_ACCOUNT_BINDING_SOURCE_MISSING;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_DEVICE_ACCOUNT_ROUTE_EMPTY;
@@ -353,11 +354,36 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
     public MesFrontlineEmployeeCandidate requireTeamEmployee(Long loginUserId, Long routeId, Long routeProcessId,
                                                              Long processId, Long actualEmployeeId) {
         requireValue(actualEmployeeId, "actualEmployeeId");
+        requireUniqueResponsibleLeaderUserId(actualEmployeeId);
         return listEmployeeCandidates(loginUserId, routeId, routeProcessId, processId).stream()
                 .filter(candidate -> Objects.equals(candidate.userId(), actualEmployeeId))
                 .findFirst()
                 .orElseThrow(() -> exception(PRO_FRONTLINE_ACTUAL_EMPLOYEE_NOT_IN_TEAM,
                         actualEmployeeId, processId));
+    }
+
+    Long requireUniqueResponsibleLeaderUserId(Long actualEmployeeId) {
+        requireValue(actualEmployeeId, "actualEmployeeId");
+        List<MesProcessPoolTeamEmployeeProfileDO> profiles = employeeProfileMapper.selectList(
+                new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesProcessPoolTeamEmployeeProfileDO>()
+                        .eq(MesProcessPoolTeamEmployeeProfileDO::getEnabled, Boolean.TRUE)
+                        .and(wrapper -> wrapper
+                                .eq(MesProcessPoolTeamEmployeeProfileDO::getSystemUserId, actualEmployeeId)
+                                .or(temporary -> temporary
+                                        .isNull(MesProcessPoolTeamEmployeeProfileDO::getSystemUserId)
+                                        .eq(MesProcessPoolTeamEmployeeProfileDO::getId, actualEmployeeId))));
+        Set<Long> leaderUserIds = profiles.stream()
+                .filter(Objects::nonNull)
+                .filter(profile -> Boolean.TRUE.equals(profile.getEnabled()))
+                .filter(profile -> Objects.equals(profile.getSystemUserId(), actualEmployeeId)
+                        || profile.getSystemUserId() == null && Objects.equals(profile.getId(), actualEmployeeId))
+                .map(MesProcessPoolTeamEmployeeProfileDO::getLeaderUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (leaderUserIds.size() != 1) {
+            throw exception(PRO_FRONTLINE_ACTUAL_EMPLOYEE_LEADER_ASSIGNMENT_INVALID, actualEmployeeId);
+        }
+        return leaderUserIds.iterator().next();
     }
 
     private RouteBindingContext routeBindingContext(Long loginUserId) {
@@ -636,7 +662,8 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
                 process.getCode(), process.getName(), routeProcess.getSort(),
                 routeBinding.deviceId(), routeBinding.deviceCode(), routeBinding.deviceName(),
                 routeProcess.getWorkstationId(),
-                routeBinding.workstationCode(), routeBinding.workstationName());
+                routeBinding.workstationCode(), routeBinding.workstationName(),
+                MesFrontlineRouteProcessCandidate.CONTEXT_SOURCE_POST_BINDING);
     }
 
     private static MesFrontlineRouteProcessCandidate toCandidate(MesProRouteDO route,
@@ -650,7 +677,8 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
                 machinery == null ? null : machinery.getId(),
                 machinery == null ? null : machinery.getCode(),
                 machinery == null ? null : machinery.getName(),
-                workstation.getId(), workstation.getCode(), workstation.getName());
+                workstation.getId(), workstation.getCode(), workstation.getName(),
+                MesFrontlineRouteProcessCandidate.CONTEXT_SOURCE_ROUTE_START_PRODUCTION_LEADER);
     }
 
     private static RouteWorkstationKey routeWorkstationKey(MesProRouteProcessDO routeProcess) {

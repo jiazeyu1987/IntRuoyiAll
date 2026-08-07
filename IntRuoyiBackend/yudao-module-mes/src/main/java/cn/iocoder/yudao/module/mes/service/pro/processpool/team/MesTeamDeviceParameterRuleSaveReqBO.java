@@ -21,4 +21,5 @@ public class MesTeamDeviceParameterRuleSaveReqBO {
     private BigDecimal upperLimit;
     private BigDecimal targetValue;
     private String valueType;
+    private String standardText;
 }

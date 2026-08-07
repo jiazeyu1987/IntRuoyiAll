@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
 
 import java.util.List;
 
@@ -26,6 +27,8 @@ public interface MesTeamLeaderRuntimeConfigService {
     Long createEmployee(MesTeamEmployeeProfileSaveReqBO reqBO);
 
     Long createDevice(MesTeamDeviceSaveReqBO reqBO);
+
+    List<MesProcessPoolTeamDeviceDO> listDevices(Long leaderUserId, Boolean enabled);
 
     void updateDeviceStatus(MesTeamDeviceStatusUpdateReqBO reqBO);
 

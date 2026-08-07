@@ -1,22 +1,47 @@
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
+const Module = require('node:module')
 const path = require('node:path')
+const ts = require('typescript')
 
 const root = path.resolve(__dirname, '../..')
 const unifiedListTemplatePath = path.join(root, 'src/components/UnifiedListTemplate/index.vue')
 const multiFilterComponentPath = path.join(root, 'src/components/TableMultiFilter/index.vue')
 const multiFilterFieldPath = path.join(root, 'src/components/TableMultiFilter/MultiFilterField.vue')
 const multiFilterHookPath = path.join(root, 'src/hooks/web/useTableMultiFilter.ts')
+const quickFilterHookPath = path.join(root, 'src/hooks/web/useTableQuickFilter.ts')
 
 assert.equal(fs.existsSync(unifiedListTemplatePath), true, '统一列表模板组件必须存在。')
 assert.equal(fs.existsSync(multiFilterComponentPath), true, '多维度筛选组件必须存在。')
 assert.equal(fs.existsSync(multiFilterFieldPath), true, '多维度筛选字段组件必须存在。')
 assert.equal(fs.existsSync(multiFilterHookPath), true, '多维度筛选 hook 必须存在。')
+assert.equal(fs.existsSync(quickFilterHookPath), true, '标准列表快速筛选 hook 必须存在。')
 
 const unifiedListTemplateSource = fs.readFileSync(unifiedListTemplatePath, 'utf8')
 const multiFilterComponentSource = fs.readFileSync(multiFilterComponentPath, 'utf8')
 const multiFilterFieldSource = fs.readFileSync(multiFilterFieldPath, 'utf8')
 const multiFilterHookSource = fs.readFileSync(multiFilterHookPath, 'utf8')
+const quickFilterHookSource = fs.readFileSync(quickFilterHookPath, 'utf8')
+
+const loadTypeScriptModule = (filename, source) => {
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: {
+      esModuleInterop: true,
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2020
+    }
+  }).outputText
+  const loadedModule = new Module(filename, module)
+  loadedModule.filename = filename
+  loadedModule.paths = Module._nodeModulePaths(path.dirname(filename))
+  const originalRequire = loadedModule.require.bind(loadedModule)
+  loadedModule.require = (request) =>
+    request === 'element-plus'
+      ? { ElMessage: { error() {}, warning() {} } }
+      : originalRequire(request)
+  loadedModule._compile(compiled, filename)
+  return loadedModule.exports
+}
 
 assert.match(unifiedListTemplateSource, /import TableMultiFilter from '@\/components\/TableMultiFilter\/index\.vue'/, '标准列表模板必须导入多维度筛选组件。')
 assert.match(unifiedListTemplateSource, /showMultiFilter/, '标准列表模板必须提供多维度筛选开关。')
@@ -112,6 +137,21 @@ assert.doesNotMatch(
   /点击右侧加号新增筛选条件。|table-multi-filter__condition-empty/,
   '条件为空时只保留 Tab 行的“暂无筛选条件”，不得额外显示第二行新增提示。'
 )
+assert.match(
+  multiFilterComponentSource,
+  /v-if="hasUnappliedChanges"[\s\S]*class="table-multi-filter__pending-status"[\s\S]*筛选条件待应用/,
+  '编辑条件但未查询时，筛选区必须明确显示“筛选条件待应用”，不能让草稿 Tab 冒充已执行结果。'
+)
+assert.match(
+  multiFilterComponentSource,
+  /const hasUnappliedChanges = computed\(\(\) =>[\s\S]*hasMultiFilterDraftChanges\([\s\S]*props\.filterDefinitions[\s\S]*props\.state/,
+  '待应用状态必须比较当前草稿与最后一次成功查询快照。'
+)
+assert.match(
+  multiFilterComponentSource,
+  /appliedConditions:\s*props\.state\.appliedConditions/,
+  '条件 Tab 编辑回写时必须保留已执行快照。'
+)
 assert.doesNotMatch(multiFilterComponentSource, /localStorage|sessionStorage/, '多维度筛选组件不得使用本地存储兜底。')
 
 assert.match(multiFilterFieldSource, /showLabel/, '多维度筛选字段组件必须支持在 Tab 条件行中隐藏固定字段标签。')
@@ -130,6 +170,16 @@ assert.match(multiFilterHookSource, /conditions:\s*ListMultiFilterCondition\[\]/
 assert.match(multiFilterHookSource, /activeConditionId\?:\s*string/, '多维度筛选状态必须记录当前编辑的条件 Tab。')
 assert.match(
   multiFilterHookSource,
+  /appliedConditions:\s*ListMultiFilterCondition\[\]/,
+  '多维度筛选状态必须记录最后一次成功查询的条件快照。'
+)
+assert.match(
+  multiFilterHookSource,
+  /export const hasMultiFilterDraftChanges = \([\s\S]*normalizeMultiFilterConditions[\s\S]*state\.conditions[\s\S]*state\.appliedConditions/,
+  '草稿/已执行判定必须基于正规化条件比较。'
+)
+assert.match(
+  multiFilterHookSource,
   /export const getDefaultMultiFilterOperator = \(definition: ListMultiFilterDefinition\) =>\s*definition\.operators\?\.\[0\]\s*\|\|\s*DEFAULT_OPERATOR\[definition\.type\]/,
   '多维度筛选默认操作符必须优先使用字段显式声明的第一个操作符。'
 )
@@ -138,7 +188,129 @@ assert.match(multiFilterHookSource, /queryParams\.pageNo = 1/, '多维度筛选�
 assert.match(multiFilterHookSource, /delete queryParamTarget\.multiFilters/, '多维度筛选必须清理旧 multiFilters 参数。')
 assert.match(multiFilterHookSource, /unmappedConditions/, '没有正式 queryParamKey 的条件必须进入显式 multiFilters，不得静默丢失。')
 assert.match(multiFilterHookSource, /validateDuplicateMappedConditions/, '多维度筛选必须校验重复正式 query 参数，避免交集条件被覆盖。')
+assert.match(
+  multiFilterHookSource,
+  /const appliedConditions = cloneMultiFilterConditions\(state\.conditions\)[\s\S]*await reload\(\)[\s\S]*state\.appliedConditions = appliedConditions/,
+  '只有列表重载成功后才能把本次草稿标记为已执行。'
+)
+assert.match(
+  multiFilterHookSource,
+  /const previousQueryParams = snapshotMultiFilterParams\(\)[\s\S]*try \{[\s\S]*await reload\(\)[\s\S]*\} finally \{[\s\S]*restoreMultiFilterParams\(previousQueryParams\)/,
+  '列表重载失败时必须回滚正式 query 参数，同时保留原始异常。'
+)
+assert.match(
+  multiFilterHookSource,
+  /const resetMultiFilter = async \(\) => \{[\s\S]*await reload\(\)[\s\S]*state\.appliedConditions = \[\]/,
+  '重置查询成功后必须同步清空已执行快照。'
+)
 assert.doesNotMatch(multiFilterHookSource, /localStorage|sessionStorage/, '多维度筛选 hook 不得使用本地存储兜底。')
 assert.doesNotMatch(multiFilterHookSource, /catch\s*\(/, '多维度筛选 hook 不得吞异常或降级。')
 
-console.log('PASS: unified list template multi-filter static contract')
+assert.match(
+  quickFilterHookSource,
+  /appliedConditions:\s*\[\]/,
+  '默认标准列表也必须初始化已执行条件快照。'
+)
+assert.match(
+  quickFilterHookSource,
+  /const appliedConditions = cloneMultiFilterConditions\(state\.conditions \|\| \[\]\)[\s\S]*await reload\(\)[\s\S]*state\.appliedConditions = appliedConditions/,
+  '快速筛选桥接的条件 Tab 也必须在重载成功后才更新已执行快照。'
+)
+
+const runDraftAndAppliedStateContract = async () => {
+  const {
+    hasMultiFilterDraftChanges,
+    useTableMultiFilter
+  } = loadTypeScriptModule(multiFilterHookPath, multiFilterHookSource)
+  const definitions = [
+    {
+      key: 'admissionStatus',
+      label: '入池状态',
+      type: 'select',
+      queryParamKey: 'admissionStatus',
+      options: [
+        { label: '可入池', value: 'READY_TO_ADMIT' },
+        { label: '阻断', value: 'BLOCKED' }
+      ]
+    }
+  ]
+  const queryParams = { pageNo: 3 }
+  let reloadShouldFail = true
+  const filter = useTableMultiFilter(
+    'mes.pro.scheduleOrder.admissionDiff',
+    definitions,
+    queryParams,
+    async () => {
+      if (reloadShouldFail) throw new Error('expected reload failure')
+    }
+  )
+
+  filter.setCondition({
+    id: 'admissionStatus',
+    key: 'admissionStatus',
+    operator: 'eq',
+    value: 'READY_TO_ADMIT'
+  })
+  assert.equal(
+    hasMultiFilterDraftChanges(definitions, filter.state),
+    true,
+    '未查询的可入池条件必须保持待应用状态。'
+  )
+  await assert.rejects(filter.applyMultiFilter(), /expected reload failure/)
+  assert.deepEqual(
+    filter.state.appliedConditions,
+    [],
+    '列表重载失败时不得把草稿条件冒充为已执行。'
+  )
+  assert.equal(
+    Object.hasOwn(queryParams, 'admissionStatus'),
+    false,
+    '首次查询失败后必须回滚未成功应用的正式参数。'
+  )
+
+  reloadShouldFail = false
+  await filter.applyMultiFilter()
+  assert.equal(queryParams.admissionStatus, 'READY_TO_ADMIT', '成功查询必须提交正式入池状态参数。')
+  assert.equal(
+    hasMultiFilterDraftChanges(definitions, filter.state),
+    false,
+    '成功重载后草稿必须与已执行快照一致。'
+  )
+
+  filter.setCondition({
+    id: 'admissionStatus',
+    key: 'admissionStatus',
+    operator: 'eq',
+    value: 'BLOCKED'
+  })
+  assert.equal(
+    hasMultiFilterDraftChanges(definitions, filter.state),
+    true,
+    '从可入池改为阻断但未查询时，必须显示待应用。'
+  )
+  assert.equal(
+    filter.state.appliedConditions[0]?.value,
+    'READY_TO_ADMIT',
+    '未查询时最后一次已执行口径必须仍为可入池。'
+  )
+
+  reloadShouldFail = true
+  await assert.rejects(filter.applyMultiFilter(), /expected reload failure/)
+  assert.equal(
+    queryParams.admissionStatus,
+    'READY_TO_ADMIT',
+    '阻断查询失败后，后续分页仍必须使用上一次成功的可入池参数。'
+  )
+
+  reloadShouldFail = false
+  await filter.resetMultiFilter()
+  assert.deepEqual(filter.state.conditions, [], '重置必须清空草稿条件。')
+  assert.deepEqual(filter.state.appliedConditions, [], '重置重载成功后必须清空已执行条件。')
+}
+
+runDraftAndAppliedStateContract()
+  .then(() => console.log('PASS: unified list template multi-filter static and state contract'))
+  .catch((error) => {
+    console.error(error)
+    process.exitCode = 1
+  })

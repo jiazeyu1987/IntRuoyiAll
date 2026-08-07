@@ -35,6 +35,15 @@
       >
         <Icon icon="ep:plus" />
       </el-button>
+
+      <el-tag
+        v-if="hasUnappliedChanges"
+        class="table-multi-filter__pending-status"
+        type="warning"
+        effect="plain"
+      >
+        筛选条件待应用
+      </el-tag>
     </div>
 
     <div v-if="activeCondition && activeDefinition" class="table-multi-filter__condition-row">
@@ -80,6 +89,7 @@ import { ElMessage } from 'element-plus'
 import TableMultiFilterField from './MultiFilterField.vue'
 import {
   getDefaultMultiFilterOperator,
+  hasMultiFilterDraftChanges,
   normalizeMultiFilterCondition,
   type ListMultiFilterCondition,
   type ListMultiFilterDefinition,
@@ -108,6 +118,9 @@ const emit = defineEmits<{
 }>()
 
 const conditionTabs = computed(() => props.state.conditions || [])
+const hasUnappliedChanges = computed(() =>
+  hasMultiFilterDraftChanges(props.filterDefinitions, props.state)
+)
 
 const definitionMap = computed(() => {
   const map = new Map<string, ListMultiFilterDefinition>()
@@ -149,6 +162,7 @@ const emitState = (conditions: ListMultiFilterCondition[], activeId?: string) =>
   const normalizedActiveId = activeId || conditions[0]?.id || conditions[0]?.key
   emit('update:state', {
     conditions,
+    appliedConditions: props.state.appliedConditions,
     activeConditionId: normalizedActiveId
   })
 }
@@ -226,7 +240,11 @@ const updateCondition = (condition: ListMultiFilterCondition) => {
 }
 
 const clearAllConditions = () => {
-  emit('update:state', { conditions: [], activeConditionId: undefined })
+  emit('update:state', {
+    conditions: [],
+    appliedConditions: props.state.appliedConditions,
+    activeConditionId: undefined
+  })
   emit('reset')
 }
 
@@ -285,6 +303,10 @@ const getTabLabel = (condition: ListMultiFilterCondition, index: number) => {
 }
 
 .table-multi-filter__tab-action {
+  flex: 0 0 auto;
+}
+
+.table-multi-filter__pending-status {
   flex: 0 0 auto;
 }
 

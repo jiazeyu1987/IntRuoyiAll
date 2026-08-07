@@ -46,8 +46,8 @@ assertMatches(
 )
 assertMatches(
   api,
-  /interface TeamDeviceParameterRuleSaveReqVO[\s\S]*routeProcessId:\s*number[\s\S]*deviceId:\s*number[\s\S]*targetValue:\s*number \| string/,
-  'Parameter save request must require routeProcessId + deviceId + targetValue.'
+  /interface TeamDeviceParameterRuleSaveReqVO[\s\S]*routeProcessId:\s*number[\s\S]*deviceId:\s*number[\s\S]*standardText:\s*string[\s\S]*targetValue\?:\s*number \| string \| null/,
+  'Parameter save request must require routeProcessId + deviceId + standardText and allow a missing range target.'
 )
 assert.doesNotMatch(
   api,
@@ -76,7 +76,12 @@ assertIncludes(page, 'data-team-leader-process-config-devices', 'Unified row mus
 assertIncludes(page, 'data-team-leader-process-config-parameters', 'Unified row must display device parameter standards.')
 assertIncludes(page, 'data-team-leader-process-config-bind-device', 'Device mapping must start from the current process row.')
 assertIncludes(page, 'data-team-leader-process-config-edit-parameter', 'Parameter maintenance must start from the current process row/device.')
-assertIncludes(page, 'data-team-leader-process-config-add-loss', 'Loss maintenance must start from the current process row.')
+assertIncludes(page, 'data-team-leader-process-config-manage-loss', 'Loss maintenance must start from one current-row entry.')
+assert.doesNotMatch(
+  page,
+  /data-team-leader-process-config-add-loss|openCreateLossReason\(|openEditLossReason\(/,
+  'The unified table must not retain the legacy separate loss actions.'
+)
 assertIncludes(page, 'processConfigDeviceDialogVisible', 'Device mapping must use a routeProcess-scoped dialog.')
 assertIncludes(page, 'processConfigParameterDialogVisible', 'Parameter standards must use a routeProcess-scoped dialog.')
 assertIncludes(page, 'processConfigSelectedRow', 'Dialogs must freeze the selected routeProcessId row context.')

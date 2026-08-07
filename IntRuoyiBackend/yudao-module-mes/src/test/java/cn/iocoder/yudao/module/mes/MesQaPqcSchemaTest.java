@@ -165,6 +165,11 @@ class MesQaPqcSchemaTest {
         Class<?> reqClass = Class.forName(
                 "cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcSubmitReqVO");
         assertField(reqClass, "itemResults", List.class);
+        assertField(reqClass, "signaturePassword", String.class);
+        assertField(reqClass, "scrapQuantity", Integer.class);
+        assertMissingField(reqClass, "signatureId");
+        assertMissingField(reqClass, "signatureEmployeeId");
+        assertMissingField(reqClass, "inspectionResult");
         Class<?> reqItemClass = Class.forName(
                 "cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcSubmitReqVO$ItemResult");
         assertField(reqItemClass, "itemCode", String.class);
@@ -175,6 +180,17 @@ class MesQaPqcSchemaTest {
         Class<?> commandClass = Class.forName(
                 "cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcSubmitCommand");
         assertField(commandClass, "itemResults", List.class);
+        assertField(commandClass, "signaturePassword", String.class);
+        assertField(commandClass, "scrapQuantity", Integer.class);
+
+        Class<?> resultClass = Class.forName(
+                "cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcSubmitResult");
+        assertField(resultClass, "pqcTaskId", Long.class);
+        assertField(resultClass, "pqcEventId", Long.class);
+        assertField(resultClass, "pqcRecordId", Long.class);
+        assertField(resultClass, "signatureId", Long.class);
+        assertField(resultClass, "inspectionResult", String.class);
+        assertField(resultClass, "serverSubmitTime", LocalDateTime.class);
         Class<?> commandItemClass = Class.forName(
                 "cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcSubmitCommand$ItemResult");
         assertField(commandItemClass, "itemCode", String.class);
@@ -245,6 +261,15 @@ class MesQaPqcSchemaTest {
     private static void assertField(Class<?> clazz, String name, Class<?> type) throws Exception {
         Field field = clazz.getDeclaredField(name);
         assertEquals(type, field.getType(), clazz.getSimpleName() + "." + name);
+    }
+
+    private static void assertMissingField(Class<?> clazz, String name) {
+        try {
+            clazz.getDeclaredField(name);
+            throw new AssertionError(clazz.getSimpleName() + " must not expose field " + name);
+        } catch (NoSuchFieldException expected) {
+            // Expected for server-owned formal submission fields.
+        }
     }
 
     private static String readBackendSql(String... relatives) throws Exception {

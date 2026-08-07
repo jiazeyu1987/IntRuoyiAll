@@ -25,6 +25,10 @@ import java.math.BigDecimal;
 @Accessors(chain = true)
 public class MesProcessPoolDeviceParameterRuleDO extends TenantBaseDO {
 
+    public static final String VALUE_TYPE_INTEGER = "INTEGER";
+    public static final String VALUE_TYPE_DECIMAL = "DECIMAL";
+    public static final String VALUE_TYPE_TEXT_STANDARD = "TEXT_STANDARD";
+
     @TableId
     private Long id;
 
@@ -39,5 +43,6 @@ public class MesProcessPoolDeviceParameterRuleDO extends TenantBaseDO {
     private BigDecimal upperLimit;
     private BigDecimal defaultValue;
     private String valueType;
+    private String standardText;
     private Boolean enabled;
 }

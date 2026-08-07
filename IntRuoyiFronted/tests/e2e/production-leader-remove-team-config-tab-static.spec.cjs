@@ -48,8 +48,9 @@ assert.doesNotMatch(
   'The real production-leader flow must not try to open the removed tab.'
 )
 
-for (const tabLabel of ['人员管理', '报工管理', '报工历史', '活跃订单池', '看板', '异常', '工序配置']) {
+for (const tabLabel of ['人员管理', '报工管理', '报工历史', '活跃订单池', '看板', '工序配置']) {
   assert.match(workbench, new RegExp(`label="${tabLabel}"`), `The retained ${tabLabel} tab must remain.`)
 }
+assert.doesNotMatch(workbench, /label="异常"\s+name="exception"/, 'The merged abnormal flow must not retain an 异常 tab.')
 
 console.log('PASS: production leader team configuration tab removal static contract')

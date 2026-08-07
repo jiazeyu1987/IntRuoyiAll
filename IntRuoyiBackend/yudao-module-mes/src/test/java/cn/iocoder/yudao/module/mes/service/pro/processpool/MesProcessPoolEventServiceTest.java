@@ -35,7 +35,6 @@ class MesProcessPoolEventServiceTest extends BaseDbUnitTest {
                 req -> req.setProcessId(null),
                 req -> req.setActualEmployeeId(null),
                 req -> req.setDeviceAccountId(null),
-                req -> req.setDeviceId(null),
                 req -> req.setWorkstationId(null),
                 req -> req.setTemplateType(null),
                 req -> req.setFeedbackSourceType(null),
@@ -56,6 +55,18 @@ class MesProcessPoolEventServiceTest extends BaseDbUnitTest {
             assertEquals(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
         }
         assertEquals(0L, processPoolEventMapper.selectCount());
+    }
+
+    @Test
+    void shouldPersistProductionSubmitWithoutConfiguredDevice() {
+        MesProcessPoolCreateEventReqDTO req = validEventReq().setDeviceId(null);
+
+        Long eventId = processPoolEventService.createEvent(req);
+
+        MesProProcessPoolEventDO event = processPoolEventMapper.selectById(eventId);
+        assertEquals(null, event.getDeviceId());
+        assertEquals(req.getWorkstationId(), event.getWorkstationId());
+        assertEquals(req.getDeviceAccountId(), event.getDeviceAccountId());
     }
 
     @Test

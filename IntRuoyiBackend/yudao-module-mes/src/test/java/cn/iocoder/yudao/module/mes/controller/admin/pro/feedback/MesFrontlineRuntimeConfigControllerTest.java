@@ -40,7 +40,6 @@ class MesFrontlineRuntimeConfigControllerTest {
     private MesFrontlineEmployeeSwitchService employeeSwitchService;
     @Mock
     private MesFrontlineRuntimeConfigService runtimeConfigService;
-
     @InjectMocks
     private MesFrontlineDeviceAccountController controller;
 
@@ -53,7 +52,8 @@ class MesFrontlineRuntimeConfigControllerTest {
                 List.of(new MesFrontlineTeamEmployeeOption(8801L, null, "TMP-001", "临时工甲", "临时工甲", "TEMPORARY")),
                 List.of(new MesFrontlineTeamDeviceOption(7001L, "D-001", "压力泵", "ENABLED", List.of(
                         new MesFrontlineDeviceParameterOption("pressure", "压力", "MPa",
-                                new BigDecimal("10"), new BigDecimal("20"), new BigDecimal("15"), "DECIMAL")))),
+                                new BigDecimal("10"), new BigDecimal("20"), new BigDecimal("15"), "DECIMAL",
+                                "10-20MPa，目标15MPa")))),
                 List.of(new MesFrontlineDefectReasonOption(8301L, "LOSS", "LOSS-001", "正常损耗"))
         );
         when(runtimeConfigService.getRuntimeConfig(9001L, 101L, 1001L, 201L)).thenReturn(runtimeConfig);
@@ -73,6 +73,8 @@ class MesFrontlineRuntimeConfigControllerTest {
         assertEquals("临时工甲", data.getEmployees().get(0).getDisplayName());
         assertEquals("TEMPORARY", data.getEmployees().get(0).getEmployeeType());
         assertEquals("压力泵", data.getDevices().get(0).getDeviceName());
+        assertEquals("10-20MPa，目标15MPa",
+                data.getDevices().get(0).getParameters().get(0).getStandardText());
         assertEquals("ENABLED", data.getDevices().get(0).getDeviceStatus());
         assertEquals("MPa", data.getDevices().get(0).getParameters().get(0).getUnit());
         assertEquals(new BigDecimal("15"), data.getDevices().get(0).getParameters().get(0).getDefaultValue());

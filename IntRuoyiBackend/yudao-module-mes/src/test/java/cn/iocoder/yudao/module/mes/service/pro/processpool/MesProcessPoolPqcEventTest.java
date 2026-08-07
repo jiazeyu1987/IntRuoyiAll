@@ -102,8 +102,8 @@ class MesProcessPoolPqcEventTest extends BaseDbUnitTest {
         assertEquals(firstEventId, duplicateEventId);
         assertEquals(1L, processPoolEventMapper.selectCount());
         assertEquals(1L, pqcRecordMapper.selectCount());
-        assertEquals(req.getFeedbackSourceId(),
-                processPoolEventService.findExistingPqcInspectionTaskId(req).orElseThrow());
+        assertEquals(firstEventId,
+                processPoolEventService.findExistingPqcInspectionEventId(req).orElseThrow());
     }
 
     @Test

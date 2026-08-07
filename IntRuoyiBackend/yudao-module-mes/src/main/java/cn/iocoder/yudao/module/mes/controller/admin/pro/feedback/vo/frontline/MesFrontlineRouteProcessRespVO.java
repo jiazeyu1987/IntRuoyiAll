@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Schema(description = "管理后台 - MES 一线设备账号可切换工序 Response VO")
@@ -57,6 +58,17 @@ public class MesFrontlineRouteProcessRespVO {
     private Integer plannedInspectionQuantity;
     @Schema(description = "QA 规程检验项目")
     private List<PqcInspectionItem> inspectionItems;
+    @Schema(description = "可绑定的正式生产提交事件")
+    private List<ProductionSubmitCandidate> productionSubmitCandidates;
+
+    @Data
+    public static class ProductionSubmitCandidate {
+
+        @Schema(description = "生产提交工序池事件编号")
+        private Long eventId;
+        @Schema(description = "服务端提交时间")
+        private LocalDateTime serverSubmitTime;
+    }
 
     @Data
     public static class PqcInspectionItem {

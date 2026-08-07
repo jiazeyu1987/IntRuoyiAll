@@ -100,17 +100,31 @@ assertIncludesAll(
     'align-items: center;',
     'justify-content: center;',
     'height: auto;',
-    'aspect-ratio: 1920 / 1080;',
-    'min-height: 0;',
+    'min-height: 132px;',
     'padding: 8px 10px;',
-    'font-size: 30px;',
+    'font-size: 15px;',
     'line-height: 1.1;',
     'text-align: center;',
     'word-break: break-word;',
-    'overflow: hidden;',
+    'overflow: visible;',
     'border-radius: 22px;'
   ],
   'PQC production-order picker option style'
+)
+
+assertIncludesAll(
+  pqcPickerBlock,
+  [
+    'data-pqc-order-option',
+    'option.activeOrder',
+    'data-pqc-order-option-code',
+    'data-pqc-order-option-product',
+    'data-pqc-order-option-quantity',
+    '{{ option.activeOrder.workOrderCode }}',
+    '{{ option.activeOrder.productName }}',
+    '{{ formatProductionQuantity(option.activeOrder.quantity) }}'
+  ],
+  'PQC production-order picker three-row summary'
 )
 
 assertIncludesAll(
@@ -123,12 +137,7 @@ const activeOrderLabelFunction = extractConstFunction('formatActiveOrderLabel')
 assertIncludesAll(
   activeOrderLabelFunction,
   ['activeOrder.workOrderCode', 'activeOrder.workOrderName', '`订单 ${activeOrder.workOrderId}`'],
-  'PQC production-order option label'
-)
-assert.doesNotMatch(
-  activeOrderLabelFunction,
-  /productText|routeText|productCode|productName|routeName|routeCode|join\(' \/ '\)/,
-  'PQC production-order option labels must display only the order number, not product or route details.'
+  'PQC production-order accessible option label'
 )
 
 console.log('PASS: PQC production-order picker matches production process picker layout')

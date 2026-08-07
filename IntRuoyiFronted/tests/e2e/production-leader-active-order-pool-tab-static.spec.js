@@ -49,27 +49,42 @@ assert.match(
   'The active-order pool content must be controlled by its own production module gate.'
 )
 
+const productionModuleTabStripCount = (source.match(/data-production-leader-module-tabs/g) || []).length
 const activeOrderTabCount = (source.match(/data-production-leader-module-tab-active-order/g) || []).length
+assert.ok(
+  productionModuleTabStripCount > 0,
+  'The production leader page must retain at least one production module tab strip.'
+)
 assert.equal(
   activeOrderTabCount,
-  6,
+  productionModuleTabStripCount,
   'Every retained production module tab strip must expose 活跃订单池 after removing the team configuration tab.'
 )
 const responsibleRouteSummaryCount = (source.match(/data-production-leader-responsible-routes/g) || []).length
+const standaloneResponsibleRouteSummaryCount = (
+  source.match(
+    /<ContentWrap\s+v-if="!showPqcModuleTabs && !showProductionModuleTabs"[\s\S]*?data-production-leader-responsible-routes/
+  ) || []
+).length
+assert.equal(
+  standaloneResponsibleRouteSummaryCount,
+  1,
+  'The generic team-leader workbench mode must keep one standalone responsible route summary.'
+)
 assert.equal(
   responsibleRouteSummaryCount,
-  activeOrderTabCount,
-  'Every production module tab strip must show the responsible route names in the right-side header area.'
+  productionModuleTabStripCount + standaloneResponsibleRouteSummaryCount,
+  'Every production module tab strip plus the generic workbench mode must show the responsible route names.'
 )
 assert.match(
   source,
-  /const\s+productionResponsibleRouteNames\s*=\s*computed\([\s\S]*processConfigRows\.value[\s\S]*row\.routeName[\s\S]*seen\.add\(routeName\)[\s\S]*return routeNames/,
-  'Production responsible route names must be derived from the formal process-config rows and de-duplicated by routeName.'
+  /const\s+productionResponsibleRouteNames\s*=\s*computed\([\s\S]*responsibleRouteRows\.value[\s\S]*row\.routeName[\s\S]*seen\.add\(routeName\)[\s\S]*return routeNames/,
+  'Production responsible route names must be derived from the formal responsible-routes API rows and de-duplicated by routeName.'
 )
 assert.doesNotMatch(
   source.match(/const\s+productionResponsibleRouteNames\s*=\s*computed\([\s\S]*?return routeNames[\s\S]*?\n\}\)/)?.[0] || '',
-  /formBindings|activeOrderOptions|routeCode|routeId/,
-  'The responsible route header must not infer names from form slots, active orders, route codes, or route IDs.'
+  /processConfigRows|formBindings|activeOrderOptions|routeCode|routeId/,
+  'The responsible route header must not infer names from maintenance scope, form slots, active orders, route codes, or route IDs.'
 )
 
 const activeOrderBlock = sliceContentWrapByMarker('data-team-leader-active-order-pool-tab')
@@ -161,6 +176,16 @@ assert.match(
   /const\s+submitRemoveActiveOrder\s*=\s*async\s*\(row:\s*TeamLeaderActiveOrderRespVO\)[\s\S]*removeTeamLeaderActiveOrder\(\{[\s\S]*activeOrderId:/,
   'Each active-order list row must retain the formal remove action.'
 )
+assert.match(
+  activeOrderBlock,
+  /data-team-leader-remove-active-order[\s\S]*>\s*移除\s*<\/el-button>[\s\S]*data-team-leader-report-active-order-abnormal[\s\S]*>\s*报异常\s*<\/el-button>/,
+  'Each active-order row must expose 移除 and 报异常 actions.'
+)
+assert.match(
+  activeOrderBlock,
+  /'team-leader-workbench__abnormal-work-order-id': row\.abnormal[\s\S]*data-team-leader-abnormal-report-dialog/,
+  'The active-order list must render abnormal ids in red and host the row-bound abnormal dialog.'
+)
 
 const configBlock = sliceContentWrapByMarker('data-team-leader-config-center')
 assert.doesNotMatch(
@@ -176,7 +201,9 @@ for (const field of [
   'routeVersionNo: string',
   'erpFixedQuantitySnapshot?: number | string',
   'businessStatus?: string',
-  'version?: number'
+  'version?: number',
+  'abnormal: boolean',
+  'abnormalReason?: string'
 ]) {
   assert.ok(apiSource.includes(field), `TeamLeaderActiveOrderRespVO must include ${field}.`)
 }

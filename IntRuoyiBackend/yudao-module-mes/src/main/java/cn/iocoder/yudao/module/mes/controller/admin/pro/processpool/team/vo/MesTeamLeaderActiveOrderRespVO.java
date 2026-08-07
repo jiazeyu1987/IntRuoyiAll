@@ -47,4 +47,13 @@ public class MesTeamLeaderActiveOrderRespVO {
 
     @Schema(description = "乐观锁版本", example = "0")
     private Integer version;
+
+    @Schema(description = "是否存在未关闭异常", example = "true")
+    private Boolean abnormal;
+
+    @Schema(description = "最近未关闭异常原因", example = "设备停机，影响生产")
+    private String abnormalReason;
+
+    @Schema(description = "最近未关闭异常上报时间")
+    private LocalDateTime abnormalReportedAt;
 }

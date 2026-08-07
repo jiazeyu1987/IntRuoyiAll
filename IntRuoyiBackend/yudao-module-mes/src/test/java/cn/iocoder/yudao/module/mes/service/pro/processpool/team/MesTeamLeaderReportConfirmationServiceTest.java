@@ -32,6 +32,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -72,6 +74,8 @@ class MesTeamLeaderReportConfirmationServiceTest {
     private MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
     @Mock
     private MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService;
+    @Mock
+    private MesWorkOrderAbnormalStateService abnormalStateService;
 
     private MesTeamLeaderReportConfirmationService service;
 
@@ -79,11 +83,12 @@ class MesTeamLeaderReportConfirmationServiceTest {
     void setUp() {
         MesTeamLeaderFifoAllocationService fifoAllocationService =
                 new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
-                        orderProcessTargetService);
+                        orderProcessTargetService, abnormalStateService);
         service = new MesTeamLeaderReportConfirmationServiceImpl(scopeService, eventMapper, activeOrderMapper,
                 workOrderMapper, reviewMapper, allocationMapper, quantityFragmentMapper, pqcRecordMapper,
                 fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper, pqcPieceDetailMapper,
-                orderProcessTargetService, orderProcessCompletionService);
+                orderProcessTargetService, orderProcessCompletionService, abnormalStateService);
+        lenient().when(abnormalStateService.findOpenWorkOrderIds(anyCollection())).thenReturn(Set.of());
     }
 
     @Test
@@ -214,6 +219,33 @@ class MesTeamLeaderReportConfirmationServiceTest {
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_DUPLICATE.getCode(), ex.getCode());
         verify(scopeService).assertCanAccessEmployee(3001L,
                 MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, 2001L);
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(allocationMapper, never()).insertBatch(anyCollection());
+    }
+
+    @Test
+    void shouldBlockManualAllocationToOpenAbnormalOrder() {
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
+        givenSuccessPqcBinding(80);
+        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
+                activeOrder(8101L, 9001L, "2026-07-31T08:00:00")));
+        when(abnormalStateService.findOpenWorkOrderIds(List.of(9001L))).thenReturn(Set.of(9001L));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.confirmSubmission(
+                MesTeamLeaderReportConfirmationReqBO.builder()
+                        .eventId(1001L)
+                        .leaderUserId(3001L)
+                        .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                        .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
+                        .reviewSignatureId(9101L)
+                        .reviewSignatureUserId(3001L)
+                        .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
+                        .allocations(List.of(line(8101L, "80")))
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_ABNORMAL_ORDER_FORBIDDEN.getCode(),
+                ex.getCode());
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(allocationMapper, never()).insertBatch(anyCollection());
     }

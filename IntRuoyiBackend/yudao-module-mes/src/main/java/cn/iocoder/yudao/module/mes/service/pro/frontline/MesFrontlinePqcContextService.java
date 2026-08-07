@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface MesFrontlinePqcContextService {
 
@@ -19,5 +20,7 @@ public interface MesFrontlinePqcContextService {
                                                              Long routeProcessId, Long processId,
                                                              Long actualEmployeeId);
 
-    Long submitPqcInspection(Long loginUserId, MesFrontlinePqcSubmitCommand command);
+    Optional<MesFrontlinePqcSubmitResult> getSubmittedPqcInspection(Long loginUserId, Long pqcTaskId);
+
+    MesFrontlinePqcSubmitResult submitPqcInspection(Long loginUserId, MesFrontlinePqcSubmitCommand command);
 }

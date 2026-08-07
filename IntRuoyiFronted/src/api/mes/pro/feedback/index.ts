@@ -196,6 +196,12 @@ export interface FrontlineDeviceRouteProcessVO {
   roundNo?: number
   plannedInspectionQuantity?: number
   inspectionItems?: FrontlinePqcInspectionItemVO[]
+  productionSubmitCandidates?: FrontlinePqcProductionSubmitCandidateVO[]
+}
+
+export interface FrontlinePqcProductionSubmitCandidateVO {
+  eventId: number
+  serverSubmitTime: string | number
 }
 
 export interface FrontlinePqcEquipmentOptionVO {
@@ -227,7 +233,8 @@ export interface FrontlineActiveOrderVO {
   workOrderName?: string
   productId: number
   productCode?: string
-  productName?: string
+  productName: string
+  quantity: number
   routeId: number
   routeCode?: string
   routeName?: string
@@ -286,17 +293,21 @@ export interface FrontlinePqcInspectionSubmitReqVO {
   shiftCode: string
   roundNo: number
   actualInspectionQuantity: number
-  actualEmployeeId: number
-  pqcSubmissionIdempotencyKey: string
-  signatureId: number
-  signatureEmployeeId: number
-  signatureSnapshot?: string
-  templateType: string
-  inspectionResult: string
+  scrapQuantity: number
+  signaturePassword: string
   nonconformanceDescription?: string
   itemResults: FrontlinePqcItemResultSubmitReqVO[]
   rawPayload: Record<string, unknown>
   clientSubmitTime?: string
+}
+
+export interface FrontlinePqcInspectionSubmitRespVO {
+  pqcTaskId: number
+  pqcEventId: number
+  pqcRecordId: number
+  signatureId: number
+  inspectionResult: 'SUCCESS' | 'FAILURE'
+  serverSubmitTime: string | number
 }
 
 export interface FrontlineSwitchActualEmployeeRespVO {
@@ -322,9 +333,10 @@ export interface FrontlineRuntimeDeviceParameterVO {
   parameterCode: string
   parameterName?: string
   unit?: string
-  lowerLimit?: number | string
-  upperLimit?: number | string
-  defaultValue?: number | string
+  standardText: string
+  lowerLimit?: number | string | null
+  upperLimit?: number | string | null
+  defaultValue?: number | string | null
   valueType?: string
 }
 
@@ -1060,9 +1072,16 @@ export const ProFeedbackApi = {
   },
   // PQC 检验提交到工序池
   submitFrontlinePqcInspection: async (data: FrontlinePqcInspectionSubmitReqVO) => {
-    return await request.post<number>({
+    return await request.post<FrontlinePqcInspectionSubmitRespVO>({
       url: `/mes/pro/feedback/frontline/device-account/pqc/submit`,
       data
+    })
+  },
+  // 只读确认 PQC 正式提交回执
+  getFrontlinePqcSubmitReceipt: async (params: { pqcTaskId: number }) => {
+    return await request.get<FrontlinePqcInspectionSubmitRespVO | null>({
+      url: `/mes/pro/feedback/frontline/device-account/pqc/submit-receipt`,
+      params
     })
   },
   // 瀵煎叆绗笁鏂圭敓浜ф姤宸?Excel

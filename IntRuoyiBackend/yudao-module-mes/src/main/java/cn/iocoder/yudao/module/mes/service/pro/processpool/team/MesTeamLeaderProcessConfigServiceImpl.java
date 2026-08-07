@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderProcessConfigListReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
@@ -24,6 +25,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -71,9 +73,13 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
     }
 
     @Override
-    public List<MesTeamLeaderProcessConfigRow> listProcessConfigs(Long leaderUserId) {
+    public List<MesTeamLeaderProcessConfigRow> listProcessConfigs(Long leaderUserId,
+                                                                  MesTeamLeaderProcessConfigListReqVO reqVO) {
         if (leaderUserId == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "processConfigLeader");
+        }
+        if (reqVO == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "processConfigQuery");
         }
         List<MesTeamLeaderLossReasonRow> authorizedRows = lossReasonService.listLossReasonRows(leaderUserId).stream()
                 .sorted(Comparator
@@ -103,9 +109,50 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
                 loadRules(routeProcessIds, deviceIds).stream()
                         .collect(Collectors.groupingBy(rule -> new RouteDeviceKey(rule.getRouteProcessId(), rule.getDeviceId()),
                                 LinkedHashMap::new, Collectors.toList()));
-        return authorizedRows.stream()
+        List<MesTeamLeaderProcessConfigRow> configRows = authorizedRows.stream()
                 .map(row -> toConfigRow(row, bindingsByProcess, deviceMap, rulesByRouteDevice))
                 .toList();
+        String routeKeyword = normalizeKeyword(reqVO.getRouteKeyword());
+        String processKeyword = normalizeKeyword(reqVO.getProcessKeyword());
+        String lossReasonKeyword = normalizeKeyword(reqVO.getLossReasonKeyword());
+        String deviceKeyword = normalizeKeyword(reqVO.getDeviceKeyword());
+        String parameterKeyword = normalizeKeyword(reqVO.getParameterKeyword());
+        return configRows.stream()
+                .filter(row -> matchesAny(routeKeyword, row.getRouteCode(), row.getRouteName()))
+                .filter(row -> matchesAny(processKeyword, row.getProcessCode(), row.getProcessName()))
+                .filter(row -> lossReasonKeyword == null || row.getLossReasons().stream()
+                        .anyMatch(reason -> containsKeyword(reason.getReasonName(), lossReasonKeyword)))
+                .filter(row -> deviceKeyword == null || row.getDevices().stream()
+                        .anyMatch(device -> matchesAny(deviceKeyword, device.getDeviceCode(), device.getDeviceName())))
+                .filter(row -> parameterKeyword == null || row.getDevices().stream()
+                        .flatMap(device -> device.getParameters().stream())
+                        .anyMatch(parameter -> matchesAny(parameterKeyword,
+                                parameter.getParameterCode(), parameter.getParameterName())))
+                .toList();
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String normalized = keyword.trim().toLowerCase(Locale.ROOT);
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private boolean matchesAny(String keyword, String... candidates) {
+        if (keyword == null) {
+            return true;
+        }
+        for (String candidate : candidates) {
+            if (containsKeyword(candidate, keyword)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean containsKeyword(String candidate, String keyword) {
+        return candidate != null && candidate.toLowerCase(Locale.ROOT).contains(keyword);
     }
 
     private List<MesProcessPoolTeamProcessDeviceDO> loadProcessDevices(Long leaderUserId, Set<Long> processIds) {
@@ -196,6 +243,7 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
                 .setParameterName(rule.getParameterName())
                 .setUnit(rule.getUnit())
                 .setValueType(rule.getValueType())
+                .setStandardText(rule.getStandardText())
                 .setLowerLimit(rule.getLowerLimit())
                 .setTargetValue(rule.getDefaultValue())
                 .setUpperLimit(rule.getUpperLimit())
@@ -210,6 +258,9 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
     private StatisticResult calculateStatistic(MesProcessPoolDeviceParameterRuleDO rule) {
         LocalDateTime statisticsEndTime = LocalDateTime.now(clock);
         LocalDateTime statisticsStartTime = statisticsEndTime.minusDays(STATISTICS_WINDOW_DAYS);
+        if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD.equals(rule.getValueType())) {
+            return new StatisticResult(null, 0, statisticsStartTime, statisticsEndTime);
+        }
         List<MesProProcessPoolEventDO> events = eventMapper.selectList(new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
                 .eq(MesProProcessPoolEventDO::getEventType, MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
                 .eq(MesProProcessPoolEventDO::getRouteProcessId, rule.getRouteProcessId())

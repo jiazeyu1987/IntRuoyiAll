@@ -74,11 +74,11 @@ assert(
 assert(!queryFilterSource.includes('label="快速过滤"'), 'Schedule order query form must not render duplicate quick filter label.')
 assert(pageSource.includes(':show-quick-filter-label="false"'), 'Schedule order quick filter must hide its inner 快速过滤 label.')
 assert(pageSource.includes("{ key: 'code', label: '排产编码'"), 'Quick filter must still cover 排产编码.')
-assert(pageSource.includes("key: 'completionFilter'"), 'Quick filter must cover 完成筛选.')
-assert(pageSource.includes("queryParamKey: 'completionFilter'"), '完成筛选 must keep the backend completionFilter query contract.')
+assert(pageSource.includes("key: 'completionFilter'"), 'Quick filter must cover 完成状态.')
+assert(pageSource.includes("queryParamKey: 'completionFilter'"), '完成状态 must keep the backend completionFilter query contract.')
 assert(pageSource.includes("{ key: 'erpWorkOrderCode', label: '生产工单号'"), 'Quick filter must still cover 生产工单号.')
 assert(pageSource.includes("{ key: 'promiseDate', label: '承诺交期'"), 'Quick filter must still cover 承诺交期.')
-assert(!queryFilterSource.includes('label="完成筛选"'), 'Schedule order query form must fold 完成筛选 into quick filter.')
+assert(!queryFilterSource.includes('label="完成状态"'), 'Schedule order query form must fold 完成状态 into quick filter.')
 assert(!pageSource.includes('schedule-order-pool__toolbar-group--query'), 'Schedule order page must not render duplicate search/reset query buttons.')
 assert(pageSource.includes(':show-column-reset="false"'), 'Schedule order page must hide column reset action.')
 assert(columnSettingsSource.includes('v-if="showReset"'), 'Column settings component must support hiding reset action.')
@@ -142,8 +142,8 @@ assert(pageSource.includes('submitPriorityAdjust'), 'Schedule order page must su
 assert(pageSource.includes('updatePriority'), 'Schedule order page must use the dedicated priority update API.')
 assert(pageSource.includes('交期'), 'Schedule order list must expose promise date action.')
 assert(pageSource.includes('冻结'), 'Schedule order list must expose freeze action.')
-assert(pageSource.includes('设为已完成'), 'Schedule order list must expose manual finish action.')
-assert(pageSource.includes('撤销已完成'), 'Schedule order list must expose revoke manual finish action.')
+assert(pageSource.includes('强制完成'), 'Schedule order list must expose force-finish action.')
+assert(pageSource.includes('撤销强制完成'), 'Schedule order list must expose revoke force-finish action.')
 assert(pageSource.includes('openOperationLogDialog'), 'Schedule order list must keep operation trace handler.')
 assert(pageSource.includes('openPromiseDateDialog'), 'Schedule order page must open a promise date dialog.')
 assert(pageSource.includes('submitPromiseDateReset'), 'Schedule order page must submit promise date updates.')
@@ -152,7 +152,7 @@ assert(pageSource.includes('submitScheduleOrderFreeze'), 'Schedule order page mu
 assert(pageSource.includes('submitScheduleOrderDelete'), 'Schedule order page must submit delete requests.')
 assert(pageSource.includes('openOperationLogDialog'), 'Schedule order page must open an operation trace dialog.')
 assert(pageSource.includes('manualFinishDialogVisible'), 'Schedule order page must expose the manual finish dialog state.')
-assert(pageSource.includes("label: '完成筛选'"), 'Schedule order page must expose completion filtering through quick filter.')
+assert(pageSource.includes("label: '完成状态'"), 'Schedule order page must expose completion filtering through quick filter.')
 assert(
   (pageSource.match(/v-hasPermi="\['mes:pro-schedule-order:update'\]"/g) || []).length >= 2,
   'Promise date and freeze actions must be protected by mes:pro-schedule-order:update permission.'
@@ -167,8 +167,8 @@ assert(pageSource.includes('label="做了多少个"'), 'Process snapshot dialog 
 assert(pageSource.includes('label="状态"'), 'Process snapshot dialog must show per-process status.')
 assert(pageSource.includes('label="预计结束"'), 'Process snapshot dialog must show planned end time.')
 assert(
-  pageSource.includes('该工单已人工完成，列表按 100% 展示；以下工序仍显示真实报工进度。'),
-  'Process snapshot dialog must explain the manual-finish summary override.'
+  pageSource.includes('该工单已由有权限人员强制关闭；汇总按 100% 展示，以下工序仍保留真实进度，可撤销强制完成。'),
+  'Process snapshot dialog must explain the force-finish summary override.'
 )
 assert(
   pageSource.includes('生成排产工单') || pageSource.includes('加入排产工单池'),

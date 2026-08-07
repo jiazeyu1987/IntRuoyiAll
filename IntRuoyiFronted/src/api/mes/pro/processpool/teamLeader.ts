@@ -7,6 +7,7 @@ import type {
 
 export type TeamLeaderType = 'PRODUCTION' | 'PQC'
 export type SubmissionReviewStatus = 'APPROVED' | 'REJECTED'
+export type DeviceParameterValueType = 'INTEGER' | 'DECIMAL' | 'TEXT_STANDARD'
 
 export interface TeamLeaderSubmissionPageReqVO extends ProcessPoolTimelinePageReqVO {
   leaderType: TeamLeaderType
@@ -24,7 +25,6 @@ export interface TeamLeaderSubmissionReviewReqVO {
 
 export interface WorkOrderAbnormalReportReqVO {
   workOrderId: number
-  abnormalReasonCode: string
   abnormalDescription: string
 }
 
@@ -48,10 +48,11 @@ export interface TeamLeaderProcessConfigParameterVO {
   parameterCode: string
   parameterName?: string
   unit?: string
-  valueType: string
-  lowerLimit: number | string
-  targetValue: number | string
-  upperLimit: number | string
+  valueType: DeviceParameterValueType
+  standardText: string
+  lowerLimit?: number | string | null
+  targetValue?: number | string | null
+  upperLimit?: number | string | null
   enabled?: boolean
   actualAverage?: number | null
   sampleCount: number
@@ -83,6 +84,20 @@ export interface TeamLeaderProcessConfigRowRespVO {
   devices: TeamLeaderProcessConfigDeviceVO[]
 }
 
+export interface TeamLeaderResponsibleRouteRespVO {
+  routeId: number
+  routeCode?: string
+  routeName: string
+}
+
+export interface TeamLeaderProcessConfigListReqVO {
+  routeKeyword?: string
+  processKeyword?: string
+  lossReasonKeyword?: string
+  deviceKeyword?: string
+  parameterKeyword?: string
+}
+
 export interface TeamLeaderLossReasonSaveReqVO {
   routeProcessId: number
   reasonName: string
@@ -99,10 +114,11 @@ export interface TeamDeviceParameterRuleSaveReqVO {
   parameterCode: string
   parameterName?: string
   unit?: string
-  lowerLimit: number | string
-  upperLimit: number | string
-  targetValue: number | string
-  valueType: string
+  standardText: string
+  lowerLimit?: number | string | null
+  upperLimit?: number | string | null
+  targetValue?: number | string | null
+  valueType: DeviceParameterValueType
 }
 
 export interface TeamLeaderActiveOrderAddReqVO {
@@ -240,6 +256,17 @@ export interface TeamLeaderActiveOrderRespVO {
   joinedAt?: number
   removedAt?: number
   version?: number
+  abnormal: boolean
+  abnormalReason?: string
+  abnormalReportedAt?: number
+}
+
+export interface TeamDeviceRespVO {
+  deviceId: number
+  deviceCode: string
+  deviceName: string
+  deviceStatus: 'ENABLED' | 'REPAIRING' | 'DISABLED'
+  enabled: boolean
 }
 
 export interface TeamLeaderActiveOrderTransferTraceRespVO {
@@ -368,9 +395,16 @@ export const deleteTeamLeaderLossReason = async (id: number) => {
   })
 }
 
-export const getTeamLeaderProcessConfigList = async () => {
+export const getTeamLeaderProcessConfigList = async (params: TeamLeaderProcessConfigListReqVO = {}) => {
   return await request.get<TeamLeaderProcessConfigRowRespVO[]>({
-    url: '/mes/pro/process-pool/team-leader/process-config/list'
+    url: '/mes/pro/process-pool/team-leader/process-config/list',
+    params
+  })
+}
+
+export const getTeamLeaderResponsibleRouteList = async () => {
+  return await request.get<TeamLeaderResponsibleRouteRespVO[]>({
+    url: '/mes/pro/process-pool/team-leader/responsible-routes'
   })
 }
 
@@ -507,6 +541,13 @@ export const createTeamDevice = async (data: TeamDeviceSaveReqVO) => {
   return await request.post<number>({
     url: '/mes/pro/process-pool/team-leader/team-device/create',
     data
+  })
+}
+
+export const getTeamDeviceList = async (enabled?: boolean) => {
+  return await request.get<TeamDeviceRespVO[]>({
+    url: '/mes/pro/process-pool/team-leader/team-device/list',
+    params: { enabled }
   })
 }
 

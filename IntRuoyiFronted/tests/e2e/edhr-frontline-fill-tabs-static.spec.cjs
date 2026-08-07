@@ -65,7 +65,7 @@ assert.match(frontlinePanel, /visibleDeviceCards\s*=\s*computed\(\(\)\s*=>\s*con
 assert.match(frontlinePanel, /frontline-production-device-tabs/, 'production devices must use the compact three-device selector from the approved HTML.')
 assert.doesNotMatch(frontlinePanel, /PREVIOUS_PROCESS_INPUT_QUANTITY|previousProcessInputQuantity|previousInputQuantity/, 'production payload must not include previous-process input quantity.')
 assert.match(frontlinePanel, /const switchableProcessOptions = computed/, 'process picker must define unique process options.')
-const processPickerBlock = frontlinePanel.match(/const pickerOptions = computed\([\s\S]*?\n}\)/)
+const processPickerBlock = frontlinePanel.match(/const pickerOptions = computed(?:<[^>]+>)?\([\s\S]*?\n}\)/)
 assert.ok(processPickerBlock, 'process picker options block must exist.')
 assert.match(processPickerBlock[0], /switchableProcessOptions\.value\.map/, 'process picker must use unique process options.')
 assert.doesNotMatch(processPickerBlock[0], /deviceState\.processOptions\.map/, 'multiple devices must not duplicate process choices.')

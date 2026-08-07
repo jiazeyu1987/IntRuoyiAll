@@ -13,7 +13,7 @@ const pqcTemplate = source.slice(pqcStart, pqcEnd)
 
 assert.match(
   source,
-  /ref="frontlinePanelRef"[\s\S]*:class="\{ 'is-pqc-fullscreen': isPqcFullscreen \}"/,
+  /ref="frontlinePanelRef"[\s\S]*:class="\{[\s\S]*'is-pqc-fullscreen': isPqcFullscreen,[\s\S]*\}"/,
   'fullscreen state must be applied to the operator panel that also owns PQC pickers and dialogs.'
 )
 assert.match(
@@ -68,17 +68,17 @@ assert.match(
 )
 assert.match(
   source,
-  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-screen\.is-pqc[\s\S]*grid-template-rows:\s*114px minmax\(0, 1fr\) 102px/,
-  'PQC fullscreen operator screen must use the target compact header/body/footer rows.'
+  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-screen\.is-pqc[\s\S]*grid-template-rows:\s*minmax\(118px, auto\) minmax\(0, 1fr\) 104px/,
+  'PQC fullscreen operator screen must allow the compact header row to grow for wrapped summary text.'
 )
 assert.match(
   source,
-  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-top\.is-pqc[\s\S]*grid-template-columns:\s*304px 416px minmax\(0, 1fr\) 190px/,
-  'PQC fullscreen header columns must match the target screenshot proportions.'
+  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-top\.is-pqc[\s\S]*grid-template-columns:\s*minmax\(480px, 1\.55fr\) minmax\(220px, 0\.85fr\) minmax\(200px, 1fr\) 150px/,
+  'PQC fullscreen header columns must reserve enough space for the complete order summary.'
 )
 assert.match(
   source,
-  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-main\.is-pqc[\s\S]*grid-template-columns:\s*624px minmax\(0, 1fr\)/,
+  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-main\.is-pqc[\s\S]*grid-template-columns:\s*minmax\(760px, 1\.72fr\) minmax\(390px, 0\.78fr\)/,
   'PQC fullscreen main layout must match the screenshot left/right panel proportions.'
 )
 

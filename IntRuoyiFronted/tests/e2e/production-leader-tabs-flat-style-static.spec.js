@@ -24,7 +24,7 @@ const assertProductionTabs = (block, label) => {
     /class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"[\s\S]*data-production-leader-module-tabs/,
     `${label} must render production module tabs with the shared flat underline style.`
   )
-  for (const tabLabel of ['人员管理', '报工管理', '活跃订单池', '看板', '异常', '工序配置']) {
+  for (const tabLabel of ['人员管理', '报工管理', '活跃订单池', '看板', '工序配置']) {
     assert.match(block, new RegExp(`label="${tabLabel}"`), `${label} must keep ${tabLabel} tab visible.`)
   }
 }
@@ -91,17 +91,10 @@ assert.ok(
   '看板 module tabs must appear before the dashboard list area.'
 )
 
-const exceptionBlock = sliceContentWrapByMarker('data-team-leader-abnormal-report')
-assert.match(
-  exceptionBlock,
-  /'team-leader-workbench__production-module-card':\s*showProductionModuleTabs/,
-  '异常 content card must use compact production module card padding.'
-)
-assertProductionTabs(exceptionBlock, '异常')
-assert.ok(
-  exceptionBlock.indexOf('data-production-leader-module-tabs') < exceptionBlock.indexOf('<el-form'),
-  '异常 module tabs must appear before the exception form.'
-)
+assert.doesNotMatch(source, /data-production-leader-module-tab-exception|showProductionExceptionModule/,
+  '独立异常页签和内容门禁必须删除。')
+assert.match(activeOrderBlock, /data-team-leader-report-active-order-abnormal[\s\S]*data-team-leader-abnormal-report-dialog/,
+  '活跃订单池必须承载行内报异常入口和对话框。')
 
 const processConfigBlock = sliceContentWrapByMarker('data-team-leader-process-config-tab')
 assert.match(
