@@ -61,7 +61,9 @@
 
 - 本任务收尾提交：`2435458c7`，文件清单为 `doc/tasks/20260806-restart-local-frontend-backend/task.md`、`doc/tasks/20260806-restart-local-frontend-backend/execution-log.md`、`doc/tasks/20260806-restart-local-frontend-backend/verification-report.md`。
 - 提交前使用 `git commit --only` 选择性提交，仅包含上述三份本任务文件；`doc/tasks/20260806-hide-review-copy-columns/` 的三个文件仍保留在工作区，未进入本任务提交。
-- 提交后复扫确认并发任务文件仍未暂存；当前分支仍需完成本任务推送。
+- 最终收尾提交：`78b6dcea5`，仅更新本任务 `execution-log.md`。
+- `git push origin int_main` -> PASS：远端从 `0e2874e96` 快进至 `78b6dcea5`。
+- 推送后复扫确认本任务文件已提交并推送；并发任务文件仍未纳入本任务提交。
 
 ## Milestone Updates
 

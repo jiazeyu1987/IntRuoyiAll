@@ -43,7 +43,24 @@
 - Current source verification confirmed `productionSubmissionDefaultColumns` and `pqcSubmissionDefaultColumns` contain neither `auditCopyStatus` nor `submissionReviewStatus`, while the focused hide-column static contract remains tracked in `int_main`.
 - Git lock recovery: a staging attempt found `E:\IntRuoyi\.git\index.lock`; the exact lock was `0` bytes, older than `60` seconds, and no active `git` or `git-lfs` process was found. Only that stale lock was removed; no process was stopped and no files were staged.
 
+## Final Closeout
+
+- Dirty-worktree baseline commit: `842ead6ab` (`chore: preserve preexisting task records`), containing only the previously present concurrent task records:
+  - `doc/tasks/20260806-production-report-history-tab/backend-api-evidence.md` (deleted)
+  - `doc/tasks/20260806-production-report-history-tab/execution-log.md`
+  - `doc/tasks/20260806-production-report-history-tab/frontend-feature-evidence.md` (deleted)
+  - `doc/tasks/20260806-production-report-history-tab/task.md`
+  - `doc/tasks/20260806-production-report-history-tab/verification-report.md`
+  - `doc/tasks/20260806-restart-local-frontend-backend/execution-log.md`
+  - `doc/tasks/20260806-restart-local-frontend-backend/task.md`
+- Task-owned fusion evidence commit: `66b0aff29` (`docs: close out review copy columns fusion`), containing only this task's `task.md`, `execution-log.md`, and `verification-report.md`.
+- Shared submission closeout commit: `12c014d5a` (`docs: complete frontend backend submission`); it includes the two preceding commits on `int_main` and was pushed to `origin/int_main`.
+- Final status update is being recorded in the next task-owned closeout commit; its hash will be appended immediately after commit verification.
+
 ## Blockers
 
-- Closeout commit/push is deferred: concurrent task `20260807-submit-frontend-backend-code` is actively handling the shared `int_main` commit/push transaction. To avoid mixing task ownership or racing the Git index, this task did not create another merge commit, baseline commit, closeout commit, or push.
-- Non-current wide contract observation: `node tests/e2e/team-leader-production-report-payload-columns-static.spec.cjs` failed on a pre-existing `生产工单` default-column assertion; this failure is unrelated to the `审核副本` / `复核判定` hide request and was not used as this task's completion gate.
+- None after fusion, cleanup, and remote synchronization.
+
+## Non-Current Observation
+
+- `node tests/e2e/team-leader-production-report-payload-columns-static.spec.cjs` failed on a pre-existing `生产工单` default-column assertion; this failure is unrelated to the `审核副本` / `复核判定` hide request and was not used as this task's completion gate.
