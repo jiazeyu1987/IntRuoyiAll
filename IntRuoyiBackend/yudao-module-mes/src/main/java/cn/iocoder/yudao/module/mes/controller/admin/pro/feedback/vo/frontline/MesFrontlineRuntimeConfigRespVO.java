@@ -22,6 +22,8 @@ public class MesFrontlineRuntimeConfigRespVO {
     private List<Device> devices;
     @Schema(description = "组长维护的本工序异常/不良原因")
     private List<DefectReason> defectReasons;
+    @Schema(description = "服务端解析的一线生产正式提交上下文")
+    private ProductionSubmitContext productionSubmitContext;
 
     @Data
     public static class Employee {
@@ -60,5 +62,22 @@ public class MesFrontlineRuntimeConfigRespVO {
         private String reasonType;
         private String reasonCode;
         private String reasonName;
+    }
+
+    @Data
+    public static class ProductionSubmitContext {
+        private Long workOrderId;
+        private String workOrderCode;
+        private String workOrderName;
+        private Long taskId;
+        private Long routeId;
+        private Long routeProcessId;
+        private Long processId;
+        private Long workstationId;
+        private Long itemId;
+        private Long approveUserId;
+        private Long recordbookId;
+        private BigDecimal scheduledQuantity;
+        private java.time.LocalDateTime expireDate;
     }
 }

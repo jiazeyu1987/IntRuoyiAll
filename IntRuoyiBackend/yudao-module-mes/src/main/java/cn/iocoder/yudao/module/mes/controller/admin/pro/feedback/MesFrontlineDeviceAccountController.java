@@ -22,6 +22,7 @@ import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcInspecti
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcSubmitCommand;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcSubmitResult;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProductionSubmitCandidate;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProductionSubmitContext;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConfig;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRouteProcessCandidate;
@@ -354,7 +355,31 @@ public class MesFrontlineDeviceAccountController {
             item.setReasonName(reason.reasonName());
             return item;
         }).toList());
+        respVO.setProductionSubmitContext(toProductionSubmitContextRespVO(config.productionSubmitContext()));
         return respVO;
+    }
+
+    private static MesFrontlineRuntimeConfigRespVO.ProductionSubmitContext toProductionSubmitContextRespVO(
+            MesFrontlineProductionSubmitContext context) {
+        if (context == null) {
+            return null;
+        }
+        MesFrontlineRuntimeConfigRespVO.ProductionSubmitContext item =
+                new MesFrontlineRuntimeConfigRespVO.ProductionSubmitContext();
+        item.setWorkOrderId(context.workOrderId());
+        item.setWorkOrderCode(context.workOrderCode());
+        item.setWorkOrderName(context.workOrderName());
+        item.setTaskId(context.taskId());
+        item.setRouteId(context.routeId());
+        item.setRouteProcessId(context.routeProcessId());
+        item.setProcessId(context.processId());
+        item.setWorkstationId(context.workstationId());
+        item.setItemId(context.itemId());
+        item.setApproveUserId(context.approveUserId());
+        item.setRecordbookId(context.recordbookId());
+        item.setScheduledQuantity(context.scheduledQuantity());
+        item.setExpireDate(context.expireDate());
+        return item;
     }
 
     private static MesFrontlineSwitchEmployeeRespVO toSwitchEmployeeRespVO(MesFrontlineEmployeeSwitchResult result) {

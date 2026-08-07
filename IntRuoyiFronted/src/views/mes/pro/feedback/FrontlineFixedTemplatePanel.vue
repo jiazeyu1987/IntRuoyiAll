@@ -906,6 +906,22 @@
         <p data-production-submit-confirmation-message>
           {{ productionFormalSubmitConfirmationText }}
         </p>
+        <label
+          class="frontline-production-submit-confirmation-signature"
+          for="frontlineProductionSignaturePassword"
+        >
+          <span>登录密码</span>
+          <input
+            id="frontlineProductionSignaturePassword"
+            v-model="productionSignaturePassword"
+            type="password"
+            data-production-submit-signature-password
+            autocomplete="current-password"
+            :disabled="payloadLoading"
+            placeholder="请输入当前账号密码"
+            @keydown.enter.prevent="confirmProductionFormalSubmitConfirmation"
+          />
+        </label>
         <div class="frontline-production-submit-confirmation-actions">
           <button
             type="button"
@@ -1152,6 +1168,7 @@ const payloadPreview = ref<FrontlineTemplatePayloadVO>()
 const formalSubmitResult = ref<ProFrontlineFeedbackSubmitRespVO>()
 const submitConfirmationOpen = ref(false)
 const productionFormalSubmitConfirmationText = ref('')
+const productionSignaturePassword = ref('')
 let productionFormalSubmitConfirmationResolver: ((confirmed: boolean) => void) | undefined
 const activePicker = ref<PickerType>()
 const activeOrderKeyword = ref('')
@@ -2459,7 +2476,10 @@ const findInitialProcess = (
       return matchedProcess
     }
   }
-  return processes[0]
+  const fallbackProcess = isPqcMode.value
+    ? processes.find(hasPqcTaskSnapshot) || processes[0]
+    : processes[0]
+  return fallbackProcess
 }
 
 const isCurrentLoginEmployee = (employee?: FrontlineEmployeeCandidateVO) => {
@@ -2573,7 +2593,8 @@ const handleSelectProcess = async (process: FrontlineDeviceRouteProcessVO) => {
 }
 
 const handleSelectEmployee = async (employee: FrontlineEmployeeCandidateVO) => {
-  const selectionRequestId = !isPqcMode.value
+  const shouldClosePickerImmediately = !isPqcMode.value
+  const selectionRequestId = shouldClosePickerImmediately
     ? ++productionEmployeeSelectionRequestId
     : 0
   if (isPqcMode.value && !isCurrentLoginEmployee(employee)) {
@@ -2581,17 +2602,22 @@ const handleSelectEmployee = async (employee: FrontlineEmployeeCandidateVO) => {
     message.error(error.message)
     throw error
   }
+  if (shouldClosePickerImmediately) {
+    closePicker()
+  }
   const result = isPqcMode.value
     ? await switchFrontlinePqcActualEmployee(deviceState, employee.userId)
     : await switchFrontlineActualEmployee(deviceState, employee.userId)
-  if (!isPqcMode.value && selectionRequestId !== productionEmployeeSelectionRequestId) {
+  if (shouldClosePickerImmediately && selectionRequestId !== productionEmployeeSelectionRequestId) {
     return
   }
   context.actualEmployeeId = result.actualEmployeeId
   const templateCode = resolveTemplateCode(result.template?.templateNo, result.template?.templateType)
   employeeTemplateCode.value = templateCode
   payloadPreview.value = undefined
-  closePicker()
+  if (!shouldClosePickerImmediately) {
+    closePicker()
+  }
 }
 
 const assertProductionSubmissionReady = () => {
@@ -2655,6 +2681,9 @@ const resolveProductionFormalSubmitConfirmation = (confirmed: boolean) => {
   if (!resolver) {
     return
   }
+  if (!confirmed) {
+    productionSignaturePassword.value = ''
+  }
   clearProductionFormalSubmitConfirmation()
   resolver(confirmed)
 }
@@ -2663,6 +2692,7 @@ const requestProductionFormalSubmitConfirmation = (confirmationText: string): Pr
   if (productionFormalSubmitConfirmationResolver) {
     throw new Error('Production formal submit confirmation is already open.')
   }
+  productionSignaturePassword.value = ''
   productionFormalSubmitConfirmationText.value = confirmationText
   submitConfirmationOpen.value = true
   return new Promise((resolve) => {
@@ -2678,6 +2708,10 @@ const confirmProductionFormalSubmitConfirmation = () => {
   if (payloadLoading.value) {
     return
   }
+  if (!productionSignaturePassword.value.trim()) {
+    message.error('请输入当前登录账号的电子签名密码。')
+    return
+  }
   resolveProductionFormalSubmitConfirmation(true)
 }
 
@@ -2689,11 +2723,17 @@ const handleProductionFormalSubmit = async () => {
   Object.assign(draft.fieldValues, buildProductionFieldValues())
   assertFormalPayloadContext()
   const templatePayload = buildFrontlineTemplatePayload(context, draft.fieldValues)
-  const formalPayload = buildFrontlineFormalSubmitPayload(templatePayload)
   const confirmed = await requestProductionFormalSubmitConfirmation(buildProductionFormalSubmitConfirmation())
   if (!confirmed) {
     return
   }
+  const formalPayload = (() => {
+    try {
+      return buildFrontlineFormalSubmitPayload(templatePayload)
+    } finally {
+      productionSignaturePassword.value = ''
+    }
+  })()
 
   payloadLoading.value = true
   try {
@@ -2973,6 +3013,10 @@ const buildFrontlineFormalSubmitPayload = (
 ): ProFrontlineFeedbackSubmitReqVO => {
   const formalContext = readFrontlineFormalSubmitContext()
   assertFrontlineFormalSubmitContext(formalContext)
+  const signaturePassword = productionSignaturePassword.value.trim()
+  if (!signaturePassword) {
+    throw new Error('请输入当前登录账号的电子签名密码。')
+  }
   const selectedDevice = activeProductionDevice.value
   const equipmentParameters = selectedDevice
     ? { [selectedDevice.label]: buildProductionDeviceParameterPayload(selectedDevice.key) }
@@ -3038,6 +3082,7 @@ const buildFrontlineFormalSubmitPayload = (
     actualEmployeeId: context.actualEmployeeId!,
     signatureId: formalContext.signatureId!,
     signatureEmployeeId: formalContext.signatureEmployeeId!,
+    signaturePassword,
     rawPayload: buildProductionStructuredRawPayload(rawPayload) as unknown as Record<string, unknown>
   }
 }
@@ -4135,6 +4180,31 @@ onUnmounted(() => {
 
   p {
     margin: 0;
+  }
+}
+
+.frontline-production-submit-confirmation-signature {
+  display: grid;
+  gap: 10px;
+  font-size: 26px;
+  font-weight: 800;
+
+  input {
+    min-height: 72px;
+    padding: 0 22px;
+    border: 3px solid var(--frontline-line);
+    border-radius: 18px;
+    background: #ffffff;
+    color: var(--frontline-ink);
+    font-size: 28px;
+    font-weight: 700;
+    outline: none;
+    box-sizing: border-box;
+  }
+
+  input:focus-visible {
+    border-color: #15815f;
+    box-shadow: 0 0 0 4px rgba(21, 129, 95, 0.18);
   }
 }
 

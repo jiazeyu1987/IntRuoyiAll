@@ -50,6 +50,22 @@ assertIncludesAll(
   'PQC process picker template'
 )
 
+const findInitialProcessAnchor = source.indexOf('const findInitialProcess = (')
+assert.ok(findInitialProcessAnchor >= 0, 'findInitialProcess must exist.')
+const findInitialProcessEnd = source.indexOf('\n}\n\nconst isCurrentLoginEmployee', findInitialProcessAnchor)
+assert.ok(findInitialProcessEnd > findInitialProcessAnchor, 'findInitialProcess boundary must be stable.')
+const findInitialProcessBlock = source.slice(findInitialProcessAnchor, findInitialProcessEnd)
+assertIncludesAll(
+  findInitialProcessBlock,
+  [
+    'const fallbackProcess = isPqcMode.value',
+    'processes.find(hasPqcTaskSnapshot) || processes[0]',
+    ': processes[0]',
+    'return fallbackProcess'
+  ],
+  'PQC initial process selection'
+)
+
 assertIncludesAll(
   extractBlock('.frontline-picker--production-process {'),
   ['z-index: 30;', 'display: grid;', 'place-items: center;', 'border-radius: 0;', 'background: rgba(17, 26, 21, 0.38);'],

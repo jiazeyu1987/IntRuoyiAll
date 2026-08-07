@@ -1465,6 +1465,7 @@ class MesFrontlinePqcContextServiceTest {
         }
         lenient().when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID))
                 .thenReturn(processSnapshotFixtures);
+        includeRouteVersionProcess(routeProcessId, processId);
         when(regulationItemMapper.selectListByVersionId(regulationVersionId)).thenReturn(List.of(
                 regulationItem(regulationVersionId, "pressure", "压力", "NUMBER", "测压"),
                 regulationItem(regulationVersionId, "appearance", "外观", "CHOICE", "目视")));
@@ -1569,6 +1570,47 @@ class MesFrontlinePqcContextServiceTest {
                 .build();
     }
 
+    private void includeRouteVersionProcess(Long routeProcessId, Long processId) {
+        if (routeVersionProcessFixtures.stream().noneMatch(node ->
+                java.util.Objects.equals(node.routeProcessId(), routeProcessId)
+                        && java.util.Objects.equals(node.processId(), processId))) {
+            routeVersionProcessFixtures.add(routeNode(routeProcessId, processId,
+                    (routeVersionProcessFixtures.size() + 1) * 10));
+            givenRouteVersionProcesses(routeVersionProcessFixtures.toArray(new RouteNodeFixture[0]));
+        }
+    }
+
+    private void givenRouteVersionProcesses(RouteNodeFixture... nodes) {
+        routeVersionProcessFixtures.clear();
+        routeVersionProcessFixtures.addAll(List.of(nodes));
+        lenient().when(routeVersionMapper.selectById(448L)).thenReturn(routeVersion(routeVersionProcessFixtures));
+    }
+
+    private static MesProRouteVersionDO routeVersion(List<RouteNodeFixture> nodes) {
+        StringBuilder nodeJson = new StringBuilder();
+        for (RouteNodeFixture node : nodes) {
+            if (nodeJson.length() > 0) {
+                nodeJson.append(',');
+            }
+            nodeJson.append("{\"routeProcessId\":").append(node.routeProcessId())
+                    .append(",\"processId\":").append(node.processId())
+                    .append(",\"sort\":").append(node.sort())
+                    .append('}');
+        }
+        return MesProRouteVersionDO.builder()
+                .id(448L)
+                .routeId(ROUTE_ID)
+                .active(Boolean.TRUE)
+                .lifecycleStatus("ACTIVE")
+                .routeSnapshotJson("{\"configSnapshots\":{\"flowGraph\":{\"nodes\":["
+                        + nodeJson + "]}}}")
+                .build();
+    }
+
+    private static RouteNodeFixture routeNode(Long routeProcessId, Long processId, Integer sort) {
+        return new RouteNodeFixture(routeProcessId, processId, sort);
+    }
+
     private static MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot(Long routeProcessId, Long processId) {
         return MesProcessPoolActiveOrderProcessSnapshotDO.builder()
                 .id(routeProcessId + 10000L)
@@ -1636,5 +1678,8 @@ class MesFrontlinePqcContextServiceTest {
         user.setNickname(nickname);
         user.setStatus(CommonStatusEnum.ENABLE.getStatus());
         return user;
+    }
+
+    private record RouteNodeFixture(Long routeProcessId, Long processId, Integer sort) {
     }
 }

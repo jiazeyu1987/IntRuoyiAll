@@ -7,5 +7,6 @@ public record MesFrontlineRuntimeConfig(Long routeId,
                                         Long processId,
                                         List<MesFrontlineTeamEmployeeOption> employees,
                                         List<MesFrontlineTeamDeviceOption> devices,
-                                        List<MesFrontlineDefectReasonOption> defectReasons) {
+                                        List<MesFrontlineDefectReasonOption> defectReasons,
+                                        MesFrontlineProductionSubmitContext productionSubmitContext) {
 }
