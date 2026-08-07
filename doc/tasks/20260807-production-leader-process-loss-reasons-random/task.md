@@ -11,8 +11,8 @@
 - [x] 为每个目标工序随机新增 1~6 个损耗原因。
 - [x] 通过页面结果和只读接口核对新增数量、名称和编码。
 - [x] 完成任务记录、清理临时浏览器产物并收尾。
-- [ ] 复现用户截图中的“暂无损耗原因”，核对当前页面实际工序集合与首次写入集合。
-- [ ] 为首次遗漏的页面工序补齐随机 1~6 个损耗原因，并完成逐行回归核验。
+- [x] 复现用户截图中的“暂无损耗原因”，核对当前页面实际工序集合与首次写入集合。
+- [x] 为首次遗漏的页面工序补齐随机 1~6 个损耗原因，并完成逐行回归核验。
 
 ## Expected Verification
 
@@ -23,7 +23,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Design Constraint Check
 
@@ -42,3 +42,4 @@ in_progress
 ## Cleanup Candidates
 
 - `output/playwright/20260807-production-leader-process-loss-reasons-random/`
+- `output/playwright/20260807-production-leader-process-loss-reasons-random-fix/`

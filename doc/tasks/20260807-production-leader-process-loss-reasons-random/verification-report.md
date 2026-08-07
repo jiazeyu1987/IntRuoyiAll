@@ -2,22 +2,21 @@
 
 ## Result
 
-PASS：在本机 `int_main` 的 `测试租户/admin` 真实生产组长页面中，为工序配置列表全部 `66` 个工序随机新增 `1~6` 个损耗原因，共新增 `237` 条。任务原因名称统一使用 `RLR0807-<行序号>-<原因序号>`，原因编码由后端正式规则自动生成。
+PASS：已按用户截图对应的本机 `int_main` 默认身份 `芋道源码/admin`，为生产组长工序配置列表全部 `105` 个工序随机新增 `1~6` 个损耗原因，共新增 `313` 条。任务名称使用 `RLR0807M-<行序号>-<原因序号>`，编码由后端正式规则自动生成。
 
 ## Verification Summary
 
-- Official login preflight: `测试租户/admin -> /mes/pro/process-pool/production-leader` -> PASS，页面可见“工序配置”。
-- RED: 初始 `66` 个工序中 `RLR0807` 命中 `0`。
-- GREEN: Playwright CLI 真实页面逐条新增 -> PASS，全部 POST 业务码成功。
-- GREEN: 页面重新加载的正式列表响应 -> `processCount=66`、`uniqueRouteProcessCount=66`、`totalCreated=237`。
-- GREEN: 每工序最少 `1`、最多 `6`；越界 `0`，计划数与实际数不一致 `0`。
-- GREEN: 缺系统编码 `0`、任务名称格式错误 `0`、重复原因 ID `0`、重复任务名称 `0`。
-- GREEN: 损耗原因目标 HTTP 错误 `0`、页面脚本错误 `0`。
-- GREEN: 首行页面可见 `LOSS-928896-001 / RLR0807-001-01`；末行页面可见 `LOSS-980630-001 / RLR0807-066-01`。
-- Random distribution: `1 条=9 个工序`、`2 条=12 个工序`、`3 条=11 个工序`、`4 条=11 个工序`、`5 条=11 个工序`、`6 条=12 个工序`。
-- Unrelated runtime note: 页面全局审批待办计数产生 `2` 条“系统异常”console error；目标损耗原因接口和本任务 page error 均为 `0`，该无关问题未被隐藏或作为本任务成功证据。
+- Correct identity: `芋道源码/admin -> /mes/pro/process-pool/production-leader`，负责路线与用户截图一致。
+- RED: `rowCount=105`、`emptyRowCount=104`、`taskReasonCount=0`。
+- GREEN: Playwright CLI 真实页面逐条新增 -> PASS；共新增 `313` 条。
+- GREEN: 独立完整重载逐行核对 -> `rowCount=105`、`totalTaskReasons=313`、`emptyRowCount=0`、`violationCount=0`。
+- GREEN: 缺系统编码 `0`、重复任务名称 `0`。
+- GREEN: 首行 `球囊扩张导管 / 1 - 吹球囊成型 / RLR0807M-001-01`；末行 `按压式球囊扩充压力泵 / 14 - 大包装工序 / RLR0807M-105-01..03`。
+- Random distribution: `1 条=27 个工序`、`2 条=19 个工序`、`3 条=18 个工序`、`4 条=18 个工序`、`5 条=16 个工序`、`6 条=7 个工序`。
+- Route totals: `球囊扩张导管=63`、`棘突球囊扩张导管=83`、`球囊扩张压力泵=47`、`路线状态机E2E-20260718100825=46`、`测试节点-工艺路线-状态删除=40`、`按压式球囊扩充压力泵=34`。
+- Correction note: 首次 `测试租户/admin` 的 `66/237` 结果属于错误租户范围，不能证明用户截图页面完成；下表仅作为该历史误写范围的追溯记录。
 
-## Per-Process Results
+## Historical Incorrect-Scope Results (`测试租户/admin`)
 
 | Route Process ID | 工艺路线 | 工序 | 新增数 | 系统生成编码 |
 | ---: | --- | --- | ---: | --- |
@@ -90,13 +89,12 @@ PASS：在本机 `int_main` 的 `测试租户/admin` 真实生产组长页面中
 
 ## Artifacts And Scope
 
-- 临时结构化结果：`output/playwright/20260807-production-leader-process-loss-reasons-random/batch-add-result.json`。
-- 临时最终截图：`output/playwright/20260807-production-leader-process-loss-reasons-random/final-process-config.png`。
-- 仅写入本机 `int_main` 的 `测试租户`；未操作远程环境、未直接执行 SQL、未修改已有损耗原因。
-- 新增名称前缀：`RLR0807`；如需撤销，必须另行授权后按本报告编码和名称逐条停用或删除。
+- 修正临时脚本和截图：`output/playwright/20260807-production-leader-process-loss-reasons-random-fix/`，核心统计已归档到本报告，目录列入 cleanup。
+- 修正写入仅针对本机 `int_main` 的 `芋道源码`；未操作远程环境、未直接执行 SQL、未修改已有损耗原因。
+- 正确范围前缀：`RLR0807M`；首次错误租户前缀：`RLR0807`。如需撤销任一范围，必须由用户另行授权。
 
 ## Closeout
 
-- `task-closeout-cleanup` preview/apply -> PASS，核心三份记录保留，任务 Playwright 临时目录已删除。
-- 任务隔离 npm 缓存已删除，`CACHE_EXISTS=false`。
-- Final status: `completed`。
+- 首次范围和本次修正范围的 `task-closeout-cleanup` 均已完成；本次 preview 为 `status: ready`、apply 为 `status: applied`，blocked 为 `none`。
+- 修正用 `bug-regression-evidence.md` 和 Playwright 临时目录已删除，核心验证结论保留在本报告与 `execution-log.md`。
+- Final status: `ready_for_closeout`。

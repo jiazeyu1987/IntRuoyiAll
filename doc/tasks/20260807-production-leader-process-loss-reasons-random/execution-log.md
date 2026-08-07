@@ -26,3 +26,11 @@
 - BDD: 修正错误租户并补齐当前列表 -> Given 默认 `芋道源码/admin` 的生产组长工序配置列表, When 对当前页面每个工序新增随机 `1..6` 个带 `RLR0807M` 前缀的损耗原因, Then `105` 个工序的任务原因数均为 `1..6` 且页面不再出现“暂无损耗原因”。
 - RED: Playwright CLI `run-code --filename output/playwright/20260807-production-leader-process-loss-reasons-random-fix/red-current-page.js` -> FAIL（预期）；`rowCount=105`、`emptyRowCount=104`、`taskReasonCount=0`。
 - Root cause: 首次执行选择了 `测试租户/admin` 的 `66` 个工序，用户实际查看的是默认 `芋道源码/admin` 的另一套 `105` 个工序；首次验证范围正确但目标租户错误。
+- Runtime interruption: 批量写入期间共享 `int_main` 后端被并发任务重启两次；目标请求超时或业务码 `401` 时立即停止。前端自动刷新令牌后的同请求重试以最终成功响应为准；每次恢复均重新登录同一 `芋道源码/admin` 并按 `RLR0807M` 页面现有值断点续跑，未切换租户、账号或数据源。
+- GREEN: Playwright CLI 真实页面逐工序保存 -> PASS；当前默认租户 `105` 个工序共新增 `313` 条 `RLR0807M` 原因。
+- GREEN: 独立完整页面重载后执行 `verify-current-page.js` -> PASS；`rowCount=105`、`totalTaskReasons=313`、`emptyRowCount=0`、`violationCount=0`、`missingCodeCount=0`、`duplicateNameCount=0`。
+- GREEN distribution: `1:27、2:19、3:18、4:18、5:16、6:7`；路线汇总为 `球囊扩张导管:63、棘突球囊扩张导管:83、球囊扩张压力泵:47、路线状态机E2E-20260718100825:46、测试节点-工艺路线-状态删除:40、按压式球囊扩充压力泵:34`。
+- Visual verification: `1600x900` 最终截图显示用户截图中的 `球囊扩张导管` 前 8 个工序均已有系统编码和 `RLR0807M` 原因，不再显示“暂无损耗原因”。
+- Experience consolidation: 根因属于登录/租户范围门禁，已合并到既有 `docs/login-access.md#本机登录来源`：截图或当前页面写入前必须核对同一真实会话的租户/账号、可见业务范围和列表数量，禁止静默切换到另一测试租户；未新建长期经验文档。
+- Correction closeout preview: `task_closeout.py --mode preview` -> `status: ready`；保留 `task.md`、`execution-log.md`、`verification-report.md`，计划删除修正用 `bug-regression-evidence.md` 和 `output/playwright/20260807-production-leader-process-loss-reasons-random-fix/`，blocked 为 `none`；首次临时目录已不存在，仅产生预期 warning。
+- Correction closeout apply: `task_closeout.py --mode apply` -> `status: applied`；修正用证据草稿和 Playwright 临时目录已删除，三个核心任务记录均保留；Playwright 会话 `lossreasonfix0807` 已关闭。
