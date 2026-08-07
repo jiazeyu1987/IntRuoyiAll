@@ -363,14 +363,13 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void shouldRejectWhenEffectiveScheduleMissing() {
+    void shouldRejectWhenScheduleAndProductRouteAreMissing() {
         stubConfirmedWorkOrder();
         stubEffectiveSchedules();
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_EFFECTIVE_SCHEDULE_UNIQUE_REQUIRED.getCode(),
-                ex.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED.getCode(), ex.getCode());
         verifyNoActiveOrderWrites();
     }
 

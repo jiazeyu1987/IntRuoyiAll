@@ -431,8 +431,16 @@ assert.match(
 )
 assert.match(
   source,
-  /key:\s*'productionLeaderWorkbench'[\s\S]*targetPath:\s*'\/mes\/pro\/process-pool\/production-leader'[\s\S]*selectorGroups:\s*\[[\s\S]*tabText:\s*'报工管理'[\s\S]*data-team-leader-report-workbench[\s\S]*tabText:\s*'看板'[\s\S]*data-role-matrix-daily-close[\s\S]*tabText:\s*'活跃订单池'[\s\S]*data-team-leader-active-order-config[\s\S]*tabText:\s*'班组配置'[\s\S]*data-team-leader-config-center/,
-  'Production leader real-flow phase must verify report, dashboard, active-order, and config surfaces through their formal module tabs.'
+  /key:\s*'productionLeaderWorkbench'[\s\S]*targetPath:\s*'\/mes\/pro\/process-pool\/production-leader'[\s\S]*selectorGroups:\s*\[[\s\S]*tabText:\s*'报工管理'[\s\S]*data-team-leader-report-workbench[\s\S]*tabText:\s*'看板'[\s\S]*data-role-matrix-daily-close[\s\S]*tabText:\s*'活跃订单池'[\s\S]*data-team-leader-active-order-config/,
+  'Production leader real-flow phase must verify the retained report, dashboard, and active-order module tabs.'
+)
+const productionLeaderPhase = source.match(
+  /key:\s*'productionLeaderWorkbench'[\s\S]*?(?=key:\s*'pqcLeaderWorkbench')/
+)?.[0] || ''
+assert.doesNotMatch(
+  productionLeaderPhase,
+  /tabText:\s*'班组配置'|data-team-leader-config-center/,
+  'Production leader real-flow verification must not target the removed team configuration tab.'
 )
 assert.match(
   source,

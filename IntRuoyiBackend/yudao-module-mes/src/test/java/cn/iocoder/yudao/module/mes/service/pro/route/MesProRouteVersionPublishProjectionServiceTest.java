@@ -158,6 +158,54 @@ class MesProRouteVersionPublishProjectionServiceTest {
     }
 
     @Test
+    void projectCandidate_shouldPreserveFrozenRouteProcessWorkstationBinding() {
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(2402L)
+                .routeId(9401L)
+                .versionNo("V2")
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 9401,
+                          "routeCode": "RT-9401-V2",
+                          "routeName": "正式工作站绑定路线",
+                          "status": 0,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "graphVersion": 12,
+                              "nodes": [
+                                {
+                                  "routeProcessId": 928609,
+                                  "processId": 922985,
+                                  "workstationId": 980010,
+                                  "sort": 1,
+                                  "keyFlag": false,
+                                  "checkFlag": false
+                                }
+                              ],
+                              "edges": []
+                            },
+                            "products": [],
+                            "scheduleConfigs": [],
+                            "scheduleUseConfigs": [],
+                            "batchUseConfigs": []
+                          }
+                        }
+                        """)
+                .build();
+
+        service.projectCandidate(candidate);
+
+        ArgumentCaptor<MesProRouteProcessDO> processCaptor =
+                ArgumentCaptor.forClass(MesProRouteProcessDO.class);
+        verify(routeProcessMapper).insert(processCaptor.capture());
+        assertEquals(9401L, processCaptor.getValue().getRouteId());
+        assertEquals(922985L, processCaptor.getValue().getProcessId());
+        assertEquals(980010L, processCaptor.getValue().getWorkstationId());
+    }
+
+    @Test
     void projectCandidate_shouldProjectRouteProcessesFlowProductsAndBatchUseConfig() {
         MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
                 .id(2002L)

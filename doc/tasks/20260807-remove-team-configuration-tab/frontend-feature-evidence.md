@@ -13,9 +13,10 @@
 
 ## UI Entry Points And Owned Files
 
-- Entry point: to be confirmed during repository inspection.
-- Route: to be confirmed during repository inspection.
-- Components and tests: to be confirmed during repository inspection.
+- Entry point: `src/views/mes/pro/processpool/ProductionLeaderWorkbenchPage.vue`.
+- Route: `/mes/pro/process-pool/production-leader`.
+- Component: `src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue`.
+- Tests: production module-tab static contracts and the production-leader role-matrix flow definition.
 
 ## API Contracts And Data States
 
@@ -29,7 +30,7 @@
 
 ## RED
 
-- Pending focused static contract command and expected failure.
+- `node tests/e2e/production-leader-function-tabs-static.spec.js` -> FAIL because the repeated module tabs still expose the team configuration pane and `config` remains selectable.
 
 ## GREEN
 

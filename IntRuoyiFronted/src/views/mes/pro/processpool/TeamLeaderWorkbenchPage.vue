@@ -42,7 +42,6 @@
       <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
       <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
       <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
-      <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
     </el-tabs>
     <div
       v-if="showProductionModuleTabs"
@@ -478,7 +477,6 @@
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
         <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
-        <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
       <div
         v-if="showProductionModuleTabs"
@@ -1133,7 +1131,6 @@
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
         <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
-        <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
       <div
         v-if="showProductionModuleTabs"
@@ -1383,7 +1380,6 @@
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
         <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
-        <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
       <div
         v-if="showProductionModuleTabs"
@@ -1491,7 +1487,6 @@
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
         <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
-        <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
       <div
         v-if="showProductionModuleTabs"
@@ -1597,7 +1592,6 @@
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
         <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
-        <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
       </el-tabs>
       <div
         v-if="showProductionModuleTabs"
@@ -1843,47 +1837,8 @@
     </ContentWrap>
     <ContentWrap
       v-if="showProductionConfigModule"
-      :class="{ 'team-leader-workbench__production-module-card': showProductionModuleTabs }"
       data-team-leader-config-center
     >
-      <el-tabs
-        v-if="showProductionModuleTabs"
-        v-model="activeProductionModuleTab"
-        class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
-        data-production-leader-module-tabs
-      >
-        <el-tab-pane label="人员管理" name="personnel" data-production-leader-module-tab-personnel />
-        <el-tab-pane label="报工管理" name="report" data-production-leader-module-tab-report />
-        <el-tab-pane label="报工历史" name="reportHistory" data-production-leader-module-tab-report-history />
-        <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
-        <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
-        <el-tab-pane label="异常" name="exception" data-production-leader-module-tab-exception />
-        <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
-        <el-tab-pane label="班组配置" name="config" data-production-leader-module-tab-config />
-      </el-tabs>
-      <div
-        v-if="showProductionModuleTabs"
-        class="team-leader-workbench__responsible-routes"
-        data-production-leader-responsible-routes
-        aria-label="生产组长负责的工艺路线"
-      >
-        <span class="team-leader-workbench__responsible-routes-label">负责工艺路线</span>
-        <template v-if="productionResponsibleRouteNames.length">
-          <el-tag
-            v-for="routeName in productionResponsibleRouteNames"
-            :key="routeName"
-            class="team-leader-workbench__responsible-route-tag"
-            type="success"
-            effect="plain"
-            :title="routeName"
-          >
-            {{ routeName }}
-          </el-tag>
-        </template>
-        <span v-else class="team-leader-workbench__responsible-routes-empty">
-          {{ processConfigLoading ? '工艺路线加载中' : '暂无负责工艺路线' }}
-        </span>
-      </div>
       <div class="team-leader-workbench__section-head">
         <div>
           <div class="team-leader-workbench__section-title">班组配置中心</div>
@@ -2601,7 +2556,7 @@ const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
 const activePqcModuleTab = ref<'personnel' | 'management' | 'dashboard' | 'detail' | 'history'>('personnel')
 const activeProductionModuleTab = ref<
-  'personnel' | 'report' | 'reportHistory' | 'activeOrder' | 'dashboard' | 'exception' | 'processConfig' | 'config'
+  'personnel' | 'report' | 'reportHistory' | 'activeOrder' | 'dashboard' | 'exception' | 'processConfig'
 >('personnel')
 
 const DEFAULT_SUBMISSION_DATE_CONDITION_ID = 'submitDate'
@@ -2870,7 +2825,7 @@ const showProductionProcessConfigModule = computed(
   () => isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'processConfig')
 )
 const showProductionConfigModule = computed(
-  () => isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'config')
+  () => isProductionLeader.value && !showProductionModuleTabs.value
 )
 const showPqcPersonnelModule = computed(
   () =>

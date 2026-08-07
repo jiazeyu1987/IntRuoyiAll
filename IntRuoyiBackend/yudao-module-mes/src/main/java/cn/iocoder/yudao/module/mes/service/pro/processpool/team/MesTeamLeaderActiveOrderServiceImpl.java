@@ -24,9 +24,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
-import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONArray;
-import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -152,6 +152,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 : scheduleOrderProcessMapper.selectListByScheduleOrderIds(scheduleOrderIds).stream()
                 .filter(process -> process.getScheduleOrderId() != null)
                 .collect(Collectors.groupingBy(MesProScheduleOrderProcessDO::getScheduleOrderId));
+        Map<Long, RouteSourceResolution> unscheduledRouteResolutions =
+                buildUnscheduledRouteResolutions(workOrders, schedulesByWorkOrderId);
         List<Long> productIds = Stream.concat(
                         workOrders.stream().map(MesProWorkOrderDO::getProductId),
                         scheduleOrders.stream().map(MesProScheduleOrderDO::getProductId))
@@ -188,11 +190,200 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .filter(item -> item.getRegulationVersionId() != null)
                 .collect(Collectors.groupingBy(MesQaInspectionRegulationItemDO::getRegulationVersionId));
         return new CandidateEligibilityContext(schedulesByWorkOrderId, processesByScheduleOrderId,
+                unscheduledRouteResolutions,
                 regulationsByKey, versionsById, itemsByVersionId);
+    }
+
+    private Map<Long, RouteSourceResolution> buildUnscheduledRouteResolutions(
+            List<MesProWorkOrderDO> workOrders,
+            Map<Long, List<MesProScheduleOrderDO>> schedulesByWorkOrderId) {
+        List<MesProWorkOrderDO> unscheduledWorkOrders = workOrders.stream()
+                .filter(workOrder -> workOrder.getId() != null)
+                .filter(workOrder -> schedulesByWorkOrderId
+                        .getOrDefault(workOrder.getId(), Collections.emptyList()).isEmpty())
+                .toList();
+        if (unscheduledWorkOrders.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<Long> productIds = unscheduledWorkOrders.stream()
+                .map(MesProWorkOrderDO::getProductId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, List<MesProRouteProductDO>> routeProductsByProductId = productIds.isEmpty()
+                ? Collections.emptyMap()
+                : routeProductMapper.selectListByItemIds(productIds).stream()
+                .filter(binding -> binding.getItemId() != null)
+                .collect(Collectors.groupingBy(MesProRouteProductDO::getItemId));
+        List<Long> routeIds = routeProductsByProductId.values().stream()
+                .flatMap(Collection::stream)
+                .map(MesProRouteProductDO::getRouteId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, List<MesProRouteVersionDO>> activeVersionsByRouteId = routeIds.isEmpty()
+                ? Collections.emptyMap()
+                : routeVersionMapper.selectListByRouteIds(routeIds).stream()
+                .filter(version -> version.getRouteId() != null)
+                .filter(version -> Boolean.TRUE.equals(version.getActive()))
+                .filter(version -> Objects.equals(MesProRouteVersionMapper.STATUS_ACTIVE,
+                        version.getLifecycleStatus()))
+                .collect(Collectors.groupingBy(MesProRouteVersionDO::getRouteId));
+        return unscheduledWorkOrders.stream().collect(Collectors.toMap(
+                MesProWorkOrderDO::getId,
+                workOrder -> resolveUnscheduledRouteSource(workOrder, routeProductsByProductId,
+                        activeVersionsByRouteId),
+                (left, right) -> left,
+                LinkedHashMap::new));
+    }
+
+    private RouteSourceResolution resolveUnscheduledRouteSource(
+            MesProWorkOrderDO workOrder,
+            Map<Long, List<MesProRouteProductDO>> routeProductsByProductId,
+            Map<Long, List<MesProRouteVersionDO>> activeVersionsByRouteId) {
+        if (workOrder.getProductId() == null) {
+            return routeSourceFailure("缺少产品ID", RouteSourceFailureType.ROUTE);
+        }
+        List<MesProRouteProductDO> routeProducts = routeProductsByProductId
+                .getOrDefault(workOrder.getProductId(), Collections.emptyList());
+        if (routeProducts.isEmpty()) {
+            return routeSourceFailure("缺少产品正式工艺路线绑定", RouteSourceFailureType.ROUTE);
+        }
+        if (routeProducts.size() > 1) {
+            return routeSourceFailure("产品正式工艺路线绑定不唯一", RouteSourceFailureType.ROUTE);
+        }
+        Long routeId = routeProducts.get(0).getRouteId();
+        if (routeId == null) {
+            return routeSourceFailure("产品正式工艺路线绑定缺少路线ID", RouteSourceFailureType.ROUTE);
+        }
+        List<MesProRouteVersionDO> activeVersions = activeVersionsByRouteId
+                .getOrDefault(routeId, Collections.emptyList());
+        if (activeVersions.isEmpty()) {
+            return routeSourceFailure("产品工艺路线缺少当前ACTIVE版本", RouteSourceFailureType.ROUTE);
+        }
+        if (activeVersions.size() > 1) {
+            return routeSourceFailure("产品工艺路线ACTIVE版本不唯一", RouteSourceFailureType.ROUTE);
+        }
+        MesProRouteVersionDO activeVersion = activeVersions.get(0);
+        if (activeVersion.getId() == null || !Objects.equals(routeId, activeVersion.getRouteId())) {
+            return routeSourceFailure("产品工艺路线ACTIVE版本身份无效", RouteSourceFailureType.ROUTE);
+        }
+        return parseUnscheduledRouteSnapshot(workOrder, routeId, activeVersion);
+    }
+
+    private RouteSourceResolution parseUnscheduledRouteSnapshot(MesProWorkOrderDO workOrder, Long routeId,
+                                                                 MesProRouteVersionDO activeVersion) {
+        JSONObject snapshot;
+        try {
+            snapshot = JSON.parseObject(activeVersion.getRouteSnapshotJson());
+        } catch (RuntimeException ex) {
+            return routeSourceFailure("产品工艺路线ACTIVE版本快照格式无效", RouteSourceFailureType.PROCESS);
+        }
+        if (snapshot == null || !(snapshot.get("configSnapshots") instanceof JSONObject configSnapshots)) {
+            return routeSourceFailure("产品工艺路线ACTIVE版本快照缺少配置快照", RouteSourceFailureType.PROCESS);
+        }
+        if (!(configSnapshots.get("flowGraph") instanceof JSONObject flowGraph)
+                || !(flowGraph.get("nodes") instanceof JSONArray nodeArray)
+                || nodeArray.isEmpty()) {
+            return routeSourceFailure("产品工艺路线ACTIVE版本快照缺少流程工序", RouteSourceFailureType.PROCESS);
+        }
+        if (!(configSnapshots.get("scheduleUseConfigs") instanceof JSONArray scheduleUseConfigs)
+                || scheduleUseConfigs.isEmpty()) {
+            return routeSourceFailure("产品工艺路线ACTIVE版本快照缺少排产用途工序配置",
+                    RouteSourceFailureType.PROCESS);
+        }
+        Map<Long, JSONObject> nodesByRouteProcessId = new LinkedHashMap<>();
+        List<JSONObject> orderedNodes = new ArrayList<>();
+        for (Object value : nodeArray) {
+            if (!(value instanceof JSONObject node)) {
+                return routeSourceFailure("产品工艺路线ACTIVE版本流程工序格式无效",
+                        RouteSourceFailureType.PROCESS);
+            }
+            Long routeProcessId = node.getLong("routeProcessId");
+            Long processId = node.getLong("processId");
+            Integer sort = node.getInteger("sort");
+            if (routeProcessId == null || processId == null || sort == null) {
+                return routeSourceFailure("产品工艺路线ACTIVE版本流程工序身份不完整",
+                        RouteSourceFailureType.PROCESS);
+            }
+            if (nodesByRouteProcessId.put(routeProcessId, node) != null) {
+                return routeSourceFailure("产品工艺路线ACTIVE版本流程工序重复",
+                        RouteSourceFailureType.PROCESS);
+            }
+            orderedNodes.add(node);
+        }
+        Map<Long, JSONObject> configByRouteProcessId = new LinkedHashMap<>();
+        for (Object value : scheduleUseConfigs) {
+            if (!(value instanceof JSONObject config)) {
+                return routeSourceFailure("产品工艺路线ACTIVE版本排产用途工序配置格式无效",
+                        RouteSourceFailureType.PROCESS);
+            }
+            Long configRouteId = config.getLong("routeId");
+            Long routeProcessId = config.getLong("routeProcessId");
+            String useType = config.getString("useType");
+            Boolean enabled = config.getBoolean("enabled");
+            if (!Objects.equals(routeId, configRouteId) || routeProcessId == null
+                    || !Objects.equals("SCHEDULE", useType) || enabled == null) {
+                return routeSourceFailure("产品工艺路线ACTIVE版本排产用途工序配置身份不完整",
+                        RouteSourceFailureType.PROCESS);
+            }
+            if (configByRouteProcessId.put(routeProcessId, config) != null) {
+                return routeSourceFailure("产品工艺路线ACTIVE版本排产用途工序配置重复",
+                        RouteSourceFailureType.PROCESS);
+            }
+            if (!nodesByRouteProcessId.containsKey(routeProcessId)) {
+                return routeSourceFailure("产品工艺路线ACTIVE版本排产用途工序未匹配流程工序",
+                        RouteSourceFailureType.PROCESS);
+            }
+        }
+        if (!configByRouteProcessId.keySet().equals(nodesByRouteProcessId.keySet())) {
+            return routeSourceFailure("产品工艺路线ACTIVE版本流程工序缺少排产用途配置",
+                    RouteSourceFailureType.PROCESS);
+        }
+        if (workOrder.getPlannedStartTime() == null) {
+            return routeSourceFailure("ERP计划开工时间缺失", RouteSourceFailureType.BUSINESS_DATE);
+        }
+        orderedNodes.sort(Comparator.comparing(node -> node.getInteger("sort")));
+        List<MesProScheduleOrderProcessDO> enabledProcesses = new ArrayList<>();
+        for (JSONObject node : orderedNodes) {
+            Long routeProcessId = node.getLong("routeProcessId");
+            JSONObject config = configByRouteProcessId.get(routeProcessId);
+            if (!Boolean.TRUE.equals(config.getBoolean("enabled"))) {
+                continue;
+            }
+            BigDecimal factor = config.getBigDecimal("productionQuantityFactor");
+            if (!positive(factor)) {
+                return routeSourceFailure("产品工艺路线ACTIVE版本工序数量系数无效",
+                        RouteSourceFailureType.PROCESS);
+            }
+            BigDecimal normalizedFactor = factor.setScale(6, RoundingMode.HALF_UP);
+            BigDecimal plannedQuantity = workOrder.getQuantity().multiply(normalizedFactor)
+                    .setScale(6, RoundingMode.HALF_UP);
+            enabledProcesses.add(MesProScheduleOrderProcessDO.builder()
+                    .routeProcessId(routeProcessId)
+                    .routeVersionId(activeVersion.getId())
+                    .processId(node.getLong("processId"))
+                    .sort(node.getInteger("sort"))
+                    .enabled(Boolean.TRUE)
+                    .productionQuantityFactor(normalizedFactor)
+                    .plannedQuantity(plannedQuantity)
+                    .planDate(workOrder.getPlannedStartTime().toLocalDate())
+                    .build());
+        }
+        if (enabledProcesses.isEmpty()) {
+            return routeSourceFailure("产品工艺路线ACTIVE版本没有启用工序", RouteSourceFailureType.PROCESS);
+        }
+        return new RouteSourceResolution(new ActiveOrderRouteSource(routeId, activeVersion.getId(),
+                workOrder.getProductId(), enabledProcesses, null), null, null);
+    }
+
+    private static RouteSourceResolution routeSourceFailure(String reason, RouteSourceFailureType failureType) {
+        return new RouteSourceResolution(null, reason, failureType);
     }
 
     private static CandidateEligibilityContext emptyCandidateEligibilityContext() {
         return new CandidateEligibilityContext(Collections.emptyMap(), Collections.emptyMap(),
+                Collections.emptyMap(),
                 Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
     }
 
@@ -221,40 +412,56 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (erpFixedQuantity == null || erpFixedQuantity.compareTo(BigDecimal.ZERO) <= 0) {
             return blockedCandidate("ERP生产数量无效");
         }
+        RouteSourceResolution resolution = resolveCandidateRouteSource(workOrder, context);
+        if (resolution.source() == null) {
+            return blockedCandidate(resolution.ineligibleReason());
+        }
+        ActiveOrderRouteSource source = resolution.source();
+        for (MesProScheduleOrderProcessDO process : source.enabledProcesses()) {
+            String snapshotReason = validateCandidateProcessSnapshot(process, erpFixedQuantity);
+            if (snapshotReason != null) {
+                return blockedCandidate(snapshotReason);
+            }
+        }
+        for (MesProScheduleOrderProcessDO process : source.enabledProcesses()) {
+            String pqcReason = validateCandidatePqcPrerequisites(source.routeId(), source.routeVersionId(),
+                    process, source.productId(), context);
+            if (pqcReason != null) {
+                return blockedCandidate(pqcReason);
+            }
+        }
+        return new CandidateEligibility(true, null);
+    }
+
+    private RouteSourceResolution resolveCandidateRouteSource(MesProWorkOrderDO workOrder,
+                                                              CandidateEligibilityContext context) {
         List<MesProScheduleOrderDO> scheduleOrders = context.schedulesByWorkOrderId()
                 .getOrDefault(workOrder.getId(), Collections.emptyList());
-        if (scheduleOrders.size() != 1) {
-            return blockedCandidate("缺少唯一有效排产工单");
+        if (scheduleOrders.size() > 1) {
+            return routeSourceFailure("有效排产工单不唯一", RouteSourceFailureType.SCHEDULE_CONFLICT);
+        }
+        if (scheduleOrders.isEmpty()) {
+            return context.unscheduledRouteResolutions().getOrDefault(workOrder.getId(),
+                    routeSourceFailure("缺少产品正式工艺路线绑定", RouteSourceFailureType.ROUTE));
         }
         MesProScheduleOrderDO scheduleOrder = scheduleOrders.get(0);
         if (scheduleOrder.getId() == null || scheduleOrder.getRouteId() == null
                 || scheduleOrder.getRouteVersionId() == null) {
-            return blockedCandidate("有效排产缺少正式路线/路线版本");
+            return routeSourceFailure("有效排产缺少正式路线/路线版本", RouteSourceFailureType.ROUTE);
         }
         List<MesProScheduleOrderProcessDO> enabledProcesses = context.processesByScheduleOrderId()
                 .getOrDefault(scheduleOrder.getId(), Collections.emptyList()).stream()
                 .filter(process -> Boolean.TRUE.equals(process.getEnabled()))
                 .toList();
         if (enabledProcesses.isEmpty()) {
-            return blockedCandidate("缺少启用排产工序");
-        }
-        for (MesProScheduleOrderProcessDO process : enabledProcesses) {
-            String snapshotReason = validateCandidateProcessSnapshot(process, erpFixedQuantity);
-            if (snapshotReason != null) {
-                return blockedCandidate(snapshotReason);
-            }
+            return routeSourceFailure("缺少启用排产工序", RouteSourceFailureType.PROCESS);
         }
         CandidateProduct product = resolveCandidateProduct(workOrder, scheduleOrder);
         if (product.ineligibleReason() != null) {
-            return blockedCandidate(product.ineligibleReason());
+            return routeSourceFailure(product.ineligibleReason(), RouteSourceFailureType.ROUTE);
         }
-        for (MesProScheduleOrderProcessDO process : enabledProcesses) {
-            String pqcReason = validateCandidatePqcPrerequisites(scheduleOrder, process, product.productId(), context);
-            if (pqcReason != null) {
-                return blockedCandidate(pqcReason);
-            }
-        }
-        return new CandidateEligibility(true, null);
+        return new RouteSourceResolution(new ActiveOrderRouteSource(scheduleOrder.getRouteId(),
+                scheduleOrder.getRouteVersionId(), product.productId(), enabledProcesses, scheduleOrder), null, null);
     }
 
     private String validateCandidateProcessSnapshot(MesProScheduleOrderProcessDO process,
@@ -292,12 +499,13 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return new CandidateProduct(productId, null);
     }
 
-    private String validateCandidatePqcPrerequisites(MesProScheduleOrderDO scheduleOrder,
+    private String validateCandidatePqcPrerequisites(Long routeId,
+                                                     Long routeVersionId,
                                                      MesProScheduleOrderProcessDO process,
                                                      Long productId,
                                                      CandidateEligibilityContext context) {
-        CandidateRegulationKey key = new CandidateRegulationKey(productId, scheduleOrder.getRouteId(),
-                scheduleOrder.getRouteVersionId(), process.getRouteProcessId(), process.getProcessId());
+        CandidateRegulationKey key = new CandidateRegulationKey(productId, routeId,
+                routeVersionId, process.getRouteProcessId(), process.getProcessId());
         List<MesQaInspectionRegulationDO> regulations = context.regulationsByKey()
                 .getOrDefault(key, Collections.emptyList());
         if (regulations.isEmpty()) {
@@ -419,12 +627,12 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
         MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderConfirmed(reqBO.getWorkOrderId());
         BigDecimal erpFixedQuantity = workOrder.getQuantity();
-        if (erpFixedQuantity == null) {
+        if (!positive(erpFixedQuantity)) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder.erpFixedQuantitySnapshot");
         }
-        MesProScheduleOrderDO scheduleOrder = requireUniqueEffectiveScheduleOrder(reqBO.getWorkOrderId());
-        Long routeId = scheduleOrder.getRouteId();
-        Long routeVersionId = scheduleOrder.getRouteVersionId();
+        ActiveOrderRouteSource routeSource = requireActiveOrderRouteSourceForAdd(workOrder);
+        Long routeId = routeSource.routeId();
+        Long routeVersionId = routeSource.routeVersionId();
         MesProcessPoolActiveOrderDO existing = selectExistingActiveOrder(reqBO.getWorkOrderId(), routeId,
                 routeVersionId);
         if (existing != null) {
@@ -461,10 +669,14 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             }
             throw ex;
         }
-        List<MesProScheduleOrderProcessDO> enabledProcesses = selectEnabledScheduleProcesses(scheduleOrder,
-                activeOrder.getId());
+        List<MesProScheduleOrderProcessDO> enabledProcesses = routeSource.scheduleOrder() == null
+                ? routeSource.enabledProcesses()
+                : selectEnabledScheduleProcesses(routeSource.scheduleOrder(), activeOrder.getId());
         insertProcessSnapshots(activeOrder, erpFixedQuantity, enabledProcesses);
-        insertPqcInspectionTasks(activeOrder, workOrder, scheduleOrder, enabledProcesses);
+        Long productId = routeSource.scheduleOrder() == null
+                ? routeSource.productId()
+                : requireProductId(workOrder, routeSource.scheduleOrder(), activeOrder.getId());
+        insertPqcInspectionTasks(activeOrder, productId, enabledProcesses);
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "ADD_ACTIVE_ORDER",
                 "ACTIVE_ORDER", activeOrder.getId(), null, activeOrder.toString());
         return activeOrder.getId();
@@ -544,18 +756,43 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return activeOrderMapper.selectActiveListByLeader(leaderUserId);
     }
 
-    private MesProScheduleOrderDO requireUniqueEffectiveScheduleOrder(Long workOrderId) {
+    private ActiveOrderRouteSource requireActiveOrderRouteSourceForAdd(MesProWorkOrderDO workOrder) {
         List<MesProScheduleOrderDO> scheduleOrders = scheduleOrderMapper
-                .selectEffectiveListByWorkOrderIds(List.of(workOrderId));
-        if (scheduleOrders.size() != 1) {
-            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_EFFECTIVE_SCHEDULE_UNIQUE_REQUIRED, workOrderId);
+                .selectEffectiveListByWorkOrderIds(List.of(workOrder.getId()));
+        if (scheduleOrders.size() > 1) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_EFFECTIVE_SCHEDULE_UNIQUE_REQUIRED, workOrder.getId());
+        }
+        if (scheduleOrders.isEmpty()) {
+            RouteSourceResolution resolution = buildUnscheduledRouteResolutions(
+                    List.of(workOrder), Collections.emptyMap()).get(workOrder.getId());
+            if (resolution == null || resolution.source() == null) {
+                throwRouteSourceResolutionFailure(workOrder.getId(), resolution);
+            }
+            return resolution.source();
         }
         MesProScheduleOrderDO scheduleOrder = scheduleOrders.get(0);
         if (scheduleOrder.getId() == null || scheduleOrder.getRouteId() == null
                 || scheduleOrder.getRouteVersionId() == null) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED, workOrder.getId());
+        }
+        Long productId = scheduleOrder.getProductId() != null
+                ? scheduleOrder.getProductId() : workOrder.getProductId();
+        return new ActiveOrderRouteSource(scheduleOrder.getRouteId(), scheduleOrder.getRouteVersionId(),
+                productId, Collections.emptyList(), scheduleOrder);
+    }
+
+    private void throwRouteSourceResolutionFailure(Long workOrderId, RouteSourceResolution resolution) {
+        if (resolution == null || resolution.failureType() == RouteSourceFailureType.ROUTE) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED, workOrderId);
         }
-        return scheduleOrder;
+        if (resolution.failureType() == RouteSourceFailureType.PROCESS) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, workOrderId);
+        }
+        if (resolution.failureType() == RouteSourceFailureType.SCHEDULE_CONFLICT) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_EFFECTIVE_SCHEDULE_UNIQUE_REQUIRED, workOrderId);
+        }
+        throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                resolution.ineligibleReason() + "，workOrderId=" + workOrderId);
     }
 
     private List<MesProScheduleOrderProcessDO> selectEnabledScheduleProcesses(MesProScheduleOrderDO scheduleOrder,
@@ -580,10 +817,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
     }
 
-    private void insertPqcInspectionTasks(MesProcessPoolActiveOrderDO activeOrder, MesProWorkOrderDO workOrder,
-                                          MesProScheduleOrderDO scheduleOrder,
+    private void insertPqcInspectionTasks(MesProcessPoolActiveOrderDO activeOrder, Long productId,
                                           List<MesProScheduleOrderProcessDO> enabledProcesses) {
-        Long productId = requireProductId(workOrder, scheduleOrder, activeOrder.getId());
         List<MesPqcInspectionTaskDO> tasks = new ArrayList<>();
         for (MesProScheduleOrderProcessDO process : enabledProcesses) {
             MesQaInspectionRegulationDO regulation = requirePublishedRegulation(activeOrder, process, productId);
@@ -883,6 +1118,22 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private record CandidateProduct(Long productId, String ineligibleReason) {
     }
 
+    private record ActiveOrderRouteSource(Long routeId, Long routeVersionId, Long productId,
+                                          List<MesProScheduleOrderProcessDO> enabledProcesses,
+                                          MesProScheduleOrderDO scheduleOrder) {
+    }
+
+    private record RouteSourceResolution(ActiveOrderRouteSource source, String ineligibleReason,
+                                         RouteSourceFailureType failureType) {
+    }
+
+    private enum RouteSourceFailureType {
+        SCHEDULE_CONFLICT,
+        ROUTE,
+        PROCESS,
+        BUSINESS_DATE
+    }
+
     private record CandidateRegulationKey(Long productId, Long routeId, Long routeVersionId, Long routeProcessId,
                                           Long processId) {
     }
@@ -890,6 +1141,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private record CandidateEligibilityContext(
             Map<Long, List<MesProScheduleOrderDO>> schedulesByWorkOrderId,
             Map<Long, List<MesProScheduleOrderProcessDO>> processesByScheduleOrderId,
+            Map<Long, RouteSourceResolution> unscheduledRouteResolutions,
             Map<CandidateRegulationKey, List<MesQaInspectionRegulationDO>> regulationsByKey,
             Map<Long, MesQaInspectionRegulationVersionDO> versionsById,
             Map<Long, List<MesQaInspectionRegulationItemDO>> itemsByVersionId) {

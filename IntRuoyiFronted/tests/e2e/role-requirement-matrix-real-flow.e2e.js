@@ -197,10 +197,6 @@ const M6_REAL_FLOW_PHASES = [
       {
         tabText: '活跃订单池',
         selectors: ['[data-team-leader-active-order-config]']
-      },
-      {
-        tabText: '班组配置',
-        selectors: ['[data-team-leader-config-center]']
       }
     ],
     actionKey: 'joinActiveOrder',

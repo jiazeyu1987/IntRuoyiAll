@@ -22,16 +22,26 @@ assert.doesNotMatch(
 
 assert.match(
   teamLeaderWorkbench,
-  /data-production-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="报工管理"\s+name="report"[\s\S]*<el-tab-pane\s+label="活跃订单池"\s+name="activeOrder"[\s\S]*<el-tab-pane\s+label="看板"\s+name="dashboard"[\s\S]*<el-tab-pane\s+label="异常"\s+name="exception"[\s\S]*<el-tab-pane\s+label="工序配置"\s+name="processConfig"[\s\S]*<el-tab-pane\s+label="班组配置"\s+name="config"/,
-  'Shared workbench must render production function tabs for personnel, report, active orders, dashboard, exception, process config, and configuration modules.'
+  /data-production-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="报工管理"\s+name="report"[\s\S]*<el-tab-pane\s+label="活跃订单池"\s+name="activeOrder"[\s\S]*<el-tab-pane\s+label="看板"\s+name="dashboard"[\s\S]*<el-tab-pane\s+label="异常"\s+name="exception"[\s\S]*<el-tab-pane\s+label="工序配置"\s+name="processConfig"/,
+  'Shared workbench must render the retained production function tabs.'
 )
-assert.match(
+assert.doesNotMatch(
   teamLeaderWorkbench,
-  /const\s+activeProductionModuleTab\s*=\s*ref<[\s\S]*'personnel'[\s\S]*'report'[\s\S]*'activeOrder'[\s\S]*'dashboard'[\s\S]*'exception'[\s\S]*'processConfig'[\s\S]*'config'[\s\S]*>\('personnel'\)/,
-  'Production module tabs must default to 人员管理.'
+  /<el-tab-pane\s+label="班组配置"\s+name="config"|data-production-leader-module-tab-config/,
+  'Production module tabs must not expose 班组配置.'
 )
 
-for (const moduleName of ['Personnel', 'Report', 'ActiveOrder', 'Dashboard', 'Exception', 'ProcessConfig', 'Config']) {
+const productionModuleTabState = teamLeaderWorkbench.match(
+  /const\s+activeProductionModuleTab\s*=\s*ref<[\s\S]*?>\('personnel'\)/
+)?.[0] || ''
+assert.ok(productionModuleTabState, 'Production module tabs must default to 人员管理.')
+assert.doesNotMatch(
+  productionModuleTabState,
+  /'config'/,
+  'Production module tab state must not retain the removed config key.'
+)
+
+for (const moduleName of ['Personnel', 'Report', 'ActiveOrder', 'Dashboard', 'Exception', 'ProcessConfig']) {
   assert.match(
     teamLeaderWorkbench,
     new RegExp(`const\\s+showProduction${moduleName}Module\\s*=\\s*computed\\([\\s\\S]*activeProductionModuleTab`),
@@ -129,10 +139,18 @@ assert.match(
   /const\s+confirmCreateProcessConfigData\s*=\s*\(\)\s*=>\s*{[\s\S]*openCreateLossReason\(row\)[\s\S]*openProcessConfigDeviceDialog\(row\)[\s\S]*openProcessConfigParameterDialog\(row,\s*device,\s*undefined,\s*\{\s*create:\s*true\s*\}\)/,
   '新增入口必须按类型复用损耗、设备映射、参数标准的正式保存弹窗。'
 )
+const productionConfigGate = teamLeaderWorkbench.match(
+  /const\s+showProductionConfigModule\s*=\s*computed\([\s\S]*?(?=const\s+showPqcPersonnelModule)/
+)?.[0] || ''
 assert.match(
-  teamLeaderWorkbench,
-  /<ContentWrap[\s\S]*v-if="showProductionConfigModule"[\s\S]*data-team-leader-config-center/,
-  '班组配置 tab must own the team configuration center.'
+  productionConfigGate,
+  /isProductionLeader\.value\s*&&\s*!showProductionModuleTabs\.value/,
+  'The legacy team configuration center must only remain in the non-module workbench.'
+)
+assert.doesNotMatch(
+  productionConfigGate,
+  /activeProductionModuleTab|['"]config['"]/,
+  'The removed config tab must not retain a selectable content gate.'
 )
 assert.doesNotMatch(
   teamLeaderWorkbench,

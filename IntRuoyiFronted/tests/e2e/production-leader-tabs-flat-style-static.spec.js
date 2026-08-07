@@ -24,7 +24,7 @@ const assertProductionTabs = (block, label) => {
     /class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"[\s\S]*data-production-leader-module-tabs/,
     `${label} must render production module tabs with the shared flat underline style.`
   )
-  for (const tabLabel of ['人员管理', '报工管理', '活跃订单池', '看板', '异常', '工序配置', '班组配置']) {
+  for (const tabLabel of ['人员管理', '报工管理', '活跃订单池', '看板', '异常', '工序配置']) {
     assert.match(block, new RegExp(`label="${tabLabel}"`), `${label} must keep ${tabLabel} tab visible.`)
   }
 }
@@ -116,16 +116,10 @@ assert.ok(
 )
 
 const configBlock = sliceContentWrapByMarker('data-team-leader-config-center')
-assert.match(
+assert.doesNotMatch(
   configBlock,
-  /'team-leader-workbench__production-module-card':\s*showProductionModuleTabs/,
-  '班组配置 content card must use compact production module card padding.'
-)
-assertProductionTabs(configBlock, '班组配置')
-assert.ok(
-  configBlock.indexOf('data-production-leader-module-tabs') <
-    configBlock.indexOf('team-leader-workbench__maintenance-grid'),
-  '班组配置 module tabs must appear before the configuration grid.'
+  /data-production-leader-module-tabs|team-leader-workbench__production-module-card/,
+  'The legacy team configuration center must not retain the removed production module tab surface.'
 )
 
 assert.match(

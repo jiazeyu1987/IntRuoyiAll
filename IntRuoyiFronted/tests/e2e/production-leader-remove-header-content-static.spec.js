@@ -23,8 +23,7 @@ const productionBlocks = [
   ['data-team-leader-active-order-pool-tab', '活跃订单池'],
   ['data-role-matrix-daily-close', '看板'],
   ['data-team-leader-abnormal-report', '异常'],
-  ['data-team-leader-loss-reason-tab', '损耗管理'],
-  ['data-team-leader-config-center', '班组配置']
+  ['data-team-leader-loss-reason-tab', '损耗管理']
 ]
 
 for (const [marker, label] of productionBlocks) {
@@ -40,6 +39,12 @@ for (const [marker, label] of productionBlocks) {
     `${label} must keep the production module tabs after removing the redundant header.`
   )
 }
+
+assert.doesNotMatch(
+  sliceContentWrapByMarker('data-team-leader-config-center'),
+  /data-production-leader-module-tabs/,
+  'The legacy team configuration center must not retain the removed module tab navigation.'
+)
 
 const personnelBlock = sliceContentWrapByMarker('data-team-leader-production-personnel-tab')
 assert.doesNotMatch(
