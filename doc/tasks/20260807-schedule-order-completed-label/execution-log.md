@@ -22,6 +22,8 @@
 - M3：类型检查、任务专用静态合同、相邻合同、真实页面只读路径和证据校验均已通过。
 - 并行提交归属复扫：本任务源码、测试和初始任务记录在共享分支被另一并行任务的基线提交 `20d6fe43e` 收录，后续任务记录又被 `8e71bc24f` 收录；为避免破坏并行历史，不执行回退或重复改写，收尾提交仅纳入本任务后续记录。
 - 经验沉淀门禁：本次采用的任务专用静态合同、只读 E2E 无写请求核验和共享工作区隔离规则已分别存在于 `docs/frontend-development.md`、`docs/e2e-rules.md` 和 `docs/task-closeout-rules.md`，未产生新的可复用长期经验，不修改长期经验文档。
+- 验证记录提交：`1106d4c24 docs: record schedule order completed label verification`，仅包含本任务 4 个任务记录文件。
+- 清理预览与 apply 均无 blocker/warning；仅删除临时 `frontend-feature-evidence.md`，保留 `task.md`、`execution-log.md` 和 `verification-report.md`。
 
 ## Verification Evidence
 

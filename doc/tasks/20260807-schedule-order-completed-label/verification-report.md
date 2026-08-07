@@ -24,3 +24,8 @@
 ## 已知非本任务缺口
 
 - 既有 `mes-pro-schedule-order-manual-finish-static.spec.js` 仍要求已被基线源码移除的 `completionFilter: 'INCOMPLETE'`。该失败在本任务修改前已存在，且与来源工单号展示无关，本任务未扩大范围修改筛选行为。
+
+## 收尾
+
+- `task-closeout-cleanup` preview/apply：PASS；删除临时前端交付证据，保留三份核心任务记录。
+- 任务状态：`completed`。
