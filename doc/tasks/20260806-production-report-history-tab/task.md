@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
@@ -38,4 +38,5 @@ ready_for_closeout
 ## Closeout Notes
 
 - 实现与目标验证已完成。
-- 当前仓库存在并行任务改动、未推送提交与其它任务文档变更；按脏工作区门禁，本任务未单独提交/推送，等待统一 closeout。
+- 报工历史实现随共享分支提交 `b9a75208853a8163d1285e9ff6c7698e33007198` 进入 `int_main`；该提交同时是本地 `int_main` 与 `origin/int_main` 的祖先，无需重复执行 merge。
+- `task-closeout-cleanup` preview/apply 已通过，仅删除已归档结论的临时前后端 evidence 文件，保留正式代码、测试和核心任务记录。

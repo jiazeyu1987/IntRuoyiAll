@@ -37,6 +37,13 @@
 
 - 2026-08-07：已按 project-experience-consolidation 检查现有 docs/*memory*.md 与 E2E 规则；本次仅产生任务局部静态合同经验，无合适长期归宿且未获授权新建长期经验文档，因此不新增项目级经验文件。
 
+## Integration And Closeout
+
+- 2026-08-07：确认当前工作区为 `E:\IntRuoyi`、当前分支为 `int_main`，且 `git rev-list --left-right --count origin/int_main...int_main` 返回 `0 0`。
+- 2026-08-07：通过 `git log -S'reportHistory'` 定位功能进入主线的共享分支提交 `b9a75208853a8163d1285e9ff6c7698e33007198`。
+- 2026-08-07：`git merge-base --is-ancestor b9a75208853a8163d1285e9ff6c7698e33007198 int_main` 与对应 `origin/int_main` 检查均返回退出码 `0`，证明本地及远端主分支已经包含功能，无需重复 merge。
+- 2026-08-07：`task-closeout-cleanup` preview 无 blocked/warnings；apply 删除 `backend-api-evidence.md`、`frontend-feature-evidence.md`，保留 `task.md`、`execution-log.md`、`verification-report.md`。
+
 ## Blockers
 
-- 当前工作区存在无关 doc/tasks/20260806-loss-reason-auto-code-dialog/* 脏文件；按脏工作区/提交门禁，本任务未执行单独 commit/push。
+- None.
