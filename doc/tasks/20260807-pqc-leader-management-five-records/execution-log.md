@@ -35,6 +35,8 @@
 - RED: 第六轮候选证据 -> BLOCKED，工单 `980008` 的正式不可加入原因是“QA规程发布版本缺少末检适用性配置”；不修改共享 QA 主数据，已精确回滚未提交任务 `190..194`，改用 ACTIVE 测试订单 `980019`。
 - RED: 第七轮 `run-e2e.ps1` -> FAIL before production write，真实生产填写页已打开但提交按钮 60 秒内保持禁用；账号已恢复、正式事件仍为 0。下一轮采集非敏感页面运行态文本定位缺失前置。
 - RED: 第八轮运行态证据 -> FAIL before production write，页面已选正式工序“粗洗工序”但员工显示“未选择”，无后端错误；修正为通过生产页面员工卡选择正式员工 `964/刘悦悦` 并校验 switch-employee 响应。
+- RED: 第九轮 `run-e2e.ps1` -> FAIL before production write，员工选择器未渲染 `964/刘悦悦`；账号已恢复、正式事件仍为 0。下一轮通过同一真实登录会话只读核对 employee-candidates 正式响应，不直接写候选或扩权。
+- RED: 第十轮 employee-candidates -> FAIL with business code `1040760102`，员工 `964` 作为设备账号未授权路线 `922119` / 工序 `922985`。不扩大员工权限，改用正式生产组长设备账号 `1520` 登录并在页面选择实际员工 `964`。
 - GREEN: 待执行。
 - REGRESSION: 待执行。
 

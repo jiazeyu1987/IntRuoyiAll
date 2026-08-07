@@ -20,6 +20,9 @@
 - 2026-08-07：确认相邻在途任务 `20260807-frontline-pqc-latest-active-version` 会修改 PQC 路线版本链路；本任务不修改其后端服务或测试。
 - RED: `node tests\\e2e\\mes-frontline-pqc-all-active-orders-search-static.spec.cjs` -> FAIL, 一线 PQC 订单弹框缺少订单号搜索输入、正式候选过滤和确定性回车选择逻辑。
 - 2026-08-07：Playwright CLI 已按技能要求完成 npx 前置和真实登录页快照，但 Windows 会话在登录后未保持并出现 CLI 运行时断言；未将该结果记为 E2E 通过，改用项目既有 Playwright 库运行任务自有只读脚本，且脚本只从本机环境读取凭据、不输出或保存凭据。
+- E2E first run: `node doc\\tasks\\20260807-frontline-pqc-all-active-orders-search\\frontline-pqc-all-active-orders-search-real.e2e.cjs` -> FAIL, 全量候选、输入过滤和零结果均已通过，但脚本把下游工序/登录 PQC 员工完成后的弹框关闭误作为订单号搜索本身门禁，等待 90 秒超时；调整为断言回车触发目标订单正式工序请求和已选状态，并单独记录下游关闭状态。
+- E2E second run: 同一命令 -> FAIL, 登录接口完成后立刻直达动态路由时权限信息尚未完成，页面未发出活跃订单请求；按官方登录前置补充等待 `get-permission-info` 成功，不降低为 API-only。
+- E2E third run: 同一命令 -> FAIL, 订单号搜索回车已触发正式工序接口，但默认首个候选返回“当前工序缺少已发布 QA 检验规程，activeOrderId=39”；该失败属于现有正式数据/相邻路线版本任务 blocker，不由本任务吞掉。后续固定使用用户截图中的 `PQC-E2E-FS-20260804`，缺该 ACTIVE 样本或仍缺规程即阻塞，不改选其它订单。
 
 ## Milestone Status
 

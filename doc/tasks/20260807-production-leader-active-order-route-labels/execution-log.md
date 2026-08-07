@@ -13,7 +13,9 @@
 
 ## RED / GREEN Evidence
 
-- RED: pending - 新增聚焦静态合同并运行，预期因旧表头与旧接口字段而失败。
+- RED: `node tests\e2e\production-leader-active-order-route-labels-static.spec.js` -> FAIL，首个失败断言为前端活跃订单契约缺少 `routeName/routeVersionNo`，符合预期。
+- RED: `mvn -pl yudao-module-mes ... test` -> FAIL，测试编译明确找不到新读模型 `MesTeamLeaderActiveOrderRow`，符合预期。
+- RED ENV: 首次 Maven reactor 因残留 `target_corrupt_m4_20260802_1327` 触发增量 `StaleSourceScanner` 长时间扫描；停止本任务 PID `68812` 后，以 `-Dmaven.compiler.useIncrementalCompilation=false` 重跑相同测试范围并取得上述业务 RED。
 - GREEN: pending - 后端接口、前端页面、聚焦测试和真实页面验证待完成。
 
 ## Command Intent
@@ -25,7 +27,8 @@
 ## Milestone Status
 
 - M1 completed：确认入口、目标表格、现有 TypeScript VO 和后端活跃订单响应类位置。
-- M2 in_progress：准备静态合同 RED 和后端读模型测试。
+- M2 completed：前端静态合同和后端 JUnit 已锁定成功字段、缺失路线及版本错配失败行为。
+- M3 in_progress：实现正式批量读模型、接口响应字段和表格列调整。
 
 ## Blockers
 

@@ -7,7 +7,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$expectedUsers = [ordered]@{ '512' = 'huzonggang'; '659' = 'shangmengying'; '964' = 'liuyueyue' }
+$expectedUsers = [ordered]@{ '512' = 'huzonggang'; '659' = 'shangmengying'; '1520' = 'lvyujie' }
 $targetIdList = ($expectedUsers.Keys | ForEach-Object { [string]$_ }) -join ','
 $temporaryUpdater = 'CODX-PQC-20260807-CREDENTIAL'
 

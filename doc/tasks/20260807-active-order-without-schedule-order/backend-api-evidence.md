@@ -24,15 +24,15 @@
 
 ## BDD Scenarios
 
-- 无排产正式来源完整时可加入并生成快照/PQC 任务。
-- 无排产正式来源缺失时明确阻塞且零写入。
-- 单排产行为兼容，多排产继续阻塞。
+- BDD: 无排产正式来源完整时可加入并生成快照/PQC 任务。
+- BDD: 无排产正式来源缺失时明确阻塞且零写入。
+- BDD: 单排产行为兼容，多排产继续阻塞。
 
 ## RED / GREEN / Verification
 
 - RED: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，服务构造器尚未接入产品路线与 ACTIVE 版本 mapper，符合预期。
-- GREEN: pending
-- Contract/regression: pending
+- GREEN: exact-HEAD detached worktree 中聚焦编译目标测试后，`mvn -pl yudao-module-mes surefire:test "-Dtest=MesTeamLeaderActiveOrderServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false"` -> PASS。
+- Contract/regression: 服务测试 21 项、控制器测试 16 项，共 37 项，Failures/Errors/Skipped 均为 0；覆盖无排产成功、缺路线绑定、缺 ACTIVE 版本、快照不完整、ERP 计划开工时间缺失、单排产兼容和多排产冲突。
 
 ## Observability
 
@@ -40,4 +40,4 @@
 
 ## Blockers
 
-- 当前无阻塞。
+- MES 全体 `testCompile` 存在无关基线阻塞：`MesTeamEmployeeBindingServiceTest` 引用当前提交不存在的 `MesTeamEmployeeBindingService`；不影响已独立编译并执行通过的本服务与控制器聚焦测试。

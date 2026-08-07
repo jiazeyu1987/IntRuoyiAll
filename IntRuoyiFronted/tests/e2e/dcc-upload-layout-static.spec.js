@@ -51,7 +51,7 @@ const expectedSections = [
     className: 'upload-section--preflight',
     title: '提交前校验',
     labels: [],
-    texts: ['文件编号/版本 · 分类上传权限 · 审批人链路 · 受控浏览目录 · 浏览权限范围']
+    texts: ['文件编号/版本 · 文件类别 · 审批人链路 · 受控浏览目录 · 浏览权限范围']
   },
   {
     testId: 'dcc-upload-section-approval',

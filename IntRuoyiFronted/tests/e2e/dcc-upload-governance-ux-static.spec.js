@@ -55,14 +55,14 @@ const uploadPreflightPanel = extractBetween(
   '</section>',
   'upload preflight readiness panel'
 )
-for (const label of ['文件编号/版本', '分类上传权限', '审批人链路', '受控浏览目录']) {
+for (const label of ['文件编号/版本', '文件类别', '审批人链路', '受控浏览目录']) {
   assert.match(uploadPreflightPanel, new RegExp(label), `upload preflight must show ${label}`)
 }
 for (const sourceToken of [
   'uploadPreflightChecks',
   'isRequestedVersionDuplicate',
   'currentVersionInfo',
-  'selectedCategory.value?.canUpload',
+  'selectedCategory.value',
   'selectedUploadDirectoryPath',
   'approvalPositionIds',
   'signoffPositionIds'

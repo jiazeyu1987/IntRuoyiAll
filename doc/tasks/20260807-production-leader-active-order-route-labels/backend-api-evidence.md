@@ -34,7 +34,8 @@
 
 ## RED Command And Expected Failure
 
-- RED: pending - 聚焦静态合同和 JUnit 预期因显示字段尚不存在而失败。
+- RED: 前端跨层静态合同 -> FAIL，后端 Response VO 尚无 `routeName/routeVersionNo`。
+- RED: 聚焦 Maven 测试 -> FAIL，`MesTeamLeaderActiveOrderRow` 尚不存在；证明服务层正式读模型未实现。
 
 ## GREEN Command And Passing Result
 

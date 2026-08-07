@@ -22,13 +22,19 @@
 - BASELINE: 开始本任务时发现并发任务 `doc/tasks/20260807-production-leader-process-loss-reasons-random/execution-log.md` 仍有未提交改动；将按共享分支规则单独保存，不纳入本任务实现提交。
 - CONCURRENT BASELINE: 并发任务在本任务创建文档后生成提交 `9c7507e1d`，该提交把本任务初始 `task.md`、`execution-log.md`、`backend-api-evidence.md` 与并发任务日志一并纳入；本任务未改写该提交，后续实现仍单独验证和选择性提交。
 - RED: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，预期原因：新无排产测试要求服务接入 `MesProRouteProductMapper` 和 `MesProRouteVersionMapper`，现有构造器尚无正式来源依赖。
+- CONCURRENT BASELINE: 并发基线提交 `c7aff9959` 和 `35595ee9f` 分别纳入本任务服务实现的中间状态与最终实现/初始测试；后续提交 `6b3a6b816` 纳入 3 个正式来源边界测试。本任务未重写这些共享提交，并以最终 `int_main` 提交 `fca53dda5` 创建 detached 验证 worktree。
+- BUILD ISOLATION: 主工作区同时存在其它 MES Maven 构建并共享 `target`，出现生成测试目录删除警告和大面积已存在类缺失；按 `docs/worktree-restrictions.md` 在 `D:\IntRuoyiWorktree\active-order-without-schedule-verify` 创建 detached 验证 worktree，不启动服务、不分配端口。
+- CLEAN BASELINE CHECK: detached worktree 完整反应堆主代码编译通过；MES 全体 `testCompile` 被无关基线 `MesTeamEmployeeBindingServiceTest` 引用不存在的 `MesTeamEmployeeBindingService` 阻塞，目标测试尚未执行。未修改或绕过该无关产品代码。
+- GREEN PREP: 在 detached worktree 中通过 Maven `dependency:build-classpath` 生成正式测试依赖，并用 JDK `javac` 仅编译 `MesTeamLeaderActiveOrderServiceTest.java` 与 `MesProcessPoolTeamLeaderControllerTest.java`；编译退出码为 0。
+- GREEN: `mvn -pl yudao-module-mes surefire:test "-Dtest=MesTeamLeaderActiveOrderServiceTest,MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false"` -> PASS，服务测试 21 项、控制器测试 16 项，共 37 项，Failures/Errors/Skipped 均为 0。
 
 ## 里程碑状态
 
 - M1 completed：现有新增链路完全依赖排产路线、排产工序数量系数/计划数量/计划日期；生产工单可提供 ERP 数量和 ERP 计划开工时间，ACTIVE 路线发布快照可提供正式工序与排产用途数量系数。
 - M2 completed：新增候选成功、候选缺绑定失败、新增成功和新增缺绑定失败测试；RED 在服务正式来源依赖尚未实现处失败。
-- M3 in_progress：实现候选与新增共享的产品路线绑定、ACTIVE 版本快照解析。
+- M3 completed：候选与新增共享产品唯一正式路线绑定、唯一 ACTIVE 版本及发布快照解析；无排产模式从 ERP 数量和计划开工时间生成工序快照与 PQC 任务，单排产保持原链路，多排产继续阻塞。
+- M4 in_progress：聚焦服务与控制器回归已通过；待完成 evidence validator、静态前端合同和真实页面写入型 E2E 前置/执行。
 
 ## 阻塞项
 
-- 当前无业务实现阻塞。
+- MES 全体测试源码存在与本任务无关的基线编译阻塞：`MesTeamEmployeeBindingServiceTest` 引用当前提交不存在的 `MesTeamEmployeeBindingService`。本任务已通过 exact-HEAD detached worktree 的聚焦编译与 37 项测试验证目标范围。

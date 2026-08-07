@@ -21,8 +21,14 @@ public class MesTeamLeaderActiveOrderRespVO {
     @Schema(description = "正式工艺路线编号", example = "922119")
     private Long routeId;
 
+    @Schema(description = "正式工艺路线名称", example = "按压式球囊扩充压力泵工艺路线")
+    private String routeName;
+
     @Schema(description = "正式工艺路线版本编号", example = "448")
     private Long routeVersionId;
+
+    @Schema(description = "正式工艺路线版本号", example = "V1")
+    private String routeVersionNo;
 
     @Schema(description = "ERP固定生产数量快照", example = "200")
     private BigDecimal erpFixedQuantitySnapshot;

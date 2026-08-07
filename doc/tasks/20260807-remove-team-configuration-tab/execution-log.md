@@ -59,15 +59,22 @@
 - M1：completed；已确认独立生产组长页面使用组件内部功能模块页签，班组配置内容在非模块组合工作台仍有独立使用场景。
 - M2：completed；7 组重复页签入口、`config` 状态和可选择 gate 已删除。
 - M3：completed；目标合同、相邻合同、类型检查和真实只读页面验证通过。
-- M4：completed；cleanup preview/apply 无 blocked/warnings，仅删除本任务临时 evidence、只读脚本和截图目录，保留三份正式任务记录。
+- M4：blocked；cleanup preview/apply 与本地提交已完成，但 `origin` 推送因 GitHub HTTPS 代理不可用而未完成。
 
 ## 阻塞项
 
-- 当前任务无阻塞；共享工作区仍有其它任务的 staged/untracked 改动，本任务不会修改或清理。
+- GitHub 推送阻塞：全局 Git URL 级代理为 `http://127.0.0.1:7890`，但该端口未监听；Windows 用户代理为关闭状态且保留同一陈旧端口。
+- 直连 GitHub HTTPS 的 TCP 443 探测成功，但 `git push` 返回 `Recv failure: Connection was reset`；不能把删除代理配置作为修复。
+- 本机 `clash-win64` 监听 `8902`，一次性代理 `git ls-remote origin HEAD` 两次均返回 TLS `unexpected eof while reading`，未通过推送前验证；FlClash `config.yaml` 声明 `mixed-port: 7890`，当前核心未监听该端口。
+- SSH 443 网络路径可达，但 `ssh -T -p 443 git@ssh.github.com` 返回 `Permission denied (publickey)`，不能静默切换 SSH remote。
+- 影响：本地分支仍领先 `origin`，按项目 Git 收尾规则不得标记 completed。共享工作区仍有其它任务的 staged/untracked 改动，本任务不会修改或清理。
 
 ## 收尾
 
 - `task-closeout-cleanup` preview：PASS；keep 为 `task.md`、`execution-log.md`、`verification-report.md`，delete 为临时 frontend evidence、只读 E2E 脚本和任务截图目录，blocked/warnings 均为空。
 - `task-closeout-cleanup` apply：PASS；上述临时产物均已删除且三份正式记录保留。
 - 工作区为主工作区 `int_main`，不是 linked worktree，无 worktree 合并或移除动作。
-- 最终验证结果：PASS。
+- 待推送对象扫描：PASS，共 14 个对象，无超过 100 MB 的 blob。
+- 本地收尾提交：`038850823 docs: close out team configuration tab removal`。
+- 经验索引提交：`fe2d19dac docs: index login preflight parsing gate`；提交时同文件已有并发暂存的 DCC 菜单恢复关键词行，Git 将该行一并纳入，未重写并发历史。
+- 最终功能验证结果：PASS；Git 推送结果：BLOCKED。

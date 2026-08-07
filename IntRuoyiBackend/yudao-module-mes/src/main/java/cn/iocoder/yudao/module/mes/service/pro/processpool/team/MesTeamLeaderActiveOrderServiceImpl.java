@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
@@ -15,6 +16,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectio
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
@@ -56,6 +58,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_NOT_EXISTS;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_NOT_EXISTS;
 
 @Service
 @Validated
@@ -80,6 +84,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private final MesProScheduleOrderMapper scheduleOrderMapper;
     private final MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
     private final MesProRouteProductMapper routeProductMapper;
+    private final MesProRouteMapper routeMapper;
     private final MesProRouteVersionMapper routeVersionMapper;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     private final MesQaInspectionRegulationMapper inspectionRegulationMapper;
@@ -94,6 +99,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                                MesProScheduleOrderMapper scheduleOrderMapper,
                                                MesProScheduleOrderProcessMapper scheduleOrderProcessMapper,
                                                MesProRouteProductMapper routeProductMapper,
+                                               MesProRouteMapper routeMapper,
                                                MesProRouteVersionMapper routeVersionMapper,
                                                MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper,
                                                MesQaInspectionRegulationMapper inspectionRegulationMapper,
@@ -107,6 +113,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         this.scheduleOrderMapper = scheduleOrderMapper;
         this.scheduleOrderProcessMapper = scheduleOrderProcessMapper;
         this.routeProductMapper = routeProductMapper;
+        this.routeMapper = routeMapper;
         this.routeVersionMapper = routeVersionMapper;
         this.processSnapshotMapper = processSnapshotMapper;
         this.inspectionRegulationMapper = inspectionRegulationMapper;
@@ -749,11 +756,72 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     }
 
     @Override
-    public List<MesProcessPoolActiveOrderDO> listActiveOrders(Long leaderUserId) {
+    public List<MesTeamLeaderActiveOrderRow> listActiveOrders(Long leaderUserId) {
         if (leaderUserId == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrderList");
         }
-        return activeOrderMapper.selectActiveListByLeader(leaderUserId);
+        List<MesProcessPoolActiveOrderDO> activeOrders = activeOrderMapper.selectActiveListByLeader(leaderUserId);
+        if (activeOrders.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> routeIds = activeOrders.stream()
+                .map(MesProcessPoolActiveOrderDO::getRouteId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, MesProRouteDO> routesById = routeMapper.selectBatchIds(routeIds).stream()
+                .filter(route -> route.getId() != null)
+                .collect(Collectors.toMap(MesProRouteDO::getId, Function.identity(), (left, right) -> left));
+        activeOrders.forEach(activeOrder -> requireFormalRoute(activeOrder, routesById));
+
+        List<Long> routeVersionIds = activeOrders.stream()
+                .map(MesProcessPoolActiveOrderDO::getRouteVersionId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, MesProRouteVersionDO> routeVersionsById = routeVersionMapper.selectBatchIds(routeVersionIds).stream()
+                .filter(routeVersion -> routeVersion.getId() != null)
+                .collect(Collectors.toMap(MesProRouteVersionDO::getId, Function.identity(),
+                        (left, right) -> left));
+        return activeOrders.stream()
+                .map(activeOrder -> toActiveOrderRow(activeOrder, routesById, routeVersionsById))
+                .toList();
+    }
+
+    private void requireFormalRoute(MesProcessPoolActiveOrderDO activeOrder,
+                                    Map<Long, MesProRouteDO> routesById) {
+        MesProRouteDO route = routesById.get(activeOrder.getRouteId());
+        if (route == null || route.getName() == null || route.getName().isBlank()) {
+            throw exception(PRO_ROUTE_NOT_EXISTS);
+        }
+    }
+
+    private MesTeamLeaderActiveOrderRow toActiveOrderRow(
+            MesProcessPoolActiveOrderDO activeOrder,
+            Map<Long, MesProRouteDO> routesById,
+            Map<Long, MesProRouteVersionDO> routeVersionsById) {
+        MesProRouteDO route = routesById.get(activeOrder.getRouteId());
+        MesProRouteVersionDO routeVersion = routeVersionsById.get(activeOrder.getRouteVersionId());
+        if (routeVersion == null
+                || !Objects.equals(activeOrder.getRouteId(), routeVersion.getRouteId())
+                || routeVersion.getVersionNo() == null
+                || routeVersion.getVersionNo().isBlank()) {
+            throw exception(PRO_ROUTE_VERSION_NOT_EXISTS, activeOrder.getRouteVersionId());
+        }
+        return new MesTeamLeaderActiveOrderRow()
+                .setId(activeOrder.getId())
+                .setLeaderUserId(activeOrder.getLeaderUserId())
+                .setWorkOrderId(activeOrder.getWorkOrderId())
+                .setRouteId(activeOrder.getRouteId())
+                .setRouteName(route.getName())
+                .setRouteVersionId(activeOrder.getRouteVersionId())
+                .setRouteVersionNo(routeVersion.getVersionNo())
+                .setErpFixedQuantitySnapshot(activeOrder.getErpFixedQuantitySnapshot())
+                .setActiveStatus(activeOrder.getActiveStatus())
+                .setBusinessStatus(activeOrder.getBusinessStatus())
+                .setJoinedAt(activeOrder.getJoinedAt())
+                .setRemovedAt(activeOrder.getRemovedAt())
+                .setVersion(activeOrder.getVersion());
     }
 
     private ActiveOrderRouteSource requireActiveOrderRouteSourceForAdd(MesProWorkOrderDO workOrder) {

@@ -231,7 +231,9 @@ export interface TeamLeaderActiveOrderRespVO {
   id: number
   workOrderId: number
   routeId: number
+  routeName: string
   routeVersionId: number
+  routeVersionNo: string
   erpFixedQuantitySnapshot?: number | string
   activeStatus: string
   businessStatus?: string

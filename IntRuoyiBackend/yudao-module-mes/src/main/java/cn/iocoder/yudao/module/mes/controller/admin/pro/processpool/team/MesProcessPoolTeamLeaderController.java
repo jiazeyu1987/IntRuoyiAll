@@ -62,6 +62,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamFormalUse
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCandidateBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRemoveReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRow;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderLossReasonItem;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderLossReasonRow;
@@ -746,12 +747,14 @@ public class MesProcessPoolTeamLeaderController {
                 .setAuditTime(audit.getAuditTime());
     }
 
-    private static MesTeamLeaderActiveOrderRespVO toActiveOrderRespVO(MesProcessPoolActiveOrderDO activeOrder) {
+    private static MesTeamLeaderActiveOrderRespVO toActiveOrderRespVO(MesTeamLeaderActiveOrderRow activeOrder) {
         return new MesTeamLeaderActiveOrderRespVO()
                 .setId(activeOrder.getId())
                 .setWorkOrderId(activeOrder.getWorkOrderId())
                 .setRouteId(activeOrder.getRouteId())
+                .setRouteName(activeOrder.getRouteName())
                 .setRouteVersionId(activeOrder.getRouteVersionId())
+                .setRouteVersionNo(activeOrder.getRouteVersionNo())
                 .setErpFixedQuantitySnapshot(activeOrder.getErpFixedQuantitySnapshot())
                 .setActiveStatus(activeOrder.getActiveStatus())
                 .setBusinessStatus(activeOrder.getBusinessStatus())

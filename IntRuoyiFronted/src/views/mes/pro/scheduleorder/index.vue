@@ -134,7 +134,7 @@
                 class="schedule-order-pool__inline-link"
                 @click="openWorkOrder(row)"
               >
-                {{ row.erpWorkOrderCode }}
+                {{ getScheduleOrderSourceCodeText(row) }}
               </el-button>
               <span v-else>--</span>
               <el-tooltip
@@ -3485,6 +3485,12 @@ const isScheduleOrderParticipatingInLastReplan = (row: MesProScheduleOrderVO) =>
   return Boolean(
     scheduleOrderId && getLastReplanParticipatingScheduleOrderIdSet().has(scheduleOrderId)
   )
+}
+
+const getScheduleOrderSourceCodeText = (row: MesProScheduleOrderVO) => {
+  const completedSuffix =
+    row.manualFinished || Number(row.status) === SCHEDULE_ORDER_STATUS_FINISHED ? '(已完成)' : ''
+  return `${row.erpWorkOrderCode}${completedSuffix}`
 }
 
 const getScheduleOrderProductCodeClass = (row: MesProScheduleOrderVO) => {

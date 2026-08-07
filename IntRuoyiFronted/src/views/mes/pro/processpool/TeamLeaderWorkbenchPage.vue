@@ -1195,18 +1195,11 @@
               </template>
             </el-table-column>
             <el-table-column label="生产订单ID" prop="workOrderId" min-width="130" />
-            <el-table-column label="路线ID" prop="routeId" min-width="120" />
-            <el-table-column label="路线版本ID" prop="routeVersionId" min-width="130" />
+            <el-table-column label="路线名称" prop="routeName" min-width="200" />
+            <el-table-column label="版本号" prop="routeVersionNo" min-width="100" />
             <el-table-column label="ERP生产数量" min-width="130">
               <template #default="{ row }">
                 {{ formatTraceQuantity(row.erpFixedQuantitySnapshot) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="状态" width="100">
-              <template #default="{ row }">
-                <el-tag :type="resolveActiveOrderStatusType(row.activeStatus)" effect="plain">
-                  {{ resolveActiveOrderStatusText(row.activeStatus) }}
-                </el-tag>
               </template>
             </el-table-column>
             <el-table-column label="加入时间" min-width="170">
@@ -2610,10 +2603,9 @@ const activeOrderOperatorOptions: any[] = []
 const activeOrderColumns: any[] = [
   { key: 'id', label: '活跃池ID', visible: true },
   { key: 'workOrderId', label: '生产订单ID', visible: true },
-  { key: 'routeId', label: '路线ID', visible: true },
-  { key: 'routeVersionId', label: '路线版本ID', visible: true },
+  { key: 'routeName', label: '路线名称', visible: true },
+  { key: 'routeVersionNo', label: '版本号', visible: true },
   { key: 'erpFixedQuantitySnapshot', label: 'ERP生产数量', visible: true },
-  { key: 'activeStatus', label: '状态', visible: true },
   { key: 'joinedAt', label: '加入时间', visible: true }
 ]
 const pqcPersonnelQuery = reactive({
@@ -3157,14 +3149,6 @@ const requireFiniteNumber = (value: unknown, message: string) => {
 const formatActiveOrderOption = (order: TeamLeaderActiveOrderRespVO) => {
   return `订单 ${order.workOrderId} / 活跃池 ${order.id}`
 }
-
-const resolveActiveOrderStatusText = (status?: string) => {
-  if (status === 'ACTIVE') return '活跃'
-  return status || '--'
-}
-
-const resolveActiveOrderStatusType = (status?: string) =>
-  status === 'ACTIVE' ? 'success' : 'warning'
 
 const formatTraceQuantity = (value: number | string | undefined) => {
   if (value === undefined || value === null || value === '') return '-'

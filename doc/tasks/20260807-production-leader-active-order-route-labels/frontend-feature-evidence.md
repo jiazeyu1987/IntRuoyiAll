@@ -33,7 +33,7 @@
 
 ## RED Command And Expected Failure
 
-- RED: pending - 聚焦静态合同预期因旧表头和缺少显示字段失败。
+- RED: `node tests\e2e\production-leader-active-order-route-labels-static.spec.js` -> FAIL，前端 `TeamLeaderActiveOrderRespVO` 缺少 `routeName/routeVersionNo`。
 
 ## GREEN Command And Passing Result
 

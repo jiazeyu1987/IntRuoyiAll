@@ -7,7 +7,7 @@
 ## Milestones
 
 - [x] M1：确认页面入口、共享组件边界和现有活跃订单接口字段
-- [ ] M2：以 BDD 和失败测试锁定列名、数据字段及禁止显示 ID 的契约
+- [x] M2：以 BDD 和失败测试锁定列名、数据字段及禁止显示 ID 的契约
 - [ ] M3：补齐正式接口显示字段并实现前端最小改动
 - [ ] M4：完成聚焦回归、类型/后端测试和真实页面视觉复核
 - [ ] M5：完成证据校验、经验检查与 cleanup
@@ -35,4 +35,4 @@
 
 ## Current Status
 
-in_progress - 已确认生产组长页面复用 `TeamLeaderWorkbenchPage.vue`，现有活跃订单接口仅声明路线与版本内部 ID；正在建立 RED 合同并核对正式后端读模型。
+in_progress - 前端静态合同因缺 `routeName/routeVersionNo` 按预期失败；后端聚焦测试因 `MesTeamLeaderActiveOrderRow` 尚未实现按预期编译失败。正在实现正式批量读模型和目标表格列调整。
