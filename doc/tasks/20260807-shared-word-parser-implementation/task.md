@@ -38,7 +38,7 @@
 
 ## Current Status
 
-completed：T10/T11 前置阻塞、T8 组合回归、T9 独立验证、经验沉淀和 task-closeout-cleanup apply 均已完成。共享 Word parser、BPM adapter、MES adapter、Route C、报表/Jimu/DB/controller、前端静态 API 合同、backend/database evidence validator、tracked/untracked diff check 均已通过。用户继续授权后，已提交实现 commit `b8817ffd8`；收尾记录与经验沉淀由随后 closeout commit 承载并推送当前任务分支。由于主工作区 `E:\IntRuoyi` 存在大量无关脏改动且 `int_main` 本地 ahead，未执行 `int_main` ff-only merge，也未删除 linked worktree。
+completed：T10/T11 前置阻塞、T8 组合回归、T9 独立验证、经验沉淀和 task-closeout-cleanup apply 均已完成。共享 Word parser、BPM adapter、MES adapter、Route C、报表/Jimu/DB/controller、前端静态 API 合同、backend/database evidence validator、tracked/untracked diff check 均已通过。用户继续授权后，已提交实现 commit `b8817ffd8`，closeout commit `95891ab9f`，并成功推送当前任务分支 `origin/codex/shared-word-parser-implementation`。由于主工作区 `E:\IntRuoyi` 存在大量无关脏改动且 `int_main` 本地 ahead，未执行 `int_main` ff-only merge，也未删除 linked worktree。
 
 ## Cleanup Keep
 

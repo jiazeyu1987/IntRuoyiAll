@@ -44,5 +44,5 @@
 - `backend-api-evidence.md` and `database-schema-evidence.md` validator conclusions are archived here and in `execution-log.md`.
 - Keep files for closeout: `task.md`, `execution-log.md`, `test-report.md`, and `verification-report.md`.
 - `task-closeout-cleanup --mode apply --worktree-closeout off` deleted task-local intermediate files and preserved the four closeout records.
-- User follow-up authorized continuing branch closeout. Implementation commit `b8817ffd8` was created on `codex/shared-word-parser-implementation`; this closeout documentation is prepared for the follow-up closeout commit and branch push.
+- User follow-up authorized continuing branch closeout. Implementation commit `b8817ffd8` and closeout commit `95891ab9f` were created on `codex/shared-word-parser-implementation`; `git push -u origin codex/shared-word-parser-implementation` succeeded.
 - `int_main` ff-only merge and linked worktree removal were not performed because main worktree `E:\IntRuoyi` is dirty/ahead with unrelated changes.
