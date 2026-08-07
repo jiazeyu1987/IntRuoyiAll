@@ -19,7 +19,7 @@
 ## 里程碑
 
 - [x] M1：核对现有排产解析、生产工单字段、产品路线绑定、ACTIVE 版本快照和 PQC 任务依赖。
-- [ ] M2：记录 BDD 并新增无排产场景 RED 测试。
+- [x] M2：记录 BDD 并新增无排产场景 RED 测试。
 - [ ] M3：实现无排产正式路线解析、候选资格和新增快照/PQC 链路。
 - [ ] M4：完成目标测试、相邻回归、后端证据校验和真实用户路径 E2E。
 - [ ] M5：经验沉淀、cleanup preview/apply、提交并推送。
@@ -41,11 +41,10 @@
 
 ## Current Status
 
-in_progress - 已完成正式来源核对，准备写入 BDD 和 RED 测试。
+in_progress - BDD 与 RED 已完成，正在实现无排产正式路线解析。
 
 ## Cleanup Keep
 
 - doc/tasks/20260807-active-order-without-schedule-order/task.md
 - doc/tasks/20260807-active-order-without-schedule-order/execution-log.md
 - doc/tasks/20260807-active-order-without-schedule-order/verification-report.md
-

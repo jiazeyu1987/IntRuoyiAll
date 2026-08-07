@@ -20,13 +20,15 @@
 - SOURCE: `mes_pro_work_order.quantity` 作为 ERP 固定数量；无排产模式的业务日期使用明确的 `mes_pro_work_order.planned_start_time` 日期部分，缺失即阻塞，不切换到需求日期或当前日期。
 - SOURCE: 无排产路线使用 `mes_pro_route_product` 唯一正式绑定、`mes_pro_route_version` 唯一 ACTIVE 版本及其 `route_snapshot_json.configSnapshots.flowGraph.nodes/scheduleUseConfigs`。
 - BASELINE: 开始本任务时发现并发任务 `doc/tasks/20260807-production-leader-process-loss-reasons-random/execution-log.md` 仍有未提交改动；将按共享分支规则单独保存，不纳入本任务实现提交。
+- CONCURRENT BASELINE: 并发任务在本任务创建文档后生成提交 `9c7507e1d`，该提交把本任务初始 `task.md`、`execution-log.md`、`backend-api-evidence.md` 与并发任务日志一并纳入；本任务未改写该提交，后续实现仍单独验证和选择性提交。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，预期原因：新无排产测试要求服务接入 `MesProRouteProductMapper` 和 `MesProRouteVersionMapper`，现有构造器尚无正式来源依赖。
 
 ## 里程碑状态
 
 - M1 completed：现有新增链路完全依赖排产路线、排产工序数量系数/计划数量/计划日期；生产工单可提供 ERP 数量和 ERP 计划开工时间，ACTIVE 路线发布快照可提供正式工序与排产用途数量系数。
-- M2 in_progress：准备新增无排产成功与正式来源缺失测试并执行 RED。
+- M2 completed：新增候选成功、候选缺绑定失败、新增成功和新增缺绑定失败测试；RED 在服务正式来源依赖尚未实现处失败。
+- M3 in_progress：实现候选与新增共享的产品路线绑定、ACTIVE 版本快照解析。
 
 ## 阻塞项
 
 - 当前无业务实现阻塞。
-

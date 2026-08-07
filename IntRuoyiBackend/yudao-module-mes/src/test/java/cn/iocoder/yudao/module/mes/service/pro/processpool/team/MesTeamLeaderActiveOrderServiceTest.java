@@ -5,6 +5,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInsp
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
@@ -15,6 +17,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectio
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
@@ -68,6 +72,10 @@ class MesTeamLeaderActiveOrderServiceTest {
     @Mock
     private MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
     @Mock
+    private MesProRouteProductMapper routeProductMapper;
+    @Mock
+    private MesProRouteVersionMapper routeVersionMapper;
+    @Mock
     private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Mock
     private MesQaInspectionRegulationMapper inspectionRegulationMapper;
@@ -83,7 +91,8 @@ class MesTeamLeaderActiveOrderServiceTest {
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
-                auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, processSnapshotMapper,
+                auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeVersionMapper,
+                processSnapshotMapper,
                 inspectionRegulationMapper, inspectionRegulationVersionMapper,
                 inspectionRegulationItemMapper, pqcInspectionTaskMapper);
         lenient().when(inspectionRegulationMapper.selectPublishedByRouteProcess(any(), any(), any(), any(), any()))
@@ -113,6 +122,39 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertTrue(candidates.get(0).isEligible());
         assertEquals(null, candidates.get(0).getIneligibleReason());
         verify(workOrderMapper).selectConfirmedCandidatesByCode("WO-9", 20);
+    }
+
+    @Test
+    void shouldSearchConfirmedWorkOrderWithoutScheduleFromActiveRouteSnapshot() {
+        when(workOrderMapper.selectConfirmedCandidatesByCode("WO-9", 20))
+                .thenReturn(List.of(confirmedWorkOrderWithPlannedStart()));
+        stubEffectiveSchedules();
+        stubUnscheduledActiveRoute();
+        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
+
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+
+        assertEquals(1, candidates.size());
+        assertTrue(candidates.get(0).isEligible());
+        assertEquals(null, candidates.get(0).getIneligibleReason());
+        verify(routeProductMapper).selectListByItemIds(List.of(1001L));
+        verify(routeVersionMapper).selectListByRouteIds(List.of(922119L));
+    }
+
+    @Test
+    void shouldMarkUnscheduledCandidateIneligibleWhenProductRouteBindingMissing() {
+        when(workOrderMapper.selectConfirmedCandidatesByCode("WO-9", 20))
+                .thenReturn(List.of(confirmedWorkOrderWithPlannedStart()));
+        stubEffectiveSchedules();
+        when(routeProductMapper.selectListByItemIds(List.of(1001L))).thenReturn(List.of());
+
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+
+        assertEquals(1, candidates.size());
+        assertFalse(candidates.get(0).isEligible());
+        assertEquals("缺少产品正式工艺路线绑定", candidates.get(0).getIneligibleReason());
+        verify(routeVersionMapper, never()).selectListByRouteIds(any());
+        verifyNoActiveOrderWrites();
     }
 
     @Test
@@ -216,6 +258,47 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertSnapshot(snapshots.get(1), 8101L, 9001L, 922119L, 448L, 928610L, 6002L,
                 "200", "2.000000", "400.000000");
         verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void shouldAddWorkOrderWithoutScheduleFromActiveRouteSnapshot() {
+        when(workOrderService.validateWorkOrderConfirmed(9001L)).thenReturn(confirmedWorkOrderWithPlannedStart());
+        stubEffectiveSchedules();
+        stubUnscheduledActiveRoute();
+        stubSuccessfulActiveOrderInsert();
+
+        Long activeOrderId = service.addActiveOrder(activeOrderReq());
+
+        assertEquals(8101L, activeOrderId);
+        ArgumentCaptor<MesProcessPoolActiveOrderDO> activeOrderCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolActiveOrderDO.class);
+        verify(activeOrderMapper).insert(activeOrderCaptor.capture());
+        assertEquals(922119L, activeOrderCaptor.getValue().getRouteId());
+        assertEquals(448L, activeOrderCaptor.getValue().getRouteVersionId());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Collection<MesProcessPoolActiveOrderProcessSnapshotDO>> snapshotCaptor =
+                ArgumentCaptor.forClass(Collection.class);
+        verify(processSnapshotMapper).insertBatch(snapshotCaptor.capture());
+        List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots = List.copyOf(snapshotCaptor.getValue());
+        assertEquals(1, snapshots.size());
+        assertSnapshot(snapshots.get(0), 8101L, 9001L, 922119L, 448L, 928609L, 6001L,
+                "200", "1.000000", "200.000000");
+        ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
+        assertTrue(taskCaptor.getAllValues().stream()
+                .allMatch(task -> LocalDate.of(2026, 8, 5).equals(task.getBusinessDate())));
+    }
+
+    @Test
+    void shouldRejectAddWithoutScheduleWhenProductRouteBindingMissing() {
+        when(workOrderService.validateWorkOrderConfirmed(9001L)).thenReturn(confirmedWorkOrderWithPlannedStart());
+        stubEffectiveSchedules();
+        when(routeProductMapper.selectListByItemIds(List.of(1001L))).thenReturn(List.of());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED.getCode(), ex.getCode());
+        verifyNoActiveOrderWrites();
     }
 
     @Test
@@ -388,6 +471,16 @@ class MesTeamLeaderActiveOrderServiceTest {
         return confirmedWorkOrder(9001L, "WO-9001", quantity, 1001L);
     }
 
+    private static MesProWorkOrderDO confirmedWorkOrderWithPlannedStart() {
+        return MesProWorkOrderDO.builder()
+                .id(9001L)
+                .code("WO-9001")
+                .productId(1001L)
+                .quantity(new BigDecimal("200"))
+                .plannedStartTime(LocalDateTime.of(2026, 8, 5, 8, 0))
+                .build();
+    }
+
     private static MesProWorkOrderDO confirmedWorkOrder(Long id, String code, BigDecimal quantity, Long productId) {
         return MesProWorkOrderDO.builder()
                 .id(id)
@@ -406,12 +499,52 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     private void stubSuccessfulInsertAndProcesses(List<MesProScheduleOrderProcessDO> processes) {
+        stubSuccessfulActiveOrderInsert();
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderId(7701L)).thenReturn(processes);
+    }
+
+    private void stubSuccessfulActiveOrderInsert() {
         when(activeOrderMapper.insert(any(MesProcessPoolActiveOrderDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolActiveOrderDO.class).setId(8101L);
             return 1;
         });
-        when(scheduleOrderProcessMapper.selectListByScheduleOrderId(7701L)).thenReturn(processes);
         when(processSnapshotMapper.insertBatch(any())).thenReturn(Boolean.TRUE);
+    }
+
+    private void stubUnscheduledActiveRoute() {
+        when(routeProductMapper.selectListByItemIds(List.of(1001L))).thenReturn(List.of(
+                MesProRouteProductDO.builder().id(7001L).itemId(1001L).routeId(922119L).build()));
+        when(routeVersionMapper.selectListByRouteIds(List.of(922119L))).thenReturn(List.of(
+                MesProRouteVersionDO.builder()
+                        .id(448L)
+                        .routeId(922119L)
+                        .active(Boolean.TRUE)
+                        .lifecycleStatus("ACTIVE")
+                        .routeSnapshotJson(activeRouteSnapshotJson())
+                        .build()));
+    }
+
+    private static String activeRouteSnapshotJson() {
+        return """
+                {
+                  "configSnapshots": {
+                    "flowGraph": {
+                      "nodes": [
+                        {"routeProcessId": 928609, "processId": 6001, "sort": 10}
+                      ]
+                    },
+                    "scheduleUseConfigs": [
+                      {
+                        "routeId": 922119,
+                        "routeProcessId": 928609,
+                        "useType": "SCHEDULE",
+                        "enabled": true,
+                        "productionQuantityFactor": 1.000000
+                      }
+                    ]
+                  }
+                }
+                """;
     }
 
     private static MesProScheduleOrderDO effectiveSchedule(Long id, Long routeId, Long routeVersionId) {

@@ -30,7 +30,7 @@
 
 ## RED / GREEN / Verification
 
-- RED: pending
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，服务构造器尚未接入产品路线与 ACTIVE 版本 mapper，符合预期。
 - GREEN: pending
 - Contract/regression: pending
 
@@ -41,4 +41,3 @@
 ## Blockers
 
 - 当前无阻塞。
-
