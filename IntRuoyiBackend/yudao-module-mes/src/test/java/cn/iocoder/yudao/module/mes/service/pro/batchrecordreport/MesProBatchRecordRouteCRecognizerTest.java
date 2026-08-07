@@ -1,6 +1,10 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.wordparser.DefaultSharedWordDocumentParser;
+import cn.iocoder.yudao.module.wordparser.SharedWordDocumentParser;
+import cn.iocoder.yudao.module.wordparser.WordParseCommand;
+import cn.iocoder.yudao.module.wordparser.WordParseProfile;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
@@ -9,12 +13,15 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
+import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -28,7 +35,8 @@ class MesProBatchRecordRouteCRecognizerTest {
     @Test
     void recognize_normalizedDocx_returnsFifteenBusinessTemplates() throws Exception {
         AtomicReference<String> fileNameRef = new AtomicReference<>();
-        MesProBatchRecordRouteCRecognizer recognizer = new MesProBatchRecordRouteCRecognizer((originalFileName, bytes) -> {
+        MesProBatchRecordRouteCRecognizer recognizer = new MesProBatchRecordRouteCRecognizer(
+                new DefaultSharedWordDocumentParser(), (originalFileName, bytes) -> {
             fileNameRef.set(originalFileName);
             return new MesProBatchRecordRouteCRecognizer.NormalizedDocument("docx", fifteenTemplateDocx());
         });
@@ -48,8 +56,49 @@ class MesProBatchRecordRouteCRecognizerTest {
     }
 
     @Test
+    void recognize_normalizedDocx_usesSharedCanonicalParserExactlyOnce() {
+        byte[] normalizedBytes = fifteenTemplateDocx();
+        AtomicInteger parseCalls = new AtomicInteger();
+        AtomicReference<WordParseCommand> commandRef = new AtomicReference<>();
+        SharedWordDocumentParser sharedParser = command -> {
+            parseCalls.incrementAndGet();
+            commandRef.set(command);
+            return new DefaultSharedWordDocumentParser().parse(command);
+        };
+        MesProBatchRecordRouteCRecognizer recognizer = new MesProBatchRecordRouteCRecognizer(
+                sharedParser, (originalFileName, sourceBytes) ->
+                new MesProBatchRecordRouteCRecognizer.NormalizedDocument("docx", normalizedBytes));
+
+        List<MesProBatchRecordParsedTable> tables = recognizer.recognize(
+                SOURCE_DOC_FILE_NAME, "fake-doc".getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(EXPECTED_FIXTURE_TEMPLATE_COUNT, tables.size());
+        assertEquals(1, parseCalls.get());
+        WordParseCommand command = commandRef.get();
+        assertArrayEquals(normalizedBytes, command.source());
+        assertEquals(".docx", command.extension());
+        assertEquals(SOURCE_DOC_FILE_NAME, command.originalFileName());
+        assertEquals(WordParseProfile.STRUCTURAL_CANONICAL, command.profile());
+    }
+
+    @Test
+    void source_doesNotRetainRawPoiTraversal() throws Exception {
+        Path source = locateReactorRoot().resolve(
+                "yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecordreport/"
+                        + "MesProBatchRecordRouteCRecognizer.java");
+        String content = Files.readString(source, StandardCharsets.UTF_8);
+
+        assertFalse(content.contains("org.apache.poi"));
+        assertFalse(content.contains("XWPFDocument"));
+        assertFalse(content.contains("document.getTables()"));
+        assertTrue(content.contains("SharedWordDocumentParser"));
+        assertTrue(content.contains("WordParseProfile.STRUCTURAL_CANONICAL"));
+    }
+
+    @Test
     void recognize_whenNormalizationOutputMissing_failFast() {
-        MesProBatchRecordRouteCRecognizer recognizer = new MesProBatchRecordRouteCRecognizer((originalFileName, bytes) ->
+        MesProBatchRecordRouteCRecognizer recognizer = new MesProBatchRecordRouteCRecognizer(
+                new DefaultSharedWordDocumentParser(), (originalFileName, bytes) ->
                 new MesProBatchRecordRouteCRecognizer.NormalizedDocument("docx", new byte[0]));
 
         ServiceException exception = assertThrows(ServiceException.class,
@@ -60,7 +109,8 @@ class MesProBatchRecordRouteCRecognizerTest {
 
     @Test
     void recognize_whenNormalizationOutputIsInvalidDocx_failFast() {
-        MesProBatchRecordRouteCRecognizer recognizer = new MesProBatchRecordRouteCRecognizer((originalFileName, bytes) ->
+        MesProBatchRecordRouteCRecognizer recognizer = new MesProBatchRecordRouteCRecognizer(
+                new DefaultSharedWordDocumentParser(), (originalFileName, bytes) ->
                 new MesProBatchRecordRouteCRecognizer.NormalizedDocument("docx",
                         "not-a-docx".getBytes(StandardCharsets.UTF_8)));
 
@@ -72,7 +122,8 @@ class MesProBatchRecordRouteCRecognizerTest {
 
     @Test
     void recognize_whenConfiguredPythonCommandCannotStart_failFastWithToolchainMessage() throws Exception {
-        MesProBatchRecordRouteCRecognizer recognizer = new MesProBatchRecordRouteCRecognizer();
+        MesProBatchRecordRouteCRecognizer recognizer = new MesProBatchRecordRouteCRecognizer(
+                new DefaultSharedWordDocumentParser());
         setField(recognizer, "pythonCommand", Path.of("missing-route-c-python.cmd").toString());
         setField(recognizer, "pythonWorkingDirectory", System.getProperty("user.dir"));
         setField(recognizer, "normalizeTimeoutMs", 1000L);
@@ -86,7 +137,8 @@ class MesProBatchRecordRouteCRecognizerTest {
 
     @Test
     void recognize_whenHeaderContainsChecklistSuffix_keepsHeaderVisibleAfterLayoutCalibration() throws Exception {
-        MesProBatchRecordRouteCRecognizer recognizer = new MesProBatchRecordRouteCRecognizer((originalFileName, bytes) ->
+        MesProBatchRecordRouteCRecognizer recognizer = new MesProBatchRecordRouteCRecognizer(
+                new DefaultSharedWordDocumentParser(), (originalFileName, bytes) ->
                 new MesProBatchRecordRouteCRecognizer.NormalizedDocument("docx",
                         fifteenTemplateDocxWithCombinedChecklistHeadersAndWideGrid()));
 
@@ -124,6 +176,18 @@ class MesProBatchRecordRouteCRecognizerTest {
             }
         }
         throw new AssertionError("Missing row with first cell text: " + firstCellText);
+    }
+
+    private static Path locateReactorRoot() {
+        Path current = Path.of("").toAbsolutePath().normalize();
+        while (current != null) {
+            if (Files.isRegularFile(current.resolve("pom.xml"))
+                    && Files.isDirectory(current.resolve("yudao-module-mes"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate IntRuoyiBackend reactor root");
     }
 
     private static void setField(Object target, String fieldName, Object value) throws Exception {

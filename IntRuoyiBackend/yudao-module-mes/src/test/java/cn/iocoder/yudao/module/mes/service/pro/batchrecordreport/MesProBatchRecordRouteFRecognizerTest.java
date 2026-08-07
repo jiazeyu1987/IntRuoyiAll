@@ -21,7 +21,7 @@ class MesProBatchRecordRouteFRecognizerTest {
     @Test
     void recognize_roundTripsPilotSampleThroughExcelIntermediate() throws Exception {
         byte[] bytes = Files.readAllBytes(PILOT_SAMPLE);
-        MesProBatchRecordDocParser docParser = new MesProBatchRecordDocParser();
+        MesProBatchRecordDocParser docParser = TestBatchRecordFixtures.wordParser();
         MesProBatchRecordRouteFRecognizer recognizer = new MesProBatchRecordRouteFRecognizer(docParser);
 
         List<MesProBatchRecordParsedTable> expected = docParser.parse(bytes);
@@ -46,7 +46,7 @@ class MesProBatchRecordRouteFRecognizerTest {
     void recognize_failsFastWhenExcelIntermediateIsMissing() throws Exception {
         byte[] bytes = Files.readAllBytes(PILOT_SAMPLE);
         MesProBatchRecordRouteFRecognizer recognizer = new MesProBatchRecordRouteFRecognizer(
-                new MesProBatchRecordDocParser()) {
+                TestBatchRecordFixtures.wordParser()) {
             @Override
             protected byte[] buildExcelIntermediate(List<MesProBatchRecordParsedTable> sourceTables) {
                 return new byte[0];
@@ -61,7 +61,8 @@ class MesProBatchRecordRouteFRecognizerTest {
 
     @Test
     void parseExcelIntermediate_preservesImplicitFullWidthRows() {
-        MesProBatchRecordRouteFRecognizer recognizer = new MesProBatchRecordRouteFRecognizer(new MesProBatchRecordDocParser());
+        MesProBatchRecordRouteFRecognizer recognizer = new MesProBatchRecordRouteFRecognizer(
+                TestBatchRecordFixtures.wordParser());
 
         MesProBatchRecordParsedTable sourceTable = MesProBatchRecordParsedTable.builder()
                 .sourceTableIndex(1)
@@ -87,7 +88,8 @@ class MesProBatchRecordRouteFRecognizerTest {
 
     @Test
     void parseExcelIntermediate_preservesTrailingImplicitMergedSegments() {
-        MesProBatchRecordRouteFRecognizer recognizer = new MesProBatchRecordRouteFRecognizer(new MesProBatchRecordDocParser());
+        MesProBatchRecordRouteFRecognizer recognizer = new MesProBatchRecordRouteFRecognizer(
+                TestBatchRecordFixtures.wordParser());
 
         MesProBatchRecordParsedTable sourceTable = MesProBatchRecordParsedTable.builder()
                 .sourceTableIndex(10)

@@ -1,505 +1,165 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 
-import org.apache.poi.hwpf.HWPFDocument;
-import org.apache.poi.hwpf.usermodel.BorderCode;
-import org.apache.poi.hwpf.usermodel.CharacterRun;
-import org.apache.poi.hwpf.usermodel.HeaderStories;
-import org.apache.poi.hwpf.usermodel.Paragraph;
-import org.apache.poi.hwpf.usermodel.Range;
-import org.apache.poi.hwpf.usermodel.Table;
-import org.apache.poi.hwpf.usermodel.TableCell;
-import org.apache.poi.hwpf.usermodel.TableIterator;
-import org.apache.poi.hwpf.usermodel.TableRow;
-import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.apache.poi.xwpf.usermodel.XWPFHeaderFooter;
-import org.apache.poi.xwpf.usermodel.XWPFParagraph;
-import org.apache.poi.xwpf.usermodel.XWPFRun;
-import org.apache.poi.xwpf.usermodel.XWPFTable;
-import org.apache.poi.xwpf.usermodel.XWPFTableCell;
-import org.apache.poi.xwpf.usermodel.XWPFTableRow;
-import org.apache.poi.xwpf.usermodel.UnderlinePatterns;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTc;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTBorder;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTcBorders;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTcPr;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.STBorder;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.STMerge;
-import org.springframework.stereotype.Component;
+import cn.iocoder.yudao.module.wordparser.SharedWordDocumentParser;
+import cn.iocoder.yudao.module.wordparser.WordCell;
+import cn.iocoder.yudao.module.wordparser.WordDocumentFrame;
+import cn.iocoder.yudao.module.wordparser.WordParseCommand;
+import cn.iocoder.yudao.module.wordparser.WordParseException;
+import cn.iocoder.yudao.module.wordparser.WordParseProfile;
+import cn.iocoder.yudao.module.wordparser.WordParseResult;
+import cn.iocoder.yudao.module.wordparser.WordTable;
 
-import java.io.ByteArrayInputStream;
-import java.lang.reflect.Constructor;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.TreeSet;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 
-@Component
 public class MesProBatchRecordDocParser {
 
-    private static final Pattern LAST_INTEGER_PATTERN = Pattern.compile("\\d+");
+    private final SharedWordDocumentParser sharedParser;
+
+    public MesProBatchRecordDocParser(SharedWordDocumentParser sharedParser) {
+        this.sharedParser = sharedParser;
+    }
 
     public List<MesProBatchRecordParsedTable> parse(byte[] bytes) {
-        try (HWPFDocument document = new HWPFDocument(new ByteArrayInputStream(bytes))) {
-            Range range = document.getRange();
-            MesProBatchRecordDocumentFrame documentFrame = extractDocumentFrame(document);
-            List<MesProBatchRecordParsedTable> tables = new ArrayList<>();
-            int sourceTopLevelTableIndex = 1;
-            for (Table table : collectTopLevelTables(range)) {
-                List<MesProBatchRecordParsedTable> splitTables = splitTemplates(parseTable(table));
-                for (int splitIndex = 0; splitIndex < splitTables.size(); splitIndex++) {
-                    splitTables.get(splitIndex).setSourceTopLevelTableIndex(sourceTopLevelTableIndex);
-                    splitTables.get(splitIndex).setSourceSplitIndex(splitIndex + 1);
-                }
-                tables.addAll(splitTables);
-                sourceTopLevelTableIndex++;
-            }
-            for (int index = 0; index < tables.size(); index++) {
-                tables.get(index).setSourceTableIndex(index + 1);
-                tables.get(index).setDocumentFrame(documentFrame);
-            }
-            return tables;
-        } catch (Exception ex) {
-            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED,
-                    ex.getMessage());
-        }
+        return parse(bytes, ".doc");
     }
 
     public MesProBatchRecordDocumentFrame extractDocumentFrame(byte[] bytes) {
-        try (HWPFDocument document = new HWPFDocument(new ByteArrayInputStream(bytes))) {
-            return extractDocumentFrame(document);
-        } catch (Exception ex) {
-            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED,
-                    ex.getMessage());
-        }
+        return parseShared(bytes, ".doc").documentFrame();
     }
 
     public List<MesProBatchRecordParsedTable> parseDocx(byte[] bytes) {
-        try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(bytes))) {
-            DocxExtractionContext extractionContext = resolveDocxExtractionContext(document);
-            MesProBatchRecordDocumentFrame documentFrame = extractDocxDocumentFrame(document, extractionContext);
-            List<MesProBatchRecordParsedTable> tables = new ArrayList<>();
-            int sourceTopLevelTableIndex = 1;
-            for (XWPFTable table : document.getTables()) {
-                List<MesProBatchRecordParsedTable> splitTables = splitTemplates(parseDocxTable(table, extractionContext));
-                for (int splitIndex = 0; splitIndex < splitTables.size(); splitIndex++) {
-                    splitTables.get(splitIndex).setSourceTopLevelTableIndex(sourceTopLevelTableIndex);
-                    splitTables.get(splitIndex).setSourceSplitIndex(splitIndex + 1);
-                }
-                tables.addAll(splitTables);
-                sourceTopLevelTableIndex++;
-            }
-            for (int index = 0; index < tables.size(); index++) {
-                tables.get(index).setSourceTableIndex(index + 1);
-                tables.get(index).setDocumentFrame(documentFrame);
-            }
-            return tables;
-        } catch (Exception ex) {
-            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED,
-                    ex.getMessage());
-        }
+        return parse(bytes, ".docx");
     }
 
     public MesProBatchRecordDocumentFrame extractDocxDocumentFrame(byte[] bytes) {
-        try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(bytes))) {
-            return extractDocxDocumentFrame(document, resolveDocxExtractionContext(document));
-        } catch (Exception ex) {
-            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED,
-                    ex.getMessage());
-        }
+        return parseShared(bytes, ".docx").documentFrame();
     }
 
-    private MesProBatchRecordDocumentFrame extractDocumentFrame(HWPFDocument document) throws Exception {
-        HeaderStories stories = new HeaderStories(document);
-        return MesProBatchRecordDocumentFrame.builder()
-                .headerRows(firstNonEmptyStoryRows(
-                        stories.getFirstHeaderSubrange(),
-                        stories.getOddHeaderSubrange(),
-                        stories.getEvenHeaderSubrange()))
-                .footerRows(firstNonEmptyStoryRows(
-                        stories.getFirstFooterSubrange(),
-                        stories.getOddFooterSubrange(),
-                        stories.getEvenFooterSubrange()))
-                .build();
-    }
-
-    private MesProBatchRecordDocumentFrame extractDocxDocumentFrame(XWPFDocument document,
-                                                                   DocxExtractionContext extractionContext) {
-        return MesProBatchRecordDocumentFrame.builder()
-                .headerRows(firstNonEmptyDocxStoryRows(document.getHeaderList(), extractionContext))
-                .footerRows(firstNonEmptyDocxStoryRows(document.getFooterList(), extractionContext))
-                .build();
-    }
-
-    private List<List<MesProBatchRecordParsedCell>> firstNonEmptyDocxStoryRows(
-            List<? extends XWPFHeaderFooter> stories, DocxExtractionContext extractionContext) {
-        if (stories == null || stories.isEmpty()) {
-            return List.of();
-        }
-        for (XWPFHeaderFooter story : stories) {
-            List<List<MesProBatchRecordParsedCell>> rows = docxStoryRows(story, extractionContext);
-            if (!rows.isEmpty()) {
-                return rows;
+    private List<MesProBatchRecordParsedTable> parse(byte[] bytes, String extension) {
+        MappedSharedDocument mapped = parseShared(bytes, extension);
+        List<MesProBatchRecordParsedTable> tables = new ArrayList<>();
+        for (WordTable sourceTable : mapped.result().tables()) {
+            MesProBatchRecordParsedTable rawTable = toMesRawTable(sourceTable, ".docx".equals(extension));
+            List<MesProBatchRecordParsedTable> splitTables = splitTemplates(rawTable);
+            for (int splitIndex = 0; splitIndex < splitTables.size(); splitIndex++) {
+                MesProBatchRecordParsedTable splitTable = splitTables.get(splitIndex);
+                splitTable.setSourceTopLevelTableIndex(sourceTable.sourceTopLevelTableIndex() + 1);
+                splitTable.setSourceSplitIndex(splitIndex + 1);
+                splitTable.setDocumentFrame(mapped.documentFrame());
+                tables.add(splitTable);
             }
         }
-        return List.of();
-    }
-
-    private List<List<MesProBatchRecordParsedCell>> docxStoryRows(XWPFHeaderFooter story,
-                                                                  DocxExtractionContext extractionContext) {
-        if (story == null) {
-            return List.of();
-        }
-        for (XWPFTable table : story.getTables()) {
-            MesProBatchRecordParsedTable parsed = parseDocxTable(table, extractionContext);
-            if (hasMeaningfulText(parsed.getRows())) {
-                return parsed.getRows();
-            }
-        }
-        List<List<MesProBatchRecordParsedCell>> rows = new ArrayList<>();
-        List<XWPFParagraph> paragraphs = story.getParagraphs();
-        for (int index = 0; index < paragraphs.size(); index++) {
-            XWPFParagraph paragraph = paragraphs.get(index);
-            String text = normalizeDocxText(paragraph.getText(), paragraph.getCTP().xmlText(), extractionContext);
-            if (text.isBlank()) {
-                continue;
-            }
-            rows.add(List.of(MesProBatchRecordParsedCell.builder()
-                    .text(text)
-                    .rowSpan(1)
-                    .colSpan(1)
-                    .bold(resolveDocxParagraphBold(paragraph))
-                    .fontSize(resolveDocxParagraphFontSize(paragraph, index == 0 ? 10 : 8))
-                    .horizontalAlign(resolveDocxParagraphHorizontalAlign(paragraph))
-                    .verticalAlign("middle")
-                    .heightPx(index == 0 ? 30 : 20)
-                    .build()));
-        }
-        return rows;
-    }
-
-    private boolean hasMeaningfulText(List<List<MesProBatchRecordParsedCell>> rows) {
-        if (rows == null || rows.isEmpty()) {
-            return false;
-        }
-        return rows.stream()
-                .flatMap(List::stream)
-                .map(MesProBatchRecordParsedCell::getText)
-                .anyMatch(text -> text != null && !text.isBlank());
-    }
-
-    private List<List<MesProBatchRecordParsedCell>> firstNonEmptyStoryRows(Range... ranges) throws Exception {
-        for (Range range : ranges) {
-            List<List<MesProBatchRecordParsedCell>> rows = storyRows(range);
-            if (!rows.isEmpty()) {
-                return rows;
-            }
-        }
-        return List.of();
-    }
-
-    private List<List<MesProBatchRecordParsedCell>> storyRows(Range range) throws Exception {
-        if (range == null || range.numParagraphs() == 0) {
-            return List.of();
-        }
-        for (Table table : collectTopLevelTables(range)) {
-            MesProBatchRecordParsedTable parsed = parseTable(table);
-            if (parsed.getRows() != null && !parsed.getRows().isEmpty()) {
-                return parsed.getRows();
-            }
-        }
-        List<List<MesProBatchRecordParsedCell>> rows = new ArrayList<>();
-        for (int index = 0; index < range.numParagraphs(); index++) {
-            String text = normalizeCellText(range.getParagraph(index).text());
-            if (text.isBlank()) {
-                continue;
-            }
-            rows.add(List.of(MesProBatchRecordParsedCell.builder()
-                    .text(text)
-                    .rowSpan(1)
-                    .colSpan(1)
-                    .bold(index == 0)
-                    .fontSize(index == 0 ? 10 : 8)
-                    .horizontalAlign(index == 0 ? "center" : "left")
-                    .verticalAlign("middle")
-                    .heightPx(index == 0 ? 30 : 20)
-                    .build()));
-        }
-        return rows;
-    }
-
-    private List<Table> collectTopLevelTables(Range range) throws Exception {
-        Constructor<TableIterator> constructor = TableIterator.class.getDeclaredConstructor(Range.class, int.class);
-        constructor.setAccessible(true);
-        TableIterator iterator = constructor.newInstance(range, 1);
-        List<Table> tables = new ArrayList<>();
-        while (iterator.hasNext()) {
-            tables.add(iterator.next());
+        for (int index = 0; index < tables.size(); index++) {
+            tables.get(index).setSourceTableIndex(index + 1);
         }
         return tables;
     }
 
-    private MesProBatchRecordParsedTable parseTable(Table table) {
-        List<List<MesProBatchRecordParsedCell>> parsedRows = new ArrayList<>();
-        String tableTitle = "";
-        List<Integer> visualColumnBoundaries = resolveVisualColumnBoundaries(table);
-        List<Integer> visualColumnWidths = resolveVisualColumnWidths(visualColumnBoundaries);
-        int maxColumnCount = visualColumnWidths.size();
-        int[] logicalBlockedUntilRowByColumn = new int[Math.max(256, maxColumnCount + 64)];
-        for (int index = 0; index < logicalBlockedUntilRowByColumn.length; index++) {
-            logicalBlockedUntilRowByColumn[index] = -1;
+    private MappedSharedDocument parseShared(byte[] bytes, String extension) {
+        try {
+            WordParseResult result = sharedParser.parse(new WordParseCommand(
+                    bytes, extension, "mes-word-source" + extension, WordParseProfile.STRUCTURAL_CANONICAL));
+            return new MappedSharedDocument(result, toMesDocumentFrame(result.documentFrame(), extension));
+        } catch (WordParseException ex) {
+            throw switch (ex.code()) {
+                case EMPTY_SOURCE -> exception(
+                        MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_FILE_EMPTY);
+                case UNSUPPORTED_SOURCE_TYPE -> exception(
+                        MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_FILE_EXTENSION_INVALID);
+                case NO_PARSEABLE_CONTENT -> exception(
+                        MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_TABLE_COUNT_INVALID, 0);
+                case CORRUPT_SOURCE, INVALID_TABLE_STRUCTURE -> exception(
+                        MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED,
+                        ex.code().name());
+            };
         }
-        for (int rowIndex = 0; rowIndex < table.numRows(); rowIndex++) {
-            TableRow row = table.getRow(rowIndex);
-            List<MesProBatchRecordParsedCell> parsedCells = new ArrayList<>();
-            int rowHeightPx = toPixels(row.getRowHeight(), 36);
-            int logicalColumnIndex = 0;
-            for (int cellIndex = 0; cellIndex < row.numCells(); cellIndex++) {
-                TableCell cell = row.getCell(cellIndex);
-                if (isMergedFollower(cell)) {
-                    continue;
-                }
-                String text = normalizeCellText(cell.text());
-                int columnIndex = resolveStartColumnIndex(visualColumnBoundaries, cell);
-                int visualColSpan = resolveVisualColSpan(visualColumnBoundaries, cell, columnIndex);
-                while (logicalColumnIndex < logicalBlockedUntilRowByColumn.length
-                        && logicalBlockedUntilRowByColumn[logicalColumnIndex] >= rowIndex) {
-                    logicalColumnIndex++;
-                }
-                int logicalColSpan = resolveColSpan(row, cellIndex);
-                int rowSpan = resolveRowSpan(table, rowIndex, cellIndex);
-                MesProBatchRecordParsedCell parsedCell = MesProBatchRecordParsedCell.builder()
-                        .text(text)
-                        .rowSpan(rowSpan)
-                        .colSpan(visualColSpan)
-                        .columnIndex(columnIndex)
-                        .logicalColumnIndex(logicalColumnIndex)
-                        .logicalColSpan(logicalColSpan)
-                        .bold(resolveBold(cell))
-                        .fontSize(resolveFontSize(cell))
-                        .horizontalAlign(resolveHorizontalAlign(cell))
-                        .verticalAlign(resolveVerticalAlign(cell))
-                        .widthPx(toWidthUnits(cell.getWidth()))
-                        .heightPx(rowHeightPx)
-                        .topBorderStyle(resolveBorderStyle(cell.getBrcTop()))
-                        .bottomBorderStyle(resolveBorderStyle(cell.getBrcBottom()))
-                        .leftBorderStyle(resolveBorderStyle(cell.getBrcLeft()))
-                        .rightBorderStyle(resolveBorderStyle(cell.getBrcRight()))
-                        .build();
-                parsedCells.add(parsedCell);
-                if (rowSpan > 1) {
-                    for (int offset = 0; offset < logicalColSpan
-                            && logicalColumnIndex + offset < logicalBlockedUntilRowByColumn.length; offset++) {
-                        logicalBlockedUntilRowByColumn[logicalColumnIndex + offset] = rowIndex + rowSpan - 1;
-                    }
-                }
-                logicalColumnIndex += logicalColSpan;
-                if (tableTitle.isBlank() && !text.isBlank()) {
-                    tableTitle = extractTemplateTitle(text);
+    }
+
+    private MesProBatchRecordParsedTable toMesRawTable(WordTable source, boolean docx) {
+        List<List<MesProBatchRecordParsedCell>> rows = toMesRows(source.rows(), docx);
+        String title = "";
+        for (List<MesProBatchRecordParsedCell> row : rows) {
+            for (MesProBatchRecordParsedCell cell : row) {
+                if (!cell.getText().isBlank()) {
+                    title = extractTemplateTitle(cell.getText());
+                    break;
                 }
             }
-            maxColumnCount = Math.max(maxColumnCount, resolveRowEndColumn(parsedCells));
-            parsedRows.add(parsedCells);
+            if (!title.isBlank()) {
+                break;
+            }
         }
-        tableTitle = MesProBatchRecordSharedPageTitleRules.resolveRepresentativeTitle(tableTitle, parsedRows);
-        if (tableTitle.isBlank()) {
-            tableTitle = "\u8868";
+        title = MesProBatchRecordSharedPageTitleRules.resolveRepresentativeTitle(title, rows);
+        if (title.isBlank()) {
+            title = "\u8868";
         }
         return MesProBatchRecordParsedTable.builder()
-                .tableTitle(tableTitle)
-                .rowCount(parsedRows.size())
-                .columnCount(maxColumnCount)
-                .columnWidths(visualColumnWidths)
-                .rows(parsedRows)
+                .sourceTopLevelTableIndex(source.sourceTopLevelTableIndex() + 1)
+                .tableTitle(title)
+                .rowCount(source.rowCount())
+                .columnCount(source.columnCount())
+                .columnWidths(source.columnWidths())
+                .rows(rows)
                 .build();
     }
 
-    private MesProBatchRecordParsedTable parseDocxTable(XWPFTable table) {
-        return parseDocxTable(table, DocxExtractionContext.EMPTY);
-    }
-
-    private MesProBatchRecordParsedTable parseDocxTable(XWPFTable table, DocxExtractionContext extractionContext) {
-        List<List<MesProBatchRecordParsedCell>> parsedRows = new ArrayList<>();
-        String tableTitle = "";
-        int maxColumnCount = 0;
-        for (int rowIndex = 0; rowIndex < table.getRows().size(); rowIndex++) {
-            XWPFTableRow row = table.getRow(rowIndex);
-            List<MesProBatchRecordParsedCell> parsedCells = new ArrayList<>();
-            int logicalColumnIndex = 0;
-            int rowHeightPx = resolveDocxRowHeightPx(row);
-            for (int cellIndex = 0; cellIndex < row.getTableCells().size(); cellIndex++) {
-                XWPFTableCell cell = row.getCell(cellIndex);
-                if (isDocxVerticalMergeFollower(cell)) {
-                    continue;
-                }
-                int colSpan = resolveDocxColSpan(cell);
-                int rowSpan = resolveDocxRowSpan(table, rowIndex, cellIndex);
-                String text = normalizeDocxText(resolveDocxCellText(cell), cell.getCTTc().xmlText(), extractionContext);
-                MesProBatchRecordParsedCell parsedCell = MesProBatchRecordParsedCell.builder()
-                        .text(text)
-                        .rowSpan(rowSpan)
-                        .colSpan(colSpan)
-                        .columnIndex(logicalColumnIndex)
-                        .logicalColumnIndex(logicalColumnIndex)
-                        .logicalColSpan(colSpan)
-                        .bold(resolveDocxBold(cell))
-                        .fontSize(resolveDocxFontSize(cell))
-                        .horizontalAlign(resolveDocxHorizontalAlign(cell))
-                        .verticalAlign("middle")
-                        .widthPx(resolveDocxWidthPx(cell, colSpan))
-                        .heightPx(rowHeightPx)
-                        .diagonalSlash(hasDocxDiagonalBorder(cell))
-                        .topBorderStyle("solid")
-                        .bottomBorderStyle("solid")
-                        .leftBorderStyle("solid")
-                        .rightBorderStyle("solid")
-                        .build();
-                parsedCells.add(parsedCell);
-                logicalColumnIndex += colSpan;
-                if (tableTitle.isBlank() && !text.isBlank()) {
-                    tableTitle = extractTemplateTitle(text);
-                }
-            }
-            maxColumnCount = Math.max(maxColumnCount, logicalColumnIndex);
-            parsedRows.add(parsedCells);
-        }
-        tableTitle = MesProBatchRecordSharedPageTitleRules.resolveRepresentativeTitle(tableTitle, parsedRows);
-        if (tableTitle.isBlank()) {
-            tableTitle = "\u8868";
-        }
-        return MesProBatchRecordParsedTable.builder()
-                .tableTitle(tableTitle)
-                .rowCount(parsedRows.size())
-                .columnCount(maxColumnCount)
-                .columnWidths(resolveDocxColumnWidths(parsedRows, maxColumnCount))
-                .rows(parsedRows)
+    private MesProBatchRecordDocumentFrame toMesDocumentFrame(WordDocumentFrame source, String extension) {
+        boolean docx = ".docx".equals(extension);
+        return MesProBatchRecordDocumentFrame.builder()
+                .headerRows(toMesRows(source.headerRows(), docx))
+                .footerRows(toMesRows(source.footerRows(), docx))
                 .build();
     }
 
-    private DocxExtractionContext resolveDocxExtractionContext(XWPFDocument document) {
-        return new DocxExtractionContext(resolveDocxTotalPageCount(document));
-    }
-
-    private int resolveDocxTotalPageCount(XWPFDocument document) {
-        if (document == null || document.getProperties() == null
-                || document.getProperties().getExtendedProperties() == null
-                || document.getProperties().getExtendedProperties().getUnderlyingProperties() == null) {
-            return 0;
-        }
-        var appProperties = document.getProperties().getExtendedProperties().getUnderlyingProperties();
-        if (!appProperties.isSetPages()) {
-            return 0;
-        }
-        return Math.max(0, appProperties.getPages());
-    }
-
-    private String normalizeDocxText(String text, String sourceXml, DocxExtractionContext extractionContext) {
-        String normalized = normalizeCellText(text);
-        if (normalized.isBlank()
-                || extractionContext == null
-                || extractionContext.totalPageCount() <= 0
-                || sourceXml == null
-                || !sourceXml.contains("NUMPAGES")) {
-            return normalized;
-        }
-        return replaceCachedTotalPageCount(normalized, extractionContext.totalPageCount());
-    }
-
-    private String resolveDocxCellText(XWPFTableCell cell) {
-        if (cell == null || cell.getParagraphs() == null || cell.getParagraphs().isEmpty()) {
-            return "";
-        }
-        StringBuilder builder = new StringBuilder();
-        for (XWPFParagraph paragraph : cell.getParagraphs()) {
-            if (builder.length() > 0) {
-                builder.append('\n');
+    private List<List<MesProBatchRecordParsedCell>> toMesRows(List<List<WordCell>> sourceRows, boolean docx) {
+        List<List<MesProBatchRecordParsedCell>> rows = new ArrayList<>();
+        for (List<WordCell> sourceRow : sourceRows) {
+            List<MesProBatchRecordParsedCell> row = new ArrayList<>();
+            int legacyDocxColumnIndex = 0;
+            for (WordCell sourceCell : sourceRow) {
+                Integer mappedDocxColumnIndex = docx && sourceCell.columnIndex() != null
+                        ? legacyDocxColumnIndex : null;
+                row.add(toMesCell(sourceCell, docx, mappedDocxColumnIndex));
+                if (mappedDocxColumnIndex != null) {
+                    legacyDocxColumnIndex += sourceCell.logicalColSpan();
+                }
             }
-            if (paragraph == null || paragraph.getRuns().isEmpty()) {
-                builder.append(paragraph == null ? "" : paragraph.getText());
-                continue;
-            }
-            for (XWPFRun run : paragraph.getRuns()) {
-                builder.append(resolveDocxRunText(run));
-            }
+            rows.add(row);
         }
-        String text = builder.toString();
-        return text.isBlank() ? cell.getText() : text;
+        return rows;
     }
 
-    private String resolveDocxRunText(XWPFRun run) {
-        if (run == null) {
-            return "";
-        }
-        String text = run.text();
-        if (!isUnderlinedBlankRun(run, text)) {
-            return text;
-        }
-        return "_".repeat(Math.max(3, text.length()));
+    private MesProBatchRecordParsedCell toMesCell(
+            WordCell source, boolean docx, Integer mappedDocxColumnIndex) {
+        boolean legacyDocxTableCell = docx && source.columnIndex() != null;
+        return MesProBatchRecordParsedCell.builder()
+                .text(source.text())
+                .rowSpan(source.rowSpan())
+                .colSpan(source.colSpan())
+                .columnIndex(mappedDocxColumnIndex == null ? source.columnIndex() : mappedDocxColumnIndex)
+                .logicalColumnIndex(mappedDocxColumnIndex == null
+                        ? source.logicalColumnIndex() : mappedDocxColumnIndex)
+                .logicalColSpan(source.logicalColSpan())
+                .bold(source.bold())
+                .fontSize(source.fontSize())
+                .horizontalAlign(source.horizontalAlign())
+                .verticalAlign(docx || "center".equals(source.verticalAlign()) ? "middle" : source.verticalAlign())
+                .widthPx(source.widthPx())
+                .heightPx(source.heightPx())
+                .diagonalSlash(source.diagonalSlash())
+                .topBorderStyle(legacyDocxTableCell ? "solid" : source.topBorderStyle())
+                .bottomBorderStyle(legacyDocxTableCell ? "solid" : source.bottomBorderStyle())
+                .leftBorderStyle(legacyDocxTableCell ? "solid" : source.leftBorderStyle())
+                .rightBorderStyle(legacyDocxTableCell ? "solid" : source.rightBorderStyle())
+                .build();
     }
 
-    private boolean isUnderlinedBlankRun(XWPFRun run, String text) {
-        if (run == null || text == null || text.isEmpty()) {
-            return false;
-        }
-        UnderlinePatterns underline = run.getUnderline();
-        if (underline == null || underline == UnderlinePatterns.NONE) {
-            return false;
-        }
-        return text.replace('\u00A0', ' ').trim().isEmpty();
-    }
-
-    private String replaceCachedTotalPageCount(String text, int totalPageCount) {
-        Matcher matcher = LAST_INTEGER_PATTERN.matcher(text);
-        int start = -1;
-        int end = -1;
-        while (matcher.find()) {
-            start = matcher.start();
-            end = matcher.end();
-        }
-        if (start < 0) {
-            return text;
-        }
-        return text.substring(0, start) + totalPageCount + text.substring(end);
-    }
-
-    private int resolveDocxRowHeightPx(XWPFTableRow row) {
-        int twips = row == null ? 0 : row.getHeight();
-        if (twips <= 0) {
-            return 36;
-        }
-        return Math.max(1, Math.round(twips / 15.0f));
-    }
-
-    private boolean hasDocxDiagonalBorder(XWPFTableCell cell) {
-        if (cell == null) {
-            return false;
-        }
-        CTTc ctTc = cell.getCTTc();
-        if (ctTc == null || !ctTc.isSetTcPr()) {
-            return false;
-        }
-        CTTcPr tcPr = ctTc.getTcPr();
-        if (tcPr == null || !tcPr.isSetTcBorders()) {
-            return false;
-        }
-        CTTcBorders borders = tcPr.getTcBorders();
-        return isVisibleDocxBorder(borders.getTl2Br()) || isVisibleDocxBorder(borders.getTr2Bl());
-    }
-
-    private boolean isVisibleDocxBorder(CTBorder border) {
-        if (border == null) {
-            return false;
-        }
-        STBorder.Enum value = border.getVal();
-        if (value == null) {
-            return true;
-        }
-        String normalized = value.toString();
-        return !"none".equalsIgnoreCase(normalized) && !"nil".equalsIgnoreCase(normalized);
+    private record MappedSharedDocument(
+            WordParseResult result,
+            MesProBatchRecordDocumentFrame documentFrame) {
     }
 
     private List<MesProBatchRecordParsedTable> splitTemplates(MesProBatchRecordParsedTable parsedTable) {
@@ -795,6 +455,20 @@ public class MesProBatchRecordDocParser {
             }
         }
         return shortLabelCount >= 6;
+    }
+
+    private String normalizeCellText(String text) {
+        if (text == null) {
+            return "";
+        }
+        String normalized = text
+                .replace('\u0007', ' ')
+                .replace('\u0008', ' ')
+                .replace('\r', '\n')
+                .replace('\u0000', ' ')
+                .replaceAll("[\\n]{3,}", "\n\n")
+                .trim();
+        return normalized.isBlank() ? "" : normalized;
     }
 
     private List<List<MesProBatchRecordParsedCell>> normalizeRowsToLogicalGrid(List<List<MesProBatchRecordParsedCell>> rows,
@@ -1114,72 +788,6 @@ public class MesProBatchRecordDocParser {
         return widths;
     }
 
-    private List<Integer> resolveVisualColumnBoundaries(Table table) {
-        TreeSet<Integer> boundaries = new TreeSet<>();
-        for (int rowIndex = 0; rowIndex < table.numRows(); rowIndex++) {
-            TableRow row = table.getRow(rowIndex);
-            for (int cellIndex = 0; cellIndex < row.numCells(); cellIndex++) {
-                TableCell cell = row.getCell(cellIndex);
-                if (isMergedFollower(cell)) {
-                    continue;
-                }
-                int left = cell.getLeftEdge();
-                int right = left + Math.max(1, cell.getWidth());
-                if (left >= 0 && right > left) {
-                    boundaries.add(left);
-                    boundaries.add(right);
-                }
-            }
-        }
-        return new ArrayList<>(boundaries);
-    }
-
-    private List<Integer> resolveVisualColumnWidths(List<Integer> visualColumnBoundaries) {
-        if (visualColumnBoundaries == null || visualColumnBoundaries.size() < 2) {
-            return List.of();
-        }
-        List<Integer> widths = new ArrayList<>();
-        for (int index = 0; index < visualColumnBoundaries.size() - 1; index++) {
-            int width = visualColumnBoundaries.get(index + 1) - visualColumnBoundaries.get(index);
-            widths.add(toWidthUnits(width));
-        }
-        return widths;
-    }
-
-    private int resolveStartColumnIndex(List<Integer> visualColumnBoundaries, TableCell cell) {
-        if (visualColumnBoundaries == null || visualColumnBoundaries.size() < 2) {
-            return 0;
-        }
-        int left = cell.getLeftEdge();
-        int bestIndex = 0;
-        int bestDistance = Integer.MAX_VALUE;
-        for (int index = 0; index < visualColumnBoundaries.size() - 1; index++) {
-            int distance = Math.abs(visualColumnBoundaries.get(index) - left);
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                bestIndex = index;
-            }
-        }
-        return bestIndex;
-    }
-
-    private int resolveVisualColSpan(List<Integer> visualColumnBoundaries, TableCell cell, int startColumnIndex) {
-        if (visualColumnBoundaries == null || visualColumnBoundaries.size() < 2) {
-            return 1;
-        }
-        int right = cell.getLeftEdge() + Math.max(1, cell.getWidth());
-        int endBoundaryIndex = Math.min(visualColumnBoundaries.size() - 1, Math.max(startColumnIndex + 1, startColumnIndex));
-        int bestDistance = Integer.MAX_VALUE;
-        for (int index = Math.max(1, startColumnIndex + 1); index < visualColumnBoundaries.size(); index++) {
-            int distance = Math.abs(visualColumnBoundaries.get(index) - right);
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                endBoundaryIndex = index;
-            }
-        }
-        return Math.max(1, endBoundaryIndex - startColumnIndex);
-    }
-
     private String extractTemplateTitle(String text) {
         if (text == null) {
             return "";
@@ -1197,295 +805,4 @@ public class MesProBatchRecordDocParser {
                 firstLine.replaceAll("\\s+", " ").trim());
     }
 
-    private boolean isMergedFollower(TableCell cell) {
-        return (cell.isMerged() && !cell.isFirstMerged())
-                || (cell.isVerticallyMerged() && !cell.isFirstVerticallyMerged());
-    }
-
-    private int resolveColSpan(TableRow row, int startCellIndex) {
-        TableCell cell = row.getCell(startCellIndex);
-        if (!cell.isFirstMerged()) {
-            return 1;
-        }
-        int span = 1;
-        for (int index = startCellIndex + 1; index < row.numCells(); index++) {
-            TableCell nextCell = row.getCell(index);
-            if (nextCell.isMerged() && !nextCell.isFirstMerged()) {
-                span++;
-                continue;
-            }
-            break;
-        }
-        return span;
-    }
-
-    private int resolveRowSpan(Table table, int rowIndex, int cellIndex) {
-        TableCell cell = table.getRow(rowIndex).getCell(cellIndex);
-        if (!cell.isFirstVerticallyMerged()) {
-            return 1;
-        }
-        int span = 1;
-        for (int nextRowIndex = rowIndex + 1; nextRowIndex < table.numRows(); nextRowIndex++) {
-            TableRow nextRow = table.getRow(nextRowIndex);
-            if (cellIndex >= nextRow.numCells()) {
-                break;
-            }
-            TableCell nextCell = nextRow.getCell(cellIndex);
-            if (nextCell.isVerticallyMerged() && !nextCell.isFirstVerticallyMerged()) {
-                span++;
-                continue;
-            }
-            break;
-        }
-        return span;
-    }
-
-    private boolean resolveBold(TableCell cell) {
-        CharacterRun characterRun = firstCharacterRun(cell);
-        return characterRun != null && characterRun.isBold();
-    }
-
-    private int resolveFontSize(TableCell cell) {
-        CharacterRun characterRun = firstCharacterRun(cell);
-        if (characterRun == null) {
-            return 10;
-        }
-        int raw = characterRun.getFontSize();
-        return Math.max(10, raw > 20 ? raw / 2 : raw);
-    }
-
-    private String resolveHorizontalAlign(TableCell cell) {
-        Paragraph paragraph = firstParagraph(cell);
-        if (paragraph == null) {
-            return "left";
-        }
-        return switch (paragraph.getJustification()) {
-            case 1 -> "center";
-            case 2 -> "right";
-            default -> "left";
-        };
-    }
-
-    private String resolveVerticalAlign(TableCell cell) {
-        return switch (cell.getVertAlign()) {
-            case 1 -> "top";
-            case 2 -> "middle";
-            case 3 -> "bottom";
-            default -> "middle";
-        };
-    }
-
-    private Paragraph firstParagraph(TableCell cell) {
-        if (cell.numParagraphs() <= 0) {
-            return null;
-        }
-        return cell.getParagraph(0);
-    }
-
-    private CharacterRun firstCharacterRun(TableCell cell) {
-        Paragraph paragraph = firstParagraph(cell);
-        if (paragraph == null || paragraph.numCharacterRuns() <= 0) {
-            return null;
-        }
-        return paragraph.getCharacterRun(0);
-    }
-
-    private boolean isDocxVerticalMergeFollower(XWPFTableCell cell) {
-        CTTcPr tcPr = tcPr(cell);
-        if (tcPr == null || !tcPr.isSetVMerge()) {
-            return false;
-        }
-        Object mergeValue = tcPr.getVMerge().getVal();
-        return mergeValue == null || STMerge.CONTINUE.equals(mergeValue);
-    }
-
-    private boolean isDocxVerticalMergeRestart(XWPFTableCell cell) {
-        CTTcPr tcPr = tcPr(cell);
-        return tcPr != null && tcPr.isSetVMerge() && STMerge.RESTART.equals(tcPr.getVMerge().getVal());
-    }
-
-    private int resolveDocxColSpan(XWPFTableCell cell) {
-        CTTcPr tcPr = tcPr(cell);
-        if (tcPr == null || !tcPr.isSetGridSpan()) {
-            return 1;
-        }
-        return Math.max(1, toInt(tcPr.getGridSpan().getVal(), 1));
-    }
-
-    private int resolveDocxRowSpan(XWPFTable table, int rowIndex, int cellIndex) {
-        XWPFTableCell cell = table.getRow(rowIndex).getCell(cellIndex);
-        if (!isDocxVerticalMergeRestart(cell)) {
-            return 1;
-        }
-        int span = 1;
-        for (int nextRowIndex = rowIndex + 1; nextRowIndex < table.getRows().size(); nextRowIndex++) {
-            XWPFTableRow nextRow = table.getRow(nextRowIndex);
-            if (cellIndex >= nextRow.getTableCells().size()) {
-                break;
-            }
-            XWPFTableCell nextCell = nextRow.getCell(cellIndex);
-            if (isDocxVerticalMergeFollower(nextCell)) {
-                span++;
-                continue;
-            }
-            break;
-        }
-        return span;
-    }
-
-    private boolean resolveDocxBold(XWPFTableCell cell) {
-        XWPFRun run = firstDocxRun(cell);
-        return run != null && run.isBold();
-    }
-
-    private int resolveDocxFontSize(XWPFTableCell cell) {
-        XWPFRun run = firstDocxRun(cell);
-        if (run == null || run.getFontSize() <= 0) {
-            return 10;
-        }
-        return Math.max(8, run.getFontSize());
-    }
-
-    private String resolveDocxHorizontalAlign(XWPFTableCell cell) {
-        if (cell.getParagraphs().isEmpty()) {
-            return "left";
-        }
-        ParagraphAlignment alignment = cell.getParagraphs().get(0).getAlignment();
-        if (alignment == ParagraphAlignment.CENTER) {
-            return "center";
-        }
-        if (alignment == ParagraphAlignment.RIGHT) {
-            return "right";
-        }
-        return "left";
-    }
-
-    private boolean resolveDocxParagraphBold(XWPFParagraph paragraph) {
-        XWPFRun run = firstDocxRun(paragraph);
-        return run != null && run.isBold();
-    }
-
-    private int resolveDocxParagraphFontSize(XWPFParagraph paragraph, int defaultValue) {
-        XWPFRun run = firstDocxRun(paragraph);
-        if (run == null || run.getFontSize() <= 0) {
-            return defaultValue;
-        }
-        return Math.max(8, run.getFontSize());
-    }
-
-    private String resolveDocxParagraphHorizontalAlign(XWPFParagraph paragraph) {
-        ParagraphAlignment alignment = paragraph.getAlignment();
-        if (alignment == ParagraphAlignment.CENTER) {
-            return "center";
-        }
-        if (alignment == ParagraphAlignment.RIGHT) {
-            return "right";
-        }
-        return "left";
-    }
-
-    private int resolveDocxWidthPx(XWPFTableCell cell, int colSpan) {
-        CTTcPr tcPr = tcPr(cell);
-        if (tcPr == null || !tcPr.isSetTcW()) {
-            return Math.max(1, colSpan) * 120;
-        }
-        return toWidthUnits(toInt(tcPr.getTcW().getW(), Math.max(1, colSpan) * 1800));
-    }
-
-    private List<Integer> resolveDocxColumnWidths(List<List<MesProBatchRecordParsedCell>> rows, int maxColumnCount) {
-        List<Integer> widths = resolveSegmentColumnWidths(rows, maxColumnCount);
-        if (!widths.isEmpty()) {
-            return widths;
-        }
-        List<Integer> defaults = new ArrayList<>();
-        for (int index = 0; index < maxColumnCount; index++) {
-            defaults.add(120);
-        }
-        return defaults;
-    }
-
-    private XWPFRun firstDocxRun(XWPFTableCell cell) {
-        for (XWPFParagraph paragraph : cell.getParagraphs()) {
-            if (!paragraph.getRuns().isEmpty()) {
-                return paragraph.getRuns().get(0);
-            }
-        }
-        return null;
-    }
-
-    private XWPFRun firstDocxRun(XWPFParagraph paragraph) {
-        if (paragraph == null || paragraph.getRuns().isEmpty()) {
-            return null;
-        }
-        return paragraph.getRuns().get(0);
-    }
-
-    private CTTcPr tcPr(XWPFTableCell cell) {
-        CTTc ctTc = cell.getCTTc();
-        return ctTc == null || !ctTc.isSetTcPr() ? null : ctTc.getTcPr();
-    }
-
-    private int toInt(Object value, int defaultValue) {
-        if (value instanceof BigInteger bigInteger) {
-            return bigInteger.intValue();
-        }
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        if (value == null) {
-            return defaultValue;
-        }
-        try {
-            return new BigInteger(value.toString()).intValue();
-        } catch (NumberFormatException ex) {
-            return defaultValue;
-        }
-    }
-
-    private int toPixels(int twips, int defaultValue) {
-        if (twips <= 0) {
-            return defaultValue;
-        }
-        return Math.max(defaultValue, Math.round(twips / 15.0f));
-    }
-
-    private int toWidthUnits(int twips) {
-        if (twips <= 0) {
-            return 1;
-        }
-        return Math.max(1, Math.round(twips / 15.0f));
-    }
-
-    private String normalizeCellText(String text) {
-        if (text == null) {
-            return "";
-        }
-        String normalized = text
-                .replace('\u0007', ' ')
-                .replace('\u0008', ' ')
-                .replace('\r', '\n')
-                .replace('\u0000', ' ')
-                .replaceAll("[\\n]{3,}", "\n\n")
-                .trim();
-        return normalized.isBlank() ? "" : normalized;
-    }
-
-    private String resolveBorderStyle(BorderCode borderCode) {
-        if (borderCode == null || borderCode.isEmpty()) {
-            return null;
-        }
-        int lineWidth = borderCode.getLineWidth();
-        if (lineWidth >= 24) {
-            return "thick";
-        }
-        if (lineWidth >= 12) {
-            return "medium";
-        }
-        return "thin";
-    }
-
-    private record DocxExtractionContext(int totalPageCount) {
-
-        private static final DocxExtractionContext EMPTY = new DocxExtractionContext(0);
-    }
 }

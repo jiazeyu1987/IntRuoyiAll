@@ -16,7 +16,7 @@ class TmpPrintBatchRecordTableTest {
     void printTable() throws Exception {
         Path source = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
         byte[] bytes = Files.readAllBytes(source);
-        MesProBatchRecordDocParser parser = new MesProBatchRecordDocParser();
+        MesProBatchRecordDocParser parser = TestBatchRecordFixtures.wordParser();
         List<MesProBatchRecordParsedTable> tables = parser.parse(bytes);
         MesProBatchRecordParsedTable sourceTable = tables.stream()
                 .filter(table -> "组装Ⅰ工序生产记录".equals(table.getTableTitle()))
@@ -88,7 +88,7 @@ class TmpPrintBatchRecordTableTest {
     void printRouteBAssemblyOne() throws Exception {
         Path source = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
         byte[] bytes = Files.readAllBytes(source);
-        MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
+        MesProBatchRecordRouteBRecognizer recognizer = TestBatchRecordFixtures.routeBRecognizer();
         List<MesProBatchRecordParsedTable> tables = recognizer.recognize(
                 source,
                 bytes,
@@ -211,7 +211,7 @@ class TmpPrintBatchRecordTableTest {
     void printRouteBFailingTableContext() throws Exception {
         Path source = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
         byte[] bytes = Files.readAllBytes(source);
-        MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
+        MesProBatchRecordRouteBRecognizer recognizer = TestBatchRecordFixtures.routeBRecognizer();
         MesProBatchRecordReportLayoutCalibrator calibrator = new MesProBatchRecordReportLayoutCalibrator();
         List<MesProBatchRecordParsedTable> tables = recognizer.recognize(source, bytes, source.getFileName().toString());
         StringBuilder builder = new StringBuilder();

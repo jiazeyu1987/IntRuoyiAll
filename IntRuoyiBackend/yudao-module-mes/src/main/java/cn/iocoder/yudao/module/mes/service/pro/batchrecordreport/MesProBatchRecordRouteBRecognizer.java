@@ -228,11 +228,15 @@ public class MesProBatchRecordRouteBRecognizer implements MesProBatchRecordRoute
     private String pythonWorkingDirectory = System.getProperty("user.dir");
     @Value("${yudao.mes.batch-record-report.route-b.timeout-ms:" + DEFAULT_TIMEOUT_MS + "}")
     private long timeoutMs = DEFAULT_TIMEOUT_MS;
+    private final MesProBatchRecordDocParser docParser;
 
-    public MesProBatchRecordRouteBRecognizer() {
+    public MesProBatchRecordRouteBRecognizer(MesProBatchRecordDocParser docParser) {
+        this.docParser = docParser;
     }
 
-    MesProBatchRecordRouteBRecognizer(String pythonCommand, Path pythonWorkingDirectory, long timeoutMs) {
+    MesProBatchRecordRouteBRecognizer(MesProBatchRecordDocParser docParser,
+                                      String pythonCommand, Path pythonWorkingDirectory, long timeoutMs) {
+        this.docParser = docParser;
         this.pythonCommand = pythonCommand;
         this.pythonWorkingDirectory = pythonWorkingDirectory == null ? null : pythonWorkingDirectory.toString();
         this.timeoutMs = timeoutMs;
@@ -476,7 +480,7 @@ public class MesProBatchRecordRouteBRecognizer implements MesProBatchRecordRoute
         if (routeTables == null || routeTables.isEmpty() || sourceBytes == null || sourceBytes.length == 0) {
             return routeTables;
         }
-        List<MesProBatchRecordParsedTable> docTables = new MesProBatchRecordDocParser().parse(sourceBytes);
+        List<MesProBatchRecordParsedTable> docTables = docParser.parse(sourceBytes);
         MesProBatchRecordDocumentFrame documentFrame = resolveDocumentFrame(docTables);
         boolean[] matched = new boolean[docTables.size()];
         List<MesProBatchRecordParsedTable> alignedTables = new ArrayList<>();

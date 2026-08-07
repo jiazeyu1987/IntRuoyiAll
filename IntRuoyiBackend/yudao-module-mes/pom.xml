@@ -19,6 +19,11 @@
     <dependencies>
         <dependency>
             <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-module-word-parser</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
             <artifactId>yudao-module-system</artifactId>
             <version>${revision}</version>
         </dependency>

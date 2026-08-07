@@ -65,7 +65,7 @@ class MesProBatchRecordJingxiTableStructureVerificationTest {
     private static List<MesProBatchRecordParsedTable> cachedRouteBTables;
     private static final Map<String, WordTableShape> CACHED_WORD_SHAPES = new HashMap<>();
 
-    private final MesProBatchRecordDocParser parser = new MesProBatchRecordDocParser();
+    private final MesProBatchRecordDocParser parser = TestBatchRecordFixtures.wordParser();
     private final MesProBatchRecordReportLayoutCalibrator calibrator = new MesProBatchRecordReportLayoutCalibrator();
     private final MesProBatchRecordReportJsonBuilder builder = new MesProBatchRecordReportJsonBuilder();
 
@@ -467,7 +467,7 @@ class MesProBatchRecordJingxiTableStructureVerificationTest {
 
     private static List<MesProBatchRecordParsedTable> routeBTables(byte[] bytes) {
         if (cachedRouteBTables == null) {
-            cachedRouteBTables = new MesProBatchRecordRouteBRecognizer()
+            cachedRouteBTables = TestBatchRecordFixtures.routeBRecognizer()
                     .recognize(REAL_DOC, bytes, REAL_DOC.getFileName().toString());
         }
         return cachedRouteBTables;

@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 
+import cn.iocoder.yudao.module.wordparser.DefaultSharedWordDocumentParser;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 
 import java.time.LocalDateTime;
@@ -8,6 +9,14 @@ import java.util.List;
 final class TestBatchRecordFixtures {
 
     private TestBatchRecordFixtures() {
+    }
+
+    static MesProBatchRecordDocParser wordParser() {
+        return new MesProBatchRecordDocParser(new DefaultSharedWordDocumentParser());
+    }
+
+    static MesProBatchRecordRouteBRecognizer routeBRecognizer() {
+        return new MesProBatchRecordRouteBRecognizer(wordParser());
     }
 
     static MesProBatchRecordParsedTable parsedTable(int index, String title) {

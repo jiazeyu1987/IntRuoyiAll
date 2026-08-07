@@ -23,8 +23,8 @@ class MesProBatchRecordReportLayoutCalibratorTest {
             "D:\\ProjectPackage\\Int\\IntRuoyi\\resource\\批记录模板.doc");
     private static final Path PRESSURE_PUMP_SAMPLE = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
 
-    private final MesProBatchRecordDocParser parser = new MesProBatchRecordDocParser();
-    private final MesProBatchRecordRouteBRecognizer routeBRecognizer = new MesProBatchRecordRouteBRecognizer();
+    private final MesProBatchRecordDocParser parser = TestBatchRecordFixtures.wordParser();
+    private final MesProBatchRecordRouteBRecognizer routeBRecognizer = TestBatchRecordFixtures.routeBRecognizer();
     private final MesProBatchRecordReportLayoutCalibrator calibrator = new MesProBatchRecordReportLayoutCalibrator();
 
     @Test

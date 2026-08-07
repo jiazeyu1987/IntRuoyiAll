@@ -1,18 +1,15 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 
 import cn.hutool.core.util.StrUtil;
-import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
-import org.apache.poi.xwpf.usermodel.TextAlignment;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.apache.poi.xwpf.usermodel.XWPFParagraph;
-import org.apache.poi.xwpf.usermodel.XWPFRun;
-import org.apache.poi.xwpf.usermodel.XWPFTable;
-import org.apache.poi.xwpf.usermodel.XWPFTableCell;
-import org.apache.poi.xwpf.usermodel.XWPFTableRow;
+import cn.iocoder.yudao.module.wordparser.SharedWordDocumentParser;
+import cn.iocoder.yudao.module.wordparser.WordCell;
+import cn.iocoder.yudao.module.wordparser.WordParseCommand;
+import cn.iocoder.yudao.module.wordparser.WordParseException;
+import cn.iocoder.yudao.module.wordparser.WordParseProfile;
+import cn.iocoder.yudao.module.wordparser.WordParseResult;
+import cn.iocoder.yudao.module.wordparser.WordTable;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -22,11 +19,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 
-@Component
 public class MesProBatchRecordRouteCRecognizer implements MesProBatchRecordRouteRecognizer {
 
     public static final String ROUTE_KEY = MesProBatchRecordRecognitionRouteKeys.C;
@@ -61,6 +58,7 @@ public class MesProBatchRecordRouteCRecognizer implements MesProBatchRecordRoute
             "    if word is not None:",
             "        word.Quit()");
 
+    private final SharedWordDocumentParser sharedParser;
     private final RouteCNormalizer normalizer;
     @Value("${yudao.mes.batch-record-report.route-c.python-command:}")
     private String pythonCommand;
@@ -69,11 +67,12 @@ public class MesProBatchRecordRouteCRecognizer implements MesProBatchRecordRoute
     @Value("${yudao.mes.batch-record-report.route-c.timeout-ms:" + DEFAULT_NORMALIZE_TIMEOUT_MS + "}")
     private long normalizeTimeoutMs = DEFAULT_NORMALIZE_TIMEOUT_MS;
 
-    public MesProBatchRecordRouteCRecognizer() {
-        this(null);
+    public MesProBatchRecordRouteCRecognizer(SharedWordDocumentParser sharedParser) {
+        this(sharedParser, null);
     }
 
-    MesProBatchRecordRouteCRecognizer(RouteCNormalizer normalizer) {
+    MesProBatchRecordRouteCRecognizer(SharedWordDocumentParser sharedParser, RouteCNormalizer normalizer) {
+        this.sharedParser = Objects.requireNonNull(sharedParser, "sharedParser");
         this.normalizer = normalizer;
     }
 
@@ -100,7 +99,8 @@ public class MesProBatchRecordRouteCRecognizer implements MesProBatchRecordRoute
         try {
             NormalizedDocument normalizedDocument = normalizeDocument(normalizedFileName, sourceBytes);
             validateNormalizedDocument(normalizedDocument);
-            List<MesProBatchRecordParsedTable> tables = parseNormalizedDocx(normalizedDocument.bytes());
+            List<MesProBatchRecordParsedTable> tables = parseNormalizedDocx(
+                    normalizedFileName, normalizedDocument.bytes());
             if (tables.isEmpty()) {
                 throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED,
                         "route_c_no_tables_recognized");
@@ -139,39 +139,40 @@ public class MesProBatchRecordRouteCRecognizer implements MesProBatchRecordRoute
         }
     }
 
-    private List<MesProBatchRecordParsedTable> parseNormalizedDocx(byte[] bytes) {
-        try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(bytes))) {
-            List<MesProBatchRecordParsedTable> parsedTables = new ArrayList<>();
-            for (XWPFTable table : document.getTables()) {
-                parsedTables.addAll(splitTemplates(parseTable(table)));
-            }
-            for (int index = 0; index < parsedTables.size(); index++) {
-                parsedTables.get(index).setSourceTableIndex(index + 1);
-            }
-            return parsedTables;
-        } catch (Exception ex) {
+    private List<MesProBatchRecordParsedTable> parseNormalizedDocx(String normalizedFileName, byte[] bytes) {
+        WordParseResult document;
+        try {
+            document = sharedParser.parse(new WordParseCommand(
+                    bytes, ".docx", normalizedFileName, WordParseProfile.STRUCTURAL_CANONICAL));
+        } catch (WordParseException ex) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED,
-                    "route_c_normalized_docx_invalid:" + ex.getMessage());
+                    "route_c_normalized_docx_invalid:" + ex.code().name());
         }
+        List<MesProBatchRecordParsedTable> parsedTables = new ArrayList<>();
+        for (WordTable table : document.tables()) {
+            parsedTables.addAll(splitTemplates(parseTable(table)));
+        }
+        for (int index = 0; index < parsedTables.size(); index++) {
+            parsedTables.get(index).setSourceTableIndex(index + 1);
+        }
+        return parsedTables;
     }
 
-    private MesProBatchRecordParsedTable parseTable(XWPFTable table) {
+    private MesProBatchRecordParsedTable parseTable(WordTable table) {
         List<List<MesProBatchRecordParsedCell>> parsedRows = new ArrayList<>();
-        for (XWPFTableRow row : table.getRows()) {
+        for (List<WordCell> row : table.rows()) {
             List<MesProBatchRecordParsedCell> parsedCells = new ArrayList<>();
-            int rowHeightPx = toPixels(row.getHeight(), 36);
-            for (XWPFTableCell cell : row.getTableCells()) {
-                String text = normalizeCellText(cell.getText());
+            for (WordCell cell : row) {
                 MesProBatchRecordParsedCell parsedCell = MesProBatchRecordParsedCell.builder()
-                        .text(text)
+                        .text(cell.text())
                         .rowSpan(1)
-                        .colSpan(resolveColSpan(cell))
-                        .bold(resolveBold(cell))
-                        .fontSize(resolveFontSize(cell))
-                        .horizontalAlign(resolveHorizontalAlign(cell))
-                        .verticalAlign(resolveVerticalAlign(cell))
-                        .widthPx(resolveWidthPx(cell))
-                        .heightPx(rowHeightPx)
+                        .colSpan(cell.colSpan())
+                        .bold(cell.bold())
+                        .fontSize(Math.max(10, cell.fontSize()))
+                        .horizontalAlign(cell.horizontalAlign())
+                        .verticalAlign(normalizeRouteCVerticalAlign(cell.verticalAlign()))
+                        .widthPx(Math.max(120, cell.widthPx()))
+                        .heightPx(Math.max(36, cell.heightPx()))
                         .build();
                 parsedCells.add(parsedCell);
             }
@@ -478,100 +479,8 @@ public class MesProBatchRecordRouteCRecognizer implements MesProBatchRecordRoute
         return -1;
     }
 
-    private int resolveColSpan(XWPFTableCell cell) {
-        if (cell.getCTTc().getTcPr() == null || !cell.getCTTc().getTcPr().isSetGridSpan()) {
-            return 1;
-        }
-        return Math.max(1, cell.getCTTc().getTcPr().getGridSpan().getVal().intValue());
-    }
-
-    private boolean resolveBold(XWPFTableCell cell) {
-        XWPFRun firstRun = firstRun(cell);
-        return firstRun != null && firstRun.isBold();
-    }
-
-    private int resolveFontSize(XWPFTableCell cell) {
-        XWPFRun firstRun = firstRun(cell);
-        if (firstRun == null || firstRun.getFontSize() <= 0) {
-            return 10;
-        }
-        return Math.max(10, firstRun.getFontSize());
-    }
-
-    private String resolveHorizontalAlign(XWPFTableCell cell) {
-        XWPFParagraph paragraph = firstParagraph(cell);
-        if (paragraph == null) {
-            return "left";
-        }
-        ParagraphAlignment alignment = paragraph.getAlignment();
-        if (alignment == ParagraphAlignment.CENTER) {
-            return "center";
-        }
-        if (alignment == ParagraphAlignment.RIGHT) {
-            return "right";
-        }
-        return "left";
-    }
-
-    private String resolveVerticalAlign(XWPFTableCell cell) {
-        if (cell.getVerticalAlignment() == XWPFTableCell.XWPFVertAlign.TOP) {
-            return "top";
-        }
-        if (cell.getVerticalAlignment() == XWPFTableCell.XWPFVertAlign.BOTTOM) {
-            return "bottom";
-        }
-        TextAlignment alignment = firstParagraph(cell) == null ? null : firstParagraph(cell).getVerticalAlignment();
-        if (alignment == TextAlignment.TOP) {
-            return "top";
-        }
-        if (alignment == TextAlignment.BOTTOM) {
-            return "bottom";
-        }
-        return "middle";
-    }
-
-    private int resolveWidthPx(XWPFTableCell cell) {
-        try {
-            return toPixels((int) Math.round(cell.getWidthDecimal()), 120);
-        } catch (Exception ignored) {
-            return 120;
-        }
-    }
-
-    private XWPFParagraph firstParagraph(XWPFTableCell cell) {
-        if (cell.getParagraphs().isEmpty()) {
-            return null;
-        }
-        return cell.getParagraphs().get(0);
-    }
-
-    private XWPFRun firstRun(XWPFTableCell cell) {
-        XWPFParagraph paragraph = firstParagraph(cell);
-        if (paragraph == null || paragraph.getRuns().isEmpty()) {
-            return null;
-        }
-        return paragraph.getRuns().get(0);
-    }
-
-    private int toPixels(int twips, int defaultValue) {
-        if (twips <= 0) {
-            return defaultValue;
-        }
-        return Math.max(defaultValue, Math.round(twips / 15.0f));
-    }
-
-    private String normalizeCellText(String text) {
-        if (text == null) {
-            return "";
-        }
-        String normalized = text
-                .replace('\u0007', ' ')
-                .replace('\u0008', ' ')
-                .replace('\r', '\n')
-                .replace('\u0000', ' ')
-                .replaceAll("[\\n]{3,}", "\n\n")
-                .trim();
-        return normalized.isBlank() ? "" : normalized;
+    private String normalizeRouteCVerticalAlign(String verticalAlign) {
+        return "top".equals(verticalAlign) || "bottom".equals(verticalAlign) ? verticalAlign : "middle";
     }
 
     private String normalizeFileName(String originalFileName, Path sourcePath) {

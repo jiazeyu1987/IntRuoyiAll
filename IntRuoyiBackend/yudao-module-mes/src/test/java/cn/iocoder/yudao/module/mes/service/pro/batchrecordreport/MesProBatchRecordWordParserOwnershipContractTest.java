@@ -84,20 +84,35 @@ class MesProBatchRecordWordParserOwnershipContractTest {
                 .filter(method -> !method.isBridge())
                 .map(this::methodSignature)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        assertEquals(actualHelpers, declaredOwnership.keySet(),
-                "parser helper ownership must match reflection in both directions");
         assertOnlyApprovedOwners(declaredOwnership, "parser helper");
-        assertTrue(declaredOwnership.containsValue(SHARED), "parser helpers must contain shared raw extraction");
-        assertTrue(declaredOwnership.containsValue(MES), "parser helpers must contain MES adapter semantics");
+        Set<String> mesAdapterHelpers = helpersOwnedBy(declaredOwnership, MES);
+        Set<String> migratedSharedHelpers = helpersOwnedBy(declaredOwnership, SHARED);
+        assertEquals(actualHelpers, mesAdapterHelpers,
+                "MES adapter helper ownership must match reflection in both directions");
+        assertFalse(migratedSharedHelpers.isEmpty(), "pre-migration shared raw helper inventory cannot be empty");
+        assertTrue(actualHelpers.stream().noneMatch(migratedSharedHelpers::contains),
+                "shared raw extraction helpers must be absent from the MES adapter");
 
         assertEquals(SHARED, declaredOwnership.get("collectTopLevelTables(Range)"));
         assertEquals(SHARED, declaredOwnership.get("resolveVisualColumnBoundaries(Table)"));
         assertEquals(SHARED, declaredOwnership.get("resolveDocxCellText(XWPFTableCell)"));
+        assertEquals(MES, declaredOwnership.get("parseShared(byte[],String)"));
+        assertEquals(MES, declaredOwnership.get("toMesRawTable(WordTable,boolean)"));
+        assertEquals(MES, declaredOwnership.get("toMesDocumentFrame(WordDocumentFrame,String)"));
+        assertEquals(MES, declaredOwnership.get("toMesRows(List,boolean)"));
+        assertEquals(MES, declaredOwnership.get("toMesCell(WordCell,boolean,Integer)"));
         assertEquals(MES, declaredOwnership.get("splitTemplates(MesProBatchRecordParsedTable)"));
         assertEquals(MES, declaredOwnership.get("extractTemplateTitle(String)"));
         assertEquals(MES, declaredOwnership.get("normalizeRowsToVisualGrid(List,int)"));
         assertEquals(MES, declaredOwnership.get("normalizeRowsToLogicalGrid(List,List)"));
         assertEquals(MES, declaredOwnership.get("isPackedLabelGridText(String)"));
+    }
+
+    private Set<String> helpersOwnedBy(Map<String, String> ownership, String owner) {
+        return ownership.entrySet().stream()
+                .filter(entry -> owner.equals(entry.getValue()))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private void assertExternalMesSemantics(JsonNode externalMesSemantics) throws ClassNotFoundException {

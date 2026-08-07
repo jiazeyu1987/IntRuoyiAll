@@ -73,6 +73,8 @@ class MesBatchRecordBaseSchemaTest {
         String testSchema = Files.readString(testSchemaFile, StandardCharsets.UTF_8);
         assertSchemaIsNonDestructive(runtimeSchema, "runtime");
         assertSchemaIsNonDestructive(testSchema, "test");
+        assertSchemaHasExpectedColumns(testSchema, "dcc_project_code",
+                List.of("product_master_id"), "test");
 
         for (Path doFile : batchRecordDoFiles(projectDir)) {
             assertTrue(Files.exists(doFile), "Batch-record DO file must exist: " + doFile);

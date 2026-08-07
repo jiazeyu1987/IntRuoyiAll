@@ -299,6 +299,16 @@ class MesProBatchRecordReportControllerTest {
         assertEquals("expectedRouteId", recognizeMethod.getParameters()[12].getAnnotation(RequestParam.class).value());
         assertEquals("expectedRouteVersionId", recognizeMethod.getParameters()[13].getAnnotation(RequestParam.class).value());
 
+        Method uploadExtraSlotMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
+                "uploadExtraFormSlot", MultipartFile.class, String.class, String.class);
+        assertArrayEquals(new String[]{"/upload-extra-slot"},
+                uploadExtraSlotMethod.getAnnotation(PostMapping.class).value());
+        assertEquals("file", uploadExtraSlotMethod.getParameters()[0].getAnnotation(RequestParam.class).value());
+        assertEquals("batchRecordName",
+                uploadExtraSlotMethod.getParameters()[1].getAnnotation(RequestParam.class).value());
+        assertEquals("formSlotType",
+                uploadExtraSlotMethod.getParameters()[2].getAnnotation(RequestParam.class).value());
+
         Method preflightMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
                 "preflightUploadedRoute", String.class, String.class, List.class);
         assertArrayEquals(new String[]{"/recognize-uploaded/preflight"},

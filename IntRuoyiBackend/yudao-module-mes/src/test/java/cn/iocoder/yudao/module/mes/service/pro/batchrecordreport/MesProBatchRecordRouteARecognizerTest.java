@@ -21,7 +21,7 @@ class MesProBatchRecordRouteARecognizerTest {
             "D:\\ProjectPackage\\Int\\IntRuoyi\\resource\\\u6279\u8bb0\u5f55\u6a21\u677f.doc");
 
     private final MesProBatchRecordRouteARecognizer recognizer =
-            new MesProBatchRecordRouteARecognizer(new MesProBatchRecordDocParser());
+            new MesProBatchRecordRouteARecognizer(TestBatchRecordFixtures.wordParser());
 
     @Test
     void recognizePilotSample_returnsFifteenBusinessTemplates() throws Exception {

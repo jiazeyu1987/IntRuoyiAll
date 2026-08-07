@@ -1,5 +1,10 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.exception.ErrorCode;
+import cn.iocoder.yudao.module.wordparser.WordParseDiagnostics;
+import cn.iocoder.yudao.module.wordparser.WordParseException;
+import cn.iocoder.yudao.module.wordparser.WordParseFailureCode;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -27,6 +32,7 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesProBatchRecordDocParserTest {
@@ -60,7 +66,34 @@ class MesProBatchRecordDocParserTest {
             46, 19, 19, 37, 21, 17, 17, 19, 18, 19, 19, 19, 23, 17, 17
     );
 
-    private final MesProBatchRecordDocParser parser = new MesProBatchRecordDocParser();
+    private final MesProBatchRecordDocParser parser = TestBatchRecordFixtures.wordParser();
+
+    @Test
+    void sharedParserFailuresMapToExactMesBusinessErrors() {
+        assertSharedFailureMapping(WordParseFailureCode.EMPTY_SOURCE,
+                MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_FILE_EMPTY);
+        assertSharedFailureMapping(WordParseFailureCode.UNSUPPORTED_SOURCE_TYPE,
+                MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_FILE_EXTENSION_INVALID);
+        assertSharedFailureMapping(WordParseFailureCode.CORRUPT_SOURCE,
+                MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED);
+        assertSharedFailureMapping(WordParseFailureCode.INVALID_TABLE_STRUCTURE,
+                MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED);
+        assertSharedFailureMapping(WordParseFailureCode.NO_PARSEABLE_CONTENT,
+                MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_TABLE_COUNT_INVALID);
+    }
+
+    private static void assertSharedFailureMapping(WordParseFailureCode failureCode, ErrorCode expectedError) {
+        MesProBatchRecordDocParser failingParser = new MesProBatchRecordDocParser(command -> {
+            throw new WordParseException(failureCode, new WordParseDiagnostics(
+                    "test", "source-hash", command.extension(), "file-hash",
+                    0, 0, List.of(), failureCode));
+        });
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> failingParser.parseDocx(new byte[]{1}));
+
+        assertEquals(expectedError.getCode(), exception.getCode());
+    }
 
     @Test
     void splitTemplates_usesGenericInfoHeaderRuleFromSharedPageTypeTitles() throws Exception {
@@ -255,7 +288,7 @@ class MesProBatchRecordDocParserTest {
 
     @Test
     void parsePilotSample_returnsTemplatesFromPilotDoc() throws Exception {
-        Assumptions.assumeTrue(Files.exists(PILOT_SAMPLE), "pilot sample doc fixture is not available on this machine");
+        assertTrue(Files.isRegularFile(PILOT_SAMPLE), "mandatory pilot DOC fixture is missing: " + PILOT_SAMPLE);
         byte[] bytes = Files.readAllBytes(PILOT_SAMPLE);
 
         List<MesProBatchRecordParsedTable> tables = parser.parse(bytes);
@@ -274,7 +307,7 @@ class MesProBatchRecordDocParserTest {
 
     @Test
     void parsePilotSample_preservesComplexProcessVisualColumnGridFromWordCellBoundaries() throws Exception {
-        Assumptions.assumeTrue(Files.exists(PILOT_SAMPLE), "pilot sample doc fixture is not available on this machine");
+        assertTrue(Files.isRegularFile(PILOT_SAMPLE), "mandatory pilot DOC fixture is missing: " + PILOT_SAMPLE);
         byte[] bytes = Files.readAllBytes(PILOT_SAMPLE);
 
         List<MesProBatchRecordParsedTable> tables = parser.parse(bytes);
@@ -296,8 +329,8 @@ class MesProBatchRecordDocParserTest {
 
     @Test
     void parsePressurePumpDoc_preservesEmptyCheckboxSymbolsInCleanProcessMaterialNames() throws Exception {
-        Assumptions.assumeTrue(Files.exists(PRESSURE_PUMP_SAMPLE),
-                "pressure pump sample doc fixture is not available on this machine");
+        assertTrue(Files.isRegularFile(PRESSURE_PUMP_SAMPLE),
+                "mandatory pressure pump DOC fixture is missing: " + PRESSURE_PUMP_SAMPLE);
         byte[] bytes = Files.readAllBytes(PRESSURE_PUMP_SAMPLE);
 
         List<MesProBatchRecordParsedTable> tables = parser.parse(bytes);

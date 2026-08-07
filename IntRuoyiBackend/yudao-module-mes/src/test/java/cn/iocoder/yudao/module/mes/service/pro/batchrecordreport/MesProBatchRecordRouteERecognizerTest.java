@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRuleVO;
+import cn.iocoder.yudao.module.wordparser.DefaultSharedWordDocumentParser;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import org.junit.jupiter.api.Assumptions;
@@ -108,7 +109,7 @@ class MesProBatchRecordRouteERecognizerTest {
     @Test
     void recognize_whenWordBytesAreEmpty_failFast() {
         MesProBatchRecordRouteERecognizer recognizer =
-                recognizer(new MesProBatchRecordDocParser(), (originalFileName, imageBytes) -> List.of());
+                recognizer(TestBatchRecordFixtures.wordParser(), (originalFileName, imageBytes) -> List.of());
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> recognizer.recognize(PILOT_SAMPLE, new byte[0], SOURCE_DOC_FILE_NAME));
@@ -210,7 +211,7 @@ class MesProBatchRecordRouteERecognizerTest {
         Assumptions.assumeTrue(Files.exists(LOSS_REPORT_SAMPLE), "real loss report sample is required");
         FailingImageParser imageParser = new FailingImageParser();
         MesProBatchRecordRouteERecognizer recognizer =
-                recognizer(new MesProBatchRecordDocParser(), imageParser);
+                recognizer(TestBatchRecordFixtures.wordParser(), imageParser);
 
         List<MesProBatchRecordParsedTable> tables = recognizer.recognize(
                 LOSS_REPORT_SAMPLE, Files.readAllBytes(LOSS_REPORT_SAMPLE), LOSS_REPORT_SAMPLE.getFileName().toString());
@@ -287,7 +288,7 @@ class MesProBatchRecordRouteERecognizerTest {
     @Test
     void renderTemplatePng_whenTemplateHasManyRows_preservesSourceRowHeight() throws Exception {
         MesProBatchRecordRouteERecognizer recognizer =
-                recognizer(new MesProBatchRecordDocParser(), (originalFileName, imageBytes) -> List.of());
+                recognizer(TestBatchRecordFixtures.wordParser(), (originalFileName, imageBytes) -> List.of());
 
         byte[] pngBytes = recognizer.renderTemplatePng(createLargeSourceTable(), 1);
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(pngBytes));
@@ -300,7 +301,7 @@ class MesProBatchRecordRouteERecognizerTest {
     @Test
     void renderTemplatePng_whenTemplateHasMultipleColumns_preservesSourceColumnWidth() throws Exception {
         MesProBatchRecordRouteERecognizer recognizer =
-                recognizer(new MesProBatchRecordDocParser(), (originalFileName, imageBytes) -> List.of());
+                recognizer(TestBatchRecordFixtures.wordParser(), (originalFileName, imageBytes) -> List.of());
 
         byte[] pngBytes = recognizer.renderTemplatePng(createWideSourceTable(), 1);
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(pngBytes));
@@ -531,6 +532,7 @@ class MesProBatchRecordRouteERecognizerTest {
         private final List<MesProBatchRecordParsedTable> tables;
 
         private StubDocParser(List<MesProBatchRecordParsedTable> tables) {
+            super(new DefaultSharedWordDocumentParser());
             this.tables = tables;
         }
 

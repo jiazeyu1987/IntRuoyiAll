@@ -52,7 +52,7 @@ class FullWordTableInventoryProbeTest {
         byte[] bytes = Files.readAllBytes(REAL_DOC);
         List<String> lines = new ArrayList<>();
         List<TableSummary> wordTables = wordTables(bytes);
-        List<MesProBatchRecordParsedTable> parserTables = new MesProBatchRecordDocParser().parse(bytes);
+        List<MesProBatchRecordParsedTable> parserTables = TestBatchRecordFixtures.wordParser().parse(bytes);
         lines.add("word_table_count=" + wordTables.size());
         lines.add("parser_table_count=" + parserTables.size());
         lines.add("--- WORD TABLES ---");
@@ -82,7 +82,7 @@ class FullWordTableInventoryProbeTest {
     void parseFullWordDoc_shouldPreserveTopLevelWordTableInventoryAcrossSplitTemplates() throws Exception {
         byte[] bytes = Files.readAllBytes(REAL_DOC);
         List<TableSummary> wordTables = wordTables(bytes);
-        List<MesProBatchRecordParsedTable> parserTables = new MesProBatchRecordDocParser().parse(bytes);
+        List<MesProBatchRecordParsedTable> parserTables = TestBatchRecordFixtures.wordParser().parse(bytes);
 
         List<Integer> distinctTopLevelSourceIndexes = parserTables.stream()
                 .map(MesProBatchRecordParsedTable::getSourceTopLevelTableIndex)
@@ -106,7 +106,7 @@ class FullWordTableInventoryProbeTest {
     @Test
     void parseFullWordDoc_shouldExposeStableRenderedTableStructureInventory() throws Exception {
         byte[] bytes = Files.readAllBytes(REAL_DOC);
-        List<MesProBatchRecordParsedTable> parserTables = new MesProBatchRecordDocParser().parse(bytes);
+        List<MesProBatchRecordParsedTable> parserTables = TestBatchRecordFixtures.wordParser().parse(bytes);
 
         assertEquals(EXPECTED_RENDER_TABLE_TITLES.size(), parserTables.size(),
                 "the system render inventory must cover all split Word table segments");
@@ -127,7 +127,7 @@ class FullWordTableInventoryProbeTest {
     void parseFullWordDoc_shouldPreserveProductInfoTopLevelTableCellsAndText() throws Exception {
         byte[] bytes = Files.readAllBytes(REAL_DOC);
         Table productInfoWordTable = topLevelWordTables(bytes).get(0);
-        MesProBatchRecordParsedTable productInfo = new MesProBatchRecordDocParser().parse(bytes).get(0);
+        MesProBatchRecordParsedTable productInfo = TestBatchRecordFixtures.wordParser().parse(bytes).get(0);
 
         assertEquals("产品信息", productInfo.getTableTitle());
         assertEquals(1, productInfo.getSourceTopLevelTableIndex().intValue());
@@ -159,7 +159,7 @@ class FullWordTableInventoryProbeTest {
     void renderProductInfoJson_shouldMatchOriginalWordVisualShape() throws Exception {
         byte[] bytes = Files.readAllBytes(REAL_DOC);
         Table productInfoWordTable = topLevelWordTables(bytes).get(0);
-        MesProBatchRecordParsedTable productInfo = new MesProBatchRecordDocParser().parse(bytes).get(0);
+        MesProBatchRecordParsedTable productInfo = TestBatchRecordFixtures.wordParser().parse(bytes).get(0);
         MesProBatchRecordParsedTable calibrated = new MesProBatchRecordReportLayoutCalibrator().calibrate(productInfo);
         JSONObject renderedJson = JSON.parseObject(new MesProBatchRecordReportJsonBuilder()
                 .build(calibrated, "EBR_PRODUCT_INFO_VERIFY"));

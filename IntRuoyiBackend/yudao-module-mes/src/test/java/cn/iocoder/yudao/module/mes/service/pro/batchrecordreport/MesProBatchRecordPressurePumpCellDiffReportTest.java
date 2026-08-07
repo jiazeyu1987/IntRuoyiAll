@@ -24,7 +24,8 @@ class MesProBatchRecordPressurePumpCellDiffReportTest {
     private static final List<String> TARGET_TITLES = List.of("组装Ⅰ工序生产记录", "光固Ⅰ工序生产记录");
 
     private final MesProBatchRecordRouteBRecognizer recognizer =
-            new MesProBatchRecordRouteBRecognizer("python", Path.of(System.getProperty("user.dir")), 600_000L);
+            new MesProBatchRecordRouteBRecognizer(TestBatchRecordFixtures.wordParser(),
+                    "python", Path.of(System.getProperty("user.dir")), 600_000L);
     private final MesProBatchRecordReportLayoutCalibrator calibrator = new MesProBatchRecordReportLayoutCalibrator();
     private final MesProBatchRecordReportJsonBuilder jsonBuilder = new MesProBatchRecordReportJsonBuilder();
 

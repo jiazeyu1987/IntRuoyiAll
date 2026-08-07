@@ -30,7 +30,7 @@ class MesProBatchRecordReportJsonBuilderTest {
 
     private final MesProBatchRecordReportJsonBuilder builder = new MesProBatchRecordReportJsonBuilder();
     private final MesProBatchRecordReportLayoutCalibrator calibrator = new MesProBatchRecordReportLayoutCalibrator();
-    private final MesProBatchRecordDocParser parser = new MesProBatchRecordDocParser();
+    private final MesProBatchRecordDocParser parser = TestBatchRecordFixtures.wordParser();
 
     @Test
     void build_shouldNotKeepRouteSpecificDocumentHeaderContentDetector() {
@@ -526,7 +526,7 @@ class MesProBatchRecordReportJsonBuilderTest {
         Assumptions.assumeTrue(Files.exists(PRESSURE_PUMP_SAMPLE),
                 "pressure pump source doc is not available on this machine");
         byte[] bytes = Files.readAllBytes(PRESSURE_PUMP_SAMPLE);
-        MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
+        MesProBatchRecordRouteBRecognizer recognizer = TestBatchRecordFixtures.routeBRecognizer();
         MesProBatchRecordParsedTable parsedTable = recognizer.recognize(
                         PRESSURE_PUMP_SAMPLE, bytes, PRESSURE_PUMP_SAMPLE.getFileName().toString())
                 .stream()
@@ -565,7 +565,7 @@ class MesProBatchRecordReportJsonBuilderTest {
         Assumptions.assumeTrue(Files.exists(PRESSURE_PUMP_SAMPLE),
                 "pressure pump source doc is not available on this machine");
         byte[] bytes = Files.readAllBytes(PRESSURE_PUMP_SAMPLE);
-        MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
+        MesProBatchRecordRouteBRecognizer recognizer = TestBatchRecordFixtures.routeBRecognizer();
         MesProBatchRecordParsedTable parsedTable = recognizer.recognize(
                         PRESSURE_PUMP_SAMPLE, bytes, PRESSURE_PUMP_SAMPLE.getFileName().toString())
                 .stream()
@@ -909,7 +909,7 @@ class MesProBatchRecordReportJsonBuilderTest {
         Assumptions.assumeTrue(Files.exists(source), "real Route B sample is required for this regression");
 
         byte[] bytes = Files.readAllBytes(source);
-        MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
+        MesProBatchRecordRouteBRecognizer recognizer = TestBatchRecordFixtures.routeBRecognizer();
         MesProBatchRecordParsedTable sourceTable = recognizer.recognize(source, bytes, source.getFileName().toString()).stream()
                 .filter(table -> "组装Ⅰ工序生产记录".equals(table.getTableTitle()))
                 .findFirst()
@@ -2438,7 +2438,7 @@ class MesProBatchRecordReportJsonBuilderTest {
     void build_shouldAllowLiveLikeDenseProcessPagesToExceedTheGeneric650pxJsonCap() throws Exception {
         Assumptions.assumeTrue(Files.exists(FIXED_SAMPLE), "fixed route-B source doc is not available on this machine");
         byte[] bytes = Files.readAllBytes(FIXED_SAMPLE);
-        MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
+        MesProBatchRecordRouteBRecognizer recognizer = TestBatchRecordFixtures.routeBRecognizer();
         MesProBatchRecordParsedTable parsedTable = recognizer.recognize(FIXED_SAMPLE, bytes, FIXED_SAMPLE.getFileName().toString())
                 .stream()
                 .filter(item -> "精洗工序生产记录".equals(item.getTableTitle()))
@@ -2467,7 +2467,7 @@ class MesProBatchRecordReportJsonBuilderTest {
     void build_shouldFollowSourceHeightForLiveLikeMediumProcessPages() throws Exception {
         Assumptions.assumeTrue(Files.exists(FIXED_SAMPLE), "fixed route-B source doc is not available on this machine");
         byte[] bytes = Files.readAllBytes(FIXED_SAMPLE);
-        MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
+        MesProBatchRecordRouteBRecognizer recognizer = TestBatchRecordFixtures.routeBRecognizer();
         MesProBatchRecordParsedTable parsedTable = recognizer.recognize(FIXED_SAMPLE, bytes, FIXED_SAMPLE.getFileName().toString())
                 .stream()
                 .filter(item -> "清洁工序生产记录".equals(item.getTableTitle()))
@@ -2801,7 +2801,7 @@ class MesProBatchRecordReportJsonBuilderTest {
     void build_shouldPreserveLiveRepeatedChecklistSourceRowsOnFixedCleanProcessPage() throws Exception {
         Assumptions.assumeTrue(Files.exists(FIXED_SAMPLE), "fixed route-B source doc is not available on this machine");
         byte[] bytes = Files.readAllBytes(FIXED_SAMPLE);
-        MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
+        MesProBatchRecordRouteBRecognizer recognizer = TestBatchRecordFixtures.routeBRecognizer();
         MesProBatchRecordParsedTable parsedTable = recognizer.recognize(FIXED_SAMPLE, bytes, FIXED_SAMPLE.getFileName().toString())
                 .stream()
                 .filter(item -> "清洁工序生产记录".equals(item.getTableTitle()))
@@ -2826,7 +2826,7 @@ class MesProBatchRecordReportJsonBuilderTest {
     void build_shouldUse1120WidthForFixedOverviewPage() throws Exception {
         Assumptions.assumeTrue(Files.exists(FIXED_SAMPLE), "fixed route-B source doc is not available on this machine");
         byte[] bytes = Files.readAllBytes(FIXED_SAMPLE);
-        MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
+        MesProBatchRecordRouteBRecognizer recognizer = TestBatchRecordFixtures.routeBRecognizer();
         MesProBatchRecordParsedTable parsedTable = recognizer.recognize(FIXED_SAMPLE, bytes, FIXED_SAMPLE.getFileName().toString())
                 .stream()
                 .filter(item -> "产品信息".equals(item.getTableTitle()))
@@ -2845,7 +2845,7 @@ class MesProBatchRecordReportJsonBuilderTest {
         Assumptions.assumeTrue(Files.exists(PRESSURE_PUMP_SAMPLE),
                 "pressure pump source doc is not available on this machine");
         byte[] bytes = Files.readAllBytes(PRESSURE_PUMP_SAMPLE);
-        MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
+        MesProBatchRecordRouteBRecognizer recognizer = TestBatchRecordFixtures.routeBRecognizer();
         MesProBatchRecordParsedTable parsedTable = recognizer.recognize(
                         PRESSURE_PUMP_SAMPLE, bytes, PRESSURE_PUMP_SAMPLE.getFileName().toString())
                 .stream()

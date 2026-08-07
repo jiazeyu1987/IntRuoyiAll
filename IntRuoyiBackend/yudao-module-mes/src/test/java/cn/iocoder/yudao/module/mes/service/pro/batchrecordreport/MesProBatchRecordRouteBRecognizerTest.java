@@ -84,13 +84,13 @@ class MesProBatchRecordRouteBRecognizerTest {
             46, 19, 19, 37, 21, 17, 17, 19, 18, 19, 19, 19, 23, 17, 17
     );
 
-    private final MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
+    private final MesProBatchRecordRouteBRecognizer recognizer = TestBatchRecordFixtures.routeBRecognizer();
 
     @Test
     void recognizePilotSample_returnsFifteenBusinessTemplatesViaWordCom() throws Exception {
         Assumptions.assumeTrue(Files.exists(PILOT_SAMPLE), "pilot sample doc fixture is not available on this machine");
         byte[] bytes = Files.readAllBytes(PILOT_SAMPLE);
-        MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
+        MesProBatchRecordRouteBRecognizer recognizer = TestBatchRecordFixtures.routeBRecognizer();
 
         List<MesProBatchRecordParsedTable> tables = recognizer.recognize(
                 PILOT_SAMPLE,
@@ -260,6 +260,7 @@ class MesProBatchRecordRouteBRecognizerTest {
     @Test
     void recognize_whenPythonCommandMissing_failFast() {
         MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer(
+                TestBatchRecordFixtures.wordParser(),
                 "__missing_route_b_python__",
                 Path.of(System.getProperty("java.io.tmpdir")),
                 5000L);
@@ -285,6 +286,7 @@ class MesProBatchRecordRouteBRecognizerTest {
                     """);
 
             MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer(
+                    TestBatchRecordFixtures.wordParser(),
                     fakePython.toString(),
                     tempDir,
                     800L);
@@ -315,7 +317,8 @@ class MesProBatchRecordRouteBRecognizerTest {
 
     @Test
     void routeBDefaultTimeout_supportsLargeWordComDocuments() {
-        Long timeoutMs = (Long) ReflectionTestUtils.getField(new MesProBatchRecordRouteBRecognizer(), "timeoutMs");
+        Long timeoutMs = (Long) ReflectionTestUtils.getField(
+                TestBatchRecordFixtures.routeBRecognizer(), "timeoutMs");
 
         assertEquals(600_000L, timeoutMs);
     }

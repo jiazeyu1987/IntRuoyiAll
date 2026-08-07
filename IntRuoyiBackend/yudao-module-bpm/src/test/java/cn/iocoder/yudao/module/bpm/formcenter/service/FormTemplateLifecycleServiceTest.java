@@ -67,6 +67,19 @@ class FormTemplateLifecycleServiceTest {
     }
 
     @Test
+    void recognitionFailurePreservesTheRecognizerBusinessError() {
+        FormTemplateLifecycleService service = new FormTemplateLifecycleService(
+                new FixedRecognizer(FormTemplateRecognition.failure(
+                        FormCenterErrorCode.TEMPLATE_SOURCE_INVALID, "CORRUPT_SOURCE")),
+                new FixedReferenceChecker(List.of()), new MemoryTemplateVersionStore());
+
+        FormCenterException ex = assertThrows(FormCenterException.class,
+                () -> service.importDoc(command("change-form.docx")));
+
+        assertEquals(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID, ex.getErrorCode());
+    }
+
+    @Test
     void publishedVersionCannotOverwriteJimuSchema() {
         FormTemplateLifecycleService service = new FormTemplateLifecycleService(
                 new FixedRecognizer(FormTemplateRecognition.success(List.of(

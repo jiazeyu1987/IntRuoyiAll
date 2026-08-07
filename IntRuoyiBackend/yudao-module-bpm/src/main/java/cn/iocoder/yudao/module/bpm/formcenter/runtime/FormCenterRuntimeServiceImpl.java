@@ -133,7 +133,9 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         validateDocSource(command);
         FormTemplateRecognition recognition = templateRecognizer.recognize(command);
         if (!recognition.isSuccess() || recognition.getFields().isEmpty()) {
-            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
+            FormCenterErrorCode failureCode = recognition.isSuccess()
+                    ? FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED : recognition.getFailureCode();
+            throw new FormCenterException(failureCode,
                     "Template recognition failed: " + recognition.getFailureReason());
         }
         FormTemplateVersionDO insertObj = FormTemplateVersionDO.builder()
