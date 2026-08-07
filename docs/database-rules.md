@@ -77,11 +77,11 @@
 ### DCC 项目代码 MDM 产品建档绑定门禁
 
 - Trigger: DCC 产品立项、产品建档申请、`dcc_product_onboarding_request`、`dcc_project_code.product_master_id`、MDM 产品绑定、受控文件提交需要按项目代码带出产品主数据。
-- Preflight check: 修改 schema、服务或页面前，必须同时核对 DCC 项目代码表、MDM 产品主数据、建档申请状态机、受控文件提交来源和 DCC 测试 fixture；审批通过生成项目代码时，`productMasterId` 必须来自启用 MDM 产品或审批阶段正式创建的 MDM 产品；审批阶段重复项目代码校验必须排除当前待审批申请自身，但继续拦截其它待审批申请和已存在项目代码。
-- Blocker: 缺申请表、缺项目代码 MDM 绑定字段、目标项目代码已存在、其它待审批申请重复、审批把当前申请自身误判为重复、MDM 产品禁用或缺正式 DCC 产品编号、受控文件提交只能从前端 payload/项目名/空值推断产品时必须停止。
-- Verification: 至少运行产品建档服务测试、受控文件提交 MDM 绑定测试、聚焦 schema 测试、前端静态契约和 backend/database/frontend evidence validator；审批重复校验回归必须覆盖“当前待审批申请自身不算重复”；真实写入 E2E 只有在确认本机运行态、测试租户/账号和可清理任务数据后执行。
-- Forbidden action: 禁止用 DCC 产品目录、`formBindings`、默认项目代码、前端文案、空 `productMasterId`、直接 SQL 补字段、API-only 审批或 mock MDM 产品替代正式建档审批和 MDM 主数据绑定。
-- Evidence: `doc/tasks/20260803-dcc-product-onboarding-flow/verification-report.md`。
+- Preflight check: 修改 schema、服务或页面前，必须同时核对 DCC 项目代码表、MDM 产品主数据、建档申请状态机、受控文件提交来源和所有会加载 DCC mapper 的测试 fixture；审批通过生成项目代码时，`productMasterId` 必须来自启用 MDM 产品或审批阶段正式创建的 MDM 产品；审批阶段重复项目代码校验必须排除当前待审批申请自身，但继续拦截其它待审批申请和已存在项目代码。跨模块 DB 回归若引用 DCC mapper，也必须确认本模块 H2 `create_tables.sql` 与 DCC DO/正式迁移一致包含 `product_master_id`。
+- Blocker: 缺申请表、缺项目代码 MDM 绑定字段、目标项目代码已存在、其它待审批申请重复、审批把当前申请自身误判为重复、MDM 产品禁用或缺正式 DCC 产品编号、受控文件提交只能从前端 payload/项目名/空值推断产品，或 H2 fixture 缺 `dcc_project_code.product_master_id` 导致无关 DB 回归在 SQL select 阶段失败时必须停止。
+- Verification: 至少运行产品建档服务测试、受控文件提交 MDM 绑定测试、聚焦 schema 测试、前端静态契约和 backend/database/frontend evidence validator；审批重复校验回归必须覆盖“当前待审批申请自身不算重复”；若修正跨模块 H2 fixture，需增加或复跑 schema contract 并复跑被阻断的原 DB 回归命令，证明不再报缺列；真实写入 E2E 只有在确认本机运行态、测试租户/账号和可清理任务数据后执行。
+- Forbidden action: 禁止用 DCC 产品目录、`formBindings`、默认项目代码、前端文案、空 `productMasterId`、直接 SQL 补生产字段、API-only 审批、mock MDM 产品、替换 mapper 查询或切换数据源来替代正式建档审批和 MDM 主数据绑定；禁止用 H2 schema PASS 替代生产迁移核验。
+- Evidence: `doc/tasks/20260803-dcc-product-onboarding-flow/verification-report.md`；`doc/tasks/20260807-shared-word-parser-implementation/execution-log.md` 中 MES H2 `dcc_project_code.product_master_id` fixture 对齐，schema contract 1 项和 DB service regression 110 项 PASS。
 
 ### 中文菜单名称 ASCII 安全迁移门禁
 

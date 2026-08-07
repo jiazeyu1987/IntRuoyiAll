@@ -202,6 +202,15 @@ BPM/MES adapter 不吞共享异常：
 
 实现任务必须新增 BPM/MES adapter 错误映射测试，确认前端仍收到可读业务错误，不退化成通用 500 或空成功。
 
+### 跨层错误码与 canonical 等价门禁
+
+- Trigger: 共享 parser 通过业务 adapter、recognition result 或 service 多层返回错误，或多个业务入口声称消费同一 canonical 解析结果。
+- Preflight check: 逐项列出共享失败码到业务错误码的映射，并检查中间结果对象是否能携带业务错误码到最终异常；等价测试分别比较 source bytes、extension、profile、段落、页眉页脚、表格和 source hash。
+- Blocker: 任一中间层把多个 typed failure 收敛为通用错误，或等价测试只断言构造器/profile 而未比较真实源结构时立即停止；`fileNameHash` 由各 adapter 的独立原始文件名产生，不得混入 canonical 结构等价判定。
+- Verification: BPM/MES 分别覆盖五类 typed failure 的精确业务错误与无副作用断言；同一真实 DOC 经两个 adapter 后的 canonical 结构和 source hash 完全一致。
+- Forbidden action: 禁止用 failure reason 字符串代替业务错误码传递，禁止用通用解析失败覆盖精确错误，禁止因 filename diagnostics 不同而改写共享结构或伪造相同文件名。
+- Evidence: `doc/tasks/20260807-shared-word-parser-implementation/execution-log.md` 的 `T8 Corrective FR-10 Error Mapping Loop`。
+
 ## Data Model
 
 本设计不要求新增业务表或迁移 SQL。

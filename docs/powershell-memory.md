@@ -180,6 +180,15 @@
 - Forbidden action: 禁止把本地 `.m2` 陈旧产物导致的编译失败误判为产品逻辑失败；禁止删除 `-am` 来节省时间后宣称目标 JUnit 已验证；禁止用旧 surefire 报告冒充当前命令结果。
 - Evidence: `doc\tasks\20260806-schedule-default-shift-hours\execution-log.md`，排产班次小时默认值修复中不带 `-am` 的单模块 Maven 因本地 `system` API 依赖陈旧在测试前失败，最终使用 `-pl yudao-module-mes -am` 的目标 JUnit 命令通过 4 个用例。
 
+### Maven Java 17 测试 API 基线门禁
+
+- Trigger: 项目 Java 基线为 17，但目标 Maven `testCompile` 报 `cannot find symbol method getFirst()`、`getLast()` 或其它 Java 21 集合 API，尤其是与当前业务无关的历史测试类阻塞本轮 reactor 回归。
+- Preflight check: 先确认当前命令使用 Java 17，并定位失败 API 是否仅存在于测试代码；若只是测试写法不兼容 Java 17，按 Java 17 等价写法修正测试表达式，例如已有非空/size 断言后用 `list.get(0)` 替代 `list.getFirst()`。
+- Blocker: 失败发生在生产代码或正式 API 设计、无法证明等价索引访问不改变断言语义、或准备切换 Java 21、跳过测试、改 Maven compiler release、使用陈旧 class 让回归通过时必须停止。
+- Verification: 复跑原始 `mvn -pl <module> -am "-Dtest=..." "-Dsurefire.failIfNoSpecifiedTests=false" test` 命令，必须到达 Surefire 且目标测试 0 failure/0 error；同时静态扫描目标文件不再包含 Java 21-only API。
+- Forbidden action: 禁止把 Java 17 testCompile blocker 当作业务测试失败；禁止为了通过验证切换 JDK、放宽编译级别、排除测试类、跳过 testCompile 或复用旧 surefire 报告。
+- Evidence: `doc/tasks/20260807-shared-word-parser-implementation/execution-log.md`，共享 Word parser 回归中 `MesProBatchRecordExecutionFieldResponsibilityMapperTest` 的 `tenantInterceptors.getFirst()` 阻塞 Java 17 reactor，改为 `get(0)` 后原 T8 边界命令 14 项测试 PASS。
+
 ### Maven 静态源码合同工作目录门禁
 
 - Trigger: JUnit 静态合同通过 `Files.readString`、`Path.of` 或 `readSource` 读取源码文件，且命令使用 `mvn -pl <module> -am "-Dtest=..." test`；失败文本包含 `NoSuchFileException`、重复模块路径如 `yudao-module-mes\yudao-module-mes\src`，或断言没有命中实际生产实现类。

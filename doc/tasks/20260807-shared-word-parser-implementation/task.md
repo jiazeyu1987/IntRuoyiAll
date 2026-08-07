@@ -7,10 +7,10 @@
 ## Milestones
 
 - [x] M1：完成现状分析、PRD、任务分解、测试计划和依赖边界设计。
-- [ ] M2：按 BDD + 严格 TDD 建立共享解析模块及 canonical profile。
-- [ ] M3：迁移 MES 解析适配器并验证旧新结构等价。
-- [ ] M4：迁移表单中心识别器并验证字段识别与错误语义。
-- [ ] M5：完成独立回归、经验沉淀、提交推送和任务清理。
+- [x] M2：按 BDD + 严格 TDD 建立共享解析模块及 canonical profile。
+- [x] M3：迁移 MES 解析适配器并验证旧新结构等价。
+- [x] M4：迁移表单中心识别器并验证字段识别与错误语义。
+- [x] M5：完成独立回归、经验沉淀和任务清理；Git 提交/推送仅在用户明确要求时执行。
 
 ## Expected Verification
 
@@ -19,7 +19,7 @@
 - MES 旧新解析结构等价测试及批记录路线/报表定向回归。
 - BPM 表单模板字段识别、失败语义和运行时合同测试。
 - 前端三个既有导入 API URL 静态合同。
-- `git diff --check`、backend evidence validator、独立测试报告和最终推送状态。
+- `git diff --check`、backend/database evidence validator、独立测试报告和最终任务状态。
 
 ## Applicable Experience Gate
 
@@ -38,10 +38,11 @@
 
 ## Current Status
 
-in_progress：M1 已完成并通过规划评审；T1 合同文件已完成，但主工作区共享 MES `target` 的并发写入与 Windows 文件 I/O 异常导致三次验证均未形成 Surefire 结果。正在迁移到 `D:\IntRuoyiWorktree\` 下的任务独立 worktree 后重跑 T1，T2 尚未开始。
+completed：T10/T11 前置阻塞、T8 组合回归、T9 独立验证、经验沉淀和 task-closeout-cleanup apply 均已完成。共享 Word parser、BPM adapter、MES adapter、Route C、报表/Jimu/DB/controller、前端静态 API 合同、backend/database evidence validator、tracked/untracked diff check 均已通过。用户继续授权后，已提交实现 commit `b8817ffd8`；收尾记录与经验沉淀由随后 closeout commit 承载并推送当前任务分支。由于主工作区 `E:\IntRuoyi` 存在大量无关脏改动且 `int_main` 本地 ahead，未执行 `int_main` ff-only merge，也未删除 linked worktree。
 
 ## Cleanup Keep
 
 - doc/tasks/20260807-shared-word-parser-implementation/task.md
 - doc/tasks/20260807-shared-word-parser-implementation/execution-log.md
+- doc/tasks/20260807-shared-word-parser-implementation/test-report.md
 - doc/tasks/20260807-shared-word-parser-implementation/verification-report.md
