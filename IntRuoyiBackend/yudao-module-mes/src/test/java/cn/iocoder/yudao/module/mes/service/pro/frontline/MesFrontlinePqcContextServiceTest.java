@@ -288,7 +288,7 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     @Test
-    void shouldLoadOnlyProcessesFrozenInActiveOrderSnapshot() {
+    void shouldIgnoreCurrentRouteProcessesOutsideFrozenRouteVersionSnapshot() {
         when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
                 .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
                         LocalDateTime.of(2026, 8, 1, 8, 0)));
@@ -299,8 +299,6 @@ class MesFrontlinePqcContextServiceTest {
         when(routeProcessMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
                 routeProcess(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10),
                 routeProcess(4002L, ROUTE_ID, 5002L, 20)));
-        when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
-                processSnapshot(ROUTE_PROCESS_ID, PROCESS_ID)));
         when(processService.getProcessMap(Set.of(PROCESS_ID))).thenReturn(Map.of(
                 PROCESS_ID, process(PROCESS_ID, "P-1", "首工序")));
         givenPqcTaskContext(ROUTE_PROCESS_ID, PROCESS_ID, PQC_TASK_ID, REGULATION_VERSION_ID);
@@ -326,6 +324,9 @@ class MesFrontlinePqcContextServiceTest {
         when(routeProcessMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
                 routeProcess(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10),
                 routeProcess(4002L, ROUTE_ID, 5002L, 20)));
+        givenRouteVersionProcesses(
+                routeNode(ROUTE_PROCESS_ID, PROCESS_ID, 10),
+                routeNode(4002L, 5002L, 20));
         when(processService.getProcessMap(any())).thenReturn(Map.of(
                 PROCESS_ID, process(PROCESS_ID, "P-1", "粗洗工序"),
                 5002L, process(5002L, "P-2", "精洗工序")));
@@ -420,15 +421,15 @@ class MesFrontlinePqcContextServiceTest {
         when(routeProcessMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
                 routeProcess(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10),
                 routeProcess(4002L, ROUTE_ID, 5002L, 20)));
+        givenRouteVersionProcesses(
+                routeNode(ROUTE_PROCESS_ID, PROCESS_ID, 10),
+                routeNode(4002L, 5002L, 20));
         when(processService.getProcessMap(Set.of(PROCESS_ID, 5002L))).thenReturn(Map.of(
                 PROCESS_ID, process(PROCESS_ID, "P-1", "首工序"),
                 5002L, process(5002L, "P-2", "末工序")));
         when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
                 pqcTask(PQC_TASK_ID, ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID),
                 pqcTask(7002L, 4002L, 5002L, 8002L)));
-        when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
-                processSnapshot(ROUTE_PROCESS_ID, PROCESS_ID),
-                processSnapshot(4002L, 5002L)));
         when(regulationMapper.selectPublishedByRouteProcess(PRODUCT_ID, ROUTE_ID, 448L,
                 ROUTE_PROCESS_ID, PROCESS_ID)).thenReturn(regulation(REGULATION_VERSION_ID));
         when(regulationMapper.selectPublishedByRouteProcess(PRODUCT_ID, ROUTE_ID, 448L,
@@ -458,7 +459,7 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     @Test
-    void shouldSkipSubmittedPqcTaskAndKeepRemainingPendingProcesses() {
+    void shouldDisplaySubmittedPqcTaskProcessWithoutTaskContextAndKeepPendingProcess() {
         when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
                 .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
                         LocalDateTime.of(2026, 8, 1, 8, 0)));
@@ -472,22 +473,19 @@ class MesFrontlinePqcContextServiceTest {
         when(processService.getProcessMap(Set.of(PROCESS_ID, 5002L))).thenReturn(Map.of(
                 PROCESS_ID, process(PROCESS_ID, "P-1", "首工序"),
                 5002L, process(5002L, "P-2", "末工序")));
-        when(regulationMapper.selectPublishedByRouteProcess(PRODUCT_ID, ROUTE_ID, 448L,
-                ROUTE_PROCESS_ID, PROCESS_ID)).thenReturn(regulation(REGULATION_VERSION_ID));
         pqcTaskContextFixtures.add(pqcTask(PQC_TASK_ID, ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID)
                 .setTaskStatus("SUBMITTED"));
         givenPqcTaskContext(4002L, 5002L, 7002L, 8002L);
-        when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
-                processSnapshot(ROUTE_PROCESS_ID, PROCESS_ID),
-                processSnapshot(4002L, 5002L)));
 
         List<MesFrontlineRouteProcessCandidate> processes =
                 service.listProcessesByActiveOrder(WORK_ORDER_ID, ROUTE_ID);
 
-        assertEquals(List.of(4002L), processes.stream()
+        assertEquals(List.of(ROUTE_PROCESS_ID, 4002L), processes.stream()
                 .map(MesFrontlineRouteProcessCandidate::routeProcessId).toList());
-        assertEquals(List.of("末工序"), processes.stream()
+        assertEquals(List.of("首工序", "末工序"), processes.stream()
                 .map(MesFrontlineRouteProcessCandidate::processName).toList());
+        assertNull(processes.get(0).pqcTaskId());
+        assertEquals(7002L, processes.get(1).pqcTaskId());
     }
 
     @Test

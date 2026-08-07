@@ -107,8 +107,8 @@ export interface ProFrontlineDeviceParameterReadingReqVO {
 }
 
 export interface ProFrontlineFeedbackPayloadReqVO {
-  code: string
-  type: number
+  code?: string
+  type?: number
   workstationId: number
   routeId: number
   processId: number
@@ -160,8 +160,9 @@ export interface ProFrontlineFeedbackSubmitReqVO {
   processPoolContext: ProFrontlineProcessPoolContextReqVO
   processPoolSubmissionIdempotencyKey: string
   actualEmployeeId: number
-  signatureId: number
+  signatureId?: number
   signatureEmployeeId: number
+  signaturePassword: string
   rawPayload: Record<string, unknown>
 }
 
@@ -355,6 +356,24 @@ export interface FrontlineRuntimeDefectReasonVO {
   reasonName: string
 }
 
+export interface FrontlineProductionSubmitContextVO {
+  workOrderId: number
+  workOrderCode?: string
+  workOrderName?: string
+  taskId: number
+  routeId: number
+  routeProcessId: number
+  processId: number
+  workstationId: number
+  itemId: number
+  approveUserId: number
+  recordbookId: number
+  scheduleOrderId?: number
+  scheduleOrderProcessId?: number
+  scheduledQuantity?: number
+  expireDate?: string | number | Date
+}
+
 export interface FrontlineRuntimeConfigVO {
   routeId: number
   routeProcessId: number
@@ -362,6 +381,7 @@ export interface FrontlineRuntimeConfigVO {
   employees: FrontlineRuntimeEmployeeVO[]
   devices: FrontlineRuntimeDeviceVO[]
   defectReasons: FrontlineRuntimeDefectReasonVO[]
+  productionSubmitContext: FrontlineProductionSubmitContextVO
 }
 
 export interface ThirdPartyFeedbackImportResultVO {

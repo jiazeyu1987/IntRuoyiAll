@@ -205,6 +205,9 @@ class MesProFeedbackImportRecordServiceImplTest {
             processIds.forEach(id -> result.put(id, id));
             return result;
         });
+        lenient().when(processMapper.selectListByCodes(List.of("PROC-001")))
+                .thenReturn(List.of(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
+                        .id(2000L).code("PROC-001").name("球囊裁剪").build()));
     }
 
     @Test
@@ -254,7 +257,7 @@ class MesProFeedbackImportRecordServiceImplTest {
         MesProTaskDO zeroTask = MesProTaskDO.builder().id(302L).code("PT-0003").build();
 
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
-        when(processMapper.selectByCode("PROC-001")).thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder().id(2000L).code("PROC-001").build());
+        lenient().when(processMapper.selectByCode("PROC-001")).thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder().id(2000L).code("PROC-001").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(new BigDecimal("9"));
         when(scheduleOrderProcessMapper.selectListByProcessIdsOrZeroSnapshots(List.of(2000L))).thenReturn(List.of(
                 nonExactProcess, zeroRemainingProcess, scheduleOrderProcess));
@@ -310,7 +313,7 @@ class MesProFeedbackImportRecordServiceImplTest {
                 .build();
 
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
-        when(processMapper.selectByCode("PROC-001")).thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder().id(2000L).code("PROC-001").build());
+        lenient().when(processMapper.selectByCode("PROC-001")).thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder().id(2000L).code("PROC-001").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(BigDecimal.ZERO);
         when(scheduleOrderProcessMapper.selectListByProcessIdsOrZeroSnapshots(List.of(2000L))).thenReturn(List.of(scheduleOrderProcess, noTaskProcess));
         when(scheduleOrderMapper.selectListByIds(List.of(10L, 13L))).thenReturn(List.of(scheduleOrder, noTaskScheduleOrder));
@@ -370,7 +373,7 @@ class MesProFeedbackImportRecordServiceImplTest {
                 .build();
 
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
-        when(processMapper.selectByCode("PROC-001"))
+        lenient().when(processMapper.selectByCode("PROC-001"))
                 .thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
                         .id(2000L).code("PROC-001").name("球囊裁剪").build());
         when(processMapper.selectListByCodes(List.of("PROC-001")))
@@ -407,7 +410,7 @@ class MesProFeedbackImportRecordServiceImplTest {
     void getAttributionCandidates_shouldHideFinishedScheduleOrder() {
         scheduleOrder.setStatus(MesProScheduleOrderStatusEnum.FINISHED.getStatus());
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
-        when(processMapper.selectByCode("PROC-001")).thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder().id(2000L).code("PROC-001").build());
+        lenient().when(processMapper.selectByCode("PROC-001")).thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder().id(2000L).code("PROC-001").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(BigDecimal.ZERO);
         when(scheduleOrderProcessMapper.selectListByProcessIdsOrZeroSnapshots(List.of(2000L))).thenReturn(List.of(scheduleOrderProcess));
         when(scheduleOrderMapper.selectListByIds(List.of(10L))).thenReturn(List.of(scheduleOrder));
@@ -493,7 +496,7 @@ class MesProFeedbackImportRecordServiceImplTest {
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
         when(scheduleOrderMapper.selectById(10L)).thenReturn(scheduleOrder);
         when(scheduleOrderProcessMapper.selectById(20L)).thenReturn(scheduleOrderProcess);
-        when(processMapper.selectByCode("PROC-001"))
+        lenient().when(processMapper.selectByCode("PROC-001"))
                 .thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
                         .id(2000L).code("PROC-001").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(BigDecimal.ZERO);
@@ -550,7 +553,7 @@ class MesProFeedbackImportRecordServiceImplTest {
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
         when(scheduleOrderMapper.selectById(10L)).thenReturn(scheduleOrder);
         when(scheduleOrderProcessMapper.selectById(20L)).thenReturn(scheduleOrderProcess);
-        when(processMapper.selectByCode("PROC-001"))
+        lenient().when(processMapper.selectByCode("PROC-001"))
                 .thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
                         .id(2000L).code("PROC-001").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(BigDecimal.ZERO);
@@ -599,7 +602,7 @@ class MesProFeedbackImportRecordServiceImplTest {
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
         when(scheduleOrderMapper.selectById(10L)).thenReturn(scheduleOrder);
         when(scheduleOrderProcessMapper.selectById(20L)).thenReturn(scheduleOrderProcess);
-        when(processMapper.selectByCode("PROC-001"))
+        lenient().when(processMapper.selectByCode("PROC-001"))
                 .thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
                         .id(2000L).code("PROC-001").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(BigDecimal.ZERO);
@@ -635,7 +638,7 @@ class MesProFeedbackImportRecordServiceImplTest {
         payload.setFeedbackQuantity(new BigDecimal("250"));
         importRecord.setSourcePayloadJson(JsonUtils.toJsonString(payload));
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
-        when(processMapper.selectByCode("PROC-001"))
+        lenient().when(processMapper.selectByCode("PROC-001"))
                 .thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
                         .id(2000L).code("PROC-001").name("球囊裁剪").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(BigDecimal.ZERO);
@@ -684,7 +687,7 @@ class MesProFeedbackImportRecordServiceImplTest {
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
         when(scheduleOrderMapper.selectById(10L)).thenReturn(scheduleOrder);
         when(scheduleOrderProcessMapper.selectById(20L)).thenReturn(scheduleOrderProcess);
-        when(processMapper.selectByCode("PROC-001"))
+        lenient().when(processMapper.selectByCode("PROC-001"))
                 .thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
                         .id(2000L).code("PROC-001").name("球囊裁剪").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(BigDecimal.ZERO);
@@ -748,7 +751,7 @@ class MesProFeedbackImportRecordServiceImplTest {
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
         when(scheduleOrderMapper.selectById(10L)).thenReturn(scheduleOrder);
         when(scheduleOrderProcessMapper.selectById(20L)).thenReturn(scheduleOrderProcess);
-        when(processMapper.selectByCode("PROC-001"))
+        lenient().when(processMapper.selectByCode("PROC-001"))
                 .thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
                         .id(2000L).code("PROC-001").name("球囊裁剪").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(BigDecimal.ZERO);
@@ -795,7 +798,7 @@ class MesProFeedbackImportRecordServiceImplTest {
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
         when(scheduleOrderMapper.selectById(10L)).thenReturn(scheduleOrder);
         when(scheduleOrderProcessMapper.selectById(20L)).thenReturn(scheduleOrderProcess);
-        when(processMapper.selectByCode("PROC-001"))
+        lenient().when(processMapper.selectByCode("PROC-001"))
                 .thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
                         .id(2000L).code("PROC-001").name("球囊裁剪").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(new BigDecimal("10"));
@@ -888,7 +891,7 @@ class MesProFeedbackImportRecordServiceImplTest {
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
         when(scheduleOrderMapper.selectById(10L)).thenReturn(scheduleOrder);
         when(scheduleOrderProcessMapper.selectById(20L)).thenReturn(scheduleOrderProcess);
-        when(processMapper.selectByCode("PROC-001"))
+        lenient().when(processMapper.selectByCode("PROC-001"))
                 .thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
                         .id(2000L).code("PROC-001").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(BigDecimal.ZERO);
@@ -924,7 +927,7 @@ class MesProFeedbackImportRecordServiceImplTest {
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
         when(scheduleOrderMapper.selectById(10L)).thenReturn(scheduleOrder);
         when(scheduleOrderProcessMapper.selectById(20L)).thenReturn(scheduleOrderProcess);
-        when(processMapper.selectByCode("PROC-001"))
+        lenient().when(processMapper.selectByCode("PROC-001"))
                 .thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
                         .id(2000L).code("PROC-001").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(BigDecimal.ZERO);
@@ -987,7 +990,7 @@ class MesProFeedbackImportRecordServiceImplTest {
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
         when(scheduleOrderMapper.selectById(10L)).thenReturn(scheduleOrder);
         when(scheduleOrderProcessMapper.selectById(20L)).thenReturn(scheduleOrderProcess);
-        when(processMapper.selectByCode("PROC-001"))
+        lenient().when(processMapper.selectByCode("PROC-001"))
                 .thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
                         .id(2000L).code("PROC-001").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(BigDecimal.ZERO);
@@ -1017,7 +1020,7 @@ class MesProFeedbackImportRecordServiceImplTest {
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
         when(scheduleOrderMapper.selectById(10L)).thenReturn(scheduleOrder);
         when(scheduleOrderProcessMapper.selectById(20L)).thenReturn(scheduleOrderProcess);
-        when(processMapper.selectByCode("PROC-001"))
+        lenient().when(processMapper.selectByCode("PROC-001"))
                 .thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
                         .id(2000L).code("PROC-001").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(BigDecimal.ZERO);
@@ -1058,7 +1061,7 @@ class MesProFeedbackImportRecordServiceImplTest {
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
         when(scheduleOrderMapper.selectById(10L)).thenReturn(scheduleOrder);
         when(scheduleOrderProcessMapper.selectById(20L)).thenReturn(scheduleOrderProcess);
-        when(processMapper.selectByCode("PROC-001"))
+        lenient().when(processMapper.selectByCode("PROC-001"))
                 .thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
                         .id(2000L).code("PROC-001").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(BigDecimal.ZERO);
@@ -1099,7 +1102,7 @@ class MesProFeedbackImportRecordServiceImplTest {
         when(importRecordMapper.selectById(1L)).thenReturn(importRecord);
         when(scheduleOrderMapper.selectById(10L)).thenReturn(scheduleOrder);
         when(scheduleOrderProcessMapper.selectById(20L)).thenReturn(scheduleOrderProcess);
-        when(processMapper.selectByCode("PROC-001"))
+        lenient().when(processMapper.selectByCode("PROC-001"))
                 .thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
                         .id(2000L).code("PROC-001").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(BigDecimal.ZERO);
@@ -1155,7 +1158,7 @@ class MesProFeedbackImportRecordServiceImplTest {
         when(feedbackMapper.selectListBySourceImportRecordIds(List.of(1L))).thenReturn(List.of(linkedFeedback));
         when(adminUserMapper.selectById(600L)).thenReturn(AdminUserDO.builder().id(600L).nickname("奥特曼").build());
         when(adminUserMapper.selectById(601L)).thenReturn(AdminUserDO.builder().id(601L).nickname("潘金华").build());
-        when(processMapper.selectByCode("PROC-001"))
+        lenient().when(processMapper.selectByCode("PROC-001"))
                 .thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder()
                         .id(2000L).code("PROC-001").name("球囊裁剪").build());
         when(surplusPoolMapper.sumAvailableQuantityByProcessId(2000L)).thenReturn(BigDecimal.ZERO);
