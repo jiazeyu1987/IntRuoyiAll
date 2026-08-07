@@ -18,6 +18,16 @@ assert.match(
   /\/mes\/pro\/feedback\/frontline\/submit/,
   'frontlineSubmit must call the formal one-step frontline submit endpoint.'
 )
+assert.match(
+  feedbackApi,
+  /FrontlineProductionSubmitContextVO[\s\S]*productionSubmitContext/s,
+  'runtime config API must expose server-resolved production submit context instead of URL-only formal fields.'
+)
+assert.match(
+  feedbackApi,
+  /signaturePassword:\s*string/,
+  'frontline production submit request must carry the employee signature password for server-side signature creation.'
+)
 
 assert.match(
   panel,
@@ -33,6 +43,16 @@ assert.match(
   panel,
   /assertFrontlineFormalSubmitContext/,
   'employee fill panel must fail fast when formal submit prerequisites are missing.'
+)
+assert.match(
+  panel,
+  /deviceState\.runtimeConfig\?\.productionSubmitContext/,
+  'formal production context must be read from backend runtime config.'
+)
+assert.doesNotMatch(
+  panel,
+  /recordbookId:\s*firstRouteQueryNumber|signatureId:\s*firstRouteQueryNumber|taskId:\s*firstRouteQueryNumber/,
+  'formal production context must not depend on URL query for recordbook, signature, or task identity.'
 )
 assert.match(
   panel,
@@ -82,6 +102,11 @@ assert.match(
   /data-production-submit-confirmation-dialog[\s\S]*确认正式提交/,
   'production submit must show an explicit irreversible confirmation with the formal summary inside the component.'
 )
+assert.match(
+  panel,
+  /data-production-submit-signature-password[\s\S]*productionSignaturePassword/,
+  'production submit confirmation must collect the actual employee signature password before calling the formal endpoint.'
+)
 assert.doesNotMatch(
   panel.match(/const handleProductionFormalSubmit\s*=\s*async\s*\(\)\s*=>\s*\{[\s\S]*?(?=\nconst assertPqcFormalSubmissionReady)/)?.[0] || '',
   /message\.confirm|ElMessageBox/,
@@ -99,8 +124,13 @@ assert.match(
 )
 assert.match(
   panel,
-  /feedbackPayload[\s\S]*recordbookPayload[\s\S]*processPoolContext[\s\S]*actualEmployeeId[\s\S]*signatureId[\s\S]*signatureEmployeeId[\s\S]*rawPayload/,
-  'formal submit payload must include feedback, recordbook, process-pool, signature, employee, and raw payload sections.'
+  /feedbackPayload[\s\S]*recordbookPayload[\s\S]*processPoolContext[\s\S]*actualEmployeeId[\s\S]*signatureEmployeeId[\s\S]*signaturePassword[\s\S]*rawPayload/,
+  'formal submit payload must include feedback, recordbook, process-pool, signature password, employee, and raw payload sections.'
+)
+assert.doesNotMatch(
+  panel,
+  /signatureId:\s*formalContext\.signatureId/,
+  'production submit must not require a pre-supplied signature id; the backend must create it from the signature password.'
 )
 assert.match(
   panel,

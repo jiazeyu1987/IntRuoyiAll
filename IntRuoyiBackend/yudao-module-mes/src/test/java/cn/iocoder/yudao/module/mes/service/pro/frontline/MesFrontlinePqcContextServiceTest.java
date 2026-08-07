@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
@@ -29,6 +30,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemEquipmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
@@ -112,6 +114,8 @@ class MesFrontlinePqcContextServiceTest {
     @Mock
     private MesProRouteProcessMapper routeProcessMapper;
     @Mock
+    private MesProRouteVersionMapper routeVersionMapper;
+    @Mock
     private MesQaInspectionRegulationMapper regulationMapper;
     @Mock
     private MesQaInspectionRegulationItemMapper regulationItemMapper;
@@ -143,15 +147,17 @@ class MesFrontlinePqcContextServiceTest {
     private MesFrontlinePqcContextService service;
     private final List<MesPqcInspectionTaskDO> pqcTaskContextFixtures = new ArrayList<>();
     private final List<MesProcessPoolActiveOrderProcessSnapshotDO> processSnapshotFixtures = new ArrayList<>();
+    private final List<RouteNodeFixture> routeVersionProcessFixtures = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
         service = new MesFrontlinePqcContextServiceImpl(activeOrderMapper, processPoolMapper, processPoolEventMapper,
-                workOrderMapper, routeMapper, routeProductMapper, routeProcessMapper, regulationMapper,
-                regulationItemMapper, regulationItemEquipmentMapper, pqcTaskMapper, processSnapshotMapper,
+                workOrderMapper, routeMapper, routeProductMapper, routeProcessMapper, routeVersionMapper,
+                regulationMapper, regulationItemMapper, regulationItemEquipmentMapper, pqcTaskMapper, processSnapshotMapper,
                 pqcPieceDetailMapper,
                 processService, itemService, scopeMapper, adminUserApi, templateResolver, processPoolEventService,
                 pqcRecordMapper, signatureService);
+        givenRouteVersionProcesses(routeNode(ROUTE_PROCESS_ID, PROCESS_ID, 10));
         lenient().when(pqcTaskMapper.selectActiveOrderIdsByTaskStatus(anyCollection(), eq("PENDING")))
                 .thenReturn(Set.of(ACTIVE_ORDER_ID));
         lenient().when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID))
