@@ -31,3 +31,4 @@
 
 - 完整 MES 测试源码仍有上述无关基线编译阻塞；本任务不修改该并发范围。
 - 无本任务剩余实现或环境清理事项。完整 MES 测试源码仍有上述无关基线编译阻塞，已由目标范围聚焦测试和真实路径验证覆盖本次变更。
+- Git push blocker：`git push origin int_main` 无法通过本机代理 `127.0.0.1` 连接 `github.com:443`；本地提交尚未进入 `origin/int_main`，因此任务保持 `ready_for_closeout`。

@@ -54,7 +54,7 @@
 - M2 completed：新增候选成功、候选缺绑定失败、新增成功和新增缺绑定失败测试；RED 在服务正式来源依赖尚未实现处失败。
 - M3 completed：候选与新增共享产品唯一正式路线绑定、唯一 ACTIVE 版本及发布快照解析；无排产模式从 ERP 数量和计划开工时间生成工序快照与 PQC 任务，单排产保持原链路，多排产继续阻塞。
 - M4 completed：聚焦服务/控制器回归、backend evidence、三个前端静态合同、隔离运行态真实页面加入、数据库快照/PQC 核验和任务数据归零均已通过。
-- M5 completed：经验沉淀、cleanup preview/apply、任务数据/进程/日志清理、端口登记释放、验证 worktree/临时分支删除和 dirty baseline 均已完成；最终记录进入提交/推送门禁。
+- M5 blocked_at_push：经验沉淀、cleanup preview/apply、任务数据/进程/日志清理、端口登记释放、验证 worktree/临时分支删除和 dirty baseline 均已完成；`git push origin int_main` -> FAIL，Git 无法通过本机代理 `127.0.0.1` 连接 `github.com:443`，本地 `int_main` 在 push 前领先 `origin/int_main` 4 个提交。
 
 ## 阻塞项
 
