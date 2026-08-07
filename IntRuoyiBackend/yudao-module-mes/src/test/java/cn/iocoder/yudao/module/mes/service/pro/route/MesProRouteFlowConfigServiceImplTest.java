@@ -32,6 +32,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionG
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -128,6 +129,39 @@ class MesProRouteFlowConfigServiceImplTest {
                 "getRouteFlowProcessConfigList", Long.class, String.class);
 
         assertFalse(method.isAnnotationPresent(Resource.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void parseCandidateRouteProcesses_shouldUseFormalWorkstationBindingField() throws Exception {
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(9901L)
+                .routeId(10L)
+                .build();
+        JSONObject flowGraph = JSON.parseObject("""
+                {
+                  "nodes": [
+                    {
+                      "routeProcessId": 100,
+                      "processId": 1000,
+                      "routeProcessWorkstationId": 980010,
+                      "workstationId": 922757,
+                      "sort": 1,
+                      "keyFlag": true,
+                      "checkFlag": false
+                    }
+                  ]
+                }
+                """);
+        Method method = MesProRouteFlowConfigServiceImpl.class.getDeclaredMethod(
+                "parseCandidateRouteProcesses", MesProRouteVersionDO.class, JSONObject.class);
+        method.setAccessible(true);
+
+        List<MesProRouteProcessDO> result =
+                (List<MesProRouteProcessDO>) method.invoke(service, candidate, flowGraph);
+
+        assertEquals(1, result.size());
+        assertEquals(980010L, result.get(0).getWorkstationId());
     }
 
     @Test

@@ -50,6 +50,15 @@
 - Forbidden action: 禁止用前端新增弹窗默认候选、空列表成功、admin 硬编码、直接放宽所有账号、菜单文案或 API-only 说明替代正式后端授权；禁止把 `formBindings`、批记录表单或其它路线配置链路当作工序开始生产组长来源。
 - Evidence: `doc/tasks/20260806-process-config-refresh-to-add-button/verification-report.md`，用户以 `芋道源码 / admin` 点击新增仍报“当前账号没有可新增的路线工序”；`doc/tasks/20260806-admin-pressure-pump-route-start-leader/verification-report.md`，路线发布后 route `922119` 的 active version 从原写入 `448` 变为 `490`，最终按当前 active `490` 与 `622` 复验通过。
 
+### 候选流程图正式工作站与展示工作站必须分字段
+
+- Trigger: 工艺路线候选保存/读取/发布、`routeProcessWorkstationId`、流程图节点 `workstationId`、`mes_pro_route_process.workstation_id`、一线生产提示“工艺路线工序缺少正式工作站绑定”。
+- Preflight check: 修改候选流程图、版本投影或流程配置解析前，必须确认节点字段职责：`routeProcessWorkstationId` 是路线工序正式绑定，`workstationId` 仅用于可用工作站展示；候选保存、候选读取、流程配置解析和发布投影必须逐段核对正式字段是否原样传递。
+- Blocker: 正式字段缺失、展示字段被写入或读取为正式字段、发布后当前路线工序工作站为空、或正式工作站不存在/禁用/与工序不一致时必须停止；不得继续发布或让一线生产静默过滤该工序。
+- Verification: 后端回归必须让两个字段取不同值，并分别覆盖候选保存、候选读取、流程配置解析和发布投影；发布后只读核验当前 ACTIVE 版本、全部路线工序非空绑定，以及工作站存在、启用且 `workstation.process_id == route_process.process_id`；最终通过 `/mes/pro/feedback/frontline/device-account/processes` 和真实“一线生产”点击验证。
+- Forbidden action: 禁止用展示 `workstationId`、默认工作站、相邻工序工作站、`formBindings`、批记录表单、工序开始配置、前端隐藏错误或 API-only 成功补齐正式绑定。
+- Evidence: `doc/tasks/20260807-frontline-route-process-workstation-binding-fix/verification-report.md`。
+
 ## eDHR 详情回填门禁
 
 ### 路线配置有值但详情接口为空

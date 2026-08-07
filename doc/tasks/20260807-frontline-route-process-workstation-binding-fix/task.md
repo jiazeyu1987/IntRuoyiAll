@@ -9,7 +9,7 @@
 - [x] M1：确认报错入口、后端门禁和目标路线工序身份
 - [x] M2：核对当前数据库 schema、目标记录和可追溯的正式工作站来源
 - [x] M3：先建立可复现的 RED 证据，再实施最小正式修复
-- [ ] M4：完成目标回归与真实页面验证
+- [x] M4：完成目标回归与真实页面验证
 - [ ] M5：完成证据归档、cleanup、提交和推送
 
 ## Expected Verification
@@ -30,8 +30,20 @@
 
 - `docs/experience-index.md` 存在并已读取。
 - 适用门禁：`docs/backend-development.md#生产组长工序配置维护权限不得被工序开始快照误拦`。其中明确一线设备账号接口会执行正式工作站绑定门禁，不能用生产组长 `process-config/list` 的成功替代本路径验证。
+- 收尾沉淀：已将本任务可复用的正式/展示工作站字段分离门禁合并到 `docs/backend-development.md#候选流程图正式工作站与展示工作站必须分字段`，并加入 `docs/experience-index.md` 路由。
 - 项目术语契约继续生效：工序开始、批记录表单、表单槽位均不得替代路线工序正式工作站绑定。
 
 ## Current Status
 
-in_progress - 已确认 V24 发布投影遗漏 `workstationId` 是根因，回归用例已 RED，代码已补齐快照到正式路线工序的工作站投影；待修复受影响的当前正式数据并完成 GREEN、回归和真实页面验证。
+ready_for_closeout - 正式字段修复、V27 发布、14 条正式工作站绑定、目标接口和真实“一线生产”页面均已验证通过；相关 3 个测试类 78 个用例和 bug evidence validator 均通过，经验已沉淀，待执行 cleanup、提交和推送。
+
+## Cleanup Candidates
+
+- `output/verification/20260807-route-binding/`
+- `output/verification/20260807-route-binding-v2.tar`
+- `output/verification/20260807-route-binding-v3/`
+- `output/verification/20260807-route-binding-v4/`
+- `output/verification/20260807-route-binding-v5/`
+- `output/verification/20260807-route-binding-v6/`
+- `output/verification/20260807-route-binding.tar`
+- `output/playwright/20260807-frontline-route-binding-fix/`

@@ -114,6 +114,7 @@
 - 前端页面 / 表格 / 样式：`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
 - Keywords: Vite import-analysis Failed to resolve import / controlled-file/logs/index.vue / 前端源码 logs 目录被 .gitignore logs/ 忽略 / git check-ignore -> `docs/frontend-development.md#前端源码目录与-gitignore-门禁`
 - Keywords: 生产组长工序配置, process-config/list, 工序配置新增无路线工序, 当前账号没有可新增的路线工序, 工序开始授权生产组长, routeStartProductionLeaders, mes:pro-process-pool-team-leader:maintain, admin 维护权限, 损耗原因设备映射设备参数标准授权, active version, SUPERSEDED, current active version -> `docs/backend-development.md#生产组长工序配置维护权限不得被工序开始快照误拦`
+- Keywords: 工艺路线工序缺少正式工作站绑定, routeProcessWorkstationId, 候选流程图 workstationId, 正式工作站, 展示工作站, mes_pro_route_process.workstation_id, 一线生产工作站门禁, 版本发布工作站丢失 -> `docs/backend-development.md#候选流程图正式工作站与展示工作站必须分字段`
 - Keywords: 既有大契约先失败, 最小静态契约, 专用 static.spec.js, 当前需求 RED/GREEN, 无关 ts:check blocker, 相邻产品模板, 函数截取边界, 远端结束锚点误计数, createBalloonPressurePumpQaRegulationItems, data-* 前缀计数, data-production-leader-module-tab-report\b, report-history 误计数, (?=[\s/>]) -> `docs/frontend-development.md#前端静态契约隔离门禁`
 - Keywords: 按钮文案与行为不一致, 刷新按钮改新增, 新增仍绑定刷新, @click 旧方法, loadProcessConfigRows, data-team-leader-process-config-create-entry, 按钮点击处理器合同 -> `docs/frontend-development.md#前端按钮文案与行为一致性门禁`
 - Keywords: 复合输入控件, 复制不替代选择, 可复制下拉, el-select 远程搜索, automatic-dropdown, remote-show-suffix, 空下拉, 空点击加载候选, keyword required=false, RequestParam required=false, 参数绑定异常, data-qa-regulation-project-dropdown, 项目代码输入框支持选择下拉 -> `docs/frontend-development.md#复合输入控件交互保留门禁`
