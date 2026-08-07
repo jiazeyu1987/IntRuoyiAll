@@ -15,12 +15,10 @@ import java.util.List;
 @Accessors(chain = true)
 public class MesProFrontlineFeedbackPayloadReqVO {
 
-    @Schema(description = "报工单编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "FB-F2-001")
-    @NotNull(message = "报工单编号不能为空")
+    @Schema(description = "报工单编号；为空时由服务端正式编码规则生成", example = "FB-F2-001")
     private String code;
 
-    @Schema(description = "报工类型", requiredMode = Schema.RequiredMode.REQUIRED, example = "1")
-    @NotNull(message = "报工类型不能为空")
+    @Schema(description = "报工类型；为空时服务端按自行报工生成", example = "1")
     private Integer type;
 
     @Schema(description = "工作站编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "11")

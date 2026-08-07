@@ -37,13 +37,16 @@ public class MesProFrontlineFeedbackSubmitReqVO {
     @NotNull(message = "实际操作员工不能为空")
     private Long actualEmployeeId;
 
-    @Schema(description = "签名编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "4001")
-    @NotNull(message = "签名不能为空")
+    @Schema(description = "服务端生成的签名编号；客户端不得预传", example = "4001")
     private Long signatureId;
 
     @Schema(description = "签名员工编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "3001")
     @NotNull(message = "签名员工不能为空")
     private Long signatureEmployeeId;
+
+    @Schema(description = "当前登录账号电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "电子签名密码不能为空")
+    private String signaturePassword;
 
     @Schema(description = "一线原始提交载荷", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "一线原始提交载荷不能为空")
