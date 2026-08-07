@@ -24,13 +24,13 @@
 
 ## BDD Scenarios
 
-- Given a production leader opens team configuration, when the page renders, then no employee-process binding card or action is present.
-- Given the frontend API module is loaded, when its exports are inspected, then no employee-process write function exists.
+- BDD: Given a production leader opens team configuration, when the page renders, then no employee-process binding card or action is present.
+- BDD: Given the frontend API module is loaded, when its exports are inspected, then no employee-process write function exists.
 
 ## RED And GREEN
 
 - RED: `node tests\\e2e\\production-employee-inherits-leader-processes-static.spec.cjs` fails because the existing page still renders “生产人员工序绑定”.
-- GREEN: pending.
+- GREEN: focused static contract, adjacent team configuration contracts, real-flow script syntax, and `pnpm ts:check` pass.
 
 ## Responsive, Accessibility, And Permission Checks
 
@@ -38,7 +38,7 @@
 
 ## E2E Or Component Verification
 
-- Target static contracts, TypeScript check, and relevant existing real-flow script syntax.
+- Verification: target static contracts, TypeScript check, and relevant existing real-flow script syntax pass; real employee-account E2E requires a runtime Jar containing the backend change and an authorized task-owned employee account.
 
 ## Blockers And Follow-Up
 
