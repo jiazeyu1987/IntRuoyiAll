@@ -294,6 +294,15 @@
 - Forbidden action: 禁止用整单设备替代项目级设备，禁止用固定四项字段、前端文案、默认上下限、空标准、raw payload 或 API-only 展示替代正式项目级快照。
 - Evidence: `doc/tasks/20260803-pqc-equipment-standard-method-implementation/verification-report.md`。
 
+### PQC 真实提交前置必须覆盖活跃路线全部当前工序
+
+- Trigger: 一线 PQC 真实页面、`active-order/processes`、PQC 测试数据、活跃订单冻结路线版本、单个目标工序已有规程但页面仍提示其它工序缺规程或待检任务。
+- Preflight check: 真实提交前按活跃订单冻结的路线和版本枚举全部当前启用工序，逐工序核对发布 QA 规程、适用检验类型和可执行 PQC 任务；不能只核对准备提交的第一个工序。任务目标只需要少量独立提交、而既有多工序路线其余工序前置不完整时，应创建边界清晰的任务自有单工序正式 fixture，并仍由真实生产页和 PQC 页生成正式事件。
+- Blocker: 任一当前工序缺发布规程、规程不适用、缺待执行任务、工序映射与冻结版本不一致，或只能靠批量伪造无关工序规程才能进入页面时必须停止，不得把首工序的完整性当作整条活跃路线可提交。
+- Verification: 写入前保存逐工序前置查询；真实 E2E 必须通过 `active-order/processes` 业务校验并完成页面提交，随后跨表核对生产来源、PQC task/event/record 和逐件明细，再由 PQC 组长本人登录页面确认列表可见。
+- Forbidden action: 禁止为绕过整条路线门禁而忽略后续工序错误、直接调用提交 API、直接插入 PQC 事件，或给无关工序批量补造规程和任务。
+- Evidence: `doc/tasks/20260807-pqc-leader-management-five-records/verification-report.md`。
+
 ### PQC 末检适用性必须有发布规程依据
 
 - Trigger: AC-M15、PQC 末检、末检不适用、QA 规程发布、`finalInspectionApplicable`、`finalInspectionNotApplicableReason`、`FINAL` 检验项目、PQC 任务生成、放行完整性预检。

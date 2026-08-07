@@ -347,6 +347,15 @@
 - Forbidden action: 禁止把接口数组下标、隐藏 value、输入框残留文本、API-only 选中或坐标点击当作真实页面选择。
 - Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/execution-log.md`；`doc/tasks/20260726-route-flow-copy-popover-stability/execution-log.md`；`doc/tasks/20260730-standard-template-list-search-alias/`，顶部菜单搜索框视觉上显示 placeholder，但真实 DOM 只有 `input.el-select__input[role="combobox"]`，最终真实 E2E 改用 combobox 后通过。
 
+### Element Plus 页签点击门禁
+
+- Trigger: Playwright 点击 Element Plus `el-tabs/el-tab-pane`，页面给 `el-tab-pane` 配置了 `data-*` 测试属性，点击后需要等待列表接口或页签内容。
+- Preflight check: 先检查真实 DOM 和可访问树；`el-tab-pane` 上的 `data-*` 通常落在隐藏内容 pane，而可点击标签是独立的 `role="tab"` 元素。应按 `getByRole('tab', { name, exact: true })` 点击可见标签，点击后断言 `aria-selected="true"` 和目标内容可见，再使用 API/DB 做最终只读核验。
+- Blocker: `data-*` 定位器存在但不可见、点击长期超时、页签未变为选中、目标列表未渲染，或导航/点击异常被提前创建的未处理 `waitForResponse` Promise 覆盖时必须停止，记录页面文本、可访问角色、选中状态和目标网络请求。
+- Verification: 真实 E2E 同时证明页签可点击、选中状态生效、目标业务行在页面可见；需要监听响应时应在触发动作前即时注册并确保监听异常不会覆盖导航或点击的原始错误。
+- Forbidden action: 禁止对隐藏 pane 使用强制点击、坐标点击或仅修改 `data-*` 让脚本通过；禁止只用 API 响应代替页签切换和业务行可见性。
+- Evidence: `doc/tasks/20260807-pqc-leader-management-five-records/verification-report.md`。
+
 ### Element Plus 上传控件门禁
 
 - Trigger: Playwright 通过 Element Plus `el-upload`、隐藏 `input[type=file]`、拖拽上传区或 Word/附件导入弹窗执行真实文件上传。

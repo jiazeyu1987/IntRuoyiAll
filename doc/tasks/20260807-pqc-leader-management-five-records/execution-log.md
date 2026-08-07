@@ -46,8 +46,27 @@
 - RED: `admin` 路线开始账号 -> FAIL before production write；该账号同时被旧路线 `922119` 授权，正式工序列表在筛选前对全部授权路线执行工作站门禁，因旧路线 V24 缺绑定返回 `1040760104`。不触碰并发修复任务的共享路线数据；改用已有岗位 14 的设备账号 `151/pengyunfeng`，该账号仅通过岗位/工作站获取正式路线 `980091`。为其创建 1 个任务自有、无系统登录账号的 FORMAL 生产员工档案，不扩权现有员工。
 - RED: 岗位账号 `151/pengyunfeng` -> FAIL before production write；路线隔离正确，但该账号缺 `mes:pro-feedback:query/create` 正式接口权限，响应业务码 `403`。不扩大该账号角色；改用同样具备岗位 14 且已有正式接口权限的 PQC 账号 `659/shangmengying`。旧路线快照只授权用户 `1`，因此 `659` 的岗位路线集只包含具有正式工作站的路线 `980091`。
 - RED: 任务自有无账号生产员工 -> FAIL before production write；当前运行后端的正式候选模型返回岗位用户集合，不返回无系统账号档案。候选响应已包含 `659/商孟莹`，因此删除未使用的任务员工档案，直接使用同一正式候选账号作为生产实际员工和随后 PQC 检验员。
-- GREEN: 待执行。
-- REGRESSION: 待执行。
+- RED: 工作站正式绑定修复运行包启动后的真实生产页 -> FAIL before production write；只读 `employee-candidates` 返回 `659/商孟莹`，但页面正式数据源是 `runtime-config.employees`，登录账号 `659` 的责任组没有员工档案，员工弹层为空。提交标识仍为 `0`。补充 1 个归属 `659`、无系统登录账号的任务自有 FORMAL 生产员工档案；该档案只作为生产来源实际员工，PQC 检验人仍锁定为登录账号 `659`，不新增权限或正式事件。
+- RED: 无账号 FORMAL 档案已在生产页运行态中可见并可选，但提交授权门禁要求实际员工同时命中该工序的正式候选用户，`actualEmployeeId=980033` 被拒绝；事务未留下正式事件。将任务档案的 `system_user_id` 精确绑定为同一测试账号 `659`，使页面运行态、工序候选和提交身份一致，不新增角色或权限。
+- RED: 账号绑定后的真实页面执行 -> 前两条生产来源提交成功并生成 `PRODUCTION_SUBMIT` 事件 `166/167`；第三条在页面自动选人完成并关闭弹层时，脚本仍等待弹层选项而停止，尚无 PQC 提交。保留已由真实页面生成的两条事件，按精确工单和幂等键只读恢复其事件 ID；剩余三条继续走页面提交，并在打开弹层前等待页面自动选人，禁止重复写入。
+- GREEN-PRECONDITION: 修正页面自动选人竞态后，工单 `980022..980026` 的 5 条生产来源全部由真实生产页生成，事件为 `166..170`。
+- RED: 首条 PQC 页面加载 -> FAIL before PQC write，业务码 `1040506106` 明确指出活跃订单 `35` 的第二个当前路线工序 `980632/922986` 缺少已发布 QA 规程。现有 5 个活跃订单只为首个工序配置规程，但正式入口逐一校验路线全部 14 个工序，故不能作为合格的一线 PQC 提交前置。
+- PIVOT: 不给 13 个无关工序批量补造规程和待检任务；建立任务自有的单工序正式路线、ACTIVE 版本、产品绑定、发布 QA 规程和 5 个独立订单/活跃订单/FINAL 任务。正式生产和 PQC 事件仍全部由真实页面创建；既有事件 `166..170` 保留为可追踪的已发生生产数据。
+- RED: 单工序路线首条生产提交 -> FAIL before write，电子签名号 `99009300` 已被前一组真实事件占用；新前缀正式事件仍为 `0`。切换为只读确认未占用的独立签名号 `99009400..99009404`，不复用已有签名身份。
+- GREEN-PRECONDITION: 单工序路线 5 条生产来源均已通过真实生产页创建，事件 `171..175`，工单 `980028..980032`，实际员工 `659`。
+- RED: 单工序首条 PQC 结构化填写 -> FAIL before PQC write；QA 项目正式配置为 `equipmentRequired=false`，页面仍保留空的选填设备下拉，脚本误等待非空选项。改为读取页面“无需指定设备”状态，仅在正式标记为设备必填时选择设备。
+- RED: 跳过选填设备后的首条 PQC 提交 -> FAIL transactionally，业务门禁明确要求 `itemResults.CODX-PQC-20260807-SP-FINAL.selectedEquipmentId`。任务规程按项目级 PQC 快照门禁改为设备必填，并绑定正式设备 `41/A03190/球囊成型机` 及设备编号 `A03190`；PQC 事件仍为 `0`。
+- GREEN: `formal-equipment-amendment.sql` -> PASS；任务规程项目 `166` 已设为设备必填，并精确绑定正式设备 `41/A03190/球囊成型机` 和设备编号 `A03190`，执行前 PQC 事件仍为 `0`。
+- GREEN: `run-e2e.ps1` -> PASS；真实一线 PQC 页面提交形成任务 `223..227` 对应事件 `181..185`，真实 PQC 组长页面切换到 `PQC管理` 后 5 个目标工单全部可见，只读分页核验命中 5 条。
+- GREEN: 结构化结果 -> PASS；任务 `223..227` 均为 `SUBMITTED`、实际/计划数量 `3/3`，事件实际检验人 `659`，PQC 记录 `104..108` 均为 `SUCCESS`，每个任务 3 条逐件明细，共 15 条；项目方法、标准、设备和设备编号完整。
+- REGRESSION: 断点续验 -> PASS；脚本按正式事件类型 `PQC_INSPECTION` 恢复已提交记录，不重复创建生产或 PQC 事件；PQC 事件固定为 5 条。
+- REGRESSION: 凭据恢复 -> PASS；每轮 E2E 的 `finally` 均恢复账号 `512/659` 原密码与更新字段，最终 `CODX-PQC-20260807-CREDENTIAL` 标记命中 `0`。
+- REGRESSION: 页面证据 -> PASS；截图 `output/playwright/20260807-pqc-leader-management-five-records.png` 显示提交日期 `2026-08-07` 和 5 条 `CODX-PQC-20260807-SP-WO-*` 目标记录。
+- REGRESSION: `verify.sql` -> PASS；汇总 `task/submitted/quantity/event/source/record/task-with-details/marker = 5/5/5/5/5/5/5/5`，逐件明细 `15`，凭据标记 `0`。
+- REGRESSION: database schema evidence validator -> PASS，数据库证据结构完整。
+- EXPERIENCE: 已将“PQC 真实提交前置覆盖活跃路线全部当前工序”合并到 `docs/backend-development.md`，将“Element Plus 页签按 role=tab 点击并断言 aria-selected”合并到 `docs/e2e-rules.md`，并更新既有 `docs/experience-index.md`；未新建长期经验文档。
+- CLOSEOUT: `task-closeout-cleanup --mode preview` -> PASS，无 blocked/warnings，删除范围仅为本任务附属文件和临时截图。
+- CLOSEOUT: `task-closeout-cleanup --mode apply` -> PASS；保留 `task.md`、`execution-log.md`、`verification-report.md`，已删除一次性 SQL、E2E 脚本、结果 JSON、数据库中间证据和临时截图，不删除正式业务数据。
 
 ## Data Safety
 
