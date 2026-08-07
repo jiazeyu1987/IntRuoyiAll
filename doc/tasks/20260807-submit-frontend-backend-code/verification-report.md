@@ -25,3 +25,8 @@ PASS
 - 收尾记录提交：`12c014d5ad548b98a6c7c6f1c53e23f9b04258bf`。
 - `git push origin int_main`：PASS，`a373af073..12c014d5a`。
 - 推送后远端复核：`HEAD = origin/int_main = 12c014d5ad548b98a6c7c6f1c53e23f9b04258bf`，`origin/int_main...HEAD = 0 0`。
+
+## Concurrent Residuals
+
+- 推送后并发任务产生了 `hide-review-copy-columns` 和 `restart-local-frontend-backend` 的任务记录改动。
+- 这些残余不属于本任务，未被暂存、提交或回滚；前后端源码仍无差异。

@@ -73,6 +73,18 @@
 - 推送后执行 `git fetch origin int_main`；`HEAD` 与 `origin/int_main` 均为 `12c014d5ad548b98a6c7c6f1c53e23f9b04258bf`。
 - 最终 `git rev-list --left-right --count origin/int_main...HEAD`：`0 0`。
 
+## Post-Push Residual Scan
+
+- 推送后复扫发现并发任务新增/修改的记录文件：
+  - `doc/tasks/20260806-hide-review-copy-columns/execution-log.md`
+  - `doc/tasks/20260806-hide-review-copy-columns/task.md`
+  - `doc/tasks/20260806-hide-review-copy-columns/verification-report.md`
+  - `doc/tasks/20260806-restart-local-frontend-backend/execution-log.md`
+  - `doc/tasks/20260806-restart-local-frontend-backend/task.md`
+  - `doc/tasks/20260806-restart-local-frontend-backend/verification-report.md`
+- 上述文件均不属于本任务；本任务未暂存、未提交、未回滚，也未触碰前后端源码。
+- 残余复扫同时确认前后端源码差异为空，`HEAD` 与 `origin/int_main` 仍同步。
+
 ## Blockers
 
 - None recorded.
