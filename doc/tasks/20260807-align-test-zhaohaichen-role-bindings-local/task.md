@@ -11,7 +11,7 @@
 - [x] M3 记录 BDD 与 RED 证据，确认直接绑定现有 `wenkong` 会恢复下载能力。
 - [x] M4 在单事务内创建并分配独立 `wenkong_no_download` 角色，补齐安全菜单并清理精确用户角色缓存。
 - [x] M5 独立复验角色、三个菜单入口、动态授权和 DCC 下载能力。
-- [ ] M6 完成 evidence validator、任务清理、提交和推送。
+- [x] M6 完成 evidence validator、任务清理、提交和推送。
 
 ## Expected Verification
 
@@ -24,7 +24,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
+
+最终结果：测试服角色 `wenkong_no_download(910417)` 已生效，三个根菜单已恢复，所有已识别的 DCC 下载放行来源计数均为 0；数据库证据校验、回滚语法校验、cleanup preview/apply、Git 提交和 `origin/int_main` 推送均通过。
 
 ## 设计约束检查
 

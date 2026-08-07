@@ -38,4 +38,5 @@ PASS：测试服 `tenant_id=1/zhaohaichen(id=376)` 已获得独立角色 `wenkon
 - Database evidence validator：PASS。
 - Experience consolidation：已合并到现有 `docs/database-rules.md` 并登记索引。
 - Cleanup preview/apply：PASS；仅删除 `database-schema-evidence.md`，核心记录和三份 SQL 均保留。
-- Git 实现记录提交：`17b68d156`；收尾记录提交与推送待执行。
+- Git 实现记录提交：`17b68d156`。
+- Git 首次收尾推送：PASS，`origin/int_main` 已从 `fca53dda5` 前进到 `7a94a1e44`；最终 `completed` 状态通过随后一条任务自有收尾提交推送。

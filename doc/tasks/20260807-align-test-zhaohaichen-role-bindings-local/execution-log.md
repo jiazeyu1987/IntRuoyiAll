@@ -46,6 +46,10 @@
 - IMPLEMENTATION RECORD COMMIT: `17b68d156 docs: record zhaohaichen test role alignment`，显式 `git commit --only` 仅提交本任务 `change.sql`、`verify.sql`、`rollback.sql` 和 `execution-log.md` 的剩余改动；提交钩子再次通过 branch runtime port guard。
 - CLEANUP PREVIEW: `task_closeout.py --task-id 20260807-align-test-zhaohaichen-role-bindings-local --mode preview` -> PASS；保留六个核心/SQL 文件，仅计划删除 `database-schema-evidence.md`，blocked/warnings 均为空。
 - CLEANUP APPLY: 同一脚本 `--mode apply` -> PASS；仅删除已经把 PASS 摘要复制到保留记录的 `database-schema-evidence.md`，未清理其它任务文件、生产代码、测试或运行进程。并行任务随后将该删除纳入共享基线提交 `788b9888b`；已通过限定路径 `git show --name-status 788b9888b -- <evidence-path>` 确认仅为该文件删除，本任务不重复删除或回退。
+- PUSH PRECHECK: 默认 `git push origin int_main` -> FAIL，精确原因为 Git URL 级代理指向未监听的 `127.0.0.1:7890`。按 `GitHub HTTPS 443 本地代理门禁` 复验：`7890` 不监听、`github.com:443` 直连成功；`8902` 一次性代理验证失败，因此未使用该端口。
+- GREEN: `git -c http.https://github.com.proxy= ls-remote origin HEAD` -> PASS，证明一次性绕过陈旧 URL 级代理后的 GitHub HTTPS 直连可用；未修改全局 Git 配置或 remote。
+- GREEN: `git -c http.https://github.com.proxy= push origin int_main` -> PASS，远端从 `fca53dda5` 前进到 `7a94a1e44`，包含本任务实现提交 `17b68d156`、经验索引 `fe2d19dac`、初版任务/长期门禁共享基线 `de6b84628`、清理删除共享基线 `788b9888b` 和清理记录共享基线 `7a94a1e44`。
+- FINAL STATUS: 数据变更、无下载复验、回滚验证、证据校验、经验沉淀、cleanup 和首次推送均通过；本次 `completed` 状态作为最后一条任务自有收尾提交推送。
 
 ## Dirty Worktree Baseline
 
@@ -126,7 +130,7 @@ M docs/experience-index.md
 M docs/frontend-development.md
 ```
 
-## Remaining Closeout
+## Final Result
 
-- 数据变更、核心验收、database evidence validator、经验沉淀和 cleanup preview/apply 已完成；待收尾记录提交和 `origin/int_main` 推送。
-- 共享工作区仍有其它任务改动；后续仅显式暂存本任务文件，不终止其它任务进程，不把并行任务文件混入本任务提交。
+- PASS：测试服 `zhaohaichen` 已恢复三个目标入口，并继续没有 DCC 下载放行来源。
+- 共享工作区的并行提交归属已逐一记录；本任务未终止其它任务进程、未删除活动锁、未回退并行提交。
