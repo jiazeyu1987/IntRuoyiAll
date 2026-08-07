@@ -24,5 +24,7 @@ public interface MesProFrontlineFeedbackErrorCodeConstants {
             new ErrorCode(1_040_753_608, "选用设备不属于当前工序或不可用：{}");
     ErrorCode PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID =
             new ErrorCode(1_040_753_609, "设备参数不属于当前工序/设备配置或不可用：{}");
+    ErrorCode PRO_FRONTLINE_FEEDBACK_SIGNATURE_LOGIN_MISMATCH =
+            new ErrorCode(1_040_753_610, "一线报工电子签名账号必须等于实际填写员工");
 
 }

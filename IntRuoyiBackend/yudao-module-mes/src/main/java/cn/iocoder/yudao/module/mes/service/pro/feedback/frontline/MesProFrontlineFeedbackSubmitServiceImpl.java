@@ -1,10 +1,15 @@
 package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackPayloadReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineProcessPoolContextReqVO;
+import cn.iocoder.yudao.module.mes.enums.md.autocode.MesMdAutoCodeRuleCodeEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackTypeEnum;
+import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitIdentityCommand;
@@ -29,6 +34,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProF
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_LOGIN_USER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_QUANTITY_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_SIGNATURE_EMPLOYEE_MISMATCH;
+import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_SIGNATURE_LOGIN_MISMATCH;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED;
 
 @Service
@@ -42,6 +48,8 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
     private final MesFrontlineLossReasonValidator lossReasonValidator;
     private final MesFrontlineDeviceParameterValidator deviceParameterValidator;
     private final MesProFrontlineFeedbackPayloadSplitter payloadSplitter;
+    private final MesMdAutoCodeRecordService autoCodeRecordService;
+    private final MesProBatchRecordExecutionSignatureService signatureService;
 
     public MesProFrontlineFeedbackSubmitServiceImpl(MesProFeedbackService feedbackService,
                                                     MesProFrontlineRecordbookEntryService recordbookEntryService,
@@ -49,7 +57,9 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                                                     MesFrontlineSubmitAuthorizationService submitAuthorizationService,
                                                     MesFrontlineLossReasonValidator lossReasonValidator,
                                                     MesFrontlineDeviceParameterValidator deviceParameterValidator,
-                                                    MesProFrontlineFeedbackPayloadSplitter payloadSplitter) {
+                                                    MesProFrontlineFeedbackPayloadSplitter payloadSplitter,
+                                                    MesMdAutoCodeRecordService autoCodeRecordService,
+                                                    MesProBatchRecordExecutionSignatureService signatureService) {
         this.feedbackService = feedbackService;
         this.recordbookEntryService = recordbookEntryService;
         this.processPoolSubmitEventService = processPoolSubmitEventService;
@@ -57,6 +67,8 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         this.lossReasonValidator = lossReasonValidator;
         this.deviceParameterValidator = deviceParameterValidator;
         this.payloadSplitter = payloadSplitter;
+        this.autoCodeRecordService = autoCodeRecordService;
+        this.signatureService = signatureService;
     }
 
     @Override
@@ -71,6 +83,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         if (!Objects.equals(deviceAccountUserId, loginUserId)) {
             throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_ACCOUNT_MISMATCH, deviceAccountUserId);
         }
+        validateSignatureActorMatchesLoginUser(reqVO, loginUserId);
         submitAuthorizationService.authorize(buildSubmitIdentityCommand(reqVO, loginUserId));
         validateDeviceParameterPayload(reqVO);
         List<MesFrontlineLossReasonSnapshot> lossReasonSnapshots = lossReasonValidator.requireEnabledLossReasons(
@@ -88,6 +101,12 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         if (existing.isPresent()) {
             return toSubmitResp(existing.get());
         }
+
+        applyServerResolvedFeedbackIdentity(reqVO);
+        Long signatureId = signatureService.recordProductionSubmitSignature(reqVO.getSignaturePassword(),
+                "一线生产报工提交");
+        reqVO.setSignatureId(signatureId);
+        splitPayload = payloadSplitter.split(reqVO, loginUserId, submittedAt, lossReasonSnapshot);
 
         Long feedbackId = feedbackService.createFeedback(splitPayload.getFeedbackPayload());
         feedbackService.submitFeedback(feedbackId);
@@ -134,14 +153,14 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         if (reqVO.getProcessPoolContext() == null) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "processPoolContext");
         }
-        if (cn.hutool.core.util.StrUtil.isBlank(reqVO.getProcessPoolSubmissionIdempotencyKey())) {
+        if (StrUtil.isBlank(reqVO.getProcessPoolSubmissionIdempotencyKey())) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "processPoolSubmissionIdempotencyKey");
         }
         if (reqVO.getRawPayload() == null) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "rawPayload");
         }
         if (reqVO.getActualEmployeeId() == null || reqVO.getSignatureEmployeeId() == null
-                || reqVO.getSignatureId() == null) {
+                || StrUtil.isBlank(reqVO.getSignaturePassword())) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "signature");
         }
         if (reqVO.getProcessPoolContext().getDeviceAccountUserId() == null) {
@@ -149,6 +168,24 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         }
         if (!Objects.equals(reqVO.getActualEmployeeId(), reqVO.getSignatureEmployeeId())) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SIGNATURE_EMPLOYEE_MISMATCH);
+        }
+    }
+
+    private void validateSignatureActorMatchesLoginUser(MesProFrontlineFeedbackSubmitReqVO reqVO, Long loginUserId) {
+        if (!Objects.equals(reqVO.getActualEmployeeId(), loginUserId)
+                || !Objects.equals(reqVO.getSignatureEmployeeId(), loginUserId)) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_SIGNATURE_LOGIN_MISMATCH);
+        }
+    }
+
+    private void applyServerResolvedFeedbackIdentity(MesProFrontlineFeedbackSubmitReqVO reqVO) {
+        MesProFrontlineFeedbackPayloadReqVO feedbackPayload = reqVO.getFeedbackPayload();
+        if (StrUtil.isBlank(feedbackPayload.getCode())) {
+            feedbackPayload.setCode(autoCodeRecordService.generateAutoCode(
+                    MesMdAutoCodeRuleCodeEnum.PRO_FEEDBACK_CODE.getCode()));
+        }
+        if (feedbackPayload.getType() == null) {
+            feedbackPayload.setType(MesProFeedbackTypeEnum.SELF.getType());
         }
     }
 
