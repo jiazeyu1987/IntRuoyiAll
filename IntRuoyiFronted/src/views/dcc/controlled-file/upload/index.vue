@@ -116,17 +116,6 @@
             >
               {{ selectedFileTypeTaxonomyLeafName || '请先选择文件分类' }}
             </div>
-            <div v-if="selectedFileTypeTaxonomyPathLabel" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-              自动取文件分类最后一级：{{ selectedFileTypeTaxonomyPathLabel }}
-            </div>
-            <el-alert
-              v-if="categoryPermissionPreflightMessage"
-              class="mt-8px !w-560px"
-              type="warning"
-              :closable="false"
-              show-icon
-              :title="categoryPermissionPreflightMessage"
-            />
           </div>
         </el-form-item>
         <el-form-item v-if="uploadDirectoryTree" label="提交目录" prop="directoryId">

@@ -9,6 +9,7 @@
 
 - BDD: 一线生产加载正式路线工序 -> Given 当前登录用户命中路线 `922119` 且工序 `922985` 属于该路线的可切换工序，When 用户点击“一线生产”页签加载设备账号工序列表，Then 后端必须从正式路线工序绑定返回存在且启用的工作站，并以业务码 `0` 返回工序候选。
 - BDD: 正式工作站来源缺失时阻塞 -> Given 路线工序没有可追溯的正式工作站绑定，When 一线生产加载该工序，Then 后端继续明确失败，不过滤工序、不猜测默认工作站，也不使用工序开始、批记录表单或 `formBindings` 替代。
+- BDD: 流程图展示工作站不得冒充正式绑定 -> Given 候选流程图节点同时包含正式绑定字段 `routeProcessWorkstationId` 和仅供展示的可用工作站字段 `workstationId`，When 候选版本被读取、保存并发布，Then 只能按 `routeProcessWorkstationId` 形成正式路线工序绑定，展示字段不得替代或补齐正式字段。
 
 ## Preflight Evidence
 
@@ -26,6 +27,7 @@
 - M2 root cause: `MesProRouteVersionPublishProjectionServiceImpl.projectProcesses` 重建正式路线工序时未投影冻结快照中的 `workstationId`。V24 发布正好删除旧行并创建 14 条空工作站新行，时间和数据形态与缺陷一致。
 - M3 RED complete: 新增 `projectCandidate_shouldPreserveFrozenRouteProcessWorkstationBinding`，证明候选快照中的 `workstationId=980010` 投影后为 `null`。
 - M3 implementation complete: 在正式发布投影构造 `MesProRouteProcessDO` 时加入 `workstationId`，未改变一线生产缺失绑定时的 fail-fast 门禁。
+- M3 follow-up RED: V25 发布前置校验发现候选流程图把展示用 `workstationId` 解析成了正式 `routeProcessWorkstationId`，脚本在写入前阻断，未发布、未修改当前 V24。新增正式字段与展示字段取不同值的回归断言，并覆盖候选保存必须写入正式字段。
 
 ## Verification Evidence
 

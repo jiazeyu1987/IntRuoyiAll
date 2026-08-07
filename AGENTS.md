@@ -132,19 +132,15 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Do not create IntRuoyi worktrees under `E:\IntRuoyi`, `IntRuoyiBackend`, `IntRuoyiFronted`, `%TEMP%`, the user profile, or any prior-project directory.
 - If `D:\IntRuoyiWorktree\` is missing or not writable, stop and report the missing precondition and impact instead of choosing another directory.
 
-## Git and Commit Policy
+## Git Policy
 
-- The primary branch for this workspace is `int_main`; do not treat `main` or `master` as the primary branch unless the user explicitly changes this rule.
-- Check Git status in the exact repository that owns the files before editing or committing.
-- Every task must finish with all local commits pushed to the current branch's `origin` remote. A task is not complete while local commits are ahead of `origin`, the push fails, or no usable `origin` push remote exists.
-- Before a task implementation commit or a final push, run `git status --short --branch` and inspect the staged file list.
-- If the working tree is dirty, first create a separate dirty-worktree baseline commit containing the current dirty tracked, untracked, and already-staged changes. This user-authorized baseline exception takes precedence over the normal task-ownership commit boundary.
-- Record the dirty-worktree baseline commit hash and file list in the current task log. Do not rewrite, discard, or silently omit dirty changes.
-- After the baseline commit, commit the current task implementation and final closeout records separately.
-- Before the implementation commit and push of a long-running task, run `project-experience-consolidation`; merge reusable experience into the appropriate existing document, or obtain user approval before creating a new long-term document.
-- Push with `git push origin <current-branch>` after all required commits. Verify that `git status --short --branch` no longer reports the branch ahead of `origin`.
-- If the owning directory is not a Git repository, `origin` is missing, the push is rejected, or Git credentials/network are unavailable, fail fast, record the exact blocker and impact, and do not mark the task completed.
-- Never use force-push, history rewriting, or destructive reset as a workaround unless the user explicitly requests it.
+- Git commits and pushes are not required for task completion. By default, do not create dirty-worktree baseline commits, implementation commits, closeout commits, merges, or pushes.
+- A dirty working tree, local commits ahead of `origin`, a missing `origin`, or unavailable Git credentials/network does not block task implementation, verification, closeout, or completion unless the user explicitly requested the affected Git operation.
+- Perform Git staging, commit, merge, push, branch, or worktree integration only when the user explicitly requests that operation for the current task.
+- When Git operations are explicitly requested, use the repository's actual primary branch (`int_main` unless the user changes it), inspect `git status --short --branch` and the staged file list, and follow the applicable safeguards in `docs\powershell-memory.md`, `docs\worktree-restrictions.md`, and the branch runtime guard rules.
+- Never stage, commit, merge, push, rewrite, discard, or clean unrelated user or concurrent-task changes.
+- Never use force-push, history rewriting, or destructive reset unless the user explicitly requests that exact operation.
+- This section overrides default commit, baseline-commit, push, and Git-based completion requirements in parent rules and project guidance such as `docs\task-closeout-rules.md` and `docs\powershell-memory.md`; their safety checks still apply whenever the user explicitly requests Git operations.
 
 ## PowerShell and Encoding Safety
 

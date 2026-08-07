@@ -225,7 +225,7 @@ class MesProRouteProcessFlowServiceImplTest {
                               "routeId": 9013,
                               "graphVersion": 7,
                               "nodes": [
-                                {"routeProcessId": 131, "processId": 1001, "sort": 1, "keyFlag": true, "checkFlag": false},
+                                {"routeProcessId": 131, "processId": 1001, "routeProcessWorkstationId": null, "workstationId": 81001, "sort": 1, "keyFlag": true, "checkFlag": false},
                                 {"routeProcessId": 132, "processId": 1002, "sort": 2, "keyFlag": false, "checkFlag": false}
                               ],
                               "edges": [
@@ -440,6 +440,15 @@ class MesProRouteProcessFlowServiceImplTest {
                 List.of(edge(21L, 22L)),
                 List.of(layout(21L, 10, 20), layout(22L, 220, 20)));
         reqVO.setRouteVersionId(candidateRouteVersionId);
+        MesProRouteProcessSaveReqVO routeProcessUpdate = new MesProRouteProcessSaveReqVO();
+        routeProcessUpdate.setId(21L);
+        routeProcessUpdate.setRouteId(routeId);
+        routeProcessUpdate.setProcessId(201L);
+        routeProcessUpdate.setWorkstationId(81001L);
+        routeProcessUpdate.setSort(1);
+        routeProcessUpdate.setKeyFlag(Boolean.TRUE);
+        routeProcessUpdate.setCheckFlag(Boolean.FALSE);
+        reqVO.setRouteProcessUpdates(List.of(routeProcessUpdate));
 
         MesProRouteProcessFlowValidationRespVO result = flowService.saveGraph(reqVO);
 
@@ -448,7 +457,9 @@ class MesProRouteProcessFlowServiceImplTest {
         verify(routeCandidateConfigService).saveConfigSnapshot(eq(candidateRouteVersionId), eq("flowGraph"),
                 argThat(snapshot -> snapshot.toString().contains("graphVersion=4")
                         && snapshot.toString().contains("nodes")
-                        && snapshot.toString().contains("routeProcessId=21")));
+                        && snapshot.toString().contains("routeProcessId=21")
+                        && snapshot.toString().contains("routeProcessWorkstationId=81001")
+                        && !snapshot.toString().contains("workstationId=81001")));
         verify(flowEdgeMapper, never()).deleteByRouteId(routeId);
         verify(boundaryEdgeMapper, never()).deleteByRouteId(routeId);
         verify(flowLayoutMapper, never()).deleteByRouteId(routeId);

@@ -178,7 +178,8 @@ class MesProRouteVersionPublishProjectionServiceTest {
                                 {
                                   "routeProcessId": 928609,
                                   "processId": 922985,
-                                  "workstationId": 980010,
+                                  "routeProcessWorkstationId": 980010,
+                                  "workstationId": 922757,
                                   "sort": 1,
                                   "keyFlag": false,
                                   "checkFlag": false

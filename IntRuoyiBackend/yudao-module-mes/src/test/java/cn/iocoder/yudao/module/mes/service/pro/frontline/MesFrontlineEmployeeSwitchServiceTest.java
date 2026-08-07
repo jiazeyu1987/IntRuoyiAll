@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationWorkerDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
@@ -94,15 +95,15 @@ class MesFrontlineEmployeeSwitchServiceTest {
     }
 
     @Test
-    void shouldListOnlyEmployeesBoundToCurrentProcessWorkstation() {
+    void shouldListAllEnabledLeaderPersonnelWithoutProcessWorkstationBinding() {
         givenBoundProcess();
-        when(workstationWorkerService.getWorkstationWorkerListByWorkstationId(WORKSTATION_ID)).thenReturn(List.of(
-                MesMdWorkstationWorkerDO.builder().id(1L).workstationId(WORKSTATION_ID).postId(701L).build(),
-                MesMdWorkstationWorkerDO.builder().id(2L).workstationId(WORKSTATION_ID).postId(702L).build()));
-        when(adminUserApi.getUserListByPostIds(Set.of(701L, 702L))).thenReturn(List.of(
-                enabledUser(10001L, "E1001", "Alice"),
-                enabledUser(10002L, "E1002", "Bob"),
-                disabledUser(20001L, "E2001", "Disabled")));
+        when(employeeProfileMapper.selectList(any())).thenReturn(
+                List.of(),
+                List.of(),
+                List.of(
+                        employeeProfile(8801L, 10001L, "E1001", "Alice", true),
+                        employeeProfile(8802L, 10002L, "E1002", "Bob", true),
+                        employeeProfile(8803L, 20001L, "E2001", "Disabled", false)));
 
         List<MesFrontlineEmployeeCandidate> candidates = contextService.listEmployeeCandidates(LOGIN_USER_ID,
                 ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID);
@@ -203,6 +204,20 @@ class MesFrontlineEmployeeSwitchServiceTest {
                                 systemUserId == null ? "TMP-001" : "E1001", employeeName, employeeName,
                                 employeeType)),
                         List.of(), List.of()));
+    }
+
+    private static MesProcessPoolTeamEmployeeProfileDO employeeProfile(Long id, Long systemUserId,
+                                                                        String employeeCode, String employeeName,
+                                                                        boolean enabled) {
+        return MesProcessPoolTeamEmployeeProfileDO.builder()
+                .id(id)
+                .leaderUserId(LOGIN_USER_ID)
+                .systemUserId(systemUserId)
+                .employeeCode(employeeCode)
+                .employeeName(employeeName)
+                .displayName(employeeName)
+                .enabled(enabled)
+                .build();
     }
 
     private static AdminUserRespDTO enabledUser(Long id, String username, String nickname) {

@@ -7,19 +7,20 @@
 
 ## Database Engine And Migration Tool
 
-- 数据库引擎：待通过本机运行态确认的 Docker MySQL，预期数据库 `ruoyi-vue-pro`。
+- 数据库引擎：本机 Docker MySQL `8.0.39`，数据库 `ruoyi-vue-pro`。
 - 变更类型：真实页面产生的一次性、任务自有测试 fixture 数据；不创建迁移，不修改表结构。
 
 ## Fixture Change
 
 - 任务标识：`CODX-PQC-20260807`。
-- 计划新增：5 条正式一线 PQC 提交及系统按正式业务链路生成的关联记录。
-- 数据对象、主键和字段值以写入前真实 schema、发布 QA 规程、活跃订单和人员范围核对结果为准。
+- 计划新增：5 个任务自有 `PENDING` 检验轮次；随后由真实一线页面生成 5 条正式 PQC 事件、PQC 记录及逐件项目明细。
+- 正式来源：tenant 1 工单 `980008`、活跃订单 `12`、路线 `922119/V448`、路线工序 `928609/922985`、发布 QA 规程版本 `16`、生产来源事件 `131`。
+- 任务唯一身份：`business_date=2026-08-07 / inspection_type=PATROL / shift_code=CODX5 / round_no=80701..80705`，creator/updater 为任务标识。
 
 ## Data Safety Analysis
 
 - 写入限定在本机测试数据库、单一测试租户、目标 PQC 人员和精确任务标识。
-- 使用真实前端路径触发正式事务，不直接拼装孤立表记录。
+- SQL 仅创建正式提交所需的任务自有待检轮次；使用真实前端路径触发 PQC 事件、记录、逐件明细和任务状态更新事务，不直接拼装提交结果。
 - 写入前确认任务标识不存在，并排除同一目标对象的并发写入。
 - 不修改远程环境，不改 schema，不扩大权限，不覆盖或删除既有业务数据。
 
@@ -37,7 +38,8 @@
 
 ## RED Command And Expected Failure
 
-- 待写入前执行；预期正式 PQC 提交链路中任务标识命中数为 `0`，以证明 5 条目标数据尚不存在。
+- marker read-only SQL -> `0`，符合预期 RED，证明 5 条目标正式提交尚不存在。
+- 可提交来源只读查询 -> 仅现有 `task=163` 具备完整生产来源，不能满足 5 条任务自有数据，符合预期 RED。
 
 ## GREEN Command And Passing Result
 
@@ -45,9 +47,8 @@
 
 ## Migration Verification
 
-- 不涉及 schema migration；使用 `DESCRIBE`、正式样本只读查询、真实前端提交结果和跨表一致性查询验证 fixture。
+- 不涉及 schema migration；已通过 `SHOW COLUMNS` / `SHOW INDEX` 核对任务、事件、PQC 记录、逐件明细和 QA 规程真实结构；后续使用真实前端提交结果和跨表一致性查询验证 fixture。
 
 ## Blockers
 
 - 暂无；缺数据库、正式 schema、测试账号、发布 QA 规程、活跃订单、PQC 人员范围或无冲突提交对象时立即阻塞。
-

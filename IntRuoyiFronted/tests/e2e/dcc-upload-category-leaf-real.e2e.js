@@ -9,7 +9,10 @@ const TASK_ID = '20260803-controlled-file-category-missing'
 const TARGET_PATH = '/dcc/controlled-file/upload'
 const OLD_DIRECTORY_BINDING_MESSAGE = '当前文件类别未绑定提交目录，请先在 DCC 文件类别维护目录绑定'
 const AUTO_UNCLASSIFIED_MESSAGE = '当前文件类别未绑定提交目录，系统将自动提交到未分类目录。'
-const OUTPUT_DIR = path.join(WORKSPACE_ROOT, 'output', 'playwright', TASK_ID)
+const OUTPUT_DIR = path.resolve(
+  process.env.DCC_UPLOAD_CATEGORY_LEAF_E2E_OUTPUT_DIR ||
+    path.join(WORKSPACE_ROOT, 'output', 'playwright', TASK_ID)
+)
 const EVIDENCE_PATH = path.join(OUTPUT_DIR, 'dcc-upload-category-leaf-real-evidence.json')
 const SCREENSHOT_PATH = path.join(OUTPUT_DIR, 'dcc-upload-category-leaf-real.png')
 
@@ -370,7 +373,8 @@ async function selectCascaderPath(page, label, segments) {
     const categoryText = await categoryItem.innerText()
     assert.ok(categoryText.includes(candidate.taxonomyLeafName), `readonly file category must show taxonomy leaf ${candidate.taxonomyLeafName}`)
     assert.equal(await categoryItem.locator('.el-select').count(), 0, 'controlled upload file category must not render an editable select')
-    assert.ok(categoryText.includes(`自动取文件分类最后一级：${candidate.taxonomyPath.join(' / ')}`), 'readonly category helper must show selected taxonomy path')
+    assert.ok(!categoryText.includes('自动取文件分类最后一级'), 'readonly file category must not show the taxonomy path helper')
+    assert.equal(await categoryItem.locator('.el-alert').count(), 0, 'readonly file category must not show a permission preflight alert')
 
     const directoryItem = formItem(page, '提交目录')
     await directoryItem.waitFor({ state: 'visible', timeout: 30000 })

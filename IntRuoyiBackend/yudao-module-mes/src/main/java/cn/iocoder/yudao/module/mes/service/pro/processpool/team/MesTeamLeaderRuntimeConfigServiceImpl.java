@@ -4,14 +4,12 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDefectReasonDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDefectReasonMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
@@ -56,7 +54,6 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     private final MesTeamLeaderScopeService scopeService;
     private final MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
     private final MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
-    private final MesProcessPoolTeamEmployeeBindingMapper employeeBindingMapper;
     private final MesProcessPoolTeamDeviceMapper deviceMapper;
     private final MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
     private final MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
@@ -69,7 +66,6 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     public MesTeamLeaderRuntimeConfigServiceImpl(MesTeamLeaderScopeService scopeService,
                                                  MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService,
                                                  MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper,
-                                                 MesProcessPoolTeamEmployeeBindingMapper employeeBindingMapper,
                                                  MesProcessPoolTeamDeviceMapper deviceMapper,
                                                  MesProcessPoolTeamProcessDeviceMapper processDeviceMapper,
                                                  MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper,
@@ -81,7 +77,6 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
         this.scopeService = scopeService;
         this.routeStartAuthorizationService = routeStartAuthorizationService;
         this.employeeProfileMapper = employeeProfileMapper;
-        this.employeeBindingMapper = employeeBindingMapper;
         this.deviceMapper = deviceMapper;
         this.processDeviceMapper = processDeviceMapper;
         this.parameterRuleMapper = parameterRuleMapper;
@@ -275,32 +270,6 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "CREATE_EMPLOYEE_PROFILE",
                 "TEAM_EMPLOYEE_PROFILE", profile.getId(), null, profile.toString());
         return profile.getId();
-    }
-
-    @Override
-    public Long bindEmployeeToProcess(MesTeamProcessEmployeeBindingSaveReqBO reqBO) {
-        if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getProcessId() == null
-                || reqBO.getEmployeeProfileId() == null) {
-            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "processEmployeeBinding");
-        }
-        scopeService.assertCanMaintainProcess(reqBO.getLeaderUserId(), reqBO.getProcessId());
-        MesProcessPoolTeamEmployeeProfileDO profile = employeeProfileMapper.selectById(reqBO.getEmployeeProfileId());
-        if (profile == null || !Objects.equals(profile.getLeaderUserId(), reqBO.getLeaderUserId())
-                || !Boolean.TRUE.equals(profile.getEnabled())) {
-            throw exception(PRO_PROCESS_POOL_TEAM_EMPLOYEE_PROFILE_NOT_EXISTS, reqBO.getEmployeeProfileId());
-        }
-        MesProcessPoolTeamEmployeeBindingDO binding = MesProcessPoolTeamEmployeeBindingDO.builder()
-                .leaderUserId(reqBO.getLeaderUserId())
-                .processId(reqBO.getProcessId())
-                .employeeProfileId(profile.getId())
-                .employeeUserId(profile.getSystemUserId())
-                .displayNameSnapshot(resolveProfileDisplayName(profile))
-                .enabled(Boolean.TRUE)
-                .build();
-        employeeBindingMapper.insert(binding);
-        TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "BIND_EMPLOYEE_PROCESS",
-                "TEAM_EMPLOYEE_BINDING", binding.getId(), null, binding.toString());
-        return binding.getId();
     }
 
     @Override

@@ -199,12 +199,14 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void uploadPreviewFile_sourceDocx_successCreatesTicketAndDoesNotExposeFileId() throws Exception {
+    void uploadPreviewFile_withoutCategoryUploadPermission_successCreatesTicketAndDoesNotExposeFileId() throws Exception {
         ReflectionTestUtils.setField(uploadService, "onlyOfficePreviewProperties", new DccOnlyOfficePreviewProperties());
         DccControlledFileUploadPreviewReqVO reqVO = uploadReq("SOURCE",
                 new MockMultipartFile("files", "sample.docx",
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         "docx".getBytes()));
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
+                .thenReturn(false);
         mockSizePolicy("SOURCE", 4L);
         when(fileService.createFile(eq("docx".getBytes()), eq("sample.docx"), eq("dcc/original"),
                 eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document")))
@@ -266,6 +268,8 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         assertEquals("10.0.0.9", auditCaptor.getValue().sourceIp());
         assertEquals("REQ-UPLOAD-SUCCESS", auditCaptor.getValue().requestId());
         assertEquals("JUnit", auditCaptor.getValue().userAgent());
+        verify(permissionSupport, never()).hasCategoryPermission(anyLong(), anyLong(),
+                any(DccFileCategoryPermissionActionEnum.class));
     }
 
     @Test
@@ -302,24 +306,6 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
                 readBeanProperty(respVO, "onlyofficeDocumentUrl"));
         assertNull(respVO.getPreviewUnavailableReason());
         verify(onlyOfficePreviewTokenService).issue(DccOnlyOfficePreviewTokenService.RESOURCE_UPLOAD_PREVIEW, 104L);
-    }
-
-    @Test
-    void uploadPreviewFile_withoutCategoryUploadPermission_deniesBeforePolicyOrStorage() {
-        DccControlledFileUploadPreviewReqVO reqVO = uploadReq("SOURCE",
-                new MockMultipartFile("files", "SOP-001.docx",
-                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        "doc".getBytes()));
-        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
-                .thenReturn(false);
-
-        assertServiceException(() -> uploadService.uploadPreviewFile(99L, reqVO,
-                        auditContext("REQ-UPLOAD-NO-CATEGORY-PERMISSION")),
-                CONTROLLED_FILE_ACCESS_DENIED);
-
-        verify(uploadSizePolicyService, never()).validateUploadSize(any(), any(), anyLong(), any());
-        verify(fileService, never()).createFile(any(), any(), any(), any());
-        verify(uploadTicketService, never()).createTicket(any());
     }
 
     @Test

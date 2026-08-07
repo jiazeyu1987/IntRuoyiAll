@@ -68,7 +68,6 @@ function collectConfig() {
     routeProcessId: numberEnv('TLW_ROUTE_PROCESS_ID'),
     processId: numberEnv('TLW_PROCESS_ID'),
     itemId: numberEnv('TLW_ITEM_ID'),
-    employeeProfileId: numberEnv('TLW_EMPLOYEE_PROFILE_ID'),
     deviceId: numberEnv('TLW_DEVICE_ID'),
     recordbookId: numberEnv('TLW_RECORDBOOK_ID'),
     signatureId: numberEnv('TLW_SIGNATURE_ID'),
@@ -421,13 +420,6 @@ async function configureTeamLeaderPage(page, config, steps) {
   await selectRemoteFormItemOption(activeOrderDialog, '订单号', config.workOrderCode, config.workOrderCode)
   await clickAddActiveOrderAndAssertPayload(activeOrderDialog, config)
   steps.push('生产组长通过 UI 加入活跃订单')
-
-  const employee = page.locator('[data-team-leader-employee-config]').first()
-  await fillFormItemForAction(employee, '绑定工序员工', '工序ID', config.processId)
-  await fillFormItemForAction(employee, '绑定工序员工', '员工档案ID', config.employeeProfileId)
-  await clickButtonAndWaitForSuccess(employee, '绑定工序员工',
-    '/mes/pro/process-pool/team-leader/process-employee-binding/save')
-  steps.push('生产组长通过 UI 绑定工序员工')
 
   const device = page.locator('[data-team-leader-device-config]').first()
   await fillFormItemForAction(device, '更新状态', '设备ID', config.deviceId)

@@ -4,7 +4,6 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDefectReasonDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
@@ -12,7 +11,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDefectReasonMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
@@ -52,8 +50,6 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     @Mock
     private MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
     @Mock
-    private MesProcessPoolTeamEmployeeBindingMapper employeeBindingMapper;
-    @Mock
     private MesProcessPoolTeamDeviceMapper deviceMapper;
     @Mock
     private MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
@@ -75,8 +71,8 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderRuntimeConfigServiceImpl(scopeService, routeStartAuthorizationService,
-                employeeProfileMapper, employeeBindingMapper,
-                deviceMapper, processDeviceMapper, parameterRuleMapper, routeProcessMapper, defectReasonMapper, auditMapper,
+                employeeProfileMapper, deviceMapper, processDeviceMapper, parameterRuleMapper,
+                routeProcessMapper, defectReasonMapper, auditMapper,
                 adminUserApi, passwordEncoder);
     }
 
@@ -322,7 +318,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     }
 
     @Test
-    void shouldCreateTemporaryEmployeeWithoutSystemUserAndBindToProcess() {
+    void shouldCreateTemporaryEmployeeWithoutSystemUser() {
         when(employeeProfileMapper.insert(any(MesProcessPoolTeamEmployeeProfileDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class).setId(8801L);
             return 1;
@@ -343,25 +339,6 @@ class MesTeamLeaderRuntimeConfigServiceTest {
         assertEquals("TEMPORARY", profileCaptor.getValue().getEmployeeType());
         assertTrue(profileCaptor.getValue().getEnabled());
 
-        when(employeeProfileMapper.selectById(8801L)).thenReturn(profileCaptor.getValue());
-        when(employeeBindingMapper.insert(any(MesProcessPoolTeamEmployeeBindingDO.class))).thenAnswer(invocation -> {
-            invocation.getArgument(0, MesProcessPoolTeamEmployeeBindingDO.class).setId(8201L);
-            return 1;
-        });
-
-        Long bindingId = service.bindEmployeeToProcess(MesTeamProcessEmployeeBindingSaveReqBO.builder()
-                .leaderUserId(3001L)
-                .employeeProfileId(8801L)
-                .processId(6001L)
-                .build());
-
-        assertEquals(8201L, bindingId);
-        verify(scopeService).assertCanMaintainProcess(3001L, 6001L);
-        ArgumentCaptor<MesProcessPoolTeamEmployeeBindingDO> bindingCaptor =
-                ArgumentCaptor.forClass(MesProcessPoolTeamEmployeeBindingDO.class);
-        verify(employeeBindingMapper).insert(bindingCaptor.capture());
-        assertEquals(8801L, bindingCaptor.getValue().getEmployeeProfileId());
-        assertNull(bindingCaptor.getValue().getEmployeeUserId());
         verify(auditMapper, org.mockito.Mockito.atLeastOnce()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
     }
 

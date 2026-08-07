@@ -4,21 +4,21 @@ const assert = require('node:assert/strict')
 
 const repoRoot = path.resolve(__dirname, '../..')
 const uploadPagePath = path.join(repoRoot, 'src/views/dcc/controlled-file/upload/index.vue')
-const categoryApiPath = path.join(repoRoot, 'src/api/dcc/controlledFile/fileCategories.ts')
+const externalReviewPagePath = path.join(repoRoot, 'src/views/dcc/controlled-file/external-review/index.vue')
 
 const uploadPageSource = fs.readFileSync(uploadPagePath, 'utf8')
-const categoryApiSource = fs.readFileSync(categoryApiPath, 'utf8')
+const externalReviewPageSource = fs.readFileSync(externalReviewPagePath, 'utf8')
 
-assert.match(
-  categoryApiSource,
-  /canUpload\?:\s*boolean/,
-  'DCC category API type must expose current-user upload permission as canUpload'
+const readonlyCategoryBlockMatch = uploadPageSource.match(
+  /<el-form-item v-else label="文件类别" prop="categoryId">([\s\S]*?)<el-form-item v-if="uploadDirectoryTree"/
 )
+assert.ok(readonlyCategoryBlockMatch, 'DCC upload page must keep the readonly file-category form item')
+const readonlyCategoryBlock = readonlyCategoryBlockMatch[1]
 
 assert.match(
   uploadPageSource,
-  /const availableCategories = computed\(\(\) =>[\s\S]*selectedFileTypeTaxonomyBoundCategories\.value\.filter\(\(category\) => \{[\s\S]*category\.canUpload === false[\s\S]*return false/,
-  'DCC upload page must hide auto-resolved categories where current user lacks category UPLOAD permission'
+  /const availableCategories = computed\(\(\) =>[\s\S]*selectedFileTypeTaxonomyBoundCategories\.value\.filter\(\(category\) => category\.active\)/,
+  'DCC upload page must expose every active category without category upload-permission filtering'
 )
 
 assert.doesNotMatch(
@@ -39,10 +39,34 @@ assert.doesNotMatch(
   'DCC upload page must not ask submitters to maintain category-directory bindings manually'
 )
 
-assert.match(
+assert.doesNotMatch(
   uploadPageSource,
-  /if\s*\(category\.canUpload\s*===\s*false\)\s*\{[\s\S]*callback\(new Error\(categoryUploadPermissionMessage\)\)/,
-  'DCC upload form validation must reject stale selections with canUpload=false before file upload'
+  /categoryUploadPermissionMessage|category\.canUpload|分类上传权限|UPLOAD 权限/,
+  'DCC upload page must not block or warn during upload based on category UPLOAD permission'
+)
+
+assert.doesNotMatch(
+  externalReviewPageSource,
+  /categoryUploadPermissionMessage|category\.canUpload|UPLOAD 权限/,
+  'DCC external-review upload page must not block category selection based on category UPLOAD permission'
+)
+
+assert.match(
+  readonlyCategoryBlock,
+  /data-testid="dcc-upload-category-leaf-display"/,
+  'DCC upload page must keep the readonly file-category value'
+)
+
+assert.doesNotMatch(
+  readonlyCategoryBlock,
+  /自动取文件分类最后一级/,
+  'DCC upload page must not render the taxonomy path helper below the readonly file category'
+)
+
+assert.doesNotMatch(
+  readonlyCategoryBlock,
+  /<el-alert\b|categoryPermissionPreflightMessage/,
+  'DCC upload page must not render the permission preflight alert below the readonly file category'
 )
 
 console.log('PASS: DCC upload category permission static contract')

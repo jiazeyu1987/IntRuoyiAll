@@ -28,15 +28,6 @@ export interface WorkOrderAbnormalReportReqVO {
   abnormalDescription: string
 }
 
-export interface TeamEmployeeBindingSaveReqVO {
-  processId: number
-  employeeUserId: number
-}
-
-export interface TeamEmployeeBindingDisableReqVO {
-  bindingId: number
-}
-
 export interface TeamDefectReasonSaveReqVO {
   routeProcessId?: number
   processId?: number
@@ -218,11 +209,6 @@ export interface TeamEmployeeProfileSaveReqVO {
   employeeType: string
 }
 
-export interface TeamProcessEmployeeBindingSaveReqVO {
-  processId: number
-  employeeProfileId: number
-}
-
 export interface TeamDeviceSaveReqVO {
   deviceCode: string
   deviceName: string
@@ -346,20 +332,6 @@ export const reviewTeamLeaderSubmission = async (data: TeamLeaderSubmissionRevie
 export const markAndReportWorkOrderAbnormal = async (data: WorkOrderAbnormalReportReqVO) => {
   return await request.post<number>({
     url: '/mes/pro/process-pool/team-leader/work-order/abnormal/report',
-    data
-  })
-}
-
-export const addTeamEmployeeBinding = async (data: TeamEmployeeBindingSaveReqVO) => {
-  return await request.post<number>({
-    url: '/mes/pro/process-pool/team-leader/employee-binding/add',
-    data
-  })
-}
-
-export const disableTeamEmployeeBinding = async (data: TeamEmployeeBindingDisableReqVO) => {
-  return await request.put<boolean>({
-    url: '/mes/pro/process-pool/team-leader/employee-binding/disable',
     data
   })
 }
@@ -525,13 +497,6 @@ export const getTeamEmployeeAuditList = async (params?: { employeeProfileId?: nu
 export const createTeamEmployeeProfile = async (data: TeamEmployeeProfileSaveReqVO) => {
   return await request.post<number>({
     url: '/mes/pro/process-pool/team-leader/employee-profile/create',
-    data
-  })
-}
-
-export const saveTeamProcessEmployeeBinding = async (data: TeamProcessEmployeeBindingSaveReqVO) => {
-  return await request.post<number>({
-    url: '/mes/pro/process-pool/team-leader/process-employee-binding/save',
     data
   })
 }

@@ -48,7 +48,7 @@ assert(!abnormalSection.includes('data-team-leader-defect-reason-select'), '异�
 
 const requestType = api.slice(
   api.indexOf('export interface WorkOrderAbnormalReportReqVO'),
-  api.indexOf('export interface TeamEmployeeBindingSaveReqVO')
+  api.indexOf('export interface TeamDefectReasonSaveReqVO')
 )
 assert(/workOrderId:\s*number/.test(requestType), '前端异常上报请求必须包含 workOrderId。')
 assert(/abnormalDescription:\s*string/.test(requestType), '前端异常上报请求必须包含 abnormalDescription。')
@@ -76,7 +76,7 @@ for (const field of removedFields) {
 }
 
 const controllerStart = controller.indexOf('public CommonResult<Long> markAndReportWorkOrderAbnormal')
-const controllerEnd = controller.indexOf('@PostMapping("/employee-binding/add")', controllerStart)
+const controllerEnd = controller.indexOf('@PostMapping("/defect-reason/create")', controllerStart)
 assert(controllerStart >= 0 && controllerEnd > controllerStart, '必须能定位异常上报 Controller 方法。')
 const controllerBlock = controller.slice(controllerStart, controllerEnd)
 assert(controllerBlock.includes('.workOrderId(reqVO.getWorkOrderId())'), 'Controller 必须传递 workOrderId。')

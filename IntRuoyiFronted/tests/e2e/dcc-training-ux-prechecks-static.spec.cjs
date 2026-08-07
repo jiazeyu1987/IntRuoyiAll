@@ -129,24 +129,20 @@ for (const text of ['DISTRIBUTE', '正式下发权限', '分发规则']) {
   assert.match(detailPage, new RegExp(text), `manual release permission hint must mention ${text}`)
 }
 
-for (const [source, label] of [
-  [trainingRulesReadonlyTab, 'training rules readonly mapping'],
-  [categoryTrainingRulesTab, 'category training rules editor']
+for (const [pattern, label] of [
+  [/data-testid="dcc-training-rule-permission-precheck"/, 'stable permission precheck marker'],
+  [/dcc:controlled-file:training:mine/, 'required my-training permission'],
+  [/无法进入我的培训完成阅读确认/, 'missing-permission business impact']
 ]) {
   assert.match(
-    source,
-    /data-testid="dcc-training-rule-permission-precheck"/,
-    `${label} must expose a stable training permission precheck hint`
+    trainingRulesReadonlyTab,
+    pattern,
+    `training rules readonly mapping must retain the ${label}`
   )
-  assert.match(
-    source,
-    /dcc:controlled-file:training:mine/,
-    `${label} must name the required my-training permission`
-  )
-  assert.match(
-    source,
-    /无法进入我的培训完成阅读确认/,
-    `${label} must explain the business impact of missing permission`
+  assert.doesNotMatch(
+    categoryTrainingRulesTab,
+    pattern,
+    `category training rules editor must not render the ${label}`
   )
 }
 

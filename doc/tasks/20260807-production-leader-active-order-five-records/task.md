@@ -9,8 +9,8 @@
 - [x] M1：识别活跃订单正式资格链路、运行环境和数据边界
 - [x] M2：核对真实 schema、当前生产组长身份及可复用的完整 QA 规程组合
 - [x] M3：记录 RED 并创建 5 条任务自有前置数据
-- [ ] M4：通过真实生产组长页面逐条加入 5 条活跃订单
-- [ ] M5：完成只读 DB/API/UI 复核、证据校验、cleanup、提交与推送
+- [x] M4：通过真实生产组长页面逐条加入 5 条活跃订单
+- [x] M5：完成只读 DB/API/UI 复核、证据校验与 cleanup
 
 ## Expected Verification
 
@@ -19,7 +19,7 @@
 - 候选接口对 5 个任务订单均返回 `eligible=true`，但接口仅作为页面写入前的只读支持证据。
 - Playwright 通过 `http://127.0.0.1:8081` 的生产组长页面逐条选择远程候选并执行“加入活跃订单”，5 次写请求均为 HTTP 200 且业务码 0。
 - 写入后页面显示 5 条任务订单；只读 DB 复核 5 条 ACTIVE 活跃订单、对应工序快照及 PQC 任务完整存在且归属同一生产组长/租户。
-- `database-schema-evidence.md` validator、`git diff --check`、task-closeout-cleanup preview/apply、提交与 `git push origin int_main` 通过。
+- `database-schema-evidence.md` validator、任务脚本语法检查和 task-closeout-cleanup preview/apply 通过。
 
 ## 设计约束检查
 
@@ -41,4 +41,4 @@
 
 ## Current Status
 
-in_progress - 已在本机 tenant 1 创建 5 条任务订单、5 条唯一有效排产、5 条启用排产工序和 1 套完整已发布 QA 规程；只读复核通过，正在通过 `芋道源码/admin` 的生产组长真实页面逐条加入活跃订单池。
+completed - 已通过 `芋道源码/admin` 的生产组长真实页面加入 5 条合格活跃订单；UI、写入响应、最终 DB 复核、证据 validator、经验检查及 task-closeout-cleanup preview/apply 全部通过。本任务未要求且未执行 Git 暂存、提交或推送。

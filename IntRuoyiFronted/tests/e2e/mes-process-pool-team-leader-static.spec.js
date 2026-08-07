@@ -37,7 +37,6 @@ for (const endpoint of [
   '/mes/pro/process-pool/team-leader/active-order/add',
   '/mes/pro/process-pool/team-leader/active-order/remove',
   '/mes/pro/process-pool/team-leader/employee-profile/create',
-  '/mes/pro/process-pool/team-leader/process-employee-binding/save',
   '/mes/pro/process-pool/team-leader/team-device/create',
   '/mes/pro/process-pool/team-leader/team-device/status/update',
   '/mes/pro/process-pool/team-leader/process-config/list',
@@ -62,7 +61,6 @@ for (const apiName of [
   'addTeamLeaderActiveOrder',
   'removeTeamLeaderActiveOrder',
   'createTeamEmployeeProfile',
-  'saveTeamProcessEmployeeBinding',
   'createTeamDevice',
   'updateTeamDeviceStatus',
   'getTeamLeaderProcessConfigList',
@@ -79,7 +77,6 @@ for (const marker of [
   'data-team-leader-report-workbench',
   'data-team-leader-config-center',
   'data-team-leader-active-order-config',
-  'data-team-leader-employee-config',
   'data-team-leader-device-config',
   'data-team-leader-process-config-tab',
   'data-team-leader-process-config-table',
@@ -96,7 +93,9 @@ assert(page.includes('报工确认工作台'), '生产组长必须有报工确�
 assert(page.includes('班组配置中心'), '生产组长必须有班组配置中心。')
 assert(page.includes('活跃订单池'), '班组配置中心必须维护活跃订单。')
 assert(page.includes('生产人员档案'), '人员管理 tab 必须维护生产人员档案。')
-assert(page.includes('生产人员工序绑定'), '班组配置中心必须维护工序员工关系。')
+assert(!page.includes('生产人员工序绑定'), '生产人员不得再与工序绑定。')
+assert(!page.includes('data-team-leader-employee-config'), '班组配置中心不得保留工序员工绑定入口。')
+assert(!api.includes('/process-employee-binding/save'), '前端不得保留工序员工绑定接口。')
 assert(page.includes('设备档案与状态'), '班组配置中心必须维护设备档案和设备状态。')
 assert(page.includes('工序异常关系'), '班组配置中心必须维护工序异常关系。')
 assert(page.includes('工序配置'), '生产组长必须通过工序配置统一表维护损耗、设备映射和参数标准。')
@@ -118,7 +117,7 @@ assert(!abnormalSection.includes('label="活跃订单"'), '异常上报对用户
 assert(!abnormalSection.includes('label="工序ID"'), '异常上报不需要工序ID。')
 const abnormalRequestType = api.slice(
   api.indexOf('export interface WorkOrderAbnormalReportReqVO'),
-  api.indexOf('export interface TeamEmployeeBindingSaveReqVO')
+  api.indexOf('export interface TeamDefectReasonSaveReqVO')
 )
 assert(
   /workOrderId:\s*number/.test(abnormalRequestType) &&

@@ -262,10 +262,12 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void submitControlledFile_success() {
+    void submitControlledFile_withoutCategoryUploadPermission_success() {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("V1.0");
         reqVO.setChangeType(DccControlledFileChangeTypeEnum.NEW.getCode());
         mockCommonSubmitDependencies();
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
+                .thenReturn(false);
         when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "Doc Control Review", "POSITION", 50L),
                 routeNode(2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "Matrix Review", "POSITION", 51L),
@@ -364,6 +366,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 "UT-ORIGINAL", 99L, "session-1", "SOURCE", 900L));
         verify(uploadTicketService).markBound(new DccUploadTicketMarkBoundCommand(
                 "UT-DRAWING", 99L, "session-1", "DRAWING_PDF", 900L));
+        verify(permissionSupport, never()).hasCategoryPermission(any(Long.class), any(Long.class),
+                any(DccFileCategoryPermissionActionEnum.class));
     }
 
     @Test
@@ -1629,9 +1633,11 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void previewRoute_success() {
+    void previewRoute_withoutCategoryUploadPermission_success() {
         when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
                 .id(10L).active(Boolean.TRUE).source("LOCAL").build());
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
+                .thenReturn(false);
         when(routeMapper.selectLatestActiveByCategoryId(10L)).thenReturn(
                 DccCategoryApprovalRouteDO.builder().id(30L).categoryId(10L).versionNo(2).active(Boolean.TRUE).build());
         when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
@@ -1643,18 +1649,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         assertEquals(1, respVOS.get(0).getStageNo());
         assertEquals(DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), respVOS.get(0).getStageCode());
         assertEquals(List.of(200L), respVOS.get(0).getResolvedUserIds());
-    }
-
-    @Test
-    void previewRoute_withoutCategoryUploadPermission_deniesBeforeResolvingRoute() {
-        when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
-                .id(10L).active(Boolean.TRUE).source("LOCAL").build());
-        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
-                .thenReturn(false);
-
-        assertServiceException(() -> workflowService.previewRoute(99L, 10L), CONTROLLED_FILE_ACCESS_DENIED);
-
-        verify(routeMapper, never()).selectLatestActiveByCategoryId(10L);
+        verify(permissionSupport, never()).hasCategoryPermission(any(Long.class), any(Long.class),
+                any(DccFileCategoryPermissionActionEnum.class));
     }
 
     @Test
@@ -1705,21 +1701,6 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         assertEquals(1, respVOS.size());
         assertEquals(List.of(301L), respVOS.get(0).getResolvedUserIds());
         verify(positionRuntimeResolver, never()).resolveUserIds(900334L, 99L, false);
-    }
-
-    @Test
-    void submitControlledFile_withoutCategoryUploadPermission_deniesBeforeResolvingFiles() {
-        DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("V1.0");
-        when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
-                .id(10L).code("SOP").name("SOP").active(Boolean.TRUE).source("LOCAL").build());
-        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
-                .thenReturn(false);
-
-        assertServiceException(() -> workflowService.submitControlledFile(99L, reqVO),
-                CONTROLLED_FILE_ACCESS_DENIED);
-
-        verify(uploadTicketService, never()).resolveForBinding(any(DccUploadTicketResolveCommand.class));
-        verify(routeMapper, never()).selectLatestActiveByCategoryId(10L);
     }
 
     @Test

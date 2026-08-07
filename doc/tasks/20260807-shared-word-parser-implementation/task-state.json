@@ -2,16 +2,16 @@
   "task_id": "20260807-shared-word-parser-implementation",
   "goal": "让表单模板与批记录表单使用同一套 Word 结构解析算法，并保持各自业务合同不变",
   "status": "planning",
-  "current_stage": "analysis",
-  "planner_review_status": "pending",
+  "current_stage": "plan_review",
+  "planner_review_status": "approved",
   "plan_review_status": "pending",
   "blocking_prereqs": [],
   "iteration_counts": {
-    "planner_revisions": 0,
+    "planner_revisions": 1,
     "plan_revisions": 0,
     "executor_loops": 0,
     "test_loops": 0
   },
   "tasks": [],
-  "updated_at": "2026-08-07T12:00:00+08:00"
+  "updated_at": "2026-08-07T14:35:00+08:00"
 }

@@ -41,8 +41,8 @@ assert.doesNotMatch(
 )
 assert.match(
   runtimeConfigService,
-  /toEmployeeOptions\(loginUserId\)/,
-  'Runtime config must derive employee popup options from the current login production leader personnel list.'
+  /resolveResponsibleLeaderUserId\(loginUserId\)[\s\S]*toEmployeeOptions\(responsibleLeaderUserId\)/,
+  'Runtime config must derive employee popup options from the responsible production leader personnel list.'
 )
 assert.match(
   runtimeConfigService,

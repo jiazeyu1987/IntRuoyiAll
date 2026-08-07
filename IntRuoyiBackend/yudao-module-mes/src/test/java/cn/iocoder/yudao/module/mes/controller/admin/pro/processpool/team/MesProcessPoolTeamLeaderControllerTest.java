@@ -12,8 +12,6 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPo
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDefectReasonSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceParameterRuleSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeDisplayNameUpdateReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeBindingDisableReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeBindingSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeStatusUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamFormalEmployeeLinkReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamFormalUserCandidateRespVO;
@@ -40,7 +38,6 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamMaintenanceAuditRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamProcessDefectReasonSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamProcessDeviceBindingSaveReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamProcessEmployeeBindingSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamProductionEmployeeRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamTemporaryEmployeeCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamTemporarySignaturePasswordResetReqVO;
@@ -49,7 +46,6 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDefectReasonC
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamFormalUserCandidateBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderTransferTraceService;
-import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeBindingService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamDeviceParameterRuleSaveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderProcessConfigDevice;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderProcessConfigParameter;
@@ -113,8 +109,6 @@ class MesProcessPoolTeamLeaderControllerTest {
     private MesTeamLeaderSubmissionReviewService submissionReviewService;
     @Mock
     private MesWorkOrderAbnormalReportService abnormalReportService;
-    @Mock
-    private MesTeamEmployeeBindingService employeeBindingService;
     @Mock
     private MesDefectReasonCatalogService defectReasonCatalogService;
     @Mock
@@ -214,17 +208,12 @@ class MesProcessPoolTeamLeaderControllerTest {
 
     @Test
     void maintenanceRequestsInjectCurrentLeaderUserIntoServiceCommands() {
-        when(employeeBindingService.addEmployeeBinding(org.mockito.ArgumentMatchers.any())).thenReturn(8201L);
         when(defectReasonCatalogService.createReason(org.mockito.ArgumentMatchers.any())).thenReturn(8301L);
         when(runtimeConfigService.bindDeviceToProcess(org.mockito.ArgumentMatchers.any())).thenReturn(8101L);
         when(runtimeConfigService.saveDeviceParameterRule(org.mockito.ArgumentMatchers.any())).thenReturn(8401L);
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(3001L);
-            assertEquals(8201L, controller.addEmployeeBinding(new MesTeamEmployeeBindingSaveReqVO()
-                    .setProcessId(6001L)
-                    .setEmployeeUserId(2001L)).getData());
-            controller.disableEmployeeBinding(new MesTeamEmployeeBindingDisableReqVO().setBindingId(8201L));
             assertEquals(8301L, controller.createDefectReason(new MesTeamDefectReasonSaveReqVO()
                     .setProcessId(6001L)
                     .setReasonType("LOSS")
@@ -243,18 +232,6 @@ class MesProcessPoolTeamLeaderControllerTest {
                     .setTargetValue(new BigDecimal("30"))
                     .setValueType("DECIMAL")).getData());
         }
-
-        ArgumentCaptor<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeBindingSaveReqBO>
-                bindingCaptor = ArgumentCaptor.forClass(
-                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeBindingSaveReqBO.class);
-        verify(employeeBindingService).addEmployeeBinding(bindingCaptor.capture());
-        assertEquals(3001L, bindingCaptor.getValue().getLeaderUserId());
-
-        ArgumentCaptor<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeBindingDisableReqBO>
-                disableCaptor = ArgumentCaptor.forClass(
-                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeBindingDisableReqBO.class);
-        verify(employeeBindingService).disableEmployeeBinding(disableCaptor.capture());
-        assertEquals(3001L, disableCaptor.getValue().getLeaderUserId());
 
         ArgumentCaptor<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDefectReasonSaveReqBO>
                 reasonCaptor = ArgumentCaptor.forClass(
@@ -441,7 +418,6 @@ class MesProcessPoolTeamLeaderControllerTest {
     @Test
     void runtimeConfigRequestsInjectCurrentLeaderUserAndCarryRouteProcessTargets() {
         when(runtimeConfigService.createEmployee(org.mockito.ArgumentMatchers.any())).thenReturn(8801L);
-        when(runtimeConfigService.bindEmployeeToProcess(org.mockito.ArgumentMatchers.any())).thenReturn(8201L);
         when(runtimeConfigService.createDevice(org.mockito.ArgumentMatchers.any())).thenReturn(7001L);
         when(runtimeConfigService.bindDeviceToProcess(org.mockito.ArgumentMatchers.any())).thenReturn(7201L);
         when(runtimeConfigService.saveDeviceParameterRule(org.mockito.ArgumentMatchers.any())).thenReturn(8401L);
@@ -453,9 +429,6 @@ class MesProcessPoolTeamLeaderControllerTest {
                     .setEmployeeCode("TMP-001")
                     .setEmployeeName("临时工甲")
                     .setEmployeeType("TEMPORARY")).getData());
-            assertEquals(8201L, controller.saveProcessEmployeeBinding(new MesTeamProcessEmployeeBindingSaveReqVO()
-                    .setProcessId(6001L)
-                    .setEmployeeProfileId(8801L)).getData());
             assertEquals(7001L, controller.createTeamDevice(new MesTeamDeviceSaveReqVO()
                     .setDeviceCode("D-001")
                     .setDeviceName("压力泵")
@@ -824,11 +797,6 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "processId"));
         assertNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "sourceEventId"));
         assertNotNull(findFieldOrNull(MesWorkOrderAbnormalReportReqVO.class, "abnormalReasonCode"));
-        assertEndpoint("addEmployeeBinding", new Class[]{MesTeamEmployeeBindingSaveReqVO.class}, PostMapping.class,
-                new String[]{"/employee-binding/add"}, "mes:pro-process-pool-team-leader:maintain");
-        assertEndpoint("disableEmployeeBinding", new Class[]{MesTeamEmployeeBindingDisableReqVO.class},
-                PutMapping.class, new String[]{"/employee-binding/disable"},
-                "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("createDefectReason", new Class[]{MesTeamDefectReasonSaveReqVO.class}, PostMapping.class,
                 new String[]{"/defect-reason/create"}, "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("getProcessConfigList", new Class[]{}, GetMapping.class,
@@ -890,9 +858,6 @@ class MesProcessPoolTeamLeaderControllerTest {
                 "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("getEmployeeAuditList", new Class[]{Long.class}, GetMapping.class,
                 new String[]{"/employee-profile/audit/list"}, "mes:pro-process-pool-team-leader:query");
-        assertEndpoint("saveProcessEmployeeBinding", new Class[]{MesTeamProcessEmployeeBindingSaveReqVO.class},
-                PostMapping.class, new String[]{"/process-employee-binding/save"},
-                "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("createTeamDevice", new Class[]{MesTeamDeviceSaveReqVO.class}, PostMapping.class,
                 new String[]{"/team-device/create"}, "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("updateTeamDeviceStatus", new Class[]{MesTeamDeviceStatusUpdateReqVO.class}, PutMapping.class,
@@ -915,8 +880,6 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertNoClientLeaderUserField(MesTeamLeaderSubmissionPageReqVO.class);
         assertNoClientLeaderUserField(MesTeamLeaderSubmissionReviewReqVO.class);
         assertNoClientLeaderUserField(MesWorkOrderAbnormalReportReqVO.class);
-        assertNoClientLeaderUserField(MesTeamEmployeeBindingSaveReqVO.class);
-        assertNoClientLeaderUserField(MesTeamEmployeeBindingDisableReqVO.class);
         assertNoClientLeaderUserField(MesTeamDefectReasonSaveReqVO.class);
         assertNoClientLeaderUserField(MesTeamDeviceParameterRuleSaveReqVO.class);
         assertNoClientLeaderUserField(MesTeamLeaderActiveOrderAddReqVO.class);
@@ -930,7 +893,6 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertNoClientLeaderUserField(MesTeamEmployeeDisplayNameUpdateReqVO.class);
         assertNoClientLeaderUserField(MesTeamEmployeeStatusUpdateReqVO.class);
         assertNoClientLeaderUserField(MesTeamTemporarySignaturePasswordResetReqVO.class);
-        assertNoClientLeaderUserField(MesTeamProcessEmployeeBindingSaveReqVO.class);
         assertNoClientLeaderUserField(MesTeamDeviceSaveReqVO.class);
         assertNoClientLeaderUserField(MesTeamDeviceStatusUpdateReqVO.class);
         assertNoClientLeaderUserField(MesTeamProcessDeviceBindingSaveReqVO.class);

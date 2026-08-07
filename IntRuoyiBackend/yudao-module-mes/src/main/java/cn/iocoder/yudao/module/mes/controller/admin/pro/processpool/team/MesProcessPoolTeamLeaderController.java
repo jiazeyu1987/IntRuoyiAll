@@ -7,8 +7,6 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceStatusUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDefectReasonSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceParameterRuleSaveReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeBindingDisableReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeBindingSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeDisplayNameUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeProfileSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeStatusUpdateReqVO;
@@ -40,7 +38,6 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderSubmissionReviewReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamProcessDefectReasonSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamProcessDeviceBindingSaveReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamProcessEmployeeBindingSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamProductionEmployeeRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamTemporaryEmployeeCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamTemporarySignaturePasswordResetReqVO;
@@ -58,7 +55,6 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPers
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelLinkReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelStatusUpdateReqBO;
-import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeBindingService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeDisplayNameUpdateReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeStatusUpdateReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamFormalEmployeeLinkReqBO;
@@ -119,7 +115,6 @@ public class MesProcessPoolTeamLeaderController {
     private final MesTeamLeaderWorkbenchService workbenchService;
     private final MesTeamLeaderSubmissionReviewService submissionReviewService;
     private final MesWorkOrderAbnormalReportService abnormalReportService;
-    private final MesTeamEmployeeBindingService employeeBindingService;
     private final MesDefectReasonCatalogService defectReasonCatalogService;
     private final MesTeamLeaderProcessConfigService processConfigService;
     private final MesTeamLeaderActiveOrderService activeOrderService;
@@ -133,7 +128,6 @@ public class MesProcessPoolTeamLeaderController {
     public MesProcessPoolTeamLeaderController(MesTeamLeaderWorkbenchService workbenchService,
                                               MesTeamLeaderSubmissionReviewService submissionReviewService,
                                               MesWorkOrderAbnormalReportService abnormalReportService,
-                                              MesTeamEmployeeBindingService employeeBindingService,
                                               MesDefectReasonCatalogService defectReasonCatalogService,
                                               MesTeamLeaderProcessConfigService processConfigService,
                                               MesTeamLeaderActiveOrderService activeOrderService,
@@ -146,7 +140,6 @@ public class MesProcessPoolTeamLeaderController {
         this.workbenchService = workbenchService;
         this.submissionReviewService = submissionReviewService;
         this.abnormalReportService = abnormalReportService;
-        this.employeeBindingService = employeeBindingService;
         this.defectReasonCatalogService = defectReasonCatalogService;
         this.processConfigService = processConfigService;
         this.activeOrderService = activeOrderService;
@@ -203,30 +196,6 @@ public class MesProcessPoolTeamLeaderController {
                 .abnormalReasonCode(reqVO.getAbnormalReasonCode())
                 .abnormalDescription(reqVO.getAbnormalDescription())
                 .build()));
-    }
-
-    @PostMapping("/employee-binding/add")
-    @Operation(summary = "添加班组员工到工序")
-    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
-    public CommonResult<Long> addEmployeeBinding(@Valid @RequestBody MesTeamEmployeeBindingSaveReqVO reqVO) {
-        return success(employeeBindingService.addEmployeeBinding(
-                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeBindingSaveReqBO.builder()
-                .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
-                .processId(reqVO.getProcessId())
-                .employeeUserId(reqVO.getEmployeeUserId())
-                .build()));
-    }
-
-    @PutMapping("/employee-binding/disable")
-    @Operation(summary = "禁用班组员工工序绑定")
-    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
-    public CommonResult<Boolean> disableEmployeeBinding(@Valid @RequestBody MesTeamEmployeeBindingDisableReqVO reqVO) {
-        employeeBindingService.disableEmployeeBinding(
-                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeBindingDisableReqBO.builder()
-                .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
-                .bindingId(reqVO.getBindingId())
-                .build());
-        return success(Boolean.TRUE);
     }
 
     @PostMapping("/defect-reason/create")
@@ -532,19 +501,6 @@ public class MesProcessPoolTeamLeaderController {
                 .stream()
                 .map(MesProcessPoolTeamLeaderController::toMaintenanceAuditRespVO)
                 .toList());
-    }
-
-    @PostMapping("/process-employee-binding/save")
-    @Operation(summary = "保存班组工序员工绑定")
-    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
-    public CommonResult<Long> saveProcessEmployeeBinding(
-            @Valid @RequestBody MesTeamProcessEmployeeBindingSaveReqVO reqVO) {
-        return success(runtimeConfigService.bindEmployeeToProcess(
-                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamProcessEmployeeBindingSaveReqBO.builder()
-                        .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
-                        .processId(reqVO.getProcessId())
-                        .employeeProfileId(reqVO.getEmployeeProfileId())
-                        .build()));
     }
 
     @PostMapping("/team-device/create")

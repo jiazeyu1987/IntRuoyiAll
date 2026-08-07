@@ -1843,46 +1843,11 @@
         <div>
           <div class="team-leader-workbench__section-title">班组配置中心</div>
           <div class="team-leader-workbench__hint">
-            维护员工、设备、参数和工序关系，员工端填报从这里读取配置。
+            维护设备、参数和工序异常关系。
           </div>
         </div>
       </div>
       <div class="team-leader-workbench__maintenance-grid">
-        <el-card shadow="never" data-team-leader-employee-config>
-          <template #header>生产人员工序绑定</template>
-          <el-alert
-            title="员工档案请在上方生产人员档案 tab 维护；这里仅把已关联当前组长的生产人员档案绑定到工序。"
-            type="info"
-            :closable="false"
-            show-icon
-          />
-          <el-form :model="processEmployeeBindingForm" label-width="108px">
-            <el-form-item label="工序ID">
-              <el-input-number
-                v-model="processEmployeeBindingForm.processId"
-                :min="1"
-                :controls="false"
-              />
-            </el-form-item>
-            <el-form-item label="员工档案ID">
-              <el-input-number
-                v-model="processEmployeeBindingForm.employeeProfileId"
-                :min="1"
-                :controls="false"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-button
-                type="primary"
-                :loading="maintenanceSubmitting"
-                @click="submitProcessEmployeeBinding"
-              >
-                绑定工序员工
-              </el-button>
-            </el-form-item>
-          </el-form>
-        </el-card>
-
         <el-card shadow="never" data-team-leader-device-config>
           <template #header>设备档案与状态</template>
           <el-form :model="teamDeviceForm" label-width="98px">
@@ -2495,7 +2460,6 @@ import {
   saveTeamProcessDefectReason,
   saveTeamProcessConfigDeviceBinding,
   saveTeamProcessConfigDeviceParameterRule,
-  saveTeamProcessEmployeeBinding,
   searchPqcFormalEmployeeCandidates,
   searchTeamLeaderActiveOrderCandidates,
   searchTeamFormalEmployeeCandidates,
@@ -3107,11 +3071,6 @@ const pqcPersonnelForm = reactive({
 const temporaryEmployeeForm = reactive({
   displayName: '',
   signaturePassword: ''
-})
-
-const processEmployeeBindingForm = reactive({
-  processId: undefined as number | undefined,
-  employeeProfileId: undefined as number | undefined
 })
 
 const teamDeviceForm = reactive({
@@ -5200,24 +5159,6 @@ const submitRemoveActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
     ElMessage.error(
       resolveErrorMessage(error, writeCompleted ? '活跃订单已移出，但列表刷新失败' : '活跃订单移出失败')
     )
-  } finally {
-    maintenanceSubmitting.value = false
-  }
-}
-
-const submitProcessEmployeeBinding = async () => {
-  maintenanceSubmitting.value = true
-  try {
-    await saveTeamProcessEmployeeBinding({
-      processId: requirePositiveNumber(processEmployeeBindingForm.processId, '工序ID不能为空'),
-      employeeProfileId: requirePositiveNumber(
-        processEmployeeBindingForm.employeeProfileId,
-        '员工档案ID不能为空'
-      )
-    })
-    ElMessage.success('工序员工关系已保存')
-  } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '工序员工关系保存失败'))
   } finally {
     maintenanceSubmitting.value = false
   }

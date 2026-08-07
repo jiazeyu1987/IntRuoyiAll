@@ -68,7 +68,7 @@ assert.match(
 )
 assert.match(
   processContextService,
-  /resolveResponsibleLeaderUserId\(loginUserId\)[\s\S]*listRouteStartProductionLeaderSwitchableProcesses/,
+  /resolveResponsibleLeaderContext\(loginUserId\)[\s\S]*listRouteStartProductionLeaderSwitchableProcesses\(responsibleLeader\.leaderUserId\(\)\)/,
   '生产员工必须继承其生产组长在正式工序开始配置中负责的全部工序'
 )
 

@@ -25,8 +25,6 @@ public interface MesTeamLeaderRuntimeConfigService {
 
     Long createEmployee(MesTeamEmployeeProfileSaveReqBO reqBO);
 
-    Long bindEmployeeToProcess(MesTeamProcessEmployeeBindingSaveReqBO reqBO);
-
     Long createDevice(MesTeamDeviceSaveReqBO reqBO);
 
     void updateDeviceStatus(MesTeamDeviceStatusUpdateReqBO reqBO);

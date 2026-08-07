@@ -329,17 +329,6 @@ async function assertDuplicateTemporaryWorkerRejected(page, config, steps) {
   steps.push('同一生产组长重复显示名被拒绝并返回可理解提示')
 }
 
-async function bindTemporaryWorkerToSwitchableProcessViaPage(page, processId, employeeProfileId, steps) {
-  const form = page.locator('[data-team-leader-employee-config]').first()
-  await fillFormItem(form, '工序ID', processId)
-  await fillFormItem(form, '员工档案ID', employeeProfileId)
-  const { body } = await waitForApiJson(page, '/process-employee-binding/save', 'POST', async () => {
-    await form.getByRole('button', { name: '绑定工序员工' }).click()
-  })
-  assert.equal(body.code, 0, `绑定工序员工失败：${body.msg || body.message || 'unknown'}`)
-  steps.push('临时工档案通过真实页面绑定到当前组长可切换工序')
-}
-
 async function ensureDeviceScopeViaPage(page, process, steps) {
   const deviceId = Number(process.deviceId)
   if (!Number.isFinite(deviceId) || deviceId <= 0) {
@@ -481,9 +470,8 @@ async function main() {
     steps.push(`只读发现可切换工序 routeProcessId=${process.routeProcessId} processId=${process.processId}`)
     await openPersonnelPage(page, config)
     await linkFormalEmployeeViaPage(page, config, steps)
-    const tempProfileId = await createTemporaryEmployeeViaPage(page, config, steps)
+    await createTemporaryEmployeeViaPage(page, config, steps)
     await assertDuplicateTemporaryWorkerRejected(page, config, steps)
-    await bindTemporaryWorkerToSwitchableProcessViaPage(page, process.processId, tempProfileId, steps)
     await ensureDeviceScopeViaPage(page, process, steps)
     await assertRuntimeConfigCandidateScope(config, auth, process, config.tempDisplayName, true, steps)
     await resetTemporarySignaturePasswordViaPage(page, config.tempDisplayName, steps)
