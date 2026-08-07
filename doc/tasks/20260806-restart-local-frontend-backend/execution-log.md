@@ -55,7 +55,13 @@
 ## Ownership Boundary
 
 - 运行期间发现并发任务修改 `doc/tasks/20260806-hide-review-copy-columns/` 并新建 `doc/tasks/20260807-submit-frontend-backend-code/`；这些文件不属于本任务，未读取后修改、未暂存、未提交。
-- 当前 `int_main` 已存在非本任务提交 `842ead6ab`（包含本任务初始记录及其他任务记录），分支在本任务结束时相对 `origin/int_main` ahead；为避免越权推送并发任务提交，本任务不执行 Git 提交或推送。
+- 共享分支存在非本任务提交和并发工作区改动；本任务未建立包含并发文件的基线，未将其纳入本任务提交，改用 `git commit --only` 保持提交边界。
+
+## Git Evidence
+
+- 本任务收尾提交：`2435458c7`，文件清单为 `doc/tasks/20260806-restart-local-frontend-backend/task.md`、`doc/tasks/20260806-restart-local-frontend-backend/execution-log.md`、`doc/tasks/20260806-restart-local-frontend-backend/verification-report.md`。
+- 提交前使用 `git commit --only` 选择性提交，仅包含上述三份本任务文件；`doc/tasks/20260806-hide-review-copy-columns/` 的三个文件仍保留在工作区，未进入本任务提交。
+- 提交后复扫确认并发任务文件仍未暂存；当前分支仍需完成本任务推送。
 
 ## Milestone Updates
 
