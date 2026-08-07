@@ -44,6 +44,7 @@ BDD: 任一前置条件失败时整体回滚 -> Given 三项变更在同一事�
 - CLEANUP PREVIEW: `task_closeout.py --task-id 20260807-pressure-pump-equipment-ledger-correction --mode preview` -> PASS，仅计划保留 `task.md/execution-log.md/verification-report.md`，删除临时 `apply.sql`，无 blocked 或 warning。
 - CLEANUP APPLY: `task_closeout.py --task-id 20260807-pressure-pump-equipment-ledger-correction --mode apply` -> PASS，仅删除已提交的临时事务脚本 `apply.sql`，三份正式任务记录均保留；当前为主 worktree，无合并或 worktree 删除动作。
 - PUSH PREFLIGHT: 默认 GitHub URL 级代理指向未监听的 `127.0.0.1:7890`；Windows 直连 GitHub `443` 可达，一次性清空该 URL 级代理后 `git ls-remote origin HEAD` 成功。未修改全局 Git 配置。
+- PUSH BLOCKER: 随后最终推送阶段网络状态恶化；一次性直连 GitHub `443` 超时，一次性使用当前监听的 `127.0.0.1:8902` 则在 TLS 握手阶段失败或连接被重置。多次 `ls-remote/push` 均未成功，未修改全局代理、未切换 remote、未把本地 ahead 状态误报为已推送。
 
 ## Milestone Updates
 
@@ -52,8 +53,9 @@ BDD: 任一前置条件失败时整体回滚 -> Given 三项变更在同一事�
 - M3 completed：变更前精确行、关联计数、非编码字段 MD5、租户总数和回滚条件已记录。
 - M4 completed：第二次事务执行通过全部 fail-fast 断言并提交三项主数据变更；第一次脚本错误已验证整体回滚。
 - M5 completed：目标唯一性、旧编码清除、稳定 ID、非编码字段、设备工序、全局 MES 工序目录、工位关系、条码和租户边界均通过只读核对。
-- M6 completed：长期经验合并、cleanup preview/apply、正式记录提交和 `int_main` 最终推送均完成。
+- M6 pending：长期经验合并、cleanup preview/apply 和正式记录提交已完成；`int_main` 最终推送被 GitHub 网络连接阻塞。
 
 ## Blockers
 
 - 非完成阻塞：当前会话缺少 `测试租户` 有效登录凭据，因此未执行真实页面只读复验；该缺口不影响已完成的本地数据库事务和精确数据校验，但不能宣称页面 E2E 已通过。
+- Closeout blocker：GitHub 直连和当前本地代理均无法完成 TLS 连接，当前分支仍领先 `origin/int_main`；按项目 Git Policy 保持 `ready_for_closeout`。
