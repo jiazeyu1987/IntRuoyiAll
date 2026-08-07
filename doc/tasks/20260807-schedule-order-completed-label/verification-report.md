@@ -28,4 +28,5 @@
 ## 收尾
 
 - `task-closeout-cleanup` preview/apply：PASS；删除临时前端交付证据，保留三份核心任务记录。
-- 任务状态：`completed`。
+- 本地验证与清理状态：PASS。
+- 任务状态：`ready_for_closeout`；仅远端推送受 GitHub 网络/凭据阻塞，未标记 `completed`。

@@ -24,6 +24,7 @@
 - 经验沉淀门禁：本次采用的任务专用静态合同、只读 E2E 无写请求核验和共享工作区隔离规则已分别存在于 `docs/frontend-development.md`、`docs/e2e-rules.md` 和 `docs/task-closeout-rules.md`，未产生新的可复用长期经验，不修改长期经验文档。
 - 验证记录提交：`1106d4c24 docs: record schedule order completed label verification`，仅包含本任务 4 个任务记录文件。
 - 清理预览与 apply 均无 blocker/warning；仅删除临时 `frontend-feature-evidence.md`，保留 `task.md`、`execution-log.md` 和 `verification-report.md`。
+- 本地收尾提交：`410eadc12 docs: close out schedule order completed label`，仅包含本任务收尾记录和临时证据删除。
 
 ## Verification Evidence
 
@@ -44,4 +45,4 @@
 
 ## Blockers
 
-- 无。
+- 远端推送阻塞：全局 Git HTTPS 代理 `127.0.0.1:7890` 未监听；直连 `github.com:443` 超时；监听中的 Clash `127.0.0.1:8902` 两次返回 TLS 握手中断；SSH 网络可达但返回 `Permission denied (publickey)`。因此未执行成功的 `git push origin int_main`，任务不得标记 `completed`。
