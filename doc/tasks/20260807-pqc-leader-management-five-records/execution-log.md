@@ -67,6 +67,8 @@
 - EXPERIENCE: 已将“PQC 真实提交前置覆盖活跃路线全部当前工序”合并到 `docs/backend-development.md`，将“Element Plus 页签按 role=tab 点击并断言 aria-selected”合并到 `docs/e2e-rules.md`，并更新既有 `docs/experience-index.md`；未新建长期经验文档。
 - CLOSEOUT: `task-closeout-cleanup --mode preview` -> PASS，无 blocked/warnings，删除范围仅为本任务附属文件和临时截图。
 - CLOSEOUT: `task-closeout-cleanup --mode apply` -> PASS；保留 `task.md`、`execution-log.md`、`verification-report.md`，已删除一次性 SQL、E2E 脚本、结果 JSON、数据库中间证据和临时截图，不删除正式业务数据。
+- GIT: branch runtime port guard -> PASS；本任务提交 `ede9a3086`（`数据: 增加PQC组长管理5条真实提交`）已创建，暂存清单未包含其它并发任务源码或记录。
+- BLOCKER: `git push origin int_main` -> FAIL；GitHub 代理 `http://127.0.0.1:7890` 未监听，`Test-NetConnection` 返回 `TcpTestSucceeded=False`，无法连接 `github.com:443`。按 no-fallback 规则未禁用代理、未改写远端、未强推；任务保持 `ready_for_closeout`。
 
 ## Data Safety
 

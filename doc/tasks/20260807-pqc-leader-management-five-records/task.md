@@ -30,7 +30,7 @@
 
 ## Current Status
 
-ready_for_closeout - 5 条真实一线 PQC 提交、PQC 组长页面验收、数据库一致性验证、经验沉淀和任务清理均已完成，等待 Git 提交与推送。
+ready_for_closeout - 5 条真实一线 PQC 提交、PQC 组长页面验收、数据库一致性验证、经验沉淀、任务清理和本地提交均已完成；GitHub 代理 `127.0.0.1:7890` 未运行，推送暂时阻塞。
 
 ## Verification Evidence
 
@@ -48,7 +48,8 @@ ready_for_closeout - 5 条真实一线 PQC 提交、PQC 组长页面验收、数
 
 ## Remaining Blockers
 
-- 暂无业务或验证 blocker；共享分支存在并发任务文件，Git 收尾必须按任务归属单独处理。
+- Git push blocker：全局 Git 配置 `http.https://github.com.proxy=http://127.0.0.1:7890`，端口检查为 `TcpTestSucceeded=False`，`git push origin int_main` 无法连接 GitHub。未禁用或绕过用户代理配置；分支仍领先 `origin/int_main`。
+- 共享分支存在并发任务文件，本次提交已只包含任务自有记录、清理删除项和本次经验条目。
 
 ## 设计约束检查
 
