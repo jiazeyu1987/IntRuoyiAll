@@ -55,7 +55,8 @@
   - `doc/tasks/20260806-restart-local-frontend-backend/task.md`
 - Task-owned fusion evidence commit: `66b0aff29` (`docs: close out review copy columns fusion`), containing only this task's `task.md`, `execution-log.md`, and `verification-report.md`.
 - Shared submission closeout commit: `12c014d5a` (`docs: complete frontend backend submission`); it includes the two preceding commits on `int_main` and was pushed to `origin/int_main`.
-- Final status update is being recorded in the next task-owned closeout commit; its hash will be appended immediately after commit verification.
+- Concurrent baseline commit: `41a68cebb` (`chore: baseline concurrent task artifacts before qa note`) absorbed this task's completed-state documentation together with unrelated concurrent task artifacts. It is recorded as a concurrency boundary and is not represented as this task's independent closeout commit.
+- Final closeout follow-up: this task updates only its three retained records, then verifies the task-owned staged file list, pushes `int_main`, and confirms `origin/int_main...HEAD` is `0 0`.
 
 ## Blockers
 

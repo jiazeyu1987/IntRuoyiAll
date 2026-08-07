@@ -21,7 +21,7 @@ Implementation verification passed for hiding the red-box columns `审核副本`
 - `git diff --name-status b0b38693e6a7b04a3480e8efddcc10405fc48359..codex/20260806-production-reporting-submit-implementation` returned no files.
 - `git merge-base --is-ancestor codex/20260806-production-reporting-submit-implementation HEAD` exited `0`.
 - The requested integration is therefore already present in `int_main`; no additional merge commit is required.
-- The synchronized `origin/int_main` tip was `12c014d5a`, and `git rev-list --left-right --count origin/int_main...HEAD` returned `0 0`.
+- Final closeout requires `git push origin int_main` to succeed and `git rev-list --left-right --count origin/int_main...HEAD` to return `0 0`.
 
 ## Scope Notes
 
@@ -37,4 +37,4 @@ Implementation verification passed for hiding the red-box columns `审核副本`
 
 Task closeout cleanup preview and apply completed. The cleanup kept `task.md`, `execution-log.md`, and `verification-report.md`, and deleted only task-local temporary evidence files after validator PASS results were recorded here.
 
-Task-owned fusion evidence commit `66b0aff29` and the shared synchronization commit `12c014d5a` are present in `origin/int_main`. The final `completed` status record is the only remaining task-owned documentation delta before its final closeout commit.
+Task-owned fusion evidence commit `66b0aff29` is present in `origin/int_main`. Concurrent baseline commit `41a68cebb` absorbed the completed-state records together with unrelated task artifacts; this closeout follow-up updates only the three retained task records and verifies final remote synchronization.
