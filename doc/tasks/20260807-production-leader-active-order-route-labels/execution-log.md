@@ -16,7 +16,15 @@
 - RED: `node tests\e2e\production-leader-active-order-route-labels-static.spec.js` -> FAIL，首个失败断言为前端活跃订单契约缺少 `routeName/routeVersionNo`，符合预期。
 - RED: `mvn -pl yudao-module-mes ... test` -> FAIL，测试编译明确找不到新读模型 `MesTeamLeaderActiveOrderRow`，符合预期。
 - RED ENV: 首次 Maven reactor 因残留 `target_corrupt_m4_20260802_1327` 触发增量 `StaleSourceScanner` 长时间扫描；停止本任务 PID `68812` 后，以 `-Dmaven.compiler.useIncrementalCompilation=false` 重跑相同测试范围并取得上述业务 RED。
-- GREEN: pending - 后端接口、前端页面、聚焦测试和真实页面验证待完成。
+- GREEN: `node tests\e2e\production-leader-active-order-route-labels-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\production-leader-active-order-pool-tab-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\production-leader-function-tabs-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\production-leader-tabs-flat-style-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: 编译并运行 `MesTeamLeaderActiveOrderRouteLabelsFocusedHarness` -> PASS，覆盖正式路线名称/版本号返回、路线缺失失败、版本归属错配失败。
+- GREEN ENV: `mvn -pl yudao-module-system -Dmaven.test.skip=true install` -> PASS，确认当前 system API 已安装到正式本机 Maven 仓库。
+- REGRESSION BLOCKER: MES 全量 Maven 编译被当前模块内既有的大范围 Lombok/生成类缺失阻断；错误集中在 schedulerworkbench、QA、scheduleorder、task、WM 等非本任务文件，未把该失败冒充本任务测试通过。
+- RUNTIME BLOCKER: 补丁 Jar `backend-runtime-control-20260807-active-order-route-labels.jar` 已生成，SHA256 为 `5D7AA60B987F121560D6D7E08686185E6D9A8C409477BC541E25F2B1F99B70B6`，内嵌 MES Jar 为 stored；启动期间另一并行任务恢复其旧 Jar 并重新占用 `48081`，本任务未再次抢占共享运行态。
 
 ## Command Intent
 
@@ -28,8 +36,10 @@
 
 - M1 completed：确认入口、目标表格、现有 TypeScript VO 和后端活跃订单响应类位置。
 - M2 completed：前端静态合同和后端 JUnit 已锁定成功字段、缺失路线及版本错配失败行为。
-- M3 in_progress：实现正式批量读模型、接口响应字段和表格列调整。
+- M3 completed：正式批量读模型、接口响应字段和表格列调整已完成。
+- M4 in_progress：静态、类型及聚焦行为验证通过；待共享 `48081` 可用后加载补丁 Jar并完成真实页面验证。
 
 ## Blockers
 
-- 暂无；如后端不存在正式路线/版本来源则必须停止，不允许前端 ID 回退。
+- 共享 `48081` 正由并行任务持续重启并使用旧 Jar；本任务无法在不干扰其他任务的情况下完成运行态加载与真实页面 E2E。
+- MES 全量 Maven 回归存在非本任务的既有编译缺口；本任务已用正式实现的聚焦行为验证覆盖目标服务逻辑，但不会将全量 Maven 结果标记为通过。

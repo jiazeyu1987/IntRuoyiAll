@@ -37,7 +37,11 @@
 
 ## GREEN Command And Passing Result
 
-- GREEN: pending。
+- GREEN: `node tests\e2e\production-leader-active-order-route-labels-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\production-leader-active-order-pool-tab-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\production-leader-function-tabs-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\production-leader-tabs-flat-style-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
 
 ## Responsive, Accessibility, Loading, Empty, Error, And Permission Checks
 
@@ -52,5 +56,5 @@
 
 ## Blockers And Follow-Up Skills
 
-- Blockers: 暂无。
+- Blockers: 共享 `48081` 在补丁运行态启动期间被另一并行任务恢复为其旧 Jar；真实页面尚不能取得新增字段，禁止用 mock/API-only 替代 E2E。
 - Follow-up skills: 若确认需要扩展后端响应，将使用 `backend-api-delivery` 完成正式接口字段与测试。

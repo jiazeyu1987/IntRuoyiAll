@@ -5,7 +5,7 @@ $apiBase = 'http://127.0.0.1:48081/admin-api'
 $routeId = 922119
 $sourceVersionId = 490
 $candidateId = 626
-$expectedBindings = [ordered]@{
+$expectedBindings = @{
     922985 = 980010
     922986 = 980008
     922987 = 980009
@@ -23,8 +23,8 @@ $expectedBindings = [ordered]@{
 }
 
 function Resolve-ExpectedWorkstationId([long] $processId) {
-    $key = [string] $processId
-    if (-not $expectedBindings.Contains($key)) {
+    $key = [int] $processId
+    if (-not $expectedBindings.ContainsKey($key)) {
         throw "Missing approved workstation mapping: processId=$processId"
     }
     $workstationId = [long] $expectedBindings[$key]

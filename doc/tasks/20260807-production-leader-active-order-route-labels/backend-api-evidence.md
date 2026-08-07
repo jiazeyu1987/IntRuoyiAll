@@ -39,11 +39,14 @@
 
 ## GREEN Command And Passing Result
 
-- GREEN: pending。
+- GREEN: 编译并运行 `MesTeamLeaderActiveOrderRouteLabelsFocusedHarness` -> PASS；验证正式路线名称/版本号返回、正式路线缺失失败、版本与路线错配失败。
+- GREEN: 前端跨层静态合同 -> PASS；验证 Response VO 字段、Controller 投影及页面消费字段一致。
 
 ## Contract Or Integration Verification
 
-- 待运行后端 controller/service 聚焦测试、前端静态合同、类型检查和真实页面只读验证。
+- 后端聚焦行为验证、前端静态合同和类型检查已通过。
+- 标准 MES Maven 回归被非本任务的既有 Lombok/生成类编译缺口阻断，未获得虚假通过结论。
+- 真实页面只读验证仍等待共享 `48081` 加载本任务补丁 Jar。
 
 ## Observability Touchpoints
 
@@ -51,5 +54,5 @@
 
 ## Blockers And Downstream Skill Needs
 
-- Blockers: 暂无。
+- Blockers: 共享 `48081` 被并行任务恢复为旧 Jar；全量 MES 编译存在非本任务既有缺口。
 - Downstream: `frontend-feature-delivery` 消费新增字段并完成页面展示。

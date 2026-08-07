@@ -41,6 +41,12 @@
 - RUNTIME CLEANUP: 已停止任务自有 Java/Node 及两个 PowerShell wrapper，`8089/48089` 监听数均为 0；未停止或重启 `8081/48081` 并发运行态。
 - GREEN: database evidence validator -> PASS，`Database schema evidence is valid.`。
 - EXPERIENCE: `project-experience-consolidation` 将零排产活跃订单的正式来源、阻塞条件、验证方式和禁止默认值规则合并到 `docs/backend-development.md#零排产活跃订单必须使用发布态正式路线`，并更新 `docs/experience-index.md`；未新建长期经验文档。
+- CLEANUP PREVIEW: `task_closeout.py --task-id 20260807-active-order-without-schedule-order --mode preview` -> PASS，保留 `task.md`、`execution-log.md`、`verification-report.md`，删除集合只包含任务 evidence、fixture/诊断脚本、主工作区 E2E 结果和 `slot=8` 临时运行日志，无 blocked/warnings。
+- CLEANUP APPLY: 同命令 `--mode apply` -> PASS，预览列出的 8 类任务产物全部删除，三份核心记录保留。
+- SLOT RELEASE: 在确认 `8089/48089` 监听数均为 0 后，使用与原子预留相同的注册表互斥锁将 `active-order-without-schedule-verify` 的 `slot=8` 标记为 `active=false`，并记录本任务 cleanup 标识。
+- WORKTREE CLEANUP: `git worktree remove --force D:\IntRuoyiWorktree\active-order-without-schedule-verify` 已解除 Git 登记但因忽略产物返回 `Directory not empty`；核对残留仅在任务 worktree 绝对路径且 Git 登记已消失后，精确删除该任务目录并删除临时分支 `codex/active-order-without-schedule-verify`。最终 `Test-Path=False`、分支不存在。
+- DIRTY BASELINE: `7b3ac3004` (`chore: baseline concurrent workspace before active order closeout`) 保存 33 个当时工作区文件：`MesProRouteProcessFlowServiceImplTest.java`；本任务 9 个 task/evidence/fixture 文件；`20260807-form-template-import-dialog-layout` 3 个记录；`20260807-frontline-pqc-all-active-orders-search` 5 个记录/evidence；`20260807-frontline-route-process-workstation-binding-fix` 5 个记录/运行补丁；`20260807-pqc-leader-management-five-records` 5 个记录/fixture/runner；`20260807-production-leader-active-order-route-labels` 2 个验证产物；`docs/backend-development.md`、`docs/e2e-rules.md`、`docs/experience-index.md`。这是按共享 dirty-worktree 强制政策保存的并发基线，不代表本任务对其它任务完成状态作出结论。
+- DIRTY BASELINE: `cbc46b0e2` (`chore: preserve concurrent runtime patch before active order closeout`) 保存并发任务随后继续修改的 `doc/tasks/20260807-frontline-route-process-workstation-binding-fix/runtime-patch/publish-workstation-repair.ps1`。
 
 ## 里程碑状态
 
@@ -48,7 +54,7 @@
 - M2 completed：新增候选成功、候选缺绑定失败、新增成功和新增缺绑定失败测试；RED 在服务正式来源依赖尚未实现处失败。
 - M3 completed：候选与新增共享产品唯一正式路线绑定、唯一 ACTIVE 版本及发布快照解析；无排产模式从 ERP 数量和计划开工时间生成工序快照与 PQC 任务，单排产保持原链路，多排产继续阻塞。
 - M4 completed：聚焦服务/控制器回归、backend evidence、三个前端静态合同、隔离运行态真实页面加入、数据库快照/PQC 核验和任务数据归零均已通过。
-- M5 in_progress：经验沉淀已完成；待完成 closeout cleanup、任务记录提交与 `origin/int_main` 推送核验。
+- M5 completed：经验沉淀、cleanup preview/apply、任务数据/进程/日志清理、端口登记释放、验证 worktree/临时分支删除和 dirty baseline 均已完成；最终记录进入提交/推送门禁。
 
 ## 阻塞项
 
