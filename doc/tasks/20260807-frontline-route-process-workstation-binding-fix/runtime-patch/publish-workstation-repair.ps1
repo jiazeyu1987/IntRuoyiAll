@@ -4,7 +4,7 @@ $frontendEnvPath = 'E:\IntRuoyi\IntRuoyiFronted\.env'
 $apiBase = 'http://127.0.0.1:48081/admin-api'
 $routeId = 922119
 $sourceVersionId = 490
-$candidateId = 626
+$candidateId = 627
 $expectedBindings = @{
     922985 = 980010
     922986 = 980008
@@ -123,13 +123,22 @@ $updates = foreach ($node in $nodes) {
         checkFlag = [bool] $node.checkFlag
     }
 }
+$layouts = foreach ($node in $nodes) {
+    if ($null -ne $node.x -and $null -ne $node.y) {
+        [ordered]@{
+            routeProcessId = [long] $node.routeProcessId
+            x = [int] $node.x
+            y = [int] $node.y
+        }
+    }
+}
 $saveBody = [ordered]@{
     routeId = $routeId
     routeVersionId = $candidateId
     graphVersion = [long] $graph.graphVersion
     edges = @($graph.edges)
     boundaryEdges = @($graph.boundaryEdges)
-    layouts = @($graph.layouts)
+    layouts = @($layouts)
     routeProcessCreates = @()
     routeProcessUpdates = @($updates)
     routeProcessDeletes = @()

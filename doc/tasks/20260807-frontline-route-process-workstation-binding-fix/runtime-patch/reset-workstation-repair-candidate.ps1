@@ -4,7 +4,7 @@ $frontendEnvPath = 'E:\IntRuoyi\IntRuoyiFronted\.env'
 $apiBase = 'http://127.0.0.1:48081/admin-api'
 $routeId = 922119
 $activeVersionId = 490
-$invalidCandidateId = 624
+$invalidCandidateId = 626
 
 function Read-FrontendEnv([string] $name) {
     $line = Get-Content -Encoding utf8 -LiteralPath $frontendEnvPath |
