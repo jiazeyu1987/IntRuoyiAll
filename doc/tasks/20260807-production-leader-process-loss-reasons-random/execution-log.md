@@ -21,3 +21,4 @@
 - Experience consolidation: 已按 `project-experience-consolidation` 检查长期经验归宿；本次可复用规则已完整存在于 `docs/e2e-rules.md#写入型-e2e-任务自有模拟环境门禁`、`docs/e2e-rules.md#写入型远程下拉候选新鲜度门禁` 和 `docs/backend-development.md#生产组长工序配置维护权限不得被工序开始快照误拦`，未重复新增长期经验文档。
 - Closeout preview: `task_closeout.py --mode preview` -> `status: ready`，仅删除本任务 `output/playwright/20260807-production-leader-process-loss-reasons-random/`，保留 `task.md`、`execution-log.md`、`verification-report.md`，blocked/warnings 均为 `none`。
 - Closeout apply: `task_closeout.py --mode apply` -> `status: applied`，本任务 Playwright 临时目录已删除；任务隔离 npm 缓存 `E:\Int\DevCache\npm-cache-lossreason0807` 已确认无占用进程后删除并复核 `CACHE_EXISTS=false`。
+- Push blocker: 最终 `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS；GitHub URL 级配置端口 `127.0.0.1:7890` 未监听，一次性改用 Clash 当前 `mixed-port=8902` 后 TLS 握手异常断开，禁用 URL 级代理后的直连也被重置。Clash 控制面进一步确认当前节点及自动选择组全部 `48` 个节点健康检查失败；因此无法执行强制 `git push origin int_main`，任务保持 `ready_for_closeout`，未修改全局 Git 或系统代理配置。
