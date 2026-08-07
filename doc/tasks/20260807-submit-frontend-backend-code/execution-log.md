@@ -36,8 +36,8 @@
   - `doc/tasks/20260806-production-report-history-tab/verification-report.md`
   - `doc/tasks/20260806-restart-local-frontend-backend/execution-log.md`
   - `doc/tasks/20260806-restart-local-frontend-backend/task.md`
-- M3：completed。`git fetch origin int_main`、前后端差异检查、`git diff --check`、`git diff --cached --check` 和分支运行端口守卫均通过；`origin/int_main...HEAD` 为 `0 1`，仅领先本任务基线提交。
-- M4：completed。`task-closeout-cleanup` preview/apply 均通过，保留本任务 `task.md`、`execution-log.md`、`verification-report.md`，删除 0 项，blocked 0 项，warnings 0 项；待提交最终任务记录并推送。
+- M3：completed。`git fetch origin int_main`、前后端差异检查、`git diff --check`、`git diff --cached --check` 和分支运行端口守卫均通过；推送前 `origin/int_main...HEAD` 为 `0 3`，仅包含本任务基线、并发任务独立收尾和本任务收尾记录。
+- M4：completed。`task-closeout-cleanup` preview/apply 均通过，保留本任务 `task.md`、`execution-log.md`、`verification-report.md`，删除 0 项，blocked 0 项，warnings 0 项；收尾提交和远端推送均已完成。
 
 ## Index Lock Recovery
 
@@ -65,6 +65,13 @@
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260807-submit-frontend-backend-code --mode preview`：PASS。
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260807-submit-frontend-backend-code --mode apply`：PASS。
 - apply 未删除文件，未修改并发任务目录，也未触碰 `IntRuoyiBackend` 或 `IntRuoyiFronted` 的源码。
+
+## Final Push Evidence
+
+- 本任务收尾记录提交：`12c014d5ad548b98a6c7c6f1c53e23f9b04258bf`（`docs: complete frontend backend submission`）。
+- `git push origin int_main`：PASS，远端更新 `a373af073..12c014d5a`。
+- 推送后执行 `git fetch origin int_main`；`HEAD` 与 `origin/int_main` 均为 `12c014d5ad548b98a6c7c6f1c53e23f9b04258bf`。
+- 最终 `git rev-list --left-right --count origin/int_main...HEAD`：`0 0`。
 
 ## Blockers
 

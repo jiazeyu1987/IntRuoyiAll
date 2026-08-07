@@ -2,7 +2,7 @@
 
 ## Result
 
-PASS_PENDING_PUSH
+PASS
 
 ## Scope
 
@@ -22,5 +22,6 @@ PASS_PENDING_PUSH
 ## Closeout
 
 - `task-closeout-cleanup` preview/apply：PASS，保留本任务 3 份记录，delete 0，blocked 0，warnings 0。
-- 待提交本任务 3 份收尾记录并推送 `int_main`。
-- 推送后将复核 `origin/int_main...HEAD` 是否为 `0 0`。
+- 收尾记录提交：`12c014d5ad548b98a6c7c6f1c53e23f9b04258bf`。
+- `git push origin int_main`：PASS，`a373af073..12c014d5a`。
+- 推送后远端复核：`HEAD = origin/int_main = 12c014d5ad548b98a6c7c6f1c53e23f9b04258bf`，`origin/int_main...HEAD = 0 0`。

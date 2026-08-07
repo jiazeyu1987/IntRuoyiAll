@@ -9,7 +9,7 @@
 - [x] M1：确认仓库所有权、当前分支、远端、工作区脏状态和提交边界。
 - [x] M2：将开始前已存在的脏改动作为独立基线保全，避免与本任务记录混合。
 - [x] M3：验证前后端源码差异、分支运行端口守卫、空白检查和远端同步。
-- [x] M4：完成任务记录、cleanup preview/apply 和收尾提交准备。
+- [x] M4：完成任务记录、cleanup preview/apply、收尾提交、推送和最终同步确认。
 
 ## Expected Verification
 
@@ -33,7 +33,7 @@
 
 completed
 
-前后端源码相对 `HEAD` 和 `origin/int_main` 均无待提交差异，未制造空代码提交。既有任务记录已由独立基线提交保全，cleanup preview/apply 已通过；待提交本任务收尾记录并推送。
+前后端源码相对 `HEAD` 和 `origin/int_main` 均无待提交差异，未制造空代码提交。既有任务记录已由独立基线提交保全，cleanup preview/apply、收尾提交和远端推送均已完成。
 
 ## 设计约束检查
 
@@ -51,6 +51,8 @@ completed
 - `origin/int_main...HEAD`：`0 2`，包括本任务基线提交 `842ead6ab` 和并发任务独立收尾提交 `66b0aff29`；二者均未包含待提交的前后端源码差异。
 - `project-experience-consolidation`：现有 `docs\powershell-memory.md` 已覆盖本次脏工作区基线、残余复扫、推送和陈旧锁恢复门禁，无需新增长期经验文档。
 - `task-closeout-cleanup` preview/apply：PASS，保留本任务 3 份记录，删除 0 项，blocked 0 项，warnings 0 项。
+- `git push origin int_main`：PASS，`a373af073..12c014d5a`。
+- 最终同步：`HEAD` 与 `origin/int_main` 均为 `12c014d5ad548b98a6c7c6f1c53e23f9b04258bf`，`origin/int_main...HEAD` 为 `0 0`。
 
 ## Cleanup Keep
 
