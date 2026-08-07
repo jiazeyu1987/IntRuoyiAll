@@ -7,9 +7,9 @@
 ## Milestones
 
 - [x] 建立任务目录并确认本机运行态、端口和 Playwright 前置。
-- [ ] 通过真实页面确认登录用户、租户和生产组长工序配置列表。
-- [ ] 为每个目标工序随机新增 1~6 个损耗原因。
-- [ ] 通过页面结果和只读接口核对新增数量、名称和编码。
+- [x] 通过真实页面确认登录用户、租户和生产组长工序配置列表。
+- [x] 为每个目标工序随机新增 1~6 个损耗原因。
+- [x] 通过页面结果和只读接口核对新增数量、名称和编码。
 - [ ] 完成任务记录、清理临时浏览器产物并收尾。
 
 ## Expected Verification
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Design Constraint Check
 
@@ -37,3 +37,6 @@ in_progress
 - 随机规则：每个目标工序使用独立随机整数 `1..6`；名称使用任务标识前缀，避免与既有业务原因重名。
 - 回滚：本任务只新增数据；如需撤销，必须由用户另行明确授权后按记录的原因编码逐条停用或删除，当前任务不自动回滚。
 
+## Cleanup Candidates
+
+- `output/playwright/20260807-production-leader-process-loss-reasons-random/`

@@ -11,3 +11,11 @@
 - Runtime preflight: `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS；前端 `http://127.0.0.1:8081/` -> HTTP 200，PID `51364`；后端 `http://127.0.0.1:48081/actuator/health` -> `UP`，PID `38500`，归属 `E:\IntRuoyi` 的 `int_main` 稳定运行 Jar。
 - Playwright prerequisite: `npx` 位于 `D:\Programs\npx.ps1`，满足 `playwright` 技能前置条件。
 - Push preflight: `git ls-remote origin HEAD` 首次失败，GitHub URL 级代理指向未监听的本地端口；按 `docs/powershell-memory.md#GitHub-HTTPS-443-本地代理门禁` 在最终推送前核对 Windows 当前代理端口并使用一次性 Git 代理参数复验，不修改全局 Git 配置。
+- RED: Playwright 真实页面 `测试租户/admin -> 生产组长 -> 工序配置` 初始列表包含 `66` 个工序，任务标识 `RLR0807` 命中 `0` 个工序，符合预期未配置状态。
+- GREEN: Playwright CLI 逐工序打开“新增损耗”弹窗并保存 -> PASS；`66` 个工序共新增 `237` 条，每个工序 `1..6` 条，分布为 `1:9、2:12、3:11、4:11、5:11、6:12`。
+- GREEN: 页面重新加载后的正式 `process-config/list` 响应逐条核对 -> PASS；`processCount=66`、`uniqueRouteProcessCount=66`、`totalCreated=237`、数量越界 `0`、缺编码 `0`、异常名称 `0`、重复 ID `0`、重复名称 `0`、目标 HTTP 错误 `0`、page error `0`。
+- GREEN: Playwright CLI 页面查找首尾任务原因 -> `RLR0807-001-01` 命中 `球囊扩张压力泵 / 1 - 粗洗工序 / LOSS-928896-001`；`RLR0807-066-01` 命中 `ACD04 Unauthorized Route / 10 - ACD04 Unauthorized Process / LOSS-980630-001`。
+- UI note: 页面存在 `2` 条与本任务无关的“审批待办数量加载失败：系统异常”console error，并显示同源全局 toast；损耗原因目标接口、目标页面脚本和本任务写入均无错误，未隐藏或改写该并发环境问题。
+- Evidence: 临时结构化结果 `output/playwright/20260807-production-leader-process-loss-reasons-random/batch-add-result.json`，最终页面截图 `output/playwright/20260807-production-leader-process-loss-reasons-random/final-process-config.png`；核心统计和逐工序编码已归档到 `verification-report.md`，临时产物列入 cleanup。
+- Concurrency: 执行期间共享 `int_main` 出现并发基线提交；本任务前置日志被提交 `9c7507e1d`（`chore: baseline concurrent process loss reason task log`）吸收。当前任务不修改并发源码、测试、SQL 或其它任务文档，后续仅显式暂存本任务三个核心记录。
+- Experience consolidation: 已按 `project-experience-consolidation` 检查长期经验归宿；本次可复用规则已完整存在于 `docs/e2e-rules.md#写入型-e2e-任务自有模拟环境门禁`、`docs/e2e-rules.md#写入型远程下拉候选新鲜度门禁` 和 `docs/backend-development.md#生产组长工序配置维护权限不得被工序开始快照误拦`，未重复新增长期经验文档。

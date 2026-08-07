@@ -52,8 +52,8 @@ assert.match(
 const activeOrderTabCount = (source.match(/data-production-leader-module-tab-active-order/g) || []).length
 assert.equal(
   activeOrderTabCount,
-  7,
-  'Every production module tab strip, including the active-order content card, must expose 活跃订单池.'
+  6,
+  'Every retained production module tab strip must expose 活跃订单池 after removing the team configuration tab.'
 )
 const responsibleRouteSummaryCount = (source.match(/data-production-leader-responsible-routes/g) || []).length
 assert.equal(
