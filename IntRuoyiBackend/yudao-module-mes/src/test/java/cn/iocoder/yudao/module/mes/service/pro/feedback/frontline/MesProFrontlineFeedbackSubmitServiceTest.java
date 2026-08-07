@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitRespVO;
+import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
@@ -46,6 +48,10 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     private MesFrontlineLossReasonValidator lossReasonValidator;
     @Mock
     private MesFrontlineDeviceParameterValidator deviceParameterValidator;
+    @Mock
+    private MesMdAutoCodeRecordService autoCodeRecordService;
+    @Mock
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -58,7 +64,9 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                 submitAuthorizationService,
                 lossReasonValidator,
                 deviceParameterValidator,
-                new MesProFrontlineFeedbackPayloadSplitter());
+                new MesProFrontlineFeedbackPayloadSplitter(),
+                autoCodeRecordService,
+                signatureService);
     }
 
     @Test
@@ -68,9 +76,12 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(recordbookEntryService.createOriginalEntry(any()))
                 .thenReturn(new MesProFrontlineRecordbookEntryResult(701L, 702L));
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
+        when(autoCodeRecordService.generateAutoCode(any())).thenReturn("FB-F2-GEN");
+        when(signatureService.recordProductionSubmitSignature("sign-123", "一线生产报工提交")).thenReturn(4001L);
         stubValidLossReason();
 
         MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        reqVO.getFeedbackPayload().setCode(null).setType(null);
         MesProFrontlineFeedbackSubmitRespVO respVO;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
@@ -86,8 +97,8 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                 recordbookEntryService, processPoolSubmitEventService);
         inOrder.verify(submitAuthorizationService).authorize(argThat(command -> {
             assertEquals(9001L, command.loginUserId());
-            assertEquals(3001L, command.actualEmployeeId());
-            assertEquals(3001L, command.signatureEmployeeId());
+            assertEquals(9001L, command.actualEmployeeId());
+            assertEquals(9001L, command.signatureEmployeeId());
             assertEquals(501L, command.deviceId());
             assertEquals(11L, command.workstationId());
             assertEquals(21L, command.routeId());
@@ -106,7 +117,9 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             assertEquals(8301L, payload.getLossReasonId());
             assertEquals("LOSS-001", payload.getLossReasonCodeSnapshot());
             assertEquals("正常损耗", payload.getLossReasonNameSnapshot());
-            assertEquals(3001L, payload.getFeedbackUserId());
+            assertEquals(9001L, payload.getFeedbackUserId());
+            assertEquals("FB-F2-GEN", payload.getCode());
+            assertEquals(1, payload.getType());
             return true;
         }));
         inOrder.verify(feedbackService).submitFeedback(501L);
@@ -156,6 +169,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             return true;
         }));
         verify(feedbackService, never()).createFeedback(any());
+        verifyNoInteractions(autoCodeRecordService, signatureService);
         verifyNoInteractions(recordbookEntryService);
         verify(processPoolSubmitEventService, never()).createSubmitEvent(any());
     }
