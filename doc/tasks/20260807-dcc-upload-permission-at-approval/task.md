@@ -7,8 +7,8 @@
 ## Milestones
 
 - [x] M1：定位上传与审批权限校验链路并确定根因。
-- [ ] M2：先补充可重复失败的 BDD/TDD 回归测试。
-- [ ] M3：实现最小正式修复，使上传不受类别权限限制、审批仍受限制。
+- [x] M2：先补充可重复失败的 BDD/TDD 回归测试。
+- [x] M3：实现最小正式修复，使上传不受类别权限限制、审批仍受限制。
 - [ ] M4：完成定向回归、证据校验、提交、推送与任务收尾。
 
 ## Expected Verification
@@ -33,7 +33,7 @@
 
 ## Current Status
 
-in_progress：用户在冲突报告后明确要求继续；并行 Git 进程已结束，将保留现有“隐藏辅助提示”改动并继续本任务 RED/GREEN，不回退其修改。
+ready_for_closeout：上传阶段的类别 `UPLOAD` 权限阻断已从前端和后端移除，审批阶段的参与人及 `review` / `approve` 权限限制保持不变；定向测试、类型检查、代码检查、本机真实页面和证据校验均已通过，等待清理、最终记录提交与推送。
 
 ## Root Cause
 
@@ -45,3 +45,8 @@ in_progress：用户在冲突报告后明确要求继续；并行 Git 进程已�
 
 - 冲突文件：`IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue`、`IntRuoyiFronted/tests/e2e/dcc-upload-category-permission-static.spec.js`、`IntRuoyiFronted/tests/e2e/dcc-upload-category-leaf-real.e2e.js`。
 - 并行任务当前目标是仅隐藏提示并保留上传阻断，与本任务“取消上传阶段限制”的业务目标不同。2026-08-07 用户明确要求继续后，按可区分改动继续：保留提示移除，重写权限合同为上传不限制。
+
+## Cleanup Candidates
+
+- `doc/tasks/20260807-dcc-upload-permission-at-approval/bug-regression-evidence.md`
+- `output/playwright/20260807-dcc-upload-permission-at-approval/`

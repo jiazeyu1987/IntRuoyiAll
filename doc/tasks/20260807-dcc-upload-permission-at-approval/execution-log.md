@@ -18,6 +18,8 @@
 - M2 blocked：未创建或修改 RED 测试。发现并行任务 `20260807-dcc-upload-hide-category-permission-hint` 正在修改相同上传页与相同权限回归测试，项目规则要求停止写入。
 - Resume：用户在收到冲突说明后明确要求“继续”；复查确认无活动 Git 进程，现有 diff 可区分。后续保留并行任务已删除的路径说明和权限提示节点，并将同一测试进一步调整为“上传阶段不限制”合同。
 - M2 complete：前端静态合同及后端行为测试均先取得预期 RED，证明现有实现仍在上传阶段执行类别 `UPLOAD` 权限阻断。
+- M3 complete：前端候选类别只按启用状态选择，不再读取 `canUpload`；上传页和外部评审页不再显示类别上传权限提示或阻断。后端上传预览、路线预览和正式提交均不再校验类别 `UPLOAD` 权限。
+- M3 approval boundary：审批任务参与人快照校验及评审/批准阶段的 `dcc:controlled-file:review`、`dcc:controlled-file:approve` 权限校验保持原样。
 - RED: `node tests/e2e/dcc-upload-category-permission-static.spec.js` -> FAIL, expected reason: `availableCategories` 仍按 `category.canUpload` 过滤。
 - RED: `mvn.cmd -pl yudao-module-dcc "-Dtest=DccControlledFileUploadApiTest#uploadPreviewFile_withoutCategoryUploadPermission_successCreatesTicketAndDoesNotExposeFileId" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: `uploadPreviewFile` 抛出 `CONTROLLED_FILE_ACCESS_DENIED`。
 - RED: `mvn.cmd -pl yudao-module-dcc "-Dtest=DccControlledFileWorkflowServiceImplTest#previewRoute_withoutCategoryUploadPermission_success" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: `previewRoute` 抛出 `CONTROLLED_FILE_ACCESS_DENIED`。
@@ -33,12 +35,33 @@
 
 ## Verification Evidence
 
-- 定位完成；因同文件并行冲突，未执行 RED/GREEN、构建或回归测试，不宣称实现完成。
+- GREEN: `node tests/e2e/dcc-upload-category-permission-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/dcc-original-release-ux-improvements-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/dcc-upload-category-taxonomy-binding-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/dcc-upload-governance-ux-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/dcc-upload-layout-static.spec.js` -> PASS。
+- GREEN: `node --check` 对三个受影响真实 E2E 脚本 -> PASS。
+- GREEN: `pnpm exec eslint` 对受影响前端源码和测试 -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `mvn.cmd -pl yudao-module-dcc "-Dtest=DccControlledFileUploadApiTest#uploadPreviewFile_withoutCategoryUploadPermission_successCreatesTicketAndDoesNotExposeFileId" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，1 test，0 failures/errors。
+- GREEN: `mvn.cmd -pl yudao-module-dcc "-Dtest=DccControlledFileWorkflowServiceImplTest#previewRoute_withoutCategoryUploadPermission_success+submitControlledFile_withoutCategoryUploadPermission_success+approveTask_matrixReviewRequiresReviewPermission+approveTask_matrixApprovalRequiresApprovePermission" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，4 tests，0 failures/errors。
+- GREEN: 本机 `8081` 前端 HTTP 200、`48081` 后端 health `UP`；Playwright 真实页面 `dcc-upload-category-leaf-real.e2e.js` -> PASS。页面展示启用文件类别且不再出现类别上传权限提示，DCC 写请求为 0。
+- Visual check：真实页面截图确认截图中原有的橙色/红色“没有该文件类别的上传权限”提示已消失，布局无重叠。
+- `git diff --check` 对任务源代码、测试及任务文档 -> PASS。
+- GREEN: `validate_bug_regression.py --evidence doc/tasks/20260807-dcc-upload-permission-at-approval/bug-regression-evidence.md` -> PASS。
 - `project-experience-consolidation`：无需修改长期经验文档；同文件并行写入已由 `docs/powershell-memory.md#同文件并行改动选择性暂存门禁` 覆盖，本次“上传不限制、审批限制”是任务业务决策，仅保留在任务文档。
 
-## Blockers
+## Environment Notes
+
+- 首次 Playwright 启动 Chromium 在 180 秒启动超时；确认该 PID 已退出、未停止其它浏览器进程后按同一标准命令复跑通过，不使用替代浏览器或 API-only 降级。
+- 一次 Maven GREEN 编译阻塞于 Windows `IncrementalBuildHelper.afterRebuildExecution`；仅终止本任务归属 PID，随后先用禁用增量编译诊断确认测试类可生成，再按标准 Maven 命令复跑通过。
+- 最终复验前发现同仓库存在其它任务的 Maven `clean/test`，等待其结束后再运行，未停止或修改其它任务进程。
+
+## Resolved Blockers
 
 - BLOCKED：`IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue`、`IntRuoyiFronted/tests/e2e/dcc-upload-category-permission-static.spec.js` 和 `IntRuoyiFronted/tests/e2e/dcc-upload-category-leaf-real.e2e.js` 正由并行任务修改。
 - Impact：无法在不覆盖或混入并行改动的前提下完成前端 RED/GREEN；后端若先行放宽会造成前后端行为暂时不一致，因此本轮不修改后端。
 - Resume condition：并行任务完成并使上述文件边界稳定后，重新检查 Git diff，再继续独立的 RED/GREEN。
 - Resume condition satisfied：用户明确要求继续，且活动 Git 进程已结束；将逐文件核对 diff，不覆盖无关改动。
+- Resolution：用户明确要求继续后完成逐文件合并；实现分别被并发脏工作区基线提交 `de6b84628`、`20d6fe43e`、`8e71bc24f` 收录，未重写历史，最终任务记录将单独提交。
+- Ready for closeout：实现、定向回归、真实页面、视觉检查与机器证据校验全部通过，状态已更新为 `ready_for_closeout`。
