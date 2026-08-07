@@ -38,7 +38,7 @@
 
 ## Current Status
 
-in_progress：M1 已完成并通过规划评审；正在执行 T1 字段/helper 归属清单门禁。当前 `E:\IntRuoyi\IntRuoyiBackend` 存在其他任务的 MES Maven 构建，目标验证需等待其结束后串行运行，未强制终止无关进程。
+in_progress：M1 已完成并通过规划评审；T1 合同文件已完成，但主工作区共享 MES `target` 的并发写入与 Windows 文件 I/O 异常导致三次验证均未形成 Surefire 结果。正在迁移到 `D:\IntRuoyiWorktree\` 下的任务独立 worktree 后重跑 T1，T2 尚未开始。
 
 ## Cleanup Keep
 
