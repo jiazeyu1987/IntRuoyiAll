@@ -46,3 +46,4 @@ PASS - 路线 `922119` 的正式工作站绑定已通过 V27 发布恢复；`pro
 
 - `project-experience-consolidation` 已将正式/展示工作站字段分离门禁合并到现有后端经验文档和经验索引。
 - `task-closeout-cleanup` 最终 apply 状态为 `applied`，无 blocker；仅保留核心任务记录和正式 `src/test` 回归。
+- 实现与 cleanup 提交 `3dcc7f69a` 已推送到 `origin/int_main`。

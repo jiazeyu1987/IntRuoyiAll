@@ -40,6 +40,7 @@
 - M4 regression complete: 新增 `MesProRouteFlowConfigServiceImplTest#parseCandidateRouteProcesses_shouldUseFormalWorkstationBindingField`，独立证明流程配置解析同样只能读取正式字段；3 个相关测试类共 78 个用例全部通过。
 - M5 experience consolidation complete: 按 `project-experience-consolidation` 将可复用规则合并到现有 `docs/backend-development.md#候选流程图正式工作站与展示工作站必须分字段`，并更新 `docs/experience-index.md`；未新建长期经验文档。
 - M5 cleanup complete: `task-closeout-cleanup` preview 明确保留 `task.md`、`execution-log.md`、`verification-report.md`，删除任务目录内隔离编译/临时发布文件及 `output/verification/20260807-route-binding*`、`output/playwright/20260807-frontline-route-binding-fix`。首次 apply 在 V6 的 Windows 长路径副本中因文件枚举失效中止；核对 38 个 junction 均指向工作区源目录后先解除 junction，再使用 `\\?\` 长路径删除剩余任务副本，源目录复核存在。最终重跑 apply -> `status=applied`、`blocked=[]`。
+- M5 commit/push complete: 任务实现、正式回归、经验门禁和 cleanup 记录已提交为 `3dcc7f69a`。首次推送因全局 GitHub 代理 `127.0.0.1:7890` 无监听失败；只读确认 GitHub 443 直连可达后，用一次性 Git 命令覆盖空代理完成同一 HTTPS remote 推送，未修改持久 Git 配置。`origin/int_main` 已包含 `3dcc7f69a`。
 
 ## Verification Evidence
 

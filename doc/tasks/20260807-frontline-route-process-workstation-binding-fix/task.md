@@ -10,7 +10,7 @@
 - [x] M2：核对当前数据库 schema、目标记录和可追溯的正式工作站来源
 - [x] M3：先建立可复现的 RED 证据，再实施最小正式修复
 - [x] M4：完成目标回归与真实页面验证
-- [ ] M5：完成证据归档、cleanup、提交和推送
+- [x] M5：完成证据归档、cleanup、提交和推送
 
 ## Expected Verification
 
@@ -35,7 +35,7 @@
 
 ## Current Status
 
-ready_for_closeout - 正式字段修复、V27 发布、14 条正式工作站绑定、目标接口和真实“一线生产”页面均已验证通过；相关 3 个测试类 78 个用例和 bug evidence validator 均通过，经验已沉淀，待执行 cleanup、提交和推送。
+completed - 正式字段修复、V27 发布、14 条正式工作站绑定、目标接口和真实“一线生产”页面均已验证通过；相关 3 个测试类 78 个用例和 bug evidence validator 均通过，经验沉淀、cleanup、实现提交 `3dcc7f69a` 及 `origin/int_main` 推送均已完成。
 
 ## Cleanup Candidates
 
