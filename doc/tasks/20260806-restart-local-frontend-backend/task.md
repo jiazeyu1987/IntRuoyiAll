@@ -6,11 +6,12 @@
 
 ## Milestones
 
-- [ ] 建立任务记录并完成本地运行态、进程归属和脚本参数预检。
-- [ ] 停止本工作区归属的旧前端和后端进程。
-- [ ] 使用标准本地配置启动前端和后端。
-- [ ] 验证前端 HTTP `200`、后端 health `UP`，并记录新 PID 与日志。
-- [ ] 完成任务记录、经验门禁复核和收尾状态更新。
+- [x] 建立任务记录并完成本地运行态、进程归属和脚本参数预检。
+- [x] 停止本工作区归属的旧前端和后端进程。
+- [x] 使用标准本地配置启动前端和后端。
+- [x] 验证前端 HTTP `200`、后端 health `UP`，并记录新 PID 与日志。
+- [x] 完成任务记录、经验门禁复核和收尾状态更新。
+- [x] 完成 task-closeout cleanup preview/apply，确认无任务附属产物需要删除。
 
 ## Expected Verification
 
@@ -29,7 +30,9 @@
 
 ## Current Status
 
-in_progress
+completed
+
+本机 `int_main` 前端和后端已按固定端口重启并完成核心运行态验证；task-closeout cleanup preview/apply 均通过，未删除任何任务文件。
 
 ## 设计约束检查
 
