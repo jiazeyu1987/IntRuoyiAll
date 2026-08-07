@@ -33,14 +33,22 @@ BDD: 任一前置条件失败时整体回滚 -> Given 三项变更在同一事�
 - RED: first transaction attempt -> FAIL as designed，`apply.sql` 第 201 行影响行数断言触发；原因是先读取 `LAST_INSERT_ID()` 的 `SET` 语句将后续 `ROW_COUNT()` 变为 `0`，不是业务前置条件失败。
 - ROLLBACK: first transaction attempt -> PASS，连接在 `COMMIT` 前因断言错误退出；复核设备台账仍为 `A05059/B09041`、目标编码仍为 `0` 条、设备工序关系和全局 MES 工序目录仍为旧编码、租户未删除设备仍为 `49` 条。仅 MySQL 自增序列按数据库语义前进到 `980007`，没有生成业务记录。
 - FIX: 将插入后的 `ROW_COUNT()` 保存移到 `LAST_INSERT_ID()` 读取之前，保持同一 fail-fast 事务设计。
+- GREEN: corrected transaction -> PASS，单事务提交 `id=202 / A05075 / 光固机`、`id=198 / B04091 / 箱型干燥机` 和 `id=980007 / C01017 / 撤压机`；所有事务内精确断言均通过。
+- GREEN: post-transaction target uniqueness -> PASS，租户 `122` 的 `A05075/B04091/C01017` 各 `1` 条，旧编码 `A05059/B09041` 均 `0` 条，未删除设备总数由 `49` 增至 `50`。
+- GREEN: stable identity and non-code fields -> PASS，光固机仍为 `id=202`、箱型干燥机仍为 `id=198`；非编码字段 MD5 分别保持 `9b04a596ce68241a70a32d2a0904d405` 与 `d03fcab9d173520de79485ab0f4d678e`。
+- GREEN: relationship read models -> PASS，`mes_dv_machinery_process` 两条活动关系分别使用 `A05075/B04091`，全局 MES 工序目录及其设备子表共四条活动记录同步为新编码；按稳定设备 ID 的两条工位关系仍各 `1` 条。
+- GREEN: barcode and tenant boundary -> PASS，租户 `122` 的设备条码配置仍为 `0`、三台目标设备条码仍为 `0`；租户 `1` 未删除设备仍为 `31`，其它租户不存在五个目标/旧编码的活动记录。
+- VERIFY: real frontend E2E -> NOT RUN，当前会话只有 `芋道源码/admin` 的本机默认登录来源；已确认其密码哈希与 `测试租户` 的 `admin/aoteman/codexedhrcell01` 均不相同，历史任务也记录 `测试租户/admin` 登录失败。按 `docs/login-access.md` 未切换租户、未复用数据库令牌、未重置账号密码；本次以事务后真实数据库及正式读模型精确查询作为必需数据验证。
 
 ## Milestone Updates
 
 - M1 completed：任务记录、BDD、预期验证、设计约束和并发 Git 基线已记录。
 - M2 completed：目标设备、关联表、全局 MES 工序目录、条码配置和新增设备必填元数据已核对。
 - M3 completed：变更前精确行、关联计数、非编码字段 MD5、租户总数和回滚条件已记录。
-- M4 in_progress：准备执行单事务数据修正。
+- M4 completed：第二次事务执行通过全部 fail-fast 断言并提交三项主数据变更；第一次脚本错误已验证整体回滚。
+- M5 completed：目标唯一性、旧编码清除、稳定 ID、非编码字段、设备工序、全局 MES 工序目录、工位关系、条码和租户边界均通过只读核对。
+- M6 in_progress：任务状态已进入 `ready_for_closeout`，待 cleanup、提交和推送。
 
 ## Blockers
 
-- 当前无已确认 blocker；业务数据尚未修改。
+- 非完成阻塞：当前会话缺少 `测试租户` 有效登录凭据，因此未执行真实页面只读复验；该缺口不影响已完成的本地数据库事务和精确数据校验，但不能宣称页面 E2E 已通过。
