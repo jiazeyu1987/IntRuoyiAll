@@ -22,6 +22,10 @@ export const getFileTypeTaxonomyList = async (): Promise<DccFileTypeTaxonomyVO[]
   return await request.get({ url: '/dcc/file-type-taxonomies' })
 }
 
+export const getFileTypeTaxonomyUploadOptions = async (): Promise<DccFileTypeTaxonomyVO[]> => {
+  return await request.get({ url: '/dcc/file-type-taxonomies/upload-options' })
+}
+
 export const createFileTypeTaxonomy = async (data: DccFileTypeTaxonomySaveReqVO): Promise<number> => {
   return await request.post({ url: '/dcc/file-type-taxonomies', data })
 }

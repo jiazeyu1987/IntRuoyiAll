@@ -451,7 +451,7 @@ import {
   type DccProjectCodeRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
 import {
-  getFileTypeTaxonomyList,
+  getFileTypeTaxonomyUploadOptions,
   type DccFileTypeTaxonomyVO
 } from '@/api/dcc/controlledFile/fileTypeTaxonomies'
 import {
@@ -949,7 +949,7 @@ const loadFileTypeTaxonomies = async () => {
   fileTypeTaxonomiesLoading.value = true
   fileTypeTaxonomyOptionsError.value = ''
   try {
-    fileTypeTaxonomies.value = await getFileTypeTaxonomyList()
+    fileTypeTaxonomies.value = await getFileTypeTaxonomyUploadOptions()
   } catch (error) {
     fileTypeTaxonomies.value = []
     const errorMessage = resolveUploadErrorMessage(error, '文件分类候选加载失败，请确认文件类型权限或联系文控管理员。')

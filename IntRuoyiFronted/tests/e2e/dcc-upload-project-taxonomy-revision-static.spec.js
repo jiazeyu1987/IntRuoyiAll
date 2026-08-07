@@ -51,7 +51,7 @@ requireIn(workflowApi, 'fileTypeTaxonomyIds', '受控文件查询参数必须支
 for (const token of [
   "getProjectCodePage",
   "DCC_PROJECT_CODE_STATUS_ENABLE",
-  "getFileTypeTaxonomyList",
+  "getFileTypeTaxonomyUploadOptions",
   "handleTree",
   'label="DCC项目"',
   'label="文件分类"',

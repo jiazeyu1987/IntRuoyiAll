@@ -5,9 +5,29 @@ const assert = require('node:assert/strict')
 const repoRoot = path.resolve(__dirname, '../..')
 const uploadPagePath = path.join(repoRoot, 'src/views/dcc/controlled-file/upload/index.vue')
 const externalReviewPagePath = path.join(repoRoot, 'src/views/dcc/controlled-file/external-review/index.vue')
+const taxonomyApiPath = path.join(repoRoot, 'src/api/dcc/controlledFile/fileTypeTaxonomies.ts')
 
 const uploadPageSource = fs.readFileSync(uploadPagePath, 'utf8')
 const externalReviewPageSource = fs.readFileSync(externalReviewPagePath, 'utf8')
+const taxonomyApiSource = fs.readFileSync(taxonomyApiPath, 'utf8')
+
+assert.match(
+  taxonomyApiSource,
+  /export const getFileTypeTaxonomyUploadOptions[\s\S]*url: '\/dcc\/file-type-taxonomies\/upload-options'/,
+  'DCC upload runtime must expose a submit-authorized taxonomy options API distinct from taxonomy management'
+)
+
+assert.match(
+  uploadPageSource,
+  /getFileTypeTaxonomyUploadOptions[\s\S]*fileTypeTaxonomies\.value = await getFileTypeTaxonomyUploadOptions\(\)/,
+  'DCC upload page must load taxonomy candidates from the upload runtime endpoint'
+)
+
+assert.doesNotMatch(
+  uploadPageSource,
+  /getFileTypeTaxonomyList/,
+  'DCC upload page must not require the taxonomy-management list permission'
+)
 
 const readonlyCategoryBlockMatch = uploadPageSource.match(
   /<el-form-item v-else label="文件类别" prop="categoryId">([\s\S]*?)<el-form-item v-if="uploadDirectoryTree"/
