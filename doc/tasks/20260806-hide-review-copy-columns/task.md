@@ -35,7 +35,9 @@
 
 ready_for_closeout
 
-Implementation, required verification, project-experience check, and task-closeout-cleanup apply are complete. Final commit/push is not performed in this turn because the shared branch currently contains unrelated concurrent dirty paths and existing ahead commits that are outside this task-owned scope.
+Implementation, required verification, project-experience check, and task-closeout-cleanup apply are complete. Fusion verification confirmed that `codex/20260806-production-reporting-submit-implementation` is already an ancestor of `int_main`: the merge-base is `b0b38693e6a7b04a3480e8efddcc10405fc48359` and the candidate branch has no actual delta to merge. The target page and focused static contract are already tracked by the current `int_main`.
+
+Final task-owned closeout commit/push is deferred because concurrent task `20260807-submit-frontend-backend-code` is actively handling the same shared `int_main` commit/push transaction. No new merge commit or push is attempted here, so concurrent task records are not mixed into this task.
 
 ## Verification Summary
 
@@ -44,3 +46,4 @@ Implementation, required verification, project-experience check, and task-closeo
 - REGRESSION: `pqc-leader-sample-values-detail-only-static`, `mes-process-pool-team-leader-static`, and `pqc-leader-list-fill-form-parity-static` passed.
 - STRUCTURE: `pnpm ts:check` passed and `git diff --check` passed.
 - CLEANUP: `task_closeout.py --task-id 20260806-hide-review-copy-columns --mode apply` deleted only task-local temporary evidence files and kept `task.md`, `execution-log.md`, and `verification-report.md`.
+- FUSION: the candidate branch is an `int_main` ancestor and its merge-base delta is empty, so the requested integration is already present without creating another merge commit.
