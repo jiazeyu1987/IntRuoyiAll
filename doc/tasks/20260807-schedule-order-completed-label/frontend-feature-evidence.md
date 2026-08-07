@@ -34,8 +34,8 @@
 
 ## GREEN
 
-- Command: 待执行。
-- Result: 待执行。
+- Command: `node tests/e2e/mes-schedule-order-completed-source-label-static.spec.cjs`
+- Result: PASS；已完成状态追加“(已完成)”，未完成状态保持原文，且不从进度/数量推断。
 
 ## UI State Checks
 

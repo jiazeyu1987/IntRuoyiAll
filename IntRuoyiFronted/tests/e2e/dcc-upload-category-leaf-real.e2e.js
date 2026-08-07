@@ -231,7 +231,7 @@ function chooseUnclassifiedCandidate(categories, taxonomies) {
       continue
     }
     const category = boundCategories[0]
-    if (category.canUpload === false || category.directoryId) {
+    if (category.directoryId) {
       continue
     }
     const pathRows = buildTaxonomyPath(activeTaxonomies, taxonomyId)

@@ -249,9 +249,9 @@ export const resolveUploadPreviewErrorMessage = (error: unknown, fallback: strin
       rawMessage
     )
   }
-  if (/403|forbidden|permission|access denied|canupload|无权限|没有该操作权限|没有文件类别上传权限|不可访问/.test(normalized)) {
+  if (/403|forbidden|permission|access denied|无权限|没有该操作权限|不可访问/.test(normalized)) {
     return appendUploadPreviewErrorDetail(
-      '没有文件类别上传权限：请联系文控管理员补齐该分类的 UPLOAD 权限后再上传。',
+      '当前账号缺少受控文件提交权限：请联系管理员补齐受控文件提交权限后再上传。',
       rawMessage
     )
   }

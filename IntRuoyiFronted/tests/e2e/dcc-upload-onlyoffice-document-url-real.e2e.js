@@ -296,7 +296,6 @@ function chooseExactUploadCandidate(categories, taxonomies) {
     `BLOCKER: taxonomy leaf ${PREFERRED_TAXONOMY_PATH.join(' / ')} must bind exactly one active DCC file category, found ${boundCategories.length}`
   )
   const category = boundCategories[0]
-  assert.notEqual(category.canUpload, false, `BLOCKER: category ${category.name || category.code || category.id} has no upload permission`)
 
   return {
     categoryId: Number(category.id),

@@ -95,9 +95,14 @@ assert.match(
   /:data="pagedActiveOrderRows"[\s\S]*data-team-leader-active-order-list/,
   'The standard list must render all active-order rows through client-side pagination.'
 )
-for (const label of ['活跃池ID', '生产订单ID', '路线ID', '路线版本ID', 'ERP生产数量', '状态', '加入时间', '操作']) {
+for (const label of ['活跃池ID', '生产订单ID', '路线名称', '版本号', 'ERP生产数量', '加入时间', '操作']) {
   assert.match(activeOrderBlock, new RegExp(`label="${label}"`), `The active-order list must show ${label}.`)
 }
+assert.doesNotMatch(
+  activeOrderBlock,
+  /label="路线ID"|label="路线版本ID"|label="状态"\s+width="100"/,
+  'The active-order list must not expose route IDs, route-version IDs, or the active status column.'
+)
 assert.match(
   activeOrderBlock,
   /data-team-leader-active-order-transfer-trace/,
@@ -166,7 +171,9 @@ assert.doesNotMatch(
 
 for (const field of [
   'routeId: number',
+  'routeName: string',
   'routeVersionId: number',
+  'routeVersionNo: string',
   'erpFixedQuantitySnapshot?: number | string',
   'businessStatus?: string',
   'version?: number'

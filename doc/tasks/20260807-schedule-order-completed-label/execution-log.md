@@ -18,10 +18,17 @@
 - 基线提交：`de6b84628 chore: baseline concurrent changes before schedule order label`，共 60 个既有文件；完整文件清单可由 `git show --name-status --oneline de6b84628` 复核，包含 DCC 上传链路、MES 路线/组长链路、并行任务测试与任务记录、`docs/database-rules.md`、`docs/frontend-development.md`，不包含本任务目录或排产工单页面。
 - 基线提交后残余复扫发现其他并行任务继续修改 6 个文件：`MesTeamEmployeeBindingServiceTest.java`、角色对齐任务 3 个 SQL、全量 PQC 搜索执行日志、PQC 组长五记录执行日志；均保持未暂存且不触碰。
 - M1：新增任务专用静态合同并取得预期 RED。
+- M2：来源生产工单号改为调用 `getScheduleOrderSourceCodeText(row)`；`manualFinished=true` 或正式 `status=3` 时追加“(已完成)”，未从进度或数量推断。
 
 ## Verification Evidence
 
 - `RED: node tests/e2e/mes-schedule-order-completed-source-label-static.spec.cjs -> FAIL, expected reason: Schedule order page must define a bounded source work order display text resolver.`
+- `GREEN: node tests/e2e/mes-schedule-order-completed-source-label-static.spec.cjs -> PASS`。
+- `REGRESSION: node tests/e2e/mes-schedule-order-workorder-link-static.spec.js -> PASS`。
+- `REGRESSION: node tests/e2e/mes-schedule-order-replan-finished-disabled-static.spec.js -> PASS`。
+- `REGRESSION: node tests/e2e/mes-schedule-order-main-table-wrap-static.spec.js -> PASS`。
+- `REGRESSION: node tests/e2e/mes-replan-product-code-current-selection-static.spec.js -> PASS`。
+- 相邻既有合同 `mes-pro-schedule-order-manual-finish-static.spec.js` 失败在 `completionFilter: 'INCOMPLETE'` 旧断言；`git show HEAD:IntRuoyiFronted/src/views/mes/pro/scheduleorder/index.vue` 证明基线源码已不含该默认值，本任务 diff 仅涉及来源工单号文本和 helper，故记录为非本任务历史缺口，不修改该筛选行为。
 
 ## Blockers
 

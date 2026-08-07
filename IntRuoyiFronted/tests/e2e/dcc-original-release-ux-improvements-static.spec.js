@@ -21,7 +21,7 @@ assert.match(
   /resolveUploadPreviewErrorMessage/,
   '上传预览必须使用专用错误归因 helper，而不是只透传通用系统异常。'
 )
-for (const keyword of ['文件存储服务不可用', '文件格式不受支持', '没有文件类别上传权限', '文件编号已存在']) {
+for (const keyword of ['文件存储服务不可用', '文件格式不受支持', '受控文件提交权限', '文件编号已存在']) {
   assert.match(uploadSubmitter, new RegExp(keyword), `上传预览错误归因必须覆盖：${keyword}`)
 }
 assert.match(
@@ -39,9 +39,14 @@ assert.match(
   /文件编号已存在，不能重复创建 V1\.0 原版/,
   '文件编号和 V1.0 重复时必须提前提示并阻止提交。'
 )
-for (const keyword of ['当前没有可上传文件类别', 'DCC 项目候选加载失败', '文件分类候选加载失败']) {
+for (const keyword of ['当前没有可选文件类别', 'DCC 项目候选加载失败', '文件分类候选加载失败']) {
   assert.match(uploadPage, new RegExp(keyword), `上传页必须前置展示权限/基础数据缺口：${keyword}`)
 }
+assert.doesNotMatch(
+  uploadSubmitter,
+  /没有文件类别上传权限|UPLOAD 权限后再上传/,
+  '上传错误归因不得继续把通用访问拒绝解释成文件类别 UPLOAD 权限。'
+)
 
 assert.match(
   detailPage,

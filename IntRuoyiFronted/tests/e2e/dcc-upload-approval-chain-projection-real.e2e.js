@@ -347,8 +347,6 @@ function requestPathname(requestOrResponse) {
     const signoffPositionIds = Array.isArray(category.signoffPositionIds) ? category.signoffPositionIds : []
     assert.ok(approvalPositionIds.length > 0, `runtime category ${category.code || category.name} must return approvalPositionIds`)
     assert.ok(signoffPositionIds.length > 0, `runtime category ${category.code || category.name} must return signoffPositionIds`)
-    assert.notEqual(category.canUpload, false, `category ${category.code || category.name} has no upload permission for current account`)
-
     const taxonomyPath = buildTaxonomyPath(taxonomies, category.fileTypeTaxonomyId)
       .map((row) => String(row.name || '').trim())
       .filter(Boolean)
@@ -360,8 +358,7 @@ function requestPathname(requestOrResponse) {
       taxonomyId: Number(category.fileTypeTaxonomyId),
       taxonomyPath,
       approvalPositionCount: approvalPositionIds.length,
-      signoffPositionCount: signoffPositionIds.length,
-      canUpload: category.canUpload
+      signoffPositionCount: signoffPositionIds.length
     }
 
     await page.goto(`${BASE_URL}${TARGET_PATH}`, { waitUntil: 'domcontentloaded', timeout: 60000 })
