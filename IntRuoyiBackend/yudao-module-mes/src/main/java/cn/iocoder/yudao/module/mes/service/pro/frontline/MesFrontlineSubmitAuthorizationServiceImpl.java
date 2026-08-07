@@ -37,7 +37,7 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
             throw exception(PRO_FRONTLINE_SUBMIT_DEVICE_CONTEXT_MISMATCH,
                     command.deviceId(), command.workstationId(), process.deviceId(), process.workstationId());
         }
-        contextService.requireBoundEmployee(command.loginUserId(), process.routeId(), process.routeProcessId(),
+        contextService.requireTeamEmployee(command.loginUserId(), process.routeId(), process.routeProcessId(),
                 process.processId(), command.actualEmployeeId());
         MesFrontlineTemplateDescriptor template = templateResolver.resolve(new MesFrontlineTemplateRequest(
                 command.loginUserId(), command.actualEmployeeId(), process.routeId(),

@@ -1050,10 +1050,10 @@ public interface ErrorCodeConstants {
             "设备账号上下文不完整或不一致：{}");
     ErrorCode PRO_FRONTLINE_ROUTE_PROCESS_WORKSTATION_REQUIRED = new ErrorCode(1_040_760_104,
             "工艺路线工序缺少正式工作站绑定，routeId={}, processId={}");
-    ErrorCode PRO_FRONTLINE_PROCESS_EMPLOYEE_EMPTY = new ErrorCode(1_040_760_105,
-            "当前工序没有绑定可切换员工，workstationId={}, processId={}");
-    ErrorCode PRO_FRONTLINE_ACTUAL_EMPLOYEE_NOT_BOUND = new ErrorCode(1_040_760_106,
-            "实际填写员工 {} 不属于当前工序 {} 的绑定员工");
+    ErrorCode PRO_FRONTLINE_LEADER_EMPLOYEE_EMPTY = new ErrorCode(1_040_760_105,
+            "当前生产组长没有启用的生产人员，leaderUserId={}, processId={}");
+    ErrorCode PRO_FRONTLINE_ACTUAL_EMPLOYEE_NOT_IN_TEAM = new ErrorCode(1_040_760_106,
+            "实际填写员工 {} 不属于当前生产组长的启用生产人员，processId={}");
     ErrorCode PRO_FRONTLINE_TEMPLATE_BINDING_SOURCE_MISSING = new ErrorCode(1_040_760_107,
             "实际员工工序模板绑定来源未接入，无法重新加载模板");
     ErrorCode PRO_FRONTLINE_TEMPLATE_NOT_EXISTS = new ErrorCode(1_040_760_108,

@@ -30,6 +30,9 @@ const processContextService = readUtf8(
     'cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineDeviceAccountContextServiceImpl.java'
   )
 )
+const errorCodes = readUtf8(
+  path.join(backendRoot, 'cn/iocoder/yudao/module/mes/enums/ErrorCodeConstants.java')
+)
 
 for (const removedUiContract of [
   '生产人员工序绑定',
@@ -71,5 +74,17 @@ assert.match(
   /resolveResponsibleLeaderContext\(loginUserId\)[\s\S]*listRouteStartProductionLeaderSwitchableProcesses\(responsibleLeader\.leaderUserId\(\)\)/,
   '生产员工必须继承其生产组长在正式工序开始配置中负责的全部工序'
 )
+for (const removedBindingSemantic of [
+  'requireBoundEmployee',
+  'PRO_FRONTLINE_PROCESS_EMPLOYEE_EMPTY',
+  'PRO_FRONTLINE_ACTUAL_EMPLOYEE_NOT_BOUND',
+  '当前工序没有绑定可切换员工',
+  '不属于当前工序'
+]) {
+  assert.ok(
+    !processContextService.includes(removedBindingSemantic) && !errorCodes.includes(removedBindingSemantic),
+    `一线员工鉴权不得继续暴露工序绑定语义: ${removedBindingSemantic}`
+  )
+}
 
 console.log('production employee inherits leader processes static contract PASS')

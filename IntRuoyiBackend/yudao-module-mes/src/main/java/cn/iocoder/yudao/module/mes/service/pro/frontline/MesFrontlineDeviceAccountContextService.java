@@ -14,7 +14,7 @@ public interface MesFrontlineDeviceAccountContextService {
     MesFrontlineRouteProcessCandidate requireAuthorizedProcess(Long loginUserId, Long routeId,
                                                                Long routeProcessId, Long processId);
 
-    MesFrontlineEmployeeCandidate requireBoundEmployee(Long loginUserId, Long routeId, Long routeProcessId,
-                                                       Long processId, Long actualEmployeeId);
+    MesFrontlineEmployeeCandidate requireTeamEmployee(Long loginUserId, Long routeId, Long routeProcessId,
+                                                      Long processId, Long actualEmployeeId);
 
 }

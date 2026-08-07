@@ -43,12 +43,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_ACTUAL_EMPLOYEE_NOT_BOUND;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_ACTUAL_EMPLOYEE_NOT_IN_TEAM;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_DEVICE_ACCOUNT_BINDING_SOURCE_MISSING;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_DEVICE_ACCOUNT_ROUTE_EMPTY;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PRESSURE_PUMP_ROUTE_PROCESS_EMPTY;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PROCESS_EMPLOYEE_EMPTY;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_LEADER_EMPLOYEE_EMPTY;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_ROUTE_PROCESS_NOT_AUTHORIZED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_ROUTE_PROCESS_WORKSTATION_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED;
@@ -313,7 +313,7 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
                 .map(MesFrontlineDeviceAccountContextServiceImpl::toEmployeeCandidate)
                 .toList();
         if (candidates.isEmpty()) {
-            throw exception(PRO_FRONTLINE_PROCESS_EMPLOYEE_EMPTY, processCandidate.workstationId(),
+            throw exception(PRO_FRONTLINE_LEADER_EMPLOYEE_EMPTY, leaderUserId,
                     processCandidate.processId());
         }
         return candidates.stream()
@@ -350,13 +350,14 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
     }
 
     @Override
-    public MesFrontlineEmployeeCandidate requireBoundEmployee(Long loginUserId, Long routeId, Long routeProcessId,
-                                                              Long processId, Long actualEmployeeId) {
+    public MesFrontlineEmployeeCandidate requireTeamEmployee(Long loginUserId, Long routeId, Long routeProcessId,
+                                                             Long processId, Long actualEmployeeId) {
         requireValue(actualEmployeeId, "actualEmployeeId");
         return listEmployeeCandidates(loginUserId, routeId, routeProcessId, processId).stream()
                 .filter(candidate -> Objects.equals(candidate.userId(), actualEmployeeId))
                 .findFirst()
-                .orElseThrow(() -> exception(PRO_FRONTLINE_ACTUAL_EMPLOYEE_NOT_BOUND, actualEmployeeId, processId));
+                .orElseThrow(() -> exception(PRO_FRONTLINE_ACTUAL_EMPLOYEE_NOT_IN_TEAM,
+                        actualEmployeeId, processId));
     }
 
     private RouteBindingContext routeBindingContext(Long loginUserId) {

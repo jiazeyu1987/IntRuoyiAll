@@ -52,7 +52,7 @@ class MesFrontlineSubmitAuthorizationTest {
                 new MesFrontlineRouteProcessCandidate(101L, "R-101", "Route 101",
                         1001L, 201L, "P-201", "Granulation", 10,
                         501L, "D-501", "Device 501", 301L, "WS-301", "Workstation 301"));
-        when(contextService.requireBoundEmployee(9001L, 101L, 1001L, 201L, 20001L))
+        when(contextService.requireTeamEmployee(9001L, 101L, 1001L, 201L, 20001L))
                 .thenThrow(exception0(1_040_760_005, "actual employee not bound"));
 
         assertThrows(ServiceException.class, () -> submitAuthorizationService.authorize(command));
