@@ -4,7 +4,7 @@ $frontendEnvPath = 'E:\IntRuoyi\IntRuoyiFronted\.env'
 $apiBase = 'http://127.0.0.1:48081/admin-api'
 $routeId = 922119
 $sourceVersionId = 490
-$candidateId = 624
+$candidateId = 626
 $expectedBindings = [ordered]@{
     922985 = 980010
     922986 = 980008
@@ -106,14 +106,10 @@ if (($actualProcessIds -join ',') -ne ($expectedProcessIds -join ',')) {
     throw 'Candidate process identity set does not match the approved repair map'
 }
 $nullBindingCount = @($nodes | Where-Object { $null -eq $_.routeProcessWorkstationId }).Count
-$zeroBindingCount = @($nodes | Where-Object { [long] $_.routeProcessWorkstationId -eq 0 }).Count
-if ($nullBindingCount -eq $nodes.Count) {
-    $candidateInitialBindingState = 'EMPTY'
-} elseif ($zeroBindingCount -eq $nodes.Count) {
-    $candidateInitialBindingState = 'TASK_RETRY_ZERO'
-} else {
-    throw 'Candidate contains a formal workstation state outside the approved empty or task-owned retry state'
+if ($nullBindingCount -ne $nodes.Count) {
+    throw 'Candidate already contains an unexpected formal workstation binding'
 }
+$candidateInitialBindingState = 'EMPTY'
 
 $updates = foreach ($node in $nodes) {
     $processId = [long] $node.processId
@@ -168,7 +164,7 @@ if (-not $published.active -or $published.lifecycleStatus -ne 'ACTIVE') {
 $versionsAfter = @(Invoke-ApiGet "/mes/pro/route-version/list-by-route?routeId=$routeId" $headers)
 $activeVersions = @($versionsAfter | Where-Object { $_.active })
 if ($activeVersions.Count -ne 1 -or [long] $activeVersions[0].id -ne $candidateId) {
-    throw 'Published route does not have V25 as its unique active version'
+    throw 'Published route does not have the repair candidate as its unique active version'
 }
 $liveGraph = Invoke-ApiGet "/mes/pro/route-process-flow/get?routeId=$routeId" $headers
 $liveNodes = @($liveGraph.nodes)
