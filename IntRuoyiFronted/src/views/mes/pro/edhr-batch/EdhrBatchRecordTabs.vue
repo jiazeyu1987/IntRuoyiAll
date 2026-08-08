@@ -6,7 +6,6 @@
     @tab-click="handleTabClick"
   >
     <el-tab-pane label="批次执行" name="execution" />
-    <el-tab-pane label="批记录测试" name="test" />
     <el-tab-pane label="批记录页面关系图" name="pageGraph" />
   </el-tabs>
 </template>
@@ -17,7 +16,6 @@ defineOptions({ name: 'MesProEdhrBatchRecordTabs' })
 type EdhrBatchRecordTab =
   | 'execution'
   | 'history'
-  | 'test'
   | 'pageGraph'
 type EdhrBatchTabPane = {
   props?: {
@@ -33,7 +31,6 @@ const router = useRouter()
 
 const routeByTab: Partial<Record<EdhrBatchRecordTab, string>> = {
   execution: '/mes/pro/feedback/edhr-batch-execution',
-  test: '/mes/pro/feedback/edhr-batch-test',
   pageGraph: '/mes/pro/feedback/edhr-batch-page-graph'
 }
 

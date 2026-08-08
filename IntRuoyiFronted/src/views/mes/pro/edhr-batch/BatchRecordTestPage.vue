@@ -1,7 +1,15 @@
 <template>
   <ContentWrap>
-    <div class="edhr-batch-record-test-page">
-      <EdhrBatchRecordTabs active-tab="test" />
+    <div class="edhr-batch-record-test-page" data-edhr-batch-record-test-page>
+      <section class="edhr-batch-record-test-page__header">
+        <div>
+          <div class="edhr-batch-record-test-page__title">批记录测试</div>
+          <div class="edhr-batch-record-test-page__subtitle">
+            通过受控 Codex Runner 对生产组长职责执行只读代码分析
+          </div>
+        </div>
+        <el-tag type="success" effect="plain">独立测试页签</el-tag>
+      </section>
       <el-tabs v-model="activeInnerTab" class="edhr-batch-record-test-page__inner-tabs">
         <el-tab-pane label="生产组长" name="productionLeader">
           <UnifiedListTemplate
@@ -120,7 +128,6 @@
 
 <script setup lang="ts">
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import EdhrBatchRecordTabs from './EdhrBatchRecordTabs.vue'
 import {
   useTableQuickFilter,
   type TableQuickFilterDefinition
@@ -389,6 +396,31 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.edhr-batch-record-test-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.edhr-batch-record-test-page__title {
+  color: #1f2937;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 28px;
+}
+
+.edhr-batch-record-test-page__subtitle {
+  margin-top: 4px;
+  color: #667085;
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .edhr-batch-record-test-page__inner-tabs {

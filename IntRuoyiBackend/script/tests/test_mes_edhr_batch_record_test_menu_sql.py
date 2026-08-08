@@ -48,7 +48,7 @@ def test_batch_record_test_menu_creates_visible_admin_entry() -> None:
         "'批记录测试' AS `name`",
         "'mes:pro-edhr-batch-execution:query' AS `permission`",
         "2 AS `type`",
-        "7 AS `sort`",
+        "6 AS `sort`",
         "900220 AS `parent_id`",
         "'/mes/pro/feedback/edhr-batch-test' AS `path`",
         "'mes/pro/edhr-batch/BatchRecordTestPage' AS `component`",
@@ -58,8 +58,8 @@ def test_batch_record_test_menu_creates_visible_admin_entry() -> None:
     ]:
         assert required in text
 
-    assert "900033 AS `menu_id`, 6 AS `sort`" in text
-    assert "900440 AS `menu_id`, 7 AS `sort`" in text
+    assert "900440 AS `menu_id`, 6 AS `sort`" in text
+    assert "900033 AS `menu_id`, 7 AS `sort`" in text
     assert "900025 AS `menu_id`, 8 AS `sort`" in text
     assert "900432 AS `menu_id`, 9 AS `sort`" in text
 

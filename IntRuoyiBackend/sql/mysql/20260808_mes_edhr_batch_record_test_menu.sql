@@ -78,7 +78,7 @@ BEGIN
     '批记录测试' AS `name`,
     'mes:pro-edhr-batch-execution:query' AS `permission`,
     2 AS `type`,
-    7 AS `sort`,
+    6 AS `sort`,
     900220 AS `parent_id`,
     '/mes/pro/feedback/edhr-batch-test' AS `path`,
     'ep:operation' AS `icon`,
@@ -103,7 +103,7 @@ BEGIN
   SET `name` = '批记录测试',
       `permission` = 'mes:pro-edhr-batch-execution:query',
       `type` = 2,
-      `sort` = 7,
+      `sort` = 6,
       `parent_id` = 900220,
       `path` = '/mes/pro/feedback/edhr-batch-test',
       `icon` = 'ep:operation',
@@ -120,9 +120,9 @@ BEGIN
 
   UPDATE `system_menu` AS `menu`
   JOIN (
-    SELECT 900033 AS `menu_id`, 6 AS `sort`
+    SELECT 900440 AS `menu_id`, 6 AS `sort`
     UNION ALL
-    SELECT 900440 AS `menu_id`, 7 AS `sort`
+    SELECT 900033 AS `menu_id`, 7 AS `sort`
     UNION ALL
     SELECT 900025 AS `menu_id`, 8 AS `sort`
     UNION ALL
