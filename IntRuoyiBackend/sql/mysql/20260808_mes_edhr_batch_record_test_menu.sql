@@ -301,7 +301,7 @@ BEGIN
       AND `name` = '批记录测试'
       AND `permission` = 'mes:pro-edhr-batch-execution:query'
       AND `type` = 2
-      AND `sort` = 7
+      AND `sort` = 6
       AND `parent_id` = 900220
       AND `path` = '/mes/pro/feedback/edhr-batch-test'
       AND `component` = 'mes/pro/edhr-batch/BatchRecordTestPage'
