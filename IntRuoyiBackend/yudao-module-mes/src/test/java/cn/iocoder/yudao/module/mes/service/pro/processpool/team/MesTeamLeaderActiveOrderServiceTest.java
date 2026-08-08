@@ -143,6 +143,22 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
+    void shouldAllowScheduledCandidateWithoutPlanDate() {
+        when(workOrderMapper.selectConfirmedCandidatesByKeyword("WO-9", List.of(), 20))
+                .thenReturn(List.of(confirmedWorkOrder()));
+        stubEffectiveSchedules(effectiveSchedule(7701L, 922119L, 448L));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(List.of(7701L)))
+                .thenReturn(List.of(scheduleProcessWithoutPlanDate(928609L, 6001L, "1.000000", "200.000000")));
+        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
+
+        List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
+
+        assertEquals(1, candidates.size());
+        assertTrue(candidates.get(0).isEligible());
+        assertEquals(null, candidates.get(0).getIneligibleReason());
+    }
+
+    @Test
     void shouldSearchConfirmedWorkOrderCandidatesByProductKeyword() {
         when(itemMapper.selectListByCodeOrNameLike("球囊", 20)).thenReturn(List.of(
                 MesMdItemDO.builder().id(1001L).code("AW.107.02.01.2010").name("球囊扩张压力泵").build()));
@@ -408,6 +424,26 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(pqcInspectionTaskMapper, times(2)).insert(taskCaptor.capture());
         assertTrue(taskCaptor.getAllValues().stream()
                 .allMatch(task -> LocalDate.of(2026, 8, 5).equals(task.getBusinessDate())));
+    }
+
+    @Test
+    void shouldGeneratePqcTasksForScheduledProcessWithoutPlanDateUsingJoinedDate() {
+        stubConfirmedWorkOrder();
+        stubEffectiveSchedules(effectiveSchedule(7701L, 922119L, 448L));
+        stubSuccessfulInsertAndProcesses(List.of(
+                scheduleProcessWithoutPlanDate(928609L, 6001L, "1.000000", "200.000000")));
+
+        Long activeOrderId = service.addActiveOrder(activeOrderReq());
+
+        assertEquals(8101L, activeOrderId);
+        ArgumentCaptor<MesProcessPoolActiveOrderDO> activeOrderCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolActiveOrderDO.class);
+        verify(activeOrderMapper).insert(activeOrderCaptor.capture());
+        ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(2)).insert(taskCaptor.capture());
+        LocalDate joinedDate = activeOrderCaptor.getValue().getJoinedAt().toLocalDate();
+        assertTrue(taskCaptor.getAllValues().stream()
+                .allMatch(task -> joinedDate.equals(task.getBusinessDate())));
     }
 
     @Test
@@ -925,12 +961,25 @@ class MesTeamLeaderActiveOrderServiceTest {
     private static MesProScheduleOrderProcessDO scheduleProcess(Long scheduleOrderId, Long routeProcessId,
                                                                 Long processId, String factor,
                                                                 String plannedQuantity) {
+        return scheduleProcess(scheduleOrderId, routeProcessId, processId, factor, plannedQuantity,
+                LocalDate.of(2026, 8, 5));
+    }
+
+    private static MesProScheduleOrderProcessDO scheduleProcessWithoutPlanDate(Long routeProcessId, Long processId,
+                                                                               String factor,
+                                                                               String plannedQuantity) {
+        return scheduleProcess(7701L, routeProcessId, processId, factor, plannedQuantity, null);
+    }
+
+    private static MesProScheduleOrderProcessDO scheduleProcess(Long scheduleOrderId, Long routeProcessId,
+                                                                Long processId, String factor,
+                                                                String plannedQuantity, LocalDate planDate) {
         return MesProScheduleOrderProcessDO.builder()
                 .scheduleOrderId(scheduleOrderId)
                 .routeProcessId(routeProcessId)
                 .processId(processId)
                 .enabled(Boolean.TRUE)
-                .planDate(LocalDate.of(2026, 8, 5))
+                .planDate(planDate)
                 .productionQuantityFactor(new BigDecimal(factor))
                 .plannedQuantity(new BigDecimal(plannedQuantity))
                 .build();

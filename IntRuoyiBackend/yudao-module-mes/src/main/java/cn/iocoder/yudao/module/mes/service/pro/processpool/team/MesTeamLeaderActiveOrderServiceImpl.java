@@ -457,7 +457,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
         for (MesProScheduleOrderProcessDO process : source.enabledProcesses()) {
             String pqcReason = validateCandidatePqcPrerequisites(source.routeId(), source.routeVersionId(),
-                    process, source.productId(), context, source.scheduleOrder() == null);
+                    process, source.productId(), context);
             if (pqcReason != null) {
                 return blockedCandidate(pqcReason);
             }
@@ -536,8 +536,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                                      Long routeVersionId,
                                                      MesProScheduleOrderProcessDO process,
                                                      Long productId,
-                                                     CandidateEligibilityContext context,
-                                                     boolean unscheduled) {
+                                                     CandidateEligibilityContext context) {
         CandidateRegulationKey key = new CandidateRegulationKey(productId, routeId,
                 routeVersionId, process.getRouteProcessId(), process.getProcessId());
         List<MesQaInspectionRegulationDO> regulations = context.regulationsByKey()
@@ -560,9 +559,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .getOrDefault(regulation.getCurrentVersionId(), Collections.emptyList());
         if (items == null || items.isEmpty()) {
             return "已发布QA规程缺少检验项目";
-        }
-        if (!unscheduled && process.getPlanDate() == null) {
-            return "排产工序缺少计划日期";
         }
         String firstReason = validateFixedInspectionQuantity(items, INSPECTION_TYPE_FIRST);
         if (firstReason != null) {
@@ -1075,7 +1071,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             MesQaInspectionRegulationDO regulation = requirePublishedRegulation(activeOrder, process, productId);
             requireRegulationVersion(regulation, activeOrder.getId());
             List<MesQaInspectionRegulationItemDO> items = requireRegulationItems(regulation, activeOrder.getId());
-            LocalDate businessDate = resolvePqcBusinessDate(activeOrder, process, unscheduled);
+            LocalDate businessDate = resolvePqcBusinessDate(activeOrder, process);
             tasks.add(buildPqcTask(activeOrder, process, regulation, INSPECTION_TYPE_FIRST, businessDate,
                     SHIFT_FIRST, resolveFixedInspectionQuantity(items, INSPECTION_TYPE_FIRST, activeOrder.getId())));
             tasks.add(buildPqcTask(activeOrder, process, regulation, INSPECTION_TYPE_PATROL, businessDate,
@@ -1142,20 +1138,10 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return items;
     }
 
-    private LocalDate requireBusinessDate(MesProScheduleOrderProcessDO process, Long activeOrderId) {
-        if (process.getPlanDate() == null) {
-            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                    "排产工序缺少计划日期，activeOrderId=" + activeOrderId
-                            + "，routeProcessId=" + process.getRouteProcessId());
-        }
-        return process.getPlanDate();
-    }
-
     private LocalDate resolvePqcBusinessDate(MesProcessPoolActiveOrderDO activeOrder,
-                                             MesProScheduleOrderProcessDO process,
-                                             boolean unscheduled) {
-        if (!unscheduled) {
-            return requireBusinessDate(process, activeOrder.getId());
+                                             MesProScheduleOrderProcessDO process) {
+        if (process.getPlanDate() != null) {
+            return process.getPlanDate();
         }
         if (activeOrder.getJoinedAt() == null) {
             throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,

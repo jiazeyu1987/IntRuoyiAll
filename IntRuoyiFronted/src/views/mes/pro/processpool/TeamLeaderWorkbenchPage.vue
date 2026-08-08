@@ -2373,6 +2373,7 @@
               <el-select
                 v-model="row.activeOrderId"
                 filterable
+                popper-class="team-leader-workbench__allocation-order-popper"
                 placeholder="请选择活跃订单"
                 @change="markManualAllocation"
               >
@@ -2695,6 +2696,10 @@ type WorkbenchLeaderTab = TeamLeaderType
 type ProcessConfigCreateType = 'DEVICE_BINDING' | 'PARAMETER_RULE'
 type AllocationShortcutMode = 'MAX' | 'HALF'
 
+interface TeamLeaderReportAllocationDraftLine extends Omit<TeamLeaderReportAllocationLine, 'activeOrderId'> {
+  activeOrderId?: number
+}
+
 interface ProductionReportCorrectionLossDetailRow {
   reasonId: number
   reasonCode?: string
@@ -2837,7 +2842,7 @@ const lossReasonMaintenanceDialogVisible = ref(false)
 const lossReasonDialogMode = ref<'idle' | 'create' | 'edit'>('idle')
 const lossReasonMaintenanceRouteProcessId = ref<number>()
 const lossReasonEditingReasonId = ref<number>()
-const allocationRows = ref<TeamLeaderReportAllocationLine[]>([])
+const allocationRows = ref<TeamLeaderReportAllocationDraftLine[]>([])
 const reviewDialogMode = ref<'REVIEW' | 'ALLOCATION'>('REVIEW')
 const configuredDefectReasonOptions = ref<
   Array<{ reasonType: string; reasonCode: string; reasonName: string }>
@@ -3149,7 +3154,7 @@ const pagedProductionPersonnelRows = computed(() => {
 })
 const activeOrderTotal = computed(() => activeOrderOptions.value.length)
 const allocatableActiveOrderOptions = computed(() =>
-  activeOrderOptions.value.filter((order) => !order.abnormal)
+  activeOrderOptions.value.filter((order) => !order.abnormal && normalizePositiveNumber(order.id))
 )
 const pagedActiveOrderRows = computed(() => {
   const pageNo = Math.max(1, Number(activeOrderQuery.pageNo) || 1)
@@ -3489,6 +3494,14 @@ const requirePositiveNumber = (value: unknown, message: string) => {
     throw new Error(message)
   }
   return parsed
+}
+
+const resolveCurrentLeaderType = (): TeamLeaderType => {
+  const leaderType = activeLeaderTab.value
+  if (leaderType !== 'PRODUCTION' && leaderType !== 'PQC') {
+    throw new Error('班组长类型不能为空')
+  }
+  return leaderType
 }
 
 const requirePositiveInteger = (value: unknown, message: string) => {
@@ -4369,7 +4382,7 @@ const markManualAllocation = () => {
 const addAllocationLine = () => {
   reviewForm.allocationMode = 'MANUAL'
   allocationRows.value.push({
-    activeOrderId: allocatableActiveOrderOptions.value[0]?.id ?? 0,
+    activeOrderId: undefined,
     allocatedQuantity: 0
   })
 }
@@ -4385,7 +4398,7 @@ const normalizeAllocationInteger = (value: unknown) => {
   return Math.floor(parsed)
 }
 
-const resolveAllocationActiveOrder = (line: TeamLeaderReportAllocationLine) => {
+const resolveAllocationActiveOrder = (line: TeamLeaderReportAllocationDraftLine) => {
   const activeOrderId = Number(line.activeOrderId)
   const order = allocatableActiveOrderOptions.value.find((item) => Number(item.id) === activeOrderId)
   if (!order) {
@@ -4394,7 +4407,7 @@ const resolveAllocationActiveOrder = (line: TeamLeaderReportAllocationLine) => {
   return order
 }
 
-const resolveCurrentAllocationRemainingQuantity = (line: TeamLeaderReportAllocationLine) => {
+const resolveCurrentAllocationRemainingQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
   const totalQuantity = requirePositiveInteger(reviewEvent.value?.outputQuantity, '本次报工数量必须为正整数')
   const allocatedExceptCurrent = allocationRows.value.reduce((total, item) => {
     if (item === line) return total
@@ -4408,7 +4421,7 @@ const resolveCurrentAllocationRemainingQuantity = (line: TeamLeaderReportAllocat
 }
 
 const resolveAllocationShortcutQuantity = (
-  line: TeamLeaderReportAllocationLine,
+  line: TeamLeaderReportAllocationDraftLine,
   mode: AllocationShortcutMode
 ) => {
   const order = resolveAllocationActiveOrder(line)
@@ -4429,7 +4442,7 @@ const resolveAllocationShortcutQuantity = (
 }
 
 const applyAllocationShortcut = (
-  line: TeamLeaderReportAllocationLine,
+  line: TeamLeaderReportAllocationDraftLine,
   mode: AllocationShortcutMode
 ) => {
   try {
@@ -4446,11 +4459,11 @@ const previewFifoAllocation = async () => {
   try {
     const preview = await previewTeamLeaderReportFifoAllocation({
       eventId,
-      leaderType: queryParams.leaderType as TeamLeaderType
+      leaderType: resolveCurrentLeaderType()
     })
     reviewForm.allocationMode = 'FIFO'
     allocationRows.value = (preview.lines || []).map((line) => ({
-      activeOrderId: line.activeOrderId,
+      activeOrderId: requirePositiveNumber(line.activeOrderId, 'FIFO 分配返回活跃订单不能为空'),
       workOrderId: line.workOrderId,
       workOrderCode: line.workOrderCode,
       allocatedQuantity: line.allocatedQuantity,
@@ -5180,7 +5193,7 @@ const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
   return {
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
-    leaderType: queryParams.leaderType,
+    leaderType: resolveCurrentLeaderType(),
     submitDate: queryParams.submitDate,
     employeeUserId: normalizePositiveNumber(queryParams.employeeUserId),
     processId: normalizePositiveNumber(queryParams.processId),
@@ -5434,7 +5447,7 @@ const loadSubmissionDetail = async (eventId: number) => {
   try {
     detail.value = await getTeamLeaderSubmissionDetail(
       eventId,
-      queryParams.leaderType as TeamLeaderType
+      resolveCurrentLeaderType()
     )
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '员工提交详情加载失败'))
@@ -5509,7 +5522,7 @@ const submitReview = async () => {
   }
   reviewSubmitting.value = true
   try {
-    const leaderType = queryParams.leaderType as TeamLeaderType
+    const leaderType = resolveCurrentLeaderType()
     const reviewRemark = reviewForm.reviewRemark.trim() || undefined
     if (isProductionLeader.value && reviewForm.reviewStatus === 'APPROVED') {
       if (reviewDialogMode.value === 'ALLOCATION') {
@@ -6189,6 +6202,23 @@ onMounted(() => {
   padding: 6px 0;
   gap: 4px;
   line-height: 1.25;
+}
+
+:global(.team-leader-workbench__allocation-order-popper) {
+  width: min(420px, calc(100vw - 48px)) !important;
+  min-width: min(360px, calc(100vw - 48px)) !important;
+  max-width: calc(100vw - 48px);
+}
+
+:global(.team-leader-workbench__allocation-order-popper .el-select-dropdown__item) {
+  height: auto;
+  line-height: normal;
+  min-height: 68px;
+  padding: 6px 12px;
+}
+
+:global(.team-leader-workbench__allocation-order-popper .el-select-dropdown__item + .el-select-dropdown__item) {
+  border-top: 1px solid #eef2f7;
 }
 
 .team-leader-workbench__active-order-option > div {

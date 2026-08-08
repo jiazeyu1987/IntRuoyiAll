@@ -40,6 +40,14 @@ const sliceAllocationSelect = () => {
   return page.slice(selectStart, selectEnd)
 }
 
+const sliceScopedStyle = () => {
+  const styleStart = page.indexOf('<style scoped>')
+  const styleEnd = page.indexOf('</style>', styleStart)
+  assert.notEqual(styleStart, -1, 'Expected scoped style block.')
+  assert.notEqual(styleEnd, -1, 'Expected scoped style block end.')
+  return page.slice(styleStart, styleEnd)
+}
+
 for (const field of [
   'workOrderCode?: string',
   'productName?: string',
@@ -93,6 +101,11 @@ assert.match(
   /v-for="order in allocatableActiveOrderOptions"[\s\S]*data-team-leader-active-order-option/,
   '手动分配活跃订单下拉必须渲染可测试的业务信息选项。'
 )
+assert.match(
+  allocationSelect,
+  /popper-class="team-leader-workbench__allocation-order-popper"/,
+  '分配活跃订单下拉必须使用专属 popper class，避免多行选项仍套用 Element Plus 单行高度。'
+)
 for (const label of ['编码', '产品', '数量']) {
   assert.match(allocationSelect, new RegExp(label), `下拉选项必须显示 ${label}。`)
 }
@@ -100,4 +113,19 @@ assert.match(
   allocationSelect,
   /:value="order\.id"/,
   '下拉提交值必须继续使用 activeOrderId。'
+)
+
+const scopedStyle = sliceScopedStyle()
+const allocationItemStyleMatch = scopedStyle.match(
+  /:global\(\.team-leader-workbench__allocation-order-popper\s+\.el-select-dropdown__item\)\s*\{([\s\S]*?)\n\}/
+)
+assert.ok(allocationItemStyleMatch, '分配活跃订单下拉必须声明专属 el-option 样式块。')
+const allocationItemStyle = allocationItemStyleMatch[1]
+assert.match(allocationItemStyle, /height:\s*auto/, '分配活跃订单下拉选项必须解除默认 height。')
+assert.match(allocationItemStyle, /line-height:\s*normal/, '分配活跃订单下拉选项必须解除默认 line-height。')
+assert.match(allocationItemStyle, /min-height:\s*68px/, '分配活跃订单下拉多行选项必须保留最小高度。')
+assert.match(
+  scopedStyle,
+  /:global\(\.team-leader-workbench__allocation-order-popper\s+\.el-select-dropdown__item\s+\+ \.el-select-dropdown__item\)\s*\{[\s\S]*border-top:/,
+  '分配活跃订单下拉多行候选之间必须有明确分隔，避免视觉粘连。'
 )

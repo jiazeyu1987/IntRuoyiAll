@@ -99,6 +99,31 @@ assert.match(
   /const\s+requirePositiveInteger\s*=[\s\S]*Number\.isInteger\(parsed\)[\s\S]*return parsed/,
   'allocation submit validation must require positive integers instead of accepting decimals.'
 )
+assert.match(
+  page,
+  /const\s+resolveCurrentLeaderType\s*=[\s\S]*activeLeaderTab\.value[\s\S]*leaderType !== 'PRODUCTION'[\s\S]*leaderType !== 'PQC'[\s\S]*return leaderType/,
+  'allocation preview and confirm must derive leaderType from the current tab instead of mutable filter params.'
+)
+assert.match(
+  page,
+  /previewTeamLeaderReportFifoAllocation\(\{\s*eventId,\s*leaderType:\s*resolveCurrentLeaderType\(\)\s*\}\)/,
+  'FIFO allocation preview must submit the current tab leaderType so backend validation never receives null from filter state.'
+)
+assert.match(
+  page,
+  /const\s+leaderType\s*=\s*resolveCurrentLeaderType\(\)/,
+  'allocation confirmation must submit the current tab leaderType so backend validation never receives null from filter state.'
+)
+assert.match(
+  page,
+  /const\s+allocatableActiveOrderOptions\s*=\s*computed\(\(\)\s*=>\s*[\s\S]*!order\.abnormal[\s\S]*normalizePositiveNumber\(order\.id\)[\s\S]*\)/,
+  'manual allocation selector must only expose active orders with a formal positive id.'
+)
+assert.match(
+  page,
+  /const\s+addAllocationLine\s*=[\s\S]*activeOrderId:\s*undefined[\s\S]*allocatedQuantity:\s*0/,
+  'new manual allocation rows must start unselected instead of auto-filling a possibly invalid active order.'
+)
 assert.doesNotMatch(
   page,
   /reviewTeamLeaderSubmission\(\{\s*eventId,[\s\S]{0,220}reviewStatus:\s*reviewForm\.reviewStatus,[\s\S]{0,220}\}\)/,
