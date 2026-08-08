@@ -77,4 +77,4 @@ assert.match(
   'Changing the visible title must not alter itemCode/itemName/inspectionMethod submission identity.'
 )
 
-console.log('PASS: PQC active title displays inspection method while preserving item identity')
+console.log('PASS: PQC active red-box summary is hidden while preserving item identity')
