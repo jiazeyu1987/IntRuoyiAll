@@ -9,13 +9,26 @@ const tabs = read('src/views/mes/pro/edhr-batch/EdhrBatchRecordTabs.vue')
 const routes = read('src/router/modules/remaining.ts')
 const api = read('src/api/system/codexTestManagement/index.ts')
 const pagePath = path.join(root, 'src/views/mes/pro/edhr-batch/BatchRecordTestPage.vue')
+const visibleMenuSqlPath = path.join(
+  root,
+  '..',
+  'IntRuoyiBackend',
+  'sql/mysql/20260808_mes_edhr_batch_record_test_menu.sql'
+)
 
 assert.ok(fs.existsSync(pagePath), '批记录测试页面组件必须存在。')
+assert.ok(fs.existsSync(visibleMenuSqlPath), '必须提供 admin 可见菜单迁移，否则从芋道源码/admin 进入看不到“批记录测试”。')
 const page = fs.readFileSync(pagePath, 'utf8')
+const visibleMenuSql = fs.readFileSync(visibleMenuSqlPath, 'utf8')
 
 assert.match(tabs, /<el-tab-pane\s+label="批记录测试"\s+name="test"\s*\/>/, 'eDHR 顶部页签必须新增“批记录测试”。')
 assert.match(tabs, /test:\s*'\/mes\/pro\/feedback\/edhr-batch-test'/, '批记录测试页签必须路由到固定测试页。')
 assert.match(routes, /path:\s*'pro\/feedback\/edhr-batch-test'[\s\S]*BatchRecordTestPage\.vue[\s\S]*permission:\s*\['mes:pro-edhr-batch-execution:query'\]/, '必须新增隐藏路由并沿用 eDHR 批次执行查询权限。')
+assert.match(visibleMenuSql, /release-migration:[\s\S]*type=menu/, '批记录测试 admin 可见入口必须通过正式菜单迁移交付。')
+assert.match(visibleMenuSql, /900440[\s\S]*'批记录测试'[\s\S]*'mes:pro-edhr-batch-execution:query'[\s\S]*'\/mes\/pro\/feedback\/edhr-batch-test'[\s\S]*'mes\/pro\/edhr-batch\/BatchRecordTestPage'[\s\S]*'MesProEdhrBatchRecordTest'/, 'admin 可见菜单必须指向批记录测试页面并沿用批次执行查询权限。')
+assert.match(visibleMenuSql, /system_tenant_package[\s\S]*CAST\('900440' AS JSON\)/, '批记录测试菜单必须加入目标租户套餐，否则 admin 菜单不可见。')
+assert.match(visibleMenuSql, /system_role_menu[\s\S]*900440/, '批记录测试菜单必须绑定 admin 角色菜单，否则 admin 角色看不到入口。')
+assert.match(visibleMenuSql, /SIGNAL SQLSTATE '45000'/, '菜单迁移必须 fail fast，不能静默跳过缺失前置。')
 
 assert.match(page, /<EdhrBatchRecordTabs\s+active-tab="test"\s*\/>/, '页面必须复用 eDHR 顶部页签并激活 test。')
 assert.match(page, /<el-tabs[\s\S]*v-model="activeInnerTab"[\s\S]*<el-tab-pane\s+label="生产组长"\s+name="productionLeader"/, '页面必须提供生产组长内部 tab。')
