@@ -7,11 +7,15 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -19,7 +23,6 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_SELF_FORBIDDEN;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_PQC_LEADER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_REJECT_REMARK_REQUIRED;
@@ -38,6 +41,9 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
     private final MesProProcessPoolEventMapper eventMapper;
     private final MesProcessPoolSubmissionReviewMapper reviewMapper;
     private final MesPqcProcessInspectionAggregationService processInspectionAggregationService;
+
+    @Resource
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     public MesTeamLeaderSubmissionReviewServiceImpl(MesTeamLeaderScopeService scopeService,
                                                     MesProProcessPoolEventMapper eventMapper,
@@ -78,6 +84,7 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
                 && MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
             throw exception(PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED, reqBO.getEventId());
         }
+        ReviewSignaturePayload reviewSignature = recordReviewSignature(reqBO, event);
         MesProcessPoolSubmissionReviewDO review = MesProcessPoolSubmissionReviewDO.builder()
                 .eventId(reqBO.getEventId())
                 .leaderUserId(reqBO.getLeaderUserId())
@@ -85,9 +92,9 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
                 .reviewStatus(reqBO.getReviewStatus())
                 .reviewRemark(reqBO.getReviewRemark())
                 .reviewedAt(LocalDateTime.now())
-                .reviewSignatureId(reqBO.getReviewSignatureId())
-                .reviewSignatureUserId(reqBO.getReviewSignatureUserId())
-                .reviewSignatureSnapshotJson(reqBO.getReviewSignatureSnapshotJson())
+                .reviewSignatureId(reviewSignature.reviewSignatureId())
+                .reviewSignatureUserId(reviewSignature.reviewSignatureUserId())
+                .reviewSignatureSnapshotJson(reviewSignature.reviewSignatureSnapshotJson())
                 .build();
         reviewMapper.insert(review);
         if (MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(reqBO.getReviewStatus())
@@ -102,9 +109,9 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
                 || StrUtil.isBlank(reqBO.getLeaderType())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "submissionReview");
         }
-        validateReviewSignature(reqBO.getLeaderUserId(), reqBO.getReviewSignatureId(),
-                reqBO.getReviewSignatureUserId(), reqBO.getReviewSignatureSnapshotJson(),
-                "submissionReview.reviewSignature");
+        if (StrUtil.isBlank(reqBO.getSignaturePassword())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "submissionReview.signaturePassword");
+        }
         if (!VALID_REVIEW_STATUSES.contains(reqBO.getReviewStatus())) {
             throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_STATUS_INVALID, reqBO.getReviewStatus());
         }
@@ -114,16 +121,40 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
         }
     }
 
-    private void validateReviewSignature(Long leaderUserId, Long reviewSignatureId, Long reviewSignatureUserId,
-                                         String reviewSignatureSnapshotJson, String context) {
-        if (reviewSignatureId == null || reviewSignatureId <= 0
-                || reviewSignatureUserId == null || reviewSignatureUserId <= 0
-                || StrUtil.isBlank(reviewSignatureSnapshotJson)
-                || !JsonUtils.isJsonObject(reviewSignatureSnapshotJson)) {
-            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, context);
-        }
-        if (!leaderUserId.equals(reviewSignatureUserId)) {
-            throw exception(PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH);
-        }
+    private ReviewSignaturePayload recordReviewSignature(MesTeamLeaderSubmissionReviewReqBO reqBO,
+                                                         MesProProcessPoolEventDO event) {
+        Long signatureId = signatureService.recordTeamLeaderReviewSignature(
+                reqBO.getLeaderUserId(),
+                reqBO.getSignaturePassword(),
+                buildReviewSignatureComment(reqBO, event));
+        return new ReviewSignaturePayload(
+                signatureId,
+                reqBO.getLeaderUserId(),
+                buildReviewSignatureSnapshot(reqBO, event, signatureId));
     }
+
+    private String buildReviewSignatureComment(MesTeamLeaderSubmissionReviewReqBO reqBO,
+                                               MesProProcessPoolEventDO event) {
+        return "组长复核:" + reqBO.getLeaderType() + ":" + event.getId() + ":" + reqBO.getReviewStatus();
+    }
+
+    private String buildReviewSignatureSnapshot(MesTeamLeaderSubmissionReviewReqBO reqBO,
+                                                MesProProcessPoolEventDO event,
+                                                Long signatureId) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("signatureId", signatureId);
+        payload.put("actorId", reqBO.getLeaderUserId());
+        payload.put("actionType", MesProBatchRecordExecutionSignatureService.ACTION_TEAM_LEADER_REVIEW);
+        payload.put("processPoolEventId", event.getId());
+        payload.put("eventType", event.getEventType());
+        payload.put("leaderType", reqBO.getLeaderType());
+        payload.put("reviewStatus", reqBO.getReviewStatus());
+        return JsonUtils.toJsonString(payload);
+    }
+
+    private record ReviewSignaturePayload(Long reviewSignatureId,
+                                          Long reviewSignatureUserId,
+                                          String reviewSignatureSnapshotJson) {
+    }
+
 }

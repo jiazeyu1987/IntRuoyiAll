@@ -35,8 +35,11 @@ assert.doesNotMatch(page, /EdhrBatchRecordTabs|active-tab="test"/, '批记录测
 assert.match(page, /data-edhr-batch-record-test-page/, '批记录测试独立页面必须提供稳定页面级 DOM 锚点。')
 assert.match(page, /edhr-batch-record-test-page__title[\s\S]*批记录测试/, '批记录测试独立页面必须展示页面标题。')
 assert.match(page, /<el-tabs[\s\S]*v-model="activeInnerTab"[\s\S]*<el-tab-pane\s+label="生产组长"\s+name="productionLeader"/, '页面必须提供生产组长内部 tab。')
+assert.match(page, /<el-tabs[\s\S]*v-model="activeInnerTab"[\s\S]*<el-tab-pane\s+label="一线生产"\s+name="frontlineProduction"/, '页面必须新增一线生产内部 tab。')
 assert.match(page, /<UnifiedListTemplate[\s\S]*table-key="mes\.pro\.edhrBatchRecordTest\.productionLeader"[\s\S]*@pagination="handleProductionLeaderPagination"/, '生产组长列表必须使用标准列表模板和稳定 table-key。')
 assert.match(page, /data-edhr-batch-record-test-production-leader-list/, '生产组长列表必须提供稳定 DOM 锚点。')
+assert.match(page, /<UnifiedListTemplate[\s\S]*table-key="mes\.pro\.edhrBatchRecordTest\.frontlineProduction"[\s\S]*@pagination="handleFrontlineProductionPagination"/, '一线生产列表必须使用标准列表模板和稳定 table-key。')
+assert.match(page, /data-edhr-batch-record-test-frontline-production-list/, '一线生产列表必须提供稳定 DOM 锚点。')
 assert.match(page, /<template\s+#actions\s*>[\s\S]*测试租户[\s\S]*refreshRunnerStatus/, '操作面板必须提供测试租户选择和 Runner 状态刷新。')
 assert.match(page, /<el-button[\s\S]*v-hasPermi="\['system:codex-test:execute'\]"[\s\S]*@click="handleTestRow\(row\)"[\s\S]*>\s*测试\s*<\/el-button>/, '每行操作列必须提供测试按钮并受执行权限控制。')
 
@@ -50,8 +53,35 @@ const duties = [
 for (const duty of duties) {
   assert.ok(page.includes(duty), `职责列表必须包含：${duty}`)
 }
-const dutyTitleCount = (page.match(/title:\s*'/g) || []).length
-assert.equal(dutyTitleCount, 5, '生产组长职责列表必须固定 5 行。')
+assert.equal((page.match(/caseName:\s*'批记录测试-生产组长-/g) || []).length, 5, '生产组长职责列表必须固定 5 行。')
+
+const frontlineProductionTasks = [
+  '一线生产入口与组长身份',
+  '负责工序卡片来源',
+  '负责员工卡片来源',
+  '工序上下文数据联动',
+  '设备可选性',
+  '设备参数可选性',
+  '设备参数限制规则',
+  '上下限与待分配报工'
+]
+for (const task of frontlineProductionTasks) {
+  assert.ok(page.includes(task), `一线生产任务列表必须包含：${task}`)
+}
+assert.equal((page.match(/caseName:\s*'批记录测试-一线生产-/g) || []).length, 8, '一线生产任务列表必须固定 8 行。')
+for (const requiredText of [
+  '自己的账号进入一线生产',
+  '工序配置列表中负责的工序',
+  '人员管理下维护的启用员工',
+  '不良、设备和设备参数',
+  '无设备工序',
+  '无参数',
+  '电子密码',
+  '所选员工的电子密码',
+  '报工管理页签等待分配'
+]) {
+  assert.ok(page.includes(requiredText), `一线生产职责描述必须包含：${requiredText}`)
+}
 
 assert.match(api, /export type CodexTestAnalysisMode = 'PLAYWRIGHT_E2E' \| 'CODE_READONLY'/, '前端 API 必须声明 analysisMode 枚举。')
 assert.match(api, /analysisMode\??:\s*CodexTestAnalysisMode/, '测试项 VO 必须包含 analysisMode。')
@@ -60,6 +90,7 @@ assert.match(api, /analysisModeSnapshot\??:\s*CodexTestAnalysisMode/, '执行快
 assert.match(page, /getCodexTestCasePage\(\{[\s\S]*project:\s*'批记录'[\s\S]*name:\s*definition\.caseName/, '测试前必须按项目和精确名称查找测试项。')
 assert.match(page, /existingCase\s*=\s*pageResult\.list\.find\([\s\S]*item\.name\s*===\s*definition\.caseName[\s\S]*item\.project\s*===\s*'批记录'/, 'upsert 必须二次精确匹配名称和项目，避免误用模糊结果。')
 assert.match(page, /analysisMode:\s*'CODE_READONLY'/, '生产组长测试项必须创建或更新为 CODE_READONLY。')
+assert.match(page, /methodText:\s*'只读扫描当前代码，分析是否已经完整支持' \+ definition\.testScope/, '代码分析测试项必须使用当前行测试范围生成自然语言方法。')
 assert.match(page, /updateCodexTestCase\(\{[\s\S]*id:\s*existingCase\.id[\s\S]*casePayload/, '已存在测试项时必须更新定义。')
 assert.match(page, /createCodexTestCase\(casePayload\)/, '不存在测试项时必须创建定义。')
 assert.match(page, /startCodexTestExecution\(\{[\s\S]*targetTenantId:\s*selectedTenantId\.value[\s\S]*executionMode:\s*'SEQUENTIAL'[\s\S]*caseIds:\s*\[caseId\]/, '测试按钮必须走后端执行接口启动单项顺序执行。')

@@ -163,9 +163,7 @@ class MesProcessPoolTeamLeaderControllerTest {
                 .setLeaderType("PQC")
                 .setReviewStatus("APPROVED")
                 .setReviewRemark("已复核")
-                .setReviewSignatureId(9101L)
-                .setReviewSignatureEmployeeUserId(3002L)
-                .setReviewSignatureSnapshotJson("{\"signature\":\"review\"}");
+                .setSignaturePassword("review-pass");
 
         CommonResult<Long> response;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -181,9 +179,7 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEquals("PQC", captor.getValue().getLeaderType());
         assertEquals(1001L, captor.getValue().getEventId());
         assertEquals("APPROVED", captor.getValue().getReviewStatus());
-        assertEquals(9101L, captor.getValue().getReviewSignatureId());
-        assertEquals(3002L, captor.getValue().getReviewSignatureUserId());
-        assertEquals("{\"signature\":\"review\"}", captor.getValue().getReviewSignatureSnapshotJson());
+        assertEquals("review-pass", captor.getValue().getSignaturePassword());
     }
 
     @Test
@@ -401,9 +397,7 @@ class MesProcessPoolTeamLeaderControllerTest {
                             .setLeaderType("PRODUCTION")
                             .setAllocationMode("MANUAL")
                             .setReviewRemark("现场调整")
-                            .setReviewSignatureId(9201L)
-                            .setReviewSignatureEmployeeUserId(3001L)
-                            .setReviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
+                            .setSignaturePassword("confirm-pass")
                             .setAllocations(List.of(new MesTeamLeaderReportAllocationLineReqVO()
                                     .setActiveOrderId(8101L)
                                     .setAllocatedQuantity(new BigDecimal("80")))));
@@ -424,9 +418,7 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEquals(3001L, confirmCaptor.getValue().getLeaderUserId());
         assertEquals("PRODUCTION", confirmCaptor.getValue().getLeaderType());
         assertEquals("MANUAL", confirmCaptor.getValue().getAllocationMode());
-        assertEquals(9201L, confirmCaptor.getValue().getReviewSignatureId());
-        assertEquals(3001L, confirmCaptor.getValue().getReviewSignatureUserId());
-        assertEquals("{\"signature\":\"confirm\"}", confirmCaptor.getValue().getReviewSignatureSnapshotJson());
+        assertEquals("confirm-pass", confirmCaptor.getValue().getSignaturePassword());
         assertEquals(1, confirmCaptor.getValue().getAllocations().size());
         MesTeamLeaderReportAllocationLineReqBO line = confirmCaptor.getValue().getAllocations().get(0);
         assertEquals(8101L, line.getActiveOrderId());

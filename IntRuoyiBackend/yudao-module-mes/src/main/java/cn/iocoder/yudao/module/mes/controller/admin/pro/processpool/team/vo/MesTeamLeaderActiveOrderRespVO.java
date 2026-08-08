@@ -74,4 +74,13 @@ public class MesTeamLeaderActiveOrderRespVO {
 
     @Schema(description = "最近未关闭异常上报时间")
     private LocalDateTime abnormalReportedAt;
+
+    @Schema(description = "放行资料申请状态", example = "PENDING_RELEASE_APPROVAL")
+    private String releaseApplicationStatus;
+
+    @Schema(description = "放行资料申请阻塞摘要", example = "缺少过程检验汇集明细")
+    private String releaseApplicationBlockerSummary;
+
+    @Schema(description = "放行审批待办编号", example = "7001")
+    private Long releaseApprovalWorkTaskId;
 }

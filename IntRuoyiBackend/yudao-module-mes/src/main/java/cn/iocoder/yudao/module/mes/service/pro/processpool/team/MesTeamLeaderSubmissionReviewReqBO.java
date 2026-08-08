@@ -14,6 +14,7 @@ public class MesTeamLeaderSubmissionReviewReqBO {
     private String leaderType;
     private String reviewStatus;
     private String reviewRemark;
+    private String signaturePassword;
     private Long reviewSignatureId;
     private Long reviewSignatureUserId;
     private String reviewSignatureSnapshotJson;

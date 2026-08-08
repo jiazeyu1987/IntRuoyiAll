@@ -49,6 +49,7 @@ public class MesProBatchRecordExecutionSignatureService {
     public static final String ACTION_FORM_REVIEW = "FORM_REVIEW";
     public static final String ACTION_PRODUCTION_SUBMIT = "PRODUCTION_SUBMIT";
     public static final String ACTION_PQC_SUBMIT = "PQC_SUBMIT";
+    public static final String ACTION_TEAM_LEADER_REVIEW = "TEAM_LEADER_REVIEW";
     public static final String SIGNATURE_MODE_PASSWORD = "PASSWORD";
     public static final String SIGNATURE_MODE_LOGIN_SESSION = "LOGIN_SESSION";
     public static final String SIGNATURE_TIME_MODE_SERVER = "SERVER_TIME";
@@ -88,6 +89,20 @@ public class MesProBatchRecordExecutionSignatureService {
     @Transactional(rollbackFor = Exception.class)
     public Long recordPqcSubmitSignature(String password, String comment) {
         return recordSignature(0L, password, comment, ACTION_PQC_SUBMIT);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordTeamLeaderReviewSignature(Long actorId, String password, String comment) {
+        if (actorId == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        AdminUserDO user = adminUserService.getUser(actorId);
+        if (user == null || !authorizationService.isElectronicSignatureEnabled(actorId)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        return recordSignatureForSystemUser(actorId, user, 0L, password, comment, ACTION_TEAM_LEADER_REVIEW,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -638,6 +653,7 @@ public class MesProBatchRecordExecutionSignatureService {
             case ACTION_FORM_REVIEW -> "表单复核";
             case ACTION_PRODUCTION_SUBMIT -> "一线生产报工提交";
             case ACTION_PQC_SUBMIT -> "PQC检验提交";
+            case ACTION_TEAM_LEADER_REVIEW -> "组长复核";
             default -> actionType;
         };
     }

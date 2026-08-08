@@ -7,7 +7,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderRep
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderSubmissionReviewReqBO;
 import org.junit.jupiter.api.Test;
 
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -26,30 +26,25 @@ class MesP0TeamLeaderReviewSignatureSchemaTest {
         assertField(MesProcessPoolSubmissionReviewDO.class, "reviewSignatureUserId", Long.class);
         assertField(MesProcessPoolSubmissionReviewDO.class, "reviewSignatureSnapshotJson", String.class);
 
-        assertField(MesTeamLeaderSubmissionReviewReqVO.class, "reviewSignatureId", Long.class);
-        assertField(MesTeamLeaderSubmissionReviewReqVO.class, "reviewSignatureEmployeeUserId", Long.class);
-        assertField(MesTeamLeaderSubmissionReviewReqVO.class, "reviewSignatureSnapshotJson", String.class);
+        assertField(MesTeamLeaderSubmissionReviewReqVO.class, "signaturePassword", String.class);
 
+        assertField(MesTeamLeaderSubmissionReviewReqBO.class, "signaturePassword", String.class);
         assertField(MesTeamLeaderSubmissionReviewReqBO.class, "reviewSignatureId", Long.class);
         assertField(MesTeamLeaderSubmissionReviewReqBO.class, "reviewSignatureUserId", Long.class);
         assertField(MesTeamLeaderSubmissionReviewReqBO.class, "reviewSignatureSnapshotJson", String.class);
 
-        assertField(MesTeamLeaderReportAllocationConfirmReqVO.class, "reviewSignatureId", Long.class);
-        assertField(MesTeamLeaderReportAllocationConfirmReqVO.class, "reviewSignatureEmployeeUserId", Long.class);
-        assertField(MesTeamLeaderReportAllocationConfirmReqVO.class, "reviewSignatureSnapshotJson", String.class);
+        assertField(MesTeamLeaderReportAllocationConfirmReqVO.class, "signaturePassword", String.class);
 
+        assertField(MesTeamLeaderReportConfirmationReqBO.class, "signaturePassword", String.class);
         assertField(MesTeamLeaderReportConfirmationReqBO.class, "reviewSignatureId", Long.class);
         assertField(MesTeamLeaderReportConfirmationReqBO.class, "reviewSignatureUserId", Long.class);
         assertField(MesTeamLeaderReportConfirmationReqBO.class, "reviewSignatureSnapshotJson", String.class);
     }
 
     @Test
-    void reportAllocationConfirmRequestMustNotRequireClientVisibleSignatureFields() throws Exception {
-        assertTrue(hasAnnotation(MesTeamLeaderSubmissionReviewReqVO.class, "reviewSignatureId", NotNull.class));
-        assertTrue(hasAnnotation(MesTeamLeaderSubmissionReviewReqVO.class, "reviewSignatureEmployeeUserId", NotNull.class));
-
-        assertFalse(hasAnnotation(MesTeamLeaderReportAllocationConfirmReqVO.class, "reviewSignatureId", NotNull.class));
-        assertFalse(hasAnnotation(MesTeamLeaderReportAllocationConfirmReqVO.class, "reviewSignatureEmployeeUserId", NotNull.class));
+    void reviewRequestsMustUsePasswordInsteadOfClientVisibleSignatureFields() throws Exception {
+        assertTrue(hasAnnotation(MesTeamLeaderSubmissionReviewReqVO.class, "signaturePassword", NotBlank.class));
+        assertFalse(hasAnnotation(MesTeamLeaderReportAllocationConfirmReqVO.class, "signaturePassword", NotBlank.class));
     }
 
     @Test

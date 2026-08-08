@@ -1549,4 +1549,38 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private LocalDateTime now() {
         return LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProEdhrReleaseRespVO submitForApproval(MesProEdhrReleaseSubmitForApprovalCommand command) {
+        String idempotencyKey = requireIdempotencyKey(command.getIdempotencyKey());
+        MesProEdhrReleaseTransactionEventDO existingEvent =
+                releaseTransactionEventMapper.selectByReleaseTransactionIdAndEventTypeAndIdempotencyKey(
+                        command.getReleaseTransactionId(), EVENT_TYPE_SUBMIT, idempotencyKey);
+        if (existingEvent != null) {
+            return get(command.getReleaseTransactionId());
+        }
+
+        MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(command.getReleaseTransactionId());
+        requirePrecheckPassed(transaction);
+        requireDossierRequirementConfigHashCurrent(extractDossierRequirementConfigHash(transaction));
+        MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
+        String fromStatus = transaction.getReleaseStatus();
+        LocalDateTime occurredAt = now();
+        Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
+        String reason = StrUtil.blankToDefault(StrUtil.trim(command.getSubmitReason()),
+                "生产组长申请生成放行资料，提交负责人审批");
+        MesProEdhrWorkTaskDO approvalTask = workTaskService.createReleaseApprovalTaskAfterSubmit(transaction, batch);
+
+        releaseTransactionMapper.updateById(new MesProEdhrReleaseTransactionDO()
+                .setId(transaction.getId())
+                .setReleaseStatus(STATUS_PENDING_APPROVAL)
+                .setSubmitIdempotencyKey(idempotencyKey)
+                .setSubmittedBy(actorUserId)
+                .setSubmittedAt(occurredAt));
+        transaction = releaseTransactionMapper.selectById(transaction.getId());
+        recordTransactionEvent(transaction, EVENT_TYPE_SUBMIT, fromStatus, STATUS_PENDING_APPROVAL,
+                actorUserId, reason, null, idempotencyKey, null, occurredAt);
+        return toResp(batch, transaction).setReleaseApprovalWorkTaskId(approvalTask.getId());
+    }
 }

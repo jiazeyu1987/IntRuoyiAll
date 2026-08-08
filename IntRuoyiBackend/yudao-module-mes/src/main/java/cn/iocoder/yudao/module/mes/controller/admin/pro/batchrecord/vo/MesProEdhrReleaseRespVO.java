@@ -90,4 +90,6 @@ public class MesProEdhrReleaseRespVO {
     private LocalDateTime withdrawnAt;
 
     private String withdrawReason;
+
+    private Long releaseApprovalWorkTaskId;
 }

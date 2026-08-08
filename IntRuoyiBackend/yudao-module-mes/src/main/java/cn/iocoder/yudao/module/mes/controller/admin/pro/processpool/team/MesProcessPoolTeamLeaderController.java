@@ -21,6 +21,10 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCandidateRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderReleaseApplyReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderReleaseApplyRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderReleaseBlockerRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderReleaseDossierSummaryRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderTransferTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderLossReasonRespVO;
@@ -64,6 +68,11 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamFormalUse
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCandidateBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRemoveReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationResult;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplyCommand;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseBlocker;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseDossierSummary;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRow;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderLossReasonItem;
@@ -127,6 +136,7 @@ public class MesProcessPoolTeamLeaderController {
     private final MesTeamLeaderLossReasonService lossReasonService;
     private final MesTeamLeaderTraceService traceService;
     private final MesActiveOrderTransferTraceService activeOrderTransferTraceService;
+    private final MesTeamLeaderActiveOrderReleaseApplicationService releaseApplicationService;
 
     public MesProcessPoolTeamLeaderController(MesTeamLeaderWorkbenchService workbenchService,
                                               MesTeamLeaderSubmissionReviewService submissionReviewService,
@@ -139,7 +149,8 @@ public class MesProcessPoolTeamLeaderController {
                                               MesPqcLeaderPersonnelService pqcPersonnelService,
                                               MesTeamLeaderLossReasonService lossReasonService,
                                               MesTeamLeaderTraceService traceService,
-                                              MesActiveOrderTransferTraceService activeOrderTransferTraceService) {
+                                              MesActiveOrderTransferTraceService activeOrderTransferTraceService,
+                                              MesTeamLeaderActiveOrderReleaseApplicationService releaseApplicationService) {
         this.workbenchService = workbenchService;
         this.submissionReviewService = submissionReviewService;
         this.abnormalReportService = abnormalReportService;
@@ -152,6 +163,7 @@ public class MesProcessPoolTeamLeaderController {
         this.lossReasonService = lossReasonService;
         this.traceService = traceService;
         this.activeOrderTransferTraceService = activeOrderTransferTraceService;
+        this.releaseApplicationService = releaseApplicationService;
     }
 
     @GetMapping("/submission/page")
@@ -182,9 +194,7 @@ public class MesProcessPoolTeamLeaderController {
                 .leaderType(reqVO.getLeaderType())
                 .reviewStatus(reqVO.getReviewStatus())
                 .reviewRemark(reqVO.getReviewRemark())
-                .reviewSignatureId(reqVO.getReviewSignatureId())
-                .reviewSignatureUserId(reqVO.getReviewSignatureEmployeeUserId())
-                .reviewSignatureSnapshotJson(reqVO.getReviewSignatureSnapshotJson())
+                .signaturePassword(reqVO.getSignaturePassword())
                 .build()));
     }
 
@@ -297,6 +307,20 @@ public class MesProcessPoolTeamLeaderController {
                 .toList());
     }
 
+    @PostMapping("/active-order/release/apply")
+    @Operation(summary = "生产组长活跃订单申请生成放行资料")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:release-apply')")
+    public CommonResult<MesTeamLeaderActiveOrderReleaseApplyRespVO> applyActiveOrderRelease(
+            @Valid @RequestBody MesTeamLeaderActiveOrderReleaseApplyReqVO reqVO) {
+        MesTeamLeaderActiveOrderReleaseApplicationResult result = releaseApplicationService.apply(
+                SecurityFrameworkUtils.getLoginUserId(),
+                new MesTeamLeaderActiveOrderReleaseApplyCommand()
+                        .setActiveOrderId(reqVO.getActiveOrderId())
+                        .setIdempotencyKey(reqVO.getIdempotencyKey())
+                        .setApplyRemark(reqVO.getApplyRemark()));
+        return success(toActiveOrderReleaseApplyRespVO(result));
+    }
+
     @GetMapping("/active-order/candidates")
     @Operation(summary = "搜索生产组长可加入活跃订单候选")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
@@ -342,9 +366,7 @@ public class MesProcessPoolTeamLeaderController {
                 .leaderType(reqVO.getLeaderType())
                 .allocationMode(reqVO.getAllocationMode())
                 .reviewRemark(reqVO.getReviewRemark())
-                .reviewSignatureId(reqVO.getReviewSignatureId())
-                .reviewSignatureUserId(reqVO.getReviewSignatureEmployeeUserId())
-                .reviewSignatureSnapshotJson(reqVO.getReviewSignatureSnapshotJson())
+                .signaturePassword(reqVO.getSignaturePassword())
                 .allocations(reqVO.getAllocations().stream()
                         .map(MesProcessPoolTeamLeaderController::toReportAllocationLineReqBO)
                         .toList())
@@ -788,7 +810,54 @@ public class MesProcessPoolTeamLeaderController {
                 .setVersion(activeOrder.getVersion())
                 .setAbnormal(activeOrder.getAbnormal())
                 .setAbnormalReason(activeOrder.getAbnormalReason())
-                .setAbnormalReportedAt(activeOrder.getAbnormalReportedAt());
+                .setAbnormalReportedAt(activeOrder.getAbnormalReportedAt())
+                .setReleaseApplicationStatus(activeOrder.getReleaseApplicationStatus())
+                .setReleaseApplicationBlockerSummary(activeOrder.getReleaseApplicationBlockerSummary())
+                .setReleaseApprovalWorkTaskId(activeOrder.getReleaseApprovalWorkTaskId());
+    }
+
+    private static MesTeamLeaderActiveOrderReleaseApplyRespVO toActiveOrderReleaseApplyRespVO(
+            MesTeamLeaderActiveOrderReleaseApplicationResult result) {
+        return new MesTeamLeaderActiveOrderReleaseApplyRespVO()
+                .setApplicationId(result.getApplicationId())
+                .setActiveOrderId(result.getActiveOrderId())
+                .setWorkOrderId(result.getWorkOrderId())
+                .setWorkOrderCode(result.getWorkOrderCode())
+                .setBatchExecutionId(result.getBatchExecutionId())
+                .setReleaseTransactionId(result.getReleaseTransactionId())
+                .setReleaseApprovalWorkTaskId(result.getReleaseApprovalWorkTaskId())
+                .setStatus(result.getStatus())
+                .setStatusName(result.getStatusName())
+                .setDossierSummary(toActiveOrderReleaseDossierSummaryRespVO(result.getDossierSummary()))
+                .setBlockers((result.getBlockers() == null ? List.<MesTeamLeaderActiveOrderReleaseBlocker>of()
+                        : result.getBlockers()).stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderReleaseBlockerRespVO)
+                        .toList())
+                .setAppliedAt(result.getAppliedAt());
+    }
+
+    private static MesTeamLeaderActiveOrderReleaseDossierSummaryRespVO toActiveOrderReleaseDossierSummaryRespVO(
+            MesTeamLeaderActiveOrderReleaseDossierSummary summary) {
+        if (summary == null) {
+            return null;
+        }
+        return new MesTeamLeaderActiveOrderReleaseDossierSummaryRespVO()
+                .setBatchRecordCount(summary.getBatchRecordCount())
+                .setProcessInspectionFormCount(summary.getProcessInspectionFormCount())
+                .setLossReportFormCount(summary.getLossReportFormCount())
+                .setSignatureEvidenceCount(summary.getSignatureEvidenceCount())
+                .setSourceSnapshotHash(summary.getSourceSnapshotHash());
+    }
+
+    private static MesTeamLeaderActiveOrderReleaseBlockerRespVO toActiveOrderReleaseBlockerRespVO(
+            MesTeamLeaderActiveOrderReleaseBlocker blocker) {
+        return new MesTeamLeaderActiveOrderReleaseBlockerRespVO()
+                .setBlockerType(blocker.getBlockerType())
+                .setObjectType(blocker.getObjectType())
+                .setObjectId(blocker.getObjectId())
+                .setObjectCode(blocker.getObjectCode())
+                .setReason(blocker.getReason())
+                .setSuggestion(blocker.getSuggestion());
     }
 
     private static MesTeamLeaderActiveOrderCandidateRespVO toActiveOrderCandidateRespVO(

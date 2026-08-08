@@ -26,14 +26,7 @@ public class MesTeamLeaderSubmissionReviewReqVO {
     @Schema(description = "复核说明", example = "已复核")
     private String reviewRemark;
 
-    @Schema(description = "复核电子签名ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "9101")
-    @NotNull
-    private Long reviewSignatureId;
-
-    @Schema(description = "复核电子签名用户ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "3001")
-    @NotNull
-    private Long reviewSignatureEmployeeUserId;
-
-    @Schema(description = "复核电子签名快照JSON")
-    private String reviewSignatureSnapshotJson;
+    @Schema(description = "电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED, example = "******")
+    @NotBlank(message = "电子签名密码不能为空")
+    private String signaturePassword;
 }

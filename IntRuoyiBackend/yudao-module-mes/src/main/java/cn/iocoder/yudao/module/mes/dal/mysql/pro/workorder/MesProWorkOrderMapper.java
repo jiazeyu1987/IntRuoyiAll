@@ -6,7 +6,6 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.QuickFilterUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderPageReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
-import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.apache.ibatis.annotations.Mapper;
@@ -72,15 +71,14 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
         return selectOne(MesProWorkOrderDO::getCode, code);
     }
 
-    default List<MesProWorkOrderDO> selectConfirmedCandidatesByKeyword(String keyword, Collection<Long> productIds,
-                                                                       int limit) {
+    default List<MesProWorkOrderDO> selectCandidatesByKeyword(String keyword, Collection<Long> productIds,
+                                                              int limit) {
         if (keyword == null || keyword.trim().isEmpty()) {
             return Collections.emptyList();
         }
         int safeLimit = Math.max(1, Math.min(limit, 20));
         String searchText = keyword.trim();
         return selectList(new LambdaQueryWrapperX<MesProWorkOrderDO>()
-                .eq(MesProWorkOrderDO::getStatus, MesProWorkOrderStatusEnum.CONFIRMED.getStatus())
                 .and(wrapper -> {
                     wrapper.like(MesProWorkOrderDO::getCode, searchText);
                     if (productIds != null && !productIds.isEmpty()) {

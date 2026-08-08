@@ -18,9 +18,7 @@ export interface TeamLeaderSubmissionReviewReqVO {
   leaderType: TeamLeaderType
   reviewStatus: SubmissionReviewStatus
   reviewRemark?: string
-  reviewSignatureId: number
-  reviewSignatureEmployeeUserId: number
-  reviewSignatureSnapshotJson?: string
+  signaturePassword: string
 }
 
 export interface WorkOrderAbnormalReportReqVO {
@@ -265,6 +263,47 @@ export interface TeamLeaderActiveOrderRespVO {
   abnormal: boolean
   abnormalReason?: string
   abnormalReportedAt?: number
+  releaseApplicationStatus?: string
+  releaseApplicationBlockerSummary?: string
+  releaseApprovalWorkTaskId?: number
+}
+
+export interface TeamLeaderActiveOrderReleaseApplyReqVO {
+  activeOrderId: number
+  idempotencyKey: string
+  applyRemark?: string
+}
+
+export interface TeamLeaderActiveOrderReleaseBlockerRespVO {
+  blockerType?: string
+  objectType?: string
+  objectId?: string
+  objectCode?: string
+  reason?: string
+  suggestion?: string
+}
+
+export interface TeamLeaderActiveOrderReleaseDossierSummaryRespVO {
+  batchRecordCount?: number
+  processInspectionFormCount?: number
+  lossReportFormCount?: number
+  signatureEvidenceCount?: number
+  sourceSnapshotHash?: string
+}
+
+export interface TeamLeaderActiveOrderReleaseApplyRespVO {
+  applicationId?: number
+  activeOrderId?: number
+  workOrderId?: number
+  workOrderCode?: string
+  batchExecutionId?: number
+  releaseTransactionId?: number
+  releaseApprovalWorkTaskId?: number
+  status?: string
+  statusName?: string
+  dossierSummary?: TeamLeaderActiveOrderReleaseDossierSummaryRespVO
+  blockers?: TeamLeaderActiveOrderReleaseBlockerRespVO[]
+  appliedAt?: string | number
 }
 
 export interface TeamDeviceRespVO {
@@ -322,23 +361,15 @@ export interface TeamLeaderReportAllocationConfirmReqVO {
   leaderType: TeamLeaderType
   allocationMode: 'FIFO' | 'MANUAL'
   reviewRemark?: string
-  reviewSignatureId?: number
-  reviewSignatureEmployeeUserId?: number
-  reviewSignatureSnapshotJson?: string
+  signaturePassword?: string
   allocations: TeamLeaderReportAllocationLine[]
 }
 
 const requireReviewSignaturePayload = (
-  data: Pick<TeamLeaderSubmissionReviewReqVO, 'reviewSignatureId' | 'reviewSignatureEmployeeUserId'>
+  data: Pick<TeamLeaderSubmissionReviewReqVO, 'signaturePassword'>
 ) => {
-  if (!Number.isFinite(Number(data.reviewSignatureId)) || Number(data.reviewSignatureId) <= 0) {
-    throw new Error('复核电子签名不能为空')
-  }
-  if (
-    !Number.isFinite(Number(data.reviewSignatureEmployeeUserId)) ||
-    Number(data.reviewSignatureEmployeeUserId) <= 0
-  ) {
-    throw new Error('复核签名员工不能为空')
+  if (!data.signaturePassword?.trim()) {
+    throw new Error('请输入电子签名密码')
   }
 }
 
@@ -417,6 +448,15 @@ export const getTeamLeaderResponsibleRouteList = async () => {
 export const getTeamLeaderActiveOrderList = async () => {
   return await request.get<TeamLeaderActiveOrderRespVO[]>({
     url: '/mes/pro/process-pool/team-leader/active-order/list'
+  })
+}
+
+export const applyTeamLeaderActiveOrderRelease = async (
+  data: TeamLeaderActiveOrderReleaseApplyReqVO
+) => {
+  return await request.post<TeamLeaderActiveOrderReleaseApplyRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/release/apply',
+    data
   })
 }
 

@@ -20,6 +20,15 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .orderByAsc(MesProcessPoolActiveOrderDO::getId));
     }
 
+    default MesProcessPoolActiveOrderDO selectByIdForUpdate(Long activeOrderId) {
+        if (activeOrderId == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
+                .eq(MesProcessPoolActiveOrderDO::getId, activeOrderId)
+                .last("FOR UPDATE"));
+    }
+
     default List<MesProcessPoolActiveOrderDO> selectActiveList() {
         return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
                 .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE")

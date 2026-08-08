@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionR
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
@@ -83,6 +84,8 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
     @Mock
     private MesWorkOrderAbnormalStateService abnormalStateService;
+    @Mock
+    private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
 
     private MesTeamLeaderActiveOrderService service;
 
@@ -92,7 +95,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
                 routeVersionMapper, processSnapshotMapper, completionMapper, inspectionRegulationMapper,
                 inspectionRegulationVersionMapper, inspectionRegulationItemMapper, pqcInspectionTaskMapper,
-                abnormalStateService);
+                abnormalStateService, releaseApplicationMapper);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
         lenient().when(scheduleOrderMapper.selectEffectiveListByWorkOrderIds(List.of(9001L))).thenReturn(List.of());
         lenient().when(routeProductMapper.selectListByItemIds(List.of(1001L))).thenReturn(List.of(
@@ -107,17 +110,23 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                         .build()));
         lenient().when(inspectionRegulationMapper.selectPublishedByRouteProcess(any(), any(), any(), any(), any()))
                 .thenReturn(publishedRegulation());
+        lenient().when(inspectionRegulationMapper.selectListByProductIds(List.of(1001L)))
+                .thenReturn(List.of(publishedRegulation()));
+        lenient().when(inspectionRegulationVersionMapper.selectBatchIds(List.of(9902L)))
+                .thenReturn(List.of(publishedRegulationVersion()));
         lenient().when(inspectionRegulationVersionMapper.selectById(9902L))
                 .thenReturn(publishedRegulationVersion());
+        lenient().when(inspectionRegulationItemMapper.selectListByVersionIds(List.of(9902L))).thenReturn(pqcItems());
         lenient().when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(pqcItems());
         lenient().when(pqcInspectionTaskMapper.selectByIdentity(any(), any(), any(), any(), any(), any()))
                 .thenReturn(null);
         lenient().when(pqcInspectionTaskMapper.insert(any(MesPqcInspectionTaskDO.class))).thenReturn(1);
+        lenient().when(releaseApplicationMapper.selectLatestByActiveOrderIds(any())).thenReturn(List.of());
     }
 
     @Test
     void shouldKeepUnscheduledCandidateEligibleWhenErpPlannedStartMissing() {
-        when(workOrderMapper.selectConfirmedCandidatesByKeyword("WO-9", List.of(), 20))
+        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of(), 20))
                 .thenReturn(List.of(confirmedWorkOrderWithoutPlannedStart()));
         when(inspectionRegulationMapper.selectListByProductIds(List.of(1001L)))
                 .thenReturn(List.of(publishedRegulation()));
@@ -134,7 +143,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
 
     @Test
     void shouldUseJoinedDateForUnscheduledPqcTasksWhenErpPlannedStartMissing() {
-        when(workOrderService.validateWorkOrderConfirmed(9001L)).thenReturn(confirmedWorkOrderWithoutPlannedStart());
+        when(workOrderService.validateWorkOrderExists(9001L)).thenReturn(confirmedWorkOrderWithoutPlannedStart());
         when(activeOrderMapper.insert(any(MesProcessPoolActiveOrderDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolActiveOrderDO.class).setId(8101L);
             return 1;

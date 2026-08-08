@@ -35,4 +35,7 @@ public class MesTeamLeaderActiveOrderRow {
     private Boolean abnormal;
     private String abnormalReason;
     private LocalDateTime abnormalReportedAt;
+    private String releaseApplicationStatus;
+    private String releaseApplicationBlockerSummary;
+    private Long releaseApprovalWorkTaskId;
 }

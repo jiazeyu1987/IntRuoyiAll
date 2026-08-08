@@ -22,4 +22,17 @@ public interface MesPqcProcessInspectionAggregateDetailMapper
                 .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getItemCode)
                 .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getId));
     }
+
+    default List<MesPqcProcessInspectionAggregateDetailDO> selectListByActiveOrderId(Long activeOrderId) {
+        if (activeOrderId == null) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesPqcProcessInspectionAggregateDetailDO>()
+                .eq(MesPqcProcessInspectionAggregateDetailDO::getActiveOrderId, activeOrderId)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getRouteProcessId)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getProcessId)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getSampleNo)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getItemCode)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getId));
+    }
 }

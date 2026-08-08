@@ -1200,6 +1200,12 @@ public interface ErrorCodeConstants {
             "生产订单已存在未关闭异常：{}");
     ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_ABNORMAL_ORDER_FORBIDDEN = new ErrorCode(1_040_760_350,
             "异常生产订单不参与报工分配：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_PROGRESS_REQUIRED = new ErrorCode(1_040_760_352,
+            "活跃订单生产进度和检验进度必须均为100%才能申请放行：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED = new ErrorCode(1_040_760_353,
+            "活跃订单申请放行缺少正式资料来源：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_OWNER_REQUIRED = new ErrorCode(1_040_760_354,
+            "活跃订单申请放行缺少生产负责人放行配置：{}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

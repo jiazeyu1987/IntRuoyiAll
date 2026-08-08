@@ -23,6 +23,8 @@ public interface MesProEdhrReleaseService {
 
     MesProEdhrReleaseRespVO submit(MesProEdhrReleaseSubmitReqVO reqVO);
 
+    MesProEdhrReleaseRespVO submitForApproval(MesProEdhrReleaseSubmitForApprovalCommand command);
+
     MesProEdhrReleaseRespVO approve(MesProEdhrReleaseApproveReqVO reqVO);
 
     MesProEdhrReleaseRespVO reject(MesProEdhrReleaseRejectReqVO reqVO);

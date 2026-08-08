@@ -1224,10 +1224,21 @@
                 </span>
               </template>
             </el-table-column>
+            <el-table-column label="放行申请" prop="releaseApplicationStatus" min-width="150">
+              <template #default="{ row }">
+                <el-tag
+                  :type="formatActiveOrderReleaseStatusTag(row.releaseApplicationStatus)"
+                  effect="plain"
+                  :title="row.releaseApplicationBlockerSummary || undefined"
+                >
+                  {{ formatActiveOrderReleaseStatus(row.releaseApplicationStatus) }}
+                </el-tag>
+              </template>
+            </el-table-column>
             <el-table-column label="加入时间" min-width="170">
               <template #default="{ row }">{{ formatDateTime(row.joinedAt) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="150" fixed="right">
+            <el-table-column label="操作" width="240" fixed="right">
               <template #default="{ row }">
                 <el-button
                   link
@@ -1249,11 +1260,39 @@
                 >
                   报异常
                 </el-button>
+                <el-button
+                  link
+                  type="primary"
+                  :disabled="!canApplyActiveOrderRelease(row)"
+                  :loading="releaseApplicationSubmittingId === row.id"
+                  :title="resolveActiveOrderReleaseApplyDisabledReason(row)"
+                  data-team-leader-active-order-release-apply
+                  @click="submitActiveOrderReleaseApplication(row)"
+                >
+                  申请放行
+                </el-button>
               </template>
             </el-table-column>
           </el-table>
         </template>
       </UnifiedListTemplate>
+      <el-alert
+        v-if="releaseApplicationBlockers.length"
+        class="mt-12px"
+        title="申请放行阻塞"
+        type="warning"
+        :closable="true"
+        show-icon
+        @close="releaseApplicationBlockers = []"
+      >
+        <div
+          v-for="blocker in releaseApplicationBlockers"
+          :key="`${blocker.blockerType}-${blocker.objectType}-${blocker.objectId}`"
+        >
+          {{ blocker.reason || blocker.blockerType }}
+          <span v-if="blocker.suggestion">；{{ blocker.suggestion }}</span>
+        </div>
+      </el-alert>
 
       <el-divider>调拨库存追溯</el-divider>
       <el-alert
@@ -2314,29 +2353,13 @@
         <el-form-item label="复核说明">
           <el-input v-model="reviewForm.reviewRemark" type="textarea" :rows="4" />
         </el-form-item>
-        <el-form-item label="复核签名ID" data-team-leader-review-signature>
-          <el-input-number
-            v-model="reviewForm.reviewSignatureId"
-            :min="1"
-            :controls="false"
-            class="team-leader-workbench__number"
-          />
-        </el-form-item>
-        <el-form-item label="签名员工ID">
-          <el-input-number
-            v-model="reviewForm.reviewSignatureEmployeeUserId"
-            :min="1"
-            :controls="false"
-            class="team-leader-workbench__number"
-          />
-        </el-form-item>
-        <el-form-item label="签名快照">
+        <el-form-item label="电子签名" required data-team-leader-review-signature>
           <el-input
-            v-model="reviewForm.reviewSignatureSnapshotJson"
-            type="textarea"
-            :rows="3"
-            resize="vertical"
-            placeholder="请输入电子签名快照 JSON 或签名服务返回引用"
+            v-model="reviewForm.reviewSignaturePassword"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            placeholder="请输入当前登录密码完成电子签名"
           />
         </el-form-item>
       </el-form>
@@ -2633,6 +2656,7 @@ import {
 } from '@/hooks/web/useUserTableColumns'
 import {
   addTeamLeaderActiveOrder,
+  applyTeamLeaderActiveOrderRelease,
   confirmTeamLeaderReportAllocation,
   createTemporaryTeamEmployee,
   createTeamDevice,
@@ -2668,6 +2692,7 @@ import {
   updatePqcPersonnelStatus,
   type TeamFormalEmployeeCandidateRespVO,
   type TeamLeaderActiveOrderCandidateRespVO,
+  type TeamLeaderActiveOrderReleaseBlockerRespVO,
   type TeamLeaderActiveOrderRespVO,
   type TeamLeaderActiveOrderTransferTraceRespVO,
   type TeamLeaderLossReasonVO,
@@ -2778,6 +2803,8 @@ const activeOrderCandidateError = ref('')
 const activeOrderTransferTraceRows = ref<TeamLeaderActiveOrderTransferTraceRespVO[]>([])
 const activeOrderTransferTraceLoading = ref(false)
 const activeOrderTransferTraceError = ref('')
+const releaseApplicationSubmittingId = ref<number>()
+const releaseApplicationBlockers = ref<TeamLeaderActiveOrderReleaseBlockerRespVO[]>([])
 const processConfigRows = ref<TeamLeaderProcessConfigRowRespVO[]>([])
 const processConfigDisplayRows = ref<TeamLeaderProcessConfigRowRespVO[]>([])
 const responsibleRouteRows = ref<TeamLeaderResponsibleRouteRespVO[]>([])
@@ -2892,6 +2919,7 @@ const activeOrderColumns: any[] = [
   { key: 'erpFixedQuantitySnapshot', label: 'ERP生产数量', visible: true },
   { key: 'productionProgressPercent', label: '生产进度', visible: true },
   { key: 'inspectionProgressPercent', label: '检验进度', visible: true },
+  { key: 'releaseApplicationStatus', label: '放行申请', visible: true },
   { key: 'joinedAt', label: '加入时间', visible: true }
 ]
 const pqcPersonnelQuery = reactive({
@@ -3316,9 +3344,7 @@ const reviewForm = reactive({
   reviewStatus: 'APPROVED' as 'APPROVED' | 'REJECTED',
   allocationMode: 'FIFO' as 'FIFO' | 'MANUAL',
   reviewRemark: '',
-  reviewSignatureId: undefined as number | undefined,
-  reviewSignatureEmployeeUserId: undefined as number | undefined,
-  reviewSignatureSnapshotJson: ''
+  reviewSignaturePassword: ''
 })
 
 const correctionForm = reactive({
@@ -3551,6 +3577,38 @@ const formatActiveOrderProgressPercent = (value: number | string | undefined) =>
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) return String(value).trim()
   return `${parsed.toFixed(1).replace(/\.0$/, '')}%`
+}
+
+const isActiveOrderProgressComplete = (value: number | string | undefined) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed >= 100
+}
+
+const formatActiveOrderReleaseStatus = (status?: string) => {
+  if (status === 'PENDING_RELEASE_APPROVAL') return '待负责人放行'
+  if (status === 'BLOCKED') return '资料阻塞'
+  return status || '未申请'
+}
+
+const formatActiveOrderReleaseStatusTag = (status?: string) => {
+  if (status === 'PENDING_RELEASE_APPROVAL') return 'success'
+  if (status === 'BLOCKED') return 'warning'
+  return 'info'
+}
+
+const canApplyActiveOrderRelease = (row: TeamLeaderActiveOrderRespVO) => {
+  if (row.abnormal) return false
+  if (row.releaseApplicationStatus === 'PENDING_RELEASE_APPROVAL') return false
+  return isActiveOrderProgressComplete(row.productionProgressPercent)
+    && isActiveOrderProgressComplete(row.inspectionProgressPercent)
+}
+
+const resolveActiveOrderReleaseApplyDisabledReason = (row: TeamLeaderActiveOrderRespVO) => {
+  if (row.abnormal) return row.abnormalReason || '异常订单不能申请放行'
+  if (row.releaseApplicationStatus === 'PENDING_RELEASE_APPROVAL') return '已提交生产负责人放行'
+  if (!isActiveOrderProgressComplete(row.productionProgressPercent)) return '生产进度未达到100%'
+  if (!isActiveOrderProgressComplete(row.inspectionProgressPercent)) return '检验进度未达到100%'
+  return '申请生成放行资料'
 }
 
 const formatTraceQuantity = (value: number | string | undefined) => {
@@ -4487,14 +4545,13 @@ const buildAllocationSubmitLines = (): TeamLeaderReportAllocationLine[] => {
   return lines
 }
 
-const buildReviewSignaturePayload = () => ({
-  reviewSignatureId: requirePositiveNumber(reviewForm.reviewSignatureId, '复核电子签名不能为空'),
-  reviewSignatureEmployeeUserId: requirePositiveNumber(
-    reviewForm.reviewSignatureEmployeeUserId,
-    '复核签名员工不能为空'
-  ),
-  reviewSignatureSnapshotJson: reviewForm.reviewSignatureSnapshotJson.trim() || undefined
-})
+const buildReviewSignaturePayload = () => {
+  const signaturePassword = reviewForm.reviewSignaturePassword.trim()
+  if (!signaturePassword) {
+    throw new Error('请输入电子签名密码')
+  }
+  return { signaturePassword }
+}
 
 type PqcSubmissionContentItemKey = string
 
@@ -5479,9 +5536,7 @@ const openReview = async (event: ProcessPoolTimelineEventVO) => {
   reviewForm.reviewStatus = 'APPROVED'
   resetReviewAllocation()
   reviewForm.reviewRemark = ''
-  reviewForm.reviewSignatureId = undefined
-  reviewForm.reviewSignatureEmployeeUserId = undefined
-  reviewForm.reviewSignatureSnapshotJson = ''
+  reviewForm.reviewSignaturePassword = ''
   reviewVisible.value = true
   if (isProductionLeader.value) {
     try {
@@ -5503,9 +5558,7 @@ const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
   reviewForm.reviewStatus = 'APPROVED'
   resetReviewAllocation()
   reviewForm.reviewRemark = ''
-  reviewForm.reviewSignatureId = undefined
-  reviewForm.reviewSignatureEmployeeUserId = undefined
-  reviewForm.reviewSignatureSnapshotJson = ''
+  reviewForm.reviewSignaturePassword = ''
   reviewVisible.value = true
   try {
     await loadActiveOrders()
@@ -5867,6 +5920,45 @@ const submitAddActiveOrder = async () => {
     )
   } finally {
     maintenanceSubmitting.value = false
+  }
+}
+
+const buildActiveOrderReleaseIdempotencyKey = (row: TeamLeaderActiveOrderRespVO) =>
+  `team-leader-active-order-release-${row.id}-${Date.now()}`
+
+const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (!canApplyActiveOrderRelease(row)) {
+    ElMessage.warning(resolveActiveOrderReleaseApplyDisabledReason(row))
+    return
+  }
+  await ElMessageBox.confirm(
+    '系统将根据当前已填写并已确认的数据，申请生成放行资料并提交生产负责人审批；不会直接放行。',
+    '申请生成放行资料',
+    { type: 'warning', confirmButtonText: '申请放行', cancelButtonText: '取消' }
+  )
+  releaseApplicationSubmittingId.value = row.id
+  releaseApplicationBlockers.value = []
+  let writeCompleted = false
+  try {
+    const result = await applyTeamLeaderActiveOrderRelease({
+      activeOrderId: requirePositiveNumber(row.id, '活跃订单记录ID不能为空'),
+      idempotencyKey: buildActiveOrderReleaseIdempotencyKey(row),
+      applyRemark: '生产组长申请生成放行资料'
+    })
+    writeCompleted = true
+    releaseApplicationBlockers.value = result.blockers || []
+    if (releaseApplicationBlockers.value.length > 0) {
+      ElMessage.warning('申请已记录，但正式资料生成存在阻塞项')
+    } else {
+      ElMessage.success(result.statusName || '已提交生产负责人放行')
+    }
+    await loadActiveOrders()
+  } catch (error) {
+    ElMessage.error(
+      resolveErrorMessage(error, writeCompleted ? '申请已提交，但列表刷新失败' : '申请放行失败')
+    )
+  } finally {
+    releaseApplicationSubmittingId.value = undefined
   }
 }
 

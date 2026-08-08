@@ -29,13 +29,13 @@ assert.match(
 
 assert.match(
   source,
-  /const canReviewSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*!row\.submissionReviewStatus \|\| row\.submissionReviewStatus === 'PENDING'/,
+  /const canReviewSubmission = \(row: ProcessPoolTimelineEventVO\) =>[\s\S]*!\(isProductionReportHistoryTab\.value \|\| isPqcFormHistoryTab\.value\)[\s\S]*!row\.submissionReviewStatus \|\| row\.submissionReviewStatus === 'PENDING'/,
   '待复核判断必须只允许空状态或 PENDING'
 )
 
 assert.match(
   source,
-  /const canCorrectSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*isProductionLeader\.value \|\| row\.submissionReviewStatus === 'REJECTED'/,
+  /const canCorrectSubmission = \(row: ProcessPoolTimelineEventVO\) =>[\s\S]*!\(isProductionReportHistoryTab\.value \|\| isPqcFormHistoryTab\.value\)[\s\S]*isProductionLeader\.value \|\| row\.submissionReviewStatus === 'REJECTED'/,
   '生产组长报工行允许直接修改；PQC 仍只允许 REJECTED 后修改'
 )
 

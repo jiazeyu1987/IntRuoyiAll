@@ -17,7 +17,7 @@ const reviewDialog = page.slice(reviewDialogStart, correctionDialogStart)
 assert.match(
   reviewDialog,
   /<el-form\s+v-if="reviewDialogMode === 'REVIEW'"[\s\S]*label="复核说明"[\s\S]*data-team-leader-review-signature/,
-  '复核说明和签名内部字段只能在复核模式展示，分配报工模式不得显示。'
+  '复核说明和电子签名输入只能在复核模式展示，分配报工模式不得显示。'
 )
 const allocationBlockStart = reviewDialog.indexOf('class="team-leader-workbench__allocation"')
 assert(allocationBlockStart >= 0, '分配报工弹窗必须保留活跃订单分配区域。')
@@ -67,8 +67,8 @@ assert.match(
 
 assert.match(
   api,
-  /export interface TeamLeaderReportAllocationConfirmReqVO\s*\{[\s\S]*reviewSignatureId\?:\s*number[\s\S]*reviewSignatureEmployeeUserId\?:\s*number[\s\S]*reviewSignatureSnapshotJson\?:\s*string/,
-  '分配确认 API 请求类型必须把复核签名字段声明为可选，避免前端隐藏字段后仍要求用户手填内部字段。'
+  /export interface TeamLeaderReportAllocationConfirmReqVO\s*\{[\s\S]*signaturePassword\?:\s*string[\s\S]*allocations:/,
+  '分配确认 API 请求类型只允许复核入口携带可选签名密码，避免前端隐藏字段后仍要求用户手填内部字段。'
 )
 assert.doesNotMatch(
   api.match(/export const confirmTeamLeaderReportAllocation[\s\S]*?\n\}/)?.[0] || '',
