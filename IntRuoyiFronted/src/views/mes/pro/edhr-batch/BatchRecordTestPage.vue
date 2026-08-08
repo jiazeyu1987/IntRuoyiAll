@@ -267,7 +267,7 @@ type PaginationPayload = {
 }
 
 const message = useMessage()
-const activeInnerTab = ref<'productionLeader' | 'frontlinePqc' | 'frontlineProduction'>('productionLeader')
+const activeInnerTab = ref<'productionLeader' | 'frontlineProduction'>('productionLeader')
 const tenantOptions = ref<TenantApi.TenantVO[]>([])
 const selectedTenantId = ref<number>()
 const runnerStatus = ref<CodexTestApi.CodexTestRunnerStatusVO>()
@@ -319,79 +319,12 @@ const productionLeaderRows: BatchRecordTestRow[] = [
   }
 ]
 
-const frontlinePqcRows: BatchRecordTestRow[] = [
-  {
-    id: 101,
-    sort: 1,
-    title: '活跃订单池选择订单',
-    description: '一线PQC填写任务从所有生产组长维护的活跃订单池中选择订单，并以所选订单作为后续产品、工序和检验项目上下文。',
-    caseName: '批记录测试-一线PQC-01-活跃订单池选择订单',
-    testScope: '一线PQC：从所有生产组长的活跃订单池选择订单'
-  },
-  {
-    id: 102,
-    sort: 2,
-    title: '按产品读取工艺路线工序',
-    description: '根据订单对应产品读取工艺路线中的全部工序，点击工序卡片时展示可选择的完整工序列表。',
-    caseName: '批记录测试-一线PQC-02-按产品读取工艺路线工序',
-    testScope: '一线PQC：按订单产品读取工艺路线全部工序并通过工序卡片选择'
-  },
-  {
-    id: 103,
-    sort: 3,
-    title: '按工序加载QA检验项',
-    description: '选择工序后，从该产品对应QA检测项目列表中查找该工序的全部检验项，并展示在检验项tab中。',
-    caseName: '批记录测试-一线PQC-03-按工序加载QA检验项',
-    testScope: '一线PQC：按产品和工序从QA检测项目列表加载全部检验项'
-  },
-  {
-    id: 104,
-    sort: 4,
-    title: '检验项名称与方法展示',
-    description: '检验项tab必须显示检验项名称而不是编号，并在每个检验项tab中展示对应检验方法。',
-    caseName: '批记录测试-一线PQC-04-检验项名称与方法展示',
-    testScope: '一线PQC：检验项tab显示名称和对应检验方法'
-  },
-  {
-    id: 105,
-    sort: 5,
-    title: '首检检验数量读取',
-    description: '选择首检时，根据产品+工序从QA检验项目读取首检数量，并将该数量显示为检验数量。',
-    caseName: '批记录测试-一线PQC-05-首检检验数量读取',
-    testScope: '一线PQC：首检数量来自产品和工序对应QA检验项目'
-  },
-  {
-    id: 106,
-    sort: 6,
-    title: '巡检抽样数量计算',
-    description: '选择巡检时，根据产品+工序读取抽样率并按生产数量计算检验数量，例如生产10000、抽样率0.4时检验数量为40。',
-    caseName: '批记录测试-一线PQC-06-巡检抽样数量计算',
-    testScope: '一线PQC：巡检数量按生产数量乘以QA抽样率再除以100计算'
-  },
-  {
-    id: 107,
-    sort: 7,
-    title: '电子密码提交',
-    description: '点击提交时必须要求输入电子密码，确认通过后才允许提交检验结果。',
-    caseName: '批记录测试-一线PQC-07-电子密码提交',
-    testScope: '一线PQC：提交检验结果前必须通过电子密码确认'
-  },
-  {
-    id: 108,
-    sort: 8,
-    title: '提交进入PQC组长管理列表',
-    description: '一线PQC提交确认后，检验数据必须添加到对应PQC组长的PQC管理列表等待后续确认。',
-    caseName: '批记录测试-一线PQC-08-提交进入PQC组长管理列表',
-    testScope: '一线PQC：提交后的检验数据进入对应PQC组长PQC管理列表'
-  }
-]
-
 const frontlineProductionRows: BatchRecordTestRow[] = [
   {
     id: 201,
     sort: 1,
     title: '一线生产入口与组长身份',
-    description: '使用自己的账号进入一线生产，页面必须按当前组长身份读取可报工任务。',
+    description: '生产组长使用自己的账号进入一线生产，页面必须按当前组长身份读取可报工任务。',
     caseName: '批记录测试-一线生产-01-一线生产入口与组长身份',
     testScope: '一线生产：自己的账号进入一线生产'
   },
@@ -415,7 +348,7 @@ const frontlineProductionRows: BatchRecordTestRow[] = [
     id: 204,
     sort: 4,
     title: '工序上下文数据联动',
-    description: '选择工序后联动不良、设备和设备参数，确保上下文来自所选工序配置。',
+    description: '选择工序和员工后，不良、设备和设备参数都必须来源于所选工序对应配置。',
     caseName: '批记录测试-一线生产-04-工序上下文数据联动',
     testScope: '一线生产：不良、设备和设备参数按工序联动'
   },
@@ -439,27 +372,21 @@ const frontlineProductionRows: BatchRecordTestRow[] = [
     id: 207,
     sort: 7,
     title: '设备参数限制规则',
-    description: '填写设备参数时必须按上下限校验，超出限制需阻断提交并提示。',
+    description: '设备参数有上下限时按配置校验并留痕；没有上下限时不得强加限制。',
     caseName: '批记录测试-一线生产-07-设备参数限制规则',
     testScope: '一线生产：设备参数上下限校验'
   },
   {
     id: 208,
     sort: 8,
-    title: '电子密码与待分配报工',
-    description: '提交时校验所选员工的电子密码，成功后报工进入报工管理页签等待分配。',
+    title: '上下限与待分配报工',
+    description: '提交时必须输入所选员工的电子密码，而不是生产组长的电子密码；本地提交内容进入该组长的报工管理页签等待分配。',
     caseName: '批记录测试-一线生产-08-上下限与待分配报工',
-    testScope: '一线生产：上下限校验、所选员工的电子密码与报工管理页签等待分配'
+    testScope: '一线生产：上下限校验、使用所选员工电子密码提交并进入生产组长报工管理待分配'
   }
 ]
 
 const queryParams = reactive({
-  pageNo: 1,
-  pageSize: 10,
-  keyword: ''
-})
-
-const frontlinePqcQueryParams = reactive({
   pageNo: 1,
   pageSize: 10,
   keyword: ''
@@ -495,36 +422,6 @@ const handleProductionLeaderHeaderDragend = async (newWidth: number, oldWidth: n
 }
 const saveProductionLeaderColumnConfig = async (columns: UserTableColumnState[]) => {
   await productionLeaderColumnControl.saveConfig(columns)
-}
-
-const frontlinePqcDefaultColumns: UserTableColumnDefinition[] = [
-  { key: 'sort', label: '序号', width: 80 },
-  { key: 'title', label: '任务', minWidth: 220 },
-  { key: 'description', label: '描述', minWidth: 560, sortable: false },
-  { key: 'caseName', label: '测试项名称', minWidth: 280, sortable: false },
-  { key: 'actions', label: '操作', width: 110, hideable: false, business: false, sortable: false }
-]
-
-const frontlinePqcColumnControl = useUserTableColumns(
-  'mes.pro.edhrBatchRecordTest.frontlinePqc',
-  frontlinePqcDefaultColumns
-)
-const frontlinePqcColumns = computed(() => frontlinePqcColumnControl.columns.value)
-const frontlinePqcColumnSaving = computed(() => frontlinePqcColumnControl.saving.value)
-const isFrontlinePqcColumnVisible = (key: string) => frontlinePqcColumnControl.isColumnVisible(key)
-const getFrontlinePqcColumnWidthString = (key: string, fallback?: number) =>
-  frontlinePqcColumnControl.getColumnWidthString(key, fallback)
-const getFrontlinePqcColumnMinWidthString = (key: string, fallback?: number) =>
-  frontlinePqcColumnControl.getColumnMinWidthString(key, fallback)
-const handleFrontlinePqcHeaderDragend = async (
-  newWidth: number,
-  oldWidth: number,
-  column: any
-) => {
-  await frontlinePqcColumnControl.handleHeaderDragend(newWidth, oldWidth, column)
-}
-const saveFrontlinePqcColumnConfig = async (columns: UserTableColumnState[]) => {
-  await frontlinePqcColumnControl.saveConfig(columns)
 }
 
 const frontlineProductionDefaultColumns: UserTableColumnDefinition[] = [
@@ -575,23 +472,6 @@ const productionLeaderQuickFilter = useTableQuickFilter(
   applyProductionLeaderListFilters
 )
 
-const frontlinePqcQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
-  {
-    key: 'keyword',
-    label: '任务/描述',
-    type: 'text',
-    queryParamKey: 'keyword',
-    placeholder: '输入任务或描述关键字'
-  }
-])
-
-const frontlinePqcQuickFilter = useTableQuickFilter(
-  'mes.pro.edhrBatchRecordTest.frontlinePqc',
-  frontlinePqcQuickFilterDefinitions,
-  frontlinePqcQueryParams,
-  applyFrontlinePqcListFilters
-)
-
 const frontlineProductionQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
   {
     key: 'keyword',
@@ -614,11 +494,6 @@ const filteredProductionLeaderRows = computed(() => {
   return filterBatchRecordTestRows(productionLeaderRows, keyword)
 })
 
-const filteredFrontlinePqcRows = computed(() => {
-  const keyword = frontlinePqcQueryParams.keyword.trim()
-  return filterBatchRecordTestRows(frontlinePqcRows, keyword)
-})
-
 const filteredFrontlineProductionRows = computed(() => {
   const keyword = frontlineProductionQueryParams.keyword.trim()
   return filterBatchRecordTestRows(frontlineProductionRows, keyword)
@@ -627,11 +502,6 @@ const filteredFrontlineProductionRows = computed(() => {
 const pagedProductionLeaderRows = computed(() => {
   const start = (queryParams.pageNo - 1) * queryParams.pageSize
   return filteredProductionLeaderRows.value.slice(start, start + queryParams.pageSize)
-})
-
-const pagedFrontlinePqcRows = computed(() => {
-  const start = (frontlinePqcQueryParams.pageNo - 1) * frontlinePqcQueryParams.pageSize
-  return filteredFrontlinePqcRows.value.slice(start, start + frontlinePqcQueryParams.pageSize)
 })
 
 const pagedFrontlineProductionRows = computed(() => {
@@ -666,10 +536,6 @@ async function applyProductionLeaderListFilters() {
   queryParams.pageNo = 1
 }
 
-async function applyFrontlinePqcListFilters() {
-  frontlinePqcQueryParams.pageNo = 1
-}
-
 async function applyFrontlineProductionListFilters() {
   frontlineProductionQueryParams.pageNo = 1
 }
@@ -677,11 +543,6 @@ async function applyFrontlineProductionListFilters() {
 async function handleProductionLeaderPagination(payload?: PaginationPayload) {
   if (typeof payload?.page === 'number') queryParams.pageNo = payload.page
   if (typeof payload?.limit === 'number') queryParams.pageSize = payload.limit
-}
-
-async function handleFrontlinePqcPagination(payload?: PaginationPayload) {
-  if (typeof payload?.page === 'number') frontlinePqcQueryParams.pageNo = payload.page
-  if (typeof payload?.limit === 'number') frontlinePqcQueryParams.pageSize = payload.limit
 }
 
 async function handleFrontlineProductionPagination(payload?: PaginationPayload) {
