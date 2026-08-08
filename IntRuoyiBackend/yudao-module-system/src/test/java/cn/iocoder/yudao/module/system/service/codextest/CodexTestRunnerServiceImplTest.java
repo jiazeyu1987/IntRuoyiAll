@@ -77,6 +77,7 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
         assertEquals(1, claimRespVO.getTasks().size());
         CodexTestRunnerClaimRespVO.Task task = claimRespVO.getTasks().get(0);
         assertEquals(executionId, task.getExecutionId());
+        assertEquals("PLAYWRIGHT_E2E", task.getAnalysisMode());
         assertEquals("在排产工单页签选择用户手写工单号后点击手动重排", task.getMethodText());
         assertEquals(2, task.getCheckpoints().size());
         assertEquals("CLAIMED", codexTestExecutionCaseMapper.selectById(task.getExecutionCaseId()).getStatus());
@@ -98,6 +99,22 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
         assertEquals("产品编号没有变成橙色", executionCase.getFailureReason());
         CodexTestExecutionDO execution = codexTestExecutionMapper.selectById(executionId);
         assertEquals("FAIL", execution.getStatus());
+    }
+
+    @Test
+    void claimTasks_includesCodeReadonlyAnalysisMode() {
+        Long runnerSessionId = registerRunner();
+        CodexTestCaseSaveReqVO reqVO = validScheduleCaseReq("批记录测试-生产组长-01-工艺路线配置", false);
+        reqVO.setProject("批记录");
+        reqVO.setAnalysisMode("CODE_READONLY");
+        Long caseId = codexTestCaseService.createCase(reqVO);
+        codexTestExecutionService.startExecution(startReq(caseId), 99L);
+
+        CodexTestRunnerClaimRespVO.Task task =
+                codexTestRunnerService.claimTasks(claimReq(runnerSessionId), RUNNER_TOKEN).getTasks().get(0);
+
+        assertEquals("CODE_READONLY", task.getAnalysisMode());
+        assertTrue(task.getMethodText().contains("排产工单页签"));
     }
 
     @Test

@@ -116,13 +116,18 @@ for (const [key, label, queryParamKey] of [
 
 assert.match(
   source,
-  /const applySubmissionMultiFilter = async \(\) => \{[\s\S]*hasSubmissionDateCondition\(\)[\s\S]*applySubmissionMultiFilterState\(\)/,
-  'PQC 管理查询必须先校验必需提交日期条件，再调用标准多条件 apply。'
+  /const applySubmissionMultiFilter = async \(\) => \{[\s\S]*await applySubmissionMultiFilterState\(\)[\s\S]*\}/,
+  'PQC 管理查询必须直接调用标准多条件 apply，由内部 submitDate 满足后端必填。'
+)
+assert.doesNotMatch(
+  source,
+  /hasSubmissionDateCondition|提交日期是必填筛选条件/,
+  'PQC 管理默认筛选为空时不得要求用户先添加可见提交日期条件。'
 )
 assert.match(
   source,
-  /const resetSubmissionMultiFilter = async \(\) => \{[\s\S]*conditions:\s*\[\][\s\S]*clearSubmissionFilterParams\(\)[\s\S]*ensureSubmissionDateCondition\(\)[\s\S]*submissionList\.value = \[\][\s\S]*submissionTotal\.value = 0[\s\S]*await getSubmissionList\(\)/,
-  'PQC 管理重置必须恢复可见提交日期条件并通过标准列表重新查询。'
+  /const resetSubmissionMultiFilter = async \(\) => \{[\s\S]*clearSubmissionVisibleFilterState\(\)[\s\S]*clearSubmissionFilterParams\(\)[\s\S]*resetSubmissionQueryParams\(leaderType\)[\s\S]*submissionList\.value = \[\][\s\S]*submissionTotal\.value = 0[\s\S]*await getSubmissionList\(\)/,
+  'PQC 管理重置必须保持可见筛选为空，并通过内部提交日期重新查询。'
 )
 assert.doesNotMatch(
   source,
@@ -132,7 +137,7 @@ assert.doesNotMatch(
 assert.match(
   source,
   /submitDate:\s*getDefaultSubmissionDate\(\)[\s\S]*templateType:\s*undefined/,
-  'PQC 管理首屏 query 参数必须使用可见的默认提交日期条件，且不得预置隐藏模板类型。'
+  'PQC 管理首屏 query 参数必须保留内部默认提交日期，且不得预置隐藏模板类型。'
 )
 
 assert.match(

@@ -32,6 +32,8 @@ const CODEX_CHILD_SETTLE_TIMEOUT_MS = Number(process.env.CODEX_TEST_CHILD_SETTLE
 const COMPLETE_CASE_SUMMARY_MAX_LENGTH = 512
 const CODEX_FAILURE_DETAIL_MAX_LENGTH = 2400
 const RUNNER_HTTP_CONNECTION_HEADERS = { Connection: 'close' }
+const ANALYSIS_MODE_PLAYWRIGHT_E2E = 'PLAYWRIGHT_E2E'
+const ANALYSIS_MODE_CODE_READONLY = 'CODE_READONLY'
 const READONLY_TASK_PATTERN = /(只读|仅查看|只查看|查看|确认.{0,20}可见|不修改|不保存|不提交|read[- ]?only|view only)/i
 const NEGATED_WRITE_TASK_PATTERN = /(不修改|不新增|不创建|不编辑|不保存|不提交|不删除|不作废|不审批|不发布|不导入|不上传|不下载|不取消|不启用|不禁用|不清理|不复位|不生成|不填写|不签名|不写入)/gi
 const WRITE_TASK_PATTERN = /(新增|创建|修改|编辑|保存|提交|删除|作废|审批|发布|导入|上传|下载|取消|启用|禁用|清理|复位|生成|填写|签名|写入|create|update|edit|save|submit|delete|void|approve|publish|import|upload|cancel|enable|disable|write)/i
@@ -165,7 +167,7 @@ function codexExecutionArgs(task) {
     args.push('--ignore-rules')
   }
   args.push('--disable', 'remote_plugin')
-  const reasoningEffort = isReadOnlyTask(task)
+  const reasoningEffort = resolveAnalysisMode(task) === ANALYSIS_MODE_CODE_READONLY || isReadOnlyTask(task)
     ? CODEX_READONLY_REASONING_EFFORT
     : CODEX_MUTATING_REASONING_EFFORT
   if (reasoningEffort) {
@@ -407,6 +409,53 @@ async function runCodexForTask(task, runnerSessionId) {
 }
 
 function buildPrompt(task, codexExecTimeoutMs = resolveCodexExecTimeoutMs(task)) {
+  const analysisMode = resolveAnalysisMode(task)
+  if (analysisMode === ANALYSIS_MODE_CODE_READONLY) {
+    return buildCodeReadonlyPrompt(task, codexExecTimeoutMs)
+  }
+  return buildPlaywrightPrompt(task, codexExecTimeoutMs)
+}
+
+function buildCodeReadonlyPrompt(task, codexExecTimeoutMs = resolveCodexExecTimeoutMs(task)) {
+  const executionBudgetSeconds = Math.max(30, Math.floor(codexExecTimeoutMs / 1000) - 10)
+  return `你正在执行企业级 Codex 只读代码分析测试。
+本任务是只读代码分析，不是 Playwright 浏览器 E2E。
+不要打开浏览器作为优先路径；请优先扫描本地代码、路由、API、服务、数据模型、迁移和测试来判断职责描述是否已经被当前代码满足。
+只读代码分析必须覆盖代码、路由、API、测试等证据，不得以浏览器优先结果替代代码审查。
+允许读取仓库文件、运行只读搜索命令、运行只读静态检查命令；不得创建、修改或删除任何仓库文件、任务文档、源码、配置、构建产物、Git 状态、提交、分支或 worktree。
+不得运行会写入业务数据、修改数据库、启动写入型 E2E、提交表单、审批、删除、导入、上传、发布或清理数据的命令。
+不得返回默认成功、不得把缺少前置条件伪装成 PASS；如果代码入口、依赖、权限、Runner、Codex CLI 或测试资料缺失，请返回 BLOCKED 并写明缺失前置条件。
+如果代码与职责描述不一致，请返回 FAIL，并在 mismatchDescription 中说明具体差异、缺失文件/接口/状态链路或测试缺口。
+最终回答必须是原始 JSON 对象，不要包含 markdown、解释性文字或代码块。
+每个检查点都必须输出 checkpointResults；FAIL 必须包含 mismatchDescription，BLOCKED 必须包含阻塞原因。
+Project guidance root: ${PROJECT_ROOT}
+Working directory: ${WORKING_DIRECTORY}
+Target tenant id: ${task.targetTenantId}
+Case: ${task.caseName}
+Method:
+${task.methodText}
+User-written test data:
+${task.testDataText || ''}
+Checkpoints:
+${task.checkpoints.map((item) => `${item.sort}. ${item.name}: ${item.expectedText}`).join('\n')}
+
+Return raw JSON only:
+{
+  "checkpointResults": [
+    {
+      "checkpointSort": 1,
+      "status": "PASS|FAIL|BLOCKED",
+      "actualText": "real code-analysis evidence",
+      "mismatchDescription": "required when status is FAIL"
+    }
+  ],
+  "summary": "short code analysis summary"
+}
+
+Complete the repository read-only analysis and return JSON within ${executionBudgetSeconds} seconds.`
+}
+
+function buildPlaywrightPrompt(task, codexExecTimeoutMs = resolveCodexExecTimeoutMs(task)) {
   const taskMode = isReadOnlyTask(task) ? 'READ_ONLY' : 'MUTATING_OR_UNKNOWN'
   const executionBudgetSeconds = Math.max(30, Math.floor(codexExecTimeoutMs / 1000) - 10)
   return `You are executing an enterprise E2E test with Playwright.
@@ -507,8 +556,23 @@ function isReadOnlyTask(task) {
   return hasReadOnlyIntent && !hasWriteIntent
 }
 
+function resolveAnalysisMode(task) {
+  if (!task.analysisMode) {
+    return ANALYSIS_MODE_PLAYWRIGHT_E2E
+  }
+  if (task.analysisMode === ANALYSIS_MODE_CODE_READONLY) {
+    return ANALYSIS_MODE_CODE_READONLY
+  }
+  if (task.analysisMode === ANALYSIS_MODE_PLAYWRIGHT_E2E) {
+    return ANALYSIS_MODE_PLAYWRIGHT_E2E
+  }
+  throw new Error(`Unsupported Codex analysisMode: ${task.analysisMode}`)
+}
+
 function resolveCodexExecTimeoutMs(task) {
-  return isReadOnlyTask(task) ? CODEX_EXEC_READONLY_TIMEOUT_MS : CODEX_EXEC_TIMEOUT_MS
+  return resolveAnalysisMode(task) === ANALYSIS_MODE_CODE_READONLY || isReadOnlyTask(task)
+    ? CODEX_EXEC_READONLY_TIMEOUT_MS
+    : CODEX_EXEC_TIMEOUT_MS
 }
 
 async function reportTaskResult(task, result) {

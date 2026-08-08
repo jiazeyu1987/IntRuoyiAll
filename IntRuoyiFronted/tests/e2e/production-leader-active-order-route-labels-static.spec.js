@@ -29,16 +29,29 @@ assert.match(
   /export interface TeamLeaderActiveOrderRespVO \{[\s\S]*routeName: string[\s\S]*routeVersionNo: string/,
   'frontend active-order contract must expose formal route name and version number'
 )
+assert.match(api, /productionProgressPercent: number \| string/, 'frontend contract must expose production progress percent')
+assert.match(api, /inspectionProgressPercent: number \| string/, 'frontend contract must expose inspection progress percent')
 assert.match(responseVo, /private String routeName;/, 'backend response must expose routeName')
 assert.match(responseVo, /private String routeVersionNo;/, 'backend response must expose routeVersionNo')
+assert.match(responseVo, /private BigDecimal productionProgressPercent;/, 'backend response must expose production progress')
+assert.match(responseVo, /private BigDecimal inspectionProgressPercent;/, 'backend response must expose inspection progress')
 assert.match(
   controller,
   /setRouteName\(activeOrder\.getRouteName\(\)\)[\s\S]*setRouteVersionNo\(activeOrder\.getRouteVersionNo\(\)\)/,
   'controller must project the formal route display fields'
 )
+assert.match(
+  controller,
+  /setProductionProgressPercent\(activeOrder\.getProductionProgressPercent\(\)\)[\s\S]*setInspectionProgressPercent\(activeOrder\.getInspectionProgressPercent\(\)\)/,
+  'controller must project active-order progress fields'
+)
 
 assert.match(activeOrderTable, /label="路线名称"\s+prop="routeName"/)
 assert.match(activeOrderTable, /label="版本号"\s+prop="routeVersionNo"/)
+assert.match(activeOrderTable, /label="生产进度"\s+prop="productionProgressPercent"/)
+assert.match(activeOrderTable, /label="检验进度"\s+prop="inspectionProgressPercent"/)
+assert.match(activeOrderTable, /data-team-leader-active-order-production-progress/)
+assert.match(activeOrderTable, /data-team-leader-active-order-inspection-progress/)
 assert.doesNotMatch(activeOrderTable, /label="路线ID"|label="路线版本ID"|label="状态"/)
 assert.doesNotMatch(activeOrderTable, /prop="routeId"|prop="routeVersionId"|activeStatus/)
 
@@ -49,6 +62,8 @@ assert.notEqual(columnsEnd, -1, 'active order column metadata must close')
 const activeOrderColumns = page.slice(columnsStart, columnsEnd)
 assert.match(activeOrderColumns, /key: 'routeName', label: '路线名称'/)
 assert.match(activeOrderColumns, /key: 'routeVersionNo', label: '版本号'/)
+assert.match(activeOrderColumns, /key: 'productionProgressPercent', label: '生产进度'/)
+assert.match(activeOrderColumns, /key: 'inspectionProgressPercent', label: '检验进度'/)
 assert.doesNotMatch(activeOrderColumns, /key: 'routeId'|key: 'routeVersionId'|key: 'activeStatus'/)
 
-console.log('PASS: production leader active-order route labels contract')
+console.log('PASS: production leader active-order route labels and progress contract')

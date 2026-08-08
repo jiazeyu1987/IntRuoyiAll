@@ -11,7 +11,9 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionR
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
@@ -38,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -53,6 +56,8 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     @Mock
     private MesProWorkOrderMapper workOrderMapper;
     @Mock
+    private MesMdItemMapper itemMapper;
+    @Mock
     private MesProcessPoolTeamMaintenanceAuditMapper auditMapper;
     @Mock
     private MesProScheduleOrderMapper scheduleOrderMapper;
@@ -66,6 +71,8 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     private MesProRouteVersionMapper routeVersionMapper;
     @Mock
     private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
+    @Mock
+    private MesProcessPoolOrderProcessCompletionMapper completionMapper;
     @Mock
     private MesQaInspectionRegulationMapper inspectionRegulationMapper;
     @Mock
@@ -82,10 +89,11 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
-                auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
-                routeVersionMapper, processSnapshotMapper, inspectionRegulationMapper,
+                itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
+                routeVersionMapper, processSnapshotMapper, completionMapper, inspectionRegulationMapper,
                 inspectionRegulationVersionMapper, inspectionRegulationItemMapper, pqcInspectionTaskMapper,
                 abnormalStateService);
+        lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
         lenient().when(scheduleOrderMapper.selectEffectiveListByWorkOrderIds(List.of(9001L))).thenReturn(List.of());
         lenient().when(routeProductMapper.selectListByItemIds(List.of(1001L))).thenReturn(List.of(
                 MesProRouteProductDO.builder().id(7001L).itemId(1001L).routeId(922119L).build()));
@@ -109,7 +117,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
 
     @Test
     void shouldKeepUnscheduledCandidateEligibleWhenErpPlannedStartMissing() {
-        when(workOrderMapper.selectConfirmedCandidatesByCode("WO-9", 20))
+        when(workOrderMapper.selectConfirmedCandidatesByKeyword("WO-9", List.of(), 20))
                 .thenReturn(List.of(confirmedWorkOrderWithoutPlannedStart()));
         when(inspectionRegulationMapper.selectListByProductIds(List.of(1001L)))
                 .thenReturn(List.of(publishedRegulation()));
@@ -144,7 +152,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
         verify(activeOrderMapper).insert(activeOrderCaptor.capture());
         LocalDate joinedDate = activeOrderCaptor.getValue().getJoinedAt().toLocalDate();
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
+        verify(pqcInspectionTaskMapper, times(2)).insert(taskCaptor.capture());
         assertTrue(taskCaptor.getAllValues().stream()
                 .allMatch(task -> joinedDate.equals(task.getBusinessDate())));
     }

@@ -20,12 +20,14 @@ public record MesFrontlineRouteProcessCandidate(Long routeId,
                                                 Long activeOrderId,
                                                 Long pqcTaskId,
                                                 Long regulationVersionId,
+                                                Boolean finalInspectionApplicable,
                                                 String inspectionType,
                                                 LocalDate businessDate,
                                                 String shiftCode,
                                                 Integer roundNo,
                                                 Integer plannedInspectionQuantity,
                                                 List<MesFrontlinePqcInspectionItem> inspectionItems,
+                                                List<MesFrontlinePqcTaskOption> pqcTaskOptions,
                                                 List<MesFrontlineProductionSubmitCandidate> productionSubmitCandidates,
                                                 String contextSource) {
 
@@ -50,7 +52,7 @@ public record MesFrontlineRouteProcessCandidate(Long routeId,
                                              String workstationName) {
         this(routeId, routeCode, routeName, routeProcessId, processId, processCode, processName, sort,
                 deviceId, deviceCode, deviceName, workstationId, workstationCode, workstationName,
-                null, null, null, null, null, null, null, null, List.of(), List.of(), null);
+                null, null, null, null, null, null, null, null, null, List.of(), List.of(), List.of(), null);
     }
 
     public MesFrontlineRouteProcessCandidate(Long routeId,
@@ -70,6 +72,6 @@ public record MesFrontlineRouteProcessCandidate(Long routeId,
                                              String contextSource) {
         this(routeId, routeCode, routeName, routeProcessId, processId, processCode, processName, sort,
                 deviceId, deviceCode, deviceName, workstationId, workstationCode, workstationName,
-                null, null, null, null, null, null, null, null, List.of(), List.of(), contextSource);
+                null, null, null, null, null, null, null, null, null, List.of(), List.of(), List.of(), contextSource);
     }
 }

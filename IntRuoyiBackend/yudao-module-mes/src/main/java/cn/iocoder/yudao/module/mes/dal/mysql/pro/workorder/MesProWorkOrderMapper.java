@@ -72,14 +72,21 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
         return selectOne(MesProWorkOrderDO::getCode, code);
     }
 
-    default List<MesProWorkOrderDO> selectConfirmedCandidatesByCode(String keyword, int limit) {
+    default List<MesProWorkOrderDO> selectConfirmedCandidatesByKeyword(String keyword, Collection<Long> productIds,
+                                                                       int limit) {
         if (keyword == null || keyword.trim().isEmpty()) {
             return Collections.emptyList();
         }
         int safeLimit = Math.max(1, Math.min(limit, 20));
+        String searchText = keyword.trim();
         return selectList(new LambdaQueryWrapperX<MesProWorkOrderDO>()
-                .like(MesProWorkOrderDO::getCode, keyword.trim())
                 .eq(MesProWorkOrderDO::getStatus, MesProWorkOrderStatusEnum.CONFIRMED.getStatus())
+                .and(wrapper -> {
+                    wrapper.like(MesProWorkOrderDO::getCode, searchText);
+                    if (productIds != null && !productIds.isEmpty()) {
+                        wrapper.or().in(MesProWorkOrderDO::getProductId, productIds);
+                    }
+                })
                 .orderByDesc(MesProWorkOrderDO::getId)
                 .last("LIMIT " + safeLimit));
     }

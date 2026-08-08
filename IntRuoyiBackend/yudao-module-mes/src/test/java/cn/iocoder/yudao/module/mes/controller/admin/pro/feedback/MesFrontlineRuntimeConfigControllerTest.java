@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDefectReaso
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDeviceParameterOption;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDeviceAccountContextService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwitchService;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProductionSubmitContext;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConfig;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineTeamDeviceOption;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -54,7 +56,10 @@ class MesFrontlineRuntimeConfigControllerTest {
                         new MesFrontlineDeviceParameterOption("pressure", "压力", "MPa",
                                 new BigDecimal("10"), new BigDecimal("20"), new BigDecimal("15"), "DECIMAL",
                                 "10-20MPa，目标15MPa")))),
-                List.of(new MesFrontlineDefectReasonOption(8301L, "LOSS", "LOSS-001", "正常损耗"))
+                List.of(new MesFrontlineDefectReasonOption(8301L, "LOSS", "LOSS-001", "正常损耗")),
+                new MesFrontlineProductionSubmitContext(41L, "WO-F2-001", "F2正式工单",
+                        51L, 101L, 1001L, 201L, 301L, 61L, 9001L, 901L,
+                        new BigDecimal("300.000"), LocalDateTime.of(2026, 8, 30, 0, 0))
         );
         when(runtimeConfigService.getRuntimeConfig(9001L, 101L, 1001L, 201L)).thenReturn(runtimeConfig);
 
@@ -79,6 +84,12 @@ class MesFrontlineRuntimeConfigControllerTest {
         assertEquals("MPa", data.getDevices().get(0).getParameters().get(0).getUnit());
         assertEquals(new BigDecimal("15"), data.getDevices().get(0).getParameters().get(0).getDefaultValue());
         assertEquals("正常损耗", data.getDefectReasons().get(0).getReasonName());
+        assertEquals(41L, data.getProductionSubmitContext().getWorkOrderId());
+        assertEquals("WO-F2-001", data.getProductionSubmitContext().getWorkOrderCode());
+        assertEquals(51L, data.getProductionSubmitContext().getTaskId());
+        assertEquals(61L, data.getProductionSubmitContext().getItemId());
+        assertEquals(9001L, data.getProductionSubmitContext().getApproveUserId());
+        assertEquals(901L, data.getProductionSubmitContext().getRecordbookId());
     }
 
     @Test

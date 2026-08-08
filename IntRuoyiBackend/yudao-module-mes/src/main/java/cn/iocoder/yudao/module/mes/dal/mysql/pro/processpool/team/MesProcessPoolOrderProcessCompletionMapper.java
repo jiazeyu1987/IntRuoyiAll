@@ -5,6 +5,9 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.util.Collection;
+import java.util.List;
+
 @Mapper
 public interface MesProcessPoolOrderProcessCompletionMapper
         extends BaseMapperX<MesProcessPoolOrderProcessCompletionDO> {
@@ -24,5 +27,16 @@ public interface MesProcessPoolOrderProcessCompletionMapper
                 .eq(MesProcessPoolOrderProcessCompletionDO::getWorkOrderId, workOrderId)
                 .eq(MesProcessPoolOrderProcessCompletionDO::getRouteProcessId, routeProcessId)
                 .eq(MesProcessPoolOrderProcessCompletionDO::getProcessId, processId));
+    }
+
+    default List<MesProcessPoolOrderProcessCompletionDO> selectListByWorkOrderIds(Collection<Long> workOrderIds) {
+        if (workOrderIds == null || workOrderIds.isEmpty()) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolOrderProcessCompletionDO>()
+                .in(MesProcessPoolOrderProcessCompletionDO::getWorkOrderId, workOrderIds)
+                .orderByAsc(MesProcessPoolOrderProcessCompletionDO::getWorkOrderId)
+                .orderByAsc(MesProcessPoolOrderProcessCompletionDO::getRouteProcessId)
+                .orderByAsc(MesProcessPoolOrderProcessCompletionDO::getProcessId));
     }
 }

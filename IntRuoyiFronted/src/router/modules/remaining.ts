@@ -1900,6 +1900,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-batch-test',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchRecordTestPage.vue'),
+        name: 'MesProEdhrBatchRecordTest',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '批记录测试',
+          activeMenu: '/mes/pro/feedback/edhr-batch-test',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-batch-page-graph',
         component: () => import('@/views/mes/pro/edhr-batch/BatchPageGraphPage.vue'),
         name: 'MesProEdhrBatchPageGraph',

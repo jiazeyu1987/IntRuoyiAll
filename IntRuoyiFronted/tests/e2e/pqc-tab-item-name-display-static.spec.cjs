@@ -17,7 +17,7 @@ const tabBlock = panelSource.slice(tabStart, tabEnd)
 assert.match(
   tabBlock,
   /<strong>\{\{\s*formatPqcInspectionItemTabLabel\(item\)\s*\}\}<\/strong>/,
-  'PQC bottom tab title must render through the formal method display helper, not the raw item label.'
+  'PQC bottom tab title must render through the formal item name display helper.'
 )
 assert.doesNotMatch(
   tabBlock,
@@ -47,13 +47,13 @@ assert.ok(tabLabelHelperStart >= 0 && tabLabelHelperEnd > tabLabelHelperStart, '
 const tabLabelHelperBlock = panelSource.slice(tabLabelHelperStart, tabLabelHelperEnd)
 assert.match(
   tabLabelHelperBlock,
-  /formatPqcMethodSummary\(item\)/,
-  'PQC visible tab title must display the formal inspection method, e.g. 目视检验.'
+  /item\.itemName\s*\|\|\s*'未配置检验项目名称'/,
+  'PQC visible tab title must display the formal inspection item name.'
 )
 assert.doesNotMatch(
   tabLabelHelperBlock,
-  /item\.itemName|item\.label|item\.key|itemCode/,
-  'The tab label helper must not read itemName, label, itemCode, or key for visible text.'
+  /formatPqcMethodSummary|item\.label|item\.key|itemCode/,
+  'The tab label helper must not read method, label fallback, itemCode, or key for visible text.'
 )
 
 assert.match(
@@ -62,4 +62,4 @@ assert.match(
   'PQC submit details must preserve itemCode identity and send itemName as a separate formal name.'
 )
 
-console.log('PASS: PQC tab displays formal inspection method while preserving item identity')
+console.log('PASS: PQC tab displays formal inspection item name while preserving item identity')

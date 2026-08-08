@@ -113,7 +113,10 @@ for (const relativePath of vueFiles) {
     columnTags.forEach((columnTag) => {
       const prop = resolveStaticProp(columnTag)
       if (!prop || isStructuralColumn(columnTag, prop)) return
-      if (!columnTag.includes(`sortColumnAttrs('${prop}')`)) {
+      if (
+        !columnTag.includes(`sortColumnAttrs('${prop}')`) &&
+        !columnTag.includes(`sortColumnAttrs({ key: '${prop}'`)
+      ) {
         failures.push(`${relativePath} prop="${prop}" must bind sortColumnAttrs('${prop}')`)
       }
     })

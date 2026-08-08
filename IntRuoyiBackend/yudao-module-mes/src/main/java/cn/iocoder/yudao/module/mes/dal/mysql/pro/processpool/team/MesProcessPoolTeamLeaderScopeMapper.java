@@ -46,6 +46,16 @@ public interface MesProcessPoolTeamLeaderScopeMapper extends BaseMapperX<MesProc
                 .eq(MesProcessPoolTeamLeaderScopeDO::getEmployeeUserId, employeeUserId));
     }
 
+    default MesProcessPoolTeamLeaderScopeDO selectProductionEmployeeScope(Long leaderUserId, Long employeeUserId) {
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolTeamLeaderScopeDO>()
+                .eq(MesProcessPoolTeamLeaderScopeDO::getLeaderUserId, leaderUserId)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getLeaderType,
+                        MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getScopeType,
+                        MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getEmployeeUserId, employeeUserId));
+    }
+
     default List<MesProcessPoolTeamLeaderScopeDO> selectActivePqcEmployeeScopesByEmployeeUserId(Long employeeUserId) {
         return selectList(new LambdaQueryWrapperX<MesProcessPoolTeamLeaderScopeDO>()
                 .eq(MesProcessPoolTeamLeaderScopeDO::getLeaderType,

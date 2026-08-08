@@ -23,7 +23,8 @@ requirePageMarker('data-team-leader-config-center', 'page must expose a team con
 requirePageMarker('报工确认工作台', 'page must use the business label 报工确认工作台')
 requirePageMarker('班组配置中心', 'page must use the business label 班组配置中心')
 requirePageMarker('data-team-leader-active-order-config', 'config center must include active order maintenance')
-requirePageMarker('data-team-leader-active-order-work-order-code', 'active order maintenance must collect the formal production work order code through a remote dropdown.')
+requirePageMarker('data-team-leader-active-order-work-order-code', 'active order maintenance must collect the formal production work order through a remote order/product dropdown.')
+requirePageMarker('placeholder="请输入订单号、产品编码或产品名称"', 'active order maintenance must tell users they can search by order number, product code, or product name.')
 requirePageMarker(':remote-method="searchActiveOrderCandidates"', 'active order maintenance must search formal work order candidates instead of hand-entering route ids.')
 requirePageMarker('team-leader-workbench__active-order-candidate', 'active order maintenance must render candidate dropdown options with eligibility status.')
 requirePageMarker('符合要求', 'active order maintenance must visibly mark eligible order-number candidates.')
@@ -92,8 +93,8 @@ assert.match(
 )
 assert.match(
   page,
-  /const\s+resolveActiveOrderCandidateByKeyword\s*=\s*async\s*\(\)\s*=>[\s\S]*activeOrderCandidateKeyword\.value[\s\S]*searchTeamLeaderActiveOrderCandidates\(keyword\)[\s\S]*return findActiveOrderCandidateByCode\(keyword\)[\s\S]*const\s+requireSelectedActiveOrderCandidateWorkOrderId\s*=\s*async\s*\(\)\s*=>[\s\S]*await resolveActiveOrderCandidateByKeyword\(\)[\s\S]*throw new Error\('请选择订单号'\)[\s\S]*return requirePositiveNumber\(selectedCandidate\.workOrderId,\s*'请选择订单号'\)/,
-  'active order submit guard must resolve exact typed text to a real candidate and still block unmatched free text.'
+  /const\s+resolveActiveOrderCandidateByKeyword\s*=\s*async\s*\(\)\s*=>[\s\S]*activeOrderCandidateKeyword\.value[\s\S]*searchTeamLeaderActiveOrderCandidates\(keyword\)[\s\S]*return findActiveOrderCandidateByCode\(keyword\)[\s\S]*const\s+requireSelectedActiveOrderCandidateWorkOrderId\s*=\s*async\s*\(\)\s*=>[\s\S]*await resolveActiveOrderCandidateByKeyword\(\)[\s\S]*throw new Error\('请选择订单号\/产品候选'\)[\s\S]*return requirePositiveNumber\(selectedCandidate\.workOrderId,\s*'请选择订单号\/产品候选'\)/,
+  'active order submit guard must resolve exact typed order/product text to a real candidate and still block unmatched free text.'
 )
 assert.doesNotMatch(
   page,

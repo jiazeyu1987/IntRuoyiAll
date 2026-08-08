@@ -29,13 +29,13 @@ assert.ok(
 const tabLabelHelperBlock = panelSource.slice(tabLabelHelperStart, tabLabelHelperEnd)
 assert.match(
   tabLabelHelperBlock,
-  /formatPqcMethodSummary\(item\)/,
-  'PQC red-box tab title must display the formal inspection method, e.g. 目视检验.'
+  /item\.itemName\s*\|\|\s*'未配置检验项目名称'/,
+  'PQC red-box tab title must display the formal inspection item name.'
 )
 assert.doesNotMatch(
   tabLabelHelperBlock,
-  /item\.itemName|item\.label|item\.key|itemCode/,
-  'PQC red-box tab title must not display AO5 final inspection, itemName, itemCode, or key.'
+  /formatPqcMethodSummary|item\.label|item\.key|itemCode/,
+  'PQC red-box tab title must not display method fallback, label, itemCode, or key.'
 )
 
 const methodDialogStart = panelSource.indexOf('data-pqc-method-dialog')
@@ -73,4 +73,4 @@ assert.match(
   'Changing the red-box tab title must not alter itemCode/itemName/inspectionMethod submission identity.'
 )
 
-console.log('PASS: PQC red-box tabs display inspection method while preserving item identity')
+console.log('PASS: PQC method dialog displays inspection method while tabs preserve item identity')

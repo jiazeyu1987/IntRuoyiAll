@@ -246,11 +246,17 @@ export interface TeamProcessDefectReasonSaveReqVO extends TeamDefectReasonSaveRe
 export interface TeamLeaderActiveOrderRespVO {
   id: number
   workOrderId: number
+  workOrderCode?: string
+  productName?: string
+  productCode?: string
+  quantity?: number | string
   routeId: number
   routeName: string
   routeVersionId: number
   routeVersionNo: string
   erpFixedQuantitySnapshot?: number | string
+  productionProgressPercent: number | string
+  inspectionProgressPercent: number | string
   activeStatus: string
   businessStatus?: string
   joinedAt?: number
@@ -316,8 +322,8 @@ export interface TeamLeaderReportAllocationConfirmReqVO {
   leaderType: TeamLeaderType
   allocationMode: 'FIFO' | 'MANUAL'
   reviewRemark?: string
-  reviewSignatureId: number
-  reviewSignatureEmployeeUserId: number
+  reviewSignatureId?: number
+  reviewSignatureEmployeeUserId?: number
   reviewSignatureSnapshotJson?: string
   allocations: TeamLeaderReportAllocationLine[]
 }
@@ -591,9 +597,6 @@ export const previewTeamLeaderReportFifoAllocation = async (
 export const confirmTeamLeaderReportAllocation = async (
   data: TeamLeaderReportAllocationConfirmReqVO
 ) => {
-  const reviewSignatureId = data.reviewSignatureId
-  void reviewSignatureId
-  requireReviewSignaturePayload(data)
   return await request.post<number>({
     url: '/mes/pro/process-pool/team-leader/submission/allocation/confirm',
     data

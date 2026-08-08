@@ -317,12 +317,6 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
                     + ", regulationVersionId=" + versionIds.get(0) + " 发布规程版本不存在");
             return true;
         }
-        if (version.getFinalInspectionApplicable() == null) {
-            missing.add("routeProcessId=" + snapshot.getRouteProcessId()
-                    + ", processId=" + snapshot.getProcessId()
-                    + ", regulationVersionId=" + version.getId() + " 未显式配置末检是否适用");
-            return true;
-        }
         if (Boolean.FALSE.equals(version.getFinalInspectionApplicable())) {
             if (StrUtil.isBlank(version.getFinalInspectionNotApplicableReason())) {
                 missing.add("routeProcessId=" + snapshot.getRouteProcessId()
@@ -332,7 +326,7 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
             }
             return false;
         }
-        return true;
+        return Boolean.TRUE.equals(version.getFinalInspectionApplicable());
     }
 
     private void requirePqcTaskIdentity(List<MesPqcInspectionTaskDO> tasks,

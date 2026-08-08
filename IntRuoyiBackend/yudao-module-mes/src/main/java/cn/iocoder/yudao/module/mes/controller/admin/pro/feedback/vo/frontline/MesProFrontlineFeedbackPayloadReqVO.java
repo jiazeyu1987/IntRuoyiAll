@@ -33,12 +33,10 @@ public class MesProFrontlineFeedbackPayloadReqVO {
     @NotNull(message = "工序不能为空")
     private Long processId;
 
-    @Schema(description = "生产工单编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "41")
-    @NotNull(message = "生产工单不能为空")
+    @Schema(description = "生产工单编号；一线生产不匹配工单时为空", example = "41")
     private Long workOrderId;
 
-    @Schema(description = "生产任务编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "51")
-    @NotNull(message = "生产任务不能为空")
+    @Schema(description = "生产任务编号；一线生产不匹配任务时为空", example = "51")
     private Long taskId;
 
     @Schema(description = "排产工单编号", example = "81")
@@ -47,8 +45,7 @@ public class MesProFrontlineFeedbackPayloadReqVO {
     @Schema(description = "排产工单工序编号", example = "82")
     private Long scheduleOrderProcessId;
 
-    @Schema(description = "产品物料编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "61")
-    @NotNull(message = "产品物料不能为空")
+    @Schema(description = "产品物料编号；一线生产不匹配工单时为空", example = "61")
     private Long itemId;
 
     @Schema(description = "过期日期")

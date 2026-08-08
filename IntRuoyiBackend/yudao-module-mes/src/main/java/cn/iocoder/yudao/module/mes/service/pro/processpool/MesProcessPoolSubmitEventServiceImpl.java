@@ -77,7 +77,7 @@ public class MesProcessPoolSubmitEventServiceImpl implements MesProcessPoolSubmi
                 .feedbackSourceType(FEEDBACK_SOURCE_TYPE)
                 .feedbackSourceId(reqBO.getFeedbackId())
                 .recordbookEntryId(reqBO.getRecordbookEntryId())
-                .recordbookSourceType(RECORDBOOK_SOURCE_TYPE)
+                .recordbookSourceType(reqBO.getRecordbookEventId() == null ? null : RECORDBOOK_SOURCE_TYPE)
                 .recordbookSourceId(reqBO.getRecordbookEventId())
                 .rawPayload(toJsonOrNull(reqBO.getRawPayload()))
                 .clientSubmitTime(reqBO.getSubmittedAt())

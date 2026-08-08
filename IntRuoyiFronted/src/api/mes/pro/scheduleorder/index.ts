@@ -291,6 +291,8 @@ export interface MesProScheduleOrderPageReqVO {
   status?: number
   frozen?: boolean
   completionFilter?: 'INCOMPLETE' | 'ALL' | 'COMPLETED'
+  sortField?: string
+  sortOrder?: 'asc' | 'desc'
   exportColumns?: string[]
   quickFilter?: TableQuickFilterValue
 }

@@ -160,7 +160,7 @@ class MesOrderReleaseCompletenessServiceTest {
     }
 
     @Test
-    void evaluateInspectionResultBlocksWithoutFinalWhenRegulationMissingExplicitApplicability() {
+    void evaluateInspectionResultPassesWithoutFinalWhenRegulationMissingExplicitApplicability() {
         MesProEdhrBatchExecutionDO batch = batch();
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(batch);
         when(regulationVersionMapper.selectById(9902L))
@@ -176,8 +176,29 @@ class MesOrderReleaseCompletenessServiceTest {
 
         MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
 
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.checkResult());
+        assertTrue(result.failureReason().contains("身份完整"));
+    }
+
+    @Test
+    void evaluateInspectionResultStillBlocksWithoutFinalWhenRegulationExplicitlyDisablesFinalWithoutReason() {
+        MesProEdhrBatchExecutionDO batch = batch();
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(batch);
+        when(regulationVersionMapper.selectById(9902L))
+                .thenReturn(regulationVersion(false, null));
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
+                batch.getRouteVersionId())).thenReturn(activeOrder);
+        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(List.of(
+                confirmedPqcTask(1L, "FIRST", "FIRST"),
+                confirmedPqcTask(2L, "PATROL", "AM"),
+                confirmedPqcTask(3L, "PATROL", "PM")));
+        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
+                .thenReturn(List.of(processSnapshot()));
+
+        MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
+
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER, result.checkResult());
-        assertTrue(result.failureReason().contains("未显式配置末检是否适用"));
+        assertTrue(result.failureReason().contains("末检不适用但缺少明确依据"));
     }
 
     @Test

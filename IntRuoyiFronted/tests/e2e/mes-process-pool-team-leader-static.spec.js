@@ -149,9 +149,10 @@ assert(!page.includes('PQC 组长功能正在建设中'), 'PQC 组长必须能�
 assert(page.includes("if (leaderType === 'PRODUCTION')"), '生产专属活跃订单/配置加载必须与 PQC 提交看板查询区分。')
 assert(
   /const handleLeaderTypeChange\s*=\s*async\s*\([^)]*\)\s*=>\s*\{[\s\S]*await resetSubmissionMultiFilter\(\)/.test(page) &&
-    /const resetSubmissionMultiFilter\s*=\s*async\s*\(\)\s*=>\s*\{[\s\S]*updateSubmissionMultiFilterState\(\{ conditions: \[\], activeConditionId: undefined \}\)[\s\S]*submissionList\.value = \[\][\s\S]*submissionTotal\.value = 0/.test(page) &&
-    /const applySubmissionMultiFilter = async \(\) => \{[\s\S]*if \(!hasSubmissionDateCondition\(\)\) return[\s\S]*await applySubmissionMultiFilterState\(\)/.test(page),
-  '切换到 PQC 组长后必须清空多维筛选和列表，并继续通过提交日期必填门禁查询提交看板。'
+    /const resetSubmissionMultiFilter\s*=\s*async\s*\(\)\s*=>\s*\{[\s\S]*clearSubmissionVisibleFilterState\(\)[\s\S]*submissionList\.value = \[\][\s\S]*submissionTotal\.value = 0/.test(page) &&
+    /const applySubmissionMultiFilter = async \(\) => \{[\s\S]*await applySubmissionMultiFilterState\(\)/.test(page) &&
+    !/hasSubmissionDateCondition|提交日期是必填筛选条件/.test(page),
+  '切换到 PQC 组长后必须清空可见多维筛选和列表，并继续通过内部提交日期查询提交看板。'
 )
 assert(page.includes('PQC检验员'), 'PQC 组长提交看板必须按 PQC 检验员展示提交人。')
 assert(!page.includes('<el-radio-group v-model="queryParams.leaderType"'), '组长类型必须使用页签，不得继续使用单选按钮。')

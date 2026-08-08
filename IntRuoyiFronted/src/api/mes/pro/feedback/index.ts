@@ -112,11 +112,11 @@ export interface ProFrontlineFeedbackPayloadReqVO {
   workstationId: number
   routeId: number
   processId: number
-  workOrderId: number
-  taskId: number
+  workOrderId?: number
+  taskId?: number
   scheduleOrderId?: number
   scheduleOrderProcessId?: number
-  itemId: number
+  itemId?: number
   expireDate?: string | number | Date
   scheduledQuantity?: number
   outputQuantity: number
@@ -143,8 +143,8 @@ export interface ProFrontlineRecordbookPayloadReqVO {
 }
 
 export interface ProFrontlineProcessPoolContextReqVO {
-  workOrderId: number
-  taskId: number
+  workOrderId?: number
+  taskId?: number
   routeId: number
   routeProcessId: number
   processId: number
@@ -156,7 +156,7 @@ export interface ProFrontlineProcessPoolContextReqVO {
 
 export interface ProFrontlineFeedbackSubmitReqVO {
   feedbackPayload: ProFrontlineFeedbackPayloadReqVO
-  recordbookPayload: ProFrontlineRecordbookPayloadReqVO
+  recordbookPayload?: ProFrontlineRecordbookPayloadReqVO
   processPoolContext: ProFrontlineProcessPoolContextReqVO
   processPoolSubmissionIdempotencyKey: string
   actualEmployeeId: number
@@ -168,8 +168,8 @@ export interface ProFrontlineFeedbackSubmitReqVO {
 
 export interface ProFrontlineFeedbackSubmitRespVO {
   feedbackId: number
-  recordbookEntryId: number
-  recordbookEventId: number
+  recordbookEntryId?: number
+  recordbookEventId?: number
   processPoolEventId: number
 }
 
@@ -191,13 +191,27 @@ export interface FrontlineDeviceRouteProcessVO {
   activeOrderId?: number
   pqcTaskId?: number
   regulationVersionId?: number
+  finalInspectionApplicable?: boolean
   inspectionType?: string
   businessDate?: string
   shiftCode?: string
   roundNo?: number
   plannedInspectionQuantity?: number
   inspectionItems?: FrontlinePqcInspectionItemVO[]
+  pqcTaskOptions?: FrontlinePqcTaskOptionVO[]
   productionSubmitCandidates?: FrontlinePqcProductionSubmitCandidateVO[]
+}
+
+export interface FrontlinePqcTaskOptionVO {
+  pqcTaskId: number
+  regulationVersionId: number
+  finalInspectionApplicable?: boolean
+  inspectionType: string
+  businessDate: string
+  shiftCode: string
+  roundNo: number
+  plannedInspectionQuantity: number
+  inspectionItems?: FrontlinePqcInspectionItemVO[]
 }
 
 export interface FrontlinePqcProductionSubmitCandidateVO {
@@ -275,15 +289,15 @@ export interface FrontlinePqcSwitchActualEmployeeReqVO extends FrontlineSwitchAc
 
 export interface FrontlinePqcItemResultSubmitReqVO {
   itemCode: string
-  selectedEquipmentId: number
-  selectedEquipmentNumber: string
+  selectedEquipmentId?: number
+  selectedEquipmentNumber?: string
   sampleValues: string[]
 }
 
 export interface FrontlinePqcInspectionSubmitReqVO {
   activeOrderId: number
   pqcTaskId: number
-  productionSubmitEventId: number
+  productionSubmitEventId?: number
   regulationVersionId: number
   workOrderId: number
   routeId: number
@@ -357,17 +371,17 @@ export interface FrontlineRuntimeDefectReasonVO {
 }
 
 export interface FrontlineProductionSubmitContextVO {
-  workOrderId: number
+  workOrderId?: number
   workOrderCode?: string
   workOrderName?: string
-  taskId: number
+  taskId?: number
   routeId: number
   routeProcessId: number
   processId: number
   workstationId: number
-  itemId: number
+  itemId?: number
   approveUserId: number
-  recordbookId: number
+  recordbookId?: number
   scheduleOrderId?: number
   scheduleOrderProcessId?: number
   scheduledQuantity?: number

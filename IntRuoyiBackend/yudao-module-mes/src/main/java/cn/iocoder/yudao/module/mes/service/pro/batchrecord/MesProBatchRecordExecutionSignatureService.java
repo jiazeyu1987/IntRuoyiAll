@@ -6,7 +6,9 @@ import cn.iocoder.yudao.framework.common.util.servlet.ServletUtils;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.dcc.service.file.DccElectronicSignatureAuthorizationService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.PostDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
@@ -18,6 +20,7 @@ import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,6 +59,7 @@ public class MesProBatchRecordExecutionSignatureService {
     private static final String SNAPSHOT_STATUS_CAPTURED_PARTIAL_ORG = "CAPTURED_PARTIAL_ORG";
     private static final String AUTHORIZATION_BASIS_FULL = "统一电子签名授权启用；系统角色/岗位快照已记录";
     private static final String AUTHORIZATION_BASIS_PARTIAL_ORG = "统一电子签名授权启用；组织快照缺少岗位/角色配置";
+    private static final String AUTHORIZATION_BASIS_EMPLOYEE_PROFILE = "生产人员档案电子签名密码已验证";
 
     @Resource
     private AdminUserService adminUserService;
@@ -71,6 +75,10 @@ public class MesProBatchRecordExecutionSignatureService {
     private DccElectronicSignatureAuthorizationService authorizationService;
     @Resource
     private MesProBatchRecordExecutionSignatureMapper signatureMapper;
+    @Resource
+    private MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
+    @Resource
+    private PasswordEncoder passwordEncoder;
 
     @Transactional(rollbackFor = Exception.class)
     public Long recordSubmitSignature(Long executionId, String password, String comment) {
@@ -83,8 +91,20 @@ public class MesProBatchRecordExecutionSignatureService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public Long recordProductionSubmitSignature(String password, String comment) {
-        return recordSignature(0L, password, comment, ACTION_PRODUCTION_SUBMIT);
+    public Long recordProductionSubmitSignature(Long actorId, String password, String comment) {
+        if (actorId == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        AdminUserDO user = adminUserService.getUser(actorId);
+        if (user == null) {
+            return recordProductionSubmitSignatureForEmployeeProfile(actorId, password, comment);
+        }
+        if (!authorizationService.isElectronicSignatureEnabled(actorId)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        return recordSignatureForSystemUser(actorId, user, 0L, password, comment, ACTION_PRODUCTION_SUBMIT,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -380,10 +400,39 @@ public class MesProBatchRecordExecutionSignatureService {
                                  Long fieldAuditRevision, String fieldAuditHeadHash, String cellValuesHash,
                                  MesProBatchRecordExecutionSignatureTimeCommand signatureTimeCommand) {
         Long actorId = SecurityFrameworkUtils.getLoginUserId();
+        return recordSignatureForActor(actorId, executionId, password, comment, actionType, processInstanceId,
+                bpmTaskId, bpmTaskDefinitionKey, bpmTaskName, signatureCellKey, signatureRowIndex,
+                signatureColumnIndex, reviewSourceType, reviewSourceId, reviewSourceName, approvalResult, reason,
+                fieldAuditRevision, fieldAuditHeadHash, cellValuesHash, signatureTimeCommand);
+    }
+
+    private Long recordSignatureForActor(Long actorId, Long executionId, String password, String comment,
+                                         String actionType, String processInstanceId, String bpmTaskId,
+                                         String bpmTaskDefinitionKey, String bpmTaskName, String signatureCellKey,
+                                         Integer signatureRowIndex, Integer signatureColumnIndex,
+                                         String reviewSourceType, Long reviewSourceId, String reviewSourceName,
+                                         String approvalResult, String reason, Long fieldAuditRevision,
+                                         String fieldAuditHeadHash, String cellValuesHash,
+                                         MesProBatchRecordExecutionSignatureTimeCommand signatureTimeCommand) {
         if (actorId == null || !authorizationService.isElectronicSignatureEnabled(actorId)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
         AdminUserDO user = adminUserService.getUser(actorId);
+        return recordSignatureForSystemUser(actorId, user, executionId, password, comment, actionType, processInstanceId,
+                bpmTaskId, bpmTaskDefinitionKey, bpmTaskName, signatureCellKey, signatureRowIndex,
+                signatureColumnIndex, reviewSourceType, reviewSourceId, reviewSourceName, approvalResult, reason,
+                fieldAuditRevision, fieldAuditHeadHash, cellValuesHash, signatureTimeCommand);
+    }
+
+    private Long recordSignatureForSystemUser(Long actorId, AdminUserDO user, Long executionId, String password,
+                                              String comment, String actionType, String processInstanceId,
+                                              String bpmTaskId, String bpmTaskDefinitionKey, String bpmTaskName,
+                                              String signatureCellKey, Integer signatureRowIndex,
+                                              Integer signatureColumnIndex, String reviewSourceType,
+                                              Long reviewSourceId, String reviewSourceName, String approvalResult,
+                                              String reason, Long fieldAuditRevision, String fieldAuditHeadHash,
+                                              String cellValuesHash,
+                                              MesProBatchRecordExecutionSignatureTimeCommand signatureTimeCommand) {
         if (user == null || StrUtil.isBlank(user.getPassword())
                 || !adminUserService.isPasswordMatch(password, user.getPassword())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID);
@@ -444,6 +493,68 @@ public class MesProBatchRecordExecutionSignatureService {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
         }
         return signature.getId();
+    }
+
+    private Long recordProductionSubmitSignatureForEmployeeProfile(Long actorId, String password, String comment) {
+        if (StrUtil.isBlank(password)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID);
+        }
+        MesProcessPoolTeamEmployeeProfileDO profile = employeeProfileMapper.selectById(actorId);
+        if (profile == null
+                || !Boolean.TRUE.equals(profile.getEnabled())
+                || profile.getSystemUserId() != null
+                || StrUtil.isBlank(profile.getSignaturePasswordHash())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        if (!passwordEncoder.matches(password, profile.getSignaturePasswordHash())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID);
+        }
+        String employeeCode = StrUtil.blankToDefault(StrUtil.trim(profile.getEmployeeCode()), null);
+        String employeeName = resolveEmployeeProfileDisplayName(profile);
+        if (StrUtil.hasBlank(employeeCode, employeeName)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        }
+        LocalDateTime signedAt = nowAtDatabasePrecision();
+        SignatureTimeEvidence signatureTimeEvidence =
+                buildSignatureTimeEvidence(0L, ACTION_PRODUCTION_SUBMIT, actorId, signedAt, null);
+        MesProBatchRecordExecutionSignatureDO signature = MesProBatchRecordExecutionSignatureDO.builder()
+                .executionId(0L)
+                .actorId(actorId)
+                .actionType(ACTION_PRODUCTION_SUBMIT)
+                .signatureMode(SIGNATURE_MODE_PASSWORD)
+                .passwordVerified(Boolean.TRUE)
+                .comment(StrUtil.blankToDefault(StrUtil.trim(comment), null))
+                .signedAt(signedAt)
+                .selectedSignedAt(signatureTimeEvidence.selectedSignedAt())
+                .signatureDisplayAt(signatureTimeEvidence.signatureDisplayAt())
+                .signatureTimeMode(signatureTimeEvidence.signatureTimeMode())
+                .selectedTimeZone(signatureTimeEvidence.selectedTimeZone())
+                .selectedTimeReason(signatureTimeEvidence.selectedTimeReason())
+                .selectedTimePolicyVersion(signatureTimeEvidence.selectedTimePolicyVersion())
+                .selectedTimeAuditHash(signatureTimeEvidence.selectedTimeAuditHash())
+                .actorName(employeeName)
+                .actorUsernameSnapshot(employeeCode)
+                .actorNicknameSnapshot(employeeName)
+                .signaturePurpose(resolveSignaturePurpose(ACTION_PRODUCTION_SUBMIT))
+                .authorizationBasis(AUTHORIZATION_BASIS_EMPLOYEE_PROFILE)
+                .authenticationMethod(SIGNATURE_MODE_PASSWORD)
+                .clientIpSnapshot(resolveClientIpSnapshot())
+                .userAgentSnapshot(resolveUserAgentSnapshot())
+                .snapshotStatus(SNAPSHOT_STATUS_CAPTURED_PARTIAL_ORG)
+                .build();
+        int inserted = signatureMapper.insert(signature);
+        if (inserted <= 0) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        }
+        return signature.getId();
+    }
+
+    private String resolveEmployeeProfileDisplayName(MesProcessPoolTeamEmployeeProfileDO profile) {
+        String displayName = StrUtil.blankToDefault(StrUtil.trim(profile.getDisplayName()), null);
+        if (displayName != null) {
+            return displayName;
+        }
+        return StrUtil.blankToDefault(StrUtil.trim(profile.getEmployeeName()), null);
     }
 
     private SignatureActorSnapshot buildActorSnapshot(AdminUserDO user, String actionType,

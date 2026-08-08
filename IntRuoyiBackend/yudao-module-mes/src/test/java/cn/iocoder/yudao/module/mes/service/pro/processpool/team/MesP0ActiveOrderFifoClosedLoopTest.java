@@ -37,6 +37,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -109,6 +110,8 @@ class MesP0ActiveOrderFifoClosedLoopTest {
                 workOrder(9001L, "WO-9001"), workOrder(9003L, "WO-9003")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L, 9003L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(8101L, 9001L, "150"), allocation(8103L, 9003L, "170")));
+        when(orderProcessTargetService.findTarget(any(MesProcessPoolActiveOrderDO.class), eq(5001L), eq(6001L)))
+                .thenReturn(Optional.of(target("200")));
         when(orderProcessTargetService.requireTarget(any(MesProcessPoolActiveOrderDO.class), eq(5001L), eq(6001L)))
                 .thenReturn(target("200"));
         when(quantityFragmentMapper.selectListByProductionSubmitEventIdForUpdate(EVENT_ID))

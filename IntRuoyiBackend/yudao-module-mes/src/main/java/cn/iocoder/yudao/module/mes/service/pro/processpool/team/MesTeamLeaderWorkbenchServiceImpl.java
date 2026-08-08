@@ -4,6 +4,8 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderSubmissionPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineEventRespVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.ProcessPoolTimelineService;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
@@ -41,6 +43,9 @@ public class MesTeamLeaderWorkbenchServiceImpl implements MesTeamLeaderWorkbench
             return PageResult.empty();
         }
         reqVO.setEmployeeUserIds(responsibleEmployeeIds);
+        if (MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC.equals(leaderType)) {
+            reqVO.setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION);
+        }
         return timelineService.getTimelinePage(reqVO);
     }
 

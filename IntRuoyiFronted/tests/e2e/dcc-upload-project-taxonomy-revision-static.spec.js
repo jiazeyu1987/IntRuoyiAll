@@ -77,7 +77,7 @@ for (const autoRevisionToken of [
   'await resolveHistoryRevisionTarget(item.value)',
   "formData.changeType = 'NEW'",
   '请选择历史文件名称后再升版',
-  'formData.changeType === \'REVISION\' && !formData.revisionTargetControlledFileId'
+  'revisionTargetPreflightBlockReason'
 ]) {
   requireIn(uploadPage, autoRevisionToken, `上传页必须按历史文件名称自动判定新建/升版：${autoRevisionToken}`)
 }
@@ -103,8 +103,8 @@ for (const removed of [
 
 for (const unclassifiedLandingToken of [
   'availableCategories',
-  '未绑定提交目录',
-  '未分类目录',
+  '未配置专属目录',
+  '按规则发布到“未分类”',
   'defaultUnclassified'
 ]) {
   requireIn(uploadPage, unclassifiedLandingToken, `上传页必须把未绑定提交目录的文件类别自动落位到未分类：${unclassifiedLandingToken}`)

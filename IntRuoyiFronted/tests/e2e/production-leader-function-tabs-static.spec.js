@@ -66,8 +66,8 @@ assert.match(
 )
 assert.match(
   teamLeaderWorkbench,
-  /watch\(activeProductionModuleTab,\s*async\s*\(tab\)\s*=>\s*\{[\s\S]*tab\s*===\s*'report'[\s\S]*activeLeaderTab\.value\s*===\s*'PRODUCTION'[\s\S]*queryParams\.leaderType\s*=\s*'PRODUCTION'[\s\S]*queryParams\.pageNo\s*=\s*1[\s\S]*ensureSubmissionDateCondition\(\)[\s\S]*await\s+getSubmissionList\(\)[\s\S]*\}\)/,
-  '生产组长切换到报工管理 tab 时必须按 PRODUCTION 组长类型自动加载当天报工列表。'
+  /watch\(activeProductionModuleTab,\s*async\s*\(tab\)\s*=>\s*\{[\s\S]*tab\s*===\s*'report'[\s\S]*activeLeaderTab\.value\s*===\s*'PRODUCTION'[\s\S]*queryParams\.leaderType\s*=\s*'PRODUCTION'[\s\S]*queryParams\.pageNo\s*=\s*1[\s\S]*await\s+getSubmissionList\(\)[\s\S]*\}\)/,
+  '生产组长切换到报工管理 tab 时必须按 PRODUCTION 组长类型自动加载内部默认日期的报工列表。'
 )
 assert.match(
   teamLeaderWorkbench,

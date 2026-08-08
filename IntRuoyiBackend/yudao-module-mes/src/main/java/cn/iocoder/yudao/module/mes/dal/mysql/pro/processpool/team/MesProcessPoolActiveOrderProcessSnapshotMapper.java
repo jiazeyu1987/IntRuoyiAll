@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.util.Collection;
 import java.util.List;
 
 @Mapper
@@ -22,8 +23,17 @@ public interface MesProcessPoolActiveOrderProcessSnapshotMapper
     default List<MesProcessPoolActiveOrderProcessSnapshotDO> selectListByActiveOrderId(Long activeOrderId) {
         return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderProcessSnapshotDO>()
                 .eq(MesProcessPoolActiveOrderProcessSnapshotDO::getActiveOrderId, activeOrderId)
-                .orderByAsc(MesProcessPoolActiveOrderProcessSnapshotDO::getRouteProcessId)
-                .orderByAsc(MesProcessPoolActiveOrderProcessSnapshotDO::getProcessId)
+                .orderByAsc(MesProcessPoolActiveOrderProcessSnapshotDO::getId));
+    }
+
+    default List<MesProcessPoolActiveOrderProcessSnapshotDO> selectListByActiveOrderIds(
+            Collection<Long> activeOrderIds) {
+        if (activeOrderIds == null || activeOrderIds.isEmpty()) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderProcessSnapshotDO>()
+                .in(MesProcessPoolActiveOrderProcessSnapshotDO::getActiveOrderId, activeOrderIds)
+                .orderByAsc(MesProcessPoolActiveOrderProcessSnapshotDO::getActiveOrderId)
                 .orderByAsc(MesProcessPoolActiveOrderProcessSnapshotDO::getId));
     }
 }

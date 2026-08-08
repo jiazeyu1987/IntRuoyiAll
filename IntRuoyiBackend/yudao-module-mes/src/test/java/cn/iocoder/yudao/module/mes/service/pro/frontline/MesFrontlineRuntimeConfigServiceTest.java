@@ -116,6 +116,16 @@ class MesFrontlineRuntimeConfigServiceTest {
         assertNull(config.devices().get(0).parameters().get(1).lowerLimit());
         assertEquals(1, config.defectReasons().size());
         assertEquals("正常损耗", config.defectReasons().get(0).reasonName());
+        assertEquals(ROUTE_ID, config.productionSubmitContext().routeId());
+        assertEquals(ROUTE_PROCESS_ID, config.productionSubmitContext().routeProcessId());
+        assertEquals(PROCESS_ID, config.productionSubmitContext().processId());
+        assertEquals(301L, config.productionSubmitContext().workstationId());
+        assertEquals(LOGIN_USER_ID, config.productionSubmitContext().approveUserId());
+        assertNull(config.productionSubmitContext().workOrderId());
+        assertNull(config.productionSubmitContext().workOrderCode());
+        assertNull(config.productionSubmitContext().taskId());
+        assertNull(config.productionSubmitContext().itemId());
+        assertNull(config.productionSubmitContext().recordbookId());
     }
 
     @Test
@@ -142,6 +152,33 @@ class MesFrontlineRuntimeConfigServiceTest {
         assertEquals(8801L, config.employees().get(0).employeeProfileId());
         assertEquals(8803L, config.employees().get(1).employeeProfileId());
         assertEquals(10003L, config.employees().get(1).systemUserId());
+    }
+
+    @Test
+    void getRuntimeConfig_doesNotRequireActiveOrderWhenFrontlineProductionHasNoWorkOrder() {
+        when(contextService.requireAuthorizedProcess(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesFrontlineRouteProcessCandidate(ROUTE_ID, "R-101", "Route 101",
+                        ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
+                        null, null, null, 301L, "WS-301", "精洗工位"));
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of());
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
+                employeeProfile(8801L, LOGIN_USER_ID, 10001L, "LOGIN-001",
+                        "当前组长人员", "当前组长人员", "FORMAL", true)));
+        when(defectReasonMapper.selectList(any())).thenReturn(List.of());
+
+        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID,
+                ROUTE_PROCESS_ID, PROCESS_ID);
+
+        assertEquals(ROUTE_ID, config.productionSubmitContext().routeId());
+        assertEquals(ROUTE_PROCESS_ID, config.productionSubmitContext().routeProcessId());
+        assertEquals(PROCESS_ID, config.productionSubmitContext().processId());
+        assertEquals(301L, config.productionSubmitContext().workstationId());
+        assertEquals(LOGIN_USER_ID, config.productionSubmitContext().approveUserId());
+        assertNull(config.productionSubmitContext().workOrderId());
+        assertNull(config.productionSubmitContext().workOrderCode());
+        assertNull(config.productionSubmitContext().taskId());
+        assertNull(config.productionSubmitContext().itemId());
+        assertNull(config.productionSubmitContext().recordbookId());
     }
 
     @Test

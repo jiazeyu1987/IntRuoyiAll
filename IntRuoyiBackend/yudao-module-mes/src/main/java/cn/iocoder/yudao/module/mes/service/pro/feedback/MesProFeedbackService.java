@@ -32,6 +32,17 @@ public interface MesProFeedbackService {
     Long createFeedbackWithScheduleSnapshot(@Valid MesProFeedbackSaveReqVO createReqVO);
 
     /**
+     * 创建一线生产正式提交产生的报工草稿。
+     *
+     * <p>一线生产不匹配生产工单、生产任务或物料；该入口只校验正式路线工序、工作站、数量、
+     * 实际填写员工、报工时间和审批人，避免放宽普通报工入口的工单约束。</p>
+     *
+     * @param createReqVO 创建信息
+     * @return 编号
+     */
+    Long createFrontlineFeedback(MesProFeedbackSaveReqVO createReqVO);
+
+    /**
      * 修改生产报工
      *
      * @param updateReqVO 更新信息
@@ -139,4 +150,3 @@ public interface MesProFeedbackService {
                                          BigDecimal laborScrapQty, BigDecimal materialScrapQty, BigDecimal otherScrapQty);
 
 }
-

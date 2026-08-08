@@ -46,6 +46,19 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .orderByAsc(MesPqcInspectionTaskDO::getId));
     }
 
+    default List<MesPqcInspectionTaskDO> selectListByActiveOrderIds(Collection<Long> activeOrderIds) {
+        if (activeOrderIds == null || activeOrderIds.isEmpty()) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
+                .in(MesPqcInspectionTaskDO::getActiveOrderId, activeOrderIds)
+                .orderByAsc(MesPqcInspectionTaskDO::getActiveOrderId)
+                .orderByAsc(MesPqcInspectionTaskDO::getBusinessDate)
+                .orderByAsc(MesPqcInspectionTaskDO::getInspectionType)
+                .orderByAsc(MesPqcInspectionTaskDO::getRoundNo)
+                .orderByAsc(MesPqcInspectionTaskDO::getId));
+    }
+
     default Set<Long> selectActiveOrderIdsByTaskStatus(Collection<Long> activeOrderIds, String taskStatus) {
         if (activeOrderIds == null || activeOrderIds.isEmpty()) {
             return Set.of();

@@ -641,8 +641,8 @@ assert.match(
 )
 assert.match(
   teamLeaderSource,
-  /<el-form-item label="订单号"[\s\S]*<el-select[\s\S]*v-model="activeOrderForm\.workOrderId"[\s\S]*filterable[\s\S]*remote[\s\S]*:remote-method="searchActiveOrderCandidates"/,
-  'team leader workbench must expose one remote searchable 订单号 selector for active-order joining.'
+  /<el-form-item label="订单号\/产品"[\s\S]*<el-select[\s\S]*v-model="activeOrderForm\.workOrderId"[\s\S]*filterable[\s\S]*remote[\s\S]*:remote-method="searchActiveOrderCandidates"[\s\S]*placeholder="请输入订单号、产品编码或产品名称"/,
+  'team leader workbench must expose one remote searchable 订单号/产品 selector for active-order joining.'
 )
 assert.match(
   teamLeaderSource,
@@ -651,8 +651,8 @@ assert.match(
 )
 assert.match(
   teamLeaderSource,
-  /await addTeamLeaderActiveOrder\(\{\s*workOrderId:\s*requirePositiveNumber\(activeOrderForm\.workOrderId,\s*'请选择订单号'\)\s*\}\)/,
-  'team leader workbench must submit only the selected workOrderId for active-order joining.'
+  /await addTeamLeaderActiveOrder\(\{\s*workOrderId:\s*await\s+requireSelectedActiveOrderCandidateWorkOrderId\(\)\s*\}\)/,
+  'team leader workbench must submit only the candidate-verified workOrderId for active-order joining.'
 )
 assert.doesNotMatch(
   teamLeaderSource,

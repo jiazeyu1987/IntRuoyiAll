@@ -138,9 +138,9 @@ public class MesTeamLeaderFifoAllocationService {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED, activeOrder.getWorkOrderId());
         }
         BigDecimal alreadyAllocated = allocatedByWorkOrder.getOrDefault(activeOrder.getWorkOrderId(), BigDecimal.ZERO);
-        return orderProcessTargetService.requireTarget(activeOrder, routeProcessId, processId)
-                .plannedQuantity()
-                .subtract(alreadyAllocated);
+        return orderProcessTargetService.findTarget(activeOrder, routeProcessId, processId)
+                .map(target -> target.plannedQuantity().subtract(alreadyAllocated))
+                .orElse(BigDecimal.ZERO);
     }
 
     private void validateReq(MesTeamLeaderFifoAllocationReqBO reqBO) {

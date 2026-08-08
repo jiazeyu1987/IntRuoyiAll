@@ -1,0 +1,54 @@
+package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
+
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderSubmissionPageReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineEventRespVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.ProcessPoolTimelineService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class MesTeamLeaderWorkbenchServiceImplTest {
+
+    @Mock
+    private MesTeamLeaderScopeService scopeService;
+    @Mock
+    private ProcessPoolTimelineService timelineService;
+
+    private MesTeamLeaderWorkbenchServiceImpl service;
+
+    @BeforeEach
+    void setUp() {
+        service = new MesTeamLeaderWorkbenchServiceImpl(scopeService, timelineService);
+    }
+
+    @Test
+    void shouldRestrictPqcLeaderManagementPageToPqcInspectionEvents() {
+        when(scopeService.listResponsibleEmployeeIds(7001L, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC))
+                .thenReturn(Set.of(8001L, 8002L));
+        when(timelineService.getTimelinePage(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new PageResult<ProcessPoolTimelineEventRespVO>(java.util.List.of(), 0L));
+        MesTeamLeaderSubmissionPageReqVO reqVO = new MesTeamLeaderSubmissionPageReqVO()
+                .setLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC);
+
+        service.getSubmissionPage(7001L, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, reqVO);
+
+        ArgumentCaptor<MesTeamLeaderSubmissionPageReqVO> captor =
+                ArgumentCaptor.forClass(MesTeamLeaderSubmissionPageReqVO.class);
+        verify(timelineService).getTimelinePage(captor.capture());
+        assertEquals(Set.of(8001L, 8002L), captor.getValue().getEmployeeUserIds());
+        assertEquals(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION, captor.getValue().getEventType());
+    }
+}

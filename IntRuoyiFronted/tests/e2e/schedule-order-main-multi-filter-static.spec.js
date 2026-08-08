@@ -94,14 +94,14 @@ assert.doesNotMatch(
 )
 assert.match(
   pageSource,
-  /@update:multi-filter-state="scheduleOrderMultiFilter\.updateState"[\s\S]*@multi-filter-query="scheduleOrderMultiFilter\.applyMultiFilter"[\s\S]*@multi-filter-reset="scheduleOrderMultiFilter\.resetMultiFilter"[\s\S]*@multi-filter-remove="scheduleOrderMultiFilter\.removeCondition"/,
-  '排产工单页面必须绑定多维筛选状态更新、查询、重置和移除事件。'
+  /@update:multi-filter-state="scheduleOrderMultiFilter\.updateState"[\s\S]*@multi-filter-query="scheduleOrderMultiFilter\.applyMultiFilter"[\s\S]*@multi-filter-reset="scheduleOrderMultiFilter\.resetMultiFilter"[\s\S]*@multi-filter-remove="scheduleOrderMultiFilter\.removeConditionAndApply"/,
+  '排产工单页面必须绑定多维筛选状态更新、查询、重置和删除后应用事件。'
 )
 assert.doesNotMatch(pageSource, /multi-filter-max-inline-filters/, '条件 Tab 方案不允许排产工单页面保留 inline 可见数量特例。')
-assert.match(
+assert.doesNotMatch(
   pageSource,
-  /scheduleOrderMultiFilter\.setCondition\(\{[\s\S]*id:\s*'completionFilter'[\s\S]*key:\s*'completionFilter'[\s\S]*value:\s*scheduleOrderQueryParams\.completionFilter/,
-  '排产工单多维筛选必须把页面默认完成状态筛选显式展示为稳定条件 Tab。'
+  /scheduleOrderMultiFilter\.setCondition\(/,
+  '排产工单多维筛选必须保持默认空条件 Tab，不得预置隐藏完成状态筛选。'
 )
 assert.doesNotMatch(
   pageSource,

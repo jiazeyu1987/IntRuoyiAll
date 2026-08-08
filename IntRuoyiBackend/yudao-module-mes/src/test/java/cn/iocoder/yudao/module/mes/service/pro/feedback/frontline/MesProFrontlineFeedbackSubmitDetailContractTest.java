@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackPayloadReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
+import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
@@ -45,6 +47,10 @@ class MesProFrontlineFeedbackSubmitDetailContractTest {
     private MesFrontlineLossReasonValidator lossReasonValidator;
     @Mock
     private MesFrontlineDeviceParameterValidator deviceParameterValidator;
+    @Mock
+    private MesMdAutoCodeRecordService autoCodeRecordService;
+    @Mock
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -57,7 +63,11 @@ class MesProFrontlineFeedbackSubmitDetailContractTest {
                 submitAuthorizationService,
                 lossReasonValidator,
                 deviceParameterValidator,
-                new MesProFrontlineFeedbackPayloadSplitter());
+                new MesProFrontlineFeedbackPayloadSplitter(),
+                autoCodeRecordService,
+                signatureService);
+        org.mockito.Mockito.lenient().when(signatureService.recordProductionSubmitSignature(any(), any(), any()))
+                .thenReturn(4001L);
     }
 
     @Test
@@ -84,14 +94,14 @@ class MesProFrontlineFeedbackSubmitDetailContractTest {
 
         verifyNoInteractions(submitAuthorizationService);
         verify(lossReasonValidator, never()).requireEnabledLossReason(any(), any(), any());
-        verify(feedbackService, never()).createFeedback(any());
+        verify(feedbackService, never()).createFrontlineFeedback(any());
         verifyNoInteractions(recordbookEntryService, processPoolSubmitEventService);
     }
 
     @Test
     void shouldPersistStructuredLossDetailsSelectedDeviceAndParameterReadings() {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
-        when(feedbackService.createFeedback(any())).thenReturn(501L);
+        when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(recordbookEntryService.createOriginalEntry(any()))
                 .thenReturn(new MesProFrontlineRecordbookEntryResult(701L, 702L));
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);

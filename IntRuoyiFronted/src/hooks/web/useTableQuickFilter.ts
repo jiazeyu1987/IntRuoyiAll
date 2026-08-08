@@ -385,6 +385,12 @@ export const useTableQuickFilter = <T extends TableQuickFilterQueryParams>(
       return
     }
 
+    const previousConditions = cloneMultiFilterConditions(state.appliedConditions)
+    const previousActiveConditionId = previousConditions.some(
+      (condition) => (condition.id || condition.key) === state.activeConditionId
+    )
+      ? state.activeConditionId
+      : previousConditions[0]?.id || previousConditions[0]?.key
     const appliedConditions = cloneMultiFilterConditions(state.conditions || [])
     const previousQueryParams = snapshotQuickFilterParams()
     clearQuickFilterParams()
@@ -409,7 +415,11 @@ export const useTableQuickFilter = <T extends TableQuickFilterQueryParams>(
       await reload()
       reloadSucceeded = true
     } finally {
-      if (!reloadSucceeded) restoreQuickFilterParams(previousQueryParams)
+      if (!reloadSucceeded) {
+        restoreQuickFilterParams(previousQueryParams)
+        state.conditions = cloneMultiFilterConditions(previousConditions)
+        state.activeConditionId = previousActiveConditionId
+      }
     }
     state.appliedConditions = appliedConditions
   }

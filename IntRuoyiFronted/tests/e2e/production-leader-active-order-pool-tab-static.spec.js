@@ -128,8 +128,8 @@ const activeOrderAddDialog = sliceDialogByMarker('data-team-leader-active-order-
 
 assert.match(
   activeOrderAddDialog,
-  /<el-dialog[\s\S]*data-team-leader-active-order-add-dialog[\s\S]*title="新增活跃订单"[\s\S]*<el-form-item\s+label="订单号"[\s\S]*<el-select[\s\S]*v-model="activeOrderForm\.workOrderId"[\s\S]*filterable[\s\S]*remote[\s\S]*:remote-method="searchActiveOrderCandidates"[\s\S]*@change="handleActiveOrderCandidateChange"[\s\S]*@clear="handleActiveOrderCandidateClear"[\s\S]*@click="submitAddActiveOrder"/,
-  'The 新增活跃订单 dialog must expose one remote searchable 订单号 el-select bound to workOrderId.'
+  /<el-dialog[\s\S]*data-team-leader-active-order-add-dialog[\s\S]*title="新增活跃订单"[\s\S]*<el-form-item\s+label="订单号\/产品"[\s\S]*<el-select[\s\S]*v-model="activeOrderForm\.workOrderId"[\s\S]*filterable[\s\S]*remote[\s\S]*:remote-method="searchActiveOrderCandidates"[\s\S]*placeholder="请输入订单号、产品编码或产品名称"[\s\S]*@change="handleActiveOrderCandidateChange"[\s\S]*@clear="handleActiveOrderCandidateClear"[\s\S]*@click="submitAddActiveOrder"/,
+  'The 新增活跃订单 dialog must expose one remote searchable 订单号/产品 el-select bound to workOrderId.'
 )
 assert.match(
   activeOrderAddDialog,
@@ -144,7 +144,7 @@ assert.match(
 assert.doesNotMatch(
   activeOrderAddDialog,
   /data-team-leader-active-order-route-id|data-team-leader-active-order-route-version-id|data-team-leader-active-order-transfer-ids|label="生产订单ID"|label="路线ID"|label="路线版本ID"|label="调拨单ID列表"/,
-  'The add dialog must remove old route/version/transfer inputs and only ask for 订单号.'
+  'The add dialog must remove old route/version/transfer inputs and only ask for 订单号/产品.'
 )
 assert.match(
   source,
@@ -158,8 +158,8 @@ assert.match(
 )
 assert.match(
   source,
-  /const\s+resolveActiveOrderCandidateByKeyword\s*=\s*async\s*\(\)\s*=>[\s\S]*activeOrderCandidateKeyword\.value[\s\S]*searchTeamLeaderActiveOrderCandidates\(keyword\)[\s\S]*return findActiveOrderCandidateByCode\(keyword\)[\s\S]*const\s+requireSelectedActiveOrderCandidateWorkOrderId\s*=\s*async\s*\(\)\s*=>[\s\S]*await resolveActiveOrderCandidateByKeyword\(\)[\s\S]*throw new Error\('请选择订单号'\)[\s\S]*return requirePositiveNumber\(selectedCandidate\.workOrderId,\s*'请选择订单号'\)/,
-  'The dialog submit action must resolve an exact typed order number to a real candidate or block before sending workOrderId.'
+  /const\s+resolveActiveOrderCandidateByKeyword\s*=\s*async\s*\(\)\s*=>[\s\S]*activeOrderCandidateKeyword\.value[\s\S]*searchTeamLeaderActiveOrderCandidates\(keyword\)[\s\S]*return findActiveOrderCandidateByCode\(keyword\)[\s\S]*const\s+requireSelectedActiveOrderCandidateWorkOrderId\s*=\s*async\s*\(\)\s*=>[\s\S]*await resolveActiveOrderCandidateByKeyword\(\)[\s\S]*throw new Error\('请选择订单号\/产品候选'\)[\s\S]*return requirePositiveNumber\(selectedCandidate\.workOrderId,\s*'请选择订单号\/产品候选'\)/,
+  'The dialog submit action must resolve exact typed order/product text to a real candidate or block before sending workOrderId.'
 )
 assert.match(
   source,

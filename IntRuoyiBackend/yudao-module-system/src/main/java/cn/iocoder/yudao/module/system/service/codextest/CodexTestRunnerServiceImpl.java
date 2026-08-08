@@ -321,6 +321,8 @@ public class CodexTestRunnerServiceImpl implements CodexTestRunnerService {
         task.setExecutionCaseId(executionCase.getId());
         task.setTargetTenantId(execution.getTargetTenantId());
         task.setExecutionMode(execution.getExecutionMode());
+        task.setAnalysisMode(StrUtil.blankToDefault(
+                executionCase.getAnalysisModeSnapshot(), ANALYSIS_MODE_PLAYWRIGHT_E2E));
         task.setCaseName(executionCase.getCaseNameSnapshot());
         task.setMethodText(executionCase.getMethodTextSnapshot());
         task.setTestDataText(executionCase.getTestDataTextSnapshot());

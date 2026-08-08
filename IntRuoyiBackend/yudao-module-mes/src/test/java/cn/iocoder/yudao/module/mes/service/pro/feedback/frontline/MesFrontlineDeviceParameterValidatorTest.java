@@ -123,6 +123,40 @@ class MesFrontlineDeviceParameterValidatorTest {
         assertEquals(new BigDecimal("10"), reading.getUpperLimit());
     }
 
+    @Test
+    void ignoresNullRouteProcessParameterRulesThatRuntimeConfigDoesNotShow() {
+        when(deviceMapper.selectById(7001L)).thenReturn(enabledDevice());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(enabledProcessDevice()));
+        when(parameterRuleMapper.selectList(any())).thenReturn(List.of(
+                numericRule(),
+                MesProcessPoolDeviceParameterRuleDO.builder()
+                        .leaderUserId(3001L)
+                        .routeProcessId(null)
+                        .processId(6001L)
+                        .deviceId(7001L)
+                        .parameterCode("legacy-temperature")
+                        .parameterName("历史温度")
+                        .unit("℃")
+                        .lowerLimit(BigDecimal.ZERO)
+                        .upperLimit(new BigDecimal("10"))
+                        .valueType("NUMERIC")
+                        .enabled(Boolean.TRUE)
+                        .build()));
+        MesFrontlineDeviceParameterValidator validator = new MesFrontlineDeviceParameterValidatorImpl(
+                processDeviceMapper, deviceMapper, parameterRuleMapper);
+
+        MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO selectedDevice =
+                new MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO().setDeviceId(7001L);
+        MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO reading =
+                new MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO()
+                        .setDeviceId(7001L)
+                        .setParameterCode("temperature")
+                        .setValue(new BigDecimal("5"));
+
+        assertDoesNotThrow(() -> validator.validateSelectedDeviceAndParameters(
+                7101L, 6001L, selectedDevice, List.of(reading)));
+    }
+
     private static MesProcessPoolTeamDeviceDO enabledDevice() {
         return MesProcessPoolTeamDeviceDO.builder()
                 .id(7001L)

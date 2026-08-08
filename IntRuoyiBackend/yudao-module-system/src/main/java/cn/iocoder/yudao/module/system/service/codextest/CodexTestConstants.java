@@ -10,6 +10,9 @@ final class CodexTestConstants {
     static final String STATUS_ENABLE = "ENABLE";
     static final String STATUS_DISABLE = "DISABLE";
 
+    static final String ANALYSIS_MODE_PLAYWRIGHT_E2E = "PLAYWRIGHT_E2E";
+    static final String ANALYSIS_MODE_CODE_READONLY = "CODE_READONLY";
+
     static final String PROJECT_SMART_SCHEDULING = "智能排产";
     static final String PROJECT_DCC = "文控";
     static final String PROJECT_BATCH_RECORD = "批记录";
@@ -39,6 +42,7 @@ final class CodexTestConstants {
 
     static final Set<String> EXECUTION_MODES = Set.of(MODE_SEQUENTIAL, MODE_PARALLEL);
     static final Set<String> CASE_STATUSES = Set.of(STATUS_ENABLE, STATUS_DISABLE);
+    static final Set<String> ANALYSIS_MODES = Set.of(ANALYSIS_MODE_PLAYWRIGHT_E2E, ANALYSIS_MODE_CODE_READONLY);
     static final Set<String> CASE_PROJECTS = Set.of(
             PROJECT_SMART_SCHEDULING, PROJECT_DCC, PROJECT_BATCH_RECORD, PROJECT_PROCESS_ROUTE);
     static final Set<String> CHECKPOINT_RESULT_STATUSES = Set.of(CHECKPOINT_PASS, CHECKPOINT_FAIL, CHECKPOINT_BLOCKED);

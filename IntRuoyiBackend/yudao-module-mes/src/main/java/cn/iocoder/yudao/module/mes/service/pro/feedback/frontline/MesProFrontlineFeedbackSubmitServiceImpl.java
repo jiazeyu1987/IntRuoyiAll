@@ -34,7 +34,6 @@ import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProF
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_LOGIN_USER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_QUANTITY_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_SIGNATURE_EMPLOYEE_MISMATCH;
-import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_SIGNATURE_LOGIN_MISMATCH;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED;
 
 @Service
@@ -83,7 +82,6 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         if (!Objects.equals(deviceAccountUserId, loginUserId)) {
             throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_ACCOUNT_MISMATCH, deviceAccountUserId);
         }
-        validateSignatureActorMatchesLoginUser(reqVO, loginUserId);
         submitAuthorizationService.authorize(buildSubmitIdentityCommand(reqVO, loginUserId));
         validateDeviceParameterPayload(reqVO);
         List<MesFrontlineLossReasonSnapshot> lossReasonSnapshots = lossReasonValidator.requireEnabledLossReasons(
@@ -103,29 +101,31 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         }
 
         applyServerResolvedFeedbackIdentity(reqVO);
-        Long signatureId = signatureService.recordProductionSubmitSignature(reqVO.getSignaturePassword(),
-                "一线生产报工提交");
+        Long signatureId = signatureService.recordProductionSubmitSignature(reqVO.getSignatureEmployeeId(),
+                reqVO.getSignaturePassword(), "一线生产报工提交");
         reqVO.setSignatureId(signatureId);
         splitPayload = payloadSplitter.split(reqVO, loginUserId, submittedAt, lossReasonSnapshot);
 
-        Long feedbackId = feedbackService.createFeedback(splitPayload.getFeedbackPayload());
+        Long feedbackId = feedbackService.createFrontlineFeedback(splitPayload.getFeedbackPayload());
         feedbackService.submitFeedback(feedbackId);
 
-        MesProFrontlineRecordbookEntryPayload recordbookEntryPayload = splitPayload.getRecordbookEntryPayload()
-                .setFeedbackId(feedbackId);
-        MesProFrontlineRecordbookEntryResult recordbookResult =
-                recordbookEntryService.createOriginalEntry(recordbookEntryPayload);
+        MesProFrontlineRecordbookEntryResult recordbookResult = null;
+        if (splitPayload.getRecordbookEntryPayload() != null) {
+            MesProFrontlineRecordbookEntryPayload recordbookEntryPayload = splitPayload.getRecordbookEntryPayload()
+                    .setFeedbackId(feedbackId);
+            recordbookResult = recordbookEntryService.createOriginalEntry(recordbookEntryPayload);
+        }
 
         MesProcessPoolSubmitEventCreateReqBO eventPayload = splitPayload.getProcessPoolEventPayload()
                 .setFeedbackId(feedbackId)
-                .setRecordbookEntryId(recordbookResult.getRecordbookEntryId())
-                .setRecordbookEventId(recordbookResult.getRecordbookEventId());
+                .setRecordbookEntryId(recordbookResult == null ? null : recordbookResult.getRecordbookEntryId())
+                .setRecordbookEventId(recordbookResult == null ? null : recordbookResult.getRecordbookEventId());
         Long processPoolEventId = processPoolSubmitEventService.createSubmitEvent(eventPayload);
 
         return new MesProFrontlineFeedbackSubmitRespVO()
                 .setFeedbackId(feedbackId)
-                .setRecordbookEntryId(recordbookResult.getRecordbookEntryId())
-                .setRecordbookEventId(recordbookResult.getRecordbookEventId())
+                .setRecordbookEntryId(recordbookResult == null ? null : recordbookResult.getRecordbookEntryId())
+                .setRecordbookEventId(recordbookResult == null ? null : recordbookResult.getRecordbookEventId())
                 .setProcessPoolEventId(processPoolEventId);
     }
 
@@ -147,9 +147,6 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         }
         validateProductionQuantity(reqVO.getFeedbackPayload());
         validateLossDetailTotal(reqVO);
-        if (reqVO.getRecordbookPayload() == null) {
-            throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "recordbookPayload");
-        }
         if (reqVO.getProcessPoolContext() == null) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "processPoolContext");
         }
@@ -158,6 +155,9 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         }
         if (reqVO.getRawPayload() == null) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "rawPayload");
+        }
+        if (reqVO.getSignatureId() != null) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "signatureId must be server generated");
         }
         if (reqVO.getActualEmployeeId() == null || reqVO.getSignatureEmployeeId() == null
                 || StrUtil.isBlank(reqVO.getSignaturePassword())) {
@@ -168,13 +168,6 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         }
         if (!Objects.equals(reqVO.getActualEmployeeId(), reqVO.getSignatureEmployeeId())) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SIGNATURE_EMPLOYEE_MISMATCH);
-        }
-    }
-
-    private void validateSignatureActorMatchesLoginUser(MesProFrontlineFeedbackSubmitReqVO reqVO, Long loginUserId) {
-        if (!Objects.equals(reqVO.getActualEmployeeId(), loginUserId)
-                || !Objects.equals(reqVO.getSignatureEmployeeId(), loginUserId)) {
-            throw exception(PRO_FRONTLINE_FEEDBACK_SIGNATURE_LOGIN_MISMATCH);
         }
     }
 

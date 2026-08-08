@@ -87,6 +87,8 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
             executionCase.setCaseNameSnapshot(testCase.getName());
             executionCase.setMethodTextSnapshot(testCase.getMethodText());
             executionCase.setTestDataTextSnapshot(testCase.getTestDataText());
+            executionCase.setAnalysisModeSnapshot(StrUtil.blankToDefault(
+                    testCase.getAnalysisMode(), ANALYSIS_MODE_PLAYWRIGHT_E2E));
             executionCase.setCheckpointCount(checkpoints.size());
             executionCase.setStatus(EXECUTION_PENDING);
             codexTestExecutionCaseMapper.insert(executionCase);

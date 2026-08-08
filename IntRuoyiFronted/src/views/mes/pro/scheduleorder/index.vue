@@ -23,6 +23,7 @@
         :show-multi-filter-operators="false"
         :columns="scheduleOrderColumns"
         :column-saving="scheduleOrderColumnSaving"
+        v-model:sort-state="scheduleOrderSortState"
         :total="scheduleOrderTotal"
         @update:page="scheduleOrderQueryParams.pageNo = $event"
         @update:limit="scheduleOrderQueryParams.pageSize = $event"
@@ -31,9 +32,10 @@
         @update:multi-filter-state="scheduleOrderMultiFilter.updateState"
         @multi-filter-query="scheduleOrderMultiFilter.applyMultiFilter"
         @multi-filter-reset="scheduleOrderMultiFilter.resetMultiFilter"
-        @multi-filter-remove="scheduleOrderMultiFilter.removeCondition"
+        @multi-filter-remove="scheduleOrderMultiFilter.removeConditionAndApply"
         @column-change="saveScheduleOrderColumnConfig"
         @column-reset="resetScheduleOrderColumnConfig"
+        @sort-change="handleScheduleOrderSortChange"
         @pagination="getScheduleOrderList"
       >
         <template #actions>
@@ -95,6 +97,7 @@
             :stripe="true"
             :show-overflow-tooltip="true"
             :cell-class-name="getMainTableCellClassName"
+            :header-cell-class-name="getScheduleOrderHeaderCellClassName"
             :row-class-name="getScheduleOrderRowClassName"
             row-key="id"
             @selection-change="handleScheduleOrderSelectionChange"
@@ -300,7 +303,7 @@
           prop="priorityNo"
           :width="getScheduleOrderColumnWidthString('priorityNo', 100)"
           align="center"
-          v-bind="sortColumnAttrs('priorityNo')"
+          v-bind="sortColumnAttrs({ key: 'priorityNo', sortable: 'custom' })"
         />
         <el-table-column
           v-if="isScheduleOrderColumnVisible('productionMaterialList')"
@@ -741,6 +744,7 @@
             :min="1"
             :step="1"
             :precision="0"
+            aria-label="新优先级"
             controls-position="right"
             class="!w-180px"
           />
@@ -2178,8 +2182,15 @@ const scheduleOrderQueryParams = reactive({
   currentProcessId: undefined as number | undefined,
   completionFilter: undefined as 'INCOMPLETE' | 'ALL' | 'COMPLETED' | undefined,
   promiseDate: undefined as string[] | undefined,
+  sortField: undefined as string | undefined,
+  sortOrder: undefined as 'asc' | 'desc' | undefined,
   quickFilter: undefined as any
 })
+const scheduleOrderSortState = ref<{
+  key?: string
+  prop?: string
+  order?: 'ascending' | 'descending' | null
+}>({})
 const scheduleOrderCompletionFilterOptions = [
   { label: '未完成', value: 'INCOMPLETE' },
   { label: '全部', value: 'ALL' },
@@ -2891,8 +2902,13 @@ const getScheduleOrderList = async () => {
   scheduleOrderLoading.value = true
   try {
     const data = await MesProScheduleOrderApi.getScheduleOrderPage(scheduleOrderQueryParams)
-    scheduleOrderList.value = sortScheduleOrderListForDisplay(data.list || [])
+    const rows = data.list || []
+    scheduleOrderList.value =
+      scheduleOrderQueryParams.sortField && scheduleOrderQueryParams.sortOrder
+        ? rows
+        : sortScheduleOrderListForDisplay(rows)
     scheduleOrderTotal.value = data.total
+    void syncScheduleOrderPriorityAriaSort()
   } finally {
     scheduleOrderLoading.value = false
   }
@@ -3053,6 +3069,44 @@ const sortScheduleOrderListForDisplay = (rows: MesProScheduleOrderVO[]) => {
       String(right.code || right.erpWorkOrderCode || '')
     )
   })
+}
+
+const getScheduleOrderHeaderCellClassName = ({ column }: { column?: { property?: string } }) => {
+  return column?.property === 'priorityNo' ? 'schedule-order-pool__priority-sort-header' : ''
+}
+
+const getScheduleOrderPriorityAriaSortValue = () => {
+  const activeSortProp = scheduleOrderSortState.value.prop || scheduleOrderSortState.value.key
+  if (activeSortProp !== 'priorityNo') return 'none'
+  if (scheduleOrderSortState.value.order === 'ascending') return 'ascending'
+  if (scheduleOrderSortState.value.order === 'descending') return 'descending'
+  return 'none'
+}
+
+const syncScheduleOrderPriorityAriaSort = async () => {
+  await nextTick()
+  const ariaSort = getScheduleOrderPriorityAriaSortValue()
+  const priorityHeaders = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      '[data-user-table-key="mes.pro.scheduleOrder.main"] .schedule-order-pool__priority-sort-header'
+    )
+  )
+  priorityHeaders.forEach((header) => {
+    header.setAttribute('aria-sort', ariaSort)
+  })
+}
+
+const handleScheduleOrderSortChange = async ({ prop, order }: { prop?: string; order?: string | null }) => {
+  scheduleOrderQueryParams.pageNo = 1
+  if (prop !== 'priorityNo' || (order !== 'ascending' && order !== 'descending')) {
+    scheduleOrderQueryParams.sortField = undefined
+    scheduleOrderQueryParams.sortOrder = undefined
+    await getScheduleOrderList()
+    return
+  }
+  scheduleOrderQueryParams.sortField = prop === 'priorityNo' ? 'priorityNo' : undefined
+  scheduleOrderQueryParams.sortOrder = order === 'ascending' ? 'asc' : 'desc'
+  await getScheduleOrderList()
 }
 
 const openScheduleOrderExportDialog = () => {
@@ -3698,6 +3752,20 @@ watch(
     if (isAutoOpenReplanQuery(autoOpenReplan)) {
       openReplanDrawer()
     }
+  }
+)
+
+watch(
+  () => scheduleOrderSortState.value.order,
+  () => {
+    void syncScheduleOrderPriorityAriaSort()
+  }
+)
+
+watch(
+  () => scheduleOrderSortState.value.prop,
+  () => {
+    void syncScheduleOrderPriorityAriaSort()
   }
 )
 

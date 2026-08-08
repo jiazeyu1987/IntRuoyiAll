@@ -45,8 +45,8 @@ for (const field of [
 }
 assert.match(
   apiSource,
-  /export interface FrontlinePqcItemResultSubmitReqVO[\s\S]*itemCode: string[\s\S]*selectedEquipmentId: number[\s\S]*selectedEquipmentNumber: string[\s\S]*sampleValues: string\[\]/,
-  'PQC submit contract must include itemResults with item code, selected equipment, equipment number, and sample values.'
+  /export interface FrontlinePqcItemResultSubmitReqVO[\s\S]*itemCode: string[\s\S]*selectedEquipmentId\?: number[\s\S]*selectedEquipmentNumber\?: string[\s\S]*sampleValues: string\[\]/,
+  'PQC submit contract must allow QA items without equipment to omit selected equipment fields.'
 )
 assert.match(
   apiSource,
@@ -82,7 +82,7 @@ assert.match(
 assert.match(
   panelSource,
   /buildPqcItemResultsPayload[\s\S]*selectedEquipmentId[\s\S]*selectedEquipmentNumber[\s\S]*sampleValues/,
-  'PQC submit payload must be built from item-level selections and samples.'
+  'PQC submit payload must still include selected equipment fields when the QA item requires equipment.'
 )
 assert.match(
   panelSource,
@@ -92,8 +92,13 @@ assert.match(
 
 assert.match(
   panelSource,
-  /const assertPqcSubmissionItemEquipmentSelections = \(\) =>[\s\S]*requirePqcItemSelection\(item\)/,
-  'PQC formal submit must validate every item-level equipment identity before opening the signature dialog.'
+  /equipmentRequired:\s*item\.equipmentRequired === true,/,
+  'PQC fill page must preserve the backend QA equipmentRequired flag without defaulting missing equipment metadata to required.'
+)
+assert.doesNotMatch(
+  panelSource,
+  /assertPqcSubmissionItemEquipmentSelections\(\)/,
+  'PQC formal submit must not force equipment selection before opening the signature dialog.'
 )
 const requireSelectionBlock = blockBetween(
   panelSource,
@@ -102,28 +107,37 @@ const requireSelectionBlock = blockBetween(
 )
 assert.match(
   requireSelectionBlock,
+  /if \(!hasSelectedEquipment\) \{[\s\S]*selectedOption: undefined/,
+  'PQC items must pass equipment selection resolution when the operator leaves equipment blank.'
+)
+assert.match(
+  requireSelectionBlock,
   /if \(!selection\.selectedEquipmentId\) \{[\s\S]*throw new Error/,
-  'PQC item selection validation must require selectedEquipmentId for every formal itemResult.'
+  'PQC partial equipment selection must still fail fast when selectedEquipmentId is missing.'
 )
 assert.match(
   requireSelectionBlock,
   /if \(!selection\.selectedEquipmentNumber\) \{[\s\S]*throw new Error/,
-  'PQC item selection validation must require selectedEquipmentNumber for every formal itemResult.'
+  'PQC partial equipment selection must still fail fast when selectedEquipmentNumber is missing.'
 )
-assert.doesNotMatch(
+assert.match(
   requireSelectionBlock,
-  /item\.equipmentRequired && !selection\.selectedEquipmentId/,
-  'PQC selectedEquipmentId cannot be optional in formal submit because backend requires itemResults.<item>.selectedEquipmentId.'
+  /if \(!item\.equipmentOptions\.length\)/,
+  'PQC selected equipment must still be checked against formal QA equipment options.'
+)
+assert.ok(
+  panelSource.includes("item.equipmentOptions.length ? '设备可选' : '无需设备'"),
+  'PQC tab requirement text must show equipment as optional instead of formal-submit required.'
 )
 const handleValidateBlock = blockBetween(
   panelSource,
   'const handleValidate = async () => {',
   'const closePqcSignatureDialog = () => {'
 )
-assert.match(
+assert.doesNotMatch(
   handleValidateBlock,
-  /assertPqcSubmissionItemEquipmentSelections\(\)[\s\S]*assertPqcSubmissionSampleQuantities\(\)/,
-  'PQC equipment identity validation must run before sample quantity validation and before the signature dialog opens.'
+  /assertPqcSubmissionItemEquipmentSelections\(\)/,
+  'PQC equipment identity validation must not run before the signature dialog opens.'
 )
 assert.doesNotMatch(
   panelSource,

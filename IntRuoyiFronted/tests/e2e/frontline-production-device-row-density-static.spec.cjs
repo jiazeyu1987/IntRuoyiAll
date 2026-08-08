@@ -54,10 +54,12 @@ for (const oldToken of ['gap: 24px;', 'padding: 26px;']) {
 
 const parameterBlock = extractCssBlock(panel, '.frontline-production-device-param')
 for (const token of [
-  'grid-template-columns: 126px 70px minmax(0, 1fr) 70px 58px;',
+  'grid-template-columns: 224px 70px minmax(0, 1fr) 70px 58px;',
   'gap: 10px;',
-  'font-size: 30px;',
+  'font-size: 28px;',
   'line-height: 1.1;',
+  'white-space: nowrap;',
+  'font-size: 18px;',
   'height: 72px;',
   'font-size: 38px;',
   'font-size: 40px;',
@@ -69,6 +71,7 @@ for (const token of [
   assert.ok(parameterBlock.includes(token), `device parameter rows must use compact token: ${token}`)
 }
 for (const oldToken of [
+  'grid-template-columns: 126px 70px minmax(0, 1fr) 70px 58px;',
   'grid-template-columns: 150px 82px minmax(0, 1fr) 82px 78px;',
   'gap: 14px;',
   'height: 96px;',

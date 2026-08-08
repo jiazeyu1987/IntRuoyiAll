@@ -1040,6 +1040,10 @@ const resolveBrowserErrorMessage = (error: unknown, fallback: string) => {
 }
 
 type BrowserSearchScope = BrowserSearchScopeValue
+type BrowserPaginationPayload = {
+  page?: number
+  limit?: number
+}
 
 const browserSearchScopeOptions = [
   { label: '当前目录', value: BROWSER_SEARCH_SCOPE_CURRENT },
@@ -1066,6 +1070,7 @@ const batchRecognitionExistingRecordPolicyOptions = [
 const directoryLoading = ref(false)
 const loading = ref(false)
 const total = ref(0)
+const browserListErrorMessage = ref<string>('')
 const directories = ref<ControlledFileDirectoryNode[]>([])
 const categories = ref<ControlledFileCategoryVO[]>([])
 const downloadLoadingId = ref<number>()
@@ -1210,6 +1215,9 @@ const isCurrentDirectorySearch = computed(() => searchScope.value === BROWSER_SE
 const isGlobalSearch = computed(() => searchScope.value === BROWSER_SEARCH_SCOPE_GLOBAL)
 const isQueryDisabled = computed(() => isCurrentDirectorySearch.value && !selectedDirectoryId.value)
 const tableEmptyText = computed(() => {
+  if (browserListErrorMessage.value) {
+    return '列表数据已失效'
+  }
   if (isCurrentDirectorySearch.value && !selectedDirectoryId.value) {
     return '请先选择受控浏览目录'
   }
@@ -1232,6 +1240,9 @@ const browserCategoryText = computed(() => {
   return categoryNameMap.value.get(queryParams.categoryId) || `类别 #${queryParams.categoryId}`
 })
 const tableEmptyHint = computed(() => {
+  if (browserListErrorMessage.value) {
+    return `${browserListErrorMessage.value}。已清空上一次结果，避免把旧文件误认为当前筛选结果。`
+  }
   if (isCurrentDirectorySearch.value && !selectedDirectoryId.value) {
     return '请选择左侧目录后再按目录/分类/项目代码定位当前有效文件。'
   }
@@ -2022,6 +2033,7 @@ const clearSelectedDirectory = () => {
   selectedDirectory.value = undefined
   list.value = []
   total.value = 0
+  browserListErrorMessage.value = ''
   clearBrowserLoadedListState()
 }
 
@@ -2124,6 +2136,7 @@ const buildBrowserReturnPath = () => {
 
 const getList = async () => {
   const requestRouteStateKey = buildBrowserRouteStateKey()
+  browserListErrorMessage.value = ''
   if (isCurrentDirectorySearch.value && !selectedDirectoryId.value) {
     list.value = []
     total.value = 0
@@ -2139,15 +2152,26 @@ const getList = async () => {
     }))
     total.value = data.total
     markBrowserListLoadedForState(requestRouteStateKey)
+  } catch (error) {
+    list.value = []
+    total.value = 0
+    clearBrowserLoadedListState()
+    browserListErrorMessage.value = resolveBrowserErrorMessage(error, '受控浏览列表加载失败，请重新登录或刷新后重试。')
+    throw error
   } finally {
     loading.value = false
   }
+}
+const reloadBrowserListAndCommitState = async () => {
+  await getList()
+  await syncRouteFromBrowserState()
+  persistBrowserRememberedState()
 }
 const dccBrowserQuickFilter = useTableQuickFilter(
   'dcc.controlledFile.browser.main',
   dccBrowserQuickFilterDefinitions,
   queryParams,
-  getList
+  reloadBrowserListAndCommitState
 )
 
 const loadDirectories = async () => {
@@ -2192,8 +2216,8 @@ const selectDirectoryAndLoad = async (data: ControlledFileDirectoryVO) => {
   await nextTick()
   syncDirectoryTreeExpandedState()
   directoryTreeRef.value?.setCurrentKey(directory.id)
-  await syncRouteFromBrowserState()
   await getList()
+  await syncRouteFromBrowserState()
   persistBrowserRememberedState()
 }
 
@@ -2288,15 +2312,15 @@ const handleQuery = async (skipEmptyReset = false) => {
     return
   }
   queryParams.pageNo = 1
-  await syncRouteFromBrowserState()
   await getList()
+  await syncRouteFromBrowserState()
   persistBrowserRememberedState()
 }
 
 const handleSearchScopeChange = async () => {
   queryParams.pageNo = 1
-  await syncRouteFromBrowserState()
   await getList()
+  await syncRouteFromBrowserState()
   persistBrowserRememberedState()
 }
 
@@ -2322,8 +2346,8 @@ const refreshDirectories = async () => {
 }
 
 const refreshList = async () => {
-  await syncRouteFromBrowserState()
   await Promise.all([loadCategories(), getList()])
+  await syncRouteFromBrowserState()
   persistBrowserRememberedState()
 }
 
@@ -2685,8 +2709,8 @@ const showBatchRecognitionRecords = async (recognitionStatus: 'SUCCESS' | 'FAILE
   queryParams.batchRecognitionTaskId = taskId
   queryParams.pageNo = 1
   batchRecognitionProgressVisible.value = false
-  await syncRouteFromBrowserState()
   await getList()
+  await syncRouteFromBrowserState()
   persistBrowserRememberedState()
   message.success(recognitionStatus === 'SUCCESS' ? '已显示本次识别成功记录' : '已显示本次识别失败记录')
 }
@@ -2734,18 +2758,40 @@ const confirmBatchRecognition = async () => {
   }
 }
 
-const handlePagination = async () => {
-  const normalizedPageSize = resolveBrowserPageSize(queryParams.pageSize)
-  if (queryParams.pageSize !== normalizedPageSize) {
-    queryParams.pageSize = normalizedPageSize
+const handlePagination = async (payload?: BrowserPaginationPayload) => {
+  const previousRouteState = buildBrowserRememberedStateFromRoute()
+  const previousPageNo = previousRouteState.pageNo || 1
+  const previousPageSize = resolveBrowserPageSize(previousRouteState.pageSize)
+  const nextPageNo = parsePositiveNumber(payload?.page) || queryParams.pageNo
+  const normalizedPageSize = resolveBrowserPageSize(payload?.limit || queryParams.pageSize)
+  queryParams.pageNo = nextPageNo
+  queryParams.pageSize = normalizedPageSize
+  try {
+    await getList()
+    await syncRouteFromBrowserState()
+    persistBrowserRememberedState()
+  } catch (error) {
+    queryParams.pageNo = previousPageNo
+    queryParams.pageSize = previousPageSize
+    message.error('分页跳转失败，已恢复当前页码，请重新登录或刷新后重试。')
+    throw error
   }
-  await syncRouteFromBrowserState()
-  await getList()
-  persistBrowserRememberedState()
 }
 
 const openPreview = (id: number | string) => {
-  window.open(buildControlledFileViewerPath(id, 'browser', buildBrowserReturnPath()), '_blank')
+  const normalizedId = String(id || '').trim()
+  if (!normalizedId) {
+    message.error('文件预览缺少文件 ID，无法打开预览。')
+    return
+  }
+  const previewWindow = window.open(
+    buildControlledFileViewerPath(normalizedId, 'browser', buildBrowserReturnPath()),
+    '_blank'
+  )
+  if (!previewWindow) {
+    message.error('预览窗口打开失败，请检查浏览器弹窗拦截设置。')
+    return
+  }
 }
 
 const openDetail = (id: number | string) => {

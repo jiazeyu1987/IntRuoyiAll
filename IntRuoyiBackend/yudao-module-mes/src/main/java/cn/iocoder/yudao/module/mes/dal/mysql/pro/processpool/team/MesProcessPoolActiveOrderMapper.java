@@ -28,10 +28,14 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
     }
 
     default MesProcessPoolActiveOrderDO selectActiveByWorkOrderAndRoute(Long workOrderId, Long routeId) {
-        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
+        List<MesProcessPoolActiveOrderDO> activeOrders = selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
                 .eq(MesProcessPoolActiveOrderDO::getWorkOrderId, workOrderId)
                 .eq(MesProcessPoolActiveOrderDO::getRouteId, routeId)
-                .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE"));
+                .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE")
+                .orderByDesc(MesProcessPoolActiveOrderDO::getJoinedAt)
+                .orderByDesc(MesProcessPoolActiveOrderDO::getId)
+                .last("LIMIT 1"));
+        return activeOrders == null || activeOrders.isEmpty() ? null : activeOrders.get(0);
     }
 
     default MesProcessPoolActiveOrderDO selectActiveByLeaderAndWorkOrderForUpdate(Long leaderUserId,

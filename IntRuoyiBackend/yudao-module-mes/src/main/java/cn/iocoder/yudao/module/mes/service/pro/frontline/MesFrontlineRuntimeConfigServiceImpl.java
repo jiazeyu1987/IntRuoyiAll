@@ -1,25 +1,16 @@
 package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
-import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrRecordbookDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDefectReasonDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.task.MesProTaskDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrRecordbookMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDefectReasonMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.task.MesProTaskMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -48,10 +39,6 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
     private final MesProcessPoolTeamDeviceMapper deviceMapper;
     private final MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
     private final MesProcessPoolDefectReasonMapper defectReasonMapper;
-    private final MesProcessPoolActiveOrderMapper activeOrderMapper;
-    private final MesProTaskMapper taskMapper;
-    private final MesProWorkOrderMapper workOrderMapper;
-    private final MesProEdhrRecordbookMapper recordbookMapper;
 
     public MesFrontlineRuntimeConfigServiceImpl(
             MesFrontlineDeviceAccountContextService contextService,
@@ -59,21 +46,13 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
             MesProcessPoolTeamProcessDeviceMapper processDeviceMapper,
             MesProcessPoolTeamDeviceMapper deviceMapper,
             MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper,
-            MesProcessPoolDefectReasonMapper defectReasonMapper,
-            MesProcessPoolActiveOrderMapper activeOrderMapper,
-            MesProTaskMapper taskMapper,
-            MesProWorkOrderMapper workOrderMapper,
-            MesProEdhrRecordbookMapper recordbookMapper) {
+            MesProcessPoolDefectReasonMapper defectReasonMapper) {
         this.contextService = contextService;
         this.employeeProfileMapper = employeeProfileMapper;
         this.processDeviceMapper = processDeviceMapper;
         this.deviceMapper = deviceMapper;
         this.parameterRuleMapper = parameterRuleMapper;
         this.defectReasonMapper = defectReasonMapper;
-        this.activeOrderMapper = activeOrderMapper;
-        this.taskMapper = taskMapper;
-        this.workOrderMapper = workOrderMapper;
-        this.recordbookMapper = recordbookMapper;
     }
 
     @Override
@@ -98,94 +77,20 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
     private MesFrontlineProductionSubmitContext resolveProductionSubmitContext(
             MesFrontlineRouteProcessCandidate process, Long responsibleLeaderUserId) {
         requirePositive(responsibleLeaderUserId, "approveUserId");
-        MesProcessPoolActiveOrderDO activeOrder = requireSingleActiveOrder(process, responsibleLeaderUserId);
-        MesProWorkOrderDO workOrder = requireWorkOrder(activeOrder.getWorkOrderId());
-        MesProTaskDO task = requireSingleTask(process, activeOrder.getWorkOrderId());
-        Long itemId = resolveItemId(task, workOrder);
-        Long recordbookId = requireOpenProductionRecordbook(workOrder);
         return new MesFrontlineProductionSubmitContext(
-                workOrder.getId(),
-                workOrder.getCode(),
-                workOrder.getName(),
-                task.getId(),
+                null,
+                null,
+                null,
+                null,
                 process.routeId(),
                 process.routeProcessId(),
                 process.processId(),
-                task.getWorkstationId(),
-                itemId,
+                process.workstationId(),
+                null,
                 responsibleLeaderUserId,
-                recordbookId,
-                task.getQuantity(),
-                workOrder.getRequestDate());
-    }
-
-    private MesProcessPoolActiveOrderDO requireSingleActiveOrder(MesFrontlineRouteProcessCandidate process,
-                                                                 Long leaderUserId) {
-        List<MesProcessPoolActiveOrderDO> activeOrders = safeList(activeOrderMapper.selectActiveListByLeader(leaderUserId))
-                .stream()
-                .filter(order -> order != null && Objects.equals(order.getRouteId(), process.routeId()))
-                .toList();
-        if (activeOrders.size() != 1) {
-            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED,
-                    PRODUCTION_CONTEXT_PREFIX + "activeOrder routeId=" + process.routeId());
-        }
-        MesProcessPoolActiveOrderDO activeOrder = activeOrders.get(0);
-        requirePositive(activeOrder.getWorkOrderId(), "workOrderId");
-        return activeOrder;
-    }
-
-    private MesProWorkOrderDO requireWorkOrder(Long workOrderId) {
-        MesProWorkOrderDO workOrder = workOrderMapper.selectById(workOrderId);
-        if (workOrder == null || workOrder.getId() == null || StrUtil.isBlank(workOrder.getCode())) {
-            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED,
-                    PRODUCTION_CONTEXT_PREFIX + "workOrder workOrderId=" + workOrderId);
-        }
-        return workOrder;
-    }
-
-    private MesProTaskDO requireSingleTask(MesFrontlineRouteProcessCandidate process, Long workOrderId) {
-        List<MesProTaskDO> tasks = safeList(taskMapper.selectListByWorkOrderId(workOrderId)).stream()
-                .filter(task -> task != null
-                        && Objects.equals(task.getRouteId(), process.routeId())
-                        && Objects.equals(task.getProcessId(), process.processId())
-                        && Objects.equals(task.getWorkstationId(), process.workstationId()))
-                .toList();
-        if (tasks.size() != 1) {
-            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED,
-                    PRODUCTION_CONTEXT_PREFIX + "task workOrderId=" + workOrderId
-                            + ", routeProcessId=" + process.routeProcessId());
-        }
-        MesProTaskDO task = tasks.get(0);
-        requirePositive(task.getId(), "taskId");
-        requirePositive(task.getWorkstationId(), "workstationId");
-        return task;
-    }
-
-    private Long resolveItemId(MesProTaskDO task, MesProWorkOrderDO workOrder) {
-        Long taskItemId = task.getItemId();
-        Long workOrderItemId = workOrder.getProductId();
-        if (taskItemId != null && workOrderItemId != null && !Objects.equals(taskItemId, workOrderItemId)) {
-            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED,
-                    PRODUCTION_CONTEXT_PREFIX + "itemId mismatch taskId=" + task.getId());
-        }
-        Long itemId = taskItemId != null ? taskItemId : workOrderItemId;
-        requirePositive(itemId, "itemId");
-        return itemId;
-    }
-
-    private Long requireOpenProductionRecordbook(MesProWorkOrderDO workOrder) {
-        List<MesProEdhrRecordbookDO> recordbooks = safeList(recordbookMapper
-                .selectOpenProductionListByWorkOrder(workOrder.getCode(), workOrder.getId()));
-        if (recordbooks.size() != 1) {
-            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED,
-                    PRODUCTION_CONTEXT_PREFIX + "recordbook workOrderCode=" + workOrder.getCode());
-        }
-        requirePositive(recordbooks.get(0).getId(), "recordbookId");
-        return recordbooks.get(0).getId();
-    }
-
-    private static <T> List<T> safeList(List<T> items) {
-        return items == null ? List.of() : items;
+                null,
+                null,
+                null);
     }
 
     private static void requirePositive(Long value, String field) {
@@ -372,4 +277,5 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }
+
 }

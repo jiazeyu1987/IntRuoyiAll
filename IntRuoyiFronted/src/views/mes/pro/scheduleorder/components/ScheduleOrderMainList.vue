@@ -16,6 +16,7 @@
     :show-multi-filter-operators="showMultiFilterOperators"
     :columns="columns"
     :column-saving="columnSaving"
+    :sort-state="sortState"
     :show-column-settings="false"
     :show-column-reset="false"
     :total="total"
@@ -31,6 +32,8 @@
     @multi-filter-remove="emit('multiFilterRemove', $event)"
     @column-change="emit('columnChange', $event)"
     @column-reset="emit('columnReset')"
+    @update:sort-state="emit('update:sortState', $event)"
+    @sort-change="emit('sortChange', $event)"
     @pagination="emit('pagination', $event)"
     >
       <template #actions>
@@ -132,6 +135,7 @@ defineProps({
   showMultiFilterOperators: { type: Boolean, default: true },
   columns: { type: Array as PropType<UserTableColumnState[]>, required: true },
   columnSaving: { type: Boolean, required: true },
+  sortState: { type: Object as PropType<ScheduleOrderSortState>, default: () => ({}) },
   total: { type: Number, required: true }
 })
 
@@ -146,6 +150,8 @@ const emit = defineEmits([
   'multiFilterRemove',
   'columnChange',
   'columnReset',
+  'update:sortState',
+  'sortChange',
   'pagination'
 ])
 

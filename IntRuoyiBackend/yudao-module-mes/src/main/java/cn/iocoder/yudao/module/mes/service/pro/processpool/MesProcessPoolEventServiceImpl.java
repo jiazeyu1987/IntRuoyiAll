@@ -83,7 +83,6 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
         if (reqDTO == null) {
             throw missingContext("request");
         }
-        requirePositive(reqDTO.getProductionSubmitEventId(), "productionSubmitEventId");
         validatePqcInspectionResult(reqDTO.getInspectionResult());
         Optional<MesProProcessPoolEventDO> existing = findExistingPqcInspectionEvent(reqDTO);
         if (existing.isPresent()) {
@@ -141,7 +140,9 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
         }
         requireNotBlank(reqDTO.getEventType(), "eventType");
         requireNotBlank(reqDTO.getEventIdempotencyKey(), "eventIdempotencyKey");
-        requirePositive(reqDTO.getWorkOrderId(), "workOrderId");
+        if (!isProductionSubmit(reqDTO)) {
+            requirePositive(reqDTO.getWorkOrderId(), "workOrderId");
+        }
         requirePositive(reqDTO.getRouteId(), "routeId");
         requirePositive(reqDTO.getRouteProcessId(), "routeProcessId");
         requirePositive(reqDTO.getProcessId(), "processId");
@@ -150,10 +151,11 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
         requireNotBlank(reqDTO.getFeedbackSourceType(), "feedbackSourceType");
         requirePositive(reqDTO.getFeedbackSourceId(), "feedbackSourceId");
         if (isProductionSubmit(reqDTO)) {
-            requirePositive(reqDTO.getRecordbookEntryId(), "recordbookEntryId");
+            validateOptionalProductionRecordbookContext(reqDTO);
+        } else {
+            requireNotBlank(reqDTO.getRecordbookSourceType(), "recordbookSourceType");
+            requirePositive(reqDTO.getRecordbookSourceId(), "recordbookSourceId");
         }
-        requireNotBlank(reqDTO.getRecordbookSourceType(), "recordbookSourceType");
-        requirePositive(reqDTO.getRecordbookSourceId(), "recordbookSourceId");
         requireNotBlank(reqDTO.getRawPayload(), "rawPayload");
         requirePositive(reqDTO.getSignatureId(), "signatureId");
         requirePositive(reqDTO.getSignatureUserId(), "signatureUserId");
@@ -166,6 +168,18 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
             requirePositive(reqDTO.getWorkstationId(), "workstationId");
         }
         validateQuantityFragments(reqDTO);
+    }
+
+    private void validateOptionalProductionRecordbookContext(MesProcessPoolCreateEventReqDTO reqDTO) {
+        boolean hasAnyRecordbookContext = reqDTO.getRecordbookEntryId() != null
+                || StrUtil.isNotBlank(reqDTO.getRecordbookSourceType())
+                || reqDTO.getRecordbookSourceId() != null;
+        if (!hasAnyRecordbookContext) {
+            return;
+        }
+        requirePositive(reqDTO.getRecordbookEntryId(), "recordbookEntryId");
+        requireNotBlank(reqDTO.getRecordbookSourceType(), "recordbookSourceType");
+        requirePositive(reqDTO.getRecordbookSourceId(), "recordbookSourceId");
     }
 
     private void validateQuantityFragments(MesProcessPoolCreateEventReqDTO reqDTO) {
@@ -282,7 +296,6 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
             throw missingContext("eventType");
         }
         requireNotBlank(reqDTO.getEventIdempotencyKey(), "eventIdempotencyKey");
-        requirePositive(reqDTO.getWorkOrderId(), "workOrderId");
         requirePositive(reqDTO.getRouteId(), "routeId");
         requirePositive(reqDTO.getRouteProcessId(), "routeProcessId");
         requirePositive(reqDTO.getProcessId(), "processId");
@@ -299,9 +312,8 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
             return Optional.empty();
         }
         MesProProcessPoolPqcRecordDO pqcRecord = pqcRecordMapper.selectByEventId(existing.getId());
-        if (pqcRecord == null || !Objects.equals(pqcRecord.getProductionSubmitEventId(),
-                reqDTO.getProductionSubmitEventId())) {
-            throw missingContext("productionSubmitEventId");
+        if (pqcRecord == null) {
+            throw missingContext("pqcRecord.eventId");
         }
         return Optional.of(existing);
     }
@@ -326,7 +338,6 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
         if (reqDTO == null) {
             throw missingContext("request");
         }
-        requirePositive(reqDTO.getProductionSubmitEventId(), "productionSubmitEventId");
         requireNotBlank(reqDTO.getPqcSubmissionIdempotencyKey(), "pqcSubmissionIdempotencyKey");
         requirePositive(reqDTO.getWorkOrderId(), "workOrderId");
         requirePositive(reqDTO.getRouteId(), "routeId");

@@ -40,6 +40,18 @@ public class ProcessPoolTimelinePageReqVO extends PageParam {
     @Schema(description = "模板类型", example = "PRODUCTION")
     private String templateType;
 
+    @Schema(description = "工序池事件类型", hidden = true)
+    private String eventType;
+
+    public String getEventType() {
+        return eventType;
+    }
+
+    public ProcessPoolTimelinePageReqVO setEventType(String eventType) {
+        this.eventType = eventType;
+        return this;
+    }
+
     @Schema(description = "生产工单编号", example = "30001")
     private Long workOrderId;
 

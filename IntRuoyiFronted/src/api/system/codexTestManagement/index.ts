@@ -2,6 +2,7 @@ import request from '@/config/axios'
 
 export type CodexTestProject = '智能排产' | '文控' | '批记录' | '工艺路线'
 export type CodexTestProgressPhase = 'METHOD' | 'CHECKPOINT' | 'DONE'
+export type CodexTestAnalysisMode = 'PLAYWRIGHT_E2E' | 'CODE_READONLY'
 
 export const CODEX_TEST_PROJECT_OPTIONS: Array<{ label: CodexTestProject; value: CodexTestProject }> = [
   { label: '智能排产', value: '智能排产' },
@@ -27,6 +28,7 @@ export interface CodexTestCaseVO {
   nodeChainSort?: number
   methodText: string
   testDataText?: string
+  analysisMode?: CodexTestAnalysisMode
   defaultExecutionMode: 'SEQUENTIAL' | 'PARALLEL'
   parallelSafe: boolean
   status: 'ENABLE' | 'DISABLE'
@@ -83,6 +85,7 @@ export interface CodexTestExecutionCaseVO {
   caseNameSnapshot: string
   methodTextSnapshot: string
   testDataTextSnapshot?: string
+  analysisModeSnapshot?: CodexTestAnalysisMode
   checkpointCount: number
   status: string
   runnerSessionId?: number

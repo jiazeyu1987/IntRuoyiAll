@@ -17,7 +17,6 @@ public interface MesProProcessPoolEventMapper extends BaseMapperX<MesProProcessP
         }
         LambdaQueryWrapperX<MesProProcessPoolEventDO> query = new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
                 .eq(MesProProcessPoolEventDO::getEventType, MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
-                .eq(MesProProcessPoolEventDO::getWorkOrderId, event.getWorkOrderId())
                 .eq(MesProProcessPoolEventDO::getRouteId, event.getRouteId())
                 .eq(MesProProcessPoolEventDO::getRouteProcessId, event.getRouteProcessId())
                 .eq(MesProProcessPoolEventDO::getProcessId, event.getProcessId())
@@ -25,6 +24,11 @@ public interface MesProProcessPoolEventMapper extends BaseMapperX<MesProProcessP
                 .eq(MesProProcessPoolEventDO::getDeviceAccountId, event.getDeviceAccountId())
                 .eq(MesProProcessPoolEventDO::getWorkstationId, event.getWorkstationId())
                 .eq(MesProProcessPoolEventDO::getEventIdempotencyKey, event.getEventIdempotencyKey());
+        if (event.getWorkOrderId() == null) {
+            query.isNull(MesProProcessPoolEventDO::getWorkOrderId);
+        } else {
+            query.eq(MesProProcessPoolEventDO::getWorkOrderId, event.getWorkOrderId());
+        }
         if (event.getDeviceId() == null) {
             query.isNull(MesProProcessPoolEventDO::getDeviceId);
         } else {

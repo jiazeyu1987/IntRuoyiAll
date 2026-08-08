@@ -18,6 +18,18 @@ public class MesTeamLeaderActiveOrderRespVO {
     @Schema(description = "生产订单编号", example = "9001")
     private Long workOrderId;
 
+    @Schema(description = "生产工单号", example = "881MO090889")
+    private String workOrderCode;
+
+    @Schema(description = "产品名称", example = "球囊扩张压力泵")
+    private String productName;
+
+    @Schema(description = "产品编码", example = "AW.107.02.01.2010")
+    private String productCode;
+
+    @Schema(description = "生产订单数量", example = "2248")
+    private BigDecimal quantity;
+
     @Schema(description = "正式工艺路线编号", example = "922119")
     private Long routeId;
 
@@ -32,6 +44,12 @@ public class MesTeamLeaderActiveOrderRespVO {
 
     @Schema(description = "ERP固定生产数量快照", example = "200")
     private BigDecimal erpFixedQuantitySnapshot;
+
+    @Schema(description = "生产进度百分比", example = "10.000000")
+    private BigDecimal productionProgressPercent;
+
+    @Schema(description = "检验进度百分比", example = "10.000000")
+    private BigDecimal inspectionProgressPercent;
 
     @Schema(description = "活跃状态", example = "ACTIVE")
     private String activeStatus;

@@ -207,11 +207,12 @@ const setActiveConditionId = (conditionId: string | number) => {
 
 const removeActiveConditionTab = () => {
   if (!activeConditionId.value) return
+  const removedConditionId = activeConditionId.value
   const nextConditions = conditionTabs.value.filter(
-    (condition, index) => getConditionId(condition, index) !== activeConditionId.value
+    (condition, index) => getConditionId(condition, index) !== removedConditionId
   )
   emitState(nextConditions, nextConditions[0]?.id || nextConditions[0]?.key)
-  emit('remove', activeConditionId.value)
+  emit('remove', removedConditionId)
 }
 
 const updateActiveDefinition = (key: string | number) => {

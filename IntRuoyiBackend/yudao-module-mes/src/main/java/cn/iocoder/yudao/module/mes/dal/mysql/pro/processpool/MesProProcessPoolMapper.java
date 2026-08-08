@@ -43,10 +43,14 @@ public interface MesProProcessPoolMapper extends BaseMapperX<MesProProcessPoolDO
     default MesProProcessPoolDO selectByContext(Long workOrderId, Long routeId, Long routeProcessId,
                                                 Long processId, Long deviceId, Long workstationId) {
         LambdaQueryWrapperX<MesProProcessPoolDO> query = new LambdaQueryWrapperX<MesProProcessPoolDO>()
-                .eq(MesProProcessPoolDO::getWorkOrderId, workOrderId)
                 .eq(MesProProcessPoolDO::getRouteId, routeId)
                 .eq(MesProProcessPoolDO::getRouteProcessId, routeProcessId)
                 .eq(MesProProcessPoolDO::getProcessId, processId);
+        if (workOrderId == null) {
+            query.isNull(MesProProcessPoolDO::getWorkOrderId);
+        } else {
+            query.eq(MesProProcessPoolDO::getWorkOrderId, workOrderId);
+        }
         if (deviceId == null) {
             query.isNull(MesProProcessPoolDO::getDeviceId);
         } else {

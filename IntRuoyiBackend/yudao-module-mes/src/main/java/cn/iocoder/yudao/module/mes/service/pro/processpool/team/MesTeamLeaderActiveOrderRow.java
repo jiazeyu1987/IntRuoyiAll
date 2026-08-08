@@ -16,11 +16,17 @@ public class MesTeamLeaderActiveOrderRow {
     private Long id;
     private Long leaderUserId;
     private Long workOrderId;
+    private String workOrderCode;
+    private String productName;
+    private String productCode;
+    private BigDecimal quantity;
     private Long routeId;
     private String routeName;
     private Long routeVersionId;
     private String routeVersionNo;
     private BigDecimal erpFixedQuantitySnapshot;
+    private BigDecimal productionProgressPercent;
+    private BigDecimal inspectionProgressPercent;
     private String activeStatus;
     private String businessStatus;
     private LocalDateTime joinedAt;

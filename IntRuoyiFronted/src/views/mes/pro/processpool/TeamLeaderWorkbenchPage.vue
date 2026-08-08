@@ -1210,6 +1210,20 @@
                 {{ formatTraceQuantity(row.erpFixedQuantitySnapshot) }}
               </template>
             </el-table-column>
+            <el-table-column label="生产进度" prop="productionProgressPercent" min-width="120">
+              <template #default="{ row }">
+                <span data-team-leader-active-order-production-progress>
+                  {{ formatActiveOrderProgressPercent(row.productionProgressPercent) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="检验进度" prop="inspectionProgressPercent" min-width="120">
+              <template #default="{ row }">
+                <span data-team-leader-active-order-inspection-progress>
+                  {{ formatActiveOrderProgressPercent(row.inspectionProgressPercent) }}
+                </span>
+              </template>
+            </el-table-column>
             <el-table-column label="加入时间" min-width="170">
               <template #default="{ row }">{{ formatDateTime(row.joinedAt) }}</template>
             </el-table-column>
@@ -1313,7 +1327,7 @@
         @closed="resetActiveOrderForm"
       >
         <el-form :model="activeOrderForm" label-width="110px">
-          <el-form-item label="订单号" data-team-leader-active-order-work-order-code>
+          <el-form-item label="订单号/产品" data-team-leader-active-order-work-order-code>
             <el-select
               v-model="activeOrderForm.workOrderId"
               filterable
@@ -1322,7 +1336,7 @@
               reserve-keyword
               :remote-method="searchActiveOrderCandidates"
               :loading="activeOrderCandidateLoading"
-              placeholder="请输入并选择订单号"
+              placeholder="请输入订单号、产品编码或产品名称"
               class="team-leader-workbench__full-control"
               @change="handleActiveOrderCandidateChange"
               @clear="handleActiveOrderCandidateClear"
@@ -2290,14 +2304,14 @@
     </el-dialog>
 
     <el-dialog v-model="reviewVisible" :title="reviewDialogTitle" width="760px">
-      <el-form :model="reviewForm" label-width="92px">
+      <el-form v-if="reviewDialogMode === 'REVIEW'" :model="reviewForm" label-width="92px">
         <el-form-item v-if="reviewDialogMode === 'REVIEW'" label="判定结果">
           <el-select v-model="reviewForm.reviewStatus">
             <el-option label="正确" value="APPROVED" />
             <el-option label="不正确" value="REJECTED" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="reviewDialogMode === 'ALLOCATION' ? '分配说明' : '复核说明'">
+        <el-form-item label="复核说明">
           <el-input v-model="reviewForm.reviewRemark" type="textarea" :rows="4" />
         </el-form-item>
         <el-form-item label="复核签名ID" data-team-leader-review-signature>
@@ -2333,9 +2347,6 @@
         <div class="team-leader-workbench__allocation-toolbar">
           <div>
             <div class="team-leader-workbench__section-title">活跃订单分配</div>
-            <div class="team-leader-workbench__hint">
-              可先按 FIFO 自动分配，再根据现场情况手动调整。
-            </div>
           </div>
           <div>
             <el-button
@@ -2370,20 +2381,56 @@
                   :key="order.id"
                   :label="formatActiveOrderOption(order)"
                   :value="order.id"
-                />
+                >
+                  <div
+                    class="team-leader-workbench__active-order-option"
+                    data-team-leader-active-order-option
+                  >
+                    <div>
+                      <span>编码</span>
+                      <strong>{{ formatActiveOrderCode(order) }}</strong>
+                    </div>
+                    <div>
+                      <span>产品</span>
+                      <strong>{{ formatActiveOrderProduct(order) }}</strong>
+                    </div>
+                    <div>
+                      <span>数量</span>
+                      <strong>{{ formatActiveOrderQuantity(order) }}</strong>
+                    </div>
+                  </div>
+                </el-option>
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="分配数量" width="180">
+          <el-table-column label="分配数量" width="270">
             <template #default="{ row }">
-              <el-input-number
-                v-model="row.allocatedQuantity"
-                :min="0"
-                :precision="3"
-                :controls="false"
-                class="!w-140px"
-                @change="markManualAllocation"
-              />
+              <div class="team-leader-workbench__allocation-quantity-cell">
+                <el-input-number
+                  v-model="row.allocatedQuantity"
+                  :min="0"
+                  :precision="0"
+                  :step="1"
+                  step-strictly
+                  :controls="false"
+                  class="team-leader-workbench__allocation-quantity-input"
+                  @change="markManualAllocation"
+                />
+                <el-button
+                  size="small"
+                  data-team-leader-allocation-max
+                  @click="applyAllocationShortcut(row, 'MAX')"
+                >
+                  最大
+                </el-button>
+                <el-button
+                  size="small"
+                  data-team-leader-allocation-half
+                  @click="applyAllocationShortcut(row, 'HALF')"
+                >
+                  一半
+                </el-button>
+              </div>
             </template>
           </el-table-column>
           <el-table-column label="FIFO 剩余" width="140">
@@ -2576,7 +2623,6 @@ import TableMultiFilter from '@/components/TableMultiFilter/index.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   useTableMultiFilter,
-  type ListMultiFilterCondition,
   type ListMultiFilterDefinition
 } from '@/hooks/web/useTableMultiFilter'
 import {
@@ -2647,6 +2693,7 @@ defineOptions({ name: 'MesProProcessPoolTeamLeaderWorkbench' })
 
 type WorkbenchLeaderTab = TeamLeaderType
 type ProcessConfigCreateType = 'DEVICE_BINDING' | 'PARAMETER_RULE'
+type AllocationShortcutMode = 'MAX' | 'HALF'
 
 interface ProductionReportCorrectionLossDetailRow {
   reasonId: number
@@ -2696,8 +2743,8 @@ const activeProductionModuleTab = ref<
   'personnel' | 'report' | 'reportHistory' | 'activeOrder' | 'dashboard' | 'processConfig'
 >('personnel')
 
-const DEFAULT_SUBMISSION_DATE_CONDITION_ID = 'submitDate'
 const getDefaultSubmissionDate = () => formatDate(new Date(), 'YYYY-MM-DD')
+const SUBMISSION_DEFAULT_DATE_DISCOVERY_LOOKBACK_DAYS = 14
 const loading = ref(false)
 const detailLoading = ref(false)
 const reviewSubmitting = ref(false)
@@ -2838,6 +2885,8 @@ const activeOrderColumns: any[] = [
   { key: 'routeName', label: '路线名称', visible: true },
   { key: 'routeVersionNo', label: '版本号', visible: true },
   { key: 'erpFixedQuantitySnapshot', label: 'ERP生产数量', visible: true },
+  { key: 'productionProgressPercent', label: '生产进度', visible: true },
+  { key: 'inspectionProgressPercent', label: '检验进度', visible: true },
   { key: 'joinedAt', label: '加入时间', visible: true }
 ]
 const pqcPersonnelQuery = reactive({
@@ -3442,6 +3491,14 @@ const requirePositiveNumber = (value: unknown, message: string) => {
   return parsed
 }
 
+const requirePositiveInteger = (value: unknown, message: string) => {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0 || !Number.isInteger(parsed)) {
+    throw new Error(message)
+  }
+  return parsed
+}
+
 const requireFiniteNumber = (value: unknown, message: string) => {
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) {
@@ -3450,8 +3507,37 @@ const requireFiniteNumber = (value: unknown, message: string) => {
   return parsed
 }
 
+const formatActiveOrderCode = (order: TeamLeaderActiveOrderRespVO) =>
+  order.workOrderCode?.trim() || '未返回订单编号'
+
+const formatActiveOrderProduct = (order: TeamLeaderActiveOrderRespVO) => {
+  const productParts = [order.productName, order.productCode]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+  return productParts.length > 0 ? productParts.join(' / ') : '未返回产品'
+}
+
+const formatActiveOrderQuantity = (order: TeamLeaderActiveOrderRespVO) => {
+  const value = order.quantity
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return '未返回数量'
+  }
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return String(value).trim()
+  return parsed.toFixed(3).replace(/\.?0+$/, '')
+}
+
 const formatActiveOrderOption = (order: TeamLeaderActiveOrderRespVO) => {
-  return `订单 ${order.workOrderId} / 活跃池 ${order.id}`
+  return `编码 ${formatActiveOrderCode(order)} / 产品 ${formatActiveOrderProduct(order)} / 数量 ${formatActiveOrderQuantity(order)}`
+}
+
+const formatActiveOrderProgressPercent = (value: number | string | undefined) => {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return '未返回进度'
+  }
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return String(value).trim()
+  return `${parsed.toFixed(1).replace(/\.0$/, '')}%`
 }
 
 const formatTraceQuantity = (value: number | string | undefined) => {
@@ -4293,6 +4379,67 @@ const removeAllocationLine = (index: number) => {
   allocationRows.value.splice(index, 1)
 }
 
+const normalizeAllocationInteger = (value: unknown) => {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0
+  return Math.floor(parsed)
+}
+
+const resolveAllocationActiveOrder = (line: TeamLeaderReportAllocationLine) => {
+  const activeOrderId = Number(line.activeOrderId)
+  const order = allocatableActiveOrderOptions.value.find((item) => Number(item.id) === activeOrderId)
+  if (!order) {
+    throw new Error('请选择活跃订单后再快捷分配')
+  }
+  return order
+}
+
+const resolveCurrentAllocationRemainingQuantity = (line: TeamLeaderReportAllocationLine) => {
+  const totalQuantity = requirePositiveInteger(reviewEvent.value?.outputQuantity, '本次报工数量必须为正整数')
+  const allocatedExceptCurrent = allocationRows.value.reduce((total, item) => {
+    if (item === line) return total
+    return total + normalizeAllocationInteger(item.allocatedQuantity)
+  }, 0)
+  const currentRemainingQuantity = totalQuantity - allocatedExceptCurrent
+  if (currentRemainingQuantity <= 0) {
+    throw new Error('本次报工剩余可分配数量必须大于 0')
+  }
+  return currentRemainingQuantity
+}
+
+const resolveAllocationShortcutQuantity = (
+  line: TeamLeaderReportAllocationLine,
+  mode: AllocationShortcutMode
+) => {
+  const order = resolveAllocationActiveOrder(line)
+  const orderQuantity = requirePositiveInteger(
+    order.erpFixedQuantitySnapshot ?? order.quantity,
+    '订单生产数量必须为正整数'
+  )
+  const currentRemainingQuantity = resolveCurrentAllocationRemainingQuantity(line)
+  if (mode === 'MAX') {
+    return Math.min(orderQuantity, currentRemainingQuantity)
+  }
+  const halfOrderQuantity = Math.floor(orderQuantity / 2)
+  const shortcutQuantity = Math.min(halfOrderQuantity, currentRemainingQuantity)
+  if (shortcutQuantity <= 0) {
+    throw new Error('订单一半数量必须大于 0')
+  }
+  return shortcutQuantity
+}
+
+const applyAllocationShortcut = (
+  line: TeamLeaderReportAllocationLine,
+  mode: AllocationShortcutMode
+) => {
+  try {
+    line.allocatedQuantity = resolveAllocationShortcutQuantity(line, mode)
+    markManualAllocation()
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '快捷分配失败'))
+  }
+}
+
 const previewFifoAllocation = async () => {
   const eventId = requirePositiveNumber(reviewEvent.value?.id, '工序池提交事件编号不能为空')
   allocationPreviewLoading.value = true
@@ -4319,7 +4466,7 @@ const previewFifoAllocation = async () => {
 const buildAllocationSubmitLines = (): TeamLeaderReportAllocationLine[] => {
   const lines = allocationRows.value.map((line) => ({
     activeOrderId: requirePositiveNumber(line.activeOrderId, '活跃订单不能为空'),
-    allocatedQuantity: requirePositiveNumber(line.allocatedQuantity, '分配数量必须大于 0')
+    allocatedQuantity: requirePositiveInteger(line.allocatedQuantity, '分配数量必须为正整数')
   }))
   if (lines.length === 0) {
     throw new Error('生产组长确认报工前必须分配到活跃订单')
@@ -5050,11 +5197,20 @@ const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
 }
 
 async function getSubmissionList() {
-  ensureSubmissionDateCondition()
+  ensureSubmissionQueryDate()
   loading.value = true
   loadError.value = ''
   try {
     const data = await getTeamLeaderSubmissionPage(buildSubmissionParams())
+    if ((data.total || 0) === 0 && isSubmissionDefaultDateDiscoveryContext()) {
+      const nearestPage = await loadNearestSubmissionDatePage(buildSubmissionParams())
+      if (nearestPage) {
+        applyDiscoveredSubmissionDate(nearestPage.submitDate)
+        submissionList.value = nearestPage.data.list || []
+        submissionTotal.value = nearestPage.data.total || 0
+        return
+      }
+    }
     submissionList.value = data.list || []
     submissionTotal.value = data.total || 0
   } catch (error) {
@@ -5080,36 +5236,73 @@ const {
   getSubmissionList
 )
 
-const ensureSubmissionDateCondition = () => {
+const SUBMISSION_NON_DATE_QUERY_PARAM_KEYS: (keyof TeamLeaderSubmissionPageReqVO)[] = [
+  'employeeUserId',
+  'processId',
+  'deviceId',
+  'templateType',
+  'workOrderId',
+  'workOrderCode',
+  'productId',
+  'productKeyword',
+  'inspectionType',
+  'roundNo',
+  'submissionReviewStatus'
+]
+
+const hasSubmissionValue = (value: unknown) => {
+  if (Array.isArray(value)) return value.some((item) => hasSubmissionValue(item))
+  return value !== undefined && value !== null && !(typeof value === 'string' && value.trim() === '')
+}
+
+const hasNonDateSubmissionQueryParams = () =>
+  SUBMISSION_NON_DATE_QUERY_PARAM_KEYS.some((key) => hasSubmissionValue(queryParams[key]))
+
+const shiftSubmissionDate = (submitDate: string, dayOffset: number) => {
+  const [year, month, day] = submitDate.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  date.setDate(date.getDate() + dayOffset)
+  return formatDate(date, 'YYYY-MM-DD')
+}
+
+const isSubmissionDefaultDateDiscoveryContext = () =>
+  activeLeaderTab.value === 'PRODUCTION' &&
+  activeProductionModuleTab.value === 'report' &&
+  queryParams.leaderType === 'PRODUCTION' &&
+  queryParams.submitDate === getDefaultSubmissionDate() &&
+  !hasNonDateSubmissionQueryParams() &&
+  submissionMultiFilterState.conditions.length === 0 &&
+  submissionMultiFilterState.appliedConditions.length === 0
+
+const loadNearestSubmissionDatePage = async (baseParams: TeamLeaderSubmissionPageReqVO) => {
+  for (let dayOffset = 1; dayOffset <= SUBMISSION_DEFAULT_DATE_DISCOVERY_LOOKBACK_DAYS; dayOffset++) {
+    const candidateSubmitDate = shiftSubmissionDate(baseParams.submitDate, -dayOffset)
+    const data = await getTeamLeaderSubmissionPage({
+      ...baseParams,
+      submitDate: candidateSubmitDate,
+      pageNo: 1
+    })
+    if ((data.total || 0) > 0) {
+      return {
+        submitDate: candidateSubmitDate,
+        data
+      }
+    }
+  }
+  return undefined
+}
+
+const applyDiscoveredSubmissionDate = (submitDate: string) => {
+  queryParams.pageNo = 1
+  queryParams.submitDate = submitDate
+}
+
+const ensureSubmissionQueryDate = () => {
   const currentSubmitDate =
     typeof queryParams.submitDate === 'string' && queryParams.submitDate.trim()
       ? queryParams.submitDate.trim()
       : getDefaultSubmissionDate()
   queryParams.submitDate = currentSubmitDate
-
-  const submitDateCondition: ListMultiFilterCondition = {
-    id: DEFAULT_SUBMISSION_DATE_CONDITION_ID,
-    key: 'submitDate',
-    operator: 'eq',
-    value: currentSubmitDate
-  }
-  const nextConditions = [
-    submitDateCondition,
-    ...submissionMultiFilterState.conditions.filter(
-      (condition) =>
-        (condition.id || condition.key) !== DEFAULT_SUBMISSION_DATE_CONDITION_ID &&
-        condition.key !== 'submitDate'
-    )
-  ]
-  const activeConditionStillExists = nextConditions.some(
-    (condition) => (condition.id || condition.key) === submissionMultiFilterState.activeConditionId
-  )
-  updateSubmissionMultiFilterState({
-    conditions: nextConditions,
-    activeConditionId: activeConditionStillExists
-      ? submissionMultiFilterState.activeConditionId
-      : DEFAULT_SUBMISSION_DATE_CONDITION_ID
-  })
 }
 
 const clearSubmissionFilterParams = () => {
@@ -5141,30 +5334,49 @@ const resetSubmissionQueryParams = (leaderType: TeamLeaderType) => {
   queryParams.submitDate = getDefaultSubmissionDate()
 }
 
-const hasSubmissionDateCondition = () => {
-  const condition = submissionMultiFilterState.conditions.find(
-    (item) => item.key === 'submitDate'
+const clearSubmissionVisibleFilterState = () => {
+  updateSubmissionMultiFilterState({
+    conditions: [],
+    appliedConditions: [],
+    activeConditionId: undefined
+  })
+}
+
+const isInitialDefaultSubmitDateCondition = (condition: {
+  id?: string
+  key?: string
+  operator?: string
+  value?: unknown
+}) => {
+  const conditionIdentity = condition.id || condition.key
+  const conditionValue = typeof condition.value === 'string' ? condition.value.trim() : ''
+  return (
+    conditionIdentity === 'submitDate' &&
+    condition.key === 'submitDate' &&
+    (condition.operator || 'eq') === 'eq' &&
+    conditionValue === (queryParams.submitDate || getDefaultSubmissionDate())
   )
-  const value = condition?.value
-  if (typeof value === 'string' && value.trim()) {
-    return true
-  }
-  ElMessage.warning('提交日期是必填筛选条件，请先在标准多条件搜索中选择提交日期。')
-  return false
+}
+
+const clearInitialSubmissionVisibleDefaultFilter = () => {
+  if (submissionMultiFilterState.appliedConditions.length > 0) return
+  const isDefaultSubmitDateOnly =
+    submissionMultiFilterState.conditions.length === 1 &&
+    isInitialDefaultSubmitDateCondition(submissionMultiFilterState.conditions[0])
+  if (!isDefaultSubmitDateOnly) return
+  clearSubmissionVisibleFilterState()
 }
 
 const applySubmissionMultiFilter = async () => {
-  if (!hasSubmissionDateCondition()) return
   await applySubmissionMultiFilterState()
 }
 
 const resetSubmissionMultiFilter = async () => {
   const leaderType = activeLeaderTab.value
-  updateSubmissionMultiFilterState({ conditions: [], activeConditionId: undefined })
+  clearSubmissionVisibleFilterState()
   clearSubmissionMultiFilterParams()
   clearSubmissionFilterParams()
   resetSubmissionQueryParams(leaderType)
-  ensureSubmissionDateCondition()
   submissionList.value = []
   submissionTotal.value = 0
   loadError.value = ''
@@ -5176,7 +5388,7 @@ watch(activePqcModuleTab, async (tab) => {
     queryParams.leaderType = 'PQC'
     queryParams.pageNo = 1
     queryParams.submissionReviewStatus = tab === 'history' ? 'APPROVED' : undefined
-    ensureSubmissionDateCondition()
+    clearInitialSubmissionVisibleDefaultFilter()
     await getSubmissionList()
   }
 })
@@ -5186,7 +5398,7 @@ watch(activeProductionModuleTab, async (tab) => {
     queryParams.leaderType = 'PRODUCTION'
     queryParams.pageNo = 1
     queryParams.submissionReviewStatus = tab === 'reportHistory' ? 'APPROVED' : undefined
-    ensureSubmissionDateCondition()
+    clearInitialSubmissionVisibleDefaultFilter()
     await getSubmissionList()
   }
 })
@@ -5299,17 +5511,27 @@ const submitReview = async () => {
   try {
     const leaderType = queryParams.leaderType as TeamLeaderType
     const reviewRemark = reviewForm.reviewRemark.trim() || undefined
-    const reviewSignaturePayload = buildReviewSignaturePayload()
     if (isProductionLeader.value && reviewForm.reviewStatus === 'APPROVED') {
-      await confirmTeamLeaderReportAllocation({
-        eventId,
-        leaderType,
-        allocationMode: reviewForm.allocationMode,
-        reviewRemark,
-        ...reviewSignaturePayload,
-        allocations: buildAllocationSubmitLines()
-      })
+      if (reviewDialogMode.value === 'ALLOCATION') {
+        await confirmTeamLeaderReportAllocation({
+          eventId,
+          leaderType,
+          allocationMode: reviewForm.allocationMode,
+          allocations: buildAllocationSubmitLines()
+        })
+      } else {
+        const reviewSignaturePayload = buildReviewSignaturePayload()
+        await confirmTeamLeaderReportAllocation({
+          eventId,
+          leaderType,
+          allocationMode: reviewForm.allocationMode,
+          reviewRemark,
+          ...reviewSignaturePayload,
+          allocations: buildAllocationSubmitLines()
+        })
+      }
     } else {
+      const reviewSignaturePayload = buildReviewSignaturePayload()
       await reviewTeamLeaderSubmission({
         leaderType,
         eventId,
@@ -5525,7 +5747,7 @@ const handleActiveOrderCandidateChange = (value?: number | string) => {
   if (!selectedCandidate) {
     activeOrderForm.workOrderId = undefined
     activeOrderSelectedCandidate.value = undefined
-    activeOrderCandidateError.value = '请选择订单号'
+    activeOrderCandidateError.value = '请选择订单号/产品候选'
     return
   }
   activeOrderForm.workOrderId = selectedCandidate.workOrderId
@@ -5562,7 +5784,7 @@ const searchActiveOrderCandidates = async (keyword: string) => {
     activeOrderCandidateOptions.value = []
     activeOrderForm.workOrderId = undefined
     activeOrderSelectedCandidate.value = undefined
-    activeOrderCandidateError.value = resolveErrorMessage(error, '订单号候选搜索失败')
+    activeOrderCandidateError.value = resolveErrorMessage(error, '订单号/产品候选搜索失败')
     ElMessage.error(activeOrderCandidateError.value)
   } finally {
     activeOrderCandidateLoading.value = false
@@ -5584,7 +5806,7 @@ const resolveActiveOrderCandidateByKeyword = async () => {
     return findActiveOrderCandidateByCode(keyword)
   } catch (error) {
     activeOrderCandidateOptions.value = []
-    activeOrderCandidateError.value = resolveErrorMessage(error, '订单号候选搜索失败')
+    activeOrderCandidateError.value = resolveErrorMessage(error, '订单号/产品候选搜索失败')
     ElMessage.error(activeOrderCandidateError.value)
     return undefined
   } finally {
@@ -5605,13 +5827,13 @@ const requireSelectedActiveOrderCandidateWorkOrderId = async () => {
   }
   selectedCandidate = await resolveActiveOrderCandidateByKeyword()
   if (!selectedCandidate) {
-    throw new Error('请选择订单号')
+    throw new Error('请选择订单号/产品候选')
   }
   activeOrderForm.workOrderId = selectedCandidate.workOrderId
   activeOrderSelectedCandidate.value = selectedCandidate
   activeOrderCandidateKeyword.value = selectedCandidate.workOrderCode
   activeOrderCandidateError.value = ''
-  return requirePositiveNumber(selectedCandidate.workOrderId, '请选择订单号')
+  return requirePositiveNumber(selectedCandidate.workOrderId, '请选择订单号/产品候选')
 }
 
 const submitAddActiveOrder = async () => {
@@ -5748,13 +5970,15 @@ onMounted(() => {
       if (activeProductionModuleTab.value === 'reportHistory') {
         queryParams.submissionReviewStatus = 'APPROVED'
       }
-      ensureSubmissionDateCondition()
+      clearInitialSubmissionVisibleDefaultFilter()
+      ensureSubmissionQueryDate()
       getSubmissionList()
     }
   } else {
     refreshPqcPersonnel()
     if (!showPqcModuleTabs.value) {
-      ensureSubmissionDateCondition()
+      clearInitialSubmissionVisibleDefaultFilter()
+      ensureSubmissionQueryDate()
       getSubmissionList()
     }
   }
@@ -5959,6 +6183,37 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.team-leader-workbench__active-order-option {
+  display: grid;
+  min-width: 220px;
+  padding: 6px 0;
+  gap: 4px;
+  line-height: 1.25;
+}
+
+.team-leader-workbench__active-order-option > div {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+
+.team-leader-workbench__active-order-option span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.team-leader-workbench__active-order-option strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .team-leader-workbench__personnel-dialog-header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -6052,6 +6307,17 @@ onMounted(() => {
   color: #64748b;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.team-leader-workbench__allocation-quantity-cell {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.team-leader-workbench__allocation-quantity-input {
+  width: 112px;
+  flex: 0 0 112px;
 }
 
 .team-leader-workbench__qa-layout {

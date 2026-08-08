@@ -21,11 +21,16 @@ const sliceBetween = (source, startNeedle, endNeedle) => {
   return source.slice(start, end)
 }
 
-const onMountedBlock = sliceBetween(panel, 'onMounted(async () => {', 'onBeforeUnmount')
+const onMountedBlock = sliceBetween(panel, 'onMounted(async () => {', 'onUnmounted(() => {')
+const initializeProductionSelectionBlock = sliceBetween(
+  panel,
+  'const initializeProductionSelection = async () => {',
+  'const resolveErrorMessage'
+)
 const pqcStartupBlock = sliceBetween(
   onMountedBlock,
   'if (isPqcMode.value) {',
-  '  await loadFrontlineDeviceProcesses(deviceState)'
+  '  const [loadedCatalog] = await Promise.all(['
 )
 assert.match(
   pqcStartupBlock,
@@ -33,11 +38,16 @@ assert.match(
   'PQC mode must keep using active orders because PQC inspection is order scoped.'
 )
 assert.match(
-  onMountedBlock,
-  /await loadFrontlineDeviceProcesses\(deviceState\)[\s\S]*await handleSelectProcess\(firstProcess\)/,
+  initializeProductionSelectionBlock,
+  /await loadFrontlineDeviceProcesses\(deviceState\)[\s\S]*findInitialProcess\(processes\)[\s\S]*await handleSelectProcess\(initialProcess\)/,
   'Production mode must enter SOP process reporting from device-account processes without selecting an active order.'
 )
-const productionStartupBlock = onMountedBlock.slice(onMountedBlock.indexOf('await loadFrontlineDeviceProcesses(deviceState)'))
+assert.match(
+  onMountedBlock,
+  /Promise\.all\(\[[\s\S]*catalogRequest,[\s\S]*initializeProductionSelection\(\)[\s\S]*\]\)/,
+  'Production startup must load catalog and device-account processes without waiting for active orders.'
+)
+const productionStartupBlock = onMountedBlock.slice(onMountedBlock.indexOf('const [loadedCatalog] = await Promise.all(['))
 assert.doesNotMatch(
   productionStartupBlock,
   /loadFrontlinePqcActiveOrders|selectFrontlinePqcActiveOrder/,
@@ -72,10 +82,15 @@ const formalSubmitContextBlock = sliceBetween(
   'const assertFrontlineFormalSubmitContext = (formalContext: FrontlineFormalSubmitContext) => {',
   'const buildFrontlineFormalSubmitPayload = ('
 )
+assert.doesNotMatch(
+  formalSubmitContextBlock,
+  /\['workOrderId', '订单上下文'\]|\['taskId', '生产任务'\]|\['itemId', '产品物料'\]|\['recordbookId', '记录本'\]/,
+  'Production formal submit must not require work order, task, item, or recordbook context.'
+)
 assert.match(
   formalSubmitContextBlock,
-  /\['workOrderId', '订单上下文'\][\s\S]*\['taskId', '生产任务'\]/,
-  'The existing formal one-step submit endpoint must still fail fast when order/task context is missing.'
+  /\['routeId', '路线'\][\s\S]*\['routeProcessId', '路线工序'\][\s\S]*\['processId', '工序'\]/,
+  'Production formal submit must still fail fast on route and process identity.'
 )
 
 assert.match(
@@ -90,8 +105,23 @@ assert.match(
 )
 assert.match(
   panel,
-  /processPoolSubmissionIdempotencyKey:\s*[\s\S]*firstRouteQueryText\(\['processPoolSubmissionIdempotencyKey'\]\)/,
-  'Formal submit payload must send a stable process-pool idempotency key.'
+  /processPoolSubmissionIdempotencyKey:\s*submitIdempotencyKey/,
+  'Formal submit payload must send the generated process-pool idempotency key.'
+)
+const idempotencyBuilderBlock = sliceBetween(
+  panel,
+  'const buildFrontlineProductionSubmitIdempotencyKey = (',
+  'const buildFrontlineFormalSubmitPayload = ('
+)
+assert.match(
+  idempotencyBuilderBlock,
+  /productionSubmitDraftKey\.value/,
+  'Production idempotency key must include the per-draft key instead of order context.'
+)
+assert.doesNotMatch(
+  idempotencyBuilderBlock,
+  /workOrderId|taskId|recordbookId|firstRouteQueryText/,
+  'Production idempotency key must not be derived from work order, task, recordbook, or URL query context.'
 )
 
 console.log('PASS: AC-M10 SOP production static contract')

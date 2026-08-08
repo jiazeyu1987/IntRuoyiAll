@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.common.pojo.QuickFilter;
 import cn.iocoder.yudao.framework.common.validation.InEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderCompletionFilterEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
@@ -52,6 +53,14 @@ public class MesProScheduleOrderPageReqVO extends PageParam {
 
     @Schema(description = "导出列")
     private List<String> exportColumns;
+
+    @Schema(description = "排序字段", example = "priorityNo")
+    @Pattern(regexp = "priorityNo", message = "排序字段必须是 priorityNo")
+    private String sortField;
+
+    @Schema(description = "排序方向", example = "asc")
+    @Pattern(regexp = "asc|desc", message = "排序方向必须是 asc 或 desc")
+    private String sortOrder;
 
     @Schema(description = "快速过滤")
     private QuickFilter quickFilter;

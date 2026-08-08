@@ -13,8 +13,13 @@ assert.match(
 )
 assert.match(
   page,
-  /const\s+DEFAULT_SUBMISSION_DATE_CONDITION_ID\s*=\s*'submitDate'/,
-  'PQC submission list must use a stable visible submitDate condition id.'
+  /const\s+ensureSubmissionQueryDate\s*=\s*\(\)\s*=>[\s\S]*queryParams\.submitDate\s*=\s*currentSubmitDate/,
+  'PQC submission list must keep an internal submitDate for the required backend query.'
+)
+assert.doesNotMatch(
+  page,
+  /DEFAULT_SUBMISSION_DATE_CONDITION_ID|ensureSubmissionDateCondition\(true\)/,
+  'PQC submission list must not create a visible submitDate filter tab by default.'
 )
 assert.match(
   page,
@@ -28,8 +33,8 @@ assert.match(
 )
 assert.match(
   page,
-  /const\s+ensureSubmissionDateCondition[\s\S]*key:\s*'submitDate'[\s\S]*operator:\s*'eq'[\s\S]*updateSubmissionMultiFilterState\(\{[\s\S]*conditions:\s*nextConditions/,
-  'PQC submission list must keep the default submitDate as a visible multi-filter condition.'
+  /async function getSubmissionList\(\) \{[\s\S]*ensureSubmissionQueryDate\(\)[\s\S]*getTeamLeaderSubmissionPage\(buildSubmissionParams\(\)\)/,
+  'PQC submission list must ensure the internal required date when loading.'
 )
 assert.match(
   page,
@@ -38,8 +43,8 @@ assert.match(
 )
 assert.match(
   page,
-  /watch\(\s*activePqcModuleTab[\s\S]*tab === 'management'[\s\S]*ensureSubmissionDateCondition\(\)[\s\S]*await getSubmissionList\(\)/,
-  'Switching to PQC管理 must make the required date visible and load the submission list.'
+  /watch\(\s*activePqcModuleTab[\s\S]*tab === 'management'[\s\S]*await getSubmissionList\(\)/,
+  'Switching to PQC管理 must load the submission list through the internal required date.'
 )
 assert.doesNotMatch(
   page,
@@ -47,4 +52,4 @@ assert.doesNotMatch(
   'PQC submission code must not clear required submitDate to an empty string before loading.'
 )
 
-console.log('PASS: PQC管理 defaults required submitDate and loads visible submissions')
+console.log('PASS: PQC管理 keeps internal submitDate while default filters stay empty')

@@ -28,6 +28,7 @@ public class CodexTestExecutionRespVO {
         private String caseNameSnapshot;
         private String methodTextSnapshot;
         private String testDataTextSnapshot;
+        private String analysisModeSnapshot;
         private Integer checkpointCount;
         private String status;
         private Long runnerSessionId;

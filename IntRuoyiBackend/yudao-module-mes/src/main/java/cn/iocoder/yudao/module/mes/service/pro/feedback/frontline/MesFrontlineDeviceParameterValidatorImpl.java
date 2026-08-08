@@ -165,6 +165,6 @@ public class MesFrontlineDeviceParameterValidatorImpl implements MesFrontlineDev
     }
 
     private static boolean routeProcessMatches(Long configuredRouteProcessId, Long routeProcessId) {
-        return configuredRouteProcessId == null || Objects.equals(configuredRouteProcessId, routeProcessId);
+        return configuredRouteProcessId != null && Objects.equals(configuredRouteProcessId, routeProcessId);
     }
 }

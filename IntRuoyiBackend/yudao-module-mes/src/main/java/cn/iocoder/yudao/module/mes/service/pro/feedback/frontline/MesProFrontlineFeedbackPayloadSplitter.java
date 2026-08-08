@@ -62,18 +62,22 @@ public class MesProFrontlineFeedbackPayloadSplitter {
         feedbackPayload.setApproveUserId(feedback.getApproveUserId());
         feedbackPayload.setRemark(feedback.getRemark());
 
-        Map<String, Object> entryContent = new LinkedHashMap<>(recordbook.getEntryContent());
-        entryContent.put("equipmentParameters", recordbook.getEquipmentParameters());
-        entryContent.put("rawPayload", reqVO.getRawPayload());
-        MesProFrontlineRecordbookEntryPayload recordbookEntryPayload = new MesProFrontlineRecordbookEntryPayload()
-                .setRecordbookId(recordbook.getRecordbookId())
-                .setEntryTitle(recordbook.getEntryTitle())
-                .setEntryContent(entryContent)
-                .setTagCodes(recordbook.getTagCodes())
-                .setIdempotencyKey(recordbook.getIdempotencyKey())
-                .setRemark(recordbook.getRemark());
+        Map<String, Object> equipmentParameters = resolveEquipmentParameters(reqVO, recordbook);
+        MesProFrontlineRecordbookEntryPayload recordbookEntryPayload = null;
+        if (recordbook != null) {
+            Map<String, Object> entryContent = new LinkedHashMap<>(recordbook.getEntryContent());
+            entryContent.put("equipmentParameters", equipmentParameters);
+            entryContent.put("rawPayload", reqVO.getRawPayload());
+            recordbookEntryPayload = new MesProFrontlineRecordbookEntryPayload()
+                    .setRecordbookId(recordbook.getRecordbookId())
+                    .setEntryTitle(recordbook.getEntryTitle())
+                    .setEntryContent(entryContent)
+                    .setTagCodes(recordbook.getTagCodes())
+                    .setIdempotencyKey(recordbook.getIdempotencyKey())
+                    .setRemark(recordbook.getRemark());
+        }
 
-        Map<String, Object> processPoolRawPayload = buildProcessPoolRawPayload(reqVO, feedback, recordbook,
+        Map<String, Object> processPoolRawPayload = buildProcessPoolRawPayload(reqVO, feedback, equipmentParameters,
                 lossReasonSnapshot);
         MesProcessPoolSubmitEventCreateReqBO eventPayload = new MesProcessPoolSubmitEventCreateReqBO()
                 .setProcessPoolSubmissionIdempotencyKey(reqVO.getProcessPoolSubmissionIdempotencyKey())
@@ -97,7 +101,7 @@ public class MesProFrontlineFeedbackPayloadSplitter {
                 .setLossDetails(feedback.getLossDetails())
                 .setSelectedDevice(feedback.getSelectedDevice())
                 .setDeviceParameterReadings(feedback.getDeviceParameterReadings())
-                .setEquipmentParameters(recordbook.getEquipmentParameters())
+                .setEquipmentParameters(equipmentParameters)
                 .setRawPayload(processPoolRawPayload)
                 .setSubmittedAt(submittedAt);
 
@@ -109,7 +113,7 @@ public class MesProFrontlineFeedbackPayloadSplitter {
 
     private Map<String, Object> buildProcessPoolRawPayload(MesProFrontlineFeedbackSubmitReqVO reqVO,
                                                            MesProFrontlineFeedbackPayloadReqVO feedback,
-                                                           MesProFrontlineRecordbookPayloadReqVO recordbook,
+                                                           Map<String, Object> equipmentParameters,
                                                            MesFrontlineLossReasonSnapshot lossReasonSnapshot) {
         Map<String, Object> payload = new LinkedHashMap<>();
         if (reqVO.getRawPayload() != null) {
@@ -125,9 +129,9 @@ public class MesProFrontlineFeedbackPayloadSplitter {
             payload.put("lossReasonCodeSnapshot", lossReasonSnapshot.reasonCode());
             payload.put("lossReasonNameSnapshot", lossReasonSnapshot.reasonName());
         }
-        payload.put("equipmentParameters", recordbook.getEquipmentParameters());
-        if (recordbook.getEquipmentParameters() != null) {
-            recordbook.getEquipmentParameters().forEach((code, value) -> {
+        payload.put("equipmentParameters", equipmentParameters);
+        if (equipmentParameters != null) {
+            equipmentParameters.forEach((code, value) -> {
                 if (value instanceof Map<?, ?> nestedParameters) {
                     nestedParameters.forEach((nestedCode, nestedValue) -> {
                         if (nestedCode != null) {
@@ -140,6 +144,20 @@ public class MesProFrontlineFeedbackPayloadSplitter {
             });
         }
         return payload;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> resolveEquipmentParameters(MesProFrontlineFeedbackSubmitReqVO reqVO,
+                                                           MesProFrontlineRecordbookPayloadReqVO recordbook) {
+        if (recordbook != null) {
+            return recordbook.getEquipmentParameters();
+        }
+        Object rawEquipmentParameters = reqVO.getRawPayload() == null ? null : reqVO.getRawPayload()
+                .get("equipmentParameters");
+        if (rawEquipmentParameters instanceof Map<?, ?> parameters) {
+            return (Map<String, Object>) parameters;
+        }
+        return null;
     }
 
 }

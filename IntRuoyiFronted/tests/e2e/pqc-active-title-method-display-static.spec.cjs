@@ -48,7 +48,7 @@ const tabBlock = panelSource.slice(tabStart, tabEnd)
 assert.match(
   tabBlock,
   /<strong>\{\{\s*formatPqcInspectionItemTabLabel\(item\)\s*\}\}<\/strong>/,
-  'PQC red-box item tabs must display the formal inspection method, not AO5 final inspection.'
+  'PQC red-box item tabs must use the formal tab label helper.'
 )
 
 const tabLabelHelperStart = panelSource.indexOf('const formatPqcInspectionItemTabLabel')
@@ -57,8 +57,8 @@ assert.ok(tabLabelHelperStart >= 0 && tabLabelHelperEnd > tabLabelHelperStart, '
 const tabLabelHelperBlock = panelSource.slice(tabLabelHelperStart, tabLabelHelperEnd)
 assert.match(
   tabLabelHelperBlock,
-  /formatPqcMethodSummary\(item\)/,
-  'The red-box tab helper must share the same normalized inspection method label as the active title.'
+  /item\.itemName\s*\|\|\s*'未配置检验项目名称'/,
+  'The red-box tab helper must display the formal inspection item name while active title remains method-based.'
 )
 
 assert.match(

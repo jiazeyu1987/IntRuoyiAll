@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.mes;
 
 import com.baomidou.mybatisplus.annotation.TableName;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -14,6 +16,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesQaPqcSchemaTest {
@@ -176,6 +179,8 @@ class MesQaPqcSchemaTest {
         assertField(reqItemClass, "selectedEquipmentId", Long.class);
         assertField(reqItemClass, "selectedEquipmentNumber", String.class);
         assertField(reqItemClass, "sampleValues", List.class);
+        assertFieldMissingAnnotation(reqItemClass, "selectedEquipmentId", NotNull.class);
+        assertFieldMissingAnnotation(reqItemClass, "selectedEquipmentNumber", NotBlank.class);
 
         Class<?> commandClass = Class.forName(
                 "cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcSubmitCommand");
@@ -199,9 +204,12 @@ class MesQaPqcSchemaTest {
         assertField(commandItemClass, "sampleValues", List.class);
 
         String sql = readBackendSql("sql/mysql/20260802_mes_pqc_inspection_task.sql",
-                "sql/mysql/20260803_mes_pqc_item_equipment_standard_snapshot.sql");
-        assertTrue(sql.contains("`selected_equipment_id` bigint NOT NULL COMMENT '实际检验设备ID快照'"));
-        assertTrue(sql.contains("`selected_equipment_number` varchar(64) NOT NULL COMMENT '实际检验设备编号快照'"));
+                "sql/mysql/20260803_mes_pqc_item_equipment_standard_snapshot.sql",
+                "sql/mysql/20260804_mes_pqc_piece_detail_legacy_equipment_nullable.sql");
+        assertTrue(sql.contains("MODIFY COLUMN `selected_equipment_id` bigint NULL"));
+        assertTrue(sql.contains("MODIFY COLUMN `selected_equipment_code` varchar(64) NULL"));
+        assertTrue(sql.contains("MODIFY COLUMN `selected_equipment_name` varchar(128) NULL"));
+        assertTrue(sql.contains("MODIFY COLUMN `selected_equipment_number` varchar(64) NULL"));
         assertTrue(sql.contains("`standard_lower_limit` decimal(18,6) DEFAULT NULL COMMENT '提交时接收标准下限快照'"));
         assertTrue(sql.contains("`standard_upper_limit` decimal(18,6) DEFAULT NULL COMMENT '提交时接收标准上限快照'"));
     }
@@ -270,6 +278,14 @@ class MesQaPqcSchemaTest {
         } catch (NoSuchFieldException expected) {
             // Expected for server-owned formal submission fields.
         }
+    }
+
+    private static void assertFieldMissingAnnotation(Class<?> clazz, String name,
+                                                     Class<? extends java.lang.annotation.Annotation> annotation)
+            throws Exception {
+        Field field = clazz.getDeclaredField(name);
+        assertFalse(field.isAnnotationPresent(annotation),
+                clazz.getSimpleName() + "." + name + " must not require equipment for no-device QA items");
     }
 
     private static String readBackendSql(String... relatives) throws Exception {

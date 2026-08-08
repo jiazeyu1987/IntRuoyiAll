@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderRep
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderSubmissionReviewReqBO;
 import org.junit.jupiter.api.Test;
 
+import jakarta.validation.constraints.NotNull;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -14,6 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesP0TeamLeaderReviewSignatureSchemaTest {
@@ -42,6 +44,15 @@ class MesP0TeamLeaderReviewSignatureSchemaTest {
     }
 
     @Test
+    void reportAllocationConfirmRequestMustNotRequireClientVisibleSignatureFields() throws Exception {
+        assertTrue(hasAnnotation(MesTeamLeaderSubmissionReviewReqVO.class, "reviewSignatureId", NotNull.class));
+        assertTrue(hasAnnotation(MesTeamLeaderSubmissionReviewReqVO.class, "reviewSignatureEmployeeUserId", NotNull.class));
+
+        assertFalse(hasAnnotation(MesTeamLeaderReportAllocationConfirmReqVO.class, "reviewSignatureId", NotNull.class));
+        assertFalse(hasAnnotation(MesTeamLeaderReportAllocationConfirmReqVO.class, "reviewSignatureEmployeeUserId", NotNull.class));
+    }
+
+    @Test
     void signatureMigrationMustAddFormalReviewSignatureColumns() throws Exception {
         String sql = Files.readString(resolveBackendPath(
                 "sql/mysql/20260803_mes_process_pool_team_leader_review_signature.sql"), StandardCharsets.UTF_8);
@@ -62,6 +73,11 @@ class MesP0TeamLeaderReviewSignatureSchemaTest {
     private static void assertField(Class<?> clazz, String name, Class<?> type) throws Exception {
         Field field = clazz.getDeclaredField(name);
         assertEquals(type, field.getType(), clazz.getSimpleName() + "." + name);
+    }
+
+    private static boolean hasAnnotation(Class<?> clazz, String name,
+                                         Class<? extends java.lang.annotation.Annotation> annotationType) throws Exception {
+        return clazz.getDeclaredField(name).getAnnotation(annotationType) != null;
     }
 
     private static Path resolveBackendPath(String relative) {

@@ -5,12 +5,14 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDefectReasonMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamLeaderScopeMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
@@ -57,6 +59,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     private final MesTeamLeaderScopeService scopeService;
     private final MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
     private final MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
+    private final MesProcessPoolTeamLeaderScopeMapper scopeMapper;
     private final MesProcessPoolTeamDeviceMapper deviceMapper;
     private final MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
     private final MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
@@ -69,6 +72,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
     public MesTeamLeaderRuntimeConfigServiceImpl(MesTeamLeaderScopeService scopeService,
                                                  MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService,
                                                  MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper,
+                                                 MesProcessPoolTeamLeaderScopeMapper scopeMapper,
                                                  MesProcessPoolTeamDeviceMapper deviceMapper,
                                                  MesProcessPoolTeamProcessDeviceMapper processDeviceMapper,
                                                  MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper,
@@ -80,6 +84,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
         this.scopeService = scopeService;
         this.routeStartAuthorizationService = routeStartAuthorizationService;
         this.employeeProfileMapper = employeeProfileMapper;
+        this.scopeMapper = scopeMapper;
         this.deviceMapper = deviceMapper;
         this.processDeviceMapper = processDeviceMapper;
         this.parameterRuleMapper = parameterRuleMapper;
@@ -138,6 +143,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
                 .enabled(Boolean.TRUE)
                 .build();
         employeeProfileMapper.insert(profile);
+        syncProductionEmployeeScope(profile);
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), reqBO.getLeaderUserId(),
                 "CREATE_TEMPORARY_EMPLOYEE", "TEAM_EMPLOYEE_PROFILE", profile.getId(), "SUCCESS",
                 "新增临时工：" + displayName, null, profile.toString());
@@ -169,6 +175,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
                 .enabled(Boolean.TRUE)
                 .build();
         employeeProfileMapper.insert(profile);
+        syncProductionEmployeeScope(profile);
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), reqBO.getLeaderUserId(),
                 "LINK_FORMAL_EMPLOYEE", "TEAM_EMPLOYEE_PROFILE", profile.getId(), "SUCCESS",
                 "关联正式工：" + displayName, null, profile.toString());
@@ -211,6 +218,7 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
                 .disabledAt(enabled ? null : LocalDateTime.now())
                 .build();
         employeeProfileMapper.updateById(update);
+        syncProductionEmployeeScopeEnabled(profile, enabled);
         String actionType = enabled ? "ENABLE_EMPLOYEE" : "DISABLE_EMPLOYEE";
         String actionName = enabled ? "启用生产人员：" : "禁用生产人员：";
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), reqBO.getLeaderUserId(),
@@ -270,9 +278,74 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
                 .enabled(Boolean.TRUE)
                 .build();
         employeeProfileMapper.insert(profile);
+        syncProductionEmployeeScope(profile);
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "CREATE_EMPLOYEE_PROFILE",
                 "TEAM_EMPLOYEE_PROFILE", profile.getId(), null, profile.toString());
         return profile.getId();
+    }
+
+    private void syncProductionEmployeeScope(MesProcessPoolTeamEmployeeProfileDO profile) {
+        Long employeeUserId = resolveProductionEmployeeUserId(profile);
+        if (profile == null || profile.getLeaderUserId() == null || employeeUserId == null) {
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "productionEmployeeScope");
+        }
+        MesProcessPoolTeamLeaderScopeDO existing = scopeMapper.selectProductionEmployeeScope(
+                profile.getLeaderUserId(), employeeUserId);
+        if (existing == null) {
+            MesProcessPoolTeamLeaderScopeDO scope = MesProcessPoolTeamLeaderScopeDO.builder()
+                    .leaderUserId(profile.getLeaderUserId())
+                    .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                    .scopeType(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE)
+                    .employeeUserId(employeeUserId)
+                    .enabled(Boolean.TRUE)
+                    .build();
+            int inserted = scopeMapper.insert(scope);
+            if (inserted <= 0) {
+                throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "productionEmployeeScopeInsert");
+            }
+            return;
+        }
+        if (!Boolean.TRUE.equals(existing.getEnabled())) {
+            int updated = scopeMapper.updateById(MesProcessPoolTeamLeaderScopeDO.builder()
+                    .id(existing.getId())
+                    .enabled(Boolean.TRUE)
+                    .build());
+            if (updated <= 0) {
+                throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "productionEmployeeScopeEnable");
+            }
+        }
+    }
+
+    private void syncProductionEmployeeScopeEnabled(MesProcessPoolTeamEmployeeProfileDO profile, boolean enabled) {
+        Long employeeUserId = resolveProductionEmployeeUserId(profile);
+        if (profile == null || profile.getLeaderUserId() == null || employeeUserId == null) {
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "productionEmployeeScopeStatus");
+        }
+        MesProcessPoolTeamLeaderScopeDO existing = scopeMapper.selectProductionEmployeeScope(
+                profile.getLeaderUserId(), employeeUserId);
+        if (existing == null) {
+            if (enabled) {
+                syncProductionEmployeeScope(profile);
+            }
+            return;
+        }
+        if (Objects.equals(existing.getEnabled(), enabled)) {
+            return;
+        }
+        int updated = scopeMapper.updateById(MesProcessPoolTeamLeaderScopeDO.builder()
+                .id(existing.getId())
+                .enabled(enabled)
+                .build());
+        if (updated <= 0) {
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "productionEmployeeScopeStatus");
+        }
+    }
+
+    private Long resolveProductionEmployeeUserId(MesProcessPoolTeamEmployeeProfileDO profile) {
+        if (profile == null) {
+            return null;
+        }
+        return profile.getSystemUserId() != null ? profile.getSystemUserId() : profile.getId();
     }
 
     @Override

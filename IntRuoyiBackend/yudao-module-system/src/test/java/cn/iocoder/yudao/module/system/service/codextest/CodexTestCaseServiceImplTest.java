@@ -42,10 +42,25 @@ class CodexTestCaseServiceImplTest extends BaseDbUnitTest {
         assertEquals("智能排产", testCase.getProject());
         assertEquals("在排产工单页签选择用户手写工单号后点击手动重排", testCase.getMethodText());
         assertEquals("来源生产工单号=881MO093613,881MO093615", testCase.getTestDataText());
+        assertEquals("PLAYWRIGHT_E2E", testCase.getAnalysisMode());
         List<CodexTestCheckpointDO> checkpoints = codexTestCheckpointMapper.selectListByCaseId(caseId);
         assertEquals(2, checkpoints.size());
         assertEquals("重排成功", checkpoints.get(0).getExpectedText());
         assertEquals("只有两个目标工单进入甘特图", checkpoints.get(1).getExpectedText());
+    }
+
+    @Test
+    void createCase_persistsCodeReadonlyAnalysisMode() {
+        CodexTestCaseSaveReqVO reqVO = buildCaseReq("批记录测试-生产组长-01-工艺路线配置", false);
+        reqVO.setProject("批记录");
+        reqVO.setAnalysisMode("CODE_READONLY");
+
+        Long caseId = codexTestCaseService.createCase(reqVO);
+
+        CodexTestCaseDO testCase = codexTestCaseMapper.selectById(caseId);
+        assertEquals("CODE_READONLY", testCase.getAnalysisMode());
+        CodexTestCaseRespVO respVO = codexTestCaseService.getCase(caseId);
+        assertEquals("CODE_READONLY", respVO.getAnalysisMode());
     }
 
     @Test
@@ -162,9 +177,23 @@ class CodexTestCaseServiceImplTest extends BaseDbUnitTest {
         assertEquals("排产手动重排-更新", testCase.getName());
         assertEquals("智能排产", testCase.getProject());
         assertTrue(testCase.getParallelSafe());
+        assertEquals("PLAYWRIGHT_E2E", testCase.getAnalysisMode());
         List<CodexTestCheckpointDO> checkpoints = codexTestCheckpointMapper.selectListByCaseId(caseId);
         assertEquals(1, checkpoints.size());
         assertEquals("最近一次成功排产时间更新", checkpoints.get(0).getExpectedText());
+    }
+
+    @Test
+    void updateCase_persistsLatestAnalysisMode() {
+        Long caseId = codexTestCaseService.createCase(buildCaseReq("批记录代码分析测试", false));
+        CodexTestCaseSaveReqVO updateReqVO = buildCaseReq("批记录代码分析测试", false);
+        updateReqVO.setId(caseId);
+        updateReqVO.setProject("批记录");
+        updateReqVO.setAnalysisMode("CODE_READONLY");
+
+        codexTestCaseService.updateCase(updateReqVO);
+
+        assertEquals("CODE_READONLY", codexTestCaseMapper.selectById(caseId).getAnalysisMode());
     }
 
     @Test
@@ -174,6 +203,15 @@ class CodexTestCaseServiceImplTest extends BaseDbUnitTest {
 
         assertServiceException(() -> codexTestCaseService.createCase(reqVO),
                 CODEX_TEST_RESULT_SCHEMA_INVALID, "测试项项目必须是 智能排产、文控、批记录 或 工艺路线");
+    }
+
+    @Test
+    void createCase_rejectsUnknownAnalysisMode() {
+        CodexTestCaseSaveReqVO reqVO = buildCaseReq("未知分析模式测试项", false);
+        reqVO.setAnalysisMode("REPOSITORY_SCAN");
+
+        assertServiceException(() -> codexTestCaseService.createCase(reqVO),
+                CODEX_TEST_RESULT_SCHEMA_INVALID, "分析模式必须是 PLAYWRIGHT_E2E 或 CODE_READONLY");
     }
 
     @Test

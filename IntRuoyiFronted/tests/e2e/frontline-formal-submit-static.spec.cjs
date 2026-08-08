@@ -92,10 +92,20 @@ assert.doesNotMatch(
   /\['deviceId',\s*'设备'\]/,
   'formal submit context must not make deviceId mandatory for device-free processes.'
 )
+assert.doesNotMatch(
+  formalContextAssertion,
+  /\['workOrderId', '订单上下文'\]|\['taskId', '生产任务'\]|\['itemId', '产品物料'\]|\['recordbookId', '记录本'\]/,
+  'formal submit context must not make work order, task, item, or recordbook mandatory for frontline production.'
+)
 assert.match(
   panel,
   /deviceId:\s*formalContext\.deviceId,\s*\n\s*deviceAccountUserId:/,
   'process-pool payload must preserve an optional deviceId without a non-null assertion.'
+)
+assert.match(
+  panel,
+  /const recordbookPayload = formalContext\.recordbookId[\s\S]*: undefined/,
+  'recordbook payload must be optional when frontline production has no recordbook context.'
 )
 assert.match(
   panel,
@@ -125,7 +135,7 @@ assert.match(
 assert.match(
   panel,
   /feedbackPayload[\s\S]*recordbookPayload[\s\S]*processPoolContext[\s\S]*actualEmployeeId[\s\S]*signatureEmployeeId[\s\S]*signaturePassword[\s\S]*rawPayload/,
-  'formal submit payload must include feedback, recordbook, process-pool, signature password, employee, and raw payload sections.'
+  'formal submit payload must include feedback, optional recordbook, process-pool, signature password, employee, and raw payload sections.'
 )
 assert.doesNotMatch(
   panel,
@@ -137,10 +147,19 @@ assert.match(
   /deviceAccountUserId:\s*Number\(userStore\.getUser\?\.id/,
   'process-pool context must use the current login user as the device account user.'
 )
+const submitButtonBlock = panel.match(
+  /<button[\s\S]*data-formal-feedback-id="formalSubmitResult\?\.feedbackId"[\s\S]*?<\/button>/
+)?.[0]
+assert.ok(submitButtonBlock, 'the production submit button must expose submitted-state metadata.')
 assert.match(
-  panel,
-  /feedbackId[\s\S]*recordbookEntryId[\s\S]*processPoolEventId/,
-  'the submitted state must retain the formal feedback, recordbook, and process-pool identifiers.'
+  submitButtonBlock,
+  /feedbackId[\s\S]*processPoolEventId/,
+  'the submitted state must retain the formal feedback and process-pool identifiers.'
+)
+assert.match(
+  submitButtonBlock,
+  /v-if="formalSubmitResult\.recordbookEntryId"/,
+  'recordbook result display must be conditional when no recordbook entry is created.'
 )
 assert.match(
   panel,

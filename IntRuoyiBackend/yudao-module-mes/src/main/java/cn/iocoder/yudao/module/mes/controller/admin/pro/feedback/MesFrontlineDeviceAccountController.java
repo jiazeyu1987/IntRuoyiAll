@@ -21,6 +21,7 @@ import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcContextS
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcInspectionItem;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcSubmitCommand;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcSubmitResult;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcTaskOption;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProductionSubmitCandidate;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProductionSubmitContext;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConfig;
@@ -226,6 +227,7 @@ public class MesFrontlineDeviceAccountController {
         respVO.setActiveOrderId(candidate.activeOrderId());
         respVO.setPqcTaskId(candidate.pqcTaskId());
         respVO.setRegulationVersionId(candidate.regulationVersionId());
+        respVO.setFinalInspectionApplicable(candidate.finalInspectionApplicable());
         respVO.setInspectionType(candidate.inspectionType());
         respVO.setBusinessDate(candidate.businessDate());
         respVO.setShiftCode(candidate.shiftCode());
@@ -234,8 +236,29 @@ public class MesFrontlineDeviceAccountController {
         respVO.setInspectionItems(candidate.inspectionItems().stream()
                 .map(MesFrontlineDeviceAccountController::toPqcInspectionItemRespVO)
                 .toList());
+        respVO.setPqcTaskOptions(candidate.pqcTaskOptions().stream()
+                .map(MesFrontlineDeviceAccountController::toPqcTaskOptionRespVO)
+                .toList());
         respVO.setProductionSubmitCandidates(candidate.productionSubmitCandidates().stream()
                 .map(MesFrontlineDeviceAccountController::toProductionSubmitCandidateRespVO)
+                .toList());
+        return respVO;
+    }
+
+    private static MesFrontlineRouteProcessRespVO.PqcTaskOption toPqcTaskOptionRespVO(
+            MesFrontlinePqcTaskOption option) {
+        MesFrontlineRouteProcessRespVO.PqcTaskOption respVO =
+                new MesFrontlineRouteProcessRespVO.PqcTaskOption();
+        respVO.setPqcTaskId(option.pqcTaskId());
+        respVO.setRegulationVersionId(option.regulationVersionId());
+        respVO.setFinalInspectionApplicable(option.finalInspectionApplicable());
+        respVO.setInspectionType(option.inspectionType());
+        respVO.setBusinessDate(option.businessDate());
+        respVO.setShiftCode(option.shiftCode());
+        respVO.setRoundNo(option.roundNo());
+        respVO.setPlannedInspectionQuantity(option.plannedInspectionQuantity());
+        respVO.setInspectionItems(option.inspectionItems().stream()
+                .map(MesFrontlineDeviceAccountController::toPqcInspectionItemRespVO)
                 .toList());
         return respVO;
     }

@@ -264,11 +264,17 @@ class MesProcessPoolTeamLeaderControllerTest {
                 .setId(8101L)
                 .setLeaderUserId(3001L)
                 .setWorkOrderId(9001L)
+                .setWorkOrderCode("881MO090889")
+                .setProductName("球囊扩张压力泵")
+                .setProductCode("AW.107.02.01.2010")
+                .setQuantity(new BigDecimal("2248"))
                 .setRouteId(922119L)
                 .setRouteName("按压式球囊扩充压力泵工艺路线")
                 .setRouteVersionId(448L)
                 .setRouteVersionNo("V1")
                 .setErpFixedQuantitySnapshot(new BigDecimal("200"))
+                .setProductionProgressPercent(new BigDecimal("10.000000"))
+                .setInspectionProgressPercent(new BigDecimal("10.000000"))
                 .setActiveStatus("ACTIVE")
                 .setBusinessStatus("ACTIVE")
                 .setJoinedAt(LocalDateTime.of(2026, 7, 31, 8, 30))
@@ -297,11 +303,17 @@ class MesProcessPoolTeamLeaderControllerTest {
 
         assertEquals(1, listResponse.getData().size());
         assertEquals(9001L, listResponse.getData().get(0).getWorkOrderId());
+        assertEquals("881MO090889", listResponse.getData().get(0).getWorkOrderCode());
+        assertEquals("球囊扩张压力泵", listResponse.getData().get(0).getProductName());
+        assertEquals("AW.107.02.01.2010", listResponse.getData().get(0).getProductCode());
+        assertEquals(new BigDecimal("2248"), listResponse.getData().get(0).getQuantity());
         assertEquals(922119L, listResponse.getData().get(0).getRouteId());
         assertEquals(448L, listResponse.getData().get(0).getRouteVersionId());
         assertEquals("按压式球囊扩充压力泵工艺路线", listResponse.getData().get(0).getRouteName());
         assertEquals("V1", listResponse.getData().get(0).getRouteVersionNo());
         assertEquals(new BigDecimal("200"), listResponse.getData().get(0).getErpFixedQuantitySnapshot());
+        assertEquals(new BigDecimal("10.000000"), listResponse.getData().get(0).getProductionProgressPercent());
+        assertEquals(new BigDecimal("10.000000"), listResponse.getData().get(0).getInspectionProgressPercent());
         assertEquals("ACTIVE", listResponse.getData().get(0).getActiveStatus());
         assertEquals("ACTIVE", listResponse.getData().get(0).getBusinessStatus());
         assertEquals(0, listResponse.getData().get(0).getVersion());

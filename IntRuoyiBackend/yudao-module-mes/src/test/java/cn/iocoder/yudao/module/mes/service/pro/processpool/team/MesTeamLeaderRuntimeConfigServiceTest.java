@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
@@ -12,6 +13,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamLeaderScopeMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
@@ -36,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -49,6 +52,8 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     private MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
     @Mock
     private MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
+    @Mock
+    private MesProcessPoolTeamLeaderScopeMapper scopeMapper;
     @Mock
     private MesProcessPoolTeamDeviceMapper deviceMapper;
     @Mock
@@ -70,8 +75,10 @@ class MesTeamLeaderRuntimeConfigServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(scopeMapper.insert(any(MesProcessPoolTeamLeaderScopeDO.class))).thenReturn(1);
+        lenient().when(scopeMapper.updateById(any(MesProcessPoolTeamLeaderScopeDO.class))).thenReturn(1);
         service = new MesTeamLeaderRuntimeConfigServiceImpl(scopeService, routeStartAuthorizationService,
-                employeeProfileMapper, deviceMapper, processDeviceMapper, parameterRuleMapper,
+                employeeProfileMapper, scopeMapper, deviceMapper, processDeviceMapper, parameterRuleMapper,
                 routeProcessMapper, defectReasonMapper, auditMapper,
                 adminUserApi, passwordEncoder);
     }
@@ -80,6 +87,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     void shouldCreateTemporaryProductionPersonWithSignaturePasswordHashAndAudit() {
         when(employeeProfileMapper.selectList(any())).thenReturn(List.of());
         when(passwordEncoder.encode("sign-123")).thenReturn("bcrypt-temp-sign");
+        when(scopeMapper.selectProductionEmployeeScope(3001L, 8801L)).thenReturn(null);
         when(employeeProfileMapper.insert(any(MesProcessPoolTeamEmployeeProfileDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class).setId(8801L);
             return 1;
@@ -100,6 +108,14 @@ class MesTeamLeaderRuntimeConfigServiceTest {
         assertNull(profileCaptor.getValue().getSystemUserId());
         assertEquals("bcrypt-temp-sign", profileCaptor.getValue().getSignaturePasswordHash());
         assertNotNull(profileCaptor.getValue().getSignaturePasswordUpdatedAt());
+        ArgumentCaptor<MesProcessPoolTeamLeaderScopeDO> scopeCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolTeamLeaderScopeDO.class);
+        verify(scopeMapper).insert(scopeCaptor.capture());
+        assertEquals(3001L, scopeCaptor.getValue().getLeaderUserId());
+        assertEquals(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, scopeCaptor.getValue().getLeaderType());
+        assertEquals(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE, scopeCaptor.getValue().getScopeType());
+        assertEquals(8801L, scopeCaptor.getValue().getEmployeeUserId());
+        assertEquals(Boolean.TRUE, scopeCaptor.getValue().getEnabled());
         verify(scopeService, never()).assertCanAccessEmployee(any(), any(), any());
         verify(scopeService, never()).assertCanMaintainProcess(any(), any());
         verify(adminUserApi, never()).validateUser(any());
@@ -113,6 +129,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
         formalUser.setNickname("张三");
         when(adminUserApi.getUser(2001L)).thenReturn(formalUser);
         when(employeeProfileMapper.selectList(any())).thenReturn(List.of());
+        when(scopeMapper.selectProductionEmployeeScope(3001L, 2001L)).thenReturn(null);
         when(employeeProfileMapper.insert(any(MesProcessPoolTeamEmployeeProfileDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class).setId(8802L);
             return 1;
@@ -132,6 +149,14 @@ class MesTeamLeaderRuntimeConfigServiceTest {
         assertEquals(2001L, profileCaptor.getValue().getSystemUserId());
         assertEquals("FORMAL", profileCaptor.getValue().getEmployeeType());
         assertNull(profileCaptor.getValue().getSignaturePasswordHash());
+        ArgumentCaptor<MesProcessPoolTeamLeaderScopeDO> scopeCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolTeamLeaderScopeDO.class);
+        verify(scopeMapper).insert(scopeCaptor.capture());
+        assertEquals(3001L, scopeCaptor.getValue().getLeaderUserId());
+        assertEquals(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, scopeCaptor.getValue().getLeaderType());
+        assertEquals(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE, scopeCaptor.getValue().getScopeType());
+        assertEquals(2001L, scopeCaptor.getValue().getEmployeeUserId());
+        assertEquals(Boolean.TRUE, scopeCaptor.getValue().getEnabled());
         verify(scopeService, never()).assertCanAccessEmployee(any(), any(), any());
         verify(scopeService, never()).assertCanMaintainProcess(any(), any());
         verify(adminUserApi, never()).getUserListBySubordinate(3001L);

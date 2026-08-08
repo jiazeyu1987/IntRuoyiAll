@@ -279,6 +279,11 @@ export const useTableMultiFilter = <T extends ListMultiFilterQueryParams>(
           return false
         }
       }
+
+      if (!normalizeMultiFilterCondition(definition, condition)) {
+        ElMessage.warning(`请填写${definition.label}筛选条件。`)
+        return false
+      }
     }
 
     return validateDuplicateMappedConditions(activeConditions.value)
@@ -427,6 +432,11 @@ export const useTableMultiFilter = <T extends ListMultiFilterQueryParams>(
     }
   }
 
+  const removeConditionAndApply = async (conditionIdOrKey: string) => {
+    removeCondition(conditionIdOrKey)
+    await applyMultiFilter()
+  }
+
   return {
     tableKey,
     filterDefinitions: definitions,
@@ -437,6 +447,7 @@ export const useTableMultiFilter = <T extends ListMultiFilterQueryParams>(
     updateState,
     setCondition,
     removeCondition,
+    removeConditionAndApply,
     clearMultiFilterParams
   }
 }

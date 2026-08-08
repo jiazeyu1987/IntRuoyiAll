@@ -46,6 +46,8 @@ public class MesFrontlineRouteProcessRespVO {
     private Long pqcTaskId;
     @Schema(description = "QA 规程发布版本编号")
     private Long regulationVersionId;
+    @Schema(description = "发布态 QA 规程是否启用末检")
+    private Boolean finalInspectionApplicable;
     @Schema(description = "检验类型：FIRST/PATROL/FINAL")
     private String inspectionType;
     @Schema(description = "业务日期")
@@ -58,8 +60,33 @@ public class MesFrontlineRouteProcessRespVO {
     private Integer plannedInspectionQuantity;
     @Schema(description = "QA 规程检验项目")
     private List<PqcInspectionItem> inspectionItems;
+    @Schema(description = "当前工序待检 PQC 任务选项")
+    private List<PqcTaskOption> pqcTaskOptions;
     @Schema(description = "可绑定的正式生产提交事件")
     private List<ProductionSubmitCandidate> productionSubmitCandidates;
+
+    @Data
+    public static class PqcTaskOption {
+
+        @Schema(description = "PQC 检验任务编号")
+        private Long pqcTaskId;
+        @Schema(description = "QA 规程发布版本编号")
+        private Long regulationVersionId;
+        @Schema(description = "发布态 QA 规程是否启用末检")
+        private Boolean finalInspectionApplicable;
+        @Schema(description = "检验类型：FIRST/PATROL/FINAL")
+        private String inspectionType;
+        @Schema(description = "业务日期")
+        private LocalDate businessDate;
+        @Schema(description = "班次编码")
+        private String shiftCode;
+        @Schema(description = "轮次")
+        private Integer roundNo;
+        @Schema(description = "计划检验数量")
+        private Integer plannedInspectionQuantity;
+        @Schema(description = "QA 规程检验项目")
+        private List<PqcInspectionItem> inspectionItems;
+    }
 
     @Data
     public static class ProductionSubmitCandidate {

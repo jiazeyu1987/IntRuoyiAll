@@ -31,8 +31,7 @@ public class MesFrontlinePqcSubmitReqVO {
     @NotNull(message = "生产工单编号不能为空")
     private Long workOrderId;
 
-    @Schema(description = "绑定的生产提交工序池事件编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "绑定的生产提交事件不能为空")
+    @Schema(description = "可选绑定的生产提交工序池事件编号")
     private Long productionSubmitEventId;
 
     @Schema(description = "工艺路线编号", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -98,12 +97,10 @@ public class MesFrontlinePqcSubmitReqVO {
         @NotBlank(message = "检验项目编码不能为空")
         private String itemCode;
 
-        @Schema(description = "实际检验设备ID", requiredMode = Schema.RequiredMode.REQUIRED)
-        @NotNull(message = "检验设备不能为空")
+        @Schema(description = "实际检验设备ID；选择检验设备时传")
         private Long selectedEquipmentId;
 
-        @Schema(description = "实际检验设备编号", requiredMode = Schema.RequiredMode.REQUIRED)
-        @NotBlank(message = "检验设备编号不能为空")
+        @Schema(description = "实际检验设备编号；选择检验设备时传")
         private String selectedEquipmentNumber;
 
         @Schema(description = "逐件样本值", requiredMode = Schema.RequiredMode.REQUIRED)

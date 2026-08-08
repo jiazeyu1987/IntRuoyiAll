@@ -400,9 +400,11 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
                 || StrUtil.isBlank(reqBO.getLeaderType())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "reportConfirmation");
         }
-        validateReviewSignature(reqBO.getLeaderUserId(), reqBO.getReviewSignatureId(),
-                reqBO.getReviewSignatureUserId(), reqBO.getReviewSignatureSnapshotJson(),
-                "reportConfirmation.reviewSignature");
+        if (hasReviewSignaturePayload(reqBO)) {
+            validateReviewSignature(reqBO.getLeaderUserId(), reqBO.getReviewSignatureId(),
+                    reqBO.getReviewSignatureUserId(), reqBO.getReviewSignatureSnapshotJson(),
+                    "reportConfirmation.reviewSignature");
+        }
         if (!MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION.equals(reqBO.getLeaderType())) {
             throw exception(PRO_PROCESS_POOL_REPORT_CONFIRMATION_PRODUCTION_LEADER_REQUIRED,
                     reqBO.getEventId(), reqBO.getLeaderType());
@@ -509,6 +511,12 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
         if (!leaderUserId.equals(reviewSignatureUserId)) {
             throw exception(PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH);
         }
+    }
+
+    private boolean hasReviewSignaturePayload(MesTeamLeaderReportConfirmationReqBO reqBO) {
+        return reqBO.getReviewSignatureId() != null
+                || reqBO.getReviewSignatureUserId() != null
+                || StrUtil.isNotBlank(reqBO.getReviewSignatureSnapshotJson());
     }
 
     private record PreparedAllocationLine(MesProcessPoolActiveOrderDO activeOrder,

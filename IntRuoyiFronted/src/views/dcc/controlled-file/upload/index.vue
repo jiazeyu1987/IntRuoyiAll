@@ -127,7 +127,7 @@
               <div class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
                 {{
                   uploadDirectoryTree.defaultUnclassified
-                    ? '当前文件类别未绑定提交目录，系统将自动提交到未分类目录。'
+                    ? '该类别未配置专属目录，按规则发布到“未分类”。'
                     : '当前绑定目录已经是最后一层目录，将直接提交到该目录。'
                 }}
               </div>
@@ -178,7 +178,7 @@
             </template>
           </el-autocomplete>
           <div v-if="selectedHistoryVersion" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-            已选择历史文件名称，将按升版提交；当前版本号 {{ selectedHistoryVersion }}，请按需要修改为更高版本。
+            已选择历史文件名称，系统将先匹配现行主档；匹配成功后按升版提交，当前版本号 {{ selectedHistoryVersion }}。
           </div>
         </el-form-item>
         <el-form-item label="文件编号" prop="fileNumber">
@@ -194,12 +194,23 @@
             class="w-full rounded-8px border border-[var(--el-border-color-light)] bg-[#fafcff] px-12px py-10px text-13px"
           >
             <el-skeleton v-if="currentVersionLookupLoading" :rows="2" animated />
+            <template v-else-if="currentVersionLookupError">
+              <el-alert
+                :closable="false"
+                :title="currentVersionLookupError"
+                type="error"
+                show-icon
+              />
+            </template>
             <template v-else-if="currentVersionInfo?.matched">
               <div class="font-600 text-[var(--el-text-color-primary)]">
                 {{ currentVersionInfo.fileName || '-' }} · {{ currentVersionInfo.currentVersionNo || '-' }}
               </div>
               <div class="mt-4px text-[var(--el-text-color-secondary)]">
                 文件编号：{{ currentVersionInfo.fileNumber }}；状态：{{ currentVersionInfo.status || '-' }}
+              </div>
+              <div class="mt-4px text-[var(--el-text-color-secondary)]">
+                当前变更方式：{{ formData.changeType === 'REVISION' ? '升版' : '新建' }}
               </div>
               <div class="mt-4px text-[var(--el-text-color-secondary)]">
                 产品：{{ currentVersionInfo.productName || currentVersionInfo.productCode || '-' }}；
@@ -230,6 +241,14 @@
               <div class="mt-4px text-[var(--el-text-color-secondary)]">
                 受控文件路径：{{ currentVersionInfo.stampedFilePath || currentVersionInfo.publishedFilePath || '-' }}
               </div>
+            </template>
+            <template v-else-if="isRevisionUpload">
+              <el-alert
+                :closable="false"
+                title="已选择历史文件，但未找到该历史文件对应的现行主档，当前不能升版提交，也不会创建新的 master 主档。"
+                type="error"
+                show-icon
+              />
             </template>
             <template v-else>
               未查询到同编号现行版本，将创建新的 master 主档，并按新建规则校验。
@@ -530,6 +549,8 @@ const uploadDrawingPdfLoading = ref(false)
 const uploadNameOptionsLoading = ref(false)
 const uploadNameOptionsLoadedKey = ref('')
 const currentVersionLookupLoading = ref(false)
+const currentVersionLookupError = ref('')
+const revisionTargetLookupLoading = ref(false)
 const projectCodeOptionsLoading = ref(false)
 const fileTypeTaxonomiesLoading = ref(false)
 const projectCodeOptionsError = ref('')
@@ -544,10 +565,17 @@ const submitFieldErrors = reactive({
 })
 
 const DEFAULT_MANUAL_VERSION_NO = 'V1.0'
-const VERSION_NO_PATTERN = /^V?(\d+)(?:\.\d+)?$/i
+const VERSION_NO_FORMAT_MESSAGE = '版本号格式不正确，请使用 V1.0、V2.0 或 1.0 这类数字版本。'
+const VERSION_NO_PATTERN = /^[Vv]?\d+(?:\.\d+)*$/
+const VERSION_NO_MAJOR_PATTERN = /^[Vv]?(\d+)/
 const resolveTodayDate = () => formatToDate(new Date())
+const isVersionNoTextValid = (versionNo?: string | null) => VERSION_NO_PATTERN.test((versionNo || '').trim())
 const resolveNextMajorVersionNo = (currentVersionNo: string | null | undefined) => {
-  const matched = (currentVersionNo || '').trim().match(VERSION_NO_PATTERN)
+  const normalizedVersionNo = (currentVersionNo || '').trim()
+  if (!isVersionNoTextValid(normalizedVersionNo)) {
+    return ''
+  }
+  const matched = normalizedVersionNo.match(VERSION_NO_MAJOR_PATTERN)
   if (!matched) {
     return ''
   }
@@ -562,6 +590,7 @@ const resolveNextMajorVersionNo = (currentVersionNo: string | null | undefined) 
 const resolveProcessTypeByRoute = () =>
   route.path.includes('/external') ? 'EXTERNAL_REVIEW' : 'CONTROLLED_FILE'
 const isExternalReview = computed(() => resolveProcessTypeByRoute() === 'EXTERNAL_REVIEW')
+const isRevisionUpload = computed(() => !isExternalReview.value && formData.changeType === 'REVISION')
 const pageTitle = computed(() => (isExternalReview.value ? '外来文件评审' : '受控文件提交'))
 const submitButtonText = computed(() => (isExternalReview.value ? '提交评审' : '提交审批'))
 const formData = reactive<UploadFormDraft>({
@@ -646,7 +675,7 @@ const selectedCategory = computed(() =>
 const selectedProjectCode = computed(() =>
   projectCodeOptions.value.find((project) => project.id === formData.dccProjectCodeId)
 )
-const categoryDirectoryBindingMessage = '当前文件类别未绑定提交目录，系统将自动落位到未分类目录。'
+const categoryDirectoryBindingMessage = '该类别未配置专属目录，按规则发布到“未分类”。'
 const categorySelectEmptyText = computed(() => {
   return '当前没有可选文件类别'
 })
@@ -773,7 +802,23 @@ const formRules = reactive<FormRules>({
   directoryId: [{ required: true, message: '请选择最终提交目录', trigger: 'change' }],
   fileName: [{ required: true, message: '请输入文件名称', trigger: 'blur' }],
   fileNumber: [{ required: true, message: '请输入文件编号', trigger: 'blur' }],
-  versionNo: [{ required: true, message: '请输入版本号', trigger: 'blur' }],
+  versionNo: [
+    {
+      validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
+        const versionNo = String(value || '').trim()
+        if (!versionNo) {
+          callback(new Error('请输入版本号'))
+          return
+        }
+        if (!isVersionNoTextValid(versionNo)) {
+          callback(new Error(VERSION_NO_FORMAT_MESSAGE))
+          return
+        }
+        callback()
+      },
+      trigger: 'blur'
+    }
+  ],
   effectiveDate: [{ required: true, message: '请选择生效日期', trigger: 'change' }]
 })
 
@@ -813,6 +858,7 @@ let revisionTargetLookupSeq = 0
 
 const clearCurrentVersionInfo = () => {
   currentVersionInfo.value = undefined
+  currentVersionLookupError.value = ''
 }
 
 const ensureEffectiveDateDefault = () => {
@@ -1001,6 +1047,7 @@ const resolveHistoryRevisionTarget = async (fileName: string) => {
   ) {
     return
   }
+  revisionTargetLookupLoading.value = true
   try {
     const page = await getControlledFileUploadRevisionCandidates({
       dccProjectCodeId: formData.dccProjectCodeId,
@@ -1028,6 +1075,10 @@ const resolveHistoryRevisionTarget = async (fileName: string) => {
       clearRevisionTargetSelection()
     }
     message.error(resolveUploadErrorMessage(error, '历史文件升版目标解析失败，请查看错误提示后重试'))
+  } finally {
+    if (requestSeq === revisionTargetLookupSeq) {
+      revisionTargetLookupLoading.value = false
+    }
   }
 }
 
@@ -1178,6 +1229,13 @@ const isRequestedVersionDuplicate = computed(() => {
   const requestedVersionNo = normalizePreflightVersionNo(formData.versionNo)
   return Boolean(currentVersionInfo.value?.matched && currentVersionNo && requestedVersionNo && currentVersionNo === requestedVersionNo)
 })
+const isVersionNoFormatValid = computed(() => {
+  const versionNo = formData.versionNo.trim()
+  return Boolean(versionNo && isVersionNoTextValid(versionNo))
+})
+const versionFormatPreflightMessage = computed(() =>
+  formData.versionNo.trim() && !isVersionNoFormatValid.value ? VERSION_NO_FORMAT_MESSAGE : ''
+)
 const versionDuplicatePreflightMessage = computed(() => {
   if (!isRequestedVersionDuplicate.value) {
     return ''
@@ -1186,6 +1244,38 @@ const versionDuplicatePreflightMessage = computed(() => {
     return '文件编号已存在，不能重复创建 V1.0 原版，请改用升版流程或更换文件编号。'
   }
   return `文件编号 ${formData.fileNumber.trim()} 的版本 ${formData.versionNo.trim()} 已存在，请调整升版版本号。`
+})
+
+const revisionTargetPreflightBlockReason = computed(() => {
+  if (!isRevisionUpload.value) {
+    return ''
+  }
+  if (revisionTargetLookupLoading.value || currentVersionLookupLoading.value) {
+    return '正在定位历史文件对应的现行主档，请等待校验完成。'
+  }
+  if (currentVersionLookupError.value) {
+    return currentVersionLookupError.value
+  }
+  if (!selectedHistoryFileName.value) {
+    return '请选择历史文件名称后再升版。'
+  }
+  if (!formData.revisionTargetControlledFileId || currentVersionInfo.value?.matched === false) {
+    return '已选择历史文件，但未找到该历史文件对应的现行主档，当前不能升版提交，也不会创建新的 master 主档。'
+  }
+  return ''
+})
+
+const isEffectiveDateBeforeToday = computed(() =>
+  Boolean(formData.effectiveDate && formData.effectiveDate < resolveTodayDate())
+)
+const effectiveDatePreflightText = computed(() => {
+  if (!formData.effectiveDate) {
+    return '请选择生效日期。'
+  }
+  if (isEffectiveDateBeforeToday.value) {
+    return `生效日期 ${formData.effectiveDate} 早于今天，系统允许补录历史生效日期。`
+  }
+  return `生效日期 ${formData.effectiveDate} 已填写。`
 })
 
 const approvalChainPreflightText = computed(() => {
@@ -1206,19 +1296,21 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
   const hasApprovalChain = Boolean(selectedCategory.value && approvalPositionIds.length && signoffPositionIds.length)
   const hasDirectoryLanding = Boolean(selectedUploadDirectoryPath.value)
   const versionReady = Boolean(formData.fileNumber.trim() && formData.versionNo.trim())
+  const versionBlockingReason = versionFormatPreflightMessage.value ||
+    currentVersionLookupError.value ||
+    revisionTargetPreflightBlockReason.value ||
+    (isRequestedVersionDuplicate.value ? versionDuplicatePreflightMessage.value : '') ||
+    currentVersionProjectionBlockReason.value ||
+    (currentVersionInfo.value?.modifying ? '同编号文件已有未完成流程，当前不可重复提交。' : '')
   const versionDescription = currentVersionLookupLoading.value
     ? '正在校验文件编号和版本，请等待结果后再提交。'
-    : isRequestedVersionDuplicate.value
-      ? versionDuplicatePreflightMessage.value
-      : currentVersionProjectionBlockReason.value
-        ? currentVersionProjectionBlockReason.value
-        : currentVersionInfo.value?.modifying
-          ? '同编号文件已有未完成流程，当前不可重复提交。'
-          : currentVersionInfo.value?.matched
-            ? `现行版本 ${currentVersionInfo.value.currentVersionNo || '-'}，本次提交版本 ${formData.versionNo || '-'}。`
-            : versionReady
-              ? '未发现同编号现行版本，将按新建编号继续校验。'
-              : '请输入文件编号和版本号后检查是否重复。'
+    : versionBlockingReason
+      ? versionBlockingReason
+      : currentVersionInfo.value?.matched
+        ? `现行版本 ${currentVersionInfo.value.currentVersionNo || '-'}，本次提交版本 ${formData.versionNo || '-'}。`
+        : versionReady
+          ? '未发现同编号现行版本，将按新建编号继续校验。'
+          : '请输入文件编号和版本号后检查是否重复。'
 
   return [
     {
@@ -1226,14 +1318,24 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
       label: '文件编号/版本',
       status: currentVersionLookupLoading.value
         ? '检查中'
-        : isRequestedVersionDuplicate.value || currentVersionProjectionBlockReason.value || currentVersionInfo.value?.modifying
+        : versionBlockingReason
           ? '需处理'
-          : versionReady
-            ? '可提交'
-            : '待填写',
+        : versionReady
+          ? '可提交'
+          : '待填写',
       description: versionDescription,
-      ok: versionReady && !currentVersionLookupLoading.value && !isRequestedVersionDuplicate.value && !currentVersionProjectionBlockReason.value && !currentVersionInfo.value?.modifying,
+      ok: versionReady && isVersionNoFormatValid.value && !currentVersionLookupLoading.value && !versionBlockingReason,
       warning: !versionReady || currentVersionLookupLoading.value
+    },
+    {
+      key: 'effective-date',
+      label: '生效日期',
+      status: formData.effectiveDate
+        ? (isEffectiveDateBeforeToday.value ? '允许补录' : '已填写')
+        : '待填写',
+      description: effectiveDatePreflightText.value,
+      ok: Boolean(formData.effectiveDate),
+      warning: !formData.effectiveDate
     },
     {
       key: 'category-selection',
@@ -1282,13 +1384,26 @@ const loadCurrentVersionByFileNumber = async () => {
     return
   }
   currentVersionLookupLoading.value = true
+  currentVersionLookupError.value = ''
   try {
     const info = await getControlledFileCurrentVersion(fileNumber)
     if (requestSeq !== currentVersionLookupSeq) {
       return
     }
     currentVersionInfo.value = info
+    currentVersionLookupError.value = ''
     if (info.matched) {
+      if (!isExternalReview.value) {
+        formData.changeType = 'REVISION'
+        formData.revisionTargetControlledFileId = info.currentControlledFileId || null
+        if (
+          info.currentVersionNo &&
+          (!formData.versionNo ||
+            normalizePreflightVersionNo(formData.versionNo) === normalizePreflightVersionNo(info.currentVersionNo))
+        ) {
+          formData.versionNo = resolveNextMajorVersionNo(info.currentVersionNo) || formData.versionNo
+        }
+      }
       if (!formData.fileName && info.fileName) {
         formData.fileName = info.fileName
       }
@@ -1296,9 +1411,10 @@ const loadCurrentVersionByFileNumber = async () => {
     }
   } catch (error) {
     if (requestSeq === currentVersionLookupSeq) {
-      clearCurrentVersionInfo()
+      currentVersionInfo.value = undefined
+      currentVersionLookupError.value = resolveUploadErrorMessage(error, '现行版本信息查询失败，请查看错误提示后重试')
     }
-    message.error(resolveUploadErrorMessage(error, '现行版本信息查询失败，请查看错误提示后重试'))
+    message.error(currentVersionLookupError.value || resolveUploadErrorMessage(error, '现行版本信息查询失败，请查看错误提示后重试'))
   } finally {
     if (requestSeq === currentVersionLookupSeq) {
       currentVersionLookupLoading.value = false
@@ -1497,6 +1613,21 @@ const submitForm = async () => {
   if (!valid) {
     return
   }
+  if (currentVersionLookupTimer) {
+    clearTimeout(currentVersionLookupTimer)
+    currentVersionLookupTimer = undefined
+  }
+  await loadCurrentVersionByFileNumber()
+  if (currentVersionLookupError.value) {
+    submitFieldErrors.versionNo = currentVersionLookupError.value
+    message.warning(currentVersionLookupError.value)
+    return
+  }
+  if (revisionTargetPreflightBlockReason.value) {
+    submitFieldErrors.versionNo = revisionTargetPreflightBlockReason.value
+    message.warning(revisionTargetPreflightBlockReason.value)
+    return
+  }
   if (currentVersionProjectionBlockReason.value) {
     message.warning(currentVersionProjectionBlockReason.value)
     return
@@ -1508,10 +1639,6 @@ const submitForm = async () => {
   if (isRequestedVersionDuplicate.value) {
     submitFieldErrors.versionNo = versionDuplicatePreflightMessage.value
     message.warning(versionDuplicatePreflightMessage.value)
-    return
-  }
-  if (!isExternalReview.value && formData.changeType === 'REVISION' && !formData.revisionTargetControlledFileId) {
-    message.warning('请选择历史文件名称后再升版')
     return
   }
   if (!uploadDirectoryTree.value) {

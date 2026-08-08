@@ -64,6 +64,41 @@ assert.match(
   /getTeamLeaderActiveOrderList/,
   'manual allocation order selector must come from active orders.'
 )
+assert.match(
+  api,
+  /erpFixedQuantitySnapshot\?:\s*number\s*\|\s*string/,
+  'manual allocation shortcuts must use the formal active-order ERP fixed quantity snapshot as the order total.'
+)
+assert.match(
+  page,
+  /<el-input-number[\s\S]*v-model="row\.allocatedQuantity"[\s\S]*:precision="0"[\s\S]*:step="1"[\s\S]*@change="markManualAllocation"/,
+  'allocation quantity input must be constrained to integer steps without removing manual input.'
+)
+assert.match(
+  page,
+  /data-team-leader-allocation-max[\s\S]*@click="applyAllocationShortcut\(row,\s*'MAX'\)"[\s\S]*最大/,
+  'allocation table must expose a stable row-level 最大 button wired to the formal max shortcut handler.'
+)
+assert.match(
+  page,
+  /data-team-leader-allocation-half[\s\S]*@click="applyAllocationShortcut\(row,\s*'HALF'\)"[\s\S]*一半/,
+  'allocation table must expose a stable row-level 一半 button wired to the formal half shortcut handler.'
+)
+assert.match(
+  page,
+  /const\s+resolveCurrentAllocationRemainingQuantity\s*=[\s\S]*reviewEvent\.value\?\.outputQuantity[\s\S]*allocatedExceptCurrent[\s\S]*currentRemainingQuantity/,
+  'allocation shortcut math must derive the current remaining quantity from the report quantity minus other allocation rows.'
+)
+assert.match(
+  page,
+  /const\s+resolveAllocationShortcutQuantity\s*=[\s\S]*order\.erpFixedQuantitySnapshot[\s\S]*resolveCurrentAllocationRemainingQuantity\(line\)[\s\S]*Math\.min\(orderQuantity,\s*currentRemainingQuantity\)[\s\S]*Math\.floor\(orderQuantity\s*\/\s*2\)[\s\S]*Math\.min\(halfOrderQuantity,\s*currentRemainingQuantity\)/,
+  'allocation shortcut math must cap by both the order total/half total and the current unallocated remaining quantity.'
+)
+assert.match(
+  page,
+  /const\s+requirePositiveInteger\s*=[\s\S]*Number\.isInteger\(parsed\)[\s\S]*return parsed/,
+  'allocation submit validation must require positive integers instead of accepting decimals.'
+)
 assert.doesNotMatch(
   page,
   /reviewTeamLeaderSubmission\(\{\s*eventId,[\s\S]{0,220}reviewStatus:\s*reviewForm\.reviewStatus,[\s\S]{0,220}\}\)/,

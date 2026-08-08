@@ -85,6 +85,9 @@
         <if test="reqVO.templateType != null and reqVO.templateType != ''">
             AND pool_event.template_type = #{reqVO.templateType}
         </if>
+        <if test="reqVO.eventType != null and reqVO.eventType != ''">
+            AND pool_event.event_type = #{reqVO.eventType}
+        </if>
         <if test="reqVO.workOrderId != null">
             AND pool_event.work_order_id = #{reqVO.workOrderId}
         </if>

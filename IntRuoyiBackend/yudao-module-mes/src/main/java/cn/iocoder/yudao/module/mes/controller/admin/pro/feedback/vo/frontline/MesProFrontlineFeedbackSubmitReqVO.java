@@ -19,9 +19,8 @@ public class MesProFrontlineFeedbackSubmitReqVO {
     @NotNull(message = "报工载荷不能为空")
     private MesProFrontlineFeedbackPayloadReqVO feedbackPayload;
 
-    @Schema(description = "记录本原始条目载荷", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "记录本原始条目载荷；一线生产无记录本上下文时可为空")
     @Valid
-    @NotNull(message = "记录本原始条目载荷不能为空")
     private MesProFrontlineRecordbookPayloadReqVO recordbookPayload;
 
     @Schema(description = "工序池上下文", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -44,7 +43,7 @@ public class MesProFrontlineFeedbackSubmitReqVO {
     @NotNull(message = "签名员工不能为空")
     private Long signatureEmployeeId;
 
-    @Schema(description = "当前登录账号电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "签名员工电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "电子签名密码不能为空")
     private String signaturePassword;
 
