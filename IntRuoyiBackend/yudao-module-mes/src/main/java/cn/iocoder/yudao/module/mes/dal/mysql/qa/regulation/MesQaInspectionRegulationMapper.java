@@ -25,6 +25,20 @@ public interface MesQaInspectionRegulationMapper extends BaseMapperX<MesQaInspec
         return selectOne(baseRouteProcessQuery(productId, routeId, routeVersionId, routeProcessId, processId));
     }
 
+    default List<MesQaInspectionRegulationDO> selectPublishedListByProductRouteVersion(Long productId, Long routeId,
+                                                                                       Long routeVersionId) {
+        return selectList(new LambdaQueryWrapperX<MesQaInspectionRegulationDO>()
+                .eq(MesQaInspectionRegulationDO::getProductId, productId)
+                .eq(MesQaInspectionRegulationDO::getRouteId, routeId)
+                .eq(MesQaInspectionRegulationDO::getRouteVersionId, routeVersionId)
+                .eq(MesQaInspectionRegulationDO::getLifecycleStatus, "PUBLISHED")
+                .isNotNull(MesQaInspectionRegulationDO::getCurrentVersionId)
+                .orderByAsc(MesQaInspectionRegulationDO::getRouteProcessId)
+                .orderByAsc(MesQaInspectionRegulationDO::getProcessId)
+                .orderByDesc(MesQaInspectionRegulationDO::getCurrentVersionId)
+                .orderByDesc(MesQaInspectionRegulationDO::getId));
+    }
+
     private static LambdaQueryWrapperX<MesQaInspectionRegulationDO> baseRouteProcessQuery(Long productId,
                                                                                           Long routeId,
                                                                                           Long routeVersionId,

@@ -233,6 +233,8 @@ export interface FrontlinePqcInspectionItemVO {
   itemName?: string
   inspectionMethod?: string
   standardText?: string
+  acceptanceStandard?: string
+  processInspectionMethod?: string
   resultType?: string
   standardLowerLimit?: number | string
   standardUpperLimit?: number | string
@@ -295,24 +297,24 @@ export interface FrontlinePqcItemResultSubmitReqVO {
 }
 
 export interface FrontlinePqcInspectionSubmitReqVO {
-  activeOrderId: number
+  activeOrderId?: number
   pqcTaskId: number
   productionSubmitEventId?: number
-  regulationVersionId: number
-  workOrderId: number
-  routeId: number
-  routeProcessId: number
-  processId: number
-  inspectionType: string
-  businessDate: string
-  shiftCode: string
-  roundNo: number
+  regulationVersionId?: number
+  workOrderId?: number
+  routeId?: number
+  routeProcessId?: number
+  processId?: number
+  inspectionType?: string
+  businessDate?: string
+  shiftCode?: string
+  roundNo?: number
   actualInspectionQuantity: number
-  scrapQuantity: number
+  scrapQuantity?: number
   signaturePassword: string
   nonconformanceDescription?: string
-  itemResults: FrontlinePqcItemResultSubmitReqVO[]
-  rawPayload: Record<string, unknown>
+  itemResults?: FrontlinePqcItemResultSubmitReqVO[]
+  rawPayload?: Record<string, unknown>
   clientSubmitTime?: string
 }
 

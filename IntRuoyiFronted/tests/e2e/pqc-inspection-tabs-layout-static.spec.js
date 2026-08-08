@@ -59,18 +59,13 @@ const tabBlock = panelSource.slice(tabStart, tabEnd)
 
 assert.match(
   tabBlock,
-  /data-pqc-tab-method[\s\S]*formatPqcMethodSummary\(item\)/,
-  'Each PQC red-box tab must show only the formal inspection method under the full item name.'
-)
-assert.match(
-  tabBlock,
   /<strong>\{\{\s*formatPqcInspectionItemTabLabel\(item\)\s*\}\}<\/strong>/,
   'Each PQC red-box tab title must render the formal item name helper.'
 )
 assert.doesNotMatch(
   tabBlock,
-  /data-pqc-tab-requirement|formatPqcTabRequirement|data-pqc-tab-progress|getPqcProgressText\(item\.key\)/,
-  'PQC red-box tabs must not show equipment requirement or filled-count progress text.'
+  /data-pqc-tab-requirement|formatPqcTabRequirement|data-pqc-tab-progress|getPqcProgressText\(item\.key\)|data-pqc-tab-method|formatPqcMethodSummary\(item\)|getPqcTabStateLabel\(item\)/,
+  'PQC red-box tabs must only show the formal item name and must not show status, method, requirement, or progress text.'
 )
 
 const itemTabStyleMatch = panelSource.match(
@@ -97,23 +92,15 @@ assert.doesNotMatch(
   'PQC red-box tab item names must not be truncated with ellipsis.'
 )
 
-const itemTabMetaStyleMatch = itemTabStyleBlock.match(/\n\s*small\s*\{([\s\S]*?)\n\s*\}/)
-assert.ok(itemTabMetaStyleMatch, 'The PQC red-box tab method style block must exist.')
-const itemTabMetaStyleBlock = itemTabMetaStyleMatch[1]
 assert.match(
-  itemTabMetaStyleBlock,
-  /font-size:\s*11px/,
-  'PQC red-box tab method text must be smaller than the previous requirement/progress text.'
-)
-assert.match(
-  itemTabMetaStyleBlock,
-  /white-space:\s*normal/,
-  'PQC red-box tab method text must wrap when the method name is long.'
+  itemTabStyleBlock,
+  /grid-template-columns:\s*minmax\(0,\s*1fr\)/,
+  'PQC red-box tab must reserve only one visible text column for the formal item name.'
 )
 assert.doesNotMatch(
-  itemTabMetaStyleBlock,
-  /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/,
-  'PQC red-box tab method text must no longer reserve a second column for progress.'
+  itemTabStyleBlock,
+  /\n\s*em\s*\{|\n\s*small\s*\{|grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/,
+  'PQC red-box tab styles must not reserve or style hidden status/method description rows.'
 )
 
 assert.match(

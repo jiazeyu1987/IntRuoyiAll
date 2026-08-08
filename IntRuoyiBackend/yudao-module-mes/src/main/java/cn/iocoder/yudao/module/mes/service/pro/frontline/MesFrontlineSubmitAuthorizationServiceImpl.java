@@ -7,7 +7,6 @@ import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_SUBMIT_DEVICE_CONTEXT_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_SIGNATURE_EMPLOYEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_TEMPLATE_MISMATCH;
 
@@ -32,11 +31,6 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
         }
         MesFrontlineRouteProcessCandidate process = contextService.requireAuthorizedProcess(command.loginUserId(),
                 command.routeId(), command.routeProcessId(), command.processId());
-        if (!Objects.equals(command.deviceId(), process.deviceId())
-                || !Objects.equals(command.workstationId(), process.workstationId())) {
-            throw exception(PRO_FRONTLINE_SUBMIT_DEVICE_CONTEXT_MISMATCH,
-                    command.deviceId(), command.workstationId(), process.deviceId(), process.workstationId());
-        }
         contextService.requireTeamEmployee(command.loginUserId(), process.routeId(), process.routeProcessId(),
                 process.processId(), command.actualEmployeeId());
         MesFrontlineTemplateDescriptor template = templateResolver.resolve(new MesFrontlineTemplateRequest(

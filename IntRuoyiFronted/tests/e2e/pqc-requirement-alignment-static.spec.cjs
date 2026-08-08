@@ -59,13 +59,16 @@ const typeTabsBlock = blockBetween(
   '<div class="frontline-pqc-type-tabs">',
   '<div\n            class="frontline-pqc-round-tabs"'
 )
-for (const inspectionType of ['FIRST', 'PATROL']) {
-  assert.match(
-    typeTabsBlock,
-    new RegExp(`:disabled="!hasPqcTaskOptionForType\\('${inspectionType}'\\)"`),
-    `${inspectionType} button must be disabled when that formal PQC task is not available.`
-  )
-}
+assert.match(
+  typeTabsBlock,
+  /v-for="tab in pqcInspectionTypeTabs"/,
+  'PQC type tabs must be rendered from available formal task types.'
+)
+assert.doesNotMatch(
+  typeTabsBlock,
+  /:disabled="!hasPqcTaskOptionForType/,
+  'PQC type tabs must not add a second disabled-state restriction for unavailable formal tasks.'
+)
 
 const selectTypeBlock = blockBetween(
   panelSource,

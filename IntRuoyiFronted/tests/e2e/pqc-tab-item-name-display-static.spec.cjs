@@ -58,8 +58,8 @@ assert.doesNotMatch(
 
 assert.match(
   panelSource,
-  /buildPqcItemDetailsPayload[\s\S]*itemCode: item\.key[\s\S]*itemName: item\.itemName[\s\S]*inspectionMethod: item\.inspectionMethod/,
-  'PQC submit details must preserve itemCode identity and send itemName as a separate formal name.'
+  /buildPqcItemDetailsPayload[\s\S]*itemCode: item\.key[\s\S]*itemName: item\.itemName[\s\S]*inspectionMethod: item\.processInspectionMethod/,
+  'PQC submit details must preserve itemCode identity, itemName, and QA process method separately.'
 )
 
 console.log('PASS: PQC tab displays formal inspection item name while preserving item identity')

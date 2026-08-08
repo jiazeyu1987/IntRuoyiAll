@@ -32,8 +32,8 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /const formatPqcMethodSummary = \(item: PqcInspectionItem\) =>\s*normalizePqcInspectionMethodLabel\(item\.inspectionMethod\) \|\| '未配置检验方法'/,
-  'The 检验方法 card must keep using the normalized formal inspectionMethod.'
+  /const formatPqcMethodSummary = \(item: PqcInspectionItem\) =>\s*normalizePqcInspectionMethodLabel\(item\.processInspectionMethod\) \|\| '未配置检验方法'/,
+  'The 检验方法 card must keep using the normalized formal QA process inspection method.'
 )
 assert.match(
   panelSource,
@@ -73,8 +73,8 @@ assert.match(
 
 assert.match(
   panelSource,
-  /buildPqcItemDetailsPayload[\s\S]*itemCode: item\.key[\s\S]*itemName: item\.itemName[\s\S]*inspectionMethod: item\.inspectionMethod/,
-  'Changing the visible title must not alter itemCode/itemName/inspectionMethod submission identity.'
+  /buildPqcItemDetailsPayload[\s\S]*itemCode: item\.key[\s\S]*itemName: item\.itemName[\s\S]*inspectionMethod: item\.processInspectionMethod/,
+  'Changing the visible title must not alter itemCode/itemName/processInspectionMethod submission identity.'
 )
 
 console.log('PASS: PQC active red-box summary is hidden while preserving item identity')

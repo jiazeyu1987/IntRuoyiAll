@@ -52,7 +52,6 @@ class MesProFrontlineFeedbackRouteOrderGateTest {
                 processPoolSubmitEventService,
                 submitAuthorizationService,
                 lossReasonValidator,
-                deviceParameterValidator,
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
                 signatureService);

@@ -46,6 +46,42 @@ class MesFrontlineSubmitAuthorizationTest {
     }
 
     @Test
+    void shouldAuthorizeWhenOnlyDeviceIdDiffersButProcessAndWorkstationMatch() {
+        MesFrontlineSubmitIdentityCommand command = new MesFrontlineSubmitIdentityCommand(
+                9001L, 10001L, 10001L, 980009L, 301L, 101L, 1001L, 201L, "TPL-201-E1001");
+        when(contextService.requireAuthorizedProcess(9001L, 101L, 1001L, 201L)).thenReturn(
+                new MesFrontlineRouteProcessCandidate(101L, "R-101", "Route 101",
+                        1001L, 201L, "P-201", "Manual inspection", 10,
+                        41L, "A03190", "Formal machinery", 301L, "WS-301", "Workstation 301"));
+        when(contextService.requireTeamEmployee(9001L, 101L, 1001L, 201L, 10001L)).thenReturn(
+                new MesFrontlineEmployeeCandidate(10001L, "E1001", "Alice"));
+        when(templateResolver.resolve(new MesFrontlineTemplateRequest(
+                9001L, 10001L, 101L, 1001L, 201L))).thenReturn(
+                new MesFrontlineTemplateDescriptor("TPL-201-E1001", "BATCH_RECORD",
+                        1001L, 201L, 10001L));
+
+        assertDoesNotThrow(() -> submitAuthorizationService.authorize(command));
+    }
+
+    @Test
+    void shouldAuthorizeWhenSubmittedDeviceAndWorkstationDifferFromAuthorizedCandidate() {
+        MesFrontlineSubmitIdentityCommand command = new MesFrontlineSubmitIdentityCommand(
+                9001L, 10001L, 10001L, 980009L, 980010L, 101L, 1001L, 201L, "TPL-201-E1001");
+        when(contextService.requireAuthorizedProcess(9001L, 101L, 1001L, 201L)).thenReturn(
+                new MesFrontlineRouteProcessCandidate(101L, "R-101", "Route 101",
+                        1001L, 201L, "P-201", "Manual inspection", 10,
+                        41L, "A03190", "Formal machinery", 301L, "WS-301", "Workstation 301"));
+        when(contextService.requireTeamEmployee(9001L, 101L, 1001L, 201L, 10001L)).thenReturn(
+                new MesFrontlineEmployeeCandidate(10001L, "E1001", "Alice"));
+        when(templateResolver.resolve(new MesFrontlineTemplateRequest(
+                9001L, 10001L, 101L, 1001L, 201L))).thenReturn(
+                new MesFrontlineTemplateDescriptor("TPL-201-E1001", "BATCH_RECORD",
+                        1001L, 201L, 10001L));
+
+        assertDoesNotThrow(() -> submitAuthorizationService.authorize(command));
+    }
+
+    @Test
     void shouldRejectSignatureEmployeeDifferentFromActualEmployee() {
         MesFrontlineSubmitIdentityCommand command = new MesFrontlineSubmitIdentityCommand(
                 9001L, 10001L, 10002L, 501L, 301L, 101L, 1001L, 201L, "TPL-201-E1001");

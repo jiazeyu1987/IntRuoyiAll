@@ -62,7 +62,6 @@ class MesProFrontlineFeedbackSubmitDetailContractTest {
                 processPoolSubmitEventService,
                 submitAuthorizationService,
                 lossReasonValidator,
-                deviceParameterValidator,
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
                 signatureService);

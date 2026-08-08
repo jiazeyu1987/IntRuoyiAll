@@ -16,74 +16,62 @@ import java.util.Map;
 public class MesFrontlinePqcSubmitReqVO {
 
     @Schema(description = "活跃订单编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "活跃订单编号不能为空")
     private Long activeOrderId;
 
     @Schema(description = "PQC 检验任务编号", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "PQC 检验任务不能为空")
     private Long pqcTaskId;
 
-    @Schema(description = "QA 规程发布版本编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "QA 规程发布版本不能为空")
+    @Schema(description = "QA 规程发布版本编号")
     private Long regulationVersionId;
 
-    @Schema(description = "生产工单编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "生产工单编号不能为空")
+    @Schema(description = "生产工单编号")
     private Long workOrderId;
 
     @Schema(description = "可选绑定的生产提交工序池事件编号")
     private Long productionSubmitEventId;
 
-    @Schema(description = "工艺路线编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "工艺路线编号不能为空")
+    @Schema(description = "工艺路线编号")
     private Long routeId;
 
-    @Schema(description = "工艺路线工序编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "工艺路线工序编号不能为空")
+    @Schema(description = "工艺路线工序编号")
     private Long routeProcessId;
 
-    @Schema(description = "工序编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "工序编号不能为空")
+    @Schema(description = "工序编号")
     private Long processId;
 
-    @Schema(description = "检验类型", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "检验类型不能为空")
+    @Schema(description = "检验类型")
     private String inspectionType;
 
-    @Schema(description = "业务日期", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "业务日期不能为空")
+    @Schema(description = "业务日期")
     private LocalDate businessDate;
 
-    @Schema(description = "班次编码", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "班次编码不能为空")
+    @Schema(description = "班次编码")
     private String shiftCode;
 
-    @Schema(description = "轮次", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "轮次不能为空")
+    @Schema(description = "轮次")
     private Integer roundNo;
 
     @Schema(description = "实际检验数量", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "实际检验数量不能为空")
+    @Min(value = 1, message = "实际检验数量必须大于 0")
     private Integer actualInspectionQuantity;
 
     @Schema(description = "电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "电子签名密码不能为空")
     private String signaturePassword;
 
-    @Schema(description = "结构化损耗数量", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "损耗数量不能为空")
+    @Schema(description = "结构化损耗数量")
     @Min(value = 0, message = "损耗数量不能小于 0")
     private Integer scrapQuantity;
 
     @Schema(description = "PQC 手动不良说明")
     private String nonconformanceDescription;
 
-    @Schema(description = "PQC 项目级正式检验结果", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "PQC 项目级检验结果不能为空")
+    @Schema(description = "PQC 项目级正式检验结果")
     private List<ItemResult> itemResults;
 
-    @Schema(description = "PQC 原始提交内容", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "PQC 原始提交内容不能为空")
+    @Schema(description = "PQC 原始提交内容")
     private Map<String, Object> rawPayload;
 
     @Schema(description = "客户端提交时间")

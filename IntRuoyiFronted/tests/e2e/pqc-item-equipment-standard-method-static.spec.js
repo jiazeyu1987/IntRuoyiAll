@@ -50,8 +50,8 @@ assert.match(
 )
 assert.match(
   apiSource,
-  /itemResults: FrontlinePqcItemResultSubmitReqVO\[\]/,
-  'PQC submit request must send itemResults as the formal item-level facts.'
+  /itemResults\?: FrontlinePqcItemResultSubmitReqVO\[\]/,
+  'PQC submit request must allow itemResults as the formal item-level facts.'
 )
 
 for (const selector of [
@@ -64,6 +64,31 @@ for (const selector of [
 ]) {
   assert.ok(panelSource.includes(selector), `PQC fill page must expose ${selector}.`)
 }
+const equipmentControlsBlock = blockBetween(
+  panelSource,
+  '<div class="pqc-utility-strip"',
+  'data-pqc-standard-button'
+)
+assert.match(
+  panelSource,
+  /const hasPqcEquipmentOptions = \(item: PqcInspectionItem\) =>\s*item\.equipmentOptions\.length > 0/,
+  'PQC fill page must use formal item equipment options to decide whether equipment cards render.'
+)
+assert.match(
+  equipmentControlsBlock,
+  /<label\s+v-if="hasPqcEquipmentOptions\(activePqcTabItem\)"[\s\S]*data-pqc-equipment-card/,
+  'PQC equipment card must render only when the active inspection item has formal equipment.'
+)
+assert.match(
+  equipmentControlsBlock,
+  /<label\s+v-if="hasPqcEquipmentOptions\(activePqcTabItem\)"[\s\S]*data-pqc-equipment-number-card/,
+  'PQC equipment number card must render only when the active inspection item has formal equipment.'
+)
+assert.doesNotMatch(
+  panelSource,
+  /无需检验设备|无需设备编号/,
+  'PQC fill page must not display no-equipment placeholder cards for inspection items without equipment.'
+)
 assert.match(
   panelSource,
   /activePqcStandardItem[\s\S]*standardLowerLimit[\s\S]*standardUpperLimit[\s\S]*standardUnit/,
@@ -124,10 +149,6 @@ assert.match(
   requireSelectionBlock,
   /if \(!item\.equipmentOptions\.length\)/,
   'PQC selected equipment must still be checked against formal QA equipment options.'
-)
-assert.ok(
-  panelSource.includes("item.equipmentOptions.length ? '设备可选' : '无需设备'"),
-  'PQC tab requirement text must show equipment as optional instead of formal-submit required.'
 )
 const handleValidateBlock = blockBetween(
   panelSource,

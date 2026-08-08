@@ -69,6 +69,22 @@ assert.doesNotMatch(
   'Frontend PQC flow must not maintain a required selected production submit event state.'
 )
 
+const handleValidateBlock = blockBetween(
+  panelSource,
+  'const handleValidate = async () => {',
+  'const recoverPqcSubmitReceiptAfterUncertainError'
+)
+assert.match(
+  handleValidateBlock,
+  /assertPqcSignatureAndQuantityReady\(\)/,
+  'Frontend PQC submit preflight must only require an electronic signature path and positive inspection quantity.'
+)
+assert.doesNotMatch(
+  handleValidateBlock,
+  /assertPqcFormalSubmissionReady\(\)|assertFormalPayloadContext\(\)|FrontlineTemplateApi\.validatePayload|assertPqcSubmissionSampleQuantities\(\)/,
+  'Frontend PQC submit preflight must not block on formal context, template validation, or exact sample quantities.'
+)
+
 assert.doesNotMatch(
   panelSource,
   /@click="selectPqcInspectionType\('FINAL'\)"/,
@@ -87,7 +103,7 @@ assert.doesNotMatch(
 
 assert.match(
   panelSource,
-  /const formatPqcInspectionItemTabLabel = \(item: PqcInspectionItem\) =>\s*\n\s*item\.label/,
+  /const formatPqcInspectionItemTabLabel = \(item: PqcInspectionItem\) =>\s*\n\s*item\.itemName\s*\|\|\s*'未配置检验项目名称'/,
   'PQC inspection item tabs must display the inspection item name, not the method summary.'
 )
 
@@ -119,6 +135,11 @@ assert.doesNotMatch(
 )
 assert.doesNotMatch(
   pqcContextSource,
+  /requirePqcEmployee\(loginUserId,\s*command\.getActualEmployeeId\(\)\)|requirePqcTaskIdentity\(|requirePqcTaskOption\(/,
+  'Backend PQC submit flow must not block on employee binding, strict task identity, or task option snapshots.'
+)
+assert.doesNotMatch(
+  pqcContextSource,
   /requireNonconformanceDescriptionWhenFailed/,
   'Backend PQC submit flow must not require nonconformanceDescription when inspection fails.'
 )
@@ -139,10 +160,44 @@ assert.match(
   'Backend PQC item result must allow omitted selected equipment.'
 )
 
+const requirePqcSubmitCommandBlock = blockBetween(
+  pqcContextSource,
+  'private void requirePqcSubmitCommand(MesFrontlinePqcSubmitCommand command) {',
+  'private String resolvePqcInspectionResult'
+)
+for (const forbiddenRequiredField of [
+  'activeOrderId',
+  'regulationVersionId',
+  'workOrderId',
+  'productionSubmitEventId',
+  'routeId',
+  'routeProcessId',
+  'processId',
+  'inspectionType',
+  'businessDate',
+  'shiftCode',
+  'roundNo',
+  'actualEmployeeId',
+  'templateType',
+  'scrapQuantity',
+  'rawPayload'
+]) {
+  assert.doesNotMatch(
+    requirePqcSubmitCommandBlock,
+    new RegExp(`"${forbiddenRequiredField}"`),
+    `Backend PQC submit command must not require ${forbiddenRequiredField}.`
+  )
+}
+assert.match(
+  requirePqcSubmitCommandBlock,
+  /getActualInspectionQuantity\(\)[\s\S]*<=\s*0|requirePositive\(command\.getActualInspectionQuantity\(\), "actualInspectionQuantity"\)/,
+  'Backend PQC submit command must require actualInspectionQuantity > 0.'
+)
+
 const insertTaskBlock = blockBetween(
   activeOrderServiceSource,
   'private void insertPqcInspectionTasks',
-  'private Long requireProductId'
+  'private MesQaInspectionRegulationDO requirePublishedRegulation'
 )
 assert.doesNotMatch(
   insertTaskBlock,

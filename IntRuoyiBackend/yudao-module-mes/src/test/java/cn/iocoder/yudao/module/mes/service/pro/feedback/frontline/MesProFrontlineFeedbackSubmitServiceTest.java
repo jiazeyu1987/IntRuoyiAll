@@ -20,7 +20,6 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
-import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_DEVICE_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -64,7 +63,6 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                 processPoolSubmitEventService,
                 submitAuthorizationService,
                 lossReasonValidator,
-                deviceParameterValidator,
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
                 signatureService);
@@ -336,23 +334,30 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     }
 
     @Test
-    void shouldRejectConfiguredDeviceContextWithoutSelectedDeviceBeforeWritingAnyRecord() {
+    void shouldSubmitWithoutDeviceParameterValidation() {
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
+        when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
+        when(recordbookEntryService.createOriginalEntry(any()))
+                .thenReturn(new MesProFrontlineRecordbookEntryResult(701L, 702L));
+        when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
+        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("sign-123"), eq("一线生产报工提交")))
+                .thenReturn(4001L);
+        stubValidLossReason();
+
         MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
         reqVO.getFeedbackPayload()
                 .setSelectedDevice(null)
                 .setDeviceParameterReadings(List.of());
 
+        MesProFrontlineFeedbackSubmitRespVO respVO;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            cn.iocoder.yudao.framework.common.exception.ServiceException ex = assertThrows(
-                    cn.iocoder.yudao.framework.common.exception.ServiceException.class,
-                    () -> submitService.submit(reqVO));
-            assertEquals(PRO_FRONTLINE_FEEDBACK_DEVICE_INVALID.getCode(), ex.getCode());
+            respVO = submitService.submit(reqVO);
         }
 
+        assertEquals(801L, respVO.getProcessPoolEventId());
         verify(submitAuthorizationService).authorize(any());
-        verify(feedbackService, never()).createFrontlineFeedback(any());
-        verifyNoInteractions(recordbookEntryService, processPoolSubmitEventService, lossReasonValidator);
+        verifyNoInteractions(deviceParameterValidator);
     }
 
     @Test

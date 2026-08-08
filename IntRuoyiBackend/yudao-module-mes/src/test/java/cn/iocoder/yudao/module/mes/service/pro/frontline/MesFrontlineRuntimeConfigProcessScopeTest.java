@@ -24,8 +24,8 @@ class MesFrontlineRuntimeConfigProcessScopeTest {
                 "loss validator must validate all loss details by current routeProcessId");
         assertTrue(submitService.contains("validateLossDetailTotal"),
                 "submit service must reject lossQuantity != sum(lossDetails.quantity) before authorization/write");
-        assertTrue(submitService.contains("deviceParameterValidator"),
-                "submit service must validate selected device and parameters against current process configuration");
+        assertTrue(!submitService.contains("validateSelectedDeviceAndParameters"),
+                "submit service must not validate selected device and parameters during formal submit");
         assertTrue(deviceValidator.contains("routeProcessId")
                         && deviceValidator.contains("processId")
                         && deviceValidator.contains("deviceId")

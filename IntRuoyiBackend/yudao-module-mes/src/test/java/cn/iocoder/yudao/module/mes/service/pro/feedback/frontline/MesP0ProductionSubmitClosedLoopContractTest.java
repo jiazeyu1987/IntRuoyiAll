@@ -63,7 +63,6 @@ class MesP0ProductionSubmitClosedLoopContractTest {
                 processPoolSubmitEventService,
                 submitAuthorizationService,
                 lossReasonValidator,
-                deviceParameterValidator,
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
                 signatureService);

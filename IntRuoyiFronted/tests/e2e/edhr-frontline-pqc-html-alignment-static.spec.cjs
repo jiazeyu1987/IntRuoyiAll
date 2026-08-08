@@ -102,8 +102,8 @@ assert.match(
 )
 assert.match(
   source,
-  /inspectionMethod: item\.inspectionMethod \|\| ''[\s\S]*standardText: item\.standardText \|\| ''[\s\S]*resultType: item\.resultType \|\| ''/,
-  'PQC item metadata must display the formal method, standard, and result type snapshot.'
+  /inspectionMethod: item\.inspectionMethod \|\| ''[\s\S]*standardText: item\.standardText \|\| ''[\s\S]*acceptanceStandard: item\.acceptanceStandard \|\| ''[\s\S]*processInspectionMethod: item\.processInspectionMethod \|\| ''[\s\S]*resultType: item\.resultType \|\| ''/,
+  'PQC item metadata must preserve legacy method/standard and the QA process method/standard aliases.'
 )
 assert.match(
   source,

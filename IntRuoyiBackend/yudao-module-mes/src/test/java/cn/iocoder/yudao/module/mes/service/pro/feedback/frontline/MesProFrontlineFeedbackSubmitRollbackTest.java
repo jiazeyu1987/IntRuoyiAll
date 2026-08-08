@@ -55,7 +55,6 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
                 processPoolSubmitEventService,
                 submitAuthorizationService,
                 lossReasonValidator,
-                deviceParameterValidator,
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
                 signatureService);

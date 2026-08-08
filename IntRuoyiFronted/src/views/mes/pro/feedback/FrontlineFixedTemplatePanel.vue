@@ -151,35 +151,65 @@
         data-pqc-standard-dialog
         role="dialog"
         aria-modal="true"
-        :aria-label="`${activePqcStandardItem.label}接收标准`"
+        aria-labelledby="pqc-standard-dialog-title"
         @click.self="closePqcStandardDialog"
       >
-        <section>
-          <h3>{{ activePqcStandardItem.label }}接收标准</h3>
-          <p>{{ activePqcStandardItem.standardText || '未配置接收标准说明' }}</p>
-          <dl>
-            <dt>下限</dt>
-            <dd>
-              {{
-                formatPqcStandardBound(
-                  activePqcStandardItem.standardLowerLimit,
-                  activePqcStandardItem.standardUnit
-                )
-              }}
-            </dd>
-            <dt>上限</dt>
-            <dd>
-              {{
-                formatPqcStandardBound(
-                  activePqcStandardItem.standardUpperLimit,
-                  activePqcStandardItem.standardUnit
-                )
-              }}
-            </dd>
-            <dt>单位</dt>
-            <dd>{{ activePqcStandardItem.standardUnit || '未配置' }}</dd>
-          </dl>
-          <button type="button" @click="closePqcStandardDialog">关闭</button>
+        <section class="frontline-pqc-fact-dialog__panel" data-pqc-standard-dialog-panel>
+          <header class="frontline-pqc-fact-dialog__header">
+            <div>
+              <span class="frontline-pqc-fact-dialog__eyebrow">接收标准</span>
+              <h3 id="pqc-standard-dialog-title">{{ activePqcStandardItem.label }}</h3>
+            </div>
+            <button
+              type="button"
+              class="frontline-pqc-fact-dialog__close"
+              aria-label="关闭接收标准弹框"
+              @click="closePqcStandardDialog"
+            >
+              ×
+            </button>
+          </header>
+          <div class="frontline-pqc-fact-dialog__body">
+            <article class="frontline-pqc-fact-dialog__detail" data-pqc-standard-detail-text>
+              <span>标准说明</span>
+              <p>{{ activePqcStandardItem.acceptanceStandard || '未配置接收标准说明' }}</p>
+            </article>
+            <dl class="frontline-pqc-fact-dialog__metrics" data-pqc-standard-bound-grid>
+              <div>
+                <dt>下限</dt>
+                <dd>
+                  {{
+                    formatPqcStandardBound(
+                      activePqcStandardItem.standardLowerLimit,
+                      activePqcStandardItem.standardUnit
+                    )
+                  }}
+                </dd>
+              </div>
+              <div>
+                <dt>上限</dt>
+                <dd>
+                  {{
+                    formatPqcStandardBound(
+                      activePqcStandardItem.standardUpperLimit,
+                      activePqcStandardItem.standardUnit
+                    )
+                  }}
+                </dd>
+              </div>
+              <div>
+                <dt>单位</dt>
+                <dd>{{ activePqcStandardItem.standardUnit || '未配置' }}</dd>
+              </div>
+              <div>
+                <dt>精度</dt>
+                <dd>{{ formatPqcStandardPrecision(activePqcStandardItem.standardPrecision) }}</dd>
+              </div>
+            </dl>
+          </div>
+          <footer class="frontline-pqc-fact-dialog__footer">
+            <button type="button" @click="closePqcStandardDialog">关闭</button>
+          </footer>
         </section>
       </div>
 
@@ -189,13 +219,53 @@
         data-pqc-method-dialog
         role="dialog"
         aria-modal="true"
-        :aria-label="`${formatPqcMethodSummary(activePqcMethodItem)}检验方法`"
+        aria-labelledby="pqc-method-dialog-title"
         @click.self="closePqcMethodDialog"
       >
-        <section>
-          <h3>{{ formatPqcMethodSummary(activePqcMethodItem) }}</h3>
-          <p>{{ formatPqcMethodSummary(activePqcMethodItem) }}</p>
-          <button type="button" @click="closePqcMethodDialog">关闭</button>
+        <section class="frontline-pqc-fact-dialog__panel" data-pqc-method-dialog-panel>
+          <header class="frontline-pqc-fact-dialog__header">
+            <div>
+              <span class="frontline-pqc-fact-dialog__eyebrow">检验方法</span>
+              <h3 id="pqc-method-dialog-title">{{ formatPqcMethodSummary(activePqcMethodItem) }}</h3>
+            </div>
+            <button
+              type="button"
+              class="frontline-pqc-fact-dialog__close"
+              aria-label="关闭检验方法弹框"
+              @click="closePqcMethodDialog"
+            >
+              ×
+            </button>
+          </header>
+          <div class="frontline-pqc-fact-dialog__body">
+            <article class="frontline-pqc-fact-dialog__detail" data-pqc-method-detail-text>
+              <span>方法说明</span>
+              <p>{{ formatPqcMethodSummary(activePqcMethodItem) }}</p>
+            </article>
+            <dl class="frontline-pqc-fact-dialog__metrics" data-pqc-method-meta-grid>
+              <div>
+                <dt>检验项目</dt>
+                <dd>{{ activePqcMethodItem.itemName || activePqcMethodItem.label }}</dd>
+              </div>
+              <div>
+                <dt>结果类型</dt>
+                <dd :data-pqc-result-type="activePqcMethodItem.resultType">
+                  {{ formatPqcResultTypeLabel(activePqcMethodItem) }}
+                </dd>
+              </div>
+              <div>
+                <dt>单位</dt>
+                <dd>{{ activePqcMethodItem.standardUnit || '未配置' }}</dd>
+              </div>
+              <div>
+                <dt>来源</dt>
+                <dd>发布 QA 规程快照</dd>
+              </div>
+            </dl>
+          </div>
+          <footer class="frontline-pqc-fact-dialog__footer">
+            <button type="button" @click="closePqcMethodDialog">关闭</button>
+          </footer>
         </section>
       </div>
 
@@ -214,6 +284,7 @@
             >
               <div class="pqc-utility-strip" :aria-label="`${activePqcTabItem.label}质检信息`">
                 <label
+                  v-if="hasPqcEquipmentOptions(activePqcTabItem)"
                   class="pqc-select-card"
                   data-pqc-equipment-card
                   :class="{
@@ -245,6 +316,7 @@
                 </label>
 
                 <label
+                  v-if="hasPqcEquipmentOptions(activePqcTabItem)"
                   class="pqc-select-card"
                   data-pqc-equipment-number-card
                   :class="{
@@ -352,10 +424,6 @@
                 @click="selectPqcInspectionTab(item.key)"
               >
                 <strong>{{ formatPqcInspectionItemTabLabel(item) }}</strong>
-                <em>{{ getPqcTabStateLabel(item) }}</em>
-                <small>
-                  <span data-pqc-tab-method>{{ formatPqcMethodSummary(item) }}</span>
-                </small>
               </button>
             </nav>
           </div>
@@ -364,20 +432,14 @@
         <section class="frontline-work-panel frontline-pqc-fill-panel">
           <div class="frontline-pqc-type-tabs">
             <button
+              v-for="tab in pqcInspectionTypeTabs"
+              :key="tab.type"
               type="button"
-              :class="{ active: pqcDraft.inspectionType === 'FIRST' }"
-              :disabled="!hasPqcTaskOptionForType('FIRST')"
-              @click="selectPqcInspectionType('FIRST')"
+              :data-pqc-inspection-type-tab="tab.type"
+              :class="{ active: pqcDraft.inspectionType === tab.type }"
+              @click="selectPqcInspectionType(tab.type)"
             >
-              首检
-            </button>
-            <button
-              type="button"
-              :class="{ active: pqcDraft.inspectionType === 'PATROL' }"
-              :disabled="!hasPqcTaskOptionForType('PATROL')"
-              @click="selectPqcInspectionType('PATROL')"
-            >
-              巡检
+              {{ tab.label }}
             </button>
           </div>
           <div
@@ -1064,6 +1126,11 @@ type ProductionDefectKey = string
 type ProductionDeviceParameterKey = string
 type ProductionDeviceParameterDraft = Record<ProductionDeviceParameterKey, number | undefined>
 
+const PQC_INSPECTION_TYPE_LABELS: Record<InspectionType, string> = {
+  FIRST: '首检',
+  PATROL: '巡检'
+}
+
 interface FrontlinePickerOption {
   key: string
   label: string
@@ -1095,6 +1162,8 @@ interface PqcInspectionItem {
   type: 'number' | 'choice'
   inspectionMethod: string
   standardText: string
+  acceptanceStandard: string
+  processInspectionMethod: string
   resultType: string
   standardLowerLimit?: number | string
   standardUpperLimit?: number | string
@@ -1214,7 +1283,7 @@ const PRODUCTION_CANVAS_HEIGHT = 1080
 const productionViewportScale = ref(1)
 let productionViewportScaleFrame: number | undefined
 let productionViewportResizeObserver: ResizeObserver | undefined
-let productionProcessSelectionRequestId = 0
+let processSelectionRequestId = 0
 let productionEmployeeSelectionRequestId = 0
 const productionStageStyle = computed(() => {
   const scale = productionViewportScale.value
@@ -1289,6 +1358,22 @@ const hasPqcTaskOptionSnapshot = (
 const getPqcTaskOptions = (process?: FrontlineDeviceRouteProcessVO) =>
   (process?.pqcTaskOptions || []).filter(hasPqcTaskOptionSnapshot)
 
+const pqcInspectionTypeTabs = computed<{ type: InspectionType; label: string }[]>(() => {
+  const seenTypes = new Set<InspectionType>()
+  return getPqcTaskOptions(deviceState.selectedProcess)
+    .reduce<{ type: InspectionType; label: string }[]>((tabs, option) => {
+      if (seenTypes.has(option.inspectionType)) {
+        return tabs
+      }
+      seenTypes.add(option.inspectionType)
+      tabs.push({
+        type: option.inspectionType,
+        label: PQC_INSPECTION_TYPE_LABELS[option.inspectionType]
+      })
+      return tabs
+    }, [])
+})
+
 const getProcessPqcTaskSnapshot = (
   process?: FrontlineDeviceRouteProcessVO
 ): PqcTaskOptionSnapshot | undefined => {
@@ -1334,6 +1419,8 @@ const pqcInspectionItems = computed<PqcInspectionItem[]>(() =>
     type: isPqcNumericResultType(item.resultType) ? 'number' : 'choice',
     inspectionMethod: item.inspectionMethod || '',
     standardText: item.standardText || '',
+    acceptanceStandard: item.acceptanceStandard || '',
+    processInspectionMethod: item.processInspectionMethod || '',
     resultType: item.resultType || '',
     standardLowerLimit: item.standardLowerLimit,
     standardUpperLimit: item.standardUpperLimit,
@@ -1893,9 +1980,6 @@ const findPqcTaskOption = (
   inspectionType: InspectionType
 ) => getPqcTaskOptions(process).find((option) => option.inspectionType === inspectionType)
 
-const hasPqcTaskOptionForType = (inspectionType: InspectionType) =>
-  Boolean(deviceState.selectedProcess && findPqcTaskOption(deviceState.selectedProcess, inspectionType))
-
 const formatPqcTaskOptionLabel = (option: PqcTaskOptionSnapshot) =>
   option.inspectionType === 'FIRST'
     ? '首检'
@@ -1994,6 +2078,8 @@ const getPqcItemSelection = (itemKey: PqcInspectionItemKey) => {
   return pqcItemSelections[itemKey]
 }
 
+const hasPqcEquipmentOptions = (item: PqcInspectionItem) => item.equipmentOptions.length > 0
+
 const getUniquePqcEquipmentOptions = (item: PqcInspectionItem) => {
   const seen = new Set<number>()
   return item.equipmentOptions.filter((option) => {
@@ -2058,6 +2144,14 @@ const formatPqcStandardBound = (value?: number | string, unit?: string) => {
   return `${value}${unit || ''}`
 }
 
+const formatPqcStandardPrecision = (precision?: number) =>
+  precision === undefined || precision === null ? '未配置' : `${precision} 位小数`
+
+const formatPqcResultTypeLabel = (item: PqcInspectionItem) => {
+  const baseLabel = item.type === 'number' ? '数值记录' : '合格判定'
+  return item.resultType ? `${baseLabel}（${item.resultType}）` : baseLabel
+}
+
 const applyPqcTaskSnapshotToDraft = (process: FrontlineDeviceRouteProcessVO) => {
   const taskProcess = withPqcTaskOption(process, getDefaultPqcTaskOption(process))
   if (deviceState.selectedProcess === process) {
@@ -2120,17 +2214,6 @@ const selectPqcInspectionTab = (itemKey: PqcInspectionItemKey) => {
   selectedPqcInspectionKey.value = itemKey
 }
 
-const getPqcTabStateLabel = (item: PqcInspectionItem) => {
-  if (activePqcTabKey.value === item.key) {
-    return '当前'
-  }
-  const completedCount = getPqcCompletedCount(item.key)
-  if (pqcInspectionQuantity.value > 0 && completedCount >= pqcInspectionQuantity.value) {
-    return '完成'
-  }
-  return '未检'
-}
-
 const getPqcSelectedEquipmentLabel = (item: PqcInspectionItem) => {
   const selectedEquipmentId = getPqcItemSelection(item.key).selectedEquipmentId
   const selectedOption = item.equipmentOptions.find((option) =>
@@ -2139,24 +2222,19 @@ const getPqcSelectedEquipmentLabel = (item: PqcInspectionItem) => {
   if (selectedOption) {
     return formatPqcEquipmentLabel(selectedOption)
   }
-  return item.equipmentOptions.length ? '可选检验设备' : '无需检验设备'
+  return hasPqcEquipmentOptions(item) ? '可选检验设备' : ''
 }
 
 const getPqcSelectedEquipmentNumberLabel = (item: PqcInspectionItem) =>
   getPqcItemSelection(item.key).selectedEquipmentNumber ||
-    (item.equipmentOptions.length ? '可选设备编号' : '无需设备编号')
+    (hasPqcEquipmentOptions(item) ? '可选设备编号' : '')
 
 const formatPqcInspectionItemTabLabel = (item: PqcInspectionItem) =>
   item.itemName || '未配置检验项目名称'
 
 const formatPqcStandardSummary = (item: PqcInspectionItem) => {
-  if (item.standardText) {
-    return item.standardText
-  }
-  const lower = formatPqcStandardBound(item.standardLowerLimit, item.standardUnit)
-  const upper = formatPqcStandardBound(item.standardUpperLimit, item.standardUnit)
-  if (lower !== '未配置' || upper !== '未配置') {
-    return `${lower} ~ ${upper}`
+  if (item.acceptanceStandard) {
+    return item.acceptanceStandard
   }
   return '未配置接收标准'
 }
@@ -2171,7 +2249,7 @@ const normalizePqcInspectionMethodLabel = (inspectionMethod: string) => {
 }
 
 const formatPqcMethodSummary = (item: PqcInspectionItem) =>
-  normalizePqcInspectionMethodLabel(item.inspectionMethod) || '未配置检验方法'
+  normalizePqcInspectionMethodLabel(item.processInspectionMethod) || '未配置检验方法'
 
 const formatPqcInspectionTitle = (item: PqcInspectionItem) =>
   formatPqcMethodSummary(item)
@@ -2223,23 +2301,41 @@ const assertPqcSubmissionSampleQuantities = () => {
   }
 }
 
+const getPqcRelaxedPieceValuesForSubmit = (itemKey: PqcInspectionItemKey) => {
+  const stateKey = getPqcPieceStateKey(itemKey)
+  if (!stateKey) {
+    return []
+  }
+  return (pqcPieceValues[stateKey] || [])
+    .slice(0, Math.max(pqcInspectionQuantity.value, 0))
+    .map((value) => String(value ?? '').trim())
+    .filter((value) => value.length > 0)
+}
+
 const buildPqcItemResultsPayload = (): FrontlinePqcItemResultSubmitReqVO[] =>
   pqcInspectionItems.value.map((item) => {
-    const { selection, selectedOption } = requirePqcItemSelection(item)
+    const selection = getPqcItemSelection(item.key)
     const payload: FrontlinePqcItemResultSubmitReqVO = {
       itemCode: item.key,
-      sampleValues: getPqcExactPieceValuesForSubmit(item.key)
+      sampleValues: getPqcRelaxedPieceValuesForSubmit(item.key)
     }
-    if (selectedOption) {
+    if (selection.selectedEquipmentId && selection.selectedEquipmentNumber) {
       payload.selectedEquipmentId = selection.selectedEquipmentId
       payload.selectedEquipmentNumber = selection.selectedEquipmentNumber
     }
     return payload
-  })
+  }).filter((item) =>
+    item.sampleValues.length > 0 ||
+    Boolean(item.selectedEquipmentId || item.selectedEquipmentNumber)
+  )
 
 const buildPqcItemDetailsPayload = () =>
   pqcInspectionItems.value.map((item) => {
-    const { selection, selectedOption } = requirePqcItemSelection(item)
+    const selection = getPqcItemSelection(item.key)
+    const selectedOption = item.equipmentOptions.find((option) =>
+      option.equipmentId === selection.selectedEquipmentId &&
+      option.equipmentNumber === selection.selectedEquipmentNumber
+    )
     return {
       itemCode: item.key,
       itemName: item.itemName,
@@ -2247,16 +2343,19 @@ const buildPqcItemDetailsPayload = () =>
       selectedEquipmentCode: selectedOption?.equipmentCode,
       selectedEquipmentName: selectedOption?.equipmentName,
       selectedEquipmentNumber: selectedOption ? selection.selectedEquipmentNumber : undefined,
-      standardText: item.standardText,
+      standardText: item.acceptanceStandard,
       standardLowerLimit: item.standardLowerLimit,
       standardUpperLimit: item.standardUpperLimit,
       standardUnit: item.standardUnit,
       standardPrecision: item.standardPrecision,
-      inspectionMethod: item.inspectionMethod,
+      inspectionMethod: item.processInspectionMethod,
       resultType: item.resultType,
-      sampleValues: getPqcExactPieceValuesForSubmit(item.key)
+      sampleValues: getPqcRelaxedPieceValuesForSubmit(item.key)
     }
-  })
+  }).filter((item) =>
+    item.sampleValues.length > 0 ||
+    Boolean(item.selectedEquipmentId || item.selectedEquipmentNumber)
+  )
 
 const getPqcCurrentChoiceValues = (itemKey: PqcInspectionItemKey) =>
   getPqcStoredPieceValues(itemKey).slice(0, pqcInspectionQuantity.value)
@@ -2671,10 +2770,8 @@ const handleSelectActiveOrder = async (activeOrder: FrontlineActiveOrderVO) => {
 }
 
 const handleSelectProcess = async (process: FrontlineDeviceRouteProcessVO) => {
-  const shouldClosePickerImmediately = !isPqcMode.value
-  const selectionRequestId = shouldClosePickerImmediately
-    ? ++productionProcessSelectionRequestId
-    : 0
+  const shouldClosePickerImmediately = true
+  const selectionRequestId = ++processSelectionRequestId
   const selectedProcess = isPqcMode.value
     ? withPqcTaskOption(process, getDefaultPqcTaskOption(process))
     : process
@@ -2687,7 +2784,7 @@ const handleSelectProcess = async (process: FrontlineDeviceRouteProcessVO) => {
   } else {
     await selectFrontlineProcess(deviceState, selectedProcess)
   }
-  if (shouldClosePickerImmediately && selectionRequestId !== productionProcessSelectionRequestId) {
+  if (selectionRequestId !== processSelectionRequestId) {
     return
   }
   applyProcessToContext(selectedProcess)
@@ -2704,9 +2801,6 @@ const handleSelectProcess = async (process: FrontlineDeviceRouteProcessVO) => {
     const error = new Error('当前登录账号未返回PQC人员候选，无法进入PQC填写。')
     message.error(error.message)
     throw error
-  }
-  if (!shouldClosePickerImmediately) {
-    closePicker()
   }
 }
 
@@ -2862,19 +2956,12 @@ const handleProductionFormalSubmit = async () => {
   }
 }
 
-const assertPqcFormalSubmissionReady = () => {
-  const process = deviceState.selectedProcess
-  if (!deviceState.selectedActiveOrder) {
-    throw new Error('请选择活跃订单。')
+const assertPqcSignatureAndQuantityReady = (requirePassword = false) => {
+  if (pqcInspectionQuantity.value <= 0) {
+    throw new Error('PQC检验数量必须大于0。')
   }
-  if (!process || !hasPqcTaskSnapshot(process)) {
-    throw new Error('当前工序缺少待执行PQC任务或发布态QA规程快照。')
-  }
-  if (!pqcInspectionItems.value.length) {
-    throw new Error('当前工序缺少发布态QA检验项目，无法正式提交。')
-  }
-  if (!deviceState.selectedEmployee || !isCurrentLoginEmployee(deviceState.selectedEmployee)) {
-    throw new Error('当前登录账号不是本次PQC实际填写员工。')
+  if (requirePassword && !pqcSignaturePassword.value.trim()) {
+    throw new Error('请输入所选员工的电子签名密码。')
   }
 }
 
@@ -2883,17 +2970,17 @@ const handleValidate = async () => {
     message.error('PQC正式提交结果不确定，请刷新页面或联系组长核对后再操作。')
     return
   }
-  if (templateBindingMissing.value) {
-    const error = new Error('当前员工缺少一线填写模板，无法提交。')
-    message.error(error.message)
-    return
-  }
-  if (templateModeMismatch.value) {
-    const error = new Error(statusText.value)
-    message.error(error.message)
-    return
-  }
   if (!isPqcMode.value) {
+    if (templateBindingMissing.value) {
+      const error = new Error('当前员工缺少一线填写模板，无法提交。')
+      message.error(error.message)
+      return
+    }
+    if (templateModeMismatch.value) {
+      const error = new Error(statusText.value)
+      message.error(error.message)
+      return
+    }
     try {
       await handleProductionFormalSubmit()
     } catch (error) {
@@ -2902,25 +2989,15 @@ const handleValidate = async () => {
     return
   }
   try {
-    assertPqcFormalSubmissionReady()
-    assertPqcSubmissionSampleQuantities()
+    assertPqcSignatureAndQuantityReady()
   } catch (error) {
     message.error(resolveErrorMessage(error))
     return
   }
   Object.assign(draft.fieldValues, buildPqcFieldValues())
-  payloadLoading.value = true
-  try {
-    assertFormalPayloadContext()
-    const templatePayload = buildFrontlineTemplatePayload(context, draft.fieldValues)
-    payloadPreview.value = await FrontlineTemplateApi.validatePayload(templatePayload)
-    pqcSignaturePassword.value = ''
-    pqcSignatureDialogVisible.value = true
-  } catch (error) {
-    message.error(resolveErrorMessage(error))
-  } finally {
-    payloadLoading.value = false
-  }
+  payloadPreview.value = undefined
+  pqcSignaturePassword.value = ''
+  pqcSignatureDialogVisible.value = true
 }
 
 const closePqcSignatureDialog = () => {
@@ -2966,20 +3043,15 @@ const handleConfirmPqcSubmit = async () => {
     message.error('请输入所选员工的电子签名密码。')
     return
   }
-  if (!payloadPreview.value) {
-    message.error('缺少已校验的PQC正式提交载荷。')
-    return
-  }
   try {
-    assertPqcFormalSubmissionReady()
-    assertPqcSubmissionSampleQuantities()
+    assertPqcSignatureAndQuantityReady(true)
   } catch (error) {
     message.error(resolveErrorMessage(error))
     return
   }
   let submitPayload: FrontlinePqcInspectionSubmitReqVO
   try {
-    submitPayload = buildPqcInspectionSubmitPayload(payloadPreview.value)
+    submitPayload = buildPqcInspectionSubmitPayload()
   } catch (error) {
     message.error(resolveErrorMessage(error))
     return
@@ -3296,23 +3368,17 @@ const buildPqcFieldValues = () => ({
 const buildPqcPieceValuesPayload = () => {
   const values: Record<string, string[]> = {}
   for (const itemKey of pqcInspectionItemKeys.value) {
-    values[itemKey] = getPqcExactPieceValuesForSubmit(itemKey)
+    values[itemKey] = getPqcRelaxedPieceValuesForSubmit(itemKey)
   }
   return values
 }
 
-const buildPqcInspectionSubmitPayload = (
-  validatedPayload: FrontlineTemplatePayloadVO
-): FrontlinePqcInspectionSubmitReqVO => {
+const buildPqcInspectionSubmitPayload = (): FrontlinePqcInspectionSubmitReqVO => {
   const activeOrder = deviceState.selectedActiveOrder
   const process = deviceState.selectedProcess
   const employee = deviceState.selectedEmployee
-  const actualEmployeeId = context.actualEmployeeId
-  const missingFormalContext: string[] = []
-  if (!activeOrder || !process || !employee || !actualEmployeeId ||
-    !hasPqcTaskSnapshot(process) || !pqcDraft.inspectionType || !pqcDraft.patrolRound ||
-    missingFormalContext.length) {
-    throw new Error(`缺少PQC正式提交上下文：${missingFormalContext.join('、')}，无法提交。`)
+  if (!process?.pqcTaskId) {
+    throw new Error('缺少PQC任务上下文，无法提交。')
   }
   const inspectionResult = resolvePqcResult()
   const itemResults = buildPqcItemResultsPayload()
@@ -3321,7 +3387,7 @@ const buildPqcInspectionSubmitPayload = (
     activeOrderId: process.activeOrderId,
     pqcTaskId: process.pqcTaskId,
     regulationVersionId: process.regulationVersionId,
-    workOrderId: activeOrder.workOrderId,
+    workOrderId: activeOrder?.workOrderId,
     routeId: process.routeId,
     routeProcessId: process.routeProcessId,
     processId: process.processId,
@@ -3347,10 +3413,9 @@ const buildPqcInspectionSubmitPayload = (
       itemResults,
       fieldValues: { ...draft.fieldValues },
       inspectionResult,
-      selectedActiveOrder: { ...activeOrder },
+      selectedActiveOrder: activeOrder ? { ...activeOrder } : undefined,
       selectedProcess: { ...process },
-      selectedEmployee: { ...employee },
-      templatePayload: validatedPayload
+      selectedEmployee: employee ? { ...employee } : undefined
     },
     clientSubmitTime: formatLocalDateTime()
   }
@@ -4497,6 +4562,206 @@ onUnmounted(() => {
   }
 }
 
+.frontline-pqc-fact-dialog {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 34px;
+  background:
+    radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.88), transparent 30%),
+    rgba(20, 31, 25, 0.42);
+  backdrop-filter: blur(14px);
+}
+
+.frontline-pqc-fact-dialog__panel {
+  display: flex;
+  flex-direction: column;
+  width: min(920px, 100%);
+  max-height: calc(100vh - 88px);
+  overflow: hidden;
+  border: 3px solid rgba(139, 181, 159, 0.65);
+  border-radius: 32px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(242, 249, 245, 0.98)),
+    #ffffff;
+  box-shadow: 0 34px 90px rgba(20, 31, 25, 0.28);
+}
+
+.frontline-pqc-fact-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 28px 30px 18px;
+  border-bottom: 1px solid rgba(139, 181, 159, 0.42);
+
+  h3 {
+    margin: 8px 0 0;
+    color: #111a15;
+    font-size: 42px;
+    font-weight: 950;
+    line-height: 1.05;
+  }
+}
+
+.frontline-pqc-fact-dialog__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #dff2ea;
+  color: #15815f;
+  font-size: 18px;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+}
+
+.frontline-pqc-fact-dialog__close {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: 999px;
+  background: #24322b;
+  color: #ffffff;
+  font: inherit;
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 5px solid #86c8ad;
+    outline-offset: 4px;
+  }
+}
+
+.frontline-pqc-fact-dialog__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.36fr) minmax(270px, 0.64fr);
+  gap: 20px;
+  min-height: 0;
+  padding: 24px 30px 30px;
+  overflow: auto;
+}
+
+.frontline-pqc-fact-dialog__detail {
+  min-width: 0;
+  padding: 24px;
+  border: 2px solid rgba(139, 181, 159, 0.5);
+  border-radius: 24px;
+  background: #ffffff;
+
+  span {
+    color: #15815f;
+    font-size: 18px;
+    font-weight: 950;
+  }
+
+  p {
+    margin: 14px 0 0;
+    color: #18231d;
+    font-size: 28px;
+    font-weight: 850;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+}
+
+.frontline-pqc-fact-dialog__metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  min-width: 0;
+  margin: 0;
+
+  div {
+    min-width: 0;
+    padding: 18px 16px;
+    border: 2px solid rgba(203, 214, 206, 0.9);
+    border-radius: 22px;
+    background: #f8fbf9;
+  }
+
+  dt {
+    color: #66736b;
+    font-size: 16px;
+    font-weight: 900;
+  }
+
+  dd {
+    min-width: 0;
+    margin: 9px 0 0;
+    color: #111a15;
+    font-size: 24px;
+    font-weight: 950;
+    line-height: 1.22;
+    overflow-wrap: anywhere;
+  }
+}
+
+.frontline-pqc-fact-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 30px 28px;
+
+  button {
+    min-width: 148px;
+    min-height: 52px;
+    border: 0;
+    border-radius: 999px;
+    background: #15815f;
+    color: #ffffff;
+    font: inherit;
+    font-size: 24px;
+    font-weight: 950;
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 5px solid #86c8ad;
+      outline-offset: 4px;
+    }
+  }
+}
+
+@media (max-width: 900px) {
+  .frontline-pqc-fact-dialog {
+    padding: 16px;
+  }
+
+  .frontline-pqc-fact-dialog__panel {
+    max-height: calc(100vh - 32px);
+    border-radius: 24px;
+  }
+
+  .frontline-pqc-fact-dialog__header {
+    padding: 22px 22px 14px;
+
+    h3 {
+      font-size: 32px;
+    }
+  }
+
+  .frontline-pqc-fact-dialog__body {
+    grid-template-columns: 1fr;
+    padding: 18px 22px 24px;
+  }
+
+  .frontline-pqc-fact-dialog__detail p {
+    font-size: 22px;
+  }
+
+  .frontline-pqc-fact-dialog__footer {
+    padding: 0 22px 22px;
+  }
+}
+
 .pqc-required-dot {
   position: absolute;
   top: 8px;
@@ -4614,9 +4879,8 @@ onUnmounted(() => {
 .pqc-item-tab {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
-  gap: 4px 8px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
   align-items: center;
   min-width: 0;
   min-height: 68px;
@@ -4653,41 +4917,6 @@ onUnmounted(() => {
     word-break: break-word;
   }
 
-  em {
-    display: inline-grid;
-    place-items: center;
-    min-width: 44px;
-    height: 24px;
-    padding: 0 8px;
-    border-radius: 999px;
-    background: #edf3ef;
-    color: #4b6258;
-    font-size: 14px;
-    font-style: normal;
-    font-weight: 900;
-    white-space: nowrap;
-  }
-
-  small {
-    grid-column: 1 / -1;
-    display: block;
-    min-width: 0;
-    overflow: visible;
-    color: var(--frontline-muted);
-    font-size: 11px;
-    font-weight: 900;
-    line-height: 1.1;
-    white-space: normal;
-    word-break: break-word;
-
-    span {
-      display: block;
-      min-width: 0;
-      overflow: visible;
-      white-space: normal;
-    }
-  }
-
   &.active {
     border-color: #d9a441;
     background: #fff4bf;
@@ -4698,11 +4927,6 @@ onUnmounted(() => {
     &::before {
       display: none;
       background: transparent;
-    }
-
-    em {
-      background: #f4d98d;
-      color: #5a4311;
     }
   }
 

@@ -29,8 +29,6 @@ import java.util.Optional;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_DEVICE_ACCOUNT_MISMATCH;
-import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_DEVICE_INVALID;
-import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_LOGIN_USER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_QUANTITY_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_SIGNATURE_EMPLOYEE_MISMATCH;
@@ -45,7 +43,6 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
     private final MesProcessPoolSubmitEventService processPoolSubmitEventService;
     private final MesFrontlineSubmitAuthorizationService submitAuthorizationService;
     private final MesFrontlineLossReasonValidator lossReasonValidator;
-    private final MesFrontlineDeviceParameterValidator deviceParameterValidator;
     private final MesProFrontlineFeedbackPayloadSplitter payloadSplitter;
     private final MesMdAutoCodeRecordService autoCodeRecordService;
     private final MesProBatchRecordExecutionSignatureService signatureService;
@@ -55,7 +52,6 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                                                     MesProcessPoolSubmitEventService processPoolSubmitEventService,
                                                     MesFrontlineSubmitAuthorizationService submitAuthorizationService,
                                                     MesFrontlineLossReasonValidator lossReasonValidator,
-                                                    MesFrontlineDeviceParameterValidator deviceParameterValidator,
                                                     MesProFrontlineFeedbackPayloadSplitter payloadSplitter,
                                                     MesMdAutoCodeRecordService autoCodeRecordService,
                                                     MesProBatchRecordExecutionSignatureService signatureService) {
@@ -64,7 +60,6 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         this.processPoolSubmitEventService = processPoolSubmitEventService;
         this.submitAuthorizationService = submitAuthorizationService;
         this.lossReasonValidator = lossReasonValidator;
-        this.deviceParameterValidator = deviceParameterValidator;
         this.payloadSplitter = payloadSplitter;
         this.autoCodeRecordService = autoCodeRecordService;
         this.signatureService = signatureService;
@@ -83,7 +78,6 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
             throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_ACCOUNT_MISMATCH, deviceAccountUserId);
         }
         submitAuthorizationService.authorize(buildSubmitIdentityCommand(reqVO, loginUserId));
-        validateDeviceParameterPayload(reqVO);
         List<MesFrontlineLossReasonSnapshot> lossReasonSnapshots = lossReasonValidator.requireEnabledLossReasons(
                 reqVO.getProcessPoolContext().getRouteProcessId(),
                 reqVO.getFeedbackPayload().getLossDetails(),
@@ -267,32 +261,6 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
 
     private static String toText(Object value) {
         return value == null ? null : String.valueOf(value);
-    }
-
-    private void validateDeviceParameterPayload(MesProFrontlineFeedbackSubmitReqVO reqVO) {
-        MesProFrontlineProcessPoolContextReqVO routeProcessContext = reqVO.getProcessPoolContext();
-        MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO selectedDevice =
-                reqVO.getFeedbackPayload().getSelectedDevice();
-        if (routeProcessContext.getDeviceId() != null
-                && (selectedDevice == null || selectedDevice.getDeviceId() == null)) {
-            throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_INVALID, "selectedDevice");
-        }
-        if (selectedDevice != null && selectedDevice.getDeviceId() != null
-                && !Objects.equals(routeProcessContext.getDeviceId(), selectedDevice.getDeviceId())) {
-            throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_INVALID, selectedDevice.getDeviceId());
-        }
-        List<MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO> deviceParameterReadings =
-                reqVO.getFeedbackPayload().getDeviceParameterReadings();
-        if (deviceParameterReadings != null && deviceParameterReadings.stream()
-                .anyMatch(reading -> reading == null
-                        || cn.hutool.core.util.StrUtil.isBlank(reading.getParameterCode()))) {
-            throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID, "parameterCode");
-        }
-        deviceParameterValidator.validateSelectedDeviceAndParameters(
-                routeProcessContext.getRouteProcessId(),
-                routeProcessContext.getProcessId(),
-                selectedDevice,
-                deviceParameterReadings);
     }
 
     private MesFrontlineSubmitIdentityCommand buildSubmitIdentityCommand(MesProFrontlineFeedbackSubmitReqVO reqVO,

@@ -291,6 +291,8 @@ public class MesFrontlineDeviceAccountController {
         respVO.setItemName(item.itemName());
         respVO.setInspectionMethod(item.inspectionMethod());
         respVO.setStandardText(item.standardText());
+        respVO.setAcceptanceStandard(item.standardText());
+        respVO.setProcessInspectionMethod(item.inspectionMethod());
         respVO.setStandardLowerLimit(item.standardLowerLimit());
         respVO.setStandardUpperLimit(item.standardUpperLimit());
         respVO.setStandardUnit(item.standardUnit());
