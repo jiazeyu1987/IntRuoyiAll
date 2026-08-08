@@ -16,23 +16,23 @@ const pqcTemplate = source.slice(pqcStart, pqcEnd)
 
 assert.match(
   pqcTemplate,
-  /<template v-for="item in pqcInspectionItems" :key="item\.key">/,
+  /v-for="item in pqcInspectionItems"[\s\S]*data-pqc-inspection-tab/,
   'PQC target layout must render formal QA/PQC inspection entries dynamically.'
 )
 assert.match(
   pqcTemplate,
-  /:data-pqc-inspection-entry="item\.key"/,
-  'PQC target layout must expose a stable entry selector for each formal inspection item.'
+  /:data-pqc-inspection-entry="activePqcTabItem\.key"/,
+  'PQC target layout must expose a stable entry selector for the active formal inspection item.'
 )
 assert.match(
   pqcTemplate,
-  /:data-pqc-inspection-group="item\.key"/,
-  'PQC choice inspection entries must use the same formal item key for grouped actions.'
+  /frontline-pqc-choice-actions[\s\S]*applyPqcBulkChoice\(activePqcTabItem\.key/,
+  'PQC choice actions must use the active formal item key for grouped actions.'
 )
 assert.match(
   pqcTemplate,
-  /{{ item\.label }}/,
-  'PQC target layout must display the formal inspection item label.'
+  /formatPqcInspectionItemTabLabel\(item\)/,
+  'PQC target layout must display the formal inspection item name through the tab label helper.'
 )
 
 for (const label of ['全部合格', '全部不良', '逐件选择']) {
@@ -45,12 +45,12 @@ assert.match(
 )
 assert.match(
   source,
-  /pqcDraft\.inspectionQuantity = process\.plannedInspectionQuantity/,
+  /applyPqcTaskOptionToDraft[\s\S]*pqcDraft\.inspectionQuantity = option\.plannedInspectionQuantity/,
   'PQC inspection quantity must come from the formal PQC task snapshot.'
 )
 assert.match(
   source,
-  /pqcDraft\.scrapQuantity = undefined/,
+  /applyPqcTaskOptionToDraft[\s\S]*pqcDraft\.scrapQuantity = undefined/,
   'PQC scrap quantity must start empty instead of using a hard-coded default.'
 )
 assert.match(
@@ -65,7 +65,7 @@ assert.match(
 )
 assert.match(
   source,
-  /isPqcMode \? '返回' : '关闭'/,
+  /class="frontline-picker__close picker-close"[\s\S]*返回/,
   'PQC picker close action must match the target text 返回.'
 )
 
@@ -92,13 +92,13 @@ assert.match(
 
 assert.match(
   source,
-  /const pqcInspectionItems = computed<PqcInspectionItem\[\]>\(\(\) =>\s*\(deviceState\.selectedProcess\?\.inspectionItems \|\| \[\]\)\.map/,
-  'PQC inspection item definitions must come from selectedProcess.inspectionItems.'
+  /const pqcInspectionItems = computed<PqcInspectionItem\[\]>\(\(\) =>\s*\(activePqcTaskOption\.value\?\.inspectionItems \|\| \[\]\)\.map/,
+  'PQC inspection item definitions must come from the active formal PQC task snapshot.'
 )
 assert.match(
   source,
-  /key: item\.itemCode[\s\S]*label: item\.itemName \|\| item\.itemCode[\s\S]*type: isPqcNumericResultType\(item\.resultType\) \? 'number' : 'choice'/,
-  'PQC item key, label, and value type must use the formal QA/PQC snapshot fields.'
+  /key: item\.itemCode[\s\S]*itemName: normalizePqcInspectionItemName\(item\.itemName\)[\s\S]*label: normalizePqcInspectionItemName\(item\.itemName\) \|\| '未配置检验项目名称'[\s\S]*type: isPqcNumericResultType\(item\.resultType\) \? 'number' : 'choice'/,
+  'PQC item key, formal item name, display label, and value type must use the formal QA/PQC snapshot fields.'
 )
 assert.match(
   source,

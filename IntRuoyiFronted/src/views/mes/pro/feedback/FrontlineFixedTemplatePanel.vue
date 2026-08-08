@@ -212,14 +212,6 @@
               :data-pqc-inspection-entry="activePqcTabItem.key"
               :aria-label="`${formatPqcInspectionTitle(activePqcTabItem)}检验详情`"
             >
-              <div class="pqc-active-summary">
-                <h3>{{ formatPqcInspectionTitle(activePqcTabItem) }}</h3>
-                <span>{{ getPqcTabStateLabel(activePqcTabItem) }}</span>
-                <small data-pqc-inspection-meta>
-                  {{ formatPqcInspectionMeta(activePqcTabItem) }} / {{ getPqcProgressText(activePqcTabItem.key) }}
-                </small>
-              </div>
-
               <div class="pqc-utility-strip" :aria-label="`${activePqcTabItem.label}质检信息`">
                 <label
                   class="pqc-select-card"
@@ -362,8 +354,7 @@
                 <strong>{{ formatPqcInspectionItemTabLabel(item) }}</strong>
                 <em>{{ getPqcTabStateLabel(item) }}</em>
                 <small>
-                  <span data-pqc-tab-requirement>{{ formatPqcTabRequirement(item) }}</span>
-                  <span data-pqc-tab-progress>{{ getPqcProgressText(item.key) }}</span>
+                  <span data-pqc-tab-method>{{ formatPqcMethodSummary(item) }}</span>
                 </small>
               </button>
             </nav>
@@ -2129,9 +2120,6 @@ const selectPqcInspectionTab = (itemKey: PqcInspectionItemKey) => {
   selectedPqcInspectionKey.value = itemKey
 }
 
-const formatPqcTabRequirement = (item: PqcInspectionItem) =>
-  item.equipmentOptions.length ? '设备可选' : '无需设备'
-
 const getPqcTabStateLabel = (item: PqcInspectionItem) => {
   if (activePqcTabKey.value === item.key) {
     return '当前'
@@ -2187,24 +2175,6 @@ const formatPqcMethodSummary = (item: PqcInspectionItem) =>
 
 const formatPqcInspectionTitle = (item: PqcInspectionItem) =>
   formatPqcMethodSummary(item)
-
-const formatPqcResultType = (resultType: string) => {
-  const normalized = resultType.trim().toUpperCase()
-  if (normalized === 'NUMBER' || normalized === 'NUMERIC') {
-    return '数值'
-  }
-  if (normalized === 'BOOLEAN' || normalized === 'CHOICE' || normalized === 'PASS_FAIL') {
-    return '合格/不合格'
-  }
-  return resultType || '未配置'
-}
-
-const formatPqcInspectionMeta = (item: PqcInspectionItem) =>
-  [
-    `判定: ${formatPqcResultType(item.resultType)}`,
-    item.standardUnit ? `单位: ${item.standardUnit}` : '',
-    item.equipmentOptions.length ? `设备: ${item.equipmentOptions.length}项可选` : '设备: 无需设备'
-  ].filter(Boolean).join(' / ')
 
 const requirePqcItemSelection = (item: PqcInspectionItem) => {
   const selection = getPqcItemSelection(item.key)
@@ -4409,47 +4379,6 @@ onUnmounted(() => {
   color: var(--frontline-ink);
 }
 
-.pqc-active-summary {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px 16px;
-  align-items: center;
-  min-width: 0;
-
-  h3 {
-    margin: 0;
-    min-width: 0;
-    overflow: hidden;
-    font-size: 38px;
-    font-weight: 900;
-    line-height: 1;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  span {
-    padding: 8px 14px;
-    border-radius: 999px;
-    background: #edf3ef;
-    color: #4b6258;
-    font-size: 20px;
-    font-weight: 900;
-    white-space: nowrap;
-  }
-
-  small {
-    grid-column: 1 / -1;
-    min-width: 0;
-    overflow: hidden;
-    color: #4b6258;
-    font-size: 20px;
-    font-weight: 900;
-    line-height: 1.25;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
 .pqc-utility-strip {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4716,12 +4645,12 @@ onUnmounted(() => {
 
   strong {
     min-width: 0;
-    overflow: hidden;
-    font-size: 24px;
+    overflow: visible;
+    font-size: 20px;
     font-weight: 900;
-    line-height: 1;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.05;
+    white-space: normal;
+    word-break: break-word;
   }
 
   em {
@@ -4741,22 +4670,21 @@ onUnmounted(() => {
 
   small {
     grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 6px;
-    align-items: center;
+    display: block;
     min-width: 0;
     overflow: visible;
     color: var(--frontline-muted);
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 900;
-    line-height: 1.05;
-    white-space: nowrap;
+    line-height: 1.1;
+    white-space: normal;
+    word-break: break-word;
 
     span {
+      display: block;
       min-width: 0;
       overflow: visible;
-      white-space: nowrap;
+      white-space: normal;
     }
   }
 

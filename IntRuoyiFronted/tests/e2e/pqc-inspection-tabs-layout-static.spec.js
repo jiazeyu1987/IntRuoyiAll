@@ -7,7 +7,6 @@ const read = (relativePath) =>
   fs.readFileSync(path.join(root, relativePath), 'utf8').replace(/\r\n/g, '\n')
 
 const panelSource = read('src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue')
-const prototypeSource = read('../doc/tasks/20260805-pqc-redbox-ui-prototype/pqc-redbox-ui-prototype.html')
 
 assert.ok(
   panelSource.includes('data-pqc-active-inspection-panel'),
@@ -52,26 +51,71 @@ assert.match(
   /grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/,
   'PQC tab strip must use a 5-column grid so 10 tabs render as two complete rows.'
 )
+
+const tabStart = panelSource.indexOf('data-pqc-inspection-tabs')
+const tabEnd = panelSource.indexOf('</nav>', tabStart)
+assert.ok(tabStart >= 0 && tabEnd > tabStart, 'PQC inspection tabs template block must exist.')
+const tabBlock = panelSource.slice(tabStart, tabEnd)
+
 assert.match(
-  panelSource,
-  /data-pqc-tab-requirement[\s\S]*formatPqcTabRequirement/,
-  'Each PQC tab must show the requirement field independently.'
+  tabBlock,
+  /data-pqc-tab-method[\s\S]*formatPqcMethodSummary\(item\)/,
+  'Each PQC red-box tab must show only the formal inspection method under the full item name.'
 )
 assert.match(
-  panelSource,
-  /data-pqc-tab-progress[\s\S]*getPqcProgressText/,
-  'Each PQC tab must show progress independently without relying on truncated meta text.'
+  tabBlock,
+  /<strong>\{\{\s*formatPqcInspectionItemTabLabel\(item\)\s*\}\}<\/strong>/,
+  'Each PQC red-box tab title must render the formal item name helper.'
+)
+assert.doesNotMatch(
+  tabBlock,
+  /data-pqc-tab-requirement|formatPqcTabRequirement|data-pqc-tab-progress|getPqcProgressText\(item\.key\)/,
+  'PQC red-box tabs must not show equipment requirement or filled-count progress text.'
+)
+
+const itemTabStyleMatch = panelSource.match(
+  /\.pqc-item-tab\s*\{([\s\S]*?)\n\}\n\n\.frontline-pqc-fill-panel/
+)
+assert.ok(itemTabStyleMatch, 'The PQC red-box tab style block must be scoped and extractable.')
+const itemTabStyleBlock = itemTabStyleMatch[1]
+const itemTabTitleStyleMatch = itemTabStyleBlock.match(/\n\s*strong\s*\{([\s\S]*?)\n\s*\}/)
+assert.ok(itemTabTitleStyleMatch, 'The PQC red-box tab title style block must exist.')
+const itemTabTitleStyleBlock = itemTabTitleStyleMatch[1]
+assert.match(
+  itemTabTitleStyleBlock,
+  /font-size:\s*20px/,
+  'PQC red-box tab item names must use a smaller title size so full names can fit.'
 )
 assert.match(
-  prototypeSource,
-  /\.pqc-item-tab small[\s\S]*overflow:\s*visible[\s\S]*\.pqc-item-tab small span[\s\S]*overflow:\s*visible/,
-  'The updated HTML preview must keep PQC tab requirement and progress fields fully visible.'
+  itemTabTitleStyleBlock,
+  /white-space:\s*normal/,
+  'PQC red-box tab item names must wrap instead of staying on one clipped line.'
+)
+assert.doesNotMatch(
+  itemTabTitleStyleBlock,
+  /text-overflow:\s*ellipsis|overflow:\s*hidden/,
+  'PQC red-box tab item names must not be truncated with ellipsis.'
+)
+
+const itemTabMetaStyleMatch = itemTabStyleBlock.match(/\n\s*small\s*\{([\s\S]*?)\n\s*\}/)
+assert.ok(itemTabMetaStyleMatch, 'The PQC red-box tab method style block must exist.')
+const itemTabMetaStyleBlock = itemTabMetaStyleMatch[1]
+assert.match(
+  itemTabMetaStyleBlock,
+  /font-size:\s*11px/,
+  'PQC red-box tab method text must be smaller than the previous requirement/progress text.'
 )
 assert.match(
-  panelSource,
-  /\.pqc-item-tab\s*\{[\s\S]*small\s*\{[\s\S]*overflow:\s*visible[\s\S]*span\s*\{[\s\S]*overflow:\s*visible[\s\S]*white-space:\s*nowrap/,
-  'The formal PQC tab layout must match the updated HTML preview by keeping requirement and progress fields fully visible.'
+  itemTabMetaStyleBlock,
+  /white-space:\s*normal/,
+  'PQC red-box tab method text must wrap when the method name is long.'
 )
+assert.doesNotMatch(
+  itemTabMetaStyleBlock,
+  /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/,
+  'PQC red-box tab method text must no longer reserve a second column for progress.'
+)
+
 assert.match(
   panelSource,
   /\.frontline-operator-top[\s\S]*&\.is-pqc\s*\{[\s\S]*grid-template-columns:\s*minmax\(480px,\s*1\.55fr\)\s+minmax\(220px,\s*0\.85fr\)\s+minmax\(200px,\s*1fr\)\s+150px/,

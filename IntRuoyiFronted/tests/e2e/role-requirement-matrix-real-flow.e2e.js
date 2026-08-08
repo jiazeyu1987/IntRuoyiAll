@@ -2411,43 +2411,45 @@ async function verifyPqcRegulationItemsRendered(page, config, actionEvidence) {
     .map((process) => Number(process.plannedInspectionQuantity))
     .filter((value) => Number.isFinite(value) && value > 0)
   assert.ok(plannedQuantities.length > 0, 'PQC 任务必须带出大于 0 的计划检验数量。')
-  const visibleMetaTexts = (await page.locator('[data-pqc-inspection-meta]').allTextContents())
-    .map((text) => text.replace(/\s+/g, ' ').trim())
-    .filter(Boolean)
-  assert.ok(visibleMetaTexts.length > 0, 'PQC 页面必须可见渲染检验方法、标准和判定元信息。')
-  const visibleMetaText = visibleMetaTexts.join('\n')
   const visibleStandardTexts = (await page.locator('[data-pqc-standard-button]').allTextContents())
     .map((text) => text.replace(/\s+/g, ' ').trim())
     .filter(Boolean)
   const visibleMethodTexts = (await page.locator('[data-pqc-method-button]').allTextContents())
     .map((text) => text.replace(/\s+/g, ' ').trim())
     .filter(Boolean)
+  const visibleActionTexts = (await page.locator('.frontline-pqc-choice-actions').allTextContents())
+    .map((text) => text.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
   assert.ok(visibleStandardTexts.length > 0, 'PQC 页面必须可见渲染 QA 规程接收标准。')
   assert.ok(visibleMethodTexts.length > 0, 'PQC 页面必须可见渲染 QA 规程检验方法。')
+  assert.ok(visibleActionTexts.length > 0, 'PQC 页面必须可见渲染判定/逐件填写操作。')
   const visibleStandardText = visibleStandardTexts.join('\n')
   const visibleMethodText = visibleMethodTexts.join('\n')
-  const formatResultTypeLabel = (resultType) => {
+  const visibleActionText = visibleActionTexts.join('\n')
+  const matchesResultEntryAction = (resultType) => {
     const normalized = String(resultType || '').trim().toUpperCase()
-    if (normalized === 'NUMBER' || normalized === 'NUMERIC') return '数值'
-    if (normalized === 'BOOLEAN' || normalized === 'CHOICE' || normalized === 'PASS_FAIL') return '合格/不合格'
-    return String(resultType || '').trim()
+    if (normalized === 'NUMBER' || normalized === 'NUMERIC') {
+      return visibleActionText.includes('逐件填写')
+    }
+    if (normalized === 'BOOLEAN' || normalized === 'CHOICE' || normalized === 'PASS_FAIL') {
+      return visibleActionText.includes('全部合格') && visibleActionText.includes('全部不良')
+    }
+    return visibleActionText.includes('逐件选择') || visibleActionText.includes('逐件填写')
   }
   const visibleFormalItem = selectedPqcProcess.inspectionItems
     .map((item) => ({ process: selectedPqcProcess, item }))
     .find(({ item }) => {
       const method = String(item.inspectionMethod || '').trim()
       const standard = String(item.standardText || '').trim()
-      const resultTypeLabel = formatResultTypeLabel(item.resultType)
       return method
         && standard
-        && resultTypeLabel
         && visibleMethodText.includes(method)
         && visibleStandardText.includes(standard)
-        && visibleMetaText.includes(resultTypeLabel)
+        && matchesResultEntryAction(item.resultType)
     })
   assert.ok(
     visibleFormalItem,
-    'PQC 页面可见元信息必须至少匹配一条正式 QA 规程项目的方法、标准和判定类型。'
+    'PQC 页面可见卡片和操作必须至少匹配一条正式 QA 规程项目的方法、标准和判定录入方式。'
   )
 
   return {
@@ -3608,7 +3610,7 @@ async function readPqcSubmitState(page, submitButton) {
     page.locator('[data-frontline-pqc-operator] .frontline-top-card')
       .allInnerTexts()
       .catch(() => []),
-    page.locator('[data-frontline-pqc-operator] [data-pqc-active-inspection-panel], [data-frontline-pqc-operator] [data-pqc-inspection-meta]')
+    page.locator('[data-frontline-pqc-operator] [data-pqc-active-inspection-panel], [data-frontline-pqc-operator] [data-pqc-standard-button], [data-frontline-pqc-operator] [data-pqc-method-button]')
       .allInnerTexts()
       .catch(() => []),
     page.locator('.el-message, .el-message__content')

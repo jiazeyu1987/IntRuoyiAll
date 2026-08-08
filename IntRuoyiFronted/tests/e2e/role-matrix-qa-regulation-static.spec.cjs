@@ -57,15 +57,30 @@ assert.doesNotMatch(
   /inspectionType:\s*'PATROL'|inspectionQuantity:\s*30/,
   'PQC defaults must come from a task/regulation snapshot, not PATROL/30 literals.'
 )
-assert.match(
+assert.doesNotMatch(
   panelSource,
-  /data-pqc-inspection-meta/,
-  'PQC page must visibly render method/standard/result metadata for each published regulation item.'
+  /class="pqc-active-summary"|data-pqc-inspection-meta/,
+  'PQC page must not render the red-box active title/status summary.'
+)
+assert.doesNotMatch(
+  panelSource,
+  /formatPqcInspectionMeta/,
+  'PQC page must not keep the obsolete red-box metadata formatter.'
 )
 assert.match(
   panelSource,
-  /formatPqcInspectionMeta/,
-  'PQC regulation item metadata must be formatted from the formal QA regulation snapshot.'
+  /data-pqc-standard-button[\s\S]*formatPqcStandardSummary\(activePqcTabItem\)/,
+  'PQC page must visibly render the formal 接收标准 card for the active published regulation item.'
+)
+assert.match(
+  panelSource,
+  /data-pqc-method-button[\s\S]*formatPqcMethodSummary\(activePqcTabItem\)/,
+  'PQC page must visibly render the formal 检验方法 card for the active published regulation item.'
+)
+assert.match(
+  panelSource,
+  /class="frontline-pqc-choice-actions"[\s\S]*全部合格[\s\S]*全部不良[\s\S]*data-pqc-piece-open-button/,
+  'PQC page must keep result entry actions visible after hiding the red-box summary.'
 )
 assert.match(
   panelSource,

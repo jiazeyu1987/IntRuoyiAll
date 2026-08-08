@@ -14,10 +14,10 @@ const activePanelEnd = panelSource.indexOf('<div class="pqc-utility-strip"', act
 assert.ok(activePanelStart >= 0 && activePanelEnd > activePanelStart, 'PQC active panel block must exist.')
 const activePanelBlock = panelSource.slice(activePanelStart, activePanelEnd)
 
-assert.match(
+assert.doesNotMatch(
   activePanelBlock,
-  /<h3>\{\{\s*formatPqcInspectionTitle\(activePqcTabItem\)\s*\}\}<\/h3>/,
-  'PQC active panel title must render the formal inspection method, not the QA item name.'
+  /class="pqc-active-summary"|<h3>|data-pqc-inspection-meta|formatPqcInspectionMeta\(activePqcTabItem\)/,
+  'PQC active panel must not visibly render the red-box title/status summary.'
 )
 assert.doesNotMatch(
   activePanelBlock,
@@ -27,18 +27,28 @@ assert.doesNotMatch(
 
 assert.match(
   panelSource,
-  /const formatPqcInspectionTitle = \(item: PqcInspectionItem\) =>\s*formatPqcMethodSummary\(item\)/,
-  'The title helper must read the same formal inspectionMethod used by the 检验方法 card.'
-)
-assert.match(
-  panelSource,
   /const normalizePqcInspectionMethodLabel = \(inspectionMethod: string\) =>[\s\S]*['"]Visual inspection['"][\s\S]*['"]目视检验['"]/,
   'Visual inspection from the formal regulation snapshot must display as 目视检验.'
 )
 assert.match(
   panelSource,
   /const formatPqcMethodSummary = \(item: PqcInspectionItem\) =>\s*normalizePqcInspectionMethodLabel\(item\.inspectionMethod\) \|\| '未配置检验方法'/,
-  'The 检验方法 card and active title must share the same normalized display label.'
+  'The 检验方法 card must keep using the normalized formal inspectionMethod.'
+)
+assert.match(
+  panelSource,
+  /data-pqc-method-button[\s\S]*formatPqcMethodSummary\(activePqcTabItem\)/,
+  'Hiding the red-box title must keep the formal 检验方法 card visible.'
+)
+assert.match(
+  panelSource,
+  /data-pqc-standard-button[\s\S]*formatPqcStandardSummary\(activePqcTabItem\)/,
+  'Hiding the red-box title must keep the formal 接收标准 card visible.'
+)
+assert.match(
+  panelSource,
+  /class="frontline-pqc-choice-actions"[\s\S]*全部合格[\s\S]*全部不良[\s\S]*data-pqc-piece-open-button/,
+  'Hiding the red-box title must keep bulk choices and piece inspection actions visible.'
 )
 
 const tabStart = panelSource.indexOf('data-pqc-inspection-tabs')
