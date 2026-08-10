@@ -35,7 +35,7 @@
 
 ## Current Status
 
-completed：当前代码已通过多个稳定快照提交保存，前后端 tracked/untracked 代码残余为 0；task-closeout-cleanup preview/apply 已通过；`origin/int_main` 已推进到 `4e97a301bd611ae19cae1d428ee34b55f42a901f`，准备以本次最终收尾记录提交完成第二次推送确认。
+completed：当前代码已通过多个稳定快照提交保存，前后端 tracked/untracked 代码残余为 0；task-closeout-cleanup preview/apply 已通过；最终收尾记录提交 `5e5a7ad88e130e1580b79df4dcb55ff966700e37` 已推送，远端、本地 HEAD 和 `origin/int_main` 一致，ahead/behind 为 `0/0`。
 
 并发说明：提交期间另一个任务在同一主工作区执行 `git stash push` 与 `git merge --ff-only codex/20260810-dcc-project-code-assignment-scope`，新增提交 `f6a981349`、`994f781b6`。本任务未回滚、未覆盖、未清理该并发任务产物，只在其完成后重新复扫并提交剩余当前代码。
 
