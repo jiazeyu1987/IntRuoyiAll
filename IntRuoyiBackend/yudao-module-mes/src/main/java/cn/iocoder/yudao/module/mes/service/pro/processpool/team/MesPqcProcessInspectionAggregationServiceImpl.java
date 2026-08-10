@@ -59,8 +59,11 @@ public class MesPqcProcessInspectionAggregationServiceImpl
         if (record == null) {
             throw exception(PRO_PROCESS_POOL_PQC_RECORD_REQUIRED, eventId);
         }
-        if (!MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_PENDING.equals(
-                record.getProcessInspectionAggregationStatus())) {
+        boolean pendingAggregation = MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_PENDING.equals(
+                record.getProcessInspectionAggregationStatus());
+        boolean existingAggregation = MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED.equals(
+                record.getProcessInspectionAggregationStatus());
+        if (!pendingAggregation && !existingAggregation) {
             throw exception(PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED,
                     eventId, record.getProcessInspectionReviewId());
         }
@@ -74,16 +77,23 @@ public class MesPqcProcessInspectionAggregationServiceImpl
         validatePieceDetails(record, task, pieceDetails, eventId);
 
         LocalDateTime aggregatedAt = LocalDateTime.now();
-        int updated = pqcRecordMapper.updateProcessInspectionAggregatedIfPending(tenantId, eventId, reviewId,
-                aggregatedAt);
+        if (existingAggregation) {
+            aggregateDetailMapper.deleteByEventId(eventId);
+        }
+        int updated = pendingAggregation
+                ? pqcRecordMapper.updateProcessInspectionAggregatedIfPending(tenantId, eventId, reviewId,
+                aggregatedAt)
+                : pqcRecordMapper.updateProcessInspectionAggregated(tenantId, eventId, reviewId, aggregatedAt);
         if (updated != 1) {
             throw exception(PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED, eventId, reviewId);
         }
-        int taskUpdated = pqcTaskMapper.updateConfirmedIfSubmitted(task.getId(),
-                MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED,
-                MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED);
-        if (taskUpdated != 1) {
-            throw exception(PRO_PROCESS_POOL_PQC_RECORD_REQUIRED, eventId);
+        if (MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED.equals(task.getTaskStatus())) {
+            int taskUpdated = pqcTaskMapper.updateConfirmedIfSubmitted(task.getId(),
+                    MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED,
+                    MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED);
+            if (taskUpdated != 1) {
+                throw exception(PRO_PROCESS_POOL_PQC_RECORD_REQUIRED, eventId);
+            }
         }
         List<MesPqcProcessInspectionAggregateDetailDO> aggregateRows = pieceDetails.stream()
                 .map(pieceDetail -> buildAggregateDetail(record, event, task, pieceDetail, reviewId, aggregatedAt))
@@ -136,7 +146,8 @@ public class MesPqcProcessInspectionAggregationServiceImpl
                 || task.getRoundNo() == null
                 || task.getActualInspectionQuantity() == null
                 || task.getActualInspectionQuantity() <= 0
-                || !MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED.equals(task.getTaskStatus())) {
+                || !(MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED.equals(task.getTaskStatus())
+                || MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus()))) {
             throw exception(PRO_PROCESS_POOL_PQC_RECORD_REQUIRED, eventId);
         }
     }

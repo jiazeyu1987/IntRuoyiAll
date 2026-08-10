@@ -104,6 +104,12 @@ public class ProcessPoolTimelineEventRespVO {
     @Schema(description = "产品名称", example = "球囊扩张压力泵")
     private String productName;
 
+    @Schema(description = "PQC 关联活跃订单编号", example = "880001")
+    private Long activeOrderId;
+
+    @Schema(description = "PQC 关联活跃订单是否已放行")
+    private Boolean released;
+
     @Schema(description = "PQC 检验任务编号", example = "980001")
     private Long pqcTaskId;
 

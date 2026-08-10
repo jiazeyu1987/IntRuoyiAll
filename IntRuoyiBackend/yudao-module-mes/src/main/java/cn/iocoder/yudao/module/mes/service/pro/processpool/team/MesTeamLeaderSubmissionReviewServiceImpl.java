@@ -76,7 +76,8 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
         }
         MesProcessPoolSubmissionReviewDO existingReview =
                 reviewMapper.selectLatestByEventIdForUpdate(reqBO.getEventId());
-        if (existingReview != null) {
+        if (existingReview != null
+                && !MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
             throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS,
                     reqBO.getEventId(), existingReview.getReviewStatus());
         }

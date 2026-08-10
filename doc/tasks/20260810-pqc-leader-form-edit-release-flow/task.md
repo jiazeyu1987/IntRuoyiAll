@@ -14,10 +14,10 @@
 
 ## Milestones
 
-- [ ] 记录 BDD 和 RED 证据，锁定当前错误按钮条件与列表条件。
-- [ ] 调整前端按钮展示和 PQC 当前/历史列表筛选契约。
-- [ ] 调整后端 PQC 当前/历史列表查询语义与复核后审核进度链路。
-- [ ] 运行定向验证并记录 GREEN/REGRESSION。
+- [x] 记录 BDD 和 RED 证据，锁定当前错误按钮条件与列表条件。
+- [x] 调整前端按钮展示和 PQC 当前/历史列表筛选契约。
+- [x] 调整后端 PQC 当前/历史列表查询语义与复核后审核进度链路。
+- [x] 运行定向验证并记录 GREEN/REGRESSION。
 
 ## Expected Verification
 
@@ -39,4 +39,6 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+- 实现与定向验证已完成，待提交分支、三方融合 `int_main` 并执行任务收尾。

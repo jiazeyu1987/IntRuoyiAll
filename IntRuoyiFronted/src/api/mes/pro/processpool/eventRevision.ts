@@ -47,6 +47,23 @@ export interface ProcessPoolProductionReportCorrectionReqVO {
   signaturePassword: string
 }
 
+export interface ProcessPoolPqcInspectionCorrectionItemReqVO {
+  itemCode: string
+  selectedEquipmentId?: number
+  selectedEquipmentNumber?: string
+  sampleValues: string[]
+}
+
+export interface ProcessPoolPqcInspectionCorrectionReqVO {
+  eventId: number
+  actualInspectionQuantity: number
+  scrapQuantity: number
+  nonconformanceDescription?: string
+  itemResults: ProcessPoolPqcInspectionCorrectionItemReqVO[]
+  changeReason: string
+  signaturePassword: string
+}
+
 export interface ProcessPoolProductionReportRevisionLogChangeVO {
   fieldName: string
   beforeValue: string
@@ -73,6 +90,15 @@ export const correctProcessPoolProductionReport = async (
 ) => {
   return await request.post<number>({
     url: '/mes/pro/process-pool/event-revision/correct-production-report',
+    data
+  })
+}
+
+export const correctProcessPoolPqcInspection = async (
+  data: ProcessPoolPqcInspectionCorrectionReqVO
+) => {
+  return await request.post<number>({
+    url: '/mes/pro/process-pool/event-revision/correct-pqc-inspection',
     data
   })
 }

@@ -55,27 +55,29 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long updateOriginalRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
-        return updateRecord(reqBO, true);
+        return updateRecord(reqBO, RevisionPolicy.REJECTED_REVIEW_REQUIRED);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long updateProductionReportRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
-        return updateRecord(reqBO, false);
+        return updateRecord(reqBO, RevisionPolicy.PRODUCTION_REPORT_CORRECTION);
     }
 
-    private Long updateRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO, boolean rejectedReviewRequired) {
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long updatePqcInspectionRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
+        return updateRecord(reqBO, RevisionPolicy.PQC_INSPECTION_CORRECTION);
+    }
+
+    private Long updateRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO, RevisionPolicy revisionPolicy) {
         validateRequest(reqBO);
         MesProProcessPoolEventDO event = eventMapper.selectByIdForUpdate(reqBO.getEventId());
         if (event == null) {
             throw exception(PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS, reqBO.getEventId());
         }
         validateJsonPayload(event.getRawPayload(), "rawPayload");
-        if (rejectedReviewRequired) {
-            validateLatestRejectedReview(event.getId());
-        } else {
-            validateProductionReportCorrection(event);
-        }
+        validateRevisionPolicy(event, revisionPolicy);
         validateSignature(reqBO, event);
         validateDiffAndFifoLocks(reqBO);
 
@@ -107,6 +109,20 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
                 .setId(event.getId())
                 .setRawPayload(reqBO.getAfterPayload()));
         return revision.getId();
+    }
+
+    private void validateRevisionPolicy(MesProProcessPoolEventDO event, RevisionPolicy revisionPolicy) {
+        if (RevisionPolicy.REJECTED_REVIEW_REQUIRED.equals(revisionPolicy)) {
+            validateLatestRejectedReview(event.getId());
+            return;
+        }
+        if (RevisionPolicy.PRODUCTION_REPORT_CORRECTION.equals(revisionPolicy)) {
+            validateProductionReportCorrection(event);
+            return;
+        }
+        if (!MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionEvent");
+        }
     }
 
     private void validateProductionReportCorrection(MesProProcessPoolEventDO event) {
@@ -232,5 +248,11 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
         } catch (RuntimeException ex) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, fieldName);
         }
+    }
+
+    private enum RevisionPolicy {
+        REJECTED_REVIEW_REQUIRED,
+        PRODUCTION_REPORT_CORRECTION,
+        PQC_INSPECTION_CORRECTION
     }
 }

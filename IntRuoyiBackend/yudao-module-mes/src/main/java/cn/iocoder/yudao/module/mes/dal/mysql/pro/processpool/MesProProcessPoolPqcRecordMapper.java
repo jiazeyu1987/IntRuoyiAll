@@ -35,4 +35,15 @@ public interface MesProProcessPoolPqcRecordMapper extends BaseMapperX<MesProProc
                 .eq(MesProProcessPoolPqcRecordDO::getProcessInspectionAggregationStatus,
                         MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_PENDING));
     }
+
+    default int updateProcessInspectionAggregated(Long tenantId, Long eventId, Long reviewId,
+                                                  LocalDateTime aggregatedAt) {
+        return update(null, new LambdaUpdateWrapper<MesProProcessPoolPqcRecordDO>()
+                .set(MesProProcessPoolPqcRecordDO::getProcessInspectionAggregationStatus,
+                        MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED)
+                .set(MesProProcessPoolPqcRecordDO::getProcessInspectionReviewId, reviewId)
+                .set(MesProProcessPoolPqcRecordDO::getProcessInspectionAggregatedAt, aggregatedAt)
+                .eq(MesProProcessPoolPqcRecordDO::getTenantId, tenantId)
+                .eq(MesProProcessPoolPqcRecordDO::getEventId, eventId));
+    }
 }

@@ -2,9 +2,11 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.processpool;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolEventRevisionUpdateReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolPqcInspectionCorrectionReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolProductionReportCorrectionReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolProductionReportRevisionLogRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventRevisionService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolPqcInspectionCorrectionService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolProductionReportCorrectionService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolProductionReportRevisionLogService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,14 +34,17 @@ public class MesProProcessPoolEventRevisionController {
 
     private final MesProcessPoolEventRevisionService mesProcessPoolEventRevisionService;
     private final MesProcessPoolProductionReportCorrectionService productionReportCorrectionService;
+    private final MesProcessPoolPqcInspectionCorrectionService pqcInspectionCorrectionService;
     private final MesProcessPoolProductionReportRevisionLogService productionReportRevisionLogService;
 
     public MesProProcessPoolEventRevisionController(
             MesProcessPoolEventRevisionService mesProcessPoolEventRevisionService,
             MesProcessPoolProductionReportCorrectionService productionReportCorrectionService,
+            MesProcessPoolPqcInspectionCorrectionService pqcInspectionCorrectionService,
             MesProcessPoolProductionReportRevisionLogService productionReportRevisionLogService) {
         this.mesProcessPoolEventRevisionService = mesProcessPoolEventRevisionService;
         this.productionReportCorrectionService = productionReportCorrectionService;
+        this.pqcInspectionCorrectionService = pqcInspectionCorrectionService;
         this.productionReportRevisionLogService = productionReportRevisionLogService;
     }
 
@@ -56,6 +61,15 @@ public class MesProProcessPoolEventRevisionController {
     public CommonResult<Long> correctProductionReport(
             @Valid @RequestBody ProcessPoolProductionReportCorrectionReqVO reqVO) {
         return success(productionReportCorrectionService.correct(
+                reqVO.toCommand().setActorUserId(getLoginUserId())));
+    }
+
+    @PostMapping("/correct-pqc-inspection")
+    @Operation(summary = "按业务字段修改 PQC 表单并使用当前登录人重新电子签名")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool:event-revision:update')")
+    public CommonResult<Long> correctPqcInspection(
+            @Valid @RequestBody ProcessPoolPqcInspectionCorrectionReqVO reqVO) {
+        return success(pqcInspectionCorrectionService.correct(
                 reqVO.toCommand().setActorUserId(getLoginUserId())));
     }
 

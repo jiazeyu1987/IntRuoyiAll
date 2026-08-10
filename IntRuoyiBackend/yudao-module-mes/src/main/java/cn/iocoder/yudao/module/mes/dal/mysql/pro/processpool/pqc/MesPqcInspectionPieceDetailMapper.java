@@ -20,4 +20,12 @@ public interface MesPqcInspectionPieceDetailMapper extends BaseMapperX<MesPqcIns
                 .orderByAsc(MesPqcInspectionPieceDetailDO::getSampleNo)
                 .orderByAsc(MesPqcInspectionPieceDetailDO::getId));
     }
+
+    default int deleteByTaskId(Long taskId) {
+        if (taskId == null) {
+            return 0;
+        }
+        return delete(new LambdaQueryWrapperX<MesPqcInspectionPieceDetailDO>()
+                .eq(MesPqcInspectionPieceDetailDO::getTaskId, taskId));
+    }
 }

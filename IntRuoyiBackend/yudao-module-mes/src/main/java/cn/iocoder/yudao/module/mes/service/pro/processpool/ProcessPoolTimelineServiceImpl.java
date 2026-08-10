@@ -127,6 +127,8 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                 .setProductId(event.getProductId())
                 .setProductCode(event.getProductCode())
                 .setProductName(event.getProductName())
+                .setActiveOrderId(event.getActiveOrderId())
+                .setReleased(Boolean.TRUE.equals(event.getReleased()))
                 .setPqcTaskId(event.getPqcTaskId())
                 .setInspectionType(event.getInspectionType())
                 .setPqcBusinessDate(event.getPqcBusinessDate())

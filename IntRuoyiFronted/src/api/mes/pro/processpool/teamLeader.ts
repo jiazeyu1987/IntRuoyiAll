@@ -11,6 +11,7 @@ export type DeviceParameterValueType = 'INTEGER' | 'DECIMAL' | 'TEXT_STANDARD'
 
 export interface TeamLeaderSubmissionPageReqVO extends ProcessPoolTimelinePageReqVO {
   leaderType: TeamLeaderType
+  pqcFormView?: 'CURRENT' | 'HISTORY'
 }
 
 export interface TeamLeaderSubmissionReviewReqVO {

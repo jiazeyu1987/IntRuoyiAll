@@ -33,6 +33,19 @@
         work_order.product_id AS productId,
         product_item.code AS productCode,
         product_item.name AS productName,
+        pqc_task.active_order_id AS activeOrderId,
+        CASE WHEN EXISTS (
+            SELECT 1
+            FROM mes_pro_process_pool_active_order_release_application release_application
+            INNER JOIN mes_pro_edhr_release_transaction release_transaction
+              ON release_transaction.id = release_application.release_transaction_id
+             AND release_transaction.tenant_id = release_application.tenant_id
+             AND release_transaction.deleted = 0
+             AND release_transaction.release_status = 'RELEASED'
+            WHERE release_application.tenant_id = pqc_task.tenant_id
+              AND release_application.active_order_id = pqc_task.active_order_id
+              AND release_application.deleted = 0
+        ) THEN TRUE ELSE FALSE END AS released,
         pqc_task.id AS pqcTaskId,
         pqc_task.inspection_type AS inspectionType,
         pqc_task.business_date AS pqcBusinessDate,
@@ -172,6 +185,25 @@
         <if test="reqVO.allocationView == 'HISTORY'">
             AND pool_event.event_type = 'PRODUCTION_SUBMIT'
         </if>
+        <if test="reqVO.pqcFormView == 'CURRENT'">
+            AND pool_event.event_type = 'PQC_INSPECTION'
+            AND NOT EXISTS (
+                SELECT 1
+                FROM mes_pro_process_pool_active_order_release_application release_application
+                INNER JOIN mes_pro_edhr_release_transaction release_transaction
+                  ON release_transaction.id = release_application.release_transaction_id
+                 AND release_transaction.tenant_id = release_application.tenant_id
+                 AND release_transaction.deleted = 0
+                 AND release_transaction.release_status = 'RELEASED'
+                WHERE release_application.tenant_id = pqc_task.tenant_id
+                  AND release_application.active_order_id = pqc_task.active_order_id
+                  AND release_application.deleted = 0
+            )
+        </if>
+        <if test="reqVO.pqcFormView == 'HISTORY'">
+            AND pool_event.event_type = 'PQC_INSPECTION'
+            AND latest_submission_review.review_status = 'APPROVED'
+        </if>
     </sql>
 
     <sql id="TimelineAuthorityJoins">
@@ -186,7 +218,8 @@
         LEFT JOIN mes_pqc_inspection_task pqc_task
           ON pqc_task.tenant_id = pool_event.tenant_id
          AND pqc_task.deleted = 0
-         AND pqc_task.id = pool_event.pqc_task_id
+         AND pool_event.feedback_source_type = 'MES_PQC_INSPECTION_TASK'
+         AND pqc_task.id = pool_event.feedback_source_id
     </sql>
 
     <sql id="LatestSubmissionReviewJoin">

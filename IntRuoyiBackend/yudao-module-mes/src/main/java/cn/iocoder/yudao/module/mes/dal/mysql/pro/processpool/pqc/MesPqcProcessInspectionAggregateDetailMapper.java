@@ -23,6 +23,14 @@ public interface MesPqcProcessInspectionAggregateDetailMapper
                 .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getId));
     }
 
+    default int deleteByEventId(Long eventId) {
+        if (eventId == null) {
+            return 0;
+        }
+        return delete(new LambdaQueryWrapperX<MesPqcProcessInspectionAggregateDetailDO>()
+                .eq(MesPqcProcessInspectionAggregateDetailDO::getEventId, eventId));
+    }
+
     default List<MesPqcProcessInspectionAggregateDetailDO> selectListByActiveOrderId(Long activeOrderId) {
         if (activeOrderId == null) {
             return Collections.emptyList();

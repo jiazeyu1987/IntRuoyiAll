@@ -2590,11 +2590,12 @@
 
     <el-dialog
       v-model="correctionVisible"
-      title="修改报工内容"
+      :title="correctionForm.correctionMode === 'PQC' ? '修改PQC表单' : '修改报工内容'"
       width="min(760px, calc(100vw - 24px))"
       class="team-leader-workbench__correction-dialog"
       destroy-on-close
       data-production-report-correction-dialog
+      data-pqc-inspection-correction-dialog
     >
       <section class="team-leader-workbench__correction-section" aria-labelledby="correction-context-title">
         <h3 id="correction-context-title" class="team-leader-workbench__correction-title">报工信息</h3>
@@ -2625,7 +2626,10 @@
         :rules="correctionFormRules"
         label-position="top"
       >
-        <section class="team-leader-workbench__correction-section">
+        <section
+          v-if="correctionForm.correctionMode === 'PRODUCTION'"
+          class="team-leader-workbench__correction-section"
+        >
           <h3 class="team-leader-workbench__correction-title">生产数量</h3>
           <div class="team-leader-workbench__correction-quantity-grid">
             <el-form-item label="完成数量" prop="outputQuantity">
@@ -2650,7 +2654,10 @@
           </div>
         </section>
 
-        <section class="team-leader-workbench__correction-section">
+        <section
+          v-if="correctionForm.correctionMode === 'PRODUCTION'"
+          class="team-leader-workbench__correction-section"
+        >
           <h3 class="team-leader-workbench__correction-title">损耗明细</h3>
           <div v-if="correctionForm.lossDetails.length" class="team-leader-workbench__correction-rows">
             <div
@@ -2671,7 +2678,10 @@
           <div v-else class="team-leader-workbench__correction-empty">当前路线工序未配置损耗原因</div>
         </section>
 
-        <section class="team-leader-workbench__correction-section">
+        <section
+          v-if="correctionForm.correctionMode === 'PRODUCTION'"
+          class="team-leader-workbench__correction-section"
+        >
           <h3 class="team-leader-workbench__correction-title">设备参数</h3>
           <div
             v-if="correctionForm.deviceParameterReadings.length"
@@ -2695,6 +2705,69 @@
             </div>
           </div>
           <div v-else class="team-leader-workbench__correction-empty">本次报工没有设备参数</div>
+        </section>
+
+        <section
+          v-if="correctionForm.correctionMode === 'PQC'"
+          class="team-leader-workbench__correction-section"
+          data-pqc-inspection-correction-form
+        >
+          <h3 class="team-leader-workbench__correction-title">PQC表单数据</h3>
+          <div class="team-leader-workbench__correction-quantity-grid">
+            <el-form-item label="检验数量">
+              <el-input-number
+                v-model="correctionForm.pqcActualInspectionQuantity"
+                :min="1"
+                :precision="0"
+                step-strictly
+                :controls="false"
+                class="team-leader-workbench__full-control"
+                data-pqc-inspection-correction-quantity
+              />
+            </el-form-item>
+            <el-form-item label="损耗数量">
+              <el-input-number
+                v-model="correctionForm.pqcScrapQuantity"
+                :min="0"
+                :precision="0"
+                step-strictly
+                :controls="false"
+                class="team-leader-workbench__full-control"
+                data-pqc-inspection-correction-scrap
+              />
+            </el-form-item>
+          </div>
+          <el-form-item label="不良说明">
+            <el-input
+              v-model="correctionForm.pqcNonconformanceDescription"
+              type="textarea"
+              :rows="2"
+              maxlength="500"
+              show-word-limit
+              data-pqc-inspection-correction-defect
+            />
+          </el-form-item>
+          <div class="team-leader-workbench__correction-rows">
+            <div
+              v-for="itemRow in correctionForm.pqcItemResults"
+              :key="itemRow.itemCode"
+              class="team-leader-workbench__correction-row team-leader-workbench__correction-row--stacked"
+            >
+              <span>{{ itemRow.itemName || itemRow.itemCode }}</span>
+              <el-input
+                v-model="itemRow.selectedEquipmentNumber"
+                placeholder="设备编号"
+                data-pqc-inspection-correction-equipment-number
+              />
+              <el-input
+                v-model="itemRow.sampleValuesText"
+                type="textarea"
+                :rows="3"
+                placeholder="逐件样本值，每行或逗号分隔"
+                data-pqc-inspection-correction-samples
+              />
+            </div>
+          </div>
         </section>
 
         <section class="team-leader-workbench__correction-section">
@@ -2824,7 +2897,10 @@ import type {
   ProcessPoolTimelineDetailVO,
   ProcessPoolTimelineEventVO
 } from '@/api/mes/pro/processpool'
-import { correctProcessPoolProductionReport } from '@/api/mes/pro/processpool/eventRevision'
+import {
+  correctProcessPoolPqcInspection,
+  correctProcessPoolProductionReport
+} from '@/api/mes/pro/processpool/eventRevision'
 import { formatDateTimeValue, formatDate } from '@/utils/formatTime'
 
 defineOptions({ name: 'MesProProcessPoolTeamLeaderWorkbench' })
@@ -2867,6 +2943,14 @@ interface ProductionReportCorrectionParameterRow {
   parameterName?: string
   unit?: string
   value: number
+}
+
+interface PqcInspectionCorrectionItemRow {
+  itemCode: string
+  itemName?: string
+  selectedEquipmentId?: number
+  selectedEquipmentNumber?: string
+  sampleValuesText: string
 }
 
 interface ProductionReportCorrectionPreviewItem {
@@ -3352,11 +3436,14 @@ const pagedPqcPersonnelRows = computed(() => {
 
 const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
   !(isProductionReportHistoryTab.value || isPqcFormHistoryTab.value)
-  && (!row.submissionReviewStatus || row.submissionReviewStatus === 'PENDING')
+  && !isProductionLeader.value
+  && !row.released
+  && Boolean(row.id)
 
 const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
   !(isProductionReportHistoryTab.value || isPqcFormHistoryTab.value)
-  && (isProductionLeader.value || row.submissionReviewStatus === 'REJECTED')
+  && (isProductionLeader.value || !row.released)
+  && Boolean(row.id)
 
 const canAllocateSubmission = (row: ProcessPoolTimelineEventVO) =>
   isProductionLeader.value && !isProductionReportHistoryTab.value && Boolean(row.id)
@@ -3510,17 +3597,21 @@ const reviewForm = reactive({
 })
 
 const correctionForm = reactive({
+  correctionMode: 'PRODUCTION' as 'PRODUCTION' | 'PQC',
   eventId: undefined as number | undefined,
   outputQuantity: undefined as number | undefined,
   lossDetails: [] as ProductionReportCorrectionLossDetailRow[],
   deviceParameterReadings: [] as ProductionReportCorrectionParameterRow[],
+  pqcActualInspectionQuantity: undefined as number | undefined,
+  pqcScrapQuantity: 0,
+  pqcNonconformanceDescription: '',
+  pqcItemResults: [] as PqcInspectionCorrectionItemRow[],
   changeReason: '',
   signaturePassword: ''
 })
 
 const correctionFormRef = ref()
 const correctionFormRules = {
-  outputQuantity: [{ required: true, message: '请输入完成数量', trigger: 'change' }],
   changeReason: [{ required: true, message: '请输入修改原因', trigger: 'blur' }],
   signaturePassword: [{ required: true, message: '请输入签名密码', trigger: 'blur' }]
 }
@@ -3536,9 +3627,78 @@ const correctionValueText = (value: unknown, unit?: string) => {
   return unit ? `${normalized} ${unit}` : normalized
 }
 
+const normalizePqcSampleText = (values: string[]) => values.join('\n')
+
+const parsePqcSampleText = (value: string) =>
+  value
+    .split(/[\n,，]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+
 const correctionChangePreview = computed<ProductionReportCorrectionPreviewItem[]>(() => {
   const event = correctionEvent.value
   if (!event) return []
+  if (correctionForm.correctionMode === 'PQC') {
+    const { rootPayload } = resolvePqcPayloadPair(event)
+    const changes: ProductionReportCorrectionPreviewItem[] = []
+    const beforeInspectionQuantity = Number(
+      readSubmissionPayloadValue(rootPayload, ['inspectionQuantity', 'actualInspectionQuantity'])
+    )
+    const afterInspectionQuantity = Number(correctionForm.pqcActualInspectionQuantity)
+    if (
+      Number.isFinite(beforeInspectionQuantity) &&
+      Number.isFinite(afterInspectionQuantity) &&
+      beforeInspectionQuantity !== afterInspectionQuantity
+    ) {
+      changes.push({
+        key: 'PQC_ACTUAL_INSPECTION_QUANTITY',
+        label: 'PQC检验数量',
+        beforeValue: correctionValueText(beforeInspectionQuantity),
+        afterValue: correctionValueText(afterInspectionQuantity)
+      })
+    }
+    const beforeScrap = Number(readSubmissionPayloadValue(rootPayload, ['scrapQuantity', 'lossQuantity']))
+    const afterScrap = Number(correctionForm.pqcScrapQuantity)
+    if (Number.isFinite(beforeScrap) && Number.isFinite(afterScrap) && beforeScrap !== afterScrap) {
+      changes.push({
+        key: 'PQC_SCRAP_QUANTITY',
+        label: 'PQC损耗数量',
+        beforeValue: correctionValueText(beforeScrap),
+        afterValue: correctionValueText(afterScrap)
+      })
+    }
+    const beforeDescription = String(
+      readSubmissionPayloadValue(rootPayload, ['nonconformanceDescription', 'defectDescription']) || ''
+    ).trim()
+    const afterDescription = correctionForm.pqcNonconformanceDescription.trim()
+    if (beforeDescription !== afterDescription) {
+      changes.push({
+        key: 'PQC_NONCONFORMANCE_DESCRIPTION',
+        label: 'PQC不良说明',
+        beforeValue: beforeDescription || '--',
+        afterValue: afterDescription || '--'
+      })
+    }
+    const beforeItems = new Map(
+      resolvePqcItemSnapshotDetails(event).map((item) => [
+        item.itemCode || item.itemName || '',
+        (item.sampleValues || []).join(',')
+      ])
+    )
+    correctionForm.pqcItemResults.forEach((item) => {
+      const before = beforeItems.get(item.itemCode) || ''
+      const after = parsePqcSampleText(item.sampleValuesText).join(',')
+      if (before !== after) {
+        changes.push({
+          key: `PQC_ITEM:${item.itemCode}`,
+          label: item.itemName || item.itemCode,
+          beforeValue: before || '--',
+          afterValue: after || '--'
+        })
+      }
+    })
+    return changes
+  }
   const changes: ProductionReportCorrectionPreviewItem[] = []
   const beforeOutput = Number(event.outputQuantity)
   const afterOutput = Number(correctionForm.outputQuantity)
@@ -5538,6 +5698,7 @@ const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
     inspectionType: queryParams.inspectionType || undefined,
     roundNo: normalizePositiveNumber(queryParams.roundNo),
     submissionReviewStatus: isPqcFormHistoryTab.value ? 'APPROVED' : queryParams.submissionReviewStatus || undefined,
+    pqcFormView: isPqcFormHistoryTab.value ? 'HISTORY' : activeLeaderTab.value === 'PQC' ? 'CURRENT' : undefined,
     allocationView: isProductionLeader.value
       ? isProductionReportHistoryTab.value
         ? 'HISTORY'
@@ -5882,13 +6043,26 @@ const submitReview = async () => {
   }
 }
 
-const openCorrection = (event: ProcessPoolTimelineEventVO) => {
-  try {
-    const eventId = requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
-    if (!canCorrectSubmission(event)) {
-      ElMessage.error('只有生产报工或复核不正确的提交可以修改')
-      return
-    }
+const resetCorrectionFormForEvent = (
+  event: ProcessPoolTimelineEventVO,
+  eventId: number,
+  correctionMode: 'PRODUCTION' | 'PQC'
+) => {
+  correctionForm.correctionMode = correctionMode
+  correctionForm.eventId = eventId
+  correctionForm.outputQuantity = undefined
+  correctionForm.lossDetails = []
+  correctionForm.deviceParameterReadings = []
+  correctionForm.pqcActualInspectionQuantity = undefined
+  correctionForm.pqcScrapQuantity = 0
+  correctionForm.pqcNonconformanceDescription = ''
+  correctionForm.pqcItemResults = []
+  correctionForm.changeReason = ''
+  correctionForm.signaturePassword = ''
+  correctionEvent.value = event
+}
+
+const openProductionCorrection = (event: ProcessPoolTimelineEventVO, eventId: number) => {
     const outputQuantity = Number(event.outputQuantity)
     if (!Number.isFinite(outputQuantity) || outputQuantity <= 0) {
       throw new Error('报工记录缺少有效的完成数量，不能修改')
@@ -5939,25 +6113,85 @@ const openCorrection = (event: ProcessPoolTimelineEventVO) => {
       }
     })
 
-    correctionForm.eventId = eventId
+    resetCorrectionFormForEvent(event, eventId, 'PRODUCTION')
     correctionForm.outputQuantity = outputQuantity
     correctionForm.lossDetails = [...lossRowMap.values()]
     correctionForm.deviceParameterReadings = parameterRows
-    correctionForm.changeReason = ''
-    correctionForm.signaturePassword = ''
-    correctionEvent.value = event
     correctionVisible.value = true
+}
+
+const openPqcCorrection = (event: ProcessPoolTimelineEventVO, eventId: number) => {
+  const { rootPayload } = resolvePqcPayloadPair(event)
+  const actualInspectionQuantity = Number(
+    readSubmissionPayloadValue(rootPayload, ['inspectionQuantity', 'actualInspectionQuantity'])
+  )
+  if (!Number.isInteger(actualInspectionQuantity) || actualInspectionQuantity <= 0) {
+    throw new Error('PQC表单缺少有效的检验数量，不能修改')
+  }
+  const scrapQuantityValue = readSubmissionPayloadValue(rootPayload, [
+    'scrapQuantity',
+    'lossQuantity',
+    'SCRAP_QUANTITY'
+  ])
+  const scrapQuantity = scrapQuantityValue === undefined ? 0 : Number(scrapQuantityValue)
+  if (!Number.isInteger(scrapQuantity) || scrapQuantity < 0) {
+    throw new Error('PQC表单损耗数量无效，不能修改')
+  }
+  const pqcItems = resolvePqcItemSnapshotDetails(event)
+  if (!pqcItems.length) {
+    throw new Error('PQC表单缺少检验项目明细，不能修改')
+  }
+
+  resetCorrectionFormForEvent(event, eventId, 'PQC')
+  correctionForm.pqcActualInspectionQuantity = actualInspectionQuantity
+  correctionForm.pqcScrapQuantity = scrapQuantity
+  correctionForm.pqcNonconformanceDescription = String(
+    readSubmissionPayloadValue(rootPayload, ['nonconformanceDescription', 'defectDescription']) || ''
+  ).trim()
+  correctionForm.pqcItemResults = pqcItems.map((item) => {
+    const itemCode = String(item.itemCode || '').trim()
+    if (!itemCode) {
+      throw new Error('PQC表单检验项目缺少项目编码，不能修改')
+    }
+    const sampleValues = item.sampleValues || []
+    if (!sampleValues.length) {
+      throw new Error(`PQC项目 ${item.itemName || itemCode} 缺少样本值，不能修改`)
+    }
+    return {
+      itemCode,
+      itemName: item.itemName,
+      selectedEquipmentId: item.selectedEquipmentId,
+      selectedEquipmentNumber: item.selectedEquipmentNumber,
+      sampleValuesText: normalizePqcSampleText(sampleValues)
+    }
+  })
+  correctionVisible.value = true
+}
+
+const openCorrection = (event: ProcessPoolTimelineEventVO) => {
+  try {
+    const eventId = requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
+    if (isPqcSubmissionRow(event) && event.released) {
+      ElMessage.error('已放行的PQC表单只能在历史中查看')
+      return
+    }
+    if (!canCorrectSubmission(event)) {
+      ElMessage.error(isPqcSubmissionRow(event) ? 'PQC历史表单不能修改' : '当前报工不能修改')
+      return
+    }
+    if (isPqcSubmissionRow(event)) {
+      openPqcCorrection(event, eventId)
+      return
+    }
+    openProductionCorrection(event, eventId)
   } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '报工修改入口打开失败'))
+    ElMessage.error(resolveErrorMessage(error, '修改入口打开失败'))
   }
 }
 
-const buildCorrectionRequest = () => {
-  const outputQuantity = Number(correctionForm.outputQuantity)
-  if (!Number.isFinite(outputQuantity) || outputQuantity <= 0) {
-    throw new Error('完成数量必须大于 0')
-  }
-  if (!correctionForm.changeReason.trim()) {
+const requireCorrectionAuditFields = () => {
+  const changeReason = correctionForm.changeReason.trim()
+  if (!changeReason) {
     throw new Error('修改原因不能为空')
   }
   if (!correctionForm.signaturePassword) {
@@ -5966,6 +6200,18 @@ const buildCorrectionRequest = () => {
   if (correctionChangePreview.value.length === 0) {
     throw new Error('没有可提交的变更')
   }
+  return {
+    changeReason,
+    signaturePassword: correctionForm.signaturePassword
+  }
+}
+
+const buildProductionCorrectionRequest = () => {
+  const outputQuantity = Number(correctionForm.outputQuantity)
+  if (!Number.isFinite(outputQuantity) || outputQuantity <= 0) {
+    throw new Error('完成数量必须大于 0')
+  }
+  const auditFields = requireCorrectionAuditFields()
   return {
     eventId: requirePositiveNumber(correctionForm.eventId, '工序池提交事件编号不能为空'),
     outputQuantity,
@@ -5980,8 +6226,46 @@ const buildCorrectionRequest = () => {
       parameterCode: item.parameterCode,
       value: Number(item.value)
     })),
-    changeReason: correctionForm.changeReason.trim(),
-    signaturePassword: correctionForm.signaturePassword
+    ...auditFields
+  }
+}
+
+const buildPqcCorrectionRequest = () => {
+  const actualInspectionQuantity = Number(correctionForm.pqcActualInspectionQuantity)
+  if (!Number.isInteger(actualInspectionQuantity) || actualInspectionQuantity <= 0) {
+    throw new Error('PQC检验数量必须为正整数')
+  }
+  const scrapQuantity = Number(correctionForm.pqcScrapQuantity)
+  if (!Number.isInteger(scrapQuantity) || scrapQuantity < 0) {
+    throw new Error('PQC损耗数量必须为0或正整数')
+  }
+  const auditFields = requireCorrectionAuditFields()
+  const itemResults = correctionForm.pqcItemResults.map((item) => {
+    const itemCode = item.itemCode.trim()
+    if (!itemCode) {
+      throw new Error('PQC检验项目编码不能为空')
+    }
+    const sampleValues = parsePqcSampleText(item.sampleValuesText)
+    if (sampleValues.length !== actualInspectionQuantity) {
+      throw new Error(`PQC项目 ${item.itemName || itemCode} 的样本数量必须等于检验数量`)
+    }
+    return {
+      itemCode,
+      selectedEquipmentId: normalizePositiveNumber(item.selectedEquipmentId),
+      selectedEquipmentNumber: item.selectedEquipmentNumber?.trim() || undefined,
+      sampleValues
+    }
+  })
+  if (!itemResults.length) {
+    throw new Error('PQC检验项目不能为空')
+  }
+  return {
+    eventId: requirePositiveNumber(correctionForm.eventId, '工序池提交事件编号不能为空'),
+    actualInspectionQuantity,
+    scrapQuantity,
+    nonconformanceDescription: correctionForm.pqcNonconformanceDescription.trim() || undefined,
+    itemResults,
+    ...auditFields
   }
 }
 
@@ -5991,12 +6275,17 @@ const submitCorrection = async () => {
   if (valid === false) return
   correctionSubmitting.value = true
   try {
-    await correctProcessPoolProductionReport(buildCorrectionRequest())
-    ElMessage.success('修改已提交，修改日志已记录')
+    const isPqcCorrection = correctionForm.correctionMode === 'PQC'
+    if (isPqcCorrection) {
+      await correctProcessPoolPqcInspection(buildPqcCorrectionRequest())
+    } else {
+      await correctProcessPoolProductionReport(buildProductionCorrectionRequest())
+    }
+    ElMessage.success(isPqcCorrection ? 'PQC表单修改已提交，修改日志已记录' : '修改已提交，修改日志已记录')
     correctionVisible.value = false
     await getSubmissionList()
   } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '报工修改失败'))
+    ElMessage.error(resolveErrorMessage(error, correctionForm.correctionMode === 'PQC' ? 'PQC表单修改失败' : '报工修改失败'))
   } finally {
     correctionSubmitting.value = false
   }
@@ -7244,6 +7533,15 @@ onMounted(() => {
   gap: 16px;
   align-items: center;
   min-height: 40px;
+}
+
+.team-leader-workbench__correction-row--stacked {
+  grid-template-columns: minmax(120px, 0.8fr) minmax(140px, 1fr) minmax(220px, 2fr);
+  align-items: start;
+}
+
+.team-leader-workbench__correction-row--stacked > span {
+  padding-top: 8px;
 }
 
 .team-leader-workbench__correction-row > span {

@@ -16,6 +16,7 @@ export interface ProcessPoolTimelinePageReqVO {
   roundNo?: number
   submissionReviewStatus?: string
   allocationView?: 'WORKBENCH' | 'HISTORY'
+  pqcFormView?: 'CURRENT' | 'HISTORY'
 }
 
 export interface ProcessPoolTimelineReadonlyActionsVO {
@@ -92,6 +93,8 @@ export interface ProcessPoolTimelineEventVO {
   productId?: number
   productCode?: string
   productName?: string
+  activeOrderId?: number
+  released?: boolean
   pqcTaskId?: number
   inspectionType?: string
   pqcBusinessDate?: string

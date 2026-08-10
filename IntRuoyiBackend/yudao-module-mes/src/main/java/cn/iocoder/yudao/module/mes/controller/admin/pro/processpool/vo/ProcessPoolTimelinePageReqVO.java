@@ -79,6 +79,9 @@ public class ProcessPoolTimelinePageReqVO extends PageParam {
     @Schema(description = "生产报工分配视图：WORKBENCH-待处理，HISTORY-全部历史", hidden = true)
     private String allocationView;
 
+    @Schema(description = "PQC 表单视图：CURRENT-当前表单，HISTORY-PQC历史", hidden = true)
+    private String pqcFormView;
+
     @Schema(description = "提交时间起点", hidden = true)
     private LocalDateTime submittedAtStart;
 

@@ -82,6 +82,15 @@
 - Forbidden action: 禁止为了 closeout 强行清理、回滚或提交并行任务文件；禁止 force push；禁止在未验证融合后 HEAD 的情况下直接更新 `int_main`；禁止把本地 dirty 主工作区清洁失败当作远端主线已集成。
 - Evidence: `doc/tasks/20260727-codex-test-node-chain/verification-report.md`、`doc/tasks/20260728-node-chain-route-filter/verification-report.md`，主工作区持续并行写入时，任务分支先融合 `origin/int_main`、完成目标验证，再按远端快进路径集成；`doc/tasks/20260730-edhr-frontline-fill-tabs/verification-report.md`，eDHR 集成在远端主线新增 DCC testCompile 缺失类后阻塞，未跳过依赖模块门禁。
 
+### 并行脏主工作区手工三方融合门禁
+
+- Trigger: 已验证任务分支需要合入本地 `int_main`，但主工作区存在并行未提交改动，且其中部分路径与任务分支 incoming diff 重叠；用户明确授权手工三方融合并要求保留并行改动。
+- Preflight check: 先记录 `int_main` HEAD、任务分支 HEAD、主工作区全部 dirty 路径和 `incoming ∩ dirty` 精确交集；任务分支先提交并语义合入当前 `int_main` 已提交基线，解决冲突后复跑目标验证。主工作区只允许按路径暂存交集文件，记录 stash 引用和路径清单；非交集 dirty 文件不得进入 stash、暂存区或任务提交。
+- Blocker: 未取得用户明确授权、交集包含无法归属的未跟踪文件或敏感文件、任务分支未通过验证、路径级 stash 无法完整保存、stash apply 冲突无法语义保留双方修改、或恢复后无法证明并行改动仍在工作区时必须停止。
+- Verification: `git merge-base --is-ancestor <old-int-main> <task-head>` 与融合后 `git merge-base --is-ancestor <task-head> int_main` 均通过；路径级 stash apply 后检查冲突标记、原交集路径、`git diff --check` 和目标回归。只有确认并行改动已恢复且未被暂存/提交后才允许删除 stash。
+- Forbidden action: 禁止全工作区 stash、整文件 `ours/theirs`、提交并行改动、直接 `update-ref` 移动已检出的脏 `int_main`、先删除重叠文件再 merge、或在未验证恢复结果前 drop stash。
+- Evidence: `doc/tasks/20260810-pqc-leader-form-edit-release-flow/execution-log.md`，PQC 分支与本地 `int_main` 的 4 个并行脏文件重叠，取得用户授权后按路径保存、语义融合并恢复并行改动。
+
 ## D-Main 本地主线滞后远端融合门禁
 
 - Trigger: `D:\ProjectPackage\IntRuoyi\IntRuoyiAll` 的本地 `int_main` 在 `git fetch origin int_main` 后同时 `ahead` 和 `behind`，需要把远端 `origin/int_main` 融合回本地主线。

@@ -5,4 +5,6 @@ public interface MesProcessPoolEventRevisionService {
     Long updateOriginalRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO);
 
     Long updateProductionReportRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO);
+
+    Long updatePqcInspectionRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO);
 }
