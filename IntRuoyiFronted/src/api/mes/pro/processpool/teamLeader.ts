@@ -266,6 +266,7 @@ export interface TeamLeaderActiveOrderRespVO {
   routeVersionId: number
   routeVersionNo: string
   erpFixedQuantitySnapshot?: number | string
+  productionCoefficient?: number | string
   productionProgressPercent: number | string
   inspectionProgressPercent: number | string
   activeStatus: string

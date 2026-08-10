@@ -2424,7 +2424,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="reviewVisible" :title="reviewDialogTitle" width="760px">
+    <el-dialog v-model="reviewVisible" :title="reviewDialogTitle" width="988px">
       <el-form v-if="reviewDialogMode === 'REVIEW'" :model="reviewForm" label-width="92px">
         <el-form-item v-if="reviewDialogMode === 'REVIEW'" label="判定结果">
           <el-select v-model="reviewForm.reviewStatus">
@@ -2509,6 +2509,16 @@
                   </div>
                 </el-option>
               </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="要生产数量" width="120">
+            <template #default="{ row }">
+              {{ formatAllocationOrderProductionQuantity(row) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="生产系数" width="110">
+            <template #default="{ row }">
+              {{ formatAllocationOrderProductionCoefficient(row) }}
             </template>
           </el-table-column>
           <el-table-column label="分配数量" width="330">
@@ -4680,9 +4690,37 @@ const normalizeAllocationInteger = (value: unknown) => {
   return Math.floor(parsed)
 }
 
-const resolveAllocationActiveOrder = (line: TeamLeaderReportAllocationDraftLine) => {
+const findAllocationActiveOrder = (line: TeamLeaderReportAllocationDraftLine) => {
   const activeOrderId = Number(line.activeOrderId)
-  const order = allocatableActiveOrderOptions.value.find((item) => Number(item.id) === activeOrderId)
+  if (!Number.isFinite(activeOrderId)) {
+    return undefined
+  }
+  return allocatableActiveOrderOptions.value.find((item) => Number(item.id) === activeOrderId)
+}
+
+const formatAllocationOrderProductionQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
+  const order = findAllocationActiveOrder(line)
+  return order ? formatTraceQuantity(order.erpFixedQuantitySnapshot ?? order.quantity) : '--'
+}
+
+const formatAllocationOrderProductionCoefficient = (line: TeamLeaderReportAllocationDraftLine) => {
+  const order = findAllocationActiveOrder(line)
+  if (!order) {
+    return '--'
+  }
+  const value = order.productionCoefficient
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return '--'
+  }
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) {
+    return String(value)
+  }
+  return parsed.toFixed(3).replace(/\.?0+$/, '')
+}
+
+const resolveAllocationActiveOrder = (line: TeamLeaderReportAllocationDraftLine) => {
+  const order = findAllocationActiveOrder(line)
   if (!order) {
     throw new Error('请选择活跃订单后再快捷分配')
   }
