@@ -307,37 +307,10 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
                     "routeProjectCode productId=" + productId + "，routeId=" + routeId);
         }
-        Map<Long, MesMdItemDO> routeItems = itemService.getItemMap(routeItemIds);
-        Set<Long> resolvedRouteItemIds = routeItemIds.stream()
-                .filter(itemId -> routeItems.containsKey(itemId) && routeItems.get(itemId) != null)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        Set<String> routeProjectCodes = resolvedRouteItemIds.stream()
-                .map(routeItems::get)
-                .map(MesMdItemDO::getCode)
-                .filter(StrUtil::isNotBlank)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        Map<Long, DccProjectCodeDO> matchedProjects = dccProjectCodeMapper.selectEnabledList().stream()
-                .filter(Objects::nonNull)
-                .filter(project -> project.getId() != null)
-                .filter(project -> routeProjectCodes.contains(project.getProjectCode())
-                        || routeItemIds.contains(project.getProductMasterId()))
-                .collect(Collectors.toMap(DccProjectCodeDO::getId, Function.identity(), (left, right) -> left,
-                        LinkedHashMap::new));
-        if (matchedProjects.size() != 1) {
-            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
-                    "routeProjectCode productId=" + productId
-                            + "，routeId=" + routeId
-                            + "，routeProjectCodes=" + routeProjectCodes
-                            + "，matchedProjectIds=" + matchedProjects.keySet());
-        }
-        DccProjectCodeDO project = matchedProjects.values().iterator().next();
-        Set<Long> qaProductIds = resolveQaProductIdsFromDccProject(project, routeItems);
-        if (qaProductIds.isEmpty()) {
-            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
-                    "qaInspectionProduct routeId=" + routeId
-                            + "，projectCode=" + project.getProjectCode()
-                            + "，productMasterId=" + project.getProductMasterId());
-        }
+        DccProjectCodeDO project = resolveRouteDccProject(productId, routeId, routeItemIds);
+        Long qaProductId = project.getProductMasterId();
+        requirePositive(qaProductId, "dccProject.productMasterId");
+        Set<Long> qaProductIds = Set.of(qaProductId);
         List<MesQaInspectionRegulationDO> publishedRegulations =
                 regulationMapper.selectListByProductIds(qaProductIds).stream()
                         .filter(Objects::nonNull)
@@ -355,11 +328,12 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 .map(MesQaInspectionRegulationDO::getProductId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (matchedQaProductIds.size() != 1) {
+        if (!Objects.equals(matchedQaProductIds, Set.of(qaProductId))) {
             throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
                     "qaInspectionRegulation routeId=" + routeId
                             + "，routeVersionId=" + activeOrder.getRouteVersionId()
-                            + "，candidateProductIds=" + qaProductIds
+                            + "，dccProjectCode=" + project.getProjectCode()
+                            + "，expectedProductId=" + qaProductId
                             + "，matchedProductIds=" + matchedQaProductIds);
         }
         Set<Long> regulationVersionIds = publishedRegulations.stream()
@@ -369,7 +343,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         if (regulationVersionIds.isEmpty()) {
             throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
-                    "qaInspectionItems qaProductId=" + matchedQaProductIds.iterator().next());
+                    "qaInspectionItems qaProductId=" + qaProductId);
         }
         Set<Long> itemVersionIds = regulationItemMapper.selectListByVersionIds(regulationVersionIds).stream()
                 .filter(Objects::nonNull)
@@ -378,29 +352,28 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 .collect(Collectors.toSet());
         if (!itemVersionIds.containsAll(regulationVersionIds)) {
             throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
-                    "qaInspectionItems qaProductId=" + matchedQaProductIds.iterator().next()
+                    "qaInspectionItems qaProductId=" + qaProductId
                             + "，regulationVersionIds=" + regulationVersionIds);
         }
-        return new QaProjectProcessSource(matchedQaProductIds.iterator().next(), publishedRegulations);
+        return new QaProjectProcessSource(qaProductId, publishedRegulations);
     }
 
-    private Set<Long> resolveQaProductIdsFromDccProject(DccProjectCodeDO project,
-                                                        Map<Long, MesMdItemDO> routeItems) {
-        Set<Long> qaProductIds = new LinkedHashSet<>();
-        if (project.getProductMasterId() != null) {
-            qaProductIds.add(project.getProductMasterId());
-        }
-        String projectCode = StrUtil.trimToNull(project.getProjectCode());
-        if (projectCode == null) {
-            return qaProductIds;
-        }
-        routeItems.values().stream()
+    private DccProjectCodeDO resolveRouteDccProject(Long productId, Long routeId, Set<Long> routeProductMasterIds) {
+        Map<Long, DccProjectCodeDO> matchedProjects = dccProjectCodeMapper.selectEnabledList().stream()
                 .filter(Objects::nonNull)
-                .filter(item -> Objects.equals(projectCode, StrUtil.trim(item.getCode())))
-                .map(MesMdItemDO::getId)
-                .filter(Objects::nonNull)
-                .forEach(qaProductIds::add);
-        return qaProductIds;
+                .filter(project -> project.getId() != null)
+                .filter(project -> project.getProductMasterId() != null)
+                .filter(project -> routeProductMasterIds.contains(project.getProductMasterId()))
+                .collect(Collectors.toMap(DccProjectCodeDO::getId, Function.identity(), (left, right) -> left,
+                        LinkedHashMap::new));
+        if (matchedProjects.size() != 1) {
+            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
+                    "routeProjectCode productId=" + productId
+                            + "，routeId=" + routeId
+                            + "，routeProductMasterIds=" + routeProductMasterIds
+                            + "，matchedProjectIds=" + matchedProjects.keySet());
+        }
+        return matchedProjects.values().iterator().next();
     }
 
     private List<MesProRouteProcessDO> resolveQaInspectionItemRouteProcesses(

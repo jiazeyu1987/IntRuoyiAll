@@ -3106,8 +3106,10 @@ const resolveQaProcessBindingGroups = (
 
 const resolveQaRegulationItemRouteProcesses = (
   item: QaRegulationItem,
-  source: QaRouteScopeAutoSource
+  source: QaRouteScopeAutoSource,
+  settings: { publishing?: boolean } = {}
 ) => {
+  const publishing = Boolean(settings.publishing)
   const processName = resolveRequiredText(item.processName, `${item.itemName}适用工序`)
   const projectCode = normalizeDccProjectCode(selectedDccProjectCode.value?.projectCode || '')
   const configuredBindings = QA_PROCESS_SCOPE_BINDINGS_BY_PROJECT_CODE[projectCode]?.[processName]
@@ -3121,6 +3123,9 @@ const resolveQaRegulationItemRouteProcesses = (
       })
       .find((matches) => matches.length > 0) || []
   if (matchedProcesses.length === 0) {
+    if (publishing) {
+      return [{ routeProcess: source.routeProcess, batchRecordBindingResolved: false }]
+    }
     const allowedUnboundProcessNames = new Set(
       (QA_UNBOUND_BATCH_RECORD_PROCESS_NAMES_BY_PROJECT_CODE[projectCode] || []).map(
         normalizeQaProcessBindingName
@@ -3137,6 +3142,9 @@ const resolveQaRegulationItemRouteProcesses = (
     .map((routeProcess) => normalizeQaProcessBindingName(routeProcess.processName))
     .filter((name, index, names) => names.indexOf(name) !== index)
   if (duplicateNames.length > 0) {
+    if (publishing) {
+      return [{ routeProcess: source.routeProcess, batchRecordBindingResolved: false }]
+    }
     throw new Error(
       `${item.itemName}的正式工序“${processName}”在激活路线版本中不唯一，必须按路线工序明确配置。`
     )
@@ -3195,7 +3203,7 @@ const buildQaRegulationSavePayloads = (
       }
     >()
     for (const item of qaRegulationItems.value) {
-      for (const binding of resolveQaRegulationItemRouteProcesses(item, source)) {
+      for (const binding of resolveQaRegulationItemRouteProcesses(item, source, { publishing })) {
         const routeProcess = binding.routeProcess
         const routeProcessId = resolvePositiveId(routeProcess.id, '路线工序 ID')
         const group = itemsByRouteProcessId.get(routeProcessId) || {
