@@ -7,7 +7,7 @@ import type {
 
 export type TeamLeaderType = 'PRODUCTION' | 'PQC'
 export type SubmissionReviewStatus = 'APPROVED' | 'REJECTED'
-export type DeviceParameterValueType = 'INTEGER' | 'DECIMAL' | 'TEXT_STANDARD'
+export type DeviceParameterValueType = 'INTEGER' | 'DECIMAL' | 'TEXT_STANDARD' | 'SELECT'
 
 export interface TeamLeaderSubmissionPageReqVO extends ProcessPoolTimelinePageReqVO {
   leaderType: TeamLeaderType
@@ -52,6 +52,9 @@ export interface TeamLeaderProcessConfigParameterVO {
   lowerLimit?: number | string | null
   targetValue?: number | string | null
   upperLimit?: number | string | null
+  optionValues?: string[]
+  defaultText?: string | null
+  decimalScale?: number | null
   enabled?: boolean
   actualAverage?: number | null
   sampleCount: number
@@ -118,6 +121,9 @@ export interface TeamDeviceParameterRuleSaveReqVO {
   upperLimit?: number | string | null
   targetValue?: number | string | null
   valueType: DeviceParameterValueType
+  optionValues?: string[]
+  defaultText?: string | null
+  decimalScale?: number | null
 }
 
 export interface TeamLeaderActiveOrderAddReqVO {
@@ -267,6 +273,7 @@ export interface TeamLeaderActiveOrderRespVO {
   routeVersionId: number
   routeVersionNo: string
   erpFixedQuantitySnapshot?: number | string
+  productionCoefficient?: number | string
   productionProgressPercent: number | string
   inspectionProgressPercent: number | string
   activeStatus: string

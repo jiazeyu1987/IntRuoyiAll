@@ -65,7 +65,7 @@ class DccProjectCodeAssignmentServiceImplTest extends BaseMockitoUnitTest {
         when(adminUserApi.getUser(123L)).thenReturn(enabledUser(123L));
         when(permissionApi.hasAnyPermissions(123L, "dcc:project-code-assignment:execute")).thenReturn(true);
         DccControlledFileDO selectedFile = controlledFile(900L);
-        when(controlledFileMapper.selectAssociatedFilesByProjectCodeId(3000L, List.of(900L)))
+        when(controlledFileMapper.selectCurrentApprovedFilesByIds(List.of(900L)))
                 .thenReturn(List.of(selectedFile));
         doAnswer(invocation -> {
             DccProjectCodeAssignmentDO assignment = invocation.getArgument(0);
@@ -91,11 +91,62 @@ class DccProjectCodeAssignmentServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void createAssignment_selectedFilesAllowsFileOutsideTargetProjectScope() {
+        when(projectCodeMapper.selectById(3000L)).thenReturn(projectCode());
+        when(adminUserApi.getUser(123L)).thenReturn(enabledUser(123L));
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        DccControlledFileDO externalProjectFile = controlledFile(901L);
+        externalProjectFile.setDccProjectCodeId(129L);
+        when(controlledFileMapper.selectCurrentApprovedFilesByIds(List.of(901L)))
+                .thenReturn(List.of(externalProjectFile));
+        doAnswer(invocation -> {
+            DccProjectCodeAssignmentDO assignment = invocation.getArgument(0);
+            assignment.setId(9101L);
+            return 1;
+        }).when(assignmentMapper).insert(any(DccProjectCodeAssignmentDO.class));
+        when(adminUserApi.getUserList(List.of(123L))).thenReturn(List.of(enabledUser(123L)));
+
+        var resp = assignmentService.createAssignment(99L, 3000L, selectedReq(List.of(901L)));
+
+        assertEquals(9101L, resp.getId());
+        ArgumentCaptor<DccProjectCodeAssignmentFileDO> fileCaptor =
+                ArgumentCaptor.forClass(DccProjectCodeAssignmentFileDO.class);
+        verify(assignmentFileMapper).insert(fileCaptor.capture());
+        assertEquals(3000L, fileCaptor.getValue().getProjectCodeId());
+        assertEquals(901L, fileCaptor.getValue().getControlledFileId());
+    }
+
+    @Test
+    void createAssignment_selectedFilesCreatesTargetSnapshotWhenDirectProjectFieldIsEmpty() {
+        when(projectCodeMapper.selectById(3000L)).thenReturn(projectCode());
+        when(adminUserApi.getUser(123L)).thenReturn(enabledUser(123L));
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        DccControlledFileDO recognizedProjectFile = controlledFile(902L);
+        recognizedProjectFile.setDccProjectCodeId(null);
+        when(controlledFileMapper.selectCurrentApprovedFilesByIds(List.of(902L)))
+                .thenReturn(List.of(recognizedProjectFile));
+        doAnswer(invocation -> {
+            DccProjectCodeAssignmentDO assignment = invocation.getArgument(0);
+            assignment.setId(9102L);
+            return 1;
+        }).when(assignmentMapper).insert(any(DccProjectCodeAssignmentDO.class));
+        when(adminUserApi.getUserList(List.of(123L))).thenReturn(List.of(enabledUser(123L)));
+
+        assignmentService.createAssignment(99L, 3000L, selectedReq(List.of(902L)));
+
+        ArgumentCaptor<DccProjectCodeAssignmentFileDO> fileCaptor =
+                ArgumentCaptor.forClass(DccProjectCodeAssignmentFileDO.class);
+        verify(assignmentFileMapper).insert(fileCaptor.capture());
+        assertEquals(3000L, fileCaptor.getValue().getProjectCodeId());
+        assertEquals(902L, fileCaptor.getValue().getControlledFileId());
+    }
+
+    @Test
     void createAssignment_selectedFilesRejectsOutOfScopeFileIds() {
         when(projectCodeMapper.selectById(3000L)).thenReturn(projectCode());
         when(adminUserApi.getUser(123L)).thenReturn(enabledUser(123L));
         when(permissionApi.hasAnyPermissions(123L, "dcc:project-code-assignment:execute")).thenReturn(true);
-        when(controlledFileMapper.selectAssociatedFilesByProjectCodeId(3000L, List.of(900L, 901L)))
+        when(controlledFileMapper.selectCurrentApprovedFilesByIds(List.of(900L, 901L)))
                 .thenReturn(List.of(controlledFile(900L)));
 
         assertServiceException(() -> assignmentService.createAssignment(99L, 3000L, selectedReq(List.of(900L, 901L))),

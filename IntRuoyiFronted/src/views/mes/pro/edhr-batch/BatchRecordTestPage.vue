@@ -909,7 +909,7 @@
           <el-descriptions-item label="测试任务" :span="2">
             {{ testResult.rowTitle }}
           </el-descriptions-item>
-          <el-descriptions-item v-if="testResult.data?.summary" label="执行摘要" :span="2">
+          <el-descriptions-item v-if="testResult.data?.summary" label="简要结论" :span="2">
             {{ testResult.data.summary }}
           </el-descriptions-item>
         </el-descriptions>
@@ -929,7 +929,7 @@
           class="edhr-batch-record-test-page__result-section"
         >
           <div class="edhr-batch-record-test-page__result-heading">
-            <span>Codex CLI 回复</span>
+            <span>测试回复</span>
             <el-tag :type="getExecutionStatusTagType(executionCase.status)">
               {{ getExecutionStatusText(executionCase.status) }}
             </el-tag>
@@ -964,17 +964,17 @@
             <el-table-column label="预期" prop="expectedTextSnapshot" min-width="160" />
             <el-table-column
               class-name="edhr-batch-record-test-page__actual-reply-column"
-              label="实际回复"
+              label="通俗解释"
               min-width="200"
               :show-overflow-tooltip="false"
             >
               <template #default="{ row: checkpoint }">
-                {{ checkpoint.actualText || '等待 Codex CLI 返回' }}
+                {{ checkpoint.actualText || '等待测试回复' }}
               </template>
             </el-table-column>
             <el-table-column
               class-name="edhr-batch-record-test-page__mismatch-description-column"
-              label="不符合描述"
+              label="哪里不一致"
               min-width="260"
               :show-overflow-tooltip="false"
             >
@@ -987,7 +987,7 @@
 
         <el-empty
           v-if="!testResult.error && !testResult.data?.cases?.length"
-          :description="testResult.loading ? '正在等待 Codex CLI 回复' : '尚未收到执行结果'"
+          :description="testResult.loading ? '正在等待测试回复' : '尚未收到执行结果'"
         />
         <template #footer>
           <el-button @click="testResult.visible = false">关闭</el-button>
@@ -1048,6 +1048,8 @@ type BatchRecordTestDescriptionCache = {
 
 const BATCH_RECORD_TEST_DESCRIPTION_CACHE_VERSION = 1
 const BATCH_RECORD_TEST_DESCRIPTION_CACHE_KEY_PREFIX = 'mes.pro.edhrBatchRecordTest.descriptions'
+const CODE_READONLY_BUSINESS_JUDGEMENT_RULE =
+  '判定规则：先把职责描述翻译成业务流程，只判断当前代码表达出的业务方向、页面入口、核心对象、用户动作和后续上下文是否与职责描述一致。页面文案、路由、按钮、字段、状态、API 命名、权限命名和测试名称可以作为业务方向证据；缺少 Service、Mapper、SQL 或测试只能作为实现细节不足说明，不能单独作为不通过原因。只体现维护、复核、历史记录、事件过滤或另一个角色范围等相邻业务方向时，判定为不通过并说明业务流程差异。无法收集到足够判断主业务流程的相关源码证据时才返回阻塞。'
 
 type PaginationPayload = {
   page?: number
@@ -2161,8 +2163,16 @@ function buildCodeReadonlyCasePayload(
   return {
     name: definition.caseName,
     project: '批记录',
-    methodText: '只读扫描当前代码，判断业务方向是否偏离' + definition.testScope,
-    testDataText: '测试范围：' + definition.testScope + '。描述：' + definition.description,
+    methodText:
+      '只读扫描当前代码，从业务逻辑角度判断当前实现方向是否符合职责描述，不做完整实现审计：' +
+      definition.testScope,
+    testDataText:
+      '测试范围：' +
+      definition.testScope +
+      '。职责描述：' +
+      definition.description +
+      '。' +
+      CODE_READONLY_BUSINESS_JUDGEMENT_RULE,
     analysisMode: 'CODE_READONLY',
     defaultExecutionMode: 'SEQUENTIAL',
     parallelSafe: false,
@@ -2174,11 +2184,11 @@ function buildCodeReadonlyCasePayload(
         name: definition.title,
         remark: definition.description,
         expectedText:
-          '当前代码、路由、API、权限和页面文案的业务方向与' +
+          '基于页面文案、路由、按钮、字段、状态、API 命名、权限命名和测试名称判断主业务流程、核心对象、用户动作和后续上下文是否与职责描述一致；方向一致即通过，缺少 Service、Mapper、SQL 或测试等实现细节证据只在 actualText 中说明，不单独判定为不通过。测试范围：' +
           definition.testScope +
-          '一致：' +
+          '。职责描述：' +
           definition.description +
-          '。本检查只判断设计方向是否跑偏，不要求证明 Service、Mapper 或测试已完整实现。',
+          '。只支持相邻功能、局部对象或部分链路时判定为不通过，并在实际回复和差异说明中列出已支持证据与缺失证据。',
         severity: 'MAJOR'
       }
     ]
@@ -2421,7 +2431,7 @@ async function handleTestRow(row: BatchRecordTestRow, source: BatchRecordTestInv
     if (source === 'single') message.success('已创建代码分析执行批次 ' + executionId)
     const execution = await pollCodexTestExecutionResult(historyKey, executionId)
     if (runToken !== testRunToken || !execution) return
-    if (source === 'single') message.success('Codex CLI 回复已返回，可点击历史查看')
+    if (source === 'single') message.success('测试回复已返回，可点击历史查看')
     return execution
   } catch (error) {
     if (runToken !== testRunToken) return

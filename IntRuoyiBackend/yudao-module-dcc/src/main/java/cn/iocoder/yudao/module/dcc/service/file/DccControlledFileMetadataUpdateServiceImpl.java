@@ -41,6 +41,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_DIRECTORY_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_ASSIGNMENT_TARGET_PROJECT_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_DISABLED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS;
 
@@ -81,6 +82,9 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
                 ? null
                 : projectCodeAssignmentService.assertMetadataUpdateAllowed(userId, id, reqVO.getAssignmentId());
         NormalizedMetadata metadata = validateAndNormalize(reqVO);
+        if (!docControl && !Objects.equals(authorization.projectCodeId(), metadata.dccProjectCodeId())) {
+            throw exception(PROJECT_CODE_ASSIGNMENT_TARGET_PROJECT_MISMATCH);
+        }
 
         DccControlledFileDO file = controlledFileMapper.selectById(id);
         if (file == null) {

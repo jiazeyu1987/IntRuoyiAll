@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @Builder
@@ -22,4 +23,7 @@ public class MesTeamDeviceParameterRuleSaveReqBO {
     private BigDecimal targetValue;
     private String valueType;
     private String standardText;
+    private List<String> optionValues;
+    private String defaultText;
+    private Integer decimalScale;
 }

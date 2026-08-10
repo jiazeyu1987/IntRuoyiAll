@@ -46,6 +46,9 @@ public class ProcessPoolTimelinePageReqVO extends PageParam {
     @Schema(description = "工序池事件类型", hidden = true)
     private String eventType;
 
+    @Schema(description = "是否只查询完成数量为正数的事件", hidden = true)
+    private Boolean requirePositiveOutputQuantity;
+
     public String getEventType() {
         return eventType;
     }

@@ -65,6 +65,7 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
     private static final String RECORD_CATEGORY = "INTERNAL_RECORD";
     private static final String VALIDATION_PROFILE = "INTERNAL_TRACE";
     private static final String OWNER_ROLE = "PRODUCTION";
+    private static final Long LOSS_REPORT_FORM_TEMPLATE_ID = 25L;
     private static final String SOURCE_TYPE = "PRODUCTION_LOSS";
     private static final String SCOPE_TYPE_ROUTE_VERSION = "ROUTE_VERSION";
     private static final String FEEDBACK_SOURCE_TYPE = "MES_PRO_FEEDBACK";
@@ -441,11 +442,41 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                         && StrUtil.isNotBlank(binding.getRecordCategorySnapshotHash())
                         && StrUtil.isNotBlank(binding.getSlotConfigSnapshotHash()))
                 .toList();
+        List<MesProRouteFlowProcessBatchRecordDO> dynamicFormal = bindings == null ? List.of() : bindings.stream()
+                .filter(Objects::nonNull)
+                .filter(binding -> binding.getId() != null
+                        && Objects.equals(snapshot.getRouteId(), binding.getRouteId())
+                        && Objects.equals(snapshot.getRouteProcessId(), binding.getRouteProcessId())
+                        && USE_TYPE_BATCH.equals(binding.getUseType())
+                        && StrUtil.isBlank(binding.getBatchRecordReportId())
+                        && binding.getBatchRecordDefinitionId() == null
+                        && binding.getBatchRecordVersionId() == null
+                        && FORM_SLOT_TYPE.equals(binding.getFormSlotType())
+                        && RECORD_CATEGORY.equals(binding.getRecordCategory())
+                        && VALIDATION_PROFILE.equals(binding.getValidationProfile())
+                        && OWNER_ROLE.equals(binding.getOwnerRoleKey())
+                        && LOSS_REPORT_FORM_TEMPLATE_ID.equals(binding.getFormTemplateId())
+                        && StrUtil.isNotBlank(binding.getFormBindingKey())
+                        && binding.getLastPublishedTemplateVersionId() != null
+                        && StrUtil.isNotBlank(binding.getLastPublishedTemplateVersionNo())
+                        && binding.getPermissionScopeId() != null
+                        && StrUtil.isNotBlank(binding.getRecordCategorySnapshotHash())
+                        && StrUtil.isNotBlank(binding.getSlotConfigSnapshotHash()))
+                .toList();
+        if (formal.isEmpty() && dynamicFormal.size() == 1) {
+            MesProRouteFlowProcessBatchRecordDO binding = dynamicFormal.get(0);
+            blockers.add(blocker("LOSS_REPORT_DYNAMIC_FORM_AUTOWRITE_REQUIRED", snapshot, null,
+                    "ROUTE_PROCESS_FORM_BINDING", binding.getId(), binding.getFormBindingKey(), null,
+                    "已识别路线绑定的损耗单 FormCenter 正式目标，但自动写入和提交链路尚未接通",
+                    "请配置 template 25 已发布版本的 PRODUCTION_LOSS 字段映射并接通正式实例提交"));
+            return null;
+        }
         if (formal.size() != 1) {
             blockers.add(blocker("LOSS_REPORT_BINDING_REQUIRED", snapshot, null, "ROUTE_PROCESS",
                     snapshot.getRouteProcessId(), null, null,
-                    "工序必须存在唯一传统 LOSS_REPORT 正式绑定，当前数量=" + formal.size(),
-                    "请在工序设置维护生产所有者的正式损耗报告绑定"));
+                    "工序必须存在唯一有效 LOSS_REPORT 目标绑定，传统数量=" + formal.size()
+                            + "，动态数量=" + dynamicFormal.size(),
+                    "请维护唯一的传统损耗报表绑定或 template 25 已发布动态表单绑定"));
             return null;
         }
         return formal.get(0);

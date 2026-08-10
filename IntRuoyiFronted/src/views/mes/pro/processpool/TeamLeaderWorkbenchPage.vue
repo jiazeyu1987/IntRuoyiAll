@@ -1781,10 +1781,14 @@
                   <span data-team-leader-process-config-standard-text>
                     {{ parameter.standardText }}
                   </span>
-                  <template v-if="parameter.valueType !== 'TEXT_STANDARD'">
+                  <template v-if="isProcessConfigNumericParameter(parameter)">
                     <span>平均 {{ formatProcessConfigAverage(parameter) }}</span>
                     <span>样本 {{ parameter.sampleCount ?? 0 }}</span>
                     <span>{{ formatProcessConfigStatisticsWindow(parameter) }}</span>
+                  </template>
+                  <template v-else-if="parameter.valueType === 'SELECT'">
+                    <span>默认 {{ parameter.defaultText || '--' }}</span>
+                    <span>选项 {{ formatProcessConfigOptionValues(parameter) }}</span>
                   </template>
                 </div>
               </template>
@@ -2346,6 +2350,7 @@
           <el-select v-model="processConfigParameterForm.valueType">
             <el-option label="数值" value="DECIMAL" />
             <el-option label="整数" value="INTEGER" />
+            <el-option label="下拉框" value="SELECT" />
             <el-option label="文本标准" value="TEXT_STANDARD" />
           </el-select>
         </el-form-item>
@@ -2360,9 +2365,51 @@
           />
         </el-form-item>
         <el-form-item
-          v-if="processConfigParameterForm.valueType !== 'TEXT_STANDARD'"
-          label="下限"
+          v-if="processConfigParameterForm.valueType === 'SELECT'"
+          label="下拉选项"
           required
+        >
+          <el-select
+            v-model="processConfigParameterForm.optionValues"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            placeholder="请输入或选择选项"
+            data-team-leader-process-config-option-values
+          >
+            <el-option
+              v-for="option in processConfigParameterForm.optionValues"
+              :key="option"
+              :label="option"
+              :value="option"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item
+          v-if="processConfigParameterForm.valueType === 'SELECT'"
+          label="默认文本"
+        >
+          <el-select
+            v-model="processConfigParameterForm.defaultText"
+            clearable
+            filterable
+            allow-create
+            default-first-option
+            placeholder="请选择默认文本"
+            data-team-leader-process-config-default-text
+          >
+            <el-option
+              v-for="option in processConfigParameterForm.optionValues"
+              :key="option"
+              :label="option"
+              :value="option"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item
+          v-if="isProcessConfigNumericValueType(processConfigParameterForm.valueType)"
+          label="下限"
         >
           <el-input-number
             v-model="processConfigParameterForm.lowerLimit"
@@ -2371,7 +2418,7 @@
           />
         </el-form-item>
         <el-form-item
-          v-if="processConfigParameterForm.valueType !== 'TEXT_STANDARD'"
+          v-if="isProcessConfigNumericValueType(processConfigParameterForm.valueType)"
           label="目标值"
         >
           <el-input-number
@@ -2381,9 +2428,8 @@
           />
         </el-form-item>
         <el-form-item
-          v-if="processConfigParameterForm.valueType !== 'TEXT_STANDARD'"
+          v-if="isProcessConfigNumericValueType(processConfigParameterForm.valueType)"
           label="上限"
-          required
         >
           <el-input-number
             v-model="processConfigParameterForm.upperLimit"
@@ -2392,17 +2438,29 @@
           />
         </el-form-item>
         <el-form-item
-          v-if="processConfigParameterForm.valueType !== 'TEXT_STANDARD'"
+          v-if="processConfigParameterForm.valueType === 'DECIMAL'"
+          label="小数位数"
+        >
+          <el-input-number
+            v-model="processConfigParameterForm.decimalScale"
+            :min="0"
+            :max="6"
+            :precision="0"
+            data-team-leader-process-config-decimal-scale
+          />
+        </el-form-item>
+        <el-form-item
+          v-if="isProcessConfigNumericValueType(processConfigParameterForm.valueType)"
           label="实际平均值"
         >
           <span data-team-leader-process-config-average-readonly>
             {{ processConfigEditingParameter ? formatProcessConfigAverage(processConfigEditingParameter) : '暂无样本' }}
           </span>
         </el-form-item>
-        <el-form-item v-if="processConfigParameterForm.valueType !== 'TEXT_STANDARD'" label="样本数">
+        <el-form-item v-if="isProcessConfigNumericValueType(processConfigParameterForm.valueType)" label="样本数">
           <span>{{ processConfigEditingParameter?.sampleCount ?? 0 }}</span>
         </el-form-item>
-        <el-form-item v-if="processConfigParameterForm.valueType !== 'TEXT_STANDARD'" label="统计周期">
+        <el-form-item v-if="isProcessConfigNumericValueType(processConfigParameterForm.valueType)" label="统计周期">
           <span>
             {{
               processConfigEditingParameter
@@ -2424,7 +2482,12 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="reviewVisible" :title="reviewDialogTitle" width="760px">
+    <el-dialog
+      v-model="reviewVisible"
+      :title="reviewDialogTitle"
+      width="min(1120px, calc(100vw - 32px))"
+      class="team-leader-workbench__review-dialog"
+    >
       <el-form v-if="reviewDialogMode === 'REVIEW'" :model="reviewForm" label-width="92px">
         <el-form-item v-if="reviewDialogMode === 'REVIEW'" label="判定结果">
           <el-select v-model="reviewForm.reviewStatus">
@@ -2470,14 +2533,17 @@
         <el-table
           data-team-leader-allocation-table
           :data="allocationRows"
+          class="team-leader-workbench__allocation-table"
           border
           size="small"
+          table-layout="fixed"
           empty-text="请点击 FIFO 自动分配或手动新增分配行"
         >
-          <el-table-column label="活跃订单" min-width="220">
+          <el-table-column label="活跃订单" width="260">
             <template #default="{ row }">
               <el-select
                 v-model="row.activeOrderId"
+                class="team-leader-workbench__allocation-order-select"
                 :disabled="row.editable === false"
                 filterable
                 popper-class="team-leader-workbench__allocation-order-popper"
@@ -2511,7 +2577,17 @@
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="分配数量" width="330">
+          <el-table-column label="要生产数量" width="110" align="right">
+            <template #default="{ row }">
+              {{ formatAllocationOrderProductionQuantity(row) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="生产系数" width="90" align="right">
+            <template #default="{ row }">
+              {{ formatAllocationOrderProductionCoefficient(row) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="分配数量" width="268">
             <template #default="{ row }">
               <div class="team-leader-workbench__allocation-quantity-cell">
                 <el-input-number
@@ -2552,18 +2628,18 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="FIFO 剩余" width="140">
+          <el-table-column label="FIFO 剩余" width="110" align="right">
             <template #default="{ row }">
               {{ row.remainingQuantityBeforeAllocation ?? '--' }}
             </template>
           </el-table-column>
-          <el-table-column label="状态" width="110">
+          <el-table-column label="状态" width="88" align="center">
             <template #default="{ row }">
               <el-tag v-if="row.released" type="success" effect="light">已放行</el-tag>
               <el-tag v-else type="warning" effect="plain">未放行</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="90">
+          <el-table-column label="操作" width="72" align="center">
             <template #default="{ row, $index }">
               <el-button
                 link
@@ -2891,6 +2967,7 @@ import {
   type TeamLeaderType,
   type TeamPqcPersonnelRespVO,
   type TeamDeviceRespVO,
+  type DeviceParameterValueType,
   type TeamProductionEmployeeRespVO
 } from '@/api/mes/pro/processpool/teamLeader'
 import type {
@@ -2904,6 +2981,72 @@ import {
 import { formatDateTimeValue, formatDate } from '@/utils/formatTime'
 
 defineOptions({ name: 'MesProProcessPoolTeamLeaderWorkbench' })
+
+type ProcessConfigDeviceParameterTemplate = {
+  parameterCode: string
+  parameterName: string
+  unit?: string
+  standardText: string
+  valueType: DeviceParameterValueType
+  targetValue?: number
+  lowerLimit?: number
+  upperLimit?: number
+  optionValues?: string[]
+  defaultText?: string
+  decimalScale?: number
+}
+
+const ROUGH_WASH_DEVICE_PARAMETER_TEMPLATES: ProcessConfigDeviceParameterTemplate[] = [
+  {
+    parameterCode: 'ROUGH_WASH_COUNT',
+    parameterName: '清洗次数',
+    unit: '次',
+    standardText: '清洗次数默认 2 次',
+    valueType: 'INTEGER',
+    targetValue: 2,
+    lowerLimit: undefined,
+    upperLimit: undefined
+  },
+  {
+    parameterCode: 'ROUGH_WASH_MEDIUM',
+    parameterName: '清洗介质',
+    standardText: '清洗介质可选自来水或纯净水',
+    valueType: 'SELECT',
+    optionValues: ['自来水', '纯净水'],
+    defaultText: '自来水'
+  },
+  {
+    parameterCode: 'ROUGH_WASH_POWER',
+    parameterName: '清洗功率',
+    unit: '%',
+    standardText: '清洗功率 20-30%',
+    valueType: 'INTEGER',
+    lowerLimit: 20,
+    targetValue: undefined,
+    upperLimit: 30
+  },
+  {
+    parameterCode: 'ROUGH_WASH_ROOM_TEMPERATURE',
+    parameterName: '室温',
+    unit: '℃',
+    standardText: '室温 20.0-30.0℃',
+    valueType: 'DECIMAL',
+    lowerLimit: 20,
+    targetValue: 26,
+    upperLimit: 30,
+    decimalScale: 1
+  },
+  {
+    parameterCode: 'ROUGH_WASH_TIME',
+    parameterName: '清洗时间',
+    unit: 'min',
+    standardText: '清洗时间默认 30 min',
+    valueType: 'INTEGER',
+    targetValue: 30,
+    lowerLimit: undefined,
+    upperLimit: undefined
+  }
+]
 
 type WorkbenchLeaderTab = TeamLeaderType
 type ProcessConfigCreateType = 'DEVICE_BINDING' | 'PARAMETER_RULE'
@@ -3816,7 +3959,10 @@ const processConfigParameterForm = reactive({
   lowerLimit: undefined as number | undefined,
   targetValue: undefined as number | undefined,
   upperLimit: undefined as number | undefined,
-  valueType: 'DECIMAL' as 'INTEGER' | 'DECIMAL' | 'TEXT_STANDARD'
+  valueType: 'DECIMAL' as DeviceParameterValueType,
+  optionValues: [] as string[],
+  defaultText: '',
+  decimalScale: undefined as number | undefined
 })
 
 const abnormalRules = {
@@ -4466,6 +4612,18 @@ const formatProcessConfigDevice = (
 const hasProcessConfigParameters = (row: TeamLeaderProcessConfigRowRespVO) =>
   row.devices?.some((device) => device.parameters?.length) ?? false
 
+const isProcessConfigNumericValueType = (valueType?: DeviceParameterValueType | string) =>
+  valueType === 'INTEGER' || valueType === 'DECIMAL'
+
+const isProcessConfigNumericParameter = (parameter: TeamLeaderProcessConfigParameterVO) =>
+  isProcessConfigNumericValueType(parameter.valueType)
+
+const normalizeProcessConfigOptionValues = (values: string[]) =>
+  Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+
+const formatProcessConfigOptionValues = (parameter: TeamLeaderProcessConfigParameterVO) =>
+  parameter.optionValues?.length ? parameter.optionValues.join('、') : '--'
+
 const formatProcessConfigAverage = (parameter: TeamLeaderProcessConfigParameterVO) => {
   if (parameter.actualAverage === null || parameter.actualAverage === undefined) {
     return '暂无样本'
@@ -4478,6 +4636,33 @@ const formatProcessConfigStatisticsWindow = (parameter: TeamLeaderProcessConfigP
   const start = formatDateTimeValue(parameter.statisticsStartTime, '--')
   const end = formatDateTimeValue(parameter.statisticsEndTime, '--')
   return `${start} ~ ${end}（${parameter.statisticsWindowDays || 30}天）`
+}
+
+const isRoughWashProcessConfig = (
+  row: TeamLeaderProcessConfigRowRespVO,
+  device: TeamLeaderProcessConfigDeviceVO
+) => {
+  const processText = [row.processName, row.processCode].filter(Boolean).join(' ')
+  const deviceText = [device.deviceName, device.deviceCode].filter(Boolean).join(' ')
+  return processText.includes('粗洗') && deviceText.includes('超声波清洗机')
+}
+
+const getNextRoughWashDeviceParameterTemplate = (
+  row: TeamLeaderProcessConfigRowRespVO,
+  device: TeamLeaderProcessConfigDeviceVO
+) => {
+  if (!isRoughWashProcessConfig(row, device)) return undefined
+  const existingKeys = new Set(
+    (device.parameters || []).flatMap((parameter) => [
+      parameter.parameterCode,
+      parameter.parameterName
+    ]).filter(Boolean)
+  )
+  return ROUGH_WASH_DEVICE_PARAMETER_TEMPLATES.find(
+    (template) =>
+      !existingKeys.has(template.parameterCode) &&
+      !existingKeys.has(template.parameterName)
+  )
 }
 
 const syncProcessConfigCreateDevice = () => {
@@ -4683,6 +4868,23 @@ const resetProcessConfigParameterForm = () => {
   processConfigParameterForm.targetValue = undefined
   processConfigParameterForm.upperLimit = undefined
   processConfigParameterForm.valueType = 'DECIMAL'
+  processConfigParameterForm.optionValues = []
+  processConfigParameterForm.defaultText = ''
+  processConfigParameterForm.decimalScale = undefined
+}
+
+const applyProcessConfigParameterTemplate = (template: ProcessConfigDeviceParameterTemplate) => {
+  processConfigParameterForm.parameterCode = template.parameterCode
+  processConfigParameterForm.parameterName = template.parameterName
+  processConfigParameterForm.unit = template.unit || ''
+  processConfigParameterForm.standardText = template.standardText
+  processConfigParameterForm.valueType = template.valueType
+  processConfigParameterForm.lowerLimit = template.lowerLimit
+  processConfigParameterForm.targetValue = template.targetValue
+  processConfigParameterForm.upperLimit = template.upperLimit
+  processConfigParameterForm.optionValues = [...(template.optionValues || [])]
+  processConfigParameterForm.defaultText = template.defaultText || ''
+  processConfigParameterForm.decimalScale = template.decimalScale
 }
 
 const openProcessConfigDeviceDialog = (row: TeamLeaderProcessConfigRowRespVO) => {
@@ -4706,6 +4908,12 @@ const openProcessConfigParameterDialog = (
   processConfigSelectedDevice.value = device
   processConfigEditingParameter.value = options.create ? undefined : parameter ?? device.parameters?.[0]
   resetProcessConfigParameterForm()
+  if (options.create) {
+    const template = getNextRoughWashDeviceParameterTemplate(row, device)
+    if (template) {
+      applyProcessConfigParameterTemplate(template)
+    }
+  }
   if (processConfigEditingParameter.value) {
     processConfigParameterForm.parameterCode = processConfigEditingParameter.value.parameterCode
     processConfigParameterForm.parameterName = processConfigEditingParameter.value.parameterName || ''
@@ -4721,6 +4929,13 @@ const openProcessConfigParameterDialog = (
       processConfigEditingParameter.value.upperLimit
     )
     processConfigParameterForm.valueType = processConfigEditingParameter.value.valueType || 'DECIMAL'
+    processConfigParameterForm.optionValues = [
+      ...(processConfigEditingParameter.value.optionValues || [])
+    ]
+    processConfigParameterForm.defaultText = processConfigEditingParameter.value.defaultText || ''
+    processConfigParameterForm.decimalScale = toOptionalProcessConfigNumber(
+      processConfigEditingParameter.value.decimalScale
+    )
   }
   processConfigParameterDialogVisible.value = true
 }
@@ -4764,25 +4979,61 @@ const submitProcessConfigParameterRule = async () => {
     ElMessage.error('参数原文标准不能为空')
     return
   }
-  const textStandard = processConfigParameterForm.valueType === 'TEXT_STANDARD'
-  const lowerLimit = textStandard
-    ? undefined
-    : requireFiniteNumber(processConfigParameterForm.lowerLimit, '参数下限不能为空')
-  const targetValue = textStandard
-    ? undefined
-    : toOptionalProcessConfigNumber(processConfigParameterForm.targetValue)
-  const upperLimit = textStandard
-    ? undefined
-    : requireFiniteNumber(processConfigParameterForm.upperLimit, '参数上限不能为空')
+  const valueType = processConfigParameterForm.valueType
+  const textStandard = valueType === 'TEXT_STANDARD'
+  const selectStandard = valueType === 'SELECT'
+  const numericStandard = isProcessConfigNumericValueType(valueType)
+  const optionValues = selectStandard
+    ? normalizeProcessConfigOptionValues(processConfigParameterForm.optionValues)
+    : undefined
+  const defaultText = selectStandard
+    ? processConfigParameterForm.defaultText.trim()
+    : undefined
+  if (selectStandard && !optionValues?.length) {
+    ElMessage.error('下拉参数至少需要配置一个选项')
+    return
+  }
+  if (selectStandard && defaultText && !optionValues?.includes(defaultText)) {
+    ElMessage.error('下拉参数默认文本必须来自下拉选项')
+    return
+  }
+  const lowerLimit = numericStandard
+    ? toOptionalProcessConfigNumber(processConfigParameterForm.lowerLimit)
+    : undefined
+  const targetValue = numericStandard
+    ? toOptionalProcessConfigNumber(processConfigParameterForm.targetValue)
+    : undefined
+  const upperLimit = numericStandard
+    ? toOptionalProcessConfigNumber(processConfigParameterForm.upperLimit)
+    : undefined
+  const decimalScale = valueType === 'DECIMAL'
+    ? toOptionalProcessConfigNumber(processConfigParameterForm.decimalScale)
+    : undefined
+  if (valueType === 'INTEGER') {
+    const integerValues = [lowerLimit, targetValue, upperLimit].filter(
+      (value): value is number => value !== undefined
+    )
+    if (integerValues.some((value) => !Number.isInteger(value))) {
+      ElMessage.error('整数参数的上下限和目标值必须为整数')
+      return
+    }
+  }
+  if (valueType === 'DECIMAL' && decimalScale !== undefined) {
+    if (!Number.isInteger(decimalScale) || decimalScale < 0 || decimalScale > 6) {
+      ElMessage.error('小数位数必须是 0 到 6 的整数')
+      return
+    }
+  }
   if (lowerLimit !== undefined && upperLimit !== undefined && lowerLimit > upperLimit) {
     ElMessage.error('参数区间必须满足下限 <= 上限')
     return
   }
-  if (targetValue !== undefined
-    && lowerLimit !== undefined
-    && upperLimit !== undefined
-    && (lowerLimit > targetValue || targetValue > upperLimit)) {
-    ElMessage.error('参数区间必须满足下限 <= 目标值 <= 上限')
+  if (targetValue !== undefined && lowerLimit !== undefined && lowerLimit > targetValue) {
+    ElMessage.error('参数区间必须满足下限 <= 目标值')
+    return
+  }
+  if (targetValue !== undefined && upperLimit !== undefined && targetValue > upperLimit) {
+    ElMessage.error('参数区间必须满足目标值 <= 上限')
     return
   }
   processConfigSubmitting.value = true
@@ -4797,7 +5048,10 @@ const submitProcessConfigParameterRule = async () => {
       lowerLimit,
       targetValue,
       upperLimit,
-      valueType: processConfigParameterForm.valueType
+      valueType,
+      optionValues,
+      defaultText: defaultText || undefined,
+      decimalScale
     })
     ElMessage.success('设备参数标准已保存')
     processConfigParameterDialogVisible.value = false
@@ -4840,9 +5094,37 @@ const normalizeAllocationInteger = (value: unknown) => {
   return Math.floor(parsed)
 }
 
-const resolveAllocationActiveOrder = (line: TeamLeaderReportAllocationDraftLine) => {
+const findAllocationActiveOrder = (line: TeamLeaderReportAllocationDraftLine) => {
   const activeOrderId = Number(line.activeOrderId)
-  const order = allocatableActiveOrderOptions.value.find((item) => Number(item.id) === activeOrderId)
+  if (!Number.isFinite(activeOrderId)) {
+    return undefined
+  }
+  return allocatableActiveOrderOptions.value.find((item) => Number(item.id) === activeOrderId)
+}
+
+const formatAllocationOrderProductionQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
+  const order = findAllocationActiveOrder(line)
+  return order ? formatTraceQuantity(order.erpFixedQuantitySnapshot ?? order.quantity) : '--'
+}
+
+const formatAllocationOrderProductionCoefficient = (line: TeamLeaderReportAllocationDraftLine) => {
+  const order = findAllocationActiveOrder(line)
+  if (!order) {
+    return '--'
+  }
+  const value = order.productionCoefficient
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return '1.0'
+  }
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) {
+    return String(value)
+  }
+  return parsed.toFixed(3).replace(/\.?0+$/, '')
+}
+
+const resolveAllocationActiveOrder = (line: TeamLeaderReportAllocationDraftLine) => {
+  const order = findAllocationActiveOrder(line)
   if (!order) {
     throw new Error('请选择活跃订单后再快捷分配')
   }
@@ -7203,15 +7485,57 @@ onMounted(() => {
   line-height: 1.5;
 }
 
+.team-leader-workbench__allocation-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.team-leader-workbench__allocation-toolbar > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.team-leader-workbench__allocation-table {
+  width: 100%;
+  font-size: 13px;
+}
+
+.team-leader-workbench__allocation-table :deep(.el-table__cell) {
+  padding: 6px 0;
+}
+
+.team-leader-workbench__allocation-table :deep(.cell) {
+  padding: 0 8px;
+}
+
+.team-leader-workbench__allocation-table :deep(.el-table__header .cell) {
+  color: #667085;
+  font-weight: 700;
+}
+
+.team-leader-workbench__allocation-order-select {
+  width: 100%;
+}
+
 .team-leader-workbench__allocation-quantity-cell {
   display: flex;
-  gap: 6px;
   align-items: center;
+  justify-content: space-between;
+  gap: 6px;
 }
 
 .team-leader-workbench__allocation-quantity-input {
-  width: 112px;
-  flex: 0 0 112px;
+  width: 124px;
+  flex: 0 0 124px;
+}
+
+.team-leader-workbench__allocation-quantity-cell .el-button + .el-button {
+  margin-left: 0;
 }
 
 .team-leader-workbench__qa-layout {

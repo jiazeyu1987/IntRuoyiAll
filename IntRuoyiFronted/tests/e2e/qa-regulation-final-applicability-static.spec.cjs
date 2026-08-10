@@ -44,8 +44,8 @@ assert.match(
 )
 assert.match(
   qaSource,
-  /if\s*\(!finalInspectionApplicable && !finalInspectionNotApplicableReason\)[\s\S]*末检不适用时必须填写正式依据/,
-  'Frontend must block save/publish when final inspection is disabled without evidence.'
+  /if\s*\(!publishing && !finalInspectionApplicable && !finalInspectionNotApplicableReason\)[\s\S]*末检不适用时必须填写正式依据/,
+  'Draft save may keep the evidence check, but publishing must not use it as a blocker.'
 )
 assert.match(
   qaSource,

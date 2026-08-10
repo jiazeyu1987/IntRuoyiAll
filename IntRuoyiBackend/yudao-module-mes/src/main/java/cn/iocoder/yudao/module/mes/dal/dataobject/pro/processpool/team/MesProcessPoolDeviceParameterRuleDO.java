@@ -28,6 +28,7 @@ public class MesProcessPoolDeviceParameterRuleDO extends TenantBaseDO {
     public static final String VALUE_TYPE_INTEGER = "INTEGER";
     public static final String VALUE_TYPE_DECIMAL = "DECIMAL";
     public static final String VALUE_TYPE_TEXT_STANDARD = "TEXT_STANDARD";
+    public static final String VALUE_TYPE_SELECT = "SELECT";
 
     @TableId
     private Long id;
@@ -44,5 +45,8 @@ public class MesProcessPoolDeviceParameterRuleDO extends TenantBaseDO {
     private BigDecimal defaultValue;
     private String valueType;
     private String standardText;
+    private String optionValuesJson;
+    private String defaultText;
+    private Integer decimalScale;
     private Boolean enabled;
 }

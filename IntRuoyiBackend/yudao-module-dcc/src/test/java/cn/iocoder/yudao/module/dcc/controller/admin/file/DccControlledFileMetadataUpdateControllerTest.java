@@ -79,11 +79,14 @@ class DccControlledFileMetadataUpdateControllerTest extends BaseMockitoUnitTest 
     void metadataUpdateReq_allowsBlankFileNumberAtBeanValidationBoundary() throws Exception {
         Field fileNameField = DccControlledFileMetadataUpdateReqVO.class.getDeclaredField("fileName");
         Field fileNumberField = DccControlledFileMetadataUpdateReqVO.class.getDeclaredField("fileNumber");
+        Field directoryIdField = DccControlledFileMetadataUpdateReqVO.class.getDeclaredField("directoryId");
 
         assertTrue(hasAnnotation(fileNameField, "jakarta.validation.constraints.NotBlank"),
                 "fileName must stay required");
         assertFalse(hasAnnotation(fileNumberField, "jakarta.validation.constraints.NotBlank"),
                 "fileNumber is optional because not every controlled file has a number");
+        assertFalse(hasAnnotation(directoryIdField, "jakarta.validation.constraints.NotNull"),
+                "directoryId is optional when the target category has no configured directory binding");
     }
 
     private Method findMappedMethod(Class<? extends Annotation> mappingAnnotationType, String expectedFullPath) {

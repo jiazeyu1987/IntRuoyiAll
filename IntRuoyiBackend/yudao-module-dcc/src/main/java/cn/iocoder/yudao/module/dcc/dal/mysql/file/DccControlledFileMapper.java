@@ -118,6 +118,37 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
                 .last("LIMIT 1"));
     }
 
+    default List<DccControlledFileDO> selectCurrentApprovedFilesByIds(Collection<Long> fileIds) {
+        if (fileIds == null || fileIds.isEmpty()) {
+            return List.of();
+        }
+        return selectCurrentApprovedFilesByIds0(fileIds);
+    }
+
+    @Select("""
+            <script>
+            SELECT controlled_file.*
+            FROM dcc_controlled_file controlled_file
+            WHERE controlled_file.deleted = 0
+              AND controlled_file.master_id IS NOT NULL
+              AND controlled_file.status IN ('ACTIVE', 'APPROVED')
+              AND controlled_file.id IN
+              <foreach collection="fileIds" item="fileId" open="(" separator="," close=")">
+                  #{fileId}
+              </foreach>
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM dcc_controlled_file newer_file
+                  WHERE newer_file.deleted = 0
+                    AND newer_file.master_id = controlled_file.master_id
+                    AND newer_file.status IN ('ACTIVE', 'APPROVED')
+                    AND newer_file.id &gt; controlled_file.id
+              )
+            ORDER BY controlled_file.id
+            </script>
+            """)
+    List<DccControlledFileDO> selectCurrentApprovedFilesByIds0(@Param("fileIds") Collection<Long> fileIds);
+
     default long selectCountByReferencedFileId(Long fileId) {
         if (fileId == null) {
             return 0L;

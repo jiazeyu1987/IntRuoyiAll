@@ -1,0 +1,40 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+
+const moduleRoot = path.resolve(__dirname, '../../..')
+const readUtf8 = (relativePath) =>
+  fs.readFileSync(path.join(moduleRoot, relativePath), 'utf8').replace(/\r\n/g, '\n')
+
+const ruleDo = readUtf8('src/main/java/cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/team/MesProcessPoolDeviceParameterRuleDO.java')
+const saveReq = readUtf8('src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/vo/MesTeamDeviceParameterRuleSaveReqVO.java')
+const rowResp = readUtf8('src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/vo/MesTeamLeaderProcessConfigRowRespVO.java')
+const paramBo = readUtf8('src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderProcessConfigParameter.java')
+const service = readUtf8('src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderProcessConfigServiceImpl.java')
+const runtimeService = readUtf8('src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderRuntimeConfigServiceImpl.java')
+const controller = readUtf8('src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesProcessPoolTeamLeaderController.java')
+const sql = readUtf8('sql/mysql/20260810_mes_process_pool_device_parameter_select_options.sql')
+
+assert.match(ruleDo, /VALUE_TYPE_SELECT\s*=\s*\"SELECT\"/, 'DO must define SELECT value type.')
+for (const field of ['optionValuesJson', 'defaultText', 'decimalScale']) {
+  assert.match(ruleDo, new RegExp(`private\\s+${field === 'decimalScale' ? 'Integer' : 'String'}\\s+${field};`), `DO must persist ${field}.`)
+  assert.match(saveReq, new RegExp(field === 'optionValuesJson' ? 'private\\s+List<String>\\s+optionValues;' : field === 'defaultText' ? 'private\\s+String\\s+defaultText;' : 'private\\s+Integer\\s+decimalScale;'), `save request must expose ${field}.`)
+  assert.match(rowResp, new RegExp(field === 'optionValuesJson' ? 'private\\s+List<String>\\s+optionValues;' : field === 'defaultText' ? 'private\\s+String\\s+defaultText;' : 'private\\s+Integer\\s+decimalScale;'), `config response must expose ${field}.`)
+  assert.match(paramBo, new RegExp(field === 'optionValuesJson' ? 'private\\s+List<String>\\s+optionValues;' : field === 'defaultText' ? 'private\\s+String\\s+defaultText;' : 'private\\s+Integer\\s+decimalScale;'), `service parameter must expose ${field}.`)
+}
+assert.match(controller, /\.optionValues\(reqVO\.getOptionValues\(\)\)/, 'controller must pass optionValues into service.')
+assert.match(controller, /\.defaultText\(reqVO\.getDefaultText\(\)\)/, 'controller must pass defaultText into service.')
+assert.match(controller, /\.decimalScale\(reqVO\.getDecimalScale\(\)\)/, 'controller must pass decimalScale into service.')
+assert.match(service, /\.setOptionValues\(/, 'process-config list must return optionValues.')
+assert.match(service, /\.setDefaultText\(/, 'process-config list must return defaultText.')
+assert.match(service, /\.setDecimalScale\(/, 'process-config list must return decimalScale.')
+assert.match(runtimeService, /VALUE_TYPE_SELECT/, 'runtime validation must recognize SELECT parameters.')
+assert.match(runtimeService, /optionValuesJson/, 'runtime save must persist option values.')
+assert.match(runtimeService, /defaultText/, 'runtime save must persist text defaults.')
+assert.match(sql, /dependsOn=20260807_mes_process_pool_device_parameter_standard_text/, 'migration must depend on prior device parameter standard text migration.')
+assert.match(sql, /ADD COLUMN `option_values_json` json DEFAULT NULL/, 'migration must add option_values_json.')
+assert.match(sql, /ADD COLUMN `default_text` varchar\(128\) DEFAULT NULL/, 'migration must add default_text.')
+assert.match(sql, /ADD COLUMN `decimal_scale` int DEFAULT NULL/, 'migration must add decimal_scale.')
+assert.doesNotMatch(sql, /UPDATE `mes_pro_process_pool_device_parameter_rule`/, 'migration must not guess values for existing rules.')
+
+console.log('rough-wash-device-parameter-select-options-static PASS')

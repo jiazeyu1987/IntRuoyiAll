@@ -62,6 +62,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
     private static final String RECORD_CATEGORY = "INTERNAL_RECORD";
     private static final String VALIDATION_PROFILE = "INTERNAL_TRACE";
     private static final String OWNER_ROLE = "QUALITY";
+    private static final Long PROCESS_INSPECTION_FORM_TEMPLATE_ID = 28L;
     private static final String SOURCE_TYPE = "PQC_AGGREGATE_DETAIL";
     private static final String SCOPE_TYPE_ROUTE_VERSION = "ROUTE_VERSION";
     private static final String PQC_TASK_SOURCE_TYPE = "MES_PQC_INSPECTION_TASK";
@@ -510,8 +511,10 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
 
     private MesProRouteFlowProcessBatchRecordDO formalBinding(
             MesPqcInspectionTaskDO task, List<MesTeamLeaderActiveOrderReleaseBlocker> blockers) {
-        List<MesProRouteFlowProcessBatchRecordDO> matches = bindingMapper
-                .selectListByRouteProcessIdsAndUseType(List.of(task.getRouteProcessId()), USE_TYPE_BATCH).stream()
+        List<MesProRouteFlowProcessBatchRecordDO> bindings = bindingMapper
+                .selectListByRouteProcessIdsAndUseType(List.of(task.getRouteProcessId()), USE_TYPE_BATCH);
+        bindings = bindings == null ? List.of() : bindings;
+        List<MesProRouteFlowProcessBatchRecordDO> matches = bindings.stream()
                 .filter(binding -> binding != null && binding.getId() != null
                         && Objects.equals(task.getRouteId(), binding.getRouteId())
                         && Objects.equals(task.getRouteProcessId(), binding.getRouteProcessId())
@@ -525,11 +528,37 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                         && StrUtil.isNotBlank(binding.getRecordCategorySnapshotHash())
                         && StrUtil.isNotBlank(binding.getSlotConfigSnapshotHash()))
                 .toList();
+        List<MesProRouteFlowProcessBatchRecordDO> dynamicMatches = bindings.stream()
+                .filter(binding -> binding != null && binding.getId() != null
+                        && Objects.equals(task.getRouteId(), binding.getRouteId())
+                        && Objects.equals(task.getRouteProcessId(), binding.getRouteProcessId())
+                        && StrUtil.isBlank(binding.getBatchRecordReportId())
+                        && binding.getBatchRecordDefinitionId() == null && binding.getBatchRecordVersionId() == null
+                        && FORM_SLOT_TYPE.equals(binding.getFormSlotType())
+                        && RECORD_CATEGORY.equals(binding.getRecordCategory())
+                        && VALIDATION_PROFILE.equals(binding.getValidationProfile())
+                        && OWNER_ROLE.equals(binding.getOwnerRoleKey())
+                        && PROCESS_INSPECTION_FORM_TEMPLATE_ID.equals(binding.getFormTemplateId())
+                        && StrUtil.isNotBlank(binding.getFormBindingKey())
+                        && binding.getLastPublishedTemplateVersionId() != null
+                        && StrUtil.isNotBlank(binding.getLastPublishedTemplateVersionNo())
+                        && StrUtil.isNotBlank(binding.getRecordCategorySnapshotHash())
+                        && StrUtil.isNotBlank(binding.getSlotConfigSnapshotHash()))
+                .toList();
+        if (matches.isEmpty() && dynamicMatches.size() == 1) {
+            MesProRouteFlowProcessBatchRecordDO binding = dynamicMatches.get(0);
+            blockers.add(blocker("PROCESS_INSPECTION_DYNAMIC_FORM_AUTOWRITE_REQUIRED",
+                    "ROUTE_PROCESS_FORM_BINDING", binding.getId(), binding.getFormBindingKey(),
+                    "已识别路线绑定的过程检验 FormCenter 正式目标，但自动写入和提交链路尚未接通",
+                    "请配置 template 28 已发布版本的 PQC_AGGREGATE_DETAIL 字段映射并接通正式实例提交"));
+            return null;
+        }
         if (matches.size() != 1) {
             blockers.add(blocker("PROCESS_INSPECTION_REPORT_BINDING_REQUIRED", "ROUTE_PROCESS",
                     task.getRouteProcessId(), null,
-                    "工序必须存在唯一传统 PROCESS_INSPECTION 报表绑定，当前数量=" + matches.size(),
-                    "请通过批记录配置维护 batchRecordReportId 和 PROCESS_INSPECTION 类型"));
+                    "工序必须存在唯一有效 PROCESS_INSPECTION 目标绑定，传统数量=" + matches.size()
+                            + "，动态数量=" + dynamicMatches.size(),
+                    "请维护唯一的传统报表绑定或 template 28 已发布动态表单绑定"));
             return null;
         }
         return matches.get(0);

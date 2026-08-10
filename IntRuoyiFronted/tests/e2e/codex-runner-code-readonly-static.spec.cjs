@@ -25,8 +25,8 @@ assert.match(runner, /function buildCodeReadonlyPrompt\(task[\s\S]*最多选择 
 assert.match(runner, /function buildCodeReadonlyPrompt\(task[\s\S]*不得运行任何 shell 命令[\s\S]*实时只读代码证据/, 'Codex CLI 必须只判断 Runner 提供的真实证据，不再触发 Windows read-only shell ACL。')
 assert.match(
   runner,
-  /function buildCodeReadonlyPrompt\(task[\s\S]*业务方向判定[\s\S]*方向符合但实现细节证据不足[\s\S]*不得直接返回 BLOCKED/,
-  '业务方向类 CODE_READONLY 任务不得把缺少完整 Service\/Mapper\/测试证据直接判为 BLOCKED。'
+  /function buildCodeReadonlyPrompt\(task[\s\S]*先把职责描述翻译成业务流程[\s\S]*当前代码表达出的业务方向、页面入口、核心对象、用户动作和后续上下文与职责描述一致[\s\S]*缺少 Service、Mapper、SQL 或测试只能作为实现细节不足说明/,
+  '职责描述类 CODE_READONLY 任务必须按业务逻辑方向判断，不得因实现细节证据缺失单独失败。'
 )
 assert.match(runner, /function buildCodeReadonlyPrompt\(task[\s\S]*checkpointResults[\s\S]*mismatchDescription[\s\S]*PASS\|FAIL\|BLOCKED/, 'CODE_READONLY prompt 仍必须强制 checkpointResults JSON 和失败差异描述。')
 assert.match(runner, /function buildPlaywrightPrompt\(task/, '原 Playwright E2E prompt 必须保留独立函数。')

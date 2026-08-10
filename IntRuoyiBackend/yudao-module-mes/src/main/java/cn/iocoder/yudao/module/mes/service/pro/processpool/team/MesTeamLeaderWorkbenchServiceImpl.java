@@ -57,6 +57,7 @@ public class MesTeamLeaderWorkbenchServiceImpl implements MesTeamLeaderWorkbench
             }
             reqVO.setProcessIds(processIds);
             reqVO.setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT);
+            reqVO.setRequirePositiveOutputQuantity(Boolean.TRUE);
         }
         return timelineService.getTimelinePage(reqVO);
     }

@@ -57,6 +57,9 @@ public class MesTeamLeaderProcessConfigRowRespVO {
         private BigDecimal lowerLimit;
         private BigDecimal targetValue;
         private BigDecimal upperLimit;
+        private List<String> optionValues;
+        private String defaultText;
+        private Integer decimalScale;
         private Boolean enabled;
         private BigDecimal actualAverage;
         private Integer sampleCount;

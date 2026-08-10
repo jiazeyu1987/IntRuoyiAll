@@ -109,6 +109,10 @@
         <if test="reqVO.eventType != null and reqVO.eventType != ''">
             AND pool_event.event_type = #{reqVO.eventType}
         </if>
+        <if test="reqVO.requirePositiveOutputQuantity == true">
+            AND CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(
+                pool_event.raw_payload, '$.outputQuantity')), '') AS DECIMAL(24, 6)) <![CDATA[>]]> 0
+        </if>
         <if test="reqVO.workOrderId != null">
             AND pool_event.work_order_id = #{reqVO.workOrderId}
         </if>

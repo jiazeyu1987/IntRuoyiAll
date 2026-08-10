@@ -238,6 +238,23 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
     }
 
     @Test
+    void shouldTreatRouteBoundLossFormTemplateAsFormalSourceButBlockUntilDynamicAutoWriteExists() {
+        when(sourceReader.read(any())).thenReturn(formalSources());
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(ROUTE_PROCESS_ID), "BATCH"))
+                .thenReturn(List.of(dynamicFormBinding(25L, "LR_" + ROUTE_PROCESS_ID)));
+
+        MesTeamLeaderActiveOrderReleaseLossReportPlan plan = writer.plan(command());
+
+        assertTrue(plan.getBlockers().stream().anyMatch(blocker ->
+                "LOSS_REPORT_DYNAMIC_FORM_AUTOWRITE_REQUIRED".equals(blocker.getBlockerType())
+                        && String.valueOf(3001L).equals(blocker.getObjectId())
+                        && ("LR_" + ROUTE_PROCESS_ID).equals(blocker.getFieldCode())));
+        assertThrows(ServiceException.class, () -> writer.write(plan, BATCH_EXECUTION_ID));
+        verify(ruleMapper, never()).selectEnabledListByScopeAndTargetReport(any(), any(), any());
+        verify(executionService, never()).openOrCreateByContext(any());
+    }
+
+    @Test
     void shouldReturnSignatureBlockerBeforeBindingWhenProductionReviewSignatureIsMissing() {
         MesTeamLeaderActiveOrderReleaseLossSourceReadResult sources = formalSources();
         sources.getProcessSources().get(0).getReview().setReviewSignatureId(null);
@@ -411,6 +428,28 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
                 .batchRecordDefinitionId(400L)
                 .batchRecordVersionId(401L)
                 .formSlotType("LOSS_REPORT")
+                .recordCategory("INTERNAL_RECORD")
+                .validationProfile("INTERNAL_TRACE")
+                .permissionScopeId(9901L)
+                .recordCategorySnapshotHash("record-category-snapshot")
+                .slotConfigSnapshotHash("loss-slot-snapshot")
+                .ownerRoleKey("PRODUCTION")
+                .archiveVisibility("FINAL_DHR")
+                .build();
+    }
+
+    private static MesProRouteFlowProcessBatchRecordDO dynamicFormBinding(Long templateId, String bindingKey) {
+        return MesProRouteFlowProcessBatchRecordDO.builder()
+                .id(3001L)
+                .routeId(ROUTE_ID)
+                .routeProcessId(ROUTE_PROCESS_ID)
+                .useType("BATCH")
+                .formSlotType("LOSS_REPORT")
+                .formBindingKey(bindingKey)
+                .formTemplateId(templateId)
+                .formTemplateNameSnapshot("损耗单")
+                .lastPublishedTemplateVersionId(2501L)
+                .lastPublishedTemplateVersionNo("V1")
                 .recordCategory("INTERNAL_RECORD")
                 .validationProfile("INTERNAL_TRACE")
                 .permissionScopeId(9901L)

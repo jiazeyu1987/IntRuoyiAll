@@ -89,6 +89,19 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
     }
 
     @Test
+    void routeFormActionCode_shouldStayWithinApprovalPolicyColumnForLongFormBindingKey() {
+        String shortActionCode = MesProRouteVersionPublishProjectionServiceImpl.routeFormActionCode(
+                9202L, "FB-IPQC");
+        assertEquals("EDHR_RF_9202_FB-IPQC", shortActionCode);
+
+        String actionCode = MesProRouteVersionPublishProjectionServiceImpl.routeFormActionCode(
+                631L, "FORM_BINDING_AORD_1786339591064_980674_PROCESS_INSPECTION");
+
+        assertTrue(actionCode.startsWith("EDHR_RF_631_"));
+        assertTrue(actionCode.length() <= 64);
+    }
+
+    @Test
     void projectCandidate_shouldPreserveProcessFlagsFromSnapshotNodes() {
         MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
                 .id(9201L)

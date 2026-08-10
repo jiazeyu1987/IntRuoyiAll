@@ -16,7 +16,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectio
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
@@ -77,7 +77,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     @Mock
     private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Mock
-    private MesProcessPoolOrderProcessCompletionMapper completionMapper;
+    private MesProcessPoolReportAllocationMapper reportAllocationMapper;
     @Mock
     private MesQaInspectionRegulationMapper inspectionRegulationMapper;
     @Mock
@@ -101,11 +101,13 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     void setUp() {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
-                routeVersionMapper, processSnapshotMapper, completionMapper, inspectionRegulationMapper,
+                routeVersionMapper, processSnapshotMapper, reportAllocationMapper,
+                inspectionRegulationMapper,
                 inspectionRegulationVersionMapper, inspectionRegulationItemMapper, pqcInspectionTaskMapper,
                 abnormalStateService, releaseApplicationMapper, dccProjectCodeMapper,
                 reportAllocationOrderChangeService);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
+        lenient().when(reportAllocationMapper.selectListByActiveOrderIds(any())).thenReturn(List.of());
         lenient().when(scheduleOrderMapper.selectEffectiveListByWorkOrderIds(List.of(9001L))).thenReturn(List.of());
         lenient().when(routeProductMapper.selectListByItemIds(List.of(1001L))).thenReturn(List.of(
                 MesProRouteProductDO.builder().id(7001L).itemId(1001L).routeId(922119L).build()));
