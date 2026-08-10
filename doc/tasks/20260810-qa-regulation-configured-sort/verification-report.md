@@ -20,8 +20,15 @@
 - node tests/e2e/qa-regulation-product-specific-rules-static.spec.cjs -> PASS。
 - pnpm ts:check -> PASS。
 - pnpm install --frozen-lockfile --reporter append-only -> PASS，任务 worktree 依赖恢复成功且锁文件未改变。
-- pnpm ts:check -> PASS，依赖恢复后在任务 worktree 内复跑通过。
+- 最新 int_main 合入后，目标静态合同、3 个相邻 QA 合同和 pnpm ts:check 再次通过。
 - git diff --check on task-owned files -> PASS。
+
+## Integration And Closeout
+
+- int_main 与任务分支最终提交一致：c7192146ddbcead775c1e66ba93c829db684cf8e。
+- branch runtime port guard 在任务分支和 int_main 均通过。
+- task-closeout-cleanup preview/apply 通过，未删除核心任务记录。
+- 两个本任务 worktree 均已移除，slot 11 已释放。
 
 ## Real Page Evidence
 

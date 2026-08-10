@@ -20,7 +20,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Applicable Experience Gate
 
@@ -29,9 +29,9 @@ ready_for_closeout
 
 ## Completed Work
 
-- 已在任务 worktree 中把 QA 规程配置页下拉候选从单页 50 条改为按 200 条分页拉完整匹配集合，再统一查询产品级 QA 配置状态并排序。
+- 已在 int_main 中把 QA 规程配置页下拉候选从单页 50 条改为按 200 条分页拉完整匹配集合，再统一查询产品级 QA 配置状态并排序。
 - 已补齐页面当前草稿数据的配置判断口径：同一产品 ID 下已有检验项目草稿时，也按用户要求进入“已配置优先组”。
-- 已新增只读真实页面回归，验证本机页面中 IDI / 按压式球囊扩充压力泵 / 1 与 ID / 球囊扩张压力泵 / 112 都进入已配置组，且已配置组整体排在未配置项之前。
+- 已新增只读真实页面回归，验证本机 int_main 中 IDI / 按压式球囊扩充压力泵 / 1 与 ID / 球囊扩张压力泵 / 112 都进入已配置组，且已配置组整体排在未配置项之前。
 
 ## Verification Evidence
 
@@ -40,8 +40,8 @@ ready_for_closeout
 - GREEN: node tests/e2e/qa-regulation-project-configured-dropdown-real.e2e.cjs -> PASS，真实页面候选数 119，已配置组最后位置 1，未配置组起始位置 2，无写请求、无 console error、无 page error。
 - GREEN: 相邻回归 qa-regulation-header-project-select-static、qa-regulation-project-last-copy-static、qa-regulation-product-specific-rules-static -> PASS。
 - GREEN: pnpm ts:check -> PASS。
-- GREEN: pnpm install --frozen-lockfile --reporter append-only -> PASS，补齐任务 worktree 前端依赖，锁文件未改变。
-- GREEN: pnpm ts:check -> PASS，基于任务 worktree 本地依赖复跑通过。
+- GREEN: pnpm install --frozen-lockfile --reporter append-only -> PASS，任务 worktree 依赖恢复成功，锁文件未改变。
+- GREEN: 最新 int_main 合入后重跑目标静态合同、3 个相邻合同和 pnpm ts:check -> PASS。
 - GREEN: git diff --check -- IntRuoyiFronted/src/views/mes/pro/processpool/QaRegulationPage.vue IntRuoyiFronted/tests/e2e/qa-regulation-project-configured-dropdown-static.spec.cjs IntRuoyiFronted/tests/e2e/qa-regulation-project-configured-dropdown-real.e2e.cjs -> PASS。
 
 ## 设计约束检查
@@ -61,4 +61,8 @@ ready_for_closeout
 
 ## Closeout Evidence
 
-- 待融合进 int_main 后执行最终 closeout。
+- task-closeout-cleanup preview -> PASS，删除范围仅 output/playwright/20260810-qa-regulation-configured-sort/。
+- task-closeout-cleanup apply -> PASS，已删除本任务 Playwright 临时输出目录，保留 task.md、execution-log.md、verification-report.md。
+- int_main 已原子快进到 c7192146ddbcead775c1e66ba93c829db684cf8e，任务分支与 int_main 指向同一提交。
+- 任务 worktree 与 detached 集成 worktree 已移除；残留 node_modules 目录按路径边界、无 .git、无进程、无端口监听门禁清理完成。
+- 运行槽位 11 已标记 active=false，并记录 cleanupTask=20260810-qa-regulation-configured-sort。
