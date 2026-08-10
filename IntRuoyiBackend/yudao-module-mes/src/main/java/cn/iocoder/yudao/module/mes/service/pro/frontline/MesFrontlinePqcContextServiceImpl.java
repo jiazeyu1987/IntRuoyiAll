@@ -358,19 +358,27 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         return new QaProjectProcessSource(qaProductId, publishedRegulations);
     }
 
-    private DccProjectCodeDO resolveRouteDccProject(Long productId, Long routeId, Set<Long> routeProductMasterIds) {
+    private DccProjectCodeDO resolveRouteDccProject(Long productId, Long routeId, Set<Long> routeItemIds) {
+        Map<Long, MesMdItemDO> routeItems = itemService.getItemMap(routeItemIds);
+        Set<String> routeProjectCodes = routeItems.values().stream()
+                .filter(Objects::nonNull)
+                .map(MesMdItemDO::getCode)
+                .map(StrUtil::trim)
+                .filter(StrUtil::isNotBlank)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
         Map<Long, DccProjectCodeDO> matchedProjects = dccProjectCodeMapper.selectEnabledList().stream()
                 .filter(Objects::nonNull)
                 .filter(project -> project.getId() != null)
                 .filter(project -> project.getProductMasterId() != null)
-                .filter(project -> routeProductMasterIds.contains(project.getProductMasterId()))
+                .filter(project -> routeProjectCodes.contains(StrUtil.trim(project.getProjectCode())))
                 .collect(Collectors.toMap(DccProjectCodeDO::getId, Function.identity(), (left, right) -> left,
                         LinkedHashMap::new));
         if (matchedProjects.size() != 1) {
             throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
                     "routeProjectCode productId=" + productId
                             + "，routeId=" + routeId
-                            + "，routeProductMasterIds=" + routeProductMasterIds
+                            + "，routeItemIds=" + routeItemIds
+                            + "，routeProjectCodes=" + routeProjectCodes
                             + "，matchedProjectIds=" + matchedProjects.keySet());
         }
         return matchedProjects.values().iterator().next();

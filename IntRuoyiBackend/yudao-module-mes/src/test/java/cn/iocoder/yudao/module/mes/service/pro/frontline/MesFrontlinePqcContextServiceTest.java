@@ -184,6 +184,7 @@ class MesFrontlinePqcContextServiceTest {
     @Test
     void shouldListDistinctQaInspectionItemProcessesFromRouteProjectCode() {
         long routeDccProductMasterId = QA_PRODUCT_ID;
+        long routeProjectItemId = 924005L;
         long otherQaProductId = 3302L;
         when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
                 .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
@@ -193,9 +194,13 @@ class MesFrontlinePqcContextServiceTest {
                 .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
         when(routeProductMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
                 MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build(),
-                MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(routeDccProductMasterId).build()));
+                MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(routeProjectItemId).build()));
+        when(itemService.getItemMap(Set.of(PRODUCT_ID, routeProjectItemId))).thenReturn(Map.of(
+                PRODUCT_ID, MesMdItemDO.builder().id(PRODUCT_ID).code("902101").name("订单产品").build(),
+                routeProjectItemId, MesMdItemDO.builder().id(routeProjectItemId).code("ID")
+                        .name("球囊扩张压力泵").build()));
         when(dccProjectCodeMapper.selectEnabledList()).thenReturn(List.of(
-                DccProjectCodeDO.builder().id(9011L).projectCode("ROUTE-PROJECT")
+                DccProjectCodeDO.builder().id(9011L).projectCode("ID")
                         .productMasterId(routeDccProductMasterId).build(),
                 DccProjectCodeDO.builder().id(9012L).projectCode("UNBOUND-PROJECT")
                         .productMasterId(otherQaProductId).build()));
@@ -353,19 +358,26 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     @Test
-    void shouldResolveRouteDccProjectWithoutMdmItemLookup() {
+    void shouldResolveRouteDccProjectFromRouteItemCodeWithoutRequiringEveryRouteItem() {
+        long orderProductId = 902101L;
+        long routeProjectItemId = 924005L;
         long dccProductMasterId = 14L;
         when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
                 .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
                         LocalDateTime.of(2026, 8, 1, 8, 0)));
-        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID, PRODUCT_ID));
-        when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, PRODUCT_ID))
-                .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID, orderProductId));
+        when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, orderProductId))
+                .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(orderProductId).build());
         when(routeProductMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
-                MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build(),
-                MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(dccProductMasterId).build()));
+                MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(routeProjectItemId).build(),
+                MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(902149L).build(),
+                MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(orderProductId).build(),
+                MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(901965L).build()));
+        when(itemService.getItemMap(Set.of(routeProjectItemId, 902149L, orderProductId, 901965L))).thenReturn(Map.of(
+                routeProjectItemId, MesMdItemDO.builder().id(routeProjectItemId).code("ID")
+                        .name("球囊扩张压力泵").build()));
         when(dccProjectCodeMapper.selectEnabledList()).thenReturn(List.of(DccProjectCodeDO.builder()
-                .id(9011L).projectCode("IDI").projectName("按压式球囊扩充压力泵")
+                .id(9011L).projectCode("ID").projectName("球囊扩张压力泵")
                 .productMasterId(dccProductMasterId).build()));
         when(regulationMapper.selectListByProductIds(argThat(productIds ->
                 productIds != null
@@ -386,12 +398,12 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals(List.of(ROUTE_PROCESS_ID),
                 processes.stream().map(MesFrontlineRouteProcessCandidate::routeProcessId).toList());
         assertEquals(PQC_TASK_ID, processes.get(0).pqcTaskId());
-        verify(itemService, never()).getItemMap(argThat(itemIds ->
-                itemIds != null && itemIds.contains(dccProductMasterId)));
+        verify(itemService).getItemMap(Set.of(routeProjectItemId, 902149L, orderProductId, 901965L));
     }
 
     @Test
-    void shouldResolveQaRegulationFromRouteDccProjectCodeWhenRouteProjectItemIsProductMasterId() {
+    void shouldResolveQaRegulationFromDccProductMasterIdAfterMatchingRouteProjectCode() {
+        long routeProjectItemId = 924005L;
         long dccProductMasterId = 14L;
         when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
                 .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
@@ -400,9 +412,11 @@ class MesFrontlinePqcContextServiceTest {
         when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, PRODUCT_ID))
                 .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
         when(routeProductMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
-                MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(dccProductMasterId).build()));
+                MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(routeProjectItemId).build()));
+        when(itemService.getItemMap(Set.of(routeProjectItemId))).thenReturn(Map.of(routeProjectItemId,
+                MesMdItemDO.builder().id(routeProjectItemId).code("ID").name("球囊扩张压力泵").build()));
         when(dccProjectCodeMapper.selectEnabledList()).thenReturn(List.of(DccProjectCodeDO.builder()
-                .id(9011L).projectCode("IDI").projectName("按压式球囊扩充压力泵")
+                .id(9011L).projectCode("ID").projectName("球囊扩张压力泵")
                 .productMasterId(dccProductMasterId).build()));
         when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route(ROUTE_ID));
         when(routeProcessMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
