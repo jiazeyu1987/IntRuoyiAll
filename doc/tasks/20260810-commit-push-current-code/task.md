@@ -10,7 +10,7 @@
 - [x] M2：盘点并稳定当前正式代码快照，运行分支运行端口守卫。
 - [x] M3：显式暂存正式代码并完成文件范围、空白、敏感信息和大文件审计。
 - [x] M4：创建当前代码快照提交并复扫残余正式代码。
-- [ ] M5：沉淀经验、完成任务清理、提交收尾记录并推送 `int_main`。
+- [x] M5：沉淀经验、完成任务清理、提交收尾记录并推送 `int_main`。
 
 ## Expected Verification
 
@@ -24,9 +24,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-当前代码快照提交 `90b9f6c1521a1092030dcf870dbb62c78f099b71` 已创建；正式前后端代码残余为 0，仅保留 5 个明确排除的编译/诊断临时文件。等待 task-closeout-cleanup preview/apply、收尾记录提交和推送。
+当前代码快照提交 `90b9f6c1521a1092030dcf870dbb62c78f099b71` 和收尾前记录提交 `4c194bbd2d6c0b5b555917081aaead2d94956aed` 已创建并推送；正式前后端代码残余为 0。task-closeout-cleanup preview/apply 通过，经验复核完成，任务完成。
 
 当前代码候选为 106 个已跟踪改动和 114 个未跟踪文件；已识别并排除 5 个 `target-pqc-route-snapshot*` 临时文件。分支运行端口守卫通过。
 

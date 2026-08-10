@@ -22,3 +22,10 @@
 - Experience consolidation: 已按 `project-experience-consolidation` 检查 `docs/*memory*.md`、`docs/experience-index.md` 和 `docs/powershell-memory.md`；现有显式授权、共享分支并发、提交后残余复扫和 GitHub 大文件门禁已覆盖本次经验，无需修改或新建长期经验文档。
 - Closeout preview: `task_closeout.py --task-id 20260810-commit-push-current-code --mode preview` -> READY，保留三份核心任务记录，delete/blocked/warnings 均为空。
 - Closeout apply: `task_closeout.py --task-id 20260810-commit-push-current-code --mode apply` -> APPLIED，未删除任何文件；当前为主工作区，无 worktree 合并或移除。
+- Closeout record commit: `4c194bbd2d6c0b5b555917081aaead2d94956aed docs: record current code checkpoint` -> PASS，新增三份核心任务记录。
+- GitHub large-object gate: 待推送历史 29 个提交、1617 个对象、722 个 blob；最大 blob 313509 字节，超过 100 MB 的 blob 为 0。
+- Initial push: `git push origin int_main` -> FAIL，Git URL 级代理指向未监听的 `127.0.0.1:7890`。
+- Proxy diagnosis: GitHub 直连 TCP 443 可达；Clash 核心实际监听 `8902`；未修改 Git 全局配置或 remote。
+- GREEN: `git -c http.https://github.com.proxy=http://127.0.0.1:8902 ls-remote origin HEAD` -> PASS。
+- Push: `git -c http.https://github.com.proxy=http://127.0.0.1:8902 push origin int_main` -> PASS，`bfbc89391..4c194bbd2 int_main -> int_main`。
+- Final status: completed；待将本次最终状态记录作为独立收尾提交推送。
