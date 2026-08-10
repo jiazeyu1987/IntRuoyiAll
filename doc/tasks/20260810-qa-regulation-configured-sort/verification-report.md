@@ -25,7 +25,7 @@
 
 ## Integration And Closeout
 
-- int_main 与任务分支最终提交一致：c7192146ddbcead775c1e66ba93c829db684cf8e。
+- 功能融合基线为 c7192146ddbcead775c1e66ba93c829db684cf8e；后续提交只更新本任务收尾记录。
 - branch runtime port guard 在任务分支和 int_main 均通过。
 - task-closeout-cleanup preview/apply 通过，未删除核心任务记录。
 - 两个本任务 worktree 均已移除，slot 11 已释放。

@@ -63,6 +63,6 @@ completed
 
 - task-closeout-cleanup preview -> PASS，删除范围仅 output/playwright/20260810-qa-regulation-configured-sort/。
 - task-closeout-cleanup apply -> PASS，已删除本任务 Playwright 临时输出目录，保留 task.md、execution-log.md、verification-report.md。
-- int_main 已原子快进到 c7192146ddbcead775c1e66ba93c829db684cf8e，任务分支与 int_main 指向同一提交。
+- 功能融合时 int_main 已原子快进到 c7192146ddbcead775c1e66ba93c829db684cf8e；之后 int_main 仅新增本任务收尾文档提交。
 - 任务 worktree 与 detached 集成 worktree 已移除；残留 node_modules 目录按路径边界、无 .git、无进程、无端口监听门禁清理完成。
 - 运行槽位 11 已标记 active=false，并记录 cleanupTask=20260810-qa-regulation-configured-sort。
