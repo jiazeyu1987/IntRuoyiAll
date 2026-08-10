@@ -35,7 +35,7 @@
 
 ## Current Status
 
-ready_for_closeout：当前代码快照提交 `61ba202942b4399fa274a0a4fe0b488fb4a030e1` 和残余代码提交 `e3b8691b03eee9be07297c8b54bf4363c2b01332` 已创建；前后端 tracked/untracked 代码残余为 0，准备执行 cleanup preview/apply 后提交收尾记录并推送。
+ready_for_closeout：当前代码快照提交 `61ba202942b4399fa274a0a4fe0b488fb4a030e1`、残余代码提交 `e3b8691b03eee9be07297c8b54bf4363c2b01332` 和晚到代码提交 `052c73596` 已创建；前后端 tracked/untracked 代码残余为 0，cleanup preview/apply 已通过，准备提交最终收尾记录并推送。
 
 并发说明：提交期间另一个任务在同一主工作区执行 `git stash push` 与 `git merge --ff-only codex/20260810-dcc-project-code-assignment-scope`，新增提交 `f6a981349`、`994f781b6`。本任务未回滚、未覆盖、未清理该并发任务产物，只在其完成后重新复扫并提交剩余当前代码。
 
@@ -43,3 +43,4 @@ ready_for_closeout：当前代码快照提交 `61ba202942b4399fa274a0a4fe0b488fb
 
 - `61ba202942b4399fa274a0a4fe0b488fb4a030e1`：`chore: checkpoint current frontend backend code round 2`。
 - `e3b8691b03eee9be07297c8b54bf4363c2b01332`：`chore: checkpoint residual frontend backend code`。
+- `052c73596`：`chore: checkpoint late frontend backend changes`。

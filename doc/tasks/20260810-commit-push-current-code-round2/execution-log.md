@@ -59,3 +59,8 @@
 - 当前状态更新为 `ready_for_closeout`，准备运行 task-closeout-cleanup preview/apply。
 - CLEANUP PREVIEW: `task_closeout.py --task-id 20260810-commit-push-current-code-round2 --mode preview` -> READY；keep 为 `task.md`、`execution-log.md`、`verification-report.md`，delete/blocked/warnings 均为空。
 - CLEANUP APPLY: `task_closeout.py --task-id 20260810-commit-push-current-code-round2 --mode apply` -> APPLIED；当前为主工作区，未删除文件，不涉及 worktree 合并或移除。
+- CLOSEOUT RECORD COMMIT: `80920c42b docs: record current code push round 2 closeout` -> PASS，提交三份核心任务记录。
+- Pre-push code scan: cleanup 记录提交后又发现 5 个并发保存的前后端文件；按门禁停止推送并单独审计。
+- GREEN: late code audit -> PASS，5 个文件无强特征凭据、无冲突标记、无超过 50 MB 文件，`git diff --cached --check` 通过。
+- CODE COMMIT: `052c73596 chore: checkpoint late frontend backend changes` -> PASS，5 files changed，74 insertions，82 deletions。
+- Final code rescan: 前后端 tracked 代码残余 0、untracked frontend 0、untracked backend 0。
