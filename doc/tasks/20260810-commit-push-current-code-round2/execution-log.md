@@ -78,3 +78,11 @@
 - FINAL RECORD COMMIT: `5e5a7ad88e130e1580b79df4dcb55ff966700e37 docs: finalize current code push round 2 records` -> PASS。
 - FINAL PUSH: `git -c http.https://github.com.proxy=http://127.0.0.1:7890 push origin int_main` -> PASS，`4e97a301b..5e5a7ad88 int_main -> int_main`。
 - FINAL REMOTE CHECK: 首次独立 `ls-remote` 因瞬时 TLS EOF 失败；同一已验证代理重试成功，远端 `int_main`、本地 HEAD、`origin/int_main` 均为 `5e5a7ad88e130e1580b79df4dcb55ff966700e37`，ahead/behind 为 `0/0`。
+- Post-final remote check: 又发现 2 个后端 release writer 实现文件的并发真实改动；对两文件间隔 8 秒计算 SHA-256，哈希和最后写入时间均稳定。
+- GREEN: release writer audit -> PASS，2 个文件无强特征凭据、无冲突标记、无超过 50 MB 文件，`git diff --cached --check` 通过。
+- CODE COMMIT: `4c3bdc02b73c915845ded19a93da582dad87405d chore: checkpoint release writer changes` -> PASS，2 files changed，66 insertions，6 deletions。
+- PUSH: `3c45f6aaf..4c3bdc02b int_main -> int_main` -> PASS；本地 HEAD 与 `origin/int_main` 均为 `4c3bdc02b73c915845ded19a93da582dad87405d`，ahead/behind 为 `0/0`。
+- COORDINATION PAUSE: 收到 QA 规程下拉排序任务通知后，暂停 `int_main` 的提交、合并、`update-ref` 和推送；本任务未干预其原子快进与收尾。
+- COORDINATION RESUME: QA 任务解除协调后刷新主线，确认 `int_main` HEAD 为 `2e1924ae0`，包含 QA 功能融合与收尾提交；当时 `origin/int_main` 仍为 `4c3bdc02b`，本地 ahead 10。
+- FINAL CODE RESIDUAL CHECK: `git diff --name-status HEAD -- IntRuoyiBackend IntRuoyiFronted` 及两个目录的精确 untracked 扫描 -> PASS，前后端 tracked/untracked 残余均为 0。
+- OWNERSHIP CHECK: 本任务仅保留三份收尾记录待提交；`AGENTS.md`、`docs/**` 及其它 `doc/tasks/**` 改动均属于其它任务，本任务不暂存、不修改、不清理。

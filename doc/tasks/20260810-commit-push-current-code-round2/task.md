@@ -35,9 +35,11 @@
 
 ## Current Status
 
-completed：当前代码已通过多个稳定快照提交保存，前后端 tracked/untracked 代码残余为 0；task-closeout-cleanup preview/apply 已通过；最终收尾记录提交 `5e5a7ad88e130e1580b79df4dcb55ff966700e37` 已推送，远端、本地 HEAD 和 `origin/int_main` 一致，ahead/behind 为 `0/0`。
+ready_for_closeout：当前代码已通过多个稳定快照提交保存，前后端 tracked/untracked 代码残余为 0；task-closeout-cleanup preview/apply 已通过。QA 规程下拉排序任务完成原子快进与收尾后，本任务已刷新到最新 `int_main` HEAD `2e1924ae0`；当前仅剩本任务三份收尾记录待精确提交并推送。
 
 并发说明：提交期间另一个任务在同一主工作区执行 `git stash push` 与 `git merge --ff-only codex/20260810-dcc-project-code-assignment-scope`，新增提交 `f6a981349`、`994f781b6`。本任务未回滚、未覆盖、未清理该并发任务产物，只在其完成后重新复扫并提交剩余当前代码。
+
+主线协调说明：收到 QA 规程下拉排序任务暂停 Git 写操作的通知后，本任务未提交、合并、更新引用或推送；解除协调后确认 QA 功能与收尾提交均已进入 `int_main`，并继续保留其它任务工作区改动。
 
 ## Code Commits
 
@@ -46,3 +48,4 @@ completed：当前代码已通过多个稳定快照提交保存，前后端 trac
 - `052c73596`：`chore: checkpoint late frontend backend changes`。
 - `4e97a301bd611ae19cae1d428ee34b55f42a901f`：`chore: checkpoint final backend change`。
 - `3c941091fccfe7b0cf19a31aeabcad5763c6e6df`：`chore: checkpoint stabilized backend change`。
+- `4c3bdc02b73c915845ded19a93da582dad87405d`：`chore: checkpoint release writer changes`。

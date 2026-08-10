@@ -2,7 +2,7 @@
 
 ## Summary
 
-- 当前前后端正式代码已提交为五个快照提交：`61ba202942b4399fa274a0a4fe0b488fb4a030e1`、`e3b8691b03eee9be07297c8b54bf4363c2b01332`、`052c73596`、`4e97a301bd611ae19cae1d428ee34b55f42a901f` 与 `3c941091fccfe7b0cf19a31aeabcad5763c6e6df`。
+- 当前前后端正式代码已提交为六个快照提交：`61ba202942b4399fa274a0a4fe0b488fb4a030e1`、`e3b8691b03eee9be07297c8b54bf4363c2b01332`、`052c73596`、`4e97a301bd611ae19cae1d428ee34b55f42a901f`、`3c941091fccfe7b0cf19a31aeabcad5763c6e6df` 与 `4c3bdc02b73c915845ded19a93da582dad87405d`。
 - 提交后前后端 tracked/untracked 代码残余为 0。
 - 本任务未将其它任务的产品验证阻塞伪装为通过；只验证 Git 提交/推送所需的范围、凭据、大文件、空白和端口契约门禁。
 
@@ -17,6 +17,9 @@
 - task-closeout-cleanup preview/apply -> PASS，三份核心任务记录保留，delete/blocked/warnings 均为空。
 - 首次推送 -> PASS，远端 `origin/int_main` 与本地 HEAD 均为 `4e97a301bd611ae19cae1d428ee34b55f42a901f`。
 - 最终推送 -> PASS，`4e97a301b..5e5a7ad88 int_main -> int_main`；远端 `int_main`、本地 HEAD 与跟踪引用一致，ahead/behind 为 `0/0`。
+- 最新代码推送 -> PASS，`3c45f6aaf..4c3bdc02b int_main -> int_main`；本地 HEAD 与跟踪引用一致，ahead/behind 为 `0/0`。
+- QA 主线协调解除后复核 -> PASS，最新 `int_main` HEAD 为 `2e1924ae0`，前后端 tracked/untracked 代码残余仍为 0。
+- 任务归属复核 -> PASS，仅本任务三份收尾记录属于本次待提交范围；其它任务工作区改动均保留且不纳入暂存。
 
 ## Known Non-Product Verification
 
