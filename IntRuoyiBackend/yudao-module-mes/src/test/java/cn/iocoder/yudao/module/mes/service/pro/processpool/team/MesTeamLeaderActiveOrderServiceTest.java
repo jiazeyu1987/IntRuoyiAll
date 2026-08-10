@@ -792,6 +792,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .workOrderId(9001L)
                 .routeId(922119L)
                 .routeVersionId(448L)
+                .erpFixedQuantitySnapshot(new BigDecimal("200"))
                 .activeStatus("ACTIVE")
                 .joinedAt(LocalDateTime.of(2026, 7, 31, 8, 30))
                 .build());
