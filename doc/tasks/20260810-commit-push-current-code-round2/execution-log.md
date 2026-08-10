@@ -64,3 +64,14 @@
 - GREEN: late code audit -> PASS，5 个文件无强特征凭据、无冲突标记、无超过 50 MB 文件，`git diff --cached --check` 通过。
 - CODE COMMIT: `052c73596 chore: checkpoint late frontend backend changes` -> PASS，5 files changed，74 insertions，82 deletions。
 - Final code rescan: 前后端 tracked 代码残余 0、untracked frontend 0、untracked backend 0。
+- Pre-push code scan: 收尾检查点提交后又发现 1 个 `MesReportAllocationCommandService.java` 晚到改动；按门禁停止推送并单独审计。
+- GREEN: final backend audit -> PASS，强特征凭据、冲突标记、大文件和 `git diff --cached --check` 均通过。
+- CODE COMMIT: `4e97a301bd611ae19cae1d428ee34b55f42a901f chore: checkpoint final backend change` -> PASS。
+- FINAL PRE-PUSH GATES: 前后端 tracked/untracked 代码残余 0，暂存区 0；分支运行端口守卫 PASS；待推送历史 1524 个对象、924 个 blob，最大 blob 1,448,982 字节，超过 100 MB 为 0。
+- PUSH: `git -c http.https://github.com.proxy=http://127.0.0.1:7890 push origin int_main` -> PASS；`git ls-remote --heads origin int_main`、本地 HEAD、`origin/int_main` 均为 `4e97a301bd611ae19cae1d428ee34b55f42a901f`。
+- POST-PUSH CODE RESCAN: 前后端 tracked 代码残余 0、untracked frontend 0、untracked backend 0。
+- Final status: `completed`；准备提交并推送本次最终完成记录。
+- Final-record pre-push scan: 创建最终完成记录提交后，同一 `MesReportAllocationCommandService.java` 又出现 12 insertions / 7 deletions 的真实并发改动，按门禁再次停止推送。
+- Stability check: 对该文件间隔 8 秒计算 SHA-256，两次均为 `FE63AE4807E106C90E4FAC54D802E1635440FB84D560F2A4A68286EB79A6F3CE`，最后写入时间未变化，确认当前内容稳定。
+- GREEN: stabilized backend audit -> PASS，强特征凭据、冲突标记、大文件和 `git diff --cached --check` 均通过。
+- CODE COMMIT: `3c941091fccfe7b0cf19a31aeabcad5763c6e6df chore: checkpoint stabilized backend change` -> PASS。

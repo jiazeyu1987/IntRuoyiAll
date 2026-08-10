@@ -26,3 +26,13 @@
 - CLEANUP: task-closeout preview --worktree-closeout off -> PASS，仅计划删除 backend-api-evidence.md 与 bug-regression-evidence.md。
 - CLEANUP: task-closeout apply --worktree-closeout off -> PASS，已删除上述两份临时 evidence；task.md、execution-log.md、verification-report.md、生产代码和正式回归测试均保留。
 - MERGE AUDIT: int_main overlap review found an additional selected-file recognition-association snapshot test intent；added an equivalent regression using selectCurrentApprovedFilesByIds so target project snapshots remain covered when the direct project field is empty。
+- COMMIT: f6a981349 fix: allow DCC target project file assignments。
+- COMMIT: 994f781b6 test: preserve DCC assignment snapshot coverage。
+- MERGE: git merge --ff-only codex/20260810-dcc-project-code-assignment-scope -> PASS，int_main 快进到 994f781b6168bccf76d3543ac17290dc091a1b5a；合并路径干净，主工作区 69 个无关暂存文件保持未纳入本任务。
+- POST-MERGE GREEN: mvn --% -f pom.xml -pl yudao-module-dcc -Dtest=DccProjectCodeAssignmentServiceImplTest,DccControlledFileMetadataUpdateServiceTest,DccControlledFileMetadataUpdateControllerTest,DccControlledFileMapperTest -Dsurefire.failIfNoSpecifiedTests=false test -> PASS，38 tests, 0 failures, 0 errors, 0 skipped。
+- POST-MERGE PREFLIGHT: branch-runtime-port-guard -> PASS，int_main frontend 8081，backend 48081。
+- WORKTREE CLOSEOUT: git worktree remove --force D:\IntRuoyiWorktree\dcc-project-code-assignment-scope -> PASS，任务 worktree 已删除。
+- WORKTREE SLOT RELEASE: D:\IntRuoyiWorktree\.ports\worktree-ports.json -> PASS，int_main slot 12（8093/48093）已置为 inactive；登记结构校验和 int_main branch-runtime-port-guard 均通过。
+- STASH AUDIT: stash@{0}（premerge dcc-project-code-assignment-scope overlap）除 DCC 重叠文件外还包含共享主工作区其它 staged 索引快照；其它 staged 文件仍保留，因此未 pop/drop 该 stash，避免改动并行任务。
+- EXPERIENCE: project-experience-consolidation 已执行；将 pathspec stash 的共享索引快照风险合并到现有 docs/powershell-memory.md。docs/experience-index.md 存在其它并行未暂存修改，本任务未写入该文件，避免混入无关内容；未新建长期经验文档。
+- FINAL CLEANUP PREVIEW: task_closeout.py --mode preview --worktree-closeout off -> PASS，保留 task.md、execution-log.md、verification-report.md；delete none，blocked none；仅提示已在前序 cleanup 删除的临时 evidence 不存在。
