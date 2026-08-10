@@ -2,14 +2,16 @@
 
 ## Task Goal
 
-修复一线 PQC 切换到“按压式球囊扩张压力泵”订单时报错：设备账号上下文不完整或不一致：routeProjectItems routeId=980091，missingItemIds=[14]。截图中工艺路线和 QA 检验规程均可见时，不应因项目级路线项目完整性校验阻断订单选择或工序进入。
+修复一线 PQC 切换压力泵订单时的两阶段错误：先出现 `routeProjectItems routeId=980091，missingItemIds=[14]`，修正后又在正式路线 `922119` 出现 `routeProjectCode productId=902101，routeProductMasterIds=[924005, 902149, 902101, 901965]，matchedProjectIds=[]`。正式链路必须按路线绑定物料代码解析 DCC 项目代码，再使用该 DCC 项目的 `productMasterId` 查询已发布 QA 规程。
 
 ## Milestones
 
-- [ ] 定位 routeProjectItems missingItemIds=[14] 的校验来源和受影响接口。
-- [ ] 补充可复现该错误的回归测试，先形成 RED。
-- [ ] 移除“截图可找到时仍阻断”的不合理限制，保留真实缺配置的失败语义。
-- [ ] 运行定向回归验证并记录结果。
+- [x] 定位 routeProjectItems missingItemIds=[14] 的校验来源和受影响接口。
+- [x] 补充可复现该错误的回归测试，记录运行时 RED。
+- [x] 按订单产品、有效路线、路线物料代码、DCC 项目代码、已发布 QA 规程的正式链路修复。
+- [x] 完成本次服务和测试类的隔离编译及 JUnit 回归。
+- [x] 完成标准 Maven 验证，进入任务收尾。
+- [x] 将本轮修复提交到 int_main。
 
 ## Expected Verification
 
@@ -19,12 +21,39 @@
 
 ## Current Status
 
-in_progress
+completed
+
+## Completed Work
+
+- 订单选择仍先校验工单 productId 与所选 routeId 的正式产品路线绑定。
+- 已确认当前二次报错的根因：路线 `922119` 绑定 `924005 / ID` 作为 DCC 项目代码物料，当前实现却把路线物料 ID 直接与 DCC `productMasterId` 比较，身份类型不一致。
+- 已确认正式建模代码会把 DCC `projectCode` 创建为 MES 物料代码并绑定到路线；PQC 应使用路线物料代码匹配 DCC 项目，不能把路线物料 ID 当作 DCC `productMasterId`。
+- QA 规程仍应只按命中 DCC 项目的 `productMasterId` 查询，并严格限定 PUBLISHED、当前路线 ID、当前路线版本 ID。
+- QA 规程中的 routeProcessId、processId、currentVersionId 和检验项目仍执行完整一致性校验。
+- 第一阶段修复已进入 int_main，但其“路线物料 ID 直接匹配 DCC productMasterId”判断已被真实路线 `922119` 证明错误，本轮继续修正。
+- 本轮已改为读取路线绑定的可解析 MES 物料代码，精确匹配唯一启用 DCC `projectCode`；不再把路线物料 ID 当作 DCC `productMasterId`。
+- 路线中单个无关物料无法解析时不再阻断已存在的项目代码物料；DCC 未唯一命中、缺 productMasterId 或 QA 配置不完整仍 fail fast。
+
+## Verification
+
+- RED：新增路线物料 `924005 / ID` 与 DCC productMasterId 分离场景后，旧实现 40/41 通过并复现 `matchedProjectIds=[]`。
+- 隔离 javac：PASS。
+- 隔离 JUnit：PASS，MesFrontlinePqcContextServiceTest 41/41。
+- 标准 Maven：PASS，`mvn -q -pl yudao-module-mes -Dtest=MesFrontlinePqcContextServiceTest test` exit 0，Surefire 41/41。
+- bug-regression-fix-loop evidence validator：PASS。
+- backend-api-delivery evidence validator：PASS。
+- git diff --check：PASS。
+- task-closeout-cleanup preview/apply：PASS，仅保留 task.md、execution-log.md、verification-report.md，已删除本任务临时 evidence、javac/JUnit 参数、隔离 class 和 RED 源副本。
+- int_main 实现提交：PASS，`c81c8fb2d fix: resolve PQC QA by route project code`，仅包含本任务服务与回归测试。
+
+## Blockers
+
+- 无。并发索引冲突已由对应任务处理完成，本任务未修改其文件；使用 `git commit --only` 只提交本任务服务与测试，原有暂存内容保持不变。
 
 ## 设计约束检查
 
 - 是否引入 fallback/降级/吞异常：否。
-- 是否从根因和长期维护角度解决：是，目标是移除错误的上下文一致性阻断，而不是用前端隐藏或空成功绕过。
+- 是否从根因和长期维护角度解决：是，正式身份链路改为 route item code -> enabled DCC projectCode -> DCC productMasterId -> published QA regulation。
 - 是否存在临时补丁或绕过：否。
 
 ## Applicable Experience Gates
