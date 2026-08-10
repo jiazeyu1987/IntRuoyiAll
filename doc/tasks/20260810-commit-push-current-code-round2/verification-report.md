@@ -20,6 +20,8 @@
 - 最新代码推送 -> PASS，`3c45f6aaf..4c3bdc02b int_main -> int_main`；本地 HEAD 与跟踪引用一致，ahead/behind 为 `0/0`。
 - QA 主线协调解除后复核 -> PASS，最新 `int_main` HEAD 为 `2e1924ae0`，前后端 tracked/untracked 代码残余仍为 0。
 - 任务归属复核 -> PASS，仅本任务三份收尾记录属于本次待提交范围；其它任务工作区改动均保留且不纳入暂存。
+- 最终收尾提交 -> PASS，`a00db7a2da3e49952c878f0cc48881f544af427f` 仅包含本任务三份记录。
+- 最终主线推送与独立远端复核 -> PASS，GitHub `int_main`、本地 HEAD 和 `origin/int_main` 均为 `a00db7a2da3e49952c878f0cc48881f544af427f`，ahead/behind 为 `0/0`。
 
 ## Known Non-Product Verification
 

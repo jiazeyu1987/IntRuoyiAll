@@ -86,3 +86,8 @@
 - COORDINATION RESUME: QA 任务解除协调后刷新主线，确认 `int_main` HEAD 为 `2e1924ae0`，包含 QA 功能融合与收尾提交；当时 `origin/int_main` 仍为 `4c3bdc02b`，本地 ahead 10。
 - FINAL CODE RESIDUAL CHECK: `git diff --name-status HEAD -- IntRuoyiBackend IntRuoyiFronted` 及两个目录的精确 untracked 扫描 -> PASS，前后端 tracked/untracked 残余均为 0。
 - OWNERSHIP CHECK: 本任务仅保留三份收尾记录待提交；`AGENTS.md`、`docs/**` 及其它 `doc/tasks/**` 改动均属于其它任务，本任务不暂存、不修改、不清理。
+- FINAL STAGE CHECK: 精确暂存本任务三份收尾记录；`git diff --cached --name-status` 仅包含 `task.md`、`execution-log.md`、`verification-report.md`，`git diff --cached --check` 通过。
+- FINAL PORT GUARD: `scripts\\preflight\\branch-runtime-port-guard.ps1` -> PASS，`int_main/int_main` 端口契约为前端 `8081`、后端 `48081`。
+- FINAL CLOSEOUT COMMIT: `a00db7a2da3e49952c878f0cc48881f544af427f docs: resume current code push after QA integration` -> PASS。
+- FINAL PUSH: 首次推送因 GitHub TLS EOF 失败，远端未更新；同一已验证代理的 `ls-remote` 随后通过，原命令重试成功，`4c3bdc02b..a00db7a2d int_main -> int_main`。
+- FINAL REMOTE CHECK: GitHub `refs/heads/int_main`、本地 HEAD 与 `origin/int_main` 均为 `a00db7a2da3e49952c878f0cc48881f544af427f`，ahead/behind 为 `0/0`；前后端 tracked/untracked 残余和本任务文档残余均为 0。
