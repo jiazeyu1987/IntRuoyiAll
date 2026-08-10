@@ -230,6 +230,40 @@ class DccControlledFileMapperTest extends BaseDbUnitTest {
     }
 
     @Test
+    void selectCurrentApprovedFilesByIds_keepsExternalProjectFileAndDropsOldRevision() {
+        DccControlledFileDO oldRevision = insertControlledFile(720L, "旧修订", "revision.pdf", "REV-001");
+        DccControlledFileDO currentRevision = DccControlledFileDO.builder()
+                .categoryId(10L)
+                .directoryId(20L)
+                .originalFileId(30L)
+                .title("新修订")
+                .versionNo("V2.0")
+                .effectiveDate(LocalDate.of(2026, 6, 18))
+                .remark("current-approved-selected")
+                .status("ACTIVE")
+                .requesterId(99L)
+                .processDefinitionKey("dcc-controlled-file-approval")
+                .build();
+        setField(currentRevision, "masterId", 720L);
+        setField(currentRevision, "fileName", "revision.pdf");
+        setField(currentRevision, "fileNumber", "REV-001");
+        setField(currentRevision, "sourceFileId", 30L);
+        setField(currentRevision, "submitterId", 99L);
+        controlledFileMapper.insert(currentRevision);
+        DccControlledFileDO externalProjectFile = insertControlledFile(721L, "外部项目文件", "external-project.pdf", "EXT-001");
+        executeUpdate("UPDATE dcc_controlled_file SET dcc_project_code_id = ? WHERE id = ?",
+                129L, externalProjectFile.getId());
+
+        List<Long> ids = controlledFileMapper.selectCurrentApprovedFilesByIds(List.of(
+                        oldRevision.getId(), currentRevision.getId(), externalProjectFile.getId()))
+                .stream()
+                .map(DccControlledFileDO::getId)
+                .toList();
+
+        assertEquals(List.of(currentRevision.getId(), externalProjectFile.getId()), ids);
+    }
+
+    @Test
     void selectWorkflowList_filtersProjectCodeByLatestSuccessfulRecognitionWhenDirectFieldMissing() {
         DccControlledFileDO ledgerOnly = insertControlledFile(711L, "账本详情文件", "ledger-detail.pdf", "LD-001");
         DccControlledFileDO direct = insertControlledFile(712L, "直接详情文件", "direct-detail.pdf", "DD-001");

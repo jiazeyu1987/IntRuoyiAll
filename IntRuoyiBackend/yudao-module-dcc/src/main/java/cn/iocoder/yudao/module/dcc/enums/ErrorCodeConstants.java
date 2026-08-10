@@ -253,6 +253,8 @@ public interface ErrorCodeConstants {
             "DCC project-code assignment metadata audit does not exist");
     ErrorCode PROJECT_CODE_ASSIGNMENT_ASSIGNEE_PERMISSION_MISSING = new ErrorCode(1_080_000_168,
             "DCC project-code assignment assignee lacks the assignment execution menu permission");
+    ErrorCode PROJECT_CODE_ASSIGNMENT_TARGET_PROJECT_MISMATCH = new ErrorCode(1_080_000_197,
+            "DCC project-code assignment target project does not match requested project code");
     ErrorCode CONTROLLED_FILE_PERSONAL_PAGE_DISABLED = new ErrorCode(1_080_000_169,
             "DCC personal file page is retired; use controlled file browser");
     ErrorCode DCC_DMR_SHEET_ROOT_CONFIG_MISSING = new ErrorCode(1_080_000_170,
