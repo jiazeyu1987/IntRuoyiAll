@@ -25,3 +25,4 @@
 - PREFLIGHT: branch-runtime-port-guard rerun -> PASS，codex/20260810-dcc-project-code-assignment-scope / int_main，frontend 8093，backend 48093。
 - CLEANUP: task-closeout preview --worktree-closeout off -> PASS，仅计划删除 backend-api-evidence.md 与 bug-regression-evidence.md。
 - CLEANUP: task-closeout apply --worktree-closeout off -> PASS，已删除上述两份临时 evidence；task.md、execution-log.md、verification-report.md、生产代码和正式回归测试均保留。
+- MERGE AUDIT: int_main overlap review found an additional selected-file recognition-association snapshot test intent；added an equivalent regression using selectCurrentApprovedFilesByIds so target project snapshots remain covered when the direct project field is empty。
