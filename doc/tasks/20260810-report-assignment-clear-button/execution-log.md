@@ -3,6 +3,7 @@
 ## User Intent
 
 - 用户要求“每行增加清除按钮，点击之后数字变成0”，截图目标为“分配报工 / 活跃订单分配”弹窗的每行分配数量区域。
+- 用户追加要求：进行 E2E 验证。
 
 ## BDD Scenarios
 
@@ -25,6 +26,7 @@
 - completed: 已在分配数量列增加“清除”按钮，新增 clearAllocationQuantity 处理器，清零后沿用现有 allocationRows 汇总计算。
 - completed: 已将提交构造逻辑调整为 normalizeAllocationSubmitQuantity，0 数量行不进入正式 allocations payload。
 - ready_for_closeout: 实现和目标验证已完成，待执行收尾清理门禁后标记 completed。
+- in_progress: 用户追加要求真实 E2E 验证；已读取 Playwright 技能、docs/e2e-rules.md、docs/local-runtime.md、docs/login-access.md、docs/worktree-restrictions.md，准备确认本机服务和脚本入口。
 
 ## Verification Evidence
 

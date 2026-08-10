@@ -1,7 +1,7 @@
 # P6 生产组长工作台真实 E2E 证据
 
 - Task ID: `20260731-team-leader-workbench-prd-plan`
-- Generated At: `2026-08-06T06:58:42.031Z`
+- Generated At: `2026-08-10T05:15:04.495Z`
 - Status: `BLOCKED`
 - Frontend: `http://127.0.0.1:8081`
 - Backend: `http://127.0.0.1:48081`

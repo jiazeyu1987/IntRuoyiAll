@@ -20,7 +20,7 @@
 
 ## Current Status
 
-ready_for_closeout
+in_progress
 
 ## 设计约束检查
 
@@ -39,3 +39,4 @@ ready_for_closeout
 - node tests/e2e/team-leader-report-allocation-static.spec.cjs -> PASS
 - node tests/e2e/team-leader-report-allocation-dialog-hide-static.spec.cjs -> PASS
 - pnpm ts:check -> PASS
+- 用户追加要求：执行真实 E2E 验证，任务状态从 ready_for_closeout 调回 in_progress，待 E2E 结果写入后再收尾。

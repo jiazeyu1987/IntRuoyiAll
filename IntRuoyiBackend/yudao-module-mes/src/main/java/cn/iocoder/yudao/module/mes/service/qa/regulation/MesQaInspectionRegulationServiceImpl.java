@@ -53,7 +53,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     private static final String STATUS_PUBLISHED = "PUBLISHED";
     private static final String STATUS_RETIRED = "RETIRED";
     private static final Set<String> ALLOWED_INSPECTION_TYPES = Set.of("FIRST", "PATROL", "FINAL");
-    private static final Set<String> REQUIRED_BASE_INSPECTION_TYPES = Set.of("FIRST", "PATROL");
+    private static final Set<String> REQUIRED_BASE_INSPECTION_TYPES = Set.of("PATROL");
 
     private final MesQaInspectionRegulationMapper regulationMapper;
     private final MesQaInspectionRegulationVersionMapper versionMapper;

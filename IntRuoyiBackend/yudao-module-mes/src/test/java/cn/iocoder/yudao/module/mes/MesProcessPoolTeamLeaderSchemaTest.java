@@ -333,6 +333,27 @@ class MesProcessPoolTeamLeaderSchemaTest {
     }
 
     @Test
+    void deviceParameterRuleSchemaMustSupportSelectOptionsTextDefaultAndDecimalScale() throws Exception {
+        assertField(MesProcessPoolDeviceParameterRuleDO.class, "optionValuesJson", String.class);
+        assertField(MesProcessPoolDeviceParameterRuleDO.class, "defaultText", String.class);
+        assertField(MesProcessPoolDeviceParameterRuleDO.class, "decimalScale", Integer.class);
+
+        String sql = Files.readString(resolveBackendPath(
+                "sql/mysql/20260810_mes_process_pool_device_parameter_select_options.sql"),
+                StandardCharsets.UTF_8);
+        String normalizedSql = sql.replace("\r\n", "\n");
+        assertTrue(normalizedSql.startsWith("-- release-migration: allowedEnvironments=test,backup,prod; "
+                + "dependsOn=20260807_mes_process_pool_device_parameter_standard_text; "
+                + "type=schema; riskLevel=medium\n"));
+        assertTrue(sql.contains("ADD COLUMN `option_values_json` json DEFAULT NULL"));
+        assertTrue(sql.contains("ADD COLUMN `default_text` varchar(128) DEFAULT NULL"));
+        assertTrue(sql.contains("ADD COLUMN `decimal_scale` int DEFAULT NULL"));
+        assertTrue(sql.contains("CHECK (JSON_TYPE(`option_values_json`) = 'ARRAY')"));
+        assertFalse(sql.contains("UPDATE `mes_pro_process_pool_device_parameter_rule`"),
+                "migration must not guess select options for existing rows");
+    }
+
+    @Test
     void processLossReasonSchemaMustBeRouteProcessSharedAndSnapshotFeedbackHistory() throws Exception {
         assertField(MesProcessPoolDefectReasonDO.class, "routeProcessId", Long.class);
         assertField(MesProcessPoolDefectReasonDO.class, "processId", Long.class);

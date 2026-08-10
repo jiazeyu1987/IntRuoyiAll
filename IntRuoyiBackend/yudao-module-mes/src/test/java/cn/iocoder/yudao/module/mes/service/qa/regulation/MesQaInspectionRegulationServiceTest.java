@@ -190,6 +190,33 @@ class MesQaInspectionRegulationServiceTest {
     }
 
     @Test
+    void publish_allowsMissingFirstWhenCurrentProcessHasOnlyPatrolInspection() {
+        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
+                saveItem("PATROL", "巡检外观", null, new BigDecimal("0.050000"))));
+        reqVO.setFinalInspectionApplicable(false);
+        reqVO.setFinalInspectionNotApplicableReason("当前工序无首检和末检要求，仅按抽样方案执行巡检");
+        when(regulationMapper.selectByRouteProcess(1001L, 2001L, 3001L, 4001L, 5001L)).thenReturn(null);
+        doAnswer(invocation -> {
+            MesQaInspectionRegulationDO regulation = invocation.getArgument(0);
+            regulation.setId(REGULATION_ID);
+            return 1;
+        }).when(regulationMapper).insert(any(MesQaInspectionRegulationDO.class));
+        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "V21-QA-2")).thenReturn(null);
+        doAnswer(invocation -> {
+            MesQaInspectionRegulationVersionDO version = invocation.getArgument(0);
+            version.setId(VERSION_ID);
+            return 1;
+        }).when(versionMapper).insert(any(MesQaInspectionRegulationVersionDO.class));
+
+        MesQaInspectionRegulationPublishedVersionRespVO result = service.publish(reqVO);
+
+        assertEquals(0, result.getFirstInspectionRules().size());
+        assertEquals(1, result.getPatrolInspectionRules().size());
+        assertEquals(false, result.getFinalInspectionApplicable());
+        verify(itemMapper).insert(any(MesQaInspectionRegulationItemDO.class));
+    }
+
+    @Test
     void publish_rejectsFinalItemsWhenFinalInspectionNotApplicable() {
         MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
                 saveItem("FIRST", "首检外观", 5, null),
