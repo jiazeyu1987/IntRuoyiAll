@@ -7,7 +7,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolWorkOrderAbnormalDO;
@@ -24,7 +23,6 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectio
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
@@ -101,8 +99,6 @@ class MesTeamLeaderActiveOrderServiceTest {
     @Mock
     private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Mock
-    private MesProcessPoolOrderProcessCompletionMapper completionMapper;
-    @Mock
     private MesProcessPoolReportAllocationMapper reportAllocationMapper;
     @Mock
     private MesQaInspectionRegulationMapper inspectionRegulationMapper;
@@ -127,7 +123,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     void setUp() {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
-                routeVersionMapper, processSnapshotMapper, completionMapper, reportAllocationMapper,
+                routeVersionMapper, processSnapshotMapper, reportAllocationMapper,
                 inspectionRegulationMapper, inspectionRegulationVersionMapper,
                 inspectionRegulationItemMapper, pqcInspectionTaskMapper, abnormalStateService,
                 releaseApplicationMapper, dccProjectCodeMapper, reportAllocationOrderChangeService);
@@ -669,7 +665,6 @@ class MesTeamLeaderActiveOrderServiceTest {
                         .build()));
         when(processSnapshotMapper.selectListByActiveOrderIds(List.of(8101L)))
                 .thenReturn(processSnapshots(8101L, 9001L, 10));
-        when(completionMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of());
         when(pqcInspectionTaskMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of());
 
         List<MesTeamLeaderActiveOrderRow> activeOrders = service.listActiveOrders(3001L);
@@ -731,7 +726,6 @@ class MesTeamLeaderActiveOrderServiceTest {
                 allocation(8101L, 9001L, 5001L, 6001L, "200"),
                 allocation(8101L, 9001L, 5002L, 6002L, "199"),
                 allocation(8101L, 9001L, 5099L, 6099L, "200")));
-        when(completionMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of());
         when(pqcInspectionTaskMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of(
                 pqcTask(8101L, 5003L, 6003L, MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED),
                 pqcTask(8101L, 5003L, 6003L, MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED),
@@ -781,9 +775,6 @@ class MesTeamLeaderActiveOrderServiceTest {
         when(reportAllocationMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of(
                 allocation(8101L, 9001L, 928601L, 6001L, "199"),
                 allocation(8101L, 9001L, 928602L, 6002L, "200")));
-        when(completionMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of(
-                completion(9001L, 928601L, 6001L, MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED),
-                completion(9001L, 928602L, 6002L, MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED)));
         when(pqcInspectionTaskMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of());
 
         List<MesTeamLeaderActiveOrderRow> activeOrders = service.listActiveOrders(3001L);
@@ -825,7 +816,6 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .thenReturn(formalRouteProcessSnapshots(8101L, 9001L, 1));
         when(reportAllocationMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of(
                 allocation(8101L, 9001L, 928601L, 6001L, "200")));
-        when(completionMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of());
         when(pqcInspectionTaskMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of());
 
         List<MesTeamLeaderActiveOrderRow> activeOrders = service.listActiveOrders(3001L);
@@ -946,16 +936,6 @@ class MesTeamLeaderActiveOrderServiceTest {
                         .plannedQuantitySnapshot(new BigDecimal("200.000000"))
                         .build())
                 .toList();
-    }
-
-    private static MesProcessPoolOrderProcessCompletionDO completion(Long workOrderId, Long routeProcessId,
-                                                                     Long processId, String status) {
-        return MesProcessPoolOrderProcessCompletionDO.builder()
-                .workOrderId(workOrderId)
-                .routeProcessId(routeProcessId)
-                .processId(processId)
-                .completionStatus(status)
-                .build();
     }
 
     private static MesProcessPoolReportAllocationDO allocation(Long activeOrderId, Long workOrderId,

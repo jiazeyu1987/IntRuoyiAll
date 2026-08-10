@@ -243,6 +243,22 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     }
 
     @Test
+    void routeBoundProcessInspectionFormTemplateIsFormalSourceButBlocksUntilDynamicAutoWriteExists() {
+        MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command = command();
+        when(reader.read(command)).thenReturn(bundle(source()));
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(any(), any()))
+                .thenReturn(List.of(dynamicFormBinding(28L, "PI_" + ROUTE_PROCESS_ID)));
+
+        MesTeamLeaderActiveOrderReleaseProcessInspectionPlan plan = writer.plan(command);
+
+        assertEquals(List.of("PROCESS_INSPECTION_DYNAMIC_FORM_AUTOWRITE_REQUIRED"), blockerTypes(plan));
+        assertEquals(String.valueOf(BINDING_ID), plan.getBlockers().get(0).getObjectId());
+        assertEquals("PI_" + ROUTE_PROCESS_ID, plan.getBlockers().get(0).getObjectCode());
+        verify(ruleMapper, never()).selectEnabledListByScopeAndTargetReport(any(), any(), any());
+        verify(executionService, never()).openOrCreateByContext(any());
+    }
+
+    @Test
     void missingPqcReviewSignatureReturnsBlocker() {
         MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source();
         source.getReview().setReviewSignatureId(null);
@@ -414,6 +430,17 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                 .batchRecordReportId(REPORT_ID).batchRecordDefinitionId(802L).batchRecordVersionId(803L)
                 .formSlotType("PROCESS_INSPECTION").recordCategory("INTERNAL_RECORD")
                 .validationProfile("INTERNAL_TRACE").ownerRoleKey("QUALITY")
+                .recordCategorySnapshotHash("binding-snapshot").slotConfigSnapshotHash("slot-snapshot")
+                .build();
+    }
+
+    private static MesProRouteFlowProcessBatchRecordDO dynamicFormBinding(Long templateId, String bindingKey) {
+        return MesProRouteFlowProcessBatchRecordDO.builder()
+                .id(BINDING_ID).routeId(ROUTE_ID).routeProcessId(ROUTE_PROCESS_ID).useType("BATCH")
+                .formSlotType("PROCESS_INSPECTION").formBindingKey(bindingKey).formTemplateId(templateId)
+                .formTemplateNameSnapshot("过程检验记录表单")
+                .lastPublishedTemplateVersionId(2801L).lastPublishedTemplateVersionNo("V1")
+                .recordCategory("INTERNAL_RECORD").validationProfile("INTERNAL_TRACE").ownerRoleKey("QUALITY")
                 .recordCategorySnapshotHash("binding-snapshot").slotConfigSnapshotHash("slot-snapshot")
                 .build();
     }

@@ -103,8 +103,8 @@ assert.doesNotMatch(
 )
 assert.match(
   loadBindingSource,
-  /const \[routeProcesses, scheduleConfigs, batchConfigs\] = await Promise\.all\(/,
-  'Route processes, schedule configs, and batch configs must be loaded before resolving the QA process.'
+  /const \[currentRouteProcesses, scheduleConfigs, batchConfigs\] = await Promise\.all\([\s\S]*resolveQaVersionRouteProcesses\([\s\S]*currentRouteProcesses,[\s\S]*scheduleConfigs,[\s\S]*batchConfigs/,
+  'Current route processes, schedule configs, and batch configs must be loaded before resolving frozen QA route-version processes.'
 )
 assert.match(
   loadBindingSource,

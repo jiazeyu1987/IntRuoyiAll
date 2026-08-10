@@ -23,9 +23,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_ITEM_INVALID;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_REQUIRED_RULE_MISSING;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_IMMUTABLE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -140,27 +138,31 @@ class MesQaInspectionRegulationServiceTest {
     }
 
     @Test
-    void publish_rejectsMissingFinalInspectionRule() {
+    void publish_allowsMissingFinalInspectionRule() {
         MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
                 saveItem("FIRST", "首检外观", 5, null),
                 saveItem("PATROL", "巡检耐压", null, new BigDecimal("0.050000"))));
+        stubNewRegulationAndVersion();
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.publish(reqVO));
+        MesQaInspectionRegulationPublishedVersionRespVO result = service.publish(reqVO);
 
-        assertEquals(QA_INSPECTION_REGULATION_REQUIRED_RULE_MISSING.getCode(), ex.getCode());
+        assertEquals(0, result.getFinalInspectionRules().size());
+        verify(itemMapper, org.mockito.Mockito.times(2)).insert(any(MesQaInspectionRegulationItemDO.class));
     }
 
     @Test
-    void publish_rejectsMissingFinalApplicability() {
+    void publish_allowsMissingFinalApplicability() {
         MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
                 saveItem("FIRST", "首检外观", 5, null),
                 saveItem("PATROL", "巡检耐压", null, new BigDecimal("0.050000")),
                 saveItem("FINAL", "末检包装", 3, null)));
         reqVO.setFinalInspectionApplicable(null);
+        stubNewRegulationAndVersion();
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.publish(reqVO));
+        MesQaInspectionRegulationPublishedVersionRespVO result = service.publish(reqVO);
 
-        assertEquals(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID.getCode(), ex.getCode());
+        assertNull(result.getFinalInspectionApplicable());
+        assertEquals(1, result.getFinalInspectionRules().size());
     }
 
     @Test
@@ -264,17 +266,19 @@ class MesQaInspectionRegulationServiceTest {
     }
 
     @Test
-    void publish_rejectsFinalItemsWhenFinalInspectionNotApplicable() {
+    void publish_allowsFinalItemsWhenFinalInspectionNotApplicable() {
         MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
                 saveItem("FIRST", "首检外观", 5, null),
                 saveItem("PATROL", "巡检耐压", null, new BigDecimal("0.050000")),
                 saveItem("FINAL", "末检包装", 3, null)));
         reqVO.setFinalInspectionApplicable(false);
         reqVO.setFinalInspectionNotApplicableReason("该工序后续 OQC 覆盖最终包装确认");
+        stubNewRegulationAndVersion();
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.publish(reqVO));
+        MesQaInspectionRegulationPublishedVersionRespVO result = service.publish(reqVO);
 
-        assertEquals(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID.getCode(), ex.getCode());
+        assertEquals(false, result.getFinalInspectionApplicable());
+        assertEquals(1, result.getFinalInspectionRules().size());
     }
 
     @Test
