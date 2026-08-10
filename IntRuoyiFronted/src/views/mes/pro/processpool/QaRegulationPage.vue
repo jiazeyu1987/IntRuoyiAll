@@ -790,7 +790,7 @@ type QaInspectionResultType = 'BOOLEAN' | 'NUMERIC' | 'TEXT'
 
 const PRESSURE_PUMP_PROJECT_CODE = 'IDI'
 const BALLOON_PRESSURE_PUMP_PROJECT_CODE = 'ID'
-const DCC_PROJECT_CODE_PAGE_SIZE = 50
+const DCC_PROJECT_CODE_PAGE_SIZE = 200
 const QA_REGULATION_LAST_DCC_PROJECT_CODE_ID_STORAGE_KEY =
   'int-ruoyi:qa-regulation:last-dcc-project-code-id'
 const QA_PDF_ITEM_FAILURE_RULE =
@@ -1904,7 +1904,8 @@ const isDccProjectCodeConfigured = (project: DccProjectCodeRespVO) => {
   const productId = resolveDccProjectProductId(project)
   return Boolean(
     productId &&
-      qaRegulationProjectStatusByProductId.value.get(productId)?.configured === true
+      (qaRegulationProjectStatusByProductId.value.get(productId)?.configured === true ||
+        hasQaProductRuleDraftConfiguration(resolveQaProductRuleDraftSnapshot(productId, project)))
   )
 }
 
@@ -1922,6 +1923,37 @@ const sortDccProjectCodeOptionsByQaStatus = (projects: DccProjectCodeRespVO[]) =
     }
     return 0
   })
+
+const mergeDccProjectCodeOptions = (projects: DccProjectCodeRespVO[]) => {
+  const projectById = new Map<number, DccProjectCodeRespVO>()
+  projects.forEach((project) => {
+    projectById.set(project.id, project)
+  })
+  return Array.from(projectById.values())
+}
+
+const loadCompleteDccProjectCodeOptions = async (keyword: string) => {
+  const options: DccProjectCodeRespVO[] = []
+  let pageNo = 1
+  while (true) {
+    const data = await getProjectCodePage({
+      pageNo,
+      pageSize: DCC_PROJECT_CODE_PAGE_SIZE,
+      status: DCC_PROJECT_CODE_STATUS_ENABLE,
+      keyword: keyword || undefined
+    })
+    options.push(...data.list)
+    const total = Number(data.total)
+    if (!Number.isFinite(total) || total < 0) {
+      throw new Error('DCC 项目代码分页总数缺失，无法完整排序已配置 QA 规程候选。')
+    }
+    if (options.length >= total || data.list.length === 0) {
+      break
+    }
+    pageNo += 1
+  }
+  return mergeDccProjectCodeOptions(options)
+}
 
 const cloneQaRegulationItems = (items: QaRegulationItem[]) =>
   items.map((item) => ({
@@ -1944,6 +1976,40 @@ const createQaProductRuleDraftSnapshot = (
   inspectionTypeRules: inspectionTypeRules.map((rule) => ({ ...rule })),
   regulationItems: cloneQaRegulationItems(regulationItems)
 })
+
+const createDefaultQaProductRuleDraftSnapshot = (
+  productId: number,
+  project: DccProjectCodeRespVO
+) => {
+  const projectCode = normalizeDccProjectCode(project.projectCode)
+  const isPressurePumpProduct =
+    productId === pressurePumpProductId.value || projectCode === PRESSURE_PUMP_PROJECT_CODE
+  const isBalloonPressurePumpProduct =
+    productId === balloonPressurePumpProductId.value ||
+    projectCode === BALLOON_PRESSURE_PUMP_PROJECT_CODE
+  if (!isPressurePumpProduct && !isBalloonPressurePumpProduct) {
+    return undefined
+  }
+  return createQaProductRuleDraftSnapshot(
+    isBalloonPressurePumpProduct
+      ? createBalloonPressurePumpQaRegulationDraft()
+      : createPressurePumpQaRegulationDraft(),
+    isBalloonPressurePumpProduct
+      ? createBalloonPressurePumpQaInspectionTypeRules()
+      : createPressurePumpQaInspectionTypeRules(),
+    isBalloonPressurePumpProduct
+      ? createBalloonPressurePumpQaRegulationItems()
+      : createPressurePumpQaRegulationItems()
+  )
+}
+
+const resolveQaProductRuleDraftSnapshot = (
+  productId: number,
+  project: DccProjectCodeRespVO
+) => qaProductRuleDrafts.get(productId) || createDefaultQaProductRuleDraftSnapshot(productId, project)
+
+const hasQaProductRuleDraftConfiguration = (snapshot: QaProductRuleDraftSnapshot | undefined) =>
+  Boolean(snapshot && snapshot.regulationItems.length > 0)
 
 const registerPressurePumpProductBinding = (projects: DccProjectCodeRespVO[]) => {
   const pressurePumpProject = projects.find(
@@ -1982,25 +2048,13 @@ const saveCurrentQaProductRuleDraft = () => {
 const loadQaProductRuleDraft = (productId: number, project: DccProjectCodeRespVO) => {
   let snapshot = qaProductRuleDrafts.get(productId)
   if (!snapshot) {
-    const isPressurePumpProduct = productId === pressurePumpProductId.value
-    const isBalloonPressurePumpProduct = productId === balloonPressurePumpProductId.value
-    snapshot = createQaProductRuleDraftSnapshot(
-      isBalloonPressurePumpProduct
-        ? createBalloonPressurePumpQaRegulationDraft()
-        : isPressurePumpProduct
-        ? createPressurePumpQaRegulationDraft()
-        : createEmptyQaRegulationDraft(),
-      isBalloonPressurePumpProduct
-        ? createBalloonPressurePumpQaInspectionTypeRules()
-        : isPressurePumpProduct
-        ? createPressurePumpQaInspectionTypeRules()
-        : createEmptyQaInspectionTypeRules(),
-      isBalloonPressurePumpProduct
-        ? createBalloonPressurePumpQaRegulationItems()
-        : isPressurePumpProduct
-        ? createPressurePumpQaRegulationItems()
-        : []
-    )
+    snapshot =
+      resolveQaProductRuleDraftSnapshot(productId, project) ||
+      createQaProductRuleDraftSnapshot(
+        createEmptyQaRegulationDraft(),
+        createEmptyQaInspectionTypeRules(),
+        []
+      )
     qaProductRuleDrafts.set(productId, snapshot)
   }
 
@@ -2538,22 +2592,17 @@ const loadDccProjectCodeOptions = async (keyword = '') => {
   dccProjectCodeOptionsLoading.value = true
   dccProjectCodeLoadError.value = ''
   try {
-    const data = await getProjectCodePage({
-      pageNo: 1,
-      pageSize: DCC_PROJECT_CODE_PAGE_SIZE,
-      status: DCC_PROJECT_CODE_STATUS_ENABLE,
-      keyword: keyword.trim() || undefined
-    })
-    const options = [...data.list]
+    const options = await loadCompleteDccProjectCodeOptions(keyword.trim())
     const selectedProject = selectedDccProjectCode.value
-    if (selectedProject && !options.some((project) => project.id === selectedProject.id)) {
-      options.unshift(selectedProject)
-    }
-    const productIds = resolveDccProjectCodeProductIds(options)
+    const mergedOptions = mergeDccProjectCodeOptions([
+      ...(selectedProject ? [selectedProject] : []),
+      ...options
+    ])
+    const productIds = resolveDccProjectCodeProductIds(mergedOptions)
     const projectStatuses = await QcTemplateApi.getQaRegulationProjectStatuses(productIds)
     qaRegulationProjectStatusByProductId.value = createQaRegulationProjectStatusMap(projectStatuses)
-    registerPressurePumpProductBinding(options)
-    dccProjectCodeOptions.value = sortDccProjectCodeOptionsByQaStatus(options)
+    registerPressurePumpProductBinding(mergedOptions)
+    dccProjectCodeOptions.value = sortDccProjectCodeOptionsByQaStatus(mergedOptions)
   } catch (error) {
     dccProjectCodeOptions.value = selectedDccProjectCode.value
       ? [selectedDccProjectCode.value]
