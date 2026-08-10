@@ -8,7 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectio
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
@@ -51,7 +51,7 @@ class MesTeamLeaderActiveOrderManualSortTest {
     @Mock private MesProRouteMapper routeMapper;
     @Mock private MesProRouteVersionMapper routeVersionMapper;
     @Mock private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
-    @Mock private MesProcessPoolOrderProcessCompletionMapper completionMapper;
+    @Mock private MesProcessPoolReportAllocationMapper reportAllocationMapper;
     @Mock private MesQaInspectionRegulationMapper inspectionRegulationMapper;
     @Mock private MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
     @Mock private MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
@@ -67,7 +67,8 @@ class MesTeamLeaderActiveOrderManualSortTest {
     void setUp() {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
-                routeVersionMapper, processSnapshotMapper, completionMapper, inspectionRegulationMapper,
+                routeVersionMapper, processSnapshotMapper, reportAllocationMapper,
+                inspectionRegulationMapper,
                 inspectionRegulationVersionMapper, inspectionRegulationItemMapper, pqcInspectionTaskMapper,
                 abnormalStateService, releaseApplicationMapper, dccProjectCodeMapper,
                 reportAllocationOrderChangeService);

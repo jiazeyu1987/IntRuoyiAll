@@ -32,6 +32,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_DIRECTORY_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_ASSIGNMENT_TARGET_PROJECT_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -172,6 +173,31 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         verify(projectCodeAssignmentService).assertMetadataUpdateAllowed(123L, 900L, 9100L);
         verify(controlledFileMapper).updateById(any(DccControlledFileDO.class));
         verify(metadataChangeAuditService).recordMetadataChange(any());
+    }
+
+    @Test
+    void updateMetadata_assignedUserCannotChangeOutsideAssignmentTargetProject() {
+        DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
+        reqVO.setAssignmentId(9100L);
+        reqVO.setDccProjectCodeId(3001L);
+        when(permissionApi.hasAnyRoles(123L, "doc_control"))
+                .thenReturn(false);
+        when(projectCodeAssignmentService.assertMetadataUpdateAllowed(123L, 900L, 9100L))
+                .thenReturn(DccProjectCodeAssignmentAuthorization.assignedUser(9100L, 3000L));
+        when(projectCodeMapper.selectById(3001L)).thenReturn(
+                cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO.builder()
+                        .id(3001L)
+                        .projectName("其他项目")
+                        .projectCode("OTHER")
+                        .status("ENABLE")
+                        .build());
+
+        assertServiceException(() -> metadataUpdateService.updateMetadata(123L, 900L, reqVO),
+                PROJECT_CODE_ASSIGNMENT_TARGET_PROJECT_MISMATCH);
+
+        verify(controlledFileMapper, never()).selectById(900L);
+        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+        verify(metadataChangeAuditService, never()).recordMetadataChange(any());
     }
 
     @Test

@@ -588,7 +588,7 @@
     <ContentWrap v-show="qaActiveTab === 'verification'">
       <div class="qa-regulation-page__layout">
         <el-card shadow="never" data-qa-regulation-completeness>
-          <template #header>发布完整性检查</template>
+          <template #header>发布必要条件</template>
           <UnifiedListTemplate
             table-key="mes.qa.regulation.checks"
             :query-model="qaChecksQuery"
@@ -599,7 +599,7 @@
             :operator-options="qaEmptyOperatorOptions"
             :columns="qaChecksColumns"
             :column-saving="qaChecksColumnSaving"
-            :total="qaRegulationCompletenessChecks.length"
+            :total="qaRegulationPublishChecks.length"
             v-model:page="qaChecksQuery.pageNo"
             v-model:limit="qaChecksQuery.pageSize"
             @column-change="saveQaChecksColumnConfig"
@@ -729,7 +729,7 @@
           </UnifiedListTemplate>
           <el-alert
             class="mt-12px"
-            title="PQC 任务必须来自 QA 发布规程快照；缺产品、路线、工序、规则或项目时阻塞生成。"
+            title="发布按钮仅校验 DCC 项目代码、MDM 产品绑定、正式工艺路线和同版本不可变；PQC 任务仍来自发布后的规程快照。"
             type="info"
             :closable="false"
             show-icon
@@ -1066,6 +1066,7 @@ const createBalloonPressurePumpQaRegulationDraft = (): QaRegulationDraft => ({
 })
 
 const qaRegulationDraft = reactive<QaRegulationDraft>(createEmptyQaRegulationDraft())
+const qaPublishedVersionNo = ref('')
 
 const createEmptyQaInspectionTypeRules = (): QaInspectionTypeRule[] => [
   {
@@ -2062,6 +2063,10 @@ const loadQaProductRuleDraft = (productId: number, project: DccProjectCodeRespVO
     dccProjectCodeId: project.id,
     productName: project.projectName.trim()
   })
+  qaPublishedVersionNo.value =
+    snapshot.regulationDraft.lifecycleStatus === 'PUBLISHED'
+      ? snapshot.regulationDraft.versionNo.trim()
+      : ''
   replaceQaInspectionTypeRules(snapshot.inspectionTypeRules)
   qaRegulationItems.value = cloneQaRegulationItems(snapshot.regulationItems)
   activeQaRegulationProductId.value = productId
@@ -2844,12 +2849,51 @@ const qaRegulationCompletenessChecks = computed(() => {
   ]
 })
 
+const qaRegulationPublishChecks = computed(() => {
+  const dccProjectSelected = Boolean(selectedDccProjectCode.value)
+  const mdmProductBound = Boolean(
+    selectedDccProjectCode.value && selectedDccProjectCode.value.productMasterId
+  )
+  const formalRouteBound = Boolean(qaRegulationDraft.routeId)
+  const sameVersionAlreadyPublished =
+    qaRegulationDraft.lifecycleStatus === 'PUBLISHED' &&
+    qaRegulationDraft.versionNo.trim() === qaPublishedVersionNo.value
+  return [
+    {
+      key: 'dcc-project-code',
+      label: 'DCC 项目代码',
+      passed: dccProjectSelected,
+      detail: dccProjectSelected ? '已选择 DCC 项目代码' : '必须先选择 DCC 项目代码'
+    },
+    {
+      key: 'mdm-product-binding',
+      label: 'MDM 产品绑定',
+      passed: mdmProductBound,
+      detail: mdmProductBound ? 'DCC 项目代码已绑定 MDM 产品' : 'DCC 项目代码必须绑定 MDM 产品'
+    },
+    {
+      key: 'formal-route',
+      label: '正式工艺路线',
+      passed: formalRouteBound,
+      detail: formalRouteBound ? '产品已绑定正式工艺路线' : '产品必须绑定正式工艺路线'
+    },
+    {
+      key: 'immutable-version',
+      label: '版本不可变',
+      passed: !sameVersionAlreadyPublished,
+      detail: sameVersionAlreadyPublished
+        ? '同一个规程的同一个版本号已经发布，不能原地修改再发布'
+        : '当前版本尚未发布'
+    }
+  ]
+})
+
 const qaPublishBlockers = computed(() =>
-  qaRegulationCompletenessChecks.value.filter((check) => !check.passed)
+  qaRegulationPublishChecks.value.filter((check) => !check.passed)
 )
 
 const pagedQaRegulationCompletenessChecks = computed(() =>
-  paginateQaRows(qaRegulationCompletenessChecks.value, qaChecksQuery)
+  paginateQaRows(qaRegulationPublishChecks.value, qaChecksQuery)
 )
 
 const qaApplicableInspectionTypes = computed(() => {
@@ -2974,10 +3018,21 @@ const resolveRuleForInspectionType = (
 ) => qaInspectionTypeRules.find((rule) => rule.inspectionType === inspectionType && rule.required)
 
 const buildQaRegulationItemEquipmentOptions = (
-  item: QaRegulationItem
+  item: QaRegulationItem,
+  settings: { publishing?: boolean } = {}
 ): QaInspectionRegulationSaveEquipmentOptionVO[] => {
-  const options = getQaRegulationItemEquipmentOptions(item)
-  return options.map((option, index) => ({
+  const optionRows = getQaRegulationItemEquipmentOptions(item)
+  const publishing = Boolean(settings.publishing)
+  const publishableOptions = publishing
+    ? optionRows.filter(
+        (option) =>
+          option.equipmentId &&
+          option.equipmentCode?.trim() &&
+          option.equipmentName?.trim() &&
+          option.equipmentNumber?.trim()
+      )
+    : optionRows
+  return publishableOptions.map((option, index) => ({
     equipmentId: resolvePositiveId(option.equipmentId, `${item.itemName}设备 ID`),
     equipmentCode: resolveRequiredText(option.equipmentCode, `${item.itemName}设备编码`),
     equipmentName: resolveRequiredText(option.equipmentName, `${item.itemName}设备名称`),
@@ -2988,10 +3043,15 @@ const buildQaRegulationItemEquipmentOptions = (
 }
 
 const buildQaRegulationSaveItems = (
-  regulationItems: QaRegulationItem[]
+  regulationItems: QaRegulationItem[],
+  settings: { publishing?: boolean } = {}
 ): QaInspectionRegulationSaveItemVO[] =>
   regulationItems.flatMap((item) => {
-    const samplingPlan = parseQaInspectionSamplingPlan(item.samplingPlanText, item.itemName)
+    const publishing = Boolean(settings.publishing)
+    const samplingPlan =
+      publishing && !isQaInspectionSamplingPlanComplete(item.samplingPlanText)
+        ? undefined
+        : parseQaInspectionSamplingPlan(item.samplingPlanText, item.itemName)
     const inspectionTypes = Array.from(
       new Set(
         resolveQaApplicableInspectionTypes(
@@ -3000,7 +3060,7 @@ const buildQaRegulationSaveItems = (
         ).map(normalizeQaInspectionType)
       )
     )
-    const equipmentOptions = buildQaRegulationItemEquipmentOptions(item)
+    const equipmentOptions = buildQaRegulationItemEquipmentOptions(item, { publishing })
     return inspectionTypes.flatMap((inspectionType) => {
       const rule = resolveRuleForInspectionType(inspectionType)
       if (!rule) {
@@ -3021,12 +3081,12 @@ const buildQaRegulationSaveItems = (
         resultType: item.resultType,
         firstInspectionQuantity:
           inspectionType === 'FIRST'
-            ? samplingPlan.firstInspectionQuantity
+            ? samplingPlan?.firstInspectionQuantity
             : inspectionType === 'FINAL'
               ? rule.fixedQuantity || undefined
               : undefined,
         patrolInspectionRatio:
-          inspectionType === 'PATROL' ? samplingPlan.patrolInspectionRatio : undefined
+          inspectionType === 'PATROL' ? samplingPlan?.patrolInspectionRatio : undefined
       }]
     })
   })
@@ -3095,7 +3155,10 @@ const buildQaProcessRegulationCode = (baseCode: string, routeProcessId: number) 
   return processCode
 }
 
-const buildQaRegulationSavePayloads = (): QaInspectionRegulationSaveReqVO[] | undefined => {
+const buildQaRegulationSavePayloads = (
+  settings: { publishing?: boolean } = {}
+): QaInspectionRegulationSaveReqVO[] | undefined => {
+  const publishing = Boolean(settings.publishing)
   if (!selectedDccProjectCode.value) {
     ElMessage.warning('请先选择 DCC 项目代码，再保存 QA 规程草稿。')
     return undefined
@@ -3118,7 +3181,7 @@ const buildQaRegulationSavePayloads = (): QaInspectionRegulationSaveReqVO[] | un
   const finalInspectionApplicable = Boolean(finalRule?.required)
   const finalInspectionNotApplicableReason =
     finalInspectionApplicable ? undefined : finalRule?.notApplicableReason?.trim()
-  if (!finalInspectionApplicable && !finalInspectionNotApplicableReason) {
+  if (!publishing && !finalInspectionApplicable && !finalInspectionNotApplicableReason) {
     ElMessage.warning('末检不适用时必须填写正式依据。')
     return undefined
   }
@@ -3147,7 +3210,15 @@ const buildQaRegulationSavePayloads = (): QaInspectionRegulationSaveReqVO[] | un
       }
     }
     if (itemsByRouteProcessId.size === 0) {
-      throw new Error('当前 QA 规程没有可发布到激活路线版本的正式检验项目。')
+      if (!publishing) {
+        throw new Error('当前 QA 规程没有可发布到激活路线版本的正式检验项目。')
+      }
+      const routeProcessId = resolvePositiveId(source.routeProcess.id, '路线工序 ID')
+      itemsByRouteProcessId.set(routeProcessId, {
+        routeProcess: source.routeProcess,
+        items: [],
+        batchRecordBindingResolved: false
+      })
     }
 
     const routeId = resolvePositiveId(qaRegulationDraft.routeId, '路线 ID')
@@ -3188,7 +3259,7 @@ const buildQaRegulationSavePayloads = (): QaInspectionRegulationSaveReqVO[] | un
           effectiveDate: qaRegulationDraft.effectiveDate || undefined,
           finalInspectionApplicable,
           finalInspectionNotApplicableReason,
-          items: buildQaRegulationSaveItems(items)
+          items: buildQaRegulationSaveItems(items, { publishing })
         }
       })
   } catch (error) {
@@ -3210,6 +3281,9 @@ const previewQaRegulationDraft = async () => {
       qaRegulationDraft.lifecycleStatus = result.lifecycleStatus
       savedVersionNo = result.versionNo
     }
+    if (qaRegulationDraft.lifecycleStatus !== 'PUBLISHED') {
+      qaPublishedVersionNo.value = ''
+    }
     ElMessage.success(`QA 规程草稿已按 ${payloads.length} 个工序保存：${savedVersionNo}`)
   } catch (error) {
     ElMessage.error(`QA 规程草稿保存失败：${resolveDccProjectCodeErrorMessage(error)}`)
@@ -3224,10 +3298,10 @@ const runQaPublishPrecheck = async () => {
     return
   }
   if (qaPublishBlockers.value.length > 0) {
-    ElMessage.warning(`发布前仍有 ${qaPublishBlockers.value.length} 项规则需补齐`)
+    ElMessage.warning(qaPublishBlockers.value.map((check) => check.detail).join('；'))
     return
   }
-  const payloads = buildQaRegulationSavePayloads()
+  const payloads = buildQaRegulationSavePayloads({ publishing: true })
   if (!payloads) {
     return
   }
@@ -3239,6 +3313,7 @@ const runQaPublishPrecheck = async () => {
       publishedVersionNo = result.versionNo
     }
     qaRegulationDraft.lifecycleStatus = 'PUBLISHED'
+    qaPublishedVersionNo.value = publishedVersionNo.trim()
     ElMessage.success(
       `QA 规程已按 ${payloads.length} 个工序发布为不可变版本：${publishedVersionNo}`
     )

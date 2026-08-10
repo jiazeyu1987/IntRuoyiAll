@@ -635,6 +635,9 @@ public class MesProcessPoolTeamLeaderController {
                         .targetValue(reqVO.getTargetValue())
                         .valueType(reqVO.getValueType())
                         .standardText(reqVO.getStandardText())
+                        .optionValues(reqVO.getOptionValues())
+                        .defaultText(reqVO.getDefaultText())
+                        .decimalScale(reqVO.getDecimalScale())
                         .build()));
     }
 
@@ -745,6 +748,9 @@ public class MesProcessPoolTeamLeaderController {
                 .setLowerLimit(parameter.getLowerLimit())
                 .setTargetValue(parameter.getTargetValue())
                 .setUpperLimit(parameter.getUpperLimit())
+                .setOptionValues(parameter.getOptionValues())
+                .setDefaultText(parameter.getDefaultText())
+                .setDecimalScale(parameter.getDecimalScale())
                 .setEnabled(parameter.getEnabled())
                 .setActualAverage(parameter.getActualAverage())
                 .setSampleCount(parameter.getSampleCount())

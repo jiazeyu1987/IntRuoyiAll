@@ -215,8 +215,7 @@ class MesFrontlinePqcContextServiceTest {
                 .setProductId(routeProjectItemId);
         when(regulationMapper.selectListByProductIds(argThat(productIds ->
                 productIds != null
-                        && productIds.size() == 3
-                        && productIds.contains(PRODUCT_ID)
+                        && productIds.size() == 2
                         && productIds.contains(routeProjectItemId)
                         && productIds.contains(QA_PRODUCT_ID))))
                 .thenReturn(List.of(qaRegulation, qaRegulation));
@@ -232,8 +231,7 @@ class MesFrontlinePqcContextServiceTest {
         verify(routeProductMapper).selectListByRouteId(ROUTE_ID);
         verify(regulationMapper).selectListByProductIds(argThat(productIds ->
                 productIds != null
-                        && productIds.size() == 3
-                        && productIds.contains(PRODUCT_ID)
+                        && productIds.size() == 2
                         && productIds.contains(routeProjectItemId)
                         && productIds.contains(QA_PRODUCT_ID)));
         verify(regulationMapper, never()).selectListByProductIds(argThat(productIds ->
@@ -388,6 +386,46 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals(List.of(ROUTE_PROCESS_ID),
                 processes.stream().map(MesFrontlineRouteProcessCandidate::routeProcessId).toList());
         assertEquals(PQC_TASK_ID, processes.get(0).pqcTaskId());
+    }
+
+    @Test
+    void shouldResolveQaRegulationFromRouteDccProjectCodeWhenRouteProjectItemIsProductMasterId() {
+        long dccProductMasterId = 14L;
+        when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
+                        LocalDateTime.of(2026, 8, 1, 8, 0)));
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID, PRODUCT_ID));
+        when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, PRODUCT_ID))
+                .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
+        when(routeProductMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
+                MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(dccProductMasterId).build()));
+        when(itemService.getItemMap(Set.of(dccProductMasterId))).thenReturn(Map.of());
+        when(dccProjectCodeMapper.selectEnabledList()).thenReturn(List.of(DccProjectCodeDO.builder()
+                .id(9011L).projectCode("IDI").projectName("按压式球囊扩充压力泵")
+                .productMasterId(dccProductMasterId).build()));
+        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route(ROUTE_ID));
+        when(routeProcessMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
+                routeProcess(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10)));
+        when(processService.getProcessMap(Set.of(PROCESS_ID))).thenReturn(Map.of(
+                PROCESS_ID, process(PROCESS_ID, "P-1", "PQC 检验")));
+        MesQaInspectionRegulationDO qaRegulation = regulation(REGULATION_VERSION_ID)
+                .setProductId(dccProductMasterId);
+        when(regulationMapper.selectListByProductIds(argThat(productIds ->
+                productIds != null
+                        && productIds.size() == 1
+                        && productIds.contains(dccProductMasterId))))
+                .thenReturn(List.of(qaRegulation));
+        when(regulationItemMapper.selectListByVersionIds(Set.of(REGULATION_VERSION_ID))).thenReturn(List.of(
+                regulationItem(REGULATION_VERSION_ID, "pressure", "压力", "NUMBER", "压力表")));
+        when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of());
+
+        List<MesFrontlineRouteProcessCandidate> processes =
+                service.listProcessesByActiveOrder(WORK_ORDER_ID, ROUTE_ID);
+
+        assertEquals(List.of(ROUTE_PROCESS_ID),
+                processes.stream().map(MesFrontlineRouteProcessCandidate::routeProcessId).toList());
+        assertNull(processes.get(0).pqcTaskId());
+        verify(regulationItemMapper).selectListByVersionIds(Set.of(REGULATION_VERSION_ID));
     }
 
     @Test

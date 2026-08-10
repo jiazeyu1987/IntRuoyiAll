@@ -116,12 +116,12 @@ assert.match(
 )
 assert.match(
   saveItemsSource,
-  /firstInspectionQuantity:[\s\S]*samplingPlan\.firstInspectionQuantity/,
+  /firstInspectionQuantity:[\s\S]*samplingPlan\??\.firstInspectionQuantity/,
   'FIRST payload quantity must come from the current item sampling plan.'
 )
 assert.match(
   saveItemsSource,
-  /patrolInspectionRatio:[\s\S]*samplingPlan\.patrolInspectionRatio/,
+  /patrolInspectionRatio:[\s\S]*samplingPlan\??\.patrolInspectionRatio/,
   'PATROL payload ratio must come from the current item AQL.'
 )
 

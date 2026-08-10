@@ -101,6 +101,7 @@ export interface ProFrontlineDeviceParameterReadingReqVO {
   parameterName?: string
   unit?: string
   value?: number
+  textValue?: string
   lowerLimit?: number | string
   upperLimit?: number | string
   parameterStatus: ProFrontlineParameterStatus
@@ -357,6 +358,9 @@ export interface FrontlineRuntimeDeviceParameterVO {
   upperLimit?: number | string | null
   defaultValue?: number | string | null
   valueType?: string
+  optionValues?: string[]
+  defaultText?: string | null
+  decimalScale?: number | null
 }
 
 export interface FrontlineRuntimeDeviceVO {

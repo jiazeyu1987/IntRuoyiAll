@@ -247,6 +247,9 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
                 .setLowerLimit(rule.getLowerLimit())
                 .setTargetValue(rule.getDefaultValue())
                 .setUpperLimit(rule.getUpperLimit())
+                .setOptionValues(parseOptionValues(rule.getOptionValuesJson()))
+                .setDefaultText(rule.getDefaultText())
+                .setDecimalScale(rule.getDecimalScale())
                 .setEnabled(rule.getEnabled())
                 .setActualAverage(statistic.actualAverage())
                 .setSampleCount(statistic.sampleCount())
@@ -283,6 +286,13 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
         }
         BigDecimal average = count == 0 ? null : sum.divide(BigDecimal.valueOf(count), 6, RoundingMode.HALF_UP);
         return new StatisticResult(average, count, statisticsStartTime, statisticsEndTime);
+    }
+
+    private static List<String> parseOptionValues(String optionValuesJson) {
+        if (optionValuesJson == null || optionValuesJson.trim().isEmpty()) {
+            return List.of();
+        }
+        return JsonUtils.parseArray(optionValuesJson, String.class);
     }
 
     private boolean matchesStatisticContext(MesProProcessPoolEventDO event,

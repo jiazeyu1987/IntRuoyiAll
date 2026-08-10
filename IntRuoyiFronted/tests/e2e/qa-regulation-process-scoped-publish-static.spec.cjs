@@ -51,7 +51,7 @@ assert.match(
 )
 assert.match(
   source,
-  /items:\s*buildQaRegulationSaveItems\(items\)/,
+  /items:\s*buildQaRegulationSaveItems\(items,\s*\{ publishing \}\)/,
   'Each route-process regulation must contain only the items grouped for that process.'
 )
 assert.match(

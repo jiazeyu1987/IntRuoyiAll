@@ -311,23 +311,16 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         Set<Long> resolvedRouteItemIds = routeItemIds.stream()
                 .filter(itemId -> routeItems.containsKey(itemId) && routeItems.get(itemId) != null)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (resolvedRouteItemIds.isEmpty()) {
-            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
-                    "routeProjectItems routeId=" + routeId + "，missingItemIds=" + routeItemIds);
-        }
         Set<String> routeProjectCodes = resolvedRouteItemIds.stream()
                 .map(routeItems::get)
                 .map(MesMdItemDO::getCode)
                 .filter(StrUtil::isNotBlank)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (routeProjectCodes.isEmpty()) {
-            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
-                    "routeProjectCode productId=" + productId + "，routeId=" + routeId);
-        }
         Map<Long, DccProjectCodeDO> matchedProjects = dccProjectCodeMapper.selectEnabledList().stream()
                 .filter(Objects::nonNull)
                 .filter(project -> project.getId() != null)
-                .filter(project -> routeProjectCodes.contains(project.getProjectCode()))
+                .filter(project -> routeProjectCodes.contains(project.getProjectCode())
+                        || routeItemIds.contains(project.getProductMasterId()))
                 .collect(Collectors.toMap(DccProjectCodeDO::getId, Function.identity(), (left, right) -> left,
                         LinkedHashMap::new));
         if (matchedProjects.size() != 1) {
@@ -338,9 +331,13 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                             + "，matchedProjectIds=" + matchedProjects.keySet());
         }
         DccProjectCodeDO project = matchedProjects.values().iterator().next();
-        requirePositive(project.getProductMasterId(), "dccProject.productMasterId");
-        Set<Long> qaProductIds = new LinkedHashSet<>(resolvedRouteItemIds);
-        qaProductIds.add(project.getProductMasterId());
+        Set<Long> qaProductIds = resolveQaProductIdsFromDccProject(project, routeItems);
+        if (qaProductIds.isEmpty()) {
+            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
+                    "qaInspectionProduct routeId=" + routeId
+                            + "，projectCode=" + project.getProjectCode()
+                            + "，productMasterId=" + project.getProductMasterId());
+        }
         List<MesQaInspectionRegulationDO> publishedRegulations =
                 regulationMapper.selectListByProductIds(qaProductIds).stream()
                         .filter(Objects::nonNull)
@@ -385,6 +382,25 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                             + "，regulationVersionIds=" + regulationVersionIds);
         }
         return new QaProjectProcessSource(matchedQaProductIds.iterator().next(), publishedRegulations);
+    }
+
+    private Set<Long> resolveQaProductIdsFromDccProject(DccProjectCodeDO project,
+                                                        Map<Long, MesMdItemDO> routeItems) {
+        Set<Long> qaProductIds = new LinkedHashSet<>();
+        if (project.getProductMasterId() != null) {
+            qaProductIds.add(project.getProductMasterId());
+        }
+        String projectCode = StrUtil.trimToNull(project.getProjectCode());
+        if (projectCode == null) {
+            return qaProductIds;
+        }
+        routeItems.values().stream()
+                .filter(Objects::nonNull)
+                .filter(item -> Objects.equals(projectCode, StrUtil.trim(item.getCode())))
+                .map(MesMdItemDO::getId)
+                .filter(Objects::nonNull)
+                .forEach(qaProductIds::add);
+        return qaProductIds;
     }
 
     private List<MesProRouteProcessDO> resolveQaInspectionItemRouteProcesses(
