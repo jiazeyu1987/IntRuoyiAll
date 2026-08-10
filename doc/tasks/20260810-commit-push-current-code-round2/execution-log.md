@@ -75,3 +75,6 @@
 - Stability check: 对该文件间隔 8 秒计算 SHA-256，两次均为 `FE63AE4807E106C90E4FAC54D802E1635440FB84D560F2A4A68286EB79A6F3CE`，最后写入时间未变化，确认当前内容稳定。
 - GREEN: stabilized backend audit -> PASS，强特征凭据、冲突标记、大文件和 `git diff --cached --check` 均通过。
 - CODE COMMIT: `3c941091fccfe7b0cf19a31aeabcad5763c6e6df chore: checkpoint stabilized backend change` -> PASS。
+- FINAL RECORD COMMIT: `5e5a7ad88e130e1580b79df4dcb55ff966700e37 docs: finalize current code push round 2 records` -> PASS。
+- FINAL PUSH: `git -c http.https://github.com.proxy=http://127.0.0.1:7890 push origin int_main` -> PASS，`4e97a301b..5e5a7ad88 int_main -> int_main`。
+- FINAL REMOTE CHECK: 首次独立 `ls-remote` 因瞬时 TLS EOF 失败；同一已验证代理重试成功，远端 `int_main`、本地 HEAD、`origin/int_main` 均为 `5e5a7ad88e130e1580b79df4dcb55ff966700e37`，ahead/behind 为 `0/0`。

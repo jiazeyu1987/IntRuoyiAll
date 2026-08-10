@@ -16,6 +16,7 @@
 - 远端连通性 -> 初始 `git ls-remote origin HEAD` 因 TLS unexpected EOF 失败；使用已监听的 GitHub 代理 `127.0.0.1:7890` 一次性配置复验通过。
 - task-closeout-cleanup preview/apply -> PASS，三份核心任务记录保留，delete/blocked/warnings 均为空。
 - 首次推送 -> PASS，远端 `origin/int_main` 与本地 HEAD 均为 `4e97a301bd611ae19cae1d428ee34b55f42a901f`。
+- 最终推送 -> PASS，`4e97a301b..5e5a7ad88 int_main -> int_main`；远端 `int_main`、本地 HEAD 与跟踪引用一致，ahead/behind 为 `0/0`。
 
 ## Known Non-Product Verification
 
