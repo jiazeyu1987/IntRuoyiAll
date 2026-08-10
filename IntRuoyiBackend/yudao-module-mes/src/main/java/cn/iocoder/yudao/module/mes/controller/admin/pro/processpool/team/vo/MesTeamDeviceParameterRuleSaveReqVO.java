@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Schema(description = "管理后台 - MES 生产组长路线工序设备参数标准保存 Request VO")
 @Data
@@ -49,4 +50,13 @@ public class MesTeamDeviceParameterRuleSaveReqVO {
     @NotBlank
     @Size(max = 1000)
     private String standardText;
+
+    @Schema(description = "下拉选项；值类型为 SELECT 时必填", example = "[\"自来水\", \"纯净水\"]")
+    private List<String> optionValues;
+
+    @Schema(description = "文本默认值；值类型为 SELECT 时用于默认选项", example = "自来水")
+    private String defaultText;
+
+    @Schema(description = "小数位数；DECIMAL 可配置", example = "1")
+    private Integer decimalScale;
 }

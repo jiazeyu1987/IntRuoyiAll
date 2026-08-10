@@ -211,6 +211,12 @@ const syncTypes: ProfileErpSyncType[] = [
     handlerName: 'kingdeeStockSyncJob'
   },
   {
+    syncType: 'STOCK_MOVE',
+    erpTableName: '金蝶调拨单',
+    localTabName: '金蝶调拨单只读列表',
+    handlerName: 'kingdeeStockMoveSyncJob'
+  },
+  {
     syncType: 'PURCHASE_ORDER',
     erpTableName: '采购订单',
     localTabName: 'ERP采购订单',

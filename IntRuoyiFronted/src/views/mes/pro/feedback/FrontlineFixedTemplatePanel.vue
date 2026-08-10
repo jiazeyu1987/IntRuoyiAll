@@ -787,17 +787,36 @@
                   {{ parameter.standardText }}
                 </span>
                 <button
-                  v-else
+                  v-else-if="isNumericProductionParameter(parameter)"
                   class="device-num"
                   type="button"
                   :aria-label="`${parameter.parameterName || parameter.parameterCode}减少`"
                   :disabled="payloadLoading"
-                  @click="adjustProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, -1)"
+                  @click="adjustProductionDeviceParameter(activeProductionDevice.key, parameter, -1)"
                 >
                   -
                 </button>
+                <select
+                  v-else-if="isSelectParameter(parameter)"
+                  class="device-value"
+                  :id="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
+                  :value="getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode)"
+                  :aria-label="parameter.parameterName || parameter.parameterCode"
+                  :disabled="payloadLoading"
+                  data-frontline-select-parameter
+                  @change="updateProductionDeviceSelectParameter(activeProductionDevice.key, parameter.parameterCode, $event)"
+                >
+                  <option value="">请选择</option>
+                  <option
+                    v-for="option in parameter.optionValues || []"
+                    :key="option"
+                    :value="option"
+                  >
+                    {{ option }}
+                  </option>
+                </select>
                 <input
-                  v-if="!isTextStandardParameter(parameter)"
+                  v-if="isNumericProductionParameter(parameter)"
                   class="device-value"
                   :class="{
                     'is-parameter-out-of-range': resolveProductionParameterStatus(
@@ -823,16 +842,16 @@
                   @input="updateProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, $event)"
                 />
                 <button
-                  v-if="!isTextStandardParameter(parameter)"
+                  v-if="isNumericProductionParameter(parameter)"
                   class="device-num"
                   type="button"
                   :aria-label="`${parameter.parameterName || parameter.parameterCode}增加`"
                   :disabled="payloadLoading"
-                  @click="adjustProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, 1)"
+                  @click="adjustProductionDeviceParameter(activeProductionDevice.key, parameter, 1)"
                 >
                   +
                 </button>
-                <span v-if="!isTextStandardParameter(parameter)" class="device-unit">
+                <span v-if="isNumericProductionParameter(parameter)" class="device-unit">
                   {{ parameter.unit || '' }}
                 </span>
               </div>
@@ -1130,7 +1149,7 @@ type PqcChoiceResult = '合格' | '不合格'
 type PqcQuantityField = 'inspectionQuantity' | 'scrapQuantity'
 type ProductionDefectKey = string
 type ProductionDeviceParameterKey = string
-type ProductionDeviceParameterDraft = Record<ProductionDeviceParameterKey, number | undefined>
+type ProductionDeviceParameterDraft = Record<ProductionDeviceParameterKey, number | string | undefined>
 
 const PQC_INSPECTION_TYPE_LABELS: Record<InspectionType, string> = {
   FIRST: '首检',
@@ -1597,6 +1616,12 @@ const configuredDeviceCards = computed<ProductionDeviceCard[]>(() =>
 const isTextStandardParameter = (parameter: FrontlineRuntimeDeviceParameterVO) =>
   parameter.valueType === 'TEXT_STANDARD'
 
+const isSelectParameter = (parameter: FrontlineRuntimeDeviceParameterVO) =>
+  parameter.valueType === 'SELECT'
+
+const isNumericProductionParameter = (parameter: FrontlineRuntimeDeviceParameterVO) =>
+  !isTextStandardParameter(parameter) && !isSelectParameter(parameter)
+
 const visibleDeviceCards = computed(() => configuredDeviceCards.value)
 
 const activeProductionDevice = computed(() =>
@@ -1741,12 +1766,18 @@ watch(
           continue
         }
         const params = deviceParameterDraft[device.key]
-        if (
-          params[parameter.parameterCode] === undefined &&
-          parameter.defaultValue !== undefined &&
-          parameter.defaultValue !== null
-        ) {
-          params[parameter.parameterCode] = normalizeProductionParameter(parameter.defaultValue)
+        if (params[parameter.parameterCode] !== undefined) {
+          continue
+        }
+        if (isSelectParameter(parameter)) {
+          const defaultText = parameter.defaultText?.trim()
+          if (defaultText) {
+            params[parameter.parameterCode] = defaultText
+          }
+          continue
+        }
+        if (parameter.defaultValue !== undefined && parameter.defaultValue !== null) {
+          params[parameter.parameterCode] = normalizeProductionParameter(parameter, parameter.defaultValue)
         }
       }
     }
@@ -1803,7 +1834,7 @@ const normalizeProductionQuantity = (value: unknown) => {
   return Math.max(0, Math.trunc(parsed))
 }
 
-function normalizeProductionParameter(value: unknown) {
+function normalizeProductionParameter(parameter: FrontlineRuntimeDeviceParameterVO, value: unknown) {
   if (value === undefined || value === null || String(value).trim() === '') {
     return undefined
   }
@@ -1811,7 +1842,14 @@ function normalizeProductionParameter(value: unknown) {
   if (!Number.isFinite(parsed)) {
     return undefined
   }
-  return Math.max(0, parsed)
+  const normalized = parameter.valueType === 'INTEGER' ? Math.trunc(parsed) : parsed
+  const decimalScale = toFiniteProductionParameterNumber(parameter.decimalScale)
+  const scaled = parameter.valueType === 'DECIMAL' &&
+    decimalScale !== undefined &&
+    Number.isInteger(decimalScale)
+    ? Number(normalized.toFixed(decimalScale))
+    : normalized
+  return Math.max(0, scaled)
 }
 
 const toFiniteProductionParameterNumber = (value: unknown) => {
@@ -1826,7 +1864,7 @@ const formatProductionParameterLimitValue = (value: unknown) =>
   String(value).replace(/,/g, '').trim()
 
 const formatProductionParameterTargetRange = (parameter: FrontlineRuntimeDeviceParameterVO) => {
-  if (isTextStandardParameter(parameter)) {
+  if (!isNumericProductionParameter(parameter)) {
     return undefined
   }
   const lowerLimit = toFiniteProductionParameterNumber(parameter.lowerLimit)
@@ -1851,6 +1889,9 @@ const resolveProductionParameterStatus = (
   value: unknown,
   parameter: FrontlineRuntimeDeviceParameterVO
 ): ProFrontlineParameterStatus => {
+  if (!isNumericProductionParameter(parameter)) {
+    return 'NORMAL'
+  }
   const numericValue = toFiniteProductionParameterNumber(value)
   if (numericValue === undefined) {
     return 'NORMAL'
@@ -1919,16 +1960,32 @@ const updateProductionDeviceParameter = (
 ) => {
   const value = (event.target as HTMLInputElement).value.trim()
   ensureProductionDeviceParameters(deviceKey)[parameterKey] =
-    value === '' ? undefined : normalizeProductionParameter(value)
+    value === '' ? undefined : normalizeProductionParameter(
+      activeProductionDevice.value?.parameters.find((parameter) => parameter.parameterCode === parameterKey) || {
+        parameterCode: parameterKey,
+        standardText: ''
+      },
+      value
+    )
+}
+
+const updateProductionDeviceSelectParameter = (
+  deviceKey: string,
+  parameterKey: ProductionDeviceParameterKey,
+  event: Event
+) => {
+  const value = (event.target as HTMLSelectElement).value.trim()
+  ensureProductionDeviceParameters(deviceKey)[parameterKey] = value || undefined
 }
 
 const adjustProductionDeviceParameter = (
   deviceKey: string,
-  parameterKey: ProductionDeviceParameterKey,
+  parameter: FrontlineRuntimeDeviceParameterVO,
   delta: number
 ) => {
   const params = ensureProductionDeviceParameters(deviceKey)
-  params[parameterKey] = Math.max(0, Number(params[parameterKey] || 0) + delta)
+  const parameterKey = parameter.parameterCode
+  params[parameterKey] = normalizeProductionParameter(parameter, Number(params[parameterKey] || 0) + delta)
 }
 
 const resetProductionSubmissionDraft = () => {
@@ -3369,6 +3426,24 @@ const buildProductionDeviceParameterReadingsPayload =
       .filter((parameter) => !isTextStandardParameter(parameter))
       .map<ProFrontlineDeviceParameterReadingReqVO | undefined>((parameter) => {
         const value = getProductionDeviceParameter(device.key, parameter.parameterCode)
+        if (isSelectParameter(parameter)) {
+          const textValue = typeof value === 'string' ? value.trim() : ''
+          if (!textValue) {
+            return undefined
+          }
+          return {
+            deviceId: device.deviceId,
+            deviceCode: device.deviceCode,
+            deviceName: device.deviceName || device.label,
+            parameterCode: parameter.parameterCode,
+            parameterName: parameter.parameterName,
+            unit: parameter.unit,
+            textValue,
+            lowerLimit: parameter.lowerLimit ?? undefined,
+            upperLimit: parameter.upperLimit ?? undefined,
+            parameterStatus: 'NORMAL'
+          }
+        }
         const numericValue = toFiniteProductionParameterNumber(value)
         if (numericValue === undefined) {
           return undefined
@@ -3400,7 +3475,10 @@ const buildProductionEquipmentParameterRulesPayload = () =>
         lowerLimit: parameter.lowerLimit,
         upperLimit: parameter.upperLimit,
         valueType: parameter.valueType,
-        standardText: parameter.standardText
+        standardText: parameter.standardText,
+        optionValues: parameter.optionValues,
+        defaultText: parameter.defaultText,
+        decimalScale: parameter.decimalScale
       }))
     ]])
     : {}

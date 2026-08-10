@@ -92,6 +92,20 @@ public interface MesProcessPoolReportAllocationMapper extends BaseMapperX<MesPro
                 .last("FOR UPDATE"));
     }
 
+    default List<MesProcessPoolReportAllocationDO> selectListByActiveOrderIds(Collection<Long> activeOrderIds) {
+        if (activeOrderIds == null || activeOrderIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolReportAllocationDO>()
+                .in(MesProcessPoolReportAllocationDO::getActiveOrderId, activeOrderIds)
+                .eq(MesProcessPoolReportAllocationDO::getLifecycleStatus,
+                        MesProcessPoolReportAllocationDO.LIFECYCLE_CURRENT)
+                .orderByAsc(MesProcessPoolReportAllocationDO::getActiveOrderId)
+                .orderByAsc(MesProcessPoolReportAllocationDO::getRouteProcessId)
+                .orderByAsc(MesProcessPoolReportAllocationDO::getProcessId)
+                .orderByAsc(MesProcessPoolReportAllocationDO::getId));
+    }
+
     default List<MesProcessPoolReportAllocationDO> selectListByActiveOrderIdsAndProcess(
             Collection<Long> activeOrderIds, Long processId) {
         if (activeOrderIds == null || activeOrderIds.isEmpty() || processId == null) {

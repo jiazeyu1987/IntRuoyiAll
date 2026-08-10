@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDefectReasonDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
@@ -26,6 +27,7 @@ import org.springframework.validation.annotation.Validated;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -437,7 +439,9 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
 
     @Override
     public Long saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO reqBO) {
-        validateParameterRule(reqBO);
+        List<String> optionValues = normalizeOptionValues(reqBO == null ? null : reqBO.getOptionValues());
+        String defaultText = normalizeText(reqBO == null ? null : reqBO.getDefaultText());
+        validateParameterRule(reqBO, optionValues, defaultText);
         MesProRouteProcessDO routeProcess = requireAuthorizedRouteProcess(reqBO.getLeaderUserId(),
                 reqBO.getRouteProcessId());
         MesProcessPoolTeamDeviceDO device = requireDevice(reqBO.getLeaderUserId(), reqBO.getDeviceId());
@@ -462,6 +466,12 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
                 .defaultValue(reqBO.getTargetValue())
                 .valueType(reqBO.getValueType())
                 .standardText(reqBO.getStandardText())
+                .optionValuesJson(MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_SELECT.equals(reqBO.getValueType())
+                        ? JsonUtils.toJsonString(optionValues) : null)
+                .defaultText(MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_SELECT.equals(reqBO.getValueType())
+                        ? defaultText : null)
+                .decimalScale(MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL.equals(reqBO.getValueType())
+                        ? reqBO.getDecimalScale() : null)
                 .enabled(Boolean.TRUE)
                 .build();
         if (existing == null) {
@@ -607,34 +617,60 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
         }
     }
 
-    private static void validateParameterRule(MesTeamDeviceParameterRuleSaveReqBO reqBO) {
+    private static void validateParameterRule(MesTeamDeviceParameterRuleSaveReqBO reqBO,
+                                              List<String> optionValues,
+                                              String defaultText) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getRouteProcessId() == null
                 || reqBO.getDeviceId() == null || isBlank(reqBO.getParameterCode()) || isBlank(reqBO.getValueType())
                 || isBlank(reqBO.getStandardText())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deviceParameterRule");
         }
-        if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD.equals(reqBO.getValueType())) {
+        String valueType = reqBO.getValueType();
+        if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD.equals(valueType)) {
             if (reqBO.getLowerLimit() != null || reqBO.getUpperLimit() != null || reqBO.getTargetValue() != null) {
                 throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, reqBO.getParameterCode());
             }
             return;
         }
-        if (!NUMERIC_PARAMETER_VALUE_TYPES.contains(reqBO.getValueType())
-                || reqBO.getLowerLimit() == null || reqBO.getUpperLimit() == null) {
+        if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_SELECT.equals(valueType)) {
+            if (reqBO.getLowerLimit() != null || reqBO.getUpperLimit() != null || reqBO.getTargetValue() != null
+                    || optionValues.isEmpty() || defaultText == null || !optionValues.contains(defaultText)) {
+                throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, reqBO.getParameterCode());
+            }
+            return;
+        }
+        if (!NUMERIC_PARAMETER_VALUE_TYPES.contains(valueType)) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deviceParameterRule");
+        }
+        if (reqBO.getDecimalScale() != null && (reqBO.getDecimalScale() < 0 || reqBO.getDecimalScale() > 6)) {
+            throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, reqBO.getParameterCode());
         }
         validateRange(reqBO.getParameterCode(), reqBO.getLowerLimit(), reqBO.getUpperLimit(), reqBO.getTargetValue());
     }
 
     static void validateRange(String parameterCode, BigDecimal lowerLimit, BigDecimal upperLimit,
                               BigDecimal targetValue) {
-        if (lowerLimit.compareTo(upperLimit) > 0) {
+        if (lowerLimit != null && upperLimit != null && lowerLimit.compareTo(upperLimit) > 0) {
             throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, parameterCode);
         }
-        if (targetValue != null
-                && (targetValue.compareTo(lowerLimit) < 0 || targetValue.compareTo(upperLimit) > 0)) {
+        if (targetValue != null && lowerLimit != null && targetValue.compareTo(lowerLimit) < 0) {
             throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, parameterCode);
         }
+        if (targetValue != null && upperLimit != null && targetValue.compareTo(upperLimit) > 0) {
+            throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, parameterCode);
+        }
+    }
+
+    private static List<String> normalizeOptionValues(List<String> values) {
+        if (values == null) {
+            return List.of();
+        }
+        return values.stream()
+                .map(MesTeamLeaderRuntimeConfigServiceImpl::normalizeText)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .toList();
     }
 
     private static boolean isBlank(String value) {

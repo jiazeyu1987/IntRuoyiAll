@@ -26,8 +26,10 @@ import java.util.List;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_ITEM_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_REQUIRED_RULE_MISSING;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_IMMUTABLE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -214,6 +216,51 @@ class MesQaInspectionRegulationServiceTest {
         assertEquals(1, result.getPatrolInspectionRules().size());
         assertEquals(false, result.getFinalInspectionApplicable());
         verify(itemMapper).insert(any(MesQaInspectionRegulationItemDO.class));
+    }
+
+    @Test
+    void publish_allowsIncompleteContentBeyondRetainedFourLimits() {
+        MesQaInspectionRegulationSaveReqVO.InspectionItem incompleteItem =
+                saveItem("FIRST", "首检外观", null, null);
+        incompleteItem.setInspectionTool(" ");
+        incompleteItem.setSamplingPlanText(" ");
+        incompleteItem.setResultType("NUMERIC");
+        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(incompleteItem));
+        reqVO.setFinalInspectionApplicable(null);
+        reqVO.setFinalInspectionNotApplicableReason(null);
+        stubNewRegulationAndVersion();
+
+        MesQaInspectionRegulationPublishedVersionRespVO result = service.publish(reqVO);
+
+        assertEquals(REGULATION_ID, result.getRegulationId());
+        assertEquals(VERSION_ID, result.getPublishedVersionId());
+        assertNull(result.getFinalInspectionApplicable());
+        assertEquals(1, result.getFirstInspectionRules().size());
+        assertEquals(0, result.getPatrolInspectionRules().size());
+        assertEquals(0, result.getFinalInspectionRules().size());
+        verify(itemMapper).insert(any(MesQaInspectionRegulationItemDO.class));
+    }
+
+    @Test
+    void publish_rejectsAlreadyPublishedSameRegulationVersion() {
+        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
+                saveItem("FIRST", "首检外观", 5, null),
+                saveItem("PATROL", "巡检耐压", null, new BigDecimal("0.050000")),
+                saveItem("FINAL", "末检包装", 3, null)));
+        when(regulationMapper.selectByRouteProcess(1001L, 2001L, 3001L, 4001L, 5001L))
+                .thenReturn(publishedRegulation());
+        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "V21-QA-2"))
+                .thenReturn(MesQaInspectionRegulationVersionDO.builder()
+                        .id(VERSION_ID)
+                        .regulationId(REGULATION_ID)
+                        .versionNo("V21-QA-2")
+                        .lifecycleStatus("PUBLISHED")
+                        .snapshotJson("{}")
+                        .build());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.publish(reqVO));
+
+        assertEquals(QA_INSPECTION_REGULATION_VERSION_IMMUTABLE.getCode(), ex.getCode());
     }
 
     @Test
@@ -422,6 +469,21 @@ class MesQaInspectionRegulationServiceTest {
         item.setFirstInspectionQuantity(firstQuantity);
         item.setPatrolInspectionRatio(patrolRatio);
         return item;
+    }
+
+    private void stubNewRegulationAndVersion() {
+        when(regulationMapper.selectByRouteProcess(1001L, 2001L, 3001L, 4001L, 5001L)).thenReturn(null);
+        doAnswer(invocation -> {
+            MesQaInspectionRegulationDO regulation = invocation.getArgument(0);
+            regulation.setId(REGULATION_ID);
+            return 1;
+        }).when(regulationMapper).insert(any(MesQaInspectionRegulationDO.class));
+        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "V21-QA-2")).thenReturn(null);
+        doAnswer(invocation -> {
+            MesQaInspectionRegulationVersionDO version = invocation.getArgument(0);
+            version.setId(VERSION_ID);
+            return 1;
+        }).when(versionMapper).insert(any(MesQaInspectionRegulationVersionDO.class));
     }
 
     private static MesQaInspectionRegulationSaveReqVO.EquipmentOption equipmentOption(Long equipmentId,

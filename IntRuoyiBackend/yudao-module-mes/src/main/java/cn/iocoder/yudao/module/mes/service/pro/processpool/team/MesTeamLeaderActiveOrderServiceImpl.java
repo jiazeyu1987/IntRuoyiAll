@@ -6,7 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolWorkOrderAbnormalDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
@@ -20,7 +20,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionR
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
@@ -35,6 +35,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,6 +68,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_WORK_ORDER_NOT_EXISTS;
@@ -98,7 +102,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private final MesProRouteMapper routeMapper;
     private final MesProRouteVersionMapper routeVersionMapper;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
-    private final MesProcessPoolOrderProcessCompletionMapper completionMapper;
+    private final MesProcessPoolReportAllocationMapper reportAllocationMapper;
     private final MesQaInspectionRegulationMapper inspectionRegulationMapper;
     private final MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
     private final MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
@@ -119,7 +123,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                                MesProRouteMapper routeMapper,
                                                MesProRouteVersionMapper routeVersionMapper,
                                                MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper,
-                                               MesProcessPoolOrderProcessCompletionMapper completionMapper,
+                                               MesProcessPoolReportAllocationMapper reportAllocationMapper,
                                                MesQaInspectionRegulationMapper inspectionRegulationMapper,
                                                MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper,
                                                MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper,
@@ -139,7 +143,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         this.routeMapper = routeMapper;
         this.routeVersionMapper = routeVersionMapper;
         this.processSnapshotMapper = processSnapshotMapper;
-        this.completionMapper = completionMapper;
+        this.reportAllocationMapper = reportAllocationMapper;
         this.inspectionRegulationMapper = inspectionRegulationMapper;
         this.inspectionRegulationVersionMapper = inspectionRegulationVersionMapper;
         this.inspectionRegulationItemMapper = inspectionRegulationItemMapper;
@@ -345,7 +349,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             return blockedCandidate(resolution.ineligibleReason());
         }
         ActiveOrderRouteSource source = resolution.source();
-        for (MesProScheduleOrderProcessDO process : source.enabledProcesses()) {
+        for (MesProScheduleOrderProcessDO process : source.qaProcesses()) {
             String pqcReason = validateCandidatePqcPrerequisites(source.routeId(), source.routeVersionId(),
                     process, source.productId(), context);
             if (pqcReason != null) {
@@ -412,12 +416,16 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (qaProductIds.size() != 1) {
             return routeSourceFailure("工艺路线已发布QA规程产品上下文不唯一", RouteSourceFailureType.QA);
         }
+        List<MesProScheduleOrderProcessDO> routeProcesses = toRouteProcessSources(workOrder, activeRouteVersion);
+        if (routeProcesses.isEmpty()) {
+            return routeSourceFailure("工艺路线快照缺少正式工序", RouteSourceFailureType.ROUTE);
+        }
         List<MesProScheduleOrderProcessDO> qaProcesses = toQaProcessSources(workOrder, regulations);
         if (qaProcesses.isEmpty()) {
             return routeSourceFailure("缺少已发布QA规程", RouteSourceFailureType.QA);
         }
         return new RouteSourceResolution(new ActiveOrderRouteSource(routeId,
-                activeRouteVersion.getId(), qaProductIds.get(0), qaProcesses), null, null);
+                activeRouteVersion.getId(), qaProductIds.get(0), routeProcesses, qaProcesses), null, null);
     }
 
     private List<MesQaInspectionRegulationDO> listCandidateQaRegulations(Long routeId,
@@ -428,6 +436,72 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .filter(entry -> Objects.equals(routeVersionId, entry.getKey().routeVersionId()))
                 .flatMap(entry -> entry.getValue().stream())
                 .toList();
+    }
+
+    private List<MesProScheduleOrderProcessDO> toRouteProcessSources(MesProWorkOrderDO workOrder,
+                                                                     MesProRouteVersionDO routeVersion) {
+        if (routeVersion == null || routeVersion.getRouteSnapshotJson() == null
+                || routeVersion.getRouteSnapshotJson().isBlank()) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED,
+                    workOrder == null ? null : workOrder.getId());
+        }
+        JSONObject root = JSON.parseObject(routeVersion.getRouteSnapshotJson());
+        JSONObject configSnapshots = root == null ? null : root.getJSONObject("configSnapshots");
+        JSONObject flowGraph = configSnapshots == null ? null : configSnapshots.getJSONObject("flowGraph");
+        JSONArray nodes = flowGraph == null ? null : flowGraph.getJSONArray("nodes");
+        if (nodes == null || nodes.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED,
+                    workOrder == null ? null : workOrder.getId());
+        }
+        Map<Long, JSONObject> scheduleConfigByRouteProcessId = scheduleConfigByRouteProcessId(configSnapshots);
+        BigDecimal quantity = activeOrderQuantitySnapshot(workOrder).setScale(6, RoundingMode.HALF_UP);
+        List<MesProScheduleOrderProcessDO> processes = new ArrayList<>();
+        Set<ProcessIdentity> processIdentities = new LinkedHashSet<>();
+        for (int index = 0; index < nodes.size(); index++) {
+            JSONObject node = nodes.getJSONObject(index);
+            Long routeProcessId = node == null ? null : node.getLong("routeProcessId");
+            Long processId = node == null ? null : node.getLong("processId");
+            if (routeProcessId == null || processId == null) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED,
+                        workOrder == null ? null : workOrder.getId());
+            }
+            ProcessIdentity identity = new ProcessIdentity(routeProcessId, processId);
+            if (!processIdentities.add(identity)) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED,
+                        workOrder == null ? null : workOrder.getId());
+            }
+            JSONObject scheduleConfig = scheduleConfigByRouteProcessId.get(routeProcessId);
+            BigDecimal factor = scheduleConfig == null || scheduleConfig.getBigDecimal("productionQuantityFactor") == null
+                    ? DEFAULT_PRODUCTION_QUANTITY_FACTOR
+                    : scheduleConfig.getBigDecimal("productionQuantityFactor");
+            processes.add(MesProScheduleOrderProcessDO.builder()
+                    .routeProcessId(routeProcessId)
+                    .routeVersionId(routeVersion.getId())
+                    .processId(processId)
+                    .enabled(Boolean.TRUE)
+                    .productionQuantityFactor(factor)
+                    .plannedQuantity(quantity.multiply(productionQuantityFactorOrDefault(factor))
+                            .setScale(6, RoundingMode.HALF_UP))
+                    .build());
+        }
+        return processes;
+    }
+
+    private Map<Long, JSONObject> scheduleConfigByRouteProcessId(JSONObject configSnapshots) {
+        JSONArray scheduleUseConfigs = configSnapshots == null ? null : configSnapshots.getJSONArray("scheduleUseConfigs");
+        if (scheduleUseConfigs == null || scheduleUseConfigs.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<Long, JSONObject> result = new LinkedHashMap<>();
+        for (int index = 0; index < scheduleUseConfigs.size(); index++) {
+            JSONObject config = scheduleUseConfigs.getJSONObject(index);
+            Long routeProcessId = config == null ? null : config.getLong("routeProcessId");
+            if (routeProcessId == null || Boolean.FALSE.equals(config.getBoolean("enabled"))) {
+                continue;
+            }
+            result.put(routeProcessId, config);
+        }
+        return result;
     }
 
     private List<MesProScheduleOrderProcessDO> toQaProcessSources(MesProWorkOrderDO workOrder,
@@ -611,9 +685,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             }
             throw ex;
         }
-        List<MesProScheduleOrderProcessDO> enabledProcesses = routeSource.enabledProcesses();
-        insertProcessSnapshots(activeOrder, erpFixedQuantity, enabledProcesses);
-        insertPqcInspectionTasks(activeOrder, routeSource.productId(), enabledProcesses);
+        insertProcessSnapshots(activeOrder, erpFixedQuantity, routeSource.routeProcesses());
+        insertPqcInspectionTasks(activeOrder, routeSource.productId(), routeSource.qaProcesses());
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "ADD_ACTIVE_ORDER",
                 "ACTIVE_ORDER", activeOrder.getId(), null, activeOrder.toString());
         return activeOrder.getId();
@@ -780,7 +853,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .toList();
         Map<Long, MesProcessPoolWorkOrderAbnormalDO> openAbnormalByWorkOrderId =
                 abnormalStateService.findLatestOpenByWorkOrderIds(workOrderIds);
-        Map<Long, ActiveOrderProgress> progressByActiveOrderId = loadActiveOrderProgress(activeOrders);
+        Map<Long, ActiveOrderProgress> progressByActiveOrderId = loadActiveOrderProgress(activeOrders,
+                routeVersionsById);
         Map<Long, MesProcessPoolActiveOrderReleaseApplicationDO> latestReleaseApplicationByActiveOrderId =
                 loadLatestReleaseApplications(activeOrders);
         return activeOrders.stream()
@@ -828,11 +902,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private Map<Long, MesProWorkOrderDO> loadActiveOrderWorkOrders(
             List<MesProcessPoolActiveOrderDO> activeOrders) {
-        List<Long> workOrderIds = activeOrders.stream()
-                .map(MesProcessPoolActiveOrderDO::getWorkOrderId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
         Map<Long, MesProWorkOrderDO> workOrdersById = workOrderIds.isEmpty()
                 ? Collections.emptyMap()
                 : workOrderMapper.selectBatchIds(workOrderIds).stream()
@@ -866,7 +935,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return productsById;
     }
 
-    private Map<Long, ActiveOrderProgress> loadActiveOrderProgress(List<MesProcessPoolActiveOrderDO> activeOrders) {
+    private Map<Long, ActiveOrderProgress> loadActiveOrderProgress(
+            List<MesProcessPoolActiveOrderDO> activeOrders,
+            Map<Long, MesProRouteVersionDO> routeVersionsById) {
         List<Long> activeOrderIds = activeOrders.stream()
                 .map(MesProcessPoolActiveOrderDO::getId)
                 .filter(Objects::nonNull)
@@ -882,14 +953,16 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                         .filter(snapshot -> snapshot.getActiveOrderId() != null)
                         .collect(Collectors.groupingBy(MesProcessPoolActiveOrderProcessSnapshotDO::getActiveOrderId,
                                 LinkedHashMap::new, Collectors.toList()));
-        Set<WorkOrderProcessIdentity> completedProcesses = completionMapper.selectListByWorkOrderIds(workOrderIds)
-                .stream()
-                .filter(completion -> MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED
-                        .equals(completion.getCompletionStatus()))
-                .map(completion -> new WorkOrderProcessIdentity(completion.getWorkOrderId(),
-                        completion.getRouteProcessId(), completion.getProcessId()))
-                .filter(WorkOrderProcessIdentity::complete)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<ActiveOrderProcessIdentity, BigDecimal> allocatedQuantityByProcess =
+                reportAllocationMapper.selectListByActiveOrderIds(activeOrderIds).stream()
+                        .filter(allocation -> allocation.getActiveOrderId() != null
+                                && allocation.getRouteProcessId() != null
+                                && allocation.getProcessId() != null)
+                        .collect(Collectors.groupingBy(allocation -> new ActiveOrderProcessIdentity(
+                                        allocation.getActiveOrderId(), allocation.getRouteProcessId(),
+                                        allocation.getProcessId()),
+                                LinkedHashMap::new,
+                                Collectors.reducing(BigDecimal.ZERO, this::requireAllocationQuantity, BigDecimal::add)));
         Set<ActiveOrderProcessIdentity> inspectedProcesses =
                 pqcInspectionTaskMapper.selectListByActiveOrderIds(activeOrderIds).stream()
                         .filter(MesTeamLeaderActiveOrderServiceImpl::isInspectionProgressCompleted)
@@ -899,12 +972,16 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                         .collect(Collectors.toCollection(LinkedHashSet::new));
         Map<Long, ActiveOrderProgress> progressByActiveOrderId = new LinkedHashMap<>();
         activeOrders.forEach(activeOrder -> {
-            List<ProcessIdentity> processIdentities = requireProgressProcessIdentities(activeOrder,
+            List<ProcessIdentity> snapshotProcessIdentities = requireProgressProcessIdentities(activeOrder,
                     snapshotsByActiveOrderId.getOrDefault(activeOrder.getId(), List.of()));
+            Map<ProcessIdentity, BigDecimal> targetQuantityByProcess = progressTargetQuantities(activeOrder,
+                    snapshotsByActiveOrderId.getOrDefault(activeOrder.getId(), List.of()));
+            List<ProcessIdentity> processIdentities = resolveFormalProgressProcessIdentities(activeOrder,
+                    routeVersionsById.get(activeOrder.getRouteVersionId()), snapshotProcessIdentities);
             int totalProcessCount = processIdentities.size();
             long completedProcessCount = processIdentities.stream()
-                    .filter(process -> completedProcesses.contains(new WorkOrderProcessIdentity(
-                            activeOrder.getWorkOrderId(), process.routeProcessId(), process.processId())))
+                    .filter(process -> isProductionProcessFullyAllocated(activeOrder, process,
+                            targetQuantityByProcess, allocatedQuantityByProcess))
                     .count();
             long inspectedProcessCount = processIdentities.stream()
                     .filter(process -> inspectedProcesses.contains(new ActiveOrderProcessIdentity(
@@ -915,6 +992,95 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                     toProgressPercent(inspectedProcessCount, totalProcessCount)));
         });
         return progressByActiveOrderId;
+    }
+
+    private BigDecimal requireAllocationQuantity(MesProcessPoolReportAllocationDO allocation) {
+        if (allocation.getAllocatedQuantity() == null) {
+            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED, allocation.getWorkOrderId());
+        }
+        return allocation.getAllocatedQuantity();
+    }
+
+    private static Map<ProcessIdentity, BigDecimal> progressTargetQuantities(
+            MesProcessPoolActiveOrderDO activeOrder,
+            List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots) {
+        Map<ProcessIdentity, BigDecimal> targets = new LinkedHashMap<>();
+        for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
+            ProcessIdentity identity = new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId());
+            BigDecimal plannedQuantity = snapshot.getPlannedQuantitySnapshot();
+            if (plannedQuantity == null || plannedQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrder.getId());
+            }
+            targets.put(identity, plannedQuantity);
+        }
+        return targets;
+    }
+
+    private static boolean isProductionProcessFullyAllocated(
+            MesProcessPoolActiveOrderDO activeOrder,
+            ProcessIdentity process,
+            Map<ProcessIdentity, BigDecimal> targetQuantityByProcess,
+            Map<ActiveOrderProcessIdentity, BigDecimal> allocatedQuantityByProcess) {
+        BigDecimal targetQuantity = targetQuantityByProcess.get(process);
+        if (targetQuantity == null) {
+            BigDecimal erpQuantity = activeOrder.getErpFixedQuantitySnapshot();
+            if (erpQuantity == null || erpQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrder.getId());
+            }
+            targetQuantity = erpQuantity;
+        }
+        BigDecimal allocatedQuantity = allocatedQuantityByProcess.getOrDefault(new ActiveOrderProcessIdentity(
+                activeOrder.getId(), process.routeProcessId(), process.processId()), BigDecimal.ZERO);
+        return allocatedQuantity.compareTo(targetQuantity) >= 0;
+    }
+
+    private static List<ProcessIdentity> resolveFormalProgressProcessIdentities(
+            MesProcessPoolActiveOrderDO activeOrder,
+            MesProRouteVersionDO routeVersion,
+            List<ProcessIdentity> snapshotProcessIdentities) {
+        List<ProcessIdentity> routeProcessIdentities = parseRouteSnapshotProcessIdentities(activeOrder,
+                routeVersion);
+        if (routeProcessIdentities.isEmpty()) {
+            return snapshotProcessIdentities;
+        }
+        Set<ProcessIdentity> formalIdentitySet = new LinkedHashSet<>(routeProcessIdentities);
+        boolean snapshotOutsideFormalRoute = snapshotProcessIdentities.stream()
+                .anyMatch(snapshot -> !formalIdentitySet.contains(snapshot));
+        if (snapshotOutsideFormalRoute) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrder.getId());
+        }
+        return routeProcessIdentities;
+    }
+
+    private static List<ProcessIdentity> parseRouteSnapshotProcessIdentities(
+            MesProcessPoolActiveOrderDO activeOrder,
+            MesProRouteVersionDO routeVersion) {
+        if (routeVersion == null || routeVersion.getRouteSnapshotJson() == null
+                || routeVersion.getRouteSnapshotJson().isBlank()) {
+            return List.of();
+        }
+        JSONObject root = JSON.parseObject(routeVersion.getRouteSnapshotJson());
+        JSONObject configSnapshots = root == null ? null : root.getJSONObject("configSnapshots");
+        JSONObject flowGraph = configSnapshots == null ? null : configSnapshots.getJSONObject("flowGraph");
+        JSONArray nodes = flowGraph == null ? null : flowGraph.getJSONArray("nodes");
+        if (nodes == null || nodes.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrder.getId());
+        }
+        List<ProcessIdentity> identities = new ArrayList<>();
+        for (int index = 0; index < nodes.size(); index++) {
+            JSONObject node = nodes.getJSONObject(index);
+            Long routeProcessId = node == null ? null : node.getLong("routeProcessId");
+            Long processId = node == null ? null : node.getLong("processId");
+            if (routeProcessId == null || processId == null) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrder.getId());
+            }
+            identities.add(new ProcessIdentity(routeProcessId, processId));
+        }
+        Set<ProcessIdentity> distinctIdentities = new LinkedHashSet<>(identities);
+        if (distinctIdentities.size() != identities.size()) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrder.getId());
+        }
+        return List.copyOf(distinctIdentities);
     }
 
     private static List<ProcessIdentity> requireProgressProcessIdentities(MesProcessPoolActiveOrderDO activeOrder,
@@ -1011,7 +1177,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                     resolution.ineligibleReason() + "，workOrderId=" + workOrder.getId());
         }
         ActiveOrderRouteSource source = resolution.source();
-        for (MesProScheduleOrderProcessDO process : source.enabledProcesses()) {
+        for (MesProScheduleOrderProcessDO process : source.qaProcesses()) {
             String pqcReason = validateCandidatePqcPrerequisites(source.routeId(), source.routeVersionId(),
                     process, source.productId(), context);
             if (pqcReason != null) {
@@ -1318,13 +1484,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private record ProcessIdentity(Long routeProcessId, Long processId) {
     }
 
-    private record WorkOrderProcessIdentity(Long workOrderId, Long routeProcessId, Long processId) {
-
-        private boolean complete() {
-            return workOrderId != null && routeProcessId != null && processId != null;
-        }
-    }
-
     private record ActiveOrderProcessIdentity(Long activeOrderId, Long routeProcessId, Long processId) {
 
         private boolean complete() {
@@ -1336,7 +1495,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     }
 
     private record ActiveOrderRouteSource(Long routeId, Long routeVersionId, Long productId,
-                                          List<MesProScheduleOrderProcessDO> enabledProcesses) {
+                                          List<MesProScheduleOrderProcessDO> routeProcesses,
+                                          List<MesProScheduleOrderProcessDO> qaProcesses) {
     }
 
     private record RouteSourceResolution(ActiveOrderRouteSource source, String ineligibleReason,

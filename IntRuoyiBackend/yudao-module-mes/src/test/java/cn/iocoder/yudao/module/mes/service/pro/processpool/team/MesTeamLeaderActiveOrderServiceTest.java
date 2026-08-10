@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInsp
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolWorkOrderAbnormalDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
@@ -24,6 +25,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
@@ -101,6 +103,8 @@ class MesTeamLeaderActiveOrderServiceTest {
     @Mock
     private MesProcessPoolOrderProcessCompletionMapper completionMapper;
     @Mock
+    private MesProcessPoolReportAllocationMapper reportAllocationMapper;
+    @Mock
     private MesQaInspectionRegulationMapper inspectionRegulationMapper;
     @Mock
     private MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
@@ -123,7 +127,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     void setUp() {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
-                routeVersionMapper, processSnapshotMapper, completionMapper,
+                routeVersionMapper, processSnapshotMapper, completionMapper, reportAllocationMapper,
                 inspectionRegulationMapper, inspectionRegulationVersionMapper,
                 inspectionRegulationItemMapper, pqcInspectionTaskMapper, abnormalStateService,
                 releaseApplicationMapper, dccProjectCodeMapper, reportAllocationOrderChangeService);
@@ -138,6 +142,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         lenient().when(pqcInspectionTaskMapper.insert(any(MesPqcInspectionTaskDO.class))).thenReturn(1);
         lenient().when(abnormalStateService.findLatestOpenByWorkOrderIds(any())).thenReturn(Map.of());
         lenient().when(releaseApplicationMapper.selectLatestByActiveOrderIds(any())).thenReturn(List.of());
+        lenient().when(reportAllocationMapper.selectListByActiveOrderIds(any())).thenReturn(List.of());
     }
 
     @Test
@@ -446,6 +451,33 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
+    void shouldSnapshotAllRouteProcessesButCreatePqcTasksOnlyForQaProcesses() {
+        stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("10")));
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(10),
+                publishedRegulation(9902L, 928601L, 6001L));
+        stubSuccessfulActiveOrderInsert();
+
+        Long activeOrderId = service.addActiveOrder(activeOrderReq());
+
+        assertEquals(8101L, activeOrderId);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Collection<MesProcessPoolActiveOrderProcessSnapshotDO>> snapshotCaptor =
+                ArgumentCaptor.forClass(Collection.class);
+        verify(processSnapshotMapper).insertBatch(snapshotCaptor.capture());
+        List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots = List.copyOf(snapshotCaptor.getValue());
+        assertEquals(10, snapshots.size());
+        assertSnapshot(snapshots.get(0), 8101L, 9001L, 922119L, 448L, 928601L, 6001L,
+                "10", "1.000000", "10.000000");
+        assertSnapshot(snapshots.get(9), 8101L, 9001L, 922119L, 448L, 928610L, 6010L,
+                "10", "1.000000", "10.000000");
+        ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(2)).insert(taskCaptor.capture());
+        assertTrue(taskCaptor.getAllValues().stream()
+                .allMatch(task -> Long.valueOf(928601L).equals(task.getRouteProcessId())
+                        && Long.valueOf(6001L).equals(task.getProcessId())));
+    }
+
+    @Test
     void shouldAddUsingQaProductResolvedFromRouteWhenWorkOrderProductDiffers() {
         stubWorkOrderExists(confirmedWorkOrder(9001L, "WO-9001", new BigDecimal("200"), 1002L));
         stubFormalRouteQaContext(1002L, 448L,
@@ -695,10 +727,11 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .build()));
         when(processSnapshotMapper.selectListByActiveOrderIds(List.of(8101L)))
                 .thenReturn(processSnapshots(8101L, 9001L, 10));
-        when(completionMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of(
-                completion(9001L, 5001L, 6001L, MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED),
-                completion(9001L, 5002L, 6002L, MesProcessPoolOrderProcessCompletionDO.STATUS_IN_PROGRESS),
-                completion(9001L, 5099L, 6099L, MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED)));
+        when(reportAllocationMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of(
+                allocation(8101L, 9001L, 5001L, 6001L, "200"),
+                allocation(8101L, 9001L, 5002L, 6002L, "199"),
+                allocation(8101L, 9001L, 5099L, 6099L, "200")));
+        when(completionMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of());
         when(pqcInspectionTaskMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of(
                 pqcTask(8101L, 5003L, 6003L, MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED),
                 pqcTask(8101L, 5003L, 6003L, MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED),
@@ -710,8 +743,96 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals(new BigDecimal("10.000000"), activeOrders.get(0).getProductionProgressPercent());
         assertEquals(new BigDecimal("10.000000"), activeOrders.get(0).getInspectionProgressPercent());
         verify(processSnapshotMapper).selectListByActiveOrderIds(List.of(8101L));
-        verify(completionMapper).selectListByWorkOrderIds(List.of(9001L));
+        verify(reportAllocationMapper).selectListByActiveOrderIds(List.of(8101L));
         verify(pqcInspectionTaskMapper).selectListByActiveOrderIds(List.of(8101L));
+    }
+
+    @Test
+    void shouldRecalculateProductionProgressFromCurrentAllocationAfterQuantityReduction() {
+        List<MesProcessPoolActiveOrderDO> activeOrderRows = List.of(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L)
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .erpFixedQuantitySnapshot(new BigDecimal("200"))
+                .activeStatus("ACTIVE")
+                .joinedAt(LocalDateTime.of(2026, 7, 31, 8, 30))
+                .build());
+        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(activeOrderRows);
+        when(routeMapper.selectBatchIds(List.of(922119L))).thenReturn(List.of(MesProRouteDO.builder()
+                .id(922119L)
+                .name("按压式球囊扩充压力泵工艺路线")
+                .build()));
+        when(routeVersionMapper.selectBatchIds(List.of(448L))).thenReturn(List.of(MesProRouteVersionDO.builder()
+                .id(448L)
+                .routeId(922119L)
+                .versionNo("V1")
+                .routeSnapshotJson(activeRouteSnapshotJson(10))
+                .build()));
+        when(workOrderMapper.selectBatchIds(List.of(9001L))).thenReturn(List.of(confirmedWorkOrder()));
+        when(itemMapper.selectBatchIds(List.of(1001L))).thenReturn(List.of(MesMdItemDO.builder()
+                .id(1001L)
+                .code("AW.107.02.01.2010")
+                .name("球囊扩张压力泵")
+                .build()));
+        when(processSnapshotMapper.selectListByActiveOrderIds(List.of(8101L)))
+                .thenReturn(formalRouteProcessSnapshots(8101L, 9001L, 10));
+        when(reportAllocationMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of(
+                allocation(8101L, 9001L, 928601L, 6001L, "199"),
+                allocation(8101L, 9001L, 928602L, 6002L, "200")));
+        when(completionMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of(
+                completion(9001L, 928601L, 6001L, MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED),
+                completion(9001L, 928602L, 6002L, MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED)));
+        when(pqcInspectionTaskMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of());
+
+        List<MesTeamLeaderActiveOrderRow> activeOrders = service.listActiveOrders(3001L);
+
+        assertEquals(1, activeOrders.size());
+        assertEquals(new BigDecimal("10.000000"), activeOrders.get(0).getProductionProgressPercent());
+        verify(reportAllocationMapper).selectListByActiveOrderIds(List.of(8101L));
+    }
+
+    @Test
+    void shouldCalculateProductionProgressFromFormalRouteWhenActiveOrderSnapshotIsIncomplete() {
+        List<MesProcessPoolActiveOrderDO> activeOrderRows = List.of(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L)
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .activeStatus("ACTIVE")
+                .joinedAt(LocalDateTime.of(2026, 7, 31, 8, 30))
+                .build());
+        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(activeOrderRows);
+        when(routeMapper.selectBatchIds(List.of(922119L))).thenReturn(List.of(MesProRouteDO.builder()
+                .id(922119L)
+                .name("按压式球囊扩充压力泵工艺路线")
+                .build()));
+        when(routeVersionMapper.selectBatchIds(List.of(448L))).thenReturn(List.of(MesProRouteVersionDO.builder()
+                .id(448L)
+                .routeId(922119L)
+                .versionNo("V1")
+                .routeSnapshotJson(activeRouteSnapshotJson(10))
+                .build()));
+        when(workOrderMapper.selectBatchIds(List.of(9001L))).thenReturn(List.of(confirmedWorkOrder()));
+        when(itemMapper.selectBatchIds(List.of(1001L))).thenReturn(List.of(MesMdItemDO.builder()
+                .id(1001L)
+                .code("AW.107.02.01.2010")
+                .name("球囊扩张压力泵")
+                .build()));
+        when(processSnapshotMapper.selectListByActiveOrderIds(List.of(8101L)))
+                .thenReturn(formalRouteProcessSnapshots(8101L, 9001L, 1));
+        when(reportAllocationMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of(
+                allocation(8101L, 9001L, 928601L, 6001L, "200")));
+        when(completionMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of());
+        when(pqcInspectionTaskMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of());
+
+        List<MesTeamLeaderActiveOrderRow> activeOrders = service.listActiveOrders(3001L);
+
+        assertEquals(1, activeOrders.size());
+        assertEquals(new BigDecimal("10.000000"), activeOrders.get(0).getProductionProgressPercent());
+        assertEquals(new BigDecimal("0.000000"), activeOrders.get(0).getInspectionProgressPercent());
     }
 
     @Test
@@ -811,6 +932,22 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .toList();
     }
 
+    private static List<MesProcessPoolActiveOrderProcessSnapshotDO> formalRouteProcessSnapshots(Long activeOrderId,
+                                                                                                Long workOrderId,
+                                                                                                int processCount) {
+        return java.util.stream.IntStream.rangeClosed(1, processCount)
+                .mapToObj(index -> MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(activeOrderId)
+                        .workOrderId(workOrderId)
+                        .routeId(922119L)
+                        .routeVersionId(448L)
+                        .routeProcessId(928600L + index)
+                        .processId(6000L + index)
+                        .plannedQuantitySnapshot(new BigDecimal("200.000000"))
+                        .build())
+                .toList();
+    }
+
     private static MesProcessPoolOrderProcessCompletionDO completion(Long workOrderId, Long routeProcessId,
                                                                      Long processId, String status) {
         return MesProcessPoolOrderProcessCompletionDO.builder()
@@ -818,6 +955,19 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .routeProcessId(routeProcessId)
                 .processId(processId)
                 .completionStatus(status)
+                .build();
+    }
+
+    private static MesProcessPoolReportAllocationDO allocation(Long activeOrderId, Long workOrderId,
+                                                               Long routeProcessId, Long processId,
+                                                               String quantity) {
+        return MesProcessPoolReportAllocationDO.builder()
+                .activeOrderId(activeOrderId)
+                .workOrderId(workOrderId)
+                .routeProcessId(routeProcessId)
+                .processId(processId)
+                .allocatedQuantity(new BigDecimal(quantity))
+                .lifecycleStatus(MesProcessPoolReportAllocationDO.LIFECYCLE_CURRENT)
                 .build();
     }
 
@@ -1014,6 +1164,12 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     private void stubFormalRouteQaContext(Long workOrderProductId, Long activeRouteVersionId,
                                           MesQaInspectionRegulationDO... regulations) {
+        stubFormalRouteQaContext(workOrderProductId, activeRouteVersionId, activeRouteSnapshotJson(List.of(regulations)),
+                regulations);
+    }
+
+    private void stubFormalRouteQaContext(Long workOrderProductId, Long activeRouteVersionId, String routeSnapshotJson,
+                                          MesQaInspectionRegulationDO... regulations) {
         List<MesQaInspectionRegulationDO> regulationList = List.of(regulations);
         LinkedHashSet<Long> routeItemIds = new LinkedHashSet<>();
         routeItemIds.add(workOrderProductId);
@@ -1047,6 +1203,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .versionNo("V-ACTIVE")
                 .active(Boolean.TRUE)
                 .lifecycleStatus("ACTIVE")
+                .routeSnapshotJson(routeSnapshotJson)
                 .build()));
         when(itemMapper.selectBatchIds(any())).thenReturn(List.of(MesMdItemDO.builder()
                 .id(924005L)
@@ -1095,6 +1252,50 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     private static List<MesQaInspectionRegulationItemDO> defaultPqcItems() {
         return defaultPqcItems(9902L);
+    }
+
+    private static String activeRouteSnapshotJson(List<MesQaInspectionRegulationDO> regulations) {
+        List<MesQaInspectionRegulationDO> source = regulations == null || regulations.isEmpty()
+                ? List.of(publishedRegulation(9902L)) : regulations;
+        String nodes = source.stream()
+                .map(regulation -> "{\"routeProcessId\":" + regulation.getRouteProcessId()
+                        + ",\"processId\":" + regulation.getProcessId() + ",\"sort\":10}")
+                .collect(java.util.stream.Collectors.joining(","));
+        String configs = source.stream()
+                .map(regulation -> "{\"routeId\":922119,\"routeProcessId\":" + regulation.getRouteProcessId()
+                        + ",\"useType\":\"SCHEDULE\",\"enabled\":true,\"productionQuantityFactor\":1.000000}")
+                .collect(java.util.stream.Collectors.joining(","));
+        return """
+                {
+                  "configSnapshots": {
+                    "flowGraph": {
+                      "nodes": [%s]
+                    },
+                    "scheduleUseConfigs": [%s]
+                  }
+                }
+                """.formatted(nodes, configs);
+    }
+
+    private static String activeRouteSnapshotJson(int processCount) {
+        String nodes = java.util.stream.IntStream.rangeClosed(1, processCount)
+                .mapToObj(index -> "{\"routeProcessId\":" + (928600L + index)
+                        + ",\"processId\":" + (6000L + index) + ",\"sort\":" + (index * 10) + "}")
+                .collect(java.util.stream.Collectors.joining(","));
+        String configs = java.util.stream.IntStream.rangeClosed(1, processCount)
+                .mapToObj(index -> "{\"routeId\":922119,\"routeProcessId\":" + (928600L + index)
+                        + ",\"useType\":\"SCHEDULE\",\"enabled\":true,\"productionQuantityFactor\":1.000000}")
+                .collect(java.util.stream.Collectors.joining(","));
+        return """
+                {
+                  "configSnapshots": {
+                    "flowGraph": {
+                      "nodes": [%s]
+                    },
+                    "scheduleUseConfigs": [%s]
+                  }
+                }
+                """.formatted(nodes, configs);
     }
 
     private static List<MesQaInspectionRegulationItemDO> defaultPqcItems(Long regulationVersionId) {

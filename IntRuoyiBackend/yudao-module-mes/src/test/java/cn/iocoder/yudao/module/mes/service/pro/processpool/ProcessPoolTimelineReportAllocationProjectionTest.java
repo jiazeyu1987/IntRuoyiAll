@@ -68,6 +68,8 @@ class ProcessPoolTimelineReportAllocationProjectionTest {
 
         assertTrue(xml.contains("reqVO.allocationView == 'WORKBENCH'"));
         assertTrue(xml.contains("reqVO.allocationView == 'HISTORY'"));
+        assertTrue(xml.contains("reqVO.requirePositiveOutputQuantity == true"));
+        assertTrue(xml.contains("JSON_EXTRACT(pool_event.raw_payload, '$.outputQuantity')"));
         assertTrue(xml.contains("allocation.lifecycle_status = 'CURRENT'"));
         assertTrue(xml.contains("release_transaction.release_status = 'RELEASED'"));
         assertTrue(xml.contains("selectReportAllocationsByEventIds"));
