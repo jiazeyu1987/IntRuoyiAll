@@ -25,4 +25,9 @@ public class MesTeamLeaderBatchRecordBackfillCommand {
     private String idempotencyKey;
 
     private MesProWorkOrderDO workOrder;
+
+    /** Current eDHR batch context. Both fields are required for release dossier writes. */
+    private Long batchExecutionId;
+
+    private Long batchExecutionTaskId;
 }

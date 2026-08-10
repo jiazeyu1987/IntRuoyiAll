@@ -235,6 +235,8 @@ export interface FrontlinePqcInspectionItemVO {
   standardText?: string
   acceptanceStandard?: string
   processInspectionMethod?: string
+  inspectionTool: string | null
+  samplingPlanText: string | null
   resultType?: string
   standardLowerLimit?: number | string
   standardUpperLimit?: number | string

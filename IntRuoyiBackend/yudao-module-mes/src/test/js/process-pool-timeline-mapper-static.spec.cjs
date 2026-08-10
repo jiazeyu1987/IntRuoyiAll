@@ -77,6 +77,12 @@ for (const requiredFilter of [
 
 assert.match(
   source,
+  /<if test="reqVO\.submittedAtStart != null and reqVO\.submittedAtEnd != null">[\s\S]*pool_event\.server_submit_time\s*<!\[CDATA\[>=\]\]>\s*#\{reqVO\.submittedAtStart\}[\s\S]*pool_event\.server_submit_time\s*<!\[CDATA\[<\]\]>\s*#\{reqVO\.submittedAtEnd\}[\s\S]*<\/if>/,
+  '提交日期未选择时不得应用隐藏时间窗口；显式日期必须继续按闭开区间过滤。'
+)
+
+assert.match(
+  source,
   /LEFT JOIN\s+mes_pqc_inspection_task\s+pqc_task[\s\S]*pqc_task\.id\s*=\s*pool_event\.pqc_task_id/,
   'PQC task 必须通过持久化 pqc_task_id 精确关联，不能在分页查询中逐行 JSON_EXTRACT 或按工单/工序粗粒度 JOIN。'
 )

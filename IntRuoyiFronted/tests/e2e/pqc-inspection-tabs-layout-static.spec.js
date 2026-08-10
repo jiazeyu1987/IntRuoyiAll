@@ -97,6 +97,11 @@ assert.match(
   /grid-template-columns:\s*minmax\(0,\s*1fr\)/,
   'PQC red-box tab must reserve only one visible text column for the formal item name.'
 )
+assert.match(
+  itemTabStyleBlock,
+  /align-items:\s*center[\s\S]*text-align:\s*center/,
+  'PQC red-box tab item names must be horizontally and vertically centered.'
+)
 assert.doesNotMatch(
   itemTabStyleBlock,
   /\n\s*em\s*\{|\n\s*small\s*\{|grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/,

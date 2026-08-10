@@ -72,13 +72,13 @@ assert.match(
 )
 assert.match(
   page,
-  /submissionReviewStatus:\s*\(?isProductionReportHistoryTab\.value(?:\s*\|\|\s*isPqcFormHistoryTab\.value)?\)?\s*\?\s*'APPROVED'\s*:\s*queryParams\.submissionReviewStatus \|\| undefined/,
-  '报工历史查询必须强制提交 submissionReviewStatus=APPROVED。'
+  /allocationView:\s*isProductionLeader\.value[\s\S]*isProductionReportHistoryTab\.value[\s\S]*'HISTORY'[\s\S]*'WORKBENCH'/,
+  '报工管理和报工历史必须通过独立 allocationView 查询。'
 )
 assert.match(
   page,
-  /if \(isProductionReportHistoryTab\.value\) \{[\s\S]*queryParams\.submissionReviewStatus = 'APPROVED'[\s\S]*return[\s\S]*\}/,
-  '报工历史切换或重置时必须把查询状态保持为 APPROVED。'
+  /if \(isProductionReportHistoryTab\.value\) \{[\s\S]*queryParams\.submissionReviewStatus = undefined[\s\S]*return[\s\S]*\}/,
+  '报工历史不得按复核通过状态过滤提交事实。'
 )
 
 assert.match(

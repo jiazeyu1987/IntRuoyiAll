@@ -110,7 +110,7 @@ assert.match(
   /:data="pagedActiveOrderRows"[\s\S]*data-team-leader-active-order-list/,
   'The standard list must render all active-order rows through client-side pagination.'
 )
-for (const label of ['活跃池ID', '生产订单ID', '路线名称', '版本号', 'ERP生产数量', '加入时间', '操作']) {
+for (const label of ['活跃池ID', '生产订单号', '路线名称', '版本号', 'ERP生产数量', '加入时间', '操作']) {
   assert.match(activeOrderBlock, new RegExp(`label="${label}"`), `The active-order list must show ${label}.`)
 }
 assert.doesNotMatch(

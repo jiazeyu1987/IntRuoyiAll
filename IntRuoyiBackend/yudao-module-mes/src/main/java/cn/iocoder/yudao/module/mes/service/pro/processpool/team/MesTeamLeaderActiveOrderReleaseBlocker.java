@@ -11,6 +11,10 @@ public class MesTeamLeaderActiveOrderReleaseBlocker {
     private String objectType;
     private String objectId;
     private String objectCode;
+    private Long routeProcessId;
+    private Long processId;
+    private String fieldCode;
+    private String cellKey;
     private String reason;
     private String suggestion;
 }

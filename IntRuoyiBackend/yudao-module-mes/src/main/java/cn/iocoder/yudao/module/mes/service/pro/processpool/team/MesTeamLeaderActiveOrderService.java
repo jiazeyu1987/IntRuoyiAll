@@ -10,5 +10,7 @@ public interface MesTeamLeaderActiveOrderService {
 
     void removeActiveOrder(MesTeamLeaderActiveOrderRemoveReqBO reqBO);
 
+    void moveActiveOrder(MesTeamLeaderActiveOrderMoveReqBO reqBO);
+
     List<MesTeamLeaderActiveOrderRow> listActiveOrders(Long leaderUserId);
 }

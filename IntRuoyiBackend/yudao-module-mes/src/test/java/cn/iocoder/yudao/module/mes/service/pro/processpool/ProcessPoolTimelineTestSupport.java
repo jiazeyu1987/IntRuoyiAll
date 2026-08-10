@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelinePageReqVO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolTimelineReadMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineReportAllocationReadDO;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -144,10 +145,17 @@ final class ProcessPoolTimelineTestSupport {
                     .orElse(null);
         }
 
+        @Override
+        public List<ProcessPoolTimelineReportAllocationReadDO> selectReportAllocationsByEventIds(List<Long> eventIds) {
+            return List.of();
+        }
+
         private Stream<ProcessPoolTimelineEventReadDO> filter(ProcessPoolTimelinePageReqVO reqVO) {
             return events.stream()
-                    .filter(event -> !event.getSubmittedAt().isBefore(reqVO.getSubmittedAtStart()))
-                    .filter(event -> event.getSubmittedAt().isBefore(reqVO.getSubmittedAtEnd()))
+                    .filter(event -> reqVO.getSubmittedAtStart() == null
+                            || !event.getSubmittedAt().isBefore(reqVO.getSubmittedAtStart()))
+                    .filter(event -> reqVO.getSubmittedAtEnd() == null
+                            || event.getSubmittedAt().isBefore(reqVO.getSubmittedAtEnd()))
                     .filter(event -> reqVO.getEmployeeUserId() == null
                             || Objects.equals(event.getActualEmployeeUserId(), reqVO.getEmployeeUserId()))
                     .filter(event -> reqVO.getEmployeeUserIds() == null || reqVO.getEmployeeUserIds().isEmpty()

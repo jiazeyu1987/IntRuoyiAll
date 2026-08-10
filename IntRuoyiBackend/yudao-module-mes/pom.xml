@@ -213,6 +213,7 @@
                         <artifactId>maven-compiler-plugin</artifactId>
                         <configuration>
                             <testIncludes>
+                                <testInclude>**/MesTeamLeaderActiveOrderManualSortTest.java</testInclude>
                                 <testInclude>**/MesTeamLeaderActiveOrderServiceTest.java</testInclude>
                                 <testInclude>**/MesProcessPoolTeamLeaderControllerTest.java</testInclude>
                                 <testInclude>**/MesActiveOrderTransferTraceServiceTest.java</testInclude>
@@ -225,6 +226,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
+                                <include>**/MesTeamLeaderActiveOrderManualSortTest.java</include>
                                 <include>**/MesTeamLeaderActiveOrderServiceTest.java</include>
                                 <include>**/MesProcessPoolTeamLeaderControllerTest.java</include>
                                 <include>**/MesActiveOrderTransferTraceServiceTest.java</include>

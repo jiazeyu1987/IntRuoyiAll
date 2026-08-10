@@ -3,7 +3,7 @@ import request from '@/config/axios'
 export interface ProcessPoolTimelinePageReqVO {
   pageNo?: number
   pageSize?: number
-  submitDate: string
+  submitDate?: string
   employeeUserId?: number
   processId?: number
   deviceId?: number
@@ -15,6 +15,7 @@ export interface ProcessPoolTimelinePageReqVO {
   inspectionType?: string
   roundNo?: number
   submissionReviewStatus?: string
+  allocationView?: 'WORKBENCH' | 'HISTORY'
 }
 
 export interface ProcessPoolTimelineReadonlyActionsVO {
@@ -47,6 +48,16 @@ export interface ProcessPoolTimelineDeviceParameterReadingVO {
   lowerLimit?: number | string
   upperLimit?: number | string
   parameterStatus?: 'NORMAL' | 'BELOW_LOWER' | 'ABOVE_UPPER'
+}
+
+export interface ProcessPoolTimelineReportAllocationVO {
+  allocationId: number
+  activeOrderId: number
+  workOrderId: number
+  workOrderCode?: string
+  allocatedQuantity: number
+  released: boolean
+  editable: boolean
 }
 
 export interface ProcessPoolTimelineEventVO {
@@ -91,6 +102,9 @@ export interface ProcessPoolTimelineEventVO {
   sourceRecordbookEventId?: number
   outputQuantity?: number
   lossQuantity?: number
+  reportAllocations?: ProcessPoolTimelineReportAllocationVO[]
+  reportAllocatedQuantity?: number
+  reportUnallocatedQuantity?: number
   lossDetails?: ProcessPoolTimelineLossDetailVO[]
   selectedDevice?: ProcessPoolTimelineSelectedDeviceVO
   deviceParameterReadings?: ProcessPoolTimelineDeviceParameterReadingVO[]

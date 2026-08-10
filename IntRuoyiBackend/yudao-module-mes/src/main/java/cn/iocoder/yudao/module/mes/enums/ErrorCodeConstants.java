@@ -1206,6 +1206,14 @@ public interface ErrorCodeConstants {
             "活跃订单申请放行缺少正式资料来源：{}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_OWNER_REQUIRED = new ErrorCode(1_040_760_354,
             "活跃订单申请放行缺少生产负责人放行配置：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_MOVE_INVALID = new ErrorCode(1_040_760_355,
+            "活跃订单排序失败：{}");
+    ErrorCode PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_DUPLICATE = new ErrorCode(1_040_760_356,
+            "活跃订单同一工序存在多条正式目标快照：activeOrderId={}，processId={}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT = new ErrorCode(1_040_760_357,
+            "报工分配版本已变化，请刷新后重试：eventId={}，expectedVersion={}，currentVersion={}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED = new ErrorCode(1_040_760_358,
+            "订单分配已经放行，禁止调整：activeOrderId={}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

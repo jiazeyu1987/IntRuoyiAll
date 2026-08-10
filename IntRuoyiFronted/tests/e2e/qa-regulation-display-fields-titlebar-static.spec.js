@@ -44,12 +44,12 @@ assert.match(
 )
 assert.match(
   itemsSection,
-  /table-key="mes\.qa\.regulation\.items\.processMethods"[\s\S]*:show-column-settings="false"/,
+  /table-key="mes\.qa\.regulation\.items\.processMethods\.v2"[\s\S]*:show-column-settings="false"/,
   'The inspection items list must disable the old toolbar display-field control.'
 )
 assert.match(
   itemsSection,
-  /table-key="mes\.qa\.regulation\.items\.processMethods"[\s\S]*:show-query-form="false"/,
+  /table-key="mes\.qa\.regulation\.items\.processMethods\.v2"[\s\S]*:show-query-form="false"/,
   'The inspection items list must remove the empty toolbar row after moving its only control.'
 )
 assert.match(

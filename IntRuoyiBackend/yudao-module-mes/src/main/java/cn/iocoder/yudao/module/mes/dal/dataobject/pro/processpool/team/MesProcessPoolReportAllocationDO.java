@@ -28,6 +28,9 @@ public class MesProcessPoolReportAllocationDO extends TenantBaseDO {
 
     public static final String MODE_FIFO = "FIFO";
     public static final String MODE_MANUAL = "MANUAL";
+    public static final String MODE_SYSTEM = "SYSTEM";
+    public static final String LIFECYCLE_CURRENT = "CURRENT";
+    public static final String LIFECYCLE_SUPERSEDED = "SUPERSEDED";
 
     @TableId
     private Long id;
@@ -41,5 +44,8 @@ public class MesProcessPoolReportAllocationDO extends TenantBaseDO {
     private Long processId;
     private BigDecimal allocatedQuantity;
     private String allocationMode;
+    private String lifecycleStatus;
+    private Integer createdVersion;
+    private Integer supersededVersion;
     private LocalDateTime confirmedAt;
 }

@@ -104,6 +104,14 @@ public class MesQaInspectionRegulationSaveReqVO {
         @NotBlank(message = "检验方法不能为空")
         private String inspectionMethod;
 
+        @Schema(description = "检验器具及设备原文", requiredMode = Schema.RequiredMode.REQUIRED)
+        @NotBlank(message = "检验器具及设备不能为空")
+        private String inspectionTool;
+
+        @Schema(description = "抽样方案原文", requiredMode = Schema.RequiredMode.REQUIRED)
+        @NotBlank(message = "抽样方案不能为空")
+        private String samplingPlanText;
+
         @Schema(description = "合格标准", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotBlank(message = "合格标准不能为空")
         private String standardText;

@@ -76,6 +76,33 @@ class MesFrontlineRuntimeConfigServiceTest {
         when(parameterRuleMapper.selectList(any())).thenReturn(List.of(
                 parameterRule(7001L, ROUTE_PROCESS_ID, "pressure", "压力", "MPa",
                         "10", "20", "15", "DECIMAL"),
+                MesProcessPoolDeviceParameterRuleDO.builder()
+                        .leaderUserId(9001L)
+                        .routeProcessId(ROUTE_PROCESS_ID)
+                        .processId(PROCESS_ID)
+                        .deviceId(7001L)
+                        .parameterCode("y-cleaning-power")
+                        .parameterName("清洗功率")
+                        .unit("%")
+                        .lowerLimit(new BigDecimal("20"))
+                        .upperLimit(new BigDecimal("30"))
+                        .standardText("20-30%")
+                        .valueType("DECIMAL")
+                        .enabled(Boolean.TRUE)
+                        .build(),
+                MesProcessPoolDeviceParameterRuleDO.builder()
+                        .leaderUserId(9001L)
+                        .routeProcessId(ROUTE_PROCESS_ID)
+                        .processId(PROCESS_ID)
+                        .deviceId(7001L)
+                        .parameterCode("y-single-bound")
+                        .parameterName("单边范围")
+                        .unit("%")
+                        .lowerLimit(new BigDecimal("20"))
+                        .standardText(">=20%")
+                        .valueType("DECIMAL")
+                        .enabled(Boolean.TRUE)
+                        .build(),
                 parameterRule(7001L, null, "legacy-pressure", "历史空路线压力", "MPa",
                         "10", "20", "15", "DECIMAL"),
                 parameterRule(7001L, 2002L, "temperature", "温度", "℃",
@@ -107,13 +134,16 @@ class MesFrontlineRuntimeConfigServiceTest {
         assertEquals(1, config.devices().size());
         assertEquals("压力泵", config.devices().get(0).deviceName());
         assertEquals("ENABLED", config.devices().get(0).deviceStatus());
-        assertEquals(2, config.devices().get(0).parameters().size());
+        assertEquals(4, config.devices().get(0).parameters().size());
         assertEquals("pressure", config.devices().get(0).parameters().get(0).parameterCode());
         assertEquals(new BigDecimal("15"), config.devices().get(0).parameters().get(0).defaultValue());
         assertEquals("10-20MPa，目标15MPa", config.devices().get(0).parameters().get(0).standardText());
-        assertEquals("纯化水", config.devices().get(0).parameters().get(1).standardText());
-        assertEquals("TEXT_STANDARD", config.devices().get(0).parameters().get(1).valueType());
-        assertNull(config.devices().get(0).parameters().get(1).lowerLimit());
+        assertEquals(new BigDecimal("25"), config.devices().get(0).parameters().get(1).defaultValue());
+        assertNull(config.devices().get(0).parameters().get(2).defaultValue());
+        assertEquals("纯化水", config.devices().get(0).parameters().get(3).standardText());
+        assertEquals("TEXT_STANDARD", config.devices().get(0).parameters().get(3).valueType());
+        assertNull(config.devices().get(0).parameters().get(3).lowerLimit());
+        assertNull(config.devices().get(0).parameters().get(3).defaultValue());
         assertEquals(1, config.defectReasons().size());
         assertEquals("正常损耗", config.defectReasons().get(0).reasonName());
         assertEquals(ROUTE_ID, config.productionSubmitContext().routeId());

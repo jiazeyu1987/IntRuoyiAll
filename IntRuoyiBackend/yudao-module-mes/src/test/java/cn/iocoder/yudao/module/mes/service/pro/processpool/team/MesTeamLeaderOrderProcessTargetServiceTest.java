@@ -12,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -82,6 +83,48 @@ class MesTeamLeaderOrderProcessTargetServiceTest {
                 activeOrder(35L, 980022L), 980631L, 922985L));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED.getCode(), ex.getCode());
+    }
+
+    @Test
+    void shouldExposeCandidateOwnProcessResolver() throws Exception {
+        assertEquals(Optional.class, MesTeamLeaderOrderProcessTargetService.class.getMethod(
+                "findUniqueTargetForProcess", MesProcessPoolActiveOrderDO.class, Long.class).getReturnType());
+    }
+
+    @Test
+    void shouldResolveCandidateOwnRouteProcessByProcessId() {
+        when(processSnapshotMapper.selectListByActiveOrderAndProcess(35L, 922985L))
+                .thenReturn(List.of(processSnapshot(980777L)));
+
+        MesTeamLeaderOrderProcessTarget target = service
+                .findUniqueTargetForProcess(activeOrder(35L, 980022L), 922985L)
+                .orElseThrow();
+
+        assertEquals(980777L, target.routeProcessId());
+        assertEquals(922985L, target.processId());
+    }
+
+    @Test
+    void shouldRejectDuplicateCandidateProcessSnapshots() {
+        when(processSnapshotMapper.selectListByActiveOrderAndProcess(35L, 922985L))
+                .thenReturn(List.of(processSnapshot(980631L), processSnapshot(980777L)));
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.findUniqueTargetForProcess(activeOrder(35L, 980022L), 922985L));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_DUPLICATE.getCode(), ex.getCode());
+    }
+
+    private static MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot(Long routeProcessId) {
+        return MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                .activeOrderId(35L)
+                .workOrderId(980022L)
+                .routeProcessId(routeProcessId)
+                .processId(922985L)
+                .erpFixedQuantitySnapshot(new BigDecimal("10"))
+                .productionQuantityFactorSnapshot(BigDecimal.ONE)
+                .plannedQuantitySnapshot(new BigDecimal("10"))
+                .build();
     }
 
     private static MesProcessPoolActiveOrderDO activeOrder(Long id, Long workOrderId) {

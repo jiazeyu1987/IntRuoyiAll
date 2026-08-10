@@ -33,7 +33,9 @@ public class MesQaInspectionRegulationItemDO extends TenantBaseDO {
     private String itemCode;
     private String itemName;
     private String inspectionMethod;
+    private String inspectionTool;
     private String standardText;
+    private String samplingPlanText;
     private BigDecimal standardLowerLimit;
     private BigDecimal standardUpperLimit;
     private String standardUnit;

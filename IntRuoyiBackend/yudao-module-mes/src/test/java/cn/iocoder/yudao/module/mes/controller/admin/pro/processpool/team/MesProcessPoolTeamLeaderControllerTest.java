@@ -30,6 +30,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderReportAllocationLineReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderReportAllocationPreviewReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderReportAllocationPreviewRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderReportAllocationSnapshotRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderSubmissionPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderSubmissionReviewReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesProductionExecutionTraceRespVO;
@@ -62,6 +63,10 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderRep
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportAllocationPreviewReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportConfirmationReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportConfirmationService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationCommandService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationSaveCommand;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationSaveLine;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationSnapshot;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderRuntimeConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderSubmissionReviewReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderSubmissionReviewService;
@@ -122,6 +127,8 @@ class MesProcessPoolTeamLeaderControllerTest {
     private MesTeamLeaderActiveOrderService activeOrderService;
     @Mock
     private MesTeamLeaderReportConfirmationService reportConfirmationService;
+    @Mock
+    private MesReportAllocationCommandService reportAllocationService;
     @Mock
     private MesTeamLeaderRuntimeConfigService runtimeConfigService;
     @Mock
@@ -376,15 +383,17 @@ class MesProcessPoolTeamLeaderControllerTest {
 
     @Test
     void reportAllocationRequestsInjectCurrentLeaderUserAndNeverAcceptClientLeaderUser() {
-        when(reportConfirmationService.previewFifoAllocation(org.mockito.ArgumentMatchers.any()))
-                .thenReturn(MesTeamLeaderReportAllocationPreview.builder()
-                        .totalAllocatedQuantity(new BigDecimal("80"))
-                        .lines(List.of())
-                        .build());
-        when(reportConfirmationService.confirmSubmission(org.mockito.ArgumentMatchers.any())).thenReturn(7001L);
+        when(reportAllocationService.previewFifo(1001L, 3001L, "PRODUCTION"))
+                .thenReturn(MesReportAllocationSnapshot.builder().eventId(1001L).version(0)
+                        .poolQuantity(new BigDecimal("100")).totalAllocatedQuantity(new BigDecimal("80"))
+                        .unallocatedQuantity(new BigDecimal("20")).lines(List.of()).build());
+        when(reportAllocationService.save(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(MesReportAllocationSnapshot.builder().eventId(1001L).version(1)
+                        .poolQuantity(new BigDecimal("100")).totalAllocatedQuantity(new BigDecimal("80"))
+                        .unallocatedQuantity(new BigDecimal("20")).lines(List.of()).build());
 
         MesTeamLeaderReportAllocationPreviewRespVO previewResponse;
-        CommonResult<Long> confirmResponse;
+        CommonResult<MesTeamLeaderReportAllocationSnapshotRespVO> confirmResponse;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(3001L);
             previewResponse = controller.previewReportFifoAllocation(
@@ -404,23 +413,19 @@ class MesProcessPoolTeamLeaderControllerTest {
         }
 
         assertEquals(new BigDecimal("80"), previewResponse.getTotalAllocatedQuantity());
-        assertEquals(7001L, confirmResponse.getData());
+        assertEquals(1, confirmResponse.getData().getVersion());
 
-        ArgumentCaptor<MesTeamLeaderReportAllocationPreviewReqBO> previewCaptor =
-                ArgumentCaptor.forClass(MesTeamLeaderReportAllocationPreviewReqBO.class);
-        verify(reportConfirmationService).previewFifoAllocation(previewCaptor.capture());
-        assertEquals(3001L, previewCaptor.getValue().getLeaderUserId());
-        assertEquals(1001L, previewCaptor.getValue().getEventId());
+        verify(reportAllocationService).previewFifo(1001L, 3001L, "PRODUCTION");
 
-        ArgumentCaptor<MesTeamLeaderReportConfirmationReqBO> confirmCaptor =
-                ArgumentCaptor.forClass(MesTeamLeaderReportConfirmationReqBO.class);
-        verify(reportConfirmationService).confirmSubmission(confirmCaptor.capture());
+        ArgumentCaptor<MesReportAllocationSaveCommand> confirmCaptor =
+                ArgumentCaptor.forClass(MesReportAllocationSaveCommand.class);
+        verify(reportAllocationService).save(confirmCaptor.capture());
         assertEquals(3001L, confirmCaptor.getValue().getLeaderUserId());
         assertEquals("PRODUCTION", confirmCaptor.getValue().getLeaderType());
         assertEquals("MANUAL", confirmCaptor.getValue().getAllocationMode());
         assertEquals("confirm-pass", confirmCaptor.getValue().getSignaturePassword());
         assertEquals(1, confirmCaptor.getValue().getAllocations().size());
-        MesTeamLeaderReportAllocationLineReqBO line = confirmCaptor.getValue().getAllocations().get(0);
+        MesReportAllocationSaveLine line = confirmCaptor.getValue().getAllocations().get(0);
         assertEquals(8101L, line.getActiveOrderId());
         assertEquals(new BigDecimal("80"), line.getAllocatedQuantity());
     }
@@ -859,6 +864,9 @@ class MesProcessPoolTeamLeaderControllerTest {
                 new Class[]{MesTeamLeaderReportAllocationConfirmReqVO.class}, PostMapping.class,
                 new String[]{"/submission/allocation/confirm"},
                 "mes:pro-process-pool-team-leader:review");
+        assertEndpoint("getReportAllocationAudit", new Class[]{Long.class, String.class}, GetMapping.class,
+                new String[]{"/submission/allocation/audit"},
+                "mes:pro-process-pool-team-leader:query");
         assertEndpoint("createEmployeeProfile", new Class[]{MesTeamEmployeeProfileSaveReqVO.class}, PostMapping.class,
                 new String[]{"/employee-profile/create"}, "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("getPqcPersonnelList", new Class[]{Boolean.class}, GetMapping.class,

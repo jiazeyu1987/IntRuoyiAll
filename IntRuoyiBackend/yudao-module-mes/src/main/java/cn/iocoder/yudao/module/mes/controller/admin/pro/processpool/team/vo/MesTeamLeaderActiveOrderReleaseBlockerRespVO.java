@@ -21,6 +21,18 @@ public class MesTeamLeaderActiveOrderReleaseBlockerRespVO {
     @Schema(description = "对象编码", example = "MO20260808001")
     private String objectCode;
 
+    @Schema(description = "路线工序编号", example = "5001")
+    private Long routeProcessId;
+
+    @Schema(description = "工序编号", example = "6001")
+    private Long processId;
+
+    @Schema(description = "来源字段编码", example = "confirmedQuantity")
+    private String fieldCode;
+
+    @Schema(description = "目标单元格键", example = "0:3")
+    private String cellKey;
+
     @Schema(description = "阻塞原因", example = "当前活跃订单缺少已确认的过程检验汇集明细")
     private String reason;
 

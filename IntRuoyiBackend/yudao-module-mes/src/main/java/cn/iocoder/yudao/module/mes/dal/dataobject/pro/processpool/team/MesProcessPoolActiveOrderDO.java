@@ -38,6 +38,7 @@ public class MesProcessPoolActiveOrderDO extends TenantBaseDO {
     private String activeStatus;
     private String businessStatus;
     private LocalDateTime joinedAt;
+    private Long sortOrder;
     private LocalDateTime removedAt;
     @Version
     private Integer version;

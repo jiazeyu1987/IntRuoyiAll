@@ -32,6 +32,9 @@ public interface MesProRouteVersionMapper extends BaseMapperX<MesProRouteVersion
             + "LIMIT 1 FOR UPDATE")
     MesProRouteVersionDO selectActiveByRouteIdForUpdate(Long routeId);
 
+    @Select("SELECT * FROM mes_pro_route_version WHERE deleted = b'0' AND id = #{id} FOR UPDATE")
+    MesProRouteVersionDO selectByIdForUpdate(Long id);
+
     default MesProRouteVersionDO selectByRouteIdAndVersionNo(Long routeId, String versionNo) {
         return selectOne(new LambdaQueryWrapperX<MesProRouteVersionDO>()
                 .eq(MesProRouteVersionDO::getRouteId, routeId)

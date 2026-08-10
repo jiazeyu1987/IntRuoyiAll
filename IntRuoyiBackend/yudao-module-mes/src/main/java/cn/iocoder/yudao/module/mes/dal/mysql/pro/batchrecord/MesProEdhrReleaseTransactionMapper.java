@@ -34,4 +34,23 @@ public interface MesProEdhrReleaseTransactionMapper extends BaseMapperX<MesProEd
                 .eq(MesProEdhrReleaseTransactionDO::getId, id)
                 .last("FOR UPDATE"));
     }
+
+    default List<MesProEdhrReleaseTransactionDO> selectListByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProEdhrReleaseTransactionDO>()
+                .in(MesProEdhrReleaseTransactionDO::getId, ids)
+                .orderByAsc(MesProEdhrReleaseTransactionDO::getId));
+    }
+
+    default List<MesProEdhrReleaseTransactionDO> selectListByIdsForUpdate(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProEdhrReleaseTransactionDO>()
+                .in(MesProEdhrReleaseTransactionDO::getId, ids)
+                .orderByAsc(MesProEdhrReleaseTransactionDO::getId)
+                .last("FOR UPDATE"));
+    }
 }

@@ -61,6 +61,20 @@ export interface CodexTestExecutionStartReqVO {
   caseIds: number[]
 }
 
+export interface CodexTestCodeReadonlyCaseReqVO {
+  name: string
+  project: CodexTestProject
+  methodText: string
+  testDataText?: string
+  sort?: number
+  checkpoints: CodexTestCheckpointVO[]
+}
+
+export interface CodexTestCodeReadonlyExecutionStartReqVO {
+  targetTenantId: number
+  caseDefinition: CodexTestCodeReadonlyCaseReqVO
+}
+
 export interface CodexTestExecutionPageReqVO extends PageParam {
   targetTenantId?: number
   status?: string
@@ -161,6 +175,15 @@ export const startCodexTestExecution = (data: CodexTestExecutionStartReqVO) => {
   return request.post<number>({ url: '/system/codex-test-execution/start', data })
 }
 
+export const startCodeReadonlyCodexTestExecution = (
+  data: CodexTestCodeReadonlyExecutionStartReqVO
+) => {
+  return request.post<number>({
+    url: '/system/codex-test-execution/start-code-readonly',
+    data
+  })
+}
+
 export const cancelCodexTestExecution = (executionId: number) => {
   return request.post<boolean>({
     url: '/system/codex-test-execution/cancel',
@@ -177,6 +200,13 @@ export const getCodexTestExecutionPage = (params: CodexTestExecutionPageReqVO) =
 
 export const getCodexTestExecution = (id: number) => {
   return request.get<CodexTestExecutionVO>({ url: '/system/codex-test-execution/get?id=' + id })
+}
+
+export const getCodexTestExecutionResult = (id: number) => {
+  return request.get<CodexTestExecutionVO>({
+    url: '/system/codex-test-execution/result?id=' + id,
+    timeout: 120000
+  })
 }
 
 export const getCodexTestExecutionMonitor = () => {

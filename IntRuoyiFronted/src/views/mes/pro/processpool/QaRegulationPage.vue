@@ -286,7 +286,7 @@
           </div>
         </template>
         <UnifiedListTemplate
-          table-key="mes.qa.regulation.items.processMethods"
+          table-key="mes.qa.regulation.items.processMethods.v2"
           :query-model="qaItemsQuery"
           :filter-definitions="qaEmptyFilterDefinitions"
           :show-quick-filter="false"
@@ -309,7 +309,7 @@
               border
               size="small"
               data-user-table-column-explicit
-              data-user-table-key="mes.qa.regulation.items.processMethods"
+              data-user-table-key="mes.qa.regulation.items.processMethods.v2"
               @header-dragend="handleQaItemsHeaderDragend"
               @sort-change="handleTemplateSortChange"
             >
@@ -356,14 +356,19 @@
               v-bind="sortColumnAttrs('applicableTypes')"
               >
                 <template #default="{ row }">
-                  <el-select v-model="row.applicableTypes" multiple collapse-tags collapse-tags-tooltip>
-                    <el-option
-                      v-for="option in qaInspectionTypeOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
+                  <div
+                    class="qa-regulation-page__applicable-types"
+                    data-qa-regulation-applicable-types
+                  >
+                    <el-tag
+                      v-for="inspectionType in resolveQaItemApplicableTypes(row)"
+                      :key="inspectionType"
+                      size="small"
+                      effect="plain"
+                    >
+                      {{ resolveQaInspectionTypeLabel(inspectionType) }}
+                    </el-tag>
+                  </div>
                 </template>
               </el-table-column>
               <el-table-column
@@ -763,10 +768,15 @@ import {
   ProRouteFlowConfigApi,
   type ProRouteFlowProcessConfigVO
 } from '@/api/mes/pro/route/flowconfig'
+import {
+  isQaInspectionSamplingPlanComplete,
+  parseQaInspectionSamplingPlan,
+  resolveQaApplicableInspectionTypes,
+  type QaInspectionTypeValue
+} from './qaRegulationSampling'
 
 defineOptions({ name: 'MesProProcessPoolQaRegulation' })
 
-type QaInspectionTypeValue = 'FIRST' | 'PATROL_AM' | 'PATROL_PM' | 'FINAL'
 type QaInspectionResultType = 'BOOLEAN' | 'NUMERIC' | 'TEXT'
 
 const PRESSURE_PUMP_PROJECT_CODE = 'IDI'
@@ -778,6 +788,29 @@ const QA_PDF_ITEM_FAILURE_RULE =
   '检验中，每一个检验项目均应合格；若出现不合格，则按不合格品评审结果处理。'
 const BALLOON_PRESSURE_PUMP_SOURCE_NOTE =
   '用户指定 PDF PQC-ID-001（G/0）5.1 检验内容。'
+const QA_PROCESS_SCOPE_BINDINGS_BY_PROJECT_CODE: Record<string, Record<string, string[]>> = {
+  ID: {
+    '清洗/精洗': ['精洗', '清洗'],
+    清洁: ['清洁'],
+    组装Ⅰ: ['组装Ⅰ'],
+    光固Ⅰ: ['光固Ⅰ'],
+    '组装Ⅱ / 硅化Ⅰ': ['组装Ⅱ', '硅化Ⅰ'],
+    检测: ['检测'],
+    光固Ⅱ: ['光固Ⅱ']
+  },
+  IDI: {
+    清洗: ['清洗'],
+    清洁: ['清洁'],
+    组装螺杆八组件: ['组装螺杆八组件'],
+    光固外套四组件: ['光固外套四组件'],
+    装配: ['装配'],
+    整体粘结: ['整体粘结']
+  }
+}
+
+const QA_UNBOUND_BATCH_RECORD_PROCESS_NAMES_BY_PROJECT_CODE: Record<string, string[]> = {
+  IDI: ['组装螺杆八组件', '光固外套四组件', '装配', '整体粘结']
+}
 
 interface QaInspectionTypeRule {
   key: QaInspectionTypeValue
@@ -786,7 +819,6 @@ interface QaInspectionTypeRule {
   roundLabel: string
   required: boolean
   fixedQuantity?: number
-  sampleRatio?: number
   notApplicableReason?: string
   taskRule: string
   releaseGate: string
@@ -796,7 +828,6 @@ interface QaRegulationItem {
   itemCode: string
   processName?: string
   itemName: string
-  applicableTypes: QaInspectionTypeValue[]
   inspectionMethod: string
   inspectionTool: string
   equipmentOptions?: QaRegulationEquipmentOptionDraft[]
@@ -840,7 +871,6 @@ interface QaRegulationDraft {
   routeProcessName: string
   sopName: string
   productionFactor: number
-  sampleOrderQuantity: number
   batchRecordBinding: string
 }
 
@@ -852,7 +882,6 @@ interface QaProductRuleDraftSnapshot {
     | 'versionNo'
     | 'effectiveDate'
     | 'lifecycleStatus'
-    | 'sampleOrderQuantity'
   >
   inspectionTypeRules: QaInspectionTypeRule[]
   regulationItems: QaRegulationItem[]
@@ -876,8 +905,11 @@ interface QaRouteScopeAutoSource {
   route: ProRouteVO
   routeVersion: ProRouteVersionVO
   routeProcess: ProRouteProcessVO
+  routeProcesses: ProRouteProcessVO[]
   scheduleConfig?: ProRouteFlowProcessConfigVO
+  scheduleConfigs: ProRouteFlowProcessConfigVO[]
   batchConfig?: ProRouteFlowProcessConfigVO
+  batchConfigs: ProRouteFlowProcessConfigVO[]
 }
 
 interface QaRouteScopeBindingSource {
@@ -920,7 +952,7 @@ const qaItemsDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'inspectionTool', label: '检验器具及设备', minWidth: 170 },
   { key: 'samplingPlan', label: '抽样方案', minWidth: 240, sortable: false },
   { key: 'itemCode', label: '检验项目编码', width: 130, visible: false },
-  { key: 'applicableTypes', label: '适用检验类型', minWidth: 210, visible: false },
+  { key: 'applicableTypes', label: '适用检验类型', minWidth: 210 },
   { key: 'resultType', label: '结果类型', width: 130, visible: false },
   { key: 'sourceOriginalExcerpt', label: '原文依据', minWidth: 420, visible: false },
   { key: 'lowerLimit', label: '下限', width: 120, visible: false },
@@ -954,7 +986,7 @@ const {
   handleHeaderDragend: handleQaItemsHeaderDragend,
   saveConfig: saveQaItemsColumnConfig,
   resetConfig: resetQaItemsColumnConfig
-} = useUserTableColumns('mes.qa.regulation.items.processMethods', qaItemsDefaultColumns)
+} = useUserTableColumns('mes.qa.regulation.items.processMethods.v2', qaItemsDefaultColumns)
 
 const {
   columns: qaChecksColumns,
@@ -977,12 +1009,15 @@ const {
   resetConfig: resetQaPqcPreviewColumnConfig
 } = useUserTableColumns('mes.qa.regulation.pqcPreview', qaPqcPreviewDefaultColumns)
 
-const qaInspectionTypeOptions: Array<{ label: string; value: QaInspectionTypeValue }> = [
-  { label: '首检', value: 'FIRST' },
-  { label: '上午巡检', value: 'PATROL_AM' },
-  { label: '下午巡检', value: 'PATROL_PM' },
-  { label: '末检', value: 'FINAL' }
-]
+const QA_INSPECTION_TYPE_LABELS: Record<QaInspectionTypeValue, string> = {
+  FIRST: '首检',
+  PATROL_AM: '上午巡检',
+  PATROL_PM: '下午巡检',
+  FINAL: '末检'
+}
+
+const resolveQaInspectionTypeLabel = (inspectionType: QaInspectionTypeValue) =>
+  QA_INSPECTION_TYPE_LABELS[inspectionType]
 
 const createEmptyQaRegulationDraft = (): QaRegulationDraft => ({
   dccProjectCodeId: undefined,
@@ -1001,7 +1036,6 @@ const createEmptyQaRegulationDraft = (): QaRegulationDraft => ({
   routeProcessName: '',
   sopName: '',
   productionFactor: 1,
-  sampleOrderQuantity: 301,
   batchRecordBinding: ''
 })
 
@@ -1065,13 +1099,7 @@ const createEmptyQaInspectionTypeRules = (): QaInspectionTypeRule[] => [
 
 const createPressurePumpQaInspectionTypeRules = (): QaInspectionTypeRule[] =>
   createEmptyQaInspectionTypeRules().map((rule) => {
-    if (rule.key === 'FIRST') {
-      return { ...rule, fixedQuantity: 5 }
-    }
-    if (rule.key === 'PATROL_AM' || rule.key === 'PATROL_PM') {
-      return { ...rule, sampleRatio: 5 }
-    }
-    return { ...rule, required: true, fixedQuantity: 3 }
+    return rule.key === 'FINAL' ? { ...rule, required: true, fixedQuantity: 3 } : rule
   })
 
 const createBalloonPressurePumpQaInspectionTypeRules = (): QaInspectionTypeRule[] =>
@@ -1119,12 +1147,14 @@ const finalInspectionNotApplicableReason = computed<string>({
   }
 })
 
+const resolveQaItemApplicableTypes = (item: QaRegulationItem) =>
+  resolveQaApplicableInspectionTypes(item.samplingPlanText, finalInspectionRequired.value)
+
 const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
   {
     itemCode: 'PP-001-WASH-APP',
     processName: '清洗',
     itemName: '外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: 'GB/T 2828.1，I，AQL=0.4',
@@ -1142,7 +1172,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-002-CLEAN-APP',
     processName: '清洁',
     itemName: '外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '用清洁、无尘布，蘸取 75% 酒精擦拭产品表面。正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: 'GB/T 2828.1，I，AQL=0.4',
@@ -1160,7 +1189,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-003-SCREW-APP',
     processName: '组装螺杆八组件',
     itemName: '外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1178,7 +1206,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-004-SCREW-NOJUMP',
     processName: '组装螺杆八组件',
     itemName: '无跳压',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '将推杆装到检测专用泵筒（吸入 10ML 水）上，将压力打至 20atm/30atm/40atm 应无跳压现象。',
     inspectionTool: '检测专用泵筒',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
@@ -1196,7 +1223,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-005-UV-SWIVEL-APP',
     processName: '光固外套四组件',
     itemName: '光固旋转接头 / 外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1214,7 +1240,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-006-UV-SWIVEL-STRENGTH',
     processName: '光固外套四组件',
     itemName: '光固旋转接头 / 牢固度',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '用 15N 的砝码悬挂，停留 15s。',
     inspectionTool: '15N 砝码',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
@@ -1232,7 +1257,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-007-UV-GAUGE-APP',
     processName: '光固外套四组件',
     itemName: '光固压力表 / 外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1250,7 +1274,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-008-UV-GAUGE-STRENGTH',
     processName: '光固外套四组件',
     itemName: '光固压力表 / 牢固度',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '用 15N 的砝码悬挂，停留 15s。',
     inspectionTool: '15N 砝码',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
@@ -1268,7 +1291,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-009-UV-TUBE-APP',
     processName: '光固外套四组件',
     itemName: '光固延长管 / 外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1286,7 +1308,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-010-UV-TUBE-STRENGTH',
     processName: '光固外套四组件',
     itemName: '光固延长管 / 牢固度',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '用 15N 的砝码悬挂，停留 15s。',
     inspectionTool: '15N 砝码',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
@@ -1304,7 +1325,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-011-ASSEMBLE-PISTON-APP',
     processName: '装配',
     itemName: '装配活塞 / 外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1322,7 +1342,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-012-SILICONE-RING-APP',
     processName: '装配',
     itemName: '硅化活塞环 / 外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1340,7 +1359,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-013-ASSEMBLE-RING-APP',
     processName: '装配',
     itemName: '装配活塞环 / 外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1358,7 +1376,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-014-ASSEMBLE-RING-FIT',
     processName: '装配',
     itemName: '装配活塞环 / 配合',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '目测、手感。',
     inspectionTool: '目测、手感',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1376,7 +1393,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-015-ASSEMBLE-SLEEVE-APP',
     processName: '装配',
     itemName: '外套组件与套筒组件装配 / 外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1394,7 +1410,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-016-ASSEMBLE-SLEEVE-FIT',
     processName: '装配',
     itemName: '外套组件与套筒组件装配 / 配合',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '目测、手感。',
     inspectionTool: '目测、手感',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1412,7 +1427,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-017-BOND-AIRTIGHT-APP',
     processName: '整体粘结',
     itemName: '外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s，对气密性合格的产品进行观察。',
     inspectionTool: '目测',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1430,7 +1444,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-018-BOND-NO-BLOCK',
     processName: '整体粘结',
     itemName: '无卡阻',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '手感。',
     inspectionTool: '手感',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1448,7 +1461,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-019-BOND-STRENGTH',
     processName: '整体粘结',
     itemName: '牢固度',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '用 15N 的砝码悬挂，停留 15s。',
     inspectionTool: '15N 砝码',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
@@ -1466,7 +1478,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-020-AIRTIGHT-NEGATIVE',
     processName: '整体粘结',
     itemName: '气密性 / 负压检测',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '将粘接完成 12 小时后的压力泵接上气密性检测工装，抽负压-80±5kpa，观察有无泄漏。',
     inspectionTool: '气密性检测工装',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
@@ -1484,7 +1495,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-021-AIRTIGHT-HIGH',
     processName: '整体粘结',
     itemName: '气密性 / 高压检测',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '将负压检测合格的压力泵装到气密性检测工装上，进行检测。',
     inspectionTool: '气密性检测工装',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
@@ -1502,7 +1512,6 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'PP-022-AIRTIGHT-LOW',
     processName: '整体粘结',
     itemName: '气密性 / 低压检测',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '将高压检测合格的压力泵装到气密性检测工装上，进行检测。',
     inspectionTool: '气密性检测工装',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
@@ -1523,7 +1532,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-001-WASH-APP',
     processName: '清洗/精洗',
     itemName: '外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: 'GB/T 2828.1，I，AQL=0.4',
@@ -1541,7 +1549,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-002-CLEAN-APP',
     processName: '清洁',
     itemName: '外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '用清洁、无尘布，蘸取 75% 酒精擦拭产品表面。正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: 'GB/T 2828.1，I，AQL=0.4',
@@ -1559,7 +1566,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-003-ASSEMBLY-I-APP',
     processName: '组装Ⅰ',
     itemName: '外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1577,7 +1583,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-004-ASSEMBLY-I-RELEASE',
     processName: '组装Ⅰ',
     itemName: '撤压',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '将待检推杆与专用套筒（吸入 10ML 检测用纯化水）组装，将压力打至 25atm，放到撤压机（气压：2atm，缸径 20MM）上，观察能否顺利撤压。',
     inspectionTool: '撤压机',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
@@ -1595,7 +1600,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-005-ASSEMBLY-I-NOJUMP',
     processName: '组装Ⅰ',
     itemName: '无跳压',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '将推杆装到检测专用的泵筒（吸入 10 ml 和 20 ml 水）上，将压力打至 30 atm 应无跳压现象，加压泄压各 5 次；40atm 的压力泵则将推杆装到检测专用的泵筒（吸入 10 ml 和 20 ml 水），压力打至 40 atm 无跳压现象，加压泄压各 5 次。',
     inspectionTool: '/',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=1.0',
@@ -1613,7 +1617,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-006-UV-I-SWIVEL-APP',
     processName: '光固Ⅰ',
     itemName: '光固旋转接头 / 外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1631,7 +1634,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-007-UV-I-SWIVEL-STRENGTH',
     processName: '光固Ⅰ',
     itemName: '光固旋转接头 / 牢固度',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '用 15N 的砝码悬挂，停留 15s。',
     inspectionTool: '15N 砝码',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
@@ -1649,7 +1651,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-008-UV-I-GAUGE-APP',
     processName: '光固Ⅰ',
     itemName: '光固压力表 / 外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1667,7 +1668,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-009-UV-I-GAUGE-STRENGTH',
     processName: '光固Ⅰ',
     itemName: '光固压力表 / 牢固度',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '用 15N 的砝码悬挂，停留 15s。',
     inspectionTool: '15N 砝码',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
@@ -1685,7 +1685,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-010-UV-I-GAUGE-TORQUE',
     processName: '光固Ⅰ',
     itemName: '光固压力表 / 扭力值',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '使用 5N·m 扭力扳手对连接处进行测试，无松动情况判定合格。',
     inspectionTool: '扭力扳手',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
@@ -1703,7 +1702,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-011-UV-I-TUBE-APP',
     processName: '光固Ⅰ',
     itemName: '光固延长管 / 外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1721,7 +1719,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-012-UV-I-TUBE-STRENGTH',
     processName: '光固Ⅰ',
     itemName: '光固延长管 / 牢固度',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '用 15N 的砝码悬挂，停留 15s。',
     inspectionTool: '15N 砝码',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=1.0',
@@ -1739,7 +1736,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-013-ASSEMBLY-II-APP',
     processName: '组装Ⅱ / 硅化Ⅰ',
     itemName: '外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=1.0',
@@ -1757,7 +1753,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-014-TEST-HIGH-PRESSURE',
     processName: '检测',
     itemName: '高压检测',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '将组装产品装到气密性检测工装上进行检测。',
     inspectionTool: '气密性检测工装',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
@@ -1775,7 +1770,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-015-TEST-LOW-PRESSURE',
     processName: '检测',
     itemName: '低压检测',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '将高压检测合格的压力泵装到气密性检测工装上进行检测。',
     inspectionTool: '气密性检测工装',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
@@ -1793,7 +1787,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-016-UV-II-APP',
     processName: '光固Ⅱ',
     itemName: '外观',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
     samplingPlanText: '首件：13 件；GB/T 2828.1，I，AQL=0.4',
@@ -1811,7 +1804,6 @@ const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
     itemCode: 'ID-017-UV-II-STRENGTH',
     processName: '光固Ⅱ',
     itemName: '牢固度',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL'],
     inspectionMethod: '用 15N 的砝码悬挂，停留 15s。',
     inspectionTool: '15N 砝码',
     samplingPlanText: '首件：5 件；GB/T 2828.1，S-3，AQL=0.4',
@@ -1861,7 +1853,7 @@ const resolveDccProjectProductId = (project: DccProjectCodeRespVO) => {
 const cloneQaRegulationItems = (items: QaRegulationItem[]) =>
   items.map((item) => ({
     ...item,
-    applicableTypes: [...item.applicableTypes]
+    equipmentOptions: item.equipmentOptions?.map((option) => ({ ...option }))
   }))
 
 const createQaProductRuleDraftSnapshot = (
@@ -1874,8 +1866,7 @@ const createQaProductRuleDraftSnapshot = (
     regulationName: draft.regulationName,
     versionNo: draft.versionNo,
     effectiveDate: draft.effectiveDate,
-    lifecycleStatus: draft.lifecycleStatus,
-    sampleOrderQuantity: draft.sampleOrderQuantity
+    lifecycleStatus: draft.lifecycleStatus
   },
   inspectionTypeRules: inspectionTypeRules.map((rule) => ({ ...rule })),
   regulationItems: cloneQaRegulationItems(regulationItems)
@@ -2120,6 +2111,83 @@ const hasFormalQaRouteProcessBatchRecordBinding = (process: ProRouteProcessVO) =
 
 const hasFormalQaKeyRouteProcess = (process: ProRouteProcessVO) => process.keyFlag === true
 
+const normalizeQaProcessBindingName = (value: unknown) =>
+  normalizeQaRouteScopeText(value)
+    .replace(/\s+/g, '')
+    .replace(/III/g, 'Ⅲ')
+    .replace(/II/g, 'Ⅱ')
+    .replace(/I/g, 'Ⅰ')
+    .replace(/工序$/, '')
+
+const resolveQaVersionRouteProcesses = (
+  routeId: number,
+  currentRouteProcesses: ProRouteProcessVO[],
+  scheduleConfigs: ProRouteFlowProcessConfigVO[],
+  batchConfigs: ProRouteFlowProcessConfigVO[]
+): ProRouteProcessVO[] => {
+  const versionConfigByRouteProcessId = new Map<number, ProRouteFlowProcessConfigVO>()
+  for (const config of [...scheduleConfigs, ...batchConfigs]) {
+    const routeProcessId = requireQaRouteScopePositiveNumber(
+      config.routeProcessId,
+      '激活路线版本工序'
+    )
+    const existing = versionConfigByRouteProcessId.get(routeProcessId)
+    if (
+      existing &&
+      (normalizeQaRouteScopeText(existing.processCode) !==
+        normalizeQaRouteScopeText(config.processCode) ||
+        normalizeQaProcessBindingName(existing.processName) !==
+          normalizeQaProcessBindingName(config.processName))
+    ) {
+      throw new Error(`激活路线版本工序 ${routeProcessId} 在排产与批记录快照中的身份不一致。`)
+    }
+    versionConfigByRouteProcessId.set(routeProcessId, existing || config)
+  }
+  if (versionConfigByRouteProcessId.size === 0) {
+    throw new Error('激活路线版本缺少正式工序配置快照。')
+  }
+
+  return Array.from(versionConfigByRouteProcessId.entries())
+    .map(([routeProcessId, config]) => {
+      const configCode = normalizeQaRouteScopeText(config.processCode)
+      const configName = normalizeQaProcessBindingName(config.processName)
+      const identityMatches = currentRouteProcesses.filter((process) => {
+        const currentCode = normalizeQaRouteScopeText(process.processCode)
+        const currentName = normalizeQaProcessBindingName(process.processName)
+        return configCode ? currentCode === configCode : currentName === configName
+      })
+      const processIds = Array.from(
+        new Set(
+          identityMatches
+            .map((process) => resolveQaRouteScopePositiveNumber(process.processId))
+            .filter((processId): processId is number => Boolean(processId))
+        )
+      )
+      if (processIds.length !== 1) {
+        throw new Error(
+          `激活路线版本工序 ${config.processName || config.processCode || routeProcessId} 无法唯一解析正式工序 ID。`
+        )
+      }
+      const currentProcess = identityMatches.find(
+        (process) => Number(process.processId) === processIds[0]
+      )
+      if (!currentProcess) {
+        throw new Error(`激活路线版本工序 ${routeProcessId} 缺少正式工序主数据。`)
+      }
+      return {
+        ...currentProcess,
+        id: routeProcessId,
+        routeId,
+        processId: processIds[0],
+        processCode: normalizeQaRouteScopeText(config.processCode || currentProcess.processCode),
+        processName: normalizeQaRouteScopeText(config.processName || currentProcess.processName),
+        sort: Number(config.sort ?? currentProcess.sort),
+        keyFlag: config.keyFlag ?? currentProcess.keyFlag
+      }
+    })
+    .sort((left, right) => Number(left.sort) - Number(right.sort))
+}
+
 const resolveQaRouteProcessFromRoute = (
   routeProcesses: ProRouteProcessVO[],
   batchConfigs: ProRouteFlowProcessConfigVO[] = []
@@ -2249,11 +2317,17 @@ async function loadQaRouteScopeFromRouteBinding(
     throw new Error('当前工艺路线缺少激活版本，请先发布工艺路线版本。')
   }
   const routeVersion = await ProRouteApi.getRouteVersion(routeVersionId)
-  const [routeProcesses, scheduleConfigs, batchConfigs] = await Promise.all([
+  const [currentRouteProcesses, scheduleConfigs, batchConfigs] = await Promise.all([
     ProRouteProcessApi.getRouteProcessListByRoute(routeId),
     ProRouteFlowConfigApi.getProcessConfigList(routeId, 'SCHEDULE', routeVersionId),
     ProRouteFlowConfigApi.getProcessConfigList(routeId, 'BATCH', routeVersionId)
   ])
+  const routeProcesses = resolveQaVersionRouteProcesses(
+    routeId,
+    currentRouteProcesses,
+    scheduleConfigs,
+    batchConfigs
+  )
   const routeProcess = resolveQaRouteProcessFromRoute(routeProcesses, batchConfigs)
   const routeProcessId = requireQaRouteScopePositiveNumber(routeProcess.id, '路线工序')
   return {
@@ -2261,8 +2335,11 @@ async function loadQaRouteScopeFromRouteBinding(
     route,
     routeVersion,
     routeProcess,
+    routeProcesses,
     scheduleConfig: findQaRouteProcessConfig(scheduleConfigs, routeProcessId),
-    batchConfig: findQaRouteProcessConfig(batchConfigs, routeProcessId)
+    scheduleConfigs,
+    batchConfig: findQaRouteProcessConfig(batchConfigs, routeProcessId),
+    batchConfigs
   }
 }
 
@@ -2351,7 +2428,8 @@ const qaFormalRouteScopeReady = computed(
         qaRegulationDraft.routeVersionName.trim() &&
         qaRegulationDraft.routeProcessId &&
         qaRegulationDraft.processId &&
-        qaRegulationDraft.routeProcessName.trim()
+        qaRegulationDraft.routeProcessName.trim() &&
+        qaRouteScopeAutoSource.value?.routeProcesses.length
     )
 )
 
@@ -2514,14 +2592,13 @@ const resolveQaRulePlannedQuantity = (rule: QaInspectionTypeRule) => {
   if (Number.isFinite(Number(rule.fixedQuantity)) && Number(rule.fixedQuantity) > 0) {
     return Number(rule.fixedQuantity)
   }
-  if (Number.isFinite(Number(rule.sampleRatio)) && Number(rule.sampleRatio) > 0) {
-    return Math.ceil((qaRegulationDraft.sampleOrderQuantity * Number(rule.sampleRatio)) / 100)
-  }
   return 0
 }
 
 const formatQaRulePlannedQuantity = (rule: QaInspectionTypeRule) => {
   if (!rule.required) return '不适用'
+  if (rule.key === 'FIRST') return '按项目首检数量'
+  if (rule.key === 'PATROL_AM' || rule.key === 'PATROL_PM') return '按项目 AQL'
   const quantity = resolveQaRulePlannedQuantity(rule)
   return quantity > 0 ? `${quantity} 件` : '需补齐'
 }
@@ -2531,32 +2608,7 @@ const formatQaItemProcessName = (item: QaRegulationItem) =>
 
 const formatQaItemSamplingPlan = (item: QaRegulationItem) => {
   const pdfSamplingPlan = item.samplingPlanText?.trim()
-  if (pdfSamplingPlan) {
-    return pdfSamplingPlan
-  }
-
-  const rules = item.applicableTypes
-    .map((inspectionType) => qaInspectionTypeRules.find((rule) => rule.key === inspectionType))
-    .filter((rule): rule is QaInspectionTypeRule => Boolean(rule))
-
-  if (rules.length === 0) {
-    return '未选择检验类型'
-  }
-
-  return rules
-    .map((rule) => {
-      if (!rule.required) {
-        return `${rule.label}：不适用`
-      }
-      if (Number.isFinite(Number(rule.fixedQuantity)) && Number(rule.fixedQuantity) > 0) {
-        return `${rule.label}：${Number(rule.fixedQuantity)} 件`
-      }
-      if (Number.isFinite(Number(rule.sampleRatio)) && Number(rule.sampleRatio) > 0) {
-        return `${rule.label}：${Number(rule.sampleRatio)}% 抽样，当前示例 ${resolveQaRulePlannedQuantity(rule)} 件`
-      }
-      return `${rule.label}：需补齐数量或比例`
-    })
-    .join('；')
+  return pdfSamplingPlan || '未配置抽样方案'
 }
 
 const qaRegulationCompletenessChecks = computed(() => {
@@ -2574,7 +2626,7 @@ const qaRegulationCompletenessChecks = computed(() => {
       qaRegulationDraft.effectiveDate
   )
   const ruleReady = qaInspectionTypeRules.every(
-    (rule) => !rule.required || resolveQaRulePlannedQuantity(rule) > 0
+    (rule) => rule.key !== 'FINAL' || !rule.required || resolveQaRulePlannedQuantity(rule) > 0
   )
   const finalRule = qaInspectionTypeRules.find((rule) => rule.key === 'FINAL')
   const finalApplicabilityReady = Boolean(
@@ -2586,7 +2638,7 @@ const qaRegulationCompletenessChecks = computed(() => {
       (item) =>
         item.itemCode.trim() &&
         item.itemName.trim() &&
-        item.applicableTypes.length > 0 &&
+        isQaInspectionSamplingPlanComplete(item.samplingPlanText) &&
         item.inspectionMethod.trim() &&
         item.inspectionTool.trim() &&
         item.resultType &&
@@ -2633,14 +2685,16 @@ const qaRegulationCompletenessChecks = computed(() => {
       passed: ruleReady && finalApplicabilityReady,
       detail:
         ruleReady && finalApplicabilityReady
-          ? '适用的检验类型均有数量或比例，末检不适用时已有正式依据'
-          : '适用检验类型缺少固定数量/抽样比例，或末检不适用依据未填写'
+          ? '首检数量和巡检 AQL 取自各检验项目抽样方案，末检设置已明确'
+          : '末检数量缺失，或末检不适用依据未填写'
     },
     {
       key: 'items',
       label: '检验项目字段',
       passed: itemReady,
-      detail: itemReady ? '项目、方法、工具、标准和失败规则齐全' : '需补齐检验项目、方法、工具、标准或失败规则'
+      detail: itemReady
+        ? '项目、抽样方案、方法、工具、标准和失败规则齐全'
+        : '需补齐检验项目、抽样方案 AQL、方法、工具、标准或失败规则'
     },
     {
       key: 'numeric-limits',
@@ -2667,16 +2721,33 @@ const pagedQaRegulationCompletenessChecks = computed(() =>
   paginateQaRows(qaRegulationCompletenessChecks.value, qaChecksQuery)
 )
 
+const qaApplicableInspectionTypes = computed(() => {
+  const inspectionTypes = new Set<QaInspectionTypeValue>(['PATROL_AM', 'PATROL_PM'])
+  for (const item of qaRegulationItems.value) {
+    for (const inspectionType of resolveQaItemApplicableTypes(item)) {
+      inspectionTypes.add(inspectionType)
+    }
+  }
+  const orderedTypes: QaInspectionTypeValue[] = ['FIRST', 'PATROL_AM', 'PATROL_PM', 'FINAL']
+  return orderedTypes.filter((inspectionType) => inspectionTypes.has(inspectionType))
+})
+
 const qaPqcTaskPreviewRows = computed(() =>
-  qaInspectionTypeRules.map((rule) => ({
-    inspectionTypeText: rule.label.includes('巡检') ? '巡检' : rule.label,
-    roundText: rule.roundLabel,
-    plannedQuantityText: formatQaRulePlannedQuantity(rule),
-    regulationVersionNo: qaRegulationDraft.versionNo || '--',
-    taskIdentity: `${selectedDccProjectCode.value?.projectCode || '--'} / ${
-      qaRegulationDraft.productName || '--'
-    } / ${qaRegulationDraft.routeProcessName || '--'} / ${rule.key}`
-  }))
+  qaApplicableInspectionTypes.value.map((inspectionType) => {
+    const rule = qaInspectionTypeRules.find((item) => item.key === inspectionType)
+    if (!rule) {
+      throw new Error(`缺少${resolveQaInspectionTypeLabel(inspectionType)}规则配置`)
+    }
+    return {
+      inspectionTypeText: rule.label.includes('巡检') ? '巡检' : rule.label,
+      roundText: rule.roundLabel,
+      plannedQuantityText: formatQaRulePlannedQuantity(rule),
+      regulationVersionNo: qaRegulationDraft.versionNo || '--',
+      taskIdentity: `${selectedDccProjectCode.value?.projectCode || '--'} / ${
+        qaRegulationDraft.productName || '--'
+      } / ${qaRegulationDraft.routeProcessName || '--'} / ${rule.key}`
+    }
+  })
 )
 
 const pagedQaPqcTaskPreviewRows = computed(() =>
@@ -2693,7 +2764,6 @@ const addQaRegulationItem = () => {
     itemCode: `QA-ITEM-${String(nextIndex).padStart(2, '0')}`,
     processName: qaRegulationDraft.routeProcessName.trim(),
     itemName: '新增检验项目',
-    applicableTypes: ['FIRST', 'PATROL_AM', 'PATROL_PM'],
     inspectionMethod: '',
     inspectionTool: '',
     equipmentOptions: [],
@@ -2789,9 +2859,19 @@ const buildQaRegulationItemEquipmentOptions = (
   }))
 }
 
-const buildQaRegulationSaveItems = (): QaInspectionRegulationSaveItemVO[] =>
-  qaRegulationItems.value.flatMap((item) => {
-    const inspectionTypes = Array.from(new Set(item.applicableTypes.map(normalizeQaInspectionType)))
+const buildQaRegulationSaveItems = (
+  regulationItems: QaRegulationItem[]
+): QaInspectionRegulationSaveItemVO[] =>
+  regulationItems.flatMap((item) => {
+    const samplingPlan = parseQaInspectionSamplingPlan(item.samplingPlanText, item.itemName)
+    const inspectionTypes = Array.from(
+      new Set(
+        resolveQaApplicableInspectionTypes(
+          item.samplingPlanText,
+          finalInspectionRequired.value
+        ).map(normalizeQaInspectionType)
+      )
+    )
     const equipmentOptions = buildQaRegulationItemEquipmentOptions(item)
     return inspectionTypes.flatMap((inspectionType) => {
       const rule = resolveRuleForInspectionType(inspectionType)
@@ -2803,6 +2883,8 @@ const buildQaRegulationSaveItems = (): QaInspectionRegulationSaveItemVO[] =>
         itemCode: item.itemCode,
         itemName: item.itemName,
         inspectionMethod: item.inspectionMethod,
+        inspectionTool: item.inspectionTool,
+        samplingPlanText: item.samplingPlanText,
         standardText: item.standardText,
         standardLowerLimit: item.resultType === 'NUMERIC' ? item.lowerLimit : undefined,
         standardUpperLimit: item.resultType === 'NUMERIC' ? item.upperLimit : undefined,
@@ -2810,16 +2892,65 @@ const buildQaRegulationSaveItems = (): QaInspectionRegulationSaveItemVO[] =>
         equipmentOptions,
         resultType: item.resultType,
         firstInspectionQuantity:
-          inspectionType === 'PATROL' ? undefined : rule?.fixedQuantity || undefined,
+          inspectionType === 'FIRST'
+            ? samplingPlan.firstInspectionQuantity
+            : inspectionType === 'FINAL'
+              ? rule.fixedQuantity || undefined
+              : undefined,
         patrolInspectionRatio:
-          inspectionType === 'PATROL' && rule?.sampleRatio
-            ? Number((rule.sampleRatio / 100).toFixed(6))
-            : undefined
+          inspectionType === 'PATROL' ? samplingPlan.patrolInspectionRatio : undefined
       }]
     })
   })
 
-const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO | undefined => {
+const resolveQaRegulationItemRouteProcesses = (
+  item: QaRegulationItem,
+  source: QaRouteScopeAutoSource
+) => {
+  const processName = resolveRequiredText(item.processName, `${item.itemName}适用工序`)
+  const projectCode = normalizeDccProjectCode(selectedDccProjectCode.value?.projectCode || '')
+  const configuredBindings = QA_PROCESS_SCOPE_BINDINGS_BY_PROJECT_CODE[projectCode]?.[processName]
+  const acceptedProcessNames = configuredBindings || [processName]
+  const acceptedNormalizedNames = new Set(acceptedProcessNames.map(normalizeQaProcessBindingName))
+  const matchedProcesses = source.routeProcesses.filter((routeProcess) =>
+    acceptedNormalizedNames.has(normalizeQaProcessBindingName(routeProcess.processName))
+  )
+  if (matchedProcesses.length === 0) {
+    const allowedUnboundProcessNames = new Set(
+      (QA_UNBOUND_BATCH_RECORD_PROCESS_NAMES_BY_PROJECT_CODE[projectCode] || []).map(
+        normalizeQaProcessBindingName
+      )
+    )
+    if (allowedUnboundProcessNames.has(normalizeQaProcessBindingName(processName))) {
+      return [{ routeProcess: source.routeProcess, batchRecordBindingResolved: false }]
+    }
+    throw new Error(
+      `${item.itemName}的正式工序“${processName}”未匹配激活路线版本中的任何路线工序。`
+    )
+  }
+  const duplicateNames = matchedProcesses
+    .map((routeProcess) => normalizeQaProcessBindingName(routeProcess.processName))
+    .filter((name, index, names) => names.indexOf(name) !== index)
+  if (duplicateNames.length > 0) {
+    throw new Error(
+      `${item.itemName}的正式工序“${processName}”在激活路线版本中不唯一，必须按路线工序明确配置。`
+    )
+  }
+  return matchedProcesses.map((routeProcess) => ({
+    routeProcess,
+    batchRecordBindingResolved: true
+  }))
+}
+
+const buildQaProcessRegulationCode = (baseCode: string, routeProcessId: number) => {
+  const processCode = `${resolveRequiredText(baseCode, '规程编号')}-RP${routeProcessId}`
+  if (processCode.length > 64) {
+    throw new Error(`工序规程编号 ${processCode} 超过 64 个字符，请缩短基础规程编号。`)
+  }
+  return processCode
+}
+
+const buildQaRegulationSavePayloads = (): QaInspectionRegulationSaveReqVO[] | undefined => {
   if (!selectedDccProjectCode.value) {
     ElMessage.warning('请先选择 DCC 项目代码，再保存 QA 规程草稿。')
     return undefined
@@ -2833,6 +2964,11 @@ const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO | undef
     ElMessage.warning(qaRouteScopeLoadError.value || '当前产品未加载到正式工艺路线/工序范围，不能保存 QA 规程。')
     return undefined
   }
+  const source = qaRouteScopeAutoSource.value
+  if (!source) {
+    ElMessage.warning('当前产品未加载到激活路线版本工序快照，不能保存 QA 规程。')
+    return undefined
+  }
   const finalRule = qaInspectionTypeRules.find((rule) => rule.key === 'FINAL')
   const finalInspectionApplicable = Boolean(finalRule?.required)
   const finalInspectionNotApplicableReason =
@@ -2842,25 +2978,74 @@ const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO | undef
     return undefined
   }
   try {
-    return {
-      productId,
-      productName: qaRegulationDraft.productName.trim(),
-      routeId: resolvePositiveId(qaRegulationDraft.routeId, '路线 ID'),
-      routeName: qaRegulationDraft.routeName.trim(),
-      routeVersionId: resolvePositiveId(qaRegulationDraft.routeVersionId, '路线版本 ID'),
-      routeVersionNo: qaRegulationDraft.routeVersionName.trim(),
-      routeProcessId: resolvePositiveId(qaRegulationDraft.routeProcessId, '路线工序 ID'),
-      processId: resolvePositiveId(qaRegulationDraft.processId, '工序 ID'),
-      routeProcessName: qaRegulationDraft.routeProcessName.trim(),
-      batchRecordBindingSummary: qaRegulationDraft.batchRecordBinding.trim() || undefined,
-      regulationCode: qaRegulationDraft.regulationCode.trim(),
-      regulationName: qaRegulationDraft.regulationName.trim(),
-      versionNo: qaRegulationDraft.versionNo.trim(),
-      effectiveDate: qaRegulationDraft.effectiveDate || undefined,
-      finalInspectionApplicable,
-      finalInspectionNotApplicableReason,
-      items: buildQaRegulationSaveItems()
+    const itemsByRouteProcessId = new Map<
+      number,
+      {
+        routeProcess: ProRouteProcessVO
+        items: QaRegulationItem[]
+        batchRecordBindingResolved: boolean
+      }
+    >()
+    for (const item of qaRegulationItems.value) {
+      for (const binding of resolveQaRegulationItemRouteProcesses(item, source)) {
+        const routeProcess = binding.routeProcess
+        const routeProcessId = resolvePositiveId(routeProcess.id, '路线工序 ID')
+        const group = itemsByRouteProcessId.get(routeProcessId) || {
+          routeProcess,
+          items: [],
+          batchRecordBindingResolved: true
+        }
+        group.items.push(item)
+        group.batchRecordBindingResolved =
+          group.batchRecordBindingResolved && binding.batchRecordBindingResolved
+        itemsByRouteProcessId.set(routeProcessId, group)
+      }
     }
+    if (itemsByRouteProcessId.size === 0) {
+      throw new Error('当前 QA 规程没有可发布到激活路线版本的正式检验项目。')
+    }
+
+    const routeId = resolvePositiveId(qaRegulationDraft.routeId, '路线 ID')
+    const routeVersionId = resolvePositiveId(qaRegulationDraft.routeVersionId, '路线版本 ID')
+    return Array.from(itemsByRouteProcessId.values())
+      .sort((left, right) => Number(left.routeProcess.sort) - Number(right.routeProcess.sort))
+      .map(({ routeProcess, items, batchRecordBindingResolved }) => {
+        const routeProcessId = resolvePositiveId(routeProcess.id, '路线工序 ID')
+        const processId = resolvePositiveId(routeProcess.processId, '工序 ID')
+        const routeProcessName = resolveRequiredText(
+          routeProcess.processName || routeProcess.processCode,
+          '路线工序名称'
+        )
+        const batchConfig = findQaRouteProcessConfig(source.batchConfigs, routeProcessId)
+        return {
+          productId,
+          productName: resolveRequiredText(qaRegulationDraft.productName, '产品名称'),
+          routeId,
+          routeName: resolveRequiredText(qaRegulationDraft.routeName, '路线名称'),
+          routeVersionId,
+          routeVersionNo: resolveRequiredText(qaRegulationDraft.routeVersionName, '路线版本号'),
+          routeProcessId,
+          processId,
+          routeProcessName,
+          batchRecordBindingSummary:
+            batchRecordBindingResolved
+              ? resolveFormalBatchRecordBindingSummary(batchConfig, routeProcess) || undefined
+              : undefined,
+          regulationCode: buildQaProcessRegulationCode(
+            qaRegulationDraft.regulationCode,
+            routeProcessId
+          ),
+          regulationName: `${resolveRequiredText(
+            qaRegulationDraft.regulationName,
+            '规程名称'
+          )}-${routeProcessName}`,
+          versionNo: resolveRequiredText(qaRegulationDraft.versionNo, '规程版本'),
+          effectiveDate: qaRegulationDraft.effectiveDate || undefined,
+          finalInspectionApplicable,
+          finalInspectionNotApplicableReason,
+          items: buildQaRegulationSaveItems(items)
+        }
+      })
   } catch (error) {
     ElMessage.warning(resolveDccProjectCodeErrorMessage(error))
     return undefined
@@ -2868,15 +3053,19 @@ const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO | undef
 }
 
 const previewQaRegulationDraft = async () => {
-  const payload = buildQaRegulationSavePayload()
-  if (!payload) {
+  const payloads = buildQaRegulationSavePayloads()
+  if (!payloads) {
     return
   }
   qaRegulationSaving.value = true
   try {
-    const result = await QcTemplateApi.saveQaRegulationDraft(payload)
-    qaRegulationDraft.lifecycleStatus = result.lifecycleStatus
-    ElMessage.success(`QA 规程草稿已保存：${result.versionNo}`)
+    let savedVersionNo = qaRegulationDraft.versionNo
+    for (const payload of payloads) {
+      const result = await QcTemplateApi.saveQaRegulationDraft(payload)
+      qaRegulationDraft.lifecycleStatus = result.lifecycleStatus
+      savedVersionNo = result.versionNo
+    }
+    ElMessage.success(`QA 规程草稿已按 ${payloads.length} 个工序保存：${savedVersionNo}`)
   } catch (error) {
     ElMessage.error(`QA 规程草稿保存失败：${resolveDccProjectCodeErrorMessage(error)}`)
   } finally {
@@ -2893,15 +3082,21 @@ const runQaPublishPrecheck = async () => {
     ElMessage.warning(`发布前仍有 ${qaPublishBlockers.value.length} 项规则需补齐`)
     return
   }
-  const payload = buildQaRegulationSavePayload()
-  if (!payload) {
+  const payloads = buildQaRegulationSavePayloads()
+  if (!payloads) {
     return
   }
   qaRegulationPublishing.value = true
   try {
-    const result = await QcTemplateApi.publishQaRegulation(payload)
+    let publishedVersionNo = qaRegulationDraft.versionNo
+    for (const payload of payloads) {
+      const result = await QcTemplateApi.publishQaRegulation(payload)
+      publishedVersionNo = result.versionNo
+    }
     qaRegulationDraft.lifecycleStatus = 'PUBLISHED'
-    ElMessage.success(`QA 规程已发布为不可变版本：${result.versionNo}`)
+    ElMessage.success(
+      `QA 规程已按 ${payloads.length} 个工序发布为不可变版本：${publishedVersionNo}`
+    )
   } catch (error) {
     ElMessage.error(`QA 规程发布失败：${resolveDccProjectCodeErrorMessage(error)}`)
   } finally {
@@ -3215,6 +3410,13 @@ const runQaPublishPrecheck = async () => {
 
 .qa-regulation-page__equipment-id {
   width: 100%;
+}
+
+.qa-regulation-page__applicable-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
 }
 
 .qa-regulation-page__sampling-plan {

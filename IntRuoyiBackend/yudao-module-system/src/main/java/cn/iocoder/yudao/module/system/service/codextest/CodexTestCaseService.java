@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCasePageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCaseRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCaseSaveReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCodeReadonlyCaseReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestNodeChainOptionRespVO;
 import jakarta.validation.Valid;
 
@@ -14,6 +15,8 @@ public interface CodexTestCaseService {
     Long createCase(@Valid CodexTestCaseSaveReqVO createReqVO);
 
     void updateCase(@Valid CodexTestCaseSaveReqVO updateReqVO);
+
+    Long upsertCodeReadonlyCase(@Valid CodexTestCodeReadonlyCaseReqVO caseDefinition);
 
     void deleteCase(Long id);
 

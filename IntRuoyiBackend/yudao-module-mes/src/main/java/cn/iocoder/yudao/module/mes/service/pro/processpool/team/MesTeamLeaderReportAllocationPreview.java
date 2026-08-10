@@ -12,6 +12,8 @@ import java.util.List;
 @Accessors(chain = true)
 public class MesTeamLeaderReportAllocationPreview {
 
+    private BigDecimal poolQuantity;
     private BigDecimal totalAllocatedQuantity;
+    private BigDecimal unallocatedQuantity;
     private List<MesTeamLeaderReportAllocationPreviewLine> lines;
 }

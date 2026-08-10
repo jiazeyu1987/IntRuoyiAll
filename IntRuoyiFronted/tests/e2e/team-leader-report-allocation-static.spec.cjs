@@ -116,8 +116,13 @@ assert.match(
 )
 assert.match(
   page,
-  /const\s+allocatableActiveOrderOptions\s*=\s*computed\(\(\)\s*=>\s*[\s\S]*!order\.abnormal[\s\S]*normalizePositiveNumber\(order\.id\)[\s\S]*\)/,
-  'manual allocation selector must only expose active orders with a formal positive id.'
+  /const\s+allocatableActiveOrderOptions\s*=\s*computed\(\(\)\s*=>\s*[\s\S]*normalizePositiveNumber\(order\.id\)[\s\S]*\)/,
+  'manual allocation selector must expose the formal active-order list without an abnormal-order restriction.'
+)
+assert.doesNotMatch(
+  page.match(/const\s+allocatableActiveOrderOptions[\s\S]*?\n\)/)?.[0] || '',
+  /order\.abnormal/,
+  'allocation candidate selection must not add an abnormal-order restriction.'
 )
 assert.match(
   page,

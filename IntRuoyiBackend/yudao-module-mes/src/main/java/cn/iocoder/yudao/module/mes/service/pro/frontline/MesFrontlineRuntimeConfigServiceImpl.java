@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -238,7 +239,22 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                         LinkedHashMap::new,
                         Collectors.mapping(rule -> new MesFrontlineDeviceParameterOption(rule.getParameterCode(),
                                 rule.getParameterName(), rule.getUnit(), rule.getLowerLimit(), rule.getUpperLimit(),
-                                rule.getDefaultValue(), rule.getValueType(), rule.getStandardText()), Collectors.toList())));
+                                resolveParameterDefaultValue(rule), rule.getValueType(), rule.getStandardText()),
+                                Collectors.toList())));
+    }
+
+    private static BigDecimal resolveParameterDefaultValue(MesProcessPoolDeviceParameterRuleDO rule) {
+        if (rule.getDefaultValue() != null) {
+            return rule.getDefaultValue();
+        }
+        if (!MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER.equals(rule.getValueType())
+                && !MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL.equals(rule.getValueType())) {
+            return null;
+        }
+        if (rule.getLowerLimit() == null || rule.getUpperLimit() == null) {
+            return null;
+        }
+        return rule.getLowerLimit().add(rule.getUpperLimit()).divide(BigDecimal.valueOf(2));
     }
 
     private List<MesFrontlineDefectReasonOption> toDefectReasonOptions(

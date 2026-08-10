@@ -134,6 +134,15 @@ public class ProcessPoolTimelineEventRespVO {
     @Schema(description = "损耗数量")
     private BigDecimal lossQuantity;
 
+    @Schema(description = "当前报工分配订单")
+    private List<ReportAllocationRespVO> reportAllocations;
+
+    @Schema(description = "当前已分配数量")
+    private BigDecimal reportAllocatedQuantity;
+
+    @Schema(description = "当前未分配数量")
+    private BigDecimal reportUnallocatedQuantity;
+
     @Schema(description = "损耗原因明细")
     private List<LossDetailRespVO> lossDetails;
 
@@ -224,6 +233,18 @@ public class ProcessPoolTimelineEventRespVO {
         private BigDecimal lowerLimit;
         private BigDecimal upperLimit;
         private String parameterStatus;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class ReportAllocationRespVO {
+        private Long allocationId;
+        private Long activeOrderId;
+        private Long workOrderId;
+        private String workOrderCode;
+        private BigDecimal allocatedQuantity;
+        private Boolean released;
+        private Boolean editable;
     }
 
 }

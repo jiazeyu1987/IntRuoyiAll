@@ -18,6 +18,15 @@ import java.util.List;
 @Mapper
 public interface MesMdItemMapper extends BaseMapperX<MesMdItemDO> {
 
+    default MesMdItemDO selectByIdForUpdate(Long id) {
+        if (id == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesMdItemDO>()
+                .eq(MesMdItemDO::getId, id)
+                .last("FOR UPDATE"));
+    }
+
     default List<MesMdItemDO> selectListAll() {
         return selectList(new LambdaQueryWrapperX<MesMdItemDO>()
                 .orderByDesc(MesMdItemDO::getId));

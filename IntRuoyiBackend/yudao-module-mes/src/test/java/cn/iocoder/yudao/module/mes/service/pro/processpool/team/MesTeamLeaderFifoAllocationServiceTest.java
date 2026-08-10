@@ -18,7 +18,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -56,12 +55,12 @@ class MesTeamLeaderFifoAllocationServiceTest {
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L, 9002L))).thenReturn(List.of(
                 workOrder(9001L, "WO-9001", "200"),
                 workOrder(9002L, "WO-9002", "200")));
-        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L, 9002L), 5001L, 6001L))
+        when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(List.of(8101L, 8102L), 6001L))
                 .thenReturn(List.of(allocation(9001L, "150"), allocation(9002L, "170")));
-        when(orderProcessTargetService.findTarget(activeOrder(8101L, 9001L, "2026-07-31T08:00:00"),
-                5001L, 6001L)).thenReturn(Optional.of(target("200")));
-        when(orderProcessTargetService.findTarget(activeOrder(8102L, 9002L, "2026-07-31T09:00:00"),
-                5001L, 6001L)).thenReturn(Optional.of(target("200")));
+        when(orderProcessTargetService.findUniqueTargetForProcess(
+                activeOrder(8101L, 9001L, "2026-07-31T08:00:00"), 6001L)).thenReturn(Optional.of(target("200")));
+        when(orderProcessTargetService.findUniqueTargetForProcess(
+                activeOrder(8102L, 9002L, "2026-07-31T09:00:00"), 6001L)).thenReturn(Optional.of(target("200")));
 
         MesTeamLeaderReportAllocationPreview preview = service.previewFifoAllocation(
                 MesTeamLeaderFifoAllocationReqBO.builder()
@@ -83,17 +82,17 @@ class MesTeamLeaderFifoAllocationServiceTest {
     }
 
     @Test
-    void shouldUseStableWorkOrderIdSortWhenJoinedAtTies() {
+    void shouldPreserveOfficialActiveOrderListOrder() {
         LocalDateTime joinedAt = LocalDateTime.of(2026, 7, 31, 8, 0);
         when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
                 activeOrder(8102L, 9002L, joinedAt),
                 activeOrder(8101L, 9001L, joinedAt)));
-        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L, 9002L))).thenReturn(List.of(
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9002L, 9001L))).thenReturn(List.of(
                 workOrder(9001L, "WO-9001", "200"),
                 workOrder(9002L, "WO-9002", "200")));
-        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L, 9002L), 5001L, 6001L))
+        when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(List.of(8102L, 8101L), 6001L))
                 .thenReturn(List.of());
-        when(orderProcessTargetService.findTarget(activeOrder(8101L, 9001L, joinedAt), 5001L, 6001L))
+        when(orderProcessTargetService.findUniqueTargetForProcess(activeOrder(8102L, 9002L, joinedAt), 6001L))
                 .thenReturn(Optional.of(target("200")));
 
 
@@ -106,47 +105,66 @@ class MesTeamLeaderFifoAllocationServiceTest {
                         .confirmQuantity(new BigDecimal("80"))
                         .build());
 
-        assertEquals(List.of(9001L), preview.getLines().stream()
+        assertEquals(List.of(9002L), preview.getLines().stream()
                 .map(MesTeamLeaderReportAllocationPreviewLine::getWorkOrderId)
                 .toList());
         assertAmount("80", preview.getLines().get(0).getAllocatedQuantity());
     }
 
     @Test
-    void shouldBlockWhenActiveOrderRemainingQuantityIsNotEnough() {
+    void shouldKeepUnallocatedQuantityWhenActiveOrderRemainingQuantityIsNotEnough() {
         when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
                 activeOrder(8101L, 9001L, "2026-07-31T08:00:00")));
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(
                 workOrder(9001L, "WO-9001", "200")));
-        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+        when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(List.of(8101L), 6001L))
                 .thenReturn(List.of(allocation(9001L, "150")));
-        when(orderProcessTargetService.findTarget(activeOrder(8101L, 9001L, "2026-07-31T08:00:00"),
-                5001L, 6001L)).thenReturn(Optional.of(target("200")));
+        when(orderProcessTargetService.findUniqueTargetForProcess(
+                activeOrder(8101L, 9001L, "2026-07-31T08:00:00"), 6001L)).thenReturn(Optional.of(target("200")));
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.previewFifoAllocation(
+        MesTeamLeaderReportAllocationPreview preview = service.previewFifoAllocation(
                 MesTeamLeaderFifoAllocationReqBO.builder()
                         .leaderUserId(3001L)
                         .eventId(1001L)
                         .routeProcessId(5001L)
                         .processId(6001L)
                         .confirmQuantity(new BigDecimal("80"))
-                        .build()));
+                        .build());
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH.getCode(),
-                ex.getCode());
-        verify(allocationMapper, never()).insertBatch(org.mockito.ArgumentMatchers.anyCollection());
+        assertAmount("50", preview.getTotalAllocatedQuantity());
+        assertAmount("30", preview.getUnallocatedQuantity());
     }
 
     @Test
-    void shouldExcludeOpenAbnormalOrdersFromFifoAllocation() {
+    void shouldKeepEntirePoolUnallocatedWhenThereAreNoActiveCandidates() {
+        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of());
+
+        MesTeamLeaderReportAllocationPreview preview = service.previewFifoAllocation(
+                MesTeamLeaderFifoAllocationReqBO.builder()
+                        .leaderUserId(3001L)
+                        .eventId(1001L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .confirmQuantity(new BigDecimal("411111"))
+                        .build());
+
+        assertEquals(List.of(), preview.getLines());
+        assertAmount("0", preview.getTotalAllocatedQuantity());
+        assertAmount("411111", preview.getUnallocatedQuantity());
+        verify(workOrderMapper, never()).selectListByIdsForUpdate(org.mockito.ArgumentMatchers.anyCollection());
+    }
+
+    @Test
+    void shouldKeepOpenAbnormalOrdersInOfficialFifoCandidates() {
         when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
                 activeOrder(8101L, 9001L, "2026-07-31T08:00:00"),
                 activeOrder(8102L, 9002L, "2026-07-31T09:00:00")));
-        when(abnormalStateService.findOpenWorkOrderIds(List.of(9001L, 9002L))).thenReturn(Set.of(9001L));
 
         List<MesProcessPoolActiveOrderDO> result = service.sortedActiveOrders(3001L);
 
-        assertEquals(List.of(9002L), result.stream().map(MesProcessPoolActiveOrderDO::getWorkOrderId).toList());
+        assertEquals(List.of(9001L, 9002L), result.stream()
+                .map(MesProcessPoolActiveOrderDO::getWorkOrderId).toList());
+        verify(abnormalStateService, never()).findOpenWorkOrderIds(org.mockito.ArgumentMatchers.anyCollection());
     }
 
     @Test
@@ -155,10 +173,10 @@ class MesTeamLeaderFifoAllocationServiceTest {
                 activeOrder(8101L, 9001L, "2026-07-31T08:00:00")));
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(
                 workOrder(9001L, "WO-9001", "300")));
-        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+        when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(List.of(8101L), 6001L))
                 .thenReturn(List.of(allocation(9001L, "600")));
-        when(orderProcessTargetService.findTarget(activeOrder(8101L, 9001L, "2026-07-31T08:00:00"),
-                5001L, 6001L)).thenReturn(Optional.of(target("900")));
+        when(orderProcessTargetService.findUniqueTargetForProcess(
+                activeOrder(8101L, 9001L, "2026-07-31T08:00:00"), 6001L)).thenReturn(Optional.of(target("900")));
 
         MesTeamLeaderReportAllocationPreview preview = service.previewFifoAllocation(
                 MesTeamLeaderFifoAllocationReqBO.builder()
@@ -172,8 +190,8 @@ class MesTeamLeaderFifoAllocationServiceTest {
         assertEquals(1, preview.getLines().size());
         assertAmount("300", preview.getLines().get(0).getAllocatedQuantity());
         assertAmount("300", preview.getLines().get(0).getRemainingQuantityBeforeAllocation());
-        verify(orderProcessTargetService).findTarget(activeOrder(8101L, 9001L, "2026-07-31T08:00:00"),
-                5001L, 6001L);
+        verify(orderProcessTargetService).findUniqueTargetForProcess(
+                activeOrder(8101L, 9001L, "2026-07-31T08:00:00"), 6001L);
     }
 
     @Test
@@ -184,12 +202,12 @@ class MesTeamLeaderFifoAllocationServiceTest {
         when(workOrderMapper.selectListByIdsForUpdate(List.of(980022L, 980019L))).thenReturn(List.of(
                 workOrder(980022L, "CODX-AO5-20260807-01", "10"),
                 workOrder(980019L, "PQC-E2E-FS-20260804", "100")));
-        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(
-                List.of(980022L, 980019L), 980645L, 922985L)).thenReturn(List.of());
-        when(orderProcessTargetService.findTarget(activeOrder(35L, 980022L, "2026-08-07T10:25:34"),
-                980645L, 922985L)).thenReturn(Optional.empty());
-        when(orderProcessTargetService.findTarget(activeOrder(48L, 980019L, "2026-08-08T11:58:12"),
-                980645L, 922985L)).thenReturn(Optional.of(target("100")));
+        when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(
+                List.of(35L, 48L), 922985L)).thenReturn(List.of());
+        when(orderProcessTargetService.findUniqueTargetForProcess(
+                activeOrder(35L, 980022L, "2026-08-07T10:25:34"), 922985L)).thenReturn(Optional.empty());
+        when(orderProcessTargetService.findUniqueTargetForProcess(
+                activeOrder(48L, 980019L, "2026-08-08T11:58:12"), 922985L)).thenReturn(Optional.of(target("100")));
 
         MesTeamLeaderReportAllocationPreview preview = service.previewFifoAllocation(
                 MesTeamLeaderFifoAllocationReqBO.builder()

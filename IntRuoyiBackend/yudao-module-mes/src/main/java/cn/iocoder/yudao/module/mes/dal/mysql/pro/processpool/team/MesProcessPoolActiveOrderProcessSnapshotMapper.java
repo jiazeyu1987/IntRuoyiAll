@@ -26,6 +26,36 @@ public interface MesProcessPoolActiveOrderProcessSnapshotMapper
                 .orderByAsc(MesProcessPoolActiveOrderProcessSnapshotDO::getId));
     }
 
+    default List<MesProcessPoolActiveOrderProcessSnapshotDO> selectListByActiveOrderAndProcess(
+            Long activeOrderId, Long processId) {
+        if (activeOrderId == null || processId == null) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderProcessSnapshotDO>()
+                .eq(MesProcessPoolActiveOrderProcessSnapshotDO::getActiveOrderId, activeOrderId)
+                .eq(MesProcessPoolActiveOrderProcessSnapshotDO::getProcessId, processId)
+                .orderByAsc(MesProcessPoolActiveOrderProcessSnapshotDO::getId));
+    }
+
+    default List<MesProcessPoolActiveOrderProcessSnapshotDO> selectListByActiveOrderAndProcessForUpdate(
+            Long activeOrderId, Long processId) {
+        if (activeOrderId == null || processId == null) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderProcessSnapshotDO>()
+                .eq(MesProcessPoolActiveOrderProcessSnapshotDO::getActiveOrderId, activeOrderId)
+                .eq(MesProcessPoolActiveOrderProcessSnapshotDO::getProcessId, processId)
+                .orderByAsc(MesProcessPoolActiveOrderProcessSnapshotDO::getId)
+                .last("FOR UPDATE"));
+    }
+
+    default List<MesProcessPoolActiveOrderProcessSnapshotDO> selectListByActiveOrderIdForUpdate(Long activeOrderId) {
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderProcessSnapshotDO>()
+                .eq(MesProcessPoolActiveOrderProcessSnapshotDO::getActiveOrderId, activeOrderId)
+                .orderByAsc(MesProcessPoolActiveOrderProcessSnapshotDO::getId)
+                .last("FOR UPDATE"));
+    }
+
     default List<MesProcessPoolActiveOrderProcessSnapshotDO> selectListByActiveOrderIds(
             Collection<Long> activeOrderIds) {
         if (activeOrderIds == null || activeOrderIds.isEmpty()) {

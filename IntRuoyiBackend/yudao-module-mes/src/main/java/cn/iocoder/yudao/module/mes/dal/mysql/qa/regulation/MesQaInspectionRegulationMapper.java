@@ -31,6 +31,8 @@ public interface MesQaInspectionRegulationMapper extends BaseMapperX<MesQaInspec
                 .eq(MesQaInspectionRegulationDO::getProductId, productId)
                 .eq(MesQaInspectionRegulationDO::getRouteId, routeId)
                 .eq(MesQaInspectionRegulationDO::getRouteVersionId, routeVersionId)
+                .eq(MesQaInspectionRegulationDO::getOwnerModule,
+                        MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)
                 .eq(MesQaInspectionRegulationDO::getLifecycleStatus, "PUBLISHED")
                 .isNotNull(MesQaInspectionRegulationDO::getCurrentVersionId)
                 .orderByAsc(MesQaInspectionRegulationDO::getRouteProcessId)
@@ -49,7 +51,9 @@ public interface MesQaInspectionRegulationMapper extends BaseMapperX<MesQaInspec
                 .eq(MesQaInspectionRegulationDO::getRouteId, routeId)
                 .eq(MesQaInspectionRegulationDO::getRouteVersionId, routeVersionId)
                 .eq(MesQaInspectionRegulationDO::getRouteProcessId, routeProcessId)
-                .eq(MesQaInspectionRegulationDO::getProcessId, processId);
+                .eq(MesQaInspectionRegulationDO::getProcessId, processId)
+                .eq(MesQaInspectionRegulationDO::getOwnerModule,
+                        MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA);
     }
 
     default List<MesQaInspectionRegulationDO> selectListByProductIds(Collection<Long> productIds) {
@@ -58,6 +62,8 @@ public interface MesQaInspectionRegulationMapper extends BaseMapperX<MesQaInspec
         }
         return selectList(new LambdaQueryWrapperX<MesQaInspectionRegulationDO>()
                 .in(MesQaInspectionRegulationDO::getProductId, productIds)
+                .eq(MesQaInspectionRegulationDO::getOwnerModule,
+                        MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)
                 .orderByAsc(MesQaInspectionRegulationDO::getProductId)
                 .orderByDesc(MesQaInspectionRegulationDO::getCurrentVersionId)
                 .orderByDesc(MesQaInspectionRegulationDO::getId));

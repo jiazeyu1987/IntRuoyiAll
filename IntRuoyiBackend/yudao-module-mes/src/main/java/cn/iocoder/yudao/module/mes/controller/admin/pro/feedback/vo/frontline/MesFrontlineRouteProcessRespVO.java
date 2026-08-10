@@ -112,6 +112,10 @@ public class MesFrontlineRouteProcessRespVO {
         private String acceptanceStandard;
         @Schema(description = "QA 工序检验方法列")
         private String processInspectionMethod;
+        @Schema(description = "QA 检验器具及设备原文")
+        private String inspectionTool;
+        @Schema(description = "QA 抽样方案原文")
+        private String samplingPlanText;
         @Schema(description = "接收标准下限")
         private BigDecimal standardLowerLimit;
         @Schema(description = "接收标准上限")

@@ -7,6 +7,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionCancelReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCodeReadonlyExecutionStartReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionPageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionStartReqVO;
@@ -30,6 +31,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -58,6 +60,8 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
     private CodexTestCheckpointResultMapper codexTestCheckpointResultMapper;
     @Resource
     private CodexTestRunnerBootstrapService codexTestRunnerBootstrapService;
+    @Resource
+    private CodexTestCaseService codexTestCaseService;
     @Resource
     private TenantService tenantService;
 
@@ -108,6 +112,17 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Long startCodeReadonlyExecution(CodexTestCodeReadonlyExecutionStartReqVO startReqVO, Long requestedBy) {
+        Long caseId = codexTestCaseService.upsertCodeReadonlyCase(startReqVO.getCaseDefinition());
+        CodexTestExecutionStartReqVO executionStartReqVO = new CodexTestExecutionStartReqVO();
+        executionStartReqVO.setTargetTenantId(startReqVO.getTargetTenantId());
+        executionStartReqVO.setExecutionMode(MODE_SEQUENTIAL);
+        executionStartReqVO.setCaseIds(List.of(caseId));
+        return startExecution(executionStartReqVO, requestedBy);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void cancelExecution(CodexTestExecutionCancelReqVO cancelReqVO) {
         CodexTestExecutionDO execution = validateExecutionExists(cancelReqVO.getExecutionId());
         codexTestExecutionCaseMapper.cancelByExecutionId(execution.getId());
@@ -125,6 +140,15 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
     @Override
     public CodexTestExecutionRespVO getExecution(Long id) {
         CodexTestExecutionDO execution = validateExecutionExists(id);
+        return buildExecutionResp(execution);
+    }
+
+    @Override
+    public CodexTestExecutionRespVO getExecutionResult(Long id, Long requestedBy) {
+        CodexTestExecutionDO execution = validateExecutionExists(id);
+        if (requestedBy == null || !Objects.equals(execution.getRequestedBy(), requestedBy)) {
+            throw exception(CODEX_TEST_EXECUTION_NOT_EXISTS);
+        }
         return buildExecutionResp(execution);
     }
 

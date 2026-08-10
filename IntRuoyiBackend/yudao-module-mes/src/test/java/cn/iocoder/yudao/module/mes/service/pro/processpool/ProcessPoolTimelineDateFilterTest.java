@@ -11,7 +11,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.processpool.ProcessPoolTim
 import static cn.iocoder.yudao.module.mes.service.pro.processpool.ProcessPoolTimelineTestSupport.pageReq;
 import static cn.iocoder.yudao.module.mes.service.pro.processpool.ProcessPoolTimelineTestSupport.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class ProcessPoolTimelineDateFilterTest {
 
@@ -28,14 +28,18 @@ class ProcessPoolTimelineDateFilterTest {
     }
 
     @Test
-    void shouldFailFastWhenSubmitDateMissing() {
+    void shouldQueryAllDatesWhenSubmitDateMissing() {
+        ProcessPoolTimelineTestSupport.InMemoryTimelineReadMapper mapper = mapper(
+                event(1001L, "2026-07-29T23:59:59", 2001L, 6001L, 9001L, "PRODUCTION", 30001L),
+                event(1002L, "2026-07-31T00:00:00", 2001L, 6001L, 9001L, "PRODUCTION", 30001L));
         ProcessPoolTimelinePageReqVO reqVO = pageReq();
         reqVO.setSubmitDate(null);
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> service(mapper()).getTimelinePage(reqVO));
+        var page = service(mapper).getTimelinePage(reqVO);
 
-        assertEquals("工序池时间轴查询必须提供提交日期", ex.getMessage());
+        assertEquals(2L, page.getTotal());
+        assertNull(mapper.getLastPageQuery().getSubmittedAtStart());
+        assertNull(mapper.getLastPageQuery().getSubmittedAtEnd());
     }
 
     @Test

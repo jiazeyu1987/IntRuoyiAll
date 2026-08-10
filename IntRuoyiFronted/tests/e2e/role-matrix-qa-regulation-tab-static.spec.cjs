@@ -419,7 +419,7 @@ assert.doesNotMatch(
   'Standalone QA page must not display the publish verification tab.'
 )
 for (const requiredTableKey of [
-  'mes.qa.regulation.items.processMethods',
+  'mes.qa.regulation.items.processMethods.v2',
   'mes.qa.regulation.checks',
   'mes.qa.regulation.pqcPreview'
 ]) {

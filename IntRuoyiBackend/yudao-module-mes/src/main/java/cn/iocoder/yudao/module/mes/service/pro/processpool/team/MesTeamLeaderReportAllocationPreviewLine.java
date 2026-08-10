@@ -14,6 +14,8 @@ public class MesTeamLeaderReportAllocationPreviewLine {
     private Long activeOrderId;
     private Long workOrderId;
     private String workOrderCode;
+    private Long routeProcessId;
+    private Long processId;
     private BigDecimal allocatedQuantity;
     private BigDecimal remainingQuantityBeforeAllocation;
 }

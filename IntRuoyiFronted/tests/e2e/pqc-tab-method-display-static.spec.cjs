@@ -47,8 +47,8 @@ assert.ok(
 const methodDialogBlock = panelSource.slice(methodDialogStart, methodDialogEnd)
 assert.match(
   methodDialogBlock,
-  /<h3[^>]*>\{\{\s*formatPqcMethodSummary\(activePqcMethodItem\)\s*\}\}<\/h3>/,
-  'PQC method dialog title must display the normalized inspection method.'
+  /<h3[^>]*>\{\{\s*activePqcMethodItem\.samplingPlanText\s*\}\}<\/h3>/,
+  'PQC method dialog title must display the formal QA sampling plan.'
 )
 assert.match(
   methodDialogBlock,
@@ -58,7 +58,7 @@ assert.match(
 assert.doesNotMatch(
   methodDialogBlock,
   /<h3[^>]*>[\s\S]*activePqcMethodItem\.(label|itemName)[\s\S]*<\/h3>/,
-  'PQC method dialog title must not display AO5 final inspection from the item label.'
+  'PQC method dialog title must not display the inspection item label in place of the sampling plan.'
 )
 
 assert.match(
@@ -73,4 +73,4 @@ assert.match(
   'Changing the red-box tab title must not alter itemCode/itemName/processInspectionMethod submission identity.'
 )
 
-console.log('PASS: PQC method dialog displays inspection method while tabs preserve item identity')
+console.log('PASS: PQC method dialog displays sampling plan and method while tabs preserve item identity')

@@ -5,6 +5,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { resolveCaseSpecificGuidance } from './codex-test-runner-guidance.mjs'
+import { collectCodeReadonlyEvidence } from './codex-test-readonly-evidence.mjs'
 
 await import('playwright')
 
@@ -16,14 +17,19 @@ const WORKING_DIRECTORY = process.env.CODEX_TEST_WORKDIR || process.cwd()
 const PROJECT_ROOT = process.env.CODEX_TEST_PROJECT_ROOT || WORKING_DIRECTORY
 const FRONTEND_PROJECT_ROOT = process.env.CODEX_TEST_FRONTEND_ROOT || process.cwd()
 const PLAYWRIGHT_HARNESS_PATH = path.join(FRONTEND_PROJECT_ROOT, 'scripts', 'codex-test-playwright-harness.cjs')
+const CODEX_READONLY_RESULT_SCHEMA_PATH = path.join(
+  FRONTEND_PROJECT_ROOT,
+  'scripts',
+  'codex-test-readonly-result.schema.json'
+)
 const RUNNER_NAME = process.env.CODEX_TEST_RUNNER_NAME || `${os.hostname()}-codex-runner`
 const CODEX_COMMAND = process.env.CODEX_CLI_COMMAND || (process.platform === 'win32' ? 'codex.cmd' : 'codex')
 const LOOP = process.argv.includes('--loop')
 const POLL_INTERVAL_MS = Number(process.env.CODEX_TEST_POLL_INTERVAL_MS || '5000')
 const HEARTBEAT_INTERVAL_MS = Number(process.env.CODEX_TEST_HEARTBEAT_INTERVAL_MS || '20000')
 const CODEX_EXEC_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_TIMEOUT_MS || '360000')
-const CODEX_EXEC_READONLY_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_READONLY_TIMEOUT_MS || '120000')
-const CODEX_READONLY_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_READONLY_REASONING_EFFORT || 'medium'
+const CODEX_EXEC_READONLY_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_READONLY_TIMEOUT_MS || '360000')
+const CODEX_READONLY_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_READONLY_REASONING_EFFORT || 'low'
 const CODEX_MUTATING_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_MUTATING_REASONING_EFFORT || 'low'
 const CODEX_IGNORE_RULES = process.env.CODEX_TEST_CODEX_IGNORE_RULES !== 'false'
 const CODEX_TEST_API_TIMEOUT_MS = Number(process.env.CODEX_TEST_API_TIMEOUT_MS || '30000')
@@ -163,17 +169,30 @@ function resolveNavigationHints(task) {
 
 function codexExecutionArgs(task) {
   const args = []
+  const isCodeReadonly = resolveAnalysisMode(task) === ANALYSIS_MODE_CODE_READONLY
   if (CODEX_IGNORE_RULES) {
     args.push('--ignore-rules')
   }
   args.push('--disable', 'remote_plugin')
-  const reasoningEffort = resolveAnalysisMode(task) === ANALYSIS_MODE_CODE_READONLY || isReadOnlyTask(task)
+  if (isCodeReadonly) {
+    args.push('--sandbox', 'read-only', '--output-schema', CODEX_READONLY_RESULT_SCHEMA_PATH)
+  } else {
+    args.push('--dangerously-bypass-approvals-and-sandbox')
+  }
+  const reasoningEffort = isCodeReadonly || isReadOnlyTask(task)
     ? CODEX_READONLY_REASONING_EFFORT
     : CODEX_MUTATING_REASONING_EFFORT
   if (reasoningEffort) {
     args.push('-c', `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`)
   }
   return args
+}
+
+function resolveCodexWorkingDirectory(task) {
+  if (resolveAnalysisMode(task) === ANALYSIS_MODE_CODE_READONLY) {
+    return PROJECT_ROOT
+  }
+  return WORKING_DIRECTORY
 }
 
 function redactSensitiveText(value) {
@@ -303,18 +322,20 @@ function assertTaskNotCanceled(task, heartbeatResult) {
 async function runCodexForTask(task, runnerSessionId) {
   const outputFile = path.join(os.tmpdir(), `codex-test-result-${task.executionCaseId}-${Date.now()}.json`)
   const codexExecTimeoutMs = resolveCodexExecTimeoutMs(task)
-  const prompt = buildPrompt(task, codexExecTimeoutMs)
+  const codeReadonlyEvidence = resolveAnalysisMode(task) === ANALYSIS_MODE_CODE_READONLY
+    ? collectCodeReadonlyEvidence(task, PROJECT_ROOT)
+    : ''
+  const prompt = buildPrompt(task, codexExecTimeoutMs, codeReadonlyEvidence)
   const args = [
     'exec',
     '-',
     '--skip-git-repo-check',
-    '--dangerously-bypass-approvals-and-sandbox',
     '--ephemeral',
     ...codexExecutionArgs(task),
     '--output-last-message',
     outputFile,
     '-C',
-    WORKING_DIRECTORY
+    resolveCodexWorkingDirectory(task)
   ]
   const child = spawnCodex(args)
   const stdout = []
@@ -408,22 +429,25 @@ async function runCodexForTask(task, runnerSessionId) {
   return result
 }
 
-function buildPrompt(task, codexExecTimeoutMs = resolveCodexExecTimeoutMs(task)) {
+function buildPrompt(task, codexExecTimeoutMs = resolveCodexExecTimeoutMs(task), codeReadonlyEvidence = '') {
   const analysisMode = resolveAnalysisMode(task)
   if (analysisMode === ANALYSIS_MODE_CODE_READONLY) {
-    return buildCodeReadonlyPrompt(task, codexExecTimeoutMs)
+    return buildCodeReadonlyPrompt(task, codexExecTimeoutMs, codeReadonlyEvidence)
   }
   return buildPlaywrightPrompt(task, codexExecTimeoutMs)
 }
 
-function buildCodeReadonlyPrompt(task, codexExecTimeoutMs = resolveCodexExecTimeoutMs(task)) {
+function buildCodeReadonlyPrompt(task, codexExecTimeoutMs = resolveCodexExecTimeoutMs(task), codeReadonlyEvidence = '') {
   const executionBudgetSeconds = Math.max(30, Math.floor(codexExecTimeoutMs / 1000) - 10)
   return `你正在执行企业级 Codex 只读代码分析测试。
 本任务是只读代码分析，不是 Playwright 浏览器 E2E。
-不要打开浏览器作为优先路径；请优先扫描本地代码、路由、API、服务、数据模型、迁移和测试来判断职责描述是否已经被当前代码满足。
-只读代码分析必须覆盖代码、路由、API、测试等证据，不得以浏览器优先结果替代代码审查。
-允许读取仓库文件、运行只读搜索命令、运行只读静态检查命令；不得创建、修改或删除任何仓库文件、任务文档、源码、配置、构建产物、Git 状态、提交、分支或 worktree。
+不要打开浏览器作为优先路径；请根据下方 Runner 从当前工作区实时收集的代码、路由、API、服务、数据模型、迁移和测试片段判断职责描述是否满足。
+只读代码分析必须覆盖代码、路由、API、测试等真实证据，不得以推测替代代码审查。
+不得运行任何 shell 命令、不得调用工具、不得自行读取仓库；Windows read-only sandbox 不允许 shell 命令。只能分析下方实时只读代码证据，不得创建、修改或删除任何仓库文件、Git 状态、分支或 worktree。
 不得运行会写入业务数据、修改数据库、启动写入型 E2E、提交表单、审批、删除、导入、上传、发布或清理数据的命令。
+正式源码和测试的证据收集边界只包含 IntRuoyiFronted/src、IntRuoyiFronted/tests/e2e、IntRuoyiBackend 各模块的 src/main 与 src/test；仅在匹配业务词时包含 IntRuoyiBackend/sql/mysql。
+不得递归扫描 doc/tasks、.runtime、output、node_modules、target、target_*、日志或临时产物；这些目录不能作为功能符合描述的证据。
+Runner 已使用带目录约束的 rg 最多选择 20 个相关源码或测试文件并逐文件截取有限上下文。证据足够时返回 PASS/FAIL；证据不足时返回 BLOCKED 并准确说明还缺哪类正式代码证据。
 不得返回默认成功、不得把缺少前置条件伪装成 PASS；如果代码入口、依赖、权限、Runner、Codex CLI 或测试资料缺失，请返回 BLOCKED 并写明缺失前置条件。
 如果代码与职责描述不一致，请返回 FAIL，并在 mismatchDescription 中说明具体差异、缺失文件/接口/状态链路或测试缺口。
 最终回答必须是原始 JSON 对象，不要包含 markdown、解释性文字或代码块。
@@ -438,6 +462,9 @@ User-written test data:
 ${task.testDataText || ''}
 Checkpoints:
 ${task.checkpoints.map((item) => `${item.sort}. ${item.name}: ${item.expectedText}`).join('\n')}
+
+实时只读代码证据：
+${codeReadonlyEvidence || 'Runner 未提供任何匹配代码证据。'}
 
 Return raw JSON only:
 {

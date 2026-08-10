@@ -65,8 +65,10 @@
 
     <sql id="TimelineFilters">
         pool_event.deleted = 0
-        AND pool_event.server_submit_time <![CDATA[>=]]> #{reqVO.submittedAtStart}
-        AND pool_event.server_submit_time <![CDATA[<]]> #{reqVO.submittedAtEnd}
+        <if test="reqVO.submittedAtStart != null and reqVO.submittedAtEnd != null">
+            AND pool_event.server_submit_time <![CDATA[>=]]> #{reqVO.submittedAtStart}
+            AND pool_event.server_submit_time <![CDATA[<]]> #{reqVO.submittedAtEnd}
+        </if>
         <if test="reqVO.employeeUserId != null">
             AND pool_event.actual_employee_id = #{reqVO.employeeUserId}
         </if>
@@ -78,6 +80,12 @@
         </if>
         <if test="reqVO.processId != null">
             AND pool_event.process_id = #{reqVO.processId}
+        </if>
+        <if test="reqVO.processIds != null and reqVO.processIds.size() > 0">
+            AND pool_event.process_id IN
+            <foreach collection="reqVO.processIds" item="authorizedProcessId" open="(" separator="," close=")">
+                #{authorizedProcessId}
+            </foreach>
         </if>
         <if test="reqVO.deviceId != null">
             AND pool_event.device_id = #{reqVO.deviceId}
@@ -118,6 +126,51 @@
                     AND latest_submission_review.review_status = #{reqVO.submissionReviewStatus}
                 </otherwise>
             </choose>
+        </if>
+        <if test="reqVO.allocationView == 'WORKBENCH'">
+            AND pool_event.event_type = 'PRODUCTION_SUBMIT'
+            AND (
+                NOT EXISTS (
+                    SELECT 1
+                    FROM mes_pro_process_pool_report_allocation allocation
+                    WHERE allocation.tenant_id = pool_event.tenant_id
+                      AND allocation.event_id = pool_event.id
+                      AND allocation.deleted = 0
+                      AND allocation.lifecycle_status = 'CURRENT'
+                )
+                OR COALESCE((
+                    SELECT SUM(allocation.allocated_quantity)
+                    FROM mes_pro_process_pool_report_allocation allocation
+                    WHERE allocation.tenant_id = pool_event.tenant_id
+                      AND allocation.event_id = pool_event.id
+                      AND allocation.deleted = 0
+                      AND allocation.lifecycle_status = 'CURRENT'
+                ), 0) <![CDATA[<]]> COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(
+                    pool_event.raw_payload, '$.outputQuantity')) AS DECIMAL(24, 6)), 0)
+                OR EXISTS (
+                    SELECT 1
+                    FROM mes_pro_process_pool_report_allocation allocation
+                    WHERE allocation.tenant_id = pool_event.tenant_id
+                      AND allocation.event_id = pool_event.id
+                      AND allocation.deleted = 0
+                      AND allocation.lifecycle_status = 'CURRENT'
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM mes_pro_process_pool_active_order_release_application release_application
+                          INNER JOIN mes_pro_edhr_release_transaction release_transaction
+                            ON release_transaction.id = release_application.release_transaction_id
+                           AND release_transaction.tenant_id = release_application.tenant_id
+                           AND release_transaction.deleted = 0
+                           AND release_transaction.release_status = 'RELEASED'
+                          WHERE release_application.tenant_id = allocation.tenant_id
+                            AND release_application.active_order_id = allocation.active_order_id
+                            AND release_application.deleted = 0
+                      )
+                )
+            )
+        </if>
+        <if test="reqVO.allocationView == 'HISTORY'">
+            AND pool_event.event_type = 'PRODUCTION_SUBMIT'
         </if>
     </sql>
 
@@ -297,6 +350,40 @@
          AND revision_summary.tenant_id = pool_event.tenant_id
         WHERE pool_event.deleted = 0
           AND pool_event.id = #{id}
+    </select>
+
+    <select id="selectReportAllocationsByEventIds"
+            resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineReportAllocationReadDO">
+        SELECT allocation.event_id AS eventId,
+               allocation.id AS allocationId,
+               allocation.active_order_id AS activeOrderId,
+               allocation.work_order_id AS workOrderId,
+               work_order.code AS workOrderCode,
+               allocation.allocated_quantity AS allocatedQuantity,
+               CASE WHEN EXISTS (
+                   SELECT 1
+                   FROM mes_pro_process_pool_active_order_release_application release_application
+                   INNER JOIN mes_pro_edhr_release_transaction release_transaction
+                     ON release_transaction.id = release_application.release_transaction_id
+                    AND release_transaction.tenant_id = release_application.tenant_id
+                    AND release_transaction.deleted = 0
+                    AND release_transaction.release_status = 'RELEASED'
+                   WHERE release_application.tenant_id = allocation.tenant_id
+                     AND release_application.active_order_id = allocation.active_order_id
+                     AND release_application.deleted = 0
+               ) THEN TRUE ELSE FALSE END AS released
+        FROM mes_pro_process_pool_report_allocation allocation
+        LEFT JOIN mes_pro_work_order work_order
+          ON work_order.id = allocation.work_order_id
+         AND work_order.tenant_id = allocation.tenant_id
+         AND work_order.deleted = 0
+        WHERE allocation.deleted = 0
+          AND allocation.lifecycle_status = 'CURRENT'
+          AND allocation.event_id IN
+        <foreach collection="eventIds" item="eventId" open="(" separator="," close=")">
+            #{eventId}
+        </foreach>
+        ORDER BY allocation.event_id ASC, allocation.id ASC
     </select>
 
 </mapper>

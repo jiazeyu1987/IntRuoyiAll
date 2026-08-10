@@ -12,8 +12,12 @@ import java.util.List;
 @Accessors(chain = true)
 public class MesTeamLeaderReportAllocationPreviewRespVO {
 
+    private BigDecimal poolQuantity;
+
     @Schema(description = "本次预分配总数量", example = "80")
     private BigDecimal totalAllocatedQuantity;
+
+    private BigDecimal unallocatedQuantity;
 
     @Schema(description = "预分配明细")
     private List<Line> lines;
@@ -32,10 +36,18 @@ public class MesTeamLeaderReportAllocationPreviewRespVO {
         @Schema(description = "生产订单编码", example = "WO-9001")
         private String workOrderCode;
 
+        private Long routeProcessId;
+
+        private Long processId;
+
         @Schema(description = "本次分配数量", example = "50")
         private BigDecimal allocatedQuantity;
 
         @Schema(description = "分配前该订单当前工序剩余数量", example = "50")
         private BigDecimal remainingQuantityBeforeAllocation;
+
+        private Boolean released;
+
+        private Boolean editable;
     }
 }

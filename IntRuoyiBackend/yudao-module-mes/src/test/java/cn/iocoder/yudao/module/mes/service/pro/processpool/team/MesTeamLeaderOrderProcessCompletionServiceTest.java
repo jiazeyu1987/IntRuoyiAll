@@ -118,6 +118,30 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     }
 
     @Test
+    void shouldCompleteSharedAllocationWithoutTriggeringLegacyBatchRecordBackfill() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "200");
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of(confirmedLine));
+        when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of());
+        when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
+
+        service.reconcileAffectedAllocations(event, List.of(confirmedLine));
+
+        ArgumentCaptor<MesProcessPoolOrderProcessCompletionDO> completionCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolOrderProcessCompletionDO.class);
+        verify(completionMapper).insert(completionCaptor.capture());
+        MesProcessPoolOrderProcessCompletionDO saved = completionCaptor.getValue();
+        assertEquals(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED, saved.getCompletionStatus());
+        assertEquals(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_NOT_REQUIRED,
+                saved.getBackfillStatus());
+        assertEquals(null, saved.getBackfillExecutionId());
+        verify(backfillService, never()).backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class));
+    }
+
+    @Test
     void shouldKeepOrderProcessInProgressBeforeTargetQuantityIsReached() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "79");
@@ -143,6 +167,29 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 new BigDecimal("199.000000"), new BigDecimal("1.000000"), new BigDecimal("99.500000"),
                 MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus());
         verify(backfillService, never()).backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class));
+    }
+
+    @Test
+    void shouldPersistCompletionFromActiveOrderSnapshotWhenScheduleOrderNoLongerExists() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "100");
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of(confirmedLine));
+        when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of());
+        when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
+
+        service.applyConfirmedAllocations(event, List.of(confirmedLine));
+
+        ArgumentCaptor<MesProcessPoolOrderProcessCompletionDO> completionCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolOrderProcessCompletionDO.class);
+        verify(completionMapper).insert(completionCaptor.capture());
+        MesProcessPoolOrderProcessCompletionDO saved = completionCaptor.getValue();
+        assertAmount("100", saved.getConfirmedQuantity());
+        assertEquals(MesProcessPoolOrderProcessCompletionDO.STATUS_IN_PROGRESS, saved.getCompletionStatus());
+        assertEquals(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_NOT_REQUIRED, saved.getBackfillStatus());
+        verify(scheduleOrderProcessMapper, never()).selectListByScheduleOrderId(any());
     }
 
     @Test
@@ -248,6 +295,49 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         verify(backfillService).backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class));
     }
 
+    @Test
+    void shouldRecalculateRemovedAAndAddedCByEachTargetRouteProcess() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationDO removedA = allocation(8101L, 9001L, 5101L, "100", 7101L);
+        MesProcessPoolReportAllocationDO currentC = allocation(8103L, 9003L, 5301L, "100", 7103L);
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L, 9003L))).thenReturn(List.of(
+                workOrder(9001L, "A", "300"), workOrder(9003L, "C", "300")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5101L, 6001L))
+                .thenReturn(List.of());
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9003L), 5301L, 6001L))
+                .thenReturn(List.of(currentC));
+        when(orderProcessTargetService.requireTarget(8101L, 9001L, 5101L, 6001L))
+                .thenReturn(new MesTeamLeaderOrderProcessTarget(5101L, 6001L, new BigDecimal("300"),
+                        BigDecimal.ONE, new BigDecimal("300")));
+        when(orderProcessTargetService.requireTarget(8103L, 9003L, 5301L, 6001L))
+                .thenReturn(new MesTeamLeaderOrderProcessTarget(5301L, 6001L, new BigDecimal("300"),
+                        BigDecimal.ONE, new BigDecimal("300")));
+        stubFormalSchedule(9001L, 7701L, 8801L, 5101L, "300");
+        stubFormalSchedule(9003L, 7703L, 8803L, 5301L, "300");
+        when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5101L, 6001L)).thenReturn(null);
+        when(completionMapper.selectByWorkOrderAndProcessForUpdate(9003L, 5301L, 6001L)).thenReturn(null);
+
+        service.reconcileAffectedAllocations(event, List.of(removedA, currentC));
+
+        ArgumentCaptor<MesProcessPoolOrderProcessCompletionDO> completionCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolOrderProcessCompletionDO.class);
+        verify(completionMapper, org.mockito.Mockito.times(2)).insert(completionCaptor.capture());
+        List<MesProcessPoolOrderProcessCompletionDO> saved = completionCaptor.getAllValues();
+        MesProcessPoolOrderProcessCompletionDO savedA = saved.stream()
+                .filter(row -> row.getWorkOrderId().equals(9001L)).findFirst().orElseThrow();
+        MesProcessPoolOrderProcessCompletionDO savedC = saved.stream()
+                .filter(row -> row.getWorkOrderId().equals(9003L)).findFirst().orElseThrow();
+        assertEquals(5101L, savedA.getRouteProcessId());
+        assertAmount("0", savedA.getConfirmedQuantity());
+        assertEquals(MesProcessPoolOrderProcessCompletionDO.STATUS_IN_PROGRESS, savedA.getCompletionStatus());
+        assertEquals(5301L, savedC.getRouteProcessId());
+        assertAmount("100", savedC.getConfirmedQuantity());
+        verify(scheduleOrderProcessMapper).updateProgress(8801L, new BigDecimal("0.000000"),
+                new BigDecimal("300.000000"), new BigDecimal("0.000000"));
+        verify(scheduleOrderProcessMapper).updateProgress(8803L, new BigDecimal("100.000000"),
+                new BigDecimal("200.000000"), new BigDecimal("33.333333"));
+    }
+
     private static MesProProcessPoolEventDO event() {
         return event(1001L, "{\"outputQuantity\":80,\"pressure\":15}", LocalDateTime.of(2026, 8, 1, 9, 0));
     }
@@ -286,6 +376,15 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 .build();
     }
 
+    private static MesProcessPoolReportAllocationDO allocation(Long activeOrderId, Long workOrderId,
+                                                               Long routeProcessId, String quantity, Long id) {
+        return MesProcessPoolReportAllocationDO.builder().id(id).eventId(1001L).reviewId(7001L)
+                .leaderUserId(3001L).activeOrderId(activeOrderId).workOrderId(workOrderId)
+                .routeProcessId(routeProcessId).processId(6001L).allocatedQuantity(new BigDecimal(quantity))
+                .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
+                .confirmedAt(LocalDateTime.of(2026, 8, 1, 9, 1)).build();
+    }
+
     private static MesProWorkOrderDO workOrder(String quantity) {
         return MesProWorkOrderDO.builder()
                 .id(9001L)
@@ -295,11 +394,29 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 .build();
     }
 
+    private static MesProWorkOrderDO workOrder(Long id, String code, String quantity) {
+        return MesProWorkOrderDO.builder().id(id).code(code).batchCode("BATCH-" + code)
+                .quantity(new BigDecimal(quantity)).build();
+    }
+
     private void stubFormalSchedule(String erpQuantity, String plannedQuantity) {
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(9001L)))
                 .thenReturn(List.of(scheduleOrder(erpQuantity)));
         when(scheduleOrderProcessMapper.selectListByScheduleOrderId(7701L))
                 .thenReturn(List.of(scheduleProcess(plannedQuantity)));
+    }
+
+    private void stubFormalSchedule(Long workOrderId, Long scheduleOrderId, Long scheduleProcessId,
+                                    Long routeProcessId, String plannedQuantity) {
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(workOrderId))).thenReturn(List.of(
+                MesProScheduleOrderDO.builder().id(scheduleOrderId).workOrderId(workOrderId)
+                        .quantity(new BigDecimal(plannedQuantity))
+                        .status(MesProScheduleOrderStatusEnum.SCHEDULED.getStatus()).build()));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderId(scheduleOrderId)).thenReturn(List.of(
+                MesProScheduleOrderProcessDO.builder().id(scheduleProcessId).scheduleOrderId(scheduleOrderId)
+                        .routeProcessId(routeProcessId).processId(6001L).enabled(Boolean.TRUE)
+                        .plannedQuantity(new BigDecimal(plannedQuantity)).reportedQuantity(BigDecimal.ZERO)
+                        .remainingQuantity(new BigDecimal(plannedQuantity)).build()));
     }
 
     private static MesProScheduleOrderDO scheduleOrder(String quantity) {

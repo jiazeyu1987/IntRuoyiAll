@@ -257,7 +257,7 @@ class MesP0PqcQualityAllocationGateTest {
     }
 
     @Test
-    void shouldRejectSuccessPqcWhenQualifiedQuantityDoesNotCoverSubmittedQuantityBeforeTerminalWrites() {
+    void shouldRejectSuccessPqcWhenAnyFormalSampleFailsBeforeTerminalWrites() {
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(productionSubmitEvent("{\"outputQuantity\":2}"));
         when(allocationMapper.selectListByEventIdForUpdate(EVENT_ID)).thenReturn(List.of());
         when(pqcRecordMapper.selectListByProductionSubmitEventId(EVENT_ID)).thenReturn(List.of(
@@ -271,7 +271,7 @@ class MesP0PqcQualityAllocationGateTest {
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> service.confirmSubmission(signedConfirmReq("2")));
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_QUALITY_QUANTITY_MISMATCH.getCode(),
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_QUALITY_NOT_ALLOCATABLE.getCode(),
                 ex.getCode());
         verifyNoTerminalWrites();
     }

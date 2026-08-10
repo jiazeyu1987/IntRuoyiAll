@@ -15,6 +15,8 @@ export interface QaInspectionRuleVO {
   itemCode: string
   itemName: string
   inspectionMethod: string
+  inspectionTool: string
+  samplingPlanText: string
   standardText: string
   resultType: string
   firstInspectionQuantity?: number
@@ -71,6 +73,8 @@ export interface QaInspectionRegulationSaveItemVO {
   itemCode: string
   itemName: string
   inspectionMethod: string
+  inspectionTool: string
+  samplingPlanText: string
   standardText: string
   standardLowerLimit?: number
   standardUpperLimit?: number

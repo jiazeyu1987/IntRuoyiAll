@@ -647,6 +647,38 @@
               </template>
             </el-table-column>
             <el-table-column
+              v-if="isProductionLeader && isSubmissionColumnVisible('reportAllocations')"
+              label="分配订单"
+              prop="reportAllocations"
+              :min-width="getSubmissionColumnMinWidthString('reportAllocations', 240)"
+            >
+              <template #default="{ row }">
+                <div class="team-leader-workbench__structured-list" data-team-leader-report-allocations>
+                  <el-tag
+                    v-for="item in row.reportAllocations || []"
+                    :key="item.allocationId"
+                    :type="item.released ? 'success' : 'warning'"
+                    effect="plain"
+                  >
+                    {{ item.workOrderCode || item.workOrderId }}：{{ item.allocatedQuantity }}（{{
+                      item.released ? '已放行' : '未放行'
+                    }}）
+                  </el-tag>
+                  <span v-if="!row.reportAllocations?.length">--</span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-if="isProductionLeader && isSubmissionColumnVisible('reportUnallocatedQuantity')"
+              label="未分配数量"
+              prop="reportUnallocatedQuantity"
+              :min-width="getSubmissionColumnMinWidthString('reportUnallocatedQuantity', 130)"
+            >
+              <template #default="{ row }">
+                {{ row.reportUnallocatedQuantity ?? row.outputQuantity ?? '--' }}
+              </template>
+            </el-table-column>
+            <el-table-column
               v-if="isSubmissionColumnVisible('lossBreakdown')"
               label="损耗明细"
               prop="lossBreakdown"
@@ -819,6 +851,7 @@
               label="参数明细"
               prop="parameterSnapshot"
               :min-width="getSubmissionColumnMinWidthString('parameterSnapshot', 280)"
+              :show-overflow-tooltip="false"
             >
               <template #default="{ row }">
                 <div class="team-leader-workbench__parameter-list" data-team-leader-parameter-snapshot>
@@ -848,6 +881,7 @@
               label="设备参数"
               prop="deviceParameterReadings"
               :min-width="getSubmissionColumnMinWidthString('deviceParameterReadings', 280)"
+              :show-overflow-tooltip="false"
             >
               <template #default="{ row }">
                 <div class="team-leader-workbench__parameter-list" data-team-leader-device-parameter-readings>
@@ -951,7 +985,7 @@
                   详情
                 </el-button>
                 <el-button
-                  v-if="canReviewSubmission(row)"
+                  v-if="!isProductionLeader && canReviewSubmission(row)"
                   link
                   type="success"
                   :data-team-leader-review-event-id="String(row.id)"
@@ -1192,14 +1226,14 @@
                 <span :data-team-leader-active-order-id="String(row.id)">{{ row.id }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="生产订单ID" prop="workOrderId" min-width="130">
+            <el-table-column label="生产订单号" prop="workOrderCode" min-width="200">
               <template #default="{ row }">
                 <span
-                  data-team-leader-active-order-work-order-id
+                  data-team-leader-active-order-work-order-code
                   :class="{ 'team-leader-workbench__abnormal-work-order-id': row.abnormal }"
                   :title="row.abnormal ? row.abnormalReason : undefined"
                 >
-                  {{ row.workOrderId }}
+                  {{ row.workOrderCode }}
                 </span>
               </template>
             </el-table-column>
@@ -1238,8 +1272,36 @@
             <el-table-column label="加入时间" min-width="170">
               <template #default="{ row }">{{ formatDateTime(row.joinedAt) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="240" fixed="right">
+            <el-table-column label="操作" width="300" fixed="right">
               <template #default="{ row }">
+                <el-tooltip content="上移" placement="top">
+                  <el-button
+                    link
+                    type="primary"
+                    aria-label="上移"
+                    title="上移"
+                    :disabled="isFirstActiveOrder(row) || activeOrderMoveSubmittingId !== undefined"
+                    :loading="activeOrderMoveSubmittingId === row.id && activeOrderMoveDirection === 'UP'"
+                    data-team-leader-move-active-order-up
+                    @click="submitMoveActiveOrder(row, 'UP')"
+                  >
+                    <Icon icon="ep:arrow-up-bold" />
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip content="下移" placement="top">
+                  <el-button
+                    link
+                    type="primary"
+                    aria-label="下移"
+                    title="下移"
+                    :disabled="isLastActiveOrder(row) || activeOrderMoveSubmittingId !== undefined"
+                    :loading="activeOrderMoveSubmittingId === row.id && activeOrderMoveDirection === 'DOWN'"
+                    data-team-leader-move-active-order-down
+                    @click="submitMoveActiveOrder(row, 'DOWN')"
+                  >
+                    <Icon icon="ep:arrow-down-bold" />
+                  </el-button>
+                </el-tooltip>
                 <el-button
                   link
                   type="danger"
@@ -1263,7 +1325,7 @@
                 <el-button
                   link
                   type="primary"
-                  :disabled="!canApplyActiveOrderRelease(row)"
+                  :disabled="!canApplyActiveOrderRelease(row) || isActiveOrderReleaseApplicationLocked(row.id)"
                   :loading="releaseApplicationSubmittingId === row.id"
                   :title="resolveActiveOrderReleaseApplyDisabledReason(row)"
                   data-team-leader-active-order-release-apply
@@ -1288,11 +1350,26 @@
         <div
           v-for="blocker in releaseApplicationBlockers"
           :key="`${blocker.blockerType}-${blocker.objectType}-${blocker.objectId}`"
+          data-team-leader-active-order-release-blocker
         >
-          {{ blocker.reason || blocker.blockerType }}
-          <span v-if="blocker.suggestion">；{{ blocker.suggestion }}</span>
+          <el-tag size="small" type="warning" effect="plain" data-team-leader-active-order-release-blocker-type>
+            {{ blocker.blockerType }}
+          </el-tag>
+          <span> {{ blocker.reason }}；{{ blocker.suggestion }}</span>
+          <span data-team-leader-active-order-release-blocker-locator>
+            ；{{ resolveActiveOrderReleaseBlockerLocator(blocker) }}
+          </span>
         </div>
       </el-alert>
+      <el-alert
+        v-if="releaseApplicationUncertainMessage"
+        class="mt-12px"
+        :title="releaseApplicationUncertainMessage"
+        type="error"
+        :closable="false"
+        show-icon
+        data-team-leader-active-order-release-uncertain
+      />
 
       <el-divider>调拨库存追溯</el-divider>
       <el-alert
@@ -2382,6 +2459,7 @@
               FIFO 自动分配
             </el-button>
             <el-button @click="addAllocationLine">新增分配行</el-button>
+            <el-button @click="startBlankAllocation">从空白开始</el-button>
           </div>
         </div>
         <el-table
@@ -2395,6 +2473,7 @@
             <template #default="{ row }">
               <el-select
                 v-model="row.activeOrderId"
+                :disabled="row.editable === false"
                 filterable
                 popper-class="team-leader-workbench__allocation-order-popper"
                 placeholder="请选择活跃订单"
@@ -2432,6 +2511,7 @@
               <div class="team-leader-workbench__allocation-quantity-cell">
                 <el-input-number
                   v-model="row.allocatedQuantity"
+                  :disabled="row.editable === false"
                   :min="0"
                   :precision="0"
                   :step="1"
@@ -2443,6 +2523,7 @@
                 <el-button
                   size="small"
                   data-team-leader-allocation-max
+                  :disabled="row.editable === false"
                   @click="applyAllocationShortcut(row, 'MAX')"
                 >
                   最大
@@ -2450,6 +2531,7 @@
                 <el-button
                   size="small"
                   data-team-leader-allocation-half
+                  :disabled="row.editable === false"
                   @click="applyAllocationShortcut(row, 'HALF')"
                 >
                   一半
@@ -2462,14 +2544,27 @@
               {{ row.remainingQuantityBeforeAllocation ?? '--' }}
             </template>
           </el-table-column>
+          <el-table-column label="状态" width="110">
+            <template #default="{ row }">
+              <el-tag v-if="row.released" type="success" effect="light">已放行</el-tag>
+              <el-tag v-else type="warning" effect="plain">未放行</el-tag>
+            </template>
+          </el-table-column>
           <el-table-column label="操作" width="90">
-            <template #default="{ $index }">
-              <el-button link type="danger" @click="removeAllocationLine($index)">删除</el-button>
+            <template #default="{ row, $index }">
+              <el-button
+                link
+                type="danger"
+                :disabled="row.editable === false"
+                @click="removeAllocationLine($index)"
+              >删除</el-button>
             </template>
           </el-table-column>
         </el-table>
-        <div class="team-leader-workbench__hint mt-8px">
-          当前分配模式：{{ reviewForm.allocationMode }}
+        <div class="team-leader-workbench__hint mt-8px" data-team-leader-allocation-summary>
+          池总量：{{ allocationSnapshot?.poolQuantity ?? reviewEvent?.outputQuantity ?? 0 }}，已分配：{{
+            allocationTotalQuantity
+          }}，未分配：{{ allocationUnallocatedQuantity }}，当前模式：{{ reviewForm.allocationMode }}
         </div>
       </div>
       <template #footer>
@@ -2670,11 +2765,13 @@ import {
   getProductionPersonnelList,
   getTeamLeaderActiveOrderList,
   getTeamLeaderActiveOrderTransferTrace,
+  getCurrentTeamLeaderReportAllocation,
   getTeamLeaderSubmissionDetail,
   getTeamLeaderSubmissionPage,
   linkPqcFormalEmployee,
   linkFormalTeamEmployee,
   markAndReportWorkOrderAbnormal,
+  moveTeamLeaderActiveOrder,
   previewTeamLeaderReportFifoAllocation,
   removeTeamLeaderActiveOrder,
   resetTemporaryTeamEmployeeSignaturePassword,
@@ -2692,6 +2789,7 @@ import {
   updatePqcPersonnelStatus,
   type TeamFormalEmployeeCandidateRespVO,
   type TeamLeaderActiveOrderCandidateRespVO,
+  type TeamLeaderActiveOrderReleaseApplyRespVO,
   type TeamLeaderActiveOrderReleaseBlockerRespVO,
   type TeamLeaderActiveOrderRespVO,
   type TeamLeaderActiveOrderTransferTraceRespVO,
@@ -2702,6 +2800,7 @@ import {
   type TeamLeaderProcessConfigRowRespVO,
   type TeamLeaderResponsibleRouteRespVO,
   type TeamLeaderReportAllocationLine,
+  type TeamLeaderReportAllocationSnapshotRespVO,
   type TeamLeaderSubmissionPageReqVO,
   type TeamLeaderType,
   type TeamPqcPersonnelRespVO,
@@ -2720,6 +2819,23 @@ defineOptions({ name: 'MesProProcessPoolTeamLeaderWorkbench' })
 type WorkbenchLeaderTab = TeamLeaderType
 type ProcessConfigCreateType = 'DEVICE_BINDING' | 'PARAMETER_RULE'
 type AllocationShortcutMode = 'MAX' | 'HALF'
+type ActiveOrderReleaseApplicationLockState =
+  | 'CONFIRMED'
+  | 'CONFIRMED_REFRESH_FAILED'
+  | 'CONFIRMED_NOT_PROJECTED'
+  | 'RECOVERED'
+  | 'UNCERTAIN'
+
+interface ActiveOrderReleaseReceiptSnapshot {
+  status?: TeamLeaderActiveOrderRespVO['releaseApplicationStatus']
+  blockerSummary?: string
+  releaseApprovalWorkTaskId?: number
+}
+
+interface ActiveOrderReleaseReceiptConfirmation {
+  outcome: 'SUBMITTED' | 'NOT_SUBMITTED' | 'UNCERTAIN'
+  receipt: TeamLeaderActiveOrderRespVO
+}
 
 interface TeamLeaderReportAllocationDraftLine extends Omit<TeamLeaderReportAllocationLine, 'activeOrderId'> {
   activeOrderId?: number
@@ -2774,6 +2890,8 @@ const activeProductionModuleTab = ref<
 >('personnel')
 
 const getDefaultSubmissionDate = () => formatDate(new Date(), 'YYYY-MM-DD')
+const getInitialSubmissionDate = (leaderType: TeamLeaderType) =>
+  leaderType === 'PQC' ? undefined : getDefaultSubmissionDate()
 const SUBMISSION_DEFAULT_DATE_DISCOVERY_LOOKBACK_DAYS = 14
 const loading = ref(false)
 const detailLoading = ref(false)
@@ -2782,6 +2900,8 @@ const allocationPreviewLoading = ref(false)
 const abnormalSubmitting = ref(false)
 const maintenanceSubmitting = ref(false)
 const activeOrderLoading = ref(false)
+const activeOrderMoveSubmittingId = ref<number>()
+const activeOrderMoveDirection = ref<'UP' | 'DOWN'>()
 const correctionSubmitting = ref(false)
 const detailVisible = ref(false)
 const reviewVisible = ref(false)
@@ -2805,6 +2925,9 @@ const activeOrderTransferTraceLoading = ref(false)
 const activeOrderTransferTraceError = ref('')
 const releaseApplicationSubmittingId = ref<number>()
 const releaseApplicationBlockers = ref<TeamLeaderActiveOrderReleaseBlockerRespVO[]>([])
+const releaseApplicationIdempotencyKeys = new Map<number, string>()
+const releaseApplicationLocks = reactive(new Map<number, ActiveOrderReleaseApplicationLockState>())
+const releaseApplicationUncertainMessage = ref('')
 const processConfigRows = ref<TeamLeaderProcessConfigRowRespVO[]>([])
 const processConfigDisplayRows = ref<TeamLeaderProcessConfigRowRespVO[]>([])
 const responsibleRouteRows = ref<TeamLeaderResponsibleRouteRespVO[]>([])
@@ -2870,6 +2993,8 @@ const lossReasonDialogMode = ref<'idle' | 'create' | 'edit'>('idle')
 const lossReasonMaintenanceRouteProcessId = ref<number>()
 const lossReasonEditingReasonId = ref<number>()
 const allocationRows = ref<TeamLeaderReportAllocationDraftLine[]>([])
+const allocationSnapshot = ref<TeamLeaderReportAllocationSnapshotRespVO>()
+const allocationSaveIdempotencyState = ref<{ requestIdentity: string; key: string }>()
 const reviewDialogMode = ref<'REVIEW' | 'ALLOCATION'>('REVIEW')
 const configuredDefectReasonOptions = ref<
   Array<{ reasonType: string; reasonCode: string; reasonName: string }>
@@ -2913,7 +3038,7 @@ const activeOrderQuickFilterState = reactive({})
 const activeOrderOperatorOptions: any[] = []
 const activeOrderColumns: any[] = [
   { key: 'id', label: '活跃池ID', visible: true },
-  { key: 'workOrderId', label: '生产订单ID', visible: true },
+  { key: 'workOrderCode', label: '生产订单号', visible: true },
   { key: 'routeName', label: '路线名称', visible: true },
   { key: 'routeVersionNo', label: '版本号', visible: true },
   { key: 'erpFixedQuantitySnapshot', label: 'ERP生产数量', visible: true },
@@ -2964,6 +3089,8 @@ const productionSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'process', label: '工序', minWidth: 150 },
   { key: 'workOrder', label: '生产工单', minWidth: 160 },
   { key: 'completionQuantity', label: '完成数量', minWidth: 130 },
+  { key: 'reportAllocations', label: '分配订单', minWidth: 240 },
+  { key: 'reportUnallocatedQuantity', label: '未分配数量', minWidth: 130 },
   { key: 'lossQuantity', label: '损耗数量', minWidth: 120 },
   { key: 'lossBreakdown', label: '损耗明细', minWidth: 210 },
   { key: 'selectedDevice', label: '选用设备', minWidth: 220 },
@@ -3182,7 +3309,7 @@ const pagedProductionPersonnelRows = computed(() => {
 })
 const activeOrderTotal = computed(() => activeOrderOptions.value.length)
 const allocatableActiveOrderOptions = computed(() =>
-  activeOrderOptions.value.filter((order) => !order.abnormal && normalizePositiveNumber(order.id))
+  activeOrderOptions.value.filter((order) => normalizePositiveNumber(order.id))
 )
 const pagedActiveOrderRows = computed(() => {
   const pageNo = Math.max(1, Number(activeOrderQuery.pageNo) || 1)
@@ -3190,6 +3317,10 @@ const pagedActiveOrderRows = computed(() => {
   const start = (pageNo - 1) * pageSize
   return activeOrderOptions.value.slice(start, start + pageSize)
 })
+const isFirstActiveOrder = (row: TeamLeaderActiveOrderRespVO) =>
+  activeOrderOptions.value[0]?.id === row.id
+const isLastActiveOrder = (row: TeamLeaderActiveOrderRespVO) =>
+  activeOrderOptions.value[activeOrderOptions.value.length - 1]?.id === row.id
 const pqcPersonnelTotal = computed(() => pqcPersonnelRows.value.length)
 const pagedPqcPersonnelRows = computed(() => {
   const pageNo = Math.max(1, Number(pqcPersonnelQuery.pageNo) || 1)
@@ -3207,7 +3338,17 @@ const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
   && (isProductionLeader.value || row.submissionReviewStatus === 'REJECTED')
 
 const canAllocateSubmission = (row: ProcessPoolTimelineEventVO) =>
-  isProductionLeader.value && canReviewSubmission(row)
+  isProductionLeader.value && !isProductionReportHistoryTab.value && Boolean(row.id)
+
+const allocationTotalQuantity = computed(() => allocationRows.value.reduce(
+  (total, line) => total + normalizeAllocationInteger(line.allocatedQuantity),
+  0
+))
+
+const allocationUnallocatedQuantity = computed(() => {
+  const pool = Number(allocationSnapshot.value?.poolQuantity ?? reviewEvent.value?.outputQuantity ?? 0)
+  return Math.max(0, pool - allocationTotalQuantity.value)
+})
 
 const reviewDialogTitle = computed(() =>
   reviewDialogMode.value === 'ALLOCATION' ? '分配报工' : '复核员工提交'
@@ -3220,7 +3361,7 @@ const queryParams = reactive<TeamLeaderSubmissionPageReqVO>({
   pageNo: 1,
   pageSize: 10,
   leaderType: activeLeaderTab.value,
-  submitDate: getDefaultSubmissionDate(),
+  submitDate: getInitialSubmissionDate(activeLeaderTab.value),
   employeeUserId: undefined,
   processId: undefined,
   deviceId: undefined,
@@ -3579,6 +3720,17 @@ const formatActiveOrderProgressPercent = (value: number | string | undefined) =>
   return `${parsed.toFixed(1).replace(/\.0$/, '')}%`
 }
 
+const PRO_REPORT_ALLOCATION_VERSION_CONFLICT_CODE = 1040760357
+
+const resolveErrorCode = (error: unknown) => {
+  const value = (error as any)?.response?.data?.code ?? (error as any)?.data?.code ?? (error as any)?.code
+  const code = Number(value)
+  return Number.isFinite(code) ? code : undefined
+}
+
+const isReportAllocationVersionConflict = (error: unknown) =>
+  resolveErrorCode(error) === PRO_REPORT_ALLOCATION_VERSION_CONFLICT_CODE
+
 const isActiveOrderProgressComplete = (value: number | string | undefined) => {
   const parsed = Number(value)
   return Number.isFinite(parsed) && parsed >= 100
@@ -3596,6 +3748,32 @@ const formatActiveOrderReleaseStatusTag = (status?: string) => {
   return 'info'
 }
 
+const resolveActiveOrderReleaseBlockerLocator = (
+  blocker: TeamLeaderActiveOrderReleaseBlockerRespVO
+) => {
+  const locatorParts = [
+    `对象类型：${blocker.objectType}`,
+    `对象ID：${blocker.objectId}`,
+    `对象编码：${blocker.objectCode}`
+  ]
+  if (blocker.routeProcessId !== undefined) {
+    locatorParts.push(`路线工序ID：${blocker.routeProcessId}`)
+  }
+  if (blocker.processId !== undefined) {
+    locatorParts.push(`工序ID：${blocker.processId}`)
+  }
+  if (blocker.fieldCode) {
+    locatorParts.push(`字段：${blocker.fieldCode}`)
+  }
+  if (blocker.cellKey) {
+    locatorParts.push(`单元格：${blocker.cellKey}`)
+  }
+  return locatorParts.join('；')
+}
+
+const isActiveOrderReleaseApplicationLocked = (activeOrderId: number) =>
+  releaseApplicationLocks.has(activeOrderId)
+
 const canApplyActiveOrderRelease = (row: TeamLeaderActiveOrderRespVO) => {
   if (row.abnormal) return false
   if (row.releaseApplicationStatus === 'PENDING_RELEASE_APPROVAL') return false
@@ -3604,6 +3782,10 @@ const canApplyActiveOrderRelease = (row: TeamLeaderActiveOrderRespVO) => {
 }
 
 const resolveActiveOrderReleaseApplyDisabledReason = (row: TeamLeaderActiveOrderRespVO) => {
+  if (releaseApplicationLocks.get(row.id) === 'UNCERTAIN') {
+    return '申请结果未确认，请人工核对后刷新页面'
+  }
+  if (releaseApplicationLocks.has(row.id)) return '本次申请已提交，请先刷新列表'
   if (row.abnormal) return row.abnormalReason || '异常订单不能申请放行'
   if (row.releaseApplicationStatus === 'PENDING_RELEASE_APPROVAL') return '已提交生产负责人放行'
   if (!isActiveOrderProgressComplete(row.productionProgressPercent)) return '生产进度未达到100%'
@@ -3896,6 +4078,8 @@ const resetTemporarySignaturePassword = async (row: TeamProductionEmployeeRespVO
 const resetReviewAllocation = () => {
   reviewForm.allocationMode = 'FIFO'
   allocationRows.value = []
+  allocationSnapshot.value = undefined
+  allocationSaveIdempotencyState.value = undefined
 }
 
 const loadActiveOrderTransferTraces = async () => {
@@ -4441,13 +4625,21 @@ const addAllocationLine = () => {
   reviewForm.allocationMode = 'MANUAL'
   allocationRows.value.push({
     activeOrderId: undefined,
-    allocatedQuantity: 0
+    allocatedQuantity: 0,
+    editable: true,
+    released: false
   })
 }
 
 const removeAllocationLine = (index: number) => {
+  if (allocationRows.value[index]?.editable === false) return
   reviewForm.allocationMode = 'MANUAL'
   allocationRows.value.splice(index, 1)
+}
+
+const startBlankAllocation = () => {
+  reviewForm.allocationMode = 'MANUAL'
+  allocationRows.value = allocationRows.value.filter((line) => line.editable === false)
 }
 
 const normalizeAllocationInteger = (value: unknown) => {
@@ -4466,7 +4658,10 @@ const resolveAllocationActiveOrder = (line: TeamLeaderReportAllocationDraftLine)
 }
 
 const resolveCurrentAllocationRemainingQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
-  const totalQuantity = requirePositiveInteger(reviewEvent.value?.outputQuantity, '本次报工数量必须为正整数')
+  const totalQuantity = requirePositiveInteger(
+    allocationSnapshot.value?.poolQuantity ?? reviewEvent.value?.outputQuantity,
+    '本次报工数量必须为正整数'
+  )
   const allocatedExceptCurrent = allocationRows.value.reduce((total, item) => {
     if (item === line) return total
     return total + normalizeAllocationInteger(item.allocatedQuantity)
@@ -4520,12 +4715,19 @@ const previewFifoAllocation = async () => {
       leaderType: resolveCurrentLeaderType()
     })
     reviewForm.allocationMode = 'FIFO'
+    allocationSnapshot.value = preview
     allocationRows.value = (preview.lines || []).map((line) => ({
       activeOrderId: requirePositiveNumber(line.activeOrderId, 'FIFO 分配返回活跃订单不能为空'),
       workOrderId: line.workOrderId,
       workOrderCode: line.workOrderCode,
       allocatedQuantity: line.allocatedQuantity,
-      remainingQuantityBeforeAllocation: line.remainingQuantityBeforeAllocation
+      remainingQuantityBeforeAllocation: line.remainingQuantityBeforeAllocation,
+      allocationId: line.allocationId,
+      routeProcessId: line.routeProcessId,
+      processId: line.processId,
+      allocationMode: line.allocationMode,
+      released: line.released === true,
+      editable: line.editable !== false
     }))
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, 'FIFO 自动分配失败'))
@@ -4535,14 +4737,42 @@ const previewFifoAllocation = async () => {
 }
 
 const buildAllocationSubmitLines = (): TeamLeaderReportAllocationLine[] => {
-  const lines = allocationRows.value.map((line) => ({
+  return allocationRows.value.filter((line) => line.editable !== false).map((line) => ({
     activeOrderId: requirePositiveNumber(line.activeOrderId, '活跃订单不能为空'),
     allocatedQuantity: requirePositiveInteger(line.allocatedQuantity, '分配数量必须为正整数')
   }))
-  if (lines.length === 0) {
-    throw new Error('生产组长确认报工前必须分配到活跃订单')
+}
+
+const allocationSaveRequestIdentity = (request: {
+  eventId: number
+  leaderType: TeamLeaderType
+  allocationMode: 'FIFO' | 'MANUAL'
+  expectedVersion?: number
+  reviewRemark?: string
+  allocations: TeamLeaderReportAllocationLine[]
+}) => JSON.stringify(request)
+
+const getOrCreateAllocationSaveIdempotencyKey = (request: {
+  eventId: number
+  leaderType: TeamLeaderType
+  allocationMode: 'FIFO' | 'MANUAL'
+  expectedVersion?: number
+  reviewRemark?: string
+  allocations: TeamLeaderReportAllocationLine[]
+}) => {
+  const requestIdentity = allocationSaveRequestIdentity(request)
+  if (allocationSaveIdempotencyState.value?.requestIdentity !== requestIdentity) {
+    allocationSaveIdempotencyState.value = {
+      requestIdentity,
+      key: crypto.randomUUID()
+    }
   }
-  return lines
+  return allocationSaveIdempotencyState.value.key
+}
+
+const applyAllocationSnapshot = (snapshot: TeamLeaderReportAllocationSnapshotRespVO) => {
+  allocationSnapshot.value = snapshot
+  allocationRows.value = (snapshot.lines || []).map((line) => ({ ...line }))
 }
 
 const buildReviewSignaturePayload = () => {
@@ -5244,14 +5474,14 @@ const resolveProcessInspectionAggregationTagType = (status?: string) => {
 }
 
 const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
-  if (!queryParams.submitDate) {
-    throw new Error('提交日期不能为空')
-  }
   return {
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
     leaderType: resolveCurrentLeaderType(),
-    submitDate: queryParams.submitDate,
+    submitDate:
+      typeof queryParams.submitDate === 'string'
+        ? queryParams.submitDate.trim() || undefined
+        : undefined,
     employeeUserId: normalizePositiveNumber(queryParams.employeeUserId),
     processId: normalizePositiveNumber(queryParams.processId),
     deviceId: normalizePositiveNumber(queryParams.deviceId),
@@ -5262,7 +5492,12 @@ const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
     productKeyword: queryParams.productKeyword?.trim() || undefined,
     inspectionType: queryParams.inspectionType || undefined,
     roundNo: normalizePositiveNumber(queryParams.roundNo),
-    submissionReviewStatus: (isProductionReportHistoryTab.value || isPqcFormHistoryTab.value) ? 'APPROVED' : queryParams.submissionReviewStatus || undefined
+    submissionReviewStatus: isPqcFormHistoryTab.value ? 'APPROVED' : queryParams.submissionReviewStatus || undefined,
+    allocationView: isProductionLeader.value
+      ? isProductionReportHistoryTab.value
+        ? 'HISTORY'
+        : 'WORKBENCH'
+      : undefined
   }
 }
 
@@ -5345,6 +5580,9 @@ const isSubmissionDefaultDateDiscoveryContext = () =>
   submissionMultiFilterState.appliedConditions.length === 0
 
 const loadNearestSubmissionDatePage = async (baseParams: TeamLeaderSubmissionPageReqVO) => {
+  if (!baseParams.submitDate) {
+    throw new Error('生产报工默认提交日期不能为空')
+  }
   for (let dayOffset = 1; dayOffset <= SUBMISSION_DEFAULT_DATE_DISCOVERY_LOOKBACK_DAYS; dayOffset++) {
     const candidateSubmitDate = shiftSubmissionDate(baseParams.submitDate, -dayOffset)
     const data = await getTeamLeaderSubmissionPage({
@@ -5368,6 +5606,7 @@ const applyDiscoveredSubmissionDate = (submitDate: string) => {
 }
 
 const ensureSubmissionQueryDate = () => {
+  if (resolveCurrentLeaderType() !== 'PRODUCTION') return
   const currentSubmitDate =
     typeof queryParams.submitDate === 'string' && queryParams.submitDate.trim()
       ? queryParams.submitDate.trim()
@@ -5391,7 +5630,7 @@ const clearSubmissionFilterParams = () => {
     return
   }
   if (isProductionReportHistoryTab.value) {
-    queryParams.submissionReviewStatus = 'APPROVED'
+    queryParams.submissionReviewStatus = undefined
     return
   }
   queryParams.submissionReviewStatus = undefined
@@ -5401,7 +5640,7 @@ const resetSubmissionQueryParams = (leaderType: TeamLeaderType) => {
   queryParams.pageNo = 1
   queryParams.pageSize = 10
   queryParams.leaderType = leaderType
-  queryParams.submitDate = getDefaultSubmissionDate()
+  queryParams.submitDate = getInitialSubmissionDate(leaderType)
 }
 
 const clearSubmissionVisibleFilterState = () => {
@@ -5467,7 +5706,7 @@ watch(activeProductionModuleTab, async (tab) => {
   if ((tab === 'report' || tab === 'reportHistory') && activeLeaderTab.value === 'PRODUCTION') {
     queryParams.leaderType = 'PRODUCTION'
     queryParams.pageNo = 1
-    queryParams.submissionReviewStatus = tab === 'reportHistory' ? 'APPROVED' : undefined
+    queryParams.submissionReviewStatus = undefined
     clearInitialSubmissionVisibleDefaultFilter()
     await getSubmissionList()
   }
@@ -5550,7 +5789,7 @@ const openReview = async (event: ProcessPoolTimelineEventVO) => {
 const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
   requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
   if (!canAllocateSubmission(event)) {
-    ElMessage.error('只有待复核的生产报工可以分配')
+    ElMessage.error('当前报工不在可分配列表中')
     return
   }
   reviewDialogMode.value = 'ALLOCATION'
@@ -5561,9 +5800,16 @@ const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
   reviewForm.reviewSignaturePassword = ''
   reviewVisible.value = true
   try {
-    await loadActiveOrders()
+    const [snapshot] = await Promise.all([
+      getCurrentTeamLeaderReportAllocation(
+        requirePositiveNumber(event.id, '工序池提交事件编号不能为空'),
+        resolveCurrentLeaderType()
+      ),
+      loadActiveOrders()
+    ])
+    applyAllocationSnapshot(snapshot)
   } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '活跃订单加载失败'))
+    ElMessage.error(resolveErrorMessage(error, '报工分配加载失败'))
   }
 }
 
@@ -5579,12 +5825,24 @@ const submitReview = async () => {
     const reviewRemark = reviewForm.reviewRemark.trim() || undefined
     if (isProductionLeader.value && reviewForm.reviewStatus === 'APPROVED') {
       if (reviewDialogMode.value === 'ALLOCATION') {
-        await confirmTeamLeaderReportAllocation({
+        const allocations = buildAllocationSubmitLines()
+        const snapshot = await confirmTeamLeaderReportAllocation({
           eventId,
           leaderType,
           allocationMode: reviewForm.allocationMode,
-          allocations: buildAllocationSubmitLines()
+          expectedVersion: allocationSnapshot.value?.version,
+          idempotencyKey: getOrCreateAllocationSaveIdempotencyKey({
+            eventId,
+            leaderType,
+            allocationMode: reviewForm.allocationMode,
+            expectedVersion: allocationSnapshot.value?.version,
+            reviewRemark,
+            allocations
+          }),
+          reviewRemark,
+          allocations
         })
+        applyAllocationSnapshot(snapshot)
       } else {
         const reviewSignaturePayload = buildReviewSignaturePayload()
         await confirmTeamLeaderReportAllocation({
@@ -5606,10 +5864,20 @@ const submitReview = async () => {
         ...reviewSignaturePayload
       })
     }
-    ElMessage.success('复核已提交')
+    ElMessage.success(reviewDialogMode.value === 'ALLOCATION' ? '分配已保存' : '复核已提交')
     reviewVisible.value = false
     await getSubmissionList()
   } catch (error) {
+    if (reviewDialogMode.value === 'ALLOCATION' && isReportAllocationVersionConflict(error)) {
+      try {
+        const latest = await getCurrentTeamLeaderReportAllocation(eventId, resolveCurrentLeaderType())
+        applyAllocationSnapshot(latest)
+        ElMessage.error('分配版本已更新，已加载最新分配，请确认后重新保存')
+      } catch (refreshError) {
+        ElMessage.error(resolveErrorMessage(refreshError, '分配版本冲突，最新分配加载失败'))
+      }
+      return
+    }
     ElMessage.error(resolveErrorMessage(error, '复核提交失败'))
   } finally {
     reviewSubmitting.value = false
@@ -5923,42 +6191,263 @@ const submitAddActiveOrder = async () => {
   }
 }
 
-const buildActiveOrderReleaseIdempotencyKey = (row: TeamLeaderActiveOrderRespVO) =>
-  `team-leader-active-order-release-${row.id}-${Date.now()}`
+const getOrCreateActiveOrderReleaseIdempotencyKey = (row: TeamLeaderActiveOrderRespVO) => {
+  const existingKey = releaseApplicationIdempotencyKeys.get(row.id)
+  if (existingKey) return existingKey
+  const idempotencyKey = `team-leader-active-order-release-${row.id}-${Date.now()}`
+  releaseApplicationIdempotencyKeys.set(row.id, idempotencyKey)
+  return idempotencyKey
+}
+
+const snapshotActiveOrderReleaseReceipt = (
+  row: TeamLeaderActiveOrderRespVO
+): ActiveOrderReleaseReceiptSnapshot => ({
+  status: row.releaseApplicationStatus,
+  blockerSummary: row.releaseApplicationBlockerSummary,
+  releaseApprovalWorkTaskId: row.releaseApprovalWorkTaskId
+})
+
+const syncActiveOrderReceiptRows = (rows: TeamLeaderActiveOrderRespVO[]) => {
+  activeOrderOptions.value = rows
+  const maxPage = Math.max(1, Math.ceil(rows.length / activeOrderQuery.pageSize))
+  if (activeOrderQuery.pageNo > maxPage) {
+    activeOrderQuery.pageNo = maxPage
+  }
+}
+
+const confirmActiveOrderReleaseApplicationReceipt = async (
+  row: TeamLeaderActiveOrderRespVO,
+  previousReceipt: ActiveOrderReleaseReceiptSnapshot
+): Promise<ActiveOrderReleaseReceiptConfirmation> => {
+  const rows = await getTeamLeaderActiveOrderList({ ignoreErrorMessage: true })
+  syncActiveOrderReceiptRows(rows)
+  const receipt = rows.find((candidate) => candidate.id === row.id)
+  if (!receipt) {
+    throw new Error(`正式活跃订单回执中缺少记录 ${row.id}`)
+  }
+  if (receipt.releaseApplicationStatus === 'PENDING_RELEASE_APPROVAL') {
+    return { outcome: 'SUBMITTED', receipt }
+  }
+  if (receipt.releaseApplicationStatus === 'BLOCKED') {
+    const receiptChanged =
+      previousReceipt.status !== 'BLOCKED' ||
+      previousReceipt.blockerSummary !== receipt.releaseApplicationBlockerSummary ||
+      previousReceipt.releaseApprovalWorkTaskId !== receipt.releaseApprovalWorkTaskId
+    return { outcome: receiptChanged ? 'SUBMITTED' : 'UNCERTAIN', receipt }
+  }
+  if (!receipt.releaseApplicationStatus && !previousReceipt.status) {
+    return { outcome: 'NOT_SUBMITTED', receipt }
+  }
+  return { outcome: 'UNCERTAIN', receipt }
+}
+
+const recoverUncertainActiveOrderReleaseApplication = async (
+  row: TeamLeaderActiveOrderRespVO,
+  previousReceipt: ActiveOrderReleaseReceiptSnapshot,
+  writeError: unknown
+) => {
+  let confirmation: ActiveOrderReleaseReceiptConfirmation
+  try {
+    confirmation = await confirmActiveOrderReleaseApplicationReceipt(row, previousReceipt)
+  } catch (confirmationError) {
+    releaseApplicationLocks.set(row.id, 'UNCERTAIN')
+    releaseApplicationUncertainMessage.value =
+      `申请响应不确定，正式回执确认失败，请人工核对后刷新页面：` +
+      `写入错误 ${resolveErrorMessage(writeError, '申请响应异常')}；` +
+      `回执错误 ${resolveErrorMessage(confirmationError, '正式回执确认失败')}`
+    ElMessage.error(releaseApplicationUncertainMessage.value)
+    return
+  }
+
+  if (confirmation.outcome === 'SUBMITTED') {
+    releaseApplicationIdempotencyKeys.delete(row.id)
+    releaseApplicationLocks.set(row.id, 'RECOVERED')
+    releaseApplicationUncertainMessage.value = ''
+    ElMessage.warning(
+      `申请响应异常，但正式回执已确认：${formatActiveOrderReleaseStatus(confirmation.receipt.releaseApplicationStatus)}`
+    )
+    return
+  }
+  if (confirmation.outcome === 'NOT_SUBMITTED') {
+    releaseApplicationLocks.delete(row.id)
+    releaseApplicationUncertainMessage.value = ''
+    ElMessage.error(`申请放行失败：${resolveErrorMessage(writeError, '申请请求失败')}`)
+    return
+  }
+
+  releaseApplicationLocks.set(row.id, 'UNCERTAIN')
+  releaseApplicationUncertainMessage.value =
+    `申请响应不确定，正式回执未出现可证明本次提交的变化，请人工核对后刷新页面：` +
+    resolveErrorMessage(writeError, '申请响应异常')
+  ElMessage.error(releaseApplicationUncertainMessage.value)
+}
+
+const assertActiveOrderReleaseApplicationReceipt = (
+  result: TeamLeaderActiveOrderReleaseApplyRespVO,
+  activeOrderId: number
+) => {
+  if (result.activeOrderId !== activeOrderId) {
+    throw new Error('放行申请回执的活跃订单与当前订单不一致')
+  }
+  requirePositiveNumber(result.applicationId, '放行申请回执缺少申请记录ID')
+  requirePositiveNumber(result.workOrderId, '放行申请回执缺少生产工单ID')
+  if (!result.statusName?.trim()) {
+    throw new Error('放行申请回执缺少状态名称')
+  }
+  if (!result.dossierSummary || !result.dossierSummary.sourceSnapshotHash?.trim()) {
+    throw new Error('放行申请回执缺少正式来源快照哈希')
+  }
+  if (!Array.isArray(result.blockers)) {
+    throw new Error('放行申请回执缺少阻塞项数组')
+  }
+  for (const blocker of result.blockers) {
+    if (
+      !blocker.blockerType?.trim() ||
+      !blocker.objectType?.trim() ||
+      !blocker.objectId?.trim() ||
+      !blocker.objectCode?.trim() ||
+      !blocker.reason?.trim() ||
+      !blocker.suggestion?.trim()
+    ) {
+      throw new Error('放行申请回执包含不完整的正式阻塞项')
+    }
+  }
+  if (result.status === 'BLOCKED') {
+    if (result.blockers.length === 0) {
+      throw new Error('资料生成阻塞回执缺少正式阻塞项')
+    }
+    if (
+      result.batchExecutionId !== null ||
+      result.releaseTransactionId !== null ||
+      result.releaseApprovalWorkTaskId !== null
+    ) {
+      throw new Error('资料生成阻塞回执不应包含批次、放行事务或负责人待办ID')
+    }
+    return
+  }
+  if (result.status !== 'PENDING_RELEASE_APPROVAL') {
+    throw new Error(`不支持的放行申请状态：${String(result.status)}`)
+  }
+  requirePositiveNumber(result.batchExecutionId, '放行申请回执缺少 eDHR 批次ID')
+  requirePositiveNumber(result.releaseTransactionId, '放行申请回执缺少放行事务ID')
+  requirePositiveNumber(result.releaseApprovalWorkTaskId, '放行申请回执缺少生产负责人待办ID')
+  if (result.blockers.length > 0) {
+    throw new Error('待生产负责人放行的正式回执不应包含阻塞项')
+  }
+  if (
+    result.dossierSummary.batchRecordCount <= 0 ||
+    result.dossierSummary.processInspectionFormCount <= 0 ||
+    result.dossierSummary.lossReportFormCount <= 0 ||
+    result.dossierSummary.signatureEvidenceCount <= 0
+  ) {
+    throw new Error('待生产负责人放行的正式回执资料或签名证据不完整')
+  }
+}
 
 const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRespVO) => {
   if (!canApplyActiveOrderRelease(row)) {
     ElMessage.warning(resolveActiveOrderReleaseApplyDisabledReason(row))
     return
   }
-  await ElMessageBox.confirm(
-    '系统将根据当前已填写并已确认的数据，申请生成放行资料并提交生产负责人审批；不会直接放行。',
-    '申请生成放行资料',
-    { type: 'warning', confirmButtonText: '申请放行', cancelButtonText: '取消' }
-  )
+  try {
+    await ElMessageBox.confirm(
+      '系统将根据当前已填写并已确认的数据，申请生成放行资料并提交生产负责人审批；不会直接放行。',
+      '申请生成放行资料',
+      { type: 'warning', confirmButtonText: '申请放行', cancelButtonText: '取消' }
+    )
+  } catch (confirmationAction) {
+    if (confirmationAction === 'cancel' || confirmationAction === 'close') return
+    ElMessage.error(resolveErrorMessage(confirmationAction, '申请确认弹窗打开失败'))
+    return
+  }
+  const activeOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+  const previousReceipt = snapshotActiveOrderReleaseReceipt(row)
+  const idempotencyKey = getOrCreateActiveOrderReleaseIdempotencyKey(row)
   releaseApplicationSubmittingId.value = row.id
   releaseApplicationBlockers.value = []
-  let writeCompleted = false
+  releaseApplicationUncertainMessage.value = ''
+  let result: TeamLeaderActiveOrderReleaseApplyRespVO
   try {
-    const result = await applyTeamLeaderActiveOrderRelease({
-      activeOrderId: requirePositiveNumber(row.id, '活跃订单记录ID不能为空'),
-      idempotencyKey: buildActiveOrderReleaseIdempotencyKey(row),
+    result = await applyTeamLeaderActiveOrderRelease({
+      activeOrderId,
+      idempotencyKey,
       applyRemark: '生产组长申请生成放行资料'
     })
-    writeCompleted = true
-    releaseApplicationBlockers.value = result.blockers || []
-    if (releaseApplicationBlockers.value.length > 0) {
-      ElMessage.warning('申请已记录，但正式资料生成存在阻塞项')
-    } else {
-      ElMessage.success(result.statusName || '已提交生产负责人放行')
-    }
+  } catch (writeError) {
+    await recoverUncertainActiveOrderReleaseApplication(row, previousReceipt, writeError)
+    releaseApplicationSubmittingId.value = undefined
+    return
+  }
+
+  try {
+    assertActiveOrderReleaseApplicationReceipt(result, row.id)
+  } catch (receiptError) {
+    releaseApplicationLocks.set(row.id, 'UNCERTAIN')
+    releaseApplicationUncertainMessage.value =
+      `申请接口已返回，但正式回执不完整，请人工核对后刷新页面：` +
+      resolveErrorMessage(receiptError, '放行申请回执校验失败')
+    ElMessage.error(releaseApplicationUncertainMessage.value)
+    releaseApplicationSubmittingId.value = undefined
+    return
+  }
+
+  releaseApplicationIdempotencyKeys.delete(row.id)
+  releaseApplicationLocks.set(row.id, 'CONFIRMED')
+  releaseApplicationBlockers.value = result.blockers
+  if (result.status === 'BLOCKED') {
+    ElMessage.warning(result.statusName)
+  } else {
+    ElMessage.success(result.statusName)
+  }
+  try {
     await loadActiveOrders()
-  } catch (error) {
-    ElMessage.error(
-      resolveErrorMessage(error, writeCompleted ? '申请已提交，但列表刷新失败' : '申请放行失败')
-    )
+    const refreshedReceipt = activeOrderOptions.value.find((candidate) => candidate.id === row.id)
+    if (refreshedReceipt?.releaseApplicationStatus === result.status) {
+      releaseApplicationLocks.delete(row.id)
+    } else {
+      releaseApplicationLocks.set(row.id, 'CONFIRMED_NOT_PROJECTED')
+      releaseApplicationUncertainMessage.value = '申请已提交，但列表状态尚未同步，请刷新页面'
+      ElMessage.warning(releaseApplicationUncertainMessage.value)
+    }
+  } catch (refreshError) {
+    releaseApplicationLocks.set(row.id, 'CONFIRMED_REFRESH_FAILED')
+    releaseApplicationUncertainMessage.value =
+      `申请已提交，但列表刷新失败：${resolveErrorMessage(refreshError, '列表刷新失败')}`
+    ElMessage.error(releaseApplicationUncertainMessage.value)
   } finally {
     releaseApplicationSubmittingId.value = undefined
+  }
+}
+
+const submitMoveActiveOrder = async (
+  row: TeamLeaderActiveOrderRespVO,
+  direction: 'UP' | 'DOWN'
+) => {
+  activeOrderMoveSubmittingId.value = row.id
+  activeOrderMoveDirection.value = direction
+  let writeCompleted = false
+  try {
+    await moveTeamLeaderActiveOrder({
+      activeOrderId: requirePositiveNumber(row.id, '活跃订单记录ID不能为空'),
+      direction
+    })
+    writeCompleted = true
+    await loadActiveOrders()
+    ElMessage.success(direction === 'UP' ? '活跃订单已上移' : '活跃订单已下移')
+  } catch (error) {
+    ElMessage.error(
+      resolveErrorMessage(
+        error,
+        writeCompleted
+          ? '活跃订单排序已保存，但列表刷新失败'
+          : direction === 'UP'
+            ? '活跃订单上移失败'
+            : '活跃订单下移失败'
+      )
+    )
+  } finally {
+    activeOrderMoveSubmittingId.value = undefined
+    activeOrderMoveDirection.value = undefined
   }
 }
 
@@ -6072,9 +6561,7 @@ onMounted(() => {
       activeProductionModuleTab.value === 'reportHistory'
     ) {
       queryParams.leaderType = 'PRODUCTION'
-      if (activeProductionModuleTab.value === 'reportHistory') {
-        queryParams.submissionReviewStatus = 'APPROVED'
-      }
+      queryParams.submissionReviewStatus = undefined
       clearInitialSubmissionVisibleDefaultFilter()
       ensureSubmissionQueryDate()
       getSubmissionList()
@@ -6956,21 +7443,30 @@ onMounted(() => {
 }
 .team-leader-workbench__parameter-list {
   display: grid;
+  min-width: 0;
   gap: 6px;
   font-size: 12px;
   line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .team-leader-workbench__parameter-item {
   display: grid;
-  grid-template-columns: minmax(72px, 0.72fr) minmax(58px, auto) minmax(0, 1fr);
-  gap: 6px;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto minmax(72px, auto);
+  gap: 6px 8px;
+  align-items: start;
+}
+
+.team-leader-workbench__parameter-item > * {
+  min-width: 0;
 }
 
 .team-leader-workbench__parameter-label {
   color: #0f172a;
   font-weight: 600;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .team-leader-workbench__parameter-value {

@@ -1,7 +1,11 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
@@ -86,6 +90,10 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     private MesWorkOrderAbnormalStateService abnormalStateService;
     @Mock
     private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
+    @Mock
+    private DccProjectCodeMapper dccProjectCodeMapper;
+    @Mock
+    private MesReportAllocationOrderChangeService reportAllocationOrderChangeService;
 
     private MesTeamLeaderActiveOrderService service;
 
@@ -95,11 +103,19 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
                 routeVersionMapper, processSnapshotMapper, completionMapper, inspectionRegulationMapper,
                 inspectionRegulationVersionMapper, inspectionRegulationItemMapper, pqcInspectionTaskMapper,
-                abnormalStateService, releaseApplicationMapper);
+                abnormalStateService, releaseApplicationMapper, dccProjectCodeMapper,
+                reportAllocationOrderChangeService);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
         lenient().when(scheduleOrderMapper.selectEffectiveListByWorkOrderIds(List.of(9001L))).thenReturn(List.of());
         lenient().when(routeProductMapper.selectListByItemIds(List.of(1001L))).thenReturn(List.of(
                 MesProRouteProductDO.builder().id(7001L).itemId(1001L).routeId(922119L).build()));
+        lenient().when(routeProductMapper.selectListByRouteIds(List.of(922119L))).thenReturn(List.of(
+                MesProRouteProductDO.builder().id(7001L).itemId(1001L).routeId(922119L).build(),
+                MesProRouteProductDO.builder().id(7002L).itemId(924005L).routeId(922119L).build()));
+        lenient().when(routeMapper.selectBatchIds(List.of(922119L))).thenReturn(List.of(MesProRouteDO.builder()
+                .id(922119L)
+                .code("ROUTE-922119")
+                .build()));
         lenient().when(routeVersionMapper.selectListByRouteIds(List.of(922119L))).thenReturn(List.of(
                 MesProRouteVersionDO.builder()
                         .id(448L)
@@ -108,9 +124,21 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                         .lifecycleStatus("ACTIVE")
                         .routeSnapshotJson(activeRouteSnapshotJson())
                         .build()));
+        lenient().when(itemMapper.selectBatchIds(any())).thenReturn(List.of(MesMdItemDO.builder()
+                .id(924005L)
+                .code("ID")
+                .name("球囊扩张压力泵")
+                .build()));
+        lenient().when(dccProjectCodeMapper.selectEnabledList()).thenReturn(List.of(DccProjectCodeDO.builder()
+                .id(147L)
+                .productMasterId(11L)
+                .projectCode("ID")
+                .projectName("球囊扩张压力泵")
+                .status("ENABLE")
+                .build()));
         lenient().when(inspectionRegulationMapper.selectPublishedByRouteProcess(any(), any(), any(), any(), any()))
                 .thenReturn(publishedRegulation());
-        lenient().when(inspectionRegulationMapper.selectListByProductIds(List.of(1001L)))
+        lenient().when(inspectionRegulationMapper.selectListByProductIds(any()))
                 .thenReturn(List.of(publishedRegulation()));
         lenient().when(inspectionRegulationVersionMapper.selectBatchIds(List.of(9902L)))
                 .thenReturn(List.of(publishedRegulationVersion()));
@@ -126,13 +154,8 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
 
     @Test
     void shouldKeepUnscheduledCandidateEligibleWhenErpPlannedStartMissing() {
-        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of(), 20))
+        when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
                 .thenReturn(List.of(confirmedWorkOrderWithoutPlannedStart()));
-        when(inspectionRegulationMapper.selectListByProductIds(List.of(1001L)))
-                .thenReturn(List.of(publishedRegulation()));
-        when(inspectionRegulationVersionMapper.selectBatchIds(List.of(9902L)))
-                .thenReturn(List.of(publishedRegulationVersion()));
-        when(inspectionRegulationItemMapper.selectListByVersionIds(List.of(9902L))).thenReturn(pqcItems());
 
         List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
 

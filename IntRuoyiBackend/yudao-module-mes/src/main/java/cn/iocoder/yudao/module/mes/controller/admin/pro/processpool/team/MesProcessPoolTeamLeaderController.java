@@ -20,6 +20,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelStatusUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCandidateRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderMoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderReleaseApplyReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderReleaseApplyRespVO;
@@ -37,9 +38,11 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderBatchRecordTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderOrderProcessTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderReportAllocationConfirmReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderReportAllocationAuditRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderReportAllocationLineReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderReportAllocationPreviewReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderReportAllocationPreviewRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderReportAllocationSnapshotRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderSubmissionPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderSubmissionReviewReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamProcessDefectReasonSaveReqVO;
@@ -67,6 +70,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamFormalEmp
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamFormalUserCandidateBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCandidateBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderMoveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRemoveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationService;
@@ -90,6 +94,12 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderRep
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportAllocationPreviewReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportConfirmationReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportConfirmationService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationCommandService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationSaveCommand;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationSaveLine;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationSnapshot;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationSnapshotLine;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationAdjustmentAuditDO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderRuntimeConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderSubmissionReviewReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderSubmissionReviewService;
@@ -130,7 +140,7 @@ public class MesProcessPoolTeamLeaderController {
     private final MesDefectReasonCatalogService defectReasonCatalogService;
     private final MesTeamLeaderProcessConfigService processConfigService;
     private final MesTeamLeaderActiveOrderService activeOrderService;
-    private final MesTeamLeaderReportConfirmationService reportConfirmationService;
+    private final MesReportAllocationCommandService reportAllocationService;
     private final MesTeamLeaderRuntimeConfigService runtimeConfigService;
     private final MesPqcLeaderPersonnelService pqcPersonnelService;
     private final MesTeamLeaderLossReasonService lossReasonService;
@@ -144,7 +154,7 @@ public class MesProcessPoolTeamLeaderController {
                                               MesDefectReasonCatalogService defectReasonCatalogService,
                                               MesTeamLeaderProcessConfigService processConfigService,
                                               MesTeamLeaderActiveOrderService activeOrderService,
-                                              MesTeamLeaderReportConfirmationService reportConfirmationService,
+                                              MesReportAllocationCommandService reportAllocationService,
                                               MesTeamLeaderRuntimeConfigService runtimeConfigService,
                                               MesPqcLeaderPersonnelService pqcPersonnelService,
                                               MesTeamLeaderLossReasonService lossReasonService,
@@ -157,7 +167,7 @@ public class MesProcessPoolTeamLeaderController {
         this.defectReasonCatalogService = defectReasonCatalogService;
         this.processConfigService = processConfigService;
         this.activeOrderService = activeOrderService;
-        this.reportConfirmationService = reportConfirmationService;
+        this.reportAllocationService = reportAllocationService;
         this.runtimeConfigService = runtimeConfigService;
         this.pqcPersonnelService = pqcPersonnelService;
         this.lossReasonService = lossReasonService;
@@ -298,6 +308,18 @@ public class MesProcessPoolTeamLeaderController {
         return success(Boolean.TRUE);
     }
 
+    @PutMapping("/active-order/move")
+    @Operation(summary = "上移或下移生产组长活跃订单")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Boolean> moveActiveOrder(@Valid @RequestBody MesTeamLeaderActiveOrderMoveReqVO reqVO) {
+        activeOrderService.moveActiveOrder(MesTeamLeaderActiveOrderMoveReqBO.builder()
+                .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                .activeOrderId(reqVO.getActiveOrderId())
+                .direction(reqVO.getDirection())
+                .build());
+        return success(Boolean.TRUE);
+    }
+
     @GetMapping("/active-order/list")
     @Operation(summary = "查询生产组长活跃订单")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
@@ -346,31 +368,44 @@ public class MesProcessPoolTeamLeaderController {
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:review')")
     public CommonResult<MesTeamLeaderReportAllocationPreviewRespVO> previewReportFifoAllocation(
             @Valid @RequestBody MesTeamLeaderReportAllocationPreviewReqVO reqVO) {
-        MesTeamLeaderReportAllocationPreview preview = reportConfirmationService.previewFifoAllocation(
-                MesTeamLeaderReportAllocationPreviewReqBO.builder()
-                        .eventId(reqVO.getEventId())
-                        .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
-                        .leaderType(reqVO.getLeaderType())
-                        .build());
+        MesReportAllocationSnapshot preview = reportAllocationService.previewFifo(reqVO.getEventId(),
+                SecurityFrameworkUtils.getLoginUserId(), reqVO.getLeaderType());
         return success(toReportAllocationPreviewRespVO(preview));
+    }
+
+    @GetMapping("/submission/allocation/current")
+    @Operation(summary = "查询报工共享分配池当前快照")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<MesTeamLeaderReportAllocationSnapshotRespVO> getCurrentReportAllocation(
+            @RequestParam("eventId") Long eventId, @RequestParam("leaderType") String leaderType) {
+        return success(toReportAllocationSnapshotRespVO(reportAllocationService.getCurrent(eventId,
+                SecurityFrameworkUtils.getLoginUserId(), leaderType)));
+    }
+
+    @GetMapping("/submission/allocation/audit")
+    @Operation(summary = "查询报工分配调整审计")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<List<MesTeamLeaderReportAllocationAuditRespVO>> getReportAllocationAudit(
+            @RequestParam("eventId") Long eventId, @RequestParam("leaderType") String leaderType) {
+        return success(reportAllocationService.listAudit(eventId, SecurityFrameworkUtils.getLoginUserId(), leaderType)
+                .stream().map(MesProcessPoolTeamLeaderController::toReportAllocationAuditRespVO).toList());
     }
 
     @PostMapping("/submission/allocation/confirm")
     @Operation(summary = "确认班组长报工并保存活跃订单分配")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:review')")
-    public CommonResult<Long> confirmReportAllocation(
+    public CommonResult<MesTeamLeaderReportAllocationSnapshotRespVO> confirmReportAllocation(
             @Valid @RequestBody MesTeamLeaderReportAllocationConfirmReqVO reqVO) {
-        return success(reportConfirmationService.confirmSubmission(MesTeamLeaderReportConfirmationReqBO.builder()
-                .eventId(reqVO.getEventId())
-                .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
-                .leaderType(reqVO.getLeaderType())
-                .allocationMode(reqVO.getAllocationMode())
-                .reviewRemark(reqVO.getReviewRemark())
-                .signaturePassword(reqVO.getSignaturePassword())
-                .allocations(reqVO.getAllocations().stream()
-                        .map(MesProcessPoolTeamLeaderController::toReportAllocationLineReqBO)
-                        .toList())
-                .build()));
+        return success(toReportAllocationSnapshotRespVO(reportAllocationService.save(
+                MesReportAllocationSaveCommand.builder().eventId(reqVO.getEventId())
+                        .leaderUserId(SecurityFrameworkUtils.getLoginUserId()).leaderType(reqVO.getLeaderType())
+                        .expectedVersion(reqVO.getExpectedVersion()).idempotencyKey(reqVO.getIdempotencyKey())
+                        .allocationMode(reqVO.getAllocationMode()).reason(reqVO.getReviewRemark())
+                        .signaturePassword(reqVO.getSignaturePassword())
+                        .allocations(reqVO.getAllocations().stream().map(line -> MesReportAllocationSaveLine.builder()
+                                .activeOrderId(line.getActiveOrderId())
+                                .allocatedQuantity(line.getAllocatedQuantity()).build()).toList())
+                        .build())));
     }
 
     @PostMapping("/employee-profile/create")
@@ -856,6 +891,10 @@ public class MesProcessPoolTeamLeaderController {
                 .setObjectType(blocker.getObjectType())
                 .setObjectId(blocker.getObjectId())
                 .setObjectCode(blocker.getObjectCode())
+                .setRouteProcessId(blocker.getRouteProcessId())
+                .setProcessId(blocker.getProcessId())
+                .setFieldCode(blocker.getFieldCode())
+                .setCellKey(blocker.getCellKey())
                 .setReason(blocker.getReason())
                 .setSuggestion(blocker.getSuggestion());
     }
@@ -904,21 +943,57 @@ public class MesProcessPoolTeamLeaderController {
     }
 
     private static MesTeamLeaderReportAllocationPreviewRespVO toReportAllocationPreviewRespVO(
-            MesTeamLeaderReportAllocationPreview preview) {
+            MesReportAllocationSnapshot preview) {
         return new MesTeamLeaderReportAllocationPreviewRespVO()
+                .setPoolQuantity(preview.getPoolQuantity())
                 .setTotalAllocatedQuantity(preview.getTotalAllocatedQuantity())
+                .setUnallocatedQuantity(preview.getUnallocatedQuantity())
                 .setLines(preview.getLines().stream()
                         .map(MesProcessPoolTeamLeaderController::toReportAllocationPreviewLineRespVO)
                         .toList());
     }
 
     private static MesTeamLeaderReportAllocationPreviewRespVO.Line toReportAllocationPreviewLineRespVO(
-            MesTeamLeaderReportAllocationPreviewLine line) {
+            MesReportAllocationSnapshotLine line) {
         return new MesTeamLeaderReportAllocationPreviewRespVO.Line()
                 .setActiveOrderId(line.getActiveOrderId())
                 .setWorkOrderId(line.getWorkOrderId())
                 .setWorkOrderCode(line.getWorkOrderCode())
+                .setRouteProcessId(line.getRouteProcessId())
+                .setProcessId(line.getProcessId())
                 .setAllocatedQuantity(line.getAllocatedQuantity())
-                .setRemainingQuantityBeforeAllocation(line.getRemainingQuantityBeforeAllocation());
+                .setReleased(line.getReleased())
+                .setEditable(line.getEditable());
+    }
+
+    private static MesTeamLeaderReportAllocationSnapshotRespVO toReportAllocationSnapshotRespVO(
+            MesReportAllocationSnapshot snapshot) {
+        return new MesTeamLeaderReportAllocationSnapshotRespVO().setEventId(snapshot.getEventId())
+                .setVersion(snapshot.getVersion()).setPoolQuantity(snapshot.getPoolQuantity())
+                .setReleasedAllocatedQuantity(snapshot.getReleasedAllocatedQuantity())
+                .setEditableAllocatedQuantity(snapshot.getEditableAllocatedQuantity())
+                .setTotalAllocatedQuantity(snapshot.getTotalAllocatedQuantity())
+                .setUnallocatedQuantity(snapshot.getUnallocatedQuantity())
+                .setLines(snapshot.getLines().stream().map(line ->
+                        new MesTeamLeaderReportAllocationSnapshotRespVO.Line()
+                                .setAllocationId(line.getAllocationId()).setActiveOrderId(line.getActiveOrderId())
+                                .setWorkOrderId(line.getWorkOrderId()).setWorkOrderCode(line.getWorkOrderCode())
+                                .setRouteProcessId(line.getRouteProcessId()).setProcessId(line.getProcessId())
+                                .setAllocatedQuantity(line.getAllocatedQuantity())
+                                .setAllocationMode(line.getAllocationMode()).setReleased(line.getReleased())
+                                .setEditable(line.getEditable())).toList());
+    }
+
+    private static MesTeamLeaderReportAllocationAuditRespVO toReportAllocationAuditRespVO(
+            MesProcessPoolReportAllocationAdjustmentAuditDO audit) {
+        return new MesTeamLeaderReportAllocationAuditRespVO().setId(audit.getId()).setEventId(audit.getEventId())
+                .setAllocationVersion(audit.getAllocationVersion())
+                .setSourceAllocationId(audit.getSourceAllocationId()).setActiveOrderId(audit.getActiveOrderId())
+                .setWorkOrderId(audit.getWorkOrderId()).setRouteProcessId(audit.getRouteProcessId())
+                .setProcessId(audit.getProcessId()).setBeforeQuantity(audit.getBeforeQuantity())
+                .setAfterQuantity(audit.getAfterQuantity()).setDeltaQuantity(audit.getDeltaQuantity())
+                .setActorUserId(audit.getActorUserId()).setAdjustmentReason(audit.getAdjustmentReason())
+                .setAllocationMode(audit.getAllocationMode()).setChangeSource(audit.getChangeSource())
+                .setOccurredAt(audit.getOccurredAt());
     }
 }

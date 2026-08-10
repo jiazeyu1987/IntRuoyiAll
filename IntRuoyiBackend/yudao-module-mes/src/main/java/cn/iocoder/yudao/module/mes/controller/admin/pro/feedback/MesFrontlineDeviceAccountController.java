@@ -293,6 +293,8 @@ public class MesFrontlineDeviceAccountController {
         respVO.setStandardText(item.standardText());
         respVO.setAcceptanceStandard(item.standardText());
         respVO.setProcessInspectionMethod(item.inspectionMethod());
+        respVO.setInspectionTool(item.inspectionTool());
+        respVO.setSamplingPlanText(item.samplingPlanText());
         respVO.setStandardLowerLimit(item.standardLowerLimit());
         respVO.setStandardUpperLimit(item.standardUpperLimit());
         respVO.setStandardUnit(item.standardUnit());

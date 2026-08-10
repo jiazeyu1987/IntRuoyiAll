@@ -81,6 +81,7 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
     private final MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
     private final MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService;
     private final MesWorkOrderAbnormalStateService abnormalStateService;
+    private final MesReportAllocationQualityGateService qualityGateService;
 
     @Resource
     private MesProBatchRecordExecutionSignatureService signatureService;
@@ -115,6 +116,9 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
         this.orderProcessTargetService = orderProcessTargetService;
         this.orderProcessCompletionService = orderProcessCompletionService;
         this.abnormalStateService = abnormalStateService;
+        this.qualityGateService = new MesReportAllocationQualityGateService(
+                new MesReportAllocationPoolQuantityService(), eventMapper, pqcRecordMapper,
+                pqcTaskMapper, pqcPieceDetailMapper);
     }
 
     @Override
@@ -131,7 +135,7 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
                 .eventId(event.getId())
                 .routeProcessId(event.getRouteProcessId())
                 .processId(event.getProcessId())
-                .confirmQuantity(extractSubmittedQuantity(event))
+                .confirmQuantity(qualityGateService.requireAllocatablePoolQuantity(event))
                 .build());
     }
 
@@ -151,8 +155,7 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
         if (!allocationMapper.selectListByEventIdForUpdate(event.getId()).isEmpty()) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_DUPLICATE, event.getId());
         }
-        BigDecimal submittedQuantity = extractSubmittedQuantity(event);
-        validatePqcQualityGate(event, submittedQuantity);
+        BigDecimal submittedQuantity = qualityGateService.requireAllocatablePoolQuantity(event);
         List<MesTeamLeaderReportAllocationLineReqBO> allocationRequests = resolveAllocationRequests(reqBO, event,
                 submittedQuantity);
         List<PreparedAllocationLine> preparedLines = validateAndPrepareLines(reqBO, event, allocationRequests,

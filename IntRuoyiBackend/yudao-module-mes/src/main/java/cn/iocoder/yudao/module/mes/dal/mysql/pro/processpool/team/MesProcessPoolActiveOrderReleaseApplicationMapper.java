@@ -46,4 +46,27 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
                 .in(MesProcessPoolActiveOrderReleaseApplicationDO::getActiveOrderId, activeOrderIds)
                 .orderByDesc(MesProcessPoolActiveOrderReleaseApplicationDO::getId));
     }
+
+    default List<MesProcessPoolActiveOrderReleaseApplicationDO> selectListByActiveOrderIds(
+            Collection<Long> activeOrderIds) {
+        if (activeOrderIds == null || activeOrderIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                .in(MesProcessPoolActiveOrderReleaseApplicationDO::getActiveOrderId, activeOrderIds)
+                .orderByAsc(MesProcessPoolActiveOrderReleaseApplicationDO::getActiveOrderId)
+                .orderByAsc(MesProcessPoolActiveOrderReleaseApplicationDO::getId));
+    }
+
+    default List<MesProcessPoolActiveOrderReleaseApplicationDO> selectListByActiveOrderIdsForUpdate(
+            Collection<Long> activeOrderIds) {
+        if (activeOrderIds == null || activeOrderIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                .in(MesProcessPoolActiveOrderReleaseApplicationDO::getActiveOrderId, activeOrderIds)
+                .orderByAsc(MesProcessPoolActiveOrderReleaseApplicationDO::getActiveOrderId)
+                .orderByAsc(MesProcessPoolActiveOrderReleaseApplicationDO::getId)
+                .last("FOR UPDATE"));
+    }
 }

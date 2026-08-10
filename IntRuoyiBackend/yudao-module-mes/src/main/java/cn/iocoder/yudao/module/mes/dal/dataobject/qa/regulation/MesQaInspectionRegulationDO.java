@@ -23,6 +23,8 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class MesQaInspectionRegulationDO extends TenantBaseDO {
 
+    public static final String OWNER_MODULE_MES_QA = "MES_QA";
+
     @TableId
     private Long id;
 

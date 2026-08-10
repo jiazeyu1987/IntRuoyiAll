@@ -55,8 +55,8 @@ assert.match(
 )
 assert.match(
   qaSource,
-  /const cloneQaRegulationItems = \(items: QaRegulationItem\[\]\) =>[\s\S]*applicableTypes:\s*\[\.\.\.item\.applicableTypes\]/,
-  'Product snapshots must deep-clone nested inspection-type selections.'
+  /const cloneQaRegulationItems = \(items: QaRegulationItem\[\]\) =>[\s\S]*equipmentOptions:\s*item\.equipmentOptions\?\.map\(\(option\) => \(\{ \.\.\.option \}\)\)/,
+  'Product snapshots must deep-clone nested equipment options after inspection types become derived.'
 )
 assert.match(
   qaSource,

@@ -114,6 +114,86 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
     }
 
     @Test
+    void shouldBackfillTargetOrderProcessWhenSourceEventRouteProcessDiffers() {
+        MesProcessPoolReportAllocationDO targetAllocation = allocation().setRouteProcessId(5101L);
+        MesTeamLeaderBatchRecordBackfillCommand targetCommand = command()
+                .setAllocation(targetAllocation)
+                .setAllocations(List.of(targetAllocation));
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5101L), "BATCH"))
+                .thenReturn(List.of(binding().setRouteProcessId(5101L)));
+        when(executionService.openOrCreateByContext(any(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class)))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8801L));
+        when(executionMapper.selectById(8801L)).thenReturn(execution().setRouteProcessId(5101L));
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(rule(1L, "allocatedQuantity", 5, 2,
+                        MesProBatchRecordExecutionFieldAuditValueType.NUMBER)));
+        when(fieldAuditService.saveSystemCellLinkChanges(any(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class)))
+                .thenReturn(new MesProBatchRecordExecutionFieldAuditSaveResult().setChangedFieldCount(1));
+
+        service.backfillCompletedProcess(targetCommand);
+
+        ArgumentCaptor<MesProBatchRecordExecutionOpenOrCreateByContextReqVO> openCaptor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class);
+        verify(executionService).openOrCreateByContext(openCaptor.capture());
+        assertEquals(5101L, openCaptor.getValue().getRouteProcessId());
+        assertEquals(6001L, openCaptor.getValue().getProcessId());
+        ArgumentCaptor<MesProBatchRecordExecutionFieldAuditSaveChangesCommand> auditCaptor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
+        verify(fieldAuditService).saveSystemCellLinkChanges(auditCaptor.capture());
+        assertEquals("PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5101:6001:agg-single-1001-7101",
+                auditCaptor.getValue().getIdempotencyKey());
+    }
+
+    @Test
+    void shouldOpenAndValidateExecutionInCurrentEdhrBatchTaskContext() {
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
+                .thenReturn(List.of(binding()));
+        when(executionService.openOrCreateByContext(any(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class)))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8801L));
+        when(executionMapper.selectById(8801L)).thenReturn(currentBatchExecution());
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(rule(1L, "outputQuantity", 5, 2,
+                        MesProBatchRecordExecutionFieldAuditValueType.NUMBER)));
+        when(fieldAuditService.saveSystemCellLinkChanges(any(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class)))
+                .thenReturn(new MesProBatchRecordExecutionFieldAuditSaveResult()
+                        .setAuditBatchId(99001L)
+                        .setCellValuesHash("after-hash")
+                        .setFieldAuditHeadHash("after-head")
+                        .setChangedFieldCount(1));
+
+        MesTeamLeaderBatchRecordBackfillResult result = service.backfillCompletedProcess(
+                command().setBatchExecutionId(9701L).setBatchExecutionTaskId(9801L));
+
+        ArgumentCaptor<MesProBatchRecordExecutionOpenOrCreateByContextReqVO> openCaptor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class);
+        verify(executionService).openOrCreateByContext(openCaptor.capture());
+        assertEquals(9701L, openCaptor.getValue().getBatchExecutionId());
+        assertEquals(9801L, openCaptor.getValue().getTaskId());
+        assertEquals(8801L, result.getExecutionId());
+        assertEquals(99001L, result.getAuditBatchId());
+        assertEquals("after-hash", result.getCellValuesHash());
+        assertEquals("after-head", result.getFieldAuditHeadHash());
+    }
+
+    @Test
+    void shouldRejectOpenedExecutionOutsideCurrentEdhrBatchTaskContext() {
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
+                .thenReturn(List.of(binding()));
+        when(executionService.openOrCreateByContext(any(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class)))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8801L));
+        when(executionMapper.selectById(8801L)).thenReturn(execution()
+                .setBatchExecutionId(9701L)
+                .setTaskId(9999L));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.backfillCompletedProcess(
+                command().setBatchExecutionId(9701L).setBatchExecutionTaskId(9801L)));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_BATCH_RECORD_EXECUTION_REQUIRED.getCode(), ex.getCode());
+        verify(ruleMapper, never()).selectEnabledListByScopeAndTargetReport(any(), any(), any());
+        verify(fieldAuditService, never()).saveSystemCellLinkChanges(any());
+    }
+
+    @Test
     void shouldBackfillCompletedProcessOnlyOnceWhenConcurrentAuditAlreadyApplied() {
         when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
                 .thenReturn(List.of(binding()));
@@ -329,6 +409,12 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
     private static MesProBatchRecordExecutionDO execution() {
         return MesProBatchRecordExecutionDO.builder()
                 .id(8801L)
+                .workOrderId(9001L)
+                .routeProcessId(5001L)
+                .batchRecordReportId("BR-FORM-A")
+                .batchRecordDefinitionId(400L)
+                .batchRecordVersionId(401L)
+                .recordCategory("BATCH_RECORD")
                 .status(0)
                 .fieldAuditRevision(0L)
                 .fieldAuditHeadHash("genesis")
@@ -343,9 +429,21 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
                 .build();
     }
 
+    private static MesProBatchRecordExecutionDO currentBatchExecution() {
+        return execution()
+                .setBatchExecutionId(9701L)
+                .setTaskId(9801L);
+    }
+
     private static MesProBatchRecordExecutionDO aggregateExecution() {
         return MesProBatchRecordExecutionDO.builder()
                 .id(8801L)
+                .workOrderId(9001L)
+                .routeProcessId(5001L)
+                .batchRecordReportId("BR-FORM-A")
+                .batchRecordDefinitionId(400L)
+                .batchRecordVersionId(401L)
+                .recordCategory("BATCH_RECORD")
                 .status(0)
                 .fieldAuditRevision(0L)
                 .fieldAuditHeadHash("genesis")

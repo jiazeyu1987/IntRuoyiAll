@@ -11,8 +11,8 @@ const source = readFileSync(pagePath, 'utf8')
 
 assert.match(
   source,
-  /v-if="canReviewSubmission\(row\)"[\s\S]*:data-team-leader-review-event-id="String\(row\.id\)"/,
-  '复核按钮必须只对待复核行显示，不能对 APPROVED/REJECTED 终态行重复暴露'
+  /v-if="!isProductionLeader && canReviewSubmission\(row\)"[\s\S]*:data-team-leader-review-event-id="String\(row\.id\)"/,
+  '复核按钮必须只对 PQC 待复核行显示，不能在生产报工或 APPROVED/REJECTED 终态行暴露'
 )
 
 assert.match(

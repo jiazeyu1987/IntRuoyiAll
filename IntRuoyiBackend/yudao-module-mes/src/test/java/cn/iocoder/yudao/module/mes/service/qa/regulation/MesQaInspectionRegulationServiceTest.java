@@ -81,6 +81,8 @@ class MesQaInspectionRegulationServiceTest {
         assertEquals(1, result.getFirstInspectionRules().size());
         assertEquals(1, result.getPatrolInspectionRules().size());
         assertEquals(1, result.getFinalInspectionRules().size());
+        assertEquals("首检外观器具", result.getFirstInspectionRules().get(0).getInspectionTool());
+        assertEquals("首检外观抽样方案", result.getFirstInspectionRules().get(0).getSamplingPlanText());
     }
 
     @Test
@@ -257,6 +259,12 @@ class MesQaInspectionRegulationServiceTest {
 
         service.saveDraft(reqVO);
 
+        ArgumentCaptor<MesQaInspectionRegulationItemDO> itemCaptor =
+                ArgumentCaptor.forClass(MesQaInspectionRegulationItemDO.class);
+        verify(itemMapper).insert(itemCaptor.capture());
+        assertEquals("首检外观器具", itemCaptor.getValue().getInspectionTool());
+        assertEquals("首检外观抽样方案", itemCaptor.getValue().getSamplingPlanText());
+
         ArgumentCaptor<MesQaInspectionRegulationItemEquipmentDO> equipmentCaptor =
                 ArgumentCaptor.forClass(MesQaInspectionRegulationItemEquipmentDO.class);
         verify(itemEquipmentMapper).insert(equipmentCaptor.capture());
@@ -279,6 +287,18 @@ class MesQaInspectionRegulationServiceTest {
         MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(firstItem));
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.saveDraft(reqVO));
+
+        assertEquals(QA_INSPECTION_REGULATION_ITEM_INVALID.getCode(), ex.getCode());
+    }
+
+    @Test
+    void saveDraft_rejectsBlankFormalDisplayFields() {
+        MesQaInspectionRegulationSaveReqVO.InspectionItem firstItem =
+                saveItem("FIRST", "首检外观", 5, null);
+        firstItem.setSamplingPlanText(" ");
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.saveDraft(saveReq(List.of(firstItem))));
 
         assertEquals(QA_INSPECTION_REGULATION_ITEM_INVALID.getCode(), ex.getCode());
     }
@@ -330,6 +350,8 @@ class MesQaInspectionRegulationServiceTest {
                 .itemName(name)
                 .inspectionMethod(name + "方法")
                 .standardText(name + "标准")
+                .inspectionTool(name + "器具")
+                .samplingPlanText(name + "抽样方案")
                 .resultType("BOOLEAN")
                 .firstInspectionQuantity(firstQuantity)
                 .patrolInspectionRatio(patrolRatio)
@@ -366,7 +388,9 @@ class MesQaInspectionRegulationServiceTest {
         item.setItemCode(inspectionType + "-SAVE");
         item.setItemName(name);
         item.setInspectionMethod(name + "方法");
+        item.setInspectionTool(name + "器具");
         item.setStandardText(name + "标准");
+        item.setSamplingPlanText(name + "抽样方案");
         item.setResultType("BOOLEAN");
         item.setFirstInspectionQuantity(firstQuantity);
         item.setPatrolInspectionRatio(patrolRatio);

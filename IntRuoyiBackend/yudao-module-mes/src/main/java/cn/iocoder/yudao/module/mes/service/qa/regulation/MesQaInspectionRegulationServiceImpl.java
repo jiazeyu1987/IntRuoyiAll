@@ -208,7 +208,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                     .routeVersionId(reqVO.getRouteVersionId())
                     .routeProcessId(reqVO.getRouteProcessId())
                     .processId(reqVO.getProcessId())
-                    .ownerModule("MES_QA")
+                    .ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)
                     .regulationCode(reqVO.getRegulationCode())
                     .regulationName(reqVO.getRegulationName())
                     .lifecycleStatus(STATUS_DRAFT)
@@ -350,6 +350,8 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                         .itemCode(item.getItemCode())
                         .itemName(item.getItemName())
                         .inspectionMethod(item.getInspectionMethod())
+                        .inspectionTool(item.getInspectionTool())
+                        .samplingPlanText(item.getSamplingPlanText())
                         .standardText(item.getStandardText())
                         .resultType(item.getResultType())
                         .firstInspectionQuantity(item.getFirstInspectionQuantity())
@@ -443,6 +445,12 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         if (!ALLOWED_INSPECTION_TYPES.contains(inspectionType)) {
             throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getInspectionType());
         }
+        if (StrUtil.isBlank(item.getInspectionTool())) {
+            throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode() + ".inspectionTool");
+        }
+        if (StrUtil.isBlank(item.getSamplingPlanText())) {
+            throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode() + ".samplingPlanText");
+        }
         if (("FIRST".equals(inspectionType) || "FINAL".equals(inspectionType))
                 && (item.getFirstInspectionQuantity() == null || item.getFirstInspectionQuantity() <= 0)) {
             throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode());
@@ -525,7 +533,9 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .itemCode(item.getItemCode())
                 .itemName(item.getItemName())
                 .inspectionMethod(item.getInspectionMethod())
+                .inspectionTool(item.getInspectionTool())
                 .standardText(item.getStandardText())
+                .samplingPlanText(item.getSamplingPlanText())
                 .standardLowerLimit(item.getStandardLowerLimit())
                 .standardUpperLimit(item.getStandardUpperLimit())
                 .standardUnit(item.getStandardUnit())

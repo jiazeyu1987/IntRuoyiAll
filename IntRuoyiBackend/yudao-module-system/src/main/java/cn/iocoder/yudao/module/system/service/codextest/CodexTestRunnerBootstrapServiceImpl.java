@@ -7,6 +7,8 @@ import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestRunnerSession
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.io.IOException;
@@ -63,6 +65,7 @@ public class CodexTestRunnerBootstrapServiceImpl implements CodexTestRunnerBoots
     private CodexTestRunnerSessionMapper codexTestRunnerSessionMapper;
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public synchronized void ensureRunnerAvailable() {
         if (hasOnlineRunnerWithRequiredCapabilities()) {
             return;

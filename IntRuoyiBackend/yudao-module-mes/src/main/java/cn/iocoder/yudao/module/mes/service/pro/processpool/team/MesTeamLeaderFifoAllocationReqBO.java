@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
+import java.util.Set;
 
 @Data
 @Builder
@@ -16,4 +17,6 @@ public class MesTeamLeaderFifoAllocationReqBO {
     private Long routeProcessId;
     private Long processId;
     private BigDecimal confirmQuantity;
+    private Long excludedEventId;
+    private Set<Long> excludedActiveOrderIds;
 }

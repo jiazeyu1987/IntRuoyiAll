@@ -129,8 +129,8 @@ assert.match(
 )
 assert.match(
   panel,
-  /formalSubmitResult\.value\s*=\s*await\s+ProFeedbackApi\.frontlineSubmit\(/,
-  'submit action must persist the resolved formal submit result instead of discarding it.'
+  /await\s+ProFeedbackApi\.frontlineSubmit\(formalPayload\)[\s\S]*resetProductionSubmissionDraft\(\)/,
+  'submit action must start a clean independent draft only after the formal endpoint succeeds.'
 )
 assert.match(
   panel,
@@ -148,23 +148,18 @@ assert.match(
   'process-pool context must use the current login user as the device account user.'
 )
 const submitButtonBlock = panel.match(
-  /<button[\s\S]*data-formal-feedback-id="formalSubmitResult\?\.feedbackId"[\s\S]*?<\/button>/
+  /<button\s+class="frontline-production-submit-button submit-btn"[\s\S]*?<\/button>/
 )?.[0]
-assert.ok(submitButtonBlock, 'the production submit button must expose submitted-state metadata.')
-assert.match(
-  submitButtonBlock,
-  /feedbackId[\s\S]*processPoolEventId/,
-  'the submitted state must retain the formal feedback and process-pool identifiers.'
-)
-assert.match(
-  submitButtonBlock,
-  /v-if="formalSubmitResult\.recordbookEntryId"/,
-  'recordbook result display must be conditional when no recordbook entry is created.'
-)
+assert.ok(submitButtonBlock, 'the production submit button must be implemented.')
 assert.match(
   panel,
-  /isProductionSubmitted[\s\S]*已正式提交/,
-  'the production controls must enter a persistent submitted state after success.'
+  /const productionSubmitSuccessText\s*=\s*computed\(\(\)\s*=>\s*`\$\{selectedEmployeeLabel\.value\}提交成功`\)/,
+  'the production success prompt must identify the actual selected employee.'
+)
+assert.doesNotMatch(
+  submitButtonBlock,
+  /isProductionSubmitted|is-submitted|data-formal-|已正式提交|<small|报工\s|记录本\s|工序池\s/,
+  'the submit button must return to its original state for the next employee and process.'
 )
 const productionSubmitHandler = panel.match(
   /const handleProductionFormalSubmit\s*=\s*async\s*\(\)\s*=>\s*\{[\s\S]*?(?=\nconst handleValidate)/
@@ -179,6 +174,16 @@ assert.strictEqual(
   (productionSubmitHandler.match(/ProFeedbackApi\.frontlineSubmit\(/g) || []).length,
   1,
   'one confirmed action must invoke the formal submit endpoint exactly once.'
+)
+assert.match(
+  productionSubmitHandler,
+  /resetProductionSubmissionDraft\(\)[\s\S]*openProductionSubmitSuccessDialog\(\)/,
+  'the fullscreen-root success dialog must open only after the next independent draft is ready.'
+)
+assert.doesNotMatch(
+  productionSubmitHandler,
+  /message\.success/,
+  'production success must not depend on a body-mounted toast that fullscreen can cover.'
 )
 
 console.log('PASS: frontline formal submit static contract is wired')

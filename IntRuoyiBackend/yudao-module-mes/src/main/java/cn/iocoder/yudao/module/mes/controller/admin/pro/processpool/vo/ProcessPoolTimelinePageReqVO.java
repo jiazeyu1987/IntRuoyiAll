@@ -21,7 +21,7 @@ import static cn.iocoder.yudao.framework.common.util.date.DateUtils.FORMAT_YEAR_
 @ToString(callSuper = true)
 public class ProcessPoolTimelinePageReqVO extends PageParam {
 
-    @Schema(description = "提交日期", requiredMode = Schema.RequiredMode.REQUIRED, example = "2026-07-30")
+    @Schema(description = "提交日期；不传时查询全部提交时间", example = "2026-07-30")
     @DateTimeFormat(pattern = FORMAT_YEAR_MONTH_DAY)
     private LocalDate submitDate;
 
@@ -33,6 +33,9 @@ public class ProcessPoolTimelinePageReqVO extends PageParam {
 
     @Schema(description = "工序编号", example = "6001")
     private Long processId;
+
+    @Schema(description = "工序编号集合", hidden = true)
+    private Set<Long> processIds;
 
     @Schema(description = "设备编号", example = "9001")
     private Long deviceId;
@@ -72,6 +75,9 @@ public class ProcessPoolTimelinePageReqVO extends PageParam {
 
     @Schema(description = "提交复核状态", example = "REJECTED")
     private String submissionReviewStatus;
+
+    @Schema(description = "生产报工分配视图：WORKBENCH-待处理，HISTORY-全部历史", hidden = true)
+    private String allocationView;
 
     @Schema(description = "提交时间起点", hidden = true)
     private LocalDateTime submittedAtStart;

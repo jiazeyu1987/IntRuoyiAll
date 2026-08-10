@@ -24,6 +24,15 @@ import java.util.Map;
 @Mapper
 public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
 
+    default MesProWorkOrderDO selectByIdForUpdate(Long id) {
+        if (id == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProWorkOrderDO>()
+                .eq(MesProWorkOrderDO::getId, id)
+                .last("FOR UPDATE"));
+    }
+
     default List<MesProWorkOrderDO> selectListAll() {
         return selectList(new LambdaQueryWrapperX<MesProWorkOrderDO>()
                 .orderByAsc(MesProWorkOrderDO::getId));
@@ -71,12 +80,10 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
         return selectOne(MesProWorkOrderDO::getCode, code);
     }
 
-    default List<MesProWorkOrderDO> selectCandidatesByKeyword(String keyword, Collection<Long> productIds,
-                                                              int limit) {
+    default List<MesProWorkOrderDO> selectCandidatesByKeyword(String keyword, Collection<Long> productIds) {
         if (keyword == null || keyword.trim().isEmpty()) {
             return Collections.emptyList();
         }
-        int safeLimit = Math.max(1, Math.min(limit, 20));
         String searchText = keyword.trim();
         return selectList(new LambdaQueryWrapperX<MesProWorkOrderDO>()
                 .and(wrapper -> {
@@ -85,8 +92,7 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
                         wrapper.or().in(MesProWorkOrderDO::getProductId, productIds);
                     }
                 })
-                .orderByDesc(MesProWorkOrderDO::getId)
-                .last("LIMIT " + safeLimit));
+                .orderByDesc(MesProWorkOrderDO::getId));
     }
 
     default List<MesProWorkOrderDO> selectListByCodes(Collection<String> codes) {

@@ -102,6 +102,12 @@ public class MesQaInspectionRegulationPublishedVersionRespVO {
         @Schema(description = "检验方法")
         private String inspectionMethod;
 
+        @Schema(description = "检验器具及设备原文")
+        private String inspectionTool;
+
+        @Schema(description = "抽样方案原文")
+        private String samplingPlanText;
+
         @Schema(description = "合格标准")
         private String standardText;
 

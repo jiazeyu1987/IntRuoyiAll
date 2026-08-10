@@ -48,6 +48,15 @@ assert.match(
   /data-pqc-standard-detail-text[\s\S]*activePqcStandardItem\.acceptanceStandard/,
   'The 接收标准 dialog must display the formal QA process acceptanceStandard detail.'
 )
+assert.match(
+  standardDialog,
+  /class="frontline-pqc-fact-dialog__body is-standard"/,
+  'The 接收标准 dialog must use a full-width single-column detail layout.'
+)
+assert.ok(
+  !standardDialog.includes('data-pqc-standard-bound-grid'),
+  'The 接收标准 dialog must not render the lower limit, upper limit, unit, or precision grid.'
+)
 for (const field of [
   'standardLowerLimit',
   'standardUpperLimit',
@@ -55,8 +64,8 @@ for (const field of [
   'standardPrecision'
 ]) {
   assert.ok(
-    standardDialog.includes(`activePqcStandardItem.${field}`),
-    `The 接收标准 dialog must show ${field} from the formal QA snapshot.`
+    !standardDialog.includes(`activePqcStandardItem.${field}`),
+    `The 接收标准 dialog must not display ${field}.`
   )
 }
 assert.match(
@@ -82,8 +91,18 @@ assert.match(
 )
 assert.match(
   methodDialog,
-  /activePqcMethodItem\.itemName[\s\S]*activePqcMethodItem\.resultType/,
-  'The 检验方法 dialog must show the selected inspection item identity and result type.'
+  /pqc-method-dialog-title[\s\S]*activePqcMethodItem\.samplingPlanText/,
+  'The 检验方法 dialog title area must display the formal QA sampling plan.'
+)
+assert.match(
+  methodDialog,
+  /data-pqc-method-equipment-text[\s\S]*activePqcMethodItem\.inspectionTool/,
+  'The 检验方法 dialog side area must display the formal QA inspection tool text.'
+)
+assert.doesNotMatch(
+  methodDialog,
+  /data-pqc-method-meta-grid|<dt>检验项目<\/dt>|<dt>结果类型<\/dt>|<dt>单位<\/dt>|<dt>来源<\/dt>/,
+  'The 检验方法 dialog must not retain the old four-card metadata grid.'
 )
 assert.match(
   methodDialog,
@@ -100,6 +119,11 @@ assert.match(
   panelSource,
   /\.frontline-pqc-fact-dialog__body\s*\{[\s\S]*grid-template-columns:/,
   'Fact dialog content must use a deliberate two-column responsive layout.'
+)
+assert.match(
+  panelSource,
+  /\.frontline-pqc-fact-dialog__body\.is-standard\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)/,
+  'The 接收标准 dialog body must override the shared layout with one full-width column.'
 )
 assert.match(
   panelSource,

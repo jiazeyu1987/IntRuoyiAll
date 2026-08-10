@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCas
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCaseRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCaseSaveReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCheckpointSaveReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCodeReadonlyCaseReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestNodeChainOptionRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestCaseDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestCheckpointDO;
@@ -34,9 +35,11 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST
 import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.CASE_PROJECTS;
 import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.CASE_STATUSES;
 import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.ANALYSIS_MODES;
+import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.ANALYSIS_MODE_CODE_READONLY;
 import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.ANALYSIS_MODE_PLAYWRIGHT_E2E;
 import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.EXECUTION_MODES;
 import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.MODE_SEQUENTIAL;
+import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.STATUS_ENABLE;
 
 @Service
 @Validated
@@ -68,6 +71,29 @@ public class CodexTestCaseServiceImpl implements CodexTestCaseService {
         codexTestCaseMapper.updateById(updateObj);
         codexTestCheckpointMapper.deleteByCaseId(updateReqVO.getId());
         insertCheckpoints(updateReqVO.getId(), updateReqVO.getCheckpoints());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long upsertCodeReadonlyCase(CodexTestCodeReadonlyCaseReqVO caseDefinition) {
+        CodexTestCaseSaveReqVO saveReqVO = BeanUtils.toBean(caseDefinition, CodexTestCaseSaveReqVO.class);
+        saveReqVO.setAnalysisMode(ANALYSIS_MODE_CODE_READONLY);
+        saveReqVO.setDefaultExecutionMode(MODE_SEQUENTIAL);
+        saveReqVO.setParallelSafe(false);
+        saveReqVO.setStatus(STATUS_ENABLE);
+
+        List<CodexTestCaseDO> existingCases = codexTestCaseMapper.selectListByProjectAndName(
+                caseDefinition.getProject(), caseDefinition.getName());
+        if (existingCases.size() > 1) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID,
+                    "同一项目和名称存在多个 Codex 测试项，请先修复重复数据");
+        }
+        if (existingCases.isEmpty()) {
+            return createCase(saveReqVO);
+        }
+        saveReqVO.setId(existingCases.get(0).getId());
+        updateCase(saveReqVO);
+        return saveReqVO.getId();
     }
 
     @Override

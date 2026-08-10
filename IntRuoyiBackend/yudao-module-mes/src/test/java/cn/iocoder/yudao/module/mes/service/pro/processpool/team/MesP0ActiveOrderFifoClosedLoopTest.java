@@ -106,11 +106,13 @@ class MesP0ActiveOrderFifoClosedLoopTest {
                 activeOrder(8102L, 9002L, "REMOVED", "2026-08-03T07:30:00"),
                 activeOrder(8103L, 9003L, "ACTIVE", "2026-08-03T09:00:00"),
                 activeOrder(8101L, 9001L, "ACTIVE", "2026-08-03T08:00:00")));
-        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L, 9003L))).thenReturn(List.of(
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9003L, 9001L))).thenReturn(List.of(
                 workOrder(9001L, "WO-9001"), workOrder(9003L, "WO-9003")));
-        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L, 9003L), 5001L, 6001L))
+        when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(List.of(8103L, 8101L), 6001L))
                 .thenReturn(List.of(allocation(8101L, 9001L, "150"), allocation(8103L, 9003L, "170")));
-        when(orderProcessTargetService.findTarget(any(MesProcessPoolActiveOrderDO.class), eq(5001L), eq(6001L)))
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9003L, 9001L), 5001L, 6001L))
+                .thenReturn(List.of(allocation(8101L, 9001L, "150"), allocation(8103L, 9003L, "170")));
+        when(orderProcessTargetService.findUniqueTargetForProcess(any(MesProcessPoolActiveOrderDO.class), eq(6001L)))
                 .thenReturn(Optional.of(target("200")));
         when(orderProcessTargetService.requireTarget(any(MesProcessPoolActiveOrderDO.class), eq(5001L), eq(6001L)))
                 .thenReturn(target("200"));
@@ -131,13 +133,13 @@ class MesP0ActiveOrderFifoClosedLoopTest {
                 ArgumentCaptor.forClass(MesProcessPoolFifoAllocationCommand.class);
         verify(processPoolFifoAllocationService).allocate(fifoCaptor.capture());
         List<MesProcessPoolFifoTargetWorkOrder> targets = fifoCaptor.getValue().getTargetWorkOrders();
-        assertEquals(List.of(9001L, 9003L), targets.stream()
+        assertEquals(List.of(9003L, 9001L), targets.stream()
                 .map(MesProcessPoolFifoTargetWorkOrder::getWorkOrderId)
                 .toList());
-        assertAmount("50", targets.get(0).getRequiredQuantity());
-        assertAmount("30", targets.get(1).getRequiredQuantity());
-        assertAmount("150", targets.get(0).getAlreadyAllocatedQuantity());
-        assertAmount("170", targets.get(1).getAlreadyAllocatedQuantity());
+        assertAmount("30", targets.get(0).getRequiredQuantity());
+        assertAmount("50", targets.get(1).getRequiredQuantity());
+        assertAmount("170", targets.get(0).getAlreadyAllocatedQuantity());
+        assertAmount("150", targets.get(1).getAlreadyAllocatedQuantity());
     }
 
     @Test

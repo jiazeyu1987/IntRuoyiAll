@@ -10,4 +10,12 @@ public class MesTeamLeaderBatchRecordBackfillResult {
     private Long executionId;
 
     private Integer appliedFieldCount;
+
+    private Long auditBatchId;
+
+    private String cellValuesHash;
+
+    private String fieldAuditHeadHash;
+
+    private String idempotencyKey;
 }

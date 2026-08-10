@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
@@ -9,7 +11,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
@@ -25,7 +26,6 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPq
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamLeaderScopeMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
@@ -73,6 +73,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -86,6 +87,7 @@ class MesFrontlinePqcContextServiceTest {
     private static final Long WORK_ORDER_ID = 1001L;
     private static final Long ROUTE_ID = 2001L;
     private static final Long PRODUCT_ID = 3001L;
+    private static final Long QA_PRODUCT_ID = 3011L;
     private static final Long ROUTE_PROCESS_ID = 4001L;
     private static final Long PROCESS_ID = 5001L;
     private static final Long ACTIVE_ORDER_ID = 6001L;
@@ -103,8 +105,6 @@ class MesFrontlinePqcContextServiceTest {
     @Mock
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Mock
-    private MesProcessPoolActiveOrderProcessSnapshotMapper activeOrderProcessSnapshotMapper;
-    @Mock
     private MesProProcessPoolEventMapper processPoolEventMapper;
     @Mock
     private MesProWorkOrderMapper workOrderMapper;
@@ -114,6 +114,8 @@ class MesFrontlinePqcContextServiceTest {
     private MesProRouteProductMapper routeProductMapper;
     @Mock
     private MesProRouteProcessMapper routeProcessMapper;
+    @Mock
+    private DccProjectCodeMapper dccProjectCodeMapper;
     @Mock
     private MesQaInspectionRegulationMapper regulationMapper;
     @Mock
@@ -145,35 +147,97 @@ class MesFrontlinePqcContextServiceTest {
 
     private MesFrontlinePqcContextService service;
     private final List<MesPqcInspectionTaskDO> pqcTaskContextFixtures = new ArrayList<>();
-    private final List<MesProcessPoolActiveOrderProcessSnapshotDO> processSnapshotFixtures = new ArrayList<>();
     private final List<MesQaInspectionRegulationDO> publishedRegulationFixtures = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
-        service = new MesFrontlinePqcContextServiceImpl(activeOrderMapper, activeOrderProcessSnapshotMapper,
-                processPoolMapper, processPoolEventMapper, workOrderMapper, routeMapper, routeProductMapper, routeProcessMapper,
+        service = new MesFrontlinePqcContextServiceImpl(activeOrderMapper, processPoolMapper, processPoolEventMapper,
+                workOrderMapper, routeMapper, routeProductMapper, routeProcessMapper,
+                dccProjectCodeMapper,
                 regulationMapper, versionMapper, regulationItemMapper, regulationItemEquipmentMapper, pqcTaskMapper,
                 pqcPieceDetailMapper,
                 processService, itemService, scopeMapper, adminUserApi, templateResolver, processPoolEventService,
                 pqcRecordMapper, signatureService);
         lenient().when(pqcTaskMapper.selectActiveOrderIdsByTaskStatus(anyCollection(), eq("PENDING")))
                 .thenReturn(Set.of(ACTIVE_ORDER_ID));
-        processSnapshotFixtures.add(processSnapshot(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID));
-        lenient().when(activeOrderProcessSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID))
-                .thenReturn(processSnapshotFixtures);
-        lenient().when(regulationMapper.selectPublishedListByProductRouteVersion(any(), any(), any()))
+        lenient().when(routeProductMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
+                MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build()));
+        lenient().when(itemService.getItemMap(Set.of(PRODUCT_ID))).thenReturn(Map.of(PRODUCT_ID,
+                MesMdItemDO.builder().id(PRODUCT_ID).code("ITEM-PQC").name("PQC 产品").build()));
+        lenient().when(dccProjectCodeMapper.selectEnabledList()).thenReturn(List.of(DccProjectCodeDO.builder()
+                .id(9011L).projectCode("ITEM-PQC").productMasterId(PRODUCT_ID).build()));
+        lenient().when(regulationMapper.selectListByProductIds(argThat(productIds ->
+                        productIds != null && productIds.contains(PRODUCT_ID))))
+                .thenAnswer(invocation -> List.copyOf(publishedRegulationFixtures));
+        lenient().when(regulationItemMapper.selectListByVersionIds(anyCollection()))
                 .thenAnswer(invocation -> {
-                    Long productId = invocation.getArgument(0);
-                    Long routeId = invocation.getArgument(1);
-                    Long routeVersionId = invocation.getArgument(2);
-                    return publishedRegulationFixtures.stream()
-                            .filter(regulation -> Objects.equals(productId, regulation.getProductId()))
-                            .filter(regulation -> Objects.equals(routeId, regulation.getRouteId()))
-                            .filter(regulation -> Objects.equals(routeVersionId, regulation.getRouteVersionId()))
+                    Collection<Long> versionIds = invocation.getArgument(0);
+                    return versionIds.stream()
+                            .map(versionId -> regulationItem(versionId, "candidate-" + versionId,
+                                    "候选检验项目", "CHOICE", "目视"))
                             .toList();
                 });
         lenient().when(processPoolEventMapper.selectByIdForUpdate(PRODUCTION_SUBMIT_EVENT_ID))
                 .thenReturn(productionSubmitEvent(PRODUCTION_SUBMIT_EVENT_ID, ROUTE_PROCESS_ID, PROCESS_ID));
+    }
+
+    @Test
+    void shouldListDistinctQaInspectionItemProcessesFromRouteProjectCode() {
+        long routeProjectItemId = 302L;
+        long otherQaProductId = 3302L;
+        when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
+                        LocalDateTime.of(2026, 8, 1, 8, 0)));
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID, PRODUCT_ID));
+        when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, PRODUCT_ID))
+                .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
+        when(routeProductMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
+                MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build(),
+                MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(routeProjectItemId).build()));
+        when(itemService.getItemMap(Set.of(PRODUCT_ID, routeProjectItemId))).thenReturn(Map.of(
+                PRODUCT_ID, MesMdItemDO.builder().id(PRODUCT_ID).code("ORDER-ITEM")
+                        .name("订单产品").build(),
+                routeProjectItemId, MesMdItemDO.builder().id(routeProjectItemId).code("ROUTE-PROJECT")
+                        .name("路线项目代码物料").build()));
+        when(dccProjectCodeMapper.selectEnabledList()).thenReturn(List.of(
+                DccProjectCodeDO.builder().id(9011L).projectCode("ROUTE-PROJECT")
+                        .productMasterId(QA_PRODUCT_ID).build(),
+                DccProjectCodeDO.builder().id(9012L).projectCode("UNBOUND-PROJECT")
+                        .productMasterId(otherQaProductId).build()));
+        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route(ROUTE_ID));
+        when(routeProcessMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
+                routeProcess(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10),
+                routeProcess(4002L, ROUTE_ID, 5002L, 20)));
+        when(processService.getProcessMap(any())).thenReturn(Map.of(
+                PROCESS_ID, process(PROCESS_ID, "P-1", "QA 工序"),
+                5002L, process(5002L, "P-2", "路线额外工序")));
+        MesQaInspectionRegulationDO qaRegulation = regulation(REGULATION_VERSION_ID)
+                .setProductId(routeProjectItemId);
+        when(regulationMapper.selectListByProductIds(argThat(productIds ->
+                productIds != null
+                        && productIds.size() == 3
+                        && productIds.contains(PRODUCT_ID)
+                        && productIds.contains(routeProjectItemId)
+                        && productIds.contains(QA_PRODUCT_ID))))
+                .thenReturn(List.of(qaRegulation, qaRegulation));
+        when(regulationItemMapper.selectListByVersionIds(Set.of(REGULATION_VERSION_ID))).thenReturn(List.of(
+                regulationItem(REGULATION_VERSION_ID, "size", "尺寸", "NUMBER", "卡尺"),
+                regulationItem(REGULATION_VERSION_ID, "appearance", "外观", "CHOICE", "目视")));
+
+        List<MesFrontlineRouteProcessCandidate> processes =
+                service.listProcessesByActiveOrder(WORK_ORDER_ID, ROUTE_ID);
+
+        assertEquals(List.of(ROUTE_PROCESS_ID),
+                processes.stream().map(MesFrontlineRouteProcessCandidate::routeProcessId).toList());
+        verify(routeProductMapper).selectListByRouteId(ROUTE_ID);
+        verify(regulationMapper).selectListByProductIds(argThat(productIds ->
+                productIds != null
+                        && productIds.size() == 3
+                        && productIds.contains(PRODUCT_ID)
+                        && productIds.contains(routeProjectItemId)
+                        && productIds.contains(QA_PRODUCT_ID)));
+        verify(regulationMapper, never()).selectListByProductIds(argThat(productIds ->
+                productIds != null && productIds.contains(otherQaProductId)));
     }
 
     @Test
@@ -312,7 +376,6 @@ class MesFrontlinePqcContextServiceTest {
         when(processService.getProcessMap(any())).thenReturn(Map.of(
                 PROCESS_ID, process(PROCESS_ID, "P-1", "首工序"),
                 5002L, process(5002L, "P-2", "末工序")));
-        includeProcessSnapshot(4002L, ROUTE_ID, 5002L);
         givenPqcTaskContext(ROUTE_PROCESS_ID, PROCESS_ID, PQC_TASK_ID, REGULATION_VERSION_ID);
 
         List<MesFrontlineRouteProcessCandidate> processes =
@@ -324,6 +387,33 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals(Boolean.TRUE, processes.get(0).finalInspectionApplicable());
         verify(regulationMapper, never()).selectPublishedByRouteProcess(PRODUCT_ID, ROUTE_ID, 448L,
                 4002L, 5002L);
+    }
+
+    @Test
+    void shouldRejectNonFormalQaOwnerWhenAttachingPendingTaskContext() {
+        when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
+                        LocalDateTime.of(2026, 8, 1, 8, 0)));
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID, PRODUCT_ID));
+        when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, PRODUCT_ID))
+                .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
+        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route(ROUTE_ID));
+        when(routeProcessMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
+                routeProcess(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10)));
+        when(processService.getProcessMap(Set.of(PROCESS_ID))).thenReturn(Map.of(
+                PROCESS_ID, process(PROCESS_ID, "P-1", "首工序")));
+        when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
+                pqcTask(PQC_TASK_ID, ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID)));
+        when(regulationMapper.selectPublishedByRouteProcess(PRODUCT_ID, ROUTE_ID, 448L,
+                ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(regulation(REGULATION_VERSION_ID).setOwnerModule("CODX_QA"));
+        includePublishedRegulation(ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID);
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.listProcessesByActiveOrder(WORK_ORDER_ID, ROUTE_ID));
+
+        assertEquals(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID.getCode(), exception.getCode());
+        assertTrue(exception.getMessage().contains("ownerModule=CODX_QA"));
     }
 
     @Test
@@ -346,13 +436,13 @@ class MesFrontlinePqcContextServiceTest {
                         "PATROL", "AM", 2, 40)));
         when(regulationMapper.selectPublishedByRouteProcess(PRODUCT_ID, ROUTE_ID, 448L,
                 ROUTE_PROCESS_ID, PROCESS_ID)).thenReturn(regulation(REGULATION_VERSION_ID));
-        includePublishedRegulation(ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID);
         when(versionMapper.selectById(REGULATION_VERSION_ID)).thenReturn(regulationVersion(REGULATION_VERSION_ID, true));
         when(regulationItemMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of(
                 regulationItem(REGULATION_VERSION_ID, "first-size", "首检尺寸", "NUMBER", "卡尺", "FIRST"),
                 regulationItem(REGULATION_VERSION_ID, "patrol-appearance", "巡检外观", "CHOICE", "目视",
                         "PATROL")));
         when(regulationItemEquipmentMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of());
+        includePublishedRegulation(ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID);
 
         List<MesFrontlineRouteProcessCandidate> processes =
                 service.listProcessesByActiveOrder(WORK_ORDER_ID, ROUTE_ID);
@@ -370,10 +460,52 @@ class MesFrontlinePqcContextServiceTest {
                 .map(MesFrontlinePqcInspectionItem::itemName).toList());
         assertEquals(List.of("巡检外观"), process.pqcTaskOptions().get(1).inspectionItems().stream()
                 .map(MesFrontlinePqcInspectionItem::itemName).toList());
+        assertEquals("目测", process.pqcTaskOptions().get(1).inspectionItems().get(0).inspectionTool());
+        assertEquals("首件：5 件；GB/T 2828.1，S-3，AQL=0.4",
+                 process.pqcTaskOptions().get(1).inspectionItems().get(0).samplingPlanText());
     }
 
     @Test
-    void shouldHideRouteProcessesWithoutQaInspectionItemsAndAttachPqcTaskToPendingProcess() {
+    void shouldListQaProcessWhenLegacyPublishedItemDisplayFieldsAreBlank() {
+        when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
+                        LocalDateTime.of(2026, 8, 1, 8, 0)));
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID, PRODUCT_ID));
+        when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, PRODUCT_ID))
+                .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
+        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route(ROUTE_ID));
+        when(routeProcessMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
+                routeProcess(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10)));
+        when(processService.getProcessMap(Set.of(PROCESS_ID))).thenReturn(Map.of(
+                PROCESS_ID, process(PROCESS_ID, "P-1", "清洗工序")));
+        when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
+                pqcTask(PQC_TASK_ID, ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID,
+                        "FIRST", "FIRST", 1, 5)));
+        when(regulationMapper.selectPublishedByRouteProcess(PRODUCT_ID, ROUTE_ID, 448L,
+                ROUTE_PROCESS_ID, PROCESS_ID)).thenReturn(regulation(REGULATION_VERSION_ID));
+        when(versionMapper.selectById(REGULATION_VERSION_ID))
+                .thenReturn(regulationVersion(REGULATION_VERSION_ID, true));
+        MesQaInspectionRegulationItemDO item = regulationItem(
+                REGULATION_VERSION_ID, "legacy-item", "历史检验项", "CHOICE", "目视", "FIRST");
+        item.setInspectionTool(null);
+        item.setSamplingPlanText(null);
+        when(regulationItemMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of(item));
+        when(regulationItemEquipmentMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of());
+        includePublishedRegulation(ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID);
+
+        List<MesFrontlineRouteProcessCandidate> processes =
+                service.listProcessesByActiveOrder(WORK_ORDER_ID, ROUTE_ID);
+
+        assertEquals(1, processes.size());
+        MesFrontlinePqcInspectionItem inspectionItem =
+                processes.get(0).pqcTaskOptions().get(0).inspectionItems().get(0);
+        assertEquals("历史检验项", inspectionItem.itemName());
+        assertNull(inspectionItem.inspectionTool());
+        assertNull(inspectionItem.samplingPlanText());
+    }
+
+    @Test
+    void shouldHideRouteProcessesWithoutQaInspectionItemsAndAttachTaskToConfiguredProcess() {
         when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
                 .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
                         LocalDateTime.of(2026, 8, 1, 8, 0)));
@@ -387,17 +519,16 @@ class MesFrontlinePqcContextServiceTest {
         when(processService.getProcessMap(any())).thenReturn(Map.of(
                 PROCESS_ID, process(PROCESS_ID, "P-1", "粗洗工序"),
                 5002L, process(5002L, "P-2", "精洗工序")));
-        includeProcessSnapshot(4002L, ROUTE_ID, 5002L);
-        givenPqcTaskContext(ROUTE_PROCESS_ID, PROCESS_ID, PQC_TASK_ID, REGULATION_VERSION_ID);
+        givenPqcTaskContext(4002L, 5002L, PQC_TASK_ID, REGULATION_VERSION_ID);
 
         List<MesFrontlineRouteProcessCandidate> processes =
                 service.listProcessesByActiveOrder(WORK_ORDER_ID, ROUTE_ID);
 
-        assertEquals(List.of(ROUTE_PROCESS_ID),
+        assertEquals(List.of(4002L),
                 processes.stream().map(MesFrontlineRouteProcessCandidate::routeProcessId).toList());
         assertEquals(PQC_TASK_ID, processes.get(0).pqcTaskId());
         verify(regulationMapper, never()).selectPublishedByRouteProcess(PRODUCT_ID, ROUTE_ID, 448L,
-                4002L, 5002L);
+                ROUTE_PROCESS_ID, PROCESS_ID);
     }
 
     @Test
@@ -525,7 +656,6 @@ class MesFrontlinePqcContextServiceTest {
         when(processService.getProcessMap(Set.of(PROCESS_ID, 5002L))).thenReturn(Map.of(
                 PROCESS_ID, process(PROCESS_ID, "P-1", "首工序"),
                 5002L, process(5002L, "P-2", "末工序")));
-        includeProcessSnapshot(4002L, ROUTE_ID, 5002L);
         when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
                 pqcTask(PQC_TASK_ID, ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID),
                 pqcTask(7002L, 4002L, 5002L, 8002L)));
@@ -606,9 +736,9 @@ class MesFrontlinePqcContextServiceTest {
                 routeProcess(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10)));
         when(processService.getProcessMap(Set.of(PROCESS_ID))).thenReturn(Map.of(
                 PROCESS_ID, process(PROCESS_ID, "P-1", "首工序")));
-        includePublishedRegulation(ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID);
         when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
                 pqcTask(PQC_TASK_ID, null, null, REGULATION_VERSION_ID)));
+        includePublishedRegulation(ROUTE_PROCESS_ID, PROCESS_ID, REGULATION_VERSION_ID);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> service.listProcessesByActiveOrder(WORK_ORDER_ID, ROUTE_ID));
@@ -1559,7 +1689,6 @@ class MesFrontlinePqcContextServiceTest {
         when(versionMapper.selectById(regulationVersionId)).thenReturn(regulationVersion(regulationVersionId, true));
         pqcTaskContextFixtures.add(pqcTask(taskId, routeProcessId, processId, regulationVersionId));
         includePublishedRegulation(routeProcessId, processId, regulationVersionId);
-        includeProcessSnapshot(routeProcessId, ROUTE_ID, processId);
         lenient().when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(pqcTaskContextFixtures);
         when(regulationItemMapper.selectListByVersionId(regulationVersionId)).thenReturn(List.of(
                 regulationItem(regulationVersionId, "pressure", "压力", "NUMBER", "测压"),
@@ -1578,7 +1707,6 @@ class MesFrontlinePqcContextServiceTest {
         when(versionMapper.selectById(regulationVersionId)).thenReturn(regulationVersion(regulationVersionId, true));
         pqcTaskContextFixtures.add(pqcTask(taskId, routeProcessId, processId, regulationVersionId));
         includePublishedRegulation(routeProcessId, processId, regulationVersionId);
-        includeProcessSnapshot(routeProcessId, ROUTE_ID, processId);
         lenient().when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(pqcTaskContextFixtures);
         when(regulationItemMapper.selectListByVersionId(regulationVersionId)).thenReturn(List.of(
                 regulationItemWithoutEquipment(regulationVersionId, "pressure", "压力", "NUMBER", "测压"),
@@ -1612,6 +1740,7 @@ class MesFrontlinePqcContextServiceTest {
                 .routeVersionId(448L)
                 .routeProcessId(routeProcessId)
                 .processId(processId)
+                .ownerModule("MES_QA")
                 .lifecycleStatus("PUBLISHED")
                 .currentVersionId(regulationVersionId)
                 .build();
@@ -1674,6 +1803,8 @@ class MesFrontlinePqcContextServiceTest {
                 .itemName(itemName)
                 .inspectionMethod(inspectionMethod)
                 .standardText("按压力泵工艺路线过程检验记录标准")
+                .inspectionTool("目测")
+                .samplingPlanText("首件：5 件；GB/T 2828.1，S-3，AQL=0.4")
                 .resultType(resultType)
                 .standardLowerLimit("NUMBER".equals(resultType) ? new BigDecimal("0.700000") : null)
                 .standardUpperLimit("NUMBER".equals(resultType) ? new BigDecimal("1.000000") : null)
@@ -1752,15 +1883,6 @@ class MesFrontlinePqcContextServiceTest {
                 .build();
     }
 
-    private void includeProcessSnapshot(Long routeProcessId, Long routeId, Long processId) {
-        boolean exists = processSnapshotFixtures.stream()
-                .anyMatch(snapshot -> Objects.equals(snapshot.getRouteProcessId(), routeProcessId)
-                        && Objects.equals(snapshot.getProcessId(), processId));
-        if (!exists) {
-            processSnapshotFixtures.add(processSnapshot(routeProcessId, routeId, processId));
-        }
-    }
-
     private void includePublishedRegulation(Long routeProcessId, Long processId, Long regulationVersionId) {
         boolean exists = publishedRegulationFixtures.stream()
                 .anyMatch(regulation -> Objects.equals(regulation.getRouteProcessId(), routeProcessId)
@@ -1769,22 +1891,6 @@ class MesFrontlinePqcContextServiceTest {
         if (!exists) {
             publishedRegulationFixtures.add(regulation(regulationVersionId, routeProcessId, processId));
         }
-    }
-
-    private static MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot(MesProRouteProcessDO routeProcess) {
-        return processSnapshot(routeProcess.getId(), routeProcess.getRouteId(), routeProcess.getProcessId());
-    }
-
-    private static MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot(Long routeProcessId, Long routeId,
-                                                                              Long processId) {
-        return MesProcessPoolActiveOrderProcessSnapshotDO.builder()
-                .activeOrderId(ACTIVE_ORDER_ID)
-                .workOrderId(WORK_ORDER_ID)
-                .routeId(routeId)
-                .routeVersionId(448L)
-                .routeProcessId(routeProcessId)
-                .processId(processId)
-                .build();
     }
 
     private static MesProProcessDO process(Long id, String code, String name) {

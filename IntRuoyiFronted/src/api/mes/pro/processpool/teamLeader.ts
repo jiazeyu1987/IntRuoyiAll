@@ -134,6 +134,15 @@ export interface TeamLeaderActiveOrderRemoveReqVO {
   activeOrderId: number
 }
 
+export interface TeamLeaderActiveOrderMoveReqVO {
+  activeOrderId: number
+  direction: 'UP' | 'DOWN'
+}
+
+export interface TeamLeaderActiveOrderListRequestOptions {
+  ignoreErrorMessage?: boolean
+}
+
 export interface TeamProductionPersonnelListReqVO {
   enabled?: boolean
 }
@@ -241,6 +250,10 @@ export interface TeamProcessDeviceBindingSaveReqVO {
 
 export interface TeamProcessDefectReasonSaveReqVO extends TeamDefectReasonSaveReqVO {}
 
+export type TeamLeaderActiveOrderReleaseApplicationStatus =
+  | 'BLOCKED'
+  | 'PENDING_RELEASE_APPROVAL'
+
 export interface TeamLeaderActiveOrderRespVO {
   id: number
   workOrderId: number
@@ -263,7 +276,7 @@ export interface TeamLeaderActiveOrderRespVO {
   abnormal: boolean
   abnormalReason?: string
   abnormalReportedAt?: number
-  releaseApplicationStatus?: string
+  releaseApplicationStatus?: TeamLeaderActiveOrderReleaseApplicationStatus
   releaseApplicationBlockerSummary?: string
   releaseApprovalWorkTaskId?: number
 }
@@ -275,35 +288,39 @@ export interface TeamLeaderActiveOrderReleaseApplyReqVO {
 }
 
 export interface TeamLeaderActiveOrderReleaseBlockerRespVO {
-  blockerType?: string
-  objectType?: string
-  objectId?: string
-  objectCode?: string
-  reason?: string
-  suggestion?: string
+  blockerType: string
+  objectType: string
+  objectId: string
+  objectCode: string
+  reason: string
+  suggestion: string
+  routeProcessId?: number
+  processId?: number
+  fieldCode?: string
+  cellKey?: string
 }
 
 export interface TeamLeaderActiveOrderReleaseDossierSummaryRespVO {
-  batchRecordCount?: number
-  processInspectionFormCount?: number
-  lossReportFormCount?: number
-  signatureEvidenceCount?: number
-  sourceSnapshotHash?: string
+  batchRecordCount: number
+  processInspectionFormCount: number
+  lossReportFormCount: number
+  signatureEvidenceCount: number
+  sourceSnapshotHash: string
 }
 
 export interface TeamLeaderActiveOrderReleaseApplyRespVO {
-  applicationId?: number
-  activeOrderId?: number
-  workOrderId?: number
-  workOrderCode?: string
-  batchExecutionId?: number
-  releaseTransactionId?: number
-  releaseApprovalWorkTaskId?: number
-  status?: string
-  statusName?: string
-  dossierSummary?: TeamLeaderActiveOrderReleaseDossierSummaryRespVO
-  blockers?: TeamLeaderActiveOrderReleaseBlockerRespVO[]
-  appliedAt?: string | number
+  applicationId: number
+  activeOrderId: number
+  workOrderId: number
+  workOrderCode: string | null
+  batchExecutionId: number | null
+  releaseTransactionId: number | null
+  releaseApprovalWorkTaskId: number | null
+  status: TeamLeaderActiveOrderReleaseApplicationStatus
+  statusName: string
+  dossierSummary: TeamLeaderActiveOrderReleaseDossierSummaryRespVO
+  blockers: TeamLeaderActiveOrderReleaseBlockerRespVO[]
+  appliedAt: string | number
 }
 
 export interface TeamDeviceRespVO {
@@ -339,11 +356,17 @@ export interface TeamLeaderActiveOrderTransferTraceRespVO {
 }
 
 export interface TeamLeaderReportAllocationLine {
+  allocationId?: number
   activeOrderId: number
   workOrderId?: number
   workOrderCode?: string
+  routeProcessId?: number
+  processId?: number
   allocatedQuantity: number | string
+  allocationMode?: 'FIFO' | 'MANUAL'
   remainingQuantityBeforeAllocation?: number | string
+  released?: boolean
+  editable?: boolean
 }
 
 export interface TeamLeaderReportAllocationPreviewReqVO {
@@ -352,14 +375,43 @@ export interface TeamLeaderReportAllocationPreviewReqVO {
 }
 
 export interface TeamLeaderReportAllocationPreviewRespVO {
+  eventId?: number
+  version?: number
+  poolQuantity: number | string
+  releasedAllocatedQuantity?: number | string
+  editableAllocatedQuantity?: number | string
   totalAllocatedQuantity: number | string
+  unallocatedQuantity: number | string
   lines: TeamLeaderReportAllocationLine[]
+}
+
+export type TeamLeaderReportAllocationSnapshotRespVO = TeamLeaderReportAllocationPreviewRespVO
+
+export interface TeamLeaderReportAllocationAuditRespVO {
+  id: number
+  eventId: number
+  allocationVersion: number
+  sourceAllocationId?: number
+  activeOrderId: number
+  workOrderId: number
+  routeProcessId: number
+  processId: number
+  beforeQuantity: number
+  afterQuantity: number
+  deltaQuantity: number
+  actorUserId: number
+  adjustmentReason: string
+  allocationMode: 'FIFO' | 'MANUAL' | 'SYSTEM'
+  changeSource: 'INITIAL_BASELINE' | 'FIFO' | 'MANUAL' | 'ORDER_CHANGE'
+  occurredAt: string
 }
 
 export interface TeamLeaderReportAllocationConfirmReqVO {
   eventId: number
   leaderType: TeamLeaderType
   allocationMode: 'FIFO' | 'MANUAL'
+  expectedVersion?: number
+  idempotencyKey?: string
   reviewRemark?: string
   signaturePassword?: string
   allocations: TeamLeaderReportAllocationLine[]
@@ -445,9 +497,12 @@ export const getTeamLeaderResponsibleRouteList = async () => {
   })
 }
 
-export const getTeamLeaderActiveOrderList = async () => {
+export const getTeamLeaderActiveOrderList = async (
+  options: TeamLeaderActiveOrderListRequestOptions = {}
+) => {
   return await request.get<TeamLeaderActiveOrderRespVO[]>({
-    url: '/mes/pro/process-pool/team-leader/active-order/list'
+    url: '/mes/pro/process-pool/team-leader/active-order/list',
+    ignoreErrorMessage: options.ignoreErrorMessage
   })
 }
 
@@ -456,7 +511,8 @@ export const applyTeamLeaderActiveOrderRelease = async (
 ) => {
   return await request.post<TeamLeaderActiveOrderReleaseApplyRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/release/apply',
-    data
+    data,
+    ignoreErrorMessage: true
   })
 }
 
@@ -477,6 +533,13 @@ export const searchTeamLeaderActiveOrderCandidates = async (keyword: string) => 
 export const addTeamLeaderActiveOrder = async (data: TeamLeaderActiveOrderAddReqVO) => {
   return await request.post<number>({
     url: '/mes/pro/process-pool/team-leader/active-order/add',
+    data
+  })
+}
+
+export const moveTeamLeaderActiveOrder = async (data: TeamLeaderActiveOrderMoveReqVO) => {
+  return await request.put<boolean>({
+    url: '/mes/pro/process-pool/team-leader/active-order/move',
     data
   })
 }
@@ -637,8 +700,28 @@ export const previewTeamLeaderReportFifoAllocation = async (
 export const confirmTeamLeaderReportAllocation = async (
   data: TeamLeaderReportAllocationConfirmReqVO
 ) => {
-  return await request.post<number>({
+  return await request.post<TeamLeaderReportAllocationSnapshotRespVO>({
     url: '/mes/pro/process-pool/team-leader/submission/allocation/confirm',
     data
+  })
+}
+
+export const getCurrentTeamLeaderReportAllocation = async (
+  eventId: number,
+  leaderType: TeamLeaderType
+) => {
+  return await request.get<TeamLeaderReportAllocationSnapshotRespVO>({
+    url: '/mes/pro/process-pool/team-leader/submission/allocation/current',
+    params: { eventId, leaderType }
+  })
+}
+
+export const getTeamLeaderReportAllocationAudit = async (
+  eventId: number,
+  leaderType: TeamLeaderType
+) => {
+  return await request.get<TeamLeaderReportAllocationAuditRespVO[]>({
+    url: '/mes/pro/process-pool/team-leader/submission/allocation/audit',
+    params: { eventId, leaderType }
   })
 }
