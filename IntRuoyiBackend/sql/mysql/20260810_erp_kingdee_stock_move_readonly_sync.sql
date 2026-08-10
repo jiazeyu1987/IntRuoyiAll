@@ -64,13 +64,13 @@ CREATE TABLE IF NOT EXISTS erp_kingdee_stock_move_item (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='ERP金蝶调拨单分录只读快照';
 
 INSERT INTO infra_job (
-  id, name, status, handler_name, handler_param, cron_expression, retry_count, retry_interval,
+  name, status, handler_name, handler_param, cron_expression, retry_count, retry_interval,
   monitor_timeout, creator, create_time, updater, update_time, deleted
 )
-SELECT 5610, '每 10 分钟同步 ERP 金蝶调拨单', 2, 'kingdeeStockMoveSyncJob', '', '0 4/10 * * * ?', 3, 60, 0,
+SELECT '每 10 分钟同步 ERP 金蝶调拨单', 2, 'kingdeeStockMoveSyncJob', '', '0 4/10 * * * ?', 3, 60, 0,
        '1', NOW(), '1', NOW(), b'0'
 WHERE NOT EXISTS (
-  SELECT 1 FROM infra_job WHERE id = 5610 OR handler_name = 'kingdeeStockMoveSyncJob'
+  SELECT 1 FROM infra_job WHERE handler_name = 'kingdeeStockMoveSyncJob'
 );
 
 UPDATE infra_job
@@ -85,8 +85,7 @@ SET name = '每 10 分钟同步 ERP 金蝶调拨单',
     updater = '1',
     update_time = NOW(),
     deleted = b'0'
-WHERE id = 5610
-   OR handler_name = 'kingdeeStockMoveSyncJob';
+WHERE handler_name = 'kingdeeStockMoveSyncJob';
 
 SET @erp_stock_parent_menu_id := (
   SELECT id

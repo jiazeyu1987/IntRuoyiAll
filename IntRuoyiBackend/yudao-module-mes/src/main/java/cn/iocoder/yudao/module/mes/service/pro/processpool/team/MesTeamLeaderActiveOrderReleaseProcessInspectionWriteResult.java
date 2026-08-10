@@ -14,6 +14,8 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriteResult {
 
     private List<Long> batchRecordExecutionIds;
 
+    private List<Long> formCenterInstanceIds;
+
     private List<Long> fieldAuditIds;
 
     private List<String> fieldAuditHeadHashes;

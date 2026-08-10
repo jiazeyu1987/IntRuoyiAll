@@ -21,7 +21,19 @@ def test_stock_move_readonly_migration_creates_snapshot_tables_and_job() -> None
     assert "uk_erp_kingdee_stock_move_source" in sql
     assert "uk_erp_kingdee_stock_move_item_source" in sql
     assert "'kingdeeStockMoveSyncJob'" in sql
-    assert "SELECT 5610, '每 10 分钟同步 ERP 金蝶调拨单', 2" in sql
+    assert "SELECT '每 10 分钟同步 ERP 金蝶调拨单', 2" in sql
+
+
+def test_stock_move_job_migration_never_overwrites_an_unrelated_fixed_job_id() -> None:
+    sql = read(SQL_PATH)
+    job_sql = sql.split("INSERT INTO infra_job", 1)[1].split(
+        "SET @erp_stock_parent_menu_id", 1
+    )[0]
+
+    assert "id, name" not in job_sql
+    assert "SELECT 5610" not in job_sql
+    assert "id = 5610" not in job_sql
+    assert "WHERE handler_name = 'kingdeeStockMoveSyncJob'" in job_sql
 
 
 def test_stock_move_readonly_migration_does_not_mutate_local_stock_move_business_table() -> None:

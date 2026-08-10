@@ -241,11 +241,8 @@ export const preloadFrontlinePqcSwitchingCache = async (
 ) => {
   state.lastError = undefined
   try {
-    const activeOrders = await loadFrontlinePqcActiveOrders(state)
     await Promise.all([
-      ...activeOrders.map((activeOrder) =>
-        getFrontlinePqcActiveOrderProcessesWithCache(state, activeOrder)
-      ),
+      loadFrontlinePqcActiveOrders(state),
       getFrontlinePqcEmployeeCandidatesWithCache(state)
     ])
   } catch (error) {

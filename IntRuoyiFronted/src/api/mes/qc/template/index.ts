@@ -133,7 +133,9 @@ export const QcTemplateApi = {
   },
 
   // 查询正式 QA 检验规程发布版本只读证据
-  getPublishedQaRegulationVersion: async (versionId?: number) => {
+  getPublishedQaRegulationVersion: async (
+    versionId?: number
+  ): Promise<QaInspectionRegulationPublishedVersionVO> => {
     return await request.get({
       url: `/mes/qa/inspection-regulation/published-version`,
       params: versionId ? { versionId } : undefined

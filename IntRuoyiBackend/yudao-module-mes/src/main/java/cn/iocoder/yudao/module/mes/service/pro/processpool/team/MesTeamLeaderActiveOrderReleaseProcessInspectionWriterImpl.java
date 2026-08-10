@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionOpenOrCreateByContextReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionOpenOrCreateByContextRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordCellLinkRuleDO;
@@ -76,6 +77,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
     private final MesProBatchRecordExecutionService executionService;
     private final MesProBatchRecordExecutionMapper executionMapper;
     private final MesProBatchRecordExecutionFieldAuditService fieldAuditService;
+    private final MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort dynamicFormPort;
 
     public MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl(
             MesTeamLeaderActiveOrderReleaseProcessInspectionReader reader,
@@ -84,7 +86,8 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
             MesProEdhrBatchExecutionTaskMapper batchTaskMapper,
             MesProBatchRecordExecutionService executionService,
             MesProBatchRecordExecutionMapper executionMapper,
-            MesProBatchRecordExecutionFieldAuditService fieldAuditService) {
+            MesProBatchRecordExecutionFieldAuditService fieldAuditService,
+            MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort dynamicFormPort) {
         this.reader = reader;
         this.bindingMapper = bindingMapper;
         this.ruleMapper = ruleMapper;
@@ -92,6 +95,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
         this.executionService = executionService;
         this.executionMapper = executionMapper;
         this.fieldAuditService = fieldAuditService;
+        this.dynamicFormPort = dynamicFormPort;
     }
 
     @Override
@@ -122,6 +126,12 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
             if (!validateSignatureEvidence(command, source, blockers)) {
                 continue;
             }
+            if (!validateDccProjectIdentity(command, source, blockers)) {
+                continue;
+            }
+            if (!validateQaDccProvenance(source, blockers)) {
+                continue;
+            }
             if (!validatePublishedQa(command, source, blockers)) {
                 continue;
             }
@@ -140,6 +150,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                     .setSource(source)
                     .setBinding(binding)
                     .setMappedValues(mapping.values())
+                    .setDynamicTarget(mapping.dynamicTarget())
                     .setEvidenceHash(sha256(String.join("|", inspectionHashes))));
         }
         return new MesTeamLeaderActiveOrderReleaseProcessInspectionPlan()
@@ -159,12 +170,28 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
         List<MesProEdhrBatchExecutionTaskDO> batchTasks =
                 batchTaskMapper.selectListByBatchExecutionId(batchExecutionId);
         List<Long> executionIds = new ArrayList<>();
+        List<Long> formCenterInstanceIds = new ArrayList<>();
         List<Long> auditBatchIds = new ArrayList<>();
         List<String> auditHeadHashes = new ArrayList<>();
         for (MesTeamLeaderActiveOrderReleaseProcessInspectionPlan.PreparedInspection inspection
                 : plan.getPreparedInspections()) {
             MesProEdhrBatchExecutionTaskDO batchTask = requireCurrentBatchTask(
                     batchExecutionId, batchTasks, inspection);
+            if (isDynamicBinding(inspection.getBinding())) {
+                MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteResult dynamicWrite =
+                        dynamicFormPort.write(toDynamicWriteCommand(plan, batchExecutionId, batchTask, inspection));
+                if (dynamicWrite == null || dynamicWrite.getFormCenterInstanceId() == null
+                        || dynamicWrite.getFieldAuditSnapshotId() == null
+                        || StrUtil.isBlank(dynamicWrite.getFieldAuditHeadHash())
+                        || !"EFFECTIVE".equals(dynamicWrite.getEffectiveStatus())) {
+                    throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED,
+                            "过程检验动态 writer 未返回 EFFECTIVE FormCenter instance 与审计快照");
+                }
+                formCenterInstanceIds.add(dynamicWrite.getFormCenterInstanceId());
+                auditBatchIds.add(dynamicWrite.getFieldAuditSnapshotId());
+                auditHeadHashes.add(dynamicWrite.getFieldAuditHeadHash());
+                continue;
+            }
             MesProBatchRecordExecutionOpenOrCreateByContextRespVO opened = executionService.openOrCreateByContext(
                     toOpenRequest(plan.getCommand(), batchExecutionId, batchTask));
             if (opened == null || opened.getId() == null) {
@@ -196,6 +223,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
         return new MesTeamLeaderActiveOrderReleaseProcessInspectionWriteResult()
                 .setDocumentType(FORM_SLOT_TYPE)
                 .setBatchRecordExecutionIds(distinct(executionIds))
+                .setFormCenterInstanceIds(distinct(formCenterInstanceIds))
                 .setFieldAuditIds(distinct(auditBatchIds))
                 .setFieldAuditHeadHashes(distinct(auditHeadHashes))
                 .setSourceObjectIds(plan.getSourceObjectIds())
@@ -354,8 +382,6 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 && Objects.equals(command.getTenantId(), regulation.getTenantId())
                 && Objects.equals(command.getProductId(), regulation.getProductId())
                 && Objects.equals(command.getRouteId(), regulation.getRouteId())
-                && Objects.equals(command.getRouteVersionId(), regulation.getRouteVersionId())
-                && Objects.equals(task.getRouteProcessId(), regulation.getRouteProcessId())
                 && Objects.equals(task.getProcessId(), regulation.getProcessId())
                 && MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA.equals(regulation.getOwnerModule())
                 && "PUBLISHED".equals(regulation.getLifecycleStatus())
@@ -368,7 +394,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 && version.getPublishedAt() != null && StrUtil.isNotBlank(version.getSnapshotJson());
         if (!regulationValid || !versionValid) {
             blockers.add(blocker("PQC_QA_REGULATION_REQUIRED", "ROUTE_PROCESS", task.getRouteProcessId(),
-                    null, "PQC task 缺少匹配产品、路线版本和工序的当前 PUBLISHED QA 版本",
+                    null, "PQC task 缺少同产品、同路线、同稳定工序的最新 PUBLISHED QA 版本",
                     "请发布并绑定正式 QA 检验规程"));
             return false;
         }
@@ -380,6 +406,41 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
             blockers.add(blocker("PQC_QA_ITEM_MISMATCH", "PQC_AGGREGATE_DETAIL", detail.getId(),
                     mismatchItem, "PQC 汇集项目、方法、标准、上下限、设备、实测值或判定与发布 QA 不一致",
                     "请按当前发布 QA 项目重新完成 PQC 提交与汇集"));
+            return false;
+        }
+        return true;
+    }
+
+    private boolean validateDccProjectIdentity(
+            MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command,
+            MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source,
+            List<MesTeamLeaderActiveOrderReleaseBlocker> blockers) {
+        var project = source.getDccProject();
+        if (project == null || project.getId() == null
+                || !Objects.equals(command.getTenantId(), project.getTenantId())
+                || !Objects.equals(command.getProductId(), project.getProductMasterId())
+                || StrUtil.isBlank(project.getProjectCode()) || StrUtil.isBlank(project.getProjectName())
+                || !"ENABLE".equals(project.getStatus())) {
+            blockers.add(blocker("PQC_DCC_PROJECT_IDENTITY_REQUIRED", "PRODUCT", command.getProductId(), null,
+                    "产品缺少唯一启用且 productMasterId 精确相等的 DCC 项目身份",
+                    "请通过正式 DCC 产品项目绑定补齐 productMasterId；禁止按名称或项目代码猜测"));
+            return false;
+        }
+        return true;
+    }
+
+    private boolean validateQaDccProvenance(
+            MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source,
+            List<MesTeamLeaderActiveOrderReleaseBlocker> blockers) {
+        var provenance = source.getQaDccProvenance();
+        if (provenance == null || !provenance.isVerifiedFor(source.getDccProject(), source.getRegulation(),
+                source.getRegulationVersion())) {
+            String blockerType = provenance == null || StrUtil.isBlank(provenance.getBlockerType())
+                    ? "PQC_DCC_QA_PROVENANCE_REQUIRED" : provenance.getBlockerType();
+            String reason = provenance == null || StrUtil.isBlank(provenance.getBlockerMessage())
+                    ? "QA 版本缺少可验证的显式 DCC 项目来源关系" : provenance.getBlockerMessage();
+            blockers.add(blocker(blockerType, "PQC_TASK", source.getTask().getId(), null, reason,
+                    "请建立 QA 发布版本到 DCC 项目的正式来源关系；禁止用 productId/processId 推断"));
             return false;
         }
         return true;
@@ -545,15 +606,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                         && StrUtil.isNotBlank(binding.getRecordCategorySnapshotHash())
                         && StrUtil.isNotBlank(binding.getSlotConfigSnapshotHash()))
                 .toList();
-        if (matches.isEmpty() && dynamicMatches.size() == 1) {
-            MesProRouteFlowProcessBatchRecordDO binding = dynamicMatches.get(0);
-            blockers.add(blocker("PROCESS_INSPECTION_DYNAMIC_FORM_AUTOWRITE_REQUIRED",
-                    "ROUTE_PROCESS_FORM_BINDING", binding.getId(), binding.getFormBindingKey(),
-                    "已识别路线绑定的过程检验 FormCenter 正式目标，但自动写入和提交链路尚未接通",
-                    "请配置 template 28 已发布版本的 PQC_AGGREGATE_DETAIL 字段映射并接通正式实例提交"));
-            return null;
-        }
-        if (matches.size() != 1) {
+        if (matches.size() + dynamicMatches.size() != 1) {
             blockers.add(blocker("PROCESS_INSPECTION_REPORT_BINDING_REQUIRED", "ROUTE_PROCESS",
                     task.getRouteProcessId(), null,
                     "工序必须存在唯一有效 PROCESS_INSPECTION 目标绑定，传统数量=" + matches.size()
@@ -561,15 +614,20 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                     "请维护唯一的传统报表绑定或 template 28 已发布动态表单绑定"));
             return null;
         }
-        return matches.get(0);
+        return matches.isEmpty() ? dynamicMatches.get(0) : matches.get(0);
     }
 
     private MappingResolution resolveMappings(
             MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source,
             MesProRouteFlowProcessBatchRecordDO binding,
             List<MesTeamLeaderActiveOrderReleaseBlocker> blockers) {
+        boolean dynamic = isDynamicBinding(binding);
+        String scopeType = dynamic ? "FORM_TEMPLATE_VERSION" : SCOPE_TYPE_ROUTE_VERSION;
+        Long scopeId = dynamic ? binding.getLastPublishedTemplateVersionId() : binding.getBatchRecordVersionId();
+        String targetReportId = dynamic ? "FORMTPL:" + binding.getLastPublishedTemplateVersionId()
+                : binding.getBatchRecordReportId();
         List<MesProBatchRecordCellLinkRuleDO> rules = ruleMapper.selectEnabledListByScopeAndTargetReport(
-                SCOPE_TYPE_ROUTE_VERSION, binding.getBatchRecordVersionId(), binding.getBatchRecordReportId());
+                scopeType, scopeId, targetReportId);
         Map<String, SourceValue> available = sourceValues(source);
         Set<String> required = requiredSourceKeys(source);
         Map<String, MesProBatchRecordCellLinkRuleDO> ruleByKey = new LinkedHashMap<>();
@@ -582,11 +640,13 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 String sourceKey = rule == null ? null : rule.getSourceCellKey();
                 String targetKey = rule == null ? null : cellKey(rule.getTargetRowIndex(), rule.getTargetColumnIndex());
                 if (rule == null || rule.getId() == null || !Boolean.TRUE.equals(rule.getEnabled())
+                        || !Objects.equals(scopeType, rule.getScopeType())
+                        || !Objects.equals(scopeId, rule.getScopeId())
                         || !SOURCE_TYPE.equals(StrUtil.trim(rule.getSourceType()))
                         || StrUtil.isBlank(rule.getSourceFieldCode()) || StrUtil.isBlank(sourceKey)
                         || !available.containsKey(sourceKey)
                         || !Objects.equals(available.get(sourceKey).fieldCode(), rule.getSourceFieldCode())
-                        || !Objects.equals(binding.getBatchRecordReportId(), rule.getTargetReportId())
+                        || !Objects.equals(targetReportId, rule.getTargetReportId())
                         || rule.getTargetRowIndex() == null || rule.getTargetColumnIndex() == null
                         || !Objects.equals(targetKey, rule.getTargetCellKey())
                         || StrUtil.isBlank(rule.getTargetValueType())
@@ -613,14 +673,32 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                         .thenComparing(MesProBatchRecordCellLinkRuleDO::getTargetColumnIndex)
                         .thenComparing(MesProBatchRecordCellLinkRuleDO::getId))
                 .toList();
+        MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.TargetResolution dynamicTarget = null;
+        if (dynamic) {
+            dynamicTarget = dynamicFormPort.resolveTarget(binding, orderedRules);
+            if (dynamicTarget == null || !dynamicTarget.isValid()) {
+                String blockerType = dynamicTarget == null || StrUtil.isBlank(dynamicTarget.getBlockerType())
+                        ? "PROCESS_INSPECTION_DYNAMIC_FORM_TEMPLATE_REQUIRED" : dynamicTarget.getBlockerType();
+                String message = dynamicTarget == null || StrUtil.isBlank(dynamicTarget.getBlockerMessage())
+                        ? "过程检验动态模板目标解析失败" : dynamicTarget.getBlockerMessage();
+                blockers.add(blocker(blockerType, "ROUTE_PROCESS_FORM_BINDING", binding.getId(),
+                        binding.getFormBindingKey(), message,
+                        "请配置精确的 PUBLISHED template 28 版本和稳定 fieldCode 映射"));
+                return null;
+            }
+        }
+        MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.TargetResolution resolvedTarget = dynamicTarget;
         List<MesTeamLeaderActiveOrderReleaseProcessInspectionPlan.MappedValue> values = orderedRules.stream()
                 .map(rule -> {
                     SourceValue value = available.get(rule.getSourceCellKey());
                     return new MesTeamLeaderActiveOrderReleaseProcessInspectionPlan.MappedValue()
-                            .setRule(rule).setValue(value.value()).setDisplayValue(displayValue(value.value()));
+                            .setRule(rule).setValue(value.value()).setDisplayValue(displayValue(value.value()))
+                            .setTargetFieldCode(resolvedTarget == null ? null
+                                    : resolvedTarget.getTargetFieldCodes().get(rule.getId()))
+                            .setSourceValueHash(hashMappedValue(rule, value));
                 })
                 .toList();
-        return new MappingResolution(List.copyOf(orderedRules), values);
+        return new MappingResolution(List.copyOf(orderedRules), values, resolvedTarget);
     }
 
     private Map<String, SourceValue> sourceValues(
@@ -641,6 +719,12 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 source.getReview().getReviewSignatureUserId());
         put(values, headerSourceKey(task.getInspectionType(), "reviewedAt"), "reviewedAt",
                 source.getReview().getReviewedAt());
+        put(values, dccSourceKey(task.getInspectionType(), "dccProjectId"), "dccProjectId",
+                source.getDccProject().getId());
+        put(values, dccSourceKey(task.getInspectionType(), "dccProjectCode"), "dccProjectCode",
+                source.getDccProject().getProjectCode());
+        put(values, dccSourceKey(task.getInspectionType(), "dccProjectName"), "dccProjectName",
+                source.getDccProject().getProjectName());
         return values;
     }
 
@@ -707,6 +791,9 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
         for (String field : List.of("inspectorUserId", "inspectedAt", "reviewerUserId", "reviewedAt")) {
             required.add(headerSourceKey(source.getTask().getInspectionType(), field));
         }
+        for (String field : List.of("dccProjectId", "dccProjectCode", "dccProjectName")) {
+            required.add(dccSourceKey(source.getTask().getInspectionType(), field));
+        }
         return required;
     }
 
@@ -732,6 +819,8 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
         addEvidence(sourceObjectIds, hashes, source.getRegulation().getId(), hashRegulation(source.getRegulation()));
         addEvidence(sourceObjectIds, hashes, source.getRegulationVersion().getId(),
                 hashRegulationVersion(source.getRegulationVersion()));
+        addEvidence(sourceObjectIds, hashes, source.getDccProject().getId(), hashDccProject(source.getDccProject()));
+        hashes.add(hashQaDccProvenance(source.getQaDccProvenance()));
         for (MesQaInspectionRegulationItemDO item : source.getRegulationItems().stream()
                 .filter(item -> Objects.equals(task.getInspectionType(), item.getInspectionType()))
                 .sorted(Comparator.comparing(MesQaInspectionRegulationItemDO::getItemCode)).toList()) {
@@ -761,26 +850,33 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
             MesTeamLeaderActiveOrderReleaseProcessInspectionPlan.PreparedInspection inspection) {
         MesPqcInspectionTaskDO sourceTask = inspection.getSource().getTask();
         MesProRouteFlowProcessBatchRecordDO binding = inspection.getBinding();
+        boolean dynamic = isDynamicBinding(binding);
         List<MesProEdhrBatchExecutionTaskDO> matches = tasks == null ? List.of() : tasks.stream()
                 .filter(task -> task != null && task.getId() != null
                         && Objects.equals(batchExecutionId, task.getBatchExecutionId())
                         && Objects.equals(sourceTask.getRouteProcessId(), task.getRouteProcessId())
                         && Objects.equals(sourceTask.getProcessId(), task.getProcessId())
-                        && Objects.equals(binding.getBatchRecordReportId(), task.getBatchRecordReportId())
-                        && Objects.equals(binding.getBatchRecordDefinitionId(), task.getBatchRecordDefinitionId())
-                        && Objects.equals(binding.getBatchRecordVersionId(), task.getBatchRecordVersionId())
                         && Objects.equals(binding.getId(), task.getRouteBindingId())
                         && FORM_SLOT_TYPE.equals(task.getFormSlotType())
                         && RECORD_CATEGORY.equals(task.getRecordCategory())
                         && VALIDATION_PROFILE.equals(task.getValidationProfile())
                         && OWNER_ROLE.equals(task.getOwnerRoleKey())
-                        && task.getFormTemplateId() == null && StrUtil.isBlank(task.getFormBindingKey())
                         && StrUtil.isNotBlank(task.getRouteBindingSnapshotHash())
-                        && StrUtil.isNotBlank(task.getSlotConfigSnapshotHash()))
+                        && Objects.equals(binding.getSlotConfigSnapshotHash(), task.getSlotConfigSnapshotHash())
+                        && (dynamic
+                        ? Objects.equals(binding.getFormBindingKey(), task.getFormBindingKey())
+                        && Objects.equals(binding.getFormTemplateId(), task.getFormTemplateId())
+                        && Objects.equals(binding.getLastPublishedTemplateVersionId(), task.getFormTemplateVersionId())
+                        && Objects.equals(binding.getLastPublishedTemplateVersionNo(), task.getFormTemplateVersionNo())
+                        && task.getFormCenterInstanceId() != null && StrUtil.isBlank(task.getBatchRecordReportId())
+                        : Objects.equals(binding.getBatchRecordReportId(), task.getBatchRecordReportId())
+                        && Objects.equals(binding.getBatchRecordDefinitionId(), task.getBatchRecordDefinitionId())
+                        && Objects.equals(binding.getBatchRecordVersionId(), task.getBatchRecordVersionId())
+                        && task.getFormTemplateId() == null && StrUtil.isBlank(task.getFormBindingKey())))
                 .toList();
         if (matches.size() != 1) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED,
-                    "当前 eDHR 批次缺少唯一传统 PROCESS_INSPECTION 任务，batchExecutionId="
+                    "当前 eDHR 批次缺少唯一 PROCESS_INSPECTION 正式目标任务，batchExecutionId="
                             + batchExecutionId + "，routeProcessId=" + sourceTask.getRouteProcessId());
         }
         return matches.get(0);
@@ -1005,6 +1101,8 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
         return sha256(join("PROCESS_INSPECTION_BINDING_V1", binding.getId(), binding.getRouteId(),
                 binding.getRouteProcessId(), binding.getUseType(), binding.getBatchRecordReportId(),
                 binding.getBatchRecordDefinitionId(), binding.getBatchRecordVersionId(), binding.getFormSlotType(),
+                binding.getFormBindingKey(), binding.getFormTemplateId(), binding.getLastPublishedTemplateVersionId(),
+                binding.getLastPublishedTemplateVersionNo(),
                 binding.getRecordCategory(), binding.getValidationProfile(), binding.getOwnerRoleKey(),
                 binding.getRecordCategorySnapshotHash(), binding.getSlotConfigSnapshotHash()));
     }
@@ -1016,6 +1114,62 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 rule.getTargetReportId(), rule.getTargetRowIndex(), rule.getTargetColumnIndex(),
                 rule.getTargetCellKey(), rule.getTargetValueType(), rule.getAggregationStrategy(),
                 rule.getOverwritePolicy(), rule.getTemplateSnapshotHash(), rule.getRuleVersion(), rule.getEnabled()));
+    }
+
+    private String hashDccProject(DccProjectCodeDO project) {
+        return sha256(join("DCC_PROJECT_PRODUCT_IDENTITY_V1", project.getTenantId(), project.getId(),
+                project.getProductMasterId(), project.getProjectCode(), project.getProjectName()));
+    }
+
+    private String hashQaDccProvenance(
+            MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort.Resolution provenance) {
+        return sha256(join("DCC_QA_PROVENANCE_V1", provenance.getDccProjectCodeId(),
+                provenance.getRegulationId(), provenance.getRegulationVersionId(), provenance.getProvenanceType(),
+                provenance.getProvenanceId(), provenance.getProvenanceSnapshotHash()));
+    }
+
+    private String hashMappedValue(MesProBatchRecordCellLinkRuleDO rule, SourceValue value) {
+        return sha256(join("PQC_MAPPED_FIELD_VALUE_V1", rule.getSourceCellKey(), rule.getSourceFieldCode(),
+                value.fieldCode(), value.value()));
+    }
+
+    private MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteCommand toDynamicWriteCommand(
+            MesTeamLeaderActiveOrderReleaseProcessInspectionPlan plan,
+            Long batchExecutionId,
+            MesProEdhrBatchExecutionTaskDO batchTask,
+            MesTeamLeaderActiveOrderReleaseProcessInspectionPlan.PreparedInspection inspection) {
+        List<MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.FieldWrite> fields =
+                inspection.getMappedValues().stream()
+                        .map(mapped -> new MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.FieldWrite()
+                                .setRuleId(mapped.getRule().getId())
+                                .setRuleVersion(mapped.getRule().getRuleVersion())
+                                .setSourceCellKey(mapped.getRule().getSourceCellKey())
+                                .setSourceFieldCode(mapped.getRule().getSourceFieldCode())
+                                .setTargetFieldCode(mapped.getTargetFieldCode())
+                                .setValue(auditValue(
+                                        MesProBatchRecordExecutionFieldAuditValueType.valueOf(
+                                                mapped.getRule().getTargetValueType()),
+                                        mapped.getValue()))
+                                .setDisplayValue(mapped.getDisplayValue())
+                                .setSourceValueHash(mapped.getSourceValueHash()))
+                        .toList();
+        return new MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteCommand()
+                .setTenantId(plan.getCommand().getTenantId())
+                .setBatchExecutionId(batchExecutionId)
+                .setBatchTask(batchTask)
+                .setBinding(inspection.getBinding())
+                .setTarget(inspection.getDynamicTarget())
+                .setFields(fields)
+                .setSourceSnapshotHash(plan.getCommand().getSourceSnapshotHash())
+                .setEvidenceHash(inspection.getEvidenceHash())
+                .setSignatureEvidence(plan.getSignatureEvidence());
+    }
+
+    private boolean isDynamicBinding(MesProRouteFlowProcessBatchRecordDO binding) {
+        return binding != null && StrUtil.isBlank(binding.getBatchRecordReportId())
+                && PROCESS_INSPECTION_FORM_TEMPLATE_ID.equals(binding.getFormTemplateId())
+                && StrUtil.isNotBlank(binding.getFormBindingKey())
+                && binding.getLastPublishedTemplateVersionId() != null;
     }
 
     private MesTeamLeaderActiveOrderReleaseProcessInspectionWriteResult.SignatureEvidence signature(
@@ -1060,6 +1214,10 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
 
     private String headerSourceKey(String inspectionType, String fieldCode) {
         return inspectionType + "|" + fieldCode;
+    }
+
+    private String dccSourceKey(String inspectionType, String fieldCode) {
+        return inspectionType + "|DCC|" + fieldCode;
     }
 
     private String cellKey(Integer row, Integer column) {
@@ -1126,7 +1284,9 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
     }
 
     private record MappingResolution(List<MesProBatchRecordCellLinkRuleDO> rules,
-                                     List<MesTeamLeaderActiveOrderReleaseProcessInspectionPlan.MappedValue> values) {
+                                     List<MesTeamLeaderActiveOrderReleaseProcessInspectionPlan.MappedValue> values,
+                                     MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.TargetResolution
+                                             dynamicTarget) {
     }
 
     private record SnapshotField(String fieldPath, String fieldKey,

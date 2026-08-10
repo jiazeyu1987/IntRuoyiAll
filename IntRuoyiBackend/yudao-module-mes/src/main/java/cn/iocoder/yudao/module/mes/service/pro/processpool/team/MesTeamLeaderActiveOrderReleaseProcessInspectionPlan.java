@@ -33,6 +33,8 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionPlan {
 
         private List<MappedValue> mappedValues;
 
+        private MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.TargetResolution dynamicTarget;
+
         private String evidenceHash;
     }
 
@@ -45,5 +47,9 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionPlan {
         private Object value;
 
         private String displayValue;
+
+        private String targetFieldCode;
+
+        private String sourceValueHash;
     }
 }

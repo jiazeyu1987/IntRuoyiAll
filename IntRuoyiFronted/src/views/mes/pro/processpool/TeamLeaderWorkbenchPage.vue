@@ -1827,9 +1827,9 @@
                 link
                 type="primary"
                 data-team-leader-process-config-edit-parameter
-                @click="openProcessConfigParameterDialog(row, device)"
+                @click="openProcessConfigParameterMaintenance(row, device)"
               >
-                参数标准
+                {{ isRoughWashProcessConfig(row, device) ? '粗洗参数' : '参数标准' }}
               </el-button>
             </div>
           </template>
@@ -2311,6 +2311,244 @@
           @click="submitProcessConfigDeviceBinding"
         >
           保存设备映射
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="roughWashParameterDialogVisible"
+      title="粗洗参数配置"
+      width="min(780px, calc(100vw - 32px))"
+      top="16px"
+      class="team-leader-workbench__rough-wash-dialog"
+      :close-on-click-modal="!processConfigSubmitting"
+      destroy-on-close
+      data-team-leader-rough-wash-config-dialog
+    >
+      <div class="team-leader-workbench__rough-wash-context">
+        <span>
+          <b>工艺路线</b>
+          {{ processConfigSelectedRow?.routeName || processConfigSelectedRow?.routeCode || '--' }}
+        </span>
+        <span>
+          <b>工序</b>
+          {{ processConfigSelectedRow ? formatProcessConfigProcess(processConfigSelectedRow) : '--' }}
+        </span>
+        <span>
+          <b>设备</b>
+          {{ processConfigSelectedDevice ? formatProcessConfigDevice(processConfigSelectedDevice) : '--' }}
+        </span>
+      </div>
+
+      <section class="team-leader-workbench__rough-wash-section" aria-labelledby="rough-wash-config-title">
+        <h3 id="rough-wash-config-title">参数配置</h3>
+        <div class="team-leader-workbench__rough-wash-config">
+          <div class="team-leader-workbench__rough-wash-row">
+            <div class="team-leader-workbench__rough-wash-label">
+              <strong>清洗次数</strong>
+              <span>整数 · 无上下限</span>
+            </div>
+            <div class="team-leader-workbench__rough-wash-control">
+              <el-input-number
+                v-model="roughWashParameterForm.cleaningCount"
+                :precision="0"
+                :step="1"
+                aria-label="清洗次数默认"
+                data-rough-wash-cleaning-count
+              />
+              <span class="team-leader-workbench__rough-wash-unit">次</span>
+            </div>
+          </div>
+
+          <div class="team-leader-workbench__rough-wash-row">
+            <div class="team-leader-workbench__rough-wash-label">
+              <strong>清洗介质</strong>
+              <span>默认选项</span>
+            </div>
+            <div class="team-leader-workbench__rough-wash-control">
+              <el-select
+                v-model="roughWashParameterForm.cleaningMedium"
+                aria-label="清洗介质默认选项"
+                data-rough-wash-cleaning-medium
+              >
+                <el-option label="自来水" value="自来水" />
+                <el-option label="纯净水" value="纯净水" />
+              </el-select>
+            </div>
+          </div>
+
+          <div class="team-leader-workbench__rough-wash-row">
+            <div class="team-leader-workbench__rough-wash-label">
+              <strong>清洗功率</strong>
+              <span>整数范围</span>
+            </div>
+            <div class="team-leader-workbench__rough-wash-range team-leader-workbench__rough-wash-range--three">
+              <label>
+                <span>下限</span>
+                <el-input-number
+                  v-model="roughWashParameterForm.powerLower"
+                  :controls="false"
+                  :precision="0"
+                  aria-label="清洗功率下限"
+                  data-rough-wash-power-lower
+                />
+              </label>
+              <label>
+                <span>默认</span>
+                <el-input-number
+                  v-model="roughWashParameterForm.powerDefault"
+                  :controls="false"
+                  :precision="0"
+                  aria-label="清洗功率默认"
+                  data-rough-wash-power-default
+                />
+              </label>
+              <label>
+                <span>上限</span>
+                <el-input-number
+                  v-model="roughWashParameterForm.powerUpper"
+                  :controls="false"
+                  :precision="0"
+                  aria-label="清洗功率上限"
+                  data-rough-wash-power-upper
+                />
+              </label>
+              <span class="team-leader-workbench__rough-wash-unit">%</span>
+            </div>
+          </div>
+
+          <div class="team-leader-workbench__rough-wash-row">
+            <div class="team-leader-workbench__rough-wash-label">
+              <strong>室温</strong>
+              <span>保留 1 位小数</span>
+            </div>
+            <div class="team-leader-workbench__rough-wash-range team-leader-workbench__rough-wash-range--three">
+              <label>
+                <span>下限</span>
+                <el-input-number
+                  v-model="roughWashParameterForm.roomTemperatureLower"
+                  :controls="false"
+                  :precision="1"
+                  :step="0.1"
+                  aria-label="室温下限"
+                  data-rough-wash-room-temperature-lower
+                />
+              </label>
+              <label>
+                <span>默认</span>
+                <el-input-number
+                  v-model="roughWashParameterForm.roomTemperatureDefault"
+                  :controls="false"
+                  :precision="1"
+                  :step="0.1"
+                  aria-label="室温默认"
+                  data-rough-wash-room-temperature-default
+                />
+              </label>
+              <label>
+                <span>上限</span>
+                <el-input-number
+                  v-model="roughWashParameterForm.roomTemperatureUpper"
+                  :controls="false"
+                  :precision="1"
+                  :step="0.1"
+                  aria-label="室温上限"
+                  data-rough-wash-room-temperature-upper
+                />
+              </label>
+              <span class="team-leader-workbench__rough-wash-unit">℃</span>
+            </div>
+          </div>
+
+          <div class="team-leader-workbench__rough-wash-row">
+            <div class="team-leader-workbench__rough-wash-label">
+              <strong>清洗时间</strong>
+              <span>整数 · 无上下限</span>
+            </div>
+            <div class="team-leader-workbench__rough-wash-control">
+              <el-input-number
+                v-model="roughWashParameterForm.cleaningTime"
+                :precision="0"
+                :step="1"
+                aria-label="清洗时间默认"
+                data-rough-wash-cleaning-time
+              />
+              <span class="team-leader-workbench__rough-wash-unit">min</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="team-leader-workbench__rough-wash-section team-leader-workbench__rough-wash-preview"
+        aria-labelledby="rough-wash-preview-title"
+        data-team-leader-rough-wash-frontline-preview
+      >
+        <h3 id="rough-wash-preview-title">一线填设备预览</h3>
+        <div class="team-leader-workbench__rough-wash-preview-grid">
+          <label>
+            <span>清洗次数</span>
+            <el-input-number
+              :model-value="roughWashParameterForm.cleaningCount"
+              :precision="0"
+              disabled
+              aria-label="预览清洗次数"
+            />
+          </label>
+          <label>
+            <span>清洗介质</span>
+            <el-select
+              :model-value="roughWashParameterForm.cleaningMedium"
+              disabled
+              aria-label="预览清洗介质"
+            >
+              <el-option label="自来水" value="自来水" />
+              <el-option label="纯净水" value="纯净水" />
+            </el-select>
+          </label>
+          <label>
+            <span>清洗功率</span>
+            <el-input-number
+              :model-value="roughWashParameterForm.powerDefault"
+              :controls="false"
+              :precision="0"
+              disabled
+              aria-label="预览清洗功率"
+            />
+          </label>
+          <label>
+            <span>室温</span>
+            <el-input-number
+              :model-value="roughWashParameterForm.roomTemperatureDefault"
+              :controls="false"
+              :precision="1"
+              disabled
+              aria-label="预览室温"
+            />
+          </label>
+          <label>
+            <span>清洗时间</span>
+            <el-input-number
+              :model-value="roughWashParameterForm.cleaningTime"
+              :precision="0"
+              disabled
+              aria-label="预览清洗时间"
+            />
+          </label>
+        </div>
+      </section>
+
+      <template #footer>
+        <el-button :disabled="processConfigSubmitting" @click="roughWashParameterDialogVisible = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="processConfigSubmitting"
+          data-team-leader-rough-wash-save
+          @click="submitRoughWashParameterConfig"
+        >
+          保存配置
         </el-button>
       </template>
     </el-dialog>
@@ -2956,6 +3194,7 @@ import {
   type TeamLeaderActiveOrderRespVO,
   type TeamLeaderActiveOrderTransferTraceRespVO,
   type TeamLeaderLossReasonVO,
+  type TeamDeviceParameterRuleSaveReqVO,
   type TeamLeaderProcessConfigDeviceVO,
   type TeamLeaderProcessConfigListReqVO,
   type TeamLeaderProcessConfigParameterVO,
@@ -3022,7 +3261,7 @@ const ROUGH_WASH_DEVICE_PARAMETER_TEMPLATES: ProcessConfigDeviceParameterTemplat
     standardText: '清洗功率 20-30%',
     valueType: 'INTEGER',
     lowerLimit: 20,
-    targetValue: undefined,
+    targetValue: 25,
     upperLimit: 30
   },
   {
@@ -3182,6 +3421,7 @@ const processConfigSubmitting = ref(false)
 const processConfigCreateDialogVisible = ref(false)
 const processConfigDeviceDialogVisible = ref(false)
 const processConfigParameterDialogVisible = ref(false)
+const roughWashParameterDialogVisible = ref(false)
 const processConfigSelectedRow = ref<TeamLeaderProcessConfigRowRespVO>()
 const processConfigSelectedDevice = ref<TeamLeaderProcessConfigDeviceVO>()
 const processConfigEditingParameter = ref<TeamLeaderProcessConfigParameterVO>()
@@ -3965,6 +4205,18 @@ const processConfigParameterForm = reactive({
   decimalScale: undefined as number | undefined
 })
 
+const roughWashParameterForm = reactive({
+  cleaningCount: 2,
+  cleaningMedium: '自来水',
+  powerLower: 20,
+  powerDefault: 25,
+  powerUpper: 30,
+  roomTemperatureLower: 20,
+  roomTemperatureDefault: 26,
+  roomTemperatureUpper: 30,
+  cleaningTime: 30
+})
+
 const abnormalRules = {
   abnormalDescription: [{ required: true, message: '异常原因不能为空', trigger: 'blur' }]
 }
@@ -4647,24 +4899,6 @@ const isRoughWashProcessConfig = (
   return processText.includes('粗洗') && deviceText.includes('超声波清洗机')
 }
 
-const getNextRoughWashDeviceParameterTemplate = (
-  row: TeamLeaderProcessConfigRowRespVO,
-  device: TeamLeaderProcessConfigDeviceVO
-) => {
-  if (!isRoughWashProcessConfig(row, device)) return undefined
-  const existingKeys = new Set(
-    (device.parameters || []).flatMap((parameter) => [
-      parameter.parameterCode,
-      parameter.parameterName
-    ]).filter(Boolean)
-  )
-  return ROUGH_WASH_DEVICE_PARAMETER_TEMPLATES.find(
-    (template) =>
-      !existingKeys.has(template.parameterCode) &&
-      !existingKeys.has(template.parameterName)
-  )
-}
-
 const syncProcessConfigCreateDevice = () => {
   processConfigCreateForm.deviceId = processConfigCreateDeviceOptions.value[0]?.deviceId
 }
@@ -4724,7 +4958,7 @@ const confirmCreateProcessConfigData = () => {
     return
   }
   processConfigCreateDialogVisible.value = false
-  openProcessConfigParameterDialog(row, device, undefined, { create: true })
+  openProcessConfigParameterMaintenance(row, device, { create: true })
 }
 
 const resetLossReasonForm = () => {
@@ -4873,20 +5107,6 @@ const resetProcessConfigParameterForm = () => {
   processConfigParameterForm.decimalScale = undefined
 }
 
-const applyProcessConfigParameterTemplate = (template: ProcessConfigDeviceParameterTemplate) => {
-  processConfigParameterForm.parameterCode = template.parameterCode
-  processConfigParameterForm.parameterName = template.parameterName
-  processConfigParameterForm.unit = template.unit || ''
-  processConfigParameterForm.standardText = template.standardText
-  processConfigParameterForm.valueType = template.valueType
-  processConfigParameterForm.lowerLimit = template.lowerLimit
-  processConfigParameterForm.targetValue = template.targetValue
-  processConfigParameterForm.upperLimit = template.upperLimit
-  processConfigParameterForm.optionValues = [...(template.optionValues || [])]
-  processConfigParameterForm.defaultText = template.defaultText || ''
-  processConfigParameterForm.decimalScale = template.decimalScale
-}
-
 const openProcessConfigDeviceDialog = (row: TeamLeaderProcessConfigRowRespVO) => {
   processConfigSelectedRow.value = row
   processConfigSelectedDevice.value = undefined
@@ -4908,12 +5128,6 @@ const openProcessConfigParameterDialog = (
   processConfigSelectedDevice.value = device
   processConfigEditingParameter.value = options.create ? undefined : parameter ?? device.parameters?.[0]
   resetProcessConfigParameterForm()
-  if (options.create) {
-    const template = getNextRoughWashDeviceParameterTemplate(row, device)
-    if (template) {
-      applyProcessConfigParameterTemplate(template)
-    }
-  }
   if (processConfigEditingParameter.value) {
     processConfigParameterForm.parameterCode = processConfigEditingParameter.value.parameterCode
     processConfigParameterForm.parameterName = processConfigEditingParameter.value.parameterName || ''
@@ -4938,6 +5152,249 @@ const openProcessConfigParameterDialog = (
     )
   }
   processConfigParameterDialogVisible.value = true
+}
+
+const resetRoughWashParameterForm = () => {
+  roughWashParameterForm.cleaningCount = 2
+  roughWashParameterForm.cleaningMedium = '自来水'
+  roughWashParameterForm.powerLower = 20
+  roughWashParameterForm.powerDefault = 25
+  roughWashParameterForm.powerUpper = 30
+  roughWashParameterForm.roomTemperatureLower = 20
+  roughWashParameterForm.roomTemperatureDefault = 26
+  roughWashParameterForm.roomTemperatureUpper = 30
+  roughWashParameterForm.cleaningTime = 30
+}
+
+const findRoughWashParameter = (
+  device: TeamLeaderProcessConfigDeviceVO,
+  parameterCode: string
+) => device.parameters?.find((parameter) => parameter.parameterCode === parameterCode)
+
+const applyExistingRoughWashParameterValues = (device: TeamLeaderProcessConfigDeviceVO) => {
+  const cleaningCount = findRoughWashParameter(device, 'ROUGH_WASH_COUNT')
+  const cleaningMedium = findRoughWashParameter(device, 'ROUGH_WASH_MEDIUM')
+  const cleaningPower = findRoughWashParameter(device, 'ROUGH_WASH_POWER')
+  const roomTemperature = findRoughWashParameter(device, 'ROUGH_WASH_ROOM_TEMPERATURE')
+  const cleaningTime = findRoughWashParameter(device, 'ROUGH_WASH_TIME')
+
+  roughWashParameterForm.cleaningCount =
+    toOptionalProcessConfigNumber(cleaningCount?.targetValue) ?? roughWashParameterForm.cleaningCount
+  roughWashParameterForm.cleaningMedium =
+    cleaningMedium?.defaultText ?? roughWashParameterForm.cleaningMedium
+  roughWashParameterForm.powerLower =
+    toOptionalProcessConfigNumber(cleaningPower?.lowerLimit) ?? roughWashParameterForm.powerLower
+  roughWashParameterForm.powerDefault =
+    toOptionalProcessConfigNumber(cleaningPower?.targetValue) ?? roughWashParameterForm.powerDefault
+  roughWashParameterForm.powerUpper =
+    toOptionalProcessConfigNumber(cleaningPower?.upperLimit) ?? roughWashParameterForm.powerUpper
+  roughWashParameterForm.roomTemperatureLower =
+    toOptionalProcessConfigNumber(roomTemperature?.lowerLimit) ??
+    roughWashParameterForm.roomTemperatureLower
+  roughWashParameterForm.roomTemperatureDefault =
+    toOptionalProcessConfigNumber(roomTemperature?.targetValue) ??
+    roughWashParameterForm.roomTemperatureDefault
+  roughWashParameterForm.roomTemperatureUpper =
+    toOptionalProcessConfigNumber(roomTemperature?.upperLimit) ??
+    roughWashParameterForm.roomTemperatureUpper
+  roughWashParameterForm.cleaningTime =
+    toOptionalProcessConfigNumber(cleaningTime?.targetValue) ?? roughWashParameterForm.cleaningTime
+}
+
+const openRoughWashParameterConfigDialog = (
+  row: TeamLeaderProcessConfigRowRespVO,
+  device: TeamLeaderProcessConfigDeviceVO
+) => {
+  processConfigSelectedRow.value = row
+  processConfigSelectedDevice.value = device
+  processConfigEditingParameter.value = undefined
+  resetRoughWashParameterForm()
+  applyExistingRoughWashParameterValues(device)
+  roughWashParameterDialogVisible.value = true
+}
+
+const openProcessConfigParameterMaintenance = (
+  row: TeamLeaderProcessConfigRowRespVO,
+  device: TeamLeaderProcessConfigDeviceVO,
+  options: { create?: boolean } = {}
+) => {
+  if (isRoughWashProcessConfig(row, device)) {
+    openRoughWashParameterConfigDialog(row, device)
+    return
+  }
+  openProcessConfigParameterDialog(row, device, undefined, options)
+}
+
+const requireRoughWashNumber = (value: unknown, label: string) => {
+  const parsed = toOptionalProcessConfigNumber(value)
+  if (parsed === undefined) {
+    throw new Error(`${label}不能为空`)
+  }
+  return parsed
+}
+
+const requireRoughWashInteger = (value: unknown, label: string) => {
+  const parsed = requireRoughWashNumber(value, label)
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`${label}必须是整数`)
+  }
+  return parsed
+}
+
+const requireRoughWashSingleDecimal = (value: unknown, label: string) => {
+  const parsed = requireRoughWashNumber(value, label)
+  if (Math.abs(parsed * 10 - Math.round(parsed * 10)) > Number.EPSILON * 10) {
+    throw new Error(`${label}最多保留 1 位小数`)
+  }
+  return parsed
+}
+
+const buildRoughWashParameterSavePayloads = (
+  row: TeamLeaderProcessConfigRowRespVO,
+  device: TeamLeaderProcessConfigDeviceVO
+): TeamDeviceParameterRuleSaveReqVO[] => {
+  const routeProcessId = requirePositiveNumber(row.routeProcessId, '路线工序不能为空')
+  const deviceId = requirePositiveNumber(device.deviceId, '设备不能为空')
+  const cleaningCount = requireRoughWashInteger(
+    roughWashParameterForm.cleaningCount,
+    '清洗次数'
+  )
+  const cleaningTime = requireRoughWashInteger(
+    roughWashParameterForm.cleaningTime,
+    '清洗时间'
+  )
+  const powerLower = requireRoughWashInteger(roughWashParameterForm.powerLower, '清洗功率下限')
+  const powerDefault = requireRoughWashInteger(
+    roughWashParameterForm.powerDefault,
+    '清洗功率默认'
+  )
+  const powerUpper = requireRoughWashInteger(roughWashParameterForm.powerUpper, '清洗功率上限')
+  const roomTemperatureLower = requireRoughWashSingleDecimal(
+    roughWashParameterForm.roomTemperatureLower,
+    '室温下限'
+  )
+  const roomTemperatureDefault = requireRoughWashSingleDecimal(
+    roughWashParameterForm.roomTemperatureDefault,
+    '室温默认'
+  )
+  const roomTemperatureUpper = requireRoughWashSingleDecimal(
+    roughWashParameterForm.roomTemperatureUpper,
+    '室温上限'
+  )
+  if (powerLower > powerDefault || powerDefault > powerUpper) {
+    throw new Error('清洗功率必须满足下限不大于默认且默认不大于上限')
+  }
+  if (
+    roomTemperatureLower > roomTemperatureDefault ||
+    roomTemperatureDefault > roomTemperatureUpper
+  ) {
+    throw new Error('室温必须满足下限不大于默认且默认不大于上限')
+  }
+  if (!['自来水', '纯净水'].includes(roughWashParameterForm.cleaningMedium)) {
+    throw new Error('清洗介质必须选择自来水或纯净水')
+  }
+
+  return ROUGH_WASH_DEVICE_PARAMETER_TEMPLATES.map((template) => {
+    const common = {
+      routeProcessId,
+      deviceId,
+      parameterCode: template.parameterCode,
+      parameterName: template.parameterName,
+      unit: template.unit,
+      valueType: template.valueType,
+      optionValues: template.optionValues ? [...template.optionValues] : undefined,
+      defaultText: template.defaultText,
+      decimalScale: template.decimalScale,
+      lowerLimit: template.lowerLimit,
+      targetValue: template.targetValue,
+      upperLimit: template.upperLimit,
+      standardText: template.standardText
+    }
+    switch (template.parameterCode) {
+      case 'ROUGH_WASH_COUNT':
+        return {
+          ...common,
+          lowerLimit: undefined,
+          targetValue: cleaningCount,
+          upperLimit: undefined,
+          standardText: `清洗次数默认 ${cleaningCount} 次`
+        }
+      case 'ROUGH_WASH_MEDIUM':
+        return {
+          ...common,
+          optionValues: ['自来水', '纯净水'],
+          defaultText: roughWashParameterForm.cleaningMedium,
+          standardText: `清洗介质可选自来水或纯净水，默认${roughWashParameterForm.cleaningMedium}`
+        }
+      case 'ROUGH_WASH_POWER':
+        return {
+          ...common,
+          lowerLimit: powerLower,
+          targetValue: powerDefault,
+          upperLimit: powerUpper,
+          standardText: `清洗功率 ${powerLower}-${powerUpper}%，默认 ${powerDefault}%`
+        }
+      case 'ROUGH_WASH_ROOM_TEMPERATURE':
+        return {
+          ...common,
+          lowerLimit: roomTemperatureLower,
+          targetValue: roomTemperatureDefault,
+          upperLimit: roomTemperatureUpper,
+          decimalScale: 1,
+          standardText: `室温 ${roomTemperatureLower.toFixed(1)}-${roomTemperatureUpper.toFixed(1)}℃，默认 ${roomTemperatureDefault.toFixed(1)}℃`
+        }
+      case 'ROUGH_WASH_TIME':
+        return {
+          ...common,
+          lowerLimit: undefined,
+          targetValue: cleaningTime,
+          upperLimit: undefined,
+          standardText: `清洗时间默认 ${cleaningTime} min`
+        }
+      default:
+        throw new Error(`不支持的粗洗参数编码：${template.parameterCode}`)
+    }
+  })
+}
+
+const submitRoughWashParameterConfig = async () => {
+  const row = processConfigSelectedRow.value
+  const device = processConfigSelectedDevice.value
+  if (!row || !device) {
+    ElMessage.error('请先选择粗洗工序和超声波清洗机')
+    return
+  }
+  let payloads: TeamDeviceParameterRuleSaveReqVO[]
+  try {
+    payloads = buildRoughWashParameterSavePayloads(row, device)
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '粗洗参数配置校验失败'))
+    return
+  }
+
+  processConfigSubmitting.value = true
+  try {
+    try {
+      await Promise.all(payloads.map((payload) => saveTeamProcessConfigDeviceParameterRule(payload)))
+    } catch (error) {
+      ElMessage.error(
+        `粗洗参数未全部保存，请重新保存：${resolveErrorMessage(error, '参数保存失败')}`
+      )
+      return
+    }
+    try {
+      await loadProcessConfigRows()
+    } catch (error) {
+      ElMessage.error(
+        `粗洗参数已保存，但列表刷新失败：${resolveErrorMessage(error, '列表刷新失败')}`
+      )
+      return
+    }
+    roughWashParameterDialogVisible.value = false
+    ElMessage.success('粗洗参数配置已保存')
+  } finally {
+    processConfigSubmitting.value = false
+  }
 }
 
 const submitProcessConfigDeviceBinding = async () => {
@@ -7136,7 +7593,11 @@ onMounted(() => {
     }
   } else {
     refreshPqcPersonnel()
-    if (!showPqcModuleTabs.value) {
+    if (
+      !showPqcModuleTabs.value ||
+      activePqcModuleTab.value === 'management' ||
+      activePqcModuleTab.value === 'history'
+    ) {
       clearInitialSubmissionVisibleDefaultFilter()
       getSubmissionList()
     }
@@ -7483,6 +7944,186 @@ onMounted(() => {
   color: #64748b;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.team-leader-workbench__rough-wash-context {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  color: var(--el-text-color-regular);
+  font-size: 13px;
+}
+
+:global(.team-leader-workbench__rough-wash-dialog) {
+  display: flex;
+  max-height: calc(100vh - 32px);
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+
+:global(.team-leader-workbench__rough-wash-dialog .el-dialog__body) {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+:global(.team-leader-workbench__rough-wash-dialog .el-dialog__footer) {
+  flex: 0 0 auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.team-leader-workbench__rough-wash-context span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.team-leader-workbench__rough-wash-context b {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.team-leader-workbench__rough-wash-section {
+  padding-top: 18px;
+}
+
+.team-leader-workbench__rough-wash-section h3 {
+  margin: 0 0 12px;
+  color: var(--el-text-color-primary);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.team-leader-workbench__rough-wash-config {
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.team-leader-workbench__rough-wash-row {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  min-height: 66px;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.team-leader-workbench__rough-wash-label {
+  display: grid;
+  gap: 3px;
+}
+
+.team-leader-workbench__rough-wash-label strong {
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+}
+
+.team-leader-workbench__rough-wash-label span,
+.team-leader-workbench__rough-wash-range label > span {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.team-leader-workbench__rough-wash-control {
+  display: flex;
+  width: min(280px, 100%);
+  align-items: center;
+  gap: 10px;
+}
+
+.team-leader-workbench__rough-wash-control :deep(.el-input-number),
+.team-leader-workbench__rough-wash-control :deep(.el-select) {
+  width: 220px;
+}
+
+.team-leader-workbench__rough-wash-range {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.team-leader-workbench__rough-wash-range--three {
+  grid-template-columns: repeat(3, minmax(110px, 1fr)) auto;
+}
+
+.team-leader-workbench__rough-wash-range label {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.team-leader-workbench__rough-wash-range :deep(.el-input-number) {
+  width: 100%;
+}
+
+.team-leader-workbench__rough-wash-separator,
+.team-leader-workbench__rough-wash-unit {
+  padding-bottom: 8px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.team-leader-workbench__rough-wash-control .team-leader-workbench__rough-wash-unit {
+  padding-bottom: 0;
+}
+
+.team-leader-workbench__rough-wash-preview {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  background: var(--el-fill-color-extra-light);
+}
+
+.team-leader-workbench__rough-wash-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.team-leader-workbench__rough-wash-preview-grid label {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: var(--el-text-color-regular);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.team-leader-workbench__rough-wash-preview-grid :deep(.el-input-number),
+.team-leader-workbench__rough-wash-preview-grid :deep(.el-select) {
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .team-leader-workbench__rough-wash-context,
+  .team-leader-workbench__rough-wash-preview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .team-leader-workbench__rough-wash-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .team-leader-workbench__rough-wash-range,
+  .team-leader-workbench__rough-wash-range--three {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .team-leader-workbench__rough-wash-range--three label:last-of-type {
+    grid-column: 1 / -1;
+  }
+
+  .team-leader-workbench__rough-wash-separator {
+    display: none;
+  }
 }
 
 .team-leader-workbench__allocation-toolbar {

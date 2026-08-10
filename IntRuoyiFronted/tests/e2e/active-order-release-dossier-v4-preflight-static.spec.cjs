@@ -22,6 +22,7 @@ const requiredEnvKeys = [
   'AORD_V4_M0_BROWSER_PATH',
   'AORD_V4_M0_DB_CONTAINER',
   'AORD_V4_M0_DB_SCHEMA',
+  'AORD_V4_M0_ACCOUNT_MODE',
   'AORD_V4_M0_PRODUCT_ID',
   'AORD_V4_M0_ROUTE_ID',
   'AORD_V4_M0_ROUTE_VERSION_ID',
@@ -48,6 +49,10 @@ for (const key of requiredEnvKeys) {
 }
 
 assert.match(source, /const REQUIRED_ENV_KEYS = Object\.freeze\(/)
+assert.match(source, /const ACCOUNT_MODE_DISTINCT_ROLES = 'DISTINCT_ROLES'/)
+assert.match(source, /const ACCOUNT_MODE_SINGLE_ADMIN_APPROVED = 'SINGLE_ADMIN_APPROVED'/)
+assert.match(source, /SINGLE_ADMIN_ACCOUNT_MISMATCH/)
+assert.match(source, /DISTINCT_ROLE_ACCOUNTS_REQUIRED/)
 assert.match(source, /validateExplicitEnvironment\(process\.env\)/)
 assert.match(source, /assertNoSecretLeak\(result, secretValues\)/)
 assert.match(source, /sanitizeForOutput\(error, secretValues\)/)
@@ -74,6 +79,14 @@ for (const token of [
   "'MAIN'",
   "'PROCESS_INSPECTION'",
   "'LOSS_REPORT'",
+  'form_binding_key',
+  'form_template_id',
+  'last_published_template_version_id',
+  'last_published_template_version_no',
+  'bpm_form_template_version',
+  "'FORM_TEMPLATE_VERSION'",
+  'FORMTPL:',
+  'ROW_NUMBER() OVER',
   'mes_pro_batch_record_report',
   'mes_pro_batch_record_definition',
   'mes_pro_batch_record_version',
@@ -94,7 +107,11 @@ for (const token of [
   assert.ok(source.includes(token), `preflight source gate is missing ${token}`)
 }
 
-assert.doesNotMatch(source, /formBindings|form_template_id/)
+assert.match(source, /PROCESS_INSPECTION:\s*28/)
+assert.match(source, /LOSS_REPORT:\s*25/)
+assert.match(source, /DYNAMIC_FORM_BINDINGS_REQUIRED/)
+assert.match(source, /DYNAMIC_FORM_TEMPLATE_SNAPSHOT_INVALID/)
+assert.match(source, /LATEST_PUBLISHED_QA_BY_STABLE_PROCESS_REQUIRED/)
 assert.match(source, /assertReadOnlySql\(sql\)/)
 assert.match(source, /\b(?:INSERT|UPDATE|DELETE|REPLACE|MERGE|CALL)\b/)
 assert.match(source, /page\.on\('console'/)

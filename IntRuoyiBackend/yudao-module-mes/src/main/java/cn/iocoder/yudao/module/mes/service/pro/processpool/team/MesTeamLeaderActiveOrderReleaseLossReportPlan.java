@@ -26,6 +26,7 @@ public class MesTeamLeaderActiveOrderReleaseLossReportPlan {
         private List<MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource> sources;
         private MesProRouteFlowProcessBatchRecordDO binding;
         private List<MesProBatchRecordCellLinkRuleDO> rules;
+        private MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPort.TargetResolution dynamicTarget;
         private Map<String, Object> mappedValues;
         private List<String> targetSnapshotHashes;
         private String evidenceHash;

@@ -11,6 +11,9 @@ const SIDE_EFFECTS_NONE = Object.freeze({
   manifestCreated: false
 })
 
+const ACCOUNT_MODE_DISTINCT_ROLES = 'DISTINCT_ROLES'
+const ACCOUNT_MODE_SINGLE_ADMIN_APPROVED = 'SINGLE_ADMIN_APPROVED'
+
 const ACTORS = Object.freeze([
   {
     role: 'PRODUCTION_WORKER',
@@ -53,6 +56,7 @@ const REQUIRED_ENV_KEYS = Object.freeze([
   'AORD_V4_M0_BROWSER_PATH',
   'AORD_V4_M0_DB_CONTAINER',
   'AORD_V4_M0_DB_SCHEMA',
+  'AORD_V4_M0_ACCOUNT_MODE',
   'AORD_V4_M0_PRODUCT_ID',
   'AORD_V4_M0_ROUTE_ID',
   'AORD_V4_M0_ROUTE_VERSION_ID',
@@ -229,6 +233,16 @@ function validateExplicitEnvironment(env) {
     )
   }
 
+  const accountMode = String(env.AORD_V4_M0_ACCOUNT_MODE).trim()
+  if (![ACCOUNT_MODE_DISTINCT_ROLES, ACCOUNT_MODE_SINGLE_ADMIN_APPROVED].includes(accountMode)) {
+    throw new PreflightBlockedError(
+      'ACCOUNT_CREDENTIALS',
+      'INVALID_ACCOUNT_MODE',
+      'AORD_V4_M0_ACCOUNT_MODE must explicitly select DISTINCT_ROLES or SINGLE_ADMIN_APPROVED',
+      { invalidEnvKeys: ['AORD_V4_M0_ACCOUNT_MODE'] }
+    )
+  }
+
   const routeProcessIds = String(env.AORD_V4_M0_ROUTE_PROCESS_IDS)
     .split(',')
     .map((value) => value.trim())
@@ -265,11 +279,19 @@ function validateExplicitEnvironment(env) {
     }
     return { role: definition.role, username, password, signaturePassword }
   })
-  if (new Set(actors.map((actor) => actor.username.toLowerCase())).size !== actors.length) {
+  const distinctUsernames = new Set(actors.map((actor) => actor.username.toLowerCase()))
+  if (accountMode === ACCOUNT_MODE_DISTINCT_ROLES && distinctUsernames.size !== actors.length) {
     throw new PreflightBlockedError(
       'ACCOUNT_CREDENTIALS',
-      'DUPLICATE_ROLE_ACCOUNT',
+      'DISTINCT_ROLE_ACCOUNTS_REQUIRED',
       'the five A6 role slots require five distinct login accounts'
+    )
+  }
+  if (accountMode === ACCOUNT_MODE_SINGLE_ADMIN_APPROVED && distinctUsernames.size !== 1) {
+    throw new PreflightBlockedError(
+      'ACCOUNT_CREDENTIALS',
+      'SINGLE_ADMIN_ACCOUNT_MISMATCH',
+      'the user-approved single-admin mode requires all five role slots to name the same account'
     )
   }
 
@@ -282,6 +304,7 @@ function validateExplicitEnvironment(env) {
     browserPath,
     dbContainer,
     dbSchema,
+    accountMode,
     productId: requirePositiveInteger(String(env.AORD_V4_M0_PRODUCT_ID).trim(), 'AORD_V4_M0_PRODUCT_ID'),
     routeId: requirePositiveInteger(String(env.AORD_V4_M0_ROUTE_ID).trim(), 'AORD_V4_M0_ROUTE_ID'),
     routeVersionId: requirePositiveInteger(
@@ -449,10 +472,10 @@ function runReadOnlyDatabaseChecks(environment) {
   )
   requireExactly(
     accountRows,
-    environment.actors.length,
+    new Set(environment.actors.map((actor) => actor.username.toLowerCase())).size,
     'ACCOUNT_SIGNATURES',
-    'FIVE_ROLE_ACCOUNTS_REQUIRED',
-    'not every explicit role account resolves in the authorized tenant'
+    'EXPLICIT_ROLE_ACCOUNTS_REQUIRED',
+    'not every distinct explicit role account resolves in the authorized tenant'
   )
   const accountByUsername = new Map()
   for (const row of accountRows) {
@@ -467,10 +490,10 @@ function runReadOnlyDatabaseChecks(environment) {
     accountByUsername.set(row[0].toLowerCase(), Number(row[1]))
   }
 
-  const bindingRows = runReadOnlyMysql(
+  const mainBindingRows = runReadOnlyMysql(
     environment,
     `SELECT b.route_process_id, b.form_slot_type, b.record_category,
-            b.batch_record_report_id, b.batch_record_definition_id, b.batch_record_version_id,
+            b.batch_record_report_id, r.batch_record_definition_id, r.batch_record_version_id,
             r.id, r.form_slot_type, d.current_version_id, v.status
        FROM mes_pro_route_flow_process_batch_record b
        JOIN mes_pro_batch_record_report r
@@ -478,11 +501,11 @@ function runReadOnlyDatabaseChecks(environment) {
         AND r.tenant_id = b.tenant_id
         AND r.deleted = 0
        JOIN mes_pro_batch_record_definition d
-         ON d.id = b.batch_record_definition_id
+         ON d.id = r.batch_record_definition_id
         AND d.tenant_id = b.tenant_id
         AND d.deleted = 0
        JOIN mes_pro_batch_record_version v
-         ON v.id = b.batch_record_version_id
+         ON v.id = r.batch_record_version_id
         AND v.definition_id = d.id
         AND v.tenant_id = b.tenant_id
         AND v.deleted = 0
@@ -490,44 +513,42 @@ function runReadOnlyDatabaseChecks(environment) {
         AND b.route_id = ${environment.routeId}
         AND b.route_process_id IN (${processIdsSql})
         AND b.use_type = 'BATCH'
-        AND b.form_slot_type IN ('MAIN', 'PROCESS_INSPECTION', 'LOSS_REPORT')
+        AND b.form_slot_type = 'MAIN'
         AND b.batch_record_report_id IS NOT NULL
         AND b.batch_record_report_id <> ''
-        AND b.batch_record_definition_id IS NOT NULL
-        AND b.batch_record_version_id IS NOT NULL
+        AND r.batch_record_definition_id IS NOT NULL
+        AND r.batch_record_version_id IS NOT NULL
         AND b.deleted = 0
       ORDER BY b.route_process_id, b.form_slot_type, b.id`
   )
-  const expectedBindingCount = environment.routeProcessIds.length * 3
   requireExactly(
-    bindingRows,
-    expectedBindingCount,
-    'TRADITIONAL_REPORT_BINDINGS',
-    'THREE_TRADITIONAL_REPORTS_REQUIRED',
-    'every route process requires unique non-empty MAIN, PROCESS_INSPECTION, and LOSS_REPORT report identities',
+    mainBindingRows,
+    environment.routeProcessIds.length,
+    'TRADITIONAL_MAIN_BINDINGS',
+    'TRADITIONAL_MAIN_REPORT_REQUIRED',
+    'every route process requires one non-empty traditional MAIN batch-record report identity',
     { routeProcessIds: environment.routeProcessIds }
   )
-  const bindings = new Map()
-  for (const row of bindingRows) {
+  const traditionalBindings = new Map()
+  for (const row of mainBindingRows) {
     const routeProcessId = Number(row[0])
     const formSlotType = row[1]
-    const expectedCategory = formSlotType === 'MAIN' ? 'BATCH_RECORD' : 'INTERNAL_RECORD'
     const key = `${routeProcessId}:${formSlotType}`
     if (
-      bindings.has(key) ||
-      row[2] !== expectedCategory ||
+      traditionalBindings.has(key) ||
+      row[2] !== 'BATCH_RECORD' ||
       row[7] !== formSlotType ||
       Number(row[8]) !== Number(row[5]) ||
       row[9] !== 'APPROVED'
     ) {
       throw new PreflightBlockedError(
-        'TRADITIONAL_REPORT_BINDINGS',
-        'TRADITIONAL_REPORT_METADATA_INVALID',
-        'traditional report identity, category, definition, current version, or APPROVED status is invalid',
+        'TRADITIONAL_MAIN_BINDINGS',
+        'TRADITIONAL_MAIN_REPORT_METADATA_INVALID',
+        'traditional MAIN report identity, category, definition, current version, or APPROVED status is invalid',
         { routeProcessId, formSlotType }
       )
     }
-    bindings.set(key, {
+    traditionalBindings.set(key, {
       routeProcessId,
       formSlotType,
       reportId: row[3],
@@ -536,49 +557,153 @@ function runReadOnlyDatabaseChecks(environment) {
     })
   }
 
+  const dynamicTemplateBySlot = Object.freeze({
+    PROCESS_INSPECTION: 28,
+    LOSS_REPORT: 25
+  })
+  const dynamicBindingRows = runReadOnlyMysql(
+    environment,
+    `SELECT b.route_process_id, b.form_slot_type, COALESCE(b.form_binding_key, ''), b.form_template_id,
+            b.last_published_template_version_id, COALESCE(b.last_published_template_version_no, ''),
+            COALESCE(b.form_template_name_snapshot, ''), b.record_category,
+            COALESCE(b.record_category_snapshot_hash, ''), COALESCE(b.slot_config_snapshot_hash, ''),
+            v.id, v.version_no, v.status
+       FROM mes_pro_route_flow_process_batch_record b
+       JOIN bpm_form_template_version v
+         ON v.id = b.last_published_template_version_id
+        AND v.template_id = b.form_template_id
+        AND v.tenant_id = b.tenant_id
+        AND v.deleted = 0
+      WHERE b.tenant_id = ${environment.tenantId}
+        AND b.route_id = ${environment.routeId}
+        AND b.route_process_id IN (${processIdsSql})
+        AND b.use_type = 'BATCH'
+        AND ((b.form_slot_type = 'PROCESS_INSPECTION' AND b.form_template_id = 28)
+          OR (b.form_slot_type = 'LOSS_REPORT' AND b.form_template_id = 25))
+        AND b.deleted = 0
+        AND NOT EXISTS (
+          SELECT 1
+            FROM bpm_form_template_version newer
+           WHERE newer.tenant_id = v.tenant_id
+             AND newer.template_id = v.template_id
+             AND newer.status = 'PUBLISHED'
+             AND newer.deleted = 0
+             AND newer.id > v.id
+        )
+      ORDER BY b.route_process_id, b.form_slot_type, b.id`
+  )
+  requireExactly(
+    dynamicBindingRows,
+    environment.routeProcessIds.length * 2,
+    'DYNAMIC_FORM_BINDINGS',
+    'DYNAMIC_FORM_BINDINGS_REQUIRED',
+    'every route process requires template 28 PROCESS_INSPECTION and template 25 LOSS_REPORT bindings',
+    { routeProcessIds: environment.routeProcessIds }
+  )
+  const dynamicBindings = new Map()
+  for (const row of dynamicBindingRows) {
+    const routeProcessId = Number(row[0])
+    const formSlotType = row[1]
+    const expectedTemplateId = dynamicTemplateBySlot[formSlotType]
+    const key = `${routeProcessId}:${formSlotType}`
+    if (
+      dynamicBindings.has(key) ||
+      !expectedTemplateId ||
+      Number(row[3]) !== expectedTemplateId ||
+      !String(row[2] || '').trim() ||
+      !String(row[6] || '').trim() ||
+      row[7] !== 'INTERNAL_RECORD' ||
+      !String(row[8] || '').trim() ||
+      !String(row[9] || '').trim() ||
+      Number(row[4]) !== Number(row[10]) ||
+      String(row[5] || '').trim() !== String(row[11] || '').trim() ||
+      row[12] !== 'PUBLISHED'
+    ) {
+      throw new PreflightBlockedError(
+        'DYNAMIC_FORM_BINDINGS',
+        'DYNAMIC_FORM_TEMPLATE_SNAPSHOT_INVALID',
+        'dynamic form binding key, template identity, latest published version snapshot, category, or snapshot hash is invalid',
+        { routeProcessId, formSlotType }
+      )
+    }
+    dynamicBindings.set(key, {
+      routeProcessId,
+      formSlotType,
+      formBindingKey: row[2],
+      formTemplateId: Number(row[3]),
+      formTemplateVersionId: Number(row[4]),
+      formTemplateVersionNo: row[5],
+      recordCategorySnapshotHash: row[8],
+      slotConfigSnapshotHash: row[9]
+    })
+  }
+
   const qaRows = runReadOnlyMysql(
     environment,
-    `SELECT q.route_process_id, q.process_id, q.current_version_id,
-            q.lifecycle_status, v.lifecycle_status,
-            (SELECT COUNT(*)
-               FROM mes_qa_inspection_regulation_item i
-              WHERE i.tenant_id = q.tenant_id
-                AND i.regulation_version_id = v.id
-                AND i.deleted = 0) AS item_count,
-            (SELECT COUNT(*)
-               FROM mes_qa_inspection_regulation_item i
-              WHERE i.tenant_id = q.tenant_id
-                AND i.regulation_version_id = v.id
-                AND i.equipment_required = 1
-                AND i.deleted = 0
-                AND NOT EXISTS (
-                  SELECT 1
-                    FROM mes_qa_inspection_regulation_item_equipment e
-                   WHERE e.tenant_id = i.tenant_id
-                     AND e.regulation_version_id = i.regulation_version_id
-                     AND e.inspection_type = i.inspection_type
-                     AND e.item_code = i.item_code
-                     AND e.deleted = 0
-                )) AS missing_equipment_count
-       FROM mes_qa_inspection_regulation q
-       JOIN mes_qa_inspection_regulation_version v
-         ON v.id = q.current_version_id
-        AND v.tenant_id = q.tenant_id
-        AND v.deleted = 0
-      WHERE q.tenant_id = ${environment.tenantId}
-        AND q.product_id = ${environment.productId}
-        AND q.route_id = ${environment.routeId}
-        AND q.route_version_id = ${environment.routeVersionId}
-        AND q.route_process_id IN (${processIdsSql})
-        AND q.deleted = 0
-      ORDER BY q.route_process_id, q.id`
+    `SELECT ranked.route_process_id, ranked.process_id, ranked.current_version_id,
+            ranked.regulation_status, ranked.version_status, ranked.item_count,
+            ranked.missing_equipment_count, ranked.source_route_version_id,
+            ranked.source_route_process_id
+       FROM (
+         SELECT current_process.id AS route_process_id,
+                current_process.process_id,
+                q.current_version_id,
+                q.lifecycle_status AS regulation_status,
+                v.lifecycle_status AS version_status,
+                (SELECT COUNT(*)
+                   FROM mes_qa_inspection_regulation_item i
+                  WHERE i.tenant_id = q.tenant_id
+                    AND i.regulation_version_id = v.id
+                    AND i.deleted = 0) AS item_count,
+                (SELECT COUNT(*)
+                   FROM mes_qa_inspection_regulation_item i
+                  WHERE i.tenant_id = q.tenant_id
+                    AND i.regulation_version_id = v.id
+                    AND i.equipment_required = 1
+                    AND i.deleted = 0
+                    AND NOT EXISTS (
+                      SELECT 1
+                        FROM mes_qa_inspection_regulation_item_equipment e
+                       WHERE e.tenant_id = i.tenant_id
+                         AND e.regulation_version_id = i.regulation_version_id
+                         AND e.inspection_type = i.inspection_type
+                         AND e.item_code = i.item_code
+                         AND e.deleted = 0
+                    )) AS missing_equipment_count,
+                q.route_version_id AS source_route_version_id,
+                q.route_process_id AS source_route_process_id,
+                ROW_NUMBER() OVER (
+                  PARTITION BY current_process.id
+                  ORDER BY v.published_at DESC, v.id DESC
+                ) AS published_rank
+           FROM mes_pro_route_process current_process
+           JOIN mes_qa_inspection_regulation q
+             ON q.tenant_id = current_process.tenant_id
+            AND q.route_id = current_process.route_id
+            AND q.process_id = current_process.process_id
+            AND q.product_id = ${environment.productId}
+            AND q.lifecycle_status = 'PUBLISHED'
+            AND q.deleted = 0
+           JOIN mes_qa_inspection_regulation_version v
+             ON v.id = q.current_version_id
+            AND v.tenant_id = q.tenant_id
+            AND v.lifecycle_status = 'PUBLISHED'
+            AND v.published_at IS NOT NULL
+            AND v.deleted = 0
+          WHERE current_process.tenant_id = ${environment.tenantId}
+            AND current_process.route_id = ${environment.routeId}
+            AND current_process.id IN (${processIdsSql})
+            AND current_process.deleted = 0
+       ) ranked
+      WHERE ranked.published_rank = 1
+      ORDER BY ranked.route_process_id`
   )
   requireExactly(
     qaRows,
     environment.routeProcessIds.length,
     'PUBLISHED_QA',
-    'PUBLISHED_QA_REQUIRED',
-    'each target route process requires one current published QA regulation'
+    'LATEST_PUBLISHED_QA_BY_STABLE_PROCESS_REQUIRED',
+    'each current route process requires the latest published QA regulation for its stable process identity'
   )
   const qaEvidence = []
   for (const row of qaRows) {
@@ -594,41 +719,78 @@ function runReadOnlyDatabaseChecks(environment) {
       routeProcessId: Number(row[0]),
       processId: Number(row[1]),
       regulationVersionId: Number(row[2]),
-      itemCount: Number(row[5])
+      itemCount: Number(row[5]),
+      sourceRouteVersionId: Number(row[7]),
+      sourceRouteProcessId: Number(row[8])
     })
   }
 
-  const reportIds = [...bindings.values()].map((binding) => sqlString(binding.reportId)).join(',')
-  const mappingRows = runReadOnlyMysql(
+  const mainReportIds = [...traditionalBindings.values()].map((binding) => sqlString(binding.reportId)).join(',')
+  const mainMappingRows = runReadOnlyMysql(
     environment,
     `SELECT target_report_id, batch_record_definition_id, batch_record_version_id, source_type, COUNT(*)
        FROM mes_pro_batch_record_cell_link_rule
       WHERE tenant_id = ${environment.tenantId}
-        AND target_report_id IN (${reportIds})
-        AND source_type IN ('PROCESS_POOL_REPORT', 'PQC_AGGREGATE_DETAIL', 'PRODUCTION_LOSS')
+        AND target_report_id IN (${mainReportIds})
+        AND source_type = 'PROCESS_POOL_REPORT'
         AND enabled = 1
         AND deleted = 0
       GROUP BY target_report_id, batch_record_definition_id, batch_record_version_id, source_type
       ORDER BY target_report_id, source_type`
   )
-  const mappingKeys = new Set(
-    mappingRows
+  const mainMappingKeys = new Set(
+    mainMappingRows
       .filter((row) => Number(row[4]) > 0)
       .map((row) => `${row[0]}:${Number(row[1])}:${Number(row[2])}:${row[3]}`)
   )
-  const sourceTypeBySlot = {
-    MAIN: 'PROCESS_POOL_REPORT',
-    PROCESS_INSPECTION: 'PQC_AGGREGATE_DETAIL',
-    LOSS_REPORT: 'PRODUCTION_LOSS'
-  }
-  for (const binding of bindings.values()) {
-    const sourceType = sourceTypeBySlot[binding.formSlotType]
-    const mappingKey = `${binding.reportId}:${binding.definitionId}:${binding.versionId}:${sourceType}`
-    if (!mappingKeys.has(mappingKey)) {
+  for (const binding of traditionalBindings.values()) {
+    const mappingKey = `${binding.reportId}:${binding.definitionId}:${binding.versionId}:PROCESS_POOL_REPORT`
+    if (!mainMappingKeys.has(mappingKey)) {
       throw new PreflightBlockedError(
         'FORMAL_CELL_MAPPINGS',
-        'FORMAL_MAPPING_REQUIRED',
-        'a traditional report lacks its required enabled source mapping',
+        'FORMAL_MAIN_MAPPING_REQUIRED',
+        'a traditional MAIN report lacks its required enabled PROCESS_POOL_REPORT mapping',
+        { routeProcessId: binding.routeProcessId, formSlotType: binding.formSlotType }
+      )
+    }
+  }
+
+  const sourceTypeByDynamicSlot = Object.freeze({
+    PROCESS_INSPECTION: 'PQC_AGGREGATE_DETAIL',
+    LOSS_REPORT: 'PRODUCTION_LOSS'
+  })
+  const dynamicTemplateVersionIds = [...new Set(
+    [...dynamicBindings.values()].map((binding) => binding.formTemplateVersionId)
+  )]
+  const dynamicTargetReportIds = dynamicTemplateVersionIds.map((id) => sqlString(`FORMTPL:${id}`)).join(',')
+  const dynamicMappingRows = runReadOnlyMysql(
+    environment,
+    `SELECT scope_type, scope_id, target_report_id, source_type, COUNT(*)
+       FROM mes_pro_batch_record_cell_link_rule
+      WHERE tenant_id = ${environment.tenantId}
+        AND scope_type = 'FORM_TEMPLATE_VERSION'
+        AND scope_id IN (${dynamicTemplateVersionIds.join(',')})
+        AND target_report_id IN (${dynamicTargetReportIds})
+        AND source_type IN ('PQC_AGGREGATE_DETAIL', 'PRODUCTION_LOSS')
+        AND enabled = 1
+        AND deleted = 0
+      GROUP BY scope_type, scope_id, target_report_id, source_type
+      ORDER BY scope_id, source_type`
+  )
+  const dynamicMappingKeys = new Set(
+    dynamicMappingRows
+      .filter((row) => Number(row[4]) > 0)
+      .map((row) => `${row[0]}:${Number(row[1])}:${row[2]}:${row[3]}`)
+  )
+  for (const binding of dynamicBindings.values()) {
+    const sourceType = sourceTypeByDynamicSlot[binding.formSlotType]
+    const targetReportId = `FORMTPL:${binding.formTemplateVersionId}`
+    const mappingKey = `FORM_TEMPLATE_VERSION:${binding.formTemplateVersionId}:${targetReportId}:${sourceType}`
+    if (!dynamicMappingKeys.has(mappingKey)) {
+      throw new PreflightBlockedError(
+        'FORMAL_CELL_MAPPINGS',
+        'FORMAL_DYNAMIC_MAPPING_REQUIRED',
+        'a dynamic formal target lacks its required enabled FORM_TEMPLATE_VERSION source mapping',
         { routeProcessId: binding.routeProcessId, formSlotType: binding.formSlotType, sourceType }
       )
     }
@@ -696,6 +858,7 @@ function runReadOnlyDatabaseChecks(environment) {
   }
 
   return {
+    accountMode: environment.accountMode,
     accounts: environment.actors.map((actor) => ({
       role: actor.role,
       userId: accountByUsername.get(actor.username.toLowerCase()),
@@ -708,11 +871,14 @@ function runReadOnlyDatabaseChecks(environment) {
       routeVersionId: environment.routeVersionId,
       routeProcessIds: environment.routeProcessIds
     },
-    traditionalBindings: [...bindings.values()].sort((left, right) =>
+    traditionalBindings: [...traditionalBindings.values()].sort((left, right) =>
+      left.routeProcessId - right.routeProcessId || left.formSlotType.localeCompare(right.formSlotType)
+    ),
+    dynamicFormBindings: [...dynamicBindings.values()].sort((left, right) =>
       left.routeProcessId - right.routeProcessId || left.formSlotType.localeCompare(right.formSlotType)
     ),
     qa: qaEvidence.sort((left, right) => left.routeProcessId - right.routeProcessId),
-    requiredMappingSourceTypes: Object.values(sourceTypeBySlot).sort(),
+    requiredMappingSourceTypes: ['PROCESS_POOL_REPORT', ...Object.values(sourceTypeByDynamicSlot)].sort(),
     releaseApprove: {
       ruleId: Number(releaseRule[0]),
       candidateSourceType,

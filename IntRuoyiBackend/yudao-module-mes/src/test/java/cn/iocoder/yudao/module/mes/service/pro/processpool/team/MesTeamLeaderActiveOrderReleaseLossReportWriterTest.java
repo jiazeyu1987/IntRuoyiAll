@@ -84,13 +84,16 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
     private MesProBatchRecordExecutionMapper executionMapper;
     @Mock
     private MesProBatchRecordExecutionFieldAuditService fieldAuditService;
+    @Mock
+    private MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPort dynamicFormPort;
 
     private MesTeamLeaderActiveOrderReleaseLossReportWriter writer;
 
     @BeforeEach
     void setUp() {
         writer = new MesTeamLeaderActiveOrderReleaseLossReportWriterImpl(sourceReader, bindingMapper, ruleMapper,
-                reportMapper, versionMapper, batchTaskMapper, executionService, executionMapper, fieldAuditService);
+                reportMapper, versionMapper, batchTaskMapper, executionService, executionMapper, fieldAuditService,
+                dynamicFormPort);
     }
 
     @Test
@@ -238,7 +241,7 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
     }
 
     @Test
-    void shouldTreatRouteBoundLossFormTemplateAsFormalSourceButBlockUntilDynamicAutoWriteExists() {
+    void shouldTreatRouteBoundLossFormTemplateAsFormalTargetButBlockWhenDynamicMappingsAreMissing() {
         when(sourceReader.read(any())).thenReturn(formalSources());
         when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(ROUTE_PROCESS_ID), "BATCH"))
                 .thenReturn(List.of(dynamicFormBinding(25L, "LR_" + ROUTE_PROCESS_ID)));
@@ -246,12 +249,51 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
         MesTeamLeaderActiveOrderReleaseLossReportPlan plan = writer.plan(command());
 
         assertTrue(plan.getBlockers().stream().anyMatch(blocker ->
-                "LOSS_REPORT_DYNAMIC_FORM_AUTOWRITE_REQUIRED".equals(blocker.getBlockerType())
-                        && String.valueOf(3001L).equals(blocker.getObjectId())
-                        && ("LR_" + ROUTE_PROCESS_ID).equals(blocker.getFieldCode())));
+                "LOSS_REPORT_MAPPING_REQUIRED".equals(blocker.getBlockerType())
+                        && "reviewerSignedAt".equals(blocker.getFieldCode())));
         assertThrows(ServiceException.class, () -> writer.write(plan, BATCH_EXECUTION_ID));
-        verify(ruleMapper, never()).selectEnabledListByScopeAndTargetReport(any(), any(), any());
         verify(executionService, never()).openOrCreateByContext(any());
+    }
+
+    @Test
+    void shouldWriteRouteBoundLossFormTemplateIntoCurrentFormCenterInstance() {
+        when(sourceReader.read(any())).thenReturn(formalSources());
+        MesProRouteFlowProcessBatchRecordDO binding = dynamicFormBinding(25L, "LR_" + ROUTE_PROCESS_ID);
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(ROUTE_PROCESS_ID), "BATCH"))
+                .thenReturn(List.of(binding));
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("FORM_TEMPLATE_VERSION", 2501L, "FORMTPL:2501"))
+                .thenReturn(dynamicRules());
+        MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPort.TargetResolution target =
+                new MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPort.TargetResolution()
+                        .setTemplateVersionId(2501L)
+                        .setTemplateSnapshotHash("loss-form-template-snapshot")
+                        .setTargetFieldCodes(dynamicTargetCodes());
+        when(dynamicFormPort.resolveTarget(any(), any())).thenReturn(target);
+        when(batchTaskMapper.selectListByBatchExecutionId(BATCH_EXECUTION_ID))
+                .thenReturn(List.of(dynamicBatchTask()));
+        when(dynamicFormPort.write(any())).thenReturn(
+                new MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPort.WriteResult()
+                        .setFormCenterInstanceId(99001L)
+                        .setFieldAuditSnapshotId(99002L)
+                        .setFieldAuditHeadHash("loss-formcenter-head")
+                        .setEffectiveStatus("EFFECTIVE"));
+
+        MesTeamLeaderActiveOrderReleaseLossReportPlan plan = writer.plan(command());
+        MesTeamLeaderActiveOrderReleaseLossReportWriteResult result = writer.write(plan, BATCH_EXECUTION_ID);
+
+        assertAll(
+                () -> assertTrue(plan.getBlockers().isEmpty()),
+                () -> assertEquals(List.of(99001L), result.getFormCenterInstanceIds()),
+                () -> assertEquals(List.of(99002L), result.getFieldAuditIds()),
+                () -> assertEquals(List.of("loss-formcenter-head"), result.getFieldAuditHeadHashes()),
+                () -> assertTrue(result.getBatchRecordExecutionIds().isEmpty()),
+                () -> assertEquals(2, result.getSignatureEvidence().size()),
+                () -> assertEquals(1, result.getDocumentEvidence().size()),
+                () -> assertEquals(List.of(99001L), result.getDocumentEvidence().get(0).getFormCenterInstanceIds()),
+                () -> assertEquals(REQUIRED_FIELDS.size(), result.getDocumentEvidence().get(0).getRequiredFieldCount()));
+        verify(executionService, never()).openOrCreateByContext(any());
+        verify(fieldAuditService, never()).saveSystemCellLinkChanges(any());
+        verify(dynamicFormPort).write(any());
     }
 
     @Test
@@ -507,6 +549,39 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
         return rules;
     }
 
+    private static List<MesProBatchRecordCellLinkRuleDO> dynamicRules() {
+        List<MesProBatchRecordCellLinkRuleDO> rules = new ArrayList<>();
+        for (int index = 0; index < REQUIRED_FIELDS.size(); index++) {
+            String sourceField = REQUIRED_FIELDS.get(index);
+            MesProBatchRecordCellLinkRuleDO rule = new MesProBatchRecordCellLinkRuleDO();
+            rule.setId(7000L + index);
+            rule.setRuleVersion(2L);
+            rule.setScopeType("FORM_TEMPLATE_VERSION");
+            rule.setScopeId(2501L);
+            rule.setSourceType("PRODUCTION_LOSS");
+            rule.setSourceCellKey("LOSS:" + sourceField);
+            rule.setSourceFieldCode(sourceField);
+            rule.setTargetReportId("FORMTPL:2501");
+            rule.setTargetRowIndex(3 + index);
+            rule.setTargetColumnIndex(1);
+            rule.setTargetCellKey((3 + index) + ":1");
+            rule.setTargetValueType(numericField(sourceField) ? "NUMBER" : "STRING");
+            rule.setAggregationStrategy("LAST");
+            rule.setTemplateSnapshotHash("loss-form-template-snapshot");
+            rule.setEnabled(true);
+            rules.add(rule);
+        }
+        return rules;
+    }
+
+    private static java.util.Map<Long, String> dynamicTargetCodes() {
+        java.util.Map<Long, String> codes = new java.util.LinkedHashMap<>();
+        for (int index = 0; index < REQUIRED_FIELDS.size(); index++) {
+            codes.put(7000L + index, "loss_" + REQUIRED_FIELDS.get(index));
+        }
+        return codes;
+    }
+
     private static boolean numericField(String field) {
         return !List.of("batchCode", "lossDetails", "fillerSignedAt", "reviewerSignedAt").contains(field);
     }
@@ -527,6 +602,27 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
                 .routeBindingId(3001L)
                 .routeBindingSnapshotHash("record-category-snapshot")
                 .slotConfigSnapshotHash("loss-slot-snapshot")
+                .build();
+    }
+
+    private static MesProEdhrBatchExecutionTaskDO dynamicBatchTask() {
+        return MesProEdhrBatchExecutionTaskDO.builder()
+                .id(BATCH_TASK_ID)
+                .batchExecutionId(BATCH_EXECUTION_ID)
+                .nodeType("ROUTE_FORM")
+                .routeProcessId(ROUTE_PROCESS_ID)
+                .processId(PROCESS_ID)
+                .formSlotType("LOSS_REPORT")
+                .recordCategory("INTERNAL_RECORD")
+                .validationProfile("INTERNAL_TRACE")
+                .routeBindingId(3001L)
+                .routeBindingSnapshotHash("record-category-snapshot")
+                .slotConfigSnapshotHash("loss-slot-snapshot")
+                .formBindingKey("LR_" + ROUTE_PROCESS_ID)
+                .formTemplateId(25L)
+                .formTemplateVersionId(2501L)
+                .formTemplateVersionNo("V1")
+                .formCenterInstanceId(99001L)
                 .build();
     }
 

@@ -2005,12 +2005,21 @@ class MesProRouteFlowConfigServiceImplTest {
 
         service.saveRouteFlowConfig(reqVO);
 
-        verify(routeCandidateConfigService).saveConfigSnapshot(eq(1002L), eq("batchUseConfigs"),
-                argThat(snapshot -> snapshot instanceof List<?>
-                        && snapshot.toString().contains("FB-USER")
-                        && snapshot.toString().contains("recordbookEnabled=false")
-                        && snapshot.toString().contains("candidateSourceType=USERS")
-                        && snapshot.toString().contains("candidateSourceIds=[9001]")));
+        ArgumentCaptor<Object> snapshotCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(routeCandidateConfigService).saveConfigSnapshot(
+                eq(1002L), eq("batchUseConfigs"), snapshotCaptor.capture());
+        @SuppressWarnings("unchecked")
+        List<MesProRouteFlowProcessConfigSaveReqVO> snapshot =
+                (List<MesProRouteFlowProcessConfigSaveReqVO>) snapshotCaptor.getValue();
+        MesProRouteFlowFormBindingSaveReqVO savedBinding = snapshot.get(0).getFormBindings().get(0);
+        assertEquals("FB-USER", savedBinding.getFormBindingKey());
+        assertEquals(Boolean.FALSE, savedBinding.getRecordbookEnabled());
+        assertEquals("USERS", savedBinding.getCandidateSourceType());
+        assertEquals(List.of(9001L), savedBinding.getCandidateSourceIds());
+        assertTrue(savedBinding.getRecordCategorySnapshotHash().matches("[0-9a-f]{64}"));
+        assertTrue(savedBinding.getSlotConfigSnapshotHash().matches("[0-9a-f]{64}"));
+        assertFalse(savedBinding.getRecordCategorySnapshotHash()
+                .equals(savedBinding.getSlotConfigSnapshotHash()));
         verify(adminUserApi).validateUserList(List.of(9001L));
         verify(routeFlowConfigMapper, never()).insert(any(MesProRouteFlowConfigDO.class));
         verify(routeFlowConfigMapper, never()).updateById(any(MesProRouteFlowConfigDO.class));

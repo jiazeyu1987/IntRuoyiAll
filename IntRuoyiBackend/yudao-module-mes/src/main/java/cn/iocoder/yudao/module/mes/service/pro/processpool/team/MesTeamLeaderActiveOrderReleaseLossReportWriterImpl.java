@@ -87,6 +87,7 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
     private final MesProBatchRecordExecutionService executionService;
     private final MesProBatchRecordExecutionMapper executionMapper;
     private final MesProBatchRecordExecutionFieldAuditService fieldAuditService;
+    private final MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPort dynamicFormPort;
 
     public MesTeamLeaderActiveOrderReleaseLossReportWriterImpl(
             MesTeamLeaderActiveOrderReleaseLossSourceReader sourceReader,
@@ -97,7 +98,8 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
             MesProEdhrBatchExecutionTaskMapper batchTaskMapper,
             MesProBatchRecordExecutionService executionService,
             MesProBatchRecordExecutionMapper executionMapper,
-            MesProBatchRecordExecutionFieldAuditService fieldAuditService) {
+            MesProBatchRecordExecutionFieldAuditService fieldAuditService,
+            MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPort dynamicFormPort) {
         this.sourceReader = sourceReader;
         this.bindingMapper = bindingMapper;
         this.ruleMapper = ruleMapper;
@@ -107,6 +109,7 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
         this.executionService = executionService;
         this.executionMapper = executionMapper;
         this.fieldAuditService = fieldAuditService;
+        this.dynamicFormPort = dynamicFormPort;
     }
 
     @Override
@@ -156,20 +159,27 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
             }
             MesProcessPoolActiveOrderProcessSnapshotDO snapshot = entry.getValue().get(0).getSnapshot();
             MesProRouteFlowProcessBatchRecordDO binding = formalBinding(snapshot, blockers);
-            TargetMetadata target = binding == null ? null : formalTarget(command, snapshot, binding, blockers);
+            boolean dynamic = isDynamicBinding(binding);
+            TargetMetadata target = binding == null ? null : (dynamic
+                    ? dynamicTargetMetadata(binding) : formalTarget(command, snapshot, binding, blockers));
             MappingResolution mapping = target == null ? null
                     : formalMappings(command, snapshot, binding, entry.getValue(), blockers);
             if (mapping == null || blockers.size() != blockerCount) {
                 continue;
             }
+            List<String> targetSnapshotHashes = new ArrayList<>(target.snapshotHashes());
+            if (mapping.dynamicTarget() != null) {
+                targetSnapshotHashes.add(mapping.dynamicTarget().getTemplateSnapshotHash());
+            }
             List<String> evidenceHashes = collectEvidence(entry.getValue(), binding, target, mapping.rules(),
-                    sourceObjectIds, sourceValueHashes, signatures);
+                    mapping.dynamicTarget(), sourceObjectIds, sourceValueHashes, signatures);
             prepared.add(new MesTeamLeaderActiveOrderReleaseLossReportPlan.PreparedLossReport()
                     .setSources(List.copyOf(entry.getValue()))
                     .setBinding(binding)
                     .setRules(mapping.rules())
+                    .setDynamicTarget(mapping.dynamicTarget())
                     .setMappedValues(mapping.values())
-                    .setTargetSnapshotHashes(target.snapshotHashes())
+                    .setTargetSnapshotHashes(List.copyOf(targetSnapshotHashes))
                     .setEvidenceHash(sha256(String.join("|", evidenceHashes))));
         }
         prepared.sort(Comparator.comparing(item -> item.getSources().get(0).getSnapshot().getRouteProcessId()));
@@ -183,12 +193,47 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
         validateWriteInput(plan, batchExecutionId);
         List<MesProEdhrBatchExecutionTaskDO> tasks = batchTaskMapper.selectListByBatchExecutionId(batchExecutionId);
         List<Long> executionIds = new ArrayList<>();
+        List<Long> formCenterInstanceIds = new ArrayList<>();
         List<Long> auditIds = new ArrayList<>();
         List<String> auditHeadHashes = new ArrayList<>();
         List<MesTeamLeaderActiveOrderReleaseDocumentEvidence> documents = new ArrayList<>();
         for (MesTeamLeaderActiveOrderReleaseLossReportPlan.PreparedLossReport prepared
                 : plan.getPreparedReports()) {
             MesProEdhrBatchExecutionTaskDO task = requireCurrentBatchTask(batchExecutionId, tasks, prepared);
+            if (isDynamicBinding(prepared.getBinding())) {
+                MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPort.WriteResult dynamicWrite =
+                        dynamicFormPort.write(toDynamicWriteCommand(plan, batchExecutionId, task, prepared));
+                if (dynamicWrite == null || dynamicWrite.getFormCenterInstanceId() == null
+                        || dynamicWrite.getFieldAuditSnapshotId() == null
+                        || StrUtil.isBlank(dynamicWrite.getFieldAuditHeadHash())
+                        || !"EFFECTIVE".equals(dynamicWrite.getEffectiveStatus())) {
+                    throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED,
+                            "损耗报告动态 writer 未返回 EFFECTIVE FormCenter instance 与审计快照");
+                }
+                formCenterInstanceIds.add(dynamicWrite.getFormCenterInstanceId());
+                auditIds.add(dynamicWrite.getFieldAuditSnapshotId());
+                auditHeadHashes.add(dynamicWrite.getFieldAuditHeadHash());
+                documents.add(new MesTeamLeaderActiveOrderReleaseDocumentEvidence()
+                        .setDocumentType(FORM_SLOT_TYPE)
+                        .setBatchExecutionId(batchExecutionId)
+                        .setBatchExecutionTaskId(task.getId())
+                        .setBatchRecordExecutionIds(List.of())
+                        .setFormCenterInstanceIds(List.of(dynamicWrite.getFormCenterInstanceId()))
+                        .setTargetReportIds(List.of("FORMTPL:" + prepared.getDynamicTarget().getTemplateVersionId()))
+                        .setTargetFormTemplateIds(List.of(prepared.getBinding().getFormTemplateId()))
+                        .setTargetDefinitionIds(List.of())
+                        .setTargetVersionIds(List.of(prepared.getDynamicTarget().getTemplateVersionId()))
+                        .setTargetSnapshotHashes(prepared.getTargetSnapshotHashes())
+                        .setFieldAuditIds(List.of(dynamicWrite.getFieldAuditSnapshotId()))
+                        .setRequiredFieldCount(prepared.getRules().size())
+                        .setAuditedRequiredFieldCount(prepared.getRules().size())
+                        .setSourceObjectIds(plan.getSourceObjectIds())
+                        .setSourceValueHashes(plan.getSourceValueHashes())
+                        .setSignatureEvidence(plan.getSignatureEvidence())
+                        .setSourceSnapshotHash(plan.getCommand().getSourceSnapshotHash())
+                        .setSourceConsistent(true));
+                continue;
+            }
             MesProBatchRecordExecutionOpenOrCreateByContextRespVO opened = executionService.openOrCreateByContext(
                     toOpenRequest(plan.getCommand(), batchExecutionId, task));
             if (opened == null || opened.getId() == null) {
@@ -238,6 +283,7 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
         return new MesTeamLeaderActiveOrderReleaseLossReportWriteResult()
                 .setDocumentType(FORM_SLOT_TYPE)
                 .setBatchRecordExecutionIds(distinct(executionIds))
+                .setFormCenterInstanceIds(distinct(formCenterInstanceIds))
                 .setFieldAuditIds(distinct(auditIds))
                 .setFieldAuditHeadHashes(distinct(auditHeadHashes))
                 .setSourceObjectIds(plan.getSourceObjectIds())
@@ -464,12 +510,7 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                         && StrUtil.isNotBlank(binding.getSlotConfigSnapshotHash()))
                 .toList();
         if (formal.isEmpty() && dynamicFormal.size() == 1) {
-            MesProRouteFlowProcessBatchRecordDO binding = dynamicFormal.get(0);
-            blockers.add(blocker("LOSS_REPORT_DYNAMIC_FORM_AUTOWRITE_REQUIRED", snapshot, null,
-                    "ROUTE_PROCESS_FORM_BINDING", binding.getId(), binding.getFormBindingKey(), null,
-                    "已识别路线绑定的损耗单 FormCenter 正式目标，但自动写入和提交链路尚未接通",
-                    "请配置 template 25 已发布版本的 PRODUCTION_LOSS 字段映射并接通正式实例提交"));
-            return null;
+            return dynamicFormal.get(0);
         }
         if (formal.size() != 1) {
             blockers.add(blocker("LOSS_REPORT_BINDING_REQUIRED", snapshot, null, "ROUTE_PROCESS",
@@ -480,6 +521,11 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
             return null;
         }
         return formal.get(0);
+    }
+
+    private TargetMetadata dynamicTargetMetadata(MesProRouteFlowProcessBatchRecordDO binding) {
+        return new TargetMetadata(null, null, List.of(binding.getRecordCategorySnapshotHash(),
+                binding.getSlotConfigSnapshotHash()));
     }
 
     private TargetMetadata formalTarget(
@@ -519,8 +565,13 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
             MesProRouteFlowProcessBatchRecordDO binding,
             List<MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource> sources,
             List<MesTeamLeaderActiveOrderReleaseBlocker> blockers) {
+        boolean dynamic = isDynamicBinding(binding);
+        String scopeType = dynamic ? "FORM_TEMPLATE_VERSION" : SCOPE_TYPE_ROUTE_VERSION;
+        Long scopeId = dynamic ? binding.getLastPublishedTemplateVersionId() : binding.getBatchRecordVersionId();
+        String targetReportId = dynamic ? "FORMTPL:" + binding.getLastPublishedTemplateVersionId()
+                : binding.getBatchRecordReportId();
         List<MesProBatchRecordCellLinkRuleDO> rawRules = ruleMapper.selectEnabledListByScopeAndTargetReport(
-                SCOPE_TYPE_ROUTE_VERSION, binding.getBatchRecordVersionId(), binding.getBatchRecordReportId());
+                scopeType, scopeId, targetReportId);
         List<MesProBatchRecordCellLinkRuleDO> rules = rawRules == null ? List.of() : rawRules.stream()
                 .filter(Objects::nonNull)
                 .sorted(Comparator.comparing(MesProBatchRecordCellLinkRuleDO::getTargetRowIndex,
@@ -535,7 +586,7 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
         for (String requiredField : REQUIRED_FIELDS) {
             if (byField.getOrDefault(requiredField, List.of()).size() != 1) {
                 blockers.add(blocker("LOSS_REPORT_MAPPING_REQUIRED", snapshot, null, "LOSS_REPORT",
-                        binding.getBatchRecordReportId(), requiredField, null,
+                        targetReportId, requiredField, null,
                         "正式损耗报告必填字段缺少唯一 PRODUCTION_LOSS 映射",
                         "请为当前批准模板配置唯一必填字段映射"));
             }
@@ -544,18 +595,20 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
         for (MesProBatchRecordCellLinkRuleDO rule : rules) {
             String cell = cellKey(rule.getTargetRowIndex(), rule.getTargetColumnIndex());
             boolean valid = rule.getId() != null && Boolean.TRUE.equals(rule.getEnabled())
-                    && SCOPE_TYPE_ROUTE_VERSION.equals(rule.getScopeType())
-                    && Objects.equals(binding.getBatchRecordVersionId(), rule.getScopeId())
+                    && scopeType.equals(rule.getScopeType())
+                    && Objects.equals(scopeId, rule.getScopeId())
                     && SOURCE_TYPE.equals(StrUtil.trim(rule.getSourceType()))
+                    && StrUtil.isNotBlank(rule.getSourceCellKey())
                     && REQUIRED_FIELDS.contains(rule.getSourceFieldCode())
-                    && Objects.equals(binding.getBatchRecordReportId(), rule.getTargetReportId())
+                    && Objects.equals(targetReportId, rule.getTargetReportId())
                     && rule.getTargetRowIndex() != null && rule.getTargetColumnIndex() != null
                     && StrUtil.isNotBlank(rule.getTargetCellKey())
                     && StrUtil.isNotBlank(rule.getTargetValueType())
+                    && (!dynamic || (rule.getRuleVersion() != null && StrUtil.isNotBlank(rule.getTemplateSnapshotHash())))
                     && cells.add(cell);
             if (!valid) {
                 blockers.add(blocker("LOSS_REPORT_MAPPING_REQUIRED", snapshot, null, "LOSS_REPORT",
-                        binding.getBatchRecordReportId(), rule.getSourceFieldCode(), rule.getTargetCellKey(),
+                        targetReportId, rule.getSourceFieldCode(), rule.getTargetCellKey(),
                         "损耗报告映射来源、目标、值类型或目标单元格不合法或重复",
                         "请修复当前批准模板的 PRODUCTION_LOSS 映射"));
             }
@@ -571,7 +624,24 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                 values.put(rule.getSourceFieldCode(), value);
             }
         }
-        return blockers.isEmpty() ? new MappingResolution(List.copyOf(rules), Map.copyOf(values)) : null;
+        if (!blockers.isEmpty()) {
+            return null;
+        }
+        MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPort.TargetResolution dynamicTarget = null;
+        if (dynamic) {
+            dynamicTarget = dynamicFormPort.resolveTarget(binding, rules);
+            if (dynamicTarget == null || !dynamicTarget.isValid()) {
+                String blockerType = dynamicTarget == null || StrUtil.isBlank(dynamicTarget.getBlockerType())
+                        ? "LOSS_REPORT_DYNAMIC_FORM_TEMPLATE_REQUIRED" : dynamicTarget.getBlockerType();
+                String message = dynamicTarget == null || StrUtil.isBlank(dynamicTarget.getBlockerMessage())
+                        ? "损耗单动态模板目标解析失败" : dynamicTarget.getBlockerMessage();
+                blockers.add(blocker(blockerType, snapshot, null, "ROUTE_PROCESS_FORM_BINDING",
+                        binding.getId(), binding.getFormBindingKey(), null, message,
+                        "请配置精确的 PUBLISHED template 25 版本和稳定 fieldCode 映射"));
+                return null;
+            }
+        }
+        return new MappingResolution(List.copyOf(rules), Map.copyOf(values), dynamicTarget);
     }
 
     private List<Object> sourceValues(

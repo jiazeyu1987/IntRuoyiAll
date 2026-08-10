@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
@@ -21,6 +23,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -54,6 +57,8 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest {
     private MesQaInspectionRegulationVersionMapper versionMapper;
     private MesQaInspectionRegulationItemMapper itemMapper;
     private MesQaInspectionRegulationItemEquipmentMapper equipmentMapper;
+    private DccProjectCodeMapper dccProjectCodeMapper;
+    private MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort qaProvenancePort;
     private MesTeamLeaderActiveOrderReleaseProcessInspectionReader reader;
 
     @BeforeEach
@@ -67,13 +72,15 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest {
         versionMapper = mock(MesQaInspectionRegulationVersionMapper.class);
         itemMapper = mock(MesQaInspectionRegulationItemMapper.class);
         equipmentMapper = mock(MesQaInspectionRegulationItemEquipmentMapper.class);
+        dccProjectCodeMapper = mock(DccProjectCodeMapper.class);
+        qaProvenancePort = mock(MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort.class);
         reader = new MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl(taskMapper, aggregateMapper,
                 eventMapper, recordMapper, reviewMapper, regulationMapper, versionMapper, itemMapper,
-                equipmentMapper);
+                equipmentMapper, dccProjectCodeMapper, qaProvenancePort);
     }
 
     @Test
-    void readsExactAggregateEventRecordReviewAndPublishedQaGraph() {
+    void readsExactAggregateEventRecordReviewAndLatestPublishedQaByStableProcess() {
         MesPqcInspectionTaskDO task = task();
         MesPqcProcessInspectionAggregateDetailDO aggregate = aggregate(EVENT_ID);
         MesProProcessPoolEventDO event = new MesProProcessPoolEventDO().setId(EVENT_ID);
@@ -81,8 +88,14 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest {
         MesProcessPoolSubmissionReviewDO review = new MesProcessPoolSubmissionReviewDO().setId(REVIEW_ID);
         MesQaInspectionRegulationDO regulation = new MesQaInspectionRegulationDO()
                 .setId(202L).setCurrentVersionId(REGULATION_VERSION_ID);
+        MesQaInspectionRegulationDO staleRegulation = new MesQaInspectionRegulationDO()
+                .setId(201L).setCurrentVersionId(REGULATION_VERSION_ID - 1);
         MesQaInspectionRegulationVersionDO version = new MesQaInspectionRegulationVersionDO()
-                .setId(REGULATION_VERSION_ID);
+                .setId(REGULATION_VERSION_ID).setLifecycleStatus("PUBLISHED")
+                .setPublishedAt(LocalDateTime.of(2026, 8, 9, 10, 0));
+        MesQaInspectionRegulationVersionDO staleVersion = new MesQaInspectionRegulationVersionDO()
+                .setId(REGULATION_VERSION_ID - 1).setLifecycleStatus("PUBLISHED")
+                .setPublishedAt(LocalDateTime.of(2026, 8, 2, 10, 0));
         MesQaInspectionRegulationItemDO item = new MesQaInspectionRegulationItemDO().setId(203L);
         MesQaInspectionRegulationItemEquipmentDO equipment =
                 new MesQaInspectionRegulationItemEquipmentDO().setId(204L);
@@ -91,11 +104,19 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest {
         when(eventMapper.selectById(EVENT_ID)).thenReturn(event);
         when(recordMapper.selectByEventId(EVENT_ID)).thenReturn(record);
         when(reviewMapper.selectById(REVIEW_ID)).thenReturn(review);
-        when(regulationMapper.selectPublishedByRouteProcess(PRODUCT_ID, ROUTE_ID, ROUTE_VERSION_ID,
-                ROUTE_PROCESS_ID, PROCESS_ID)).thenReturn(regulation);
+        when(regulationMapper.selectPublishedListByStableProcess(PRODUCT_ID, ROUTE_ID, PROCESS_ID))
+                .thenReturn(List.of(staleRegulation, regulation));
+        when(versionMapper.selectById(REGULATION_VERSION_ID - 1)).thenReturn(staleVersion);
         when(versionMapper.selectById(REGULATION_VERSION_ID)).thenReturn(version);
         when(itemMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of(item));
         when(equipmentMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of(equipment));
+        DccProjectCodeDO dccProject = DccProjectCodeDO.builder().id(205L).productMasterId(PRODUCT_ID)
+                .projectCode("IDPR").projectName("球囊扩张压力泵").status("ENABLE").build();
+        when(dccProjectCodeMapper.selectEnabledList()).thenReturn(List.of(dccProject));
+        when(qaProvenancePort.verify(dccProject, staleRegulation, staleVersion))
+                .thenReturn(verifiedProvenance(dccProject, staleRegulation, staleVersion));
+        when(qaProvenancePort.verify(dccProject, regulation, version))
+                .thenReturn(verifiedProvenance(dccProject, regulation, version));
 
         MesTeamLeaderActiveOrderReleaseProcessInspectionReader.SourceBundle result = reader.read(command());
 
@@ -110,6 +131,56 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest {
         assertSame(version, source.getRegulationVersion());
         assertEquals(List.of(item), source.getRegulationItems());
         assertEquals(List.of(equipment), source.getRegulationItemEquipment());
+        assertSame(dccProject, source.getDccProject());
+        assertEquals("DCC_QA_PROJECT_RELATION", source.getQaDccProvenance().getProvenanceType());
+        assertEquals(REGULATION_VERSION_ID, source.getQaDccProvenance().getRegulationVersionId());
+        verify(regulationMapper, never()).selectPublishedByRouteProcess(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void productLinkedQaWithoutExplicitDccProvenanceIsNotExposedAsFormalQa() {
+        MesPqcInspectionTaskDO task = task();
+        MesQaInspectionRegulationDO regulation = new MesQaInspectionRegulationDO()
+                .setId(202L).setCurrentVersionId(REGULATION_VERSION_ID);
+        MesQaInspectionRegulationVersionDO version = new MesQaInspectionRegulationVersionDO()
+                .setId(REGULATION_VERSION_ID).setLifecycleStatus("PUBLISHED")
+                .setPublishedAt(LocalDateTime.of(2026, 8, 9, 10, 0));
+        DccProjectCodeDO dccProject = DccProjectCodeDO.builder().id(205L).productMasterId(PRODUCT_ID)
+                .projectCode("ID").projectName("球囊扩张压力泵").status("ENABLE").build();
+        when(taskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(task));
+        when(aggregateMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of());
+        when(dccProjectCodeMapper.selectEnabledList()).thenReturn(List.of(dccProject));
+        when(regulationMapper.selectPublishedListByStableProcess(PRODUCT_ID, ROUTE_ID, PROCESS_ID))
+                .thenReturn(List.of(regulation));
+        when(versionMapper.selectById(REGULATION_VERSION_ID)).thenReturn(version);
+        when(qaProvenancePort.verify(dccProject, regulation, version)).thenReturn(
+                new MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort.Resolution()
+                        .setBlockerType("PQC_DCC_QA_PROVENANCE_REQUIRED")
+                        .setBlockerMessage("QA 版本缺少正式 DCC 项目来源关系"));
+
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source =
+                reader.read(command()).getSources().get(0);
+
+        assertNull(source.getRegulation());
+        assertNull(source.getRegulationVersion());
+        assertEquals("PQC_DCC_QA_PROVENANCE_REQUIRED", source.getQaDccProvenance().getBlockerType());
+        verify(itemMapper, never()).selectListByVersionId(any());
+        verify(equipmentMapper, never()).selectListByVersionId(any());
+    }
+
+    @Test
+    void productWithoutExplicitDccProjectRelationDoesNotReadQaByNameOrCode() {
+        when(taskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(task()));
+        when(aggregateMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of());
+        when(dccProjectCodeMapper.selectEnabledList()).thenReturn(List.of(
+                DccProjectCodeDO.builder().id(205L).productMasterId(null).projectCode("ID")
+                        .projectName("球囊扩张压力泵").status("ENABLE").build()));
+
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.SourceBundle result = reader.read(command());
+
+        assertNull(result.getSources().get(0).getDccProject());
+        assertNull(result.getSources().get(0).getRegulationVersion());
+        verify(regulationMapper, never()).selectPublishedListByStableProcess(any(), any(), any());
     }
 
     @Test
@@ -150,5 +221,18 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest {
                 .setPqcTaskId(TASK_ID)
                 .setEventId(eventId)
                 .setReviewId(REVIEW_ID);
+    }
+
+    private MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort.Resolution verifiedProvenance(
+            DccProjectCodeDO project,
+            MesQaInspectionRegulationDO regulation,
+            MesQaInspectionRegulationVersionDO version) {
+        return new MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort.Resolution()
+                .setDccProjectCodeId(project.getId())
+                .setRegulationId(regulation.getId())
+                .setRegulationVersionId(version.getId())
+                .setProvenanceType("DCC_QA_PROJECT_RELATION")
+                .setProvenanceId("relation-" + version.getId())
+                .setProvenanceSnapshotHash("provenance-hash-" + version.getId());
     }
 }

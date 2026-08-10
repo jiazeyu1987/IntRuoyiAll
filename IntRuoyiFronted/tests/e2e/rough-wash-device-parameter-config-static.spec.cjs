@@ -26,6 +26,46 @@ assert.match(feedbackApi, /textValue\?: string/, '一线正式提交载荷必须
 for (const label of ['清洗次数', '清洗介质', '清洗功率', '室温', '清洗时间']) {
   assert.ok(leaderPage.includes(label), '粗洗参数模板必须包含' + label + '。')
 }
+
+const roughWashDialogStart = leaderPage.indexOf('data-team-leader-rough-wash-config-dialog')
+const roughWashDialogEnd = leaderPage.indexOf(
+  'data-team-leader-process-config-parameter-dialog',
+  roughWashDialogStart
+)
+assert.ok(roughWashDialogStart >= 0, '粗洗参数必须使用专用所见即所得配置弹窗。')
+assert.ok(roughWashDialogEnd > roughWashDialogStart, '粗洗专用弹窗必须与通用参数弹窗隔离。')
+const roughWashDialog = leaderPage.slice(roughWashDialogStart, roughWashDialogEnd)
+
+for (const anchor of [
+  'data-rough-wash-cleaning-count',
+  'data-rough-wash-cleaning-medium',
+  'data-rough-wash-power-lower',
+  'data-rough-wash-power-default',
+  'data-rough-wash-power-upper',
+  'data-rough-wash-room-temperature-lower',
+  'data-rough-wash-room-temperature-default',
+  'data-rough-wash-room-temperature-upper',
+  'data-rough-wash-cleaning-time'
+]) {
+  assert.ok(roughWashDialog.includes(anchor), '粗洗专用弹窗缺少所见即所得控件：' + anchor)
+}
+assert.ok(
+  roughWashDialog.includes('data-team-leader-rough-wash-frontline-preview'),
+  '粗洗专用弹窗必须提供一线填设备实时预览。'
+)
+for (const technicalLabel of ['参数编码', '值类型', '原文标准', '小数位数']) {
+  assert.ok(!roughWashDialog.includes(technicalLabel), '粗洗专用弹窗不得暴露技术字段：' + technicalLabel)
+}
+assert.match(
+  leaderPage,
+  /const submitRoughWashParameterConfig = async \(\) =>[\s\S]*buildRoughWashParameterSavePayloads\(row, device\)[\s\S]*saveTeamProcessConfigDeviceParameterRule/,
+  '粗洗专用弹窗必须通过一次保存入口提交五条正式参数规则。'
+)
+assert.match(
+  leaderPage,
+  /isRoughWashProcessConfig\(row, device\)[\s\S]*openRoughWashParameterConfigDialog\(row, device\)/,
+  '粗洗超声波清洗机必须进入专用配置弹窗。'
+)
 assert.match(leaderPage, /value="SELECT"/, '工序配置参数弹窗必须支持选择下拉框类型。')
 assert.match(
   leaderPage,
@@ -54,8 +94,23 @@ assert.match(
 )
 assert.match(
   leaderPage,
-  /清洗功率[\s\S]*valueType:\s*'INTEGER'[\s\S]*lowerLimit:\s*20[\s\S]*upperLimit:\s*30/,
-  '清洗功率模板必须是 20 到 30 的整数。'
+  /清洗功率[\s\S]*valueType:\s*'INTEGER'[\s\S]*lowerLimit:\s*20[\s\S]*targetValue:\s*25[\s\S]*upperLimit:\s*30/,
+  '清洗功率模板必须是下限 20、默认 25、上限 30 的整数。'
+)
+assert.match(
+  leaderPage,
+  /const roughWashParameterForm = reactive\(\{[\s\S]*powerLower:\s*20,[\s\S]*powerDefault:\s*25,[\s\S]*powerUpper:\s*30/,
+  '粗洗参数表单必须使用清洗功率默认 25。'
+)
+assert.match(
+  leaderPage,
+  /case 'ROUGH_WASH_POWER':[\s\S]*lowerLimit:\s*powerLower,[\s\S]*targetValue:\s*powerDefault,[\s\S]*upperLimit:\s*powerUpper/,
+  '清洗功率保存载荷必须写入可配置默认值。'
+)
+assert.match(
+  roughWashDialog,
+  /预览清洗功率[\s\S]*roughWashParameterForm\.powerDefault|roughWashParameterForm\.powerDefault[\s\S]*预览清洗功率/,
+  '一线预览必须显示清洗功率默认值。'
 )
 assert.match(
   leaderPage,

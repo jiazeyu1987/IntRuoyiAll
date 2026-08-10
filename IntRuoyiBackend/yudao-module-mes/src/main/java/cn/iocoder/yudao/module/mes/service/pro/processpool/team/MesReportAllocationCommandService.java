@@ -191,9 +191,13 @@ public class MesReportAllocationCommandService {
         List<MesProcessPoolReportAllocationDO> editableOld = current.stream()
                 .filter(row -> !releasedIds.contains(row.getActiveOrderId())).toList();
         BigDecimal lockedTotal = sumAllocations(locked);
+        BigDecimal availablePool = pool.subtract(lockedTotal);
+        if (availablePool.compareTo(BigDecimal.ZERO) < 0) {
+            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH, quantityText(pool));
+        }
         Map<Long, MesProWorkOrderDO> workOrders = loadWorkOrders(activeOrders);
-        Map<Long, MesTeamLeaderOrderProcessTarget> targets = capAllocationsToProcessRemaining(event, desired,
-                activeById, workOrders);
+        Map<Long, MesTeamLeaderOrderProcessTarget> targets = capAllocationsToAvailableCapacity(event, desired,
+                activeById, workOrders, availablePool);
         BigDecimal desiredTotal = desired.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         if (lockedTotal.add(desiredTotal).compareTo(pool) > 0) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH, quantityText(pool));
@@ -253,9 +257,10 @@ public class MesReportAllocationCommandService {
         return auditMapper.selectListByEventId(eventId);
     }
 
-    private Map<Long, MesTeamLeaderOrderProcessTarget> capAllocationsToProcessRemaining(
+    private Map<Long, MesTeamLeaderOrderProcessTarget> capAllocationsToAvailableCapacity(
             MesProProcessPoolEventDO event, Map<Long, BigDecimal> desired,
-            Map<Long, MesProcessPoolActiveOrderDO> activeById, Map<Long, MesProWorkOrderDO> workOrders) {
+            Map<Long, MesProcessPoolActiveOrderDO> activeById, Map<Long, MesProWorkOrderDO> workOrders,
+            BigDecimal availablePool) {
         if (desired.isEmpty()) {
             return Map.of();
         }
@@ -266,6 +271,7 @@ public class MesReportAllocationCommandService {
                         LinkedHashMap::new, Collectors.reducing(BigDecimal.ZERO,
                                 MesProcessPoolReportAllocationDO::getAllocatedQuantity, BigDecimal::add)));
         Map<Long, MesTeamLeaderOrderProcessTarget> targets = new LinkedHashMap<>();
+        BigDecimal remainingPool = availablePool;
         for (Iterator<Map.Entry<Long, BigDecimal>> iterator = desired.entrySet().iterator(); iterator.hasNext();) {
             Map.Entry<Long, BigDecimal> entry = iterator.next();
             MesProcessPoolActiveOrderDO order = activeById.get(entry.getKey());
@@ -278,13 +284,13 @@ public class MesReportAllocationCommandService {
                     event.getProcessId());
             BigDecimal remaining = target.plannedQuantity()
                     .subtract(allocatedElsewhere.getOrDefault(order.getId(), BigDecimal.ZERO));
-            if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+            if (remaining.compareTo(BigDecimal.ZERO) <= 0 || remainingPool.compareTo(BigDecimal.ZERO) <= 0) {
                 iterator.remove();
                 continue;
             }
-            if (entry.getValue().compareTo(remaining) > 0) {
-                entry.setValue(remaining);
-            }
+            BigDecimal actualQuantity = entry.getValue().min(remaining).min(remainingPool);
+            entry.setValue(actualQuantity);
+            remainingPool = remainingPool.subtract(actualQuantity);
             targets.put(order.getId(), target);
         }
         return targets;

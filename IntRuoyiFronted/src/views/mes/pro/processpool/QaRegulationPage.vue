@@ -55,6 +55,41 @@
           </el-form-item>
         </el-form>
         <div
+          class="qa-regulation-page__published-version"
+          data-qa-regulation-current-published-version
+          aria-live="polite"
+        >
+          <span class="qa-regulation-page__published-version-label">当前已发布版本</span>
+          <span
+            v-if="!selectedDccProjectCode"
+            class="qa-regulation-page__published-version-value is-empty"
+          >
+            请先选择项目
+          </span>
+          <span
+            v-else-if="qaCurrentPublishedVersionLoading"
+            class="qa-regulation-page__published-version-value is-loading"
+          >
+            加载中
+          </span>
+          <span
+            v-else-if="qaCurrentPublishedVersionLoadError"
+            class="qa-regulation-page__published-version-value is-error"
+            :title="qaCurrentPublishedVersionLoadError"
+          >
+            {{ qaCurrentPublishedVersionLoadError }}
+          </span>
+          <strong
+            v-else-if="qaCurrentPublishedVersion"
+            class="qa-regulation-page__published-version-value"
+          >
+            {{ qaCurrentPublishedVersion.versionNo }}
+          </strong>
+          <span v-else class="qa-regulation-page__published-version-value is-empty">
+            暂无已发布版本
+          </span>
+        </div>
+        <div
           class="qa-regulation-page__version-publish"
           data-qa-regulation-version-publish
         >
@@ -759,6 +794,7 @@ import {
 } from '@/api/dcc/controlledFile/projectCodes'
 import {
   QcTemplateApi,
+  type QaInspectionRegulationPublishedVersionVO,
   type QaInspectionRegulationProjectStatusVO,
   type QaInspectionRegulationSaveEquipmentOptionVO,
   type QaInspectionRegulationSaveItemVO,
@@ -1853,6 +1889,10 @@ const pagedQaRegulationItems = computed(() =>
 )
 const qaProductRuleDrafts = new Map<number, QaProductRuleDraftSnapshot>()
 const qaRegulationProjectStatusByProductId = ref(new Map<number, QaInspectionRegulationProjectStatusVO>())
+const qaCurrentPublishedVersion = ref<QaInspectionRegulationPublishedVersionVO>()
+const qaCurrentPublishedVersionLoading = ref(false)
+const qaCurrentPublishedVersionLoadError = ref('')
+let qaCurrentPublishedVersionLoadSerial = 0
 const dccProjectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 const dccProjectCodeOptionsLoading = ref(false)
 const dccProjectCodeLoadError = ref('')
@@ -2094,6 +2134,55 @@ const resolveDccProjectCodeErrorMessage = (error: unknown) => {
     return error.message.trim()
   }
   return String(error)
+}
+
+const loadCurrentPublishedQaRegulationVersion = async (project?: DccProjectCodeRespVO) => {
+  const loadSerial = ++qaCurrentPublishedVersionLoadSerial
+  qaCurrentPublishedVersion.value = undefined
+  qaCurrentPublishedVersionLoadError.value = ''
+  qaCurrentPublishedVersionLoading.value = false
+  if (!project) {
+    return
+  }
+
+  const productId = resolveDccProjectProductId(project)
+  if (!productId) {
+    qaCurrentPublishedVersionLoadError.value =
+      '当前 DCC 项目未绑定 MDM 产品，无法查询已发布 QA 规程版本。'
+    return
+  }
+
+  const publishedStatus = qaRegulationProjectStatusByProductId.value.get(productId)
+  const currentVersionId = publishedStatus?.currentVersionId
+  if (publishedStatus?.lifecycleStatus !== 'PUBLISHED' || !currentVersionId) {
+    return
+  }
+
+  qaCurrentPublishedVersionLoading.value = true
+  try {
+    const publishedVersion =
+      await QcTemplateApi.getPublishedQaRegulationVersion(currentVersionId)
+    if (loadSerial !== qaCurrentPublishedVersionLoadSerial) {
+      return
+    }
+    if (
+      publishedVersion.publishedVersionId !== currentVersionId ||
+      publishedVersion.productId !== productId
+    ) {
+      throw new Error('已发布 QA 规程版本与当前项目正式状态不一致。')
+    }
+    qaCurrentPublishedVersion.value = publishedVersion
+    qaPublishedVersionNo.value = publishedVersion.versionNo.trim()
+  } catch (error) {
+    if (loadSerial === qaCurrentPublishedVersionLoadSerial) {
+      qaCurrentPublishedVersionLoadError.value =
+        `已发布版本加载失败：${resolveDccProjectCodeErrorMessage(error)}`
+    }
+  } finally {
+    if (loadSerial === qaCurrentPublishedVersionLoadSerial) {
+      qaCurrentPublishedVersionLoading.value = false
+    }
+  }
 }
 
 const reportDccProjectSelectionStorageError = (action: string, error: unknown) => {
@@ -2668,6 +2757,7 @@ const handleDccProjectCodeVisibleChange = (visible: boolean) => {
 const applyDccProjectToQaDraft = (project?: DccProjectCodeRespVO) => {
   saveCurrentQaProductRuleDraft()
   selectedDccProjectCode.value = project
+  void loadCurrentPublishedQaRegulationVersion(project)
   persistLastDccProjectCodeSelection(project)
   activeQaRegulationProductId.value = undefined
   if (!project) {
@@ -3316,12 +3406,34 @@ const runQaPublishPrecheck = async () => {
   qaRegulationPublishing.value = true
   try {
     let publishedVersionNo = qaRegulationDraft.versionNo
+    let latestPublishedVersion: QaInspectionRegulationPublishedVersionVO | undefined
     for (const payload of payloads) {
-      const result = await QcTemplateApi.publishQaRegulation(payload)
-      publishedVersionNo = result.versionNo
+      const publishedVersion = await QcTemplateApi.publishQaRegulation(payload)
+      publishedVersionNo = publishedVersion.versionNo
+      latestPublishedVersion = publishedVersion
+    }
+    if (!latestPublishedVersion) {
+      throw new Error('发布完成后未返回正式已发布 QA 规程版本。')
     }
     qaRegulationDraft.lifecycleStatus = 'PUBLISHED'
     qaPublishedVersionNo.value = publishedVersionNo.trim()
+    qaCurrentPublishedVersionLoadSerial += 1
+    qaCurrentPublishedVersion.value = latestPublishedVersion
+    qaCurrentPublishedVersionLoading.value = false
+    qaCurrentPublishedVersionLoadError.value = ''
+    const publishedStatusByProductId = new Map(qaRegulationProjectStatusByProductId.value)
+    const currentStatus = publishedStatusByProductId.get(latestPublishedVersion.productId)
+    publishedStatusByProductId.set(latestPublishedVersion.productId, {
+      productId: latestPublishedVersion.productId,
+      configured: true,
+      regulationCount: currentStatus?.regulationCount ?? payloads.length,
+      regulationId: latestPublishedVersion.regulationId,
+      currentVersionId: latestPublishedVersion.publishedVersionId,
+      regulationCode: latestPublishedVersion.regulationCode,
+      regulationName: latestPublishedVersion.regulationName,
+      lifecycleStatus: 'PUBLISHED'
+    })
+    qaRegulationProjectStatusByProductId.value = publishedStatusByProductId
     ElMessage.success(
       `QA 规程已按 ${payloads.length} 个工序发布为不可变版本：${publishedVersionNo}`
     )
@@ -3439,6 +3551,42 @@ const runQaPublishPrecheck = async () => {
 
 .qa-regulation-page__project-copy-button {
   flex-shrink: 0;
+}
+
+.qa-regulation-page__published-version {
+  display: inline-flex;
+  flex: 0 1 220px;
+  align-items: center;
+  gap: 8px;
+  min-width: 180px;
+  color: #344054;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.qa-regulation-page__published-version-label {
+  flex-shrink: 0;
+  color: #606a7b;
+  font-weight: 600;
+}
+
+.qa-regulation-page__published-version-value {
+  min-width: 0;
+  overflow: hidden;
+  color: #172033;
+  font-weight: 700;
+  text-overflow: ellipsis;
+}
+
+.qa-regulation-page__published-version-value.is-empty,
+.qa-regulation-page__published-version-value.is-loading {
+  color: #8a94a6;
+  font-weight: 500;
+}
+
+.qa-regulation-page__published-version-value.is-error {
+  color: #d92d20;
+  font-weight: 600;
 }
 
 .qa-regulation-page__version-publish {
@@ -3737,7 +3885,7 @@ const runQaPublishPrecheck = async () => {
   margin-top: 14px;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1500px) {
   .qa-regulation-page__header {
     flex-wrap: wrap;
   }
@@ -3750,6 +3898,22 @@ const runQaPublishPrecheck = async () => {
 
   .qa-regulation-page__version-publish {
     margin-left: auto;
+  }
+
+  .qa-regulation-page__published-version {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 1180px) {
+  .qa-regulation-page__header {
+    flex-wrap: wrap;
+  }
+
+  .qa-regulation-page__project-form {
+    order: 3;
+    flex: 1 0 100%;
+    min-width: 0;
   }
 
   .qa-regulation-page__layout {
@@ -3780,6 +3944,11 @@ const runQaPublishPrecheck = async () => {
   .qa-regulation-page__version-publish {
     flex: 1 0 100%;
     flex-wrap: wrap;
+    margin-left: 0;
+  }
+
+  .qa-regulation-page__published-version {
+    flex: 1 0 100%;
     margin-left: 0;
   }
 

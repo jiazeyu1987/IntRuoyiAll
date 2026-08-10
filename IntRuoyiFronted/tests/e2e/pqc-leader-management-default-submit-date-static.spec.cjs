@@ -48,6 +48,15 @@ assert.match(
   /watch\(\s*activePqcModuleTab[\s\S]*tab === 'management'[\s\S]*await getSubmissionList\(\)/,
   'Switching to PQC管理 must load the unfiltered historical list.'
 )
+const onMountedStart = page.indexOf('onMounted(() => {')
+const onMountedEnd = page.indexOf('</script>', onMountedStart)
+assert.ok(onMountedStart >= 0 && onMountedEnd > onMountedStart, 'The workbench must define onMounted initialization.')
+const onMountedBlock = page.slice(onMountedStart, onMountedEnd)
+assert.match(
+  onMountedBlock,
+  /else\s*\{\s*refreshPqcPersonnel\(\)\s*if\s*\(\s*!showPqcModuleTabs\.value\s*\|\|\s*activePqcModuleTab\.value === 'management'\s*\|\|\s*activePqcModuleTab\.value === 'history'\s*\)[\s\S]*getSubmissionList\(\)/,
+  'The initially active PQC管理 or history module must load submissions during first mount.'
+)
 assert.doesNotMatch(
   page,
   /DEFAULT_SUBMISSION_DATE_CONDITION_ID|ensureSubmissionDateCondition\(true\)/,

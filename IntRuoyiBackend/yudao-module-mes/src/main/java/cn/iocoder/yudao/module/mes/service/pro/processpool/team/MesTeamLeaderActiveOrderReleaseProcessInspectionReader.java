@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionR
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -46,5 +47,9 @@ public interface MesTeamLeaderActiveOrderReleaseProcessInspectionReader {
         private List<MesQaInspectionRegulationItemDO> regulationItems;
 
         private List<MesQaInspectionRegulationItemEquipmentDO> regulationItemEquipment;
+
+        private DccProjectCodeDO dccProject;
+
+        private MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort.Resolution qaDccProvenance;
     }
 }

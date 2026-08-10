@@ -58,12 +58,12 @@ assert.match(
 assert.match(
   preloadBlock,
   /loadFrontlinePqcActiveOrders\(state\)/,
-  'Fullscreen preload must refresh or load the formal active-order list before preloading dependent data.'
+  'Fullscreen preload must refresh or load the formal active-order list.'
 )
-assert.match(
+assert.doesNotMatch(
   preloadBlock,
-  /Promise\.all\([\s\S]*activeOrders\.map[\s\S]*getFrontlinePqcActiveOrderProcesses/,
-  'Fullscreen preload must request every active order process list in parallel.'
+  /activeOrders\.map|getFrontlinePqcActiveOrderProcessesWithCache/,
+  'Fullscreen preload must not request process lists before the user selects an active order.'
 )
 assert.match(
   preloadBlock,
@@ -92,8 +92,8 @@ assert.ok(
 
 assert.match(
   activeOrderSelectBlock,
-  /pqcProcessOptionsCache/,
-  'Selecting a PQC active order must use the preloaded process cache when available.'
+  /getFrontlinePqcActiveOrderProcessesWithCache\(state, activeOrder\)/,
+  'Selecting a PQC active order must request only that order process list through the cache helper.'
 )
 assert.match(
   pqcProcessSelectBlock,

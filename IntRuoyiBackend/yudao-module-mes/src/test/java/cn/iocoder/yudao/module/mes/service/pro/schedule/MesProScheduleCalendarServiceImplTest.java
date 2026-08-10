@@ -922,6 +922,38 @@ class MesProScheduleCalendarServiceImplTest {
     }
 
     @Test
+    void generateCapacityPlans_shouldCreateConfiguredNightShiftCapacityOnWorkingDate() {
+        stubCapacityGenerationRule();
+        when(productionLineMapper.selectListByStatus(0)).thenReturn(List.of(
+                MesMdProductionLineDO.builder()
+                        .id(600L).code("LINE-01").name("Line 01").calendarPlanId(800L).status(0).build()));
+        when(planShiftService.getPlanShiftListByPlanId(800L)).thenReturn(List.of(
+                MesCalPlanShiftDO.builder().id(801L).planId(800L).sort(1).name("白班")
+                        .startTime("08:00").endTime("20:00").build(),
+                MesCalPlanShiftDO.builder().id(803L).planId(800L).sort(3).name("夜班")
+                        .startTime("20:00").endTime("08:00").build()));
+        when(capacityPlanMapper.selectListByLineIdsAndDateRange(anyCollection(), any(), any()))
+                .thenReturn(Collections.emptyList());
+
+        MesProScheduleCalendarCapacityGenerateReqVO reqVO = new MesProScheduleCalendarCapacityGenerateReqVO();
+        reqVO.setStartDate("2026-06-08");
+        reqVO.setDays(1);
+
+        var resp = service.generateCapacityPlans(reqVO);
+
+        assertEquals(2, resp.getGeneratedCount());
+        ArgumentCaptor<MesProCapacityPlanDO> captor = ArgumentCaptor.forClass(MesProCapacityPlanDO.class);
+        verify(capacityPlanMapper, times(2)).insert(captor.capture());
+        MesProCapacityPlanDO nightCapacity = captor.getAllValues().stream()
+                .filter(capacity -> Long.valueOf(803L).equals(capacity.getShiftId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(LocalDateTime.of(2026, 6, 8, 0, 0), nightCapacity.getCalendarDate());
+        assertEquals(720, nightCapacity.getCapacityMinutes());
+        assertTrue(nightCapacity.getEnabled());
+    }
+
+    @Test
     void generateCapacityPlans_shouldSkipExistingCapacityRowsWithoutOverwrite() {
         stubCapacityGenerationRule();
         when(productionLineMapper.selectListByStatus(0)).thenReturn(List.of(

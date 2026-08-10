@@ -462,6 +462,12 @@ class MesProAutoScheduleServiceImplTest {
                         .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
                         .enabled(Boolean.TRUE)
                         .build());
+        lenient().when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                20L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())).thenReturn(List.of(
+                buildScheduleRouteFlowProcessConfig(3L),
+                buildScheduleRouteFlowProcessConfig(4L),
+                buildScheduleRouteFlowProcessConfig(30L),
+                buildScheduleRouteFlowProcessConfig(31L)));
         lenient().when(routeScheduleConfigMapper.selectListByRouteVersionId(anyLong())).thenReturn(Collections.emptyList());
         lenient().when(routeVersionMapper.selectByRouteIdAndVersionNo(anyLong(), anyString())).thenReturn(null);
         lenient().when(routeVersionMapper.selectActiveByRouteId(anyLong())).thenReturn(MesProRouteVersionDO.builder()
@@ -517,6 +523,16 @@ class MesProAutoScheduleServiceImplTest {
                 .sourceRouteProcessId(sourceRouteProcessId)
                 .targetRouteProcessId(targetRouteProcessId)
                 .sort(sort)
+                .build();
+    }
+
+    private MesProRouteFlowProcessConfigDO buildScheduleRouteFlowProcessConfig(Long routeProcessId) {
+        return MesProRouteFlowProcessConfigDO.builder()
+                .routeFlowConfigId(90000L)
+                .routeId(20L)
+                .routeProcessId(routeProcessId)
+                .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
+                .productionQuantityFactor(BigDecimal.ONE)
                 .build();
     }
 
@@ -696,6 +712,50 @@ class MesProAutoScheduleServiceImplTest {
         assertEquals(MesProScheduleCapacityModeEnum.INFINITE_FORMULA.getMode(), second.getCapacityMode());
         verify(routeVersionMapper).selectActiveByRouteId(20L);
         verify(routeScheduleConfigMapper, never()).selectListByRouteVersionId(700L);
+    }
+
+    @Test
+    void refreshScheduleOrderProcessesFromRouteConfig_shouldUseLatestWorkerHumanEfficiency() {
+        routeProcess.setWorkstationId(30L);
+        workstation.setSingleStandardHourlyCapacity(new BigDecimal("60"));
+        workstation.setShiftHours(new BigDecimal("8"));
+        scheduleOrderProcess.setEnabled(Boolean.TRUE);
+        scheduleOrderProcess.setCapacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode());
+        scheduleOrderProcess.setHourlyCapacityTotal(new BigDecimal("30"));
+        scheduleOrderProcess.setShiftHours(new BigDecimal("8"));
+        scheduleOrderProcess.setShiftCapacityTotal(new BigDecimal("240"));
+        when(routeScheduleConfigMapper.selectListByRouteVersionId(700L)).thenReturn(List.of(
+                MesProRouteScheduleConfigDO.builder()
+                        .id(9001L)
+                        .routeVersionId(700L)
+                        .routeProcessId(3L)
+                        .capacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode())
+                        .nightShiftEnabled(Boolean.FALSE)
+                        .build()));
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                20L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())).thenReturn(List.of(
+                MesProRouteFlowProcessConfigDO.builder()
+                        .routeFlowConfigId(90000L)
+                        .routeId(20L)
+                        .routeProcessId(3L)
+                        .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
+                        .productionQuantityFactor(BigDecimal.ONE)
+                        .build()));
+
+        @SuppressWarnings("unchecked")
+        List<MesProScheduleOrderProcessDO> result = ReflectionTestUtils.invokeMethod(autoScheduleService,
+                "refreshScheduleOrderProcessesFromRouteConfig", scheduleOrder,
+                List.of(scheduleOrderProcess), false);
+
+        assertNotNull(result);
+        assertEquals(0, new BigDecimal("60").compareTo(scheduleOrderProcess.getHourlyCapacityTotal()));
+        assertEquals(0, new BigDecimal("8").compareTo(scheduleOrderProcess.getShiftHours()));
+        assertEquals(0, new BigDecimal("480").compareTo(scheduleOrderProcess.getShiftCapacityTotal()));
+        assertEquals("WORKER", scheduleOrderProcess.getCapacitySource());
+        Map<?, ?> resourceSnapshot = JsonUtils.parseObject(
+                scheduleOrderProcess.getResourceSnapshotJson(), Map.class);
+        assertEquals(0, new BigDecimal(String.valueOf(resourceSnapshot.get("hourlyCapacityTotal")))
+                .compareTo(new BigDecimal("60")));
     }
 
     @Test

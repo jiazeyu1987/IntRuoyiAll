@@ -10,11 +10,13 @@ import cn.iocoder.yudao.module.infra.controller.admin.config.vo.ConfigSaveReqVO;
 import cn.iocoder.yudao.module.infra.dal.dataobject.config.ConfigDO;
 import cn.iocoder.yudao.module.infra.service.config.ConfigService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationMachineDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteScheduleConfigDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteScheduleConfigMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleCalendarRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedulerworkbench.MesProSchedulerWorkbenchMapper;
+import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationMachineService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteScheduleConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.MesProScheduleCalendarService;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -34,7 +36,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.argThat;
 
@@ -49,6 +53,8 @@ class MesProSchedulerWorkbenchServiceImplTest {
 
     @Mock
     private MesMdWorkstationMapper workstationMapper;
+    @Mock
+    private MesMdWorkstationMachineService workstationMachineService;
 
     @Mock
     private ConfigService configService;
@@ -280,6 +286,49 @@ class MesProSchedulerWorkbenchServiceImplTest {
                         && "mes.scheduler-workbench.policy-settings".equals(update.getKey())
                         && update.getValue().contains("\"priorityRule\":\"CREATED_TIME\"")
                         && update.getValue().contains("\"defaultWorkerSingleHourlyCapacity\":32")));
+    }
+
+    @Test
+    void savePolicySettings_shouldApplyChangedHumanEfficiencyToEnabledWorkerWorkstationsOnly() {
+        ConfigDO config = new ConfigDO();
+        config.setId(9001L);
+        config.setConfigKey("mes.scheduler-workbench.policy-settings");
+        config.setValue("""
+                {"erpWorkOrderSyncTime":"02:00","nightlyReplanTime":"02:00","priorityRule":"PROMISE_DATE","protectReportedTasks":true,"protectCompletedTasks":true,"protectLockedTasks":true,"defaultScheduleUseEnabled":true,"defaultScheduleCapacityMode":"RESOURCE_CALCULATED","defaultNightShiftEnabled":false,"defaultWorkerQuantity":5,"defaultWorkerSingleHourlyCapacity":30}
+                """);
+        when(configService.getConfigByKey("mes.scheduler-workbench.policy-settings")).thenReturn(config);
+        when(workstationMapper.selectListByStatus(0)).thenReturn(List.of(
+                MesMdWorkstationDO.builder().id(101L).status(0).build(),
+                MesMdWorkstationDO.builder().id(102L).status(0).build()));
+        when(workstationMachineService.getWorkstationMachineListByWorkstationIds(List.of(101L, 102L)))
+                .thenReturn(List.of(MesMdWorkstationMachineDO.builder()
+                        .id(201L).workstationId(102L).machineryId(301L).build()));
+
+        service.savePolicySettings(policySettings("02:00", "02:00", "PROMISE_DATE",
+                true, true, true,
+                true, "RESOURCE_CALCULATED", null, null, null,
+                false, 5, new BigDecimal("60")));
+
+        verify(workstationMapper).updateSingleStandardHourlyCapacity(101L, new BigDecimal("60"));
+        verify(workstationMapper, never()).updateSingleStandardHourlyCapacity(102L, new BigDecimal("60"));
+    }
+
+    @Test
+    void savePolicySettings_shouldNotRewriteWorkerWorkstationsWhenHumanEfficiencyIsUnchanged() {
+        ConfigDO config = new ConfigDO();
+        config.setId(9001L);
+        config.setConfigKey("mes.scheduler-workbench.policy-settings");
+        config.setValue("""
+                {"erpWorkOrderSyncTime":"02:00","nightlyReplanTime":"02:00","priorityRule":"PROMISE_DATE","protectReportedTasks":true,"protectCompletedTasks":true,"protectLockedTasks":true,"defaultScheduleUseEnabled":true,"defaultScheduleCapacityMode":"RESOURCE_CALCULATED","defaultNightShiftEnabled":false,"defaultWorkerQuantity":5,"defaultWorkerSingleHourlyCapacity":60}
+                """);
+        when(configService.getConfigByKey("mes.scheduler-workbench.policy-settings")).thenReturn(config);
+
+        service.savePolicySettings(policySettings("03:00", "04:00", "ORDER_PRIORITY",
+                true, true, true,
+                true, "RESOURCE_CALCULATED", null, null, null,
+                false, 5, new BigDecimal("60.000")));
+
+        verifyNoInteractions(workstationMapper, workstationMachineService);
     }
 
     @Test

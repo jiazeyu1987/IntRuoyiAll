@@ -111,10 +111,7 @@ final class MesProScheduleCalendarRuleSupport {
     }
 
     static boolean isShiftAvailable(String dateShiftMode, MesCalPlanShiftDO shift) {
-        if (DATE_SHIFT_REST.equals(dateShiftMode)) {
-            return false;
-        }
-        return DATE_SHIFT_DAY.equals(resolveShiftCode(shift));
+        return !DATE_SHIFT_REST.equals(dateShiftMode) && shift != null;
     }
 
     static String resolveShiftCode(MesCalPlanShiftDO shift) {

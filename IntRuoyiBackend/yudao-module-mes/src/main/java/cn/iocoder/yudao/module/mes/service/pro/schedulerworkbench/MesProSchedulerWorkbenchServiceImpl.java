@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.Me
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchSummaryRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchPolicySettingsRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchShiftHoursRespVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationMachineDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteScheduleConfigDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProScheduleCalendarRuleDO;
 import cn.iocoder.yudao.module.infra.controller.admin.config.vo.ConfigSaveReqVO;
@@ -17,6 +18,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteScheduleConfig
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleCalendarRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedulerworkbench.MesProSchedulerWorkbenchMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
+import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationMachineService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteScheduleConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.MesProScheduleCalendarService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -30,11 +32,14 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.enums.CommonStatusEnum.ENABLE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULER_WORKBENCH_POLICY_SETTINGS_INVALID;
 
 @Service
@@ -52,6 +57,8 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
     private MesProSchedulerWorkbenchMapper schedulerWorkbenchMapper;
     @Resource
     private MesMdWorkstationMapper workstationMapper;
+    @Resource
+    private MesMdWorkstationMachineService workstationMachineService;
     @Resource
     private ConfigService configService;
     @Resource
@@ -127,12 +134,16 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public MesProSchedulerWorkbenchPolicySettingsRespVO savePolicySettings(
             MesProSchedulerWorkbenchPolicySettingsRespVO reqVO) {
         MesProSchedulerWorkbenchPolicySettingsRespVO normalizedReqVO = normalizePolicySettings(reqVO);
         validatePolicySettings(normalizedReqVO);
         String value = serializePolicySettings(normalizedReqVO);
         ConfigDO config = configService.getConfigByKey(POLICY_SETTINGS_CONFIG_KEY);
+        MesProSchedulerWorkbenchPolicySettingsRespVO previousSettings = config == null
+                || config.getValue() == null || config.getValue().isBlank()
+                ? null : parsePolicySettings(config.getValue());
         ConfigSaveReqVO saveReqVO = new ConfigSaveReqVO();
         saveReqVO.setId(config == null ? null : config.getId());
         saveReqVO.setCategory("mes");
@@ -146,7 +157,45 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
         } else {
             configService.updateConfig(saveReqVO);
         }
+        applyWorkerHumanEfficiencyIfChanged(previousSettings, normalizedReqVO);
         return normalizedReqVO;
+    }
+
+    private void applyWorkerHumanEfficiencyIfChanged(
+            MesProSchedulerWorkbenchPolicySettingsRespVO previousSettings,
+            MesProSchedulerWorkbenchPolicySettingsRespVO currentSettings) {
+        BigDecimal currentHumanEfficiency = currentSettings.getDefaultWorkerSingleHourlyCapacity();
+        BigDecimal previousHumanEfficiency = previousSettings == null
+                ? null : previousSettings.getDefaultWorkerSingleHourlyCapacity();
+        if (previousHumanEfficiency != null && previousHumanEfficiency.compareTo(currentHumanEfficiency) == 0) {
+            return;
+        }
+        List<MesMdWorkstationDO> workstations = Objects.requireNonNull(
+                workstationMapper.selectListByStatus(ENABLE.getStatus()),
+                "enabled workstations must not be null");
+        if (workstations.isEmpty()) {
+            return;
+        }
+        List<Long> workstationIds = workstations.stream()
+                .map(MesMdWorkstationDO::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (workstationIds.isEmpty()) {
+            return;
+        }
+        List<MesMdWorkstationMachineDO> machineBindings = Objects.requireNonNull(
+                workstationMachineService.getWorkstationMachineListByWorkstationIds(workstationIds),
+                "workstation machine bindings must not be null");
+        Set<Long> machineWorkstationIds = machineBindings.stream()
+                .map(MesMdWorkstationMachineDO::getWorkstationId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        workstations.stream()
+                .map(MesMdWorkstationDO::getId)
+                .filter(Objects::nonNull)
+                .filter(workstationId -> !machineWorkstationIds.contains(workstationId))
+                .forEach(workstationId -> workstationMapper.updateSingleStandardHourlyCapacity(
+                        workstationId, currentHumanEfficiency));
     }
 
     @Override

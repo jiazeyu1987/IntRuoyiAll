@@ -3759,10 +3759,12 @@ onMounted(async () => {
   if (isPqcMode.value) {
     catalog.value = await catalogRequest
     const activeOrders = await loadFrontlinePqcActiveOrders(deviceState)
-    const initialActiveOrder = activeOrders.find((order) =>
-      order.workOrderId === context.workOrderId &&
-      (!context.routeId || order.routeId === context.routeId)
-    ) || activeOrders[0]
+    const initialActiveOrder = context.workOrderId
+      ? activeOrders.find((order) =>
+        order.workOrderId === context.workOrderId &&
+        (!context.routeId || order.routeId === context.routeId)
+      )
+      : undefined
     if (initialActiveOrder) {
       await handleSelectActiveOrder(initialActiveOrder)
     }

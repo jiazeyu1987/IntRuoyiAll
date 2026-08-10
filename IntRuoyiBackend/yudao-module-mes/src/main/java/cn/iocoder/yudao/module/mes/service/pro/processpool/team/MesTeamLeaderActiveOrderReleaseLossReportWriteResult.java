@@ -11,6 +11,7 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriteResult {
 
     private String documentType;
     private List<Long> batchRecordExecutionIds;
+    private List<Long> formCenterInstanceIds;
     private List<Long> fieldAuditIds;
     private List<String> fieldAuditHeadHashes;
     private List<Long> sourceObjectIds;

@@ -765,10 +765,12 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .setValidationProfile(binding.getString("validationProfile"))
                 .setRecordbookEnabled(binding.getBoolean("recordbookEnabled"))
                 .setPermissionScopeId(binding.getLong("permissionScopeId"))
+                .setRecordCategorySnapshotHash(binding.getString("recordCategorySnapshotHash"))
                 .setRequiredPolicy(binding.getString("requiredPolicy"))
                 .setRequiredConditionJson(binding.getString("requiredConditionJson"))
                 .setOwnerRoleKey(binding.getString("ownerRoleKey"))
                 .setArchiveVisibility(binding.getString("archiveVisibility"))
+                .setSlotConfigSnapshotHash(binding.getString("slotConfigSnapshotHash"))
                 .setCandidateSourceType(binding.getString("candidateSourceType"))
                 .setCandidateSourceIds(parseCandidateSourceIds(binding.get("candidateSourceIds")))
                 .setCandidateSourceNames(parseCandidateSourceNames(binding.get("candidateSourceNames")))
@@ -795,10 +797,12 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     vo.setValidationProfile(resolveValidationProfile(vo.getRecordCategory(), binding.getValidationProfile()));
                     vo.setRecordbookEnabled(resolveRecordbookEnabled(binding.getRecordbookEnabled(), vo.getRecordCategory()));
                     vo.setPermissionScopeId(binding.getPermissionScopeId());
+                    vo.setRecordCategorySnapshotHash(binding.getRecordCategorySnapshotHash());
                     vo.setRequiredPolicy(resolveRequiredPolicy(binding.getRequiredPolicy()));
                     vo.setRequiredConditionJson(binding.getRequiredConditionJson());
                     vo.setOwnerRoleKey(resolveOwnerRoleKey(binding.getOwnerRoleKey(), formSlotType));
                     vo.setArchiveVisibility(resolveArchiveVisibility(binding.getArchiveVisibility()));
+                    vo.setSlotConfigSnapshotHash(binding.getSlotConfigSnapshotHash());
                     vo.setCandidateSourceType(normalizeCandidateSourceTypeOptional(binding.getCandidateSourceType()));
                     vo.setCandidateSourceIds(normalizeCandidateSourceIds(binding));
                     vo.setCandidateSourceNames(normalizeCandidateSourceNames(binding.getCandidateSourceNames()));
@@ -1410,11 +1414,13 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             }
         }
         return merged.values().stream()
-                .map(processConfig -> normalizeCandidateUseConfigSnapshot(flowConfigType, processConfig))
+                .map(processConfig -> normalizeCandidateUseConfigSnapshot(
+                        routeVersion.getRouteId(), flowConfigType, processConfig))
                 .toList();
     }
 
     private MesProRouteFlowProcessConfigSaveReqVO normalizeCandidateUseConfigSnapshot(
+            Long routeId,
             MesProRouteFlowConfigTypeEnum flowConfigType,
             MesProRouteFlowProcessConfigSaveReqVO processConfig) {
         processConfig.setExecutionMode(resolveExecutionMode(flowConfigType, processConfig.getExecutionMode()));
@@ -1424,7 +1430,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             boolean explicitBatchBindingSnapshot =
                     Boolean.TRUE.equals(processConfig.getBatchRecordBindingSnapshotExplicit());
             processConfig.setBatchRecordReports(normalizeBatchRecordReports(processConfig));
-            processConfig.setFormBindings(resolveAndNormalizeFormBindings(processConfig));
+            processConfig.setFormBindings(resolveAndNormalizeFormBindings(routeId, processConfig));
             processConfig.setBatchRecordBindingSnapshotExplicit(explicitBatchBindingSnapshot ? Boolean.TRUE : null);
         } else {
             processConfig.setFormBindings(Collections.emptyList());
@@ -1949,8 +1955,8 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     private void insertDynamicFormBindings(MesProRouteDO route, MesProRouteFlowConfigTypeEnum flowConfigType,
                                            MesProRouteFlowProcessConfigDO processConfig,
                                            MesProRouteFlowProcessConfigSaveReqVO saveConfig) {
-        List<MesProRouteFlowFormBindingSaveReqVO> bindings = saveConfig.getFormBindings() == null
-                ? Collections.emptyList() : saveConfig.getFormBindings();
+        List<MesProRouteFlowFormBindingSaveReqVO> bindings =
+                resolveAndNormalizeFormBindings(route.getId(), saveConfig);
         for (int index = 0; index < bindings.size(); index++) {
             MesProRouteFlowFormBindingSaveReqVO binding = bindings.get(index);
             String formSlotType = resolveConfiguredFormSlotType(binding);
@@ -1981,10 +1987,12 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .validationProfile(validationProfile)
                     .recordbookEnabled(recordbookEnabled)
                     .permissionScopeId(binding.getPermissionScopeId())
+                    .recordCategorySnapshotHash(binding.getRecordCategorySnapshotHash())
                     .requiredPolicy(requiredPolicy)
                     .requiredConditionJson(StrUtil.blankToDefault(StrUtil.trim(binding.getRequiredConditionJson()), null))
                     .ownerRoleKey(ownerRoleKey)
                     .archiveVisibility(archiveVisibility)
+                    .slotConfigSnapshotHash(binding.getSlotConfigSnapshotHash())
                     .candidateSourceType(binding.getCandidateSourceType())
                     .candidateSourceIds(joinCandidateSourceIds(binding.getCandidateSourceIds()))
                     .candidateSourceNames(JSON.toJSONString(normalizeCandidateSourceNames(binding.getCandidateSourceNames())))
@@ -2123,6 +2131,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     }
 
     private List<MesProRouteFlowFormBindingSaveReqVO> resolveAndNormalizeFormBindings(
+            Long routeId,
             MesProRouteFlowProcessConfigSaveReqVO saveConfig) {
         List<MesProRouteFlowFormBindingSaveReqVO> bindings = normalizeFormBindings(saveConfig);
         if (bindings.isEmpty()) {
@@ -2155,7 +2164,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             List<Long> candidateSourceIds = normalizeCandidateSourceIds(binding);
             validateFormBindingCandidateSource(binding, candidateSourceType, candidateSourceIds);
             String archiveVisibility = resolveArchiveVisibility(binding.getArchiveVisibility());
-            normalized.add(new MesProRouteFlowFormBindingSaveReqVO()
+            MesProRouteFlowFormBindingSaveReqVO normalizedBinding = new MesProRouteFlowFormBindingSaveReqVO()
                     .setFormBindingKey(resolveFormBindingKey(saveConfig.getRouteProcessId(), binding, index + 1))
                     .setFormTemplateId(binding.getFormTemplateId())
                     .setFormTemplateName(StrUtil.trim(publishedVersion.getTemplateName()))
@@ -2177,7 +2186,12 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .setCandidateSourceIds(candidateSourceIds)
                     .setCandidateSourceNames(normalizeCandidateSourceNames(binding.getCandidateSourceNames()))
                     .setReportSort(binding.getReportSort())
-                    .setRemark(binding.getRemark()));
+                    .setRemark(binding.getRemark());
+            normalizedBinding.setRecordCategorySnapshotHash(buildRecordCategorySnapshotHash(
+                    routeId, saveConfig.getRouteProcessId(), normalizedBinding));
+            normalizedBinding.setSlotConfigSnapshotHash(buildSlotConfigSnapshotHash(
+                    routeId, saveConfig.getRouteProcessId(), normalizedBinding));
+            normalized.add(normalizedBinding);
         }
         return normalized;
     }
@@ -2573,6 +2587,22 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 nullToEmpty(report.getReportSort())));
     }
 
+    private String buildRecordCategorySnapshotHash(Long routeId, Long routeProcessId,
+                                                   MesProRouteFlowFormBindingSaveReqVO binding) {
+        return DigestUtil.sha256Hex(String.join("|",
+                nullToEmpty(routeId),
+                nullToEmpty(routeProcessId),
+                StrUtil.nullToEmpty(binding.getFormBindingKey()),
+                nullToEmpty(binding.getFormTemplateId()),
+                nullToEmpty(binding.getLastPublishedTemplateVersionId()),
+                StrUtil.nullToEmpty(binding.getFormSlotType()),
+                StrUtil.nullToEmpty(binding.getRecordCategory()),
+                StrUtil.nullToEmpty(binding.getValidationProfile()),
+                nullToEmpty(binding.getRecordbookEnabled()),
+                nullToEmpty(binding.getPermissionScopeId()),
+                nullToEmpty(binding.getReportSort())));
+    }
+
     private String buildSlotConfigSnapshotHash(Long routeId, Long routeProcessId,
                                                MesProRouteFlowBatchRecordSaveReqVO report,
                                                 Long permissionScopeId, String formSlotType,
@@ -2595,6 +2625,32 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 StrUtil.nullToEmpty(resolveInstanceScope(report.getInstanceScope())),
                 StrUtil.nullToEmpty(report.getSharedFormKey()),
                 StrUtil.nullToEmpty(report.getFillableScopeJson())));
+    }
+
+    private String buildSlotConfigSnapshotHash(Long routeId, Long routeProcessId,
+                                               MesProRouteFlowFormBindingSaveReqVO binding) {
+        return DigestUtil.sha256Hex(String.join("|",
+                nullToEmpty(routeId),
+                nullToEmpty(routeProcessId),
+                StrUtil.nullToEmpty(binding.getFormBindingKey()),
+                nullToEmpty(binding.getFormTemplateId()),
+                nullToEmpty(binding.getLastPublishedTemplateVersionId()),
+                StrUtil.nullToEmpty(binding.getFormSlotType()),
+                StrUtil.nullToEmpty(binding.getRecordCategory()),
+                StrUtil.nullToEmpty(binding.getValidationProfile()),
+                nullToEmpty(binding.getRecordbookEnabled()),
+                nullToEmpty(binding.getPermissionScopeId()),
+                StrUtil.nullToEmpty(binding.getRequiredPolicy()),
+                StrUtil.nullToEmpty(binding.getRequiredConditionJson()),
+                StrUtil.nullToEmpty(binding.getOwnerRoleKey()),
+                StrUtil.nullToEmpty(binding.getArchiveVisibility()),
+                nullToEmpty(binding.getReportSort()),
+                StrUtil.nullToEmpty(binding.getInstanceScope()),
+                StrUtil.nullToEmpty(binding.getSharedFormKey()),
+                StrUtil.nullToEmpty(binding.getFillableScopeJson()),
+                StrUtil.nullToEmpty(binding.getCandidateSourceType()),
+                binding.getCandidateSourceIds() == null ? "" : binding.getCandidateSourceIds().stream()
+                        .map(String::valueOf).collect(Collectors.joining(","))));
     }
 
     private String resolveInstanceScope(String instanceScope) {

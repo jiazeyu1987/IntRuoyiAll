@@ -237,6 +237,46 @@ class MesReportAllocationCommandServiceTest {
     }
 
     @Test
+    void shouldCapRequestedAllocationToCurrentPoolAvailability() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
+                .id(7201L).eventId(1001L).currentVersion(0).build();
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(8101L, 9001L);
+        MesProWorkOrderDO workOrder = workOrder(9001L, "A");
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
+        when(poolQuantityService.requirePoolQuantity(event)).thenReturn(new BigDecimal("20"));
+        when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
+        when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(activeOrder));
+        when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder));
+        when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(Set.of(8101L), 6001L))
+                .thenReturn(List.of());
+        when(targetService.requireUniqueTargetForProcess(activeOrder, 6001L))
+                .thenReturn(new MesTeamLeaderOrderProcessTarget(5101L, 6001L, new BigDecimal("100"),
+                        BigDecimal.ONE, new BigDecimal("100")));
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenReturn(1);
+        when(allocationMapper.insertBatch(anyCollection())).thenReturn(true);
+        when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
+        when(stateMapper.updateById(state)).thenReturn(1);
+        when(releaseStateService.findReleasedActiveOrderIds(List.of(8101L))).thenReturn(Set.of());
+        when(workOrderMapper.selectListByIds(List.of(9001L))).thenReturn(List.of(workOrder));
+
+        MesReportAllocationSnapshot snapshot = service.save(saveCommand(0, List.of(
+                MesReportAllocationSaveLine.builder().activeOrderId(8101L)
+                        .allocatedQuantity(new BigDecimal("80")).build())));
+
+        assertAmount("20", snapshot.getTotalAllocatedQuantity());
+        assertAmount("0", snapshot.getUnallocatedQuantity());
+        ArgumentCaptor<Collection<MesProcessPoolReportAllocationDO>> insertedCaptor =
+                ArgumentCaptor.forClass(Collection.class);
+        verify(allocationMapper).insertBatch(insertedCaptor.capture());
+        assertAmount("20", insertedCaptor.getValue().iterator().next().getAllocatedQuantity());
+        verify(quantityFragmentService).rebuildForVersion(event, 1, List.copyOf(insertedCaptor.getValue()));
+        verify(completionService).reconcileAffectedAllocations(event, List.copyOf(insertedCaptor.getValue()));
+    }
+
+    @Test
     void shouldUseAllocationModeAsAuditReasonWhenReviewRemarkIsBlank() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()

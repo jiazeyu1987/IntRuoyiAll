@@ -13,7 +13,9 @@ public class MesTeamLeaderActiveOrderReleaseDocumentEvidence {
     private Long batchExecutionId;
     private Long batchExecutionTaskId;
     private List<Long> batchRecordExecutionIds;
+    private List<Long> formCenterInstanceIds;
     private List<String> targetReportIds;
+    private List<Long> targetFormTemplateIds;
     private List<Long> targetDefinitionIds;
     private List<Long> targetVersionIds;
     private List<String> targetSnapshotHashes;
