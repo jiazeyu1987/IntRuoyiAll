@@ -163,3 +163,5 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Cleanup only current task-owned temporary artifacts. Do not remove unrelated outputs, logs, worktrees, or running processes.
 - If cleanup, merge, worktree removal, or verification cannot be completed, mark the task blocked or `ready_for_closeout` with the exact reason.
 - Preserve `task.md`, `execution-log.md`, and `verification-report.md` by default.
+
+- Thread baseline: 子 Agent 调度必须直接调用 collaboration 接口；不得嵌套 functions.exec，也不得用 exec wait 代替 wait_agent。

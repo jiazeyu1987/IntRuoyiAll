@@ -101,6 +101,16 @@ assert.match(
 )
 assert.match(
   page,
+  /const\s+normalizeAllocationSubmitQuantity\s*=\s*\(value:\s*unknown,\s*message:\s*string\)\s*=>\s*\{[\s\S]*String\(value\)\.trim\(\) === ''[\s\S]*return 0[\s\S]*parsed < 0[\s\S]*Number\.isInteger\(parsed\)[\s\S]*return parsed/,
+  'allocation submit validation must treat blank quantities as 0 while still rejecting negative, decimal, and non-numeric values.'
+)
+assert.match(
+  page,
+  /const\s+buildAllocationSubmitLines\s*=\s*\(\):\s*TeamLeaderReportAllocationLine\[\]\s*=>\s*\{[\s\S]*normalizeAllocationSubmitQuantity\(line\.allocatedQuantity,\s*'分配数量必须为0或正整数'\)[\s\S]*allocatedQuantity === 0[\s\S]*activeOrderId === undefined[\s\S]*return \[\][\s\S]*allocatedQuantity/,
+  'allocation submit lines must allow 0 or blank quantities and ignore completely blank zero rows.'
+)
+assert.match(
+  page,
   /const\s+resolveCurrentLeaderType\s*=[\s\S]*activeLeaderTab\.value[\s\S]*leaderType !== 'PRODUCTION'[\s\S]*leaderType !== 'PQC'[\s\S]*return leaderType/,
   'allocation preview and confirm must derive leaderType from the current tab instead of mutable filter params.'
 )
@@ -133,6 +143,16 @@ assert.doesNotMatch(
   page,
   /reviewTeamLeaderSubmission\(\{\s*eventId,[\s\S]{0,220}reviewStatus:\s*reviewForm\.reviewStatus,[\s\S]{0,220}\}\)/,
   'production approval must not use the old review-only endpoint without allocation lines.'
+)
+
+const submitReviewStart = page.indexOf('const submitReview = async () => {')
+const submitReviewEnd = page.indexOf('const openCorrection =', submitReviewStart)
+assert.ok(submitReviewStart >= 0 && submitReviewEnd > submitReviewStart, 'must locate submitReview handler.')
+const submitReviewBlock = page.slice(submitReviewStart, submitReviewEnd)
+assert.match(
+  submitReviewBlock,
+  /confirmTeamLeaderReportAllocation\([\s\S]*ElMessage\.success[\s\S]*await\s+Promise\.all\(\[\s*getSubmissionList\(\),\s*loadActiveOrders\(\)\s*\]\)/,
+  'after FIFO or manual allocation saves, the page must refresh both the submission list and active-order pool so production progress updates immediately.'
 )
 
 console.log('PASS: team leader report allocation static contract is wired')

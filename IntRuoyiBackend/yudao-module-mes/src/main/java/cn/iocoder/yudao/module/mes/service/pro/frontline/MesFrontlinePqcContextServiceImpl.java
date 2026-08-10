@@ -308,14 +308,14 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                     "routeProjectCode productId=" + productId + "，routeId=" + routeId);
         }
         Map<Long, MesMdItemDO> routeItems = itemService.getItemMap(routeItemIds);
-        Set<Long> missingRouteItemIds = routeItemIds.stream()
-                .filter(itemId -> !routeItems.containsKey(itemId) || routeItems.get(itemId) == null)
+        Set<Long> resolvedRouteItemIds = routeItemIds.stream()
+                .filter(itemId -> routeItems.containsKey(itemId) && routeItems.get(itemId) != null)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (!missingRouteItemIds.isEmpty()) {
+        if (resolvedRouteItemIds.isEmpty()) {
             throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
-                    "routeProjectItems routeId=" + routeId + "，missingItemIds=" + missingRouteItemIds);
+                    "routeProjectItems routeId=" + routeId + "，missingItemIds=" + routeItemIds);
         }
-        Set<String> routeProjectCodes = routeItemIds.stream()
+        Set<String> routeProjectCodes = resolvedRouteItemIds.stream()
                 .map(routeItems::get)
                 .map(MesMdItemDO::getCode)
                 .filter(StrUtil::isNotBlank)
@@ -339,7 +339,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         }
         DccProjectCodeDO project = matchedProjects.values().iterator().next();
         requirePositive(project.getProductMasterId(), "dccProject.productMasterId");
-        Set<Long> qaProductIds = new LinkedHashSet<>(routeItemIds);
+        Set<Long> qaProductIds = new LinkedHashSet<>(resolvedRouteItemIds);
         qaProductIds.add(project.getProductMasterId());
         List<MesQaInspectionRegulationDO> publishedRegulations =
                 regulationMapper.selectListByProductIds(qaProductIds).stream()

@@ -201,6 +201,9 @@ public class MesReportAllocationCommandService {
                 workOrders);
         Map<Long, BigDecimal> before = aggregateRows(editableOld);
         if (before.equals(desired)) {
+            if (!current.isEmpty()) {
+                completionService.reconcileAffectedAllocations(event, current);
+            }
             return buildSnapshot(event, pool, state.getCurrentVersion(), current);
         }
 
@@ -420,8 +423,11 @@ public class MesReportAllocationCommandService {
             return result;
         }
         for (MesReportAllocationSaveLine line : lines) {
-            if (line == null || line.getActiveOrderId() == null || line.getAllocatedQuantity() == null
-                    || line.getAllocatedQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            if (line == null || line.getAllocatedQuantity() == null
+                    || line.getAllocatedQuantity().compareTo(BigDecimal.ZERO) == 0) {
+                continue;
+            }
+            if (line.getAllocatedQuantity().compareTo(BigDecimal.ZERO) < 0) {
                 throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED, eventId);
             }
             if (!activeById.containsKey(line.getActiveOrderId())) {

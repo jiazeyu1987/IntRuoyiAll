@@ -23,6 +23,11 @@ assert.match(runner, /collectCodeReadonlyEvidence\(task, PROJECT_ROOT\)/, 'CODE_
 assert.match(runner, /function buildCodeReadonlyPrompt\(task[\s\S]*正式源码[\s\S]*doc\/tasks[\s\S]*node_modules[\s\S]*target[\s\S]*output/, 'CODE_READONLY 必须排除任务记录、依赖和构建输出，仅扫描正式源码与测试证据。')
 assert.match(runner, /function buildCodeReadonlyPrompt\(task[\s\S]*最多选择 20 个[\s\S]*实时只读代码证据/, 'CODE_READONLY 必须限制证据文件数量，并把完整链路实时片段交给 Codex CLI。')
 assert.match(runner, /function buildCodeReadonlyPrompt\(task[\s\S]*不得运行任何 shell 命令[\s\S]*实时只读代码证据/, 'Codex CLI 必须只判断 Runner 提供的真实证据，不再触发 Windows read-only shell ACL。')
+assert.match(
+  runner,
+  /function buildCodeReadonlyPrompt\(task[\s\S]*业务方向判定[\s\S]*方向符合但实现细节证据不足[\s\S]*不得直接返回 BLOCKED/,
+  '业务方向类 CODE_READONLY 任务不得把缺少完整 Service\/Mapper\/测试证据直接判为 BLOCKED。'
+)
 assert.match(runner, /function buildCodeReadonlyPrompt\(task[\s\S]*checkpointResults[\s\S]*mismatchDescription[\s\S]*PASS\|FAIL\|BLOCKED/, 'CODE_READONLY prompt 仍必须强制 checkpointResults JSON 和失败差异描述。')
 assert.match(runner, /function buildPlaywrightPrompt\(task/, '原 Playwright E2E prompt 必须保留独立函数。')
 assert.match(runner, /You are executing an enterprise E2E test with Playwright/, 'PLAYWRIGHT_E2E prompt 必须保留浏览器测试语义。')

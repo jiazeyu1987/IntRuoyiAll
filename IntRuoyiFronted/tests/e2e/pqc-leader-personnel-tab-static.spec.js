@@ -13,8 +13,8 @@ const pqcPersonnelBlock = teamLeaderWorkbench.slice(pqcPersonnelStart, pqcPerson
 
 assert.match(
   teamLeaderWorkbench,
-  /const\s+activePqcModuleTab\s*=\s*ref<'personnel'\s*\|\s*'management'\s*\|\s*'dashboard'\s*\|\s*'detail'>\('personnel'\)/,
-  'PQC module tabs must default to 人员管理.'
+  /const\s+activePqcModuleTab\s*=\s*ref<'personnel'\s*\|\s*'management'\s*\|\s*'dashboard'\s*\|\s*'detail'\s*\|\s*'history'>\('management'\)/,
+  'PQC module tabs must default to PQC管理.'
 )
 
 assert.match(

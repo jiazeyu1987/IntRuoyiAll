@@ -11,6 +11,15 @@
 - 优先使用 `SHOW TABLES`、`DESCRIBE <table>`、已有 migration、mapper XML、现有 SQL 模板或测试夹具作为证据。
 - 不得仅凭 DO 类名、字段猜测、历史记忆或旧项目文档编写运行 SQL。
 
+### 运行态迁移漂移系统异常门禁
+
+- Trigger: 页面或接口在当前代码已支持的路径上提示 `系统异常`，后端栈包含缺表、缺列、`doesn't have a default value`、`cannot be null`、旧索引冲突，或源码已有对应正式迁移但运行库 schema 可能滞后。
+- Preflight check: 先从后端失败栈冻结首个数据库异常、Mapper 与目标表，再用 `information_schema.columns/statistics` 或 `SHOW COLUMNS/INDEX` 对比当前运行库和目标正式迁移；同时确认迁移 metadata、`dependsOn` 和 release migration policy gate 通过。不得先改业务代码适配旧库。
+- Blocker: 无法确认当前后端实际连接库、目标迁移依赖未满足、运行态表结构与迁移前置不一致、迁移会破坏现有唯一性或历史数据，或只能通过默认值、吞异常、伪造上下文继续提交时必须停止。
+- Verification: 迁移前用可重复运行的运行态 schema 契约记录 RED；执行正式迁移后用同一契约记录 GREEN，并运行目标服务回归和不写基线业务数据的真实页面复验。成功写入型 E2E 仍须遵守测试租户、任务自有数据和明确授权门禁。
+- Forbidden action: 禁止在源码已有正式迁移时新增业务 fallback、把空业务上下文伪造成默认 ID、手工只改单列而遗漏生成列/索引/相邻表、仅凭迁移文件存在宣称运行态已修复，或在未授权的 admin 基线租户自动重放正式写请求。
+- Evidence: `doc/tasks/20260809-fix-frontline-chenli-submit-system-error/verification-report.md`。
+
 ### 一对多读模型聚合门禁
 
 - Trigger: 时间轴、看板、列表页、详情摘要或报表读模型需要 JOIN 审核记录、修改历史、附件、字段明细、分配记录等一对多子表。
@@ -100,6 +109,15 @@
 - Verification: 静态 SQL 合同必须断言 tenant 1 显式纳入目标集合、admin 被写入 `system_user_role`、目标菜单只授权给正式角色、非目标角色仅软删除；同时运行聚焦 role/menu SQL 测试和 release migration policy gate 依赖闭包。
 - Forbidden action: 禁止把 `tenant_admin`/`super_admin` 菜单绑定当作“只有目标角色可见”的替代；禁止用前端隐藏菜单、硬编码 admin bypass、默认成功权限或 broad role grant 掩盖 role/menu/user-role 链路未命中。
 - Evidence: `doc/tasks/20260806-qa-role-permission-tab/verification-report.md`；`IntRuoyiBackend/sql/mysql/20260806_mes_qa_role_permission_tab.sql`。
+
+### 跨环境角色权限差异同步门禁
+
+- Trigger: 将本机角色权限平移到测试服/其它环境、修复某角色缺按钮或缺权限，或提出“删除目标环境全部角色后从本机重灌”。
+- Preflight check: 角色必须按 `tenant_id + role.code`、菜单按 `permission` 并核对正式菜单 ID 解析，先比较有效 `system_role_menu`、`system_tenant_package.menu_ids`、目标账号全部有效角色和 `infra_release_migration`；冻结正式迁移白名单并备份精确目标行、套餐完整 JSON、角色/用户绑定计数与业务哈希。若迁移会按旧权限继承新权限，必须提前枚举所有源授权和跨租户实际影响。
+- Blocker: 同租户角色 code 不唯一、权限对应多个冲突菜单、迁移依赖未应用、套餐 JSON 无效、目标角色/菜单前置缺失、没有可执行精确恢复路径，或差异无法收敛到已测试的正式迁移时必须停止；不得扩大为角色全量覆盖。
+- Verification: 迁移前先用目标环境有效权限断言形成 RED，运行迁移合同与正式 preflight；写入后核对目标/禁止权限、精确角色菜单增量、套餐增量、迁移 SHA/状态、跨租户边界，以及 `system_role`/`system_user_role` 计数和绑定哈希不变；权限缓存按租户化/非租户化真实 key 精确失效，最后由目标账号退出后重新登录走真实页面验证。
+- Forbidden action: 禁止删除目标环境角色后复制本机数据、复制角色或角色菜单自增 ID、改 `system_user_role` 冒充菜单授权、恢复创建/删除/导出等非白名单权限、清空全库 Redis、读取或复用现有 token 绕过登录、用 API-only 或数据库查询宣称页面 E2E 通过。
+- Evidence: `doc/tasks/20260807-test-permission-role-differential-sync/verification-report.md`。
 
 ### DCC 菜单恢复与无下载角色隔离门禁
 

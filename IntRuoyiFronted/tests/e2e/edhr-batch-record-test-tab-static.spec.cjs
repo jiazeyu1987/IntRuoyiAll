@@ -452,8 +452,18 @@ assert.match(
 )
 assert.match(
   page,
-  /methodText:\s*'只读扫描当前代码，分析是否已经完整支持' \+ definition\.testScope/,
-  '代码分析测试项必须使用当前行测试范围生成自然语言方法。'
+  /methodText:\s*'只读扫描当前代码，判断业务方向是否偏离' \+ definition\.testScope/,
+  '批记录测试方法必须按业务方向判定生成自然语言方法，不能要求完整实现证明。'
+)
+assert.match(
+  page,
+  /expectedText:[\s\S]*当前代码、路由、API、权限和页面文案的业务方向与[\s\S]*一致/,
+  '批记录测试目标必须判断业务方向是否一致。'
+)
+assert.doesNotMatch(
+  page,
+  /分析是否已经完整支持|数据模型和测试能够满足/,
+  '批记录测试默认方法和目标不得继续使用完整实现正确性口径。'
 )
 assert.match(
   page,

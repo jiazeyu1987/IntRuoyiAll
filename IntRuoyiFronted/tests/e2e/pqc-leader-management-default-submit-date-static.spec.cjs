@@ -15,8 +15,8 @@ assert.match(
 )
 assert.match(
   page,
-  /const\s+getInitialSubmissionDate\s*=\s*\(leaderType:\s*TeamLeaderType\)[\s\S]*leaderType === 'PQC'\s*\?\s*undefined\s*:\s*getDefaultSubmissionDate\(\)/,
-  'PQC submission state must start without a hidden date while production keeps its existing default.'
+  /const\s+getInitialSubmissionDate\s*=\s*\(_leaderType:\s*TeamLeaderType\)\s*=>\s*undefined/,
+  'PQC and production submission state must start without a hidden date.'
 )
 assert.doesNotMatch(
   page,
@@ -33,15 +33,15 @@ assert.match(
   /submitDate:\s*typeof queryParams\.submitDate === 'string'\s*\?\s*queryParams\.submitDate\.trim\(\) \|\| undefined\s*:\s*undefined/,
   'The formal request must omit an empty submitDate instead of replacing it with today.'
 )
-assert.match(
+assert.doesNotMatch(
   page,
-  /const\s+ensureSubmissionQueryDate\s*=\s*\(\)\s*=>\s*\{[\s\S]*if \(resolveCurrentLeaderType\(\) !== 'PRODUCTION'\) return[\s\S]*queryParams\.submitDate = currentSubmitDate/,
-  'Only production report queries may restore the existing internal date.'
+  /const\s+ensureSubmissionQueryDate\s*=|queryParams\.submitDate\s*=\s*getDefaultSubmissionDate\(\)/,
+  'No leader submission list may restore a hidden default submitDate.'
 )
 assert.match(
   page,
   /const\s+resetSubmissionQueryParams[\s\S]*queryParams\.submitDate\s*=\s*getInitialSubmissionDate\(leaderType\)/,
-  'Resetting PQC filters must remove the date while production keeps its own default behavior.'
+  'Resetting filters must remove the date for default all-date queries.'
 )
 assert.match(
   page,

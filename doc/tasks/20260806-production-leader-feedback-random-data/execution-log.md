@@ -34,6 +34,7 @@
 - 2026-08-06: 真实页面只读复验：Playwright 使用本机 Chrome 登录 `芋道源码/admin`，进入 `/mes/pro/process-pool/production-leader` 后点击“报工管理”；实际请求 `pageNo=1&pageSize=10&leaderType=PRODUCTION&submitDate=2026-08-06`，返回 `total=25`、接口页行数 `10`、页面可见行数 `10`、组长写请求数 `0`、`pageErrors=0`、`consoleErrorCount=0`。默认首页不要求包含全部任务事件 ID，因为页面分页为 10 条；5 条任务数据用 pageSize=50 登录态接口单独验证。
 - 2026-08-06: Bug 证据校验：`python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260806-production-leader-feedback-random-data/bug-regression-evidence.md` -> PASS。
 - 2026-08-06: 项目经验沉淀：已读取 `project-experience-consolidation` 技能，将“页面内部功能模块 Tab 不能只切显示，非默认数据列表必须绑定正式加载触发”的门禁合并到 `docs/frontend-development.md#前端角色内容页签拆分口径门禁`，并在 `docs/experience-index.md` 增加 `报工管理空表`、`页签切换不加载` 关键词；`rg -n "报工管理空表|页签切换不加载|watch\(activeProductionModuleTab\)" docs\experience-index.md docs\frontend-development.md` 可定位。
+- 2026-08-07: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260806-production-leader-feedback-random-data --mode preview` 返回 `status: ready`，仅计划删除 `bug-regression-evidence.md` 与 `database-schema-evidence.md`；随后 `--mode apply` 返回 `status: applied`，核心任务记录保留且无 blocked/warnings。
 
 ## RED / GREEN / REGRESSION
 
@@ -47,6 +48,7 @@
 - REGRESSION: Playwright 真实页面只读路径 -> PASS，`芋道源码/admin` 点击生产“报工管理”后表格可见 `10` 行且组长写请求数 `0`。
 - REGRESSION: Bug regression evidence validator -> PASS。
 - REGRESSION: 经验索引关键词 `报工管理空表`、`页签切换不加载` -> `docs/experience-index.md#前端角色内容页签拆分口径门禁` 可定位。
+- CLOSEOUT GREEN: `task_closeout.py --task-id 20260806-production-leader-feedback-random-data --mode preview` -> PASS；`--mode apply` -> PASS。
 
 ## Data Safety
 

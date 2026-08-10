@@ -130,7 +130,8 @@ final class ProcessPoolTimelineTestSupport {
             long offset = (long) (pageNo - 1) * pageSize;
             return filter(reqVO)
                     .sorted(Comparator.comparing(ProcessPoolTimelineEventReadDO::getSubmittedAt)
-                            .thenComparing(ProcessPoolTimelineEventReadDO::getId))
+                            .thenComparing(ProcessPoolTimelineEventReadDO::getId)
+                            .reversed())
                     .skip(offset)
                     .limit(pageSize)
                     .toList();

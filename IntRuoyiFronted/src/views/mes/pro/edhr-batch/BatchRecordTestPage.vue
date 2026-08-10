@@ -38,12 +38,31 @@
               </el-form-item>
               <el-button
                 v-hasPermi="['system:codex-test:execute']"
+                class="edhr-batch-record-test-page__e2e-button"
+                data-edhr-batch-record-test-e2e-button
+                :disabled="
+                  !selectedTenantId ||
+                  testingRowCaseName !== undefined ||
+                  testingTabListKey !== undefined ||
+                  e2eTestingTabListKey !== undefined
+                "
+                :icon="VideoPlay"
+                :loading="e2eTestingTabListKey === 'productionLeader'"
+                plain
+                type="primary"
+                @click="handleE2eTab('productionLeader')"
+              >
+                {{ getTabE2eButtonText('productionLeader') }}
+              </el-button>
+              <el-button
+                v-hasPermi="['system:codex-test:execute']"
                 class="edhr-batch-record-test-page__run-all-button"
                 data-edhr-batch-record-test-run-all-button
                 :disabled="
                   !selectedTenantId ||
                   testingRowCaseName !== undefined ||
-                  testingTabListKey !== undefined
+                  testingTabListKey !== undefined ||
+                  e2eTestingTabListKey !== undefined
                 "
                 :icon="VideoPlay"
                 :loading="testingTabListKey === 'productionLeader'"
@@ -111,7 +130,8 @@
                       :disabled="
                         !selectedTenantId ||
                         testingRowCaseName !== undefined ||
-                        testingTabListKey !== undefined
+                        testingTabListKey !== undefined ||
+                        e2eTestingTabListKey !== undefined
                       "
                       :loading="testingRowCaseName === row.caseName"
                       link
@@ -181,12 +201,31 @@
               </el-form-item>
               <el-button
                 v-hasPermi="['system:codex-test:execute']"
+                class="edhr-batch-record-test-page__e2e-button"
+                data-edhr-batch-record-test-e2e-button
+                :disabled="
+                  !selectedTenantId ||
+                  testingRowCaseName !== undefined ||
+                  testingTabListKey !== undefined ||
+                  e2eTestingTabListKey !== undefined
+                "
+                :icon="VideoPlay"
+                :loading="e2eTestingTabListKey === 'frontlinePqc'"
+                plain
+                type="primary"
+                @click="handleE2eTab('frontlinePqc')"
+              >
+                {{ getTabE2eButtonText('frontlinePqc') }}
+              </el-button>
+              <el-button
+                v-hasPermi="['system:codex-test:execute']"
                 class="edhr-batch-record-test-page__run-all-button"
                 data-edhr-batch-record-test-run-all-button
                 :disabled="
                   !selectedTenantId ||
                   testingRowCaseName !== undefined ||
-                  testingTabListKey !== undefined
+                  testingTabListKey !== undefined ||
+                  e2eTestingTabListKey !== undefined
                 "
                 :icon="VideoPlay"
                 :loading="testingTabListKey === 'frontlinePqc'"
@@ -254,7 +293,8 @@
                       :disabled="
                         !selectedTenantId ||
                         testingRowCaseName !== undefined ||
-                        testingTabListKey !== undefined
+                        testingTabListKey !== undefined ||
+                        e2eTestingTabListKey !== undefined
                       "
                       :loading="testingRowCaseName === row.caseName"
                       link
@@ -324,12 +364,31 @@
               </el-form-item>
               <el-button
                 v-hasPermi="['system:codex-test:execute']"
+                class="edhr-batch-record-test-page__e2e-button"
+                data-edhr-batch-record-test-e2e-button
+                :disabled="
+                  !selectedTenantId ||
+                  testingRowCaseName !== undefined ||
+                  testingTabListKey !== undefined ||
+                  e2eTestingTabListKey !== undefined
+                "
+                :icon="VideoPlay"
+                :loading="e2eTestingTabListKey === 'frontlineProduction'"
+                plain
+                type="primary"
+                @click="handleE2eTab('frontlineProduction')"
+              >
+                {{ getTabE2eButtonText('frontlineProduction') }}
+              </el-button>
+              <el-button
+                v-hasPermi="['system:codex-test:execute']"
                 class="edhr-batch-record-test-page__run-all-button"
                 data-edhr-batch-record-test-run-all-button
                 :disabled="
                   !selectedTenantId ||
                   testingRowCaseName !== undefined ||
-                  testingTabListKey !== undefined
+                  testingTabListKey !== undefined ||
+                  e2eTestingTabListKey !== undefined
                 "
                 :icon="VideoPlay"
                 :loading="testingTabListKey === 'frontlineProduction'"
@@ -397,7 +456,8 @@
                       :disabled="
                         !selectedTenantId ||
                         testingRowCaseName !== undefined ||
-                        testingTabListKey !== undefined
+                        testingTabListKey !== undefined ||
+                        e2eTestingTabListKey !== undefined
                       "
                       :loading="testingRowCaseName === row.caseName"
                       link
@@ -471,12 +531,31 @@
               </el-form-item>
               <el-button
                 v-hasPermi="['system:codex-test:execute']"
+                class="edhr-batch-record-test-page__e2e-button"
+                data-edhr-batch-record-test-e2e-button
+                :disabled="
+                  !selectedTenantId ||
+                  testingRowCaseName !== undefined ||
+                  testingTabListKey !== undefined ||
+                  e2eTestingTabListKey !== undefined
+                "
+                :icon="VideoPlay"
+                :loading="e2eTestingTabListKey === 'orderAllocation'"
+                plain
+                type="primary"
+                @click="handleE2eTab('orderAllocation')"
+              >
+                {{ getTabE2eButtonText('orderAllocation') }}
+              </el-button>
+              <el-button
+                v-hasPermi="['system:codex-test:execute']"
                 class="edhr-batch-record-test-page__run-all-button"
                 data-edhr-batch-record-test-run-all-button
                 :disabled="
                   !selectedTenantId ||
                   testingRowCaseName !== undefined ||
-                  testingTabListKey !== undefined
+                  testingTabListKey !== undefined ||
+                  e2eTestingTabListKey !== undefined
                 "
                 :icon="VideoPlay"
                 :loading="testingTabListKey === 'orderAllocation'"
@@ -544,7 +623,8 @@
                       :disabled="
                         !selectedTenantId ||
                         testingRowCaseName !== undefined ||
-                        testingTabListKey !== undefined
+                        testingTabListKey !== undefined ||
+                        e2eTestingTabListKey !== undefined
                       "
                       :loading="testingRowCaseName === row.caseName"
                       link
@@ -614,12 +694,31 @@
               </el-form-item>
               <el-button
                 v-hasPermi="['system:codex-test:execute']"
+                class="edhr-batch-record-test-page__e2e-button"
+                data-edhr-batch-record-test-e2e-button
+                :disabled="
+                  !selectedTenantId ||
+                  testingRowCaseName !== undefined ||
+                  testingTabListKey !== undefined ||
+                  e2eTestingTabListKey !== undefined
+                "
+                :icon="VideoPlay"
+                :loading="e2eTestingTabListKey === 'batchRecordMapping'"
+                plain
+                type="primary"
+                @click="handleE2eTab('batchRecordMapping')"
+              >
+                {{ getTabE2eButtonText('batchRecordMapping') }}
+              </el-button>
+              <el-button
+                v-hasPermi="['system:codex-test:execute']"
                 class="edhr-batch-record-test-page__run-all-button"
                 data-edhr-batch-record-test-run-all-button
                 :disabled="
                   !selectedTenantId ||
                   testingRowCaseName !== undefined ||
-                  testingTabListKey !== undefined
+                  testingTabListKey !== undefined ||
+                  e2eTestingTabListKey !== undefined
                 "
                 :icon="VideoPlay"
                 :loading="testingTabListKey === 'batchRecordMapping'"
@@ -688,7 +787,8 @@
                       :disabled="
                         !selectedTenantId ||
                         testingRowCaseName !== undefined ||
-                        testingTabListKey !== undefined
+                        testingTabListKey !== undefined ||
+                        e2eTestingTabListKey !== undefined
                       "
                       :loading="testingRowCaseName === row.caseName"
                       link
@@ -987,6 +1087,8 @@ const selectedTenantId = ref<number>()
 const testingRowCaseName = ref<string>()
 const testingTabListKey = ref<BatchRecordTestListKey>()
 const testingTabProgress = reactive({ completed: 0, total: 0 })
+const e2eTestingTabListKey = ref<BatchRecordTestListKey>()
+const e2eTabProgress = reactive({ completed: 0, total: 0 })
 const descriptionSaving = ref(false)
 const terminalExecutionStatuses = new Set(['PASS', 'FAIL', 'BLOCKED', 'CANCELED', 'TIMEOUT'])
 const resultPollIntervalMs = 1500
@@ -2059,7 +2161,7 @@ function buildCodeReadonlyCasePayload(
   return {
     name: definition.caseName,
     project: '批记录',
-    methodText: '只读扫描当前代码，分析是否已经完整支持' + definition.testScope,
+    methodText: '只读扫描当前代码，判断业务方向是否偏离' + definition.testScope,
     testDataText: '测试范围：' + definition.testScope + '。描述：' + definition.description,
     analysisMode: 'CODE_READONLY',
     defaultExecutionMode: 'SEQUENTIAL',
@@ -2072,10 +2174,11 @@ function buildCodeReadonlyCasePayload(
         name: definition.title,
         remark: definition.description,
         expectedText:
-          '当前代码、路由、API、权限、数据模型和测试能够满足' +
+          '当前代码、路由、API、权限和页面文案的业务方向与' +
           definition.testScope +
-          '：' +
-          definition.description,
+          '一致：' +
+          definition.description +
+          '。本检查只判断设计方向是否跑偏，不要求证明 Service、Mapper 或测试已完整实现。',
         severity: 'MAJOR'
       }
     ]
@@ -2093,6 +2196,85 @@ async function upsertCodeReadonlyCase(definition: BatchRecordTestRow) {
     (item) => item.name === definition.caseName && item.project === '批记录'
   )
   const casePayload = buildCodeReadonlyCasePayload(definition)
+  if (existingCase?.id) {
+    await CodexTestApi.updateCodexTestCase({ id: existingCase.id, ...casePayload })
+    return existingCase.id
+  }
+  return await CodexTestApi.createCodexTestCase(casePayload)
+}
+
+function buildPlaywrightE2eCaseName(row: BatchRecordTestRow) {
+  return row.caseName.replace('批记录测试-', '批记录E2E-')
+}
+
+function buildPreviousE2eResultContext(
+  previousExecution: CodexTestApi.CodexTestExecutionVO | undefined
+) {
+  if (!previousExecution) {
+    return '当前项是本 Tab 首个 E2E，无前置 E2E 结果。'
+  }
+  const caseStatuses =
+    previousExecution.cases
+      ?.map((executionCase) => executionCase.caseNameSnapshot + ':' + executionCase.status)
+      .join('；') || '无用例明细'
+  return [
+    '前置 E2E executionId=' + previousExecution.id,
+    'status=' + previousExecution.status,
+    'summary=' + (previousExecution.summary || '无摘要'),
+    'cases=' + caseStatuses
+  ].join('；')
+}
+
+function buildPlaywrightE2eCasePayload(
+  row: BatchRecordTestRow,
+  previousExecution: CodexTestApi.CodexTestExecutionVO | undefined
+): CodexTestApi.CodexTestCaseVO {
+  return {
+    name: buildPlaywrightE2eCaseName(row),
+    project: '批记录',
+    methodText:
+      '通过真实页面执行 Playwright E2E：' +
+      row.testScope +
+      '。后一项必须在前一项正式终态后启动，并读取前一项结果作为上下文。',
+    analysisMode: 'PLAYWRIGHT_E2E',
+    testDataText: buildPreviousE2eResultContext(previousExecution),
+    defaultExecutionMode: 'SEQUENTIAL',
+    parallelSafe: false,
+    status: 'ENABLE',
+    sort: row.sort,
+    checkpoints: [
+      {
+        sort: 1,
+        name: row.title,
+        remark: row.description,
+        expectedText:
+          '真实页面 E2E 验证' +
+          row.testScope +
+          '，并在需要时使用前置 E2E 的 executionId、状态、摘要和用例状态作为判断依据。',
+        severity: 'CRITICAL'
+      }
+    ]
+  }
+}
+
+async function upsertPlaywrightE2eCase(
+  row: BatchRecordTestRow,
+  previousExecution: CodexTestApi.CodexTestExecutionVO | undefined
+) {
+  const casePayload = buildPlaywrightE2eCasePayload(row, previousExecution)
+  const pageResult = await CodexTestApi.getCodexTestCasePage({
+    pageNo: 1,
+    pageSize: 10,
+    project: '批记录',
+    name: casePayload.name
+  })
+  const exactMatches = pageResult.list.filter(
+    (item) => item.name === casePayload.name && item.project === '批记录'
+  )
+  if (exactMatches.length > 1) {
+    throw new Error('批记录 E2E 测试项名称重复：' + casePayload.name)
+  }
+  const existingCase = exactMatches[0]
   if (existingCase?.id) {
     await CodexTestApi.updateCodexTestCase({ id: existingCase.id, ...casePayload })
     return existingCase.id
@@ -2211,7 +2393,10 @@ async function handleTestRow(row: BatchRecordTestRow, source: BatchRecordTestInv
     message.error('请选择测试租户')
     return
   }
-  if (testingTabListKey.value !== undefined && source === 'single') {
+  if (
+    (testingTabListKey.value !== undefined || e2eTestingTabListKey.value !== undefined) &&
+    source === 'single'
+  ) {
     message.warning('已有批量测试正在执行')
     return
   }
@@ -2254,9 +2439,70 @@ async function handleTestRow(row: BatchRecordTestRow, source: BatchRecordTestInv
   }
 }
 
+async function handleE2eRow(
+  row: BatchRecordTestRow,
+  previousExecution: CodexTestApi.CodexTestExecutionVO | undefined,
+  source: BatchRecordTestInvocationSource = 'tab'
+): Promise<CodexTestApi.CodexTestExecutionVO | undefined> {
+  if (!selectedTenantId.value) {
+    message.error('请选择测试租户')
+    return
+  }
+  if (
+    (testingTabListKey.value !== undefined || e2eTestingTabListKey.value !== undefined) &&
+    source === 'single'
+  ) {
+    message.warning('已有批量测试正在执行')
+    return
+  }
+  if (testingRowCaseName.value !== undefined) {
+    message.warning('已有测试正在执行')
+    return
+  }
+  const historyKey = getRowTestHistoryKey(row)
+  const runToken = ++testRunToken
+  stopResultPolling()
+  clearRowTestHistory(historyKey, row.title)
+  testingRowCaseName.value = historyKey
+  try {
+    const caseId = await upsertPlaywrightE2eCase(row, previousExecution)
+    if (runToken !== testRunToken) return
+    const executionId = await CodexTestApi.startCodexTestExecution({
+      targetTenantId: selectedTenantId.value,
+      executionMode: 'SEQUENTIAL',
+      caseIds: [caseId]
+    })
+    if (runToken !== testRunToken) return
+    const history = rowTestHistories[historyKey]
+    if (!history || history.historyKey !== historyKey) return
+    history.executionId = executionId
+    const execution = await pollCodexTestExecutionResult(historyKey, executionId)
+    if (runToken !== testRunToken || !execution) return
+    return execution
+  } catch (error) {
+    if (runToken !== testRunToken) return
+    const errorMessage = getRequestErrorMessage(error, 'E2E验证启动失败')
+    const history = rowTestHistories[historyKey]
+    if (history?.historyKey === historyKey) {
+      history.loading = false
+      history.ready = false
+      history.error = errorMessage
+      history.data = undefined
+    }
+    if (testingRowCaseName.value === historyKey) testingRowCaseName.value = undefined
+    if (source === 'tab') throw new Error(errorMessage)
+    showRequestError(error, 'E2E验证启动失败')
+  }
+}
+
 function getTabTestButtonText(listKey: BatchRecordTestListKey) {
   if (testingTabListKey.value !== listKey) return '测试全部'
   return `测试中 ${testingTabProgress.completed}/${testingTabProgress.total}`
+}
+
+function getTabE2eButtonText(listKey: BatchRecordTestListKey) {
+  if (e2eTestingTabListKey.value !== listKey) return 'E2E'
+  return 'E2E中 ' + e2eTabProgress.completed + '/' + e2eTabProgress.total
 }
 
 async function handleTestTab(listKey: BatchRecordTestListKey) {
@@ -2264,7 +2510,11 @@ async function handleTestTab(listKey: BatchRecordTestListKey) {
     message.error('请选择测试租户')
     return
   }
-  if (testingTabListKey.value !== undefined || testingRowCaseName.value !== undefined) {
+  if (
+    testingTabListKey.value !== undefined ||
+    e2eTestingTabListKey.value !== undefined ||
+    testingRowCaseName.value !== undefined
+  ) {
     message.warning('已有测试正在执行')
     return
   }
@@ -2299,6 +2549,55 @@ async function handleTestTab(listKey: BatchRecordTestListKey) {
     testingTabListKey.value = undefined
     testingTabProgress.completed = 0
     testingTabProgress.total = 0
+  }
+}
+
+async function handleE2eTab(listKey: BatchRecordTestListKey) {
+  if (!selectedTenantId.value) {
+    message.error('请选择测试租户')
+    return
+  }
+  if (
+    testingTabListKey.value !== undefined ||
+    e2eTestingTabListKey.value !== undefined ||
+    testingRowCaseName.value !== undefined
+  ) {
+    message.warning('已有测试正在执行')
+    return
+  }
+  const rows = [...getBatchRecordTestRowsRef(listKey).value]
+  if (!rows.length) {
+    message.error('当前 Tab 没有可执行的 E2E 任务')
+    return
+  }
+
+  e2eTestingTabListKey.value = listKey
+  e2eTabProgress.completed = 0
+  e2eTabProgress.total = rows.length
+  let currentRowTitle = ''
+  let passCount = 0
+  let previousExecution: CodexTestApi.CodexTestExecutionVO | undefined
+  try {
+    for (const row of rows) {
+      currentRowTitle = row.title
+      const execution = await handleE2eRow(row, previousExecution, 'tab')
+      if (!execution) throw new Error('当前 E2E 未返回终态结果')
+      previousExecution = execution
+      e2eTabProgress.completed += 1
+      if (execution.status === 'PASS') passCount += 1
+    }
+    if (passCount === rows.length) {
+      message.success('E2E验证完成：' + rows.length + '/' + rows.length + ' 项通过')
+    } else {
+      message.warning('E2E验证完成：' + passCount + '/' + rows.length + ' 项通过，请逐行查看历史')
+    }
+  } catch (error) {
+    const errorMessage = getRequestErrorMessage(error, '未知执行错误')
+    message.error('E2E验证在“' + currentRowTitle + '”失败，已停止：' + errorMessage)
+  } finally {
+    e2eTestingTabListKey.value = undefined
+    e2eTabProgress.completed = 0
+    e2eTabProgress.total = 0
   }
 }
 

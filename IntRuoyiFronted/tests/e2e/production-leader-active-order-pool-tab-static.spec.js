@@ -40,7 +40,7 @@ const sliceInterfaceBlock = (content, interfaceName) => {
 
 assert.match(
   source,
-  /const\s+activeProductionModuleTab\s*=\s*ref<[\s\S]*'activeOrder'[\s\S]*>\('personnel'\)/,
+  /const\s+activeProductionModuleTab\s*=\s*ref<[\s\S]*'activeOrder'[\s\S]*>\('report'\)/,
   'Production leader module state must include the active-order pool tab.'
 )
 assert.match(

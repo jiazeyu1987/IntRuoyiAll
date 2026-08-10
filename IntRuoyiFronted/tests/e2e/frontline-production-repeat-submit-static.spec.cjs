@@ -114,9 +114,9 @@ const selectionHeader = panel.match(
 )?.[0]
 assert.ok(selectionHeader, 'production process and employee selection header must exist.')
 assert.strictEqual(
-  (selectionHeader.match(/:disabled="payloadLoading \|\| submitConfirmationOpen \|\| productionSubmitSuccessOpen"/g) || []).length,
+  (selectionHeader.match(/:disabled="payloadLoading \|\| submitConfirmationOpen \|\| productionSubmitSuccessOpen \|\| productionSubmitFailureOpen"/g) || []).length,
   2,
-  'process and employee switching must remain locked through success acknowledgement, then reopen.'
+  'process and employee switching must remain locked through success or password-failure acknowledgement, then reopen.'
 )
 
 console.log('PASS: frontline production resets for independent repeated submissions')

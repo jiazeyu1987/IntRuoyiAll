@@ -64,7 +64,7 @@ assertMatches(
 assert.doesNotMatch(page, /label="损耗管理"\s+name="loss"/, 'Old standalone 损耗管理 tab must be removed.')
 assertMatches(
   page,
-  /activeProductionModuleTab\s*=\s*ref<[\s\S]*'processConfig'[\s\S]*>\('personnel'\)/,
+  /activeProductionModuleTab\s*=\s*ref<[\s\S]*'processConfig'[\s\S]*>\('report'\)/,
   'Production module tab state must include processConfig.'
 )
 assertIncludes(page, 'showProductionProcessConfigModule', 'Page must gate the unified process config module explicitly.')

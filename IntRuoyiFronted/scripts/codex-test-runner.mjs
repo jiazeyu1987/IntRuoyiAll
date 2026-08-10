@@ -443,11 +443,14 @@ function buildCodeReadonlyPrompt(task, codexExecTimeoutMs = resolveCodexExecTime
 本任务是只读代码分析，不是 Playwright 浏览器 E2E。
 不要打开浏览器作为优先路径；请根据下方 Runner 从当前工作区实时收集的代码、路由、API、服务、数据模型、迁移和测试片段判断职责描述是否满足。
 只读代码分析必须覆盖代码、路由、API、测试等真实证据，不得以推测替代代码审查。
+如果 Method、User-written test data 或 Checkpoints 明确要求业务方向判定，或出现“判断业务方向是否偏离”“业务方向是否一致”等口径，只判断目标业务节点、页面入口、路由、权限、API、页面文案和职责边界是否朝同一业务方向设计。
+业务方向判定不等同于完整实现正确性审计；方向符合但实现细节证据不足时，应返回 PASS，并在 actualText 中说明仍缺少 Service、Mapper 或测试等实现细节证据，不得直接返回 BLOCKED。
+业务方向判定只有在最小方向证据缺失导致无法判断时返回 BLOCKED；若证据显示业务方向与描述相反、职责边界混淆或跑到无关链路，请返回 FAIL。
 不得运行任何 shell 命令、不得调用工具、不得自行读取仓库；Windows read-only sandbox 不允许 shell 命令。只能分析下方实时只读代码证据，不得创建、修改或删除任何仓库文件、Git 状态、分支或 worktree。
 不得运行会写入业务数据、修改数据库、启动写入型 E2E、提交表单、审批、删除、导入、上传、发布或清理数据的命令。
 正式源码和测试的证据收集边界只包含 IntRuoyiFronted/src、IntRuoyiFronted/tests/e2e、IntRuoyiBackend 各模块的 src/main 与 src/test；仅在匹配业务词时包含 IntRuoyiBackend/sql/mysql。
 不得递归扫描 doc/tasks、.runtime、output、node_modules、target、target_*、日志或临时产物；这些目录不能作为功能符合描述的证据。
-Runner 已使用带目录约束的 rg 最多选择 20 个相关源码或测试文件并逐文件截取有限上下文。证据足够时返回 PASS/FAIL；证据不足时返回 BLOCKED 并准确说明还缺哪类正式代码证据。
+Runner 已使用带目录约束的 rg 最多选择 20 个相关源码或测试文件并逐文件截取有限上下文。证据足够时返回 PASS/FAIL；非业务方向判定任务证据不足时返回 BLOCKED 并准确说明还缺哪类正式代码证据。
 不得返回默认成功、不得把缺少前置条件伪装成 PASS；如果代码入口、依赖、权限、Runner、Codex CLI 或测试资料缺失，请返回 BLOCKED 并写明缺失前置条件。
 如果代码与职责描述不一致，请返回 FAIL，并在 mismatchDescription 中说明具体差异、缺失文件/接口/状态链路或测试缺口。
 最终回答必须是原始 JSON 对象，不要包含 markdown、解释性文字或代码块。

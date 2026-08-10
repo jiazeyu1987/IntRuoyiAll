@@ -89,7 +89,11 @@ assert.doesNotMatch(
 )
 
 assert.match(teamLeader, /leaderType:\s*'PRODUCTION'/, 'shared workbench must retain PRODUCTION as its default type.')
-assert.match(teamLeader, /leaderType === 'PQC'[\s\S]*PQC_SIMPLIFIED/, 'shared workbench must retain formal PQC query state.')
+assert.match(
+  teamLeader,
+  /const\s+submissionMultiFilterDefinitions\s*=\s*computed<ListMultiFilterDefinition\[]>\(\(\)\s*=>\s*\{[\s\S]*activeLeaderTab\.value === 'PQC'[\s\S]*PQC_SIMPLIFIED/,
+  'shared workbench must retain formal PQC query state.'
+)
 
 for (const [nodeId, label, route] of [
   ['production-lead-review', '生产组长', '/mes/pro/process-pool/production-leader'],

@@ -9,8 +9,8 @@
 - [x] M1：确认页面入口、共享组件边界和现有活跃订单接口字段
 - [x] M2：以 BDD 和失败测试锁定列名、数据字段及禁止显示 ID 的契约
 - [x] M3：补齐正式接口显示字段并实现前端最小改动
-- [ ] M4：完成聚焦回归、类型/后端测试和真实页面视觉复核
-- [ ] M5：完成证据校验、经验检查与 cleanup
+- [x] M4：完成聚焦回归、类型/后端测试和真实页面视觉复核
+- [x] M5：完成证据校验、经验检查与 cleanup
 
 ## Expected Verification
 
@@ -35,4 +35,8 @@
 
 ## Current Status
 
-in_progress - M3 已完成；前端静态合同、相邻回归、`pnpm ts:check` 和后端三场景聚焦行为验证通过。M4 真实页面验证暂被共享 `48081` 并行运行态阻塞：另一任务在补丁后端启动期间恢复了其旧 Jar，当前运行 Jar 尚未加载本任务 class。
+completed - 全部里程碑与收尾门禁已完成：本机真实页面的 5 条活跃订单均显示路线名称“按压式球囊扩充压力泵”和版本号“V1”，未显示路线/版本 ID 或状态列；证据 validator 通过，task-closeout-cleanup preview/apply 均无 blocked 或 warnings。
+
+## Cleanup Keep
+
+- `output/playwright/20260807-active-order-route-labels/active-order-table-final.png`

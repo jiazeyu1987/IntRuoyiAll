@@ -11,6 +11,7 @@
 - BDD: 缺正式提交前置时停止 -> Given 缺测试账号、人员范围、发布 QA 规程、活跃订单、工序或正式 schema / When 尝试创建数据 / Then 停止写入并报告精确缺口，不创建孤立数据、mock 成功或前端假行。
 - BDD: 任务标识防止重复写入 -> Given `CODX-PQC-20260807` 已存在任一正式提交记录 / When 再次执行本任务 / Then 在新增前停止，不重复创建 5 条数据。
 - BDD: 并发写入不覆盖共享状态 -> Given 其它任务可能修改同一工序池或活跃订单 / When 选择本任务提交对象 / Then 必须使用无冲突对象或等待冲突解除，不覆盖其它任务的汇总和测试数据。
+- BDD: 芋道源码 admin 可见目标提交 -> Given 5 条目标提交属于“芋道源码”租户且实际检验员具有正式 PQC 权限 / When 通过真实人员管理页面将该检验员调整到 `admin` 的启用人员范围 / Then `芋道源码/admin` 登录 `PQC管理` 后可看到全部 5 条目标数据。
 
 ## Command And Evidence Log
 
@@ -69,6 +70,24 @@
 - CLOSEOUT: `task-closeout-cleanup --mode apply` -> PASS；保留 `task.md`、`execution-log.md`、`verification-report.md`，已删除一次性 SQL、E2E 脚本、结果 JSON、数据库中间证据和临时截图，不删除正式业务数据。
 - GIT: branch runtime port guard -> PASS；本任务提交 `ede9a3086`（`数据: 增加PQC组长管理5条真实提交`）已创建，暂存清单未包含其它并发任务源码或记录。
 - BLOCKER: `git push origin int_main` -> FAIL；GitHub 代理 `http://127.0.0.1:7890` 未监听，`Test-NetConnection` 返回 `TcpTestSucceeded=False`，无法连接 `github.com:443`。按 no-fallback 规则未禁用代理、未改写远端、未强推；任务保持 `ready_for_closeout`。
+- USER CLARIFICATION: 用户指定目标查看身份为 `芋道源码/admin`；当前规则已明确 Git 推送不属于任务完成条件，因此原 Git 推送阻塞不再阻塞本次数据调整与验收。
+- RED: `芋道源码/admin` PQC 人员范围只读核对 -> FAIL as expected；目标事件均属于 tenant `1`，但实际检验员 `659` 的唯一启用 PQC 人员范围归属组长 `512`，`admin/id=1` 当前只负责员工 `1606、1500`，故目标 5 条不会进入 `admin` 的正式读模型。
+- RED: 首轮 admin 人员关联真实页面 -> 原组长 `512` 禁用检验员 `659` 已由页面成功提交；admin 新增弹窗先触发空关键词候选预加载，脚本误把该响应当作精确搜索结果并在关联写入前停止。收紧为只接受 `keyword=shangmengying` 的候选响应后续跑，不使用 API-only 或数据库关联。
+- RED: 精确候选查询 -> FAIL before link；`keyword=shangmengying` 返回空列表。正式规则核对确认账号 `659` 只有历史人员范围和一线功能权限，缺少当前人员关联服务强制要求的 tenant `1` 角色 `pqc_permission/910438`；`1500、1606` 已有该角色。下一轮通过 `芋道源码/admin` 用户管理真实页面保留现有角色并追加“PQC权限角色”，再执行正式人员关联。
+- RED: 用户管理角色弹窗 -> FAIL before role write；角色多选输入为 readonly 且已有角色标签遮挡 input，Playwright 按 input 点击被 Element Plus 标签层拦截。改为等待弹窗 loading mask 隐藏后点击 `.el-select__wrapper`，仍通过真实可见控件选择角色。
+- RED: 调整流程重入 -> FAIL before new write；重复登录原组长时权限信息响应超时。员工 `659` 的原范围已由前一轮真实页面禁用并经数据库复核，本轮从该已确认中间状态继续，只登录 `admin` 完成剩余正式页面操作，避免重复触发已完成写动作。
+- RED: 角色多选首屏 -> FAIL before role write；用户管理角色下拉当前有 60 个启用角色，目标“PQC权限角色”按正式排序位于虚拟滚动列表后段，首屏未渲染。下一轮通过真实鼠标滚轮滚动下拉列表定位目标选项，不按数组下标或隐藏值直接赋值。
+- RED: admin 登录复跑 -> 两轮均在登录后的权限信息响应等待超时，尚未进入用户管理且没有新增写入；原脚本的并行 Promise 超时会在等待登录响应期间提前终止进程。调整为捕获权限等待结果并输出登录后当前路径的非敏感诊断，不记录 token、密码或响应头。
+- RED: 用户管理页面响应等待 -> admin 登录与权限响应通过，但页面层专用的 `/system/user/page` 响应监听超时，未触发角色写入。该额外监听不是业务写入或验收条件，改为直接等待带 `userId=659` 路由标识的目标可见行，以真实页面状态作为继续门禁。
+- RED: 用户管理 SPA 导航 -> `page.goto(..., waitUntil='domcontentloaded')` 在 60 秒内未完成，角色写入仍未发生；本机 Vite SPA 已提交目标导航但整页 DOMContentLoaded 等待不稳定。改为等待导航 `commit`，后续仍必须以目标用户可见行作为页面就绪门禁。
+- RED: 角色选项滚动定位 -> 已定位目标选项，但点击确定后未观察到角色分配请求，数据库复核账号 `659` 仍无角色 `910438`。增加已选角色标签可见、关闭下拉和确定按钮启用断言后再提交，防止虚拟列表滚动命中但未形成选中值。
+- GREEN: `admin-scope-adjust.e2e.mjs resume-admin` -> PASS；`芋道源码/admin` 通过用户管理页面追加 `PQC权限角色`，通过 PQC 组长人员管理关联检验员 `659/shangmengying`，随后 `PQC管理` 页面和分页响应均命中 5 条目标工单。
+- GREEN: 页面验收 -> PASS；目标数量 `5`，实际检验员均为 `659/商孟莹`，控制台错误 `0`、页面错误 `0`，截图 `output/playwright/20260807-pqc-admin-five-records.png` 已视觉检查。
+- REGRESSION: 人员范围与角色只读数据库核对 -> PASS；tenant `1` 的角色关系 `4558/659/910438/pqc_permission` 有效，原范围 `980013/leader=512` 已禁用，新范围 `980046/leader=1` 已启用，不存在同一检验员多组长同时启用。
+- REGRESSION: PQC 正式数据只读数据库核对 -> PASS；任务 `223..227` 为 `SUBMITTED` 且数量 `3/3`，事件 `181..185` 为 `PQC_INSPECTION` 且检验员 `659`，记录 `104..108` 为 `SUCCESS`，每个任务各有 3 条逐件明细。
+- EXPERIENCE: `project-experience-consolidation` 已将“PQC管理按当前登录组长的唯一启用人员范围读取，租户管理员不自动全量可见；正式关联前核对 `pqc_permission` 和其它启用组长占用”合并到 `docs/backend-development.md`，并更新既有 `docs/experience-index.md`；未新建长期经验文档。
+- CLOSEOUT: `task-closeout-cleanup --mode preview` -> PASS；计划仅删除本轮任务附属 E2E 脚本、诊断日志、结果 JSON 和 `output/playwright/20260807-pqc-admin-five-records.png`，保留三份核心任务记录，无 blocked 项。
+- CLOSEOUT: `task-closeout-cleanup --mode apply` -> PASS；23 个存在的任务附属临时文件/截图已删除，旧截图路径仅产生“已不存在”警告，正式业务数据未清理；任务状态更新为 `completed`。
 
 ## Data Safety
 

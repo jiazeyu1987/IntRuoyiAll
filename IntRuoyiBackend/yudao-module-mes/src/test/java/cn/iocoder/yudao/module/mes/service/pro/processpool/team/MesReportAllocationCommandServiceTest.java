@@ -258,6 +258,45 @@ class MesReportAllocationCommandServiceTest {
     }
 
     @Test
+    void shouldTreatNullAndZeroAllocationQuantitiesAsZeroWhenSaving() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationDO oldA = allocation(7101L, 8101L, 9001L, 5101L, "100");
+        MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
+                .id(7201L).eventId(1001L).currentVersion(1).build();
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
+        when(poolQuantityService.requirePoolQuantity(event)).thenReturn(new BigDecimal("300"));
+        when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(oldA));
+        when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(activeOrder(8101L, 9001L)));
+        when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder(9001L, "A")));
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(
+                MesProcessPoolSubmissionReviewDO.builder().id(7301L).eventId(1001L).build());
+        when(allocationMapper.supersedeCurrentRows(List.of(7101L), 2)).thenReturn(1);
+        when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
+        when(stateMapper.updateById(state)).thenReturn(1);
+
+        MesReportAllocationSnapshot snapshot = service.save(saveCommand(1, List.of(
+                MesReportAllocationSaveLine.builder().activeOrderId(8101L).allocatedQuantity(null).build(),
+                MesReportAllocationSaveLine.builder().activeOrderId(8101L).allocatedQuantity(BigDecimal.ZERO).build())));
+
+        assertAmount("0", snapshot.getTotalAllocatedQuantity());
+        assertAmount("300", snapshot.getUnallocatedQuantity());
+        verify(quantityFragmentService).rebuildForVersion(event, 2, List.of());
+        verify(completionService).reconcileAffectedAllocations(event, List.of(oldA));
+    }
+
+    @Test
+    void manualFullAllocationSameAsCurrentMustStillReconcileCompletionProgress() {
+        assertFullAllocationSameAsCurrentReconcilesCompletionProgress(MesProcessPoolReportAllocationDO.MODE_MANUAL);
+    }
+
+    @Test
+    void fifoFullAllocationSameAsCurrentMustStillReconcileCompletionProgress() {
+        assertFullAllocationSameAsCurrentReconcilesCompletionProgress(MesProcessPoolReportAllocationDO.MODE_FIFO);
+    }
+
+    @Test
     void identicalIdempotencyRetryMustReturnCurrentVersionWithoutWritingAgain() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
@@ -298,9 +337,47 @@ class MesReportAllocationCommandServiceTest {
 
     private static MesReportAllocationSaveCommand saveCommand(Integer version,
                                                                List<MesReportAllocationSaveLine> lines) {
+        return saveCommand(version, MesProcessPoolReportAllocationDO.MODE_MANUAL, lines);
+    }
+
+    private static MesReportAllocationSaveCommand saveCommand(Integer version, String allocationMode,
+                                                               List<MesReportAllocationSaveLine> lines) {
         return MesReportAllocationSaveCommand.builder().eventId(1001L).leaderUserId(3001L)
                 .leaderType("PRODUCTION").expectedVersion(version).idempotencyKey("req-1")
-                .allocationMode("MANUAL").reason("urgent C").allocations(lines).build();
+                .allocationMode(allocationMode).reason("urgent C").allocations(lines).build();
+    }
+
+    private void assertFullAllocationSameAsCurrentReconcilesCompletionProgress(String allocationMode) {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationDO currentFull = allocation(7101L, 8101L, 9001L, 5101L, "300");
+        MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
+                .id(7201L).eventId(1001L).currentVersion(1).build();
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(8101L, 9001L);
+        MesProWorkOrderDO workOrder = workOrder(9001L, "A");
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
+        when(poolQuantityService.requirePoolQuantity(event)).thenReturn(new BigDecimal("300"));
+        when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(currentFull));
+        when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(activeOrder));
+        when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder));
+        when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(Set.of(8101L), 6001L))
+                .thenReturn(List.of(currentFull));
+        when(targetService.requireUniqueTargetForProcess(activeOrder, 6001L))
+                .thenReturn(new MesTeamLeaderOrderProcessTarget(5101L, 6001L, new BigDecimal("300"),
+                        BigDecimal.ONE, new BigDecimal("300")));
+        when(releaseStateService.findReleasedActiveOrderIds(List.of(8101L))).thenReturn(Set.of());
+        when(workOrderMapper.selectListByIds(List.of(9001L))).thenReturn(List.of(workOrder));
+
+        MesReportAllocationSnapshot snapshot = service.save(saveCommand(1, allocationMode,
+                List.of(MesReportAllocationSaveLine.builder().activeOrderId(8101L)
+                        .allocatedQuantity(new BigDecimal("300")).build())));
+
+        assertEquals(1, snapshot.getVersion());
+        assertAmount("300", snapshot.getTotalAllocatedQuantity());
+        verify(completionService).reconcileAffectedAllocations(event, List.of(currentFull));
+        verify(allocationMapper, never()).supersedeCurrentRows(anyCollection(), any());
+        verify(quantityFragmentService, never()).rebuildForVersion(any(), any(), anyCollection());
     }
 
     private static MesProProcessPoolEventDO event() {

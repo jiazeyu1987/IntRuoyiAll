@@ -3,6 +3,7 @@
 ## 用户意图与范围
 
 - 用户要求“不需要排产工单的限制”，并确认继续实施完整后端链路。
+- 用户进一步要求移除“ERP 计划开工时间缺失”限制，并明确 PQC 业务日期不得作为候选或新增限制。
 - 保留单一有效排产工单的原有正式行为；仅在有效排产工单数量为零时启用产品路线绑定 + 当前 ACTIVE 路线版本的正式模式。
 - 多个有效排产工单仍属于数据冲突并阻塞，不静默任选一条。
 
@@ -12,12 +13,28 @@
 - BDD: 无排产正式来源缺失时阻塞 -> Given 已确认生产工单没有有效排产工单，且产品路线绑定、ACTIVE 版本、发布工序、数量系数、ERP 计划开工时间或 PQC 规程任一缺失，When 搜索候选或加入订单，Then 系统明确返回不可加入原因且不写入活跃订单、工序快照或 PQC 任务。
 - BDD: 单一有效排产工单行为保持不变 -> Given 已确认生产工单存在一条完整有效排产工单，When 搜索候选并加入订单，Then 系统继续使用排产路线、版本、工序计划数量和计划日期生成快照及 PQC 任务。
 - BDD: 多个有效排产工单继续阻塞 -> Given 已确认生产工单存在多条有效排产工单，When 搜索候选或加入订单，Then 系统拒绝选择并提示有效排产不唯一。
+- BDD: 零排产缺少 ERP 计划开工时间仍可加入 -> Given 已确认生产工单没有有效排产工单、ERP 计划开工时间为空且其它正式路线和 PQC 前置完整，When 生产组长搜索并加入订单，Then 候选可加入、系统生成工序快照和 PQC 任务，且 PQC 记录日期等于活跃订单实际加入日期。
+- BDD: 有排产工单的 PQC 日期保持不变 -> Given 已确认生产工单存在一条有效排产工单及完整工序计划日期，When 生产组长加入订单，Then PQC 任务继续使用排产工序计划日期。
+
+> 需求变更说明：以上新增的两条 2026-08-07 BDD 已替代早期“零排产缺少 ERP 计划开工时间即阻塞”的约束；早期条目保留为历史 RED/基线证据，不再代表当前验收标准。
 
 ## 命令意图与证据
 
+- CHANGE: `docs/changes/20260807-remove-erp-planned-start-active-order-gate.md` -> ACCEPT，用户明确取消 ERP 计划开工时间与 PQC 业务日期加入门禁；零排产 PQC 记录日期改用活跃订单实际加入日期，不改数据库非空与唯一键约束。
+- RED BLOCKED: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，未到达本次行为断言；同一测试文件中的并发未完成改动引用当前不存在的 `MesWorkOrderAbnormalStateService`，MES `testCompile` 在 4 个并发测试处失败。本任务不修改该并发业务。
+- RED: `node doc/tasks/20260807-active-order-without-schedule-order/erp-planned-start-gate-static.spec.cjs` -> FAIL，预期原因：服务仍包含“ERP计划开工时间缺失”阻塞及 `workOrder.getPlannedStartTime().toLocalDate()` 日期来源。
+- GREEN: `node doc/tasks/20260807-active-order-without-schedule-order/erp-planned-start-gate-static.spec.cjs` -> PASS，服务已移除 ERP 计划开工时间门禁和该字段的零排产日期来源，并显式区分零排产与有排产 PQC 日期规则。
+- GREEN: 聚焦 `javac` 编译当前 `MesTeamLeaderActiveOrderServiceImpl`、正式来源依赖及 `MesTeamLeaderActiveOrderErpPlannedStartTest`/`MesTeamLeaderActiveOrderServiceTest` -> PASS；使用任务目录独立输出，未覆盖共享 Maven `target`。
+- GREEN: JUnit ConsoleLauncher 执行 `MesTeamLeaderActiveOrderErpPlannedStartTest` 与 `MesTeamLeaderActiveOrderServiceTest` -> PASS，25 项全部成功，0 failed/skipped/aborted；覆盖零排产缺 ERP 开工时间候选可用、新增成功、PQC 日期等于 `joinedAt` 日期，以及有排产继续使用工序 `planDate`。
+- GREEN: 上述 25 项服务测试加控制器 `activeOrderRequestsInjectCurrentLeaderUserAndExposeOnlyActivePool`、`activeOrderCandidateEndpointReturnsWorkOrderCodeOptions` 两项相关合同测试 -> PASS，27 项全部成功，0 failed/skipped/aborted。
+- ADJACENT BLOCKED: 标准 Maven 目标测试在行为执行前被共享工作区并发中的 `MesWorkOrderAbnormalStateService` 源码/测试编译时序阻塞；随后 Maven 主编译在 Windows 文件系统的 Lombok post-compiler 写 class 阶段长期无进展，经 `jcmd` 确认后仅停止本任务 PID。目标生产类和测试已改用任务目录聚焦编译验证。
+- ADJACENT DIAGNOSTIC: 混合共享 `target`、旧安装 MES Jar 与当前源码尝试执行控制器全类 16 项时，3 个与本变更无关的方法因旧类 `NoSuchMethodError`/旧映射断言失败；活跃订单新增与候选两项相关控制器合同已在同一聚焦运行中单独通过。
+- GREEN: backend evidence validator 与 self-test -> PASS；change request evidence validator -> PASS；任务范围 `git diff --check` -> PASS。
+- EXPERIENCE: `project-experience-consolidation` 修订 `docs/backend-development.md#零排产活跃订单必须使用发布态正式路线` 与 `docs/experience-index.md`，明确 ERP 计划开工时间不是零排产门禁、零排产 PQC 使用已落库活跃订单 `joinedAt` 日期、有排产保持 `planDate`；未新建长期经验文档。
+
 - READ: 已读取根 `AGENTS.md`、`docs/backend-development.md`、`docs/task-closeout-rules.md`、`docs/powershell-memory.md`、`docs/powershell-encoding.md` 和 `docs/experience-index.md` 的适用门禁。
 - READ: 已读取 `backend-api-delivery`、`behavior-driven-development` 及 backend evidence contract。
-- SOURCE: `mes_pro_work_order.quantity` 作为 ERP 固定数量；无排产模式的业务日期使用明确的 `mes_pro_work_order.planned_start_time` 日期部分，缺失即阻塞，不切换到需求日期或当前日期。
+- SOURCE SUPERSEDED: `mes_pro_work_order.quantity` 仍作为 ERP 固定数量；早期无排产模式曾使用 `mes_pro_work_order.planned_start_time`。本次已按用户变更取消该日期门禁，当前零排产 PQC 任务使用已落库活跃订单的 `joinedAt` 日期，有排产仍使用工序 `planDate`。
 - SOURCE: 无排产路线使用 `mes_pro_route_product` 唯一正式绑定、`mes_pro_route_version` 唯一 ACTIVE 版本及其 `route_snapshot_json.configSnapshots.flowGraph.nodes/scheduleUseConfigs`。
 - BASELINE: 开始本任务时发现并发任务 `doc/tasks/20260807-production-leader-process-loss-reasons-random/execution-log.md` 仍有未提交改动；将按共享分支规则单独保存，不纳入本任务实现提交。
 - CONCURRENT BASELINE: 并发任务在本任务创建文档后生成提交 `9c7507e1d`，该提交把本任务初始 `task.md`、`execution-log.md`、`backend-api-evidence.md` 与并发任务日志一并纳入；本任务未改写该提交，后续实现仍单独验证和选择性提交。
@@ -55,7 +72,14 @@
 - M3 completed：候选与新增共享产品唯一正式路线绑定、唯一 ACTIVE 版本及发布快照解析；无排产模式从 ERP 数量和计划开工时间生成工序快照与 PQC 任务，单排产保持原链路，多排产继续阻塞。
 - M4 completed：聚焦服务/控制器回归、backend evidence、三个前端静态合同、隔离运行态真实页面加入、数据库快照/PQC 核验和任务数据归零均已通过。
 - M5 blocked_at_push：经验沉淀、cleanup preview/apply、任务数据/进程/日志清理、端口登记释放、验证 worktree/临时分支删除和 dirty baseline 均已完成；`git push origin int_main` -> FAIL，Git 无法通过本机代理 `127.0.0.1` 连接 `github.com:443`，本地 `int_main` 在 push 前领先 `origin/int_main` 4 个提交。
+- M6 completed：已完成需求变更记录、BDD/RED、生产实现、静态合同、25 项服务回归、2 项相关控制器合同、backend evidence 校验、经验修订与 cleanup。
 
 ## 阻塞项
 
 - MES 全体测试源码存在与本任务无关的基线编译阻塞：`MesTeamEmployeeBindingServiceTest` 引用当前提交不存在的 `MesTeamEmployeeBindingService`。本任务已通过 exact-HEAD detached worktree 的聚焦编译与 37 项测试验证目标范围。
+
+## M6 收尾
+
+- CLEANUP PREVIEW: `task_closeout.py --task-id 20260807-active-order-without-schedule-order --mode preview` -> PASS；保留 `task.md`、`execution-log.md`、`verification-report.md`，删除集合仅包含本任务 evidence、静态 RED 脚本、独立 class 输出、classpath 和 javac/JUnit 参数文件，blocked 为 0。
+- CLEANUP APPLY: 同命令 `--mode apply` -> PASS；上述任务临时产物已删除，三份核心记录与正式 `src/test` 回归测试保留。
+- FINAL STATUS: 本次未获 Git 操作授权，未执行 stage、commit、merge 或 push；这不属于当前完成门禁。

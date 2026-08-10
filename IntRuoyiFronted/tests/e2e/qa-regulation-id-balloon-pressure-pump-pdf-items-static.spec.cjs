@@ -83,7 +83,18 @@ const expectedRows = [
   {
     itemCode: 'ID-001-WASH-APP',
     page: 4,
-    processName: '清洗/精洗',
+    processName: '清洗',
+    itemName: '外观',
+    standardText: '弹簧、胶塞、套筒、手柄、齿条、芯杆、螺盖清洗干燥后表面及内部应无液珠；表面应清洁，无黑点、无异物等。',
+    inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
+    inspectionTool: '目测',
+    samplingPlanText: 'GB/T 2828.1，I，AQL=0.4',
+    sourceOriginalItem: '清洗/精洗 / 外观'
+  },
+  {
+    itemCode: 'ID-001-FINE-WASH-APP',
+    page: 4,
+    processName: '精洗',
     itemName: '外观',
     standardText: '弹簧、胶塞、套筒、手柄、齿条、芯杆、螺盖清洗干燥后表面及内部应无液珠；表面应清洁，无黑点、无异物等。',
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
@@ -270,14 +281,19 @@ const expectedRows = [
 ]
 
 const expectedPageCounts = new Map([
-  [4, 5],
+  [4, 6],
   [5, 5],
   [6, 5],
   [7, 2]
 ])
 const actualPageCounts = new Map()
 const itemCodeMatches = [...itemSource.matchAll(/itemCode: '/g)]
-assert.equal(itemCodeMatches.length, 17, 'PQC-ID-001 template must contain all 17 verified inspection rows.')
+assert.equal(itemCodeMatches.length, 18, 'PQC-ID-001 template must contain all 18 visible inspection rows after splitting cleaning and fine-wash.')
+assert.doesNotMatch(
+  itemSource,
+  /processName:\s*'清洗\/精洗'/,
+  'PQC-ID-001 visible draft rows must split 清洗/精洗 into separate 清洗 and 精洗 rows.'
+)
 
 for (const row of expectedRows) {
   const block = extractItemByCode(row.itemCode)

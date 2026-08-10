@@ -40,6 +40,24 @@
 - Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
 - Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。任务 `doc/tasks/20260806-qa-id-balloon-pressure-pump-pdf-items/`，新增 `PQC-ID-001` 相邻产品模板后，旧 `PQC-IDI-001` 静态合同原本用 `const qaRegulationItems` 作远端结束锚点，误把新 17 行计入旧 22 行合同；最终将旧合同结束锚点收窄到 `const createBalloonPressurePumpQaRegulationItems`，并新增 ID 专用合同。任务 `doc/tasks/20260806-qa-idi-pressure-pump-screenshot-pages-verify/`，逐页截图对表时必须同时锁定源码顺序、PDF 页码、`itemName` 和 `sourceOriginalItem`，避免图 4 `整体粘结 / 外观` 被后续图 5 `气密性` 合并单元格分组污染。任务 `doc/tasks/20260807-team-leader-review-leader-name/`，`data-production-leader-module-tab-report\b` 会把 `data-production-leader-module-tab-report-history` 一并计入，因为 `-` 是非单词字符；静态合同统计 `data-*` 前缀时必须使用 `(?=[\s/>])`、负向断言或完整属性边界。
 
+## 前端重型设计器全局注册隔离门禁
+
+- Trigger: 页面进入后加载 `form-designer`、富文本/流程/报表设计器、图形编辑器等重型设计器 chunk，且目标页面并不渲染对应设计器组件；或出现 `Maximum call stack size exceeded`、重复权限 toast、非目标 chunk pageerror。
+- Preflight check: 先区分 runtime 表单能力和设计器能力。只服务 `<fc-designer>` 等专用页面的设计器包不得在 `setup*` 全局插件中 import/install；必须用聚焦静态合同同时锁定全局插件没有 designer import/install，并锁定实际设计器页面局部 import 与组件渲染入口仍存在。
+- Blocker: 非设计器页面依旧通过全局插件、全局组件、动态路由副作用或共享入口加载 designer chunk；或者修复后 BPM/Infra 等实际设计器页面缺少局部 import 时，必须停止。
+- Verification: 先让全局 designer import/install 静态合同 RED，再移除全局注册并 GREEN；运行相邻真实设计器入口、本机目标页面 Playwright 复验、`pnpm ts:check` 和 `git diff --check`。生产或测试服复现过的 chunk 问题还需部署后用同一路径复测。
+- Forbidden action: 禁止用隐藏 console error、吞掉 pageerror、关闭全局错误处理、保留全局 designer 注册但改文案、或让非设计器页面继续加载重型 chunk 来冒充修复。
+- Evidence: 任务 `doc/tasks/20260808-process-route-editor-stack-overflow-repro/`，测试服 MES 工艺路线编辑页每次进入新增 2 条 `RangeError`，stack 指向 `assets/form-designer-3YqQ_Q1F.js`；根因是全局 `setupFormCreate(app)` 安装 `@form-create/designer`，修复为仅 BPM/Infra 设计器页面局部 import。
+
+## 用户可见描述与内部编码隔离门禁
+
+- Trigger: 用户要求列表、卡片、标签、下拉选项或明细区域显示名称、描述、详情而不是编码，且同一响应同时存在 `*Name` / `*Description` 与 `*Code` / `*Id` 字段。
+- Preflight check: 先按截图或稳定 DOM 锚点定位真实可见区域，再追溯该区域的映射函数、正式响应 VO 和提交载荷；明确描述字段只负责展示，编码和 ID 只负责 key、编辑定位或提交身份。
+- Blocker: 可见标签仍使用 `description || code || id`、描述字段缺失却准备用编码或编号占位掩盖、或修改展示时同时丢失 key/提交身份字段，必须停止；正式描述数据链路缺失时应暴露并补齐契约，不得前端猜测。
+- Verification: 聚焦静态合同应抽取目标可见区域与映射块，正向锁定可见标签直接读取正式描述字段，负向禁止编码/ID fallback；相邻提交合同必须证明编码和 ID 仍保留在正式载荷，再运行相关静态回归、`pnpm ts:check` 和 `git diff --check`。
+- Forbidden action: 禁止用 CSS 隐藏编码、用 tooltip 或占位文案冒充详情、把内部编码改写成描述、删除提交身份字段、或以其它页面显示正确代替截图目标区域验证。
+- Evidence: 任务 `doc/tasks/20260807-frontline-defect-description-display/`，一线生产“不良明细”原把 `reasonName || reasonCode || 编号占位` 作为可见标签，最终收敛为直接显示 `reasonName`，同时保留 `reasonId` 与 `reasonCode` 结构化提交。
+
 ## 前端按钮文案与行为一致性门禁
 
 - Trigger: 用户要求将按钮改名、把“刷新/查询/打开”等按钮改成“新增/保存/提交”等动作按钮，或指出按钮显示动作与实际点击行为不一致。
@@ -51,12 +69,21 @@
 
 ## 前端选择弹框即时反馈门禁
 
-- Trigger: 用户反馈点击弹框选项后没有立刻选择、选中态停留、弹框过一会才消失，或修改工序/员工/角色/项目等 picker、dialog、dropdown 的选中流程。
-- Preflight check: 先区分该选择是否需要同步校验后才能关闭；若产品口径是“点选即关闭”，关闭弹框或隐藏候选面板必须发生在耗时异步请求、运行配置加载、员工/上下文切换之前，后续失败再通过正式错误提示暴露。若选择项需要像 PQC 登录人校验一样阻止非法切换，必须保留校验成功后关闭。
-- Blocker: 点击后 option 已 active 但弹框仍等待接口或上下文切换、静态合同只断言最终关闭不检查关闭顺序、或为了即时关闭而跳过必须的非法选择校验时必须停止。
-- Verification: 聚焦静态合同抽取选择处理函数，断言即时关闭场景的 `closePicker()` / hide 行为位于目标 `await` 之前，同时断言校验型场景仍在成功校验后关闭；再运行相邻 picker/页签合同和 `pnpm ts:check`。
-- Forbidden action: 禁止用 loading 遮罩、延迟 toast、禁用按钮、吞掉异步错误、或把所有模式统一提前关闭来掩盖正式校验差异。
-- Evidence: 任务 `doc/tasks/20260806-frontline-production-fullscreen-logic/`，一线生产选择工序时旧逻辑等待 `selectFrontlineProcess` 和默认员工切换后才关闭弹框，导致用户看到选中卡片停留；修复为生产模式点击即 `closePicker()`，一线 PQC 仍保留校验成功后关闭。
+- Trigger: 用户反馈点击弹框选项后没有立刻选择、选中态停留、弹框过一会才消失、初始化期间点击候选列表为空白，或修改工序/员工/角色/项目等 picker、dialog、dropdown 的选中流程。
+- Preflight check: 先区分“打开候选”和“确认选择”两个阶段。候选依赖正式异步请求时，该请求不得被无关目录、说明或装饰数据的串行 `await` 阻塞；弹框必须区分 loading、前置条件未满足、empty、error 和 ready，错误直接使用正式请求状态。若产品口径是“点选即关闭”，关闭弹框或隐藏候选面板必须发生在耗时异步请求、运行配置加载、员工/上下文切换之前，后续失败再通过正式错误提示暴露。若选择项需要像 PQC 登录人校验一样阻止非法切换，必须保留校验成功后关闭。PQC 待检工单 picker 还必须区分“暂无待执行 PQC 检验任务”和“关键字无匹配”，刷新后若已选工单不在正式待检列表中，应同步清理工单、工序、员工和模板上下文。若用户要求最大化或进入全屏后预加载切换缓存，只能预热正式安全 GET 数据，例如待检工单、工序列表、人员候选或一线生产 `runtime-config`；员工 `switch-employee` POST 只能在用户真实选择后缓存成功结果，不得批量预调用会改变当前上下文、签名、模板或提交状态的 POST。
+- Blocker: `openPicker` 只切换可见状态但正式候选请求尚未启动、候选仍在加载却渲染无说明空白列表、下游候选在上游对象未选择时没有前置状态、点击后 option 已 active 但弹框仍等待接口或上下文切换、PQC 待检列表为空却显示搜索无匹配或保留旧 selected active order、最大化预热调用上下文 POST 或吞掉预热 GET 失败、静态合同只断言最终关闭不检查请求/关闭顺序、或为了即时关闭而跳过必须的非法选择校验时必须停止。
+- Verification: 聚焦静态合同同时锁定正式候选请求不受无关请求串行阻塞、picker 状态覆盖 loading/prerequisite/empty/error、正式候选数组仍驱动 option；确认选择场景还要断言即时关闭的 `closePicker()` / hide 位于目标 `await` 之前，并证明校验型场景仍在成功校验后关闭；PQC 待检工单空态需覆盖无待检文案、搜索无匹配文案、旧选择清理和旧活跃订单文案负向断言；最大化预加载场景还要断言 `requestFullscreen()` 先于预热，预热覆盖所有正式 GET 缓存，且不调用上下文 POST；真实 E2E 计数必须把同一工序同一员工的重复选择 POST 与切换到新工序后的首次员工上下文 POST 分开记录，后者不能误判为重复选择缓存失败。若上游工序选择会异步加载 `runtime-config` 并自动切换默认员工，Playwright 必须等待这两个正式响应完成后再打开员工 picker；选择目标员工后还必须等待该员工自己的 `switch-employee` 响应，不能以固定延迟、卡片文本或下游提交按钮状态代替请求完成信号；再运行相邻 picker/页签合同、`pnpm ts:check` 和 Vite 目标模块转换。
+- Forbidden action: 禁止用固定延迟、loading 遮罩、延迟 toast、永久禁用按钮、mock/default 候选、吞掉异步错误、前端私自过滤替代后端待检读模型、保留失效选择、用上下文 POST 预热模板或员工切换，或把所有模式统一提前关闭来掩盖正式加载和校验差异。
+- Evidence: 任务 `doc/tasks/20260806-frontline-production-fullscreen-logic/`，一线生产选择工序时旧逻辑等待 `selectFrontlineProcess` 和默认员工切换后才关闭弹框，导致用户看到选中卡片停留；修复为生产模式点击即 `closePicker()`，一线 PQC 仍保留校验成功后关闭。任务 `doc/tasks/20260807-frontline-picker-initial-loading/`，生产页旧初始化先等待模板目录才请求工序，用户在此期间打开工序/员工 picker 只能看到空数组；修复为模板目录和生产选择上下文并行初始化，并显示正式加载、前置、空和错误状态。任务 `doc/tasks/20260807-frontline-pqc-fullscreen-preload/`，一线PQC最大化后只预热待检工单、工序列表和人员候选 GET 缓存，保留 `switch-employee` POST 为正式选择动作。任务 `doc/tasks/20260807-frontline-maximize-runtime-cache/`，一线生产最大化后预热所有可切换工序的正式 `runtime-config` GET 缓存，员工切换 POST 只在首次真实选择成功后缓存复用。任务 `doc/tasks/20260808-frontline-employee-picker-immediate-close/`，一线生产员工选择也必须像工序选择一样在 `await switchFrontlineActualEmployee(...)` 前 `closePicker()`，PQC 登录人校验仍保留校验后关闭。任务 `doc/tasks/20260808-frontline-pqc-process-card-autoclose/`，一线PQC工序卡片选择也必须在 `await selectFrontlinePqcProcess(...)` 和默认员工切换前 `closePicker()`，不再要求点击返回。任务 `doc/tasks/20260809-fix-frontline-chenli-submit-system-error/`，真实写入 E2E 以 `runtime-config`、默认员工和目标员工三个正式响应作为交互同步信号，避免即时关闭 picker 与自动默认员工切换造成定位竞争。
+
+## 前端确认提交上下文来源门禁
+
+- Trigger: 确认分配、确认提交、复核、保存等写接口依赖 `leaderType`、角色类型、当前模块、当前页签或其它页面上下文，且页面同时存在 `queryParams`、筛选表单、多页签状态或多布局 props。
+- Preflight check: 写接口载荷中的上下文字段必须来自当前页面/页签的正式状态，例如 `activeLeaderTab` 或路由 props；筛选参数只用于列表查询。新增或修改确认按钮时，静态合同必须锁定写接口调用不读取可清空、可重置或可跨页签漂移的筛选态上下文。
+- Blocker: 写接口从 `queryParams.leaderType`、筛选表单、可清空条件或列表查询缓存读取必填上下文，导致后端收到缺失字段、`null`、旧页签值或跨角色值时必须停止。
+- Verification: 先让聚焦静态合同 RED，证明旧写接口仍使用筛选态上下文；GREEN 后运行目标确认提交合同、相邻工作台合同、`pnpm ts:check` 和 `git diff --check`。
+- Forbidden action: 禁止用默认角色、默认成功、后端宽松校验、吞掉参数异常、隐藏 toast 或只改错误文案来掩盖上下文来源错误。
+- Evidence: 任务 `doc/tasks/20260808-team-leader-allocation-null-confirm/`，生产组长确认分配从筛选态 `queryParams.leaderType` 改为当前页签 `activeLeaderTab`，手工分配行不再预填潜在无效活跃订单。
 
 ## 复合输入控件交互保留门禁
 
@@ -87,21 +114,21 @@
 
 ## 前端截图样式块静态契约门禁
 
-- Trigger: 用户基于截图要求调整局部颜色、选中态、高亮态、状态条、边框、背景或伪元素，尤其同一 SFC 中存在多个相似 `background`、`color`、`&::before`、`:hover`、`.active` 样式块。
-- Preflight check: 静态契约必须先锁定目标选择器和目标状态块；负向断言要先抽取 `.active`、`:hover`、`:focus-visible` 或对应子块再检查旧样式，不得用过宽 `[\s\S]*` 从目标块跨到后续无关样式。
-- Blocker: 契约无法区分普通态与选中态、命中结果可能跨块包含相邻绿色/黄色/背景/伪元素样式、或无法证明旧样式只在目标状态中被移除时，必须先修正契约再声明 GREEN。
-- Verification: 聚焦静态契约必须同时断言目标正向 token、目标状态块内不存在旧 token、相邻控件契约仍通过；涉及 Vue/SCSS 文件时再运行 `pnpm ts:check` 和 `git diff --check`。
-- Forbidden action: 禁止只凭截图目测改 CSS、禁止用全局覆盖或删除共享伪元素冒充局部状态修复、禁止用跨整文件泛正则做旧样式负向断言。
-- Evidence: 任务 `doc/tasks/20260805-pqc-redbox-ui-prototype/`，PQC 检验项 tab 根据截图从白底绿字和绿色顶部条改为黄色选中背景；静态契约最终抽取 `.pqc-item-tab.active` 样式块，断言 active `&::before` 被隐藏且目标块内不存在旧绿色条。
+- Trigger: 用户基于截图要求调整局部颜色、选中态、高亮态、状态条、边框、背景或伪元素，尤其同一 SFC 中存在多个相似 `background`、`color`、`&::before`、`:hover`、`.active` 样式块，或父级 `.active` 背景被标题等子元素的 `:hover` 背景局部覆盖。
+- Preflight check: 静态契约必须先锁定目标选择器和目标状态块；负向断言要先抽取 `.active`、`:hover`、`:focus-visible` 或对应子块再检查旧样式，不得用过宽 `[\s\S]*` 从目标块跨到后续无关样式。若截图只在文字或图标宽度内出现异色块，还必须核对实际 hover 命中的是完整交互容器还是内部标题子元素，并证明内部子元素不会绘制不透明背景覆盖父级状态。父级通过继承改变选中文字颜色时，还必须扫描内部 label/value 是否显式声明了普通态 `color`；这类子元素会覆盖继承色，必须在目标 `.active` 作用域内分别验证计算色。
+- Blocker: 契约无法区分普通态与选中态、命中结果可能跨块包含相邻绿色/黄色/背景/伪元素样式、无法证明旧样式只在目标状态中被移除、只验证父级 active 背景而未排除子元素 hover 背景覆盖、或深色选中背景下子元素仍因显式普通态 `color` 显示深色文字时，必须先修正契约再声明 GREEN。
+- Verification: 聚焦静态契约必须同时断言目标正向 token、目标状态块内不存在旧 token、相邻控件契约仍通过；父级 active 与子元素 hover 冲突还必须分别断言完整交互行拥有 hover 状态、标题子元素没有独立背景、active + hover 保持目标背景。选中态依赖文字继承色时，真实页面还必须读取内部 label/value 的计算色并核对背景对比，而不能只读按钮自身 `color`。涉及 Vue/SCSS 文件时再运行 `pnpm ts:check` 和 `git diff --check`。
+- Forbidden action: 禁止只凭截图目测改 CSS、禁止用全局覆盖或删除共享伪元素冒充局部状态修复、禁止给文字/图标子元素单独补背景掩盖父级状态冲突、禁止用跨整文件泛正则做旧样式负向断言。
+- Evidence: 任务 `doc/tasks/20260805-pqc-redbox-ui-prototype/`，PQC 检验项 tab 根据截图从白底绿字和绿色顶部条改为黄色选中背景；静态契约最终抽取 `.pqc-item-tab.active` 样式块，断言 active `&::before` 被隐藏且目标块内不存在旧绿色条。任务 `doc/tasks/20260807-sidebar-active-hover-background/` 中，侧边栏父级 `.el-menu-item.is-active` 已是统一浅色背景，但 `.v-menu__title:hover` 仍绘制白色背景，必须将 hover 背景归属完整菜单行并分别覆盖主菜单与 popper。任务 `doc/tasks/20260807-frontline-pqc-order-picker-summary/` 中，订单按钮 active 已设白色文字，但内部三行值显式深色覆盖继承；补充 active 子元素颜色合同与真实计算色断言后修复。
 
 ## 统一列表复合工具栏布局门禁
 
 - Trigger: 修改 `UnifiedListTemplate`、快速过滤、批量操作栏、标准列表多维筛选、`TableMultiFilter`、或把新筛选控件接入已有业务列表。
-- Preflight check: 先在真实业务列表确认快速过滤、操作栏、额外筛选和新增筛选控件的 flex/grid 关系；可折行控件必须有明确行宽、`min-width` 和静态合同覆盖，不得只在空模板或单控件示例中验证。标准列表多维筛选要优先做成可增删条件 Tab 这类通用条件集合，不要靠页面级 `maxInlineFilters`、固定字段横铺或业务页特例控制可见条件；标准列表条件 Tab 默认必须为空，不得通过页面级 `.setCondition(...)` 或 query 初值预置隐藏业务筛选。若正式后端接口存在必填查询条件且首屏业务要求有默认值，例如当天提交日期，允许预置默认条件，但该条件必须在多维筛选中可见、可审计、稳定 condition id，静态合同和真实 E2E 必须证明请求参数来自可见条件而不是隐藏 query。同一页面内多个页签或子列表即使都使用 `UnifiedListTemplate`，也必须逐个显式核对是否接入 `showMultiFilter`、多维 definitions/state/events；模板能力不会自动替换仍绑定旧 quick filter 的列表。
-- Blocker: 新控件在真实页面中被快速过滤或操作栏挤压到 `0` 宽、不可见、不可点击，静态合同只断言组件存在但不断言布局宽度和正式 query 透传，或同一个正式 query 参数可被多个条件 Tab 覆盖时必须停止。标准列表首屏请求仍带页面隐藏默认条件、目标页面还有其它标准列表页签仍保留旧 quick filter、重复状态开关、重复重置按钮或缺少多维筛选事件时，也不得宣称标准模板复用完成。
-- Verification: 聚焦静态合同必须覆盖模板布局类、宽度下限、props/events 透传、条件 Tab 增删、默认空条件、禁止 `.setCondition(...)` 预置、稳定 condition id、重复正式参数校验和正式请求参数；若存在正式必填默认条件，必须额外断言默认条件在筛选 UI 中可见、重置后仍按业务要求恢复可见条件、目标请求包含该正式参数且无隐藏临时参数。真实 E2E 必须打开目标业务页面，断言控件可见可操作、首屏请求不携带隐藏默认条件、多个已填写 Tab 按交集提交、请求不携带临时参数、重置清空正式条件且目标写请求为 0；必填默认条件场景则按正式业务口径验证“恢复可见默认条件”而不是强制清空。涉及同页多列表时，E2E 必须切换每个目标页签并分别断言旧 quick filter 可见数为 0、正式参数提交和重置清参。
+- Preflight check: 先在真实业务列表确认快速过滤、操作栏、额外筛选和新增筛选控件的 flex/grid 关系；可折行控件必须有明确行宽、`min-width` 和静态合同覆盖，不得只在空模板或单控件示例中验证。单行工具栏增加操作按钮时，还必须核对容器的实际可用宽度、`scrollWidth` 和各 grid track；共享模板的筛选列若带固有最小宽度，页面必须用同元素选择器将主列约束为 `minmax(0, 1fr)`，并在筛选子项上明确 `min-width: 0`，不能只给外层再套一个无效覆盖。标准列表多维筛选要优先做成可增删条件 Tab 这类通用条件集合，不要靠页面级 `maxInlineFilters`、固定字段横铺或业务页特例控制可见条件；标准列表条件 Tab 默认必须为空，不得通过页面级 `.setCondition(...)` 或 query 初值预置隐藏业务筛选。若正式后端接口存在必填查询条件且首屏业务要求有默认值，例如当天提交日期，必须先区分产品口径：用户要求默认筛选可见时，默认条件必须在多维筛选中可见、可审计且有稳定 condition id；用户明确“默认没有过滤”且指结果范围也不受该字段限制时，正式请求必须省略对应参数，后端必填契约必须同步改为可选，禁止用隐藏内部参数伪装成无筛选。只有产品明确允许“可见条件为空但仍有明示的内置业务范围”时，才可保留内部参数，并且页面不能用“暂无筛选条件”让用户误解为未过滤。筛选条件采用“编辑后点击查询”模式时，必须显式区分正在编辑的草稿条件与最后一次已执行条件；条件 Tab、结果摘要或其它会被用户理解为当前结果口径的标签不得在查询尚未执行时先显示草稿值，除非同时提供明确的“待应用”状态。同一页面内多个页签或子列表即使都使用 `UnifiedListTemplate`，也必须逐个显式核对是否接入 `showMultiFilter`、多维 definitions/state/events；模板能力不会自动替换仍绑定旧 quick filter 的列表。
+- Blocker: 新控件在真实页面中被快速过滤或操作栏挤压到 `0` 宽、被裁切、不可见、不可点击，工具栏 `scrollWidth` 大于可见宽度，静态合同只断言组件存在但不断言布局宽度和正式 query 透传，或同一个正式 query 参数可被多个条件 Tab 覆盖时必须停止。筛选标签已经显示新条件、列表却仍是上一次请求结果且页面没有“待应用”提示时，必须按筛选状态一致性缺陷处理。标准列表首屏请求仍带页面隐藏默认条件、目标页面还有其它标准列表页签仍保留旧 quick filter、重复状态开关、重复重置按钮或缺少多维筛选事件时，也不得宣称标准模板复用完成。
+- Verification: 聚焦静态合同必须覆盖模板布局类、可收缩 grid track、关键子项 `min-width: 0`、props/events 透传、条件 Tab 增删、默认空条件、禁止 `.setCondition(...)` 预置、稳定 condition id、重复正式参数校验、草稿/已执行状态表达和正式请求参数；若存在默认查询参数，必须额外断言它按产品口径处理：默认可见场景验证 UI 条件、重置恢复和请求参数一致；“无筛选即不限制结果范围”场景必须验证 `conditions/appliedConditions` 为空、字段下拉不默认选中、正式请求省略该参数、后端缺省参数查询不限范围；只有明示内置业务范围的场景才验证内部参数存在。真实 E2E 必须打开目标业务页面，在常用桌面窄视口（至少 `1280x720`）读取工具栏 `width/scrollWidth` 和关键控件边界，断言所有操作按钮完整可见且没有水平溢出；同时验证首屏请求不携带未经声明的隐藏筛选、多个已填写 Tab 按交集提交、请求不携带临时参数、重置清空正式条件且目标写请求为 0。对于显式查询模式，还必须分别核对“修改条件但未查询”和“点击查询后”的可见标签、请求计数、正式参数与结果口径，禁止只断言标签或只断言请求。涉及同页多列表时，E2E 必须切换每个目标页签并分别断言旧 quick filter 可见数为 0、正式参数提交和重置清参。
 - Forbidden action: 禁止用 API-only、临时测试页、隐藏旧快速筛选、移除业务操作按钮、硬编码当前页面宽度、页面级 inline filter 数量特例或前端本地过滤来冒充标准列表多维筛选完成。
-- Evidence: 任务 `doc/tasks/20260804-standard-list-multi-filter/verification-report.md`，排产工单真实 E2E 暴露多维筛选在复合工具栏中被挤压为 `0` 宽，最终用模板级全行布局和静态合同锁定；后续用户反馈固定条件栏复用性差，改为条件 Tab + 加减号，并用真实 E2E 证明多个 Tab 按正式 query 参数交集提交；同步工单页签虽同样使用 `UnifiedListTemplate`，但因未显式接入多维 definitions/state/events 而保持旧 quick filter，最终按页签补齐静态合同和真实 E2E。任务 `doc/tasks/20260805-standard-list-empty-tabs/verification-report.md` 将当前系统 84 个标准列表模板扫描入清单，并锁定默认空条件 Tab、禁止页面级预置隐藏筛选、排产工单和同步工单首屏只带分页参数；任务 `doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md` 新增 QA 规程 4 个标准列表后，将系统接入点更新为 88 个、显式隐藏筛选列表更新为 14 个。
+- Evidence: 任务 `doc/tasks/20260804-standard-list-multi-filter/verification-report.md`，排产工单真实 E2E 暴露多维筛选在复合工具栏中被挤压为 `0` 宽，最终用模板级全行布局和静态合同锁定；后续用户反馈固定条件栏复用性差，改为条件 Tab + 加减号，并用真实 E2E 证明多个 Tab 按正式 query 参数交集提交；同步工单页签虽同样使用 `UnifiedListTemplate`，但因未显式接入多维 definitions/state/events 而保持旧 quick filter，最终按页签补齐静态合同和真实 E2E。任务 `doc/tasks/20260805-standard-list-empty-tabs/verification-report.md` 将当前系统 84 个标准列表模板扫描入清单，并锁定默认空条件 Tab、禁止页面级预置隐藏筛选、排产工单和同步工单首屏只带分页参数；任务 `doc/tasks/20260805-qa-regulation-publish-fix/verification-report.md` 新增 QA 规程 4 个标准列表后，将系统接入点更新为 88 个、显式隐藏筛选列表更新为 14 个。任务 `doc/tasks/20260808-team-leader-report-filter-empty-default/verification-report.md` 证明“可见条件为空但存在业务默认范围”的旧口径；任务 `doc/tasks/20260809-pqc-management-remove-hidden-date-filter/verification-report.md` 进一步区分“无筛选即不限制结果范围”，PQC 管理必须同时省略前端 `submitDate`、放宽后端日期契约，并用真实页面证明默认 82 条历史与显式日期 5 条。任务 `doc/tasks/20260809-batch-record-tab-test-all/verification-report.md` 在单行工具栏新增批量操作后，通过 `1280x720` 真实截图和计算样式发现筛选列固有最小宽度导致按钮裁切，最终用 `minmax(0, 1fr)`、子项 `min-width: 0` 以及 `width=scrollWidth` 证据锁定可收缩布局。
 
 ## Vue Composable 模板顶层绑定门禁
 
@@ -114,19 +141,19 @@
 
 ## 前端 LocalDateTime 响应契约门禁
 
-- Trigger: 前端 API wrapper、静态合同或页面报 `DCC response field has invalid type`、`cleanupTime`、`expireTime`、后端响应 VO 使用 `LocalDateTime`，或涉及 `TimestampLocalDateTimeSerializer`。
-- Preflight check: 先核对后端 Jackson/JsonUtils 的 `LocalDateTime` 序列化口径；当前项目默认响应序列化为 epoch millis 数字时，前端类型和 parser 必须声明/校验 `number`，不得凭字段名假定字符串日期。
-- Blocker: 前端仍用 `readOptionalString`、`string` 类型或字符串格式断言接收后端 `LocalDateTime` 数字时间戳，或为了通过页面临时做 string/number 双路兼容、空值吞错、默认当前时间时必须停止。
-- Verification: 新增或更新聚焦静态合同，同时断言后端源字段类型、前端响应类型、显式数字 timestamp decoder、parser 调用和旧 string decoder 不再用于目标字段；涉及引用方时再运行 `pnpm ts:check`。
+- Trigger: 前端 API wrapper、静态合同或页面报 `DCC response field has invalid type`、`cleanupTime`、`expireTime`、`serverSubmitTime.replace is not a function`、后端响应 VO 使用 `LocalDateTime`，或涉及 `TimestampLocalDateTimeSerializer`。
+- Preflight check: 先核对后端 Jackson/JsonUtils 的 `LocalDateTime` 序列化口径；当前项目默认响应序列化为 epoch millis 数字时，前端类型、parser 和展示 formatter 必须声明/校验 `number`，不得凭字段名假定字符串日期。若真实接口合同同时存在历史字符串和当前数字时间戳，必须以显式类型联合和专用 formatter 正式归一化，且调用点不得直接 `.replace()`。
+- Blocker: 前端仍用 `readOptionalString`、`string` 类型、字符串格式断言或直接字符串方法接收后端 `LocalDateTime` 数字时间戳，或为了通过页面临时做空值吞错、默认当前时间、未知类型静默成功时必须停止。
+- Verification: 新增或更新聚焦静态合同，同时断言后端源字段类型、前端响应类型、显式数字 timestamp decoder/formatter、渲染调用和旧 string decoder/string-only 调用不再用于目标字段；涉及引用方时再运行 `pnpm ts:check`。
 - Forbidden action: 禁止把后端全局序列化器返回的数字时间戳改成前端局部字符串兜底；禁止为掩盖合同不一致添加 fallback coercion 或吞异常。
-- Evidence: 任务 `doc/tasks/20260803-dcc-cleanup-time-response-type/`，`cleanupTime`/`expireTime` 由 `LocalDateTime` 经全局 serializer 输出数字时间戳，前端旧 string parser 触发 `DCC response field has invalid type: cleanupTime`。
+- Evidence: 任务 `doc/tasks/20260803-dcc-cleanup-time-response-type/`，`cleanupTime`/`expireTime` 由 `LocalDateTime` 经全局 serializer 输出数字时间戳，前端旧 string parser 触发 `DCC response field has invalid type: cleanupTime`；任务 `doc/tasks/20260807-frontline-pqc-formal-submit-write-e2e/`，PQC 正式提交候选/回执时间直接 `.replace()` 数字时间戳导致真实页面崩溃，修正为正式 formatter 和静态合同覆盖。
 
 ## 业务运行记录用户可读展示门禁
 
-- Trigger: 新增或验收自动同步、定时任务、导入导出、审批执行等运行记录表格，页面出现数字状态、`AUTO/MANUAL`、epoch millis、英文内部字段名或其它后端存储值直出。
-- Preflight check: 先核对后端正式状态枚举、触发类型枚举和时间序列化口径；前端必须通过明确映射展示中文业务状态和触发来源，通过项目统一时间工具展示日期时间，并将内部字段名转换为用户可读列名。当存在内部增量位置、游标或类似技术字段时，主表的最近执行类时间必须来自正式运行记录的开始或完成时间，不能把内部位置时间显示给用户。聚焦静态合同必须锁定正式枚举值和格式化调用，真实 E2E 必须使用非空运行记录验证最终可见文本。
-- Blocker: 页面仍显示 `10/20/30`、`AUTO/MANUAL`、13 位毫秒时间戳、`failureMessage` 等内部值，或静态合同只断言表格/字段存在但未验证可读展示时必须停止。
-- Verification: 运行聚焦静态合同和 `pnpm ts:check`；真实页面需断言中文状态、中文触发来源、可读日期时间、中文失败原因列名、原始内部值不再可见且控制台错误为空。
+- Trigger: 新增或验收自动同步、定时任务、导入导出、审批执行等运行记录表格，或面向业务人员的修改/补正弹窗；页面出现数字状态、`AUTO/MANUAL`、epoch millis、英文内部字段名、内部 ID、原始 payload/差异/签名快照 JSON 或其它后端存储/传输值直出。
+- Preflight check: 先核对后端正式状态枚举、触发类型枚举、时间序列化口径和业务修改命令；前端必须通过明确映射展示中文业务状态和触发来源，通过项目统一时间工具展示日期时间，并将内部字段名转换为用户可读列名。修改/补正弹窗只能收集用户能理解并负责的业务字段、原因和本人签名凭据，payload、字段差异、审计身份、签名 ID 与签名快照必须由服务端生成。当存在内部增量位置、游标或类似技术字段时，主表的最近执行类时间必须来自正式运行记录的开始或完成时间，不能把内部位置时间显示给用户。聚焦静态合同必须锁定用户可见字段和内部字段负向断言，真实 E2E 必须使用非空记录验证最终可见文本与交互。
+- Blocker: 页面仍显示 `10/20/30`、`AUTO/MANUAL`、13 位毫秒时间戳、`failureMessage`、用户/签名 ID、payload/差异/签名快照 JSON，要求用户手工拼装内部协议，或静态合同只断言表格/字段存在但未验证可读展示时必须停止。
+- Verification: 运行聚焦静态合同和 `pnpm ts:check`；真实页面需断言中文状态、中文触发来源、可读日期时间、用户可理解的业务字段、原始内部值/JSON 不可见、响应式布局无越界/遮挡且控制台错误为空。修改场景还必须验证无实际变化不发请求，写入身份和差异生成由后端测试覆盖。
 - Forbidden action: 禁止用空运行记录、隐藏列、mock 数据、API-only、默认成功文案或把未知枚举映射成成功来绕过真实展示验证。
 - Evidence: `doc/tasks/20260805-profile-erp-table-auto-sync/verification-report.md`，ERP 自动同步页面真实数据曾直出状态 `20`、触发类型 `AUTO`、毫秒时间戳和 `failureMessage`，补充 RED/GREEN 后由真实页面复验中文可读展示。
 
@@ -147,6 +174,15 @@
 - Verification: 聚焦静态契约必须证明目标 SFC 不再使用歧义泛型箭头写法，并优先改为 `function fn<T>(...) {}`；再运行相邻静态契约或可响应的 ESLint/类型检查。
 - Forbidden action: 禁止用配置降级、parser 替换、忽略规则或隐藏页面来绕过源代码解析错误。
 - Evidence: 任务 `doc/tasks/20260803-dcc-controlled-file-detail-vue-parse/`，`getPagedDetailRows` 的 `const ... = <T>(...) =>` 触发 Vite/ESLint 解析错误，改为命名泛型函数并用静态契约 RED/GREEN 验证。
+
+## Vue SFC 区块边界编译门禁
+
+- Trigger: Vite/PostCSS 在 `.vue?vue&type=style` 报 `Unknown word`，错误 frame 指向 `const`、赋值、可选链或其它 TypeScript/JavaScript 语句。
+- Preflight check: 先核对 `<script setup>`、`</script>`、`<style>`、`</style>` 的真实边界，并确认报错函数是否误落入 style block；同时对目标文件运行锚定 Git 冲突标记扫描。回归测试必须提取真实 style block 并交给项目现有 PostCSS 解析器，不能只搜索报错文本。
+- Blocker: style block 仍包含脚本声明、赋值或模板逻辑，或者测试未实际解析 CSS 时必须停止；不得关闭 HMR overlay、放宽 PostCSS 配置或删除业务函数来绕过区块归属错误。
+- Verification: 先取得 PostCSS 对同一 style 行号和 `Unknown word` 的 RED，再将完整逻辑原样移动回 script block；GREEN 后运行目标 CSS 编译合同、相邻业务合同、`pnpm ts:check` 和 `git diff --check`。
+- Forbidden action: 禁止用正则删除疑似非法行、把函数改写成 CSS 注释、关闭 overlay、忽略构建错误或引入解析 fallback。
+- Evidence: 任务 `doc/tasks/20260807-team-leader-workbench-vue-style-compile-fix/`，班组长工作台的两个异常上报函数误置于 scoped style，PostCSS 在赋值语句处报 `Unknown word`；函数原样移回 script 后定向样式编译合同与相邻合同通过。
 
 ## 前端 BPMN marker 高亮完整性门禁
 
@@ -232,11 +268,20 @@
 ## 前端角色内容页签拆分口径门禁
 
 - Trigger: 用户要求“某角色/某类内容专门做一个页签显示，不再显示在某工作台”，尤其涉及 `生产组长`、`PQC组长`、`leaderType`、`TeamLeaderWorkbenchPage`、eDHR 批记录页签、角色工作台页面内部功能模块 Tab 或其它角色型工作台拆分。
-- Preflight check: 先从用户原话拆出“要拆出的角色/内容”和“原工作台保留的角色/内容”，并确认“页签”指动态菜单/主导航入口还是页面内部 `el-tabs`；用户说“类似批次执行”“放在 QA 下面”时，按 eDHR 父菜单下的独立主导航子菜单处理，不得误做成 eDHR 批次页内部 Tab。若用户明确说同一角色下“人员管理、报工管理、损耗管理、历史表单”等不同功能模块，则按该角色页面内部功能模块 Tab 处理，并先核对共享组件中其它角色复用的 content gate、默认激活页签、每个非默认功能模块的数据加载触发和相邻静态合同。共享组件内同一角色页签可能在人员、管理、详情、看板等多个模块块重复渲染，新增页签必须同步全部重复 tab 组、独立 tab key、显示 gate、查询触发、列池或状态隔离，不能只改当前可见块。再核对现有包装页、路由、页签 key、标题、权限和共享组件 props；若工作区已有相反方向的半成品拆分，必须先用 RED 静态合同锁定当前用户要求，不得沿用旧任务口径。
+- Preflight check: 先从用户原话拆出“要拆出的角色/内容”和“原工作台保留的角色/内容”，并确认“页签”指动态菜单/主导航入口还是页面内部 `el-tabs`；当同名对象既可能是 Office 文件也可能是系统页面时，必须先用用户给出的路径、截图、路由或组件文本确认真实承载物，未定位到 Office 文件不得仅因用户使用“tab”一词就转向工作簿处理。用户说“类似批次执行”“放在 QA 下面”时，按 eDHR 父菜单下的独立主导航子菜单处理，不得误做成 eDHR 批次页内部 Tab。若用户明确说同一角色下“人员管理、报工管理、损耗管理、历史表单”等不同功能模块，则按该角色页面内部功能模块 Tab 处理，并先核对共享组件中其它角色复用的 content gate、默认激活页签、每个非默认功能模块的数据加载触发和相邻静态合同。共享组件内同一角色页签可能在人员、管理、详情、看板等多个模块块重复渲染，新增页签必须同步全部重复 tab 组、独立 tab key、显示 gate、查询触发、列池或状态隔离，不能只改当前可见块。再核对现有包装页、路由、页签 key、标题、权限和共享组件 props；若工作区已有相反方向的半成品拆分，必须先用 RED 静态合同锁定当前用户要求，不得沿用旧任务口径。
 - Blocker: 专门页签拆成了错误角色、把主导航页签误做成页面内部 Tab、把页面内部功能模块 Tab 误做成新菜单、原工作台仍传入目标角色 props、两个入口同时显示同一角色内容、功能模块仍纵向混排、旧 route/tab key/页面关系图仍指向相反角色、非默认功能模块只切换显示但没有 watcher/handler 触发正式列表加载、或静态合同只断言“有独立页签”但不验证角色 props、模块 gate、共享 gate、数据加载触发和原工作台负向隐藏时必须停止。
 - Verification: 聚焦静态合同必须同时断言页签 label、tab key 或主导航菜单 sort、route path、route name/title、包装组件文件、共享组件 `leader-type` 或等价 props、原工作台 `doesNotMatch` 目标角色内容、页面关系图节点和相邻工作台合同；页面内部功能模块 Tab 还必须断言包装页显式启用模块 Tab、非目标角色未启用该专属 Tab、每个模块块由对应 computed gate 控制、非默认数据列表在 tab 选中时设置正式 query 角色/日期/分页并调用正式加载方法、共享 gate 未破坏相邻角色合同。涉及动态菜单时还必须断言 `system_menu`、租户套餐和角色菜单绑定；涉及 Vue/TS 时运行 `pnpm ts:check`。
 - Forbidden action: 禁止用 CSS 隐藏、空数据、路由别名、旧页签文案、内部 Tab 冒充主导航入口或保留旧反向 wrapper 冒充拆分完成；禁止把“PQC组长拆出去”与“生产组长拆出去”互换处理。
-- Evidence: 任务 `doc/tasks/20260804-production-leader-tab/`，基线中已有相反的 `PQC组长` 独立页签，当前需求要求 `生产组长` 独立页签，最终用静态合同先 RED 再将 `BatchProductionLeaderWorkbenchPage`、`productionLeader` 路由和组长工作台 `leader-type="PQC"` 边界锁定；任务 `doc/tasks/20260804-pqc-leader-tab/`，用户纠正“不是 tab，是类似批次执行的页签”，最终锁定 `QA -> 生产组长 -> PQC组长 -> 批次执行` 主导航顺序，并从 `EdhrBatchRecordTabs.vue` 移除内部 leader tabs；任务 `doc/tasks/20260805-production-leader-function-tabs/`，用户要求生产组长内“人员管理、报工管理、损耗管理”等不同功能模块是不同 Tab，最终保留 `ProductionLeaderWorkbenchPage` 主导航入口，仅在共享工作台增加生产组长内部模块 Tab，并复跑 PQC 组长相邻合同防止共享 gate 破坏。任务 `doc/tasks/20260806-production-leader-feedback-random-data/`，生产组长内部默认页签为“人员管理”，用户点击“报工管理”后旧代码只切显示不触发 `getSubmissionList()`，最终补 `watch(activeProductionModuleTab)` 并用真实页面证明表格不再为空。任务 `doc/tasks/20260807-pqc-form-history-tab/`，PQC 组长新增“历史表单”时必须同步 4 组重复 PQC module tabs，新增 `history` 状态、`showPqcFormHistoryModule`、独立列池 tableKey、`APPROVED` 查询和只读操作边界，并更新生产报工历史相邻合同兼容共享逻辑。
+- Evidence: 任务 `doc/tasks/20260804-production-leader-tab/`，基线中已有相反的 `PQC组长` 独立页签，当前需求要求 `生产组长` 独立页签，最终用静态合同先 RED 再将 `BatchProductionLeaderWorkbenchPage`、`productionLeader` 路由和组长工作台 `leader-type="PQC"` 边界锁定；任务 `doc/tasks/20260804-pqc-leader-tab/`，用户纠正“不是 tab，是类似批次执行的页签”，最终锁定 `QA -> 生产组长 -> PQC组长 -> 批次执行` 主导航顺序，并从 `EdhrBatchRecordTabs.vue` 移除内部 leader tabs；任务 `doc/tasks/20260805-production-leader-function-tabs/`，用户要求生产组长内“人员管理、报工管理、损耗管理”等不同功能模块是不同 Tab，最终保留 `ProductionLeaderWorkbenchPage` 主导航入口，仅在共享工作台增加生产组长内部模块 Tab，并复跑 PQC 组长相邻合同防止共享 gate 破坏。任务 `doc/tasks/20260806-production-leader-feedback-random-data/`，生产组长内部默认页签为“人员管理”，用户点击“报工管理”后旧代码只切显示不触发 `getSubmissionList()`，最终补 `watch(activeProductionModuleTab)` 并用真实页面证明表格不再为空。任务 `doc/tasks/20260807-pqc-form-history-tab/`，PQC 组长新增“历史表单”时必须同步 4 组重复 PQC module tabs，新增 `history` 状态、`showPqcFormHistoryModule`、独立列池 tableKey、`APPROVED` 查询和只读操作边界，并更新生产报工历史相邻合同兼容共享逻辑。任务 `doc/tasks/20260809-batch-record-mapping-tab/`，用户通过截图澄清“批记录测试”是系统页面而不是 Excel 工作簿，最终按现有 `BatchRecordTestPage.vue` 内部 `el-tabs` 增加第五个页签。
+
+## 前端多布局模式真实页面门禁
+
+- Trigger: 同一 Vue 页面同时支持平铺模式和内部页签模式，存在 `show*Tabs`、`active*Tab` 或包装页 props，静态合同通过但真实页面缺少可见区域，或 Playwright 脚本假设某个仅在另一布局中存在的页签。
+- Preflight check: 先确认真实路由包装页传入的布局 props，并分别定位平铺分支和页签分支的正式 DOM。静态合同必须锁定当前实际布局的可见区域；真实 E2E 必须按页面实际布局进入目标区域，不能用隐藏页签、API 响应或源码存在代替可见 UI。
+- Blocker: 目标标记只存在于未启用的布局分支、真实页面要求点击不存在的页签、平铺模式与页签模式状态源不一致，或截图/断言只证明接口响应而未证明当前布局的可见控件时必须停止。
+- Verification: 聚焦静态合同、`pnpm ts:check` 和真实 Playwright 均通过；Playwright 记录实际布局、可见目标文本、目标写请求数量、page error 和 console error。
+- Forbidden action: 禁止为测试新增假页签、隐藏重复标记、把平铺页面强行切到页签模式、用 API-only 或静态源码命中冒充真实页面通过。
+- Evidence: `doc/tasks/20260807-team-leader-responsible-route-source-fix/verification-report.md`。
 
 ## eDHR 表单追溯可视化历史详情门禁
 
@@ -301,6 +346,15 @@
 - Forbidden action: 禁止只依赖短暂 toast、改成通用默认失败文案、隐藏后端错误、吞异常、用成功弹窗残留旧错误或关闭全局错误处理来满足截图。
 - Evidence: 任务 `doc/tasks/20260729-submit-failure-reason/`，eDHR 提交失败弹窗曾只显示“刘子良 提交失败”，未显示具体失败原因。
 
+## 前端命令按钮失败必须终止在可见错误边界门禁
+
+- Trigger: `保存/提交/审核/发布/签名` 等原生命令按钮的事件处理器会执行本地 fail-fast 断言、异步上下文加载或正式写接口，且失败需要留在当前页面供用户修正。
+- Preflight check: 先明确按钮事件处理器的错误归属；本地前置断言必须在事件处理器内捕获、显示真实原因并 `return`，异步错误由页面负责提示时也必须在提示后终止当前命令。只有上层确实存在统一错误边界时才允许继续抛出，不能默认依赖 Vue 原生事件处理器接住异常。
+- Blocker: 点击按钮后控制台出现 `Unhandled error during execution of native event handler`、页面没有可见原因、失败后仍继续打开确认弹窗或发起写请求，或通过长期禁用按钮隐藏缺失前置时必须停止。
+- Verification: 聚焦静态合同锁定 `catch -> message.error(real reason) -> return`；Playwright 使用缺前置的真实页面点击按钮，断言可见错误文本、目标写请求数为 0，且本次操作没有新增 `pageerror` 或未处理事件异常。
+- Forbidden action: 禁止 catch 后默认成功、吞掉错误不提示、提示后继续执行、提示后 rethrow 到原生事件处理器、用 disabled 隐藏所有可诊断失败，或用 API-only 证明页面错误可见。
+- Evidence: 任务 `doc/tasks/20260807-frontline-pqc-formal-submit/verification-report.md`，一线 PQC 提交前置断言最初直接逃逸到原生事件处理器；修复后真实页面显示正式前置缺失原因，不产生写入且没有新增未处理异常。
+
 ## 前端延迟辅助加载错误归属门禁
 
 - Trigger: 列表首屏已加载成功，但后续延迟加载的行级权限、预览、候选人、补充状态或右侧详情接口失败，页面出现全局 `系统异常`、列表加载失败或首屏错误条。
@@ -349,6 +403,15 @@
 - Forbidden action: 禁止把菜单权限当类别上传权限、禁止前端展示无权限类别再依赖上传失败、禁止用 `directoryId` 缺失阻止用户提交、禁止 catch/默认成功/默认授权掩盖 `CONTROLLED_FILE_ACCESS_DENIED` 或缺失 `UNCLASSIFIED` 目录。
 - Evidence: 任务 `doc/tasks/20260728-dcc-upload-controlled-file-access/`；任务 `doc/tasks/20260803-controlled-file-category-missing/`，受控文件提交页按当前文件分类 taxonomy 叶子节点自动解析正式文件类别并清空旧类别/目录/预览状态，未绑定提交目录时后端使用正式 `UNCLASSIFIED / 未分类` 目录，避免 `Controlled file category does not exist` 和提交人手工维护目录绑定；任务 `doc/tasks/20260804-dcc-unclassified-directory-consistency/`，NAS 转移、本地文件夹导入和元数据编辑统一使用正式未分类目录自动落位，旧“请先绑定目录”阻塞只保留在历史任务文档或测试负向断言中；任务 `doc/tasks/20260804-dcc-upload-approval-chain-projection/`，类别列表接口从当前有效审批矩阵路线节点投影 `signoffPositionIds` / `approvalPositionIds`，避免技术调研报告等已配置类别被上传预检误判为审批链路不完整。
 - Evidence supplement: 任务 `doc/tasks/20260807-dcc-upload-hide-category-permission-hint/` 只负责移除只读文件类别区域的路径 helper 和橙色 preflight alert，并证明类别值与零写请求边界；后续任务 `doc/tasks/20260807-dcc-upload-permission-at-approval/` 独立负责“上传不限制、审批限制”的正式权限职责。禁止用“页面不显示提示”推断权限仍在上传阶段或已经取消。
+
+## DCC 上传历史文件升版状态门禁
+
+- Trigger: DCC 受控文件上传页、历史文件名称选择、上传升版、同编号现行版本、`revisionTargetControlledFileId`、`current-version`、新建 master、文件编号/版本预检、`Controlled file number conflicts with the existing logical document chain`、版本号 `abc`、过去生效日期。
+- Preflight check: 历史文件名称只表示“候选升版”，必须先用同编号现行版本和上传专用升版候选定位当前主档；`REVISION` 与“创建新的 master 主档”必须互斥。当前版本查询错误、编号链冲突、历史文件找不到现行主档、升版目标缺失、版本号格式不合法或同编号流程修改中，都必须进入文件编号/版本阻断态。前端版本号格式必须跟后端 `DccControlledFileVersion.parse` 对齐；若业务允许过去生效日期，预检必须明确说明“允许补录历史生效日期”，不能让用户误以为未校验。
+- Blocker: 已选择历史文件但页面仍显示“将创建新的 master 主档”、顶部错误和预检状态不一致、编号链冲突时仍显示“可提交”、英文冲突错误直接弹给用户、版本号 `abc` 能通过前端表单和预检、或过去生效日期没有明确允许/阻断说明时必须停止。
+- Verification: 运行 `pnpm --dir IntRuoyiFronted e2e:dcc:upload-optimization:static`、`pnpm --dir IntRuoyiFronted e2e:dcc:upload-current-version:static`、`pnpm --dir IntRuoyiFronted e2e:dcc:upload-project-taxonomy-revision:static`、`pnpm --dir IntRuoyiFronted e2e:dcc:upload-name-version-autofill:static` 和 `pnpm --dir IntRuoyiFronted ts:check`；真实数据验收时还需通过 Playwright 选择目标历史文件，确认目标 DCC 写请求前阻断或提交状态一致。
+- Forbidden action: 禁止用隐藏现行版本面板、删除历史文件提示、默认新建 master、吞掉 current-version 错误、前端本地猜测主档、仅提交后报错或只翻译 toast 来掩盖版本链状态不一致。
+- Evidence: 任务 `doc/tasks/20260808-dcc-upload-optimization-fixes/`，上传页新增集中式升版阻断、编号链错误中文化、版本格式前端校验、生效日期允许补录提示和未分类允许规则文案。
 
 ## DCC 预览不可用原因短路门禁
 
@@ -453,11 +516,11 @@
 ## Element Plus 全屏弹框挂载门禁
 
 - Trigger: 页面局部区域使用浏览器 `requestFullscreen()` / `:fullscreen` 做最大化，同时局部区域内按钮会打开 `el-dialog`、`ElMessageBox`、下拉面板、签名框、保存结果框或提交确认框。
-- Preflight check: 先确认弹框是否必须在最大化状态可见；若必须可见，弹框组件必须作为 fullscreen 元素子树渲染，并显式设置 `:append-to-body="false"` 或同等非 body teleport 约束；静态合同需同时断言弹框 DOM 位于 fullscreen 容器内部和未 teleport 到 body。
+- Preflight check: 先确认弹框是否必须在最大化状态可见；若必须可见，弹框组件必须作为 fullscreen 元素子树渲染，并显式设置 `:append-to-body="false"` 或同等非 body teleport 约束；自定义签名/确认弹框也必须给 fullscreen 根节点稳定 `data-*` 标识，并断言弹框 DOM 位于该根节点内部和未 teleport 到 body。
 - Blocker: 弹框仍在 fullscreen 容器外、依赖 body 级 overlay、仅通过提高 `z-index` 解决浏览器 fullscreen top layer、或保存/提交按钮在最大化后弹框不可见时必须停止。
-- Verification: 运行目标静态合同；有本地运行态和登录前置时，再用 Playwright 点击最大化后触发弹框，断言弹框可见、可操作且无控制台错误。
+- Verification: 运行目标静态合同；有本地运行态和登录前置时，再用 Playwright 点击最大化后触发弹框，断言 `document.fullscreenElement` 是目标根节点、弹框可见且 `root.contains(dialog)`，并用 `elementFromPoint` 命中弹框确认未被覆盖。
 - Forbidden action: 禁止用随机加大 `z-index`、退出全屏后再弹框、隐藏错误提示、改成普通 toast、或关闭浏览器 fullscreen 能力来绕过遮挡。
-- Evidence: 任务 `doc/tasks/20260729-edhr-fill-workspace-redbox-hide/`，eDHR 填写页最大化后保存/提交弹框原先位于 `.edhr-fill-workspace` 外部，被浏览器全屏层遮挡，修正为在全屏工作区内部渲染并禁用 body teleport。
+- Evidence: 任务 `doc/tasks/20260729-edhr-fill-workspace-redbox-hide/`，eDHR 填写页最大化后保存/提交弹框原先位于 `.edhr-fill-workspace` 外部，被浏览器全屏层遮挡，修正为在全屏工作区内部渲染并禁用 body teleport；任务 `doc/tasks/20260807-frontline-pqc-fullscreen-submit-dialog/`，一线PQC自定义提交签名弹框通过全屏根节点后代关系和 hit-test 验证避免被覆盖；任务 `doc/tasks/20260808-frontline-fullscreen-submit-confirm/`，一线生产正式提交确认从全局 `message.confirm` 改为 fullscreen root 内部自定义确认层，静态合同禁止 body-mounted MessageBox。
 
 ## 动态菜单页签重命名门禁
 
@@ -512,6 +575,42 @@
 - Verification: 聚焦静态合同必须覆盖“FormCenter 分支先于 executionId guard”“跳转批次详情 openRouteForm=1”“详情页二次 openTask 透传 assistUserId”“ActionFormPanel 使用 openTask 嵌入模板快照渲染”，并复跑相邻切换填写人、损耗单打开和 FormCenter 动态表单合同。
 - Forbidden action: 禁止把 FormCenter 槽位伪装成传统批记录 execution、禁止清空 `assistUserId` 让当前登录人代替所选填写人、禁止隐藏后端错误、禁止给普通填写人补模板管理权限来掩盖运行态契约缺失，或用刷新页面绕过。
 - Evidence: 任务 `doc/tasks/20260728-edhr-scrap-assist-switch/`，选择“张可莹 / 损耗单”曾被传统执行页 `executionId` 要求和批记录路线校验拦住；任务 `doc/tasks/20260728-switch-filler-extra-form-candidates/`，真实 wangxin 路径证明附加表单候选可打开后，动态表单抽屉仍因依赖模板管理查询返回 403，需改用 `openTask` 运行态模板快照。
+
+## 前端写入成功与列表刷新失败分层门禁
+
+- Trigger: 新增、修改、删除成功后立即重新读取列表、详情或统一配置，正式提交/电子签名提交响应不确定，且用户可能在失败提示后重试写入；或同一设备页面需要连续创建多条不同员工、工序或业务上下文的独立正式记录。
+- Preflight check: 写请求和后续刷新必须分层处理；写请求返回成功后立即记录已提交状态，并清理新增草稿或阻止同一次提交被原样重放。若业务正式允许连续创建多条独立记录，明确成功后应结束本次填写会话，清空本次业务输入、轮换幂等键，再恢复人员/工序选择和提交入口；失败或响应不确定时必须保留本次输入和原幂等键，不能把重试冒充成下一次独立提交。客户端幂等键还必须显式遵守后端持久化字段或接口契约的长度预算：优先使用固定短前缀加不可预测的会话 token，不得拼接路线、工序、工作站、员工等冗长展示标签；构造后在发请求前校验长度并 fail fast，不得依赖数据库截断。后续刷新失败时必须提示“写入已成功，但列表刷新失败”及正式错误，保留弹框业务上下文但不得把已提交写入误报为保存失败。若写请求已发出但前端收到网络异常、超时或响应不确定，必须先按稳定业务 ID 做只读回执/状态确认：已提交则回填正式回执，并按产品契约锁定本次会话或开始新的独立会话；未提交才显示原始错误并允许用户主动重试；确认本身失败时进入明确的不确定锁定态并提示人工确认。若页面为避免刷新首帧闪回旧默认值而维护浏览器快照，快照必须带版本并按当前登录租户隔离；正式写成功后先同步当前 UI 与快照再提示成功，setup 阶段同步水合，正式 GET 成功后按权威结果重建并校准快照，GET 失败仍进入正式错误态，快照不得变成读取失败 fallback。
+- Blocker: POST/PUT 已成功但 GET 失败后仍保留新增草稿、提示“保存失败”并允许原样重试；连续提交页面明确成功后复用原幂等键、保留上一笔业务输入或仍被永久成功态锁定；DELETE 已成功却先提示成功再被外层 catch 提示删除失败；保存成功后缓存仍保留旧值导致硬刷新首帧闪回，或正式 GET 失败后继续显示缓存并冒充成功；正式提交缺少稳定业务 ID、只读回执查询或不确定锁定态，导致无法区分“服务端已提交但前端丢响应”和“确实未提交”；或代码无法区分写失败、写成功后刷新失败、下一次独立提交与响应不确定时必须停止。
+- Verification: 聚焦静态合同锁定“写成功状态处理先于刷新”、两类错误文案、响应不确定时的只读回执 API/恢复函数/按钮锁定态；连续提交场景还必须锁定“复位只发生在成功响应之后”“下一次使用新幂等键”“失败/finally 不清空输入、不轮换幂等键”“成功结束后人员/工序入口恢复”和“幂等键长度预算及请求前越界阻断”。真实连续提交 E2E 必须记录每轮幂等键长度和唯一性，并核对后端正式记录数与回执映射。首帧快照场景还要锁定租户/版本 key、setup 同步水合、保存成功后同步快照、正式 GET 后校准和 GET 失败不使用缓存；真实 E2E 用 DOM 观察记录新值是否在旧默认值之前出现，并核对保存后、刷新后快照与正式响应一致。刷新失败或响应不确定场景若无正式可控环境，只记录静态分层合同，不得用 mock 成功冒充真实 E2E。
+- Forbidden action: 禁止把写入和刷新放在同一通用失败分支、吞掉刷新异常、失败后本地伪造新行、使用全局未隔离缓存、把缓存升级为权威数据源、在 `finally` 中无条件清空草稿/轮换幂等键，或用保留新增草稿/重复点击让用户重复写入作为刷新或响应丢失补偿；也禁止仅解除按钮锁定却复用上一笔幂等键和业务输入冒充连续报工。
+- Evidence: `doc/tasks/20260807-team-leader-loss-maintenance-dialog/`，损耗 POST/PUT/DELETE 与统一列表刷新分层，避免写成功后因刷新失败重复新增或误报删除失败；`doc/tasks/20260807-pqc-submit-uncertain-recovery/`，PQC 正式提交响应不确定后按 `pqcTaskId` 只读查询提交回执，已提交则恢复回执并锁定，确认失败则进入不确定锁定态；`doc/tasks/20260809-frontline-repeat-submit-reset/`，一线生产明确成功后清空本次填写并轮换幂等键，失败保留原会话，支持多人、多工序连续独立提交；真实四连提进一步证明幂等键需按后端 `varchar(128)` 预算构造，固定短前缀加 draft token 的四个键均为 45 字符且互不重复；`doc/tasks/production-team-save-persistence-20260809/`，批记录测试描述保存后同步租户隔离首帧快照，正式读取随后校准且失败时不使用缓存降级。
+
+## 前端提交前严格验证与草稿态计算隔离门禁
+
+- Trigger: 页面同时存在草稿/预览结果计算和正式提交前置断言，例如 PQC `全部合格`、批量赋值、样本数量精确校验、`assert*ForSubmit`、`get*ForSubmit`、watch/computed 自动重算和提交按钮；或正式提交载荷含后端必填结构字段，如设备必填 PQC 项目的 `itemResults.*.selectedEquipmentId`。
+- Preflight check: 严格提交断言只能放在显式提交 handler 或提交 preflight 内；草稿态、预览态、watch/computed、批量赋值中的结果计算只能读取当前已建立的表单状态，不得调用 submit-only 精确断言，也不得在用户补齐中间态时抛出提交级错误。正式提交结构字段必须在打开签名弹框和发出写请求前逐项校验，前端可选状态不得弱化后端正式必填字段；PQC 设备字段必须按发布 QA 项目的 `equipmentRequired` 与正式设备选项分支校验，一线 PQC 检验方法详情区有正式设备选项时必须显示“检验设备/设备编号”卡片，无正式设备选项时不得显示这两张卡片或“无需设备”占位；一线 PQC 检验类型卡片必须从当前工序正式 `pqcTaskOptions` 去重渲染，缺少 `FIRST` 或 `PATROL` 时不得留下 disabled 首检/巡检卡片。
+- Blocker: 点击批量操作、单元格选择或中间态重算时触发 submit-only 断言、页面出现 `Unhandled error during execution of native event handler`、提交按钮外的 watcher 阻断继续填写、正式写请求因本地可预检字段缺失才被后端拒绝、无设备 PQC 项目仍提示设备必填、有设备 PQC 项目不显示“检验设备/设备编号”卡片、无设备 PQC 项目显示“无需检验设备/无需设备编号”占位卡、无正式 `FIRST` 任务的工序仍显示首检卡片，或静态合同无法证明 submit-only 函数只从提交链路调用、类型卡片只从正式任务选项渲染时必须停止。
+- Verification: 聚焦静态合同必须同时覆盖“草稿计算不调用 submit-only 函数”“提交 handler 仍调用严格断言”“正式必填结构字段在签名前校验”“无设备 PQC 项目不强制设备字段”“有设备项目显示检验设备/设备编号卡片、无设备项目隐藏卡片且无占位文案”和“检验类型卡片从当前工序正式 `pqcTaskOptions` 动态渲染且无 disabled 占位卡”；真实写入 E2E 需覆盖中间态批量赋值、最终提交、无 pageerror、提交前无目标写请求、提交后 DB 只生成一组正式记录。
+- Forbidden action: 禁止用禁用按钮、吞异常、默认合格、减少样本数、API-only 写入、前端可选状态、签名后再报错或把严格断言从提交链路移除来绕过页面中间态崩溃和正式载荷缺字段。
+- Evidence: 任务 `doc/tasks/20260807-frontline-pqc-formal-submit-write-e2e/`，PQC 草稿结果计算曾在“全部合格”过程中调用 submit-only 样本数量断言，导致正式提交前页面崩溃；修正为草稿读取当前选择值，提交时仍执行严格样本断言。任务 `doc/tasks/fix-selected-equipment-id/`，一线提交曾让 `itemResults.CODX-AO5-QA-FINAL.selectedEquipmentId` 缺失进入后端，修正为签名前逐项校验设备身份。任务 `doc/tasks/20260808-pqc-optional-equipment-items/`，QA 规程项目 `equipmentRequired=false` 且无设备选项时，一线 PQC 不应强制设备选择。任务 `doc/tasks/20260808-pqc-hide-equipment-cards/`，用户最终确认有设备检验方法需要显示“检验设备”和“设备编号”卡片，无设备检验方法隐藏这两张卡片且不显示“无需设备”占位。任务 `doc/tasks/20260808-frontline-pqc-hide-first-inspection-card/`，无正式 `FIRST` PQC 任务的工序不显示首检卡片，类型卡片改由当前工序正式 `pqcTaskOptions` 动态渲染。
+
+## 动态菜单真实可见性缓存门禁
+
+- Trigger: 新增或调整动态菜单、隐藏静态路由、角色菜单绑定、租户套餐菜单、菜单排序，或用户反馈“admin 看不到新页签/菜单”。
+- Preflight check: 先确认本机后端 health 可用，再用目标租户/账号真实登录态读取 `get-permission-info`，核对目标菜单的 `id/name/path/component/componentName/visible/parentId` 和父级路径；随后用 fresh Playwright 登录验证侧边栏实际菜单文本和目标页面锚点。
+- Blocker: 后端端口不可达、权限响应不含目标菜单、侧边栏缺目标菜单、目标页面只能直达但侧边栏无入口、或现有浏览器会话仍使用旧 `roleRouters` 却被误判为代码缺失时必须停止并分层归因。
+- Verification: 证据必须同时包含后端 health、权限响应目标菜单链、fresh 登录侧边栏菜单列表、目标页 URL/DOM 锚点、`consoleErrors=[]` 和 `pageErrors=[]`；若仅旧会话不可见，说明需要刷新页面或退出后重新登录以重建前端菜单缓存。
+- Forbidden action: 禁止只用 API-only、SQL 查询、隐藏路由存在、直接 URL 可打开或静态合同 PASS 代替侧边栏真实可见；禁止清空全库 Redis、硬编码前端入口、切换账号/租户或把旧会话缓存问题写成生产代码未实现。
+- Evidence: 任务 `doc/tasks/20260808-edhr-batch-record-test-tab/verification-report.md`，`批记录测试` 菜单后端权限响应已包含 `900440`，fresh Playwright 登录后侧边栏可见并打开目标页；旧会话仍不可见需刷新或重新登录。
+
+## 前端行级异步结果归属门禁
+
+- Trigger: 表格每行可启动异步任务、轮询执行结果、展示历史回复或允许多行先后执行，尤其存在“重新测试清空本行、其它行保留、终态后可查看”的交互。
+- Preflight check: 历史状态必须按稳定业务身份建表；启动时冻结该行 key、executionId 和本次 run token，轮询写入还要校验独立 poll token。重新启动只清空当前行，处理函数必须同步阻止快速连点，不能只依赖 Vue 下一帧刷新按钮 disabled。修改或删除行后必须丢弃该行旧历史，结果弹窗只能复制所点击行的终态快照。需要对当前 Tab 全量执行时，单行处理函数必须返回一个等待正式终态的 Promise，批量入口对完整 Tab 行集合逐行 `await`；不能调用一个只安排定时器便立即返回的旧处理函数来冒充顺序执行。
+- Blocker: 结果只保存在全局弹窗、轮询只校验当前全局 executionId、旧请求可在后续行启动后回写、启动异常仍生成可点击历史、快速连点能创建多个执行批次，或批量循环在上一行尚未终态时启动下一行时必须停止。业务终态 PASS、FAIL、BLOCKED 必须与启动/查询传输异常分开：前者记录历史并继续下一行，后者明确指出失败行并停止后续执行。
+- Verification: 聚焦合同必须覆盖清空时序、稳定 key、executionId、run/poll token、终态才置 ready、错误保持不可查看、同步防重入，以及批量循环对可等待单行结果的逐行 `await`；真实 E2E 要在源码与运行态稳定的连续会话中顺序执行至少两行，记录两个不同 executionId，断言 A 运行时仅 A 灰、A 终态绿、B 运行时 A 仍绿、B 终态后两行均绿，并重新打开 A 证明 executionId 与回复未串到 B。批量场景还必须观察 `已完成数/总数` 单调递增，证明非 PASS 业务终态不会中断后续行，且全部终态后每行历史均可查看；热更新会重建组件内存状态，发生热更新后的结果不能作为历史丢失缺陷或通过证据，必须待源码稳定后重跑。
+- Forbidden action: 禁止用 localStorage、默认成功、最后一次全局回复、数组行号、弹窗当前 ID、固定延迟、并发 `Promise.all` 或不可等待的递归定时器替代正式逐行归属和终态顺序；禁止吞掉启动/读取错误或在非终态提前启用历史。
+- Evidence: 任务 `doc/tasks/20260809-batch-record-test-row-history/verification-report.md`，真实测试租户顺序执行 `132`、`133`，证明两行灰绿状态、弹窗标题、执行编号和 Codex CLI 回复相互隔离。任务 `doc/tasks/20260809-batch-record-tab-test-all/verification-report.md`，生产组长 Tab 的 execution `139..143` 顺序完成，FAIL/BLOCKED 业务终态继续后续行，五行均保留正式 Codex CLI 回复。
 
 ## 验证方式
 

@@ -180,6 +180,15 @@
 - Forbidden action: 禁止把本地 `.m2` 陈旧产物导致的编译失败误判为产品逻辑失败；禁止删除 `-am` 来节省时间后宣称目标 JUnit 已验证；禁止用旧 surefire 报告冒充当前命令结果。
 - Evidence: `doc\tasks\20260806-schedule-default-shift-hours\execution-log.md`，排产班次小时默认值修复中不带 `-am` 的单模块 Maven 因本地 `system` API 依赖陈旧在测试前失败，最终使用 `-pl yudao-module-mes -am` 的目标 JUnit 命令通过 4 个用例。
 
+### Maven 同模块 target/classes 陈旧门禁
+
+- Trigger: 已修改当前模块 main 源码的方法签名、构造器参数或 mapper 默认方法，但 `mvn -pl <module> -am "-Dtest=..." test` 在 testCompile 阶段仍报旧签名、旧构造器或“找不到刚新增的方法”，且日志显示 main `compile` 为 `Nothing to compile - all classes are up to date`。
+- Preflight check: 先确认生产源码确实包含新签名，再只对当前目标模块运行 `mvn -pl <module> clean test "-Dtest=..." "-Dsurefire.failIfNoSpecifiedTests=false"`；不得清理无关模块 target。
+- Blocker: 当前模块 `clean` 后仍看见旧签名、`target` 删除失败、或存在并行 Maven 写同一模块 target 时，必须停止并按目标目录异常门禁处理。
+- Verification: 记录第一次未重编译的失败、`clean test` 是否进入 Surefire、目标测试数量和 PASS/FAIL。
+- Forbidden action: 禁止把同模块陈旧 class 的 testCompile 失败当成业务失败；禁止靠修改测试绕过旧 class；禁止用全仓清理替代当前模块最小 clean。
+- Evidence: `doc\tasks\20260808-active-order-product-search\execution-log.md`，活跃订单产品搜索新增 `MesMdItemMapper` 构造器依赖和 mapper 方法后，`-pl yudao-module-mes -am` testCompile 仍看到旧 class；仅清理 `yudao-module-mes` 后 main 重新编译，43 个目标测试 PASS。
+
 ### Maven 静态源码合同工作目录门禁
 
 - Trigger: JUnit 静态合同通过 `Files.readString`、`Path.of` 或 `readSource` 读取源码文件，且命令使用 `mvn -pl <module> -am "-Dtest=..." test`；失败文本包含 `NoSuchFileException`、重复模块路径如 `yudao-module-mes\yudao-module-mes\src`，或断言没有命中实际生产实现类。
@@ -197,6 +206,8 @@
 - Verification: 记录 PID、`jcmd Thread.print` 关键栈、失败命令、是否停止了任务自有进程、以及后续标准 Maven 命令是否到达 Surefire。
 - Forbidden action: 禁止强杀全部 Java/Maven、禁止删除无关模块 `target`、禁止在目标目录损坏时提交实现、禁止把环境编译失败写成业务测试失败。
 - Evidence: `doc\tasks\20260803-dcc-docx-preview-system-exception\execution-log.md`，DCC 预览任务中同模块 Maven 卡在 `WinNTFileSystem.delete0`，后续 DCC 编译出现大量 `target\classes` `NoSuchFileException`，最终保持 blocked 未提交。
+- Supplementary evidence: `doc/tasks/20260808-remove-pqc-extra-restrictions/verification-report.md`，一线 PQC 额外限制移除任务中，同一工作区多轮并发 Maven/`clean test`/`compile` 重建 `yudao-module-mes\target`，导致目标测试复跑在 testCompile 阶段出现大量 `target\classes` class 文件缺失；最终仅记录前端类型和静态合同 PASS，后端 Maven 动态验证保持 blocked，待无并发 Maven 窗口复跑。
+- Supplementary evidence: `doc/tasks/20260808-frontline-pqc-requirement-alignment/execution-log.md`，一线 PQC 需求口径对齐任务中，目标 Maven 首轮在 testCompile 前报 `yudao-module-mes\target\classes` 大量 class 缺失；确认源文件存在、等待同模块 Maven 释放并运行 `mvn -pl yudao-module-mes -DskipTests compile` 重建主类后，复跑标准目标 JUnit 到达 Surefire 且 7 个测试 PASS。
 
 ### Maven javac/Lombok class 写入长时间运行门禁
 

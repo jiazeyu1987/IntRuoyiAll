@@ -32,7 +32,7 @@
 
 ## Current Status
 
-ready_for_closeout - 5 条本机任务自有报工随机数据已写入；用户截图对应的 admin 空表问题已通过正式负责员工范围和前端页签加载触发修复，并通过静态合同、SQL、登录态接口和真实页面只读路径验证；项目级 cleanup/commit/push 尚未执行。
+completed - 5 条本机任务自有报工随机数据已写入；用户截图对应的 admin 空表问题已通过正式负责员工范围和前端页签加载触发修复，并通过静态合同、SQL、登录态接口和真实页面只读路径验证；2026-08-07 已完成任务级 cleanup preview/apply。
 
 ## Completed Work
 
@@ -43,6 +43,7 @@ ready_for_closeout - 5 条本机任务自有报工随机数据已写入；用户
 - 已确认用户截图对应的本机默认账号 `admin` / 用户 `1` 原先没有 `PRODUCTION + EMPLOYEE` 负责范围，导致报工管理按正式员工范围过滤后为空。
 - 已为本机 `admin` 增加任务自有 `PRODUCTION + EMPLOYEE + 964` 负责范围记录 `980044`，备注为 `CODX-RPT-20260806 admin production report visibility`。
 - 已修复生产组长独立页默认停留在“人员管理”后，切换到“报工管理”不会触发 `getSubmissionList()` 的前端缺口。
+- 已于 2026-08-07 执行 `task-closeout-cleanup` preview/apply，保留核心任务记录并清理两份临时 evidence 文件。
 
 ## Verification Evidence
 
@@ -54,11 +55,11 @@ ready_for_closeout - 5 条本机任务自有报工随机数据已写入；用户
 - DATA GREEN：本机 SQL 复验 `admin_visible_marker_count=5`；admin 登录态接口 pageSize=50 返回业务码 `0`，任务事件 ID `161-165` 命中 `5` 条。
 - UI REGRESSION：真实页面只读路径登录 `芋道源码/admin`，进入 `/mes/pro/process-pool/production-leader` 后点击“报工管理”，实际请求 `leaderType=PRODUCTION&submitDate=2026-08-06&pageNo=1&pageSize=10`，返回 `total=25`、页面可见 `10` 行、组长写请求数 `0`、`pageErrors=0`。
 - 证据校验：`database-schema-delivery` validator PASS，详见 `verification-report.md`。
+- CLOSEOUT GREEN：`task_closeout.py --task-id 20260806-production-leader-feedback-random-data --mode preview` 与 `--mode apply` 均成功；仅删除临时 `bug-regression-evidence.md` 和 `database-schema-evidence.md`。
 
 ## Remaining Blockers
 
-- 数据新增和业务验证无剩余阻塞。
-- 项目级 closeout 的 cleanup/commit/push 未执行：当前 `int_main` 工作区存在大量本任务外既有脏改动，需单独确认收尾策略后再处理提交和推送。
+- 无。Git 提交或推送未获用户请求，且按项目规则不作为本任务完成门禁。
 
 ## 设计约束检查
 

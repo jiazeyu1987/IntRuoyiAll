@@ -64,6 +64,7 @@
       <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
       <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
       <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
+      <el-tab-pane label="生产组长工作台" name="workbench" data-production-leader-module-tab-workbench />
     </el-tabs>
     <div
       v-if="showProductionModuleTabs"
@@ -498,6 +499,7 @@
         <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
+        <el-tab-pane label="生产组长工作台" name="workbench" data-production-leader-module-tab-workbench />
       </el-tabs>
       <div
         v-if="showProductionModuleTabs"
@@ -1163,6 +1165,7 @@
         <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
+        <el-tab-pane label="生产组长工作台" name="workbench" data-production-leader-module-tab-workbench />
       </el-tabs>
       <div
         v-if="showProductionModuleTabs"
@@ -1560,6 +1563,7 @@
         <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
+        <el-tab-pane label="生产组长工作台" name="workbench" data-production-leader-module-tab-workbench />
       </el-tabs>
       <div
         v-if="showProductionModuleTabs"
@@ -1666,6 +1670,7 @@
         <el-tab-pane label="活跃订单池" name="activeOrder" data-production-leader-module-tab-active-order />
         <el-tab-pane label="看板" name="dashboard" data-production-leader-module-tab-dashboard />
         <el-tab-pane label="工序配置" name="processConfig" data-production-leader-module-tab-process-config />
+        <el-tab-pane label="生产组长工作台" name="workbench" data-production-leader-module-tab-workbench />
       </el-tabs>
       <div
         v-if="showProductionModuleTabs"
@@ -2506,7 +2511,7 @@
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="分配数量" width="270">
+          <el-table-column label="分配数量" width="330">
             <template #default="{ row }">
               <div class="team-leader-workbench__allocation-quantity-cell">
                 <el-input-number
@@ -2535,6 +2540,14 @@
                   @click="applyAllocationShortcut(row, 'HALF')"
                 >
                   一半
+                </el-button>
+                <el-button
+                  size="small"
+                  data-team-leader-allocation-clear
+                  :disabled="row.editable === false"
+                  @click="clearAllocationQuantity(row)"
+                >
+                  清除
                 </el-button>
               </div>
             </template>
@@ -2884,15 +2897,19 @@ const props = withDefaults(
 
 const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
-const activePqcModuleTab = ref<'personnel' | 'management' | 'dashboard' | 'detail' | 'history'>('personnel')
+const activePqcModuleTab = ref<'personnel' | 'management' | 'dashboard' | 'detail' | 'history'>('management')
 const activeProductionModuleTab = ref<
-  'personnel' | 'report' | 'reportHistory' | 'activeOrder' | 'dashboard' | 'processConfig'
->('personnel')
+  | 'personnel'
+  | 'report'
+  | 'reportHistory'
+  | 'activeOrder'
+  | 'dashboard'
+  | 'processConfig'
+  | 'workbench'
+>('report')
 
 const getDefaultSubmissionDate = () => formatDate(new Date(), 'YYYY-MM-DD')
-const getInitialSubmissionDate = (leaderType: TeamLeaderType) =>
-  leaderType === 'PQC' ? undefined : getDefaultSubmissionDate()
-const SUBMISSION_DEFAULT_DATE_DISCOVERY_LOOKBACK_DAYS = 14
+const getInitialSubmissionDate = (_leaderType: TeamLeaderType) => undefined
 const loading = ref(false)
 const detailLoading = ref(false)
 const reviewSubmitting = ref(false)
@@ -3199,6 +3216,9 @@ const showProductionPersonnelModule = computed(
 const showProductionReportModule = computed(
   () => isProductionLeader.value && (!showProductionModuleTabs.value || activeProductionModuleTab.value === 'report')
 )
+const showProductionWorkbenchModule = computed(
+  () => isProductionLeader.value && showProductionModuleTabs.value && activeProductionModuleTab.value === 'workbench'
+)
 const showProductionReportHistoryModule = computed(
   () => isProductionLeader.value && showProductionModuleTabs.value && activeProductionModuleTab.value === 'reportHistory'
 )
@@ -3230,6 +3250,7 @@ const showPqcFormHistoryModule = computed(
 )
 const showPqcManagementModule = computed(
   () =>
+    showProductionWorkbenchModule.value ||
     showProductionReportModule.value ||
     showProductionReportHistoryModule.value ||
     showPqcFormHistoryModule.value ||
@@ -3674,6 +3695,17 @@ const resolveCurrentLeaderType = (): TeamLeaderType => {
 const requirePositiveInteger = (value: unknown, message: string) => {
   const parsed = Number(value)
   if (!Number.isFinite(parsed) || parsed <= 0 || !Number.isInteger(parsed)) {
+    throw new Error(message)
+  }
+  return parsed
+}
+
+const normalizeAllocationSubmitQuantity = (value: unknown, message: string) => {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return 0
+  }
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed < 0 || !Number.isInteger(parsed)) {
     throw new Error(message)
   }
   return parsed
@@ -4706,6 +4738,12 @@ const applyAllocationShortcut = (
   }
 }
 
+const clearAllocationQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
+  if (line.editable === false) return
+  line.allocatedQuantity = 0
+  markManualAllocation()
+}
+
 const previewFifoAllocation = async () => {
   const eventId = requirePositiveNumber(reviewEvent.value?.id, '工序池提交事件编号不能为空')
   allocationPreviewLoading.value = true
@@ -4737,10 +4775,17 @@ const previewFifoAllocation = async () => {
 }
 
 const buildAllocationSubmitLines = (): TeamLeaderReportAllocationLine[] => {
-  return allocationRows.value.filter((line) => line.editable !== false).map((line) => ({
-    activeOrderId: requirePositiveNumber(line.activeOrderId, '活跃订单不能为空'),
-    allocatedQuantity: requirePositiveInteger(line.allocatedQuantity, '分配数量必须为正整数')
-  }))
+  return allocationRows.value.filter((line) => line.editable !== false).flatMap((line) => {
+    const allocatedQuantity = normalizeAllocationSubmitQuantity(line.allocatedQuantity, '分配数量必须为0或正整数')
+    if (allocatedQuantity === 0) {
+      if (line.activeOrderId === undefined) return []
+      return []
+    }
+    return [{
+      activeOrderId: requirePositiveNumber(line.activeOrderId, '活跃订单不能为空'),
+      allocatedQuantity
+    }]
+  })
 }
 
 const allocationSaveRequestIdentity = (request: {
@@ -5502,20 +5547,10 @@ const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
 }
 
 async function getSubmissionList() {
-  ensureSubmissionQueryDate()
   loading.value = true
   loadError.value = ''
   try {
     const data = await getTeamLeaderSubmissionPage(buildSubmissionParams())
-    if ((data.total || 0) === 0 && isSubmissionDefaultDateDiscoveryContext()) {
-      const nearestPage = await loadNearestSubmissionDatePage(buildSubmissionParams())
-      if (nearestPage) {
-        applyDiscoveredSubmissionDate(nearestPage.submitDate)
-        submissionList.value = nearestPage.data.list || []
-        submissionTotal.value = nearestPage.data.total || 0
-        return
-      }
-    }
     submissionList.value = data.list || []
     submissionTotal.value = data.total || 0
   } catch (error) {
@@ -5562,57 +5597,6 @@ const hasSubmissionValue = (value: unknown) => {
 
 const hasNonDateSubmissionQueryParams = () =>
   SUBMISSION_NON_DATE_QUERY_PARAM_KEYS.some((key) => hasSubmissionValue(queryParams[key]))
-
-const shiftSubmissionDate = (submitDate: string, dayOffset: number) => {
-  const [year, month, day] = submitDate.split('-').map(Number)
-  const date = new Date(year, month - 1, day)
-  date.setDate(date.getDate() + dayOffset)
-  return formatDate(date, 'YYYY-MM-DD')
-}
-
-const isSubmissionDefaultDateDiscoveryContext = () =>
-  activeLeaderTab.value === 'PRODUCTION' &&
-  activeProductionModuleTab.value === 'report' &&
-  queryParams.leaderType === 'PRODUCTION' &&
-  queryParams.submitDate === getDefaultSubmissionDate() &&
-  !hasNonDateSubmissionQueryParams() &&
-  submissionMultiFilterState.conditions.length === 0 &&
-  submissionMultiFilterState.appliedConditions.length === 0
-
-const loadNearestSubmissionDatePage = async (baseParams: TeamLeaderSubmissionPageReqVO) => {
-  if (!baseParams.submitDate) {
-    throw new Error('生产报工默认提交日期不能为空')
-  }
-  for (let dayOffset = 1; dayOffset <= SUBMISSION_DEFAULT_DATE_DISCOVERY_LOOKBACK_DAYS; dayOffset++) {
-    const candidateSubmitDate = shiftSubmissionDate(baseParams.submitDate, -dayOffset)
-    const data = await getTeamLeaderSubmissionPage({
-      ...baseParams,
-      submitDate: candidateSubmitDate,
-      pageNo: 1
-    })
-    if ((data.total || 0) > 0) {
-      return {
-        submitDate: candidateSubmitDate,
-        data
-      }
-    }
-  }
-  return undefined
-}
-
-const applyDiscoveredSubmissionDate = (submitDate: string) => {
-  queryParams.pageNo = 1
-  queryParams.submitDate = submitDate
-}
-
-const ensureSubmissionQueryDate = () => {
-  if (resolveCurrentLeaderType() !== 'PRODUCTION') return
-  const currentSubmitDate =
-    typeof queryParams.submitDate === 'string' && queryParams.submitDate.trim()
-      ? queryParams.submitDate.trim()
-      : getDefaultSubmissionDate()
-  queryParams.submitDate = currentSubmitDate
-}
 
 const clearSubmissionFilterParams = () => {
   queryParams.employeeUserId = undefined
@@ -5703,7 +5687,10 @@ watch(activePqcModuleTab, async (tab) => {
 })
 
 watch(activeProductionModuleTab, async (tab) => {
-  if ((tab === 'report' || tab === 'reportHistory') && activeLeaderTab.value === 'PRODUCTION') {
+  if (
+    (tab === 'workbench' || tab === 'report' || tab === 'reportHistory') &&
+    activeLeaderTab.value === 'PRODUCTION'
+  ) {
     queryParams.leaderType = 'PRODUCTION'
     queryParams.pageNo = 1
     queryParams.submissionReviewStatus = undefined
@@ -5820,6 +5807,7 @@ const submitReview = async () => {
     return
   }
   reviewSubmitting.value = true
+  let writeCompleted = false
   try {
     const leaderType = resolveCurrentLeaderType()
     const reviewRemark = reviewForm.reviewRemark.trim() || undefined
@@ -5864,9 +5852,17 @@ const submitReview = async () => {
         ...reviewSignaturePayload
       })
     }
+    writeCompleted = true
     ElMessage.success(reviewDialogMode.value === 'ALLOCATION' ? '分配已保存' : '复核已提交')
     reviewVisible.value = false
-    await getSubmissionList()
+    if (isProductionLeader.value && reviewForm.reviewStatus === 'APPROVED') {
+      await Promise.all([
+        getSubmissionList(),
+        loadActiveOrders()
+      ])
+    } else {
+      await getSubmissionList()
+    }
   } catch (error) {
     if (reviewDialogMode.value === 'ALLOCATION' && isReportAllocationVersionConflict(error)) {
       try {
@@ -5878,7 +5874,9 @@ const submitReview = async () => {
       }
       return
     }
-    ElMessage.error(resolveErrorMessage(error, '复核提交失败'))
+    ElMessage.error(resolveErrorMessage(error, writeCompleted
+      ? (reviewDialogMode.value === 'ALLOCATION' ? '分配已保存，但列表刷新失败' : '复核已提交，但列表刷新失败')
+      : '复核提交失败'))
   } finally {
     reviewSubmitting.value = false
   }
@@ -6219,7 +6217,7 @@ const confirmActiveOrderReleaseApplicationReceipt = async (
   row: TeamLeaderActiveOrderRespVO,
   previousReceipt: ActiveOrderReleaseReceiptSnapshot
 ): Promise<ActiveOrderReleaseReceiptConfirmation> => {
-  const rows = await getTeamLeaderActiveOrderList({ ignoreErrorMessage: true })
+  const rows = await getTeamLeaderActiveOrderList()
   syncActiveOrderReceiptRows(rows)
   const receipt = rows.find((candidate) => candidate.id === row.id)
   if (!receipt) {
@@ -6563,14 +6561,12 @@ onMounted(() => {
       queryParams.leaderType = 'PRODUCTION'
       queryParams.submissionReviewStatus = undefined
       clearInitialSubmissionVisibleDefaultFilter()
-      ensureSubmissionQueryDate()
       getSubmissionList()
     }
   } else {
     refreshPqcPersonnel()
     if (!showPqcModuleTabs.value) {
       clearInitialSubmissionVisibleDefaultFilter()
-      ensureSubmissionQueryDate()
       getSubmissionList()
     }
   }

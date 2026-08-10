@@ -21,13 +21,23 @@ assert.match(
 )
 assert.match(
   source,
-  /QA_PROCESS_SCOPE_BINDINGS_BY_PROJECT_CODE[\s\S]*ID:[\s\S]*'清洗\/精洗':\s*\['精洗',\s*'清洗'\]/,
-  'Balloon pressure-pump wash items must be explicitly bound to the formal fine-wash and cleaning route processes.'
+  /QA_PROCESS_SCOPE_BINDINGS_BY_PROJECT_CODE[\s\S]*ID:[\s\S]*清洗:\s*\['清洗',\s*'清洗\/精洗'\][\s\S]*精洗:\s*\['精洗',\s*'清洗\/精洗'\]/,
+  'Balloon pressure-pump split wash rows must first match their exact formal route process and explicitly allow the composite 清洗/精洗 route process.'
+)
+assert.doesNotMatch(
+  source,
+  /'清洗\/精洗':\s*\[/,
+  'Balloon pressure-pump visible draft rows must not keep the compound 清洗/精洗 process binding.'
 )
 assert.doesNotMatch(
   source,
   /'清洗\/精洗':\s*\[[^\]]*'粗洗'/,
   'Balloon pressure-pump formal QA does not configure rough wash and must not publish a rough-wash regulation.'
+)
+assert.match(
+  source,
+  /const resolveQaProcessBindingGroups[\s\S]*configuredBindings\[0\] === processName[\s\S]*configuredBindings\.map\(\(binding\) => \[binding\]\)[\s\S]*const matchedProcesses\s*=\s*resolveQaProcessBindingGroups/,
+  'QA route-process matching must evaluate explicit process-name groups in order so 清洗 can match 清洗 before 清洗/精洗.'
 )
 assert.match(
   source,

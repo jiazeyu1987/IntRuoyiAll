@@ -1,0 +1,116 @@
+{
+  "status": "BLOCKED",
+  "baseUrl": "http://127.0.0.1:8081",
+  "tenant": "芋道源码",
+  "username": "zhaohaichen",
+  "targetPath": "/dcc/controlled-file/upload",
+  "target": {
+    "project": {
+      "keyword": "IDI",
+      "code": "IDI",
+      "name": "按压式球囊扩充压力泵",
+      "docControlNo": "1"
+    },
+    "taxonomyPath": [
+      "技术文档",
+      "设计和开发策划阶段",
+      "技术调研报告"
+    ],
+    "historyFileName": "按压式球囊扩充压力泵技术调研报告.pdf",
+    "historyVersion": "V1.0"
+  },
+  "pageErrors": [],
+  "consoleErrors": [],
+  "requestFailures": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/user-table-column-config/get?tableKey=system.user.selectDialog",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/project-codes/page?pageNo=1&pageSize=50&status=ENABLE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/file-categories",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/file-type-taxonomies/upload-options",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://hm.baidu.com/hm.gif?hca=ECA4E7EFC811C215&cc=1&ck=1&cl=24-bit&ds=1440x960&vl=960&ep=4217%2C4217&et=3&ja=0&ln=zh-cn&lo=0&rnd=1060197576&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Fdcc%2Fcontrolled-file%2Fupload&v=1.3.2&lv=1&sn=14341&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Fdcc%2Fcontrolled-file%2Fupload",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://hm.baidu.com/hm.gif?hca=ECA4E7EFC811C215&cc=1&ck=1&cl=24-bit&ds=1440x960&vl=960&et=0&ja=0&ln=zh-cn&lo=0&rnd=1977234554&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Fdcc%2Fcontrolled-file%2Fupload&v=1.3.2&lv=1&api=4_0&sn=14341&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Fdcc%2Fcontrolled-file%2Fupload&tt=%E7%91%9B%E6%B3%B0%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "dccWriteRequests": [],
+  "targetResponses": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/file-type-taxonomies/upload-options",
+      "httpStatus": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/project-codes/page?pageNo=1&pageSize=50&status=ENABLE",
+      "httpStatus": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/project-codes/page?pageNo=1&pageSize=50&status=ENABLE&keyword=IDI",
+      "httpStatus": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/file-type-taxonomies/upload-options",
+      "httpStatus": 200
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/upload-name-options?dccProjectCodeId=129&fileTypeTaxonomyId=139",
+      "httpStatus": 200
+    }
+  ],
+  "dataPreflight": {
+    "blocked": true,
+    "reason": "target history file option is missing in local data",
+    "project": {
+      "id": 129,
+      "code": "IDI",
+      "name": "按压式球囊扩充压力泵",
+      "docControlNo": "1"
+    },
+    "taxonomy": {
+      "id": 139,
+      "path": [
+        "技术文档",
+        "设计和开发策划阶段",
+        "技术调研报告"
+      ]
+    },
+    "optionCount": 0,
+    "optionSamples": []
+  },
+  "blockedReason": "target history file option is missing in local data",
+  "screenshotPath": "E:\\IntRuoyi\\output\\playwright\\20260808-dcc-upload-optimization-fixes\\dcc-upload-history-revision-readonly.png"
+}

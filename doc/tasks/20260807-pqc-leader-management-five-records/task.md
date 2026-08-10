@@ -12,14 +12,15 @@
 - [x] M2 记录 BDD 与 RED，确认任务标识不存在，并排除并发写入冲突。
 - [x] M3 为 5 个任务自有的单工序 ACTIVE 活跃订单各创建 1 条真实一线生产来源，再使用 Playwright 通过真实一线 PQC 页面各完成 1 次正式提交。
 - [x] M4 通过真实 PQC 组长页面和只读 API/数据库复核新增 5 条数据及完整关联。
-- [ ] M5 完成证据校验、经验沉淀和任务清理；等待 Git 提交与推送。
+- [x] M5 完成证据校验、经验沉淀和任务清理。
+- [x] M6 按用户澄清将目标检验员调整到 `芋道源码/admin` 的 PQC 人员范围，并通过 `admin` 真实页面验收 5 条数据。
 
 ## Expected Verification
 
 - 写入前核对真实表结构和正式提交样本，确认 PQC 任务、PQC 事件、PQC 记录、逐件/项目明细和 QA 规程来源。
 - `RED`：任务标识 `CODX-PQC-20260807` 在正式 PQC 提交链路中的命中数为 `0`。
 - `GREEN`：真实一线 PQC 页面连续完成 5 次提交，5 条记录各自具有正式 PQC task/event/record 和结构化检验项目数据。
-- 使用目标 PQC 组长登录真实前端 `PQC管理`，断言 5 条新增记录均可见，列表接口业务码为 `0`。
+- 使用 `芋道源码/admin` 登录真实前端 `PQC管理`，断言 5 条新增记录均可见，列表接口业务码为 `0`。
 - 使用只读 API/数据库核对租户、实际检验人、提交日期、工单/工序、QA 规程快照、检验数量和任务标识。
 
 ## Applicable Experience Gate
@@ -30,7 +31,7 @@
 
 ## Current Status
 
-ready_for_closeout - 5 条真实一线 PQC 提交、PQC 组长页面验收、数据库一致性验证、经验沉淀、任务清理和本地提交均已完成；GitHub 代理 `127.0.0.1:7890` 未运行，推送暂时阻塞。
+completed - 5 条真实一线 PQC 提交已存在于“芋道源码”租户；检验员 `659` 已通过真实页面补齐 PQC 权限角色并调整到 `admin` 的启用人员范围，`芋道源码/admin` 的 `PQC管理` 已验收 5 条目标数据。任务附属临时产物已完成 preview/apply 清理，正式业务数据和三份核心任务记录保留。
 
 ## Verification Evidence
 
@@ -42,21 +43,27 @@ ready_for_closeout - 5 条真实一线 PQC 提交、PQC 组长页面验收、数
 - 目标工单 `980028..980032` 的真实生产来源事件为 `171..175`；正式一线 PQC 页面提交形成任务 `223..227`、PQC 事件 `181..185` 和 PQC 记录 `104..108`。
 - 5 个任务均为 `SUBMITTED`，计划/实际检验数量均为 `3/3`，实际检验人均为 `659`，每个任务各有 3 条完整逐件明细，共 15 条。
 - PQC 组长 `512/huzonggang` 的真实页面 `PQC管理` 已显示 5 个目标工单；只读分页接口按任务 ID 命中 5 条，业务码为 `0`。
+- 用户补充指定 `芋道源码/admin` 后，只读核对确认目标事件仍属于 tenant `1`，但检验员 `659` 的启用 PQC 人员范围归属组长 `512`；`admin/id=1` 当前只负责员工 `1606、1500`，因此目标 5 条对 `admin` 不可见。
+- `芋道源码/admin` 通过用户管理真实页面为账号 `659/shangmengying` 保留现有角色并追加 `PQC权限角色/pqc_permission`；角色关系为 tenant `1` 的 `system_user_role.id=4558`。
+- 原组长 `512` 的人员范围 `980013` 已通过真实页面禁用，`admin/id=1` 已通过人员管理真实页面创建启用范围 `980046`，满足同一检验员只归属一个启用 PQC 组长的正式规则。
+- `芋道源码/admin` 真实页面 `PQC管理` 与分页响应均命中 5 条目标工单，控制台错误 `0`、页面错误 `0`；截图 `output/playwright/20260807-pqc-admin-five-records.png` 已视觉检查。
+- 数据库复核：任务 `223..227` 均为 tenant `1`、`SUBMITTED`、`3/3`；事件 `181..185` 均为 `PQC_INSPECTION`、检验员 `659`；记录 `104..108` 均为 `SUCCESS`，每个任务各有 3 条逐件明细。
+- `task-closeout-cleanup` preview/apply 均通过，删除范围仅为本轮任务附属 E2E 脚本、诊断日志、结果 JSON 和临时截图；保留 `task.md`、`execution-log.md`、`verification-report.md` 及正式数据。
 - Playwright 截图：`output/playwright/20260807-pqc-leader-management-five-records.png`；结构化运行结果：`e2e-result.json`。
 - 临时登录密码已在 `finally` 中恢复，账号 `512/659` 均无任务凭据标记残留。
 - `task-closeout-cleanup` preview/apply 均通过，只保留任务三份核心记录；一次性 SQL、E2E 脚本、结果 JSON 和临时截图已删除。
 
 ## Remaining Blockers
 
-- Git push blocker：全局 Git 配置 `http.https://github.com.proxy=http://127.0.0.1:7890`，端口检查为 `TcpTestSucceeded=False`，`git push origin int_main` 无法连接 GitHub。未禁用或绕过用户代理配置；分支仍领先 `origin/int_main`。
-- 共享分支存在并发任务文件，本次提交已只包含任务自有记录、清理删除项和本次经验条目。
+- 无。
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
-- `是否从根因和长期维护角度解决`：是，使用正式一线 PQC 提交和 PQC 组长管理读模型链路。
+- `是否从根因和长期维护角度解决`：是，使用正式一线 PQC 提交、正式 PQC 权限角色和唯一启用人员范围链路，使指定 `admin` 的正式读模型可见。
 - `是否存在临时补丁或绕过`：否；5 个待检轮次是可追踪的任务自有测试 fixture，最终 5 条提交仍由真实一线页面和正式后端事务产生。
 
 ## Cleanup Candidates
 
 - `output/playwright/20260807-pqc-leader-management-five-records.png`
+- `output/playwright/20260807-pqc-admin-five-records.png`

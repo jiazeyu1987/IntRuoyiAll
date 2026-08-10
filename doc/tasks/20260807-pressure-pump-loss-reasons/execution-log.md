@@ -1,0 +1,34 @@
+# Execution Log
+
+- Intent: 用户要求为“球囊扩张压力泵”和“按压式球囊扩充压力泵”对应工序随机新增 2～5 条损耗原因，页面显示有意义、人员可理解的中文原因。
+- Scope: 仅本机 `int_main`、真实登录确认的目标租户、两条精确命名路线及其当前工序；仅通过页面新增原因。
+- Skill: 使用 `playwright` 技能执行真实页面检查、写入与最终验证。
+- BDD: 每道工序新增随机数量的可理解损耗原因 -> Given 两条目标路线及其工序均可从真实工序配置页面唯一定位, When 为每道工序从显式业务候选池生成并新增 2～5 条原因, Then 页面为每道工序显示计划数量的中文业务原因且不显示编码占位描述。
+- BDD: 既有和非目标数据保持 -> Given 两条路线已有原因和其它路线均属于非目标数据, When 完成本次新增, Then 既有原因的 ID、编码、描述、启用状态保持不变且其它路线无写入。
+- BDD: 范围或响应异常立即停止 -> Given 路线、工序、原因快照或写响应与冻结计划不一致, When 执行批量页面维护, Then 停止后续写入并按稳定 ID 只读分类，不盲目重放、不切换环境、不使用 SQL 或 API-only 写入。
+- Status: 任务文档已建立；等待经验门禁、运行态与页面范围预检。
+- Experience gate: 已读取 `docs/experience-index.md`，命中生产组长工序配置、真实登录租户范围、表格稳定行定位、写入响应不确定断点恢复和异常路径机器可读状态门禁；摘要已写入 `task.md`。
+- Runtime preflight: 本机 `http://127.0.0.1:8081/` -> HTTP `200`；`http://127.0.0.1:48081/actuator/health` -> `UP`。
+- Playwright prerequisite: `npx` 位于 `D:\Programs\npx.ps1`；项目已有 `playwright@1.60.0` 和真实损耗维护 E2E，可使用本机浏览器执行页面路径。
+- Existing-data note: 历史任务记录表明两条目标路线可能仍含 `RLR0807M-*` 编码式占位原因；本次先用当前真实页面重新冻结现状，不直接沿用历史数量。
+- Read-only scope: Playwright 真实登录 `芋道源码/admin`，`process-config/list` 返回 `106` 行；两条目标路线各 14 道工序。`球囊扩张压力泵` 初始原因 `0` 条；`按压式球囊扩充压力泵` 初始原因 `34` 条且全部匹配 `RLR0807M-*`，5 道工序仅 1 条。只读检查 MES 写请求 `0`、page error `0`、console error `0`、目标网络失败 `0`。
+- Plan preflight correction: 首次计划校验因脚本将接口未单独返回的 `sort/routeProcessId` 归一化为 `undefined/NaN`，与 JSON 快照中的省略值/`null` 不一致而 fail fast；未产生写请求。随后改为读取正式行 `sort` 并从父行绑定原因 `routeProcessId`，重新 inspect/plan 通过。
+- Plan gate: 14 类工序均具有 5 条显式中文候选原因；按稳定 `routeProcessId` 的 SHA-256 种子生成最终 `2..5` 条计划。最终 `106` 条，分布 `2:7、3:4、4:5、5:12`；写入为 `34` 条原位修改和 `72` 条新增，无未知工序、候选不足、重名或数据漂移。
+- RED: `node doc\\tasks\\20260807-pressure-pump-loss-reasons\\pressure-pump-loss-reasons.e2e.mjs red` -> FAIL（预期），共 `53` 项不满足：14 道工序原因数为 0、5 道工序原因数为 1、34 条原因为 `RLR0807M-*` 占位描述。
+- Status: 范围、随机计划和 RED 已冻结；准备按真实维护弹框执行计划内写入。
+- Apply attempt 1: 第一个维护弹框已打开，但路线名与“工艺路线：”位于同一文本节点，精确文本定位超时；实际 MES 写请求 `0`，修正为弹框上下文包含匹配。
+- Apply attempt 2: 首条新增已返回业务码 `0`，刷新后行定位因 `has` 作用域错误超时；实际写请求 `1`。全新分类确认该条已完成、其余 `105` 条 pending、漂移 `0`，修正为维护表行 `hasText` 定位，并把机器可读断点记录提前到每次业务码 `0` 后。
+- Apply attempt 3: 从断点继续后完成 `球囊扩张压力泵` 全部 14 道工序的 `54` 条新增；进入第二条路线首条修改时，点击修改使原文本离开 DOM，动态行定位失效。断点记录 `53` 条本轮成功，加上前次 `1` 条共 `54` 条已完成，无 page error、console error 或目标网络失败。
+- Apply attempt 4 pre-write: 编辑器启用状态实际位于 `input[role=switch]`，组件根节点无 `aria-checked`；断言在写入前 fail fast，本轮写请求 `0`，修正为读取正式 switch input。
+- GREEN apply: 全新分类 -> `completed=54`、`pending=52`、`diverged=0`；续跑真实维护弹框 -> PASS，本轮 `52` 条 PUT/POST 均返回业务码 `0`，实际写请求数与 pending 完全一致，page error `0`、console error `0`、目标网络失败 `0`。累计完成 `34` 条占位原因原位修改和 `72` 条新增。
+- Status: 页面写入完成；等待全新浏览器只读复验。
+- GREEN verify: 全新 Playwright 浏览器会话 -> PASS；`targetProcessCount=28`、`finalReasonCount=106`、`placeholderCount=0`、数量分布 `2:7、3:4、4:5、5:12`、MES 写请求 `0`、page error `0`、console error `0`、目标网络失败 `0`。
+- Data integrity: 34 条既有记录的 ID、`reasonCode`、`routeProcessId` 和 `enabled` 与初始快照一致；两条路线的逐工序原因名称集合和数量精确等于冻结计划，页面可见区域不显示内部 `reasonCode`。
+- Visual verification: 已人工检查 `final-pressure-pump.png` 与 `final-press-pressure-pump.png`；两条路线前 7 道工序均显示“表面污渍残留、清洗时间不足、微粒残留、清洁死角遗漏、装配不到位、固化不完全、硅油涂覆不均”等中文原因。
+- UI note: 截图仍显示与本任务无关的既有 `team-device/list` 请求地址不存在提示；损耗列表、PUT/POST 和最终只读核验正常，本任务未隐藏该错误，也未扩大范围修改设备接口。
+- Experience consolidation: 使用 `project-experience-consolidation` 检查既有归宿后，将“行内编辑使旧显示文本消失，进入编辑态后应改用作用域内唯一可见编辑器，保存后按目标文本重定位”的通用规则合并到 `docs/e2e-rules.md#表格行定位`，并更新 `docs/experience-index.md`；未新建长期经验文档。
+- Status: 实现、页面写入、独立验证和经验沉淀完成，任务已更新为 `ready_for_closeout`，等待 cleanup preview/apply。
+- Closeout preview 1: 范围为保留 3 份核心记录、删除 7 个任务临时产物、blocked `0`；仅因 `failure-diagnostic.json/.png` 从未生成而出现 2 条不存在路径 warning，已从 `Cleanup Candidates` 移除后重新预览。
+- Closeout preview 2: `status=ready`；保留 3 份核心记录，删除 7 个任务临时产物，`blocked=0`、`warnings=0`。
+- Closeout apply: `status=applied`；已删除脚本、快照、清单和两张临时截图共 7 个产物，保留 `task.md`、`execution-log.md`、`verification-report.md`，`blocked=0`、`warnings=0`。
+- Final status: `completed`。依照项目 Git 策略，用户未要求 Git 操作，本任务未暂存、提交、合并或推送任何文件。

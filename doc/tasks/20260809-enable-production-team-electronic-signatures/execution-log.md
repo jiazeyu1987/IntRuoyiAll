@@ -1,0 +1,21 @@
+# Execution Log：生产组长人员电子签名授权
+
+- 2026-08-09 USER INTENT：给生产组长里面所有的人开通电子签名权限。
+- 2026-08-09 SCOPE：按项目默认环境规则限定为本机 `int_main` 默认业务租户；“生产组长里面所有的人”暂按“生产组长 > 人员管理”正式数据源内全部启用人员解释，先只读核对后再写入。不访问测试服、正式服或备用服。
+- 2026-08-09 PRECHECK：已读取 `docs/database-rules.md`、`docs/task-closeout-rules.md`、`docs/local-runtime.md`、`docs/login-access.md`、`docs/server-access.md`、`docs/release-backup-restore.md` 和 `docs/experience-index.md`；未发现要求将本机数据改动静默扩展到远端环境的依据。
+- BDD: 生产组长人员获得电子签名授权 -> Given 本机默认业务租户“生产组长 > 人员管理”正式数据源中存在启用人员 / When 管理员为全部目标人员开通电子签名权限 / Then 每名目标人员都有唯一、启用且未删除的正式电子签名授权，并留下对应授权审计；其他租户、禁用人员和非目标人员不变。
+- TDD PLAN：先用只读 SQL 统计并列出未启用目标人员，预期在写入前形成 RED；再执行带前置断言、影响行数断言和审计写入的事务；最后用独立只读 SQL 证明目标缺口为 0。
+- 2026-08-09 SCHEMA：本机容器 `int-ruoyi-mysql` 正常运行，正式人员表为 `mes_pro_process_pool_team_employee_profile`，系统用户授权表为 `dcc_electronic_signature_authorization`，授权审计表为 `dcc_electronic_signature_authorization_audit`；三表必需字段已通过真实 `SHOW COLUMNS` 核对。
+- 2026-08-09 TARGET：tenant 1、leader user 1 下共有 8 名启用且未删除人员；其中 5 名正式员工均对应同租户启用系统用户，3 名临时工均没有 `system_user_id` 且已有非空 `signature_password_hash`。这与代码正式链路一致：正式员工签名检查 DCC 授权，临时工签名检查人员档案内的独立密码哈希。
+- RED: 本机只读授权缺口断言 -> FAIL, expected reason: 5 名正式生产人员缺少未删除、启用且状态为 `ENABLED` 的电子签名授权；命令退出码为 1。首次探针曾因 MySQL bit literal 引号写法产生 SQL 语法错误，未计为 RED；修正为数值比较并增加客户端退出码检查后得到预期失败。
+- 2026-08-09 APPLY DESIGN：已生成任务专属事务脚本 `apply-local-authorization.sql`；脚本锁定 tenant 1 / leader user 1 / operator admin 1，核对正式用户、临时工签名密码、跨租户授权和重复系统用户，补齐正式员工授权并逐条写授权审计，任何前置、影响行数或写后断言失败都会回滚并抛错。
+- GREEN: `Get-Content -Encoding utf8 -Raw apply-local-authorization.sql | docker exec -i int-ruoyi-mysql ... mysql ... ruoyi-vue-pro` -> PASS；`target_profiles=8`、`formal_profiles=5`、`temporary_profiles=3`、`changed_authorizations=5`、`inserted_authorizations=5`、`inserted_audits=5`、`remaining_gaps=0`。
+- GREEN: 独立只读验证断言 -> PASS；摘要 `8|5|3|3|5|0|5|0|5|0` 分别证明目标档案 8、正式员工 5、临时工 3、临时工签名密码就绪 3、正式员工有效授权 5、授权缺口 0、本任务授权 5、非目标授权 0、本任务审计 5、非目标审计 0。
+- GREEN: 逐人只读复核 -> PASS；正式员工陈丽、李之音、王一林、李业辉、方王魏均为 `ENABLED/1`；临时工 112、113、114 均为 `TEMP_PASSWORD_READY`。
+- REGRESSION: 再次执行同一事务脚本 -> PASS；`changed_authorizations=0`、`inserted_authorizations=0`、`inserted_audits=0`、`remaining_gaps=0`，未产生重复授权或重复审计。
+- 2026-08-09 RUNTIME：`DccElectronicSignatureAuthorizationServiceImpl.isElectronicSignatureEnabled` 每次通过正式 Mapper 读取授权表并检查 enabled/state/lock，无授权缓存需要清理。
+- EXPERIENCE: 使用 `project-experience-consolidation`；将“正式员工 DCC 授权、临时工人员档案签名密码、禁止 profile ID 冒充 user ID、授权必须配套审计”的可复用门禁合并到 `docs/backend-development.md#一线生产正式提交必须单事务落链并按唯一组长归属可见`，并更新 `docs/experience-index.md` 关键词；未新建长期经验文档。
+- CLOSEOUT PREVIEW: `task_closeout.py --task-id 20260809-enable-production-team-electronic-signatures --mode preview` -> PASS；保留 `task.md`、`execution-log.md`、`verification-report.md`，仅计划删除任务专属一次性 `apply-local-authorization.sql`，blocked/warnings 均为空。
+- CLOSEOUT APPLY: `task_closeout.py --task-id 20260809-enable-production-team-electronic-signatures --mode apply` -> PASS；仅删除任务专属一次性 `apply-local-authorization.sql`，三份核心任务记录保留；当前为主工作区，未执行 worktree 合并或删除。
+- GIT: 项目级 Git Policy 规定未明确要求时不执行暂存、提交或推送；本任务未执行任何 Git 写操作。工作区既有大量其他任务改动与本任务无关，未修改或清理。
+- FINAL STATUS: completed。

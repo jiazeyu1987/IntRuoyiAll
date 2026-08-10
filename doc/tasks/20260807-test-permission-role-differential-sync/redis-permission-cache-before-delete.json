@@ -1,0 +1,55 @@
+{
+  "keyCount": 10,
+  "keys": [
+    {
+      "db": 1,
+      "pattern": "*user_role_ids*",
+      "key": "user_role_ids:376"
+    },
+    {
+      "db": 1,
+      "pattern": "*user_role_ids*",
+      "key": "user_role_ids:910250"
+    },
+    {
+      "db": 1,
+      "pattern": "*menu_role_ids*",
+      "key": "menu_role_ids:1:6807"
+    },
+    {
+      "db": 1,
+      "pattern": "*menu_role_ids*",
+      "key": "menu_role_ids:1:1221"
+    },
+    {
+      "db": 1,
+      "pattern": "*menu_role_ids*",
+      "key": "menu_role_ids:1:6801"
+    },
+    {
+      "db": 1,
+      "pattern": "*menu_role_ids*",
+      "key": "menu_role_ids:1:6802"
+    },
+    {
+      "db": 1,
+      "pattern": "*permission_menu_ids*",
+      "key": "permission_menu_ids:dcc:controlled-file:access-rule:manage"
+    },
+    {
+      "db": 1,
+      "pattern": "*permission_menu_ids*",
+      "key": "permission_menu_ids:bpm:task:query"
+    },
+    {
+      "db": 1,
+      "pattern": "*permission_menu_ids*",
+      "key": "permission_menu_ids:dcc:controlled-file:directory:manage"
+    },
+    {
+      "db": 1,
+      "pattern": "*permission_menu_ids*",
+      "key": "permission_menu_ids:dcc:controlled-file:query"
+    }
+  ]
+}

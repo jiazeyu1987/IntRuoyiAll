@@ -291,7 +291,7 @@
           ON revision_summary.event_id = pool_event.id
          AND revision_summary.tenant_id = pool_event.tenant_id
         WHERE <include refid="TimelineFilters"/>
-        ORDER BY pool_event.server_submit_time ASC, pool_event.id ASC
+        ORDER BY pool_event.server_submit_time DESC, pool_event.id DESC
         LIMIT #{offset}, #{reqVO.pageSize}
     </select>
 

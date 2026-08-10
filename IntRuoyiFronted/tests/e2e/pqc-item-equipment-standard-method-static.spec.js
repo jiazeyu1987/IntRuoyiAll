@@ -186,6 +186,21 @@ assert.match(
   /equipmentOptions,\s*\r?\n\s*resultType:/,
   'QA regulation page must serialize each inspection item equipment option into the save payload.'
 )
+const qaBuildEquipmentOptionsBlock = blockBetween(
+  qaPageSource,
+  'const buildQaRegulationItemEquipmentOptions = (',
+  'const buildQaRegulationSaveItems = ('
+)
+assert.doesNotMatch(
+  qaBuildEquipmentOptionsBlock,
+  /inspectionTool\.trim\(\)[\s\S]*options\.length === 0[\s\S]*throw new Error/,
+  'QA regulation publish must not require formal equipment ledger options only because the tool/equipment description is filled.'
+)
+assert.match(
+  qaPageSource,
+  /equipmentRequired:\s*equipmentOptions\.length > 0,/,
+  'QA regulation page must derive equipmentRequired from formal equipment options, not from the text tool/equipment description.'
+)
 assert.doesNotMatch(
   qaPageSource,
   /equipmentRequired:\s*Boolean\(item\.inspectionTool\.trim\(\)\),/,

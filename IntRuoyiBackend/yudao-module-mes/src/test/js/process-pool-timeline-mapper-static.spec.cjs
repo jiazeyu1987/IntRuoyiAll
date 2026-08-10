@@ -80,6 +80,16 @@ assert.match(
   /<if test="reqVO\.submittedAtStart != null and reqVO\.submittedAtEnd != null">[\s\S]*pool_event\.server_submit_time\s*<!\[CDATA\[>=\]\]>\s*#\{reqVO\.submittedAtStart\}[\s\S]*pool_event\.server_submit_time\s*<!\[CDATA\[<\]\]>\s*#\{reqVO\.submittedAtEnd\}[\s\S]*<\/if>/,
   '提交日期未选择时不得应用隐藏时间窗口；显式日期必须继续按闭开区间过滤。'
 )
+assert.match(
+  source,
+  /ORDER BY\s+pool_event\.server_submit_time\s+DESC,\s*pool_event\.id\s+DESC\s+LIMIT\s+#\{offset\},\s*#\{reqVO\.pageSize\}/,
+  '报工管理分页必须按服务端提交时间倒序返回，确保最近提交的报工记录在第一页最前面；时间相同按事件 ID 倒序稳定排列。'
+)
+assert.doesNotMatch(
+  source,
+  /ORDER BY\s+pool_event\.server_submit_time\s+ASC,\s*pool_event\.id\s+ASC/,
+  '报工管理分页不得按提交时间升序返回。'
+)
 
 assert.match(
   source,

@@ -30,7 +30,15 @@
                   :key="project.id"
                   :label="formatDccProjectCodeOption(project)"
                   :value="project.id"
-                />
+                  :class="getDccProjectCodeOptionClass(project)"
+                >
+                  <span
+                    class="qa-regulation-page__project-option-label"
+                    :class="{ 'is-configured': isDccProjectCodeConfigured(project) }"
+                  >
+                    {{ formatDccProjectCodeOption(project) }}
+                  </span>
+                </el-option>
               </el-select>
               <el-button
                 plain
@@ -751,6 +759,7 @@ import {
 } from '@/api/dcc/controlledFile/projectCodes'
 import {
   QcTemplateApi,
+  type QaInspectionRegulationProjectStatusVO,
   type QaInspectionRegulationSaveEquipmentOptionVO,
   type QaInspectionRegulationSaveItemVO,
   type QaInspectionRegulationSaveReqVO
@@ -790,7 +799,8 @@ const BALLOON_PRESSURE_PUMP_SOURCE_NOTE =
   '用户指定 PDF PQC-ID-001（G/0）5.1 检验内容。'
 const QA_PROCESS_SCOPE_BINDINGS_BY_PROJECT_CODE: Record<string, Record<string, string[]>> = {
   ID: {
-    '清洗/精洗': ['精洗', '清洗'],
+    清洗: ['清洗', '清洗/精洗'],
+    精洗: ['精洗', '清洗/精洗'],
     清洁: ['清洁'],
     组装Ⅰ: ['组装Ⅰ'],
     光固Ⅰ: ['光固Ⅰ'],
@@ -1530,7 +1540,24 @@ const createPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
 const createBalloonPressurePumpQaRegulationItems = (): QaRegulationItem[] => [
   {
     itemCode: 'ID-001-WASH-APP',
-    processName: '清洗/精洗',
+    processName: '清洗',
+    itemName: '外观',
+    inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
+    inspectionTool: '目测',
+    samplingPlanText: 'GB/T 2828.1，I，AQL=0.4',
+    resultType: 'BOOLEAN',
+    standardText: '弹簧、胶塞、套筒、手柄、齿条、芯杆、螺盖清洗干燥后表面及内部应无液珠；表面应清洁，无黑点、无异物等。',
+    critical: false,
+    failureRule: QA_PDF_ITEM_FAILURE_RULE,
+    sourceNote: BALLOON_PRESSURE_PUMP_SOURCE_NOTE,
+    sourceOriginalPage: 4,
+    sourceOriginalItem: '清洗/精洗 / 外观',
+    sourceOriginalExcerpt: '弹簧、胶塞、套筒、手柄、齿条、芯杆、螺盖清洗干燥后表面及内部应无液珠；表面应清洁，无黑点、无异物等。',
+    sourceOriginalMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。'
+  },
+  {
+    itemCode: 'ID-001-FINE-WASH-APP',
+    processName: '精洗',
     itemName: '外观',
     inspectionMethod: '正常或矫正视力，在 300~700lx 的照度下，离眼 30~40cm 处，观察约 5~10s。',
     inspectionTool: '目测',
@@ -1824,6 +1851,7 @@ const pagedQaRegulationItems = computed(() =>
   paginateQaRows(qaRegulationItems.value, qaItemsQuery)
 )
 const qaProductRuleDrafts = new Map<number, QaProductRuleDraftSnapshot>()
+const qaRegulationProjectStatusByProductId = ref(new Map<number, QaInspectionRegulationProjectStatusVO>())
 const dccProjectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 const dccProjectCodeOptionsLoading = ref(false)
 const dccProjectCodeLoadError = ref('')
@@ -1849,6 +1877,51 @@ const resolveDccProjectProductId = (project: DccProjectCodeRespVO) => {
   const productId = Number(project.productMasterId)
   return Number.isFinite(productId) && productId > 0 ? productId : undefined
 }
+
+const resolveDccProjectCodeProductIds = (projects: DccProjectCodeRespVO[]) =>
+  Array.from(
+    new Set(
+      projects
+        .map((project) => resolveDccProjectProductId(project))
+        .filter((productId): productId is number => Boolean(productId))
+    )
+  )
+
+const createQaRegulationProjectStatusMap = (
+  projectStatuses: QaInspectionRegulationProjectStatusVO[]
+) => {
+  const statusMap = new Map<number, QaInspectionRegulationProjectStatusVO>()
+  projectStatuses.forEach((status) => {
+    const productId = Number(status.productId)
+    if (Number.isFinite(productId) && productId > 0) {
+      statusMap.set(productId, status)
+    }
+  })
+  return statusMap
+}
+
+const isDccProjectCodeConfigured = (project: DccProjectCodeRespVO) => {
+  const productId = resolveDccProjectProductId(project)
+  return Boolean(
+    productId &&
+      qaRegulationProjectStatusByProductId.value.get(productId)?.configured === true
+  )
+}
+
+const getDccProjectCodeOptionClass = (project: DccProjectCodeRespVO) => ({
+  'qa-regulation-page__project-option': true,
+  'qa-regulation-page__project-option--configured': isDccProjectCodeConfigured(project)
+})
+
+const sortDccProjectCodeOptionsByQaStatus = (projects: DccProjectCodeRespVO[]) =>
+  [...projects].sort((left, right) => {
+    const leftConfiguredScore = isDccProjectCodeConfigured(left) ? 1 : 0
+    const rightConfiguredScore = isDccProjectCodeConfigured(right) ? 1 : 0
+    if (leftConfiguredScore !== rightConfiguredScore) {
+      return rightConfiguredScore - leftConfiguredScore
+    }
+    return 0
+  })
 
 const cloneQaRegulationItems = (items: QaRegulationItem[]) =>
   items.map((item) => ({
@@ -2476,8 +2549,11 @@ const loadDccProjectCodeOptions = async (keyword = '') => {
     if (selectedProject && !options.some((project) => project.id === selectedProject.id)) {
       options.unshift(selectedProject)
     }
+    const productIds = resolveDccProjectCodeProductIds(options)
+    const projectStatuses = await QcTemplateApi.getQaRegulationProjectStatuses(productIds)
+    qaRegulationProjectStatusByProductId.value = createQaRegulationProjectStatusMap(projectStatuses)
     registerPressurePumpProductBinding(options)
-    dccProjectCodeOptions.value = options
+    dccProjectCodeOptions.value = sortDccProjectCodeOptionsByQaStatus(options)
   } catch (error) {
     dccProjectCodeOptions.value = selectedDccProjectCode.value
       ? [selectedDccProjectCode.value]
@@ -2510,6 +2586,12 @@ const restoreLastDccProjectCodeSelection = async () => {
     if (!dccProjectCodeOptions.value.some((item) => Number(item.id) === Number(project.id))) {
       dccProjectCodeOptions.value = [project, ...dccProjectCodeOptions.value]
     }
+    const productIds = resolveDccProjectCodeProductIds(dccProjectCodeOptions.value)
+    const projectStatuses = await QcTemplateApi.getQaRegulationProjectStatuses(productIds)
+    qaRegulationProjectStatusByProductId.value = createQaRegulationProjectStatusMap(projectStatuses)
+    dccProjectCodeOptions.value = sortDccProjectCodeOptionsByQaStatus(
+      dccProjectCodeOptions.value
+    )
     qaRegulationDraft.dccProjectCodeId = project.id
     applyDccProjectToQaDraft(project)
   } catch (error) {
@@ -2846,9 +2928,6 @@ const buildQaRegulationItemEquipmentOptions = (
   item: QaRegulationItem
 ): QaInspectionRegulationSaveEquipmentOptionVO[] => {
   const options = getQaRegulationItemEquipmentOptions(item)
-  if (item.inspectionTool.trim() && options.length === 0) {
-    throw new Error(`${item.itemName}已填写检验器具及设备说明，但未配置正式设备台账选项。`)
-  }
   return options.map((option, index) => ({
     equipmentId: resolvePositiveId(option.equipmentId, `${item.itemName}设备 ID`),
     equipmentCode: resolveRequiredText(option.equipmentCode, `${item.itemName}设备编码`),
@@ -2903,6 +2982,19 @@ const buildQaRegulationSaveItems = (
     })
   })
 
+const resolveQaProcessBindingGroups = (
+  processName: string,
+  configuredBindings?: string[]
+) => {
+  if (!configuredBindings || configuredBindings.length === 0) {
+    return [[processName]]
+  }
+  if (configuredBindings[0] === processName) {
+    return configuredBindings.map((binding) => [binding])
+  }
+  return [configuredBindings]
+}
+
 const resolveQaRegulationItemRouteProcesses = (
   item: QaRegulationItem,
   source: QaRouteScopeAutoSource
@@ -2910,11 +3002,15 @@ const resolveQaRegulationItemRouteProcesses = (
   const processName = resolveRequiredText(item.processName, `${item.itemName}适用工序`)
   const projectCode = normalizeDccProjectCode(selectedDccProjectCode.value?.projectCode || '')
   const configuredBindings = QA_PROCESS_SCOPE_BINDINGS_BY_PROJECT_CODE[projectCode]?.[processName]
-  const acceptedProcessNames = configuredBindings || [processName]
-  const acceptedNormalizedNames = new Set(acceptedProcessNames.map(normalizeQaProcessBindingName))
-  const matchedProcesses = source.routeProcesses.filter((routeProcess) =>
-    acceptedNormalizedNames.has(normalizeQaProcessBindingName(routeProcess.processName))
-  )
+  const matchedProcesses =
+    resolveQaProcessBindingGroups(processName, configuredBindings)
+      .map((group) => {
+        const acceptedNormalizedNames = new Set(group.map(normalizeQaProcessBindingName))
+        return source.routeProcesses.filter((routeProcess) =>
+          acceptedNormalizedNames.has(normalizeQaProcessBindingName(routeProcess.processName))
+        )
+      })
+      .find((matches) => matches.length > 0) || []
   if (matchedProcesses.length === 0) {
     const allowedUnboundProcessNames = new Set(
       (QA_UNBOUND_BATCH_RECORD_PROCESS_NAMES_BY_PROJECT_CODE[projectCode] || []).map(
@@ -3196,6 +3292,19 @@ const runQaPublishPrecheck = async () => {
   user-select: text;
 }
 
+.qa-regulation-page__project-option-label {
+  display: block;
+  overflow: hidden;
+  color: #344054;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qa-regulation-page__project-option-label.is-configured {
+  color: #00a896;
+  font-weight: 700;
+}
+
 .qa-regulation-page__project-copy-button {
   flex-shrink: 0;
 }
@@ -3205,6 +3314,11 @@ const runQaPublishPrecheck = async () => {
   flex-shrink: 0;
   align-items: center;
   gap: 10px;
+  margin-left: auto;
+}
+
+.qa-regulation-page__header :deep(.el-tag) {
+  flex-shrink: 0;
   margin-left: auto;
 }
 

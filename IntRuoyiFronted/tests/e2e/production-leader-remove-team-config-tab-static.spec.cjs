@@ -15,7 +15,7 @@ assert.doesNotMatch(
 )
 
 const productionModuleTabState = workbench.match(
-  /const\s+activeProductionModuleTab\s*=\s*ref<[\s\S]*?>\('personnel'\)/
+  /const\s+activeProductionModuleTab\s*=\s*ref<[\s\S]*?>\('report'\)/
 )?.[0] || ''
 assert.ok(productionModuleTabState, 'Expected the production module tab state declaration.')
 assert.doesNotMatch(

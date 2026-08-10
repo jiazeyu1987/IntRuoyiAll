@@ -32,9 +32,9 @@ assert.doesNotMatch(
 )
 
 const productionModuleTabState = teamLeaderWorkbench.match(
-  /const\s+activeProductionModuleTab\s*=\s*ref<[\s\S]*?>\('personnel'\)/
+  /const\s+activeProductionModuleTab\s*=\s*ref<[\s\S]*?>\('report'\)/
 )?.[0] || ''
-assert.ok(productionModuleTabState, 'Production module tabs must default to 人员管理.')
+assert.ok(productionModuleTabState, 'Production module tabs must default to 报工管理.')
 assert.doesNotMatch(
   productionModuleTabState,
   /'config'/,
@@ -67,7 +67,7 @@ assert.match(
 assert.match(
   teamLeaderWorkbench,
   /watch\(activeProductionModuleTab,\s*async\s*\(tab\)\s*=>\s*\{[\s\S]*tab\s*===\s*'report'[\s\S]*activeLeaderTab\.value\s*===\s*'PRODUCTION'[\s\S]*queryParams\.leaderType\s*=\s*'PRODUCTION'[\s\S]*queryParams\.pageNo\s*=\s*1[\s\S]*await\s+getSubmissionList\(\)[\s\S]*\}\)/,
-  '生产组长切换到报工管理 tab 时必须按 PRODUCTION 组长类型自动加载内部默认日期的报工列表。'
+  '生产组长切换到报工管理 tab 时必须按 PRODUCTION 组长类型自动加载报工列表，且不注入默认日期。'
 )
 assert.match(
   teamLeaderWorkbench,

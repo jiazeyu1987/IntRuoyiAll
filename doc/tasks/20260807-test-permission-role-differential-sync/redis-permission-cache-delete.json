@@ -1,0 +1,10 @@
+{
+  "deletedKeyCountRequested": 8,
+  "prefixes": [
+    "menu_role_ids",
+    "permission_menu_ids"
+  ],
+  "stdout": [
+    "8"
+  ]
+}

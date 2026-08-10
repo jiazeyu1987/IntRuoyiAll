@@ -1,0 +1,10 @@
+{
+  "20260629_mes_smart_scheduling_role_scope": {
+    "status": "APPLIED",
+    "sha256": "dc1ad5921a96ba8d488be51ab043bded8fff82f457539fb27198adaaa01f7bf7"
+  },
+  "20260715_mes_route_version_lifecycle": {
+    "status": "APPLIED",
+    "sha256": "ef3c2904873f769d98891591d82535c0b426b5b91c619c674c5b15b88d93fd8d"
+  }
+}

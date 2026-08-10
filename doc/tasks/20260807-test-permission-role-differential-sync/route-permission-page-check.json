@@ -1,0 +1,80 @@
+{
+  "result": "PASS",
+  "capturedAt": "2026-08-07T14:08:16.974Z",
+  "baseUrl": "http://172.30.30.58:8081/",
+  "tenant": "芋道源码",
+  "username": "zhaojie",
+  "tenantId": "1",
+  "permissionCheck": {
+    "requiredPresent": [
+      "mes:pro-route:query",
+      "mes:pro-route:update",
+      "mes:pro-route:version-query"
+    ],
+    "forbiddenAbsent": [
+      "mes:pro-route:create",
+      "mes:pro-route:delete",
+      "mes:pro-route:export"
+    ]
+  },
+  "pageCheck": {
+    "targetPath": "/mes/pro/route",
+    "routePageRequest": {
+      "method": "GET",
+      "urlPath": "/admin-api/mes/pro/route/page",
+      "status": 200
+    },
+    "routeTotal": 4,
+    "visibleRowsWithButtons": 4,
+    "visibleButtons": [
+      "ROUTE-XLSX-00001",
+      "ROUTE-XLSX-00002",
+      "RT000028",
+      "TN-ROUTE-STATUS-001",
+      "产品",
+      "版本",
+      "编辑"
+    ],
+    "requiredButtons": [
+      "产品",
+      "编辑",
+      "版本"
+    ],
+    "forbiddenButtons": [
+      "删除"
+    ]
+  },
+  "browserCheck": {
+    "pageErrors": [],
+    "consoleErrorCount": 0,
+    "requestFailureCount": 5,
+    "requestFailures": [
+      {
+        "method": "GET",
+        "urlPath": "/simple-icons.json",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "urlPath": "/fa-solid.json",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "urlPath": "/fa.json",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "urlPath": "/ep.json",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "urlPath": "/hm.gif",
+        "failure": "net::ERR_ABORTED"
+      }
+    ]
+  },
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260807-test-permission-role-differential-sync\\route-permission-page-check.png"
+}

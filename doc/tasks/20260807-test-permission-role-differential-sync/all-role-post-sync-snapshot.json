@@ -1,0 +1,18 @@
+{
+  "capturedAt": "2026-08-07T21:55:54",
+  "sourceRoleCount": 60,
+  "tenant1UserRoleHash": "0696cca53312bb05a836ee2fd4fad7562ef24956202611e3d73798b9f6cf0668",
+  "runningTestLockCount": 1,
+  "tenant1UserRoleCount": 2188,
+  "tenant1ActiveRoleCount": 77,
+  "otherTenantRoleMenuHash": "1d69f0f91e09f34e343ec7413d3dbf7f747f33e82393e52681b67fd6c133e654",
+  "newMigrationAppliedCount": 0,
+  "targetOnlyPermissionHash": "391bdb66dad1ccd2262f4388dbb2d08765703c9e59912c0528b0830a7c9a7c2e",
+  "sourcePermissionPairCount": 1676,
+  "targetOnlyActiveRoleCount": 17,
+  "tenant1ActiveUserRoleCount": 2161,
+  "missingSourcePermissionCount": 0,
+  "targetResolvedSourceRoleCount": 60,
+  "duplicateTargetSourceRoleCodes": 0,
+  "extraSourceRolePermissionCount": 0
+}

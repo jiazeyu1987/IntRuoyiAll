@@ -362,6 +362,35 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     @Test
+    void shouldIgnoreUnresolvedRouteProjectItemWhenPublishedQaRegulationMatchesResolvedRouteProject() {
+        long unresolvedRouteItemId = 14L;
+        when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,
+                        LocalDateTime.of(2026, 8, 1, 8, 0)));
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID, PRODUCT_ID));
+        when(routeProductMapper.selectByRouteIdAndItemId(ROUTE_ID, PRODUCT_ID))
+                .thenReturn(MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build());
+        when(routeProductMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
+                MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(PRODUCT_ID).build(),
+                MesProRouteProductDO.builder().routeId(ROUTE_ID).itemId(unresolvedRouteItemId).build()));
+        when(itemService.getItemMap(Set.of(PRODUCT_ID, unresolvedRouteItemId))).thenReturn(Map.of(PRODUCT_ID,
+                MesMdItemDO.builder().id(PRODUCT_ID).code("ITEM-PQC").name("PQC 产品").build()));
+        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route(ROUTE_ID));
+        when(routeProcessMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of(
+                routeProcess(ROUTE_PROCESS_ID, ROUTE_ID, PROCESS_ID, 10)));
+        when(processService.getProcessMap(Set.of(PROCESS_ID))).thenReturn(Map.of(
+                PROCESS_ID, process(PROCESS_ID, "P-1", "清洗")));
+        givenPqcTaskContext(ROUTE_PROCESS_ID, PROCESS_ID, PQC_TASK_ID, REGULATION_VERSION_ID);
+
+        List<MesFrontlineRouteProcessCandidate> processes =
+                service.listProcessesByActiveOrder(WORK_ORDER_ID, ROUTE_ID);
+
+        assertEquals(List.of(ROUTE_PROCESS_ID),
+                processes.stream().map(MesFrontlineRouteProcessCandidate::routeProcessId).toList());
+        assertEquals(PQC_TASK_ID, processes.get(0).pqcTaskId());
+    }
+
+    @Test
     void shouldDisplayOnlyQaInspectionItemProcessesWhenRouteHasExtraProcesses() {
         when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
                 .thenReturn(activeOrder(WORK_ORDER_ID, ROUTE_ID,

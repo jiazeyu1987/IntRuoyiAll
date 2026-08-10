@@ -8,6 +8,12 @@
 - 已复核用户截图中的空表问题：默认本机 `admin` 账号缺少 `PRODUCTION + EMPLOYEE` 负责范围，且生产“报工管理”页签缺少切换时加载报工列表的 watcher。
 - 已补齐本机 `admin` 对员工 `964` 的生产负责范围，并修复生产页签切换加载逻辑；真实页面点击“报工管理”后表格不再为空。
 
+## Closeout Result
+
+- 2026-08-07 已运行 `task-closeout-cleanup` preview/apply，均成功且无 blocked/warnings。
+- 保留 `task.md`、`execution-log.md`、`verification-report.md`；清理临时 `bug-regression-evidence.md` 与 `database-schema-evidence.md`。
+- 未执行 Git 提交或推送：用户未请求该操作，且项目规则不将其作为完成门禁。
+
 ## Data Written
 
 - 报工编码：`CODX-RPT-20260806-001` 到 `CODX-RPT-20260806-005`。
@@ -41,4 +47,4 @@
 - 数据通过 `CODX-RPT-20260806-%` 编码、备注和幂等键可追踪。
 - 如需撤回，应按数量片段、工序池事件、记录本事件、记录本 entry、报工主表的依赖顺序清理，并重新核对工序池汇总状态。
 - 如需撤回 admin 可见性，应按 `mes_pro_process_pool_team_leader_scope.id=980044` 或备注 `CODX-RPT-20260806 admin production report visibility` 定位清理。
-- 项目级 cleanup/commit/push 未执行：当前 `int_main` 工作区存在大量本任务外既有脏改动，需单独确认收尾策略。
+- 任务级 cleanup 已完成；Git 操作未获用户请求，未触碰工作区中的无关改动。

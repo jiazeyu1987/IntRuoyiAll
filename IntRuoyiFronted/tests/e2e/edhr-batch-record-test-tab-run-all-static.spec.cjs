@@ -76,8 +76,8 @@ assert.match(
 )
 assert.match(
   page,
-  /async function\s+handleTestTab\(listKey:[\s\S]*if\s*\(testingTabListKey\.value\s*!==\s*undefined\s*\|\|\s*testingRowCaseName\.value\s*!==\s*undefined\)[\s\S]*已有测试正在执行/,
-  '批量入口必须同步阻止重复批量或与单行测试重叠。'
+  /async function\s+handleTestTab\(listKey:[\s\S]*testingTabListKey\.value\s*!==\s*undefined[\s\S]*e2eTestingTabListKey\.value\s*!==\s*undefined[\s\S]*testingRowCaseName\.value\s*!==\s*undefined[\s\S]*已有测试正在执行/,
+  '批量入口必须同步阻止重复批量、E2E 或与单行测试重叠。'
 )
 assert.match(
   page,

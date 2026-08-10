@@ -1,0 +1,426 @@
+{
+  "schema_version": 2,
+  "task_id": "20260809-active-order-release-dossier-v4-delivery",
+  "mode": "full",
+  "status": "blocked",
+  "current_phase": "P7",
+  "phase_statuses": [
+    {
+      "phase_id": "P1",
+      "title": "申请编排严格 RED（A2-RED）",
+      "objective": "新增聚焦测试证明当前 apply 未调用 A3/A4/A5、PQC SUBMITTED 错计 100、hash/事务契约缺失。",
+      "owned_paths": [
+        "后端 release application 聚焦测试。"
+      ],
+      "dependencies": [],
+      "deliverables": [
+        "RED 因缺三 writer 正式编排等预期原因失败，不因编译错误或错误 fixture 失败。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P1-AC1",
+          "text": "实现当前里程碑目标：新增聚焦测试证明当前 apply 未调用 A3/A4/A5、PQC SUBMITTED 错计 100、hash/事务契约缺失。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A2-RED",
+            "test-report.md#TC-A2-01"
+          ]
+        },
+        {
+          "ac_id": "P1-AC2",
+          "text": "交付物已落地：RED 因缺三 writer 正式编排等预期原因失败，不因编译错误或错误 fixture 失败。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A2-RED",
+            "test-report.md#TC-A2-01"
+          ]
+        },
+        {
+          "ac_id": "P1-AC3",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A2-RED",
+            "test-report.md#TC-A2-01"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#A2-RED",
+        "test-report.md#TC-A2-01"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "Migrated from approved A2-RED history; expected RED was reviewed and production code was not changed in this phase."
+      ],
+      "last_reviewed_at": "2026-08-09T15:36:48+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P2",
+      "title": "批记录 writer（A3）",
+      "objective": "小适配复用现有 backfill，在当前 batch/task 生成正式批记录并返回审计/签名证据。",
+      "owned_paths": [
+        "team leader backfill、release batch writer、聚焦 JUnit。"
+      ],
+      "dependencies": [
+        "P1"
+      ],
+      "deliverables": [
+        "当前 batch/task execution、field audit、source hash、提交/确认签名完整；禁止 formBindings/MAIN。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P2-AC1",
+          "text": "实现当前里程碑目标：小适配复用现有 backfill，在当前 batch/task 生成正式批记录并返回审计/签名证据。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A3-Batch-Record-Writer",
+            "test-report.md#并行波次主审结果"
+          ]
+        },
+        {
+          "ac_id": "P2-AC2",
+          "text": "交付物已落地：当前 batch/task execution、field audit、source hash、提交/确认签名完整；禁止 formBindings/MAIN。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A3-Batch-Record-Writer",
+            "test-report.md#并行波次主审结果"
+          ]
+        },
+        {
+          "ac_id": "P2-AC3",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A3-Batch-Record-Writer",
+            "test-report.md#并行波次主审结果"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#A3-Batch-Record-Writer",
+        "test-report.md#并行波次主审结果"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "Migrated from approved A3 history; final serialized A3-A5 gate passed."
+      ],
+      "last_reviewed_at": "2026-08-09T15:36:49+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P3",
+      "title": "过程检验单 writer（A4）",
+      "objective": "从 CONFIRMED PQC 汇集与 PUBLISHED QA 版本生成传统正式 PROCESS_INSPECTION execution。",
+      "owned_paths": [
+        "release inspection writer、QA/PQC reader、映射、聚焦 JUnit。"
+      ],
+      "dependencies": [
+        "P2"
+      ],
+      "deliverables": [
+        "传统正式 execution 与当前 batch/task 关联，逐项 field audit 和签名完整，无 raw payload/状态替代。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P3-AC1",
+          "text": "实现当前里程碑目标：从 CONFIRMED PQC 汇集与 PUBLISHED QA 版本生成传统正式 PROCESS_INSPECTION execution。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A4-Process-Inspection-Writer",
+            "test-report.md#并行波次主审结果"
+          ]
+        },
+        {
+          "ac_id": "P3-AC2",
+          "text": "交付物已落地：传统正式 execution 与当前 batch/task 关联，逐项 field audit 和签名完整，无 raw payload/状态替代。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A4-Process-Inspection-Writer",
+            "test-report.md#并行波次主审结果"
+          ]
+        },
+        {
+          "ac_id": "P3-AC3",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A4-Process-Inspection-Writer",
+            "test-report.md#并行波次主审结果"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#A4-Process-Inspection-Writer",
+        "test-report.md#并行波次主审结果"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "Migrated from approved A4 history; final serialized A3-A5 gate passed."
+      ],
+      "last_reviewed_at": "2026-08-09T15:36:49+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P4",
+      "title": "损耗单 writer 与完成性（A5）",
+      "objective": "对账正式 feedback 和已签名事件损耗明细，生成传统 LOSS_REPORT execution，并提供三资料完成性检查。",
+      "owned_paths": [
+        "release loss writer、completeness、聚焦 JUnit。"
+      ],
+      "dependencies": [
+        "P3"
+      ],
+      "deliverables": [
+        "正式 LOSS_REPORT execution/审计/签名完整；任何资料不完整均阻止待办。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P4-AC1",
+          "text": "实现当前里程碑目标：对账正式 feedback 和已签名事件损耗明细，生成传统 LOSS_REPORT execution，并提供三资料完成性检查。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A5-Loss-Report-Writer-And-Completeness",
+            "test-report.md#并行波次主审结果"
+          ]
+        },
+        {
+          "ac_id": "P4-AC2",
+          "text": "交付物已落地：正式 LOSS_REPORT execution/审计/签名完整；任何资料不完整均阻止待办。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A5-Loss-Report-Writer-And-Completeness",
+            "test-report.md#并行波次主审结果"
+          ]
+        },
+        {
+          "ac_id": "P4-AC3",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A5-Loss-Report-Writer-And-Completeness",
+            "test-report.md#并行波次主审结果"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#A5-Loss-Report-Writer-And-Completeness",
+        "test-report.md#并行波次主审结果"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "Migrated from approved A5 history; final serialized A3-A5 gate passed."
+      ],
+      "last_reviewed_at": "2026-08-09T15:36:50+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P5",
+      "title": "申请编排、hash、事务和幂等集成（A2-INTEGRATE）",
+      "objective": "接入 A3/A4/A5，修双 100%、canonical hash、无副作用 plan、原子生成和独立 blocker 持久化。",
+      "owned_paths": [
+        "release application service、DTO/mapper/transaction helper、聚焦测试。"
+      ],
+      "dependencies": [
+        "P4"
+      ],
+      "deliverables": [
+        "成功三 writer 证据和签名大于 0，资料完整后才提交待办，失败无部分生成物。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P5-AC1",
+          "text": "实现当前里程碑目标：接入 A3/A4/A5，修双 100%、canonical hash、无副作用 plan、原子生成和独立 blocker 持久化。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A2-INTEGRATE-Main-Review-Corrections",
+            "test-report.md#A2-INTEGRATE-主审结果"
+          ]
+        },
+        {
+          "ac_id": "P5-AC2",
+          "text": "交付物已落地：成功三 writer 证据和签名大于 0，资料完整后才提交待办，失败无部分生成物。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A2-INTEGRATE-Main-Review-Corrections",
+            "test-report.md#A2-INTEGRATE-主审结果"
+          ]
+        },
+        {
+          "ac_id": "P5-AC3",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A2-INTEGRATE-Main-Review-Corrections",
+            "test-report.md#A2-INTEGRATE-主审结果"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#A2-INTEGRATE-Main-Review-Corrections",
+        "test-report.md#A2-INTEGRATE-主审结果"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "Migrated from approved A2-INTEGRATE history; focused 18/18 and integrated 55/55 passed."
+      ],
+      "last_reviewed_at": "2026-08-09T15:36:51+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P6",
+      "title": "前端入口硬化（A1）",
+      "objective": "对齐 M0 DTO/定位 blocker/状态，保持写成功刷新失败分层，不在前端伪造资料状态。",
+      "owned_paths": [
+        "team leader API/types/workbench/static spec。"
+      ],
+      "dependencies": [
+        "P5"
+      ],
+      "deliverables": [
+        "请求仅三字段；定位 blocker 可展示；写成功刷新失败文案正确；不生成后端 ID/成功状态。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P6-AC1",
+          "text": "实现当前里程碑目标：对齐 M0 DTO/定位 blocker/状态，保持写成功刷新失败分层，不在前端伪造资料状态。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A1-Main-Stable-Regression",
+            "test-report.md#A1-主审结果"
+          ]
+        },
+        {
+          "ac_id": "P6-AC2",
+          "text": "交付物已落地：请求仅三字段；定位 blocker 可展示；写成功刷新失败文案正确；不生成后端 ID/成功状态。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A1-Main-Stable-Regression",
+            "test-report.md#A1-主审结果"
+          ]
+        },
+        {
+          "ac_id": "P6-AC3",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#A1-Main-Stable-Regression",
+            "test-report.md#A1-主审结果"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#A1-Main-Stable-Regression",
+        "test-report.md#A1-主审结果"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "Migrated from approved A1 history; static contracts and pnpm ts:check passed."
+      ],
+      "last_reviewed_at": "2026-08-09T15:36:51+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P7",
+      "title": "fixture manifest 与真实 E2E（A6）",
+      "objective": "建任务自有正式 fixture，验证历史可见、自然双 100%、真实申请、三资料和负责人页面处理。",
+      "owned_paths": [
+        "正式 test fixture、Playwright spec、manifest/evidence。"
+      ],
+      "dependencies": [
+        "P6"
+      ],
+      "deliverables": [
+        "manifest 完整，真实页面和最终只读断言全绿；缺前置时精确阻塞，不记录假 PASS。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P7-AC1",
+          "text": "实现当前里程碑目标：建任务自有正式 fixture，验证历史可见、自然双 100%、真实申请、三资料和负责人页面处理。",
+          "status": "pending",
+          "evidence": [
+            "execution-log.md#DCC-Catheter-Formal-Source-Mapping-Refinement",
+            "test-report.md#A6-前置门禁",
+            "test-report.md#P7/A6-独立阻塞复核",
+            "execution-log.md#P7-Pressure-Pump-Per-Process-Source-Correspondence"
+          ]
+        },
+        {
+          "ac_id": "P7-AC2",
+          "text": "交付物已落地：manifest 完整，真实页面和最终只读断言全绿；缺前置时精确阻塞，不记录假 PASS。",
+          "status": "pending",
+          "evidence": [
+            "execution-log.md#DCC-Catheter-Formal-Source-Mapping-Refinement",
+            "test-report.md#A6-前置门禁",
+            "test-report.md#P7/A6-独立阻塞复核",
+            "execution-log.md#P7-Pressure-Pump-Per-Process-Source-Correspondence"
+          ]
+        },
+        {
+          "ac_id": "P7-AC3",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "pending",
+          "evidence": [
+            "execution-log.md#DCC-Catheter-Formal-Source-Mapping-Refinement",
+            "test-report.md#A6-前置门禁",
+            "test-report.md#P7/A6-独立阻塞复核",
+            "execution-log.md#P7-Pressure-Pump-Per-Process-Source-Correspondence"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#DCC-Catheter-Formal-Source-Mapping-Refinement",
+        "test-report.md#A6-前置门禁",
+        "test-report.md#P7/A6-独立阻塞复核",
+        "execution-log.md#P7-Pressure-Pump-Per-Process-Source-Correspondence"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "Current A6 executor gate is fail-fast before first business write; mapping review is released but real fixture and E2E are not complete.",
+        "Independent tester released blocker evidence only: syntax 2/2 and static contract 1/1 pass; real preflight is structured blocked, P7 AC 0/3, business E2E 0.",
+        "Pressure pump per-process correspondence rechecked by main agent after A6 follow-up was interrupted for no return; no business writes or manifest were created."
+      ],
+      "last_reviewed_at": "2026-08-10T03:21:14+00:00",
+      "status": "blocked"
+    }
+  ],
+  "planner_review_status": "approved",
+  "test_status": "running",
+  "blocking_prereqs": [
+    "current P7 target is pressure pump route 922119 / RT000028 / V27 / routeVersionId 627 ACTIVE; catheter route 900025 and products 902231/902252/902262/907242 are stale for current target",
+    "pressure pump route has three enabled productIds 901965/902149/924005; a single formal productId is not frozen",
+    "pressure pump V27 snapshot routeProcessIds 980645..980658 are deleted historical rows, while current active routeProcessIds are 980661..980674; they map 1:1 by process_id/sort but the fixture must freeze which context is used before writes",
+    "pressure pump MAIN batch record source maps 14/14 by report metadata to definition 47 and APPROVED version 130, but PROCESS_INSPECTION only exists as formBindings for rough wash/fine wash 2/14 and has 0/14 traditional batch_record_report_id identities; current M0 contract does not allow formBindings to substitute traditional PROCESS_INSPECTION reports",
+    "pressure pump PROCESS_INSPECTION report candidate a08b8aa2ed5d4e4b874db88505db22ea exists but has null batch_record_definition_id and batch_record_version_id, so it cannot satisfy traditional report identity/current APPROVED preflight",
+    "pressure pump formal QA and mappings are incomplete: only 1/14 QA regulations are PUBLISHED with item count 3, PROCESS_POOL_REPORT/PQC_AGGREGATE_DETAIL/PRODUCTION_LOSS source mappings are all 0, and release owner still needs explicit env plus real UI login/signature proof"
+  ],
+  "iteration_counts": {
+    "planner_revisions": 0,
+    "plan_revisions": 0,
+    "executor_loops": 2,
+    "test_loops": 2
+  },
+  "created_at": null,
+  "updated_at": "2026-08-10T03:21:14+00:00",
+  "branch": null,
+  "baseline_revision": null,
+  "workspace_root": "E:\\IntRuoyi",
+  "tasks_root": "E:\\IntRuoyi\\doc\\tasks",
+  "task_dir": "E:\\IntRuoyi\\doc\\tasks\\20260809-active-order-release-dossier-v4-delivery",
+  "goal": "完成 V4 A1-A6 开发、逐项审查、独立测试、集成和真实 E2E",
+  "artifacts": {
+    "prd": "E:\\IntRuoyi\\doc\\tasks\\20260809-active-order-release-dossier-v4-delivery\\prd.md",
+    "test_plan": "E:\\IntRuoyi\\doc\\tasks\\20260809-active-order-release-dossier-v4-delivery\\test-plan.md",
+    "task_state": "E:\\IntRuoyi\\doc\\tasks\\20260809-active-order-release-dossier-v4-delivery\\task-state.json",
+    "execution_log": "E:\\IntRuoyi\\doc\\tasks\\20260809-active-order-release-dossier-v4-delivery\\execution-log.md",
+    "test_report": "E:\\IntRuoyi\\doc\\tasks\\20260809-active-order-release-dossier-v4-delivery\\test-report.md"
+  }
+}

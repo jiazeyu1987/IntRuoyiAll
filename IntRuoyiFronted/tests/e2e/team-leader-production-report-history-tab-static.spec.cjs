@@ -35,7 +35,7 @@ assert.match(
 )
 assert.match(
   page,
-  /const activeProductionModuleTab = ref<[\s\S]*'reportHistory'[\s\S]*>\('personnel'\)/,
+  /const activeProductionModuleTab = ref<[\s\S]*'reportHistory'[\s\S]*>\('report'\)/,
   'activeProductionModuleTab 类型必须包含 reportHistory。'
 )
 assert.match(

@@ -566,7 +566,7 @@
             class="frontline-top-card top-box frontline-production-selection-card"
             type="button"
             data-frontline-production-selection-card
-            :disabled="payloadLoading || submitConfirmationOpen || productionSubmitSuccessOpen"
+            :disabled="payloadLoading || submitConfirmationOpen || productionSubmitSuccessOpen || productionSubmitFailureOpen"
             @click="openPicker('process')"
           >
             <div class="top-label">工序</div>
@@ -576,7 +576,7 @@
             class="frontline-top-card top-box frontline-production-selection-card"
             type="button"
             data-frontline-production-selection-card
-            :disabled="payloadLoading || submitConfirmationOpen || productionSubmitSuccessOpen"
+            :disabled="payloadLoading || submitConfirmationOpen || productionSubmitSuccessOpen || productionSubmitFailureOpen"
             @click="openPicker('employee')"
           >
             <div class="top-label">员工</div>
@@ -844,7 +844,7 @@
           <button
             class="frontline-production-reset-button minor-btn"
             type="button"
-            :disabled="payloadLoading || productionSubmitSuccessOpen"
+            :disabled="payloadLoading || productionSubmitSuccessOpen || productionSubmitFailureOpen"
             @click="handleResetProduction"
           >
             重填
@@ -947,6 +947,37 @@
         >
           <Icon icon="ep:right" :size="32" aria-hidden="true" />
           继续报工
+        </button>
+      </section>
+    </div>
+
+    <div
+      v-if="productionSubmitFailureOpen && !isPqcMode"
+      class="frontline-production-submit-success-modal"
+      data-production-submit-password-failure-dialog
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="frontlineProductionSubmitFailureTitle"
+    >
+      <section class="frontline-production-submit-success-dialog">
+        <Icon
+          icon="ep:circle-close-filled"
+          :size="96"
+          class="frontline-production-submit-success-icon frontline-production-submit-failure-icon"
+          aria-hidden="true"
+        />
+        <div class="frontline-production-submit-success-copy frontline-production-submit-failure-copy">
+          <span>正式提交失败</span>
+          <h3 id="frontlineProductionSubmitFailureTitle">当前密码校验失败</h3>
+          <p data-production-submit-password-failure-message>{{ productionSubmitFailureText }}</p>
+        </div>
+        <button
+          type="button"
+          data-production-submit-password-failure-close
+          @click="closeProductionSubmitFailureDialog"
+        >
+          <Icon icon="ep:refresh-left" :size="32" aria-hidden="true" />
+          返回修改
         </button>
       </section>
     </div>
@@ -1189,6 +1220,8 @@ const payloadLoading = ref(false)
 const payloadPreview = ref<FrontlineTemplatePayloadVO>()
 const submitConfirmationOpen = ref(false)
 const productionSubmitSuccessOpen = ref(false)
+const productionSubmitFailureOpen = ref(false)
+const productionSubmitFailureText = ref('当前密码校验失败')
 const productionFormalSubmitConfirmationText = ref('')
 const productionSignaturePassword = ref('')
 const createProductionSubmitDraftKey = () =>
@@ -1484,6 +1517,7 @@ const isSubmitBlocked = computed(() =>
   payloadLoading.value ||
   submitConfirmationOpen.value ||
   productionSubmitSuccessOpen.value ||
+  productionSubmitFailureOpen.value ||
   templateModeMismatch.value ||
   templateBindingMissing.value ||
   (isPqcMode.value && !deviceState.selectedActiveOrder) ||
@@ -2938,8 +2972,27 @@ const closeProductionSubmitSuccessDialog = () => {
   productionSubmitSuccessOpen.value = false
 }
 
+const isProductionPasswordValidationFailure = (error: unknown) => {
+  const errorMessage = resolveErrorMessage(error)
+  return errorMessage.includes('当前密码校验失败') || errorMessage.includes('密码校验失败')
+}
+
+const openProductionSubmitFailureDialog = (errorMessage: string) => {
+  productionSubmitFailureText.value = errorMessage || '当前密码校验失败'
+  productionSubmitFailureOpen.value = true
+}
+
+const closeProductionSubmitFailureDialog = () => {
+  productionSubmitFailureOpen.value = false
+}
+
 const handleProductionFormalSubmit = async () => {
-  if (payloadLoading.value || submitConfirmationOpen.value || productionSubmitSuccessOpen.value) {
+  if (
+    payloadLoading.value ||
+    submitConfirmationOpen.value ||
+    productionSubmitSuccessOpen.value ||
+    productionSubmitFailureOpen.value
+  ) {
     return
   }
   assertProductionSubmissionReady()
@@ -2963,6 +3016,12 @@ const handleProductionFormalSubmit = async () => {
     await ProFeedbackApi.frontlineSubmit(formalPayload)
     resetProductionSubmissionDraft()
     openProductionSubmitSuccessDialog()
+  } catch (error) {
+    if (isProductionPasswordValidationFailure(error)) {
+      openProductionSubmitFailureDialog(resolveErrorMessage(error))
+      return
+    }
+    throw error
   } finally {
     payloadLoading.value = false
   }
@@ -4462,6 +4521,10 @@ onUnmounted(() => {
   color: #15815f;
 }
 
+.frontline-production-submit-failure-icon {
+  color: #e85d5d;
+}
+
 .frontline-production-submit-success-copy {
   display: grid;
   gap: 12px;
@@ -4483,6 +4546,12 @@ onUnmounted(() => {
     color: var(--frontline-muted);
     font-size: 30px;
     font-weight: 800;
+  }
+}
+
+.frontline-production-submit-failure-copy {
+  span {
+    color: #e85d5d;
   }
 }
 
