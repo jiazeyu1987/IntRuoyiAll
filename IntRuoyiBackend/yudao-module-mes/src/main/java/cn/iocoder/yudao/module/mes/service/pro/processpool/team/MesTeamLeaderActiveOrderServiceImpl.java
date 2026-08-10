@@ -902,6 +902,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private Map<Long, MesProWorkOrderDO> loadActiveOrderWorkOrders(
             List<MesProcessPoolActiveOrderDO> activeOrders) {
+        List<Long> workOrderIds = activeOrders.stream()
+                .map(MesProcessPoolActiveOrderDO::getWorkOrderId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
         Map<Long, MesProWorkOrderDO> workOrdersById = workOrderIds.isEmpty()
                 ? Collections.emptyMap()
                 : workOrderMapper.selectBatchIds(workOrderIds).stream()

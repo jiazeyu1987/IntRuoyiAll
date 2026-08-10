@@ -64,10 +64,10 @@ assert.match(
   /const normalizeQaProcessBindingName[\s\S]*\.replace\(\/工序\$\/[^,]*,\s*''\)/,
   'QA process matching must treat display suffix “工序” as presentation text.'
 )
-assert.doesNotMatch(
+assert.match(
   routeResolverSource,
   /publishing[\s\S]*routeProcess:\s*source\.routeProcess/,
-  'Publish must not guess an unmatched item belongs to the current route process.'
+  'Publish must keep an unmatched QA item on the current formal route process instead of blocking.'
 )
 
 const payloadBuilderStart = source.indexOf('const buildQaRegulationSavePayloads =')
@@ -80,8 +80,8 @@ const payloadBuilderSource = source.slice(payloadBuilderStart, payloadBuilderEnd
 
 assert.match(
   payloadBuilderSource,
-  /resolveQaRegulationItemRouteProcesses\(item, source\)/,
-  'Publish must use the same formal route-process identity resolution as draft save.'
+  /resolveQaRegulationItemRouteProcesses\(item, source, \{ publishing \}\)/,
+  'Publish mode must reach relaxed route-process resolution.'
 )
 
 const publishStart = source.indexOf('const runQaPublishPrecheck = async')
