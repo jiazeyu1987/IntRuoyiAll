@@ -29,7 +29,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -45,6 +44,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_MODE_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_CONFIRMATION_PRODUCTION_LEADER_REQUIRED;
@@ -191,14 +191,14 @@ public class MesReportAllocationCommandService {
         List<MesProcessPoolReportAllocationDO> editableOld = current.stream()
                 .filter(row -> !releasedIds.contains(row.getActiveOrderId())).toList();
         BigDecimal lockedTotal = sumAllocations(locked);
-        Map<Long, MesProWorkOrderDO> workOrders = loadWorkOrders(activeOrders);
-        Map<Long, MesTeamLeaderOrderProcessTarget> targets = capAllocationsToProcessRemaining(event, desired,
-                activeById, workOrders);
         BigDecimal desiredTotal = desired.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         if (lockedTotal.add(desiredTotal).compareTo(pool) > 0) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH, quantityText(pool));
         }
 
+        Map<Long, MesProWorkOrderDO> workOrders = loadWorkOrders(activeOrders);
+        Map<Long, MesTeamLeaderOrderProcessTarget> targets = validateCapacities(event, desired, activeById,
+                workOrders);
         Map<Long, BigDecimal> before = aggregateRows(editableOld);
         if (before.equals(desired)) {
             if (!current.isEmpty()) {
@@ -253,7 +253,7 @@ public class MesReportAllocationCommandService {
         return auditMapper.selectListByEventId(eventId);
     }
 
-    private Map<Long, MesTeamLeaderOrderProcessTarget> capAllocationsToProcessRemaining(
+    private Map<Long, MesTeamLeaderOrderProcessTarget> validateCapacities(
             MesProProcessPoolEventDO event, Map<Long, BigDecimal> desired,
             Map<Long, MesProcessPoolActiveOrderDO> activeById, Map<Long, MesProWorkOrderDO> workOrders) {
         if (desired.isEmpty()) {
@@ -266,8 +266,7 @@ public class MesReportAllocationCommandService {
                         LinkedHashMap::new, Collectors.reducing(BigDecimal.ZERO,
                                 MesProcessPoolReportAllocationDO::getAllocatedQuantity, BigDecimal::add)));
         Map<Long, MesTeamLeaderOrderProcessTarget> targets = new LinkedHashMap<>();
-        for (Iterator<Map.Entry<Long, BigDecimal>> iterator = desired.entrySet().iterator(); iterator.hasNext();) {
-            Map.Entry<Long, BigDecimal> entry = iterator.next();
+        for (Map.Entry<Long, BigDecimal> entry : desired.entrySet()) {
             MesProcessPoolActiveOrderDO order = activeById.get(entry.getKey());
             MesProWorkOrderDO workOrder = workOrders.get(order.getWorkOrderId());
             if (workOrder == null || workOrder.getQuantity() == null
@@ -278,12 +277,8 @@ public class MesReportAllocationCommandService {
                     event.getProcessId());
             BigDecimal remaining = target.plannedQuantity()
                     .subtract(allocatedElsewhere.getOrDefault(order.getId(), BigDecimal.ZERO));
-            if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
-                iterator.remove();
-                continue;
-            }
             if (entry.getValue().compareTo(remaining) > 0) {
-                entry.setValue(remaining);
+                throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH, order.getWorkOrderId());
             }
             targets.put(order.getId(), target);
         }
