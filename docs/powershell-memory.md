@@ -98,6 +98,15 @@
 - Forbidden action: 禁止只看 `git diff HEAD..branch` 的宽泛差异就误判分支会改动所有主线新增文件；禁止为继续融合而使用 `git add -A` 混入并行改动；禁止用 reset、checkout 或 rebase 清空脏工作区。
 - Evidence: `doc/tasks/20260806-commit-frontend-backend-merge-int-main/execution-log.md`，融合 `origin/codex/replan-current-route-after-feedback` 前通过 merge-base 确认实际增量仅为排产服务、测试和经验文档，与并行残余无重叠后安全合并。
 
+### 路径限定 stash 的共享索引快照门禁
+
+- Trigger: 在共享主工作区已有其它任务 staged 变更时，准备使用 `git stash push -- <paths>` 或 `git stash push -u -- <paths>` 暂存待融合分支的少量重叠文件。
+- Preflight check: 不得假设 pathspec 会限制 stash 提交中的索引快照；创建后立即用 `git diff --name-status 'stash@{0}^1' 'stash@{0}'` 审计 tracked 内容，并用 `git ls-tree -r --name-only 'stash@{0}^3'` 审计 untracked 内容，同时确认主工作区其它 staged 文件仍保留。
+- Blocker: stash 包含其它任务文件、stash 身份或父提交无法确认、主工作区 staged 内容已被移除、或无法证明待融合分支已覆盖重叠语义时，必须保留 stash 并停止 pop/drop；优先改用干净集成 worktree 或明确文件补丁完成后续融合。
+- Verification: 记录 stash 名称、tracked/untracked 文件审计、融合后目标路径状态和其它 staged 文件数量；只在 stash 内容完全属于当前任务且已被正式提交覆盖时才允许删除。
+- Forbidden action: 禁止因为命令带 pathspec 就盲目 `git stash pop` 或 `git stash drop`；禁止用 stash 覆盖融合后的正式实现；禁止为了清理 stash 删除其中的并行任务快照。
+- Evidence: `doc/tasks/20260810-dcc-project-code-assignment-scope/execution-log.md`，融合 DCC 分配范围修复时，路径限定 stash 仍包含共享主工作区其它 staged 索引快照，因此保留 stash 且未 pop/drop。
+
 ### GitHub 推送大文件门禁
 
 - Trigger: 推送到 GitHub remote、处理 `GH001`、`Large files detected`、`pre-receive hook declined`、Git LFS 或历史大文件问题。

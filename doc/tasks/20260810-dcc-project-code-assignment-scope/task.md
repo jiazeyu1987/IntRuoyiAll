@@ -10,7 +10,7 @@
 - [x] 补充 BDD 场景和 RED 回归测试
 - [x] 实现最小后端修复
 - [x] 运行 DCC 定向 Maven 回归和技能证据校验
-- [ ] 提交 worktree 变更并按规则融合到 int_main
+- [x] 提交 worktree 变更并按规则融合到 int_main
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
