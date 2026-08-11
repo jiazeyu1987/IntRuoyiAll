@@ -52,6 +52,15 @@
 - Forbidden action: 禁止把 `wenkong`、下载角色或目录管理权限作为空列表的默认修复；禁止改前端空态文案掩盖查看矩阵缺口；禁止用 `formBindings`、旧版本、默认类别、全局 Redis 清理或 API-only 结果替代正式文件查看权限链。
 - Evidence: `doc/tasks/20260807-test-wangsiyu-dcc-browser-empty-diagnosis/verification-report.md`。
 
+### DCC 完整发布 E2E 分类与路线联合前置门禁
+
+- Trigger: DCC 受控文件上传、完整审批矩阵、同名/同内容双提交、最终批准发布，或真实 E2E 同时依赖 `fileTypeTaxonomyId`、标准 `categoryId` 和审批路线。
+- Preflight check: 在任何 upload-preview、ticket、submit 或 approve 写请求前，按目标标准类别读取其正式 `fileTypeTaxonomyId`，并确认同一类别存在当前有效审批路线及路线所需组织/岗位配置；Playwright 必须选择该正式绑定的 taxonomy 叶子并等待页面自动解析出精确类别，不能分别挑一个“有分类树的类别”和一个“有路线的类别”。预检同时记录目标写请求集合，阻断时应为 0。
+- Blocker: 有路线的类别未绑定分类树、有分类树绑定的类别没有有效路线、类别与 taxonomy 跨绑定、提交人部门负责人或路线参与人岗位缺失时必须在写入前记录 E2E BLOCKED。该状态可以证明前置门禁生效，但不能写成完整发布成功路径 PASS。
+- Verification: 证据至少包含目标类别、正式 taxonomy 绑定、有效路线解析结果、聚合 readiness blocker、页面自动绑定后的显示值和 `writeRequests=[]`；补齐正式测试数据后必须重新执行完整上传、四阶段审批、最终发布及访问验证，原阻断证据不能替代成功路径。
+- Forbidden action: 禁止任意选择第一个 taxonomy 叶子、按文本猜测类别、直接更新数据库补绑定、跨类别复用路线、API-only 提交、mock success，或在预检 BLOCKED 后继续创建临时/正式文件。
+- Evidence: `doc/tasks/20260810-dcc-critical-remediation/verification-report.md`，真实矩阵预检发现测试租户不存在同时具备正式分类树绑定和有效审批路线的标准类别，并在零业务写请求前稳定阻断。
+
 ### DCC 升版发布 UX 闭环门禁
 
 - Trigger: DCC 升版/修订发布、版本历史、升版原因、变更说明、发布完成结果、master 当前版本、受控浏览落位、BPM `markers` pageerror 或只读复验已完成发布链路。

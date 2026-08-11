@@ -243,3 +243,14 @@
 - GREEN: 集成基线 infra `FileUploadSecurityPolicyTest,FileControllerTest,InfraFileUploadHttpContractFilterTest` -> PASS，Tests 17，Failures 0，Errors 0，Skipped 0。
 - GREEN: 集成基线 `pnpm ts:check` -> PASS；8 项 DCC 静态合同逐项运行 -> PASS_COUNT=8。
 - 当前状态：实现、验证、清理和集成分支复验完成；待从主工作区执行 `git merge --ff-only codex/dcc-critical-remediation`、落入两份长期经验文档独立 hunk、移除任务 worktree/释放 slot 后再标记 completed。
+
+## 2026-08-11 Final Closeout
+
+- Merge: 主工作区 branch runtime port guard PASS；`git merge --ff-only codex/dcc-critical-remediation` 将 `int_main` 从 `8f82cea4b` 快进到 `688afee83`，105 个任务文件进入主线，未产生 merge commit。
+- Dirty safety: 融合前 incoming 105 paths、主工作区 dirty 581 paths、交集 0；融合后其它任务的 tracked/untracked 改动仍留在工作区，未暂存、未提交、未清理。
+- Experience: `project-experience-consolidation` 新增规则已作为独立 hunk 写入既有 `docs/e2e-rules.md` 和 `docs/experience-index.md`，最终提交只选择该新增规则，不包含两文件其它并发修改。
+- Worktree cleanup: `git worktree remove --force` 成功移除 Git 注册，但因 pnpm 依赖返回 `Directory not empty`；复核目标无 `.git`、无相关进程、8094/48094 零监听且路径严格位于 `D:\IntRuoyiWorktree\` 后，按既有 `worktree-memory` 规则用任务专用空目录 `robocopy /MIR` 清空残留 `node_modules`，再逐层删除空目录。
+- Cleanup verification: `Test-Path D:\IntRuoyiWorktree\dcc-critical-remediation=False`，Git worktree 注册不存在，任务专用空镜像不存在。
+- Port registry: 精确登记项 `dcc-critical-remediation` 已更新为 `active=false`，记录 `releasedAt/deletedAt=2026-08-11T23:24:51.0945141+08:00`、`cleanupTask=20260810-dcc-critical-remediation`；未修改其它 slot。
+- Push boundary: 用户要求不 push，本任务未执行任何 push；`int_main` 的本地 ahead 状态包含既有本地提交，不作为本任务清理对象。
+- Final status: completed；保留 `task.md`、`execution-log.md`、`verification-report.md`，其余任务临时产物已删除。

@@ -12,7 +12,7 @@
 - [x] M4 修复审批路线就绪校验、岗位提示和最终批准校验
 - [x] M5 修复签名证据一致性、受控副本哈希绑定和分发访问
 - [x] M6 修复 HTTP 状态与通用上传策略并完成系统回归
-- [ ] M7 独立审计、任务清理并融合到 `int_main`
+- [x] M7 独立审计、任务清理并融合到 `int_main`
 
 ## Expected Verification
 
@@ -38,7 +38,7 @@
 
 ## Current Status
 
-ready_for_closeout：T1-T14 和 AC-01..AC-18 的实现、定向自动化验证、模块回归、构建及运行健康检查均已完成。真实 Playwright 发布链路在任何业务写入前被现有测试租户正式配置缺口阻断：有审批路线的标准类别未绑定文件类型分类树，有分类树绑定的类别又没有审批路线；证据确认 `writeRequests=[]`。该环境数据前置不以改库、伪造分类或 API-only 绕过，作为残余验证阻塞在 `verification-report.md` 中保留。下一步仅执行任务清理、Git 门禁和本地融合。
+completed：AC-01..AC-18 的实现、自动化验证、集成基线复验、task-closeout-cleanup、`ff-only` 融合、worktree 物理清理和 slot 释放均已完成；`int_main` 包含任务提交 `5932be504` 与验证记录提交 `688afee83`。真实 Playwright 完整发布成功路径仍受测试租户正式类别数据缺口阻断，阻断发生在零业务写入前并保留在 `verification-report.md`，未以改库、伪造分类或 API-only 绕过。按用户要求未 push。
 
 ## Cleanup Keep
 

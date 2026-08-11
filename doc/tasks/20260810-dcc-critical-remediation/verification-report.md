@@ -53,3 +53,11 @@ AC-01..AC-18 的生产实现、定向测试和相关模块回归均通过；三�
 - infra：任务范围 17 tests、0 failures、0 errors、0 skipped。
 - 前端：`pnpm ts:check` PASS；8/8 DCC 静态合同 PASS。
 - 融合判定：代码与核心任务记录具备 `ff-only` 条件；主工作区并发 dirty 内容不在任务提交中，两份长期经验文档按独立 hunk 保留并发内容后落位。
+
+## 最终收尾
+
+- `int_main` 已通过 `ff-only` 融合至 `688afee83`；未 push。
+- 任务 worktree Git 注册和物理目录均已删除，8094/48094 无监听，slot 13 登记已释放。
+- `task-closeout-cleanup` preview/apply 均通过，最终仅保留三份核心任务记录。
+- 主工作区其它任务的 dirty 内容未被本任务暂存、提交、删除或覆盖。
+- 最终判定：任务实现与可执行验证完成；真实完整发布成功路径的测试租户数据前置仍需后续正式配置后复验，当前阻断证据不能替代成功路径 PASS。
