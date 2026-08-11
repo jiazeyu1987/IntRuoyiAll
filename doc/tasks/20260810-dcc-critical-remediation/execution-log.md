@@ -232,3 +232,14 @@
 - 经验沉淀：按 `project-experience-consolidation` 将“DCC 完整发布 E2E 必须联合校验正式 taxonomy 绑定和同一类别有效路线，阻断时证明零写请求且不得写成发布成功”合并到既有 `docs/e2e-rules.md`，并更新 `docs/experience-index.md`；未新建长期经验文档。
 - 融合预检：任务路径与 `5699b8045..int_main` 的 53 个主线已提交路径交集为 0；与主工作区 575 个 dirty 路径仅两个长期经验文档相交。实现提交排除这两个同文件并发路径，待主线代码融合后以独立 hunk 落入主工作区，禁止覆盖或提交其它 dirty 内容。
 - 结论：T14 完成。AC-01..AC-18 均有生产实现和自动化 GREEN；真实运行还额外证明新的组织/分类前置门禁会在零写入条件下失败。完整发布成功路径仍依赖测试租户补齐一条同时具备正式分类树绑定和有效审批路线的标准类别，作为环境数据阻塞保留，不静默降级。
+
+## 2026-08-11 Closeout And Integration Gate
+
+- 实现提交：原隔离分支提交 `c621d0a2f`，105 files changed，6110 insertions，414 deletions；提交前 branch runtime port guard 和 cached diff check 通过，未包含 `20260528_dcc_controlled_file_protection.sql` 的纯行尾假修改，也未包含主工作区并发经验文档。
+- Cleanup: `task_closeout.py --mode preview --worktree-closeout off` -> READY，keep 仅为 `task.md`、`execution-log.md`、`verification-report.md`，delete 11 项，blocked/warnings 均为空。
+- Cleanup: 同范围 `--mode apply` -> APPLIED；删除任务规划、临时技能 evidence、迁移门禁 JSON、Playwright 结果和误写旧任务目录的本次 E2E 临时产物，保留生产代码、正式 SQL、`src/test` 回归及三份核心任务记录。
+- 线性集成：任务提交在当前 `int_main` 提交 `8f82cea4b` 上重新落为 `5932be504`；未重写原提交，原 `c621d0a2f` 由 `codex/dcc-critical-remediation-preintegration` 保留。任务路径与主线已提交路径交集为 0，主工作区 dirty 交集仅两份经验文档且不在集成提交中。
+- GREEN: 集成基线 DCC 回归命令 -> PASS；仅统计本轮 163 份新 Surefire 报告，Tests 1165，Failures 0，Errors 0，Skipped 0。五份较早失败报告时间戳属于已确认的 `int_main` 基线失败，未混入本轮计数。
+- GREEN: 集成基线 infra `FileUploadSecurityPolicyTest,FileControllerTest,InfraFileUploadHttpContractFilterTest` -> PASS，Tests 17，Failures 0，Errors 0，Skipped 0。
+- GREEN: 集成基线 `pnpm ts:check` -> PASS；8 项 DCC 静态合同逐项运行 -> PASS_COUNT=8。
+- 当前状态：实现、验证、清理和集成分支复验完成；待从主工作区执行 `git merge --ff-only codex/dcc-critical-remediation`、落入两份长期经验文档独立 hunk、移除任务 worktree/释放 slot 后再标记 completed。
