@@ -24,8 +24,11 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileAct
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCurrentVersionRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRoutePreviewRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTrainingRecordReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTransferTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileWithdrawReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccSignatureActionRespVO;
@@ -100,12 +103,17 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_APPROVER_POST_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_FILE_NUMBER_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_FILE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PROCESS_TYPE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_NOT_CONFIGURED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_NOT_READY;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_FINAL_APPROVAL_NOT_READY;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_STAMPED_PDF_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DISTRIBUTION_DEPARTMENT_REQUIRED;
@@ -130,12 +138,16 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAXONOMY_LEVEL_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.ROUTE_PREVIEW_APPROVER_NOT_FOUND;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -170,6 +182,10 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     @Mock
     private DccControlledFileSignatureMapper signatureMapper;
     @Mock
+    private DccControlledFileSignatureBindingService signatureBindingService;
+    @Mock
+    private DccControlledFileSourceOwnershipService sourceOwnershipService;
+    @Mock
     private DccFileCategoryPermissionRuleMapper permissionRuleMapper;
     @Mock
     private FileMapper fileMapper;
@@ -189,6 +205,12 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     private BpmTaskService bpmTaskService;
     @Mock
     private AdminUserApi adminUserApi;
+    @Mock
+    private DccApprovalParticipantPostValidator approvalParticipantPostValidator;
+    @Mock
+    private DccElectronicSignatureAuthorizationService signatureAuthorizationService;
+    @Mock
+    private DccElectronicSignatureImageService signatureImageService;
     @Mock
     private DccDirectoryAccessPermissionService directoryAccessPermissionService;
     @Mock
@@ -210,6 +232,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
 
     private final DccControlledFileApprovalRouteAssigneeResolver approvalRouteAssigneeResolver =
             new DccControlledFileApprovalRouteAssigneeResolver();
+    private final DccControlledFileRouteReadinessService routeReadinessService =
+            new DccControlledFileRouteReadinessService();
 
     @InjectMocks
     private DccControlledFileWorkflowServiceImpl workflowService;
@@ -222,7 +246,31 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         ReflectionTestUtils.setField(approvalRouteAssigneeResolver, "positionAssignmentMapper", positionAssignmentMapper);
         ReflectionTestUtils.setField(approvalRouteAssigneeResolver, "positionRuntimeResolver", positionRuntimeResolver);
         ReflectionTestUtils.setField(approvalRouteAssigneeResolver, "adminUserApi", adminUserApi);
+        ReflectionTestUtils.setField(approvalRouteAssigneeResolver, "approvalParticipantPostValidator",
+                approvalParticipantPostValidator);
         ReflectionTestUtils.setField(workflowService, "approvalRouteAssigneeResolver", approvalRouteAssigneeResolver);
+        ReflectionTestUtils.setField(routeReadinessService, "routeAssigneeResolver", approvalRouteAssigneeResolver);
+        ReflectionTestUtils.setField(routeReadinessService, "adminUserApi", adminUserApi);
+        ReflectionTestUtils.setField(routeReadinessService, "permissionApi", permissionApi);
+        ReflectionTestUtils.setField(routeReadinessService, "signatureAuthorizationService",
+                signatureAuthorizationService);
+        ReflectionTestUtils.setField(routeReadinessService, "signatureImageService", signatureImageService);
+        ReflectionTestUtils.setField(workflowService, "routeReadinessService", routeReadinessService);
+        lenient().when(adminUserApi.getUserList(any())).thenAnswer(invocation -> {
+            Collection<Long> userIds = invocation.getArgument(0);
+            return userIds.stream()
+                    .map(userId -> new AdminUserRespDTO().setId(userId).setNickname("用户" + userId)
+                            .setPostIds(java.util.Set.of(10_000L + userId)))
+                    .toList();
+        });
+        lenient().when(signatureAuthorizationService.getAuthorizationMap(any())).thenAnswer(invocation -> {
+            Collection<Long> userIds = invocation.getArgument(0);
+            return userIds.stream().collect(java.util.stream.Collectors.toMap(userId -> userId, userId -> true));
+        });
+        lenient().when(signatureImageService.requireActiveSnapshot(any(Long.class))).thenReturn(
+                DccElectronicSignatureImageSnapshot.builder()
+                        .imageId(501L).fileId(1501L).sha256("valid-sha256")
+                        .imageStatus("ENABLED").verifiedStatus("VALID").build());
         lenient().when(uploadTicketService.resolveForBinding(any(DccUploadTicketResolveCommand.class)))
                 .thenAnswer(invocation -> {
                     DccUploadTicketResolveCommand command = invocation.getArgument(0);
@@ -233,6 +281,12 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                     return new DccUploadTicketBoundFile(command.uploadTicket(), 100L,
                             "SOP-001.docx",
                             "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 4L);
+                });
+        lenient().when(sourceOwnershipService.prepareSubmissionSource(any(Long.class), any(Boolean.class)))
+                .thenAnswer(invocation -> {
+                    Long sourceFileId = invocation.getArgument(0);
+                    return new DccControlledFilePreparedSource(sourceFileId, sourceFileId,
+                            "test-source-sha256", false);
                 });
         lenient().when(permissionApi.hasAnyPermissions(any(Long.class), any(String[].class))).thenReturn(true);
         lenient().when(controlledFileMasterMapper.selectByIdForUpdate(any(Long.class))).thenAnswer(invocation ->
@@ -913,6 +967,24 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void submitControlledFile_routeBecomesNotReadyRejectsBeforeFormalRecordTicketBindAndBpm() {
+        DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("V1.0");
+        mockCommonSubmitDependencies();
+        mockSingleStageRoute();
+        when(permissionApi.hasAnyPermissions(200L, "dcc:controlled-file:review")).thenReturn(false);
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> workflowService.submitControlledFile(99L, reqVO));
+
+        assertEquals(CONTROLLED_FILE_ROUTE_NOT_READY.getCode(), ex.getCode());
+        assertTrue(ex.getMessage().contains("审批人缺少当前阶段文控权限"));
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        verify(routeSnapshotMapper, never()).insert(any(DccControlledFileRouteSnapshotDO.class));
+        verify(uploadTicketService, never()).markBound(any(DccUploadTicketMarkBoundCommand.class));
+        verify(bpmProcessInstanceApi, never()).createProcessInstance(any(Long.class), any());
+    }
+
+    @Test
     void submitControlledFile_rejectsDrawingSourceWithoutPdf() {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("V1.0");
         reqVO.setSourceFileName("pump-housing.dwg");
@@ -1091,6 +1163,32 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         verify(finalizationService).activateWithoutApproval(901L, true);
         verify(bpmProcessInstanceApi, never()).createProcessInstance(any(Long.class), any());
         verify(routeSnapshotMapper, never()).insert(any(DccControlledFileRouteSnapshotDO.class));
+    }
+
+    @Test
+    void submitControlledFileWithoutApproval_rawSourceIsCopiedAndClaimedWithoutChangingOriginalHistory() {
+        DccControlledFileSubmitReqVO reqVO = buildRawFileIdSubmitReqVO("V1.0");
+        mockCommonSubmitDependencies();
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of(
+                directory(20L, null, "01.图纸"),
+                directory(21L, 20L, "01.01.设备图纸")));
+        when(sourceOwnershipService.prepareSubmissionSource(100L, true))
+                .thenReturn(new DccControlledFilePreparedSource(6100L, 100L, "copied-sha256", true));
+        doAnswer(invocation -> {
+            DccControlledFileDO file = invocation.getArgument(0);
+            file.setId(961L);
+            return 1;
+        }).when(controlledFileMapper).insert(any(DccControlledFileDO.class));
+
+        Long fileId = workflowService.submitControlledFileWithoutApproval(99L, reqVO);
+
+        assertEquals(961L, fileId);
+        ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).insert(fileCaptor.capture());
+        assertEquals(6100L, fileCaptor.getValue().getSourceFileId());
+        assertEquals(100L, fileCaptor.getValue().getOriginalFileId());
+        verify(sourceOwnershipService).claimSubmissionSource(961L,
+                new DccControlledFilePreparedSource(6100L, 100L, "copied-sha256", true), 99L, "SUBMISSION");
     }
 
     @Test
@@ -1634,8 +1732,10 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         when(routeNodeMapper.selectListByRouteId(30L)).thenReturn(List.of(
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "Doc Control Review", "USER", 200L)));
 
-        List<DccControlledFileRoutePreviewRespVO> respVOS = workflowService.previewRoute(99L, 10L);
+        DccControlledFileRouteReadinessRespVO readiness = workflowService.previewRoute(99L, 10L, List.of());
+        List<DccControlledFileRoutePreviewRespVO> respVOS = readiness.getNodes();
 
+        assertTrue(readiness.getReady());
         assertEquals(1, respVOS.size());
         assertEquals(1, respVOS.get(0).getStageNo());
         assertEquals(DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), respVOS.get(0).getStageCode());
@@ -1654,7 +1754,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "Doc Control Review", "POSITION", 50L)));
         when(positionAssignmentMapper.selectActiveListByPositionId(50L)).thenReturn(List.of());
 
-        assertServiceException(() -> workflowService.previewRoute(99L, 10L), ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+        assertServiceException(() -> workflowService.previewRoute(99L, 10L, List.of()),
+                ROUTE_PREVIEW_APPROVER_NOT_FOUND);
     }
 
     @Test
@@ -1668,7 +1769,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         when(positionRuntimeResolver.isUploaderDerivedPosition(50L)).thenReturn(Boolean.TRUE);
         when(positionRuntimeResolver.resolveUserIds(50L, 99L, false)).thenReturn(List.of(300L));
 
-        List<DccControlledFileRoutePreviewRespVO> respVOS = workflowService.previewRoute(99L, 10L);
+        List<DccControlledFileRoutePreviewRespVO> respVOS = workflowService.previewRoute(99L, 10L, List.of()).getNodes();
 
         assertEquals(1, respVOS.size());
         assertEquals(List.of(300L), respVOS.get(0).getResolvedUserIds());
@@ -1687,7 +1788,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 DccPositionAssignmentDO.builder().id(61L).positionId(900334L)
                         .assignmentType("USER").userId(301L).active(Boolean.TRUE).build()));
 
-        List<DccControlledFileRoutePreviewRespVO> respVOS = workflowService.previewRoute(99L, 10L);
+        List<DccControlledFileRoutePreviewRespVO> respVOS = workflowService.previewRoute(99L, 10L, List.of()).getNodes();
 
         assertEquals(1, respVOS.size());
         assertEquals(List.of(301L), respVOS.get(0).getResolvedUserIds());
@@ -2696,9 +2797,10 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setTaskId("task-4");
         reqVO.setPassword("secret");
         reqVO.setReason("approved");
+        useSingleDistributionDepartment(reqVO);
+        useConfirmedDirectory(reqVO);
 
-        assertServiceException(() -> workflowService.approveTask(99L, 900L, reqVO),
-                CONTROLLED_FILE_STAMPED_PDF_REQUIRED);
+        assertFinalApprovalNotReady(() -> workflowService.approveTask(99L, 900L, reqVO), "盖章 PDF");
 
         verify(signatureVerificationService, never()).verifyPasswordAndCreateSignature(any(), any(), any(), any(), any(), any(), any());
         verify(bpmTaskService, never()).approveTask(eq(99L), any(BpmTaskApproveReqVO.class));
@@ -2717,8 +2819,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         useConfirmedDirectory(reqVO);
         reqVO.setSelectedDistributionScopes(List.of());
 
-        assertServiceException(() -> workflowService.approveTask(99L, 900L, reqVO),
-                CONTROLLED_FILE_DISTRIBUTION_DEPARTMENT_REQUIRED);
+        assertFinalApprovalNotReady(() -> workflowService.approveTask(99L, 900L, reqVO), "分发部门");
 
         verify(signatureVerificationService, never()).verifyPasswordAndCreateSignature(any(), any(), any(), any(), any(), any(), any());
         verify(bpmTaskService, never()).approveTask(eq(99L), any(BpmTaskApproveReqVO.class));
@@ -2734,9 +2835,10 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setPassword("secret");
         reqVO.setReason("approved");
         useStampedPdfTicket(reqVO);
+        useSingleDistributionDepartment(reqVO);
+        useConfirmedDirectory(reqVO);
 
-        assertServiceException(() -> workflowService.approveTask(99L, 900L, reqVO),
-                CONTROLLED_FILE_TRAINING_RECORD_REQUIRED);
+        assertFinalApprovalNotReady(() -> workflowService.approveTask(99L, 900L, reqVO), "培训记录");
 
         verify(signatureVerificationService, never()).verifyPasswordAndCreateSignature(any(), any(), any(), any(), any(), any(), any());
         verify(bpmTaskService, never()).approveTask(eq(99L), any(BpmTaskApproveReqVO.class));
@@ -2783,6 +2885,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         assertNotNull(updateCaptor.getValue().getStampedTime());
         verify(signatureVerificationService).verifyPasswordAndCreateSignature(99L, 900L, "task-4",
                 DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL.getCode(), "APPROVE", "secret", "approved");
+        verify(signatureBindingService).bindPublishedCopy(any(DccControlledFileDO.class), eq(800L), eq(99L),
+                eq("dcc-final-approval:900:task-4"));
         verify(bpmTaskService).approveTask(eq(99L), any(BpmTaskApproveReqVO.class));
         verify(uploadTicketService).markBound(new DccUploadTicketMarkBoundCommand(
                 "UT-STAMPED", 99L, "session-stamped", "DRAWING_PDF", 900L));
@@ -2811,10 +2915,11 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setPassword("secret");
         reqVO.setReason("approved");
         useStampedPdfTicket(reqVO);
+        useSingleDistributionDepartment(reqVO);
+        useConfirmedDirectory(reqVO);
         reqVO.setTrainingRecordFileId(801L);
 
-        assertServiceException(() -> workflowService.approveTask(99L, 900L, reqVO),
-                CONTROLLED_FILE_TRAINING_RECORD_REQUIRED);
+        assertFinalApprovalNotReady(() -> workflowService.approveTask(99L, 900L, reqVO), "培训记录");
 
         verify(signatureVerificationService, never()).verifyPasswordAndCreateSignature(any(), any(), any(), any(), any(), any(), any());
         verify(bpmTaskService, never()).approveTask(eq(99L), any(BpmTaskApproveReqVO.class));
@@ -2931,8 +3036,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setSelectedDistributionScopes(List.of(
                 distributionScope(300L, DccDistributionMediumEnum.PUBLIC_FOLDER.getCode())));
 
-        assertServiceException(() -> workflowService.approveTask(99L, 900L, reqVO),
-                CONTROLLED_FILE_SUBMIT_DIRECTORY_INVALID);
+        assertFinalApprovalNotReady(() -> workflowService.approveTask(99L, 900L, reqVO), "确认目录");
 
         verify(signatureVerificationService, never()).verifyPasswordAndCreateSignature(any(), any(), any(), any(), any(), any(), any());
         verify(bpmTaskService, never()).approveTask(eq(99L), any(BpmTaskApproveReqVO.class));
@@ -3024,8 +3128,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         useConfirmedDirectory(reqVO);
         reqVO.setSelectedDistributionScopes(List.of(distributionScope(300L, "EMAIL")));
 
-        assertServiceException(() -> workflowService.approveTask(99L, 900L, reqVO),
-                CONTROLLED_FILE_DISTRIBUTION_MEDIUM_INVALID);
+        assertFinalApprovalNotReady(() -> workflowService.approveTask(99L, 900L, reqVO), "分发部门");
 
         verify(signatureVerificationService, never()).verifyPasswordAndCreateSignature(any(), any(), any(), any(), any(), any(), any());
         verify(bpmTaskService, never()).approveTask(eq(99L), any(BpmTaskApproveReqVO.class));
@@ -3207,6 +3310,120 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         ArgumentCaptor<DccControlledFileRouteSnapshotDO> snapshotCaptor = ArgumentCaptor.forClass(DccControlledFileRouteSnapshotDO.class);
         verify(routeSnapshotMapper).updateById(snapshotCaptor.capture());
         assertEquals("99,100,101,102", snapshotCaptor.getValue().getResolvedUserIds());
+    }
+
+    @Test
+    void getTaskActionReadiness_finalApprovalAggregatesAllMissingRequirements() {
+        mockTaskActionContext(900L, 99L, "task-4", "approveTask",
+                DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL,
+                DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL, Boolean.TRUE);
+        DccControlledFileTaskReadinessReqVO reqVO = new DccControlledFileTaskReadinessReqVO();
+        reqVO.setTaskId("task-4");
+
+        DccControlledFileTaskReadinessRespVO result =
+                workflowService.getTaskActionReadiness(99L, 900L, reqVO);
+
+        assertFalse(result.getReady());
+        assertTrue(result.getFinalApproval());
+        assertEquals(List.of(
+                        "STAMPED_PDF_REQUIRED",
+                        "CONFIRMED_DIRECTORY_REQUIRED",
+                        "TRAINING_RECORD_REQUIRED",
+                        "DISTRIBUTION_SCOPE_REQUIRED"),
+                result.getBlockers().stream().map(blocker -> blocker.getReasonCode()).toList());
+    }
+
+    @Test
+    void approveTask_finalApprovalMultipleMissingUsesAggregateErrorAndHasNoSideEffects() {
+        mockTaskActionContext(900L, 99L, "task-4", "approveTask",
+                DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL,
+                DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL, Boolean.TRUE);
+        DccControlledFileApproveTaskReqVO reqVO = new DccControlledFileApproveTaskReqVO();
+        reqVO.setTaskId("task-4");
+        reqVO.setPassword("secret");
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> workflowService.approveTask(99L, 900L, reqVO));
+
+        assertEquals(CONTROLLED_FILE_FINAL_APPROVAL_NOT_READY.getCode(), ex.getCode());
+        assertTrue(ex.getMessage().contains("盖章 PDF"));
+        assertTrue(ex.getMessage().contains("分发部门"));
+        verify(signatureVerificationService, never()).verifyPasswordAndCreateSignature(any(), any(), any(), any(), any(), any(), any());
+        verify(uploadTicketService, never()).markBound(any(DccUploadTicketMarkBoundCommand.class));
+        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+        verify(bpmTaskService, never()).approveTask(eq(99L), any(BpmTaskApproveReqVO.class));
+    }
+
+    @Test
+    void approveTask_snapshotContainsUserButRuntimeTaskAssignedToAnotherUserFailsWithMismatch() {
+        when(controlledFileMapper.selectById(900L)).thenReturn(DccControlledFileDO.builder()
+                .id(900L)
+                .processDefinitionKey(DccControlledFileWorkflowServiceImpl.BPM_PROCESS_DEFINITION_KEY)
+                .processInstanceId("proc-1")
+                .status(DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus())
+                .build());
+        when(routeSnapshotMapper.selectListByControlledFileId(900L)).thenReturn(List.of(
+                DccControlledFileRouteSnapshotDO.builder()
+                        .id(2L).controlledFileId(900L).stageNo(2)
+                        .stageCode(DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode())
+                        .stageOrder(2).resolvedUserIds("99").build()));
+        Task runtimeTask = mockTask("task-2", "proc-1", DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode());
+        when(runtimeTask.getAssignee()).thenReturn("100");
+        when(bpmTaskService.validateTask(99L, "task-2"))
+                .thenThrow(new ServiceException(1_009_000_005, "该任务的审批人不是你"));
+        when(bpmTaskService.getTask("task-2")).thenReturn(runtimeTask);
+        DccControlledFileApproveTaskReqVO reqVO = new DccControlledFileApproveTaskReqVO();
+        reqVO.setTaskId("task-2");
+        reqVO.setPassword("secret");
+
+        assertServiceException(() -> workflowService.approveTask(99L, 900L, reqVO),
+                CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+
+        verify(signatureVerificationService, never()).verifyPasswordAndCreateSignature(any(), any(), any(), any(), any(), any(), any());
+        verify(bpmTaskService, never()).approveTask(eq(99L), any(BpmTaskApproveReqVO.class));
+    }
+
+    @Test
+    void transferTask_targetWithoutPostDoesNotSignTransferOrUpdateSnapshot() {
+        mockTaskActionContext(900L, 99L, "task-2", "approveTask",
+                DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW,
+                DccControlledFileStageCodeEnum.MATRIX_REVIEW, Boolean.FALSE);
+        DccControlledFileTransferTaskReqVO reqVO = new DccControlledFileTransferTaskReqVO();
+        reqVO.setTaskId("task-2");
+        reqVO.setPassword("secret");
+        reqVO.setAssigneeUserId(101L);
+        reqVO.setReason("请代为评审");
+        doThrow(exception(CONTROLLED_FILE_APPROVER_POST_REQUIRED))
+                .when(approvalParticipantPostValidator).requireConfiguredPosts(List.of(101L));
+
+        assertServiceException(() -> workflowService.transferTask(99L, 900L, reqVO),
+                CONTROLLED_FILE_APPROVER_POST_REQUIRED);
+
+        verify(signatureVerificationService, never()).verifyPasswordAndCreateSignature(any(), any(), any(), any(), any(), any(), any());
+        verify(bpmTaskService, never()).transferTask(eq(99L), any(BpmTaskTransferReqVO.class));
+        verify(routeSnapshotMapper, never()).updateById(any(DccControlledFileRouteSnapshotDO.class));
+    }
+
+    @Test
+    void createSignTask_targetWithoutPostDoesNotSignCreateTaskOrUpdateSnapshot() {
+        mockTaskActionContext(900L, 99L, "task-2", "approveTask",
+                DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW,
+                DccControlledFileStageCodeEnum.MATRIX_REVIEW, Boolean.FALSE);
+        DccControlledFileCreateSignTaskReqVO reqVO = new DccControlledFileCreateSignTaskReqVO();
+        reqVO.setTaskId("task-2");
+        reqVO.setPassword("secret");
+        reqVO.setUserIds(new java.util.LinkedHashSet<>(List.of(101L)));
+        reqVO.setType("before");
+        reqVO.setReason("增加工艺确认");
+        doThrow(exception(CONTROLLED_FILE_APPROVER_POST_REQUIRED))
+                .when(approvalParticipantPostValidator).requireConfiguredPosts(List.of(101L));
+
+        assertServiceException(() -> workflowService.createSignTask(99L, 900L, reqVO),
+                CONTROLLED_FILE_APPROVER_POST_REQUIRED);
+
+        verify(signatureVerificationService, never()).verifyPasswordAndCreateSignature(any(), any(), any(), any(), any(), any(), any());
+        verify(bpmTaskService, never()).createSignTask(eq(99L), any(BpmTaskSignCreateReqVO.class));
+        verify(routeSnapshotMapper, never()).updateById(any(DccControlledFileRouteSnapshotDO.class));
     }
 
     @Test
@@ -3506,6 +3723,13 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .evidenceStatus("VALID")
                 .signedAt(LocalDateTime.of(2026, 5, 26, 14, 32, 18))
                 .build();
+    }
+
+    private void assertFinalApprovalNotReady(org.junit.jupiter.api.function.Executable executable,
+                                             String expectedMessageFragment) {
+        ServiceException ex = assertThrows(ServiceException.class, executable);
+        assertEquals(CONTROLLED_FILE_FINAL_APPROVAL_NOT_READY.getCode(), ex.getCode());
+        assertTrue(ex.getMessage().contains(expectedMessageFragment));
     }
 
     private void assertWithdrawAllowed(String status) {

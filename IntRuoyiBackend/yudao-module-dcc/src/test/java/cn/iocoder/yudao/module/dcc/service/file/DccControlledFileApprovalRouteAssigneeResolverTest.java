@@ -39,6 +39,8 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
     private DccApprovalPositionRuntimeResolver positionRuntimeResolver;
     @Mock
     private AdminUserApi adminUserApi;
+    @Mock
+    private DccApprovalParticipantPostValidator approvalParticipantPostValidator;
 
     @InjectMocks
     private DccControlledFileApprovalRouteAssigneeResolver resolver;
@@ -115,6 +117,25 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
 
         assertServiceException(() -> resolver.resolveStartUserSelectAssignees(file, 99L),
                 ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+    }
+
+    @Test
+    void resolveStartUserSelectAssignees_userWithoutPostFailsFast() {
+        DccControlledFileDO file = DccControlledFileDO.builder().id(904L).categoryId(14L).build();
+        DccCategoryApprovalRouteDO route = DccCategoryApprovalRouteDO.builder()
+                .id(24L).categoryId(14L).versionNo(1).active(Boolean.TRUE).build();
+        when(routeMapper.selectLatestActiveByCategoryId(14L)).thenReturn(route);
+        when(routeNodeMapper.selectListByRouteId(24L)).thenReturn(List.of(
+                routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "USER", 914518L,
+                        null, 1)
+        ));
+        org.mockito.Mockito.doThrow(cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil
+                        .exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants
+                                .CONTROLLED_FILE_APPROVER_POST_REQUIRED))
+                .when(approvalParticipantPostValidator).requireConfiguredPosts(List.of(914518L));
+
+        assertServiceException(() -> resolver.resolveStartUserSelectAssignees(file, 99L),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_APPROVER_POST_REQUIRED);
     }
 
     private DccCategoryApprovalRouteNodeDO routeNode(Integer stageNo, String stageCode, String candidateSourceType,

@@ -1070,7 +1070,19 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_temporary_file` (
   `creator` VARCHAR(64) NULL,
   `updater` VARCHAR(64) NULL,
   `deleted` TINYINT NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`)
+  `active_slot_unique_flag` TINYINT GENERATED ALWAYS AS (
+    CASE
+      WHEN `deleted` = 0
+        AND `status` = 'AVAILABLE'
+        AND `cleanup_status` IN ('ACTIVE', 'CLEANING')
+        AND `bound_controlled_file_id` IS NULL
+      THEN 1
+      ELSE NULL
+    END
+  ),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_temp_active_slot`
+    (`tenant_id`, `uploader_id`, `session_id`, `purpose`, `active_slot_unique_flag`)
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_download_record` (
@@ -1631,4 +1643,70 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_recognition_claim` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_dcc_file_recognition_claim_scope`
     (`controlled_file_id`, `recognition_scope`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_signature_binding` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `signature_id` bigint NOT NULL,
+  `controlled_file_id` bigint NOT NULL,
+  `original_evidence_hash` varchar(128) NOT NULL,
+  `controlled_copy_file_id` bigint NOT NULL,
+  `controlled_copy_sha256` char(64) NOT NULL,
+  `controlled_copy_hash_algorithm` varchar(32) NOT NULL DEFAULT 'SHA256',
+  `bound_at` datetime NOT NULL,
+  `bound_by` bigint DEFAULT NULL,
+  `binding_event_key` varchar(128) NOT NULL,
+  `binding_payload_version` varchar(32) NOT NULL DEFAULT 'v1',
+  `binding_hash_algorithm` varchar(32) NOT NULL DEFAULT 'SHA256',
+  `binding_hash` char(64) NOT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_signature_binding_signature` (`tenant_id`, `signature_id`, `deleted`),
+  KEY `idx_dcc_signature_binding_file` (`tenant_id`, `controlled_file_id`),
+  KEY `idx_dcc_signature_binding_copy` (`tenant_id`, `controlled_copy_file_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_source_ownership` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `controlled_file_id` BIGINT NOT NULL,
+  `source_file_id` BIGINT NOT NULL,
+  `origin_source_file_id` BIGINT NOT NULL,
+  `source_sha256` VARCHAR(64) NOT NULL,
+  `ownership_type` VARCHAR(32) NOT NULL,
+  `claimed_by` BIGINT NULL,
+  `claimed_time` DATETIME NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_source_owner_file` (`tenant_id`, `controlled_file_id`),
+  UNIQUE KEY `uk_dcc_source_owner_source` (`tenant_id`, `source_file_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_source_migration` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `controlled_file_id` BIGINT NOT NULL,
+  `legacy_source_file_id` BIGINT NOT NULL,
+  `isolated_source_file_id` BIGINT NULL,
+  `source_sha256` VARCHAR(64) NULL,
+  `migration_status` VARCHAR(32) NOT NULL,
+  `error_message` VARCHAR(1000) NULL,
+  `migrated_by` BIGINT NULL,
+  `migrated_time` DATETIME NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_source_migration_file` (`tenant_id`, `controlled_file_id`)
 );

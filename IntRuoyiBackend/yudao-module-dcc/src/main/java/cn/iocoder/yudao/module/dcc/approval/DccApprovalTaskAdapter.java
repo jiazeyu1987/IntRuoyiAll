@@ -373,14 +373,16 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private List<String> buildDccBusinessContextTags(DccControlledFileRespVO file, String currentNodeName) {
         DccFileCategoryDO category = resolveCategory(file.getCategoryId());
         return buildDccBusinessContextTags(file.getFileNumber(), file.getVersionNo(),
-                resolveCategoryLabel(category, file.getCategoryId()), currentNodeName, file.getStampedFileId(),
+                resolveCategoryLabel(category, file.getCategoryId()), currentNodeName,
+                file.getStampedArtifactAvailable(),
                 category == null ? null : category.getDistributionRequired());
     }
 
     private List<String> buildDccBusinessContextTags(DccControlledFileDO file, String currentNodeName) {
         DccFileCategoryDO category = resolveCategory(file.getCategoryId());
         return buildDccBusinessContextTags(file.getFileNumber(), historicalVersionLabel(file.getVersionNo()),
-                resolveHistoricalCategoryLabel(category, file.getCategoryId()), currentNodeName, file.getStampedFileId(),
+                resolveHistoricalCategoryLabel(category, file.getCategoryId()), currentNodeName,
+                file.getStampedFileId() != null,
                 category == null ? null : category.getDistributionRequired());
     }
 
@@ -398,7 +400,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                                                      String versionNo,
                                                      String categoryLabel,
                                                      String currentNodeName,
-                                                     Long stampedFileId,
+                                                     Boolean stampedArtifactAvailable,
                                                      Boolean distributionRequired) {
         return List.of(
                 "文件编号：" + requireText(fileNumber,
@@ -409,7 +411,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                         "APPROVAL_BUSINESS_CATEGORY_REQUIRED: DCC controlled file category is required"),
                 "当前节点：" + requireText(currentNodeName,
                         "APPROVAL_TASK_NAME_REQUIRED: DCC task name is required"),
-                stampedFileId == null ? "盖章：需要" : "盖章：已生成",
+                Boolean.TRUE.equals(stampedArtifactAvailable) ? "盖章：已生成" : "盖章：需要",
                 Boolean.TRUE.equals(distributionRequired) ? "分发：需要" : "分发：不需要");
     }
 

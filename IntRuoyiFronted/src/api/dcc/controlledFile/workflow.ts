@@ -309,6 +309,7 @@ export interface ControlledFilePrintHtmlVO {
 
 export interface ControlledFileRoutePreviewReqVO {
   categoryId: number
+  selectedSignoffUserIds: number[]
 }
 
 export interface ControlledFileRoutePreviewVO {
@@ -323,6 +324,22 @@ export interface ControlledFileRoutePreviewVO {
   approveRatio?: number | null
   requireAllApprovals?: boolean
   resolvedUserIds: number[]
+}
+
+export interface ControlledFileRouteReadinessBlockerVO {
+  reasonCode: string
+  message: string
+  stageNo?: number | null
+  stageCode?: string | null
+  stageName?: string | null
+  userId?: number | null
+  userName?: string | null
+}
+
+export interface ControlledFileRouteReadinessVO {
+  ready: boolean
+  nodes: ControlledFileRoutePreviewVO[]
+  blockers: ControlledFileRouteReadinessBlockerVO[]
 }
 
 export interface ControlledFileRouteSnapshotVO {
@@ -347,8 +364,8 @@ export interface ControlledFileVersionHistoryVO {
   fileNumber: string
   versionNo: string
   status: string
-  publishedFileId?: number | null
-  stampedFileId?: number | null
+  publishedArtifactAvailable?: boolean
+  stampedArtifactAvailable?: boolean
   currentActiveVersionNo?: string | null
   effectiveDate?: string
   publishedTime?: number
@@ -356,6 +373,7 @@ export interface ControlledFileVersionHistoryVO {
   supersededByFileId?: number | null
   remark?: string
   canPreview?: boolean
+  previewUnavailableReason?: string
   canDownload?: boolean
   modifying?: boolean
 }
@@ -511,6 +529,25 @@ export interface ControlledFileApproveTaskReqVO {
   selectedDistributionScopes?: ControlledFileDistributionScopeVO[]
 }
 
+export interface ControlledFileTaskReadinessReqVO {
+  taskId: string
+  sessionId?: string
+  stampedPdfUploadTicket?: string
+  confirmedDirectoryId?: number
+  selectedDistributionScopes?: ControlledFileDistributionScopeVO[]
+}
+
+export interface ControlledFileTaskReadinessBlockerVO {
+  reasonCode: string
+  message: string
+}
+
+export interface ControlledFileTaskReadinessVO {
+  ready: boolean
+  finalApproval: boolean
+  blockers: ControlledFileTaskReadinessBlockerVO[]
+}
+
 export interface ExternalFileReviewApproveTaskReqVO extends ControlledFileApproveTaskReqVO {
   reviewConclusion?: string
   conclusionComment?: string
@@ -573,10 +610,8 @@ export interface ControlledFileVO {
   contentType?: string
   previewKind?: ControlledFilePreviewKind
   fileNumber?: string
-  sourceFileId?: number | null
-  originalFileId?: number | null
-  publishedFileId?: number | null
-  stampedFileId?: number | null
+  publishedArtifactAvailable?: boolean
+  stampedArtifactAvailable?: boolean
   versionNo: string
   effectiveDate?: string
   remark?: string
@@ -596,6 +631,7 @@ export interface ControlledFileVO {
   rejectReason?: string
   finalizationError?: string
   canPreview?: boolean
+  previewUnavailableReason?: string
   canDownload?: boolean
   canPrint?: boolean
   accessExplanation?: ControlledFileAccessExplanationVO
@@ -1044,6 +1080,14 @@ export class DccControlledFileContractError extends Error {
     this.name = 'DccControlledFileContractError'
     this.details = details
   }
+}
+
+const buildDccExplicitTenantHeaders = () => {
+  const tenantId = getTenantId()
+  if (typeof tenantId !== 'number' || !Number.isSafeInteger(tenantId) || tenantId <= 0) {
+    throw new DccControlledFileContractError('DCC 请求缺少有效的系统租户，请重新登录')
+  }
+  return { 'tenant-id': String(tenantId) }
 }
 
 const isBlankString = (value: unknown) => typeof value === 'string' && value.trim().length === 0
@@ -1511,7 +1555,10 @@ export const uploadControlledFilePreview = async (
   const res = await request.upload({
     url: '/dcc/controlled-files/upload-preview',
     data: formData,
-    headers: { [DCC_REQUEST_ID_HEADER]: requestId }
+    headers: {
+      ...buildDccExplicitTenantHeaders(),
+      [DCC_REQUEST_ID_HEADER]: requestId
+    }
   })
   const uploadResp = parseControlledFileUploadResp((res as { data?: unknown }).data)
   if (uploadResp.requestId !== requestId) {
@@ -1526,7 +1573,8 @@ export const getControlledFileUploadTemporaryStatus = async (
   return parseControlledFileUploadTemporaryStatusResp(
     await request.get({
       url: '/dcc/controlled-files/upload-temporary/status',
-      params: { requestId }
+      params: { requestId },
+      headers: { ...buildDccExplicitTenantHeaders() }
     })
   )
 }
@@ -1539,15 +1587,28 @@ export const cleanupControlledFileUploadSession = async (
     await request.post({
       url: '/dcc/controlled-files/upload-temporary/session-cleanup',
       data: { sessionId },
-      headers: requestId ? { [DCC_REQUEST_ID_HEADER]: requestId } : undefined
+      headers: {
+        ...buildDccExplicitTenantHeaders(),
+        ...(requestId ? { [DCC_REQUEST_ID_HEADER]: requestId } : {})
+      }
     })
   )
 }
 
-export const previewControlledFileRoute = async (
+export const checkControlledFileRouteReadiness = async (
   data: ControlledFileRoutePreviewReqVO
-): Promise<ControlledFileRoutePreviewVO[]> => {
+): Promise<ControlledFileRouteReadinessVO> => {
   return await request.post({ url: '/dcc/controlled-files/route-preview', data })
+}
+
+export const getControlledFileTaskActionReadiness = async (
+  id: number | string,
+  data: ControlledFileTaskReadinessReqVO
+): Promise<ControlledFileTaskReadinessVO> => {
+  return await request.post({
+    url: `/dcc/controlled-files/${id}/task-action-readiness`,
+    data
+  })
 }
 
 export const getControlledFileUploadNameOptions = async (params: {

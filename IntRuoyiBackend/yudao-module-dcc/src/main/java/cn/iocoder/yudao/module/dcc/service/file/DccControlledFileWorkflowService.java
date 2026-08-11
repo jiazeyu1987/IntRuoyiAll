@@ -8,8 +8,10 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRej
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileReturnTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileCurrentVersionRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO;
-import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRoutePreviewRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTrainingRecordReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTransferTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileWithdrawReqVO;
@@ -19,7 +21,8 @@ import java.util.List;
 
 public interface DccControlledFileWorkflowService {
 
-    List<DccControlledFileRoutePreviewRespVO> previewRoute(Long userId, Long categoryId);
+    DccControlledFileRouteReadinessRespVO previewRoute(Long userId, Long categoryId,
+                                                       List<Long> selectedSignoffUserIds);
 
     DccControlledFileCurrentVersionRespVO getCurrentVersionByFileNumber(Long userId, String fileNumber);
 
@@ -45,6 +48,9 @@ public interface DccControlledFileWorkflowService {
     Long resubmitWithdrawnControlledFile(Long userId, Long id);
 
     void uploadTrainingRecord(Long userId, Long id, DccControlledFileTrainingRecordReqVO reqVO);
+
+    DccControlledFileTaskReadinessRespVO getTaskActionReadiness(Long userId, Long id,
+                                                               DccControlledFileTaskReadinessReqVO reqVO);
 
     DccSignatureActionRespVO approveTask(Long userId, Long id, DccControlledFileApproveTaskReqVO reqVO);
 

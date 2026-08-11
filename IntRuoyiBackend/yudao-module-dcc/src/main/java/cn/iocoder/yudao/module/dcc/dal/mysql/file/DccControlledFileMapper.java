@@ -13,6 +13,7 @@ import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.Collection;
 import java.util.List;
@@ -166,6 +167,103 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
                         .or()
                         .eq(DccControlledFileDO::getStampedFileId, fileId)));
     }
+
+    @Select("""
+            SELECT COUNT(1)
+            FROM dcc_controlled_file
+            WHERE tenant_id = #{tenantId}
+              AND source_file_id = #{sourceFileId}
+            """)
+    long countAllBySourceFileId(@Param("tenantId") Long tenantId,
+                                @Param("sourceFileId") Long sourceFileId);
+
+    @Select("""
+            SELECT controlled_file.*
+            FROM dcc_controlled_file controlled_file
+            LEFT JOIN dcc_controlled_file_source_ownership source_owner
+              ON source_owner.tenant_id = controlled_file.tenant_id
+             AND source_owner.controlled_file_id = controlled_file.id
+             AND source_owner.deleted = 0
+            WHERE controlled_file.tenant_id = #{tenantId}
+              AND controlled_file.source_file_id IS NOT NULL
+              AND source_owner.id IS NULL
+            ORDER BY controlled_file.source_file_id, controlled_file.id
+            LIMIT #{limit}
+            """)
+    List<DccControlledFileDO> selectUnownedSourceReferences(@Param("tenantId") Long tenantId,
+                                                            @Param("limit") int limit);
+
+    @Select("""
+            SELECT *
+            FROM dcc_controlled_file
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+            LIMIT 1
+            """)
+    DccControlledFileDO selectByIdAndTenantIncludingDeleted(@Param("tenantId") Long tenantId,
+                                                             @Param("controlledFileId") Long controlledFileId);
+
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET source_file_id = #{isolatedSourceFileId},
+                updater = #{actorId},
+                update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId}
+              AND id = #{controlledFileId}
+              AND source_file_id = #{legacySourceFileId}
+            """)
+    int updateSourceFileIdIncludingDeleted(@Param("tenantId") Long tenantId,
+                                            @Param("controlledFileId") Long controlledFileId,
+                                            @Param("legacySourceFileId") Long legacySourceFileId,
+                                            @Param("isolatedSourceFileId") Long isolatedSourceFileId,
+                                            @Param("actorId") Long actorId);
+
+    @Select("""
+            SELECT COUNT(1)
+            FROM dcc_controlled_file
+            WHERE tenant_id = #{tenantId}
+              AND source_file_id IS NOT NULL
+            """)
+    long countAllSourceReferences(@Param("tenantId") Long tenantId);
+
+    @Select("""
+            SELECT COUNT(1)
+            FROM dcc_controlled_file controlled_file
+            LEFT JOIN dcc_controlled_file_source_ownership source_owner
+              ON source_owner.tenant_id = controlled_file.tenant_id
+             AND source_owner.controlled_file_id = controlled_file.id
+             AND source_owner.deleted = 0
+            WHERE controlled_file.tenant_id = #{tenantId}
+              AND controlled_file.source_file_id IS NOT NULL
+              AND source_owner.id IS NULL
+            """)
+    long countUnownedSourceReferences(@Param("tenantId") Long tenantId);
+
+    @Select("""
+            SELECT COUNT(1)
+            FROM (
+                SELECT source_file_id
+                FROM dcc_controlled_file
+                WHERE tenant_id = #{tenantId}
+                  AND source_file_id IS NOT NULL
+                GROUP BY source_file_id
+                HAVING COUNT(1) > 1
+            ) shared_source
+            """)
+    long countSharedSourceGroups(@Param("tenantId") Long tenantId);
+
+    @Select("""
+            SELECT COALESCE(SUM(shared_source.reference_count), 0)
+            FROM (
+                SELECT COUNT(1) AS reference_count
+                FROM dcc_controlled_file
+                WHERE tenant_id = #{tenantId}
+                  AND source_file_id IS NOT NULL
+                GROUP BY source_file_id
+                HAVING COUNT(1) > 1
+            ) shared_source
+            """)
+    long countSharedSourceRecords(@Param("tenantId") Long tenantId);
 
     @Select("""
             <script>

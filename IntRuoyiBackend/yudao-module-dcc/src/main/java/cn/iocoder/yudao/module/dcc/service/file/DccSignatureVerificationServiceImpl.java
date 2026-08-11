@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_APPROVER_POST_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_LOCKED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_TASK_PASSWORD_INVALID;
@@ -177,8 +178,11 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
             throw exception(CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED);
         }
         String postNames = resolvePostNames(user);
+        if (StrUtil.isBlank(postNames)) {
+            throw exception(CONTROLLED_FILE_APPROVER_POST_REQUIRED);
+        }
         String roleNames = resolveRoleNames(user.getId());
-        if (StrUtil.hasBlank(postNames, roleNames)) {
+        if (StrUtil.isBlank(roleNames)) {
             throw exception(CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED);
         }
         return new SignatureActorSnapshot(

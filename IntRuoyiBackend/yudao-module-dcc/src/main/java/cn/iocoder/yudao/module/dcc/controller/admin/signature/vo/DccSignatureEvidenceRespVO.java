@@ -24,6 +24,9 @@ public class DccSignatureEvidenceRespVO extends DccElectronicSignatureRespVO {
     @Schema(description = "校验状态", requiredMode = Schema.RequiredMode.REQUIRED, example = "VALID")
     private String verificationStatus;
 
+    @Schema(description = "校验失败原因", example = "EVIDENCE_HMAC_MISMATCH")
+    private String verificationReason;
+
     @Schema(description = "校验时间")
     private LocalDateTime verifiedAt;
 }

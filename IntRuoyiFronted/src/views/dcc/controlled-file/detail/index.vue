@@ -170,6 +170,15 @@
           </div>
         </div>
       </div>
+      <el-alert
+        v-if="fileDetail && !fileDetail.canPreview && fileDetail.previewUnavailableReason"
+        data-testid="dcc-detail-preview-unavailable"
+        class="mt-16px"
+        type="error"
+        :closable="false"
+        show-icon
+        :title="fileDetail.previewUnavailableReason"
+      />
       <div
         v-if="fileDetail && showDetailManagementActions"
         class="detail-handling-summary"
@@ -531,12 +540,12 @@
         <div class="controlled-browser-linkage-card">
           <div class="controlled-browser-linkage-card__label">发布文件</div>
           <div class="controlled-browser-linkage-card__value">{{ publishedFileBusinessText }}</div>
-          <div class="controlled-browser-linkage-card__meta">高级信息：publishedFileId {{ fileDetail?.publishedFileId || '-' }}</div>
+          <div class="controlled-browser-linkage-card__meta">状态来源：后端发布件可用性</div>
         </div>
         <div class="controlled-browser-linkage-card">
           <div class="controlled-browser-linkage-card__label">盖章文件</div>
           <div class="controlled-browser-linkage-card__value">{{ stampedFileBusinessText }}</div>
-          <div class="controlled-browser-linkage-card__meta">高级信息：stampedFileId {{ fileDetail?.stampedFileId || '-' }}</div>
+          <div class="controlled-browser-linkage-card__meta">状态来源：后端盖章件可用性</div>
         </div>
         <div class="controlled-browser-linkage-card">
           <div class="controlled-browser-linkage-card__label">当前有效版来源（master 当前生效版本）</div>
@@ -1797,6 +1806,48 @@
         type="error"
         :title="actionDialog.inlineError"
       />
+      <div
+        v-if="actionDialog.mode === 'approve' && !isExternalReviewProcess"
+        data-testid="dcc-task-action-readiness"
+        class="mb-16px"
+      >
+        <el-alert
+          v-if="taskActionReadiness.loading"
+          type="info"
+          :closable="false"
+          show-icon
+          title="正在校验审批条件"
+        />
+        <el-alert
+          v-else-if="taskActionReadiness.error"
+          type="error"
+          :closable="false"
+          show-icon
+          :title="taskActionReadiness.error"
+        />
+        <el-alert
+          v-else-if="!taskActionReadiness.ready"
+          type="error"
+          :closable="false"
+          show-icon
+          :title="taskActionReadiness.finalApproval ? '最终批准条件尚未就绪' : '当前审批条件尚未就绪'"
+        >
+          <template #default>
+            <ul class="detail-readiness-blockers">
+              <li v-for="blocker in taskActionReadiness.blockers" :key="blocker.reasonCode">
+                {{ blocker.message }}
+              </li>
+            </ul>
+          </template>
+        </el-alert>
+        <el-alert
+          v-else-if="taskActionReadiness.finalApproval"
+          type="success"
+          :closable="false"
+          show-icon
+          title="最终批准条件已就绪"
+        />
+      </div>
       <el-descriptions class="mb-16px" :column="2" border>
         <el-descriptions-item label="文件编号">
           {{ fileDetail?.fileNumber || '-' }}
@@ -2626,6 +2677,7 @@ import {
   getControlledFileAccessExplanation,
   getControlledFilePrintHtml,
   getControlledFilePrintRecords,
+  getControlledFileTaskActionReadiness,
   getControlledFileUploadDirectoryTree,
   getPaperDistributionRecords,
   isControlledFileTaskPasswordInvalidError,
@@ -2655,6 +2707,7 @@ import {
   type ControlledFileUploadDirectoryNodeVO,
   type ControlledFileUploadRespVO,
   type ControlledFileSignatureSummaryVO,
+  type ControlledFileTaskReadinessBlockerVO,
   type ControlledFileVersionHistoryVO,
   type ControlledFileVO
 } from '@/api/dcc/controlledFile/workflow'
@@ -3105,6 +3158,15 @@ const actionDialog = reactive({
     reason: ''
   }
 })
+
+const taskActionReadiness = reactive({
+  loading: false,
+  ready: false,
+  finalApproval: false,
+  blockers: [] as ControlledFileTaskReadinessBlockerVO[],
+  error: ''
+})
+let taskActionReadinessRequestSeq = 0
 
 const taskActionDialog = reactive({
   visible: false,
@@ -3557,10 +3619,10 @@ const controlledBrowserDirectoryPath = computed(() => {
   return directoryPathMap.value.get(directoryId) || directoryNameMap.value.get(directoryId) || '-'
 });
 const publishedFileBusinessText = computed(() =>
-  fileDetail.value?.publishedFileId ? '发布文件：已生成并可用于受控预览' : '发布文件：未生成或未返回'
+  fileDetail.value?.publishedArtifactAvailable ? '发布文件：可用' : '发布文件：缺失或尚未生成'
 );
 const stampedFileBusinessText = computed(() =>
-  fileDetail.value?.stampedFileId ? '盖章文件：已生成，预览优先打开盖章版本' : '盖章文件：未生成或未返回'
+  fileDetail.value?.stampedArtifactAvailable ? '盖章文件：可用' : '盖章文件：缺失或尚未生成'
 );
 const currentActiveVersionSourceText = computed(() => {
   const file = fileDetail.value
@@ -3623,14 +3685,14 @@ const formatSignatureTraceComment = (comment?: string | null) => {
 const buildSignatureTraceFileEvidenceText = () => {
   const file = fileDetail.value
   const evidenceParts = [
-    file?.publishedFileId ? `publishedFileId：${file.publishedFileId}` : '',
-    file?.stampedFileId ? `stampedFileId：${file.stampedFileId}` : ''
+    file?.publishedArtifactAvailable ? '发布件可用' : '',
+    file?.stampedArtifactAvailable ? '盖章件可用' : ''
   ].filter(Boolean)
   return evidenceParts.length ? evidenceParts.join('；') : '-'
 }
 
 const hasSignatureTraceFileEvidence = () =>
-  Boolean(fileDetail.value?.publishedFileId || fileDetail.value?.stampedFileId)
+  Boolean(fileDetail.value?.publishedArtifactAvailable || fileDetail.value?.stampedArtifactAvailable)
 
 const buildSignatureTraceRow = (signature: ControlledFileSignatureSummaryVO): SignatureTraceRow => ({
   traceRole: '四级审批人',
@@ -3757,8 +3819,8 @@ const isPublishCompletionSummaryVisible = computed(() => {
   }
   return Boolean(
     file.currentActiveVersionNo ||
-      file.publishedFileId ||
-      file.stampedFileId ||
+      file.publishedArtifactAvailable ||
+      file.stampedArtifactAvailable ||
       supersededPredecessorVersions.value.length
   )
 })
@@ -3775,7 +3837,9 @@ const publishCompletionSummaryItems = computed(() => {
   const predecessorText = supersededPredecessorVersions.value.length
     ? supersededPredecessorVersions.value.map(getVersionHistoryIdentityText).join('；')
     : '未发现被当前版本替换的旧版'
-  const browserLanded = Boolean(file.publishedFileId && file.stampedFileId)
+  const browserLanded = Boolean(
+    file.publishedArtifactAvailable && file.stampedArtifactAvailable
+  )
   return [
     {
       key: 'new-active',
@@ -3801,7 +3865,7 @@ const publishCompletionSummaryItems = computed(() => {
     {
       key: 'controlled-browser-landed',
       label: '受控浏览落位',
-      value: `目录：${controlledBrowserDirectoryPath.value}；publishedFileId：${file.publishedFileId || '-'}；stampedFileId：${file.stampedFileId || '-'}`,
+      value: `目录：${controlledBrowserDirectoryPath.value}；发布件：${file.publishedArtifactAvailable ? '可用' : '缺失'}；盖章件：${file.stampedArtifactAvailable ? '可用' : '缺失'}`,
       description: '受控浏览最终目录、发布文件和盖章文件已在详情页可追溯。',
       ok: browserLanded
     },
@@ -4885,35 +4949,76 @@ const handleExternalOutputFileRemove: UploadProps['onRemove'] = () => {
   clearActionDialogFieldError('outputUploadTicket')
 }
 
-const validateFourthNodeApprovalFiles = () => {
-  if (!shouldCollectFourthNodeFiles.value) {
-    return true
-  }
+const resetTaskActionReadiness = () => {
+  taskActionReadiness.loading = false
+  taskActionReadiness.ready = false
+  taskActionReadiness.finalApproval = false
+  taskActionReadiness.blockers = []
+  taskActionReadiness.error = ''
+}
+
+const applyTaskActionReadinessFieldErrors = () => {
   const fieldErrors: Record<string, string> = {}
-  if (!fourthNodeUpload.confirmedDirectoryId) {
-    fieldErrors.confirmedDirectoryId = '请选择存入路径'
-  }
-  if (!fourthNodeUpload.stampedPdf?.uploadTicket) {
-    fieldErrors.stampedPdfUploadTicket = '请上传盖章 PDF'
-  }
-  if (!fourthNodeUpload.selectedDistributionScopes.length) {
-    fieldErrors.selectedDistributionScopes = '请选择文件下发范围'
-  } else if (
-    fourthNodeUpload.selectedDistributionScopes.some(
-      (scope) => !scope.distributionMedium || !['PUBLIC_FOLDER', 'PAPER'].includes(scope.distributionMedium)
-    )
-  ) {
-    fieldErrors.selectedDistributionScopes = '请选择下发介质'
-  }
-  if (Object.keys(fieldErrors).length === 0) {
-    return true
-  }
+  taskActionReadiness.blockers.forEach((blocker) => {
+    if (blocker.reasonCode === 'STAMPED_PDF_REQUIRED') {
+      fieldErrors.stampedPdfUploadTicket = blocker.message
+    } else if (blocker.reasonCode.startsWith('CONFIRMED_DIRECTORY_')) {
+      fieldErrors.confirmedDirectoryId = blocker.message
+    } else if (blocker.reasonCode.startsWith('DISTRIBUTION_SCOPE_')) {
+      fieldErrors.selectedDistributionScopes = blocker.message
+    }
+  })
   actionDialog.fieldErrors = {
     ...actionDialog.fieldErrors,
     ...fieldErrors
   }
-  actionDialog.inlineError = Object.values(fieldErrors)[0]
-  return false
+}
+
+const refreshTaskActionReadiness = async () => {
+  const taskId = String(approvalTodoTask.value?.id || '').trim()
+  if (!taskId) {
+    resetTaskActionReadiness()
+    taskActionReadiness.error = '当前没有可校验的审批任务'
+    return false
+  }
+  const requestSeq = ++taskActionReadinessRequestSeq
+  taskActionReadiness.loading = true
+  taskActionReadiness.error = ''
+  try {
+    const readiness = await getControlledFileTaskActionReadiness(controlledFileId.value, {
+      taskId,
+      sessionId: fourthNodeUpload.stampedPdf?.sessionId,
+      stampedPdfUploadTicket: fourthNodeUpload.stampedPdf?.uploadTicket,
+      confirmedDirectoryId: fourthNodeUpload.confirmedDirectoryId,
+      selectedDistributionScopes: fourthNodeUpload.selectedDistributionScopes.map((scope) => ({
+        departmentId: scope.departmentId,
+        distributionMedium: scope.distributionMedium
+      }))
+    })
+    if (requestSeq !== taskActionReadinessRequestSeq) {
+      return false
+    }
+    taskActionReadiness.ready = readiness.ready
+    taskActionReadiness.finalApproval = readiness.finalApproval
+    taskActionReadiness.blockers = readiness.blockers || []
+    applyTaskActionReadinessFieldErrors()
+    return readiness.ready
+  } catch (error) {
+    if (requestSeq === taskActionReadinessRequestSeq) {
+      taskActionReadiness.ready = false
+      taskActionReadiness.finalApproval = isFourthNodeApprovalTask.value
+      taskActionReadiness.blockers = []
+      taskActionReadiness.error = resolveReadSideErrorMessage(
+        error,
+        '审批条件校验失败，请处理配置或网络错误后重试。'
+      )
+    }
+    return false
+  } finally {
+    if (requestSeq === taskActionReadinessRequestSeq) {
+      taskActionReadiness.loading = false
+    }
+  }
 }
 
 const resetApplicantTrainingRecordDialog = () => {
@@ -6048,6 +6153,10 @@ const openActionDialog = (mode: DccApprovalActionMode) => {
   actionDialog.form.password = ''
   actionDialog.form.reason = ''
   resetFourthNodeUploads()
+  resetTaskActionReadiness()
+  if (mode === 'approve' && !isExternalReviewProcess.value) {
+    void refreshTaskActionReadiness()
+  }
   if (mode === 'approve' && isFourthNodeApprovalTask.value && !isExternalReviewProcess.value) {
     void loadDocControlDirectoryTree().catch((error) => {
       const errorMessage = resolveReadSideErrorMessage(error, '存入路径加载失败，请处理后再继续。')
@@ -6069,6 +6178,7 @@ const closeActionDialog = async (submitted: boolean | MouseEvent = false) => {
   actionDialog.form.password = ''
   actionDialog.form.reason = ''
   resetFourthNodeUploads()
+  resetTaskActionReadiness()
 }
 
 const buildActionSuccessMessage = (
@@ -6090,7 +6200,7 @@ const submitActionDialog = async () => {
   actionDialog.inlineError = ''
   actionDialog.fieldErrors = {}
   try {
-    if (!validateFourthNodeApprovalFiles() || !validateExternalReviewConclusion()) {
+    if (!validateExternalReviewConclusion()) {
       return
     }
     if (isExternalReviewProcess.value) {
@@ -6124,6 +6234,15 @@ const submitActionDialog = async () => {
       message.success(actionDialog.mode === 'approve' ? '外来文件评审已签名通过' : '外来文件评审已驳回')
       await closeActionDialog(true)
       await reloadAll()
+      return
+    }
+    await refreshTaskActionReadiness()
+    if (!taskActionReadiness.ready) {
+      applyTaskActionReadinessFieldErrors()
+      actionDialog.inlineError =
+        taskActionReadiness.error ||
+        taskActionReadiness.blockers.map((blocker) => blocker.message).join('；') ||
+        '当前审批条件尚未就绪'
       return
     }
     const result = await submitDccApprovalAction({
@@ -6306,6 +6425,25 @@ onMounted(() => {
 })
 
 watch(
+  [
+    () => fourthNodeUpload.stampedPdf?.uploadTicket,
+    () => fourthNodeUpload.confirmedDirectoryId,
+    () => fourthNodeUpload.selectedDistributionScopes
+      .map((scope) => `${scope.departmentId}:${scope.distributionMedium}`)
+      .join(',')
+  ],
+  () => {
+    if (
+      actionDialog.visible &&
+      actionDialog.mode === 'approve' &&
+      !isExternalReviewProcess.value
+    ) {
+      void refreshTaskActionReadiness()
+    }
+  }
+)
+
+watch(
   () => route.fullPath,
   () => {
     reloadAll()
@@ -6314,6 +6452,13 @@ watch(
 </script>
 
 <style scoped>
+.detail-readiness-blockers {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .detail-viewer-page {
   min-height: 560px;
 }

@@ -41,6 +41,10 @@ const DCC_APPROVAL_SIGNATURE_IMAGE_MESSAGE =
   '签名失败原因：签名图片失效，当前账号签名图片缺失、停用或校验失败。处理建议：请在 DCC 电子签名管理中重新维护签名图片后再提交。责任入口：DCC 电子签名管理 / 文控负责人。'
 const DCC_APPROVAL_SIGNATURE_EVIDENCE_MESSAGE =
   '签名失败原因：证据快照失败，电子签名证据、哈希或快照生成失败，本次审批不会推进。处理建议：请联系文控负责人确认文件证据和签名服务状态后重试。责任入口：DCC 电子签名管理 / 文控负责人。'
+const DCC_APPROVAL_POST_REQUIRED_MESSAGE =
+  '审批人未配置系统岗位，请先在系统用户配置中为当前审批人分配有效岗位。'
+const DCC_APPROVAL_ROUTE_RUNTIME_MISMATCH_MESSAGE =
+  '审批路线快照与当前实际任务分配不一致，请联系流程管理员检查任务分配后再审批。'
 
 const appendDccApprovalErrorDetail = (message: string, detail: string) => {
   const normalizedDetail = detail.trim()
@@ -72,6 +76,12 @@ export const resolveDccApprovalSignatureErrorMessage = (
   }
   const rawMessage = resolveDccApprovalErrorText(error, fallback)
   const normalized = rawMessage.toLowerCase()
+  if (/1080000199|审批人未配置系统岗位/.test(normalized)) {
+    return DCC_APPROVAL_POST_REQUIRED_MESSAGE
+  }
+  if (/1080000201|审批路线快照与实际任务分配不一致|路线运行态不一致/.test(normalized)) {
+    return DCC_APPROVAL_ROUTE_RUNTIME_MISMATCH_MESSAGE
+  }
   if (/signature[_\s-]*image|签名图片|签章图片|image.*invalid|image.*missing|image.*expired|image.*disabled/.test(normalized)) {
     return appendDccApprovalErrorDetail(DCC_APPROVAL_SIGNATURE_IMAGE_MESSAGE, rawMessage)
   }

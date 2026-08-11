@@ -20,6 +20,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.position.DccPositionAssignmentMappe
 import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteNodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccApprovalModeEnum;
+import cn.iocoder.yudao.module.dcc.service.file.DccApprovalParticipantPostValidator;
 import cn.iocoder.yudao.module.dcc.service.position.DccApprovalPositionRuntimeResolver;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -32,6 +33,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_APPROVER_POST_REQUIRED;
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomLongId;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.APPROVAL_ROUTE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
@@ -61,6 +64,8 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
     private AdminUserApi adminUserApi;
     @MockitoBean
     private DccApprovalPositionRuntimeResolver positionRuntimeResolver;
+    @MockitoBean
+    private DccApprovalParticipantPostValidator approvalParticipantPostValidator;
 
     @Test
     void testPreviewRoute_categoryMissing_throwsNotExists() {
@@ -140,6 +145,28 @@ class DccApprovalRouteAdminServiceImplTest extends BaseDbUnitTest {
         reqVO.setCategoryId(category.getId());
 
         assertServiceException(() -> routeAdminService.previewRoute(reqVO), ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+    }
+
+    @Test
+    void testPreviewRoute_userCandidateWithoutPost_throwsDedicatedError() {
+        DccFileCategoryDO category = createCategory("FORM");
+        DccCategoryApprovalRouteDO route = createRoute(category.getId());
+        routeNodeMapper.insert(createRouteNode(route.getId(), 1, "DOC_CONTROL_REVIEW", "文控审核",
+                "USER", 200L, "ANY", false, 1));
+        routeNodeMapper.insert(createRouteNode(route.getId(), 2, "MATRIX_REVIEW", "会签审核",
+                "USER", 201L, "ALL", true, 2));
+        routeNodeMapper.insert(createRouteNode(route.getId(), 3, "MATRIX_APPROVAL", "会签批准",
+                "USER", 202L, "ALL", true, 3));
+        routeNodeMapper.insert(createRouteNode(route.getId(), 4, "DOC_CONTROL_APPROVAL", "文控批准",
+                "USER", 203L, "ANY", false, 4));
+        doThrow(exception(CONTROLLED_FILE_APPROVER_POST_REQUIRED))
+                .when(approvalParticipantPostValidator).requireConfiguredPosts(List.of(200L));
+
+        DccApprovalRoutePreviewReqVO reqVO = new DccApprovalRoutePreviewReqVO();
+        reqVO.setCategoryId(category.getId());
+
+        assertServiceException(() -> routeAdminService.previewRoute(reqVO),
+                CONTROLLED_FILE_APPROVER_POST_REQUIRED);
     }
 
     @Test

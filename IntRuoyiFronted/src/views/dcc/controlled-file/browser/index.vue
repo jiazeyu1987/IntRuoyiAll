@@ -1117,8 +1117,8 @@ type ControlledFileBrowserVersion = ControlledFileVersionHistoryVO &
     | 'canPreview'
     | 'canDownload'
     | 'canPrint'
-    | 'publishedFileId'
-    | 'stampedFileId'
+    | 'publishedArtifactAvailable'
+    | 'stampedArtifactAvailable'
     | 'currentActiveVersionNo'
   >
 
@@ -1338,8 +1338,8 @@ const buildCurrentVersionOption = (row: ControlledFileVO): ControlledFileBrowser
   fileNumber: row.fileNumber || '',
   versionNo: row.versionNo,
   status: row.status,
-  publishedFileId: row.publishedFileId,
-  stampedFileId: row.stampedFileId,
+  publishedArtifactAvailable: row.publishedArtifactAvailable,
+  stampedArtifactAvailable: row.stampedArtifactAvailable,
   currentActiveVersionNo: row.currentActiveVersionNo,
   effectiveDate: row.effectiveDate,
   publishedTime: row.publishedTime,
@@ -1363,8 +1363,10 @@ const hydrateCurrentBrowserVersionActionState = (
   }
   return {
     ...version,
-    publishedFileId: version.publishedFileId ?? row.publishedFileId,
-    stampedFileId: version.stampedFileId ?? row.stampedFileId,
+    publishedArtifactAvailable:
+      version.publishedArtifactAvailable ?? row.publishedArtifactAvailable,
+    stampedArtifactAvailable:
+      version.stampedArtifactAvailable ?? row.stampedArtifactAvailable,
     currentActiveVersionNo: version.currentActiveVersionNo ?? row.currentActiveVersionNo,
     canPreview: version.canPreview ?? row.canPreview,
     canDownload: version.canDownload ?? row.canDownload,

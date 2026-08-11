@@ -488,13 +488,21 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (!canReadBinary(userId, file, DccAccessTypeEnum.PREVIEW)) {
             throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         }
-        Long binaryFileId = resolveBinaryFileId(file, DccAccessTypeEnum.PREVIEW);
-        FileDO binaryFile = binaryFileId == null ? null : fileMapper.selectById(binaryFileId);
+        PreviewArtifactProjection previewProjection = resolvePreviewArtifactProjection(file);
+        FileDO binaryFile = previewProjection.file();
         String previewFileName = resolvePreviewFileName(file, binaryFile);
         String previewContentType = binaryFile == null ? PREVIEW_UNAVAILABLE_CONTENT_TYPE : binaryFile.getType();
         DccControlledFilePreviewMetadataRespVO respVO = new DccControlledFilePreviewMetadataRespVO();
         DccControlledFilePreviewKindEnum previewKind =
                 DccControlledFilePreviewKindEnum.resolve(previewFileName, previewContentType);
+        respVO.setPreviewKind(previewKind.getCode());
+        respVO.setFileName(previewFileName);
+        respVO.setContentType(previewContentType);
+        respVO.setWatermark(watermarkService.build(userId, "preview", previewFileName));
+        if (previewProjection.unavailableReason() != null) {
+            respVO.setPreviewUnavailableReason(previewProjection.unavailableReason());
+            return respVO;
+        }
         DccPreviewAccessResult accessResult = previewAccessService.prepareAccess(new DccPreviewAccessRequest(
                 TenantContextHolder.getRequiredTenantId(),
                 userId,
@@ -514,19 +522,11 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 requiredAuditContext.userAgent(),
                 requiredAuditContext.requireRequestId("preview metadata")));
         requirePreviewAccessResult(accessResult);
-        respVO.setPreviewKind(previewKind.getCode());
-        respVO.setFileName(previewFileName);
-        respVO.setContentType(previewContentType);
         respVO.setViewerToken(accessResult.viewerToken());
         respVO.setViewerTokenId(accessResult.viewerTokenId());
         respVO.setViewerTokenNonce(accessResult.viewerTokenNonce());
         respVO.setAccessEventCode(accessResult.accessEventCode());
         respVO.setWatermarkTraceCode(accessResult.watermarkTraceCode());
-        respVO.setWatermark(watermarkService.build(userId, "preview", previewFileName));
-        if (binaryFile == null) {
-            respVO.setPreviewUnavailableReason(buildPreviewArtifactMissingReason(file, binaryFileId));
-            return respVO;
-        }
         if (previewKind == DccControlledFilePreviewKindEnum.OFFICE) {
             applyOnlyOfficePreview(respVO, userId, file, accessResult);
         }
@@ -970,7 +970,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     && file.getPublishedFileId() != null) {
                 allowed = userId != null && userId.equals(file.getRequesterId())
                         || hasDirectoryManagementPermission
-                        || canAccessCurrentViewMatrix(userId, file, currentViewMatrixAccessByCategory);
+                        || canAccessCurrentViewMatrix(userId, file, currentViewMatrixAccessByCategory)
+                        || hasActiveElectronicDistributionAccess(userId, file);
                 return allowed;
             }
             if (isPendingPreviewStatus(file.getStatus()) && file.getOriginalFileId() != null) {
@@ -1001,7 +1002,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (isPendingPreviewStatus(file.getStatus())) {
             return isCurrentRouteSnapshotParticipant(userId, file);
         }
-        return canAccessCurrentViewMatrix(userId, file, currentViewMatrixAccessByCategory);
+        return canAccessCurrentViewMatrix(userId, file, currentViewMatrixAccessByCategory)
+                || hasActiveElectronicDistributionAccess(userId, file);
     }
 
     private boolean canAccessCurrentViewMatrix(Long userId, DccControlledFileDO file,
@@ -1035,18 +1037,30 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                                                            boolean hasDirectoryManagementPermission) {
         boolean candidate = file.getPublishedFileId() != null
                 && DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus());
+        boolean recipientAllowed = candidate && hasActiveElectronicDistributionAccess(userId, file);
         boolean categoryDownloadAllowed = candidate
-                && (hasDirectoryManagementPermission
+                && (recipientAllowed
+                || hasDirectoryManagementPermission
                 || permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
                 DccFileCategoryPermissionActionEnum.DOWNLOAD));
         boolean directoryDownloadAllowed = categoryDownloadAllowed
-                && hasDirectoryAccess(userId, file, DccAccessTypeEnum.DOWNLOAD, hasDirectoryManagementPermission);
+                && (recipientAllowed
+                || hasDirectoryAccess(userId, file, DccAccessTypeEnum.DOWNLOAD, hasDirectoryManagementPermission));
         return downloadPolicyService.decide(new DccDownloadPolicyContext(
                 file.getId(),
                 file.getStatus(),
                 file.getPublishedFileId(),
                 categoryDownloadAllowed,
                 directoryDownloadAllowed));
+    }
+
+    private boolean hasActiveElectronicDistributionAccess(Long userId, DccControlledFileDO file) {
+        return userId != null
+                && file != null
+                && file.getId() != null
+                && DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
+                && distributionRecipientMapper.countActiveElectronicRecipientAccess(
+                TenantContextHolder.getRequiredTenantId(), file.getId(), userId) > 0;
     }
 
     private boolean hasDirectoryAccess(Long userId, DccControlledFileDO file, DccAccessTypeEnum accessType) {
@@ -1374,15 +1388,15 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setDirectoryPath(resolveDirectoryPath(file.getDirectoryId(), directoryMap));
         respVO.setTitle(file.getTitle());
         respVO.setFileName(file.getFileName());
-        FileDO previewFile = resolvePreviewFileForSummary(file);
+        PreviewArtifactProjection previewProjection = resolvePreviewArtifactProjection(file);
+        FileDO previewFile = previewProjection.file();
         respVO.setContentType(previewFile == null ? null : previewFile.getType());
         respVO.setPreviewKind(previewFile == null ? null
                 : DccControlledFilePreviewKindEnum.resolve(previewFile.getName(), previewFile.getType()).getCode());
+        respVO.setPreviewUnavailableReason(previewProjection.unavailableReason());
         respVO.setFileNumber(file.getFileNumber());
-        respVO.setSourceFileId(file.getSourceFileId());
-        respVO.setOriginalFileId(file.getOriginalFileId());
-        respVO.setPublishedFileId(file.getPublishedFileId());
-        respVO.setStampedFileId(file.getStampedFileId());
+        respVO.setPublishedArtifactAvailable(hasFileRecord(file.getPublishedFileId()));
+        respVO.setStampedArtifactAvailable(hasFileRecord(file.getStampedFileId()));
         respVO.setProductMasterId(file.getProductMasterId());
         respVO.setProductCode(file.getProductCode());
         respVO.setProductName(file.getProductName());
@@ -1417,7 +1431,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setSupersededByFileId(file.getSupersededByFileId());
         respVO.setRejectReason(file.getRejectReason());
         respVO.setFinalizationError(file.getFinalizationError());
-        respVO.setCanPreview(canReadBinary(userId, file, DccAccessTypeEnum.PREVIEW,
+        respVO.setCanPreview(previewFile != null && canReadBinary(userId, file, DccAccessTypeEnum.PREVIEW,
                 hasDirectoryManagementPermission));
         DccDownloadPolicyDecision downloadDecision = decideDownloadBinary(userId, file, hasDirectoryManagementPermission);
         respVO.setCanDownload(downloadDecision.allowed());
@@ -1501,8 +1515,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setTitle(file.getTitle());
         respVO.setFileName(file.getFileName());
         respVO.setFileNumber(file.getFileNumber());
-        respVO.setPublishedFileId(file.getPublishedFileId());
-        respVO.setStampedFileId(file.getStampedFileId());
+        respVO.setPublishedArtifactAvailable(hasFileRecord(file.getPublishedFileId()));
+        respVO.setStampedArtifactAvailable(hasFileRecord(file.getStampedFileId()));
         respVO.setProductCode(file.getProductCode());
         respVO.setProductName(file.getProductName());
         respVO.setDccProjectCodeId(file.getDccProjectCodeId());
@@ -1526,7 +1540,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setPublishedTime(file.getPublishedTime());
         respVO.setObsoletedTime(file.getObsoletedTime());
         respVO.setSupersededByFileId(file.getSupersededByFileId());
-        respVO.setCanPreview(canReadBinary(userId, file, DccAccessTypeEnum.PREVIEW,
+        PreviewArtifactProjection previewProjection = resolvePreviewArtifactProjection(file);
+        respVO.setPreviewUnavailableReason(previewProjection.unavailableReason());
+        respVO.setCanPreview(previewProjection.file() != null && canReadBinary(userId, file, DccAccessTypeEnum.PREVIEW,
                 hasDirectoryManagementPermission, currentViewMatrixAccessByCategory));
         DccDownloadPolicyDecision downloadDecision = decideDownloadBinary(userId, file, hasDirectoryManagementPermission);
         respVO.setCanDownload(downloadDecision.allowed());
@@ -1777,6 +1793,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (hasDirectoryManagementPermission) {
             return new AccessReason(true, "DIRECTORY_ADMIN", "目录管理员");
         }
+        if (hasActiveElectronicDistributionAccess(userId, file)) {
+            return new AccessReason(true, "ELECTRONIC_DISTRIBUTION_RECIPIENT", "有效电子分发收件人");
+        }
         if (isPendingPreviewStatus(file.getStatus())) {
             boolean participant = isCurrentRouteSnapshotParticipant(userId, file);
             return new AccessReason(participant, participant ? "CURRENT_ROUTE_STAGE" : "DENIED",
@@ -1800,6 +1819,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         }
         if (hasDirectoryManagementPermission) {
             return new AccessReason(true, "DIRECTORY_ADMIN", "目录管理员");
+        }
+        if (hasActiveElectronicDistributionAccess(userId, file)) {
+            return new AccessReason(true, "ELECTRONIC_DISTRIBUTION_RECIPIENT", "有效电子分发收件人");
         }
         boolean matrixParticipant = canAccessCurrentViewMatrix(userId, file, currentViewMatrixAccessByCategory);
         return new AccessReason(matrixParticipant, matrixParticipant ? "CURRENT_VIEW_MATRIX" : "DENIED",
@@ -1871,16 +1893,18 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     respVO.setFileNumber(history.getFileNumber());
                     respVO.setVersionNo(history.getVersionNo());
                     respVO.setStatus(history.getStatus());
-                    respVO.setPublishedFileId(history.getPublishedFileId());
-                    respVO.setStampedFileId(history.getStampedFileId());
                     respVO.setCurrentActiveVersionNo(currentActiveVersionNo);
+                    respVO.setPublishedArtifactAvailable(hasFileRecord(history.getPublishedFileId()));
+                    respVO.setStampedArtifactAvailable(hasFileRecord(history.getStampedFileId()));
                     respVO.setEffectiveDate(history.getEffectiveDate());
                     respVO.setPublishedTime(history.getPublishedTime());
                     respVO.setObsoletedTime(history.getObsoletedTime());
                     respVO.setSupersededByFileId(history.getSupersededByFileId());
                     respVO.setRemark(history.getRemark());
-                    respVO.setCanPreview(canReadBinary(userId, history, DccAccessTypeEnum.PREVIEW,
+                    PreviewArtifactProjection previewProjection = resolvePreviewArtifactProjection(history);
+                    respVO.setCanPreview(previewProjection.file() != null && canReadBinary(userId, history, DccAccessTypeEnum.PREVIEW,
                             hasDirectoryManagementPermission, currentViewMatrixAccessByCategory));
+                    respVO.setPreviewUnavailableReason(previewProjection.unavailableReason());
                     respVO.setCanDownload(canReadBinary(userId, history, DccAccessTypeEnum.DOWNLOAD,
                             hasDirectoryManagementPermission));
                     return respVO;
@@ -2028,8 +2052,30 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     }
 
     private FileDO resolvePreviewFileForSummary(DccControlledFileDO file) {
+        return resolvePreviewArtifactProjection(file).file();
+    }
+
+    private PreviewArtifactProjection resolvePreviewArtifactProjection(DccControlledFileDO file) {
+        if (!expectsPreviewArtifact(file)) {
+            return new PreviewArtifactProjection(null, null);
+        }
         Long previewFileId = resolveBinaryFileId(file, DccAccessTypeEnum.PREVIEW);
-        return previewFileId == null ? null : fileMapper.selectById(previewFileId);
+        FileDO previewFile = previewFileId == null ? null : fileMapper.selectById(previewFileId);
+        return new PreviewArtifactProjection(previewFile,
+                previewFile == null ? buildPreviewArtifactMissingReason(file) : null);
+    }
+
+    private boolean hasFileRecord(Long fileId) {
+        return fileId != null && fileMapper.selectById(fileId) != null;
+    }
+
+    private boolean expectsPreviewArtifact(DccControlledFileDO file) {
+        if (file == null) {
+            return false;
+        }
+        return DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
+                || DccControlledFileStatusEnum.SUPERSEDED.getStatus().equals(file.getStatus())
+                || isPendingPreviewStatus(file.getStatus());
     }
 
     private String resolvePreviewFileName(DccControlledFileDO file, FileDO binaryFile) {
@@ -2040,10 +2086,10 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         return StrUtil.blankToDefault(controlledFileName, "controlled-file-" + file.getId());
     }
 
-    private String buildPreviewArtifactMissingReason(DccControlledFileDO file, Long binaryFileId) {
-        String artifactField = isPendingPreviewStatus(file.getStatus()) ? "originalFileId" : "publishedFileId";
-        return "Controlled file preview artifact is missing: " + artifactField + "="
-                + (binaryFileId == null ? "null" : binaryFileId);
+    private String buildPreviewArtifactMissingReason(DccControlledFileDO file) {
+        return isPendingPreviewStatus(file.getStatus())
+                ? "待审批源文件不存在或已被删除"
+                : "正式预览文件不存在或已被删除";
     }
 
     private void applyOnlyOfficePreview(DccControlledFilePreviewMetadataRespVO respVO, Long userId,
@@ -2377,6 +2423,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     }
 
     private record AccessReason(boolean allowed, String source, String reason) {
+    }
+
+    private record PreviewArtifactProjection(FileDO file, String unavailableReason) {
     }
 
 }

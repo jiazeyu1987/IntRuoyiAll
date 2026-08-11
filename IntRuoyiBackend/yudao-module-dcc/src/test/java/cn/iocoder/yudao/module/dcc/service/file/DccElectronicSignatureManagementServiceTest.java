@@ -15,6 +15,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.signature.vo.DccSignatureAut
 import cn.iocoder.yudao.module.dcc.controller.admin.signature.vo.DccSignatureEvidenceRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.signature.vo.DccSignatureVerifyRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureBindingDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccElectronicSignatureAuthorizationAuditDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccElectronicSignatureAuthorizationDO;
@@ -92,6 +93,8 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
     private DccSignatureEvidenceProperties signatureEvidenceProperties;
     @Mock
     private FileService fileService;
+    @Mock
+    private DccControlledFileSignatureBindingService signatureBindingService;
 
     @InjectMocks
     private DccElectronicSignatureManagementServiceImpl service;
@@ -513,6 +516,31 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void verifySignatureEvidence_detectsSourceFileContentMismatch() throws Exception {
+        DccControlledFileDO file = signedFile();
+        DccControlledFileSignatureDO signature = completeSignature(
+                hmacSha256Hex("secret", canonicalPayload(file)));
+        signature.setSourceFileId(7001L);
+        when(signatureMapper.selectById(1001L)).thenReturn(signature);
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(fileService.getFile(7001L)).thenReturn(FileDO.builder()
+                .id(7001L).configId(7L).path("dcc/source/900.docx").build());
+        when(fileService.getFileContent(7L, "dcc/source/900.docx"))
+                .thenReturn("changed-source".getBytes(StandardCharsets.UTF_8));
+
+        TenantContextHolder.setTenantId(1L);
+        DccSignatureVerifyRespVO result;
+        try {
+            result = service.verifySignatureEvidence(1001L);
+        } finally {
+            TenantContextHolder.clear();
+        }
+
+        assertEquals("INVALID", result.getVerificationStatus());
+        assertEquals("SOURCE_FILE_HASH_MISMATCH", result.getVerificationReason());
+    }
+
+    @Test
     void getSignatureEvidenceDetail_returnsCanonicalPayloadAndVerificationStatus() throws Exception {
         when(signatureEvidenceProperties.getHmacSecret()).thenReturn("secret");
         DccControlledFileDO file = signedFile();
@@ -865,6 +893,57 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
         assertFalse(result.getAllRequiredEvidenceValid());
         assertEquals("SIGNATURE_EVIDENCE_INVALID", result.getBlockedReason());
         assertEquals("INVALID", result.getSignatures().get(0).getEvidenceStatus());
+    }
+
+    @Test
+    void getSignatureExportSummary_recomputesHmacAndReturnsStableFailureReason() throws Exception {
+        when(signatureEvidenceProperties.getHmacSecret()).thenReturn("secret");
+        DccControlledFileDO file = signedFile();
+        DccControlledFileSignatureDO signature = completeSignature("tampered-hmac");
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
+
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileSignatureExportSummaryRespVO result;
+        try {
+            result = service.getSignatureExportSummary(900L);
+        } finally {
+            TenantContextHolder.clear();
+        }
+
+        assertFalse(result.getAllRequiredEvidenceValid());
+        assertEquals("EVIDENCE_HMAC_MISMATCH", result.getSignatures().get(0).getVerificationReason());
+    }
+
+    @Test
+    void getSignatureExportSummary_publishedCopyMismatchMatchesExportDecision() throws Exception {
+        when(signatureEvidenceProperties.getHmacSecret()).thenReturn("secret");
+        DccControlledFileDO file = signedFile();
+        file.setPublishedFileId(800L);
+        DccControlledFileSignatureDO signature = completeSignature(hmacSha256Hex("secret", canonicalPayload(file)));
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
+        when(signatureBindingService.verifyPublishedCopyBinding(signature, file)).thenReturn(
+                DccControlledFileSignatureBindingVerification.invalid("CONTROLLED_COPY_HASH_MISMATCH",
+                        DccControlledFileSignatureBindingDO.builder()
+                                .signatureId(1001L).controlledFileId(900L).controlledCopyFileId(800L)
+                                .controlledCopySha256("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                                .bindingEventKey("process-900").boundAt(LocalDateTime.of(2026, 5, 26, 15, 0))
+                                .build()));
+
+        TenantContextHolder.setTenantId(1L);
+        try {
+            DccControlledFileSignatureExportSummaryRespVO result = service.getSignatureExportSummary(900L);
+            assertFalse(result.getAllRequiredEvidenceValid());
+            assertEquals("CONTROLLED_COPY_HASH_MISMATCH",
+                    result.getSignatures().get(0).getVerificationReason());
+            assertEquals("BOUND", result.getSignatures().get(0).getControlledCopyHashStatus());
+            assertEquals(800L, result.getSignatures().get(0).getControlledCopyFileId());
+            assertServiceException(() -> service.exportSignatureEvidence(900L),
+                    CONTROLLED_FILE_SIGNATURE_EXPORT_BLOCKED);
+        } finally {
+            TenantContextHolder.clear();
+        }
     }
 
     @Test

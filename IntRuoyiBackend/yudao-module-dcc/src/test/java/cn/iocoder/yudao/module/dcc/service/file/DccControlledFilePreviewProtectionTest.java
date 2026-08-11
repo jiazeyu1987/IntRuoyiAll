@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileAccessLo
 import cn.iocoder.yudao.module.dcc.dal.dataobject.protection.DccControlledFileAccessEventDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.protection.DccControlledFileWatermarkTraceDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileAccessLogMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileDistributionRecipientMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileAccessEventMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileWatermarkTraceMapper;
@@ -79,6 +80,8 @@ class DccControlledFilePreviewProtectionTest extends BaseMockitoUnitTest {
     private DccControlledFileMapper controlledFileMapper;
     @Mock
     private DccControlledFileAccessLogMapper accessLogMapper;
+    @Mock
+    private DccControlledFileDistributionRecipientMapper distributionRecipientMapper;
     @Mock
     private DccControlledFileCategoryPermissionSupport permissionSupport;
     @Mock

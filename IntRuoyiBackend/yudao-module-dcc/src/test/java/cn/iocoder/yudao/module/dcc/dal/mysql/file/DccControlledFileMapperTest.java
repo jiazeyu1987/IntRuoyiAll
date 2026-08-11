@@ -337,6 +337,33 @@ class DccControlledFileMapperTest extends BaseDbUnitTest {
         assertEquals(List.of(childPathMatched.getId(), pathMatched.getId(), idMatched.getId()), ids);
     }
 
+    @Test
+    void sourceOwnershipMigrationQueries_includeDeletedHistoryAndExcludeOwnedRecords() {
+        insertSourceReference(9901L, 9700L, 0);
+        insertSourceReference(9902L, 9700L, 1);
+        insertSourceReference(9903L, 9701L, 0);
+        executeUpdate("""
+                INSERT INTO dcc_controlled_file_source_ownership
+                (id, controlled_file_id, source_file_id, origin_source_file_id, source_sha256, ownership_type,
+                 claimed_by, claimed_time, tenant_id, create_time, update_time, creator, updater, deleted)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?)
+                """, 9801L, 9901L, 9700L, 9700L, "owner-sha", "HISTORICAL_MIGRATION",
+                120L, 0L, "120", "120", 0);
+
+        List<DccControlledFileDO> unowned = controlledFileMapper.selectUnownedSourceReferences(0L, 10);
+
+        assertEquals(List.of(9902L, 9903L), unowned.stream().map(DccControlledFileDO::getId).toList());
+        assertEquals(3L, controlledFileMapper.countAllSourceReferences(0L));
+        assertEquals(2L, controlledFileMapper.countUnownedSourceReferences(0L));
+        assertEquals(1L, controlledFileMapper.countSharedSourceGroups(0L));
+        assertEquals(2L, controlledFileMapper.countSharedSourceRecords(0L));
+        assertNotNull(controlledFileMapper.selectByIdAndTenantIncludingDeleted(0L, 9902L));
+
+        assertEquals(1, controlledFileMapper.updateSourceFileIdIncludingDeleted(
+                0L, 9902L, 9700L, 19700L, 120L));
+        assertEquals(19700L, queryLong("SELECT source_file_id FROM dcc_controlled_file WHERE id = ?", 9902L));
+    }
+
     private DccControlledFileDO insertControlledFile(Long masterId, String title, String fileName, String fileNumber) {
         executeUpdate("""
                 INSERT INTO dcc_controlled_file_master
@@ -364,6 +391,19 @@ class DccControlledFileMapperTest extends BaseDbUnitTest {
         setField(file, "submitterId", 99L);
         controlledFileMapper.insert(file);
         return file;
+    }
+
+    private void insertSourceReference(Long id, Long sourceFileId, int deleted) {
+        executeUpdate("""
+                INSERT INTO dcc_controlled_file
+                (id, master_id, category_id, directory_id, source_file_id, original_file_id,
+                 file_name, title, file_number, version_no, status, submitter_id, requester_id,
+                 tenant_id, create_time, update_time, creator, updater, deleted)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?)
+                """, id, id + 1000, 10L, 20L, sourceFileId, sourceFileId,
+                "source-" + id + ".docx", "source-" + id, "SRC-" + id,
+                "V1.0", "ACTIVE", 120L, 120L, 0L, "120", "120", deleted);
     }
 
     private int countById(String tableName, Long id) {

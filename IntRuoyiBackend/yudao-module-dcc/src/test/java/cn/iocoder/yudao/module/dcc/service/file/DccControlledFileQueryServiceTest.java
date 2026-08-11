@@ -176,6 +176,8 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     @Mock
     private DccControlledFileCategoryPermissionSupport permissionSupport;
     @Mock
+    private DccControlledFileFormActionPendingService formActionPendingService;
+    @Mock
     private DccControlledFileViewMatrixAccessService viewMatrixAccessService;
     @Mock
     private DccDirectoryAccessPermissionService directoryAccessPermissionService;
@@ -528,12 +530,78 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals("OFFICE", result.getPreviewKind());
         assertEquals("STM-PM-002（A 0）微粒污染检测操作规程.docx", result.getFileName());
         assertEquals("application/octet-stream", result.getContentType());
-        assertEquals("Controlled file preview artifact is missing: publishedFileId=7004",
+        assertEquals("正式预览文件不存在或已被删除",
                 result.getPreviewUnavailableReason());
+        assertNull(result.getViewerToken());
+        assertNull(result.getViewerTokenId());
+        assertNull(result.getViewerTokenNonce());
+        assertNull(result.getAccessEventCode());
+        assertNull(result.getWatermarkTraceCode());
         assertNull(result.getOnlyofficeBaseUrl());
         assertNull(result.getOnlyofficeDocumentUrl());
+        verify(previewAccessService, never()).prepareAccess(any(DccPreviewAccessRequest.class));
         verify(onlyOfficePreviewTokenService, never()).issueControlledFile(anyLong(), anyLong(), anyLong(),
                 anyString(), anyLong(), anyString(), anyLong());
+    }
+
+    @Test
+    void getControlledFile_missingPublishedFileRecordDisablesPreviewProjection() {
+        DccControlledFileDO file = DccControlledFileDO.builder()
+                .id(995L)
+                .masterId(730L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .publishedFileId(7005L)
+                .title("Missing published file")
+                .fileName("missing-published.pdf")
+                .fileNumber("SOP-995")
+                .versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build();
+        when(controlledFileMapper.selectById(995L)).thenReturn(file);
+        when(controlledFileMapper.selectListByMasterId(730L)).thenReturn(List.of(file));
+        when(fileMapper.selectById(7005L)).thenReturn(null);
+        stubEmptyDetailRelations(995L);
+
+        DccControlledFileRespVO result = queryService.getControlledFile(99L, 995L);
+
+        assertFalse(Boolean.TRUE.equals(result.getCanPreview()));
+        assertNull(result.getContentType());
+        assertNull(result.getPreviewKind());
+        assertEquals("正式预览文件不存在或已被删除",
+                result.getPreviewUnavailableReason());
+        assertFalse(result.getActionProjection().getAllowedActions().contains("PREVIEW"));
+        assertEquals(1, result.getVersionHistory().size());
+        assertFalse(Boolean.TRUE.equals(result.getVersionHistory().get(0).getCanPreview()));
+        assertEquals("正式预览文件不存在或已被删除",
+                result.getVersionHistory().get(0).getPreviewUnavailableReason());
+    }
+
+    @Test
+    void getControlledFilePage_missingPublishedFileRecordDisablesPreviewProjection() {
+        DccControlledFileDO file = DccControlledFileDO.builder()
+                .id(996L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .publishedFileId(7006L)
+                .title("Missing list file")
+                .fileName("missing-list.pdf")
+                .fileNumber("SOP-996")
+                .versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build();
+        DccControlledFilePageReqVO reqVO = pageReq();
+        when(controlledFileMapper.selectWorkflowList(reqVO)).thenReturn(List.of(file));
+        when(fileMapper.selectById(7006L)).thenReturn(null);
+
+        PageResult<DccControlledFileRespVO> result = queryService.getControlledFilePage(99L, reqVO);
+
+        assertEquals(1L, result.getTotal());
+        DccControlledFileRespVO row = result.getList().get(0);
+        assertFalse(Boolean.TRUE.equals(row.getCanPreview()));
+        assertEquals("正式预览文件不存在或已被删除",
+                row.getPreviewUnavailableReason());
+        assertFalse(row.getActionProjection().getAllowedActions().contains("PREVIEW"));
     }
 
     @Test
@@ -1245,6 +1313,92 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void getControlledFile_activeElectronicDistributionRecipientCanAccessWithoutViewMatrix() {
+        when(controlledFileMapper.selectById(960L)).thenReturn(DccControlledFileDO.builder()
+                .id(960L).categoryId(10L).directoryId(20L).requesterId(88L).publishedFileId(520L)
+                .title("Recipient detail").fileNumber("SOP-960").versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build());
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(120L), any(DccControlledFileDO.class)))
+                .thenReturn(false);
+        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 960L, 120L)).thenReturn(1L);
+        when(fileMapper.selectById(520L)).thenReturn(FileDO.builder()
+                .id(520L).name("recipient.pdf").type("application/pdf").build());
+        stubEmptyDetailRelations(960L);
+
+        DccControlledFileRespVO result = queryService.getControlledFile(120L, 960L);
+
+        assertTrue(result.getCanPreview());
+        assertTrue(result.getCanDownload());
+        assertEquals("ELECTRONIC_DISTRIBUTION_RECIPIENT", result.getAccessExplanation().getDetailSource());
+        verify(distributionRecipientMapper, atLeastOnce())
+                .countActiveElectronicRecipientAccess(31L, 960L, 120L);
+    }
+
+    @Test
+    void getPreviewMetadata_activeElectronicDistributionRecipientCanAccess() {
+        when(controlledFileMapper.selectById(961L)).thenReturn(DccControlledFileDO.builder()
+                .id(961L).categoryId(10L).directoryId(20L).requesterId(88L).publishedFileId(521L)
+                .fileNumber("SOP-961").versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build());
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(120L), any(DccControlledFileDO.class)))
+                .thenReturn(false);
+        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 961L, 120L)).thenReturn(1L);
+        when(fileMapper.selectById(521L)).thenReturn(FileDO.builder()
+                .id(521L).configId(1L).path("dcc/published/recipient-preview.pdf")
+                .name("recipient-preview.pdf").type("application/pdf").build());
+        when(watermarkService.build(120L, "preview", "recipient-preview.pdf"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+
+        DccControlledFilePreviewMetadataRespVO result = queryService.getPreviewMetadata(120L, 961L,
+                auditContext(PREVIEW_REQUEST_ID));
+
+        assertEquals("PDF", result.getPreviewKind());
+        assertEquals(VIEWER_TOKEN, result.getViewerToken());
+        verify(previewAccessService).prepareAccess(argThat(request -> request.userId().equals(120L)
+                && request.fileId().equals(961L)));
+    }
+
+    @Test
+    void readDownloadFile_activeElectronicDistributionRecipientCanDownloadWithoutCategoryOrDirectoryGrant()
+            throws Exception {
+        byte[] pdfBytes = "%PDF-recipient-copy".getBytes(StandardCharsets.UTF_8);
+        when(controlledFileMapper.selectById(962L)).thenReturn(DccControlledFileDO.builder()
+                .id(962L).categoryId(10L).directoryId(20L).requesterId(88L).publishedFileId(522L)
+                .fileNumber("SOP-962").versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build());
+        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 962L, 120L)).thenReturn(1L);
+        when(fileMapper.selectById(522L)).thenReturn(FileDO.builder()
+                .id(522L).configId(1L).path("dcc/published/recipient-download.pdf")
+                .name("recipient-download.pdf").type("application/pdf").build());
+        when(fileService.getFileContent(1L, "dcc/published/recipient-download.pdf")).thenReturn(pdfBytes);
+        stubDownloadAccessEventInsert(88062L);
+        stubDownloadRecordInsert(98062L);
+
+        DccDownloadFileBinary result = queryService.readDownloadFile(120L, 962L, true, DOWNLOAD_REQUEST_ID,
+                auditContext(DOWNLOAD_REQUEST_ID));
+
+        assertArrayEquals(pdfBytes, result.bytes());
+        verify(permissionSupport, never()).hasCategoryPermission(10L, 120L,
+                DccFileCategoryPermissionActionEnum.DOWNLOAD);
+        verify(directoryAccessPermissionService, never()).getAuthorizedDirectoryIds(120L, DccAccessTypeEnum.DOWNLOAD);
+    }
+
+    @Test
+    void getControlledFile_recoveredPaperOrCrossTenantRelationDoesNotAuthorize() {
+        when(controlledFileMapper.selectById(963L)).thenReturn(DccControlledFileDO.builder()
+                .id(963L).categoryId(10L).directoryId(20L).requesterId(88L).publishedFileId(523L)
+                .fileNumber("SOP-963").versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build());
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(120L), any(DccControlledFileDO.class)))
+                .thenReturn(false);
+        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 963L, 120L)).thenReturn(0L);
+
+        assertServiceException(() -> queryService.getControlledFile(120L, 963L), CONTROLLED_FILE_ACCESS_DENIED);
+
+        verify(distributionRecipientMapper).countActiveElectronicRecipientAccess(31L, 963L, 120L);
+    }
+
+    @Test
     void readPreviewFile_activeFileDeniedWhenUserIsOutsideViewMatrixEvenWithLegacyViewPermission() throws Exception {
         when(controlledFileMapper.selectById(951L)).thenReturn(DccControlledFileDO.builder()
                 .id(951L)
@@ -1845,6 +1999,13 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .build();
         when(controlledFileMapper.selectById(1006L)).thenReturn(obsoleteFile);
         when(controlledFileMapper.selectById(1007L)).thenReturn(supersededFile);
+        when(fileMapper.selectById(7007L)).thenReturn(FileDO.builder()
+                .id(7007L)
+                .configId(1L)
+                .path("dcc/published/superseded.pdf")
+                .name("superseded.pdf")
+                .type("application/pdf")
+                .build());
         DccControlledFilePageReqVO reqVO = pageReq();
         when(controlledFileMapper.selectWorkflowList(reqVO)).thenReturn(List.of(obsoleteFile, supersededFile));
         Set<String> ordinaryActions = Set.of("WITHDRAW", "OBSOLETE", "MANUAL_RELEASE",
@@ -1893,6 +2054,20 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .thenReturn(true);
         when(permissionSupport.hasCategoryPermission(11L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
                 .thenReturn(false);
+        when(fileMapper.selectById(7008L)).thenReturn(FileDO.builder()
+                .id(7008L)
+                .configId(1L)
+                .path("dcc/published/active-obsolete-allowed.pdf")
+                .name("active-obsolete-allowed.pdf")
+                .type("application/pdf")
+                .build());
+        when(fileMapper.selectById(7009L)).thenReturn(FileDO.builder()
+                .id(7009L)
+                .configId(1L)
+                .path("dcc/published/active-obsolete-denied.pdf")
+                .name("active-obsolete-denied.pdf")
+                .type("application/pdf")
+                .build());
         DccControlledFilePageReqVO reqVO = pageReq();
         when(controlledFileMapper.selectWorkflowList(reqVO))
                 .thenReturn(List.of(obsoleteAllowedFile, obsoleteDeniedFile));
@@ -1972,6 +2147,13 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(controlledFileMapper.selectListByMasterId(812L)).thenReturn(List.of(activeFile));
         when(permissionSupport.hasCategoryPermission(12L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
                 .thenReturn(true);
+        when(fileMapper.selectById(7012L)).thenReturn(FileDO.builder()
+                .id(7012L)
+                .configId(1L)
+                .path("dcc/published/active-browser-projection.pdf")
+                .name("active-browser-projection.pdf")
+                .type("application/pdf")
+                .build());
         when(projectCodeAssignmentMapper.selectActiveProjectCodeIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
@@ -2969,6 +3151,13 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.DOWNLOAD))
                 .thenReturn(true);
         when(controlledFileMapper.selectListByMasterId(730L)).thenReturn(List.of(file));
+        when(fileMapper.selectById(560L)).thenReturn(FileDO.builder()
+                .id(560L)
+                .configId(1L)
+                .path("dcc/published/browser-summary.pdf")
+                .name("browser-summary.pdf")
+                .type("application/pdf")
+                .build());
 
         PageResult<DccControlledFileRespVO> result = queryService.getControlledFileBrowserPage(99L, reqVO);
 
@@ -3017,6 +3206,13 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.DOWNLOAD))
                 .thenReturn(false);
         when(controlledFileMapper.selectListByMasterId(731L)).thenReturn(List.of(file));
+        when(fileMapper.selectById(561L)).thenReturn(FileDO.builder()
+                .id(561L)
+                .configId(1L)
+                .path("dcc/published/doc-control-browser.pdf")
+                .name("doc-control-browser.pdf")
+                .type("application/pdf")
+                .build());
 
         PageResult<DccControlledFileRespVO> result = queryService.getControlledFileBrowserPage(99L, reqVO);
 
@@ -3051,6 +3247,13 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .thenReturn(true);
         when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
                 .thenReturn(true);
+        when(fileMapper.selectById(503L)).thenReturn(FileDO.builder()
+                .id(503L)
+                .configId(1L)
+                .path("dcc/published/sop-001-v2.pdf")
+                .name("sop-001-v2.pdf")
+                .type("application/pdf")
+                .build());
         when(routeSnapshotMapper.selectListByControlledFileId(902L)).thenReturn(List.of(
                 DccControlledFileRouteSnapshotDO.builder()
                         .id(1001L)

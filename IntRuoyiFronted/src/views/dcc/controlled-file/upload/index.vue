@@ -297,9 +297,40 @@
         </el-form-item>
       </section>
 
-          <section class="upload-section upload-section--preflight" data-testid="dcc-upload-preflight-panel">
+      <section class="upload-section upload-section--preflight" data-testid="dcc-upload-preflight-panel">
         <div class="upload-section__title">提交前校验</div>
         <div class="upload-preflight-legend">文件编号/版本 · 文件类别 · 审批人链路 · 受控浏览目录 · 浏览权限范围</div>
+        <div data-testid="dcc-upload-route-readiness" class="mb-12px">
+          <el-alert
+            v-if="routeReadinessError"
+            type="error"
+            :closable="false"
+            show-icon
+            :title="routeReadinessError"
+          />
+          <el-alert
+            v-else-if="routeReadiness && !routeReadiness.ready"
+            type="error"
+            :closable="false"
+            show-icon
+            title="审批路线尚未就绪"
+          >
+            <template #default>
+              <ul class="upload-readiness-blockers">
+                <li v-for="blocker in routeReadiness.blockers" :key="`${blocker.reasonCode}-${blocker.stageNo || 0}-${blocker.userId || 0}`">
+                  {{ blocker.message }}
+                </li>
+              </ul>
+            </template>
+          </el-alert>
+          <el-alert
+            v-else-if="routeReadiness?.ready"
+            type="success"
+            :closable="false"
+            show-icon
+            :title="`审批路线已就绪，共 ${routeReadiness.nodes.length} 个节点`"
+          />
+        </div>
         <div class="upload-preflight-grid">
           <div
             v-for="check in uploadPreflightChecks"
@@ -480,9 +511,11 @@ import {
   getControlledFileUploadRevisionCandidates,
   getControlledFileUploadDirectoryTree,
   getControlledFileUploadNameOptions,
+  checkControlledFileRouteReadiness,
   submitControlledFile,
   uploadControlledFilePreview,
   type ControlledFileCurrentVersionRespVO,
+  type ControlledFileRouteReadinessVO,
   type ControlledFileVO,
   type ControlledFileUploadDirectoryNodeVO,
   type ControlledFileUploadDirectoryTreeVO,
@@ -550,6 +583,10 @@ const uploadNameOptionsLoading = ref(false)
 const uploadNameOptionsLoadedKey = ref('')
 const currentVersionLookupLoading = ref(false)
 const currentVersionLookupError = ref('')
+const routeReadiness = ref<ControlledFileRouteReadinessVO>()
+const routeReadinessLoading = ref(false)
+const routeReadinessError = ref('')
+let routeReadinessRequestSeq = 0
 const revisionTargetLookupLoading = ref(false)
 const projectCodeOptionsLoading = ref(false)
 const fileTypeTaxonomiesLoading = ref(false)
@@ -1279,21 +1316,26 @@ const effectiveDatePreflightText = computed(() => {
 })
 
 const approvalChainPreflightText = computed(() => {
-  const approvalPositionIds = selectedCategory.value?.approvalPositionIds || []
-  const signoffPositionIds = selectedCategory.value?.signoffPositionIds || []
   if (!selectedCategory.value) {
     return isExternalReview.value ? '请选择文件类别后检查审批人链路' : '请先完成文件分类的文件类别自动匹配后检查审批人链路'
   }
-  if (!approvalPositionIds.length || !signoffPositionIds.length) {
-    return `审批岗位 ${approvalPositionIds.length} 个，会签/签核岗位 ${signoffPositionIds.length} 个，请先补齐分类审批链路`
+  if (routeReadinessLoading.value) {
+    return '正在校验全部审批人岗位、文控权限、电子签名授权和有效签名图片。'
   }
-  return `审批岗位 ${approvalPositionIds.length} 个，会签/签核岗位 ${signoffPositionIds.length} 个，审批人链路已具备`
+  if (routeReadinessError.value) {
+    return routeReadinessError.value
+  }
+  if (!routeReadiness.value) {
+    return '等待服务端审批路线校验。'
+  }
+  if (!routeReadiness.value.ready) {
+    return `审批路线存在 ${routeReadiness.value.blockers.length} 项缺失，请逐项处理。`
+  }
+  return `审批路线 ${routeReadiness.value.nodes.length} 个节点已完成全部参与人配置校验。`
 })
 
 const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
-  const approvalPositionIds = selectedCategory.value?.approvalPositionIds || []
-  const signoffPositionIds = selectedCategory.value?.signoffPositionIds || []
-  const hasApprovalChain = Boolean(selectedCategory.value && approvalPositionIds.length && signoffPositionIds.length)
+  const hasApprovalChain = routeReadiness.value?.ready === true
   const hasDirectoryLanding = Boolean(selectedUploadDirectoryPath.value)
   const versionReady = Boolean(formData.fileNumber.trim() && formData.versionNo.trim())
   const versionBlockingReason = versionFormatPreflightMessage.value ||
@@ -1350,10 +1392,14 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
     {
       key: 'approval-chain',
       label: '审批人链路',
-      status: selectedCategory.value ? (hasApprovalChain ? '已配置' : '不完整') : (isExternalReview.value ? '待选择' : '待匹配'),
+      status: routeReadinessLoading.value
+        ? '检查中'
+        : selectedCategory.value
+          ? (hasApprovalChain ? '已就绪' : '不完整')
+          : (isExternalReview.value ? '待选择' : '待匹配'),
       description: approvalChainPreflightText.value,
       ok: hasApprovalChain,
-      warning: !selectedCategory.value
+      warning: !selectedCategory.value || routeReadinessLoading.value
     },
     {
       key: 'controlled-browser-directory',
@@ -1375,6 +1421,43 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
     }
   ]
 })
+
+const refreshRouteReadiness = async () => {
+  const categoryId = Number(formData.categoryId || 0)
+  const requestSeq = ++routeReadinessRequestSeq
+  if (!categoryId) {
+    routeReadiness.value = undefined
+    routeReadinessError.value = ''
+    routeReadinessLoading.value = false
+    return false
+  }
+  routeReadinessLoading.value = true
+  routeReadinessError.value = ''
+  try {
+    const readiness = await checkControlledFileRouteReadiness({
+      categoryId,
+      selectedSignoffUserIds: [...formData.selectedSignoffUserIds]
+    })
+    if (requestSeq !== routeReadinessRequestSeq) {
+      return false
+    }
+    routeReadiness.value = readiness
+    return readiness.ready
+  } catch (error) {
+    if (requestSeq === routeReadinessRequestSeq) {
+      routeReadiness.value = undefined
+      routeReadinessError.value = resolveUploadErrorMessage(
+        error,
+        '审批路线校验失败，请处理配置或网络错误后重试'
+      )
+    }
+    return false
+  } finally {
+    if (requestSeq === routeReadinessRequestSeq) {
+      routeReadinessLoading.value = false
+    }
+  }
+}
 
 const loadCurrentVersionByFileNumber = async () => {
   const fileNumber = formData.fileNumber.trim()
@@ -1670,6 +1753,12 @@ const submitForm = async () => {
     message.warning(drawingPdfValidation.message || '图纸 PDF 校验失败')
     return
   }
+  await refreshRouteReadiness()
+  if (!routeReadiness.value?.ready) {
+    const blockerMessage = routeReadiness.value?.blockers.map((item) => item.message).join('；')
+    message.error(routeReadinessError.value || blockerMessage || '审批路线尚未就绪')
+    return
+  }
 
   submitLoading.value = true
   try {
@@ -1696,6 +1785,16 @@ watch(
     if (submitFieldErrors.versionNo) {
       clearSubmitFieldErrors(submitFieldErrors)
     }
+  }
+)
+
+watch(
+  [
+    () => formData.categoryId,
+    () => formData.selectedSignoffUserIds.join(',')
+  ],
+  () => {
+    void refreshRouteReadiness()
   }
 )
 
@@ -1752,6 +1851,13 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.upload-readiness-blockers {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .upload-header {
   display: flex;
   align-items: center;

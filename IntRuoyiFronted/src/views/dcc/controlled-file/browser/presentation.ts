@@ -27,17 +27,17 @@ interface BrowserVersionSummarySource {
   status?: string
   effectiveDate?: string
   publishedTime?: number
-  publishedFileId?: number | null
-  stampedFileId?: number | null
+  publishedArtifactAvailable?: boolean
+  stampedArtifactAvailable?: boolean
   currentActiveVersionNo?: string | null
   modifying?: boolean
 }
 
 export const getBrowserPublishedFileStatusText = (file?: BrowserVersionSummarySource | null) =>
-  file?.publishedFileId ? '已生成' : '未生成'
+  file?.publishedArtifactAvailable ? '已生成' : '未生成'
 
 export const getBrowserStampedFileStatusText = (file?: BrowserVersionSummarySource | null) =>
-  file?.stampedFileId ? '已生成' : '未生成'
+  file?.stampedArtifactAvailable ? '已生成' : '未生成'
 
 export const getBrowserCurrentVersionSourceText = (file?: BrowserVersionSummarySource | null) => {
   const currentActiveVersionNo = String(file?.currentActiveVersionNo || '').trim()

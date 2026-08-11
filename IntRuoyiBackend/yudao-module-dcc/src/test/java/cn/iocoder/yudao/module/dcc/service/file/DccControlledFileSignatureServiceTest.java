@@ -25,6 +25,7 @@ import java.util.Set;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_DISABLED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_APPROVER_POST_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_LOCKED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_NOT_AUTHORIZED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED;
@@ -276,6 +277,27 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
         verify(signatureMapper, never()).insert(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureDO.class));
         verify(signatureEvidenceService, never()).createEvidence(
                 org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class));
+    }
+
+    @Test
+    void verifyPasswordAndCreateSignature_postRemovedBeforeSigningUsesDedicatedErrorAndHasNoEvidenceSideEffect() {
+        when(adminUserService.getUser(99L)).thenReturn(AdminUserDO.builder()
+                .id(99L)
+                .username("auditor")
+                .nickname("审核员")
+                .postIds(Set.of())
+                .password("encoded-password")
+                .build());
+        when(adminUserService.isPasswordMatch("secret", "encoded-password")).thenReturn(true);
+
+        assertServiceException(() -> signatureVerificationService.verifyPasswordAndCreateSignature(
+                        99L, 900L, "task-1", "MATRIX_REVIEW", "APPROVE", "secret", "looks good"),
+                CONTROLLED_FILE_APPROVER_POST_REQUIRED);
+
+        verify(signatureImageService, never()).requireActiveSnapshot(99L);
+        verify(signatureEvidenceService, never()).createEvidence(
+                org.mockito.ArgumentMatchers.any(DccControlledFileSignatureEvidenceCreateReq.class));
+        verify(signatureMapper, never()).insert(org.mockito.ArgumentMatchers.any(DccControlledFileSignatureDO.class));
     }
 
     @Test

@@ -136,6 +136,8 @@ public interface ErrorCodeConstants {
     ErrorCode CONTROLLED_FILE_VIEWER_TOKEN_CONTEXT_MISMATCH = new ErrorCode(1_080_000_114, "DCC viewer token context mismatch");
     ErrorCode CONTROLLED_FILE_UPLOAD_TICKET_INVALID = new ErrorCode(1_080_000_115, "DCC upload ticket is invalid");
     ErrorCode CONTROLLED_FILE_UPLOAD_SESSION_INVALID = new ErrorCode(1_080_000_116, "DCC upload session is invalid");
+    ErrorCode CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT = new ErrorCode(1_080_000_198,
+            "DCC upload slot already contains different content");
     ErrorCode DCC_DOWNLOAD_ENCRYPTION_CONTRACT_MISSING = new ErrorCode(1_080_000_117, "DCC download encryption contract is missing");
     ErrorCode DCC_DOWNLOAD_ENCRYPTION_EVIDENCE_INVALID = new ErrorCode(1_080_000_118, "DCC download encryption evidence is invalid");
     ErrorCode DCC_DOWNLOAD_REQUEST_ID_REQUIRED = new ErrorCode(1_080_000_119, "DCC download request id is required");
@@ -290,5 +292,21 @@ public interface ErrorCodeConstants {
             "Current controlled file cannot be printed as a controlled copy");
     ErrorCode CONTROLLED_FILE_PRINT_REQUIRED_FIELD_MISSING = new ErrorCode(1_080_000_190,
             "Controlled print request is missing required print fields");
+    ErrorCode CONTROLLED_FILE_APPROVER_POST_REQUIRED = new ErrorCode(1_080_000_199,
+            "审批人未配置系统岗位");
+    ErrorCode CONTROLLED_FILE_ROUTE_NOT_READY = new ErrorCode(1_080_000_200,
+            "审批路线未就绪：{}");
+    ErrorCode CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH = new ErrorCode(1_080_000_201,
+            "审批路线快照与实际任务分配不一致");
+    ErrorCode CONTROLLED_FILE_FINAL_APPROVAL_NOT_READY = new ErrorCode(1_080_000_202,
+            "最终批准条件未就绪：{}");
+    ErrorCode CONTROLLED_FILE_SIGNATURE_BINDING_FAILED = new ErrorCode(1_080_000_203,
+            "签名证据受控副本绑定失败：{}");
+    ErrorCode CONTROLLED_FILE_SOURCE_OWNERSHIP_CONFLICT = new ErrorCode(1_080_000_204,
+            "正式源文件已由其它受控记录占用：sourceFileId={}");
+    ErrorCode CONTROLLED_FILE_SOURCE_ISOLATION_FAILED = new ErrorCode(1_080_000_205,
+            "正式源文件隔离失败：{}");
+    ErrorCode CONTROLLED_FILE_SOURCE_MIGRATION_CONFLICT = new ErrorCode(1_080_000_206,
+            "正式源文件历史迁移发生并发变更：controlledFileId={}");
 
 }

@@ -139,6 +139,8 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     private DccControlledContentAdapter platformAdapter;
     @Mock
     private DccControlledFilePendingActionGuard pendingActionGuard;
+    @Mock
+    private DccControlledFileSignatureBindingService signatureBindingService;
 
     private DccControlledFileMessageDeliveryService messageDeliveryService;
     @InjectMocks
@@ -342,6 +344,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         assertTrue(fileCaptor.getValue().getStampedTime() != null);
         verify(platformAdapter).recordFinalizationStarted(file, 99L, "process-900");
         verify(platformAdapter).recordFinalized(null, file, 99L, "process-900");
+        verify(signatureBindingService).bindPublishedCopy(file, 600L, 99L, "process-900");
 
         ArgumentCaptor<DccControlledFileDistributionDO> distributionCaptor =
                 ArgumentCaptor.forClass(DccControlledFileDistributionDO.class);

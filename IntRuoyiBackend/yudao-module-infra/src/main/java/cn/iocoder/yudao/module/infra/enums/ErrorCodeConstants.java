@@ -50,6 +50,7 @@ public interface ErrorCodeConstants {
     ErrorCode FILE_DIRECT_LINK_BLOCKED_BY_DCC = new ErrorCode(1_001_003_017, "DCC 受控文件禁止通过通用文件直链访问：fileId={}");
     ErrorCode FILE_PROTECTED_SHOWROOM_MEDIA = new ErrorCode(1_001_003_018, "展厅受保护媒体禁止通过基础设施文件管理删除：fileId={}");
     ErrorCode FILE_NAS_WRITE_FAILED = new ErrorCode(1_001_003_019, "NAS 写入失败：{}");
+    ErrorCode FILE_UPLOAD_EXECUTABLE_BLOCKED = new ErrorCode(1_001_003_020, "禁止上传可执行文件：{}");
 
     // ========== 代码生成器 1-001-004-000 ==========
     ErrorCode CODEGEN_TABLE_EXISTS = new ErrorCode(1_001_004_002, "表定义已经存在");
