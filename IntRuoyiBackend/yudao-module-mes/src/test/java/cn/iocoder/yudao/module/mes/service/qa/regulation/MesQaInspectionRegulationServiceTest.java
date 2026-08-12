@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_ITEM_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_IMMUTABLE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -178,6 +179,20 @@ class MesQaInspectionRegulationServiceTest {
         ServiceException ex = assertThrows(ServiceException.class, () -> service.saveDraft(validRequest()));
 
         assertEquals(QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID.getCode(), ex.getCode());
+    }
+
+    @Test
+    void saveDraft_rejectsLegacyResultTypes() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+
+        for (String legacyResultType : List.of("NUMBER", "CHOICE")) {
+            MesQaInspectionRegulationSaveReqVO reqVO = validRequest();
+            reqVO.getProcesses().get(0).getItems().get(0).setResultType(legacyResultType);
+
+            ServiceException ex = assertThrows(ServiceException.class, () -> service.saveDraft(reqVO));
+
+            assertEquals(QA_INSPECTION_REGULATION_ITEM_INVALID.getCode(), ex.getCode());
+        }
     }
 
     @Test

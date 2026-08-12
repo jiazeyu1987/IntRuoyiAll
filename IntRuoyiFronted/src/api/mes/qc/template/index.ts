@@ -45,7 +45,7 @@ export interface QaInspectionRegulationItemVO {
   standardPrecision?: number
   equipmentRequired?: boolean
   equipmentOptions?: QaInspectionRegulationEquipmentOptionVO[]
-  resultType: string
+  resultType: 'BOOLEAN' | 'NUMERIC' | 'TEXT'
   applicableInspectionTypes: Array<'FIRST' | 'PATROL' | 'FINAL'>
   firstInspectionQuantity?: number
   patrolInspectionRatio?: number
@@ -108,6 +108,7 @@ export interface QaInspectionRegulationSaveReqVO {
 }
 
 export interface QaInspectionRegulationSaveRespVO {
+  dccProjectCodeId: number
   regulationId: number
   draftVersionId: number
   versionNo: string

@@ -1250,6 +1250,7 @@ const dccProjectGovernanceByProjectName = ref<Record<string, DccProjectGovernanc
 const qaRegulationStatusByDccProjectCodeId = ref<
   Record<number, QaInspectionRegulationProjectStatusVO>
 >({})
+const qaRegulationStatusPermissionDenied = ref(false)
 const selectedProjectCode = ref<DccProjectCodeRespVO | null>(null)
 const associatedNavigationFiles = ref<ControlledFileVO[]>([])
 const associatedFilesTotal = ref(0)
@@ -1277,6 +1278,7 @@ const batchAiCategoryTask = ref<ControlledFileBatchRecognitionTaskRespVO | null>
 const batchAiCategoryDismissedTaskId = ref<number | null>(null)
 const batchAiCategoryFailureExporting = ref(false)
 let detailRequestSequence = 0
+let qaRegulationStatusLoadSerial = 0
 let batchAiCategoryPollTimer: ReturnType<typeof setTimeout> | null = null
 let batchAiCategoryTerminalHandledTaskId: number | null = null
 const importFileList = ref<any[]>([])
@@ -1902,16 +1904,38 @@ const loadDccProjectGovernanceStatus = async (rows: DccProjectCodeRespVO[]) => {
 }
 
 const loadQaRegulationStatuses = async (rows: DccProjectCodeRespVO[]) => {
+  const loadSerial = ++qaRegulationStatusLoadSerial
   const dccProjectCodeIds = rows
     .map((row) => Number(row.id))
     .filter((id) => Number.isFinite(id) && id > 0)
+  if (dccProjectCodeIds.length === 0) {
+    if (loadSerial === qaRegulationStatusLoadSerial) {
+      qaRegulationStatusPermissionDenied.value = false
+      qaRegulationStatusByDccProjectCodeId.value = {}
+    }
+    return
+  }
+  if (!checkPermi(['mes:qc-template:query'])) {
+    if (loadSerial === qaRegulationStatusLoadSerial) {
+      qaRegulationStatusPermissionDenied.value = true
+      qaRegulationStatusByDccProjectCodeId.value = {}
+    }
+    return
+  }
   const statuses = await QcTemplateApi.getQaRegulationProjectStatuses(dccProjectCodeIds)
+  if (loadSerial !== qaRegulationStatusLoadSerial) {
+    return
+  }
+  qaRegulationStatusPermissionDenied.value = false
   qaRegulationStatusByDccProjectCodeId.value = Object.fromEntries(
     statuses.map((status) => [status.dccProjectCodeId, status])
   )
 }
 
 const formatQaRegulationStatus = (dccProjectCodeId?: number) => {
+  if (qaRegulationStatusPermissionDenied.value) {
+    return '无查询权限'
+  }
   const status = dccProjectCodeId
     ? qaRegulationStatusByDccProjectCodeId.value[dccProjectCodeId]
     : undefined

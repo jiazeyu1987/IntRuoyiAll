@@ -58,6 +58,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     private static final String STATUS_PUBLISHED = "PUBLISHED";
     private static final String STATUS_RETIRED = "RETIRED";
     private static final Set<String> ALLOWED_INSPECTION_TYPES = Set.of("FIRST", "PATROL", "FINAL");
+    private static final Set<String> ALLOWED_RESULT_TYPES = Set.of("BOOLEAN", "NUMERIC", "TEXT");
     private static final Map<String, Integer> INSPECTION_TYPE_ORDER = Map.of(
             "FIRST", 1, "PATROL", 2, "FINAL", 3);
 
@@ -567,6 +568,10 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
             throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID,
                     item == null ? "item" : item.getItemCode());
         }
+        String resultType = StrUtil.trim(item.getResultType());
+        if (!ALLOWED_RESULT_TYPES.contains(resultType)) {
+            throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode() + ".resultType");
+        }
         Set<String> applicableTypes = normalizedInspectionTypes(item.getApplicableInspectionTypes());
         if (applicableTypes.isEmpty()) {
             throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode() + ".applicableInspectionTypes");
@@ -578,7 +583,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         if (applicableTypes.contains("PATROL") && !positive(item.getPatrolInspectionRatio())) {
             throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode() + ".patrolInspectionRatio");
         }
-        if (Objects.equals(item.getResultType(), "NUMERIC")
+        if (Objects.equals(resultType, "NUMERIC")
                 && (item.getStandardLowerLimit() == null || item.getStandardUpperLimit() == null)) {
             throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode() + ".numericStandard");
         }
