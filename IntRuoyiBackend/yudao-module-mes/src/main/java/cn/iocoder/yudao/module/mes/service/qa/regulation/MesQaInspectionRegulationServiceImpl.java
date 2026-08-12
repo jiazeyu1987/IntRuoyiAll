@@ -186,6 +186,19 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     }
 
     @Override
+    public List<MesQaInspectionRegulationProcessDO> getLockedVersionProcessesForOrder(
+            Long dccProjectCodeId, Long qaRegulationId, Long qaRegulationVersionId) {
+        MesQaInspectionRegulationDO regulation = requireLockedRegulation(dccProjectCodeId, qaRegulationId);
+        MesQaInspectionRegulationVersionDO version =
+                requireLockedVersion(regulation.getId(), qaRegulationVersionId);
+        List<MesQaInspectionRegulationProcessDO> processes = processMapper.selectListByVersionId(version.getId());
+        if (processes.isEmpty()) {
+            throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID, version.getId());
+        }
+        return processes;
+    }
+
+    @Override
     public List<MesQaInspectionRegulationProjectStatusRespVO> getProjectStatuses(
             Collection<Long> dccProjectCodeIds) {
         List<Long> requestedIds = dccProjectCodeIds == null ? List.of() : dccProjectCodeIds.stream()
@@ -497,6 +510,37 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
             throw exception(QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID, dccProjectCodeId);
         }
         return projectCode;
+    }
+
+    private MesQaInspectionRegulationDO requireLockedRegulation(Long dccProjectCodeId, Long qaRegulationId) {
+        if (dccProjectCodeId == null || dccProjectCodeMapper.selectById(dccProjectCodeId) == null) {
+            throw exception(QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID, dccProjectCodeId);
+        }
+        if (qaRegulationId == null) {
+            throw exception(QA_INSPECTION_REGULATION_NOT_EXISTS, null);
+        }
+        MesQaInspectionRegulationDO regulation = regulationMapper.selectById(qaRegulationId);
+        if (regulation == null) {
+            throw exception(QA_INSPECTION_REGULATION_NOT_EXISTS, qaRegulationId);
+        }
+        if (!Objects.equals(regulation.getDccProjectCodeId(), dccProjectCodeId)) {
+            throw exception(QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID, dccProjectCodeId);
+        }
+        return regulation;
+    }
+
+    private MesQaInspectionRegulationVersionDO requireLockedVersion(Long qaRegulationId, Long qaRegulationVersionId) {
+        if (qaRegulationVersionId == null) {
+            throw exception(QA_INSPECTION_REGULATION_VERSION_NOT_EXISTS, null);
+        }
+        MesQaInspectionRegulationVersionDO version = versionMapper.selectById(qaRegulationVersionId);
+        if (version == null || !Objects.equals(version.getRegulationId(), qaRegulationId)) {
+            throw exception(QA_INSPECTION_REGULATION_VERSION_NOT_EXISTS, qaRegulationVersionId);
+        }
+        if (!Set.of(STATUS_PUBLISHED, STATUS_RETIRED).contains(version.getLifecycleStatus())) {
+            throw exception(QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED, version.getId());
+        }
+        return version;
     }
 
     private MesQaInspectionRegulationDO requireRegulation(Long dccProjectCodeId) {
