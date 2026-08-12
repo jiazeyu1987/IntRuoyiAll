@@ -66,3 +66,6 @@
 - GREEN: worktree gate -> PASS，DF02 worktree `D:\IntRuoyiWorktree\20260812-frontline-pqc-dcc-qa-df02`，slot 15，端口 8096/48096。
 - GREEN: worktree gate -> PASS，DF03 worktree `D:\IntRuoyiWorktree\20260812-frontline-pqc-dcc-qa-df03`，slot 16，端口 8097/48097。
 - NOTE: 三个执行 Agent 只允许修改各自任务写范围和子任务目录；不得提交、合并、push、部署、启动服务或修改共享业务数据。
+- REVIEW FIX: 首轮 DF01 Agent 被误中断后确认未写文件、未创建任务文档、未运行 RED/GREEN；主管已重派 `/root/df01_worker_2`。
+- REVIEW FIX: 首轮 DF02 Agent 误用协作调度并被主管中断；主管已重派 `/root/df02_worker_2`，并明确禁止执行 Agent 调用 collaboration 工具。
+- BLOCKER: Wave 1 执行 Agent 复核未通过；DF01/DF02/DF03 未留下可采纳 tracked 文件改动或真实 RED/GREEN 证据，且 DF02/DF03 曾误用 collaboration 边界。主管已中断相关 Agent，并将 DF01/DF02/DF03 恢复为 ready，等待后续重派或主管接手。

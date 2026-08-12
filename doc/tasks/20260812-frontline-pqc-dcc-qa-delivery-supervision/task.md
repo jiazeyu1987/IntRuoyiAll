@@ -37,7 +37,7 @@
 
 ## Current Status
 
-in_progress：M0/M1完成；Wave 0 C00 已完成主管复核、独立验证、本地提交和 fast-forward 合入 int_main，提交号 a1c032581。Wave 1 的 DF01、DF02、DF03、DF05 已具备启动条件；主工作区仍有大量既有并发改动，后续每个任务合并前必须继续复核实际交集。
+in_progress：M0/M1完成；Wave 0 C00 已完成主管复核、独立验证、本地提交和 fast-forward 合入 int_main，提交号 a1c032581。Wave 1 的 DF01、DF02、DF03、DF05 均为 ready；DF01/DF02/DF03 worktree 已创建并登记端口，但首轮执行 Agent 因越界/无可见产出已暂停，后续需重派或由主管接手。主工作区仍有大量既有并发改动，后续每个任务合并前必须继续复核实际交集。
 
 ## Cleanup Keep
 

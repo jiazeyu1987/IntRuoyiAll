@@ -41,7 +41,7 @@
     {
       "task_id": "DF01",
       "title": "Active order selection identity",
-      "status": "in_progress",
+      "status": "ready",
       "dependency_ids": [
         "C00"
       ],
@@ -58,13 +58,13 @@
         "AC-12",
         "AC-13"
       ],
-      "owner_agent": "/root/df01_worker",
-      "last_outcome": "Wave 1 dispatched in D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df01; awaiting executor output."
+      "owner_agent": "",
+      "last_outcome": "Wave 1 executor attempts paused; no tracked DF01 file writes remain. Worktree is ready for supervisor re-dispatch."
     },
     {
       "task_id": "DF02",
       "title": "Active-order route snapshot resolver",
-      "status": "in_progress",
+      "status": "ready",
       "dependency_ids": [
         "C00"
       ],
@@ -82,13 +82,13 @@
         "AC-12",
         "AC-13"
       ],
-      "owner_agent": "/root/df02_worker",
-      "last_outcome": "Wave 1 dispatched in D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df02; awaiting executor output."
+      "owner_agent": "",
+      "last_outcome": "Wave 1 executor attempts paused after role-boundary violation; no tracked DF02 file writes remain. Worktree is ready for supervisor re-dispatch."
     },
     {
       "task_id": "DF03",
       "title": "Route to DCC project binding",
-      "status": "in_progress",
+      "status": "ready",
       "dependency_ids": [
         "C00"
       ],
@@ -105,8 +105,8 @@
         "AC-12",
         "AC-13"
       ],
-      "owner_agent": "/root/df03_worker",
-      "last_outcome": "Wave 1 dispatched in D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df03; awaiting executor output."
+      "owner_agent": "",
+      "last_outcome": "Wave 1 executor paused after role-boundary reminders; no tracked DF03 production/test writes remain. Worktree is ready for supervisor re-dispatch."
     },
     {
       "task_id": "DF05",
@@ -375,5 +375,5 @@
       "last_outcome": "Waiting for prerequisite tasks."
     }
   ],
-  "updated_at": "2026-08-12T05:38:00Z"
+  "updated_at": "2026-08-12T06:15:00Z"
 }
