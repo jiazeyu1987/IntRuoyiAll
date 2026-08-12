@@ -95,6 +95,22 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .eq(MesPqcInspectionTaskDO::getBusinessDate, businessDate));
     }
 
+    default MesPqcInspectionTaskDO selectPendingByQaOverlayIdentity(Long activeOrderId, Long regulationVersionId,
+                                                                    Long qaProcessId, String inspectionRuleKey) {
+        return selectOne(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
+                .eq(MesPqcInspectionTaskDO::getActiveOrderId, activeOrderId)
+                .eq(MesPqcInspectionTaskDO::getRegulationVersionId, regulationVersionId)
+                .eq(MesPqcInspectionTaskDO::getQaProcessId, qaProcessId)
+                .eq(MesPqcInspectionTaskDO::getInspectionRuleKey, inspectionRuleKey)
+                .eq(MesPqcInspectionTaskDO::getTaskStatus, MesPqcInspectionTaskDO.TASK_STATUS_PENDING)
+                .orderByAsc(MesPqcInspectionTaskDO::getBusinessDate)
+                .orderByAsc(MesPqcInspectionTaskDO::getInspectionType)
+                .orderByAsc(MesPqcInspectionTaskDO::getShiftCode)
+                .orderByAsc(MesPqcInspectionTaskDO::getRoundNo)
+                .orderByAsc(MesPqcInspectionTaskDO::getId)
+                .last("LIMIT 1"));
+    }
+
     default int updateSubmittedIfPending(Long id, Integer actualInspectionQuantity,
                                          String pendingStatus, String submittedStatus) {
         return update(null, new LambdaUpdateWrapper<MesPqcInspectionTaskDO>()
