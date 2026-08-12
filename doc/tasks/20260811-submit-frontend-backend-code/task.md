@@ -11,8 +11,8 @@
 - [x] 核对 Git 分支、remote、staged 文件清单和提交范围。
 - [x] 暂存仅前后端路径并执行提交前检查。
 - [x] 创建前后端代码提交并复扫残余改动。
-- [ ] 推送 `int_main` 并确认本地不再领先 `origin/int_main`。
-- [ ] 执行任务收尾检查并记录最终结果。
+- [x] 推送 `int_main` 并确认本地不再领先 `origin/int_main`。
+- [x] 执行任务收尾检查并记录最终结果。
 
 ## Expected Verification
 
@@ -28,7 +28,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 

@@ -18,6 +18,11 @@
 - Verification: 提交后复扫前后端路径 -> 0 个已跟踪残余、0 个未跟踪残余；未授权的根目录规则、并行任务文档和长期规则文档仍留在工作区且未进入本次提交。
 - Milestone: 前后端提交与残余复扫完成，状态进入 `ready_for_closeout`；推送和最终任务记录收尾仍待完成。
 - Cleanup: `task-closeout-cleanup` preview/apply -> PASS；keep 为本任务 `task.md`、`execution-log.md`、`verification-report.md`，delete/blocked/warnings 均为 none，未删除任何文件。
+- Task docs commit: `f5b66fa32` (`docs: record frontend backend submission`)；提交仅包含本任务三份记录文件。
+- Push: `git push origin int_main` -> PASS；远端 `int_main` 从 `d6ab49da7` 更新到 `f5b66fa32`。
+- Verification: 推送后 `git fetch origin int_main` -> PASS；`origin/int_main...HEAD` 为 `0 0`，远端 `refs/heads/int_main` 为 `f5b66fa3279ed488d297f310622096ffcd64e5a3`。
+- Project experience consolidation: 已按 `project-experience-consolidation` 检查长期经验归宿；本次 transient `index.lock`、显式路径暂存、提交后残余复扫和大文件推送门禁均已由 `docs/powershell-memory.md` 与 `docs/experience-index.md` 覆盖，未新增长期经验文档。
+- Final status: completed；剩余工作区改动均为未授权的根目录规则、并行任务文档和长期规则文档，本任务未暂存、未提交、未推送这些文件。
 
 ## 2026-08-11
 

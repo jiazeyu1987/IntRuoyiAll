@@ -14,4 +14,7 @@ in_progress
 - PASS: commit `118707787` contains exactly 168 frontend/backend paths and no paths outside those roots.
 - PASS: post-commit rescan found no tracked or untracked frontend/backend residual changes.
 - PASS: `task-closeout-cleanup` preview/apply kept the three core task records and deleted no files.
-- Pending: push and post-push status verification.
+- PASS: task docs commit `f5b66fa32` contains only this task's three record files.
+- PASS: `git push origin int_main` updated remote `int_main` to `f5b66fa32`.
+- PASS: post-push `origin/int_main...HEAD` is `0 0`; local and remote are aligned.
+- PASS: project experience consolidation found existing long-term Git gates already cover this task; no new experience file was needed.
