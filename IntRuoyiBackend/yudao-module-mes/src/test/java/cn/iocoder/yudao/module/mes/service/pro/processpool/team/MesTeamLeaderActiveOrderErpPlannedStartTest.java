@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
@@ -23,6 +24,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
@@ -77,6 +79,8 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     @Mock
     private MesProRouteVersionMapper routeVersionMapper;
     @Mock
+    private MesRouteDccProjectBindingMapper routeDccProjectBindingMapper;
+    @Mock
     private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Mock
     private MesProcessPoolReportAllocationMapper reportAllocationMapper;
@@ -105,7 +109,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     void setUp() {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
-                routeVersionMapper, processSnapshotMapper, reportAllocationMapper,
+                routeVersionMapper, routeDccProjectBindingMapper, processSnapshotMapper, reportAllocationMapper,
                 inspectionRegulationMapper,
                 inspectionRegulationVersionMapper, inspectionRegulationProcessMapper,
                 inspectionRegulationItemMapper, pqcInspectionTaskMapper,
@@ -113,6 +117,13 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 reportAllocationOrderChangeService);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
         lenient().when(reportAllocationMapper.selectListByActiveOrderIds(any())).thenReturn(List.of());
+        lenient().when(routeDccProjectBindingMapper.selectCurrentByRouteId(922119L))
+                .thenReturn(MesRouteDccProjectBindingDO.builder()
+                        .id(61001L)
+                        .routeId(922119L)
+                        .dccProjectCodeId(147L)
+                        .version(1L)
+                        .build());
         lenient().when(scheduleOrderMapper.selectEffectiveListByWorkOrderIds(List.of(9001L))).thenReturn(List.of());
         lenient().when(routeProductMapper.selectListByItemIds(List.of(1001L))).thenReturn(List.of(
                 MesProRouteProductDO.builder().id(7001L).itemId(1001L).routeId(922119L).build()));
@@ -136,13 +147,13 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 .code("ID")
                 .name("球囊扩张压力泵")
                 .build()));
-        lenient().when(dccProjectCodeMapper.selectEnabledList()).thenReturn(List.of(DccProjectCodeDO.builder()
+        lenient().when(dccProjectCodeMapper.selectById(147L)).thenReturn(DccProjectCodeDO.builder()
                 .id(147L)
                 .productMasterId(11L)
                 .projectCode("ID")
                 .projectName("球囊扩张压力泵")
                 .status("ENABLE")
-                .build()));
+                .build());
         lenient().when(inspectionRegulationMapper.selectListByDccProjectCodeIds(any()))
                 .thenReturn(List.of(publishedRegulation()));
         lenient().when(inspectionRegulationVersionMapper.selectBatchIds(List.of(9902L)))
@@ -155,7 +166,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 .thenReturn(List.of(qaProcess()));
         lenient().when(inspectionRegulationProcessMapper.selectListByVersionId(9902L))
                 .thenReturn(List.of(qaProcess()));
-        lenient().when(pqcInspectionTaskMapper.selectByIdentity(any(), any(), any(), any(), any(), any()))
+        lenient().when(pqcInspectionTaskMapper.selectByQaIdentity(any(), any(), any(), any(), any()))
                 .thenReturn(null);
         lenient().when(pqcInspectionTaskMapper.insert(any(MesPqcInspectionTaskDO.class))).thenReturn(1);
         lenient().when(releaseApplicationMapper.selectLatestByActiveOrderIds(any())).thenReturn(List.of());
@@ -193,7 +204,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
         verify(activeOrderMapper).insert(activeOrderCaptor.capture());
         LocalDate joinedDate = activeOrderCaptor.getValue().getJoinedAt().toLocalDate();
         ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
-        verify(pqcInspectionTaskMapper, times(2)).insert(taskCaptor.capture());
+        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
         assertTrue(taskCaptor.getAllValues().stream()
                 .allMatch(task -> joinedDate.equals(task.getBusinessDate())));
     }
@@ -228,6 +239,14 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 .versionNo("V1")
                 .lifecycleStatus("PUBLISHED")
                 .finalInspectionApplicable(Boolean.TRUE)
+                .inspectionTypeRulesJson("""
+                        [
+                          {"key":"FIRST","inspectionType":"FIRST","label":"首检","required":true,"fixedQuantity":5},
+                          {"key":"PATROL_AM","inspectionType":"PATROL","label":"上午巡检","required":true},
+                          {"key":"PATROL_PM","inspectionType":"PATROL","label":"下午巡检","required":true},
+                          {"key":"FINAL","inspectionType":"FINAL","label":"末检","required":true,"fixedQuantity":3}
+                        ]
+                        """)
                 .snapshotJson("{}")
                 .build();
     }

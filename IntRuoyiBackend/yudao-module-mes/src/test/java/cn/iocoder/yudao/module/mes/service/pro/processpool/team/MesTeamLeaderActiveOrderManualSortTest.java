@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
@@ -51,6 +52,7 @@ class MesTeamLeaderActiveOrderManualSortTest {
     @Mock private MesProRouteProductMapper routeProductMapper;
     @Mock private MesProRouteMapper routeMapper;
     @Mock private MesProRouteVersionMapper routeVersionMapper;
+    @Mock private MesRouteDccProjectBindingMapper routeDccProjectBindingMapper;
     @Mock private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Mock private MesProcessPoolReportAllocationMapper reportAllocationMapper;
     @Mock private MesQaInspectionRegulationMapper inspectionRegulationMapper;
@@ -69,7 +71,7 @@ class MesTeamLeaderActiveOrderManualSortTest {
     void setUp() {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
-                routeVersionMapper, processSnapshotMapper, reportAllocationMapper,
+                routeVersionMapper, routeDccProjectBindingMapper, processSnapshotMapper, reportAllocationMapper,
                 inspectionRegulationMapper,
                 inspectionRegulationVersionMapper, inspectionRegulationProcessMapper,
                 inspectionRegulationItemMapper, pqcInspectionTaskMapper,
