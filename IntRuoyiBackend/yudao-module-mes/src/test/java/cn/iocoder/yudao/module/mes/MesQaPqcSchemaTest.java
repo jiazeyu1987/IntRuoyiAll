@@ -284,6 +284,68 @@ class MesQaPqcSchemaTest {
         assertTrue(sql.contains("idx_mes_pqc_process_inspection_submit_event"));
     }
 
+    @Test
+    void c00SchemaMigrationMustFreezeRouteDccActiveOrderAndPqcTaskContracts() throws Exception {
+        String schemaSql = readBackendSql("sql/mysql/20260812_mes_pqc_dcc_qa_c00_schema.sql");
+        String preflightSql = readBackendSql("sql/mysql/20260812_mes_pqc_dcc_qa_c00_preflight.sql");
+        String backfillSql = readBackendSql("sql/mysql/20260812_mes_pqc_dcc_qa_c00_backfill.sql");
+        String postflightSql = readBackendSql("sql/mysql/20260812_mes_pqc_dcc_qa_c00_postflight.sql");
+        String rollbackSql = readBackendSql("sql/mysql/20260812_mes_pqc_dcc_qa_c00_rollback.sql");
+        String fullSql = schemaSql + preflightSql + backfillSql + postflightSql + rollbackSql;
+
+        assertTrue(preflightSql.contains("dependsOn=20260811_mes_qa_dcc_project_scope"));
+        assertFalse(preflightSql.contains("dependsOn=20260812_mes_pqc_dcc_qa_c00_schema"));
+        assertTrue(preflightSql.contains("information_schema.tables"));
+        assertTrue(preflightSql.contains("@c00_route_dcc_binding_ready"));
+        assertTrue(preflightSql.contains("PREPARE stmt FROM @sql"));
+
+        assertTrue(schemaSql.contains("dependsOn=20260811_mes_qa_dcc_project_scope"));
+        assertTrue(schemaSql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_route_dcc_project_binding`"));
+        assertTrue(schemaSql.contains("`dcc_project_code_id` bigint NOT NULL COMMENT 'DCC项目代码ID'"));
+        assertTrue(schemaSql.contains("`version` bigint NOT NULL COMMENT '同租户同路线单调递增版本'"));
+        assertTrue(schemaSql.contains("`active_route_id` BIGINT GENERATED ALWAYS AS"));
+        assertTrue(schemaSql.contains("UNIQUE KEY `uk_mes_pro_route_dcc_current` (`tenant_id`, `active_route_id`)"));
+        assertTrue(schemaSql.contains("UNIQUE KEY `uk_mes_pro_route_dcc_history_version` (`tenant_id`, `route_id`, `version`)"));
+
+        assertTrue(schemaSql.contains("ALTER TABLE `mes_pro_process_pool_active_order`"));
+        assertTrue(schemaSql.contains("`dcc_project_code_id` bigint DEFAULT NULL COMMENT '订单锁定DCC项目代码ID'"));
+        assertTrue(schemaSql.contains("`qa_regulation_id` bigint DEFAULT NULL COMMENT '订单锁定QA规程ID'"));
+        assertTrue(schemaSql.contains("`qa_regulation_version_id` bigint DEFAULT NULL COMMENT '订单锁定QA规程发布版本ID'"));
+
+        assertTrue(schemaSql.contains("`inspection_rule_key` varchar(32) DEFAULT NULL COMMENT '正式检验规则身份'"));
+        assertTrue(schemaSql.contains("`submitted_content_hash` char(64) DEFAULT NULL COMMENT 'CanonicalPqcSubmissionV1内容哈希'"));
+        assertTrue(schemaSql.contains("`submitted_event_id` bigint DEFAULT NULL COMMENT '唯一正式PQC提交事件ID'"));
+        assertFalse(schemaSql.contains("DROP INDEX `uk_mes_pqc_task_qa_identity`"));
+        assertFalse(schemaSql.contains("uk_mes_pqc_task_rule_identity"));
+        assertFalse(schemaSql.contains("uk_mes_pqc_task_submitted_event"));
+
+        assertTrue(schemaSql.contains("`pqc_submission_task_id` BIGINT GENERATED ALWAYS AS"));
+        assertTrue(schemaSql.contains("`event_type` = 'PQC_INSPECTION'"));
+        assertTrue(schemaSql.contains("`feedback_source_type` = 'MES_PQC_INSPECTION_TASK'"));
+        assertFalse(schemaSql.contains("uk_mes_pro_process_pool_event_pqc_task"));
+
+        assertTrue(postflightSql.contains("SET @c00_postflight_blocker_count := (SELECT COUNT(1) FROM c00_postflight_blocker_report)"));
+        assertTrue(postflightSql.contains("DROP INDEX `uk_mes_pqc_task_qa_identity`"));
+        assertTrue(postflightSql.contains("ADD UNIQUE KEY `uk_mes_pqc_task_rule_identity`"));
+        assertTrue(postflightSql.contains("`inspection_rule_key`, `business_date`, `deleted`"));
+        assertTrue(postflightSql.contains("ADD UNIQUE KEY `uk_mes_pqc_task_submitted_event` (`tenant_id`, `submitted_event_id`, `deleted`)"));
+        assertTrue(postflightSql.contains("ADD UNIQUE KEY `uk_mes_pro_process_pool_event_pqc_task` (`tenant_id`, `pqc_submission_task_id`)"));
+        assertTrue(postflightSql.contains("MODIFY COLUMN `inspection_rule_key` varchar(32) NOT NULL COMMENT ''正式检验规则身份''"));
+
+        assertTrue(preflightSql.contains("c00_preflight_release_metadata"));
+        assertTrue(backfillSql.contains("c00_backfill_approved_route_dcc_binding"));
+        assertTrue(postflightSql.contains("c00_postflight_blocker_report"));
+        assertTrue(rollbackSql.contains("C00 rollback requires active-order and PQC submit writes stopped"));
+        assertTrue(fullSql.contains("CanonicalPqcSubmissionV1"));
+        assertTrue(fullSql.contains("input_manifest_sha256"));
+        assertTrue(fullSql.contains("affected_row_count"));
+        assertTrue(fullSql.contains("blocker_reason"));
+
+        assertFalse(fullSql.contains("dcc_project_code_qa_regulation_binding"));
+        assertFalse(fullSql.contains("mes_qa_inspection_regulation_item_type"));
+        assertFalse(fullSql.contains("mes_pro_process_pool_active_order_pqc_context"));
+    }
+
     private static String tableName(Class<?> clazz) {
         return clazz.getAnnotation(TableName.class).value();
     }
