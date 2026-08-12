@@ -50,6 +50,8 @@ public interface MesTeamLeaderActiveOrderReleaseProcessInspectionReader {
 
         private DccProjectCodeDO dccProject;
 
+        private String routeProjectCode;
+
         private MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort.Resolution qaDccProvenance;
     }
 }

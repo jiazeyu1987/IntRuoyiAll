@@ -3,7 +3,10 @@ import type {
   FrontlineActiveOrderVO,
   FrontlineDeviceRouteProcessVO,
   FrontlineEmployeeCandidateVO,
+  FrontlinePqcProcessVO,
   FrontlinePqcSwitchActualEmployeeReqVO,
+  FrontlinePqcSwitchActualEmployeeRespVO,
+  FrontlinePqcTemplateVO,
   FrontlineRuntimeConfigVO,
   FrontlineRuntimeEmployeeVO,
   FrontlineSwitchActualEmployeeReqVO,
@@ -11,7 +14,7 @@ import type {
   FrontlineTemplateVO
 } from '@/api/mes/pro/feedback'
 
-export const FRONTLINE_PQC_NO_PENDING_ORDER_TEXT = '当前暂无待执行 PQC 检验任务'
+export const FRONTLINE_PQC_NO_PENDING_ORDER_TEXT = '当前暂无活跃订单'
 
 interface FrontlineProductionRuntimeCacheEntry {
   runtimeConfig: FrontlineRuntimeConfigVO
@@ -29,21 +32,21 @@ interface FrontlineProductionRuntimeCache {
 
 export interface FrontlineDeviceEmployeeState {
   activeOrderOptions: FrontlineActiveOrderVO[]
-  processOptions: FrontlineDeviceRouteProcessVO[]
+  processOptions: Array<FrontlineDeviceRouteProcessVO | FrontlinePqcProcessVO>
   employeeOptions: FrontlineEmployeeCandidateVO[]
   selectedActiveOrder?: FrontlineActiveOrderVO
-  selectedProcess?: FrontlineDeviceRouteProcessVO
+  selectedProcess?: FrontlineDeviceRouteProcessVO | FrontlinePqcProcessVO
   selectedEmployee?: FrontlineEmployeeCandidateVO
   runtimeConfig?: FrontlineRuntimeConfigVO
-  template?: FrontlineTemplateVO
+  template?: FrontlineTemplateVO | FrontlinePqcTemplateVO
   loadingActiveOrders: boolean
   loadingProcesses: boolean
   loadingEmployees: boolean
   loadingTemplate: boolean
   preloadingRuntimeCache: boolean
   productionRuntimeCache: FrontlineProductionRuntimeCache
-  pqcProcessOptionsCache: Map<string, FrontlineDeviceRouteProcessVO[]>
-  pqcProcessOptionsRequests: Map<string, Promise<FrontlineDeviceRouteProcessVO[]>>
+  pqcProcessOptionsCache: Map<string, FrontlinePqcProcessVO[]>
+  pqcProcessOptionsRequests: Map<string, Promise<FrontlinePqcProcessVO[]>>
   pqcEmployeeOptionsCache?: FrontlineEmployeeCandidateVO[]
   pqcEmployeeOptionsRequest?: Promise<FrontlineEmployeeCandidateVO[]>
   processSelectionRequestToken: number
@@ -64,8 +67,8 @@ export const createFrontlineDeviceEmployeeState = (): FrontlineDeviceEmployeeSta
     runtimeConfigByProcessKey: {},
     employeeSwitchByKey: {}
   },
-  pqcProcessOptionsCache: new Map<string, FrontlineDeviceRouteProcessVO[]>(),
-  pqcProcessOptionsRequests: new Map<string, Promise<FrontlineDeviceRouteProcessVO[]>>(),
+  pqcProcessOptionsCache: new Map<string, FrontlinePqcProcessVO[]>(),
+  pqcProcessOptionsRequests: new Map<string, Promise<FrontlinePqcProcessVO[]>>(),
   processSelectionRequestToken: 0,
   employeeSwitchRequestToken: 0
 })
@@ -90,7 +93,7 @@ export const buildFrontlineEmployeeSwitchPayload = (
 
 export const buildFrontlinePqcEmployeeSwitchPayload = (
   activeOrder: FrontlineActiveOrderVO | undefined,
-  process: FrontlineDeviceRouteProcessVO | undefined,
+  process: FrontlinePqcProcessVO | undefined,
   actualEmployeeId: number | undefined
 ): FrontlinePqcSwitchActualEmployeeReqVO => {
   if (!activeOrder) {
@@ -105,8 +108,8 @@ export const buildFrontlinePqcEmployeeSwitchPayload = (
   return {
     workOrderId: activeOrder.workOrderId,
     routeId: process.routeId,
-    routeProcessId: process.routeProcessId,
-    processId: process.processId,
+    regulationVersionId: process.regulationVersionId,
+    qaProcessId: process.qaProcessId,
     actualEmployeeId
   }
 }
@@ -337,7 +340,7 @@ const toEmployeeCandidate = (employee: FrontlineRuntimeEmployeeVO): FrontlineEmp
 
 export const selectFrontlinePqcProcess = async (
   state: FrontlineDeviceEmployeeState,
-  process: FrontlineDeviceRouteProcessVO
+  process: FrontlinePqcProcessVO
 ) => {
   const cachedEmployees = state.pqcEmployeeOptionsCache
   state.selectedProcess = process
@@ -366,7 +369,11 @@ export const switchFrontlineActualEmployee = async (
   state: FrontlineDeviceEmployeeState,
   actualEmployeeId: number
 ): Promise<FrontlineSwitchActualEmployeeRespVO> => {
-  const payload = buildFrontlineEmployeeSwitchPayload(state.selectedProcess, actualEmployeeId)
+  const selectedProcess = state.selectedProcess
+  if (!selectedProcess || !('routeProcessId' in selectedProcess)) {
+    throw new Error('当前生产工序不能为空')
+  }
+  const payload = buildFrontlineEmployeeSwitchPayload(selectedProcess, actualEmployeeId)
   const requestToken = ++state.employeeSwitchRequestToken
   const cachedSwitch = readFrontlineEmployeeSwitchCache(state, payload)
   if (cachedSwitch) {
@@ -399,10 +406,10 @@ export const switchFrontlineActualEmployee = async (
 export const switchFrontlinePqcActualEmployee = async (
   state: FrontlineDeviceEmployeeState,
   actualEmployeeId: number
-): Promise<FrontlineSwitchActualEmployeeRespVO> => {
+): Promise<FrontlinePqcSwitchActualEmployeeRespVO> => {
   const payload = buildFrontlinePqcEmployeeSwitchPayload(
     state.selectedActiveOrder,
-    state.selectedProcess,
+    state.selectedProcess as FrontlinePqcProcessVO | undefined,
     actualEmployeeId
   )
   state.template = undefined
@@ -506,7 +513,9 @@ const retainFrontlineRuntimeCacheForProcesses = (
 
 export const preloadFrontlineProductionRuntimeCache = async (
   state: FrontlineDeviceEmployeeState,
-  processes: FrontlineDeviceRouteProcessVO[] = state.processOptions
+  processes: FrontlineDeviceRouteProcessVO[] = state.processOptions.filter(
+    (process): process is FrontlineDeviceRouteProcessVO => 'routeProcessId' in process
+  )
 ) => {
   const uniqueProcesses = processes.filter((process, index, items) =>
     items.findIndex((item) =>

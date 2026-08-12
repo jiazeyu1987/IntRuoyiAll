@@ -32,6 +32,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED;
@@ -46,6 +48,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImpl
     private static final String INSTANCE_STATUS_REWORKING = "REWORKING";
     private static final String INSTANCE_STATUS_EFFECTIVE = "EFFECTIVE";
     private static final String AUDIT_KEY = "_processInspectionReleaseAudit";
+    private static final Pattern CONTROLLED_DOCUMENT_CODE = Pattern.compile("\\bPQC-([A-Z0-9]+)-[A-Z0-9]+\\b");
 
     private final FormTemplateVersionMapper templateVersionMapper;
     private final FormActionInstanceMapper instanceMapper;
@@ -62,7 +65,8 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImpl
 
     @Override
     public TargetResolution resolveTarget(MesProRouteFlowProcessBatchRecordDO binding,
-                                          List<MesProBatchRecordCellLinkRuleDO> rules) {
+                                          List<MesProBatchRecordCellLinkRuleDO> rules,
+                                          String expectedDccProjectCode) {
         if (binding == null || !TEMPLATE_ID.equals(binding.getFormTemplateId())
                 || binding.getLastPublishedTemplateVersionId() == null
                 || StrUtil.isBlank(binding.getLastPublishedTemplateVersionNo())) {
@@ -88,6 +92,14 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImpl
         if (recognizedFields == null || recognizedFields.isEmpty() || rules == null || rules.isEmpty()) {
             return blocked("PROCESS_INSPECTION_MAPPING_REQUIRED", "过程检验动态模板缺少精确字段映射");
         }
+        Set<String> templateProjectCodes = controlledDocumentProjectCodes(recognizedFields);
+        String expectedProjectCode = StrUtil.trim(expectedDccProjectCode);
+        if (StrUtil.isBlank(expectedProjectCode) || templateProjectCodes.size() != 1
+                || !templateProjectCodes.contains(expectedProjectCode)) {
+            return blocked("PROCESS_INSPECTION_TEMPLATE_DCC_IDENTITY_REQUIRED",
+                    "过程检验模板 DCC 项目身份不一致，expected=" + expectedProjectCode
+                            + "，actual=" + templateProjectCodes);
+        }
         Map<Long, String> targetFieldCodes = new LinkedHashMap<>();
         Set<String> uniqueFieldCodes = new LinkedHashSet<>();
         for (MesProBatchRecordCellLinkRuleDO rule : rules) {
@@ -102,7 +114,24 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImpl
                 .setTemplateVersionId(template.getId())
                 .setTemplateSnapshotHash(hash("FORM_TEMPLATE_VERSION_V1", template.getId(), template.getTemplateId(),
                         template.getVersionNo(), template.getRecognizedSchemaJson(), template.getJimuSchemaJson()))
+                .setTemplateDccProjectCode(expectedProjectCode)
                 .setTargetFieldCodes(Map.copyOf(targetFieldCodes));
+    }
+
+    private Set<String> controlledDocumentProjectCodes(JSONArray fields) {
+        Set<String> projectCodes = new LinkedHashSet<>();
+        for (Object raw : fields) {
+            JSONObject field = JSON.parseObject(JSON.toJSONString(raw));
+            String label = field == null ? null : field.getString("label");
+            if (StrUtil.isBlank(label)) {
+                continue;
+            }
+            Matcher matcher = CONTROLLED_DOCUMENT_CODE.matcher(label);
+            while (matcher.find()) {
+                projectCodes.add(matcher.group(1));
+            }
+        }
+        return Set.copyOf(projectCodes);
     }
 
     @Override

@@ -32,7 +32,7 @@ const deviceSectionEnd = panel.indexOf('</section>', deviceSectionStart)
 assert.ok(deviceSectionEnd > deviceSectionStart, 'production device panel section must close.')
 const deviceSection = panel.slice(deviceSectionStart, deviceSectionEnd)
 
-assert.match(deviceSection, /<div class="panel-title">填设备<\/div>/, 'device panel title must remain visible.')
+assert.doesNotMatch(deviceSection, /<div class="panel-title">填设备<\/div>/, 'device panel title must stay removed from the compact production layout.')
 assert.match(deviceSection, /class="frontline-production-device-param device-param"/, 'device parameter rows must remain rendered.')
 assert.match(deviceSection, /class="device-param-label"/, 'device parameter labels must remain rendered.')
 assert.match(deviceSection, /class="device-num"/, 'device parameter step buttons must remain rendered.')
@@ -45,10 +45,10 @@ assert.match(
 )
 
 const currentBlock = extractCssBlock(panel, '.frontline-production-device-current')
-for (const token of ['gap: 14px;', 'padding: 18px;']) {
+for (const token of ['gap: 10px;', 'padding: 14px;', 'overflow: auto;']) {
   assert.ok(currentBlock.includes(token), `device parameter panel must use compact container token: ${token}`)
 }
-for (const oldToken of ['gap: 24px;', 'padding: 26px;']) {
+for (const oldToken of ['gap: 24px;', 'padding: 26px;', 'gap: 14px;', 'padding: 18px;']) {
   assert.ok(!currentBlock.includes(oldToken), `device parameter panel must not keep old loose container token: ${oldToken}`)
 }
 

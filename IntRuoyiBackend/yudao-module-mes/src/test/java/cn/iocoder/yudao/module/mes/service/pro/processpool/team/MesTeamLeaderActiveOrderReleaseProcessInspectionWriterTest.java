@@ -75,6 +75,10 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     private static final long AUDIT_BATCH_ID = 904L;
     private static final LocalDateTime INSPECTED_AT = LocalDateTime.of(2026, 8, 9, 9, 10, 11);
     private static final LocalDateTime REVIEWED_AT = LocalDateTime.of(2026, 8, 9, 10, 11, 12);
+    private static final List<String> PROCESS_INSPECTION_SUMMARY_FIELDS = List.of(
+            "dccProjectCode", "dccProjectName", "qaVersionNo", "itemSummary",
+            "resultSummary", "equipmentSummary", "overallJudgement", "inspectorSignedInfo",
+            "reviewerSignedInfo");
 
     private MesTeamLeaderActiveOrderReleaseProcessInspectionReader reader;
     private MesProRouteFlowProcessBatchRecordMapper bindingMapper;
@@ -246,16 +250,18 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     }
 
     @Test
-    void routeBoundProcessInspectionFormTemplateWritesAndSubmitsCurrentBatchFormCenterInstance() {
+    void routeBoundProcessInspectionFormTemplateCoexistsWithWorkOrderBatchCodeRule() {
         MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command = command();
         when(reader.read(command)).thenReturn(bundle(source()));
         MesProRouteFlowProcessBatchRecordDO binding = dynamicFormBinding(28L, "PI_" + ROUTE_PROCESS_ID);
         when(bindingMapper.selectListByRouteProcessIdsAndUseType(any(), any()))
                 .thenReturn(List.of(binding));
         List<MesProBatchRecordCellLinkRuleDO> rules = dynamicRules();
+        List<MesProBatchRecordCellLinkRuleDO> storedRules = new ArrayList<>(rules);
+        storedRules.add(productionWorkOrderBatchCodeRule(3900L, 2801L, "FORMTPL:2801", 30, 1));
         when(ruleMapper.selectEnabledListByScopeAndTargetReport("FORM_TEMPLATE_VERSION", 2801L, "FORMTPL:2801"))
-                .thenReturn(rules);
-        when(dynamicFormPort.resolveTarget(binding, rules)).thenReturn(dynamicTarget(rules));
+                .thenReturn(storedRules);
+        when(dynamicFormPort.resolveTarget(binding, rules, "ID")).thenReturn(dynamicTarget(rules));
         when(batchTaskMapper.selectListByBatchExecutionId(BATCH_EXECUTION_ID))
                 .thenReturn(List.of(dynamicBatchTask()));
         when(dynamicFormPort.write(any())).thenReturn(
@@ -279,7 +285,17 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
         verify(dynamicFormPort).write(captor.capture());
         assertEquals(BATCH_EXECUTION_ID, captor.getValue().getBatchExecutionId());
         assertEquals(BATCH_TASK_ID, captor.getValue().getBatchTask().getId());
-        assertEquals(20, captor.getValue().getFields().size());
+        assertEquals(PROCESS_INSPECTION_SUMMARY_FIELDS.size(), captor.getValue().getFields().size());
+        assertTrue(captor.getValue().getFields().stream()
+                .allMatch(field -> field.getSourceCellKey().startsWith("SUMMARY|")));
+        assertTrue(captor.getValue().getFields().stream()
+                .noneMatch(field -> "batchCode".equals(field.getSourceFieldCode())));
+        assertTrue(captor.getValue().getFields().stream()
+                .anyMatch(field -> "itemSummary".equals(field.getSourceFieldCode())
+                        && field.getDisplayValue().contains("PRESSURE")));
+        assertTrue(captor.getValue().getFields().stream()
+                .anyMatch(field -> "overallJudgement".equals(field.getSourceFieldCode())
+                        && MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS.equals(field.getDisplayValue())));
         assertTrue(captor.getValue().getFields().stream()
                 .allMatch(field -> field.getTargetFieldCode() != null && field.getSourceValueHash() != null));
         verify(executionService, never()).openOrCreateByContext(any());
@@ -289,6 +305,32 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     @Test
     void missingFormalDccProductIdentityBlocksBeforeBindingOrAnyTargetWrite() {
         MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source().setDccProject(null);
+        when(reader.read(any())).thenReturn(bundle(source));
+
+        MesTeamLeaderActiveOrderReleaseProcessInspectionPlan plan = writer.plan(command());
+
+        assertEquals(List.of("PQC_DCC_PROJECT_IDENTITY_REQUIRED"), blockerTypes(plan));
+        verify(bindingMapper, never()).selectListByRouteProcessIdsAndUseType(any(), any());
+        verify(dynamicFormPort, never()).write(any());
+        verify(executionService, never()).openOrCreateByContext(any());
+    }
+
+    @Test
+    void routeProjectCodeDccIdentityDoesNotRequireMesProductAsDccProductMaster() {
+        MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command = command();
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source();
+        source.getDccProject().setProductMasterId(11L);
+        stubFormalPlan(command, source);
+
+        MesTeamLeaderActiveOrderReleaseProcessInspectionPlan plan = writer.plan(command);
+
+        assertTrue(plan.getBlockers().isEmpty());
+    }
+
+    @Test
+    void routeProjectCodeMismatchBlocksBeforeBindingOrAnyTargetWrite() {
+        MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source()
+                .setRouteProjectCode("IDPR");
         when(reader.read(any())).thenReturn(bundle(source));
 
         MesTeamLeaderActiveOrderReleaseProcessInspectionPlan plan = writer.plan(command());
@@ -476,14 +518,14 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                 .itemCode("PRESSURE").equipmentId(10001L).equipmentCode("EQ-P").equipmentName("压力表")
                 .equipmentNumber("EQ-P-01").defaultFlag(true).sort(1).build();
         equipment.setTenantId(TENANT_ID);
-        DccProjectCodeDO dccProject = DccProjectCodeDO.builder().id(705L).productMasterId(PRODUCT_ID)
-                .projectCode("IDPR").projectName("球囊扩张压力泵").status("ENABLE").build();
+        DccProjectCodeDO dccProject = DccProjectCodeDO.builder().id(705L).productMasterId(11L)
+                .projectCode("ID").projectName("球囊扩张压力泵").status("ENABLE").build();
         dccProject.setTenantId(TENANT_ID);
         return new MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource()
                 .setTask(task).setAggregateDetails(List.of(detail)).setEvent(event).setPqcRecord(record)
                 .setReview(review).setRegulation(regulation).setRegulationVersion(version)
                 .setRegulationItems(List.of(item)).setRegulationItemEquipment(List.of(equipment))
-                .setDccProject(dccProject)
+                .setDccProject(dccProject).setRouteProjectCode("ID")
                 .setQaDccProvenance(
                         new MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort.Resolution()
                                 .setDccProjectCodeId(dccProject.getId()).setRegulationId(regulation.getId())
@@ -551,17 +593,18 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     }
 
     private static List<MesProBatchRecordCellLinkRuleDO> dynamicRules() {
-        List<MesProBatchRecordCellLinkRuleDO> result = rules();
-        for (int index = 0; index < result.size(); index++) {
-            MesProBatchRecordCellLinkRuleDO rule = result.get(index);
+        List<MesProBatchRecordCellLinkRuleDO> result = new ArrayList<>();
+        for (int index = 0; index < PROCESS_INSPECTION_SUMMARY_FIELDS.size(); index++) {
+            String fieldCode = PROCESS_INSPECTION_SUMMARY_FIELDS.get(index);
+            MesProBatchRecordCellLinkRuleDO rule = rule(3000L + index, fieldCode,
+                    summaryKey(fieldCode), "STRING", 3 + index / 2, index % 2 == 0 ? 1 : 3);
             rule.setScopeType("FORM_TEMPLATE_VERSION");
             rule.setScopeId(2801L);
             rule.setBatchRecordDefinitionId(null);
             rule.setBatchRecordVersionId(null);
             rule.setTargetReportId("FORMTPL:2801");
-            rule.setTargetRowIndex(3 + index / 2);
-            rule.setTargetColumnIndex(index % 2 == 0 ? 1 : 3);
             rule.setTargetCellKey(rule.getTargetRowIndex() + ":" + rule.getTargetColumnIndex());
+            result.add(rule);
         }
         return result;
     }
@@ -573,7 +616,30 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
         return new MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.TargetResolution()
                 .setTemplateVersionId(2801L)
                 .setTemplateSnapshotHash("published-template-snapshot")
+                .setTemplateDccProjectCode("ID")
                 .setTargetFieldCodes(fields);
+    }
+
+    private static MesProBatchRecordCellLinkRuleDO productionWorkOrderBatchCodeRule(
+            long id, long scopeId, String targetReportId, int row, int column) {
+        MesProBatchRecordCellLinkRuleDO rule = new MesProBatchRecordCellLinkRuleDO();
+        rule.setId(id);
+        rule.setScopeType("FORM_TEMPLATE_VERSION");
+        rule.setScopeId(scopeId);
+        rule.setSourceType("PRODUCTION_WORK_ORDER");
+        rule.setSourceReportId("PRODUCTION_WORK_ORDER");
+        rule.setSourceCellKey("batchCode");
+        rule.setSourceFieldCode("batchCode");
+        rule.setSourceValueType("STRING");
+        rule.setTargetReportId(targetReportId);
+        rule.setTargetRowIndex(row);
+        rule.setTargetColumnIndex(column);
+        rule.setTargetCellKey(row + ":" + column);
+        rule.setTargetValueType("STRING");
+        rule.setTemplateSnapshotHash("work-order-template-snapshot");
+        rule.setRuleVersion(2L);
+        rule.setEnabled(true);
+        return rule;
     }
 
     private static MesProBatchRecordCellLinkRuleDO rule(long id, String fieldCode, String sourceCellKey,
@@ -658,5 +724,9 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
             return "PQC|DCC|" + fieldCode;
         }
         return "PQC|" + fieldCode;
+    }
+
+    private static String summaryKey(String fieldCode) {
+        return "SUMMARY|" + fieldCode;
     }
 }

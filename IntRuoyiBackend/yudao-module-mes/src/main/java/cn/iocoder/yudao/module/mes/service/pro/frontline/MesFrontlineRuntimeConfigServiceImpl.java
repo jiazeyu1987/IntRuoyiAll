@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDefectReasonDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
@@ -238,9 +239,18 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                 .collect(Collectors.groupingBy(MesProcessPoolDeviceParameterRuleDO::getDeviceId,
                         LinkedHashMap::new,
                         Collectors.mapping(rule -> new MesFrontlineDeviceParameterOption(rule.getParameterCode(),
-                                rule.getParameterName(), rule.getUnit(), rule.getLowerLimit(), rule.getUpperLimit(),
-                                resolveParameterDefaultValue(rule), rule.getValueType(), rule.getStandardText()),
-                                Collectors.toList())));
+                                 rule.getParameterName(), rule.getUnit(), rule.getLowerLimit(), rule.getUpperLimit(),
+                                 resolveParameterDefaultValue(rule), rule.getValueType(), rule.getStandardText(),
+                                 parseOptionValues(rule.getOptionValuesJson()), rule.getDefaultText(),
+                                 rule.getDecimalScale()),
+                                 Collectors.toList())));
+    }
+
+    private static List<String> parseOptionValues(String optionValuesJson) {
+        if (optionValuesJson == null || optionValuesJson.trim().isEmpty()) {
+            return List.of();
+        }
+        return JsonUtils.parseArray(optionValuesJson, String.class);
     }
 
     private static BigDecimal resolveParameterDefaultValue(MesProcessPoolDeviceParameterRuleDO rule) {

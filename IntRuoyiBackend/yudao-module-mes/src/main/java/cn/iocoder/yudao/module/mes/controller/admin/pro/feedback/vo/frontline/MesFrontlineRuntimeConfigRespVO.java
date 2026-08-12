@@ -54,6 +54,9 @@ public class MesFrontlineRuntimeConfigRespVO {
         private BigDecimal defaultValue;
         private String valueType;
         private String standardText;
+        private List<String> optionValues;
+        private String defaultText;
+        private Integer decimalScale;
     }
 
     @Data

@@ -402,12 +402,30 @@
                 </div>
               </div>
               <el-alert
-                v-if="wordImportDialog.preflight.routeUpgradeRequired && wordImportDialog.selectedRouteProductOptionKeys.length > 0"
+                v-if="wordImportDialog.preflight.routeUpgradeRequired
+                  && wordImportDialog.selectedRouteProductOptionKeys.length > 0
+                  && !wordImportDialog.preflight.currentRouteCandidateVersionId"
                 type="warning"
                 :closable="false"
                 show-icon
                 class="batch-record-word-import-form__reference-alert"
                 :title="`同一个路线名称只能有一个工艺路线，已存在“${wordImportDialog.preflight.currentRouteName || wordImportDialog.preflight.batchRecordName}”。导入时需要确认是否升版本。`"
+              />
+              <el-alert
+                v-if="wordImportDialog.preflight.currentRouteCandidateVersionStatus === 'DRAFT'"
+                type="warning"
+                :closable="false"
+                show-icon
+                class="batch-record-word-import-form__reference-alert"
+                :title="`当前已有 ${wordImportDialog.preflight.currentRouteCandidateVersionNo || '候选版本'} 草稿，本次导入将更新现有 ${wordImportDialog.preflight.currentRouteCandidateVersionNo || '候选版本'} 草稿，不会创建下一版本；草稿待发布后生效。`"
+              />
+              <el-alert
+                v-else-if="isWordImportRouteCandidateLocked(wordImportDialog.preflight)"
+                type="error"
+                :closable="false"
+                show-icon
+                class="batch-record-word-import-form__reference-alert"
+                :title="`工艺路线候选版本 ${wordImportDialog.preflight.currentRouteCandidateVersionNo || ''} 当前为${wordImportDialog.preflight.currentRouteCandidateVersionStatus === 'PENDING_APPROVAL' ? '待审批' : '待发布'}状态，请先撤回、取消或完成发布后再导入。`"
               />
               <div class="batch-record-word-import-form__action-row">
                 <span class="batch-record-word-import-form__action-label">导入动作</span>
@@ -436,6 +454,7 @@
                     v-for="option in wordImportDialog.preflight.routeProductOptions"
                     :key="option.optionKey"
                     :value="option.optionKey"
+                    :disabled="isWordImportRouteCandidateLocked(wordImportDialog.preflight)"
                     class="batch-record-word-import-form__route-option"
                   >
                     <span>{{ option.productName }}</span>
@@ -1505,6 +1524,9 @@ const hasWordImportAllowedAction = computed(() =>
 )
 
 const resolveWordImportActionLockedMessage = (preflight?: BatchRecordReportImportPreflightVO) => {
+  if (isWordImportRouteCandidateLocked(preflight)) {
+    return `工艺路线候选版本 ${preflight?.currentRouteCandidateVersionNo || ''} 当前为${preflight?.currentRouteCandidateVersionStatus === 'PENDING_APPROVAL' ? '待审批' : '待发布'}状态，请先撤回、取消或完成发布后再导入。`
+  }
   if (preflight?.latestBatchRecordVersionStatus === 'PENDING_APPROVAL') {
     return '当前批记录存在待审批升版申请，只能等待审批完成或撤回升版申请。'
   }
@@ -1527,6 +1549,13 @@ const resolveWordImportUpgradeVersionMessage = (
 const isWordImportRouteDuplicateBlocked = (preflight?: BatchRecordReportImportPreflightVO) =>
   preflight?.routeGovernanceStatus === 'DUPLICATE_BLOCKED'
 
+const isWordImportRouteCandidateLocked = (preflight?: BatchRecordReportImportPreflightVO) =>
+  preflight?.currentRouteCandidateVersionStatus === 'PENDING_APPROVAL'
+  || preflight?.currentRouteCandidateVersionStatus === 'READY_TO_PUBLISH'
+
+const isWordImportRouteDraftCandidate = (preflight?: BatchRecordReportImportPreflightVO) =>
+  preflight?.currentRouteCandidateVersionStatus === 'DRAFT'
+
 const formatWordImportDuplicateRoutes = (preflight?: BatchRecordReportImportPreflightVO) =>
   preflight?.duplicateRoutes
     ?.map((route) => route.routeCode || route.routeId)
@@ -1536,8 +1565,21 @@ const formatWordImportDuplicateRoutes = (preflight?: BatchRecordReportImportPref
 const resolveWordImportRouteUpgradeMessage = (
   batchRecordName: string,
   preflight: BatchRecordReportImportPreflightVO
-) =>
-  `同一个路线名称只能有一个工艺路线，已存在“${preflight.currentRouteName || batchRecordName}”（${preflight.currentRouteCode || '无编码'}，${preflight.currentRouteVersionNo || '无版本'}）。确认后将生成路线候选版本，待审批/发布后生效，不会创建第二条同名路线。`
+) => {
+  if (isWordImportRouteDraftCandidate(preflight)) {
+    const candidateVersionNo = preflight.currentRouteCandidateVersionNo || '候选版本'
+    return `工艺路线“${preflight.currentRouteName || batchRecordName}”当前已有 ${candidateVersionNo} 草稿。确认后将更新现有 ${candidateVersionNo} 草稿，不会创建下一版本；草稿待发布后生效。`
+  }
+  return `同一个路线名称只能有一个工艺路线，已存在“${preflight.currentRouteName || batchRecordName}”（${preflight.currentRouteCode || '无编码'}，${preflight.currentRouteVersionNo || '无版本'}）。确认后将生成路线候选版本，待审批/发布后生效，不会创建第二条同名路线。`
+}
+
+const resolveWordImportRouteUpgradeDialogTitle = (preflight?: BatchRecordReportImportPreflightVO) =>
+  isWordImportRouteDraftCandidate(preflight) ? '确认更新路线草稿' : '确认生成路线候选版本'
+
+const resolveWordImportRouteUpgradeConfirmText = (preflight?: BatchRecordReportImportPreflightVO) =>
+  isWordImportRouteDraftCandidate(preflight)
+    ? `更新 ${preflight?.currentRouteCandidateVersionNo || '候选版本'} 草稿`
+    : '生成候选版本'
 
 const addWordImportRouteUpgradeKey = (
   routeUpgradeKeys: Set<string>,
@@ -1738,6 +1780,7 @@ const buildWordImportSelection = () => {
     routeUpgradeRequired: wordImportDialog.preflight?.routeUpgradeRequired,
     expectedRouteId: wordImportDialog.preflight?.currentRouteId,
     expectedRouteVersionId: wordImportDialog.preflight?.currentRouteVersionId,
+    expectedRouteCandidateVersionId: wordImportDialog.preflight?.currentRouteCandidateVersionId,
     selectedOptions,
     selectedRouteProductIds,
     selectedProductNames
@@ -1754,6 +1797,7 @@ type WordImportConfirmedSelection = {
   routeUpgradeConfirmed?: boolean
   expectedRouteId?: number
   expectedRouteVersionId?: number
+  expectedRouteCandidateVersionId?: number
   selectedRouteProductIds: number[]
   selectedProductNames: string[]
 }
@@ -1774,6 +1818,9 @@ const buildWordImportConfirmedSelection = (
     routeUpgradeConfirmed: shouldConfirmRouteUpgrade,
     expectedRouteId: shouldConfirmRouteUpgrade ? selection.expectedRouteId : undefined,
     expectedRouteVersionId: shouldConfirmRouteUpgrade ? selection.expectedRouteVersionId : undefined,
+    expectedRouteCandidateVersionId: shouldConfirmRouteUpgrade
+      ? selection.expectedRouteCandidateVersionId
+      : undefined,
     selectedRouteProductIds: selectedOptions
       .map((option) => option.routeProductId)
       .filter((routeProductId): routeProductId is number => typeof routeProductId === 'number'),
@@ -1799,13 +1846,17 @@ const confirmWordImportUpgradeSelections = async (
     message.warning(`存在多条同名工艺路线：${formatWordImportDuplicateRoutes(wordImportDialog.preflight)}，请先人工确定/清理唯一保留路线。`)
     return false
   }
+  if (isWordImportRouteCandidateLocked(wordImportDialog.preflight)) {
+    message.warning(resolveWordImportActionLockedMessage(wordImportDialog.preflight))
+    return false
+  }
   if (shouldConfirmRouteUpgrade) {
     try {
       await ElMessageBox.confirm(
         resolveWordImportRouteUpgradeMessage(batchRecordName, wordImportDialog.preflight),
-        '确认生成路线候选版本',
+        resolveWordImportRouteUpgradeDialogTitle(wordImportDialog.preflight),
         {
-          confirmButtonText: '生成候选版本',
+          confirmButtonText: resolveWordImportRouteUpgradeConfirmText(wordImportDialog.preflight),
           cancelButtonText: '退出导入',
           distinguishCancelAndClose: true,
           type: 'warning'
@@ -2033,6 +2084,7 @@ const runUploadedWordImport = async (
     routeUpgradeConfirmed?: boolean
     expectedRouteId?: number
     expectedRouteVersionId?: number
+    expectedRouteCandidateVersionId?: number
     selectedRouteProductIds: number[]
     selectedProductNames: string[]
   }
@@ -2060,7 +2112,8 @@ const runUploadedWordImport = async (
       selection.expectedTargetVersionNo,
       Boolean(selection.routeUpgradeConfirmed),
       selection.expectedRouteId,
-      selection.expectedRouteVersionId
+      selection.expectedRouteVersionId,
+      selection.expectedRouteCandidateVersionId
     )
     lastWordImportResult.value = result
     const productSummary =

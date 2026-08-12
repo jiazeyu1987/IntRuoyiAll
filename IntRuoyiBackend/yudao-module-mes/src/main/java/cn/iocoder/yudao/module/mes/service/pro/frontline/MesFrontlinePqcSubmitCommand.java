@@ -17,13 +17,11 @@ import java.util.Map;
 public class MesFrontlinePqcSubmitCommand {
 
     private Long workOrderId;
-    private Long productionSubmitEventId;
     private Long activeOrderId;
     private Long pqcTaskId;
     private Long routeId;
-    private Long routeProcessId;
-    private Long processId;
     private Long regulationVersionId;
+    private Long qaProcessId;
     private String inspectionType;
     private LocalDate businessDate;
     private String shiftCode;

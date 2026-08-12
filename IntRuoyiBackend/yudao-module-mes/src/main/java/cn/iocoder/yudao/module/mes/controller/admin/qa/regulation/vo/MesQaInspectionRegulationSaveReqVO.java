@@ -14,144 +14,105 @@ import java.util.List;
 @Data
 public class MesQaInspectionRegulationSaveReqVO {
 
-    @Schema(description = "QA 检验规程 ID；为空时按产品+路线版本+工序定位")
+    @Schema(description = "QA 检验规程 ID")
     private Long regulationId;
 
-    @Schema(description = "产品 ID", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "产品不能为空")
-    private Long productId;
-
-    @Schema(description = "产品名称", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String productName;
-
-    @Schema(description = "工艺路线 ID", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "工艺路线不能为空")
-    private Long routeId;
-
-    @Schema(description = "工艺路线名称", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String routeName;
-
-    @Schema(description = "工艺路线版本 ID", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "工艺路线版本不能为空")
-    private Long routeVersionId;
-
-    @Schema(description = "工艺路线版本号", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String routeVersionNo;
-
-    @Schema(description = "路线工序 ID", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "路线工序不能为空")
-    private Long routeProcessId;
-
-    @Schema(description = "工序 ID", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "工序不能为空")
-    private Long processId;
-
-    @Schema(description = "工序名称", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String routeProcessName;
-
-    @Schema(description = "逐工序批记录绑定摘要")
-    private String batchRecordBindingSummary;
+    @Schema(description = "DCC 项目代码 ID", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "DCC 项目代码不能为空")
+    private Long dccProjectCodeId;
 
     @Schema(description = "规程编码", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "规程编码不能为空")
     private String regulationCode;
 
     @Schema(description = "规程名称", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "规程名称不能为空")
     private String regulationName;
 
     @Schema(description = "版本号", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "版本号不能为空")
     private String versionNo;
 
     @Schema(description = "生效日期")
     private LocalDate effectiveDate;
 
-    @Schema(description = "末检是否适用；必须显式配置，不能由 FINAL 项目缺失反推", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "末检是否适用", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "末检适用性不能为空")
     private Boolean finalInspectionApplicable;
 
-    @Schema(description = "末检不适用依据；finalInspectionApplicable=false 时必填")
+    @Schema(description = "末检不适用依据")
     private String finalInspectionNotApplicableReason;
 
-    @Schema(description = "检验项目", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "检验类型规则", requiredMode = Schema.RequiredMode.REQUIRED)
     @Valid
-    private List<InspectionItem> items;
+    private List<InspectionTypeRule> inspectionTypeRules;
 
-    @Schema(description = "管理后台 - MES QA 检验规程检验项目")
+    @Schema(description = "QA 工序及检验项目", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Valid
+    private List<InspectionProcess> processes;
+
     @Data
-    public static class InspectionItem {
-
-        @Schema(description = "检验类型：FIRST/PATROL/FINAL", requiredMode = Schema.RequiredMode.REQUIRED)
+    public static class InspectionTypeRule {
+        private String key;
         private String inspectionType;
-
-        @Schema(description = "检验项目编码", requiredMode = Schema.RequiredMode.REQUIRED)
-        private String itemCode;
-
-        @Schema(description = "检验项目名称", requiredMode = Schema.RequiredMode.REQUIRED)
-        private String itemName;
-
-        @Schema(description = "检验方法", requiredMode = Schema.RequiredMode.REQUIRED)
-        private String inspectionMethod;
-
-        @Schema(description = "检验器具及设备原文", requiredMode = Schema.RequiredMode.REQUIRED)
-        private String inspectionTool;
-
-        @Schema(description = "抽样方案原文", requiredMode = Schema.RequiredMode.REQUIRED)
-        private String samplingPlanText;
-
-        @Schema(description = "合格标准", requiredMode = Schema.RequiredMode.REQUIRED)
-        private String standardText;
-
-        @Schema(description = "标准下限")
-        private BigDecimal standardLowerLimit;
-
-        @Schema(description = "标准上限")
-        private BigDecimal standardUpperLimit;
-
-        @Schema(description = "标准单位")
-        private String standardUnit;
-
-        @Schema(description = "标准精度")
-        private Integer standardPrecision;
-
-        @Schema(description = "是否要求设备")
-        private Boolean equipmentRequired;
-
-        @Schema(description = "检验项目正式设备选项")
-        @Valid
-        private List<EquipmentOption> equipmentOptions;
-
-        @Schema(description = "结果类型", requiredMode = Schema.RequiredMode.REQUIRED)
-        private String resultType;
-
-        @Schema(description = "固定检验数量")
-        private Integer firstInspectionQuantity;
-
-        @Schema(description = "巡检抽样比例")
-        private BigDecimal patrolInspectionRatio;
+        private String label;
+        private String roundLabel;
+        private Boolean required;
+        private Integer fixedQuantity;
+        private String notApplicableReason;
+        private String taskRule;
+        private String releaseGate;
     }
 
-    @Schema(description = "管理后台 - MES QA 检验规程检验项目设备选项")
+    @Data
+    public static class InspectionProcess {
+        private String processCode;
+        private String processName;
+        private Integer sort;
+        @Valid
+        private List<InspectionItem> items;
+    }
+
+    @Data
+    public static class InspectionItem {
+        private Integer itemSort;
+        private String itemCode;
+        private String itemName;
+        private String inspectionMethod;
+        private String inspectionTool;
+        private String samplingPlanText;
+        private String standardText;
+        private BigDecimal standardLowerLimit;
+        private BigDecimal standardUpperLimit;
+        private String standardUnit;
+        private Integer standardPrecision;
+        private Boolean equipmentRequired;
+        @Valid
+        private List<EquipmentOption> equipmentOptions;
+        private String resultType;
+        private List<String> applicableInspectionTypes;
+        private Integer firstInspectionQuantity;
+        private BigDecimal patrolInspectionRatio;
+        private Boolean critical;
+        private String failureRule;
+        private String sourceNote;
+        private Integer sourceOriginalPage;
+        private String sourceOriginalItem;
+        private String sourceOriginalExcerpt;
+        private String sourceOriginalMethod;
+    }
+
     @Data
     public static class EquipmentOption {
-
-        @Schema(description = "MES 设备台账 ID", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotNull(message = "检验设备不能为空")
         private Long equipmentId;
-
-        @Schema(description = "设备编码", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotBlank(message = "设备编码不能为空")
         private String equipmentCode;
-
-        @Schema(description = "设备名称", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotBlank(message = "设备名称不能为空")
         private String equipmentName;
-
-        @Schema(description = "设备编号/出厂编号/台账编码", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotBlank(message = "设备编号不能为空")
         private String equipmentNumber;
-
-        @Schema(description = "是否默认设备")
         private Boolean defaultFlag;
-
-        @Schema(description = "排序")
         private Integer sort;
     }
 }

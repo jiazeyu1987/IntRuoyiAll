@@ -63,4 +63,13 @@ public interface MesProProcessPoolMapper extends BaseMapperX<MesProProcessPoolDO
         }
         return selectOne(query);
     }
+
+    default MesProProcessPoolDO selectByQaContext(Long workOrderId, Long routeId, Long qaProcessId) {
+        return selectOne(new LambdaQueryWrapperX<MesProProcessPoolDO>()
+                .eq(MesProProcessPoolDO::getWorkOrderId, workOrderId)
+                .eq(MesProProcessPoolDO::getRouteId, routeId)
+                .eq(MesProProcessPoolDO::getQaProcessId, qaProcessId)
+                .isNull(MesProProcessPoolDO::getRouteProcessId)
+                .isNull(MesProProcessPoolDO::getProcessId));
+    }
 }

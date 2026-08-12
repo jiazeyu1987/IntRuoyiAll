@@ -9,6 +9,9 @@ import lombok.Data;
 @Builder
 public class MesQaInspectionRegulationSaveRespVO {
 
+    @Schema(description = "DCC 项目代码 ID")
+    private Long dccProjectCodeId;
+
     @Schema(description = "QA 检验规程 ID")
     private Long regulationId;
 

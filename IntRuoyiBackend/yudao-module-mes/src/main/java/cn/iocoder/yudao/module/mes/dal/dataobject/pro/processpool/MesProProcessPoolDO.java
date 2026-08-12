@@ -34,6 +34,7 @@ public class MesProProcessPoolDO extends TenantBaseDO {
     private Long routeId;
     private Long routeProcessId;
     private Long processId;
+    private Long qaProcessId;
     private Long deviceId;
     private Long workstationId;
     private String poolStatus;

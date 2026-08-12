@@ -375,6 +375,72 @@ class MesProRouteVersionPublishProjectionServiceTest {
     }
 
     @Test
+    void projectCandidate_shouldNotInheritTeamLeaderConfigsByProcessIdOrSortWithoutFrozenRouteProcessId() {
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(2504L)
+                .routeId(9503L)
+                .versionNo("V2")
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 9503,
+                          "routeCode": "RT-9503-V2",
+                          "routeName": "正式路线工序 ID 严格继承",
+                          "status": 0,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "graphVersion": 13,
+                              "nodes": [
+                                {
+                                  "routeProcessId": 8103,
+                                  "processId": 703,
+                                  "routeProcessWorkstationId": 980103,
+                                  "sort": 1,
+                                  "keyFlag": false,
+                                  "checkFlag": false
+                                }
+                              ],
+                              "edges": []
+                            },
+                            "products": [],
+                            "scheduleConfigs": [],
+                            "scheduleUseConfigs": [],
+                            "batchUseConfigs": []
+                          }
+                        }
+                        """)
+                .build();
+        when(defectReasonMapper.selectList(any())).thenReturn(List.of(), List.of(
+                MesProcessPoolDefectReasonDO.builder()
+                        .id(7501L)
+                        .routeProcessId(9103L)
+                        .processId(703L)
+                        .reasonType(MesProcessPoolDefectReasonDO.REASON_TYPE_LOSS)
+                        .reasonCode("LOSS-SAME-PROCESS-SORT")
+                        .reasonName("processId 和 sort 相同也不得继承")
+                        .enabled(Boolean.TRUE)
+                        .build()));
+        when(parameterRuleMapper.selectList(any())).thenReturn(List.of(), List.of(
+                MesProcessPoolDeviceParameterRuleDO.builder()
+                        .id(7601L)
+                        .routeProcessId(9103L)
+                        .processId(703L)
+                        .deviceId(4403L)
+                        .parameterCode("SAME_PROCESS_SORT")
+                        .parameterName("processId 和 sort 相同也不得继承")
+                        .valueType(MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD)
+                        .standardText("禁止继承")
+                        .enabled(Boolean.TRUE)
+                        .build()));
+
+        service.projectCandidate(candidate);
+
+        verify(defectReasonMapper, never()).insert(any(MesProcessPoolDefectReasonDO.class));
+        verify(parameterRuleMapper, never()).insert(any(MesProcessPoolDeviceParameterRuleDO.class));
+    }
+
+    @Test
     void projectCandidate_shouldProjectRouteProcessesFlowProductsAndBatchUseConfig() {
         MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
                 .id(2002L)

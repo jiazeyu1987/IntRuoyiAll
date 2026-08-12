@@ -16,14 +16,12 @@ import org.springframework.validation.annotation.Validated;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_SELF_FORBIDDEN;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_PQC_LEADER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_REJECT_REMARK_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_STATUS_INVALID;
@@ -70,10 +68,6 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
         }
         scopeService.assertCanAccessEmployee(reqBO.getLeaderUserId(), reqBO.getLeaderType(),
                 event.getActualEmployeeId());
-        if (Objects.equals(reqBO.getLeaderUserId(), event.getActualEmployeeId())) {
-            throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_SELF_FORBIDDEN,
-                    reqBO.getEventId(), event.getActualEmployeeId());
-        }
         MesProcessPoolSubmissionReviewDO existingReview =
                 reviewMapper.selectLatestByEventIdForUpdate(reqBO.getEventId());
         if (existingReview != null

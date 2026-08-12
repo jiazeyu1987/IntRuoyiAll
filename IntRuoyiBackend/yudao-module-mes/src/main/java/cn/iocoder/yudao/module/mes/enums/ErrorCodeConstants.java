@@ -599,6 +599,8 @@ public interface ErrorCodeConstants {
             new ErrorCode(1_040_600_307, "QA 检验规程版本状态冲突，无法执行当前操作：{}");
     ErrorCode QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID =
             new ErrorCode(1_040_600_308, "QA 检验规程末检适用性配置无效：{}");
+    ErrorCode QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID =
+            new ErrorCode(1_040_600_309, "QA 检验规程 DCC 项目代码无效：{}");
 
     // ========== MES 质量管理-质检指标（1-040-601-000） ==========
     ErrorCode QC_INDICATOR_NOT_EXISTS = new ErrorCode(1_040_601_000, "质检指标不存在");
@@ -1158,8 +1160,6 @@ public interface ErrorCodeConstants {
             "报工确认 PQC 合格可分配数量不足，eventId={}，confirmQuantity={}，qualifiedQuantity={}，consumedQuantity={}，allocatableQuantity={}");
     ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS = new ErrorCode(1_040_760_329,
             "工序池提交事件已存在复核终态，禁止重复确认或退回：eventId={}，status={}");
-    ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_SELF_FORBIDDEN = new ErrorCode(1_040_760_330,
-            "PQC 提交确认人不能等于实际检验人：eventId={}，actualEmployeeId={}");
     ErrorCode PRO_PROCESS_POOL_PQC_RECORD_REQUIRED = new ErrorCode(1_040_760_331,
             "PQC 提交事件缺少可汇集的正式检验记录：eventId={}");
     ErrorCode PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED = new ErrorCode(1_040_760_332,

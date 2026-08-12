@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public record MesFrontlineDeviceParameterOption(String parameterCode,
                                                 String parameterName,
@@ -9,5 +10,8 @@ public record MesFrontlineDeviceParameterOption(String parameterCode,
                                                 BigDecimal upperLimit,
                                                 BigDecimal defaultValue,
                                                 String valueType,
-                                                String standardText) {
+                                                String standardText,
+                                                List<String> optionValues,
+                                                String defaultText,
+                                                Integer decimalScale) {
 }

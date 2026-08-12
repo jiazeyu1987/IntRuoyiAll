@@ -61,9 +61,7 @@ public class MesPqcProcessInspectionAggregationServiceImpl
         }
         boolean pendingAggregation = MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_PENDING.equals(
                 record.getProcessInspectionAggregationStatus());
-        boolean existingAggregation = MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED.equals(
-                record.getProcessInspectionAggregationStatus());
-        if (!pendingAggregation && !existingAggregation) {
+        if (!pendingAggregation) {
             throw exception(PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED,
                     eventId, record.getProcessInspectionReviewId());
         }
@@ -77,13 +75,8 @@ public class MesPqcProcessInspectionAggregationServiceImpl
         validatePieceDetails(record, task, pieceDetails, eventId);
 
         LocalDateTime aggregatedAt = LocalDateTime.now();
-        if (existingAggregation) {
-            aggregateDetailMapper.deleteByEventId(eventId);
-        }
-        int updated = pendingAggregation
-                ? pqcRecordMapper.updateProcessInspectionAggregatedIfPending(tenantId, eventId, reviewId,
-                aggregatedAt)
-                : pqcRecordMapper.updateProcessInspectionAggregated(tenantId, eventId, reviewId, aggregatedAt);
+        int updated = pqcRecordMapper.updateProcessInspectionAggregatedIfPending(tenantId, eventId, reviewId,
+                aggregatedAt);
         if (updated != 1) {
             throw exception(PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED, eventId, reviewId);
         }

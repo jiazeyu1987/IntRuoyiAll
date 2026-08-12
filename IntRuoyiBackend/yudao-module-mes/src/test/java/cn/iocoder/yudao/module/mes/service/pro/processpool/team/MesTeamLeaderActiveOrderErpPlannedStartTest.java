@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
@@ -27,6 +28,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrd
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,6 +85,8 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     @Mock
     private MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
     @Mock
+    private MesQaInspectionRegulationProcessMapper inspectionRegulationProcessMapper;
+    @Mock
     private MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
     @Mock
     private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
@@ -103,7 +107,8 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
                 routeVersionMapper, processSnapshotMapper, reportAllocationMapper,
                 inspectionRegulationMapper,
-                inspectionRegulationVersionMapper, inspectionRegulationItemMapper, pqcInspectionTaskMapper,
+                inspectionRegulationVersionMapper, inspectionRegulationProcessMapper,
+                inspectionRegulationItemMapper, pqcInspectionTaskMapper,
                 abnormalStateService, releaseApplicationMapper, dccProjectCodeMapper,
                 reportAllocationOrderChangeService);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
@@ -138,9 +143,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 .projectName("球囊扩张压力泵")
                 .status("ENABLE")
                 .build()));
-        lenient().when(inspectionRegulationMapper.selectPublishedByRouteProcess(any(), any(), any(), any(), any()))
-                .thenReturn(publishedRegulation());
-        lenient().when(inspectionRegulationMapper.selectListByProductIds(any()))
+        lenient().when(inspectionRegulationMapper.selectListByDccProjectCodeIds(any()))
                 .thenReturn(List.of(publishedRegulation()));
         lenient().when(inspectionRegulationVersionMapper.selectBatchIds(List.of(9902L)))
                 .thenReturn(List.of(publishedRegulationVersion()));
@@ -148,6 +151,10 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 .thenReturn(publishedRegulationVersion());
         lenient().when(inspectionRegulationItemMapper.selectListByVersionIds(List.of(9902L))).thenReturn(pqcItems());
         lenient().when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(pqcItems());
+        lenient().when(inspectionRegulationProcessMapper.selectListByVersionIds(List.of(9902L)))
+                .thenReturn(List.of(qaProcess()));
+        lenient().when(inspectionRegulationProcessMapper.selectListByVersionId(9902L))
+                .thenReturn(List.of(qaProcess()));
         lenient().when(pqcInspectionTaskMapper.selectByIdentity(any(), any(), any(), any(), any(), any()))
                 .thenReturn(null);
         lenient().when(pqcInspectionTaskMapper.insert(any(MesPqcInspectionTaskDO.class))).thenReturn(1);
@@ -203,6 +210,7 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     private static MesQaInspectionRegulationDO publishedRegulation() {
         return MesQaInspectionRegulationDO.builder()
                 .id(9901L)
+                .dccProjectCodeId(147L)
                 .productId(1001L)
                 .routeId(922119L)
                 .routeVersionId(448L)
@@ -231,10 +239,16 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 pqcItem("FINAL", 3, null));
     }
 
+    private static MesQaInspectionRegulationProcessDO qaProcess() {
+        return MesQaInspectionRegulationProcessDO.builder().id(9910L).regulationVersionId(9902L)
+                .processCode("ID-QA-001").processName("清洗").sort(1).build();
+    }
+
     private static MesQaInspectionRegulationItemDO pqcItem(String inspectionType, Integer fixedQuantity,
                                                             BigDecimal patrolRatio) {
         return MesQaInspectionRegulationItemDO.builder()
                 .regulationVersionId(9902L)
+                .qaProcessId(9910L)
                 .inspectionType(inspectionType)
                 .firstInspectionQuantity(fixedQuantity)
                 .patrolInspectionRatio(patrolRatio)

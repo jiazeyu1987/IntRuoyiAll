@@ -15,6 +15,7 @@
             @change="handleSourceSelectionChange"
           >
             <el-option label="生产工单" :value="PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID" />
+            <el-option label="报工数据" :value="PROCESS_POOL_REPORT_SOURCE_REPORT_ID" />
             <el-option
               v-for="form in forms"
               :key="form.reportId"
@@ -35,6 +36,20 @@
               :key="form.reportId"
               :label="form.reportName"
               :value="form.reportId"
+            />
+          </el-select>
+          <el-select
+            v-if="sourceType === SOURCE_TYPE_PROCESS_POOL_REPORT"
+            v-model="aggregationStrategy"
+            placeholder="选择多笔汇总方式"
+            class="batch-record-cell-link__select batch-record-cell-link__aggregation-select"
+            clearable
+          >
+            <el-option
+              v-for="option in availableAggregationOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
             />
           </el-select>
           <el-button
@@ -61,10 +76,10 @@
       <main class="batch-record-cell-link__form-stage">
         <section
           class="batch-record-cell-link__pane is-source"
-          :class="{ 'batch-record-cell-link__work-order-field-panel': sourceType === SOURCE_TYPE_PRODUCTION_WORK_ORDER }"
+          :class="{ 'batch-record-cell-link__work-order-field-panel': isStructuredSourceSelected }"
         >
           <div class="batch-record-cell-link__pane-title">
-            <span>{{ sourceType === SOURCE_TYPE_PRODUCTION_WORK_ORDER ? '源字段' : '源表单' }}</span>
+            <span>{{ isStructuredSourceSelected ? '源字段' : '源表单' }}</span>
             <strong>{{ sourcePanelTitle }}</strong>
           </div>
           <div class="batch-record-cell-link__sheet-scroll">
@@ -99,7 +114,7 @@
         class="batch-record-cell-link__detail-dialog"
       >
         <div class="batch-record-cell-link__detail-summary">
-          <span>{{ sourceType === SOURCE_TYPE_PRODUCTION_WORK_ORDER ? '当前源字段集合' : '当前源表单' }}</span>
+          <span>{{ isStructuredSourceSelected ? '当前源字段集合' : '当前源表单' }}</span>
           <strong>{{ sourcePanelTitle }}</strong>
           <em>{{ sourceLinkCountText }}</em>
         </div>
@@ -121,7 +136,9 @@
             </template>
           </el-table-column>
           <el-table-column label="策略" width="150">
-            <template #default="{ row }">{{ row.overwritePolicy || 'ONLY_WHEN_EMPTY' }}</template>
+            <template #default="{ row }">
+              {{ row.aggregationStrategy || row.overwritePolicy || 'ONLY_WHEN_EMPTY' }}
+            </template>
           </el-table-column>
           <el-table-column label="状态" width="90">
             <template #default="{ row }">
@@ -190,6 +207,12 @@ interface RenderedSheet {
 }
 
 type SourceLinkedRule = BatchRecordCellLinkRuleVO & { ruleIndex: number }
+type ProcessPoolSourceValueType = 'NUMBER' | 'STRING' | 'BOOLEAN'
+interface ProcessPoolReportAggregationOption {
+  value: string
+  label: string
+  sourceValueTypes: readonly ProcessPoolSourceValueType[]
+}
 
 type CellLinkRawCell = Parameters<typeof normalizeTemplateCellMerge>[0] & {
   fillForm?: unknown
@@ -212,8 +235,20 @@ const DEFAULT_ROW_HEIGHT = 32
 const EMPTY_FILLABLE_PLACEHOLDER = '?'
 const SOURCE_TYPE_BATCH_RECORD_CELL = 'BATCH_RECORD_CELL'
 const SOURCE_TYPE_PRODUCTION_WORK_ORDER = 'PRODUCTION_WORK_ORDER'
+const SOURCE_TYPE_PROCESS_POOL_REPORT = 'PROCESS_POOL_REPORT'
 const PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID = 'PRODUCTION_WORK_ORDER'
 const PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME = '生产工单'
+const PROCESS_POOL_REPORT_SOURCE_REPORT_ID = 'PROCESS_POOL_REPORT'
+const PROCESS_POOL_REPORT_SOURCE_REPORT_NAME = '报工数据'
+const PROCESS_POOL_REPORT_AGGREGATION_OPTIONS: readonly ProcessPoolReportAggregationOption[] = [
+  { value: 'SUM', label: '求和', sourceValueTypes: ['NUMBER'] },
+  { value: 'LIST', label: '按顺序合并', sourceValueTypes: ['STRING', 'BOOLEAN'] },
+  { value: 'DISTINCT_LIST', label: '去重后合并', sourceValueTypes: ['STRING', 'BOOLEAN'] },
+  { value: 'FIRST', label: '第一笔', sourceValueTypes: ['NUMBER', 'STRING', 'BOOLEAN'] },
+  { value: 'LAST', label: '最后一笔', sourceValueTypes: ['NUMBER', 'STRING', 'BOOLEAN'] },
+  { value: 'MIN', label: '最小值', sourceValueTypes: ['NUMBER'] },
+  { value: 'MAX', label: '最大值', sourceValueTypes: ['NUMBER'] }
+]
 
 const BatchRecordLinkSheet = defineComponent({
   name: 'BatchRecordLinkSheet',
@@ -289,10 +324,12 @@ const saving = ref(false)
 const context = ref<BatchRecordCellLinkWorkbenchContextVO>()
 const forms = ref<BatchRecordCellLinkFormVO[]>([])
 const productionWorkOrderSourceFields = ref<BatchRecordCellLinkSourceFieldVO[]>([])
+const processPoolReportSourceFields = ref<BatchRecordCellLinkSourceFieldVO[]>([])
 const rules = ref<BatchRecordCellLinkRuleVO[]>([])
 const sourceType = ref(SOURCE_TYPE_BATCH_RECORD_CELL)
 const sourceReportId = ref('')
 const sourceFieldCode = ref('')
+const aggregationStrategy = ref('')
 const targetReportId = ref('')
 const sourceCells = ref<BatchRecordCellLinkFormCellsVO>()
 const targetCells = ref<BatchRecordCellLinkFormCellsVO>()
@@ -301,20 +338,35 @@ const selectedTargetCell = ref<BatchRecordCellLinkCellVO>()
 const relationDetailDialogVisible = ref(false)
 
 const isProductionWorkOrderSelected = computed(() => sourceReportId.value === PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID)
+const isProcessPoolReportSelected = computed(() => sourceReportId.value === PROCESS_POOL_REPORT_SOURCE_REPORT_ID)
+const isStructuredSourceSelected = computed(
+  () => isProductionWorkOrderSelected.value || isProcessPoolReportSelected.value
+)
 const sourceForm = computed(() =>
-  isProductionWorkOrderSelected.value
+  isStructuredSourceSelected.value
     ? undefined
     : forms.value.find((form) => form.reportId === sourceReportId.value)
 )
 const targetForm = computed(() => forms.value.find((form) => form.reportId === targetReportId.value))
 const targetForms = computed(() => {
-  if (isProductionWorkOrderSelected.value) {
+  if (isStructuredSourceSelected.value) {
     return forms.value
   }
   const candidates = forms.value.filter((form) => form.reportId !== sourceReportId.value)
   return candidates.length ? candidates : forms.value
 })
-const canCreateRule = computed(() => Boolean(selectedSourceCell.value && selectedTargetCell.value && targetReportId.value))
+const canCreateRule = computed(() => Boolean(
+  selectedSourceCell.value &&
+  selectedTargetCell.value &&
+  targetReportId.value &&
+  (sourceType.value !== SOURCE_TYPE_PROCESS_POOL_REPORT || aggregationStrategy.value)
+))
+const availableAggregationOptions = computed(() => {
+  const sourceValueType = (selectedSourceCell.value?.valueType || 'STRING') as ProcessPoolSourceValueType
+  return PROCESS_POOL_REPORT_AGGREGATION_OPTIONS.filter((option) =>
+    option.sourceValueTypes.includes(sourceValueType)
+  )
+})
 const sourceRuleKeys = computed(() => new Set(rules.value.map((rule) => `${rule.sourceReportId}:${rule.sourceCellKey}`)))
 const targetRuleKeys = computed(() => new Set(rules.value.map((rule) => `${rule.targetReportId}:${rule.targetCellKey}`)))
 const sourceLinkedRules = computed<SourceLinkedRule[]>(() =>
@@ -323,16 +375,19 @@ const sourceLinkedRules = computed<SourceLinkedRule[]>(() =>
     .filter((rule) => {
       if (rule.enabled === false) return false
       const ruleSourceType = normalizeRuleSourceType(rule)
-      return sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER
-        ? ruleSourceType === SOURCE_TYPE_PRODUCTION_WORK_ORDER
-        : ruleSourceType === SOURCE_TYPE_BATCH_RECORD_CELL && rule.sourceReportId === sourceReportId.value
+      if (isStructuredSourceSelected.value) {
+        return ruleSourceType === sourceType.value
+      }
+      return ruleSourceType === SOURCE_TYPE_BATCH_RECORD_CELL && rule.sourceReportId === sourceReportId.value
     })
 )
 const sourceLinkCountText = computed(() => `${sourceLinkedRules.value.length} 个链接`)
 const sourcePanelTitle = computed(() =>
   sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER
     ? PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME
-    : sourceForm.value?.reportName || '未选择'
+    : sourceType.value === SOURCE_TYPE_PROCESS_POOL_REPORT
+      ? PROCESS_POOL_REPORT_SOURCE_REPORT_NAME
+      : sourceForm.value?.reportName || '未选择'
 )
 
 const openRelationDetailDialog = () => {
@@ -397,13 +452,20 @@ async function loadWorkbenchContext() {
     })
     context.value = data
     forms.value = data.forms || []
-    productionWorkOrderSourceFields.value = data.sourceFields || []
+    productionWorkOrderSourceFields.value = (data.sourceFields || []).filter(
+      (field) => field.sourceType === SOURCE_TYPE_PRODUCTION_WORK_ORDER
+    )
+    processPoolReportSourceFields.value = (data.sourceFields || []).filter(
+      (field) => field.sourceType === SOURCE_TYPE_PROCESS_POOL_REPORT
+    )
     rules.value = data.rules || []
     const defaultSourceReportId = data.defaultSourceReportId || forms.value[0]?.reportId || ''
     sourceReportId.value = defaultSourceReportId
     sourceType.value = defaultSourceReportId === PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID
       ? SOURCE_TYPE_PRODUCTION_WORK_ORDER
-      : SOURCE_TYPE_BATCH_RECORD_CELL
+      : defaultSourceReportId === PROCESS_POOL_REPORT_SOURCE_REPORT_ID
+        ? SOURCE_TYPE_PROCESS_POOL_REPORT
+        : SOURCE_TYPE_BATCH_RECORD_CELL
     sourceFieldCode.value = productionWorkOrderSourceFields.value[0]?.fieldCode || ''
     targetReportId.value = data.defaultTargetReportId || targetForms.value[0]?.reportId || ''
     await Promise.all([loadSourceCells(), loadTargetCells()])
@@ -419,9 +481,15 @@ const handleSourceSelectionChange = async () => {
   selectedTargetCell.value = undefined
   sourceType.value = isProductionWorkOrderSelected.value
     ? SOURCE_TYPE_PRODUCTION_WORK_ORDER
-    : SOURCE_TYPE_BATCH_RECORD_CELL
-  if (sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER && !sourceFieldCode.value) {
-    sourceFieldCode.value = productionWorkOrderSourceFields.value[0]?.fieldCode || ''
+    : isProcessPoolReportSelected.value
+      ? SOURCE_TYPE_PROCESS_POOL_REPORT
+      : SOURCE_TYPE_BATCH_RECORD_CELL
+  aggregationStrategy.value = ''
+  if (isStructuredSourceSelected.value) {
+    const sourceFields = sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER
+      ? productionWorkOrderSourceFields.value
+      : processPoolReportSourceFields.value
+    sourceFieldCode.value = sourceFields[0]?.fieldCode || ''
   }
   if (!targetForms.value.some((form) => form.reportId === targetReportId.value)) {
     targetReportId.value = targetForms.value[0]?.reportId || ''
@@ -437,6 +505,12 @@ const handleTargetReportChange = async () => {
 const loadSourceCells = async () => {
   if (sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER) {
     sourceCells.value = buildProductionWorkOrderFieldCells(productionWorkOrderSourceFields.value)
+    selectedSourceCell.value = sourceCells.value.cells.find((cell) => cell.sourceFieldCode === sourceFieldCode.value)
+    return
+  }
+  if (sourceType.value === SOURCE_TYPE_PROCESS_POOL_REPORT) {
+    sourceCells.value = buildSourceFieldCells(processPoolReportSourceFields.value, PROCESS_POOL_REPORT_SOURCE_REPORT_ID,
+      PROCESS_POOL_REPORT_SOURCE_REPORT_NAME, SOURCE_TYPE_PROCESS_POOL_REPORT)
     selectedSourceCell.value = sourceCells.value.cells.find((cell) => cell.sourceFieldCode === sourceFieldCode.value)
     return
   }
@@ -464,8 +538,12 @@ const selectSourceCell = (cell?: BatchRecordCellLinkCellVO) => {
     return
   }
   selectedSourceCell.value = cell
-  if (sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER && cell.sourceFieldCode) {
+  if (isStructuredSourceSelected.value && cell.sourceFieldCode) {
     sourceFieldCode.value = cell.sourceFieldCode
+  }
+  if (sourceType.value === SOURCE_TYPE_PROCESS_POOL_REPORT
+    && !availableAggregationOptions.value.some((option) => option.value === aggregationStrategy.value)) {
+    aggregationStrategy.value = ''
   }
 }
 
@@ -481,14 +559,24 @@ const selectTargetCell = (cell?: BatchRecordCellLinkCellVO) => {
 const createRule = async () => {
   if (!selectedSourceCell.value || !selectedTargetCell.value || !targetForm.value || saving.value) return
   const isProductionWorkOrderSource = sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER
-  if (!isProductionWorkOrderSource && !sourceForm.value) return
+  const isProcessPoolReportSource = sourceType.value === SOURCE_TYPE_PROCESS_POOL_REPORT
+  const isStructuredSource = isProductionWorkOrderSource || isProcessPoolReportSource
+  if (!isStructuredSource && !sourceForm.value) return
+  if (isProcessPoolReportSource && !aggregationStrategy.value) {
+    message.warning('请选择多笔报工的汇总方式。')
+    return
+  }
   const sourceKey = selectedSourceCell.value.cellKey
   const sourceReportIdForPayload = isProductionWorkOrderSource
     ? PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID
-    : sourceReportId.value
+    : isProcessPoolReportSource
+      ? PROCESS_POOL_REPORT_SOURCE_REPORT_ID
+      : sourceReportId.value
   const sourceReportNameForPayload = isProductionWorkOrderSource
     ? PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME
-    : sourceForm.value?.reportName
+    : isProcessPoolReportSource
+      ? PROCESS_POOL_REPORT_SOURCE_REPORT_NAME
+      : sourceForm.value?.reportName
   const targetKey = selectedTargetCell.value.cellKey
   const duplicatePair = rules.value.some(
     (rule) =>
@@ -532,6 +620,7 @@ const createRule = async () => {
     targetCellKey: targetKey,
     targetLabel: selectedTargetCell.value.label,
     targetValueType: selectedTargetCell.value.valueType,
+    aggregationStrategy: isProcessPoolReportSource ? aggregationStrategy.value : undefined,
     overwritePolicy: 'ONLY_WHEN_EMPTY',
     enabled: true
   }]
@@ -547,6 +636,16 @@ function normalizeRuleSourceType(rule: BatchRecordCellLinkRuleVO) {
 
 function buildProductionWorkOrderFieldCells(
   fields: BatchRecordCellLinkSourceFieldVO[]
+): BatchRecordCellLinkFormCellsVO {
+  return buildSourceFieldCells(fields, PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID,
+    PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME, SOURCE_TYPE_PRODUCTION_WORK_ORDER)
+}
+
+function buildSourceFieldCells(
+  fields: BatchRecordCellLinkSourceFieldVO[],
+  reportId: string,
+  reportName: string,
+  structuredSourceType: string
 ): BatchRecordCellLinkFormCellsVO {
   const rows = fields.reduce<Record<string, { height: number; cells: Record<string, { text: string; fillForm: unknown }> }>>(
     (acc, field, index) => {
@@ -564,14 +663,14 @@ function buildProductionWorkOrderFieldCells(
     {}
   )
   return {
-    reportId: PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID,
-    reportName: PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME,
+    reportId,
+    reportName,
     sheetLayoutJson: JSON.stringify({ cols: { 0: { width: 240 } }, rows }),
     cells: fields.map((field, index) => ({
       rowIndex: index,
       columnIndex: 0,
       cellKey: field.fieldCode,
-      sourceType: SOURCE_TYPE_PRODUCTION_WORK_ORDER,
+      sourceType: structuredSourceType,
       sourceFieldCode: field.fieldCode,
       sourceFieldName: field.fieldName,
       label: field.fieldName,
@@ -818,6 +917,10 @@ function resolveErrorMessage(error: unknown, fallback: string) {
 
 .batch-record-cell-link__target-select {
   width: 320px;
+}
+
+.batch-record-cell-link__aggregation-select {
+  width: 180px;
 }
 
 .batch-record-cell-link__source-link-count {

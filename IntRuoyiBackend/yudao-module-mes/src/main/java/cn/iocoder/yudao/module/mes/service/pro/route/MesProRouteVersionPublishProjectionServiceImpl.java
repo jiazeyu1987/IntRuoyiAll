@@ -207,8 +207,8 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         routeProcessMapper.deleteByRouteId(routeId);
         List<JSONObject> processSnapshots = nodes.stream().map(JSONObject.class::cast).toList();
         Map<Integer, MesProRouteProcessDO> routeProcessBySort = new LinkedHashMap<>();
-        Map<Long, MesProRouteProcessDO> routeProcessByOriginalId = new LinkedHashMap<>();
-        Map<Long, MesProRouteProcessDO> routeProcessByFrozenRouteProcessId = new LinkedHashMap<>();
+        Map<Long, MesProRouteProcessDO> routeProcessByReferenceId = new LinkedHashMap<>();
+        Map<Long, MesProRouteProcessDO> routeProcessByFrozenOfficialRouteProcessId = new LinkedHashMap<>();
         processSnapshots.stream()
                 .sorted(Comparator.comparing(node -> node.getInteger("sort")))
                 .forEach(node -> {
@@ -225,18 +225,18 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                     routeProcessMapper.insert(routeProcess);
                     routeProcess = requireProjectedRouteProcessId(routeId, sort, routeProcess);
                     routeProcessBySort.put(sort, routeProcess);
-                    Long originalRouteProcessId = node.getLong("routeProcessId");
-                    if (originalRouteProcessId != null) {
-                        routeProcessByOriginalId.put(originalRouteProcessId, routeProcess);
-                        routeProcessByFrozenRouteProcessId.put(originalRouteProcessId, routeProcess);
+                    Long frozenOfficialRouteProcessId = node.getLong("routeProcessId");
+                    if (frozenOfficialRouteProcessId != null) {
+                        routeProcessByReferenceId.put(frozenOfficialRouteProcessId, routeProcess);
+                        routeProcessByFrozenOfficialRouteProcessId.put(frozenOfficialRouteProcessId, routeProcess);
                     }
                     Long clientRouteProcessId = node.getLong("clientRouteProcessId");
                     if (clientRouteProcessId != null) {
-                        routeProcessByOriginalId.put(clientRouteProcessId, routeProcess);
+                        routeProcessByReferenceId.put(clientRouteProcessId, routeProcess);
                     }
                 });
-        return new RouteProcessProjection(routeProcessBySort, routeProcessByOriginalId,
-                routeProcessByFrozenRouteProcessId);
+        return new RouteProcessProjection(routeProcessBySort, routeProcessByReferenceId,
+                routeProcessByFrozenOfficialRouteProcessId);
     }
 
     private MesProRouteProcessDO requireProjectedRouteProcessId(Long routeId, Integer sort,
@@ -936,8 +936,8 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
             return routeProcesses.bySort().get(sort);
         }
         Long routeProcessId = config.getLong("routeProcessId");
-        if (routeProcessId != null && routeProcesses.byOriginalId().containsKey(routeProcessId)) {
-            return routeProcesses.byOriginalId().get(routeProcessId);
+        if (routeProcessId != null && routeProcesses.byRouteProcessReferenceId().containsKey(routeProcessId)) {
+            return routeProcesses.byRouteProcessReferenceId().get(routeProcessId);
         }
         String processName = requireText(config, "processName");
         return routeProcesses.bySort().values().stream()
@@ -957,7 +957,8 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
             return requireRouteProcessBySort(routeProcesses.bySort(), sort);
         }
         Long routeProcessId = object.getLong(idKey);
-        MesProRouteProcessDO routeProcess = routeProcessId == null ? null : routeProcesses.byOriginalId().get(routeProcessId);
+        MesProRouteProcessDO routeProcess = routeProcessId == null ? null
+                : routeProcesses.byRouteProcessReferenceId().get(routeProcessId);
         if (routeProcess == null || routeProcess.getId() == null) {
             throw new IllegalArgumentException("route process id does not exist: " + routeProcessId);
         }
@@ -980,25 +981,29 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         return value;
     }
 
+    // QA 规程不是损耗原因或设备参数标准的数据源；clientRouteProcessId 只用于流程图投影引用。
+    // 生产组长配置只按冻结快照中的正式 routeProcessId 继承，运行态不得 fallback 回读旧 routeProcessId。
     private void inheritTeamLeaderProcessPoolConfigs(RouteProcessProjection routeProcesses) {
-        if (routeProcesses.byFrozenRouteProcessId().isEmpty()) {
+        if (routeProcesses.byFrozenOfficialRouteProcessId().isEmpty()) {
             return;
         }
-        Set<Long> originalRouteProcessIds = new LinkedHashSet<>(routeProcesses.byFrozenRouteProcessId().keySet());
+        Set<Long> frozenOfficialRouteProcessIds = new LinkedHashSet<>(
+                routeProcesses.byFrozenOfficialRouteProcessId().keySet());
         Set<Long> projectedRouteProcessIds = new LinkedHashSet<>();
-        for (MesProRouteProcessDO routeProcess : routeProcesses.byFrozenRouteProcessId().values()) {
+        for (MesProRouteProcessDO routeProcess : routeProcesses.byFrozenOfficialRouteProcessId().values()) {
             if (routeProcess != null && routeProcess.getId() != null) {
                 projectedRouteProcessIds.add(routeProcess.getId());
             }
         }
-        inheritDefectReasons(originalRouteProcessIds, projectedRouteProcessIds, routeProcesses.byFrozenRouteProcessId());
-        inheritDeviceParameterRules(originalRouteProcessIds, projectedRouteProcessIds,
-                routeProcesses.byFrozenRouteProcessId());
+        inheritDefectReasons(frozenOfficialRouteProcessIds, projectedRouteProcessIds,
+                routeProcesses.byFrozenOfficialRouteProcessId());
+        inheritDeviceParameterRules(frozenOfficialRouteProcessIds, projectedRouteProcessIds,
+                routeProcesses.byFrozenOfficialRouteProcessId());
     }
 
-    private void inheritDefectReasons(Set<Long> originalRouteProcessIds, Set<Long> projectedRouteProcessIds,
-                                      Map<Long, MesProRouteProcessDO> projectedByOriginalId) {
-        if (originalRouteProcessIds.isEmpty() || projectedRouteProcessIds.isEmpty()) {
+    private void inheritDefectReasons(Set<Long> frozenOfficialRouteProcessIds, Set<Long> projectedRouteProcessIds,
+                                      Map<Long, MesProRouteProcessDO> projectedByFrozenOfficialRouteProcessId) {
+        if (frozenOfficialRouteProcessIds.isEmpty() || projectedRouteProcessIds.isEmpty()) {
             return;
         }
         Set<String> existingKeys = new LinkedHashSet<>();
@@ -1010,9 +1015,9 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         }
         List<MesProcessPoolDefectReasonDO> sourceReasons = defectReasonMapper.selectList(
                 new LambdaQueryWrapperX<MesProcessPoolDefectReasonDO>()
-                        .in(MesProcessPoolDefectReasonDO::getRouteProcessId, originalRouteProcessIds));
+                        .in(MesProcessPoolDefectReasonDO::getRouteProcessId, frozenOfficialRouteProcessIds));
         for (MesProcessPoolDefectReasonDO source : sourceReasons) {
-            MesProRouteProcessDO projected = projectedByOriginalId.get(source.getRouteProcessId());
+            MesProRouteProcessDO projected = projectedByFrozenOfficialRouteProcessId.get(source.getRouteProcessId());
             if (projected == null || projected.getId() == null) {
                 continue;
             }
@@ -1033,9 +1038,10 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         }
     }
 
-    private void inheritDeviceParameterRules(Set<Long> originalRouteProcessIds, Set<Long> projectedRouteProcessIds,
-                                             Map<Long, MesProRouteProcessDO> projectedByOriginalId) {
-        if (originalRouteProcessIds.isEmpty() || projectedRouteProcessIds.isEmpty()) {
+    private void inheritDeviceParameterRules(Set<Long> frozenOfficialRouteProcessIds,
+                                             Set<Long> projectedRouteProcessIds,
+                                             Map<Long, MesProRouteProcessDO> projectedByFrozenOfficialRouteProcessId) {
+        if (frozenOfficialRouteProcessIds.isEmpty() || projectedRouteProcessIds.isEmpty()) {
             return;
         }
         Set<String> existingKeys = new LinkedHashSet<>();
@@ -1047,9 +1053,9 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         }
         List<MesProcessPoolDeviceParameterRuleDO> sourceRules = deviceParameterRuleMapper.selectList(
                 new LambdaQueryWrapperX<MesProcessPoolDeviceParameterRuleDO>()
-                        .in(MesProcessPoolDeviceParameterRuleDO::getRouteProcessId, originalRouteProcessIds));
+                        .in(MesProcessPoolDeviceParameterRuleDO::getRouteProcessId, frozenOfficialRouteProcessIds));
         for (MesProcessPoolDeviceParameterRuleDO source : sourceRules) {
-            MesProRouteProcessDO projected = projectedByOriginalId.get(source.getRouteProcessId());
+            MesProRouteProcessDO projected = projectedByFrozenOfficialRouteProcessId.get(source.getRouteProcessId());
             if (projected == null || projected.getId() == null) {
                 continue;
             }
@@ -1092,8 +1098,8 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
     }
 
     private record RouteProcessProjection(Map<Integer, MesProRouteProcessDO> bySort,
-                                          Map<Long, MesProRouteProcessDO> byOriginalId,
-                                          Map<Long, MesProRouteProcessDO> byFrozenRouteProcessId) {
+                                          Map<Long, MesProRouteProcessDO> byRouteProcessReferenceId,
+                                          Map<Long, MesProRouteProcessDO> byFrozenOfficialRouteProcessId) {
     }
 
     private record IndexedFlowEdge(JSONObject edge, int sort, int index) {

@@ -120,6 +120,7 @@
                                 <testInclude>**/MesProRouteProcessControllerTest.java</testInclude>
                                 <testInclude>**/MesProRouteProcessServiceImplTest.java</testInclude>
                                 <testInclude>**/MesProRouteProcessControllerWorkstationViewTest.java</testInclude>
+                                <testInclude>**/MesProRouteVersionPublishProjectionServiceTest.java</testInclude>
                                 <testInclude>**/MesProRouteScheduleConfigServiceTest.java</testInclude>
                                 <testInclude>**/MesProRouteScheduleConfigServiceImplTest.java</testInclude>
                             </testIncludes>
@@ -153,6 +154,7 @@
                                 <include>**/MesProRouteProcessControllerTest.java</include>
                                 <include>**/MesProRouteProcessServiceImplTest.java</include>
                                 <include>**/MesProRouteProcessControllerWorkstationViewTest.java</include>
+                                <include>**/MesProRouteVersionPublishProjectionServiceTest.java</include>
                                 <include>**/MesProRouteScheduleConfigServiceTest.java</include>
                                 <include>**/MesProRouteScheduleConfigServiceImplTest.java</include>
                             </includes>

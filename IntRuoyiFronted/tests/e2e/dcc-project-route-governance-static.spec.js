@@ -26,9 +26,10 @@ assert.match(importPage, /routeUpgradeRequired/)
 assert.match(importPage, /duplicateRoutes/)
 assert.match(importPage, /是否升版本/)
 assert.match(importPage, /存在多条同名工艺路线/)
-assert.match(importPage, /routeUpgradeConfirmed:\s*wordImportDialog\.preflight\?\.routeUpgradeRequired/)
+assert.match(importPage, /routeUpgradeConfirmed:\s*shouldConfirmRouteUpgrade/)
 assert.match(importPage, /expectedRouteId:\s*wordImportDialog\.preflight\?\.currentRouteId/)
 assert.match(importPage, /expectedRouteVersionId:\s*wordImportDialog\.preflight\?\.currentRouteVersionId/)
+assert.match(importPage, /expectedRouteCandidateVersionId:\s*wordImportDialog\.preflight\?\.currentRouteCandidateVersionId/)
 assert(
   !importPage.includes('getDccProjectGovernanceStatus') &&
     !importPage.includes('wordImportDialog.projectGovernance') &&

@@ -20,10 +20,12 @@
           },
           "actualText": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 100
           },
           "mismatchDescription": {
-            "type": ["string", "null"]
+            "type": ["string", "null"],
+            "maxLength": 100
           }
         },
         "required": ["checkpointSort", "status", "actualText", "mismatchDescription"]
@@ -31,7 +33,8 @@
     },
     "summary": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 100
     }
   },
   "required": ["checkpointResults", "summary"]

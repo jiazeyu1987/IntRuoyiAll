@@ -28,17 +28,11 @@ public class MesFrontlinePqcSubmitReqVO {
     @Schema(description = "生产工单编号")
     private Long workOrderId;
 
-    @Schema(description = "可选绑定的生产提交工序池事件编号")
-    private Long productionSubmitEventId;
-
     @Schema(description = "工艺路线编号")
     private Long routeId;
 
-    @Schema(description = "工艺路线工序编号")
-    private Long routeProcessId;
-
-    @Schema(description = "工序编号")
-    private Long processId;
+    @Schema(description = "QA 工序编号")
+    private Long qaProcessId;
 
     @Schema(description = "检验类型")
     private String inspectionType;

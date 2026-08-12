@@ -14,7 +14,9 @@ public interface MesQaInspectionRegulationService {
 
     MesQaInspectionRegulationPublishedVersionRespVO publish(MesQaInspectionRegulationSaveReqVO reqVO);
 
-    MesQaInspectionRegulationPublishedVersionRespVO getPublishedVersion(Long versionId);
+    MesQaInspectionRegulationPublishedVersionRespVO getPublishedVersion(Long dccProjectCodeId, Long versionId);
 
-    List<MesQaInspectionRegulationProjectStatusRespVO> getProjectStatuses(Collection<Long> productIds);
+    MesQaInspectionRegulationPublishedVersionRespVO getCurrent(Long dccProjectCodeId);
+
+    List<MesQaInspectionRegulationProjectStatusRespVO> getProjectStatuses(Collection<Long> dccProjectCodeIds);
 }

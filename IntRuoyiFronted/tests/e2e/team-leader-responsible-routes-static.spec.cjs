@@ -90,8 +90,43 @@ assert.match(
 )
 assert.match(
   realE2e,
-  /assert\.deepEqual\(processConfigRouteNames,\s*targetRouteNames,[\s\S]*process-config rows must come only from formal responsible routes/,
+  /assert\.deepEqual\(visibleRouteNames,\s*apiRouteNames,[\s\S]*visible route tags must follow responsible-routes/,
+  'real E2E must render the current API responsible-route names after stale route ids are removed.'
+)
+assert.match(
+  realE2e,
+  /assert\.deepEqual\(processConfigRouteNames,\s*apiRouteNames,[\s\S]*process-config rows must come only from formal responsible routes/,
   'real E2E must assert process-config route names equal the formal responsible-route names.'
+)
+assert.match(
+  realE2e,
+  /\/mes\/pro\/process-pool\/production-leader/,
+  'real E2E must navigate through the visible production leader workbench route.'
+)
+assert.match(
+  realE2e,
+  /forbiddenRouteIds\s*=\s*\[980091\]/,
+  'real E2E must explicitly reject the deleted route id 980091.'
+)
+assert.match(
+  realE2e,
+  /assert\.ok\(responsibleRoutes\.length\s*>\s*0/,
+  'real E2E must prove remaining valid responsible routes still load.'
+)
+assert.match(
+  realE2e,
+  /Number\(route\.routeId\)\s*===\s*forbiddenRouteId/,
+  'real E2E must compare responsible route ids numerically when rejecting deleted routes.'
+)
+assert.match(
+  realE2e,
+  /getByRole\('tab',[\s\S]*name:\s*'工序配置',[\s\S]*exact:\s*true[\s\S]*\.click\(\)/,
+  'real E2E must click the visible process-config tab control instead of its hidden tab pane.'
+)
+assert.doesNotMatch(
+  realE2e,
+  /按压式球囊扩充压力泵/,
+  'real E2E must not keep the deleted pressure-pump route as an expected visible route.'
 )
 assert.doesNotMatch(
   realE2e,

@@ -2,21 +2,31 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink;
 
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
 import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormTemplateVersionMapper;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkFormCellsRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkPrefillRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkRuleSaveItemReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkRulesSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkWorkbenchContextRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRuleVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRulesRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordCellLinkRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordCellLinkRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordReportService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -28,6 +38,11 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,9 +62,108 @@ class MesProBatchRecordCellLinkServiceImplTest {
     private MesProWorkOrderMapper workOrderMapper;
     @Mock
     private FormTemplateVersionMapper templateVersionMapper;
+    @Mock
+    private MesProRouteFlowProcessBatchRecordMapper routeFlowProcessBatchRecordMapper;
+    @Mock
+    private MesProcessPoolDeviceParameterRuleMapper deviceParameterRuleMapper;
 
     @InjectMocks
     private MesProBatchRecordCellLinkServiceImpl service;
+
+    @Test
+    void getWorkbenchContext_exposesProcessPoolReportFieldsFromRouteParameters() {
+        MesProBatchRecordReportDO targetReport = report("target-report", "粗洗工序生产记录", 2001L, 3001L);
+        when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L)).thenReturn(List.of(targetReport));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordVersionId(3001L)).thenReturn(List.of(
+                routeBinding(5001L, 3001L, "target-report"),
+                routeBinding(5002L, 3001L, "target-report")));
+        lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of(
+                parameterRule(11L, 5001L, "pressure", "扩张压力",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL),
+                parameterRule(12L, 5002L, "holdTime", "保压时间",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER)));
+
+        BatchRecordCellLinkWorkbenchContextRespVO result =
+                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null);
+
+        assertEquals(1, result.getSourceFields().stream()
+                .filter(field -> "PROCESS_POOL_REPORT".equals(field.getSourceType()))
+                .filter(field -> "allocatedQuantity".equals(field.getFieldCode()))
+                .filter(field -> "放行分配数量".equals(field.getFieldName()))
+                .filter(field -> "NUMBER".equals(field.getValueType()))
+                .count());
+        assertEquals(1, result.getSourceFields().stream()
+                .filter(field -> "PROCESS_POOL_REPORT".equals(field.getSourceType()))
+                .filter(field -> "pressure".equals(field.getFieldCode()))
+                .filter(field -> "扩张压力".equals(field.getFieldName()))
+                .filter(field -> "NUMBER".equals(field.getValueType()))
+                .count());
+    }
+
+    @Test
+    void saveRules_acceptsProcessPoolReportFieldWithExplicitAggregation() {
+        stubProcessPoolSaveContext();
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+
+        service.saveRules(processPoolRuleSaveRequest("pressure", "SUM"));
+
+        ArgumentCaptor<List<MesProBatchRecordCellLinkRuleDO>> captor = ArgumentCaptor.forClass(List.class);
+        verify(ruleMapper).insertBatch(captor.capture());
+        MesProBatchRecordCellLinkRuleDO row = captor.getValue().get(0);
+        assertEquals("PROCESS_POOL_REPORT", row.getSourceType());
+        assertEquals("PROCESS_POOL_REPORT", row.getSourceReportId());
+        assertEquals("pressure", row.getSourceFieldCode());
+        assertEquals("扩张压力", row.getSourceFieldName());
+        assertEquals("SUM", row.getAggregationStrategy());
+        assertEquals("1:2", row.getTargetCellKey());
+    }
+
+    @Test
+    void saveRules_rejectsProcessPoolReportFieldWithoutAggregation() {
+        stubProcessPoolSaveContext();
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.saveRules(processPoolRuleSaveRequest("pressure", null)));
+
+        assertEquals(
+                MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED.getCode(),
+                error.getCode());
+        verify(ruleMapper, never()).deleteByScope("ROUTE_VERSION", 3001L);
+    }
+
+    @Test
+    void saveRules_rejectsUnknownProcessPoolReportField() {
+        stubProcessPoolSaveContext();
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.saveRules(processPoolRuleSaveRequest("unknownPressure", "SUM")));
+
+        assertEquals(
+                MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED.getCode(),
+                error.getCode());
+        verify(ruleMapper, never()).deleteByScope("ROUTE_VERSION", 3001L);
+    }
+
+    private BatchRecordCellLinkRulesSaveReqVO processPoolRuleSaveRequest(String fieldCode, String aggregationStrategy) {
+        return new BatchRecordCellLinkRulesSaveReqVO()
+                .setScopeType("ROUTE_VERSION")
+                .setScopeId(3001L)
+                .setRouteId(9001L)
+                .setBatchRecordDefinitionId(2001L)
+                .setBatchRecordVersionId(3001L)
+                .setRules(List.of(new BatchRecordCellLinkRuleSaveItemReqVO()
+                        .setSourceType("PROCESS_POOL_REPORT")
+                        .setSourceReportId("PROCESS_POOL_REPORT")
+                        .setSourceRowIndex(-1)
+                        .setSourceColumnIndex(-1)
+                        .setSourceFieldCode(fieldCode)
+                        .setSourceFieldName("扩张压力")
+                        .setTargetReportId("target-report")
+                        .setTargetRowIndex(1)
+                        .setTargetColumnIndex(2)
+                        .setAggregationStrategy(aggregationStrategy)));
+    }
 
     @Test
     void getWorkbenchContext_resolvesFormTemplateVersionScope() {
@@ -126,6 +240,128 @@ class MesProBatchRecordCellLinkServiceImplTest {
                 .filter(cell -> "生产批号".equals(cell.getLabel()))
                 .filter(cell -> Boolean.TRUE.equals(cell.getLinkableAsTarget()))
                 .count());
+    }
+
+    @Test
+    void getFormCells_fallsBackToRecognizedFieldsWhenJimuSchemaHasNoSheetLayout() {
+        FormTemplateVersionDO templateVersion = formTemplateVersion()
+                .setId(32L)
+                .setJimuSchemaJson("""
+                        {
+                          "cellRules":[{"rowIndex":3,"columnIndex":1,"label":"旧模板元信息","valueType":"STRING"}]
+                        }
+                        """)
+                .setRecognizedSchemaJson("""
+                        [
+                          {"fieldCode":"no","label":"NO.","fieldType":"input","required":false},
+                          {"fieldCode":"field3","label":"生产批号","fieldType":"input","required":false}
+                        ]
+                        """);
+        when(templateVersionMapper.selectById(32L)).thenReturn(templateVersion);
+
+        BatchRecordCellLinkFormCellsRespVO result = service.getFormCells("FORMTPL:32", null);
+
+        assertEquals("FORMTPL:32", result.getReportId());
+        assertEquals(1, result.getCells().stream()
+                .filter(cell -> "3:3".equals(cell.getCellKey()))
+                .filter(cell -> "生产批号".equals(cell.getLabel()))
+                .filter(cell -> Boolean.TRUE.equals(cell.getLinkableAsTarget()))
+                .count());
+    }
+
+    @Test
+    void getFormCells_usesRecognizedFieldsWhenJimuLayoutHasNoCellRules() {
+        FormTemplateVersionDO templateVersion = formTemplateVersion()
+                .setId(32L)
+                .setJimuSchemaJson("""
+                        {
+                          "sheetLayoutJson":"{\\\"cols\\\":{\\\"0\\\":{\\\"width\\\":140},\\\"1\\\":{\\\"width\\\":220}},\\\"rows\\\":{\\\"3\\\":{\\\"height\\\":36,\\\"cells\\\":{\\\"0\\\":{\\\"text\\\":\\\"生产批号\\\"},\\\"1\\\":{\\\"text\\\":\\\"\\\"}}}}}"
+                        }
+                        """)
+                .setRecognizedSchemaJson("""
+                        [
+                          {"fieldCode":"no","label":"NO.","fieldType":"input","required":false},
+                          {"fieldCode":"field3","label":"生产批号","fieldType":"input","required":false}
+                        ]
+                        """);
+        when(templateVersionMapper.selectById(32L)).thenReturn(templateVersion);
+
+        BatchRecordCellLinkFormCellsRespVO result = service.getFormCells("FORMTPL:32", null);
+
+        assertEquals("FORMTPL:32", result.getReportId());
+        assertEquals(1, result.getCells().stream()
+                .filter(cell -> "3:3".equals(cell.getCellKey()))
+                .filter(cell -> "生产批号".equals(cell.getLabel()))
+                .filter(cell -> Boolean.TRUE.equals(cell.getLinkableAsTarget()))
+                .count());
+    }
+
+    @Test
+    void saveRules_acceptsFormalDynamicSourceForFormTemplateVersionScope() {
+        FormTemplateVersionDO templateVersion = formTemplateVersion().setId(32L);
+        when(templateVersionMapper.selectById(32L)).thenReturn(templateVersion);
+        when(ruleMapper.selectListByScope("FORM_TEMPLATE_VERSION", 32L)).thenReturn(List.of());
+
+        service.saveRules(new BatchRecordCellLinkRulesSaveReqVO()
+                .setScopeType("FORM_TEMPLATE_VERSION")
+                .setScopeId(32L)
+                .setRules(List.of(new BatchRecordCellLinkRuleSaveItemReqVO()
+                        .setSourceType("PQC_AGGREGATE_DETAIL")
+                        .setSourceReportId("PQC_AGGREGATE_DETAIL")
+                        .setSourceRowIndex(-1)
+                        .setSourceColumnIndex(-1)
+                        .setSourceFieldCode("inspectionSummary")
+                        .setSourceFieldName("过程检验汇总")
+                        .setTargetReportId("FORMTPL:32")
+                        .setTargetRowIndex(3)
+                        .setTargetColumnIndex(1))));
+
+        ArgumentCaptor<List<MesProBatchRecordCellLinkRuleDO>> captor = ArgumentCaptor.forClass(List.class);
+        verify(ruleMapper).insertBatch(captor.capture());
+        MesProBatchRecordCellLinkRuleDO row = captor.getValue().get(0);
+        assertEquals("FORM_TEMPLATE_VERSION", row.getScopeType());
+        assertEquals(32L, row.getScopeId());
+        assertEquals("PQC_AGGREGATE_DETAIL", row.getSourceType());
+        assertEquals("PQC_AGGREGATE_DETAIL", row.getSourceReportId());
+        assertEquals("SUMMARY|inspectionSummary", row.getSourceCellKey());
+        assertEquals("inspectionSummary", row.getSourceFieldCode());
+        assertEquals("过程检验汇总", row.getSourceFieldName());
+        assertEquals("FORMTPL:32", row.getTargetReportId());
+        assertEquals("3:1", row.getTargetCellKey());
+    }
+
+    @Test
+    void saveRules_acceptsProductionLossSourceForFormTemplateVersionScope() {
+        FormTemplateVersionDO templateVersion = formTemplateVersion().setId(27L);
+        when(templateVersionMapper.selectById(27L)).thenReturn(templateVersion);
+        when(ruleMapper.selectListByScope("FORM_TEMPLATE_VERSION", 27L)).thenReturn(List.of());
+
+        service.saveRules(new BatchRecordCellLinkRulesSaveReqVO()
+                .setScopeType("FORM_TEMPLATE_VERSION")
+                .setScopeId(27L)
+                .setRules(List.of(new BatchRecordCellLinkRuleSaveItemReqVO()
+                        .setSourceType("PRODUCTION_LOSS")
+                        .setSourceReportId("PRODUCTION_LOSS")
+                        .setSourceRowIndex(-1)
+                        .setSourceColumnIndex(-1)
+                        .setSourceFieldCode("lossSummary")
+                        .setSourceFieldName("损耗汇总")
+                        .setTargetReportId("FORMTPL:27")
+                        .setTargetRowIndex(3)
+                        .setTargetColumnIndex(1))));
+
+        ArgumentCaptor<List<MesProBatchRecordCellLinkRuleDO>> captor = ArgumentCaptor.forClass(List.class);
+        verify(ruleMapper).insertBatch(captor.capture());
+        MesProBatchRecordCellLinkRuleDO row = captor.getValue().get(0);
+        assertEquals("FORM_TEMPLATE_VERSION", row.getScopeType());
+        assertEquals(27L, row.getScopeId());
+        assertEquals("PRODUCTION_LOSS", row.getSourceType());
+        assertEquals("PRODUCTION_LOSS", row.getSourceReportId());
+        assertEquals("SUMMARY|lossSummary", row.getSourceCellKey());
+        assertEquals("lossSummary", row.getSourceFieldCode());
+        assertEquals("损耗汇总", row.getSourceFieldName());
+        assertEquals("FORMTPL:27", row.getTargetReportId());
+        assertEquals("3:1", row.getTargetCellKey());
     }
 
     @Test
@@ -320,6 +556,82 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertEquals(3002L, result.get("batchTaskId"));
     }
 
+    @Test
+    void buildFormTemplateVersionPrefillData_appliesWorkOrderRuleAndSkipsReleaseWriterRules() {
+        FormTemplateVersionDO templateVersion = formTemplateVersion();
+        MesProBatchRecordCellLinkRuleDO workOrderRule = formTemplateRule(
+                31L, "PRODUCTION_WORK_ORDER", "batchCode", 3, 1);
+        MesProBatchRecordCellLinkRuleDO processInspectionRule = formTemplateRule(
+                32L, "PQC_AGGREGATE_DETAIL", "dccProjectCode", 3, 3);
+        MesProBatchRecordCellLinkRuleDO lossRule = formTemplateRule(
+                33L, "PRODUCTION_LOSS", "productLabel", 4, 1);
+        MesProWorkOrderDO workOrder = MesProWorkOrderDO.builder()
+                .id(1002L)
+                .code("MO-002")
+                .build();
+
+        when(templateVersionMapper.selectById(7001L)).thenReturn(templateVersion);
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("FORM_TEMPLATE_VERSION", 7001L, "FORMTPL:7001"))
+                .thenReturn(List.of(workOrderRule, processInspectionRule, lossRule));
+        when(workOrderMapper.selectById(1002L)).thenReturn(workOrder);
+
+        Map<String, Object> result = service.buildFormTemplateVersionPrefillData(
+                7001L, 1002L, "BATCH-FROM-EXECUTION", Map.of("existing", "kept"));
+
+        assertEquals("BATCH-FROM-EXECUTION", result.get("productionBatchCode"));
+        assertEquals("kept", result.get("existing"));
+        assertEquals(2, result.size());
+    }
+
+    @Test
+    void buildFormTemplateVersionPrefillData_skipsKnownReleaseWriterRulesWithoutWorkOrderContext() {
+        FormTemplateVersionDO templateVersion = formTemplateVersion();
+        when(templateVersionMapper.selectById(7001L)).thenReturn(templateVersion);
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("FORM_TEMPLATE_VERSION", 7001L, "FORMTPL:7001"))
+                .thenReturn(List.of(
+                        formTemplateRule(41L, "PQC_AGGREGATE_DETAIL", "dccProjectCode", 3, 3),
+                        formTemplateRule(42L, "PRODUCTION_LOSS", "productLabel", 4, 1)));
+
+        Map<String, Object> result = service.buildFormTemplateVersionPrefillData(
+                7001L, null, null, Map.of("existing", "kept"));
+
+        assertEquals(Map.of("existing", "kept"), result);
+        verify(workOrderMapper, never()).selectById(any());
+    }
+
+    @Test
+    void buildFormTemplateVersionPrefillData_failsFastForUnknownSourceType() {
+        FormTemplateVersionDO templateVersion = formTemplateVersion();
+        when(templateVersionMapper.selectById(7001L)).thenReturn(templateVersion);
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("FORM_TEMPLATE_VERSION", 7001L, "FORMTPL:7001"))
+                .thenReturn(List.of(formTemplateRule(51L, "UNSUPPORTED_DYNAMIC", "field", 3, 3)));
+
+        assertThrows(ServiceException.class, () -> service.buildFormTemplateVersionPrefillData(
+                7001L, null, null, Map.of()));
+        verify(workOrderMapper, never()).selectById(any());
+    }
+
+    private MesProBatchRecordCellLinkRuleDO formTemplateRule(long id, String sourceType, String fieldCode,
+                                                             int rowIndex, int columnIndex) {
+        boolean workOrder = "PRODUCTION_WORK_ORDER".equals(sourceType);
+        return new MesProBatchRecordCellLinkRuleDO()
+                .setId(id)
+                .setScopeType("FORM_TEMPLATE_VERSION")
+                .setScopeId(7001L)
+                .setSourceType(sourceType)
+                .setSourceReportId(sourceType)
+                .setSourceReportName(sourceType)
+                .setSourceFieldCode(fieldCode)
+                .setSourceFieldName(fieldCode)
+                .setSourceCellKey(workOrder ? fieldCode : "SUMMARY|" + fieldCode)
+                .setTargetReportId("FORMTPL:7001")
+                .setTargetReportName("过程检验记录 V3.0")
+                .setTargetRowIndex(rowIndex)
+                .setTargetColumnIndex(columnIndex)
+                .setTargetCellKey(rowIndex + ":" + columnIndex)
+                .setOverwritePolicy("ONLY_WHEN_EMPTY");
+    }
+
     private FormTemplateVersionDO formTemplateVersion() {
         return FormTemplateVersionDO.builder()
                 .id(7001L)
@@ -336,5 +648,63 @@ class MesProBatchRecordCellLinkServiceImplTest {
                         }
                         """)
                 .build();
+    }
+
+    private MesProBatchRecordReportDO report(String reportId, String reportName, Long definitionId, Long versionId) {
+        return new MesProBatchRecordReportDO()
+                .setId(801L)
+                .setReportId(reportId)
+                .setReportName(reportName)
+                .setBatchRecordDefinitionId(definitionId)
+                .setBatchRecordVersionId(versionId);
+    }
+
+    private BatchRecordReportCellRulesRespVO targetCellRules() {
+        return new BatchRecordReportCellRulesRespVO()
+                .setReportId("target-report")
+                .setSheetLayoutJson("""
+                        {"cols":{"0":{"width":120},"1":{"width":120},"2":{"width":120}},
+                         "rows":{"1":{"height":32,"cells":{"0":{"text":"压力"},"2":{"text":"","fillForm":{"field":"pressure"}}}}}}
+                        """)
+                .setRules(List.of(new BatchRecordReportCellRuleVO()
+                        .setRowIndex(1)
+                        .setColumnIndex(2)
+                        .setLabel("扩张压力")
+                        .setValueType("NUMBER")
+                        .setComponentFlag("input-number")
+                        .setReviewed(true)));
+    }
+
+    private MesProRouteFlowProcessBatchRecordDO routeBinding(Long routeProcessId, Long versionId, String reportId) {
+        return new MesProRouteFlowProcessBatchRecordDO()
+                .setId(routeProcessId + 100L)
+                .setRouteId(9001L)
+                .setRouteProcessId(routeProcessId)
+                .setBatchRecordVersionId(versionId)
+                .setBatchRecordReportId(reportId)
+                .setUseType("BATCH");
+    }
+
+    private void stubProcessPoolSaveContext() {
+        MesProBatchRecordReportDO targetReport = report("target-report", "粗洗工序生产记录", 2001L, 3001L);
+        lenient().when(reportMapper.selectByReportId("target-report")).thenReturn(targetReport);
+        lenient().when(reportService.getCellRules("target-report")).thenReturn(targetCellRules());
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordVersionId(3001L)).thenReturn(
+                List.of(routeBinding(5001L, 3001L, "target-report")));
+        lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of(
+                parameterRule(11L, 5001L, "pressure", "扩张压力",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL)));
+    }
+
+    private MesProcessPoolDeviceParameterRuleDO parameterRule(Long id, Long routeProcessId,
+                                                              String parameterCode, String parameterName,
+                                                              String valueType) {
+        return new MesProcessPoolDeviceParameterRuleDO()
+                .setId(id)
+                .setRouteProcessId(routeProcessId)
+                .setParameterCode(parameterCode)
+                .setParameterName(parameterName)
+                .setValueType(valueType)
+                .setEnabled(true);
     }
 }

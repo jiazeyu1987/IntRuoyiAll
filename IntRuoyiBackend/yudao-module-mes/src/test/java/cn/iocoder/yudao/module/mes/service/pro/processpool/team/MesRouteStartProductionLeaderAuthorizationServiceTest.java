@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import org.apache.ibatis.annotations.Select;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,7 +52,7 @@ class MesRouteStartProductionLeaderAuthorizationServiceTest {
 
     @Test
     void listResponsibleRoutes_ignoresMaintainPermissionAndReturnsOnlyConfiguredUserRoutes() {
-        when(routeVersionMapper.selectList(any())).thenReturn(List.of(
+        when(routeVersionMapper.selectActiveListWithExistingRoutes()).thenReturn(List.of(
                 activeRouteVersion(9001L, 101L, routeStartLeaderSnapshot(101L, "USER", ADMIN_USER_ID)),
                 activeRouteVersion(9002L, 102L, emptyRouteStartLeaderSnapshot(102L))));
         when(routeMapper.selectBatchIds(Set.of(101L))).thenReturn(List.of(
@@ -66,7 +67,7 @@ class MesRouteStartProductionLeaderAuthorizationServiceTest {
 
     @Test
     void listResponsibleRoutes_matchesConfiguredRoleWithoutUsingMaintenanceScope() {
-        when(routeVersionMapper.selectList(any())).thenReturn(List.of(
+        when(routeVersionMapper.selectActiveListWithExistingRoutes()).thenReturn(List.of(
                 activeRouteVersion(9001L, 101L, routeStartLeaderSnapshot(101L, "USER", 999L)),
                 activeRouteVersion(9002L, 102L, routeStartLeaderSnapshot(102L, "ROLE", 77L))));
         when(permissionApi.getUserRoleIdListByUserId(3001L)).thenReturn(Set.of(77L));
@@ -80,8 +81,50 @@ class MesRouteStartProductionLeaderAuthorizationServiceTest {
     }
 
     @Test
+    void listResponsibleRoutes_ignoresActiveSnapshotWhoseRouteWasDeletedBeforeParsingResponsibilities() {
+        when(routeVersionMapper.selectActiveListWithExistingRoutes()).thenReturn(List.of(
+                activeRouteVersion(9001L, 101L, routeStartLeaderSnapshot(101L, "USER", ADMIN_USER_ID))));
+        when(routeMapper.selectBatchIds(Set.of(101L))).thenReturn(List.of(
+                MesProRouteDO.builder().id(101L).code("R-PUMP").name("球囊扩张压力泵").build()));
+
+        List<MesProRouteDO> result = service.listResponsibleRoutes(ADMIN_USER_ID);
+
+        assertEquals(List.of(101L), result.stream().map(MesProRouteDO::getId).toList());
+        verify(routeVersionMapper).selectActiveListWithExistingRoutes();
+        verify(routeVersionMapper, never()).selectList(any());
+        verify(permissionApi, never()).hasAnyPermissions(ADMIN_USER_ID, TEAM_LEADER_MAINTAIN_PERMISSION);
+        verify(permissionApi, never()).getUserRoleIdListByUserId(ADMIN_USER_ID);
+    }
+
+    @Test
+    void activeVersionMapperFiltersOutDeletedParentRoutesBeforeScopeParsing() throws NoSuchMethodException {
+        Select select = MesProRouteVersionMapper.class
+                .getDeclaredMethod("selectActiveListWithExistingRoutes")
+                .getAnnotation(Select.class);
+
+        String sql = String.join(" ", select.value());
+
+        org.junit.jupiter.api.Assertions.assertAll(
+                () -> org.junit.jupiter.api.Assertions.assertNotNull(select),
+                () -> org.junit.jupiter.api.Assertions.assertTrue(sql.contains("INNER JOIN mes_pro_route r")),
+                () -> org.junit.jupiter.api.Assertions.assertTrue(sql.contains("r.deleted = b'0'")),
+                () -> org.junit.jupiter.api.Assertions.assertTrue(sql.contains("v.deleted = b'0'")),
+                () -> org.junit.jupiter.api.Assertions.assertTrue(sql.contains("v.active = b'1'")),
+                () -> org.junit.jupiter.api.Assertions.assertTrue(sql.contains("v.lifecycle_status = 'ACTIVE'")));
+    }
+
+    @Test
+    void listResponsibleRoutes_failsWhenExistingRouteFilteredActiveVersionCannotLoadRouteSummary() {
+        when(routeVersionMapper.selectActiveListWithExistingRoutes()).thenReturn(List.of(
+                activeRouteVersion(9001L, 101L, routeStartLeaderSnapshot(101L, "USER", ADMIN_USER_ID))));
+        when(routeMapper.selectBatchIds(Set.of(101L))).thenReturn(List.of());
+
+        assertThrows(ServiceException.class, () -> service.listResponsibleRoutes(ADMIN_USER_ID));
+    }
+
+    @Test
     void listAuthorizedRouteProcesses_ignoresMaintainPermissionAndReturnsOnlyConfiguredRouteProcesses() {
-        when(routeVersionMapper.selectList(any())).thenReturn(List.of(
+        when(routeVersionMapper.selectActiveListWithExistingRoutes()).thenReturn(List.of(
                 activeRouteVersion(9001L, 101L, routeStartLeaderSnapshot(101L, "USER", ADMIN_USER_ID)),
                 activeRouteVersion(9002L, 102L, emptyRouteStartLeaderSnapshot(102L))));
         lenient().when(permissionApi.hasAnyPermissions(ADMIN_USER_ID, TEAM_LEADER_MAINTAIN_PERMISSION))

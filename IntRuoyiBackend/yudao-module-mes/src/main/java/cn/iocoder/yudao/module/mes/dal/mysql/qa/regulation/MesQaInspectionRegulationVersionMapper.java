@@ -9,14 +9,6 @@ import org.apache.ibatis.annotations.Mapper;
 public interface MesQaInspectionRegulationVersionMapper
         extends BaseMapperX<MesQaInspectionRegulationVersionDO> {
 
-    default MesQaInspectionRegulationVersionDO selectLatestPublished() {
-        return selectOne(new LambdaQueryWrapperX<MesQaInspectionRegulationVersionDO>()
-                .eq(MesQaInspectionRegulationVersionDO::getLifecycleStatus, "PUBLISHED")
-                .orderByDesc(MesQaInspectionRegulationVersionDO::getPublishedAt)
-                .orderByDesc(MesQaInspectionRegulationVersionDO::getId)
-                .last("LIMIT 1"));
-    }
-
     default MesQaInspectionRegulationVersionDO selectByRegulationIdAndVersionNo(Long regulationId, String versionNo) {
         return selectOne(new LambdaQueryWrapperX<MesQaInspectionRegulationVersionDO>()
                 .eq(MesQaInspectionRegulationVersionDO::getRegulationId, regulationId)
@@ -25,12 +17,12 @@ public interface MesQaInspectionRegulationVersionMapper
                 .last("LIMIT 1"));
     }
 
-    default MesQaInspectionRegulationVersionDO selectCurrentPublishedByRegulationId(Long regulationId) {
+    default MesQaInspectionRegulationVersionDO selectLatestDraftByRegulationId(Long regulationId) {
         return selectOne(new LambdaQueryWrapperX<MesQaInspectionRegulationVersionDO>()
                 .eq(MesQaInspectionRegulationVersionDO::getRegulationId, regulationId)
-                .eq(MesQaInspectionRegulationVersionDO::getLifecycleStatus, "PUBLISHED")
-                .orderByDesc(MesQaInspectionRegulationVersionDO::getPublishedAt)
+                .eq(MesQaInspectionRegulationVersionDO::getLifecycleStatus, "DRAFT")
                 .orderByDesc(MesQaInspectionRegulationVersionDO::getId)
                 .last("LIMIT 1"));
     }
+
 }

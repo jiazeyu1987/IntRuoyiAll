@@ -7,12 +7,14 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 
@@ -22,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,6 +40,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     private MesProcessPoolSubmissionReviewMapper reviewMapper;
     @Mock
     private MesPqcProcessInspectionAggregationService processInspectionAggregationService;
+    @Mock
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesTeamLeaderSubmissionReviewService service;
 
@@ -44,6 +49,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     void setUp() {
         service = new MesTeamLeaderSubmissionReviewServiceImpl(scopeService, eventMapper, reviewMapper,
                 processInspectionAggregationService);
+        ReflectionTestUtils.setField(service, "signatureService", signatureService);
+        lenient().when(signatureService.recordTeamLeaderReviewSignature(any(), any(), any())).thenReturn(9101L);
     }
 
     @Test
@@ -143,24 +150,40 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     }
 
     @Test
-    void shouldRejectDuplicateTerminalReviewForSameSubmission() {
+    void shouldAllowAdditionalPqcReviewWhenPreviousPqcReviewExists() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
         when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(existingReview());
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7004L);
+            return 1;
+        });
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+        Long reviewId = service.reviewSubmission(reviewReq());
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS.getCode(), ex.getCode());
-        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        assertEquals(7004L, reviewId);
+        verify(reviewMapper).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7004L);
     }
 
     @Test
-    void shouldRejectSelfReviewWhenLeaderIsActualInspector() {
+    void shouldAllowPqcReviewWhenLeaderIsActualInspector() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(eventWithActualEmployee(3001L));
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7003L);
+            return 1;
+        });
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+        Long reviewId = service.reviewSubmission(reviewReq());
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_SELF_FORBIDDEN.getCode(), ex.getCode());
-        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        assertEquals(7003L, reviewId);
+        verify(scopeService).assertCanAccessEmployee(3001L,
+                MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, 3001L);
+        ArgumentCaptor<MesProcessPoolSubmissionReviewDO> reviewCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolSubmissionReviewDO.class);
+        verify(reviewMapper).insert(reviewCaptor.capture());
+        assertEquals(3001L, reviewCaptor.getValue().getLeaderUserId());
+        assertEquals(9101L, reviewCaptor.getValue().getReviewSignatureId());
+        verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7003L);
     }
 
     private static MesTeamLeaderSubmissionReviewReqBO reviewReq() {
@@ -170,6 +193,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC)
                 .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)
                 .reviewRemark("数据和签名一致")
+                .signaturePassword("review-pass")
                 .reviewSignatureId(9101L)
                 .reviewSignatureUserId(3001L)
                 .reviewSignatureSnapshotJson("{\"signature\":\"review\"}")
@@ -188,6 +212,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC)
                 .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_REJECTED)
                 .reviewRemark("压力曲线异常，退回补正")
+                .signaturePassword("review-pass")
                 .reviewSignatureId(9102L)
                 .reviewSignatureUserId(3001L)
                 .reviewSignatureSnapshotJson("{\"signature\":\"reject\"}")

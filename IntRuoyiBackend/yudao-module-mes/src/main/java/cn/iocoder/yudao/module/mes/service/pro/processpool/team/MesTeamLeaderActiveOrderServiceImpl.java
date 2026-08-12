@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProSchedu
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
@@ -32,6 +33,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
@@ -105,6 +107,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private final MesProcessPoolReportAllocationMapper reportAllocationMapper;
     private final MesQaInspectionRegulationMapper inspectionRegulationMapper;
     private final MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
+    private final MesQaInspectionRegulationProcessMapper inspectionRegulationProcessMapper;
     private final MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
     private final MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
     private final MesWorkOrderAbnormalStateService abnormalStateService;
@@ -126,6 +129,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                                MesProcessPoolReportAllocationMapper reportAllocationMapper,
                                                MesQaInspectionRegulationMapper inspectionRegulationMapper,
                                                MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper,
+                                               MesQaInspectionRegulationProcessMapper inspectionRegulationProcessMapper,
                                                MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper,
                                                MesPqcInspectionTaskMapper pqcInspectionTaskMapper,
                                                MesWorkOrderAbnormalStateService abnormalStateService,
@@ -146,6 +150,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         this.reportAllocationMapper = reportAllocationMapper;
         this.inspectionRegulationMapper = inspectionRegulationMapper;
         this.inspectionRegulationVersionMapper = inspectionRegulationVersionMapper;
+        this.inspectionRegulationProcessMapper = inspectionRegulationProcessMapper;
         this.inspectionRegulationItemMapper = inspectionRegulationItemMapper;
         this.pqcInspectionTaskMapper = pqcInspectionTaskMapper;
         this.abnormalStateService = abnormalStateService;
@@ -201,7 +206,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (routeIds.isEmpty()) {
             return new CandidateEligibilityContext(routeBindingsByProductId, Collections.emptyMap(),
                     Collections.emptySet(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(),
-                    Collections.emptyMap());
+                    Collections.emptyMap(), Collections.emptyMap());
         }
         Set<Long> existingRouteIds = routeMapper.selectBatchIds(routeIds).stream()
                 .map(MesProRouteDO::getId)
@@ -213,7 +218,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (validRouteIds.isEmpty()) {
             return new CandidateEligibilityContext(routeBindingsByProductId, Collections.emptyMap(),
                     existingRouteIds, Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(),
-                    Collections.emptyMap());
+                    Collections.emptyMap(), Collections.emptyMap());
         }
         Map<Long, List<MesProRouteVersionDO>> activeRouteVersionsByRouteId = routeVersionMapper
                 .selectListByRouteIds(validRouteIds).stream()
@@ -239,31 +244,20 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .collect(Collectors.toMap(MesMdItemDO::getId, Function.identity(), (left, right) -> left));
         Map<Long, List<DccProjectCodeDO>> dccProjectsByRouteId = resolveDccProjectsByRouteId(
                 routeProductsByRouteId, routeItemsById, dccProjectCodeMapper.selectEnabledList());
-        Set<Long> qaProductIds = new LinkedHashSet<>(routeProductItemIds);
-        dccProjectsByRouteId.values().stream()
+        Set<Long> dccProjectCodeIds = dccProjectsByRouteId.values().stream()
                 .flatMap(Collection::stream)
-                .map(DccProjectCodeDO::getProductMasterId)
+                .map(DccProjectCodeDO::getId)
                 .filter(Objects::nonNull)
-                .forEach(qaProductIds::add);
-        Set<QaRouteVersionKey> activeRouteVersionKeys = activeRouteVersionsByRouteId.values().stream()
-                .flatMap(Collection::stream)
-                .map(version -> new QaRouteVersionKey(version.getRouteId(), version.getId()))
-                .collect(Collectors.toSet());
-        List<MesQaInspectionRegulationDO> regulations = qaProductIds.isEmpty()
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        List<MesQaInspectionRegulationDO> regulations = dccProjectCodeIds.isEmpty()
                 ? Collections.emptyList()
-                : inspectionRegulationMapper.selectListByProductIds(qaProductIds).stream()
+                : inspectionRegulationMapper.selectListByDccProjectCodeIds(dccProjectCodeIds).stream()
                 .filter(regulation -> Objects.equals("PUBLISHED", regulation.getLifecycleStatus()))
                 .filter(regulation -> regulation.getCurrentVersionId() != null)
-                .filter(regulation -> activeRouteVersionKeys.contains(new QaRouteVersionKey(
-                        regulation.getRouteId(), regulation.getRouteVersionId())))
                 .toList();
-        Map<CandidateRegulationKey, List<MesQaInspectionRegulationDO>> regulationsByKey = regulations.stream()
-                .filter(regulation -> regulation.getProductId() != null)
-                .filter(regulation -> regulation.getRouteId() != null)
-                .filter(regulation -> regulation.getRouteVersionId() != null)
-                .filter(regulation -> regulation.getRouteProcessId() != null)
-                .filter(regulation -> regulation.getProcessId() != null)
-                .collect(Collectors.groupingBy(this::toCandidateRegulationKey));
+        Map<Long, List<MesQaInspectionRegulationDO>> regulationsByDccProjectCodeId = regulations.stream()
+                .filter(regulation -> regulation.getDccProjectCodeId() != null)
+                .collect(Collectors.groupingBy(MesQaInspectionRegulationDO::getDccProjectCodeId));
         List<Long> versionIds = regulations.stream()
                 .map(MesQaInspectionRegulationDO::getCurrentVersionId)
                 .filter(Objects::nonNull)
@@ -280,8 +274,14 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 : inspectionRegulationItemMapper.selectListByVersionIds(versionIds).stream()
                 .filter(item -> item.getRegulationVersionId() != null)
                 .collect(Collectors.groupingBy(MesQaInspectionRegulationItemDO::getRegulationVersionId));
+        Map<Long, List<MesQaInspectionRegulationProcessDO>> processesByVersionId = versionIds.isEmpty()
+                ? Collections.emptyMap()
+                : inspectionRegulationProcessMapper.selectListByVersionIds(versionIds).stream()
+                .filter(process -> process.getRegulationVersionId() != null)
+                .collect(Collectors.groupingBy(MesQaInspectionRegulationProcessDO::getRegulationVersionId));
         return new CandidateEligibilityContext(routeBindingsByProductId, activeRouteVersionsByRouteId,
-                existingRouteIds, dccProjectsByRouteId, regulationsByKey, versionsById, itemsByVersionId);
+                existingRouteIds, dccProjectsByRouteId, regulationsByDccProjectCodeId, versionsById,
+                processesByVersionId, itemsByVersionId);
     }
 
     private static RouteSourceResolution routeSourceFailure(String reason, RouteSourceFailureType failureType) {
@@ -290,7 +290,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private static CandidateEligibilityContext emptyCandidateEligibilityContext() {
         return new CandidateEligibilityContext(Collections.emptyMap(), Collections.emptyMap(), Collections.emptySet(),
-                Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+                Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(),
+                Collections.emptyMap());
     }
 
     private Map<Long, List<DccProjectCodeDO>> resolveDccProjectsByRouteId(
@@ -334,11 +335,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .build();
     }
 
-    private CandidateRegulationKey toCandidateRegulationKey(MesQaInspectionRegulationDO regulation) {
-        return new CandidateRegulationKey(regulation.getProductId(), regulation.getRouteId(),
-                regulation.getRouteVersionId(), regulation.getRouteProcessId(), regulation.getProcessId());
-    }
-
     private CandidateEligibility evaluateCandidateEligibility(MesProWorkOrderDO workOrder,
                                                               CandidateEligibilityContext context) {
         if (workOrder == null || workOrder.getId() == null) {
@@ -349,12 +345,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             return blockedCandidate(resolution.ineligibleReason());
         }
         ActiveOrderRouteSource source = resolution.source();
-        for (MesProScheduleOrderProcessDO process : source.qaProcesses()) {
-            String pqcReason = validateCandidatePqcPrerequisites(source.routeId(), source.routeVersionId(),
-                    process, source.productId(), context);
-            if (pqcReason != null) {
-                return blockedCandidate(pqcReason);
-            }
+        String pqcReason = validateCandidatePqcPrerequisites(workOrder, source, context);
+        if (pqcReason != null) {
+            return blockedCandidate(pqcReason);
         }
         return new CandidateEligibility(true, null);
     }
@@ -403,39 +396,27 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (dccProjects.size() > 1) {
             return routeSourceFailure("工艺路线DCC项目代码绑定不唯一", RouteSourceFailureType.DCC_PROJECT);
         }
-        List<MesQaInspectionRegulationDO> regulations = listCandidateQaRegulations(
-                routeId, activeRouteVersion.getId(), context);
+        DccProjectCodeDO dccProject = dccProjects.get(0);
+        List<MesQaInspectionRegulationDO> regulations = context.regulationsByDccProjectCodeId()
+                .getOrDefault(dccProject.getId(), Collections.emptyList());
         if (regulations.isEmpty()) {
             return routeSourceFailure("缺少已发布QA规程", RouteSourceFailureType.QA);
         }
-        List<Long> qaProductIds = regulations.stream()
-                .map(MesQaInspectionRegulationDO::getProductId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        if (qaProductIds.size() != 1) {
-            return routeSourceFailure("工艺路线已发布QA规程产品上下文不唯一", RouteSourceFailureType.QA);
+        if (regulations.size() > 1) {
+            return routeSourceFailure("DCC项目代码已发布QA规程不唯一", RouteSourceFailureType.QA);
         }
+        MesQaInspectionRegulationDO regulation = regulations.get(0);
         List<MesProScheduleOrderProcessDO> routeProcesses = toRouteProcessSources(workOrder, activeRouteVersion);
         if (routeProcesses.isEmpty()) {
             return routeSourceFailure("工艺路线快照缺少正式工序", RouteSourceFailureType.ROUTE);
         }
-        List<MesProScheduleOrderProcessDO> qaProcesses = toQaProcessSources(workOrder, regulations);
+        List<MesQaInspectionRegulationProcessDO> qaProcesses = context.processesByVersionId()
+                .getOrDefault(regulation.getCurrentVersionId(), Collections.emptyList());
         if (qaProcesses.isEmpty()) {
             return routeSourceFailure("缺少已发布QA规程", RouteSourceFailureType.QA);
         }
         return new RouteSourceResolution(new ActiveOrderRouteSource(routeId,
-                activeRouteVersion.getId(), qaProductIds.get(0), routeProcesses, qaProcesses), null, null);
-    }
-
-    private List<MesQaInspectionRegulationDO> listCandidateQaRegulations(Long routeId,
-                                                                         Long routeVersionId,
-                                                                         CandidateEligibilityContext context) {
-        return context.regulationsByKey().entrySet().stream()
-                .filter(entry -> Objects.equals(routeId, entry.getKey().routeId()))
-                .filter(entry -> Objects.equals(routeVersionId, entry.getKey().routeVersionId()))
-                .flatMap(entry -> entry.getValue().stream())
-                .toList();
+                activeRouteVersion.getId(), dccProject.getId(), regulation, routeProcesses, qaProcesses), null, null);
     }
 
     private List<MesProScheduleOrderProcessDO> toRouteProcessSources(MesProWorkOrderDO workOrder,
@@ -504,54 +485,16 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return result;
     }
 
-    private List<MesProScheduleOrderProcessDO> toQaProcessSources(MesProWorkOrderDO workOrder,
-                                                                   List<MesQaInspectionRegulationDO> regulations) {
-        Set<CandidateRegulationKey> processIdentities = new LinkedHashSet<>();
-        BigDecimal quantity = activeOrderQuantitySnapshot(workOrder).setScale(6, RoundingMode.HALF_UP);
-        List<MesProScheduleOrderProcessDO> processes = new ArrayList<>();
-        for (MesQaInspectionRegulationDO regulation : regulations) {
-            CandidateRegulationKey key = toCandidateRegulationKey(regulation);
-            if (!processIdentities.add(key)) {
-                continue;
-            }
-            processes.add(MesProScheduleOrderProcessDO.builder()
-                    .routeProcessId(regulation.getRouteProcessId())
-                    .routeVersionId(regulation.getRouteVersionId())
-                    .processId(regulation.getProcessId())
-                    .enabled(Boolean.TRUE)
-                    .productionQuantityFactor(DEFAULT_PRODUCTION_QUANTITY_FACTOR)
-                    .plannedQuantity(quantity)
-                    .build());
-        }
-        processes.sort(Comparator
-                .comparing(MesProScheduleOrderProcessDO::getRouteProcessId,
-                        Comparator.nullsLast(Comparator.naturalOrder()))
-                .thenComparing(MesProScheduleOrderProcessDO::getProcessId,
-                        Comparator.nullsLast(Comparator.naturalOrder())));
-        return processes;
-    }
-
-    private String validateCandidatePqcPrerequisites(Long routeId,
-                                                     Long routeVersionId,
-                                                     MesProScheduleOrderProcessDO process,
-                                                     Long productId,
+    private String validateCandidatePqcPrerequisites(MesProWorkOrderDO workOrder,
+                                                     ActiveOrderRouteSource source,
                                                      CandidateEligibilityContext context) {
-        CandidateRegulationKey key = new CandidateRegulationKey(productId, routeId,
-                routeVersionId, process.getRouteProcessId(), process.getProcessId());
-        List<MesQaInspectionRegulationDO> regulations = context.regulationsByKey()
-                .getOrDefault(key, Collections.emptyList());
-        if (regulations.isEmpty()) {
-            return "缺少已发布QA规程";
-        }
-        if (regulations.size() > 1) {
-            return "已发布QA规程不唯一";
-        }
-        MesQaInspectionRegulationDO regulation = regulations.get(0);
+        MesQaInspectionRegulationDO regulation = source.regulation();
         if (regulation.getCurrentVersionId() == null) {
             return "缺少已发布QA规程";
         }
         MesQaInspectionRegulationVersionDO version = context.versionsById().get(regulation.getCurrentVersionId());
-        if (version == null || !Objects.equals("PUBLISHED", version.getLifecycleStatus())) {
+        if (version == null || !Objects.equals(regulation.getId(), version.getRegulationId())
+                || !Objects.equals("PUBLISHED", version.getLifecycleStatus())) {
             return "QA规程发布版本不存在或未发布";
         }
         List<MesQaInspectionRegulationItemDO> items = context.itemsByVersionId()
@@ -559,13 +502,39 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         if (items == null || items.isEmpty()) {
             return "已发布QA规程缺少检验项目";
         }
-        String firstReason = validateFixedInspectionQuantity(items, INSPECTION_TYPE_FIRST);
-        if (firstReason != null) {
-            return firstReason;
-        }
-        String patrolReason = validatePatrolInspectionQuantity(process, items);
-        if (patrolReason != null) {
-            return patrolReason;
+        Set<Long> processIds = new LinkedHashSet<>();
+        for (MesQaInspectionRegulationProcessDO process : source.qaProcesses()) {
+            if (process == null || process.getId() == null
+                    || !Objects.equals(regulation.getCurrentVersionId(), process.getRegulationVersionId())
+                    || process.getProcessCode() == null || process.getProcessCode().isBlank()
+                    || process.getProcessName() == null || process.getProcessName().isBlank()
+                    || process.getSort() == null || !processIds.add(process.getId())) {
+                return "QA工序身份无效";
+            }
+            List<MesQaInspectionRegulationItemDO> processItems = items.stream()
+                    .filter(item -> Objects.equals(process.getId(), item.getQaProcessId()))
+                    .toList();
+            if (processItems.isEmpty()) {
+                return "QA工序缺少检验项目";
+            }
+            Set<String> inspectionTypes = processItems.stream()
+                    .map(MesQaInspectionRegulationItemDO::getInspectionType)
+                    .map(MesTeamLeaderActiveOrderServiceImpl::normalizeInspectionType)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            for (String inspectionType : inspectionTypes) {
+                String reason;
+                if (Objects.equals(INSPECTION_TYPE_PATROL, inspectionType)) {
+                    reason = validatePatrolInspectionQuantity(activeOrderQuantitySnapshot(workOrder), processItems);
+                } else if (Objects.equals(INSPECTION_TYPE_FIRST, inspectionType)
+                        || Objects.equals("FINAL", inspectionType)) {
+                    reason = validateFixedInspectionQuantity(processItems, inspectionType);
+                } else {
+                    return "QA检验类型无效";
+                }
+                if (reason != null) {
+                    return reason;
+                }
+            }
         }
         return null;
     }
@@ -589,8 +558,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return quantity == null ? "缺少检验类型规则" : null;
     }
 
-    private String validatePatrolInspectionQuantity(MesProScheduleOrderProcessDO process,
-                                                    List<MesQaInspectionRegulationItemDO> items) {
+    private String validatePatrolInspectionQuantity(BigDecimal plannedQuantity,
+                                                     List<MesQaInspectionRegulationItemDO> items) {
         BigDecimal ratio = null;
         Integer fixedQuantity = null;
         for (MesQaInspectionRegulationItemDO item : items) {
@@ -620,11 +589,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             fixedQuantity = itemQuantity;
         }
         if (ratio != null) {
-            if (process.getPlannedQuantity() == null || process.getPlannedQuantity().compareTo(BigDecimal.ZERO) < 0) {
-                return "排产工序计划数量无效";
+            if (plannedQuantity == null || plannedQuantity.compareTo(BigDecimal.ZERO) < 0) {
+                return "订单计划数量无效";
             }
             try {
-                calculatePatrolInspectionQuantity(process.getPlannedQuantity(), ratio);
+                calculatePatrolInspectionQuantity(plannedQuantity, ratio);
             } catch (ArithmeticException ex) {
                 return "巡检计划数量超出整数范围";
             }
@@ -686,7 +655,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             throw ex;
         }
         insertProcessSnapshots(activeOrder, erpFixedQuantity, routeSource.routeProcesses());
-        insertPqcInspectionTasks(activeOrder, routeSource.productId(), routeSource.qaProcesses());
+        insertPqcInspectionTasks(activeOrder, routeSource.regulation(), routeSource.qaProcesses());
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "ADD_ACTIVE_ORDER",
                 "ACTIVE_ORDER", activeOrder.getId(), null, activeOrder.toString());
         return activeOrder.getId();
@@ -1113,8 +1082,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     }
 
     private static boolean isInspectionProgressCompleted(MesPqcInspectionTaskDO task) {
-        return MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED.equals(task.getTaskStatus())
-                || MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus());
+        return MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus());
     }
 
     private static BigDecimal toProgressPercent(long completedProcessCount, int totalProcessCount) {
@@ -1182,15 +1150,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                     resolution.ineligibleReason() + "，workOrderId=" + workOrder.getId());
         }
         ActiveOrderRouteSource source = resolution.source();
-        for (MesProScheduleOrderProcessDO process : source.qaProcesses()) {
-            String pqcReason = validateCandidatePqcPrerequisites(source.routeId(), source.routeVersionId(),
-                    process, source.productId(), context);
-            if (pqcReason != null) {
-                throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                        pqcReason + "，workOrderId=" + workOrder.getId()
-                                + "，routeProcessId=" + process.getRouteProcessId()
-                                + "，processId=" + process.getProcessId());
-            }
+        String pqcReason = validateCandidatePqcPrerequisites(workOrder, source, context);
+        if (pqcReason != null) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    pqcReason + "，workOrderId=" + workOrder.getId()
+                            + "，dccProjectCodeId=" + source.dccProjectCodeId());
         }
         return source;
     }
@@ -1205,37 +1169,37 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
     }
 
-    private void insertPqcInspectionTasks(MesProcessPoolActiveOrderDO activeOrder, Long productId,
-                                          List<MesProScheduleOrderProcessDO> enabledProcesses) {
+    private void insertPqcInspectionTasks(MesProcessPoolActiveOrderDO activeOrder,
+                                          MesQaInspectionRegulationDO regulation,
+                                          List<MesQaInspectionRegulationProcessDO> qaProcesses) {
+        MesQaInspectionRegulationVersionDO version = requireRegulationVersion(regulation, activeOrder.getId());
+        List<MesQaInspectionRegulationItemDO> items = requireRegulationItems(regulation, activeOrder.getId());
+        LocalDate businessDate = resolvePqcBusinessDate(activeOrder);
         List<MesPqcInspectionTaskDO> tasks = new ArrayList<>();
-        for (MesProScheduleOrderProcessDO process : enabledProcesses) {
-            MesQaInspectionRegulationDO regulation = requirePublishedRegulation(activeOrder, process, productId);
-            requireRegulationVersion(regulation, activeOrder.getId());
-            List<MesQaInspectionRegulationItemDO> items = requireRegulationItems(regulation, activeOrder.getId());
-            LocalDate businessDate = resolvePqcBusinessDate(activeOrder, process);
-            tasks.add(buildPqcTask(activeOrder, process, regulation, INSPECTION_TYPE_FIRST, businessDate,
-                    SHIFT_FIRST, resolveFixedInspectionQuantity(items, INSPECTION_TYPE_FIRST, activeOrder.getId())));
-            tasks.add(buildPqcTask(activeOrder, process, regulation, INSPECTION_TYPE_PATROL, businessDate,
-                    SHIFT_PATROL, resolvePatrolInspectionQuantity(process, items, activeOrder.getId())));
+        for (MesQaInspectionRegulationProcessDO qaProcess : qaProcesses) {
+            List<MesQaInspectionRegulationItemDO> processItems = items.stream()
+                    .filter(item -> Objects.equals(qaProcess.getId(), item.getQaProcessId()))
+                    .toList();
+            if (processItems.isEmpty()) {
+                throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                        "QA工序缺少检验项目，activeOrderId=" + activeOrder.getId()
+                                + "，qaProcessId=" + qaProcess.getId());
+            }
+            List<String> inspectionTypes = processItems.stream()
+                    .map(MesQaInspectionRegulationItemDO::getInspectionType)
+                    .map(MesTeamLeaderActiveOrderServiceImpl::normalizeInspectionType)
+                    .distinct()
+                    .sorted(Comparator.comparingInt(MesTeamLeaderActiveOrderServiceImpl::inspectionTypeOrder))
+                    .toList();
+            for (String inspectionType : inspectionTypes) {
+                Integer plannedQuantity = resolveInspectionQuantity(activeOrder, processItems, inspectionType);
+                tasks.add(buildPqcTask(activeOrder, qaProcess, version, inspectionType, businessDate,
+                        inspectionType, plannedQuantity));
+            }
         }
         for (MesPqcInspectionTaskDO task : tasks) {
             insertPqcInspectionTask(task);
         }
-    }
-
-    private MesQaInspectionRegulationDO requirePublishedRegulation(MesProcessPoolActiveOrderDO activeOrder,
-                                                                   MesProScheduleOrderProcessDO process,
-                                                                   Long productId) {
-        MesQaInspectionRegulationDO regulation = inspectionRegulationMapper.selectPublishedByRouteProcess(productId,
-                activeOrder.getRouteId(), activeOrder.getRouteVersionId(), process.getRouteProcessId(),
-                process.getProcessId());
-        if (regulation == null || regulation.getCurrentVersionId() == null) {
-            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                    "缺少已发布QA规程，activeOrderId=" + activeOrder.getId()
-                            + "，routeProcessId=" + process.getRouteProcessId()
-                            + "，processId=" + process.getProcessId());
-        }
-        return regulation;
     }
 
     private MesQaInspectionRegulationVersionDO requireRegulationVersion(MesQaInspectionRegulationDO regulation,
@@ -1262,11 +1226,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return items;
     }
 
-    private LocalDate resolvePqcBusinessDate(MesProcessPoolActiveOrderDO activeOrder,
-                                             MesProScheduleOrderProcessDO process) {
-        if (process.getPlanDate() != null) {
-            return process.getPlanDate();
-        }
+    private LocalDate resolvePqcBusinessDate(MesProcessPoolActiveOrderDO activeOrder) {
         if (activeOrder.getJoinedAt() == null) {
             throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
                     "活跃订单缺少实际加入时间，activeOrderId=" + activeOrder.getId());
@@ -1275,8 +1235,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     }
 
     private MesPqcInspectionTaskDO buildPqcTask(MesProcessPoolActiveOrderDO activeOrder,
-                                                MesProScheduleOrderProcessDO process,
-                                                MesQaInspectionRegulationDO regulation,
+                                                MesQaInspectionRegulationProcessDO qaProcess,
+                                                MesQaInspectionRegulationVersionDO version,
                                                 String inspectionType,
                                                 LocalDate businessDate,
                                                 String shiftCode,
@@ -1286,9 +1246,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .workOrderId(activeOrder.getWorkOrderId())
                 .routeId(activeOrder.getRouteId())
                 .routeVersionId(activeOrder.getRouteVersionId())
-                .routeProcessId(process.getRouteProcessId())
-                .processId(process.getProcessId())
-                .regulationVersionId(regulation.getCurrentVersionId())
+                .qaProcessId(qaProcess.getId())
+                .regulationVersionId(version.getId())
                 .inspectionType(inspectionType)
                 .businessDate(businessDate)
                 .shiftCode(shiftCode)
@@ -1300,9 +1259,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     }
 
     private void insertPqcInspectionTask(MesPqcInspectionTaskDO task) {
-        MesPqcInspectionTaskDO existing = pqcInspectionTaskMapper.selectByIdentity(task.getActiveOrderId(),
-                task.getRouteProcessId(), task.getInspectionType(), task.getBusinessDate(), task.getShiftCode(),
-                task.getRoundNo());
+        MesPqcInspectionTaskDO existing = pqcInspectionTaskMapper.selectByQaIdentity(task.getActiveOrderId(),
+                task.getRegulationVersionId(), task.getQaProcessId(), task.getInspectionType(),
+                task.getBusinessDate(), task.getShiftCode(), task.getRoundNo());
         if (existing != null) {
             throw exception(PRO_PQC_INSPECTION_TASK_IDENTITY_CONFLICT, identityText(task));
         }
@@ -1314,6 +1273,20 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         } catch (DuplicateKeyException ex) {
             throw exception(PRO_PQC_INSPECTION_TASK_IDENTITY_CONFLICT, identityText(task));
         }
+    }
+
+    private Integer resolveInspectionQuantity(MesProcessPoolActiveOrderDO activeOrder,
+                                              List<MesQaInspectionRegulationItemDO> items,
+                                              String inspectionType) {
+        if (Objects.equals(INSPECTION_TYPE_PATROL, inspectionType)) {
+            return resolvePatrolInspectionQuantity(activeOrder.getErpFixedQuantitySnapshot(), items,
+                    activeOrder.getId());
+        }
+        if (Objects.equals(INSPECTION_TYPE_FIRST, inspectionType) || Objects.equals("FINAL", inspectionType)) {
+            return resolveFixedInspectionQuantity(items, inspectionType, activeOrder.getId());
+        }
+        throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                "QA检验类型无效，activeOrderId=" + activeOrder.getId() + "，inspectionType=" + inspectionType);
     }
 
     private Integer resolveFixedInspectionQuantity(List<MesQaInspectionRegulationItemDO> items,
@@ -1345,7 +1318,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return quantity;
     }
 
-    private Integer resolvePatrolInspectionQuantity(MesProScheduleOrderProcessDO process,
+    private Integer resolvePatrolInspectionQuantity(BigDecimal plannedQuantity,
                                                     List<MesQaInspectionRegulationItemDO> items,
                                                     Long activeOrderId) {
         BigDecimal ratio = null;
@@ -1382,7 +1355,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             fixedQuantity = itemQuantity;
         }
         if (ratio != null) {
-            return ceilPatrolInspectionQuantity(process.getPlannedQuantity(), ratio, activeOrderId);
+            return ceilPatrolInspectionQuantity(plannedQuantity, ratio, activeOrderId);
         }
         if (fixedQuantity != null) {
             return fixedQuantity;
@@ -1422,9 +1395,23 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return trimmed.startsWith(INSPECTION_TYPE_PATROL) ? INSPECTION_TYPE_PATROL : trimmed;
     }
 
+    private static int inspectionTypeOrder(String inspectionType) {
+        if (Objects.equals(INSPECTION_TYPE_FIRST, inspectionType)) {
+            return 1;
+        }
+        if (Objects.equals(INSPECTION_TYPE_PATROL, inspectionType)) {
+            return 2;
+        }
+        if (Objects.equals("FINAL", inspectionType)) {
+            return 3;
+        }
+        return 99;
+    }
+
     private static String identityText(MesPqcInspectionTaskDO task) {
         return "activeOrderId=" + task.getActiveOrderId()
-                + "，routeProcessId=" + task.getRouteProcessId()
+                + "，regulationVersionId=" + task.getRegulationVersionId()
+                + "，qaProcessId=" + task.getQaProcessId()
                 + "，inspectionType=" + task.getInspectionType()
                 + "，businessDate=" + task.getBusinessDate()
                 + "，shiftCode=" + task.getShiftCode()
@@ -1499,9 +1486,10 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private record CandidateEligibility(boolean eligible, String ineligibleReason) {
     }
 
-    private record ActiveOrderRouteSource(Long routeId, Long routeVersionId, Long productId,
+    private record ActiveOrderRouteSource(Long routeId, Long routeVersionId, Long dccProjectCodeId,
+                                          MesQaInspectionRegulationDO regulation,
                                           List<MesProScheduleOrderProcessDO> routeProcesses,
-                                          List<MesProScheduleOrderProcessDO> qaProcesses) {
+                                          List<MesQaInspectionRegulationProcessDO> qaProcesses) {
     }
 
     private record RouteSourceResolution(ActiveOrderRouteSource source, String ineligibleReason,
@@ -1515,20 +1503,14 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         QA
     }
 
-    private record CandidateRegulationKey(Long productId, Long routeId, Long routeVersionId, Long routeProcessId,
-                                           Long processId) {
-    }
-
-    private record QaRouteVersionKey(Long routeId, Long routeVersionId) {
-    }
-
     private record CandidateEligibilityContext(
             Map<Long, List<MesProRouteProductDO>> routeBindingsByProductId,
             Map<Long, List<MesProRouteVersionDO>> activeRouteVersionsByRouteId,
             Set<Long> existingRouteIds,
             Map<Long, List<DccProjectCodeDO>> dccProjectsByRouteId,
-            Map<CandidateRegulationKey, List<MesQaInspectionRegulationDO>> regulationsByKey,
+            Map<Long, List<MesQaInspectionRegulationDO>> regulationsByDccProjectCodeId,
             Map<Long, MesQaInspectionRegulationVersionDO> versionsById,
+            Map<Long, List<MesQaInspectionRegulationProcessDO>> processesByVersionId,
             Map<Long, List<MesQaInspectionRegulationItemDO>> itemsByVersionId) {
     }
 }

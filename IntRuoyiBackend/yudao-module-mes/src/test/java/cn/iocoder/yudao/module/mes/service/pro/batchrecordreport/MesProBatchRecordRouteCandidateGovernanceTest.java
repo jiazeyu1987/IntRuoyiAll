@@ -27,8 +27,10 @@ class MesProBatchRecordRouteCandidateGovernanceTest {
                 "Word 重建候选版本不得删除 active 批记录路线用途配置。");
         assertFalse(source.contains("routeProcessMapper.deleteByRouteId"),
                 "Word 重建候选版本不得删除 active 路线工序。");
-        assertTrue(source.contains("createCandidateRouteVersion"),
-                "Word 重建已有路线必须生成候选路线版本。");
+        assertTrue(source.contains("createOrUpdateCandidateRouteVersion"),
+                "Word 重建已有路线必须创建或更新唯一候选路线版本。");
+        assertTrue(source.contains("selectOpenCandidateByRouteId") && source.contains("updateById"),
+                "已有 DRAFT 候选时必须复用并更新现有候选，不能继续创建下一版本。");
         assertTrue(source.contains("STATUS_DRAFT"),
                 "候选路线版本必须是 DRAFT，不能作为生产 active 使用。");
         assertTrue(source.contains("\"configSnapshots\""),

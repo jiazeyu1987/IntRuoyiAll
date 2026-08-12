@@ -12,7 +12,8 @@ import java.util.Map;
 public interface MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort {
 
     TargetResolution resolveTarget(MesProRouteFlowProcessBatchRecordDO binding,
-                                   List<MesProBatchRecordCellLinkRuleDO> rules);
+                                   List<MesProBatchRecordCellLinkRuleDO> rules,
+                                   String expectedDccProjectCode);
 
     WriteResult write(WriteCommand command);
 
@@ -21,12 +22,14 @@ public interface MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort
     class TargetResolution {
         private Long templateVersionId;
         private String templateSnapshotHash;
+        private String templateDccProjectCode;
         private Map<Long, String> targetFieldCodes;
         private String blockerType;
         private String blockerMessage;
 
         public boolean isValid() {
             return blockerType == null && templateVersionId != null && templateSnapshotHash != null
+                    && templateDccProjectCode != null
                     && targetFieldCodes != null && !targetFieldCodes.isEmpty();
         }
     }

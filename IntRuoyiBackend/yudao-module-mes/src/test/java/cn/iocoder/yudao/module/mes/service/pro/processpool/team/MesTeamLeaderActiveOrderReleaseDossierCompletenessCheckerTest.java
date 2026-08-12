@@ -34,6 +34,18 @@ class MesTeamLeaderActiveOrderReleaseDossierCompletenessCheckerTest {
     }
 
     @Test
+    void shouldAcceptDynamicLossFormCenterDocumentWhenAuditSourceAndSignaturesAreComplete() {
+        MesTeamLeaderActiveOrderReleaseDossierCompletenessCommand command = completeCommand();
+        command.getDocuments().removeIf(document -> "LOSS_REPORT".equals(document.getDocumentType()));
+        command.getDocuments().add(dynamicLossDocument());
+
+        MesTeamLeaderActiveOrderReleaseDossierCompletenessResult result = checker.check(command);
+
+        assertTrue(result.isComplete());
+        assertTrue(result.getBlockers().isEmpty());
+    }
+
+    @Test
     void shouldReturnSpecificBlockersWithoutCreatingWorkTaskWhenAnyDocumentOrOwnerIsIncomplete() {
         MesTeamLeaderActiveOrderReleaseDossierCompletenessCommand command = completeCommand();
         MesTeamLeaderActiveOrderReleaseDocumentEvidence loss = command.getDocuments().stream()
@@ -85,6 +97,29 @@ class MesTeamLeaderActiveOrderReleaseDossierCompletenessCheckerTest {
                 .setTargetVersionIds(List.of(401L))
                 .setTargetSnapshotHashes(List.of("snapshot-" + type))
                 .setFieldAuditIds(List.of(fieldAuditId))
+                .setRequiredFieldCount(2)
+                .setAuditedRequiredFieldCount(2)
+                .setSourceObjectIds(List.of(1001L, 1002L))
+                .setSourceValueHashes(List.of("source-hash-1", "source-hash-2"))
+                .setSignatureEvidence(List.of(signature("FILLER", 1101L, 2101L),
+                        signature("REVIEWER", 1201L, 3001L)))
+                .setSourceSnapshotHash("AO_RELEASE_SOURCE_V1:complete")
+                .setSourceConsistent(true);
+    }
+
+    private static MesTeamLeaderActiveOrderReleaseDocumentEvidence dynamicLossDocument() {
+        return new MesTeamLeaderActiveOrderReleaseDocumentEvidence()
+                .setDocumentType("LOSS_REPORT")
+                .setBatchExecutionId(9701L)
+                .setBatchExecutionTaskId(9803L)
+                .setBatchRecordExecutionIds(List.of())
+                .setFormCenterInstanceIds(List.of(99003L))
+                .setTargetReportIds(List.of("FORMTPL:2501"))
+                .setTargetFormTemplateIds(List.of(25L))
+                .setTargetDefinitionIds(List.of())
+                .setTargetVersionIds(List.of(2501L))
+                .setTargetSnapshotHashes(List.of("record-category-snapshot", "slot-snapshot", "template-snapshot"))
+                .setFieldAuditIds(List.of(9913L))
                 .setRequiredFieldCount(2)
                 .setAuditedRequiredFieldCount(2)
                 .setSourceObjectIds(List.of(1001L, 1002L))

@@ -3,7 +3,8 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const repoRoot = path.resolve(__dirname, '../..')
-const readUtf8 = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8')
+const readUtf8 = (relativePath) =>
+  fs.readFileSync(path.join(repoRoot, relativePath), 'utf8').replace(/\r\n/g, '\n')
 
 const api = readUtf8('src/api/mes/pro/processpool/teamLeader.ts')
 const page = readUtf8('src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue')

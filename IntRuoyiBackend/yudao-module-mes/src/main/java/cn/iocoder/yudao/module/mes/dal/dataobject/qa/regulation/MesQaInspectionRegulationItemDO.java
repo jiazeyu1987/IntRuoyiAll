@@ -29,6 +29,8 @@ public class MesQaInspectionRegulationItemDO extends TenantBaseDO {
     private Long id;
 
     private Long regulationVersionId;
+    private Long qaProcessId;
+    private Integer itemSort;
     private String inspectionType;
     private String itemCode;
     private String itemName;
@@ -44,4 +46,11 @@ public class MesQaInspectionRegulationItemDO extends TenantBaseDO {
     private String resultType;
     private Integer firstInspectionQuantity;
     private BigDecimal patrolInspectionRatio;
+    private Boolean critical;
+    private String failureRule;
+    private String sourceNote;
+    private Integer sourceOriginalPage;
+    private String sourceOriginalItem;
+    private String sourceOriginalExcerpt;
+    private String sourceOriginalMethod;
 }

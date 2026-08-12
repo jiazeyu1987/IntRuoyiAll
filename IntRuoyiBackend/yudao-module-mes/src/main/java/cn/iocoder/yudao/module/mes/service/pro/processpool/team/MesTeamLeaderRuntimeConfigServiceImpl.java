@@ -639,6 +639,16 @@ public class MesTeamLeaderRuntimeConfigServiceImpl implements MesTeamLeaderRunti
             }
             return;
         }
+        if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_BOOLEAN.equals(valueType)) {
+            BigDecimal targetValue = reqBO.getTargetValue();
+            boolean binaryDefault = targetValue != null && (BigDecimal.ZERO.compareTo(targetValue) == 0
+                    || BigDecimal.ONE.compareTo(targetValue) == 0);
+            if (reqBO.getLowerLimit() != null || reqBO.getUpperLimit() != null || !binaryDefault
+                    || !optionValues.isEmpty() || defaultText != null || reqBO.getDecimalScale() != null) {
+                throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, reqBO.getParameterCode());
+            }
+            return;
+        }
         if (!NUMERIC_PARAMETER_VALUE_TYPES.contains(valueType)) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deviceParameterRule");
         }

@@ -1048,8 +1048,6 @@ type BatchRecordTestDescriptionCache = {
 
 const BATCH_RECORD_TEST_DESCRIPTION_CACHE_VERSION = 1
 const BATCH_RECORD_TEST_DESCRIPTION_CACHE_KEY_PREFIX = 'mes.pro.edhrBatchRecordTest.descriptions'
-const CODE_READONLY_BUSINESS_JUDGEMENT_RULE =
-  '判定规则：先把职责描述翻译成业务流程，只判断当前代码表达出的业务方向、页面入口、核心对象、用户动作和后续上下文是否与职责描述一致。页面文案、路由、按钮、字段、状态、API 命名、权限命名和测试名称可以作为业务方向证据；缺少 Service、Mapper、SQL 或测试只能作为实现细节不足说明，不能单独作为不通过原因。只体现维护、复核、历史记录、事件过滤或另一个角色范围等相邻业务方向时，判定为不通过并说明业务流程差异。无法收集到足够判断主业务流程的相关源码证据时才返回阻塞。'
 
 type PaginationPayload = {
   page?: number
@@ -2157,22 +2155,18 @@ async function getTenantOptions() {
   }
 }
 
+function buildCodeReadonlyAnalysisPrompt(description: string) {
+  return `分析${description}在当前系统里是否已经实现,是否过度限制,回复限制在100字以内`
+}
+
 function buildCodeReadonlyCasePayload(
   definition: BatchRecordTestRow
 ): CodexTestApi.CodexTestCaseVO & CodexTestApi.CodexTestCodeReadonlyCaseReqVO {
   return {
     name: definition.caseName,
     project: '批记录',
-    methodText:
-      '只读扫描当前代码，从业务逻辑角度判断当前实现方向是否符合职责描述，不做完整实现审计：' +
-      definition.testScope,
-    testDataText:
-      '测试范围：' +
-      definition.testScope +
-      '。职责描述：' +
-      definition.description +
-      '。' +
-      CODE_READONLY_BUSINESS_JUDGEMENT_RULE,
+    methodText: buildCodeReadonlyAnalysisPrompt(definition.description),
+    testDataText: definition.description,
     analysisMode: 'CODE_READONLY',
     defaultExecutionMode: 'SEQUENTIAL',
     parallelSafe: false,
@@ -2183,12 +2177,7 @@ function buildCodeReadonlyCasePayload(
         sort: 1,
         name: definition.title,
         remark: definition.description,
-        expectedText:
-          '基于页面文案、路由、按钮、字段、状态、API 命名、权限命名和测试名称判断主业务流程、核心对象、用户动作和后续上下文是否与职责描述一致；方向一致即通过，缺少 Service、Mapper、SQL 或测试等实现细节证据只在 actualText 中说明，不单独判定为不通过。测试范围：' +
-          definition.testScope +
-          '。职责描述：' +
-          definition.description +
-          '。只支持相邻功能、局部对象或部分链路时判定为不通过，并在实际回复和差异说明中列出已支持证据与缺失证据。',
+        expectedText: buildCodeReadonlyAnalysisPrompt(definition.description),
         severity: 'MAJOR'
       }
     ]

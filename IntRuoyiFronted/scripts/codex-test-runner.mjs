@@ -432,62 +432,25 @@ async function runCodexForTask(task, runnerSessionId) {
 function buildPrompt(task, codexExecTimeoutMs = resolveCodexExecTimeoutMs(task), codeReadonlyEvidence = '') {
   const analysisMode = resolveAnalysisMode(task)
   if (analysisMode === ANALYSIS_MODE_CODE_READONLY) {
-    return buildCodeReadonlyPrompt(task, codexExecTimeoutMs, codeReadonlyEvidence)
+    return buildCodeReadonlyPrompt(task, codeReadonlyEvidence)
   }
   return buildPlaywrightPrompt(task, codexExecTimeoutMs)
 }
 
-function buildCodeReadonlyPrompt(task, codexExecTimeoutMs = resolveCodexExecTimeoutMs(task), codeReadonlyEvidence = '') {
-  const executionBudgetSeconds = Math.max(30, Math.floor(codexExecTimeoutMs / 1000) - 10)
-  return `你正在执行企业级 Codex 只读代码分析测试。
-本任务是只读代码分析，不是 Playwright 浏览器 E2E。
-不要打开浏览器作为优先路径；请根据下方 Runner 从当前工作区实时收集的代码、路由、API、服务、数据模型、迁移和测试片段判断职责描述是否满足。
-只读代码分析必须覆盖代码、路由、API、测试等真实证据，不得以推测替代代码审查。
-如果 Method、User-written test data 或 Checkpoints 明确要求职责描述、业务方向、完整职责或设计方向判定，先把职责描述翻译成业务流程，重点识别角色、入口/按钮、数据来源、核心对象、用户动作、状态/上下文去向和职责边界，不要把它拆成必须逐项实现完备的代码清单。
-职责描述类、业务方向类、完整职责类或设计方向类判定的 PASS 门槛是：当前代码表达出的业务方向、页面入口、核心对象、用户动作和后续上下文与职责描述一致；证据可以来自页面文案、路由、按钮、字段、状态、API 命名、权限命名、测试名称或代码结构中的业务语义。
-缺少 Service、Mapper、SQL 或测试只能作为实现细节不足说明，不能单独作为不通过原因；如果主业务流程方向一致但实现证据不完整，请返回 PASS，并在 actualText 中说明仍需补哪些实现细节证据。
-如果证据只体现维护、复核、历史记录、事件过滤或另一个角色范围，或只支持相邻功能、局部对象、部分链路，导致主业务流程、角色边界、关键动作、数据来源或后续上下文与职责描述不一致，请返回 FAIL。
-只有 Runner 未提供足够相关源码、证据白名单完全无匹配、或任务描述无法翻译成可判断的业务流程时返回 BLOCKED，并写明阻塞原因。
-输出到 summary、actualText、mismatchDescription 的内容会显示在“历史”弹框里，请用业务人员能听懂的简明语言回答：先给一句话结论，再说明冲突在哪里、是否需要修改、下一步应该看哪条业务链。
-不要直接使用 API、Controller、Mapper、Service、SQL、字段名、枚举名、文件名、类名、方法名等技术词堆叠；必须提到代码证据时，用“一线填写页面”“PQC组长管理页面”“选择订单的入口”“提交后的记录”“订单带出的产品、工序、检验项目”等业务说法替代。
-如果判断失败是因为拿错证据或混淆链路，要直说“不是业务本身冲突，而是测试拿错了链路”或“当前看到的是另一条业务链”，不要写成技术缺口清单。
-不得运行任何 shell 命令、不得调用工具、不得自行读取仓库；Windows read-only sandbox 不允许 shell 命令。只能分析下方实时只读代码证据，不得创建、修改或删除任何仓库文件、Git 状态、分支或 worktree。
-不得运行会写入业务数据、修改数据库、启动写入型 E2E、提交表单、审批、删除、导入、上传、发布或清理数据的命令。
-正式源码和测试的证据收集边界只包含 IntRuoyiFronted/src、IntRuoyiFronted/tests/e2e、IntRuoyiBackend 各模块的 src/main 与 src/test；仅在匹配业务词时包含 IntRuoyiBackend/sql/mysql。
-不得递归扫描 doc/tasks、.runtime、output、node_modules、target、target_*、日志或临时产物；这些目录不能作为功能符合描述的证据。
-Runner 已使用带目录约束的 rg 最多选择 20 个相关源码或测试文件并逐文件截取有限上下文。证据足够时返回 PASS/FAIL；非业务方向判定任务证据不足时返回 BLOCKED 并准确说明还缺哪类正式代码证据。
-不得返回默认成功、不得把缺少前置条件伪装成 PASS；如果代码入口、依赖、权限、Runner、Codex CLI 或测试资料缺失，请返回 BLOCKED 并写明缺失前置条件。
-如果代码与职责描述不一致，请返回 FAIL，并在 mismatchDescription 中说明具体差异、缺失文件/接口/状态链路或测试缺口。
-最终回答必须是原始 JSON 对象，不要包含 markdown、解释性文字或代码块。
-每个检查点都必须输出 checkpointResults；FAIL 必须包含 mismatchDescription，BLOCKED 必须包含阻塞原因。
-Project guidance root: ${PROJECT_ROOT}
-Working directory: ${WORKING_DIRECTORY}
-Target tenant id: ${task.targetTenantId}
-Case: ${task.caseName}
-Method:
-${task.methodText}
-User-written test data:
-${task.testDataText || ''}
-Checkpoints:
-${task.checkpoints.map((item) => `${item.sort}. ${item.name}: ${item.expectedText}`).join('\n')}
-
-实时只读代码证据：
-${codeReadonlyEvidence || 'Runner 未提供任何匹配代码证据。'}
-
-Return raw JSON only:
-{
-  "checkpointResults": [
-    {
-      "checkpointSort": 1,
-      "status": "PASS|FAIL|BLOCKED",
-      "actualText": "一句话结论，再用通俗话说明看到了哪条业务链、和职责描述是否一致",
-      "mismatchDescription": "失败时用通俗话说明哪里不一致、是否需要修改"
-    }
-  ],
-  "summary": "一句简明结论"
+function resolveCodeReadonlyDescription(task) {
+  const description = String(task.testDataText || '').trim()
+  if (!description) {
+    throw new Error('CODE_READONLY task checkpoint description is missing')
+  }
+  return description
 }
 
-Complete the repository read-only analysis and return JSON within ${executionBudgetSeconds} seconds.`
+function buildCodeReadonlyPrompt(task, codeReadonlyEvidence = '') {
+  const description = resolveCodeReadonlyDescription(task)
+  return `分析${description}在当前系统里是否已经实现,是否过度限制,回复限制在100字以内
+
+实时只读代码证据：
+${codeReadonlyEvidence || 'Runner 未提供任何匹配代码证据。'}`
 }
 
 function buildPlaywrightPrompt(task, codexExecTimeoutMs = resolveCodexExecTimeoutMs(task)) {

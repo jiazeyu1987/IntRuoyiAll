@@ -191,6 +191,10 @@
         </if>
         <if test="reqVO.pqcFormView == 'CURRENT'">
             AND pool_event.event_type = 'PQC_INSPECTION'
+            AND (
+                latest_submission_review.review_status IS NULL
+                OR latest_submission_review.review_status <![CDATA[<>]]> 'APPROVED'
+            )
             AND NOT EXISTS (
                 SELECT 1
                 FROM mes_pro_process_pool_active_order_release_application release_application

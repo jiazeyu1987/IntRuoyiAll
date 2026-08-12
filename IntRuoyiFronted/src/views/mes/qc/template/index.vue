@@ -3,74 +3,6 @@
   <doc-alert title="【质量】质检方案" url="https://doc.iocoder.cn/mes/qc/template/" />
 
   <ContentWrap>
-    <el-alert
-      title="QA 检验规程发布版本"
-      type="info"
-      :closable="false"
-      show-icon
-      description="本区只展示正式 QA 检验规程发布版本、路线工序、首检/巡检/末检和逐工序批记录绑定证据；旧质检方案列表不能替代该来源。"
-    />
-    <div class="mt-16px" v-loading="qaRegulationLoading" data-qa-regulation-section>
-      <el-alert
-        v-if="qaRegulationError"
-        class="mb-12px"
-        type="error"
-        :closable="false"
-        show-icon
-        :title="qaRegulationError"
-      />
-      <el-descriptions v-if="publishedQaRegulation" :column="2" border>
-        <el-descriptions-item label="发布版本">
-          <span data-qa-regulation-published-version>
-            发布版本 {{ publishedQaRegulation.versionNo }} / ID {{ publishedQaRegulation.publishedVersionId }}
-          </span>
-        </el-descriptions-item>
-        <el-descriptions-item label="发布状态">
-          <span data-qa-regulation-version-immutable>
-            发布后不可原地修改：{{ publishedQaRegulation.immutable ? '是' : '否' }}
-          </span>
-        </el-descriptions-item>
-        <el-descriptions-item label="产品与路线">
-          <span data-qa-regulation-route-version>
-            产品 {{ publishedQaRegulation.productName || publishedQaRegulation.productId }} /
-            路线 {{ publishedQaRegulation.routeName || publishedQaRegulation.routeId }} /
-            版本 {{ publishedQaRegulation.routeVersionNo || publishedQaRegulation.routeVersionId }}
-          </span>
-        </el-descriptions-item>
-        <el-descriptions-item label="工序">
-          <span data-qa-regulation-route-process>
-            工序 {{ publishedQaRegulation.routeProcessName || publishedQaRegulation.processId }} /
-            routeProcessId {{ publishedQaRegulation.routeProcessId }}
-          </span>
-        </el-descriptions-item>
-        <el-descriptions-item v-if="publishedQaRegulation.firstInspectionRules.length" label="首检规则">
-          <span data-qa-regulation-first-inspection-rule>
-            首检：{{ formatQaRuleList(publishedQaRegulation.firstInspectionRules) }}
-          </span>
-        </el-descriptions-item>
-        <el-descriptions-item v-if="publishedQaRegulation.patrolInspectionRules.length" label="巡检规则">
-          <span data-qa-regulation-patrol-inspection-rule>
-            巡检：{{ formatQaRuleList(publishedQaRegulation.patrolInspectionRules) }}
-          </span>
-        </el-descriptions-item>
-        <el-descriptions-item v-if="publishedQaRegulation.finalInspectionRules.length" label="末检规则">
-          <span data-qa-regulation-final-inspection-rule>
-            末检：{{ formatQaRuleList(publishedQaRegulation.finalInspectionRules) }}
-          </span>
-        </el-descriptions-item>
-        <el-descriptions-item
-          v-if="publishedQaRegulation.batchRecordBindingSummary"
-          label="批记录绑定"
-        >
-          <span data-qa-regulation-batch-record-binding>
-            批记录：{{ publishedQaRegulation.batchRecordBindingSummary }}
-          </span>
-        </el-descriptions-item>
-      </el-descriptions>
-    </div>
-  </ContentWrap>
-
-  <ContentWrap>
     <!-- 搜索工作栏 -->
     <el-form
       class="-mb-15px"
@@ -213,12 +145,7 @@
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
-import {
-  QaInspectionRegulationPublishedVersionVO,
-  QaInspectionRuleVO,
-  QcTemplateApi,
-  QcTemplateVO
-} from '@/api/mes/qc/template'
+import { QcTemplateApi, QcTemplateVO } from '@/api/mes/qc/template'
 import TemplateForm from './TemplateForm.vue'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 
@@ -230,9 +157,6 @@ const { t } = useI18n() // 国际化
 const loading = ref(true) // 列表的加载中
 const list = ref<QcTemplateVO[]>([]) // 列表的数据
 const total = ref(0) // 列表的总页数
-const qaRegulationLoading = ref(false)
-const qaRegulationError = ref('')
-const publishedQaRegulation = ref<QaInspectionRegulationPublishedVersionVO>()
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
@@ -243,32 +167,6 @@ const queryParams = reactive({
 })
 const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中
-
-const loadPublishedQaRegulation = async () => {
-  qaRegulationLoading.value = true
-  qaRegulationError.value = ''
-  try {
-    publishedQaRegulation.value = await QcTemplateApi.getPublishedQaRegulationVersion()
-  } catch (error) {
-    publishedQaRegulation.value = undefined
-    qaRegulationError.value = `正式 QA 检验规程发布版本读取失败：${String(error)}`
-  } finally {
-    qaRegulationLoading.value = false
-  }
-}
-
-const formatQaRuleList = (rules: QaInspectionRuleVO[]) => {
-  return rules
-    .map((rule) => {
-      const quantity = rule.firstInspectionQuantity
-        ? `首检数量 ${rule.firstInspectionQuantity}`
-        : rule.patrolInspectionRatio
-          ? `巡检系数 ${rule.patrolInspectionRatio}`
-          : '按发布规则'
-      return `${rule.itemName}（方法：${rule.inspectionMethod}；标准：${rule.standardText}；${quantity}）`
-    })
-    .join('；')
-}
 
 /** 查询列表 */
 const getList = async () => {
@@ -330,6 +228,5 @@ const handleExport = async () => {
 /** 初始化 **/
 onMounted(() => {
   getList()
-  loadPublishedQaRegulation()
 })
 </script>

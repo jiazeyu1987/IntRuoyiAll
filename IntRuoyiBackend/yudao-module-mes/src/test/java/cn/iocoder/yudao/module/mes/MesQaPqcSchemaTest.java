@@ -26,6 +26,7 @@ class MesQaPqcSchemaTest {
         Class<?> regulationClass = Class.forName(
                 "cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO");
         assertEquals("mes_qa_inspection_regulation", tableName(regulationClass));
+        assertField(regulationClass, "dccProjectCodeId", Long.class);
         assertField(regulationClass, "productId", Long.class);
         assertField(regulationClass, "routeId", Long.class);
         assertField(regulationClass, "routeVersionId", Long.class);
@@ -36,6 +37,14 @@ class MesQaPqcSchemaTest {
         assertField(regulationClass, "regulationName", String.class);
         assertField(regulationClass, "lifecycleStatus", String.class);
         assertField(regulationClass, "currentVersionId", Long.class);
+
+        Class<?> qaProcessClass = Class.forName(
+                "cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO");
+        assertEquals("mes_qa_inspection_regulation_process", tableName(qaProcessClass));
+        assertField(qaProcessClass, "regulationVersionId", Long.class);
+        assertField(qaProcessClass, "processCode", String.class);
+        assertField(qaProcessClass, "processName", String.class);
+        assertField(qaProcessClass, "sort", Integer.class);
 
         Class<?> versionClass = Class.forName(
                 "cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO");
@@ -53,6 +62,8 @@ class MesQaPqcSchemaTest {
                 "cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO");
         assertEquals("mes_qa_inspection_regulation_item", tableName(itemClass));
         assertField(itemClass, "regulationVersionId", Long.class);
+        assertField(itemClass, "qaProcessId", Long.class);
+        assertField(itemClass, "itemSort", Integer.class);
         assertField(itemClass, "inspectionType", String.class);
         assertField(itemClass, "itemCode", String.class);
         assertField(itemClass, "itemName", String.class);
@@ -63,14 +74,20 @@ class MesQaPqcSchemaTest {
         assertField(itemClass, "patrolInspectionRatio", BigDecimal.class);
 
         String sql = readBackendSql("sql/mysql/20260802_mes_qa_inspection_regulation.sql",
-                "sql/mysql/20260805_mes_qa_final_inspection_applicability.sql");
+                "sql/mysql/20260805_mes_qa_final_inspection_applicability.sql",
+                "sql/mysql/20260811_mes_qa_dcc_project_scope.sql");
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_qa_inspection_regulation`"));
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_qa_inspection_regulation_version`"));
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_qa_inspection_regulation_item`"));
         assertTrue(sql.contains("`lifecycle_status` varchar(32) NOT NULL COMMENT '生命周期：DRAFT/PUBLISHED/RETIRED'"));
         assertTrue(sql.contains("`final_inspection_applicable` bit(1) DEFAULT NULL COMMENT '末检是否适用'"));
         assertTrue(sql.contains("`final_inspection_not_applicable_reason` varchar(512) DEFAULT NULL COMMENT '末检不适用依据'"));
-        assertTrue(sql.contains("UNIQUE KEY `uk_mes_qa_regulation_route_process`"));
+        assertTrue(sql.contains("`dcc_project_code_id` bigint DEFAULT NULL COMMENT 'DCC项目代码ID'"));
+        assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_qa_inspection_regulation_process`"));
+        assertTrue(sql.contains("UNIQUE KEY `uk_mes_qa_regulation_dcc_project`"));
+        assertTrue(sql.contains("DROP INDEX `uk_mes_qa_regulation_route_process`"));
+        assertTrue(sql.contains("`qa_process_id` bigint DEFAULT NULL COMMENT 'QA工序ID'"));
+        assertTrue(sql.contains("`item_sort` int DEFAULT NULL COMMENT 'QA工序内项目排序'"));
     }
 
     @Test
@@ -84,6 +101,7 @@ class MesQaPqcSchemaTest {
         assertField(taskClass, "routeVersionId", Long.class);
         assertField(taskClass, "routeProcessId", Long.class);
         assertField(taskClass, "processId", Long.class);
+        assertField(taskClass, "qaProcessId", Long.class);
         assertField(taskClass, "regulationVersionId", Long.class);
         assertField(taskClass, "inspectionType", String.class);
         assertField(taskClass, "businessDate", LocalDate.class);
@@ -107,11 +125,15 @@ class MesQaPqcSchemaTest {
         assertField(detailClass, "measuredValue", String.class);
         assertField(detailClass, "judgement", String.class);
 
-        String sql = Files.readString(resolveBackendPath(
-                "sql/mysql/20260802_mes_pqc_inspection_task.sql"), StandardCharsets.UTF_8);
+        String sql = readBackendSql("sql/mysql/20260802_mes_pqc_inspection_task.sql",
+                "sql/mysql/20260811_mes_qa_dcc_project_scope.sql");
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pqc_inspection_task`"));
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pqc_inspection_piece_detail`"));
-        assertTrue(sql.contains("UNIQUE KEY `uk_mes_pqc_task_identity`"));
+        assertTrue(sql.contains("`qa_process_id` bigint DEFAULT NULL COMMENT 'QA工序ID'"));
+        assertTrue(sql.contains("UNIQUE KEY `uk_mes_pqc_task_qa_identity`"));
+        assertTrue(sql.contains("DROP INDEX `uk_mes_pqc_task_identity`"));
+        assertTrue(sql.contains("MODIFY COLUMN `route_process_id` bigint NULL"));
+        assertTrue(sql.contains("MODIFY COLUMN `process_id` bigint NULL"));
         assertTrue(sql.contains("`regulation_version_id` bigint NOT NULL COMMENT 'QA规程发布版本ID'"));
         assertTrue(sql.contains("`task_status` varchar(32) NOT NULL COMMENT '任务状态：PENDING/SUBMITTED/CONFIRMED/CANCELLED'"));
         assertTrue(sql.contains("`sample_no` int NOT NULL COMMENT '逐件样本序号'"));

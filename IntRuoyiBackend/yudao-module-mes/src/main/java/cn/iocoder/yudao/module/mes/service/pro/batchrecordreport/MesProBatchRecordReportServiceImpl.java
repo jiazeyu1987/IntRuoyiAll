@@ -10,6 +10,8 @@ import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalContex
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalRequest;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalRequestStatus;
 import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalOrchestrator;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportAssistRowVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportDeleteAllRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRuleVO;
@@ -19,6 +21,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.Bat
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportSignatureCellMarkerVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportSignatureCellMarkersReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportSignatureCellMarkersRespVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordDefinitionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
@@ -125,6 +128,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
     private MesMdItemMapper itemMapper;
+    @Resource
+    private DccProjectCodeMapper dccProjectCodeMapper;
     @Resource
     private MesProRouteFlowProcessBatchRecordMapper routeFlowProcessBatchRecordMapper;
     @Resource
@@ -276,11 +281,15 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         String recommendedAction = allowedActions.contains(IMPORT_ACTION_UPGRADE)
                 && (currentBatchRecordHasMainReports || !blockers.isEmpty())
                 ? IMPORT_ACTION_UPGRADE : IMPORT_ACTION_REBUILD_V1;
-        List<MesProRouteDO> governedRoutes = routeMapper.selectListByName(normalizedBatchRecordName);
+        List<MesProRouteDO> governedRoutes = resolveGovernedRoutesForDccProject(normalizedBatchRecordName);
         MesProRouteDO route = governedRoutes.size() == 1 ? governedRoutes.get(0) : null;
         MesProRouteVersionDO routeVersion = route == null ? null : routeVersionMapper.selectActiveByRouteId(route.getId());
+        MesProRouteVersionDO routeCandidateVersion = route == null
+                ? null : routeVersionMapper.selectOpenCandidateByRouteId(route.getId());
         String routeGovernanceStatus = resolveRouteGovernanceStatus(governedRoutes);
-        boolean importActionLocked = pendingApprovalLocked || ROUTE_GOVERNANCE_DUPLICATE_BLOCKED.equals(routeGovernanceStatus);
+        boolean importActionLocked = pendingApprovalLocked
+                || ROUTE_GOVERNANCE_DUPLICATE_BLOCKED.equals(routeGovernanceStatus)
+                || isRouteCandidateImportLocked(routeCandidateVersion);
         List<String> effectiveAllowedActions = importActionLocked
                 ? List.of() : allowedActions;
 
@@ -304,6 +313,10 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .currentRouteVersionId(routeVersion == null ? null : routeVersion.getId())
                 .currentRouteVersionNo(routeVersion == null ? null : routeVersion.getVersionNo())
                 .currentRouteVersionActive(routeVersion == null ? null : routeVersion.getActive())
+                .currentRouteCandidateVersionId(routeCandidateVersion == null ? null : routeCandidateVersion.getId())
+                .currentRouteCandidateVersionNo(routeCandidateVersion == null ? null : routeCandidateVersion.getVersionNo())
+                .currentRouteCandidateVersionStatus(routeCandidateVersion == null
+                        ? null : routeCandidateVersion.getLifecycleStatus())
                 .hasHistoricalReferences(!blockers.isEmpty())
                 .referenceBlockers(toReferenceBlockers(blockers))
                 .allowedActions(effectiveAllowedActions)
@@ -326,7 +339,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     }
 
     private void ensureNoDuplicateRouteForProjectName(String projectName) {
-        List<MesProRouteDO> routes = routeMapper.selectListByName(projectName);
+        List<MesProRouteDO> routes = resolveGovernedRoutesForDccProject(projectName);
         if (routes.size() <= 1) {
             return;
         }
@@ -338,15 +351,67 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 projectName, routeCodes);
     }
 
+    private List<MesProRouteDO> resolveGovernedRoutesForDccProject(String projectName) {
+        LinkedHashMap<Long, MesProRouteDO> routeById = new LinkedHashMap<>();
+        for (MesProRouteDO route : routeMapper.selectListByName(projectName)) {
+            routeById.putIfAbsent(route.getId(), route);
+        }
+        Set<Long> dccProductItemIds = resolveDccProjectProductItemIds(projectName);
+        if (dccProductItemIds.isEmpty()) {
+            return new ArrayList<>(routeById.values());
+        }
+        List<MesProRouteProductDO> routeProducts = routeProductMapper.selectListByItemIds(dccProductItemIds);
+        if (routeProducts.isEmpty()) {
+            return new ArrayList<>(routeById.values());
+        }
+        Map<Long, MesProRouteDO> productRouteById = routeMapper.selectBatchIds(routeProducts.stream()
+                        .map(MesProRouteProductDO::getRouteId)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .toList())
+                .stream()
+                .filter(route -> route.getId() != null)
+                .collect(java.util.stream.Collectors.toMap(MesProRouteDO::getId, route -> route,
+                        (left, right) -> left, LinkedHashMap::new));
+        for (MesProRouteProductDO routeProduct : routeProducts) {
+            MesProRouteDO route = productRouteById.get(routeProduct.getRouteId());
+            if (route != null) {
+                routeById.putIfAbsent(route.getId(), route);
+            }
+        }
+        return new ArrayList<>(routeById.values());
+    }
+
+    private Set<Long> resolveDccProjectProductItemIds(String projectName) {
+        List<DccProjectCodeDO> projectCodes = dccProjectCodeMapper.selectEnabledListByProjectName(projectName);
+        if (projectCodes == null || projectCodes.isEmpty()) {
+            return Set.of();
+        }
+        Set<String> normalizedProjectCodes = projectCodes.stream()
+                .map(DccProjectCodeDO::getProjectCode)
+                .map(StrUtil::trim)
+                .filter(StrUtil::isNotBlank)
+                .collect(LinkedHashSet::new, Set::add, Set::addAll);
+        if (normalizedProjectCodes.isEmpty()) {
+            return Set.of();
+        }
+        return itemMapper.selectListByCodes(normalizedProjectCodes).stream()
+                .map(MesMdItemDO::getId)
+                .filter(Objects::nonNull)
+                .collect(LinkedHashSet::new, Set::add, Set::addAll);
+    }
+
     private void ensureRouteUpgradeConfirmedIfNeeded(String projectName, boolean routeRebuildRequested,
                                                      Boolean routeUpgradeConfirmed, Long expectedRouteId,
-                                                     Long expectedRouteVersionId) {
+                                                     Long expectedRouteVersionId,
+                                                     Long expectedRouteCandidateVersionId) {
         if (!routeRebuildRequested) {
             return;
         }
-        List<MesProRouteDO> routes = routeMapper.selectListByName(projectName);
+        List<MesProRouteDO> routes = resolveGovernedRoutesForDccProject(projectName);
         if (routes.isEmpty()) {
-            if (expectedRouteId != null || expectedRouteVersionId != null) {
+            if (expectedRouteId != null || expectedRouteVersionId != null
+                    || expectedRouteCandidateVersionId != null) {
                 throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_UPGRADE_TARGET_CHANGED,
                         expectedRouteId, expectedRouteVersionId, null, null);
             }
@@ -363,6 +428,45 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 || !Objects.equals(expectedRouteVersionId, currentVersionId)) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_UPGRADE_TARGET_CHANGED,
                     expectedRouteId, expectedRouteVersionId, route.getId(), currentVersionId);
+        }
+        MesProRouteVersionDO candidateVersion = routeVersionMapper.selectOpenCandidateByRouteId(route.getId());
+        ensureRouteCandidateCanBeUpdated(candidateVersion, activeVersion, expectedRouteCandidateVersionId);
+    }
+
+    private boolean isRouteCandidateImportLocked(MesProRouteVersionDO candidateVersion) {
+        return candidateVersion != null
+                && (Objects.equals(MesProRouteVersionMapper.STATUS_PENDING_APPROVAL,
+                        candidateVersion.getLifecycleStatus())
+                || Objects.equals(MesProRouteVersionMapper.STATUS_READY_TO_PUBLISH,
+                        candidateVersion.getLifecycleStatus()));
+    }
+
+    private void ensureRouteCandidateCanBeUpdated(MesProRouteVersionDO candidateVersion,
+                                                   MesProRouteVersionDO activeVersion,
+                                                   Long expectedRouteCandidateVersionId) {
+        if (isRouteCandidateImportLocked(candidateVersion)) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants
+                            .PRO_BATCH_RECORD_REPORT_ROUTE_CANDIDATE_STATUS_BLOCKED,
+                    candidateVersion.getVersionNo(), candidateVersion.getLifecycleStatus());
+        }
+        Long currentCandidateVersionId = candidateVersion == null ? null : candidateVersion.getId();
+        if (!Objects.equals(expectedRouteCandidateVersionId, currentCandidateVersionId)) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants
+                            .PRO_BATCH_RECORD_REPORT_ROUTE_CANDIDATE_TARGET_CHANGED,
+                    expectedRouteCandidateVersionId, currentCandidateVersionId);
+        }
+        if (candidateVersion != null && !Objects.equals(MesProRouteVersionMapper.STATUS_DRAFT,
+                candidateVersion.getLifecycleStatus())) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants
+                            .PRO_BATCH_RECORD_REPORT_ROUTE_CANDIDATE_STATUS_BLOCKED,
+                    candidateVersion.getVersionNo(), candidateVersion.getLifecycleStatus());
+        }
+        Long activeVersionId = activeVersion == null ? null : activeVersion.getId();
+        if (candidateVersion != null
+                && !Objects.equals(candidateVersion.getSourceRouteVersionId(), activeVersionId)) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants
+                            .PRO_BATCH_RECORD_REPORT_ROUTE_CANDIDATE_SOURCE_CHANGED,
+                    candidateVersion.getVersionNo(), candidateVersion.getSourceRouteVersionId(), activeVersionId);
         }
     }
 
@@ -455,6 +559,27 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                                                                 Long expectedRouteId,
                                                                 Long expectedRouteVersionId,
                                                                 Long approvalSubmitterUserId) {
+        return recognizeUploadedRoute(file, routeKey, batchRecordName, importAction, expectedSourceVersionId,
+                expectedTargetVersionNo, productNames, rebuildBatchRecord, selectedRouteProductIds,
+                selectedProductNames, routeUpgradeConfirmed, expectedRouteId, expectedRouteVersionId,
+                null, approvalSubmitterUserId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProBatchRecordImportResult recognizeUploadedRoute(MultipartFile file, String routeKey,
+                                                                String batchRecordName, String importAction,
+                                                                Long expectedSourceVersionId,
+                                                                String expectedTargetVersionNo,
+                                                                List<String> productNames,
+                                                                Boolean rebuildBatchRecord,
+                                                                List<Long> selectedRouteProductIds,
+                                                                List<String> selectedProductNames,
+                                                                Boolean routeUpgradeConfirmed,
+                                                                Long expectedRouteId,
+                                                                Long expectedRouteVersionId,
+                                                                Long expectedRouteCandidateVersionId,
+                                                                Long approvalSubmitterUserId) {
         String normalizedRouteKey = MesProBatchRecordRecognitionRouteKeys.normalize(routeKey);
         if (!MesProBatchRecordRecognitionRouteKeys.isFixedRoute(normalizedRouteKey)) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_INVALID, routeKey);
@@ -471,7 +596,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         List<String> normalizedSelectedProductNames = normalizeOptionalRouteProductNames(selectedProductNames);
         boolean routeRebuildRequested = !normalizedRouteProductIds.isEmpty() || !normalizedSelectedProductNames.isEmpty();
         ensureRouteUpgradeConfirmedIfNeeded(normalizedBatchRecordName, routeRebuildRequested || rebuildRecord,
-                routeUpgradeConfirmed, expectedRouteId, expectedRouteVersionId);
+                routeUpgradeConfirmed, expectedRouteId, expectedRouteVersionId,
+                expectedRouteCandidateVersionId);
         if (!rebuildRecord && !routeRebuildRequested) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_IMPORT_SCOPE_EMPTY);
         }
@@ -535,7 +661,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         Long routeProductScopeRouteId = resolveRouteProductScopeRouteId(sourceVersion, normalizedBatchRecordName,
                 expectedRouteId, expectedRouteVersionId);
         List<String> routeProductNames = routeRebuildRequested
-                ? resolveSelectedRouteProductNames(routeProductScopeRouteId, normalizedRouteProductIds,
+                ? resolveSelectedRouteProductNames(normalizedBatchRecordName, routeProductScopeRouteId,
+                normalizedRouteProductIds,
                 normalizedSelectedProductNames)
                 : List.of();
         if (routeRebuildRequested) {
@@ -578,7 +705,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
             routeResult = routeGenerationService.generateBatchRecordBindingCandidateForUploadedWord(
                     normalizedBatchRecordName, parsedTables, importResult.reports(),
                     definition.getId(), targetVersion.getId(),
-                    expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed);
+                    expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed,
+                    expectedRouteCandidateVersionId);
             targetVersion.setRouteId(routeResult.routeId());
             targetVersion.setSourceRouteId(targetSourceVersion == null ? null : targetSourceVersion.getRouteId());
             versionMapper.updateById(targetVersion);
@@ -586,7 +714,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
             if (routeOnlyWithoutBatchRecordVersion) {
                 routeResult = routeGenerationService.generateRouteOnlyForUploadedWord(
                         normalizedBatchRecordName, parsedTables, routeProductNames,
-                        expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed);
+                        expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed,
+                        expectedRouteCandidateVersionId);
             } else {
                 List<MesProBatchRecordReportView> reportsForRoute = rebuildRecord
                         ? importResult.reports()
@@ -594,7 +723,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 routeResult = routeGenerationService.generateForUploadedWord(
                         normalizedBatchRecordName, parsedTables, reportsForRoute, routeProductNames,
                         definition.getId(), targetVersion.getId(),
-                        expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed, rebuildRecord);
+                        expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed,
+                        expectedRouteCandidateVersionId, rebuildRecord);
                 targetVersion.setRouteId(routeResult.routeId());
                 targetVersion.setSourceRouteId(targetSourceVersion == null ? null : targetSourceVersion.getRouteId());
                 versionMapper.updateById(targetVersion);
@@ -824,8 +954,13 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     private List<MesProBatchRecordImportRouteProductOption> buildRouteProductOptions(
             MesProRouteDO route, MesProRouteVersionDO routeVersion, List<String> requestedProductNames) {
         Map<String, MesProBatchRecordImportRouteProductOption> options = new LinkedHashMap<>();
+        Set<Long> existingRouteProductItemIds = new LinkedHashSet<>();
         if (route != null) {
             List<MesProRouteProductDO> routeProducts = routeProductMapper.selectListByRouteId(route.getId());
+            routeProducts.stream()
+                    .map(MesProRouteProductDO::getItemId)
+                    .filter(Objects::nonNull)
+                    .forEach(existingRouteProductItemIds::add);
             Map<Long, cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO> itemById =
                     itemMapper.selectListByIds(routeProducts.stream()
                                     .map(MesProRouteProductDO::getItemId)
@@ -859,6 +994,11 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
             }
         }
         for (String productName : requestedProductNames) {
+            Set<Long> requestedItemIds = resolveDccProjectProductItemIds(productName);
+            if (!requestedItemIds.isEmpty()
+                    && requestedItemIds.stream().anyMatch(existingRouteProductItemIds::contains)) {
+                continue;
+            }
             options.putIfAbsent(productName, MesProBatchRecordImportRouteProductOption.builder()
                     .optionKey("PRODUCT_NAME:" + productName)
                     .productName(productName)
@@ -871,7 +1011,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     private Long resolveRouteProductScopeRouteId(MesProBatchRecordVersionDO sourceVersion, String projectName,
                                                  Long expectedRouteId, Long expectedRouteVersionId) {
         if (expectedRouteId != null) {
-            List<MesProRouteDO> routes = routeMapper.selectListByName(projectName);
+            List<MesProRouteDO> routes = resolveGovernedRoutesForDccProject(projectName);
             if (routes.size() != 1 || !Objects.equals(routes.get(0).getId(), expectedRouteId)) {
                 Long currentRouteId = routes.size() == 1 ? routes.get(0).getId() : null;
                 MesProRouteVersionDO activeVersion = currentRouteId == null
@@ -894,7 +1034,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         return null;
     }
 
-    private List<String> resolveSelectedRouteProductNames(Long routeProductScopeRouteId,
+    private List<String> resolveSelectedRouteProductNames(String batchRecordName, Long routeProductScopeRouteId,
                                                           List<Long> selectedRouteProductIds,
                                                           List<String> selectedProductNames) {
         LinkedHashSet<String> productNames = new LinkedHashSet<>(selectedProductNames);
@@ -945,13 +1085,24 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                     throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_SCOPE_INVALID,
                             routeProduct.getId());
                 }
-                productNames.add(item.getName());
+                productNames.add(resolveSelectedRouteProductProjectName(batchRecordName, item));
             }
         }
         if (productNames.isEmpty()) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_IMPORT_SCOPE_EMPTY);
         }
         return new ArrayList<>(productNames);
+    }
+
+    private String resolveSelectedRouteProductProjectName(String batchRecordName,
+                                                         cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO item) {
+        List<DccProjectCodeDO> projectCodes = dccProjectCodeMapper.selectEnabledListByProjectName(batchRecordName);
+        for (DccProjectCodeDO projectCode : projectCodes) {
+            if (StrUtil.equals(StrUtil.trim(projectCode.getProjectCode()), StrUtil.trim(item.getCode()))) {
+                return batchRecordName;
+            }
+        }
+        return item.getName();
     }
 
     private MesProBatchRecordImportResult buildCurrentVersionImportResult(MesProBatchRecordDefinitionDO definition,

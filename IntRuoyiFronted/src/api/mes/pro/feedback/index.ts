@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import type { DeviceParameterValueType } from '@/api/mes/pro/processpool/teamLeader'
 import type {
   EdhrBatchArchiveVisibility,
   EdhrBatchExecutionTaskRespVO,
@@ -189,9 +190,22 @@ export interface FrontlineDeviceRouteProcessVO {
   workstationId?: number | null
   workstationCode?: string
   workstationName?: string
-  activeOrderId?: number
+  productionSubmitCandidates?: FrontlinePqcProductionSubmitCandidateVO[]
+}
+
+export interface FrontlinePqcProcessVO {
+  routeId: number
+  routeCode?: string
+  routeName?: string
+  dccProjectCodeId: number
+  regulationId: number
+  regulationVersionId: number
+  qaProcessId: number
+  qaProcessCode: string
+  qaProcessName: string
+  qaProcessSort: number
+  activeOrderId: number
   pqcTaskId?: number
-  regulationVersionId?: number
   finalInspectionApplicable?: boolean
   inspectionType?: string
   businessDate?: string
@@ -200,12 +214,12 @@ export interface FrontlineDeviceRouteProcessVO {
   plannedInspectionQuantity?: number
   inspectionItems?: FrontlinePqcInspectionItemVO[]
   pqcTaskOptions?: FrontlinePqcTaskOptionVO[]
-  productionSubmitCandidates?: FrontlinePqcProductionSubmitCandidateVO[]
 }
 
 export interface FrontlinePqcTaskOptionVO {
   pqcTaskId: number
   regulationVersionId: number
+  qaProcessId: number
   finalInspectionApplicable?: boolean
   inspectionType: string
   businessDate: string
@@ -281,6 +295,13 @@ export interface FrontlineTemplateVO {
   actualEmployeeId: number
 }
 
+export interface FrontlinePqcTemplateVO {
+  templateNo: string
+  templateType?: string
+  qaProcessId: number
+  actualEmployeeId: number
+}
+
 export interface FrontlineSwitchActualEmployeeReqVO {
   routeId: number
   routeProcessId: number
@@ -288,8 +309,12 @@ export interface FrontlineSwitchActualEmployeeReqVO {
   actualEmployeeId: number
 }
 
-export interface FrontlinePqcSwitchActualEmployeeReqVO extends FrontlineSwitchActualEmployeeReqVO {
+export interface FrontlinePqcSwitchActualEmployeeReqVO {
   workOrderId: number
+  routeId: number
+  regulationVersionId: number
+  qaProcessId: number
+  actualEmployeeId: number
 }
 
 export interface FrontlinePqcItemResultSubmitReqVO {
@@ -302,12 +327,10 @@ export interface FrontlinePqcItemResultSubmitReqVO {
 export interface FrontlinePqcInspectionSubmitReqVO {
   activeOrderId?: number
   pqcTaskId: number
-  productionSubmitEventId?: number
-  regulationVersionId?: number
+  regulationVersionId: number
+  qaProcessId: number
   workOrderId?: number
   routeId?: number
-  routeProcessId?: number
-  processId?: number
   inspectionType?: string
   businessDate?: string
   shiftCode?: string
@@ -340,6 +363,17 @@ export interface FrontlineSwitchActualEmployeeRespVO {
   template: FrontlineTemplateVO
 }
 
+export interface FrontlinePqcSwitchActualEmployeeRespVO {
+  loginUserId: number
+  actualEmployeeId: number
+  routeId: number
+  dccProjectCodeId: number
+  regulationVersionId: number
+  qaProcessId: number
+  extraVerificationRequired: boolean
+  template: FrontlinePqcTemplateVO
+}
+
 export interface FrontlineRuntimeEmployeeVO {
   employeeProfileId: number
   systemUserId?: number
@@ -357,7 +391,7 @@ export interface FrontlineRuntimeDeviceParameterVO {
   lowerLimit?: number | string | null
   upperLimit?: number | string | null
   defaultValue?: number | string | null
-  valueType?: string
+  valueType?: DeviceParameterValueType
   optionValues?: string[]
   defaultText?: string | null
   decimalScale?: number | null
@@ -1060,12 +1094,12 @@ export const ProFeedbackApi = {
       url: `/mes/pro/feedback/frontline/device-account/pqc/active-orders`
     })
   },
-  // 获取 PQC 活跃订单对应工艺路线工序
+  // 获取 PQC 活跃订单对应 QA 规程工序
   getFrontlinePqcActiveOrderProcesses: async (params: {
     workOrderId: number
     routeId: number
   }) => {
-    return await request.get<FrontlineDeviceRouteProcessVO[]>({
+    return await request.get<FrontlinePqcProcessVO[]>({
       url: `/mes/pro/feedback/frontline/device-account/pqc/active-order/processes`,
       params
     })
@@ -1107,7 +1141,7 @@ export const ProFeedbackApi = {
   },
   // PQC 切换实际填写员工并重新加载当前模板
   switchFrontlinePqcActualEmployee: async (data: FrontlinePqcSwitchActualEmployeeReqVO) => {
-    return await request.post<FrontlineSwitchActualEmployeeRespVO>({
+    return await request.post<FrontlinePqcSwitchActualEmployeeRespVO>({
       url: `/mes/pro/feedback/frontline/device-account/pqc/switch-employee`,
       data
     })

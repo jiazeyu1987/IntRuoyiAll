@@ -1836,6 +1836,7 @@ const savePolicySettings = async () => {
       policySettingsForm,
       await SchedulerWorkbenchApi.savePolicySettings({ ...policySettingsForm })
     )
+    await Promise.all([loadSummary(), loadProcessWipStatistics()])
     ElMessage.success('排产策略已保存')
   } finally {
     policySettingsSaving.value = false

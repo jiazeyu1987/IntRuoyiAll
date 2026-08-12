@@ -41,16 +41,17 @@ public interface MesProProcessPoolEventMapper extends BaseMapperX<MesProProcessP
         if (event == null || event.getEventIdempotencyKey() == null) {
             return null;
         }
-        LambdaQueryWrapperX<MesProProcessPoolEventDO> query = new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
-                .eq(MesProProcessPoolEventDO::getEventType, MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
-                .eq(MesProProcessPoolEventDO::getWorkOrderId, event.getWorkOrderId())
-                .eq(MesProProcessPoolEventDO::getRouteId, event.getRouteId())
-                .eq(MesProProcessPoolEventDO::getRouteProcessId, event.getRouteProcessId())
-                .eq(MesProProcessPoolEventDO::getProcessId, event.getProcessId())
-                .eq(MesProProcessPoolEventDO::getActualEmployeeId, event.getActualEmployeeId())
-                .eq(MesProProcessPoolEventDO::getFeedbackSourceType, event.getFeedbackSourceType())
-                .eq(MesProProcessPoolEventDO::getFeedbackSourceId, event.getFeedbackSourceId())
-                .eq(MesProProcessPoolEventDO::getEventIdempotencyKey, event.getEventIdempotencyKey());
+        LambdaQueryWrapperX<MesProProcessPoolEventDO> query = new LambdaQueryWrapperX<>();
+        query.eq(MesProProcessPoolEventDO::getEventType, MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION);
+        query.eq(MesProProcessPoolEventDO::getWorkOrderId, event.getWorkOrderId());
+        query.eq(MesProProcessPoolEventDO::getRouteId, event.getRouteId());
+        query.eq(MesProProcessPoolEventDO::getQaProcessId, event.getQaProcessId());
+        query.isNull(MesProProcessPoolEventDO::getRouteProcessId);
+        query.isNull(MesProProcessPoolEventDO::getProcessId);
+        query.eq(MesProProcessPoolEventDO::getActualEmployeeId, event.getActualEmployeeId());
+        query.eq(MesProProcessPoolEventDO::getFeedbackSourceType, event.getFeedbackSourceType());
+        query.eq(MesProProcessPoolEventDO::getFeedbackSourceId, event.getFeedbackSourceId());
+        query.eq(MesProProcessPoolEventDO::getEventIdempotencyKey, event.getEventIdempotencyKey());
         if (event.getDeviceAccountId() == null) {
             query.isNull(MesProProcessPoolEventDO::getDeviceAccountId);
         } else {

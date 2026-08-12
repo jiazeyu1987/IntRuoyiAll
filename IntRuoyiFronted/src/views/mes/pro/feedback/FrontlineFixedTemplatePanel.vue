@@ -562,16 +562,41 @@
           class="frontline-operator-top top is-production"
           data-frontline-production-selection-grid
         >
-          <button
-            class="frontline-top-card top-box frontline-production-selection-card"
-            type="button"
+          <div
+            class="frontline-top-card top-box frontline-production-selection-card frontline-production-process-nav-card"
             data-frontline-production-selection-card
-            :disabled="payloadLoading || submitConfirmationOpen || productionSubmitSuccessOpen || productionSubmitFailureOpen"
-            @click="openPicker('process')"
+            data-frontline-production-process-nav-card
           >
-            <div class="top-label">工序</div>
-            <div class="top-value">{{ selectedProcessLabel }}</div>
-          </button>
+            <button
+              class="frontline-production-process-nav-button"
+              type="button"
+              data-frontline-process-previous
+              aria-label="前一个工序"
+              :disabled="isProductionProcessPreviousDisabled"
+              @click.stop="handleNavigateProductionProcess(-1)"
+            >
+              <span class="frontline-production-process-nav-icon is-previous" aria-hidden="true"></span>
+            </button>
+            <button
+              class="frontline-production-process-current"
+              type="button"
+              :disabled="isProductionProcessNavigationBlocked"
+              @click="openPicker('process')"
+            >
+              <div class="top-label">工序</div>
+              <div class="top-value">{{ selectedProcessLabel }}</div>
+            </button>
+            <button
+              class="frontline-production-process-nav-button"
+              type="button"
+              data-frontline-process-next
+              aria-label="后一个工序"
+              :disabled="isProductionProcessNextDisabled"
+              @click.stop="handleNavigateProductionProcess(1)"
+            >
+              <span class="frontline-production-process-nav-icon is-next" aria-hidden="true"></span>
+            </button>
+          </div>
           <button
             class="frontline-top-card top-box frontline-production-selection-card"
             type="button"
@@ -635,8 +660,6 @@
             class="frontline-work-panel panel quantity-panel frontline-production-quantity-panel"
             aria-label="数量与不良"
           >
-            <div class="panel-title">填数量</div>
-
             <div class="frontline-production-number-field field">
               <label class="field-label" for="frontlineProductionOutputQuantity">完成数量</label>
               <button
@@ -727,26 +750,42 @@
             class="frontline-work-panel panel device-panel frontline-production-device-panel"
             aria-label="设备"
           >
-            <div class="panel-title">填设备</div>
             <div
               v-if="visibleDeviceCards.length > 0"
               class="frontline-production-device-tabs device-tabs"
+              :style="{ '--frontline-device-tab-count': visibleDeviceCards.length }"
               role="tablist"
               aria-label="设备切换"
             >
-              <button
+              <div
                 v-for="device in visibleDeviceCards"
                 :key="device.key"
-                class="device-tab"
-                type="button"
-                role="tab"
-                :aria-selected="device.key === selectedProductionDeviceKey"
+                class="frontline-production-device-card device-tab-card"
                 :class="{ active: device.key === selectedProductionDeviceKey }"
-                :disabled="payloadLoading"
-                @click="selectedProductionDeviceKey = device.key"
               >
-                {{ device.label }}
-              </button>
+                <button
+                  class="device-tab"
+                  type="button"
+                  role="tab"
+                  :aria-selected="device.key === selectedProductionDeviceKey"
+                  :disabled="payloadLoading"
+                  @click="selectedProductionDeviceKey = device.key"
+                >
+                  <span class="device-tab-code">{{ device.label }}</span>
+                </button>
+                <label class="frontline-production-device-metering-validity">
+                  <input
+                    type="checkbox"
+                    :checked="isProductionDeviceMeteringValid(device.key)"
+                    :disabled="payloadLoading"
+                    :aria-label="device.label + '在计量效期内'"
+                    data-frontline-device-metering-validity
+                    @change="updateProductionDeviceMeteringValidity(device.key, $event)"
+                  />
+                  <span aria-hidden="true">✓</span>
+                  <em>在计量效期内</em>
+                </label>
+              </div>
             </div>
             <div
               v-else
@@ -759,11 +798,33 @@
               v-if="activeProductionDevice && visibleDeviceCards.length > 0"
               class="frontline-production-device-current device-current"
             >
-              <div
-                v-for="parameter in activeProductionDevice.parameters"
-                :key="parameter.parameterCode"
-                class="frontline-production-device-param device-param"
+              <article
+                v-if="activeProductionSelfCheckNarrative"
+                class="frontline-production-self-check"
+                data-frontline-production-self-check
+                aria-label="生产自检"
               >
+                <h3>{{ activeProductionSelfCheckNarrative.title }}</h3>
+                <section>
+                  <strong>合格标准：</strong>
+                  <p>{{ activeProductionSelfCheckNarrative.standard }}</p>
+                </section>
+                <section>
+                  <strong>检验方法：</strong>
+                  <p
+                    v-for="method in activeProductionSelfCheckNarrative.inspectionMethods"
+                    :key="method"
+                  >
+                    {{ method }}
+                  </p>
+                </section>
+              </article>
+              <template v-else>
+                <div
+                  v-for="parameter in getProductionDeviceDetailParameters(activeProductionDevice)"
+                  :key="parameter.parameterCode"
+                  class="frontline-production-device-param device-param"
+                >
                 <label
                   class="device-param-label"
                   :for="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
@@ -798,7 +859,7 @@
                 </button>
                 <select
                   v-else-if="isSelectParameter(parameter)"
-                  class="device-value"
+                  class="device-value device-select"
                   :id="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
                   :value="getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode)"
                   :aria-label="parameter.parameterName || parameter.parameterCode"
@@ -815,6 +876,25 @@
                     {{ option }}
                   </option>
                 </select>
+                <label
+                  v-else-if="isBooleanParameter(parameter)"
+                  class="frontline-production-device-boolean"
+                  :for="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
+                >
+                  <input
+                    :id="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
+                    type="checkbox"
+                    :checked="getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode) === true"
+                    :disabled="payloadLoading"
+                    :aria-label="parameter.parameterName || parameter.parameterCode"
+                    data-frontline-boolean-parameter
+                    @change="updateProductionDeviceBooleanParameter(activeProductionDevice.key, parameter.parameterCode, $event)"
+                  />
+                  <span aria-hidden="true">✓</span>
+                  <em>
+                    {{ getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode) === true ? '已选' : '未选' }}
+                  </em>
+                </label>
                 <input
                   v-if="isNumericProductionParameter(parameter)"
                   class="device-value"
@@ -854,37 +934,71 @@
                 <span v-if="isNumericProductionParameter(parameter)" class="device-unit">
                   {{ parameter.unit || '' }}
                 </span>
+                </div>
+              </template>
+            </div>
+            <div
+              class="frontline-production-clearance-confirmations"
+              data-production-clearance-confirmations
+              aria-label="清场确认"
+            >
+              <div
+                v-for="confirmation in FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS"
+                :key="confirmation.key"
+                class="frontline-production-clearance-confirmation"
+              >
+                <button
+                  type="button"
+                  class="frontline-production-clearance-label"
+                  data-production-clearance-detail-trigger
+                  :aria-label="`${confirmation.label}完整说明`"
+                  @click="openProductionClearanceConfirmationDetail(confirmation.key)"
+                >
+                  <span>{{ confirmation.label }}</span>
+                  <small>详情</small>
+                </button>
+                <label class="frontline-production-clearance-checkbox">
+                  <input
+                    v-model="productionClearanceConfirmationDraft[confirmation.key]"
+                    type="checkbox"
+                    data-production-clearance-checkbox
+                    :disabled="payloadLoading"
+                    :aria-label="`${confirmation.label}是否确认`"
+                  />
+                  <span aria-hidden="true">✓</span>
+                  <em>已选</em>
+                </label>
               </div>
             </div>
           </section>
-        </main>
 
-        <footer class="frontline-production-submit-bar bottom">
-          <button
-            class="frontline-production-reset-button minor-btn"
-            type="button"
-            :disabled="payloadLoading || productionSubmitSuccessOpen || productionSubmitFailureOpen"
-            @click="handleResetProduction"
-          >
-            重填
-          </button>
-          <button
-            class="frontline-production-submit-button submit-btn"
-            type="button"
-            :disabled="isSubmitBlocked"
-            @click="handleValidate"
-          >
-            <span>
-              {{
-                payloadLoading
-                  ? '提交中'
-                  : submitConfirmationOpen
-                    ? '等待确认'
-                    : '正式提交'
-              }}
-            </span>
-          </button>
-        </footer>
+          <footer class="frontline-production-submit-bar bottom">
+            <button
+              class="frontline-production-reset-button minor-btn"
+              type="button"
+              :disabled="payloadLoading || productionSubmitSuccessOpen || productionSubmitFailureOpen"
+              @click="handleResetProduction"
+            >
+              重填
+            </button>
+            <button
+              class="frontline-production-submit-button submit-btn"
+              type="button"
+              :disabled="isSubmitBlocked"
+              @click="handleValidate"
+            >
+              <span>
+                {{
+                  payloadLoading
+                    ? '提交中'
+                    : submitConfirmationOpen
+                      ? '等待确认'
+                      : '正式提交'
+                }}
+              </span>
+            </button>
+          </footer>
+        </main>
       </div>
     </div>
 
@@ -1002,6 +1116,35 @@
     </div>
 
     <div
+      v-if="activeProductionClearanceConfirmation && !isPqcMode"
+      class="frontline-production-clearance-confirmation-modal"
+      data-production-clearance-confirmation-dialog
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="frontlineProductionClearanceConfirmationTitle"
+      @click.self="closeProductionClearanceConfirmationDetail"
+    >
+      <section class="frontline-production-clearance-confirmation-dialog">
+        <header class="frontline-production-clearance-confirmation-header">
+          <span>清场确认</span>
+          <h3 id="frontlineProductionClearanceConfirmationTitle">
+            {{ activeProductionClearanceConfirmation.label }}
+          </h3>
+        </header>
+        <p data-production-clearance-confirmation-description>
+          {{ activeProductionClearanceConfirmation.description }}
+        </p>
+        <button
+          type="button"
+          data-production-clearance-confirmation-close
+          @click="closeProductionClearanceConfirmationDetail"
+        >
+          知道了
+        </button>
+      </section>
+    </div>
+
+    <div
       v-if="activePicker && isPqcMode"
       class="frontline-picker picker"
       data-pqc-process-picker
@@ -1108,10 +1251,12 @@ import {
   type FrontlineDeviceRouteProcessVO,
   type FrontlineEmployeeCandidateVO,
   type FrontlinePqcEquipmentOptionVO,
+  type FrontlinePqcProcessVO,
   type FrontlinePqcItemResultSubmitReqVO,
   type FrontlinePqcInspectionSubmitRespVO,
   type FrontlinePqcInspectionSubmitReqVO,
   type FrontlinePqcTaskOptionVO,
+  type FrontlineRuntimeDeviceVO,
   type FrontlineRuntimeDeviceParameterVO,
   type ProFrontlineDeviceParameterReadingReqVO,
   type ProFrontlineFeedbackSubmitReqVO,
@@ -1143,18 +1288,51 @@ import {
 } from './frontlineDeviceEmployeeContext'
 
 type PickerType = 'order' | 'process' | 'employee'
-type InspectionType = 'FIRST' | 'PATROL'
+type InspectionType = 'FIRST' | 'PATROL' | 'FINAL'
 type PqcInspectionItemKey = string
 type PqcChoiceResult = '合格' | '不合格'
 type PqcQuantityField = 'inspectionQuantity' | 'scrapQuantity'
 type ProductionDefectKey = string
 type ProductionDeviceParameterKey = string
-type ProductionDeviceParameterDraft = Record<ProductionDeviceParameterKey, number | string | undefined>
+type ProductionDeviceParameterDraft = Record<ProductionDeviceParameterKey, number | string | boolean | undefined>
+type ProductionDeviceMeteringValidityDraft = Record<string, boolean | undefined>
+type ProductionClearanceConfirmationKey = 'workplace' | 'validity' | 'material' | 'cleaning'
 
 const PQC_INSPECTION_TYPE_LABELS: Record<InspectionType, string> = {
   FIRST: '首检',
-  PATROL: '巡检'
+  PATROL: '巡检',
+  FINAL: '末检'
 }
+
+const FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS: readonly ProductionClearanceConfirmationItem[] = [
+  {
+    key: 'workplace',
+    label: '清场',
+    description:
+      '工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具；墙面、地面、天花板、灯具等环境清洁应符合《INT/PD/6.4工作环境控制程序》。具体清场标准及内容依据《INT/GL/7.5.8-03清场管理制度》执行。'
+  },
+  {
+    key: 'validity',
+    label: '效期',
+    description: '是否在计量效期内。'
+  },
+  {
+    key: 'material',
+    label: '物料',
+    description: '所有的物料转移到指定的区域存放并标识。'
+  },
+  {
+    key: 'cleaning',
+    label: '清洁',
+    description:
+      '按《INT/GL/7.5.8-03清场管理制度》、《INT/PD/6.4工作环境控制程序》规程执行清洁设备、工器具及环境。'
+  }
+]
+
+const createDefaultProductionClearanceConfirmations = () =>
+  Object.fromEntries(
+    FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS.map((confirmation) => [confirmation.key, true])
+  ) as Record<ProductionClearanceConfirmationKey, boolean>
 
 interface FrontlinePickerOption {
   key: string
@@ -1178,6 +1356,35 @@ interface ProductionDeviceCard {
   deviceName?: string
   label: string
   parameters: FrontlineRuntimeDeviceParameterVO[]
+}
+
+interface ProductionSelfCheckNarrative {
+  title: string
+  standard: string
+  inspectionMethods: readonly string[]
+}
+
+const PRESSURE_PUMP_DETECTION_DEVICE_CODE = 'G01143'
+const PRESSURE_PUMP_DETECTION_PROCESS_KEYWORD = '检测'
+const PRODUCTION_DEVICE_METERING_VALIDITY_PARAMETER_CODES = new Set([
+  'METERING_VALID',
+  'METERING_VALIDITY_WITHIN_PERIOD'
+])
+const PRESSURE_PUMP_DETECTION_SELF_CHECK_NARRATIVE: ProductionSelfCheckNarrative = {
+  title: '生产自检',
+  standard: '压力泵整体外观无黑点、杂质、花纹、划痕等外观缺陷；气密性检测合格。',
+  inspectionMethods: [
+    '外观检测方法：对组装完成的球囊扩张压力泵产品进行外观检测，目测压力泵内无异物，仔细检测。',
+    '气密性检测方法：',
+    '1、低压检验：将整体组装检测合格的压力泵装在气密性检测工装上，通过长脚接头接上8atm气源，打开气源，观察压力表指针，应可以匀速指示到测试压力值，不应有升压缓慢或直接从低压跳到8atm现象，撤掉气源后，压力表应可以迅速回零；',
+    '高压检测：将低压检测合格的压力泵装到气密性检测工装上，通用长脚接头接上30atm气源，打开气源，观察压力表应能匀速上升到指定压力，到达最大压力后10s内压力表指针应无跳压、降压的现象，撤掉气源后，压力表应可以迅速回零'
+  ]
+}
+
+interface ProductionClearanceConfirmationItem {
+  key: ProductionClearanceConfirmationKey
+  label: string
+  description: string
 }
 
 interface PqcInspectionItem {
@@ -1208,7 +1415,7 @@ interface PqcItemSelection {
   selectedEquipmentNumber?: string
 }
 
-type FrontlinePqcTaskProcess = FrontlineDeviceRouteProcessVO & {
+type FrontlinePqcTaskProcess = FrontlinePqcProcessVO & {
   activeOrderId: number
   pqcTaskId: number
   regulationVersionId: number
@@ -1217,7 +1424,7 @@ type FrontlinePqcTaskProcess = FrontlineDeviceRouteProcessVO & {
   shiftCode: string
   roundNo: number
   plannedInspectionQuantity: number
-  inspectionItems: NonNullable<FrontlineDeviceRouteProcessVO['inspectionItems']>
+  inspectionItems: NonNullable<FrontlinePqcProcessVO['inspectionItems']>
 }
 
 type PqcTaskOptionSnapshot = FrontlinePqcTaskOptionVO & {
@@ -1285,6 +1492,11 @@ const productionDefectDraft = reactive<Record<ProductionDefectKey, number>>({})
 
 const selectedProductionDeviceKey = ref<string>()
 const deviceParameterDraft = reactive<Record<string, ProductionDeviceParameterDraft>>({})
+const deviceMeteringValidityDraft = reactive<ProductionDeviceMeteringValidityDraft>({})
+const productionClearanceConfirmationDraft = reactive<Record<ProductionClearanceConfirmationKey, boolean>>(
+  createDefaultProductionClearanceConfirmations()
+)
+const activeProductionClearanceConfirmationKey = ref<ProductionClearanceConfirmationKey>()
 
 const pqcDraft = reactive({
   inspectionType: undefined as InspectionType | undefined,
@@ -1373,12 +1585,20 @@ const pqcInspectionQuantity = computed(() =>
 const normalizePqcInspectionItemName = (itemName?: string) =>
   itemName?.trim() || ''
 
+const isFrontlinePqcProcess = (
+  process?: FrontlineDeviceRouteProcessVO | FrontlinePqcProcessVO
+): process is FrontlinePqcProcessVO => Boolean(process && 'qaProcessId' in process)
+
+const isFrontlineProductionProcess = (
+  process?: FrontlineDeviceRouteProcessVO | FrontlinePqcProcessVO
+): process is FrontlineDeviceRouteProcessVO => Boolean(process && 'routeProcessId' in process)
+
 const hasPqcTaskOptionSnapshot = (
   option?: FrontlinePqcTaskOptionVO
 ): option is PqcTaskOptionSnapshot => Boolean(
   option?.pqcTaskId &&
   option.regulationVersionId &&
-  (option.inspectionType === 'FIRST' || option.inspectionType === 'PATROL') &&
+  ['FIRST', 'PATROL', 'FINAL'].includes(option.inspectionType) &&
   option.businessDate &&
   option.shiftCode &&
   option.roundNo &&
@@ -1386,12 +1606,14 @@ const hasPqcTaskOptionSnapshot = (
   option.inspectionItems?.length
 )
 
-const getPqcTaskOptions = (process?: FrontlineDeviceRouteProcessVO) =>
+const getPqcTaskOptions = (process?: FrontlinePqcProcessVO) =>
   (process?.pqcTaskOptions || []).filter(hasPqcTaskOptionSnapshot)
 
 const pqcInspectionTypeTabs = computed<{ type: InspectionType; label: string }[]>(() => {
   const seenTypes = new Set<InspectionType>()
-  return getPqcTaskOptions(deviceState.selectedProcess)
+  return getPqcTaskOptions(isFrontlinePqcProcess(deviceState.selectedProcess)
+    ? deviceState.selectedProcess
+    : undefined)
     .reduce<{ type: InspectionType; label: string }[]>((tabs, option) => {
       if (seenTypes.has(option.inspectionType)) {
         return tabs
@@ -1406,11 +1628,11 @@ const pqcInspectionTypeTabs = computed<{ type: InspectionType; label: string }[]
 })
 
 const getProcessPqcTaskSnapshot = (
-  process?: FrontlineDeviceRouteProcessVO
+  process?: FrontlinePqcProcessVO
 ): PqcTaskOptionSnapshot | undefined => {
   if (!process?.pqcTaskId ||
     !process.regulationVersionId ||
-    (process.inspectionType !== 'FIRST' && process.inspectionType !== 'PATROL') ||
+    !['FIRST', 'PATROL', 'FINAL'].includes(process.inspectionType || '') ||
     !process.businessDate ||
     !process.shiftCode ||
     !process.roundNo ||
@@ -1418,11 +1640,13 @@ const getProcessPqcTaskSnapshot = (
     !process.inspectionItems?.length) {
     return undefined
   }
+  const inspectionType = resolvePqcInspectionType(process.inspectionType)
   return {
     pqcTaskId: process.pqcTaskId,
     regulationVersionId: process.regulationVersionId,
+    qaProcessId: process.qaProcessId,
     finalInspectionApplicable: process.finalInspectionApplicable,
-    inspectionType: process.inspectionType,
+    inspectionType,
     businessDate: process.businessDate,
     shiftCode: process.shiftCode,
     roundNo: process.roundNo,
@@ -1433,7 +1657,7 @@ const getProcessPqcTaskSnapshot = (
 
 const activePqcTaskOption = computed<PqcTaskOptionSnapshot | undefined>(() => {
   const process = deviceState.selectedProcess
-  if (!process) {
+  if (!isFrontlinePqcProcess(process)) {
     return undefined
   }
   const taskOptions = getPqcTaskOptions(process)
@@ -1513,7 +1737,7 @@ const activePqcMethodItem = computed(() =>
 )
 
 const pqcVisibleRounds = computed(() => {
-  if (!deviceState.selectedProcess || !pqcDraft.inspectionType) {
+  if (!isFrontlinePqcProcess(deviceState.selectedProcess) || !pqcDraft.inspectionType) {
     return []
   }
   return getPqcTaskOptions(deviceState.selectedProcess)
@@ -1600,15 +1824,25 @@ const configuredDefectReasons = computed<ProductionDefectOption[]>(() =>
   }))
 )
 
+const resolveProductionDeviceTabLabel = (
+  device: Pick<FrontlineRuntimeDeviceVO, 'deviceCode'>
+) => {
+  const deviceCode = device.deviceCode?.trim()
+  if (!deviceCode) {
+    throw new Error('当前设备缺少正式设备编号，不能渲染填设备卡片')
+  }
+  return deviceCode
+}
+
 const configuredDeviceCards = computed<ProductionDeviceCard[]>(() =>
   (deviceState.runtimeConfig?.devices || [])
     .filter((device) => Number(device.deviceId || 0) > 0)
-    .map((device, index) => ({
+    .map((device) => ({
       key: String(device.deviceId),
       deviceId: device.deviceId,
       deviceCode: device.deviceCode,
       deviceName: device.deviceName,
-      label: device.deviceName || device.deviceCode || `设备 ${index + 1}`,
+      label: resolveProductionDeviceTabLabel(device),
       parameters: device.parameters || []
     }))
 )
@@ -1619,20 +1853,171 @@ const isTextStandardParameter = (parameter: FrontlineRuntimeDeviceParameterVO) =
 const isSelectParameter = (parameter: FrontlineRuntimeDeviceParameterVO) =>
   parameter.valueType === 'SELECT'
 
+const isBooleanParameter = (parameter: FrontlineRuntimeDeviceParameterVO) =>
+  parameter.valueType === 'BOOLEAN'
+
+const isProductionDeviceMeteringValidityParameter = (
+  parameter: FrontlineRuntimeDeviceParameterVO
+) =>
+  PRODUCTION_DEVICE_METERING_VALIDITY_PARAMETER_CODES.has(
+    parameter.parameterCode.trim().toUpperCase()
+  )
+
 const isNumericProductionParameter = (parameter: FrontlineRuntimeDeviceParameterVO) =>
-  !isTextStandardParameter(parameter) && !isSelectParameter(parameter)
+  !isTextStandardParameter(parameter) &&
+  !isSelectParameter(parameter) &&
+  !isBooleanParameter(parameter)
+
+const resolveProductionBooleanParameterDefault = (
+  parameter: FrontlineRuntimeDeviceParameterVO
+) => {
+  if (parameter.defaultValue === undefined || parameter.defaultValue === null) {
+    throw new Error(`BOOLEAN 设备参数缺少 0/1 默认值：${parameter.parameterCode}`)
+  }
+  const defaultValue = Number(parameter.defaultValue)
+  if (defaultValue !== 0 && defaultValue !== 1) {
+    throw new Error(`BOOLEAN 设备参数缺少 0/1 默认值：${parameter.parameterCode}`)
+  }
+  return defaultValue === 1
+}
 
 const visibleDeviceCards = computed(() => configuredDeviceCards.value)
+
+const getProductionDeviceMeteringValidityParameters = (device?: ProductionDeviceCard) =>
+  (device?.parameters || []).filter(isProductionDeviceMeteringValidityParameter)
+
+const syncProductionDeviceMeteringValidityParameterDraft = (
+  deviceKey: string,
+  checked: boolean
+) => {
+  const device = visibleDeviceCards.value.find((item) => item.key === deviceKey)
+  if (!device) {
+    return
+  }
+  if (!deviceParameterDraft[deviceKey]) {
+    deviceParameterDraft[deviceKey] = {}
+  }
+  const params = deviceParameterDraft[deviceKey]
+  for (const parameter of getProductionDeviceMeteringValidityParameters(device)) {
+    params[parameter.parameterCode] = checked
+  }
+}
+
+const syncProductionDeviceMeteringValidityDraft = (devices: ProductionDeviceCard[]) => {
+  const visibleKeys = new Set(devices.map((device) => device.key))
+  for (const deviceKey of Object.keys(deviceMeteringValidityDraft)) {
+    if (!visibleKeys.has(deviceKey)) {
+      delete deviceMeteringValidityDraft[deviceKey]
+    }
+  }
+  for (const device of devices) {
+    if (deviceMeteringValidityDraft[device.key] === undefined) {
+      deviceMeteringValidityDraft[device.key] = true
+    }
+    syncProductionDeviceMeteringValidityParameterDraft(
+      device.key,
+      deviceMeteringValidityDraft[device.key] !== false
+    )
+  }
+}
+
+const syncProductionDeviceParameterDraft = (devices: ProductionDeviceCard[]) => {
+  const visibleKeys = new Set(devices.map((device) => device.key))
+  for (const deviceKey of Object.keys(deviceParameterDraft)) {
+    if (!visibleKeys.has(deviceKey)) {
+      delete deviceParameterDraft[deviceKey]
+    }
+  }
+  for (const device of devices) {
+    if (!deviceParameterDraft[device.key]) {
+      deviceParameterDraft[device.key] = {}
+    }
+    const params = deviceParameterDraft[device.key]
+    for (const parameter of getProductionSubmittableParameters(device)) {
+      if (!parameter.parameterCode || isTextStandardParameter(parameter)) {
+        continue
+      }
+      if (params[parameter.parameterCode] !== undefined) {
+        continue
+      }
+      if (isSelectParameter(parameter)) {
+        const defaultText = parameter.defaultText?.trim()
+        if (defaultText) {
+          params[parameter.parameterCode] = defaultText
+        }
+        continue
+      }
+      if (isBooleanParameter(parameter)) {
+        params[parameter.parameterCode] = resolveProductionBooleanParameterDefault(parameter)
+        continue
+      }
+      if (parameter.defaultValue !== undefined && parameter.defaultValue !== null) {
+        params[parameter.parameterCode] = normalizeProductionParameter(parameter, parameter.defaultValue)
+      }
+    }
+  }
+}
+
+const resetProductionDeviceParameterDraft = () => {
+  for (const deviceKey of Object.keys(deviceParameterDraft)) {
+    delete deviceParameterDraft[deviceKey]
+  }
+  syncProductionDeviceParameterDraft(visibleDeviceCards.value)
+}
+
+const resetProductionDeviceMeteringValidityDraft = () => {
+  for (const deviceKey of Object.keys(deviceMeteringValidityDraft)) {
+    delete deviceMeteringValidityDraft[deviceKey]
+  }
+  syncProductionDeviceMeteringValidityDraft(visibleDeviceCards.value)
+}
 
 const activeProductionDevice = computed(() =>
   visibleDeviceCards.value.find((device) => device.key === selectedProductionDeviceKey.value) ||
   visibleDeviceCards.value[0]
 )
 
+const isProductionSelfCheckNarrativeDevice = (device?: ProductionDeviceCard) =>
+  Boolean(
+    device?.deviceCode?.trim() === PRESSURE_PUMP_DETECTION_DEVICE_CODE &&
+    selectedProcessLabel.value.includes(PRESSURE_PUMP_DETECTION_PROCESS_KEYWORD)
+  )
+
+const activeProductionSelfCheckNarrative = computed(() =>
+  isProductionSelfCheckNarrativeDevice(activeProductionDevice.value)
+    ? PRESSURE_PUMP_DETECTION_SELF_CHECK_NARRATIVE
+    : undefined
+)
+
+const getProductionSubmittableParameters = (device?: ProductionDeviceCard) => {
+  if (!device) {
+    return []
+  }
+  if (isProductionSelfCheckNarrativeDevice(device)) {
+    return []
+  }
+  return device.parameters
+}
+
+const getProductionDeviceDetailParameters = (device?: ProductionDeviceCard) =>
+  getProductionSubmittableParameters(device).filter(
+    (parameter) => !isProductionDeviceMeteringValidityParameter(parameter)
+  )
+
+const activeProductionClearanceConfirmation = computed(() =>
+  activeProductionClearanceConfirmationKey.value
+    ? FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS.find(
+        (confirmation) => confirmation.key === activeProductionClearanceConfirmationKey.value
+      )
+    : undefined
+)
+
 const switchableProcessOptions = computed(() => {
   const seen = new Set<string>()
   return deviceState.processOptions.filter((process) => {
-    const key = `${process.routeId}-${process.routeProcessId}-${process.processId}`
+    const key = isFrontlinePqcProcess(process)
+      ? `QA-${process.regulationVersionId}-${process.qaProcessId}`
+      : `MES-${process.routeId}-${process.routeProcessId}-${process.processId}`
     if (seen.has(key)) {
       return false
     }
@@ -1678,7 +2063,9 @@ const pickerOptions = computed<FrontlinePickerOption[]>(() => {
   }
   if (activePicker.value === 'process') {
     return switchableProcessOptions.value.map((process) => ({
-      key: `${process.routeId}-${process.routeProcessId}-${process.processId}`,
+      key: isFrontlinePqcProcess(process)
+        ? `QA-${process.regulationVersionId}-${process.qaProcessId}`
+        : `MES-${process.routeId}-${process.routeProcessId}-${process.processId}`,
       label: formatProcessLabel(process),
       active: isSameProcess(process, deviceState.selectedProcess),
       onClick: () => handleSelectProcess(process)
@@ -1725,6 +2112,8 @@ watch(
   (templateCode) => {
     context.templateCode = templateCode
     Object.assign(draft.fieldValues, createFrontlineDefaultValues(templateCode))
+    resetProductionDeviceMeteringValidityDraft()
+    resetProductionClearanceConfirmations()
     payloadPreview.value = undefined
   },
   { flush: 'sync' }
@@ -1738,6 +2127,8 @@ watch(
       Object.assign(draft.fieldValues, createFrontlineDefaultValues(context.templateCode))
       payloadPreview.value = undefined
       productionSubmitDraftKey.value = createProductionSubmitDraftKey()
+      resetProductionDeviceMeteringValidityDraft()
+      resetProductionClearanceConfirmations()
       pqcSubmitResultUncertain.value = false
     }
   },
@@ -1747,39 +2138,11 @@ watch(
 watch(
   visibleDeviceCards,
   (devices) => {
-    const visibleKeys = new Set(devices.map((device) => device.key))
-    for (const deviceKey of Object.keys(deviceParameterDraft)) {
-      if (!visibleKeys.has(deviceKey)) {
-        delete deviceParameterDraft[deviceKey]
-      }
-    }
+    syncProductionDeviceParameterDraft(devices)
+    syncProductionDeviceMeteringValidityDraft(devices)
     if (!devices.length) {
       selectedProductionDeviceKey.value = undefined
       return
-    }
-    for (const device of devices) {
-      if (!deviceParameterDraft[device.key]) {
-        deviceParameterDraft[device.key] = {}
-      }
-      for (const parameter of device.parameters) {
-        if (!parameter.parameterCode || isTextStandardParameter(parameter)) {
-          continue
-        }
-        const params = deviceParameterDraft[device.key]
-        if (params[parameter.parameterCode] !== undefined) {
-          continue
-        }
-        if (isSelectParameter(parameter)) {
-          const defaultText = parameter.defaultText?.trim()
-          if (defaultText) {
-            params[parameter.parameterCode] = defaultText
-          }
-          continue
-        }
-        if (parameter.defaultValue !== undefined && parameter.defaultValue !== null) {
-          params[parameter.parameterCode] = normalizeProductionParameter(parameter, parameter.defaultValue)
-        }
-      }
     }
     if (!devices.some((device) => device.key === selectedProductionDeviceKey.value)) {
       selectedProductionDeviceKey.value = devices[0].key
@@ -1978,6 +2341,27 @@ const updateProductionDeviceSelectParameter = (
   ensureProductionDeviceParameters(deviceKey)[parameterKey] = value || undefined
 }
 
+const updateProductionDeviceBooleanParameter = (
+  deviceKey: string,
+  parameterKey: ProductionDeviceParameterKey,
+  event: Event
+) => {
+  ensureProductionDeviceParameters(deviceKey)[parameterKey] =
+    (event.target as HTMLInputElement).checked
+}
+
+const isProductionDeviceMeteringValid = (deviceKey: string) =>
+  deviceMeteringValidityDraft[deviceKey] !== false
+
+const updateProductionDeviceMeteringValidity = (
+  deviceKey: string,
+  event: Event
+) => {
+  const checked = (event.target as HTMLInputElement).checked
+  deviceMeteringValidityDraft[deviceKey] = checked
+  syncProductionDeviceMeteringValidityParameterDraft(deviceKey, checked)
+}
+
 const adjustProductionDeviceParameter = (
   deviceKey: string,
   parameter: FrontlineRuntimeDeviceParameterVO,
@@ -1988,14 +2372,47 @@ const adjustProductionDeviceParameter = (
   params[parameterKey] = normalizeProductionParameter(parameter, Number(params[parameterKey] || 0) + delta)
 }
 
+const openProductionClearanceConfirmationDetail = (
+  key: ProductionClearanceConfirmationKey
+) => {
+  activeProductionClearanceConfirmationKey.value = key
+}
+
+const closeProductionClearanceConfirmationDetail = () => {
+  activeProductionClearanceConfirmationKey.value = undefined
+}
+
+const resetProductionClearanceConfirmations = () => {
+  for (const confirmation of FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS) {
+    productionClearanceConfirmationDraft[confirmation.key] = true
+  }
+  activeProductionClearanceConfirmationKey.value = undefined
+}
+
+const buildProductionClearanceConfirmationPayload = () =>
+  FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS.map((confirmation) => ({
+    key: confirmation.key,
+    label: confirmation.label,
+    confirmed: productionClearanceConfirmationDraft[confirmation.key] === true,
+    description: confirmation.description
+  }))
+
+const buildProductionDeviceMeteringValidityPayload = () =>
+  visibleDeviceCards.value.map((device) => ({
+    deviceId: device.deviceId,
+    deviceCode: device.deviceCode,
+    deviceName: device.deviceName,
+    inMeteringValidityPeriod: isProductionDeviceMeteringValid(device.key)
+  }))
+
 const resetProductionSubmissionDraft = () => {
   productionDraft.outputQuantity = undefined
   for (const defect of configuredDefectReasons.value) {
     productionDefectDraft[defect.key] = 0
   }
-  for (const deviceKey of Object.keys(deviceParameterDraft)) {
-    delete deviceParameterDraft[deviceKey]
-  }
+  resetProductionDeviceParameterDraft()
+  resetProductionDeviceMeteringValidityDraft()
+  resetProductionClearanceConfirmations()
   Object.assign(draft.fieldValues, createFrontlineDefaultValues(context.templateCode))
   payloadPreview.value = undefined
   productionSubmitDraftKey.value = createProductionSubmitDraftKey()
@@ -2028,9 +2445,10 @@ const resolvePqcNumericStep = (precision?: number, resultType?: string) => {
 }
 
 const hasPqcTaskSnapshot = (
-  process?: FrontlineDeviceRouteProcessVO
+  process?: FrontlineDeviceRouteProcessVO | FrontlinePqcProcessVO
 ): process is FrontlinePqcTaskProcess => Boolean(
-  process?.activeOrderId &&
+  isFrontlinePqcProcess(process) &&
+  process.activeOrderId &&
   process?.pqcTaskId &&
   process?.regulationVersionId &&
   process?.inspectionType &&
@@ -2046,30 +2464,33 @@ const isPqcInspectionQuantityLocked = computed(() =>
 )
 
 const resolvePqcInspectionType = (inspectionType?: string): InspectionType => {
-  if (inspectionType === 'FIRST' || inspectionType === 'PATROL') {
+  if (inspectionType === 'FIRST' || inspectionType === 'PATROL' || inspectionType === 'FINAL') {
     return inspectionType
   }
   throw new Error(`PQC任务检验类型${inspectionType || '空'}无效。`)
 }
 
 const findPqcTaskOption = (
-  process: FrontlineDeviceRouteProcessVO,
+  process: FrontlinePqcProcessVO,
   inspectionType: InspectionType
 ) => getPqcTaskOptions(process).find((option) => option.inspectionType === inspectionType)
 
 const formatPqcTaskOptionLabel = (option: PqcTaskOptionSnapshot) =>
   option.inspectionType === 'FIRST'
     ? '首检'
-    : `第 ${option.roundNo} 次`
+    : option.inspectionType === 'FINAL'
+      ? '末检'
+      : `第 ${option.roundNo} 次`
 
 const withPqcTaskOption = (
-  process: FrontlineDeviceRouteProcessVO,
+  process: FrontlinePqcProcessVO,
   option?: PqcTaskOptionSnapshot
-): FrontlineDeviceRouteProcessVO => option
+): FrontlinePqcProcessVO => option
   ? {
       ...process,
       pqcTaskId: option.pqcTaskId,
       regulationVersionId: option.regulationVersionId,
+      qaProcessId: option.qaProcessId,
       finalInspectionApplicable: option.finalInspectionApplicable,
       inspectionType: option.inspectionType,
       businessDate: option.businessDate,
@@ -2080,15 +2501,16 @@ const withPqcTaskOption = (
     }
   : process
 
-const getDefaultPqcTaskOption = (process: FrontlineDeviceRouteProcessVO) => {
+const getDefaultPqcTaskOption = (process: FrontlinePqcProcessVO) => {
   const taskOptions = getPqcTaskOptions(process)
-  const currentType = process.inspectionType === 'FIRST' || process.inspectionType === 'PATROL'
+  const currentType = ['FIRST', 'PATROL', 'FINAL'].includes(process.inspectionType || '')
     ? process.inspectionType
     : undefined
   return (
     (currentType ? taskOptions.find((option) => option.inspectionType === currentType) : undefined) ||
     taskOptions.find((option) => option.inspectionType === 'FIRST') ||
-    taskOptions.find((option) => option.inspectionType === 'PATROL')
+    taskOptions.find((option) => option.inspectionType === 'PATROL') ||
+    taskOptions.find((option) => option.inspectionType === 'FINAL')
   )
 }
 
@@ -2122,7 +2544,7 @@ const clearPqcTaskOptionDraft = () => {
 
 const applyPqcTaskOptionToSelectedProcess = (option: PqcTaskOptionSnapshot) => {
   const process = deviceState.selectedProcess
-  if (!process) {
+  if (!isFrontlinePqcProcess(process)) {
     const error = new Error('请先选择PQC工序。')
     message.error(error.message)
     throw error
@@ -2246,7 +2668,7 @@ const closePqcMethodDialog = () => {
   activePqcMethodKey.value = undefined
 }
 
-const applyPqcTaskSnapshotToDraft = (process: FrontlineDeviceRouteProcessVO) => {
+const applyPqcTaskSnapshotToDraft = (process: FrontlinePqcProcessVO) => {
   const taskProcess = withPqcTaskOption(process, getDefaultPqcTaskOption(process))
   if (deviceState.selectedProcess === process) {
     deviceState.selectedProcess = taskProcess
@@ -2262,7 +2684,7 @@ const applyPqcTaskSnapshotToDraft = (process: FrontlineDeviceRouteProcessVO) => 
 
 const getPqcPieceStateKey = (itemKey: PqcInspectionItemKey) => {
   const process = deviceState.selectedProcess
-  if (!process || !pqcDraft.inspectionType || !pqcDraft.patrolRound) {
+  if (!isFrontlinePqcProcess(process) || !pqcDraft.inspectionType || !pqcDraft.patrolRound) {
     return undefined
   }
   return [
@@ -2270,8 +2692,7 @@ const getPqcPieceStateKey = (itemKey: PqcInspectionItemKey) => {
     process.pqcTaskId,
     process.regulationVersionId,
     process.routeId,
-    process.routeProcessId,
-    process.processId,
+    process.qaProcessId,
     pqcDraft.inspectionType,
     pqcDraft.patrolRound,
     itemKey
@@ -2540,13 +2961,13 @@ const updatePqcPieceDraftValue = (index: number, event: Event) => {
 
 const selectPqcInspectionType = (inspectionType: InspectionType) => {
   const process = deviceState.selectedProcess
-  if (!process) {
+  if (!isFrontlinePqcProcess(process)) {
     message.error('请先选择PQC工序。')
     return
   }
   const option = findPqcTaskOption(process, inspectionType)
   if (!option) {
-    message.error(`当前工序缺少${inspectionType === 'FIRST' ? '首检' : '巡检'}PQC任务。`)
+    message.error(`当前工序缺少${PQC_INSPECTION_TYPE_LABELS[inspectionType]}PQC任务。`)
     return
   }
   if (activePqcTaskOption.value?.pqcTaskId === option.pqcTaskId) {
@@ -2557,7 +2978,8 @@ const selectPqcInspectionType = (inspectionType: InspectionType) => {
 
 const selectPqcInspectionTaskOption = (pqcTaskId: number) => {
   const process = deviceState.selectedProcess
-  const option = getPqcTaskOptions(process).find((taskOption) => taskOption.pqcTaskId === pqcTaskId)
+  const option = getPqcTaskOptions(isFrontlinePqcProcess(process) ? process : undefined)
+    .find((taskOption) => taskOption.pqcTaskId === pqcTaskId)
   if (!option) {
     message.error('当前工序缺少对应的PQC任务。')
     return
@@ -2748,7 +3170,10 @@ const preloadProductionRuntimeCacheForFullscreen = async () => {
   if (isPqcMode.value) {
     return
   }
-  await preloadFrontlineProductionRuntimeCache(deviceState, switchableProcessOptions.value)
+  await preloadFrontlineProductionRuntimeCache(
+    deviceState,
+    switchableProcessOptions.value.filter(isFrontlineProductionProcess)
+  )
 }
 
 const handleProductionFullscreenToggle = async () => {
@@ -2766,13 +3191,20 @@ const handleProductionFullscreenToggle = async () => {
 }
 
 const findInitialProcess = (
-  processes: FrontlineDeviceRouteProcessVO[] = switchableProcessOptions.value
+  processes: Array<FrontlineDeviceRouteProcessVO | FrontlinePqcProcessVO> = switchableProcessOptions.value
 ) => {
+  if (isPqcMode.value) {
+    const qaProcesses = processes.filter(isFrontlinePqcProcess)
+    return qaProcesses.find((process) =>
+      Boolean(getDefaultPqcTaskOption(process)) || hasPqcTaskSnapshot(process)
+    ) || qaProcesses[0]
+  }
+  const productionProcesses = processes.filter(isFrontlineProductionProcess)
   const requestedRouteId = context.routeId
   const requestedRouteProcessId = context.routeProcessId
   const requestedProcessId = context.processId
   if (requestedRouteId || requestedRouteProcessId || requestedProcessId) {
-    const matchedProcess = processes.find((process) =>
+    const matchedProcess = productionProcesses.find((process) =>
       (!requestedRouteId || process.routeId === requestedRouteId) &&
       (!requestedRouteProcessId || process.routeProcessId === requestedRouteProcessId) &&
       (!requestedProcessId || process.processId === requestedProcessId)
@@ -2781,11 +3213,7 @@ const findInitialProcess = (
       return matchedProcess
     }
   }
-  const fallbackProcess = isPqcMode.value
-    ? processes.find((process) => Boolean(getDefaultPqcTaskOption(process)) || hasPqcTaskSnapshot(process)) ||
-      processes[0]
-    : processes[0]
-  return fallbackProcess
+  return productionProcesses[0]
 }
 
 const isCurrentLoginEmployee = (employee?: FrontlineEmployeeCandidateVO) => {
@@ -2844,7 +3272,7 @@ const handleSelectActiveOrder = async (activeOrder: FrontlineActiveOrderVO) => {
   pqcSubmitResultUncertain.value = false
   pqcSignatureDialogVisible.value = false
   pqcSignaturePassword.value = ''
-  let processes: FrontlineDeviceRouteProcessVO[]
+  let processes: FrontlinePqcProcessVO[]
   try {
     processes = await selectFrontlinePqcActiveOrder(deviceState, activeOrder)
   } catch (error) {
@@ -2863,17 +3291,25 @@ const handleSelectActiveOrder = async (activeOrder: FrontlineActiveOrderVO) => {
   }
 }
 
-const handleSelectProcess = async (process: FrontlineDeviceRouteProcessVO) => {
+const handleSelectProcess = async (
+  process: FrontlineDeviceRouteProcessVO | FrontlinePqcProcessVO
+) => {
   const shouldClosePickerImmediately = true
   const selectionRequestId = ++processSelectionRequestId
-  const selectedProcess = isPqcMode.value
+  if (isPqcMode.value && !isFrontlinePqcProcess(process)) {
+    throw new Error('PQC只能选择QA规程工序。')
+  }
+  if (!isPqcMode.value && !isFrontlineProductionProcess(process)) {
+    throw new Error('生产填写只能选择MES工艺路线工序。')
+  }
+  const selectedProcess = isFrontlinePqcProcess(process)
     ? withPqcTaskOption(process, getDefaultPqcTaskOption(process))
     : process
   if (shouldClosePickerImmediately) {
     closePicker()
   }
 
-  if (isPqcMode.value) {
+  if (isFrontlinePqcProcess(selectedProcess)) {
     await selectFrontlinePqcProcess(deviceState, selectedProcess)
   } else {
     await selectFrontlineProcess(deviceState, selectedProcess)
@@ -2882,7 +3318,7 @@ const handleSelectProcess = async (process: FrontlineDeviceRouteProcessVO) => {
     return
   }
   applyProcessToContext(selectedProcess)
-  if (isPqcMode.value) {
+  if (isFrontlinePqcProcess(selectedProcess)) {
     applyPqcTaskSnapshotToDraft(selectedProcess)
   }
   employeeTemplateCode.value = undefined
@@ -2896,6 +3332,16 @@ const handleSelectProcess = async (process: FrontlineDeviceRouteProcessVO) => {
     message.error(error.message)
     throw error
   }
+}
+
+const handleNavigateProductionProcess = async (direction: -1 | 1) => {
+  const targetProcess = direction < 0
+    ? previousProductionProcess.value
+    : nextProductionProcess.value
+  if (!targetProcess || isProductionProcessNavigationBlocked.value) {
+    return
+  }
+  await handleSelectProcess(targetProcess)
 }
 
 const handleSelectEmployee = async (employee: FrontlineEmployeeCandidateVO) => {
@@ -2937,13 +3383,18 @@ const assertProductionSubmissionReady = () => {
   if (!device) {
     return
   }
-  const missingParameters = device.parameters
+  const missingParameters = getProductionSubmittableParameters(device)
     .filter((parameter) => !isTextStandardParameter(parameter))
-    .filter((parameter) =>
-      toFiniteProductionParameterNumber(
-        getProductionDeviceParameter(device.key, parameter.parameterCode)
-      ) === undefined
-    )
+    .filter((parameter) => {
+      const value = getProductionDeviceParameter(device.key, parameter.parameterCode)
+      if (isBooleanParameter(parameter)) {
+        return typeof value !== 'boolean'
+      }
+      if (isSelectParameter(parameter)) {
+        return typeof value !== 'string' || !value.trim()
+      }
+      return toFiniteProductionParameterNumber(value) === undefined
+    })
     .map((parameter) => parameter.parameterName || parameter.parameterCode)
   if (missingParameters.length) {
     throw new Error(`请填写设备参数：${missingParameters.join('、')}`)
@@ -2953,17 +3404,23 @@ const assertProductionSubmissionReady = () => {
 const buildProductionFormalSubmitConfirmation = () => {
   const device = activeProductionDevice.value
   const parameterSummary = device
-    ? device.parameters.map((parameter) => {
+    ? getProductionSubmittableParameters(device).map((parameter) => {
         const label = parameter.parameterName || parameter.parameterCode
         if (isTextStandardParameter(parameter)) {
           return `${label}=${parameter.standardText || '未配置'}`
         }
         const value = getProductionDeviceParameter(device.key, parameter.parameterCode)
+        if (isBooleanParameter(parameter)) {
+          return `${label}=${value === true ? '是' : '否'}`
+        }
         const status = resolveProductionParameterStatus(value, parameter)
         const statusLabel = status === 'NORMAL' ? '' : '（参数异常）'
         return `${label}=${value}${parameter.unit || ''}${statusLabel}`
       }).join('、')
     : ''
+  const clearanceSummary = buildProductionClearanceConfirmationPayload()
+    .map((confirmation) => `${confirmation.label}=${confirmation.confirmed ? '是' : '否'}`)
+    .join('、')
   return [
     `生产订单：${productionOrderLabel.value}`,
     `工序：${selectedProcessLabel.value}`,
@@ -2971,7 +3428,12 @@ const buildProductionFormalSubmitConfirmation = () => {
     `完成数量：${productionDraft.outputQuantity}件`,
     `损耗数量：${productionScrapQuantity.value}件`,
     `设备：${device?.label || '无设备'}`,
-    `设备参数：${parameterSummary || (device ? '无数值参数' : '无设备参数')}`,
+    `设备参数：${
+      activeProductionSelfCheckNarrative.value
+        ? '生产自检说明'
+        : parameterSummary || (device ? '无数值参数' : '无设备参数')
+    }`,
+    `清场确认：${clearanceSummary}`,
     '正式提交后不可修改，请核对无误后确认。'
   ].join('；')
 }
@@ -3139,7 +3601,7 @@ const closePqcSignatureDialog = () => {
 
 const recoverPqcSubmitReceiptAfterUncertainError = async (submitError: unknown) => {
   const process = deviceState.selectedProcess
-  if (!process?.pqcTaskId) {
+  if (!isFrontlinePqcProcess(process) || !process.pqcTaskId) {
     return false
   }
   try {
@@ -3211,7 +3673,7 @@ const assertFormalPayloadContext = () => {
   if (!context.routeId) {
     missingFields.push('路线')
   }
-  if (!context.processId || !context.routeProcessId) {
+  if (!isPqcMode.value && (!context.processId || !context.routeProcessId)) {
     missingFields.push('工序')
   }
   if (!context.actualEmployeeId) {
@@ -3334,6 +3796,7 @@ const buildFrontlineFormalSubmitPayload = (
         entryContent: {
           fieldValues: { ...draft.fieldValues },
           defects: { ...productionDefectDraft },
+          clearanceConfirmations: buildProductionClearanceConfirmationPayload(),
           productionOrder: productionOrderLabel.value,
           process: selectedProcessLabel.value,
           employee: selectedEmployeeLabel.value
@@ -3388,9 +3851,15 @@ const buildFrontlineFormalSubmitPayload = (
 }
 
 const buildProductionDeviceParameterPayload = (deviceKey: string) => {
+  const device = visibleDeviceCards.value.find((item) => item.key === deviceKey)
   const params = deviceParameterDraft[deviceKey] || {}
+  const parameterCodes = new Set(
+    getProductionSubmittableParameters(device).map((parameter) => parameter.parameterCode)
+  )
   return Object.fromEntries(
-    Object.entries(params).filter(([, value]) => value !== undefined)
+    Object.entries(params).filter(
+      ([parameterCode, value]) => parameterCodes.has(parameterCode) && value !== undefined
+    )
   )
 }
 
@@ -3422,7 +3891,7 @@ const buildProductionDeviceParameterReadingsPayload =
     if (!device) {
       return []
     }
-    return device.parameters
+    return getProductionSubmittableParameters(device)
       .filter((parameter) => !isTextStandardParameter(parameter))
       .map<ProFrontlineDeviceParameterReadingReqVO | undefined>((parameter) => {
         const value = getProductionDeviceParameter(device.key, parameter.parameterCode)
@@ -3441,6 +3910,22 @@ const buildProductionDeviceParameterReadingsPayload =
             textValue,
             lowerLimit: parameter.lowerLimit ?? undefined,
             upperLimit: parameter.upperLimit ?? undefined,
+            parameterStatus: 'NORMAL'
+          }
+        }
+        if (isBooleanParameter(parameter)) {
+          if (typeof value !== 'boolean') {
+            throw new Error(`BOOLEAN 设备参数值无效：${parameter.parameterCode}`)
+          }
+          const booleanValue = value
+          return {
+            deviceId: device.deviceId,
+            deviceCode: device.deviceCode,
+            deviceName: device.deviceName || device.label,
+            parameterCode: parameter.parameterCode,
+            parameterName: parameter.parameterName,
+            unit: parameter.unit,
+            value: booleanValue ? 1 : 0,
             parameterStatus: 'NORMAL'
           }
         }
@@ -3468,7 +3953,7 @@ const buildProductionEquipmentParameterRulesPayload = () =>
   activeProductionDevice.value
     ? Object.fromEntries([[
       activeProductionDevice.value.label,
-      activeProductionDevice.value.parameters.map((parameter) => ({
+      getProductionSubmittableParameters(activeProductionDevice.value).map((parameter) => ({
         parameterCode: parameter.parameterCode,
         parameterName: parameter.parameterName,
         unit: parameter.unit,
@@ -3489,6 +3974,8 @@ const buildProductionStructuredRawPayload = (rawPayload: FrontlineTemplatePayloa
   lossReasonDetails: buildProductionLossDetailsPayload(),
   selectedDevice: buildProductionSelectedDevicePayload(),
   deviceParameterReadings: buildProductionDeviceParameterReadingsPayload(),
+  deviceMeteringValidity: buildProductionDeviceMeteringValidityPayload(),
+  clearanceConfirmations: buildProductionClearanceConfirmationPayload(),
   equipmentParameterRules: buildProductionEquipmentParameterRulesPayload()
 })
 
@@ -3523,7 +4010,7 @@ const buildPqcInspectionSubmitPayload = (): FrontlinePqcInspectionSubmitReqVO =>
   const activeOrder = deviceState.selectedActiveOrder
   const process = deviceState.selectedProcess
   const employee = deviceState.selectedEmployee
-  if (!process?.pqcTaskId) {
+  if (!isFrontlinePqcProcess(process) || !process.pqcTaskId) {
     throw new Error('缺少PQC任务上下文，无法提交。')
   }
   const inspectionResult = resolvePqcResult()
@@ -3533,10 +4020,9 @@ const buildPqcInspectionSubmitPayload = (): FrontlinePqcInspectionSubmitReqVO =>
     activeOrderId: process.activeOrderId,
     pqcTaskId: process.pqcTaskId,
     regulationVersionId: process.regulationVersionId,
+    qaProcessId: process.qaProcessId,
     workOrderId: activeOrder?.workOrderId,
     routeId: process.routeId,
-    routeProcessId: process.routeProcessId,
-    processId: process.processId,
     inspectionType: pqcDraft.inspectionType,
     businessDate: process.businessDate,
     shiftCode: process.shiftCode,
@@ -3618,10 +4104,12 @@ const applyActiveOrderToContext = (activeOrder: FrontlineActiveOrderVO) => {
   context.routeId = activeOrder.routeId
 }
 
-const applyProcessToContext = (process: FrontlineDeviceRouteProcessVO) => {
+const applyProcessToContext = (
+  process: FrontlineDeviceRouteProcessVO | FrontlinePqcProcessVO
+) => {
   context.routeId = process.routeId
-  context.routeProcessId = process.routeProcessId
-  context.processId = process.processId
+  context.routeProcessId = isFrontlineProductionProcess(process) ? process.routeProcessId : undefined
+  context.processId = isFrontlineProductionProcess(process) ? process.processId : undefined
 }
 
 const hydrateContextFromRoute = () => {
@@ -3678,13 +4166,20 @@ const resolveTemplateCode = (
 }
 
 const isSameProcess = (
-  left?: FrontlineDeviceRouteProcessVO,
-  right?: FrontlineDeviceRouteProcessVO
-) =>
-  Boolean(left && right) &&
-  left.routeId === right.routeId &&
-  left.routeProcessId === right.routeProcessId &&
-  left.processId === right.processId
+  left?: FrontlineDeviceRouteProcessVO | FrontlinePqcProcessVO,
+  right?: FrontlineDeviceRouteProcessVO | FrontlinePqcProcessVO
+) => {
+  if (isFrontlinePqcProcess(left) && isFrontlinePqcProcess(right)) {
+    return left.regulationVersionId === right.regulationVersionId &&
+      left.qaProcessId === right.qaProcessId
+  }
+  if (isFrontlineProductionProcess(left) && isFrontlineProductionProcess(right)) {
+    return left.routeId === right.routeId &&
+      left.routeProcessId === right.routeProcessId &&
+      left.processId === right.processId
+  }
+  return false
+}
 
 const isSameActiveOrder = (
   left?: FrontlineActiveOrderVO,
@@ -3694,6 +4189,48 @@ const isSameActiveOrder = (
   left.workOrderId === right.workOrderId &&
   left.routeId === right.routeId
 
+const selectedProductionProcessIndex = computed(() => {
+  if (isPqcMode.value || !deviceState.selectedProcess) {
+    return -1
+  }
+  return switchableProcessOptions.value.findIndex((process) =>
+    isFrontlineProductionProcess(process) && isSameProcess(process, deviceState.selectedProcess)
+  )
+})
+
+const previousProductionProcess = computed(() => {
+  const selectedIndex = selectedProductionProcessIndex.value
+  return selectedIndex > 0
+    ? switchableProcessOptions.value[selectedIndex - 1]
+    : undefined
+})
+
+const nextProductionProcess = computed(() => {
+  const selectedIndex = selectedProductionProcessIndex.value
+  return selectedIndex >= 0 && selectedIndex < switchableProcessOptions.value.length - 1
+    ? switchableProcessOptions.value[selectedIndex + 1]
+    : undefined
+})
+
+const isProductionProcessNavigationBlocked = computed(() =>
+  isPqcMode.value ||
+  payloadLoading.value ||
+  submitConfirmationOpen.value ||
+  productionSubmitSuccessOpen.value ||
+  productionSubmitFailureOpen.value ||
+  deviceState.loadingProcesses ||
+  deviceState.loadingEmployees ||
+  deviceState.loadingTemplate
+)
+
+const isProductionProcessPreviousDisabled = computed(() =>
+  isProductionProcessNavigationBlocked.value || !previousProductionProcess.value
+)
+
+const isProductionProcessNextDisabled = computed(() =>
+  isProductionProcessNavigationBlocked.value || !nextProductionProcess.value
+)
+
 const formatActiveOrderLabel = (activeOrder?: FrontlineActiveOrderVO) => {
   if (!activeOrder) {
     return '未选择'
@@ -3701,9 +4238,15 @@ const formatActiveOrderLabel = (activeOrder?: FrontlineActiveOrderVO) => {
   return activeOrder.workOrderCode || activeOrder.workOrderName || `订单 ${activeOrder.workOrderId}`
 }
 
-const formatProcessLabel = (process?: FrontlineDeviceRouteProcessVO) => {
+const formatProcessLabel = (
+  process?: FrontlineDeviceRouteProcessVO | FrontlinePqcProcessVO
+) => {
   if (!process) {
     return '未选择'
+  }
+  if (isFrontlinePqcProcess(process)) {
+    const sortText = process.qaProcessSort ? `${process.qaProcessSort}. ` : ''
+    return `${sortText}${process.qaProcessName || process.qaProcessCode || process.qaProcessId}`
   }
   const sortText = process.sort ? `${process.sort}. ` : ''
   return `${sortText}${process.processName || process.processCode || process.processId}`
@@ -3848,7 +4391,7 @@ onUnmounted(() => {
   width: 1920px;
   height: 1080px;
   box-sizing: border-box;
-  grid-template-rows: 130px 1fr 126px;
+  grid-template-rows: 130px minmax(0, 1fr);
   gap: 20px;
   padding: 28px;
   overflow: hidden;
@@ -3958,7 +4501,7 @@ onUnmounted(() => {
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-operator-screen.is-pqc .frontline-home-button,
 .frontline-operator-panel:fullscreen .frontline-operator-screen.is-pqc .frontline-home-button {
-  font-size: 28px;
+  font-size: 56px;
 }
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-fill-panel,
@@ -4045,6 +4588,92 @@ onUnmounted(() => {
   opacity: 1;
 }
 
+.frontline-production-process-nav-card {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr) 140px;
+  align-items: stretch;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: default;
+}
+
+.frontline-production-process-current {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.frontline-production-process-nav-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  padding: 0 10px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 22px;
+  background: var(--frontline-panel);
+  color: var(--frontline-ink);
+  font: inherit;
+  font-size: 112px;
+  font-weight: 900;
+  text-align: center;
+  cursor: pointer;
+}
+
+.frontline-production-process-nav-icon {
+  position: relative;
+  display: block;
+  width: 78px;
+  height: 46px;
+  color: currentColor;
+}
+
+.frontline-production-process-nav-icon::before {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  left: 10px;
+  height: 14px;
+  border-radius: 999px;
+  background: currentColor;
+  content: '';
+  transform: translateY(-50%);
+}
+
+.frontline-production-process-nav-icon::after {
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  width: 34px;
+  height: 34px;
+  border-left: 14px solid currentColor;
+  border-bottom: 14px solid currentColor;
+  content: '';
+  transform: translateY(-50%) rotate(45deg);
+  transform-origin: center;
+}
+
+.frontline-production-process-nav-icon.is-next {
+  transform: scaleX(-1);
+}
+
+.frontline-production-process-current:disabled,
+.frontline-production-process-nav-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
 .frontline-operator-top.is-pqc {
   .frontline-top-card {
     padding: 14px 16px;
@@ -4125,6 +4754,12 @@ onUnmounted(() => {
   }
 }
 
+.frontline-production-main {
+  grid-template-rows: minmax(0, 1fr) 126px;
+  column-gap: 28px;
+  row-gap: 20px;
+}
+
 .frontline-work-panel {
   display: grid;
   align-content: start;
@@ -4145,7 +4780,9 @@ onUnmounted(() => {
 }
 
 .frontline-production-quantity-panel {
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-column: 1;
+  grid-row: 1;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 16px;
 }
 
@@ -4277,52 +4914,218 @@ onUnmounted(() => {
 }
 
 .frontline-production-device-panel {
-  grid-template-rows: auto 98px 1fr;
-  gap: 18px;
+  grid-column: 2;
+  grid-row: 1 / 3;
+  grid-template-rows: 118px minmax(0, 1fr) auto;
+  gap: 12px;
   overflow: hidden;
 }
 
 .frontline-production-device-tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(var(--frontline-device-tab-count, 1), minmax(0, 1fr));
   gap: 12px;
   min-width: 0;
+}
 
-  button {
-    min-width: 0;
-    height: 98px;
-    padding: 0;
-    border: 3px solid var(--frontline-line);
-    border-radius: 20px;
-    background: #f8faf8;
-    color: var(--frontline-ink);
-    font-size: 34px;
-    font-weight: 900;
-    cursor: pointer;
+.frontline-production-device-card {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 36px;
+  min-width: 0;
+  height: 110px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 20px;
+  background: #f8faf8;
+  overflow: hidden;
 
-    &.active {
-      border-color: var(--frontline-dark);
-      background: var(--frontline-dark);
-      color: #ffffff;
-    }
+  &.active {
+    border-color: var(--frontline-dark);
   }
+}
+
+.frontline-production-device-card .device-tab {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: var(--frontline-dark);
+  color: #ffffff;
+  font-size: 30px;
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.frontline-production-device-metering-validity {
+  display: grid;
+  grid-template-columns: 18px auto;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 6px;
+  background: #ffffff;
+  color: var(--frontline-ink);
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  span {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    background: #15815f;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  em {
+    min-width: 0;
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 900;
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+
+  input:not(:checked) + span {
+    border: 2px solid #8a9490;
+    background: #ffffff;
+    color: transparent;
+  }
+
+  input:disabled + span,
+  input:disabled + span + em {
+    opacity: 0.48;
+  }
+}
+
+.frontline-production-device-card.active .frontline-production-device-metering-validity {
+  color: var(--frontline-ink);
 }
 
 .frontline-production-device-current {
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
   min-height: 0;
-  padding: 18px;
+  padding: 14px;
   border: 3px solid var(--frontline-line);
   border-radius: 24px;
   background: #fbfdfb;
+  overflow: auto;
+}
+
+.frontline-production-self-check {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 18px 20px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 18px;
+  background: #f8faf8;
+  color: var(--frontline-ink);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+
+  h3,
+  p {
+    margin: 0;
+  }
+
+  h3 {
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--frontline-line);
+    font-size: 32px;
+    font-weight: 900;
+  }
+
+  section {
+    display: grid;
+    gap: 6px;
+  }
+
+  strong {
+    font-size: 24px;
+    font-weight: 900;
+  }
+
+  p {
+    font-size: 20px;
+    font-weight: 700;
+  }
+}
+
+.frontline-production-device-boolean {
+  display: grid;
+  grid-column: 2 / -1;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 0 16px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--frontline-ink);
+  font-size: 24px;
+  font-weight: 900;
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  span {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 3px solid #15815f;
+    border-radius: 8px;
+    background: #15815f;
+    color: #ffffff;
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  em {
+    min-width: 0;
+    font-style: normal;
+    white-space: nowrap;
+  }
+
+  input:not(:checked) + span {
+    border-color: #8a9490;
+    background: #ffffff;
+    color: transparent;
+  }
+
+  input:disabled + span,
+  input:disabled + span + em {
+    opacity: 0.48;
+  }
 }
 
 .frontline-production-device-empty {
   display: grid;
-  grid-row: 2 / span 2;
+  grid-row: 1 / 3;
   place-items: center;
   min-width: 0;
   min-height: 0;
@@ -4333,6 +5136,177 @@ onUnmounted(() => {
   color: var(--frontline-ink);
   font-size: 42px;
   font-weight: 900;
+}
+
+.frontline-production-clearance-confirmations {
+  display: grid;
+  grid-row: 3;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, auto));
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  padding: 10px 12px;
+  border: 3px solid #0ea5e9;
+  border-radius: 16px;
+  background: #f7fbff;
+}
+
+.frontline-production-clearance-confirmation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.frontline-production-clearance-label {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 54px;
+  padding: 0 10px;
+  border: 2px solid var(--frontline-line);
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--frontline-ink);
+  font-size: 24px;
+  font-weight: 900;
+  cursor: pointer;
+
+  span,
+  small {
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  small {
+    color: #256d85;
+    font-size: 17px;
+    font-weight: 900;
+  }
+}
+
+.frontline-production-clearance-checkbox {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  min-width: 82px;
+  min-height: 54px;
+  padding: 0 10px;
+  border: 2px solid var(--frontline-line);
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--frontline-ink);
+  font-size: 20px;
+  font-weight: 900;
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  span {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 3px solid #15815f;
+    border-radius: 8px;
+    background: #15815f;
+    color: #ffffff;
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  em {
+    font-style: normal;
+    white-space: nowrap;
+  }
+
+  input:not(:checked) + span {
+    background: #ffffff;
+    color: transparent;
+    border-color: #8a9490;
+  }
+
+  input:disabled + span,
+  input:disabled + span + em {
+    opacity: 0.48;
+  }
+}
+
+.frontline-production-clearance-confirmation-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 126;
+  display: grid;
+  place-items: center;
+  padding: 48px;
+  background: rgba(17, 26, 21, 0.56);
+  box-sizing: border-box;
+}
+
+.frontline-production-clearance-confirmation-dialog {
+  display: grid;
+  gap: 22px;
+  width: min(100%, 920px);
+  max-height: min(76vh, 680px);
+  padding: 38px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 4px solid var(--frontline-line);
+  border-radius: 28px;
+  background: #fffdf4;
+  color: var(--frontline-ink);
+  box-shadow: 0 24px 80px rgba(17, 26, 21, 0.32);
+  font-size: 28px;
+  line-height: 1.45;
+}
+
+.frontline-production-clearance-confirmation-header {
+  display: grid;
+  gap: 8px;
+
+  span {
+    color: #256d85;
+    font-size: 22px;
+    font-weight: 900;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 44px;
+    font-weight: 900;
+  }
+}
+
+.frontline-production-clearance-confirmation-dialog p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.frontline-production-clearance-confirmation-dialog button {
+  justify-self: end;
+  min-width: 180px;
+  min-height: 68px;
+  padding: 0 28px;
+  border: 0;
+  border-radius: 18px;
+  background: #15815f;
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 900;
+  cursor: pointer;
 }
 
 .frontline-production-device-param {
@@ -4370,7 +5344,8 @@ onUnmounted(() => {
   }
 
   button,
-  input {
+  input,
+  select {
     width: 100%;
     height: 72px;
     min-width: 0;
@@ -4398,6 +5373,15 @@ onUnmounted(() => {
     }
   }
 
+  select.device-select {
+    grid-column: 2 / 5;
+    padding: 0 42px;
+    appearance: auto;
+    font-size: 32px;
+    cursor: pointer;
+    text-align-last: center;
+  }
+
   span {
     font-size: 26px;
     font-weight: 900;
@@ -4418,6 +5402,8 @@ onUnmounted(() => {
 
 .frontline-production-submit-bar {
   display: grid;
+  grid-column: 1;
+  grid-row: 2;
   grid-template-columns: 300px 1fr;
   gap: 24px;
   position: relative;

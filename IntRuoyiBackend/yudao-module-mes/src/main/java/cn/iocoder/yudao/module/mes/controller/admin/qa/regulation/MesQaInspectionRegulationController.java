@@ -51,19 +51,28 @@ public class MesQaInspectionRegulationController {
 
     @GetMapping("/published-version")
     @Operation(summary = "获得 QA 检验规程发布版本只读证据")
-    @Parameter(name = "versionId", description = "QA 检验规程发布版本 ID；为空时返回最新已发布版本")
+    @Parameter(name = "versionId", description = "QA 检验规程发布版本 ID；为空时返回该 DCC 当前发布版本")
     @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")
     public CommonResult<MesQaInspectionRegulationPublishedVersionRespVO> getPublishedVersion(
+            @RequestParam("dccProjectCodeId") Long dccProjectCodeId,
             @RequestParam(value = "versionId", required = false) Long versionId) {
-        return success(regulationService.getPublishedVersion(versionId));
+        return success(regulationService.getPublishedVersion(dccProjectCodeId, versionId));
+    }
+
+    @GetMapping("/current")
+    @Operation(summary = "获得 DCC 项目当前 QA 规程配置")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")
+    public CommonResult<MesQaInspectionRegulationPublishedVersionRespVO> getCurrent(
+            @RequestParam("dccProjectCodeId") Long dccProjectCodeId) {
+        return success(regulationService.getCurrent(dccProjectCodeId));
     }
 
     @GetMapping("/project-statuses")
-    @Operation(summary = "批量获得产品 QA 检验规程配置状态")
-    @Parameter(name = "productIds", description = "产品主数据 ID 集合")
+    @Operation(summary = "批量获得 DCC 项目 QA 检验规程配置状态")
+    @Parameter(name = "dccProjectCodeIds", description = "DCC 项目代码 ID 集合")
     @PreAuthorize("@ss.hasPermission('mes:qc-template:query')")
     public CommonResult<List<MesQaInspectionRegulationProjectStatusRespVO>> getProjectStatuses(
-            @RequestParam("productIds") List<Long> productIds) {
-        return success(regulationService.getProjectStatuses(productIds));
+            @RequestParam("dccProjectCodeIds") List<Long> dccProjectCodeIds) {
+        return success(regulationService.getProjectStatuses(dccProjectCodeIds));
     }
 }

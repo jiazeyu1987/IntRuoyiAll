@@ -40,6 +40,7 @@ public class MesProProcessPoolPqcRecordDO extends TenantBaseDO {
     private Long routeId;
     private Long routeProcessId;
     private Long processId;
+    private Long qaProcessId;
     private Long actualEmployeeId;
     private Long signatureId;
     private Long signatureUserId;

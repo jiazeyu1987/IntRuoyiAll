@@ -54,8 +54,8 @@ class MesFrontlineRuntimeConfigControllerTest {
                 List.of(new MesFrontlineTeamEmployeeOption(8801L, null, "TMP-001", "临时工甲", "临时工甲", "TEMPORARY")),
                 List.of(new MesFrontlineTeamDeviceOption(7001L, "D-001", "压力泵", "ENABLED", List.of(
                         new MesFrontlineDeviceParameterOption("pressure", "压力", "MPa",
-                                new BigDecimal("10"), new BigDecimal("20"), new BigDecimal("15"), "DECIMAL",
-                                "10-20MPa，目标15MPa")))),
+                                 new BigDecimal("10"), new BigDecimal("20"), new BigDecimal("15"), "DECIMAL",
+                                 "10-20MPa，目标15MPa", List.of("10", "15", "20"), "15", 1)))),
                 List.of(new MesFrontlineDefectReasonOption(8301L, "LOSS", "LOSS-001", "正常损耗")),
                 new MesFrontlineProductionSubmitContext(41L, "WO-F2-001", "F2正式工单",
                         51L, 101L, 1001L, 201L, 301L, 61L, 9001L, 901L,
@@ -83,6 +83,10 @@ class MesFrontlineRuntimeConfigControllerTest {
         assertEquals("ENABLED", data.getDevices().get(0).getDeviceStatus());
         assertEquals("MPa", data.getDevices().get(0).getParameters().get(0).getUnit());
         assertEquals(new BigDecimal("15"), data.getDevices().get(0).getParameters().get(0).getDefaultValue());
+        assertEquals(List.of("10", "15", "20"),
+                data.getDevices().get(0).getParameters().get(0).getOptionValues());
+        assertEquals("15", data.getDevices().get(0).getParameters().get(0).getDefaultText());
+        assertEquals(1, data.getDevices().get(0).getParameters().get(0).getDecimalScale());
         assertEquals("正常损耗", data.getDefectReasons().get(0).getReasonName());
         assertEquals(41L, data.getProductionSubmitContext().getWorkOrderId());
         assertEquals("WO-F2-001", data.getProductionSubmitContext().getWorkOrderCode());

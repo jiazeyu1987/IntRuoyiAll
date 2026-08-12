@@ -93,6 +93,22 @@ class MesProcessPoolPqcEventTest extends BaseDbUnitTest {
     }
 
     @Test
+    void shouldStorePqcInspectionFromTaskSourceWithoutProductionSubmitEvent() {
+        MesProcessPoolCreatePqcInspectionReqDTO req = validPqcReq();
+        req.setProductionSubmitEventId(null);
+        req.setFeedbackSourceType("MES_PQC_INSPECTION_TASK");
+        req.setFeedbackSourceId(7001L);
+        req.setRecordbookSourceType("MES_PQC_INSPECTION_TASK");
+        req.setRecordbookSourceId(7001L);
+
+        Long eventId = processPoolEventService.createPqcInspectionEvent(req);
+
+        MesProProcessPoolPqcRecordDO pqcRecord = pqcRecordMapper.selectByEventId(eventId);
+        assertNotNull(pqcRecord);
+        assertNull(pqcRecord.getProductionSubmitEventId());
+    }
+
+    @Test
     void shouldReturnSamePqcInspectionEventForDuplicateIdempotencyKey() {
         MesProcessPoolCreatePqcInspectionReqDTO req = validPqcReq();
 

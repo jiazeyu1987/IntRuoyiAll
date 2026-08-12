@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.experimental.Accessors;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @TableName("mes_qa_inspection_regulation_version")
@@ -31,6 +32,8 @@ public class MesQaInspectionRegulationVersionDO extends TenantBaseDO {
     private Long regulationId;
     private String versionNo;
     private String lifecycleStatus;
+    private LocalDate effectiveDate;
+    private String inspectionTypeRulesJson;
     private LocalDateTime publishedAt;
     private LocalDateTime retiredAt;
     private Boolean finalInspectionApplicable;

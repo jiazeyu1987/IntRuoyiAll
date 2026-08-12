@@ -16,16 +16,15 @@ public class MesFrontlinePqcSwitchEmployeeReqVO {
     @NotNull(message = "工艺路线编号不能为空")
     private Long routeId;
 
-    @Schema(description = "工艺路线工序编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "工艺路线工序编号不能为空")
-    private Long routeProcessId;
+    @Schema(description = "QA 规程发布版本编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "QA 规程发布版本编号不能为空")
+    private Long regulationVersionId;
 
-    @Schema(description = "工序编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "工序编号不能为空")
-    private Long processId;
+    @Schema(description = "QA 工序编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "QA 工序编号不能为空")
+    private Long qaProcessId;
 
     @Schema(description = "实际填写员工编号", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "实际填写员工编号不能为空")
     private Long actualEmployeeId;
 }
-

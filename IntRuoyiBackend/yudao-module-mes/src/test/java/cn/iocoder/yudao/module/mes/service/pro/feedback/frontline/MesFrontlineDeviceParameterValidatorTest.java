@@ -124,6 +124,31 @@ class MesFrontlineDeviceParameterValidatorTest {
     }
 
     @Test
+    void acceptsBinaryBooleanReadingsAndRejectsOtherValues() {
+        when(deviceMapper.selectById(7001L)).thenReturn(enabledDevice());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(enabledProcessDevice()));
+        when(parameterRuleMapper.selectList(any())).thenReturn(List.of(booleanRule()));
+        MesFrontlineDeviceParameterValidator validator = new MesFrontlineDeviceParameterValidatorImpl(
+                processDeviceMapper, deviceMapper, parameterRuleMapper);
+
+        MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO selectedDevice =
+                new MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO().setDeviceId(7001L);
+        MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO unchecked =
+                booleanReading(BigDecimal.ZERO);
+        MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO checked =
+                booleanReading(BigDecimal.ONE);
+        MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO invalid =
+                booleanReading(new BigDecimal("2"));
+
+        assertDoesNotThrow(() -> validator.validateSelectedDeviceAndParameters(
+                7101L, 6001L, selectedDevice, List.of(unchecked)));
+        assertDoesNotThrow(() -> validator.validateSelectedDeviceAndParameters(
+                7101L, 6001L, selectedDevice, List.of(checked)));
+        assertThrows(ServiceException.class, () -> validator.validateSelectedDeviceAndParameters(
+                7101L, 6001L, selectedDevice, List.of(invalid)));
+    }
+
+    @Test
     void ignoresNullRouteProcessParameterRulesThatRuntimeConfigDoesNotShow() {
         when(deviceMapper.selectById(7001L)).thenReturn(enabledDevice());
         when(processDeviceMapper.selectList(any())).thenReturn(List.of(enabledProcessDevice()));
@@ -191,5 +216,28 @@ class MesFrontlineDeviceParameterValidatorTest {
                 .valueType("NUMERIC")
                 .enabled(Boolean.TRUE)
                 .build();
+    }
+
+    private static MesProcessPoolDeviceParameterRuleDO booleanRule() {
+        return MesProcessPoolDeviceParameterRuleDO.builder()
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
+                .processId(6001L)
+                .deviceId(7001L)
+                .parameterCode("METERING_VALID")
+                .parameterName("在计量效期内")
+                .defaultValue(BigDecimal.ZERO)
+                .standardText("是否在计量效期内")
+                .valueType(MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_BOOLEAN)
+                .enabled(Boolean.TRUE)
+                .build();
+    }
+
+    private static MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO booleanReading(
+            BigDecimal value) {
+        return new MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO()
+                .setDeviceId(7001L)
+                .setParameterCode("METERING_VALID")
+                .setValue(value);
     }
 }

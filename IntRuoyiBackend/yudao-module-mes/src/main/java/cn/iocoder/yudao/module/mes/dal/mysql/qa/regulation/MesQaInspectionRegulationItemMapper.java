@@ -16,6 +16,8 @@ public interface MesQaInspectionRegulationItemMapper
     default List<MesQaInspectionRegulationItemDO> selectListByVersionId(Long regulationVersionId) {
         return selectList(new LambdaQueryWrapperX<MesQaInspectionRegulationItemDO>()
                 .eq(MesQaInspectionRegulationItemDO::getRegulationVersionId, regulationVersionId)
+                .orderByAsc(MesQaInspectionRegulationItemDO::getQaProcessId)
+                .orderByAsc(MesQaInspectionRegulationItemDO::getItemSort)
                 .orderByAsc(MesQaInspectionRegulationItemDO::getInspectionType)
                 .orderByAsc(MesQaInspectionRegulationItemDO::getItemCode)
                 .orderByAsc(MesQaInspectionRegulationItemDO::getId));
@@ -28,6 +30,8 @@ public interface MesQaInspectionRegulationItemMapper
         return selectList(new LambdaQueryWrapperX<MesQaInspectionRegulationItemDO>()
                 .in(MesQaInspectionRegulationItemDO::getRegulationVersionId, regulationVersionIds)
                 .orderByAsc(MesQaInspectionRegulationItemDO::getRegulationVersionId)
+                .orderByAsc(MesQaInspectionRegulationItemDO::getQaProcessId)
+                .orderByAsc(MesQaInspectionRegulationItemDO::getItemSort)
                 .orderByAsc(MesQaInspectionRegulationItemDO::getInspectionType)
                 .orderByAsc(MesQaInspectionRegulationItemDO::getItemCode)
                 .orderByAsc(MesQaInspectionRegulationItemDO::getId));

@@ -29,6 +29,7 @@ public class MesProcessPoolDeviceParameterRuleDO extends TenantBaseDO {
     public static final String VALUE_TYPE_DECIMAL = "DECIMAL";
     public static final String VALUE_TYPE_TEXT_STANDARD = "TEXT_STANDARD";
     public static final String VALUE_TYPE_SELECT = "SELECT";
+    public static final String VALUE_TYPE_BOOLEAN = "BOOLEAN";
 
     @TableId
     private Long id;

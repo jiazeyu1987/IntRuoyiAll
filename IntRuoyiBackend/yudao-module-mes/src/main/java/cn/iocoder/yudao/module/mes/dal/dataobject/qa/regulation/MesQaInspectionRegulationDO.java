@@ -28,6 +28,7 @@ public class MesQaInspectionRegulationDO extends TenantBaseDO {
     @TableId
     private Long id;
 
+    private Long dccProjectCodeId;
     private Long productId;
     private Long routeId;
     private Long routeVersionId;

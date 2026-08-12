@@ -55,12 +55,16 @@ public class MesTeamLeaderActiveOrderReleaseDossierCompletenessCheckerImpl
             MesTeamLeaderActiveOrderReleaseDossierCompletenessCommand command,
             MesTeamLeaderActiveOrderReleaseDocumentEvidence document,
             List<MesTeamLeaderActiveOrderReleaseBlocker> blockers) {
-        boolean executionComplete = Objects.equals(command.getBatchExecutionId(), document.getBatchExecutionId())
-                && document.getBatchExecutionTaskId() != null
-                && nonEmpty(document.getBatchRecordExecutionIds())
+        boolean traditionalTargetComplete = nonEmpty(document.getBatchRecordExecutionIds())
                 && nonEmpty(document.getTargetReportIds())
                 && nonEmpty(document.getTargetDefinitionIds())
-                && nonEmpty(document.getTargetVersionIds())
+                && nonEmpty(document.getTargetVersionIds());
+        boolean dynamicTargetComplete = nonEmpty(document.getFormCenterInstanceIds())
+                && nonEmpty(document.getTargetFormTemplateIds())
+                && nonEmpty(document.getTargetVersionIds());
+        boolean executionComplete = Objects.equals(command.getBatchExecutionId(), document.getBatchExecutionId())
+                && document.getBatchExecutionTaskId() != null
+                && (traditionalTargetComplete || dynamicTargetComplete)
                 && nonBlank(document.getTargetSnapshotHashes())
                 && nonEmpty(document.getFieldAuditIds())
                 && document.getRequiredFieldCount() > 0

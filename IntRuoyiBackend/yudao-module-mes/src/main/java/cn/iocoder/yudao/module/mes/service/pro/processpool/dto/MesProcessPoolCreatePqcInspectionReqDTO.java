@@ -19,6 +19,7 @@ public class MesProcessPoolCreatePqcInspectionReqDTO {
     private Long routeId;
     private Long routeProcessId;
     private Long processId;
+    private Long qaProcessId;
     private Long actualEmployeeId;
     private Long deviceAccountId;
     private Long deviceId;

@@ -10,56 +10,19 @@ export interface QcTemplateVO {
   remark: string // 备注
 }
 
-export interface QaInspectionRuleVO {
-  inspectionType: string
-  itemCode: string
-  itemName: string
-  inspectionMethod: string
-  inspectionTool: string
-  samplingPlanText: string
-  standardText: string
-  resultType: string
-  firstInspectionQuantity?: number
-  patrolInspectionRatio?: number
+export interface QaInspectionRegulationInspectionTypeRuleVO {
+  key: string
+  inspectionType: 'FIRST' | 'PATROL' | 'FINAL'
+  label: string
+  roundLabel: string
+  required: boolean
+  fixedQuantity?: number
+  notApplicableReason?: string
+  taskRule: string
+  releaseGate: string
 }
 
-export interface QaInspectionRegulationPublishedVersionVO {
-  regulationId: number
-  publishedVersionId: number
-  versionNo: string
-  publishedAt?: string
-  immutable: boolean
-  regulationCode: string
-  regulationName: string
-  productId: number
-  productName?: string
-  routeId: number
-  routeName?: string
-  routeVersionId: number
-  routeVersionNo?: string
-  routeProcessId: number
-  processId: number
-  routeProcessName?: string
-  batchRecordBindingSummary?: string
-  finalInspectionApplicable: boolean
-  finalInspectionNotApplicableReason?: string
-  firstInspectionRules: QaInspectionRuleVO[]
-  patrolInspectionRules: QaInspectionRuleVO[]
-  finalInspectionRules: QaInspectionRuleVO[]
-}
-
-export interface QaInspectionRegulationProjectStatusVO {
-  productId: number
-  configured: boolean
-  regulationCount: number
-  regulationId?: number
-  currentVersionId?: number
-  regulationCode?: string
-  regulationName?: string
-  lifecycleStatus?: string
-}
-
-export interface QaInspectionRegulationSaveEquipmentOptionVO {
+export interface QaInspectionRegulationEquipmentOptionVO {
   equipmentId: number
   equipmentCode: string
   equipmentName: string
@@ -68,8 +31,8 @@ export interface QaInspectionRegulationSaveEquipmentOptionVO {
   sort?: number
 }
 
-export interface QaInspectionRegulationSaveItemVO {
-  inspectionType: 'FIRST' | 'PATROL' | 'FINAL'
+export interface QaInspectionRegulationItemVO {
+  itemSort: number
   itemCode: string
   itemName: string
   inspectionMethod: string
@@ -81,31 +44,67 @@ export interface QaInspectionRegulationSaveItemVO {
   standardUnit?: string
   standardPrecision?: number
   equipmentRequired?: boolean
-  equipmentOptions?: QaInspectionRegulationSaveEquipmentOptionVO[]
+  equipmentOptions?: QaInspectionRegulationEquipmentOptionVO[]
   resultType: string
+  applicableInspectionTypes: Array<'FIRST' | 'PATROL' | 'FINAL'>
   firstInspectionQuantity?: number
   patrolInspectionRatio?: number
+  critical?: boolean
+  failureRule?: string
+  sourceNote?: string
+  sourceOriginalPage?: number
+  sourceOriginalItem?: string
+  sourceOriginalExcerpt?: string
+  sourceOriginalMethod?: string
+}
+
+export interface QaInspectionRegulationProcessVO {
+  qaProcessId?: number
+  processCode: string
+  processName: string
+  sort: number
+  items: QaInspectionRegulationItemVO[]
+}
+
+export interface QaInspectionRegulationPublishedVersionVO {
+  dccProjectCodeId: number
+  regulationId: number
+  publishedVersionId: number
+  versionNo: string
+  effectiveDate?: string
+  publishedAt?: string
+  immutable: boolean
+  lifecycleStatus: string
+  regulationCode: string
+  regulationName: string
+  finalInspectionApplicable: boolean
+  finalInspectionNotApplicableReason?: string
+  inspectionTypeRules: QaInspectionRegulationInspectionTypeRuleVO[]
+  processes: QaInspectionRegulationProcessVO[]
+}
+
+export interface QaInspectionRegulationProjectStatusVO {
+  dccProjectCodeId: number
+  configured: boolean
+  regulationCount: number
+  regulationId?: number
+  currentVersionId?: number
+  regulationCode?: string
+  regulationName?: string
+  lifecycleStatus?: string
 }
 
 export interface QaInspectionRegulationSaveReqVO {
   regulationId?: number
-  productId: number
-  productName: string
-  routeId: number
-  routeName: string
-  routeVersionId: number
-  routeVersionNo: string
-  routeProcessId: number
-  processId: number
-  routeProcessName: string
-  batchRecordBindingSummary?: string
+  dccProjectCodeId: number
   regulationCode: string
   regulationName: string
   versionNo: string
   effectiveDate?: string
   finalInspectionApplicable: boolean
   finalInspectionNotApplicableReason?: string
-  items: QaInspectionRegulationSaveItemVO[]
+  inspectionTypeRules: QaInspectionRegulationInspectionTypeRuleVO[]
+  processes: QaInspectionRegulationProcessVO[]
 }
 
 export interface QaInspectionRegulationSaveRespVO {
@@ -134,24 +133,35 @@ export const QcTemplateApi = {
 
   // 查询正式 QA 检验规程发布版本只读证据
   getPublishedQaRegulationVersion: async (
+    dccProjectCodeId: number,
     versionId?: number
   ): Promise<QaInspectionRegulationPublishedVersionVO> => {
     return await request.get({
       url: `/mes/qa/inspection-regulation/published-version`,
-      params: versionId ? { versionId } : undefined
+      params: { dccProjectCodeId, ...(versionId ? { versionId } : {}) }
     })
   },
 
-  // 批量查询产品 QA 检验规程配置状态
+  // 查询 DCC 项目当前 QA 规程配置
+  getCurrentQaRegulation: async (
+    dccProjectCodeId: number
+  ): Promise<QaInspectionRegulationPublishedVersionVO | null> => {
+    return await request.get({
+      url: `/mes/qa/inspection-regulation/current`,
+      params: { dccProjectCodeId }
+    })
+  },
+
+  // 批量查询 DCC 项目 QA 检验规程配置状态
   getQaRegulationProjectStatuses: async (
-    productIds: number[]
+    dccProjectCodeIds: number[]
   ): Promise<QaInspectionRegulationProjectStatusVO[]> => {
-    if (productIds.length === 0) {
+    if (dccProjectCodeIds.length === 0) {
       return []
     }
     return await request.get({
       url: `/mes/qa/inspection-regulation/project-statuses`,
-      params: { productIds: productIds.join(',') }
+      params: { dccProjectCodeIds: dccProjectCodeIds.join(',') }
     })
   },
 

@@ -5,6 +5,7 @@ import java.util.List;
 
 public record MesFrontlinePqcTaskOption(Long pqcTaskId,
                                         Long regulationVersionId,
+                                        Long qaProcessId,
                                         Boolean finalInspectionApplicable,
                                         String inspectionType,
                                         LocalDate businessDate,

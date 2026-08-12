@@ -61,8 +61,10 @@ const employeeSwitchEnd = frontlinePanel.indexOf('const handleValidate', employe
 assert.ok(employeeSwitchStart >= 0 && employeeSwitchEnd > employeeSwitchStart, 'employee switch handler must exist.')
 const employeeSwitchBlock = frontlinePanel.slice(employeeSwitchStart, employeeSwitchEnd)
 assert.doesNotMatch(employeeSwitchBlock, /context\.templateCode\s*=\s*templateCode/, 'employee switch must not silently change the current page UI mode.')
-assert.match(frontlinePanel, /visibleDeviceCards\s*=\s*computed\(\(\)\s*=>\s*configuredDeviceCards\.value\.slice\(0,\s*3\)\)/, 'production device cards must be limited to three devices.')
-assert.match(frontlinePanel, /frontline-production-device-tabs/, 'production devices must use the compact three-device selector from the approved HTML.')
+assert.match(frontlinePanel, /const visibleDeviceCards = computed\(\(\) => configuredDeviceCards\.value\)/, 'production device cards must render every formal runtime device.')
+assert.doesNotMatch(frontlinePanel, /configuredDeviceCards\.value\.slice\(0,\s*3\)/, 'production device cards must not be limited to three devices.')
+assert.match(frontlinePanel, /'--frontline-device-tab-count': visibleDeviceCards\.length/, 'production device tabs must size the tab grid from the full visible device count.')
+assert.match(frontlinePanel, /frontline-production-device-tabs/, 'production devices must use the compact selector from the approved HTML.')
 assert.doesNotMatch(frontlinePanel, /PREVIOUS_PROCESS_INPUT_QUANTITY|previousProcessInputQuantity|previousInputQuantity/, 'production payload must not include previous-process input quantity.')
 assert.match(frontlinePanel, /const switchableProcessOptions = computed/, 'process picker must define unique process options.')
 const processPickerBlock = frontlinePanel.match(/const pickerOptions = computed(?:<[^>]+>)?\([\s\S]*?\n}\)/)
@@ -76,9 +78,11 @@ assert.ok(productionStart >= 0 && productionEnd > productionStart, 'production o
 const productionBlockStart = frontlinePanel.lastIndexOf('<div', productionStart)
 assert.ok(productionBlockStart >= 0, 'production operator wrapper must exist.')
 const productionTemplate = frontlinePanel.slice(productionBlockStart, productionEnd)
-for (const required of ['工序', '员工', '完成数量', '损耗数量', '不良明细', '填设备', '重填', '提交']) {
+for (const required of ['工序', '员工', '完成数量', '损耗数量', '不良明细', '重填', '提交']) {
   assert.match(productionTemplate, new RegExp(required), `production UI must include ${required}.`)
 }
+assert.match(productionTemplate, /frontline-production-device-panel/, 'production UI must keep the device panel after removing the old device title.')
+assert.doesNotMatch(productionTemplate, /<div class="panel-title">填设备<\/div>/, 'production UI must not reintroduce the old device panel title.')
 assert.match(productionTemplate, /class="frontline-operator-screen screen"/, 'production UI must render the approved prototype screen class.')
 assert.match(
   productionTemplate,

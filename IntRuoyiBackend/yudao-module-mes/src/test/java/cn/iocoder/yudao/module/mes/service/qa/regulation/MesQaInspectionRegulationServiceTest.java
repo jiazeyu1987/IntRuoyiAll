@@ -1,16 +1,19 @@
 package cn.iocoder.yudao.module.mes.service.qa.regulation;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationProjectStatusRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationPublishedVersionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemEquipmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,16 +23,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_ITEM_INVALID;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_IMMUTABLE;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
@@ -38,227 +40,130 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MesQaInspectionRegulationServiceTest {
 
-    private static final Long REGULATION_ID = 9001L;
-    private static final Long VERSION_ID = 9002L;
+    private static final Long DCC_PROJECT_ID = 147L;
+    private static final Long REGULATION_ID = 61L;
+    private static final Long VERSION_ID = 62L;
+    private static final Long QA_PROCESS_ID = 63L;
 
+    @Mock
+    private DccProjectCodeMapper dccProjectCodeMapper;
     @Mock
     private MesQaInspectionRegulationMapper regulationMapper;
     @Mock
     private MesQaInspectionRegulationVersionMapper versionMapper;
     @Mock
+    private MesQaInspectionRegulationProcessMapper processMapper;
+    @Mock
     private MesQaInspectionRegulationItemMapper itemMapper;
     @Mock
     private MesQaInspectionRegulationItemEquipmentMapper itemEquipmentMapper;
 
-    private MesQaInspectionRegulationService service;
+    private MesQaInspectionRegulationServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new MesQaInspectionRegulationServiceImpl(regulationMapper, versionMapper, itemMapper,
-                itemEquipmentMapper);
+        service = new MesQaInspectionRegulationServiceImpl(dccProjectCodeMapper, regulationMapper,
+                versionMapper, processMapper, itemMapper, itemEquipmentMapper);
     }
 
     @Test
-    void getPublishedVersion_returnsImmutableRouteProcessRulesAndBatchRecordSnapshot() {
+    void getCurrent_returnsDccOwnedQaProcessesWithoutMesRouteIdentity() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
         when(versionMapper.selectById(VERSION_ID)).thenReturn(publishedVersion());
-        when(regulationMapper.selectById(REGULATION_ID)).thenReturn(publishedRegulation());
+        when(processMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(qaProcess()));
         when(itemMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(
-                item("FIRST", "首检外观", 5, null),
-                item("PATROL", "巡检耐压", null, new BigDecimal("0.050000")),
-                item("FINAL", "末检包装", 3, null)));
+                item("FIRST", 5, null), item("PATROL", null, new BigDecimal("0.400000")),
+                item("FINAL", 3, null)));
+        when(itemEquipmentMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of());
 
-        MesQaInspectionRegulationPublishedVersionRespVO result = service.getPublishedVersion(VERSION_ID);
+        MesQaInspectionRegulationPublishedVersionRespVO result = service.getCurrent(DCC_PROJECT_ID);
 
-        assertEquals(VERSION_ID, result.getPublishedVersionId());
-        assertEquals("V21-QA-1", result.getVersionNo());
-        assertTrue(result.getImmutable());
-        assertEquals("球囊扩张压力泵", result.getProductName());
-        assertEquals("球囊扩张压力泵路线", result.getRouteName());
-        assertEquals("v21", result.getRouteVersionNo());
-        assertEquals("粗洗", result.getRouteProcessName());
-        assertEquals("粗洗工序生产记录", result.getBatchRecordBindingSummary());
-        assertEquals(true, result.getFinalInspectionApplicable());
-        assertEquals(1, result.getFirstInspectionRules().size());
-        assertEquals(1, result.getPatrolInspectionRules().size());
-        assertEquals(1, result.getFinalInspectionRules().size());
-        assertEquals("首检外观器具", result.getFirstInspectionRules().get(0).getInspectionTool());
-        assertEquals("首检外观抽样方案", result.getFirstInspectionRules().get(0).getSamplingPlanText());
+        assertEquals(DCC_PROJECT_ID, result.getDccProjectCodeId());
+        assertEquals(1, result.getProcesses().size());
+        assertEquals(QA_PROCESS_ID, result.getProcesses().get(0).getQaProcessId());
+        assertEquals("清洗", result.getProcesses().get(0).getProcessName());
+        assertEquals(List.of("FIRST", "PATROL", "FINAL"),
+                result.getProcesses().get(0).getItems().get(0).getApplicableInspectionTypes());
     }
 
     @Test
-    void getPublishedVersion_rejectsDraftVersion() {
-        when(versionMapper.selectById(VERSION_ID)).thenReturn(MesQaInspectionRegulationVersionDO.builder()
-                .id(VERSION_ID)
-                .regulationId(REGULATION_ID)
-                .versionNo("DRAFT")
-                .lifecycleStatus("DRAFT")
-                .snapshotJson("{}")
-                .build());
+    void getCurrent_returnsNullForEnabledDccWithoutQaConfiguration() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(null);
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.getPublishedVersion(VERSION_ID));
-
-        assertEquals(QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED.getCode(), ex.getCode());
+        assertNull(service.getCurrent(DCC_PROJECT_ID));
     }
 
     @Test
-    void getProjectStatuses_returnsConfiguredAndUnconfiguredProductsInRequestOrder() {
-        MesQaInspectionRegulationDO published = MesQaInspectionRegulationDO.builder()
-                .id(9101L)
-                .productId(1001L)
-                .regulationCode("QA-IDI-001")
-                .regulationName("按压式球囊扩充压力泵 QA 检验规程")
-                .lifecycleStatus("PUBLISHED")
-                .currentVersionId(9102L)
-                .build();
-        MesQaInspectionRegulationDO draft = MesQaInspectionRegulationDO.builder()
-                .id(9201L)
-                .productId(1003L)
-                .regulationCode("QA-NEW-001")
-                .regulationName("新产品 QA 检验规程")
-                .lifecycleStatus("DRAFT")
-                .currentVersionId(9202L)
-                .build();
-        when(regulationMapper.selectListByProductIds(List.of(1001L, 1002L, 1003L)))
-                .thenReturn(List.of(draft, published));
+    void getCurrent_prefersLatestSavedDraftOverPublishedVersion() {
+        MesQaInspectionRegulationVersionDO draftVersion = publishedVersion()
+                .setId(72L)
+                .setVersionNo("G/1")
+                .setLifecycleStatus("DRAFT")
+                .setPublishedAt(null);
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(versionMapper.selectLatestDraftByRegulationId(REGULATION_ID)).thenReturn(draftVersion);
+        when(processMapper.selectListByVersionId(72L)).thenReturn(List.of(qaProcess()
+                .setId(73L).setRegulationVersionId(72L).setProcessName("QA新增工序")));
+        when(itemMapper.selectListByVersionId(72L)).thenReturn(List.of(item("PATROL", null,
+                new BigDecimal("0.400000")).setRegulationVersionId(72L).setQaProcessId(73L)));
+        when(itemEquipmentMapper.selectListByVersionId(72L)).thenReturn(List.of());
 
-        List<MesQaInspectionRegulationProjectStatusRespVO> result =
-                service.getProjectStatuses(List.of(1001L, 1002L, 1003L));
+        MesQaInspectionRegulationPublishedVersionRespVO result = service.getCurrent(DCC_PROJECT_ID);
 
-        assertEquals(3, result.size());
-        assertEquals(1001L, result.get(0).getProductId());
-        assertTrue(result.get(0).getConfigured());
-        assertEquals(9101L, result.get(0).getRegulationId());
-        assertEquals("PUBLISHED", result.get(0).getLifecycleStatus());
-        assertEquals("QA-IDI-001", result.get(0).getRegulationCode());
-        assertEquals(1002L, result.get(1).getProductId());
-        assertEquals(false, result.get(1).getConfigured());
-        assertEquals(1003L, result.get(2).getProductId());
-        assertTrue(result.get(2).getConfigured());
-        assertEquals("DRAFT", result.get(2).getLifecycleStatus());
+        assertEquals("DRAFT", result.getLifecycleStatus());
+        assertEquals("G/1", result.getVersionNo());
+        assertEquals(false, result.getImmutable());
+        assertEquals("QA新增工序", result.getProcesses().get(0).getProcessName());
     }
 
     @Test
-    void publish_allowsMissingFinalInspectionRule() {
-        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
-                saveItem("FIRST", "首检外观", 5, null),
-                saveItem("PATROL", "巡检耐压", null, new BigDecimal("0.050000"))));
-        stubNewRegulationAndVersion();
-
-        MesQaInspectionRegulationPublishedVersionRespVO result = service.publish(reqVO);
-
-        assertEquals(0, result.getFinalInspectionRules().size());
-        verify(itemMapper, org.mockito.Mockito.times(2)).insert(any(MesQaInspectionRegulationItemDO.class));
-    }
-
-    @Test
-    void publish_allowsMissingFinalApplicability() {
-        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
-                saveItem("FIRST", "首检外观", 5, null),
-                saveItem("PATROL", "巡检耐压", null, new BigDecimal("0.050000")),
-                saveItem("FINAL", "末检包装", 3, null)));
-        reqVO.setFinalInspectionApplicable(null);
-        stubNewRegulationAndVersion();
-
-        MesQaInspectionRegulationPublishedVersionRespVO result = service.publish(reqVO);
-
-        assertNull(result.getFinalInspectionApplicable());
-        assertEquals(1, result.getFinalInspectionRules().size());
-    }
-
-    @Test
-    void publish_allowsMissingFinalOnlyWhenExplicitlyNotApplicable() {
-        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
-                saveItem("FIRST", "首检外观", 5, null),
-                saveItem("PATROL", "巡检耐压", null, new BigDecimal("0.050000"))));
-        reqVO.setFinalInspectionApplicable(false);
-        reqVO.setFinalInspectionNotApplicableReason("该工序后续 OQC 覆盖最终包装确认");
-        when(regulationMapper.selectByRouteProcess(1001L, 2001L, 3001L, 4001L, 5001L)).thenReturn(null);
+    void saveDraft_persistsDccRootQaProcessAndExpandedInspectionRows() {
+        MesQaInspectionRegulationSaveReqVO reqVO = validRequest();
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(null);
         doAnswer(invocation -> {
-            MesQaInspectionRegulationDO regulation = invocation.getArgument(0);
-            regulation.setId(REGULATION_ID);
+            invocation.<MesQaInspectionRegulationDO>getArgument(0).setId(REGULATION_ID);
             return 1;
         }).when(regulationMapper).insert(any(MesQaInspectionRegulationDO.class));
-        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "V21-QA-2")).thenReturn(null);
+        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "G/1")).thenReturn(null);
         doAnswer(invocation -> {
-            MesQaInspectionRegulationVersionDO version = invocation.getArgument(0);
-            version.setId(VERSION_ID);
+            invocation.<MesQaInspectionRegulationVersionDO>getArgument(0).setId(VERSION_ID);
             return 1;
         }).when(versionMapper).insert(any(MesQaInspectionRegulationVersionDO.class));
-
-        MesQaInspectionRegulationPublishedVersionRespVO result = service.publish(reqVO);
-
-        assertEquals(false, result.getFinalInspectionApplicable());
-        assertEquals("该工序后续 OQC 覆盖最终包装确认", result.getFinalInspectionNotApplicableReason());
-        assertEquals(0, result.getFinalInspectionRules().size());
-        verify(itemMapper, org.mockito.Mockito.times(2)).insert(any(MesQaInspectionRegulationItemDO.class));
-    }
-
-    @Test
-    void publish_allowsMissingFirstWhenCurrentProcessHasOnlyPatrolInspection() {
-        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
-                saveItem("PATROL", "巡检外观", null, new BigDecimal("0.050000"))));
-        reqVO.setFinalInspectionApplicable(false);
-        reqVO.setFinalInspectionNotApplicableReason("当前工序无首检和末检要求，仅按抽样方案执行巡检");
-        when(regulationMapper.selectByRouteProcess(1001L, 2001L, 3001L, 4001L, 5001L)).thenReturn(null);
         doAnswer(invocation -> {
-            MesQaInspectionRegulationDO regulation = invocation.getArgument(0);
-            regulation.setId(REGULATION_ID);
+            invocation.<MesQaInspectionRegulationProcessDO>getArgument(0).setId(QA_PROCESS_ID);
             return 1;
-        }).when(regulationMapper).insert(any(MesQaInspectionRegulationDO.class));
-        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "V21-QA-2")).thenReturn(null);
-        doAnswer(invocation -> {
-            MesQaInspectionRegulationVersionDO version = invocation.getArgument(0);
-            version.setId(VERSION_ID);
-            return 1;
-        }).when(versionMapper).insert(any(MesQaInspectionRegulationVersionDO.class));
+        }).when(processMapper).insert(any(MesQaInspectionRegulationProcessDO.class));
 
-        MesQaInspectionRegulationPublishedVersionRespVO result = service.publish(reqVO);
+        service.saveDraft(reqVO);
 
-        assertEquals(0, result.getFirstInspectionRules().size());
-        assertEquals(1, result.getPatrolInspectionRules().size());
-        assertEquals(false, result.getFinalInspectionApplicable());
-        verify(itemMapper).insert(any(MesQaInspectionRegulationItemDO.class));
+        ArgumentCaptor<MesQaInspectionRegulationDO> regulationCaptor =
+                ArgumentCaptor.forClass(MesQaInspectionRegulationDO.class);
+        verify(regulationMapper).insert(regulationCaptor.capture());
+        assertEquals(DCC_PROJECT_ID, regulationCaptor.getValue().getDccProjectCodeId());
+        assertNull(regulationCaptor.getValue().getRouteProcessId());
+        ArgumentCaptor<MesQaInspectionRegulationProcessDO> processCaptor =
+                ArgumentCaptor.forClass(MesQaInspectionRegulationProcessDO.class);
+        verify(processMapper).insert(processCaptor.capture());
+        assertEquals("ID-QA-001", processCaptor.getValue().getProcessCode());
+        ArgumentCaptor<MesQaInspectionRegulationItemDO> itemCaptor =
+                ArgumentCaptor.forClass(MesQaInspectionRegulationItemDO.class);
+        verify(itemMapper, org.mockito.Mockito.times(3)).insert(itemCaptor.capture());
+        itemCaptor.getAllValues().forEach(item -> assertEquals(QA_PROCESS_ID, item.getQaProcessId()));
     }
 
     @Test
-    void publish_allowsIncompleteContentBeyondRetainedFourLimits() {
-        MesQaInspectionRegulationSaveReqVO.InspectionItem incompleteItem =
-                saveItem("FIRST", "首检外观", null, null);
-        incompleteItem.setInspectionTool(" ");
-        incompleteItem.setSamplingPlanText(" ");
-        incompleteItem.setResultType("NUMERIC");
-        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(incompleteItem));
-        reqVO.setFinalInspectionApplicable(null);
-        reqVO.setFinalInspectionNotApplicableReason(null);
-        stubNewRegulationAndVersion();
-
-        MesQaInspectionRegulationPublishedVersionRespVO result = service.publish(reqVO);
-
-        assertEquals(REGULATION_ID, result.getRegulationId());
-        assertEquals(VERSION_ID, result.getPublishedVersionId());
-        assertNull(result.getFinalInspectionApplicable());
-        assertEquals(1, result.getFirstInspectionRules().size());
-        assertEquals(0, result.getPatrolInspectionRules().size());
-        assertEquals(0, result.getFinalInspectionRules().size());
-        verify(itemMapper).insert(any(MesQaInspectionRegulationItemDO.class));
-    }
-
-    @Test
-    void publish_rejectsAlreadyPublishedSameRegulationVersion() {
-        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
-                saveItem("FIRST", "首检外观", 5, null),
-                saveItem("PATROL", "巡检耐压", null, new BigDecimal("0.050000")),
-                saveItem("FINAL", "末检包装", 3, null)));
-        when(regulationMapper.selectByRouteProcess(1001L, 2001L, 3001L, 4001L, 5001L))
-                .thenReturn(publishedRegulation());
-        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "V21-QA-2"))
+    void publish_rejectsPublishedVersionMutation() {
+        MesQaInspectionRegulationSaveReqVO reqVO = validRequest();
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "G/1"))
                 .thenReturn(MesQaInspectionRegulationVersionDO.builder()
-                        .id(VERSION_ID)
-                        .regulationId(REGULATION_ID)
-                        .versionNo("V21-QA-2")
-                        .lifecycleStatus("PUBLISHED")
-                        .snapshotJson("{}")
-                        .build());
+                        .id(VERSION_ID).regulationId(REGULATION_ID).versionNo("G/1")
+                        .lifecycleStatus("PUBLISHED").snapshotJson("{}").build());
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.publish(reqVO));
 
@@ -266,242 +171,149 @@ class MesQaInspectionRegulationServiceTest {
     }
 
     @Test
-    void publish_allowsFinalItemsWhenFinalInspectionNotApplicable() {
-        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
-                saveItem("FIRST", "首检外观", 5, null),
-                saveItem("PATROL", "巡检耐压", null, new BigDecimal("0.050000")),
-                saveItem("FINAL", "末检包装", 3, null)));
-        reqVO.setFinalInspectionApplicable(false);
-        reqVO.setFinalInspectionNotApplicableReason("该工序后续 OQC 覆盖最终包装确认");
-        stubNewRegulationAndVersion();
+    void saveDraft_rejectsDisabledDccProject() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(
+                DccProjectCodeDO.builder().id(DCC_PROJECT_ID).status("DISABLE").build());
 
-        MesQaInspectionRegulationPublishedVersionRespVO result = service.publish(reqVO);
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.saveDraft(validRequest()));
 
-        assertEquals(false, result.getFinalInspectionApplicable());
-        assertEquals(1, result.getFinalInspectionRules().size());
+        assertEquals(QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID.getCode(), ex.getCode());
     }
 
     @Test
-    void publish_createsImmutablePublishedVersionAndItems() {
-        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(
-                saveItem("FIRST", "首检外观", 5, null),
-                saveItem("PATROL", "巡检耐压", null, new BigDecimal("0.050000")),
-                saveItem("FINAL", "末检包装", 3, null)));
-        when(regulationMapper.selectByRouteProcess(1001L, 2001L, 3001L, 4001L, 5001L)).thenReturn(null);
-        doAnswer(invocation -> {
-            MesQaInspectionRegulationDO regulation = invocation.getArgument(0);
-            regulation.setId(REGULATION_ID);
-            return 1;
-        }).when(regulationMapper).insert(any(MesQaInspectionRegulationDO.class));
-        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "V21-QA-2")).thenReturn(null);
-        doAnswer(invocation -> {
-            MesQaInspectionRegulationVersionDO version = invocation.getArgument(0);
-            version.setId(VERSION_ID);
-            return 1;
-        }).when(versionMapper).insert(any(MesQaInspectionRegulationVersionDO.class));
+    void getProjectStatuses_preservesRequestedDccOrder() {
+        MesQaInspectionRegulationDO configured = publishedRegulation().setDccProjectCodeId(200L);
+        when(regulationMapper.selectListByDccProjectCodeIds(List.of(300L, 200L)))
+                .thenReturn(List.of(configured));
 
-        MesQaInspectionRegulationPublishedVersionRespVO result = service.publish(reqVO);
+        List<MesQaInspectionRegulationProjectStatusRespVO> result =
+                service.getProjectStatuses(List.of(300L, 200L));
 
-        assertEquals(REGULATION_ID, result.getRegulationId());
-        assertEquals(VERSION_ID, result.getPublishedVersionId());
-        assertEquals("V21-QA-2", result.getVersionNo());
-        assertTrue(result.getImmutable());
-        assertEquals(true, result.getFinalInspectionApplicable());
-        assertEquals(1, result.getFirstInspectionRules().size());
-        assertEquals(1, result.getPatrolInspectionRules().size());
-        assertEquals(1, result.getFinalInspectionRules().size());
-        verify(regulationMapper).updateById(any(MesQaInspectionRegulationDO.class));
-        verify(versionMapper).updateById(any(MesQaInspectionRegulationVersionDO.class));
-        verify(itemMapper, org.mockito.Mockito.times(3)).insert(any(MesQaInspectionRegulationItemDO.class));
+        assertEquals(300L, result.get(0).getDccProjectCodeId());
+        assertEquals(false, result.get(0).getConfigured());
+        assertEquals(200L, result.get(1).getDccProjectCodeId());
+        assertEquals(true, result.get(1).getConfigured());
     }
 
-    @Test
-    void saveDraft_persistsFormalItemEquipmentOptions() {
-        MesQaInspectionRegulationSaveReqVO.InspectionItem firstItem =
-                saveItem("FIRST", "首检外观", 5, null);
-        firstItem.setEquipmentRequired(true);
-        firstItem.setEquipmentOptions(List.of(equipmentOption(8101L, "EQ-001", "检验灯箱", "BOX-001")));
-        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(firstItem));
-        when(regulationMapper.selectByRouteProcess(1001L, 2001L, 3001L, 4001L, 5001L)).thenReturn(null);
-        doAnswer(invocation -> {
-            MesQaInspectionRegulationDO regulation = invocation.getArgument(0);
-            regulation.setId(REGULATION_ID);
-            return 1;
-        }).when(regulationMapper).insert(any(MesQaInspectionRegulationDO.class));
-        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "V21-QA-2")).thenReturn(null);
-        doAnswer(invocation -> {
-            MesQaInspectionRegulationVersionDO version = invocation.getArgument(0);
-            version.setId(VERSION_ID);
-            return 1;
-        }).when(versionMapper).insert(any(MesQaInspectionRegulationVersionDO.class));
-
-        service.saveDraft(reqVO);
-
-        ArgumentCaptor<MesQaInspectionRegulationItemDO> itemCaptor =
-                ArgumentCaptor.forClass(MesQaInspectionRegulationItemDO.class);
-        verify(itemMapper).insert(itemCaptor.capture());
-        assertEquals("首检外观器具", itemCaptor.getValue().getInspectionTool());
-        assertEquals("首检外观抽样方案", itemCaptor.getValue().getSamplingPlanText());
-
-        ArgumentCaptor<MesQaInspectionRegulationItemEquipmentDO> equipmentCaptor =
-                ArgumentCaptor.forClass(MesQaInspectionRegulationItemEquipmentDO.class);
-        verify(itemEquipmentMapper).insert(equipmentCaptor.capture());
-        MesQaInspectionRegulationItemEquipmentDO equipment = equipmentCaptor.getValue();
-        assertEquals(VERSION_ID, equipment.getRegulationVersionId());
-        assertEquals("FIRST", equipment.getInspectionType());
-        assertEquals("FIRST-SAVE", equipment.getItemCode());
-        assertEquals(8101L, equipment.getEquipmentId());
-        assertEquals("EQ-001", equipment.getEquipmentCode());
-        assertEquals("检验灯箱", equipment.getEquipmentName());
-        assertEquals("BOX-001", equipment.getEquipmentNumber());
-    }
-
-    @Test
-    void saveDraft_rejectsEquipmentOptionsWhenEquipmentNotRequired() {
-        MesQaInspectionRegulationSaveReqVO.InspectionItem firstItem =
-                saveItem("FIRST", "首检外观", 5, null);
-        firstItem.setEquipmentRequired(false);
-        firstItem.setEquipmentOptions(List.of(equipmentOption(8101L, "EQ-001", "检验灯箱", "BOX-001")));
-        MesQaInspectionRegulationSaveReqVO reqVO = saveReq(List.of(firstItem));
-
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.saveDraft(reqVO));
-
-        assertEquals(QA_INSPECTION_REGULATION_ITEM_INVALID.getCode(), ex.getCode());
-    }
-
-    @Test
-    void saveDraft_rejectsBlankFormalDisplayFields() {
-        MesQaInspectionRegulationSaveReqVO.InspectionItem firstItem =
-                saveItem("FIRST", "首检外观", 5, null);
-        firstItem.setSamplingPlanText(" ");
-
-        ServiceException ex = assertThrows(ServiceException.class,
-                () -> service.saveDraft(saveReq(List.of(firstItem))));
-
-        assertEquals(QA_INSPECTION_REGULATION_ITEM_INVALID.getCode(), ex.getCode());
-    }
-
-    private static MesQaInspectionRegulationVersionDO publishedVersion() {
-        return MesQaInspectionRegulationVersionDO.builder()
-                .id(VERSION_ID)
-                .regulationId(REGULATION_ID)
-                .versionNo("V21-QA-1")
-                .lifecycleStatus("PUBLISHED")
-                .publishedAt(LocalDateTime.of(2026, 8, 1, 10, 0))
-                .finalInspectionApplicable(true)
-                .snapshotJson("""
-                        {
-                          "productName": "球囊扩张压力泵",
-                          "routeName": "球囊扩张压力泵路线",
-                          "routeVersionNo": "v21",
-                          "routeProcessName": "粗洗",
-                          "batchRecordReports": [
-                            { "batchRecordReportName": "粗洗工序生产记录" }
-                          ]
-                        }
-                        """)
+    private static DccProjectCodeDO enabledDccProject() {
+        return DccProjectCodeDO.builder()
+                .id(DCC_PROJECT_ID)
+                .projectCode("ID")
+                .projectName("球囊扩张压力泵")
+                .docControlNo("112")
+                .status("ENABLE")
                 .build();
     }
 
     private static MesQaInspectionRegulationDO publishedRegulation() {
         return MesQaInspectionRegulationDO.builder()
                 .id(REGULATION_ID)
-                .productId(1001L)
-                .routeId(2001L)
-                .routeVersionId(3001L)
-                .routeProcessId(4001L)
-                .processId(5001L)
+                .dccProjectCodeId(DCC_PROJECT_ID)
                 .ownerModule("MES_QA")
-                .regulationCode("QA-PUMP-V21-001")
-                .regulationName("球囊扩张压力泵 QA 检验规程")
+                .regulationCode("PQC-ID-001")
+                .regulationName("（椎体）球囊扩张压力泵组装过程检验规程")
                 .lifecycleStatus("PUBLISHED")
                 .currentVersionId(VERSION_ID)
                 .build();
     }
 
-    private static MesQaInspectionRegulationItemDO item(String inspectionType, String name,
-                                                       Integer firstQuantity, BigDecimal patrolRatio) {
-        return MesQaInspectionRegulationItemDO.builder()
-                .regulationVersionId(VERSION_ID)
-                .inspectionType(inspectionType)
-                .itemCode(inspectionType + "-001")
-                .itemName(name)
-                .inspectionMethod(name + "方法")
-                .standardText(name + "标准")
-                .inspectionTool(name + "器具")
-                .samplingPlanText(name + "抽样方案")
-                .resultType("BOOLEAN")
-                .firstInspectionQuantity(firstQuantity)
-                .patrolInspectionRatio(patrolRatio)
+    private static MesQaInspectionRegulationVersionDO publishedVersion() {
+        return MesQaInspectionRegulationVersionDO.builder()
+                .id(VERSION_ID)
+                .regulationId(REGULATION_ID)
+                .versionNo("G/0")
+                .lifecycleStatus("PUBLISHED")
+                .effectiveDate(LocalDate.of(2025, 9, 30))
+                .publishedAt(LocalDateTime.of(2026, 8, 11, 10, 0))
+                .finalInspectionApplicable(true)
+                .inspectionTypeRulesJson("[{\"key\":\"FINAL\",\"inspectionType\":\"FINAL\"," +
+                        "\"label\":\"末检\",\"required\":true,\"fixedQuantity\":3}]")
+                .snapshotJson("{\"regulationCode\":\"PQC-ID-001\"," +
+                        "\"regulationName\":\"（椎体）球囊扩张压力泵组装过程检验规程\"}")
                 .build();
     }
 
-    private static MesQaInspectionRegulationSaveReqVO saveReq(
-            List<MesQaInspectionRegulationSaveReqVO.InspectionItem> items) {
+    private static MesQaInspectionRegulationProcessDO qaProcess() {
+        return MesQaInspectionRegulationProcessDO.builder()
+                .id(QA_PROCESS_ID)
+                .regulationVersionId(VERSION_ID)
+                .processCode("ID-QA-001")
+                .processName("清洗")
+                .sort(1)
+                .build();
+    }
+
+    private static MesQaInspectionRegulationItemDO item(
+            String inspectionType, Integer quantity, BigDecimal patrolRatio) {
+        return MesQaInspectionRegulationItemDO.builder()
+                .id((long) inspectionType.hashCode())
+                .regulationVersionId(VERSION_ID)
+                .qaProcessId(QA_PROCESS_ID)
+                .itemSort(1)
+                .inspectionType(inspectionType)
+                .itemCode("ID-001-WASH-APP")
+                .itemName("外观")
+                .inspectionMethod("目视检查")
+                .inspectionTool("目测")
+                .samplingPlanText("AQL=0.4")
+                .standardText("表面清洁")
+                .equipmentRequired(false)
+                .resultType("BOOLEAN")
+                .firstInspectionQuantity(quantity)
+                .patrolInspectionRatio(patrolRatio)
+                .critical(false)
+                .build();
+    }
+
+    private static MesQaInspectionRegulationSaveReqVO validRequest() {
         MesQaInspectionRegulationSaveReqVO reqVO = new MesQaInspectionRegulationSaveReqVO();
-        reqVO.setProductId(1001L);
-        reqVO.setProductName("球囊扩张压力泵");
-        reqVO.setRouteId(2001L);
-        reqVO.setRouteName("球囊扩张压力泵路线");
-        reqVO.setRouteVersionId(3001L);
-        reqVO.setRouteVersionNo("v21");
-        reqVO.setRouteProcessId(4001L);
-        reqVO.setProcessId(5001L);
-        reqVO.setRouteProcessName("粗洗");
-        reqVO.setBatchRecordBindingSummary("粗洗工序生产记录");
-        reqVO.setRegulationCode("QA-PUMP-V21-002");
-        reqVO.setRegulationName("球囊扩张压力泵 QA 检验规程");
-        reqVO.setVersionNo("V21-QA-2");
+        reqVO.setDccProjectCodeId(DCC_PROJECT_ID);
+        reqVO.setRegulationCode("PQC-ID-001");
+        reqVO.setRegulationName("（椎体）球囊扩张压力泵组装过程检验规程");
+        reqVO.setVersionNo("G/1");
+        reqVO.setEffectiveDate(LocalDate.of(2026, 8, 11));
         reqVO.setFinalInspectionApplicable(true);
-        reqVO.setItems(items);
+        reqVO.setInspectionTypeRules(List.of(
+                inspectionTypeRule("FIRST", "FIRST", null),
+                inspectionTypeRule("PATROL", "PATROL", null),
+                inspectionTypeRule("FINAL", "FINAL", 3)));
+
+        MesQaInspectionRegulationSaveReqVO.InspectionItem item =
+                new MesQaInspectionRegulationSaveReqVO.InspectionItem();
+        item.setItemSort(1);
+        item.setItemCode("ID-001-WASH-APP");
+        item.setItemName("外观");
+        item.setInspectionMethod("目视检查");
+        item.setInspectionTool("目测");
+        item.setSamplingPlanText("首件：5件；AQL=0.4");
+        item.setStandardText("表面清洁");
+        item.setEquipmentRequired(false);
+        item.setEquipmentOptions(List.of());
+        item.setResultType("BOOLEAN");
+        item.setApplicableInspectionTypes(List.of("FIRST", "PATROL", "FINAL"));
+        item.setFirstInspectionQuantity(5);
+        item.setPatrolInspectionRatio(new BigDecimal("0.400000"));
+        item.setCritical(false);
+
+        MesQaInspectionRegulationSaveReqVO.InspectionProcess process =
+                new MesQaInspectionRegulationSaveReqVO.InspectionProcess();
+        process.setProcessCode("ID-QA-001");
+        process.setProcessName("清洗");
+        process.setSort(1);
+        process.setItems(List.of(item));
+        reqVO.setProcesses(List.of(process));
         return reqVO;
     }
 
-    private static MesQaInspectionRegulationSaveReqVO.InspectionItem saveItem(String inspectionType, String name,
-                                                                              Integer firstQuantity,
-                                                                              BigDecimal patrolRatio) {
-        MesQaInspectionRegulationSaveReqVO.InspectionItem item =
-                new MesQaInspectionRegulationSaveReqVO.InspectionItem();
-        item.setInspectionType(inspectionType);
-        item.setItemCode(inspectionType + "-SAVE");
-        item.setItemName(name);
-        item.setInspectionMethod(name + "方法");
-        item.setInspectionTool(name + "器具");
-        item.setStandardText(name + "标准");
-        item.setSamplingPlanText(name + "抽样方案");
-        item.setResultType("BOOLEAN");
-        item.setFirstInspectionQuantity(firstQuantity);
-        item.setPatrolInspectionRatio(patrolRatio);
-        return item;
-    }
-
-    private void stubNewRegulationAndVersion() {
-        when(regulationMapper.selectByRouteProcess(1001L, 2001L, 3001L, 4001L, 5001L)).thenReturn(null);
-        doAnswer(invocation -> {
-            MesQaInspectionRegulationDO regulation = invocation.getArgument(0);
-            regulation.setId(REGULATION_ID);
-            return 1;
-        }).when(regulationMapper).insert(any(MesQaInspectionRegulationDO.class));
-        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "V21-QA-2")).thenReturn(null);
-        doAnswer(invocation -> {
-            MesQaInspectionRegulationVersionDO version = invocation.getArgument(0);
-            version.setId(VERSION_ID);
-            return 1;
-        }).when(versionMapper).insert(any(MesQaInspectionRegulationVersionDO.class));
-    }
-
-    private static MesQaInspectionRegulationSaveReqVO.EquipmentOption equipmentOption(Long equipmentId,
-                                                                                      String equipmentCode,
-                                                                                      String equipmentName,
-                                                                                      String equipmentNumber) {
-        MesQaInspectionRegulationSaveReqVO.EquipmentOption option =
-                new MesQaInspectionRegulationSaveReqVO.EquipmentOption();
-        option.setEquipmentId(equipmentId);
-        option.setEquipmentCode(equipmentCode);
-        option.setEquipmentName(equipmentName);
-        option.setEquipmentNumber(equipmentNumber);
-        option.setDefaultFlag(true);
-        option.setSort(1);
-        return option;
+    private static MesQaInspectionRegulationSaveReqVO.InspectionTypeRule inspectionTypeRule(
+            String key, String type, Integer fixedQuantity) {
+        MesQaInspectionRegulationSaveReqVO.InspectionTypeRule rule =
+                new MesQaInspectionRegulationSaveReqVO.InspectionTypeRule();
+        rule.setKey(key);
+        rule.setInspectionType(type);
+        rule.setLabel(key);
+        rule.setRequired(true);
+        rule.setFixedQuantity(fixedQuantity);
+        return rule;
     }
 }

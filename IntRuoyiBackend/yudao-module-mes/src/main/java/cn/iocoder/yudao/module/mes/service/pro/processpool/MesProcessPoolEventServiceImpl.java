@@ -94,8 +94,8 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
                 .eventIdempotencyKey(reqDTO.getPqcSubmissionIdempotencyKey())
                 .workOrderId(reqDTO.getWorkOrderId())
                 .routeId(reqDTO.getRouteId())
-                .routeProcessId(reqDTO.getRouteProcessId())
-                .processId(reqDTO.getProcessId())
+                .qaProcessId(reqDTO.getQaProcessId())
+                .qaProcessId(reqDTO.getQaProcessId())
                 .actualEmployeeId(reqDTO.getActualEmployeeId())
                 .deviceAccountId(reqDTO.getDeviceAccountId())
                 .deviceId(reqDTO.getDeviceId())
@@ -121,6 +121,7 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
                 .routeId(event.getRouteId())
                 .routeProcessId(event.getRouteProcessId())
                 .processId(event.getProcessId())
+                .qaProcessId(event.getQaProcessId())
                 .actualEmployeeId(event.getActualEmployeeId())
                 .signatureId(event.getSignatureId())
                 .signatureUserId(event.getSignatureUserId())
@@ -144,8 +145,18 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
             requirePositive(reqDTO.getWorkOrderId(), "workOrderId");
         }
         requirePositive(reqDTO.getRouteId(), "routeId");
-        requirePositive(reqDTO.getRouteProcessId(), "routeProcessId");
-        requirePositive(reqDTO.getProcessId(), "processId");
+        if (MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(reqDTO.getEventType())) {
+            requirePositive(reqDTO.getQaProcessId(), "qaProcessId");
+            if (reqDTO.getRouteProcessId() != null || reqDTO.getProcessId() != null) {
+                throw missingContext("PQC事件不得使用MES路线工序身份");
+            }
+        } else {
+            requirePositive(reqDTO.getRouteProcessId(), "routeProcessId");
+            requirePositive(reqDTO.getProcessId(), "processId");
+            if (reqDTO.getQaProcessId() != null) {
+                throw missingContext("生产事件不得使用QA工序身份");
+            }
+        }
         requirePositive(reqDTO.getActualEmployeeId(), "actualEmployeeId");
         requireNotBlank(reqDTO.getTemplateType(), "templateType");
         requireNotBlank(reqDTO.getFeedbackSourceType(), "feedbackSourceType");
@@ -217,7 +228,10 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
     }
 
     private MesProProcessPoolDO getOrCreatePool(MesProcessPoolCreateEventReqDTO reqDTO, LocalDateTime serverSubmitTime) {
-        MesProProcessPoolDO pool = processPoolMapper.selectByContext(reqDTO.getWorkOrderId(), reqDTO.getRouteId(),
+        MesProProcessPoolDO pool = MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(reqDTO.getEventType())
+                ? processPoolMapper.selectByQaContext(reqDTO.getWorkOrderId(), reqDTO.getRouteId(),
+                reqDTO.getQaProcessId())
+                : processPoolMapper.selectByContext(reqDTO.getWorkOrderId(), reqDTO.getRouteId(),
                 reqDTO.getRouteProcessId(), reqDTO.getProcessId(), reqDTO.getDeviceId(), reqDTO.getWorkstationId());
         if (pool != null) {
             return pool;
@@ -227,6 +241,7 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
                 .routeId(reqDTO.getRouteId())
                 .routeProcessId(reqDTO.getRouteProcessId())
                 .processId(reqDTO.getProcessId())
+                .qaProcessId(reqDTO.getQaProcessId())
                 .deviceId(reqDTO.getDeviceId())
                 .workstationId(reqDTO.getWorkstationId())
                 .poolStatus(MesProProcessPoolDO.STATUS_ACTIVE)
@@ -248,6 +263,7 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
                 .routeId(reqDTO.getRouteId())
                 .routeProcessId(reqDTO.getRouteProcessId())
                 .processId(reqDTO.getProcessId())
+                .qaProcessId(reqDTO.getQaProcessId())
                 .actualEmployeeId(reqDTO.getActualEmployeeId())
                 .deviceAccountId(reqDTO.getDeviceAccountId())
                 .deviceId(reqDTO.getDeviceId())
@@ -273,6 +289,7 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
                 .routeId(reqDTO.getRouteId())
                 .routeProcessId(reqDTO.getRouteProcessId())
                 .processId(reqDTO.getProcessId())
+                .qaProcessId(reqDTO.getQaProcessId())
                 .actualEmployeeId(reqDTO.getActualEmployeeId())
                 .deviceAccountId(reqDTO.getDeviceAccountId())
                 .deviceId(reqDTO.getDeviceId())
@@ -341,8 +358,10 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
         requireNotBlank(reqDTO.getPqcSubmissionIdempotencyKey(), "pqcSubmissionIdempotencyKey");
         requirePositive(reqDTO.getWorkOrderId(), "workOrderId");
         requirePositive(reqDTO.getRouteId(), "routeId");
-        requirePositive(reqDTO.getRouteProcessId(), "routeProcessId");
-        requirePositive(reqDTO.getProcessId(), "processId");
+        requirePositive(reqDTO.getQaProcessId(), "qaProcessId");
+        if (reqDTO.getRouteProcessId() != null || reqDTO.getProcessId() != null) {
+            throw missingContext("PQC事件不得使用MES路线工序身份");
+        }
         requirePositive(reqDTO.getActualEmployeeId(), "actualEmployeeId");
         requirePqcDeviceContext(reqDTO);
         requireNotBlank(reqDTO.getFeedbackSourceType(), "feedbackSourceType");

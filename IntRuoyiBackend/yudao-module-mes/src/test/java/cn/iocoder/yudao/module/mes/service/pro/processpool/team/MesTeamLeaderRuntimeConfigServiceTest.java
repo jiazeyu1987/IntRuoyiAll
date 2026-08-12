@@ -645,6 +645,95 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     }
 
     @Test
+    void shouldSaveBooleanParameterWithBinaryDefault() {
+        when(routeProcessMapper.selectById(7101L)).thenReturn(routeProcess(7101L, 9001L, 6001L, 10));
+        when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()
+                .id(7001L)
+                .leaderUserId(3001L)
+                .deviceStatus("ENABLED")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(MesProcessPoolTeamProcessDeviceDO.builder()
+                .leaderUserId(3001L)
+                .processId(6001L)
+                .deviceId(7001L)
+                .enabled(Boolean.TRUE)
+                .build()));
+        when(parameterRuleMapper.selectOne(any())).thenReturn(null);
+        when(parameterRuleMapper.insert(any(MesProcessPoolDeviceParameterRuleDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolDeviceParameterRuleDO.class).setId(8404L);
+            return 1;
+        });
+
+        Long ruleId = service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
+                .deviceId(7001L)
+                .parameterCode("METERING_VALID")
+                .parameterName("在计量效期内")
+                .targetValue(BigDecimal.ZERO)
+                .standardText("是否在计量效期内")
+                .valueType("BOOLEAN")
+                .build());
+
+        assertEquals(8404L, ruleId);
+        ArgumentCaptor<MesProcessPoolDeviceParameterRuleDO> ruleCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolDeviceParameterRuleDO.class);
+        verify(parameterRuleMapper).insert(ruleCaptor.capture());
+        assertEquals("BOOLEAN", ruleCaptor.getValue().getValueType());
+        assertEquals(BigDecimal.ZERO, ruleCaptor.getValue().getDefaultValue());
+        assertNull(ruleCaptor.getValue().getLowerLimit());
+        assertNull(ruleCaptor.getValue().getUpperLimit());
+    }
+
+    @Test
+    void shouldRejectBooleanParameterWithNonBinaryDefaultOrLimits() {
+        ServiceException missingDefault = assertThrows(ServiceException.class, () ->
+                service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                        .leaderUserId(3001L)
+                        .routeProcessId(7101L)
+                        .deviceId(7001L)
+                        .parameterCode("METERING_VALID")
+                        .parameterName("在计量效期内")
+                        .standardText("是否在计量效期内")
+                        .valueType("BOOLEAN")
+                        .build()));
+
+        ServiceException invalidDefault = assertThrows(ServiceException.class, () ->
+                service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                        .leaderUserId(3001L)
+                        .routeProcessId(7101L)
+                        .deviceId(7001L)
+                        .parameterCode("METERING_VALID")
+                        .parameterName("在计量效期内")
+                        .targetValue(new BigDecimal("2"))
+                        .standardText("是否在计量效期内")
+                        .valueType("BOOLEAN")
+                        .build()));
+
+        ServiceException invalidLimits = assertThrows(ServiceException.class, () ->
+                service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                        .leaderUserId(3001L)
+                        .routeProcessId(7101L)
+                        .deviceId(7001L)
+                        .parameterCode("METERING_VALID")
+                        .parameterName("在计量效期内")
+                        .lowerLimit(BigDecimal.ZERO)
+                        .targetValue(BigDecimal.ONE)
+                        .standardText("是否在计量效期内")
+                        .valueType("BOOLEAN")
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID.getCode(),
+                missingDefault.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID.getCode(),
+                invalidDefault.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID.getCode(),
+                invalidLimits.getCode());
+        verify(parameterRuleMapper, never()).insert(any(MesProcessPoolDeviceParameterRuleDO.class));
+    }
+
+    @Test
     void shouldSaveNumericRangeWithoutTargetValue() {
         when(routeProcessMapper.selectById(7101L)).thenReturn(routeProcess(7101L, 9001L, 6001L, 10));
         when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()

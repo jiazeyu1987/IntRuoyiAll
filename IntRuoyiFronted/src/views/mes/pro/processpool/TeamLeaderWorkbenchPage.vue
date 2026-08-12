@@ -1790,6 +1790,9 @@
                     <span>默认 {{ parameter.defaultText || '--' }}</span>
                     <span>选项 {{ formatProcessConfigOptionValues(parameter) }}</span>
                   </template>
+                  <template v-else-if="parameter.valueType === 'BOOLEAN'">
+                    <span>默认 {{ formatProcessConfigBooleanDefault(parameter) }}</span>
+                  </template>
                 </div>
               </template>
               <span
@@ -1829,7 +1832,7 @@
                 data-team-leader-process-config-edit-parameter
                 @click="openProcessConfigParameterMaintenance(row, device)"
               >
-                {{ isRoughWashProcessConfig(row, device) ? '粗洗参数' : '参数标准' }}
+                {{ resolveCleaningWashProcessConfig(row, device)?.buttonLabel || '参数标准' }}
               </el-button>
             </div>
           </template>
@@ -2317,13 +2320,15 @@
 
     <el-dialog
       v-model="roughWashParameterDialogVisible"
-      title="粗洗参数配置"
+      :title="activeCleaningWashProcessConfig?.dialogTitle || '清洗参数配置'"
       width="min(780px, calc(100vw - 32px))"
       top="16px"
       class="team-leader-workbench__rough-wash-dialog"
       :close-on-click-modal="!processConfigSubmitting"
       destroy-on-close
       data-team-leader-rough-wash-config-dialog
+      data-team-leader-cleaning-wash-config-dialog
+      :data-cleaning-wash-kind="activeCleaningWashProcessConfig?.kind"
     >
       <div class="team-leader-workbench__rough-wash-context">
         <span>
@@ -2372,7 +2377,7 @@
                 data-rough-wash-cleaning-medium
               >
                 <el-option label="自来水" value="自来水" />
-                <el-option label="纯净水" value="纯净水" />
+                <el-option label="纯化水" value="纯化水" />
               </el-select>
             </div>
           </div>
@@ -2503,7 +2508,7 @@
               aria-label="预览清洗介质"
             >
               <el-option label="自来水" value="自来水" />
-              <el-option label="纯净水" value="纯净水" />
+              <el-option label="纯化水" value="纯化水" />
             </el-select>
           </label>
           <label>
@@ -2589,6 +2594,7 @@
             <el-option label="数值" value="DECIMAL" />
             <el-option label="整数" value="INTEGER" />
             <el-option label="下拉框" value="SELECT" />
+            <el-option label="勾选" value="BOOLEAN" />
             <el-option label="文本标准" value="TEXT_STANDARD" />
           </el-select>
         </el-form-item>
@@ -2644,6 +2650,17 @@
               :value="option"
             />
           </el-select>
+        </el-form-item>
+        <el-form-item
+          v-if="processConfigParameterForm.valueType === 'BOOLEAN'"
+          label="默认状态"
+        >
+          <el-checkbox
+            v-model="processConfigParameterForm.booleanDefault"
+            data-team-leader-process-config-boolean-default
+          >
+            默认勾选
+          </el-checkbox>
         </el-form-item>
         <el-form-item
           v-if="isProcessConfigNumericValueType(processConfigParameterForm.valueType)"
@@ -3235,9 +3252,64 @@ type ProcessConfigDeviceParameterTemplate = {
   decimalScale?: number
 }
 
-const ROUGH_WASH_DEVICE_PARAMETER_TEMPLATES: ProcessConfigDeviceParameterTemplate[] = [
+type CleaningWashProcessKind = 'ROUGH_WASH' | 'FINE_WASH' | 'CLEANING'
+type CleaningWashMedium = '自来水' | '纯化水'
+
+type CleaningWashProcessConfig = {
+  kind: CleaningWashProcessKind
+  processKeyword: string
+  parameterCodePrefix: string
+  defaultCleaningMedium: CleaningWashMedium
+  cleaningMediumOptions: readonly CleaningWashMedium[]
+  buttonLabel: string
+  dialogTitle: string
+}
+
+const CLEANING_WASH_PROCESS_CONFIGS: CleaningWashProcessConfig[] = [
   {
-    parameterCode: 'ROUGH_WASH_COUNT',
+    kind: 'ROUGH_WASH',
+    processKeyword: '粗洗',
+    parameterCodePrefix: 'ROUGH_WASH',
+    defaultCleaningMedium: '自来水',
+    cleaningMediumOptions: ['自来水', '纯化水'],
+    buttonLabel: '粗洗参数',
+    dialogTitle: '粗洗参数配置'
+  },
+  {
+    kind: 'FINE_WASH',
+    processKeyword: '精洗',
+    parameterCodePrefix: 'FINE_WASH',
+    defaultCleaningMedium: '纯化水',
+    cleaningMediumOptions: ['自来水', '纯化水'],
+    buttonLabel: '精洗参数',
+    dialogTitle: '精洗参数配置'
+  },
+  {
+    kind: 'CLEANING',
+    processKeyword: '清洗',
+    parameterCodePrefix: 'CLEANING',
+    defaultCleaningMedium: '纯化水',
+    cleaningMediumOptions: ['纯化水', '自来水'],
+    buttonLabel: '清洗参数',
+    dialogTitle: '清洗参数配置'
+  }
+]
+
+const requireCleaningWashProcessConfig = (kind: CleaningWashProcessKind) => {
+  const config = CLEANING_WASH_PROCESS_CONFIGS.find((item) => item.kind === kind)
+  if (!config) {
+    throw new Error(`缺少固定清洗工序配置：${kind}`)
+  }
+  return config
+}
+
+const createCleaningWashDeviceParameterTemplates = (
+  config: CleaningWashProcessConfig
+): ProcessConfigDeviceParameterTemplate[] => {
+  const { parameterCodePrefix, defaultCleaningMedium, cleaningMediumOptions } = config
+  return [
+  {
+    parameterCode: parameterCodePrefix + '_COUNT',
     parameterName: '清洗次数',
     unit: '次',
     standardText: '清洗次数默认 2 次',
@@ -3247,15 +3319,15 @@ const ROUGH_WASH_DEVICE_PARAMETER_TEMPLATES: ProcessConfigDeviceParameterTemplat
     upperLimit: undefined
   },
   {
-    parameterCode: 'ROUGH_WASH_MEDIUM',
+    parameterCode: parameterCodePrefix + '_MEDIUM',
     parameterName: '清洗介质',
-    standardText: '清洗介质可选自来水或纯净水',
+    standardText: `清洗介质可选${cleaningMediumOptions.join('或')}，默认${defaultCleaningMedium}`,
     valueType: 'SELECT',
-    optionValues: ['自来水', '纯净水'],
-    defaultText: '自来水'
+    optionValues: [...cleaningMediumOptions],
+    defaultText: defaultCleaningMedium
   },
   {
-    parameterCode: 'ROUGH_WASH_POWER',
+    parameterCode: parameterCodePrefix + '_POWER',
     parameterName: '清洗功率',
     unit: '%',
     standardText: '清洗功率 20-30%',
@@ -3265,7 +3337,7 @@ const ROUGH_WASH_DEVICE_PARAMETER_TEMPLATES: ProcessConfigDeviceParameterTemplat
     upperLimit: 30
   },
   {
-    parameterCode: 'ROUGH_WASH_ROOM_TEMPERATURE',
+    parameterCode: parameterCodePrefix + '_ROOM_TEMPERATURE',
     parameterName: '室温',
     unit: '℃',
     standardText: '室温 20.0-30.0℃',
@@ -3276,7 +3348,7 @@ const ROUGH_WASH_DEVICE_PARAMETER_TEMPLATES: ProcessConfigDeviceParameterTemplat
     decimalScale: 1
   },
   {
-    parameterCode: 'ROUGH_WASH_TIME',
+    parameterCode: parameterCodePrefix + '_TIME',
     parameterName: '清洗时间',
     unit: 'min',
     standardText: '清洗时间默认 30 min',
@@ -3285,7 +3357,23 @@ const ROUGH_WASH_DEVICE_PARAMETER_TEMPLATES: ProcessConfigDeviceParameterTemplat
     lowerLimit: undefined,
     upperLimit: undefined
   }
-]
+  ]
+}
+
+const ROUGH_WASH_DEVICE_PARAMETER_TEMPLATES =
+  createCleaningWashDeviceParameterTemplates(requireCleaningWashProcessConfig('ROUGH_WASH'))
+const FINE_WASH_DEVICE_PARAMETER_TEMPLATES =
+  createCleaningWashDeviceParameterTemplates(requireCleaningWashProcessConfig('FINE_WASH'))
+const CLEANING_DEVICE_PARAMETER_TEMPLATES =
+  createCleaningWashDeviceParameterTemplates(requireCleaningWashProcessConfig('CLEANING'))
+const CLEANING_WASH_DEVICE_PARAMETER_TEMPLATES_BY_KIND: Record<
+  CleaningWashProcessKind,
+  ProcessConfigDeviceParameterTemplate[]
+> = {
+  ROUGH_WASH: ROUGH_WASH_DEVICE_PARAMETER_TEMPLATES,
+  FINE_WASH: FINE_WASH_DEVICE_PARAMETER_TEMPLATES,
+  CLEANING: CLEANING_DEVICE_PARAMETER_TEMPLATES
+}
 
 type WorkbenchLeaderTab = TeamLeaderType
 type ProcessConfigCreateType = 'DEVICE_BINDING' | 'PARAMETER_RULE'
@@ -3422,6 +3510,7 @@ const processConfigCreateDialogVisible = ref(false)
 const processConfigDeviceDialogVisible = ref(false)
 const processConfigParameterDialogVisible = ref(false)
 const roughWashParameterDialogVisible = ref(false)
+const activeCleaningWashProcessConfig = ref<CleaningWashProcessConfig>()
 const processConfigSelectedRow = ref<TeamLeaderProcessConfigRowRespVO>()
 const processConfigSelectedDevice = ref<TeamLeaderProcessConfigDeviceVO>()
 const processConfigEditingParameter = ref<TeamLeaderProcessConfigParameterVO>()
@@ -3821,6 +3910,8 @@ const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
   !(isProductionReportHistoryTab.value || isPqcFormHistoryTab.value)
   && !isProductionLeader.value
   && !row.released
+  && row.submissionReviewStatus !== 'APPROVED'
+  && row.processInspectionAggregationStatus !== 'AGGREGATED'
   && Boolean(row.id)
 
 const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
@@ -4202,6 +4293,7 @@ const processConfigParameterForm = reactive({
   valueType: 'DECIMAL' as DeviceParameterValueType,
   optionValues: [] as string[],
   defaultText: '',
+  booleanDefault: false,
   decimalScale: undefined as number | undefined
 })
 
@@ -4876,6 +4968,17 @@ const normalizeProcessConfigOptionValues = (values: string[]) =>
 const formatProcessConfigOptionValues = (parameter: TeamLeaderProcessConfigParameterVO) =>
   parameter.optionValues?.length ? parameter.optionValues.join('、') : '--'
 
+const resolveProcessConfigBooleanDefault = (parameter: TeamLeaderProcessConfigParameterVO) => {
+  const targetValue = toOptionalProcessConfigNumber(parameter.targetValue)
+  if (targetValue !== 0 && targetValue !== 1) {
+    throw new Error(`BOOLEAN 设备参数缺少 0/1 默认值：${parameter.parameterCode}`)
+  }
+  return targetValue === 1
+}
+
+const formatProcessConfigBooleanDefault = (parameter: TeamLeaderProcessConfigParameterVO) =>
+  resolveProcessConfigBooleanDefault(parameter) ? '已选' : '未选'
+
 const formatProcessConfigAverage = (parameter: TeamLeaderProcessConfigParameterVO) => {
   if (parameter.actualAverage === null || parameter.actualAverage === undefined) {
     return '暂无样本'
@@ -4890,14 +4993,22 @@ const formatProcessConfigStatisticsWindow = (parameter: TeamLeaderProcessConfigP
   return `${start} ~ ${end}（${parameter.statisticsWindowDays || 30}天）`
 }
 
-const isRoughWashProcessConfig = (
+const resolveCleaningWashProcessConfig = (
   row: TeamLeaderProcessConfigRowRespVO,
   device: TeamLeaderProcessConfigDeviceVO
 ) => {
   const processText = [row.processName, row.processCode].filter(Boolean).join(' ')
   const deviceText = [device.deviceName, device.deviceCode].filter(Boolean).join(' ')
-  return processText.includes('粗洗') && deviceText.includes('超声波清洗机')
+  if (!deviceText.includes('超声波清洗机')) return undefined
+  return CLEANING_WASH_PROCESS_CONFIGS.find((config) =>
+    processText.includes(config.processKeyword)
+  )
 }
+
+const isRoughWashProcessConfig = (
+  row: TeamLeaderProcessConfigRowRespVO,
+  device: TeamLeaderProcessConfigDeviceVO
+) => resolveCleaningWashProcessConfig(row, device)?.kind === 'ROUGH_WASH'
 
 const syncProcessConfigCreateDevice = () => {
   processConfigCreateForm.deviceId = processConfigCreateDeviceOptions.value[0]?.deviceId
@@ -5104,6 +5215,7 @@ const resetProcessConfigParameterForm = () => {
   processConfigParameterForm.valueType = 'DECIMAL'
   processConfigParameterForm.optionValues = []
   processConfigParameterForm.defaultText = ''
+  processConfigParameterForm.booleanDefault = false
   processConfigParameterForm.decimalScale = undefined
 }
 
@@ -5143,6 +5255,10 @@ const openProcessConfigParameterDialog = (
       processConfigEditingParameter.value.upperLimit
     )
     processConfigParameterForm.valueType = processConfigEditingParameter.value.valueType || 'DECIMAL'
+    processConfigParameterForm.booleanDefault =
+      processConfigParameterForm.valueType === 'BOOLEAN'
+        ? resolveProcessConfigBooleanDefault(processConfigEditingParameter.value)
+        : false
     processConfigParameterForm.optionValues = [
       ...(processConfigEditingParameter.value.optionValues || [])
     ]
@@ -5154,9 +5270,9 @@ const openProcessConfigParameterDialog = (
   processConfigParameterDialogVisible.value = true
 }
 
-const resetRoughWashParameterForm = () => {
+const resetRoughWashParameterForm = (config: CleaningWashProcessConfig) => {
   roughWashParameterForm.cleaningCount = 2
-  roughWashParameterForm.cleaningMedium = '自来水'
+  roughWashParameterForm.cleaningMedium = config.defaultCleaningMedium
   roughWashParameterForm.powerLower = 20
   roughWashParameterForm.powerDefault = 25
   roughWashParameterForm.powerUpper = 30
@@ -5171,12 +5287,36 @@ const findRoughWashParameter = (
   parameterCode: string
 ) => device.parameters?.find((parameter) => parameter.parameterCode === parameterCode)
 
-const applyExistingRoughWashParameterValues = (device: TeamLeaderProcessConfigDeviceVO) => {
-  const cleaningCount = findRoughWashParameter(device, 'ROUGH_WASH_COUNT')
-  const cleaningMedium = findRoughWashParameter(device, 'ROUGH_WASH_MEDIUM')
-  const cleaningPower = findRoughWashParameter(device, 'ROUGH_WASH_POWER')
-  const roomTemperature = findRoughWashParameter(device, 'ROUGH_WASH_ROOM_TEMPERATURE')
-  const cleaningTime = findRoughWashParameter(device, 'ROUGH_WASH_TIME')
+const getCleaningWashDeviceParameterTemplates = (config: CleaningWashProcessConfig) =>
+  CLEANING_WASH_DEVICE_PARAMETER_TEMPLATES_BY_KIND[config.kind]
+
+const cleaningWashParameterCode = (config: CleaningWashProcessConfig, suffix: string) =>
+  config.parameterCodePrefix + '_' + suffix
+
+const applyExistingRoughWashParameterValues = (
+  device: TeamLeaderProcessConfigDeviceVO,
+  config: CleaningWashProcessConfig
+) => {
+  const cleaningCount = findRoughWashParameter(
+    device,
+    cleaningWashParameterCode(config, 'COUNT')
+  )
+  const cleaningMedium = findRoughWashParameter(
+    device,
+    cleaningWashParameterCode(config, 'MEDIUM')
+  )
+  const cleaningPower = findRoughWashParameter(
+    device,
+    cleaningWashParameterCode(config, 'POWER')
+  )
+  const roomTemperature = findRoughWashParameter(
+    device,
+    cleaningWashParameterCode(config, 'ROOM_TEMPERATURE')
+  )
+  const cleaningTime = findRoughWashParameter(
+    device,
+    cleaningWashParameterCode(config, 'TIME')
+  )
 
   roughWashParameterForm.cleaningCount =
     toOptionalProcessConfigNumber(cleaningCount?.targetValue) ?? roughWashParameterForm.cleaningCount
@@ -5203,13 +5343,15 @@ const applyExistingRoughWashParameterValues = (device: TeamLeaderProcessConfigDe
 
 const openRoughWashParameterConfigDialog = (
   row: TeamLeaderProcessConfigRowRespVO,
-  device: TeamLeaderProcessConfigDeviceVO
+  device: TeamLeaderProcessConfigDeviceVO,
+  config: CleaningWashProcessConfig
 ) => {
   processConfigSelectedRow.value = row
   processConfigSelectedDevice.value = device
+  activeCleaningWashProcessConfig.value = config
   processConfigEditingParameter.value = undefined
-  resetRoughWashParameterForm()
-  applyExistingRoughWashParameterValues(device)
+  resetRoughWashParameterForm(config)
+  applyExistingRoughWashParameterValues(device, config)
   roughWashParameterDialogVisible.value = true
 }
 
@@ -5218,8 +5360,9 @@ const openProcessConfigParameterMaintenance = (
   device: TeamLeaderProcessConfigDeviceVO,
   options: { create?: boolean } = {}
 ) => {
-  if (isRoughWashProcessConfig(row, device)) {
-    openRoughWashParameterConfigDialog(row, device)
+  const cleaningWashConfig = resolveCleaningWashProcessConfig(row, device)
+  if (cleaningWashConfig) {
+    openRoughWashParameterConfigDialog(row, device, cleaningWashConfig)
     return
   }
   openProcessConfigParameterDialog(row, device, undefined, options)
@@ -5253,6 +5396,11 @@ const buildRoughWashParameterSavePayloads = (
   row: TeamLeaderProcessConfigRowRespVO,
   device: TeamLeaderProcessConfigDeviceVO
 ): TeamDeviceParameterRuleSaveReqVO[] => {
+  const cleaningWashConfig =
+    activeCleaningWashProcessConfig.value ?? resolveCleaningWashProcessConfig(row, device)
+  if (!cleaningWashConfig) {
+    throw new Error('当前工序设备不支持固定清洗参数配置')
+  }
   const routeProcessId = requirePositiveNumber(row.routeProcessId, '路线工序不能为空')
   const deviceId = requirePositiveNumber(device.deviceId, '设备不能为空')
   const cleaningCount = requireRoughWashInteger(
@@ -5290,11 +5438,11 @@ const buildRoughWashParameterSavePayloads = (
   ) {
     throw new Error('室温必须满足下限不大于默认且默认不大于上限')
   }
-  if (!['自来水', '纯净水'].includes(roughWashParameterForm.cleaningMedium)) {
-    throw new Error('清洗介质必须选择自来水或纯净水')
+  if (!['自来水', '纯化水'].includes(roughWashParameterForm.cleaningMedium)) {
+    throw new Error('清洗介质必须选择自来水或纯化水')
   }
 
-  return ROUGH_WASH_DEVICE_PARAMETER_TEMPLATES.map((template) => {
+  return getCleaningWashDeviceParameterTemplates(cleaningWashConfig).map((template) => {
     const common = {
       routeProcessId,
       deviceId,
@@ -5312,6 +5460,8 @@ const buildRoughWashParameterSavePayloads = (
     }
     switch (template.parameterCode) {
       case 'ROUGH_WASH_COUNT':
+      case 'FINE_WASH_COUNT':
+      case 'CLEANING_COUNT':
         return {
           ...common,
           lowerLimit: undefined,
@@ -5320,13 +5470,17 @@ const buildRoughWashParameterSavePayloads = (
           standardText: `清洗次数默认 ${cleaningCount} 次`
         }
       case 'ROUGH_WASH_MEDIUM':
+      case 'FINE_WASH_MEDIUM':
+      case 'CLEANING_MEDIUM':
         return {
           ...common,
-          optionValues: ['自来水', '纯净水'],
+          optionValues: template.optionValues ? [...template.optionValues] : undefined,
           defaultText: roughWashParameterForm.cleaningMedium,
-          standardText: `清洗介质可选自来水或纯净水，默认${roughWashParameterForm.cleaningMedium}`
+          standardText: `清洗介质可选${template.optionValues?.join('或')}，默认${roughWashParameterForm.cleaningMedium}`
         }
       case 'ROUGH_WASH_POWER':
+      case 'FINE_WASH_POWER':
+      case 'CLEANING_POWER':
         return {
           ...common,
           lowerLimit: powerLower,
@@ -5335,6 +5489,8 @@ const buildRoughWashParameterSavePayloads = (
           standardText: `清洗功率 ${powerLower}-${powerUpper}%，默认 ${powerDefault}%`
         }
       case 'ROUGH_WASH_ROOM_TEMPERATURE':
+      case 'FINE_WASH_ROOM_TEMPERATURE':
+      case 'CLEANING_ROOM_TEMPERATURE':
         return {
           ...common,
           lowerLimit: roomTemperatureLower,
@@ -5344,6 +5500,8 @@ const buildRoughWashParameterSavePayloads = (
           standardText: `室温 ${roomTemperatureLower.toFixed(1)}-${roomTemperatureUpper.toFixed(1)}℃，默认 ${roomTemperatureDefault.toFixed(1)}℃`
         }
       case 'ROUGH_WASH_TIME':
+      case 'FINE_WASH_TIME':
+      case 'CLEANING_TIME':
         return {
           ...common,
           lowerLimit: undefined,
@@ -5352,7 +5510,7 @@ const buildRoughWashParameterSavePayloads = (
           standardText: `清洗时间默认 ${cleaningTime} min`
         }
       default:
-        throw new Error(`不支持的粗洗参数编码：${template.parameterCode}`)
+        throw new Error(`不支持的清洗参数编码：${template.parameterCode}`)
     }
   })
 }
@@ -5360,15 +5518,19 @@ const buildRoughWashParameterSavePayloads = (
 const submitRoughWashParameterConfig = async () => {
   const row = processConfigSelectedRow.value
   const device = processConfigSelectedDevice.value
+  const cleaningWashConfig =
+    activeCleaningWashProcessConfig.value ??
+    (row && device ? resolveCleaningWashProcessConfig(row, device) : undefined)
+  const cleaningWashLabel = cleaningWashConfig?.buttonLabel || '清洗参数'
   if (!row || !device) {
-    ElMessage.error('请先选择粗洗工序和超声波清洗机')
+    ElMessage.error('请先选择清洗工序和超声波清洗机')
     return
   }
   let payloads: TeamDeviceParameterRuleSaveReqVO[]
   try {
     payloads = buildRoughWashParameterSavePayloads(row, device)
   } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '粗洗参数配置校验失败'))
+    ElMessage.error(resolveErrorMessage(error, `${cleaningWashLabel}配置校验失败`))
     return
   }
 
@@ -5378,7 +5540,7 @@ const submitRoughWashParameterConfig = async () => {
       await Promise.all(payloads.map((payload) => saveTeamProcessConfigDeviceParameterRule(payload)))
     } catch (error) {
       ElMessage.error(
-        `粗洗参数未全部保存，请重新保存：${resolveErrorMessage(error, '参数保存失败')}`
+        `${cleaningWashLabel}未全部保存，请重新保存：${resolveErrorMessage(error, '参数保存失败')}`
       )
       return
     }
@@ -5386,12 +5548,12 @@ const submitRoughWashParameterConfig = async () => {
       await loadProcessConfigRows()
     } catch (error) {
       ElMessage.error(
-        `粗洗参数已保存，但列表刷新失败：${resolveErrorMessage(error, '列表刷新失败')}`
+        `${cleaningWashLabel}已保存，但列表刷新失败：${resolveErrorMessage(error, '列表刷新失败')}`
       )
       return
     }
     roughWashParameterDialogVisible.value = false
-    ElMessage.success('粗洗参数配置已保存')
+    ElMessage.success(`${cleaningWashLabel}配置已保存`)
   } finally {
     processConfigSubmitting.value = false
   }
@@ -5437,8 +5599,8 @@ const submitProcessConfigParameterRule = async () => {
     return
   }
   const valueType = processConfigParameterForm.valueType
-  const textStandard = valueType === 'TEXT_STANDARD'
   const selectStandard = valueType === 'SELECT'
+  const booleanStandard = valueType === 'BOOLEAN'
   const numericStandard = isProcessConfigNumericValueType(valueType)
   const optionValues = selectStandard
     ? normalizeProcessConfigOptionValues(processConfigParameterForm.optionValues)
@@ -5457,9 +5619,11 @@ const submitProcessConfigParameterRule = async () => {
   const lowerLimit = numericStandard
     ? toOptionalProcessConfigNumber(processConfigParameterForm.lowerLimit)
     : undefined
-  const targetValue = numericStandard
-    ? toOptionalProcessConfigNumber(processConfigParameterForm.targetValue)
-    : undefined
+  const targetValue = booleanStandard
+    ? (processConfigParameterForm.booleanDefault ? 1 : 0)
+    : numericStandard
+      ? toOptionalProcessConfigNumber(processConfigParameterForm.targetValue)
+      : undefined
   const upperLimit = numericStandard
     ? toOptionalProcessConfigNumber(processConfigParameterForm.upperLimit)
     : undefined

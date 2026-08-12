@@ -4,9 +4,9 @@ const path = require('node:path')
 const { chromium } = require('playwright')
 
 const repoRoot = path.resolve(__dirname, '../..')
-const taskRoot = path.resolve(repoRoot, '../doc/tasks/20260807-team-leader-process-config-responsible-routes')
+const taskRoot = path.resolve(repoRoot, '../doc/tasks/20260811-team-leader-stale-route-context')
 const evidenceDir = path.join(taskRoot, 'evidence', 'real-browser')
-const targetRouteNames = ['球囊扩张压力泵', '按压式球囊扩充压力泵']
+const forbiddenRouteIds = [980091]
 
 function readEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return {}
@@ -115,15 +115,23 @@ async function run() {
       (response) => response.url().includes('/admin-api/mes/pro/process-pool/team-leader/process-config/list'),
       { timeout: 60000 }
     )
-    await page.goto(`${config.baseUrl}/mes/pro/process-pool/team-leader`, {
+    await page.goto(`${config.baseUrl}/mes/pro/process-pool/production-leader`, {
       waitUntil: 'domcontentloaded',
       timeout: 60000
     })
 
     const responsibilityBody = await responseBody(await responsibilityResponsePromise)
     const responsibleRoutes = responsibilityBody.data || []
+    assert.ok(responsibleRoutes.length > 0, 'remaining valid responsible routes must still load')
+    for (const forbiddenRouteId of forbiddenRouteIds) {
+      assert.equal(
+        responsibleRoutes.some((route) => Number(route.routeId) === forbiddenRouteId),
+        false,
+        `deleted route ${forbiddenRouteId} must not be returned by responsible-routes`
+      )
+    }
     const apiRouteNames = responsibleRoutes.map((route) => String(route.routeName || '').trim())
-    assert.deepEqual(apiRouteNames, targetRouteNames)
+    assert.ok(apiRouteNames.every(Boolean), 'responsible routes must expose visible route names')
 
     const header = page.locator('[data-production-leader-responsible-routes]:visible').first()
     try {
@@ -134,7 +142,7 @@ async function run() {
       throw new Error(`${error.message}; url=${page.url()}; visibleText=${visibleText}`)
     }
     const visibleRouteNames = (await header.locator('.el-tag').allTextContents()).map((name) => name.trim())
-    assert.deepEqual(visibleRouteNames, targetRouteNames)
+    assert.deepEqual(visibleRouteNames, apiRouteNames, 'visible route tags must follow responsible-routes')
     const headerScreenshot = path.join(evidenceDir, 'admin-responsible-routes-header.png')
     await header.screenshot({ path: headerScreenshot })
 
@@ -143,15 +151,15 @@ async function run() {
     const processConfigRouteNames = [...new Set(processConfigRows
       .map((row) => String(row.routeName || '').trim())
       .filter(Boolean))]
-    assert.deepEqual(processConfigRouteNames, targetRouteNames,
+    assert.deepEqual(processConfigRouteNames, apiRouteNames,
       'process-config rows must come only from formal responsible routes')
 
-    const processConfigTab = page.locator(
-      '[data-production-leader-module-tab-process-config]:visible'
-    ).first()
-    if (await processConfigTab.isVisible().catch(() => false)) {
-      await processConfigTab.click()
-    }
+    const processConfigTab = page.getByRole('tab', {
+      name: '工序配置',
+      exact: true
+    }).filter({ visible: true }).first()
+    await processConfigTab.waitFor({ state: 'visible', timeout: 30000 })
+    await processConfigTab.click()
     const processConfigTable = page.locator('[data-team-leader-process-config-table]:visible').first()
     await processConfigTable.waitFor({ state: 'visible', timeout: 30000 })
     await processConfigTable.scrollIntoViewIfNeeded()
@@ -164,9 +172,11 @@ async function run() {
     const result = {
       identity: '芋道源码/admin',
       responsibleRoutes,
+      forbiddenRouteIds,
       visibleRouteNames,
       processConfigRouteNames,
       processConfigRowCount: processConfigRows.length,
+      hasDeletedResponsibleRoute: false,
       hasNonResponsibilityProcessConfigRoute: false,
       writeRequests,
       pageErrors,
@@ -177,6 +187,7 @@ async function run() {
     fs.writeFileSync(path.join(evidenceDir, 'result.json'), JSON.stringify(result, null, 2), 'utf8')
     console.log(JSON.stringify({
       identity: result.identity,
+      forbiddenRouteIds: result.forbiddenRouteIds,
       visibleRouteNames: result.visibleRouteNames,
       processConfigRouteNames: result.processConfigRouteNames,
       processConfigRowCount: result.processConfigRowCount,

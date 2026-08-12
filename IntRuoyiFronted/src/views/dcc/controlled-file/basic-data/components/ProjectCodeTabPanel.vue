@@ -376,6 +376,24 @@
             </template>
           </el-table-column>
           <el-table-column
+            v-if="isProjectCodeColumnVisible('qaRegulationStatus')"
+            label="QA规程"
+            prop="qaRegulationStatus"
+            :width="getProjectCodeColumnWidthString('qaRegulationStatus', 130)"
+            v-bind="sortColumnAttrs('qaRegulationStatus')"
+          >
+            <template #default="{ row }">
+              <el-button
+                link
+                type="primary"
+                data-testid="dcc-project-code-qa-regulation-link"
+                @click="openQaRegulation(row)"
+              >
+                {{ formatQaRegulationStatus(row.id) }}
+              </el-button>
+            </template>
+          </el-table-column>
+          <el-table-column
             v-if="isProjectCodeColumnVisible('updateTime')"
             label="更新时间"
             prop="updateTime"
@@ -1079,6 +1097,10 @@ import {
   getDccProjectGovernanceStatus,
   type DccProjectGovernanceStatusVO
 } from '@/api/mes/pro/dccProjectGovernance'
+import {
+  QcTemplateApi,
+  type QaInspectionRegulationProjectStatusVO
+} from '@/api/mes/qc/template'
 import { formatControlledFileDateTime } from '../../detail/presentation'
 import { openControlledFileViewer } from '../../shared/viewer-navigation'
 import {
@@ -1190,6 +1212,7 @@ const projectCodeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'lossReportStatus', label: '损耗单', width: 110 },
   { key: 'processInspectionStatus', label: '过程检验单', width: 130 },
   { key: 'parameterRecordStatus', label: '参数记录表', width: 130 },
+  { key: 'qaRegulationStatus', label: 'QA规程', width: 130 },
   { key: 'updateTime', label: '更新时间', width: 180 },
   { key: 'actions', label: '关联文档', width: 240, hideable: false, business: false }
 ]
@@ -1224,6 +1247,9 @@ const list = ref<DccProjectCodeRespVO[]>([])
 const total = ref(0)
 const fileTypeTaxonomies = ref<DccFileTypeTaxonomyVO[]>([])
 const dccProjectGovernanceByProjectName = ref<Record<string, DccProjectGovernanceStatusVO>>({})
+const qaRegulationStatusByDccProjectCodeId = ref<
+  Record<number, QaInspectionRegulationProjectStatusVO>
+>({})
 const selectedProjectCode = ref<DccProjectCodeRespVO | null>(null)
 const associatedNavigationFiles = ref<ControlledFileVO[]>([])
 const associatedFilesTotal = ref(0)
@@ -1875,6 +1901,36 @@ const loadDccProjectGovernanceStatus = async (rows: DccProjectCodeRespVO[]) => {
   )
 }
 
+const loadQaRegulationStatuses = async (rows: DccProjectCodeRespVO[]) => {
+  const dccProjectCodeIds = rows
+    .map((row) => Number(row.id))
+    .filter((id) => Number.isFinite(id) && id > 0)
+  const statuses = await QcTemplateApi.getQaRegulationProjectStatuses(dccProjectCodeIds)
+  qaRegulationStatusByDccProjectCodeId.value = Object.fromEntries(
+    statuses.map((status) => [status.dccProjectCodeId, status])
+  )
+}
+
+const formatQaRegulationStatus = (dccProjectCodeId?: number) => {
+  const status = dccProjectCodeId
+    ? qaRegulationStatusByDccProjectCodeId.value[dccProjectCodeId]
+    : undefined
+  if (status?.lifecycleStatus === 'PUBLISHED') {
+    return '已发布'
+  }
+  if (status?.configured) {
+    return '草稿'
+  }
+  return '未配置'
+}
+
+const openQaRegulation = (row: DccProjectCodeRespVO) => {
+  router.push({
+    name: 'MesProProcessPoolQaRegulation',
+    query: { dccProjectCodeId: String(row.id) }
+  })
+}
+
 const loadFileTypeTaxonomies = async () => {
   fileTypeTaxonomies.value = await getFileTypeTaxonomyList()
 }
@@ -1885,7 +1941,10 @@ const getList = async () => {
     const data = await getProjectCodePage(queryParams)
     list.value = data.list
     total.value = data.total
-    await loadDccProjectGovernanceStatus(data.list)
+    await Promise.all([
+      loadDccProjectGovernanceStatus(data.list),
+      loadQaRegulationStatuses(data.list)
+    ])
   } finally {
     loading.value = false
   }

@@ -13,8 +13,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class MesQaInspectionRegulationProjectStatusRespVO {
 
-    @Schema(description = "产品主数据 ID")
-    private Long productId;
+    @Schema(description = "DCC 项目代码 ID")
+    private Long dccProjectCodeId;
 
     @Schema(description = "是否已存在 QA 规程配置")
     private Boolean configured;

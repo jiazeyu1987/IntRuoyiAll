@@ -12,11 +12,16 @@ for (const [pageName, relativePath] of [
   ['批记录模板页', 'src/views/mes/pro/batchrecordformlist/index.vue']
 ]) {
   const source = readPage(relativePath)
-  const routeConfirmIndex = source.indexOf('确认工艺路线升版')
+  const routeConfirmIndex = source.indexOf('resolveWordImportRouteUpgradeDialogTitle')
   const productLineConfirmIndex = source.indexOf('确认生成路线候选版本')
 
   assert.notEqual(routeConfirmIndex, -1, `${pageName} 必须保留同名工艺路线升版确认。`)
   assert.notEqual(productLineConfirmIndex, -1, `${pageName} 必须保留用户勾选产线的路线候选版本确认。`)
+  assert.ok(
+    source.includes("'确认更新路线草稿'") &&
+      source.includes("'确认生成路线候选版本'"),
+    `${pageName} 必须分别提供更新现有草稿和新建候选版本的确认语义。`
+  )
   assert.ok(
     source.includes('collectWordImportCurrentRouteUpgradeKeys') &&
       source.includes('collectWordImportRouteProductUpgradeKeys') &&
@@ -35,7 +40,7 @@ for (const [pageName, relativePath] of [
     `${pageName} 同名工艺路线升版确认必须先写入已确认产线集合，再进入勾选产线逐项确认。`
   )
   assert.ok(
-    source.includes('const shouldConfirmRouteUpgrade = Boolean(selection.routeUpgradeRequired && selection.selectedOptions.length)') &&
+    /const shouldConfirmRouteUpgrade = Boolean\([\s\S]*selection\.routeUpgradeRequired[\s\S]*selection\.selectedOptions\.length \|\| rebuildBatchRecord[\s\S]*\)/.test(source) &&
       source.includes('routeUpgradeConfirmed: shouldConfirmRouteUpgrade') &&
       source.includes('expectedRouteId: shouldConfirmRouteUpgrade ? selection.expectedRouteId : undefined') &&
       source.includes('if (shouldConfirmRouteUpgrade) {'),

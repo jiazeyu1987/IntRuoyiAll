@@ -12,7 +12,7 @@ const sectionEnd = panel.indexOf('</section>', sectionStart)
 assert.ok(sectionEnd > sectionStart, 'production device panel section must close.')
 const devicePanel = panel.slice(sectionStart, sectionEnd)
 
-assert.match(devicePanel, /<div class="panel-title">填设备<\/div>/, 'device panel title must remain 填设备.')
+assert.doesNotMatch(devicePanel, /<div class="panel-title">填设备<\/div>/, 'device panel title must stay removed from the compact production layout.')
 assert.match(
   devicePanel,
   /<div\s+v-if="visibleDeviceCards\.length > 0"\s+class="frontline-production-device-tabs device-tabs"/,

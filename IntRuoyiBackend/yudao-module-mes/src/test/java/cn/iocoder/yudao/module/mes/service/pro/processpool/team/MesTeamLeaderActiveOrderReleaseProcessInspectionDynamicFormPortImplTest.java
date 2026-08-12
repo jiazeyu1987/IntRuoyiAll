@@ -60,7 +60,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest {
         when(templateVersionMapper.selectById(2801L)).thenReturn(template);
 
         MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.TargetResolution target =
-                port.resolveTarget(binding, rules);
+                port.resolveTarget(binding, rules, "ID");
 
         assertTrue(target.isValid());
         assertEquals(Map.of(11L, "fieldMeasured", 12L, "fieldReviewedAt"), target.getTargetFieldCodes());
@@ -139,10 +139,29 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest {
 
         MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.TargetResolution target =
                 port.resolveTarget(binding(), List.of(
-                        rule(11L, "PQC|PRESSURE|1|measuredValue", "measuredValue", 3, 1, "NUMBER")));
+                        rule(11L, "PQC|PRESSURE|1|measuredValue", "measuredValue", 3, 1, "NUMBER")), "ID");
 
         assertFalse(target.isValid());
         assertEquals("PROCESS_INSPECTION_DYNAMIC_FORM_TEMPLATE_REQUIRED", target.getBlockerType());
+        verify(instanceMapper, never()).selectById(any());
+        verify(runtimeService, never()).saveDraft(any(), any(), any());
+        verify(runtimeService, never()).submitInstance(any(), any(), any());
+    }
+
+    @Test
+    void mismatchedControlledDocumentProjectCodeBlocksBeforeInstanceWrite() {
+        FormTemplateVersionDO template = template();
+        template.setRecognizedSchemaJson(template.getRecognizedSchemaJson().replace("PQC-ID-001", "PQC-IDPR-001"));
+        when(templateVersionMapper.selectById(2801L)).thenReturn(template);
+
+        MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.TargetResolution target =
+                port.resolveTarget(binding(), List.of(
+                        rule(11L, "PQC|PRESSURE|1|measuredValue", "measuredValue", 3, 1, "NUMBER")), "ID");
+
+        assertFalse(target.isValid());
+        assertEquals("PROCESS_INSPECTION_TEMPLATE_DCC_IDENTITY_REQUIRED", target.getBlockerType());
+        assertTrue(target.getBlockerMessage().contains("expected=ID"));
+        assertTrue(target.getBlockerMessage().contains("actual=[IDPR]"));
         verify(instanceMapper, never()).selectById(any());
         verify(runtimeService, never()).saveDraft(any(), any(), any());
         verify(runtimeService, never()).submitInstance(any(), any(), any());
@@ -161,7 +180,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest {
         return FormTemplateVersionDO.builder().id(2801L).tenantId(1L).templateId(28L)
                 .templateName("过程检验记录").versionNo("V1").status("PUBLISHED")
                 .recognizedSchemaJson("""
-                        [{"fieldCode":"fieldMeasured","label":"实测值","fieldType":"number","required":true},
+                        [{"fieldCode":"fieldMeasured","label":"PQC-ID-001 实测值","fieldType":"number","required":true},
                          {"fieldCode":"fieldReviewedAt","label":"复核时间","fieldType":"datetime","required":true}]
                         """).build();
     }

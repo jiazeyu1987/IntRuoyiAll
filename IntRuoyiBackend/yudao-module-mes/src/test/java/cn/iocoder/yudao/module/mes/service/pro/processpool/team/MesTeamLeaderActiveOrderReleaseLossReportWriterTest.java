@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionOpenOrCreateByContextReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionOpenOrCreateByContextRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordCellLinkRuleDO;
@@ -19,6 +20,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordEx
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSaveChangesCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSaveResult;
@@ -65,6 +67,8 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
             "qualifiedQuantity", "lossQuantity", "laborScrapQuantity", "materialScrapQuantity",
             "otherScrapQuantity", "lossDetails", "fillerUserId", "fillerSignedAt",
             "reviewerUserId", "reviewerSignedAt");
+    private static final List<String> LOSS_SUMMARY_FIELDS = List.of(
+            "productLabel", "productSpec", "productionSummary", "lossDetailsSummary", "approvalSummary");
 
     @Mock
     private MesTeamLeaderActiveOrderReleaseLossSourceReader sourceReader;
@@ -76,6 +80,8 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
     private MesProBatchRecordReportMapper reportMapper;
     @Mock
     private MesProBatchRecordVersionMapper versionMapper;
+    @Mock
+    private MesMdItemMapper itemMapper;
     @Mock
     private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     @Mock
@@ -92,8 +98,8 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
     @BeforeEach
     void setUp() {
         writer = new MesTeamLeaderActiveOrderReleaseLossReportWriterImpl(sourceReader, bindingMapper, ruleMapper,
-                reportMapper, versionMapper, batchTaskMapper, executionService, executionMapper, fieldAuditService,
-                dynamicFormPort);
+                reportMapper, versionMapper, itemMapper, batchTaskMapper, executionService, executionMapper,
+                fieldAuditService, dynamicFormPort);
     }
 
     @Test
@@ -243,6 +249,7 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
     @Test
     void shouldTreatRouteBoundLossFormTemplateAsFormalTargetButBlockWhenDynamicMappingsAreMissing() {
         when(sourceReader.read(any())).thenReturn(formalSources());
+        when(itemMapper.selectById(3101L)).thenReturn(product());
         when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(ROUTE_PROCESS_ID), "BATCH"))
                 .thenReturn(List.of(dynamicFormBinding(25L, "LR_" + ROUTE_PROCESS_ID)));
 
@@ -250,25 +257,29 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
 
         assertTrue(plan.getBlockers().stream().anyMatch(blocker ->
                 "LOSS_REPORT_MAPPING_REQUIRED".equals(blocker.getBlockerType())
-                        && "reviewerSignedAt".equals(blocker.getFieldCode())));
+                        && "productLabel".equals(blocker.getFieldCode())));
         assertThrows(ServiceException.class, () -> writer.write(plan, BATCH_EXECUTION_ID));
         verify(executionService, never()).openOrCreateByContext(any());
     }
 
     @Test
-    void shouldWriteRouteBoundLossFormTemplateIntoCurrentFormCenterInstance() {
+    void shouldWriteRouteBoundLossFormTemplateAlongsideWorkOrderBatchCodeRule() {
         when(sourceReader.read(any())).thenReturn(formalSources());
+        when(itemMapper.selectById(3101L)).thenReturn(product());
         MesProRouteFlowProcessBatchRecordDO binding = dynamicFormBinding(25L, "LR_" + ROUTE_PROCESS_ID);
         when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(ROUTE_PROCESS_ID), "BATCH"))
                 .thenReturn(List.of(binding));
+        List<MesProBatchRecordCellLinkRuleDO> dynamicRules = dynamicRules();
+        List<MesProBatchRecordCellLinkRuleDO> storedRules = new ArrayList<>(dynamicRules);
+        storedRules.add(productionWorkOrderBatchCodeRule());
         when(ruleMapper.selectEnabledListByScopeAndTargetReport("FORM_TEMPLATE_VERSION", 2501L, "FORMTPL:2501"))
-                .thenReturn(dynamicRules());
+                .thenReturn(storedRules);
         MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPort.TargetResolution target =
                 new MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPort.TargetResolution()
                         .setTemplateVersionId(2501L)
                         .setTemplateSnapshotHash("loss-form-template-snapshot")
                         .setTargetFieldCodes(dynamicTargetCodes());
-        when(dynamicFormPort.resolveTarget(any(), any())).thenReturn(target);
+        when(dynamicFormPort.resolveTarget(binding, dynamicRules)).thenReturn(target);
         when(batchTaskMapper.selectListByBatchExecutionId(BATCH_EXECUTION_ID))
                 .thenReturn(List.of(dynamicBatchTask()));
         when(dynamicFormPort.write(any())).thenReturn(
@@ -290,10 +301,53 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
                 () -> assertEquals(2, result.getSignatureEvidence().size()),
                 () -> assertEquals(1, result.getDocumentEvidence().size()),
                 () -> assertEquals(List.of(99001L), result.getDocumentEvidence().get(0).getFormCenterInstanceIds()),
-                () -> assertEquals(REQUIRED_FIELDS.size(), result.getDocumentEvidence().get(0).getRequiredFieldCount()));
+                () -> assertEquals(LOSS_SUMMARY_FIELDS.size(), result.getDocumentEvidence().get(0).getRequiredFieldCount()));
+        ArgumentCaptor<MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPort.WriteCommand> captor =
+                ArgumentCaptor.forClass(MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPort.WriteCommand.class);
+        verify(dynamicFormPort).write(captor.capture());
+        assertEquals(LOSS_SUMMARY_FIELDS.size(), captor.getValue().getFields().size());
+        assertTrue(captor.getValue().getFields().stream()
+                .allMatch(field -> field.getSourceCellKey().startsWith("SUMMARY|")));
+        assertTrue(captor.getValue().getFields().stream()
+                .noneMatch(field -> "batchCode".equals(field.getSourceFieldCode())));
+        assertTrue(captor.getValue().getFields().stream()
+                .anyMatch(field -> "productLabel".equals(field.getSourceFieldCode())
+                        && "球囊扩张压力泵".equals(field.getDisplayValue())));
+        assertTrue(captor.getValue().getFields().stream()
+                .anyMatch(field -> "productSpec".equals(field.getSourceFieldCode())
+                        && field.getDisplayValue().contains("AW.107.02.01.2010")
+                        && field.getDisplayValue().contains("30ATM")));
+        assertTrue(captor.getValue().getFields().stream()
+                .anyMatch(field -> "lossDetailsSummary".equals(field.getSourceFieldCode())
+                        && field.getDisplayValue().contains("LOSS-001")
+                        && field.getDisplayValue().contains("loss=2.5")
+                        && field.getDisplayValue().contains("signatureId=1101")
+                        && field.getDisplayValue().contains("signatureId=1201")));
+        assertTrue(captor.getValue().getFields().stream()
+                .anyMatch(field -> "approvalSummary".equals(field.getSourceFieldCode())
+                        && field.getDisplayValue().contains("userId=3001")
+                        && field.getDisplayValue().contains("signatureId=1201")
+                        && field.getDisplayValue().contains("signedAt=2026-08-01T09:00")));
         verify(executionService, never()).openOrCreateByContext(any());
         verify(fieldAuditService, never()).saveSystemCellLinkChanges(any());
-        verify(dynamicFormPort).write(any());
+    }
+
+    @Test
+    void shouldBlockDynamicLossSummaryWhenFormalProductMasterDataIsMissing() {
+        when(sourceReader.read(any())).thenReturn(formalSources());
+        when(itemMapper.selectById(3101L)).thenReturn(null);
+        MesProRouteFlowProcessBatchRecordDO binding = dynamicFormBinding(25L, "LR_" + ROUTE_PROCESS_ID);
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(ROUTE_PROCESS_ID), "BATCH"))
+                .thenReturn(List.of(binding));
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("FORM_TEMPLATE_VERSION", 2501L, "FORMTPL:2501"))
+                .thenReturn(dynamicRules());
+
+        MesTeamLeaderActiveOrderReleaseLossReportPlan plan = writer.plan(command());
+
+        assertTrue(plan.getBlockers().stream().anyMatch(blocker ->
+                "LOSS_PRODUCT_IDENTITY_REQUIRED".equals(blocker.getBlockerType())));
+        verify(dynamicFormPort, never()).resolveTarget(any(), any());
+        verify(dynamicFormPort, never()).write(any());
     }
 
     @Test
@@ -551,21 +605,21 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
 
     private static List<MesProBatchRecordCellLinkRuleDO> dynamicRules() {
         List<MesProBatchRecordCellLinkRuleDO> rules = new ArrayList<>();
-        for (int index = 0; index < REQUIRED_FIELDS.size(); index++) {
-            String sourceField = REQUIRED_FIELDS.get(index);
+        for (int index = 0; index < LOSS_SUMMARY_FIELDS.size(); index++) {
+            String sourceField = LOSS_SUMMARY_FIELDS.get(index);
             MesProBatchRecordCellLinkRuleDO rule = new MesProBatchRecordCellLinkRuleDO();
             rule.setId(7000L + index);
             rule.setRuleVersion(2L);
             rule.setScopeType("FORM_TEMPLATE_VERSION");
             rule.setScopeId(2501L);
             rule.setSourceType("PRODUCTION_LOSS");
-            rule.setSourceCellKey("LOSS:" + sourceField);
+            rule.setSourceCellKey("SUMMARY|" + sourceField);
             rule.setSourceFieldCode(sourceField);
             rule.setTargetReportId("FORMTPL:2501");
             rule.setTargetRowIndex(3 + index);
             rule.setTargetColumnIndex(1);
             rule.setTargetCellKey((3 + index) + ":1");
-            rule.setTargetValueType(numericField(sourceField) ? "NUMBER" : "STRING");
+            rule.setTargetValueType("STRING");
             rule.setAggregationStrategy("LAST");
             rule.setTemplateSnapshotHash("loss-form-template-snapshot");
             rule.setEnabled(true);
@@ -574,12 +628,43 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
         return rules;
     }
 
+    private static MesProBatchRecordCellLinkRuleDO productionWorkOrderBatchCodeRule() {
+        MesProBatchRecordCellLinkRuleDO rule = new MesProBatchRecordCellLinkRuleDO();
+        rule.setId(7999L);
+        rule.setRuleVersion(2L);
+        rule.setScopeType("FORM_TEMPLATE_VERSION");
+        rule.setScopeId(2501L);
+        rule.setSourceType("PRODUCTION_WORK_ORDER");
+        rule.setSourceReportId("PRODUCTION_WORK_ORDER");
+        rule.setSourceCellKey("batchCode");
+        rule.setSourceFieldCode("batchCode");
+        rule.setSourceValueType("STRING");
+        rule.setTargetReportId("FORMTPL:2501");
+        rule.setTargetRowIndex(5);
+        rule.setTargetColumnIndex(3);
+        rule.setTargetCellKey("5:3");
+        rule.setTargetValueType("STRING");
+        rule.setTemplateSnapshotHash("loss-form-template-snapshot");
+        rule.setEnabled(true);
+        return rule;
+    }
+
     private static java.util.Map<Long, String> dynamicTargetCodes() {
         java.util.Map<Long, String> codes = new java.util.LinkedHashMap<>();
-        for (int index = 0; index < REQUIRED_FIELDS.size(); index++) {
-            codes.put(7000L + index, "loss_" + REQUIRED_FIELDS.get(index));
+        for (int index = 0; index < LOSS_SUMMARY_FIELDS.size(); index++) {
+            codes.put(7000L + index, "loss_" + LOSS_SUMMARY_FIELDS.get(index));
         }
         return codes;
+    }
+
+    private static MesMdItemDO product() {
+        return MesMdItemDO.builder()
+                .id(3101L)
+                .code("AW.107.02.01.2010")
+                .name("球囊扩张压力泵")
+                .specification("30ATM")
+                .status(0)
+                .build();
     }
 
     private static boolean numericField(String field) {
@@ -599,6 +684,7 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
                 .formSlotType("LOSS_REPORT")
                 .recordCategory("INTERNAL_RECORD")
                 .validationProfile("INTERNAL_TRACE")
+                .ownerRoleKey("PRODUCTION")
                 .routeBindingId(3001L)
                 .routeBindingSnapshotHash("record-category-snapshot")
                 .slotConfigSnapshotHash("loss-slot-snapshot")
@@ -615,6 +701,7 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
                 .formSlotType("LOSS_REPORT")
                 .recordCategory("INTERNAL_RECORD")
                 .validationProfile("INTERNAL_TRACE")
+                .ownerRoleKey("PRODUCTION")
                 .routeBindingId(3001L)
                 .routeBindingSnapshotHash("record-category-snapshot")
                 .slotConfigSnapshotHash("loss-slot-snapshot")

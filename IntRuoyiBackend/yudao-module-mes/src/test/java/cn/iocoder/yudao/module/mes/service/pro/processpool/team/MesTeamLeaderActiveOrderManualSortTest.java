@@ -18,6 +18,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrd
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
@@ -54,6 +55,7 @@ class MesTeamLeaderActiveOrderManualSortTest {
     @Mock private MesProcessPoolReportAllocationMapper reportAllocationMapper;
     @Mock private MesQaInspectionRegulationMapper inspectionRegulationMapper;
     @Mock private MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
+    @Mock private MesQaInspectionRegulationProcessMapper inspectionRegulationProcessMapper;
     @Mock private MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
     @Mock private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
     @Mock private MesWorkOrderAbnormalStateService abnormalStateService;
@@ -69,7 +71,8 @@ class MesTeamLeaderActiveOrderManualSortTest {
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
                 routeVersionMapper, processSnapshotMapper, reportAllocationMapper,
                 inspectionRegulationMapper,
-                inspectionRegulationVersionMapper, inspectionRegulationItemMapper, pqcInspectionTaskMapper,
+                inspectionRegulationVersionMapper, inspectionRegulationProcessMapper,
+                inspectionRegulationItemMapper, pqcInspectionTaskMapper,
                 abnormalStateService, releaseApplicationMapper, dccProjectCodeMapper,
                 reportAllocationOrderChangeService);
     }

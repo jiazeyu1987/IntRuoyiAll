@@ -63,7 +63,7 @@ assert.match(
 )
 assert.match(
   leaderPage,
-  /isRoughWashProcessConfig\(row, device\)[\s\S]*openRoughWashParameterConfigDialog\(row, device\)/,
+  /resolveCleaningWashProcessConfig\(row, device\)[\s\S]*openRoughWashParameterConfigDialog\(row, device, cleaningWashConfig\)/,
   '粗洗超声波清洗机必须进入专用配置弹窗。'
 )
 assert.match(leaderPage, /value="SELECT"/, '工序配置参数弹窗必须支持选择下拉框类型。')
@@ -89,8 +89,13 @@ assert.match(
 )
 assert.match(
   leaderPage,
-  /清洗介质[\s\S]*valueType:\s*'SELECT'[\s\S]*optionValues:\s*\['自来水', '纯净水'\][\s\S]*defaultText:\s*'自来水'/,
-  '清洗介质模板必须是自来水/纯净水下拉，默认自来水。'
+  /kind:\s*'ROUGH_WASH'[\s\S]*parameterCodePrefix:\s*'ROUGH_WASH'[\s\S]*defaultCleaningMedium:\s*'自来水'[\s\S]*cleaningMediumOptions:\s*\['自来水', '纯化水'\]/,
+  '粗洗固定清洗参数必须默认自来水。'
+)
+assert.match(
+  leaderPage,
+  /parameterCode:\s*parameterCodePrefix \+ '_MEDIUM'[\s\S]*valueType:\s*'SELECT'[\s\S]*optionValues:\s*\[\.\.\.cleaningMediumOptions\][\s\S]*defaultText:\s*defaultCleaningMedium/,
+  '清洗介质模板必须使用各工序正式下拉选项和默认值。'
 )
 assert.match(
   leaderPage,
@@ -125,6 +130,21 @@ assert.match(
 
 assert.match(frontlinePanel, /isSelectParameter/, '一线页面必须区分下拉参数。')
 assert.match(frontlinePanel, /data-frontline-select-parameter/, '一线页面必须渲染下拉参数控件。')
+assert.match(
+  frontlinePanel,
+  /<select[\s\S]*class="device-value device-select"[\s\S]*data-frontline-select-parameter/,
+  '一线下拉参数必须使用设备参数下拉专用控件类，避免浏览器默认小控件。'
+)
+assert.match(
+  frontlinePanel,
+  /button,\s*input,\s*select[\s\S]*height:\s*72px[\s\S]*border:\s*3px solid var\(--frontline-line\)[\s\S]*background:\s*#f8faf8[\s\S]*font-weight:\s*900/,
+  '一线下拉参数必须复用设备参数控件的高度、边框、背景和字体权重。'
+)
+assert.match(
+  frontlinePanel,
+  /select\.device-select[\s\S]*grid-column:\s*2 \/ 5[\s\S]*font-size:\s*32px[\s\S]*text-align-last:\s*center/,
+  '一线下拉参数必须占用与数值控件一致的输入区域并居中显示。'
+)
 assert.match(frontlinePanel, /textValue/, '一线提交必须传递下拉文本读数。')
 assert.match(frontlinePanel, /decimalScale/, '一线页面必须按配置小数位归一化。')
 

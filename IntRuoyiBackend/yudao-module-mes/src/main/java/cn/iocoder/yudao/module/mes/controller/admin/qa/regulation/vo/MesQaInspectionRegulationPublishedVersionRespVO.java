@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -17,107 +18,90 @@ import java.util.List;
 @AllArgsConstructor
 public class MesQaInspectionRegulationPublishedVersionRespVO {
 
-    @Schema(description = "QA 检验规程 ID")
+    private Long dccProjectCodeId;
     private Long regulationId;
-
-    @Schema(description = "QA 检验规程发布版本 ID")
     private Long publishedVersionId;
-
-    @Schema(description = "版本号")
     private String versionNo;
-
-    @Schema(description = "发布时间")
+    private LocalDate effectiveDate;
     private LocalDateTime publishedAt;
-
-    @Schema(description = "发布后不可原地修改")
     private Boolean immutable;
-
-    @Schema(description = "规程编码")
+    private String lifecycleStatus;
     private String regulationCode;
-
-    @Schema(description = "规程名称")
     private String regulationName;
-
-    @Schema(description = "产品 ID")
-    private Long productId;
-
-    @Schema(description = "产品名称")
-    private String productName;
-
-    @Schema(description = "工艺路线 ID")
-    private Long routeId;
-
-    @Schema(description = "工艺路线名称")
-    private String routeName;
-
-    @Schema(description = "工艺路线版本 ID")
-    private Long routeVersionId;
-
-    @Schema(description = "工艺路线版本号")
-    private String routeVersionNo;
-
-    @Schema(description = "工艺路线工序 ID")
-    private Long routeProcessId;
-
-    @Schema(description = "工序 ID")
-    private Long processId;
-
-    @Schema(description = "工序名称")
-    private String routeProcessName;
-
-    @Schema(description = "逐工序批记录绑定摘要")
-    private String batchRecordBindingSummary;
-
-    @Schema(description = "末检是否适用")
     private Boolean finalInspectionApplicable;
-
-    @Schema(description = "末检不适用依据")
     private String finalInspectionNotApplicableReason;
+    private List<InspectionTypeRule> inspectionTypeRules;
+    private List<InspectionProcess> processes;
 
-    @Schema(description = "首检规则")
-    private List<InspectionRule> firstInspectionRules;
-
-    @Schema(description = "巡检规则")
-    private List<InspectionRule> patrolInspectionRules;
-
-    @Schema(description = "末检规则")
-    private List<InspectionRule> finalInspectionRules;
-
-    @Schema(description = "检验规则")
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class InspectionRule {
-
-        @Schema(description = "检验类型")
+    public static class InspectionTypeRule {
+        private String key;
         private String inspectionType;
+        private String label;
+        private String roundLabel;
+        private Boolean required;
+        private Integer fixedQuantity;
+        private String notApplicableReason;
+        private String taskRule;
+        private String releaseGate;
+    }
 
-        @Schema(description = "检验项目编码")
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class InspectionProcess {
+        private Long qaProcessId;
+        private String processCode;
+        private String processName;
+        private Integer sort;
+        private List<InspectionItem> items;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class InspectionItem {
+        private Integer itemSort;
         private String itemCode;
-
-        @Schema(description = "检验项目名称")
         private String itemName;
-
-        @Schema(description = "检验方法")
         private String inspectionMethod;
-
-        @Schema(description = "检验器具及设备原文")
         private String inspectionTool;
-
-        @Schema(description = "抽样方案原文")
         private String samplingPlanText;
-
-        @Schema(description = "合格标准")
         private String standardText;
-
-        @Schema(description = "结果类型")
+        private BigDecimal standardLowerLimit;
+        private BigDecimal standardUpperLimit;
+        private String standardUnit;
+        private Integer standardPrecision;
+        private Boolean equipmentRequired;
+        private List<EquipmentOption> equipmentOptions;
         private String resultType;
-
-        @Schema(description = "首检数量")
+        private List<String> applicableInspectionTypes;
         private Integer firstInspectionQuantity;
-
-        @Schema(description = "巡检数量系数")
         private BigDecimal patrolInspectionRatio;
+        private Boolean critical;
+        private String failureRule;
+        private String sourceNote;
+        private Integer sourceOriginalPage;
+        private String sourceOriginalItem;
+        private String sourceOriginalExcerpt;
+        private String sourceOriginalMethod;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class EquipmentOption {
+        private Long equipmentId;
+        private String equipmentCode;
+        private String equipmentName;
+        private String equipmentNumber;
+        private Boolean defaultFlag;
+        private Integer sort;
     }
 }

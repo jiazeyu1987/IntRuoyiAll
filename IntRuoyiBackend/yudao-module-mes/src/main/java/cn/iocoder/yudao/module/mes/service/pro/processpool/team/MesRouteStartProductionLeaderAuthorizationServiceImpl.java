@@ -1,7 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
@@ -69,11 +68,15 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
                 || route.getId() == null
                 || route.getName() == null
                 || route.getName().isBlank());
-        if (!loadedRouteIds.equals(routeIds) || invalidRouteSummary) {
+        if (!loadedRouteIds.equals(routeIds)) {
             Set<Long> missingRouteIds = new LinkedHashSet<>(routeIds);
             missingRouteIds.removeAll(loadedRouteIds);
             throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED,
                     "responsibleRoutes missingRouteIds=" + missingRouteIds);
+        }
+        if (invalidRouteSummary) {
+            throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED,
+                    "responsibleRoutes invalidRouteSummary");
         }
         return routes.stream()
                 .sorted(Comparator.comparing(MesProRouteDO::getId))
@@ -115,10 +118,7 @@ public class MesRouteStartProductionLeaderAuthorizationServiceImpl
     }
 
     private List<MesProRouteVersionDO> listActiveRouteVersions() {
-        return routeVersionMapper.selectList(
-                new LambdaQueryWrapperX<MesProRouteVersionDO>()
-                        .eq(MesProRouteVersionDO::getActive, Boolean.TRUE)
-                        .eq(MesProRouteVersionDO::getLifecycleStatus, MesProRouteVersionMapper.STATUS_ACTIVE));
+        return routeVersionMapper.selectActiveListWithExistingRoutes();
     }
 
     private Set<Long> resolveAuthorizedRouteIds(Long leaderUserId, List<MesProRouteVersionDO> routeVersions) {

@@ -90,7 +90,7 @@ class MesProBatchRecordReportControllerTest {
         when(reportService.recognizeUploadedRoute(any(), eq("B"), eq("测试批记录"), eq("UPGRADE"), isNull(Long.class),
                 isNull(String.class),
                 eq(List.of("球囊扩张压力泵")), eq(true), eq(List.of(101L)), eq(List.of("球囊扩张压力泵")),
-                eq(false), isNull(Long.class), isNull(Long.class), isNull(Long.class)))
+                eq(false), isNull(Long.class), isNull(Long.class), isNull(Long.class), isNull(Long.class)))
                 .thenReturn(importResult);
         when(reportService.existsBatchRecordName("B", "测试批记录")).thenReturn(true);
         when(reportService.getBatchRecordNameOptions()).thenReturn(List.of("测试批记录", "棘突球囊"));
@@ -135,7 +135,7 @@ class MesProBatchRecordReportControllerTest {
                 controller.recognizeUploadedRoute(docFile, "B", "测试批记录", true,
                         null, null, null,
                         List.of("球囊扩张压力泵"), true, List.of(101L), List.of("球囊扩张压力泵"),
-                        false, null, null);
+                        false, null, null, null);
         CommonResult<Boolean> existsResult = controller.existsBatchRecordName("B", "测试批记录");
         CommonResult<List<String>> namesResult = controller.getBatchRecordNameOptions();
         CommonResult<List<String>> productNamesResult = controller.getProductNameOptions("压力", true);
@@ -280,7 +280,7 @@ class MesProBatchRecordReportControllerTest {
         Method recognizeMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
                 "recognizeUploadedRoute", MultipartFile.class, String.class, String.class, Boolean.class,
                 String.class, Long.class, String.class, List.class, Boolean.class, List.class, List.class,
-                Boolean.class, Long.class, Long.class);
+                Boolean.class, Long.class, Long.class, Long.class);
         assertArrayEquals(new String[]{"/recognize-uploaded"}, recognizeMethod.getAnnotation(PostMapping.class).value());
         assertEquals("file", recognizeMethod.getParameters()[0].getAnnotation(RequestParam.class).value());
         assertEquals("routeKey", recognizeMethod.getParameters()[1].getAnnotation(RequestParam.class).value());
@@ -298,6 +298,8 @@ class MesProBatchRecordReportControllerTest {
         assertEquals("false", recognizeMethod.getParameters()[11].getAnnotation(RequestParam.class).defaultValue());
         assertEquals("expectedRouteId", recognizeMethod.getParameters()[12].getAnnotation(RequestParam.class).value());
         assertEquals("expectedRouteVersionId", recognizeMethod.getParameters()[13].getAnnotation(RequestParam.class).value());
+        assertEquals("expectedRouteCandidateVersionId",
+                recognizeMethod.getParameters()[14].getAnnotation(RequestParam.class).value());
 
         Method preflightMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
                 "preflightUploadedRoute", String.class, String.class, List.class);
@@ -396,14 +398,14 @@ class MesProBatchRecordReportControllerTest {
         when(reportService.recognizeUploadedRoute(any(), eq("B"), eq("测试批记录"), eq("UPGRADE"), isNull(Long.class),
                 isNull(String.class),
                 eq(List.of("球囊扩张压力泵")), eq(true), eq(List.<Long>of()), eq(List.of("球囊扩张压力泵")),
-                eq(false), isNull(Long.class), isNull(Long.class), isNull(Long.class)))
+                eq(false), isNull(Long.class), isNull(Long.class), isNull(Long.class), isNull(Long.class)))
                 .thenReturn(importResult);
 
         CommonResult<BatchRecordReportImportRespVO> importResponse = controller.recognizeUploadedRoute(
                 new MockMultipartFile("file", "phase-one.doc", "application/msword", new byte[]{1}),
                 "B", "测试批记录", true, null, null, null,
                 List.of("球囊扩张压力泵"), true, List.of(), List.of("球囊扩张压力泵"),
-                false, null, null);
+                false, null, null, null);
 
         assertTrue(importResponse.isSuccess());
         assertEquals(10L, importResponse.getData().getBatchRecordDefinitionId());

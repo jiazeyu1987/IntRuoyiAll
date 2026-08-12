@@ -7,7 +7,7 @@ import type {
 
 export type TeamLeaderType = 'PRODUCTION' | 'PQC'
 export type SubmissionReviewStatus = 'APPROVED' | 'REJECTED'
-export type DeviceParameterValueType = 'INTEGER' | 'DECIMAL' | 'TEXT_STANDARD' | 'SELECT'
+export type DeviceParameterValueType = 'INTEGER' | 'DECIMAL' | 'TEXT_STANDARD' | 'SELECT' | 'BOOLEAN'
 
 export interface TeamLeaderSubmissionPageReqVO extends ProcessPoolTimelinePageReqVO {
   leaderType: TeamLeaderType

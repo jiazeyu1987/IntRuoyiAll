@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalReques
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalRequestStatus;
 import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalErrorCode;
 import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalOrchestrator;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportAssistRowVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRuleVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRulesReqVO;
@@ -151,6 +152,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
     private MesProRouteProductMapper routeProductMapper;
+    @Resource
+    private DccProjectCodeMapper dccProjectCodeMapper;
     @Resource
     private DataSource dataSource;
     private long productItemIdSequence = 880000L;
@@ -914,7 +917,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 TestBatchRecordFixtures.parsedTable(2, "粗洗工序"),
                 TestBatchRecordFixtures.parsedTable(3, "精洗工序"));
         when(routeRecognizer.recognize(any(), any(), any())).thenReturn(parsedTables);
-        seedDccProjectCode("球囊扩张压力泵", "BRP-ROUTE-ONLY");
+        seedDccProjectCode("球囊扩张压力泵", "BRP-ROUTE-ONLY", 13L);
         MockMultipartFile file = new MockMultipartFile(
                 "file", "route-only.doc", "application/msword",
                 "route-only-word-bytes".getBytes(StandardCharsets.UTF_8));
@@ -946,6 +949,12 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 SELECT COUNT(*) FROM mes_pro_route_flow_process_config
                 WHERE route_id = ? AND batch_record_report_id IS NULL
                 """, result.routeId()));
+        Long projectItemId = jdbcTemplate().queryForObject(
+                "SELECT id FROM mes_md_item WHERE code = ?", Long.class, "BRP-ROUTE-ONLY");
+        assertNotNull(projectItemId);
+        assertNotEquals(13L, projectItemId);
+        assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_route_product WHERE route_id = ? AND item_id = ?",
+                result.routeId(), projectItemId));
         verifyNoInteractions(jimuReportGateway);
     }
 
@@ -1009,6 +1018,240 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         JSONObject candidateConfigSnapshots = candidateSnapshot.getJSONObject("configSnapshots");
         assertNotNull(candidateConfigSnapshots.getJSONArray("scheduleUseConfigs"));
         verifyNoInteractions(jimuReportGateway);
+    }
+
+    @Test
+    void recognizeUploadedRoute_whenRouteDraftCandidateExists_updatesDraftWithoutCreatingV3() {
+        List<MesProBatchRecordParsedTable> parsedTables = List.of(
+                TestBatchRecordFixtures.parsedTable(1, "产品信息"),
+                TestBatchRecordFixtures.parsedTable(2, "粗洗工序"),
+                TestBatchRecordFixtures.parsedTable(3, "精洗工序"));
+        when(routeRecognizer.recognize(any(), any(), any())).thenReturn(parsedTables);
+        String productName = "草稿复用压力泵";
+        seedDccProjectCode(productName, "BRP-ROUTE-DRAFT-REUSE");
+        Long itemId = seedProductItem(productName, "BRP-ROUTE-DRAFT-REUSE");
+        MesProRouteDO route = MesProRouteDO.builder()
+                .code("ROUTE-DRAFT-REUSE")
+                .name(productName)
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        routeMapper.insert(route);
+        MesProRouteVersionDO activeVersion = MesProRouteVersionDO.builder()
+                .routeId(route.getId())
+                .versionNo("V1")
+                .active(true)
+                .lifecycleStatus("ACTIVE")
+                .routeSnapshotJson("{}")
+                .build();
+        routeVersionMapper.insert(activeVersion);
+        MesProRouteVersionDO draftCandidate = MesProRouteVersionDO.builder()
+                .routeId(route.getId())
+                .versionNo("V2")
+                .active(false)
+                .lifecycleStatus("DRAFT")
+                .sourceRouteVersionId(activeVersion.getId())
+                .routeSnapshotJson("{\"marker\":\"old-draft\"}")
+                .build();
+        routeVersionMapper.insert(draftCandidate);
+        MesProRouteProductDO routeProduct = MesProRouteProductDO.builder()
+                .routeId(route.getId())
+                .itemId(itemId)
+                .quantity(1)
+                .build();
+        routeProductMapper.insert(routeProduct);
+
+        MesProBatchRecordImportPreflightResult preflight = reportService.preflightUploadedRoute(
+                MesProBatchRecordRecognitionRouteKeys.B, productName, List.of(productName));
+        assertEquals(draftCandidate.getId(), preflight.currentRouteCandidateVersionId());
+        assertEquals("V2", preflight.currentRouteCandidateVersionNo());
+        assertEquals("DRAFT", preflight.currentRouteCandidateVersionStatus());
+        assertFalse(preflight.allowedActions().isEmpty());
+
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
+                new MockMultipartFile("file", "route-draft-reuse.doc", "application/msword",
+                        "route-draft-reuse-word-bytes".getBytes(StandardCharsets.UTF_8)),
+                MesProBatchRecordRecognitionRouteKeys.B, productName, "REBUILD_V1",
+                null, null, List.of(productName), false,
+                List.of(routeProduct.getId()), List.of(productName),
+                true, route.getId(), activeVersion.getId(), draftCandidate.getId(), null);
+
+        assertEquals(draftCandidate.getId(), result.routeVersionId());
+        assertEquals("V2", result.routeVersionNo());
+        assertEquals(2, rawCount("SELECT COUNT(*) FROM mes_pro_route_version WHERE route_id = ?", route.getId()));
+        assertEquals(0, rawCount("SELECT COUNT(*) FROM mes_pro_route_version WHERE route_id = ? AND version_no = ?",
+                route.getId(), "V3"));
+        MesProRouteVersionDO updatedDraft = routeVersionMapper.selectById(draftCandidate.getId());
+        assertTrue(updatedDraft.getRouteSnapshotJson().contains("粗洗工序"));
+        assertFalse(updatedDraft.getRouteSnapshotJson().contains("old-draft"));
+    }
+
+    @Test
+    void recognizeUploadedRoute_whenRouteCandidatePendingApproval_blocksBeforeCreatingNextVersion() {
+        assertRouteOnlyImportBlockedForCandidateStatus("PENDING_APPROVAL", "PENDING");
+    }
+
+    @Test
+    void recognizeUploadedRoute_whenRouteCandidateReadyToPublish_blocksBeforeCreatingNextVersion() {
+        assertRouteOnlyImportBlockedForCandidateStatus("READY_TO_PUBLISH", "READY");
+    }
+
+    private void assertRouteOnlyImportBlockedForCandidateStatus(String lifecycleStatus, String suffix) {
+        List<MesProBatchRecordParsedTable> parsedTables = List.of(
+                TestBatchRecordFixtures.parsedTable(1, "产品信息"),
+                TestBatchRecordFixtures.parsedTable(2, "粗洗工序"),
+                TestBatchRecordFixtures.parsedTable(3, "精洗工序"));
+        when(routeRecognizer.recognize(any(), any(), any())).thenReturn(parsedTables);
+        String productName = "候选阻止压力泵" + suffix;
+        String productCode = "BRP-ROUTE-CANDIDATE-" + suffix;
+        seedDccProjectCode(productName, productCode);
+        Long itemId = seedProductItem(productName, productCode);
+        MesProRouteDO route = MesProRouteDO.builder()
+                .code("ROUTE-CANDIDATE-" + suffix)
+                .name(productName)
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        routeMapper.insert(route);
+        MesProRouteVersionDO activeVersion = MesProRouteVersionDO.builder()
+                .routeId(route.getId())
+                .versionNo("V1")
+                .active(true)
+                .lifecycleStatus("ACTIVE")
+                .routeSnapshotJson("{}")
+                .build();
+        routeVersionMapper.insert(activeVersion);
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .routeId(route.getId())
+                .versionNo("V2")
+                .active(false)
+                .lifecycleStatus(lifecycleStatus)
+                .sourceRouteVersionId(activeVersion.getId())
+                .routeSnapshotJson("{\"marker\":\"locked-candidate\"}")
+                .build();
+        routeVersionMapper.insert(candidate);
+        MesProRouteProductDO routeProduct = MesProRouteProductDO.builder()
+                .routeId(route.getId())
+                .itemId(itemId)
+                .quantity(1)
+                .build();
+        routeProductMapper.insert(routeProduct);
+
+        MesProBatchRecordImportPreflightResult preflight = reportService.preflightUploadedRoute(
+                MesProBatchRecordRecognitionRouteKeys.B, productName, List.of(productName));
+        assertEquals(candidate.getId(), preflight.currentRouteCandidateVersionId());
+        assertEquals(lifecycleStatus, preflight.currentRouteCandidateVersionStatus());
+        assertTrue(preflight.allowedActions().isEmpty());
+
+        ServiceException exception = assertThrows(ServiceException.class, () -> reportService.recognizeUploadedRoute(
+                new MockMultipartFile("file", "route-candidate-locked.doc", "application/msword",
+                        "route-candidate-locked-word-bytes".getBytes(StandardCharsets.UTF_8)),
+                MesProBatchRecordRecognitionRouteKeys.B, productName, "REBUILD_V1",
+                null, null, List.of(productName), false,
+                List.of(routeProduct.getId()), List.of(productName),
+                true, route.getId(), activeVersion.getId(), candidate.getId(), null));
+
+        assertTrue(exception.getMessage().contains("撤回、取消或完成发布"));
+        assertEquals(2, rawCount("SELECT COUNT(*) FROM mes_pro_route_version WHERE route_id = ?", route.getId()));
+        assertEquals("{\"marker\":\"locked-candidate\"}",
+                routeVersionMapper.selectById(candidate.getId()).getRouteSnapshotJson());
+    }
+
+    @Test
+    void preflightAndRecognizeUploadedRoute_whenOnlyRouteSelected_usesDccProductBoundRouteWithDifferentName() {
+        List<MesProBatchRecordParsedTable> parsedTables = List.of(
+                TestBatchRecordFixtures.parsedTable(1, "产品信息"),
+                TestBatchRecordFixtures.parsedTable(2, "粗洗工序"),
+                TestBatchRecordFixtures.parsedTable(3, "精洗工序"));
+        when(routeRecognizer.recognize(any(), any(), any())).thenReturn(parsedTables);
+        String projectName = "按压式球囊扩张压力方案";
+        String productName = "按压式球囊扩张压力泵";
+        String productCode = "RE-PP-IDPR-01";
+        Long itemId = seedProductItem(productName, productCode);
+        seedDccProjectCode(projectName, productCode, 13L);
+        MesProRouteDO route = MesProRouteDO.builder()
+                .code("ROUTE-PRESSURE-PUMP")
+                .name(productName)
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        routeMapper.insert(route);
+        MesProRouteVersionDO routeVersion = MesProRouteVersionDO.builder()
+                .routeId(route.getId())
+                .versionNo("V6")
+                .active(true)
+                .routeSnapshotJson("{}")
+                .remark("按压式压力泵当前路线版本")
+                .build();
+        routeVersionMapper.insert(routeVersion);
+        MesProRouteProductDO routeProduct = MesProRouteProductDO.builder()
+                .routeId(route.getId())
+                .itemId(itemId)
+                .quantity(1)
+                .build();
+        routeProductMapper.insert(routeProduct);
+        assertEquals(1, dccProjectCodeMapper.selectEnabledListByProjectName(projectName).size());
+        assertEquals(13L, dccProjectCodeMapper.selectEnabledListByProjectName(projectName).get(0).getProductMasterId());
+        assertEquals(route.getId(), routeProductMapper.selectListByItemIds(List.of(itemId)).get(0).getRouteId());
+        assertEquals(route.getId(), routeMapper.selectById(route.getId()).getId());
+        MesProBatchRecordDefinitionDO definition = insertVersionedDefinition(projectName);
+        MesProBatchRecordVersionDO currentVersion = insertVersion(definition.getId(), "V6.0", "APPROVED",
+                null, "pressure-pump-v6.doc", "sha-pressure-pump-v6", null, null);
+        definition.setCurrentVersionId(currentVersion.getId());
+        definitionMapper.updateById(definition);
+        for (int sourceTableIndex = 2; sourceTableIndex <= 3; sourceTableIndex++) {
+            MesProBatchRecordReportDO existing = TestBatchRecordFixtures.metadataReport(
+                    (long) sourceTableIndex, "PRESSURE_PUMP_V6", sourceTableIndex,
+                    "pressure-pump-v6-report-" + sourceTableIndex,
+                    "PRESSURE_PUMP_V6_T" + sourceTableIndex, "既有表" + sourceTableIndex,
+                    "pressure-pump-v6.doc");
+            existing.setRouteKey(MesProBatchRecordRecognitionRouteKeys.B);
+            existing.setBatchRecordName(projectName);
+            existing.setBatchRecordDefinitionId(definition.getId());
+            existing.setBatchRecordVersionId(currentVersion.getId());
+            existing.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
+            reportMapper.insert(existing);
+            when(jimuReportGateway.getReportInfo("pressure-pump-v6-report-" + sourceTableIndex))
+                    .thenReturn(TestBatchRecordFixtures.reportInfo(
+                            "pressure-pump-v6-report-" + sourceTableIndex,
+                            "PRESSURE_PUMP_V6_T" + sourceTableIndex,
+                            "既有表" + sourceTableIndex, LocalDateTime.now()));
+        }
+        MesProBatchRecordImportPreflightResult preflight = reportService.preflightUploadedRoute(
+                MesProBatchRecordRecognitionRouteKeys.B, projectName, List.of(projectName));
+
+        assertEquals(currentVersion.getId(), preflight.currentBatchRecordVersionId());
+        assertEquals("V6.0", preflight.currentBatchRecordVersionNo());
+        assertEquals(route.getId(), preflight.currentRouteId());
+        assertEquals(routeVersion.getId(), preflight.currentRouteVersionId());
+        assertEquals("V6", preflight.currentRouteVersionNo());
+        assertTrue(preflight.routeUpgradeRequired());
+        assertEquals(1, preflight.routeProductOptions().size());
+        assertEquals(routeProduct.getId(), preflight.routeProductOptions().get(0).routeProductId());
+        assertEquals(productName, preflight.routeProductOptions().get(0).productName());
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "pressure-pump-route-only.doc", "application/msword",
+                "pressure-pump-route-only-word-bytes".getBytes(StandardCharsets.UTF_8));
+
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
+                file, MesProBatchRecordRecognitionRouteKeys.B, projectName, "UPGRADE",
+                currentVersion.getId(), "V7.0", List.of(projectName), false,
+                List.of(routeProduct.getId()), List.of(),
+                true, route.getId(), routeVersion.getId(), null);
+
+        assertEquals(route.getId(), result.routeId());
+        assertEquals("ROUTE-PRESSURE-PUMP", result.routeCode());
+        assertEquals("V7", result.routeVersionNo());
+        assertEquals(2, result.importedCount());
+        assertEquals(2, result.batchRecordRouteBindingCount());
+        assertEquals(definition.getId(), result.batchRecordDefinitionId());
+        assertEquals(currentVersion.getId(), result.batchRecordVersionId());
+        assertEquals("V6.0", result.versionNo());
+        assertEquals(1, result.boundProductNameCount());
+        assertEquals(1, result.boundProductCodeCount());
+        assertEquals(List.of(), result.skippedProductNames());
+        assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_route_product WHERE route_id = ? AND item_id = ?",
+                route.getId(), itemId));
+        assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_route_version WHERE route_id = ? AND version_no = ? AND active = FALSE AND lifecycle_status = ?",
+                route.getId(), "V7", "DRAFT"));
+        verify(jimuReportGateway, times(2)).getReportInfo("pressure-pump-v6-report-2");
     }
 
     @Test
@@ -4688,12 +4931,16 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     private void seedDccProjectCode(String projectName, String projectCode) {
+        seedDccProjectCode(projectName, projectCode, null);
+    }
+
+    private void seedDccProjectCode(String projectName, String projectCode, Long productMasterId) {
         jdbcTemplate().update("""
                 INSERT INTO dcc_project_code
-                (project_name, project_code, status, creator, updater, deleted, tenant_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (product_master_id, project_name, project_code, status, creator, updater, deleted, tenant_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                projectName, projectCode, "ENABLE", "tester", "tester", false, 1L);
+                productMasterId, projectName, projectCode, "ENABLE", "tester", "tester", false, 1L);
     }
 
     private void insertAuxiliarySlotReport(String batchRecordName, MesProBatchRecordFormSlotType slotType,

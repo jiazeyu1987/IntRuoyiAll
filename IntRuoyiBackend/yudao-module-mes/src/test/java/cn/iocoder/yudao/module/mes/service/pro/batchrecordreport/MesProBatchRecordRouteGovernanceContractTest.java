@@ -68,8 +68,8 @@ class MesProBatchRecordRouteGovernanceContractTest {
                 "Word 重建已有路线不得直接删除 active 工序、流转关系和绑定。");
         assertFalse(generationSource.contains("createNextActiveRouteVersion"),
                 "Word 重建已有路线不得直接创建下一 active 路线版本。");
-        assertTrue(generationSource.contains("createCandidateRouteVersion"),
-                "Word 重建已有路线必须生成候选路线版本，等待发布/审批后再切 active。");
+        assertTrue(generationSource.contains("createOrUpdateCandidateRouteVersion"),
+                "Word 重建已有路线必须创建或更新唯一候选路线版本，等待发布后再切 active。");
         assertTrue(generationSource.contains("STATUS_DRAFT"),
                 "候选路线版本必须使用 DRAFT 状态，不能作为生产 active 使用。");
     }

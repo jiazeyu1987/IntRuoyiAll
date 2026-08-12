@@ -144,6 +144,11 @@ public class MesFrontlineDeviceParameterValidatorImpl implements MesFrontlineDev
         if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD.equals(rule.getValueType())) {
             throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID, reading.getParameterCode());
         }
+        if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_BOOLEAN.equals(rule.getValueType())
+                && BigDecimal.ZERO.compareTo(reading.getValue()) != 0
+                && BigDecimal.ONE.compareTo(reading.getValue()) != 0) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID, reading.getParameterCode());
+        }
         reading.setDeviceCode(device.getDeviceCode())
                 .setDeviceName(device.getDeviceName())
                 .setParameterName(rule.getParameterName())
