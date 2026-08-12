@@ -57,10 +57,11 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     private static final String STATUS_DRAFT = "DRAFT";
     private static final String STATUS_PUBLISHED = "PUBLISHED";
     private static final String STATUS_RETIRED = "RETIRED";
-    private static final Set<String> ALLOWED_INSPECTION_TYPES = Set.of("FIRST", "PATROL", "FINAL");
+    private static final Set<String> ALLOWED_INSPECTION_TYPES = Set.of(
+            "FIRST", "PATROL", "PATROL_AM", "PATROL_PM", "FINAL");
     private static final Set<String> ALLOWED_RESULT_TYPES = Set.of("BOOLEAN", "NUMERIC", "TEXT");
     private static final Map<String, Integer> INSPECTION_TYPE_ORDER = Map.of(
-            "FIRST", 1, "PATROL", 2, "FINAL", 3);
+            "FIRST", 1, "PATROL", 2, "PATROL_AM", 2, "PATROL_PM", 3, "FINAL", 4);
 
     private final DccProjectCodeMapper dccProjectCodeMapper;
     private final MesQaInspectionRegulationMapper regulationMapper;
@@ -407,7 +408,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .filter(Objects::nonNull)
                 .findFirst().orElse(null);
         BigDecimal patrolRatio = rows.stream()
-                .filter(item -> Objects.equals(item.getInspectionType(), "PATROL"))
+                .filter(item -> isPatrolInspectionType(item.getInspectionType()))
                 .map(MesQaInspectionRegulationItemDO::getPatrolInspectionRatio)
                 .filter(Objects::nonNull)
                 .findFirst().orElse(null);
@@ -624,7 +625,8 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 && (item.getFirstInspectionQuantity() == null || item.getFirstInspectionQuantity() <= 0)) {
             throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode() + ".firstInspectionQuantity");
         }
-        if (applicableTypes.contains("PATROL") && !positive(item.getPatrolInspectionRatio())) {
+        if (applicableTypes.stream().anyMatch(MesQaInspectionRegulationServiceImpl::isPatrolInspectionType)
+                && !positive(item.getPatrolInspectionRatio())) {
             throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, item.getItemCode() + ".patrolInspectionRatio");
         }
         if (Objects.equals(resultType, "NUMERIC")
@@ -679,11 +681,13 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     }
 
     private static String normalizeInspectionType(String inspectionType) {
-        String normalized = StrUtil.trim(inspectionType);
-        if (StrUtil.startWith(normalized, "PATROL")) {
-            return "PATROL";
-        }
-        return normalized;
+        return StrUtil.trim(inspectionType);
+    }
+
+    private static boolean isPatrolInspectionType(String inspectionType) {
+        return Objects.equals(inspectionType, "PATROL")
+                || Objects.equals(inspectionType, "PATROL_AM")
+                || Objects.equals(inspectionType, "PATROL_PM");
     }
 
     private static MesQaInspectionRegulationItemDO toItemDO(
@@ -710,7 +714,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .equipmentRequired(Boolean.TRUE.equals(item.getEquipmentRequired()))
                 .resultType(StrUtil.trim(item.getResultType()))
                 .firstInspectionQuantity(fixedQuantity)
-                .patrolInspectionRatio(Objects.equals(inspectionType, "PATROL")
+                .patrolInspectionRatio(isPatrolInspectionType(inspectionType)
                         ? item.getPatrolInspectionRatio() : null)
                 .critical(item.getCritical())
                 .failureRule(StrUtil.trim(item.getFailureRule()))

@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspec
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationPublishedVersionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
@@ -89,6 +90,44 @@ class MesQaInspectionRegulationServiceTest {
         assertEquals("清洗", result.getProcesses().get(0).getProcessName());
         assertEquals(List.of("FIRST", "PATROL", "FINAL"),
                 result.getProcesses().get(0).getItems().get(0).getApplicableInspectionTypes());
+    }
+
+    @Test
+    void getCurrent_preservesPatrolAmPmRuleKeysAndAggregatesBusinessItemFields() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(versionMapper.selectById(VERSION_ID)).thenReturn(publishedVersion()
+                .setInspectionTypeRulesJson("[{\"key\":\"FIRST\",\"inspectionType\":\"FIRST\"," +
+                        "\"label\":\"首检\",\"required\":true},{\"key\":\"PATROL_AM\"," +
+                        "\"inspectionType\":\"PATROL_AM\",\"label\":\"上午巡检\",\"required\":true}," +
+                        "{\"key\":\"PATROL_PM\",\"inspectionType\":\"PATROL_PM\"," +
+                        "\"label\":\"下午巡检\",\"required\":true},{\"key\":\"FINAL\"," +
+                        "\"inspectionType\":\"FINAL\",\"label\":\"末检\",\"required\":true," +
+                        "\"fixedQuantity\":3}]"));
+        when(processMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(qaProcess()));
+        when(itemMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(
+                item("FIRST", 5, null),
+                item("PATROL_AM", null, new BigDecimal("0.400000")),
+                item("PATROL_PM", null, new BigDecimal("0.400000")),
+                item("FINAL", 3, null)));
+        when(itemEquipmentMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(
+                equipment("FIRST", 91L, "EQ-FIRST", 1),
+                equipment("PATROL_AM", 92L, "EQ-AM", 2),
+                equipment("PATROL_PM", 93L, "EQ-PM", 3),
+                equipment("FINAL", 94L, "EQ-FINAL", 4)));
+
+        MesQaInspectionRegulationPublishedVersionRespVO result = service.getCurrent(DCC_PROJECT_ID);
+
+        MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem businessItem =
+                result.getProcesses().get(0).getItems().get(0);
+        assertEquals(List.of("FIRST", "PATROL_AM", "PATROL_PM", "FINAL"),
+                businessItem.getApplicableInspectionTypes());
+        assertEquals(new BigDecimal("0.400000"), businessItem.getPatrolInspectionRatio());
+        assertEquals("BOOLEAN", businessItem.getResultType());
+        assertEquals(List.of("EQ-FIRST", "EQ-AM", "EQ-PM", "EQ-FINAL"),
+                businessItem.getEquipmentOptions().stream()
+                        .map(MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption::getEquipmentCode)
+                        .toList());
     }
 
     @Test
@@ -346,6 +385,22 @@ class MesQaInspectionRegulationServiceTest {
                 .firstInspectionQuantity(quantity)
                 .patrolInspectionRatio(patrolRatio)
                 .critical(false)
+                .build();
+    }
+
+    private static MesQaInspectionRegulationItemEquipmentDO equipment(
+            String inspectionType, Long equipmentId, String equipmentCode, Integer sort) {
+        return MesQaInspectionRegulationItemEquipmentDO.builder()
+                .id(equipmentId)
+                .regulationVersionId(VERSION_ID)
+                .inspectionType(inspectionType)
+                .itemCode("ID-001-WASH-APP")
+                .equipmentId(equipmentId)
+                .equipmentCode(equipmentCode)
+                .equipmentName("压力表")
+                .equipmentNumber("NO-" + equipmentId)
+                .defaultFlag(false)
+                .sort(sort)
                 .build();
     }
 
