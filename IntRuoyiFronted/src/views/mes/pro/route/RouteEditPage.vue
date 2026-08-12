@@ -33,7 +33,7 @@
       @success="handleSaved"
     />
     <div
-      v-if="!routeEditBlockingError && !['flow', 'basic', 'product'].includes(activeRouteTab)"
+      v-if="!routeEditBlockingError && !['flow', 'basic', 'product', 'dcc'].includes(activeRouteTab)"
       class="route-edit-page__actions"
     >
       <el-button

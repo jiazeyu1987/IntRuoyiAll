@@ -423,6 +423,10 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_ROUTE_IMPORT_ROUTE_NO_STEP = new ErrorCode(1_040_501_404, "导入路线没有工序：{}");
     ErrorCode PRO_ROUTE_IMPORT_SEQUENCE_DUPLICATE = new ErrorCode(1_040_501_405, "导入路线 {} 的工序序号重复：{}");
     ErrorCode PRO_ROUTE_IMPORT_FINAL_PROCESS_INVALID = new ErrorCode(1_040_501_406, "导入路线必须且只能有一个最终工序：{}");
+    ErrorCode PRO_ROUTE_DCC_BINDING_VERSION_CONFLICT = new ErrorCode(1_040_501_500,
+            "工艺路线 DCC 项目代码关系已变化，请刷新后重试，routeId={}，expectedVersion={}，currentVersion={}");
+    ErrorCode PRO_ROUTE_DCC_PROJECT_INVALID = new ErrorCode(1_040_501_501,
+            "DCC 项目代码不存在或已停用：{}");
     ErrorCode PRO_ROUTE_IMPORT_PROCESS_CONFLICT = new ErrorCode(1_040_501_407, "工序编码 {} 的名称不一致，本地：{}，导入：{}");
     ErrorCode PRO_ROUTE_IMPORT_PROCESS_NAME_EXISTS = new ErrorCode(1_040_501_408, "工序名称 {} 已存在但编码不一致");
     ErrorCode PRO_ROUTE_IMPORT_CHECK_PROCESS_INVALID = new ErrorCode(1_040_501_409, "检验工序映射无效：{}");
