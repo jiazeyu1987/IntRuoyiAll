@@ -34,4 +34,4 @@ Add an independent MES resolver that starts from the active-order route snapshot
 
 ## Current Status
 
-`ready_for_merge`: RED, GREEN, prerequisite regression, forbidden-inference scan, backend evidence validation, supervisor review, and independent verification are complete.
+completed：RED、GREEN、组合回归、禁止推算扫描、后端证据校验、主管复核和独立验证均已完成；实现提交 d781ca689 已 fast-forward 合入 int_main；task-closeout-cleanup 预览和 apply 均通过，正式证据全部保留，任务具备删除 worktree 和释放槽位条件。

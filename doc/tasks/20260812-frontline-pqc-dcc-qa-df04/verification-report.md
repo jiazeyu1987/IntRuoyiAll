@@ -13,4 +13,10 @@ DF04 independent unique enabled DCC project resolver.
 
 ## Current Result
 
-`ready_for_merge`
+PASS。实现提交 `d781ca689` 已 fast-forward 合入 `int_main`；cleanup preview/apply PASS，正式证据保留，未删除文件。
+
+## Closeout Verification
+
+- Backend evidence validator: PASS。
+- Cleanup preview/apply: PASS，0 blocked，0 warnings，0 deleted paths。
+- Worktree deletion and port release are supervisor-owned operations performed only after this closeout record is committed and fast-forward merged.

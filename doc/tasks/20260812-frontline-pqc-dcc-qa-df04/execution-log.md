@@ -40,3 +40,10 @@ BDD: forbidden inference is absent -> Given product code, material code, product
 ## Blockers
 
 - None affecting DF04 implementation.
+
+## Closeout
+
+- `backend-api-delivery` evidence validator PASS。
+- `task-closeout-cleanup` preview PASS：blocked/warnings 为空；核心任务记录和独立验证证据均保留。
+- `task-closeout-cleanup` apply PASS：无临时文件需要删除，未触碰其它任务文件。
+- 实现提交 `d781ca689` 已 fast-forward 合入 `int_main`；收尾记录提交后由主管再次 fast-forward 合入，再删除该任务 worktree 并释放其端口槽位。
