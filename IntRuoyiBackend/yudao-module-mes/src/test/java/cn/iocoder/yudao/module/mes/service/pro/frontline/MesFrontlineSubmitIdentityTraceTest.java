@@ -16,12 +16,17 @@ class MesFrontlineSubmitIdentityTraceTest {
     private MesFrontlineDeviceAccountContextService contextService;
     @Mock
     private MesFrontlineTemplateResolver templateResolver;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper activeOrderMapper;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
 
     private MesFrontlineSubmitAuthorizationServiceImpl submitAuthorizationService;
 
     @BeforeEach
     void setUp() {
-        submitAuthorizationService = new MesFrontlineSubmitAuthorizationServiceImpl(contextService, templateResolver);
+        submitAuthorizationService = new MesFrontlineSubmitAuthorizationServiceImpl(
+                contextService, templateResolver, activeOrderMapper, processSnapshotMapper);
     }
 
     @Test

@@ -17,6 +17,7 @@ public class MesTeamLeaderActiveOrderRow {
     private Long leaderUserId;
     private Long workOrderId;
     private String workOrderCode;
+    private Long productId;
     private String productName;
     private String productCode;
     private BigDecimal quantity;

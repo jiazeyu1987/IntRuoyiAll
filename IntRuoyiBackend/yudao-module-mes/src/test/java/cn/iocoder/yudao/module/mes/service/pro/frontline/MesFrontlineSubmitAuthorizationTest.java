@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,12 +21,17 @@ class MesFrontlineSubmitAuthorizationTest {
     private MesFrontlineDeviceAccountContextService contextService;
     @Mock
     private MesFrontlineTemplateResolver templateResolver;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper activeOrderMapper;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
 
     private MesFrontlineSubmitAuthorizationServiceImpl submitAuthorizationService;
 
     @BeforeEach
     void setUp() {
-        submitAuthorizationService = new MesFrontlineSubmitAuthorizationServiceImpl(contextService, templateResolver);
+        submitAuthorizationService = new MesFrontlineSubmitAuthorizationServiceImpl(
+                contextService, templateResolver, activeOrderMapper, processSnapshotMapper);
     }
 
     @Test
@@ -111,6 +118,29 @@ class MesFrontlineSubmitAuthorizationTest {
                 .thenThrow(exception0(1_040_760_005, "actual employee not bound"));
 
         assertThrows(ServiceException.class, () -> submitAuthorizationService.authorize(command));
+    }
+
+    @Test
+    void shouldAuthorizeSelectedActiveOrderForResponsibleLeaderAndProcessSnapshot() {
+        when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
+        when(activeOrderMapper.selectActiveByLeaderAndWorkOrderForUpdate(3001L, 41L)).thenReturn(
+                MesProcessPoolActiveOrderDO.builder().id(81L).workOrderId(41L).routeId(21L).build());
+        when(processSnapshotMapper.selectByActiveOrderAndProcess(81L, 71L, 31L)).thenReturn(
+                MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(81L).workOrderId(41L).routeId(21L)
+                        .routeProcessId(71L).processId(31L).build());
+
+        assertDoesNotThrow(() -> submitAuthorizationService.authorizeActiveOrder(
+                9001L, 41L, 21L, 71L, 31L));
+    }
+
+    @Test
+    void shouldRejectSelectedActiveOrderThatIsNoLongerActiveForResponsibleLeader() {
+        when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
+        when(activeOrderMapper.selectActiveByLeaderAndWorkOrderForUpdate(3001L, 41L)).thenReturn(null);
+
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
+                9001L, 41L, 21L, 71L, 31L));
     }
 
 }

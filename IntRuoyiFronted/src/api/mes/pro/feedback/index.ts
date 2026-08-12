@@ -1088,6 +1088,12 @@ export const ProFeedbackApi = {
       url: `/mes/pro/feedback/frontline/device-account/processes`
     })
   },
+  // 获取当前生产组长维护的一线生产活跃订单
+  getFrontlineProductionActiveOrders: async () => {
+    return await request.get<FrontlineActiveOrderVO[]>({
+      url: `/mes/pro/feedback/frontline/device-account/active-orders`
+    })
+  },
   // 获取 PQC 当前活跃订单
   getFrontlinePqcActiveOrders: async () => {
     return await request.get<FrontlineActiveOrderVO[]>({

@@ -1119,6 +1119,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .setLeaderUserId(activeOrder.getLeaderUserId())
                 .setWorkOrderId(activeOrder.getWorkOrderId())
                 .setWorkOrderCode(workOrder.getCode())
+                .setProductId(product.getId())
                 .setProductName(product.getName())
                 .setProductCode(product.getCode())
                 .setQuantity(workOrder.getQuantity())

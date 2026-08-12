@@ -562,6 +562,17 @@
           class="frontline-operator-top top is-production"
           data-frontline-production-selection-grid
         >
+          <button
+            class="frontline-top-card top-box frontline-production-selection-card"
+            type="button"
+            data-frontline-production-selection-card
+            data-frontline-production-active-order-card
+            :disabled="payloadLoading || submitConfirmationOpen || productionSubmitSuccessOpen || productionSubmitFailureOpen"
+            @click="openPicker('order')"
+          >
+            <div class="top-label">活跃订单</div>
+            <div class="top-value">{{ productionOrderLabel }}</div>
+          </button>
           <div
             class="frontline-top-card top-box frontline-production-selection-card frontline-production-process-nav-card"
             data-frontline-production-selection-card
@@ -601,6 +612,7 @@
             class="frontline-top-card top-box frontline-production-selection-card"
             type="button"
             data-frontline-production-selection-card
+            data-frontline-production-employee-card
             :disabled="payloadLoading || submitConfirmationOpen || productionSubmitSuccessOpen || productionSubmitFailureOpen"
             @click="openPicker('employee')"
           >
@@ -622,16 +634,40 @@
         <section
           v-if="activePicker"
           class="frontline-picker picker"
-          :aria-label="activePicker === 'process' ? '选择工序' : '选择员工'"
+          :class="{ 'frontline-picker--production-order': activePicker === 'order' }"
+          :aria-label="activePicker === 'order' ? '选择活跃订单' : activePicker === 'process' ? '选择工序' : '选择员工'"
           @click.self="closePicker"
         >
           <div class="frontline-picker__card picker-card">
-            <h3 class="frontline-picker__title picker-title">
-              {{ activePicker === 'process' ? '选工序' : '选择员工' }}
-            </h3>
+            <div class="frontline-picker__heading">
+              <h3 class="frontline-picker__title picker-title">
+                {{ activePicker === 'order' ? '选择活跃订单' : activePicker === 'process' ? '选工序' : '选择员工' }}
+              </h3>
+              <input
+                v-if="activePicker === 'order'"
+                ref="activeOrderSearchInputRef"
+                v-model="activeOrderKeyword"
+                class="frontline-picker__order-search"
+                type="search"
+                data-frontline-production-order-search-input
+                aria-label="输入订单号筛选活跃订单"
+                placeholder="输入订单号"
+                autocomplete="off"
+                spellcheck="false"
+                @keydown.enter="handleActiveOrderSearchEnter"
+              />
+            </div>
             <div class="frontline-picker__options picker-options">
               <p
-                v-if="pickerStatusText"
+                v-if="activePicker === 'order' && pickerOptions.length === 0"
+                class="frontline-picker__empty"
+                role="status"
+                aria-live="polite"
+              >
+                {{ activeOrderPickerEmptyText }}
+              </p>
+              <p
+                v-else-if="pickerStatusText"
                 class="frontline-picker__empty"
                 role="status"
                 aria-live="polite"
@@ -646,7 +682,30 @@
                 :class="{ active: option.active }"
                 @click="option.onClick"
               >
-                {{ option.label }}
+                <span
+                  v-if="activePicker === 'order' && option.activeOrder"
+                  class="frontline-order-picker-option"
+                >
+                  <span class="frontline-order-picker-option__row">
+                    <span>编码</span>
+                    <strong class="frontline-order-picker-option__value is-code">
+                      {{ option.activeOrder.workOrderCode }}
+                    </strong>
+                  </span>
+                  <span class="frontline-order-picker-option__row">
+                    <span>产品</span>
+                    <strong class="frontline-order-picker-option__value">
+                      {{ option.activeOrder.productName }}
+                    </strong>
+                  </span>
+                  <span class="frontline-order-picker-option__row">
+                    <span>数量</span>
+                    <strong class="frontline-order-picker-option__value">
+                      {{ formatProductionQuantity(option.activeOrder.quantity) }}
+                    </strong>
+                  </span>
+                </span>
+                <span v-else>{{ option.label }}</span>
               </button>
             </div>
             <button class="frontline-picker__close picker-close" type="button" @click="closePicker">
@@ -1277,6 +1336,7 @@ import {
   FRONTLINE_PQC_NO_PENDING_ORDER_TEXT,
   createFrontlineDeviceEmployeeState,
   loadFrontlineDeviceProcesses,
+  loadFrontlineProductionActiveOrders,
   loadFrontlinePqcActiveOrders,
   preloadFrontlineProductionRuntimeCache,
   preloadFrontlinePqcSwitchingCache,
@@ -1544,13 +1604,9 @@ const selectedActiveOrder = computed(() => deviceState.selectedActiveOrder)
 
 const productionOrderLabel = computed(() => {
   const selectedOrder = selectedActiveOrder.value
-  const submitContext = productionSubmitContext.value
   return selectedOrder?.workOrderCode ||
     selectedOrder?.workOrderName ||
-    submitContext?.workOrderCode ||
-    submitContext?.workOrderName ||
-    firstRouteQueryText(['productionOrderCode', 'workOrderCode', 'orderCode']) ||
-    '无需工单'
+    '未选择'
 })
 
 const formatProductionQuantity = (quantity: number) => {
@@ -1763,7 +1819,7 @@ const isSubmitBlocked = computed(() =>
   productionSubmitFailureOpen.value ||
   templateModeMismatch.value ||
   templateBindingMissing.value ||
-  (isPqcMode.value && !deviceState.selectedActiveOrder) ||
+  !deviceState.selectedActiveOrder ||
   (isPqcMode.value && !hasPqcTaskSnapshot(deviceState.selectedProcess)) ||
   !deviceState.selectedProcess ||
   !deviceState.selectedEmployee
@@ -2040,15 +2096,15 @@ const filteredActiveOrderOptions = computed(() => {
 
 const activeOrderPickerEmptyText = computed(() => {
   if (deviceState.loadingActiveOrders) {
-    return '待检工单加载中'
+    return isPqcMode.value ? '待检工单加载中' : '活跃订单加载中'
   }
   if (deviceState.lastError) {
     return deviceState.lastError
   }
   if (deviceState.activeOrderOptions.length === 0) {
-    return FRONTLINE_PQC_NO_PENDING_ORDER_TEXT
+    return isPqcMode.value ? FRONTLINE_PQC_NO_PENDING_ORDER_TEXT : '当前暂无活跃订单'
   }
-  return '未找到匹配的待检工单'
+  return isPqcMode.value ? '未找到匹配的待检工单' : '未找到匹配的活跃订单'
 })
 
 const pickerOptions = computed<FrontlinePickerOption[]>(() => {
@@ -3268,6 +3324,18 @@ const handleActiveOrderSearchEnter = async () => {
 }
 
 const handleSelectActiveOrder = async (activeOrder: FrontlineActiveOrderVO) => {
+  if (!isPqcMode.value) {
+    const selectedProcess = deviceState.selectedProcess
+    if (isFrontlineProductionProcess(selectedProcess) && selectedProcess.routeId !== activeOrder.routeId) {
+      message.error('所选活跃订单不包含当前工序，请先选择该订单路线下的工序。')
+      return
+    }
+    deviceState.selectedActiveOrder = activeOrder
+    applyActiveOrderToContext(activeOrder)
+    payloadPreview.value = undefined
+    closePicker()
+    return
+  }
   pqcSubmitReceipt.value = undefined
   pqcSubmitResultUncertain.value = false
   pqcSignatureDialogVisible.value = false
@@ -3318,6 +3386,14 @@ const handleSelectProcess = async (
     return
   }
   applyProcessToContext(selectedProcess)
+  if (
+    isFrontlineProductionProcess(selectedProcess) &&
+    deviceState.selectedActiveOrder?.routeId !== undefined &&
+    deviceState.selectedActiveOrder.routeId !== selectedProcess.routeId
+  ) {
+    deviceState.selectedActiveOrder = undefined
+    context.workOrderId = undefined
+  }
   if (isFrontlinePqcProcess(selectedProcess)) {
     applyPqcTaskSnapshotToDraft(selectedProcess)
   }
@@ -3707,10 +3783,11 @@ interface FrontlineFormalSubmitContext {
 
 const readFrontlineFormalSubmitContext = (): FrontlineFormalSubmitContext => {
   const selectedProcess = deviceState.selectedProcess
+  const selectedActiveOrder = deviceState.selectedActiveOrder
   const serverContext = deviceState.runtimeConfig?.productionSubmitContext
   return {
-    workOrderId: serverContext?.workOrderId,
-    workOrderCode: serverContext?.workOrderCode,
+    workOrderId: selectedActiveOrder?.workOrderId,
+    workOrderCode: selectedActiveOrder?.workOrderCode,
     taskId: serverContext?.taskId,
     routeId: serverContext?.routeId,
     routeProcessId: serverContext?.routeProcessId,
@@ -3735,6 +3812,7 @@ const readFrontlineFormalSubmitContext = (): FrontlineFormalSubmitContext => {
 const assertFrontlineFormalSubmitContext = (formalContext: FrontlineFormalSubmitContext) => {
   const missingFields: string[] = []
   const requiredFields: Array<[keyof FrontlineFormalSubmitContext, string]> = [
+    ['workOrderId', '活跃订单'],
     ['routeId', '路线'],
     ['routeProcessId', '路线工序'],
     ['processId', '工序'],
@@ -3759,6 +3837,15 @@ const assertFrontlineFormalSubmitContext = (formalContext: FrontlineFormalSubmit
     formalContext.signatureEmployeeId !== context.actualEmployeeId
   ) {
     throw new Error('签名员工必须等于实际填写员工，无法提交。')
+  }
+  const activeOrder = selectedActiveOrder.value
+  const selectedProcess = deviceState.selectedProcess
+  if (
+    !activeOrder ||
+    !isFrontlineProductionProcess(selectedProcess) ||
+    activeOrder.routeId !== selectedProcess.routeId
+  ) {
+    throw new Error('订单与工序上下文不一致，请重新选择活跃订单或工序。')
   }
   if (missingFields.length) {
     throw new Error(`缺少${missingFields.join('、')}，无法提交。`)
@@ -4270,10 +4357,22 @@ const formatTemplateName = (templateCode?: FrontlineTemplateCode) => {
 }
 
 const initializeProductionSelection = async () => {
-  const processes = await loadFrontlineDeviceProcesses(deviceState)
+  const [processes, activeOrders] = await Promise.all([
+    loadFrontlineDeviceProcesses(deviceState),
+    loadFrontlineProductionActiveOrders(deviceState)
+  ])
   const initialProcess = findInitialProcess(processes)
   if (initialProcess) {
     await handleSelectProcess(initialProcess)
+  }
+  const initialActiveOrder = context.workOrderId
+    ? activeOrders.find((order) =>
+      order.workOrderId === context.workOrderId &&
+      (!context.routeId || order.routeId === context.routeId)
+    )
+    : undefined
+  if (initialActiveOrder) {
+    await handleSelectActiveOrder(initialActiveOrder)
   }
 }
 
@@ -4531,7 +4630,7 @@ onUnmounted(() => {
 
 .frontline-operator-top {
   display: grid;
-  grid-template-columns: 1fr 1fr 240px;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.35fr) minmax(0, 0.9fr) 240px;
   gap: 20px;
 
   &.is-pqc {

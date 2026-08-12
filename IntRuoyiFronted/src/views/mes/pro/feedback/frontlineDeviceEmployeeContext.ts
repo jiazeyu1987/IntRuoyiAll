@@ -150,6 +150,30 @@ export const loadFrontlinePqcActiveOrders = async (state: FrontlineDeviceEmploye
   }
 }
 
+export const loadFrontlineProductionActiveOrders = async (state: FrontlineDeviceEmployeeState) => {
+  state.loadingActiveOrders = true
+  state.lastError = undefined
+  try {
+    const activeOrders = await ProFeedbackApi.getFrontlineProductionActiveOrders()
+    state.activeOrderOptions = activeOrders
+    if (
+      state.selectedActiveOrder &&
+      !activeOrders.some((activeOrder) =>
+        activeOrder.workOrderId === state.selectedActiveOrder?.workOrderId &&
+        activeOrder.routeId === state.selectedActiveOrder?.routeId
+      )
+    ) {
+      state.selectedActiveOrder = undefined
+    }
+    return activeOrders
+  } catch (error) {
+    state.lastError = resolveFrontlineErrorMessage(error)
+    throw error
+  } finally {
+    state.loadingActiveOrders = false
+  }
+}
+
 export const clearFrontlinePqcSelectionIfUnavailable = (
   state: FrontlineDeviceEmployeeState,
   activeOrders: FrontlineActiveOrderVO[]

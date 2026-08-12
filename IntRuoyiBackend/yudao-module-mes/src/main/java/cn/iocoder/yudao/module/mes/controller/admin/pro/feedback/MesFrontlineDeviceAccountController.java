@@ -32,6 +32,8 @@ import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConf
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRouteProcessCandidate;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineTemplateDescriptor;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRow;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.template.FrontlineTemplateCodes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -66,6 +68,8 @@ public class MesFrontlineDeviceAccountController {
     private MesFrontlinePqcContextService pqcContextService;
     @Resource
     private MesFrontlineRuntimeConfigService runtimeConfigService;
+    @Resource
+    private MesTeamLeaderActiveOrderService activeOrderService;
 
     @GetMapping("/processes")
     @Operation(summary = "获得设备账号可切换工序")
@@ -73,6 +77,16 @@ public class MesFrontlineDeviceAccountController {
     public CommonResult<List<MesFrontlineRouteProcessRespVO>> getSwitchableProcesses() {
         return success(contextService.listSwitchableProcesses(getLoginUserId()).stream()
                 .map(MesFrontlineDeviceAccountController::toRouteProcessRespVO)
+                .toList());
+    }
+
+    @GetMapping("/active-orders")
+    @Operation(summary = "获得当前生产组长维护的一线生产活跃订单")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
+    public CommonResult<List<MesFrontlineActiveOrderRespVO>> getProductionActiveOrders() {
+        Long leaderUserId = contextService.resolveResponsibleLeaderUserId(getLoginUserId());
+        return success(activeOrderService.listActiveOrders(leaderUserId).stream()
+                .map(MesFrontlineDeviceAccountController::toProductionActiveOrderRespVO)
                 .toList());
     }
 
@@ -209,6 +223,22 @@ public class MesFrontlineDeviceAccountController {
         respVO.setRouteName(candidate.routeName());
         respVO.setLatestSubmitTime(candidate.latestSubmitTime());
         return respVO;
+    }
+
+    private static MesFrontlineActiveOrderRespVO toProductionActiveOrderRespVO(
+            MesTeamLeaderActiveOrderRow activeOrder) {
+        return new MesFrontlineActiveOrderRespVO()
+                .setActiveOrderId(activeOrder.getId())
+                .setWorkOrderId(activeOrder.getWorkOrderId())
+                .setWorkOrderCode(activeOrder.getWorkOrderCode())
+                .setProductId(activeOrder.getProductId())
+                .setProductCode(activeOrder.getProductCode())
+                .setProductName(activeOrder.getProductName())
+                .setQuantity(activeOrder.getErpFixedQuantitySnapshot() == null
+                        ? activeOrder.getQuantity() : activeOrder.getErpFixedQuantitySnapshot())
+                .setRouteId(activeOrder.getRouteId())
+                .setRouteName(activeOrder.getRouteName())
+                .setLatestSubmitTime(activeOrder.getJoinedAt());
     }
 
     private static MesFrontlineRouteProcessRespVO toRouteProcessRespVO(MesFrontlineRouteProcessCandidate candidate) {
