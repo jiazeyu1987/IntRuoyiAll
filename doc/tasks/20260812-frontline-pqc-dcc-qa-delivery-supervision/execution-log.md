@@ -57,3 +57,12 @@
 - GREEN: C00 commit -> PASS，提交 `a1c032581 feat(mes): add PQC DCC QA schema baseline` 只包含 C00 SQL、`MesQaPqcSchemaTest.java` 和 C00 子任务证据目录。
 - GREEN: C00 fast-forward merge -> PASS，`int_main` 已快进到 `a1c032581`；主工作区既有脏改动与 C00 增量无路径重叠。
 - NOTE: 未 push、未部署、未启动服务、未修改共享业务数据；主任务 `test-report.md` 已记录 C00 独立验证。
+
+## 2026-08-12 Wave 1 派发
+
+- GREEN: Wave 1 readiness -> PASS，C00 已合入 `int_main`，DF01、DF02、DF03、DF05 均满足依赖。
+- GREEN: concurrency gate -> PASS，当前只派发 3 个执行 Agent：DF01、DF02、DF03；DF05 保持 ready，等待任一执行槽释放后再启动。
+- GREEN: worktree gate -> PASS，DF01 worktree `D:\IntRuoyiWorktree\20260812-frontline-pqc-dcc-qa-df01`，slot 14，端口 8095/48095。
+- GREEN: worktree gate -> PASS，DF02 worktree `D:\IntRuoyiWorktree\20260812-frontline-pqc-dcc-qa-df02`，slot 15，端口 8096/48096。
+- GREEN: worktree gate -> PASS，DF03 worktree `D:\IntRuoyiWorktree\20260812-frontline-pqc-dcc-qa-df03`，slot 16，端口 8097/48097。
+- NOTE: 三个执行 Agent 只允许修改各自任务写范围和子任务目录；不得提交、合并、push、部署、启动服务或修改共享业务数据。
