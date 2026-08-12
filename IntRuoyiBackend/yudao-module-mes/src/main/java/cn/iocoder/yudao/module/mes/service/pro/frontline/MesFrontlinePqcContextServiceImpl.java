@@ -155,21 +155,16 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             return List.of();
         }
 
-        Map<ActiveOrderKey, LatestActiveOrderContext> latestActiveOrderByOrder = new LinkedHashMap<>();
+        List<LatestActiveOrderContext> activeOrderContexts = new ArrayList<>();
         for (MesProcessPoolActiveOrderDO activeOrder : activeOrders) {
             requireActiveOrderIdentity(activeOrder);
-            ActiveOrderKey key = new ActiveOrderKey(activeOrder.getWorkOrderId(), activeOrder.getRouteId());
-            LatestActiveOrderContext current = latestActiveOrderByOrder.get(key);
-            if (current == null || isAfter(activeOrder.getJoinedAt(), current.latestSubmitTime())) {
-                latestActiveOrderByOrder.put(key,
-                        new LatestActiveOrderContext(activeOrder, activeOrder.getJoinedAt()));
-            }
+            activeOrderContexts.add(new LatestActiveOrderContext(activeOrder, activeOrder.getJoinedAt()));
         }
-        Set<Long> workOrderIds = latestActiveOrderByOrder.keySet().stream()
-                .map(ActiveOrderKey::workOrderId)
+        Set<Long> workOrderIds = activeOrders.stream()
+                .map(MesProcessPoolActiveOrderDO::getWorkOrderId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        Set<Long> routeIds = latestActiveOrderByOrder.keySet().stream()
-                .map(ActiveOrderKey::routeId)
+        Set<Long> routeIds = activeOrders.stream()
+                .map(MesProcessPoolActiveOrderDO::getRouteId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         Map<Long, MesProWorkOrderDO> workOrderMap = mapById(workOrderMapper.selectListByIds(workOrderIds),
                 MesProWorkOrderDO::getId);
@@ -183,25 +178,25 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         Map<Long, Set<Long>> productIdsByRouteVersionId = new LinkedHashMap<>();
 
         List<MesFrontlineActiveOrderCandidate> candidates = new ArrayList<>();
-        for (Map.Entry<ActiveOrderKey, LatestActiveOrderContext> entry : latestActiveOrderByOrder.entrySet()) {
-            ActiveOrderKey key = entry.getKey();
-            MesProcessPoolActiveOrderDO activeOrder = entry.getValue().activeOrder();
-            MesProWorkOrderDO workOrder = requireWorkOrder(workOrderMap, key.workOrderId());
-            MesProRouteDO route = requireRoute(routeMap, key.routeId());
+        for (LatestActiveOrderContext context : activeOrderContexts) {
+            MesProcessPoolActiveOrderDO activeOrder = context.activeOrder();
+            MesProWorkOrderDO workOrder = requireWorkOrder(workOrderMap, activeOrder.getWorkOrderId());
+            MesProRouteDO route = requireRoute(routeMap, activeOrder.getRouteId());
             Set<Long> routeVersionProductIds = productIdsByRouteVersionId.computeIfAbsent(
                     activeOrder.getRouteVersionId(), ignored -> resolveRouteVersionProductIds(activeOrder));
             requireProductRoute(workOrder, activeOrder, routeVersionProductIds);
             MesMdItemDO item = requireProduct(itemMap, workOrder.getProductId());
             validateActiveOrderSummary(workOrder, item);
-            candidates.add(new MesFrontlineActiveOrderCandidate(workOrder.getId(), workOrder.getCode(),
+            candidates.add(new MesFrontlineActiveOrderCandidate(activeOrder.getId(),
+                    workOrder.getId(), workOrder.getCode(),
                     workOrder.getName(), workOrder.getProductId(), item.getCode(), item.getName(),
                     workOrder.getQuantity(), route.getId(), route.getCode(), route.getName(),
-                    entry.getValue().latestSubmitTime()));
+                    context.latestSubmitTime()));
         }
         candidates.sort(Comparator
                 .comparing(MesFrontlineActiveOrderCandidate::latestSubmitTime,
                         Comparator.nullsLast(Comparator.reverseOrder()))
-                .thenComparing(MesFrontlineActiveOrderCandidate::workOrderId));
+                .thenComparing(MesFrontlineActiveOrderCandidate::activeOrderId));
         return candidates;
     }
 
@@ -1208,9 +1203,6 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 .filter(Objects::nonNull)
                 .filter(row -> idGetter.apply(row) != null)
                 .collect(Collectors.toMap(idGetter, Function.identity(), (left, right) -> left, LinkedHashMap::new));
-    }
-
-    private record ActiveOrderKey(Long workOrderId, Long routeId) {
     }
 
     private record LatestActiveOrderContext(MesProcessPoolActiveOrderDO activeOrder, LocalDateTime latestSubmitTime) {

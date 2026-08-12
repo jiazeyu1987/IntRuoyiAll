@@ -29,13 +29,14 @@ class MesFrontlineActiveOrderControllerTest {
     @Test
     void getPqcActiveOrders_mapsFormalProductNameAndProductionQuantity() {
         when(pqcContextService.listActiveOrders()).thenReturn(List.of(new MesFrontlineActiveOrderCandidate(
-                1001L, "WO-PQC-001", "PQC 活跃订单", 3001L, "ITEM-PQC", "PQC 产品",
+                5001L, 1001L, "WO-PQC-001", "PQC 活跃订单", 3001L, "ITEM-PQC", "PQC 产品",
                 new BigDecimal("125.500"), 2001L, "ROUTE-PQC", "PQC 产品路线",
                 LocalDateTime.of(2026, 8, 1, 9, 0))));
 
         CommonResult<List<MesFrontlineActiveOrderRespVO>> response = controller.getPqcActiveOrders();
 
         MesFrontlineActiveOrderRespVO activeOrder = response.getData().get(0);
+        assertEquals(5001L, activeOrder.getActiveOrderId());
         assertEquals("PQC 产品", activeOrder.getProductName());
         assertEquals(new BigDecimal("125.500"), activeOrder.getQuantity());
     }

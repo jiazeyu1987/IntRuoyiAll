@@ -10,6 +10,8 @@ import java.time.LocalDateTime;
 @Data
 public class MesFrontlineActiveOrderRespVO {
 
+    @Schema(description = "活跃订单编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    private Long activeOrderId;
     @Schema(description = "生产工单编号")
     private Long workOrderId;
     @Schema(description = "生产工单编码")

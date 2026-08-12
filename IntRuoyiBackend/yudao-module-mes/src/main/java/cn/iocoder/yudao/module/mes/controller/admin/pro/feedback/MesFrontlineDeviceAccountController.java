@@ -196,6 +196,7 @@ public class MesFrontlineDeviceAccountController {
 
     private static MesFrontlineActiveOrderRespVO toActiveOrderRespVO(MesFrontlineActiveOrderCandidate candidate) {
         MesFrontlineActiveOrderRespVO respVO = new MesFrontlineActiveOrderRespVO();
+        respVO.setActiveOrderId(candidate.activeOrderId());
         respVO.setWorkOrderId(candidate.workOrderId());
         respVO.setWorkOrderCode(candidate.workOrderCode());
         respVO.setWorkOrderName(candidate.workOrderName());

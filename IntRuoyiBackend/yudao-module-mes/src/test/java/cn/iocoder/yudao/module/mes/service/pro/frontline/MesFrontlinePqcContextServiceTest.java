@@ -111,11 +111,10 @@ class MesFrontlinePqcContextServiceTest {
     void listActiveOrdersReturnsEveryActiveOrderWithoutPendingTaskFilter() {
         List<MesProcessPoolActiveOrderDO> activeOrders = List.of(
                 activeOrder(5001L, 1001L, LocalDateTime.of(2026, 8, 12, 8, 0)),
-                activeOrder(5002L, 1002L, LocalDateTime.of(2026, 8, 12, 8, 1)),
-                activeOrder(5003L, 1003L, LocalDateTime.of(2026, 8, 12, 8, 2)));
+                activeOrder(5002L, 1001L, LocalDateTime.of(2026, 8, 12, 8, 1)),
+                activeOrder(5003L, 1001L, LocalDateTime.of(2026, 8, 12, 8, 2)));
         when(activeOrderMapper.selectActiveList()).thenReturn(activeOrders);
-        when(workOrderMapper.selectListByIds(any())).thenReturn(List.of(
-                workOrder(1001L), workOrder(1002L), workOrder(1003L)));
+        when(workOrderMapper.selectListByIds(any())).thenReturn(List.of(workOrder(1001L)));
         when(routeMapper.selectListByIdsIgnoreDeleted(any())).thenReturn(List.of(route()));
         when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(routeVersion(PRODUCT_ID));
         when(itemService.getItemMap(Set.of(PRODUCT_ID))).thenReturn(Map.of(PRODUCT_ID, productItem()));
@@ -123,8 +122,10 @@ class MesFrontlinePqcContextServiceTest {
         List<MesFrontlineActiveOrderCandidate> result = service.listActiveOrders();
 
         assertEquals(3, result.size());
-        assertEquals(Set.of(1001L, 1002L, 1003L),
-                result.stream().map(MesFrontlineActiveOrderCandidate::workOrderId).collect(java.util.stream.Collectors.toSet()));
+        assertEquals(List.of(5003L, 5002L, 5001L),
+                result.stream().map(MesFrontlineActiveOrderCandidate::activeOrderId).toList());
+        assertEquals(List.of(1001L, 1001L, 1001L),
+                result.stream().map(MesFrontlineActiveOrderCandidate::workOrderId).toList());
         verify(pqcTaskMapper, never()).selectActiveOrderIdsByTaskStatus(any(), any());
     }
 
