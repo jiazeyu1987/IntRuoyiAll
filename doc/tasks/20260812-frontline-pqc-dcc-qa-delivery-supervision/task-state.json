@@ -41,7 +41,7 @@
     {
       "task_id": "DF01",
       "title": "Active order selection identity",
-      "status": "ready",
+      "status": "completed",
       "dependency_ids": [
         "C00"
       ],
@@ -58,13 +58,13 @@
         "AC-12",
         "AC-13"
       ],
-      "owner_agent": "",
-      "last_outcome": "Wave 1 executor attempts paused; no tracked DF01 file writes remain. Worktree is ready for supervisor re-dispatch."
+      "owner_agent": "/root",
+      "last_outcome": "DF01 PASS: user-authorized overlap stash preserved original dirty content, int_main fast-forward merged to a145f0dc0, post-merge targeted Maven regression passed again at 2026-08-12T15:42:42+08:00."
     },
     {
       "task_id": "DF02",
       "title": "Active-order route snapshot resolver",
-      "status": "ready",
+      "status": "completed",
       "dependency_ids": [
         "C00"
       ],
@@ -82,13 +82,13 @@
         "AC-12",
         "AC-13"
       ],
-      "owner_agent": "",
-      "last_outcome": "Wave 1 executor attempts paused after role-boundary violation; no tracked DF02 file writes remain. Worktree is ready for supervisor re-dispatch."
+      "owner_agent": "/root/df02_clean_executor",
+      "last_outcome": "DF02 PASS: supervisor review passed, Maven target passed in DF02 worktree and int_main Surefire report confirms 5 tests / 0 failures / 0 errors; commit eb44e4c80 fast-forward merged into int_main."
     },
     {
       "task_id": "DF03",
       "title": "Route to DCC project binding",
-      "status": "ready",
+      "status": "completed",
       "dependency_ids": [
         "C00"
       ],
@@ -105,13 +105,13 @@
         "AC-12",
         "AC-13"
       ],
-      "owner_agent": "",
-      "last_outcome": "Wave 1 executor paused after role-boundary reminders; no tracked DF03 production/test writes remain. Worktree is ready for supervisor re-dispatch."
+      "owner_agent": "/root",
+      "last_outcome": "DF03 PASS: int_main already at commit 5d503ea5e, DF03 branch is ancestor/equal, branch runtime guard passed, post-merge-equivalent Maven 10 tests and frontend static contract passed."
     },
     {
       "task_id": "DF05",
       "title": "DCC directly reads QA regulation relation",
-      "status": "ready",
+      "status": "completed",
       "dependency_ids": [
         "C00"
       ],
@@ -128,13 +128,13 @@
         "AC-12",
         "AC-13"
       ],
-      "owner_agent": "",
-      "last_outcome": "C00 merged into int_main; ready for Wave 1 dispatch."
+      "owner_agent": "/root/df02_clean_executor",
+      "last_outcome": "DF05 PASS: independent supervisor verification passed, commit 37414e367 fast-forward merged into int_main, post-merge Node contracts and Maven 8-test regression passed."
     },
     {
       "task_id": "DF04",
       "title": "Unique enabled DCC project resolver",
-      "status": "pending",
+      "status": "completed",
       "dependency_ids": [
         "DF02",
         "DF03"
@@ -153,13 +153,13 @@
         "AC-12",
         "AC-13"
       ],
-      "owner_agent": "",
-      "last_outcome": "Waiting for prerequisite tasks."
+      "owner_agent": "/root",
+      "last_outcome": "DF04 PASS/CLOSED: implementation commit d781ca689 and closeout commit 66b5607a8 fast-forward merged into int_main; clean DF04 worktree removed; port slot 18 released for DF06."
     },
     {
       "task_id": "DF06",
       "title": "Active order QA version lock",
-      "status": "pending",
+      "status": "completed",
       "dependency_ids": [
         "DF04",
         "DF05"
@@ -179,13 +179,13 @@
         "AC-12",
         "AC-13"
       ],
-      "owner_agent": "",
-      "last_outcome": "Waiting for prerequisite tasks."
+      "owner_agent": "/root/df06_worker",
+      "last_outcome": "DF06 PASS/CLOSED: branch task/20260812-frontline-pqc-dcc-qa-df06 absorbed latest int_main, target Maven 33 tests PASS, touched regression 39 tests PASS, schema 7 tests PASS, independent verification PASS, fast-forward merged into int_main at fd6e923a5; worktree removed and slot 18 released."
     },
     {
       "task_id": "DF07",
       "title": "Locked QA version processes",
-      "status": "pending",
+      "status": "completed",
       "dependency_ids": [
         "DF05",
         "DF06"
@@ -205,13 +205,13 @@
         "AC-12",
         "AC-13"
       ],
-      "owner_agent": "",
-      "last_outcome": "Waiting for prerequisite tasks."
+      "owner_agent": "/root",
+      "last_outcome": "DF07 PASS/CLOSED: implementation commit 8e156fbf8 fast-forward merged into int_main; target Maven 12 tests PASS, backend-api validator PASS, independent verification PASS; worktree removed and slot 18 released."
     },
     {
       "task_id": "DF08",
       "title": "QA process inspection item aggregation",
-      "status": "pending",
+      "status": "completed",
       "dependency_ids": [
         "DF07"
       ],
@@ -229,13 +229,13 @@
         "AC-12",
         "AC-13"
       ],
-      "owner_agent": "",
-      "last_outcome": "Waiting for prerequisite tasks."
+      "owner_agent": "/root",
+      "last_outcome": "DF08 PASS/CLOSED: target Maven 13 tests PASS, backend-api evidence validator PASS, independent supervisor gate PASS, commit 7d9f41e92 fast-forward merged into int_main; worktree removed and slot 18 released."
     },
     {
       "task_id": "DF09",
       "title": "PQC task and production event overlay",
-      "status": "pending",
+      "status": "ready",
       "dependency_ids": [
         "DF08"
       ],
@@ -254,7 +254,7 @@
         "AC-13"
       ],
       "owner_agent": "",
-      "last_outcome": "Waiting for prerequisite tasks."
+      "last_outcome": "Ready after DF08 fast-forward merge and closeout."
     },
     {
       "task_id": "DF10",
@@ -375,5 +375,5 @@
       "last_outcome": "Waiting for prerequisite tasks."
     }
   ],
-  "updated_at": "2026-08-12T06:15:00Z"
+  "updated_at": "2026-08-13T06:07:00+08:00"
 }

@@ -37,7 +37,7 @@
 
 ## Current Status
 
-in_progress：M0/M1完成；Wave 0 C00 已完成主管复核、独立验证、本地提交和 fast-forward 合入 int_main，提交号 a1c032581。Wave 1 的 DF01、DF02、DF03、DF05 均为 ready；DF01/DF02/DF03 worktree 已创建并登记端口，但首轮执行 Agent 因越界/无可见产出已暂停，后续需重派或由主管接手。主工作区仍有大量既有并发改动，后续每个任务合并前必须继续复核实际交集。
+in_progress：M0/M1完成；Wave 0 C00 已合入 int_main，提交号 a1c032581。Wave 1 DF01、DF02、DF03、DF05 均已通过主管复核、验证并合入 int_main。Wave 2 DF04 已通过主管复核和独立验证，提交号 d781ca689；DF04 收尾记录提交 66b5607a8 已合入。Wave 3 DF06 已吸收最新 int_main、复验通过并 fast-forward 合入 int_main，提交 fd6e923a5；DF06 worktree 已删除，slot 18 已释放。Wave 4 DF07 已通过 RED/GREEN、backend-api validator、独立验证和主管 fast-forward 合并，提交 8e156fbf8 已合入 int_main；DF07 worktree 已删除，slot 18 已释放。Wave 5 DF08 已通过 RED/GREEN、backend-api validator、独立验证和主管 fast-forward 合并，提交 7d9f41e92 已合入 int_main；DF08 worktree 已删除，slot 18 已释放。下一步进入 Wave 6 DF09。
 
 ## Cleanup Keep
 
@@ -49,3 +49,44 @@ in_progress：M0/M1完成；Wave 0 C00 已完成主管复核、独立验证、�
 - doc/tasks/20260812-frontline-pqc-dcc-qa-delivery-supervision/task-state.json
 - doc/tasks/20260812-frontline-pqc-dcc-qa-delivery-supervision/execution-log.md
 - doc/tasks/20260812-frontline-pqc-dcc-qa-delivery-supervision/test-report.md
+
+
+## Status Update 2026-08-12 20:43:00 +0800
+
+Wave 2 DF04 已派发：独立分支 task/20260812-frontline-pqc-dcc-qa-df04，worktree D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df04，端口槽位 18（8099/48099）。
+
+## Status Update 2026-08-12 23:55:15 +0800
+
+Wave 2 DF04 已完成：目标测试 10 项、DF02+DF03+DF04 组合回归 25 项在干净任务 worktree 通过，独立验证结论 PASS；提交 d781ca689 已 fast-forward 合入 int_main。Wave 3 DF06 状态更新为 ready。
+
+## Status Update 2026-08-13 00:30:40 +0800
+
+DF04 收尾完成：收尾提交 66b5607a8 已 fast-forward 合入 int_main；DF04 worktree D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df04 已删除，端口 slot 18 释放。Wave 3 DF06 已从最新 int_main 创建/快进，worktree D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df06，端口 slot 18（8099/48099），已派发给 /root/df06_worker。
+
+## Status Update 2026-08-13 02:50:52 +0800
+
+DF06 实现与独立验证已通过：目标 Maven 33 项、touched-test 回归 39 项、额外 schema 验证 7 项、backend-api evidence validator、git diff --check 与禁止项扫描均 PASS；提交 `eb723a8aa feat(mes): lock QA version for active PQC orders` 已固定在 `task/20260812-frontline-pqc-dcc-qa-df06`。当前阻塞在主线合并门禁：`E:/IntRuoyi` 存在 `MesTeamLeaderActiveOrderServiceImpl.java` 和 `MesTeamLeaderActiveOrderServiceTest.java` 的未提交重叠改动，不能安全 fast-forward 合并，也不能启动依赖 DF06 的 DF07。
+
+## Status Update 2026-08-13 03:15:34 +0800
+
+DF06 已完成：DF06 分支先吸收最新 `int_main` 到 `fd6e923a5`，重跑目标 Maven 33 项、touched-test 回归 39 项、schema 7 项、backend-api evidence validator、git diff --check 与禁止项扫描均 PASS；随后 `int_main` fast-forward 到 `fd6e923a5`。合并前主线两个重叠文件的未提交改动已通过 stash/patch 保护并恢复，未纳入 DF06 提交；DF06 worktree 已删除，slot 18 已释放。
+
+## Status Update 2026-08-13 03:26:52 +0800
+
+Wave 4 DF07 已派发：依赖 DF05/DF06 均已完成；worktree 为 D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df07，分支为 task/20260812-frontline-pqc-dcc-qa-df07，端口 slot 18（8099/48099）。DF07 范围限定为订单锁定 QA 版本读取及 QA 自有工序列表，不得引入路线工序存在性校验、DCC 当前启用状态校验或前端改动。
+
+## Status Update 2026-08-13 03:34:30 +0800
+
+DF07 首个执行 Agent 因超过数分钟未产生任务目录或代码 diff 被中断；DF07 已重新派发给 /root/df07_executor2，工作范围和禁止项不变。
+
+## Status Update 2026-08-13 05:16:45 +0800
+
+Wave 5 DF08 已派发：依赖 DF07 已完成并合入 int_main 提交 8e156fbf8；worktree 为 D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df08，分支为 task/20260812-frontline-pqc-dcc-qa-df08，端口 slot 18（8099/48099）。DF08 范围限定为 QA 工序检验项目、设备选项、resultType 和 rule-key 聚合；不得新增 item-type 表、简化 DTO、前端投影或产品/路线推算。
+
+## Status Update 2026-08-13 05:21:30 +0800
+
+DF08 首个执行 Agent 超过等待窗口仍无任务文档、代码 diff 或测试进程；主管已中断该 Agent，确认 DF08 worktree 仍干净后重新派发给 /root/df08_worker_2，工作范围和禁止项不变。
+
+## Status Update 2026-08-13 06:07:00 +0800
+
+Wave 5 DF08 已完成：目标 Maven 13 项 PASS，git diff --check、禁止项扫描、backend-api evidence validator 和独立验证均 PASS；提交 7d9f41e92 已 fast-forward 合入 int_main。DF08 worktree 已删除，slot 18 已释放。Wave 6 DF09 状态更新为 ready。
