@@ -4,4 +4,7 @@ public interface MesFrontlineSubmitAuthorizationService {
 
     MesFrontlineSubmitIdentityTrace authorize(MesFrontlineSubmitIdentityCommand command);
 
+    void authorizeActiveOrder(Long loginUserId, Long workOrderId, Long routeId,
+                              Long routeProcessId, Long processId);
+
 }

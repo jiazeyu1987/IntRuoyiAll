@@ -1,6 +1,10 @@
 package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.Objects;
@@ -15,11 +19,39 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
 
     private final MesFrontlineDeviceAccountContextService contextService;
     private final MesFrontlineTemplateResolver templateResolver;
+    private final MesProcessPoolActiveOrderMapper activeOrderMapper;
+    private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
 
     public MesFrontlineSubmitAuthorizationServiceImpl(MesFrontlineDeviceAccountContextService contextService,
-                                                      MesFrontlineTemplateResolver templateResolver) {
+                                                      MesFrontlineTemplateResolver templateResolver,
+                                                      MesProcessPoolActiveOrderMapper activeOrderMapper,
+                                                      MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper) {
         this.contextService = contextService;
         this.templateResolver = templateResolver;
+        this.activeOrderMapper = activeOrderMapper;
+        this.processSnapshotMapper = processSnapshotMapper;
+    }
+
+    @Override
+    public void authorizeActiveOrder(Long loginUserId, Long workOrderId, Long routeId,
+                                     Long routeProcessId, Long processId) {
+        requireValue(workOrderId, "workOrderId");
+        requireValue(routeId, "routeId");
+        requireValue(routeProcessId, "routeProcessId");
+        requireValue(processId, "processId");
+        Long leaderUserId = contextService.resolveResponsibleLeaderUserId(loginUserId);
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper
+                .selectActiveByLeaderAndWorkOrderForUpdate(leaderUserId, workOrderId);
+        if (activeOrder == null || !Objects.equals(routeId, activeOrder.getRouteId())) {
+            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "activeOrder");
+        }
+        MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot = processSnapshotMapper
+                .selectByActiveOrderAndProcess(activeOrder.getId(), routeProcessId, processId);
+        if (processSnapshot == null
+                || !Objects.equals(workOrderId, processSnapshot.getWorkOrderId())
+                || !Objects.equals(routeId, processSnapshot.getRouteId())) {
+            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "activeOrderProcess");
+        }
     }
 
     @Override

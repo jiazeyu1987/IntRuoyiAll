@@ -145,6 +145,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             assertEquals("PRODUCTION_SIMPLE", command.templateNo());
             return true;
         }));
+        verify(submitAuthorizationService).authorizeActiveOrder(9001L, 41L, 21L, 71L, 31L);
         inOrder.verify(lossReasonValidator).requireEnabledLossReasons(
                 71L,
                 MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails(),
@@ -180,57 +181,45 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     }
 
     @Test
-    void shouldSubmitFrontlineProductionWithoutWorkOrderTaskItemOrRecordbook() {
+    void shouldAssignProductionSubmitToSelectedActiveOrderWithoutQuantityCap() {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
+        when(recordbookEntryService.createOriginalEntry(any()))
+                .thenReturn(new MesProFrontlineRecordbookEntryResult(701L, 702L));
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(autoCodeRecordService.generateAutoCode(any())).thenReturn("FB-F2-NO-WO");
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("sign-123"), eq("一线生产报工提交")))
+        when(signatureService.recordProductionSubmitSignature(9001L, "sign-123", "一线生产报工提交"))
                 .thenReturn(4001L);
         stubValidLossReason();
+        MesProFrontlineFeedbackSubmitReqVO request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        request.getFeedbackPayload().setOutputQuantity(new BigDecimal("200"));
 
-        MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
-        reqVO.setRecordbookPayload(null)
-                .setProcessPoolSubmissionIdempotencyKey("frontline-process-pool-route-71-employee-9001");
-        reqVO.getFeedbackPayload()
-                .setCode(null)
-                .setType(null)
-                .setWorkOrderId(null)
-                .setTaskId(null)
-                .setItemId(null)
-                .setScheduleOrderId(null)
-                .setScheduleOrderProcessId(null)
-                .setExpireDate(null)
-                .setScheduledQuantity(null);
-        reqVO.getProcessPoolContext()
-                .setWorkOrderId(null)
-                .setTaskId(null);
-
-        MesProFrontlineFeedbackSubmitRespVO respVO;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            respVO = submitService.submit(reqVO);
+            assertEquals(801L, submitService.submit(request).getProcessPoolEventId());
         }
 
-        assertEquals(501L, respVO.getFeedbackId());
-        assertEquals(801L, respVO.getProcessPoolEventId());
-        verify(feedbackService).createFrontlineFeedback(argThat(payload -> {
-            assertEquals(null, payload.getWorkOrderId());
-            assertEquals(null, payload.getTaskId());
-            assertEquals(null, payload.getItemId());
-            assertEquals(9001L, payload.getFeedbackUserId());
-            return true;
-        }));
-        verifyNoInteractions(recordbookEntryService);
-        verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload -> {
-            assertEquals(null, payload.getWorkOrderId());
-            assertEquals(null, payload.getTaskId());
-            assertEquals(null, payload.getRecordbookEntryId());
-            assertEquals(null, payload.getRecordbookEventId());
-            assertEquals(9001L, payload.getActualEmployeeId());
-            assertEquals(4001L, payload.getSignatureId());
-            return true;
-        }));
+        verify(submitAuthorizationService).authorizeActiveOrder(9001L, 41L, 21L, 71L, 31L);
+        verify(feedbackService).createFrontlineFeedback(argThat(payload ->
+                new BigDecimal("200").compareTo(payload.getFeedbackQuantity()) == 0
+                        && Long.valueOf(41L).equals(payload.getWorkOrderId())));
+        verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload ->
+                new BigDecimal("200").compareTo(payload.getOutputQuantity()) == 0
+                        && Long.valueOf(41L).equals(payload.getWorkOrderId())));
+    }
+
+    @Test
+    void shouldRejectFrontlineProductionWithoutSelectedActiveOrder() {
+        MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        reqVO.getFeedbackPayload().setWorkOrderId(null);
+        reqVO.getProcessPoolContext().setWorkOrderId(null);
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                    () -> submitService.submit(reqVO));
+        }
+
+        verifyNoInteractions(feedbackService, recordbookEntryService, processPoolSubmitEventService, signatureService);
     }
 
     @Test
@@ -261,6 +250,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             return true;
         }));
         verify(feedbackService, never()).createFrontlineFeedback(any());
+        verify(submitAuthorizationService, never()).authorizeActiveOrder(any(), any(), any(), any(), any());
         verifyNoInteractions(autoCodeRecordService, signatureService);
         verifyNoInteractions(recordbookEntryService);
         verify(processPoolSubmitEventService, never()).createSubmitEvent(any());

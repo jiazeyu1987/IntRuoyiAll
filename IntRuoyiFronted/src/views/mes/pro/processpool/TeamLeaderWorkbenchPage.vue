@@ -613,13 +613,13 @@
               <template #default="{ row }">{{ row.processName || row.processCode || '--' }}</template>
             </el-table-column>
             <el-table-column
-              v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('workOrder')"
+              v-if="isSubmissionColumnVisible('workOrder')"
               label="生产工单"
               prop="workOrder"
               :min-width="getSubmissionColumnMinWidthString('workOrder', 160)"
             >
               <template #default="{ row }">
-                <span data-pqc-leader-work-order>
+                <span :data-pqc-leader-work-order="activeLeaderTab === 'PQC' ? '' : undefined">
                   {{ row.workOrderCode || row.workOrderName || '--' }}
                 </span>
               </template>
@@ -634,6 +634,15 @@
                 <span data-team-leader-completion-quantity>
                   {{ resolveSubmissionCompletionQuantity(row) }}
                 </span>
+                <el-tag
+                  v-if="isProductionLeader && resolveProductionReportOverageQuantity(row) > 0"
+                  class="team-leader-workbench__report-overage"
+                  data-team-leader-report-overage
+                  type="danger"
+                  effect="dark"
+                >
+                  待调整 {{ resolveProductionReportOverageQuantity(row) }}
+                </el-tag>
               </template>
             </el-table-column>
             <el-table-column
@@ -2856,6 +2865,15 @@
                   class="team-leader-workbench__allocation-quantity-input"
                   @change="markManualAllocation"
                 />
+                <el-tag
+                  v-if="resolveAllocationOverageQuantity(row) > 0"
+                  class="team-leader-workbench__allocation-overage"
+                  data-team-leader-allocation-overage
+                  type="danger"
+                  effect="plain"
+                >
+                  待调整 {{ resolveAllocationOverageQuantity(row) }}
+                </el-tag>
                 <el-button
                   size="small"
                   data-team-leader-allocation-max
@@ -3921,6 +3939,30 @@ const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
 
 const canAllocateSubmission = (row: ProcessPoolTimelineEventVO) =>
   isProductionLeader.value && !isProductionReportHistoryTab.value && Boolean(row.id)
+
+const findReportSelectedActiveOrder = (event: ProcessPoolTimelineEventVO) => {
+  const workOrderId = Number(event.workOrderId)
+  if (!Number.isFinite(workOrderId) || workOrderId <= 0) return undefined
+  return activeOrderOptions.value.find((order) => Number(order.workOrderId) === workOrderId)
+}
+
+const resolveActiveOrderFormalQuantity = (order?: TeamLeaderActiveOrderRespVO) => {
+  const quantity = Number(order?.erpFixedQuantitySnapshot)
+  return Number.isFinite(quantity) && quantity > 0 ? quantity : undefined
+}
+
+const resolveProductionReportOverageQuantity = (event: ProcessPoolTimelineEventVO) => {
+  const outputQuantity = Number(event.outputQuantity)
+  if (!Number.isFinite(outputQuantity) || outputQuantity <= 0) return 0
+  if (event.reportAllocations?.length) {
+    const unallocatedQuantity = Number(event.reportUnallocatedQuantity)
+    return Number.isFinite(unallocatedQuantity) && unallocatedQuantity >= 0
+      ? unallocatedQuantity
+      : outputQuantity
+  }
+  const orderQuantity = resolveActiveOrderFormalQuantity(findReportSelectedActiveOrder(event))
+  return orderQuantity === undefined ? outputQuantity : Math.max(0, outputQuantity - orderQuantity)
+}
 
 const allocationTotalQuantity = computed(() => allocationRows.value.reduce(
   (total, line) => total + normalizeAllocationInteger(line.allocatedQuantity),
@@ -5723,6 +5765,36 @@ const findAllocationActiveOrder = (line: TeamLeaderReportAllocationDraftLine) =>
   return allocatableActiveOrderOptions.value.find((item) => Number(item.id) === activeOrderId)
 }
 
+const resolveAllocationOverageQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
+  if (line.editable === false) return 0
+  const allocatedQuantity = normalizeAllocationInteger(line.allocatedQuantity)
+  if (allocatedQuantity === 0) return 0
+  const orderQuantity = resolveActiveOrderFormalQuantity(findAllocationActiveOrder(line))
+  return orderQuantity === undefined ? allocatedQuantity : Math.max(0, allocatedQuantity - orderQuantity)
+}
+
+const prefillSelectedOrderAllocation = (
+  event: ProcessPoolTimelineEventVO,
+  snapshot: TeamLeaderReportAllocationSnapshotRespVO
+) => {
+  if (snapshot.lines?.length) return
+  const workOrderId = Number(event.workOrderId)
+  const outputQuantity = requirePositiveInteger(event.outputQuantity, '本次报工数量必须为正整数')
+  const selectedOrder = activeOrderOptions.value.find(
+    (order) => Number(order.workOrderId) === workOrderId
+  )
+  if (!selectedOrder) return
+  reviewForm.allocationMode = 'MANUAL'
+  allocationRows.value = [{
+    activeOrderId: requirePositiveNumber(selectedOrder.id, '原报工活跃订单不能为空'),
+    workOrderId: selectedOrder.workOrderId,
+    workOrderCode: selectedOrder.workOrderCode,
+    allocatedQuantity: outputQuantity,
+    editable: true,
+    released: false
+  }]
+}
+
 const formatAllocationOrderProductionQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
   const order = findAllocationActiveOrder(line)
   return order ? formatTraceQuantity(order.erpFixedQuantitySnapshot ?? order.quantity) : '--'
@@ -6859,6 +6931,7 @@ const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
       loadActiveOrders()
     ])
     applyAllocationSnapshot(snapshot)
+    prefillSelectedOrderAllocation(event, snapshot)
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '报工分配加载失败'))
   }
@@ -8331,7 +8404,20 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 6px;
+}
+
+.team-leader-workbench__report-overage,
+.team-leader-workbench__allocation-overage {
+  color: #fff;
+  font-weight: 700;
+}
+
+.team-leader-workbench__allocation-overage {
+  width: 100%;
+  justify-content: center;
+  color: var(--el-color-danger);
 }
 
 .team-leader-workbench__allocation-quantity-input {

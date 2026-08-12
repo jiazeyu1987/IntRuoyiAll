@@ -78,6 +78,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
             throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_ACCOUNT_MISMATCH, deviceAccountUserId);
         }
         submitAuthorizationService.authorize(buildSubmitIdentityCommand(reqVO, loginUserId));
+        validateSelectedActiveOrderContext(reqVO);
         List<MesFrontlineLossReasonSnapshot> lossReasonSnapshots = lossReasonValidator.requireEnabledLossReasons(
                 reqVO.getProcessPoolContext().getRouteProcessId(),
                 reqVO.getFeedbackPayload().getLossDetails(),
@@ -94,6 +95,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
             return toSubmitResp(existing.get());
         }
 
+        authorizeSelectedActiveOrder(reqVO, loginUserId);
         applyServerResolvedFeedbackIdentity(reqVO);
         Long signatureId = signatureService.recordProductionSubmitSignature(reqVO.getSignatureEmployeeId(),
                 reqVO.getSignaturePassword(), "一线生产报工提交");
@@ -121,6 +123,25 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                 .setRecordbookEntryId(recordbookResult == null ? null : recordbookResult.getRecordbookEntryId())
                 .setRecordbookEventId(recordbookResult == null ? null : recordbookResult.getRecordbookEventId())
                 .setProcessPoolEventId(processPoolEventId);
+    }
+
+    private void validateSelectedActiveOrderContext(MesProFrontlineFeedbackSubmitReqVO reqVO) {
+        MesProFrontlineFeedbackPayloadReqVO feedback = reqVO.getFeedbackPayload();
+        MesProFrontlineProcessPoolContextReqVO context = reqVO.getProcessPoolContext();
+        if (feedback.getWorkOrderId() == null || context.getWorkOrderId() == null) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "selectedActiveOrder");
+        }
+        if (!Objects.equals(feedback.getWorkOrderId(), context.getWorkOrderId())
+                || !Objects.equals(feedback.getRouteId(), context.getRouteId())
+                || !Objects.equals(feedback.getProcessId(), context.getProcessId())) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "selectedActiveOrderContext");
+        }
+    }
+
+    private void authorizeSelectedActiveOrder(MesProFrontlineFeedbackSubmitReqVO reqVO, Long loginUserId) {
+        MesProFrontlineProcessPoolContextReqVO context = reqVO.getProcessPoolContext();
+        submitAuthorizationService.authorizeActiveOrder(loginUserId, context.getWorkOrderId(),
+                context.getRouteId(), context.getRouteProcessId(), context.getProcessId());
     }
 
     private MesProFrontlineFeedbackSubmitRespVO toSubmitResp(
