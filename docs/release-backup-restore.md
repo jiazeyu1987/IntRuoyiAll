@@ -36,10 +36,11 @@
 ## 正式服备份计划任务状态门禁
 
 - Trigger: 查询、启用、禁用、重注册或发布验证 `IntRuoyi Backup Scheduled` 等正式服备份计划任务。
-- Preflight check: 必须同时核对计划任务查询命令退出码、`Enabled/Status`、`NextRunTime`、`LastTaskResult`、`Task To Run` 脚本路径和当前仓库 `backup-ops.ps1` 是否存在。
-- Blocker: 查询命令非 0、`NextRunTime=N/A`、任务禁用、脚本路径指向旧目录、脚本不存在、或上次结果非 0 且没有成功备份包证据时，不能宣布定时备份已恢复。
-- Verification: 记录计划任务名称、启用状态、下次运行时间、上次运行时间、上次结果、脚本路径、配置文件 `backup.frequency/schedule/weekday` 和历史备份包最新编号。
-- Forbidden action: 禁止把 `schtasks` 错误输出、空输出、旧路径任务、禁用任务或仅能查到历史备份包包装成“定时备份正常”。
+- Preflight check: 先确认唯一实现、测试和打包源为 `E:\IntRuoyi\IntRuoyiBackend\script\backup-ops`；不得用维护仓 `ops/backup-ops` 历史副本的测试结果证明实际后端已修复。随后同时核对计划任务查询退出码、`Enabled/Status`、`NextRunTime`、`LastTaskResult`、`Task To Run`、脚本/config/secrets 路径、受保护生产确认、`taskPrincipal.principalId`、S4U/Limited、batch-logon、ACL identity、`backup.repositoryEnvironment`、最新成功点 `completedAt` 和已批准的 `backup.maxFreshnessHours`。
+- Blocker: 运行/打包/测试源不一致，查询命令非 0，`NextRunTime=N/A`，任务禁用，脚本或配置路径漂移，受保护输入、principal 或 ACL 无效，仓库环境缺失/非法，`LastTaskResult` 非 0，成功备份点或 `completedAt` 缺失/不可解析，或 `now - completedAt` 超过新鲜度阈值时，不能宣布定时备份正常。
+- Verification: 记录后端 source-of-truth 合同测试、计划任务名称、principal/logon type、ACL 验证身份、启用状态、下次运行时间、上次运行时间、上次结果、脚本/config/secrets 路径、仓库环境、最新成功点 `completedAt`、新鲜度阈值及实际年龄；秘密字段只记录脱敏证明，不记录明文。
+- Forbidden action: 禁止把维护仓副本、`schtasks` 错误/空输出、旧路径、禁用任务、默认仓库、当前用户/SYSTEM/最高权限、命令行明文凭据、仅有历史备份文件或缺少恢复/新鲜度证据包装成“定时备份正常”。
+- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260813-production-operations-hardening-plan\` 规划包及其独立复审报告。
 
 ## 禁止做法
 
