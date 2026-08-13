@@ -20,6 +20,14 @@ Verify the DF11 round-3 remediation after the failed independent gate. This pass
 - `git diff --check` -> PASS, only LF/CRLF working-copy warnings.
 - Added-line and owned-file precise scans -> PASS for legacy helper, unused loader/rule-order export, flattened task reads, old active-order identity, PQC result aliases, fallback/compatibility/formBindings.
 
+## Resume Verification Evidence
+
+- 2026-08-14 after workstation restart: reran `node tests/e2e/frontline-pqc-qa-process-contract-static.spec.cjs` -> PASS.
+- 2026-08-14 after workstation restart: reran `pnpm ts:check` -> PASS.
+- 2026-08-14 after workstation restart: reran frontend-feature and bug-regression evidence validators -> PASS.
+- 2026-08-14 after workstation restart: reran `git diff --check` -> PASS.
+- 2026-08-14 after workstation restart: reran production-source forbidden-symbol scans for legacy helpers, unused projection loader/rule-order export, fallback/compatibility aliases, current QA/formBindings/NUMBER aliases, product/material aliases, and workOrderId+routeId identity -> PASS.
+
 ## Findings
 
 No blocking findings.
