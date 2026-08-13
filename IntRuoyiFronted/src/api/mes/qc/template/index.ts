@@ -10,8 +10,11 @@ export interface QcTemplateVO {
   remark: string // 备注
 }
 
+export type QaInspectionRegulationInspectionRuleKey = 'FIRST' | 'PATROL_AM' | 'PATROL_PM' | 'FINAL'
+export type QaInspectionRegulationResultType = 'BOOLEAN' | 'NUMERIC' | 'TEXT'
+
 export interface QaInspectionRegulationInspectionTypeRuleVO {
-  key: string
+  key: QaInspectionRegulationInspectionRuleKey
   inspectionType: 'FIRST' | 'PATROL' | 'FINAL'
   label: string
   roundLabel: string
@@ -45,7 +48,7 @@ export interface QaInspectionRegulationItemVO {
   standardPrecision?: number
   equipmentRequired?: boolean
   equipmentOptions?: QaInspectionRegulationEquipmentOptionVO[]
-  resultType: 'BOOLEAN' | 'NUMERIC' | 'TEXT'
+  resultType: QaInspectionRegulationResultType
   applicableInspectionTypes: Array<'FIRST' | 'PATROL' | 'FINAL'>
   firstInspectionQuantity?: number
   patrolInspectionRatio?: number
